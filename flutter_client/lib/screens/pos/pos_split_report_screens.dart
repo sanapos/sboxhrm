@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/pos_customer.dart';
 import '../../widgets/pos/pos_customer_debt_collect_dialog.dart';
 import '../../widgets/pos/pos_debt_statement.dart';
+import '../../widgets/pos/pos_party_debt_detail_page.dart';
 import '../../widgets/notification_overlay.dart';
 import 'pos_network_report_screen.dart';
 import 'pos_offline_sales_screen.dart';
@@ -1124,6 +1125,7 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
                     children: [
                       PosReportMetricTiles(
                         moneyFmt: _moneyFmt,
+                        onTileTap: (_) => PosReportOpen.purchases(context),
                         tiles: [
                           (
                             label: 'Nhập',
@@ -1476,6 +1478,7 @@ class _PosDebtCombinedReportScreenState
             subtitle: Text(tr('Công nợ ${money.format(_n(e['currentDebt'] ?? e['debt']))}đ'
                 '${_n(e['debtOver90']) > 0 ? ' · quá 90 ngày ${money.format(_n(e['debtOver90']))}đ' : ''}')),
           ),
+          ListTile(leading: const Icon(Icons.fact_check_outlined), title: Text(tr('Xem nợ từ những đơn nào')), onTap: () => Navigator.pop(ctx, 'detail')),
           if (perm.canEdit('PosCustomers'))
             ListTile(leading: const Icon(Icons.payments_outlined), title: Text(tr('Thu nợ')), onTap: () => Navigator.pop(ctx, 'collect')),
           if (phone.isNotEmpty) ...[
@@ -1495,6 +1498,9 @@ class _PosDebtCombinedReportScreenState
     if (!mounted || a == null) return;
     final msg = posDebtReminderText(e, money);
     switch (a) {
+      case 'detail':
+        await showPosPartyDebtDetail(context,
+            isCustomer: true, id: id, name: name, phone: (e['phone'] ?? '').toString(), debt: _n(e['currentDebt'] ?? e['debt']));
       case 'collect':
         final res = await _api.getPosCustomerById(id);
         if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
@@ -1804,10 +1810,13 @@ class _PosDebtCombinedReportScreenState
                           labelOf: (e) => e['name']?.toString() ?? '—',
                           valueOf: (e) => _n(e['currentDebt']),
                           moneyFmt: _moneyFmt,
-                          onItemTap: (e) => PosReportOpen.purchases(
+                          onItemTap: (e) => showPosPartyDebtDetail(
                             context,
-                            search: e['name']?.toString() ??
-                                e['supplierCode']?.toString(),
+                            isCustomer: false,
+                            id: '${e['id'] ?? ''}',
+                            name: e['name']?.toString() ?? '',
+                            phone: e['phone']?.toString(),
+                            debt: _n(e['currentDebt']),
                           ),
                         ),
                       ],
@@ -2142,12 +2151,17 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
                         labelOf: (e) => e['category']?.toString() ?? 'Khác',
                         valueOf: (e) => _n(e['total']),
                         moneyFmt: _moneyFmt,
+                        // Bấm nhóm chi → danh sách phiếu chi bên dưới lọc theo nhóm đó (bấm lại để bỏ lọc).
+                        onItemTap: (e) => setState(() {
+                          final c = e['category']?.toString() ?? 'Khác';
+                          _category = _category == c ? null : c;
+                        }),
                       ),
                     ],
                   ),
                 ),
                 PosReportCard(
-                  title: 'Phiếu chi gần đây',
+                  title: _category == null ? 'Phiếu chi gần đây' : 'Phiếu chi · $_category',
                   child: items.isEmpty
                       ? const PosReportEmpty()
                       : Column(
@@ -2867,8 +2881,18 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                     child: Column(
                       children: [
                         for (final l in (_data!['lines'] as List).whereType<Map>())
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 3),
+                          InkWell(
+                            // Dòng chi phí → báo cáo chi phí; còn lại (doanh thu, giá vốn, lợi nhuận) → hóa đơn trong kỳ.
+                            onTap: () {
+                              final label = '${l['label']}'.toLowerCase();
+                              if (label.contains('chi phí')) {
+                                Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PosExpenseReportScreen()));
+                              } else {
+                                unawaited(PosReportOpen.sales(context, from: _time.from, to: _time.to));
+                              }
+                            },
+                            child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
                             child: Row(
                               children: [
                                 Expanded(
@@ -2892,6 +2916,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                                   ),
                                 ),
                               ],
+                            ),
                             ),
                           ),
                       ],

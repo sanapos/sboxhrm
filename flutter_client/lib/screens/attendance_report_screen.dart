@@ -21,7 +21,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_report.dart';
-import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_charts.dart';
 import '../utils/branch_filter_helper.dart';
 /// Màu chủ đạo kiểu KiotViet (xanh dương #0070F4 + xanh lá #00B63E).
 const _theme = PosTheme.kiotBlue;
@@ -1405,7 +1405,9 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                   children: [
                     SizedBox(
                       width: nameW,
-                      child: Padding(
+                      child: InkWell(
+                        onTap: () => _showEmployeeDays(keyId, name.isEmpty ? code : name),
+                        child: Padding(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 8),
                         child: Column(
@@ -1426,6 +1428,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                           ],
                         ),
                       ),
+                      ),
                     ),
                     ...days.map((d) {
                       final cell =
@@ -1433,7 +1436,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                       return SizedBox(
                         width: dayW,
                         height: 36,
-                        child: Center(child: _buildDayCell(cell)),
+                        child: Center(child: _buildDayCell(cell, who: name.isEmpty ? code : name, day: d)),
                       );
                     }),
                   ],
@@ -1446,7 +1449,50 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     );
   }
 
-  Widget _buildDayCell(Map<String, dynamic>? cell) {
+  /// Bấm tên nhân viên → danh sách từng ngày công trong kỳ (trạng thái, ca, giờ vào/ra, trễ/sớm).
+  Future<void> _showEmployeeDays(String keyId, String name) async {
+    final lines = <(DateTime, String)>[];
+    for (final d in _daysInRange) {
+      final cell = _dayCells['$keyId|${_fmtDate.format(d)}'];
+      if (cell == null) continue;
+      final st = cell['status']?.toString() ?? '';
+      if (st == 'future' || st.isEmpty) continue;
+      lines.add((d, _buildCellTooltip(cell).replaceAll('\n', ' · ')));
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.75,
+        maxChildSize: 0.95,
+        builder: (_, ctrl) => Column(children: [
+          ListTile(
+            title: Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(tr('Chi tiết từng ngày công trong kỳ')),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: lines.isEmpty
+                ? Center(child: Text(tr('Không có dữ liệu chấm công trong kỳ')))
+                : ListView.separated(
+                    controller: ctrl,
+                    itemCount: lines.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (_, i) => ListTile(
+                      dense: true,
+                      leading: Text(DateFormat('dd/MM\nEEE', 'vi_VN').format(lines[i].$1),
+                          textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                      title: Text(tr(lines[i].$2), style: const TextStyle(fontSize: 13)),
+                    ),
+                  ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildDayCell(Map<String, dynamic>? cell, {String? who, DateTime? day}) {
     if (cell == null) return const SizedBox.shrink();
 
     final st = cell['status']?.toString() ?? '';
@@ -1533,6 +1579,22 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     );
 
     if (tip.isEmpty) return box;
+    // Bấm (điện thoại không có hover) → xem chi tiết ngày công: ca, giờ vào/ra, trễ/sớm, phép.
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(tr('${who ?? ''}${day == null ? '' : ' · ${DateFormat('dd/MM/yyyy').format(day)}'}')),
+          content: SingleChildScrollView(child: Text(tip, style: const TextStyle(height: 1.5))),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng')))],
+        ),
+      ),
+      child: _cellTooltip(tip, box),
+    );
+  }
+
+  Widget _cellTooltip(String tip, Widget box) {
     return Tooltip(
       message: tip,
       waitDuration: const Duration(milliseconds: 200),

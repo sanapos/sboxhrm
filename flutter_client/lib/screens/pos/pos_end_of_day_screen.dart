@@ -13,6 +13,7 @@ import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_end_of_day_print.dart';
 import '../../utils/pos_report_export.dart';
+import 'pos_customer_debt_report_screen.dart';
 import '../../utils/pos_report_open.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../utils/pos_sell_settings_helper.dart';
@@ -715,8 +716,8 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 ),
                 const Divider(height: 20, thickness: 1.2),
                 section('BÁN HÀNG'),
-                _summaryLine('', 'Số đơn', '${r.orderCount}'),
-                _summaryLine('', 'Doanh thu', _fmt(r.totalSales)),
+                _summaryLine('', 'Số đơn', '${r.orderCount}', onTap: _openSales),
+                _summaryLine('', 'Doanh thu', _fmt(r.totalSales), onTap: _openSales),
                 if (r.lineDiscountTotal > 0)
                   _summaryLine('', 'CK mặt hàng', _fmt(r.lineDiscountTotal)),
                 _summaryLine('', 'Chiết khấu đơn', _fmt(r.orderDiscount)),
@@ -746,15 +747,16 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 section('TRẢ / HỦY'),
                 _summaryLine('', 'Trả hàng', _fmt(r.refundTotal)),
                 _summaryLine('', 'Sau trả', _fmt(r.totalAfterRefund)),
-                _summaryLine('', 'Hủy đơn', '${r.canceledCount}'),
+                _summaryLine('', 'Hủy đơn', '${r.canceledCount}', onTap: _openSales),
                 const Divider(height: 16),
                 section('THANH TOÁN BÁN HÀNG'),
-                _summaryLine('', 'Tiền mặt HĐ', _fmt(r.cashTotal), indent: true),
-                _summaryLine('', 'Ghi nợ', _fmt(r.debtTotal), indent: true),
+                _summaryLine('', 'Tiền mặt HĐ', _fmt(r.cashTotal), indent: true, onTap: () => _openSales(paymentMethod: 'Tiền mặt')),
+                _summaryLine('', 'Ghi nợ', _fmt(r.debtTotal), indent: true, onTap: _openDebts),
                 for (final p in r.payments)
                   if (!p.paymentMethod.toLowerCase().contains('mặt') &&
                       p.paymentMethod.toLowerCase() != 'cash')
-                    _summaryLine('', p.paymentMethod, _fmt(p.total), indent: true),
+                    _summaryLine('', p.paymentMethod, _fmt(p.total),
+                        indent: true, onTap: () => _openSales(paymentMethod: p.paymentMethod)),
                 _summaryLine('', 'Thực thu HĐ (gồm cọc trừ)', _fmt(r.actualReceived)),
                 const Divider(height: 16),
                 section('CỌC ĐẶT BÀN'),
@@ -768,7 +770,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 if (r.debtCollected > 0 || r.refundPaid > 0) ...[
                   const Divider(height: 16),
                   section('THU NỢ / HOÀN TRẢ'),
-                  _summaryLine('', 'Khách trả nợ', _fmt(r.debtCollected), indent: true),
+                  _summaryLine('', 'Khách trả nợ', _fmt(r.debtCollected), indent: true, onTap: _openDebts),
                   if (r.debtCollectedCash > 0 && r.debtCollectedCash != r.debtCollected)
                     _summaryLine('', '· tiền mặt', _fmt(r.debtCollectedCash), indent: true),
                   _summaryLine('', 'Hoàn tiền trả hàng', '-${_fmt(r.refundPaid)}', indent: true),
@@ -789,6 +791,8 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                       p.productName,
                       '${_qty(p.qty)} · ${_fmt(p.revenue)}',
                       indent: true,
+                      onTap: () => PosReportOpen.productMenu(context,
+                          id: p.productId, name: p.productName, from: _time.from, to: _time.to),
                     ),
                   if (r.lineDiscountTotal > 0)
                     _summaryLine('', 'CK mặt hàng', _fmt(r.lineDiscountTotal)),
@@ -810,8 +814,8 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        _summaryLine('', 'Số đơn', '${r.orderCount}'),
-        _summaryLine('', 'Doanh thu', _fmt(r.totalSales)),
+        _summaryLine('', 'Số đơn', '${r.orderCount}', onTap: _openSales),
+        _summaryLine('', 'Doanh thu', _fmt(r.totalSales), onTap: _openSales),
         if (r.lineDiscountTotal > 0)
           _summaryLine('', 'CK mặt hàng', _fmt(r.lineDiscountTotal)),
         _summaryLine('', 'Chiết khấu đơn', _fmt(r.orderDiscount)),
@@ -890,8 +894,9 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
     String value, {
     bool indent = false,
     bool bold = false,
+    VoidCallback? onTap,
   }) {
-    return Padding(
+    final line = Padding(
       padding: EdgeInsets.only(left: indent ? 16 : 0, top: 4, bottom: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -919,7 +924,21 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
         ],
       ),
     );
+    // Bấm dòng → xem các hóa đơn / chứng từ tạo nên con số đó.
+    return onTap == null ? line : InkWell(onTap: onTap, child: line);
   }
+
+  void _openSales({String? paymentMethod}) => unawaited(PosReportOpen.sales(
+        context,
+        from: _time.from,
+        to: _time.to,
+        soldBy: _report?.staffName,
+        paymentMethod: paymentMethod,
+      ));
+
+  void _openDebts() => unawaited(Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const PosCustomerDebtReportScreen()),
+      ));
 
   Widget _buildBottomBar() {
     return Material(

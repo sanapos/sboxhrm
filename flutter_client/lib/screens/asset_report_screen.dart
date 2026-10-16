@@ -1192,15 +1192,19 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     String? trailing,
     Color? trailingColor,
     Widget? badge,
+    Map<String, dynamic>? raw,
   }) {
     return Card(
       margin: EdgeInsets.zero,
       elevation: 0,
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(color: SboxColors.slate200),
       ),
-      child: Padding(
+      child: InkWell(
+        onTap: raw == null ? null : () => _showRowDetail(title, raw),
+        child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1236,6 +1240,86 @@ class _AssetReportScreenState extends State<AssetReportScreen>
           ],
         ),
       ),
+      ),
+    );
+  }
+
+  static const _detailLabels = <String, String>{
+    'assetCode': 'Mã tài sản',
+    'assetName': 'Tên tài sản',
+    'name': 'Tên',
+    'categoryName': 'Nhóm',
+    'assetTypeName': 'Loại',
+    'statusName': 'Tình trạng',
+    'assigneeName': 'Người giữ',
+    'employeeName': 'Nhân viên',
+    'department': 'Phòng ban',
+    'purchasePrice': 'Nguyên giá',
+    'currentValue': 'Giá trị còn lại',
+    'value': 'Giá trị',
+    'quantity': 'Số lượng',
+    'transferDate': 'Ngày chuyển',
+    'transferTypeName': 'Loại chuyển',
+    'fromUserName': 'Từ',
+    'toUserName': 'Đến',
+    'transactionDate': 'Ngày giao dịch',
+    'transactionTypeName': 'Loại giao dịch',
+    'referenceCode': 'Phiếu',
+    'performedByName': 'Người thực hiện',
+    'balanceAfter': 'Tồn sau',
+    'inventoryCode': 'Mã kiểm kê',
+    'expectedQuantity': 'SL kỳ vọng',
+    'actualQuantity': 'SL thực tế',
+    'variance': 'Chênh lệch',
+    'conditionName': 'Tình trạng',
+    'issueDescription': 'Vấn đề',
+    'warrantyExpiry': 'Hết bảo hành',
+    'daysRemaining': 'Còn (ngày)',
+    'note': 'Ghi chú',
+    'notes': 'Ghi chú',
+  };
+
+  /// Bấm một dòng báo cáo tài sản → xem toàn bộ thông tin của dòng đó.
+  Future<void> _showRowDetail(String title, Map<String, dynamic> r) async {
+    final guid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F-]{27}$');
+    final rows = <(String, String)>[];
+    for (final e in r.entries) {
+      final v = e.value;
+      if (v == null || v is Map || v is List || '$v'.isEmpty || guid.hasMatch('$v')) continue;
+      if (e.key.toLowerCase().endsWith('id')) continue;
+      final label = _detailLabels[e.key] ?? e.key;
+      var text = '$v';
+      if (e.key.toLowerCase().contains('date') || e.key.toLowerCase().contains('expiry')) {
+        text = assetReportFormatDate(v);
+      } else if (v is bool) {
+        text = v ? 'Có' : 'Không';
+      }
+      rows.add((label, text));
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr(title)),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final (k, v) in rows)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      SizedBox(width: 130, child: Text(tr(k), style: TextStyle(fontSize: 12, color: SboxColors.slate600))),
+                      Expanded(child: Text(tr(v), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                    ]),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng')))],
+      ),
     );
   }
 
@@ -1257,6 +1341,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   Widget _registerCard(Map<String, dynamic> r) {
     final value = _money(r['currentValue'] ?? r['purchasePrice']);
     return _assetCardBase(
+      raw: r,
       title: r['name']?.toString() ?? '—',
       code: r['assetCode']?.toString() ?? '',
       subtitle:
@@ -1268,6 +1353,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
 
   Widget _assignmentCard(Map<String, dynamic> r) {
     return _assetCardBase(
+      raw: r,
       title: r['assetName']?.toString() ?? '—',
       code: r['assetCode']?.toString() ?? '',
       subtitle:
@@ -1279,6 +1365,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
 
   Widget _transferCard(Map<String, dynamic> r) {
     return _assetCardBase(
+      raw: r,
       title: r['assetName']?.toString() ?? '—',
       code: r['assetCode']?.toString() ?? '',
       subtitle:
@@ -1289,6 +1376,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
 
   Widget _stockCard(Map<String, dynamic> r) {
     return _assetCardBase(
+      raw: r,
       title: r['assetName']?.toString() ?? '—',
       code: r['assetCode']?.toString() ?? '',
       subtitle:
@@ -1301,6 +1389,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     final variance = r['variance'] ?? 0;
     final hasIssue = r['hasIssue'] == true;
     return _assetCardBase(
+      raw: r,
       title: r['assetName']?.toString() ?? '—',
       code: '${r['inventoryCode'] ?? ''} · ${r['assetCode'] ?? ''}',
       subtitle:
@@ -1318,6 +1407,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         ? '${days.toInt()} ngày'
         : (expired ? 'Đã hết hạn' : '—');
     return _assetCardBase(
+      raw: r,
       title: r['name']?.toString() ?? '—',
       code: r['assetCode']?.toString() ?? '',
       subtitle:
