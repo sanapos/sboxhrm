@@ -311,8 +311,28 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         return Ok(AppResponse<object>.Success(new { created = adopted ? 1 : 0 }));
     }
 
+    /// <summary>Tem (sản phẩm / cân / thông số / tem ly): mẫu do trình soạn tem trên ứng dụng tạo (đặt tự do theo mm)
+    /// — máy chủ không tạo mẫu HTML (trước đây tạo sẵn → hiện thành «mẫu kiểu cũ»).</summary>
+    static bool IsDesignerLabel(PosPrintDocumentType t) => t is PosPrintDocumentType.BarcodeLabel
+        or PosPrintDocumentType.ScaleLabel or PosPrintDocumentType.SpecLabel or PosPrintDocumentType.KitchenLabel;
+
     async Task EnsureCatalogSeededAsync(PosPrintDocumentType documentType)
     {
+        if (IsDesignerLabel(documentType))
+        {
+            // Mẫu chung HTML cũ của tem → ẩn (không cho chọn nữa).
+            var stale = await dbContext.PosPrintTemplateCatalogs
+                .Where(t => t.DocumentType == documentType && t.Deleted == null && t.IsActive)
+                .ToListAsync();
+            foreach (var t in stale)
+            {
+                t.IsActive = false;
+                t.UpdatedAt = DateTime.UtcNow;
+                t.UpdatedBy = "system";
+            }
+            if (stale.Count > 0) await dbContext.SaveChangesAsync();
+            return;
+        }
         var specs = PosPrintTemplateDefaults.CatalogSpecs(documentType);
         var existing = await dbContext.PosPrintTemplateCatalogs
             .Where(t => t.DocumentType == documentType && t.Deleted == null)
@@ -418,6 +438,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
 
     async Task<bool> EnsureStoreHasAtLeastOneAsync(Guid storeId, PosPrintDocumentType documentType)
     {
+        if (IsDesignerLabel(documentType)) return false;
         var hasAny = await dbContext.PosPrintTemplates.AsNoTracking()
             .AnyAsync(t => t.StoreId == storeId && t.DocumentType == documentType && t.Deleted == null && t.IsActive);
         if (hasAny) return false;

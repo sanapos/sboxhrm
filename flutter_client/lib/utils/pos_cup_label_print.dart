@@ -1,26 +1,23 @@
 import 'pos_sell_store_settings.dart';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
+import '../models/pos_label_design.dart';
 import '../models/pos_print_template.dart';
 import '../models/pos_print_template_v2.dart';
 import '../models/pos_store_printer.dart';
-import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
-import 'pos_barcode_print.dart';
+import 'pos_label_design_painter.dart';
+import 'pos_label_design_store.dart';
 import 'pos_label_printer_service.dart';
 import 'pos_label_printer_settings.dart';
 import 'pos_label_renderer.dart';
 import 'pos_local_printers_store.dart';
 import 'pos_print_device_scope.dart';
 import 'pos_print_orchestrator.dart';
-import 'pos_print_template_compiler.dart';
-import 'pos_print_template_loader.dart';
-import 'pos_print_template_runtime.dart';
-import 'pos_print_template_v2_codec.dart';
-import 'pos_print_template_v2_presets.dart';
 import 'pos_printer_transport.dart';
 import 'pos_store_printer_mapper.dart';
 import 'pos_thermal_printer_settings.dart';
@@ -141,50 +138,28 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
     }
   }
 
-  /// Raster một tem cho khổ máy; null = mẫu và dự phòng đều trống (bỏ qua tem này).
+  // Mẫu tem ly (trình soạn tem) + dữ liệu từng tem — vẽ cùng bộ vẽ với màn soạn.
+  final design = await _loadKitchenDesign();
+  final datas = _cupDataList(
+    tickets: tickets,
+    timeFmt: timeFmt,
+    hourFmt: hourFmt,
+    when: when,
+    storeName: storeNameForCup,
+  );
+
+  /// Raster một tem theo mẫu; null = tem trống (bỏ qua tem này).
   Future<({Uint8List raster, int widthPx, int heightPx})?> renderOne(
-    CupLabelTicket t,
-    PosPrintCompiledOutput output,
+    Map<String, String> data,
     PosLabelPrinterSettings settings,
-    double widthMm,
-    double heightMm,
   ) async {
-    final r = await PosLabelRenderer.renderCompiledLabel(
-      output: output,
-      widthMm: widthMm,
-      heightMm: heightMm,
+    final r = await PosLabelDesignPainter.renderRowRaster(
+      design.copyWith(columns: 1),
+      [data],
       dpi: settings.dpi,
-      marginLeftMm: settings.marginLeftMm,
-      marginRightMm: settings.marginRightMm,
-      marginTopMm: settings.marginTopMm,
-      marginBottomMm: settings.marginBottomMm,
-      fontScale: settings.fontScale,
+      shiftRightMm: settings.shiftRightMm,
     );
-    if (PosLabelRenderer.hasEnoughInk(r.raster)) return r;
-    // Fallback raster cứng nếu mẫu trống.
-    final fallback = await PosLabelRenderer.renderCupTicket(
-      productName: t.productName,
-      tableLabel: t.tableLabel,
-      orderNo: t.orderNo,
-      toppings: t.toppings,
-      note: t.note,
-      qtyLabel: t.qtyLabel,
-      widthMm: widthMm,
-      heightMm: heightMm,
-      dpi: settings.dpi,
-      marginLeftMm: settings.marginLeftMm,
-      marginRightMm: settings.marginRightMm,
-      marginTopMm: settings.marginTopMm,
-      marginBottomMm: settings.marginBottomMm,
-      fontScale: settings.fontScale,
-      showHeader: settings.showHeader,
-      showTable: settings.showTable,
-      showOrderNo: settings.showOrderNo,
-      showToppings: settings.showToppings,
-      showNote: settings.showNote,
-      showQty: settings.showQty,
-    );
-    return PosLabelRenderer.hasEnoughInk(fallback.raster) ? fallback : null;
+    return PosLabelRenderer.hasEnoughInk(r.raster) ? r : null;
   }
 
   if (!kIsWeb) {
@@ -221,28 +196,17 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
     }
 
     if (labelTargets.isNotEmpty) {
-      final v2 = templateOverride ?? await _loadKitchenLabelTemplate();
       var anyInk = false;
-      // Khổ vật lý = máy tem (TSPL SIZE/GAP). Layout mẫu scale vào canvas máy — tránh trôi.
+      // Khổ in = khổ mẫu tem ly (soạn đúng cuộn tem đang dùng).
       // Máy đầu lỗi giữa chừng → máy sau in tiếp từ tem chưa ra (không in lại tem đã ra).
+      final widthMm = design.widthMm;
+      final heightMm = design.heightMm;
       for (final p in labelTargets) {
         if (done >= total) break;
         final settings = p.toLabelSettings().copyWith(enabled: true);
-        final machineTpl = settings.template ??
-            posBarcodeLabelTemplateById('roll_1_50x30')!;
-        final widthMm = machineTpl.labelWidthMm;
-        final heightMm = machineTpl.labelHeightMm;
-        final rest = tickets.sublist(done);
-        final outputs = _compileCupOutputs(
-          tickets: rest,
-          v2: v2.copyWith(paperSize: machineTpl.id),
-          timeFmt: timeFmt,
-          hourFmt: hourFmt,
-          when: when,
-          storeName: storeNameForCup,
-        );
-        for (var i = 0; i < outputs.length; i++) {
-          final r = await renderOne(rest[i], outputs[i], settings, widthMm, heightMm);
+        final rest = datas.sublist(done);
+        for (var i = 0; i < rest.length; i++) {
+          final r = await renderOne(rest[i], settings);
           if (r == null) {
             done++;
             continue;
@@ -283,15 +247,6 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
             !p.hasRole(PosLocalPrinterRoles.kitchenVoid))
         .toList();
     if (thermalCup.isNotEmpty && done < total) {
-      final v2 = templateOverride ?? await _loadKitchenLabelTemplate();
-      final outputs = _compileCupOutputs(
-        tickets: tickets.sublist(done),
-        v2: v2,
-        timeFmt: timeFmt,
-        hourFmt: hourFmt,
-        when: when,
-        storeName: storeNameForCup,
-      );
       for (final p in thermalCup) {
         final prepared =
             await PosPrinterTransport.prepareLocalSettings(p.toThermalSettings());
@@ -299,11 +254,14 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
           feedBeforeCut: 8,
           openCashDrawer: false,
         );
-        // Không ép Sunmi khi connection không phải sunmi. Gửi gộp một lệnh (tất cả hoặc không).
-        final ok = await _printCupOutputsLocal(
-          outputs: outputs,
-          cupSettings: cupSettings,
+        // Ảnh tem (ESC/POS, cả Sunmi) thu vừa khổ giấy. Gửi gộp một lệnh (tất cả hoặc không).
+        final ok = await PosPrintOrchestrator.instance.dispatchLocalEscPos(
+          bytes: await _cupReceiptBytes(design, datas.sublist(done), cupSettings.paperWidthMm),
           showFeedback: false,
+          successTitle: 'Tem ly',
+          settingsOverride: cupSettings,
+          documentType: PosPrintDocumentTypes.kitchenLabel,
+          skipDedup: true,
         );
         if (ok) {
           done = total;
@@ -318,16 +276,7 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
   }
 
   // Cloud → Print Agent (các tem còn lại).
-  final rest = tickets.sublist(done);
-  final v2 = templateOverride ?? await _loadKitchenLabelTemplate();
-  final outputs = _compileCupOutputs(
-    tickets: rest,
-    v2: v2,
-    timeFmt: timeFmt,
-    hourFmt: hourFmt,
-    when: when,
-    storeName: storeNameForCup,
-  );
+  final rest = datas.sublist(done);
 
   await PosPrintOrchestrator.instance.refreshConfig();
   var cloudPrinter = await _resolveCupLabelCloudPrinter();
@@ -337,19 +286,17 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
     debugPrint('Cup label: bỏ cloud ${cloudPrinter.name} — Agent là chính máy này');
     cloudPrinter = null;
   }
-  if (cloudPrinter != null && outputs.isNotEmpty) {
+  if (cloudPrinter != null && rest.isNotEmpty) {
     try {
       // Máy tem (TSPL/Xprinter): phải gửi bitmap TSPL — EscPos ghi USB «OK»
       // nhưng Tem 350BM không in gì.
       if (cloudPrinter.isLabelPrinter) {
         final labelSettings = toLabelSettings(cloudPrinter);
-        // Khổ vật lý theo máy tem — không dùng mm mẫu thiết kế (tránh trôi/cắt).
-        final machineTpl = labelSettings.template ??
-            posBarcodeLabelTemplateById('roll_1_50x30')!;
-        final widthMm = machineTpl.labelWidthMm;
-        final heightMm = machineTpl.labelHeightMm;
-        for (var i = 0; i < outputs.length; i++) {
-          final r = await renderOne(rest[i], outputs[i], labelSettings, widthMm, heightMm);
+        // Khổ in = khổ mẫu tem ly.
+        final widthMm = design.widthMm;
+        final heightMm = design.heightMm;
+        for (var i = 0; i < rest.length; i++) {
+          final r = await renderOne(rest[i], labelSettings);
           if (r == null) {
             done++;
             continue;
@@ -381,13 +328,7 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
           feedBeforeCut: 8,
           openCashDrawer: false,
         );
-        final merged = <int>[];
-        for (final output in outputs) {
-          merged.addAll(await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
-            output: output,
-            settings: cupSettings,
-          ));
-        }
+        final merged = await _cupReceiptBytes(design, rest, cupSettings.paperWidthMm);
         final ok = await PosPrintOrchestrator.instance.dispatchEscPos(
           documentType: PosCloudDocumentTypes.kitchenLabel,
           bytes: merged,
@@ -406,7 +347,7 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
         );
       }
     } catch (e) {
-      debugPrint('Cloud cup label (V2) failed: $e');
+      debugPrint('Cloud cup label failed: $e');
     }
   }
 
@@ -432,71 +373,43 @@ Future<bool> printCupTicketsOnStorePrinter({
   required PosThermalPrinterSettings thermalSettings,
 }) async {
   if (tickets.isEmpty) return true;
-  final v2 = await _loadKitchenLabelTemplate();
+  final design = await _loadKitchenDesign();
   final storeName = (await PosSellStoreSettings.load()).storeName;
-  final when = DateTime.now();
+  final datas = _cupDataList(
+    tickets: tickets,
+    timeFmt: DateFormat('dd/MM/yyyy'),
+    hourFmt: DateFormat('HH:mm'),
+    when: DateTime.now(),
+    storeName: storeName,
+  );
   if (!isLabelPrinter) {
-    final outputs = _compileCupOutputs(
-      tickets: tickets,
-      v2: v2,
-      timeFmt: DateFormat('dd/MM/yyyy'),
-      hourFmt: DateFormat('HH:mm'),
-      when: when,
-      storeName: storeName,
-    );
-    return _printCupOutputsLocal(
-      outputs: outputs,
-      cupSettings: thermalSettings.copyWith(feedBeforeCut: 8, openCashDrawer: false),
+    final cupSettings = thermalSettings.copyWith(feedBeforeCut: 8, openCashDrawer: false);
+    return PosPrintOrchestrator.instance.dispatchLocalEscPos(
+      bytes: await _cupReceiptBytes(design, datas, cupSettings.paperWidthMm),
       showFeedback: false,
+      successTitle: 'Tem ly',
+      settingsOverride: cupSettings,
+      documentType: PosPrintDocumentTypes.kitchenLabel,
+      skipDedup: true,
     );
   }
   final settings = labelSettings.copyWith(enabled: true);
-  final machineTpl = settings.template ?? posBarcodeLabelTemplateById('roll_1_50x30')!;
-  final outputs = _compileCupOutputs(
-    tickets: tickets,
-    v2: v2.copyWith(paperSize: machineTpl.id),
-    timeFmt: DateFormat('dd/MM/yyyy'),
-    hourFmt: DateFormat('HH:mm'),
-    when: when,
-    storeName: storeName,
-  );
   final rasters = <({Uint8List raster, int widthPx, int heightPx})>[];
-  for (var i = 0; i < outputs.length; i++) {
-    final r = await PosLabelRenderer.renderCompiledLabel(
-      output: outputs[i],
-      widthMm: machineTpl.labelWidthMm,
-      heightMm: machineTpl.labelHeightMm,
+  for (final data in datas) {
+    final r = await PosLabelDesignPainter.renderRowRaster(
+      design.copyWith(columns: 1),
+      [data],
       dpi: settings.dpi,
-      marginLeftMm: settings.marginLeftMm,
-      marginRightMm: settings.marginRightMm,
-      marginTopMm: settings.marginTopMm,
-      marginBottomMm: settings.marginBottomMm,
-      fontScale: settings.fontScale,
+      shiftRightMm: settings.shiftRightMm,
     );
-    if (PosLabelRenderer.hasEnoughInk(r.raster)) {
-      rasters.add(r);
-      continue;
-    }
-    final t = tickets[i];
-    final fb = await PosLabelRenderer.renderCupTicket(
-      productName: t.productName,
-      tableLabel: t.tableLabel,
-      orderNo: t.orderNo,
-      toppings: t.toppings,
-      note: t.note,
-      qtyLabel: t.qtyLabel,
-      widthMm: machineTpl.labelWidthMm,
-      heightMm: machineTpl.labelHeightMm,
-      dpi: settings.dpi,
-    );
-    if (PosLabelRenderer.hasEnoughInk(fb.raster)) rasters.add(fb);
+    if (PosLabelRenderer.hasEnoughInk(r.raster)) rasters.add(r);
   }
   if (rasters.isEmpty) return false;
   return PosLabelPrinterService.printCupRasters(
     rasters,
     settings: settings,
-    widthMm: machineTpl.labelWidthMm,
-    heightMm: machineTpl.labelHeightMm,
+    widthMm: design.widthMm,
+    heightMm: design.heightMm,
   );
 }
 
@@ -544,116 +457,50 @@ Future<PosStorePrinter?> _resolveCupLabelCloudPrinter() async {
   return fallback;
 }
 
-List<PosPrintCompiledOutput> _compileCupOutputs({
+/// Dữ liệu từng tem ly cho mẫu (trường giống màn soạn tem: Ten_Ban, So_Luong, Ghi_Chu…).
+List<Map<String, String>> _cupDataList({
   required List<CupLabelTicket> tickets,
-  required PosPrintTemplateV2 v2,
   required DateFormat timeFmt,
   required DateFormat hourFmt,
   required DateTime when,
   String? storeName,
 }) {
-  final outputs = <PosPrintCompiledOutput>[];
+  final out = <Map<String, String>>[];
   for (final t in tickets) {
     final noteParts = <String>[];
     final tops = (t.toppings ?? '').trim();
     if (tops.isNotEmpty) noteParts.add(posToppingLabelText(tops));
     final note = (t.note ?? '').trim();
     if (note.isNotEmpty) noteParts.add(note);
-    final data = <String, String>{
+    out.add({
       'Ten_Cua_Hang': (storeName ?? '').trim(),
       'Ten_Ban': (t.tableLabel ?? '').trim(),
       'Ma_Don_Hang': (t.orderNo ?? '').trim(),
       'Ngay': timeFmt.format(when),
       'Gio': hourFmt.format(when),
-      'Ten_Hang_Hoa':
-          t.productName.trim().isEmpty ? 'Món' : t.productName.trim(),
+      'Ten_Hang_Hoa': t.productName.trim().isEmpty ? 'Món' : t.productName.trim(),
       'Ghi_Chu': noteParts.join('\n'),
-      'So_Luong': (t.qtyLabel ?? '1').trim().isEmpty
-          ? '1'
-          : (t.qtyLabel ?? '1').trim(),
+      'So_Luong': (t.qtyLabel ?? '1').trim().isEmpty ? '1' : (t.qtyLabel ?? '1').trim(),
       'Don_Vi_Tinh': (t.unitLabel ?? '').trim(),
       'Ma_Hang': '',
       'Ma_Vach': '',
       'Don_Gia': (t.price ?? 0) > 0 ? NumberFormat('#,##0', 'vi_VN').format(t.price) : '',
       'Tieu_De_In': 'TEM LY',
-    };
-    // Khối「Tên hàng」là lineItems — phải có 1 dòng, nếu không in thật trống dù preview có sample.
-    final lineRow = <String, String>{
-      'Ten_Hang_Hoa': data['Ten_Hang_Hoa'] ?? '',
-      'So_Luong': data['So_Luong'] ?? '1',
-      'Don_Vi_Tinh': data['Don_Vi_Tinh'] ?? '',
-      'Ghi_Chu': data['Ghi_Chu'] ?? '',
-      'Don_Gia': data['Don_Gia'] ?? '',
-      'Ma_Hang': data['Ma_Hang'] ?? '',
-      'Ma_Vach': data['Ma_Vach'] ?? '',
-    };
-    outputs.add(PosPrintTemplateCompiler.compile(
-      template: v2,
-      data: data,
-      lineItems: [lineRow],
-    ));
+    });
   }
-  return outputs;
+  return out;
 }
 
-Future<bool> _printCupOutputsLocal({
-  required List<PosPrintCompiledOutput> outputs,
-  required PosThermalPrinterSettings cupSettings,
-  required bool showFeedback,
-}) async {
-  if (cupSettings.connectionType == PosThermalConnectionType.sunmi) {
-    var allOk = true;
-    for (final output in outputs) {
-      final ok = await PosPrintTemplateRuntime.printCompiledSunmi(
-        output: output,
-        settings: cupSettings.copyWith(
-          connectionType: PosThermalConnectionType.sunmi,
-          printerBrand: PosThermalPrinterBrand.sunmi,
-        ),
-        kitchenFeed: true,
-      );
-      if (!ok) allOk = false;
-    }
-    if (allOk) return true;
+/// Tem ly in trên máy hóa đơn (K58 / K80, Sunmi): ảnh tem theo mẫu, thu nhỏ vừa khổ in (384 / 576 điểm).
+Future<List<int>> _cupReceiptBytes(PosLabelDesign design, List<Map<String, String>> datas, int paperWidthMm) async {
+  final maxDots = paperWidthMm <= 58 ? 384 : 576;
+  final dpi = math.min(203, (maxDots / design.widthMm * 25.4).floor());
+  final out = <int>[];
+  for (final data in datas) {
+    final r = await PosLabelDesignPainter.renderRowRaster(design.copyWith(columns: 1), [data], dpi: dpi);
+    if (PosLabelRenderer.hasEnoughInk(r.raster)) out.addAll(PosLabelPrinterService.escPosRasterBytes(r));
   }
-  try {
-    final merged = <int>[];
-    for (final output in outputs) {
-      final bytes = await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
-        output: output,
-        settings: cupSettings,
-      );
-      merged.addAll(bytes);
-    }
-    return PosPrintOrchestrator.instance.dispatchLocalEscPos(
-      bytes: merged,
-      showFeedback: showFeedback,
-      successTitle: 'Tem ly',
-      settingsOverride: cupSettings,
-      documentType: PosPrintDocumentTypes.kitchenLabel,
-      skipDedup: true,
-    );
-  } catch (e) {
-    debugPrint('Local cup label failed: $e');
-    return false;
-  }
+  return out;
 }
 
-Future<PosPrintTemplateV2> _loadKitchenLabelTemplate() async {
-  try {
-    final list = await loadPosPrintTemplates(
-      ApiService(),
-      PosPrintDocumentTypes.kitchenLabel,
-    ).timeout(const Duration(seconds: 8), onTimeout: () => <PosPrintTemplate>[]);
-    final t = list.where((e) => e.isDefault).firstOrNull ?? list.firstOrNull;
-    final parsed = PosPrintTemplateV2Codec.tryParse(t?.htmlContent);
-    if (parsed != null) return parsed;
-  } catch (e) {
-    debugPrint('Load KitchenLabel template: $e');
-  }
-  return PosPrintTemplateV2Presets.build(
-    documentType: PosPrintDocumentTypes.kitchenLabel,
-    paperSize: PosPrintPaperSizes.label50x30,
-    printerProfile: PosPrintPrinterProfiles.genericK58,
-  );
-}
+Future<PosLabelDesign> _loadKitchenDesign() => loadPosLabelDesignForPrint(PosPrintDocumentTypes.kitchenLabel);

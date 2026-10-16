@@ -12,10 +12,11 @@ import '../models/pos_label_design.dart';
 import '../models/pos_print_template.dart';
 import '../models/pos_product.dart';
 import 'pos_label_design_painter.dart';
+import 'pos_label_design_presets.dart';
+import 'pos_label_design_store.dart';
 import 'file_saver.dart' as file_saver;
 import 'pos_pdf_fonts.dart';
 import '../models/pos_print_template_v2.dart';
-import 'pos_label_renderer.dart';
 import 'pos_print_template_compiler.dart';
 import 'pos_label_printer_settings.dart';
 import 'pos_label_printer_service.dart';
@@ -323,6 +324,17 @@ class PosBarcodePrintOptions {
   final PosLabelDesign? design;
 }
 
+/// Mẫu dùng khi in mà không truyền mẫu trình soạn: theo đúng khổ [t] (kể cả cuộn nhiều tem / hàng) —
+/// mẫu khối cũ ([layout]) đổi sang trình soạn, không có thì mẫu dựng sẵn. Không còn bố cục cố định cũ.
+PosLabelDesign posLabelDesignForTemplate(PosBarcodeLabelTemplate t, {PosPrintTemplateV2? layout}) {
+  final cols = t.isSheet ? 1 : t.cols.clamp(1, 4);
+  final cellW = cols > 1 ? (t.rollPageWidthMm - t.labelGapMm * (cols - 1)) / cols : t.labelWidthMm;
+  final base = layout != null
+      ? posLabelDesignFromBlocks(layout, layout.documentType, cellW, t.labelHeightMm)
+      : PosLabelDesignPresets.forType(PosPrintDocumentTypes.barcodeLabel).first.build(cellW, t.labelHeightMm);
+  return base.copyWith(columns: cols, columnGapMm: cols > 1 ? t.labelGapMm : 2);
+}
+
 /// Khổ in (cuộn, số tem / hàng, khe) theo mẫu trình soạn tem.
 PosBarcodeLabelTemplate posBarcodeLabelTemplateForDesign(PosLabelDesign d) {
   final cols = d.columns.clamp(1, 4);
@@ -463,260 +475,48 @@ Future<pw.Document> _buildLabelPdf(
   final pdf = pw.Document(
     theme: pw.ThemeData.withFont(base: font, bold: fontBold),
   );
-  final moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  // Luôn vẽ theo mẫu trình soạn tem (không mẫu → mẫu dựng sẵn): trang đúng khổ tem (không lề), tem kín ô.
+  final design = opts.design ?? posLabelDesignForTemplate(opts.template, layout: opts.layout);
   final t = opts.template;
-
+  final cache = <int, pw.Widget>{};
   final labels = <pw.Widget>[];
   for (var i = 0; i < products.length; i++) {
     final per = copiesPerItem != null && i < copiesPerItem.length ? copiesPerItem[i] : 1;
     final n = (per.clamp(0, 5000) * copies).clamp(0, 5000);
     if (n == 0) continue;
-    final label = opts.design != null
-        ? await _designLabelWidget(products[i], opts)
-        : opts.layout != null
-            ? await _layoutLabelWidget(products[i], opts)
-            : _labelWidget(products[i], opts, moneyFmt, font, fontBold);
+    final label = cache[i] ??= await _designLabelWidget(products[i], opts, design);
     for (var c = 0; c < n; c++) {
       labels.add(label);
     }
   }
-
-  // Mẫu trình soạn tem: trang đúng khổ tem (không lề), tem nằm kín ô.
-  final design = opts.design;
-  if (design != null) {
-    final cols = t.cols.clamp(1, 4);
-    final pageFormat = PdfPageFormat(t.rollPageWidthMm * PdfPageFormat.mm, t.labelHeightMm * PdfPageFormat.mm);
-    for (var i = 0; i < labels.length; i += cols) {
-      final chunk = labels.sublist(i, (i + cols).clamp(0, labels.length));
-      pdf.addPage(pw.Page(
-        pageFormat: pageFormat,
-        margin: pw.EdgeInsets.zero,
-        build: (_) => pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          for (var c = 0; c < chunk.length; c++) ...[
-            if (c > 0) pw.SizedBox(width: design.columnGapMm * PdfPageFormat.mm),
-            pw.SizedBox(
-              width: design.widthMm * PdfPageFormat.mm,
-              height: design.heightMm * PdfPageFormat.mm,
-              child: chunk[c],
-            ),
-          ],
-        ]),
-      ));
-    }
-    return pdf;
-  }
-
-  if (t.cols > 1 || t.rows > 1) {
-    final perPage = t.cols * t.rows;
-    final gapW = t.labelGapMm * PdfPageFormat.mm;
-    final totalGap = t.cols > 1 ? gapW * (t.cols - 1) : 0;
-    final pageInnerW = t.pageFormat.availableWidth - totalGap;
-    final labelW = pageInnerW / t.cols;
-    final labelH = t.isSheet
-        ? t.pageFormat.availableHeight / t.rows
-        : t.pageFormat.availableHeight;
-
-    for (var i = 0; i < labels.length; i += perPage) {
-      final end = (i + perPage > labels.length) ? labels.length : i + perPage;
-      final chunk = labels.sublist(i, end);
-
-      pdf.addPage(
-        pw.Page(
-          pageFormat: t.pageFormat,
-          build: (_) {
-            if (t.isSheet) {
-              return pw.Column(
-                children: List.generate(t.rows, (row) {
-                  return pw.Row(
-                    children: List.generate(t.cols, (col) {
-                      final idx = row * t.cols + col;
-                      if (idx >= chunk.length) {
-                        return pw.SizedBox(width: labelW, height: labelH);
-                      }
-                      return _labelCell(chunk[idx], labelW, labelH);
-                    }),
-                  );
-                }),
-              );
-            }
-            // Giấy cuộn: nhãn xếp ngang, có khe cách
-            final rowChildren = <pw.Widget>[];
-            for (var c = 0; c < chunk.length; c++) {
-              if (c > 0) rowChildren.add(pw.SizedBox(width: gapW));
-              rowChildren.add(_labelCell(chunk[c], labelW, labelH));
-            }
-            return pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: rowChildren,
-            );
-          },
-        ),
-      );
-    }
-  } else {
-    for (final label in labels) {
-      pdf.addPage(
-        pw.Page(pageFormat: t.singleLabelFormat, build: (_) => label),
-      );
-    }
+  final cols = t.cols.clamp(1, 4);
+  final pageFormat = PdfPageFormat(t.rollPageWidthMm * PdfPageFormat.mm, t.labelHeightMm * PdfPageFormat.mm);
+  for (var i = 0; i < labels.length; i += cols) {
+    final chunk = labels.sublist(i, (i + cols).clamp(0, labels.length));
+    pdf.addPage(pw.Page(
+      pageFormat: pageFormat,
+      margin: pw.EdgeInsets.zero,
+      build: (_) => pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        for (var c = 0; c < chunk.length; c++) ...[
+          if (c > 0) pw.SizedBox(width: design.columnGapMm * PdfPageFormat.mm),
+          pw.SizedBox(
+            width: design.widthMm * PdfPageFormat.mm,
+            height: design.heightMm * PdfPageFormat.mm,
+            child: chunk[c],
+          ),
+        ],
+      ]),
+    ));
   }
   return pdf;
 }
 
 /// Tem theo mẫu trình soạn tem → ảnh 300 dpi (cùng bộ vẽ với màn soạn / máy tem).
-Future<pw.Widget> _designLabelWidget(PosProduct p, PosBarcodePrintOptions opts) async {
-  final d = opts.design!.copyWith(columns: 1);
+Future<pw.Widget> _designLabelWidget(PosProduct p, PosBarcodePrintOptions opts, PosLabelDesign design) async {
+  final d = design.copyWith(columns: 1);
   final png = await PosLabelDesignPainter.renderPng(d, posBarcodeLabelData(p, opts), pxPerMm: 300 / 25.4);
   if (png == null) return pw.SizedBox();
   return pw.Image(pw.MemoryImage(png), fit: pw.BoxFit.fill);
-}
-
-/// Tem theo mẫu cửa hàng → ảnh 300 dpi (giống tem in thẳng), một ảnh dùng chung cho mọi bản sao.
-Future<pw.Widget> _layoutLabelWidget(PosProduct p, PosBarcodePrintOptions opts) async {
-  final t = opts.template;
-  final w = t.cols > 1 && !t.isSheet ? PosLabelRenderer.rowCellWidthMm(t) : t.labelWidthMm;
-  final r = await PosLabelRenderer.renderCompiledLabel(
-    output: compilePosBarcodeLayout(p, opts),
-    widthMm: w,
-    heightMm: t.labelHeightMm,
-    dpi: 300,
-  );
-  final rgba = Uint8List(r.widthPx * r.heightPx * 4);
-  final bpr = (r.widthPx + 7) ~/ 8;
-  for (var y = 0; y < r.heightPx; y++) {
-    for (var x = 0; x < r.widthPx; x++) {
-      final v = (r.raster[y * bpr + (x >> 3)] >> (7 - (x & 7))) & 1 == 1 ? 0 : 255;
-      final i = (y * r.widthPx + x) * 4;
-      rgba[i] = v;
-      rgba[i + 1] = v;
-      rgba[i + 2] = v;
-      rgba[i + 3] = 255;
-    }
-  }
-  return pw.Image(pw.RawImage(bytes: rgba, width: r.widthPx, height: r.heightPx), fit: pw.BoxFit.contain);
-}
-
-pw.Widget _labelCell(pw.Widget child, double width, double height) {
-  return pw.Container(
-    width: width,
-    height: height,
-    padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-    child: pw.ClipRect(child: child),
-  );
-}
-
-pw.Widget _labelWidget(
-  PosProduct p,
-  PosBarcodePrintOptions opts,
-  NumberFormat moneyFmt,
-  pw.Font font,
-  pw.Font fontBold,
-) {
-  final code = switch (opts.codeField) {
-    PosBarcodeCodeField.barcode =>
-      (p.barcode?.trim().isNotEmpty == true) ? p.barcode!.trim() : p.productCode,
-    PosBarcodeCodeField.productCode => p.productCode,
-  };
-
-  final detail = posLabelDetailFor(p, opts);
-  final t = opts.template;
-  final small = t.labelHeightMm <= 22;
-  final nameSize = small ? 4.8 : 7.0;
-  final metaSize = small ? 5.0 : 6.5;
-  final storeSize = small ? 4.5 : 6.0;
-  // Chừa header + mã + giá; barcode tối đa ~25% chiều cao tem.
-  final hasStore = opts.storeMode == PosBarcodeStoreMode.withStore &&
-      opts.storeName != null &&
-      opts.storeName!.isNotEmpty;
-  final hasPrice = opts.priceMode == PosBarcodePriceMode.withVnd;
-  final reserveMm = (hasStore ? storeSize * 0.4 : 0) +
-      nameSize * (small ? 0.45 : 0.7) +
-      metaSize * 0.45 +
-      (hasPrice ? metaSize * 0.45 : 0) +
-      2.5;
-  final barcodeH = ((t.labelHeightMm - reserveMm) * PdfPageFormat.mm)
-      .clamp(small ? 7.0 : 9.0, t.labelHeightMm * PdfPageFormat.mm * (small ? 0.22 : 0.26));
-  final labelInnerW = small
-      ? (t.labelWidthMm - (t.cols > 1 ? t.labelGapMm / t.cols : 0) - 2) *
-          PdfPageFormat.mm
-      : t.labelWidthMm * PdfPageFormat.mm - 8;
-  final barcodeW = labelInnerW.clamp(20.0, t.labelWidthMm * PdfPageFormat.mm);
-
-  final lines = <pw.Widget>[
-    if (opts.storeMode == PosBarcodeStoreMode.withStore &&
-        opts.storeName != null &&
-        opts.storeName!.isNotEmpty)
-      pw.Padding(
-        padding: const pw.EdgeInsets.only(bottom: 0.5),
-        child: pw.Text(
-          opts.storeName!,
-          maxLines: 1,
-          overflow: pw.TextOverflow.clip,
-          style: pw.TextStyle(font: font, fontSize: storeSize),
-          textAlign: pw.TextAlign.center,
-        ),
-      ),
-    pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 0.5),
-      child: pw.Text(
-        p.name,
-        maxLines: small ? 1 : 2,
-        overflow: pw.TextOverflow.clip,
-        style: pw.TextStyle(font: font, fontSize: nameSize),
-        textAlign: pw.TextAlign.center,
-      ),
-    ),
-    if (detail != null && detail.isNotEmpty)
-      pw.Padding(
-        padding: const pw.EdgeInsets.only(bottom: 0.5),
-        child: pw.Text(
-          detail,
-          maxLines: 2,
-          overflow: pw.TextOverflow.clip,
-          style: pw.TextStyle(font: font, fontSize: metaSize * 0.9),
-          textAlign: pw.TextAlign.center,
-        ),
-      ),
-    pw.Center(
-      child: pw.BarcodeWidget(
-        barcode: posBarcodeSymbology(code),
-        data: code,
-        width: barcodeW,
-        height: barcodeH,
-        drawText: false,
-      ),
-    ),
-    pw.SizedBox(height: 0.5),
-    pw.Text(
-      code,
-      maxLines: 1,
-      overflow: pw.TextOverflow.clip,
-      style: pw.TextStyle(font: fontBold, fontSize: metaSize),
-      textAlign: pw.TextAlign.center,
-    ),
-  ];
-
-  if (opts.priceMode == PosBarcodePriceMode.withVnd) {
-    var priceText = moneyFmt.format(p.basePrice);
-    if (opts.unitMode == PosBarcodeUnitMode.withUnit &&
-        p.baseUnitName.isNotEmpty) {
-      priceText = '$priceText/${p.baseUnitName}';
-    }
-    priceText = '$priceText VND';
-    lines.add(pw.Text(
-      priceText,
-      maxLines: 1,
-      style: pw.TextStyle(font: fontBold, fontSize: metaSize),
-      textAlign: pw.TextAlign.center,
-    ));
-  }
-
-  return pw.Column(
-    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-    mainAxisAlignment: pw.MainAxisAlignment.center,
-    mainAxisSize: pw.MainAxisSize.min,
-    children: lines,
-  );
 }
 
 Future<void> exportPosBarcodeLabelsExcel(

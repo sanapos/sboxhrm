@@ -7,7 +7,6 @@ import '../../services/api_service.dart';
 import '../../widgets/pos/pos_barcode_label_dialog.dart';
 import '../../widgets/pos/pos_scale_label_dialog.dart';
 import '../../widgets/pos/pos_theme.dart';
-import '../pos_print_templates_screen.dart';
 import 'pos_printer_settings_hub_screen.dart';
 import 'pos_label_templates_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -38,12 +37,6 @@ class PosLabelPrintHubScreen extends StatelessWidget {
     );
   }
 
-  void _openTemplates(BuildContext context, String documentType) {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => PosPrintTemplatesScreen(initialDocumentType: documentType),
-    ));
-  }
-
   @override
   Widget build(BuildContext context) {
     final actions = <_HubAction>[
@@ -70,16 +63,10 @@ class PosLabelPrintHubScreen extends StatelessWidget {
       _HubAction(
         icon: Icons.design_services_outlined,
         title: 'Mẫu tem (trình soạn tem)',
-        subtitle: 'Tem sản phẩm · tem cân · tem thông số — chọn khổ tem, kéo thả chữ, mã vạch, QR, ảnh',
+        subtitle: 'Tem sản phẩm · tem cân · tem thông số · tem ly / báo bếp — chọn khổ tem, kéo thả chữ, mã vạch, QR, ảnh',
         onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
           builder: (_) => const PosLabelTemplatesScreen(),
         )),
-      ),
-      _HubAction(
-        icon: Icons.local_cafe_outlined,
-        title: 'Mẫu tem báo bếp',
-        subtitle: 'Tem ly / món khi chế biến',
-        onTap: () => _openTemplates(context, PosPrintDocumentTypes.kitchenLabel),
       ),
       _HubAction(
         icon: Icons.print_outlined,

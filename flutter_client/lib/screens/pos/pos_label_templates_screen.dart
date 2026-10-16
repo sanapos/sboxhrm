@@ -6,14 +6,12 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
 import '../../models/pos_label_design.dart';
 import '../../models/pos_print_template.dart';
-import '../../models/pos_print_template_v2.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../utils/pos_label_design_painter.dart';
 import '../../utils/pos_label_design_presets.dart';
-import '../../utils/pos_print_template_loader.dart';
+import '../../utils/pos_label_design_store.dart';
 import '../../utils/pos_print_template_renderer.dart';
-import '../../utils/pos_print_template_v2_codec.dart';
 import '../../widgets/notification_overlay.dart';
 import 'pos_label_designer_screen.dart';
 
@@ -22,10 +20,11 @@ const kPosLabelDesignTypes = [
   (PosPrintDocumentTypes.barcodeLabel, 'Tem sản phẩm', Icons.qr_code_scanner),
   (PosPrintDocumentTypes.scaleLabel, 'Tem cân', Icons.scale_outlined),
   (PosPrintDocumentTypes.specLabel, 'Tem thông số', Icons.qr_code_2),
+  (PosPrintDocumentTypes.kitchenLabel, 'Tem ly / báo bếp', Icons.local_cafe_outlined),
 ];
 
 /// «Mẫu tem»: danh sách mẫu của tem sản phẩm / tem cân / tem thông số — tạo từ mẫu dựng sẵn, soạn trong
-/// trình soạn tem, đặt mẫu đang dùng. Mẫu khối / HTML cũ chuyển được sang dạng mới.
+/// trình soạn tem, đặt mẫu đang dùng. Mẫu khối / HTML cũ tự chuyển sang dạng mới khi mở.
 class PosLabelTemplatesScreen extends StatefulWidget {
   const PosLabelTemplatesScreen({super.key, this.initialType, this.embedded = false});
 
@@ -42,7 +41,6 @@ class _PosLabelTemplatesScreenState extends State<PosLabelTemplatesScreen> {
   late String _type;
   bool _loading = true;
   List<({PosPrintTemplate t, PosLabelDesign d})> _designs = [];
-  List<PosPrintTemplate> _legacy = [];
 
   @override
   void initState() {
@@ -64,15 +62,19 @@ class _PosLabelTemplatesScreenState extends State<PosLabelTemplatesScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final res = await _api.getPosPrintTemplates(documentType: _type);
-    final list = parsePosPrintTemplatesResponse(res).where((t) => t.isActive).toList();
+    // Mẫu cũ tự chuyển sang trình soạn; chưa có mẫu → tạo mẫu dựng sẵn làm mẫu đang dùng.
+    List<PosPrintTemplate> list = const [];
+    try {
+      list = await ensurePosLabelDesignTemplates(_api, _type);
+    } catch (e, st) {
+      debugPrint('Mẫu tem: tải lỗi $e $st');
+    }
     if (!mounted) return;
     setState(() {
       _designs = [
         for (final t in list)
           if (PosLabelDesign.tryParse(t.htmlContent) case final d?) (t: t, d: d),
       ];
-      _legacy = list.where((t) => !PosLabelDesign.isDesign(t.htmlContent)).toList();
       _loading = false;
     });
   }
@@ -141,20 +143,6 @@ class _PosLabelTemplatesScreenState extends State<PosLabelTemplatesScreen> {
     }
   }
 
-  /// Mẫu cũ → mẫu trình soạn (giữ id / trạng thái «đang dùng»).
-  Future<void> _convert(PosPrintTemplate t) async {
-    final v2 = PosPrintTemplateV2Codec.tryParse(t.htmlContent);
-    final size = PosPrintPaperSizes.toLabelTemplateId(v2?.paperSize ?? t.paperSize);
-    final dims = PosPrintPaperSizes.customLabelDims(size) ??
-        (PosPrintPaperSizes.widthMm(size), PosPrintPaperSizes.heightMm(size));
-    final w = dims.$1 > 0 ? dims.$1 : 50.0;
-    final h = dims.$2 > 0 ? dims.$2 : 30.0;
-    final design = v2 != null
-        ? posLabelDesignFromBlocks(v2, _type, w, h)
-        : PosLabelDesignPresets.forType(_type).first.build(w, h);
-    await _openDesigner(design.copyWith(name: t.name), template: t);
-  }
-
   @override
   Widget build(BuildContext context) {
     final body = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -199,35 +187,6 @@ class _PosLabelTemplatesScreenState extends State<PosLabelTemplatesScreen> {
                         onDelete: () => _delete(x.t),
                       ),
                   ]),
-                if (_legacy.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Text(tr('Mẫu kiểu cũ (${_legacy.length})'),
-                      style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.slate600)),
-                  const SizedBox(height: 4),
-                  Text(
-                    tr('Soạn theo khối / HTML — không kéo thả được. Bấm «Chuyển sang trình soạn mới» để mở bằng trình soạn tem '
-                        '(giữ nội dung và trạng thái đang dùng).'),
-                    style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500),
-                  ),
-                  const SizedBox(height: 8),
-                  for (final t in _legacy)
-                    Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: const Icon(Icons.history_edu_outlined),
-                        title: Text(t.name),
-                        subtitle: Text(tr(
-                            '${PosPrintPaperSizes.displayLabel(t.paperSize)}${t.isDefault ? ' · đang dùng' : ''}')),
-                        trailing: Wrap(spacing: 4, children: [
-                          TextButton(onPressed: () => _convert(t), child: Text(tr('Chuyển sang trình soạn mới'))),
-                          IconButton(
-                              tooltip: tr('Xóa'),
-                              onPressed: () => _delete(t),
-                              icon: const Icon(Icons.delete_outline, color: SboxColors.danger)),
-                        ]),
-                      ),
-                    ),
-                ],
               ]),
       ),
     ]);
@@ -536,97 +495,4 @@ class _NewLabelDialogState extends State<_NewLabelDialog> {
       ],
     );
   }
-}
-
-/// Mẫu khối V2 cũ → phần tử đặt tự do (xếp từ trên xuống, co lại nếu dài hơn tem).
-PosLabelDesign posLabelDesignFromBlocks(PosPrintTemplateV2 v2, String documentType, double w, double h) {
-  const m = 1.5;
-  const dotsPerMm = 8.0;
-  final els = <PosLabelElement>[];
-  var y = 1.0;
-  PosLabelAlign al(PosPrintTextAlign a) => switch (a) {
-        PosPrintTextAlign.center => PosLabelAlign.center,
-        PosPrintTextAlign.right => PosLabelAlign.right,
-        PosPrintTextAlign.left => PosLabelAlign.left,
-      };
-  // Cỡ chữ V2 tính theo điểm in (203 dpi) → pt.
-  double pt(double dots) => (dots / (203 / 72) * 10).roundToDouble() / 10;
-  PosLabelElement text(String s, PosPrintTextStyle st, double x, double ww) {
-    final hh = math.max(2.5, st.fontSize / dotsPerMm * 1.2);
-    return PosLabelElement(
-      id: PosLabelDesignPresets.newId(),
-      type: PosLabelElementType.text,
-      x: x,
-      y: y,
-      w: ww,
-      h: hh,
-      text: st.uppercase ? s.toUpperCase() : s,
-      fontSize: pt(st.fontSize),
-      bold: st.bold,
-      align: al(st.align),
-      maxLines: 1,
-    );
-  }
-
-  for (final b in v2.blocks) {
-    switch (b.type) {
-      case PosPrintBlockType.text:
-      case PosPrintBlockType.field:
-        final s = b.type == PosPrintBlockType.field
-            ? '${(b.label ?? '').isNotEmpty ? '${b.label}: ' : ''}{${b.field}}'
-            : (b.text ?? '');
-        final e = text(s, b.style, m, w - 2 * m);
-        els.add(e);
-        y += e.h;
-      case PosPrintBlockType.pair:
-        final l = text('{${b.leftField}}', b.style, m, (w - 2 * m) / 2);
-        final r = text('{${b.rightField}}', b.rightStyle ?? b.style, m + (w - 2 * m) / 2, (w - 2 * m) / 2)
-            .copyWith(align: PosLabelAlign.right);
-        els.addAll([l, r]);
-        y += math.max(l.h, r.h);
-      case PosPrintBlockType.barcode:
-        final hh = b.barcodeQr ? math.min(b.barcodeHeight / dotsPerMm, w * 0.5) : b.barcodeHeight / dotsPerMm + (b.barcodeShowText ? 3 : 0);
-        els.add(PosLabelElement(
-          id: PosLabelDesignPresets.newId(),
-          type: b.barcodeQr ? PosLabelElementType.qr : PosLabelElementType.barcode,
-          x: b.barcodeQr ? (w - hh) / 2 : m,
-          y: y,
-          w: b.barcodeQr ? hh : w - 2 * m,
-          h: hh,
-          text: (b.codeContent ?? '').isNotEmpty ? b.codeContent! : '{${b.field ?? 'Ma_Vach'}}',
-          showText: b.barcodeShowText,
-        ));
-        y += hh + 0.5;
-      case PosPrintBlockType.divider:
-        els.add(PosLabelElement(
-            id: PosLabelDesignPresets.newId(), type: PosLabelElementType.line, x: m, y: y, w: w - 2 * m, h: 1));
-        y += 1;
-      case PosPrintBlockType.spacer:
-        y += b.height / dotsPerMm;
-      case PosPrintBlockType.image:
-        final iw = (w - 2 * m) * b.imageWidthPct / 100;
-        els.add(PosLabelElement(
-          id: PosLabelDesignPresets.newId(),
-          type: PosLabelElementType.image,
-          x: (w - iw) / 2,
-          y: y,
-          w: iw,
-          h: iw * 0.5,
-          imageData: b.imageData,
-        ));
-        y += iw * 0.5;
-      default:
-        break;
-    }
-  }
-  // Dài hơn tem → co toạ độ dọc + cỡ chữ cho vừa.
-  final total = y + 1;
-  if (total > h) {
-    final k = h / total;
-    for (var i = 0; i < els.length; i++) {
-      final e = els[i];
-      els[i] = e.copyWith(y: e.y * k, h: e.h * k, fontSize: (e.fontSize * k * 10).roundToDouble() / 10);
-    }
-  }
-  return PosLabelDesign(documentType: documentType, widthMm: w, heightMm: h, elements: els, name: v2.name);
 }

@@ -80,6 +80,7 @@ abstract final class PosLabelDesignPresets {
   static List<PosLabelDesignPreset> forType(String documentType) => switch (documentType) {
         PosPrintDocumentTypes.scaleLabel => _scale,
         PosPrintDocumentTypes.specLabel => _spec,
+        PosPrintDocumentTypes.kitchenLabel => _kitchen,
         _ => _product,
       };
 
@@ -175,6 +176,48 @@ abstract final class PosLabelDesignPresets {
             size: 9 * k, bold: true, align: PosLabelAlign.center, lines: 2, invert: true),
         _barcode(m, h * 0.54, cw, h * 0.32),
         _text('In: {Ngay_Gio_In} · HSD: {HSD}', m, h * 0.885, cw, h * 0.11, size: 5.5 * k, align: PosLabelAlign.center),
+      ]);
+    }),
+  ];
+
+  // ── Tem ly / tem báo bếp ─────────────────────────────────────────────────
+  static final _kitchen = <PosLabelDesignPreset>[
+    PosLabelDesignPreset('cup_std', 'Tem ly chuẩn', 'Bàn · thứ tự ly · tên món · topping / ghi chú · mã đơn · giờ', (w, h) {
+      const m = 1.2;
+      final k = _k(h);
+      final cw = w - 2 * m;
+      return _d(PosPrintDocumentTypes.kitchenLabel, w, h, 'Tem ly chuẩn', [
+        _text('{Ten_Ban}', m, m * 0.5, cw * 0.65, h * 0.17, size: 8 * k, bold: true),
+        _text('{So_Luong}', m + cw * 0.65, m * 0.5, cw * 0.35, h * 0.17, size: 8 * k, bold: true, align: PosLabelAlign.right),
+        _text('{Ten_Hang_Hoa}', m, h * 0.19, cw, h * 0.3, size: 10 * k, bold: true, lines: 2),
+        _text('{Ghi_Chu}', m, h * 0.5, cw, h * 0.34, size: 6.5 * k, lines: 3),
+        _text('{Ma_Don_Hang}', m, h * 0.86, cw * 0.5, h * 0.13, size: 5.5 * k),
+        _text('{Gio} {Ngay}', m + cw * 0.5, h * 0.86, cw * 0.5, h * 0.13, size: 5.5 * k, align: PosLabelAlign.right),
+      ]);
+    }),
+    PosLabelDesignPreset('cup_bar', 'Thanh bàn nền đen', 'Bàn · ly trên thanh đen, tên món to, size · giá', (w, h) {
+      const m = 1.2;
+      final k = _k(h);
+      final cw = w - 2 * m;
+      return _d(PosPrintDocumentTypes.kitchenLabel, w, h, 'Tem ly thanh bàn', [
+        _text('{Ten_Ban} · Ly {So_Luong}', 0, 0, w, h * 0.19, size: 8 * k, bold: true, align: PosLabelAlign.center, invert: true),
+        _text('{Ten_Hang_Hoa}', m, h * 0.21, cw, h * 0.32, size: 10.5 * k, bold: true, align: PosLabelAlign.center, lines: 2),
+        _text('{Ghi_Chu}', m, h * 0.54, cw, h * 0.3, size: 6.5 * k, align: PosLabelAlign.center, lines: 3),
+        _text('{Don_Vi_Tinh}', m, h * 0.86, cw * 0.4, h * 0.13, size: 6 * k, bold: true),
+        _text('{Don_Gia}đ · {Gio}', m + cw * 0.4, h * 0.86, cw * 0.6, h * 0.13, size: 6 * k, align: PosLabelAlign.right),
+      ]);
+    }),
+    PosLabelDesignPreset('cup_store', 'Có tên quán', 'Tên quán · tên món · topping · bàn · giờ', (w, h) {
+      const m = 1.2;
+      final k = _k(h);
+      final cw = w - 2 * m;
+      return _d(PosPrintDocumentTypes.kitchenLabel, w, h, 'Tem ly có tên quán', [
+        _text('{Ten_Cua_Hang}', m, m * 0.4, cw, h * 0.14, size: 6.5 * k, bold: true, align: PosLabelAlign.center),
+        PosLabelElement(id: newId(), type: PosLabelElementType.line, x: m, y: h * 0.16, w: cw, h: 0.6, strokeMm: 0.25),
+        _text('{Ten_Hang_Hoa}', m, h * 0.19, cw, h * 0.3, size: 10 * k, bold: true, align: PosLabelAlign.center, lines: 2),
+        _text('{Ghi_Chu}', m, h * 0.5, cw, h * 0.33, size: 6.5 * k, align: PosLabelAlign.center, lines: 3),
+        _text('{Ten_Ban} · {So_Luong}', m, h * 0.85, cw * 0.6, h * 0.14, size: 6.5 * k, bold: true),
+        _text('{Gio}', m + cw * 0.6, h * 0.85, cw * 0.4, h * 0.14, size: 6 * k, align: PosLabelAlign.right),
       ]);
     }),
   ];

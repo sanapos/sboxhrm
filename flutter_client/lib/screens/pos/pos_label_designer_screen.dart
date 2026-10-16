@@ -24,6 +24,11 @@ import '../../widgets/pos/pos_print_template_tools.dart';
 List<(String, String)> posLabelDesignFields(String documentType) => switch (documentType) {
       PosPrintDocumentTypes.scaleLabel => PosPrintTokens.scaleLabel,
       PosPrintDocumentTypes.specLabel => PosPrintTokens.specLabel,
+      // Tem ly / báo bếp: bàn, thứ tự ly (1/3), topping / ghi chú, mã đơn, giờ…
+      PosPrintDocumentTypes.kitchenLabel => [
+          for (final t in PosPrintTokens.label)
+            if (!const {'Ma_Vach', 'Thong_So', 'Lo_HSD'}.contains(t.$1)) t,
+        ],
       _ => [
           for (final t in PosPrintTokens.label)
             if (!const {'Ten_Ban', 'Ma_Don_Hang', 'Ghi_Chu', 'So_Luong', 'Gio'}.contains(t.$1)) t,

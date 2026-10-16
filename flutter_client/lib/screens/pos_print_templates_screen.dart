@@ -17,6 +17,7 @@ import '../utils/pos_label_printer_service.dart';
 import '../utils/pos_label_printer_settings.dart';
 import '../utils/pos_print_template_loader.dart';
 import 'pos/pos_label_templates_screen.dart';
+import '../utils/pos_label_design_store.dart';
 import '../utils/pos_print_template_defaults.dart';
 import '../utils/pos_print_template_renderer.dart';
 import '../utils/pos_print_template_v2_codec.dart';
@@ -1386,7 +1387,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             if (!hubBody && !mobile && !_editing) const PosModuleToolbar(activeModule: 'PosSell'),
             Expanded(
               // Tem sản phẩm / cân / thông số: trình soạn tem kéo thả (màn «Mẫu tem»).
-              child: PosPrintDocumentTypes.isProductLabel(_docType) && !_editing
+              child: isPosDesignerLabelType(_docType) && !_editing
                   ? _buildLabelDesignView(mobile)
                   : _loading
                       ? const Center(child: CircularProgressIndicator())

@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zkteco_flutter_client/models/pos_label_design.dart';
 import 'package:zkteco_flutter_client/models/pos_print_template.dart';
 import 'package:zkteco_flutter_client/models/pos_print_template_v2.dart';
-import 'package:zkteco_flutter_client/screens/pos/pos_label_templates_screen.dart';
+import 'package:zkteco_flutter_client/utils/pos_label_design_store.dart';
 import 'package:zkteco_flutter_client/utils/pos_label_design_painter.dart';
 import 'package:zkteco_flutter_client/utils/pos_label_design_presets.dart';
 import 'package:zkteco_flutter_client/utils/pos_print_template_v2_codec.dart';
@@ -41,6 +41,7 @@ void main() {
       PosPrintDocumentTypes.barcodeLabel,
       PosPrintDocumentTypes.scaleLabel,
       PosPrintDocumentTypes.specLabel,
+      PosPrintDocumentTypes.kitchenLabel,
     ]) {
       for (final p in PosLabelDesignPresets.forType(type)) {
         for (final (w, h) in PosLabelDesignPresets.sizes) {
@@ -54,6 +55,26 @@ void main() {
         }
       }
     }
+  });
+
+  test('Mẫu cũ dạng HTML → mẫu dựng sẵn đúng khổ, giữ tên; tem ly có mẫu mặc định', () {
+    final t = PosPrintTemplate(
+      id: 't1',
+      name: 'Tem cân cũ',
+      documentType: PosPrintDocumentTypes.scaleLabel,
+      paperSize: PosPrintPaperSizes.label40x30,
+      htmlContent: '<div>{Ten_Hang_Hoa}</div>',
+    );
+    final d = posLabelDesignFromLegacy(t);
+    expect(d.name, 'Tem cân cũ');
+    expect((d.widthMm, d.heightMm), (40.0, 30.0));
+    expect(d.documentType, PosPrintDocumentTypes.scaleLabel);
+    expect(d.elements, isNotEmpty);
+    final k = posLabelDefaultDesign(PosPrintDocumentTypes.kitchenLabel);
+    expect(k.documentType, PosPrintDocumentTypes.kitchenLabel);
+    expect(k.elements.any((e) => e.text.contains('{Ten_Ban}')), isTrue);
+    expect(isPosDesignerLabelType(PosPrintDocumentTypes.kitchenLabel), isTrue);
+    expect(isPosDesignerLabelType(PosPrintDocumentTypes.saleInvoice), isFalse);
   });
 
   test('Mẫu khối cũ chuyển sang trình soạn: giữ trường, nằm trong tem', () {

@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
-import 'package:intl/intl.dart';
 
 import '../models/pos_product.dart';
 import 'pos_barcode_print.dart';
@@ -14,7 +13,6 @@ import 'pos_printer_transport.dart';
 
 /// In tem nhãn ra máy in TSPL / ESC/POS (Bluetooth, LAN, USB, Sunmi).
 class PosLabelPrinterService {
-  static final _money = NumberFormat('#,##0', 'vi_VN');
 
   /// Tạo danh sách payload in tem (mỗi phần tử = 1 lệnh gửi máy in).
   ///
@@ -32,9 +30,6 @@ class PosLabelPrinterService {
     final dpi = settings.dpi;
     final jobs = <List<int>>[];
 
-    final items = products
-        .map((p) => PosLabelRenderer.fromProduct(p, options, _money))
-        .toList();
     int countOf(int i) {
       final per = copiesPerItem != null && i < copiesPerItem.length ? copiesPerItem[i] : 1;
       return (per.clamp(0, 5000) * copies).clamp(0, 5000);
@@ -42,54 +37,33 @@ class PosLabelPrinterService {
 
     // Mỗi tem chỉ vẽ 1 lần; số bản in giao cho máy (TSPL PRINT n / ZPL ^PQ n) —
     // trước đây vẽ + gửi lại nguyên ảnh cho từng bản ⇒ 50 tem qua Bluetooth rất chậm.
-    final design = options.design;
-    final layout = options.layout != null || design != null;
+    // Luôn vẽ theo mẫu trình soạn tem (không mẫu → mẫu dựng sẵn) — cùng bộ vẽ với màn soạn.
+    final design = options.design ?? posLabelDesignForTemplate(template, layout: options.layout);
     final cellCache = <int, ({Uint8List raster, int widthPx, int heightPx})>{};
-    Future<({Uint8List raster, int widthPx, int heightPx})> layoutCell(int i, double widthMm) async =>
-        cellCache[i] ??= design != null
-            // Mẫu trình soạn tem: cùng bộ vẽ với màn soạn → in giống hệt.
-            ? await PosLabelDesignPainter.renderRowRaster(
-                design.copyWith(columns: 1),
-                [posBarcodeLabelData(products[i], options)],
-                dpi: dpi,
-                shiftRightMm: settings.shiftRightMm,
-              )
-            : await PosLabelRenderer.renderCompiledLabel(
-          output: compilePosBarcodeLayout(products[i], options),
-          widthMm: widthMm,
-          heightMm: template.labelHeightMm,
+    Future<({Uint8List raster, int widthPx, int heightPx})> layoutCell(int i) async =>
+        cellCache[i] ??= await PosLabelDesignPainter.renderRowRaster(
+          design.copyWith(columns: 1),
+          [posBarcodeLabelData(products[i], options)],
           dpi: dpi,
-          marginLeftMm: settings.marginLeftMm,
-          marginRightMm: settings.marginRightMm,
-          marginTopMm: settings.marginTopMm,
-          marginBottomMm: settings.marginBottomMm,
-          fontScale: settings.fontScale,
+          shiftRightMm: settings.shiftRightMm,
         );
 
     if (template.cols > 1 && !template.isSheet) {
       // Cuộn nhiều tem / hàng: xếp kín từng ô. Trước đây mỗi hàng chỉ in đúng các mặt hàng liền nhau
       // rồi nhân số bản → in 10 tem một mặt hàng trên cuộn 2 tem = 10 hàng, mỗi hàng bỏ trống 1 ô.
       final cols = template.cols;
-      final cellW = PosLabelRenderer.rowCellWidthMm(template);
       Future<void> emit(List<int> row, int times) async {
         if (row.isEmpty || times <= 0) return;
-        final raster = layout
-            ? PosLabelRenderer.composeRow(
-                [for (final i in row) await layoutCell(i, cellW)],
-                template,
-                dpi: dpi,
-              )
-            : await PosLabelRenderer.renderRow(
-                items: [for (final i in row) items[i]],
-                template: template,
-                dpi: dpi,
-                contentInsetLeftMm: settings.shiftRightMm,
-              );
+        final raster = PosLabelRenderer.composeRow(
+          [for (final i in row) await layoutCell(i)],
+          template,
+          dpi: dpi,
+        );
         jobs.add(_bytesForRaster(settings, template, raster, rowMode: true, copies: times));
       }
 
       final pending = <int>[];
-      for (var i = 0; i < items.length; i++) {
+      for (var i = 0; i < products.length; i++) {
         var n = countOf(i);
         while (n > 0 && pending.isNotEmpty) {
           pending.add(i);
@@ -111,17 +85,10 @@ class PosLabelPrinterService {
       return jobs;
     }
 
-    for (var i = 0; i < items.length; i++) {
+    for (var i = 0; i < products.length; i++) {
       final n = countOf(i);
       if (n <= 0) continue;
-      final raster = layout
-          ? await layoutCell(i, template.labelWidthMm)
-          : await PosLabelRenderer.renderSingle(
-              item: items[i],
-              template: template,
-              dpi: dpi,
-              contentInsetLeftMm: settings.shiftRightMm,
-            );
+      final raster = await layoutCell(i);
       jobs.add(_bytesForRaster(settings, template, raster, copies: n));
     }
     return jobs;
@@ -399,6 +366,10 @@ class PosLabelPrinterService {
       ...utf8.encode('\r\nPRINT ${copies.clamp(1, 5000)},1\r\n'),
     ];
   }
+
+  /// Ảnh tem → lệnh ESC/POS (GS v 0) cho máy in hóa đơn / Sunmi (tem ly in trên giấy cuộn hóa đơn).
+  static List<int> escPosRasterBytes(({Uint8List raster, int widthPx, int heightPx}) r, {int feedLines = 3}) =>
+      _buildEscPosLabelJob(raster: r.raster, widthPx: r.widthPx, heightPx: r.heightPx, feedLines: feedLines);
 
   static List<int> _buildEscPosLabelJob({
     required Uint8List raster,
