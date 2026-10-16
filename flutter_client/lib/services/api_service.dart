@@ -20250,6 +20250,65 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Thẻ / gói của hội viên (bảo lưu, khung giờ).
+  Future<Map<String, dynamic>> getGymCustomerBalances(String customerId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/gym/customers/$customerId/balances'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> freezeGymBalance(String balanceId, int days, {String? note}) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/gym/balances/$balanceId/freeze'),
+              headers: _headers, body: jsonEncode({'days': days, if (note != null && note.isNotEmpty) 'note': note}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> unfreezeGymBalance(String balanceId) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/gym/balances/$balanceId/unfreeze'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> setGymBalanceHours(String balanceId, String? hours) async {
+    try {
+      final response = await http
+          .put(Uri.parse('$baseUrl/api/pos/gym/balances/$balanceId/access-hours'),
+              headers: _headers, body: jsonEncode({'hours': hours}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Hội viên cần nhắc gia hạn (sắp hết hạn ≤ [days] ngày / còn ≤ 2 buổi / vừa hết).
+  Future<Map<String, dynamic>> getGymExpiring({int days = 7}) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/gym/expiring?days=$days'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> openGymDoor(String deviceId) async {
     try {
       final response = await http

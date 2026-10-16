@@ -307,6 +307,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   late final TextEditingController _openingFeeCtrl;
   late final TextEditingController _openingMinutesCtrl;
   late final TextEditingController _sessionPackValidDaysCtrl;
+  /// Gym: khung giờ tập của thẻ / gói (thẻ sáng, giờ thấp điểm).
+  late final TextEditingController _gymHoursCtrl;
   late final TextEditingController _timePackageCtrl;
   late final TextEditingController _timeAlertCtrl;
   String? _overtimeProductId;
@@ -611,6 +613,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         setState(() => _overtimeProductName = '${(r['data'] as Map)['name'] ?? ''}');
       }));
     }
+    _gymHoursCtrl = TextEditingController(text: p?.gymAccessHours ?? '');
     _sessionPackValidDaysCtrl = TextEditingController(
       text: tr((p?.sessionPackValidDays ?? 0) > 0
           ? '${p!.sessionPackValidDays}'
@@ -789,6 +792,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _sessionPackValidDaysCtrl.text = data.sessionPackValidDays > 0
           ? '${data.sessionPackValidDays}'
           : '';
+      _gymHoursCtrl.text = data.gymAccessHours ?? '';
     });
     if (_isCombo) {
       final comboRes = await _api.getPosComboLines(id);
@@ -991,6 +995,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _openingFeeCtrl.dispose();
     _openingMinutesCtrl.dispose();
     _sessionPackValidDaysCtrl.dispose();
+    _gymHoursCtrl.dispose();
     _timePackageCtrl.dispose();
     _timeAlertCtrl.dispose();
     super.dispose();
@@ -1108,6 +1113,15 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       NotificationOverlayManager().showError(
         title: 'Lỗi',
         message: tr('Combo cần ít nhất 1 hàng thành phần'),
+      );
+      return;
+    }
+    final gymHours = _gymHoursCtrl.text.trim();
+    if (gymHours.isNotEmpty &&
+        !RegExp(r'^\d{1,2}([:h]\d{0,2})?\s*[-–]\s*\d{1,2}([:h]\d{0,2})?$', caseSensitive: false).hasMatch(gymHours)) {
+      NotificationOverlayManager().showError(
+        title: 'Khung giờ tập',
+        message: tr('Nhập dạng 05:00-16:00 (để trống = mọi giờ)'),
       );
       return;
     }
@@ -1229,6 +1243,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'openingMinutes': int.tryParse(_openingMinutesCtrl.text.trim()),
         'sessionPackValidDays':
             int.tryParse(_sessionPackValidDaysCtrl.text.trim()) ?? 0,
+        'gymAccessHours': _gymHoursCtrl.text.trim().isEmpty ? null : _gymHoursCtrl.text.trim(),
         'timePackageMinutes': int.tryParse(_timePackageCtrl.text.trim()) ?? 0,
         'overtimeProductId': _overtimeProductId,
         'timeAlertBeforeMinutes': int.tryParse(_timeAlertCtrl.text.trim()) ?? 5,
@@ -2724,6 +2739,24 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       hint: '0 = không hạn — liệu trình / thẻ tập',
                     ),
                   ),
+                  if ((int.tryParse(_sessionPackCountCtrl.text.trim()) ?? 0) > 0) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _gymHoursCtrl,
+                      decoration: PosTheme.inputDecoration(
+                        label: 'Khung giờ tập (gym)',
+                        hint: 'vd 05:00-16:00 — trống = mọi giờ',
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        tr('Thẻ sáng / giờ thấp điểm: quét ngoài khung giờ thì không vào được. '
+                            'Áp cho thẻ bán từ nay; thẻ đã bán sửa ở Check-in hội viên.'),
+                        style: TextStyle(fontSize: 12, color: SboxColors.slate600),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   _buildTimePackageSection(),
                   Padding(

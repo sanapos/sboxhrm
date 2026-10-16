@@ -151,6 +151,10 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Hàng cân / đóng gói tại quầy: số ngày dùng được kể từ ngày đóng gói (in HSD trên tem).</summary>
     public int? PackShelfLifeDays { get; set; }
 
+    /// <summary>Gym: khung giờ được vào tập của thẻ / gói khi bán (giờ VN «HH:mm-HH:mm», vd thẻ sáng «05:00-16:00»). Null = mọi giờ.</summary>
+    [MaxLength(40)]
+    public string? GymAccessHours { get; set; }
+
     /// <summary>
     /// Tích điểm theo % giá trị dòng hàng (sau giảm giá đơn): VD 20 → mua 100.000đ được tích 20.000đ (quy ra điểm theo
     /// giá trị 1 điểm của cửa hàng). Null / 0 = dùng mức tích chung của cửa hàng.

@@ -144,6 +144,10 @@ const landingIndustrySteps = <LandingUsageGuideStep>[
       'Check-in tại quầy: tìm hội viên và bấm Check-in khi khách quên thẻ / máy lỗi',
       'Tab «Lượt tập»: ai vào tập lúc nào; tab «Tổng hợp»: số lượt, thẻ / gói còn lại, ngày hết hạn để gọi gia hạn',
       'Máy chấm công dùng chung: lượt chấm của hội viên không vào bảng công nhân viên',
+      'Bảo lưu thẻ (ốm, công tác): thẻ hội viên → «Thẻ / gói» → Bảo lưu N ngày; hết bảo lưu hạn thẻ tự cộng thêm',
+      'Thẻ sáng / giờ thấp điểm: nhập «Khung giờ tập» (vd 05:00-16:00) ở dịch vụ thẻ — quét ngoài giờ không vào được',
+      'Nhắc gia hạn: tab «Hội viên trên máy» → «Cần nhắc gia hạn» → gọi / Zalo kèm tin nhắn soạn sẵn',
+      'Vé tập thử / vé ngày: dịch vụ gói 1 buổi, hạn 1 ngày; buổi PT: gói buổi riêng + trừ buổi có chọn huấn luyện viên (tính hoa hồng)',
     ],
     tip:
         'Hội viên check-in bị từ chối: xem thông báo «cần kiểm tra» — thường do thẻ hết hạn hoặc hết buổi.',

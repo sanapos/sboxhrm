@@ -27,6 +27,15 @@ public class PosCustomerSessionBalance : AuditableEntity<Guid>
 
     public DateTime? ExpiresAt { get; set; }
 
+    /// <summary>Bảo lưu thẻ (UTC): từ lúc này không check-in được; mở bảo lưu → cộng số ngày đã bảo lưu vào hạn.</summary>
+    public DateTime? FrozenAt { get; set; }
+    /// <summary>Hết bảo lưu dự kiến (UTC) — quá mốc này tự mở bảo lưu, cộng đủ số ngày đã đăng ký.</summary>
+    public DateTime? FrozenUntil { get; set; }
+
+    /// <summary>Khung giờ được vào tập (giờ Việt Nam) «HH:mm-HH:mm», vd «06:00-16:00». Null = mọi giờ.</summary>
+    [MaxLength(40)]
+    public string? AccessHours { get; set; }
+
     public virtual ICollection<PosCustomerSessionTransaction> Transactions { get; set; } = [];
 
     /// <summary>

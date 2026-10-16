@@ -5014,6 +5014,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     final reason = switch ('${g['status']}') {
       'Expired' => 'Thẻ / gói đã hết hạn',
       'OutOfSessions' => 'Gói đã hết buổi',
+      'Frozen' => 'Thẻ đang bảo lưu',
+      'OutOfHours' => 'Ngoài khung giờ tập',
       _ => 'Khách chưa có thẻ / gói tập',
     };
     showDialog<void>(

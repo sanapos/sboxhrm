@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
@@ -153,6 +154,8 @@ bool _forgotCheckout(Map v) {
 String _invalidReason(String? status) => switch (status) {
       'Expired' => 'Thẻ / gói đã hết hạn',
       'OutOfSessions' => 'Gói đã hết buổi',
+      'Frozen' => 'Thẻ đang bảo lưu',
+      'OutOfHours' => 'Ngoài khung giờ tập',
       _ => 'Khách chưa có thẻ / gói tập',
     };
 
@@ -177,10 +180,15 @@ String _packageText(Map m) {
   final parts = <String>[name];
   if (m['unlimited'] != true && remain != null) parts.add('còn $remain buổi');
   if (exp != null) parts.add('HSD ${_dmy.format(exp)}');
+  final frozen = _date(m['frozenUntil']);
+  if (frozen != null) parts.add('bảo lưu đến ${_dmy.format(frozen)}');
+  final hours = (m['accessHours'] ?? '').toString();
+  if (hours.isNotEmpty) parts.add('giờ tập $hours');
   return parts.join(' · ');
 }
 
 bool _packageWarn(Map m) {
+  if (m['frozenUntil'] != null) return true;
   final exp = _date(m['expiresAt']);
   final remain = (m['remainingSessions'] as num?)?.toInt();
   if ((m['packageName'] ?? '').toString().isEmpty) return true;
@@ -197,6 +205,8 @@ bool _packageWarn(Map m) {
     'NoPackage' => ('Chưa có thẻ / gói', SboxTone.danger),
     'Expired' => ('Thẻ hết hạn', SboxTone.danger),
     'OutOfSessions' => ('Hết buổi', SboxTone.danger),
+    'Frozen' => ('Đang bảo lưu', SboxTone.warning),
+    'OutOfHours' => ('Ngoài khung giờ', SboxTone.danger),
     _ => inside ? ('Đang tập', SboxTone.success) : ('Đã về', SboxTone.neutral),
   };
 }
@@ -1272,7 +1282,16 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
     super.dispose();
   }
 
+  int _expiringCount = 0;
+
+  Future<void> _loadExpiring() async {
+    final res = await _api.getGymExpiring();
+    if (!mounted || res['isSuccess'] != true || res['data'] is! List) return;
+    setState(() => _expiringCount = (res['data'] as List).length);
+  }
+
   Future<void> _load() async {
+    unawaited(_loadExpiring());
     setState(() => _loading = true);
     final res = await _api.getGymMembers(search: _search);
     if (!mounted) return;
@@ -1517,6 +1536,22 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
               },
             ),
             const SizedBox(height: 8),
+            if (_expiringCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: OutlinedButton.icon(
+                  onPressed: () => _showExpiring(context),
+                  icon: const Icon(Icons.notifications_active_outlined, size: 18, color: SboxColors.warningText),
+                  label: Text(tr('Cần nhắc gia hạn: $_expiringCount hội viên'),
+                      style: const TextStyle(color: SboxColors.warningText, fontWeight: FontWeight.w700)),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: SboxColors.warningSoft,
+                    side: BorderSide.none,
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+              ),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(children: [
@@ -1607,8 +1642,13 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
                 _showMemberHistory(context, customerId: m['customerId'].toString(), name: m['customerName'].toString());
               }
               if (v == 'more') _add(customer: {'id': m['customerId'], 'name': m['customerName'], 'phone': m['phone']});
+              if (v == 'cards') {
+                _showBalances(context, customerId: m['customerId'].toString(), name: m['customerName'].toString())
+                    .then((_) => _load());
+              }
             },
             itemBuilder: (_) => [
+              PopupMenuItem(value: 'cards', child: Text(tr('Thẻ / gói · bảo lưu · khung giờ'))),
               PopupMenuItem(value: 'history', child: Text(tr('Lịch sử tập'))),
               PopupMenuItem(value: 'more', child: Text(tr('Đăng ký thêm máy khác'))),
             ],
@@ -2026,6 +2066,407 @@ class _ReportTabState extends State<_ReportTab> with AutomaticKeepAliveClientMix
           ),
         );
       }),
+    );
+  }
+}
+
+
+// ── Thẻ / gói: bảo lưu, khung giờ ────────────────────────────────────────────
+
+Future<void> _showBalances(BuildContext context, {required String customerId, required String name}) =>
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (ctx, scroll) => _BalancesSheet(customerId: customerId, name: name, scroll: scroll),
+      ),
+    );
+
+class _BalancesSheet extends StatefulWidget {
+  const _BalancesSheet({required this.customerId, required this.name, required this.scroll});
+  final String customerId;
+  final String name;
+  final ScrollController scroll;
+
+  @override
+  State<_BalancesSheet> createState() => _BalancesSheetState();
+}
+
+class _BalancesSheetState extends State<_BalancesSheet> {
+  final _api = ApiService();
+  List<Map> _items = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final res = await _api.getGymCustomerBalances(widget.customerId);
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      if (res['isSuccess'] == true && res['data'] is List) {
+        _items = (res['data'] as List).whereType<Map>().toList();
+        _error = null;
+      } else {
+        _error = res['message']?.toString() ?? tr('Không tải được thẻ / gói');
+      }
+    });
+  }
+
+  Future<void> _done(Map<String, dynamic> res, String okTitle) async {
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(title: okTitle, message: tr(widget.name));
+      await _load();
+    } else {
+      NotificationOverlayManager().showError(title: 'Không lưu được', message: res['message']?.toString() ?? '');
+    }
+  }
+
+  Future<void> _freeze(Map b) async {
+    final daysCtrl = TextEditingController(text: '30');
+    final noteCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Bảo lưu «${b['packageName']}»')),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: daysCtrl,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(labelText: tr('Số ngày bảo lưu'), border: const OutlineInputBorder()),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: noteCtrl,
+            decoration: InputDecoration(
+                labelText: tr('Lý do (ốm, công tác…)'), border: const OutlineInputBorder()),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            tr('Trong thời gian bảo lưu khách không check-in được. Hết bảo lưu (hoặc mở sớm) hạn thẻ được cộng '
+                'thêm số ngày đã bảo lưu.'),
+            style: const TextStyle(fontSize: 12, color: SboxColors.slate600),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Bảo lưu'))),
+        ],
+      ),
+    );
+    final days = int.tryParse(daysCtrl.text.trim()) ?? 0;
+    final note = noteCtrl.text.trim();
+    daysCtrl.dispose();
+    noteCtrl.dispose();
+    if (ok != true) return;
+    await _done(await _api.freezeGymBalance(b['id'].toString(), days, note: note), 'Đã bảo lưu thẻ');
+  }
+
+  Future<void> _unfreeze(Map b) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Mở bảo lưu «${b['packageName']}»?')),
+        content: Text(tr('Hạn thẻ được cộng số ngày đã bảo lưu thực tế (tính tròn ngày).')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Mở bảo lưu'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _done(await _api.unfreezeGymBalance(b['id'].toString()), 'Đã mở bảo lưu');
+  }
+
+  Future<void> _hours(Map b) async {
+    final ctrl = TextEditingController(text: (b['accessHours'] ?? '').toString());
+    final v = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Khung giờ tập')),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: tr('Giờ được vào'),
+              hintText: tr('vd 05:00-16:00'),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(tr('Thẻ sáng / giờ thấp điểm: quét ngoài khung giờ thì không vào được. Để trống = mọi giờ.'),
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate600)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: Text(tr('Lưu'))),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (v == null) return;
+    await _done(await _api.setGymBalanceHours(b['id'].toString(), v.isEmpty ? null : v), 'Đã lưu khung giờ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      controller: widget.scroll,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        Center(
+          child: Container(width: 40, height: 4,
+              decoration: BoxDecoration(color: SboxColors.slate300, borderRadius: BorderRadius.circular(2))),
+        ),
+        const SizedBox(height: 12),
+        Text(tr(widget.name), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        Text(tr('Thẻ / gói tập — bảo lưu, khung giờ'), style: const TextStyle(color: SboxColors.slate600)),
+        const SizedBox(height: 12),
+        if (_loading)
+          const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
+        else if (_error != null)
+          Text(tr(_error!), style: const TextStyle(color: SboxColors.danger))
+        else if (_items.isEmpty)
+          _emptyBox(icon: Icons.card_membership, title: 'Chưa có thẻ / gói',
+              text: 'Bán thẻ tập / gói buổi cho khách ở màn Bán hàng.')
+        else
+          for (final b in _items) _balanceCard(b),
+      ],
+    );
+  }
+
+  Widget _balanceCard(Map b) {
+    final status = '${b['status']}';
+    final (label, tone) = switch (status) {
+      'Frozen' => ('Đang bảo lưu', SboxTone.warning),
+      'Expired' => ('Hết hạn', SboxTone.danger),
+      'OutOfSessions' => ('Hết buổi', SboxTone.danger),
+      _ => ('Đang dùng', SboxTone.success),
+    };
+    final exp = _date(b['expiresAt']);
+    final frozenUntil = _date(b['frozenUntil']);
+    final hours = (b['accessHours'] ?? '').toString();
+    final usable = status == 'Active' || status == 'Frozen';
+    return _Card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(
+            child: Text(tr('${b['packageName']}'),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          ),
+          _Pill(label, tone),
+        ]),
+        const SizedBox(height: 4),
+        Text(
+          tr([
+            if (b['unlimited'] == true) 'Thẻ thời gian' else 'Còn ${b['remainingSessions']}/${b['totalSessions']} buổi',
+            exp == null ? 'không hạn' : 'HSD ${_dmy.format(exp)}',
+            if (frozenUntil != null) 'bảo lưu đến ${_dmy.format(frozenUntil)}',
+            hours.isEmpty ? 'mọi giờ' : 'giờ tập $hours',
+          ].join(' · ')),
+          style: const TextStyle(fontSize: 13, color: SboxColors.slate700),
+        ),
+        if (usable)
+          Wrap(spacing: 0, children: [
+            if (status == 'Frozen')
+              TextButton.icon(
+                onPressed: () => _unfreeze(b),
+                icon: const Icon(Icons.play_circle_outline, size: 18),
+                label: Text(tr('Mở bảo lưu')),
+              )
+            else if (exp != null)
+              TextButton.icon(
+                onPressed: () => _freeze(b),
+                icon: const Icon(Icons.pause_circle_outline, size: 18),
+                label: Text(tr('Bảo lưu')),
+              ),
+            TextButton.icon(
+              onPressed: () => _hours(b),
+              icon: const Icon(Icons.schedule, size: 18),
+              label: Text(tr('Khung giờ')),
+            ),
+          ]),
+      ]),
+    );
+  }
+}
+
+// ── Nhắc gia hạn ─────────────────────────────────────────────────────────────
+
+Future<void> _showExpiring(BuildContext context) => showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.8,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (ctx, scroll) => _ExpiringSheet(scroll: scroll),
+      ),
+    );
+
+class _ExpiringSheet extends StatefulWidget {
+  const _ExpiringSheet({required this.scroll});
+  final ScrollController scroll;
+
+  @override
+  State<_ExpiringSheet> createState() => _ExpiringSheetState();
+}
+
+class _ExpiringSheetState extends State<_ExpiringSheet> {
+  final _api = ApiService();
+  List<Map> _items = [];
+  bool _loading = true;
+  String? _error;
+  int _days = 7;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final res = await _api.getGymExpiring(days: _days);
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      if (res['isSuccess'] == true && res['data'] is List) {
+        _items = (res['data'] as List).whereType<Map>().toList();
+        _error = null;
+      } else {
+        _error = res['message']?.toString() ?? tr('Không tải được danh sách');
+      }
+    });
+  }
+
+  String _message(Map r) {
+    final exp = _date(r['expiresAt']);
+    final reason = '${r['reason']}';
+    final when = reason.startsWith('Đã')
+        ? (reason == 'Đã hết buổi' ? 'đã hết buổi' : 'đã hết hạn${exp == null ? '' : ' ngày ${_dmy.format(exp)}'}')
+        : reason.startsWith('Còn') && reason.endsWith('buổi')
+            ? 'chỉ còn ${r['remainingSessions']} buổi'
+            : 'sẽ hết hạn ngày ${exp == null ? '' : _dmy.format(exp)}';
+    return 'Chào ${r['customerName']}, thẻ «${r['packageName']}» của anh/chị $when. '
+        'Anh/chị ghé quầy hoặc nhắn lại để gia hạn và tiếp tục tập nhé. Cảm ơn anh/chị!';
+  }
+
+  String _digits(String? phone) => (phone ?? '').replaceAll(RegExp(r'\D'), '');
+
+  Future<void> _open(Uri uri) async {
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      NotificationOverlayManager().showError(title: 'Không mở được', message: uri.toString());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      controller: widget.scroll,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        Center(
+          child: Container(width: 40, height: 4,
+              decoration: BoxDecoration(color: SboxColors.slate300, borderRadius: BorderRadius.circular(2))),
+        ),
+        const SizedBox(height: 12),
+        Text(tr('Nhắc gia hạn'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        Text(tr('Thẻ sắp hết hạn / còn ≤ 2 buổi, hoặc đã hết trong 30 ngày mà chưa mua thẻ mới.'),
+            style: const TextStyle(color: SboxColors.slate600)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 6, children: [
+          for (final d in const [7, 14, 30])
+            ChoiceChip(
+              label: Text(tr('Hết trong $d ngày')),
+              selected: _days == d,
+              onSelected: (_) {
+                _days = d;
+                _load();
+              },
+              visualDensity: VisualDensity.compact,
+            ),
+        ]),
+        const SizedBox(height: 8),
+        if (_loading)
+          const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
+        else if (_error != null)
+          Text(tr(_error!), style: const TextStyle(color: SboxColors.danger))
+        else if (_items.isEmpty)
+          _emptyBox(icon: Icons.verified_outlined, title: 'Không có hội viên cần nhắc', text: 'Mọi thẻ còn hạn dài.')
+        else
+          for (final r in _items) _row(r),
+      ],
+    );
+  }
+
+  Widget _row(Map r) {
+    final phone = _digits(r['phone']?.toString());
+    final reason = '${r['reason']}';
+    final last = _date(r['lastVisitAt']);
+    return _Card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(
+            child: Text(tr('${r['customerName']}'),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          ),
+          _Pill(reason, reason.startsWith('Đã') ? SboxTone.danger : SboxTone.warning),
+        ]),
+        Text(
+          tr([
+            '${r['packageName']}',
+            if (_date(r['expiresAt']) case final e?) 'HSD ${_dmy.format(e)}',
+            if (phone.isNotEmpty) phone,
+            if (last != null) 'tập gần nhất ${_dmy.format(last)}',
+          ].join(' · ')),
+          style: const TextStyle(fontSize: 12.5, color: SboxColors.slate600),
+        ),
+        Wrap(children: [
+          if (phone.isNotEmpty)
+            TextButton.icon(
+              onPressed: () => _open(Uri(scheme: 'tel', path: phone)),
+              icon: const Icon(Icons.call_outlined, size: 18),
+              label: Text(tr('Gọi')),
+            ),
+          if (phone.isNotEmpty)
+            TextButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: _message(r)));
+                await _open(Uri.parse('https://zalo.me/$phone'));
+              },
+              icon: const Icon(Icons.chat_outlined, size: 18),
+              label: Text(tr('Zalo (đã chép tin)')),
+            ),
+          TextButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: _message(r)));
+              NotificationOverlayManager().showSuccess(title: 'Đã chép tin nhắn', message: tr(_message(r)));
+            },
+            icon: const Icon(Icons.copy, size: 18),
+            label: Text(tr('Chép tin nhắn')),
+          ),
+        ]),
+      ]),
     );
   }
 }

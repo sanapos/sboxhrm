@@ -486,6 +486,8 @@ class PosProduct {
   final double openingFee;
   final int? openingMinutes;
   final int sessionPackValidDays;
+  /// Gym: khung giờ được vào tập của thẻ / gói khi bán («06:00-16:00»). Null = mọi giờ.
+  final String? gymAccessHours;
   /// Gói giờ bán trước (phút) — > 0: đếm ngược, hết giờ báo + tính quá giờ.
   final int timePackageMinutes;
   /// Dịch vụ tính giờ dùng cho phần quá giờ.
@@ -590,6 +592,7 @@ class PosProduct {
     this.openingFee = 0,
     this.openingMinutes,
     this.sessionPackValidDays = 0,
+    this.gymAccessHours,
     this.timePackageMinutes = 0,
     this.overtimeProductId,
     this.timeAlertBeforeMinutes = 5,
@@ -809,6 +812,7 @@ class PosProduct {
           (json['sessionPackValidDays'] ?? json['SessionPackValidDays'] as num?)
                   ?.toInt() ??
               0,
+      gymAccessHours: (json['gymAccessHours'] ?? json['GymAccessHours'])?.toString(),
       timePackageMinutes:
           (json['timePackageMinutes'] ?? json['TimePackageMinutes'] as num?)?.toInt() ?? 0,
       overtimeProductId: (json['overtimeProductId'] ?? json['OvertimeProductId'])?.toString(),
@@ -929,6 +933,7 @@ class PosProduct {
       'openingFee': openingFee,
       if (openingMinutes != null) 'openingMinutes': openingMinutes,
       'sessionPackValidDays': sessionPackValidDays,
+      if (gymAccessHours != null) 'gymAccessHours': gymAccessHours,
       'timePackageMinutes': timePackageMinutes,
       if (overtimeProductId != null) 'overtimeProductId': overtimeProductId,
       'timeAlertBeforeMinutes': timeAlertBeforeMinutes,
@@ -1065,6 +1070,7 @@ class PosProduct {
       openingFee: this.openingFee,
       openingMinutes: this.openingMinutes,
       sessionPackValidDays: this.sessionPackValidDays,
+      gymAccessHours: this.gymAccessHours,
       timePackageMinutes: this.timePackageMinutes,
       overtimeProductId: this.overtimeProductId,
       timeAlertBeforeMinutes: this.timeAlertBeforeMinutes,

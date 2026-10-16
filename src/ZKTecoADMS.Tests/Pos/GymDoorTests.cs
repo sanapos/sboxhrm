@@ -291,4 +291,113 @@ public class GymDoorTests(PosPgFixture fx) : PosFlowTestBase(fx)
             Assert.False(forced.Denied);                    // lễ tân cho vào → đang tập
         }
     }
+
+    static ZKTecoADMS.Api.Controllers.PosGymController Gym(ZKTecoDbContext db, Guid store) =>
+        PosPgFixture.As(new ZKTecoADMS.Api.Controllers.PosGymController(db, null!, Service(db, new FakeNotifier())), store);
+
+    [Fact]
+    public async Task Bao_luu_khong_check_in_duoc_mo_bao_luu_cong_ngay_vao_han()
+    {
+        if (NoDb) return;
+        var (store, device) = await SeedDeviceAsync(serverDoor: false);
+        var expires = DateTime.UtcNow.AddDays(20);
+        var c = await AddMemberAsync(store, device.Id, "Ngô Bảo", "0933111000", 10, expires);
+        Guid balanceId;
+        await using (var db = Fx.NewDb())
+        {
+            balanceId = (await db.PosCustomerSessionBalances.FirstAsync(b => b.CustomerId == c)).Id;
+            var r = Data(await Gym(db, store).Freeze(balanceId, new(10, "Đi công tác")));
+            Assert.Equal("Frozen", r.Status);
+        }
+        await using (var db = Fx.NewDb())
+        {
+            // Check-in tại quầy báo bảo lưu (chưa ghi lượt).
+            var res = await Gym(db, store).CheckIn(new(c));
+            Assert.Contains("bảo lưu", Error(res));
+            var v = await Service(db, new FakeNotifier()).RecordPunchAsync(store, c, DateTime.UtcNow, device.Id, "933111000", "Device", "t");
+            Assert.Equal("Frozen", v!.Status);
+            Assert.Contains("bảo lưu", v.Note);
+            Assert.False(v.SessionDeducted);
+        }
+        await using (var db = Fx.NewDb())
+        {
+            // Đã bảo lưu được 3 ngày → mở sớm: hạn cộng 3 ngày.
+            var b = await db.PosCustomerSessionBalances.AsTracking().FirstAsync(x => x.Id == balanceId);
+            b.FrozenAt = b.FrozenAt!.Value.AddDays(-3).AddHours(1);
+            await db.SaveChangesAsync();
+            var r = Data(await Gym(db, store).Unfreeze(balanceId));
+            Assert.Equal("Active", r.Status);
+            Assert.Equal(expires.AddDays(3), r.ExpiresAt!.Value, TimeSpan.FromSeconds(1));
+        }
+    }
+
+    [Fact]
+    public async Task Het_ngay_bao_luu_tu_mo_va_cong_du_ngay()
+    {
+        if (NoDb) return;
+        var (store, device) = await SeedDeviceAsync(serverDoor: false);
+        var expires = DateTime.UtcNow.AddDays(5);
+        var c = await AddMemberAsync(store, device.Id, "Mai Chi", "0933222000", 10, expires);
+        await using (var db = Fx.NewDb())
+        {
+            var b = await db.PosCustomerSessionBalances.AsTracking().FirstAsync(x => x.CustomerId == c);
+            b.FrozenAt = DateTime.UtcNow.AddDays(-7);
+            b.FrozenUntil = DateTime.UtcNow.AddHours(-1); // bảo lưu ~7 ngày, đã hết
+            await db.SaveChangesAsync();
+        }
+        await using (var db = Fx.NewDb())
+        {
+            var v = await Service(db, new FakeNotifier()).RecordPunchAsync(store, c, DateTime.UtcNow, device.Id, "933222000", "Device", "t");
+            Assert.Equal("Ok", v!.Status);
+        }
+        await using (var db = Fx.NewDb())
+        {
+            var b = await db.PosCustomerSessionBalances.FirstAsync(x => x.CustomerId == c);
+            Assert.Null(b.FrozenAt);
+            Assert.Equal(expires.AddDays(7), b.ExpiresAt!.Value, TimeSpan.FromSeconds(1));
+        }
+    }
+
+    [Fact]
+    public async Task The_sang_ngoai_khung_gio_khong_vao_duoc()
+    {
+        if (NoDb) return;
+        var (store, device) = await SeedDeviceAsync(serverDoor: true);
+        var c = await AddMemberAsync(store, device.Id, "Lâm Sáng", "0933333000", 10, null);
+        await using (var db = Fx.NewDb())
+        {
+            var b = await db.PosCustomerSessionBalances.FirstAsync(x => x.CustomerId == c);
+            Assert.Equal("05:00-16:00", Data(await Gym(db, store).SetAccessHours(b.Id, new(" 5h-16h "))).AccessHours);
+            Assert.NotNull(Error(await Gym(db, store).SetAccessHours(b.Id, new("25:00-26:00"))));
+        }
+        var morning = new DateTime(2026, 10, 9, 1, 0, 0, DateTimeKind.Utc);  // 08:00 VN
+        var evening = new DateTime(2026, 10, 10, 12, 0, 0, DateTimeKind.Utc); // 19:00 VN hôm sau
+        await using (var db = Fx.NewDb())
+        {
+            var svc = Service(db, new FakeNotifier());
+            Assert.Equal("Ok", (await svc.RecordPunchAsync(store, c, morning, device.Id, "933333000", "Device", "t"))!.Status);
+            var late = await svc.RecordPunchAsync(store, c, evening, device.Id, "933333000", "Device", "t");
+            Assert.Equal("OutOfHours", late!.Status);
+            Assert.Contains("05:00-16:00", late.Note);
+        }
+        Assert.True(GymVisitRules.IsWithinHours("22:00-02:00", new DateTime(2026, 1, 1, 17, 30, 0))); // 00:30 VN
+        Assert.False(GymVisitRules.IsWithinHours("22:00-02:00", new DateTime(2026, 1, 1, 5, 0, 0)));  // 12:00 VN
+    }
+
+    [Fact]
+    public async Task Danh_sach_nhac_gia_han()
+    {
+        if (NoDb) return;
+        var (store, device) = await SeedDeviceAsync(serverDoor: false);
+        var soon = await AddMemberAsync(store, device.Id, "Sắp Hết", "0933444001", 10, DateTime.UtcNow.AddDays(3));
+        var gone = await AddMemberAsync(store, device.Id, "Đã Hết", "0933444002", 4, DateTime.UtcNow.AddDays(-2));
+        var fine = await AddMemberAsync(store, device.Id, "Còn Lâu", "0933444003", 10, DateTime.UtcNow.AddDays(60));
+        var low = await AddMemberAsync(store, device.Id, "Còn Ít", "0933444004", 1, DateTime.UtcNow.AddDays(60));
+        await using var db = Fx.NewDb();
+        var list = Data(await Gym(db, store).Expiring(7));
+        Assert.Contains(list, r => r.CustomerId == soon && r.Reason == "Còn 3 ngày");
+        Assert.Contains(list, r => r.CustomerId == gone && r.Reason == "Đã hết hạn");
+        Assert.Contains(list, r => r.CustomerId == low && r.Reason == "Còn 1 buổi");
+        Assert.DoesNotContain(list, r => r.CustomerId == fine);
+    }
 }

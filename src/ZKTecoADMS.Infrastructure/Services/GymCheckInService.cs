@@ -21,7 +21,7 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
     public const string DoorModeServer = "server";
 
     /// <summary>Thông báo trên màn hình máy (không dấu — nhiều máy không hiện tiếng Việt có dấu).</summary>
-    public const string ExpiredMessage = "THE TAP HET HAN / HET BUOI - MOI GAP LE TAN";
+    public const string ExpiredMessage = "THE TAP HET HAN / HET BUOI / BAO LUU - MOI GAP LE TAN";
 
     readonly IGymRealtimeNotifier? _realtime = sp.GetService<IGymRealtimeNotifier>();
 
@@ -159,8 +159,15 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
             var balances = await db.PosCustomerSessionBalances.IgnoreQueryFilters().AsTracking()
                 .Where(b => b.StoreId == storeId && b.CustomerId == customerId && b.Deleted == null)
                 .ToListAsync();
-            var usable = balances
+            // Bảo lưu đã quá ngày hết → tự mở, cộng ngày vào hạn trước khi xét.
+            foreach (var ended in balances.Where(b => b.FrozenAt != null && b.FrozenUntil != null && b.FrozenUntil <= utc))
+                EndFreezeWithLog(ended, ended.FrozenUntil!.Value, actor, auto: true);
+            // Còn buổi, còn hạn — chưa xét bảo lưu / khung giờ.
+            var live = balances
                 .Where(b => b.RemainingSessions > 0 && (b.ExpiresAt == null || b.ExpiresAt > utc) && b.CreatedAt <= utc.AddMinutes(5))
+                .ToList();
+            var usable = live
+                .Where(b => !GymVisitRules.IsFrozen(b, utc) && GymVisitRules.IsWithinHours(b.AccessHours, utc))
                 .OrderByDescending(b => PosCustomerSessionBalance.IsUnlimitedCount(b.TotalSessions))
                 .ThenBy(b => b.ExpiresAt ?? DateTime.MaxValue)
                 .ThenBy(b => b.CreatedAt)
@@ -168,12 +175,19 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
             if (usable == null)
             {
                 visit.Status = balances.Count == 0 ? "NoPackage"
-                    : balances.Any(b => b.RemainingSessions > 0) ? "Expired"
-                    : "OutOfSessions";
+                    : live.Count == 0 ? (balances.Any(b => b.RemainingSessions > 0) ? "Expired" : "OutOfSessions")
+                    : live.All(b => GymVisitRules.IsFrozen(b, utc)) ? "Frozen"
+                    : "OutOfHours";
+                var frozenUntil = live.Where(b => GymVisitRules.IsFrozen(b, utc)).Max(b => b.FrozenUntil);
+                var hours = string.Join(", ", live.Select(b => b.AccessHours).Where(h => !string.IsNullOrEmpty(h)).Distinct());
                 visit.Note = visit.Status switch
                 {
                     "Expired" => "Thẻ / gói đã hết hạn",
                     "OutOfSessions" => "Gói đã hết buổi",
+                    "Frozen" => frozenUntil is DateTime fu
+                        ? $"Thẻ đang bảo lưu đến {fu.AddHours(7):dd/MM/yyyy}"
+                        : "Thẻ đang bảo lưu",
+                    "OutOfHours" => $"Ngoài khung giờ tập ({hours})",
                     _ => "Khách chưa có thẻ / gói tập",
                 };
             }
@@ -216,6 +230,41 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
         return visit;
     }
 
+    public async Task<int> FinalizeEndedFreezesAsync(Guid? storeId)
+    {
+        var now = DateTime.UtcNow;
+        var q = db.PosCustomerSessionBalances.IgnoreQueryFilters().AsTracking()
+            .Where(b => b.Deleted == null && b.FrozenAt != null && b.FrozenUntil != null && b.FrozenUntil <= now);
+        if (storeId.HasValue) q = q.Where(b => b.StoreId == storeId.Value);
+        var ended = await q.Take(500).ToListAsync();
+        foreach (var b in ended) EndFreezeWithLog(b, b.FrozenUntil!.Value, "system", auto: true);
+        if (ended.Count > 0) await db.SaveChangesAsync();
+        return ended.Count;
+    }
+
+    /// <summary>Mở bảo lưu + ghi sổ (cộng ngày vào hạn). Chưa SaveChanges.</summary>
+    public int EndFreezeWithLog(PosCustomerSessionBalance b, DateTime endUtc, string? actor, bool auto)
+    {
+        var days = GymVisitRules.EndFreeze(b, endUtc);
+        b.UpdatedAt = DateTime.UtcNow;
+        b.UpdatedBy = actor;
+        db.PosCustomerSessionTransactions.Add(new PosCustomerSessionTransaction
+        {
+            Id = Guid.NewGuid(),
+            StoreId = b.StoreId,
+            BalanceId = b.Id,
+            CustomerId = b.CustomerId,
+            TransactionType = PosSessionTxnType.Adjust,
+            SessionDelta = 0,
+            RemainingAfter = b.RemainingSessions,
+            Note = $"{(auto ? "Hết bảo lưu" : "Mở bảo lưu")} — cộng {days} ngày"
+                + (b.ExpiresAt is DateTime e ? $", hạn mới {e.AddHours(7):dd/MM/yyyy}" : ""),
+            IsActive = true,
+            CreatedBy = actor,
+        });
+        return days;
+    }
+
     public async Task<int> SyncDeviceAccessAsync(Guid storeId, Guid? customerId = null)
     {
         var changed = await SyncDeviceAccessCoreAsync(storeId, customerId, onlyDeviceId: null);
@@ -246,7 +295,9 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
         var now = DateTime.UtcNow;
         var valid = (await db.PosCustomerSessionBalances.IgnoreQueryFilters().AsNoTracking()
                 .Where(b => b.StoreId == storeId && ids.Contains(b.CustomerId) && b.Deleted == null
-                    && b.RemainingSessions > 0 && (b.ExpiresAt == null || b.ExpiresAt > now))
+                    && b.RemainingSessions > 0 && (b.ExpiresAt == null || b.ExpiresAt > now)
+                    // Đang bảo lưu = không hợp lệ (khung giờ không xét ở đây — thông báo trên máy là cố định).
+                    && !(b.FrozenAt != null && b.FrozenAt <= now && (b.FrozenUntil == null || b.FrozenUntil > now)))
                 .Select(b => b.CustomerId).Distinct().ToListAsync())
             .ToHashSet();
         // Vào lại trong ngày sau khi dùng buổi cuối vẫn hợp lệ (không trừ thêm) → không báo hết hạn hôm nay.

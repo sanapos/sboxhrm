@@ -2269,6 +2269,8 @@ public partial class PosSellIndustryController(
             TotalSessions = grant,
             RemainingSessions = grant,
             ExpiresAt = expiresAt ?? (validDays > 0 ? DateTime.UtcNow.AddDays(validDays) : null),
+            // Thẻ sáng / giờ thấp điểm: khung giờ theo hàng lúc bán.
+            AccessHours = product.GymAccessHours,
             IsActive = true,
             CreatedBy = actorEmail,
         };

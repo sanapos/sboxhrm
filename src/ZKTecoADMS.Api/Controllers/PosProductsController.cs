@@ -112,7 +112,8 @@ public partial class PosProductsController(
         string? ScalePlu = null,
         int? PackShelfLifeDays = null,
         decimal? LoyaltyPercent = null,
-        string? AreaQuickSizes = null);
+        string? AreaQuickSizes = null,
+        string? GymAccessHours = null);
 
     public record PosProductComboLineDto(
         Guid Id,
@@ -226,7 +227,8 @@ public partial class PosProductsController(
         // (tránh ghi đè số tồn cũ lên lượt bán xảy ra trong lúc đang sửa hàng).
         decimal? OriginalOnHandQty = null,
         decimal? LoyaltyPercent = null,
-        string? AreaQuickSizes = null);
+        string? AreaQuickSizes = null,
+        string? GymAccessHours = null);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -396,6 +398,7 @@ public partial class PosProductsController(
                 p.AllowAreaWidth,
                 p.AllowAreaHeight,
                 p.AreaQuickSizes,
+                p.GymAccessHours,
                 p.ServiceBillingMode,
                 p.MinBillMinutes,
                 p.BillRoundMinutes,
@@ -502,7 +505,8 @@ public partial class PosProductsController(
                 ScalePlu: r.ScalePlu,
                 PackShelfLifeDays: r.PackShelfLifeDays,
                 LoyaltyPercent: r.LoyaltyPercent,
-                AreaQuickSizes: r.AreaQuickSizes);
+                AreaQuickSizes: r.AreaQuickSizes,
+                GymAccessHours: r.GymAccessHours);
         }).ToList();
 
         if (stockoutFilter != PosStockoutFilter.All)
@@ -1046,6 +1050,7 @@ public partial class PosProductsController(
             AllowAreaWidth = source.AllowAreaWidth,
             AllowAreaHeight = source.AllowAreaHeight,
             AreaQuickSizes = source.AreaQuickSizes,
+            GymAccessHours = source.GymAccessHours,
             TrackExpiry = source.TrackExpiry,
             ExpiryWarningDays = source.ExpiryWarningDays,
             IsTopping = source.IsTopping,
@@ -1336,7 +1341,8 @@ public partial class PosProductsController(
             ScalePlu: p.ScalePlu,
             PackShelfLifeDays: p.PackShelfLifeDays,
             LoyaltyPercent: p.LoyaltyPercent,
-            AreaQuickSizes: p.AreaQuickSizes);
+            AreaQuickSizes: p.AreaQuickSizes,
+            GymAccessHours: p.GymAccessHours);
     }
 
     private async Task<DateTime> ResolveStoreBusinessDateAsync(Guid storeId)
@@ -1631,6 +1637,15 @@ public partial class PosProductsController(
         entity.AllowAreaWidth = width;
         entity.AllowAreaHeight = height;
         entity.AreaQuickSizes = NormalizeAreaQuickSizes(dto.AreaQuickSizes);
+        // Khung giờ tập chỉ có nghĩa với gói buổi / thẻ tập; sai định dạng → bỏ (form đã kiểm tra).
+        try
+        {
+            entity.GymAccessHours = dto.SessionPackCount > 0 ? GymVisitRules.NormalizeAccessHours(dto.GymAccessHours) : null;
+        }
+        catch (FormatException)
+        {
+            entity.GymAccessHours = null;
+        }
 
         // Hàng gia công: chỉ hàng hóa / nguyên vật liệu; giá m² cần bật gia công.
         entity.IsMadeToOrder = dto.IsMadeToOrder &&

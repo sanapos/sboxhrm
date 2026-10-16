@@ -24,6 +24,12 @@ public interface IGymCheckInService
     /// Trả về số hội viên đã đổi trạng thái.
     /// </summary>
     Task<int> SyncDeviceAccessAsync(Guid storeId, Guid? customerId = null);
+
+    /// <summary>Thẻ đã quá ngày hết bảo lưu → tự mở bảo lưu, cộng số ngày vào hạn. <paramref name="storeId"/> null = mọi cửa hàng.</summary>
+    Task<int> FinalizeEndedFreezesAsync(Guid? storeId);
+
+    /// <summary>Mở bảo lưu lúc <paramref name="endUtc"/> + ghi sổ buổi. Chưa SaveChanges. Trả về số ngày đã cộng vào hạn.</summary>
+    int EndFreezeWithLog(PosCustomerSessionBalance balance, DateTime endUtc, string? actor, bool auto);
 }
 
 /// <summary>Báo màn quầy ngay khi hội viên quét (SignalR) — cài ở tầng Api.</summary>
@@ -58,6 +64,66 @@ public static class GymVisitRules
     /// </summary>
     public static bool IsDenied(string? status, DateTime checkInAt, DateTime? checkOutAt) =>
         status != "Ok" && checkOutAt == checkInAt;
+
+    /// <summary>Thẻ đang bảo lưu tại thời điểm <paramref name="utc"/>.</summary>
+    public static bool IsFrozen(PosCustomerSessionBalance b, DateTime utc) =>
+        b.FrozenAt is DateTime f && f <= utc && (b.FrozenUntil == null || b.FrozenUntil > utc);
+
+    /// <summary>
+    /// Kết thúc bảo lưu lúc <paramref name="endUtc"/>: cộng thời gian đã bảo lưu (làm tròn lên theo ngày, tối đa số ngày
+    /// đã đăng ký) vào hạn thẻ. Trả về số ngày đã cộng.
+    /// </summary>
+    public static int EndFreeze(PosCustomerSessionBalance b, DateTime endUtc)
+    {
+        if (b.FrozenAt is not DateTime from) return 0;
+        var planned = b.FrozenUntil is DateTime until ? until : endUtc;
+        var end = endUtc < planned ? endUtc : planned;
+        var days = end <= from ? 0 : (int)Math.Ceiling((end - from).TotalDays - 1e-9);
+        var plannedDays = planned <= from ? 0 : (int)Math.Ceiling((planned - from).TotalDays - 1e-9);
+        days = Math.Min(days, plannedDays);
+        if (b.ExpiresAt is DateTime exp && days > 0) b.ExpiresAt = exp.AddDays(days);
+        b.FrozenAt = null;
+        b.FrozenUntil = null;
+        return days;
+    }
+
+    /// <summary>
+    /// Khung giờ «H:mm-H:mm» → chuẩn «HH:mm-HH:mm»; trống → null. Không hợp lệ → ném <see cref="FormatException"/>.
+    /// Cho phép qua nửa đêm (vd «22:00-02:00»).
+    /// </summary>
+    public static string? NormalizeAccessHours(string? raw)
+    {
+        var s = (raw ?? "").Replace(" ", "").Replace("–", "-").Replace("h", ":", StringComparison.OrdinalIgnoreCase);
+        if (s.Length == 0) return null;
+        var parts = s.Split('-');
+        if (parts.Length != 2 || !TryMinute(parts[0], out var a) || !TryMinute(parts[1], out var b) || a == b)
+            throw new FormatException("Khung giờ không hợp lệ — nhập dạng 06:00-16:00");
+        return $"{a / 60:00}:{a % 60:00}-{b / 60:00}:{b % 60:00}";
+    }
+
+    static bool TryMinute(string t, out int minute)
+    {
+        minute = 0;
+        if (t.EndsWith(':')) t += "00";
+        var hm = t.Split(':');
+        if (hm.Length is < 1 or > 2 || !int.TryParse(hm[0], out var h)) return false;
+        var m = 0;
+        if (hm.Length == 2 && !int.TryParse(hm[1], out m)) return false;
+        if (h is < 0 or > 24 || m is < 0 or > 59 || (h == 24 && m > 0)) return false;
+        minute = h * 60 + m;
+        return true;
+    }
+
+    /// <summary>Giờ Việt Nam của <paramref name="utc"/> nằm trong khung giờ (null / sai định dạng = mọi giờ).</summary>
+    public static bool IsWithinHours(string? hours, DateTime utc)
+    {
+        if (string.IsNullOrWhiteSpace(hours)) return true;
+        var parts = hours.Split('-');
+        if (parts.Length != 2 || !TryMinute(parts[0], out var from) || !TryMinute(parts[1], out var to)) return true;
+        var vn = utc.AddHours(7);
+        var now = vn.Hour * 60 + vn.Minute;
+        return from < to ? now >= from && now < to : now >= from || now < to;
+    }
 
     /// <summary>Chỉ mở cửa / báo quầy cho lần quét vừa xảy ra — không bao giờ cho log cũ máy gửi bù.</summary>
     public static readonly TimeSpan RealtimeWindow = TimeSpan.FromMinutes(2);

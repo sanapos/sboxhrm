@@ -58,6 +58,13 @@ public class GymAccessSyncBackgroundService(IServiceProvider sp, ILogger<GymAcce
         using var scope = sp.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ZKTecoDbContext>();
         var gym = scope.ServiceProvider.GetRequiredService<IGymCheckInService>();
+        // Bảo lưu đã hết hạn → tự mở, cộng ngày (mọi cửa hàng) trước khi đồng bộ máy cửa.
+        try
+        {
+            var n = await gym.FinalizeEndedFreezesAsync(null);
+            if (n > 0) logger.LogInformation("Gym: auto-ended {Count} membership freeze(s)", n);
+        }
+        catch (Exception ex) { logger.LogWarning(ex, "Gym freeze finalize failed"); }
         var doorDevices = db.DeviceSettings.IgnoreQueryFilters()
             .Where(s => s.SettingKey == GymCheckInService.DoorModeKey && s.SettingValue == GymCheckInService.DoorModeServer)
             .Select(s => s.DeviceId);

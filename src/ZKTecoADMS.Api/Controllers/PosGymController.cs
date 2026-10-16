@@ -31,7 +31,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
         Guid DeviceId, string DeviceName, bool DeviceOnline, string Pin, string? CardNumber,
         Guid? DeviceUserId, int FingerprintCount, int FaceCount,
         string? PackageName, bool Unlimited, int? RemainingSessions, DateTime? ExpiresAt,
-        DateTime? LastVisitAt, DateTime CreatedAt);
+        DateTime? LastVisitAt, DateTime CreatedAt, DateTime? FrozenUntil = null, string? AccessHours = null);
 
     public record AddMemberDto(Guid CustomerId, List<Guid> DeviceIds, string? CardNumber = null);
 
@@ -51,6 +51,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
     public async Task<ActionResult<AppResponse<List<MemberDto>>>> Members([FromQuery] string? search = null)
     {
         var storeId = RequiredStoreId;
+        await gym.FinalizeEndedFreezesAsync(storeId);
         var q = db.PosGymMemberDevices.AsNoTracking()
             .Where(m => m.StoreId == storeId && m.Deleted == null);
         if (!string.IsNullOrWhiteSpace(search))
@@ -105,7 +106,8 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
                 r.DeviceUserId is Guid b && face.TryGetValue(b, out var fcc) ? fcc : 0,
                 p?.PackageName, p != null && PosCustomerSessionBalance.IsUnlimitedCount(p.TotalSessions),
                 p?.RemainingSessions, p?.ExpiresAt,
-                lastVisits.TryGetValue(r.CustomerId, out var lv) ? lv : null, r.CreatedAt);
+                lastVisits.TryGetValue(r.CustomerId, out var lv) ? lv : null, r.CreatedAt,
+                p != null && GymVisitRules.IsFrozen(p, now) ? p.FrozenUntil : null, p?.AccessHours);
         }).ToList();
         return Ok(AppResponse<List<MemberDto>>.Success(list));
     }
@@ -229,6 +231,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
         [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null, [FromQuery] Guid? customerId = null)
     {
         var storeId = RequiredStoreId;
+        await gym.FinalizeEndedFreezesAsync(storeId);
         var (fromUtc, toUtc) = RangeUtc(from, to);
         var q = db.PosGymVisits.AsNoTracking()
             .Where(v => v.StoreId == storeId && v.CheckInAt >= fromUtc && v.CheckInAt < toUtc);
@@ -274,16 +277,19 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
             var usedToday = await db.PosGymVisits.AsNoTracking()
                 .AnyAsync(v => v.StoreId == storeId && v.CustomerId == dto.CustomerId && v.Deleted == null
                     && v.SessionDeducted && v.CheckInAt >= dayFrom);
+            await gym.FinalizeEndedFreezesAsync(storeId);
             var balances = await db.PosCustomerSessionBalances.AsNoTracking()
                 .Where(b => b.StoreId == storeId && b.CustomerId == dto.CustomerId && b.Deleted == null)
-                .Select(b => new { b.RemainingSessions, b.ExpiresAt })
                 .ToListAsync();
-            var valid = balances.Any(b => b.RemainingSessions > 0 && (b.ExpiresAt == null || b.ExpiresAt > now));
+            var live = balances.Where(b => b.RemainingSessions > 0 && (b.ExpiresAt == null || b.ExpiresAt > now)).ToList();
+            var valid = live.Any(b => !GymVisitRules.IsFrozen(b, now) && GymVisitRules.IsWithinHours(b.AccessHours, now));
             if (!usedToday && !valid)
             {
                 var reason = balances.Count == 0 ? "Khách chưa có thẻ / gói tập"
-                    : balances.Any(b => b.RemainingSessions > 0) ? "Thẻ / gói đã hết hạn"
-                    : "Gói đã hết buổi";
+                    : live.Count == 0 ? (balances.Any(b => b.RemainingSessions > 0) ? "Thẻ / gói đã hết hạn" : "Gói đã hết buổi")
+                    : live.All(b => GymVisitRules.IsFrozen(b, now))
+                        ? $"Thẻ đang bảo lưu đến {ReportHelpers.ToVn(live.Max(b => b.FrozenUntil) ?? now):dd/MM/yyyy}"
+                        : $"Ngoài khung giờ tập ({string.Join(", ", live.Select(b => b.AccessHours).Where(h => h != null).Distinct())})";
                 return Conflict(AppResponse<VisitDto>.Fail(reason));
             }
         }
@@ -409,6 +415,188 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
             expiring = rows.Count(x => x.expiringSoon),
             items = rows,
         }));
+    }
+
+    // ── Thẻ / gói của hội viên: bảo lưu, khung giờ ─────────────────────────
+
+    public record BalanceDto(
+        Guid Id, string PackageName, bool Unlimited, int TotalSessions, int RemainingSessions,
+        DateTime? ExpiresAt, DateTime? FrozenAt, DateTime? FrozenUntil, string? AccessHours,
+        string Status, DateTime CreatedAt);
+
+    public record FreezeDto(int Days, string? Note = null);
+    public record AccessHoursDto(string? Hours);
+
+    static string BalanceStatus(PosCustomerSessionBalance b, DateTime now) =>
+        GymVisitRules.IsFrozen(b, now) ? "Frozen"
+        : b.ExpiresAt is DateTime e && e <= now ? "Expired"
+        : b.RemainingSessions <= 0 ? "OutOfSessions"
+        : "Active";
+
+    static BalanceDto ToDto(PosCustomerSessionBalance b, DateTime now) => new(
+        b.Id, b.PackageName, PosCustomerSessionBalance.IsUnlimitedCount(b.TotalSessions), b.TotalSessions,
+        b.RemainingSessions, b.ExpiresAt, b.FrozenAt, b.FrozenUntil, b.AccessHours, BalanceStatus(b, now), b.CreatedAt);
+
+    /// <summary>Mọi thẻ / gói của khách (còn hiệu lực trước, rồi mới nhất).</summary>
+    [HttpGet("customers/{customerId:guid}/balances")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<List<BalanceDto>>>> CustomerBalances(Guid customerId)
+    {
+        var storeId = RequiredStoreId;
+        await gym.FinalizeEndedFreezesAsync(storeId);
+        var now = DateTime.UtcNow;
+        var list = await db.PosCustomerSessionBalances.AsNoTracking()
+            .Where(b => b.StoreId == storeId && b.CustomerId == customerId && b.Deleted == null)
+            .ToListAsync();
+        return Ok(AppResponse<List<BalanceDto>>.Success(list
+            .Select(b => ToDto(b, now))
+            .OrderBy(b => b.Status is "Active" or "Frozen" ? 0 : 1)
+            .ThenByDescending(b => b.ExpiresAt ?? b.CreatedAt)
+            .ToList()));
+    }
+
+    async Task<PosCustomerSessionBalance?> TrackedBalanceAsync(Guid storeId, Guid id) =>
+        await db.PosCustomerSessionBalances.AsTracking()
+            .FirstOrDefaultAsync(b => b.Id == id && b.StoreId == storeId && b.Deleted == null);
+
+    void Log(PosCustomerSessionBalance b, string note) =>
+        db.PosCustomerSessionTransactions.Add(new PosCustomerSessionTransaction
+        {
+            Id = Guid.NewGuid(), StoreId = b.StoreId, BalanceId = b.Id, CustomerId = b.CustomerId,
+            TransactionType = PosSessionTxnType.Adjust, SessionDelta = 0, RemainingAfter = b.RemainingSessions,
+            Note = note.Length > 500 ? note[..500] : note, IsActive = true, CreatedBy = CurrentUserEmail,
+        });
+
+    /// <summary>
+    /// Bảo lưu thẻ N ngày (khách ốm, đi công tác…): không check-in được; hết bảo lưu (tự động hoặc mở sớm)
+    /// thì hạn thẻ cộng thêm số ngày đã bảo lưu.
+    /// </summary>
+    [HttpPost("balances/{id:guid}/freeze")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<BalanceDto>>> Freeze(Guid id, [FromBody] FreezeDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var b = await TrackedBalanceAsync(storeId, id);
+        if (b == null) return NotFound(AppResponse<BalanceDto>.Fail("Không tìm thấy thẻ / gói"));
+        var now = DateTime.UtcNow;
+        if (dto.Days is < 1 or > 365)
+            return BadRequest(AppResponse<BalanceDto>.Fail("Số ngày bảo lưu từ 1 đến 365"));
+        if (b.FrozenAt != null)
+            return BadRequest(AppResponse<BalanceDto>.Fail("Thẻ đang bảo lưu — mở bảo lưu trước"));
+        if (b.ExpiresAt is not DateTime exp)
+            return BadRequest(AppResponse<BalanceDto>.Fail("Gói không có hạn dùng — không cần bảo lưu"));
+        if (exp <= now)
+            return BadRequest(AppResponse<BalanceDto>.Fail("Thẻ / gói đã hết hạn"));
+        if (b.RemainingSessions <= 0)
+            return BadRequest(AppResponse<BalanceDto>.Fail("Gói đã hết buổi"));
+        b.FrozenAt = now;
+        b.FrozenUntil = now.AddDays(dto.Days);
+        b.UpdatedAt = now;
+        b.UpdatedBy = CurrentUserEmail;
+        Log(b, $"Bảo lưu {dto.Days} ngày (đến {ReportHelpers.ToVn(b.FrozenUntil.Value):dd/MM/yyyy})"
+            + (string.IsNullOrWhiteSpace(dto.Note) ? "" : $" — {dto.Note.Trim()}"));
+        await db.SaveChangesAsync();
+        await gym.SyncDeviceAccessAsync(storeId, b.CustomerId);
+        return Ok(AppResponse<BalanceDto>.Success(ToDto(b, now)));
+    }
+
+    /// <summary>Mở bảo lưu sớm: hạn thẻ cộng số ngày đã bảo lưu thực tế (làm tròn lên).</summary>
+    [HttpPost("balances/{id:guid}/unfreeze")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<BalanceDto>>> Unfreeze(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        var b = await TrackedBalanceAsync(storeId, id);
+        if (b == null) return NotFound(AppResponse<BalanceDto>.Fail("Không tìm thấy thẻ / gói"));
+        if (b.FrozenAt == null) return BadRequest(AppResponse<BalanceDto>.Fail("Thẻ không bảo lưu"));
+        var now = DateTime.UtcNow;
+        gym.EndFreezeWithLog(b, now, CurrentUserEmail, auto: false);
+        await db.SaveChangesAsync();
+        await gym.SyncDeviceAccessAsync(storeId, b.CustomerId);
+        return Ok(AppResponse<BalanceDto>.Success(ToDto(b, now)));
+    }
+
+    /// <summary>Khung giờ được vào tập của thẻ («06:00-16:00»; trống = mọi giờ).</summary>
+    [HttpPut("balances/{id:guid}/access-hours")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<BalanceDto>>> SetAccessHours(Guid id, [FromBody] AccessHoursDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var b = await TrackedBalanceAsync(storeId, id);
+        if (b == null) return NotFound(AppResponse<BalanceDto>.Fail("Không tìm thấy thẻ / gói"));
+        string? hours;
+        try { hours = GymVisitRules.NormalizeAccessHours(dto.Hours); }
+        catch (FormatException ex) { return BadRequest(AppResponse<BalanceDto>.Fail(ex.Message)); }
+        if (hours == b.AccessHours) return Ok(AppResponse<BalanceDto>.Success(ToDto(b, DateTime.UtcNow)));
+        Log(b, hours == null ? "Bỏ giới hạn khung giờ tập" : $"Khung giờ tập {hours}");
+        b.AccessHours = hours;
+        b.UpdatedAt = DateTime.UtcNow;
+        b.UpdatedBy = CurrentUserEmail;
+        await db.SaveChangesAsync();
+        return Ok(AppResponse<BalanceDto>.Success(ToDto(b, DateTime.UtcNow)));
+    }
+
+    // ── Nhắc gia hạn ─────────────────────────────────────────────────────
+
+    public record ExpiringDto(
+        Guid CustomerId, string CustomerName, string? Phone, string PackageName, bool Unlimited,
+        int RemainingSessions, DateTime? ExpiresAt, string Reason, DateTime? LastVisitAt);
+
+    /// <summary>
+    /// Hội viên cần nhắc gia hạn: thẻ còn ≤ <paramref name="days"/> ngày / gói còn ≤ 2 buổi, hoặc vừa hết hạn / hết buổi
+    /// trong 30 ngày mà chưa mua thẻ mới.
+    /// </summary>
+    [HttpGet("expiring")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<List<ExpiringDto>>>> Expiring([FromQuery] int days = 7)
+    {
+        var storeId = RequiredStoreId;
+        days = Math.Clamp(days, 1, 60);
+        var now = DateTime.UtcNow;
+        var since = now.AddDays(-30);
+        var balances = await db.PosCustomerSessionBalances.AsNoTracking()
+            .Where(b => b.StoreId == storeId && b.Deleted == null
+                && (b.ExpiresAt == null || b.ExpiresAt > since))
+            .Select(b => new
+            {
+                b.CustomerId, b.PackageName, b.TotalSessions, b.RemainingSessions, b.ExpiresAt, b.FrozenAt,
+                Name = b.Customer != null ? b.Customer.Name : "",
+                Phone = b.Customer != null ? b.Customer.Phone : null,
+                CustomerDeleted = b.Customer != null && b.Customer.Deleted != null,
+            })
+            .ToListAsync();
+        var rows = new List<ExpiringDto>();
+        foreach (var g in balances.Where(b => !b.CustomerDeleted).GroupBy(b => b.CustomerId))
+        {
+            var live = g.Where(b => b.RemainingSessions > 0 && (b.ExpiresAt == null || b.ExpiresAt > now)).ToList();
+            // Còn thẻ dài hạn hợp lệ (không sắp hết) → không nhắc.
+            var healthy = live.Any(b => b.FrozenAt != null
+                || ((b.ExpiresAt == null || b.ExpiresAt > now.AddDays(days))
+                    && (PosCustomerSessionBalance.IsUnlimitedCount(b.TotalSessions) || b.RemainingSessions > 2)));
+            if (healthy) continue;
+            var pick = live.OrderBy(b => b.ExpiresAt ?? DateTime.MaxValue).FirstOrDefault()
+                ?? g.OrderByDescending(b => b.ExpiresAt ?? DateTime.MinValue).First();
+            var unlimited = PosCustomerSessionBalance.IsUnlimitedCount(pick.TotalSessions);
+            var reason = live.Count == 0
+                ? (pick.RemainingSessions <= 0 ? "Đã hết buổi" : "Đã hết hạn")
+                : pick.ExpiresAt is DateTime e && e <= now.AddDays(days)
+                    ? $"Còn {Math.Max(0, (int)Math.Ceiling((e - now).TotalDays))} ngày"
+                    : $"Còn {pick.RemainingSessions} buổi";
+            rows.Add(new ExpiringDto(g.Key, pick.Name, pick.Phone, pick.PackageName, unlimited,
+                pick.RemainingSessions, pick.ExpiresAt, reason, null));
+        }
+        var ids = rows.Select(r => r.CustomerId).ToList();
+        var last = await db.PosGymVisits.AsNoTracking()
+            .Where(v => v.StoreId == storeId && ids.Contains(v.CustomerId) && v.Deleted == null)
+            .GroupBy(v => v.CustomerId).Select(x => new { x.Key, At = x.Max(v => v.CheckInAt) })
+            .ToDictionaryAsync(x => x.Key, x => (DateTime?)x.At);
+        var result = rows
+            .Select(r => r with { LastVisitAt = last.GetValueOrDefault(r.CustomerId) })
+            // Sắp hết trước (theo ngày hết hạn), rồi đã hết.
+            .OrderBy(r => r.Reason.StartsWith("Đã") ? 1 : 0)
+            .ThenBy(r => r.ExpiresAt ?? DateTime.MaxValue)
+            .ToList();
+        return Ok(AppResponse<List<ExpiringDto>>.Success(result));
     }
 
     // ── Máy ở cửa: máy chủ mở cửa cho hội viên còn hạn ──────────────────
@@ -547,7 +735,8 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
             .ToDictionary(g => g.Key, g =>
             {
                 var active = g.Where(b => b.RemainingSessions > 0 && (b.ExpiresAt == null || b.ExpiresAt > now))
-                    .OrderByDescending(b => PosCustomerSessionBalance.IsUnlimitedCount(b.TotalSessions))
+                    .OrderBy(b => GymVisitRules.IsFrozen(b, now))
+                    .ThenByDescending(b => PosCustomerSessionBalance.IsUnlimitedCount(b.TotalSessions))
                     .ThenBy(b => b.ExpiresAt ?? DateTime.MaxValue)
                     .FirstOrDefault();
                 // Không còn gói hợp lệ → trả gói gần nhất để hiển thị "hết hạn / hết buổi".
