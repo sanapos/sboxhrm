@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../utils/pos_report_open.dart';
 import '../sbox/sbox_ui.dart';
 
 typedef PosStatementLoader = Future<Map<String, dynamic>> Function(DateTime from, DateTime to);
@@ -115,6 +116,27 @@ class _PosDebtStatementViewState extends State<PosDebtStatementView> {
     });
   }
 
+  /// Chứng từ gốc của dòng sổ: bán / trả hàng khách → hóa đơn; nhập / trả NCC → phiếu nhập / trả. Còn lại không có.
+  static bool _canOpen(Map<String, dynamic> r) {
+    final id = '${r['docId'] ?? ''}';
+    if (id.isEmpty || id.startsWith('0000')) return false;
+    return const {'Sale', 'SaleCancel', 'Return', 'ReturnVoid', 'Receipt', 'ReceiptCancel', 'PurchaseReturn', 'PurchaseReturnCancel'}
+        .contains('${r['docType']}');
+  }
+
+  void _openDoc(Map<String, dynamic> r) {
+    if (!_canOpen(r)) return;
+    final id = '${r['docId']}';
+    switch ('${r['docType']}') {
+      case 'Sale' || 'SaleCancel' || 'Return' || 'ReturnVoid':
+        PosReportOpen.sale(context, id);
+      case 'Receipt' || 'ReceiptCancel':
+        PosReportOpen.purchaseReceipt(context, id);
+      case 'PurchaseReturn' || 'PurchaseReturnCancel':
+        PosReportOpen.purchaseReturn(context, id);
+    }
+  }
+
   static double _d(dynamic v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
   static String _two(int n) => n.toString().padLeft(2, '0');
   static String _dmy(DateTime d) => '${_two(d.day)}/${_two(d.month)}/${d.year}';
@@ -179,6 +201,7 @@ class _PosDebtStatementViewState extends State<PosDebtStatementView> {
         SboxDataTable<Map<String, dynamic>>(
           rows: items,
           pageSize: 20,
+          onRowTap: _openDoc,
           emptyTitle: 'Không có phát sinh trong kỳ',
           columns: [
             SboxColumn(label: 'Ngày', primary: true, minWidth: 130, text: (r) => _at(r['at'])),
@@ -189,7 +212,18 @@ class _PosDebtStatementViewState extends State<PosDebtStatementView> {
               cell: (r) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                 Text(tr('${r['docLabel'] ?? r['docType'] ?? ''}'), maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.bodyStyle()),
                 if ('${r['docNo'] ?? ''}'.isNotEmpty)
-                  Text('${r['docNo']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.smallStyle(SboxColors.textMuted)),
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Flexible(
+                      child: Text('${r['docNo']}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SboxType.smallStyle(_canOpen(r) ? SboxColors.primary : SboxColors.textMuted)),
+                    ),
+                    if (_canOpen(r)) ...[
+                      const SizedBox(width: 4),
+                      const Icon(Icons.open_in_new_rounded, size: 12, color: SboxColors.primary),
+                    ],
+                  ]),
               ]),
             ),
             // Một cột có dấu: + tăng nợ (đỏ), − giảm nợ (xanh) — điện thoại hiện ngay góc phải thẻ.

@@ -7,6 +7,7 @@ import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../utils/api_datetime.dart';
+import '../../utils/pos_report_open.dart';
 import 'pos_theme.dart';
 
 /// Lịch sử mua của một khách — mở từ màn bán hàng (gõ SĐT → «Lịch sử mua») để tra lại khách đã mua gì,
@@ -268,7 +269,9 @@ class _HistorySheetState extends State<_HistorySheet> {
           ),
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(children: [
+            InkWell(
+              onTap: (o['id'] ?? '').toString().isEmpty ? null : () => PosReportOpen.sale(context, '${o['id']}'),
+              child: Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(_date(o['date']), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
@@ -283,7 +286,10 @@ class _HistorySheetState extends State<_HistorySheet> {
                 if ((o['paymentMethod'] ?? '').toString().isNotEmpty)
                   Text(tr('${o['paymentMethod']}'), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
               ]),
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
             ]),
+            ),
             const Divider(height: 14),
             for (final l in lines) _lineRow(l),
             if (disc > 0)

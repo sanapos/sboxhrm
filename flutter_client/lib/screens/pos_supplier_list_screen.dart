@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/pos_report_open.dart';
 import '../utils/api_datetime.dart';
 
 import 'package:flutter/material.dart';
@@ -185,8 +186,14 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                           final isReturn = type.toLowerCase().contains('return');
                           // Lần trả tiền NCC (giảm công nợ) — trạng thái = hình thức thanh toán.
                           final isPayment = type.toLowerCase() == 'payment';
+                          final docId = (m['id'] ?? m['Id'] ?? '').toString();
                           return ListTile(
                             dense: true,
+                            onTap: isPayment || docId.isEmpty
+                                ? null
+                                : () => isReturn
+                                    ? PosReportOpen.purchaseReturn(context, docId)
+                                    : PosReportOpen.purchaseReceipt(context, docId),
                             leading: Icon(
                               isPayment
                                   ? Icons.payments_outlined

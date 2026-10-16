@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../models/pos_customer.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/pos_report_open.dart';
 import '../../utils/api_datetime.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_customer_debt_collect_dialog.dart';
@@ -544,6 +545,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
               SboxDataTable<Map<String, dynamic>>(
                 rows: _orders,
                 pageSize: 10,
+                onRowTap: (o) => PosReportOpen.sale(context, '${o['id'] ?? ''}'),
                 emptyTitle: 'Chưa có đơn',
                 columns: [
                   SboxColumn(label: 'Mã đơn', primary: true, minWidth: 150, text: (o) => '${o['orderNo'] ?? '—'}'),
