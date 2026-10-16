@@ -4943,6 +4943,10 @@ class _PosSellScreenState extends State<PosSellScreen>
     final remaining = await printCupLabelsRemaining(
       tickets: tickets,
       showFeedback: showFeedback,
+      onCloudHang: _cupCloudHang(
+        tableLabel: table.isEmpty ? null : table,
+        orderNo: orderNo.isEmpty ? null : orderNo,
+      ),
     );
     if (remaining.isNotEmpty) {
       // Chỉ tem CHƯA in vào hàng chờ; dòng giỏ coi như đã xử lý tem (phần còn lại nằm trong hàng chờ)
@@ -12541,7 +12545,14 @@ class _PosSellScreenState extends State<PosSellScreen>
     unawaited(_persistPendingPrintQueue());
   }
 
-  void _removeFailedCupPrint(PendingCupLabelPrintJob job) {
+  void _removeFailedCupPrint(PendingCupLabelPrintJob job, {bool cancelServerJob = true}) {
+    // Bỏ tem treo → hủy lệnh cũ trên máy chủ (Agent sống lại không in tem muộn). Vừa «In lại» = giữ lệnh.
+    final src = job.sourceJobId;
+    if (cancelServerJob && src != null && src.isNotEmpty && !_requeuedPrintJobIds.remove(src)) {
+      unawaited(_api.cancelPosPrintJob(src).then((_) {
+        if (mounted) _startStorePrintPollOnce();
+      }));
+    }
     setState(() => _failedCupPrints.removeWhere((j) => j.id == job.id));
     unawaited(_persistPendingPrintQueue());
   }
@@ -12591,6 +12602,20 @@ class _PosSellScreenState extends State<PosSellScreen>
           attemptCount: job.attemptCount + 1,
           printerId: printerId,
           printerName: printerName,
+        ));
+      };
+
+  /// Tem ly gửi Agent rồi treo → vào «Phiếu chưa in» (bàn / HĐ lấy lúc gửi), nhớ lệnh để in lại / hủy đúng lệnh.
+  CupLabelCloudHangCallback _cupCloudHang({String? tableLabel, String? orderNo, String? message}) =>
+      (tickets, {required jobId, required printerName}) {
+        if (!mounted || tickets.isEmpty) return;
+        _enqueueFailedCupPrint(PendingCupLabelPrintJob(
+          id: 'cup_hang_$jobId',
+          tickets: tickets,
+          tableLabel: tableLabel,
+          orderNo: orderNo,
+          sourceJobId: jobId,
+          errorMessage: '${message ?? 'Chưa in sau 90s'} ($printerName)',
         ));
       };
 
@@ -12894,7 +12919,47 @@ class _PosSellScreenState extends State<PosSellScreen>
         );
       },
       onRetryCup: (job) async {
-        final remaining = await printCupLabelsRemaining(tickets: job.tickets, showFeedback: true);
+        final src = job.sourceJobId;
+        final retryHang = _cupCloudHang(
+          tableLabel: job.tableLabel,
+          orderNo: job.orderNo,
+          message: 'Vẫn chưa in sau khi in lại',
+        );
+        if (src != null && src.isNotEmpty) {
+          // Lệnh gốc đã ra tem (Agent chậm) → chỉ gỡ khỏi hàng chờ, không in lần hai.
+          if (await _serverJobPrinted(src)) {
+            if (!mounted) return true;
+            _removeFailedCupPrint(job, cancelServerJob: false);
+            return true;
+          }
+          // Xếp lại đúng lệnh cũ — trước đây gửi lệnh mới, lệnh cũ vẫn chờ → Agent sống lại in tem 2 lần.
+          final r = await PosPrintOrchestrator.instance.requeueServerJob(
+            jobId: src,
+            documentType: PosCloudDocumentTypes.kitchenLabel,
+            referenceNo: job.orderNo,
+            onHang: ({
+              required String jobId,
+              required String documentType,
+              required String printerId,
+              required String printerName,
+              String? referenceNo,
+            }) =>
+                retryHang(job.tickets, jobId: jobId, printerName: printerName),
+          );
+          if (r.ok) {
+            _requeuedPrintJobIds.add(src);
+            if (mounted) _startStorePrintPollOnce();
+            return true;
+          }
+          // Máy tem đang in đúng lệnh này → chờ, không gửi lệnh mới (ra tem trùng).
+          if (_printJobBusy(r.error)) return false;
+          await _api.cancelPosPrintJob(src);
+        }
+        final remaining = await printCupLabelsRemaining(
+          tickets: job.tickets,
+          showFeedback: true,
+          onCloudHang: retryHang,
+        );
         if (remaining.isEmpty) return true;
         // In được một phần: bỏ các tem đã ra khỏi phiếu chờ (sửa tại chỗ — bảng chờ đang giữ cùng phiếu),
         // lần in lại sau chỉ còn tem thiếu.

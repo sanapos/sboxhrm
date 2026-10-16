@@ -178,11 +178,15 @@ class PendingCupLabelPrintJob {
     this.orderNo,
     this.errorMessage,
     this.attemptCount = 0,
+    this.sourceJobId,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
   final String id;
   final List<CupLabelTicket> tickets;
+
+  /// Lệnh in cloud gốc (tem gửi qua Agent rồi treo) — «In lại» xếp lại đúng lệnh này, «Bỏ» thì hủy lệnh.
+  final String? sourceJobId;
   final String? tableLabel;
   final String? orderNo;
   final String? errorMessage;
@@ -206,6 +210,7 @@ class PendingCupLabelPrintJob {
         orderNo: orderNo,
         errorMessage: errorMessage ?? this.errorMessage,
         attemptCount: attemptCount ?? this.attemptCount,
+        sourceJobId: sourceJobId,
         createdAt: createdAt,
       );
 
@@ -215,6 +220,7 @@ class PendingCupLabelPrintJob {
         'orderNo': orderNo,
         'errorMessage': errorMessage,
         'attemptCount': attemptCount,
+        if (sourceJobId != null) 'sourceJobId': sourceJobId,
         'createdAt': createdAt.toIso8601String(),
         'tickets': tickets
             .map((t) => {
@@ -257,6 +263,7 @@ class PendingCupLabelPrintJob {
       attemptCount: json['attemptCount'] is num
           ? (json['attemptCount'] as num).toInt()
           : int.tryParse('${json['attemptCount']}') ?? 0,
+      sourceJobId: json['sourceJobId']?.toString(),
       createdAt: DateTime.tryParse('${json['createdAt']}') ?? DateTime.now(),
       tickets: tickets,
     );

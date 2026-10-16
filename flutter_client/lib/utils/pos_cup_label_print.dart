@@ -103,13 +103,24 @@ Future<bool> printCupLabels({
     ))
         .isEmpty;
 
+/// Lệnh tem ly gửi Agent đã nhận nhưng không ra giấy: [tickets] = đúng các tem của lệnh [jobId].
+typedef CupLabelCloudHangCallback = void Function(
+  List<CupLabelTicket> tickets, {
+  required String jobId,
+  required String printerName,
+});
+
 /// Như [printCupLabels] nhưng trả các tem CHƯA in được (theo thứ tự). Máy tem lỗi giữa chừng (vd hết giấy ở
 /// tem thứ 3/5) → chỉ 2 tem cuối cần in lại; trước đây phiếu chờ in lại cả 5 → ra tem trùng.
+///
+/// [onCloudHang]: tem gửi qua Agent (coi là đã gửi) mà sau đó treo — trước đây chỉ hiện thông báo rồi mất tem,
+/// giờ nơi gọi đưa vào «Phiếu chưa in» kèm mã lệnh để in lại / hủy đúng lệnh đó.
 Future<List<CupLabelTicket>> printCupLabelsRemaining({
   required List<CupLabelTicket> tickets,
   DateTime? printedAt,
   bool showFeedback = false,
   PosPrintTemplateV2? templateOverride,
+  CupLabelCloudHangCallback? onCloudHang,
 }) async {
   if (tickets.isEmpty) return const [];
   if (!await hasReadyCupLabelPrinter()) {
@@ -286,6 +297,16 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
     debugPrint('Cup label: bỏ cloud ${cloudPrinter.name} — Agent là chính máy này');
     cloudPrinter = null;
   }
+  PosPrintHangCallback? hangFor(List<CupLabelTicket> part) => onCloudHang == null
+      ? null
+      : ({
+          required String jobId,
+          required String documentType,
+          required String printerId,
+          required String printerName,
+          String? referenceNo,
+        }) =>
+          onCloudHang(List.of(part), jobId: jobId, printerName: printerName);
   if (cloudPrinter != null && rest.isNotEmpty) {
     try {
       // Máy tem (TSPL/Xprinter): phải gửi bitmap TSPL — EscPos ghi USB «OK»
@@ -318,6 +339,8 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
             waitForCompletion: false,
             acceptClaimedAsSuccess: true,
             hangAfter: const Duration(seconds: 90),
+            referenceNo: tickets[done].orderNo,
+            onHang: hangFor([tickets[done]]),
           );
           if (!ok) break;
           done++;
@@ -339,6 +362,8 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
           waitForCompletion: false,
           acceptClaimedAsSuccess: true,
           hangAfter: const Duration(seconds: 90),
+          referenceNo: tickets[done].orderNo,
+          onHang: hangFor(tickets.sublist(done)),
         );
         if (ok) return const [];
       } else {
