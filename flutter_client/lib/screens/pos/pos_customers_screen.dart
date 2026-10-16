@@ -522,7 +522,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                 icon: c.isActive ? Icons.block_outlined : Icons.check_circle_outline,
                 onPressed: _toggleActive,
               ),
-            if (canEdit)
+            if (perm.canEdit('PosDebtAdjust'))
               SboxButton.ghost(label: 'Điều chỉnh nợ', icon: Icons.tune, onPressed: _adjustDebt),
             if (canEdit && c.currentDebt > 0)
               SboxButton(label: 'Thu nợ', icon: Icons.payments_outlined, onPressed: _collectDebt),

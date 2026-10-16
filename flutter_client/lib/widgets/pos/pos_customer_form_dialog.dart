@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/pos_customer.dart';
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../notification_overlay.dart';
 import 'pos_form_keyboard.dart';
@@ -71,6 +73,14 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
   String? _saveError;
 
   bool get _isEdit => widget.customer != null;
+
+  bool get _canCredit {
+    try {
+      return Provider.of<PermissionProvider>(context, listen: false).canEdit('PosDebtAdjust');
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   void initState() {
@@ -152,8 +162,8 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
           'birthday': DateFormat('yyyy-MM-dd').format(_birthday!),
         'deliveryAddress':
             _deliveryCtrl.text.trim().isEmpty ? null : _deliveryCtrl.text.trim(),
-        // Hạn mức / hạn thanh toán riêng (trống = theo thiết lập cửa hàng).
-        'setCredit': true,
+        // Hạn mức / hạn thanh toán riêng (trống = theo thiết lập cửa hàng) — chỉ người có quyền điều chỉnh nợ.
+        'setCredit': _canCredit,
         'debtLimit': double.tryParse(_limitCtrl.text.replaceAll('.', '').replaceAll(',', '').trim()),
         'paymentTermDays': int.tryParse(_termCtrl.text.trim()),
       };
@@ -647,6 +657,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                           provinceCtrl: _provinceCtrl,
                           wardCtrl: _wardCtrl,
                         ),
+                        if (_canCredit) ...[
                         const SizedBox(height: 12),
                         Row(children: [
                           Expanded(
@@ -667,6 +678,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                             ),
                           ),
                         ]),
+                        ],
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _noteCtrl,

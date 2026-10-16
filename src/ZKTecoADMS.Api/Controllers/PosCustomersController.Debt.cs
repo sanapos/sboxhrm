@@ -125,7 +125,7 @@ public partial class PosCustomersController
     /// («Số dư đầu» nếu khách chưa có dòng sổ nào, còn lại «Điều chỉnh»). Không đổi tiền đã thu của các đơn.
     /// </summary>
     [HttpPost("{id:guid}/debt-adjust")]
-    [RequireModulePermission("PosCustomers", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosDebtAdjust", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> AdjustDebt(Guid id, [FromBody] DebtAdjustDto dto)
     {
         var storeId = RequiredStoreId;

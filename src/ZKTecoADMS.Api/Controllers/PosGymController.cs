@@ -47,7 +47,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
     // ── Hội viên trên máy ────────────────────────────────────────────────
 
     [HttpGet("members")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<MemberDto>>>> Members([FromQuery] string? search = null)
     {
         var storeId = RequiredStoreId;
@@ -114,7 +114,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
 
     /// <summary>Đăng ký khách lên máy: tạo người dùng trên máy với PIN hội viên (cùng PIN trên mọi máy chọn).</summary>
     [HttpPost("members")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<List<MemberDto>>>> AddMember([FromBody] AddMemberDto dto)
     {
         var storeId = RequiredStoreId;
@@ -207,7 +207,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
 
     /// <summary>Gỡ hội viên khỏi máy (xóa người dùng trên máy). Lịch sử lượt tập giữ nguyên.</summary>
     [HttpDelete("members/{id:guid}")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> RemoveMember(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -226,7 +226,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
 
     /// <summary>Lượt tập trong kỳ (ngày VN). Mặc định hôm nay.</summary>
     [HttpGet("visits")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Visits(
         [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null, [FromQuery] Guid? customerId = null)
     {
@@ -254,7 +254,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
 
     /// <summary>Check-in tại quầy (khách quên thẻ / chưa lấy vân tay) — cùng quy tắc với máy.</summary>
     [HttpPost("check-in")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<VisitDto>>> CheckIn([FromBody] CheckInDto dto)
     {
         var storeId = RequiredStoreId;
@@ -304,7 +304,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
     }
 
     [HttpPost("visits/{id:guid}/check-out")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> CheckOut(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -326,7 +326,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
 
     /// <summary>Tổng hợp theo hội viên: số lượt, tổng / trung bình thời gian tập. <c>format=excel</c> xuất file.</summary>
     [HttpGet("report")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.View)]
     public async Task<IActionResult> Report(
         [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null, [FromQuery] string? format = null)
     {
@@ -439,7 +439,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
 
     /// <summary>Mọi thẻ / gói của khách (còn hiệu lực trước, rồi mới nhất).</summary>
     [HttpGet("customers/{customerId:guid}/balances")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<BalanceDto>>>> CustomerBalances(Guid customerId)
     {
         var storeId = RequiredStoreId;
@@ -472,7 +472,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
     /// thì hạn thẻ cộng thêm số ngày đã bảo lưu.
     /// </summary>
     [HttpPost("balances/{id:guid}/freeze")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<BalanceDto>>> Freeze(Guid id, [FromBody] FreezeDto dto)
     {
         var storeId = RequiredStoreId;
@@ -502,7 +502,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
 
     /// <summary>Mở bảo lưu sớm: hạn thẻ cộng số ngày đã bảo lưu thực tế (làm tròn lên).</summary>
     [HttpPost("balances/{id:guid}/unfreeze")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<BalanceDto>>> Unfreeze(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -518,7 +518,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
 
     /// <summary>Khung giờ được vào tập của thẻ («06:00-16:00»; trống = mọi giờ).</summary>
     [HttpPut("balances/{id:guid}/access-hours")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<BalanceDto>>> SetAccessHours(Guid id, [FromBody] AccessHoursDto dto)
     {
         var storeId = RequiredStoreId;
@@ -547,7 +547,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
     /// trong 30 ngày mà chưa mua thẻ mới.
     /// </summary>
     [HttpGet("expiring")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<ExpiringDto>>>> Expiring([FromQuery] int days = 7)
     {
         var storeId = RequiredStoreId;
@@ -605,7 +605,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
     public record DoorModeDto(string Mode);
 
     [HttpGet("doors")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<DoorDeviceDto>>>> Doors()
     {
         var storeId = RequiredStoreId;
@@ -635,7 +635,8 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
 
     /// <summary>«server»: hội viên quét → máy chủ kiểm tra thẻ, còn hạn mới gửi lệnh mở cửa; «record»: chỉ ghi lượt.</summary>
     [HttpPut("doors/{deviceId:guid}")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    // Tắt «máy chủ mở cửa» = bỏ kiểm soát cửa — chỉ người được sửa máy chấm công (thu ngân không).
+    [RequireModulePermission("Device", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> SetDoorMode(Guid deviceId, [FromBody] DoorModeDto dto)
     {
         var storeId = RequiredStoreId;
@@ -677,7 +678,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
 
     /// <summary>Lễ tân mở cửa tay (khách quên thẻ, mất mạng…) — cùng lệnh với mở cửa tự động.</summary>
     [HttpPost("doors/{deviceId:guid}/open")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> OpenDoor(Guid deviceId)
     {
         var storeId = RequiredStoreId;

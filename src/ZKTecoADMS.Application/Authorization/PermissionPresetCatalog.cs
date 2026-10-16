@@ -96,6 +96,7 @@ public static class PermissionPresetCatalog
     [
         "PosSell", "PosSellPriceEdit", "PosSellDiscount", "PosSellCancelPaid", "PosSaleOrders", "PosSaleReturns",
         "PosCustomers", "PosWarranty", "PosBooking", "PosKds", "PosQrOrder", "PosCashierShift", "PosQuotes", "PosContracts",
+        "PosGymCheckIn", "PosDebtAdjust",
     ];
     static readonly string[] PosStock =
     [
@@ -210,6 +211,7 @@ public static class PermissionPresetCatalog
     static IReadOnlyDictionary<string, Flags> PosManager() => new Builder()
         .Set(V, "Home", "Notification", "Dashboard")
         .Set(Mg, PosSell).Set(F, "PosSellPriceEdit", "PosSellDiscount", "PosSellCancelPaid", "PosSaleOrders")
+        .Set(VE, "PosDebtAdjust")
         .Set(Mg, PosStock).Set(V, "PosViewCost")
         .Set(VX, PosReports).Set(Op, PosSettings)
         .Set(Mg, "CashTransaction").Set(V, "BankAccount")
@@ -221,6 +223,7 @@ public static class PermissionPresetCatalog
         .Set(VX, PosReports).Set(new Flags(true, false, true, false, true, false), "HkdBooks")
         .Set(VX, "PosSaleOrders").Set(V, "PosSaleReturns", "PosQuotes", "PosContracts", "PosProducts", "PosViewCost", "PosPromotions")
         .Set(Op, "PosCustomers", "PosPurchaseReceipts", "PosPurchaseReturns")
+        .Set(VE, "PosDebtAdjust")
         .Set(new Flags(true, false, true, false, true, true), "PosEInvoice")
         .Set(F, "CashTransaction", "BankAccount")
         .Build();
@@ -241,6 +244,8 @@ public static class PermissionPresetCatalog
         .Set(V, "PosSaleOrders", "PosWarranty", "PosProducts", "PosPrintTemplates", "PosPrinters", "PosSalesReport")
         .Set(new Flags(true, false, false, false, false, true), "PosSaleReturns")
         .Set(Op, "PosCustomers").Set(new Flags(true, true, true, false, false, false), "PosBooking")
+        // Gym: xem lượt tập, check-in tại quầy, mở cửa tay — không bảo lưu / sửa khung giờ / gỡ hội viên.
+        .Set(Req, "PosGymCheckIn")
         .Set(Req, "PosKds", "PosCashierShift", "PosCustomerDisplay")
         .Set(new Flags(true, false, true, false, false, true), "PosQrOrder")
         .Set(new Flags(true, false, false, false, false, true), "PosEInvoice")
@@ -380,6 +385,7 @@ public static class PermissionPresetCatalog
     {
         "PosSellPriceEdit" or "PosSellDiscount" or "PosSellCancelPaid" => allowed.Contains("PosSell"),
         "PosViewCost" => allowed.Contains("PosProducts"),
+        "PosDebtAdjust" => allowed.Contains("PosCustomers") || allowed.Contains("PosPurchaseReceipts"),
         "ActivityLog" or "Dashboard" => true,
         _ => false,
     };

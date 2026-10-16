@@ -515,6 +515,10 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'PosSellDiscount': {'canView', 'canEdit'},
     'PosSellCancelPaid': {'canView', 'canApprove'},
     'PosViewCost': {'canView'},
+    // Điều chỉnh công nợ & hạn mức: Sửa = nhập nợ đầu kỳ / sửa nợ / đặt hạn mức.
+    'PosDebtAdjust': {'canView', 'canEdit'},
+    // Check-in gym: Thêm = check-in / mở cửa / thêm hội viên lên máy; Sửa = bảo lưu, khung giờ, gỡ hội viên.
+    'PosGymCheckIn': {'canView', 'canCreate', 'canEdit', 'canExport'},
     'PosSaleReturns': {
       // Xem = menu/danh sách; Duyệt = thực hiện trả / hủy phiếu trả
       'canView',

@@ -161,7 +161,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                         const PosSellScreen()),
                     _Item('Đặt lịch', Icons.event_available_outlined, 'PosBooking',
                         const PosAppointmentDayScreen()),
-                    _Item('Check-in hội viên', Icons.fingerprint, 'PosSell',
+                    _Item('Check-in hội viên', Icons.fingerprint, 'PosGymCheckIn',
                         const PosGymCheckInScreen(),
                         visible: _gymOn),
                     _Item('Hoá đơn', Icons.receipt_long_outlined, 'PosSaleOrders',

@@ -4219,7 +4219,26 @@ public class ZKTecoDbInitializer(
         ("HrAnalyticsReport", "AttendanceReport", (v, c, e, d, x, a) => (v, false, false, false, x, false)),
         ("PosReportStayGuests", "PosSalesReport", (v, c, e, d, x, a) => (v, false, false, false, x, false)),
         ("PosReportSessionExpiry", "PosSalesReport", (v, c, e, d, x, a) => (v, false, false, false, x, false)),
+        // Check-in gym (2026-10) tách khỏi Bán hàng: ai đang bán hàng giữ xem + check-in; sửa (bảo lưu, khung giờ,
+        // gỡ hội viên) chỉ chủ / quản lý — xem RoleScopedSubs.
+        ("PosGymCheckIn", "PosSell", (v, c, e, d, x, a) => (v, c, e, d, x, a)),
+        // Điều chỉnh công nợ & hạn mức (2026-10) tách khỏi Khách hàng · Sửa — chỉ chủ / quản lý / kế toán.
+        ("PosDebtAdjust", "PosCustomers", (v, c, e, d, x, a) => (v, false, e, false, false, false)),
     ];
+
+    /// <summary>
+    /// Quyền con chỉ sao chép cho một số vai trò (vai trò khác: giới hạn / không cấp), không sao chép quyền theo phòng ban.
+    /// Trả null = không cấp.
+    /// </summary>
+    static (bool v, bool c, bool e, bool d, bool x, bool a)? RoleScopedSub(string sub, string role,
+        (bool v, bool c, bool e, bool d, bool x, bool a) f) => sub switch
+    {
+        "PosGymCheckIn" => role is "Admin" or "Director" or "Manager" ? f : (f.v, f.c, false, false, f.x, false),
+        "PosDebtAdjust" => role is "Admin" or "Director" or "Manager" or "Accountant" ? f : null,
+        _ => f,
+    };
+
+    static readonly HashSet<string> RoleOnlySubs = ["PosGymCheckIn", "PosDebtAdjust"];
 
     /// <summary>Chức năng có nút / API xuất mới được kiểm quyền Xuất — cấp Xuất cho ai đang Xem (một lần).</summary>
     static readonly string[] ExportGateModules =
@@ -4259,6 +4278,8 @@ public class ZKTecoDbInitializer(
                 // Quản lý trước đây được đổi giá / chiết khấu không cần tick Duyệt.
                 if (src.RoleName == "Manager" && sub is "PosSellPriceEdit" or "PosSellDiscount")
                     f = (src.CanView, false, true, false, false, false);
+                if (RoleScopedSub(sub, src.RoleName, f) is not { } scoped) continue;
+                f = scoped;
                 if (!f.v && !f.c && !f.e && !f.d && !f.x && !f.a) continue;
                 context.RolePermissions.Add(new RolePermission
                 {
@@ -4276,6 +4297,7 @@ public class ZKTecoDbInitializer(
                 inserted++;
             }
 
+            if (RoleOnlySubs.Contains(sub)) continue;
             var haveDept = (await context.DepartmentPermissions.AsNoTracking()
                     .Where(r => r.PermissionId == subId)
                     .Select(r => new { r.UserId, r.DepartmentId, r.StoreId }).ToListAsync())
@@ -4344,6 +4366,26 @@ IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'pkg-report-s
     WHERE ""ExtraModules"" IS NOT NULL AND ""ExtraModules"" LIKE '[%'
       AND ""ExtraModules""::jsonb ? 'PosSell' AND NOT (""ExtraModules""::jsonb ? 'PosReportStayGuests');
   INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('pkg-report-split-v1');
+END IF;
+END $$;");
+
+        // Một lần: Check-in gym thành chức năng gói riêng — cửa hàng đang dùng (có hội viên trên máy / lượt tập)
+        // được thêm vào chức năng riêng của cửa hàng, cửa hàng khác (bán lẻ…) không còn thấy.
+        await context.Database.ExecuteSqlRawAsync(
+            @"DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'pkg-pos-gym-v1') THEN
+  UPDATE ""Stores"" s SET ""ExtraModules"" =
+      (CASE WHEN s.""ExtraModules"" IS NOT NULL AND s.""ExtraModules"" LIKE '[%' THEN s.""ExtraModules""::jsonb ELSE '[]'::jsonb END
+       || '[""PosGymCheckIn""]'::jsonb)::text
+    WHERE (EXISTS (SELECT 1 FROM ""PosGymMemberDevices"" m WHERE m.""StoreId"" = s.""Id"")
+           OR EXISTS (SELECT 1 FROM ""PosGymVisits"" v WHERE v.""StoreId"" = s.""Id""))
+      AND NOT (CASE WHEN s.""ExtraModules"" IS NOT NULL AND s.""ExtraModules"" LIKE '[%' THEN s.""ExtraModules""::jsonb ELSE '[]'::jsonb END
+               @> '[""PosGymCheckIn""]'::jsonb);
+  UPDATE ""ServicePackages"" SET ""AllowedModules"" = (""AllowedModules""::jsonb || '[""PosGymCheckIn""]'::jsonb)::text
+    WHERE ""AllowedModules"" IS NOT NULL AND ""AllowedModules"" LIKE '[%'
+      AND ""AllowedModules""::jsonb @> '[""PosKds"",""PosQuotes"",""PosContracts""]'::jsonb
+      AND NOT (""AllowedModules""::jsonb @> '[""PosGymCheckIn""]'::jsonb);
+  INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('pkg-pos-gym-v1');
 END IF;
 END $$;");
 

@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_tr.dart';
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/signalr_service.dart';
 import '../../utils/file_saver.dart';
@@ -1240,7 +1242,10 @@ class _DoorSettingsCardState extends State<_DoorSettingsCard> {
               else
                 Switch(
                   value: d['mode'] == 'server',
-                  onChanged: d['supportsDoor'] == false ? null : (v) => _set(d, v),
+                  // Bật / tắt máy chủ mở cửa = quyền sửa máy chấm công.
+                  onChanged: d['supportsDoor'] == false || !context.read<PermissionProvider>().canEdit('Device')
+                      ? null
+                      : (v) => _set(d, v),
                 ),
             ]),
           ),
@@ -1717,6 +1722,7 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
             label: Text(tr('Lấy khuôn mặt')),
             style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
           ),
+          if (context.read<PermissionProvider>().canEdit('PosGymCheckIn'))
           TextButton.icon(
             onPressed: () => _remove(l),
             icon: const Icon(Icons.person_remove_outlined, size: 18, color: SboxColors.danger),
@@ -2281,7 +2287,7 @@ class _BalancesSheetState extends State<_BalancesSheet> {
           ].join(' · ')),
           style: const TextStyle(fontSize: 13, color: SboxColors.slate700),
         ),
-        if (usable)
+        if (usable && context.read<PermissionProvider>().canEdit('PosGymCheckIn'))
           Wrap(spacing: 0, children: [
             if (status == 'Frozen')
               TextButton.icon(

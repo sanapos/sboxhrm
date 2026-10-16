@@ -13320,7 +13320,8 @@ class _PosSellScreenState extends State<PosSellScreen>
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        if (_industrySettings?.enableSessionPacks == true)
+        if (_industrySettings?.enableSessionPacks == true &&
+            Provider.of<PermissionProvider>(context, listen: false).canView('PosGymCheckIn'))
           PopupMenuItem(
             value: 'gym_checkin',
             child: ListTile(

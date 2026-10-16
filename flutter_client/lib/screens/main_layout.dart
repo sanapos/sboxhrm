@@ -879,8 +879,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return _screenModuleCode(index) == 'PosSell';
   }
 
-  /// Mã module của MÀN đang mở. Nhiều màn dùng chung mã quyền (Kho chi nhánh / Chuyển kho = PosProducts,
-  /// Check-in hội viên = PosSell): chỉ màn chính của mã đó mới được coi là module (mở hub POS,
+  /// Mã module của MÀN đang mở. Nhiều màn dùng chung mã quyền (Kho chi nhánh / Chuyển kho = PosProducts):
+  /// chỉ màn chính của mã đó mới được coi là module (mở hub POS,
   /// ẩn khung, sáng ô thanh dưới) — màn phụ mở đúng màn của nó trong khung thường.
   String? _screenModuleCode(int index) {
     if (index < 0 || index >= _navItems.length) return null;
@@ -2335,7 +2335,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       group: 'POS',
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'PosSell',
+      moduleCode: 'PosGymCheckIn',
     ),
     // Thiết lập giá / khuyến mãi — trước đây chỉ mở được từ tab «Nhiều hơn» của POS (điện thoại không còn tab đó)
     // hoặc ô tìm chức năng, nên chủ cửa hàng không thấy chỗ tạo bảng giá dù màn Bán hàng có ô chọn bảng giá.
@@ -4285,7 +4285,7 @@ class _HomeMenuScreen extends StatefulWidget {
     'Menu QR / Online': 'Bán hàng',
     'Đơn online': 'Bán hàng',
     'Đặt lịch': 'Bán hàng',
-    'Check-in hội viên': 'Bán hàng',
+    'Check-in hội viên': 'Check-in hội viên (gym)',
     'Báo giá': 'Thương mại',
     'Mẫu in báo giá': 'Thương mại',
     'Hợp đồng': 'Thương mại',

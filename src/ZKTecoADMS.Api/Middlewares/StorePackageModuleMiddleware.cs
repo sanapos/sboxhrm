@@ -136,6 +136,8 @@ public class StorePackageModuleMiddleware
         ("/api/pos/reports", "PosSalesReport"),
         ("/api/hkd", "HkdBooks"),
         ("/api/pos/customers", "PosCustomers"),
+        // Check-in hội viên gym: chức năng gói riêng (trước đây rơi vào «/api/pos» = Bán hàng → mọi gói đều có).
+        ("/api/pos/gym", "PosGymCheckIn"),
         ("/api/pos/resource-reservations", "PosBooking"),
         ("/api/pos/warranty", "PosWarranty"),
         ("/api/pos/customer-display", "PosCustomerDisplay"),

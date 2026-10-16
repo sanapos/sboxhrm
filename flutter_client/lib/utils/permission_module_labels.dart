@@ -48,6 +48,8 @@ class PermissionModuleLabels {
     'PosSellDiscount': '↳ Giảm giá / chiết khấu khi bán',
     'PosSellCancelPaid': '↳ Hủy hóa đơn đã thu',
     'PosViewCost': '↳ Xem giá vốn & lợi nhuận',
+    'PosDebtAdjust': '↳ Điều chỉnh công nợ & hạn mức',
+    'PosGymCheckIn': 'Check-in hội viên (gym)',
     'PosPrintTemplates': 'Mẫu in POS',
     'PosSaleOrders': 'Đơn hàng POS',
     'PosQuotes': 'Báo giá',

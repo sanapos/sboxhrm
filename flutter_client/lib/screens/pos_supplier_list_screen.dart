@@ -244,6 +244,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
     final canEdit = perm.canEdit('PosProducts');
     final canDelete = perm.canDelete('PosProducts');
     final canPay = perm.canEdit('PosPurchaseReceipts');
+    final canAdjust = perm.canEdit('PosDebtAdjust');
     final indebted = _items.where((x) => x.currentDebt > 0).length;
     return Scaffold(
       backgroundColor: SboxColors.page,
@@ -336,7 +337,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                 PopupMenuItem(value: 'history', child: Text(tr('Lịch sử nhập / trả'))),
                 PopupMenuItem(value: 'statement', child: Text(tr('Sổ đối chiếu công nợ'))),
                 if (canPay && s.currentDebt > 0) PopupMenuItem(value: 'pay', child: Text(tr('Trả nợ'))),
-                if (canPay) PopupMenuItem(value: 'adjust', child: Text(tr('Nhập nợ đầu kỳ / điều chỉnh'))),
+                if (canAdjust) PopupMenuItem(value: 'adjust', child: Text(tr('Nhập nợ đầu kỳ / điều chỉnh'))),
                 if (canEdit)
                   PopupMenuItem(value: 'toggle', child: Text(tr(s.isActive ? 'Ngừng hoạt động' : 'Kích hoạt'))),
                 if (canDelete)

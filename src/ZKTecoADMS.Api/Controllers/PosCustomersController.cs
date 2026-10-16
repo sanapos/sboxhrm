@@ -6,6 +6,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -342,7 +343,8 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
-        ApplyCredit(c, dto);
+        if (await TryApplyCreditAsync(c, dto) is { } creditErr)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<CustomerDto>.Fail(creditErr));
         dbContext.PosCustomers.Add(c);
         await dbContext.SaveChangesAsync();
         return Ok(AppResponse<CustomerDto>.Success(MapCustomer(c)));
@@ -353,7 +355,7 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
     public async Task<ActionResult<AppResponse<CustomerDto>>> Update(Guid id, [FromBody] CustomerSaveDto dto)
     {
         var storeId = RequiredStoreId;
-        var c = await dbContext.PosCustomers
+        var c = await dbContext.PosCustomers.AsTracking()
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (c == null) return NotFound(AppResponse<CustomerDto>.Fail("Không tìm thấy khách hàng"));
         var name = dto.Name?.Trim() ?? "";
@@ -376,7 +378,8 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
         c.Birthday = dto.Birthday?.Date;
         c.DeliveryAddress = dto.DeliveryAddress?.Trim();
         c.Note = dto.Note?.Trim();
-        ApplyCredit(c, dto);
+        if (await TryApplyCreditAsync(c, dto) is { } creditErr)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<CustomerDto>.Fail(creditErr));
         c.UpdatedAt = DateTime.UtcNow;
         c.UpdatedBy = CurrentUserEmail;
         await dbContext.SaveChangesAsync();
@@ -388,7 +391,7 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
     public async Task<ActionResult<AppResponse<bool>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;
-        var c = await dbContext.PosCustomers
+        var c = await dbContext.PosCustomers.AsTracking()
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (c == null) return NotFound(AppResponse<bool>.Fail("Không tìm thấy khách hàng"));
         if (await dbContext.PosSaleOrders.AnyAsync(o => o.CustomerId == id && o.Deleted == null))
@@ -406,6 +409,28 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
         c.Birthday, c.DeliveryAddress,
         c.TotalPurchase, c.CurrentDebt, c.PointBalance, c.IsActive,
         c.CreatedAt, c.CreatedBy, c.DebtLimit, c.PaymentTermDays);
+
+    /// <summary>Có quyền «Điều chỉnh công nợ & hạn mức» (đặt hạn mức / hạn thanh toán).</summary>
+    async Task<bool> CanAdjustDebtAsync()
+    {
+        if (IsAdmin) return true;
+        var svc = HttpContext?.RequestServices?.GetService(typeof(IModulePermissionService)) as IModulePermissionService;
+        if (svc == null) return true; // test dựng controller không có DI
+        return await svc.HasPermissionAsync(CurrentUserId, CurrentUserRole, CurrentStoreId, "PosDebtAdjust", ModulePermissionAction.Edit);
+    }
+
+    /// <summary>Ghi hạn mức / hạn thanh toán — chỉ khi có quyền; số không đổi thì bỏ qua (form gửi lại số cũ).</summary>
+    async Task<string?> TryApplyCreditAsync(PosCustomer c, CustomerSaveDto dto)
+    {
+        if (!dto.SetCredit) return null;
+        var limit = dto.DebtLimit is > 0 ? dto.DebtLimit : null;
+        var term = dto.PaymentTermDays is > 0 ? Math.Min(dto.PaymentTermDays.Value, 3650) : (int?)null;
+        if (limit == c.DebtLimit && term == c.PaymentTermDays) return null;
+        if (!await CanAdjustDebtAsync())
+            return "Tài khoản không có quyền «Điều chỉnh công nợ & hạn mức» — không đổi được hạn mức / hạn thanh toán.";
+        ApplyCredit(c, dto);
+        return null;
+    }
 
     static void ApplyCredit(PosCustomer c, CustomerSaveDto dto)
     {

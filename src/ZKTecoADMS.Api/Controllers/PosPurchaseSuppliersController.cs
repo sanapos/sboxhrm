@@ -217,7 +217,7 @@ public class PosPurchaseSuppliersController(ZKTecoDbContext dbContext) : Authent
 
     /// <summary>Nhập nợ đầu kỳ / điều chỉnh công nợ nhà cung cấp về số đúng (có lý do, ghi sổ công nợ).</summary>
     [HttpPost("{id:guid}/debt-adjust")]
-    [RequireModulePermission("PosPurchaseReceipts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosDebtAdjust", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> AdjustDebt(Guid id, [FromBody] SupplierDebtAdjustDto dto)
     {
         var storeId = RequiredStoreId;

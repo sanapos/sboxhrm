@@ -149,11 +149,13 @@ public static class FeatureModuleCatalog
         new("PosQuotes", "Báo giá", "Báo giá thương mại, không trừ kho", CatSell, 110),
         new("PosPromotions", "Khuyến mãi tự động", "Giờ vàng, mua X tặng Y, mua nhiều giảm, đồng giá, giảm theo hóa đơn, hàng cận hạn — báo cáo hiệu quả", CatSell, 112),
         new("PosContracts", "Hợp đồng & thu tiền theo đợt", "Hợp đồng từ báo giá, đợt thanh toán, thu tiền, công nợ hợp đồng", CatSell, 111),
+        new("PosGymCheckIn", "Check-in hội viên (gym)", "Hội viên quét vân tay / khuôn mặt / thẻ trên máy chấm công, máy chủ mở cửa, bảo lưu thẻ, khung giờ tập, nhắc gia hạn", CatSell, 113),
         // Quyền con — đi theo Bán hàng / Hàng hóa, không chọn theo gói.
         new("PosSellPriceEdit", "Sửa giá khi bán", "Đổi đơn giá tay trên màn bán", CatSell, 120, false),
         new("PosSellDiscount", "Giảm giá khi bán", "Chiết khấu dòng / cả đơn", CatSell, 121, false),
         new("PosSellCancelPaid", "Hủy hóa đơn đã thu", "Hủy đơn đã thanh toán", CatSell, 122, false),
         new("PosViewCost", "Xem giá vốn & lợi nhuận", "Thấy giá vốn, lãi trên hàng hóa / kho", CatSell, 123, false),
+        new("PosDebtAdjust", "Điều chỉnh công nợ & hạn mức", "Nhập nợ đầu kỳ, sửa công nợ khách / NCC, đặt hạn mức nợ và hạn thanh toán của khách", CatSell, 124, false),
 
         // ══════════ KHO HÀNG ══════════
         new("PosPurchaseReceipts", "Nhập hàng", "Phiếu nhập nhà cung cấp", CatWarehouse, 130),
@@ -271,6 +273,7 @@ public static class FeatureModuleCatalog
             ["PosReportVoucher"] = ["PosSalesReport"],
             ["PosReportStayGuests"] = ["PosSalesReport"],
             ["PosReportSessionExpiry"] = ["PosSalesReport"],
+            ["PosGymCheckIn"] = ["PosSell"],
             ["HkdBooks"] = ["PosSell"],
             // Nhân sự
             ["DeviceUser"] = ["Device"],
@@ -399,7 +402,7 @@ public static class FeatureModuleCatalog
                 new("pos_basic", "POS bán hàng", "Bán hàng, khách hàng, báo cáo, in ấn, hóa đơn điện tử, giao hàng", "pos", WithDependencies(PosSellCore)),
                 new("pos_warehouse", "POS bán hàng + kho", "Thêm nhập hàng, kiểm kho, xuất hủy, khuyến mãi tự động", "pos", WithDependencies(PosSellCore.Concat(PosWarehouse).Concat(["PosPromotions"]))),
                 new("pos_full", "POS đầy đủ", "Thêm bếp KDS, báo giá, hợp đồng, máy in cloud, sổ thuế HKD, chi nhánh, Trợ lý AI",
-                    "pos", WithDependencies(PosSellCore.Concat(PosWarehouse).Concat(["PosPromotions", "PosKds", "PosQuotes", "PosContracts", "PosStorePrinters", "HkdBooks", "Branch", "AIAssistant", "AIGemini", "SystemSettings"]))),
+                    "pos", WithDependencies(PosSellCore.Concat(PosWarehouse).Concat(["PosPromotions", "PosKds", "PosQuotes", "PosContracts", "PosStorePrinters", "HkdBooks", "Branch", "AIAssistant", "AIGemini", "SystemSettings", "PosGymCheckIn", "PosReportSessionExpiry"]))),
                 new("hrm_basic", "HRM chấm công & lương", "Hồ sơ, chấm công máy + mobile, lịch ca, nghỉ phép, bảng lương", "hrm", WithDependencies(HrmCore)),
                 new("hrm_full", "HRM đầy đủ", "Thêm tài chính nhân sự, công việc, truyền thông, suất ăn, tài sản, KPI, AI", "hrm", WithDependencies(hrmAll)),
                 new("all", "Trọn bộ POS + HRM", "Tất cả chức năng", "both", all),
