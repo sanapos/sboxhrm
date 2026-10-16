@@ -236,6 +236,40 @@ class PosPrintOrchestrator {
     });
   }
 
+  /// «In lại» một lệnh treo: XẾP LẠI đúng lệnh cũ trên máy chủ (đổi máy nếu [printerId]) thay vì gửi lệnh mới.
+  /// Gửi lệnh mới mà lệnh cũ vẫn chờ → hàng đợi cửa hàng thêm 1 lệnh treo và Agent sống lại in cả hai (trùng phiếu).
+  /// true = đã xếp lại; tiếp tục theo dõi — treo nữa thì gọi [onHang] với cùng [jobId] (phiếu chờ cũ quay lại,
+  /// không sinh phiếu mới). false = máy chủ không xếp lại được (lệnh đã dọn / đang in / máy in bị xóa…) → [error].
+  Future<({bool ok, String? error, String? status})> requeueServerJob({
+    required String jobId,
+    required String documentType,
+    String? printerId,
+    String? referenceNo,
+    PosPrintHangCallback? onHang,
+  }) async {
+    final res = await _api.retryPosPrintJob(jobId, printerId: printerId);
+    if (res['isSuccess'] != true) {
+      return (ok: false, error: res['message']?.toString(), status: null);
+    }
+    final data = res['data'] is Map ? Map<String, dynamic>.from(res['data'] as Map) : const <String, dynamic>{};
+    final pid = (data['printerId'] ?? printerId ?? '').toString();
+    await refreshConfig();
+    final printer = _printers.where((p) => p.id.toLowerCase() == pid.toLowerCase()).firstOrNull;
+    if (printer != null) {
+      _armHangWatch(
+        jobId: jobId,
+        documentType: documentType,
+        printer: printer,
+        referenceNo: referenceNo,
+        acceptClaimedAsSuccess: false,
+        onHang: onHang,
+      );
+    }
+    // Agent chính máy này (nếu có) nhận ngay, không chờ vòng quét.
+    PosPrintAgentService.instance.nudgeClaim();
+    return (ok: true, error: null, status: data['status']?.toString());
+  }
+
   void _invokeHangCallback(String jobId) {
     final watch = _hangCallbacks.remove(jobId);
     if (watch == null) return;

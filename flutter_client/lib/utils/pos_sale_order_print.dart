@@ -38,11 +38,15 @@ class PendingSalePrintJob {
   PendingSalePrintJob({
     required this.order,
     this.errorMessage,
+    this.sourceJobId,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
   final PosSaleOrder order;
   final String? errorMessage;
+  /// Lệnh in cloud gốc đang treo (phiếu treo sau 30–60s). «In lại» xếp lại đúng lệnh này trên máy chủ
+  /// thay vì gửi lệnh mới (tránh in 2 hóa đơn khi Agent sống lại). Null = in lỗi ngay, chưa có lệnh.
+  final String? sourceJobId;
   final DateTime createdAt;
 
   String get id => order.id;

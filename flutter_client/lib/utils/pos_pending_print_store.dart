@@ -331,6 +331,7 @@ class PosPendingPrintStore {
 
   static Map<String, dynamic> _saleToJson(PendingSalePrintJob job) => {
         'errorMessage': job.errorMessage,
+        'sourceJobId': job.sourceJobId,
         'createdAt': job.createdAt.toIso8601String(),
         'order': _orderToJson(job.order),
       };
@@ -342,6 +343,7 @@ class PosPendingPrintStore {
       return PendingSalePrintJob(
         order: PosSaleOrder.fromJson(Map<String, dynamic>.from(orderMap)),
         errorMessage: json['errorMessage']?.toString(),
+        sourceJobId: (json['sourceJobId'] as String?)?.trim().isEmpty == true ? null : json['sourceJobId'] as String?,
         createdAt: DateTime.tryParse('${json['createdAt']}') ?? DateTime.now(),
       );
     } catch (e) {

@@ -320,6 +320,72 @@ public class PosPrintDispatchTests(PosPgFixture fx)
     }
 
     [Fact]
+    public async Task Retry_RequeuesSameJob_NoNewJob_AndBlockedWhileFreshlyClaimedByLiveAgent()
+    {
+        if (NoDb) return;
+        var s = await SeedAsync();
+        var job = await QueueAsync(s);
+        Assert.Equal(job, (await ClaimAsync(s, s.AgentA))?.Id);
+        await using (var db = fx.NewDb())
+        {
+            // Agent A còn sống vừa nhận (< 90s) → đang in thật: không cho In lại (tránh 2 tờ).
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                Svc(db).RetryJobAsync(s.Store, job, null, "thu ngân"));
+            Assert.Contains("đang in", ex.Message);
+        }
+        // Nhận đã lâu (treo thật) → In lại được, xếp lại ĐÚNG lệnh đó (không sinh lệnh mới trong hàng đợi).
+        await using (var db = fx.NewDb())
+        {
+            await db.PosPrintJobs.Where(j => j.Id == job)
+                .ExecuteUpdateAsync(x => x.SetProperty(j => j.ClaimedAt, DateTime.UtcNow.AddMinutes(-3)));
+            var r = await Svc(db).RetryJobAsync(s.Store, job, null, "thu ngân");
+            Assert.Equal(job, r!.Id);
+            Assert.Equal(1, await db.PosPrintJobs.CountAsync(j => j.StoreId == s.Store));
+        }
+        var j2 = await JobAsync(job);
+        Assert.Equal(PosPrintJobStatus.Queued, j2.Status);
+        Assert.Null(j2.AgentId);
+    }
+
+    [Fact]
+    public async Task StaleAgentFail_DoesNotKillRetriedJob()
+    {
+        if (NoDb) return;
+        var s = await SeedAsync();
+        var job = await QueueAsync(s);
+        await ClaimAsync(s, s.AgentA);
+        await using (var db = fx.NewDb())
+        {
+            await db.PosPrintJobs.Where(j => j.Id == job)
+                .ExecuteUpdateAsync(x => x.SetProperty(j => j.ClaimedAt, DateTime.UtcNow.AddMinutes(-3)));
+            await Svc(db).RetryJobAsync(s.Store, job, null, "thu ngân");
+            // Agent A (đã bị gỡ) báo lỗi muộn → bỏ qua, lệnh vừa In lại vẫn chờ máy in.
+            Assert.Null(await Svc(db).FailJobAsync(job, s.AgentA, "PRINT_FAILED", "lỗi cũ"));
+        }
+        Assert.Equal(PosPrintJobStatus.Queued, (await JobAsync(job)).Status);
+        // Agent B nhận và in bình thường.
+        Assert.Equal(job, (await ClaimAsync(s, s.AgentB))?.Id);
+        await using (var db = fx.NewDb())
+            Assert.NotNull(await Svc(db).CompleteJobAsync(job, s.AgentB));
+        Assert.Equal(PosPrintJobStatus.Completed, (await JobAsync(job)).Status);
+    }
+
+    [Fact]
+    public async Task OwningAgentFail_StillMarksFailed()
+    {
+        if (NoDb) return;
+        var s = await SeedAsync();
+        var job = await QueueAsync(s);
+        await ClaimAsync(s, s.AgentA);
+        await using (var db = fx.NewDb())
+        {
+            Assert.Null(await Svc(db).FailJobAsync(job, s.AgentB, "PRINT_FAILED", "không phải lệnh của B"));
+            Assert.NotNull(await Svc(db).FailJobAsync(job, s.AgentA, "PRINT_FAILED", "hết giấy"));
+        }
+        Assert.Equal(PosPrintJobStatus.Failed, (await JobAsync(job)).Status);
+    }
+
+    [Fact]
     public async Task Complete_IsIdempotent()
     {
         if (NoDb) return;

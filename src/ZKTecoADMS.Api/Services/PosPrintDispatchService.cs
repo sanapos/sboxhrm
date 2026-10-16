@@ -882,8 +882,12 @@ public class PosPrintDispatchService(
         {
             return job;
         }
-        // Cho phép fail job Queued (AgentId null) hoặc đúng agent đã claim.
-        if (agentId.HasValue && job.AgentId != null && job.AgentId != agentId) {
+        // Agent chỉ được báo lỗi lệnh nó đang giữ. Lệnh đã được «In lại» (Queued, chưa ai nhận) mà Agent cũ báo lỗi
+        // muộn → trước đây đánh Failed luôn lệnh vừa xếp lại → treo lại. Ngoại lệ: lệnh bị xếp lại vì tưởng Agent mất
+        // (SOFT_REQUEUE) — chính Agent đó báo lỗi thật.
+        if (agentId.HasValue && job.AgentId != agentId
+            && !(job.AgentId == null && job.ErrorCode == "SOFT_REQUEUE"))
+        {
             return null;
         }
 
@@ -952,8 +956,9 @@ public class PosPrintDispatchService(
             && (otherAlsoFailedPort
                 || !await HasOtherLiveAgentForPrinterAsync(job.StoreId, job.PrinterId, agentId, now, ct)))
         {
+            // Quyền với lệnh đã kiểm ở trên (Agent đang giữ / lệnh chưa ai nhận) → không kiểm lại theo Agent.
             return await FailJobAsync(
-                jobId, agentId, "NO_AGENT_PORT",
+                jobId, null, "NO_AGENT_PORT",
                 "Không máy nào mở được cổng in này — kiểm tra dây USB/IP máy in "
                 + "hoặc chọn máy in khác",
                 ct);
@@ -1274,6 +1279,16 @@ public class PosPrintDispatchService(
             throw new InvalidOperationException("Lệnh đang in — đợi máy in xong rồi mới in lại");
         if (string.IsNullOrEmpty(job.Payload))
             throw new InvalidOperationException("Lệnh in đã cũ, nội dung đã được dọn — in lại từ đơn hàng / phiếu gốc");
+        // Agent còn sống vừa nhận lệnh (< 90s) → nó đang in; xếp lại lúc này = gỡ Agent rồi in thêm lần nữa (2 tờ).
+        if (job.Status == PosPrintJobStatus.Claimed && job.AgentId is Guid holder && job.ClaimedAt is DateTime claimedAt
+            && (DateTime.UtcNow - DateTime.SpecifyKind(claimedAt, DateTimeKind.Utc)).TotalSeconds < RetryClaimedGraceSeconds)
+        {
+            var aliveSince = DateTime.UtcNow.Subtract(AgentOfflineThreshold);
+            var agentAlive = await db.PosPrintAgents.AsNoTracking().AnyAsync(a => a.Id == holder && a.Deleted == null
+                && a.IsOnline && a.LastHeartbeatAt != null && a.LastHeartbeatAt >= aliveSince, ct);
+            if (agentAlive)
+                throw new InvalidOperationException("Máy in vừa nhận lệnh này và đang in — đợi khoảng 1 phút rồi mới in lại");
+        }
         var targetId = printerId ?? job.PrinterId;
         var printer = await db.PosStorePrinters.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == targetId && p.StoreId == storeId && p.Deleted == null && p.IsActive, ct)
@@ -1311,6 +1326,9 @@ public class PosPrintDispatchService(
         catch (Exception ex) { logger.LogWarning(ex, "Broadcast retry failed for job {JobId}", jobId); }
         return fresh;
     }
+
+    /// <summary>Lệnh Agent còn sống vừa nhận dưới chừng này giây → không cho «In lại» (đang in thật).</summary>
+    public const int RetryClaimedGraceSeconds = 90;
 
     public async Task<PosPrintJob?> CancelJobAsync(Guid storeId, Guid jobId, string? by, CancellationToken ct = default)
     {
