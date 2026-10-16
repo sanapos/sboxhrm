@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../utils/pos_report_export.dart';
+import '../../utils/pos_report_open.dart';
 import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
@@ -194,7 +195,21 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
     );
   }
 
+  ///Lịch đã trừ cọc vào hóa đơn → bấm mở hóa đơn đó.
   Widget _row(Map<String, dynamic> r) {
+    final orderId = '${r['depositAppliedOrderId'] ?? ''}';
+    final body = _rowBody(r);
+    if (orderId.isEmpty || orderId.startsWith('0000')) return body;
+    return InkWell(
+      onTap: () => PosReportOpen.sale(context, orderId),
+      child: Row(children: [
+        Expanded(child: body),
+        const Icon(Icons.receipt_long_outlined, size: 18, color: PosTheme.kiotBlue),
+      ]),
+    );
+  }
+
+  Widget _rowBody(Map<String, dynamic> r) {
     final at = parseApiUtcDateTime(r['reservedAt']);
     final created = parseApiUtcDateTime(r['createdAt']);
     final occ = (r['occasionLabel'] ?? '').toString();

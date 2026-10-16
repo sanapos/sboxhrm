@@ -7,6 +7,7 @@ import '../../widgets/notification_overlay.dart';
 
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_ui.dart';
+import '../../widgets/pos/pos_party_debt_detail_page.dart';
 class PosCustomerDebtReportScreen extends StatefulWidget {
   const PosCustomerDebtReportScreen({super.key});
 
@@ -143,6 +144,12 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
             loading: _loading,
             rows: _items,
             pageSize: 50,
+            onRowTap: (r) => showPosPartyDebtDetail(context,
+                isCustomer: true,
+                id: '${r['id'] ?? ''}',
+                name: '${r['name'] ?? ''}',
+                phone: r['phone']?.toString(),
+                debt: _n(r['currentDebt'])),
             emptyTitle: 'Không có khách còn nợ',
             columns: [
               SboxColumn(

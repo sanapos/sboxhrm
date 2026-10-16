@@ -10,6 +10,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../utils/pos_report_open.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 /// Cháy hàng / chậm / chết tồn.
@@ -172,7 +173,10 @@ class _PosStockHealthReportScreenState extends State<PosStockHealthReportScreen>
   Widget _row(Map<String, dynamic> r) {
     final lastSold = parseApiUtcDateTime(r['lastSoldAt']);
     final lastIn = parseApiUtcDateTime(r['lastInboundAt']);
-    return Column(
+    return InkWell(
+      onTap: () => PosReportOpen.productMenu(context,
+          id: '${r['id'] ?? r['productId'] ?? ''}', name: '${r['name'] ?? ''}', from: _time.from, to: _time.to),
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
@@ -199,6 +203,7 @@ class _PosStockHealthReportScreenState extends State<PosStockHealthReportScreen>
           style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
         ),
       ],
+      ),
     );
   }
 }

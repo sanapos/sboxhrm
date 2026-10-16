@@ -10,6 +10,7 @@ import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/pos_kiot_time_range.dart';
 import '../utils/pos_report_export.dart';
+import '../utils/pos_report_open.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_hub_scope.dart';
@@ -447,6 +448,8 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                 _row(
                   p['paymentMethod']?.toString() ?? 'Khác',
                   '${_moneyFmt.format(_num(p['total']))} (${p['count'] ?? 0})',
+                  onTap: () => PosReportOpen.sales(context,
+                      from: _salesTime.from, to: _salesTime.to, paymentMethod: p['paymentMethod']?.toString()),
                 ),
           ]),
         if (((s['byPayment'] as List?) ?? []).isNotEmpty) const SizedBox(height: 12),
@@ -457,6 +460,12 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                 _row(
                   _fmtDay(d['date']),
                   '${_moneyFmt.format(_num(d['total']))} (${d['count'] ?? 0} đơn)',
+                  onTap: () {
+                    final day = DateTime.tryParse('${d['date']}');
+                    PosReportOpen.sales(context,
+                        from: day == null ? _salesTime.from : DateTime(day.year, day.month, day.day),
+                        to: day == null ? _salesTime.to : DateTime(day.year, day.month, day.day, 23, 59, 59));
+                  },
                 ),
           ]),
         if (((s['byDay'] as List?) ?? []).isNotEmpty) const SizedBox(height: 12),
@@ -469,6 +478,8 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                       ? e['soldBy'].toString()
                       : '—',
                   '${_moneyFmt.format(_num(e['revenue']))} (${e['orderCount'] ?? 0})',
+                  onTap: () => PosReportOpen.sales(context,
+                      from: _salesTime.from, to: _salesTime.to, soldBy: e['soldBy']?.toString()),
                 ),
           ]),
         if (((s['topEmployees'] as List?) ?? []).isNotEmpty) const SizedBox(height: 12),
@@ -479,6 +490,11 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                 _row(
                   p['productName']?.toString() ?? '',
                   '${_moneyFmt.format(_num(p['revenue']))} (${p['qty']})',
+                  onTap: () => PosReportOpen.productMenu(context,
+                      id: '${p['productId'] ?? ''}',
+                      name: '${p['productName'] ?? ''}',
+                      from: _salesTime.from,
+                      to: _salesTime.to),
                 ),
           ]),
       ],
@@ -557,6 +573,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                         child: SboxDataTable<Map<String, dynamic>>(
                           rows: _stockProducts.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
                           paginate: false,
+                          onRowTap: (p) => PosReportOpen.productDetail(context, '${p['id'] ?? p['productId'] ?? ''}'),
                           emptyTitle: 'Không có hàng trong bộ lọc',
                           columns: [
                             SboxColumn(
@@ -748,6 +765,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                         child: SboxDataTable<Map<String, dynamic>>(
                           rows: _lotItems.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
                           paginate: false,
+                          onRowTap: (l) => PosReportOpen.productDetail(context, '${l['productId'] ?? l['ProductId'] ?? ''}'),
                           emptyTitle: 'Chưa có lô hàng theo dõi hạn dùng',
                           columns: [
                             SboxColumn(
@@ -819,13 +837,17 @@ class _PosReportsScreenState extends State<PosReportsScreen>
     );
   }
 
-  Widget _row(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Expanded(child: Text(tr(label))),
-            Text(tr(value), style: const TextStyle(fontWeight: FontWeight.w500)),
-          ],
+  Widget _row(String label, String value, {VoidCallback? onTap}) => InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Expanded(child: Text(tr(label), style: onTap == null ? null : const TextStyle(color: PosTheme.kiotBlue))),
+              Text(tr(value), style: const TextStyle(fontWeight: FontWeight.w500)),
+              if (onTap != null) const Icon(Icons.chevron_right, size: 18, color: PosTheme.textSecondary),
+            ],
+          ),
         ),
       );
 

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
 import '../../utils/pos_kiot_time_range.dart';
+import '../../utils/pos_report_open.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'pos_profit_report_screen.dart';
@@ -256,6 +257,7 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
                       const SizedBox(height: 12),
                       PosReportMetricTiles(
                         moneyFmt: _moneyFmt,
+                        onTileTap: (_) => PosReportOpen.sales(context, from: _time.from, to: _time.to),
                         tiles: [
                           (label: 'Lợi nhuận', value: profit, color: PosTheme.kiotBlue),
                           (label: 'Doanh thu', value: revenue, color: const Color(0xFF0F766E)),
@@ -318,6 +320,8 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
                             : '—',
                     valueOf: (e) => _num(e['revenue']),
                     moneyFmt: _moneyFmt,
+                    onItemTap: (e) => PosReportOpen.sales(context,
+                        from: _time.from, to: _time.to, soldBy: e['soldBy']?.toString()),
                   ),
                 ),
               ],

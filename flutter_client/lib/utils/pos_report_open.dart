@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/pos_product.dart';
+import '../screens/pos/pos_product_detail_screen.dart';
 import '../screens/pos/pos_product_editor_page.dart';
 import '../screens/pos_purchase_receipt_list_screen.dart';
 import '../screens/pos_sale_order_editor_screen.dart';
@@ -60,6 +61,55 @@ class PosReportOpen {
         ),
       ),
     );
+  }
+
+  /// Thông tin hàng + thẻ kho (nhập / xuất / bán từng lần).
+  static Future<void> productDetail(BuildContext context, String id) async {
+    if (id.isEmpty) return;
+    final res = await _api.getPosProduct(id);
+    if (!context.mounted) return;
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => PosProductDetailScreen(
+          product: PosProduct.fromJson(Map<String, dynamic>.from(res['data'] as Map)),
+        ),
+      ));
+    }
+  }
+
+  /// Bấm một mặt hàng trong báo cáo: xem thẻ kho / các hóa đơn đã bán hàng này.
+  static Future<void> productMenu(
+    BuildContext context, {
+    required String id,
+    required String name,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    if (id.isEmpty) return;
+    final a = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700))),
+          ListTile(
+            leading: const Icon(Icons.inventory_2_outlined),
+            title: const Text('Thẻ kho & thông tin hàng'),
+            onTap: () => Navigator.pop(ctx, 'card'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.receipt_long_outlined),
+            title: const Text('Hóa đơn đã bán hàng này'),
+            onTap: () => Navigator.pop(ctx, 'sales'),
+          ),
+        ]),
+      ),
+    );
+    if (a == null || !context.mounted) return;
+    if (a == 'card') {
+      await productDetail(context, id);
+    } else {
+      await sales(context, from: from, to: to, productId: id);
+    }
   }
 
   static Future<void> purchaseReceipt(BuildContext context, String id) =>
