@@ -17,6 +17,8 @@ import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
+import '../widgets/pos/pos_doc_row_menu.dart';
+import '../utils/pos_simple_doc_print.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_stock_issue_config.dart';
 import '../widgets/pos/pos_stock_issue_helpers.dart';
@@ -229,6 +231,74 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
       );
       await _load(page: _page);
     }
+  }
+
+  List<PosDocAction> _rowActions(PosStockIssueDoc doc, bool canEdit) {
+    final draft = doc.status == 'Draft';
+    final done = doc.status == 'Completed';
+    final cancelled = doc.status == 'Cancelled';
+    return [
+      if (canEdit && draft) PosDocAction(Icons.edit_outlined, 'Sửa phiếu', () => _openEditor(issueId: doc.id)),
+      if (!canEdit || !draft) PosDocAction(Icons.visibility_outlined, 'Xem chi tiết', () => _toggleExpand(doc)),
+      if (canEdit && draft) PosDocAction(Icons.check_circle_outline, _config.completeActionLabel, () => _completeIssue(doc)),
+      PosDocAction(Icons.print_outlined, 'In phiếu', () => _printIssue(doc)),
+      if (canEdit) PosDocAction(Icons.copy, 'Sao chép', () => _copyIssue(doc)),
+      if (canEdit && done) PosDocAction(Icons.history_edu_outlined, 'Hủy và sửa lại', () => _reopenForEdit(doc)),
+      if (canEdit && done) PosDocAction(Icons.cancel_outlined, 'Hủy phiếu', () => _voidCompletedIssue(doc), danger: true),
+      if (canEdit && (draft || cancelled)) PosDocAction(Icons.delete_outline, 'Xóa', () => _deleteIssue(doc), danger: true),
+    ];
+  }
+
+  Future<void> _printIssue(PosStockIssueDoc summary) async {
+    var doc = _expandedId == summary.id ? (_expandedDetail ?? summary) : summary;
+    if (doc.lines.isEmpty) {
+      final res = await _api.getPosStockIssueDoc(_config.kind, summary.id);
+      if (!mounted) return;
+      if (res['isSuccess'] != true || res['data'] == null) {
+        NotificationOverlayManager().showError(title: 'Lỗi', message: tr('Không tải được phiếu để in'));
+        return;
+      }
+      doc = PosStockIssueDoc.fromJson(res['data'] as Map<String, dynamic>);
+    }
+    final when = (doc.issuedAt ?? doc.createdAt)?.toLocal();
+    await printPosSimpleDoc(
+      context,
+      title: 'PHIẾU ${_config.title.toUpperCase()}',
+      docNo: doc.issueNo,
+      statusLabel: stockIssueStatusLabel(doc.status),
+      infoLines: [
+        if (when != null) 'Ngày: ${_dateFmt.format(when)}',
+        'Người tạo: ${doc.createdBy ?? '—'}',
+        if (doc.categoryName != null && doc.categoryName!.isNotEmpty) 'Loại xuất: ${doc.categoryName}',
+        if (doc.recipientName != null && doc.recipientName!.isNotEmpty) 'Người nhận: ${doc.recipientName}',
+      ],
+      headers: const ['STT', 'Mã hàng', 'Tên hàng', 'SL', 'Giá vốn', 'Thành tiền'],
+      rows: [
+        for (var i = 0; i < doc.lines.length; i++)
+          [
+            '${i + 1}',
+            doc.lines[i].productCode,
+            '${doc.lines[i].productName}${doc.lines[i].unitName?.isNotEmpty == true ? ' (${doc.lines[i].unitName})' : ''}',
+            _fmtQty(doc.lines[i].qty),
+            _moneyFmt.format(doc.lines[i].costPrice),
+            _moneyFmt.format(doc.lines[i].lineTotal),
+          ],
+      ],
+      totalLines: ['Tổng SL: ${_fmtQty(doc.totalQty)}', 'Tổng giá trị: ${_moneyFmt.format(doc.totalValue)} đ'],
+      note: doc.note,
+    );
+  }
+
+  Future<void> _reopenForEdit(PosStockIssueDoc doc) async {
+    if (!await confirmReopenForEdit(context, doc.issueNo)) return;
+    final res = await _api.cancelPosStockIssueDoc(_config.kind, doc.id);
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager()
+          .showError(title: 'Không hủy được', message: res['message']?.toString() ?? 'Thử lại sau');
+      return;
+    }
+    await _copyIssue(doc);
   }
 
   Future<void> _copyIssue(PosStockIssueDoc doc) async {
@@ -488,6 +558,7 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
           SizedBox(
               width: 136,
               child: Text(tr('Trạng thái'), style: h, textAlign: TextAlign.right)),
+          const SizedBox(width: 40),
         ],
       ),
     );
@@ -515,6 +586,7 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
         onTap: () => _toggleExpand(doc),
         code: doc.issueNo,
         status: stockIssueStatusChip(doc.status),
+        trailing: PosDocRowMenu(actions: _rowActions(doc, canEdit)),
         accentColor: _blue,
         fields: [
           PosMobileField(
@@ -604,6 +676,7 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
                       child: stockIssueStatusChip(doc.status),
                     ),
                   ),
+                  SizedBox(width: 40, child: PosDocRowMenu(actions: _rowActions(doc, canEdit))),
                 ],
               ),
             ),
@@ -742,6 +815,11 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
                   icon: const Icon(Icons.check_circle_outline, size: 16),
                   label: Text(tr(_config.completeActionLabel)),
                 ),
+              OutlinedButton.icon(
+                onPressed: () => _printIssue(doc),
+                icon: const Icon(Icons.print, size: 16),
+                label: Text(tr('In phiếu')),
+              ),
               if (canEdit)
                 OutlinedButton.icon(
                   onPressed: () => _copyIssue(doc),

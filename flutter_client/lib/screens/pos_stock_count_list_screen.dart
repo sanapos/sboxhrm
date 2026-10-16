@@ -18,6 +18,7 @@ import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
+import '../widgets/pos/pos_doc_row_menu.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_stock_count_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
@@ -214,6 +215,34 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
       );
       await _load(page: _page);
     }
+  }
+
+  List<PosDocAction> _rowActions(PosStockCount c, bool canEdit) {
+    final draft = c.status == 'InProgress';
+    final done = c.status == 'Completed';
+    final cancelled = c.status == 'Cancelled';
+    return [
+      if (canEdit && draft) PosDocAction(Icons.edit_outlined, 'Sửa phiếu', () => _openEditor(countId: c.id)),
+      if (!canEdit || !draft) PosDocAction(Icons.visibility_outlined, 'Xem chi tiết', () => _toggleExpand(c)),
+      if (canEdit && draft) PosDocAction(Icons.balance_outlined, 'Cân bằng kho', () => _completeCount(c)),
+      PosDocAction(Icons.print_outlined, 'In phiếu', () => _printCount(c)),
+      if (canEdit) PosDocAction(Icons.copy, 'Sao chép', () => _copyCount(c)),
+      if (canEdit && done) PosDocAction(Icons.history_edu_outlined, 'Hủy và sửa lại', () => _reopenForEdit(c)),
+      if (canEdit && done) PosDocAction(Icons.cancel_outlined, 'Hủy phiếu', () => _voidCompletedCount(c), danger: true),
+      if (canEdit && (draft || cancelled)) PosDocAction(Icons.delete_outline, 'Xóa', () => _deleteCount(c), danger: true),
+    ];
+  }
+
+  Future<void> _reopenForEdit(PosStockCount c) async {
+    if (!await confirmReopenForEdit(context, c.countNo, effect: 'hoàn tồn kho về trước khi cân bằng')) return;
+    final res = await _api.cancelPosStockCount(c.id);
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager()
+          .showError(title: 'Không hủy được', message: res['message']?.toString() ?? 'Thử lại sau');
+      return;
+    }
+    await _copyCount(c);
   }
 
   Future<void> _copyCount(PosStockCount c) async {
@@ -488,6 +517,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
               flex: 2,
               child: Text(tr('Tổng chênh lệch'), style: h, textAlign: TextAlign.right)),
           SizedBox(width: 136, child: Text(tr('Trạng thái'), style: h, textAlign: TextAlign.right)),
+          const SizedBox(width: 40),
         ],
       ),
     );
@@ -516,6 +546,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
         onTap: () => _toggleExpand(c),
         code: c.countNo,
         status: stockCountStatusChip(c.status),
+        trailing: PosDocRowMenu(actions: _rowActions(c, canEdit)),
         accentColor: _blue,
         fields: [
           PosMobileField(
@@ -617,6 +648,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
                       child: stockCountStatusChip(c.status),
                     ),
                   ),
+                  SizedBox(width: 40, child: PosDocRowMenu(actions: _rowActions(c, canEdit))),
                 ],
               ),
             ),

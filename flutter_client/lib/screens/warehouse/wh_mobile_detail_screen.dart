@@ -269,6 +269,126 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
     }
   }
 
+  Map<String, dynamic> _unwrap(Map<String, dynamic> r) => Map<String, dynamic>.from(r);
+
+  Future<Map<String, dynamic>> _cancelApi() {
+    switch (widget.docType) {
+      case WhDocType.purchaseReceipt:
+        return _api.cancelPosPurchaseReceipt(widget.docId);
+      case WhDocType.purchaseReturn:
+        return _api.cancelPosPurchaseReturn(widget.docId);
+      case WhDocType.stockCount:
+        return _api.cancelPosStockCount(widget.docId);
+      case WhDocType.damageIssue:
+      case WhDocType.internalUseIssue:
+        return _api.cancelPosStockIssueDoc(widget.docType.stockIssueConfig!.kind, widget.docId);
+    }
+  }
+
+  Future<Map<String, dynamic>> _copyApi() {
+    switch (widget.docType) {
+      case WhDocType.purchaseReceipt:
+        return _api.copyPosPurchaseReceipt(widget.docId);
+      case WhDocType.purchaseReturn:
+        return _api.copyPosPurchaseReturn(widget.docId);
+      case WhDocType.stockCount:
+        return _api.copyPosStockCount(widget.docId);
+      case WhDocType.damageIssue:
+      case WhDocType.internalUseIssue:
+        return _api.copyPosStockIssueDoc(widget.docType.stockIssueConfig!.kind, widget.docId);
+    }
+  }
+
+  /// Hủy phiếu đã hoàn thành (hoàn kho). [thenEdit]: sau đó mở bản sao dạng phiếu tạm để sửa lại.
+  Future<void> _cancelDoc({bool thenEdit = false}) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr(thenEdit ? 'Hủy và sửa lại phiếu' : 'Hủy phiếu')),
+        content: Text(tr(thenEdit
+            ? 'Phiếu $_docNo sẽ bị hủy (hoàn lại tồn kho) rồi tạo phiếu tạm mới giống hệt để bạn chỉnh sửa.'
+            : 'Hủy phiếu $_docNo và hoàn lại tồn kho?')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: thenEdit ? null : WhMobileTheme.danger),
+            child: Text(tr(thenEdit ? 'Hủy và sửa lại' : 'Hủy phiếu')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _acting = true);
+    final res = _unwrap(await _cancelApi());
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      setState(() => _acting = false);
+      NotificationOverlayManager()
+          .showError(title: 'Không hủy được', message: res['message']?.toString() ?? 'Thử lại sau');
+      return;
+    }
+    ScreenRefreshNotifier.refreshPosAfterStockChange();
+    if (thenEdit) {
+      await _copyDoc(keepActing: true);
+      return;
+    }
+    setState(() => _acting = false);
+    NotificationOverlayManager().showSuccess(title: 'Đã hủy', message: _docNo);
+    await _load();
+  }
+
+  Future<void> _copyDoc({bool keepActing = false}) async {
+    if (!keepActing) setState(() => _acting = true);
+    final res = _unwrap(await _copyApi());
+    if (!mounted) return;
+    setState(() => _acting = false);
+    final data = res['data'];
+    final newId = data is Map ? (data['id'] ?? data['Id'])?.toString() : null;
+    if (res['isSuccess'] != true || newId == null) {
+      NotificationOverlayManager()
+          .showError(title: 'Không sao chép được', message: res['message']?.toString() ?? 'Thử lại sau');
+      return;
+    }
+    await WhMobileEditorRouter.openEdit(context, widget.docType, newId);
+    if (mounted) Navigator.pop(context, true);
+  }
+
+  /// Phiếu đã hoàn thành / đã hủy: không còn nút Chỉnh sửa → các thao tác còn lại ở thanh dưới.
+  Widget _closedActions() {
+    final cancelled = _status == 'Cancelled';
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 4,
+      runSpacing: 0,
+      children: [
+        TextButton.icon(
+          onPressed: _acting ? null : _copyDoc,
+          icon: const Icon(Icons.copy_rounded),
+          label: Text(tr('Sao chép')),
+        ),
+        if (!cancelled)
+          TextButton.icon(
+            onPressed: _acting ? null : () => _cancelDoc(thenEdit: true),
+            icon: const Icon(Icons.history_edu_outlined),
+            label: Text(tr('Hủy và sửa lại')),
+          ),
+        if (!cancelled)
+          TextButton.icon(
+            onPressed: _acting ? null : _cancelDoc,
+            icon: Icon(Icons.cancel_outlined, color: WhMobileTheme.danger),
+            label: Text(tr('Hủy phiếu'), style: TextStyle(color: WhMobileTheme.danger)),
+          ),
+        if (cancelled)
+          TextButton.icon(
+            onPressed: _acting ? null : _delete,
+            icon: Icon(Icons.delete_outline_rounded, color: WhMobileTheme.danger),
+            label: Text(tr('Xóa phiếu'), style: TextStyle(color: WhMobileTheme.danger)),
+          ),
+      ],
+    );
+  }
+
   Future<void> _delete() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -337,7 +457,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                       icon: Icon(Icons.delete_outline_rounded, color: WhMobileTheme.danger),
                       label: Text(tr('Xóa phiếu'), style: TextStyle(color: WhMobileTheme.danger)),
                     )
-                  : null,
+                  : (canEdit ? _closedActions() : null),
             ),
       body: _loading
           ? const Center(child: LoadingWidget())

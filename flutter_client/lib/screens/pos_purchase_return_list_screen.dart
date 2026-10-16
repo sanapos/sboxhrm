@@ -16,6 +16,8 @@ import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
+import '../widgets/pos/pos_doc_row_menu.dart';
+import '../utils/pos_simple_doc_print.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
@@ -233,6 +235,86 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
       );
       await _load(page: _page);
     }
+  }
+
+  List<PosDocAction> _rowActions(PosPurchaseReturn r, bool canEdit) {
+    final draft = r.status == 'Draft';
+    final done = r.status == 'Completed';
+    final cancelled = r.status == 'Cancelled';
+    return [
+      if (canEdit && draft) PosDocAction(Icons.edit_outlined, 'Sửa phiếu', () => _openEditor(returnId: r.id)),
+      if (!canEdit || !draft) PosDocAction(Icons.visibility_outlined, 'Xem chi tiết', () => _toggleExpand(r)),
+      if (canEdit && draft) PosDocAction(Icons.check_circle_outline, 'Hoàn thành trả hàng', () => _completeReturn(r)),
+      PosDocAction(Icons.print_outlined, 'In phiếu', () => _printReturn(r)),
+      if (canEdit) PosDocAction(Icons.copy, 'Sao chép', () => _copyReturn(r)),
+      if (canEdit && done) PosDocAction(Icons.history_edu_outlined, 'Hủy và sửa lại', () => _reopenForEdit(r)),
+      if (canEdit && done) PosDocAction(Icons.cancel_outlined, 'Hủy phiếu', () => _voidCompletedReturn(r), danger: true),
+      if (canEdit && (draft || cancelled)) PosDocAction(Icons.delete_outline, 'Xóa', () => _deleteReturn(r), danger: true),
+    ];
+  }
+
+  Future<void> _printReturn(PosPurchaseReturn summary) async {
+    var r = _expandedId == summary.id ? (_expandedDetail ?? summary) : summary;
+    if (r.lines.isEmpty) {
+      final res = await _api.getPosPurchaseReturn(summary.id);
+      if (!mounted) return;
+      if (res['isSuccess'] != true || res['data'] == null) {
+        NotificationOverlayManager().showError(title: 'Lỗi', message: tr('Không tải được phiếu để in'));
+        return;
+      }
+      r = PosPurchaseReturn.fromJson(res['data'] as Map<String, dynamic>);
+    }
+    final when = r.returnDate?.toLocal();
+    final statusLabel = switch (r.status) {
+      'Draft' => 'Phiếu tạm',
+      'Completed' => 'Đã trả hàng',
+      'Cancelled' => 'Đã hủy',
+      _ => r.status,
+    };
+    await printPosSimpleDoc(
+      context,
+      title: 'PHIẾU TRẢ HÀNG NHẬP',
+      docNo: r.returnNo,
+      statusLabel: statusLabel,
+      infoLines: [
+        if (when != null) 'Ngày trả: ${_dateFmt.format(when)}',
+        'Nhà cung cấp: ${r.supplierName ?? '—'}',
+        if (r.sourceReceiptNo != null && r.sourceReceiptNo!.isNotEmpty) 'Từ phiếu nhập: ${r.sourceReceiptNo}',
+        'Người tạo: ${r.createdBy ?? '—'}',
+      ],
+      headers: const ['STT', 'Mã hàng', 'Tên hàng', 'SL', 'Giá trả lại', 'Giảm giá', 'Thành tiền'],
+      rows: [
+        for (var i = 0; i < r.lines.length; i++)
+          [
+            '${i + 1}',
+            r.lines[i].productCode,
+            '${r.lines[i].productName}${r.lines[i].unitName?.isNotEmpty == true ? ' (${r.lines[i].unitName})' : ''}',
+            r.lines[i].qty.toStringAsFixed(r.lines[i].qty == r.lines[i].qty.roundToDouble() ? 0 : 2),
+            _moneyFmt.format(r.lines[i].costPrice),
+            _moneyFmt.format(r.lines[i].discountAmount),
+            _moneyFmt.format(r.lines[i].lineTotal),
+          ],
+      ],
+      totalLines: [
+        'Tổng tiền hàng: ${_moneyFmt.format(r.totalAmount)} đ',
+        'Giảm giá: ${_moneyFmt.format(r.discountAmount)} đ',
+        'NCC đã trả: ${_moneyFmt.format(r.refundReceived)} đ',
+        'NCC cần trả: ${_moneyFmt.format(_supplierOwed(r))} đ',
+      ],
+      note: r.note,
+    );
+  }
+
+  Future<void> _reopenForEdit(PosPurchaseReturn r) async {
+    if (!await confirmReopenForEdit(context, r.returnNo, effect: 'hoàn hàng về kho')) return;
+    final res = await _api.cancelPosPurchaseReturn(r.id);
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager()
+          .showError(title: 'Không hủy được', message: res['message']?.toString() ?? 'Thử lại sau');
+      return;
+    }
+    await _copyReturn(r);
   }
 
   Future<void> _copyReturn(PosPurchaseReturn r) async {
@@ -494,6 +576,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
           Expanded(flex: 2, child: Text(tr('NCC cần trả'), style: h, textAlign: TextAlign.right)),
           Expanded(flex: 2, child: Text(tr('NCC đã trả'), style: h, textAlign: TextAlign.right)),
           SizedBox(width: 136, child: Text(tr('Trạng thái'), style: h, textAlign: TextAlign.right)),
+          const SizedBox(width: 40),
         ],
       ),
     );
@@ -520,6 +603,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
         onTap: () => _toggleExpand(r),
         code: r.returnNo,
         status: purchaseStatusChip(r.status, completedLabel: 'Đã trả hàng'),
+        trailing: PosDocRowMenu(actions: _rowActions(r, canEdit)),
         accentColor: _blue,
         fields: [
           PosMobileField(
@@ -621,6 +705,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
                       child: purchaseStatusChip(r.status, completedLabel: 'Đã trả hàng'),
                     ),
                   ),
+                  SizedBox(width: 40, child: PosDocRowMenu(actions: _rowActions(r, canEdit))),
                 ],
               ),
             ),
@@ -738,6 +823,11 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
                   icon: const Icon(Icons.check_circle_outline, size: 16),
                   label: Text(tr('Hoàn thành trả hàng')),
                 ),
+              OutlinedButton.icon(
+                onPressed: () => _printReturn(r),
+                icon: const Icon(Icons.print, size: 16),
+                label: Text(tr('In phiếu')),
+              ),
               if (canEdit)
                 OutlinedButton.icon(
                   onPressed: () => _copyReturn(r),

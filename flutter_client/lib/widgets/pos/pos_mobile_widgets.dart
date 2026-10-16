@@ -739,12 +739,14 @@ class PosMobileExpandableDocCard extends StatelessWidget {
     required this.status,
     required this.fields,
     this.detail,
+    this.trailing,
     this.accentColor = PosTheme.kiotBlue,
   });
 
   final bool expanded;
   final VoidCallback onTap;
   final String code;
+  final Widget? trailing;
   final Widget status;
   final List<PosMobileField> fields;
   final Widget? detail;
@@ -787,6 +789,7 @@ class PosMobileExpandableDocCard extends StatelessWidget {
                         ),
                       ),
                       status,
+                      if (trailing != null) trailing!,
                     ],
                   ),
                   if (!expanded && fields.isNotEmpty) ...[

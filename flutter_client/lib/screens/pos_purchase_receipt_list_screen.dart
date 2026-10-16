@@ -23,6 +23,7 @@ import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
+import '../widgets/pos/pos_doc_row_menu.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
@@ -348,6 +349,49 @@ class _PosPurchaseReceiptListScreenState
     }
   }
 
+  /// Thao tác hiện ngay ở menu «⋮» của dòng (không cần mở rộng dòng).
+  List<PosDocAction> _rowActions(PosPurchaseReceipt r, bool canEdit) {
+    final draft = r.status == 'Draft';
+    final done = r.status == 'Completed';
+    final cancelled = r.status == 'Cancelled';
+    return [
+      if (canEdit && draft) PosDocAction(Icons.edit_outlined, 'Sửa phiếu', () => _openEditor(receiptId: r.id)),
+      if (!canEdit || !draft) PosDocAction(Icons.visibility_outlined, 'Xem chi tiết', () => _toggleExpand(r)),
+      if (canEdit && draft) PosDocAction(Icons.inventory_2_outlined, 'Nhập hàng vào kho', () => _completeReceipt(r)),
+      if (canEdit && done && _balanceDue(r) > 0)
+        PosDocAction(Icons.payments_outlined, 'Thanh toán NCC', () async {
+          final ok = await showPosSupplierDebtPayDialog(context, receipt: r);
+          if (ok == true && mounted) {
+            await _load(page: _page);
+            await _refreshExpandedDetail(r.id);
+          }
+        }),
+      PosDocAction(Icons.print_outlined, 'In phiếu', () async {
+        final res = await _api.getPosPurchaseReceipt(r.id);
+        if (res['isSuccess'] == true && res['data'] != null && mounted) {
+          await _printReceipt(PosPurchaseReceipt.fromJson(res['data'] as Map<String, dynamic>));
+        }
+      }),
+      if (canEdit) PosDocAction(Icons.copy, 'Sao chép', () => _copyReceipt(r)),
+      if (canEdit && done) PosDocAction(Icons.history_edu_outlined, 'Hủy và sửa lại', () => _reopenForEdit(r)),
+      if (canEdit && done) PosDocAction(Icons.cancel_outlined, 'Hủy phiếu', () => _voidCompletedReceipt(r), danger: true),
+      if (canEdit && (draft || cancelled)) PosDocAction(Icons.delete_outline, 'Xóa', () => _deleteReceipt(r), danger: true),
+    ];
+  }
+
+  Future<void> _reopenForEdit(PosPurchaseReceipt r) async {
+    if (!await confirmReopenForEdit(context, r.receiptNo, effect: 'trừ lại hàng đã nhập kho, gỡ các lần thanh toán')) return;
+    final res = await _api.cancelPosPurchaseReceipt(r.id);
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager()
+          .showError(title: 'Không hủy được', message: res['message']?.toString() ?? 'Thử lại sau');
+      return;
+    }
+    ScreenRefreshNotifier.refreshPosAfterStockChange();
+    await _copyReceipt(r);
+  }
+
   Future<void> _copyReceipt(PosPurchaseReceipt r) async {
     final res = await _api.copyPosPurchaseReceipt(r.id);
     if (!mounted) return;
@@ -619,6 +663,7 @@ class _PosPurchaseReceiptListScreenState
               flex: 2,
               child: Text(tr('Cần trả NCC'), style: h, textAlign: TextAlign.right)),
           SizedBox(width: 136, child: Text(tr('Trạng thái'), style: h, textAlign: TextAlign.right)),
+          const SizedBox(width: 40),
         ],
       ),
     );
@@ -646,6 +691,7 @@ class _PosPurchaseReceiptListScreenState
         onTap: () => _toggleExpand(r),
         code: r.receiptNo,
         status: purchaseStatusChip(r.status),
+        trailing: PosDocRowMenu(actions: _rowActions(r, canEdit)),
         accentColor: _blue,
         fields: [
           PosMobileField(
@@ -726,6 +772,7 @@ class _PosPurchaseReceiptListScreenState
                       child: purchaseStatusChip(r.status),
                     ),
                   ),
+                  SizedBox(width: 40, child: PosDocRowMenu(actions: _rowActions(r, canEdit))),
                 ],
               ),
             ),
