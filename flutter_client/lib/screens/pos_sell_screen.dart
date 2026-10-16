@@ -540,6 +540,8 @@ class _SellInvoiceTab {
   String? voucherCode;
   double voucherDiscount = 0;
   String? voucherName;
+  /// Tiền đơn lúc máy chủ tính voucher — giỏ đổi (khác số này) thì phải tính lại.
+  double voucherBase = 0;
   double pointsToRedeem = 0;
   double pointsDiscount = 0;
   String? draftOrderId;
@@ -678,6 +680,7 @@ class _SellInvoiceTab {
     voucherCode = null;
     voucherDiscount = 0;
     voucherName = null;
+    voucherBase = 0;
     pointsToRedeem = 0;
     pointsDiscount = 0;
     draftOrderId = null;
@@ -884,6 +887,8 @@ class _PosSellScreenState extends State<PosSellScreen>
   bool _forceInvoicePrintOnce = false;
   bool _quickPrintCup = false;
   bool _quickPrintKitchen = false;
+  /// Thu ngân đã bật / tắt «In bếp» cho đơn này — không tự bật lại lúc thanh toán.
+  bool _kitchenChipUserSet = false;
   bool _quickIssueEInvoice = false;
   PosEInvoiceSettings _eInvoiceSettings = const PosEInvoiceSettings();
   PosSellStoreSettings _storeSettings = const PosSellStoreSettings();
@@ -2127,6 +2132,7 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   @override
   void dispose() {
+    _voucherRevalidateTimer?.cancel();
     _storePrintPollTimer?.cancel();
     PosPaymentGatewayListener.instance
         .removeListener(_onTingeePaymentConfirmed);
@@ -2566,7 +2572,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       _quickPrintKitchen = false;
       return;
     }
-    if (_printSettings.kitchenSlipPrintMode.shouldPrintOnCheckout) {
+    if (_printSettings.kitchenSlipPrintMode.shouldPrintOnCheckout && !_kitchenChipUserSet) {
       _quickPrintKitchen = true;
     }
   }
@@ -5950,7 +5956,83 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (_storeSettings.enableSurcharge) {
       _tab.applySurcharge(afterOrderDiscount);
     }
+    // Voucher % / đơn tối thiểu phụ thuộc tiền đơn — giỏ đổi thì máy chủ tính lại (trước đây giữ số cũ:
+    // màn bán thu theo số cũ, máy chủ ghi số mới → lệch két).
+    if (_tab.voucherCode != null && (_tab.voucherBase - _total).abs() > 0.5) {
+      _scheduleVoucherRevalidate();
+    }
+    _capPointsToOrder(_tab);
     if (publishDisplay) _scheduleCustomerDisplayPublish();
+  }
+
+  Timer? _voucherRevalidateTimer;
+
+  void _scheduleVoucherRevalidate() {
+    _voucherRevalidateTimer?.cancel();
+    final tab = _tab;
+    _voucherRevalidateTimer = Timer(const Duration(milliseconds: 350), () {
+      if (mounted && identical(tab, _tab)) unawaited(_revalidateVoucher());
+    });
+  }
+
+  /// Tính lại voucher theo tiền đơn hiện tại (giỏ đã đổi). Không còn hợp lệ → bỏ voucher, báo thu ngân.
+  /// true = voucher (nếu có) đã khớp đơn hiện tại.
+  Future<bool> _revalidateVoucher() async {
+    final tab = _tab;
+    final code = tab.voucherCode;
+    if (code == null) return true;
+    final base = _total;
+    if ((tab.voucherBase - base).abs() <= 0.5) return true;
+    final res = await _api.validatePosVoucher(
+      code: code,
+      orderAmount: base,
+      customerId: tab.customer?.id,
+    );
+    if (!mounted || !identical(tab, _tab)) return false;
+    if (res['isSuccess'] != true || res['data'] is! Map) return false; // mất mạng: giữ, máy chủ tính khi TT
+    final data = res['data'] as Map<String, dynamic>;
+    setState(() {
+      if (data['valid'] == true) {
+        tab.voucherDiscount = (data['discountAmount'] as num?)?.toDouble() ??
+            double.tryParse('${data['discountAmount']}') ??
+            0;
+        tab.voucherBase = base;
+      } else {
+        tab.voucherCode = null;
+        tab.voucherDiscount = 0;
+        tab.voucherName = null;
+        tab.voucherBase = 0;
+        tab._voucherCtrl.clear();
+        NotificationOverlayManager().showWarning(
+          title: 'Đã bỏ voucher $code',
+          message: tr(data['message']?.toString() ?? 'Voucher không còn áp dụng cho đơn này'),
+        );
+      }
+      _capPointsToOrder(tab);
+      _syncPaidAmount();
+    });
+    _notifyPaymentUi(null);
+    return true;
+  }
+
+  /// Đổi điểm: giới hạn lại theo đơn hiện tại (giỏ / voucher đổi) — cùng quy tắc máy chủ (CalcPointsRedeem).
+  void _capPointsToOrder(_SellInvoiceTab tab) {
+    if (tab.pointsToRedeem <= 0) return;
+    final rates = _loyaltyRates;
+    final c = tab.customer;
+    if (c == null || !rates.canRedeem) {
+      tab.pointsToRedeem = 0;
+      tab.pointsDiscount = 0;
+      tab._pointsCtrl.clear();
+      return;
+    }
+    final afterLine = (tab.cart.fold<double>(0.0, (a, l) => a + l.lineGross - l.discountAmount))
+        .clamp(0.0, double.infinity);
+    final maxBase = (afterLine - tab.discount - tab.voucherDiscount).clamp(0.0, double.infinity);
+    final requested = double.tryParse(tab._pointsCtrl.text.replaceAll(',', '')) ?? tab.pointsToRedeem;
+    final capped = rates.capRedeem(requestedPoints: requested, balance: c.pointBalance, maxFromOrder: maxBase);
+    tab.pointsToRedeem = capped.points;
+    tab.pointsDiscount = capped.discount;
   }
 
   double get _total => (_afterLineDiscount - _tab.discount).clamp(0, double.infinity);
@@ -5967,7 +6049,9 @@ class _PosSellScreenState extends State<PosSellScreen>
       .toList();
 
   double get _vatAmount {
-    final net = _storeSettings.taxMode == PosSellTaxMode.perItem ? _total : _merchandiseAfterPromo;
+    // Voucher / đổi điểm là giảm giá trên hóa đơn → giảm giá tính thuế (cả thuế từng mặt hàng:
+    // phần giảm chia theo tỷ lệ từng dòng trong PosSellTax).
+    final net = _merchandiseAfterPromo;
     return PosSellTax.vatAmount(
       mode: _storeSettings.taxMode,
       netTotal: net,
@@ -5980,15 +6064,6 @@ class _PosSellScreenState extends State<PosSellScreen>
   double get _grandTotal {
     final fees = (_storeSettings.enableSurcharge ? _tab.surchargeAmount : 0) +
         (_storeSettings.enableDeliveryFee ? _tab.deliveryFee : 0);
-    if (_storeSettings.taxMode == PosSellTaxMode.perItem) {
-      final base = PosSellTax.grandTotal(
-        mode: _storeSettings.taxMode,
-        netTotal: _total,
-        vatAmount: _vatAmount,
-      );
-      return (base - _tab.voucherDiscount - _tab.pointsDiscount + fees)
-          .clamp(0, double.infinity);
-    }
     return PosSellTax.grandTotal(
           mode: _storeSettings.taxMode,
           netTotal: _merchandiseAfterPromo,
@@ -10707,6 +10782,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         _tab.voucherCode = code.toUpperCase();
         _tab.voucherDiscount = discount;
         _tab.voucherName = data['name']?.toString();
+        _tab.voucherBase = _total;
       });
       _recalcPointsDiscount(onMutate: onMutate);
       _syncPaidAmount();
@@ -11821,6 +11897,15 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (!await _ensureCanEditActiveDraft()) return;
       if (!_ensureResourceIfRequired()) return;
 
+      // Voucher phải khớp giỏ hiện tại trước khi tính còn thiếu / hạn mức nợ.
+      _voucherRevalidateTimer?.cancel();
+      if (!await _revalidateVoucher()) {
+        NotificationOverlayManager().showWarning(
+          title: 'Voucher',
+          message: tr('Chưa kiểm tra lại được voucher theo giỏ mới — máy chủ sẽ tính lại khi thanh toán.'),
+        );
+      }
+      if (!mounted) return;
       final paid = _effectivePaidAmount;
       final due = (_grandTotal - paid).clamp(0, double.infinity);
       if (due > 0 && _tab.customer == null) {
@@ -12159,6 +12244,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       _forceInvoicePrintOnce = false;
       if (mounted) setState(() => _checkingOut = false);
     }
+    // «In bếp» chỉ theo đơn vừa TT; «In hóa đơn» / «In tem» / «Xuất HĐĐT» giữ cho các đơn sau.
+    if (_tab.cart.isEmpty) _kitchenChipUserSet = false;
   }
 
   /// Quy đổi SL bán → ĐVT cơ bản (khớp server QtyInBase) để patch tồn lưới đúng.
@@ -17092,7 +17179,10 @@ class _PosSellScreenState extends State<PosSellScreen>
                 icon: Icons.soup_kitchen_outlined,
                 selected: _quickPrintKitchen,
                 onSelected: (v) {
-                  setState(() => _quickPrintKitchen = v);
+                  setState(() {
+                    _quickPrintKitchen = v;
+                    _kitchenChipUserSet = true;
+                  });
                   onChanged?.call();
                 },
               ),
@@ -19165,6 +19255,11 @@ class _PosSellScreenState extends State<PosSellScreen>
                           _tab._customerSearchCtrl.text =
                               kPosWalkInCustomerLabel;
                           _customerSuggestions = [];
+                          // Khách lẻ không đổi điểm (máy chủ báo lỗi khi TT).
+                          _tab.pointsToRedeem = 0;
+                          _tab.pointsDiscount = 0;
+                          _tab._pointsCtrl.clear();
+                          _syncPaidAmount();
                         });
                         Navigator.pop(ctx);
                       },
