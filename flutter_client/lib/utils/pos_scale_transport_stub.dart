@@ -7,6 +7,8 @@ class _Unsupported implements PosScaleTransport {
   @override
   bool get isWeb => false;
   @override
+  String get kind => 'none';
+  @override
   String get unsupportedReason => 'Thiết bị này chưa hỗ trợ nối cân trực tiếp — dùng app Windows hoặc Chrome / Edge trên máy tính.';
   @override
   Future<List<String>> listPorts() async => const [];

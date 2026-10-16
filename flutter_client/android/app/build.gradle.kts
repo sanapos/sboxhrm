@@ -86,6 +86,8 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.core:core-ktx:1.16.0")
+    // Cân điện tử qua cáp USB-Serial: CH340, PL2303, CP210x, FTDI, CDC-ACM (thuần Java, không .so).
+    implementation("com.github.mik3y:usb-serial-for-android:3.8.1")
     // shared_preferences_android 2.4.20 pulls datastore 1.2.0 whose
     // libdatastore_shared_counter.so fails Play 16 KB RELRO. 1.2.1 rebuilt it.
     implementation("androidx.datastore:datastore:1.2.1")

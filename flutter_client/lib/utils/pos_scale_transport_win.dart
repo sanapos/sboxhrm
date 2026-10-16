@@ -8,6 +8,7 @@ import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
 
 import 'pos_scale_reader.dart';
+import 'pos_scale_transport_android.dart';
 import 'pos_scale_transport.dart';
 
 /// Cân qua cổng COM trên Windows (RS232, hoặc USB-Serial hiện thành COMx).
@@ -21,6 +22,8 @@ class _WinComTransport implements PosScaleTransport {
   bool get supported => Platform.isWindows;
   @override
   bool get isWeb => false;
+  @override
+  String get kind => 'windows';
   @override
   String get unsupportedReason =>
       'Thiết bị này chưa hỗ trợ nối cân trực tiếp — dùng app Windows hoặc Chrome / Edge trên máy tính.';
@@ -250,4 +253,6 @@ Future<void> _readLoop(_OpenArgs a) async {
   }
 }
 
-PosScaleTransport createPosScaleTransport() => _WinComTransport();
+/// Bản máy (dart:ffi): Windows = cổng COM; Android = cáp USB-Serial qua kênh native.
+PosScaleTransport createPosScaleTransport() =>
+    Platform.isAndroid ? PosScaleAndroidUsbTransport() : _WinComTransport();

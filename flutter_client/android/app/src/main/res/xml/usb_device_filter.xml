@@ -5,4 +5,6 @@
     <usb-device class="7" subclass="1" protocol="1" />
     <usb-device class="255" subclass="255" protocol="255" />
     <usb-device class="0" />
+    <!-- Cáp / cân USB kiểu CDC-ACM (modem ảo) -->
+    <usb-device class="2" />
 </resources>

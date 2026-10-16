@@ -140,11 +140,15 @@ class _ScaleDeviceDialogState extends State<_ScaleDeviceDialog> {
               ? Text(tr(_reader.unsupportedReason))
               : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Text(
-                    tr(_reader.isWeb
-                        ? 'Cân nối máy tính qua cáp USB / RS232-USB. Bấm «Chọn cổng cân» → chọn cổng của cân '
-                            '(trình duyệt hỏi quyền một lần). Chỉ Chrome / Edge.'
-                        : 'Cân nối qua cổng RS232 hoặc cáp USB-Serial (hiện thành COMx trong Device Manager). '
-                            'Chọn cổng và tốc độ đúng như cài trên cân.'),
+                    tr(switch (_reader.kind) {
+                      'web' => 'Cân nối máy tính qua cáp USB / RS232-USB. Bấm «Chọn cổng cân» → chọn cổng của cân '
+                          '(trình duyệt hỏi quyền một lần). Chỉ Chrome / Edge.',
+                      'android' => 'Cắm cáp cân (RS232-USB, hoặc cáp USB của cân) vào cổng USB của máy — máy tính bảng cần '
+                          'cáp OTG. Chọn cân trong danh sách, bấm «Lưu & nối cân» → máy hỏi quyền USB: bấm «Cho phép». '
+                          'Hỗ trợ chip CH340, PL2303, CP210x, FTDI.',
+                      _ => 'Cân nối qua cổng RS232 hoặc cáp USB-Serial (hiện thành COMx trong Device Manager). '
+                          'Chọn cổng và tốc độ đúng như cài trên cân.',
+                    }),
                     style: const TextStyle(fontSize: 12.5, color: SboxColors.slate600),
                   ),
                   const SizedBox(height: 12),
@@ -169,8 +173,12 @@ class _ScaleDeviceDialogState extends State<_ScaleDeviceDialog> {
                           value: _ports.contains(_s.port) ? _s.port : null,
                           isExpanded: true,
                           decoration: InputDecoration(
-                            labelText: tr('Cổng COM'),
-                            helperText: tr(_ports.isEmpty ? 'Không thấy cổng COM — cắm cáp cân, cài driver USB-Serial' : ''),
+                            labelText: tr(_reader.kind == 'android' ? 'Cáp cân USB' : 'Cổng COM'),
+                            helperText: tr(_ports.isNotEmpty
+                                ? ''
+                                : _reader.kind == 'android'
+                                    ? 'Không thấy cáp cân — cắm cáp rồi bấm ↻'
+                                    : 'Không thấy cổng COM — cắm cáp cân, cài driver USB-Serial'),
                             border: const OutlineInputBorder(),
                             isDense: true,
                           ),

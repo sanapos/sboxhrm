@@ -25,6 +25,8 @@ class _WebSerialTransport implements PosScaleTransport {
   @override
   bool get isWeb => true;
   @override
+  String get kind => 'web';
+  @override
   String get unsupportedReason =>
       'Trình duyệt này chưa hỗ trợ đọc cân (Web Serial) — dùng Chrome hoặc Edge trên máy tính, hoặc app Windows.';
 

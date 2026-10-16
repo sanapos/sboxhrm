@@ -217,6 +217,22 @@ class MainActivity : FlutterFragmentActivity() {
                 }
             })
 
+        // Cân điện tử qua cáp USB-Serial.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UsbSerialScale.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                UsbSerialScale.handle(this, call, result)
+            }
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, UsbSerialScale.EVENTS)
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    UsbSerialScale.attachSink(events)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    UsbSerialScale.attachSink(null)
+                }
+            })
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PosPrinterHardware.CHANNEL)
             .setMethodCallHandler { call, result ->
                 PosPrinterHardware.handle(this, call, result)
@@ -289,6 +305,7 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onDestroy() {
         unregisterScannerReceiver()
         scannerEvents = null
+        UsbSerialScale.close()
         super.onDestroy()
     }
 

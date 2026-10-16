@@ -408,7 +408,7 @@ class _PosSellIndustrySettingsScreenState
         contentPadding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
         title: Text(tr('Cân điện tử nối máy này')),
         subtitle: Text(tr('Đọc khối lượng trực tiếp từ cân (RS232 / USB) cho «Cân & in tem» và màn Bán hàng. '
-            'App Windows hoặc Chrome / Edge trên máy tính.')),
+            'App Windows, máy Android có cổng USB (cáp USB-Serial), hoặc Chrome / Edge trên máy tính.')),
         trailing: const PosScaleWeightBadge(dense: true),
         onTap: () => showPosScaleDeviceDialog(context),
       ),

@@ -2,6 +2,11 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // usb-serial-for-android (cân điện tử qua cáp USB-Serial) chỉ phát hành trên JitPack.
+        maven {
+            url = uri("https://jitpack.io")
+            content { includeGroup("com.github.mik3y") }
+        }
     }
 }
 

@@ -4,6 +4,9 @@ import 'pos_scale_reader.dart';
 abstract class PosScaleTransport {
   bool get supported;
   bool get isWeb;
+
+  /// windows / android / web / none — câu hướng dẫn trong hộp thiết lập.
+  String get kind;
   String get unsupportedReason;
 
   /// Windows: các cổng COM đang có. Web: danh sách mô tả cổng đã cấp quyền.

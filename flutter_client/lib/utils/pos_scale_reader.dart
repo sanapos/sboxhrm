@@ -245,6 +245,7 @@ class PosScaleReader extends ChangeNotifier {
   bool get supported => _transport.supported;
   String get unsupportedReason => _transport.unsupportedReason;
   bool get isWeb => _transport.isWeb;
+  String get kind => _transport.kind;
   Stream<PosScaleReading> get readings => _stream.stream;
 
   /// Lần đọc còn mới (≤ 2 giây) — cân mất tín hiệu thì null.
