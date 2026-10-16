@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -10,7 +11,9 @@ import '../../utils/pos_barcode_print.dart';
 import '../../utils/pos_scale_barcode.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../models/pos_print_template.dart';
+import '../../utils/pos_scale_reader.dart';
 import '../notification_overlay.dart';
+import 'pos_scale_device_ui.dart';
 import 'pos_barcode_label_dialog.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -58,15 +61,49 @@ class _PosScaleLabelDialogState extends State<_PosScaleLabelDialog> {
   bool _busy = false;
   final List<_Pack> _packs = [];
 
+  /// Cân điện tử nối máy: tự thêm gói mỗi lần đặt hàng lên cân (số ổn định), nhấc ra (về 0) mới nhận gói sau.
+  final _reader = PosScaleReader.instance;
+  bool _autoFromScale = false;
+  bool _scaleArmed = true;
+  StreamSubscription<PosScaleReading>? _scaleSub;
+
   @override
   void initState() {
     super.initState();
     if (widget.initial != null) _select(widget.initial!);
     _loadScaleConfig();
+    unawaited(_reader.ensureStarted());
+    _scaleSub = _reader.readings.listen(_onScaleReading);
+  }
+
+  void _onScaleReading(PosScaleReading r) {
+    if (r.kg <= 0.005) {
+      _scaleArmed = true;
+      return;
+    }
+    if (!_autoFromScale || !_scaleArmed || !r.stable || _product == null || _busy) return;
+    _scaleArmed = false;
+    _takeFromScale(r.kg);
+  }
+
+  /// Khối lượng trên cân (kg) → ô khối lượng theo đơn vị hàng (gram / lạng / kg) rồi thêm gói.
+  void _takeFromScale([double? kg]) {
+    final w = kg ?? _reader.stableKg;
+    if (w == null) {
+      NotificationOverlayManager().showWarning(
+        title: 'Cân chưa ổn định',
+        message: tr(_reader.connected ? 'Đặt hàng lên cân, chờ số đứng yên' : 'Chưa nối cân — bấm ô cân để thiết lập'),
+      );
+      return;
+    }
+    final q = posScaleQtyFromKg(w, _unit);
+    _qtyCtrl.text = q.toStringAsFixed(3).replaceFirst(RegExp(r'\.?0+$'), '');
+    _addPack();
   }
 
   @override
   void dispose() {
+    _scaleSub?.cancel();
     _searchCtrl.dispose();
     _priceCtrl.dispose();
     _qtyCtrl.dispose();
@@ -362,6 +399,40 @@ class _PosScaleLabelDialogState extends State<_PosScaleLabelDialog> {
                     ),
                   ],
                 ),
+                // Cân điện tử nối máy (cổng COM / USB): lấy khối lượng thay vì gõ tay.
+                if (_reader.supported) ...[
+                  const SizedBox(height: 8),
+                  ListenableBuilder(listenable: _reader, builder: (context, _) => Row(children: [
+                    const PosScaleWeightBadge(),
+                    const SizedBox(width: 8),
+                    if (_reader.settings.enabled) ...[
+                      OutlinedButton.icon(
+                        onPressed: () => _takeFromScale(),
+                        icon: const Icon(Icons.download, size: 18),
+                        label: Text(tr('Lấy từ cân')),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: CheckboxListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text(tr('Tự thêm gói khi cân ổn định'), style: const TextStyle(fontSize: 12.5)),
+                          value: _autoFromScale,
+                          onChanged: (v) => setState(() {
+                            _autoFromScale = v == true;
+                            // Hàng đang nằm trên cân lúc bật → chờ nhấc ra rồi mới tự thêm.
+                            _scaleArmed = (_reader.current?.kg ?? 0) <= 0.005;
+                          }),
+                        ),
+                      ),
+                    ] else
+                      Expanded(
+                        child: Text(tr('Bấm ô cân để nối cân điện tử (cổng COM / USB)'),
+                            style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+                      ),
+                  ])),
+                ],
                 const SizedBox(height: 8),
                 for (var i = 0; i < _packs.length; i++)
                   Row(

@@ -10,6 +10,7 @@ import '../../models/qr_order_lock_config.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_scale_device_ui.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -394,6 +395,26 @@ class _PosSellIndustrySettingsScreenState
     );
   }
 
+  /// Cân điện tử nối thẳng máy này (cổng COM / USB) — cấu hình riêng từng máy, không lưu lên cửa hàng.
+  Widget _scaleDeviceCard() {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: SboxColors.slate300),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+        title: Text(tr('Cân điện tử nối máy này')),
+        subtitle: Text(tr('Đọc khối lượng trực tiếp từ cân (RS232 / USB) cho «Cân & in tem» và màn Bán hàng. '
+            'App Windows hoặc Chrome / Edge trên máy tính.')),
+        trailing: const PosScaleWeightBadge(dense: true),
+        onTap: () => showPosScaleDeviceDialog(context),
+      ),
+    );
+  }
+
   /// Mã vạch cân điện tử (EAN-13 đầu 20–29) — lưu ExtraJson.scale.
   Widget _scaleBarcodeCard(PosStoreSellSettingsDto s) {
     final c = PosScaleBarcodeConfig.parse(s.extraJson);
@@ -673,8 +694,10 @@ class _PosSellIndustrySettingsScreenState
                     (cur) => cur.copyWith(enableHourlyBilling: v)),
           ),
           if (s.sellProfile == PosSellProfile.hotel) _hotelPolicyCard(s),
-          if (s.sellProfile == PosSellProfile.retail || s.sellProfile == PosSellProfile.restaurant)
+          if (s.sellProfile == PosSellProfile.retail || s.sellProfile == PosSellProfile.restaurant) ...[
             _scaleBarcodeCard(s),
+            _scaleDeviceCard(),
+          ],
           if (s.enableHourlyBilling) ...[
             const SizedBox(height: 4),
             DropdownButtonFormField<String?>(

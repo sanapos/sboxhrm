@@ -3,6 +3,8 @@ import 'dart:async';
 import '../utils/api_datetime.dart';
 import '../widgets/pos/pos_package_timer.dart';
 import '../utils/pos_scale_barcode.dart';
+import '../utils/pos_scale_reader.dart';
+import '../widgets/pos/pos_scale_device_ui.dart';
 import '../utils/pos_promotion_engine.dart';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -1338,6 +1340,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     _tabs.first.paymentLines
         .add(_SellPaymentLine(sourceKey: _PosPaymentSource.cashKey));
     HardwareKeyboard.instance.addHandler(_onKey);
+    // Cân điện tử nối máy (cổng COM / Web Serial): nối lại nếu đã bật; ô khối lượng trên thanh trên.
+    PosScaleReader.instance.addListener(_onScaleChanged);
+    unawaited(PosScaleReader.instance.ensureStarted());
     void scrollSearch() {
       if (!_productSearchFocus.hasFocus) return;
       final ctx = _productSearchFocus.context;
@@ -2170,6 +2175,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     _promotionsTimer?.cancel();
     ScreenRefreshNotifier.posSellIndustry.removeListener(_onSellIndustryChanged);
     HardwareKeyboard.instance.removeHandler(_onKey);
+    PosScaleReader.instance.removeListener(_onScaleChanged);
     _tabScrollCtrl.dispose();
     _productSearchFocus.dispose();
     _floorSearchCtrl.dispose();
@@ -2207,6 +2213,36 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   bool _onKey(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
+    // Màn khác / hộp thoại đang đè lên màn bán (check-in, thanh toán QR, sửa SL…) → không bắt phím.
+    // Trước đây F3 / F4 vẫn chạy ngầm, nhảy con trỏ vào ô tìm của màn bán bị che.
+    if (!mounted || ModalRoute.of(context)?.isCurrent == false) return false;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.f1) {
+      unawaited(_showShortcutHelp());
+      return true;
+    }
+    if (key == LogicalKeyboardKey.f2) {
+      if (!_showRetailInvoiceTabs || Responsive.isMobile(context)) return false;
+      _newTab();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.f7) {
+      unawaited(_applyScaleWeightToLastLine());
+      return true;
+    }
+    if (key == LogicalKeyboardKey.f9) {
+      _onPayShortcut();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.escape && _tabletPaymentStage && !Responsive.isMobile(context)) {
+      // Esc ở màn thanh toán = quay lại hóa đơn (như nút ←).
+      setState(() {
+        _tabletPaymentStage = false;
+        _paymentQrOverlayDismissed = false;
+      });
+      _scheduleCustomerDisplayPublish(delayMs: 50);
+      return true;
+    }
     if (event.logicalKey == LogicalKeyboardKey.f3) {
       _productSearchFocus.requestFocus();
       return true;
@@ -2223,6 +2259,132 @@ class _PosSellScreenState extends State<PosSellScreen>
       return true;
     }
     return false;
+  }
+
+  bool _scaleBadgeShown = false;
+
+  /// Bật / tắt cân → hiện / ẩn ô khối lượng trên thanh trên (không rebuild mỗi lần số cân đổi).
+  void _onScaleChanged() {
+    final show = PosScaleReader.instance.settings.enabled;
+    if (show != _scaleBadgeShown && mounted) setState(() => _scaleBadgeShown = show);
+  }
+
+  /// F9: lần 1 mở màn thanh toán, lần 2 (đang ở màn thanh toán) = bấm «Thanh toán».
+  /// Nhãn «Thanh toán (F9)» có từ trước nhưng phím chưa từng được gắn.
+  void _onPayShortcut() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (_checkingOut || _parking) return;
+    if (_tab.cart.isEmpty) {
+      NotificationOverlayManager().showWarning(title: 'Chưa có hàng', message: tr('Thêm món vào đơn trước khi thanh toán.'));
+      return;
+    }
+    if (!perm.canPosPay()) {
+      NotificationOverlayManager().showWarning(title: 'Không có quyền', message: tr('Tài khoản không được thu tiền'));
+      return;
+    }
+    if (Responsive.isMobile(context)) {
+      unawaited(_openMobilePaymentScreen(perm));
+      return;
+    }
+    if (_tabletPaymentStage) {
+      unawaited(_checkout());
+    } else {
+      _enterPaymentStage();
+    }
+  }
+
+  /// Bảng phím tắt màn bán (F1).
+  Future<void> _showShortcutHelp() async {
+    const keys = [
+      ('F1', 'Bảng phím tắt này'),
+      ('F2', 'Thêm hóa đơn mới (bán lẻ nhiều hóa đơn)'),
+      ('F3', 'Tìm hàng hóa (gõ tên / mã / quét mã vạch)'),
+      ('F4', 'Tìm khách hàng'),
+      ('F7', 'Lấy khối lượng từ cân cho dòng vừa thêm'),
+      ('F9', 'Thanh toán — bấm lần nữa để hoàn tất'),
+      ('Esc', 'Ở màn thanh toán: quay lại hóa đơn'),
+      ('Ctrl + K', 'Tìm nhanh chức năng'),
+      ('Máy quét', 'Quét mã vạch ở bất kỳ đâu trên màn bán → thêm vào hóa đơn'),
+    ];
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          const Icon(Icons.keyboard_outlined),
+          const SizedBox(width: 8),
+          Text(tr('Phím tắt bán hàng')),
+        ]),
+        content: SizedBox(
+          width: 420,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            for (final k in keys)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(children: [
+                  Container(
+                    width: 84,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: SboxColors.slate100,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: SboxColors.slate300),
+                    ),
+                    child: Text(tr(k.$1), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(tr(k.$2), style: const TextStyle(fontSize: 13.5))),
+                ]),
+              ),
+            const SizedBox(height: 8),
+            Text(
+              tr(kIsWeb
+                  ? 'Trên trình duyệt: Ctrl+N / Ctrl+T / Ctrl+W là phím của trình duyệt, không dùng được cho bán hàng.'
+                  : 'Phím F có thể cần giữ Fn trên laptop.'),
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate600),
+            ),
+          ]),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng')))],
+      ),
+    );
+  }
+
+  /// Hàng bán theo kg / gram / lạng (bán số lẻ) + cân đang ổn định → SL theo đơn vị hàng. Null = không lấy.
+  double? _scaleQtyFor(PosProduct p, String unitLabel, {bool force = false}) {
+    final r = PosScaleReader.instance;
+    if (!r.settings.enabled || !r.connected) return null;
+    if (!force && !r.settings.autoWeighOnSell) return null;
+    if (posScaleKgPerUnit(unitLabel) == null || !PosQtyRules.allowsDecimal(p)) return null;
+    final kg = r.stableKg;
+    return kg == null ? null : posScaleQtyFromKg(kg, unitLabel);
+  }
+
+  /// F7: khối lượng đang ổn định trên cân → SL dòng cuối của hóa đơn (hàng cân).
+  Future<void> _applyScaleWeightToLastLine() async {
+    final r = PosScaleReader.instance;
+    if (!r.settings.enabled) {
+      if (r.supported) await showPosScaleDeviceDialog(context);
+      return;
+    }
+    if (_tab.cart.isEmpty) return;
+    final line = _tab.cart.last;
+    if (posScaleKgPerUnit(line.unitLabel) == null) {
+      NotificationOverlayManager().showWarning(
+          title: 'Không phải hàng cân', message: tr('«${line.product.name}» bán theo ${line.unitLabel}'));
+      return;
+    }
+    final kg = r.stableKg ?? await r.waitStableKg();
+    if (!mounted) return;
+    if (kg == null) {
+      NotificationOverlayManager().showWarning(
+          title: 'Cân chưa ổn định', message: tr(r.connected ? 'Đặt hàng lên cân, chờ số đứng yên' : 'Mất kết nối cân'));
+      return;
+    }
+    final qty = posScaleQtyFromKg(kg, line.unitLabel);
+    final delta = qty - line.qty;
+    if (delta.abs() < 1e-9) return;
+    await _adjustQty(line, delta);
   }
 
   void _applyPrintSettings(PosSellPrintSettings s) {
@@ -6037,6 +6199,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     double addQty = 1,
   }) async {
     if (addQty <= 0) return;
+    var weighed = false;
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     if (!perm.canPosOrder()) {
       NotificationOverlayManager().showWarning(
@@ -6063,6 +6226,22 @@ class _PosSellScreenState extends State<PosSellScreen>
           unitLabel: pick.unitLabel,
         ) ??
         views.first;
+
+    // Hàng cân (kg / gram / lạng) đang đặt trên cân nối máy → SL = khối lượng (mỗi lần cân một dòng riêng).
+    if (addQty == 1) {
+      final w = _scaleQtyFor(p, view.isBase ? p.baseUnitName : view.label);
+      if (w != null && w > 0) {
+        addQty = w;
+        mergeIfSame = false;
+        weighed = true;
+      }
+    }
+    if (weighed) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Lấy khối lượng từ cân',
+        message: tr('${p.name}: ${NumberFormat('#,##0.###', 'vi_VN').format(addQty)} ${view.isBase ? p.baseUnitName : view.label}'),
+      );
+    }
 
     if (!_validateStockForAdd(p, view, addQty: addQty)) return;
 
@@ -12965,6 +13144,26 @@ class _PosSellScreenState extends State<PosSellScreen>
               contentPadding: EdgeInsets.zero,
             ),
           ),
+        if (!Responsive.isMobile(context))
+          PopupMenuItem(
+            value: 'shortcuts',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.keyboard_outlined, size: 20),
+              title: Text(tr('Phím tắt (F1)')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (PosScaleReader.instance.supported)
+          PopupMenuItem(
+            value: 'scale_device',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.scale_outlined, size: 20),
+              title: Text(tr('Cân điện tử nối máy')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
         PopupMenuItem(
           value: 'fullscreen',
           child: ListTile(
@@ -13168,6 +13367,10 @@ class _PosSellScreenState extends State<PosSellScreen>
         );
       case 'session_redeem':
         await _openSessionRedeem();
+      case 'shortcuts':
+        await _showShortcutHelp();
+      case 'scale_device':
+        await showPosScaleDeviceDialog(context);
       case 'gym_checkin':
         await Navigator.of(context).push(
           MaterialPageRoute(
@@ -13672,6 +13875,8 @@ class _PosSellScreenState extends State<PosSellScreen>
               const Spacer(),
             ],
             ..._spacedTopBarActions([
+              // Cân điện tử nối máy: khối lượng trực tiếp (bấm để thiết lập).
+              if (PosScaleReader.instance.settings.enabled) const PosScaleWeightBadge(dense: true),
               if (_isTableOrderMode) _buildTableGuestIconButton(),
               if (_useFloorAsPrimary) _buildBookingToolbarButton(),
               if (_buildOnlineOrdersToolbarButton() != null)
@@ -17944,7 +18149,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   onComplete: _checkout,
                   height: 56,
                   radius: 10,
-                  completeLabel: 'HOÀN TẤT THANH TOÁN',
+                  completeLabel: 'HOÀN TẤT THANH TOÁN (F9)',
                   completeFontSize: 16,
                 ),
         ),
