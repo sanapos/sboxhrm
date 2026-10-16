@@ -350,14 +350,25 @@ public class PosPurchaseReceiptsController(
         if (receipt == null) return NotFound(AppResponse<ReceiptDto>.Fail("Không tìm thấy phiếu"));
         if (receipt.Status != PosPurchaseReceiptStatus.Completed)
             return BadRequest(AppResponse<ReceiptDto>.Fail("Chỉ hủy được phiếu đã nhập kho — phiếu tạm dùng Xóa"));
-        var hasPayments = await dbContext.PosSupplierPayments
-            .AnyAsync(p => p.StockReceiptId == receipt.Id && p.StoreId == storeId && p.Deleted == null);
-        if (hasPayments || receipt.PaidAmount > 0)
-            return BadRequest(AppResponse<ReceiptDto>.Fail("Phiếu đã có thanh toán — không thể hủy"));
 
         await using var tx = await dbContext.Database.BeginTransactionAsync();
         try
         {
+            // Phiếu đã thanh toán vẫn hủy được: gỡ các lần thanh toán + hủy phiếu chi trong sổ quỹ
+            // (công nợ NCC tự về đúng vì chỉ trừ phần còn nợ của phiếu).
+            var payments = await dbContext.PosSupplierPayments.AsTracking()
+                .Where(p => p.StockReceiptId == receipt.Id && p.StoreId == storeId && p.Deleted == null)
+                .ToListAsync();
+            var markers = payments.Select(p => $"{PosFinanceSyncHelper.SupplierPaymentMarker}{p.Id}")
+                .Append($"{PosFinanceSyncHelper.PurchaseReceiptMarker}{receipt.Id}").ToList();
+            var cashList = await dbContext.CashTransactions.AsTracking()
+                .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive &&
+                            c.InternalNote != null && markers.Any(m => c.InternalNote.StartsWith(m)))
+                .ToListAsync();
+            foreach (var cash in cashList)
+                PaymentFinanceHelper.CancelLinkedCashTransaction(cash, $"Hủy phiếu nhập {receipt.ReceiptNo}");
+            foreach (var pay in payments) pay.Deleted = DateTime.UtcNow;
+
             await PosPurchaseStockHelper.ReverseReceiptStockAsync(
                 dbContext, storeId, receipt, receipt.Lines.ToList(), CurrentUserEmail);
             await PosPurchaseStockHelper.ReverseSupplierOnReceiptCancelAsync(dbContext, receipt);
