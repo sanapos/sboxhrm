@@ -39,9 +39,10 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
         Guid Id, Guid CustomerId, string CustomerName, string? Phone, string? DeviceName,
         DateTime CheckInAt, DateTime? CheckOutAt, int? DurationMinutes, string? PackageName,
         bool SessionDeducted, string Status, string Source, string? Note,
-        bool Unlimited, int? RemainingSessions, DateTime? ExpiresAt);
+        bool Unlimited, int? RemainingSessions, DateTime? ExpiresAt, Guid? BalanceId = null, bool Denied = false);
 
-    public record CheckInDto(Guid CustomerId);
+    /// <param name="Force">Lễ tân xác nhận cho khách không có thẻ / gói hợp lệ vào.</param>
+    public record CheckInDto(Guid CustomerId, bool Force = false);
 
     // ── Hội viên trên máy ────────────────────────────────────────────────
 
@@ -233,12 +234,14 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
             .Where(v => v.StoreId == storeId && v.CheckInAt >= fromUtc && v.CheckInAt < toUtc);
         if (customerId.HasValue) q = q.Where(v => v.CustomerId == customerId);
         var visits = await LoadVisitsAsync(storeId, q.OrderByDescending(v => v.CheckInAt).Take(2000));
+        // Lượt bị từ chối ở cửa (khách chưa vào) chỉ tính vào «Cần kiểm tra».
+        var entered = visits.Where(v => !v.Denied).ToList();
         return Ok(AppResponse<object>.Success(new
         {
-            total = visits.Count,
-            inside = visits.Count(v => v.CheckOutAt == null
+            total = entered.Count,
+            inside = entered.Count(v => v.CheckOutAt == null
                 && DateTime.UtcNow - v.CheckInAt < GymVisitRules.MaxOpenVisit),
-            customers = visits.Select(v => v.CustomerId).Distinct().Count(),
+            customers = entered.Select(v => v.CustomerId).Distinct().Count(),
             warnings = visits.Count(v => v.Status != "Ok"),
             avgMinutes = visits.Where(v => v.DurationMinutes > 0).Select(v => v.DurationMinutes!.Value)
                 .DefaultIfEmpty().Average(),
@@ -264,6 +267,26 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
         if (inside != null)
             return BadRequest(AppResponse<VisitDto>.Fail(
                 $"Khách đang tập (vào lúc {ReportHelpers.ToVn(inside.CheckInAt):HH:mm}) — bấm «Cho ra» nếu khách về."));
+        if (!dto.Force)
+        {
+            // Không có thẻ / gói hợp lệ (và hôm nay chưa trừ buổi) → hỏi lễ tân trước khi ghi lượt «cần kiểm tra».
+            var (dayFrom, _) = GymVisitRules.VnDayUtc(now);
+            var usedToday = await db.PosGymVisits.AsNoTracking()
+                .AnyAsync(v => v.StoreId == storeId && v.CustomerId == dto.CustomerId && v.Deleted == null
+                    && v.SessionDeducted && v.CheckInAt >= dayFrom);
+            var balances = await db.PosCustomerSessionBalances.AsNoTracking()
+                .Where(b => b.StoreId == storeId && b.CustomerId == dto.CustomerId && b.Deleted == null)
+                .Select(b => new { b.RemainingSessions, b.ExpiresAt })
+                .ToListAsync();
+            var valid = balances.Any(b => b.RemainingSessions > 0 && (b.ExpiresAt == null || b.ExpiresAt > now));
+            if (!usedToday && !valid)
+            {
+                var reason = balances.Count == 0 ? "Khách chưa có thẻ / gói tập"
+                    : balances.Any(b => b.RemainingSessions > 0) ? "Thẻ / gói đã hết hạn"
+                    : "Gói đã hết buổi";
+                return Conflict(AppResponse<VisitDto>.Fail(reason));
+            }
+        }
         var visit = await gym.RecordPunchAsync(storeId, dto.CustomerId, DateTime.UtcNow, null, null,
             "Manual", CurrentUserEmail);
         if (visit != null) await gym.SyncDeviceAccessAsync(storeId, dto.CustomerId);
@@ -283,8 +306,12 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (v == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy lượt tập"));
         if (v.CheckOutAt.HasValue) return BadRequest(AppResponse<object>.Fail("Lượt tập đã kết thúc"));
+        // Quên quét ra quá lâu: cho ra bây giờ sẽ ra thời gian tập sai (vd 20 giờ) → chỉ đóng lượt, không tính phút.
+        var forgot = DateTime.UtcNow - v.CheckInAt > GymVisitRules.MaxOpenVisit;
         v.CheckOutAt = DateTime.UtcNow;
-        v.DurationMinutes = (int)Math.Round((v.CheckOutAt.Value - v.CheckInAt).TotalMinutes);
+        v.DurationMinutes = forgot ? null : (int)Math.Round((v.CheckOutAt.Value - v.CheckInAt).TotalMinutes);
+        if (forgot && !(v.Note ?? "").Contains(GymVisitRules.ForgotCheckoutNote))
+            v.Note = string.IsNullOrEmpty(v.Note) ? GymVisitRules.ForgotCheckoutNote : $"{v.Note} · {GymVisitRules.ForgotCheckoutNote}";
         v.UpdatedAt = DateTime.UtcNow;
         v.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
@@ -307,9 +334,10 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
                 v.CustomerId,
                 Name = v.Customer != null ? v.Customer.Name : "",
                 Phone = v.Customer != null ? v.Customer.Phone : null,
-                v.CheckInAt, v.DurationMinutes, v.Status,
+                v.CheckInAt, v.CheckOutAt, v.DurationMinutes, v.Status,
             })
             .ToListAsync();
+        bool Entered(DateTime inAt, DateTime? outAt, string? status) => !GymVisitRules.IsDenied(status, inAt, outAt);
         var packs = await BestPackagesAsync(storeId, raw.Select(r => r.CustomerId).Distinct().ToList());
         var rows = raw.GroupBy(r => r.CustomerId).Select(g =>
         {
@@ -319,8 +347,9 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
             {
                 customerName = g.First().Name,
                 phone = g.First().Phone,
-                visits = g.Count(),
-                days = g.Select(x => x.CheckInAt.AddHours(7).Date).Distinct().Count(),
+                visits = g.Count(x => Entered(x.CheckInAt, x.CheckOutAt, x.Status)),
+                days = g.Where(x => Entered(x.CheckInAt, x.CheckOutAt, x.Status))
+                    .Select(x => x.CheckInAt.AddHours(7).Date).Distinct().Count(),
                 totalHours = Math.Round(dur.Sum() / 60.0, 1),
                 avgMinutes = dur.Count == 0 ? 0 : (int)Math.Round(dur.Average()),
                 warnings = g.Count(x => x.Status != "Ok"),
@@ -369,7 +398,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
         return Ok(AppResponse<object>.Success(new
         {
             from = fromVn, to = toVn,
-            totalVisits = raw.Count,
+            totalVisits = raw.Count(x => Entered(x.CheckInAt, x.CheckOutAt, x.Status)),
             members = rows.Count,
             totalHours = Math.Round(raw.Where(x => x.DurationMinutes > 0).Sum(x => x.DurationMinutes!.Value) / 60.0, 1),
             avgMinutes = raw.Any(x => x.DurationMinutes > 0)
@@ -550,7 +579,8 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
                 r.CheckInAt, r.CheckOutAt, r.DurationMinutes, r.PackageName, r.SessionDeducted,
                 r.Status, r.Source, r.Note,
                 p != null && PosCustomerSessionBalance.IsUnlimitedCount(p.TotalSessions),
-                p?.RemainingSessions, p?.ExpiresAt);
+                p?.RemainingSessions, p?.ExpiresAt, r.BalanceId,
+                GymVisitRules.IsDenied(r.Status, r.CheckInAt, r.CheckOutAt));
         }).ToList();
     }
 }

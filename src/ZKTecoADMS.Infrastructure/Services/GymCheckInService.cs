@@ -64,6 +64,14 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
                 // Log cũ máy gửi bù (mất mạng lâu) → chỉ ghi lượt, KHÔNG mở cửa / báo quầy.
                 if (!GymVisitRules.IsRealtime(utc, now)) continue;
 
+                // Máy ở cửa từ chối (hết hạn / hết buổi): khách chưa vào → đóng lượt ngay. Trước đây lượt để «đang mở»,
+                // khách đứng chờ ≥ 3 phút quét lại thành «RA» → luôn mở cửa → khách hết hạn vẫn vào được.
+                if (serverDoor && visit != null && visit.CheckInAt == utc && visit.CheckOutAt == null && visit.Status != "Ok")
+                {
+                    visit.CheckOutAt = utc;
+                    visit.DurationMinutes = 0;
+                    visit.Note = $"{visit.Note} — cửa không mở";
+                }
                 var last = visit ?? await LastVisitAsync(storeId, customerId, utc);
                 var open = serverDoor && GymVisitRules.ShouldOpenDoor(visit, utc, last);
                 if (open) QueueOpenDoor(device.Id);
@@ -112,6 +120,18 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
                 return open;
         }
 
+        // Lượt cũ quá hạn chưa quét ra → đánh dấu để lễ tân / báo cáo biết (không tính thời gian tập).
+        foreach (var stale in recent.Where(v => v.CheckOutAt == null && v.CheckInAt < utc
+                     && utc - v.CheckInAt > GymVisitRules.MaxOpenVisit
+                     && !(v.Note ?? "").Contains(GymVisitRules.ForgotCheckoutNote)))
+        {
+            stale.Note = string.IsNullOrEmpty(stale.Note)
+                ? GymVisitRules.ForgotCheckoutNote
+                : $"{stale.Note} · {GymVisitRules.ForgotCheckoutNote}";
+            stale.UpdatedAt = DateTime.UtcNow;
+            stale.UpdatedBy = actor;
+        }
+
         var visit = new PosGymVisit
         {
             Id = Guid.NewGuid(),
@@ -156,6 +176,14 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
                     "OutOfSessions" => "Gói đã hết buổi",
                     _ => "Khách chưa có thẻ / gói tập",
                 };
+            }
+            else if (await CounterRedeemedTodayAsync(storeId, usable.Id, dayFrom, dayTo))
+            {
+                // Lễ tân đã «Trừ buổi gói» cho khách hôm nay ở màn Bán hàng → không trừ thêm khi quét máy.
+                visit.BalanceId = usable.Id;
+                visit.PackageName = usable.PackageName;
+                visit.Status = "Ok";
+                visit.Note = "Đã trừ buổi tại quầy hôm nay — không trừ thêm";
             }
             else
             {
@@ -247,6 +275,14 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
         return changed;
     }
 
+    /// <summary>Gói đã trừ buổi tại quầy (không phải check-in) trong ngày VN.</summary>
+    Task<bool> CounterRedeemedTodayAsync(Guid storeId, Guid balanceId, DateTime dayFrom, DateTime dayTo) =>
+        db.PosCustomerSessionTransactions.IgnoreQueryFilters().AsNoTracking()
+            .AnyAsync(t => t.StoreId == storeId && t.BalanceId == balanceId && t.Deleted == null
+                && t.TransactionType == PosSessionTxnType.Redeem
+                && t.UsedAt >= dayFrom && t.UsedAt < dayTo
+                && (t.Note == null || !t.Note.StartsWith("Check-in ")));
+
     async Task<bool> IsServerDoorAsync(Guid deviceId) =>
         await db.DeviceSettings.IgnoreQueryFilters().AsNoTracking()
             .AnyAsync(s => s.DeviceId == deviceId && s.SettingKey == DoorModeKey && s.SettingValue == DoorModeServer);
@@ -287,7 +323,7 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
         {
             var name = db.PosCustomers.IgnoreQueryFilters().AsNoTracking()
                 .Where(c => c.Id == v.CustomerId).Select(c => c.Name).FirstOrDefault() ?? "";
-            var action = v.CheckOutAt == punchUtc ? "out" : v.CheckInAt == punchUtc ? "in" : "repeat";
+            var action = v.CheckInAt == punchUtc ? "in" : v.CheckOutAt == punchUtc ? "out" : "repeat";
             _realtime.GymScan(storeId, new GymScanEvent(v.Id, v.CustomerId, name, deviceName, action, v.Status, v.Note, doorOpened));
         }
         catch (Exception ex)

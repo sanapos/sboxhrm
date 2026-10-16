@@ -183,4 +183,112 @@ public class GymDoorTests(PosPgFixture fx) : PosFlowTestBase(fx)
             Assert.Equal(9, (await db.PosCustomerSessionBalances.FirstAsync(b => b.CustomerId == c)).RemainingSessions);
         }
     }
+
+    [Fact]
+    public async Task Het_han_quet_lai_sau_3_phut_van_khong_mo_cua()
+    {
+        if (NoDb) return;
+        var (store, device) = await SeedDeviceAsync(serverDoor: true);
+        var c = await AddMemberAsync(store, device.Id, "Lý Hạnh", "0988111222", 5, DateTime.UtcNow.AddDays(-1)); // hết hạn
+        var notifier = new FakeNotifier();
+
+        await using (var db = Fx.NewDb())
+            await Service(db, notifier).ProcessPunchesAsync(device, [Punch("988111222", DateTime.UtcNow)]);
+        // Lượt bị từ chối đóng ngay (vào = ra), khách chưa vào phòng.
+        await using (var db = Fx.NewDb())
+        {
+            var v = await db.PosGymVisits.AsTracking().SingleAsync(x => x.CustomerId == c);
+            Assert.Equal(v.CheckInAt, v.CheckOutAt);
+            Assert.True(GymVisitRules.IsDenied(v.Status, v.CheckInAt, v.CheckOutAt));
+            // Giả lập khách đứng chờ 4 phút rồi quét lại (trước đây thành «RA» → mở cửa).
+            v.CheckInAt = v.CheckInAt.AddMinutes(-4);
+            v.CheckOutAt = v.CheckInAt;
+            await db.SaveChangesAsync();
+        }
+        await using (var db = Fx.NewDb())
+            await Service(db, notifier).ProcessPunchesAsync(device, [Punch("988111222", DateTime.UtcNow)]);
+
+        Assert.DoesNotContain(await CommandsAsync(device.Id), x => x.CommandType == DeviceCommandTypes.OpenDoor);
+        Assert.All(notifier.Events, e => Assert.Equal("in", e.Action));
+        await using (var db = Fx.NewDb())
+            Assert.Equal(0, await db.PosGymVisits.CountAsync(v => v.CustomerId == c && v.CheckOutAt == null));
+    }
+
+    [Fact]
+    public async Task Quen_quet_ra_qua_4_gio_thi_lan_quet_sau_la_vao_moi()
+    {
+        if (NoDb) return;
+        var (store, device) = await SeedDeviceAsync(serverDoor: false);
+        var c = await AddMemberAsync(store, device.Id, "Phan Khoa", "0966333444", 10, null);
+        var in1 = new DateTime(2026, 10, 9, 0, 0, 0, DateTimeKind.Utc);   // 07:00 VN, quên quét ra
+        var back = in1.AddHours(5);                                         // 12:00 VN quay lại
+        var leave = back.AddHours(1);
+        await using (var db = Fx.NewDb())
+        {
+            var svc = Service(db, new FakeNotifier());
+            await svc.RecordPunchAsync(store, c, in1, device.Id, "966333444", "Device", "t");
+            var v2 = await svc.RecordPunchAsync(store, c, back, device.Id, "966333444", "Device", "t");
+            Assert.Equal(back, v2!.CheckInAt);               // vào mới, không phải «ra» của lượt 07:00
+            Assert.False(v2.SessionDeducted);               // cùng ngày → không trừ thêm
+            var v3 = await svc.RecordPunchAsync(store, c, leave, device.Id, "966333444", "Device", "t");
+            Assert.Equal(leave, v3!.CheckOutAt);
+            Assert.Equal(60, v3.DurationMinutes);
+        }
+        await using (var db = Fx.NewDb())
+        {
+            var first = await db.PosGymVisits.SingleAsync(v => v.CustomerId == c && v.CheckInAt == in1);
+            Assert.Null(first.CheckOutAt);
+            Assert.Contains(GymVisitRules.ForgotCheckoutNote, first.Note);
+            Assert.Equal(9, (await db.PosCustomerSessionBalances.FirstAsync(b => b.CustomerId == c)).RemainingSessions);
+        }
+    }
+
+    [Fact]
+    public async Task Da_tru_buoi_tai_quay_hom_nay_thi_quet_may_khong_tru_them()
+    {
+        if (NoDb) return;
+        var (store, device) = await SeedDeviceAsync(serverDoor: false);
+        var c = await AddMemberAsync(store, device.Id, "Võ Lan", "0955444555", 10, null);
+        var now = DateTime.UtcNow;
+        await using (var db = Fx.NewDb())
+        {
+            var b = await db.PosCustomerSessionBalances.AsTracking().FirstAsync(x => x.CustomerId == c);
+            b.RemainingSessions = 9;
+            db.PosCustomerSessionTransactions.Add(new PosCustomerSessionTransaction
+            {
+                Id = Guid.NewGuid(), StoreId = store, BalanceId = b.Id, CustomerId = c,
+                TransactionType = PosSessionTxnType.Redeem, SessionDelta = -1, RemainingAfter = 9,
+                UsedAt = now.AddMinutes(-30), Note = "Trừ buổi tại quầy", IsActive = true,
+            });
+            await db.SaveChangesAsync();
+        }
+        await using (var db = Fx.NewDb())
+        {
+            var v = await Service(db, new FakeNotifier()).RecordPunchAsync(store, c, now, device.Id, "955444555", "Device", "t");
+            Assert.Equal("Ok", v!.Status);
+            Assert.False(v.SessionDeducted);
+        }
+        await using (var db = Fx.NewDb())
+            Assert.Equal(9, (await db.PosCustomerSessionBalances.FirstAsync(b => b.CustomerId == c)).RemainingSessions);
+    }
+
+    [Fact]
+    public async Task Check_in_tai_quay_khach_het_han_phai_xac_nhan()
+    {
+        if (NoDb) return;
+        var (store, device) = await SeedDeviceAsync(serverDoor: false);
+        var c = await AddMemberAsync(store, device.Id, "Đỗ Minh", "0944555666", 0, null); // hết buổi
+        await using (var db = Fx.NewDb())
+        {
+            var ctl = PosPgFixture.As(new ZKTecoADMS.Api.Controllers.PosGymController(db, null!, Service(db, new FakeNotifier())), store);
+            var res = await ctl.CheckIn(new(c));
+            Assert.IsType<Microsoft.AspNetCore.Mvc.ConflictObjectResult>(res.Result);
+            Assert.Equal("Gói đã hết buổi", Error(res));
+            Assert.Equal(0, await db.PosGymVisits.CountAsync(v => v.CustomerId == c));
+
+            var forced = Data(await ctl.CheckIn(new(c, Force: true)));
+            Assert.Equal("OutOfSessions", forced.Status);
+            Assert.False(forced.Denied);                    // lễ tân cho vào → đang tập
+        }
+    }
 }

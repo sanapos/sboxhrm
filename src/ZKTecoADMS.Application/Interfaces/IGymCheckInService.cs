@@ -42,8 +42,22 @@ public static class GymVisitRules
     /// <summary>Quét lại trong khoảng này sau lúc vào = quét trùng, bỏ qua.</summary>
     public static readonly TimeSpan DoubleScanWindow = TimeSpan.FromMinutes(3);
 
-    /// <summary>Lượt chưa ra quá lâu (quên quét ra) thì lần quét sau tính là lượt mới.</summary>
-    public static readonly TimeSpan MaxOpenVisit = TimeSpan.FromHours(8);
+    /// <summary>
+    /// Lượt chưa ra quá lâu (quên quét ra) thì lần quét sau tính là lượt MỚI, không phải «ra».
+    /// Trước đây 8 giờ: khách vào 7h quên quét ra, 11h quay lại quét → thành «ra», lúc về quét lại thành «vào»
+    /// (đảo cặp vào / ra, báo đang tập khi khách đã về). Buổi tập gym thực tế &lt; 4 giờ.
+    /// </summary>
+    public static readonly TimeSpan MaxOpenVisit = TimeSpan.FromHours(4);
+
+    /// <summary>Ghi chú lượt quá <see cref="MaxOpenVisit"/> chưa quét ra.</summary>
+    public const string ForgotCheckoutNote = "Quên quét ra";
+
+    /// <summary>
+    /// Lượt bị từ chối ở máy cửa (thẻ hết hạn / hết buổi, cửa không mở): ghi vào = ra cùng lúc —
+    /// khách chưa vào phòng, không tính «đang tập» / lượt tập.
+    /// </summary>
+    public static bool IsDenied(string? status, DateTime checkInAt, DateTime? checkOutAt) =>
+        status != "Ok" && checkOutAt == checkInAt;
 
     /// <summary>Chỉ mở cửa / báo quầy cho lần quét vừa xảy ra — không bao giờ cho log cũ máy gửi bù.</summary>
     public static readonly TimeSpan RealtimeWindow = TimeSpan.FromMinutes(2);
@@ -76,7 +90,8 @@ public static class GymVisitRules
     public static bool ShouldOpenDoor(PosGymVisit? visit, DateTime punchUtc, PosGymVisit? lastVisit)
     {
         if (visit == null) return lastVisit != null && lastVisit.Status == "Ok";
-        if (visit.CheckOutAt == punchUtc) return true;
+        // Lần quét này là RA của lượt vào trước đó (lượt bị từ chối có vào = ra = lần quét này → không phải ra).
+        if (visit.CheckOutAt == punchUtc && visit.CheckInAt != punchUtc) return true;
         return visit.Status == "Ok";
     }
 

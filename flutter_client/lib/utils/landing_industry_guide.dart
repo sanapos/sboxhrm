@@ -139,7 +139,7 @@ const landingIndustrySteps = <LandingUsageGuideStep>[
       'Thẻ tháng / quý / năm: dịch vụ bật «Thẻ tập theo thời gian (không giới hạn buổi)» và nhập hạn dùng (30 / 90 / 365 ngày). Mua thêm tự gia hạn nối tiếp',
       'Gói buổi (vd 12 buổi PT): nhập Số buổi + hạn dùng; mỗi lần tập trừ 1 buổi',
       'Bán thẻ: chọn khách (hội viên) → thêm thẻ → thanh toán → khách được cộng thẻ / buổi',
-      'Check-in hội viên: menu Check-in hội viên → tab «Hội viên trên máy» → đẩy hội viên lên máy chấm công (mã PIN riêng từ 90000001, không lẫn với nhân viên) → đăng ký vân tay / khuôn mặt',
+      'Check-in hội viên: menu Check-in hội viên → tab «Hội viên trên máy» → đẩy hội viên lên máy chấm công (mã PIN = số điện thoại bỏ số 0 đầu; không có số di động → mã từ 90000001, không lẫn với nhân viên) → đăng ký vân tay / khuôn mặt',
       'Hội viên chấm máy: hệ thống tự kiểm tra thẻ còn hạn / còn buổi, ghi lượt tập và trừ buổi (thẻ thời gian chỉ ghi lượt)',
       'Check-in tại quầy: tìm hội viên và bấm Check-in khi khách quên thẻ / máy lỗi',
       'Tab «Lượt tập»: ai vào tập lúc nào; tab «Tổng hợp»: số lượt, thẻ / gói còn lại, ngày hết hạn để gọi gia hạn',

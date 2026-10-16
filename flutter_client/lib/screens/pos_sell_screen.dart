@@ -1388,6 +1388,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           unawaited(_refreshQrOnlinePending());
         }
       }
+      // Hội viên gym quét thẻ hết hạn / hết buổi: báo ngay ở màn bán (trước đây chỉ báo khi đang mở màn check-in).
+      if (reason == 'gym_scan') _onGymScan(event);
     });
     _notifSignalSub = SignalRService().onNewNotification.listen((_) {
       if (mounted) unawaited(_refreshSystemUnreadNotifications());
@@ -5001,6 +5003,78 @@ class _PosSellScreenState extends State<PosSellScreen>
     );
   }
 
+  void _onGymScan(Map<String, dynamic> event) {
+    final g = event['gym'];
+    if (!mounted || g is! Map || g['status'] == 'Ok' || g['action'] != 'in') return;
+    if (_industrySettings?.enableSessionPacks != true) return;
+    // Màn check-in đang mở đã tự báo — không báo hai lần.
+    if (PosGymCheckInScreen.openCount > 0) return;
+    SystemSound.play(SystemSoundType.alert);
+    final name = '${g['customerName'] ?? ''}';
+    final reason = switch ('${g['status']}') {
+      'Expired' => 'Thẻ / gói đã hết hạn',
+      'OutOfSessions' => 'Gói đã hết buổi',
+      _ => 'Khách chưa có thẻ / gói tập',
+    };
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded, color: SboxColors.danger, size: 40),
+        title: Text(tr('$name — $reason')),
+        content: Text(tr('Hội viên vừa quét ở ${g['deviceName'] ?? 'máy'}'
+            '${g['doorOpened'] == true ? '' : ': cửa KHÔNG mở'}.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              unawaited(_selectCustomerById('${g['customerId']}'));
+            },
+            icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+            label: Text(tr('Bán / gia hạn gói')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Chọn khách cho hóa đơn đang mở (bán / gia hạn thẻ tập từ cảnh báo check-in).
+  Future<void> _selectCustomerById(String id) async {
+    final res = await _api.getPosCustomerById(id);
+    if (!mounted) return;
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      _selectCustomer(PosCustomer.fromJson(Map<String, dynamic>.from(res['data'] as Map)));
+    } else {
+      NotificationOverlayManager().showError(
+          title: 'Không tải được khách', message: res['message']?.toString() ?? '');
+    }
+  }
+
+  /// Hội viên đã check-in (máy / quầy) và đã trừ buổi hôm nay → hỏi trước khi trừ thêm ở quầy.
+  Future<bool> _confirmRedeemAfterGymCheckIn(PosCustomer customer) async {
+    final now = DateTime.now();
+    final res = await _api.getGymVisits(from: now, to: now, customerId: customer.id);
+    if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return true;
+    final items = ((res['data'] as Map)['items'] as List? ?? const []).whereType<Map>();
+    final deducted = items.where((v) => v['sessionDeducted'] == true).firstOrNull;
+    if (deducted == null) return true;
+    final at = DateTime.tryParse('${deducted['checkInAt']}')?.toLocal();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Hôm nay ${customer.name} đã check-in')),
+        content: Text(tr('Đã trừ 1 buổi «${deducted['packageName'] ?? ''}»'
+            '${at == null ? '' : ' lúc ${DateFormat('HH:mm').format(at)}'} khi quét máy / check-in. '
+            'Chỉ trừ thêm nếu là buổi khác (PT, dịch vụ…).')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không trừ'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Vẫn trừ buổi'))),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   Future<void> _openSessionRedeem() async {
     final customer = _tab.customer;
     if (customer == null) {
@@ -5010,6 +5084,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       );
       return;
     }
+    if (!await _confirmRedeemAfterGymCheckIn(customer) || !mounted) return;
     final redeemed = await showPosSessionRedeemSheet(
       context,
       customerId: customer.id,
@@ -13093,7 +13168,15 @@ class _PosSellScreenState extends State<PosSellScreen>
         await _openSessionRedeem();
       case 'gym_checkin':
         await Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const PosGymCheckInScreen()),
+          MaterialPageRoute(
+            builder: (ctx) => PosGymCheckInScreen(
+              // «Bán / gia hạn gói» → về màn bán, chọn sẵn khách.
+              onSellPackage: (c) {
+                Navigator.of(ctx).pop();
+                unawaited(_selectCustomerById('${c['id']}'));
+              },
+            ),
+          ),
         );
       case 'eod':
         await Navigator.of(context).push(

@@ -23,7 +23,13 @@ import '../../widgets/sbox/sbox_ui.dart';
 /// 3 tab: Lượt tập (theo ngày) · Hội viên trên máy (đăng ký khách lên máy, lấy vân tay / khuôn mặt)
 /// · Báo cáo buổi tập (theo kỳ, theo từng hội viên, xuất Excel).
 class PosGymCheckInScreen extends StatefulWidget {
-  const PosGymCheckInScreen({super.key});
+  const PosGymCheckInScreen({super.key, this.onSellPackage});
+
+  /// Mở từ màn Bán hàng: «Bán / gia hạn gói» → quay về màn bán với khách đã chọn ({id, name}).
+  final void Function(Map<String, dynamic> customer)? onSellPackage;
+
+  /// Số màn check-in đang mở — màn Bán hàng không báo trùng cảnh báo quét thẻ khi màn này đang hiện.
+  static int openCount = 0;
 
   @override
   State<PosGymCheckInScreen> createState() => _PosGymCheckInScreenState();
@@ -33,7 +39,14 @@ class _PosGymCheckInScreenState extends State<PosGymCheckInScreen> with SingleTi
   late final TabController _tabs = TabController(length: 3, vsync: this);
 
   @override
+  void initState() {
+    super.initState();
+    PosGymCheckInScreen.openCount++;
+  }
+
+  @override
   void dispose() {
+    PosGymCheckInScreen.openCount--;
     _tabs.dispose();
     super.dispose();
   }
@@ -82,7 +95,7 @@ class _PosGymCheckInScreenState extends State<PosGymCheckInScreen> with SingleTi
             child: TabBarView(
               controller: _tabs,
               children: [
-                _VisitsTab(onGoMembers: () => _tabs.animateTo(1)),
+                _VisitsTab(onGoMembers: () => _tabs.animateTo(1), onSellPackage: widget.onSellPackage),
                 const _MembersTab(),
                 const _ReportTab(),
               ],
@@ -119,12 +132,29 @@ String _duration(int minutes) {
   return m == 0 ? '$h giờ' : '$h giờ $m phút';
 }
 
-/// Đang trong phòng: chưa ra và vào chưa quá 8 giờ (quên quét ra thì không tính «đang tập» mãi) — khớp số máy chủ đếm.
+/// Lượt quá giờ này chưa quét ra = quên quét ra (khớp GymVisitRules.MaxOpenVisit ở máy chủ).
+const _maxOpenVisit = Duration(hours: 4);
+
+/// Đang trong phòng: chưa ra, không bị từ chối ở cửa và vào chưa quá 4 giờ — khớp số máy chủ đếm.
 bool _insideNow(Map v) {
-  if (v['checkOutAt'] != null) return false;
+  if (v['checkOutAt'] != null || v['denied'] == true) return false;
   final inAt = _date(v['checkInAt']);
-  return inAt != null && DateTime.now().difference(inAt) < const Duration(hours: 8);
+  return inAt != null && DateTime.now().difference(inAt) < _maxOpenVisit;
 }
+
+/// Chưa quét ra quá 4 giờ (hoặc máy chủ đã ghi «Quên quét ra»).
+bool _forgotCheckout(Map v) {
+  if (v['denied'] == true) return false;
+  if ('${v['note'] ?? ''}'.contains('Quên quét ra')) return true;
+  return v['checkOutAt'] == null && !_insideNow(v);
+}
+
+/// Lý do thẻ không hợp lệ theo trạng thái lượt.
+String _invalidReason(String? status) => switch (status) {
+      'Expired' => 'Thẻ / gói đã hết hạn',
+      'OutOfSessions' => 'Gói đã hết buổi',
+      _ => 'Khách chưa có thẻ / gói tập',
+    };
 
 bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
@@ -160,7 +190,9 @@ bool _packageWarn(Map m) {
 
 /// Trạng thái lượt tập do máy / quầy ghi.
 (String, SboxTone) _visitStatus(Map v) {
-  final inside = v['checkOutAt'] == null;
+  final inside = _insideNow(v);
+  if (v['denied'] == true) return ('Không cho vào', SboxTone.danger);
+  if (v['status'] == 'Ok' && _forgotCheckout(v)) return ('Quên quét ra', SboxTone.warning);
   return switch (v['status']?.toString()) {
     'NoPackage' => ('Chưa có thẻ / gói', SboxTone.danger),
     'Expired' => ('Thẻ hết hạn', SboxTone.danger),
@@ -548,7 +580,9 @@ class _MemberHistoryState extends State<_MemberHistory> {
   @override
   Widget build(BuildContext context) {
     final mins = _items.map((v) => (v['durationMinutes'] as num?)?.toInt() ?? 0).where((m) => m > 0).toList();
-    final days = _items
+    // Lượt bị từ chối ở cửa (khách chưa vào) không tính số lượt / ngày tập — chỉ tính «Cần kiểm tra».
+    final entered = _items.where((v) => v['denied'] != true).toList();
+    final days = entered
         .map((v) => _date(v['checkInAt']))
         .whereType<DateTime>()
         .map((d) => DateTime(d.year, d.month, d.day))
@@ -579,7 +613,7 @@ class _MemberHistoryState extends State<_MemberHistory> {
         ],
         const SizedBox(height: 12),
         _StatGrid([
-          _StatTile(label: 'Số lượt', value: '${_items.length}', tone: SboxTone.brand),
+          _StatTile(label: 'Số lượt', value: '${entered.length}', tone: SboxTone.brand),
           _StatTile(label: 'Số ngày tập', value: '$days', tone: SboxTone.success),
           _StatTile(
               label: 'TB mỗi lượt',
@@ -617,8 +651,10 @@ class _MemberHistoryState extends State<_MemberHistory> {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(
-              '${inAt == null ? '' : _hm.format(inAt)} → ${outAt == null ? '…' : _hm.format(outAt)}'
-              '${mins != null && mins > 0 ? ' · ${_duration(mins)}' : ''}',
+              v['denied'] == true
+                  ? '${inAt == null ? '' : _hm.format(inAt)} · cửa không mở'
+                  : '${inAt == null ? '' : _hm.format(inAt)} → ${outAt == null ? '…' : _hm.format(outAt)}'
+                      '${mins != null && mins > 0 ? ' · ${_duration(mins)}' : ''}',
               style: const TextStyle(fontSize: 13.5),
             ),
             Text(
@@ -641,8 +677,9 @@ class _MemberHistoryState extends State<_MemberHistory> {
 // ── Tab 1: lượt tập theo ngày (hôm nay tự làm mới 10 giây) ───────────────────
 
 class _VisitsTab extends StatefulWidget {
-  const _VisitsTab({required this.onGoMembers});
+  const _VisitsTab({required this.onGoMembers, this.onSellPackage});
   final VoidCallback onGoMembers;
+  final void Function(Map<String, dynamic> customer)? onSellPackage;
 
   @override
   State<_VisitsTab> createState() => _VisitsTabState();
@@ -698,11 +735,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
   void _alertScan(Map g) {
     SystemSound.play(SystemSoundType.alert);
     final name = '${g['customerName'] ?? ''}';
-    final reason = switch ('${g['status']}') {
-      'Expired' => 'Thẻ / gói đã hết hạn',
-      'OutOfSessions' => 'Gói đã hết buổi',
-      _ => 'Khách chưa có thẻ / gói tập',
-    };
+    final reason = _invalidReason('${g['status']}');
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -712,6 +745,15 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
             'Bán / gia hạn gói ở màn Bán hàng, hoặc mở cửa tay nếu cho khách vào.')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
+          if (widget.onSellPackage != null)
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                widget.onSellPackage!({'id': '${g['customerId']}', 'name': name});
+              },
+              icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+              label: Text(tr('Bán / gia hạn gói')),
+            ),
           if (_openableDoors.isNotEmpty)
             FilledButton.icon(
               onPressed: () {
@@ -783,8 +825,37 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
   Future<void> _manualCheckIn() async {
     final c = await _pickCustomer(context, title: 'Check-in tại quầy');
     if (c == null || !mounted) return;
-    final res = await _api.gymCheckIn(c['id'].toString());
+    var res = await _api.gymCheckIn(c['id'].toString());
     if (!mounted) return;
+    if (res['statusCode'] == 409) {
+      // Không có thẻ / gói hợp lệ: hỏi trước — trước đây vẫn ghi lượt rồi chỉ báo «cần kiểm tra».
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.warning_amber_rounded, color: SboxColors.danger, size: 40),
+          title: Text(tr('${c['name']} — ${res['message'] ?? ''}')),
+          content: Text(tr('Bán / gia hạn gói trước khi cho khách vào, hoặc vẫn cho vào '
+              '(lượt ghi «cần kiểm tra», không trừ buổi).')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
+            if (widget.onSellPackage != null)
+              OutlinedButton.icon(
+                onPressed: () => Navigator.pop(ctx, 'sell'),
+                icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+                label: Text(tr('Bán / gia hạn gói')),
+              ),
+            FilledButton(onPressed: () => Navigator.pop(ctx, 'force'), child: Text(tr('Vẫn cho vào'))),
+          ],
+        ),
+      );
+      if (!mounted || choice == null) return;
+      if (choice == 'sell') {
+        widget.onSellPackage!({'id': '${c['id']}', 'name': '${c['name'] ?? ''}'});
+        return;
+      }
+      res = await _api.gymCheckIn(c['id'].toString(), force: true);
+      if (!mounted) return;
+    }
     if (res['isSuccess'] == true) {
       final v = res['data'] is Map ? res['data'] as Map : const {};
       final ok = v['status'] == 'Ok';
@@ -977,9 +1048,16 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
     final minutes = (v['durationMinutes'] as num?)?.toInt() ??
         (inAt == null ? 0 : DateTime.now().difference(inAt).inMinutes.clamp(0, 24 * 60).toInt());
     final (label, tone) = _visitStatus(v);
-    final timeText = inside
-        ? 'Vào ${inAt == null ? '' : _hm.format(inAt)} · đã tập ${_duration(minutes)}'
-        : 'Vào ${inAt == null ? '' : _hm.format(inAt)} → Ra ${_hm.format(outAt)} · ${_duration(minutes)}';
+    final inText = inAt == null ? '' : _hm.format(inAt);
+    final timeText = v['denied'] == true
+        ? 'Quét lúc $inText'
+        : _forgotCheckout(v)
+            ? (outAt == null
+                ? 'Vào $inText · không quét ra'
+                : 'Vào $inText → đóng lượt ${_hm.format(outAt)} · không tính giờ')
+            : inside
+                ? 'Vào $inText · đã tập ${_duration(minutes)}'
+                : 'Vào $inText → Ra ${_hm.format(outAt)} · ${_duration(minutes)}';
     final source = (v['deviceName'] ?? '').toString();
     final phone = (v['phone'] ?? '').toString();
     final hasPack = (v['packageName'] ?? '').toString().isNotEmpty;
@@ -992,7 +1070,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
         CircleAvatar(
           radius: 18,
           backgroundColor: tone.bg,
-          child: Icon(ok ? (inside ? Icons.fitness_center : Icons.logout) : Icons.warning_amber_rounded,
+          child: Icon(ok ? (insideNow ? Icons.fitness_center : Icons.logout) : Icons.warning_amber_rounded,
               size: 18, color: tone.fg),
         ),
         const SizedBox(width: 10),
@@ -1033,11 +1111,12 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
                   style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                 ),
               ),
-              if (insideNow)
+              if (insideNow || (outAt == null && _forgotCheckout(v)))
                 TextButton.icon(
                   onPressed: () => _checkOut(v),
                   icon: const Icon(Icons.logout, size: 16),
-                  label: Text(tr('Cho ra')),
+                  // Quên quét ra: chỉ đóng lượt, máy chủ không tính giờ tập.
+                  label: Text(tr(insideNow ? 'Cho ra' : 'Đóng lượt')),
                   style: TextButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.symmetric(horizontal: 8),

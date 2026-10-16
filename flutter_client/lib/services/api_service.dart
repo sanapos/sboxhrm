@@ -20203,11 +20203,12 @@ class ApiService implements PayrollApi {
     }
   }
 
-  Future<Map<String, dynamic>> gymCheckIn(String customerId) async {
+  /// [force]: lễ tân xác nhận cho khách không có thẻ / gói hợp lệ vào (không force → 409 kèm lý do).
+  Future<Map<String, dynamic>> gymCheckIn(String customerId, {bool force = false}) async {
     try {
       final response = await http
           .post(Uri.parse('$baseUrl/api/pos/gym/check-in'),
-              headers: _headers, body: jsonEncode({'customerId': customerId}))
+              headers: _headers, body: jsonEncode({'customerId': customerId, if (force) 'force': true}))
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
