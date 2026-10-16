@@ -16,6 +16,7 @@ import '../utils/pos_barcode_print.dart';
 import '../utils/pos_label_printer_service.dart';
 import '../utils/pos_label_printer_settings.dart';
 import '../utils/pos_print_template_loader.dart';
+import 'pos/pos_label_templates_screen.dart';
 import '../utils/pos_print_template_defaults.dart';
 import '../utils/pos_print_template_renderer.dart';
 import '../utils/pos_print_template_v2_codec.dart';
@@ -1384,16 +1385,35 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           children: [
             if (!hubBody && !mobile && !_editing) const PosModuleToolbar(activeModule: 'PosSell'),
             Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _editing
-                      ? _buildEditorView(mobile)
-                      : _buildGalleryView(mobile),
+              // Tem sản phẩm / cân / thông số: trình soạn tem kéo thả (màn «Mẫu tem»).
+              child: PosPrintDocumentTypes.isProductLabel(_docType) && !_editing
+                  ? _buildLabelDesignView(mobile)
+                  : _loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _editing
+                          ? _buildEditorView(mobile)
+                          : _buildGalleryView(mobile),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildLabelDesignView(bool mobile) {
+    final labels = PosLabelTemplatesScreen(initialType: _docType, embedded: true);
+    if (mobile) return labels;
+    return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Container(
+        width: 220,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(right: BorderSide(color: SboxColors.slate200)),
+        ),
+        child: PosPrintDocTypeNav(current: _docType, onSelect: _changeDocType),
+      ),
+      Expanded(child: labels),
+    ]);
   }
 
   Widget _buildGalleryView(bool mobile) {

@@ -407,6 +407,12 @@ class PosLabelRenderer {
     return _imageToRaster(image);
   }
 
+  /// Dùng chung cho tem thiết kế tự do (PosLabelDesignPainter).
+  static void paintBarcode(ui.Canvas canvas, String data, ui.Rect rect) => _drawBarcode(canvas, data, rect);
+  static void paintQr(ui.Canvas canvas, String data, ui.Rect rect) => _drawQr(canvas, data, rect);
+  static Future<({Uint8List raster, int widthPx, int heightPx})> imageToRaster(ui.Image image) =>
+      _imageToRaster(image);
+
   static void _drawQr(ui.Canvas canvas, String data, ui.Rect rect) {
     if (data.isEmpty || rect.height < 8 || rect.width < 8) return;
     try {

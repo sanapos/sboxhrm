@@ -9,6 +9,7 @@ import '../../widgets/pos/pos_scale_label_dialog.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../pos_print_templates_screen.dart';
 import 'pos_printer_settings_hub_screen.dart';
+import 'pos_label_templates_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
@@ -67,22 +68,12 @@ class PosLabelPrintHubScreen extends StatelessWidget {
     ];
     final designs = <_HubAction>[
       _HubAction(
-        icon: Icons.label_outline,
-        title: 'Mẫu tem sản phẩm',
-        subtitle: 'Bố cục tem hàng hóa',
-        onTap: () => _openTemplates(context, PosPrintDocumentTypes.barcodeLabel),
-      ),
-      _HubAction(
-        icon: Icons.scale_outlined,
-        title: 'Mẫu tem cân',
-        subtitle: 'Ngày giờ in, HSD, đơn giá/kg',
-        onTap: () => _openTemplates(context, PosPrintDocumentTypes.scaleLabel),
-      ),
-      _HubAction(
         icon: Icons.design_services_outlined,
-        title: 'Mẫu tem thông số / tự soạn',
-        subtitle: 'Nhập khổ tem (rộng × cao mm), soạn chữ, mã vạch, QR',
-        onTap: () => _openTemplates(context, PosPrintDocumentTypes.specLabel),
+        title: 'Mẫu tem (trình soạn tem)',
+        subtitle: 'Tem sản phẩm · tem cân · tem thông số — chọn khổ tem, kéo thả chữ, mã vạch, QR, ảnh',
+        onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => const PosLabelTemplatesScreen(),
+        )),
       ),
       _HubAction(
         icon: Icons.local_cafe_outlined,
