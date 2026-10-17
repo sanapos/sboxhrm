@@ -405,16 +405,20 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       content = sub == null ? _home(wide) : _getScreen(sub);
     }
     content = ColoredBox(color: PosTheme.background, child: content);
-    if (!ownChrome) return content;
+    // Luôn cùng một cấu trúc (Scaffold), chỉ bật / tắt AppBar. Trước đây trả `content` trần khi
+    // shell có thanh tiêu đề, bọc Scaffold khi không — trạng thái này đổi lúc mở menu / hộp
+    // thoại → cả trang con bị dựng lại từ đầu (vd. Máy in cloud: chọn menu ⋮ không chạy).
     return Scaffold(
       backgroundColor: PosTheme.background,
-      appBar: AppBar(
-        title: Text(tr(sub == null ? 'Thiết lập SBOX' : (SettingsHubScreen.activeSubPageTitle ?? 'Thiết lập SBOX'))),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: sub == null ? () => Navigator.maybePop(context) : _requestClose,
-        ),
-      ),
+      appBar: !ownChrome
+          ? null
+          : AppBar(
+              title: Text(tr(sub == null ? 'Thiết lập SBOX' : (SettingsHubScreen.activeSubPageTitle ?? 'Thiết lập SBOX'))),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: sub == null ? () => Navigator.maybePop(context) : _requestClose,
+              ),
+            ),
       body: content,
     );
   }
