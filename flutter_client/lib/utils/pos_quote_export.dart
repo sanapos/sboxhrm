@@ -135,12 +135,12 @@ class PosQuoteExport {
       final saved = posQuoteSavedWordingHtml(quote.documents, 'Quote');
       if (saved != null && saved.trim().isNotEmpty) {
         if (!context.mounted) return;
-        await showPosHtmlPrintDialog(
+        await PosBusy.suspend(() => showPosHtmlPrintDialog(
           context,
           title: 'BÁO GIÁ $quoteNo',
           htmlDocument: saved,
           a4Paper: true,
-        );
+        ));
         return;
       }
     }
@@ -152,12 +152,12 @@ class PosQuoteExport {
     );
     if (server != null) {
       if (!context.mounted) return;
-      await showPosHtmlPrintDialog(
+      await PosBusy.suspend(() => showPosHtmlPrintDialog(
         context,
         title: 'BÁO GIÁ $quoteNo',
         htmlDocument: server,
         a4Paper: true,
-      );
+      ));
       return;
     }
     if (quote != null && quote.lines.isNotEmpty) {
@@ -168,12 +168,12 @@ class PosQuoteExport {
         includeStamp: includeStamp,
       );
       if (!context.mounted) return;
-      await showPosHtmlPrintDialog(
+      await PosBusy.suspend(() => showPosHtmlPrintDialog(
         context,
         title: 'BÁO GIÁ $quoteNo',
         htmlDocument: html,
         a4Paper: true,
-      );
+      ));
       return;
     }
     final html = await ApiService().fetchPosQuoteExportHtml(
@@ -188,12 +188,12 @@ class PosQuoteExport {
       );
       return;
     }
-    await showPosHtmlPrintDialog(
+    await PosBusy.suspend(() => showPosHtmlPrintDialog(
       context,
       title: 'BÁO GIÁ $quoteNo',
       htmlDocument: html,
       a4Paper: true,
-    );
+    ));
   }
 
   /// Tệp gửi khách: PDF A4 (máy chủ dựng) → ảnh PNG (dựng trên máy) → Word (.doc) nếu hai cách trên lỗi.
@@ -273,12 +273,12 @@ class PosQuoteExport {
 
     final box = context.findRenderObject() as RenderBox?;
     final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
-    final result = await Share.shareXFiles(
+    final result = await PosBusy.suspend(() => Share.shareXFiles(
       [XFile.fromData(file.bytes, name: file.name, mimeType: file.mime)],
       text: summary,
       subject: '$title $quoteNo',
       sharePositionOrigin: origin,
-    );
+    ));
     if (result.status == ShareResultStatus.unavailable) {
       await saveAndOpenFileBytes(file.bytes, file.name, file.mime);
     }
@@ -543,12 +543,12 @@ class PosQuoteExport {
       title: 'Không tạo được PDF trên máy chủ',
       message: '${res['message'] ?? ''} — ${tr('mở hộp in để lưu PDF')}',
     );
-    await showPosHtmlPrintDialog(
+    await PosBusy.suspend(() => showPosHtmlPrintDialog(
       context,
       title: fileName,
       htmlDocument: html,
       a4Paper: true,
-    );
+    ));
   }
 
   /// In / xuất / chia sẻ dùng chung cho báo giá, hợp đồng, bàn giao, nghiệm thu.
@@ -579,7 +579,7 @@ class PosQuoteExport {
         action == 'facebook';
     var stamp = true;
     if (needsStamp) {
-      final picked = await askPosQuoteStamp(context);
+      final picked = await PosBusy.suspend(() => askPosQuoteStamp(context));
       if (picked == null || !context.mounted) return;
       stamp = picked;
     }
@@ -633,12 +633,12 @@ class PosQuoteExport {
           return;
         }
         if (!context.mounted) return;
-        await showPosHtmlPrintDialog(
+        await PosBusy.suspend(() => showPosHtmlPrintDialog(
           context,
           title: no,
           htmlDocument: body,
           a4Paper: true,
-        );
+        ));
       case 'excel':
         await exportExcel(context, quoteId: full.id, quoteNo: full.quoteNo);
       case 'word':
@@ -715,21 +715,20 @@ class PosQuoteExport {
           name: full.customerName,
         );
       case 'care':
-        await showPosQuoteCareSheet(
+        await PosBusy.suspend(() => showPosQuoteCareSheet(
           context,
           quoteId: full.id,
           quoteNo: full.quoteNo,
           customerName: full.customerName,
           customerPhone: full.customerPhone,
-        );
+        ));
     }
   }
 
   /// Mở hộp in hệ thống với đúng file PDF (có xem trước trên Android / iOS / web).
   static Future<void> _printPdfBytes(Uint8List bytes, String name) async {
-    PosBusy.hideLayer(); // lớp «Đang mở…» không nằm sau hộp này
     try {
-      await Printing.layoutPdf(name: name, format: PdfPageFormat.a4, onLayout: (_) async => bytes);
+      await PosBusy.suspend(() => Printing.layoutPdf(name: name, format: PdfPageFormat.a4, onLayout: (_) async => bytes));
     } catch (_) {
       await saveAndOpenFileBytes(bytes, '$name.pdf', 'application/pdf');
     }

@@ -119,7 +119,18 @@ class ZKTecoApp extends StatelessWidget {
                   SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnDarkBg);
                 });
                 SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnDarkBg);
-                return AnnotatedRegion<SystemUiOverlayStyle>(
+                // Màn cảm ứng (web trên tablet / POS cảm ứng): vùng chạm tối thiểu 48px cho mọi nút Material
+                // (nền web / Windows mặc định thu nhỏ vùng chạm theo kiểu chuột).
+                final touchUi = kIsWeb && posWebHasTouchPoints();
+                Widget wrapTouch(Widget w) => touchUi
+                    ? Theme(
+                        data: Theme.of(context).copyWith(
+                          materialTapTargetSize: MaterialTapTargetSize.padded,
+                        ),
+                        child: w,
+                      )
+                    : w;
+                return wrapTouch(AnnotatedRegion<SystemUiOverlayStyle>(
                   value: kPlayOverlayOnDarkBg,
                   child: ColoredBox(
                     color: const Color(0xFF000000),
@@ -146,7 +157,7 @@ class ZKTecoApp extends StatelessWidget {
                       ),
                     ),
                   ),
-                );
+                ));
               },
             );
           },

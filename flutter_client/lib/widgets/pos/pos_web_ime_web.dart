@@ -1,6 +1,66 @@
 import 'dart:async';
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
+import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
+
+/// Chiều cao bàn phím ảo của trình duyệt (CSS px = logical px của Flutter).
+/// Chrome / Edge (Windows cảm ứng, Android) và Safari iOS vẽ bàn phím ĐÈ lên trang mà không báo viewInsets
+/// cho Flutter → ô nhập ở nửa dưới (ghi chú, tiền khách đưa, tìm khách…) bị che. Giá trị này cho
+/// [PosKeyboardLift] biết để dịch giao diện lên.
+final ValueNotifier<double> posWebKeyboardInset = ValueNotifier<double>(0);
+
+var _kbWatching = false;
+
+/// Bắt đầu theo dõi bàn phím ảo: Virtual Keyboard API (Chromium) → visualViewport (Safari iOS, trình duyệt khác).
+void posStartWebKeyboardWatch() {
+  if (_kbWatching) return;
+  _kbWatching = true;
+  try {
+    // Móc kiểm thử / hỗ trợ: window.__sboxKb(px) đặt chiều cao bàn phím giả lập.
+    globalContext['__sboxKb'] = ((JSNumber h) {
+      posWebKeyboardInset.value = h.toDartDouble;
+    }).toJS;
+  } catch (_) {}
+
+  var vkOk = false;
+  try {
+    final nav = web.window.navigator as JSObject;
+    final vk = nav['virtualKeyboard'];
+    if (vk != null && vk.isDefinedAndNotNull) {
+      final o = vk as JSObject;
+      o['overlaysContent'] = true.toJS; // bàn phím đè lên trang, không co layout → tự dịch giao diện
+      o.callMethod(
+        'addEventListener'.toJS,
+        'geometrychange'.toJS,
+        ((JSAny _) {
+          try {
+            final r = o['boundingRect'] as JSObject;
+            posWebKeyboardInset.value = (r['height'] as JSNumber).toDartDouble;
+          } catch (_) {}
+        }).toJS,
+      );
+      vkOk = true;
+    }
+  } catch (_) {}
+
+  if (!vkOk) {
+    try {
+      final vv = web.window.visualViewport;
+      if (vv != null) {
+        void update(web.Event _) {
+          final hidden = web.window.innerHeight - vv.height - vv.offsetTop;
+          // Ngưỡng 80px: bỏ qua thanh địa chỉ co giãn của trình duyệt di động.
+          posWebKeyboardInset.value = hidden > 80 ? hidden : 0;
+        }
+
+        vv.addEventListener('resize', update.toJS);
+        vv.addEventListener('scroll', update.toJS);
+      }
+    } catch (_) {}
+  }
+}
 
 const _trapId = 'sbox-pos-ime-trap';
 

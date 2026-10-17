@@ -270,10 +270,14 @@ class _PosKeyboardLiftState extends State<PosKeyboardLift> with WidgetsBindingOb
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     FocusManager.instance.addListener(_schedule);
+    // Web: bàn phím ảo của trình duyệt đè lên trang, không có viewInsets → theo dõi riêng.
+    posStartWebKeyboardWatch();
+    posWebKeyboardInset.addListener(_schedule);
   }
 
   @override
   void dispose() {
+    posWebKeyboardInset.removeListener(_schedule);
     WidgetsBinding.instance.removeObserver(this);
     FocusManager.instance.removeListener(_schedule);
     super.dispose();
@@ -284,7 +288,6 @@ class _PosKeyboardLiftState extends State<PosKeyboardLift> with WidgetsBindingOb
 
   /// Đo lại sau frame hiện tại và sau khi bàn phím / cuộn tự động chạy xong.
   void _schedule() {
-    if (kIsWeb) return;
     final seq = ++_seq;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (seq == _seq) _measure();
@@ -301,7 +304,7 @@ class _PosKeyboardLiftState extends State<PosKeyboardLift> with WidgetsBindingOb
     final view = View.maybeOf(context);
     if (view == null) return;
     final raw = MediaQueryData.fromView(view);
-    final inset = raw.viewInsets.bottom;
+    final inset = kIsWeb ? posWebKeyboardInset.value : raw.viewInsets.bottom;
     var next = 0.0;
     final node = FocusManager.instance.primaryFocus;
     if (inset > 0 && posFocusWantsSoftKeyboard(node) && node!.context != null) {
@@ -327,12 +330,11 @@ class _PosKeyboardLiftState extends State<PosKeyboardLift> with WidgetsBindingOb
 
   @override
   Widget build(BuildContext context) {
-    if (kIsWeb) return widget.child;
     // Màn tự cuộn ô vào tầm nhìn (ensureVisible) sau khi bàn phím bật — đo lại khi cuộn xong,
     // không thì vừa cuộn vừa dịch cộng dồn, ô trượt khỏi đỉnh màn.
     return NotificationListener<ScrollEndNotification>(
       onNotification: (_) {
-        if (_dy > 0 || MediaQuery.viewInsetsOf(context).bottom > 0) _schedule();
+        if (_dy > 0 || (kIsWeb ? posWebKeyboardInset.value : MediaQuery.viewInsetsOf(context).bottom) > 0) _schedule();
         return false;
       },
       child: TweenAnimationBuilder<double>(

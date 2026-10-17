@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'pos/pos_web_ime.dart' show posWebHasTouchPoints;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../services/branch_session.dart';
@@ -89,7 +90,7 @@ class BranchSwitcher extends StatelessWidget {
               ),
           ],
           child: Container(
-            height: compact ? 32 : 36,
+            height: posWebHasTouchPoints() ? 44 : (compact ? 32 : 36),
             padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10),
             decoration: BoxDecoration(
               color: onDark ? Colors.white.withValues(alpha: 0.14) : SboxColors.brand50,

@@ -17,6 +17,34 @@ class PosBusy {
 
   static bool isBusy([String key = _defaultKey]) => _keys.contains(key);
 
+  static OverlayState? _overlay;
+  static String _curLabel = '';
+  static int _suspended = 0;
+  // hideLayer() đã được gọi trong lần chạy này → không hiện lại lớp chờ (kể cả khi hẹn giờ 120ms chưa kịp bắn).
+  static bool _hiddenByCaller = false;
+
+  static void _showLayer() {
+    final overlay = _overlay;
+    if (_suspended > 0 || _hiddenByCaller || _keys.isEmpty || overlay == null || !overlay.mounted || _entry != null) return;
+    _label.value = _curLabel;
+    _entry = OverlayEntry(builder: (_) => const _BusyLayer());
+    overlay.insert(_entry!);
+  }
+
+  /// Chạy [fn] (hộp thoại hỏi người dùng, bảng chia sẻ / in hệ thống…) mà KHÔNG có lớp chờ chặn phía trên.
+  /// Trước đây lớp «Đang dựng…» hiện đè lên chính hộp hỏi («Có đóng dấu không?») → người dùng không bấm được,
+  /// màn hình quay mãi. Xong thì lớp chờ hiện lại nếu thao tác ngoài vẫn đang chạy.
+  static Future<T> suspend<T>(Future<T> Function() fn) async {
+    _suspended++;
+    hideLayer();
+    try {
+      return await fn();
+    } finally {
+      _suspended--;
+      _showLayer();
+    }
+  }
+
   static const _defaultKey = 'pos-doc';
 
   static Future<T?> run<T>(
@@ -27,19 +55,18 @@ class PosBusy {
   }) async {
     if (_keys.contains(key)) return null;
     _keys.add(key);
-    final overlay = Navigator.maybeOf(context, rootNavigator: true)?.overlay;
-    final timer = Timer(const Duration(milliseconds: 120), () {
-      if (overlay == null || !overlay.mounted || _entry != null) return;
-      _label.value = label;
-      _entry = OverlayEntry(builder: (_) => const _BusyLayer());
-      overlay.insert(_entry!);
-    });
+    _overlay = Navigator.maybeOf(context, rootNavigator: true)?.overlay;
+    _curLabel = label;
+    final timer = Timer(const Duration(milliseconds: 120), _showLayer);
     try {
       return await task();
     } finally {
       timer.cancel();
       _keys.remove(key);
-      if (_keys.isEmpty) hideLayer();
+      if (_keys.isEmpty) {
+        hideLayer();
+        _hiddenByCaller = false;
+      }
     }
   }
 
@@ -47,6 +74,7 @@ class PosBusy {
   static void hideLayer() {
     _entry?.remove();
     _entry = null;
+    if (_keys.isNotEmpty && _suspended == 0) _hiddenByCaller = true;
   }
 }
 

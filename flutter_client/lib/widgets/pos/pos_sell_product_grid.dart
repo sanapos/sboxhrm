@@ -1899,7 +1899,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             ),
           )
         : PosHScrollChipRow(
-            height: 48,
+            height: posWebHasTouchPoints() ? 62 : 48,
             padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1908,7 +1908,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                   tooltip: tr(_lockMode
                       ? 'Tắt chế độ khóa món'
                       : 'Chế độ khóa món — cần mật khẩu chủ cửa hàng'),
-                  visualDensity: VisualDensity.compact,
+                  visualDensity: posWebHasTouchPoints() ? VisualDensity.standard : VisualDensity.compact,
                   icon: Icon(
                     _lockMode ? Icons.lock : Icons.lock_open_outlined,
                     size: 22,
@@ -1920,7 +1920,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                 ),
                 IconButton(
                   tooltip: tr('Sắp xếp menu'),
-                  visualDensity: VisualDensity.compact,
+                  visualDensity: posWebHasTouchPoints() ? VisualDensity.standard : VisualDensity.compact,
                   icon: const Icon(Icons.swap_vert,
                       size: 22, color: PosTheme.textSecondary),
                   onPressed: _openCatalogSort,
@@ -1954,7 +1954,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         borderRadius: BorderRadius.circular(20),
         onTap: () => _selectCategory(id),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: posWebHasTouchPoints() ? 13 : 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(

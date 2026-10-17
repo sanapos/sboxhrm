@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../utils/vietnamese_font.dart';
+import '../pos/pos_web_ime.dart' show posWebHasTouchPoints;
 
 /// Tông màu ngữ nghĩa cho nhãn / thẻ số liệu / thông báo.
 enum SboxTone { neutral, brand, success, warning, danger, violet }
@@ -72,11 +73,13 @@ class SboxButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final h = switch (size) {
+    final baseH = switch (size) {
       SboxButtonSize.sm => SboxSize.controlSm,
       SboxButtonSize.md => SboxSize.control,
       SboxButtonSize.lg => SboxSize.controlLg,
     };
+    // Màn cảm ứng: nút cao tối thiểu 46px để ngón tay bấm trúng.
+    final h = posWebHasTouchPoints() && baseH < 46 ? 46.0 : baseH;
     final fs = size == SboxButtonSize.sm ? SboxType.small : (size == SboxButtonSize.lg ? SboxType.titleSm : SboxType.body);
     final padH = size == SboxButtonSize.sm ? 12.0 : (size == SboxButtonSize.lg ? 22.0 : 16.0);
     final (bg, fg, side, hover) = switch (kind) {

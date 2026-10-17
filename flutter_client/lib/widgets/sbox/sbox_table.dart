@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../theme/sbox_tokens.dart';
+import '../pos/pos_web_ime.dart' show posWebHasTouchPoints;
 import 'sbox_basics.dart';
 import '../../utils/responsive_helper.dart';
 import '../hrm_page_chrome.dart';
@@ -610,7 +611,7 @@ class SboxFilterChip<V> extends StatelessWidget {
           ),
       ],
       child: Container(
-        height: SboxSize.control,
+        height: posWebHasTouchPoints() ? 46 : SboxSize.control,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: SboxColors.surface,

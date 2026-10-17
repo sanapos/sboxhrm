@@ -39,6 +39,7 @@ import '../utils/responsive_helper.dart';
 import '../utils/store_role_helper.dart';
 import '../services/pos_network_monitor.dart';
 import '../widgets/pos/pos_offline_banner.dart';
+import '../utils/pos_notify_focus.dart';
 import '../services/pos_offline_service.dart';
 import '../services/api_service.dart';
 import '../services/branch_session.dart';
@@ -1337,6 +1338,9 @@ class _PosSellScreenState extends State<PosSellScreen>
   @override
   void initState() {
     super.initState();
+    PosNotifyFocus.enter();
+    // Khuyến mãi có thể áp riêng từng chi nhánh → đổi chi nhánh bán thì tải lại.
+    BranchSession.instance.addListener(_onBranchForPromotions);
     WidgetsBinding.instance.addObserver(this);
     _startStorePrintPoll();
     unawaited(_loadCachedSlotIds());
@@ -1971,6 +1975,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
   }
 
+  void _onBranchForPromotions() => unawaited(_loadPromotions());
+
   Future<void> _loadPromotions() async {
     final res = await _api.getPosPromotions(activeOnly: true);
     if (!mounted || res['isSuccess'] != true || res['data'] is! List) return;
@@ -2132,6 +2138,8 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   @override
   void dispose() {
+    BranchSession.instance.removeListener(_onBranchForPromotions);
+    PosNotifyFocus.leave();
     _voucherRevalidateTimer?.cancel();
     _storePrintPollTimer?.cancel();
     PosPaymentGatewayListener.instance
@@ -14445,7 +14453,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxTabs),
             child: SizedBox(
-              height: 34,
+              height: posWebHasTouchPoints() ? 42 : 34,
               child: SingleChildScrollView(
                 controller: _tabScrollCtrl,
                 scrollDirection: Axis.horizontal,
@@ -14466,8 +14474,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           ),
           const SizedBox(width: 4),
           SizedBox(
-            width: 36,
-            height: 32,
+            width: posWebHasTouchPoints() ? 46 : 36,
+            height: posWebHasTouchPoints() ? 42 : 32,
             child: IconButton(
               padding: EdgeInsets.zero,
               tooltip: tr('Thêm hóa đơn'),
@@ -14570,7 +14578,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             ],
             ..._pendingSlotChips(onBlue: true, gap: 0),
             IconButton(
-              visualDensity: VisualDensity.compact,
+              visualDensity: posWebHasTouchPoints() ? VisualDensity.standard : VisualDensity.compact,
               tooltip: tr('Thêm hóa đơn'),
               style: IconButton.styleFrom(
                 backgroundColor: Colors.white,
@@ -14898,7 +14906,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       color: bg,
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        height: 32,
+        // Màn cảm ứng (web trên tablet / POS cảm ứng): tab đủ cao để ngón tay bấm trúng.
+        height: posWebHasTouchPoints() ? 42 : 32,
         padding: const EdgeInsets.only(left: 8, right: 2),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(6),
@@ -14914,7 +14923,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 _selectTab(index);
               },
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: posWebHasTouchPoints() ? 10 : 4, vertical: posWebHasTouchPoints() ? 8 : 4),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -14948,7 +14957,9 @@ class _PosSellScreenState extends State<PosSellScreen>
               IconButton(
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                constraints: posWebHasTouchPoints()
+                    ? const BoxConstraints(minWidth: 42, minHeight: 42)
+                    : const BoxConstraints(minWidth: 26, minHeight: 26),
                 tooltip: tr('Đóng hóa đơn'),
                 onPressed: () {
                   // Gọi ngay — không qua InkWell cha (tránh nuốt tap).

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'pos_web_ime.dart' show posWebHasTouchPoints;
 
 import '../../models/pos_product.dart';
 import 'pos_theme.dart';
@@ -48,7 +49,7 @@ class PosProductTypeFilterBar extends StatelessWidget {
     return Material(
       color: Colors.white,
       child: SizedBox(
-        height: 48,
+        height: posWebHasTouchPoints() ? 62 : 48,
         child: ListView.separated(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           scrollDirection: Axis.horizontal,
@@ -69,7 +70,7 @@ class PosProductTypeFilterBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         onTap: () => onChanged(c.type),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: EdgeInsets.symmetric(horizontal: posWebHasTouchPoints() ? 16 : 12, vertical: posWebHasTouchPoints() ? 12 : 6),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -101,7 +102,7 @@ class PosProductTypeFilterBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           onTap: () => onChanged(c.type),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: posWebHasTouchPoints() ? 13 : 8),
             child: Row(
               children: [
                 Icon(c.icon, size: 18, color: c.color),
