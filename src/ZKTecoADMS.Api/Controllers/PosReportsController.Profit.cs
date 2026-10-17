@@ -104,7 +104,6 @@ public partial class PosReportsController
                 };
             })
             .OrderByDescending(x => x.profit)
-            .Take(limit)
             .ToList();
 
         // Hàng có giá vốn nhưng không có doanh thu riêng (vd topping tặng) — vẫn hiện giá vốn / cộng vào tổng.
@@ -146,12 +145,22 @@ public partial class PosReportsController
                     orderCount = 0,
                 });
             }
-            items = items.OrderByDescending(x => x.profit).Take(limit).ToList();
+            items = items.OrderByDescending(x => x.profit).ToList();
         }
 
+        // Tổng trên mọi mặt hàng TRƯỚC khi cắt danh sách — trước đây cộng sau Take(limit) theo lãi giảm dần
+        // → cửa hàng nhiều mặt hàng hơn giới hạn bị bỏ các mặt hàng lỗ ở cuối, tổng lãi cao hơn thực tế.
         var totalRevenue = items.Sum(x => x.revenue);
         var totalCogs = items.Sum(x => x.cogs);
         var totalProfit = totalRevenue - totalCogs;
+        var skuCount = items.Count;
+        var truncated = items.Count > limit;
+        if (truncated)
+        {
+            // Giữ cả mặt hàng lãi cao nhất và lỗ nhiều nhất (đáng xem nhất), bỏ phần giữa.
+            var lossCount = Math.Min(items.Count(x => x.profit < 0), limit / 5);
+            items = items.Take(limit - lossCount).Concat(items.TakeLast(lossCount)).ToList();
+        }
 
         return Ok(AppResponse<object>.Success(new
         {
@@ -161,7 +170,8 @@ public partial class PosReportsController
             totalCogs,
             totalProfit,
             marginPct = totalRevenue > 0 ? Math.Round(totalProfit / totalRevenue * 100, 1) : 0m,
-            skuCount = items.Count,
+            skuCount,
+            truncated,
             items,
         }));
     }
@@ -271,11 +281,21 @@ public partial class PosReportsController
                 .ToList();
         }
 
+        // Tổng của kỳ theo đơn (khớp Lãi lỗ) — trước đây không trả → app hiện Doanh thu / Giá vốn / Lợi nhuận = 0
+        // ở các tab nhóm / kênh / nhân viên.
+        var totalRevenue = orders.Sum(o => o.Total);
+        var totalCogs = orders.Sum(o => cogsByOrder.GetValueOrDefault(o.Id));
+        var totalProfit = totalRevenue - totalCogs;
         return Ok(AppResponse<object>.Success(new
         {
             from = fromVn.Date,
             to = toVnEx.AddDays(-1).Date,
             groupBy = dim,
+            totalRevenue,
+            totalCogs,
+            totalProfit,
+            marginPct = totalRevenue > 0 ? Math.Round(totalProfit / totalRevenue * 100, 1) : 0m,
+            orderCount = orders.Count,
             items,
         }));
     }

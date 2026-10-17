@@ -109,6 +109,23 @@ public class PosReportConsistencyTests(PosPgFixture fx) : PosFlowTestBase(fx)
     }
 
     [Fact]
+    public async Task Loi_nhuan_theo_hang_cat_danh_sach_van_tong_du_moi_mat_hang()
+    {
+        if (NoDb) return;
+        var (store, _, _, _) = await SeedAsync();
+        var (from, to) = Range();
+        await using var db = Fx.NewDb();
+        // Chỉ xin 1 dòng: tổng vẫn phải là của cả 3 mặt hàng (trước đây = riêng mặt hàng lãi cao nhất).
+        var r = D(await Reports(db, store).GetProfitByProduct(from, to, limit: 1));
+        Assert.Equal(121000m, N(r, "totalRevenue"));
+        Assert.Equal(56000m, N(r, "totalCogs"));
+        Assert.Equal(65000m, N(r, "totalProfit"));
+        Assert.Equal(3m, N(r, "skuCount"));
+        Assert.True((bool)P(r, "truncated"));
+        Assert.Single(Items(r, "items"));
+    }
+
+    [Fact]
     public async Task Loi_nhuan_theo_kenh_va_nhom_khop_tong()
     {
         if (NoDb) return;
@@ -121,6 +138,10 @@ public class PosReportConsistencyTests(PosPgFixture fx) : PosFlowTestBase(fx)
             var rows = Items(r, "items").ToList();
             Assert.Equal(121000m, rows.Sum(x => N(x, "revenue")));
             Assert.Equal(56000m, rows.Sum(x => N(x, "cogs")));
+            // Ô tổng trên app (trước đây thiếu → hiện 0đ ở tab nhóm / kênh / nhân viên).
+            Assert.Equal(121000m, N(r, "totalRevenue"));
+            Assert.Equal(56000m, N(r, "totalCogs"));
+            Assert.Equal(65000m, N(r, "totalProfit"));
         }
     }
 

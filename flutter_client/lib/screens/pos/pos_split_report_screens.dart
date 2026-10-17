@@ -2953,7 +2953,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
         SboxKpi(label: 'Chi phí', value: SboxFmt.money(_n(_data?['expenses']) + _n(_data?['inventoryLoss'])), icon: Icons.money_off_csred_outlined, tone: SboxTone.warning,
             note: _n(_data?['inventoryLoss']) != 0 ? 'Gồm hao hụt kho ${SboxFmt.money(_n(_data?['inventoryLoss']))}' : null),
         SboxKpi(label: 'Lợi nhuận ròng', value: SboxFmt.money(net), icon: Icons.savings_outlined, tone: net < 0 ? SboxTone.danger : SboxTone.success,
-            note: 'Biên ${SboxFmt.pct(_n(_data?['marginPct']))}'),
+            note: 'Biên lãi ròng ${SboxFmt.pct(_n(_data?['netMarginPct']))}'),
       ],
       charts: [
         SboxChartCard(

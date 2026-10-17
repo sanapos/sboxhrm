@@ -125,4 +125,27 @@ public class BranchReportTests
         Assert.Equal(100_000m, a.GetProperty("payroll").GetDecimal());       // 3,1tr × 1/31 ngày
         Assert.Equal(200_000m, a.GetProperty("netProfit").GetDecimal());     // 500k − 200k − 100k
     }
+
+    [Fact]
+    public async Task Tien_COD_hang_chuyen_ve_khong_tinh_la_thu_khac()
+    {
+        await SeedAsync();
+        // Phiếu thu tự sinh khi hãng chuyển tiền COD của đơn (không có SourceType, nhận theo ghi chú / danh mục).
+        var cod = new TransactionCategory { Id = Guid.NewGuid(), StoreId = _store, Name = "Thu hộ COD", Type = CashTransactionType.Income };
+        _db.Add(cod);
+        _db.CashTransactions.Add(new CashTransaction
+        {
+            Id = Guid.NewGuid(), StoreId = _store, BranchId = _a, Type = CashTransactionType.Income, Amount = 450_000,
+            CategoryId = cod.Id, TransactionCode = "PT-COD1", TransactionDate = new DateTime(2026, 10, 1, 15, 0, 0),
+            InternalNote = $"{ZKTecoADMS.Infrastructure.Services.PosFinanceSyncHelper.CodReceiptMarker}{Guid.NewGuid()}",
+            Status = CashTransactionStatus.Completed, IsActive = true,
+        });
+        await _db.SaveChangesAsync();
+
+        var res = await Ctl().Compare(new DateTime(2026, 10, 1), new DateTime(2026, 10, 1));
+        var root = JsonDocument.Parse(JsonSerializer.Serialize(Assert.IsType<OkObjectResult>(res.Result).Value, Json)).RootElement;
+        var a = root.GetProperty("data").GetProperty("branches").EnumerateArray().First(r => r.GetProperty("code").GetString() == "A");
+        Assert.Equal(0m, a.GetProperty("otherIncome").GetDecimal());   // trước đây 450.000
+        Assert.Equal(200_000m, a.GetProperty("netProfit").GetDecimal());
+    }
 }

@@ -602,6 +602,10 @@ public class AssetReportsController(
     {
         var now = DateTime.UtcNow;
         var warningDate = now.AddDays(30);
+        // Nguyên giá tài sản đã thanh lý / mất không còn là tài sản đang nắm giữ — trước đây vẫn cộng vào
+        // «Tổng giá trị mua» và giá trị theo loại / danh mục / người giữ (khác màn Tổng quan tài sản).
+        static decimal HeldPurchaseValue(Domain.Entities.Asset a) =>
+            a.Status is AssetStatus.Disposed or AssetStatus.Lost ? 0 : AssetValuation.PurchaseValue(a);
 
         return new AssetStatisticsDto
         {
@@ -612,7 +616,7 @@ public class AssetReportsController(
             MaintenanceAssets = assets.Count(a => a.Status == AssetStatus.InMaintenance),
             BrokenAssets = assets.Count(a => a.Status == AssetStatus.Broken),
             DisposedAssets = assets.Count(a => a.Status == AssetStatus.Disposed),
-            TotalPurchaseValue = assets.Sum(a => a.PurchasePrice * a.Quantity),
+            TotalPurchaseValue = assets.Sum(HeldPurchaseValue),
             TotalCurrentValue = assets.Sum(a => AssetValuation.BookValue(a, DateTime.UtcNow)),
             WarrantyExpiringSoon = assets.Count(a =>
                 a.WarrantyExpiry.HasValue &&
@@ -623,7 +627,7 @@ public class AssetReportsController(
                 AssetType = g.Key,
                 AssetTypeName = AssetReportLabels.Type(g.Key),
                 Count = g.Count(),
-                TotalValue = g.Sum(a => a.PurchasePrice * a.Quantity)
+                TotalValue = g.Sum(HeldPurchaseValue)
             }).OrderByDescending(x => x.Count).ToList(),
             ByCategory = assets.Where(a => a.CategoryId != null).GroupBy(a => new { a.CategoryId, a.Category!.Name })
                 .Select(g => new AssetByCategoryDto
@@ -631,7 +635,7 @@ public class AssetReportsController(
                     CategoryId = g.Key.CategoryId,
                     CategoryName = g.Key.Name,
                     Count = g.Count(),
-                    TotalValue = g.Sum(a => a.PurchasePrice * a.Quantity)
+                    TotalValue = g.Sum(HeldPurchaseValue)
                 }).OrderByDescending(x => x.Count).ToList(),
             ByAssignee = assets.Where(a => a.CurrentAssigneeId != null)
                 .GroupBy(a => new { a.CurrentAssigneeId, a.CurrentAssignee!.FirstName, a.CurrentAssignee.LastName })
@@ -640,7 +644,7 @@ public class AssetReportsController(
                     AssigneeId = g.Key.CurrentAssigneeId?.ToString(),
                     AssigneeName = $"{g.Key.FirstName} {g.Key.LastName}".Trim(),
                     Count = g.Count(),
-                    TotalValue = g.Sum(a => a.PurchasePrice * a.Quantity)
+                    TotalValue = g.Sum(HeldPurchaseValue)
                 }).OrderByDescending(x => x.Count).ToList(),
             ByStatus = assets.GroupBy(a => a.Status).Select(g => new AssetByStatusDto
             {

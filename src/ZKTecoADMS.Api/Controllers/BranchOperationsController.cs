@@ -607,6 +607,9 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
         PosFinanceSyncHelper.ReservationDepositRefundMarker, PosFinanceSyncHelper.PurchaseReceiptMarker,
         PosFinanceSyncHelper.SupplierPaymentMarker, PosFinanceSyncHelper.CustomerReturnMarker,
         PosFinanceSyncHelper.CustomerPaymentMarker, PosFinanceSyncHelper.PurchaseReturnRefundMarker,
+        // Hãng vận chuyển chuyển trả tiền COD = tiền bán của đơn (đã nằm trong doanh thu) — trước đây bị cộng
+        // thành «thu khác» → lãi ròng chi nhánh cao hơn báo cáo Lãi lỗ đúng bằng tiền COD.
+        PosFinanceSyncHelper.CodReceiptMarker,
     ];
 
     /// <summary>
@@ -698,7 +701,7 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
             bool IsPos(string note, string source, string? category) =>
                 (source.StartsWith("pos_", StringComparison.OrdinalIgnoreCase))
                 || PosMarkers.Any(m => note.StartsWith(m, StringComparison.OrdinalIgnoreCase))
-                || category is "Bán hàng" or "Thu nợ khách" or "Cọc đặt chỗ" or "Thu trả hàng NCC"
+                || category is "Bán hàng" or "Thu nợ khách" or "Cọc đặt chỗ" or "Thu trả hàng NCC" or "Thu hộ COD"
                     or "Nhập hàng" or "Trả hàng khách" or "Hoàn cọc đặt chỗ";
             // Chi lương / chi ứng lương: đã nằm trong «Lương» (phiếu lương) — không cộng hai lần.
             bool IsPayroll(string note, string source) =>
