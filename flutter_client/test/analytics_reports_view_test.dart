@@ -46,8 +46,40 @@ final _compliance = {
   ],
 };
 
+final _expiring = {
+  'expiringCount': 1, 'expiredCount': 1, 'usedUpCount': 1, 'lowSessionsCount': 0, 'renewedCount': 0,
+  'items': [
+    {'customerName': 'Nguyễn Văn An', 'phone': '0901000001', 'packageName': 'Thẻ 1 tháng', 'kind': 'Thẻ thời gian', 'usedSessions': 18,
+     'remainingSessions': 'Không giới hạn', 'expiresAt': '20/10/2026', 'daysLeft': 3, 'lastUsedAt': '16/10/2026', 'status': 'Sắp hết hạn', 'renewed': false},
+    {'customerName': 'Trần Thị Bình', 'phone': '0901000002', 'packageName': 'Gói 10 buổi', 'kind': 'Gói buổi', 'usedSessions': 10,
+     'remainingSessions': '0', 'expiresAt': '', 'daysLeft': null, 'lastUsedAt': '12/10/2026', 'status': 'Đã hết buổi', 'renewed': false},
+    {'customerName': 'Lê Hoàng Cường', 'phone': '0901000003', 'packageName': 'Thẻ 3 tháng', 'kind': 'Thẻ thời gian', 'usedSessions': 40,
+     'remainingSessions': 'Không giới hạn', 'expiresAt': '10/10/2026', 'daysLeft': -7, 'lastUsedAt': '09/10/2026', 'status': 'Đã hết hạn', 'renewed': false},
+  ],
+};
+
+final _stay = {
+  'from': '2026-10-01T00:00:00.000', 'to': '2026-10-17T00:00:00.000', 'total': 2, 'missingIdCount': 1,
+  'items': [
+    {'id': 'a', 'roomCode': 'P101', 'roomName': 'Phòng 101', 'checkInAt': '2026-10-10T21:30:00.000', 'checkOutAt': null,
+     'fullName': 'Nguyễn Văn An', 'idType': 'CCCD', 'idNumber': '001090000001', 'dateOfBirth': '1990-05-01T00:00:00.000',
+     'gender': 'Nam', 'nationality': 'Việt Nam', 'isPrimary': true},
+    {'id': 'b', 'roomCode': 'P101', 'roomName': 'Phòng 101', 'checkInAt': '2026-10-11T08:05:00.000', 'checkOutAt': null,
+     'fullName': 'Trần Thị Bình', 'idType': 'CCCD', 'idNumber': null, 'dateOfBirth': null, 'isPrimary': false},
+  ],
+};
+
 final _client = MockClient((req) async => http.Response(
-    jsonEncode({'isSuccess': true, 'data': req.url.path.contains('compliance') ? _compliance : {}}),
+    jsonEncode({
+      'isSuccess': true,
+      'data': req.url.path.contains('compliance')
+          ? _compliance
+          : req.url.path.contains('session-balances')
+              ? _expiring
+              : req.url.path.contains('stay-guests')
+                  ? _stay
+                  : {},
+    }),
     200,
     headers: {'content-type': 'application/json; charset=utf-8'}));
 
@@ -114,6 +146,24 @@ void main() {
       });
       expect(find.text('NV001'), findsNothing, reason: 'mã không làm nhãn chính');
       expect(find.text('Nguyễn Văn An'), findsWidgets);
+    });
+    testWidgets('thẻ tập sắp hết hạn ${size.width}', (t) async {
+      await _pump(t, const AnalyticsReportViewer(spec: AnalyticsReportSpec.sessionExpiry), size,
+          'an_session_expiry_${size.width.toInt()}');
+      // Xếp hạng «số buổi đã dùng» không giúp gọi nhắc gia hạn → không vẽ.
+      expect(find.textContaining('Xếp hạng'), findsNothing);
+      expect(find.text('Đã hết buổi'), findsWidgets);
+      expect(find.text('Trần Thị Bình'), findsWidgets);
+    });
+    testWidgets('sổ khách lưu trú ${size.width}', (t) async {
+      await _pump(t, const AnalyticsReportViewer(spec: AnalyticsReportSpec.stayGuests), size,
+          'an_stay_guests_${size.width.toInt()}');
+      expect(find.text('Thiếu giấy tờ / ngày sinh'), findsOneWidget);
+      if (size.width > 600) {
+        expect(find.text('10/10/2026 21:30'), findsOneWidget, reason: 'giờ nhận phòng là giờ VN từ máy chủ');
+        expect(find.text('Ngày sinh'), findsOneWidget);
+      }
+      expect(find.textContaining('birth'), findsNothing);
     });
   }
 }

@@ -167,7 +167,19 @@ public class PosStayGuestsController(ZKTecoDbContext dbContext) : AuthenticatedC
                 },
                 $"so-khach-luu-tru-{fromLocal:yyyyMMdd}-{toLocal:yyyyMMdd}.xlsx", user: User);
         }
-        return Ok(AppResponse<object>.Success(new { from = fromLocal, to = toLocal, total = rows.Count, items = rows }));
+        // Giờ nhận / trả phòng lưu UTC (không kèm Z khi ra JSON) → trả giờ tường VN để app hiện đúng giờ khách đến.
+        var items = rows.Select(g => g with
+        {
+            CheckInAt = ReportHelpers.ToVn(g.CheckInAt),
+            CheckOutAt = g.CheckOutAt is DateTime o ? ReportHelpers.ToVn(o) : null,
+        }).ToList();
+        return Ok(AppResponse<object>.Success(new
+        {
+            from = fromLocal, to = toLocal, total = items.Count,
+            // Khai báo tạm trú cần số giấy tờ + ngày sinh — khách thiếu thì nhắc bổ sung.
+            missingIdCount = items.Count(g => string.IsNullOrWhiteSpace(g.IdNumber) || g.DateOfBirth == null),
+            items,
+        }));
     }
 
     static string? Validate(StayGuestSaveDto dto)

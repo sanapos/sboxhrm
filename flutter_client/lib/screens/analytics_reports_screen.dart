@@ -20,14 +20,17 @@ class AnalyticsReportSpec {
   final String path;
   final _PeriodKind period;
   final List<String> modules; // cần quyền Xem ít nhất một module
-  const AnalyticsReportSpec(this.group, this.title, this.subtitle, this.path, this.period, this.modules);
+  /// Biểu đồ xếp hạng tự chọn số liệu — tắt khi không có số nào đáng xếp hạng (vd danh sách gọi nhắc gia hạn).
+  final bool rankChart;
+  const AnalyticsReportSpec(this.group, this.title, this.subtitle, this.path, this.period, this.modules,
+      {this.rankChart = true});
 
   /// Báo cáo ngành (mở từ Báo cáo POS, không thuộc báo cáo nhân sự).
   static const stayGuests = AnalyticsReportSpec('Khách sạn', 'Sổ khách lưu trú', 'Khách ở trong kỳ — xuất Excel khai báo tạm trú',
       '/api/pos/stay-guests/register', _PeriodKind.range, ['PosReportStayGuests']);
   static const sessionExpiry = AnalyticsReportSpec('Gym / Spa', 'Thẻ tập & gói buổi sắp hết hạn',
       'Sắp hết hạn 7 ngày, hết hạn 30 ngày, còn ≤ 2 buổi — gọi nhắc gia hạn', '/api/pos/session-balances/expiring',
-      _PeriodKind.none, ['PosReportSessionExpiry']);
+      _PeriodKind.none, ['PosReportSessionExpiry'], rankChart: false);
 }
 
 const _attendanceModules = ['AttendanceReport', 'AttendanceSummary', 'AttendanceByShift', 'Attendance'];
@@ -196,6 +199,7 @@ const _labels = <String, String>{
   'usedSessions': 'Đã dùng', 'remainingSessions': 'Còn lại', 'expiresAt': 'Hết hạn', 'daysLeft': 'Còn (ngày)',
   'lastUsedAt': 'Lần tập cuối', 'renewed': 'Đã gia hạn', 'expiringCount': 'Sắp hết hạn',
   'expiredCount': 'Đã hết hạn', 'lowSessionsCount': 'Sắp hết buổi', 'renewedCount': 'Đã gia hạn',
+  'usedUpCount': 'Đã hết buổi', 'missingIdCount': 'Thiếu giấy tờ / ngày sinh',
   // ── Chấm công ──
   'standardDays': 'Ngày công chuẩn', 'lateDays': 'Ngày đi trễ', 'leaveDays': 'Ngày nghỉ phép',
   'avgComplianceRate': 'TB chuyên cần (%)', 'totalEmployees': 'Tổng nhân viên', 'absenceDate': 'Ngày vắng',
@@ -258,6 +262,7 @@ const _labels = <String, String>{
   // ── Khách lưu trú / thẻ tập ──
   'guestName': 'Khách', 'fullName': 'Họ tên', 'idNumber': 'Số giấy tờ', 'idType': 'Loại giấy tờ', 'nationality': 'Quốc tịch',
   'roomName': 'Phòng', 'roomCode': 'Mã phòng', 'checkInAt': 'Nhận phòng', 'checkOutAt': 'Trả phòng', 'birthDate': 'Ngày sinh',
+  'dateOfBirth': 'Ngày sinh', 'isPrimary': 'Người đứng tên',
   'gender': 'Giới tính', 'address': 'Địa chỉ', 'totalSessions': 'Tổng buổi', 'startDate': 'Từ ngày', 'endDate': 'Đến ngày',
 };
 
@@ -627,7 +632,7 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
         ),
       ];
     }
-    if (nameKey == null) return const [];
+    if (nameKey == null || !widget.spec.rankChart) return const [];
     final candidates = nums.where(varies).toList();
     if (candidates.isEmpty) return const [];
     final valueKey = _rankKeys.firstWhere(candidates.contains, orElse: () => candidates.first);

@@ -42,8 +42,10 @@ public partial class PosSellIndustryController
         var expiredFrom = now.AddDays(-expiredDays);
         var unlimited = PosCustomerSessionBalance.UnlimitedSessions;
 
+        // Thẻ đang bảo lưu không nhắc (hạn được cộng lại khi mở bảo lưu); khách đã xóa không gọi.
         var rows = await db.PosCustomerSessionBalances.AsNoTracking()
-            .Where(b => b.StoreId == storeId && b.Deleted == null)
+            .Where(b => b.StoreId == storeId && b.Deleted == null && b.FrozenAt == null
+                && b.Customer != null && b.Customer.Deleted == null)
             .Where(b =>
                 (b.ExpiresAt != null && b.ExpiresAt >= expiredFrom && b.ExpiresAt <= soon)
                 || (b.TotalSessions < unlimited && b.RemainingSessions <= lowSessions
@@ -77,11 +79,16 @@ public partial class PosSellIndustryController
         {
             var isUnlimited = PosCustomerSessionBalance.IsUnlimitedCount(r.TotalSessions);
             var expired = r.ExpiresAt.HasValue && r.ExpiresAt.Value <= now;
+            var usedUp = !isUnlimited && r.RemainingSessions <= 0;
+            // Gói đã dùng hết buổi (không có hạn) chỉ nhắc trong expiredDays ngày kể từ buổi cuối — trước đây
+            // gói hết buổi từ năm ngoái vẫn nằm mãi trong danh sách gọi nhắc.
+            if (usedUp && !expired && (r.LastUsedAt ?? r.CreatedAt) < expiredFrom) continue;
             var st = expired ? "expired"
                 : r.ExpiresAt.HasValue && r.ExpiresAt.Value <= soon ? "expiring"
+                : usedUp ? "usedUp"
                 : "lowSessions";
-            if (status == "expired" && st != "expired") continue;
-            if (status == "expiring" && st == "expired") continue;
+            if (status == "expired" && st is not ("expired" or "usedUp")) continue;
+            if (status == "expiring" && st is ("expired" or "usedUp")) continue;
             var renewed = activeOthers.Any(o => o.CustomerId == r.CustomerId && o.Id != r.Id
                 && o.ProductId == r.ProductId && o.CreatedAt >= r.CreatedAt);
             int? daysLeft = r.ExpiresAt.HasValue
@@ -95,7 +102,7 @@ public partial class PosSellIndustryController
 
         list = list
             .OrderBy(x => x.Renewed)
-            .ThenBy(x => x.Status == "expired" ? 1 : 0)
+            .ThenBy(x => x.Status is "expired" or "usedUp" ? 1 : 0)
             .ThenBy(x => x.ExpiresAt ?? DateTime.MaxValue)
             .ThenBy(x => x.RemainingSessions)
             .ToList();
@@ -132,6 +139,7 @@ public partial class PosSellIndustryController
         {
             expiringCount = list.Count(x => x.Status == "expiring" && !x.Renewed),
             expiredCount = list.Count(x => x.Status == "expired" && !x.Renewed),
+            usedUpCount = list.Count(x => x.Status == "usedUp" && !x.Renewed),
             lowSessionsCount = list.Count(x => x.Status == "lowSessions" && !x.Renewed),
             renewedCount = list.Count(x => x.Renewed),
             items = list.Select(x => new
@@ -156,6 +164,7 @@ public partial class PosSellIndustryController
     {
         "expired" => "Đã hết hạn",
         "expiring" => "Sắp hết hạn",
+        "usedUp" => "Đã hết buổi",
         _ => "Sắp hết buổi",
     };
 }
