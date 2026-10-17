@@ -11,13 +11,16 @@ import '../../services/api_service.dart';
 import '../../utils/file_saver.dart' as file_saver;
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/hkd_book_preview_panel.dart';
+import '../../widgets/pos/reports/hkd_tax_overview.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/pos/reports/pos_health_widgets.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
-/// Sổ thuế hộ kinh doanh (TT 152/2025) — dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ.
+/// Thuế hộ kinh doanh: tổng quan dễ hiểu (doanh thu năm so với ngưỡng 1 tỷ / 3 tỷ, nhóm nên khai, thuế ước tính,
+/// việc nên làm) + sổ TT 152/2025. Doanh thu tính theo tất cả đơn bán hoặc chỉ hóa đơn VAT đã xuất.
 class PosHkdBooksScreen extends StatefulWidget {
   const PosHkdBooksScreen({super.key});
 
@@ -44,6 +47,12 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
   String? _previewError;
   Map<String, dynamic>? _preview;
   List<String> _recommendedBooks = const ['S2a-HKD', 'S2e-HKD'];
+
+  /// `all` = mọi đơn bán; `invoice` = chỉ đơn đã xuất hóa đơn điện tử.
+  String _basis = 'all';
+  Map<String, dynamic>? _overview;
+  bool _overviewLoading = false;
+  String? _overviewError;
 
   @override
   void initState() {
@@ -79,7 +88,7 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
         }
         _selectedBook = _defaultBook(_taxGroup);
       });
-      await _loadPreview();
+      await Future.wait([_loadPreview(), _loadOverview()]);
     } catch (e) {
       if (mounted) {
         appNotification.showError(title: 'Lỗi', message: '$e');
@@ -118,6 +127,57 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
     ];
   }
 
+  int get _year => (_time.to ?? _time.from ?? DateTime.now()).year;
+
+  Future<void> _loadOverview() async {
+    setState(() {
+      _overviewLoading = true;
+      _overviewError = null;
+    });
+    final res = await _api.getHkdOverview(year: _year, basis: _basis);
+    if (!mounted) return;
+    setState(() {
+      _overviewLoading = false;
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        _overview = Map<String, dynamic>.from(res['data'] as Map);
+      } else {
+        _overview = null;
+        _overviewError = '${res['message'] ?? 'Không tải được tổng quan thuế'}';
+      }
+    });
+  }
+
+  void _setBasis(String v) {
+    if (v == _basis) return;
+    setState(() => _basis = v);
+    _loadPreview();
+    _loadOverview();
+  }
+
+  /// Bấm ngành gợi ý ở tổng quan → hỏi lại rồi lưu tỷ lệ vào hồ sơ.
+  Future<void> _applyPreset(String industry, double vat, double pit) async {
+    String pct(double v) => _fmtNum(v).replaceAll('.', ',');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Dùng tỷ lệ thuế của ngành này?')),
+        content: Text(tr('$industry\nGTGT ${pct(vat)}% + TNCN ${pct(pit)}% doanh thu.\n\n'
+            'Tỷ lệ sẽ lưu vào «Hồ sơ hộ kinh doanh». Đối chiếu ngành nghề trên giấy đăng ký kinh doanh trước khi kê khai.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Dùng tỷ lệ này'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() {
+      _vatCtrl.text = _fmtNum(vat);
+      _pitCtrl.text = _fmtNum(pit);
+      if (_industryCtrl.text.trim().isEmpty) _industryCtrl.text = industry;
+    });
+    await _saveSettings();
+  }
+
   Future<void> _loadPreview() async {
     setState(() {
       _previewLoading = true;
@@ -128,6 +188,7 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
         book: _selectedBook,
         from: _time.from,
         to: _time.to,
+        basis: _basis,
       );
       if (!mounted) return;
       if (res['isSuccess'] == true && res['data'] is Map) {
@@ -165,7 +226,7 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
     switch (_selectedBook) {
       case 'S2c':
         await _exportBytes(
-          _api.exportHkdIncomeExpenseBookExcel(from: _time.from, to: _time.to),
+          _api.exportHkdIncomeExpenseBookExcel(from: _time.from, to: _time.to, basis: _basis),
           'SoDoanhThuChiPhi_S2c-HKD_$_stamp.xlsx',
         );
         return;
@@ -187,6 +248,7 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
             book: _selectedBook,
             from: _time.from,
             to: _time.to,
+            basis: _basis,
           ),
           'SoDoanhThu_${_selectedBook}-HKD_$_stamp.xlsx',
         );
@@ -224,6 +286,8 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
         title: 'Đã lưu',
         message: tr('Đã cập nhật hồ sơ hộ kinh doanh'),
       );
+      unawaited(_loadOverview());
+      unawaited(_loadPreview());
     } catch (e) {
       appNotification.showError(title: 'Lỗi lưu', message: '$e');
     } finally {
@@ -270,7 +334,7 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
   String get _groupHint {
     switch (_taxGroup) {
       case 1:
-        return 'Dưới 1 tỷ/năm: miễn GTGT/TNCN theo tỷ lệ → xuất S1a-HKD';
+        return 'Dưới 1 tỷ/năm (từ 2026, trước đây 500 triệu): không nộp GTGT, TNCN → ghi sổ S1a-HKD';
       case 3:
         return 'Trên 3 tỷ/năm: GTGT % doanh thu + TNCN theo thu nhập → S2b, S2c, S2d, S2e';
       default:
@@ -297,10 +361,12 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
       exportModule: 'HkdBooks',
       time: _time,
       onTimeChanged: (v) {
+        final year = _year;
         setState(() => _time = v);
         _loadPreview();
+        if (_year != year || _overview == null) _loadOverview();
       },
-      onRefresh: _loadPreview,
+      onRefresh: () async => Future.wait([_loadPreview(), _loadOverview()]),
       onExportExcel: canExport ? () => unawaited(_exportSelected()) : null,
       filterBar: _buildBookChips(),
       body: _loading
@@ -314,6 +380,7 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
                   children: [
+                    _buildOverview(canEdit),
                     SizedBox(
                       height: tableH,
                       child: Card(
@@ -349,6 +416,29 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
                 );
               },
             ),
+    );
+  }
+
+  Widget _buildOverview(bool canEdit) {
+    if (_overviewLoading && _overview == null) {
+      return const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()));
+    }
+    if (_overview == null) {
+      return PosHealthHero(
+        status: 'none',
+        title: 'Không tải được tổng quan thuế',
+        detail: _overviewError,
+        note: 'Sổ thuế bên dưới vẫn xem và xuất Excel được.',
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: HkdTaxOverview(
+        data: _overview!,
+        basis: _basis,
+        onBasisChanged: _setBasis,
+        onPickPreset: canEdit ? _applyPreset : null,
+      ),
     );
   }
 
@@ -391,7 +481,7 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
                         items: [
                           DropdownMenuItem(
                             value: 1,
-                            child: Text(tr('Dưới 1 tỷ — S1a (miễn GTGT/TNCN)')),
+                            child: Text(tr('Dưới 1 tỷ — S1a (không nộp GTGT/TNCN)')),
                           ),
                           DropdownMenuItem(
                             value: 2,

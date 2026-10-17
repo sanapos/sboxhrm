@@ -18511,12 +18511,32 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Tổng quan thuế HKD theo năm: doanh thu so với ngưỡng 1 tỷ / 3 tỷ, nhóm gợi ý, thuế ước tính, việc nên làm.
+  /// [basis]: `all` (mọi đơn bán) hoặc `invoice` (chỉ đơn đã xuất hóa đơn điện tử).
+  Future<Map<String, dynamic>> getHkdOverview({int? year, String basis = 'all'}) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/hkd/overview').replace(queryParameters: {
+              if (year != null) 'year': '$year',
+              'basis': basis,
+            }),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getHkdBookPreview({
     required String book,
     DateTime? from,
     DateTime? to,
+    String basis = 'all',
   }) async {
-    final q = _hkdBookQuery(book, from, to);
+    final q = _hkdBookQuery(book, from, to, basis);
     Future<Map<String, dynamic>> get(String path) async {
       final response = await http
           .get(
@@ -18546,8 +18566,9 @@ class ApiService implements PayrollApi {
     }
   }
 
-  Map<String, String> _hkdBookQuery(String? book, DateTime? from, DateTime? to) {
+  Map<String, String> _hkdBookQuery(String? book, DateTime? from, DateTime? to, [String basis = 'all']) {
     final q = <String, String>{};
+    if (basis != 'all') q['basis'] = basis;
     if (book != null && book.trim().isNotEmpty) q['book'] = book.trim();
     final f = _ymdDate(from);
     final t = _ymdDate(to);
@@ -18568,8 +18589,9 @@ class ApiService implements PayrollApi {
     required String book,
     DateTime? from,
     DateTime? to,
+    String basis = 'all',
   }) async {
-    final q = _hkdBookQuery(book, from, to);
+    final q = _hkdBookQuery(book, from, to, basis);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/hkd/books/revenue/export/excel')
           .replace(queryParameters: q),
@@ -18590,8 +18612,9 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> exportHkdIncomeExpenseBookExcel({
     DateTime? from,
     DateTime? to,
+    String basis = 'all',
   }) async {
-    final q = _hkdBookQuery(null, from, to);
+    final q = _hkdBookQuery(null, from, to, basis);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/hkd/books/income-expense/export/excel')
           .replace(queryParameters: q.isEmpty ? null : q),

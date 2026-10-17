@@ -270,7 +270,11 @@ class PosReportMobileScaffold extends StatelessWidget {
               child: Material(
                 type: MaterialType.transparency,
                 child: DefaultTextStyle(
-                style: const TextStyle(
+                // Lấy font của app (Be Vietnam) từ theme — thiếu thì chữ ngoài thẻ (khung kết luận, ô chỉ số…)
+                // rơi về font hệ thống.
+                style: TextStyle(
+                  fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+                  fontFamilyFallback: Theme.of(context).textTheme.bodyMedium?.fontFamilyFallback,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: _ink,

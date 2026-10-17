@@ -37,6 +37,8 @@ class HkdBookPreviewPanel extends StatefulWidget {
 
 class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
   final _searchCtrl = TextEditingController();
+  // Thanh cuộn luôn hiện cần controller riêng — bảng nằm trong ListView của màn hình (không có PrimaryScrollController).
+  final _tableScroll = ScrollController();
   final _money = NumberFormat('#,##0', 'vi_VN');
   final _qty = NumberFormat('#,##0.###', 'vi_VN');
   int _page = 0;
@@ -51,6 +53,7 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _tableScroll.dispose();
     super.dispose();
   }
 
@@ -267,8 +270,10 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
         else ...[
           _tableArea(
             child: Scrollbar(
+              controller: _tableScroll,
               thumbVisibility: true,
               child: SingleChildScrollView(
+                controller: _tableScroll,
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: DataTable(

@@ -21,7 +21,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/hkd")]
 [Authorize]
-public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedControllerBase
+public partial class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedControllerBase
 {
     private static readonly string[] HkdSettingKeys =
     [
@@ -84,27 +84,30 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
     public Task<IActionResult> PreviewBookAlias(
         [FromQuery] string book = "S2a",
         [FromQuery] DateTime? from = null,
-        [FromQuery] DateTime? to = null)
-        => PreviewBook(book, from, to);
+        [FromQuery] DateTime? to = null,
+        [FromQuery] string? basis = null)
+        => PreviewBook(book, from, to, basis);
 
     [HttpGet("books/preview")]
     [RequireModulePermission("HkdBooks", ModulePermissionAction.View)]
     public async Task<IActionResult> PreviewBook(
         [FromQuery] string book = "S2a",
         [FromQuery] DateTime? from = null,
-        [FromQuery] DateTime? to = null)
+        [FromQuery] DateTime? to = null,
+        [FromQuery] string? basis = null)
     {
         var storeId = RequiredStoreId;
-        var (fromDt, toDt, periodLabel) = ResolvePeriod(from, to);
+        var byInvoice = IsInvoiceBasis(basis);
+        var (fromDt, toDt, periodLabel) = ResolvePeriod(from, to, byInvoice);
         var profile = await LoadProfileAsync(storeId);
         var bookCode = NormalizePreviewBook(book);
 
         HkdBookPreviewDto dto = bookCode switch
         {
-            "S2c" => await PreviewS2cAsync(storeId, fromDt, toDt, profile, periodLabel),
+            "S2c" => await PreviewS2cAsync(storeId, fromDt, toDt, profile, periodLabel, byInvoice),
             "S2d" => await PreviewS2dAsync(storeId, fromDt, toDt, profile, periodLabel),
             "S2e" => await PreviewS2eAsync(storeId, fromDt, toDt, profile, periodLabel),
-            _ => await PreviewRevenueAsync(storeId, bookCode, fromDt, toDt, profile, periodLabel),
+            _ => await PreviewRevenueAsync(storeId, bookCode, fromDt, toDt, profile, periodLabel, byInvoice),
         };
         return Ok(AppResponse<HkdBookPreviewDto>.Success(dto));
     }
@@ -115,14 +118,16 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
     public async Task<IActionResult> ExportRevenueBook(
         [FromQuery] string book = "S1a",
         [FromQuery] DateTime? from = null,
-        [FromQuery] DateTime? to = null)
+        [FromQuery] DateTime? to = null,
+        [FromQuery] string? basis = null)
     {
         var storeId = RequiredStoreId;
         var bookCode = NormalizeRevenueBook(book);
-        var (fromDt, toDt, periodLabel) = ResolvePeriod(from, to);
+        var byInvoice = IsInvoiceBasis(basis);
+        var (fromDt, toDt, periodLabel) = ResolvePeriod(from, to, byInvoice);
         var profile = await LoadProfileAsync(storeId);
 
-        var orders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
+        var orders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt, byInvoice);
 
         using var workbook = new XLWorkbook();
         switch (bookCode)
@@ -151,13 +156,15 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
     [RequireModulePermission("HkdBooks", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportIncomeExpenseBook(
         [FromQuery] DateTime? from = null,
-        [FromQuery] DateTime? to = null)
+        [FromQuery] DateTime? to = null,
+        [FromQuery] string? basis = null)
     {
         var storeId = RequiredStoreId;
-        var (fromDt, toDt, periodLabel) = ResolvePeriod(from, to);
+        var byInvoice = IsInvoiceBasis(basis);
+        var (fromDt, toDt, periodLabel) = ResolvePeriod(from, to, byInvoice);
         var profile = await LoadProfileAsync(storeId);
 
-        var orders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
+        var orders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt, byInvoice);
 
         var expenses = await CashInPeriod(dbContext.CashTransactions.AsNoTracking(), fromDt, toDt)
             .Include(t => t.Category)
@@ -831,9 +838,9 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
 
     private async Task<HkdBookPreviewDto> PreviewRevenueAsync(
         Guid storeId, string bookCode, DateTime fromDt, DateTime toDt,
-        HkdProfile profile, string periodLabel)
+        HkdProfile profile, string periodLabel, bool byInvoice)
     {
-        var all = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
+        var all = await LoadCompletedOrdersAsync(storeId, fromDt, toDt, byInvoice);
         var count = all.Count;
         var total = all.Sum(o => o.Total);
         var vatEst = RoundMoney(total * (decimal)(profile.VatPercent / 100.0));
@@ -956,9 +963,9 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
 
     private async Task<HkdBookPreviewDto> PreviewS2cAsync(
         Guid storeId, DateTime fromDt, DateTime toDt,
-        HkdProfile profile, string periodLabel)
+        HkdProfile profile, string periodLabel, bool byInvoice)
     {
-        var allOrders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
+        var allOrders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt, byInvoice);
         var expenseQuery = CashInPeriod(dbContext.CashTransactions.AsNoTracking(), fromDt, toDt)
             .Where(t => t.StoreId == storeId
                         && t.Deleted == null
@@ -1382,15 +1389,6 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         PitPercent = profile.PitPercent,
     };
 
-    private IQueryable<PosSaleOrder> CompletedOrdersQuery(Guid storeId, DateTime fromDt, DateTime toDt) =>
-        dbContext.PosSaleOrders.AsNoTracking()
-            .Where(o => o.StoreId == storeId
-                        && o.Deleted == null
-                        && o.IsActive
-                        && o.Status == PosSaleOrderStatus.Completed
-                        && (o.SaleDate ?? o.CreatedAt) >= fromDt
-                        && (o.SaleDate ?? o.CreatedAt) < toDt);
-
     /// <summary>
     /// Phiếu chi hệ thống không phải chi phí hợp lý của hộ: nhập hàng (đã tính qua phiếu nhập),
     /// trả hàng khách (ghi giảm doanh thu), hoàn cọc đặt chỗ (trả lại tiền giữ hộ).
@@ -1399,18 +1397,50 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
     private const string CustomerRefundCategory = "Trả hàng khách";
 
     /// <summary>
-    /// Sổ theo chứng từ: đơn bán hoàn thành trong kỳ ghi đủ tiền lúc bán (Total + phần đã trả sau đó),
-    /// mỗi phiếu trả trong kỳ thành một dòng âm «Hàng bán bị trả lại» theo ngày trả.
-    /// Trước đây Total (đã giảm khi trả) cộng thêm dòng âm phiếu chi → trả hàng bị trừ hai lần,
-    /// và trả hàng tháng sau làm đổi số tháng đã kê khai.
+    /// Sổ theo chứng từ: đơn bán hoàn thành trong kỳ ghi đủ tiền khách trả lúc bán — tiền hàng (cộng lại phần đã
+    /// trả sau đó) + VAT + phụ thu + phí giao hàng; mỗi phiếu trả trong kỳ thành một dòng âm «Hàng bán bị trả lại»
+    /// theo ngày trả. Trước đây chỉ lấy Total (tiền hàng) → sót VAT / phụ thu / phí giao hàng khách đã trả.
+    /// <paramref name="byInvoice"/>: chỉ đơn đã xuất hóa đơn điện tử (Issued), ghi theo ngày lập hóa đơn,
+    /// số chứng từ = ký hiệu + số hóa đơn; hàng trả lại phải lập hóa đơn điều chỉnh nên không ghi dòng âm ở đây.
     /// </summary>
-    private async Task<List<PosSaleOrder>> LoadCompletedOrdersAsync(Guid storeId, DateTime fromDt, DateTime toDt)
+    private async Task<List<PosSaleOrder>> LoadCompletedOrdersAsync(
+        Guid storeId, DateTime fromDt, DateTime toDt, bool byInvoice = false)
     {
-        var orders = await CompletedOrdersQuery(storeId, fromDt, toDt).ToListAsync();
+        var q = dbContext.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive
+                        && o.Status == PosSaleOrderStatus.Completed);
+        q = byInvoice
+            ? q.Where(o => o.EInvoiceStatus == IssuedInvoiceStatus
+                           && (o.EInvoiceIssuedAt ?? o.SaleDate ?? o.CreatedAt) >= fromDt
+                           && (o.EInvoiceIssuedAt ?? o.SaleDate ?? o.CreatedAt) < toDt)
+            : q.Where(o => (o.SaleDate ?? o.CreatedAt) >= fromDt && (o.SaleDate ?? o.CreatedAt) < toDt);
+        var orders = await q
+            .Select(o => new PosSaleOrder
+            {
+                Id = o.Id,
+                OrderNo = byInvoice && o.EInvoiceNo != null && o.EInvoiceNo != ""
+                    ? (o.EInvoiceSeries ?? "") + o.EInvoiceNo
+                    : o.OrderNo,
+                SaleDate = byInvoice ? (o.EInvoiceIssuedAt ?? o.SaleDate ?? o.CreatedAt) : o.SaleDate,
+                CreatedAt = o.CreatedAt,
+                Total = o.Total
+                        + (o.VatAmount > 0 ? o.VatAmount : 0)
+                        + (o.SurchargeAmount > 0 ? o.SurchargeAmount : 0)
+                        + (o.DeliveryFee > 0 ? o.DeliveryFee : 0),
+                CustomerName = byInvoice
+                    ? (o.EInvoiceBuyerCompanyName ?? o.EInvoiceBuyerName ?? o.CustomerName)
+                    : o.CustomerName,
+                PaymentMethod = o.PaymentMethod,
+                Note = byInvoice ? "Đơn " + o.OrderNo : null,
+                Status = o.Status,
+            })
+            .ToListAsync();
         var returned = await PosSaleReturnLedger.ReturnedByOrderAsync(dbContext, storeId, orders.Select(o => o.Id).ToList());
         foreach (var o in orders)
             if (returned.TryGetValue(o.Id, out var r) && r.Refund > 0)
                 o.Total = Math.Round(o.Total + r.Refund, 2);
+        if (byInvoice)
+            return orders.OrderBy(o => o.SaleDate ?? o.CreatedAt).ToList();
 
         var slips = await PosSaleReturnLedger.RefundSlipsByReturnDateAsync(dbContext, storeId, fromDt, toDt);
         if (slips.Count > 0)
@@ -1438,6 +1468,12 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         }
         return orders.OrderBy(o => o.SaleDate ?? o.CreatedAt).ToList();
     }
+
+    private const string IssuedInvoiceStatus = "Issued";
+
+    /// <summary>basis=invoice (hoặc «einvoice», «hd», «vat»): chỉ doanh thu đã xuất hóa đơn điện tử.</summary>
+    private static bool IsInvoiceBasis(string? basis) =>
+        basis?.Trim().ToLowerInvariant() is "invoice" or "einvoice" or "hd" or "vat";
 
     private static string NormalizePreviewBook(string? book)
     {
@@ -1516,7 +1552,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         VnTimeHelper.UtcToVn(utc).ToString("dd/MM/yyyy");
 
     private static (DateTime fromDt, DateTime toDt, string periodLabel) ResolvePeriod(
-        DateTime? from, DateTime? to)
+        DateTime? from, DateTime? to, bool byInvoice = false)
     {
         // Sổ HKD: ngày lịch VN → cửa sổ UTC+7 (không qua đêm; giờ cắt = 0).
         var vnNow = VnTimeHelper.NowVn().Date;
@@ -1524,7 +1560,8 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         var (fromUtc, toUtc, fromVn, toVnEx) =
             ZKTecoADMS.Api.Controllers.Reports.ReportHelpers.PosBusinessRange(
                 from ?? monthStart, to ?? vnNow, dayStartHour: 0);
-        var label = $"{fromVn:dd/MM/yyyy} - {toVnEx.AddDays(-1):dd/MM/yyyy} (UTC+7)";
+        var label = $"{fromVn:dd/MM/yyyy} - {toVnEx.AddDays(-1):dd/MM/yyyy} (UTC+7)"
+            + (byInvoice ? " · theo hóa đơn điện tử đã xuất" : "");
         return (fromUtc, toUtc, label);
     }
 
