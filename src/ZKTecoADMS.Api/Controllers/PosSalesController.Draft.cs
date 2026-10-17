@@ -1453,7 +1453,8 @@ public partial class PosSalesController
                     : dto.PriceListName.Trim();
             }
         }
-        (order.PromotionsJson, order.PromotionDiscount) = PosPromotionsController.Sanitize(dto.PromotionsJson);
+        (order.PromotionsJson, order.PromotionDiscount) =
+            await PosPromotionsController.SanitizeForStoreAsync(dbContext, storeId, dto.PromotionsJson);
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = CurrentUserEmail;
 

@@ -45,4 +45,7 @@ public class PosPromotion : AuditableEntity<Guid>
 
     [MaxLength(500)]
     public string? Note { get; set; }
+
+    /// <summary>Chỉ áp ở các chi nhánh này (JSON mảng id). Null / rỗng = mọi chi nhánh.</summary>
+    public string? BranchIdsJson { get; set; }
 }

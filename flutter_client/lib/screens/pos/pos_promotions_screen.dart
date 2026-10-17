@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import '../../models/pos_product.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/branch_session.dart';
+import '../../utils/pos_report_open.dart';
 import '../../utils/pos_promotion_engine.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
@@ -45,9 +47,9 @@ class _PosPromotionsScreenState extends State<PosPromotionsScreen> {
     }
   }
 
-  Future<void> _edit([PosPromotion? p]) async {
+  Future<void> _edit([PosPromotion? p, bool duplicate = false]) async {
     final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => PosPromotionEditorPage(existing: p)),
+      MaterialPageRoute(builder: (_) => PosPromotionEditorPage(existing: p, duplicate: duplicate)),
     );
     if (saved == true) _load();
   }
@@ -146,6 +148,14 @@ class _PosPromotionsScreenState extends State<PosPromotionsScreen> {
                                             overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                                       ),
+                                      if (!live && _expired(p, now)) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                          decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(6)),
+                                          child: Text(tr('Đã hết hạn'), style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                                        ),
+                                      ],
                                       if (live) ...[
                                         const SizedBox(width: 6),
                                         Container(
@@ -162,13 +172,25 @@ class _PosPromotionsScreenState extends State<PosPromotionsScreen> {
                                     const SizedBox(height: 2),
                                     Text(
                                       tr('${PosPromotionTypes.label(p.type)} · ${p.scheduleLabel}'
-                                          '${_dateRange(p)}'),
+                                          '${_dateRange(p)}${_branchLabel(p)}'),
                                       style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
                                     ),
                                   ],
                                 ),
                               ),
                               if (canEdit) Switch(value: p.isActive, onChanged: (v) => _toggle(p, v)),
+                              if (canEdit)
+                                IconButton(
+                                  tooltip: tr('Sửa'),
+                                  icon: const Icon(Icons.edit_outlined, size: 20),
+                                  onPressed: () => _edit(p),
+                                ),
+                              if (canEdit)
+                                IconButton(
+                                  tooltip: tr('Nhân bản'),
+                                  icon: const Icon(Icons.copy_outlined, size: 20),
+                                  onPressed: () => _edit(p, true),
+                                ),
                               if (canEdit)
                                 IconButton(
                                   tooltip: tr('Xoá'),
@@ -185,6 +207,18 @@ class _PosPromotionsScreenState extends State<PosPromotionsScreen> {
     );
   }
 
+  bool _expired(PosPromotion p, DateTime now) {
+    final to = p.validTo;
+    return to != null && DateTime(to.year, to.month, to.day).isBefore(DateTime(now.year, now.month, now.day));
+  }
+
+  /// «Chi nhánh: A, B» — rỗng = mọi chi nhánh (không hiện).
+  String _branchLabel(PosPromotion p) {
+    if (p.branchIds.isEmpty) return '';
+    final s = BranchSession.instance;
+    return ' · Chi nhánh: ${p.branchIds.map(s.nameOf).join(', ')}';
+  }
+
   String _dateRange(PosPromotion p) {
     if (p.validFrom == null && p.validTo == null) return '';
     final f = DateFormat('dd/MM/yy');
@@ -194,8 +228,10 @@ class _PosPromotionsScreenState extends State<PosPromotionsScreen> {
 
 /// Tạo / sửa chương trình khuyến mãi.
 class PosPromotionEditorPage extends StatefulWidget {
-  const PosPromotionEditorPage({super.key, this.existing});
+  const PosPromotionEditorPage({super.key, this.existing, this.duplicate = false});
   final PosPromotion? existing;
+  /// Nhân bản: mở sẵn nội dung của [existing] nhưng lưu thành chương trình mới.
+  final bool duplicate;
 
   @override
   State<PosPromotionEditorPage> createState() => _PosPromotionEditorPageState();
@@ -227,6 +263,10 @@ class _PosPromotionEditorPageState extends State<PosPromotionEditorPage> {
   ({String id, String name})? _addon;
   List<({TextEditingController min, TextEditingController pct})> _tiers = [];
   bool _saving = false;
+  /// Chi nhánh áp dụng; rỗng = mọi chi nhánh.
+  final Set<String> _branchIds = {};
+
+  String? get _saveId => widget.duplicate ? null : widget.existing?.id;
 
   TextEditingController _c(String key) => _num.putIfAbsent(key, () => TextEditingController());
 
@@ -234,7 +274,8 @@ class _PosPromotionEditorPageState extends State<PosPromotionEditorPage> {
   void initState() {
     super.initState();
     final p = widget.existing;
-    _name = TextEditingController(text: p?.name ?? '');
+    _name = TextEditingController(text: widget.duplicate && p != null ? '${p.name} (bản sao)' : (p?.name ?? ''));
+    _branchIds.addAll(p?.branchIds ?? const []);
     _note = TextEditingController(text: p?.note ?? '');
     _type = p?.type ?? PosPromotionTypes.timeDiscount;
     _priority = p?.priority ?? 0;
@@ -407,7 +448,7 @@ class _PosPromotionEditorPageState extends State<PosPromotionEditorPage> {
       return;
     }
     final promo = PosPromotion(
-      id: widget.existing?.id ?? '',
+      id: _saveId ?? '',
       name: _name.text.trim(),
       type: _type,
       priority: _priority,
@@ -421,9 +462,10 @@ class _PosPromotionEditorPageState extends State<PosPromotionEditorPage> {
       config: cfg,
       note: _note.text.trim().isEmpty ? null : _note.text.trim(),
       isActive: _active,
+      branchIds: _branchIds.toList(),
     );
     setState(() => _saving = true);
-    final res = await _api.savePosPromotion(widget.existing?.id, promo.toSaveJson());
+    final res = await _api.savePosPromotion(_saveId, promo.toSaveJson());
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {
@@ -803,6 +845,22 @@ class _PosPromotionEditorPageState extends State<PosPromotionEditorPage> {
               title: Text(tr('Chỉ khách thành viên')),
               subtitle: Text(tr('Áp khi đã chọn khách hàng trên hóa đơn')),
             ),
+            if (BranchSession.instance.usesBranches && BranchSession.instance.branches.length > 1) ...[
+              const SizedBox(height: 4),
+              Text(tr('Áp dụng tại chi nhánh'), style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(tr(_branchIds.isEmpty ? 'Tất cả chi nhánh' : 'Chỉ ${_branchIds.length} chi nhánh đã chọn'),
+                  style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+              const SizedBox(height: 6),
+              Wrap(spacing: 8, runSpacing: 4, children: [
+                for (final b in BranchSession.instance.branches.where((b) => b.isActive))
+                  FilterChip(
+                    label: Text(b.name),
+                    selected: _branchIds.contains(b.id),
+                    onSelected: (v) => setState(() => v ? _branchIds.add(b.id) : _branchIds.remove(b.id)),
+                  ),
+              ]),
+              const SizedBox(height: 8),
+            ],
             Row(children: [
               Expanded(child: Text(tr('Ưu tiên (khi giảm bằng nhau)'))),
               IconButton(onPressed: () => setState(() => _priority--), icon: const Icon(Icons.remove)),
@@ -929,10 +987,23 @@ class _PosPromotionReportScreenState extends State<PosPromotionReportScreen> {
     _load();
   }
 
+  String _delta(double cur, double prev) {
+    if (prev <= 0) return cur > 0 ? 'mới phát sinh' : 'kỳ trước: 0';
+    final pct = (cur - prev) / prev * 100;
+    return '${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(0)}% so với kỳ trước';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final items = ((_data?['items'] as List?) ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    List<Map<String, dynamic>> maps(dynamic v) =>
+        ((v as List?) ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final items = maps(_data?['items']);
+    final unused = maps(_data?['unused']);
+    final daily = maps(_data?['byDay']);
     double n(dynamic v) => v is num ? v.toDouble() : 0;
+    final d = _data;
+    final prev = d?['previous'] is Map ? Map<String, dynamic>.from(d!['previous'] as Map) : const <String, dynamic>{};
+    final maxDay = daily.fold<double>(0, (m, e) => n(e['discount']) > m ? n(e['discount']) : m);
     return Scaffold(
       appBar: AppBar(title: Text(tr('Hiệu quả khuyến mãi'))),
       body: Column(children: [
@@ -941,41 +1012,205 @@ class _PosPromotionReportScreenState extends State<PosPromotionReportScreen> {
           title: Text('${_dateFmt.format(_from)} → ${_dateFmt.format(_to)}'),
           trailing: TextButton(onPressed: _pickRange, child: Text(tr('Đổi'))),
         ),
-        if (_data != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(children: [
-              Expanded(child: _stat('Hóa đơn có KM', '${_data!['orders'] ?? 0}')),
-              Expanded(child: _stat('Tổng tiền giảm', '${_money.format(n(_data!['totalDiscount']))}đ')),
-            ]),
-          ),
-        const Divider(),
+        const Divider(height: 1),
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
-              : items.isEmpty
-                  ? Center(child: Text(tr('Chưa có hóa đơn áp khuyến mãi trong khoảng này')))
-                  : ListView(
-                      children: [
-                        for (final i in items)
-                          ListTile(
-                            title: Text('${i['name']}'),
-                            subtitle: Text(tr('${i['orders']} hóa đơn · doanh thu ${_money.format(n(i['revenue']))}đ')),
-                            trailing: Text(tr('−${_money.format(n(i['discount']))}đ'),
+              : d == null
+                  ? Center(child: Text(tr('Không tải được báo cáo')))
+                  : ListView(padding: const EdgeInsets.all(16), children: [
+                      Wrap(spacing: 12, runSpacing: 12, children: [
+                        _kpi('Hóa đơn có KM', '${d['orders'] ?? 0} / ${d['allOrders'] ?? 0}',
+                            '${n(d['promoOrderRate']).toStringAsFixed(1)}% tổng hóa đơn · ${_delta(n(d['orders']), n(prev['orders']))}'),
+                        _kpi('Tổng tiền giảm', '${_money.format(n(d['totalDiscount']))}đ',
+                            '${n(d['discountRate']).toStringAsFixed(1)}% giá trị hàng · ${_delta(n(d['totalDiscount']), n(prev['totalDiscount']))}'),
+                        _kpi('HĐ bình quân có KM', '${_money.format(n(d['avgBillPromo']))}đ',
+                            'không KM: ${_money.format(n(d['avgBillNormal']))}đ'),
+                        _kpi('Doanh thu HĐ có KM', '${_money.format(n(d['promoRevenue']))}đ',
+                            'trên tổng ${_money.format(n(d['allRevenue']))}đ'),
+                        if (d['promoMarginPct'] != null)
+                          _kpi('Lãi gộp HĐ có KM', '${_money.format(n(d['promoProfit']))}đ',
+                              'biên ${n(d['promoMarginPct']).toStringAsFixed(1)}% (đã trừ khuyến mãi) · HĐ không KM: ${n(d['normalMarginPct']).toStringAsFixed(1)}%'),
+                      ]),
+                      if (daily.any((e) => n(e['discount']) > 0)) ...[
+                        const SizedBox(height: 20),
+                        Text(tr('Tiền giảm theo ngày'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 90,
+                          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                            for (final e in daily)
+                              Expanded(
+                                child: Tooltip(
+                                  message: '${e['date'].toString().substring(0, 10)}: ${e['orders']} HĐ · −${_money.format(n(e['discount']))}đ',
+                                  child: Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 1),
+                                    height: maxDay <= 0 ? 0 : 4 + 82 * n(e['discount']) / maxDay,
+                                    color: n(e['discount']) > 0 ? PosTheme.kiotBlue : Colors.transparent,
+                                  ),
+                                ),
+                              ),
+                          ]),
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      Text(tr('Theo chương trình'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                      if (items.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Text(tr('Chưa có hóa đơn áp khuyến mãi trong khoảng này')),
+                        ),
+                      for (final i in items)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                            builder: (_) => PosPromotionOrdersPage(
+                                promotionId: '${i['promotionId']}', name: '${i['name']}', from: _from, to: _to),
+                          )),
+                          title: Text('${i['name']}'),
+                          subtitle: Text(tr(
+                              '${i['orders']} hóa đơn · doanh thu ${_money.format(n(i['revenue']))}đ · bình quân ${_money.format(n(i['avgBill']))}đ/HĐ · giảm ${n(i['discountRate']).toStringAsFixed(1)}% giá trị hàng'
+                              '${i['marginPct'] != null ? ' · lãi gộp ${_money.format(n(i['profit']))}đ (${n(i['marginPct']).toStringAsFixed(1)}%)' : ''}'
+                              '\nBấm để xem từng hóa đơn')),
+                          isThreeLine: true,
+                          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text(tr('−${_money.format(n(i['discount']))}đ'),
                                 style: TextStyle(fontWeight: FontWeight.w700, color: Colors.red.shade700)),
+                            const Icon(Icons.chevron_right),
+                          ]),
+                        ),
+                      if (unused.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        Text(tr('Chưa phát sinh trong kỳ'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 4),
+                        Text(tr('Chương trình chưa có hóa đơn nào áp dụng — xem lại điều kiện, thời gian hoặc dừng nếu không còn cần.'),
+                            style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+                        for (final u in unused)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            leading: Icon(u['isActive'] == true ? Icons.hourglass_empty : Icons.pause_circle_outline,
+                                color: PosTheme.textSecondary),
+                            title: Text('${u['name']}'),
+                            subtitle: Text(tr('${PosPromotionTypes.label('${u['type']}')} · ${_statusOf(u)}')),
                           ),
                       ],
-                    ),
+                    ]),
         ),
       ]),
     );
   }
 
-  Widget _stat(String label, String value) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(tr(label), style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-        ],
+  /// Đã hết hạn (quá ngày kết thúc) / đang bật / đã tắt — «đang bật» mà đã quá hạn dễ gây hiểu nhầm.
+  String _statusOf(Map<String, dynamic> u) {
+    final to = DateTime.tryParse('${u['validTo'] ?? ''}');
+    final today = DateTime.now();
+    if (to != null && DateTime(to.year, to.month, to.day).isBefore(DateTime(today.year, today.month, today.day))) {
+      return 'đã hết hạn';
+    }
+    return u['isActive'] == true ? 'đang bật' : 'đã tắt';
+  }
+
+  Widget _kpi(String label, String value, String note) => ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 220, maxWidth: 300),
+        child: Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr(label), style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+              const SizedBox(height: 2),
+              Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(tr(note), style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary)),
+            ]),
+          ),
+        ),
       );
+}
+
+/// Hóa đơn đã áp một chương trình trong kỳ — bấm để mở hóa đơn gốc.
+class PosPromotionOrdersPage extends StatefulWidget {
+  const PosPromotionOrdersPage(
+      {super.key, required this.promotionId, required this.name, required this.from, required this.to});
+
+  final String promotionId;
+  final String name;
+  final DateTime from;
+  final DateTime to;
+
+  @override
+  State<PosPromotionOrdersPage> createState() => _PosPromotionOrdersPageState();
+}
+
+class _PosPromotionOrdersPageState extends State<PosPromotionOrdersPage> {
+  final _api = ApiService();
+  final _money = NumberFormat('#,###', 'vi_VN');
+  final _fmt = DateFormat('dd/MM/yyyy HH:mm');
+  bool _loading = true;
+  String? _error;
+  List<Map<String, dynamic>> _items = [];
+  double _total = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final res = await _api.getPosPromotionReportOrders(widget.promotionId, widget.from, widget.to);
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        final d = Map<String, dynamic>.from(res['data'] as Map);
+        _items = ((d['items'] as List?) ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        _total = (d['totalDiscount'] as num?)?.toDouble() ?? 0;
+      } else {
+        _error = res['message']?.toString() ?? 'Không tải được danh sách hóa đơn';
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    double n(dynamic v) => v is num ? v.toDouble() : 0;
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.name)),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(child: Text(tr(_error!)))
+              : Column(children: [
+                  ListTile(
+                    title: Text(tr('${_items.length} hóa đơn · tổng giảm ${_money.format(_total)}đ')),
+                    subtitle: Text(tr('Bấm một hóa đơn để xem chi tiết')),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: _items.isEmpty
+                        ? Center(child: Text(tr('Không có hóa đơn nào trong kỳ')))
+                        : ListView.separated(
+                            itemCount: _items.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (_, i) {
+                              final o = _items[i];
+                              final at = DateTime.tryParse('${o['at']}');
+                              return ListTile(
+                                onTap: () => PosReportOpen.sale(context, '${o['id']}'),
+                                title: Text('${o['orderNo']}${(o['customerName'] ?? '').toString().isEmpty ? '' : ' · ${o['customerName']}'}'),
+                                subtitle: Text(tr('${at == null ? '' : _fmt.format(at)} · ${o['paymentMethod'] ?? ''}')),
+                                trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                                  Text('${_money.format(n(o['total']))}đ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  Text(tr('giảm ${_money.format(n(o['discount']))}đ'),
+                                      style: TextStyle(fontSize: 12, color: Colors.red.shade700)),
+                                ]),
+                              );
+                            },
+                          ),
+                  ),
+                ]),
+    );
+  }
 }

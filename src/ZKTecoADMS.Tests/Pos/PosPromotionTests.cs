@@ -79,6 +79,12 @@ public class PosPromotionTests(PosPgFixture fx) : PosFlowTestBase(fx)
         var promoId = Guid.NewGuid();
         var json = $"{{\"applied\":[{{\"id\":\"{promoId}\",\"name\":\"Giờ vàng\",\"amount\":6000}}],\"lines\":{{\"{rau.Id}||\":6000}},\"bill\":0}}";
 
+        // Máy chủ chỉ giữ chương trình có thật của cửa hàng → tạo sẵn «Giờ vàng».
+        await using (var seed = Fx.NewDb())
+        {
+            seed.PosPromotions.Add(new PosPromotion { Id = promoId, StoreId = store, Name = "Giờ vàng", Type = "time_discount" });
+            await seed.SaveChangesAsync();
+        }
         await using (var db = Fx.NewDb())
         {
             // 2 × 10.000 − KM 6.000 trên dòng = 14.000
@@ -86,7 +92,8 @@ public class PosPromotionTests(PosPgFixture fx) : PosFlowTestBase(fx)
                 [new PosSalesController.SaleLineDto(rau.Id, 2, null, 10000, null, DiscountAmount: 6000)],
                 0, 14000, "Tiền mặt", null, null, null, PromotionsJson: json);
             var order = Data(await Sales(db, store).CreateSale(dto));
-            Assert.Equal(json, order.PromotionsJson);
+            Assert.Contains(promoId.ToString(), (string)order.PromotionsJson);
+            Assert.Contains("Giờ vàng", (string)order.PromotionsJson);
             Assert.Equal(14000m, order.Total);
         }
         await using (var db = Fx.NewDb())

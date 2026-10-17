@@ -54,7 +54,9 @@ class PosPromotion {
     this.note,
     this.isActive = true,
     Set<String>? resolvedProductIds,
-  })  : config = config ?? <String, dynamic>{},
+    List<String>? branchIds,
+  })  : branchIds = branchIds ?? const [],
+        config = config ?? <String, dynamic>{},
         resolvedProductIds = resolvedProductIds ?? <String>{};
 
   final String id;
@@ -72,6 +74,8 @@ class PosPromotion {
   final Map<String, dynamic> config;
   final String? note;
   final bool isActive;
+  /// Chỉ áp ở các chi nhánh này; rỗng = mọi chi nhánh.
+  final List<String> branchIds;
   /// Hàng cận hạn server đã tính sẵn (near_expiry).
   final Set<String> resolvedProductIds;
 
@@ -104,6 +108,7 @@ class PosPromotion {
       note: (j['note'] ?? j['Note'])?.toString(),
       isActive: (j['isActive'] ?? j['IsActive']) != false,
       resolvedProductIds: resolved?.map((e) => '$e').toSet(),
+      branchIds: ((j['branchIds'] ?? j['BranchIds']) as List?)?.map((e) => '$e').toList(),
     );
   }
 
@@ -121,6 +126,7 @@ class PosPromotion {
         'configJson': jsonEncode(config),
         'note': note,
         'isActive': isActive,
+        'branchIds': branchIds,
       };
 
   static String _ymd(DateTime d) =>
