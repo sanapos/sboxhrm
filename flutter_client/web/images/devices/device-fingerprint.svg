@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600" role="img" aria-label="Máy chấm công vân tay">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EAF3FF"/><stop offset="1" stop-color="#D6E8FA"/></linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F8FAFC"/><stop offset="1" stop-color="#D9E2EC"/></linearGradient>
+    <linearGradient id="scr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0B3B8F"/><stop offset="1" stop-color="#0C56D0"/></linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <ellipse cx="400" cy="548" rx="170" ry="16" fill="#0B2A3A" opacity=".12"/>
+  <rect x="255" y="55" width="290" height="480" rx="34" fill="url(#body)" stroke="#B8C6D6" stroke-width="3"/>
+  <rect x="283" y="85" width="234" height="124" rx="14" fill="url(#scr)"/>
+  <text x="400" y="138" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="40" font-weight="700" fill="#fff">08:30</text>
+  <text x="400" y="172" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="18" fill="#BBD4FF">SBOX HRM</text>
+  <g fill="#5B6B7C">
+    <circle cx="323" cy="250" r="9"/><circle cx="364" cy="250" r="9"/><circle cx="405" cy="250" r="9"/><circle cx="446" cy="250" r="9"/><circle cx="487" cy="250" r="9"/>
+    <circle cx="323" cy="285" r="9"/><circle cx="364" cy="285" r="9"/><circle cx="405" cy="285" r="9"/><circle cx="446" cy="285" r="9"/><circle cx="487" cy="285" r="9"/>
+  </g>
+  <rect x="333" y="320" width="134" height="160" rx="26" fill="#0B2A3A"/>
+  <g fill="none" stroke="#4FD1C5" stroke-width="7" stroke-linecap="round">
+    <path d="M360 438c0-30 12-52 40-52s40 22 40 52"/>
+    <path d="M375 448c0-22 7-40 25-40s25 18 25 40"/>
+    <path d="M390 456c0-14 3-26 10-26s10 12 10 26"/>
+    <path d="M352 420c3-34 22-56 48-56s45 22 48 56"/>
+  </g>
+  <circle cx="500" cy="502" r="7" fill="#22C55E"/>
+</svg>

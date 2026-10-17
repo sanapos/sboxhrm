@@ -145,7 +145,7 @@ public static partial class SeoPages
         {
             var price = PriceValue(d.Price) is { } v ? Vnd(v) : (d.Price ?? "Liên hệ");
             var old = PriceValue(d.OldPrice) is { } o && PriceValue(d.Price) is { } n && o > n ? $" <s style=\"color:var(--m);font-weight:400\">{E(Vnd(o))}</s>" : "";
-            sb.Append($"<tr><td><strong>{E(d.Name)}</strong>{(d.Sub == null ? "" : $"<br><span style=\"color:var(--m);font-size:14px\">{E(d.Sub)}</span>")}</td>")
+            sb.Append($"<tr><td><a href=\"{DeviceBase}/{DeviceSlug(d.Name)}\"><strong>{E(d.Name)}</strong></a>{(d.Sub == null ? "" : $"<br><span style=\"color:var(--m);font-size:14px\">{E(d.Sub)}</span>")}</td>")
               .Append($"<td>{E(d.Specs ?? "")}</td><td><strong>{E(price)}</strong>{old}</td></tr>");
         }
         sb.Append("</tbody></table></div>\n");

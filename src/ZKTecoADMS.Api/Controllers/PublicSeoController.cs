@@ -91,7 +91,8 @@ public class PublicSeoController(ZKTecoDbContext db) : ControllerBase
         var s = Site;
         var items = await Published(s.Code).OrderByDescending(a => a.PublishedAt ?? a.CreatedAt).Take(5000).ToListAsync(ct);
         Response.Headers.CacheControl = "public, max-age=900";
-        return Content(SeoPages.Sitemap(s, items), "application/xml; charset=utf-8");
+        var devices = s.Code == "hrm" ? await Devices(ct) : [];
+        return Content(SeoPages.Sitemap(s, items, devices), "application/xml; charset=utf-8");
     }
 
     [HttpGet("/seo/robots.txt")]
@@ -169,6 +170,18 @@ public class PublicSeoController(ZKTecoDbContext db) : ControllerBase
         if (p == null) return Html(SeoPages.NotFoundPage(SeoPages.Hrm), 404, 60);
         if (Site.Code == "pos") return RedirectPermanent($"{SeoPages.Hrm.Origin}/lap-dat-may-cham-cong/{p.Slug}");
         return Html(SeoPages.LocalPage(p, await Devices(ct)), cacheSeconds: 600);
+    }
+
+    /// <summary>Trang sản phẩm máy chấm công (từ «Sản phẩm thiết bị»), thay cho liên kết sang website khác.</summary>
+    [HttpGet("/lap-dat-may-cham-cong/san-pham/{slug}")]
+    public async Task<IActionResult> Device(string slug, CancellationToken ct = default)
+    {
+        var key = (slug ?? "").Trim().ToLowerInvariant();
+        if (Site.Code == "pos") return RedirectPermanent($"{SeoPages.Hrm.Origin}/lap-dat-may-cham-cong/san-pham/{key}");
+        var all = await Devices(ct);
+        var d = all.FirstOrDefault(x => SeoPages.DeviceSlug(x.Name) == key);
+        if (d == null) return Html(SeoPages.NotFoundPage(SeoPages.Hrm), 404, 60);
+        return Html(SeoPages.DevicePage(d, all), cacheSeconds: 600);
     }
 
     /// <summary>Bảng giá máy trên trang lắp đặt = danh sách «Sản phẩm thiết bị» của trang chủ (landing_products).</summary>
