@@ -59,8 +59,22 @@ public static class ShipmentStatus
         if (from == Cancelled) return false;
         if (from == Returned) return false;
         if (from == Delivered) return to is Returning or Returned or Issue;
+        // Webhook đến trễ / sai thứ tự: «đã lấy hàng» không được kéo vận đơn lùi về «đã tạo / đang lấy».
+        var rf = ForwardRank(from);
+        var rt = ForwardRank(to);
+        if (rf > 0 && rt > 0 && rt < rf) return false;
         return true;
     }
+
+    /// <summary>Thứ tự tiến của các bước thông thường (0 = không thuộc chuỗi: giao thất bại, hoàn, sự cố…).</summary>
+    static int ForwardRank(string? code) => code switch
+    {
+        Created => 1,
+        Picking => 2,
+        InTransit => 3,
+        Delivering => 4,
+        _ => 0,
+    };
 
     /// <summary>Mã trạng thái đơn QR online tương ứng (null = giữ nguyên).</summary>
     public static string? ToOnlineStatus(string code) => code switch

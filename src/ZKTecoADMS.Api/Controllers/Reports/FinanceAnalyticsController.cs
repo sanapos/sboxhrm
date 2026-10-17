@@ -621,17 +621,14 @@ public class FinanceAnalyticsController(
             var rangeEndExclusive = toLocal.Date.AddDays(1);
             var storeId = RequiredStoreId;
 
-            var query = db.CashTransactions.IgnoreQueryFilters()
-                .Include(x => x.Category)
-                .Include(x => x.CreatedByUser)
-                .Where(x => x.StoreId == storeId && x.IsActive && x.Deleted == null
-                    && x.TransactionDate >= rangeStart
-                    && x.TransactionDate < rangeEndExclusive)
+            // Phạm vi (cửa hàng + chi nhánh) chưa lọc ngày — dùng chung cho kỳ báo cáo và tồn đầu kỳ.
+            var scoped = db.CashTransactions.IgnoreQueryFilters()
+                .Where(x => x.StoreId == storeId && x.IsActive && x.Deleted == null)
                 // Chi nhánh đang xem / được phép (phiếu chưa gắn chi nhánh = trụ sở), như màn Thu chi.
                 .ApplyBranchScope(HttpContext.BranchContext());
 
             if (type.HasValue)
-                query = query.Where(x => x.Type == type.Value);
+                scoped = scoped.Where(x => x.Type == type.Value);
 
             if (IsEmployee && !IsManager)
             {
@@ -652,21 +649,34 @@ public class FinanceAnalyticsController(
                     .Distinct()
                     .ToListAsync(ct);
 
-                query = query.Where(x =>
+                scoped = scoped.Where(x =>
                     linkedTxIds.Contains(x.Id) || x.CreatedByUserId == CurrentUserId);
             }
 
+            var query = scoped.Where(x => x.TransactionDate >= rangeStart && x.TransactionDate < rangeEndExclusive);
             var total = await query.CountAsync(ct);
 
-            var rangeRows = await query.ToListAsync(ct);
-            var summary = BuildCashReportSummary(rangeRows);
+            // Tổng hợp trên TOÀN kỳ (chỉ đọc vài cột) — danh sách chỉ lấy trang hiện tại.
+            var slim = (await query.Select(x => new { x.Type, x.Amount, x.IsPaid, x.Status }).ToListAsync(ct))
+                .Select(x => new CashTransaction { Type = x.Type, Amount = x.Amount, IsPaid = x.IsPaid, Status = x.Status })
+                .ToList();
+            var summary = BuildCashReportSummary(slim);
 
-            var items = rangeRows
+            // Tồn đầu kỳ = thu − chi các phiếu đã vào quỹ trước kỳ (cùng phạm vi) — số dư lũy kế bắt đầu từ đây.
+            var opening = await scoped
+                .Where(x => x.TransactionDate < rangeStart && x.Status != CashTransactionStatus.Cancelled
+                            && (x.IsPaid || x.Status == CashTransactionStatus.Completed))
+                .SumAsync(x => (decimal?)(x.Type == CashTransactionType.Income ? x.Amount : -x.Amount), ct) ?? 0m;
+
+            var pageRows = await query
+                .Include(x => x.Category)
+                .Include(x => x.CreatedByUser)
                 .OrderByDescending(x => x.TransactionDate)
+                .ThenByDescending(x => x.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(MapCashReportItem)
-                .ToList();
+                .ToListAsync(ct);
+            var items = pageRows.Select(MapCashReportItem).ToList();
 
             return Ok(AppResponse<CashReportListDto>.Success(new CashReportListDto
             {
@@ -675,7 +685,8 @@ public class FinanceAnalyticsController(
                 TotalCount = total,
                 Page = page,
                 PageSize = pageSize,
-                Summary = summary
+                Summary = summary,
+                OpeningBalance = opening
             }));
         }
         catch (Exception ex)
@@ -896,6 +907,8 @@ public class CashReportListDto
     public int Page { get; set; }
     public int PageSize { get; set; }
     public CashReportSummaryDto Summary { get; set; } = new();
+    /// <summary>Tồn quỹ đầu kỳ (thu − chi các phiếu đã vào quỹ trước kỳ, cùng phạm vi chi nhánh).</summary>
+    public decimal OpeningBalance { get; set; }
 }
 
 public class CashReportSummaryDto

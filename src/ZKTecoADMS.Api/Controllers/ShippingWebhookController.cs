@@ -43,8 +43,15 @@ public class ShippingWebhookController(
             var ok = await shipping.ApplyWebhookStatusAsync("Ghn", tracking, tracking, status, ct, reason);
             return Ok(new { code = ok ? 200 : 404, message = ok ? "ok" : "order not found" });
         }
+        catch (Exception ex) when (ex is not JsonException)
+        {
+            // Lỗi hệ thống (CSDL, mạng…): trả 500 để HÃNG GỬI LẠI — trước đây luôn trả 200 «đã nhận» nên cập nhật trạng thái bị mất.
+            logger.LogError(ex, "Shipping webhook lỗi hệ thống — để hãng gửi lại");
+            return StatusCode(500, new { ok = false, message = "temporary error" });
+        }
         catch (Exception ex)
         {
+            // Payload hỏng: gửi lại cũng vô ích → ghi nhận, trả 200.
             logger.LogWarning(ex, "GHN shipping webhook failed");
             return Ok(new { code = 200, message = "accepted" });
         }
@@ -96,8 +103,15 @@ public class ShippingWebhookController(
             var ok = await shipping.ApplyGhtkWebhookAsync(label, partnerId, statusId, statusText, ct);
             return Ok(new { success = true, updated = ok });
         }
+        catch (Exception ex) when (ex is not JsonException)
+        {
+            // Lỗi hệ thống (CSDL, mạng…): trả 500 để HÃNG GỬI LẠI — trước đây luôn trả 200 «đã nhận» nên cập nhật trạng thái bị mất.
+            logger.LogError(ex, "Shipping webhook lỗi hệ thống — để hãng gửi lại");
+            return StatusCode(500, new { ok = false, message = "temporary error" });
+        }
         catch (Exception ex)
         {
+            // Payload hỏng: gửi lại cũng vô ích → ghi nhận, trả 200.
             logger.LogWarning(ex, "GHTK shipping webhook failed");
             return Ok(new { success = true });
         }
@@ -166,8 +180,15 @@ public class ShippingWebhookController(
             // VTP yêu cầu HTTP 200 — body đơn giản.
             return Ok(new { status = 200, error = false, message = ok ? "OK" : "order not found" });
         }
+        catch (Exception ex) when (ex is not JsonException)
+        {
+            // Lỗi hệ thống (CSDL, mạng…): trả 500 để HÃNG GỬI LẠI — trước đây luôn trả 200 «đã nhận» nên cập nhật trạng thái bị mất.
+            logger.LogError(ex, "Shipping webhook lỗi hệ thống — để hãng gửi lại");
+            return StatusCode(500, new { ok = false, message = "temporary error" });
+        }
         catch (Exception ex)
         {
+            // Payload hỏng: gửi lại cũng vô ích → ghi nhận, trả 200.
             logger.LogWarning(ex, "ViettelPost shipping webhook failed");
             return Ok(new { status = 200, error = false, message = "accepted" });
         }
@@ -201,8 +222,15 @@ public class ShippingWebhookController(
             var ok = await shipping.ApplySpxWebhookAsync(tracking, status, ct);
             return Ok(new { ok, message = ok ? "ok" : "order not found" });
         }
+        catch (Exception ex) when (ex is not JsonException)
+        {
+            // Lỗi hệ thống (CSDL, mạng…): trả 500 để HÃNG GỬI LẠI — trước đây luôn trả 200 «đã nhận» nên cập nhật trạng thái bị mất.
+            logger.LogError(ex, "Shipping webhook lỗi hệ thống — để hãng gửi lại");
+            return StatusCode(500, new { ok = false, message = "temporary error" });
+        }
         catch (Exception ex)
         {
+            // Payload hỏng: gửi lại cũng vô ích → ghi nhận, trả 200.
             logger.LogWarning(ex, "SPX shipping webhook failed");
             return Ok(new { ok = true, message = "accepted" });
         }
@@ -249,8 +277,15 @@ public class ShippingWebhookController(
             var ok = await shipping.ApplyWebhookStatusAsync(carrier, lookup, lookup, status, ct, reason);
             return Ok(new { ok });
         }
+        catch (Exception ex) when (ex is not JsonException)
+        {
+            // Lỗi hệ thống (CSDL, mạng…): trả 500 để HÃNG GỬI LẠI — trước đây luôn trả 200 «đã nhận» nên cập nhật trạng thái bị mất.
+            logger.LogError(ex, "Shipping webhook lỗi hệ thống — để hãng gửi lại");
+            return StatusCode(500, new { ok = false, message = "temporary error" });
+        }
         catch (Exception ex)
         {
+            // Payload hỏng: gửi lại cũng vô ích → ghi nhận, trả 200.
             logger.LogWarning(ex, "Shipping webhook {Carrier} failed", carrier);
             return Ok(new { ok = true });
         }

@@ -13,6 +13,9 @@ class CashReportSummary {
   final int pendingExpenseCount;
   final int cancelledCount;
 
+  /// Tồn quỹ đầu kỳ (thu − chi các phiếu đã vào quỹ trước kỳ).
+  final double openingBalance;
+
   const CashReportSummary({
     this.paidIncome = 0,
     this.paidExpense = 0,
@@ -23,9 +26,14 @@ class CashReportSummary {
     this.pendingIncomeCount = 0,
     this.pendingExpenseCount = 0,
     this.cancelledCount = 0,
+    this.openingBalance = 0,
   });
 
-  double get fundBalance => paidIncome - paidExpense;
+  /// Số dư quỹ cuối kỳ = tồn đầu kỳ + đã thu − đã chi.
+  double get fundBalance => openingBalance + paidIncome - paidExpense;
+
+  /// Thu − chi trong kỳ (chưa tính tồn đầu).
+  double get periodNet => paidIncome - paidExpense;
 
   factory CashReportSummary.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const CashReportSummary();
@@ -54,7 +62,7 @@ class CashReportSummary {
     );
   }
 
-  factory CashReportSummary.fromRows(Iterable<Map<String, dynamic>> rows) {
+  factory CashReportSummary.fromRows(Iterable<Map<String, dynamic>> rows, {double openingBalance = 0}) {
     var paidInc = 0.0;
     var paidExp = 0.0;
     var pendInc = 0.0;
@@ -101,6 +109,7 @@ class CashReportSummary {
       pendingIncomeCount: pendIncN,
       pendingExpenseCount: pendExpN,
       cancelledCount: cancelledN,
+      openingBalance: openingBalance,
     );
   }
 }
@@ -165,8 +174,9 @@ bool cashReportRowIsPending(Map<String, dynamic> row) {
 
 /// Số dư quỹ lũy kế sau từng dòng (theo thứ tự thời gian tăng dần).
 Map<String, double> cashReportRunningBalances(
-  List<Map<String, dynamic>> rows,
-) {
+  List<Map<String, dynamic>> rows, {
+  double openingBalance = 0,
+}) {
   final sorted = List<Map<String, dynamic>>.from(rows);
   sorted.sort((a, b) {
     final da = cashReportRowDate(a) ??
@@ -178,7 +188,7 @@ Map<String, double> cashReportRunningBalances(
     return (a['id']?.toString() ?? '').compareTo(b['id']?.toString() ?? '');
   });
 
-  var balance = 0.0;
+  var balance = openingBalance;
   final out = <String, double>{};
   for (final row in sorted) {
     if (!cashReportRowIsCompleted(row)) continue;

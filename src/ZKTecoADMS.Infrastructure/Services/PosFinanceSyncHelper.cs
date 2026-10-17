@@ -15,6 +15,7 @@ public static class PosFinanceSyncHelper
     public const string ReservationDepositRefundMarker = "pos hoàn cọc đặt chỗ #";
     public const string PurchaseReceiptMarker = "pos nhập hàng #";
     public const string SupplierPaymentMarker = "pos thanh toán ncc #";
+    public const string CodReceiptMarker = "pos cod #";
     public const string CustomerReturnMarker = "pos trả khách #";
     public const string CustomerPaymentMarker = "pos thu nợ kh #";
     public const string PurchaseReturnRefundMarker = "pos thu trả ncc #";
@@ -385,6 +386,46 @@ public static class PosFinanceSyncHelper
             .ToListAsync(cancellationToken);
         foreach (var cash in cashList)
             PaymentFinanceHelper.CancelLinkedCashTransaction(cash, $"Hủy trả hàng {returnNo} — {order.OrderNo}");
+    }
+
+    /// <summary>Hãng vận chuyển chuyển tiền COD (thu hộ) cho shop → phiếu thu trong sổ quỹ.</summary>
+    public static async Task SyncCodReceiptAsync(
+        ZKTecoDbContext db,
+        PosSaleOrder order,
+        decimal amount,
+        DateTime paidAt,
+        Guid createdByUserId,
+        string? carrierName,
+        CancellationToken cancellationToken = default)
+    {
+        if (amount <= 0) return;
+        var marker = $"{CodReceiptMarker}{order.Id}";
+        if (await HasActiveCashAsync(db, order.StoreId, marker, cancellationToken)) return;
+        var category = await EnsureCategoryAsync(
+            db, order.StoreId, CashTransactionType.Income, "Thu hộ COD",
+            "local_shipping", "#0EA5E9", cancellationToken);
+        if (category == null) return;
+        db.CashTransactions.Add(new CashTransaction
+        {
+            Id = Guid.NewGuid(),
+            TransactionCode = await GenerateCodeAsync(db, order.StoreId, CashTransactionType.Income, cancellationToken),
+            Type = CashTransactionType.Income,
+            CategoryId = category.Id,
+            Amount = amount,
+            TransactionDate = VnTimeHelper.UtcToVn(paidAt),
+            Description = $"Hãng {(string.IsNullOrWhiteSpace(carrierName) ? "vận chuyển" : carrierName)} chuyển tiền COD — {order.OrderNo}",
+            PaymentMethod = ParsePaymentMethod("Chuyển khoản"),
+            Status = CashTransactionStatus.Completed,
+            IsPaid = true,
+            PaidDate = paidAt,
+            ContactName = order.CustomerName,
+            CreatedByUserId = createdByUserId,
+            StoreId = order.StoreId,
+            BranchId = order.BranchId,
+            InternalNote = marker,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+        });
     }
 
     public static async Task SyncCustomerPaymentAsync(

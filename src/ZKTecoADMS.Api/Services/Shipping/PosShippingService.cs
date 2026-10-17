@@ -561,9 +561,12 @@ public partial class PosShippingService(
             order.DeliveryFee = fixedFee;
         }
 
-        // COD: còn thiếu sau khi đã cộng phí ship cố định (nếu có).
-        var effectiveCod = request.CodAmount
-            ?? Math.Max(0m, order.PayableTotal - Math.Max(0m, order.PaidAmount));
+        // COD: còn thiếu sau khi đã cộng phí ship cố định (nếu có). Khách trả cước THẲNG cho hãng → cước đó không
+        // nằm trong tiền thu hộ (trước đây gộp vào COD nên khách bị thu hai lần).
+        var codBase = Math.Max(0m, order.PayableTotal - Math.Max(0m, order.PaidAmount));
+        if (payer == ShippingFeePayer.Customer)
+            codBase = Math.Max(0m, codBase - Math.Max(0m, order.DeliveryFee));
+        var effectiveCod = request.CodAmount ?? codBase;
 
         var client = Resolve(code);
         if (client == null)
@@ -612,9 +615,10 @@ public partial class PosShippingService(
         var tracking = result.TrackingCode;
         var carrierOrderId = result.CarrierOrderId ?? result.TrackingCode;
         var labelUrl = result.LabelUrl;
-        // Phí lưu trên đơn: fixed → giữ số cố định; không thì lấy phí hãng / sẵn có.
-        var fee = appliedFixedFee
-            ?? (result.Fee is > 0 ? result.Fee.Value : order.DeliveryFee);
+        // DeliveryFee = phí SHOP THU của khách trên đơn: giữ nguyên (hoặc số cố định đã chọn). Cước hãng lưu riêng ở
+        // DeliveryCarrierFee — trước đây ghi đè phí thu khách bằng cước hãng làm đổi số tiền khách phải trả sau khi đã
+        // tính COD (sinh «còn nợ» ảo) và làm lãi/lỗ ship luôn bằng 0.
+        var fee = appliedFixedFee ?? order.DeliveryFee;
         var partner = ShippingCarrierCodes.DisplayName(code);
         var now = DateTime.UtcNow;
         var rows = await db.PosSaleOrders.Where(o => o.Id == order.Id)

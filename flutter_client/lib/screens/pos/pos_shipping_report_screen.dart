@@ -33,7 +33,9 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
   int _tab = 0;
   final Set<String> _codPicked = {};
 
-  static const _tabs = ['Theo hãng', 'Giao thất bại', 'Hoàn hàng', 'Hủy vận đơn', 'Đối soát COD'];
+  static const _tabs = [
+    'Theo hãng', 'Giao thất bại', 'Hoàn hàng', 'Hủy vận đơn', 'Đối soát COD', 'Vận đơn treo', 'Chưa tạo vận đơn',
+  ];
 
   @override
   void initState() {
@@ -73,11 +75,25 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
   }
 
   Future<void> _confirmReturn(Map<String, dynamic> r) async {
+    final feeCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('Xác nhận đã nhận hàng hoàn?')),
-        content: Text(tr('Đơn ${r['orderNo']} — hàng sẽ được nhập lại kho và đơn bán bị hủy (trừ doanh thu, công nợ, điểm).')),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr('Đơn ${r['orderNo']} — hàng sẽ được nhập lại kho và đơn bán bị hủy (trừ doanh thu, công nợ, điểm).')),
+          const SizedBox(height: 12),
+          TextField(
+            controller: feeCtrl,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: tr('Cước hoàn hãng thu thêm (nếu có)'),
+              suffixText: 'đ',
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Đã nhận hàng'))),
@@ -85,7 +101,8 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
       ),
     );
     if (ok != true) return;
-    final res = await _api.confirmPosShipmentReturn('${r['orderId']}');
+    final fee = double.tryParse(feeCtrl.text.replaceAll(RegExp(r'[^0-9]'), ''));
+    final res = await _api.confirmPosShipmentReturn('${r['orderId']}', returnFee: fee);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(title: 'Đã nhận hàng hoàn', message: '${r['orderNo']}');
@@ -100,7 +117,10 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
     final res = await _api.settlePosShipmentCod(_codPicked.toList());
     if (!mounted) return;
     if (res['isSuccess'] == true) {
-      NotificationOverlayManager().showSuccess(title: 'Đã đánh dấu đối soát', message: '${_codPicked.length} đơn');
+      final errs = ((res['data'] is Map ? (res['data'] as Map)['errors'] : null) as List?)?.map((e) => '$e').toList() ?? const [];
+      NotificationOverlayManager().showSuccess(
+          title: 'Đã đối soát COD',
+          message: tr('${_codPicked.length - errs.length} đơn: đã ghi phiếu thu «Thu hộ COD» vào sổ quỹ, cập nhật đã trả và công nợ khách${errs.isEmpty ? '' : '\n${errs.take(2).join('\n')}'}'));
       _load();
     } else {
       NotificationOverlayManager().showError(title: 'Không cập nhật được', message: res['message']?.toString() ?? 'Lỗi');
@@ -143,6 +163,7 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
                 const SizedBox(height: 8),
                 _insight(total, byCarrier),
                 _summary(total),
+                ..._alerts(),
                 const SizedBox(height: 12),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -166,8 +187,44 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
     );
   }
 
+  /// Cảnh báo: danh sách bị cắt, COD quá hạn đối soát, vận đơn treo, đơn chưa tạo vận đơn.
+  List<Widget> _alerts() {
+    final msgs = <String>[
+      if (_data?['truncated'] == true) 'Kỳ này có hơn 5.000 vận đơn — danh sách bị cắt, hãy thu hẹp khoảng ngày.',
+      if (_n(_data?['codOverdueCount']) > 0)
+        'COD quá 7 ngày chưa đối soát: ${_n(_data?['codOverdueCount'])} đơn · ${_money.format(_n(_data?['codOverdueAmount']))}đ',
+      if (_maps(_data?['stale']).isNotEmpty)
+        '${_maps(_data?['stale']).length} vận đơn quá 3 ngày không có cập nhật từ hãng',
+      if (_maps(_data?['unshipped']).isNotEmpty)
+        '${_maps(_data?['unshipped']).length} đơn giao hàng chưa tạo vận đơn',
+    ];
+    if (msgs.isEmpty) return const [];
+    return [
+      const SizedBox(height: 8),
+      Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade50,
+          borderRadius: BorderRadius.circular(SboxRadius.md),
+          border: Border.all(color: Colors.orange.shade200),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          for (final m in msgs)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 1),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade800),
+                const SizedBox(width: 6),
+                Expanded(child: Text(tr(m), style: TextStyle(fontSize: 12.5, color: Colors.orange.shade900))),
+              ]),
+            ),
+        ]),
+      ),
+    ];
+  }
+
   String _tabCount(int i) {
-    final key = ['byCarrier', 'failed', 'returns', 'cancelled', 'cod'][i];
+    final key = ['byCarrier', 'failed', 'returns', 'cancelled', 'cod', 'stale', 'unshipped'][i];
     final n = _maps(_data?[key]).length;
     return n > 0 ? ' ($n)' : '';
   }
@@ -313,12 +370,18 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
             : null);
       case 3:
         return _rows(_maps(_data?['cancelled']), (r) => tr('Hủy ${_t(r['cancelledAt'])}${r['reason'] != null ? ' · ${r['reason']}' : ''}'));
+      case 5:
+        return _rows(_maps(_data?['stale']),
+            (r) => tr('${r['statusLabel']} · cập nhật cuối ${_t(r['statusAt'] ?? r['shippedAt'])} — kiểm tra với hãng'));
+      case 6:
+        return _rows(_maps(_data?['unshipped']),
+            (r) => tr('Bán ${_t(r['shippedAt'])}${_n(r['codAmount']) > 0 ? ' · COD ${_money.format(_n(r['codAmount']))}' : ''} — mở đơn để tạo vận đơn'));
       default:
         final cod = _maps(_data?['cod']);
         return [
           if (cod.any((r) => r['codSettledAt'] == null))
             Row(children: [
-              Expanded(child: Text(tr('Chọn đơn hãng đã chuyển tiền rồi bấm «Đã đối soát»'),
+              Expanded(child: Text(tr('Chọn đơn hãng đã chuyển tiền rồi bấm «Đã đối soát» — hệ thống ghi thu vào sổ quỹ và trừ công nợ khách'),
                   style: const TextStyle(fontSize: 12, color: SboxColors.textMuted))),
               FilledButton.icon(
                 onPressed: _codPicked.isEmpty ? null : _settleCod,
@@ -327,7 +390,7 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
               ),
             ]),
           ..._rows(cod, (r) => tr('COD ${_money.format(_n(r['codAmount']))}'
-              '${r['codSettledAt'] != null ? ' · đã đối soát ${_t(r['codSettledAt'])}' : ' · chưa đối soát'}'),
+              '${r['codSettledAt'] != null ? ' · đã đối soát ${_t(r['codSettledAt'])}' : ' · chưa đối soát${_overdue(r) ? ' · QUÁ HẠN' : ''}'}'),
               leading: (r) => r['codSettledAt'] != null
                   ? const Icon(Icons.check_circle, color: SboxColors.success)
                   : Checkbox(
@@ -338,6 +401,12 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
                     )),
         ];
     }
+  }
+
+  /// Giao xong ≥ 7 ngày mà hãng chưa chuyển tiền COD.
+  bool _overdue(Map<String, dynamic> r) {
+    final d = parseApiUtcDateTime(r['deliveredAt'] ?? r['statusAt']);
+    return r['codSettledAt'] == null && d != null && DateTime.now().toUtc().difference(d.toUtc()).inDays >= 7;
   }
 
   Widget _empty(String msg) => Padding(

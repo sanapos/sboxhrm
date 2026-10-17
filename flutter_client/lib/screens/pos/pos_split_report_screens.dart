@@ -2462,7 +2462,7 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
       kpis: [
         if (hasBalance)
           SboxKpi(label: 'Tồn đầu kỳ', value: SboxFmt.money(_n(_data?['openingBalance'])), icon: Icons.account_balance_wallet_outlined,
-              tone: SboxTone.neutral, note: 'Mọi quỹ'),
+              tone: SboxTone.neutral, note: 'Gộp mọi hình thức — xem bảng tồn theo hình thức'),
         SboxKpi(label: 'Tổng thu', value: SboxFmt.money(_n(_data?['income'])), icon: Icons.south_west_rounded, tone: SboxTone.success,
             note: '$incomeCount phiếu thu'),
         SboxKpi(label: 'Tổng chi', value: SboxFmt.money(_n(_data?['expense'])), icon: Icons.north_east_rounded, tone: SboxTone.danger,
@@ -2578,8 +2578,41 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
                       ],
                     ),
                   ),
+                if (_maps(_data?['balanceByMethod']).isNotEmpty)
+                  PosReportCard(
+                    title: 'Tồn quỹ theo hình thức',
+                    child: Column(
+                      children: [
+                        for (final m in _maps(_data?['balanceByMethod'])) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(_methodLabel(m['paymentMethod']),
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                ),
+                                Text(
+                                  'Đầu ${_moneyFmt.format(_n(m['opening']))} · +${_moneyFmt.format(_n(m['income']))} · −${_moneyFmt.format(_n(m['expense']))}',
+                                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF6B7280)),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(_moneyFmt.format(_n(m['closing'])),
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: _n(m['closing']) < 0 ? Colors.red.shade700 : const Color(0xFF2B3437))),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 PosReportCard(
-                  title: items.length >= 80 ? 'Giao dịch gần đây (80 phiếu mới nhất)' : 'Giao dịch gần đây',
+                  title: _data?['itemsTruncated'] == true
+                      ? 'Giao dịch gần đây (80 phiếu mới nhất — còn nhiều phiếu khác trong kỳ, thu hẹp ngày hoặc xem màn Thu chi)'
+                      : 'Giao dịch gần đây',
                   child: items.isEmpty
                       ? const PosReportEmpty()
                       : Column(

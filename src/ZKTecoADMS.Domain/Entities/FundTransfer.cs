@@ -6,7 +6,7 @@ namespace ZKTecoADMS.Domain.Entities;
 /// <summary>
 /// Chuyển quỹ nội bộ (tiền mặt ↔ ngân hàng, TK ↔ TK). Không tính vào thu/chi.
 /// </summary>
-public class FundTransfer : AuditableEntity<Guid>
+public class FundTransfer : AuditableEntity<Guid>, IBranchScoped
 {
     [Required]
     [MaxLength(50)]
@@ -33,6 +33,9 @@ public class FundTransfer : AuditableEntity<Guid>
 
     public Guid? StoreId { get; set; }
     public virtual Store? Store { get; set; }
+
+    /// <summary>Chi nhánh của phiếu chuyển quỹ (null = trụ sở).</summary>
+    public Guid? BranchId { get; set; }
 
     public Guid CreatedByUserId { get; set; }
     public virtual ApplicationUser CreatedByUser { get; set; } = null!;

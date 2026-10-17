@@ -28,6 +28,7 @@ public static class CashSources
     public const string PosCustomerReturn = "pos_customer_return";
     public const string PosCustomerPayment = "pos_customer_payment";
     public const string PosPurchaseReturnRefund = "pos_purchase_return_refund";
+    public const string PosCodReceipt = "pos_cod_receipt";
     /// <summary>Thu tiền hợp đồng (giữ tên cũ «PosQuote» đã lưu trong dữ liệu).</summary>
     public const string PosContract = "PosQuote";
 
@@ -45,6 +46,7 @@ public static class CashSources
         ("pos trả khách #", PosCustomerReturn),
         ("pos thu nợ kh #", PosCustomerPayment),
         ("pos thu trả ncc #", PosPurchaseReturnRefund),
+        ("pos cod #", PosCodReceipt),
         ("pos thu hđ #", PosContract),
         ("phiếu lương #", Payslip),
         ("yêu cầu ứng lương #", Advance),
@@ -86,6 +88,7 @@ public static class CashSources
         PosCustomerReturn => "Khách trả hàng",
         PosCustomerPayment => "Khách trả nợ",
         PosPurchaseReturnRefund => "Nhà cung cấp hoàn tiền",
+        PosCodReceipt => "Hãng vận chuyển chuyển COD",
         PosContract => "Thu tiền hợp đồng",
         _ => "",
     };

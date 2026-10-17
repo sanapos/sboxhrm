@@ -73,12 +73,12 @@ public class CashReconcileController(ZKTecoDbContext db) : AuthenticatedControll
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive && o.Status == PosSaleOrderStatus.Completed
                         && (o.SaleDate ?? o.CreatedAt) >= from && (o.SaleDate ?? o.CreatedAt) < to && o.PaidAmount > 0)
             .ApplyBranchScope(HttpContext.BranchContext())
-            .Select(o => new { o.Id, o.OrderNo, o.PaidAmount, At = o.SaleDate ?? o.CreatedAt })
+            .Select(o => new { o.Id, o.OrderNo, o.PaidAmount, o.DeliveryCodDirectAmount, At = o.SaleDate ?? o.CreatedAt })
             .ToListAsync(ct);
         var completedIds = completed.Select(o => o.Id).ToList();
         var receiptSums = await db.CashTransactions.AsNoTracking()
             .Where(c => c.StoreId == storeId && c.IsActive && c.Deleted == null && c.Status != CashTransactionStatus.Cancelled
-                        && (c.SourceType == CashSources.PosSale || c.SourceType == CashSources.PosCustomerReturn)
+                        && (c.SourceType == CashSources.PosSale || c.SourceType == CashSources.PosCustomerReturn || c.SourceType == CashSources.PosCodReceipt)
                         && c.SourceId != null && completedIds.Contains(c.SourceId.Value))
             .GroupBy(c => c.SourceId!.Value)
             .Select(g => new { Id = g.Key, Sum = g.Sum(x => x.Type == CashTransactionType.Income ? x.Amount : -x.Amount) })
@@ -106,7 +106,8 @@ public class CashReconcileController(ZKTecoDbContext db) : AuthenticatedControll
             .ToDictionaryAsync(x => x.Id, x => x.Sum, ct);
         foreach (var o in completed)
         {
-            var inCash = receiptSums.GetValueOrDefault(o.Id) + deposits.GetValueOrDefault(o.Id);
+            // Cước khách trả thẳng hãng (đối soát COD) tính vào «đã trả» nhưng không có tiền về quỹ.
+            var inCash = receiptSums.GetValueOrDefault(o.Id) + deposits.GetValueOrDefault(o.Id) + (o.DeliveryCodDirectAmount ?? 0m);
             var diff = o.PaidAmount - inCash;
             if (Math.Abs(diff) < 1) continue;
             issues.Add(new(diff > 0 ? "missing_receipt" : "extra_receipt",

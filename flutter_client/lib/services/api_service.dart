@@ -17798,6 +17798,21 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Hóa đơn đã áp một chương trình khuyến mãi trong kỳ (từ báo cáo hiệu quả).
+  Future<Map<String, dynamic>> getPosPromotionReportOrders(String promotionId, DateTime from, DateTime to) async {
+    String d(DateTime x) =>
+        '${x.year}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/promotions/report/orders?promotionId=$promotionId&from=${d(from)}&to=${d(to)}'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Gán PLU tem cân cho hàng (trả PLU sẵn có nếu đã gán).
   Future<Map<String, dynamic>> assignPosProductScalePlu(String productId) async {
     try {
@@ -22953,13 +22968,13 @@ class ApiService implements PayrollApi {
   }
 
   /// Shop xác nhận đã nhận hàng hoàn → nhập kho lại, hủy đơn bán.
-  Future<Map<String, dynamic>> confirmPosShipmentReturn(String orderId, {String? note}) async {
+  Future<Map<String, dynamic>> confirmPosShipmentReturn(String orderId, {String? note, double? returnFee}) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/shipping/shipments/$orderId/confirm-return'),
             headers: _headers,
-            body: jsonEncode({'note': note}),
+            body: jsonEncode({'note': note, if (returnFee != null) 'returnFee': returnFee}),
           )
           .timeout(const Duration(seconds: 45));
       return _handleResponse(response);

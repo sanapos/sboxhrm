@@ -165,8 +165,43 @@ public partial class PosReportsController
             expenseCount = await txs.CountAsync(c => c.Type == CashTransactionType.Expense),
             byMethod,
             byDay,
-            items
+            items,
+            itemsTruncated = items.Count >= 80
+                             && (await txs.CountAsync()) > items.Count,
+            // Tồn quỹ tách theo hình thức (tiền mặt / chuyển khoản / thẻ…): tồn đầu, thu, chi, tồn cuối.
+            balanceByMethod = await BuildBalanceByMethodAsync(txs, fromDt, storeId),
         }));
+    }
+
+    private async Task<object> BuildBalanceByMethodAsync(IQueryable<ZKTecoADMS.Domain.Entities.CashTransaction> period, DateTime fromDt, Guid storeId)
+    {
+        var openingRows = await dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
+                        && c.Status == CashTransactionStatus.Completed
+                        && c.TransactionDate < fromDt.AddHours(7))
+            .GroupBy(c => c.PaymentMethod)
+            .Select(g => new { m = g.Key, v = g.Sum(c => c.Type == CashTransactionType.Income ? c.Amount : -c.Amount) })
+            .ToListAsync();
+        var periodRows = await period
+            .GroupBy(c => c.PaymentMethod)
+            .Select(g => new
+            {
+                m = g.Key,
+                income = g.Sum(c => c.Type == CashTransactionType.Income ? c.Amount : 0),
+                expense = g.Sum(c => c.Type == CashTransactionType.Expense ? c.Amount : 0),
+            })
+            .ToListAsync();
+        return openingRows.Select(o => o.m).Union(periodRows.Select(p => p.m)).Distinct()
+            .Select(m =>
+            {
+                var op = openingRows.FirstOrDefault(o => o.m == m)?.v ?? 0m;
+                var pr = periodRows.FirstOrDefault(p => p.m == m);
+                var inc = pr?.income ?? 0m;
+                var exp = pr?.expense ?? 0m;
+                return new { paymentMethod = m.ToString(), opening = op, income = inc, expense = exp, closing = op + inc - exp };
+            })
+            .OrderByDescending(x => Math.Abs(x.closing))
+            .ToList();
     }
 
     [HttpGet("expenses/summary")]
@@ -360,7 +395,7 @@ public partial class PosReportsController
 
         static bool IsNonPnlExpense(string? c) => c is "Nhập hàng" or "Trả hàng khách" or "Hoàn cọc đặt chỗ";
         static bool IsNonPnlIncome(string? c) =>
-            c is "Bán hàng" or "Thu nợ khách" or "Cọc đặt chỗ" or "Thu trả hàng NCC";
+            c is "Bán hàng" or "Thu nợ khách" or "Cọc đặt chỗ" or "Thu trả hàng NCC" or "Thu hộ COD";
         const string tripRefund = "Thu hoàn ứng công tác";
 
         var expenseByCategory = cashRows

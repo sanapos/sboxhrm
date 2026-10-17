@@ -116,6 +116,12 @@ public class PosSaleOrder : AuditableEntity<Guid>, IBranchScoped
     [MaxLength(120)] public string? DeliveryServiceName { get; set; }
     /// <summary>Hãng đã chuyển tiền COD cho shop (đối soát).</summary>
     public DateTime? DeliveryCodSettledAt { get; set; }
+    /// <summary>Số tiền COD đã ghi vào sổ quỹ / đơn lúc đối soát (để hoàn tác đúng số).</summary>
+    public decimal? DeliveryCodReceivedAmount { get; set; }
+    /// <summary>Phần cước khách trả thẳng cho hãng được ghi vào «đã trả» lúc đối soát (không có tiền về quỹ).</summary>
+    public decimal? DeliveryCodDirectAmount { get; set; }
+    /// <summary>Cước hoàn hàng hãng thu thêm khi đơn bị hoàn về shop.</summary>
+    public decimal? DeliveryReturnFee { get; set; }
 
     [MaxLength(500)]
     public string? Note { get; set; }

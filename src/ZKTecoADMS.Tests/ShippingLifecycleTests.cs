@@ -123,8 +123,8 @@ public class ShippingLifecycleTests
         Assert.Equal(66.7, s.SuccessRate);          // 2 giao / (2 giao + 1 hoàn)
         Assert.Equal(30.0, s.AvgDeliveryHours);
         Assert.Equal(75000m, s.CarrierCost);         // 3 đơn shop trả cước (bỏ đơn hủy + đơn khách trả)
-        Assert.Equal(90000m, s.FeeCharged);          // bỏ đơn hủy + đơn hoàn
-        Assert.Equal(15000m, s.ShipProfit);
+        Assert.Equal(60000m, s.FeeCharged);          // bỏ đơn hủy, đơn hoàn và đơn khách trả cước thẳng cho hãng
+        Assert.Equal(-15000m, s.ShipProfit);
         Assert.Equal(300000m, s.CodDelivered);
         Assert.Equal(200000m, s.CodPending);
     }

@@ -219,7 +219,7 @@ public class PosShippingController(
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
-        var (ok, msg) = await shipping.ConfirmReturnReceivedAsync(storeId, orderId, req?.Note, CurrentUserEmail, ct);
+        var (ok, msg) = await shipping.ConfirmReturnReceivedAsync(storeId, orderId, req?.Note, CurrentUserEmail, ct, req?.ReturnFee);
         return ok ? Ok(AppResponse<object>.Success(new { message = msg })) : BadRequest(AppResponse<object>.Fail(msg));
     }
 
@@ -231,8 +231,10 @@ public class PosShippingController(
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
-        var n = await shipping.MarkCodSettledAsync(storeId, req.OrderIds ?? [], req.Settled, CurrentUserEmail, ct);
-        return Ok(AppResponse<object>.Success(new { updated = n }));
+        var (n, errors) = await shipping.SettleCodAsync(storeId, req.OrderIds ?? [], req.Settled, CurrentUserId, CurrentUserEmail, ct);
+        if (n == 0 && errors.Count > 0)
+            return BadRequest(AppResponse<object>.Fail(string.Join("; ", errors.Take(3))));
+        return Ok(AppResponse<object>.Success(new { updated = n, errors }));
     }
 
     /// <summary>Hành trình vận đơn (nhật ký trạng thái) của một đơn.</summary>
@@ -265,7 +267,7 @@ public class PosShippingController(
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<ShippingReport>.Fail("Thiếu cửa hàng"));
-        var report = await shipping.BuildReportAsync(storeId, from, to, carrier, ct);
+        var report = await shipping.BuildReportAsync(storeId, from, to, carrier, ct, HttpContext.BranchContext());
         return Ok(AppResponse<ShippingReport>.Success(report));
     }
 
@@ -276,7 +278,7 @@ public class PosShippingController(
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
-        var r = await shipping.BuildReportAsync(storeId, from, to, carrier, ct);
+        var r = await shipping.BuildReportAsync(storeId, from, to, carrier, ct, HttpContext.BranchContext());
         using var wb = new ClosedXML.Excel.XLWorkbook();
 
         var sum = wb.AddWorksheet("Theo hang");
@@ -309,7 +311,7 @@ public class PosShippingController(
             [
                 "Số HĐ", "Khách", "SĐT", "Hãng", "Mã vận đơn", "Gói", "Trạng thái", "Tạo vận đơn (UTC+7)",
                 "Cập nhật", "Đã giao lúc", "Lần thất bại", "Lý do", "Hoàn về lúc", "Shop nhận hoàn",
-                "Hủy lúc", "Phí thu khách", "Cước hãng", "Người trả cước", "COD", "Đối soát COD",
+                "Hủy lúc", "Phí thu khách", "Cước hãng", "Cước hoàn", "Người trả cước", "COD", "Đối soát COD",
             ];
             for (var i = 0; i < h.Length; i++) ws.Cell(1, i + 1).Value = h[i];
             var rr = 2;
@@ -320,7 +322,7 @@ public class PosShippingController(
                 [
                     x.OrderNo, x.CustomerName, x.Phone, x.CarrierName, x.TrackingCode, x.ServiceName, x.StatusLabel,
                     L(x.ShippedAt), L(x.StatusAt), L(x.DeliveredAt), x.FailCount, x.Reason, L(x.ReturnedAt),
-                    L(x.ReturnReceivedAt), L(x.CancelledAt), x.DeliveryFee, x.CarrierFee, x.FeePayer, x.CodAmount,
+                    L(x.ReturnReceivedAt), L(x.CancelledAt), x.DeliveryFee, x.CarrierFee, x.ReturnFee, x.FeePayer, x.CodAmount,
                     x.CodSettledAt == null ? "Chưa" : "Đã đối soát",
                 ];
                 for (var i = 0; i < v.Length; i++) ws.Cell(rr, i + 1).Value = ClosedXML.Excel.XLCellValue.FromObject(v[i]);
@@ -334,6 +336,8 @@ public class PosShippingController(
         Detail("Hoan hang", r.Returns);
         Detail("Huy van don", r.Cancelled);
         Detail("Doi soat COD", r.Cod);
+        Detail("Van don treo", r.Stale);
+        Detail("Chua tao van don", r.Unshipped);
         Detail("Tat ca van don", r.All);
 
         using var stream = new MemoryStream();
@@ -357,6 +361,6 @@ public class PosShippingController(
 
 public record CancelShipmentRequest(string? Note);
 
-public record ConfirmReturnRequest(string? Note);
+public record ConfirmReturnRequest(string? Note, decimal? ReturnFee = null);
 
 public record CodSettleRequest(List<Guid> OrderIds, bool Settled = true);

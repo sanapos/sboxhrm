@@ -44,17 +44,11 @@ public class CashTransactionsController(
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null,
         [FromQuery] string? search = null,
-        [FromQuery] bool? isPaid = null)
+        [FromQuery] bool? isPaid = null,
+        [FromQuery] Guid? accountId = null,
+        [FromQuery] bool? cashOnly = null)
     {
         var storeId = RequiredStoreId;
-
-        // Sửa bản ghi đã thanh toán nhưng status còn Pending/WaitingPayment
-        await context.CashTransactions
-            .Where(x => x.StoreId == storeId && x.IsActive && x.IsPaid
-                && x.Status != CashTransactionStatus.Completed)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(x => x.Status, CashTransactionStatus.Completed)
-                .SetProperty(x => x.LastModified, DateTime.UtcNow));
 
         var query = context.CashTransactions
             .Include(x => x.Category)
@@ -84,7 +78,13 @@ public class CashTransactionsController(
         
         if (isPaid.HasValue)
             query = query.Where(x => x.IsPaid == isPaid.Value);
-        
+
+        // Sao kê theo quỹ: tài khoản ngân hàng cụ thể, hoặc tiền mặt (không gắn tài khoản).
+        if (accountId.HasValue)
+            query = query.Where(x => x.BankAccountId == accountId.Value);
+        else if (cashOnly == true)
+            query = query.Where(x => x.BankAccountId == null && x.PaymentMethod == PaymentMethodType.Cash);
+
         if (!string.IsNullOrEmpty(search))
         {
             var searchPattern = $"%{search}%";
@@ -222,8 +222,13 @@ public class CashTransactionsController(
         if (category.Type != request.Type)
             return BadRequest(AppResponse<CashTransactionDto>.Error("Danh mục không khớp với loại giao dịch"));
 
-        // Generate transaction code
-        var today = DateTime.UtcNow;
+        if (request.Amount <= 0)
+            return BadRequest(AppResponse<CashTransactionDto>.Error("Số tiền phải lớn hơn 0"));
+        if (!await ValidateBankAccountAsync(storeId, request.BankAccountId))
+            return BadRequest(AppResponse<CashTransactionDto>.Error("Tài khoản ngân hàng không hợp lệ"));
+
+        // Generate transaction code (ngày VN — sau 17h UTC đã sang ngày mới theo giờ VN)
+        var today = DateTime.UtcNow.AddHours(7);
         var prefix = request.Type == CashTransactionType.Income ? "TH" : "CH";
         var dateStr = today.ToString("yyyyMMdd");
         var count = await context.CashTransactions
@@ -337,6 +342,11 @@ public class CashTransactionsController(
         if (category.Type != request.Type)
             return BadRequest(AppResponse<CashTransactionDto>.Error("Danh mục không khớp với loại giao dịch"));
 
+        if (request.Amount <= 0)
+            return BadRequest(AppResponse<CashTransactionDto>.Error("Số tiền phải lớn hơn 0"));
+        if (request.BankAccountId != transaction.BankAccountId && !await ValidateBankAccountAsync(storeId, request.BankAccountId))
+            return BadRequest(AppResponse<CashTransactionDto>.Error("Tài khoản ngân hàng không hợp lệ"));
+
         // Phiếu tự sinh từ chứng từ: số tiền / loại / danh mục / ngày theo chứng từ gốc — sửa ở chứng từ đó.
         var source = CashSources.Resolve(transaction.SourceType, transaction.SourceId, transaction.InternalNote);
         if (source != null)
@@ -368,6 +378,14 @@ public class CashTransactionsController(
             }
         }
 
+        // Nhật ký: phiếu lập tay đã vào quỹ mà đổi số tiền / ngày / loại / danh mục / tài khoản → ghi dấu vào ghi chú nội bộ.
+        string? auditLine = null;
+        if (source == null && transaction.IsPaid
+            && (transaction.Amount != request.Amount || transaction.Type != request.Type
+                || transaction.CategoryId != request.CategoryId || transaction.TransactionDate.Date != request.TransactionDate.Date
+                || transaction.BankAccountId != request.BankAccountId))
+            auditLine = $"[Sửa {DateTime.UtcNow.AddHours(7):dd/MM/yyyy HH:mm} bởi {CurrentUserEmail}: {transaction.Amount:N0}đ → {request.Amount:N0}đ, ngày {transaction.TransactionDate:dd/MM/yyyy} → {request.TransactionDate:dd/MM/yyyy}]";
+
         transaction.Type = request.Type;
         transaction.CategoryId = request.CategoryId;
         transaction.Amount = request.Amount;
@@ -383,6 +401,11 @@ public class CashTransactionsController(
         transaction.VietQRUrl = vietQrUrl;
         // Ghi chú của phiếu tự sinh chứa mã liên kết cũ — giữ nguyên.
         if (source == null) transaction.InternalNote = request.InternalNote;
+        if (auditLine != null)
+        {
+            var note = string.IsNullOrWhiteSpace(transaction.InternalNote) ? auditLine : $"{transaction.InternalNote}\n{auditLine}";
+            transaction.InternalNote = note.Length > 2000 ? note[^2000..] : note;
+        }
         transaction.Tags = request.Tags;
         transaction.LastModified = DateTime.UtcNow;
 
@@ -426,6 +449,16 @@ public class CashTransactionsController(
     /// <summary>?branchId= (kèm chi nhánh con) theo chi nhánh trên phiếu; không truyền → phạm vi chi nhánh của người xem.</summary>
     private async Task<IQueryable<CashTransaction>> ScopeByBranchAsync(
         IQueryable<CashTransaction> query, Guid storeId, Guid? branchId, bool includeChildBranches)
+    {
+        if (branchId is not Guid bid) return query.ApplyBranchScope(HttpContext.BranchContext());
+        var ids = (await BranchQueryHelper.GetBranchIdsIncludingChildrenAsync(context, storeId, bid, includeChildBranches)).ToList();
+        var hq = await BranchQueryHelper.HeadquarterIdAsync(context, storeId) ?? Guid.Empty;
+        return query.Where(x => ids.Contains(x.BranchId ?? hq));
+    }
+
+    /// <summary>Như <see cref="ScopeByBranchAsync"/> nhưng cho phiếu chuyển quỹ.</summary>
+    private async Task<IQueryable<FundTransfer>> ScopeTransfersAsync(
+        IQueryable<FundTransfer> query, Guid storeId, Guid? branchId, bool includeChildBranches)
     {
         if (branchId is not Guid bid) return query.ApplyBranchScope(HttpContext.BranchContext());
         var ids = (await BranchQueryHelper.GetBranchIdsIncludingChildrenAsync(context, storeId, bid, includeChildBranches)).ToList();
@@ -521,6 +554,12 @@ public class CashTransactionsController(
                 transaction.PaidDate = DateTime.UtcNow;
                 transaction.Status = CashTransactionStatus.Completed;
             }
+        }
+        else if (request.Status is CashTransactionStatus.Pending or CashTransactionStatus.WaitingPayment && transaction.IsPaid)
+        {
+            // Đưa phiếu về «chờ» thì phải bỏ cờ đã thanh toán — trước đây GET danh sách tự đổi ngược về Hoàn thành.
+            transaction.IsPaid = false;
+            transaction.PaidDate = null;
         }
 
         await context.SaveChangesAsync();
@@ -830,7 +869,9 @@ public class CashTransactionsController(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null)
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool includeChildBranches = true)
     {
         var storeId = RequiredStoreId;
         var query = context.FundTransfers
@@ -838,6 +879,7 @@ public class CashTransactionsController(
             .Include(x => x.ToBankAccount)
             .Include(x => x.CreatedByUser)
             .Where(x => x.StoreId == storeId && x.IsActive);
+        query = await ScopeTransfersAsync(query, storeId, branchId, includeChildBranches);
 
         if (fromDate.HasValue)
             query = query.Where(x => x.TransferDate >= fromDate.Value);
@@ -864,10 +906,11 @@ public class CashTransactionsController(
     [HttpGet("fund-balances")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
-    public async Task<ActionResult<AppResponse<List<FundBalanceDto>>>> GetFundBalances()
+    public async Task<ActionResult<AppResponse<List<FundBalanceDto>>>> GetFundBalances(
+        [FromQuery] Guid? branchId = null, [FromQuery] bool includeChildBranches = true)
     {
         var storeId = RequiredStoreId;
-        var balances = await BuildFundBalancesAsync(storeId);
+        var balances = await BuildFundBalancesAsync(storeId, branchId, includeChildBranches);
         return Ok(AppResponse<List<FundBalanceDto>>.Success(balances));
     }
 
@@ -891,7 +934,13 @@ public class CashTransactionsController(
         if (!await ValidateBankAccountAsync(storeId, request.ToBankAccountId))
             return BadRequest(AppResponse<FundTransferDto>.Error("Tài khoản đích không hợp lệ"));
 
-        var today = DateTime.UtcNow;
+        // Quỹ nguồn phải đủ số dư (trong phạm vi chi nhánh đang thao tác) — không để tiền mặt / tài khoản âm.
+        var balances = await BuildFundBalancesAsync(storeId, null, true);
+        var source = balances.FirstOrDefault(b => b.BankAccountId == request.FromBankAccountId && (request.FromBankAccountId != null || b.IsCash));
+        if (source != null && source.Balance < request.Amount)
+            return BadRequest(AppResponse<FundTransferDto>.Error($"Quỹ nguồn chỉ còn {source.Balance:N0}đ, không đủ chuyển {request.Amount:N0}đ"));
+
+        var today = DateTime.UtcNow.AddHours(7);
         var dateStr = today.ToString("yyyyMMdd");
         var count = await context.FundTransfers
             .CountAsync(x => x.StoreId == storeId && x.TransferCode.StartsWith($"CQ-{dateStr}")) + 1;
@@ -949,6 +998,12 @@ public class CashTransactionsController(
         if (transfer == null)
             return NotFound(AppResponse<bool>.Error("Không tìm thấy phiếu chuyển quỹ"));
 
+        // Hủy phiếu = trả tiền từ quỹ đích về quỹ nguồn → quỹ đích phải còn đủ.
+        var balances = await BuildFundBalancesAsync(storeId, null, true);
+        var dest = balances.FirstOrDefault(b => b.BankAccountId == transfer.ToBankAccountId && (transfer.ToBankAccountId != null || b.IsCash));
+        if (dest != null && dest.Balance < transfer.Amount)
+            return Conflict(AppResponse<bool>.Error($"Quỹ đích chỉ còn {dest.Balance:N0}đ, không đủ hoàn lại {transfer.Amount:N0}đ — không hủy được phiếu chuyển quỹ này"));
+
         transfer.IsActive = false;
         transfer.LastModified = DateTime.UtcNow;
         await context.SaveChangesAsync();
@@ -989,11 +1044,14 @@ public class CashTransactionsController(
     /// tiền mặt chỉ gồm phiếu Tiền mặt không gắn tài khoản. Phiếu chuyển khoản / thẻ / ví chưa gán tài khoản
     /// gom vào một dòng riêng — trước đây bị bỏ sót, còn phiếu «Tiền mặt» gắn tài khoản bị cộng cả hai quỹ.
     /// </summary>
-    private async Task<List<FundBalanceDto>> BuildFundBalancesAsync(Guid storeId)
+    private async Task<List<FundBalanceDto>> BuildFundBalancesAsync(Guid storeId, Guid? branchId = null, bool includeChildBranches = true)
     {
-        var rows = await context.CashTransactions.AsNoTracking()
-            .Where(x => x.StoreId == storeId && x.IsActive && x.Deleted == null
-                        && x.Status == CashTransactionStatus.Completed)
+        var cashQuery = await ScopeByBranchAsync(
+            context.CashTransactions.AsNoTracking()
+                .Where(x => x.StoreId == storeId && x.IsActive && x.Deleted == null
+                            && x.Status == CashTransactionStatus.Completed),
+            storeId, branchId, includeChildBranches);
+        var rows = await cashQuery
             .GroupBy(x => new { x.BankAccountId, IsCash = x.PaymentMethod == PaymentMethodType.Cash })
             .Select(g => new
             {
@@ -1003,8 +1061,9 @@ public class CashTransactionsController(
             })
             .ToListAsync();
 
-        var transfers = await context.FundTransfers.AsNoTracking()
-            .Where(x => x.StoreId == storeId && x.IsActive)
+        var transfers = await (await ScopeTransfersAsync(
+                context.FundTransfers.AsNoTracking().Where(x => x.StoreId == storeId && x.IsActive),
+                storeId, branchId, includeChildBranches))
             .Select(x => new { x.FromBankAccountId, x.ToBankAccountId, x.Amount })
             .ToListAsync();
         decimal TransferNet(Guid? fund) =>

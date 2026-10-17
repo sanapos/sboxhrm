@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Infrastructure.Services;
+using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Controllers;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -227,7 +228,7 @@ public partial class PosShippingService
     /// nếu chưa làm, ghi người xác nhận.
     /// </summary>
     public async Task<(bool Ok, string Message)> ConfirmReturnReceivedAsync(
-        Guid storeId, Guid orderId, string? note, string? userEmail, CancellationToken ct)
+        Guid storeId, Guid orderId, string? note, string? userEmail, CancellationToken ct, decimal? returnFee = null)
     {
         var order = await FindDeliveryOrderAsync(storeId, orderId, ct);
         if (order == null) return (false, "Không tìm thấy đơn giao hàng");
@@ -236,6 +237,7 @@ public partial class PosShippingService
         if (order.DeliveryStatusCode == ShipmentStatus.Delivered)
             return (false, "Đơn đang ở trạng thái Đã giao — dùng Trả hàng bán nếu khách trả lại");
 
+        if (returnFee is < 0) return (false, "Cước hoàn không được âm");
         var carrier = order.DeliveryCarrierCode ?? "Internal";
         if (order.DeliveryStatusCode != ShipmentStatus.Returned)
             await ApplyShipmentStatusAsync(order.Id, carrier, ShipmentStatus.Returned, "manual",
@@ -246,23 +248,107 @@ public partial class PosShippingService
             .ExecuteUpdateAsync(s => s
                 .SetProperty(o => o.DeliveryReturnReceivedAt, now)
                 .SetProperty(o => o.DeliveryReturnReceivedBy, userEmail)
+                .SetProperty(o => o.DeliveryReturnFee, o => returnFee ?? o.DeliveryReturnFee)
                 .SetProperty(o => o.UpdatedAt, now), ct);
         return (true, "Đã xác nhận nhận hàng hoàn — hàng đã nhập lại kho");
     }
 
-    /// <summary>Đánh dấu hãng đã chuyển tiền COD cho các đơn (đối soát).</summary>
-    public async Task<int> MarkCodSettledAsync(
-        Guid storeId, IReadOnlyList<Guid> orderIds, bool settled, string? userEmail, CancellationToken ct)
+    /// <summary>
+    /// Đối soát COD: hãng đã chuyển tiền thu hộ cho shop. Ngoài bật cờ còn GHI SỔ: phiếu thu «Thu hộ COD» trong sổ quỹ,
+    /// cộng vào «đã trả» của đơn và trừ công nợ khách (nếu đơn ghi nợ) — trước đây chỉ bật cờ nên đơn vẫn «còn nợ».
+    /// Khách trả cước thẳng cho hãng: phần cước đó cũng được coi là đã thanh toán (không có tiền về quỹ).
+    /// Bỏ đối soát chỉ được khi chưa ghi sổ (đơn cũ); đã ghi sổ phải hủy phiếu thu thủ công.
+    /// </summary>
+    public async Task<(int Updated, List<string> Errors)> SettleCodAsync(
+        Guid storeId, IReadOnlyList<Guid> orderIds, bool settled, Guid userId, string? userEmail, CancellationToken ct)
     {
-        if (orderIds.Count == 0) return 0;
+        var errors = new List<string>();
+        if (orderIds.Count == 0) return (0, errors);
         var now = DateTime.UtcNow;
-        return await db.PosSaleOrders
-            .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsDelivery
-                        && orderIds.Contains(o.Id))
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(o => o.DeliveryCodSettledAt, settled ? now : null)
-                .SetProperty(o => o.UpdatedAt, now)
-                .SetProperty(o => o.UpdatedBy, userEmail), ct);
+        var orders = await db.PosSaleOrders.AsTracking()
+            .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsDelivery && orderIds.Contains(o.Id))
+            .ToListAsync(ct);
+        var updated = 0;
+        foreach (var order in orders)
+        {
+            if (!settled)
+            {
+                var recv = order.DeliveryCodReceivedAmount ?? 0;
+                var dir = order.DeliveryCodDirectAmount ?? 0;
+                if (recv > 0 || dir > 0)
+                {
+                    // Đã trừ công nợ khách (phiếu thu nợ gắn đơn) → phải hủy phiếu thu nợ trước, tránh lệch công nợ.
+                    var hasDebtPay = await db.PosCustomerPayments.AnyAsync(
+                        p => p.StoreId == storeId && p.Deleted == null && p.SaleOrderId == order.Id, ct);
+                    if (hasDebtPay)
+                    {
+                        errors.Add($"{order.OrderNo}: đã trừ công nợ khách — hủy phiếu thu nợ của đơn trước khi bỏ đối soát");
+                        continue;
+                    }
+                    var marker = $"{PosFinanceSyncHelper.CodReceiptMarker}{order.Id}";
+                    var vouchers = await db.CashTransactions.AsTracking()
+                        .Where(c => c.StoreId == storeId && c.IsActive && c.Deleted == null && c.InternalNote == marker)
+                        .ToListAsync(ct);
+                    foreach (var v in vouchers)
+                    {
+                        v.IsActive = false;
+                        v.Deleted = now;
+                        v.DeletedBy = userEmail ?? userId.ToString();
+                    }
+                    order.PaidAmount = Math.Max(0m, order.PaidAmount - recv - dir);
+                    order.DeliveryCodReceivedAmount = null;
+                    order.DeliveryCodDirectAmount = null;
+                }
+                order.DeliveryCodSettledAt = null;
+                order.UpdatedAt = now;
+                order.UpdatedBy = userEmail;
+                updated++;
+                continue;
+            }
+            if (order.DeliveryCodSettledAt != null) continue;
+            if (order.DeliveryStatusCode != ShipmentStatus.Delivered)
+            {
+                errors.Add($"{order.OrderNo}: đơn chưa giao thành công — chưa có tiền COD để đối soát");
+                continue;
+            }
+            var balance = Math.Max(0m, order.PayableTotal - order.PaidAmount);
+            var cod = Math.Max(0m, order.DeliveryCodAmount ?? 0m);
+            var received = Math.Min(cod, balance);
+            var direct = ShippingFeePayer.Normalize(order.DeliveryFeePayer) == ShippingFeePayer.Customer
+                ? Math.Min(Math.Max(0m, order.DeliveryFee), Math.Max(0m, balance - received))
+                : 0m;
+            var credit = received + direct;
+
+            var paidBefore = order.PaidAmount;
+            if (credit > 0 && order.CustomerId.HasValue)
+            {
+                var customer = await db.PosCustomers.AsTracking()
+                    .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null, ct);
+                var debtPart = customer == null ? 0m : Math.Min(credit, customer.CurrentDebt);
+                if (customer != null && debtPart > 0)
+                {
+                    var (_, err) = await PosCustomerFinanceHelper.CollectDebtAsync(
+                        db, storeId, customer, debtPart, "Chuyển khoản", now,
+                        $"Hãng chuyển COD — {order.OrderNo}", order.Id, userEmail ?? "system");
+                    if (err != null) { errors.Add($"{order.OrderNo}: {err}"); continue; }
+                }
+            }
+            // CollectDebtAsync đã cộng phần trừ nợ vào «đã trả» của đơn → chỉ cộng phần còn thiếu (khách lẻ / không ghi nợ),
+            // không vượt phải trả.
+            var appliedByDebt = order.PaidAmount - paidBefore;
+            order.PaidAmount += Math.Max(0m, Math.Min(credit - appliedByDebt, order.PayableTotal - order.PaidAmount));
+
+            await PosFinanceSyncHelper.SyncCodReceiptAsync(
+                db, order, received, now, userId, ShippingCarrierCodes.DisplayName(order.DeliveryCarrierCode ?? ""), ct);
+            order.DeliveryCodSettledAt = now;
+            order.DeliveryCodReceivedAmount = received;
+            order.DeliveryCodDirectAmount = direct > 0 ? direct : null;
+            order.UpdatedAt = now;
+            order.UpdatedBy = userEmail;
+            updated++;
+        }
+        await db.SaveChangesAsync(ct);
+        return (updated, errors);
     }
 
     public async Task<List<object>> ListEventsAsync(Guid storeId, Guid orderId, CancellationToken ct)

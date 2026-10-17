@@ -376,6 +376,7 @@ Future<
     ({
       List<Map<String, dynamic>> items,
       CashReportSummary? summary,
+      double openingBalance,
       String? error,
     })> loadCashReportTransactions(
   ApiService api, {
@@ -385,26 +386,45 @@ Future<
   required bool useReportApi,
   int pageSize = 500,
 }) async {
-  final Map<String, dynamic> r;
-  if (useReportApi) {
-    r = await api.getCashReportTransactions(
-      fromDate: from,
-      toDate: to,
-      type: typeFilter,
-      pageSize: pageSize,
-    );
-  } else {
-    r = await api.getCashTransactions(
-      fromDate: from,
-      toDate: to,
-      type: typeFilter,
-      pageSize: pageSize,
-    );
+  // Tải ĐỦ mọi trang (trước đây chỉ 500 phiếu đầu → kỳ nhiều phiếu bị cắt, tổng thu / chi sai).
+  final all = <Map<String, dynamic>>[];
+  String? error;
+  double opening = 0;
+  var total = 0;
+  for (var page = 1; page <= 40; page++) {
+    final Map<String, dynamic> r;
+    if (useReportApi) {
+      r = await api.getCashReportTransactions(
+        fromDate: from,
+        toDate: to,
+        type: typeFilter,
+        page: page,
+        pageSize: pageSize,
+      );
+    } else {
+      r = await api.getCashTransactions(
+        fromDate: from,
+        toDate: to,
+        type: typeFilter,
+        page: page,
+        pageSize: pageSize,
+      );
+    }
+    final parsed = parsePagedReportListResponse(r);
+    if (parsed.error != null && parsed.items.isEmpty) {
+      error = parsed.error;
+      break;
+    }
+    if (page == 1 && r['data'] is Map) {
+      final ob = (r['data'] as Map)['openingBalance'] ?? (r['data'] as Map)['OpeningBalance'];
+      if (ob is num) opening = ob.toDouble();
+    }
+    total = parsed.totalCount;
+    all.addAll(parsed.items);
+    if (parsed.items.length < pageSize || all.length >= total) break;
   }
-  final parsed = parseReportListResponse(r);
-  final merged = List<Map<String, dynamic>>.from(parsed.items)
-    ..retainWhere((row) => cashReportInDateRange(row, from, to));
-  // Tổng hợp luôn tính từ danh sách trong kỳ — khớp chip và bảng phiếu.
-  final summary = CashReportSummary.fromRows(merged);
-  return (items: merged, summary: summary, error: parsed.error);
+  final merged = all..retainWhere((row) => cashReportInDateRange(row, from, to));
+  // Tổng hợp tính từ toàn bộ phiếu trong kỳ — khớp chip và bảng phiếu.
+  final summary = CashReportSummary.fromRows(merged, openingBalance: opening);
+  return (items: merged, summary: summary, openingBalance: opening, error: error);
 }

@@ -222,13 +222,13 @@ class _CashReportScreenState extends State<CashReportScreen> {
       final periodItems = result.items
           .where((t) => cashReportInDateRange(t, _from, _to))
           .toList();
-      final summary = CashReportSummary.fromRows(periodItems);
+      final summary = CashReportSummary.fromRows(periodItems, openingBalance: result.openingBalance);
 
       if (mounted) {
         setState(() {
           _items = periodItems;
           _summary = summary;
-          _runningBalances = cashReportRunningBalances(periodItems);
+          _runningBalances = cashReportRunningBalances(periodItems, openingBalance: result.openingBalance);
           _loadError = result.error;
         });
       }
@@ -281,6 +281,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
     final summaryLines = [
       'Đã thu: ${_fmtMoney.format(_summary.paidIncome)} đ',
       'Đã chi: ${_fmtMoney.format(_summary.paidExpense)} đ',
+      'Tồn đầu kỳ: ${_fmtMoney.format(_summary.openingBalance)} đ',
       'Số dư quỹ: ${_fmtMoney.format(_summary.fundBalance)} đ',
       'Chờ thu: ${_fmtMoney.format(_summary.pendingIncome)} đ',
       'Chờ chi: ${_fmtMoney.format(_summary.pendingExpense)} đ',
@@ -321,7 +322,8 @@ class _CashReportScreenState extends State<CashReportScreen> {
       summaryLines: [
         'Đã thu: ${_fmtMoney.format(_summary.paidIncome)} đ',
         'Đã chi: ${_fmtMoney.format(_summary.paidExpense)} đ',
-        'Số dư quỹ: ${_fmtMoney.format(_summary.fundBalance)} đ',
+        'Tồn đầu kỳ: ${_fmtMoney.format(_summary.openingBalance)} đ',
+      'Số dư quỹ: ${_fmtMoney.format(_summary.fundBalance)} đ',
         'Chờ thu: ${_fmtMoney.format(_summary.pendingIncome)} đ',
         'Chờ chi: ${_fmtMoney.format(_summary.pendingExpense)} đ',
       ],
@@ -843,7 +845,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
         icon: Icons.savings_outlined,
         label: 'Số dư quỹ',
         value: '${_fmtMoney.format(s.fundBalance)}đ',
-        note: 'Đã thu − đã chi',
+        note: 'Tồn đầu ${_fmtMoney.format(s.openingBalance)}đ + thu − chi',
         color: HrmPageChrome.primaryNavy,
         tone: s.fundBalance < 0 ? SboxTone.danger : SboxTone.brand,
         onTap: () => toggle('completed'),
