@@ -67,6 +67,47 @@ public partial class PosPrintersController
                     $"Không Agent nào nhận, không có lệnh in {days} ngày"));
             }
         }
+        // Bản trùng do cài lại app / xóa dữ liệu: mỗi lần cài lại máy POS từng có mã máy mới →
+        // máy in nội bộ bị tạo lại, bản cũ nằm đó. Bản cũ = cùng tên + kiểu + địa chỉ với một máy
+        // nội bộ mới hơn đang bật, và bản cũ không hoạt động 3 ngày (không chờ đủ [days]).
+        var dupCutoff = DateTime.UtcNow.AddDays(-Math.Min(days, 3));
+        var dupLive = agents.Where(a => a.LastHeartbeatAt >= dupCutoff)
+            .Select(a => a.DeviceId.Trim().ToLowerInvariant()).ToHashSet();
+        var dupJobs = (await db.PosPrintJobs.AsNoTracking()
+                .Where(j => j.StoreId == storeId && j.CreatedAt >= dupCutoff)
+                .Select(j => j.PrinterId).Distinct().ToListAsync(ct))
+            .ToHashSet();
+        string DupKey(ZKTecoADMS.Domain.Entities.PosStorePrinter p) => string.Join('|',
+            p.Name.Trim().ToLowerInvariant(),
+            p.ConnectionType,
+            string.Equals(p.PrinterBrand, "label", StringComparison.OrdinalIgnoreCase),
+            (p.LanHost ?? "").Trim().ToLowerInvariant(),
+            p.LanPort <= 0 ? 9100 : p.LanPort,
+            (p.BluetoothAddress ?? "").Trim().ToUpperInvariant(),
+            (p.UsbDeviceName ?? "").Trim().ToLowerInvariant());
+        var already = result.Select(r => r.Id).ToHashSet();
+        foreach (var grp in printers.Where(p => p.IsDeviceLocal).GroupBy(DupKey))
+        {
+            var ordered = grp.OrderByDescending(p =>
+                    new[] { p.LastSeenAt, p.UpdatedAt, (DateTime?)p.CreatedAt }.Max())
+                .ToList();
+            if (ordered.Count < 2) continue;
+            var newest = ordered[0];
+            foreach (var p in ordered.Skip(1))
+            {
+                if (already.Contains(p.Id)) continue;
+                if (string.Equals((p.OwnerDeviceId ?? "").Trim(), (newest.OwnerDeviceId ?? "").Trim(),
+                        StringComparison.OrdinalIgnoreCase)) continue;
+                var last = new[] { p.LastSeenAt, p.UpdatedAt, (DateTime?)p.CreatedAt }.Max();
+                var owner = (p.OwnerDeviceId ?? "").Trim().ToLowerInvariant();
+                if (last >= dupCutoff || dupJobs.Contains(p.Id) || assigned.Contains(p.Id) ||
+                    (owner.Length > 0 && dupLive.Contains(owner))) continue;
+                result.Add(new(p.Id, p.Name, p.ConnectionType.ToString(), true, p.OwnerDeviceId, last,
+                    "Bản trùng (máy cài lại app) — đã có máy cùng tên, cùng kết nối mới hơn"));
+                already.Add(p.Id);
+            }
+        }
+
         if (result.Count > 0)
         {
             // Máy còn được gán món / nhóm hàng: tắt rồi thì món đó in ở máy bếp mặc định — ghi rõ để chủ quán biết.

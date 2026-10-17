@@ -591,6 +591,36 @@ public partial class PosPrintersController(
                 entity = null;
         }
 
+        // Không có id (máy nội bộ mới / app vừa cài lại mất danh sách): dùng lại bản ghi cũ của
+        // CÙNG máy (OwnerDeviceId) với cùng kiểu & địa chỉ kết nối — trước đây mỗi lần thêm lại là
+        // một máy in mới trên server, số máy in nhân lên sau mỗi lần cài lại app.
+        if (entity == null)
+        {
+            var isLabel = string.Equals(dto.PrinterBrand, "label", StringComparison.OrdinalIgnoreCase);
+            var host = (dto.LanHost ?? "").Trim().ToLowerInvariant();
+            var port = dto.LanPort <= 0 ? 9100 : dto.LanPort;
+            var mac = (dto.BluetoothAddress ?? "").Trim().ToUpperInvariant();
+            var usb = (dto.UsbDeviceName ?? "").Trim().ToLowerInvariant();
+            var candidates = await db.PosStorePrinters.AsTracking()
+                .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsDeviceLocal &&
+                            p.OwnerDeviceId == owner && p.ConnectionType == dto.ConnectionType)
+                .OrderByDescending(p => p.UpdatedAt ?? p.CreatedAt)
+                .ToListAsync();
+            entity = candidates.FirstOrDefault(p =>
+                string.Equals(p.PrinterBrand, "label", StringComparison.OrdinalIgnoreCase) == isLabel &&
+                dto.ConnectionType switch
+                {
+                    PosPrinterConnectionType.Lan => host.Length > 0 &&
+                        (p.LanHost ?? "").Trim().ToLowerInvariant() == host &&
+                        (p.LanPort <= 0 ? 9100 : p.LanPort) == port,
+                    PosPrinterConnectionType.Bluetooth => mac.Length > 0 &&
+                        (p.BluetoothAddress ?? "").Trim().ToUpperInvariant() == mac,
+                    PosPrinterConnectionType.Usb => usb.Length > 0 &&
+                        (p.UsbDeviceName ?? "").Trim().ToLowerInvariant() == usb,
+                    _ => true, // Sunmi tích hợp: mỗi máy một
+                });
+        }
+
         if (entity == null)
         {
             entity = new PosStorePrinter

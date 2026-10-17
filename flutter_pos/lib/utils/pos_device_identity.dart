@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Định danh máy POS cho khóa đơn tạm đa thiết bị.
@@ -40,7 +41,10 @@ class PosDeviceIdentity {
       id = '';
     }
     if (id.isEmpty) {
-      id = _newUuid();
+      // Cài mới / cài lại app: lấy theo ANDROID_ID (giữ qua gỡ – cài lại) để máy chủ nhận ra
+      // máy cũ — trước đây UUID ngẫu nhiên → cài lại là thành «máy mới», máy in nội bộ trên
+      // máy chủ bị nhân bản mỗi lần cài lại.
+      id = await _idFromHardware() ?? _newUuid();
       await prefs.setString(_idKey, id);
       await prefs.setString(_idSourceKey, _idSourceValue);
     }
@@ -70,6 +74,37 @@ class PosDeviceIdentity {
   static Future<Map<String, String>> lockBodyFields() async {
     final d = await get();
     return {'deviceId': d.id, 'deviceName': d.name};
+  }
+
+  /// UUID cố định suy ra từ ANDROID_ID (null nếu không đọc được).
+  static Future<String?> _idFromHardware() async {
+    if (kIsWeb || !Platform.isAndroid) return null;
+    try {
+      final k = (await const MethodChannel('sbox/offline_vault')
+                  .invokeMethod<String>('deviceKey'))
+              ?.trim() ??
+          '';
+      // Một số ROM trả ANDROID_ID mặc định giống nhau trên mọi máy — bỏ qua.
+      if (k.length < 8 || k == '9774d56d682e549c') return null;
+      // FNV-1a 32-bit × 4 hạt giống → 128 bit (không dùng hằng 64-bit: web không biên dịch được).
+      String fnv(String s, int seed) {
+        var h = 0x811c9dc5 ^ seed;
+        for (final c in s.codeUnits) {
+          h = ((h ^ c) * 0x01000193) & 0xFFFFFFFF;
+        }
+        return h.toRadixString(16).padLeft(8, '0');
+      }
+
+      final h = [0x1f, 0x7a, 0x3c, 0x55].map((seed) => fnv('sbox-pos|$k', seed)).join();
+      final b = h.split('');
+      b[12] = '5'; // version
+      b[16] = '89ab'[int.parse(b[16], radix: 16) & 3]; // variant
+      final u = b.join();
+      return '${u.substring(0, 8)}-${u.substring(8, 12)}-'
+          '${u.substring(12, 16)}-${u.substring(16, 20)}-${u.substring(20, 32)}';
+    } catch (_) {
+      return null;
+    }
   }
 
   static String _newUuid() {

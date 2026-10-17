@@ -77,6 +77,49 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
       _loading = false;
     });
     unawaited(_refreshLinkStatus());
+    if (list.isEmpty && !_restoreOffered) {
+      _restoreOffered = true;
+      unawaited(_offerRestoreFromServer());
+    }
+  }
+
+  bool _restoreOffered = false;
+
+  /// App cài lại / xóa dữ liệu: danh sách trống nhưng server còn máy in nội bộ của máy này
+  /// → hỏi khôi phục (giữ đúng máy trên server, không thêm máy trùng).
+  Future<void> _offerRestoreFromServer() async {
+    final found = await _store.serverPrintersToRestore();
+    if (found.isEmpty || !mounted) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Khôi phục máy in đã cài?')),
+        content: Text(tr(
+          'Máy này từng cài ${found.length} máy in nội bộ (còn lưu trên máy chủ):\n'
+          '${found.map((p) => '• ${p.name}').join('\n')}\n\n'
+          'Khôi phục để dùng lại — không phải thêm lại từ đầu (tránh sinh máy in trùng).',
+        )),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Để sau')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Khôi phục')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final n = await _store.restoreFromServer(found);
+    await PosPrintOrchestrator.instance.invalidateCache();
+    if (!mounted) return;
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã khôi phục máy in',
+      message: tr('$n máy in nội bộ'),
+    );
+    await _reload();
   }
 
   /// Máy in LAN mất kết nối vì router cấp IP mới: quét mạng, chọn IP, lưu (máy cloud cùng cổng tự sửa theo).

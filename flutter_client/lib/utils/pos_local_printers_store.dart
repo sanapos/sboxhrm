@@ -885,6 +885,77 @@ class PosLocalPrintersStore {
     return null;
   }
 
+  /// Máy in nội bộ của CHÍNH máy này còn trên server (cùng OwnerDeviceId) mà danh sách
+  /// trên máy chưa có — vd. app vừa cài lại / xóa dữ liệu. Dùng để khôi phục thay vì thêm
+  /// lại từ đầu (thêm lại từng tạo máy in trùng trên server).
+  Future<List<PosStorePrinter>> serverPrintersToRestore() async {
+    try {
+      final device = await PosDeviceIdentity.get();
+      final res = await _api.getPosStorePrinters();
+      final raw = res['data'];
+      final list = raw is List
+          ? raw
+          : (raw is Map && raw['items'] is List ? raw['items'] as List : const []);
+      final mine = await loadAll();
+      final have = mine.map((p) => p.storePrinterId).whereType<String>().toSet();
+      return list
+          .whereType<Map>()
+          .map((e) => PosStorePrinter.fromJson(Map<String, dynamic>.from(e)))
+          .where((p) =>
+              p.id.isNotEmpty &&
+              p.isActive &&
+              p.isDeviceLocal &&
+              (p.ownerDeviceId ?? '').trim() == device.id &&
+              !have.contains(p.id))
+          .toList();
+    } catch (e) {
+      debugPrint('LocalPrinters.serverPrintersToRestore: $e');
+      return const [];
+    }
+  }
+
+  /// Dựng lại hồ sơ máy nội bộ từ bản ghi server — giữ [storePrinterId] (không tạo máy mới).
+  Future<int> restoreFromServer(List<PosStorePrinter> printers) async {
+    final list = await loadAll();
+    var added = 0;
+    for (final p in printers) {
+      if (list.any((x) => x.storePrinterId == p.id)) continue;
+      final isLabel = (p.printerBrand ?? '').toLowerCase() == 'label';
+      final kind = isLabel ? PosLocalPrinterKind.label : PosLocalPrinterKind.receipt;
+      final allowed = PosLocalPrinterRoles.forKind(kind).toSet();
+      final roles = p.documentTypes.where(allowed.contains).toSet();
+      list.add(PosLocalPrinterProfile.fromJson({
+        'id': _newId(),
+        'storePrinterId': p.id,
+        'name': p.name,
+        'enabled': true,
+        'kind': kind.key,
+        'roles': roles.isEmpty ? null : roles.toList(),
+        'connectionType': p.connectionType.toLowerCase(),
+        'printerBrand': isLabel ? null : p.printerBrand,
+        'textMode': isLabel ? null : p.textMode,
+        'paperSize': isLabel ? 'K80' : p.paperSize,
+        'bluetoothAddress': p.bluetoothAddress,
+        'bluetoothName': p.bluetoothName,
+        'lanHost': p.lanHost,
+        'lanPort': p.lanPort,
+        'usbDeviceName': p.usbDeviceName,
+        'feedBeforeCut': isLabel ? 5 : p.feedBeforeCut,
+        'partialCut': p.partialCut,
+        'cutPerItem': p.cutPerItem,
+        'openCashDrawer': p.openCashDrawer,
+        'openDrawerCashOnly': p.openDrawerCashOnly,
+        'beepOnPrint': p.beepOnPrint,
+        if (isLabel) 'labelProtocol': p.textMode,
+        if (isLabel) 'labelTemplateId': p.paperSize,
+        if (isLabel) 'labelGapMm': p.feedBeforeCut.toDouble(),
+      }));
+      added++;
+    }
+    if (added > 0) await saveAll(list);
+    return added;
+  }
+
   /// Bảo đảm có [storePrinterId] hợp lệ trên server (luôn gọi trước khi gán SP).
   Future<PosLocalPrinterProfile?> ensureServerPrinter(
     PosLocalPrinterProfile p,
