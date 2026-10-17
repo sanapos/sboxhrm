@@ -606,10 +606,13 @@ class PosReportBarChart extends StatelessWidget {
     super.key,
     required this.points,
     this.height = 180,
+    this.maxLabels,
   });
 
   final List<({DateTime date, double value})> points;
   final double height;
+  /// Nhiều ngày (vd 30) → chỉ ghi nhãn cách quãng để không đè chữ. null = nhãn mọi cột.
+  final int? maxLabels;
 
   @override
   Widget build(BuildContext context) {
@@ -656,6 +659,8 @@ class PosReportBarChart extends StatelessWidget {
                 getTitlesWidget: (v, meta) {
                   final i = v.toInt();
                   if (i < 0 || i >= points.length) return const SizedBox.shrink();
+                  final step = maxLabels == null ? 1 : (points.length / maxLabels!).ceil().clamp(1, points.length);
+                  if ((points.length - 1 - i) % step != 0) return const SizedBox.shrink();
                   return Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(

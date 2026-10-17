@@ -11541,13 +11541,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         icon: const Icon(Icons.lock_outline_rounded, size: 32),
         title: Text(tr('Bàn đang mở trên máy khác')),
         content: Text(tr(holder != null
-            ? 'Bàn đang mở trên $holder — máy này chỉ xem, chưa thanh toán được.
-
-'
+            ? 'Bàn đang mở trên $holder — máy này chỉ xem, chưa thanh toán được.\n\n'
                 'Trên máy đó bấm «Thoát bàn» hoặc về sơ đồ bàn, rồi thanh toán lại ở đây.'
-            : 'Máy này đang chỉ xem bàn, chưa thanh toán được.
-
-'
+            : 'Máy này đang chỉ xem bàn, chưa thanh toán được.\n\n'
                 'Máy đang giữ bàn cần «Thoát bàn» hoặc về sơ đồ bàn trước.')),
         actions: [
           FilledButton(

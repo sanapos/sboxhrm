@@ -907,6 +907,7 @@ public partial class PosSellIndustryController
         live.BillRequested = requested;
         live.UpdatedAt = DateTime.UtcNow;
         live.UpdatedBy = CurrentUserEmail;
+        if (requested) await SnapshotProvisionalBillAsync(storeId, live);
         await db.SaveChangesAsync();
         NotifyFloorChanged(storeId, "requestBill",
             resourceId: live.ResourceId, sessionId: live.Id);
@@ -916,6 +917,22 @@ public partial class PosSellIndustryController
             sessionId = live.Id,
             resourceId = live.ResourceId,
         }));
+    }
+
+    /// <summary>
+    /// Ghi lại lần in tạm tính: lần đầu lúc nào, ai in, số lần, và SỐ TIỀN LỚN NHẤT đã in cho khách
+    /// (tổng các đơn tạm của bàn — app lưu đơn trước khi in). Thanh toán thấp hơn số này = giảm sau tạm tính.
+    /// </summary>
+    async Task SnapshotProvisionalBillAsync(Guid storeId, PosResourceSession live)
+    {
+        var total = await db.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId && o.Deleted == null && o.Status == PosSaleOrderStatus.Draft
+                && (o.ResourceSessionId == live.Id || o.Id == live.SaleOrderId))
+            .SumAsync(o => (decimal?)o.Total) ?? 0m;
+        live.BillRequestedAt ??= DateTime.UtcNow;
+        live.BillRequestedBy = PosCancelAuditHelper.Clip(CurrentUserEmail, 200);
+        live.BillRequestCount++;
+        if (total > (live.BillRequestedTotal ?? 0m)) live.BillRequestedTotal = total;
     }
 
     /// Đánh dấu tạm tính theo bàn (lấy phiên Open đang sống) — đường tin cậy cho sơ đồ.
@@ -944,6 +961,7 @@ public partial class PosSellIndustryController
         live.BillRequested = requested;
         live.UpdatedAt = DateTime.UtcNow;
         live.UpdatedBy = CurrentUserEmail;
+        if (requested) await SnapshotProvisionalBillAsync(storeId, live);
         await db.SaveChangesAsync();
         NotifyFloorChanged(storeId, "requestBill",
             resourceId: live.ResourceId, sessionId: live.Id);

@@ -244,6 +244,8 @@ public static class PosNetworkReportBuilder
         score -= Math.Min(20, Math.Max(0, ((p95All ?? 0) - GoodP95Ms) / 50.0));
         score -= Math.Min(10, printIssuePct * 2);
         if (degrades) score -= 5;
+        // Điểm khớp màu kết luận (người xem nhìn điểm trước — tránh «90 điểm mà màu đỏ»).
+        score = verdict switch { "red" => Math.Min(score, 59), "yellow" => Math.Min(score, 84), _ => score };
         var scoreInt = verdict == "insufficient" ? 0 : (int)Math.Clamp(Math.Round(score), 0, 100);
 
         var verdictText = verdict switch
@@ -258,10 +260,10 @@ public static class PosNetworkReportBuilder
         var recs = new List<Recommendation>();
         if (degrades)
             recs.Add(new("PEAK", "high", "Mạng tệ đúng giờ đông khách",
-                "Router quá tải khi khách dùng chung Wi‑Fi. Tách Wi‑Fi riêng cho máy POS / máy in (SSID hoặc VLAN riêng), " +
-                "giới hạn băng thông Wi‑Fi khách, dùng router chịu được nhiều thiết bị."));
+                "Router quá tải khi khách dùng chung Wi-Fi. Tách Wi-Fi riêng cho máy POS / máy in (SSID hoặc VLAN riêng), " +
+                "giới hạn băng thông Wi-Fi khách, dùng router chịu được nhiều thiết bị."));
         foreach (var d in devices.Where(d => d.WifiRssi != null && d.WifiRssi <= WeakWifiDbm))
-            recs.Add(new("WEAK_WIFI", "medium", $"Sóng Wi‑Fi yếu ở «{d.DeviceName ?? d.DeviceId}» ({d.WifiRssi} dBm)",
+            recs.Add(new("WEAK_WIFI", "medium", $"Sóng Wi-Fi yếu ở «{d.DeviceName ?? d.DeviceId}» ({d.WifiRssi} dBm)",
                 "Đặt máy gần router / thêm bộ phát, hoặc cắm dây LAN."));
         foreach (var d in devices.Where(d => d.IsAgent && (d.Outages > 0 || d.Disconnects > 3)))
             recs.Add(new("AGENT", "high", $"Máy giữ máy in (Agent) «{d.DeviceName ?? d.DeviceId}» hay mất kết nối",

@@ -272,16 +272,14 @@ public class PosOfflineSaleTests(PosPgFixture fx) : PosFlowTestBase(fx)
                 DeviceKey = "a:dev-1", InstallId = "inst-2", DeviceName = "Quầy 1", Platform = "android",
             }, default);
 
-        object audit;
+        PosOfflineAuditBuilder.Report audit;
         await using (var db = Fx.NewDb())
-            audit = Data(await Offline(db, store).Audit(30, default))!;
-        var json = System.Text.Json.JsonSerializer.Serialize(audit, new System.Text.Json.JsonSerializerOptions
-        {
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        });
-        Assert.Contains("OFF-000002", json);              // nhảy cóc
-        Assert.Contains("OFF-000004", json);              // máy báo đã bán, chưa về
-        Assert.Contains("Cài lại app", json);             // cài lại khi còn đơn chưa gửi
-        Assert.Contains("\"reinstalls\":1", json);
+            audit = Data(await Offline(db, store).Audit(30, default));
+        Assert.Equal("red", audit.Verdict);
+        Assert.Contains("OFF-000002", audit.Blocks.Single().Gaps);             // nhảy cóc
+        Assert.Contains("OFF-000004", audit.Blocks.Single().MissingReported);  // máy báo đã bán, chưa về
+        Assert.Contains(audit.Alerts, a => a.Kind == "REINSTALL_PENDING");     // cài lại khi còn đơn chưa gửi
+        Assert.Equal(1, audit.Summary.Reinstalls);
+        Assert.Equal(2, audit.Summary.OfflineSales);
     }
 }

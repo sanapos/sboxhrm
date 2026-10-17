@@ -164,148 +164,37 @@ public class PosOfflineController(ZKTecoDbContext db, ILogger<PosOfflineControll
     }
 
     /// <summary>
-    /// Báo cáo kiểm soát bán offline (chủ / quản lý): đơn offline đã đồng bộ, lịch sử cài app, số đã cấp
-    /// mà chưa thấy đồng bộ (đặc biệt khi máy đã cài lại / xóa dữ liệu), số nhảy cóc.
+    /// Báo cáo kiểm soát bán offline (chủ / quản lý): kết luận dễ hiểu, cảnh báo kèm cách xử lý, đồ thị đơn offline
+    /// theo ngày / thời gian chờ gửi, lịch sử cài app, số đã cấp mà chưa thấy đồng bộ, số nhảy cóc.
     /// </summary>
     [HttpGet("audit")]
     [RequireModulePermission("PosSalesReport", ModulePermissionAction.View)]
-    public async Task<ActionResult<AppResponse<object>>> Audit([FromQuery] int days = 30, CancellationToken ct = default)
+    public async Task<ActionResult<AppResponse<PosOfflineAuditBuilder.Report>>> Audit(
+        [FromQuery] int days = 30, CancellationToken ct = default)
     {
         if (!IsAdmin && !IsManager)
-            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<object>.Fail("Chỉ chủ / quản lý xem được"));
+            return StatusCode(StatusCodes.Status403Forbidden,
+                AppResponse<PosOfflineAuditBuilder.Report>.Fail("Chỉ chủ / quản lý xem được"));
         var storeId = RequiredStoreId;
-        var since = DateTime.UtcNow.AddDays(-Math.Clamp(days, 1, 365));
+        var now = DateTime.UtcNow;
+        var since = now.AddDays(-Math.Clamp(days, 1, 365));
         var settings = await SettingsAsync(storeId, ct);
 
         var installs = await db.PosDeviceInstalls.AsNoTracking()
             .Where(x => x.StoreId == storeId)
-            .OrderBy(x => x.FirstSeenAt)
             .ToListAsync(ct);
         var blocks = await db.PosOfflineSerialBlocks.AsNoTracking()
             .Where(b => b.StoreId == storeId)
-            .OrderBy(b => b.FromSeq)
             .ToListAsync(ct);
+        // Toàn bộ đơn offline (không chỉ trong kỳ) — để đối chiếu dải số đã cấp.
         var offlineOrders = await db.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.OfflineNo != null && o.Deleted == null)
-            .Select(o => new
-            {
-                o.Id, o.OrderNo, o.OfflineNo, o.OfflineAt, o.OfflineDeviceKey, o.CreatedAt, o.CreatedBy,
-                o.Total, o.Status,
-            })
+            .Select(o => new PosOfflineAuditBuilder.OrderRow(
+                o.Id, o.OrderNo, o.OfflineNo, o.OfflineAt, o.OfflineDeviceKey, o.CreatedAt, o.UpdatedAt,
+                o.CreatedBy, o.Total, o.Status))
             .ToListAsync(ct);
-        var usedSeqs = offlineOrders
-            .Select(o => PosOfflineSaleRules.SeqOf(o.OfflineNo))
-            .Where(s => s != null).Select(s => s!.Value).ToHashSet();
 
-        var alerts = new List<object>();
-        var blockRows = blocks.Select(b =>
-        {
-            var used = Enumerable.Range(b.FromSeq, b.ToSeq - b.FromSeq + 1).Where(usedSeqs.Contains).ToList();
-            var maxUsed = used.Count == 0 ? (int?)null : used.Max();
-            // Số trong khoảng đã dùng mà không có đơn = nhảy cóc (đơn đã in cho khách nhưng không về server).
-            var gaps = maxUsed == null
-                ? new List<int>()
-                : Enumerable.Range(b.FromSeq, maxUsed.Value - b.FromSeq + 1).Where(s => !usedSeqs.Contains(s)).ToList();
-            var install = installs.FirstOrDefault(i => i.DeviceKey == b.DeviceKey && i.InstallId == b.InstallId);
-            var replaced = installs.Any(i => i.DeviceKey == b.DeviceKey && i.InstallId != b.InstallId
-                && i.FirstSeenAt > (install?.FirstSeenAt ?? b.CreatedAt));
-            var reportedLast = install?.LastOfflineSeq;
-            var reportedPending = install?.PendingOfflineSales ?? 0;
-            // Máy từng báo đã dùng tới số X nhưng server chỉ có tới Y (< X) → còn đơn chưa đồng bộ.
-            var reportedMissing = reportedLast is { } rl && rl >= b.FromSeq && rl <= b.ToSeq
-                ? Enumerable.Range(b.FromSeq, rl - b.FromSeq + 1).Where(s => !usedSeqs.Contains(s)).ToList()
-                : [];
-            var suspicious = new List<string>();
-            if (gaps.Count > 0)
-                suspicious.Add($"{gaps.Count} số nhảy cóc (đã in cho khách nhưng không về máy chủ)");
-            if (replaced && (reportedPending > 0 || reportedMissing.Count > 0))
-                suspicious.Add("Cài lại app / xóa dữ liệu khi còn đơn offline chưa gửi");
-            else if (reportedMissing.Count > gaps.Count)
-                suspicious.Add($"Máy báo đã bán tới {PosOfflineSaleRules.Format(reportedLast!.Value)} — chưa đồng bộ đủ");
-            if (suspicious.Count > 0)
-                alerts.Add(new
-                {
-                    level = "high",
-                    device = b.DeviceName ?? b.DeviceKey,
-                    text = string.Join("; ", suspicious),
-                    range = $"{PosOfflineSaleRules.Format(b.FromSeq)} – {PosOfflineSaleRules.Format(b.ToSeq)}",
-                });
-            return new
-            {
-                b.DeviceKey, b.DeviceName, b.InstallId, reservedAt = U(b.CreatedAt), b.ReservedBy,
-                from = PosOfflineSaleRules.Format(b.FromSeq), to = PosOfflineSaleRules.Format(b.ToSeq),
-                used = used.Count,
-                lastUsed = maxUsed == null ? null : PosOfflineSaleRules.Format(maxUsed.Value),
-                gaps = gaps.Take(50).Select(PosOfflineSaleRules.Format).ToList(),
-                missingReported = reportedMissing.Take(50).Select(PosOfflineSaleRules.Format).ToList(),
-                installReplaced = replaced,
-                suspicious,
-            };
-        }).ToList();
-
-        // Số offline không thuộc dải nào đã cấp → bất thường.
-        var allRanges = blocks.Select(b => (b.FromSeq, b.ToSeq)).ToList();
-        foreach (var o in offlineOrders)
-        {
-            var s = PosOfflineSaleRules.SeqOf(o.OfflineNo);
-            if (s != null && !allRanges.Any(r => s >= r.FromSeq && s <= r.ToSeq))
-                alerts.Add(new { level = "medium", device = o.OfflineDeviceKey, text = $"{o.OfflineNo} không thuộc dải số đã cấp", range = o.OrderNo });
-        }
-
-        var devices = installs.GroupBy(i => i.DeviceKey).Select(g =>
-        {
-            var list = g.OrderBy(i => i.FirstSeenAt).ToList();
-            var reinstalls = list.Count - 1;
-            if (reinstalls > 0)
-                alerts.Add(new
-                {
-                    level = "info",
-                    device = list.Last().DeviceName ?? g.Key,
-                    text = $"Cài lại app {reinstalls} lần (gần nhất {list.Last().FirstSeenAt.AddHours(7):dd/MM HH:mm})",
-                    range = (string?)null,
-                });
-            return new
-            {
-                deviceKey = g.Key,
-                deviceName = list.Last().DeviceName,
-                reinstalls,
-                installs = list.Select(i => new
-                {
-                    i.InstallId, i.Platform, i.AppVersion,
-                    FirstSeenAt = U(i.FirstSeenAt), LastSeenAt = U(i.LastSeenAt), OsFirstInstallAt = U(i.OsFirstInstallAt),
-                    i.LastUserName, i.PendingOfflineSales,
-                    lastOfflineSeq = i.LastOfflineSeq == null ? null : PosOfflineSaleRules.Format(i.LastOfflineSeq.Value),
-                }).ToList(),
-            };
-        }).ToList();
-
-        var sales = offlineOrders.Where(o => o.CreatedAt >= since)
-            .OrderByDescending(o => o.OfflineAt)
-            .Select(o => new
-            {
-                o.Id, o.OrderNo, o.OfflineNo, OfflineAt = U(o.OfflineAt), syncedAt = U(o.CreatedAt), o.Total, o.CreatedBy,
-                device = installs.FirstOrDefault(i => i.DeviceKey == o.OfflineDeviceKey)?.DeviceName ?? o.OfflineDeviceKey,
-                delayMinutes = o.OfflineAt == null ? 0 : (int)Math.Max(0, (o.CreatedAt - o.OfflineAt.Value).TotalMinutes),
-                status = o.Status.ToString(),
-            })
-            .Take(500)
-            .ToList();
-
-        return Ok(AppResponse<object>.Success(new
-        {
-            settings = new { settings.Enabled, settings.MaxHours },
-            summary = new
-            {
-                offlineSales = sales.Count,
-                offlineTotal = sales.Sum(s => s.Total),
-                devices = devices.Count,
-                reinstalls = devices.Sum(d => d.reinstalls),
-                alerts = alerts.Count(a => ((dynamic)a).level == "high"),
-            },
-            alerts,
-            devices,
-            blocks = blockRows,
-            sales,
-        }));
+        var report = PosOfflineAuditBuilder.Build(settings, installs, blocks, offlineOrders, since, now);
+        return Ok(AppResponse<PosOfflineAuditBuilder.Report>.Success(report));
     }
 }

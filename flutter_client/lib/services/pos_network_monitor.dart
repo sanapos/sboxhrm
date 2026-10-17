@@ -17,7 +17,7 @@ import 'signalr_service.dart';
 /// Đo mạng cửa hàng trên thiết bị POS → báo cáo «Mạng cửa hàng».
 ///
 /// Mỗi 30s ping server (rất nhẹ); đếm lệnh gọi server lỗi / hết giờ; số lần rớt realtime; mỗi 2 phút thử
-/// cổng máy in LAN nội bộ (mạng trong quán); mỗi phút đọc sóng Wi‑Fi (Android). Gom theo khung 5 phút,
+/// cổng máy in LAN nội bộ (mạng trong quán); mỗi phút đọc sóng Wi-Fi (Android). Gom theo khung 5 phút,
 /// gửi 5 phút / lần. Mất mạng thì giữ trong máy (tối đa 3 ngày) — có mạng lại mới gửi, nhờ vậy báo cáo
 /// vẫn thấy được lúc mất mạng.
 class PosNetworkMonitor {
@@ -471,16 +471,16 @@ class NetworkQuickTestResult {
     }
     if ((p95 ?? 0) > 800) out.add('Độ trễ cao ($p95 ms) — order / báo bếp sẽ chậm. Kiểm tra gói Internet, khởi động lại router.');
     if (burstOk < burstSent || (burstP95 ?? 0) > 2000) {
-      out.add('Nhiều yêu cầu cùng lúc bị chậm / lỗi — router dễ quá tải giờ đông. Tách Wi‑Fi riêng cho máy POS, giới hạn Wi‑Fi khách.');
+      out.add('Nhiều yêu cầu cùng lúc bị chậm / lỗi — router dễ quá tải giờ đông. Tách Wi-Fi riêng cho máy POS, giới hạn Wi-Fi khách.');
     }
     if (wifiRssi != null && wifiRssi! <= -70) {
-      out.add('Sóng Wi‑Fi yếu ($wifiRssi dBm) — đặt máy gần router / bộ phát hoặc cắm dây LAN.');
+      out.add('Sóng Wi-Fi yếu ($wifiRssi dBm) — đặt máy gần router / bộ phát hoặc cắm dây LAN.');
     }
     for (final p in printers.where((p) => p.ms == null)) {
       out.add('Không kết nối được máy in «${p.name}» — kiểm tra nguồn / dây mạng; đặt IP cố định cho máy in (router hay đổi IP).');
     }
     if (!realtimeConnected) out.add('Mất kết nối tức thời (realtime) — bàn / phiếu cập nhật chậm. Thoát vào lại app.');
-    if (connType == 'mobile') out.add('Máy đang dùng 4G — nên dùng Wi‑Fi / dây LAN của quán cho ổn định.');
+    if (connType == 'mobile') out.add('Máy đang dùng 4G — nên dùng Wi-Fi / dây LAN của quán cho ổn định.');
     if (out.isEmpty) out.add('Mạng tốt — dùng order / in qua mạng được.');
     return out;
   }

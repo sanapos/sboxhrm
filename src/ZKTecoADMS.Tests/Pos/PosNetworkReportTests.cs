@@ -108,6 +108,24 @@ public class PosNetworkReportTests
     }
 
     [Fact]
+    public void Score_matches_verdict_color()
+    {
+        // 6/10 lệnh in lỗi → đỏ dù ping tốt: điểm không được «xanh» (≥ 60).
+        var jobs = Enumerable.Range(0, 10).Select(i => new PosNetworkReportBuilder.JobRow(
+            Day, i < 4 ? Day.AddSeconds(2) : null,
+            i < 4 ? PosPrintJobStatus.Completed : PosPrintJobStatus.Failed, null)).ToList();
+        var red = Build(Healthy("t1", 4), jobs: jobs);
+        Assert.Equal("red", red.Verdict);
+        Assert.True(red.Score <= 59);
+
+        var s = Healthy("t1", 4);
+        s[20] = S("t1", s[20].BucketStart, disc: 1);
+        var yellow = Build(s, [Day.AddMinutes(100)]);
+        Assert.Equal("yellow", yellow.Verdict);
+        Assert.InRange(yellow.Score, 0, 84);
+    }
+
+    [Fact]
     public void Bucket_is_aligned_to_5_minutes_utc()
     {
         var b = PosNetworkController.AlignBucket(new DateTime(2026, 10, 13, 8, 7, 59, DateTimeKind.Utc));

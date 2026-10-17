@@ -109,6 +109,18 @@ public class PosResourceSession : AuditableEntity<Guid>
     /// <summary>Khách xin thanh toán — tô màu ô trên sơ đồ.</summary>
     public bool BillRequested { get; set; }
 
+    /// <summary>Lần đầu in tạm tính (UTC).</summary>
+    public DateTime? BillRequestedAt { get; set; }
+
+    /// <summary>Số tiền lớn nhất đã in tạm tính cho khách — thanh toán thấp hơn = giảm sau tạm tính (cần soát).</summary>
+    public decimal? BillRequestedTotal { get; set; }
+
+    [MaxLength(200)]
+    public string? BillRequestedBy { get; set; }
+
+    /// <summary>Số lần in tạm tính.</summary>
+    public int BillRequestCount { get; set; }
+
     public PosResourceSessionStatus Status { get; set; } = PosResourceSessionStatus.Open;
 
     [MaxLength(500)]

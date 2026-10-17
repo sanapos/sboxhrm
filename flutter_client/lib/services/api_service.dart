@@ -22519,6 +22519,17 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Nguy cơ gian lận (chủ / quản lý) — [from]/[to] ngày VN (yyyy-MM-dd).
+  Future<Map<String, dynamic>> getPosRiskReport({required String from, required String to}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/risk-report').replace(queryParameters: {'from': from, 'to': to});
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Báo cáo mạng cửa hàng — [from]/[to] ngày VN (yyyy-MM-dd).
   Future<Map<String, dynamic>> getNetworkReport({required String from, required String to}) async {
     try {
