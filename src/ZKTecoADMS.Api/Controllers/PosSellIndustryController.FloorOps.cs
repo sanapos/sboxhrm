@@ -1237,6 +1237,9 @@ public partial class PosSellIndustryController
                     && s.Deleted == null);
             afterBill = sess?.BillRequested == true;
         }
+        if (await PosAfterBillApproval.DenyAsync(db, HttpContext, storeId, dto.ResourceSessionId, CurrentUserRole,
+                "hủy món") is { } needApproval)
+            return BadRequest(AppResponse<object>.Fail(needApproval));
 
         // Giá trị món hủy: trước đây luôn 0đ → báo cáo «Hủy món bếp» không biết thất thoát bao nhiêu.
         // Ưu tiên giá máy bán gửi lên → đơn giá dòng trong đơn → giá bán của hàng hóa.
@@ -1281,7 +1284,7 @@ public partial class PosSellIndustryController
                 Qty = line.Qty,
                 LineNote = line.LineNote?.Trim(),
                 Reason = dto.Reason?.Trim(),
-                DetailNote = dto.DetailNote?.Trim(),
+                DetailNote = PosAfterBillApproval.ApproverNote(HttpContext, dto.DetailNote?.Trim()),
                 AfterBillRequested = afterBill,
                 Printed = dto.Printed,
                 VoidedAt = now,

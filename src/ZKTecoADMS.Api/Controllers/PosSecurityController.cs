@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -20,7 +21,8 @@ public sealed class PosSecurityController(
     ZKTecoDbContext db,
     UserManager<ApplicationUser> userManager) : AuthenticatedControllerBase
 {
-    public record VerifyOwnerPasswordRequest(string? Password);
+    /// <param name="Purpose">«after-bill» → trả thêm mã duyệt 5 phút cho thao tác sau tạm tính.</param>
+    public record VerifyOwnerPasswordRequest(string? Password, string? Purpose = null);
 
     static readonly string[] OwnerRoles =
     [
@@ -78,10 +80,16 @@ public sealed class PosSecurityController(
             if (full == null) continue;
             if (await userManager.CheckPasswordAsync(full, password))
             {
+                var afterBill = string.Equals(req.Purpose, PosAfterBillApproval.Purpose, StringComparison.OrdinalIgnoreCase);
                 return Ok(AppResponse<object>.Success(new
                 {
                     verified = true,
                     verifiedByRole = full.Role,
+                    approvalToken = afterBill
+                        ? PosAfterBillApproval.Issue(HttpContext.RequestServices, storeId.Value, full.Email ?? full.Id.ToString())
+                        : null,
+                    approvedBy = afterBill ? $"{full.LastName} {full.FirstName}".Trim() : null,
+                    expiresInSeconds = afterBill ? (int)PosAfterBillApproval.Lifetime.TotalSeconds : (int?)null,
                 }));
             }
         }

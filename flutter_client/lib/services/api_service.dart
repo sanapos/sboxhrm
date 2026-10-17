@@ -151,7 +151,42 @@ class ApiService implements PayrollApi {
     }
     final branch = currentBranchId;
     if (branch != null && branch.isNotEmpty) headers['X-Branch-Id'] = branch;
+    final approval = _posApprovalToken;
+    final until = _posApprovalUntil;
+    if (approval != null && until != null && DateTime.now().isBefore(until)) {
+      headers['X-Pos-Approval'] = approval;
+    }
     return headers;
+  }
+
+  // ── Quản lý duyệt sau tạm tính ─────────────────────────────────────────────
+  // Máy chủ từ chối hủy món / hủy đơn / thu ít hơn tạm tính bằng câu «Cần quản lý duyệt…» → app mở hộp để chủ /
+  // quản lý nhập mật khẩu, nhận mã duyệt (5 phút, gửi kèm header X-Pos-Approval) rồi gửi lại.
+  static String? _posApprovalToken;
+  static DateTime? _posApprovalUntil;
+
+  /// Màn POS đang mở gắn vào (xem PosManagerApproval) — trả true khi quản lý đã duyệt.
+  static Future<bool> Function(String message)? onPosManagerApproval;
+
+  static void setPosApprovalToken(String? token, {int seconds = 300}) {
+    _posApprovalToken = (token ?? '').isEmpty ? null : token;
+    // Trừ hao 15 giây để không gửi mã vừa hết hạn.
+    _posApprovalUntil = _posApprovalToken == null ? null : DateTime.now().add(Duration(seconds: seconds - 15));
+  }
+
+  static bool get hasPosApprovalToken =>
+      _posApprovalToken != null && _posApprovalUntil != null && DateTime.now().isBefore(_posApprovalUntil!);
+
+  static bool isPosApprovalDenied(Map<String, dynamic> res) =>
+      res['isSuccess'] != true && (res['message']?.toString() ?? '').startsWith('Cần quản lý duyệt');
+
+  Future<Map<String, dynamic>> _posGuarded(Future<Map<String, dynamic>> Function() send) async {
+    var res = await send();
+    final handler = onPosManagerApproval;
+    if (isPosApprovalDenied(res) && handler != null && await handler(res['message'].toString())) {
+      res = await send();
+    }
+    return res;
   }
 
   /// Headers for binary downloads (Excel/PDF) — avoid `Accept: application/json`.
@@ -19708,34 +19743,38 @@ class ApiService implements PayrollApi {
     String? detailNote,
     String? deviceName,
   }) async {
-    try {
-      final body = <String, dynamic>{
-        if (reason != null && reason.isNotEmpty) 'reason': reason,
-        if (detailNote != null && detailNote.isNotEmpty) 'detailNote': detailNote,
-        if (deviceName != null && deviceName.isNotEmpty) 'deviceName': deviceName,
-      };
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl/api/pos/sales/$id/cancel'),
-            headers: _headers,
-            body: body.isEmpty ? null : jsonEncode(body),
-          )
-          .timeout(const Duration(seconds: 60));
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
+    return _posGuarded(() async {
+      try {
+        final body = <String, dynamic>{
+          if (reason != null && reason.isNotEmpty) 'reason': reason,
+          if (detailNote != null && detailNote.isNotEmpty) 'detailNote': detailNote,
+          if (deviceName != null && deviceName.isNotEmpty) 'deviceName': deviceName,
+        };
+        final response = await http
+            .post(
+              Uri.parse('$baseUrl/api/pos/sales/$id/cancel'),
+              headers: _headers,
+              body: body.isEmpty ? null : jsonEncode(body),
+            )
+            .timeout(const Duration(seconds: 60));
+        return _handleResponse(response);
+      } catch (e) {
+        return _connectionFailure(e);
+      }
+    });
   }
 
   Future<Map<String, dynamic>> deletePosSale(String id) async {
-    try {
-      final response = await http
-          .delete(Uri.parse('$baseUrl/api/pos/sales/$id'), headers: _headers)
-          .timeout(const Duration(seconds: 30));
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
+    return _posGuarded(() async {
+      try {
+        final response = await http
+            .delete(Uri.parse('$baseUrl/api/pos/sales/$id'), headers: _headers)
+            .timeout(const Duration(seconds: 30));
+        return _handleResponse(response);
+      } catch (e) {
+        return _connectionFailure(e);
+      }
+    });
   }
 
   Future<Map<String, dynamic>> copyPosSale(String id) async {
@@ -19827,33 +19866,37 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> updatePosSale(
       String id, Map<String, dynamic> body) async {
-    try {
-      final response = await http
-          .put(
-            Uri.parse('$baseUrl/api/pos/sales/$id'),
-            headers: _headers,
-            body: jsonEncode(body),
-          )
-          .timeout(Duration(
-            seconds: body['issueEInvoice'] == true || body['complete'] == true
-                ? 120
-                : 60,
-          ));
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
+    return _posGuarded(() async {
+      try {
+        final response = await http
+            .put(
+              Uri.parse('$baseUrl/api/pos/sales/$id'),
+              headers: _headers,
+              body: jsonEncode(body),
+            )
+            .timeout(Duration(
+              seconds: body['issueEInvoice'] == true || body['complete'] == true
+                  ? 120
+                  : 60,
+            ));
+        return _handleResponse(response);
+      } catch (e) {
+        return _connectionFailure(e);
+      }
+    });
   }
 
   Future<Map<String, dynamic>> completePosSale(String id) async {
-    try {
-      final response = await http
-          .post(Uri.parse('$baseUrl/api/pos/sales/$id/complete'), headers: _headers)
-          .timeout(const Duration(seconds: 120));
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
+    return _posGuarded(() async {
+      try {
+        final response = await http
+            .post(Uri.parse('$baseUrl/api/pos/sales/$id/complete'), headers: _headers)
+            .timeout(const Duration(seconds: 120));
+        return _handleResponse(response);
+      } catch (e) {
+        return _connectionFailure(e);
+      }
+    });
   }
 
   /// Claim / renew / force-take khóa đơn tạm.
@@ -23987,13 +24030,13 @@ class ApiService implements PayrollApi {
     }
   }
 
-  Future<Map<String, dynamic>> verifyPosOwnerPassword(String password) async {
+  Future<Map<String, dynamic>> verifyPosOwnerPassword(String password, {String? purpose}) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/security/verify-owner-password'),
             headers: _headers,
-            body: jsonEncode({'password': password}),
+            body: jsonEncode({'password': password, if (purpose != null) 'purpose': purpose}),
           )
           .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
@@ -24531,18 +24574,20 @@ class ApiService implements PayrollApi {
   }
 
   Future<Map<String, dynamic>> cancelPosSaleDraft(String id) async {
-    try {
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl/api/pos/sales/$id/cancel-draft'),
-            headers: _headers,
-            body: jsonEncode({}),
-          )
-          .timeout(const Duration(seconds: 20));
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
+    return _posGuarded(() async {
+      try {
+        final response = await http
+            .post(
+              Uri.parse('$baseUrl/api/pos/sales/$id/cancel-draft'),
+              headers: _headers,
+              body: jsonEncode({}),
+            )
+            .timeout(const Duration(seconds: 20));
+        return _handleResponse(response);
+      } catch (e) {
+        return _connectionFailure(e);
+      }
+    });
   }
 
   Future<Map<String, dynamic>> mergePosResourceSession(
@@ -24676,18 +24721,20 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> createPosKitchenVoids(
       Map<String, dynamic> body) async {
-    try {
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl/api/pos/kitchen-voids'),
-            headers: _headers,
-            body: jsonEncode(body),
-          )
-          .timeout(const Duration(seconds: 30));
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
+    return _posGuarded(() async {
+      try {
+        final response = await http
+            .post(
+              Uri.parse('$baseUrl/api/pos/kitchen-voids'),
+              headers: _headers,
+              body: jsonEncode(body),
+            )
+            .timeout(const Duration(seconds: 30));
+        return _handleResponse(response);
+      } catch (e) {
+        return _connectionFailure(e);
+      }
+    });
   }
 
   Future<Map<String, dynamic>> getPosKitchenVoids({

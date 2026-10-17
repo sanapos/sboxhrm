@@ -123,6 +123,7 @@ internal static class PosCancelAuditHelper
             ProductName = ProductSummary(lines.Select(l => l.ProductName).ToList()),
             Qty = lines.Sum(l => l.Qty),
             Amount = lines.Count > 0 ? lines.Sum(l => l.LineTotal) : order.Total,
+            DetailNote = ZKTecoADMS.Api.Services.PosAfterBillApproval.ApproverNote(http, null),
             OccurredAt = now,
             Actor = actor,
             IsActive = true,

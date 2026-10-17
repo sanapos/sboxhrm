@@ -35,6 +35,7 @@ import '../utils/customer_display_media.dart';
 import '../widgets/pos/pos_cancel_return_reason_dialog.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
+import '../models/pos_after_bill_approval_config.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/store_role_helper.dart';
 import '../services/pos_network_monitor.dart';
@@ -1338,6 +1339,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   @override
   void initState() {
     super.initState();
+    PosManagerApproval.attach(context);
     PosNotifyFocus.enter();
     // Khuyến mãi có thể áp riêng từng chi nhánh → đổi chi nhánh bán thì tải lại.
     BranchSession.instance.addListener(_onBranchForPromotions);
@@ -2138,6 +2140,7 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   @override
   void dispose() {
+    PosManagerApproval.detach(context);
     BranchSession.instance.removeListener(_onBranchForPromotions);
     PosNotifyFocus.leave();
     _voucherRevalidateTimer?.cancel();
@@ -4648,6 +4651,18 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// In phiếu hủy bếp + ghi log server (đánh dấu nếu đã tạm tính).
   /// [reasonResult] truyền sẵn nếu đã hỏi lý do trước khi sửa giỏ (tránh hủy dialog mà món đã mất).
   /// Trả về false nếu user hủy dialog lý do (chưa ghi log / chưa in).
+  /// Sau tạm tính + cửa hàng bật «cần quản lý duyệt»: hỏi duyệt TRƯỚC khi bỏ món (máy chủ cũng chặn —
+  /// đây chỉ để không bỏ món trên máy rồi mới bị từ chối).
+  Future<bool> _ensureAfterBillApproval(String action) async {
+    final s = _industrySettings;
+    if (s == null || !PosAfterBillApprovalConfig.isActive(s)) return true;
+    final rid = _tab.serviceResourceId?.toLowerCase();
+    if (rid == null || !_billRequestedResourceIds.any((e) => e.toLowerCase() == rid)) return true;
+    if (PosAfterBillApprovalConfig.isManagerRole(context.read<AuthProvider>().user?.role)) return true;
+    if (ApiService.hasPosApprovalToken) return true;
+    return confirmPosManagerApproval(context, 'Cần quản lý duyệt: $action sau khi đã in tạm tính cho khách.');
+  }
+
   Future<bool> _voidKitchenSentLines(
     List<KitchenTicketLine> lines, {
     CancelReturnReasonResult? reasonResult,
@@ -4678,6 +4693,48 @@ class _PosSellScreenState extends State<PosSellScreen>
           calledAt: l.calledAt,
         ),
     ];
+    final body = <String, dynamic>{
+      'lines': lines
+          .map((l) => {
+                if ((l.productId ?? '').isNotEmpty) 'productId': l.productId,
+                'productName': l.productName,
+                'qty': l.qty,
+                if ((l.unitName ?? '').isNotEmpty) 'unitName': l.unitName,
+                if ((l.note ?? '').isNotEmpty) 'lineNote': l.note,
+              })
+          .toList(),
+      if (_tab.draftOrderId != null) 'saleOrderId': _tab.draftOrderId,
+      if (hangOrderNo != null) 'orderNo': hangOrderNo,
+      if (_tab.resourceSessionId != null)
+        'resourceSessionId': _tab.resourceSessionId,
+      if (_tab.serviceResourceId != null)
+        'serviceResourceId': _tab.serviceResourceId,
+      'resourceName': hangTable,
+      // ok=true chỉ nghĩa là đã gửi/enqueue — chưa chắc giấy đã ra.
+      'printed': false,
+      if (_posDeviceName != null) 'deviceName': _posDeviceName,
+      if (resolved.reason.isNotEmpty) 'reason': resolved.reason,
+      if ((resolved.detailNote ?? '').isNotEmpty)
+        'detailNote': resolved.detailNote,
+    };
+    // Ghi lên máy chủ TRƯỚC khi in phiếu hủy / bỏ món: sau tạm tính máy chủ có thể đòi quản lý duyệt
+    // (ApiService tự mở hộp duyệt rồi gửi lại). Không được duyệt → giữ nguyên món. Mất mạng → vẫn hủy như cũ.
+    var voidRes = const <String, dynamic>{};
+    if (PosNetworkMonitor.instance.reachable.value) {
+      voidRes = await _api.createPosKitchenVoids(body);
+    } else {
+      unawaited(_api.createPosKitchenVoids(body));
+    }
+    if (ApiService.isPosApprovalDenied(voidRes)) {
+      if (mounted) {
+        NotificationOverlayManager().showWarning(
+          title: 'Chưa hủy món',
+          message: tr('Cần chủ / quản lý duyệt vì khách đã nhận phiếu tạm tính'),
+        );
+      }
+      return false;
+    }
+    if (!mounted) return false;
     final shouldPrint =
         _printSettings.kitchenSlipPrintMode != PosKitchenSlipPrintMode.off;
     var enqueuedPerPrinterFail = false;
@@ -4737,31 +4794,6 @@ class _PosSellScreenState extends State<PosSellScreen>
               );
             },
           );
-    final body = <String, dynamic>{
-      'lines': lines
-          .map((l) => {
-                if ((l.productId ?? '').isNotEmpty) 'productId': l.productId,
-                'productName': l.productName,
-                'qty': l.qty,
-                if ((l.unitName ?? '').isNotEmpty) 'unitName': l.unitName,
-                if ((l.note ?? '').isNotEmpty) 'lineNote': l.note,
-              })
-          .toList(),
-      if (_tab.draftOrderId != null) 'saleOrderId': _tab.draftOrderId,
-      if (hangOrderNo != null) 'orderNo': hangOrderNo,
-      if (_tab.resourceSessionId != null)
-        'resourceSessionId': _tab.resourceSessionId,
-      if (_tab.serviceResourceId != null)
-        'serviceResourceId': _tab.serviceResourceId,
-      'resourceName': hangTable,
-      // ok=true chỉ nghĩa là đã gửi/enqueue — chưa chắc giấy đã ra.
-      'printed': false,
-      if (_posDeviceName != null) 'deviceName': _posDeviceName,
-      if (resolved.reason.isNotEmpty) 'reason': resolved.reason,
-      if ((resolved.detailNote ?? '').isNotEmpty)
-        'detailNote': resolved.detailNote,
-    };
-    unawaited(_api.createPosKitchenVoids(body));
     if (!mounted) return true;
     if (ok) {
       NotificationOverlayManager().showSuccess(
@@ -10143,6 +10175,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (ticket != null) {
       voidReason = await _promptKitchenVoidReason();
       if (voidReason == null || !mounted) return;
+      if (!await _ensureAfterBillApproval('hủy món') || !mounted) return;
     }
 
     setState(() {
@@ -10195,6 +10228,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
       final voidReason = await _promptKitchenVoidReason();
       if (voidReason == null || !mounted) return;
+      if (!await _ensureAfterBillApproval('hủy món') || !mounted) return;
       final ticket = KitchenTicketLine(
         productName: line.product.name,
         qty: cancelQty,
@@ -10252,6 +10286,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         }
         final voidReason = await _promptKitchenVoidReason();
         if (voidReason == null || !mounted) return;
+        if (!await _ensureAfterBillApproval('hủy món') || !mounted) return;
         final ticket = KitchenTicketLine(
           productName: line.product.name,
           qty: cancelQty,
@@ -10311,6 +10346,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         }
         final voidReason = await _promptKitchenVoidReason();
         if (voidReason == null || !mounted) return;
+        if (!await _ensureAfterBillApproval('hủy món') || !mounted) return;
         final ticket = KitchenTicketLine(
           productName: line.product.name,
           qty: cut,

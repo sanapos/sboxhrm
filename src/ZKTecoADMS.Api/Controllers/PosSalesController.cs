@@ -1796,6 +1796,9 @@ public partial class PosSalesController(
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn đã hủy"));
         if (order.Status != PosSaleOrderStatus.Completed)
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Chỉ hủy được đơn đã hoàn thành"));
+        if (await PosAfterBillApproval.DenyAsync(dbContext, HttpContext, storeId, order.ResourceSessionId,
+                CurrentUserRole, "hủy hóa đơn") is { } needApproval)
+            return BadRequest(AppResponse<SaleOrderDto>.Fail(needApproval));
 
         var hasReturns = await dbContext.PosStockTransactions.AnyAsync(t =>
             t.SaleOrderId == id && t.StoreId == storeId && t.Deleted == null && t.IsActive &&
@@ -1882,7 +1885,7 @@ public partial class PosSalesController(
                 StoreId = storeId,
                 ActionType = PosCancelAuditHelper.SaleCancel,
                 Reason = dto?.Reason?.Trim(),
-                DetailNote = dto?.DetailNote?.Trim(),
+                DetailNote = PosAfterBillApproval.ApproverNote(HttpContext, dto?.DetailNote?.Trim()),
                 AfterProvisionalBill = afterProv,
                 SaleOrderId = order.Id,
                 OrderNo = order.OrderNo,
@@ -1947,7 +1950,13 @@ public partial class PosSalesController(
                 return BadRequest(AppResponse<object>.Fail(
                     "Đơn đã hoàn thành — hãy Hủy đơn trước, hoặc trả hết 100% rồi mới xóa"));
         }
-        else if (order.Status == PosSaleOrderStatus.Draft)
+
+        // Sau tạm tính (cửa hàng bật «cần quản lý duyệt»): nhân viên không tự xóa / hủy đơn đang có món.
+        if (order.Status == PosSaleOrderStatus.Draft && order.Total > 0
+            && await PosAfterBillApproval.DenyAsync(dbContext, HttpContext, storeId, order.ResourceSessionId,
+                CurrentUserRole, "xóa đơn") is { } needApproval)
+            return BadRequest(AppResponse<object>.Fail(needApproval));
+        if (order.Status == PosSaleOrderStatus.Draft)
         {
             var priorLines = (order.Lines ?? [])
                 .Where(l => l.Deleted == null)
@@ -1996,6 +2005,12 @@ public partial class PosSalesController(
             return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn hàng"));
         if (order.Status != PosSaleOrderStatus.Draft)
             return BadRequest(AppResponse<object>.Fail("Chỉ hủy được đơn tạm"));
+
+        // Sau tạm tính (cửa hàng bật «cần quản lý duyệt»): nhân viên không tự xóa / hủy đơn đang có món.
+        if (order.Status == PosSaleOrderStatus.Draft && order.Total > 0
+            && await PosAfterBillApproval.DenyAsync(dbContext, HttpContext, storeId, order.ResourceSessionId,
+                CurrentUserRole, "hủy đơn") is { } needApproval)
+            return BadRequest(AppResponse<object>.Fail(needApproval));
 
         var priorLines = await dbContext.PosSaleOrderLines.AsNoTracking()
             .Where(l => l.SaleOrderId == id && l.Deleted == null)

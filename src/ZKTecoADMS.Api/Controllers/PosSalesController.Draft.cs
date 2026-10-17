@@ -233,6 +233,14 @@ public partial class PosSalesController
                         await tx.RollbackAsync();
                         return BadRequest(AppResponse<SaleOrderDto>.Fail("Không cập nhật được đơn"));
                     }
+                    // Thu ít hơn phiếu tạm tính đã đưa khách → cần quản lý duyệt (khi cửa hàng bật).
+                    if (offlineNo == null
+                        && await PosAfterBillApproval.DenyPaymentBelowBillAsync(
+                            dbContext, HttpContext, storeId, order, CurrentUserRole) is { } needApproval)
+                    {
+                        await tx.RollbackAsync();
+                        return BadRequest(AppResponse<SaleOrderDto>.Fail(needApproval));
+                    }
                     PosKitchenKdsHelper.CloseOpenOnPaid(builtLines);
                     dbContext.PosSaleOrderLines.AddRange(builtLines);
                     await SaveSaleChangesWithUniqueRetriesAsync(order, storeId);
@@ -785,6 +793,9 @@ public partial class PosSalesController
             catch { conflictMapped = MapOrder(order, order.Lines?.ToList() ?? [], viewerUserId: CurrentUserId); }
             return Conflict(AppResponse<SaleOrderDto>.Create(false, conflictMapped, [lockErr]));
         }
+        if (await PosAfterBillApproval.DenyPaymentBelowBillAsync(dbContext, HttpContext, storeId, order, CurrentUserRole)
+            is { } needApproval)
+            return BadRequest(AppResponse<SaleOrderDto>.Fail(needApproval));
 
         var sellSettingsComplete = await dbContext.PosStoreSellSettings.AsNoTracking()
             .FirstOrDefaultAsync(s => s.StoreId == storeId && s.Deleted == null);

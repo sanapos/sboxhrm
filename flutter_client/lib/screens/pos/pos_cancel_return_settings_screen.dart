@@ -2,6 +2,7 @@ import '../../widgets/hrm_page_chrome.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/cancel_return_reason_config.dart';
+import '../../models/pos_after_bill_approval_config.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_sell_settings_helper.dart';
@@ -74,6 +75,26 @@ class _PosCancelReturnSettingsScreenState
     }
   }
 
+  Future<void> _setAfterBillApproval(bool v) async {
+    final s = _settings;
+    if (s == null || _saving) return;
+    final patched = s.copyWith(extraJson: PosAfterBillApprovalConfig.merge(s.extraJson, v));
+    setState(() {
+      _settings = patched;
+      _saving = true;
+    });
+    final r = await _helper.save(patched);
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      if (r.settings != null) _settings = r.settings;
+    });
+    if (r.settings == null) {
+      NotificationOverlayManager().showError(title: 'Lỗi', message: r.error ?? 'Không lưu được');
+      await _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cfg = CancelReturnReasonConfig.fromExtraJson(_settings?.extraJson);
@@ -109,6 +130,24 @@ class _PosCancelReturnSettingsScreenState
             ),
           ],
         ),
+        // Tùy chọn này thuộc «Cho phép tạm tính» — chỉ hiện khi cửa hàng đang dùng tạm tính.
+        if (_settings?.allowProvisionalBill == true)
+          SettingsSection(
+            title: 'Sau tạm tính',
+            subtitle: 'Khách đã cầm phiếu tạm tính — chặn giảm tiền khi không có quản lý',
+            icon: Icons.admin_panel_settings_outlined,
+            children: [
+              SettingsTile(
+                label: 'Cần quản lý duyệt',
+                help: 'Hủy món, hủy / xóa đơn, thu ít hơn phiếu tạm tính: chủ / quản lý nhập mật khẩu trên máy để duyệt. '
+                    'Người duyệt được ghi vào lịch sử.',
+                control: Switch(
+                  value: PosAfterBillApprovalConfig.enabledIn(_settings?.extraJson),
+                  onChanged: _saving ? null : _setAfterBillApproval,
+                ),
+              ),
+            ],
+          ),
       ],
     );
     if (HrmPageChrome.isHubBody(context)) return page;

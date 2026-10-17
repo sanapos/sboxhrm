@@ -203,6 +203,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   @override
   void initState() {
     super.initState();
+    PosManagerApproval.attach(context);
     // Luôn đọc cài đặt ngành: cần cờ tính tiền giờ kể cả khi đã truyền sẵn ngành.
     unawaited(_loadSellProfile());
     unawaited(_loadDeviceId());
@@ -666,6 +667,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   @override
   void dispose() {
+    PosManagerApproval.detach(context);
     PosOfflineService.instance.tablesVersion.removeListener(_onOfflineTablesChanged);
     _poll?.cancel();
     _clock?.cancel();
