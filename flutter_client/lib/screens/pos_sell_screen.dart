@@ -11827,7 +11827,8 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   /// Bàn đang mở trên máy khác (chỉ xem) → hộp thoại rõ ràng thay vì im lặng.
-  /// Khóa cũ (máy kia đã rời bàn) thì tự lấy quyền như khi sửa món.
+  /// Khóa cũ (máy kia đã rời bàn) thì [_ensureCanEditActiveDraft] tự lấy quyền; còn đang
+  /// mở thì máy chủ không cho cướp → chỉ hướng dẫn, không đưa nút «Lấy quyền» chắc chắn lỗi.
   /// Trước đây nút Thanh toán vẫn bấm được, vào màn thanh toán rồi không phản hồi.
   Future<bool> _guardReadOnlyBeforePay() async {
     if (!_tab.draftReadOnly) return true;
@@ -11835,45 +11836,28 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!mounted) return false;
     NotificationOverlayManager().clear();
     final holder = _tab.lockedByLabel;
-    final take = await showDialog<bool>(
+    await showDialog<void>(
       context: context,
       useRootNavigator: true,
       builder: (ctx) => AlertDialog(
         icon: const Icon(Icons.lock_outline_rounded, size: 32),
         title: Text(tr('Bàn đang mở trên máy khác')),
         content: Text(tr(holder != null
-            ? 'Bàn đang mở trên $holder — máy này chỉ xem, chưa thanh toán được.\n\n'
-                'Chờ máy đó về sơ đồ bàn, hoặc «Lấy quyền» nếu máy đó không dùng nữa '
-                '(máy kia sẽ chuyển sang chỉ xem).'
-            : 'Máy này đang chỉ xem bàn, chưa thanh toán được.\n\n'
-                'Chờ máy đang giữ bàn về sơ đồ, hoặc «Lấy quyền».')),
+            ? 'Bàn đang mở trên $holder — máy này chỉ xem, chưa thanh toán được.
+
+'
+                'Trên máy đó bấm «Thoát bàn» hoặc về sơ đồ bàn, rồi thanh toán lại ở đây.'
+            : 'Máy này đang chỉ xem bàn, chưa thanh toán được.
+
+'
+                'Máy đang giữ bàn cần «Thoát bàn» hoặc về sơ đồ bàn trước.')),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr('Đóng')),
-          ),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(tr('Lấy quyền')),
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr('Đã hiểu')),
           ),
         ],
       ),
-    );
-    if (take != true || !mounted) return false;
-    final ok = await _forceClaimActiveDraft(quiet: true);
-    if (!mounted) return false;
-    if (ok && !_tab.draftReadOnly) {
-      NotificationOverlayManager().showSuccess(
-        title: 'Đã lấy quyền bàn',
-        message: _tab.serviceResourceName ?? '',
-      );
-      return true;
-    }
-    NotificationOverlayManager().showError(
-      title: 'Không lấy được quyền',
-      message: _tab.lockedByLabel != null
-          ? 'Bàn vẫn đang mở trên ${_tab.lockedByLabel} — thử lại sau vài giây'
-          : 'Thử lại sau vài giây',
     );
     return false;
   }
