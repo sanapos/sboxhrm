@@ -215,6 +215,47 @@ public static partial class SeoPages
 <p>Đang dùng phần mềm chấm công cài trên máy tính? Máy ZKTeco có hỗ trợ ADMS vẫn giữ nguyên và chuyển sang kết nối SBOX HRM — xem <a href="/bai-viet/chuyen-phan-mem-cham-cong-cai-may-sang-online">hướng dẫn chuyển sang chấm công online</a>.</p>
 """;
 
+    /// <summary>Ảnh lắp đặt thực tế của SBOX (flutter_client/web/images/lap-dat; bản -sm.webp rộng 480px).</summary>
+    public record InstallPhoto(int No, string Alt, int W, int H)
+    {
+        public string Src => $"/images/lap-dat/lap-dat-may-cham-cong-{No:00}.webp";
+        public string Small => $"/images/lap-dat/lap-dat-may-cham-cong-{No:00}-sm.webp";
+    }
+
+    public static readonly IReadOnlyList<InstallPhoto> InstallPhotos =
+    [
+        new(1, "Máy chấm công vân tay, thẻ từ ZKTeco lắp trên cửa kính văn phòng", 800, 620),
+        new(2, "Kỹ thuật SBOX lắp máy chấm công vân tay tại cửa kính văn phòng", 682, 733),
+        new(3, "Máy chấm công khuôn mặt, vân tay ZKTeco mới nguyên hộp trước khi lắp đặt", 960, 1280),
+        new(4, "Máy chấm công vân tay gắn tường đã cấp nguồn, sẵn sàng chấm công", 960, 1280),
+        new(5, "Máy chấm công vân tay màn hình màu đặt trên bàn", 960, 1280),
+        new(6, "Máy chấm công vân tay lắp tường cạnh ổ điện, đi dây gọn", 960, 1280),
+        new(7, "Máy chấm công vân tay lắp tại hành lang văn phòng công ty", 960, 585),
+        new(8, "Máy chấm công vân tay lắp ở lối vào khu làm việc", 960, 946),
+        new(9, "Máy chấm công vân tay gắn cột cạnh cửa phòng làm việc", 900, 1200),
+        new(10, "Máy chấm công khuôn mặt, vân tay ZKTeco lắp trên cột gỗ", 960, 1280),
+    ];
+
+    /// <summary>Mỗi tỉnh một bộ 4 ảnh (xoay vòng theo thứ tự tỉnh) — 34 trang không dùng y hệt một bộ ảnh.</summary>
+    static List<InstallPhoto> PhotosFor(Province? p)
+    {
+        if (p == null) return InstallPhotos.ToList();
+        var i = Math.Max(0, Provinces.ToList().FindIndex(x => x.Slug == p.Slug));
+        return Enumerable.Range(0, 4).Select(k => InstallPhotos[(i * 3 + k) % InstallPhotos.Count]).ToList();
+    }
+
+    static string HeroImage(InstallPhoto ph) =>
+        $"<div><img src=\"{ph.Src}\" alt=\"{E(ph.Alt)}\" width=\"{ph.W}\" height=\"{ph.H}\" fetchpriority=\"high\" style=\"max-height:420px;width:auto;max-width:100%;margin:0 auto;display:block;border-radius:16px;object-fit:contain\"></div></div></section>\n";
+
+    static string GallerySection(IReadOnlyList<InstallPhoto> photos, string where) =>
+        "<h2 id=\"hinh-anh\">Hình ảnh lắp đặt máy chấm công thực tế</h2>\n"
+        + $"<p>Một số công trình máy chấm công vân tay, khuôn mặt do kỹ thuật SBOX lắp đặt — cùng quy trình áp dụng cho khách hàng{where}.</p>\n"
+        + "<div style=\"display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin:14px 0 8px\">"
+        + string.Concat(photos.Select(ph =>
+            $"<a href=\"{ph.Src}\" target=\"_blank\" rel=\"noopener\" style=\"display:block;border-radius:12px;overflow:hidden;background:#f1f5f9;aspect-ratio:3/4\">"
+            + $"<img src=\"{ph.Small}\" alt=\"{E(ph.Alt)}\" width=\"480\" height=\"{ph.H * 480 / ph.W}\" loading=\"lazy\" decoding=\"async\" style=\"width:100%;height:100%;object-fit:cover;display:block;margin:0\"></a>"))
+        + "</div>\n";
+
     static string OldText(Province p) => p.Old.Length == 0 ? "" : $" (gồm {string.Join(", ", p.Old)} cũ)";
 
     /// <summary>Gợi ý cấu hình theo đặc điểm doanh nghiệp của tỉnh.</summary>
@@ -331,14 +372,15 @@ public static partial class SeoPages
         };
         if (FaqLd(faq) is { } f) ld.Add(f);
         var kw = "lắp đặt máy chấm công, máy chấm công vân tay, máy chấm công khuôn mặt, máy chấm công zkteco, phần mềm chấm công, chấm công qua điện thoại, phần mềm chấm công online, phần mềm chấm công trên macbook, chấm công trên trình duyệt web, máy chấm công giá tốt, miễn phí lắp đặt máy chấm công";
-        var sb = new StringBuilder(Head(s, title, desc, url, s.Origin + "/images/landing/screenshot-03.jpg", "website", kw, ld));
+        var hero = InstallPhotos[0];
+        var sb = new StringBuilder(Head(s, title, desc, url, s.Origin + hero.Src, "website", kw, ld));
         sb.Append("<section class=\"lp-hero\"><div class=\"wrap\"><div>");
         sb.Append("<div class=\"crumb\" style=\"margin-top:0\"><a href=\"/\">Trang chủ</a> › Lắp đặt máy chấm công</div>");
         sb.Append("<h1>Lắp đặt máy chấm công vân tay, khuôn mặt ZKTeco toàn quốc</h1>");
         sb.Append("<p class=\"lead\">Cung cấp và lắp đặt máy chấm công vân tay, khuôn mặt ZKTeco giá tốt tại 34 tỉnh thành — <strong>miễn phí lắp đặt</strong>, <strong>tặng phần mềm chấm công</strong> SBOX HRM, kết nối Internet xem công mọi nơi, thêm chấm công qua điện thoại cho nhân viên lưu động.</p>");
         sb.Append("<div class=\"lp-actions\"><a class=\"btn\" href=\"#bao-gia\">Nhận báo giá</a><a class=\"btn ghost\" href=\"tel:+84973024042\">Gọi 0973 024 042</a></div>");
         sb.Append("<p class=\"lp-note\">Lắp tận nơi toàn quốc · Tặng phần mềm khi mua máy · Hỗ trợ qua Zalo</p></div>");
-        sb.Append("<div><img src=\"/images/landing/screenshot-03.jpg\" alt=\"Máy chấm công kết nối phần mềm SBOX HRM\" width=\"1200\" height=\"630\"></div></div></section>\n");
+        sb.Append(HeroImage(hero));
         sb.Append("<main class=\"wrap\"><div class=\"content\" style=\"max-width:860px\">\n");
         sb.Append("<h2 id=\"chon-tinh\">Chọn tỉnh, thành phố của bạn</h2>\n");
         foreach (var g in Provinces.GroupBy(p => p.Region))
@@ -358,6 +400,7 @@ public static partial class SeoPages
 </ul>
 """);
         sb.Append(DeviceSection(devices, ""));
+        sb.Append(GallerySection(PhotosFor(null), " trên toàn quốc"));
         sb.Append(CloudSection("", null));
         sb.Append(ProcessSection(""));
         sb.Append(WhySection());
@@ -399,7 +442,9 @@ public static partial class SeoPages
         if (office) ld.Add(OfficeBusiness(s, url));
         if (FaqLd(faq) is { } f) ld.Add(f);
 
-        var sb = new StringBuilder(Head(s, title, desc, url, s.Origin + "/images/landing/screenshot-03.jpg", "website", string.Join(", ", kwParts), ld));
+        var photos = PhotosFor(p);
+        var hero = photos[0];
+        var sb = new StringBuilder(Head(s, title, desc, url, s.Origin + hero.Src, "website", string.Join(", ", kwParts), ld));
         sb.Append("<section class=\"lp-hero\"><div class=\"wrap\"><div>");
         sb.Append($"<div class=\"crumb\" style=\"margin-top:0\"><a href=\"/\">Trang chủ</a> › <a href=\"{LocalBase}\">Lắp đặt máy chấm công</a> › {E(p.Name)}</div>");
         sb.Append($"<span class=\"tag\">{E(p.Region)}</span>");
@@ -409,7 +454,7 @@ public static partial class SeoPages
         sb.Append(office
             ? $"<p class=\"lp-note\">Văn phòng tại {E(OfficeAddress)} · Lắp tận nơi · Kết nối Internet (ADMS)</p></div>"
             : "<p class=\"lp-note\">Lắp tận nơi · Kết nối Internet (ADMS) · Chấm công qua điện thoại cho nhân viên lưu động</p></div>");
-        sb.Append($"<div><img src=\"/images/landing/screenshot-03.jpg\" alt=\"Máy chấm công tại {E(p.Name)} kết nối phần mềm SBOX HRM\" width=\"1200\" height=\"630\"></div></div></section>\n");
+        sb.Append(HeroImage(hero));
 
         sb.Append("<main class=\"wrap\"><div class=\"layout\" style=\"margin-top:26px\"><article><div class=\"content\">\n");
         sb.Append($"<h2 id=\"doanh-nghiep\">Doanh nghiệp tại {E(p.Name)} cần chấm công thế nào?</h2>\n<p>{E(p.Profile)}</p>\n");
@@ -424,6 +469,7 @@ public static partial class SeoPages
         }
         if (office) sb.Append(OfficeSection());
         sb.Append(DeviceSection(devices, $" tại {E(p.Name)}"));
+        sb.Append(GallerySection(photos, $" tại {E(p.Name)}"));
         sb.Append($"<h2 id=\"khu-vuc\">Khu vực lắp đặt tại {E(p.Name)}</h2>\n<p>Lắp đặt tận nơi tại các địa bàn: {E(string.Join(", ", p.Places))} và các xã, phường khác{E(OldText(p))}.</p>\n");
         sb.Append($"""
 <h2 id="dich-vu">Dịch vụ tại {E(p.Name)}</h2>

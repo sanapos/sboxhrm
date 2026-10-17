@@ -199,6 +199,9 @@ public class SeoLandingTests
             Assert.DoesNotContain("nhà phân phối chính hãng", html);
             Assert.Contains($"Quản lý chấm công qua điện thoại, MacBook, trình duyệt web tại {p.Name}", html);
             Assert.Contains("/bai-viet/chuyen-phan-mem-cham-cong-cai-may-sang-online", html);
+            Assert.Contains("Hình ảnh lắp đặt máy chấm công thực tế", html);
+            Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(html, @"lap-dat-may-cham-cong-\d{2}-sm\.webp").Count);
+            Assert.DoesNotContain("screenshot-03.jpg", html);
             foreach (var o in p.Old) Assert.Contains(o, html);
             var title = System.Text.RegularExpressions.Regex.Match(html, "<title>(.*?)</title>").Groups[1].Value;
             Assert.InRange(title.Length, 30, 70);

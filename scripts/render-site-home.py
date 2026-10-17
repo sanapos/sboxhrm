@@ -186,6 +186,7 @@ LOCAL_SECTION = """
   <div style="max-width:1120px;margin:0 auto">
     <h2 class="section-title">Lắp đặt máy chấm công vân tay, khuôn mặt toàn quốc</h2>
     <p style="color:#475569;margin:6px 0 8px">Cung cấp máy chấm công ZKTeco giá tốt, <strong>miễn phí lắp đặt</strong> tận nơi và <strong>tặng phần mềm chấm công</strong> SBOX HRM khi mua máy — hoặc chấm công qua điện thoại không cần mua máy.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin:0 0 18px">{photos}</div>
     <p style="margin:0 0 18px"><a href="/lap-dat-may-cham-cong" style="font-weight:700">Xem dịch vụ lắp đặt & nhận báo giá →</a></p>
     <details class="local-more desk-open"><summary>Xem 34 tỉnh, thành có lắp đặt tận nơi</summary>
     {groups}
@@ -193,6 +194,13 @@ LOCAL_SECTION = """
   </div>
 </section>
 """
+
+INSTALL_PHOTOS = [
+    (10, "Máy chấm công khuôn mặt, vân tay ZKTeco lắp trên cột gỗ"),
+    (2, "Kỹ thuật SBOX lắp máy chấm công vân tay tại cửa kính văn phòng"),
+    (6, "Máy chấm công vân tay lắp tường cạnh ổ điện, đi dây gọn"),
+    (9, "Máy chấm công vân tay gắn cột cạnh cửa phòng làm việc"),
+]
 
 SOLUTION_CARD = (
     '<a href="/tinh-nang/{slug}" style="display:block;border:1px solid #e2e8f0;border-radius:14px;padding:18px 20px;'
@@ -414,7 +422,14 @@ def render(site, web_dir):
             + " · ".join(f'<a href="/lap-dat-may-cham-cong/{sl}" style="color:#334155">Máy chấm công {esc(n)}</a>' for sl, n in items)
             + "</p>"
             for r, items in regions.items())
-        local = BeautifulSoup(LOCAL_SECTION.format(groups=groups), "html.parser")
+        # Ảnh lắp đặt thực tế (khớp InstallPhotos trong SeoLocal.cs).
+        photos = "".join(
+            f'<a href="/images/lap-dat/lap-dat-may-cham-cong-{n:02d}.webp" target="_blank" rel="noopener" '
+            f'style="display:block;border-radius:12px;overflow:hidden;background:#f1f5f9;aspect-ratio:3/4">'
+            f'<img src="images/lap-dat/lap-dat-may-cham-cong-{n:02d}-sm.webp" alt="{esc(alt)}" width="480" height="640" '
+            f'loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;display:block"></a>'
+            for n, alt in INSTALL_PHOTOS)
+        local = BeautifulSoup(LOCAL_SECTION.format(groups=groups, photos=photos), "html.parser")
         anchor = soup.find(id="giai-phap")
         if anchor is not None:
             anchor.insert_after(local)
