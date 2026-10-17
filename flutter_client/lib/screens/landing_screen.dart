@@ -288,9 +288,12 @@ class _LandingScreenState extends State<LandingScreen> {
                       badge: e['badge']?.toString() ?? '',
                       specs: e['specs']?.toString() ?? '',
                       specsDetail: e['specsDetail']?.toString() ?? '',
-                      imageUrl:
+                      imageUrl: _ownProductImage(
                           _normalizePublicUrl(e['imageUrl']?.toString() ?? ''),
-                      link: _normalizePublicUrl(e['link']?.toString() ?? ''),
+                          '${e['name'] ?? ''} ${e['sub'] ?? ''} ${e['specs'] ?? ''}'),
+                      link: _ownProductLink(
+                          _normalizePublicUrl(e['link']?.toString() ?? ''),
+                          e['name']?.toString() ?? ''),
                       brand: e['brand']?.toString() ?? '',
                     ))
                 .where((e) => e.name.isNotEmpty)
@@ -2800,9 +2803,8 @@ class _DevicesSection extends StatelessWidget {
       badge: 'Giảm 12%',
       specs: 'Vân tay • WiFi • 500 users',
       specsDetail: '',
-      imageUrl:
-          'https://maychamcong24h.vn/wp-content/uploads/2024/12/May-cham-cong-Wifi-LX35.jpg',
-      link: 'https://maychamcong24h.vn/may-cham-cong-van-tay-wifi-zkteco-lx35/',
+      imageUrl: 'https://sboxhrm.com/images/devices/device-fingerprint.svg',
+      link: 'https://sboxhrm.com/lap-dat-may-cham-cong/san-pham/zkteco-lx35',
       brand: 'ZKTeco',
     ),
     (
@@ -2813,10 +2815,8 @@ class _DevicesSection extends StatelessWidget {
       badge: '',
       specs: 'Khuôn mặt • Vân tay • Thẻ • WiFi',
       specsDetail: '',
-      imageUrl:
-          'https://maychamcong24h.vn/wp-content/uploads/2024/11/may-cham-cong-khuon-mat-zkteco-senseface-2a-10.jpg',
-      link:
-          'https://maychamcong24h.vn/may-cham-cong-khuon-mat-zkteco-senseface-2a/',
+      imageUrl: 'https://sboxhrm.com/images/devices/device-face.svg',
+      link: 'https://sboxhrm.com/lap-dat-may-cham-cong/san-pham/zkteco-senseface-2a',
       brand: 'ZKTeco',
     ),
     (
@@ -2827,10 +2827,8 @@ class _DevicesSection extends StatelessWidget {
       badge: 'Giảm 8%',
       specs: 'Vân tay • Thẻ • TCP/IP • ADMS',
       specsDetail: '',
-      imageUrl:
-          'https://maychamcong24h.vn/wp-content/uploads/2024/10/36628_ronald_jack_ua300_ha1.jpg',
-      link:
-          'https://maychamcong24h.vn/may-cham-cong-van-tay-ronald-jack-8300pro/',
+      imageUrl: 'https://sboxhrm.com/images/devices/device-fingerprint.svg',
+      link: 'https://sboxhrm.com/lap-dat-may-cham-cong/san-pham/ronald-jack-8300pro',
       brand: 'Ronald Jack',
     ),
     (
@@ -2841,9 +2839,8 @@ class _DevicesSection extends StatelessWidget {
       badge: 'Giảm 16%',
       specs: 'Khuôn mặt • Vân tay • Thẻ • ADMS',
       specsDetail: '',
-      imageUrl:
-          'https://maychamcong24h.vn/wp-content/uploads/2024/11/May-cham-cong-khuon-mat-Zkteco-MB10VL.jpg',
-      link: 'https://maychamcong24h.vn/may-cham-cong-khuon-mat-zkteco-mb10vl/',
+      imageUrl: 'https://sboxhrm.com/images/devices/device-face.svg',
+      link: 'https://sboxhrm.com/lap-dat-may-cham-cong/san-pham/zkteco-mb10vl',
       brand: 'ZKTeco',
     ),
   ];
@@ -2945,6 +2942,36 @@ typedef _ProductData = ({
 });
 
 String _normalizePublicUrl(String raw) => normalizeLandingPublicUrl(raw);
+
+/// Link / ảnh sản phẩm phải nằm trên SBOX; dữ liệu cũ trỏ sang website khác được đổi sang trang sản phẩm + ảnh minh họa của SBOX.
+bool _isOwnUrl(String u) {
+  if (u.isEmpty) return false;
+  if (u.startsWith('/')) return true;
+  final h = Uri.tryParse(u)?.host ?? '';
+  return h == 'sboxhrm.com' || h.endsWith('.sboxhrm.com') || h == 'sboxpos.com' || h.endsWith('.sboxpos.com') || h == 'sbox.sana.vn';
+}
+
+String _deviceSlug(String name) {
+  const from = 'àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ';
+  const to = 'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
+  final b = StringBuffer();
+  for (final r in name.toLowerCase().runes) {
+    final c = String.fromCharCode(r);
+    final i = from.indexOf(c);
+    b.write(i >= 0 ? to[i] : c);
+  }
+  return b.toString().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '');
+}
+
+String _ownProductLink(String link, String name) =>
+    _isOwnUrl(link) ? link : 'https://sboxhrm.com/lap-dat-may-cham-cong/san-pham/${_deviceSlug(name)}';
+
+String _ownProductImage(String url, String text) {
+  if (_isOwnUrl(url)) return url;
+  final face = RegExp('khuôn mặt|face', caseSensitive: false).hasMatch(text);
+  return 'https://sboxhrm.com/images/devices/${face ? 'device-face' : 'device-fingerprint'}.svg';
+}
+
 
 String _deltaJsonToPlainText(String raw) {
   if (raw.isEmpty) return '';

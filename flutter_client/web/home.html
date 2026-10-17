@@ -3566,8 +3566,8 @@
         oldPrice: '2.250.000 đ',
         badge: 'Giảm 300k',
         specs: 'Vân tay – WiFi – 500 users',
-        imageUrl: 'https://maychamcong24h.vn/wp-content/uploads/2024/12/May-cham-cong-Wifi-LX35.jpg',
-        link: 'https://maychamcong24h.vn/may-cham-cong-van-tay-wifi-zkteco-lx35/',
+        imageUrl: '',
+        link: '',
         brand: 'ZKTeco'
       },
       {
@@ -3577,8 +3577,8 @@
         oldPrice: '',
         badge: 'Giảm 300k',
         specs: 'Khuôn mặt – Vân tay – Thẻ – WiFi',
-        imageUrl: 'https://maychamcong24h.vn/wp-content/uploads/2024/11/may-cham-cong-khuon-mat-zkteco-senseface-2a-10.jpg',
-        link: 'https://maychamcong24h.vn/may-cham-cong-khuon-mat-zkteco-senseface-2a/',
+        imageUrl: '',
+        link: '',
         brand: 'ZKTeco'
       },
       {
@@ -3588,8 +3588,8 @@
         oldPrice: '',
         badge: '',
         specs: 'Khuôn mặt – Vân tay – Thẻ – ADMS',
-        imageUrl: 'https://maychamcong24h.vn/wp-content/uploads/2024/11/May-cham-cong-khuon-mat-Zkteco-MB10VL.jpg',
-        link: 'https://maychamcong24h.vn/may-cham-cong-khuon-mat-zkteco-mb10vl/',
+        imageUrl: '',
+        link: '',
         brand: 'ZKTeco'
       }
     ];
@@ -3665,15 +3665,28 @@
       }).join('');
     }
 
+    /** Khớp SeoMarkdown.Slugify (C#): «ZKTeco SenseFace 2A» → zkteco-senseface-2a. */
+    function deviceSlug(name) {
+      return String(name || '').trim().toLowerCase().replace(/đ/g, 'd').normalize('NFD')
+        .replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    }
+    function isOwnUrl(u) {
+      if (!u) return false;
+      if (u.charAt(0) === '/' || u.charAt(0) === '#') return true;
+      try { var h = new URL(u, location.href).hostname; return h === location.hostname || /(^|\.)sbox(hrm|pos)\.com$/.test(h); }
+      catch (e) { return false; }
+    }
+
     function renderDevices(products) {
       var grid = document.getElementById('devices-grid');
       if (!grid) return;
       var list = products.slice();
       grid.innerHTML = list.map(function (p) {
-        var href = p.link || '#contact';
-        var img = p.imageUrl
-          ? '<img src="' + esc(p.imageUrl) + '" alt="' + esc(p.name) + '" loading="lazy" width="240" height="180">'
-          : '';
+        // Liên kết và ảnh luôn nằm trên SBOX: link/ảnh trỏ sang website khác (dữ liệu cũ) bị thay bằng trang sản phẩm + ảnh minh họa của SBOX.
+        var href = isOwnUrl(p.link) ? p.link : '/lap-dat-may-cham-cong/san-pham/' + deviceSlug(p.name);
+        var face = /khuôn mặt|face/i.test((p.name || '') + ' ' + (p.sub || '') + ' ' + (p.specs || ''));
+        var imgSrc = isOwnUrl(p.imageUrl) ? p.imageUrl : (face ? '/images/devices/device-face.svg' : '/images/devices/device-fingerprint.svg');
+        var img = '<img src="' + esc(imgSrc) + '" alt="' + esc(p.name) + ' – ' + esc(p.sub || 'máy chấm công') + '" loading="lazy" width="240" height="180">';
         var badge = p.badge ? '<span class="dc-badge">' + esc(p.badge) + '</span>' : '';
         var oldP = p.oldPrice ? '<span class="dc-old">' + esc(p.oldPrice) + '</span>' : '';
         var external = href.indexOf('http') === 0;

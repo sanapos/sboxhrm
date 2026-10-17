@@ -356,7 +356,7 @@ nav.menu a{flex:0 0 auto;font-size:14px;padding:6px 12px;border:1px solid var(--
         return sb.ToString();
     }
 
-    public static string Sitemap(SiteInfo s, IReadOnlyList<SeoArticle> all)
+    public static string Sitemap(SiteInfo s, IReadOnlyList<SeoArticle> all, IReadOnlyList<DeviceOffer>? devices = null)
     {
         var articles = all.Where(a => a.PageType != "feature").ToList();
         var features = all.Where(a => a.PageType == "feature").ToList();
@@ -379,6 +379,7 @@ nav.menu a{flex:0 0 auto;font-size:14px;padding:6px 12px;border:1px solid var(--
         {
             Url(s.Origin + "/lap-dat-may-cham-cong", null, "monthly", "0.8");
             foreach (var p in Provinces) Url($"{s.Origin}/lap-dat-may-cham-cong/{p.Slug}", null, "monthly", "0.7");
+            foreach (var d in devices ?? []) Url(DeviceUrl(s, d), null, "monthly", "0.8");
         }
         if (s.Code == "hrm") Url(s.Origin + "/guide.html", null, "monthly", "0.7");
         foreach (var a in articles)
