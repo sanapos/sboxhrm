@@ -251,7 +251,9 @@ public static class PosNetworkReportBuilder
         var verdictText = verdict switch
         {
             "green" => "Mạng ổn định — dùng order / in qua mạng được",
-            "yellow" => "Mạng chập chờn lúc cao điểm / có lúc rớt — dùng được nhưng nên khắc phục",
+            "yellow" => degrades
+                ? "Mạng chập chờn lúc cao điểm — dùng được nhưng nên khắc phục"
+                : "Mạng có lúc chậm / rớt — dùng được nhưng nên khắc phục",
             "red" => "Mạng không ổn định — order / in qua mạng dễ chậm, treo phiếu",
             _ => "Chưa đủ số liệu — mở app bán hàng trên các máy ít nhất 1 giờ",
         };
@@ -279,6 +281,14 @@ public static class PosNetworkReportBuilder
         if (!degrades && (p95All ?? 0) > 1500)
             recs.Add(new("ISP", "medium", "Đường truyền chậm cả lúc vắng khách",
                 "Kiểm tra gói Internet / gọi nhà mạng; khởi động lại router định kỳ."));
+        // Rớt kết nối tức thời nhiều (bàn / phiếu trên máy khác cập nhật chậm) — ô chỉ số đã báo.
+        if (discAll > 20)
+        {
+            var worst = devices.Where(d => d.Disconnects > 0).OrderByDescending(d => d.Disconnects).FirstOrDefault();
+            recs.Add(new("REALTIME", "medium", $"Kết nối tức thời rớt {discAll} lần",
+                "Bàn / phiếu trên máy khác cập nhật chậm. Tắt «tối ưu pin» cho app SBOX và không để máy tự tắt màn hình lâu; "
+                + "kiểm tra sóng Wi‑Fi" + (worst == null ? "." : $" — rớt nhiều nhất ở «{worst.DeviceName ?? worst.DeviceId}» ({worst.Disconnects} lần).")));
+        }
         if (print.StaleQueued + print.StuckNoRequeue > 0)
             recs.Add(new("PRINT_JOBS", "medium",
                 $"{print.StaleQueued + print.StuckNoRequeue} lệnh in bị hủy vì máy Agent tắt / mất mạng",

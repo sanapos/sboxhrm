@@ -126,6 +126,17 @@ public class PosNetworkReportTests
     }
 
     [Fact]
+    public void Many_realtime_drops_get_recommendation_and_plain_yellow_text()
+    {
+        var s = Healthy("t1", 4).Select((x, i) => i % 2 == 0 ? S("t1", x.BucketStart, disc: 1) : x).ToList();
+        var r = Build(s, [Day.AddMinutes(100)]);
+        Assert.Equal("yellow", r.Verdict);
+        Assert.DoesNotContain("cao điểm", r.VerdictText);
+        var rec = Assert.Single(r.Recommendations, x => x.Code == "REALTIME");
+        Assert.Contains("t1", rec.Detail);
+    }
+
+    [Fact]
     public void Bucket_is_aligned_to_5_minutes_utc()
     {
         var b = PosNetworkController.AlignBucket(new DateTime(2026, 10, 13, 8, 7, 59, DateTimeKind.Utc));
