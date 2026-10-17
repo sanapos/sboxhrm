@@ -239,7 +239,8 @@ public static partial class SeoPages
     /// <summary>Mỗi tỉnh một bộ 4 ảnh (xoay vòng theo thứ tự tỉnh) — 34 trang không dùng y hệt một bộ ảnh.</summary>
     static List<InstallPhoto> PhotosFor(Province? p)
     {
-        if (p == null) return InstallPhotos.ToList();
+        // Trang tổng và Đà Nẵng (nơi đặt văn phòng) hiện đủ bộ ảnh.
+        if (p == null || p.Slug == OfficeSlug) return InstallPhotos.ToList();
         var i = Math.Max(0, Provinces.ToList().FindIndex(x => x.Slug == p.Slug));
         return Enumerable.Range(0, 4).Select(k => InstallPhotos[(i * 3 + k) % InstallPhotos.Count]).ToList();
     }
