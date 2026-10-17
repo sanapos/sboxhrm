@@ -1,3 +1,4 @@
+using ZKTecoADMS.Api.Controllers.Base;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Domain.Entities;
 
@@ -395,19 +396,21 @@ public partial class PosEInvoiceService
 
     /// <summary>Đồng bộ hàng loạt trạng thái HĐ POS với hãng trong khoảng ngày (tối đa 100 đơn / lần).</summary>
     public async Task<object> SyncRangeAsync(
-        Guid storeId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default)
+        Guid storeId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default,
+        Application.Interfaces.IBranchContext? bctx = null)
     {
         var settings = await GetOrCreateSettingsAsync(storeId, ct);
         var provider = NormalizeProvider(settings.Provider);
         var orders = await db.PosSaleOrders
             .Where(o => o.StoreId == storeId && o.Deleted == null &&
                         o.Status == Domain.Enums.PosSaleOrderStatus.Completed &&
-                        o.SaleDate >= fromUtc && o.SaleDate < toUtc &&
+                        (o.SaleDate ?? o.CreatedAt) >= fromUtc && (o.SaleDate ?? o.CreatedAt) < toUtc &&
                         o.EInvoiceTransactionUuid != null &&
                         (o.EInvoiceProvider == null || o.EInvoiceProvider == provider) &&
                         (o.EInvoiceStatus == "Issued" || o.EInvoiceStatus == "Pending" ||
                          o.EInvoiceStatus == "Draft" || o.EInvoiceStatus == "Failed"))
-            .OrderByDescending(o => o.SaleDate)
+            .ApplyBranchScope(bctx)
+            .OrderByDescending(o => o.SaleDate ?? o.CreatedAt)
             .Take(100)
             .ToListAsync(ct);
 
@@ -432,15 +435,18 @@ public partial class PosEInvoiceService
     }
 
     /// <summary>Báo cáo HĐĐT theo ngày + theo loại + theo hãng (giờ VN).</summary>
-    public async Task<object> ReportAsync(Guid storeId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default)
+    public async Task<object> ReportAsync(
+        Guid storeId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default,
+        Application.Interfaces.IBranchContext? bctx = null)
     {
         var rows = await db.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null &&
                         o.Status == Domain.Enums.PosSaleOrderStatus.Completed &&
-                        o.SaleDate >= fromUtc && o.SaleDate < toUtc)
+                        (o.SaleDate ?? o.CreatedAt) >= fromUtc && (o.SaleDate ?? o.CreatedAt) < toUtc)
+            .ApplyBranchScope(bctx)
             .Select(o => new
             {
-                o.SaleDate,
+                SaleDate = o.SaleDate ?? o.CreatedAt,
                 o.Total,
                 o.VatAmount,
                 o.EInvoiceStatus,
@@ -452,7 +458,7 @@ public partial class PosEInvoiceService
         static bool Is(string? a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
         var daily = rows
-            .GroupBy(r => (r.SaleDate ?? DateTime.UtcNow).AddHours(7).Date)
+            .GroupBy(r => r.SaleDate.AddHours(7).Date)
             .OrderBy(g => g.Key)
             .Select(g => new
             {

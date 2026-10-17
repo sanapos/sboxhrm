@@ -47,9 +47,13 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
   bool _bulkSyncing = false;
   List<PosEInvoiceRow> _items = [];
   int _total = 0;
+  int _page = 1;
+  bool _loadingMore = false;
+  static const _pageSize = 80;
 
   static const _filters = <(String id, String label)>[
     ('all', 'Tất cả'),
+    ('attention', 'Cần xử lý'),
     ('Issued', 'Đã xuất'),
     ('Draft', 'Nháp'),
     ('Pending', 'Chờ ký'),
@@ -72,8 +76,36 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
     super.dispose();
   }
 
+  Future<void> _loadMore() async {
+    if (_loadingMore || _items.length >= _total) return;
+    setState(() => _loadingMore = true);
+    final res = await _api.getPosEInvoiceInvoices(
+      from: _time.from,
+      to: _time.to,
+      status: _status,
+      q: _searchCtrl.text,
+      page: _page + 1,
+      pageSize: _pageSize,
+    );
+    if (!mounted) return;
+    setState(() {
+      _loadingMore = false;
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        final raw = (res['data'] as Map)['items'] ?? (res['data'] as Map)['Items'];
+        if (raw is List) {
+          _page++;
+          _items = [
+            ..._items,
+            ...raw.whereType<Map>().map((e) => PosEInvoiceRow.fromJson(Map<String, dynamic>.from(e))),
+          ];
+        }
+      }
+    });
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
+    _page = 1;
     final from = _time.from;
     final to = _time.to;
     final sumF = _api.getPosEInvoiceSummary(from: from, to: to);
@@ -83,7 +115,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
       status: _status,
       q: _searchCtrl.text,
       page: 1,
-      pageSize: 80,
+      pageSize: _pageSize,
     );
     final reportF = _api.getPosEInvoiceReport(from: from, to: to);
     final portalF = _portal == null ? _api.getPosEInvoicePortal() : null;
@@ -506,9 +538,11 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                           : _dateFmt.format(r.saleDate!.toLocal()),
                       r.customerName ?? r.buyerName ?? '',
                       posEInvoiceStatusLabel(r.status),
-                      r.total,
+                      r.grandTotal,
                       r.emailTo ?? r.buyerEmail ?? '',
-                      r.error ?? '',
+                      r.needsAttention
+                          ? (r.orderStatus == 'Cancelled' ? 'Đơn đã hủy — cần hủy hóa đơn' : 'Đơn đã trả hàng — cần điều chỉnh hóa đơn')
+                          : (r.error ?? ''),
                     ],
                 ],
                 summaryLines: [
@@ -581,6 +615,13 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                     SboxKpi(label: 'Chờ xuất / nháp', value: SboxFmt.number(pending + draft), icon: Icons.hourglass_empty_rounded, tone: SboxTone.warning),
                     SboxKpi(label: 'Lỗi', value: SboxFmt.number(failed), icon: Icons.error_outline, tone: SboxTone.danger,
                         note: failed > 0 ? 'Cần xuất lại' : null),
+                    if (_num(_summary?['attentionCancelledCount']) + _num(_summary?['attentionReturnedCount']) > 0)
+                      SboxKpi(
+                          label: 'Cần hủy / điều chỉnh',
+                          value: SboxFmt.number(_num(_summary?['attentionCancelledCount']) + _num(_summary?['attentionReturnedCount'])),
+                          icon: Icons.warning_amber_rounded,
+                          tone: SboxTone.warning,
+                          note: 'Đơn đã hủy ${SboxFmt.number(_num(_summary?['attentionCancelledCount']))} · đã trả hàng ${SboxFmt.number(_num(_summary?['attentionReturnedCount']))}'),
                     SboxKpi(label: 'Đã gửi email', value: SboxFmt.number(emailed), icon: Icons.mark_email_read_outlined, tone: SboxTone.violet,
                         note: issued > 0 ? 'Tỷ lệ ${SboxFmt.pct(emailed / issued * 100)}' : null),
                   ],
@@ -678,6 +719,16 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                     ),
                   ),
                 for (final row in _items) _rowCard(row),
+                if (_items.length < _total)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Center(
+                      child: OutlinedButton(
+                        onPressed: _loadingMore ? null : _loadMore,
+                        child: Text(tr(_loadingMore ? 'Đang tải…' : 'Xem thêm (${_items.length}/$_total)')),
+                      ),
+                    ),
+                  ),
               ],
             ),
     );
@@ -839,10 +890,20 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${row.customerName ?? row.buyerName ?? 'Khách lẻ'} · ${_moneyFmt.format(row.total)}${dt == null ? '' : ' · ${_dateFmt.format(dt.toLocal())}'}',
+                      '${row.customerName ?? row.buyerName ?? 'Khách lẻ'} · ${_moneyFmt.format(row.grandTotal)}${dt == null ? '' : ' · ${_dateFmt.format(dt.toLocal())}'}',
                       style: TextStyle(
                           fontSize: 12, color: SboxColors.slate600),
                     ),
+                    if (row.needsAttention)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          tr(row.orderStatus == 'Cancelled'
+                              ? 'Đơn bán đã hủy nhưng hóa đơn điện tử còn hiệu lực — cần hủy hóa đơn'
+                              : 'Đơn đã có trả hàng — cần điều chỉnh / thay thế hóa đơn'),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.orange.shade800),
+                        ),
+                      ),
                     if ((row.error ?? '').isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),

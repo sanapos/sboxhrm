@@ -1,3 +1,4 @@
+using ZKTecoADMS.Api.Controllers.Base;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Domain.Entities;
 
@@ -36,17 +37,28 @@ public partial class PosEInvoiceService
         string? q,
         int page,
         int pageSize,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        Application.Interfaces.IBranchContext? bctx = null)
     {
         if (page < 1) page = 1;
         if (pageSize is < 1 or > 200) pageSize = 50;
 
-        var query = db.PosSaleOrders.AsNoTracking().Where(o =>
+        var attention = string.Equals(status?.Trim(), "attention", StringComparison.OrdinalIgnoreCase);
+        var scoped = db.PosSaleOrders.AsNoTracking().Where(o =>
             o.StoreId == storeId && o.Deleted == null &&
-            o.Status == Domain.Enums.PosSaleOrderStatus.Completed &&
-            o.SaleDate >= fromUtc && o.SaleDate < toUtc);
+            (o.SaleDate ?? o.CreatedAt) >= fromUtc && (o.SaleDate ?? o.CreatedAt) < toUtc)
+            .ApplyBranchScope(bctx);
+        // «Cần xử lý»: hóa đơn điện tử còn hiệu lực nhưng đơn bán đã hủy hoặc đã có trả hàng → phải hủy / điều chỉnh với cơ quan thuế.
+        var query = attention
+            ? scoped.Where(o => o.EInvoiceStatus == "Issued" &&
+                (o.Status == Domain.Enums.PosSaleOrderStatus.Cancelled ||
+                 (o.Status == Domain.Enums.PosSaleOrderStatus.Completed && db.PosStockTransactions.Any(t =>
+                     t.SaleOrderId == o.Id && t.StoreId == storeId && t.Deleted == null && t.IsActive &&
+                     t.TransactionType == Domain.Enums.PosStockTransactionType.Return &&
+                     (t.Note == null || (!t.Note.StartsWith("Hủy đơn") && !t.Note.StartsWith("Hủy trả hàng")))))))
+            : scoped.Where(o => o.Status == Domain.Enums.PosSaleOrderStatus.Completed);
 
-        if (!string.IsNullOrWhiteSpace(status) &&
+        if (!attention && !string.IsNullOrWhiteSpace(status) &&
             !status.Equals("all", StringComparison.OrdinalIgnoreCase))
         {
             var st = status.Trim();
@@ -71,16 +83,23 @@ public partial class PosEInvoiceService
 
         var total = await query.CountAsync(ct);
         var items = await query
-            .OrderByDescending(o => o.SaleDate)
+            .OrderByDescending(o => o.SaleDate ?? o.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(o => new
             {
                 o.Id,
                 o.OrderNo,
-                o.SaleDate,
+                SaleDate = o.SaleDate ?? o.CreatedAt,
                 o.Total,
                 o.VatAmount,
+                // Giá trị hóa đơn = tiền hàng + VAT (cột «Tổng» trước đây chỉ có tiền hàng).
+                GrandTotal = o.Total + o.VatAmount,
+                OrderStatus = o.Status,
+                HasReturn = o.Status == Domain.Enums.PosSaleOrderStatus.Completed && db.PosStockTransactions.Any(t =>
+                    t.SaleOrderId == o.Id && t.StoreId == storeId && t.Deleted == null && t.IsActive &&
+                    t.TransactionType == Domain.Enums.PosStockTransactionType.Return &&
+                    (t.Note == null || (!t.Note.StartsWith("Hủy đơn") && !t.Note.StartsWith("Hủy trả hàng")))),
                 o.CustomerName,
                 o.EInvoiceStatus,
                 o.EInvoiceProvider,

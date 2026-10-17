@@ -1,3 +1,4 @@
+using ZKTecoADMS.Api.Controllers.Base;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -428,12 +429,23 @@ public partial class PosEInvoiceService(
             order.EInvoiceKind = "Original";
     }
 
-    public async Task<object> SummaryAsync(Guid storeId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default)
+    public async Task<object> SummaryAsync(
+        Guid storeId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default,
+        Application.Interfaces.IBranchContext? bctx = null)
     {
-        var q = db.PosSaleOrders.AsNoTracking().Where(o =>
+        var inRange = db.PosSaleOrders.AsNoTracking().Where(o =>
             o.StoreId == storeId && o.Deleted == null &&
-            o.Status == Domain.Enums.PosSaleOrderStatus.Completed &&
-            o.SaleDate >= fromUtc && o.SaleDate < toUtc);
+            (o.SaleDate ?? o.CreatedAt) >= fromUtc && (o.SaleDate ?? o.CreatedAt) < toUtc)
+            .ApplyBranchScope(bctx);
+        var q = inRange.Where(o => o.Status == Domain.Enums.PosSaleOrderStatus.Completed);
+
+        // Hóa đơn điện tử còn hiệu lực nhưng đơn đã hủy / đã trả hàng → cần hủy hoặc điều chỉnh với cơ quan thuế.
+        var cancelledIssued = inRange.Where(o =>
+            o.Status == Domain.Enums.PosSaleOrderStatus.Cancelled && o.EInvoiceStatus == "Issued");
+        var returnedIssued = q.Where(o => o.EInvoiceStatus == "Issued" && db.PosStockTransactions.Any(t =>
+            t.SaleOrderId == o.Id && t.StoreId == storeId && t.Deleted == null && t.IsActive &&
+            t.TransactionType == Domain.Enums.PosStockTransactionType.Return &&
+            (t.Note == null || (!t.Note.StartsWith("Hủy đơn") && !t.Note.StartsWith("Hủy trả hàng")))));
 
         var issued = q.Where(o => o.EInvoiceStatus == "Issued");
         var skipped = q.Where(o => o.EInvoiceStatus == "Skipped");
@@ -466,6 +478,10 @@ public partial class PosEInvoiceService(
             replacedCount = await replaced.CountAsync(ct),
             noneCount = await none.CountAsync(ct),
             totalCompleted = await q.CountAsync(ct),
+            attentionCancelledCount = await cancelledIssued.CountAsync(ct),
+            attentionCancelledAmount = await cancelledIssued.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
+            attentionReturnedCount = await returnedIssued.CountAsync(ct),
+            attentionReturnedAmount = await returnedIssued.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
         };
     }
 

@@ -263,6 +263,12 @@ class PosEInvoiceRow {
   final String? buyerTaxCode;
   final DateTime? cancelledAt;
   final String? cancelReason;
+  /// Giá trị hóa đơn = tiền hàng + VAT (total chỉ là tiền hàng).
+  final double grandTotal;
+  /// Trạng thái đơn bán: Completed / Cancelled.
+  final String orderStatus;
+  /// Đơn đã có trả hàng sau khi xuất hóa đơn.
+  final bool hasReturn;
 
   const PosEInvoiceRow({
     required this.id,
@@ -287,7 +293,13 @@ class PosEInvoiceRow {
     this.buyerTaxCode,
     this.cancelledAt,
     this.cancelReason,
+    this.grandTotal = 0,
+    this.orderStatus = 'Completed',
+    this.hasReturn = false,
   });
+
+  /// Hóa đơn điện tử còn hiệu lực nhưng đơn đã hủy / đã trả hàng → cần hủy hoặc điều chỉnh với cơ quan thuế.
+  bool get needsAttention => status == 'Issued' && (orderStatus == 'Cancelled' || hasReturn);
 
   bool get emailSent => emailSentAt != null;
   bool get isReplacement => (kind ?? '') == 'Replacement';
@@ -304,6 +316,9 @@ class PosEInvoiceRow {
       orderNo: (json['orderNo'] ?? json['OrderNo'] ?? '').toString(),
       saleDate: d(json['saleDate'] ?? json['SaleDate']),
       total: n(json['total'] ?? json['Total']),
+      grandTotal: n(json['grandTotal'] ?? json['GrandTotal'] ?? (n(json['total'] ?? json['Total']) + n(json['vatAmount'] ?? json['VatAmount']))),
+      orderStatus: (json['orderStatus'] ?? json['OrderStatus'] ?? 'Completed').toString(),
+      hasReturn: (json['hasReturn'] ?? json['HasReturn']) == true,
       customerName:
           (json['customerName'] ?? json['CustomerName'])?.toString(),
       status: (json['eInvoiceStatus'] ?? json['EInvoiceStatus'] ?? 'None')

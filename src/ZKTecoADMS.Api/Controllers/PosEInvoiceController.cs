@@ -426,21 +426,26 @@ public class PosEInvoiceController(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
-        var fromUtc = from ?? DateTime.UtcNow.Date.AddDays(-30);
-        var toUtc = to ?? DateTime.UtcNow.Date.AddDays(1);
-        if (fromUtc.Kind == DateTimeKind.Unspecified) fromUtc = DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc);
-        if (toUtc.Kind == DateTimeKind.Unspecified) toUtc = DateTime.SpecifyKind(toUtc, DateTimeKind.Utc);
-        var data = await eInvoice.ListAsync(RequiredStoreId, fromUtc, toUtc, status, q, page, pageSize);
+        var (fromUtc, toUtc) = Range(from, to);
+        var data = await eInvoice.ListAsync(RequiredStoreId, fromUtc, toUtc, status, q, page, pageSize,
+            bctx: HttpContext.BranchContext());
         return Ok(AppResponse<object>.Success(data));
     }
 
-    static (DateTime From, DateTime To) Range(DateTime? from, DateTime? to)
+    /// <summary>
+    /// Khoảng ngày của báo cáo. Máy gửi giờ địa phương Việt Nam KHÔNG kèm múi giờ (vd 2026-10-01T00:00:00) →
+    /// đổi sang UTC (trừ 7h). Trước đây coi như UTC → lệch 7 giờ: mất đơn 0h–7h ngày đầu, thừa đơn 0h–7h ngày sau cuối kỳ.
+    /// Giá trị có hậu tố Z / offset giữ nguyên.
+    /// </summary>
+    internal static (DateTime From, DateTime To) Range(DateTime? from, DateTime? to)
     {
-        var fromUtc = from ?? DateTime.UtcNow.Date.AddDays(-30);
-        var toUtc = to ?? DateTime.UtcNow.Date.AddDays(1);
-        if (fromUtc.Kind == DateTimeKind.Unspecified) fromUtc = DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc);
-        if (toUtc.Kind == DateTimeKind.Unspecified) toUtc = DateTime.SpecifyKind(toUtc, DateTimeKind.Utc);
-        return (fromUtc.ToUniversalTime(), toUtc.ToUniversalTime());
+        static DateTime ToUtc(DateTime v) => v.Kind == DateTimeKind.Utc
+            ? v
+            : DateTime.SpecifyKind(v.AddHours(-7), DateTimeKind.Utc);
+        var todayVn = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7).Date, DateTimeKind.Unspecified);
+        var f = from.HasValue ? ToUtc(from.Value) : ToUtc(todayVn.AddDays(-29));
+        var t = to.HasValue ? ToUtc(to.Value) : ToUtc(todayVn.AddDays(1));
+        return (f, t);
     }
 
     /// <summary>Link trang quản lý / tra cứu của hãng + khả năng theo hãng.</summary>
@@ -500,7 +505,8 @@ public class PosEInvoiceController(
         var (f, t) = Range(from, to);
         try
         {
-            return Ok(AppResponse<object>.Success(await eInvoice.SyncRangeAsync(RequiredStoreId, f, t)));
+            return Ok(AppResponse<object>.Success(
+                await eInvoice.SyncRangeAsync(RequiredStoreId, f, t, bctx: HttpContext.BranchContext())));
         }
         catch (InvalidOperationException ex)
         {
@@ -515,7 +521,7 @@ public class PosEInvoiceController(
         [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
     {
         var (f, t) = Range(from, to);
-        return Ok(AppResponse<object>.Success(await eInvoice.ReportAsync(RequiredStoreId, f, t)));
+        return Ok(AppResponse<object>.Success(await eInvoice.ReportAsync(RequiredStoreId, f, t, bctx: HttpContext.BranchContext())));
     }
 
     [HttpGet("summary")]
@@ -523,11 +529,8 @@ public class PosEInvoiceController(
     public async Task<ActionResult<AppResponse<object>>> Summary(
         [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
     {
-        var fromUtc = from ?? DateTime.UtcNow.Date.AddDays(-30);
-        var toUtc = to ?? DateTime.UtcNow.Date.AddDays(1);
-        if (fromUtc.Kind == DateTimeKind.Unspecified) fromUtc = DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc);
-        if (toUtc.Kind == DateTimeKind.Unspecified) toUtc = DateTime.SpecifyKind(toUtc, DateTimeKind.Utc);
-        var data = await eInvoice.SummaryAsync(RequiredStoreId, fromUtc, toUtc);
+        var (fromUtc, toUtc) = Range(from, to);
+        var data = await eInvoice.SummaryAsync(RequiredStoreId, fromUtc, toUtc, bctx: HttpContext.BranchContext());
         return Ok(AppResponse<object>.Success(data));
     }
 }
