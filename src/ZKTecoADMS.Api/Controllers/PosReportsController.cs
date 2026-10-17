@@ -783,40 +783,6 @@ public partial class PosReportsController(
         }));
     }
 
-    private static async Task<(int totalSkus, decimal totalQty, decimal inventoryValue, int outOfStock, int belowMin)>
-        GetStockSummaryCoreAsync(ZKTecoDbContext db, Guid storeId)
-    {
-        var products = await StockTracked(db.PosProducts.AsNoTracking()
-                .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive))
-            .Select(p => new { p.Id, p.OnHandQty, p.CostPrice, p.MinStockQty })
-            .ToListAsync();
-
-        var variantAttrs = await db.PosProductVariants.AsNoTracking()
-            .Where(v => v.StoreId == storeId && v.Deleted == null && v.IsActive)
-            .Select(v => new { v.ProductId, v.AttributeJson, v.OnHandQty, v.CostPrice })
-            .ToListAsync();
-
-        var distinctVariantProductIds = variantAttrs
-            .Where(v => !PosVariantStockHelper.IsUnitOnlyVariant(v.AttributeJson))
-            .Select(v => v.ProductId)
-            .Distinct()
-            .ToHashSet();
-
-        var parentValue = products
-            .Where(p => !distinctVariantProductIds.Contains(p.Id))
-            .Sum(p => p.OnHandQty * p.CostPrice);
-        var variantValue = variantAttrs
-            .Where(v => distinctVariantProductIds.Contains(v.ProductId))
-            .Sum(v => v.OnHandQty * v.CostPrice);
-
-        return (
-            products.Count,
-            products.Sum(p => p.OnHandQty),
-            parentValue + variantValue,
-            products.Count(p => p.OnHandQty <= 0),
-            products.Count(p => p.MinStockQty > 0 && p.OnHandQty < p.MinStockQty && p.OnHandQty > 0));
-    }
-
     /// <summary>Hàng có theo dõi tồn: hàng hóa, NVL, topping, combo bật quản lý tồn gói (dịch vụ / combo theo
     /// thành phần không có tồn riêng → không tính «hết hàng»).</summary>
     static IQueryable<PosProduct> StockTracked(IQueryable<PosProduct> q) =>
@@ -840,37 +806,29 @@ public partial class PosReportsController(
                variants.Where(v => distinct.Contains(v.ProductId)).Sum(v => v.OnHandQty * v.CostPrice);
     }
 
-    private Task<(int totalSkus, decimal totalQty, decimal inventoryValue, int outOfStock, int belowMin)>
-        GetStockSummaryCoreAsync(Guid storeId) =>
-        GetStockSummaryCoreAsync(dbContext, storeId);
-
     [HttpGet("stock/summary")]
     [RequireModulePermission("PosReportStock", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetStockSummary()
     {
-        var storeId = RequiredStoreId;
-        var core = await GetStockSummaryCoreAsync(storeId);
-        if (await BranchQtyScopeAsync(storeId) is { } branchQty)
-        {
-            var tracked = await StockTracked(dbContext.PosProducts.AsNoTracking()
-                    .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive))
-                .Select(p => new { p.Id, p.CostPrice, p.MinStockQty }).ToListAsync();
-            var rows = tracked.Select(p => (p.CostPrice, p.MinStockQty, Qty: branchQty.GetValueOrDefault(p.Id))).ToList();
-            core = (rows.Count, rows.Sum(r => r.Qty), rows.Sum(r => r.Qty * r.CostPrice),
-                rows.Count(r => r.Qty <= 0), rows.Count(r => r.MinStockQty > 0 && r.Qty > 0 && r.Qty < r.MinStockQty));
-        }
-
+        var rows = await LoadStockRowsAsync(RequiredStoreId);
+        var totalQty = rows.Sum(r => r.OnHandQty);
+        var value = rows.Sum(r => r.StockValue);
+        var outOfStock = rows.Count(r => r.Status == "OutOfStock");
         return Ok(AppResponse<object>.Success(new
         {
-            totalSkus = core.totalSkus,
-            totalQty = core.totalQty,
-            inventoryValue = core.inventoryValue,
-            outOfStock = core.outOfStock,
-            belowMin = core.belowMin,
-            productCount = core.totalSkus,
-            totalStockValue = core.inventoryValue,
-            totalOnHandQty = core.totalQty,
-            outOfStockCount = core.outOfStock,
+            totalSkus = rows.Count,
+            totalQty,
+            inventoryValue = value,
+            outOfStock,
+            belowMin = rows.Count(r => r.Status == "BelowMin"),
+            aboveMax = rows.Count(r => r.Status == "AboveMax"),
+            okCount = rows.Count(r => r.Status == "Ok"),
+            // Tồn âm (bán quá tồn) — giá trị âm kéo tổng xuống, cần kiểm kho.
+            negativeCount = rows.Count(r => r.OnHandQty < 0),
+            productCount = rows.Count,
+            totalStockValue = value,
+            totalOnHandQty = totalQty,
+            outOfStockCount = outOfStock,
         }));
     }
 
@@ -880,88 +838,31 @@ public partial class PosReportsController(
         [FromQuery] string? search,
         [FromQuery] string? filter,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50)
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? sort = null)
     {
-        var storeId = RequiredStoreId;
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
-
-        var query = StockTracked(dbContext.PosProducts.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive));
-
-        if (!string.IsNullOrWhiteSpace(search))
+        var rows = FilterStockRows(await LoadStockRowsAsync(RequiredStoreId, search), filter).ToList();
+        // Sắp xếp trên toàn bộ danh sách (trước đây chỉ sắp trong trang đang xem).
+        IEnumerable<PosStockRow> ordered = (sort ?? "").ToLowerInvariant() switch
         {
-            var s = search.Trim().ToLower();
-            query = query.Where(p =>
-                p.Name.ToLower().Contains(s) ||
-                p.ProductCode.ToLower().Contains(s) ||
-                (p.Barcode != null && p.Barcode.ToLower().Contains(s)));
-        }
-
-        if (Enum.TryParse<PosStockFilter>(filter, true, out var sf))
+            "value" => rows.OrderByDescending(r => r.StockValue),
+            "qty" => rows.OrderByDescending(r => r.OnHandQty),
+            "qtyasc" => rows.OrderBy(r => r.OnHandQty),
+            "name" => rows.OrderBy(r => r.Name),
+            _ => rows.OrderBy(r => r.Status switch { "OutOfStock" => 0, "BelowMin" => 1, "AboveMax" => 2, _ => 3 })
+                .ThenBy(r => r.Name),
+        };
+        var items = ordered.Skip((page - 1) * pageSize).Take(pageSize).Select(r => new
         {
-            query = sf switch
-            {
-                PosStockFilter.BelowMin => query.Where(p => p.MinStockQty > 0 && p.OnHandQty < p.MinStockQty),
-                PosStockFilter.OutOfStock => query.Where(p => p.OnHandQty <= 0),
-                PosStockFilter.AboveMax => query.Where(p => p.MaxStockQty > 0 && p.OnHandQty > p.MaxStockQty),
-                _ => query,
-            };
-        }
-
-        if (await BranchQtyScopeAsync(storeId) is { } branchQty)
+            r.Id, r.ProductCode, r.Barcode, r.Name, r.BaseUnitName, r.CategoryName, r.OnHandQty, r.MinStockQty,
+            r.MaxStockQty, r.CostPrice, stockValue = r.StockValue, r.ProductType, status = r.Status,
+        }).ToList();
+        return Ok(AppResponse<object>.Success(new
         {
-            var all = await query.Select(p => new
-            {
-                p.Id, p.ProductCode, p.Barcode, p.Name, p.BaseUnitName, p.MinStockQty, p.MaxStockQty, p.CostPrice,
-                ProductType = p.ProductType.ToString(),
-            }).ToListAsync();
-            var rows = all.Select(p => new
-            {
-                p.Id, p.ProductCode, p.Barcode, p.Name, p.BaseUnitName, OnHandQty = branchQty.GetValueOrDefault(p.Id),
-                p.MinStockQty, p.MaxStockQty, p.CostPrice, p.ProductType,
-            }).ToList();
-            if (Enum.TryParse<PosStockFilter>(filter, true, out var bf))
-                rows = bf switch
-                {
-                    PosStockFilter.BelowMin => rows.Where(r => r.MinStockQty > 0 && r.OnHandQty < r.MinStockQty).ToList(),
-                    PosStockFilter.OutOfStock => rows.Where(r => r.OnHandQty <= 0).ToList(),
-                    PosStockFilter.AboveMax => rows.Where(r => r.MaxStockQty > 0 && r.OnHandQty > r.MaxStockQty).ToList(),
-                    _ => rows,
-                };
-            var pageRows = rows.OrderBy(r => r.OnHandQty <= 0 ? 0 : 1).ThenBy(r => r.Name)
-                .Skip((page - 1) * pageSize).Take(pageSize)
-                .Select(r => new
-                {
-                    r.Id, r.ProductCode, r.Barcode, r.Name, r.BaseUnitName, r.OnHandQty, r.MinStockQty, r.MaxStockQty,
-                    r.CostPrice, stockValue = r.OnHandQty * r.CostPrice, r.ProductType,
-                }).ToList();
-            return Ok(AppResponse<object>.Success(new { total = rows.Count, page, pageSize, items = pageRows }));
-        }
-
-        var total = await query.CountAsync();
-        var items = await query
-            .OrderBy(p => p.OnHandQty <= 0 ? 0 : 1)
-            .ThenBy(p => p.Name)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(p => new
-            {
-                p.Id,
-                p.ProductCode,
-                p.Barcode,
-                p.Name,
-                p.BaseUnitName,
-                p.OnHandQty,
-                p.MinStockQty,
-                p.MaxStockQty,
-                p.CostPrice,
-                stockValue = p.OnHandQty * p.CostPrice,
-                ProductType = p.ProductType.ToString(),
-            })
-            .ToListAsync();
-
-        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
+            total = rows.Count, page, pageSize, totalValue = rows.Sum(r => r.StockValue), items,
+        }));
     }
 
     /// <summary>
@@ -1006,46 +907,53 @@ public partial class PosReportsController(
         }));
     }
 
+    /// <summary>Lô còn hàng của cửa hàng (bỏ lô của hàng đã xóa) kèm ngưỡng cảnh báo đã chuẩn hóa.</summary>
+    private IQueryable<PosStockLot> ActiveLotsQuery(Guid storeId) =>
+        dbContext.PosStockLots.AsNoTracking()
+            .Where(l => l.StoreId == storeId && l.Deleted == null && l.IsActive &&
+                        l.Status == PosStockLotStatus.Active && l.QtyOnHand > 0 &&
+                        l.Product != null && l.Product.Deleted == null);
+
+    static string LotStatus(DateTime? expiry, int warnDays, DateTime today)
+    {
+        if (!expiry.HasValue) return "noexpiry";
+        var days = (expiry.Value.Date - today).Days;
+        return days < 0 ? "expired" : days <= warnDays ? "expiring" : "ok";
+    }
+
     [HttpGet("stock/lots/summary")]
     [RequireModulePermission("PosReportExpiry", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetStockLotsSummary()
     {
         var storeId = RequiredStoreId;
-        var today = DateTime.UtcNow.Date;
-
-        var lots = await dbContext.PosStockLots.AsNoTracking()
-            .Include(l => l.Product)
-            .Where(l => l.StoreId == storeId && l.Deleted == null && l.IsActive &&
-                        l.Status == PosStockLotStatus.Active && l.QtyOnHand > 0)
-            .Select(l => new
-            {
-                l.QtyOnHand,
-                l.ExpiryDate,
-                l.UnitCost,
-                WarningDays = l.Product != null ? l.Product.ExpiryWarningDays : 30,
-            })
-            .ToListAsync();
-
-        var withExpiry = lots.Where(l => l.ExpiryDate.HasValue).ToList();
-        var expired = withExpiry.Where(l => l.ExpiryDate!.Value.Date < today).ToList();
-        var expiringSoon = withExpiry.Where(l =>
-        {
-            var days = (l.ExpiryDate!.Value.Date - today).Days;
-            return days >= 0 && days <= l.WarningDays;
-        }).ToList();
-
+        var today = VnToday;
+        var lots = (await ActiveLotsQuery(storeId)
+                .Select(l => new { l.QtyOnHand, l.ExpiryDate, l.UnitCost, Warn = l.Product!.ExpiryWarningDays })
+                .ToListAsync())
+            .Select(l => (l.QtyOnHand, Value: l.QtyOnHand * l.UnitCost, Status: LotStatus(l.ExpiryDate, ExpiryWarnDays(l.Warn), today)))
+            .ToList();
+        var expired = lots.Where(l => l.Status == "expired").ToList();
+        var expiring = lots.Where(l => l.Status == "expiring").ToList();
         return Ok(AppResponse<object>.Success(new
         {
             activeLotCount = lots.Count,
             totalLotQty = lots.Sum(l => l.QtyOnHand),
-            lotInventoryValue = lots.Sum(l => l.QtyOnHand * l.UnitCost),
+            lotInventoryValue = lots.Sum(l => l.Value),
             expiredLotCount = expired.Count,
             expiredQty = expired.Sum(l => l.QtyOnHand),
-            expiringSoonLotCount = expiringSoon.Count,
-            expiringSoonQty = expiringSoon.Sum(l => l.QtyOnHand),
+            expiredValue = expired.Sum(l => l.Value),
+            expiringSoonLotCount = expiring.Count,
+            expiringSoonQty = expiring.Sum(l => l.QtyOnHand),
+            expiringSoonValue = expiring.Sum(l => l.Value),
+            okLotCount = lots.Count(l => l.Status == "ok"),
+            noExpiryLotCount = lots.Count(l => l.Status == "noexpiry"),
         }));
     }
 
+    /// <summary>
+    /// Lô theo hạn dùng. filter: attention (đã hết + sắp hết — mặc định của màn «Hàng sắp hết hạn»), expiring,
+    /// expired, ok (còn hạn xa), noexpiry (lô không ghi HSD), trống = tất cả.
+    /// </summary>
     [HttpGet("stock/lots")]
     [RequireModulePermission("PosReportExpiry", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetStockLotsReport(
@@ -1056,109 +964,92 @@ public partial class PosReportsController(
     {
         var storeId = RequiredStoreId;
         page = Math.Max(page, 1);
-        pageSize = Math.Clamp(pageSize, 1, 200);
-        var today = DateTime.UtcNow.Date;
+        pageSize = Math.Clamp(pageSize, 1, 500);
+        var today = VnToday;
 
-        var query = dbContext.PosStockLots.AsNoTracking()
-            .Include(l => l.Product)
-            .Where(l => l.StoreId == storeId && l.Deleted == null && l.IsActive &&
-                        l.Status == PosStockLotStatus.Active && l.QtyOnHand > 0);
-
+        var query = ActiveLotsQuery(storeId);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim().ToLower();
             query = query.Where(l =>
-                (l.Product != null && l.Product.Name.ToLower().Contains(s)) ||
-                (l.Product != null && l.Product.ProductCode.ToLower().Contains(s)) ||
+                l.Product!.Name.ToLower().Contains(s) ||
+                l.Product.ProductCode.ToLower().Contains(s) ||
+                (l.Product.Barcode != null && l.Product.Barcode.ToLower().Contains(s)) ||
                 (l.LotNo != null && l.LotNo.ToLower().Contains(s)));
         }
 
-        if (string.Equals(filter, "expired", StringComparison.OrdinalIgnoreCase))
-            query = query.Where(l => l.ExpiryDate != null && l.ExpiryDate < today);
-        else if (string.Equals(filter, "expiring", StringComparison.OrdinalIgnoreCase))
-            query = query.Where(l => l.ExpiryDate != null && l.ExpiryDate >= today && l.Product != null &&
-                                     l.ExpiryDate <= today.AddDays(
-                                         l.Product.ExpiryWarningDays > 0 ? l.Product.ExpiryWarningDays : 30));
-
-        var total = await query.CountAsync();
-        var rows = await query
-            .OrderBy(l => l.ExpiryDate ?? DateTime.MaxValue)
-            .ThenBy(l => l.Product!.Name)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(l => new
+        // Lọc trong bộ nhớ: ngưỡng cảnh báo theo từng hàng (0 → 30) — trước đây bộ lọc và nhãn dùng 2 ngưỡng khác nhau.
+        var all = (await query
+                .Select(l => new
+                {
+                    l.Id, l.ProductId, l.VariantId,
+                    ProductCode = l.Product!.ProductCode,
+                    ProductName = l.Product.Name,
+                    UnitName = l.Product.BaseUnitName,
+                    l.LotNo, l.ManufactureDate, l.ExpiryDate, l.QtyOnHand, l.UnitCost,
+                    Warn = l.Product.ExpiryWarningDays,
+                })
+                .ToListAsync())
+            .Select(r =>
             {
-                l.Id,
-                l.ProductId,
-                l.VariantId,
-                ProductCode = l.Product != null ? l.Product.ProductCode : null,
-                ProductName = l.Product != null ? l.Product.Name : "",
-                l.LotNo,
-                l.ManufactureDate,
-                l.ExpiryDate,
-                l.QtyOnHand,
-                l.UnitCost,
-                stockValue = l.QtyOnHand * l.UnitCost,
-                WarningDays = l.Product != null ? l.Product.ExpiryWarningDays : 30,
+                var warn = ExpiryWarnDays(r.Warn);
+                int? days = r.ExpiryDate.HasValue ? (r.ExpiryDate.Value.Date - today).Days : null;
+                return new
+                {
+                    r.Id, r.ProductId, r.VariantId, r.ProductCode, r.ProductName, r.UnitName, r.LotNo,
+                    r.ManufactureDate, r.ExpiryDate, r.QtyOnHand, r.UnitCost,
+                    stockValue = r.QtyOnHand * r.UnitCost,
+                    daysUntilExpiry = days,
+                    warningDays = warn,
+                    status = LotStatus(r.ExpiryDate, warn, today),
+                };
+            });
+
+        var f = (filter ?? "").Trim().ToLowerInvariant();
+        var rows = (f switch
+            {
+                "attention" => all.Where(r => r.status is "expired" or "expiring"),
+                "expired" or "expiring" or "ok" or "noexpiry" => all.Where(r => r.status == f),
+                _ => all,
             })
-            .ToListAsync();
+            .OrderBy(r => r.ExpiryDate ?? DateTime.MaxValue)
+            .ThenBy(r => r.ProductName)
+            .ToList();
 
-        var items = rows.Select(r =>
+        return Ok(AppResponse<object>.Success(new
         {
-            int? daysUntil = r.ExpiryDate.HasValue
-                ? (int?)(r.ExpiryDate.Value.Date - today).TotalDays
-                : null;
-            var status = !daysUntil.HasValue ? "ok"
-                : daysUntil.Value < 0 ? "expired"
-                : daysUntil.Value <= r.WarningDays ? "expiring" : "ok";
-            return new
-            {
-                r.Id,
-                r.ProductId,
-                r.VariantId,
-                r.ProductCode,
-                r.ProductName,
-                r.LotNo,
-                r.ManufactureDate,
-                r.ExpiryDate,
-                r.QtyOnHand,
-                r.UnitCost,
-                r.stockValue,
-                daysUntilExpiry = daysUntil,
-                status,
-            };
-        }).ToList();
-
-        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
+            total = rows.Count,
+            page,
+            pageSize,
+            totalQty = rows.Sum(r => r.QtyOnHand),
+            totalValue = rows.Sum(r => r.stockValue),
+            items = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList(),
+        }));
     }
 
     [HttpGet("stock/export/excel")]
     [RequireModulePermission("PosReportStock", ModulePermissionAction.Export)]
-    public async Task<IActionResult> ExportStockExcel([FromQuery] string? search)
+    public async Task<IActionResult> ExportStockExcel([FromQuery] string? search, [FromQuery] string? filter)
     {
-        var storeId = RequiredStoreId;
-        var query = StockTracked(dbContext.PosProducts.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive));
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var s = search.Trim().ToLower();
-            query = query.Where(p =>
-                p.Name.ToLower().Contains(s) ||
-                p.ProductCode.ToLower().Contains(s));
-        }
-
-        var products = await query.OrderBy(p => p.Name).Take(5000).ToListAsync();
+        // Cùng dữ liệu với màn hình: bộ lọc tình trạng, tồn theo chi nhánh đang xem, giá trị theo biến thể.
+        var products = FilterStockRows(await LoadStockRowsAsync(RequiredStoreId, search), filter)
+            .OrderBy(r => r.Name).ToList();
 
         using var workbook = new XLWorkbook();
         var ws = workbook.Worksheets.Add("Ton kho POS");
         var headers = new[]
         {
-            "STT", "Mã hàng", "Mã vạch", "Tên hàng", "ĐVT", "Tồn kho",
-            "Tồn tối thiểu", "Giá vốn", "Giá trị tồn"
+            "STT", "Mã hàng", "Mã vạch", "Tên hàng", "Nhóm hàng", "ĐVT", "Tồn kho",
+            "Tồn tối thiểu", "Tồn tối đa", "Giá vốn", "Giá trị tồn", "Tình trạng"
         };
+        var filterLabel = Enum.TryParse<PosStockFilter>(filter, true, out var sf) && sf != PosStockFilter.All
+            ? $"Tình trạng: {StockStatusVi(sf.ToString())}"
+            : null;
         var meta = ReportExcelMeta.FromUser(
             User, "BÁO CÁO TỒN KHO POS", null, null,
-            new[] { $"Tổng mặt hàng: {products.Count}" }, products.Count);
+            new[] { $"Tổng mặt hàng: {products.Count}", $"Giá trị tồn: {products.Sum(p => p.StockValue):#,##0}", filterLabel }
+                .Where(x => x != null).Select(x => x!).ToArray(),
+            products.Count);
         var (headerRow, dataStartRow) = ReportExcelLayout.ApplyMeta(ws, meta, headers.Length);
         ReportExcelLayout.ApplyHeaderRow(ws, headerRow, headers);
 
@@ -1170,11 +1061,14 @@ public partial class PosReportsController(
             ws.Cell(row, 2).Value = p.ProductCode;
             ws.Cell(row, 3).Value = p.Barcode ?? "";
             ws.Cell(row, 4).Value = p.Name;
-            ws.Cell(row, 5).Value = p.BaseUnitName ?? "";
-            ws.Cell(row, 6).Value = p.OnHandQty;
-            ws.Cell(row, 7).Value = p.MinStockQty;
-            ws.Cell(row, 8).Value = p.CostPrice;
-            ws.Cell(row, 9).Value = p.OnHandQty * p.CostPrice;
+            ws.Cell(row, 5).Value = p.CategoryName ?? "";
+            ws.Cell(row, 6).Value = p.BaseUnitName ?? "";
+            ws.Cell(row, 7).Value = p.OnHandQty;
+            ws.Cell(row, 8).Value = p.MinStockQty;
+            ws.Cell(row, 9).Value = p.MaxStockQty;
+            ws.Cell(row, 10).Value = p.CostPrice;
+            ws.Cell(row, 11).Value = p.StockValue;
+            ws.Cell(row, 12).Value = StockStatusVi(p.Status);
             row++;
         }
 
@@ -1185,6 +1079,14 @@ public partial class PosReportsController(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"BaoCaoTonKhoPOS_{DateTime.Now:yyyyMMdd_HHmm}.xlsx");
     }
+
+    static string StockStatusVi(string status) => status switch
+    {
+        "OutOfStock" => "Hết hàng",
+        "BelowMin" => "Dưới tối thiểu",
+        "AboveMax" => "Vượt tối đa",
+        _ => "Đủ hàng",
+    };
 
     /// <summary>Tổng kết cuối ngày theo nhân viên (người bán / người tạo).</summary>
     [HttpGet("end-of-day")]
@@ -1830,19 +1732,6 @@ public partial class PosReportsController(
     }
 
     /// <summary>Tồn theo chi nhánh đang lọc / được phép xem (cộng các chi nhánh). null = báo cáo tồn cả cửa hàng.</summary>
-    private async Task<Dictionary<Guid, decimal>?> BranchQtyScopeAsync(Guid storeId)
-    {
-        var b = HttpContext.BranchContext();
-        if (b is not { StoreUsesBranches: true }) return null;
-        IReadOnlyCollection<Guid>? ids = b.FilterBranchId is Guid f ? new[] { f } : b.AllowedBranchIds;
-        if (ids == null) return null;
-        var res = new Dictionary<Guid, decimal>();
-        foreach (var bid in ids)
-            foreach (var kv in await BranchStockService.GetBranchQtyAsync(dbContext, storeId, bid, b.HeadquarterBranchId))
-                if (kv.Key.Item2 == null) res[kv.Key.Item1] = res.GetValueOrDefault(kv.Key.Item1) + kv.Value;
-        return res;
-    }
-
     private IQueryable<PosSaleOrder> ScopeOrdersForViewer(IQueryable<PosSaleOrder> query)
     {
         // Chi nhánh: ?branchId= hoặc giới hạn theo chi nhánh được phép xem.

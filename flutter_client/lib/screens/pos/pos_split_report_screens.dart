@@ -994,13 +994,17 @@ class PosPurchaseReportScreen extends StatefulWidget {
 
 class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
   final _api = ApiService();
-  final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   final _pngKey = GlobalKey();
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisMonth);
   int _docKind = 0;
   bool _loading = true;
   Map<String, dynamic>? _data;
+  /// Lọc NCC (máy chủ tính lại toàn bộ số liệu); danh sách NCC lấy từ lần tải không lọc của kỳ.
+  String? _supplierId;
+  Map<String, String> _supplierOptions = const {};
+  int _showReceipts = 40;
+  int _showReturns = 40;
 
   @override
   void initState() {
@@ -1010,13 +1014,21 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final res = await _api.getPosPurchasesReport(from: _time.from, to: _time.to);
+    final res = await _api.getPosPurchasesReport(from: _time.from, to: _time.to, supplierId: _supplierId);
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _showReceipts = 40;
+      _showReturns = 40;
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
+      if (_supplierId == null && _data != null) {
+        _supplierOptions = {
+          for (final s in _maps(_data!['bySupplier']))
+            if ('${s['supplierId'] ?? ''}'.isNotEmpty) '${s['supplierId']}': '${s['supplierName'] ?? ''}',
+        };
+      }
     });
   }
 
@@ -1032,7 +1044,11 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
             e['receiptNo'] ?? '',
             e['supplierName'] ?? '',
             _fmtDt(e['date']),
+            _n(e['TotalQty'] ?? e['totalQty']),
+            _n(e['TotalVat'] ?? e['totalVat']),
             _n(e['grandTotal']),
+            _n(e['PaidAmount'] ?? e['paidAmount']),
+            _n(e['balanceDue']),
           ],
       if (_docKind != 1)
         for (final e in returns)
@@ -1041,7 +1057,11 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
             e['returnNo'] ?? '',
             e['supplierName'] ?? '',
             _fmtDt(e['date']),
-            _n(e['totalAmount']),
+            _n(e['TotalQty'] ?? e['totalQty']),
+            0,
+            _n(e['netAmount'] ?? e['totalAmount']),
+            _n(e['RefundReceived'] ?? e['refundReceived']),
+            _n(e['RefundDue'] ?? e['refundDue']),
           ],
     ];
     await PosReportExport.excel(
@@ -1050,32 +1070,43 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
       sheetName: 'Nhap hang',
       filePrefix: 'POS_NhapHang',
       periodLabel: _time.exportLabel,
-      filterLabel: const ['Tất cả', 'Phiếu nhập', 'Trả NCC'][_docKind],
-      headers: const ['Loại', 'Số phiếu', 'NCC', 'Ngày', 'Số tiền'],
+      filterLabel: [
+        const ['Tất cả', 'Phiếu nhập', 'Trả NCC'][_docKind],
+        if (_supplierId != null) 'NCC: ${_supplierOptions[_supplierId] ?? ''}',
+      ].join(' · '),
+      headers: const ['Loại', 'Số phiếu', 'NCC', 'Ngày', 'SL', 'VAT', 'Thành tiền', 'Đã trả / đã hoàn', 'Còn nợ / còn phải hoàn'],
       rows: rows,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final receipts = _maps(_data?['receipts']);
-    final returns = _maps(_data?['returns']);
+    final d = _data ?? const <String, dynamic>{};
+    final receipts = _maps(d['receipts']);
+    final returns = _maps(d['returns']);
+    final suppliers = _maps(d['bySupplier']);
+    final topProducts = _maps(d['topProducts']);
     final inDay = _sumByDay(receipts, 'date', (e) => _n(e['grandTotal']));
-    final bySupplier = <String, double>{};
-    for (final e in receipts) {
-      final k = e['supplierName']?.toString().trim().isNotEmpty == true ? e['supplierName'].toString() : 'Không rõ NCC';
-      bySupplier[k] = (bySupplier[k] ?? 0) + _n(e['grandTotal']);
-    }
+    final balanceDue = _n(d['balanceDue']);
     final insight = SboxInsightPanel(
       kpis: [
-        SboxKpi(label: 'Tiền nhập hàng', value: SboxFmt.money(_n(_data?['receiptAmount'])), icon: Icons.move_to_inbox_outlined,
-            note: '${_n(_data?['receiptCount']).toInt()} phiếu nhập'),
-        SboxKpi(label: 'Trả nhà cung cấp', value: SboxFmt.money(_n(_data?['returnAmount'])), icon: Icons.outbox_outlined, tone: SboxTone.warning,
-            note: '${_n(_data?['returnCount']).toInt()} phiếu trả'),
-        SboxKpi(label: 'Đã trả tiền NCC', value: SboxFmt.money(_n(_data?['paidInPeriod'])), icon: Icons.price_check_outlined, tone: SboxTone.success),
+        SboxKpi(label: 'Tiền nhập hàng', value: SboxFmt.money(_n(d['receiptAmount'])), icon: Icons.move_to_inbox_outlined,
+            note: '${_n(d['receiptCount']).toInt()} phiếu · VAT ${SboxFmt.money(_n(d['receiptVat']))}',
+            onTap: () => setState(() => _docKind = 1)),
+        // Giá trị NCC phải hoàn (sau chiết khấu phiếu trả) — trước đây lấy trước chiết khấu nên «nhập ròng» sai.
+        SboxKpi(label: 'Trả nhà cung cấp', value: SboxFmt.money(_n(d['returnAmount'])), icon: Icons.outbox_outlined, tone: SboxTone.warning,
+            note: '${_n(d['returnCount']).toInt()} phiếu · đã hoàn ${SboxFmt.money(_n(d['returnRefundReceived']))}',
+            onTap: () => setState(() => _docKind = 2)),
+        SboxKpi(
+            label: 'Còn nợ NCC (phiếu trong kỳ)',
+            value: SboxFmt.money(balanceDue),
+            icon: Icons.account_balance_wallet_outlined,
+            tone: balanceDue > 0 ? SboxTone.danger : SboxTone.success,
+            note: 'Đã trả ${SboxFmt.money(_n(d['paidOnReceipts']))}'
+                '${d['paidInPeriodBranchApprox'] == true ? '' : ' · chi NCC trong kỳ ${SboxFmt.money(_n(d['paidInPeriod']))}'}'),
         SboxKpi(
             label: 'Nhập ròng',
-            value: SboxFmt.money(_n(_data?['receiptAmount']) - _n(_data?['returnAmount'])),
+            value: SboxFmt.money(_n(d['netAmount'])),
             icon: Icons.inventory_outlined,
             tone: SboxTone.violet,
             note: 'Nhập − trả NCC'),
@@ -1088,19 +1119,48 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
         ),
         SboxChartCard(
           title: 'Theo nhà cung cấp',
-          child: SboxRankList(items: [for (final e in bySupplier.entries) SboxSlice(e.key, e.value)]),
+          child: SboxRankList(items: [
+            for (final e in suppliers)
+              SboxSlice('${e['supplierName'] ?? ''}', _n(e['amount']),
+                  caption: _n(e['balanceDue']) > 0 ? 'Còn nợ ${SboxFmt.money(_n(e['balanceDue']))}' : 'Đã trả đủ'),
+          ]),
         ),
       ],
     );
+
+    Widget more(int shown, int total, VoidCallback onMore) => shown >= total
+        ? const SizedBox.shrink()
+        : Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(onPressed: onMore, child: Text(tr('Xem thêm ${total - shown} phiếu'))),
+          );
+
     return PosReportMobileScaffold(
       title: 'Báo cáo nhập hàng',
       exportModule: 'PosReportPurchases',
       time: _time,
       pngKey: _pngKey,
-      filterBar: PosReportChipBar(
-        labels: const ['Tất cả', 'Phiếu nhập', 'Trả NCC'],
-        selected: _docKind,
-        onSelected: (i) => setState(() => _docKind = i),
+      filterBar: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          PosReportChipBar(
+            labels: const ['Tất cả', 'Phiếu nhập', 'Trả NCC'],
+            selected: _docKind,
+            onSelected: (i) => setState(() => _docKind = i),
+          ),
+          if (_supplierOptions.isNotEmpty)
+            SboxFilterChip<String>(
+              label: 'Nhà cung cấp',
+              value: _supplierId ?? '',
+              options: {'': 'Tất cả NCC', ..._supplierOptions},
+              onChanged: (v) {
+                setState(() => _supplierId = v.isEmpty ? null : v);
+                _load();
+              },
+            ),
+        ],
       ),
       onExportExcel: () => unawaited(_exportExcel(receipts, returns)),
       onExportPng: () => unawaited(PosReportExport.png(
@@ -1109,7 +1169,10 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
         filePrefix: 'POS_NhapHang',
       )),
       onTimeChanged: (s) async {
-        setState(() => _time = s);
+        setState(() {
+          _time = s;
+          _supplierId = null;
+        });
         await _load();
       },
       onRefresh: _load,
@@ -1119,88 +1182,92 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 insight,
-                PosReportCard(
-                  title: 'Tổng kỳ',
-                  child: Column(
-                    children: [
-                      PosReportMetricTiles(
-                        moneyFmt: _moneyFmt,
-                        onTileTap: (_) => PosReportOpen.purchases(context),
-                        tiles: [
-                          (
-                            label: 'Nhập',
-                            value: _n(_data?['receiptAmount']),
-                            color: PosTheme.kiotBlue,
-                          ),
-                          (
-                            label: 'Trả NCC',
-                            value: _n(_data?['returnAmount']),
-                            color: Colors.orange.shade800,
-                          ),
-                          (
-                            label: 'Đã trả tiền',
-                            value: _n(_data?['paidInPeriod']),
-                            color: SboxColors.successText,
+                if (_docKind != 2 && topProducts.isNotEmpty)
+                  PosReportCard(
+                    title: 'Mặt hàng nhập nhiều nhất',
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < topProducts.length && i < 10; i++) ...[
+                          if (i > 0) const Divider(height: 14),
+                          PosReportNavRow(
+                            onTap: () => PosReportOpen.productDetail(context, '${topProducts[i]['productId'] ?? ''}'),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('${topProducts[i]['productName'] ?? ''}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                      Text(
+                                        tr('${NumberFormat('#,##0.###', 'vi_VN').format(_n(topProducts[i]['qty']))} ${topProducts[i]['unitName'] ?? ''} · '
+                                            '${_n(topProducts[i]['receiptCount']).toInt()} phiếu'),
+                                        style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                PosReportMoneyLabel(_n(topProducts[i]['amount']), color: const Color(0xFF2B3437)),
+                              ],
+                            ),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        tr('${_n(_data?['receiptCount']).toInt()} phiếu nhập · ${_n(_data?['returnCount']).toInt()} phiếu trả'),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: PosTheme.textSecondary,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
                 if (_docKind != 2)
-                PosReportCard(
-                  title: 'Phiếu nhập',
-                  child: receipts.isEmpty
-                      ? const PosReportEmpty()
-                      : Column(
-                          children: [
-                            for (var i = 0; i < receipts.length && i < 40; i++) ...[
-                              if (i > 0) const Divider(height: 14),
-                              _docRow(
-                                receipts[i]['receiptNo']?.toString() ?? '—',
-                                receipts[i]['supplierName']?.toString() ?? '',
-                                receipts[i]['date'],
-                                _n(receipts[i]['grandTotal']),
-                                onTap: () => PosReportOpen.purchaseReceipt(
-                                  context,
-                                  '${receipts[i]['id'] ?? ''}',
+                  PosReportCard(
+                    title: 'Phiếu nhập (${receipts.length})',
+                    child: receipts.isEmpty
+                        ? const PosReportEmpty()
+                        : Column(
+                            children: [
+                              for (var i = 0; i < receipts.length && i < _showReceipts; i++) ...[
+                                if (i > 0) const Divider(height: 14),
+                                _docRow(
+                                  receipts[i]['receiptNo']?.toString() ?? '—',
+                                  receipts[i]['supplierName']?.toString() ?? '',
+                                  receipts[i]['date'],
+                                  _n(receipts[i]['grandTotal']),
+                                  due: _n(receipts[i]['balanceDue']),
+                                  onTap: () => PosReportOpen.purchaseReceipt(
+                                    context,
+                                    '${receipts[i]['id'] ?? receipts[i]['Id'] ?? ''}',
+                                  ),
                                 ),
-                              ),
+                              ],
+                              more(_showReceipts, receipts.length, () => setState(() => _showReceipts += 40)),
                             ],
-                          ],
-                        ),
-                ),
+                          ),
+                  ),
                 if (_docKind != 1)
-                PosReportCard(
-                  title: 'Phiếu trả NCC',
-                  child: returns.isEmpty
-                      ? const PosReportEmpty()
-                      : Column(
-                          children: [
-                            for (var i = 0; i < returns.length && i < 40; i++) ...[
-                              if (i > 0) const Divider(height: 14),
-                              _docRow(
-                                returns[i]['returnNo']?.toString() ?? '—',
-                                returns[i]['supplierName']?.toString() ?? '',
-                                returns[i]['date'],
-                                _n(returns[i]['totalAmount']),
-                                onTap: () => PosReportOpen.purchaseReturn(
-                                  context,
-                                  '${returns[i]['id'] ?? ''}',
+                  PosReportCard(
+                    title: 'Phiếu trả NCC (${returns.length})',
+                    child: returns.isEmpty
+                        ? const PosReportEmpty()
+                        : Column(
+                            children: [
+                              for (var i = 0; i < returns.length && i < _showReturns; i++) ...[
+                                if (i > 0) const Divider(height: 14),
+                                _docRow(
+                                  returns[i]['returnNo']?.toString() ?? '—',
+                                  returns[i]['supplierName']?.toString() ?? '',
+                                  returns[i]['date'],
+                                  _n(returns[i]['netAmount'] ?? returns[i]['totalAmount']),
+                                  due: _n(returns[i]['RefundDue'] ?? returns[i]['refundDue']),
+                                  dueLabel: 'NCC còn phải hoàn',
+                                  onTap: () => PosReportOpen.purchaseReturn(
+                                    context,
+                                    '${returns[i]['id'] ?? returns[i]['Id'] ?? ''}',
+                                  ),
                                 ),
-                              ),
+                              ],
+                              more(_showReturns, returns.length, () => setState(() => _showReturns += 40)),
                             ],
-                          ],
-                        ),
-                ),
+                          ),
+                  ),
               ],
             ),
     );
@@ -1211,6 +1278,8 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
     String name,
     dynamic date,
     double amount, {
+    double due = 0,
+    String dueLabel = 'Còn nợ',
     VoidCallback? onTap,
   }) {
     return PosReportNavRow(
@@ -1232,9 +1301,14 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
                   ),
                 ),
                 Text(
-                  tr([name, _fmtDt(date)].where((s) => s.isNotEmpty).join(' · ')),
+                  [name.isEmpty ? tr('Không chọn NCC') : name, _fmtDt(date)].where((s) => s.isNotEmpty).join(' · '),
                   style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
                 ),
+                if (due > 0)
+                  Text(
+                    tr('$dueLabel ${SboxFmt.money(due)}'),
+                    style: const TextStyle(fontSize: 12, color: SboxColors.dangerText),
+                  ),
               ],
             ),
           ),

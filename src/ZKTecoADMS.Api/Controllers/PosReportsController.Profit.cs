@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Controllers.Reports;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
@@ -279,42 +280,51 @@ public partial class PosReportsController
         }));
     }
 
-    /// <summary>Cháy / chậm / chết tồn theo kỳ bán.</summary>
+    /// <summary>
+    /// Sức khỏe kho theo tốc độ bán trong kỳ (mặc định 30 ngày gần nhất):
+    /// <list type="bullet">
+    /// <item>hot — có bán và hết hàng / dưới tối thiểu / chỉ đủ bán dưới <paramref name="hotDays"/> ngày;</item>
+    /// <item>slow — còn hàng, có bán nhưng đủ bán ≥ <paramref name="idleDays"/> ngày hoặc lần bán cuối đã ≥ idleDays ngày;</item>
+    /// <item>dead — còn hàng, không bán trong kỳ, nhập lần cuối đã quá idleDays ngày;</item>
+    /// <item>new — còn hàng, chưa bán nhưng mới nhập trong idleDays ngày (chưa đủ dữ liệu, không tính chết tồn).</item>
+    /// </list>
+    /// Trước đây: kỳ «tháng này» → đầu tháng gần như mọi hàng là chết tồn; «chậm» chỉ xét lần bán cuối nên hầu như
+    /// không bao giờ có; hàng vừa nhập hôm qua bị coi là chết tồn; không theo chi nhánh; giá trị biến thể sai.
+    /// </summary>
     [HttpGet("stock/health")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosReportStock", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetStockHealth(
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
         [FromQuery] string mode = "all",
-        [FromQuery] int idleDays = 30,
-        [FromQuery] int limit = 100,
-        [FromQuery] int? dayStartHour = null)
+        [FromQuery] int idleDays = 60,
+        [FromQuery] int limit = 300,
+        [FromQuery] int? dayStartHour = null,
+        [FromQuery] int hotDays = 7,
+        [FromQuery] string? search = null)
     {
         var storeId = RequiredStoreId;
         idleDays = Math.Clamp(idleDays, 7, 365);
-        limit = Math.Clamp(limit, 1, 200);
+        hotDays = Math.Clamp(hotDays, 1, 60);
+        limit = Math.Clamp(limit, 1, 1000);
         var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
         var (fromDt, toDt, fromVn, toVnEx) = ResolvePosRange(from, to, hour, defaultLookbackDays: 30);
-        var today = DateTime.UtcNow.Date;
+        var today = VnToday;
+        // Kỳ đang diễn ra (vd «tháng này»): tốc độ bán chia cho số ngày đã qua, không chia cả tháng.
+        var periodEnd = toVnEx > today.AddDays(1) ? today.AddDays(1) : toVnEx;
+        var periodDays = Math.Max(1, (int)Math.Ceiling((periodEnd - fromVn).TotalDays));
         var filter = (mode ?? "all").Trim().ToLowerInvariant();
+        var bctx = HttpContext.BranchContext();
 
-        var products = await StockTracked(dbContext.PosProducts.AsNoTracking()
-                .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive))
-            .Select(p => new
-            {
-                p.Id,
-                p.ProductCode,
-                p.Name,
-                p.OnHandQty,
-                p.MinStockQty,
-                p.MaxStockQty,
-                p.CostPrice,
-                p.BaseUnitName,
-                p.SupplierId,
-            })
-            .ToListAsync();
+        var stock = await LoadStockRowsAsync(storeId, search);
+        var ids = stock.Select(r => r.Id).ToList();
+        var createdAt = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => p.StoreId == storeId && ids.Contains(p.Id))
+            .Select(p => new { p.Id, p.CreatedAt })
+            .ToDictionaryAsync(p => p.Id, p => p.CreatedAt);
 
         var healthOrderIds = await dbContext.PosSaleOrders.AsNoTracking()
+            .ApplyBranchScope(bctx)
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
                         o.Status == PosSaleOrderStatus.Completed &&
                         (o.SaleDate ?? o.CreatedAt) >= fromDt &&
@@ -344,38 +354,39 @@ public partial class PosReportsController
                 .ToListAsync();
         var consumedMap = consumed.ToDictionary(x => x.ProductId);
 
-        var lastIn = await dbContext.PosStockReceiptLines.AsNoTracking()
-            .Where(l => l.StoreId == storeId && l.Deleted == null &&
-                        l.Receipt != null && l.Receipt.Deleted == null &&
-                        l.Receipt.Status == PosPurchaseReceiptStatus.Completed)
-            .GroupBy(l => l.ProductId)
-            .Select(g => new
-            {
-                ProductId = g.Key,
-                lastInboundAt = g.Max(x => x.Receipt!.ImportDate ?? x.Receipt.CreatedAt),
-            })
-            .ToListAsync();
-        var lastInMap = lastIn.ToDictionary(x => x.ProductId);
+        // Lần hàng vào kho gần nhất (nhập NCC, nhập khác, chuyển đến) — đúng chi nhánh đang xem.
+        var inboundTypes = new[]
+        {
+            PosStockTransactionType.StockIn, PosStockTransactionType.Purchase, PosStockTransactionType.TransferIn,
+        };
+        var lastInMap = await dbContext.PosStockTransactions.AsNoTracking()
+            .ApplyBranchScope(bctx)
+            .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive && t.QtyChange > 0 &&
+                        inboundTypes.Contains(t.TransactionType))
+            .GroupBy(t => t.ProductId)
+            .Select(g => new { ProductId = g.Key, At = g.Max(x => x.CreatedAt) })
+            .ToDictionaryAsync(x => x.ProductId, x => (DateTime?)x.At);
 
         var totalRevenue = sold.Sum(x => x.Revenue);
 
-        var rows = products.Select(p =>
+        var rows = stock.Select(p =>
         {
             soldMap.TryGetValue(p.Id, out var s);
             consumedMap.TryGetValue(p.Id, out var c);
-            lastInMap.TryGetValue(p.Id, out var inbound);
             var qtySold = Math.Max(s?.Qty ?? 0, c?.Qty ?? 0);
             DateTime? lastSold = s?.LastSoldAt;
             if (c?.LastAt is { } lastTx && (lastSold == null || lastTx > lastSold)) lastSold = lastTx;
-            var daysIdle = lastSold.HasValue
-                ? (int)(today - lastSold.Value.Date).TotalDays
-                : (int?)null;
+            var lastInbound = lastInMap.GetValueOrDefault(p.Id);
+            var sinceIn = lastInbound ?? createdAt.GetValueOrDefault(p.Id);
+            int? daysIdle = lastSold.HasValue ? (int)(today - lastSold.Value.AddHours(7).Date).TotalDays : null;
+            var avgDaily = qtySold > 0 ? qtySold / periodDays : 0m;
+            decimal? coverDays = avgDaily > 0 ? Math.Round(Math.Max(p.OnHandQty, 0) / avgDaily, 1) : null;
+            var isNew = sinceIn != default && (today - sinceIn.AddHours(7).Date).TotalDays < idleDays;
+
             string status;
-            if (p.OnHandQty <= 0 && qtySold > 0) status = "hot";
-            else if (p.MinStockQty > 0 && p.OnHandQty < p.MinStockQty && p.OnHandQty > 0 && qtySold > 0)
-                status = "hot";
-            else if (p.OnHandQty > 0 && qtySold == 0) status = "dead";
-            else if (p.OnHandQty > 0 && daysIdle.HasValue && daysIdle.Value >= idleDays) status = "slow";
+            if (qtySold > 0 && (p.Status is "OutOfStock" or "BelowMin" || coverDays < hotDays)) status = "hot";
+            else if (p.OnHandQty > 0 && qtySold <= 0) status = isNew ? "new" : "dead";
+            else if (p.OnHandQty > 0 && (coverDays >= idleDays || daysIdle >= idleDays)) status = "slow";
             else status = "ok";
 
             return new
@@ -383,50 +394,64 @@ public partial class PosReportsController
                 p.Id,
                 p.ProductCode,
                 p.Name,
+                p.CategoryName,
                 p.OnHandQty,
                 p.MinStockQty,
                 p.MaxStockQty,
                 p.BaseUnitName,
-                stockValue = p.OnHandQty * p.CostPrice,
+                p.CostPrice,
+                p.SupplierId,
+                stockValue = p.StockValue,
                 qtySold,
+                avgDailyQty = Math.Round(avgDaily, 2),
+                coverDays,
                 revenue = s?.Revenue ?? 0,
                 revenueSharePct = totalRevenue > 0
                     ? Math.Round((s?.Revenue ?? 0) / totalRevenue * 100, 1)
                     : 0m,
                 lastSoldAt = lastSold,
-                lastInboundAt = inbound?.lastInboundAt,
+                lastInboundAt = lastInbound,
                 daysIdle,
                 status,
             };
-        });
+        }).ToList();
 
         var filtered = filter switch
         {
-            "hot" => rows.Where(x => x.status == "hot"),
-            "slow" => rows.Where(x => x.status == "slow"),
-            "dead" => rows.Where(x => x.status == "dead"),
-            _ => rows.Where(x => x.status != "ok"),
+            "hot" or "slow" or "dead" or "new" => rows.Where(x => x.status == filter),
+            _ => rows.Where(x => x.status is "hot" or "slow" or "dead"),
         };
 
-        var items = (filter == "all"
-                ? filtered.OrderBy(x => x.status == "hot" ? 0 : x.status == "dead" ? 1 : 2)
-                    .ThenByDescending(x => x.stockValue)
-                : filter == "hot"
-                    ? filtered.OrderByDescending(x => x.qtySold)
-                    : filtered.OrderByDescending(x => x.stockValue))
-            .Take(limit)
-            .ToList();
+        var ordered = filter switch
+        {
+            "hot" => filtered.OrderBy(x => x.coverDays ?? 0).ThenByDescending(x => x.qtySold),
+            "all" => filtered.OrderBy(x => x.status == "hot" ? 0 : x.status == "dead" ? 1 : 2)
+                .ThenByDescending(x => x.stockValue),
+            _ => filtered.OrderByDescending(x => x.stockValue),
+        };
+        var list = ordered.ToList();
 
+        decimal ValueOf(string st) => rows.Where(x => x.status == st).Sum(x => x.stockValue);
         return Ok(AppResponse<object>.Success(new
         {
             from = fromVn.Date,
             to = toVnEx.AddDays(-1).Date,
+            periodDays,
             idleDays,
+            hotDays,
             mode = filter,
             hotCount = rows.Count(x => x.status == "hot"),
             slowCount = rows.Count(x => x.status == "slow"),
             deadCount = rows.Count(x => x.status == "dead"),
-            items,
+            newCount = rows.Count(x => x.status == "new"),
+            okCount = rows.Count(x => x.status == "ok"),
+            hotValue = ValueOf("hot"),
+            slowValue = ValueOf("slow"),
+            deadValue = ValueOf("dead"),
+            newValue = ValueOf("new"),
+            total = list.Count,
+            totalValue = list.Sum(x => x.stockValue),
+            items = list.Take(limit).ToList(),
         }));
     }
 

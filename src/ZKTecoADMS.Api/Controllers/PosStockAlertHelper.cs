@@ -37,7 +37,7 @@ internal static class PosStockAlertHelper
             .ToListAsync(ct);
         return rows
             .Select(r => (r, days: (r.Expiry.Date - today.Date).Days))
-            .Where(x => x.days < 0 || x.days <= Math.Max(1, x.r.Warn))
+            .Where(x => x.days < 0 || x.days <= PosReportsController.ExpiryWarnDays(x.r.Warn))
             .OrderBy(x => x.r.Expiry)
             .Select(x => new ExpiryLot(x.r.Id, x.r.ProductId, x.r.Name, x.r.LotNo, x.r.Expiry,
                 x.r.QtyOnHand, x.days, x.days < 0))

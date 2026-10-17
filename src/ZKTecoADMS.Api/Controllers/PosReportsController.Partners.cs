@@ -132,7 +132,10 @@ public partial class PosReportsController
         }));
     }
 
-    /// <summary>Nhập / trả NCC theo kỳ.</summary>
+    /// <summary>
+    /// Nhập / trả NCC theo kỳ. Trả NCC tính theo giá trị NCC phải hoàn (sau chiết khấu phiếu trả); tiền đã trả / còn nợ
+    /// tính trên chính các phiếu nhập trong kỳ; «chi trả NCC trong kỳ» (gồm trả nợ phiếu kỳ trước) để riêng.
+    /// </summary>
     [HttpGet("purchases/summary")]
     [RequireModulePermission("PosReportPurchases", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetPurchasesSummary(
@@ -170,6 +173,7 @@ public partial class PosReportsController
                 r.DiscountAmount,
                 r.PaidAmount,
                 grandTotal = r.TotalCost + r.TotalVat - r.DiscountAmount,
+                balanceDue = r.TotalCost + r.TotalVat - r.DiscountAmount - r.PaidAmount,
                 r.PurchaseOrderNo,
                 r.InputInvoiceNo,
                 status = r.Status.ToString(),
@@ -196,11 +200,51 @@ public partial class PosReportsController
                 r.TotalQty,
                 r.TotalAmount,
                 r.DiscountAmount,
+                netAmount = r.TotalAmount - r.DiscountAmount,
                 r.RefundDue,
                 r.RefundReceived,
                 status = r.Status.ToString(),
             })
             .ToListAsync();
+
+        // Mặt hàng nhập nhiều nhất trong kỳ (theo giá trị dòng).
+        var receiptIds = receipts.Select(r => r.Id).ToList();
+        var topProducts = (await dbContext.PosStockReceiptLines.AsNoTracking()
+                    .Where(l => l.StoreId == storeId && l.Deleted == null && receiptIds.Contains(l.ReceiptId))
+                    .GroupBy(l => new { l.ProductId, l.ProductName, l.ProductCode, l.UnitName })
+                    .Select(g => new
+                    {
+                        productId = g.Key.ProductId,
+                        productName = g.Key.ProductName,
+                        productCode = g.Key.ProductCode,
+                        unitName = g.Key.UnitName,
+                        qty = g.Sum(x => x.Qty),
+                        amount = g.Sum(x => x.LineTotal),
+                        receiptCount = g.Select(x => x.ReceiptId).Distinct().Count(),
+                    })
+                    .ToListAsync())
+                .OrderByDescending(x => x.amount)
+                .Take(30)
+                .ToList();
+
+        var bySupplier = receipts
+            .GroupBy(r => new { r.supplierId, name = r.supplierName ?? "" })
+            .Select(g =>
+            {
+                var ret = returns.Where(x => x.supplierId == g.Key.supplierId).Sum(x => x.netAmount);
+                return new
+                {
+                    supplierId = g.Key.supplierId,
+                    supplierName = string.IsNullOrWhiteSpace(g.Key.name) ? "Không chọn NCC" : g.Key.name,
+                    receiptCount = g.Count(),
+                    amount = g.Sum(x => x.grandTotal),
+                    returnAmount = ret,
+                    paid = g.Sum(x => x.PaidAmount),
+                    balanceDue = g.Sum(x => x.balanceDue),
+                };
+            })
+            .OrderByDescending(x => x.amount)
+            .ToList();
 
         var paidInPeriod = await dbContext.PosSupplierPayments.AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null &&
@@ -222,10 +266,22 @@ public partial class PosReportsController
             receiptQty = receipts.Sum(x => x.TotalQty),
             receiptAmount = receipts.Sum(x => x.grandTotal),
             receiptVat = receipts.Sum(x => x.TotalVat),
+            receiptDiscount = receipts.Sum(x => x.DiscountAmount),
+            // Đã trả / còn nợ trên các phiếu nhập trong kỳ (cùng một cách tính dù xem cả cửa hàng hay một chi nhánh).
+            paidOnReceipts = receipts.Sum(x => x.PaidAmount),
+            balanceDue = receipts.Sum(x => x.balanceDue),
+            // Tiền chi cho NCC trong kỳ (kể cả trả nợ phiếu kỳ trước); thanh toán NCC không gắn chi nhánh → khi lọc
+            // chi nhánh chỉ còn tiền trả trên phiếu của chi nhánh đó.
             paidInPeriod,
+            paidInPeriodBranchApprox = branchScoped,
             returnCount = returns.Count,
             returnQty = returns.Sum(x => x.TotalQty),
-            returnAmount = returns.Sum(x => x.TotalAmount),
+            returnAmount = returns.Sum(x => x.netAmount),
+            returnGrossAmount = returns.Sum(x => x.TotalAmount),
+            returnRefundReceived = returns.Sum(x => x.RefundReceived),
+            netAmount = receipts.Sum(x => x.grandTotal) - returns.Sum(x => x.netAmount),
+            topProducts,
+            bySupplier,
             receipts,
             returns,
         }));

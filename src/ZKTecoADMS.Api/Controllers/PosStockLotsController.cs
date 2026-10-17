@@ -85,13 +85,13 @@ public class PosStockLotsController(ZKTecoDbContext dbContext) : AuthenticatedCo
             })
             .ToListAsync();
 
-        var today = DateTime.UtcNow.Date;
+        var today = PosReportsController.VnToday;
         var items = rows.Select(r =>
         {
             int? daysUntil = r.ExpiryDate.HasValue
                 ? (int?)(r.ExpiryDate.Value.Date - today).TotalDays
                 : null;
-            var expiringSoon = daysUntil.HasValue && daysUntil.Value >= 0 && daysUntil.Value <= r.WarningDays;
+            var expiringSoon = daysUntil.HasValue && daysUntil.Value >= 0 && daysUntil.Value <= PosReportsController.ExpiryWarnDays(r.WarningDays);
             return new StockLotDto(
                 r.Id, r.ProductId, r.VariantId, r.ProductCode, r.ProductName,
                 r.LotNo, r.ManufactureDate, r.ExpiryDate,
@@ -107,7 +107,7 @@ public class PosStockLotsController(ZKTecoDbContext dbContext) : AuthenticatedCo
     public async Task<ActionResult<AppResponse<object>>> ExpiringSummary([FromQuery] int days = 30)
     {
         var storeId = RequiredStoreId;
-        var today = DateTime.UtcNow.Date;
+        var today = PosReportsController.VnToday;
 
         var activeLots = await dbContext.PosStockLots.AsNoTracking()
             .Include(l => l.Product)
@@ -162,7 +162,7 @@ public class PosStockLotsController(ZKTecoDbContext dbContext) : AuthenticatedCo
         Guid productId, [FromQuery] Guid? variantId)
     {
         var storeId = RequiredStoreId;
-        var today = DateTime.UtcNow.Date;
+        var today = PosReportsController.VnToday;
         var product = await dbContext.PosProducts.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == productId && p.StoreId == storeId && p.Deleted == null);
         if (product == null)
@@ -191,7 +191,7 @@ public class PosStockLotsController(ZKTecoDbContext dbContext) : AuthenticatedCo
             daysUntilExpiry = daysUntil,
             isExpired = daysUntil.HasValue && daysUntil.Value < 0,
             isExpiringSoon = daysUntil.HasValue && daysUntil.Value >= 0 &&
-                             daysUntil.Value <= product.ExpiryWarningDays,
+                             daysUntil.Value <= PosReportsController.ExpiryWarnDays(product.ExpiryWarningDays),
             lotCount = lots.Count,
             totalLotQty = lots.Sum(l => l.QtyOnHand),
         }));

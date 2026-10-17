@@ -18192,10 +18192,19 @@ class ApiService implements PayrollApi {
     DateTime? from,
     DateTime? to,
     String mode = 'all',
-    int idleDays = 30,
+    int idleDays = 60,
+    int hotDays = 7,
+    int limit = 300,
+    String? search,
   }) async {
     try {
-      final q = <String, String>{'mode': mode, 'idleDays': '$idleDays', 'limit': '100'};
+      final q = <String, String>{
+        'mode': mode,
+        'idleDays': '$idleDays',
+        'hotDays': '$hotDays',
+        'limit': '$limit',
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+      };
       if (from != null) q['from'] = from.toIso8601String();
       if (to != null) q['to'] = to.toIso8601String();
       final uri = Uri.parse('$baseUrl/api/pos/reports/stock/health')
@@ -18250,9 +18259,11 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> getPosPurchasesReport({
     DateTime? from,
     DateTime? to,
+    String? supplierId,
   }) async {
     try {
       final q = <String, String>{};
+      if (supplierId != null && supplierId.isNotEmpty) q['supplierId'] = supplierId;
       if (from != null) q['from'] = from.toIso8601String();
       if (to != null) q['to'] = to.toIso8601String();
       final uri = Uri.parse('$baseUrl/api/pos/reports/purchases/summary')
@@ -18986,11 +18997,13 @@ class ApiService implements PayrollApi {
     String? filter,
     int page = 1,
     int pageSize = 50,
+    String? sort,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (filter != null && filter.isNotEmpty) q['filter'] = filter;
+      if (sort != null && sort.isNotEmpty) q['sort'] = sort;
       final uri = Uri.parse('$baseUrl/api/pos/reports/stock/products')
           .replace(queryParameters: q);
       final response =
@@ -19062,9 +19075,10 @@ class ApiService implements PayrollApi {
     }
   }
 
-  Future<Map<String, dynamic>> exportPosStockReportExcel({String? search}) async {
+  Future<Map<String, dynamic>> exportPosStockReportExcel({String? search, String? filter}) async {
     final q = <String, String>{};
     if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+    if (filter != null && filter.isNotEmpty) q['filter'] = filter;
     return _getExcelExport(
       Uri.parse('$baseUrl/api/pos/reports/stock/export/excel')
           .replace(queryParameters: q.isEmpty ? null : q),
