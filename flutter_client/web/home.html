@@ -184,6 +184,9 @@
     ]
   }
   </script>
+  <script>/* Chrome < 79 (Sunmi T1): không có clamp() → bật CSS dự phòng html.legacy-css */
+  try { if (!(window.CSS && CSS.supports && CSS.supports('width', 'clamp(1px, 1px, 1px)'))) document.documentElement.className += ' legacy-css'; }
+  catch (e) { document.documentElement.className += ' legacy-css'; }</script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
@@ -1641,6 +1644,84 @@
     .download-section { display: none !important; }
 
     .site-footer a:hover { color: #94D0EA; }
+
+    /* ── Trình duyệt cũ (Chrome < 79, vd Chrome 56 trên Sunmi T1 Android 6) ──────────────
+       Không có clamp()/min(), CSS Grid (< 57), gap cho flex (< 84), inset, aspect-ratio →
+       lề về 0, lưới xếp chồng, số liệu dính nhau. Lớp html.legacy-css do script đầu trang gắn. */
+    html.legacy-css { --pad-x: 32px; }
+    html.legacy-css .hero h1 { font-size: 40px; }
+    html.legacy-css .section-title { font-size: 34px; }
+    html.legacy-css .showcase-text h3 { font-size: 28px; }
+    html.legacy-css .support-contact .sf-head h2 { font-size: 26px; }
+    html.legacy-css .pos-hero-banner h1.pos-headline { font-size: 48px; }
+    html.legacy-css .pos-subhead { font-size: 22px !important; }
+    html.legacy-css .showcase-img { width: 300px; }
+    html.legacy-css[data-site="pos"] .showcase-img { width: 240px; }
+    html.legacy-css .hero-float-att { width: 52%; max-width: 240px; }
+    html.legacy-css .pos-term { width: 100%; max-width: 560px; }
+    html.legacy-css .hero::before, html.legacy-css .pos-hero-orbs, html.legacy-css .lightbox,
+    html.legacy-css .video-frame iframe, html.legacy-css .video-frame .video-fallback {
+      top: 0; right: 0; bottom: 0; left: 0;
+    }
+    html.legacy-css .hero-visual-glow { top: -12%; right: -8%; }
+    html.legacy-css .video-frame { height: 0; padding-top: 56.25%; }
+
+    /* Lưới → flex xuống dòng (mỗi ô có bề rộng tối thiểu, tự chia cột theo màn hình). */
+    html.legacy-css .hero-inner, html.legacy-css .support-layout, html.legacy-css .contact-grid,
+    html.legacy-css .features-grid, html.legacy-css .tablet-grid, html.legacy-css .videos-grid,
+    html.legacy-css .pricing-grid, html.legacy-css .devices-grid, html.legacy-css .platforms-grid,
+    html.legacy-css .tools-grid, html.legacy-css .footer-grid, html.legacy-css .models-grid,
+    html.legacy-css .pos-hero-body, html.legacy-css .pos-feat-grid, html.legacy-css .industry-grid,
+    html.legacy-css .pos-hero-bar, html.legacy-css #articles-grid, html.legacy-css .sol-grid {
+      display: -webkit-flex !important; display: flex !important;
+      -webkit-flex-wrap: wrap; flex-wrap: wrap; -webkit-align-items: stretch; align-items: stretch;
+    }
+    html.legacy-css .hero-inner { -webkit-align-items: center; align-items: center; }
+    html.legacy-css .hero-inner > *, html.legacy-css .support-layout > *, html.legacy-css .tablet-grid > *,
+    html.legacy-css .videos-grid > *, html.legacy-css .pos-hero-body > * { -webkit-flex: 1 1 420px; flex: 1 1 420px; min-width: 0; margin: 0 14px 28px; }
+    html.legacy-css .contact-grid > * { -webkit-flex: 1 1 240px; flex: 1 1 240px; min-width: 0; margin: 0 8px 16px; }
+    html.legacy-css .features-grid > *, html.legacy-css #articles-grid > * { -webkit-flex: 1 1 280px; flex: 1 1 280px; min-width: 0; margin: 0 10px 20px; }
+    html.legacy-css .sol-grid > * { -webkit-flex: 1 1 300px; flex: 1 1 300px; min-width: 0; margin: 0 8px 16px; }
+    html.legacy-css .pricing-grid > *, html.legacy-css .devices-grid > * { -webkit-flex: 1 1 260px; flex: 1 1 260px; min-width: 0; margin: 0 9px 18px; }
+    html.legacy-css .platforms-grid > *, html.legacy-css .models-grid > * { -webkit-flex: 1 1 300px; flex: 1 1 300px; min-width: 0; margin: 0 10px 20px; }
+    html.legacy-css .tools-grid > * { -webkit-flex: 1 1 220px; flex: 1 1 220px; min-width: 0; margin: 0 6px 12px; }
+    html.legacy-css .footer-grid > * { -webkit-flex: 1 1 200px; flex: 1 1 200px; min-width: 0; margin: 0 16px 24px; }
+    html.legacy-css .footer-grid > *:first-child { -webkit-flex-grow: 1.4; flex-grow: 1.4; }
+    html.legacy-css .pos-feat-grid > * { -webkit-flex: 1 1 150px; flex: 1 1 150px; min-width: 0; margin: 0 5px 10px; }
+    html.legacy-css .industry-grid > * { -webkit-flex: 1 1 180px; flex: 1 1 180px; min-width: 0; margin: 0 7px 14px; }
+    html.legacy-css .pos-hero-bar > * { -webkit-flex: 1 1 200px; flex: 1 1 200px; min-width: 0; }
+    /* Lưới một cột (gap dọc) */
+    html.legacy-css .faq-list > * + *, html.legacy-css .contact-stack > * + *,
+    html.legacy-css .nav-drawer-actions > * + * { margin-top: 10px; }
+    html.legacy-css .nav-drawer-actions a { display: block; }
+
+    /* gap của flex → margin */
+    html.legacy-css .hero-stats > * { margin-right: 28px; }
+    html.legacy-css .hero-stats > *:last-child { margin-right: 0; }
+    html.legacy-css .hero-btns > *, html.legacy-css .pos-hero-cta > *, html.legacy-css .showcase-pills > *,
+    html.legacy-css .devices-foot > *, html.legacy-css .contact-actions > *, html.legacy-css .model-card .mc-tags > *,
+    html.legacy-css .support-cta-bar .scb-btns > *, html.legacy-css .device-card .dc-price-row > * { margin: 0 10px 10px 0; }
+    html.legacy-css .stats-inner > * { margin: 0 12px 16px; }
+    html.legacy-css .nav-logo > * + *, html.legacy-css .nav-cta-wrap > * + *, html.legacy-css .hero-brand > * + *,
+    html.legacy-css .contact-row > * + *, html.legacy-css .mobile-cta-bar > * + *, html.legacy-css .hero-float-att .hf-row > * + *,
+    html.legacy-css .faq-list summary > * + * { margin-left: 10px; }
+    html.legacy-css .nav-links > li + li { margin-left: 2px; }
+    html.legacy-css .support-cta-bar > * + * { margin-left: 20px; }
+    html.legacy-css .footer-bottom > * { margin-right: 12px; }
+    html.legacy-css .m-dots > * + *, html.legacy-css .ph-bars > * + * { margin-left: 5px; }
+    html.legacy-css .showcase > * + * { margin-left: 56px; }
+    html.legacy-css .platform-card > * + *, html.legacy-css .model-card > * + * { margin-top: 10px; }
+    html.legacy-css .tool-card > * + * { margin-top: 6px; }
+    html.legacy-css .pos-float-badge > * + * { margin-top: 2px; }
+    @media (max-width: 900px) {
+      html.legacy-css { --pad-x: 16px; }
+      html.legacy-css .hero h1 { font-size: 30px; }
+      html.legacy-css .section-title { font-size: 26px; }
+      html.legacy-css .showcase > * + * { margin-left: 0; margin-top: 24px; }
+      html.legacy-css .showcase-img { width: 100%; max-width: 320px; }
+    }
+    html.legacy-css .lap-dat-photos { display: -webkit-flex !important; display: flex !important; -webkit-flex-wrap: wrap; flex-wrap: wrap; }
+    html.legacy-css .lap-dat-photos > * { -webkit-flex: 1 1 150px; flex: 1 1 150px; min-width: 0; max-width: 220px; margin: 0 6px 12px; }
   </style>
 </head>
 <body>
@@ -1660,7 +1741,7 @@
     <li class="nav-extra"><a href="#screenshots">Giao diện</a></li>
     <li class="nav-extra"><a href="#devices">Thiết bị</a></li>
     <li><a href="#pricing">Gói dịch vụ</a></li>
-    <li class="site-pos-feature"><a href="#downloads">Tải app</a></li>
+    <li><a href="#downloads">Tải app</a></li>
     <li class="nav-extra site-hrm-nav"><a href="#platforms">Nền tảng</a></li>
     <li class="nav-extra site-hrm-nav"><a href="#videos">Video</a></li>
     <li class="site-hrm-nav"><a href="/guide.html">Hướng dẫn</a></li>
@@ -1682,7 +1763,7 @@
   <a href="#screenshots" class="nav-drawer-link">Giao diện</a>
   <a href="#devices" class="nav-drawer-link">Thiết bị</a>
   <a href="#pricing" class="nav-drawer-link">Gói dịch vụ</a>
-  <a href="#downloads" class="nav-drawer-link site-pos-feature">Tải app</a>
+  <a href="#downloads" class="nav-drawer-link">Tải app</a>
   <a href="#platforms" class="nav-drawer-link site-hrm-nav">Nền tảng</a>
   <a href="#videos" class="nav-drawer-link site-hrm-nav">Video</a>
   <a href="/guide.html" class="nav-drawer-link site-hrm-nav">Hướng dẫn</a>
@@ -2480,7 +2561,7 @@
         <div class="pf-note">Hoặc <a href="https://play.google.com/store/apps/details?id=sbox.sana.vn" target="_blank" rel="noopener noreferrer">Google Play (HRM)</a></div>
       </article>
       <article class="platform-card">
-        <div class="pf-icon" aria-hidden="true"></div>
+        <div class="pf-icon" aria-hidden="true">📱</div>
         <h3>iOS</h3>
         <p class="pf-sub">Ứng dụng iPhone/iPad cho nhân viên và quản lý — cùng nghiệp vụ chấm công, phép, phê duyệt như Android.</p>
         <ul>
@@ -3093,7 +3174,7 @@
       }
       window.__landingDownloads = downloads.slice();
       renderDownloads(window.__landingDownloads);
-      if (!isPosSite()) enrichHrmAndroidDownload();
+      if (!isPosSite()) { enrichHrmAndroidDownload(); enrichPosT1Download(); }
       if (isPosSite()) {
         applySiteVariant();
         applyContact(data);
@@ -3184,7 +3265,7 @@
       if (btn) btn.href = apk;
       var card = {
         title: 'APK SBOX HRM (Android)',
-        desc: 'Cài thủ công khi không dùng được Google Play — chấm công, duyệt đơn, phiếu lương',
+        desc: 'Điện thoại / máy C20Lite Android 7.0 trở lên — chấm công, duyệt đơn, phiếu lương. Máy thu ngân Sunmi T1 (Android 6) dùng APK SBOX POS bên cạnh.',
         version: 'Android',
         badge: 'APK',
         platform: 'android',
@@ -3206,6 +3287,44 @@
           card.url = path;
           if (btn) btn.href = path;
           patchDownloadCard(isHrmApk, card);
+        })
+        .catch(function () {});
+    }
+
+    /**
+     * HRM: thẻ APK SBOX POS cho máy thu ngân Sunmi T1 (A6, Android 6). APK HRM cần Android 7.0 →
+     * T1 cài nhầm sẽ báo «lỗi phân tích cú pháp gói». Bản POS trên sboxhrm.com dùng dữ liệu server này.
+     */
+    function enrichPosT1Download() {
+      var card = {
+        title: 'APK SBOX POS — máy thu ngân Sunmi T1',
+        desc: 'Máy bán hàng Android 6 trở lên (Sunmi T1 / A6): thu ngân, in hóa đơn, màn hình phụ khách',
+        version: 'Android 6+',
+        badge: 'APK',
+        platform: 'android',
+        url: '/api/app/pos-android-apk'
+      };
+      function isPosApk(it) { return String(it.url || '').indexOf('pos-android-apk') >= 0; }
+      function put() {
+        var list = Array.isArray(window.__landingDownloads) ? window.__landingDownloads.slice() : [];
+        var idx = -1;
+        for (var i = 0; i < list.length; i++) { if (isPosApk(list[i])) { idx = i; break; } }
+        if (idx >= 0) list[idx] = card;
+        else list.splice(Math.min(1, list.length), 0, card);
+        window.__landingDownloads = list;
+        renderDownloads(list);
+      }
+      put();
+      fetch('/api/app/pos-android-release', { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (body) {
+          var data = body && (body.data || body.Data || body);
+          if (!data || !(data.versionName || data.VersionName)) return;
+          var code = data.versionCode || data.VersionCode || '';
+          var published = formatVnDate(data.publishedAt || data.PublishedAt);
+          card.version = 'v' + (data.versionName || data.VersionName) + (code ? ' (' + code + ')' : '') +
+            ' · Android 6+' + (published ? ' · Xuất bản ' + published : '');
+          put();
         })
         .catch(function () {});
     }

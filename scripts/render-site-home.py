@@ -186,7 +186,7 @@ LOCAL_SECTION = """
   <div style="max-width:1120px;margin:0 auto">
     <h2 class="section-title">Lắp đặt máy chấm công vân tay, khuôn mặt toàn quốc</h2>
     <p style="color:#475569;margin:6px 0 8px">Cung cấp máy chấm công ZKTeco giá tốt, <strong>miễn phí lắp đặt</strong> tận nơi và <strong>tặng phần mềm chấm công</strong> SBOX HRM khi mua máy — hoặc chấm công qua điện thoại không cần mua máy.</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin:0 0 18px">{photos}</div>
+    <div class="lap-dat-photos" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin:0 0 18px">{photos}</div>
     <p style="margin:0 0 18px"><a href="/lap-dat-may-cham-cong" style="font-weight:700">Xem dịch vụ lắp đặt & nhận báo giá →</a></p>
     <details class="local-more desk-open"><summary>Xem 34 tỉnh, thành có lắp đặt tận nơi</summary>
     {groups}
