@@ -450,7 +450,9 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
         Guid BranchId, string Code, string Name, bool IsHeadquarter,
         decimal Revenue, int Orders, decimal AvgOrder, decimal Refunds, decimal Cogs, decimal GrossProfit, decimal GrossMarginPct,
         decimal OtherIncome, decimal Expenses, decimal Payroll, decimal NetProfit,
-        decimal StockValue, int Employees);
+        decimal StockValue, int Employees,
+        decimal SurchargeIncome = 0, decimal DeliveryFeeIncome = 0, decimal CarrierCost = 0,
+        decimal Depreciation = 0, decimal ForfeitedDeposits = 0);
 
     /// <summary>So sánh các chi nhánh: doanh thu, lợi nhuận gộp, chi phí, lương, lợi nhuận ròng, tồn kho, nhân sự.</summary>
     [HttpGet("reports/compare")]
@@ -617,7 +619,8 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
     ///  Doanh thu = Σ (tổng đơn − VAT) đơn hoàn tất; giá vốn = thẻ kho bán; lãi gộp = doanh thu − trả hàng − giá vốn.
     ///  Thu khác / chi phí = phiếu thu chi hoàn tất KHÔNG do POS tự sinh (bán, nhập, trả…) và không phải phiếu lương.
     ///  Lương = tổng lương gộp các phiếu lương (không hủy) của NV thuộc chi nhánh, tháng nằm trong kỳ.
-    ///  Lãi ròng = lãi gộp + thu khác − chi phí − lương.
+    ///  Phụ thu, phí giao hàng thu khách − cước hãng; khấu hao tài sản; cọc khách bỏ — như Kết quả kinh doanh (PosPnlExtras).
+    ///  Lãi ròng = lãi gộp + phụ thu, phí GH − cước hãng − khấu hao + cọc khách bỏ + thu khác − chi phí − lương.
     /// </summary>
     private async Task<List<BranchKpiDto>> ComputeKpisAsync(
         Guid storeId, List<BranchStockService.BranchInfo> branches,
@@ -635,6 +638,13 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
         var orderIds = orders.Select(o => o.Id).ToList();
         var cogs = await PosReportMoney.CogsByOrderAsync(db, storeId, orderIds);
         var orderBranch = orders.ToDictionary(o => o.Id, o => o.B);
+
+        // Phụ thu / phí giao hàng / cước hãng: đơn trong kỳ mọi trạng thái (đơn hoàn vẫn mất cước).
+        var ship = await PosPnlExtras.ShippingRowsAsync(db.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId && o.Deleted == null &&
+                        (o.SaleDate ?? o.CreatedAt) >= fromUtc && (o.SaleDate ?? o.CreatedAt) < toUtc &&
+                        ids.Contains(o.BranchId ?? hq)), hq);
+        var depreciation = await PosPnlExtras.DepreciationByBranchAsync(db, storeId, fromUtc, toUtc, hq);
 
         // Phiếu thu chi lưu giờ VN (TransactionDate) → khung giờ VN cùng giờ cắt ngày.
         var cashFrom = fromUtc.AddHours(7);
@@ -708,12 +718,22 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
                 source is CashSources.Payslip or CashSources.Advance
                 || note.StartsWith("phiếu lương #", StringComparison.OrdinalIgnoreCase);
             var refunds = bo.Sum(o => returned.TryGetValue(o.Id, out var r) ? r.Refund : 0);
+            // Cọc khách bỏ: phiếu thu cọc (ghi chú POS) chuyển sang «Mất cọc đặt chỗ» — trước đây bị bỏ vì coi là tiền giữ hộ.
+            var forfeited = bc.Where(c => c.Type == CashTransactionType.Income && c.Category == PosPnlExtras.ForfeitedDepositCategory)
+                .Sum(c => c.Amount);
             var tripRefund = bc.Where(c => c.Type == CashTransactionType.Income && c.Source == CashSources.TripRefund).Sum(c => c.Amount);
             var otherIncome = bc.Where(c => c.Type == CashTransactionType.Income && c.Source != CashSources.TripRefund
+                                            && c.Category != PosPnlExtras.ForfeitedDepositCategory
                                             && !IsPos(c.Note, c.Source, c.Category) && !IsPayroll(c.Note, c.Source)).Sum(c => c.Amount);
-            var expenses = bc.Where(c => c.Type == CashTransactionType.Expense
+            // Mua tài sản không tính chi phí trong kỳ (đã vào khấu hao).
+            var expenses = bc.Where(c => c.Type == CashTransactionType.Expense && c.Category != PosPnlExtras.AssetPurchaseCategory
                                          && !IsPos(c.Note, c.Source, c.Category) && !IsPayroll(c.Note, c.Source)).Sum(c => c.Amount)
                            - tripRefund;
+            var bs = ship.Where(x => x.Branch == b.Id).ToList();
+            var surcharge = bs.Sum(x => x.Surcharge);
+            var deliveryFee = bs.Sum(x => x.DeliveryFee);
+            var carrier = bs.Sum(x => x.CarrierCost);
+            var dep = depreciation.GetValueOrDefault(b.Id);
             var payroll = Math.Round(payslips.Where(p => (p.EmpBranch ?? hq) == b.Id && months.Contains((p.Year, p.Month)))
                 .Sum(p => p.GrossSalary * monthShare[(p.Year, p.Month)]), 0);
             // Lãi gộp = doanh thu thuần − giá vốn thuần (như báo cáo Lãi lỗ; trước đây trừ thêm tiền hoàn → trừ 2 lần).
@@ -722,8 +742,10 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
                 b.Id, b.Code, b.Name, b.IsHeadquarter,
                 revenue, bo.Count, bo.Count == 0 ? 0 : Math.Round(revenue / bo.Count, 0), refunds, cg, gross,
                 revenue > 0 ? Math.Round(gross / revenue * 100, 1) : 0,
-                otherIncome, expenses, payroll, gross + otherIncome - expenses - payroll,
-                stockValue.GetValueOrDefault(b.Id), empCounts.GetValueOrDefault(b.Id)));
+                otherIncome, expenses, payroll,
+                gross + surcharge + deliveryFee - carrier - dep + forfeited + otherIncome - expenses - payroll,
+                stockValue.GetValueOrDefault(b.Id), empCounts.GetValueOrDefault(b.Id),
+                surcharge, deliveryFee, carrier, dep, forfeited));
         }
         return result;
     }
@@ -745,6 +767,11 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
             otherIncome = k.Sum(x => x.OtherIncome),
             expenses = k.Sum(x => x.Expenses),
             payroll = k.Sum(x => x.Payroll),
+            surchargeIncome = k.Sum(x => x.SurchargeIncome),
+            deliveryFeeIncome = k.Sum(x => x.DeliveryFeeIncome),
+            carrierCost = k.Sum(x => x.CarrierCost),
+            depreciation = k.Sum(x => x.Depreciation),
+            forfeitedDeposits = k.Sum(x => x.ForfeitedDeposits),
             netProfit = k.Sum(x => x.NetProfit),
             stockValue = k.Sum(x => x.StockValue),
             employees = k.Sum(x => x.Employees),

@@ -2945,13 +2945,37 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
   Widget build(BuildContext context) {
     final net = _n(_data?['netProfit']);
     final expCats = _maps(_data?['expenseByCategory']);
+    final shipIncome = _n(_data?['surchargeIncome']) + _n(_data?['deliveryFeeIncome']);
+    final carrier = _n(_data?['carrierCost']);
+    final depreciation = _n(_data?['depreciation']);
+    final forfeited = _n(_data?['forfeitedDeposits']);
+    final allCosts = _n(_data?['expenses']) + _n(_data?['inventoryLoss']) + carrier + depreciation;
+    final costParts = [
+      if (_n(_data?['inventoryLoss']) != 0) 'hao hụt kho ${SboxFmt.money(_n(_data?['inventoryLoss']))}',
+      if (carrier != 0) 'cước hãng ${SboxFmt.money(carrier)}',
+      if (depreciation != 0) 'khấu hao ${SboxFmt.money(depreciation)}',
+    ];
+    // Các bước từ doanh thu tới lãi ròng; khoản bằng 0 (cửa hàng không dùng) thì ẩn cho gọn.
+    final steps = <(String, double)>[
+      ('Doanh thu', _n(_data?['revenue'])),
+      ('Giá vốn', _n(_data?['cogs'])),
+      ('LN gộp', _n(_data?['grossProfit'])),
+      if (_n(_data?['inventoryLoss']) != 0) ('Hao hụt kho', _n(_data?['inventoryLoss'])),
+      if (shipIncome != 0) ('Phụ thu, phí GH', shipIncome),
+      if (carrier != 0) ('Cước hãng', carrier),
+      if (depreciation != 0) ('Khấu hao', depreciation),
+      ('Chi phí', _n(_data?['expenses'])),
+      if (forfeited != 0) ('Cọc khách bỏ', forfeited),
+      ('Thu khác', _n(_data?['otherIncome'])),
+      ('LN ròng', net),
+    ];
     final insight = SboxInsightPanel(
       kpis: [
         SboxKpi(label: 'Doanh thu', value: SboxFmt.money(_n(_data?['revenue'])), icon: Icons.payments_outlined,
             note: '${_n(_data?['orderCount']).toInt()} hóa đơn'),
         SboxKpi(label: 'Lợi nhuận gộp', value: SboxFmt.money(_n(_data?['grossProfit'])), icon: Icons.trending_up_rounded, tone: SboxTone.success),
-        SboxKpi(label: 'Chi phí', value: SboxFmt.money(_n(_data?['expenses']) + _n(_data?['inventoryLoss'])), icon: Icons.money_off_csred_outlined, tone: SboxTone.warning,
-            note: _n(_data?['inventoryLoss']) != 0 ? 'Gồm hao hụt kho ${SboxFmt.money(_n(_data?['inventoryLoss']))}' : null),
+        SboxKpi(label: 'Chi phí', value: SboxFmt.money(allCosts), icon: Icons.money_off_csred_outlined, tone: SboxTone.warning,
+            note: costParts.isEmpty ? null : 'Gồm ${costParts.join(', ')}'),
         SboxKpi(label: 'Lợi nhuận ròng', value: SboxFmt.money(net), icon: Icons.savings_outlined, tone: net < 0 ? SboxTone.danger : SboxTone.success,
             note: 'Biên lãi ròng ${SboxFmt.pct(_n(_data?['netMarginPct']))}'),
       ],
@@ -2960,17 +2984,9 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
           title: 'Từ doanh thu đến lợi nhuận ròng',
           subtitle: _time.displayLabel,
           child: SboxBarChart(
-            labels: const ['Doanh thu', 'Giá vốn', 'LN gộp', 'Hao hụt kho', 'Chi phí', 'Thu khác', 'LN ròng'],
+            labels: [for (final s in steps) s.$1],
             series: [
-              SboxSeries(name: 'Số tiền', values: [
-                _n(_data?['revenue']),
-                _n(_data?['cogs']),
-                _n(_data?['grossProfit']),
-                _n(_data?['inventoryLoss']),
-                _n(_data?['expenses']),
-                _n(_data?['otherIncome']),
-                net,
-              ]),
+              SboxSeries(name: 'Số tiền', values: [for (final s in steps) s.$2]),
             ],
           ),
         ),
@@ -3003,10 +3019,15 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
           'Giảm giá: ${_n(_data?['discount'])}',
           'Giá vốn: ${_n(_data?['cogs'])}',
           'LN gộp: ${_n(_data?['grossProfit'])}',
+          'Phụ thu, phí giao hàng thu khách: $shipIncome',
+          'Cước hãng vận chuyển: $carrier',
+          'Khấu hao tài sản: $depreciation',
           'Chi phí: ${_n(_data?['expenses'])}',
+          'Cọc khách bỏ: $forfeited',
           'Thu nhập khác: ${_n(_data?['otherIncome'])}',
           'LN ròng: $net',
-          'Biên %: ${_n(_data?['marginPct'])}',
+          'Biên lãi gộp %: ${_n(_data?['marginPct'])}',
+          'Biên lãi ròng %: ${_n(_data?['netMarginPct'])}',
           'Số HĐ: $_orderTotal',
           'Phiếu chi: ${_expenses.length}',
         ],
@@ -3081,7 +3102,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        tr('LN ròng: ${posReportMoney(net)}  ·  biên ${_n(_data?['marginPct']).toStringAsFixed(1)}%  ·  ${_n(_data?['orderCount']).toInt()} HĐ'),
+                        tr('LN ròng: ${posReportMoney(net)}  ·  biên lãi ròng ${_n(_data?['netMarginPct']).toStringAsFixed(1).replaceAll('.', ',')}%  ·  ${_n(_data?['orderCount']).toInt()} HĐ'),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -3098,7 +3119,8 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                 if ((_data?['lines'] as List?)?.isNotEmpty == true)
                   PosReportCard(
                     title: 'Báo cáo kết quả kinh doanh',
-                    subtitle: 'Doanh thu thuần = tiền hàng (chưa VAT) − hàng khách trả',
+                    subtitle: 'Doanh thu thuần = tiền hàng (chưa VAT) − hàng khách trả. Phụ thu, phí giao hàng, cước hãng, '
+                        'khấu hao, cọc khách bỏ tính riêng bên dưới.',
                     child: Column(
                       children: [
                         for (final l in (_data!['lines'] as List).whereType<Map>())
@@ -3147,7 +3169,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                     (_data?['otherIncomeByCategory'] as List?)?.isNotEmpty == true)
                   PosReportCard(
                     title: 'Chi phí & thu nhập khác theo khoản mục',
-                    subtitle: 'Từ sổ quỹ — không gồm nhập hàng, tiền bán hàng, cọc, trả hàng',
+                    subtitle: 'Từ sổ quỹ — không gồm nhập hàng, tiền bán hàng, cọc, trả hàng, mua tài sản (đã tính khấu hao)',
                     child: Column(
                       children: [
                         for (final c in ((_data?['expenseByCategory'] as List?) ?? const [])

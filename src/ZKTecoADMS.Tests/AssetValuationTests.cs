@@ -40,4 +40,24 @@ public class AssetValuationTests
     [InlineData(AssetStatus.Lost)]
     public void Thanh_ly_hoac_mat_gia_tri_bang_0(AssetStatus status) =>
         Assert.Equal(0m, AssetValuation.UnitBookValue(new Asset { PurchasePrice = 1_000_000, Status = status }, Now));
+
+    [Fact]
+    public void Khau_hao_trong_ky_theo_so_ngay()
+    {
+        // 36,5 triệu, 100%/năm → 100.000 đ/ngày; 2 cái.
+        var bought = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var a = new Asset { PurchasePrice = 36_500_000, DepreciationRate = 100, PurchaseDate = bought, Quantity = 2, Status = AssetStatus.Active };
+        Assert.Equal(6_200_000m, AssetValuation.PeriodDepreciation(a, new DateTime(2026, 10, 1), new DateTime(2026, 11, 1)));
+        // Kỳ bắt đầu trước ngày mua: chỉ tính từ ngày mua.
+        Assert.Equal(200_000m, AssetValuation.PeriodDepreciation(a, new DateTime(2025, 12, 1), bought.AddDays(1)));
+        // Trước ngày mua / đã khấu hao hết / đã thanh lý / không có tỷ lệ = 0.
+        Assert.Equal(0m, AssetValuation.PeriodDepreciation(a, new DateTime(2025, 1, 1), new DateTime(2025, 12, 31)));
+        Assert.Equal(0m, AssetValuation.PeriodDepreciation(a, new DateTime(2027, 6, 1), new DateTime(2027, 7, 1)));
+        Assert.Equal(0m, AssetValuation.PeriodDepreciation(
+            new Asset { PurchasePrice = 36_500_000, DepreciationRate = 100, PurchaseDate = bought, Quantity = 1, Status = AssetStatus.Disposed },
+            new DateTime(2026, 10, 1), new DateTime(2026, 11, 1)));
+        Assert.Equal(0m, AssetValuation.PeriodDepreciation(
+            new Asset { PurchasePrice = 36_500_000, PurchaseDate = bought, Quantity = 1, Status = AssetStatus.Active },
+            new DateTime(2026, 10, 1), new DateTime(2026, 11, 1)));
+    }
 }

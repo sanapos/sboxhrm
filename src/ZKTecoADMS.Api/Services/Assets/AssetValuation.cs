@@ -27,6 +27,25 @@ public static class AssetValuation
 
     public static decimal BookValue(Asset a, DateTime asOfUtc) => UnitBookValue(a, asOfUtc) * a.Quantity;
 
+    /// <summary>
+    /// Khấu hao trong kỳ [fromUtc, toUtc) — chi phí khấu hao đưa vào kết quả kinh doanh. Chỉ tài sản có tỷ lệ %/năm
+    /// + ngày mua và còn dùng; trước ngày mua / sau khi khấu hao hết = 0.
+    /// </summary>
+    public static decimal PeriodDepreciation(Asset a, DateTime fromUtc, DateTime toUtc)
+    {
+        if (a.Status is AssetStatus.Disposed or AssetStatus.Lost) return 0;
+        if (a.DepreciationRate is not > 0 || !a.PurchaseDate.HasValue || a.PurchasePrice <= 0) return 0;
+        var bought = a.PurchaseDate.Value;
+        var start = fromUtc > bought ? fromUtc : bought;
+        if (toUtc <= start) return 0;
+        decimal Unit(DateTime t)
+        {
+            var years = (decimal)Math.Max(0, (t - bought).TotalDays) / 365m;
+            return a.PurchasePrice * Math.Max(0m, 1m - a.DepreciationRate.Value / 100m * years);
+        }
+        return Math.Round((Unit(start) - Unit(toUtc)) * a.Quantity, 0);
+    }
+
     public static decimal PurchaseValue(Asset a) => a.PurchasePrice * a.Quantity;
 
     /// <summary>Tuổi tài sản (năm) tính từ ngày mua; chưa có ngày mua → ngày tạo.</summary>

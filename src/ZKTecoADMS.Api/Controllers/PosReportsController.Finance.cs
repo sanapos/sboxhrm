@@ -378,6 +378,31 @@ public partial class PosReportsController
         }
         var inventoryLoss = damageCost + internalUseCost + otherIssueCost + countLossCost;
 
+        // ── Phụ thu, phí giao hàng thu khách − cước hãng tính (đơn trong kỳ theo ngày bán, mọi trạng thái: đơn hoàn /
+        // giao thất bại vẫn mất cước). Doanh thu thuần giữ nguyên = Σ Total.
+        var bctx = HttpContext.BranchContext();
+        var hq = bctx?.HeadquarterBranchId ?? Guid.Empty;
+        var periodOrders = ScopeOrdersForViewer(dbContext.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId && o.Deleted == null
+                        && (o.SaleDate ?? o.CreatedAt) >= fromDt
+                        && (o.SaleDate ?? o.CreatedAt) < toDt));
+        var ship = await PosPnlExtras.ShippingRowsAsync(periodOrders, hq);
+        var surchargeIncome = ship.Sum(x => x.Surcharge);
+        var deliveryFeeIncome = ship.Sum(x => x.DeliveryFee);
+        var carrierCost = ship.Sum(x => x.CarrierCost);
+
+        // ── Khấu hao tài sản trong kỳ (chỉ quản lý xem; người bị giới hạn chi nhánh chỉ thấy chi nhánh được phép).
+        decimal depreciation = 0;
+        if (IsManager)
+        {
+            var depByBranch = await PosPnlExtras.DepreciationByBranchAsync(dbContext, storeId, fromDt, toDt, hq);
+            depreciation = depByBranch
+                .Where(kv => bctx is not { StoreUsesBranches: true }
+                             || (bctx.FilterBranchId is Guid f ? kv.Key == f
+                                 : bctx.AllowedBranchIds is not { } allowed || allowed.Contains(kv.Key)))
+                .Sum(kv => kv.Value);
+        }
+
         // ── Thu / chi khác từ sổ quỹ (phiếu đã hoàn thành). Loại các khoản không phải lãi / lỗ:
         // tiền bán hàng & thu nợ khách (đã nằm trong doanh thu), nhập hàng (đã nằm trong giá vốn),
         // trả hàng khách (đã trừ doanh thu), cọc đặt chỗ nhận / hoàn (tiền giữ hộ),
@@ -393,7 +418,9 @@ public partial class PosReportsController
             .Select(g => new { g.Key.Type, g.Key.Category, Amount = g.Sum(c => c.Amount), Count = g.Count() })
             .ToListAsync();
 
-        static bool IsNonPnlExpense(string? c) => c is "Nhập hàng" or "Trả hàng khách" or "Hoàn cọc đặt chỗ";
+        // Mua tài sản: không tính chi phí trong kỳ — đã vào khấu hao từng tháng.
+        static bool IsNonPnlExpense(string? c) =>
+            c is "Nhập hàng" or "Trả hàng khách" or "Hoàn cọc đặt chỗ" or PosPnlExtras.AssetPurchaseCategory;
         static bool IsNonPnlIncome(string? c) =>
             c is "Bán hàng" or "Thu nợ khách" or "Cọc đặt chỗ" or "Thu trả hàng NCC" or "Thu hộ COD";
         const string tripRefund = "Thu hoàn ứng công tác";
@@ -407,8 +434,13 @@ public partial class PosReportsController
             .Where(r => r.Type == CashTransactionType.Income && r.Category == tripRefund)
             .Sum(r => r.Amount);
         var expense = expenseByCategory.Sum(r => r.amount) - tripRefundAmount;
+        // Cọc khách bỏ (hủy / không đến, phiếu thu cọc chuyển sang «Mất cọc đặt chỗ») — dòng riêng, không lẫn thu khác.
+        var forfeitedDeposits = cashRows
+            .Where(r => r.Type == CashTransactionType.Income && r.Category == PosPnlExtras.ForfeitedDepositCategory)
+            .Sum(r => r.Amount);
         var otherIncomeByCategory = cashRows
-            .Where(r => r.Type == CashTransactionType.Income && !IsNonPnlIncome(r.Category) && r.Category != tripRefund)
+            .Where(r => r.Type == CashTransactionType.Income && !IsNonPnlIncome(r.Category) && r.Category != tripRefund
+                        && r.Category != PosPnlExtras.ForfeitedDepositCategory)
             .Select(r => new { category = r.Category ?? "Khác", amount = r.Amount, count = r.Count })
             .OrderByDescending(r => r.amount)
             .ToList();
@@ -418,7 +450,8 @@ public partial class PosReportsController
             .Select(r => new { type = r.Type.ToString(), category = r.Category ?? "", amount = r.Amount, count = r.Count })
             .ToList();
 
-        var net = gross - inventoryLoss - expense + otherIncome;
+        var shippingNet = surchargeIncome + deliveryFeeIncome - carrierCost;
+        var net = gross - inventoryLoss + shippingNet - depreciation - expense + forfeitedDeposits + otherIncome;
         return Ok(AppResponse<object>.Success(new
         {
             from = fromVn.Date,
@@ -438,6 +471,12 @@ public partial class PosReportsController
             otherIssueCost,
             countLossCost,
             inventoryLoss,
+            surchargeIncome,
+            deliveryFeeIncome,
+            carrierCost,
+            shippingNet,
+            depreciation,
+            forfeitedDeposits,
             expenses = expense,
             tripAdvanceRefunds = tripRefundAmount,
             otherIncome,
@@ -459,7 +498,11 @@ public partial class PosReportsController
                 new { code = "16", label = "Xuất dùng nội bộ", amount = -internalUseCost },
                 new { code = "17", label = "Xuất kho khác", amount = -otherIssueCost },
                 new { code = "18", label = "Chênh lệch kiểm kê (thiếu − thừa)", amount = -countLossCost },
+                new { code = "23", label = "Phụ thu, phí giao hàng thu khách", amount = surchargeIncome + deliveryFeeIncome },
+                new { code = "24", label = "Cước hãng vận chuyển tính", amount = -carrierCost },
+                new { code = "25", label = "Khấu hao tài sản", amount = -depreciation },
                 new { code = "21", label = "Chi phí hoạt động (sổ quỹ)", amount = -expense },
+                new { code = "26", label = "Cọc khách bỏ", amount = forfeitedDeposits },
                 new { code = "22", label = "Thu nhập khác", amount = otherIncome },
                 new { code = "50", label = "Lợi nhuận thuần", amount = net },
             },

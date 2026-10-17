@@ -100,7 +100,10 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
                     'Lãi gộp = doanh thu thuần − giá vốn thuần. '
                     'Chi phí = phiếu chi không thuộc bán / nhập / trả hàng, không gồm chi lương và chi ứng lương. '
                     'Lương = lương gộp các phiếu lương đã chốt của nhân viên thuộc chi nhánh, chia theo số ngày của tháng nằm trong kỳ. '
-                    'Lãi ròng = lãi gộp + thu khác − chi phí − lương.'),
+                    'Phụ thu, phí giao hàng thu khách trừ cước hãng tính (đơn hoàn vẫn mất cước). '
+                    'Khấu hao = tài sản có tỷ lệ khấu hao, theo nhân viên đang giữ (chưa giao tính cho trụ sở); '
+                    'phiếu chi danh mục «Mua tài sản» không tính chi phí. Cọc khách bỏ = cọc khách hủy / không đến. '
+                    'Lãi ròng = lãi gộp + phụ thu, phí GH − cước hãng − khấu hao + cọc khách bỏ + thu khác − chi phí − lương.'),
                 style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500, height: 1.4),
               ),
             ],
@@ -130,10 +133,14 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
       ),
       SboxKpi(
         label: 'Chi phí + lương',
-        value: bMoneyShort(bNum(t['expenses']) + bNum(t['payroll'])),
+        value: bMoneyShort(bNum(t['expenses']) + bNum(t['payroll']) + bNum(t['carrierCost']) + bNum(t['depreciation'])),
         icon: Icons.receipt_long_outlined,
         tone: SboxTone.warning,
-        note: 'Lương ${bMoneyShort(t['payroll'])}',
+        note: [
+          'Lương ${bMoneyShort(t['payroll'])}',
+          if (bNum(t['carrierCost']) != 0) 'cước ${bMoneyShort(t['carrierCost'])}',
+          if (bNum(t['depreciation']) != 0) 'khấu hao ${bMoneyShort(t['depreciation'])}',
+        ].join(' · '),
       ),
       SboxKpi(
         label: 'Lãi ròng',
@@ -274,6 +281,15 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
               hideOnMobile: true),
           SboxColumn(label: 'Chi phí', numeric: true, minWidth: 110, text: (r) => bMoney(bNum(r['expenses'])), hideOnMobile: true),
           SboxColumn(label: 'Lương', numeric: true, minWidth: 110, text: (r) => bMoney(bNum(r['payroll'])), hideOnMobile: true),
+          SboxColumn(
+              label: 'Phụ thu + phí GH',
+              numeric: true,
+              minWidth: 120,
+              text: (r) => bMoney(bNum(r['surchargeIncome']) + bNum(r['deliveryFeeIncome'])),
+              hideOnMobile: true),
+          SboxColumn(label: 'Cước hãng', numeric: true, minWidth: 100, text: (r) => bMoney(bNum(r['carrierCost'])), hideOnMobile: true),
+          SboxColumn(label: 'Khấu hao', numeric: true, minWidth: 100, text: (r) => bMoney(bNum(r['depreciation'])), hideOnMobile: true),
+          SboxColumn(label: 'Cọc khách bỏ', numeric: true, minWidth: 100, text: (r) => bMoney(bNum(r['forfeitedDeposits'])), hideOnMobile: true),
           SboxColumn(
               label: 'Lãi ròng',
               numeric: true,

@@ -127,6 +127,71 @@ public class BranchReportTests
     }
 
     [Fact]
+    public async Task Lai_rong_gom_phu_thu_phi_giao_hang_tru_cuoc_khau_hao_va_coc_khach_bo()
+    {
+        await SeedAsync();
+        var emp = await _db.Employees.FirstAsync();
+        PosSaleOrder O(decimal total, PosSaleOrderStatus st) => new()
+        {
+            Id = Guid.NewGuid(), StoreId = _store, BranchId = _a, OrderNo = Guid.NewGuid().ToString()[..6],
+            Status = st, Total = total, SaleDate = Utc(10, 1, 5), IsActive = true,
+        };
+        var shipped = O(100_000, PosSaleOrderStatus.Completed);
+        shipped.SurchargeAmount = 30_000; shipped.DeliveryFee = 20_000; shipped.DeliveryFeePayer = "shop";
+        shipped.DeliveryCarrierCode = "ghtk"; shipped.DeliveryCarrierFee = 25_000; shipped.DeliveryStatusCode = "delivered";
+        // Đơn bị hoàn (đã hủy): không có doanh thu nhưng vẫn mất cước + cước hoàn.
+        var returned = O(70_000, PosSaleOrderStatus.Cancelled);
+        returned.DeliveryCarrierCode = "ghtk"; returned.DeliveryCarrierFee = 15_000; returned.DeliveryReturnFee = 10_000;
+        returned.DeliveryStatusCode = "returned";
+        // Khách trả cước thẳng cho hãng: shop không thu, không chi.
+        var customerPays = O(0, PosSaleOrderStatus.Completed);
+        customerPays.DeliveryFee = 40_000; customerPays.DeliveryFeePayer = "customer";
+        customerPays.DeliveryCarrierCode = "ghn"; customerPays.DeliveryCarrierFee = 40_000;
+        // Vận đơn hủy trước khi lấy hàng: không tốn cước.
+        var shipCancelled = O(0, PosSaleOrderStatus.Cancelled);
+        shipCancelled.DeliveryCarrierCode = "ghn"; shipCancelled.DeliveryCarrierFee = 30_000; shipCancelled.DeliveryStatusCode = "cancelled";
+        _db.PosSaleOrders.AddRange(shipped, returned, customerPays, shipCancelled);
+
+        var lostDeposit = new TransactionCategory { Id = Guid.NewGuid(), StoreId = _store, Name = "Mất cọc đặt chỗ", Type = CashTransactionType.Income };
+        var buyAsset = new TransactionCategory { Id = Guid.NewGuid(), StoreId = _store, Name = "Mua tài sản", Type = CashTransactionType.Expense };
+        _db.AddRange(lostDeposit, buyAsset);
+        CashTransaction C(TransactionCategory cat, CashTransactionType t, decimal amt, string? note) => new()
+        {
+            Id = Guid.NewGuid(), StoreId = _store, BranchId = _a, Type = t, Amount = amt, CategoryId = cat.Id, InternalNote = note,
+            TransactionCode = Guid.NewGuid().ToString()[..6], TransactionDate = new DateTime(2026, 10, 1, 12, 0, 0),
+            Status = CashTransactionStatus.Completed, IsActive = true,
+        };
+        _db.CashTransactions.AddRange(
+            C(lostDeposit, CashTransactionType.Income, 100_000,
+                ZKTecoADMS.Infrastructure.Services.PosFinanceSyncHelper.ReservationDepositMarker + Guid.NewGuid()),
+            C(buyAsset, CashTransactionType.Expense, 5_000_000, null));   // đã vào khấu hao → không tính chi phí
+        // Máy giao cho NV chi nhánh A: 36,5 triệu, 100%/năm → 100.000 đ/ngày (kỳ 1 ngày kinh doanh).
+        _db.Assets.Add(new Asset
+        {
+            Id = Guid.NewGuid(), StoreId = _store, AssetCode = "TS1", Name = "Máy pha", PurchasePrice = 36_500_000, Quantity = 1,
+            DepreciationRate = 100, PurchaseDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), Status = AssetStatus.Active,
+            CurrentAssigneeId = emp.Id, IsActive = true,
+        });
+        await _db.SaveChangesAsync();
+
+        var res = await Ctl().Compare(new DateTime(2026, 10, 1), new DateTime(2026, 10, 1));
+        var root = JsonDocument.Parse(JsonSerializer.Serialize(Assert.IsType<OkObjectResult>(res.Result).Value, Json)).RootElement;
+        var a = root.GetProperty("data").GetProperty("branches").EnumerateArray().First(r => r.GetProperty("code").GetString() == "A");
+        Assert.Equal(600_000m, a.GetProperty("revenue").GetDecimal());          // doanh thu thuần giữ nguyên (Σ Total)
+        Assert.Equal(30_000m, a.GetProperty("surchargeIncome").GetDecimal());
+        Assert.Equal(20_000m, a.GetProperty("deliveryFeeIncome").GetDecimal());
+        Assert.Equal(50_000m, a.GetProperty("carrierCost").GetDecimal());       // 25k + 15k + 10k cước hoàn
+        Assert.Equal(100_000m, a.GetProperty("forfeitedDeposits").GetDecimal());
+        Assert.Equal(100_000m, a.GetProperty("depreciation").GetDecimal());
+        Assert.Equal(200_000m, a.GetProperty("expenses").GetDecimal());         // không gồm 5 triệu mua tài sản
+        Assert.Equal(0m, a.GetProperty("otherIncome").GetDecimal());
+        // 600 + 30 + 20 − 50 − 100 (khấu hao) + 100 (cọc) − 200 (chi phí) − 100 (lương)
+        Assert.Equal(300_000m, a.GetProperty("netProfit").GetDecimal());
+        var totals = root.GetProperty("data").GetProperty("totals");
+        Assert.Equal(100_000m, totals.GetProperty("depreciation").GetDecimal());
+    }
+
+    [Fact]
     public async Task Tien_COD_hang_chuyen_ve_khong_tinh_la_thu_khac()
     {
         await SeedAsync();
