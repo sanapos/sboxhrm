@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../notification_overlay.dart';
 import '../../models/pos_product.dart';
 import '../../services/api_service.dart';
 import '../../services/pos_product_image_cache.dart';
@@ -858,15 +859,9 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   void _stockSnack(String text) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(
-        content: Row(children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 18),
-          const SizedBox(width: 8),
-          Expanded(child: Text(text)),
-        ]),
-        duration: const Duration(seconds: 3),
-      ),
+    NotificationOverlayManager().showToast(
+      text,
+      type: NotificationType.warning,
     );
   }
 
@@ -1011,8 +1006,9 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       if (!mounted) return;
       if (saved.product == null) {
         if (!PosQtyRules.isWhole(result.qty)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(tr(saved.error ?? 'Không lưu được bán số lẻ'))),
+          NotificationOverlayManager().showToast(
+            tr(saved.error ?? 'Không lưu được bán số lẻ'),
+            type: NotificationType.warning,
           );
           return;
         }
@@ -1069,13 +1065,11 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       if (!ok || !mounted) return;
     }
     setState(() => _lockMode = enabled);
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(
-        content: Text(tr(enabled
+    NotificationOverlayManager().showToast(
+      tr(enabled
             ? 'Chế độ khóa món: chạm món để báo hết hoặc bán lại. Ngày mai tự mở.'
-            : 'Đã tắt chế độ khóa món')),
-        duration: const Duration(seconds: 2),
-      ),
+            : 'Đã tắt chế độ khóa món'),
+      type: NotificationType.info,
     );
   }
 
@@ -1085,12 +1079,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       return;
     }
     if (p.isDailySoldOut) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: Text(tr(
-              '${p.name}: đã hết / tạm khóa. Bật chế độ khóa món để bán lại.')),
-          duration: const Duration(seconds: 2),
-        ),
+      NotificationOverlayManager().showToast(
+        tr(
+              '${p.name}: đã hết / tạm khóa. Bật chế độ khóa món để bán lại.'),
+        type: NotificationType.warning,
       );
       return;
     }
@@ -1109,11 +1101,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       );
       if (!mounted) return;
       if (res['isSuccess'] != true) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(
-            content: Text(tr(
-                res['message']?.toString() ?? 'Không đổi được trạng thái món')),
-          ),
+        NotificationOverlayManager().showToast(
+          tr(
+                res['message']?.toString() ?? 'Không đổi được trạng thái món'),
+          type: NotificationType.warning,
         );
         return;
       }
@@ -1124,13 +1115,11 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             data['IsDailySoldOut'] == true;
       }
       _applyDailySoldOut(p.id, locked);
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: Text(tr(locked
+      NotificationOverlayManager().showToast(
+        tr(locked
               ? '${p.name}: đã hết / tạm khóa'
-              : '${p.name}: đã mở bán lại')),
-          duration: const Duration(seconds: 2),
-        ),
+              : '${p.name}: đã mở bán lại'),
+        type: NotificationType.info,
       );
     } finally {
       _soldOutBusyIds.remove(p.id);

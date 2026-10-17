@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../l10n/app_tr.dart';
 import '../models/hrm.dart';
+export '../models/hrm.dart' show NotificationType;
 import '../utils/notification_sound.dart';
 import '../utils/vietnamese_text_fix.dart';
 import '../utils/pos_notify_focus.dart';
@@ -42,10 +43,20 @@ class NotificationOverlayManager {
     Duration duration = const Duration(seconds: 3),
     VoidCallback? onTap,
     bool playSound = true,
+    bool? compact,
   }) {
     if (PosKdsAlert.isOpen && relatedEntityType != kPosKdsNotifyKind) {
       return;
     }
+    // Viên gọn 1 dòng, không kêu: thành công + tiến trình in. Lỗi / cảnh báo / thiết bị /
+    // chấm công / bếp KDS vẫn là thẻ góc phải có nút đóng.
+    final isCompact = compact ??
+        (relatedEntityType != 'Device' &&
+            relatedEntityType != 'Attendance' &&
+            relatedEntityType != kPosKdsNotifyKind &&
+            (type == NotificationType.success ||
+                (type == NotificationType.info &&
+                    relatedEntityType == kPosPrintNotifyKind)));
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     final item = NotificationOverlayItem(
       id: id,
@@ -55,6 +66,7 @@ class NotificationOverlayManager {
       type: type,
       relatedEntityType: relatedEntityType,
       onTap: onTap,
+      compact: isCompact,
     );
 
     if (relatedEntityType == kPosPrintNotifyKind) {
@@ -70,20 +82,36 @@ class NotificationOverlayManager {
     }
     _controller.add(_notifications);
 
-    if (playSound) {
+    if (playSound && !isCompact) {
       NotificationSound().play();
     }
 
     Future.delayed(duration, () => remove(id));
   }
 
-  /// Helper: Hiển thị thông báo thành công
+  /// Viên thông báo gọn 1 dòng (không kêu) — vd. «Món A: hết hàng».
+  void showToast(
+    String text, {
+    NotificationType type = NotificationType.info,
+    Duration duration = const Duration(milliseconds: 2500),
+  }) {
+    show(
+      title: text,
+      message: '',
+      type: type,
+      duration: duration,
+      playSound: false,
+      compact: true,
+    );
+  }
+
+  /// Helper: Hiển thị thông báo thành công (viên gọn, ~2,5 giây)
   void showSuccess({
     required String title,
     required String message,
     VoidCallback? onTap,
     String? relatedEntityType,
-    Duration duration = const Duration(seconds: 4),
+    Duration duration = const Duration(milliseconds: 2500),
   }) {
     show(
       title: title,
@@ -175,6 +203,8 @@ class NotificationOverlayItem {
   final String? relatedEntityType; // For device notifications
   final VoidCallback? onTap;
   final DateTime createdAt;
+  /// Viên 1 dòng góc trái dưới (thành công / tiến trình in) thay cho thẻ góc phải.
+  final bool compact;
 
   NotificationOverlayItem({
     required this.id,
@@ -183,6 +213,7 @@ class NotificationOverlayItem {
     required this.type,
     this.relatedEntityType,
     this.onTap,
+    this.compact = false,
   }) : createdAt = DateTime.now();
 }
 
@@ -229,6 +260,37 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
             }
             final screenWidth = MediaQuery.sizeOf(context).width;
             final isMobile = screenWidth < 600;
+            if (item.compact) {
+              // Màn rộng (thu ngân T1): góc trái dưới — vùng lưới món, không che giỏ
+              // hàng, nút Thanh toán hay thanh trên. Điện thoại: trên cùng như cũ.
+              final pad = MediaQuery.paddingOf(context);
+              final pill = _CompactToast(
+                // Cùng key cho chuỗi in (đang gửi → đã gửi → in xong): đổi chữ tại chỗ,
+                // không trượt lại từng lần.
+                key: ValueKey(item.relatedEntityType == kPosPrintNotifyKind
+                    ? 'print'
+                    : item.id),
+                item: item,
+                onDismiss: () => _manager.remove(item.id),
+              );
+              return isMobile
+                  ? Positioned(
+                      top: pad.top + widget.extraTopInset + 8,
+                      left: 8,
+                      right: 8,
+                      child: Align(alignment: Alignment.topCenter, child: pill),
+                    )
+                  : Positioned(
+                      left: 16,
+                      bottom: pad.bottom + 16,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: (screenWidth * 0.4).clamp(280.0, 480.0),
+                        ),
+                        child: pill,
+                      ),
+                    );
+            }
             final top = MediaQuery.paddingOf(context).top +
                 widget.extraTopInset +
                 (isMobile ? 8.0 : 16.0);
@@ -469,6 +531,68 @@ class _NotificationCardState extends State<_NotificationCard>
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Viên thông báo gọn: icon + «Tiêu đề · nội dung» một dòng, chạm để đóng.
+class _CompactToast extends StatelessWidget {
+  const _CompactToast({super.key, required this.item, required this.onDismiss});
+
+  final NotificationOverlayItem item;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, icon) = switch (item.type) {
+      NotificationType.success => (SboxColors.success, Icons.check_circle_rounded),
+      NotificationType.warning => (SboxColors.warning, Icons.info_rounded),
+      NotificationType.error => (SboxColors.danger, Icons.error_rounded),
+      _ => (const Color(0xFF7CC4F8), Icons.sync_rounded),
+    };
+    final title = tr(item.title);
+    final msg = tr(item.message).trim();
+    return Material(
+      color: SboxColors.slate900,
+      elevation: 6,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: () {
+          item.onTap?.call();
+          onDismiss();
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 9, 16, 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: title,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      if (msg.isNotEmpty)
+                        TextSpan(
+                          text: ' · $msg',
+                          style: TextStyle(color: SboxColors.slate400),
+                        ),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13.5, color: Colors.white),
+                ),
+              ),
+            ],
           ),
         ),
       ),
