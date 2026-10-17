@@ -183,7 +183,11 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
-      builder: (_) => _LocalPrinterEditorSheet(initial: existing),
+      builder: (_) => _LocalPrinterEditorSheet(
+        initial: existing,
+        hasSunmiProfile: _items.any(
+            (p) => p.connectionType == PosThermalConnectionType.sunmi),
+      ),
     );
     if (result == null) return;
     final saved = await _store.upsert(result, syncServer: true);
@@ -592,8 +596,10 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
 }
 
 class _LocalPrinterEditorSheet extends StatefulWidget {
-  const _LocalPrinterEditorSheet({this.initial});
+  const _LocalPrinterEditorSheet({this.initial, this.hasSunmiProfile = false});
   final PosLocalPrinterProfile? initial;
+  /// Máy này đã có hồ sơ máy in Sunmi — thêm mới không tự chọn Sunmi nữa.
+  final bool hasSunmiProfile;
 
   @override
   State<_LocalPrinterEditorSheet> createState() =>
@@ -706,7 +712,20 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
       _usbDisplayLabel = PosUsbLabels.fromSavedRaw(savedUsb);
     }
     PosThermalPrinterService.isSunmiDevice().then((v) {
-      if (mounted) setState(() => _isSunmi = v);
+      if (!mounted) return;
+      setState(() {
+        _isSunmi = v;
+        // Máy Sunmi thêm máy mới: mặc định máy in tích hợp (trước mặc định Bluetooth).
+        if (v &&
+            widget.initial == null &&
+            !widget.hasSunmiProfile &&
+            _kind == PosLocalPrinterKind.receipt &&
+            _type == PosThermalConnectionType.bluetooth) {
+          _type = PosThermalConnectionType.sunmi;
+          _applySunmiDefaults();
+          _syncAutoName();
+        }
+      });
     });
     PosPrinterTransport.isIminDevice().then((v) {
       if (mounted) setState(() => _isImin = v);
@@ -733,6 +752,28 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
     _btMac.dispose();
     _feedBeforeCut.dispose();
     super.dispose();
+  }
+
+  /// Tên do app tự đặt (mặc định / theo IP / Sunmi) — được phép đổi theo kết nối.
+  bool _isAutoName(String t) {
+    final v = t.trim();
+    return v.isEmpty ||
+        v == 'Máy in nhiệt nội bộ' ||
+        v == 'Máy in tem nội bộ' ||
+        v == 'Máy in nội bộ' ||
+        v == 'Máy in Sunmi' ||
+        RegExp(r'^\S+ \d{1,3}(\.\d{1,3}){3}$').hasMatch(v);
+  }
+
+  /// Đổi kiểu kết nối → tên tự đặt theo (trước giữ «LAN 192.168.1.100» khi đổi sang Sunmi).
+  void _syncAutoName() {
+    if (!_isAutoName(_name.text)) return;
+    final host = _lanHost.text.trim();
+    _name.text = switch (_type) {
+      PosThermalConnectionType.sunmi => 'Máy in Sunmi',
+      PosThermalConnectionType.lan when host.isNotEmpty => 'LAN $host',
+      _ => _isLabel ? 'Máy in tem nội bộ' : 'Máy in nhiệt nội bộ',
+    };
   }
 
   void _applySunmiDefaults() {
@@ -1289,6 +1330,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                   if (v == PosThermalConnectionType.sunmi) {
                     _applySunmiDefaults();
                   }
+                  _syncAutoName();
                 });
                 if (v == PosThermalConnectionType.usb) {
                   unawaited(_refreshUsbDevices(selectSaved: true));

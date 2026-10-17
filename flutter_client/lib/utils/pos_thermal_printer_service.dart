@@ -60,9 +60,12 @@ class PosThermalPrinterService {
 
 
 
-  static Future<List<Map<String, String>>> listBluetoothDevices() async {
+  static Future<List<Map<String, String>>> listBluetoothDevices({
+    bool askPermission = true,
+  }) async {
     if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return [];
-    final r = await PosPrinterHardware.listBluetoothForPicker();
+    final r = await PosPrinterHardware.listBluetoothForPicker(
+        askPermission: askPermission);
     return r.devices;
   }
 

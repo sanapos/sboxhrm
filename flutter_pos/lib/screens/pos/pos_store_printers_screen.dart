@@ -56,6 +56,30 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
   bool _loading = true;
   bool _savingRoutes = false;
   bool _agentsLoading = false;
+
+  /// Đang mở menu ⋮ của một máy in → hoãn dựng lại màn (poll Agent 8 giây / heartbeat).
+  /// PopupMenuButton bị dựng lại trong lúc menu mở thì bỏ luôn lựa chọn — trước đây bấm
+  /// «Test in qua cloud» / «Sửa» không có phản hồi gì.
+  bool _menuOpen = false;
+  bool _rebuildPending = false;
+
+  @override
+  void setState(VoidCallback fn) {
+    if (_menuOpen) {
+      fn();
+      _rebuildPending = true;
+      return;
+    }
+    super.setState(fn);
+  }
+
+  void _menuClosed() {
+    _menuOpen = false;
+    if (_rebuildPending && mounted) {
+      _rebuildPending = false;
+      super.setState(() {});
+    }
+  }
   List<Map<String, String>> _btDevices = [];
   /// Máy in đã cấu hình trên thiết bị này (chọn nhanh cho Agent).
   List<PosLocalPrinterProfile> _localPrinters = [];
@@ -77,7 +101,8 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     unawaited(_load());
     // Bluetooth scan chậm — không chặn UI.
     if (!kIsWeb) {
-      unawaited(PosThermalPrinterService.listBluetoothDevices().then((d) {
+      unawaited(PosThermalPrinterService.listBluetoothDevices(askPermission: false)
+          .then((d) {
         if (mounted) setState(() => _btDevices = d);
       }));
     }
@@ -904,7 +929,15 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     }
   }
 
-  bool get _hideCloudChrome {
+  /// Tính một lần khi mở màn. Trước đây tính lại mỗi lần dựng: menu ⋮ / hộp thoại cũng là
+  /// route trên Navigator → canPop() đổi true → cả màn dựng lại kiểu có AppBar, nút ⋮ bị hủy
+  /// → bấm «Test in qua cloud», «Sửa», «Xóa» không có phản hồi.
+  bool? _hideCloudChromeCached;
+
+  bool get _hideCloudChrome =>
+      _hideCloudChromeCached ??= _computeHideCloudChrome();
+
+  bool _computeHideCloudChrome() {
     // Trong tab «Máy in» đã có thanh tiêu đề ngoài — không chồng thêm AppBar.
     if (widget.embeddedInSettings) return true;
     if (PosHubScope.pushedSubPageOf(context)) return false;
@@ -1724,7 +1757,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 child: Icon(Icons.circle, size: 10, color: statusColor),
               ),
               PopupMenuButton<String>(
+                onOpened: () => _menuOpen = true,
+                onCanceled: _menuClosed,
                 onSelected: (a) async {
+                  _menuClosed();
                   if (a == 'edit') {
                     await _openEditor(p);
                   } else if (a == 'products') {

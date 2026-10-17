@@ -130,7 +130,8 @@ class _PosSellMobilePrintSettingsScreenState
   }
 
   Future<void> _loadBluetoothInBackground() async {
-    final devices = await PosThermalPrinterService.listBluetoothDevices();
+    final devices =
+        await PosThermalPrinterService.listBluetoothDevices(askPermission: false);
     if (mounted) setState(() => _btDevices = devices);
   }
 

@@ -70,22 +70,26 @@ class PosPrinterHardware {
   }
 
   /// Xin quyền cần thiết rồi lấy danh sách máy BT đã ghép (native + plugin).
+  /// [askPermission] false: nạp nền khi mở màn — không bật hộp xin quyền (trước đây mỗi
+  /// lần mở / đổi tab màn Máy in lại hỏi quyền vị trí dù đã từ chối).
   static Future<({List<Map<String, String>> devices, String? hint})>
-      listBluetoothForPicker() async {
+      listBluetoothForPicker({bool askPermission = true}) async {
     if (kIsWeb) {
       return (devices: <Map<String, String>>[], hint: 'Web không hỗ trợ Bluetooth');
     }
 
     // Android 12+: Nearby devices. Android 6–11: Location (một số ROM cần để đọc bonded).
-    try {
-      await [
-        Permission.bluetooth,
-        Permission.bluetoothConnect,
-        Permission.bluetoothScan,
-        Permission.locationWhenInUse,
-      ].request();
-    } catch (e) {
-      debugPrint('BT permission request: $e');
+    if (askPermission) {
+      try {
+        await [
+          Permission.bluetooth,
+          Permission.bluetoothConnect,
+          Permission.bluetoothScan,
+          Permission.locationWhenInUse,
+        ].request();
+      } catch (e) {
+        debugPrint('BT permission request: $e');
+      }
     }
 
     final diag = await bluetoothDiagnostics();
