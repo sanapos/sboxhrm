@@ -12034,8 +12034,17 @@ class _PosSellScreenState extends State<PosSellScreen>
       final orderId = data?['id']?.toString();
       final orderNo = data?['orderNo']?.toString() ?? '';
 
-      // Happy-path silent — tránh chồng toast che màn bán hàng (in/kho báo riêng khi lỗi).
+      // Viên gọn góc trái dưới, không kêu — trước đây thanh toán xong không có phản hồi nào
+      // (in / kho vẫn báo riêng khi lỗi).
       debugPrint('POS checkout OK: $orderNo');
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã thanh toán',
+        message: [
+          if (orderNo.isNotEmpty) orderNo,
+          if ((_tab.serviceResourceName ?? '').isNotEmpty) _tab.serviceResourceName!,
+          '${_moneyFmt.format(_grandTotal)}đ',
+        ].join(' · '),
+      );
       // Đơn vừa ghi nợ / trả bớt → số nợ đã đọc của khách không còn đúng.
       final paidCustomer = _tab.customer;
       if (paidCustomer != null) _debtSummaries.remove(paidCustomer.id);
