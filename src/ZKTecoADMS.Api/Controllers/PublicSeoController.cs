@@ -158,18 +158,23 @@ public class PublicSeoController(ZKTecoDbContext db) : ControllerBase
 
     /// <summary>Lắp đặt máy chấm công theo tỉnh — chỉ trên sboxhrm.com (sboxpos chuyển hướng sang).</summary>
     [HttpGet("/lap-dat-may-cham-cong")]
-    public IActionResult LocalHub() => Site.Code == "pos"
+    public async Task<IActionResult> LocalHub(CancellationToken ct = default) => Site.Code == "pos"
         ? RedirectPermanent(SeoPages.Hrm.Origin + "/lap-dat-may-cham-cong")
-        : Html(SeoPages.LocalHubPage(), cacheSeconds: 600);
+        : Html(SeoPages.LocalHubPage(await Devices(ct)), cacheSeconds: 600);
 
     [HttpGet("/lap-dat-may-cham-cong/{slug}")]
-    public IActionResult Local(string slug)
+    public async Task<IActionResult> Local(string slug, CancellationToken ct = default)
     {
         var p = SeoPages.FindProvince(slug ?? "");
         if (p == null) return Html(SeoPages.NotFoundPage(SeoPages.Hrm), 404, 60);
         if (Site.Code == "pos") return RedirectPermanent($"{SeoPages.Hrm.Origin}/lap-dat-may-cham-cong/{p.Slug}");
-        return Html(SeoPages.LocalPage(p), cacheSeconds: 600);
+        return Html(SeoPages.LocalPage(p, await Devices(ct)), cacheSeconds: 600);
     }
+
+    /// <summary>Bảng giá máy trên trang lắp đặt = danh sách «Sản phẩm thiết bị» của trang chủ (landing_products).</summary>
+    async Task<List<SeoPages.DeviceOffer>> Devices(CancellationToken ct) =>
+        SeoPages.ParseDevices(await db.AppSettings.AsNoTracking()
+            .Where(x => x.Key == AppSettingKeys.LandingProducts).Select(x => x.Value).FirstOrDefaultAsync(ct));
 
     [HttpGet("/tai-lieu")]
     public IActionResult Resources() => Html(SeoPages.ResourcesPage(Site), cacheSeconds: 600);

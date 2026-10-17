@@ -637,9 +637,22 @@
     .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
     .nav-logo img { width: 36px; height: 36px; object-fit: contain; border-radius: 8px; }
     .nav-logo span { font-weight: 700; font-size: 15px; color: #0F7BA8; }
-    .nav-links { display: flex; gap: 28px; list-style: none; }
-    .nav-links a { text-decoration: none; color: #1a1a2e; font-size: 14px; font-weight: 600; transition: color .2s; }
-    .nav-links a:hover { color: #0F7BA8; }
+    .nav-links { display: flex; gap: 6px; list-style: none; margin: 0 12px; padding: 0; }
+    .nav-links a {
+      display: block; padding: 8px 12px; border-radius: 8px; white-space: nowrap;
+      text-decoration: none; color: #1a1a2e; font-size: 14px; font-weight: 600; transition: color .2s, background .2s;
+    }
+    .nav-links a:hover { color: #0F7BA8; background: rgba(15,123,168,.08); }
+    /* Mục phụ chỉ hiện trong menu ☰ — giữ thanh menu desktop một dòng */
+    .nav-links .nav-extra { display: none; }
+    @media (max-width: 1240px) {
+      .nav-links { gap: 2px; margin: 0 8px; }
+      .nav-links a { padding: 8px 9px; font-size: 13.5px; }
+    }
+    @media (max-width: 1100px) {
+      .nav-links { display: none; }
+      .nav-menu-btn { display: block !important; }
+    }
     .nav-cta {
       background: linear-gradient(135deg, #0F7BA8, #158DC0);
       color: #fff; padding: 8px 20px; border-radius: 8px;
@@ -1635,23 +1648,23 @@
 <nav aria-label="Điều hướng chính">
   <div class="nav-inner">
   <a class="nav-logo" href="/">
-    <img class="logo-hrm" src="images/landing/sbox-logo.png" alt="SBOX HRM" width="36" height="36">
+    <img class="logo-hrm" src="images/landing/sbox-logo-128.webp" alt="SBOX HRM" width="36" height="36">
     <img class="logo-pos" src="images/landing/sbox-pos-logo.png" alt="SBOX POS" height="40">
     <span id="nav-brand-text">SBOX HRM</span>
   </a>
   <ul class="nav-links">
     <li class="site-pos-feature"><a href="#industries">Ngành hàng</a></li>
     <li><a href="#features">Tính năng</a></li>
-    <li><a href="#screenshots">Giao diện</a></li>
-    <li><a href="#devices">Thiết bị</a></li>
+    <li class="nav-extra"><a href="#screenshots">Giao diện</a></li>
+    <li class="nav-extra"><a href="#devices">Thiết bị</a></li>
     <li><a href="#pricing">Gói dịch vụ</a></li>
     <li class="site-pos-feature"><a href="#downloads">Tải app</a></li>
-    <li class="site-hrm-nav"><a href="#platforms">Nền tảng</a></li>
-    <li class="site-hrm-nav"><a href="#videos">Video</a></li>
-    <li class="site-hrm-nav"><a href="/guide">Hướng dẫn</a></li>
+    <li class="nav-extra site-hrm-nav"><a href="#platforms">Nền tảng</a></li>
+    <li class="nav-extra site-hrm-nav"><a href="#videos">Video</a></li>
+    <li class="site-hrm-nav"><a href="/guide.html">Hướng dẫn</a></li>
     <li class="site-hrm-nav site-pos-feature"><a href="#pos-attendance">Chấm công</a></li>
     <li><a href="#contact">Liên hệ</a></li>
-    <li><a href="#faq">Hỏi đáp</a></li>
+    <li class="nav-extra"><a href="#faq">Hỏi đáp</a></li>
   </ul>
   <div class="nav-cta-wrap">
     <a class="nav-cta" href="/login-app" style="background:transparent;color:#0F7BA8;border:2px solid #0F7BA8;box-shadow:none">Đăng nhập</a>
@@ -1670,7 +1683,7 @@
   <a href="#downloads" class="nav-drawer-link site-pos-feature">Tải app</a>
   <a href="#platforms" class="nav-drawer-link site-hrm-nav">Nền tảng</a>
   <a href="#videos" class="nav-drawer-link site-hrm-nav">Video</a>
-  <a href="/guide" class="nav-drawer-link site-hrm-nav">Hướng dẫn</a>
+  <a href="/guide.html" class="nav-drawer-link site-hrm-nav">Hướng dẫn</a>
   <a href="#pos-attendance" class="nav-drawer-link site-hrm-nav site-pos-feature">Chấm công</a>
   <a href="#contact" class="nav-drawer-link">Liên hệ</a>
   <a href="#faq" class="nav-drawer-link">Hỏi đáp</a>
@@ -1685,7 +1698,7 @@
   <div class="hero-inner">
     <div class="hero-copy">
       <div class="hero-brand">
-        <img src="images/landing/sbox-logo.png" alt="SBOX HRM logo" width="56" height="56">
+        <img src="images/landing/sbox-logo-128.webp" alt="SBOX HRM logo" width="56" height="56">
         <div>
           <div class="hero-brand-text" id="hero-brand-text">SBOX HRM</div>
           <div class="hero-brand-slogan" id="hero-brand-slogan">Chấm công nhanh · Tính lương chuẩn</div>
@@ -1717,10 +1730,11 @@
       <div class="hero-visual-glow" aria-hidden="true"></div>
       <div class="hero-visual-frame">
         <img
-          src="images/landing/hero-product.png"
+          src="images/landing/hero-product.webp"
           alt="Chấm công khuôn mặt SBOX HRM với thiết bị ZKTeco"
-          width="960"
-          height="600"
+          width="1024"
+          height="683"
+          decoding="async"
           fetchpriority="high"
         />
       </div>
@@ -1816,7 +1830,7 @@
           <div class="pos-peripherals">
             <div class="pos-printer">
               <div class="pos-printer-paper">
-                <img src="images/landing/sbox-logo.png" alt="">
+                <img src="images/landing/sbox-logo-128.webp" alt="">
                 <strong>SBOX HRM</strong>
                 <em>HD #1042</em>
                 <b>95.000 đ</b>
@@ -2142,7 +2156,7 @@
           </div>
         </div>
         <div class="showcase-img">
-          <img src="images/landing/screenshot-01.jpg" alt="Dashboard tổng quan SBOX HRM" loading="lazy" />
+          <img src="images/landing/screenshot-01.webp" alt="Dashboard tổng quan SBOX HRM" width="720" height="1290" loading="lazy" decoding="async" />
         </div>
       </div>
 
@@ -2158,7 +2172,7 @@
           </div>
         </div>
         <div class="showcase-img">
-          <img src="images/landing/screenshot-02.jpg" alt="Chấm công khuôn mặt" loading="lazy" />
+          <img src="images/landing/screenshot-02.webp" alt="Chấm công khuôn mặt" width="720" height="1082" loading="lazy" decoding="async" />
         </div>
       </div>
 
@@ -2174,7 +2188,7 @@
           </div>
         </div>
         <div class="showcase-img">
-          <img src="images/landing/screenshot-03.jpg" alt="Quản lý vân tay" loading="lazy" />
+          <img src="images/landing/screenshot-03.webp" alt="Quản lý vân tay" width="720" height="1082" loading="lazy" decoding="async" />
         </div>
       </div>
 
@@ -2190,7 +2204,7 @@
           </div>
         </div>
         <div class="showcase-img">
-          <img src="images/landing/screenshot-04.jpg" alt="Lịch sử chấm công realtime" loading="lazy" />
+          <img src="images/landing/screenshot-04.webp" alt="Lịch sử chấm công realtime" width="720" height="1082" loading="lazy" decoding="async" />
         </div>
       </div>
 
@@ -2206,7 +2220,7 @@
           </div>
         </div>
         <div class="showcase-img">
-          <img src="images/landing/screenshot-05.jpg" alt="Bảng điểm danh tổng hợp" loading="lazy" />
+          <img src="images/landing/screenshot-05.webp" alt="Bảng điểm danh tổng hợp" width="720" height="1082" loading="lazy" decoding="async" />
         </div>
       </div>
 
@@ -2222,7 +2236,7 @@
           </div>
         </div>
         <div class="showcase-img">
-          <img src="images/landing/screenshot-06.jpg" alt="Hồ sơ nhân sự" loading="lazy" />
+          <img src="images/landing/screenshot-06.webp" alt="Hồ sơ nhân sự" width="720" height="1082" loading="lazy" decoding="async" />
         </div>
       </div>
 
@@ -2238,7 +2252,7 @@
           </div>
         </div>
         <div class="showcase-img">
-          <img src="images/landing/screenshot-07.jpg" alt="Lịch làm việc theo ca" loading="lazy" />
+          <img src="images/landing/screenshot-07.webp" alt="Lịch làm việc theo ca" width="720" height="1082" loading="lazy" decoding="async" />
         </div>
       </div>
 
@@ -2255,20 +2269,20 @@
       <p class="section-sub">Giao diện tối ưu cho iPad và tablet — xem bảng tổng hợp chấm công, giờ làm, đi trễ về sớm và công ca trực quan.</p>
     </div>
     <div class="tablet-grid">
-      <div class="tablet-card" onclick="openLightbox('images/landing/table-01.png')">
-        <img src="images/landing/table-01.png" alt="Bảng điểm danh" width="1536" height="1024" loading="lazy" decoding="async" />
+      <div class="tablet-card" onclick="openLightbox('images/landing/table-01.webp')">
+        <img src="images/landing/table-01-sm.webp" alt="Bảng điểm danh" width="960" height="640" loading="lazy" decoding="async" />
         <div class="tablet-label">📋 Bảng điểm danh</div>
       </div>
-      <div class="tablet-card" onclick="openLightbox('images/landing/table-02.png')">
-        <img src="images/landing/table-02.png" alt="Bảng giờ làm" width="1536" height="1024" loading="lazy" decoding="async" />
+      <div class="tablet-card" onclick="openLightbox('images/landing/table-02.webp')">
+        <img src="images/landing/table-02-sm.webp" alt="Bảng giờ làm" width="960" height="640" loading="lazy" decoding="async" />
         <div class="tablet-label">⏱ Bảng giờ làm việc</div>
       </div>
-      <div class="tablet-card" onclick="openLightbox('images/landing/table-03.png')">
-        <img src="images/landing/table-03.png" alt="Bảng đi trễ về sớm" width="1536" height="1024" loading="lazy" decoding="async" />
+      <div class="tablet-card" onclick="openLightbox('images/landing/table-03.webp')">
+        <img src="images/landing/table-03-sm.webp" alt="Bảng đi trễ về sớm" width="960" height="640" loading="lazy" decoding="async" />
         <div class="tablet-label">⚠️ Bảng đi trễ / về sớm</div>
       </div>
-      <div class="tablet-card" onclick="openLightbox('images/landing/table-04.png')">
-        <img src="images/landing/table-04.png" alt="Bảng công ca" width="1536" height="1024" loading="lazy" decoding="async" />
+      <div class="tablet-card" onclick="openLightbox('images/landing/table-04.webp')">
+        <img src="images/landing/table-04-sm.webp" alt="Bảng công ca" width="960" height="640" loading="lazy" decoding="async" />
         <div class="tablet-label">✅ Bảng công ca</div>
       </div>
     </div>
@@ -2296,7 +2310,7 @@
           </div>
         </div>
         <div class="showcase-img">
-          <img src="images/landing/screenshot-02.jpg" alt="Chấm công khuôn mặt SBOX HRM trên SBOX POS" loading="lazy" />
+          <img src="images/landing/screenshot-02.webp" alt="Chấm công khuôn mặt SBOX HRM trên SBOX POS" width="720" height="1082" loading="lazy" decoding="async" />
         </div>
       </div>
       <div class="showcase reverse">
@@ -2311,7 +2325,7 @@
           </div>
         </div>
         <div class="showcase-img">
-          <img src="images/landing/screenshot-03.jpg" alt="Kết nối máy chấm công ZKTeco realtime" loading="lazy" />
+          <img src="images/landing/screenshot-03.webp" alt="Kết nối máy chấm công ZKTeco realtime" width="720" height="1082" loading="lazy" decoding="async" />
         </div>
       </div>
       <div class="showcase">
@@ -2326,7 +2340,7 @@
           </div>
         </div>
         <div class="showcase-img">
-          <img src="images/landing/screenshot-04.jpg" alt="Lịch sử chấm công realtime" loading="lazy" />
+          <img src="images/landing/screenshot-04.webp" alt="Lịch sử chấm công realtime" width="720" height="1082" loading="lazy" decoding="async" />
         </div>
       </div>
       <div class="showcase reverse">
@@ -2341,7 +2355,7 @@
           </div>
         </div>
         <div class="showcase-img">
-          <img src="images/landing/screenshot-05.jpg" alt="Bảng điểm danh tổng hợp" loading="lazy" />
+          <img src="images/landing/screenshot-05.webp" alt="Bảng điểm danh tổng hợp" width="720" height="1082" loading="lazy" decoding="async" />
         </div>
       </div>
       <div class="showcase">
@@ -2356,7 +2370,7 @@
           </div>
         </div>
         <div class="showcase-img">
-          <img src="images/landing/screenshot-07.jpg" alt="Lịch làm việc theo ca" loading="lazy" />
+          <img src="images/landing/screenshot-07.webp" alt="Lịch làm việc theo ca" width="720" height="1082" loading="lazy" decoding="async" />
         </div>
       </div>
     </div>
@@ -2366,7 +2380,7 @@
 <!-- LIGHTBOX -->
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Xem ảnh phóng to" onclick="closeLightbox()">
   <button type="button" class="lightbox-close" aria-label="Đóng" onclick="event.stopPropagation(); closeLightbox()">✕</button>
-  <img id="lightbox-img" src="" alt="Xem báo cáo phóng to" onclick="event.stopPropagation()" />
+  <img id="lightbox-img" alt="Xem báo cáo phóng to" onclick="event.stopPropagation()" />
 </div>
 
 <!-- VIDEOS -->
@@ -2559,7 +2573,7 @@
         </div>
         <div class="contact-actions">
           <a class="btn-primary" href="#pricing">Xem gói dịch vụ</a>
-          <a class="btn-outline-blue" href="/guide">Hướng dẫn triển khai</a>
+          <a class="btn-outline-blue" href="/guide.html">Hướng dẫn triển khai</a>
         </div>
       </div>
     </div>
@@ -2597,7 +2611,7 @@
       </div>
       <div class="footer-col">
         <h5>Hỗ trợ</h5>
-        <a href="/guide">Hướng dẫn</a>
+        <a href="/guide.html">Hướng dẫn</a>
         <a href="#faq">Hỏi đáp</a>
         <a href="#contact">Liên hệ</a>
         <a href="/privacy-policy.html">Quyền riêng tư</a>
@@ -2641,7 +2655,6 @@
   function openLightbox(src) {
     var img = document.getElementById('lightbox-img');
     img.src = src;
-    img.alt = src.split('/').pop() || 'Báo cáo';
     document.getElementById('lightbox').classList.add('open');
     document.body.style.overflow = 'hidden';
   }

@@ -197,6 +197,8 @@ public class SeoLandingTests
             Assert.Contains("\"@type\":\"Service\"", html);
             Assert.Contains("miễn phí lắp đặt", html);
             Assert.DoesNotContain("nhà phân phối chính hãng", html);
+            Assert.Contains($"Quản lý chấm công qua điện thoại, MacBook, trình duyệt web tại {p.Name}", html);
+            Assert.Contains("/bai-viet/chuyen-phan-mem-cham-cong-cai-may-sang-online", html);
             foreach (var o in p.Old) Assert.Contains(o, html);
             var title = System.Text.RegularExpressions.Regex.Match(html, "<title>(.*?)</title>").Groups[1].Value;
             Assert.InRange(title.Length, 30, 70);
@@ -211,13 +213,40 @@ public class SeoLandingTests
     public async Task Local_routes_only_on_hrm_and_in_sitemap()
     {
         var db = Db();
-        Assert.Equal(200, Assert.IsType<ContentResult>(Ctl(db, "sboxhrm.com").Local("da-nang")).StatusCode);
-        Assert.Equal(404, Assert.IsType<ContentResult>(Ctl(db, "sboxhrm.com").Local("khong-co")).StatusCode);
+        Assert.Equal(200, Assert.IsType<ContentResult>(await Ctl(db, "sboxhrm.com").Local("da-nang")).StatusCode);
+        Assert.Equal(404, Assert.IsType<ContentResult>(await Ctl(db, "sboxhrm.com").Local("khong-co")).StatusCode);
         Assert.Equal("https://sboxhrm.com/lap-dat-may-cham-cong/da-nang",
-            Assert.IsType<RedirectResult>(Ctl(db, "sboxpos.com").Local("da-nang")).Url);
+            Assert.IsType<RedirectResult>(await Ctl(db, "sboxpos.com").Local("da-nang")).Url);
         var hrm = Assert.IsType<ContentResult>(await Ctl(db, "sboxhrm.com").Sitemap());
         Assert.Contains("https://sboxhrm.com/lap-dat-may-cham-cong/ho-chi-minh", hrm.Content);
         var pos = Assert.IsType<ContentResult>(await Ctl(db, "sboxpos.com").Sitemap());
         Assert.DoesNotContain("lap-dat-may-cham-cong", pos.Content);
+    }
+
+    [Fact]
+    public void Local_page_shows_device_prices_and_office_only_on_da_nang()
+    {
+        var devices = SeoPages.ParseDevices("""
+            [{"name":"ZKTeco LX35","sub":"Máy chấm công vân tay WiFi","price":"1.950.000 d","oldPrice":"2.250.000 d","specs":"Vân tay – WiFi"},
+             {"name":"ZKTeco MB10VL","price":"2.900.000 d","specs":"Khuôn mặt – ADMS"},{"name":"Liên hệ","price":"Liên hệ"},{"price":"1"}]
+            """);
+        Assert.Equal(3, devices.Count);
+        var dn = SeoPages.LocalPage(SeoPages.FindProvince("da-nang")!, devices);
+        Assert.Contains("Bảng giá máy chấm công tham khảo tại Đà Nẵng", dn);
+        Assert.Contains("1.950.000 đ", dn);
+        Assert.Contains("Giá máy chấm công tại Đà Nẵng bao nhiêu", dn);
+        Assert.Contains("từ 1.950.000 đ (ZKTeco LX35) đến 2.900.000 đ", dn, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"@type\":\"LocalBusiness\"", dn);
+        Assert.Contains("184 Nam Cao", dn);
+        Assert.Contains("google.com/maps", dn);
+        Assert.DoesNotContain("maychamcong24h", dn);
+
+        var hn = SeoPages.LocalPage(SeoPages.FindProvince("ha-noi")!, devices);
+        Assert.Contains("Bảng giá máy chấm công tham khảo tại Hà Nội", hn);
+        Assert.DoesNotContain("\"@type\":\"LocalBusiness\"", hn);
+        Assert.DoesNotContain("google.com/maps?q=", hn);
+        // FAQ riêng theo đặc điểm tỉnh → không trùng nhau giữa các trang
+        Assert.Contains("tại Hà Nội nên dùng máy chấm công nào", hn);
+        Assert.DoesNotContain("Bảng giá máy chấm công", SeoPages.LocalPage(SeoPages.FindProvince("ha-noi")!));
     }
 }

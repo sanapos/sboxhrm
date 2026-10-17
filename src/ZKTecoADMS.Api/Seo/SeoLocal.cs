@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Text;
+using System.Text.Json;
 
 namespace ZKTecoADMS.Api.Seo;
 
@@ -59,7 +61,7 @@ public static partial class SeoPages
             "Du lịch hang động Phong Nha – Kẻ Bàng của Quảng Bình cũ, biển Nhật Lệ, cửa khẩu Lao Bảo và các khu công nghiệp Nam Đông Hà, Hòn La. Dịch vụ du lịch làm việc theo mùa và theo ca."),
         new("hue", "Huế", "Miền Trung", [], ["Phú Xuân", "Thuận Hóa", "Hương Thủy", "Hương Trà", "Phong Điền", "Chân Mây"], ["dulich", "thuongmai"],
             "Du lịch di sản, khách sạn, nhà hàng và các khu công nghiệp Phú Bài, Phong Điền, Chân Mây – Lăng Cô. Ngành lưu trú, ăn uống cần chấm công ca xoay, ca gãy."),
-        new("da-nang", "Đà Nẵng", "Miền Trung", ["Quảng Nam"], ["Hải Châu", "Thanh Khê", "Sơn Trà", "Liên Chiểu", "Hội An", "Tam Kỳ", "Điện Bàn", "Chu Lai"], ["dulich", "kcn", "thuongmai"],
+        new("da-nang", "Đà Nẵng", "Miền Trung", ["Quảng Nam"], ["Hải Châu", "Thanh Khê", "Sơn Trà", "Ngũ Hành Sơn", "Cẩm Lệ", "Liên Chiểu", "Hòa Khánh", "Hòa Vang", "Hội An", "Tam Kỳ", "Điện Bàn", "Núi Thành", "Chu Lai"], ["dulich", "kcn", "thuongmai"],
             "Nơi đặt văn phòng của SBOX. Đà Nẵng mới kết hợp du lịch Đà Nẵng – Hội An, các khu công nghiệp Hòa Khánh, Liên Chiểu, Điện Nam – Điện Ngọc và khu kinh tế Chu Lai của Quảng Nam cũ. Khách sạn, resort, nhà máy và chuỗi cửa hàng đều có nhu cầu chấm công nhiều điểm."),
         new("quang-ngai", "Quảng Ngãi", "Miền Trung", ["Kon Tum"], ["Quảng Ngãi", "Dung Quất", "Đức Phổ", "Kon Tum", "Ngọc Hồi"], ["kcn", "vungcao"],
             "Khu kinh tế Dung Quất với lọc dầu, thép và cơ khí, cùng vùng Kon Tum cũ với nông lâm nghiệp và cửa khẩu Bờ Y. Lao động phân bố từ nhà máy ven biển đến vùng cao."),
@@ -97,6 +99,121 @@ public static partial class SeoPages
         Provinces.FirstOrDefault(p => p.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase));
 
     const string LocalBase = "/lap-dat-may-cham-cong";
+
+    /// <summary>Tỉnh đặt văn phòng SBOX (khớp địa chỉ trong Organization()).</summary>
+    const string OfficeSlug = "da-nang";
+    const string OfficeAddress = "184 Nam Cao, Hòa Khánh, Đà Nẵng";
+
+    /// <summary>Máy chấm công đang bán — Super Admin nhập ở Thiết lập › Landing «Sản phẩm thiết bị» (landing_products).</summary>
+    public record DeviceOffer(string Name, string? Sub, string? Price, string? OldPrice, string? Specs, string? Brand);
+
+    public static List<DeviceOffer> ParseDevices(string? json)
+    {
+        var list = new List<DeviceOffer>();
+        if (string.IsNullOrWhiteSpace(json)) return list;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) return list;
+            string? Str(JsonElement e, string k) =>
+                e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString()) ? v.GetString()!.Trim() : null;
+            foreach (var e in doc.RootElement.EnumerateArray())
+            {
+                if (e.ValueKind != JsonValueKind.Object || Str(e, "name") is not { } name) continue;
+                list.Add(new DeviceOffer(name, Str(e, "sub"), Str(e, "price"), Str(e, "oldPrice"), Str(e, "specs"), Str(e, "brand")));
+            }
+        }
+        catch (JsonException) { }
+        return list;
+    }
+
+    /// <summary>"1.950.000 d" → 1950000; "Liên hệ" → null.</summary>
+    static long? PriceValue(string? price)
+    {
+        var digits = new string((price ?? "").Where(char.IsDigit).ToArray());
+        return digits.Length is >= 5 and <= 10 ? long.Parse(digits) : null;
+    }
+
+    static string Vnd(long v) => v.ToString("#,0", CultureInfo.InvariantCulture).Replace(',', '.') + " đ";
+
+    static string DeviceSection(IReadOnlyList<DeviceOffer> devices, string where)
+    {
+        if (devices.Count == 0) return "";
+        var sb = new StringBuilder($"<h2 id=\"bang-gia-may\">Bảng giá máy chấm công tham khảo{where}</h2>\n");
+        sb.Append("<div class=\"table-wrap\"><table><thead><tr><th>Máy chấm công</th><th>Chấm công bằng</th><th>Giá tham khảo</th></tr></thead><tbody>");
+        foreach (var d in devices)
+        {
+            var price = PriceValue(d.Price) is { } v ? Vnd(v) : (d.Price ?? "Liên hệ");
+            var old = PriceValue(d.OldPrice) is { } o && PriceValue(d.Price) is { } n && o > n ? $" <s style=\"color:var(--m);font-weight:400\">{E(Vnd(o))}</s>" : "";
+            sb.Append($"<tr><td><strong>{E(d.Name)}</strong>{(d.Sub == null ? "" : $"<br><span style=\"color:var(--m);font-size:14px\">{E(d.Sub)}</span>")}</td>")
+              .Append($"<td>{E(d.Specs ?? "")}</td><td><strong>{E(price)}</strong>{old}</td></tr>");
+        }
+        sb.Append("</tbody></table></div>\n");
+        sb.Append("<p style=\"font-size:15px;color:var(--m)\">Giá tham khảo, có thể thay đổi theo thời điểm và số lượng. Khi mua máy được <strong>miễn phí lắp đặt</strong> và <strong>tặng phần mềm chấm công SBOX HRM</strong>. <a href=\"#bao-gia\">Nhận báo giá chính xác →</a></p>\n");
+        return sb.ToString();
+    }
+
+    static (long Min, long Max, string MinName)? PriceRange(IReadOnlyList<DeviceOffer> devices)
+    {
+        var priced = devices.Select(d => (d, v: PriceValue(d.Price))).Where(x => x.v.HasValue).ToList();
+        if (priced.Count == 0) return null;
+        var min = priced.MinBy(x => x.v)!;
+        return (min.v!.Value, priced.Max(x => x.v!.Value), min.d.Name);
+    }
+
+    static string MapEmbedUrl => "https://www.google.com/maps?q=" + Uri.EscapeDataString(OfficeAddress) + "&output=embed";
+    static string MapLinkUrl => "https://www.google.com/maps/search/?api=1&query=" + Uri.EscapeDataString(OfficeAddress);
+
+    static string OfficeSection() => $"""
+<h2 id="van-phong">Văn phòng SBOX tại Đà Nẵng</h2>
+<p>SBOX đặt văn phòng tại <strong>{E(OfficeAddress)}</strong> (khu Hòa Khánh – Liên Chiểu). Doanh nghiệp tại Đà Nẵng và Quảng Nam cũ được kỹ thuật đến khảo sát, lắp máy tận nơi; có thể gọi trước để hẹn qua văn phòng trao đổi trực tiếp.</p>
+<ul>
+<li><strong>Địa chỉ:</strong> {E(OfficeAddress)} — <a href="{E(MapLinkUrl)}" target="_blank" rel="noopener">Chỉ đường Google Maps</a></li>
+<li><strong>Hotline / Zalo:</strong> <a href="tel:+84973024042">0973 024 042</a></li>
+<li><strong>Email:</strong> <a href="mailto:support@sboxhrm.com">support@sboxhrm.com</a></li>
+</ul>
+<div style="border-radius:14px;overflow:hidden;border:1px solid var(--b, #e2e8f0);margin:12px 0 8px"><iframe src="{E(MapEmbedUrl)}" title="Bản đồ văn phòng SBOX tại Đà Nẵng" width="100%" height="320" style="border:0;display:block" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
+""";
+
+    /// <summary>Doanh nghiệp tại địa chỉ văn phòng — chỉ gắn trên trang Đà Nẵng.</summary>
+    static object OfficeBusiness(SiteInfo s, string pageUrl) => new Dictionary<string, object>
+    {
+        ["@context"] = "https://schema.org",
+        ["@type"] = "LocalBusiness",
+        ["@id"] = s.Origin + "/#local-da-nang",
+        ["name"] = s.Brand + " – Máy chấm công Đà Nẵng",
+        ["url"] = pageUrl,
+        ["image"] = s.Origin + s.Logo,
+        ["telephone"] = "+84-973-024-042",
+        ["email"] = "support@sboxhrm.com",
+        ["address"] = new Dictionary<string, object>
+        {
+            ["@type"] = "PostalAddress", ["streetAddress"] = "184 Nam Cao", ["addressLocality"] = "Hòa Khánh",
+            ["addressRegion"] = "Đà Nẵng", ["addressCountry"] = "VN",
+        },
+        ["hasMap"] = MapLinkUrl,
+        ["areaServed"] = new[] { "Đà Nẵng", "Quảng Nam" },
+        ["parentOrganization"] = new Dictionary<string, object> { ["@id"] = s.Origin + "/#organization" },
+    };
+
+    /// <summary>
+    /// Chấm công trên điện thoại / MacBook / trình duyệt và so sánh với phần mềm chấm công cài máy tính Windows kiểu cũ
+    /// (loại đi kèm máy chấm công, kết nối LAN/USB). Không nêu tên sản phẩm cụ thể trong bảng — chỉ mô tả kiểu cài đặt.
+    /// </summary>
+    static string CloudSection(string where, string? name) => $"""
+<h2 id="cham-cong-moi-noi">Quản lý chấm công qua điện thoại, MacBook, trình duyệt web{where}</h2>
+<p>Máy chấm công lắp{where} tự gửi dữ liệu lên SBOX HRM qua Internet. Chủ doanh nghiệp, kế toán xem bảng công <strong>trên điện thoại (Android, iOS), MacBook, máy tính Windows hoặc bất kỳ trình duyệt web nào</strong> — không phải cài phần mềm, không cần để một máy tính bật suốt ở văn phòng{(name == null ? "" : $", kể cả khi đang đi công tác ngoài {E(name)}")}.</p>
+<div class="table-wrap"><table><thead><tr><th>Nhu cầu</th><th>Phần mềm chấm công cài máy tính kiểu cũ</th><th>SBOX HRM (online)</th></tr></thead><tbody>
+<tr><td><strong>Xem công trên MacBook, điện thoại</strong></td><td>Thường chỉ chạy trên máy tính Windows đã cài đặt</td><td>Mở trình duyệt hoặc app trên mọi thiết bị</td></tr>
+<tr><td><strong>Lấy dữ liệu từ máy chấm công</strong></td><td>Tải về qua mạng LAN / USB, phải ngồi tại văn phòng</td><td>Máy tự đẩy dữ liệu qua Internet (ADMS) vài giây sau khi chấm</td></tr>
+<tr><td><strong>Nhiều chi nhánh</strong></td><td>Mỗi nơi một máy tính, gom dữ liệu thủ công</td><td>Một tài khoản xem công toàn bộ chi nhánh</td></tr>
+<tr><td><strong>Chấm công không cần máy</strong></td><td>Không có</td><td>Chấm công qua điện thoại: khuôn mặt + GPS + WiFi</td></tr>
+<tr><td><strong>Đơn từ, phiếu lương</strong></td><td>Giấy tờ, nhập tay</td><td>Nhân viên gửi đơn nghỉ phép, tăng ca và xem phiếu lương trên app</td></tr>
+<tr><td><strong>Tính lương</strong></td><td>Xuất Excel rồi tính tay</td><td>Tự tính ngày công, tăng ca, phụ cấp, BHXH, thuế TNCN</td></tr>
+<tr><td><strong>Sao lưu dữ liệu</strong></td><td>Mất khi hỏng ổ cứng, cài lại Windows</td><td>Lưu trên máy chủ, đổi máy tính không mất dữ liệu</td></tr>
+</tbody></table></div>
+<p>Đang dùng phần mềm chấm công cài trên máy tính? Máy ZKTeco có hỗ trợ ADMS vẫn giữ nguyên và chuyển sang kết nối SBOX HRM — xem <a href="/bai-viet/chuyen-phan-mem-cham-cong-cai-may-sang-online">hướng dẫn chuyển sang chấm công online</a>.</p>
+""";
 
     static string OldText(Province p) => p.Old.Length == 0 ? "" : $" (gồm {string.Join(", ", p.Old)} cũ)";
 
@@ -138,11 +255,24 @@ public static partial class SeoPages
         },
     };
 
-    static List<FaqItem> LocalFaq(Province? p)
+    static List<FaqItem> LocalFaq(Province? p, IReadOnlyList<DeviceOffer>? devices = null)
     {
         var at = p == null ? "" : $" tại {p.Name}";
+        var own = new List<FaqItem>();
+        if (p?.Slug == OfficeSlug)
+            own.Add(new("Mua máy chấm công ở đâu tại Đà Nẵng",
+                $"Văn phòng SBOX ở {OfficeAddress}. Gọi hoặc nhắn Zalo 0973 024 042 để được tư vấn, báo giá và hẹn kỹ thuật đến lắp tận nơi tại Đà Nẵng, Hội An, Tam Kỳ, Điện Bàn và các địa bàn Quảng Nam cũ."));
+        if (PriceRange(devices ?? []) is { } r)
+            own.Add(new($"Giá máy chấm công{at} bao nhiêu",
+                r.Min == r.Max
+                    ? $"Máy chấm công SBOX đang cung cấp có giá tham khảo {Vnd(r.Min)}, miễn phí lắp đặt{at} và tặng phần mềm chấm công SBOX HRM."
+                    : $"Giá tham khảo từ {Vnd(r.Min)} ({r.MinName}) đến {Vnd(r.Max)} tùy loại vân tay hay khuôn mặt; khi mua máy được miễn phí lắp đặt{at} và tặng phần mềm chấm công SBOX HRM. Giá thay đổi theo số lượng — gọi 0973 024 042 để nhận báo giá."));
+        if (p != null)
+            foreach (var (need, fit) in Advice(p).Take(2))
+                own.Add(new($"{need} tại {p.Name} nên dùng máy chấm công nào", fit + "."));
         return
         [
+            .. own,
             new($"Lắp đặt máy chấm công{at} có mất phí không",
                 $"Khi mua máy chấm công tại SBOX, khách hàng{at} được miễn phí lắp đặt, cài đặt kết nối Internet và tặng phần mềm chấm công SBOX HRM theo chương trình ưu đãi hiện hành. Gọi hoặc nhắn Zalo 0973 024 042 để nhận báo giá máy."),
             new($"SBOX có lắp đặt tận nơi{at} không",
@@ -151,6 +281,8 @@ public static partial class SeoPages
                 "SBOX là đơn vị cung cấp, lắp đặt máy chấm công ZKTeco và phát triển phần mềm chấm công – tính lương SBOX HRM; SBOX không phải nhà phân phối độc quyền hay đại lý chính thức của hãng ZKTeco. Phần mềm SBOX HRM kết nối các máy ZKTeco có hỗ trợ ADMS, kể cả máy doanh nghiệp đã mua ở nơi khác."),
             new("Không lắp máy thì có chấm công bằng điện thoại được không",
                 "Được. Nhân viên chấm công bằng app SBOX HRM trên điện thoại với nhận diện khuôn mặt, kiểm tra vị trí GPS hoặc WiFi nơi làm việc và khóa thiết bị đã đăng ký — phù hợp cửa hàng nhỏ, nhân viên đi thị trường hoặc làm việc phân tán."),
+            new($"Xem bảng chấm công{at} trên MacBook, điện thoại được không",
+                "Được. SBOX HRM chạy trên trình duyệt web (Chrome, Safari, Edge) nên dùng được trên MacBook, máy tính Windows, máy tính bảng; quản lý và nhân viên dùng thêm app SBOX HRM trên Android, iOS. Không cần cài phần mềm hay để máy tính bật ở văn phòng như phần mềm chấm công cài máy kiểu cũ."),
             new("Nên chọn máy chấm công vân tay hay khuôn mặt",
                 "Văn phòng ít người có thể dùng máy vân tay giá tốt; nhà xưởng đông công nhân, nhân viên làm việc tay chân hoặc cần chấm nhanh nên chọn máy khuôn mặt không chạm. Nên chọn máy có ADMS để kết nối phần mềm qua Internet."),
         ];
@@ -184,20 +316,21 @@ public static partial class SeoPages
 </ul>
 """;
 
-    public static string LocalHubPage()
+    public static string LocalHubPage(IReadOnlyList<DeviceOffer>? devices = null)
     {
         var s = Hrm;
         var url = s.Origin + LocalBase;
         var title = "Lắp đặt máy chấm công vân tay, khuôn mặt toàn quốc | SBOX";
         var desc = "Lắp đặt máy chấm công vân tay, khuôn mặt ZKTeco tại 34 tỉnh thành: giá tốt, miễn phí lắp đặt, tặng phần mềm chấm công, chấm công qua điện thoại. Gọi 0973 024 042.";
-        var faq = LocalFaq(null);
+        devices ??= [];
+        var faq = LocalFaq(null, devices);
         var ld = new List<object>
         {
             LocalService(null),
             Crumbs(s, ("Trang chủ", s.Origin + "/"), ("Lắp đặt máy chấm công", url)),
         };
         if (FaqLd(faq) is { } f) ld.Add(f);
-        var kw = "lắp đặt máy chấm công, máy chấm công vân tay, máy chấm công khuôn mặt, máy chấm công zkteco, phần mềm chấm công, chấm công qua điện thoại, máy chấm công giá tốt, miễn phí lắp đặt máy chấm công";
+        var kw = "lắp đặt máy chấm công, máy chấm công vân tay, máy chấm công khuôn mặt, máy chấm công zkteco, phần mềm chấm công, chấm công qua điện thoại, phần mềm chấm công online, phần mềm chấm công trên macbook, chấm công trên trình duyệt web, máy chấm công giá tốt, miễn phí lắp đặt máy chấm công";
         var sb = new StringBuilder(Head(s, title, desc, url, s.Origin + "/images/landing/screenshot-03.jpg", "website", kw, ld));
         sb.Append("<section class=\"lp-hero\"><div class=\"wrap\"><div>");
         sb.Append("<div class=\"crumb\" style=\"margin-top:0\"><a href=\"/\">Trang chủ</a> › Lắp đặt máy chấm công</div>");
@@ -224,6 +357,8 @@ public static partial class SeoPages
 <li><strong>Kết nối máy ZKTeco đang có</strong> (dòng hỗ trợ ADMS) vào phần mềm.</li>
 </ul>
 """);
+        sb.Append(DeviceSection(devices, ""));
+        sb.Append(CloudSection("", null));
         sb.Append(ProcessSection(""));
         sb.Append(WhySection());
         sb.Append("<p>Tìm hiểu thêm: <a href=\"/tinh-nang/phan-mem-cham-cong-zkteco\">phần mềm chấm công ZKTeco</a>, <a href=\"/tinh-nang/cham-cong-khuon-mat-dien-thoai\">chấm công khuôn mặt qua điện thoại</a>, <a href=\"/bai-viet/cham-cong-khuon-mat-hay-van-tay\">nên chọn máy khuôn mặt hay vân tay</a>.</p>\n");
@@ -235,7 +370,7 @@ public static partial class SeoPages
         return sb.ToString();
     }
 
-    public static string LocalPage(Province p)
+    public static string LocalPage(Province p, IReadOnlyList<DeviceOffer>? devices = null)
     {
         var s = Hrm;
         var url = $"{s.Origin}{LocalBase}/{p.Slug}";
@@ -244,12 +379,16 @@ public static partial class SeoPages
         var olds = p.Old.Length == 0 ? "" : $", {string.Join(", ", p.Old)}";
         var desc = $"Lắp đặt máy chấm công vân tay, khuôn mặt ZKTeco tại {p.Name}{olds}: giá tốt, miễn phí lắp đặt, tặng phần mềm chấm công, chấm công qua điện thoại.";
         if (desc.Length > 165) desc = $"Lắp máy chấm công vân tay, khuôn mặt ZKTeco tại {p.Name}{olds}: giá tốt, miễn phí lắp, tặng phần mềm chấm công.";
-        var faq = LocalFaq(p);
+        devices ??= [];
+        var office = p.Slug == OfficeSlug;
+        var faq = LocalFaq(p, devices);
         var kwParts = new List<string>
         {
             $"lắp đặt máy chấm công {p.Name}", $"máy chấm công {p.Name}", $"máy chấm công vân tay {p.Name}",
             $"máy chấm công khuôn mặt {p.Name}", $"máy chấm công zkteco {p.Name}", $"phần mềm chấm công {p.Name}",
-            $"chấm công qua điện thoại {p.Name}",
+            $"chấm công qua điện thoại {p.Name}", $"phần mềm chấm công online {p.Name}",
+            "quản lý chấm công trên điện thoại", "phần mềm chấm công trên macbook", "chấm công trên trình duyệt web",
+            "thay phần mềm chấm công cài máy tính",
         };
         kwParts.AddRange(p.Old.Select(o => $"máy chấm công {o}"));
         var ld = new List<object>
@@ -257,6 +396,7 @@ public static partial class SeoPages
             LocalService(p),
             Crumbs(s, ("Trang chủ", s.Origin + "/"), ("Lắp đặt máy chấm công", s.Origin + LocalBase), (p.Name, url)),
         };
+        if (office) ld.Add(OfficeBusiness(s, url));
         if (FaqLd(faq) is { } f) ld.Add(f);
 
         var sb = new StringBuilder(Head(s, title, desc, url, s.Origin + "/images/landing/screenshot-03.jpg", "website", string.Join(", ", kwParts), ld));
@@ -266,7 +406,9 @@ public static partial class SeoPages
         sb.Append($"<h1>Lắp đặt máy chấm công vân tay, khuôn mặt tại {E(p.Name)}</h1>");
         sb.Append($"<p class=\"lead\">SBOX cung cấp và lắp đặt máy chấm công ZKTeco giá tốt tại {E(p.Name)}{E(OldText(p))}: <strong>miễn phí lắp đặt</strong> khi mua máy, <strong>tặng phần mềm chấm công</strong> SBOX HRM, xem công và bảng lương trên điện thoại.</p>");
         sb.Append("<div class=\"lp-actions\"><a class=\"btn\" href=\"#bao-gia\">Nhận báo giá</a><a class=\"btn ghost\" href=\"tel:+84973024042\">Gọi 0973 024 042</a></div>");
-        sb.Append("<p class=\"lp-note\">Lắp tận nơi · Kết nối Internet (ADMS) · Chấm công qua điện thoại cho nhân viên lưu động</p></div>");
+        sb.Append(office
+            ? $"<p class=\"lp-note\">Văn phòng tại {E(OfficeAddress)} · Lắp tận nơi · Kết nối Internet (ADMS)</p></div>"
+            : "<p class=\"lp-note\">Lắp tận nơi · Kết nối Internet (ADMS) · Chấm công qua điện thoại cho nhân viên lưu động</p></div>");
         sb.Append($"<div><img src=\"/images/landing/screenshot-03.jpg\" alt=\"Máy chấm công tại {E(p.Name)} kết nối phần mềm SBOX HRM\" width=\"1200\" height=\"630\"></div></div></section>\n");
 
         sb.Append("<main class=\"wrap\"><div class=\"layout\" style=\"margin-top:26px\"><article><div class=\"content\">\n");
@@ -280,6 +422,8 @@ public static partial class SeoPages
             foreach (var (need, fit) in adv) sb.Append($"<tr><td><strong>{E(need)}</strong></td><td>{E(fit)}</td></tr>");
             sb.Append("</tbody></table></div>\n");
         }
+        if (office) sb.Append(OfficeSection());
+        sb.Append(DeviceSection(devices, $" tại {E(p.Name)}"));
         sb.Append($"<h2 id=\"khu-vuc\">Khu vực lắp đặt tại {E(p.Name)}</h2>\n<p>Lắp đặt tận nơi tại các địa bàn: {E(string.Join(", ", p.Places))} và các xã, phường khác{E(OldText(p))}.</p>\n");
         sb.Append($"""
 <h2 id="dich-vu">Dịch vụ tại {E(p.Name)}</h2>
@@ -291,6 +435,7 @@ public static partial class SeoPages
 <li><strong>Kết nối máy cũ</strong>: máy ZKTeco hỗ trợ ADMS doanh nghiệp đang dùng vẫn đưa vào phần mềm được.</li>
 </ul>
 """);
+        sb.Append(CloudSection($" tại {E(p.Name)}", p.Name));
         sb.Append(ProcessSection($" tại {E(p.Name)}"));
         sb.Append(WhySection());
         sb.Append("<p>Xem thêm: <a href=\"/tinh-nang/phan-mem-cham-cong-zkteco\">phần mềm chấm công ZKTeco qua Internet</a>, <a href=\"/tinh-nang/cham-cong-khuon-mat-dien-thoai\">chấm công khuôn mặt bằng điện thoại</a>, <a href=\"/bai-viet/cham-cong-khuon-mat-hay-van-tay\">so sánh máy vân tay và khuôn mặt</a>.</p>\n");

@@ -28,7 +28,7 @@ SITES = {
         # Giữ khớp homeSeo() trong flutter_client/web/site-seo.js (JS ghi đè meta lúc chạy).
         "title": "Phần mềm chấm công, tính lương & quản lý nhân sự | SBOX HRM",
         "description": "Phần mềm chấm công khuôn mặt, GPS, WiFi và máy ZKTeco; xếp ca, tính lương, BHXH, thuế TNCN tự động cho nhà hàng, chuỗi cửa hàng, nhà máy. Dùng thử miễn phí!",
-        "keywords": "phần mềm chấm công, phần mềm tính lương, phần mềm quản lý nhân sự, phần mềm HRM, phần mềm chấm công miễn phí, app chấm công, chấm công khuôn mặt, chấm công qua điện thoại, chấm công GPS, chấm công WiFi, chấm công online, chấm công ZKTeco, máy chấm công khuôn mặt, máy chấm công vân tay, lắp đặt máy chấm công, phần mềm bảng lương, lương sản phẩm, lương theo ca, quản lý ca làm việc, nghỉ phép online, BHXH, thuế TNCN, phần mềm nhân sự nhà hàng, chuỗi cửa hàng, nhà máy, doanh nghiệp vừa và nhỏ, HRM Việt Nam, SBOX HRM, ADMS",
+        "keywords": "phần mềm chấm công, phần mềm tính lương, phần mềm quản lý nhân sự, phần mềm HRM, phần mềm chấm công miễn phí, app chấm công, chấm công khuôn mặt, chấm công qua điện thoại, chấm công GPS, chấm công WiFi, chấm công online, quản lý chấm công trên điện thoại, phần mềm chấm công trên MacBook, chấm công trên trình duyệt web, phần mềm chấm công không cần cài đặt, chấm công ZKTeco, máy chấm công khuôn mặt, máy chấm công vân tay, lắp đặt máy chấm công, phần mềm bảng lương, lương sản phẩm, lương theo ca, quản lý ca làm việc, nghỉ phép online, BHXH, thuế TNCN, phần mềm nhân sự nhà hàng, chuỗi cửa hàng, nhà máy, doanh nghiệp vừa và nhỏ, HRM Việt Nam, SBOX HRM, ADMS",
         "og_image": "https://sboxhrm.com/images/landing/screenshot-01.jpg",
         "og_image_alt": "Giao diện SBOX HRM – phần mềm quản lý nhân sự và chấm công",
         "theme": "#0C56D0",
@@ -63,6 +63,10 @@ SITES = {
              "Được. Bảng lương tự tính theo ngày công, giờ công, lương theo ca, lương sản phẩm theo sản lượng, tăng ca, ngày lễ, phụ cấp, thưởng phạt, BHXH và thuế TNCN."),
             ("Quản lý chuỗi nhiều chi nhánh, cửa hàng được không?",
              "Được. Mỗi chi nhánh có ca, vị trí chấm công và quản lý riêng; chủ doanh nghiệp xem bảng công, bảng lương tập trung của cả chuỗi nhà hàng, cửa hàng hoặc nhà máy."),
+            ("Dùng SBOX HRM trên MacBook, trình duyệt web được không?",
+             "Được. SBOX HRM chạy trên trình duyệt web (Chrome, Safari, Edge, Cốc Cốc) nên dùng được trên MacBook, máy tính Windows và máy tính bảng mà không cần cài đặt; quản lý và nhân viên dùng thêm app trên Android, iOS để xem công, duyệt đơn và xem phiếu lương."),
+            ("Đang dùng phần mềm chấm công cài trên máy tính thì chuyển sang SBOX HRM thế nào?",
+             "Máy ZKTeco có ADMS (Push / Cloud Server) chỉ cần khai báo địa chỉ máy chủ SBOX là tự gửi dữ liệu qua Internet — không cần để một máy tính Windows bật ở văn phòng, không phải tải dữ liệu qua LAN hay USB. Xem công nhiều chi nhánh, chấm công điện thoại, đơn từ và tính lương đều trên một tài khoản."),
             ("Có xuất bảng công, bảng lương ra Excel không?",
              "Có. Bảng công, bảng lương, phiếu lương và các báo cáo đều xuất được Excel để gửi kế toán hoặc lưu trữ."),
         ],
@@ -294,6 +298,13 @@ def render(site, web_dir):
         for p in ("og:image:width", "og:image:height"):
             for el in soup.select(f'meta[property="{p}"]'):
                 el.decompose()
+        # Ảnh og POS ẩn 1px (tải chéo từ sboxpos.com) — không thuộc trang HRM.
+        for el in soup.select('body > img[src*="sbox-pos-og"]'):
+            el.decompose()
+        # Ảnh hero là LCP → tải sớm.
+        if soup.head is not None:
+            soup.head.append(soup.new_tag("link", rel="preload", attrs={
+                "as": "image", "href": "images/landing/hero-product.webp", "type": "image/webp", "fetchpriority": "high"}))
 
     # FAQ hiển thị tĩnh (bot đọc được) + FAQPage khớp đúng danh sách hiển thị.
     faq_list = soup.find(id="faq-list")
@@ -340,6 +351,21 @@ def render(site, web_dir):
         a["href"] = "/tinh-nang"
     for a in soup.select('ul.nav-links a[href="#pricing"], a.nav-drawer-link[href="#pricing"]'):
         a["href"] = "/bang-gia"
+        a.string = "Bảng giá"
+    if site == "hrm":
+        # Trang dịch vụ lắp đặt máy chấm công — có trên menu để bot và khách tìm thấy.
+        for ul in soup.select("ul.nav-links"):
+            guide = ul.find("a", href="/guide.html")
+            if guide:
+                li = soup.new_tag("li")
+                a = soup.new_tag("a", href="/lap-dat-may-cham-cong")
+                a.string = "Lắp đặt máy"
+                li.append(a)
+                guide.parent.insert_after(li)
+        for guide in soup.select('a.nav-drawer-link[href="/guide.html"]'):
+            a = soup.new_tag("a", href="/lap-dat-may-cham-cong", attrs={"class": "nav-drawer-link"})
+            a.string = "Lắp đặt máy chấm công"
+            guide.insert_after(a)
     for ul in soup.select("ul.nav-links"):
         li = soup.new_tag("li")
         a = soup.new_tag("a", href="/bai-viet")

@@ -250,6 +250,14 @@ nav.menu a{flex:0 0 auto;font-size:14px;padding:6px 12px;border:1px solid var(--
             foreach (var r in related) sb.Append($"<li><a href=\"/bai-viet/{E(r.Slug)}\">{E(r.Title)}</a></li>");
             sb.Append("</ul></div>\n");
         }
+        if (s.Code == "hrm" && $"{a.Title} {a.Keywords}".Contains("máy chấm công", StringComparison.OrdinalIgnoreCase))
+        {
+            // Bài về máy chấm công → trang lắp đặt theo tỉnh (liên kết nội bộ cho từ khóa địa phương).
+            sb.Append("<div class=\"box\"><h2>Lắp đặt máy chấm công tận nơi</h2><ul class=\"related\">");
+            foreach (var slug in new[] { "da-nang", "ha-noi", "ho-chi-minh", "hai-phong", "hue", "can-tho" })
+                if (FindProvince(slug) is { } p) sb.Append($"<li><a href=\"{LocalBase}/{p.Slug}\">Máy chấm công {E(p.Name)}</a></li>");
+            sb.Append($"<li><a href=\"{LocalBase}\">Tất cả 34 tỉnh thành →</a></li></ul></div>\n");
+        }
         sb.Append($"<div class=\"box\"><h2>{E(s.Brand)}</h2><p style=\"margin:0 0 12px;font-size:15px;color:var(--m)\">{E(s.CtaText)}</p><a class=\"btn\" href=\"/register\">Dùng thử miễn phí</a></div>\n");
         sb.Append("</aside>\n</div>\n</main>\n");
         sb.Append(Footer(s));

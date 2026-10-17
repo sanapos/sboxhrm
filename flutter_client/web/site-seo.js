@@ -38,7 +38,7 @@
       // Giữ khớp SITES["hrm"] trong scripts/render-site-home.py
       title: 'Phần mềm chấm công, tính lương & quản lý nhân sự | SBOX HRM',
       description: 'Phần mềm chấm công khuôn mặt, GPS, WiFi và máy ZKTeco; xếp ca, tính lương, BHXH, thuế TNCN tự động cho nhà hàng, chuỗi cửa hàng, nhà máy. Dùng thử miễn phí!',
-      keywords: 'phần mềm chấm công, phần mềm tính lương, phần mềm quản lý nhân sự, phần mềm HRM, phần mềm chấm công miễn phí, app chấm công, chấm công khuôn mặt, chấm công qua điện thoại, chấm công GPS, chấm công WiFi, chấm công online, chấm công ZKTeco, máy chấm công khuôn mặt, máy chấm công vân tay, lắp đặt máy chấm công, phần mềm bảng lương, lương sản phẩm, lương theo ca, quản lý ca làm việc, nghỉ phép online, BHXH, thuế TNCN, phần mềm nhân sự nhà hàng, chuỗi cửa hàng, nhà máy, doanh nghiệp vừa và nhỏ, HRM Việt Nam, SBOX HRM, ADMS',
+      keywords: 'phần mềm chấm công, phần mềm tính lương, phần mềm quản lý nhân sự, phần mềm HRM, phần mềm chấm công miễn phí, app chấm công, chấm công khuôn mặt, chấm công qua điện thoại, chấm công GPS, chấm công WiFi, chấm công online, quản lý chấm công trên điện thoại, phần mềm chấm công trên MacBook, chấm công trên trình duyệt web, phần mềm chấm công không cần cài đặt, chấm công ZKTeco, máy chấm công khuôn mặt, máy chấm công vân tay, lắp đặt máy chấm công, phần mềm bảng lương, lương sản phẩm, lương theo ca, quản lý ca làm việc, nghỉ phép online, BHXH, thuế TNCN, phần mềm nhân sự nhà hàng, chuỗi cửa hàng, nhà máy, doanh nghiệp vừa và nhỏ, HRM Việt Nam, SBOX HRM, ADMS',
       ogImage: origin + '/images/landing/screenshot-01.jpg',
       ogImageAlt: 'Giao diện SBOX HRM – phần mềm quản lý nhân sự và chấm công',
       themeColor: '#0C56D0'
