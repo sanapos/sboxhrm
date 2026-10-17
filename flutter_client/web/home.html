@@ -189,7 +189,7 @@
   catch (e) { document.documentElement.className += ' legacy-css'; }</script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; scroll-padding-top: 72px; }
     html[data-site="pos"]:not(.site-ready) #hero-title,
     html[data-site="pos"]:not(.site-ready) #hero-subtext,
     html[data-site="pos"]:not(.site-ready) #hero-badge { visibility: hidden; }
@@ -1665,6 +1665,10 @@
     }
     html.legacy-css .hero-visual-glow { top: -12%; right: -8%; }
     html.legacy-css .video-frame { height: 0; padding-top: 56.25%; }
+    html.legacy-css #articles-grid img { height: 200px; }
+    html.legacy-css .device-card .dc-img { height: 200px; }
+    html.legacy-css .hero-visual-frame img { max-height: 520px; object-fit: cover; }
+    html.legacy-css .video-fallback span + span { margin-top: 10px; background: rgba(0,0,0,0.65); padding: 4px 12px; border-radius: 8px; }
 
     /* Lưới → flex xuống dòng (mỗi ô có bề rộng tối thiểu, tự chia cột theo màn hình). */
     html.legacy-css .hero-inner, html.legacy-css .support-layout, html.legacy-css .contact-grid,
@@ -2015,14 +2019,14 @@
         <span class="mc-more">Phần mềm quản lý nhân sự →</span>
       </a>
       <a class="model-card" href="/tinh-nang/phan-mem-tinh-luong">
-        <div class="mc-ico">🛒</div>
+        <div class="mc-ico">🛍️</div>
         <h3>Bán lẻ, siêu thị, spa, salon</h3>
         <p>KPI, thưởng doanh số, phụ cấp theo ca và thưởng phạt tự vào bảng lương; phiếu lương gửi thẳng lên app.</p>
         <div class="mc-tags"><span>KPI</span><span>Thưởng phạt</span><span>Phụ cấp</span></div>
         <span class="mc-more">Phần mềm tính lương →</span>
       </a>
       <a class="model-card" href="/tinh-nang/quan-ly-nghi-phep-tang-ca">
-        <div class="mc-ico">🧭</div>
+        <div class="mc-ico">📍</div>
         <h3>Nhân viên thị trường, công trình</h3>
         <p>Chấm công online từ xa bằng GPS, gửi đơn công tác, nghỉ phép, tăng ca trên điện thoại — không cần máy chấm công.</p>
         <div class="mc-tags"><span>Chấm công online</span><span>Chấm công từ xa</span></div>
@@ -2052,7 +2056,7 @@
         <p>Đồng bộ máy ZKTeco qua ADMS/PUSH theo thời gian thực — dữ liệu chấm công về hệ thống ngay khi quẹt.</p>
       </div>
       <div class="feature-card site-pos-feature">
-        <div class="feature-icon" style="background:#FFF3E0">🛒</div>
+        <div class="feature-icon" style="background:#FFF3E0">🛍️</div>
         <h3>Phần mềm POS bán hàng</h3>
         <p>Bán hàng tại quầy, sơ đồ bàn/ghế, in hóa đơn nhiệt và phiếu bếp — phù hợp F&amp;B, bán lẻ và chuỗi cửa hàng.</p>
       </div>
@@ -2174,7 +2178,7 @@
         <p>Bán nhanh, takeaway, topping và ca thu ngân.</p>
       </article>
       <article class="industry-card">
-        <div class="ic-emoji">🧋</div>
+        <div class="ic-emoji">🍵</div>
         <h3>Trà sữa / dessert</h3>
         <p>Biến thể size, topping, in phiếu chế biến.</p>
       </article>
@@ -2184,7 +2188,7 @@
         <p>Phòng, giờ sử dụng, gọi món kèm hóa đơn.</p>
       </article>
       <article class="industry-card">
-        <div class="ic-emoji">🛒</div>
+        <div class="ic-emoji">🛍️</div>
         <h3>Bán lẻ / tạp hóa</h3>
         <p>Quét mã, tồn kho realtime, thanh toán nhanh.</p>
       </article>
@@ -2839,7 +2843,7 @@
       duration: ''
     };
     var POS_FEATURES = [
-      { title: 'Phần mềm POS bán hàng', desc: 'Bán tại quầy, thanh toán tiền mặt / chuyển khoản / QR — POS đa ngành: F&B, bán lẻ, thời trang, spa và chuỗi cửa hàng.', icon: '🛒', bg: '#FFF3E0' },
+      { title: 'Phần mềm POS bán hàng', desc: 'Bán tại quầy, thanh toán tiền mặt / chuyển khoản / QR — POS đa ngành: F&B, bán lẻ, thời trang, spa và chuỗi cửa hàng.', icon: '🛍️', bg: '#FFF3E0' },
       { title: 'Sơ đồ bàn & phòng', desc: 'Sơ đồ bàn/ghế, gộp tách bàn, tạm tính — tối ưu nhà hàng, quán cà phê, karaoke.', icon: '🍽️', bg: '#FCE4EC' },
       { title: 'In hóa đơn & phiếu bếp', desc: 'In nhiệt hóa đơn thu ngân và phiếu chế biến bếp qua máy in LAN/USB hoặc Print Agent.', icon: '🖨️', bg: '#E8F5FB' },
       { title: 'Quản lý kho & tồn hàng', desc: 'Nhập xuất tồn realtime, theo dõi lô/HSD, gắn với từng đơn POS — giảm thất thoát.', icon: '📦', bg: '#E0F2F1' },
@@ -2933,7 +2937,13 @@
         linkEl.style.display = data.url ? '' : 'none';
       }
       if (!frame) return;
-      if (id) {
+      var legacy = document.documentElement.className.indexOf('legacy-css') >= 0;
+      if (id && legacy) {
+        frame.innerHTML =
+          '<a class="video-fallback" href="https://www.youtube.com/watch?v=' + id + '" target="_blank" rel="noopener noreferrer"' +
+          ' style="background:#062F42 url(https://i.ytimg.com/vi/' + id + '/hqdefault.jpg) center/cover no-repeat">' +
+          '<span class="play">▶</span><span>Xem video trên YouTube</span></a>';
+      } else if (id) {
         frame.innerHTML =
           '<iframe src="https://www.youtube.com/embed/' + id +
           '?rel=0&modestbranding=1" title="' + (data.title || 'Video SBOX HRM').replace(/"/g, '') +
@@ -3000,7 +3010,7 @@
       var grid = document.querySelector('#reports .tablet-grid');
       if (grid) {
         var cards = [
-          { src: 'images/landing/pos/pos-receipt.jpg?v=6', alt: 'Mẫu hóa đơn SBOX POS', label: '🧾 Mẫu hóa đơn', tight: true },
+          { src: 'images/landing/pos/pos-receipt.jpg?v=6', alt: 'Mẫu hóa đơn SBOX POS', label: '📃 Mẫu hóa đơn', tight: true },
           { src: 'images/landing/pos/pos-setup.jpg?v=6', alt: 'Cài đặt SBOX POS', label: '⚙️ Cài đặt POS' }
         ];
         grid.innerHTML = cards.map(function (c) {
@@ -3029,7 +3039,7 @@
       t('nav-brand-text', 'SBOX POS');
       t('hero-brand-text', 'SBOX POS');
       t('hero-brand-slogan', 'Bán hàng nhanh · Quản lý cửa hàng chuẩn');
-      t('hero-badge', '🛒 Phần mềm POS bán hàng · quản lý cửa hàng');
+      t('hero-badge', '🛍️ Phần mềm POS bán hàng · quản lý cửa hàng');
       html('hero-title', 'Phần mềm POS bán hàng <span>SBOX POS</span>');
       t('hero-subtext', 'Bán tại quầy, sơ đồ bàn, in hóa đơn nhiệt và phiếu bếp, quản lý kho, báo cáo doanh thu realtime — POS đa ngành cho F&B, bán lẻ, thời trang, spa và chuỗi cửa hàng. Dùng thử miễn phí.');
       t('features-title', 'Phần mềm POS bán hàng & quản lý cửa hàng');
@@ -3449,7 +3459,7 @@
     var FEATURE_ICONS = [
       { bg: '#E8F5FB', emoji: '👤' },
       { bg: '#F3E5F5', emoji: '📡' },
-      { bg: '#FFF3E0', emoji: '🛒' },
+      { bg: '#FFF3E0', emoji: '🛍️' },
       { bg: '#E0F2F1', emoji: '📦' },
       { bg: '#E8F5E9', emoji: '📅' },
       { bg: '#FFF3E0', emoji: '📊' },
@@ -3929,6 +3939,28 @@
         var el = document.getElementById(id);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 120);
+    })();
+
+    // Chrome < 69 (Sunmi T1) bỏ qua scroll-padding-top → menu cố định che tiêu đề mục khi bấm #liên kết.
+    (function () {
+      if (document.documentElement.className.indexOf('legacy-css') < 0) return;
+      function offsetTo(id) {
+        var el = id && document.getElementById(id);
+        if (!el) return false;
+        var nav = document.querySelector('nav');
+        window.scrollTo(0, el.getBoundingClientRect().top + window.pageYOffset - (nav ? nav.offsetHeight : 60) - 12);
+        return true;
+      }
+      document.addEventListener('click', function (e) {
+        var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+        if (!a) return;
+        var id = a.getAttribute('href').slice(1);
+        if (offsetTo(id)) {
+          e.preventDefault();
+          if (history.replaceState) history.replaceState(null, '', '#' + id);
+        }
+      });
+      if (location.hash) setTimeout(function () { offsetTo(location.hash.slice(1)); }, 400);
     })();
   })();
 </script>
