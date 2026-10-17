@@ -2561,7 +2561,7 @@
           <li>Thông báo đẩy realtime</li>
           <li>APK nội bộ khi cần</li>
         </ul>
-        <a class="pf-cta" id="pf-apk" href="#downloads">Tải APK mới nhất</a>
+        <a class="pf-cta" id="pf-apk" href="#downloads">Xem bản tải APK ↓</a>
         <div class="pf-note">Hoặc <a href="https://play.google.com/store/apps/details?id=sbox.sana.vn" target="_blank" rel="noopener noreferrer">Google Play (HRM)</a></div>
       </article>
       <article class="platform-card">
@@ -3268,11 +3268,9 @@
         .catch(function () {});
     }
 
-    /** APK SBOX HRM (Android) — đọc downloads/sbox-hrm-release.json; nút APK thẻ Android trỏ thẳng file. */
+    /** APK SBOX HRM (Android) — đọc downloads/sbox-hrm-release.json; nút thẻ Android dẫn xuống mục tải (#downloads). */
     function enrichHrmAndroidDownload() {
       var apk = '/downloads/sbox-hrm.apk';
-      var btn = document.getElementById('pf-apk');
-      if (btn) btn.href = apk;
       var card = {
         title: 'APK SBOX HRM (Android)',
         desc: 'Điện thoại / máy C20Lite Android 7.0 trở lên — chấm công, duyệt đơn, phiếu lương. Máy thu ngân Sunmi T1 (Android 6) dùng APK SBOX POS bên cạnh.',
@@ -3295,7 +3293,6 @@
           card.version = 'v' + data.versionName + (data.versionCode ? ' (' + data.versionCode + ')' : '') +
             (published ? ' · Xuất bản ' + published : '');
           card.url = path;
-          if (btn) btn.href = path;
           patchDownloadCard(isHrmApk, card);
         })
         .catch(function () {});
@@ -3339,14 +3336,11 @@
         .catch(function () {});
     }
 
-    /** POS: thẻ Android / chân trang trỏ APK SBOX POS (POS chưa có trên Google Play). */
+    /** POS: thẻ Android / chân trang dẫn xuống mục tải APK SBOX POS (POS chưa có trên Google Play). */
     function wirePosAndroidLinks() {
-      var apk = '/api/app/pos-android-apk';
-      var btn = document.getElementById('pf-apk');
-      if (btn) { btn.href = apk; btn.textContent = 'Tải APK SBOX POS'; }
       var f = document.getElementById('footer-android');
       if (f) {
-        f.href = apk;
+        f.href = '#downloads';
         f.textContent = 'Tải APK SBOX POS';
         f.removeAttribute('target');
         f.removeAttribute('rel');
