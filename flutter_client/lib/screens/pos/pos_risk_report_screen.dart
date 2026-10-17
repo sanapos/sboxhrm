@@ -374,7 +374,7 @@ class _PosRiskReportScreenState extends State<PosRiskReportScreen> {
                   tr('${_n(s['orders'])} đơn thu · ${_n(s['highSignals'])} dấu hiệu nghiêm trọng · ${_n(s['mediumSignals'])} cần xem'
                       '${_n(s['amountAtRisk']) > 0 ? ' · ${_m(s['amountAtRisk'])} cần soát' : ''}'
                       '${_n(s['kitchenVoids']) > 0 ? ' · hủy ${_n(s['kitchenVoids'])} món' : ''}'
-                      '${_n(s['cashOrders']) > 0 ? ' · không in HĐ ${_n(s['noReceiptPct'])}%' : ''}'),
+                      '${_n(s['cashOrders']) > 0 ? ' · không in HĐ ${_n(s['noReceiptPct']).toString().replaceAll('.', ',')}%' : ''}'),
                   style: const TextStyle(fontSize: 12.5, color: SboxColors.slate600, height: 1.35),
                 ),
                 for (final note in (s['notes'] as List? ?? const []))

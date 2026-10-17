@@ -164,6 +164,8 @@ public class PosSaleRiskReportTests
         var r = Build(Enumerable.Range(0, 15).Select(i => Order($"A{i}", 50_000, print: 0)).ToList());
         Assert.Empty(r.Orders);
         Assert.Equal(100, r.Summary.NoReceiptPct);
+        // Không liệt kê từng đơn nhưng vẫn gợi ý luôn in hóa đơn.
+        Assert.Contains(r.Recommendations, x => x.Title == "Luôn in hóa đơn cho khách");
     }
 
     [Fact]

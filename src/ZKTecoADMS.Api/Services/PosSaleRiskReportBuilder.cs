@@ -412,7 +412,9 @@ public static class PosSaleRiskReportBuilder
         if (CodeCount("DROPPED_BILL") + CodeCount("MANY_VOIDS") > 0)
             recs.Add(new("medium", "Đối chiếu món hủy với bếp mỗi ngày",
                 "Bếp / bar giữ phiếu hủy món (KDS); cuối ngày so số món hủy với món đã làm. Bắt buộc ghi lý do khi hủy."));
-        if (staff.Any(s => s.Notes.Any(n => n.StartsWith("Không in"))) || (storePrints && noReceipt.Count > 0))
+        // Quán ít in hóa đơn (≥ 30% đơn tiền mặt không in) cũng gợi ý — ô chỉ số đã báo đỏ / vàng.
+        if (staff.Any(s => s.Notes.Any(n => n.StartsWith("Không in"))) || (storePrints && noReceipt.Count > 0)
+            || (cashOrders.Count >= 10 && noReceiptPct >= 30))
             recs.Add(new("medium", "Luôn in hóa đơn cho khách",
                 "Bật tự in hóa đơn khi thanh toán; dán bảng «Không nhận hóa đơn — báo quản lý». " +
                 "Thu tiền mặt không in hóa đơn là cách hay gặp để giữ tiền lại."));
