@@ -2799,6 +2799,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Future<void> _enterPaymentStageAsync() async {
+    if (!await _guardReadOnlyBeforePay()) return;
     if (!await _ensureOpenCashierShiftIfRequired()) return;
     if (!mounted) return;
     setState(() {
@@ -11523,6 +11524,64 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
   }
 
+  /// Bàn đang mở trên máy khác (chỉ xem) → hộp thoại rõ ràng thay vì im lặng.
+  /// Khóa cũ (máy kia đã rời bàn) thì tự lấy quyền như khi sửa món.
+  /// Trước đây nút Thanh toán vẫn bấm được, vào màn thanh toán rồi không phản hồi.
+  Future<bool> _guardReadOnlyBeforePay() async {
+    if (!_tab.draftReadOnly) return true;
+    if (await _ensureCanEditActiveDraft()) return true;
+    if (!mounted) return false;
+    NotificationOverlayManager().clear();
+    final holder = _tab.lockedByLabel;
+    final take = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.lock_outline_rounded, size: 32),
+        title: Text(tr('Bàn đang mở trên máy khác')),
+        content: Text(tr(holder != null
+            ? 'Bàn đang mở trên $holder — máy này chỉ xem, chưa thanh toán được.\n\n'
+                'Chờ máy đó về sơ đồ bàn, hoặc «Lấy quyền» nếu máy đó không dùng nữa '
+                '(máy kia sẽ chuyển sang chỉ xem).'
+            : 'Máy này đang chỉ xem bàn, chưa thanh toán được.\n\n'
+                'Chờ máy đang giữ bàn về sơ đồ, hoặc «Lấy quyền».')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Đóng')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Lấy quyền')),
+          ),
+        ],
+      ),
+    );
+    if (take != true || !mounted) return false;
+    final ok = await _forceClaimActiveDraft(quiet: true);
+    if (!mounted) return false;
+    if (ok && !_tab.draftReadOnly) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã lấy quyền bàn',
+        message: _tab.serviceResourceName ?? '',
+      );
+      return true;
+    }
+    NotificationOverlayManager().showError(
+      title: 'Không lấy được quyền',
+      message: _tab.lockedByLabel != null
+          ? 'Bàn vẫn đang mở trên ${_tab.lockedByLabel} — thử lại sau vài giây'
+          : 'Thử lại sau vài giây',
+    );
+    return false;
+  }
+
+  /// Nút Thanh toán / Hoàn thành do người bấm (không dùng cho tự hoàn tất chuyển khoản).
+  Future<void> _checkoutTapped() async {
+    if (!await _guardReadOnlyBeforePay()) return;
+    await _checkout();
+  }
+
   Future<void> _checkout() async {
     if (_checkingOut || _parking || _tab.cart.isEmpty) return;
     if (_industrySettings?.requireStaffOnService == true) {
@@ -14861,7 +14920,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               canPay: canPay,
               canOrder: perm.canPosOrder(),
               busy: _checkingOut || _parking || _provisionalPrinting,
-              onComplete: _checkout,
+              onComplete: _checkoutTapped,
               height: compact ? 44 : 48,
               radius: 6,
               completeLabel: 'Thanh toán',
@@ -16482,7 +16541,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       canPay: canPay,
       canOrder: perm.canPosOrder(),
       busy: _checkingOut || _parking || _provisionalPrinting,
-      onComplete: _checkout,
+      onComplete: _checkoutTapped,
       height: compact ? 44 : 48,
       radius: 6,
       completeLabel: 'Thanh toán',
@@ -17536,7 +17595,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         ),
     ];
 
-    final payEnabled = cartOk && canPay && !busy;
+    final payEnabled = cartOk && canPay && !busy && !_tab.draftReadOnly;
     final payBg = payIsPrimaryFilled ? PosTheme.payGreen : _kiotBlue;
     final payBtn = FilledButton(
       onPressed: () {
@@ -17733,7 +17792,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   canPay: canPay,
                   canOrder: perm.canPosOrder(),
                   busy: _checkingOut || _parking || _provisionalPrinting,
-                  onComplete: _checkout,
+                  onComplete: _checkoutTapped,
                   height: 56,
                   radius: 10,
                   completeLabel: 'HOÀN TẤT THANH TOÁN',
@@ -18679,7 +18738,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                         onComplete: () async {
                           setPay(() => paying = true);
                           try {
-                            await _checkout();
+                            await _checkoutTapped();
                           } finally {
                             if (ctx.mounted) {
                               setPay(() => paying = false);
