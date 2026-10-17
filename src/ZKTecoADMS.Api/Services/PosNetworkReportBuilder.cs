@@ -287,7 +287,7 @@ public static class PosNetworkReportBuilder
             var worst = devices.Where(d => d.Disconnects > 0).OrderByDescending(d => d.Disconnects).FirstOrDefault();
             recs.Add(new("REALTIME", "medium", $"Kết nối tức thời rớt {discAll} lần",
                 "Bàn / phiếu trên máy khác cập nhật chậm. Tắt «tối ưu pin» cho app SBOX và không để máy tự tắt màn hình lâu; "
-                + "kiểm tra sóng Wi‑Fi" + (worst == null ? "." : $" — rớt nhiều nhất ở «{worst.DeviceName ?? worst.DeviceId}» ({worst.Disconnects} lần).")));
+                + "kiểm tra sóng Wi-Fi" + (worst == null ? "." : $" — rớt nhiều nhất ở «{worst.DeviceName ?? worst.DeviceId}» ({worst.Disconnects} lần).")));
         }
         if (print.StaleQueued + print.StuckNoRequeue > 0)
             recs.Add(new("PRINT_JOBS", "medium",
