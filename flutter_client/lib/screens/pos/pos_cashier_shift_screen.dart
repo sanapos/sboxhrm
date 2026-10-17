@@ -11,6 +11,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_numeric_keypad.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/pos/pos_shift_summary_sheet.dart';
 import '../../widgets/pos/pos_vnd_thousands_formatter.dart';
 import 'pos_sell_industry_settings_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -248,6 +249,8 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
       message: tr('Đếm ${_money.format(counted)} · $diffLabel'),
     );
     await _load();
+    // Đóng ca xong mở ngay phiếu tổng kết ca (xem / in giao ca).
+    if (mounted) await showPosShiftSummarySheet(context, id);
   }
 
   @override
@@ -587,6 +590,16 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                       : '',
                 ),
                 row('Ghi chú', (s.note ?? '').trim()),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    showPosShiftSummarySheet(context, s.id);
+                  },
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+                  icon: const Icon(Icons.summarize_outlined, size: 18),
+                  label: Text(tr('Tổng kết ca · in phiếu')),
+                ),
                 const SizedBox(height: 8),
                 FilledButton(
                   onPressed: () => Navigator.pop(ctx),

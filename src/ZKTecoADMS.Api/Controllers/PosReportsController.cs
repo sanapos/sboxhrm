@@ -261,7 +261,8 @@ public partial class PosReportsController(
         [FromQuery] string? paymentMethod = null,
         [FromQuery] Guid? customerId = null,
         [FromQuery] string? voucherCode = null,
-        [FromQuery] bool? hasVoucher = null)
+        [FromQuery] bool? hasVoucher = null,
+        [FromQuery] string? staffKey = null)
     {
         var storeId = RequiredStoreId;
         page = Math.Max(page, 1);
@@ -289,7 +290,9 @@ public partial class PosReportsController(
                 .Select(l => l.SaleOrderId);
             query = query.Where(o => saleIds.Contains(o.Id));
         }
-        if (!string.IsNullOrWhiteSpace(soldBy))
+        if (!string.IsNullOrWhiteSpace(staffKey))
+            query = ApplyStaffKey(query, staffKey);
+        else if (!string.IsNullOrWhiteSpace(soldBy))
             query = query.Where(o => o.SoldBy != null && o.SoldBy.Contains(soldBy.Trim()));
         // «Công nợ» không phải phương thức lưu trên đơn — lọc đơn còn nợ (thu chưa đủ).
         if (string.Equals(paymentMethod?.Trim(), "Công nợ", StringComparison.OrdinalIgnoreCase))
@@ -538,7 +541,8 @@ public partial class PosReportsController(
         [FromQuery] bool includeCombo = true,
         [FromQuery] bool activeOnly = true,
         [FromQuery] bool inactiveOnly = false,
-        [FromQuery] string? inventoryStatus = null)
+        [FromQuery] string? inventoryStatus = null,
+        [FromQuery] string? staffKey = null)
     {
         var storeId = RequiredStoreId;
         limit = Math.Clamp(limit, 1, 1000);
@@ -550,11 +554,12 @@ public partial class PosReportsController(
                 .Where(p => p.StoreId == storeId && p.Deleted == null),
             includeGoods, includeService, includeCombo, activeOnly, inactiveOnly);
 
-        var goodsOrderIds = await ScopeOrdersForViewer(dbContext.PosSaleOrders.AsNoTracking()
+        // staffKey: «Hàng bán theo nhân viên» — chỉ đơn của người bán đó.
+        var goodsOrderIds = await ApplyStaffKey(ScopeOrdersForViewer(dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
                         o.Status == PosSaleOrderStatus.Completed &&
                         (o.SaleDate ?? o.CreatedAt) >= fromDt &&
-                        (o.SaleDate ?? o.CreatedAt) < toDt))
+                        (o.SaleDate ?? o.CreatedAt) < toDt)), staffKey)
             .Select(o => o.Id)
             .ToListAsync();
         var allowedProducts = await productScope.Select(p => new { p.Id, p.ProductCode }).ToListAsync();
@@ -1143,11 +1148,8 @@ public partial class PosReportsController(
         var vat = await completedQuery.SumAsync(o => (decimal?)o.VatAmount) ?? 0;
         var surchargeTotal = await completedQuery.SumAsync(o => (decimal?)o.SurchargeAmount) ?? 0;
         var deliveryFeeTotal = await completedQuery.SumAsync(o => (decimal?)o.DeliveryFee) ?? 0;
-        var actualReceived = await completedQuery.SumAsync(o => (decimal?)o.PaidAmount) ?? 0;
         // Phải thu = Total + VAT + phụ thu + phí GH (Total không gồm VAT khi giá chưa thuế).
         var payableTotal = netSales + vat + surchargeTotal + deliveryFeeTotal;
-        var debtTotal = payableTotal - actualReceived;
-        if (debtTotal < 0) debtTotal = 0;
 
         var canceledCount = await canceledQuery.CountAsync();
         var canceledTotal = await canceledQuery.SumAsync(o => (decimal?)o.Total) ?? 0;
@@ -1184,6 +1186,7 @@ public partial class PosReportsController(
         var payments = new List<object>();
         var cashTotal = 0m;
         var saleFundIn = 0m;
+        var saleInByOrder = new Dictionary<Guid, decimal>();
         if (orderIds.Count > 0)
         {
             var orderIdSet = orderIds.ToHashSet();
@@ -1214,11 +1217,25 @@ public partial class PosReportsController(
                 .OrderByDescending(x => x.total)
                 .ToList();
             payments = paymentRows.Cast<object>().ToList();
+            saleInByOrder = matched
+                .GroupBy(c => ParseSaleOrderIdFromMarker(c.InternalNote)!.Value)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
             cashTotal = paymentRows
                 .FirstOrDefault(p => p.paymentMethod.Equals("Tiền mặt", StringComparison.OrdinalIgnoreCase))
                 ?.total ?? 0m;
             saleFundIn = matched.Sum(x => x.Amount);
         }
+
+        // Thực thu / công nợ của NGÀY BÁN = tiền thu lúc bán (phiếu thu bán hàng), không lấy PaidAmount: PaidAmount cộng dồn
+        // cả tiền khách trả nợ về sau → xem lại ngày cũ «Thực thu» tăng, «Công nợ» về 0, lệch phiếu đã in / đã đối chiếu.
+        // Cửa hàng chưa có phiếu thu bán hàng (dữ liệu cũ) → giữ PaidAmount.
+        var orderMoney = await completedQuery
+            .Select(o => new { o.Id, Payable = o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee, o.PaidAmount })
+            .ToListAsync();
+        var useSaleTx = saleInByOrder.Count > 0;
+        decimal ReceivedOf(Guid id, decimal paid) => useSaleTx ? saleInByOrder.GetValueOrDefault(id) : paid;
+        var actualReceived = orderMoney.Sum(o => ReceivedOf(o.Id, o.PaidAmount));
+        var debtTotal = orderMoney.Sum(o => Math.Max(0, o.Payable - ReceivedOf(o.Id, o.PaidAmount)));
 
         object? products = null;
         if (includeProductDetail && orderIds.Count > 0)
@@ -1274,7 +1291,8 @@ public partial class PosReportsController(
                     CreatedAt = o.SaleDate ?? o.CreatedAt,
                     qty = o.Lines.Sum(l => l.Qty),
                     revenue = o.SubTotal,
-                    discount = o.Discount,
+                    // Giảm giá = giảm cả đơn + voucher + đổi điểm (trước đây chỉ giảm cả đơn).
+                    discount = o.Discount + o.VoucherDiscount + o.PointsDiscount,
                     vat = o.VatAmount,
                     rounding = 0m,
                     returnFee = 0m,
@@ -1308,7 +1326,7 @@ public partial class PosReportsController(
                     t.vat,
                     t.rounding,
                     returnFee = returnedMap.GetValueOrDefault(t.Id),
-                    t.actualReceived,
+                    actualReceived = useSaleTx ? saleInByOrder.GetValueOrDefault(t.Id) : t.actualReceived,
                     t.PaymentMethod,
                     t.SoldBy,
                     t.CreatedBy,
@@ -1437,7 +1455,8 @@ public partial class PosReportsController(
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
                         o.Status == PosSaleOrderStatus.Completed &&
                         (o.SaleDate ?? o.CreatedAt) >= fromDt &&
-                        (o.SaleDate ?? o.CreatedAt) < toDt);
+                        (o.SaleDate ?? o.CreatedAt) < toDt)
+            .ApplyBranchScope(HttpContext.BranchContext());
 
         if (filter == "soldByEmployee")
         {
@@ -1462,6 +1481,14 @@ public partial class PosReportsController(
                 displayName = string.IsNullOrWhiteSpace(e.Name) ? e.CompanyEmail ?? e.Id.ToString() : e.Name,
                 isSelf = EmployeeId.HasValue && e.Id == EmployeeId.Value,
             }).ToList();
+            if (await orderQuery.AnyAsync(o => o.SoldByEmployeeId == null))
+                employeeItems.Add(new
+                {
+                    email = (string?)null,
+                    employeeId = (Guid?)Guid.Empty,
+                    displayName = "Chưa gắn nhân viên",
+                    isSelf = false,
+                });
             return Ok(AppResponse<object>.Success(employeeItems));
         }
 
@@ -1821,6 +1848,10 @@ public partial class PosReportsController(
         Guid? soldByEmployeeId,
         string filterBy)
     {
+        // Guid.Empty = «Chưa gắn nhân viên»: đơn không gắn hồ sơ NV (chủ quán tự bán…) — trước đây không lọc ra được.
+        if (soldByEmployeeId == Guid.Empty &&
+            !filterBy.Equals("createdBy", StringComparison.OrdinalIgnoreCase))
+            return query.Where(o => o.SoldByEmployeeId == null);
         // Ưu tiên SoldByEmployeeId khi có — khớp hồ sơ NV, không so tên với email.
         if (soldByEmployeeId.HasValue &&
             !filterBy.Equals("createdBy", StringComparison.OrdinalIgnoreCase))

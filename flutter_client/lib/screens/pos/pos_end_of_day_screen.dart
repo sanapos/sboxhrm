@@ -216,6 +216,8 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
       from: from,
       to: to,
       openedBy: openedBy,
+      // Hồ sơ NV có email khác email đăng nhập → máy chủ tìm theo tài khoản gắn hồ sơ.
+      openedByEmployeeId: _filterBy == 'soldByEmployee' && staffKey != null && staffKey.isNotEmpty ? staffKey : null,
       dayStartHour: _sellSettings?.reportDayStartHour,
     );
 

@@ -18063,6 +18063,7 @@ class ApiService implements PayrollApi {
     int pageSize = 50,
     String? productId,
     String? soldBy,
+    String? staffKey,
     String? paymentMethod,
     String? customerId,
     String? voucherCode,
@@ -18077,6 +18078,7 @@ class ApiService implements PayrollApi {
       if (to != null) q['to'] = to.toIso8601String();
       if (productId != null && productId.isNotEmpty) q['productId'] = productId;
       if (soldBy != null && soldBy.trim().isNotEmpty) q['soldBy'] = soldBy.trim();
+      if (staffKey != null && staffKey.isNotEmpty) q['staffKey'] = staffKey;
       if (paymentMethod != null && paymentMethod.trim().isNotEmpty) {
         q['paymentMethod'] = paymentMethod.trim();
       }
@@ -18107,6 +18109,7 @@ class ApiService implements PayrollApi {
     bool activeOnly = true,
     bool inactiveOnly = false,
     String? inventoryStatus,
+    String? staffKey,
   }) async {
     try {
       final q = <String, String>{
@@ -18119,6 +18122,7 @@ class ApiService implements PayrollApi {
       };
       if (from != null) q['from'] = from.toIso8601String();
       if (to != null) q['to'] = to.toIso8601String();
+      if (staffKey != null && staffKey.isNotEmpty) q['staffKey'] = staffKey;
       if (inventoryStatus != null && inventoryStatus.isNotEmpty) {
         q['inventoryStatus'] = inventoryStatus;
       }
@@ -24006,6 +24010,7 @@ class ApiService implements PayrollApi {
     DateTime? from,
     DateTime? to,
     String? openedBy,
+    String? openedByEmployeeId,
     int? dayStartHour,
   }) async {
     try {
@@ -24015,12 +24020,41 @@ class ApiService implements PayrollApi {
       if (openedBy != null && openedBy.trim().isNotEmpty) {
         q['openedBy'] = openedBy.trim();
       }
+      if (openedByEmployeeId != null && openedByEmployeeId.isNotEmpty) {
+        q['openedByEmployeeId'] = openedByEmployeeId;
+      }
       if (dayStartHour != null) q['dayStartHour'] = '$dayStartHour';
       final uri = Uri.parse('$baseUrl/api/pos/cashier-shifts')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response = await http
           .get(uri, headers: _headers)
           .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Tổng kết một ca: tiền két theo loại, phương thức thanh toán, đơn và hàng bán trong ca.
+  Future<Map<String, dynamic>> getPosCashierShiftSummary(String shiftId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/reports/cashier-shifts/$shiftId/summary'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Doanh thu / lợi nhuận theo người bán (một người một dòng, khóa `staffKey`).
+  Future<Map<String, dynamic>> getPosStaffSummary({DateTime? from, DateTime? to}) async {
+    try {
+      final q = <String, String>{};
+      if (from != null) q['from'] = from.toIso8601String();
+      if (to != null) q['to'] = to.toIso8601String();
+      final uri = Uri.parse('$baseUrl/api/pos/reports/staff/summary').replace(queryParameters: q.isEmpty ? null : q);
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

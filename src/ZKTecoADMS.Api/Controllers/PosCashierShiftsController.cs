@@ -53,7 +53,8 @@ public class PosCashierShiftsController(ZKTecoDbContext db) : AuthenticatedContr
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
         [FromQuery] string? openedBy,
-        [FromQuery] int? dayStartHour = null)
+        [FromQuery] int? dayStartHour = null,
+        [FromQuery] Guid? openedByEmployeeId = null)
     {
         var storeId = RequiredStoreId;
         var hour = dayStartHour;
@@ -75,6 +76,16 @@ public class PosCashierShiftsController(ZKTecoDbContext db) : AuthenticatedContr
         if (!IsAdmin && !IsManager)
         {
             q = q.Where(s => s.OpenedByUserId == CurrentUserId);
+        }
+        else if (openedByEmployeeId is Guid empId && empId != Guid.Empty)
+        {
+            var uid = await db.Employees.AsNoTracking()
+                .Where(e => e.Id == empId && e.StoreId == storeId)
+                .Select(e => e.ApplicationUserId)
+                .FirstOrDefaultAsync();
+            var email = openedBy?.Trim();
+            q = q.Where(s => (uid != null && s.OpenedByUserId == uid) ||
+                             (email != null && email != "" && (s.OpenedByName == email || s.CreatedBy == email)));
         }
         else if (!string.IsNullOrWhiteSpace(openedBy))
         {
@@ -224,28 +235,9 @@ public class PosCashierShiftsController(ZKTecoDbContext db) : AuthenticatedContr
             .Select(s => s.EnableCashierShift)
             .FirstOrDefaultAsync();
 
-    /// <summary>Kỳ vọng = đầu ca + đơn tiền mặt do chính thu ngân này bán trong ca.</summary>
-    async Task<decimal> ExpectedCashAsync(Guid storeId, PosCashierShift shift)
-    {
-        var from = shift.OpenedAt;
-        var to = shift.ClosedAt ?? DateTime.UtcNow;
-        var byEmail = (shift.OpenedByName ?? "").Trim();
-        // Ca thuộc 1 chi nhánh: chỉ cộng đơn bán ở chi nhánh đó (người bán ở nhiều chi nhánh không làm lệch két).
-        var shiftBranch = shift.BranchId;
-        var hq = HttpContext.BranchContext()?.HeadquarterBranchId ?? Guid.Empty;
-        var cashSales = await db.PosSaleOrders.AsNoTracking()
-            .Where(o => o.StoreId == storeId && o.Deleted == null
-                && o.Status == PosSaleOrderStatus.Completed
-                && o.SaleDate != null
-                && o.SaleDate >= from && o.SaleDate <= to
-                && o.PaymentMethod != null
-                && o.PaymentMethod == "Tiền mặt"
-                && byEmail != ""
-                && (shiftBranch == null || (o.BranchId ?? hq) == shiftBranch)
-                && (o.SoldBy == byEmail || o.CreatedBy == byEmail))
-            .SumAsync(o => (decimal?)o.PaidAmount) ?? 0;
-        return shift.OpeningCash + cashSales;
-    }
+    /// <summary>Kỳ vọng = đầu ca + phiếu thu tiền mặt − phiếu chi tiền mặt của chính người mở ca trong giờ ca.</summary>
+    async Task<decimal> ExpectedCashAsync(Guid storeId, PosCashierShift shift) =>
+        (await PosShiftCashHelper.ComputeAsync(db, shift, HttpContext.BranchContext()?.HeadquarterBranchId)).ExpectedCash;
 
     static bool IsOpenShiftConflict(Exception ex)
     {

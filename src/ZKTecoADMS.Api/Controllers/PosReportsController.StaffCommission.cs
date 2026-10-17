@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
 
@@ -88,6 +89,28 @@ public partial class PosReportsController
         }).ToList();
     }
 
+    /// <summary>
+    /// Chủ / quản lý (hoặc người được quyền Sửa / Duyệt báo cáo hoa hồng) xem hoa hồng mọi người; nhân viên chỉ xem của
+    /// chính mình — trước đây ai được mở báo cáo cũng thấy hoa hồng của cả cửa hàng.
+    /// </summary>
+    async Task<bool> CanViewAllCommissionAsync(CancellationToken ct)
+    {
+        if (IsAdmin || IsManager) return true;
+        foreach (var action in new[] { ModulePermissionAction.Edit, ModulePermissionAction.Approve })
+            if (await modulePermissionService.HasPermissionAsync(
+                    CurrentUserId, CurrentUserRole, CurrentStoreId, "PosReportStaffCommission", action, ct))
+                return true;
+        return false;
+    }
+
+    static string CommissionModeVi(string mode) => mode switch
+    {
+        nameof(PosCommissionMode.PercentOfLine) => "% doanh thu",
+        nameof(PosCommissionMode.FixedPerUnit) => "Cố định / đơn vị",
+        nameof(PosCommissionMode.PercentOfCatalog) => "% giá niêm yết",
+        _ => "Không",
+    };
+
     [HttpGet("staff-commission")]
     [RequireModulePermission("PosReportStaffCommission", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetStaffCommission(
@@ -100,7 +123,12 @@ public partial class PosReportsController
         var storeId = RequiredStoreId;
         var hour = await ResolveReportDayStartHourAsync(storeId, null);
         var (fromUtc, toUtc, _, _) = ResolvePosRange(from, to, hour, defaultLookbackDays: 7);
-        var rows = await LoadStaffCommissionRowsAsync(storeId, fromUtc, toUtc, employeeId, productId, ct);
+        var canAll = await CanViewAllCommissionAsync(ct);
+        var rows = canAll
+            ? await LoadStaffCommissionRowsAsync(storeId, fromUtc, toUtc, employeeId, productId, ct)
+            : EmployeeId is Guid self
+                ? await LoadStaffCommissionRowsAsync(storeId, fromUtc, toUtc, self, productId, ct)
+                : [];
 
         var byStaff = rows
             .GroupBy(x => new { x.EmployeeId, x.EmployeeName })
@@ -133,6 +161,7 @@ public partial class PosReportsController
         {
             from = fromUtc,
             to = toUtc,
+            onlySelf = !canAll,
             totalRevenue = rows.Sum(x => x.RevenueAmount),
             totalCommission = rows.Sum(x => x.CommissionAmount),
             staffCount = byStaff.Count,
@@ -155,7 +184,12 @@ public partial class PosReportsController
         var storeId = RequiredStoreId;
         var hour = await ResolveReportDayStartHourAsync(storeId, null);
         var (fromUtc, toUtc, _, _) = ResolvePosRange(from, to, hour, defaultLookbackDays: 7);
-        var rows = await LoadStaffCommissionRowsAsync(storeId, fromUtc, toUtc, employeeId, productId, ct);
+        var canAll = await CanViewAllCommissionAsync(ct);
+        var rows = canAll
+            ? await LoadStaffCommissionRowsAsync(storeId, fromUtc, toUtc, employeeId, productId, ct)
+            : EmployeeId is Guid self
+                ? await LoadStaffCommissionRowsAsync(storeId, fromUtc, toUtc, self, productId, ct)
+                : [];
 
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet("Hoa hong NV");
@@ -170,13 +204,14 @@ public partial class PosReportsController
         foreach (var x in rows)
         {
             ws.Cell(r, 1).Value = x.OrderNo;
-            ws.Cell(r, 2).Value = x.SaleAt;
+            ws.Cell(r, 2).Value = VnTimeHelper.UtcToVn(x.SaleAt); // trước đây ghi giờ UTC (lệch 7 tiếng)
+            ws.Cell(r, 2).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
             ws.Cell(r, 3).Value = x.EmployeeName;
             ws.Cell(r, 4).Value = x.ProductName;
             ws.Cell(r, 5).Value = x.ComboName ?? "";
             ws.Cell(r, 6).Value = x.Qty;
             ws.Cell(r, 7).Value = x.RevenueAmount;
-            ws.Cell(r, 8).Value = x.CommissionMode;
+            ws.Cell(r, 8).Value = CommissionModeVi(x.CommissionMode);
             ws.Cell(r, 9).Value = x.CommissionPercent;
             ws.Cell(r, 10).Value = x.CommissionFixed;
             ws.Cell(r, 11).Value = x.CommissionAmount;

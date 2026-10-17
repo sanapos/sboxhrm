@@ -485,19 +485,22 @@ Future<(int total, List<Map<String, dynamic>> items)> _fetchSalesOrders(
   required DateTime? from,
   required DateTime? to,
   String? soldBy,
+  String? staffKey,
   String? paymentMethod,
   String? customerId,
   String? productId,
   String? voucherCode,
   bool hasVoucher = false,
   int pageSize = 40,
+  int page = 1,
 }) async {
   final or = await api.getPosSalesReportOrders(
     from: from,
     to: to,
-    page: 1,
+    page: page,
     pageSize: pageSize,
     soldBy: soldBy,
+    staffKey: staffKey,
     paymentMethod: paymentMethod,
     customerId: customerId,
     productId: productId,
@@ -2305,15 +2308,20 @@ class _PosStaffRevenueReportScreenState
     extends State<PosStaffRevenueReportScreen> {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  final _qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
   final _pngKey = GlobalKey();
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   bool _loading = true;
+  bool _exporting = false;
   Map<String, dynamic>? _data;
   Map<String, dynamic>? _prev;
-  String? _staff;
+  /// Người bán đang chọn (khóa ổn định «e:<id hồ sơ>» / «n:<tên>») — lọc hóa đơn và hàng đã bán.
+  String? _staffKey;
+  String? _staffName;
   List<Map<String, dynamic>> _orders = [];
   int _orderTotal = 0;
+  List<Map<String, dynamic>> _goods = [];
 
   @override
   void initState() {
@@ -2321,26 +2329,47 @@ class _PosStaffRevenueReportScreenState
     _load();
   }
 
+  Future<Map<String, dynamic>?> _summary(DateTime? from, DateTime? to) async {
+    final r = await _api.getPosStaffSummary(from: from, to: to);
+    return r['isSuccess'] == true && r['data'] is Map ? Map<String, dynamic>.from(r['data'] as Map) : null;
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
-    final prevF = _prevSalesSummary(_api, _time);
-    final res = await _api.getPosSalesReportSummary(from: _time.from, to: _time.to);
-    _prev = await prevF;
-    final orders = await _fetchSalesOrders(
-      _api,
-      from: _time.from,
-      to: _time.to,
-      soldBy: _staff,
-    );
+    final prevRange = sboxPreviousRange(_time.from, _time.to);
+    final curF = _summary(_time.from, _time.to);
+    final prevF = prevRange == null ? Future.value(null) : _summary(prevRange.$1, prevRange.$2);
+    final ordersF = _fetchSalesOrders(_api, from: _time.from, to: _time.to, staffKey: _staffKey);
+    final goodsF = _api.getPosGoodsReportSummary(from: _time.from, to: _time.to, limit: 50, staffKey: _staffKey);
+    final cur = await curF;
+    final prev = await prevF;
+    final orders = await ordersF;
+    final goods = await goodsF;
     if (!mounted) return;
     setState(() {
       _loading = false;
-      _data = res['isSuccess'] == true && res['data'] is Map
-          ? Map<String, dynamic>.from(res['data'] as Map)
-          : null;
+      _data = cur;
+      _prev = prev;
       _orderTotal = orders.$1;
       _orders = orders.$2;
+      _goods = goods['isSuccess'] == true && goods['data'] is Map
+          ? _maps((goods['data'] as Map)['topByRevenue'])
+          : [];
     });
+  }
+
+  void _select(Map<String, dynamic>? e) {
+    final key = e?['staffKey']?.toString();
+    setState(() {
+      if (key == null || key == _staffKey) {
+        _staffKey = null;
+        _staffName = null;
+      } else {
+        _staffKey = key;
+        _staffName = e?['soldBy']?.toString();
+      }
+    });
+    unawaited(_load());
   }
 
   void _openSale(Map<String, dynamic> e) {
@@ -2352,72 +2381,111 @@ class _PosStaffRevenueReportScreenState
       context,
       from: _time.from,
       to: _time.to,
-      soldBy: _staff,
+      soldBy: _staffName,
     ));
+  }
+
+  /// Excel đủ mọi hóa đơn trong kỳ (trước đây chỉ 40 hóa đơn đầu) + bảng tổng theo nhân viên.
+  Future<void> _exportExcel(List<Map<String, dynamic>> staff) async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+    final all = <Map<String, dynamic>>[];
+    try {
+      for (var page = 1; page <= 50; page++) {
+        final r = await _fetchSalesOrders(_api,
+            from: _time.from, to: _time.to, staffKey: _staffKey, pageSize: 200, page: page);
+        all.addAll(r.$2);
+        if (r.$2.length < 200 || all.length >= r.$1) break;
+      }
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+    if (!mounted) return;
+    await PosReportExport.excel(
+      context: context,
+      title: 'Doanh thu theo nhân viên',
+      sheetName: 'Hoa don',
+      filePrefix: 'POS_DTNhanVien',
+      periodLabel: _time.exportLabel,
+      filterLabel: _staffName,
+      headers: _invoiceExcelHeaders,
+      rows: _invoiceExcelRows(all),
+      summaryLines: [
+        for (final e in staff)
+          '${e['soldBy'] ?? '—'}: ${_n(e['orderCount']).toInt()} HĐ · ${_moneyFmt.format(_n(e['revenue']))}'
+              '${e.containsKey('profit') ? ' · LN ${_moneyFmt.format(_n(e['profit']))}' : ''}',
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final staff = _maps(_data?['topEmployees']);
-    String who(Map<String, dynamic> e) => e['soldBy']?.toString().trim().isNotEmpty == true ? e['soldBy'].toString() : '—';
-    final staffRev = staff.fold<double>(0, (a, e) => a + _n(e['revenue']));
-    final prevStaff = <String, double>{for (final e in _maps(_prev?['topEmployees'])) who(e): _n(e['revenue'])};
-    final sortedStaff = [...staff]..sort((a, b) => _n(b['revenue']).compareTo(_n(a['revenue'])));
+    final staff = _maps(_data?['staff']);
+    final showProfit = staff.any((e) => e.containsKey('profit'));
+    final total = _n(_data?['totalRevenue']);
+    final prevByKey = <String, double>{for (final e in _maps(_prev?['staff'])) '${e['staffKey']}': _n(e['revenue'])};
+    final best = staff.isEmpty ? null : staff.first;
     final insight = SboxInsightPanel(
       kpis: [
-        SboxKpi(label: 'Doanh thu nhân viên bán', value: SboxFmt.money(staffRev), icon: Icons.payments_outlined,
-            current: staffRev, previous: _prev == null ? null : prevStaff.values.fold<double>(0, (a, b) => a + b), compareLabel: _vsPrev),
-        SboxKpi(label: 'Số nhân viên có bán', value: SboxFmt.number(staff.length), icon: Icons.badge_outlined, tone: SboxTone.violet),
-        SboxKpi(label: 'TB / nhân viên', value: SboxFmt.money(staff.isEmpty ? 0 : staffRev / staff.length), icon: Icons.groups_2_outlined, tone: SboxTone.neutral),
+        SboxKpi(label: 'Doanh thu', value: SboxFmt.money(total), icon: Icons.payments_outlined,
+            current: total, previous: _prev == null ? null : _n(_prev?['totalRevenue']), compareLabel: _vsPrev,
+            note: '${_n(_data?['orderCount']).toInt()} hóa đơn'),
+        SboxKpi(label: 'Nhân viên có bán', value: SboxFmt.number(staff.length), icon: Icons.badge_outlined, tone: SboxTone.violet,
+            note: 'TB ${SboxFmt.money(staff.isEmpty ? 0 : total / staff.length)} / người'),
+        if (showProfit)
+          SboxKpi(label: 'Lợi nhuận gộp', value: SboxFmt.money(_n(_data?['totalProfit'])), icon: Icons.trending_up, tone: SboxTone.success,
+              note: total > 0 ? 'Biên ${(_n(_data?['totalProfit']) / total * 100).toStringAsFixed(1)}%' : null)
+        else
+          SboxKpi(label: 'TB / hóa đơn', value: SboxFmt.money(_n(_data?['orderCount']) > 0 ? total / _n(_data?['orderCount']) : 0),
+              icon: Icons.receipt_long_outlined, tone: SboxTone.neutral),
         SboxKpi(
             label: 'Bán tốt nhất',
-            value: sortedStaff.isEmpty ? '—' : who(sortedStaff.first),
+            value: best == null ? '—' : '${best['soldBy']}',
             icon: Icons.emoji_events_outlined,
             tone: SboxTone.success,
-            note: sortedStaff.isEmpty ? null : SboxFmt.money(_n(sortedStaff.first['revenue']))),
+            note: best == null ? null : '${SboxFmt.money(_n(best['revenue']))} · ${_n(best['sharePct'])}%'),
       ],
       charts: [
         SboxChartCard(
           title: 'Doanh thu kỳ này và kỳ trước',
           subtitle: _time.displayLabel,
           child: SboxBarChart(
-            labels: [for (final e in sortedStaff.take(10)) who(e)],
+            labels: [for (final e in staff.take(10)) '${e['soldBy']}'],
             series: [
-              SboxSeries(name: 'Kỳ này', values: [for (final e in sortedStaff.take(10)) _n(e['revenue'])]),
+              SboxSeries(name: 'Kỳ này', values: [for (final e in staff.take(10)) _n(e['revenue'])]),
               if (_prev != null)
-                SboxSeries(name: 'Kỳ trước', values: [for (final e in sortedStaff.take(10)) prevStaff[who(e)] ?? 0], color: SboxColors.slate300),
+                SboxSeries(name: 'Kỳ trước', values: [for (final e in staff.take(10)) prevByKey['${e['staffKey']}'] ?? 0], color: SboxColors.slate300),
             ],
           ),
         ),
         SboxChartCard(
           title: 'Tỷ trọng doanh thu',
           child: SboxDonutChart(
-            centerValue: SboxFmt.compact(staffRev),
+            centerValue: SboxFmt.compact(total),
             centerLabel: 'Doanh thu',
-            slices: [for (final e in staff) SboxSlice(who(e), _n(e['revenue']))],
+            slices: [for (final e in staff) SboxSlice('${e['soldBy']}', _n(e['revenue']))],
           ),
         ),
       ],
     );
+
     return PosReportMobileScaffold(
       title: 'Doanh thu theo nhân viên',
       exportModule: 'PosReportStaffRevenue',
       time: _time,
       pngKey: _pngKey,
-      onExportExcel: () => unawaited(PosReportExport.excel(
-        context: context,
-        title: 'Doanh thu theo nhân viên',
-        sheetName: 'Hoa don',
-        filePrefix: 'POS_DTNhanVien',
-        periodLabel: _time.exportLabel,
-        filterLabel: _staff,
-        headers: _invoiceExcelHeaders,
-        rows: _invoiceExcelRows(_orders),
-        summaryLines: [
-          for (final e in staff)
-            '${e['soldBy'] ?? '—'}: ${_n(e['orderCount']).toInt()} HĐ · ${_moneyFmt.format(_n(e['revenue']))}',
-        ],
-      )),
+      filterBar: _staffKey == null
+          ? null
+          : Align(
+              alignment: Alignment.centerLeft,
+              child: InputChip(
+                avatar: const Icon(Icons.badge_outlined, size: 18),
+                label: Text(tr('Đang xem: ${_staffName ?? ''}')),
+                onDeleted: () => _select(null),
+                deleteButtonTooltipMessage: tr('Bỏ lọc nhân viên'),
+              ),
+            ),
+      onExportExcel: _exporting ? null : () => unawaited(_exportExcel(staff)),
       onExportPng: () => unawaited(PosReportExport.png(
         context: context,
         key: _pngKey,
@@ -2434,28 +2502,71 @@ class _PosStaffRevenueReportScreenState
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 insight,
-                PosReportCard(
-                  title: 'Theo người bán',
-                  subtitle: _time.displayLabel,
-                  child: PosReportRankList(
-                    items: staff,
-                    labelOf: (e) {
-                      final name = e['soldBy']?.toString().trim().isNotEmpty == true
-                          ? e['soldBy'].toString()
-                          : '—';
-                      final c = _n(e['orderCount']).toInt();
-                      return c > 0 ? '$name · $c HĐ' : name;
-                    },
-                    valueOf: (e) => _n(e['revenue']),
-                    moneyFmt: _moneyFmt,
-                    onItemTap: (e) {
-                      setState(() => _staff = e['soldBy']?.toString());
-                      unawaited(_load());
-                    },
+                Text(tr('Theo người bán · bấm một dòng để xem hóa đơn và hàng đã bán của người đó'),
+                    style: SboxType.smallStyle(SboxColors.textMuted)),
+                const SizedBox(height: 6),
+                SboxCard(
+                  padding: EdgeInsets.zero,
+                  child: SboxDataTable<Map<String, dynamic>>(
+                    rows: staff,
+                    paginate: false,
+                    emptyTitle: 'Chưa có bán hàng trong kỳ',
+                    selectedRow: staff.where((e) => '${e['staffKey']}' == _staffKey).firstOrNull,
+                    onRowTap: _select,
+                    columns: [
+                      SboxColumn(label: 'Nhân viên', primary: true, flex: 3, minWidth: 160, text: (e) => '${e['soldBy'] ?? '—'}'),
+                      SboxColumn(label: 'Hóa đơn', numeric: true, minWidth: 80, text: (e) => SboxFmt.number(_n(e['orderCount'])),
+                          sortValue: (e) => _n(e['orderCount'])),
+                      SboxColumn(label: 'SL hàng', numeric: true, minWidth: 80, hideOnMobile: true,
+                          text: (e) => _qtyFmt.format(_n(e['itemQty'])), sortValue: (e) => _n(e['itemQty'])),
+                      SboxColumn(label: 'Doanh thu', numeric: true, minWidth: 120, text: (e) => SboxFmt.money(_n(e['revenue'])),
+                          sortValue: (e) => _n(e['revenue'])),
+                      SboxColumn(label: 'TB / HĐ', numeric: true, minWidth: 110, hideOnMobile: true,
+                          text: (e) => SboxFmt.money(_n(e['avgOrder'])), sortValue: (e) => _n(e['avgOrder'])),
+                      if (showProfit)
+                        SboxColumn(label: 'Lợi nhuận', numeric: true, minWidth: 120, hideOnMobile: true,
+                            text: (e) => SboxFmt.money(_n(e['profit'])), sortValue: (e) => _n(e['profit'])),
+                      SboxColumn(label: 'Tỷ trọng', numeric: true, minWidth: 80, hideOnMobile: true,
+                          text: (e) => '${_n(e['sharePct'])}%'),
+                    ],
                   ),
                 ),
+                const SizedBox(height: 12),
                 PosReportCard(
-                  title: _staff == null ? 'Hóa đơn gốc' : 'Hóa đơn · $_staff',
+                  title: _staffKey == null ? 'Hàng đã bán' : 'Hàng đã bán · $_staffName',
+                  subtitle: '${_goods.length} mặt hàng · bấm để xem chi tiết hàng',
+                  child: _goods.isEmpty
+                      ? const PosReportEmpty()
+                      : Column(
+                          children: [
+                            for (var i = 0; i < _goods.length; i++) ...[
+                              if (i > 0) const Divider(height: 14),
+                              PosReportNavRow(
+                                onTap: () => PosReportOpen.productMenu(context,
+                                    id: '${_goods[i]['productId'] ?? ''}',
+                                    name: '${_goods[i]['productName'] ?? ''}',
+                                    from: _time.from,
+                                    to: _time.to),
+                                child: Row(children: [
+                                  Expanded(
+                                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                      Text('${_goods[i]['productName'] ?? ''}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                      Text(tr('SL ${_qtyFmt.format(_n(_goods[i]['qty']))} · ${_n(_goods[i]['orderCount']).toInt()} HĐ'),
+                                          style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+                                    ]),
+                                  ),
+                                  PosReportMoneyLabel(_n(_goods[i]['revenue']), color: const Color(0xFF2B3437)),
+                                ]),
+                              ),
+                            ],
+                          ],
+                        ),
+                ),
+                PosReportCard(
+                  title: _staffKey == null ? 'Hóa đơn gốc' : 'Hóa đơn · $_staffName',
                   subtitle: '$_orderTotal hóa đơn · bấm để mở phiếu',
                   trailing: TextButton(
                     onPressed: _openAll,
