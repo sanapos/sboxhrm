@@ -45,6 +45,7 @@ import 'widgets/notification_overlay.dart';
 import 'widgets/pos/pos_form_keyboard.dart';
 import 'widgets/pos_app_update_dialog.dart';
 import 'widgets/pos/pos_theme.dart';
+import 'utils/pos_notify_focus.dart';
 
 import 'theme/sbox_theme.dart';
 import 'theme/sbox_tokens.dart';
@@ -382,6 +383,14 @@ class _PosAuthShellState extends State<_PosAuthShell>
 
   void _handleNewNotification(Map<String, dynamic> data) {
     try {
+      // Đang ở màn thu ngân: bỏ popup thông tin nền (đơn bán xong của người khác, tồn thấp, hạn dùng) — xem ở chuông.
+      if (PosNotifyFocus.active &&
+          !PosNotifyFocus.isRelevant(
+              relatedEntityType: data['relatedEntityType']?.toString(),
+              categoryCode: data['categoryCode']?.toString())) {
+        ScreenRefreshNotifier.refreshNotificationCount();
+        return;
+      }
       final display = resolveNotificationDisplay(data);
       final typeValue = data['type'] ?? 0;
       NotificationType type = NotificationType.info;

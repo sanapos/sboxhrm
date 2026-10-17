@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../utils/notification_display_utils.dart';
 import '../utils/notification_navigation.dart';
 import '../utils/tray_notification_guard.dart';
+import '../utils/pos_notify_focus.dart';
 
 /// Service để hiển thị thông báo trên thanh notification của Android
 class SystemNotificationService {
@@ -114,6 +115,9 @@ class SystemNotificationService {
   }) async {
     if (!_initialized) await initialize();
 
+    // Nội dung dài (liệt kê nhiều mặt hàng, món…) làm thông báo bung che màn hình → rút gọn.
+    final clippedBody = PosNotifyFocus.clip(body, max: 120);
+
     String? trayId;
     if (payload != null && payload.contains('|')) {
       final parts = payload.split('|');
@@ -131,14 +135,14 @@ class SystemNotificationService {
       channelId ?? 'sbox_hrm_default',
       channelName ?? 'Thông báo chung',
       channelDescription: 'Thông báo từ SBOX HRM',
-      importance: Importance.max,
-      priority: Priority.max,
+      importance: Importance.high,
+      priority: Priority.high,
       playSound: true,
       enableVibration: true,
       icon: '@mipmap/ic_launcher',
       tag: trayId,
       styleInformation: BigTextStyleInformation(
-        body,
+        clippedBody,
         contentTitle: title,
         summaryText: categoryLabel ?? 'SBOX HRM',
       ),
@@ -159,7 +163,7 @@ class SystemNotificationService {
     await _plugin.show(
       androidId,
       title,
-      body,
+      clippedBody,
       details,
       payload: payload,
     );

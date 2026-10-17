@@ -115,6 +115,6 @@ public class PosStockAlertBackgroundService(IServiceProvider sp, ILogger<PosStoc
     static string Names(IEnumerable<string> names)
     {
         var list = names.ToList();
-        return string.Join(", ", list.Take(4)) + (list.Count > 4 ? $"… (+{list.Count - 4})" : "");
+        return string.Join(", ", list.Take(2)) + (list.Count > 2 ? $"… (+{list.Count - 2})" : "");
     }
 }

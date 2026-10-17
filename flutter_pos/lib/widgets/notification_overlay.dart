@@ -4,6 +4,7 @@ import '../l10n/app_tr.dart';
 import '../models/hrm.dart';
 import '../utils/notification_sound.dart';
 import '../utils/vietnamese_text_fix.dart';
+import '../utils/pos_notify_focus.dart';
 
 import './pos/pos_theme.dart';
 import '../utils/pos_kds_alert.dart';
@@ -49,7 +50,8 @@ class NotificationOverlayManager {
     final item = NotificationOverlayItem(
       id: id,
       title: fixVietnameseMojibake(title),
-      message: fixVietnameseMojibake(message),
+      // Nội dung dài (danh sách mặt hàng, món…) không được che màn hình → rút gọn.
+      message: fixVietnameseMojibake(PosNotifyFocus.clip(message, max: 140)),
       type: type,
       relatedEntityType: relatedEntityType,
       onTap: onTap,

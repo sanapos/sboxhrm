@@ -40,6 +40,8 @@ internal static class PosNotificationHelper
         try
         {
             var userIds = await GetPosManagerUserIdsAsync(db, storeId, cancellationToken);
+            // Người vừa bán đã thấy kết quả ngay trên màn hình — không đẩy lại popup cho chính họ.
+            if (fromUserId.HasValue) userIds = userIds.Where(u => u != fromUserId.Value).ToList();
             if (userIds.Count == 0) return;
 
             var seller = string.IsNullOrWhiteSpace(soldBy) ? "—" : soldBy.Trim();
@@ -110,18 +112,30 @@ internal static class PosNotificationHelper
     {
         try
         {
-            var lowItems = items
+            var lowAll = items
                 .Where(i => i.MinStock > 0 && i.OnHand <= i.MinStock)
-                .Take(5)
+                .ToList();
+            if (lowAll.Count == 0) return;
+
+            // Chỉ báo mặt hàng chưa được báo «Tồn kho thấp» trong ngày (mỗi đơn bán trước đây đều báo lại).
+            var dayStartUtc = (DateTime.UtcNow + TimeSpan.FromHours(7)).Date - TimeSpan.FromHours(7);
+            var todayMsgs = await db.Notifications.AsNoTracking()
+                .Where(n => n.StoreId == storeId && n.Title == "Tồn kho thấp" && n.Timestamp >= dayStartUtc)
+                .Select(n => n.Message)
+                .ToListAsync(cancellationToken);
+            var lowItems = lowAll
+                .Where(i => !todayMsgs.Any(m => m.Contains(i.ProductName, StringComparison.OrdinalIgnoreCase)))
+                .Take(2)
                 .ToList();
             if (lowItems.Count == 0) return;
 
             var userIds = await GetPosManagerUserIdsAsync(db, storeId, cancellationToken);
+            if (fromUserId.HasValue) userIds = userIds.Where(u => u != fromUserId.Value).ToList();
             if (userIds.Count == 0) return;
 
             var preview = string.Join(", ",
                 lowItems.Select(i => $"{i.ProductName} ({i.OnHand:N0}/{i.MinStock:N0})"));
-            var suffix = lowItems.Count >= 5 ? "…" : "";
+            var suffix = lowAll.Count > lowItems.Count ? $"… (+{lowAll.Count - lowItems.Count})" : "";
 
             await notifications.CreateAndSendToUsersAsync(
                 userIds,

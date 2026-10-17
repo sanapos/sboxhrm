@@ -8,6 +8,7 @@ import 'dart:async';
 import 'activity_log_screen.dart';
 import '../utils/nav_package_profile.dart';
 import 'package:flutter/foundation.dart';
+import '../widgets/pos/pos_web_ime.dart' show posWebHasTouchPoints;
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
@@ -148,6 +149,7 @@ import 'attendance_approval_v2/aa_hub_screen.dart';
 import 'branch_ops/branch_report_screen.dart';
 import 'branch_ops/branch_stock_view.dart';
 import 'branch_ops/stock_transfer_screen.dart';
+import '../utils/pos_notify_focus.dart';
 export '../utils/navigation_notifier.dart';
 
 /// Global notifiers for screen refresh
@@ -1008,6 +1010,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   /// Enqueue a popup and show it if no other popup is active
   void _enqueuePopup(Widget Function(VoidCallback onDismiss) builder) {
     if (PosKdsAlert.isOpen) return;
+    // Đang ở màn thu ngân: chấm công / thiết bị chỉ vào chuông, không che màn hình bán.
+    if (PosNotifyFocus.active) return;
+    // Tối đa 2 popup chờ — chấm công dồn dập không xếp hàng nối đuôi hàng chục cái.
+    if (_popupQueue.length >= 2) return;
     _popupQueue.add(builder);
     _showNextPopup();
   }
@@ -1302,6 +1308,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
         if (isAttendanceOrDevice &&
             DeviceSyncProgressManager.shouldSuppressAttendanceNotifications) {
+          return;
+        }
+
+        // Đang ở màn thu ngân: chỉ thông báo liên quan bán hàng mới hiện (còn lại xem ở chuông).
+        if (PosNotifyFocus.active &&
+            !PosNotifyFocus.isRelevant(
+                relatedEntityType: relatedEntityType,
+                categoryCode: data['categoryCode']?.toString())) {
           return;
         }
 
@@ -3320,7 +3334,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        padding: EdgeInsets.symmetric(horizontal: 4, vertical: posWebHasTouchPoints() ? 11 : 4),
         decoration: isSelected
             ? BoxDecoration(
                 color: selectedColor.withValues(alpha: 0.1),
@@ -3745,7 +3759,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               onTap: _openCommandPalette,
               borderRadius: SboxRadius.mdAll,
               child: Container(
-                height: 36,
+                height: posWebHasTouchPoints() ? 44 : 36,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
                   color: SboxColors.slate50,
@@ -3809,7 +3823,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return PopupMenuButton<String>(
       offset: const Offset(0, 50),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Row(
+      child: Container(
+        constraints: BoxConstraints(minHeight: posWebHasTouchPoints() ? 44 : 0, minWidth: posWebHasTouchPoints() ? 56 : 0),
+        alignment: Alignment.center,
+        child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
             radius: 16,
@@ -3827,6 +3845,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           const SizedBox(width: 8),
           const Icon(Icons.keyboard_arrow_down, size: 20),
         ],
+        ),
       ),
       itemBuilder: (context) => [
         PopupMenuItem(

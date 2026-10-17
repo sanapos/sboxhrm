@@ -135,6 +135,7 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../utils/pos_request_id.dart';
+import '../utils/pos_notify_focus.dart';
 const _kiotBlue = PosTheme.kiotBlue;
 
 /// Tỷ lệ / khoảng cách màn bán hàng theo KiotViet.
@@ -1320,6 +1321,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   @override
   void initState() {
     super.initState();
+    PosNotifyFocus.enter();
     WidgetsBinding.instance.addObserver(this);
     _startStorePrintPoll();
     unawaited(_loadCachedSlotIds());
@@ -2069,6 +2071,7 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   @override
   void dispose() {
+    PosNotifyFocus.leave();
     _storePrintPollTimer?.cancel();
     if (identical(NavigationNotifier.posHandleSystemBack, _onSystemBack)) {
       NavigationNotifier.posHandleSystemBack = null;

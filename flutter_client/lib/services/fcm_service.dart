@@ -20,6 +20,7 @@ import '../widgets/device_sync_progress_overlay.dart'
     show DeviceSyncProgressManager;
 import 'api_service.dart';
 import 'system_notification_service.dart';
+import '../utils/pos_notify_focus.dart';
 
 /// Background message handler. Must be a top-level function.
 /// On iOS, this handler is only called for DATA-ONLY messages (no `notification` field).
@@ -267,6 +268,12 @@ class FcmService {
           (data['categoryCode'] ?? '').toLowerCase() == 'attendance';
       if (isAttendance &&
           DeviceSyncProgressManager.shouldSuppressAttendanceNotifications) {
+        return;
+      }
+      // Đang ở màn thu ngân: chỉ thông báo liên quan bán hàng mới hiện.
+      if (PosNotifyFocus.active &&
+          !PosNotifyFocus.isRelevant(
+              relatedEntityType: data['relatedEntityType'], categoryCode: data['categoryCode'])) {
         return;
       }
       if (kDebugMode) {
