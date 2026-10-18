@@ -949,8 +949,22 @@ internal static class PosSaleStockHelper
             {
                 if (!plan.Products.TryGetValue(pick.ProductId, out var toppingProduct)) continue;
                 if (toppingProduct.ProductType == PosProductType.Service) continue;
+                var toppingQty = line.Qty * pick.Qty;
+                // Topping có định lượng (trân châu = bột năng + đường…): trừ NVL — khớp lúc kiểm tra tồn / giữ chỗ
+                // (Prepare / ComputeDraftReserveNeeds nhận topping như một dòng bán), không trừ chính topping.
+                if (plan.RecipeLinesMap.TryGetValue(toppingProduct.Id, out var toppingRecipe) && toppingRecipe.Count > 0)
+                {
+                    foreach (var cl in toppingRecipe)
+                    {
+                        if (!plan.Products.TryGetValue(cl.ComponentProductId, out var comp)) continue;
+                        await ApplyFefoComboComponentSaleAsync(
+                            db, storeId, order, comp, cl.Qty * toppingQty,
+                            $"Định lượng: {toppingProduct.Name}", createdBy, plan.AllowNegativeStock);
+                    }
+                    continue;
+                }
                 await ApplyFefoSaleDeductionAsync(
-                    db, storeId, order, toppingProduct, null, line.Qty * pick.Qty,
+                    db, storeId, order, toppingProduct, null, toppingQty,
                     $"Topping — {p.Name}", createdBy, plan);
             }
         }
@@ -1083,8 +1097,26 @@ internal static class PosSaleStockHelper
             var topping = await db.PosProducts.AsTracking()
                 .FirstOrDefaultAsync(p => p.Id == pick.ProductId && p.StoreId == storeId && p.Deleted == null);
             if (topping == null || topping.ProductType == PosProductType.Service) continue;
+            var toppingQty = returnQty * pick.Qty;
+            // Topping có định lượng: lúc bán trừ NVL → trả hàng cộng lại NVL.
+            var recipe = await db.PosProductRecipeLines.AsNoTracking()
+                .Where(c => c.ParentProductId == topping.Id && c.StoreId == storeId && c.Deleted == null)
+                .ToListAsync();
+            if (recipe.Count > 0)
+            {
+                foreach (var cl in recipe)
+                {
+                    var comp = await db.PosProducts.AsTracking()
+                        .FirstOrDefaultAsync(p => p.Id == cl.ComponentProductId && p.StoreId == storeId && p.Deleted == null);
+                    if (comp == null) continue;
+                    cost += await ApplyComboReturnComponentAsync(
+                        db, storeId, order, comp, cl.Qty * toppingQty, 0, returnNo,
+                        $"{note} — {PosSaleReturnLedger.RecipeReturnMarker} {topping.Name}", createdBy);
+                }
+                continue;
+            }
             cost += await ApplyComboReturnComponentAsync(
-                db, storeId, order, topping, returnQty * pick.Qty, 0, returnNo, $"{note} — topping", createdBy);
+                db, storeId, order, topping, toppingQty, 0, returnNo, $"{note} — topping", createdBy);
         }
         return cost;
     }

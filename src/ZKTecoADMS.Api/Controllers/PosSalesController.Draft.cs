@@ -1226,13 +1226,55 @@ public partial class PosSalesController
     const string DiscountDeniedMessage = "DISCOUNT_REQUIRES_PERMISSION";
 
     /// <summary>Giá / chiết khấu đang có trên đơn tạm — giữ nguyên thì không cần quyền (người có quyền đã đặt).</summary>
-    sealed record PriorPricing(Dictionary<(Guid ProductId, Guid? VariantId), (decimal Price, decimal Disc)> Lines, decimal Discount);
+    sealed record PriorPricing(
+        Dictionary<(Guid ProductId, Guid? VariantId), (decimal Price, decimal Disc)> Lines,
+        decimal Discount,
+        HashSet<(Guid ToppingId, decimal Price)>? ToppingPrices = null);
 
     static PriorPricing SnapshotPricing(PosSaleOrder order) => new(
         (order.Lines ?? [])
             .GroupBy(l => (l.ProductId, l.VariantId))
             .ToDictionary(g => g.Key, g => (g.First().UnitPrice, g.Max(x => x.DiscountAmount))),
-        order.Discount);
+        order.Discount,
+        (order.Lines ?? [])
+            .SelectMany(l => PosSaleStockHelper.ParseToppingPicks(l.ToppingsJson))
+            .Select(t => (t.ProductId, Math.Round(t.UnitPrice, 2)))
+            .ToHashSet());
+
+    /// <summary>
+    /// Giá topping trong ToppingsJson do máy bán gửi: không có quyền sửa giá thì phải là giá đang bán của topping
+    /// (giá trong nhóm topping / tùy chọn thêm, hoặc giá bán topping) hoặc giá đã có trên đơn tạm — chặn gửi giá 0 / giá
+    /// thấp để bớt tiền (trước đây server cộng nguyên giá client gửi).
+    /// </summary>
+    internal static async Task<bool> ToppingPricesAllowedAsync(
+        ZKTecoADMS.Infrastructure.ZKTecoDbContext db, Guid storeId,
+        IEnumerable<string?> toppingsJsons, HashSet<(Guid ToppingId, decimal Price)>? priorPrices)
+    {
+        var picks = toppingsJsons.SelectMany(PosSaleStockHelper.ParseToppingPicks).ToList();
+        if (picks.Count == 0) return true;
+        var ids = picks.Select(t => t.ProductId).Distinct().ToList();
+        var allowed = (await db.PosProducts.AsNoTracking()
+                .Where(p => ids.Contains(p.Id) && p.StoreId == storeId)
+                .Select(p => new { p.Id, Price = p.BasePrice })
+                .ToListAsync())
+            .Select(x => (x.Id, Math.Round(x.Price, 2)))
+            .ToHashSet();
+        foreach (var x in await db.PosToppingGroupItems.AsNoTracking()
+                     .Where(i => ids.Contains(i.ToppingProductId) && i.StoreId == storeId && i.Deleted == null && i.ExtraPrice != null)
+                     .Select(i => new { i.ToppingProductId, Price = i.ExtraPrice!.Value })
+                     .ToListAsync())
+            allowed.Add((x.ToppingProductId, Math.Round(x.Price, 2)));
+        foreach (var x in await db.PosProductToppingOptions.AsNoTracking()
+                     .Where(o => ids.Contains(o.ToppingProductId) && o.StoreId == storeId && o.Deleted == null && o.ExtraPrice != null)
+                     .Select(o => new { o.ToppingProductId, Price = o.ExtraPrice!.Value })
+                     .ToListAsync())
+            allowed.Add((x.ToppingProductId, Math.Round(x.Price, 2)));
+        return picks.All(t =>
+        {
+            var key = (t.ProductId, Math.Round(t.UnitPrice, 2));
+            return allowed.Contains(key) || priorPrices?.Contains(key) == true;
+        });
+    }
 
     private async Task<(PosSaleOrder? order, List<PosSaleOrderLine>? lines, string? error)> BuildSaleAsync(
         Guid storeId,
@@ -1508,6 +1550,12 @@ public partial class PosSalesController
             if (!complete && billingSession.Status == PosResourceSessionStatus.Paused)
                 sessionPausedAt = billingSession.PausedAt;
         }
+
+        // Đơn offline đồng bộ sau: giá topping theo bản lưu trên máy lúc bán — không chặn.
+        if (!allowManualPriceOverride
+            && !(complete && PosOfflineSaleRules.NormalizeNo(dto.OfflineNo) != null)
+            && !await ToppingPricesAllowedAsync(dbContext, storeId, dto.Lines.Select(l => l.ToppingsJson), prior?.ToppingPrices))
+            return (null, null, PriceOverrideDeniedMessage);
 
         foreach (var line in dto.Lines)
         {

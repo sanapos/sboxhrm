@@ -879,7 +879,7 @@ public partial class PosReportsController(
     public async Task<ActionResult<AppResponse<object>>> GetReorderSuggestions()
     {
         var storeId = RequiredStoreId;
-        var tracked = new[] { PosProductType.Goods, PosProductType.Material };
+        var tracked = new[] { PosProductType.Goods, PosProductType.Material, PosProductType.Topping };
         var rows = await dbContext.PosProducts.AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive &&
                         tracked.Contains(p.ProductType) && p.MinStockQty > 0 && p.OnHandQty <= p.MinStockQty)

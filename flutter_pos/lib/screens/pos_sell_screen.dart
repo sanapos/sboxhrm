@@ -348,7 +348,7 @@ class _SellCartLine {
   final TextEditingController discountCtrl;
 
   double get toppingExtraPerUnit =>
-      toppings.fold<double>(0, (s, t) => s + t.price * t.qty);
+      toppings.fold<double>(0, (s, t) => s + t.price * t.safeQty); // khớp SL gửi server
 
   double get toppingExtraTotal => toppingExtraPerUnit * qty;
 
@@ -6275,6 +6275,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (mergeIfSame) {
         final idx = _tab.cart.indexWhere((l) =>
             l.product.id == p.id &&
+            !_autoOpensToppingPopup(p) &&
             l.variantId == view.variantId &&
             l.unitId == view.unitId &&
             l.toppings.isEmpty);
@@ -6346,13 +6347,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     _ensureTimedBillingTimer();
     await _maybeWarnProductExpiry(p, variantId: view.variantId);
     final line = focusLine;
-    if (line != null &&
-        mounted &&
-        line.product.autoOpenToppingPopup &&
-        (line.product.hasToppingGroups ||
-            line.product.toppingOptions.isNotEmpty ||
-            line.product.allowToppings)) {
-      await _openCartLineToppings(line);
+    if (line != null && mounted && _autoOpensToppingPopup(line.product)) {
+      await _openCartLineToppings(line, auto: true);
     }
     if (line != null && mounted) {
       await _maybeAssignLineStaff(line);
@@ -19222,7 +19218,13 @@ class _PosSellScreenState extends State<PosSellScreen>
     );
   }
 
-  Future<void> _openCartLineToppings(_SellCartLine line) async {
+  /// Món tự mở hộp chọn topping khi thêm vào giỏ. Mỗi lần bấm là một ly riêng: gộp vào dòng cũ thì topping chọn
+  /// trong hộp áp cho mọi ly của dòng (tính tiền / trừ kho topping nhiều lần).
+  bool _autoOpensToppingPopup(PosProduct p) =>
+      p.autoOpenToppingPopup &&
+      (p.hasToppingGroups || p.toppingOptions.isNotEmpty || p.allowToppings);
+
+  Future<void> _openCartLineToppings(_SellCartLine line, {bool auto = false}) async {
     var options = line.product.toppingGroupItems;
     if (options.isEmpty) {
       options = line.product.toppingOptions;
@@ -19241,6 +19243,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
     }
     if (options.isEmpty) {
+      // Tự mở khi thêm món (món bật «cho chọn topping» nhưng nhóm đã xóa / trống): bỏ qua, không báo mỗi lần bấm.
+      if (auto) return;
       NotificationOverlayManager().showWarning(
         title: 'Chưa có topping',
         message: tr('Gắn nhóm topping hoặc tùy chọn thêm trong hàng hóa'),

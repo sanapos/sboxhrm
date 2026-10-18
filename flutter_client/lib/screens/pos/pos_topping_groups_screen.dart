@@ -94,7 +94,19 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                           contentPadding: EdgeInsets.zero,
                           dense: true,
                           title: Text(tr(t.toppingProductName)),
-                          subtitle: Text(tr('+${_money.format(t.extraPrice)} đ')),
+                          subtitle: Text(tr('+${_money.format(t.extraPrice)} đ · bấm để sửa giá')),
+                          // Giá phụ thu riêng trong nhóm (vd trân châu 5k ở trà sữa, 7k ở sữa chua).
+                          onTap: () async {
+                            final price = await _editExtraPrice(ctx, t);
+                            if (price == null) return;
+                            setModal(() => items[i] = PosProductToppingOption(
+                                  id: t.id,
+                                  toppingProductId: t.toppingProductId,
+                                  toppingProductName: t.toppingProductName,
+                                  extraPrice: price,
+                                  sortOrder: t.sortOrder,
+                                ));
+                          },
                           trailing: IconButton(
                             icon: const Icon(Icons.close, size: 18),
                             onPressed: () => setModal(() => items.removeAt(i)),
@@ -179,10 +191,38 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
     }
   }
 
+  Future<double?> _editExtraPrice(BuildContext ctx, PosProductToppingOption t) async {
+    final ctrl = TextEditingController(text: t.extraPrice.toStringAsFixed(0));
+    final v = await showDialog<double>(
+      context: ctx,
+      builder: (dCtx) => AlertDialog(
+        title: Text(tr('Giá thêm — ${t.toppingProductName}')),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(suffixText: 'đ', border: const OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dCtx), child: Text(tr('Hủy'))),
+          FilledButton(
+            onPressed: () => Navigator.pop(
+                dCtx, double.tryParse(ctrl.text.replaceAll(RegExp(r'[^0-9]'), ''))),
+            child: Text(tr('Lưu')),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    return v;
+  }
+
   Future<PosProduct?> _pickProduct(BuildContext ctx) async {
     final qCtrl = TextEditingController();
     List<PosProduct> results = [];
     var loading = true;
+    // Mặc định chỉ hiện hàng loại Topping; bỏ chọn để thêm hàng khác (vd «Thêm trứng» là hàng hóa).
+    var onlyToppings = true;
 
     Future<void> search(StateSetter setModal, String q) async {
       setModal(() => loading = true);
@@ -190,6 +230,7 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
         page: 1,
         pageSize: 40,
         search: q.trim().isEmpty ? null : q.trim(),
+        productType: onlyToppings ? PosProductType.topping : null,
       );
       final items = <PosProduct>[];
       if (res['isSuccess'] == true && res['data'] is Map) {
@@ -235,7 +276,17 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                       ),
                       onChanged: (v) => search(setModal, v),
                     ),
-                    const SizedBox(height: 8),
+                    CheckboxListTile(
+                      value: onlyToppings,
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(tr('Chỉ hàng loại Topping')),
+                      onChanged: (v) {
+                        onlyToppings = v ?? true;
+                        search(setModal, qCtrl.text);
+                      },
+                    ),
                     Expanded(
                       child: loading
                           ? const Center(child: CircularProgressIndicator())

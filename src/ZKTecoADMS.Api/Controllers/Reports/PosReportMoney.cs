@@ -142,12 +142,18 @@ internal static class PosReportMoney
     {
         var result = new Dictionary<Guid, decimal>();
         if (orderIds.Count == 0) return result;
+        // Tên món trên đơn + tên topping gắn dòng (topping có định lượng ghi «Định lượng: <topping>»).
         var lineNames = (await db.PosSaleOrderLines.AsNoTracking()
                 .Where(l => l.StoreId == storeId && l.Deleted == null && orderIds.Contains(l.SaleOrderId))
-                .Select(l => new { l.SaleOrderId, l.ProductId, l.ProductName })
+                .Select(l => new { l.SaleOrderId, l.ProductId, l.ProductName, l.ToppingsJson })
                 .ToListAsync())
+            .SelectMany(l => PosSaleStockHelper.ParseToppingPicks(l.ToppingsJson)
+                .Where(t => !string.IsNullOrWhiteSpace(t.Name))
+                .Select(t => (l.SaleOrderId, ProductId: t.ProductId, ProductName: t.Name, Topping: true))
+                .Prepend((l.SaleOrderId, l.ProductId, l.ProductName, Topping: false)))
             .GroupBy(l => l.SaleOrderId)
-            .ToDictionary(g => g.Key, g => g.GroupBy(x => x.ProductName.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.Topping)
+                .GroupBy(x => x.ProductName.Trim(), StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(x => x.Key, x => x.First().ProductId, StringComparer.OrdinalIgnoreCase));
 
         Guid Attribute(Guid orderId, Guid productId, string? note, params string[] markers)
