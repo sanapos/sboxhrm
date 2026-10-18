@@ -312,6 +312,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   final List<PosProductAttribute> _attributeValues = [];
   List<PosComboLine> _comboLines = [];
   List<PosComboLine> _recipeLines = [];
+  /// Định lượng đang xem / sửa cho size nào (null = mọi size).
+  String? _recipeVariantId;
+
+  /// Size (biến thể có thuộc tính) để khai định lượng riêng — ly L nhiều sữa hơn ly M.
+  List<PosProductVariant> get _recipeSizes =>
+      _variants.where((v) => v.isActive && variantHasRealAttributes(v)).toList();
   List<PosProductVariant> _variants = [];
   late PosProductType _productType;
   final List<_VariantAttrRow> _variantAttrs = [];
@@ -1300,9 +1306,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         final recipeRes = await _api.savePosRecipeLines(
           productId,
           _recipeLines
+              // Size đã xóa khỏi hàng → bỏ dòng định lượng riêng của size đó.
+              .where((c) => c.variantId == null || _variants.any((v) => v.id == c.variantId))
               .map((c) => {
                     'componentProductId': c.componentProductId,
                     'qty': c.qty,
+                    if (c.variantId != null) 'variantId': c.variantId,
                   })
               .toList(),
         );
@@ -5621,6 +5630,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ),
         ),
+        if (_recipeSizes.isNotEmpty) _buildRecipeSizeBar(),
         if (_recipeLines.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 10),
@@ -5629,7 +5639,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               style: TextStyle(fontSize: 12, color: SboxColors.slate600),
             ),
           ),
-        if (_recipeLines.isNotEmpty) ...[
+        if (_recipeLines.any((c) => c.variantId == _recipeVariantId)) ...[
           const SizedBox(height: 8),
           Table(
             columnWidths: const {
@@ -5656,7 +5666,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   const SizedBox(),
                 ],
               ),
-              ..._recipeLines.asMap().entries.map((e) {
+              ..._recipeLines.asMap().entries
+                  .where((e) => e.value.variantId == _recipeVariantId)
+                  .map((e) {
                 final i = e.key;
                 final c = e.value;
                 return TableRow(
@@ -5717,9 +5729,82 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
+  /// Chọn size để khai định lượng riêng: «Mọi size» + từng size. Size chưa khai riêng dùng «Mọi size».
+  Widget _buildRecipeSizeBar() {
+    final sizes = _recipeSizes;
+    final selected = _recipeVariantId;
+    final selectedOwn = _recipeLines.where((c) => c.variantId == selected).length;
+    final baseCount = _recipeLines.where((c) => c.variantId == null).length;
+    String sizeLabel(PosProductVariant v) => v.name.trim().isEmpty ? v.skuCode : v.name.trim();
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(tr('Định lượng theo size'),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              ChoiceChip(
+                label: Text(tr('Mọi size')),
+                selected: selected == null,
+                onSelected: (_) => setState(() => _recipeVariantId = null),
+              ),
+              for (final v in sizes)
+                ChoiceChip(
+                  label: Text(_recipeLines.any((c) => c.variantId == v.id)
+                      ? '${sizeLabel(v)} ✓'
+                      : sizeLabel(v)),
+                  selected: selected == v.id,
+                  onSelected: (_) => setState(() => _recipeVariantId = v.id),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            tr(selected == null
+                ? 'Dùng cho mọi size chưa khai riêng. Bấm vào size (vd L) để khai lượng khác.'
+                : selectedOwn == 0
+                    ? 'Size này đang dùng định lượng «Mọi size». Thêm NVL hoặc chép rồi sửa số lượng.'
+                    : 'Size này dùng định lượng riêng bên dưới (thay cho «Mọi size»).'),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
+          ),
+          if (selected != null && selectedOwn == 0 && baseCount > 0)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                icon: const Icon(Icons.copy_all_outlined, size: 18),
+                label: Text(tr('Chép từ «Mọi size» để sửa')),
+                onPressed: () => setState(() {
+                  _recipeLines.addAll([
+                    for (final c in _recipeLines.where((c) => c.variantId == null).toList())
+                      c.copyWith(variantId: selected),
+                  ]);
+                }),
+              ),
+            ),
+          if (selected != null && selectedOwn > 0)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                icon: const Icon(Icons.undo, size: 18),
+                label: Text(tr('Bỏ định lượng riêng — dùng «Mọi size»')),
+                onPressed: () => setState(() => _recipeLines.removeWhere((c) => c.variantId == selected)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _addRecipeComponent() async {
-    final existingIds =
-        _recipeLines.map((c) => c.componentProductId).toSet();
+    final existingIds = _recipeLines
+        .where((c) => c.variantId == _recipeVariantId)
+        .map((c) => c.componentProductId)
+        .toSet();
     final prod = await PosComboComponentPicker.show(
       context,
       api: _api,
@@ -5728,7 +5813,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       materialsPreferred: true,
     );
     if (prod == null || !mounted) return;
-    if (_recipeLines.any((c) => c.componentProductId == prod.id)) {
+    if (_recipeLines.any((c) => c.componentProductId == prod.id && c.variantId == _recipeVariantId)) {
       NotificationOverlayManager().showError(
         title: 'Đã có NVL',
         message: tr('«${prod.name}» đã nằm trong định lượng'),
@@ -5747,6 +5832,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         componentOnHandQty: prod.onHandQty,
         componentBasePrice: prod.basePrice,
         componentUnitName: prod.baseUnitName,
+        variantId: _recipeVariantId,
       ));
     });
   }

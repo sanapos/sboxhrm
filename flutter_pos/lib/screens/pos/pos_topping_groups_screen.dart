@@ -321,6 +321,145 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
     );
   }
 
+  /// Gắn nhóm vào nhiều món một lần: chọn cả nhóm hàng hoặc từng món (trước đây phải mở từng món).
+  Future<void> _editLinks(PosProductToppingGroup g) async {
+    final results = await Future.wait([
+      _api.getPosToppingGroupLinks(g.id),
+      _api.getPosProductCategories(),
+    ]);
+    final products = <PosProduct>[];
+    for (var page = 1; page <= 5; page++) {
+      final res = await _api.getPosProducts(page: page, pageSize: 200, isDirectSale: true);
+      final raw = res['isSuccess'] == true && res['data'] is Map
+          ? ((res['data'] as Map)['items'] ?? (res['data'] as Map)['Items'])
+          : null;
+      if (raw is! List) break;
+      products.addAll(raw.whereType<Map>().map((e) => PosProduct.fromJson(Map<String, dynamic>.from(e))));
+      if (raw.length < 200) break;
+    }
+    if (!mounted) return;
+    // Món gắn được topping: hàng hóa / dịch vụ / combo (không phải chính topping / nguyên liệu).
+    products.removeWhere((p) => p.productType == PosProductType.topping || p.productType == PosProductType.material);
+    final linkRes = results[0];
+    final selected = <String>{
+      if (linkRes['isSuccess'] == true && linkRes['data'] is List)
+        for (final e in (linkRes['data'] as List).whereType<Map>()) '${e['id'] ?? e['Id']}',
+    };
+    final catRaw = results[1]['data'];
+    final catList = catRaw is List ? catRaw : (catRaw is Map ? (catRaw['items'] ?? const []) as List : const []);
+    final categories = <(String, String)>[
+      for (final c in catList.whereType<Map>())
+        if (products.any((p) => p.categoryId == '${c['id'] ?? c['Id']}'))
+          ('${c['id'] ?? c['Id']}', '${c['name'] ?? c['Name'] ?? ''}'),
+    ];
+    final qCtrl = TextEditingController();
+    var query = '';
+    final saved = await showDialog<Set<String>>(
+      context: context,
+      builder: (dCtx) => StatefulBuilder(
+        builder: (dCtx, setD) {
+          final shown = products
+              .where((p) => query.isEmpty || p.name.toLowerCase().contains(query.toLowerCase()))
+              .toList();
+          bool catAll(String cid) {
+            final inCat = products.where((p) => p.categoryId == cid);
+            return inCat.isNotEmpty && inCat.every((p) => selected.contains(p.id));
+          }
+
+          return AlertDialog(
+            title: Text(tr('Gắn «${g.name}» vào món')),
+            content: SizedBox(
+              width: 460,
+              height: 520,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    tr('Bấm nhóm hàng để chọn / bỏ cả nhóm, hoặc tick từng món. Món được gắn sẽ bật «cho chọn topping».'),
+                    style: const TextStyle(fontSize: 12.5, color: SboxColors.slate600),
+                  ),
+                  const SizedBox(height: 8),
+                  if (categories.isNotEmpty)
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final (cid, name) in categories)
+                          FilterChip(
+                            label: Text(tr(name)),
+                            selected: catAll(cid),
+                            onSelected: (on) => setD(() {
+                              for (final p in products.where((p) => p.categoryId == cid)) {
+                                on ? selected.add(p.id) : selected.remove(p.id);
+                              }
+                            }),
+                          ),
+                      ],
+                    ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: qCtrl,
+                    decoration: InputDecoration(
+                      hintText: tr('Tìm món…'),
+                      prefixIcon: const Icon(Icons.search),
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => setD(() => query = v.trim()),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(tr('Đã chọn ${selected.length} món'),
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  Expanded(
+                    child: shown.isEmpty
+                        ? Center(child: Text(tr('Không có món phù hợp')))
+                        : ListView.builder(
+                            itemCount: shown.length,
+                            itemBuilder: (_, i) {
+                              final p = shown[i];
+                              return CheckboxListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                controlAffinity: ListTileControlAffinity.leading,
+                                value: selected.contains(p.id),
+                                title: Text(tr(p.name)),
+                                subtitle: Text(tr(p.categoryName ?? '')),
+                                onChanged: (v) => setD(() => v == true ? selected.add(p.id) : selected.remove(p.id)),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dCtx), child: Text(tr('Hủy'))),
+              FilledButton(onPressed: () => Navigator.pop(dCtx, selected), child: Text(tr('Lưu'))),
+            ],
+          );
+        },
+      ),
+    );
+    qCtrl.dispose();
+    if (saved == null || !mounted) return;
+    final res = await _api.setPosToppingGroupLinks(g.id, productIds: saved.toList());
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      final d = res['data'] as Map? ?? const {};
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã gắn nhóm topping',
+        message: tr('«${g.name}» gắn vào ${d['total'] ?? saved.length} món'
+            ' (thêm ${d['added'] ?? 0}, gỡ ${d['removed'] ?? 0})'),
+      );
+      await _load();
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: res['message']?.toString() ?? 'Không lưu được',
+      );
+    }
+  }
+
   Future<void> _delete(PosProductToppingGroup g) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -427,23 +566,48 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                               tr(g.name),
                               style: const TextStyle(fontWeight: FontWeight.w700),
                             ),
-                            subtitle: Text(
-                              tr(g.items.isEmpty
-                                  ? 'Chưa có sản phẩm'
-                                  : g.items
-                                      .map((t) =>
-                                          '${t.toppingProductName} (+${_money.format(t.extraPrice)})')
-                                      .join(' · ')),
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  tr(g.items.isEmpty
+                                      ? 'Chưa có sản phẩm'
+                                      : g.items
+                                          .map((t) =>
+                                              '${t.toppingProductName} (+${_money.format(t.extraPrice)})')
+                                          .join(' · ')),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                InkWell(
+                                  onTap: canEdit ? () => _editLinks(g) : null,
+                                  child: Text(
+                                  tr(g.linkedProductCount == 0
+                                      ? 'Chưa gắn vào món nào — bấm để gắn'
+                                      : 'Gắn vào ${g.linkedProductCount} món — bấm để sửa'),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: g.linkedProductCount == 0
+                                        ? const Color(0xFFD97706)
+                                        : SboxColors.slate600,
+                                    decoration: canEdit ? TextDecoration.underline : null,
+                                  ),
+                                ),
+                                ),
+                              ],
                             ),
                             trailing: canEdit || canDelete
                                 ? PopupMenuButton<String>(
                                     onSelected: (v) {
                                       if (v == 'edit') _editGroup(g);
+                                      if (v == 'links') _editLinks(g);
                                       if (v == 'delete') _delete(g);
                                     },
                                     itemBuilder: (_) => [
+                                      if (canEdit)
+                                        PopupMenuItem(value: 'links', child: Text(tr('Gắn vào món…'))),
                                       if (canEdit)
                                         PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
                                       if (canDelete)

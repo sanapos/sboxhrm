@@ -6178,7 +6178,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           productType: l.product.productType,
           qty: l.qty,
           comboLines: l.product.comboLines ?? const [],
-          recipeLines: l.product.recipeLines ?? const [],
+          recipeLines: l.product.recipeLinesFor(l.variantId),
           comboTrackStock: l.product.comboTrackStock,
         ),
       );
@@ -6195,7 +6195,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           productType: l.product.productType,
           qty: l.qty,
           comboLines: l.product.comboLines ?? const [],
-          recipeLines: l.product.recipeLines ?? const [],
+          recipeLines: l.product.recipeLinesFor(l.variantId),
           comboTrackStock: l.product.comboTrackStock,
         ),
       );
@@ -6213,10 +6213,10 @@ class _PosSellScreenState extends State<PosSellScreen>
     bool warnLow = true,
   }) {
     if (_allowNegativeStock) return true;
-    if (p.hasRecipe) {
+    if (p.hasRecipe && p.recipeLinesFor(view.variantId).isNotEmpty) {
       final reserved = _componentReservation(excludeProductId: p.id);
       final err = comboStockErrorMessage(
-        combo: p.copyWith(comboLines: p.recipeLines),
+        combo: p.copyWith(comboLines: p.recipeLinesFor(view.variantId)),
         requiredComboQty: requiredQty,
         componentReserved: reserved,
         kindLabel: 'Định lượng',
@@ -12373,7 +12373,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         continue;
       }
       if (l.product.hasRecipe) {
-        for (final cl in l.product.recipeLines ?? const <PosComboLine>[]) {
+        for (final cl in l.product.recipeLinesFor(l.variantId)) {
           raw.add(
             PosSellStockLineDelta(
               productId: cl.componentProductId,
@@ -12442,7 +12442,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (l.product.hasRecipe) {
         lines.addAll(
           expandComboToWarehouseLines(
-            combo: l.product.copyWith(comboLines: l.product.recipeLines),
+            combo: l.product.copyWith(comboLines: l.product.recipeLinesFor(l.variantId)),
             comboQty: pending,
             lineNote: l.lineNote,
           ),

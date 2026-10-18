@@ -1707,9 +1707,15 @@ public class ZKTecoDbInitializer(
                     );
                     CREATE INDEX IF NOT EXISTS ""IX_PosProductRecipeLines_Parent""
                         ON ""PosProductRecipeLines""(""ParentProductId"");
-                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosProductRecipeLines_Parent_Component_Active""
-                        ON ""PosProductRecipeLines""(""ParentProductId"", ""ComponentProductId"")
+                    -- Định lượng theo size: 1 NVL được khai riêng cho từng biến thể (null = mọi size).
+                    ALTER TABLE ""PosProductRecipeLines"" ADD COLUMN IF NOT EXISTS ""VariantId"" uuid NULL;
+                    DROP INDEX IF EXISTS ""IX_PosProductRecipeLines_Parent_Component_Active"";
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosProductRecipeLines_Parent_Variant_Component_Active""
+                        ON ""PosProductRecipeLines""(""ParentProductId"",
+                            COALESCE(""VariantId"", '00000000-0000-0000-0000-000000000000'::uuid), ""ComponentProductId"")
                         WHERE ""Deleted"" IS NULL;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductRecipeLines_VariantId""
+                        ON ""PosProductRecipeLines""(""VariantId"");
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""ToppingsJson"" text NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""IsTopping"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowToppings"" boolean NOT NULL DEFAULT false;

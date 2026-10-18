@@ -23,4 +23,10 @@ public class PosProductRecipeLine : AuditableEntity<Guid>
 
     /// <summary>SL NVL / 1 đơn vị món (cho phép lẻ: 0.05 kg).</summary>
     public decimal Qty { get; set; } = 1;
+
+    /// <summary>
+    /// Định lượng riêng của một size (biến thể, vd ly L nhiều sữa hơn ly M). Null = mọi size: size chưa khai
+    /// dòng riêng dùng các dòng null.
+    /// </summary>
+    public Guid? VariantId { get; set; }
 }

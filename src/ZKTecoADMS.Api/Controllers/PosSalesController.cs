@@ -776,6 +776,7 @@ public partial class PosSalesController(
                     ComponentOnHandQty = x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0m,
                     ComponentBasePrice = x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0m,
                     ComponentUnitName = x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : "",
+                    x.VariantId,
                 })
                 .ToListAsync();
         var recipeLinesByProduct = recipeLinesFlat
@@ -879,9 +880,10 @@ public partial class PosSalesController(
                 sellableQty = PosProductTypeRules.ComboSellableQty(
                     fromComponents, p.OnHandQty, p.ComboTrackStock);
             }
-            else if (recipeLines.Count > 0)
+            else if (recipeLines.Any(cl => cl.VariantId == null))
             {
-                sellableQty = recipeLines.Min(cl =>
+                // Theo định lượng «mọi size» (size khai riêng kiểm tra lúc thêm vào giỏ).
+                sellableQty = recipeLines.Where(cl => cl.VariantId == null).Min(cl =>
                     cl.Qty > 0 ? Math.Floor(cl.ComponentOnHandQty / cl.Qty) : 0);
             }
 
@@ -956,6 +958,7 @@ public partial class PosSalesController(
                     cl.ComponentOnHandQty,
                     cl.ComponentBasePrice,
                     cl.ComponentUnitName,
+                    cl.VariantId,
                 }).ToList(),
                 Units = unitsByProduct.GetValueOrDefault(p.Id, []),
                 Variants = variantsByProduct.GetValueOrDefault(p.Id, []),
@@ -2383,7 +2386,9 @@ public partial class PosSalesController(
             var baseNote = BuildReturnNote(dto.Note, refundMethod, order.OrderNo);
             decimal cost = 0;
 
-            if (recipeLinesMap.TryGetValue(p.Id, out var recipeLines) && recipeLines.Count > 0)
+            // Định lượng đúng size đã bán (ly L hoàn NVL của ly L).
+            var recipeLines = PosSaleStockHelper.RecipeFor(recipeLinesMap, p.Id, saleLine.VariantId);
+            if (recipeLines.Count > 0)
             {
                 var recipeNote = $"{baseNote} — {PosSaleReturnLedger.RecipeReturnMarker} {p.Name}";
                 var first = true;
@@ -2449,9 +2454,10 @@ public partial class PosSalesController(
                 warrantyReturns.Add((saleLine.ProductId, saleLine.VariantId, qty));
             }
 
-            // Topping gắn món: cộng lại kho theo SL trả.
+            // Topping gắn món: cộng lại kho theo SL trả; giá vốn từng topping ghi riêng cho báo cáo lãi theo hàng.
+            var toppingCost = new Dictionary<Guid, decimal>();
             cost += await PosSaleStockHelper.ApplyToppingReturnAsync(
-                dbContext, storeId, order, saleLine, qty, returnNo, baseNote, CurrentUserEmail);
+                dbContext, storeId, order, saleLine, qty, returnNo, baseNote, CurrentUserEmail, toppingCost);
 
             dbContext.PosSaleReturnLines.Add(new PosSaleReturnLine
             {
@@ -2465,6 +2471,7 @@ public partial class PosSalesController(
                 Qty = qty,
                 RefundAmount = lineRefund,
                 CostAmount = cost,
+                ToppingCostJson = PosSaleReturnLedger.SerializeToppingCost(toppingCost),
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
             });

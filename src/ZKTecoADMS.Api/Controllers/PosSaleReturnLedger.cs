@@ -15,6 +15,26 @@ internal static class PosSaleReturnLedger
     public const string ComboReturnMarker = "hoàn combo:";
     public const string RecipeReturnMarker = "hoàn định lượng:";
 
+    /// <summary>Giá vốn topping theo từng topping của một dòng trả → JSON lưu trên <c>PosSaleReturnLine</c>.</summary>
+    public static string? SerializeToppingCost(IReadOnlyDictionary<Guid, decimal> byTopping) =>
+        byTopping.Count == 0
+            ? null
+            : System.Text.Json.JsonSerializer.Serialize(byTopping.ToDictionary(x => x.Key.ToString(), x => Math.Round(x.Value, 4)));
+
+    public static Dictionary<Guid, decimal> ParseToppingCost(string? json)
+    {
+        var result = new Dictionary<Guid, decimal>();
+        if (string.IsNullOrWhiteSpace(json)) return result;
+        try
+        {
+            var raw = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, decimal>>(json);
+            foreach (var (k, v) in raw ?? [])
+                if (Guid.TryParse(k, out var id)) result[id] = v;
+        }
+        catch (System.Text.Json.JsonException) { /* dữ liệu hỏng → coi như không tách */ }
+        return result;
+    }
+
     /// <summary>Thẻ kho trả hàng của khách (không gồm hoàn kho khi hủy đơn / hủy phiếu trả).</summary>
     public static IQueryable<PosStockTransaction> CustomerReturnTx(ZKTecoDbContext db, Guid storeId) =>
         db.PosStockTransactions.AsNoTracking()

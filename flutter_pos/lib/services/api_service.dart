@@ -14304,6 +14304,62 @@ class ApiService {
     }
   }
 
+  /// Các món đang gắn nhóm topping.
+  Future<Map<String, dynamic>> getPosToppingGroupLinks(String groupId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/topping-groups/$groupId/links'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Gắn nhóm topping hàng loạt: [productIds] ∪ mọi món trong [categoryIds] (thay danh sách gắn cũ).
+  Future<Map<String, dynamic>> setPosToppingGroupLinks(
+    String groupId, {
+    List<String> productIds = const [],
+    List<String> categoryIds = const [],
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/topping-groups/$groupId/links'),
+            headers: _headers,
+            body: jsonEncode({'productIds': productIds, 'categoryIds': categoryIds}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Báo cáo Nguyên vật liệu: dùng theo định lượng, còn đủ mấy ngày, món dùng nhiều, việc nên làm.
+  Future<Map<String, dynamic>> getPosMaterialsReport({required String from, required String to}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/reports/materials/summary')
+          .replace(queryParameters: {'from': from, 'to': to});
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Báo cáo Topping: % ly có topping, topping bán chạy, doanh thu / lãi topping.
+  Future<Map<String, dynamic>> getPosToppingsReport({required String from, required String to}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/reports/toppings/summary')
+          .replace(queryParameters: {'from': from, 'to': to});
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> createPosProduct(Map<String, dynamic> body) async {
     try {
       final response = await http

@@ -5,6 +5,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Infrastructure;
 
@@ -27,7 +28,11 @@ public class PosToppingGroupsController(ZKTecoDbContext dbContext) : Authenticat
         Guid Id,
         string Name,
         int SortOrder,
-        List<ToppingGroupItemDto> Items);
+        List<ToppingGroupItemDto> Items,
+        int LinkedProductCount = 0);
+
+    /// <summary>Gắn hàng loạt: danh sách món + nhóm hàng (mọi món trong nhóm). Thay toàn bộ danh sách gắn cũ.</summary>
+    public record ToppingGroupLinksInput(List<Guid>? ProductIds = null, List<Guid>? CategoryIds = null);
 
     public record ToppingGroupItemInput(
         Guid ToppingProductId,
@@ -57,6 +62,12 @@ public class PosToppingGroupsController(ZKTecoDbContext dbContext) : Authenticat
             .ToListAsync();
         var byGroup = items.GroupBy(i => i.GroupId)
             .ToDictionary(g => g.Key, g => g.ToList());
+        var linkCount = await dbContext.PosProductToppingGroupLinks.AsNoTracking()
+            .Where(l => groupIds.Contains(l.GroupId) && l.StoreId == storeId && l.Deleted == null && l.IsActive
+                        && l.Product != null && l.Product.Deleted == null)
+            .GroupBy(l => l.GroupId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count);
 
         var result = groups.Select(g =>
         {
@@ -71,10 +82,37 @@ public class PosToppingGroupsController(ZKTecoDbContext dbContext) : Authenticat
                     i.ToppingProductId,
                     i.ToppingProduct?.Name ?? "",
                     i.ExtraPrice ?? i.ToppingProduct?.BasePrice ?? 0,
-                    i.SortOrder)).ToList());
+                    i.SortOrder)).ToList(),
+                linkCount.GetValueOrDefault(g.Id));
         }).ToList();
 
         return Ok(AppResponse<List<ToppingGroupDto>>.Success(result));
+    }
+
+    /// <summary>Các món đang gắn nhóm topping.</summary>
+    [HttpGet("{id:guid}/links")]
+    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<List<PosToppingGroupLinker.LinkedProduct>>>> GetLinks(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        if (!await dbContext.PosToppingGroups.AnyAsync(g => g.Id == id && g.StoreId == storeId && g.Deleted == null))
+            return NotFound(AppResponse<List<PosToppingGroupLinker.LinkedProduct>>.Fail("Không tìm thấy nhóm topping"));
+        return Ok(AppResponse<List<PosToppingGroupLinker.LinkedProduct>>.Success(
+            await PosToppingGroupLinker.LinkedProductsAsync(dbContext, storeId, id)));
+    }
+
+    /// <summary>Gắn nhóm topping hàng loạt (chọn món / cả nhóm hàng) — thay danh sách gắn cũ.</summary>
+    [HttpPut("{id:guid}/links")]
+    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> SetLinks(Guid id, [FromBody] ToppingGroupLinksInput dto)
+    {
+        var storeId = RequiredStoreId;
+        if (!await dbContext.PosToppingGroups.AnyAsync(g => g.Id == id && g.StoreId == storeId && g.Deleted == null))
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy nhóm topping"));
+        var (added, removed, total) = await PosToppingGroupLinker.SetLinksAsync(
+            dbContext, storeId, id, dto.ProductIds, dto.CategoryIds, CurrentUserEmail);
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(new { added, removed, total }));
     }
 
     [HttpGet("{id:guid}")]

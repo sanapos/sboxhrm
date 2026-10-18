@@ -387,12 +387,15 @@ class PosProductToppingGroup {
   final String name;
   final int sortOrder;
   final List<PosProductToppingOption> items;
+  /// Số món đang gắn nhóm (danh sách nhóm topping).
+  final int linkedProductCount;
 
   const PosProductToppingGroup({
     required this.id,
     required this.name,
     this.sortOrder = 0,
     this.items = const [],
+    this.linkedProductCount = 0,
   });
 
   factory PosProductToppingGroup.fromJson(Map<String, dynamic> json) {
@@ -401,6 +404,8 @@ class PosProductToppingGroup {
       id: (json['id'] ?? json['Id'] ?? '').toString(),
       name: (json['name'] ?? json['Name'] ?? '').toString(),
       sortOrder: (json['sortOrder'] ?? json['SortOrder'] as num?)?.toInt() ?? 0,
+      linkedProductCount:
+          ((json['linkedProductCount'] ?? json['LinkedProductCount']) as num?)?.toInt() ?? 0,
       items: rawItems is List
           ? rawItems
               .whereType<Map>()
@@ -623,6 +628,17 @@ class PosProduct {
 
   bool get hasRecipe =>
       recipeLines != null && recipeLines!.isNotEmpty;
+
+  /// Định lượng khi bán size [variantId]: dòng khai riêng cho size đó; size chưa khai riêng (hoặc bán không chọn
+  /// size) → dòng «mọi size». Khớp máy chủ (PosSaleStockHelper.RecipeFor).
+  List<PosComboLine> recipeLinesFor(String? variantId) {
+    final all = recipeLines ?? const <PosComboLine>[];
+    if (variantId != null && variantId.isNotEmpty) {
+      final own = all.where((l) => l.variantId == variantId).toList();
+      if (own.isNotEmpty) return own;
+    }
+    return all.where((l) => l.variantId == null || l.variantId!.isEmpty).toList();
+  }
 
   /// Cột tồn kho: dịch vụ và combo tắt quản lý tồn gói hiện "—", không hiện 999.
   bool get showsWarehouseStock {
@@ -1134,6 +1150,17 @@ class PosProduct {
               .toList(),
         'updatedAt': updatedAt?.toUtc().toIso8601String(),
         if (sellableQty != null) 'sellableQty': sellableQty,
+        if (recipeLines != null)
+          'recipeLines': recipeLines!.map((c) => {
+                'componentProductId': c.componentProductId,
+                'componentProductCode': c.componentProductCode,
+                'componentProductName': c.componentProductName,
+                'qty': c.qty,
+                'componentOnHandQty': c.componentOnHandQty,
+                'componentBasePrice': c.componentBasePrice,
+                'componentUnitName': c.componentUnitName,
+                if (c.variantId != null) 'variantId': c.variantId,
+              }).toList(),
         if (comboLines != null)
           'comboLines': comboLines!.map((c) => {
                 'componentProductId': c.componentProductId,
@@ -1183,6 +1210,9 @@ class PosComboLine {
   final double commissionFixed;
   final bool trackStock;
 
+  /// Định lượng: size (biến thể) dùng dòng này; null = mọi size.
+  final String? variantId;
+
   PosComboLine({
     required this.id,
     required this.componentProductId,
@@ -1197,6 +1227,7 @@ class PosComboLine {
     this.commissionPercent = 0,
     this.commissionFixed = 0,
     this.trackStock = true,
+    this.variantId,
   });
 
   factory PosComboLine.fromJson(Map<String, dynamic> json) {
@@ -1236,10 +1267,15 @@ class PosComboLine {
                       '')
                   .toString())
           .tracksInventory,
+      variantId: () {
+        final v = (json['variantId'] ?? json['VariantId'])?.toString();
+        return v == null || v.isEmpty ? null : v;
+      }(),
     );
   }
 
-  PosComboLine copyWith({double? qty, bool? trackStock}) => PosComboLine(
+  PosComboLine copyWith({double? qty, bool? trackStock, String? variantId, bool clearVariant = false}) =>
+      PosComboLine(
         id: id,
         componentProductId: componentProductId,
         componentProductCode: componentProductCode,
@@ -1253,6 +1289,7 @@ class PosComboLine {
         commissionPercent: commissionPercent,
         commissionFixed: commissionFixed,
         trackStock: trackStock ?? this.trackStock,
+        variantId: clearVariant ? null : (variantId ?? this.variantId),
       );
 }
 

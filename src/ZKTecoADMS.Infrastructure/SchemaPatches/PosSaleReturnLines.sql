@@ -25,3 +25,5 @@ CREATE TABLE IF NOT EXISTS "PosSaleReturnLines" (
 CREATE INDEX IF NOT EXISTS "IX_PosSaleReturnLines_Order" ON "PosSaleReturnLines" ("SaleOrderId");
 CREATE INDEX IF NOT EXISTS "IX_PosSaleReturnLines_Store_Created" ON "PosSaleReturnLines" ("StoreId", "CreatedAt");
 CREATE INDEX IF NOT EXISTS "IX_PosSaleReturnLines_ReturnNo" ON "PosSaleReturnLines" ("StoreId", "ReturnNo");
+-- Giá vốn topping hoàn theo từng topping ({toppingProductId: tiền}) — báo cáo lãi theo hàng trừ đúng topping, không dồn vào món.
+ALTER TABLE "PosSaleReturnLines" ADD COLUMN IF NOT EXISTS "ToppingCostJson" text NULL;

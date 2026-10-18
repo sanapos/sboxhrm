@@ -188,10 +188,16 @@ internal static class PosReportMoney
         // Hàng trả: sổ trả hàng ghi theo món bán; phiếu cũ: thẻ kho trả (combo / định lượng quy về món).
         var ledger = await db.PosSaleReturnLines.AsNoTracking()
             .Where(r => r.StoreId == storeId && r.Deleted == null && !r.IsVoided && orderIds.Contains(r.SaleOrderId))
-            .Select(r => new { r.SaleOrderId, r.ReturnNo, r.ProductId, r.CostAmount })
+            .Select(r => new { r.SaleOrderId, r.ReturnNo, r.ProductId, r.CostAmount, r.ToppingCostJson })
             .ToListAsync();
         foreach (var r in ledger)
-            result[r.ProductId] = result.GetValueOrDefault(r.ProductId) - r.CostAmount;
+        {
+            // Phần topping trừ vào chính topping (doanh thu topping tách riêng), phần còn lại vào món.
+            var toppingCost = PosSaleReturnLedger.ParseToppingCost(r.ToppingCostJson);
+            foreach (var (tid, c) in toppingCost)
+                result[tid] = result.GetValueOrDefault(tid) - c;
+            result[r.ProductId] = result.GetValueOrDefault(r.ProductId) - (r.CostAmount - toppingCost.Values.Sum());
+        }
         var known = ledger.Select(r => (r.SaleOrderId, r.ReturnNo)).ToHashSet();
         var allSlips = (await db.PosSaleReturnLines.AsNoTracking()
                 .Where(r => r.StoreId == storeId && r.Deleted == null && orderIds.Contains(r.SaleOrderId))

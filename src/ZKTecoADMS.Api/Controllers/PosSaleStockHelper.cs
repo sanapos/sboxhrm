@@ -35,6 +35,22 @@ internal static class PosSaleStockHelper
         return result;
     }
 
+    /// <summary>
+    /// Định lượng dùng khi bán [productId] ở size [variantId]: dòng khai riêng cho size đó; size chưa khai riêng
+    /// (hoặc bán không chọn size) → dòng «mọi size» (VariantId null). Rỗng = món không trừ NVL.
+    /// </summary>
+    public static List<PosProductRecipeLine> RecipeFor(
+        IReadOnlyDictionary<Guid, List<PosProductRecipeLine>> map, Guid productId, Guid? variantId)
+    {
+        if (!map.TryGetValue(productId, out var all) || all.Count == 0) return [];
+        if (variantId.HasValue)
+        {
+            var own = all.Where(l => l.VariantId == variantId).ToList();
+            if (own.Count > 0) return own;
+        }
+        return all.Where(l => l.VariantId == null).ToList();
+    }
+
     /// <summary>1 ĐVT bán = ConversionRate × đơn vị cơ bản. Không có UnitId → qty đã là cơ bản.</summary>
     public static decimal QtyInBase(decimal qty, Guid? unitId, IReadOnlyDictionary<Guid, decimal> unitRates)
     {
@@ -548,8 +564,8 @@ internal static class PosSaleStockHelper
                 ? line.Qty
                 : QtyInBase(line.Qty, line.UnitId, unitRates);
 
-            if (line.VariantId.HasValue &&
-                !(plan.RecipeLinesMap.TryGetValue(p.Id, out var recipeForVariant) && recipeForVariant.Count > 0))
+            var recipeLines = RecipeFor(plan.RecipeLinesMap, p.Id, line.VariantId);
+            if (line.VariantId.HasValue && recipeLines.Count == 0)
             {
                 if (!plan.Variants.TryGetValue(line.VariantId.Value, out var v)) continue;
                 var baseNeed = PosVariantStockHelper.StockDeltaInBase(v, line.Qty);
@@ -558,7 +574,7 @@ internal static class PosSaleStockHelper
                 continue;
             }
 
-            if (plan.RecipeLinesMap.TryGetValue(p.Id, out var recipeLines) && recipeLines.Count > 0)
+            if (recipeLines.Count > 0)
             {
                 foreach (var cl in recipeLines)
                     needs[cl.ComponentProductId] =
@@ -729,8 +745,8 @@ internal static class PosSaleStockHelper
                 ? line.Qty
                 : QtyInBase(line.Qty, line.UnitId, unitRates);
 
-            if (line.VariantId.HasValue &&
-                !(recipeLinesMap.TryGetValue(p.Id, out var recipeForVariant) && recipeForVariant.Count > 0))
+            var recipeLines = RecipeFor(recipeLinesMap, p.Id, line.VariantId);
+            if (line.VariantId.HasValue && recipeLines.Count == 0)
             {
                 if (!variants.TryGetValue(line.VariantId.Value, out var v))
                     return (null, "Biến thể không hợp lệ");
@@ -741,7 +757,7 @@ internal static class PosSaleStockHelper
                 continue;
             }
 
-            if (recipeLinesMap.TryGetValue(p.Id, out var recipeLines) && recipeLines.Count > 0)
+            if (recipeLines.Count > 0)
             {
                 foreach (var cl in recipeLines)
                 {
@@ -878,15 +894,14 @@ internal static class PosSaleStockHelper
                 ? line.Qty
                 : QtyInBase(line.Qty, line.UnitId, unitRates);
 
-            if (soldVariant != null &&
-                !(plan.RecipeLinesMap.TryGetValue(p.Id, out var recipeForSoldVariant) &&
-                  recipeForSoldVariant.Count > 0))
+            var recipeLines = RecipeFor(plan.RecipeLinesMap, p.Id, soldVariant?.Id);
+            if (soldVariant != null && recipeLines.Count == 0)
             {
                 var note = $"Bán hàng POS — {soldVariant.SkuCode}";
                 await ApplyFefoSaleDeductionAsync(
                     db, storeId, order, p, soldVariant, deductQty, note, createdBy, plan);
             }
-            else if (plan.RecipeLinesMap.TryGetValue(p.Id, out var recipeLines) && recipeLines.Count > 0)
+            else if (recipeLines.Count > 0)
             {
                 foreach (var cl in recipeLines)
                 {
@@ -952,7 +967,8 @@ internal static class PosSaleStockHelper
                 var toppingQty = line.Qty * pick.Qty;
                 // Topping có định lượng (trân châu = bột năng + đường…): trừ NVL — khớp lúc kiểm tra tồn / giữ chỗ
                 // (Prepare / ComputeDraftReserveNeeds nhận topping như một dòng bán), không trừ chính topping.
-                if (plan.RecipeLinesMap.TryGetValue(toppingProduct.Id, out var toppingRecipe) && toppingRecipe.Count > 0)
+                var toppingRecipe = RecipeFor(plan.RecipeLinesMap, toppingProduct.Id, null);
+                if (toppingRecipe.Count > 0)
                 {
                     foreach (var cl in toppingRecipe)
                     {
@@ -1087,20 +1103,23 @@ internal static class PosSaleStockHelper
     }
 
     /// <summary>Hoàn topping gắn dòng khi trả món (SL topping = SL trả × SL topping trên dòng).</summary>
+    /// <param name="costByTopping">Nếu có: cộng giá vốn hoàn theo từng topping (ghi vào sổ trả hàng).</param>
     public static async Task<decimal> ApplyToppingReturnAsync(
         ZKTecoDbContext db, Guid storeId, PosSaleOrder order, PosSaleOrderLine line, decimal returnQty,
-        string returnNo, string note, string? createdBy)
+        string returnNo, string note, string? createdBy, Dictionary<Guid, decimal>? costByTopping = null)
     {
         decimal cost = 0;
         foreach (var pick in ParseToppingPicks(line.ToppingsJson))
         {
+            var before = cost;
             var topping = await db.PosProducts.AsTracking()
                 .FirstOrDefaultAsync(p => p.Id == pick.ProductId && p.StoreId == storeId && p.Deleted == null);
             if (topping == null || topping.ProductType == PosProductType.Service) continue;
             var toppingQty = returnQty * pick.Qty;
             // Topping có định lượng: lúc bán trừ NVL → trả hàng cộng lại NVL.
             var recipe = await db.PosProductRecipeLines.AsNoTracking()
-                .Where(c => c.ParentProductId == topping.Id && c.StoreId == storeId && c.Deleted == null)
+                .Where(c => c.ParentProductId == topping.Id && c.StoreId == storeId && c.Deleted == null
+                            && c.VariantId == null)
                 .ToListAsync();
             if (recipe.Count > 0)
             {
@@ -1113,10 +1132,14 @@ internal static class PosSaleStockHelper
                         db, storeId, order, comp, cl.Qty * toppingQty, 0, returnNo,
                         $"{note} — {PosSaleReturnLedger.RecipeReturnMarker} {topping.Name}", createdBy);
                 }
-                continue;
             }
-            cost += await ApplyComboReturnComponentAsync(
-                db, storeId, order, topping, toppingQty, 0, returnNo, $"{note} — topping", createdBy);
+            else
+            {
+                cost += await ApplyComboReturnComponentAsync(
+                    db, storeId, order, topping, toppingQty, 0, returnNo, $"{note} — topping", createdBy);
+            }
+            if (costByTopping != null && cost != before)
+                costByTopping[topping.Id] = costByTopping.GetValueOrDefault(topping.Id) + (cost - before);
         }
         return cost;
     }

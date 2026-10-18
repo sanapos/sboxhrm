@@ -30,8 +30,14 @@ public class PosSaleReturnLine : AuditableEntity<Guid>
     /// <summary>Tiền hoàn (đã phân bổ giảm giá / voucher / điểm của đơn, chưa gồm VAT).</summary>
     public decimal RefundAmount { get; set; }
 
-    /// <summary>Giá vốn hàng trả (cộng lại kho) — trừ khỏi giá vốn hàng bán.</summary>
+    /// <summary>Giá vốn hàng trả (cộng lại kho) — trừ khỏi giá vốn hàng bán. Gồm cả topping gắn dòng.</summary>
     public decimal CostAmount { get; set; }
+
+    /// <summary>
+    /// Phần giá vốn của topping trong <see cref="CostAmount"/>, theo từng topping: {"toppingProductId": tiền}.
+    /// Báo cáo lãi theo hàng trừ phần này vào topping thay vì dồn hết vào món.
+    /// </summary>
+    public string? ToppingCostJson { get; set; }
 
     public bool IsVoided { get; set; }
 

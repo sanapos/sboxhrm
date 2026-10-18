@@ -36,6 +36,8 @@ import 'pos_einvoice_report_screen.dart';
 import 'pos_profit_report_screen.dart';
 import 'pos_customer_sales_report_screen.dart';
 import 'pos_stock_health_report_screen.dart';
+import 'pos_material_report_screen.dart';
+import 'pos_topping_report_screen.dart';
 import 'pos_hkd_books_screen.dart';
 import 'pos_staff_commission_report_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -82,6 +84,8 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Bán theo khách', subtitle: 'Doanh thu / nợ KH', icon: Icons.people_outline, module: 'PosReportRevenue', screen: const PosCustomerSalesReportScreen()),
       (label: 'Đặt bàn & cọc', subtitle: 'Lịch đặt, cọc, không đến theo kỳ', icon: Icons.event_seat_outlined, module: 'PosBooking', screen: const PosReservationReportScreen()),
       (label: 'Sức khỏe kho', subtitle: 'Cháy / chậm / chết tồn', icon: Icons.inventory_2_outlined, module: 'PosReportStock', screen: const PosStockHealthReportScreen()),
+      (label: 'Nguyên vật liệu', subtitle: 'Dùng theo định lượng · còn đủ mấy ngày · món tốn NVL', icon: Icons.blender_outlined, module: 'PosReportStock', screen: const PosMaterialReportScreen()),
+      (label: 'Topping', subtitle: '% ly có topping · topping bán chạy · lãi topping', icon: Icons.bubble_chart_outlined, module: 'PosReportSoldGoods', screen: const PosToppingReportScreen()),
       (label: 'Hóa đơn điện tử', subtitle: 'Xuất, xem lại PDF, gửi, thay thế, hủy, đồng bộ, tải từ hãng', icon: Icons.request_quote_outlined, module: 'PosEInvoice', screen: const PosEInvoiceReportScreen()),
       (label: 'Thuế hộ kinh doanh', subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ', icon: Icons.request_quote_outlined, module: 'HkdBooks', screen: const PosHkdBooksScreen()),
       (label: 'Mạng cửa hàng', subtitle: 'Mạng có đủ ổn định để order / in qua mạng', icon: Icons.wifi_tethering, module: 'PosPrinters', screen: const PosNetworkReportScreen()),
@@ -154,14 +158,14 @@ class PosReportsHubScreen extends StatelessWidget {
 /// trước đây là một danh sách dài thẻ cao, phải cuộn mãi mới thấy báo cáo cần.
 const _hubGroups = <(String, IconData, List<String>)>[
   ('Bán hàng', Icons.point_of_sale_outlined, [
-    'Doanh thu', 'Hàng hóa bán ra', 'Bán theo khách', 'Phương thức thanh toán', 'Tổng kết cuối ngày',
+    'Doanh thu', 'Hàng hóa bán ra', 'Topping', 'Bán theo khách', 'Phương thức thanh toán', 'Tổng kết cuối ngày',
     'Voucher', 'Đặt bàn & cọc', 'Vận chuyển', 'Hóa đơn điện tử',
   ]),
   ('Tài chính', Icons.account_balance_wallet_outlined, [
     'Kết quả kinh doanh', 'Lợi nhuận', 'Chi phí', 'Sổ quỹ', 'Công nợ', 'Thuế hộ kinh doanh',
   ]),
   ('Hàng hóa & kho', Icons.inventory_2_outlined, [
-    'Tồn kho', 'Sức khỏe kho', 'Hàng sắp hết hạn', 'Báo cáo nhập hàng',
+    'Tồn kho', 'Sức khỏe kho', 'Nguyên vật liệu', 'Hàng sắp hết hạn', 'Báo cáo nhập hàng',
   ]),
   ('Nhân viên', Icons.badge_outlined, ['Doanh thu theo nhân viên', 'Hoa hồng nhân viên']),
   ('Kiểm soát', Icons.policy_outlined, ['Nguy cơ gian lận', 'Bán offline & kiểm soát']),

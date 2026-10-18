@@ -410,6 +410,7 @@ public class PosProductRecipeLineConfiguration : IEntityTypeConfiguration<PosPro
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Qty).HasPrecision(18, 4);
         builder.HasIndex(x => new { x.ParentProductId, x.ComponentProductId });
+        builder.HasIndex(x => x.VariantId);
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.ParentProduct).WithMany(x => x.RecipeLines).HasForeignKey(x => x.ParentProductId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.ComponentProduct).WithMany().HasForeignKey(x => x.ComponentProductId).OnDelete(DeleteBehavior.Restrict);

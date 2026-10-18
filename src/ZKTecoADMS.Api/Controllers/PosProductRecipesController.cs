@@ -24,9 +24,12 @@ public class PosProductRecipesController(ZKTecoDbContext dbContext) : Authentica
         decimal Qty,
         decimal ComponentOnHandQty,
         decimal ComponentBasePrice,
-        string ComponentUnitName);
+        string ComponentUnitName,
+        Guid? VariantId = null,
+        string? VariantName = null);
 
-    public record RecipeLineInput(Guid ComponentProductId, decimal Qty);
+    /// <param name="VariantId">Size (biến thể) dùng dòng này; null = mọi size.</param>
+    public record RecipeLineInput(Guid ComponentProductId, decimal Qty, Guid? VariantId = null);
 
     public record SaveRecipeLinesDto(List<RecipeLineInput>? Lines);
 
@@ -70,8 +73,17 @@ public class PosProductRecipesController(ZKTecoDbContext dbContext) : Authentica
         }
 
         var componentIds = lines.Select(l => l.ComponentProductId).Distinct().ToList();
-        if (componentIds.Count != lines.Count)
+        if (lines.Select(l => (l.VariantId, l.ComponentProductId)).Distinct().Count() != lines.Count)
             return BadRequest(AppResponse<List<RecipeLineDto>>.Fail("NVL bị trùng trong định lượng"));
+
+        var variantIds = lines.Where(l => l.VariantId.HasValue).Select(l => l.VariantId!.Value).Distinct().ToList();
+        if (variantIds.Count > 0)
+        {
+            var own = await dbContext.PosProductVariants.AsNoTracking()
+                .CountAsync(v => variantIds.Contains(v.Id) && v.ProductId == productId && v.StoreId == storeId && v.Deleted == null);
+            if (own != variantIds.Count)
+                return BadRequest(AppResponse<List<RecipeLineDto>>.Fail("Size của định lượng không thuộc hàng hóa này"));
+        }
 
         if (componentIds.Count > 0)
         {
@@ -110,6 +122,7 @@ public class PosProductRecipesController(ZKTecoDbContext dbContext) : Authentica
                 ParentProductId = productId,
                 ComponentProductId = line.ComponentProductId,
                 Qty = line.Qty,
+                VariantId = line.VariantId,
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
             });
@@ -121,8 +134,12 @@ public class PosProductRecipesController(ZKTecoDbContext dbContext) : Authentica
         return Ok(AppResponse<List<RecipeLineDto>>.Success(await MapLinesAsync(storeId, productId)));
     }
 
-    private async Task<List<RecipeLineDto>> MapLinesAsync(Guid storeId, Guid productId) =>
-        await dbContext.PosProductRecipeLines.AsNoTracking()
+    private async Task<List<RecipeLineDto>> MapLinesAsync(Guid storeId, Guid productId)
+    {
+        var variantNames = await dbContext.PosProductVariants.AsNoTracking()
+            .Where(v => v.ProductId == productId && v.StoreId == storeId && v.Deleted == null)
+            .ToDictionaryAsync(v => v.Id, v => v.Name);
+        var lines = await dbContext.PosProductRecipeLines.AsNoTracking()
             .Include(x => x.ComponentProduct)
             .Where(x => x.ParentProductId == productId && x.StoreId == storeId && x.Deleted == null)
             .OrderBy(x => x.CreatedAt)
@@ -134,6 +151,12 @@ public class PosProductRecipesController(ZKTecoDbContext dbContext) : Authentica
                 x.Qty,
                 x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0,
                 x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0,
-                x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : ""))
+                x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : "",
+                x.VariantId,
+                null))
             .ToListAsync();
+        return lines
+            .Select(l => l.VariantId is Guid vid ? l with { VariantName = variantNames.GetValueOrDefault(vid) } : l)
+            .ToList();
+    }
 }

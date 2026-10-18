@@ -19,9 +19,10 @@ double computeComboSellableQty(List<PosComboLine> lines) {
 
 /// Tồn hiển thị trên lưới bán cho combo/dịch vụ/hàng hóa.
 double resolveProductSellableQty(PosProduct product) {
-  if (product.hasRecipe) {
+  // Món có định lượng: tồn theo NVL của định lượng «mọi size» (size khai riêng kiểm tra lúc thêm vào giỏ).
+  if (product.hasRecipe && product.recipeLinesFor(null).isNotEmpty) {
     if (product.sellableQty != null) return product.sellableQty!;
-    return computeComboSellableQty(product.recipeLines!);
+    return computeComboSellableQty(product.recipeLinesFor(null));
   }
   if (product.productType == PosProductType.service) {
     return double.infinity;
@@ -218,9 +219,9 @@ List<PosComboLine> parseComboLinesFromJson(dynamic raw) {
 }
 
 PosProduct applyComboSellableToProduct(PosProduct product) {
-  if (product.hasRecipe) {
+  if (product.hasRecipe && product.recipeLinesFor(null).isNotEmpty) {
     final sellable = product.sellableQty ??
-        computeComboSellableQty(product.recipeLines!);
+        computeComboSellableQty(product.recipeLinesFor(null));
     return product.copyWith(onHandQty: sellable, sellableQty: sellable);
   }
   if (product.productType != PosProductType.combo) return product;
