@@ -33,6 +33,9 @@ internal static class PosToppingReport
     public static async Task<Result> BuildAsync(
         ZKTecoDbContext db, Guid storeId, IReadOnlyCollection<Guid> orderIds, CancellationToken ct = default)
     {
+        // Câu kết luận / việc nên làm ghi số kiểu Việt («15.000đ», «9,5%») — máy chủ chạy văn hóa mặc định.
+        // Đổi trong phương thức async chỉ có hiệu lực trong phương thức này.
+        System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
         var lines = await PosReportMoney.NetLinesAsync(db, storeId, orderIds);
         var parentIds = lines.Select(l => l.ProductId).Distinct().ToList();
         var parents = await db.PosProducts.AsNoTracking()

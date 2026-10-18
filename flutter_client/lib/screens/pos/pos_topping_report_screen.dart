@@ -176,7 +176,7 @@ class _PosToppingReportScreenState extends State<PosToppingReportScreen> {
         detail: r['verdictDetail']?.toString(),
         note: 'Chỉ tính món cho chọn topping (đã gắn nhóm topping / bật «cho chọn topping»). Đã trừ hàng khách trả.',
       ),
-      PosHealthKpiGrid(items: [
+      PosHealthKpiGrid(items: greyKpisIfNoData(cups <= 0, [
         PosHealthKpi('Ly có topping', _pct(s['ratePct']),
             status: s['rateLevel']?.toString(),
             hint: '${_q(withT)} / ${_q(cups)} ly · tốt khi từ 30%', icon: Icons.local_drink_outlined),
@@ -193,7 +193,7 @@ class _PosToppingReportScreenState extends State<PosToppingReportScreen> {
             status: bad > 0 ? 'red' : 'green', hint: 'Bán lỗ / hết hàng', icon: Icons.report_gmailerrorred),
         PosHealthKpi('Nhóm topping', '${_n(s['groupCount'])} nhóm',
             hint: '${_n(s['toppingKinds'])} loại đã bán', icon: Icons.category_outlined),
-      ]),
+      ])),
       PosHealthSection(
         title: 'Việc nên làm',
         subtitle: 'Sửa topping bán lỗ / hết hàng trước, rồi tăng tỷ lệ ly có topping.',

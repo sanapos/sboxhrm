@@ -26,10 +26,13 @@ public class PosProductRecipesController(ZKTecoDbContext dbContext) : Authentica
         decimal ComponentBasePrice,
         string ComponentUnitName,
         Guid? VariantId = null,
-        string? VariantName = null);
+        string? VariantName = null,
+        Guid? UnitId = null,
+        string? UnitName = null);
 
     /// <param name="VariantId">Size (biến thể) dùng dòng này; null = mọi size.</param>
-    public record RecipeLineInput(Guid ComponentProductId, decimal Qty, Guid? VariantId = null);
+    /// <param name="UnitId">Size khai bằng đơn vị bán («L»); null = mọi đơn vị.</param>
+    public record RecipeLineInput(Guid ComponentProductId, decimal Qty, Guid? VariantId = null, Guid? UnitId = null);
 
     public record SaveRecipeLinesDto(List<RecipeLineInput>? Lines);
 
@@ -73,8 +76,19 @@ public class PosProductRecipesController(ZKTecoDbContext dbContext) : Authentica
         }
 
         var componentIds = lines.Select(l => l.ComponentProductId).Distinct().ToList();
-        if (lines.Select(l => (l.VariantId, l.ComponentProductId)).Distinct().Count() != lines.Count)
+        if (lines.Select(l => (l.VariantId, l.UnitId, l.ComponentProductId)).Distinct().Count() != lines.Count)
             return BadRequest(AppResponse<List<RecipeLineDto>>.Fail("NVL bị trùng trong định lượng"));
+        if (lines.Any(l => l.VariantId.HasValue && l.UnitId.HasValue))
+            return BadRequest(AppResponse<List<RecipeLineDto>>.Fail("Mỗi dòng định lượng chỉ gắn một size"));
+
+        var unitIds = lines.Where(l => l.UnitId.HasValue).Select(l => l.UnitId!.Value).Distinct().ToList();
+        if (unitIds.Count > 0)
+        {
+            var ownUnits = await dbContext.PosProductUnits.AsNoTracking()
+                .CountAsync(u => unitIds.Contains(u.Id) && u.ProductId == productId && u.StoreId == storeId && u.Deleted == null);
+            if (ownUnits != unitIds.Count)
+                return BadRequest(AppResponse<List<RecipeLineDto>>.Fail("Đơn vị của định lượng không thuộc hàng hóa này"));
+        }
 
         var variantIds = lines.Where(l => l.VariantId.HasValue).Select(l => l.VariantId!.Value).Distinct().ToList();
         if (variantIds.Count > 0)
@@ -123,6 +137,7 @@ public class PosProductRecipesController(ZKTecoDbContext dbContext) : Authentica
                 ComponentProductId = line.ComponentProductId,
                 Qty = line.Qty,
                 VariantId = line.VariantId,
+                UnitId = line.UnitId,
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
             });
@@ -139,6 +154,9 @@ public class PosProductRecipesController(ZKTecoDbContext dbContext) : Authentica
         var variantNames = await dbContext.PosProductVariants.AsNoTracking()
             .Where(v => v.ProductId == productId && v.StoreId == storeId && v.Deleted == null)
             .ToDictionaryAsync(v => v.Id, v => v.Name);
+        var unitNames = await dbContext.PosProductUnits.AsNoTracking()
+            .Where(u => u.ProductId == productId && u.StoreId == storeId && u.Deleted == null)
+            .ToDictionaryAsync(u => u.Id, u => u.UnitName);
         var lines = await dbContext.PosProductRecipeLines.AsNoTracking()
             .Include(x => x.ComponentProduct)
             .Where(x => x.ParentProductId == productId && x.StoreId == storeId && x.Deleted == null)
@@ -153,10 +171,16 @@ public class PosProductRecipesController(ZKTecoDbContext dbContext) : Authentica
                 x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0,
                 x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : "",
                 x.VariantId,
+                null,
+                x.UnitId,
                 null))
             .ToListAsync();
         return lines
-            .Select(l => l.VariantId is Guid vid ? l with { VariantName = variantNames.GetValueOrDefault(vid) } : l)
+            .Select(l => l with
+            {
+                VariantName = l.VariantId is Guid vid ? variantNames.GetValueOrDefault(vid) : null,
+                UnitName = l.UnitId is Guid uid ? unitNames.GetValueOrDefault(uid) : null,
+            })
             .ToList();
     }
 }

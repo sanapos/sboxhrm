@@ -177,7 +177,7 @@ class _PosMaterialReportScreenState extends State<PosMaterialReportScreen> {
         detail: r['verdictDetail']?.toString(),
         note: 'Số «còn đủ dùng» tính theo mức dùng bình quân của kỳ đang xem — chọn 30 ngày để ước chính xác hơn.',
       ),
-      PosHealthKpiGrid(items: [
+      PosHealthKpiGrid(items: greyKpisIfNoData(_n(s['materialCount']) == 0, [
         PosHealthKpi('Hết / sắp hết', '$red loại',
             status: red > 0 ? 'red' : 'green', hint: 'Đã hết hoặc đủ dưới 2 ngày', icon: Icons.warning_amber_rounded),
         PosHealthKpi('Cần nhập trong tuần', '$yellow loại',
@@ -192,7 +192,7 @@ class _PosMaterialReportScreenState extends State<PosMaterialReportScreen> {
         PosHealthKpi('Món chưa khai định lượng', '${_n(s['noRecipeDishCount'])} món',
             status: _n(s['noRecipeDishCount']) > 0 ? 'yellow' : 'green',
             hint: 'Bán ra không trừ nguyên liệu', icon: Icons.rule_outlined),
-      ]),
+      ])),
       PosHealthSection(
         title: 'Việc nên làm',
         subtitle: 'Nhập hàng kịp trước khi hết, chỉnh định lượng / kiểm kê khi số không khớp.',

@@ -777,6 +777,7 @@ public partial class PosSalesController(
                     ComponentBasePrice = x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0m,
                     ComponentUnitName = x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : "",
                     x.VariantId,
+                    x.UnitId,
                 })
                 .ToListAsync();
         var recipeLinesByProduct = recipeLinesFlat
@@ -880,10 +881,10 @@ public partial class PosSalesController(
                 sellableQty = PosProductTypeRules.ComboSellableQty(
                     fromComponents, p.OnHandQty, p.ComboTrackStock);
             }
-            else if (recipeLines.Any(cl => cl.VariantId == null))
+            else if (recipeLines.Any(cl => cl.VariantId == null && cl.UnitId == null))
             {
                 // Theo định lượng «mọi size» (size khai riêng kiểm tra lúc thêm vào giỏ).
-                sellableQty = recipeLines.Where(cl => cl.VariantId == null).Min(cl =>
+                sellableQty = recipeLines.Where(cl => cl.VariantId == null && cl.UnitId == null).Min(cl =>
                     cl.Qty > 0 ? Math.Floor(cl.ComponentOnHandQty / cl.Qty) : 0);
             }
 
@@ -959,6 +960,7 @@ public partial class PosSalesController(
                     cl.ComponentBasePrice,
                     cl.ComponentUnitName,
                     cl.VariantId,
+                    cl.UnitId,
                 }).ToList(),
                 Units = unitsByProduct.GetValueOrDefault(p.Id, []),
                 Variants = variantsByProduct.GetValueOrDefault(p.Id, []),
@@ -2387,7 +2389,7 @@ public partial class PosSalesController(
             decimal cost = 0;
 
             // Định lượng đúng size đã bán (ly L hoàn NVL của ly L).
-            var recipeLines = PosSaleStockHelper.RecipeFor(recipeLinesMap, p.Id, saleLine.VariantId);
+            var recipeLines = PosSaleStockHelper.RecipeFor(recipeLinesMap, p.Id, saleLine.VariantId, saleLine.UnitId);
             if (recipeLines.Count > 0)
             {
                 var recipeNote = $"{baseNote} — {PosSaleReturnLedger.RecipeReturnMarker} {p.Name}";
@@ -2397,7 +2399,7 @@ public partial class PosSalesController(
                     if (!products.TryGetValue(cl.ComponentProductId, out var comp)) continue;
                     // Tiền hoàn chỉ ghi trên thẻ kho của thành phần đầu tiên (không nhân theo số thành phần).
                     cost += await PosSaleStockHelper.ApplyComboReturnComponentAsync(
-                        dbContext, storeId, order, comp, cl.Qty * baseQty, first ? lineRefund : 0,
+                        dbContext, storeId, order, comp, cl.Qty * (cl.UnitId != null ? qty : baseQty), first ? lineRefund : 0,
                         returnNo, recipeNote, CurrentUserEmail);
                     first = false;
                 }

@@ -56,6 +56,8 @@ internal static class PosMaterialReport
         ZKTecoDbContext db, Guid storeId, IQueryable<PosStockTransaction> tx,
         DateTime fromUtc, DateTime toUtc, IReadOnlyCollection<Guid> orderIds, CancellationToken ct = default)
     {
+        // Câu kết luận / việc nên làm ghi số kiểu Việt («15.000đ», «0,4 ngày»); chỉ có hiệu lực trong phương thức async này.
+        System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
         var days = Math.Max(1, (int)Math.Ceiling((toUtc - fromUtc).TotalDays));
         var recipeComponentIds = await db.PosProductRecipeLines.AsNoTracking()
             .Where(r => r.StoreId == storeId && r.Deleted == null)

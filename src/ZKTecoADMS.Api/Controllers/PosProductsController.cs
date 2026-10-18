@@ -129,7 +129,8 @@ public partial class PosProductsController(
         decimal CommissionPercent = 0,
         decimal CommissionFixed = 0,
         bool TrackStock = true,
-        Guid? VariantId = null);
+        Guid? VariantId = null,
+        Guid? UnitId = null);
 
     public record PosProductToppingGroupDto(
         Guid Id,
@@ -1262,6 +1263,7 @@ public partial class PosProductsController(
                     x.ComponentProduct != null ? x.ComponentProduct.CommissionPercent : 0,
                     x.ComponentProduct != null ? x.ComponentProduct.CommissionFixed : 0,
                     x.TrackStock,
+                    null,
                     null))
                 .ToListAsync();
             sellableQty = (await ComputeComboSellableAsync(storeId, [p.Id])).GetValueOrDefault(p.Id);
@@ -1286,10 +1288,11 @@ public partial class PosProductsController(
                     0,
                     0,
                     true,
-                    x.VariantId))
+                    x.VariantId,
+                    x.UnitId))
                 .ToListAsync();
             // Bán được bao nhiêu món: theo định lượng «mọi size» (size khai riêng có thể khác).
-            var baseRecipe = recipeLines.Where(cl => cl.VariantId == null).ToList();
+            var baseRecipe = recipeLines.Where(cl => cl.VariantId == null && cl.UnitId == null).ToList();
             if (baseRecipe.Count > 0)
             {
                 sellableQty = baseRecipe.Min(cl =>

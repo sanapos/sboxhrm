@@ -641,15 +641,20 @@ class PosProduct {
   bool get hasRecipe =>
       recipeLines != null && recipeLines!.isNotEmpty;
 
-  /// Định lượng khi bán size [variantId]: dòng khai riêng cho size đó; size chưa khai riêng (hoặc bán không chọn
-  /// size) → dòng «mọi size». Khớp máy chủ (PosSaleStockHelper.RecipeFor).
-  List<PosComboLine> recipeLinesFor(String? variantId) {
+  /// Định lượng khi bán size [variantId] / đơn vị bán [unitId] (size khai bằng đơn vị «L»): dòng khai riêng cho
+  /// biến thể, rồi cho đơn vị; chưa khai riêng (hoặc bán không chọn size) → dòng «mọi size».
+  /// Khớp máy chủ (PosSaleStockHelper.RecipeFor).
+  List<PosComboLine> recipeLinesFor(String? variantId, [String? unitId]) {
     final all = recipeLines ?? const <PosComboLine>[];
     if (variantId != null && variantId.isNotEmpty) {
       final own = all.where((l) => l.variantId == variantId).toList();
       if (own.isNotEmpty) return own;
     }
-    return all.where((l) => l.variantId == null || l.variantId!.isEmpty).toList();
+    if (unitId != null && unitId.isNotEmpty) {
+      final own = all.where((l) => l.unitId == unitId).toList();
+      if (own.isNotEmpty) return own;
+    }
+    return all.where((l) => l.variantId == null && l.unitId == null).toList();
   }
 
   /// Cột tồn kho: dịch vụ và combo tắt quản lý tồn gói hiện "—", không hiện 999.
@@ -1194,6 +1199,7 @@ class PosProduct {
                 'componentBasePrice': c.componentBasePrice,
                 'componentUnitName': c.componentUnitName,
                 if (c.variantId != null) 'variantId': c.variantId,
+                if (c.unitId != null) 'unitId': c.unitId,
               }).toList(),
         if (comboLines != null)
           'comboLines': comboLines!.map((c) => {
@@ -1247,6 +1253,12 @@ class PosComboLine {
   /// Định lượng: size (biến thể) dùng dòng này; null = mọi size.
   final String? variantId;
 
+  /// Định lượng: đơn vị bán dùng dòng này (size khai bằng đơn vị «L»); null = mọi đơn vị.
+  final String? unitId;
+
+  /// Khóa size của dòng định lượng: «v:<biến thể>», «u:<đơn vị>», null = mọi size.
+  String? get sizeKey => variantId != null ? 'v:$variantId' : unitId != null ? 'u:$unitId' : null;
+
   PosComboLine({
     required this.id,
     required this.componentProductId,
@@ -1262,6 +1274,7 @@ class PosComboLine {
     this.commissionFixed = 0,
     this.trackStock = true,
     this.variantId,
+    this.unitId,
   });
 
   factory PosComboLine.fromJson(Map<String, dynamic> json) {
@@ -1305,10 +1318,14 @@ class PosComboLine {
         final v = (json['variantId'] ?? json['VariantId'])?.toString();
         return v == null || v.isEmpty ? null : v;
       }(),
+      unitId: () {
+        final v = (json['unitId'] ?? json['UnitId'])?.toString();
+        return v == null || v.isEmpty ? null : v;
+      }(),
     );
   }
 
-  PosComboLine copyWith({double? qty, bool? trackStock, String? variantId, bool clearVariant = false}) =>
+  PosComboLine copyWith({double? qty, bool? trackStock, String? variantId, String? unitId, bool clearVariant = false}) =>
       PosComboLine(
         id: id,
         componentProductId: componentProductId,
@@ -1324,6 +1341,7 @@ class PosComboLine {
         commissionFixed: commissionFixed,
         trackStock: trackStock ?? this.trackStock,
         variantId: clearVariant ? null : (variantId ?? this.variantId),
+        unitId: clearVariant ? null : (unitId ?? this.unitId),
       );
 }
 

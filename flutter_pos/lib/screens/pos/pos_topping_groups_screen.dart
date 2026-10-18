@@ -290,7 +290,20 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                     Expanded(
                       child: loading
                           ? const Center(child: CircularProgressIndicator())
-                          : ListView.builder(
+                          : results.isEmpty
+                              ? Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Text(
+                                      tr(onlyToppings
+                                          ? 'Chưa có hàng loại Topping. Tạo trong Hàng hóa › + › Topping, hoặc bỏ chọn ô trên để lấy hàng khác.'
+                                          : 'Không tìm thấy hàng.'),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(color: SboxColors.slate600),
+                                    ),
+                                  ),
+                                )
+                              : ListView.builder(
                               itemCount: results.length,
                               itemBuilder: (_, i) {
                                 final p = results[i];

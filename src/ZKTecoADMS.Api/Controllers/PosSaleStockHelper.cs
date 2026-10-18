@@ -36,11 +36,12 @@ internal static class PosSaleStockHelper
     }
 
     /// <summary>
-    /// Định lượng dùng khi bán [productId] ở size [variantId]: dòng khai riêng cho size đó; size chưa khai riêng
-    /// (hoặc bán không chọn size) → dòng «mọi size» (VariantId null). Rỗng = món không trừ NVL.
+    /// Định lượng dùng khi bán [productId] ở size [variantId] / đơn vị bán [unitId] (size khai bằng đơn vị «L»):
+    /// dòng khai riêng cho biến thể, rồi cho đơn vị; chưa khai riêng → dòng «mọi size» (VariantId, UnitId null).
+    /// Rỗng = món không trừ NVL.
     /// </summary>
     public static List<PosProductRecipeLine> RecipeFor(
-        IReadOnlyDictionary<Guid, List<PosProductRecipeLine>> map, Guid productId, Guid? variantId)
+        IReadOnlyDictionary<Guid, List<PosProductRecipeLine>> map, Guid productId, Guid? variantId, Guid? unitId = null)
     {
         if (!map.TryGetValue(productId, out var all) || all.Count == 0) return [];
         if (variantId.HasValue)
@@ -48,7 +49,12 @@ internal static class PosSaleStockHelper
             var own = all.Where(l => l.VariantId == variantId).ToList();
             if (own.Count > 0) return own;
         }
-        return all.Where(l => l.VariantId == null).ToList();
+        if (unitId.HasValue)
+        {
+            var own = all.Where(l => l.UnitId == unitId).ToList();
+            if (own.Count > 0) return own;
+        }
+        return all.Where(l => l.VariantId == null && l.UnitId == null).ToList();
     }
 
     /// <summary>1 ĐVT bán = ConversionRate × đơn vị cơ bản. Không có UnitId → qty đã là cơ bản.</summary>
@@ -564,7 +570,7 @@ internal static class PosSaleStockHelper
                 ? line.Qty
                 : QtyInBase(line.Qty, line.UnitId, unitRates);
 
-            var recipeLines = RecipeFor(plan.RecipeLinesMap, p.Id, line.VariantId);
+            var recipeLines = RecipeFor(plan.RecipeLinesMap, p.Id, line.VariantId, line.UnitId);
             if (line.VariantId.HasValue && recipeLines.Count == 0)
             {
                 if (!plan.Variants.TryGetValue(line.VariantId.Value, out var v)) continue;
@@ -578,7 +584,7 @@ internal static class PosSaleStockHelper
             {
                 foreach (var cl in recipeLines)
                     needs[cl.ComponentProductId] =
-                        needs.GetValueOrDefault(cl.ComponentProductId) + cl.Qty * lineBaseQty;
+                        needs.GetValueOrDefault(cl.ComponentProductId) + cl.Qty * (cl.UnitId != null ? line.Qty : lineBaseQty);
             }
             else if (p.ProductType == PosProductType.Combo &&
                      plan.ComboLinesMap.TryGetValue(p.Id, out var comboLines))
@@ -745,7 +751,7 @@ internal static class PosSaleStockHelper
                 ? line.Qty
                 : QtyInBase(line.Qty, line.UnitId, unitRates);
 
-            var recipeLines = RecipeFor(recipeLinesMap, p.Id, line.VariantId);
+            var recipeLines = RecipeFor(recipeLinesMap, p.Id, line.VariantId, line.UnitId);
             if (line.VariantId.HasValue && recipeLines.Count == 0)
             {
                 if (!variants.TryGetValue(line.VariantId.Value, out var v))
@@ -765,7 +771,7 @@ internal static class PosSaleStockHelper
                         return (null, $"NVL của «{p.Name}» không hợp lệ");
                     if (!PosProductTypeRules.IsRecipeComponent(comp.ProductType))
                         return (null, $"NVL «{comp.Name}» phải là nguyên vật liệu hoặc hàng hóa");
-                    var need = cl.Qty * lineBaseQty;
+                    var need = cl.Qty * (cl.UnitId != null ? line.Qty : lineBaseQty); // định lượng của đơn vị «L» tính theo ly bán, không nhân quy đổi
                     stockNeeds[cl.ComponentProductId] = stockNeeds.GetValueOrDefault(cl.ComponentProductId) + need;
                 }
             }
@@ -894,7 +900,7 @@ internal static class PosSaleStockHelper
                 ? line.Qty
                 : QtyInBase(line.Qty, line.UnitId, unitRates);
 
-            var recipeLines = RecipeFor(plan.RecipeLinesMap, p.Id, soldVariant?.Id);
+            var recipeLines = RecipeFor(plan.RecipeLinesMap, p.Id, soldVariant?.Id, line.UnitId);
             if (soldVariant != null && recipeLines.Count == 0)
             {
                 var note = $"Bán hàng POS — {soldVariant.SkuCode}";
@@ -906,7 +912,7 @@ internal static class PosSaleStockHelper
                 foreach (var cl in recipeLines)
                 {
                     var comp = plan.Products[cl.ComponentProductId];
-                    var deduct = cl.Qty * deductQty;
+                    var deduct = cl.Qty * (cl.UnitId != null ? line.Qty : deductQty);
                     await ApplyFefoComboComponentSaleAsync(
                         db, storeId, order, comp, deduct,
                         $"Định lượng: {p.Name}", createdBy, plan.AllowNegativeStock);
@@ -1119,7 +1125,7 @@ internal static class PosSaleStockHelper
             // Topping có định lượng: lúc bán trừ NVL → trả hàng cộng lại NVL.
             var recipe = await db.PosProductRecipeLines.AsNoTracking()
                 .Where(c => c.ParentProductId == topping.Id && c.StoreId == storeId && c.Deleted == null
-                            && c.VariantId == null)
+                            && c.VariantId == null && c.UnitId == null)
                 .ToListAsync();
             if (recipe.Count > 0)
             {

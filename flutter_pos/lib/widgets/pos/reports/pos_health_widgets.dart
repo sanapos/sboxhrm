@@ -171,6 +171,11 @@ class PosHealthKpi {
   final IconData? icon;
 }
 
+/// Chưa có số liệu (chưa có NVL / chưa bán món có topping): ô chỉ số để xám, không tick xanh «0 loại» gây hiểu nhầm.
+List<PosHealthKpi> greyKpisIfNoData(bool noData, List<PosHealthKpi> items) => noData
+    ? [for (final k in items) PosHealthKpi(k.label, k.value, hint: k.hint, icon: k.icon)]
+    : items;
+
 /// Lưới chỉ số 2 cột (điện thoại) / 3 cột (máy tính bảng, web).
 class PosHealthKpiGrid extends StatelessWidget {
   const PosHealthKpiGrid({super.key, required this.items});

@@ -92,6 +92,57 @@ public class PosMaterialToppingReportTests
         Assert.Equal(0, (await db.PosProductVariants.AsNoTracking().SingleAsync(v => v.Id == l.Id)).OnHandQty); // không trừ biến thể
     }
 
+    [Fact]
+    public void RecipeFor_unit_size_lines_used_when_size_is_a_sale_unit()
+    {
+        var tea = Guid.NewGuid();
+        var unitL = Guid.NewGuid();
+        var milk = Guid.NewGuid();
+        var map = new Dictionary<Guid, List<PosProductRecipeLine>>
+        {
+            [tea] =
+            [
+                new() { ParentProductId = tea, ComponentProductId = milk, Qty = 100 },
+                new() { ParentProductId = tea, ComponentProductId = milk, Qty = 150, UnitId = unitL },
+            ],
+        };
+        Assert.Equal([150m], PosSaleStockHelper.RecipeFor(map, tea, null, unitL).Select(l => l.Qty));
+        Assert.Equal([100m], PosSaleStockHelper.RecipeFor(map, tea, null, Guid.NewGuid()).Select(l => l.Qty));
+        Assert.Equal([100m], PosSaleStockHelper.RecipeFor(map, tea, null).Select(l => l.Qty));
+    }
+
+    [Fact]
+    public async Task Sale_by_sale_unit_deducts_unit_recipe_per_cup_without_conversion()
+    {
+        using var db = NewDb();
+        var tea = P("Trà sữa", PosProductType.Service, price: 30000);
+        var milk = P("Sữa tươi", PosProductType.Material, onHand: 5000, cost: 30);
+        // Size L khai bằng đơn vị «L = 2 M» (hệ số quy đổi khác 1 để chắc không nhân quy đổi).
+        var unitL = new PosProductUnit { Id = Guid.NewGuid(), StoreId = StoreId, ProductId = tea.Id, UnitName = "L", ConversionRate = 2, BasePrice = 40000, IsDirectSale = true, IsActive = true };
+        db.AddRange(tea, milk, unitL, Recipe(tea, milk, 100),
+            new PosProductRecipeLine { Id = Guid.NewGuid(), StoreId = StoreId, ParentProductId = tea.Id, ComponentProductId = milk.Id, Qty = 150, UnitId = unitL.Id, IsActive = true });
+        var order = new PosSaleOrder { Id = Guid.NewGuid(), StoreId = StoreId, OrderNo = "HD9", IsActive = true };
+        db.Add(order);
+        await db.SaveChangesAsync();
+
+        var lines = new List<PosSaleOrderLine>
+        {
+            new() { Id = Guid.NewGuid(), StoreId = StoreId, SaleOrderId = order.Id, ProductId = tea.Id, UnitId = unitL.Id, ProductName = "Trà sữa", Qty = 2, IsActive = true },
+            new() { Id = Guid.NewGuid(), StoreId = StoreId, SaleOrderId = order.Id, ProductId = tea.Id, ProductName = "Trà sữa", Qty = 1, IsActive = true },
+        };
+        var plan = new SaleStockPlan
+        {
+            Products = await db.PosProducts.AsTracking().ToDictionaryAsync(p => p.Id),
+            RecipeLinesMap = (await db.PosProductRecipeLines.ToListAsync()).GroupBy(r => r.ParentProductId).ToDictionary(g => g.Key, g => g.ToList()),
+            AllowNegativeStock = true,
+        };
+        await PosSaleStockHelper.ApplySaleStockAsync(db, StoreId, order, lines, plan, "t");
+        await db.SaveChangesAsync();
+
+        // 2 ly L × 150 + 1 ly M × 100 (không nhân hệ số quy đổi của L).
+        Assert.Equal(5000 - 2 * 150 - 100, (await db.PosProducts.AsNoTracking().SingleAsync(p => p.Id == milk.Id)).OnHandQty);
+    }
+
     // ---------- Tách giá vốn topping khi trả hàng ----------
 
     [Fact]
@@ -264,6 +315,8 @@ public class PosMaterialToppingReportTests
         Assert.Equal("green", t.Level);
         Assert.Equal("green", r.Verdict);
         Assert.StartsWith("75% ly có thêm topping", r.VerdictText);
+        // Số trong câu kết luận ghi kiểu Việt (máy thật trước đây hiện «15,000đ»).
+        Assert.Equal("Topping mang về 15.000đ, lãi 12.000đ.", r.VerdictDetail);
     }
 
     [Fact]

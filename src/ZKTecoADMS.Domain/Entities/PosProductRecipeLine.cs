@@ -29,4 +29,9 @@ public class PosProductRecipeLine : AuditableEntity<Guid>
     /// dòng riêng dùng các dòng null.
     /// </summary>
     public Guid? VariantId { get; set; }
+
+    /// <summary>
+    /// Định lượng riêng của một đơn vị bán (cửa hàng khai size bằng đơn vị: «L = 1 M» giá khác). Null = mọi đơn vị.
+    /// </summary>
+    public Guid? UnitId { get; set; }
 }

@@ -242,6 +242,21 @@ void main() {
       expect(again.recipeLinesFor(null).length, 2);
     });
 
+    test('size khai bằng đơn vị bán («L») dùng định lượng của đơn vị', () {
+      final p = PosProduct.fromJson({
+        'id': 'p2', 'productCode': 'DV1', 'name': 'Trà sữa', 'productType': 'Service',
+        'recipeLines': [
+          {'componentProductId': 'milk', 'qty': 100},
+          {'componentProductId': 'milk', 'qty': 150, 'unitId': 'uL'},
+        ],
+      });
+      expect(p.recipeLinesFor(null, 'uL').map((l) => l.qty), [150]);
+      expect(p.recipeLinesFor(null, 'uM').map((l) => l.qty), [100]);
+      expect(p.recipeLinesFor(null).map((l) => l.qty), [100]);
+      expect(p.recipeLinesFor(null, 'uL').single.sizeKey, 'u:uL');
+      expect(PosProduct.fromJson(p.toSellCacheJson()).recipeLinesFor(null, 'uL').single.qty, 150);
+    });
+
     test('nhóm topping đọc số món đang gắn', () {
       final g = PosProductToppingGroup.fromJson({'id': 'g', 'name': 'Topping', 'linkedProductCount': 7, 'items': []});
       expect(g.linkedProductCount, 7);
