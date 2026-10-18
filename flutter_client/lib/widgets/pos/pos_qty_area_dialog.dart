@@ -31,11 +31,13 @@ class PosLineQtyResult {
   final double? height;
 }
 
+/// Đơn vị của từng chiều: hàng bán theo m² / «Cái» / «Bộ»… → «m». Chỉ giữ khi đơn vị bán
+/// vốn là đơn vị dài (cm, mm, m). Trước đây ghi chú ra «Rộng 1,2 Cái».
 String _dimUnit(String unitName) {
   final raw = unitName.trim();
   final u = raw.toLowerCase().replaceAll('²', '2').replaceAll(' ', '');
-  if (u == 'm2' || u == 'met2' || u == 'mét2') return 'm';
-  return raw;
+  if (const {'m', 'cm', 'mm', 'mét', 'met'}.contains(u)) return raw;
+  return 'm';
 }
 
 String _qtyNumber(double v) {
@@ -343,7 +345,7 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
               Text(
                 tr(area == null
                     ? 'Nhập ít nhất 2 chiều. Diện tích = các ô đã nhập nhân với nhau (dài × rộng hoặc rộng × cao).'
-                    : 'Diện tích: ${formatPosDim(area)}${unitLabel.isEmpty ? '' : ' $unitLabel'}'),
+                    : 'Diện tích: ${formatPosDim(area)}${_unit == 'm' ? ' m²' : (unitLabel.isEmpty ? '' : ' $unitLabel')}'),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ] else

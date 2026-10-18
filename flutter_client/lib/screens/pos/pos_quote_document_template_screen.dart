@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/pos_busy.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../models/pos_print_template.dart';
@@ -45,6 +46,8 @@ class _PosQuoteDocumentTemplateScreenState extends State<PosQuoteDocumentTemplat
   @override
   void initState() {
     super.initState();
+    // Mở từ PosBusy.run(… push màn này) — lệnh chỉ xong khi màn đóng → lớp «Đang mở…» đè suốt lúc soạn.
+    PosBusy.hideLayer();
     _load();
   }
 

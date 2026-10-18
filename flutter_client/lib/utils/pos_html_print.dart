@@ -74,6 +74,8 @@ Future<void> showPosHtmlPrintDialog(
   bool? a4Paper,
 }) async {
   PosBusy.hideLayer(); // lớp «Đang mở…» không nằm sau hộp này
+  // Ô nhập phía sau (ghi chú báo giá…) còn focus → bàn phím ảo bật đè lên trang xem trước.
+  FocusManager.instance.primaryFocus?.unfocus();
   var copies = initialCopies.clamp(1, 10);
   final screenW = MediaQuery.sizeOf(context).width;
   final isMobile = !kIsWeb && screenW < 600;

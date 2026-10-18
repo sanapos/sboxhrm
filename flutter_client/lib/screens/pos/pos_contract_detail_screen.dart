@@ -60,6 +60,8 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
   @override
   void initState() {
     super.initState();
+    // Mở từ PosBusy.run(… push màn này) — lệnh chỉ xong khi màn đóng → lớp «Đang mở…» đè suốt lúc soạn.
+    PosBusy.hideLayer();
     _load();
   }
 

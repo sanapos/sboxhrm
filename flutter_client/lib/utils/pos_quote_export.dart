@@ -30,7 +30,7 @@ Future<bool?> askPosQuoteStamp(BuildContext context) async {
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setLocal) => AlertDialog(
-        title: Text(tr('Xuất báo giá')),
+        title: Text(tr('Đóng dấu khi xuất?')),
         content: CheckboxListTile(
           value: stamp,
           onChanged: (v) => setLocal(() => stamp = v ?? false),
