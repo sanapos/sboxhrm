@@ -164,6 +164,7 @@ List<PosProductUnitView> buildPosProductUnitViews(
     usedLabels.add(baseName);
   } else {
     final usedVariantIds = <String>{};
+    final hasAttributeVariants = variants.any(variantHasRealAttributes);
     final baseName =
         product.baseUnitName.isEmpty ? 'Cái' : product.baseUnitName;
     PosProductVariant? baseVariant;
@@ -186,6 +187,8 @@ List<PosProductUnitView> buildPosProductUnitViews(
         onHandQty: product.onHandQty,
       ));
       usedLabels.add(baseName);
+    } else if (hasAttributeVariants) {
+      // Có size / thuộc tính: chỉ bán theo biến thể — không thêm lựa chọn ĐVT gốc trùng giá size rẻ nhất.
     } else if (baseUnitRecord != null) {
       views.add(PosProductUnitView(
         viewKey: 'u:${baseUnitRecord.id}',
@@ -212,7 +215,10 @@ List<PosProductUnitView> buildPosProductUnitViews(
     for (final v in variants) {
       if (usedVariantIds.contains(v.id)) continue;
       final unit = parseVariantUnitName(v.attributeJson);
-      final label = unit?.isNotEmpty == true ? unit! : v.name;
+      // Biến thể size («M · Ly») hiện theo tên biến thể; biến thể chỉ ĐVT («Thùng») hiện theo ĐVT.
+      final label = variantHasRealAttributes(v) && v.name.trim().isNotEmpty
+          ? v.name.trim()
+          : (unit?.isNotEmpty == true ? unit! : v.name);
       if (usedLabels.contains(label)) continue;
       final rate = parseVariantConversionRate(v.attributeJson);
       final displayStock = variantIsBaseUnitOnly(v)

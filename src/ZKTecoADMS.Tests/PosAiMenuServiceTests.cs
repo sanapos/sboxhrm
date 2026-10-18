@@ -100,7 +100,7 @@ public class PosAiMenuServiceTests
         var products = await db.PosProducts.Where(p => p.StoreId == storeId).ToListAsync();
         Assert.Equal(3, products.Select(p => p.ProductCode).Distinct().Count());
         var variants = await db.PosProductVariants.ToListAsync();
-        Assert.Contains(variants, v => v.AttributeJson == "{\"Size\":\"L\"}" && v.BasePrice == 38000);
+        Assert.Contains(variants, v => v.AttributeJson == "{\"Size\":\"L\",\"_unit\":\"Ly\",\"_conversion\":\"1\"}" && v.BasePrice == 38000);
         Assert.Equal("catalog/x.jpg", products.Single(p => p.Name == "Trà đào").ImageUrl);
     }
 
@@ -188,5 +188,157 @@ public class PosAiMenuServiceTests
         Assert.Equal(1, result.ProductsCreated);
         Assert.Equal(["Tra dao (đã có)", "Bạc Xỉu (trùng tên trong danh sách)"], result.Skipped);
         Assert.Equal("HH00002", (await db.PosProducts.SingleAsync(p => p.Name == "Bạc xỉu")).ProductCode);
+    }
+
+    const string AiTypedJson = """
+        {"items":[
+          {"name":"Trà sữa","category":"Trà sữa","price":30000,"type":"goods","unit":"Ly"},
+          {"name":"Trân châu trắng","category":"Topping","price":5000,"type":"topping","toppingFor":["Trà sữa"," trà sữa "]},
+          {"name":"Phòng VIP","category":"Phòng","price":250000,"type":"service","billing":"hour","unit":"Giờ"},
+          {"name":"Gói 10 buổi","category":"Gói tập","price":1800000,"type":"service","billing":"session","sessions":10},
+          {"name":"Combo 1","category":"Combo","price":55000,"type":"combo","comboItems":[{"name":"Trà sữa","qty":2},{"name":" "}]},
+          {"name":"Cắt tóc nam","category":"Tóc","price":80000}
+        ]}
+        """;
+
+    [Fact]
+    public async Task Scan_reads_ai_type_billing_topping_targets_and_combo_parts()
+    {
+        using var db = NewDb();
+        db.Add(new PosProductSampleCatalog
+        {
+            Id = Guid.NewGuid(), Name = "Cắt tóc nam", IsActive = true, ProductType = PosProductType.Service,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await new PosAiMenuService(db, new FakeGemini(AiTypedJson)).ScanAsync(Guid.NewGuid(), [], CancellationToken.None);
+        var byName = result.Items.ToDictionary(i => i.Name);
+
+        Assert.Equal("Goods", byName["Trà sữa"].ProductType);
+        Assert.Empty(byName["Trà sữa"].ToppingFor!);
+        Assert.Equal("Topping", byName["Trân châu trắng"].ProductType);
+        Assert.Equal(["Trà sữa"], byName["Trân châu trắng"].ToppingFor!);
+        Assert.Equal("PerHour", byName["Phòng VIP"].Billing);
+        Assert.Equal("PerSession", byName["Gói 10 buổi"].Billing);
+        Assert.Equal(10, byName["Gói 10 buổi"].SessionCount);
+        var combo = byName["Combo 1"];
+        Assert.Equal("Combo", combo.ProductType);
+        Assert.Equal([new MenuComboPartDto("Trà sữa", 2)], combo.ComboItems!);
+        Assert.Equal("Service", byName["Cắt tóc nam"].ProductType); // AI không ghi loại → theo món mẫu
+        Assert.Equal("Flat", byName["Cắt tóc nam"].Billing);
+    }
+
+    [Fact]
+    public async Task Import_creates_topping_group_and_links_new_and_existing_items_of_target_category()
+    {
+        using var db = NewDb();
+        var storeId = Guid.NewGuid();
+        var milkTeaCat = new PosProductCategory { Id = Guid.NewGuid(), StoreId = storeId, Name = "Trà sữa", IsActive = true };
+        var oldTea = new PosProduct
+        {
+            Id = Guid.NewGuid(), StoreId = storeId, ProductCode = "HH00001", Name = "Trà sữa cũ",
+            CategoryId = milkTeaCat.Id, IsActive = true,
+        };
+        db.AddRange(milkTeaCat, oldTea);
+        await db.SaveChangesAsync();
+
+        var result = await new PosAiMenuService(db, new FakeGemini("{}")).ImportAsync(storeId,
+        [
+            Item("Trà sữa matcha", 35000, category: "Trà sữa"),
+            Item("Cà phê đen", 20000, category: "Cà phê"),
+            Item("Trân châu", 5000, category: "Topping") with { ProductType = "Topping", ToppingFor = ["tra sua"] },
+            Item("Kem cheese", 10000, category: "Topping") with { ProductType = "Topping", ToppingFor = ["Trà sữa"] },
+        ], "tester", CancellationToken.None);
+
+        Assert.Equal(1, result.ToppingGroupsCreated);
+        Assert.Equal(2, result.ToppingLinksCreated);
+        var group = await db.PosToppingGroups.SingleAsync();
+        Assert.Equal("Topping", group.Name);
+        var items = await db.PosToppingGroupItems.Where(i => i.GroupId == group.Id).ToListAsync();
+        Assert.Equal(2, items.Count);
+        Assert.All(items, i => Assert.Null(i.ExtraPrice));
+
+        var products = await db.PosProducts.ToDictionaryAsync(p => p.Name);
+        var linked = (await db.PosProductToppingGroupLinks.ToListAsync()).Select(l => l.ProductId).ToHashSet();
+        Assert.Equal(new HashSet<Guid> { products["Trà sữa matcha"].Id, oldTea.Id }, linked);
+        Assert.True(products["Trà sữa matcha"].AllowToppings);
+        Assert.True(products["Trà sữa cũ"].AllowToppings);
+        Assert.False(products["Cà phê đen"].AllowToppings);
+        Assert.False(products["Trân châu"].IsDirectSale);
+        Assert.True(products["Trân châu"].IsTopping);
+    }
+
+    [Fact]
+    public async Task Import_topping_without_targets_links_all_new_goods()
+    {
+        using var db = NewDb();
+        var result = await new PosAiMenuService(db, new FakeGemini("{}")).ImportAsync(Guid.NewGuid(),
+        [
+            Item("Trà đào", 30000, category: "Trà"),
+            Item("Bánh flan", 15000, category: "Tráng miệng"),
+            Item("Thạch", 5000) with { ProductType = "Topping" },
+        ], "tester", CancellationToken.None);
+
+        Assert.Equal(2, result.ToppingLinksCreated);
+        Assert.Equal("Topping", (await db.PosToppingGroups.SingleAsync()).Name);
+        Assert.Contains(await db.PosProductCategories.ToListAsync(), c => c.Name == "Topping");
+    }
+
+    [Fact]
+    public async Task Import_combo_links_components_or_falls_back_to_goods()
+    {
+        using var db = NewDb();
+        var result = await new PosAiMenuService(db, new FakeGemini("{}")).ImportAsync(Guid.NewGuid(),
+        [
+            Item("Cơm gà", 40000),
+            Item("Trà đá", 5000),
+            Item("Combo trưa", 42000) with { ProductType = "Combo", ComboItems = [new("Com ga", 1), new("Trà đá", 1), new("Canh", 1)] },
+            Item("Set lẩu", 300000) with { ProductType = "Combo", ComboItems = [new("Lẩu thái", 1)] },
+        ], "tester", CancellationToken.None);
+
+        Assert.Equal(1, result.CombosCreated);
+        var products = await db.PosProducts.ToDictionaryAsync(p => p.Name);
+        var combo = products["Combo trưa"];
+        Assert.Equal(PosProductType.Combo, combo.ProductType);
+        Assert.StartsWith("CB", combo.ProductCode);
+        var lines = await db.PosProductComboLines.Where(l => l.ComboProductId == combo.Id).ToListAsync();
+        Assert.Equal(new HashSet<Guid> { products["Cơm gà"].Id, products["Trà đá"].Id }, lines.Select(l => l.ComponentProductId).ToHashSet());
+        Assert.All(lines, l => Assert.True(l.TrackStock && l.IsActive));
+        Assert.Equal(PosProductType.Goods, products["Set lẩu"].ProductType);
+        Assert.Contains(result.Warnings!, w => w.Contains("Set lẩu"));
+        Assert.Contains(result.Warnings!, w => w.Contains("Canh"));
+    }
+
+    [Fact]
+    public async Task Import_sizes_all_without_price_use_item_price()
+    {
+        using var db = NewDb();
+        await new PosAiMenuService(db, new FakeGemini("{}")).ImportAsync(Guid.NewGuid(),
+            [Item("Sinh tố", 40000, [new MenuSizeDto("M", 0), new MenuSizeDto("L", 0)])], "tester", CancellationToken.None);
+        var p = await db.PosProducts.SingleAsync();
+        Assert.Equal(40000, p.BasePrice);
+        Assert.All(await db.PosProductVariants.ToListAsync(), v => Assert.Equal(40000, v.BasePrice));
+    }
+
+    [Fact]
+    public async Task Import_service_billing_from_review_and_zero_price_warning()
+    {
+        using var db = NewDb();
+        var result = await new PosAiMenuService(db, new FakeGemini("{}")).ImportAsync(Guid.NewGuid(),
+        [
+            Item("Giờ hát phòng thường", 120000) with { ProductType = "Service", Billing = "PerHour", Unit = "Giờ" },
+            Item("Gói 10 buổi", 1500000) with { ProductType = "Service", Billing = "PerSession", SessionCount = 10 },
+            Item("Massage body", 0) with { ProductType = "Service" },
+        ], "tester", CancellationToken.None);
+
+        var products = await db.PosProducts.ToDictionaryAsync(p => p.Name);
+        Assert.Equal(PosServiceBillingMode.PerHour, products["Giờ hát phòng thường"].ServiceBillingMode);
+        Assert.Equal(10, products["Gói 10 buổi"].SessionPackCount);
+        Assert.Equal(90, products["Gói 10 buổi"].SessionPackValidDays);
+        var massage = products["Massage body"];
+        Assert.Equal(PosServiceBillingMode.Flat, massage.ServiceBillingMode);
+        Assert.Equal("Lần", massage.BaseUnitName);
+        Assert.True(massage.IsDirectSale);
+        Assert.Equal(["«Massage body»: giá 0đ — nhớ sửa giá trong Hàng hóa."], result.Warnings!);
     }
 }

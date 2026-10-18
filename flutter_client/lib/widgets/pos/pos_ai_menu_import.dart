@@ -36,14 +36,90 @@ double parseMenuPrice(String s) {
   return (n * (suffix == 'tr' || suffix == 'triệu' ? 1000000 : 1000)).roundToDouble();
 }
 
-/// "M 30.000; L 38k" → [{name: M, price: 30000}, {name: L, price: 38000}]
+/// "M 30.000; L 38k" → [{name: M, price: 30000}, {name: L, price: 38000}].
+/// Size không ghi giá («XL») vẫn giữ với giá 0 để báo người dùng (server lấy giá món).
 List<Map<String, dynamic>> parseMenuSizes(String text) {
   final out = <Map<String, dynamic>>[];
   final re = RegExp('^\\s*(.+?)\\s+([0-9][0-9.,\\s]*$_priceSuffix?)\\s*\$', caseSensitive: false);
   for (final part in text.split(RegExp(r'[;\n]'))) {
+    if (part.trim().isEmpty) continue;
     final m = re.firstMatch(part);
-    if (m == null) continue;
+    if (m == null) {
+      out.add({'name': part.trim(), 'price': 0.0});
+      continue;
+    }
     out.add({'name': m.group(1)!.trim(), 'price': parseMenuPrice(m.group(2)!)});
+  }
+  return out;
+}
+
+/// "Cơm gà x2; Trà đá" → [{name: Cơm gà, qty: 2}, {name: Trà đá, qty: 1}]
+List<Map<String, dynamic>> parseComboItems(String text) {
+  final out = <Map<String, dynamic>>[];
+  for (final part in text.split(RegExp(r'[;\n+]'))) {
+    final t = part.trim();
+    if (t.isEmpty) continue;
+    final m = RegExp(r'^(.+?)\s*[x×]\s*([0-9]+(?:[.,][0-9]+)?)$', caseSensitive: false).firstMatch(t);
+    if (m == null) {
+      out.add({'name': t, 'qty': 1.0});
+    } else {
+      out.add({'name': m.group(1)!.trim(), 'qty': double.tryParse(m.group(2)!.replaceAll(',', '.')) ?? 1});
+    }
+  }
+  return out;
+}
+
+String comboItemsText(dynamic raw) {
+  if (raw is! List) return '';
+  return raw.whereType<Map>().map((c) {
+    final q = (c['qty'] as num?) ?? 1;
+    return q == 1 ? '${c['name']}' : '${c['name']} x${q % 1 == 0 ? q.toInt() : q}';
+  }).join('; ');
+}
+
+/// "Trà sữa, Trà trái cây" → ['Trà sữa', 'Trà trái cây']
+List<String> parseNameList(String text) => text
+    .split(RegExp(r'[,;\n]'))
+    .map((s) => s.trim())
+    .where((s) => s.isNotEmpty)
+    .toList();
+
+/// Loại hàng trên màn xem trước (giá trị = tên enum PosProductType phía server).
+const menuProductTypes = <String, String>{
+  'Goods': 'Hàng hóa',
+  'Service': 'Dịch vụ',
+  'Combo': 'Combo',
+  'Topping': 'Topping',
+  'Material': 'Nguyên liệu',
+};
+
+/// Cách tính tiền dịch vụ (tên enum PosServiceBillingMode).
+const menuBillingModes = <String, String>{
+  'Flat': 'Giá cố định',
+  'PerHour': 'Theo giờ',
+  'PerDay': 'Theo ngày / đêm',
+  'PerSession': 'Gói buổi',
+};
+
+/// Loại hàng bán theo size (combo / topping / nguyên liệu bỏ size).
+bool menuTypeHasSizes(String type) => type == 'Goods' || type == 'Service';
+
+/// Cảnh báo một dòng trước khi tạo: chưa có giá, size thiếu giá.
+List<String> menuRowWarnings({
+  required String type,
+  required double price,
+  required List<Map<String, dynamic>> sizes,
+}) {
+  if (type == 'Material') return const [];
+  final useSizes = menuTypeHasSizes(type) && sizes.isNotEmpty;
+  final priced = useSizes ? sizes.where((s) => (s['price'] as num) > 0).toList() : const [];
+  final out = <String>[];
+  if (useSizes ? priced.isEmpty : price <= 0) out.add('Chưa có giá');
+  if (useSizes && priced.isNotEmpty) {
+    final missing = sizes.where((s) => (s['price'] as num) <= 0).map((s) => s['name']).toList();
+    if (missing.isNotEmpty) {
+      out.add('Size ${missing.join(', ')} chưa có giá — sẽ lấy giá size rẻ nhất');
+    }
   }
   return out;
 }
@@ -55,7 +131,14 @@ class _MenuRow {
         category = TextEditingController(text: (j['category'] ?? '').toString()),
         price = TextEditingController(text: _fmt((j['price'] as num?) ?? 0)),
         sizes = TextEditingController(text: _sizesText(j['sizes'])),
-        unit = (j['unit'] ?? '').toString(),
+        unit = TextEditingController(text: (j['unit'] ?? '').toString()),
+        type = menuProductTypes.containsKey(j['productType']) ? j['productType'] as String : 'Goods',
+        billing = menuBillingModes.containsKey(j['billing']) ? j['billing'] as String : 'Flat',
+        sessions = TextEditingController(
+            text: ((j['sessionCount'] as num?) ?? 0) > 0 ? '${j['sessionCount']}' : ''),
+        toppingFor = TextEditingController(
+            text: ((j['toppingFor'] as List?) ?? const []).map((e) => '$e').join(', ')),
+        comboItems = TextEditingController(text: comboItemsText(j['comboItems'])),
         description = j['description']?.toString(),
         imageUrl = j['imageUrl']?.toString(),
         sampleCatalogId = j['sampleCatalogId']?.toString(),
@@ -67,7 +150,12 @@ class _MenuRow {
   final TextEditingController category;
   final TextEditingController price;
   final TextEditingController sizes;
-  final String unit;
+  final TextEditingController unit;
+  String type;
+  String billing;
+  final TextEditingController sessions;
+  final TextEditingController toppingFor;
+  final TextEditingController comboItems;
   final String? description;
   String? imageUrl;
   final String? sampleCatalogId;
@@ -81,28 +169,41 @@ class _MenuRow {
     if (raw is! List) return '';
     return raw
         .whereType<Map>()
-        .map((s) => '${s['name']} ${_fmt((s['price'] as num?) ?? 0)}')
+        .map((s) => '${s['name']} ${_fmt((s['price'] as num?) ?? 0)}'.trim())
         .join('; ');
   }
 
-  List<Map<String, dynamic>> parsedSizes() => parseMenuSizes(sizes.text);
+  List<Map<String, dynamic>> parsedSizes() =>
+      menuTypeHasSizes(type) ? parseMenuSizes(sizes.text) : const [];
+
+  List<String> warnings() => menuRowWarnings(
+        type: type,
+        price: parseMenuPrice(price.text),
+        sizes: parsedSizes(),
+      );
 
   Map<String, dynamic> toJson() {
     final sz = parsedSizes();
+    final priced = sz.map((s) => s['price'] as double).where((p) => p > 0);
     return {
       'name': name.text.trim(),
       'category': category.text.trim().isEmpty ? null : category.text.trim(),
-      'price': sz.isNotEmpty
-          ? sz.map((s) => s['price'] as double).reduce((a, b) => a < b ? a : b)
-          : parseMenuPrice(price.text),
+      'price': priced.isNotEmpty ? priced.reduce((a, b) => a < b ? a : b) : parseMenuPrice(price.text),
       'sizes': sz,
-      'unit': unit.isEmpty ? null : unit,
+      'unit': unit.text.trim().isEmpty ? null : unit.text.trim(),
       'description': description,
       'imageUrl': imageUrl,
       'sampleCatalogId': sampleCatalogId,
       'sampleCatalogName': sampleCatalogName,
       'existingProductId': null,
       'existingProductName': existingProductName,
+      'productType': type,
+      'billing': type == 'Service' ? billing : 'Flat',
+      'sessionCount': type == 'Service' && billing == 'PerSession'
+          ? int.tryParse(sessions.text.trim()) ?? 0
+          : 0,
+      'toppingFor': type == 'Topping' ? parseNameList(toppingFor.text) : const <String>[],
+      'comboItems': type == 'Combo' ? parseComboItems(comboItems.text) : const [],
     };
   }
 
@@ -111,6 +212,10 @@ class _MenuRow {
     category.dispose();
     price.dispose();
     sizes.dispose();
+    unit.dispose();
+    sessions.dispose();
+    toppingFor.dispose();
+    comboItems.dispose();
   }
 }
 
@@ -183,6 +288,27 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
   Future<void> _import() async {
     final chosen = _rows.where((r) => r.include && r.name.text.trim().isNotEmpty).toList();
     if (chosen.isEmpty) return;
+    final flagged = [
+      for (final r in chosen)
+        if (r.warnings().isNotEmpty) '${r.name.text.trim()}: ${r.warnings().map(tr).join('; ')}',
+    ];
+    if (flagged.isNotEmpty) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(tr('${flagged.length} món cần kiểm tra giá')),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(child: Text(flagged.map((s) => '• $s').join('\n'))),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Sửa lại'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Vẫn tạo'))),
+          ],
+        ),
+      );
+      if (go != true || !mounted) return;
+    }
     setState(() => _importing = true);
     final res = await widget.api.importPosMenuAi(chosen.map((r) => r.toJson()).toList());
     if (!mounted) return;
@@ -196,11 +322,38 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
     }
     final d = res['data'] as Map? ?? const {};
     final skipped = (d['skipped'] as List?)?.length ?? 0;
+    final toppingGroups = (d['toppingGroupsCreated'] as num?) ?? 0;
+    final toppingLinks = (d['toppingLinksCreated'] as num?) ?? 0;
+    final combos = (d['combosCreated'] as num?) ?? 0;
     NotificationOverlayManager().showSuccess(
       title: tr('Đã tạo ${d['productsCreated'] ?? 0} món'),
       message: tr('${d['categoriesCreated'] ?? 0} nhóm mới · ${d['variantsCreated'] ?? 0} size') +
-          (skipped > 0 ? tr(' · bỏ qua $skipped món đã có') : ''),
+          (combos > 0 ? tr(' · $combos combo') : '') +
+          (toppingGroups > 0 || toppingLinks > 0
+              ? tr(' · $toppingGroups nhóm topping gắn vào $toppingLinks món')
+              : '') +
+          (skipped > 0 ? tr(' · bỏ qua $skipped món') : ''),
     );
+    final notes = [
+      ...((d['warnings'] as List?) ?? const []).map((e) => '$e'),
+      ...((d['skipped'] as List?) ?? const []).map((e) => '${tr('Bỏ qua')}: $e'),
+    ];
+    if (notes.isNotEmpty) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(tr('Lưu ý sau khi tạo')),
+          content: SizedBox(
+            width: 460,
+            child: SingleChildScrollView(child: Text(notes.map((s) => '• $s').join('\n'))),
+          ),
+          actions: [
+            FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đã hiểu'))),
+          ],
+        ),
+      );
+      if (!mounted) return;
+    }
     Navigator.of(context).pop(true);
   }
 
@@ -233,7 +386,9 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
           if (_rows.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
-              tr('Kiểm tra lại trước khi tạo. Size ghi dạng «M 30.000; L 38.000». Món đã có trong cửa hàng được bỏ chọn sẵn.'),
+              tr('Kiểm tra lại trước khi tạo: loại hàng, đơn vị, giá. Size ghi dạng «M 30.000; L 38k». '
+                  'Topping được gom thành nhóm topping và gắn vào các nhóm / món ghi ở «Gắn vào». '
+                  'Món đã có trong cửa hàng được bỏ chọn sẵn.'),
               style: TextStyle(color: SboxColors.slate700, fontSize: 13),
             ),
             const SizedBox(height: 8),
@@ -342,6 +497,8 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
           isDense: true,
           border: const OutlineInputBorder(),
         );
+    final hasSizes = r.parsedSizes().any((s) => (s['price'] as num) > 0);
+    final warnings = r.include ? r.warnings() : const <String>[];
     return Card(
       color: r.include ? null : SboxColors.slate100,
       child: Padding(
@@ -384,16 +541,90 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
                       SizedBox(width: 240, child: TextField(controller: r.name, decoration: deco('Tên món'))),
                       SizedBox(width: 170, child: TextField(controller: r.category, decoration: deco('Nhóm'))),
                       SizedBox(
+                        width: 150,
+                        child: DropdownButtonFormField<String>(
+                          initialValue: r.type,
+                          isExpanded: true,
+                          decoration: deco('Loại'),
+                          items: [
+                            for (final e in menuProductTypes.entries)
+                              DropdownMenuItem(value: e.key, child: Text(tr(e.value))),
+                          ],
+                          onChanged: (v) => setState(() => r.type = v ?? 'Goods'),
+                        ),
+                      ),
+                      SizedBox(width: 90, child: TextField(controller: r.unit, decoration: deco('Đơn vị'))),
+                      SizedBox(
                         width: 120,
                         child: TextField(
                           controller: r.price,
                           keyboardType: TextInputType.number,
-                          decoration: deco('Giá'),
+                          // Có size thì giá món = size rẻ nhất.
+                          enabled: !hasSizes,
+                          onChanged: (_) => setState(() {}),
+                          decoration: deco(hasSizes ? 'Giá (theo size)' : 'Giá'),
                         ),
                       ),
-                      SizedBox(width: 240, child: TextField(controller: r.sizes, decoration: deco('Size (tùy chọn)'))),
+                      if (menuTypeHasSizes(r.type))
+                        SizedBox(
+                          width: 240,
+                          child: TextField(
+                            controller: r.sizes,
+                            onChanged: (_) => setState(() {}),
+                            decoration: deco('Size (tùy chọn)'),
+                          ),
+                        ),
+                      if (r.type == 'Service')
+                        SizedBox(
+                          width: 160,
+                          child: DropdownButtonFormField<String>(
+                            initialValue: r.billing,
+                            isExpanded: true,
+                            decoration: deco('Tính tiền'),
+                            items: [
+                              for (final e in menuBillingModes.entries)
+                                DropdownMenuItem(value: e.key, child: Text(tr(e.value))),
+                            ],
+                            onChanged: (v) => setState(() => r.billing = v ?? 'Flat'),
+                          ),
+                        ),
+                      if (r.type == 'Service' && r.billing == 'PerSession')
+                        SizedBox(
+                          width: 90,
+                          child: TextField(
+                            controller: r.sessions,
+                            keyboardType: TextInputType.number,
+                            decoration: deco('Số buổi'),
+                          ),
+                        ),
+                      if (r.type == 'Topping')
+                        SizedBox(
+                          width: 320,
+                          child: TextField(
+                            controller: r.toppingFor,
+                            decoration: deco('Gắn vào (nhóm / món, cách nhau dấu phẩy)').copyWith(
+                              hintText: tr('Để trống = mọi món trong lần nhập này'),
+                            ),
+                          ),
+                        ),
+                      if (r.type == 'Combo')
+                        SizedBox(
+                          width: 320,
+                          child: TextField(
+                            controller: r.comboItems,
+                            decoration: deco('Gồm các món').copyWith(hintText: tr('Cơm gà x1; Trà đá x1')),
+                          ),
+                        ),
                     ],
                   ),
+                  if (warnings.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        warnings.map(tr).join(' · '),
+                        style: const TextStyle(fontSize: 12, color: Color(0xFFC62828), fontWeight: FontWeight.w600),
+                      ),
+                    ),
                   if (r.sampleCatalogName != null || r.existingProductName != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
