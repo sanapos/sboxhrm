@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_tr.dart';
@@ -255,31 +254,37 @@ class PosQuoteExport {
     if (kIsWeb) {
       // Trình duyệt máy tính không gửi file thẳng sang Zalo / Messenger được → tải file rồi mở cửa sổ chat.
       await saveAndOpenFileBytes(file.bytes, file.name, file.mime);
-      final Uri target = switch (channel) {
+      final Uri? target = switch (channel) {
         'zalo' => Uri.parse(phone.isNotEmpty ? 'https://zalo.me/$phone' : 'https://chat.zalo.me/'),
         'facebook' => Uri.parse('https://www.facebook.com/messages/'),
-        _ => Uri.parse('mailto:?subject=${Uri.encodeComponent('$title $quoteNo')}'
+        'email' => Uri.parse('mailto:?subject=${Uri.encodeComponent('$title $quoteNo')}'
             '&body=${Uri.encodeComponent(summary)}'),
+        _ => null, // 'share': chỉ tải file về, không mở sẵn kênh nào.
       };
-      await launchUrl(target, mode: LaunchMode.externalApplication);
+      if (target != null) await launchUrl(target, mode: LaunchMode.externalApplication);
       NotificationOverlayManager().showSuccess(
         title: 'Đã tải ${file.name}',
-        message: tr(channel == 'email'
-            ? 'Đính kèm file vừa tải vào thư đang mở.'
-            : 'Kéo thả file vừa tải vào cuộc trò chuyện ${channel == 'zalo' ? 'Zalo' : 'Messenger'} để gửi khách.'),
+        message: tr(switch (channel) {
+          'email' => 'Đính kèm file vừa tải vào thư đang mở.',
+          'zalo' => 'Kéo thả file vừa tải vào cuộc trò chuyện Zalo để gửi khách.',
+          'facebook' => 'Kéo thả file vừa tải vào cuộc trò chuyện Messenger để gửi khách.',
+          _ => 'Đính kèm file vừa tải để gửi khách.',
+        }),
       );
       return;
     }
 
-    final box = context.findRenderObject() as RenderBox?;
-    final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
-    final result = await PosBusy.suspend(() => Share.shareXFiles(
-      [XFile.fromData(file.bytes, name: file.name, mimeType: file.mime)],
-      text: summary,
-      subject: '$title $quoteNo',
-      sharePositionOrigin: origin,
-    ));
-    if (result.status == ShareResultStatus.unavailable) {
+    // Ghi tệp tạm mang đúng tên «BaoGia_….pdf» rồi mở bảng chia sẻ (Zalo / Messenger / Gmail /
+    // Bluetooth / In…). Dùng chung cho nút «Gửi PDF», «Zalo», «Email».
+    final shared = await PosBusy.suspend(() => shareFileBytes(
+          file.bytes,
+          file.name,
+          file.mime,
+          text: summary,
+          subject: '$title $quoteNo',
+        ));
+    if (!shared) {
+      // Không có bảng chia sẻ (hiếm) → lưu & mở file như trước.
       await saveAndOpenFileBytes(file.bytes, file.name, file.mime);
     }
   }
@@ -560,7 +565,7 @@ class PosQuoteExport {
     String? docId,
   }) async {
     // Xuất file / gửi file cho khách cần quyền «Xuất» của Báo giá (in trực tiếp chỉ cần Xem).
-    const exportActions = {'excel', 'word', 'pdf', 'png', 'email', 'zalo', 'facebook'};
+    const exportActions = {'excel', 'word', 'pdf', 'png', 'email', 'zalo', 'facebook', 'share'};
     if (exportActions.contains(action) && !ensureCanExport(context, 'PosQuotes')) return;
     // Có mẫu Word giữ bố cục → Word / PDF lấy từ mẫu đó (không hỏi con dấu HTML).
     if ((action == 'word' || action == 'pdf') &&
@@ -576,7 +581,8 @@ class PosQuoteExport {
         action == 'png' ||
         action == 'email' ||
         action == 'zalo' ||
-        action == 'facebook';
+        action == 'facebook' ||
+        action == 'share';
     var stamp = true;
     if (needsStamp) {
       final picked = await PosBusy.suspend(() => askPosQuoteStamp(context));
@@ -690,6 +696,7 @@ class PosQuoteExport {
       case 'email':
       case 'zalo':
       case 'facebook':
+      case 'share':
         final body = await html();
         if (!context.mounted) return;
         await shareQuote(

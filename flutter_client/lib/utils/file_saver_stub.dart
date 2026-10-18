@@ -114,9 +114,43 @@ Future<void> saveAndOpenFileBytes(
   // iOS đã mở hộp chia sẻ trong saveFileBytes.
   if (Platform.isIOS) return;
   try {
-    await OpenFilex.open(savedPath, type: mimeType);
+    final res = await OpenFilex.open(savedPath, type: mimeType);
+    if (res.type == ResultType.done) return;
+    debugPrint('open saved file: ${res.type} ${res.message}');
   } catch (e) {
     debugPrint('open saved file: $e');
+  }
+  // Máy không có app mở file (ví dụ POS không cài trình xem PDF) → mở bảng chia sẻ
+  // để người dùng gửi / in / Bluetooth thay vì không có gì xảy ra.
+  await shareFileBytes(bytes, filename, mimeType);
+}
+
+/// Chia sẻ file từ bytes với ĐÚNG tên hiển thị: ghi tệp tạm mang tên thật rồi mở bảng
+/// chia sẻ (khách nhận đúng «BaoGia_….pdf» thay vì tên tạm vô nghĩa). Trả về false nếu
+/// hệ máy không có cách chia sẻ nào.
+Future<bool> shareFileBytes(
+  List<int> bytes,
+  String filename,
+  String mimeType, {
+  String? text,
+  String? subject,
+}) async {
+  try {
+    final dir = await getTemporaryDirectory();
+    final shareDir = Directory('${dir.path}${Platform.pathSeparator}share');
+    if (!await shareDir.exists()) await shareDir.create(recursive: true);
+    final file = File('${shareDir.path}${Platform.pathSeparator}$filename');
+    await file.writeAsBytes(bytes, flush: true);
+    final res = await Share.shareXFiles(
+      [XFile(file.path, mimeType: mimeType, name: filename)],
+      text: text,
+      subject: subject,
+      sharePositionOrigin: shareOriginRect(),
+    );
+    return res.status != ShareResultStatus.unavailable;
+  } catch (e) {
+    debugPrint('shareFileBytes: $e');
+    return false;
   }
 }
 

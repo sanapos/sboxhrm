@@ -346,5 +346,6 @@ String posPrintDefaultTemplateName(String paperSize, {String? documentType}) {
     PosPrintPaperSizes.label40x30 || 'roll_1_40x30' => '40×30',
     _ => paperSize,
   };
-  return '$doc 1 ($short)';
+  // Tên dễ phân biệt theo loại + khổ (vd «Hợp đồng A4»), khớp mẫu mặc định máy chủ seed.
+  return '$doc $short';
 }

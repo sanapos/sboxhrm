@@ -126,6 +126,18 @@ Future<void> saveAndOpenFileBytes(
   await saveFileBytes(bytes, filename, mimeType);
 }
 
+/// Trên web không có bảng chia sẻ file hệ thống → tải file về (trình gọi tự mở chat/thư).
+Future<bool> shareFileBytes(
+  List<int> bytes,
+  String filename,
+  String mimeType, {
+  String? text,
+  String? subject,
+}) async {
+  await saveFileBytes(bytes, filename, mimeType);
+  return true;
+}
+
 /// On Web, open = download (same as save).
 Future<void> saveAndOpenDataUrl(String dataUrl, String filename) async {
   await saveDataUrl(dataUrl, filename);

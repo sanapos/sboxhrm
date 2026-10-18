@@ -1,5 +1,6 @@
 import '../utils/tray_notification_guard.dart';
 import '../utils/pos_sell_settings_helper.dart';
+import '../utils/pos_commercial_template_autoupgrade.dart';
 import '../services/branch_session.dart';
 import '../utils/module_deep_link_stub.dart'
     if (dart.library.html) '../utils/module_deep_link_web.dart' as module_deep_link;
@@ -547,7 +548,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           cacheKey: authUser == null ? null : '${authUser.id}:${authUser.storeId ?? ''}',
         )
         .then((_) {
-      if (mounted) _maybeLandPosSell();
+      if (!mounted) return;
+      _maybeLandPosSell();
+      // Cửa hàng tự nhận mẫu chứng từ A4 chuẩn mới nhất khi mở app (ngầm, giữ bản cũ để quay lại).
+      final perm = Provider.of<PermissionProvider>(context, listen: false);
+      if (perm.isLoaded && perm.canEdit('PosPrintTemplates')) {
+        unawaited(PosCommercialTemplateAutoUpgrade.runOnce(ApiService(),
+            canEdit: true, storeKey: authUser?.storeId));
+      }
     }));
   }
 

@@ -18,6 +18,7 @@ import '../utils/pos_label_printer_settings.dart';
 import '../utils/pos_print_template_loader.dart';
 import 'pos/pos_label_templates_screen.dart';
 import '../utils/pos_label_design_store.dart';
+import '../utils/pos_commercial_template_autoupgrade.dart';
 import '../utils/pos_print_template_defaults.dart';
 import '../utils/pos_print_template_renderer.dart';
 import '../utils/pos_print_template_v2_codec.dart';
@@ -1236,12 +1237,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   /// Mẫu không đang dùng (vd «bản cũ» giữ lại) là lựa chọn của cửa hàng — không nhắc.
   List<PosPrintTemplate> get _outdatedCommercial {
     if (!_isCommercialDoc) return const [];
-    return _templates.where((t) {
-      if (t.isDocx || !t.isDefault) return false;
-      final raw = t.htmlContent.trim();
-      if (!raw.startsWith('<') || PosPrintTemplateV2Codec.isV2Content(raw)) return false;
-      return posCommercialBaseRev(raw) < kPosCommercialBaseRev;
-    }).toList();
+    return _templates.where(PosCommercialTemplateAutoUpgrade.isOutdated).toList();
   }
 
   /// Thay nội dung bằng mẫu chuẩn mới nhất (giữ khổ giấy + lề); bản cũ lưu thành mẫu tắt để khôi phục.
@@ -1266,30 +1262,14 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     var done = 0;
     String? fail;
     for (final t in list) {
-      final backup = await _api.createPosPrintTemplate({
-        'name': '${t.name} (bản cũ $stamp)',
-        'documentType': t.documentType,
-        'paperSize': t.paperSize,
-        'htmlContent': t.htmlContent,
-        'isDefault': false,
-        'isActive': true,
-        'sortOrder': _templates.length + done + 1,
-      });
-      if (backup['isSuccess'] != true) {
-        fail = backup['message']?.toString() ?? '';
-        break;
-      }
-      final paper = PosPrintPaperSizes.normalizeCommercialPaper(t.paperSize);
-      final setup = PosCommercialPageSetup.parse(t.htmlContent, fallbackPaper: paper)
-          .copyWith(paperSize: paper, baseRev: kPosCommercialBaseRev);
-      final html = ensurePosPrintItemLoop(
-          setup.applyToHtml(posPrintDefaultHtml(documentType: t.documentType, paperSize: paper)));
-      final res = await _api.updatePosPrintTemplate(
-        t.id,
-        t.copyWith(htmlContent: html, paperSize: paper).toSaveJson(),
+      final ok = await PosCommercialTemplateAutoUpgrade.upgradeOne(
+        _api,
+        t,
+        backupSortOrder: _templates.length + done + 1,
+        stamp: stamp,
       );
-      if (res['isSuccess'] != true) {
-        fail = res['message']?.toString() ?? '';
+      if (!ok) {
+        fail = tr('Vui lòng thử lại');
         break;
       }
       done++;

@@ -33,19 +33,50 @@ public static class PosPrintTemplateDefaults
         _ => "CHỨNG TỪ",
     };
 
-    public static string TemplateName(PosPrintDocumentType type, PosPrintPaperSize size, int variant = 1)
+    /// <summary>Nhãn khổ giấy ngắn in trên tên mẫu.</summary>
+    public static string PaperLabel(PosPrintPaperSize size) => size switch
     {
-        return size switch
-        {
-            PosPrintPaperSize.K58 => "K58",
-            PosPrintPaperSize.K80 => "K80",
-            PosPrintPaperSize.A5 => "A5",
-            PosPrintPaperSize.A4 => "A4",
-            PosPrintPaperSize.Label50x30 => "50×30",
-            PosPrintPaperSize.Label40x30 => "40×30",
-            _ => size.ToString(),
-        };
-    }
+        PosPrintPaperSize.K58 => "K58",
+        PosPrintPaperSize.K80 => "K80",
+        PosPrintPaperSize.A5 => "A5",
+        PosPrintPaperSize.A4 => "A4",
+        PosPrintPaperSize.Label50x30 => "50×30",
+        PosPrintPaperSize.Label40x30 => "40×30",
+        _ => size.ToString(),
+    };
+
+    /// <summary>Nhãn loại chứng từ ngắn gọn để đặt tên mẫu dễ phân biệt (vd «Hợp đồng A4»).</summary>
+    public static string ShortDocLabel(PosPrintDocumentType type) => type switch
+    {
+        PosPrintDocumentType.SaleOrder => "Đặt hàng",
+        PosPrintDocumentType.SaleInvoice => "Hóa đơn",
+        PosPrintDocumentType.Delivery => "Giao hàng",
+        PosPrintDocumentType.SaleReturn => "Trả hàng",
+        PosPrintDocumentType.SaleExchange => "Đổi trả",
+        PosPrintDocumentType.PurchaseOrder => "Đặt hàng nhập",
+        PosPrintDocumentType.PurchaseReceipt => "Nhập hàng",
+        PosPrintDocumentType.PurchaseReturn => "Trả hàng nhập",
+        PosPrintDocumentType.StockTransfer => "Chuyển hàng",
+        PosPrintDocumentType.StockIssue => "Xuất kho",
+        PosPrintDocumentType.KitchenSlip => "Báo chế biến",
+        PosPrintDocumentType.KitchenVoid => "Hủy bếp",
+        PosPrintDocumentType.KitchenLabel => "Tem bếp",
+        PosPrintDocumentType.BarcodeLabel => "Tem sản phẩm",
+        PosPrintDocumentType.ScaleLabel => "Tem cân",
+        PosPrintDocumentType.SpecLabel => "Tem thông số",
+        PosPrintDocumentType.CashReceipt => "Phiếu thu",
+        PosPrintDocumentType.CashPayment => "Phiếu chi",
+        PosPrintDocumentType.Quote => "Báo giá",
+        PosPrintDocumentType.Contract => "Hợp đồng",
+        PosPrintDocumentType.Handover => "Bàn giao",
+        PosPrintDocumentType.Acceptance => "Nghiệm thu",
+        PosPrintDocumentType.PaymentRequest => "Đề nghị TT",
+        _ => "Mẫu",
+    };
+
+    /// <summary>Tên mẫu mặc định: «&lt;loại chứng từ&gt; &lt;khổ&gt;» (vd «Hợp đồng A4») để dễ phân biệt giữa các loại.</summary>
+    public static string TemplateName(PosPrintDocumentType type, PosPrintPaperSize size, int variant = 1)
+        => $"{ShortDocLabel(type)} {PaperLabel(size)}";
 
     [Obsolete("Use TemplateName(type, size, variant)")]
     public static string TemplateName(PosPrintPaperSize size, int variant = 1) =>
@@ -66,13 +97,18 @@ public static class PosPrintTemplateDefaults
 
     public static IReadOnlyList<CatalogSpec> CatalogSpecs(PosPrintDocumentType docType)
     {
+        // Tên mẫu = «<loại chứng từ> <khổ>» (+ ★ cho mẫu khuyên dùng) → dễ phân biệt giữa các loại chứng từ.
+        CatalogSpec Spec(PosPrintPaperSize size, int sort, bool recommended) => new(
+            $"{ShortDocLabel(docType)} {PaperLabel(size)}{(recommended ? " ★" : "")}",
+            size, sort, recommended);
+
         if (docType is PosPrintDocumentType.BarcodeLabel or PosPrintDocumentType.KitchenLabel
             or PosPrintDocumentType.ScaleLabel or PosPrintDocumentType.SpecLabel)
         {
             return new[]
             {
-                new CatalogSpec("50×30 ★", PosPrintPaperSize.Label50x30, 0, true),
-                new CatalogSpec("40×30", PosPrintPaperSize.Label40x30, 1, false),
+                Spec(PosPrintPaperSize.Label50x30, 0, true),
+                Spec(PosPrintPaperSize.Label40x30, 1, false),
             };
         }
 
@@ -80,8 +116,8 @@ public static class PosPrintTemplateDefaults
         {
             return new[]
             {
-                new CatalogSpec("K80 ★", PosPrintPaperSize.K80, 0, true),
-                new CatalogSpec("K58", PosPrintPaperSize.K58, 1, false),
+                Spec(PosPrintPaperSize.K80, 0, true),
+                Spec(PosPrintPaperSize.K58, 1, false),
             };
         }
 
@@ -91,17 +127,17 @@ public static class PosPrintTemplateDefaults
         {
             return new[]
             {
-                new CatalogSpec("A4 ★", PosPrintPaperSize.A4, 0, true),
-                new CatalogSpec("A5", PosPrintPaperSize.A5, 1, false),
+                Spec(PosPrintPaperSize.A4, 0, true),
+                Spec(PosPrintPaperSize.A5, 1, false),
             };
         }
 
-        // Hóa đơn / xuất kho / phiếu khác: 3 mẫu (K80 chuẩn, K80 A4/A5 sheet, K58)
+        // Hóa đơn / xuất kho / phiếu khác: 3 mẫu (K80 chuẩn, K58, A5 sheet)
         return new[]
         {
-            new CatalogSpec("K80 ★", PosPrintPaperSize.K80, 0, true),
-            new CatalogSpec("K58", PosPrintPaperSize.K58, 1, false),
-            new CatalogSpec("A5", PosPrintPaperSize.A5, 2, false),
+            Spec(PosPrintPaperSize.K80, 0, true),
+            Spec(PosPrintPaperSize.K58, 1, false),
+            Spec(PosPrintPaperSize.A5, 2, false),
         };
     }
 

@@ -268,30 +268,30 @@ Map<String, String> posPrintSampleData({
     'Han_Bao_Gia': '05/10/2026',
     'Dieu_Khoan': 'Báo giá có hiệu lực 15 ngày.',
     'Bao_Hanh': '12 tháng',
-    'So_Hop_Dong': 'HD0926/2026/NT-TLP',
+    'So_Hop_Dong': 'HD-2026-001',
     'Ngay_Hop_Dong': '16/09/2026',
-    'Dia_Diem_Thi_Cong': 'Showroom Nghĩa Tín, Tuy Phước Tây',
+    'Dia_Diem_Thi_Cong': '45 Lê Lợi, Q.1, TP. Hồ Chí Minh',
     'MST_Cua_Hang': profileData['MST_Cua_Hang'] ??
         profileData['MST_Cong_Ty'] ??
-        '0402207773',
+        '0312345678',
     'MST_Cong_Ty': profileData['MST_Cong_Ty'] ??
         profileData['MST_Cua_Hang'] ??
-        '0402207773',
+        '0312345678',
     'Email_Cua_Hang': profileData['Email_Cua_Hang'] ?? '',
     'Tai_Khoan_Cua_Hang':
-        profileData['Tai_Khoan_Cua_Hang'] ?? '512222255555',
+        profileData['Tai_Khoan_Cua_Hang'] ?? '0071 0001 23456',
     'Ngan_Hang_Cua_Hang': profileData['Ngan_Hang_Cua_Hang'] ??
-        'Ngân hàng TMCP Quân đội (MB) — CN Đà Nẵng',
+        'Vietcombank - CN Sài Gòn',
     'Chu_Tai_Khoan_Cua_Hang':
         profileData['Chu_Tai_Khoan_Cua_Hang'] ?? legalName,
     'Nguoi_Dai_Dien_Cua_Hang':
-        profileData['Nguoi_Dai_Dien_Cua_Hang'] ?? 'Nguyễn Hoài Sang',
+        profileData['Nguoi_Dai_Dien_Cua_Hang'] ?? 'Nguyễn Văn Bình',
     'Chuc_Vu_Cua_Hang': profileData['Chuc_Vu_Cua_Hang'] ?? 'Giám đốc',
-    'MST_Khach_Hang': '4100543367',
-    'Ten_Cong_Ty_Khach': 'Công ty TNHH Đồ gỗ Nghĩa Tín',
-    'Tai_Khoan_Khach_Hang': '5810053610',
-    'Ngan_Hang_Khach_Hang': 'BIDV — CN Phú Tài',
-    'Nguoi_Dai_Dien_Khach': 'Huỳnh Lê Đại Phúc',
+    'MST_Khach_Hang': '0109876543',
+    'Ten_Cong_Ty_Khach': 'CÔNG TY CỔ PHẦN MINH AN',
+    'Tai_Khoan_Khach_Hang': '1903 5555 6666 01',
+    'Ngan_Hang_Khach_Hang': 'Techcombank',
+    'Nguoi_Dai_Dien_Khach': 'Lê Minh An',
     'Chuc_Vu_Khach': 'Giám đốc',
     'Tam_Ung': money.format(15252500),
     'Con_Lai_Hop_Dong': money.format(15252500),
@@ -303,7 +303,7 @@ Map<String, String> posPrintSampleData({
     'Ngay_HD_So': '16',
     'Thang_HD': '09',
     'Nam_HD': '2026',
-    'Ben_A_Ten': 'Công ty TNHH Đồ gỗ Nghĩa Tín',
+    'Ben_A_Ten': 'CÔNG TY CỔ PHẦN MINH AN',
     'Email_Khach_Hang': '',
     'Thue_Suat': '8%',
     'Cach_Tinh_VAT': 'Giá đã cộng thuế GTGT 8%.',
