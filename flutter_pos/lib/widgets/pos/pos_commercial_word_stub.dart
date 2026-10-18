@@ -11,6 +11,10 @@ import '../../utils/pos_print_template_defaults.dart';
 import '../../utils/pos_print_template_renderer.dart';
 import 'pos_html_preview_stub.dart';
 
+/// Có trình duyệt nhúng (WebView) để xem trước A4 bằng đúng CSS bản in — flutter_html không hiểu
+/// bảng 2 cột đầu trang / tiêu đề căn giữa / xuống dòng ghi chú nên xem trước lệch bản in.
+bool get posCommercialPreviewInBrowser => PosCommercialWordSurfaceState._useWebView;
+
 /// Android / iOS: soạn trên tờ A4 contenteditable (như Word).
 /// Desktop không có WebView: fallback ô chữ (ít dùng).
 class PosCommercialWordSurface extends StatefulWidget {
@@ -184,7 +188,7 @@ class PosCommercialWordSurfaceState extends State<PosCommercialWordSurface> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.editable) {
+    if (!widget.editable && !_useWebView) {
       return buildPosA4PaperPreview(widget.html);
     }
     if (!_useWebView) {
@@ -283,31 +287,20 @@ String _wrapDoc(String html, bool editable, PosCommercialPageSetup setup) {
 <meta name="viewport" content="width=${setup.cssWidth},initial-scale=1">
 <style>
   html,body{margin:0;background:#fff;}
+$posCommercialContentCss
   body{
-    font-family:"Times New Roman",Times,serif;
-    font-size:13px;line-height:1.35;color:#111;
     width:${setup.cssWidth}px;max-width:${setup.cssWidth}px;
     padding:${setup.paddingCss};box-sizing:border-box;
-    outline:none;word-wrap:break-word;overflow-wrap:break-word;
+    outline:none;overflow-x:hidden;
     min-height:${setup.cssHeight}px;
     caret-color:#2563eb;
   }
   body[contenteditable="true"]{cursor:text;}
-  h1,h2,h3{text-align:center;margin:8px 0;}
-  h2{font-size:16px;font-weight:bold;text-transform:uppercase;}
-  p{margin:2px 0;}
-  table{border-collapse:collapse;width:100%;max-width:100%;table-layout:fixed;margin:8px 0;}
-  th,td{vertical-align:top;word-wrap:break-word;overflow-wrap:break-word;}
-  table[style*="border:1px"] th, table[style*="border:1px"] td,
-  th[style*="border:1px"], td[style*="border:1px"]{
-    border:1px solid #111;
-  }
-  img{max-width:100%;height:auto;}
   #sbox-ruler{position:sticky;top:0;height:22px;background:#f8fafc;border-bottom:1px solid #cbd5e1;}
   #sbox-caret{position:absolute;top:0;width:2px;height:22px;background:#2563eb;}
 </style>
 </head>
-<body contenteditable="$edit"><div id="sbox-ruler" contenteditable="false"><div id="sbox-caret"></div></div>$body</body>
+<body contenteditable="$edit">${editable ? '<div id="sbox-ruler" contenteditable="false"><div id="sbox-caret"></div></div>' : ''}$body</body>
 <script>
 function _sboxFlush(){
   try{ SboxHost.postMessage(sboxCleanHtml()); }catch(e){}

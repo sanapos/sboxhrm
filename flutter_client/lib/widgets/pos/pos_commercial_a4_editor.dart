@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -1176,9 +1175,9 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _pageRuler(paperW),
-                        // Web: xem trước bằng chính trình duyệt (cùng CSS khung soạn + bản in) —
+                        // Web / Android / iOS: xem trước bằng trình duyệt (cùng CSS khung soạn + bản in) —
                         // flutter_html bỏ căn lề / font / cỡ chữ nên lệch với bản in.
-                        if (preview && !_htmlEditorOpen && kIsWeb)
+                        if (preview && !_htmlEditorOpen && posCommercialPreviewInBrowser)
                           PosA4UniformScale(
                             scale: scale,
                             child: SizedBox(

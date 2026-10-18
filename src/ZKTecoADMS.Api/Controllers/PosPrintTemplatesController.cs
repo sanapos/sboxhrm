@@ -334,7 +334,9 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
             return;
         }
         var specs = PosPrintTemplateDefaults.CatalogSpecs(documentType);
-        var existing = await dbContext.PosPrintTemplateCatalogs
+        // AsTracking: DbContext mặc định NoTracking — thiếu là sửa tên / HTML / tắt mẫu thừa không bao giờ lưu
+        // (báo giá còn mẫu chung «K80 ★» từ trước khi có A4, cửa hàng mới có thể nhận nhầm).
+        var existing = await dbContext.PosPrintTemplateCatalogs.AsTracking()
             .Where(t => t.DocumentType == documentType && t.Deleted == null)
             .ToListAsync();
 
@@ -342,6 +344,8 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         var created = 0;
         var updated = 0;
         var used = new HashSet<Guid>();
+        // HTML mẫu chung trước khi cập nhật — bản cửa hàng còn y hệt (chưa ai sửa) mới được theo bản mới.
+        var oldHtmlByCatalog = existing.ToDictionary(c => c.Id, c => c.HtmlContent);
         foreach (var spec in specs)
         {
             var html = PosPrintTemplateDefaults.BuildHtml(documentType, spec.PaperSize);
@@ -363,6 +367,11 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
                 if (row.IsRecommended != spec.IsRecommended)
                 {
                     row.IsRecommended = spec.IsRecommended;
+                    dirty = true;
+                }
+                if (!row.IsActive)
+                {
+                    row.IsActive = true;
                     dirty = true;
                 }
                 if (dirty)
@@ -388,7 +397,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
             });
             created++;
         }
-        foreach (var leftover in existing.Where(t => !used.Contains(t.Id)))
+        foreach (var leftover in existing.Where(t => !used.Contains(t.Id) && t.IsActive))
         {
             leftover.IsActive = false;
             leftover.UpdatedAt = now;
@@ -398,42 +407,86 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         if (created > 0 || updated > 0)
             await dbContext.SaveChangesAsync();
 
-        // Đồng bộ store template gắn catalog (A6/A7 cùng mẫu).
+        // Đồng bộ bản cửa hàng gắn mẫu chung (A6/A7 cùng mẫu) — chỉ bản còn nguyên như mẫu chung cũ;
+        // bản cửa hàng đã tự sửa (lời văn, lề, logo…) giữ nguyên.
         if (updated > 0)
         {
-            var catalogIds = existing.Select(c => c.Id).ToList();
-            var storeRows = await dbContext.PosPrintTemplates
+            var activeIds = existing.Where(c => used.Contains(c.Id)).Select(c => c.Id).ToList();
+            var storeRows = await dbContext.PosPrintTemplates.AsTracking()
                 .Where(t => t.DocumentType == documentType
                     && t.Deleted == null
                     && t.SourceCatalogId != null
-                    && catalogIds.Contains(t.SourceCatalogId.Value))
+                    && activeIds.Contains(t.SourceCatalogId.Value))
                 .ToListAsync();
             var catalogById = existing.ToDictionary(c => c.Id);
             var storeTouched = 0;
             foreach (var st in storeRows)
             {
-                if (!catalogById.TryGetValue(st.SourceCatalogId!.Value, out var cat)) continue;
-                var dirty = false;
-                if (!string.Equals(st.HtmlContent, cat.HtmlContent, StringComparison.Ordinal))
-                {
-                    st.HtmlContent = cat.HtmlContent;
-                    dirty = true;
-                }
-                if (!string.Equals(st.Name, cat.Name, StringComparison.Ordinal))
-                {
-                    st.Name = cat.Name;
-                    dirty = true;
-                }
-                if (dirty)
-                {
-                    st.UpdatedAt = now;
-                    st.UpdatedBy = "system";
-                    storeTouched++;
-                }
+                var cat = catalogById[st.SourceCatalogId!.Value];
+                var untouched = oldHtmlByCatalog.TryGetValue(cat.Id, out var oldHtml)
+                    && string.Equals(st.HtmlContent, oldHtml, StringComparison.Ordinal);
+                if (!untouched || string.Equals(st.HtmlContent, cat.HtmlContent, StringComparison.Ordinal))
+                    continue;
+                st.HtmlContent = cat.HtmlContent;
+                st.UpdatedAt = now;
+                st.UpdatedBy = "system";
+                storeTouched++;
             }
             if (storeTouched > 0)
                 await dbContext.SaveChangesAsync();
         }
+
+        if (IsCommercialDoc(documentType))
+            await RepairThermalCommercialTemplatesAsync(documentType, now);
+    }
+
+    static bool IsCommercialDoc(PosPrintDocumentType t) => t is PosPrintDocumentType.Quote
+        or PosPrintDocumentType.Contract or PosPrintDocumentType.Handover
+        or PosPrintDocumentType.Acceptance or PosPrintDocumentType.PaymentRequest;
+
+    /// <summary>Tên mẫu chung khổ nhiệt cũ — bản cửa hàng clone nhầm cho báo giá / hợp đồng mang tên này.</summary>
+    static readonly string[] ThermalCatalogNames = ["K80 ★", "K80", "K58", "K58 ★"];
+
+    /// <summary>
+    /// Báo giá / hợp đồng / biên bản là chứng từ A4: bản cửa hàng clone nhầm mẫu chung K80/K58 (mẫu chung cũ chưa
+    /// tắt được) → khổ A4, gắn mẫu chung A4. Nội dung còn là mẫu nhiệt (JSON V2, không dùng được cho A4) thì thay
+    /// bằng mẫu chuẩn A4; nội dung HTML (app đã tự đổi sang A4, có thể đã sửa) giữ nguyên — chỉ đổi tên «K80 ★».
+    /// </summary>
+    async Task<int> RepairThermalCommercialTemplatesAsync(PosPrintDocumentType documentType, DateTime now)
+    {
+        var rows = await dbContext.PosPrintTemplates.AsTracking()
+            .Where(t => t.DocumentType == documentType && t.Deleted == null
+                && (t.PaperSize == PosPrintPaperSize.K58 || t.PaperSize == PosPrintPaperSize.K80
+                    || ThermalCatalogNames.Contains(t.Name)))
+            .ToListAsync();
+        if (rows.Count == 0) return 0;
+
+        var catalogs = await dbContext.PosPrintTemplateCatalogs.AsNoTracking()
+            .Where(c => c.DocumentType == documentType && c.Deleted == null && c.IsActive)
+            .ToListAsync();
+
+        var touched = 0;
+        foreach (var t in rows)
+        {
+            var thermalPaper = t.PaperSize is PosPrintPaperSize.K58 or PosPrintPaperSize.K80;
+            var paper = thermalPaper ? PosPrintPaperSize.A4 : t.PaperSize;
+            var cat = catalogs.FirstOrDefault(c => c.IsActive && c.PaperSize == paper)
+                      ?? catalogs.FirstOrDefault(c => c.IsActive && c.PaperSize == PosPrintPaperSize.A4);
+            if (cat == null) continue;
+            var raw = (t.HtmlContent ?? "").TrimStart();
+            var unusable = raw.Length == 0 || raw.StartsWith("<!--POS_TEMPLATE_V2", StringComparison.Ordinal)
+                           || !raw.StartsWith('<');
+            if (string.IsNullOrEmpty(t.DocxFilePath) && unusable)
+                t.HtmlContent = cat.HtmlContent;
+            t.PaperSize = paper;
+            if (ThermalCatalogNames.Contains(t.Name)) t.Name = cat.Name;
+            t.SourceCatalogId = cat.Id;
+            t.UpdatedAt = now;
+            t.UpdatedBy = "system";
+            touched++;
+        }
+        if (touched > 0) await dbContext.SaveChangesAsync();
+        return touched;
     }
 
     async Task<bool> EnsureStoreHasAtLeastOneAsync(Guid storeId, PosPrintDocumentType documentType)

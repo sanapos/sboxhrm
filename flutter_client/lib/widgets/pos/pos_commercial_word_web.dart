@@ -8,6 +8,9 @@ import '../../utils/pos_commercial_editor_js.dart';
 import '../../utils/pos_print_template_defaults.dart';
 import '../../utils/pos_print_template_renderer.dart';
 
+/// Web: xem trước A4 bằng chính trình duyệt (cùng CSS bản in).
+bool get posCommercialPreviewInBrowser => true;
+
 /// Trang A4 contenteditable trên web — thanh công cụ gọi execCommand như Word.
 ///
 /// Chỉ đẩy `innerHTML` lại khi HTML từ parent thay đổi thật sự so với lần cuối

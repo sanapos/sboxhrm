@@ -306,7 +306,7 @@ Map<String, String> posPrintSampleData({
     'Ben_A_Ten': 'Công ty TNHH Đồ gỗ Nghĩa Tín',
     'Email_Khach_Hang': '',
     'Thue_Suat': '8%',
-    'Cach_Tinh_VAT': 'Giá đã cộng thuế GTGT 8%.',
+    'Cach_Tinh_VAT': 'Giá đã cộng thuế GTGT 8%',
     'Gia_Tri_Truoc_VAT': money.format(28245370),
     'Tien_Coc': money.format(9151500),
     'Phan_Tram_Coc': '30',
