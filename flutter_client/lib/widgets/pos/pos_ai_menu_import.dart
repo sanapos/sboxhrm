@@ -21,6 +21,33 @@ Future<bool> showPosAiMenuImport(BuildContext context, ApiService api) async {
   return created == true;
 }
 
+const _priceSuffix = r'(k|nghìn|ngàn|tr|triệu)';
+
+/// Giá gõ trên màn xem trước: "35.000" → 35000, "35k" → 35000, "1,2tr" → 1200000.
+double parseMenuPrice(String s) {
+  final t = s.toLowerCase().replaceAll(RegExp(r'\s'), '');
+  final m = RegExp('^([0-9]+(?:[.,][0-9]+)*)$_priceSuffix?').firstMatch(t);
+  if (m == null) return 0;
+  final suffix = m.group(2);
+  if (suffix == null) {
+    return double.tryParse(m.group(1)!.replaceAll(RegExp(r'[.,]'), '')) ?? 0;
+  }
+  final n = double.tryParse(m.group(1)!.replaceAll(',', '.')) ?? 0;
+  return (n * (suffix == 'tr' || suffix == 'triệu' ? 1000000 : 1000)).roundToDouble();
+}
+
+/// "M 30.000; L 38k" → [{name: M, price: 30000}, {name: L, price: 38000}]
+List<Map<String, dynamic>> parseMenuSizes(String text) {
+  final out = <Map<String, dynamic>>[];
+  final re = RegExp('^\\s*(.+?)\\s+([0-9][0-9.,\\s]*$_priceSuffix?)\\s*\$', caseSensitive: false);
+  for (final part in text.split(RegExp(r'[;\n]'))) {
+    final m = re.firstMatch(part);
+    if (m == null) continue;
+    out.add({'name': m.group(1)!.trim(), 'price': parseMenuPrice(m.group(2)!)});
+  }
+  return out;
+}
+
 class _MenuRow {
   _MenuRow(Map<String, dynamic> j)
       : include = j['existingProductId'] == null,
@@ -58,19 +85,7 @@ class _MenuRow {
         .join('; ');
   }
 
-  static double _money2num(String s) =>
-      double.tryParse(s.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-
-  /// "M 30.000; L 38.000" → [{name: M, price: 30000}, ...]
-  List<Map<String, dynamic>> parsedSizes() {
-    final out = <Map<String, dynamic>>[];
-    for (final part in sizes.text.split(RegExp(r'[;\n]'))) {
-      final m = RegExp(r'^\s*(.+?)\s+([0-9][0-9.,\s]*)\s*$').firstMatch(part);
-      if (m == null) continue;
-      out.add({'name': m.group(1)!.trim(), 'price': _money2num(m.group(2)!)});
-    }
-    return out;
-  }
+  List<Map<String, dynamic>> parsedSizes() => parseMenuSizes(sizes.text);
 
   Map<String, dynamic> toJson() {
     final sz = parsedSizes();
@@ -79,7 +94,7 @@ class _MenuRow {
       'category': category.text.trim().isEmpty ? null : category.text.trim(),
       'price': sz.isNotEmpty
           ? sz.map((s) => s['price'] as double).reduce((a, b) => a < b ? a : b)
-          : _money2num(price.text),
+          : parseMenuPrice(price.text),
       'sizes': sz,
       'unit': unit.isEmpty ? null : unit,
       'description': description,

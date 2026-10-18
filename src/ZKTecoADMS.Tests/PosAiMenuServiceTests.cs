@@ -103,4 +103,90 @@ public class PosAiMenuServiceTests
         Assert.Contains(variants, v => v.AttributeJson == "{\"Size\":\"L\"}" && v.BasePrice == 38000);
         Assert.Equal("catalog/x.jpg", products.Single(p => p.Name == "Trà đào").ImageUrl);
     }
+
+    static MenuItemDto Item(string name, decimal price, List<MenuSizeDto>? sizes = null,
+        string? category = null, Guid? sampleId = null) =>
+        new(name, category, price, sizes ?? [], null, null, null, sampleId, null, null, null);
+
+    [Fact]
+    public void NormalizePrice_single_size_keeps_its_price_when_ai_left_price_zero()
+    {
+        var (price, sizes) = PosAiMenuService.NormalizePrice(0, [new MenuSizeDto("Ly", 25000)]);
+        Assert.Equal(25000, price);
+        Assert.Empty(sizes);
+    }
+
+    [Fact]
+    public void NormalizePrice_size_without_price_does_not_drag_base_price_to_zero()
+    {
+        var (price, sizes) = PosAiMenuService.NormalizePrice(0,
+            [new MenuSizeDto("M", 0), new MenuSizeDto("L", 38000), new MenuSizeDto("S", 30000), new MenuSizeDto("s ", 31000)]);
+        Assert.Equal(30000, price);
+        Assert.Equal(["M", "L", "S"], sizes.Select(s => s.Name));
+    }
+
+    [Fact]
+    public async Task Import_uses_type_code_prefix_and_sample_billing_for_services()
+    {
+        using var db = NewDb();
+        var storeId = Guid.NewGuid();
+        var karaoke = new PosProductSampleCatalog
+        {
+            Id = Guid.NewGuid(), Name = "Phòng karaoke VIP", UnitName = "Giờ", IsActive = true,
+            ProductType = PosProductType.Service, ServiceBillingMode = PosServiceBillingMode.PerHour,
+        };
+        var topping = new PosProductSampleCatalog
+        {
+            Id = Guid.NewGuid(), Name = "Trân châu đen", UnitName = "Phần", IsActive = true, ProductType = PosProductType.Topping,
+        };
+        db.AddRange(karaoke, topping);
+        await db.SaveChangesAsync();
+
+        var result = await new PosAiMenuService(db, new FakeGemini("{}")).ImportAsync(storeId,
+        [
+            Item("Phòng VIP", 200000, sampleId: karaoke.Id),
+            Item("Trân châu đen", 5000, category: "Topping", sampleId: topping.Id),
+            Item("Cà phê sữa", 0, [new MenuSizeDto("M", 0), new MenuSizeDto("L", 35000)], "Cà phê"),
+        ], "tester", CancellationToken.None);
+
+        Assert.Equal(3, result.ProductsCreated);
+        var products = await db.PosProducts.ToDictionaryAsync(p => p.Name);
+        var room = products["Phòng VIP"];
+        Assert.Equal(PosProductType.Service, room.ProductType);
+        Assert.StartsWith("DV", room.ProductCode);
+        Assert.Equal(PosServiceBillingMode.PerHour, room.ServiceBillingMode);
+        Assert.Equal("Giờ", room.BaseUnitName);
+
+        var pearl = products["Trân châu đen"];
+        Assert.Equal(PosProductType.Topping, pearl.ProductType);
+        Assert.StartsWith("TP", pearl.ProductCode);
+        Assert.True(pearl.IsTopping);
+
+        var coffee = products["Cà phê sữa"];
+        Assert.Equal(PosProductType.Goods, coffee.ProductType);
+        Assert.StartsWith("HH", coffee.ProductCode);
+        Assert.Equal(35000, coffee.BasePrice);
+        var variants = await db.PosProductVariants.Where(v => v.ProductId == coffee.Id).ToListAsync();
+        Assert.All(variants, v => Assert.Equal(35000, v.BasePrice)); // size M chưa có giá → lấy giá món
+    }
+
+    [Fact]
+    public async Task Import_reports_duplicate_in_list_separately_from_existing()
+    {
+        using var db = NewDb();
+        var storeId = Guid.NewGuid();
+        db.Add(new PosProduct { Id = Guid.NewGuid(), StoreId = storeId, ProductCode = "HH00001", Name = "Trà đào", IsActive = true });
+        await db.SaveChangesAsync();
+
+        var result = await new PosAiMenuService(db, new FakeGemini("{}")).ImportAsync(storeId,
+        [
+            Item("Tra dao", 30000),
+            Item("Bạc xỉu", 29000, category: "Cà phê phin"),
+            Item("Bạc Xỉu", 32000, category: "Cà phê máy"),
+        ], "tester", CancellationToken.None);
+
+        Assert.Equal(1, result.ProductsCreated);
+        Assert.Equal(["Tra dao (đã có)", "Bạc Xỉu (trùng tên trong danh sách)"], result.Skipped);
+        Assert.Equal("HH00002", (await db.PosProducts.SingleAsync(p => p.Name == "Bạc xỉu")).ProductCode);
+    }
 }

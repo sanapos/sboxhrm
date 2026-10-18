@@ -84,13 +84,7 @@ public sealed class PosAiMenuService(ZKTecoDbContext db, IGeminiAiService gemini
         {
             var name = (r.Name ?? "").Trim();
             if (name.Length == 0 || !seen.Add(NameKey(name) + "|" + NameKey(r.Category))) continue;
-            var sizes = (r.Sizes ?? [])
-                .Where(s => !string.IsNullOrWhiteSpace(s.Name))
-                .Select(s => new MenuSizeDto(s.Name!.Trim(), Math.Max(0, s.Price)))
-                .DistinctBy(s => NameKey(s.Name))
-                .ToList();
-            if (sizes.Count == 1) sizes.Clear(); // 1 size = món một giá
-            var price = sizes.Count > 0 ? sizes.Min(s => s.Price) : Math.Max(0, r.Price);
+            var (price, sizes) = NormalizePrice(r.Price, (r.Sizes ?? []).Select(s => new MenuSizeDto(s.Name ?? "", s.Price)));
 
             // Chỉ nhận index AI trả về nếu có thật; không có thì thử trùng tên tuyệt đối.
             var match = r.CatalogIndex is int ci && ci >= 0 && ci < catalog.Count ? catalog[ci] : null;
@@ -144,14 +138,19 @@ public sealed class PosAiMenuService(ZKTecoDbContext db, IGeminiAiService gemini
                 .Select(v => v.SkuCode).ToListAsync(ct))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var nextNo = 1;
-        string NextCode()
+        // Mã theo loại hàng như thêm hàng thường (HH / DV / TP…).
+        var nextNo = new Dictionary<string, int>();
+        string NextCode(PosProductType type)
         {
+            var prefix = PosProductTypeRules.CodePrefix(type);
+            var n = nextNo.GetValueOrDefault(prefix, 1);
             string code;
-            do code = $"HH{nextNo++:D5}"; while (usedCodes.Contains(code));
+            do code = $"{prefix}{n++:D5}"; while (usedCodes.Contains(code));
+            nextNo[prefix] = n;
             usedCodes.Add(code);
             return code;
         }
+        var importedNames = new HashSet<string>();
 
         int catsCreated = 0, productsCreated = 0, variantsCreated = 0;
         var sort = 0;
@@ -159,7 +158,12 @@ public sealed class PosAiMenuService(ZKTecoDbContext db, IGeminiAiService gemini
         {
             var name = (item.Name ?? "").Trim();
             if (name.Length == 0) continue;
-            if (!existingNames.Add(NameKey(name)))
+            if (!importedNames.Add(NameKey(name)))
+            {
+                skipped.Add($"{name} (trùng tên trong danh sách)");
+                continue;
+            }
+            if (existingNames.Contains(NameKey(name)))
             {
                 skipped.Add($"{name} (đã có)");
                 continue;
@@ -184,7 +188,7 @@ public sealed class PosAiMenuService(ZKTecoDbContext db, IGeminiAiService gemini
             }
 
             var sizes = (item.Sizes ?? []).Where(s => !string.IsNullOrWhiteSpace(s.Name)).ToList();
-            var basePrice = sizes.Count > 0 ? sizes.Min(s => s.Price) : item.Price;
+            var basePrice = sizes.Count > 0 ? BasePriceOf(sizes) : Math.Max(0, item.Price);
             PosProductSampleCatalog? sample = null;
             if (item.SampleCatalogId is Guid sid) samples.TryGetValue(sid, out sample);
             var type = sample?.ProductType is PosProductType t && t is PosProductType.Goods or PosProductType.Service or PosProductType.Topping
@@ -193,7 +197,7 @@ public sealed class PosAiMenuService(ZKTecoDbContext db, IGeminiAiService gemini
             var unit = !string.IsNullOrWhiteSpace(item.Unit) ? item.Unit.Trim()
                 : !string.IsNullOrWhiteSpace(sample?.UnitName) ? sample!.UnitName!.Trim()
                 : "Phần";
-            var code = NextCode();
+            var code = NextCode(type);
             var product = new PosProduct
             {
                 Id = Guid.NewGuid(),
@@ -215,6 +219,15 @@ public sealed class PosAiMenuService(ZKTecoDbContext db, IGeminiAiService gemini
                 IsActive = true,
                 CreatedBy = actor,
             };
+            if (type == PosProductType.Service && sample != null)
+            {
+                // Giống thêm hàng từ mẫu: dịch vụ tính giờ / gói buổi lấy cách tính tiền của mẫu.
+                product.ServiceBillingMode = sample.ServiceBillingMode;
+                product.SessionPackCount = Math.Max(0, sample.SessionPackCount);
+                product.SessionPackValidDays = Math.Max(0, sample.SessionPackValidDays);
+                if (product.SessionPackCount > 0 && product.SessionPackValidDays <= 0)
+                    product.SessionPackValidDays = 90;
+            }
             db.PosProducts.Add(product);
             db.PosProductUnits.Add(new PosProductUnit
             {
@@ -234,7 +247,7 @@ public sealed class PosAiMenuService(ZKTecoDbContext db, IGeminiAiService gemini
                     SkuCode = sku,
                     Name = size.Name.Trim(),
                     AttributeJson = JsonSerializer.Serialize(new Dictionary<string, string> { ["Size"] = size.Name.Trim() }),
-                    BasePrice = size.Price,
+                    BasePrice = size.Price > 0 ? size.Price : basePrice,
                     IsActive = true,
                     CreatedBy = actor,
                 });
@@ -245,6 +258,29 @@ public sealed class PosAiMenuService(ZKTecoDbContext db, IGeminiAiService gemini
         await db.SaveChangesAsync(ct);
         return new MenuImportResultDto(catsCreated, productsCreated, variantsCreated, skipped);
     }
+
+    /// <summary>
+    /// Chuẩn hóa giá / size AI đọc: bỏ size trùng tên; chỉ 1 size = món một giá (giữ giá của size nếu AI để
+    /// price = 0); giá món = size rẻ nhất có giá (size chưa đọc được giá không kéo giá món về 0).
+    /// </summary>
+    public static (decimal Price, List<MenuSizeDto> Sizes) NormalizePrice(decimal rawPrice, IEnumerable<MenuSizeDto>? rawSizes)
+    {
+        var sizes = (rawSizes ?? [])
+            .Where(s => !string.IsNullOrWhiteSpace(s.Name))
+            .Select(s => new MenuSizeDto(s.Name.Trim(), Math.Max(0, s.Price)))
+            .DistinctBy(s => NameKey(s.Name))
+            .ToList();
+        var price = Math.Max(0, rawPrice);
+        if (sizes.Count == 1)
+        {
+            if (price <= 0) price = sizes[0].Price;
+            sizes.Clear();
+        }
+        return (sizes.Count > 0 ? BasePriceOf(sizes) : price, sizes);
+    }
+
+    static decimal BasePriceOf(IEnumerable<MenuSizeDto> sizes) =>
+        sizes.Where(s => s.Price > 0).Select(s => s.Price).DefaultIfEmpty(0).Min();
 
     sealed class RawSize
     {
