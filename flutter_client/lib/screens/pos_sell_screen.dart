@@ -928,6 +928,9 @@ class _PosSellScreenState extends State<PosSellScreen>
   Set<String> _billRequestedResourceIds = {};
   final Set<String> _checkoutPrintGuard = {};
   bool _mobileMergeSameOnAdd = true;
+  /// Nút «Quét mã» mở chế độ quét liên tục (không đóng sau 1 mã, bíp mỗi mã) — nhớ theo máy.
+  bool _mobileContinuousScan = false;
+  static const _kContinuousScanKey = 'pos_scan_continuous_v1';
   bool _mobileProductPickerOpen = false;
   /// Bản nháp chọn hàng (chưa vào đơn) — chỉ đồng bộ khi bấm xác nhận.
   final Map<String, double> _pickerDraftQty = {};
@@ -1344,6 +1347,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     WidgetsBinding.instance.addObserver(this);
     _startStorePrintPoll();
     unawaited(_loadCachedSlotIds());
+    unawaited(_loadMobileScanPref());
     // Đang xem "Tất cả chi nhánh" → hỏi bán tại chi nhánh nào (đơn, kho, quỹ gắn chi nhánh đó).
     if (BranchSession.instance.isAll) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -19041,15 +19045,34 @@ class _PosSellScreenState extends State<PosSellScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: _openMobileCameraScan,
+                  onPressed: _openMobileScan,
                   icon: const Icon(Icons.qr_code_scanner, size: 18),
-                  label: Text(tr('Quét mã'), style: TextStyle(fontSize: 14)),
+                  label: Text(
+                      tr(_mobileContinuousScan ? 'Quét liên tục' : 'Quét mã'),
+                      style: const TextStyle(fontSize: 14)),
                   style: FilledButton.styleFrom(
                     backgroundColor: PosTheme.kiotBlue,
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
+                  ),
+                ),
+              ),
+              // Tùy chọn quét liên tục: bật/tắt nhanh ngay cạnh nút quét.
+              Tooltip(
+                message: tr(_mobileContinuousScan
+                    ? 'Đang quét liên tục · chạm để tắt'
+                    : 'Bật quét liên tục (bíp mỗi mã)'),
+                child: IconButton(
+                  onPressed: _toggleMobileContinuousScan,
+                  icon: Icon(
+                    _mobileContinuousScan
+                        ? Icons.repeat_on_outlined
+                        : Icons.repeat_outlined,
+                    color: _mobileContinuousScan
+                        ? PosTheme.kiotBlue
+                        : SboxColors.slate400,
                   ),
                 ),
               ),
@@ -19219,6 +19242,37 @@ class _PosSellScreenState extends State<PosSellScreen>
           _onBarcodeScanned(code, mergeIfSame: _mobileMergeSameOnAdd),
     );
     if (mounted) setState(() {});
+  }
+
+  /// Nút «Quét mã» mở quét liên tục hay quét một lần tùy tùy chọn đã nhớ.
+  Future<void> _openMobileScan() async {
+    if (_mobileContinuousScan) {
+      await _openMobileContinuousScan();
+    } else {
+      await _openMobileCameraScan();
+    }
+  }
+
+  Future<void> _loadMobileScanPref() async {
+    try {
+      final on =
+          (await SharedPreferences.getInstance()).getBool(_kContinuousScanKey);
+      if (!mounted || on == null) return;
+      setState(() => _mobileContinuousScan = on);
+    } catch (_) {}
+  }
+
+  void _toggleMobileContinuousScan() {
+    setState(() => _mobileContinuousScan = !_mobileContinuousScan);
+    unawaited(SharedPreferences.getInstance()
+        .then((p) => p.setBool(_kContinuousScanKey, _mobileContinuousScan))
+        .catchError((_) => false));
+    NotificationOverlayManager().showInfo(
+      title: _mobileContinuousScan ? 'Đã bật quét liên tục' : 'Đã tắt quét liên tục',
+      message: tr(_mobileContinuousScan
+          ? 'Quét nhiều mã liên tục, bíp mỗi mã; bấm «Xong» để dừng.'
+          : 'Quét một mã rồi tự đóng.'),
+    );
   }
 
   Future<void> _openMobileLineDiscount(_SellCartLine line) async {

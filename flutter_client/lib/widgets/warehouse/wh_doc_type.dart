@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/sbox_tokens.dart';
 import '../../widgets/pos/pos_stock_issue_config.dart';
 
 /// Loại phiếu kho — dùng cho hub, list, detail, editor routing.
@@ -44,12 +45,13 @@ extension WhDocTypeX on WhDocType {
         WhDocType.internalUseIssue => Icons.outbox_rounded,
       };
 
+  // Màu theo loại phiếu — dùng token brand hệ thống (trước đây là bảng iOS nên lệch màu chung).
   Color get accentColor => switch (this) {
-        WhDocType.purchaseReceipt => const Color(0xFF007AFF),
-        WhDocType.purchaseReturn => const Color(0xFF5856D6),
-        WhDocType.stockCount => const Color(0xFF34C759),
-        WhDocType.damageIssue => const Color(0xFFFF3B30),
-        WhDocType.internalUseIssue => const Color(0xFFFF9500),
+        WhDocType.purchaseReceipt => SboxColors.brand600,
+        WhDocType.purchaseReturn => SboxColors.violet,
+        WhDocType.stockCount => SboxColors.success,
+        WhDocType.damageIssue => SboxColors.danger,
+        WhDocType.internalUseIssue => SboxColors.warning,
       };
 
   String get moduleCode => switch (this) {
