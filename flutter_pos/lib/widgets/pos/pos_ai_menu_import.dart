@@ -543,7 +543,7 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
                       SizedBox(
                         width: 150,
                         child: DropdownButtonFormField<String>(
-                          initialValue: r.type,
+                          value: r.type,
                           isExpanded: true,
                           decoration: deco('Loại'),
                           items: [
@@ -578,7 +578,7 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
                         SizedBox(
                           width: 160,
                           child: DropdownButtonFormField<String>(
-                            initialValue: r.billing,
+                            value: r.billing,
                             isExpanded: true,
                             decoration: deco('Tính tiền'),
                             items: [
