@@ -5704,6 +5704,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),
                       child: TextFormField(
+                        // Khóa theo size + NVL: chuyển chip size thì ô nhập dựng lại đúng số của size đó
+                        // (không khóa → ô giữ số của size trước, vd «Mọi size» hiện 150 của L).
+                        key: ValueKey('recipe:${c.sizeKey ?? '*'}:${c.componentProductId}'),
                         initialValue: c.qty == c.qty.roundToDouble()
                             ? c.qty.toStringAsFixed(0)
                             : c.qty.toString(),
@@ -5838,7 +5841,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       );
       return;
     }
-    final qty = await showComboComponentQtyDialog(context);
+    final qty = await showComboComponentQtyDialog(context, perWhat: 'món');
     if (qty == null || !mounted) return;
     setState(() {
       _recipeLines.add(PosComboLine(

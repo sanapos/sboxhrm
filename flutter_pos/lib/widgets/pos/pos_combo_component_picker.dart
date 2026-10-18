@@ -195,9 +195,11 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
 }
 
 /// Dialog nhập định lượng thành phần (SL trừ kho cho 1 combo).
+/// [perWhat]: «combo» (thành phần combo) hoặc «món» (định lượng nguyên vật liệu).
 Future<double?> showComboComponentQtyDialog(
   BuildContext context, {
   double initialQty = 1,
+  String perWhat = 'combo',
 }) async {
   final qtyCtrl = TextEditingController(
     text: PosQtyRules.format(initialQty, allowDecimal: true),
@@ -205,13 +207,13 @@ Future<double?> showComboComponentQtyDialog(
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(tr('Định lượng / 1 combo')),
+      title: Text(tr('Định lượng / 1 $perWhat')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            tr('Số lượng trừ kho khi bán 1 combo. Có thể lẻ (0.5, 0.05 kg…).'),
+            tr('Số lượng trừ kho khi bán 1 $perWhat. Có thể lẻ (0.5, 0.05 kg…).'),
             style: TextStyle(fontSize: 13, color: SboxColors.slate700),
           ),
           const SizedBox(height: 12),
