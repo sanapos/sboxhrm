@@ -612,7 +612,7 @@ Map<String, String> _quoteHeaderData(
         : (use.length == 1
             ? use.first.productName
             : '${use.first.productName} +${use.length - 1}'),
-    'Bao_Hanh': policy.isNotEmpty ? policy : months,
+    'Bao_Hanh': policy.isNotEmpty ? policy : (months.isNotEmpty ? months : 'Theo chính sách bảo hành của Bên B'),
   };
 }
 

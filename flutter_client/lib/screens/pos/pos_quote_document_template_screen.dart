@@ -240,6 +240,10 @@ class _PosQuoteDocumentTemplateScreenState extends State<PosQuoteDocumentTemplat
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Bàn phím mở / màn ngang thấp: ẩn dải hướng dẫn + ô «mẫu cho khách» để thấy văn bản.
+                if (MediaQuery.viewInsetsOf(context).bottom > 0 || MediaQuery.sizeOf(context).height < 600)
+                  const SizedBox.shrink()
+                else
                 Material(
                   color: SboxColors.brand50,
                   child: Padding(
@@ -252,7 +256,7 @@ class _PosQuoteDocumentTemplateScreenState extends State<PosQuoteDocumentTemplat
                     ),
                   ),
                 ),
-                _customerBar(),
+                if (MediaQuery.viewInsetsOf(context).bottom > 0) const SizedBox.shrink() else _customerBar(),
                 const Divider(height: 1),
                 Expanded(
                   child: PosCommercialA4Editor(

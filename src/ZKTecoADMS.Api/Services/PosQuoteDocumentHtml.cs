@@ -536,7 +536,10 @@ public static class PosQuoteDocumentHtml
             // giá đã gồm VAT → không chen dòng thuế vào giữa (đã ghi «Giá đã bao gồm thuế…» bên dưới).
             ["Tong_Tien_Hang"] = Money(lines.Sum(LineNet)),
             ["Chiet_Khau_Hoa_Don"] = Money(quote.Discount),
-            ["Tien_Thue"] = quote.VatMode == "included" ? "" : Money(quote.VatAmount),
+            // Giá đã gồm VAT: vẫn tách số thuế ra (trước để trống → dòng «Thuế GTGT» rỗng trên phiếu).
+            ["Tien_Thue"] = quote.VatMode == "included"
+                ? (quote.VatAmount > 0 ? $"(đã gồm {Money(quote.VatAmount)})" : "")
+                : Money(quote.VatAmount),
             ["Thue"] = Money(quote.VatAmount),
             ["VAT"] = Money(quote.VatAmount),
             ["Thue_Suat"] = quote.VatMode is "included" or "added" ? vatRateText + "%" : "",
@@ -563,14 +566,15 @@ public static class PosQuoteDocumentHtml
             // Cột «Thời hạn» chỉ hiện khi có đợt đặt hạn (trước đây cột trống luôn hiện).
             ["Co_Han_Dot"] = stageRows.Any(r => !string.IsNullOrEmpty(r["Dot_Han"])) ? "1" : "",
             [PosPrintTemplateHtmlRenderer.StagesKey] = System.Text.Json.JsonSerializer.Serialize(stageRows),
-            ["Ky_Han_Thi_Cong"] = term,
+            // Chưa đặt hạn: câu mặc định — trước để trống ra «Dự kiến  kể từ…», «trong vòng .».
+            ["Ky_Han_Thi_Cong"] = term.Length > 0 ? term : "theo thỏa thuận của hai bên",
             ["Ngay_San_Xuat"] = Day(quote.ProductionDueAt),
             ["Ngay_Lap_Dat"] = Day(quote.InstallDueAt),
             ["Ngay_Ban_Giao"] = Day(quote.HandoverDueAt),
-            ["Ky_Han_Thanh_Toan"] = stageRows.Count > 0 ? "theo tiến độ các đợt tại Điều 2" : "",
+            ["Ky_Han_Thanh_Toan"] = stageRows.Count > 0 ? "theo tiến độ các đợt tại Điều 2" : "thời hạn hai bên thỏa thuận",
             ["Hinh_Thuc_Thanh_Toan"] = payMethod,
             ["Dieu_Khoan"] = FirstText(quote.Terms, profile?.DefaultTerms),
-            ["Bao_Hanh"] = warranty,
+            ["Bao_Hanh"] = warranty.Length > 0 ? warranty : "Theo chính sách bảo hành của Bên B",
             ["Ton_Tai"] = "Không có.",
             ["Ghi_Chu"] = string.Join("\n", new[] { quote.Note, quote.ContractNote, extraNote }
                 .Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim()).Distinct()),

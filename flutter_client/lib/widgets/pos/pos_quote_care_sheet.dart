@@ -604,7 +604,9 @@ Map<String, String> _quoteHeaderData(
     'Han_Bao_Gia': q.validUntil == null ? '' : day.format(q.validUntil!.toLocal()),
     'Tong_Tien_Hang': money.format(use.fold<double>(0, (a, l) => a + _quoteLineAmount(l))),
     'Chiet_Khau_Hoa_Don': money.format(q.discount),
-    'Tien_Thue': q.vatMode == PosQuoteVat.included ? '' : money.format(vat),
+    'Tien_Thue': q.vatMode == PosQuoteVat.included
+        ? (vat > 0 ? '(đã gồm ${money.format(vat)})' : '')
+        : money.format(vat),
     'Thue': money.format(vat),
     'VAT': money.format(vat),
     'Thue_Suat': q.vatMode == PosQuoteVat.included || q.vatMode == PosQuoteVat.added ? '$rateText%' : '',
@@ -629,7 +631,7 @@ Map<String, String> _quoteHeaderData(
         : (use.length == 1
             ? use.first.productName
             : '${use.first.productName} +${use.length - 1}'),
-    'Bao_Hanh': policy.isNotEmpty ? policy : months,
+    'Bao_Hanh': policy.isNotEmpty ? policy : (months.isNotEmpty ? months : 'Theo chính sách bảo hành của Bên B'),
   };
 }
 

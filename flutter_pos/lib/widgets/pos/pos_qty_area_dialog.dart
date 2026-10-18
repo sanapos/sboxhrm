@@ -318,7 +318,10 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       title: Text(tr('Số lượng')),
-      content: SingleChildScrollView(
+      // Rộng cố định: trước co theo nội dung → bấm chip kích thước (ẩn gợi ý) hộp thu hẹp, nút «Áp dụng» chạy chỗ.
+      content: SizedBox(
+        width: (MediaQuery.sizeOf(context).width - 80).clamp(260.0, 440.0),
+        child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -362,6 +365,7 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
               ),
           ],
         ),
+      ),
       ),
       actions: [
         TextButton(

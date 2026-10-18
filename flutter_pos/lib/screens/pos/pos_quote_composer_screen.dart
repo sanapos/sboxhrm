@@ -2027,6 +2027,8 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         ],
             ),
           ),
+          // Đang gõ (tìm khách, SL…): ẩn nút chốt để không che gợi ý — màn ngang chỉ còn ~300px.
+          if (MediaQuery.viewInsetsOf(context).bottom == 0)
           SafeArea(
             top: false,
             child: Material(

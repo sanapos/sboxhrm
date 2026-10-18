@@ -22,7 +22,7 @@ Widget buildPosRenderedHtml(
   double? pageWidth,
 }) {
   final child = Html(
-    data: html,
+    data: wrapPosInlineBeforeBlock(html),
     shrinkWrap: shrinkWrap || !a4Width,
     extensions: const [PosPrintTableExtension(), PosPrintImageExtension()],
     style: {
@@ -320,6 +320,22 @@ bool posHtmlLooksLikeA4(String html) {
       t.contains('hợp đồng') ||
       t.contains('nghiệm thu') ||
       t.contains('bàn giao');
+}
+
+/// flutter_html 3 không tạo khối ẩn danh: `<div>chữ<br>chữ<div>…</div></div>` thì chữ và
+/// div con dính chung một dòng, mất căn giữa (quốc hiệu «Độc lập – Tự do…» + gạch dưới).
+/// Bọc phần chữ đứng trước div con vào một `<div>` riêng — trình duyệt / bản in hiển thị y hệt.
+String wrapPosInlineBeforeBlock(String html) {
+  final re = RegExp(
+    r'(<div\b[^>]*>)((?:(?!<div\b|</div>)[\s\S])*?(?!<div\b|</div>)\S(?:(?!<div\b|</div>)[\s\S])*?)(?=<div\b)',
+    caseSensitive: false,
+  );
+  return html.replaceAllMapped(re, (m) {
+    final inner = m.group(2)!;
+    // Chỉ khoảng trắng / comment → giữ nguyên.
+    if (inner.replaceAll(RegExp(r'<!--[\s\S]*?-->'), '').trim().isEmpty) return m.group(0)!;
+    return '${m.group(1)}<div>$inner</div>';
+  });
 }
 
 /// Bỏ vỏ `<html><head>…` khi In thử bọc document — preview chỉ lấy body như tab Xem.

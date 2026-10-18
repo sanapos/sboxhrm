@@ -161,11 +161,24 @@ public sealed class OfficePdfConverter(ILogger<OfficePdfConverter> logger)
     /// </summary>
     public Task<byte[]> HtmlToDocxAsync(string html, CancellationToken ct)
     {
-        var page = EnsureA4(WidthAttributesForWriter(SanitizeHtml(html)));
+        var page = EnsureA4(WidthAttributesForWriter(FirstFontFamily(SanitizeHtml(html))));
         byte[] bytes = [.. System.Text.Encoding.UTF8.GetPreamble(), .. System.Text.Encoding.UTF8.GetBytes(page)];
         // Mở bằng Writer (không phải Writer/Web) để giữ khổ A4, bảng, căn lề khi lưu .docx.
         return ConvertAsync(bytes, ".html", "docx:MS Word 2007 XML", "doc.docx", "HTML (StarWriter)", ct);
     }
+
+    static readonly Regex FontFamilyDecl = new(@"font-family\s*:\s*(""[^""<>;]*""[^;""}>]*|[^;""}>]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Writer lấy nguyên danh sách dự phòng làm tên font (file Word hiện font «Times New Roman;Times;serif»,
+    /// máy khác không có → đổi font) → chỉ giữ font đầu tiên.
+    /// </summary>
+    internal static string FirstFontFamily(string html) =>
+        FontFamilyDecl.Replace(html, m =>
+        {
+            var first = m.Groups[1].Value.Split(',')[0].Replace("&quot;", "").Replace("&#39;", "").Trim().Trim('\'', '"').Trim();
+            return first.Length == 0 ? m.Value : $"font-family:'{first}'";
+        });
 
     static readonly Regex TableCellTag = new(@"<(table|td|th|col)\b([^>]*)>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     static readonly Regex StyleWidth = new(@"(?<![-\w])width\s*:\s*([\d.]+)\s*(%|px)", RegexOptions.IgnoreCase | RegexOptions.Compiled);

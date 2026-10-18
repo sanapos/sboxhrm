@@ -209,7 +209,9 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
 
   bool get _compact {
     if (widget.compact) return true;
-    return MediaQuery.sizeOf(context).width < 800;
+    final size = MediaQuery.sizeOf(context);
+    // Màn ngang thấp (máy POS / điện thoại xoay ngang): đầu trang đầy đủ ~740px che hết giấy.
+    return size.width < 800 || size.height < 600;
   }
 
   @override
@@ -224,19 +226,23 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
         ],
       );
     }
+    // Đang gõ (bàn phím mở): thu gọn đầu trang — chỉ giữ thanh định dạng để thấy chỗ đang soạn.
+    // Giữ nguyên số phần tử con (không đổi vị trí khung giấy → không mất con trỏ khi bàn phím bật).
+    final typing = MediaQuery.viewInsetsOf(context).bottom > 0;
+    Widget unlessTyping(Widget w) => typing ? const SizedBox.shrink() : w;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.immersive) _immersiveBar() else _hintRow(),
+        unlessTyping(widget.immersive ? _immersiveBar() : _hintRow()),
         const SizedBox(height: 6),
         _ribbon(),
-        const SizedBox(height: 6),
-        _tokenBar(),
-        const SizedBox(height: 6),
-        _modeAndZoomRow(),
-        if (_zoomOpen) _zoomSlider(),
-        const SizedBox(height: 6),
-        _pageSetupPanel(compact: true),
+        unlessTyping(const SizedBox(height: 6)),
+        unlessTyping(_tokenBar()),
+        unlessTyping(const SizedBox(height: 6)),
+        unlessTyping(_modeAndZoomRow()),
+        unlessTyping(_zoomOpen ? _zoomSlider() : const SizedBox.shrink()),
+        unlessTyping(const SizedBox(height: 6)),
+        unlessTyping(_pageSetupPanel(compact: true)),
         const SizedBox(height: 8),
         Expanded(child: _paperCanvas(preview: _tab == 1)),
       ],
