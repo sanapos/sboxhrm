@@ -26,6 +26,9 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../utils/asset_ui.dart';
+import '../utils/asset_qr_label_print.dart';
+import '../utils/excel_report_builder.dart';
+import '../providers/auth_provider.dart';
 import 'assets/asset_dashboard_view.dart';
 class AssetManagementScreen extends StatefulWidget {
   const AssetManagementScreen({super.key});
@@ -265,6 +268,27 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     );
   }
 
+  // ==================== IN TEM QR ====================
+  /// Tài sản sẽ in: đang chọn (nếu có), không thì toàn bộ danh sách đang hiển thị.
+  List<Asset> get _qrPrintTargets {
+    if (_selectedAssetIds.isEmpty) return _assets;
+    return _assets.where((a) => _selectedAssetIds.contains(a.id)).toList();
+  }
+
+  Future<void> _printQrLabels(List<Asset> assets) async {
+    if (assets.isEmpty) {
+      NotificationOverlayManager().showError(title: 'Chưa có tài sản', message: 'Chọn tài sản cần in tem QR');
+      return;
+    }
+    final auth = context.read<AuthProvider>();
+    final company = ExcelReportContext.resolve(
+      token: auth.token,
+      email: auth.user?.email,
+      fullName: auth.user?.fullName,
+    ).storeName;
+    await showAssetQrLabelPrintDialog(context, assets: assets, companyName: company);
+  }
+
   Future<void> _lookupAssetByCode(String code) async {
     final result = await SafeNavigator.runWithLoadingDialog(
       context: context,
@@ -422,6 +446,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         icon: Icons.qr_code_scanner,
         label: 'Quét QR tài sản',
         onPressed: _showQrScanDialog,
+      ),
+      HrmTopBarAction(
+        icon: Icons.qr_code_2_rounded,
+        label: _selectedAssetIds.isEmpty ? 'In tem QR' : 'In tem QR (${_selectedAssetIds.length})',
+        onPressed: () => _printQrLabels(_qrPrintTargets),
       ),
       if (canCreate)
         HrmTopBarAction(
@@ -1477,6 +1506,18 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     fontSize: 13)),
             const SizedBox(width: 8),
             InkWell(
+              key: const ValueKey('asset-selected-print-qr'),
+              onTap: () => _printQrLabels(_qrPrintTargets),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.qr_code_2_rounded, size: 16, color: HrmPageChrome.primaryNavy),
+                const SizedBox(width: 3),
+                Text(tr('In tem QR'),
+                    style: const TextStyle(
+                        color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w700, fontSize: 13)),
+              ]),
+            ),
+            const SizedBox(width: 10),
+            InkWell(
               onTap: () => setState(() => _selectedAssetIds.clear()),
               child: const Icon(Icons.close,
                   size: 16, color: HrmPageChrome.primaryNavy),
@@ -1622,9 +1663,17 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: SboxColors.slate200),
           ),
+          foregroundDecoration: _selectedAssetIds.contains(asset.id)
+              ? BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: HrmPageChrome.primaryNavy, width: 2),
+                )
+              : null,
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
-            onTap: () => _showAssetDetail(asset),
+            // Nhấn giữ để chọn nhiều (in tem QR hàng loạt); đang chọn thì chạm để chọn / bỏ chọn.
+            onLongPress: () => setState(() => _toggleSelected(asset)),
+            onTap: () => _selectedAssetIds.isEmpty ? _showAssetDetail(asset) : setState(() => _toggleSelected(asset)),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
@@ -1704,6 +1753,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         );
       },
     );
+  }
+
+  void _toggleSelected(Asset asset) {
+    if (!_selectedAssetIds.remove(asset.id)) _selectedAssetIds.add(asset.id);
   }
 
   Widget _miniTag(IconData icon, String text, Color fg, Color bg) => Container(
@@ -1862,6 +1915,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           itemBuilder: (context) => [
             _buildPopupItem('view', Icons.visibility_outlined, 'Xem chi tiết'),
+            _buildPopupItem('print_qr', Icons.qr_code_2_rounded, 'In tem QR'),
             if (Provider.of<PermissionProvider>(context, listen: false).canEdit('Asset'))
             _buildPopupItem('edit', Icons.edit_outlined, 'Chỉnh sửa'),
             const PopupMenuDivider(),
@@ -2822,6 +2876,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _assetQrBlock(asset),
+                      const SizedBox(height: 16),
                       _detailSection('Thông tin chung', [
                         if (asset.qrCode != null && asset.qrCode != asset.assetCode) _detailRow('Mã QR', asset.qrCode!),
                         _detailRow('Loại', getAssetTypeLabel(asset.assetType)),
@@ -2972,6 +3028,13 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       label: Text(tr('Sửa')),
                       style: OutlinedButton.styleFrom(foregroundColor: SboxColors.slate600),
                     ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      key: const ValueKey('asset-detail-print-qr'),
+                      onPressed: () => _printQrLabels([asset]),
+                      icon: const Icon(Icons.qr_code_2_rounded, size: 16),
+                      label: Text(tr(isMobile ? 'Tem QR' : 'In tem QR')),
+                    ),
                     const Spacer(),
                     if (asset.currentAssigneeId == null)
                       FilledButton.icon(
@@ -3066,6 +3129,46 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           ),
         );
       },
+    );
+  }
+
+  /// Mã QR của tài sản (đúng nội dung in trên tem) + nút in tem.
+  Widget _assetQrBlock(Asset asset) {
+    final payload = assetQrPayload(asset);
+    if (payload.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: SboxColors.slate200),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: AssetQrCodeView(key: const ValueKey('asset-detail-qr'), data: payload, size: 112),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(tr('Mã QR tài sản'), style: const TextStyle(color: SboxColors.slate400, fontSize: 12)),
+                const SizedBox(height: 2),
+                SelectableText(payload,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: SboxColors.slate900)),
+                const SizedBox(height: 4),
+                Text(tr('Dán tem lên tài sản — quét bằng «Quét QR tài sản» hoặc khi kiểm kê để mở đúng tài sản.'),
+                    style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -4099,6 +4202,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   void _handleAssetAction(Asset asset, String action) {
     switch (action) {
       case 'view': _showAssetDetail(asset); break;
+      case 'print_qr': _printQrLabels([asset]); break;
       case 'edit': _showAssetDialog(asset: asset); break;
       case 'assign': _showAssignDialog(asset); break;
       case 'transfer': _showTransferDialog(asset); break;
@@ -4385,7 +4489,7 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                                 if (_hasScanned) return;
                                 final barcodes = capture.barcodes;
                                 if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
-                                  final code = barcodes.first.rawValue!;
+                                  final code = barcodes.first.rawValue!.trim();
                                   setState(() => _hasScanned = true);
                                   widget.onAssetScanned(code);
                                 }

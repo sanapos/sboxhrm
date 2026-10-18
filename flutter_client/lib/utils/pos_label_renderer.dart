@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -406,6 +407,91 @@ class PosLabelRenderer {
     final image = await picture.toImage(w, h);
     return _imageToRaster(image);
   }
+
+  /// Tem QR tài sản (khổ ngang, vd 40×30 / 50×30): QR bên trái, bên phải tên công ty, mã tài sản (đậm),
+  /// tên tài sản, vị trí / người đang giữ. Trả ảnh để xem trước, xuất PDF hoặc chuyển raster cho máy tem.
+  static Future<ui.Image> renderAssetQrLabelImage({
+    required String qrData,
+    required String assetCode,
+    required String assetName,
+    String? holder,
+    String? companyName,
+    double widthMm = 50,
+    double heightMm = 30,
+    int dpi = 203,
+  }) async {
+    await PosThermalBitmapEncoder.ensureFont();
+    final w = mmToDots(widthMm, dpi);
+    final h = mmToDots(heightMm, dpi);
+    final k = dpi / 203;
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.drawRect(
+      ui.Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()),
+      ui.Paint()..color = const ui.Color(0xFFFFFFFF),
+    );
+    final pad = 1.5 * dpi / 25.4;
+    final qrSize = math.min(h - pad * 2, w * 0.5);
+    _drawQr(canvas, qrData, ui.Rect.fromLTWH(pad, (h - qrSize) / 2, qrSize, qrSize));
+
+    final x = pad + qrSize + 2 * dpi / 25.4;
+    final cw = w - x - pad;
+    final bottom = h - pad;
+    var y = pad;
+    final company = (companyName ?? '').trim();
+    if (company.isNotEmpty) {
+      y += await _drawText(canvas, company, x, y, cw, fontSize: 13 * k, bold: true, maxLines: 1);
+      y += 3 * k;
+    }
+    // Mã tài sản là chữ người đọc đối chiếu → thu nhỏ cho vừa 1 dòng, không ngắt giữa mã.
+    var codeSize = 21 * k;
+    while (codeSize > 12 * k) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: assetCode.trim(),
+          style: vietnameseTextStyle(TextStyle(fontSize: codeSize, fontWeight: FontWeight.w700, height: 1.08)),
+        ),
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
+      if (tp.width <= cw) break;
+      codeSize -= 1 * k;
+    }
+    y += await _drawText(canvas, assetCode, x, y, cw,
+        fontSize: codeSize, bold: true, maxLines: 2, maxHeight: bottom - y);
+    y += 3 * k;
+    final who = (holder ?? '').trim();
+    // Chừa chỗ cho dòng vị trí / người giữ ở đáy tem.
+    final holderH = who.isEmpty ? 0.0 : 30 * k;
+    y += await _drawText(canvas, assetName, x, y, cw,
+        fontSize: 15 * k, maxLines: 3, maxHeight: bottom - holderH - y);
+    if (who.isNotEmpty) {
+      await _drawText(canvas, who, x, math.max(y + 2 * k, bottom - holderH), cw,
+          fontSize: 12.5 * k, maxLines: 2, maxHeight: bottom - math.max(y + 2 * k, bottom - holderH));
+    }
+    return recorder.endRecording().toImage(w, h);
+  }
+
+  static Future<({Uint8List raster, int widthPx, int heightPx})> renderAssetQrLabel({
+    required String qrData,
+    required String assetCode,
+    required String assetName,
+    String? holder,
+    String? companyName,
+    double widthMm = 50,
+    double heightMm = 30,
+    int dpi = 203,
+  }) async =>
+      _imageToRaster(await renderAssetQrLabelImage(
+        qrData: qrData,
+        assetCode: assetCode,
+        assetName: assetName,
+        holder: holder,
+        companyName: companyName,
+        widthMm: widthMm,
+        heightMm: heightMm,
+        dpi: dpi,
+      ));
 
   /// Dùng chung cho tem thiết kế tự do (PosLabelDesignPainter).
   static void paintBarcode(ui.Canvas canvas, String data, ui.Rect rect) => _drawBarcode(canvas, data, rect);

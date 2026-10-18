@@ -862,6 +862,8 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     {
         if (string.IsNullOrWhiteSpace(code))
             return BadRequest(AppResponse<object>.Error("Mã không hợp lệ"));
+        // Máy quét / camera có thể kèm khoảng trắng, xuống dòng sau nội dung tem QR.
+        code = code.Trim();
 
         var asset = await _context.Assets
             .Where(a => a.StoreId == RequiredStoreId && a.IsActive &&
@@ -930,8 +932,9 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         if (inventory.Status != 0)
             return BadRequest(AppResponse<object>.Error("Đợt kiểm kê đã kết thúc"));
 
+        var code = (request.Code ?? "").Trim();
         var item = inventory.Items.FirstOrDefault(i =>
-            i.Asset != null && (i.Asset.QrCode == request.Code || i.Asset.AssetCode == request.Code));
+            i.Asset != null && (i.Asset.QrCode == code || i.Asset.AssetCode == code));
 
         if (item == null)
             return NotFound(AppResponse<object>.Error("Tài sản với mã " + request.Code + " không nằm trong đợt kiểm kê này"));
