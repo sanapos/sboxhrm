@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../models/pos_sell_industry.dart';
+import '../../services/api_service.dart';
 import '../../utils/pos_sell_print_settings.dart';
 import '../../utils/pos_thermal_printer_settings.dart';
 import '../../widgets/hrm_page_chrome.dart';
@@ -23,6 +25,8 @@ class _PosPrinterSettingsHubScreenState
   PosSellPrintSettings? _print;
   PosThermalPrinterSettings? _thermal;
   bool _loading = true;
+  // Mặc định hiện mục bếp; chỉ ẩn khi biết chắc ngành không báo bếp (F&B).
+  bool _showKitchen = true;
 
   @override
   void initState() {
@@ -33,10 +37,20 @@ class _PosPrinterSettingsHubScreenState
   Future<void> _load() async {
     final print = await PosSellPrintSettings.load();
     final thermal = await PosThermalPrinterSettings.load();
+    bool showKitchen = true;
+    try {
+      final res = await ApiService().getPosSellSettings();
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        final dto = PosStoreSellSettingsDto.fromJson(
+            Map<String, dynamic>.from(res['data'] as Map));
+        showKitchen = dto.sellProfile.usesKitchenNotify;
+      }
+    } catch (_) {}
     if (!mounted) return;
     setState(() {
       _print = print;
       _thermal = thermal;
+      _showKitchen = showKitchen;
       _loading = false;
     });
   }
@@ -68,6 +82,7 @@ class _PosPrinterSettingsHubScreenState
     return PosSellMobilePrintSettingsScreen(
       initialPrintSettings: _print!,
       initialThermalSettings: _thermal!,
+      showKitchen: _showKitchen,
     );
   }
 }

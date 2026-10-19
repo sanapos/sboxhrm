@@ -12094,9 +12094,11 @@ class _PosSellScreenState extends State<PosSellScreen>
               if (e.toLowerCase() != paidResourceId) e,
           };
         }
+        // TT xong: luôn thoát màn thanh toán, quay về đơn/giỏ. Trước đây chỉ reset
+        // cho F&B (useFloor) nên bán lẻ/tablet kẹt lại màn thanh toán sau khi TT.
+        _tabletPaymentStage = false;
         if (useFloor) {
           _floorMapVisible = true;
-          _tabletPaymentStage = false;
           // Không bump epoch — tránh remount sơ đồ chậm; poll/flags đủ cập nhật Free.
         }
       });
@@ -13231,6 +13233,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           builder: (_) => PosSellMobilePrintSettingsScreen(
             initialPrintSettings: _printSettings,
             initialThermalSettings: _thermalPrintSettings,
+            showKitchen: _sellProfile.usesKitchenNotify,
           ),
         ),
       );
@@ -13254,6 +13257,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final updated = await showPosSellPrintPopover(
       context,
       initial: _printSettings,
+      showKitchen: _sellProfile.usesKitchenNotify,
       anchor: Offset(
         offset.dx - (box != null ? 260 : 0),
         offset.dy + (box?.size.height ?? 40),
@@ -17346,7 +17350,9 @@ class _PosSellScreenState extends State<PosSellScreen>
       );
     }
 
-    final showKitchenChip =
+    // Chip «In bếp» chỉ cho ngành có báo bếp (F&B). Bán lẻ/salon/gym… không hiện,
+    // dù thiết lập in bếp còn sót lại từ ngành cũ.
+    final showKitchenChip = _sellProfile.usesKitchenNotify &&
         _printSettings.kitchenSlipPrintMode != PosKitchenSlipPrintMode.off;
     final showCupChip = _printSettings.cupLabelPrintMode.enabled;
 
