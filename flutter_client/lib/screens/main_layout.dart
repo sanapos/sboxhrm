@@ -1,5 +1,6 @@
 import '../utils/tray_notification_guard.dart';
 import '../utils/pos_sell_settings_helper.dart';
+import '../models/pos_sell_industry.dart';
 import '../utils/pos_commercial_template_autoupgrade.dart';
 import '../services/branch_session.dart';
 import '../utils/module_deep_link_stub.dart'
@@ -364,6 +365,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   final Set<String> _collapsedGroups = {};
   final List<int> _navigationHistory = [];
   final ApiService _apiService = ApiService();
+  /// Ngành hàng cửa hàng — ẩn mục tìm chức năng chỉ F&B (topping, hủy bếp).
+  PosSellProfile? _posSellProfile;
   final SignalRService _signalRService = SignalRService();
   final NotificationOverlayManager _notificationManager =
       NotificationOverlayManager();
@@ -415,15 +418,19 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   List<SboxCommandItem> _posExtraCommandItems() {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     final known = {for (final i in _visibleNavIndices()) _navItems[i].label.toLowerCase()};
+    // Mục chỉ F&B (topping, hủy bếp) — ẩn khỏi ô tìm chức năng khi cửa hàng không phải nhà hàng / cafe.
+    final fnb = _posSellProfile?.usesFnbItemTypes ?? true;
     final defs = <(String, IconData, String, List<String>, Widget Function())>[
       ('Voucher', Icons.confirmation_number_outlined, 'PosProducts', ['mã giảm giá'], () => const PosVouchersScreen()),
       ('Khuyến mãi', Icons.local_offer_outlined, 'PosPromotions', ['giờ vàng', 'mua x tặng y', 'đồng giá', 'combo', 'giảm giá'], () => const PosPromotionsScreen()),
       ('Bảng giá', Icons.price_change_outlined, 'PosProducts', ['giá bán', 'price list'], () => const PosPriceListsScreen()),
-      ('Nhóm topping', Icons.local_cafe_outlined, 'PosProducts', ['topping', 'món thêm'], () => const PosToppingGroupsScreen()),
+      if (fnb)
+        ('Nhóm topping', Icons.local_cafe_outlined, 'PosProducts', ['topping', 'món thêm'], () => const PosToppingGroupsScreen()),
       ('Ca thu ngân', Icons.account_balance_wallet_outlined, 'PosCashierShift', ['giao ca', 'mở ca', 'chốt ca'], () => const PosCashierShiftScreen()),
       ('Xác nhận chuyển khoản', Icons.payments_outlined, 'PosSell', ['ck', 'vietqr'], () => const PosTransferConfirmScreen()),
       ('Lịch sử hủy / trả', Icons.history, 'PosSell', ['hủy đơn', 'trả hàng'], () => const PosCancelReturnHistoryScreen()),
-      ('Phiếu hủy bếp', Icons.no_meals_outlined, 'PosKds', ['hủy món', 'hủy bếp', 'kitchen void'], () => const PosKitchenVoidListScreen()),
+      if (fnb)
+        ('Phiếu hủy bếp', Icons.no_meals_outlined, 'PosKds', ['hủy món', 'hủy bếp', 'kitchen void'], () => const PosKitchenVoidListScreen()),
       ('Đơn online', Icons.delivery_dining_outlined, 'PosQrOrder', ['đặt online', 'giao hàng'], () => const PosQrOnlineOrdersScreen()),
       // Màn hai tab chỉ dành cho Thiết lập SBOX (hub vẽ tiêu đề); mở riêng thì dùng từng màn có thanh tiêu đề.
       ('Máy in', Icons.print_outlined, 'PosPrinters', ['in hóa đơn', 'in bếp', 'máy in bill', 'thiết lập in'], () => const PosPrinterSettingsHubScreen()),
@@ -488,7 +495,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _loadSidebarPreference();
     unawaited(_restoreLastNavIndex());
     // Giờ cắt ngày qua đêm cho bộ lọc «Hôm nay / Hôm qua…» ở mọi màn báo cáo POS (lỗi quyền / HRM-only thì bỏ qua).
-    unawaited(PosSellSettingsHelper(ApiService()).load().catchError((_) => (settings: null, error: null)));
+    unawaited(PosSellSettingsHelper(ApiService()).load().then((res) {
+      final p = res.settings?.sellProfile;
+      if (mounted && p != null) setState(() => _posSellProfile = p);
+    }).catchError((_) {}));
     MobileBottomNavPrefs.loadAll();
     MobileBottomNavPrefs.revision.addListener(_onMobileNavPrefsChanged);
     MobileQuickActionsPrefs.revision.addListener(_onMobileNavPrefsChanged);

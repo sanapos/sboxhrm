@@ -249,6 +249,13 @@ enum PosSellProfile {
 
   bool get usesKitchenNotify => this == PosSellProfile.restaurant;
 
+  /// Loại hàng F&B (topping, nguyên vật liệu) — chỉ nhà hàng / cafe dùng.
+  bool get usesFnbItemTypes => this == PosSellProfile.restaurant;
+
+  /// Bán theo gói buổi / thẻ tập (spa, gym) — bán lẻ / F&B / phòng giờ không dùng.
+  bool get usesSessionPackages =>
+      this == PosSellProfile.salon || this == PosSellProfile.gym;
+
   bool get usesWarehouseSlip =>
       this == PosSellProfile.retail || this == PosSellProfile.gym;
 
