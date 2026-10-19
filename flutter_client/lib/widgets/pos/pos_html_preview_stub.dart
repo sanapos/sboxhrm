@@ -11,6 +11,20 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../../utils/pos_print_template_defaults.dart';
 
 import '../../theme/sbox_tokens.dart';
+/// flutter_html 3: khối căn giữa (`text-align:center` trên h2/div) ở chế độ
+/// shrink-wrap co về bề rộng nội dung → tiêu đề 2 từ như «BẢNG BÁO GIÁ» bị bẻ
+/// xuống dòng. Bảng thì luôn giãn hết dòng (qua table extension) và ô hỗ trợ
+/// `white-space:nowrap`. Đổi `<h2>` tiêu đề thành bảng 1 ô full-width, căn giữa,
+/// nowrap → render 1 dòng, căn giữa như trình duyệt / bản in.
+final _h2TitleRe = RegExp(r'<h2\b[^>]*>([\s\S]*?)</h2>', caseSensitive: false);
+String _posFixCenteredHeading(String html) => html.replaceAllMapped(
+      _h2TitleRe,
+      (m) =>
+          '<table style="width:100%;border-collapse:collapse;margin:14px 0 10px">'
+          '<tr><td style="text-align:center;font-weight:bold;font-size:20px;'
+          'white-space:nowrap;border:none;padding:0">${m.group(1) ?? ''}</td></tr></table>',
+    );
+
 /// Render HTML mẫu in (kèm bảng — flutter_html 3 tách table ra extension).
 Widget buildPosRenderedHtml(
   String html, {
@@ -22,7 +36,7 @@ Widget buildPosRenderedHtml(
   double? pageWidth,
 }) {
   final child = Html(
-    data: html,
+    data: _posFixCenteredHeading(html),
     shrinkWrap: shrinkWrap || !a4Width,
     extensions: const [PosPrintTableExtension(), PosPrintImageExtension()],
     style: {
