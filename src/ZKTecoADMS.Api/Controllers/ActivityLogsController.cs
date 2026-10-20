@@ -200,6 +200,53 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
     static string? Str(JsonElement e, string name) =>
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
+    /// <summary>Loại bản ghi con (dòng / biến động / snapshot) — không nên là bản ghi chính của dòng nhật ký.</summary>
+    static readonly HashSet<string> DetailTypes = new(StringComparer.Ordinal)
+    {
+        "PosStockTransaction", "StockTransaction", "PosSaleCommissionLine", "PosCustomerPointTransaction",
+        "PosCustomerSessionTransaction", "PayslipAttendanceSnapshot", "PosShipmentEvent", "PosQuoteActivity",
+        "TaskHistory", "PosResourceSession", "PosStockLot", "ApprovalRecord", "ApprovalStep",
+    };
+
+    static bool IsDetailType(string? t) =>
+        t != null && (t.EndsWith("Line", StringComparison.Ordinal) || DetailTypes.Contains(t));
+
+    /// <summary>Chọn bản ghi chính để đặt tên dòng: ưu tiên chứng từ gốc (không phải dòng con) khớp thao tác.</summary>
+    static JsonElement PickMain(List<JsonElement> list, string action)
+    {
+        JsonElement? headAction = null, anyAction = null, head = null;
+        foreach (var c in list)
+        {
+            var op = Str(c, "op");
+            var ty = Str(c, "type");
+            if (op == action && !IsDetailType(ty)) headAction ??= c;
+            if (op == action) anyAction ??= c;
+            if (!IsDetailType(ty)) head ??= c;
+        }
+        return headAction ?? anyAction ?? head ?? list[0];
+    }
+
+    /// <summary>Tên dòng nhật ký: «Loại «nhãn»» + với thao tác Sửa thì ghèm 1–2 trường đổi (cũ → mới) để biết «sửa gì».</summary>
+    static string BuildEntityName(JsonElement main, string type, string action, int count)
+    {
+        var baseName = ActivityLabels.Summary(type, Str(main, "label"), count);
+        if (action != "Update" || !main.TryGetProperty("fields", out var fs) || fs.ValueKind != JsonValueKind.Array)
+            return baseName;
+        var parts = new List<string>();
+        foreach (var f in fs.EnumerateArray())
+        {
+            if (parts.Count >= 2) break;
+            var fn = ActivityLabels.Field(Str(f, "field"));
+            if (string.IsNullOrWhiteSpace(fn)) continue;
+            var ov = ActivityLabels.Value(Str(f, "old")) ?? "—";
+            var nv = ActivityLabels.Value(Str(f, "new")) ?? "—";
+            parts.Add($"{fn}: {ov} → {nv}");
+        }
+        if (parts.Count == 0) return baseName;
+        var s = $"{baseName} · {string.Join("; ", parts)}";
+        return s.Length > 300 ? s[..300] : s;
+    }
+
     /// <summary>Chi tiết đã Việt hóa: tên loại, tên trường, giá trị (áp dụng cả nhật ký cũ).</summary>
     internal static object LocalizedDetails(string? json)
     {
@@ -270,10 +317,12 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
                         fieldCount += fs.GetArrayLength();
                 // Dựng lại tóm tắt bằng tiếng Việt (nhật ký cũ lưu tên kỹ thuật).
                 var list = c.EnumerateArray().ToList();
-                var main = list.FirstOrDefault(x => Str(x, "op") == a.Action);
-                if (main.ValueKind == JsonValueKind.Undefined && list.Count > 0) main = list[0];
-                if (main.ValueKind == JsonValueKind.Object && Str(main, "type") is { } type)
-                    entityName = ActivityLabels.Summary(type, Str(main, "label"), count);
+                if (list.Count > 0)
+                {
+                    var main = PickMain(list, a.Action);
+                    if (main.ValueKind == JsonValueKind.Object && Str(main, "type") is { } type)
+                        entityName = BuildEntityName(main, type, a.Action, count);
+                }
             }
         }
         catch (JsonException) { }
