@@ -77,17 +77,35 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         return base.SavingChangesAsync(eventData, result, cancellationToken);
     }
 
+    static readonly string[] OrderFkNames = ["SaleOrderId", "OrderId", "PosSaleOrderId"];
+
+    static string? PkOf(EntityEntry e) => e.Metadata.FindPrimaryKey()?.Properties
+        .Select(p => e.Property(p.Name).CurrentValue?.ToString()).FirstOrDefault();
+
     void Capture(DbContext? context)
     {
         if (context == null || collector.Suspended) return;
         try
         {
+            // Đơn nháp / tạm (giữ đơn) trong batch — chỉ ghi khi đơn đã hoàn tất, bỏ qua các lần lưu nháp
+            // (và cả dòng con của đơn nháp) để Lịch sử thao tác không đầy các lần giữ đơn.
+            var draftOrderIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var e in context.ChangeTracker.Entries())
+            {
+                if (e.Entity.GetType().Name != "PosSaleOrder") continue;
+                if (e.Metadata.FindProperty("Status") == null) continue;
+                var sp = e.Property("Status");
+                var status = (sp.CurrentValue ?? sp.OriginalValue)?.ToString();
+                if (status == "Draft" && PkOf(e) is { } oid) draftOrderIds.Add(oid);
+            }
+
             foreach (var e in context.ChangeTracker.Entries())
             {
                 if (collector.Changes.Count >= ActivityAuditCollector.MaxEntities) break;
                 if (e.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted)) continue;
                 var type = e.Entity.GetType().Name;
                 if (SkipTypes.Contains(type) || e.Metadata.IsOwned() || type.Contains("CustomerDisplay")) continue;
+                if (IsDraftOrderOrChild(e, type, draftOrderIds)) continue;
                 var change = Describe(e, type);
                 if (change != null) collector.Changes.Add(change);
             }
@@ -96,6 +114,21 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         {
             // Nhật ký không bao giờ được làm hỏng thao tác chính.
         }
+    }
+
+    /// <summary>Đơn nháp hoặc dòng con thuộc đơn nháp đang trong batch — không ghi nhật ký.</summary>
+    static bool IsDraftOrderOrChild(EntityEntry e, string type, HashSet<string> draftOrderIds)
+    {
+        if (draftOrderIds.Count == 0) return false;
+        if (type == "PosSaleOrder") return PkOf(e) is { } id && draftOrderIds.Contains(id);
+        foreach (var fk in OrderFkNames)
+        {
+            if (e.Metadata.FindProperty(fk) == null) continue;
+            var p = e.Property(fk);
+            var oid = (p.CurrentValue ?? p.OriginalValue)?.ToString();
+            if (oid != null && draftOrderIds.Contains(oid)) return true;
+        }
+        return false;
     }
 
     static ActivityEntityChange? Describe(EntityEntry e, string type)
