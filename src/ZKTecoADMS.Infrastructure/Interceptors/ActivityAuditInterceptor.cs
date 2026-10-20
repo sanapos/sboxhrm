@@ -46,6 +46,8 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
     {
         "UpdatedAt", "UpdatedBy", "LastModified", "LastModifiedBy", "CreatedAt", "CreatedBy",
         "ConcurrencyStamp", "SecurityStamp", "RowVersion", "Timestamp", "HtmlContent", "DocxMappingJson",
+        // Cột khóa phiên bản / concurrency (bộ đếm nội bộ) — bump mỗi lần lưu, không phải nội dung người dùng sửa.
+        "VersionLock", "Version", "xmin", "ConcurrencyToken", "Revision",
         "ExtraJson", "Template", "PhotoBase64", "ImageBase64", "StampPngBase64", "LogoPngBase64",
         // Tự động / nền (khóa đơn đang sửa, tín hiệu online, đã xem / đã đọc) — không phải thao tác của người dùng.
         "LockExpiresAt", "LockedAt", "LockedByDeviceId", "LockedByDeviceName", "LockedByDisplayName", "LockedByUserId",

@@ -211,6 +211,14 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
     static bool IsDetailType(string? t) =>
         t != null && (t.EndsWith("Line", StringComparison.Ordinal) || DetailTypes.Contains(t));
 
+    /// <summary>Trường nhiễu (bộ đếm phiên bản / concurrency) — ẩn khỏi nhật ký cũ lúc đọc.</summary>
+    static readonly HashSet<string> NoiseFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "VersionLock", "Version", "xmin", "ConcurrencyToken", "ConcurrencyStamp", "RowVersion", "Revision",
+    };
+
+    static bool IsNoiseField(string? f) => f != null && NoiseFields.Contains(f);
+
     /// <summary>Chọn bản ghi chính để đặt tên dòng: ưu tiên chứng từ gốc (không phải dòng con) khớp thao tác.</summary>
     static JsonElement PickMain(List<JsonElement> list, string action)
     {
@@ -236,6 +244,7 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
         foreach (var f in fs.EnumerateArray())
         {
             if (parts.Count >= 2) break;
+            if (IsNoiseField(Str(f, "field"))) continue;
             var fn = ActivityLabels.Field(Str(f, "field"));
             if (string.IsNullOrWhiteSpace(fn)) continue;
             var ov = ActivityLabels.Value(Str(f, "old")) ?? "—";
@@ -277,6 +286,8 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
                         })
                         // Thêm mới: bỏ các trường chỉ là mã nội bộ (vô nghĩa với người xem).
                         .Where(f => !(f.old == null && f.@new != null && f.@new.StartsWith('#') && f.field.EndsWith("Id")))
+                        // Bỏ trường nhiễu (bộ đếm phiên bản / concurrency).
+                        .Where(f => !IsNoiseField(f.field))
                         .ToList<object>()
                         : [];
                     changes.Add(new
@@ -311,10 +322,10 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
             if (doc.RootElement.TryGetProperty("changes", out var c) && c.ValueKind == JsonValueKind.Array)
             {
                 count = c.GetArrayLength();
-                // Tổng số trường thực sự đổi (để danh sách cho biết «sửa gì» ở mức liếc nhìn).
+                // Tổng số trường thực sự đổi (bỏ field nhiễu) — để danh sách cho biết «sửa gì» ở mức liếc nhìn.
                 foreach (var ch in c.EnumerateArray())
                     if (ch.TryGetProperty("fields", out var fs) && fs.ValueKind == JsonValueKind.Array)
-                        fieldCount += fs.GetArrayLength();
+                        fieldCount += fs.EnumerateArray().Count(f => !IsNoiseField(Str(f, "field")));
                 // Dựng lại tóm tắt bằng tiếng Việt (nhật ký cũ lưu tên kỹ thuật).
                 var list = c.EnumerateArray().ToList();
                 if (list.Count > 0)
