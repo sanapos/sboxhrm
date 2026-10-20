@@ -48,6 +48,22 @@ class SettingsHubItemDef {
 
   /// Chuỗi tìm kiếm: tên + mô tả + nhóm + từ khóa.
   String get searchText => '$label $desc $groupTitle ${keywords.join(' ')}'.toLowerCase();
+
+  SettingsHubItemDef copyWith({IconData? icon, String? label, String? desc}) =>
+      SettingsHubItemDef(
+        index: index,
+        code: code,
+        icon: icon ?? this.icon,
+        label: label ?? this.label,
+        desc: desc ?? this.desc,
+        accent: accent,
+        groupTitle: groupTitle,
+        moduleCode: moduleCode,
+        healthKey: healthKey,
+        keywords: keywords,
+        packageModule: packageModule,
+        altModuleCodes: altModuleCodes,
+      );
 }
 
 /// Nhóm thiết lập theo nghiệp vụ.

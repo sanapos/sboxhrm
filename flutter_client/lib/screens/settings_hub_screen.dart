@@ -8,6 +8,7 @@ import '../models/settings_hub_sidebar_config.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../services/branch_session.dart';
 import '../services/settings_hub_sidebar_prefs.dart';
 import '../utils/permission_navigation.dart';
 import '../utils/settings_hub_catalog.dart';
@@ -231,8 +232,28 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   /// POS độc lập: Super Admin thấy bộ POS rút gọn; cửa hàng thấy mọi mục gói đã chọn.
   List<SettingsHubItemDef> _catalogItems() {
     final role = (Provider.of<AuthProvider>(context, listen: false).user?.role ?? '').toLowerCase();
-    if (SboxAppVariant.standalonePos && role == 'superadmin') return SettingsHubCatalog.itemsForCurrentApp;
-    return SettingsHubCatalog.allItems;
+    final base = (SboxAppVariant.standalonePos && role == 'superadmin')
+        ? SettingsHubCatalog.itemsForCurrentApp
+        : SettingsHubCatalog.allItems;
+    return _applyBranchLabel(base);
+  }
+
+  /// Khi cửa hàng mới có 1 chi nhánh: mục «Chi nhánh» đổi thành «Thêm chi nhánh»
+  /// (cây / thống kê nhiều CN ẩn trong màn) để hướng nâng cấp, không gây rối.
+  List<SettingsHubItemDef> _applyBranchLabel(List<SettingsHubItemDef> items) {
+    final s = BranchSession.instance;
+    if (!s.loaded || s.branches.length > 1) return items;
+    return [
+      for (final i in items)
+        if (i.code == 'branch')
+          i.copyWith(
+            icon: Icons.add_business_outlined,
+            label: 'Thêm chi nhánh',
+            desc: 'Đang có 1 chi nhánh — thêm để dùng báo cáo & chuyển kho nhiều CN',
+          )
+        else
+          i,
+    ];
   }
 
   List<SettingsHubItemDef> _permittedHubItems() => SettingsHubScreen.debugPermittedItems ?? _filterItems(_catalogItems());

@@ -810,6 +810,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       return false;
     }
     if (isAgent && item.requiredRole != 'Agent') return false;
+    // Mục chỉ dùng khi nhiều chi nhánh (báo cáo CN, chuyển kho, kho theo CN) —
+    // ẩn khi cửa hàng chưa bật chi nhánh hoặc chỉ có 1 CN (dùng chung điều kiện
+    // với bộ chọn chi nhánh trên thanh trên cùng).
+    if (item.requiresMultiBranch && !BranchSession.instance.showSwitcher) {
+      return false;
+    }
     if (!PermissionNavigation.isAllowedByPackageOrRole(
       item.moduleCode,
       allowedModules: allowedModules,
@@ -1922,6 +1928,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosProducts',
+      requiresMultiBranch: true,
     ),
     NavItem(
       icon: Icons.local_shipping_outlined,
@@ -1933,6 +1940,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosProducts',
+      requiresMultiBranch: true,
     ),
     NavItem(
       icon: Icons.point_of_sale_outlined,
@@ -2158,6 +2166,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       themeColor: HrmPageChrome.primaryNavy,
       // Có lãi ròng, chi phí, quỹ lương → quyền «Lãi lỗ» (khớp API).
       moduleCode: 'PosReportPnl',
+      requiresMultiBranch: true,
     ),
     NavItem(
       icon: Icons.history,
@@ -4154,6 +4163,10 @@ class NavItem {
   /// cho màn thiết lập phụ (Bảng giá, Voucher…) vốn chỉ mở từ «Nhiều hơn» của POS.
   final bool openAsPage;
 
+  /// Chỉ có ý nghĩa khi cửa hàng dùng ≥ 2 chi nhánh (báo cáo chi nhánh, chuyển
+  /// kho giữa CN, tồn theo CN…). Khi 1 chi nhánh thì ẩn khỏi sidebar + ô tìm.
+  final bool requiresMultiBranch;
+
   NavItem({
     required this.icon,
     required this.activeIcon,
@@ -4169,6 +4182,7 @@ class NavItem {
     this.requiredRole,
     this.moduleCode,
     this.openAsPage = false,
+    this.requiresMultiBranch = false,
   });
 
   /// Get localized label based on moduleCode
