@@ -312,6 +312,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   PosServiceBillingMode _serviceBillingMode = PosServiceBillingMode.flat;
   late final TextEditingController _minBillMinutesCtrl;
   late final TextEditingController _billRoundMinutesCtrl;
+  /// Nhập giá theo giờ ở chế độ block → tự quy ra «Giá 1 block» (không lưu riêng).
+  final _hourlyPriceCtrl = TextEditingController();
   late final TextEditingController _graceMinutesCtrl;
   late final TextEditingController _roundAfterMinutesCtrl;
   late final TextEditingController _defaultDurationMinutesCtrl;
@@ -1000,6 +1002,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _packShelfLifeCtrl.dispose();
     _minBillMinutesCtrl.dispose();
     _billRoundMinutesCtrl.dispose();
+    _hourlyPriceCtrl.dispose();
     _graceMinutesCtrl.dispose();
     _roundAfterMinutesCtrl.dispose();
     _defaultDurationMinutesCtrl.dispose();
@@ -1017,6 +1020,61 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   double _parseNum(String s) =>
       parseFormattedNumber(s)?.toDouble() ?? 0;
+
+  /// Số phút mỗi block (mặc định 5 như công thức tính tiền).
+  int get _blockMinutes {
+    final v = int.tryParse(_billRoundMinutesCtrl.text.trim());
+    return v != null && v > 0 ? v : 5;
+  }
+
+  /// Nhãn ô giá theo cách tính — tránh nhầm «60k/giờ» thành giá mỗi block.
+  String get _priceLabel => switch (_serviceBillingMode) {
+        PosServiceBillingMode.perBlock => 'Giá 1 block ($_blockMinutes phút)',
+        PosServiceBillingMode.perHour => 'Giá 1 giờ',
+        PosServiceBillingMode.perMinute => 'Giá 1 phút',
+        PosServiceBillingMode.perDay => 'Giá 1 ngày / đêm',
+        _ => 'Giá bán',
+      };
+
+  /// Có giá theo giờ → giá 1 block = giá giờ × phút block / 60.
+  void _applyHourlyPrice() {
+    final hourly = _parseNum(_hourlyPriceCtrl.text);
+    if (hourly <= 0 || _serviceBillingMode != PosServiceBillingMode.perBlock) return;
+    _priceCtrl.text = _fmtInputMoney((hourly * _blockMinutes / 60).round());
+  }
+
+  /// «Giá 1 block (5 phút): 5.000đ = 60.000đ/giờ · 1.000đ/phút» — đọc là biết đang tính bao nhiêu một giờ.
+  Widget _buildRateHint() {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_priceCtrl, _billRoundMinutesCtrl]),
+      builder: (context, _) {
+        final price = _parseNum(_priceCtrl.text);
+        String money(num v) => '${_moneyFmt.format(v.round())}đ';
+        final String? line = switch (_serviceBillingMode) {
+          PosServiceBillingMode.perBlock => price <= 0
+              ? null
+              : 'Giá 1 block ($_blockMinutes phút): ${money(price)} = '
+                  '${money(price * 60 / _blockMinutes)}/giờ · ${money(price / _blockMinutes)}/phút',
+          PosServiceBillingMode.perHour =>
+            price <= 0 ? null : '${money(price)}/giờ = ${money(price / 60)}/phút',
+          PosServiceBillingMode.perMinute =>
+            price <= 0 ? null : '${money(price)}/phút = ${money(price * 60)}/giờ',
+          _ => null,
+        };
+        if (line == null) return const SizedBox.shrink();
+        return Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(tr(line),
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFF1E40AF), fontWeight: FontWeight.w600)),
+        );
+      },
+    );
+  }
 
   static String _fmtPercent(double? v) {
     if (v == null || v <= 0) return '';
@@ -2132,7 +2190,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     controller: _priceCtrl,
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
-                    decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+                    decoration: PosTheme.inputDecoration(label: _priceLabel),
                   ),
                 ),
               ],
@@ -2547,7 +2605,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                         controller: _priceCtrl,
                         keyboardType: TextInputType.number,
                         inputFormatters: [ThousandSeparatorFormatter()],
-                        decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+                        decoration: PosTheme.inputDecoration(label: _priceLabel),
                       ),
                     ),
                   ],
@@ -2634,7 +2692,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     TextField(
                       controller: _billRoundMinutesCtrl,
                       keyboardType: TextInputType.number,
-                      onChanged: (_) => setState(() {}),
+                      onChanged: (_) => setState(_applyHourlyPrice),
                       decoration: PosTheme.inputDecoration(
                         label: _serviceBillingMode ==
                                 PosServiceBillingMode.perBlock
@@ -2652,6 +2710,22 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                                 : 'VD 15',
                       ),
                     ),
+                    // Giá theo block dễ nhầm với giá giờ → cho nhập giá giờ, tự quy ra giá 1 block.
+                    if (_serviceBillingMode == PosServiceBillingMode.perBlock) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _hourlyPriceCtrl,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [ThousandSeparatorFormatter()],
+                        onChanged: (_) => setState(_applyHourlyPrice),
+                        decoration: PosTheme.inputDecoration(
+                          label: 'Nhập theo giá 1 giờ (tự tính giá block)',
+                          hint: 'VD 60.000 → block $_blockMinutes phút = '
+                              '${_moneyFmt.format((60000 * _blockMinutes / 60).round())}đ',
+                        ),
+                      ),
+                    ],
+                    _buildRateHint(),
                     // Ô ít dùng → gom vào «Nâng cao» cho form gọn, đỡ rối.
                     Theme(
                       data: Theme.of(context)
@@ -2826,9 +2900,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           const SizedBox(height: 6),
           Text(
-            tr('Cách tính: Tiền = Phí mở phòng + số block vượt × đơn giá.\n'
-                '• «Phí mở» tính ngay khi mở, đã gồm «Phút gồm trong phí mở» đầu tiên.\n'
-                '• Hết số phút đó, mỗi «block» (vd 30 phút) cộng thêm 1 × đơn giá.'),
+            tr(_serviceBillingMode == PosServiceBillingMode.perBlock
+                ? 'Cách tính: Tiền = Phí mở phòng + số block vượt × giá 1 block.\n'
+                    '• «Phí mở» tính ngay khi mở, đã gồm «Phút gồm trong phí mở» đầu tiên.\n'
+                    '• Hết số phút đó, vừa sang block mới là cộng thêm 1 × giá 1 block '
+                    '(vd gồm 30 phút, block 5 phút: phút 31 đã tính block đầu).'
+                : 'Cách tính: Tiền = Phí mở phòng + phần vượt × giá.\n'
+                    '• «Phí mở» tính ngay khi mở, đã gồm «Phút gồm trong phí mở» đầu tiên.'),
             style: TextStyle(fontSize: 11, color: SboxColors.slate700, height: 1.4),
           ),
           const SizedBox(height: 8),
@@ -2968,7 +3046,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     controller: _priceCtrl,
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
-                    decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+                    decoration: PosTheme.inputDecoration(label: _priceLabel),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -4794,7 +4872,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   controller: _priceCtrl,
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
-                  decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+                  decoration: PosTheme.inputDecoration(label: _priceLabel),
                 ),
               ),
             ],
@@ -5207,7 +5285,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   child: TextField(
                     controller: priceCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+                    decoration: PosTheme.inputDecoration(label: _priceLabel),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -5696,7 +5774,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
             TextField(
               controller: priceCtrl,
-              decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+              decoration: PosTheme.inputDecoration(label: _priceLabel),
               keyboardType: TextInputType.number,
             ),
             TextField(
