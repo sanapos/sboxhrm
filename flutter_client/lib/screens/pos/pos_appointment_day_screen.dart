@@ -905,7 +905,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
   Widget _buildAvailabilityGrid() {
     if (_availItems.isEmpty) {
       return Center(
-        child: Text(tr('Chưa có bàn/phòng'),
+        child: Text(tr('Chưa có $_noun'),
             style: TextStyle(color: PosTheme.textSecondary)),
       );
     }
@@ -957,9 +957,13 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
               );
             }
             final row = _availItems[i - 1];
-            final name =
-                '${row['areaName'] ?? row['AreaName'] ?? ''} ${row['name'] ?? row['Name'] ?? ''}'
-                    .trim();
+            // Tên khu vực + tên tài nguyên, nhưng tránh lặp (khu «Phòng» + «Phòng 1»
+            // → «Phòng 1», không phải «Phòng Phòng 1»). Dùng dấu · như form đặt.
+            final area = '${row['areaName'] ?? row['AreaName'] ?? ''}'.trim();
+            final nm = '${row['name'] ?? row['Name'] ?? ''}'.trim();
+            final name = area.isEmpty || nm.toLowerCase().startsWith(area.toLowerCase())
+                ? nm
+                : '$area · $nm';
             final days = (row['days'] ?? row['Days'] as List?) ?? const [];
             return Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -1077,7 +1081,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
               child: ListTile(
                 dense: true,
                 leading: Icon(_showGrid ? Icons.view_list_outlined : Icons.grid_view_outlined),
-                title: Text(tr(_showGrid ? 'Xem dạng danh sách' : 'Xem lịch theo bàn / phòng')),
+                title: Text(tr(_showGrid ? 'Xem dạng danh sách' : 'Xem lịch theo $_noun')),
               ),
             ),
           PopupMenuItem(
@@ -1234,7 +1238,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                               : [
                                   '${_items.where((e) => !e.isCancelled).length} lịch',
                                   if (_bookedCount > 0) '$_bookedCount chưa đến',
-                                  if (_items.any((e) => e.isSeated)) '${_items.where((e) => e.isSeated).length} đã nhận bàn',
+                                  if (_items.any((e) => e.isSeated)) '${_items.where((e) => e.isSeated).length} đã nhận $_noun',
                                   if (_items.any((e) => e.isNoShow)) '${_items.where((e) => e.isNoShow).length} không đến',
                                 ].join(' · ')),
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
@@ -1282,7 +1286,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                         filterChip('booked', 'Chưa đến ($_bookedCount)'),
                         filterChip(
                             'seated',
-                            'Đã nhận bàn (${_items.where((e) => e.isSeated).length})'),
+                            'Đã nhận $_noun (${_items.where((e) => e.isSeated).length})'),
                         filterChip(
                             'cancelled',
                             'Đã hủy (${_items.where((e) => e.isCancelled).length})'),
@@ -1675,9 +1679,9 @@ class _BookingDetailDialog extends StatelessWidget {
                         b.isOrderCompleted
                             ? 'Khách đã dùng · đã thanh toán'
                             : b.isUsingTable
-                                ? 'Khách đang dùng bàn'
+                                ? 'Khách đang dùng $noun'
                                 : b.isSeated
-                                    ? 'Đã nhận bàn'
+                                    ? 'Đã nhận $noun'
                                     : reservationOrderStatusLabel(
                                         b.orderStatus),
                         emphasize: true,
@@ -2290,7 +2294,11 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
           items: widget.resources
               .map((r) => DropdownMenuItem(
                     value: r.id,
-                    child: Text(tr(r.areaName.trim().isEmpty ? r.name : '${r.areaName} · ${r.name}'),
+                    child: Text(
+                        tr(r.areaName.trim().isEmpty ||
+                                r.name.toLowerCase().startsWith(r.areaName.trim().toLowerCase())
+                            ? r.name
+                            : '${r.areaName} · ${r.name}'),
                         overflow: TextOverflow.ellipsis),
                   ))
               .toList(),

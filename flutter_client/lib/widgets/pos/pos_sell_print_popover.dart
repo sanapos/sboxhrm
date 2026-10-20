@@ -33,6 +33,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
   BuildContext context, {
   required PosSellPrintSettings initial,
   required Offset anchor,
+  bool showKitchen = true,
 }) async {
   final api = ApiService();
   final templates = await _loadSaleInvoiceTemplates(api);
@@ -166,7 +167,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                               );
                             },
                           ),
-                          if (settings.cupLabelPrintMode.enabled) ...[
+                          if (showKitchen && settings.cupLabelPrintMode.enabled) ...[
                             const SizedBox(height: 8),
                             SwitchListTile(
                               contentPadding: EdgeInsets.zero,
@@ -187,34 +188,37 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                               ),
                             ),
                           ],
-                          const SizedBox(height: 12),
-                          Text(tr('Phiếu báo bếp'),
-                              style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
-                          const SizedBox(height: 6),
-                          DropdownButtonFormField<PosKitchenSlipPrintMode>(
-                            value: settings.kitchenSlipPrintMode,
-                            decoration: InputDecoration(
-                              isDense: true,
-                              contentPadding:
-                                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                          // Phiếu báo bếp: chỉ ngành F&B. Bán lẻ/salon/gym… ẩn đi.
+                          if (showKitchen) ...[
+                            const SizedBox(height: 12),
+                            Text(tr('Phiếu báo bếp'),
+                                style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
+                            const SizedBox(height: 6),
+                            DropdownButtonFormField<PosKitchenSlipPrintMode>(
+                              value: settings.kitchenSlipPrintMode,
+                              decoration: InputDecoration(
+                                isDense: true,
+                                contentPadding:
+                                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                              items: PosKitchenSlipPrintMode.values
+                                  .map(
+                                    (m) => DropdownMenuItem(
+                                      value: m,
+                                      child: Text(tr(m.label), overflow: TextOverflow.ellipsis),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) {
+                                if (v == null) return;
+                                setLocal(
+                                  () => settings =
+                                      settings.copyWith(kitchenSlipPrintMode: v),
+                                );
+                              },
                             ),
-                            items: PosKitchenSlipPrintMode.values
-                                .map(
-                                  (m) => DropdownMenuItem(
-                                    value: m,
-                                    child: Text(tr(m.label), overflow: TextOverflow.ellipsis),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (v) {
-                              if (v == null) return;
-                              setLocal(
-                                () => settings =
-                                    settings.copyWith(kitchenSlipPrintMode: v),
-                              );
-                            },
-                          ),
+                          ],
                           const SizedBox(height: 12),
                           Text(tr('Phiếu báo xuất kho'),
                               style: TextStyle(fontSize: 13, color: PosTheme.textSecondary)),

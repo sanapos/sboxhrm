@@ -23,26 +23,39 @@ const _kChips = <_TypeChip>[
   _TypeChip(PosProductType.topping, 'Topping', 'Topping', Icons.icecream_outlined, PosTheme.toppingColor),
 ];
 
-/// Bộ lọc 5 loại hàng — luôn hiện, không giấu trong dropdown.
+/// Bộ lọc loại hàng — luôn hiện, không giấu trong dropdown.
+/// [showFnbTypes] = false sẽ ẩn «NVL» + «Topping» (chỉ nhà hàng / cafe dùng).
 class PosProductTypeFilterBar extends StatelessWidget {
   const PosProductTypeFilterBar({
     super.key,
     required this.value,
     required this.onChanged,
     this.vertical = false,
+    this.showFnbTypes = true,
   });
 
   final PosProductType? value;
   final ValueChanged<PosProductType?> onChanged;
   final bool vertical;
+  final bool showFnbTypes;
+
+  List<_TypeChip> get _chips => showFnbTypes
+      ? _kChips
+      : [
+          for (final c in _kChips)
+            if (c.type != PosProductType.material &&
+                c.type != PosProductType.topping)
+              c,
+        ];
 
   @override
   Widget build(BuildContext context) {
+    final chips = _chips;
     if (vertical) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final c in _kChips) _tile(c),
+          for (final c in chips) _tile(c),
         ],
       );
     }
@@ -53,9 +66,9 @@ class PosProductTypeFilterBar extends StatelessWidget {
         child: ListView.separated(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           scrollDirection: Axis.horizontal,
-          itemCount: _kChips.length,
+          itemCount: chips.length,
           separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (_, i) => _pill(_kChips[i]),
+          itemBuilder: (_, i) => _pill(chips[i]),
         ),
       ),
     );

@@ -4,6 +4,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/pos_scan_beep.dart';
 /// Nút quét mã vạch / QR bằng camera — dùng làm suffix ô nhập hoặc IconButton riêng.
 class PosBarcodeScanIcon extends StatelessWidget {
   const PosBarcodeScanIcon({
@@ -85,11 +86,8 @@ Future<void> scanBarcodeContinuously(
 }
 
 Future<void> _playScanBeep() async {
-  try {
-    await SystemSound.play(SystemSoundType.click);
-  } catch (_) {
-    HapticFeedback.heavyImpact();
-  }
+  // Tiếng «tít» rõ (to hơn tiếng click hệ thống) để nghe được khi quét ở nơi ồn.
+  await PosScanBeep.play();
 }
 
 /// Định dạng mã bán lẻ. Không dùng `all` — decode chậm trên Sunmi V2s.

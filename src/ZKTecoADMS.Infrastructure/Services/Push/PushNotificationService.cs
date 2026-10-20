@@ -35,6 +35,9 @@ public interface IPushNotificationService
 
 public sealed class PushNotificationService : IPushNotificationService
 {
+    /// <summary>Chặn trên badge icon iOS: số lớn (thông báo tồn đọng) hiển thị xấu trên home screen.</summary>
+    private const int MaxBadge = 99;
+
     private readonly ZKTecoDbContext _db;
     private readonly FirebaseInitializer _firebase;
     private readonly ILogger<PushNotificationService> _logger;
@@ -119,7 +122,7 @@ public sealed class PushNotificationService : IPushNotificationService
         // network calls on Google's side.
         foreach (var userGroup in tokens.GroupBy(t => t.UserId))
         {
-            var badge = unreadByUser.TryGetValue(userGroup.Key, out var c) ? c : 0;
+            var badge = Math.Min(unreadByUser.TryGetValue(userGroup.Key, out var c) ? c : 0, MaxBadge);
             var quiet = settings.TryGetValue(userGroup.Key, out var st)
                         && st.QuietEnabled
                         && NotificationQuietRules.IsInQuiet(nowMinute, st.QuietStartMinute, st.QuietEndMinute)
@@ -249,6 +252,7 @@ public sealed class PushNotificationService : IPushNotificationService
     private async Task SendBadgeAsync(Guid userId, int badge, CancellationToken ct)
     {
         if (!_firebase.IsAvailable) return;
+        badge = badge < 0 ? 0 : Math.Min(badge, MaxBadge);
 
         var tokens = await _db.UserDeviceTokens.AsNoTracking()
             .Where(t => t.UserId == userId && !t.IsDisabled)

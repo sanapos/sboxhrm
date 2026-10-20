@@ -200,45 +200,78 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     color: SboxColors.slate900, fontWeight: FontWeight.bold),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1),
-        bottom: TabBar(
-          controller: _tabController,
-          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-          isScrollable: false,
-          tabs: [
-            for (final t in const [
-              (Icons.list_alt_rounded, 'Danh sách'),
-              (Icons.account_tree_outlined, 'Sơ đồ'),
-              (Icons.insights_rounded, 'Thống kê'),
-            ])
-              Tab(
-                height: 44,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(t.$1, size: 18),
-                    const SizedBox(width: 6),
-                    Text(tr(t.$2)),
-                  ]),
-                ),
-              ),
-          ],
-        ),
+        // Sơ đồ / Thống kê chỉ có nghĩa khi ≥ 2 chi nhánh — 1 CN thì ẩn tab,
+        // chỉ còn Danh sách (vẫn thêm được chi nhánh để lên nhiều CN).
+        bottom: _isMultiBranch
+            ? TabBar(
+                controller: _tabController,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                isScrollable: false,
+                tabs: [
+                  for (final t in const [
+                    (Icons.list_alt_rounded, 'Danh sách'),
+                    (Icons.account_tree_outlined, 'Sơ đồ'),
+                    (Icons.insights_rounded, 'Thống kê'),
+                  ])
+                    Tab(
+                      height: 44,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(t.$1, size: 18),
+                          const SizedBox(width: 6),
+                          Text(tr(t.$2)),
+                        ]),
+                      ),
+                    ),
+                ],
+              )
+            : null,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(children: [
               if (_limitBanner() case final banner?) banner,
+              if (!_isMultiBranch) _singleBranchHint(),
               Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildListTab(),
-                    _buildTreeTab(),
-                    _buildStatsTab(),
-                  ],
-                ),
+                child: _isMultiBranch
+                    ? TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildListTab(),
+                          _buildTreeTab(),
+                          _buildStatsTab(),
+                        ],
+                      )
+                    : _buildListTab(),
               ),
             ]),
+    );
+  }
+
+  /// ≥ 2 chi nhánh thì mới hiện Sơ đồ + Thống kê (và bộ chọn chi nhánh toàn app).
+  bool get _isMultiBranch => _branches.length > 1;
+
+  /// Gợi ý khi cửa hàng mới có 1 chi nhánh: thêm CN để mở khóa báo cáo / chuyển kho.
+  Widget _singleBranchHint() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(children: [
+        const Icon(Icons.info_outline, size: 18, color: Color(0xFF1E40AF)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            tr('Cửa hàng đang có 1 chi nhánh. Thêm chi nhánh để dùng báo cáo chi nhánh, chuyển kho & tồn theo chi nhánh.'),
+            style: const TextStyle(fontSize: 12.5, color: Color(0xFF1E40AF)),
+          ),
+        ),
+      ]),
     );
   }
 

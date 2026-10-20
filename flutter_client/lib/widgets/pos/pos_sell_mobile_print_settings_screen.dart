@@ -38,10 +38,15 @@ class PosSellMobilePrintSettingsScreen extends StatefulWidget {
     super.key,
     required this.initialPrintSettings,
     required this.initialThermalSettings,
+    this.showKitchen = true,
   });
 
   final PosSellPrintSettings initialPrintSettings;
   final PosThermalPrinterSettings initialThermalSettings;
+
+  /// Hiện các mục chỉ dành cho F&B (tem ly báo bếp, phiếu báo bếp).
+  /// Bán lẻ/salon/gym… = false để không gây rối.
+  final bool showKitchen;
 
   @override
   State<PosSellMobilePrintSettingsScreen> createState() =>
@@ -743,6 +748,7 @@ class _PosSellMobilePrintSettingsScreenState
                     ),
                   ),
                 ]),
+                if (widget.showKitchen) ...[
                 const SizedBox(height: 16),
                 _sectionTitle('Tem dán ly (trà sữa)'),
                 _card([
@@ -792,6 +798,7 @@ class _PosSellMobilePrintSettingsScreenState
                     ),
                   ),
                 ]),
+                ],
                 const SizedBox(height: 16),
                 _sectionTitle('Tem dán sản phẩm'),
                 _card([
@@ -812,6 +819,7 @@ class _PosSellMobilePrintSettingsScreenState
                     ),
                   ),
                 ]),
+                if (widget.showKitchen) ...[
                 const SizedBox(height: 16),
                 _sectionTitle('Phiếu báo bếp'),
                 _card([
@@ -856,6 +864,7 @@ class _PosSellMobilePrintSettingsScreenState
                     },
                   ),
                 ]),
+                ],
                 const SizedBox(height: 16),
                 _sectionTitle('Phiếu báo xuất kho'),
                 _card([
@@ -977,6 +986,7 @@ Future<(PosSellPrintSettings, PosThermalPrinterSettings)?> openPosSellPrintSetti
   required PosSellPrintSettings initialPrint,
   required PosThermalPrinterSettings initialThermal,
   Offset? anchor,
+  bool showKitchen = true,
 }) async {
   if (Responsive.isMobile(context)) {
     final result = await Navigator.of(context).push<(PosSellPrintSettings, PosThermalPrinterSettings)>(
@@ -984,6 +994,7 @@ Future<(PosSellPrintSettings, PosThermalPrinterSettings)?> openPosSellPrintSetti
         builder: (_) => PosSellMobilePrintSettingsScreen(
           initialPrintSettings: initialPrint,
           initialThermalSettings: initialThermal,
+          showKitchen: showKitchen,
         ),
       ),
     );

@@ -297,9 +297,23 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   /// Kích thước chọn nhanh khi bán, vd. «0,6; 0,8; 1,2».
   final _areaSizesCtrl = TextEditingController();
   bool _trackExpiry = false;
+  /// Ngành bán của cửa hàng — để ẩn ô không hợp ngành (vd gói buổi/thẻ tập gym
+  /// không hiện cho karaoke/khách sạn).
+  PosSellProfile _sellProfile = PosSellProfile.retail;
+  /// Karaoke / bi-a / phòng giờ / khách sạn: tính tiền theo giờ, KHÔNG dùng gói buổi.
+  bool get _isRoomTimeProfile =>
+      _sellProfile == PosSellProfile.roomHourly ||
+      _sellProfile == PosSellProfile.hotel;
+  /// Spa / salon / gym: dùng gói buổi / liệu trình / thẻ tập.
+  bool get _usesSessionPacks =>
+      _sellProfile == PosSellProfile.salon || _sellProfile == PosSellProfile.gym;
+  static const _previewHeadStyle = TextStyle(
+      fontSize: 11, fontWeight: FontWeight.w600, color: SboxColors.slate500);
   PosServiceBillingMode _serviceBillingMode = PosServiceBillingMode.flat;
   late final TextEditingController _minBillMinutesCtrl;
   late final TextEditingController _billRoundMinutesCtrl;
+  /// Nhập giá theo giờ ở chế độ block → tự quy ra «Giá 1 block» (không lưu riêng).
+  final _hourlyPriceCtrl = TextEditingController();
   late final TextEditingController _graceMinutesCtrl;
   late final TextEditingController _roundAfterMinutesCtrl;
   late final TextEditingController _defaultDurationMinutesCtrl;
@@ -458,19 +472,19 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   Future<void> _loadEditorSectionPrefs() async {
     // Chưa tùy chỉnh → bộ mục gợi ý theo ngành của cửa hàng (bán lẻ: mã vạch, ĐVT, NCC…; spa: gói buổi, hoa hồng…).
     var sections = await loadSavedPosProductEditorSections();
-    if (sections == null) {
-      var profile = PosSellProfile.retail;
-      try {
-        final res = await _api.getPosSellSettings();
-        if (res['isSuccess'] == true && res['data'] is Map) {
-          profile = PosStoreSellSettingsDto.fromJson(Map<String, dynamic>.from(res['data'] as Map)).sellProfile;
-        }
-      } catch (_) {}
-      sections = {...PosProductIndustryPreset.forProfile(profile).sections};
-    }
+    // Luôn đọc ngành bán để ẩn ô không hợp ngành (gói buổi/thẻ tập chỉ cho spa/gym).
+    var profile = PosSellProfile.retail;
+    try {
+      final res = await _api.getPosSellSettings();
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        profile = PosStoreSellSettingsDto.fromJson(Map<String, dynamic>.from(res['data'] as Map)).sellProfile;
+      }
+    } catch (_) {}
+    sections ??= {...PosProductIndustryPreset.forProfile(profile).sections};
     if (!mounted) return;
     final resolved = sections;
     setState(() {
+      _sellProfile = profile;
       _editorSections = resolved;
       _editorPrefsLoaded = true;
       _syncTabController();
@@ -1002,6 +1016,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _packShelfLifeCtrl.dispose();
     _minBillMinutesCtrl.dispose();
     _billRoundMinutesCtrl.dispose();
+    _hourlyPriceCtrl.dispose();
     _graceMinutesCtrl.dispose();
     _roundAfterMinutesCtrl.dispose();
     _defaultDurationMinutesCtrl.dispose();
@@ -1019,6 +1034,61 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   double _parseNum(String s) =>
       parseFormattedNumber(s)?.toDouble() ?? 0;
+
+  /// Số phút mỗi block (mặc định 5 như công thức tính tiền).
+  int get _blockMinutes {
+    final v = int.tryParse(_billRoundMinutesCtrl.text.trim());
+    return v != null && v > 0 ? v : 5;
+  }
+
+  /// Nhãn ô giá theo cách tính — tránh nhầm «60k/giờ» thành giá mỗi block.
+  String get _priceLabel => switch (_serviceBillingMode) {
+        PosServiceBillingMode.perBlock => 'Giá 1 block ($_blockMinutes phút)',
+        PosServiceBillingMode.perHour => 'Giá 1 giờ',
+        PosServiceBillingMode.perMinute => 'Giá 1 phút',
+        PosServiceBillingMode.perDay => 'Giá 1 ngày / đêm',
+        _ => 'Giá bán',
+      };
+
+  /// Có giá theo giờ → giá 1 block = giá giờ × phút block / 60.
+  void _applyHourlyPrice() {
+    final hourly = _parseNum(_hourlyPriceCtrl.text);
+    if (hourly <= 0 || _serviceBillingMode != PosServiceBillingMode.perBlock) return;
+    _priceCtrl.text = _fmtInputMoney((hourly * _blockMinutes / 60).round());
+  }
+
+  /// «Giá 1 block (5 phút): 5.000đ = 60.000đ/giờ · 1.000đ/phút» — đọc là biết đang tính bao nhiêu một giờ.
+  Widget _buildRateHint() {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_priceCtrl, _billRoundMinutesCtrl]),
+      builder: (context, _) {
+        final price = _parseNum(_priceCtrl.text);
+        String money(num v) => '${_moneyFmt.format(v.round())}đ';
+        final String? line = switch (_serviceBillingMode) {
+          PosServiceBillingMode.perBlock => price <= 0
+              ? null
+              : 'Giá 1 block ($_blockMinutes phút): ${money(price)} = '
+                  '${money(price * 60 / _blockMinutes)}/giờ · ${money(price / _blockMinutes)}/phút',
+          PosServiceBillingMode.perHour =>
+            price <= 0 ? null : '${money(price)}/giờ = ${money(price / 60)}/phút',
+          PosServiceBillingMode.perMinute =>
+            price <= 0 ? null : '${money(price)}/phút = ${money(price * 60)}/giờ',
+          _ => null,
+        };
+        if (line == null) return const SizedBox.shrink();
+        return Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(tr(line),
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFF1E40AF), fontWeight: FontWeight.w600)),
+        );
+      },
+    );
+  }
 
   static String _fmtPercent(double? v) {
     if (v == null || v <= 0) return '';
@@ -2140,7 +2210,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     controller: _priceCtrl,
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
-                    decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+                    decoration: PosTheme.inputDecoration(label: _priceLabel),
                   ),
                 ),
               ],
@@ -2156,7 +2226,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (_showSection(PosProductEditorSection.staffCommission))
             _kvExpansion(
               title: 'Hoa hồng nhân viên',
-              subtitle: 'Cách tính khi gán NV lúc bán (bán kèm, salon)',
+              subtitle: 'Cách tính hoa hồng khi gán nhân viên lúc bán',
               child: _buildCommissionSection(),
             ),
           if (_isGoods && _showSection(PosProductEditorSection.warranty))
@@ -2555,7 +2625,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                         controller: _priceCtrl,
                         keyboardType: TextInputType.number,
                         inputFormatters: [ThousandSeparatorFormatter()],
-                        decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+                        decoration: PosTheme.inputDecoration(label: _priceLabel),
                       ),
                     ),
                   ],
@@ -2568,12 +2638,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (_showSection(PosProductEditorSection.staffCommission))
             _kvExpansion(
               title: 'Hoa hồng nhân viên',
-              subtitle: 'Cách tính khi gán NV lúc bán (salon, combo, bán kèm)',
+              subtitle: 'Cách tính hoa hồng khi gán nhân viên lúc bán',
               child: _buildCommissionSection(),
             ),
           if (_showSection(PosProductEditorSection.serviceBilling))
             _kvExpansion(
-              title: 'Tính giờ / gói buổi',
+              title: _isRoomTimeProfile
+                  ? 'Tính tiền giờ (phòng / bàn)'
+                  : 'Tính giờ / gói buổi',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -2636,62 +2708,84 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _minBillMinutesCtrl,
-                            keyboardType: TextInputType.number,
-                            onChanged: (_) => setState(() {}),
-                            decoration: PosTheme.inputDecoration(
-                              label: 'Phút tối thiểu',
-                              hint: 'VD 60',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _billRoundMinutesCtrl,
-                            keyboardType: TextInputType.number,
-                            onChanged: (_) => setState(() {}),
-                            decoration: PosTheme.inputDecoration(
-                              label: _serviceBillingMode ==
-                                      PosServiceBillingMode.perBlock
-                                  ? 'Mỗi block (phút)'
-                                  : _serviceBillingMode ==
-                                          PosServiceBillingMode.perDay
-                                      ? 'Làm tròn ngày (phút)'
-                                      : 'Làm tròn (phút)',
-                              hint: _serviceBillingMode ==
-                                      PosServiceBillingMode.perBlock
-                                  ? 'VD 5'
-                                  : _serviceBillingMode ==
-                                          PosServiceBillingMode.perDay
-                                      ? '1440 = 1 ngày'
-                                      : 'VD 15',
-                            ),
-                          ),
-                        ),
-                      ],
+                    // «Mỗi block» quyết định cách nhảy tiền (karaoke) → luôn hiện.
+                    TextField(
+                      controller: _billRoundMinutesCtrl,
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) => setState(_applyHourlyPrice),
+                      decoration: PosTheme.inputDecoration(
+                        label: _serviceBillingMode ==
+                                PosServiceBillingMode.perBlock
+                            ? 'Mỗi block (phút)'
+                            : _serviceBillingMode ==
+                                    PosServiceBillingMode.perDay
+                                ? 'Làm tròn ngày (phút)'
+                                : 'Làm tròn (phút)',
+                        hint: _serviceBillingMode ==
+                                PosServiceBillingMode.perBlock
+                            ? 'VD 30'
+                            : _serviceBillingMode ==
+                                    PosServiceBillingMode.perDay
+                                ? '1440 = 1 ngày'
+                                : 'VD 15',
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _graceMinutesCtrl,
-                            keyboardType: TextInputType.number,
-                            onChanged: (_) => setState(() {}),
-                            decoration: PosTheme.inputDecoration(
-                              label: 'Phút miễn (grace)',
-                              hint: 'VD 5–10',
-                            ),
-                          ),
+                    // Giá theo block dễ nhầm với giá giờ → cho nhập giá giờ, tự quy ra giá 1 block.
+                    if (_serviceBillingMode == PosServiceBillingMode.perBlock) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _hourlyPriceCtrl,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [ThousandSeparatorFormatter()],
+                        onChanged: (_) => setState(_applyHourlyPrice),
+                        decoration: PosTheme.inputDecoration(
+                          label: 'Nhập theo giá 1 giờ (tự tính giá block)',
+                          hint: 'VD 60.000 → block $_blockMinutes phút = '
+                              '${_moneyFmt.format((60000 * _blockMinutes / 60).round())}đ',
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
+                      ),
+                    ],
+                    _buildRateHint(),
+                    // Ô ít dùng → gom vào «Nâng cao» cho form gọn, đỡ rối.
+                    Theme(
+                      data: Theme.of(context)
+                          .copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        childrenPadding: EdgeInsets.zero,
+                        title: Text(tr('Tùy chọn nâng cao (ít dùng)'),
+                            style: const TextStyle(
+                                fontSize: 13, color: SboxColors.slate600)),
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _minBillMinutesCtrl,
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: PosTheme.inputDecoration(
+                                    label: 'Phút tối thiểu',
+                                    hint: 'VD 60',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextField(
+                                  controller: _graceMinutesCtrl,
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: PosTheme.inputDecoration(
+                                    label: 'Phút miễn (grace)',
+                                    hint: 'VD 5–10',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
                             controller: _roundAfterMinutesCtrl,
                             keyboardType: TextInputType.number,
                             onChanged: (_) => setState(() {}),
@@ -2700,36 +2794,32 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                               hint: '0 = luôn làm tròn',
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
                     _buildTimedBillingPreview(),
                   ],
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _defaultDurationMinutesCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: PosTheme.inputDecoration(
-                            label: 'Thời lượng mặc định (phút)',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _sessionPackCountCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: PosTheme.inputDecoration(
-                            label: 'Số buổi trong gói',
-                            hint: '0 = không phải gói',
-                          ),
-                        ),
-                      ),
-                    ],
+                  TextField(
+                    controller: _defaultDurationMinutesCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: PosTheme.inputDecoration(
+                      label: 'Thời lượng mặc định (phút)',
+                    ),
+                  ),
+                  // Gói buổi / liệu trình / thẻ tập: chỉ spa / salon / gym dùng.
+                  // Karaoke / bi-a / khách sạn tính theo giờ → ẩn để form gọn, đúng ngành.
+                  if (!_isRoomTimeProfile) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _sessionPackCountCtrl,
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => setState(() {}),
+                    decoration: PosTheme.inputDecoration(
+                      label: 'Số buổi trong gói',
+                      hint: '0 = không phải gói',
+                    ),
                   ),
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
@@ -2786,6 +2876,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                     ),
                   ),
+                  ],
                 ],
               ),
             ),
@@ -2832,15 +2923,33 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            tr('Xem trước tiền giờ (karaoke / bi-a / KS)'),
+            tr('Xem trước tiền giờ'),
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
           const SizedBox(height: 6),
           Text(
-            tr('Công thức: phí mở + số block vượt × đơn giá. VD mở 50k, mỗi 5 phút +10k.'),
-            style: TextStyle(fontSize: 11, color: SboxColors.slate700),
+            tr(_serviceBillingMode == PosServiceBillingMode.perBlock
+                ? 'Cách tính: Tiền = Phí mở phòng + số block vượt × giá 1 block.\n'
+                    '• «Phí mở» tính ngay khi mở, đã gồm «Phút gồm trong phí mở» đầu tiên.\n'
+                    '• Hết số phút đó, vừa sang block mới là cộng thêm 1 × giá 1 block '
+                    '(vd gồm 30 phút, block 5 phút: phút 31 đã tính block đầu).'
+                : 'Cách tính: Tiền = Phí mở phòng + phần vượt × giá.\n'
+                    '• «Phí mở» tính ngay khi mở, đã gồm «Phút gồm trong phí mở» đầu tiên.'),
+            style: TextStyle(fontSize: 11, color: SboxColors.slate700, height: 1.4),
           ),
           const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: Text(tr('Dùng'), style: _previewHeadStyle)),
+              Expanded(child: Text(tr('Tính'), style: _previewHeadStyle)),
+              Expanded(child: Text(tr('Số block'), style: _previewHeadStyle)),
+              Expanded(
+                child: Text(tr('Thành tiền'),
+                    textAlign: TextAlign.right, style: _previewHeadStyle),
+              ),
+            ],
+          ),
+          const Divider(height: 10),
           for (final r in rows)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 1),
@@ -2851,7 +2960,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   Expanded(child: Text(tr('×${r.qty}'))),
                   Expanded(
                     child: Text(
-                      tr(_moneyFmt.format(r.total.round())),
+                      tr('${_moneyFmt.format(r.total.round())}đ'),
                       textAlign: TextAlign.right,
                     ),
                   ),
@@ -2965,7 +3074,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     controller: _priceCtrl,
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
-                    decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+                    decoration: PosTheme.inputDecoration(label: _priceLabel),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -4791,7 +4900,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   controller: _priceCtrl,
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
-                  decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+                  decoration: PosTheme.inputDecoration(label: _priceLabel),
                 ),
               ),
             ],
@@ -5204,7 +5313,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   child: TextField(
                     controller: priceCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+                    decoration: PosTheme.inputDecoration(label: _priceLabel),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -5693,7 +5802,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
             TextField(
               controller: priceCtrl,
-              decoration: PosTheme.inputDecoration(label: 'Giá bán'),
+              decoration: PosTheme.inputDecoration(label: _priceLabel),
               keyboardType: TextInputType.number,
             ),
             TextField(

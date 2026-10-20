@@ -7,8 +7,10 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/pos_product.dart';
+import '../models/pos_sell_industry.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/pos_sell_settings_helper.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
@@ -103,14 +105,27 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   final Set<String> _variantsLoadingIds = {};
   final Map<String, String?> _unitViewVariantIdByProductId = {};
 
+  /// Ngành hàng của cửa hàng — dùng để ẩn các mục chỉ F&B (NVL, topping).
+  PosSellProfile? _sellProfile;
+  bool get _fnbTypes => _sellProfile?.usesFnbItemTypes ?? true;
+
   @override
   void initState() {
     super.initState();
     ScreenRefreshNotifier.posProducts.addListener(_onExternalRefresh);
     NavigationNotifier.currentModuleCode.addListener(_onModuleVisible);
     _loadColumnPrefs();
+    _loadSellProfile();
     _listScroll.addListener(_onProductListScroll);
     _loadAll();
+  }
+
+  Future<void> _loadSellProfile() async {
+    try {
+      final res = await PosSellSettingsHelper(_api).load();
+      final p = res.settings?.sellProfile;
+      if (mounted && p != null) setState(() => _sellProfile = p);
+    } catch (_) {}
   }
 
   void _onExternalRefresh() {
@@ -1208,6 +1223,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           if (_selectedIds.isNotEmpty) _buildSelectionBar(),
           PosProductTypeFilterBar(
             value: _typeFilter,
+            showFnbTypes: _fnbTypes,
             onChanged: (v) async {
               setState(() => _typeFilter = v);
               await _reloadProducts();
@@ -1357,6 +1373,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                           PopupMenuItem(
                               value: 'reorder',
                               child: Text(tr('Hàng cần nhập thêm'))),
+                          if (_fnbTypes)
                           PopupMenuItem(
                               value: 'topping_groups',
                               child: Text(tr('Nhóm topping'))),
@@ -1556,7 +1573,8 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               _menuItem('scale_label', Icons.scale_outlined, 'Cân & in tem hàng cân'),
             if (perm.canView('PosReportStock'))
               _menuItem('reorder', Icons.production_quantity_limits, 'Hàng cần nhập thêm'),
-            _menuItem('topping_groups', Icons.local_cafe_outlined, 'Nhóm topping'),
+            if (_fnbTypes)
+              _menuItem('topping_groups', Icons.local_cafe_outlined, 'Nhóm topping'),
             if (canManage) ...[
               _menuItem('m_category', Icons.folder_outlined, 'Quản lý nhóm hàng'),
               _menuItem('m_supplier', Icons.local_shipping_outlined, 'Quản lý nhà cung cấp'),
@@ -1914,7 +1932,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         icon: Icons.inventory_2_outlined,
         title: 'Chưa có hàng hóa',
         description: perm.canCreate('PosProducts')
-            ? 'Nhấn «Tạo mới» để thêm hàng hóa, dịch vụ, combo, NVL hoặc topping'
+            ? (_fnbTypes
+                ? 'Nhấn «Tạo mới» để thêm hàng hóa, dịch vụ, combo, NVL hoặc topping'
+                : 'Nhấn «Tạo mới» để thêm hàng hóa, dịch vụ hoặc combo')
             : null,
       );
     }

@@ -442,8 +442,11 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     final (label, color, icon) = _actionStyle('${it['action']}');
     final name = '${it['userName'] ?? it['userEmail'] ?? tr('Không rõ')}';
     final entity = '${it['entityName'] ?? ''}'.trim();
+    // Số trường thực sự đổi — cho biết «sửa gì» ở mức liếc nhìn (bỏ với thao tác Xóa).
+    final fieldCount = (it['fieldCount'] as num?)?.toInt() ?? 0;
     final meta = [
       '${it['moduleName'] ?? ''}',
+      if (fieldCount > 0 && it['action'] != 'Delete') tr('$fieldCount trường'),
       if ((it['userRole'] ?? '').toString().isNotEmpty) '${it['userRole']}',
       if ((it['device'] ?? '').toString().isNotEmpty) '${it['device']}',
     ].where((x) => x.trim().isNotEmpty).join(' · ');

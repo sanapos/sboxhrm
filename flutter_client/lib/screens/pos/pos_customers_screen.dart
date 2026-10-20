@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/pos_customer.dart';
+import '../../models/pos_sell_industry.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/pos_sell_settings_helper.dart';
 import '../../utils/pos_payment_label.dart';
 import '../../utils/pos_report_open.dart';
 import '../../utils/api_datetime.dart';
@@ -373,12 +375,26 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _points = [];
   bool _onlyDebtOrders = false;
+  PosSellProfile? _sellProfile;
+
+  /// Hiện mục «Gói buổi / thẻ tập» khi ngành dùng (spa / gym) hoặc khi khách đã có dữ liệu gói.
+  bool get _showSessionPacks =>
+      (_sellProfile?.usesSessionPackages ?? false) || _sessionBalances.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _customer = widget.customer;
+    _loadSellProfile();
     _loadHistory();
+  }
+
+  Future<void> _loadSellProfile() async {
+    try {
+      final res = await PosSellSettingsHelper(_api).load();
+      final p = res.settings?.sellProfile;
+      if (mounted && p != null) setState(() => _sellProfile = p);
+    } catch (_) {}
   }
 
   static List<Map<String, dynamic>> _maps(dynamic v) =>
@@ -686,6 +702,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                 ],
               ),
             ),
+            if (_showSessionPacks)
             _section(
               'Gói buổi / thẻ tập',
               _sessionBalances.isEmpty

@@ -45,6 +45,15 @@ public sealed class ActivityAuditFilter(
                 ? "Delete"
                 : changes.Any(c => c.Op == "Create") && method == "POST" ? "Create" : "Update";
             var main = changes.FirstOrDefault(c => c.Op == action) ?? changes[0];
+            // Thanh toán đơn (nháp → hoàn tất): với người dùng đó là «tạo hóa đơn», không phải «sửa»
+            // (bản nháp không được ghi nhật ký) — ghi thành Thêm, bản ghi chính là hóa đơn.
+            var saleDone = changes.FirstOrDefault(c => c.Type == "PosSaleOrder" && c.Op == "Update"
+                && c.Fields.Any(f => f.Field == "Status" && f.New == "Completed"));
+            if (saleDone != null)
+            {
+                action = "Create";
+                main = saleDone;
+            }
             var userId = Guid.TryParse(user.FindFirst("id")?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var uid)
                 ? uid : (Guid?)null;
             var details = JsonSerializer.Serialize(new

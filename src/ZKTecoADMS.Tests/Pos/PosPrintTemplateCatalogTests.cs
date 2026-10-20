@@ -111,7 +111,7 @@ public class PosPrintTemplateCatalogTests
 
         var t = Assert.Single(items);
         Assert.Equal("A4", t.GetProperty("paperSize").GetString());
-        Assert.Equal("A4 ★", t.GetProperty("name").GetString());
+        Assert.Equal("Báo giá A4 ★", t.GetProperty("name").GetString());
         Assert.True(t.GetProperty("isDefault").GetBoolean());
         Assert.Contains("BẢNG BÁO GIÁ", t.GetProperty("htmlContent").GetString());
         Assert.Contains("POS_A4_V9", t.GetProperty("htmlContent").GetString());
@@ -132,12 +132,12 @@ public class PosPrintTemplateCatalogTests
 
         var a = Row(thermal);
         Assert.Equal(PosPrintPaperSize.A4, a.PaperSize);
-        Assert.Equal("A4 ★", a.Name);
+        Assert.Equal("Báo giá A4 ★", a.Name);
         Assert.Contains("POS_A4_V9", a.HtmlContent);
         Assert.Equal(_oldA4Cat, a.SourceCatalogId);
 
         var b = Row(renamed);
-        Assert.Equal("A4 ★", b.Name);
+        Assert.Equal("Báo giá A4 ★", b.Name);
         Assert.Equal(edited, b.HtmlContent);
     }
 

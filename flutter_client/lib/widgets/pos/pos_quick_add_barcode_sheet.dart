@@ -394,6 +394,19 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
     return const SizedBox.shrink();
   }
 
+  Widget _sectionLabel(String text) => Padding(
+        padding: const EdgeInsets.only(top: 2, bottom: 8),
+        child: Text(
+          tr(text),
+          style: const TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: PosTheme.textSecondary,
+            letterSpacing: 0.4,
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.of(context).viewInsets.bottom;
@@ -402,15 +415,181 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
         ? 'Thêm từ catalog mẫu'
         : (widget.hint.fromCatalog
             ? 'Thêm hàng từ từ điển mã vạch'
-            : 'Mã vạch chưa có trong cửa hàng');
-    final subtitle = hasBarcode
-        ? 'Mã ${widget.hint.barcode} — chọn loại hàng, ĐVT, thuế rồi bán'
-        : 'Chọn loại hàng (HH/DV/CB/NVL/TP), ĐVT, thương hiệu, thuế — ảnh mẫu dùng chung';
+            : 'Mã vạch chưa có — thêm hàng');
+
+    // ---- Các trường (giữ nguyên logic, chỉ sắp xếp lại bố cục bên dưới) ----
+    final typeField = DropdownButtonFormField<PosProductType>(
+      value: _productType,
+      decoration: PosTheme.inputDecoration(label: 'Loại hàng *'),
+      items: [
+        for (final t in PosProductType.values)
+          DropdownMenuItem(
+            value: t,
+            child: Text(tr(posProductTypeLabel(t))),
+          ),
+      ],
+      onChanged: (v) {
+        if (v != null) setState(() => _productType = v);
+      },
+    );
+    final nameField = TextField(
+      controller: _nameCtrl,
+      textInputAction: TextInputAction.next,
+      decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
+    );
+    final priceField = TextField(
+      controller: _priceCtrl,
+      autofocus: true,
+      keyboardType: TextInputType.number,
+      inputFormatters: [ThousandSeparatorFormatter()],
+      decoration: PosTheme.inputDecoration(label: 'Giá bán *'),
+      onSubmitted: (_) => _save(),
+    );
+    final costField = TextField(
+      controller: _costCtrl,
+      keyboardType: TextInputType.number,
+      inputFormatters: [ThousandSeparatorFormatter()],
+      decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
+    );
+    final unitField = TextField(
+      controller: _unitCtrl,
+      decoration: PosTheme.inputDecoration(
+        label: 'Đơn vị tính *',
+        hint: 'Cái, Lon, Ly…',
+      ),
+    );
+    final stockField = TextField(
+      controller: _stockCtrl,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [ThousandSeparatorFormatter()],
+      decoration: PosTheme.inputDecoration(
+        label: 'Tồn kho đầu',
+        hint: 'VD: 100',
+      ),
+    );
+    final categoryDropdown = _loadingCats
+        ? const LinearProgressIndicator()
+        : DropdownButtonFormField<String?>(
+            value: _categoryId != null &&
+                    _categories.any((c) => c.id == _categoryId)
+                ? _categoryId
+                : null,
+            isExpanded: true,
+            decoration: PosTheme.inputDecoration(label: 'Nhóm hàng *'),
+            items: [
+              DropdownMenuItem<String?>(
+                value: null,
+                child: Text(tr('— Chọn / nhập mới —')),
+              ),
+              ..._categories.map(
+                (c) => DropdownMenuItem<String?>(
+                  value: c.id,
+                  child: Text(tr(c.name), overflow: TextOverflow.ellipsis),
+                ),
+              ),
+            ],
+            onChanged: (v) {
+              setState(() {
+                _categoryId = v;
+                if (v != null) {
+                  final hit = _categories.cast<PosCatalogItem?>().firstWhere(
+                        (c) => c?.id == v,
+                        orElse: () => null,
+                      );
+                  if (hit != null) _categoryCtrl.text = hit.name;
+                }
+              });
+            },
+          );
+    final categoryNewField = TextField(
+      controller: _categoryCtrl,
+      decoration: PosTheme.inputDecoration(
+        label: 'Hoặc nhóm mới',
+        hint: 'Trà sữa…',
+      ),
+      onChanged: (_) {
+        if (_categoryId != null) setState(() => _categoryId = null);
+      },
+    );
+    final brandDropdown = _loadingCats
+        ? const SizedBox.shrink()
+        : DropdownButtonFormField<String?>(
+            value: _brandId != null && _brands.any((b) => b.id == _brandId)
+                ? _brandId
+                : null,
+            isExpanded: true,
+            decoration: PosTheme.inputDecoration(label: 'Thương hiệu'),
+            items: [
+              DropdownMenuItem<String?>(
+                value: null,
+                child: Text(tr('— Không / nhập mới —')),
+              ),
+              ..._brands.map(
+                (b) => DropdownMenuItem<String?>(
+                  value: b.id,
+                  child: Text(tr(b.name), overflow: TextOverflow.ellipsis),
+                ),
+              ),
+            ],
+            onChanged: (v) {
+              setState(() {
+                _brandId = v;
+                if (v != null) {
+                  final hit = _brands.cast<PosCatalogItem?>().firstWhere(
+                        (b) => b?.id == v,
+                        orElse: () => null,
+                      );
+                  if (hit != null) _brandCtrl.text = hit.name;
+                }
+              });
+            },
+          );
+    final brandNewField = TextField(
+      controller: _brandCtrl,
+      decoration: PosTheme.inputDecoration(
+        label: 'Hoặc gõ TH',
+        hint: 'Coca-Cola…',
+      ),
+      onChanged: (_) {
+        if (_brandId != null) setState(() => _brandId = null);
+      },
+    );
+    final taxChips = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        ChoiceChip(
+          label: Text(tr('KCT')),
+          selected: _vatExempt,
+          onSelected: (_) => setState(() {
+            _vatExempt = true;
+            _vatRate = 0;
+          }),
+        ),
+        for (final r in _vatChoices)
+          ChoiceChip(
+            label: Text('${r.toInt()}%'),
+            selected: !_vatExempt && _vatRate == r,
+            onSelected: (_) => setState(() {
+              _vatExempt = false;
+              _vatRate = r;
+            }),
+          ),
+      ],
+    );
+    final descField = TextField(
+      controller: _descCtrl,
+      maxLines: 2,
+      decoration: PosTheme.inputDecoration(
+        label: 'Mô tả',
+        hint: 'Ghi chú ngắn…',
+      ),
+    );
 
     return Padding(
       padding: EdgeInsets.only(bottom: inset),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -426,256 +605,119 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
                 ),
               ),
             ),
-            Text(
-              tr(title),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              tr(subtitle),
-              style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
-            ),
-            const SizedBox(height: 12),
-            Center(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  height: 88,
-                  width: 88,
-                  child: ColoredBox(
-                    color: const Color(0xFFF0F2F5),
-                    child: _imagePreview(),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<PosProductType>(
-              value: _productType,
-              decoration: PosTheme.inputDecoration(label: 'Loại hàng *'),
-              items: [
-                for (final t in PosProductType.values)
-                  DropdownMenuItem(
-                    value: t,
-                    child: Text(tr(posProductTypeLabel(t))),
-                  ),
-              ],
-              onChanged: (v) {
-                if (v != null) setState(() => _productType = v);
-              },
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _nameCtrl,
-              textInputAction: TextInputAction.next,
-              decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
-            ),
-            const SizedBox(height: 10),
-            if (_productType.tracksInventory) ...[
-              TextField(
-                controller: _stockCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [ThousandSeparatorFormatter()],
-                decoration: PosTheme.inputDecoration(
-                  label: 'Tồn kho ban đầu',
-                  hint: 'VD: 100',
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
+            // Header: ảnh mẫu + tiêu đề + chip mã vạch.
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _priceCtrl,
-                    autofocus: true,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [ThousandSeparatorFormatter()],
-                    decoration: PosTheme.inputDecoration(label: 'Giá bán *'),
-                    onSubmitted: (_) => _save(),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: _costCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [ThousandSeparatorFormatter()],
-                    decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _unitCtrl,
-                    decoration: PosTheme.inputDecoration(
-                      label: 'Đơn vị tính *',
-                      hint: 'Cái, Lon, Ly…',
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    height: 60,
+                    width: 60,
+                    child: ColoredBox(
+                      color: const Color(0xFFF0F2F5),
+                      child: _imagePreview(),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: _loadingCats
-                      ? const LinearProgressIndicator()
-                      : DropdownButtonFormField<String?>(
-                          value: _categoryId != null &&
-                                  _categories.any((c) => c.id == _categoryId)
-                              ? _categoryId
-                              : null,
-                          isExpanded: true,
-                          decoration:
-                              PosTheme.inputDecoration(label: 'Nhóm hàng *'),
-                          items: [
-                            DropdownMenuItem<String?>(
-                              value: null,
-                              child: Text(tr('— Nhập mới / chọn —')),
-                            ),
-                            ..._categories.map(
-                              (c) => DropdownMenuItem<String?>(
-                                value: c.id,
-                                child: Text(tr(c.name),
-                                    overflow: TextOverflow.ellipsis),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tr(title),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 6),
+                      if (hasBarcode)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: PosTheme.kiotBlueLight,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.qr_code_2,
+                                  size: 15, color: PosTheme.kiotBlue),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  widget.hint.barcode.trim(),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: PosTheme.kiotBlue,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
-                          onChanged: (v) {
-                            setState(() {
-                              _categoryId = v;
-                              if (v != null) {
-                                final hit = _categories
-                                    .cast<PosCatalogItem?>()
-                                    .firstWhere(
-                                      (c) => c?.id == v,
-                                      orElse: () => null,
-                                    );
-                                if (hit != null) {
-                                  _categoryCtrl.text = hit.name;
-                                }
-                              }
-                            });
-                          },
+                            ],
+                          ),
+                        )
+                      else
+                        Text(
+                          tr('Chọn loại, ĐVT, thuế rồi bán'),
+                          style: const TextStyle(
+                              fontSize: 12, color: PosTheme.textSecondary),
                         ),
+                    ],
+                  ),
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            _sectionLabel('THÔNG TIN HÀNG'),
+            typeField,
             const SizedBox(height: 10),
-            TextField(
-              controller: _categoryCtrl,
-              decoration: PosTheme.inputDecoration(
-                label: 'Hoặc gõ tên nhóm hàng mới',
-                hint: 'VD: Trà sữa, Món chính…',
-              ),
-              onChanged: (_) {
-                if (_categoryId != null) {
-                  setState(() => _categoryId = null);
-                }
-              },
+            nameField,
+            const SizedBox(height: 16),
+            _sectionLabel('GIÁ & ĐƠN VỊ'),
+            Row(
+              children: [
+                Expanded(child: priceField),
+                const SizedBox(width: 10),
+                Expanded(child: costField),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (_productType.tracksInventory)
+              Row(
+                children: [
+                  Expanded(child: unitField),
+                  const SizedBox(width: 10),
+                  Expanded(child: stockField),
+                ],
+              )
+            else
+              unitField,
+            const SizedBox(height: 16),
+            _sectionLabel('PHÂN LOẠI'),
+            Row(
+              children: [
+                Expanded(flex: 3, child: categoryDropdown),
+                const SizedBox(width: 10),
+                Expanded(flex: 2, child: categoryNewField),
+              ],
             ),
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(
-                  flex: 3,
-                  child: _loadingCats
-                      ? const SizedBox.shrink()
-                      : DropdownButtonFormField<String?>(
-                          value: _brandId != null &&
-                                  _brands.any((b) => b.id == _brandId)
-                              ? _brandId
-                              : null,
-                          isExpanded: true,
-                          decoration:
-                              PosTheme.inputDecoration(label: 'Thương hiệu'),
-                          items: [
-                            DropdownMenuItem<String?>(
-                              value: null,
-                              child: Text(tr('— Không / nhập mới —')),
-                            ),
-                            ..._brands.map(
-                              (b) => DropdownMenuItem<String?>(
-                                value: b.id,
-                                child: Text(tr(b.name),
-                                    overflow: TextOverflow.ellipsis),
-                              ),
-                            ),
-                          ],
-                          onChanged: (v) {
-                            setState(() {
-                              _brandId = v;
-                              if (v != null) {
-                                final hit = _brands
-                                    .cast<PosCatalogItem?>()
-                                    .firstWhere(
-                                      (b) => b?.id == v,
-                                      orElse: () => null,
-                                    );
-                                if (hit != null) {
-                                  _brandCtrl.text = hit.name;
-                                }
-                              }
-                            });
-                          },
-                        ),
-                ),
+                Expanded(flex: 3, child: brandDropdown),
                 const SizedBox(width: 10),
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: _brandCtrl,
-                    decoration: PosTheme.inputDecoration(
-                      label: 'Hoặc gõ TH',
-                      hint: 'Coca-Cola…',
-                    ),
-                    onChanged: (_) {
-                      if (_brandId != null) {
-                        setState(() => _brandId = null);
-                      }
-                    },
-                  ),
-                ),
+                Expanded(flex: 2, child: brandNewField),
               ],
             ),
+            const SizedBox(height: 16),
+            _sectionLabel('THUẾ & MÔ TẢ'),
+            taxChips,
             const SizedBox(height: 10),
-            Text(tr('Thuế GTGT'), style: const TextStyle(fontSize: 12)),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ChoiceChip(
-                  label: Text(tr('KCT')),
-                  selected: _vatExempt,
-                  onSelected: (_) => setState(() {
-                    _vatExempt = true;
-                    _vatRate = 0;
-                  }),
-                ),
-                for (final r in _vatChoices)
-                  ChoiceChip(
-                    label: Text('${r.toInt()}%'),
-                    selected: !_vatExempt && _vatRate == r,
-                    onSelected: (_) => setState(() {
-                      _vatExempt = false;
-                      _vatRate = r;
-                    }),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _descCtrl,
-              maxLines: 2,
-              decoration: PosTheme.inputDecoration(
-                label: 'Mô tả',
-                hint: 'Ghi chú ngắn…',
-              ),
-            ),
-            const SizedBox(height: 14),
+            descField,
+            const SizedBox(height: 18),
             FilledButton(
               onPressed: _saving ? null : _save,
               style: PosTheme.filledButtonStyle,

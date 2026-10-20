@@ -259,7 +259,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
         'word' => 'Đang tạo Word…',
         'excel' => 'Đang tạo Excel…',
         'png' => 'Đang tạo ảnh…',
-        'zalo' || 'email' || 'facebook' => 'Đang chuẩn bị gửi khách…',
+        'zalo' || 'email' || 'facebook' || 'share' => 'Đang chuẩn bị gửi khách…',
         _ => 'Đang xử lý…',
       },
     );
@@ -682,7 +682,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
       const SizedBox(width: 8),
       tile(Icons.chat_outlined, 'Zalo', phone.isEmpty ? null : () => _share('zalo')),
       const SizedBox(width: 8),
-      tile(Icons.picture_as_pdf_outlined, 'Gửi PDF', () => _share('pdf')),
+      tile(Icons.picture_as_pdf_outlined, 'Gửi PDF', () => _share('share')),
       const SizedBox(width: 8),
       tile(Icons.event_note_outlined, 'Chăm sóc', () {
         showPosQuoteCareSheet(context,

@@ -65,6 +65,8 @@ class PermissionNavigation {
     if (PermissionModules.selfServiceModules.contains(moduleCode)) {
       return true;
     }
+    // Tổng quan luôn mở menu — màn tự route HRM / POS / nhân viên theo quyền.
+    if (moduleCode == 'Dashboard') return true;
     if (moduleCode == 'SettingsHub' && perm.canViewPosSetup()) return true;
     if (moduleCode == 'SettingsHub') {
       for (final code in settingsMenuPackageModules) {
@@ -90,6 +92,9 @@ class PermissionNavigation {
     if (moduleCode == null || moduleCode.isEmpty) return true;
     // Lịch sử thao tác có ở mọi gói (quyền xem vẫn theo vai trò).
     if (moduleCode == 'ActivityLog') return true;
+    // Tổng quan có ở mọi gói — màn OverviewRouter tự chọn HRM / POS / nhân viên;
+    // dữ liệu chi tiết vẫn theo quyền vai trò.
+    if (moduleCode == 'Dashboard') return true;
     if (PermissionModules.selfServiceModules.contains(moduleCode)) {
       return true;
     }

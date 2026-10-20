@@ -40,12 +40,18 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         // Chạy nền (GPS, hành trình, thống kê, webhook, lượt xem) — không phải thao tác của người dùng.
         "EmployeeLocationPoint", "EmployeeLiveLocation", "JourneyTracking", "ServerMetricSample", "SyncLog",
         "PosPaymentWebhookEvent", "CommunicationRead", "AnnouncementDelivery", "PosBranchStock", "PosCancelReturnAudit",
+        // Telemetry mạng app tự gửi định kỳ + log chống gửi trùng QR — không phải thao tác người dùng.
+        "PosNetworkSample", "PosQrRequestLog",
     };
 
     static readonly HashSet<string> SkipFields = new(StringComparer.OrdinalIgnoreCase)
     {
         "UpdatedAt", "UpdatedBy", "LastModified", "LastModifiedBy", "CreatedAt", "CreatedBy",
         "ConcurrencyStamp", "SecurityStamp", "RowVersion", "Timestamp", "HtmlContent", "DocxMappingJson",
+        // Cột khóa phiên bản / concurrency (bộ đếm nội bộ) — bump mỗi lần lưu, không phải nội dung người dùng sửa.
+        "LockVersion", "VersionLock", "Version", "xmin", "ConcurrencyToken", "Revision",
+        // Hệ thống tự giữ chỗ tồn khi bỏ hàng vào giỏ — không phải người dùng sửa hàng hóa.
+        "ReservedQty",
         "ExtraJson", "Template", "PhotoBase64", "ImageBase64", "StampPngBase64", "LogoPngBase64",
         // Tự động / nền (khóa đơn đang sửa, tín hiệu online, đã xem / đã đọc) — không phải thao tác của người dùng.
         "LockExpiresAt", "LockedAt", "LockedByDeviceId", "LockedByDeviceName", "LockedByDisplayName", "LockedByUserId",
@@ -75,17 +81,35 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         return base.SavingChangesAsync(eventData, result, cancellationToken);
     }
 
+    static readonly string[] OrderFkNames = ["SaleOrderId", "OrderId", "PosSaleOrderId"];
+
+    static string? PkOf(EntityEntry e) => e.Metadata.FindPrimaryKey()?.Properties
+        .Select(p => e.Property(p.Name).CurrentValue?.ToString()).FirstOrDefault();
+
     void Capture(DbContext? context)
     {
         if (context == null || collector.Suspended) return;
         try
         {
+            // Đơn nháp / tạm (giữ đơn) trong batch — chỉ ghi khi đơn đã hoàn tất, bỏ qua các lần lưu nháp
+            // (và cả dòng con của đơn nháp) để Lịch sử thao tác không đầy các lần giữ đơn.
+            var draftOrderIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var e in context.ChangeTracker.Entries())
+            {
+                if (e.Entity.GetType().Name != "PosSaleOrder") continue;
+                if (e.Metadata.FindProperty("Status") == null) continue;
+                var sp = e.Property("Status");
+                var status = (sp.CurrentValue ?? sp.OriginalValue)?.ToString();
+                if (status == "Draft" && PkOf(e) is { } oid) draftOrderIds.Add(oid);
+            }
+
             foreach (var e in context.ChangeTracker.Entries())
             {
                 if (collector.Changes.Count >= ActivityAuditCollector.MaxEntities) break;
                 if (e.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted)) continue;
                 var type = e.Entity.GetType().Name;
                 if (SkipTypes.Contains(type) || e.Metadata.IsOwned() || type.Contains("CustomerDisplay")) continue;
+                if (IsDraftOrderOrChild(e, type, draftOrderIds)) continue;
                 var change = Describe(e, type);
                 if (change != null) collector.Changes.Add(change);
             }
@@ -94,6 +118,21 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         {
             // Nhật ký không bao giờ được làm hỏng thao tác chính.
         }
+    }
+
+    /// <summary>Đơn nháp hoặc dòng con thuộc đơn nháp đang trong batch — không ghi nhật ký.</summary>
+    static bool IsDraftOrderOrChild(EntityEntry e, string type, HashSet<string> draftOrderIds)
+    {
+        if (draftOrderIds.Count == 0) return false;
+        if (type == "PosSaleOrder") return PkOf(e) is { } id && draftOrderIds.Contains(id);
+        foreach (var fk in OrderFkNames)
+        {
+            if (e.Metadata.FindProperty(fk) == null) continue;
+            var p = e.Property(fk);
+            var oid = (p.CurrentValue ?? p.OriginalValue)?.ToString();
+            if (oid != null && draftOrderIds.Contains(oid)) return true;
+        }
+        return false;
     }
 
     static ActivityEntityChange? Describe(EntityEntry e, string type)
@@ -133,7 +172,9 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         }
         var changed = e.Properties
             .Where(p => p.IsModified && !SkipFields.Contains(p.Metadata.Name)
-                && !Equals(p.OriginalValue, p.CurrentValue))
+                && !Equals(p.OriginalValue, p.CurrentValue)
+                // Giá trị hiển thị như nhau (vd giờ chỉ lệch vài giây) → không coi là đổi.
+                && Fmt(p.OriginalValue) != Fmt(p.CurrentValue))
             .Take(20)
             .Select(p => new ActivityFieldChange(p.Metadata.Name,
                 Mask(p.Metadata.Name, sensitiveKey, Fmt(p.OriginalValue)),

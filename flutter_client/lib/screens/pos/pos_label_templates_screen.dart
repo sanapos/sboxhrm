@@ -143,31 +143,78 @@ class _PosLabelTemplatesScreenState extends State<PosLabelTemplatesScreen> {
     }
   }
 
+  /// Nút chọn loại tem (icon + chữ nằm ngang, không vỡ dòng) — đặt trong hàng cuộn ngang.
+  Widget _typePill((String, String, IconData) t) {
+    final selected = _type == t.$1;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: selected ? SboxColors.brand600 : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(
+              color: selected ? SboxColors.brand600 : SboxColors.slate300),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () {
+            if (_type == t.$1) return;
+            setState(() => _type = t.$1);
+            _load();
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(t.$3,
+                    size: 18,
+                    color: selected ? Colors.white : SboxColors.slate500),
+                const SizedBox(width: 6),
+                Text(
+                  tr(t.$2),
+                  softWrap: false,
+                  overflow: TextOverflow.fade,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: selected ? Colors.white : SboxColors.slate700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final body = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Container(
         color: Colors.white,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Wrap(spacing: 12, runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
-          SegmentedButton<String>(
-            showSelectedIcon: false,
-            segments: [
-              for (final t in kPosLabelDesignTypes)
-                ButtonSegment(value: t.$1, icon: Icon(t.$3, size: 18), label: Text(tr(t.$2))),
-            ],
-            selected: {_type},
-            onSelectionChanged: (s) {
-              setState(() => _type = s.first);
-              _load();
-            },
-          ),
-          FilledButton.icon(
-            onPressed: _create,
-            icon: const Icon(Icons.add),
-            label: Text(tr('Tạo mẫu $_typeName')),
-          ),
-        ]),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Loại tem: cuộn ngang trên màn hẹp để chữ không bị vỡ dòng (trước dùng SegmentedButton ép 4 cột).
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [for (final t in kPosLabelDesignTypes) _typePill(t)],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                onPressed: _create,
+                icon: const Icon(Icons.add),
+                label: Text(tr('Tạo mẫu $_typeName')),
+              ),
+            ),
+          ],
+        ),
       ),
       Expanded(
         child: _loading
