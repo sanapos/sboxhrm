@@ -26,7 +26,7 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
     public record LogRow(
         Guid Id, DateTime Timestamp, Guid? UserId, string? UserName, string? UserEmail, string? UserRole,
         string Module, string ModuleName, string Action, string? EntityName, string? Endpoint,
-        string? IpAddress, string? Device, int ChangeCount);
+        string? IpAddress, string? Device, int ChangeCount, int FieldCount);
 
     static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
     static string Marker => $"\"source\":\"{ActivityAuditFilter.Source}\"";
@@ -255,6 +255,7 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
     {
         string? endpoint = null;
         var count = 0;
+        var fieldCount = 0;
         var entityName = a.EntityName;
         try
         {
@@ -263,6 +264,10 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
             if (doc.RootElement.TryGetProperty("changes", out var c) && c.ValueKind == JsonValueKind.Array)
             {
                 count = c.GetArrayLength();
+                // Tổng số trường thực sự đổi (để danh sách cho biết «sửa gì» ở mức liếc nhìn).
+                foreach (var ch in c.EnumerateArray())
+                    if (ch.TryGetProperty("fields", out var fs) && fs.ValueKind == JsonValueKind.Array)
+                        fieldCount += fs.GetArrayLength();
                 // Dựng lại tóm tắt bằng tiếng Việt (nhật ký cũ lưu tên kỹ thuật).
                 var list = c.EnumerateArray().ToList();
                 var main = list.FirstOrDefault(x => Str(x, "op") == a.Action);
@@ -275,7 +280,7 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
         // Giờ VN (cột lưu UTC, không Kind) — app hiển thị thẳng; trước đây lệch 7 tiếng.
         return new LogRow(a.Id, ReportHelpers.ToVn(a.Timestamp), a.UserId, a.UserName, a.UserEmail, ActivityLabels.Role(a.UserRole),
             a.EntityType, ActivityAuditFilter.ModuleLabel(a.EntityType), a.Action, entityName, endpoint,
-            a.IpAddress, DeviceOf(a.UserAgent), count);
+            a.IpAddress, DeviceOf(a.UserAgent), count, fieldCount);
     }
 
     /// <summary>Thiết bị ngắn gọn từ User-Agent: App Android / iOS / Trình duyệt Windows…</summary>

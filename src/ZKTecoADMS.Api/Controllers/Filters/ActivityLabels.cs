@@ -174,6 +174,14 @@ public static partial class ActivityLabels
         ["WarehouseId"] = "Kho", ["LotNo"] = "Số lô", ["ExpiryAt"] = "Hạn dùng", ["TableId"] = "Bàn", ["AreaId"] = "Khu vực",
         ["GuestCount"] = "Số khách", ["ValidUntil"] = "Hiệu lực đến", ["DeliveryDate"] = "Ngày giao", ["Terms"] = "Điều khoản",
         ["PricesIncludeVat"] = "Giá đã gồm VAT", ["ShippingFee"] = "Phí giao hàng", ["Deposit"] = "Đặt cọc",
+        // Hồ sơ ngành / tính tiền dịch vụ (karaoke, phòng giờ, spa…)
+        ["SellProfile"] = "Hồ sơ ngành", ["BillingMode"] = "Cách tính tiền", ["ServiceBillingMode"] = "Cách tính tiền",
+        ["OpeningFee"] = "Phí mở", ["OpeningMinutes"] = "Phút gồm trong phí mở", ["BlockMinutes"] = "Phút mỗi block",
+        ["BillRoundMinutes"] = "Làm tròn phút", ["GraceMinutes"] = "Phút miễn phí", ["FreeMinutes"] = "Phút miễn phí",
+        ["CommissionMode"] = "Cách tính hoa hồng", ["CommissionValue"] = "Mức hoa hồng", ["CommissionRate"] = "Tỷ lệ hoa hồng",
+        ["DepositAmount"] = "Tiền cọc", ["MaxEmployees"] = "Sức chứa", ["ResourceKind"] = "Loại tài nguyên",
+        ["SessionCount"] = "Số buổi", ["RemainingSessions"] = "Buổi còn lại", ["TotalSessions"] = "Tổng số buổi",
+        ["Provider"] = "Nhà cung cấp dịch vụ", ["ExpiresOn"] = "Hết hạn", ["EffectiveFrom"] = "Hiệu lực từ",
     };
 
     static readonly Dictionary<string, string> WordMap = new(StringComparer.OrdinalIgnoreCase)
@@ -220,6 +228,23 @@ public static partial class ActivityLabels
         ["round"] = "làm tròn", ["rounding"] = "làm tròn", ["lunch"] = "nghỉ trưa", ["night"] = "đêm", ["morning"] = "sáng",
         ["afternoon"] = "chiều", ["evening"] = "tối", ["weekday"] = "ngày trong tuần", ["weekdays"] = "ngày trong tuần",
         ["outside"] = "ngoài", ["inside"] = "trong", ["within"] = "trong", ["after"] = "sau", ["before"] = "trước", ["reminder"] = "nhắc", ["remind"] = "nhắc", ["push"] = "đẩy", ["sms"] = "SMS", ["zalo"] = "Zalo",
+        // Bổ sung để fallback dịch từng từ không rớt tiếng Anh
+        ["billing"] = "tính tiền", ["block"] = "block", ["opening"] = "mở", ["profile"] = "hồ sơ", ["resource"] = "tài nguyên",
+        ["reservation"] = "đặt chỗ", ["session"] = "phiên", ["commission"] = "hoa hồng", ["voucher"] = "khuyến mãi",
+        ["combo"] = "combo", ["recipe"] = "định lượng", ["warranty"] = "bảo hành", ["shipment"] = "vận chuyển",
+        ["carrier"] = "hãng vận chuyển", ["gateway"] = "cổng", ["webhook"] = "webhook", ["credit"] = "tin nhắn",
+        ["ledger"] = "sổ", ["intent"] = "yêu cầu", ["folio"] = "folio", ["topping"] = "topping", ["material"] = "nguyên vật liệu",
+        ["goods"] = "hàng hóa", ["catalog"] = "danh mục", ["barcode"] = "mã vạch", ["sku"] = "SKU", ["void"] = "hủy",
+        ["stay"] = "lưu trú", ["guest"] = "khách", ["membership"] = "hội viên", ["visit"] = "lượt", ["redeem"] = "đổi",
+        ["earn"] = "tích", ["loyalty"] = "tích điểm", ["tier"] = "hạng", ["quota"] = "định biên", ["staffing"] = "định biên",
+        ["gender"] = "giới tính", ["birth"] = "sinh", ["hire"] = "vào làm", ["resign"] = "nghỉ việc", ["dish"] = "món",
+        ["qr"] = "QR", ["table"] = "bàn", ["room"] = "phòng", ["chair"] = "ghế", ["seat"] = "ghế", ["area"] = "khu vực",
+        ["floor"] = "tầng", ["zone"] = "khu", ["bill"] = "hóa đơn", ["promotion"] = "khuyến mãi", ["campaign"] = "chiến dịch",
+        ["communication"] = "truyền thông", ["reaction"] = "cảm xúc", ["poll"] = "bình chọn", ["vote"] = "bình chọn",
+        ["bookmark"] = "lưu", ["attachment"] = "tệp đính kèm", ["dependency"] = "liên kết", ["evaluation"] = "đánh giá",
+        ["history"] = "lịch sử", ["routine"] = "định kỳ", ["installation"] = "lắp đặt", ["inspection"] = "kiểm tra",
+        ["delivery"] = "giao hàng", ["procurement"] = "mua sắm", ["survey"] = "khảo sát", ["company"] = "công ty",
+        ["commercial"] = "thương mại", ["contract"] = "hợp đồng", ["handover"] = "bàn giao", ["acceptance"] = "nghiệm thu",
     };
 
     public static string Field(string? field)
@@ -298,6 +323,82 @@ public static partial class ActivityLabels
         ["Delivered"] = "Đã giao", ["Returned"] = "Đã trả hàng", ["Confirmed"] = "Đã xác nhận", ["Failed"] = "Thất bại",
         ["Success"] = "Thành công", ["Waiting"] = "Đang chờ", ["Locked"] = "Đã khóa", ["Working"] = "Đang làm việc",
         ["Resigned"] = "Đã nghỉ việc", ["Probation"] = "Thử việc", ["Official"] = "Chính thức",
+        // ── Enum nghiệp vụ (gom từ Domain/Enums để nhật ký không còn mã tiếng Anh). Mỗi khóa 1 lần.
+        // Hàng hóa / kho / bán POS
+        ["Goods"] = "Hàng hóa", ["Service"] = "Dịch vụ", ["Combo"] = "Combo", ["Material"] = "Nguyên vật liệu",
+        ["Topping"] = "Topping", ["Packaged"] = "Đóng gói", ["Food"] = "Món ăn", ["Drink"] = "Đồ uống",
+        ["PercentOfLine"] = "% doanh thu dòng", ["FixedPerUnit"] = "Cố định / đơn vị", ["PercentOfCatalog"] = "% giá niêm yết",
+        ["StockIn"] = "Nhập kho", ["StockOut"] = "Xuất kho", ["Adjust"] = "Điều chỉnh", ["Adjustment"] = "Điều chỉnh",
+        ["Sale"] = "Bán hàng", ["Purchase"] = "Mua", ["Return"] = "Trả hàng", ["PurchaseReturn"] = "Trả hàng nhập",
+        ["TransferOut"] = "Chuyển kho đi", ["TransferIn"] = "Chuyển kho đến", ["Generic"] = "Thường",
+        ["Damage"] = "Hỏng / hao hụt", ["InternalUse"] = "Dùng nội bộ", ["Depleted"] = "Đã hết", ["Voided"] = "Đã hủy",
+        ["Revised"] = "Đã chỉnh sửa", ["Contracted"] = "Đã ký hợp đồng", ["Issued"] = "Đã xuất",
+        ["HandedOver"] = "Đã bàn giao", ["Inspected"] = "Đã nghiệm thu", ["Quote"] = "Báo giá", ["Contract"] = "Hợp đồng",
+        ["Handover"] = "Biên bản bàn giao", ["Acceptance"] = "Biên bản nghiệm thu", ["StockIssue"] = "Phiếu xuất kho",
+        ["PaymentRequest"] = "Đề nghị thanh toán",
+        // Hồ sơ ngành / phòng bàn / tính tiền dịch vụ
+        ["Retail"] = "Bán lẻ", ["Salon"] = "Salon / Spa", ["RoomHourly"] = "Phòng giờ (karaoke / bi-a)",
+        ["Restaurant"] = "Nhà hàng / Cafe", ["Gym"] = "Gym", ["Hotel"] = "Khách sạn",
+        ["Flat"] = "Giá cố định", ["PerHour"] = "Theo giờ", ["PerMinute"] = "Theo phút", ["PerSession"] = "Theo buổi",
+        ["PerBlock"] = "Theo block", ["PerDay"] = "Theo ngày / đêm", ["Chair"] = "Ghế", ["Table"] = "Bàn", ["Room"] = "Phòng",
+        ["Paused"] = "Tạm dừng", ["Booked"] = "Đã đặt", ["Seated"] = "Đã nhận bàn", ["NoShow"] = "Không đến",
+        ["Held"] = "Đang giữ cọc", ["Applied"] = "Đã trừ vào đơn", ["Refunded"] = "Đã hoàn cọc", ["Forfeited"] = "Mất cọc",
+        ["Redeem"] = "Đổi / dùng buổi", ["Expire"] = "Hết hạn", ["Earn"] = "Tích điểm",
+        // Thanh toán / khuyến mãi / credit
+        ["VietQR"] = "VietQR", ["EWallet"] = "Ví điện tử", ["WaitingPayment"] = "Chờ thanh toán", ["Percent"] = "Theo %",
+        ["Fixed"] = "Cố định", ["Tingee"] = "Tingee", ["Underpaid"] = "Thu thiếu", ["WebhookConsume"] = "Trừ khi xác nhận",
+        ["AdminGrant"] = "Admin cấp", ["AdminAdjust"] = "Admin điều chỉnh", ["Refund"] = "Hoàn",
+        // Bảo hành / seri
+        ["Sold"] = "Đã bán", ["Removed"] = "Đã xuất khỏi kho", ["Missing"] = "Thiếu", ["InStock"] = "Trong kho",
+        ["Matched"] = "Khớp", ["Unknown"] = "Không xác định", ["NotInStock"] = "Không còn trong kho",
+        ["OutOfScope"] = "Ngoài phạm vi", ["Recovered"] = "Tìm lại được", ["Note"] = "Ghi chú", ["Repair"] = "Sửa chữa",
+        ["Replace"] = "Đổi máy", ["Replaced"] = "Đã đổi",
+        // Phê duyệt / nhân sự
+        ["None"] = "Không", ["Leave"] = "Nghỉ phép", ["Overtime"] = "Tăng ca", ["AdvanceRequest"] = "Tạm ứng",
+        ["AttendanceCorrection"] = "Sửa chấm công", ["ShiftSwap"] = "Đổi ca", ["AssetPurchase"] = "Mua tài sản",
+        ["CashTransaction"] = "Thu chi", ["TaskApproval"] = "Duyệt công việc", ["HrDocument"] = "Tài liệu HR",
+        ["PenaltyTicket"] = "Phiếu phạt", ["DirectManager"] = "Quản lý trực tiếp", ["ByPosition"] = "Theo chức vụ",
+        ["SpecificEmployee"] = "Nhân viên cụ thể", ["DepartmentHead"] = "Trưởng phòng", ["AnyHigherLevel"] = "Cấp cao hơn",
+        ["Escalate"] = "Chuyển cấp trên", ["AutoApprove"] = "Tự động duyệt", ["AutoReject"] = "Tự động từ chối",
+        ["DoNothing"] = "Không làm gì", ["Daily"] = "Theo ngày", ["Hourly"] = "Theo giờ", ["Monthly"] = "Theo tháng",
+        ["Weekly"] = "Hàng tuần", ["Shift"] = "Theo ca", ["PerEvent"] = "Theo sự kiện", ["PerShift"] = "Theo ca",
+        ["Add"] = "Thêm", ["Edit"] = "Sửa", ["Delete"] = "Xóa", ["Weekday"] = "Ngày thường", ["Weekend"] = "Cuối tuần",
+        ["Holiday"] = "Ngày lễ", ["Night"] = "Ban đêm", ["AnnualLeave"] = "Phép năm", ["PersonalPaid"] = "Nghỉ riêng (hưởng lương)",
+        ["PersonalUnpaid"] = "Nghỉ riêng (không lương)", ["SickLeave"] = "Nghỉ ốm", ["MaternityLeave"] = "Thai sản",
+        ["CompensatoryLeave"] = "Nghỉ bù", ["LongTermLeave"] = "Nghỉ dài hạn", ["OnLeave"] = "Đang nghỉ",
+        ["PendingApproval"] = "Chờ duyệt", ["Absent"] = "Vắng", ["OnPendingLeave"] = "Chờ duyệt nghỉ",
+        ["ApprovedLeave"] = "Đã duyệt nghỉ", ["Late"] = "Đi trễ", ["EarlyLeave"] = "Về sớm", ["ForgotCheck"] = "Quên chấm công",
+        ["UnauthorizedLeave"] = "Nghỉ không phép", ["Violation"] = "Vi phạm nội quy", ["Repeat"] = "Tái phạm",
+        ["AutoApproved"] = "Tự động duyệt",
+        // Thông báo / truyền thông
+        ["Info"] = "Thông tin", ["Warning"] = "Cảnh báo", ["Error"] = "Lỗi", ["Critical"] = "Nghiêm trọng",
+        ["ApprovalRequired"] = "Cần duyệt", ["Reminder"] = "Nhắc nhở", ["Maintenance"] = "Bảo trì", ["Upgrade"] = "Nâng cấp",
+        ["Renewal"] = "Gia hạn", ["Marketing"] = "Marketing", ["Announcement"] = "Thông báo", ["News"] = "Tin tức",
+        ["Scheduled"] = "Đã hẹn giờ", ["Sending"] = "Đang gửi", ["Skipped"] = "Bỏ qua", ["Running"] = "Đang chạy",
+        ["InApp"] = "Trong ứng dụng", ["Banner"] = "Banner", ["Email"] = "Email", ["Sms"] = "SMS", ["Push"] = "Đẩy",
+        ["Event"] = "Sự kiện", ["Policy"] = "Chính sách", ["Training"] = "Đào tạo", ["Culture"] = "Văn hóa công ty",
+        ["Recruitment"] = "Tuyển dụng", ["Regulation"] = "Nội quy", ["Normal"] = "Bình thường", ["Published"] = "Đã xuất bản",
+        ["Archived"] = "Đã lưu trữ", ["Like"] = "Thích", ["Love"] = "Yêu thích", ["Celebrate"] = "Chúc mừng",
+        ["Support"] = "Ủng hộ", ["Insightful"] = "Sâu sắc",
+        // Công việc
+        ["Todo"] = "Chưa bắt đầu", ["InReview"] = "Chờ duyệt", ["OnHold"] = "Tạm hoãn", ["Assigned"] = "Đã giao",
+        ["Low"] = "Thấp", ["Medium"] = "Trung bình", ["High"] = "Cao", ["Urgent"] = "Khẩn cấp", ["Task"] = "Công việc",
+        ["Bug"] = "Lỗi cần sửa", ["Feature"] = "Tính năng", ["Improvement"] = "Cải tiến", ["Meeting"] = "Cuộc họp",
+        ["Routine"] = "Định kỳ", ["Installation"] = "Lắp đặt", ["Inspection"] = "Kiểm tra", ["Delivery"] = "Giao hàng",
+        ["CustomerService"] = "Chăm sóc khách", ["Survey"] = "Khảo sát", ["Procurement"] = "Mua sắm",
+        ["Manual"] = "Nhập tay", ["Checklist"] = "Theo checklist", ["SubTasks"] = "Theo việc con",
+        // Tài sản
+        ["InMaintenance"] = "Đang bảo trì", ["Broken"] = "Hỏng", ["Disposed"] = "Đã thanh lý", ["Lost"] = "Đã mất",
+        ["Assignment"] = "Cấp mới", ["Disposal"] = "Thanh lý", ["Good"] = "Tốt", ["Fair"] = "Bình thường",
+        ["Poor"] = "Kém", ["Damaged"] = "Hỏng", ["NotFound"] = "Không tìm thấy", ["Electronics"] = "Thiết bị điện tử",
+        ["Furniture"] = "Nội thất", ["Vehicle"] = "Phương tiện", ["Tool"] = "Công cụ dụng cụ", ["Machinery"] = "Máy móc",
+        ["Software"] = "Phần mềm",
+        // Công tác phí
+        ["AdvancePending"] = "Chờ duyệt ứng", ["AdvanceApproved"] = "Đã duyệt ứng", ["AdvancePaid"] = "Đã chi ứng",
+        ["SettlementDraft"] = "Nháp quyết toán", ["SettlementPending"] = "Chờ duyệt quyết toán",
+        ["SettlementApproved"] = "Đã duyệt quyết toán", ["Settling"] = "Đang quyết toán", ["Balanced"] = "Cân bằng",
+        ["PayExtra"] = "Chi thêm", ["SurplusAsAdvance"] = "Dư chuyển ứng", ["SurplusRefunded"] = "Hoàn phần dư",
+        ["Invoice"] = "Hóa đơn", ["Receipt"] = "Biên lai",
     };
 
     static readonly Regex GuidRx = GuidRegex();
