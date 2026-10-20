@@ -45,7 +45,10 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
         var marker = Marker;
         return db.AuditLogs.AsNoTracking()
             .Where(a => a.StoreId == storeId && a.Timestamp >= fromUtc && a.Timestamp < toUtc
-                && a.Details != null && a.Details.Contains(marker));
+                && a.Details != null && a.Details.Contains(marker)
+                // Nhật ký cũ của telemetry mạng / log QR (nay không ghi nữa) — ẩn khỏi danh sách.
+                && !a.Details.Contains("\"type\":\"PosNetworkSample\"")
+                && !a.Details.Contains("\"type\":\"PosQrRequestLog\""));
     }
 
     IQueryable<AuditLog> Filtered(DateTime? from, DateTime? to, Guid? userId, string? module, string? action, string? search)

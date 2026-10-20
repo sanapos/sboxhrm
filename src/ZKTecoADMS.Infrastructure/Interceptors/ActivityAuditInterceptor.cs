@@ -40,6 +40,8 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         // Chạy nền (GPS, hành trình, thống kê, webhook, lượt xem) — không phải thao tác của người dùng.
         "EmployeeLocationPoint", "EmployeeLiveLocation", "JourneyTracking", "ServerMetricSample", "SyncLog",
         "PosPaymentWebhookEvent", "CommunicationRead", "AnnouncementDelivery", "PosBranchStock", "PosCancelReturnAudit",
+        // Telemetry mạng app tự gửi định kỳ + log chống gửi trùng QR — không phải thao tác người dùng.
+        "PosNetworkSample", "PosQrRequestLog",
     };
 
     static readonly HashSet<string> SkipFields = new(StringComparer.OrdinalIgnoreCase)
