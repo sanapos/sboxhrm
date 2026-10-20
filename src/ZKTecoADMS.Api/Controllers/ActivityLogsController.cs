@@ -214,7 +214,7 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
     /// <summary>Trường nhiễu (bộ đếm phiên bản / concurrency) — ẩn khỏi nhật ký cũ lúc đọc.</summary>
     static readonly HashSet<string> NoiseFields = new(StringComparer.OrdinalIgnoreCase)
     {
-        "VersionLock", "Version", "xmin", "ConcurrencyToken", "ConcurrencyStamp", "RowVersion", "Revision",
+        "LockVersion", "VersionLock", "Version", "xmin", "ConcurrencyToken", "ConcurrencyStamp", "RowVersion", "Revision",
     };
 
     static bool IsNoiseField(string? f) => f != null && NoiseFields.Contains(f);
