@@ -50,6 +50,8 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         "ConcurrencyStamp", "SecurityStamp", "RowVersion", "Timestamp", "HtmlContent", "DocxMappingJson",
         // Cột khóa phiên bản / concurrency (bộ đếm nội bộ) — bump mỗi lần lưu, không phải nội dung người dùng sửa.
         "LockVersion", "VersionLock", "Version", "xmin", "ConcurrencyToken", "Revision",
+        // Hệ thống tự giữ chỗ tồn khi bỏ hàng vào giỏ — không phải người dùng sửa hàng hóa.
+        "ReservedQty",
         "ExtraJson", "Template", "PhotoBase64", "ImageBase64", "StampPngBase64", "LogoPngBase64",
         // Tự động / nền (khóa đơn đang sửa, tín hiệu online, đã xem / đã đọc) — không phải thao tác của người dùng.
         "LockExpiresAt", "LockedAt", "LockedByDeviceId", "LockedByDeviceName", "LockedByDisplayName", "LockedByUserId",
@@ -170,7 +172,9 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         }
         var changed = e.Properties
             .Where(p => p.IsModified && !SkipFields.Contains(p.Metadata.Name)
-                && !Equals(p.OriginalValue, p.CurrentValue))
+                && !Equals(p.OriginalValue, p.CurrentValue)
+                // Giá trị hiển thị như nhau (vd giờ chỉ lệch vài giây) → không coi là đổi.
+                && Fmt(p.OriginalValue) != Fmt(p.CurrentValue))
             .Take(20)
             .Select(p => new ActivityFieldChange(p.Metadata.Name,
                 Mask(p.Metadata.Name, sensitiveKey, Fmt(p.OriginalValue)),

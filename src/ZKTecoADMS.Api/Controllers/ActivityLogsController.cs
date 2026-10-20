@@ -218,6 +218,7 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
     static readonly HashSet<string> NoiseFields = new(StringComparer.OrdinalIgnoreCase)
     {
         "LockVersion", "VersionLock", "Version", "xmin", "ConcurrencyToken", "ConcurrencyStamp", "RowVersion", "Revision",
+        "ReservedQty",
     };
 
     static bool IsNoiseField(string? f) => f != null && NoiseFields.Contains(f);
@@ -225,6 +226,14 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
     /// <summary>Chọn bản ghi chính để đặt tên dòng: ưu tiên chứng từ gốc (không phải dòng con) khớp thao tác.</summary>
     static JsonElement PickMain(List<JsonElement> list, string action)
     {
+        // Có hóa đơn trong lần lưu → hóa đơn là bản ghi chính (kho, phiếu thu… chỉ là phát sinh kèm theo).
+        // Một lần lưu có thể có vài bản thay đổi hóa đơn: ưu tiên bản chuyển Hoàn tất, rồi bản nhiều trường nhất.
+        var orders = list.Where(c => Str(c, "type") == "PosSaleOrder").ToList();
+        if (orders.Count > 0)
+            return orders.FirstOrDefault(c => FieldNew(c, "Status") == "Completed") is { ValueKind: JsonValueKind.Object } done
+                ? done
+                : orders.OrderByDescending(c => c.TryGetProperty("fields", out var f) && f.ValueKind == JsonValueKind.Array
+                    ? f.GetArrayLength() : 0).First();
         JsonElement? headAction = null, anyAction = null, head = null;
         foreach (var c in list)
         {
@@ -237,9 +246,107 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
         return headAction ?? anyAction ?? head ?? list[0];
     }
 
-    /// <summary>Tên dòng nhật ký: «Loại «nhãn»» + với thao tác Sửa thì ghèm 1–2 trường đổi (cũ → mới) để biết «sửa gì».</summary>
-    static string BuildEntityName(JsonElement main, string type, string action, int count)
+    static readonly System.Globalization.CultureInfo Vi = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
+    static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
+
+    /// <summary>Bản ghi phát sinh kèm khi bán (kho, phiếu thu, điểm, hoa hồng…) — trong nhật ký bán hàng chỉ hiện tiêu đề.</summary>
+    static readonly HashSet<string> SaleSideTypes = new(StringComparer.Ordinal)
     {
+        "PosStockTransaction", "StockTransaction", "CashTransaction", "PosCustomerPointTransaction",
+        "PosSaleCommissionLine", "PosStockLot", "PosCustomerSessionTransaction", "PosResourceSession",
+    };
+
+    /// <summary>Nhật ký bán hàng: chỉ giữ các trường người dùng quan tâm của hóa đơn / dòng hàng.</summary>
+    static readonly Dictionary<string, HashSet<string>> SaleKeepFields = new(StringComparer.Ordinal)
+    {
+        ["PosSaleOrder"] = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Total", "SubTotal", "PaidAmount", "DiscountAmount", "Status", "PaymentMethod", "CustomerName", "Note",
+            "VatAmount", "ShippingFee",
+        },
+        ["PosSaleOrderLine"] = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "ProductName", "Qty", "Quantity", "UnitPrice", "LineTotal", "DiscountAmount", "LineNote",
+        },
+    };
+
+    /// <summary>Trường tồn kho hệ thống tự cập nhật khi bán.</summary>
+    static readonly HashSet<string> StockFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "OnHandQty", "OnHand", "StockQuantity", "ReservedQty", "QtyOnHand",
+    };
+
+    /// <summary>Trường số tiền — hiển thị tách nghìn (15000 → 15.000).</summary>
+    static readonly HashSet<string> MoneyFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Total", "SubTotal", "PaidAmount", "Amount", "UnitPrice", "LineTotal", "LineAmount", "DiscountAmount",
+        "BasePrice", "SalePrice", "CostPrice", "UnitCost", "VatAmount", "ShippingFee", "BalanceDue", "Deposit",
+        "DepositAmount", "OpeningFee", "Salary", "BaseSalary", "GrossSalary", "NetSalary", "Price",
+    };
+
+    /// <summary>Giá trị hiển thị: tiền tách nghìn, còn lại theo ActivityLabels.Value.</summary>
+    static string? Disp(string? field, string? raw) =>
+        field != null && MoneyFields.Contains(field)
+        && decimal.TryParse(raw, System.Globalization.NumberStyles.Number, Inv, out var m)
+            ? m.ToString("#,##0.##", Vi)
+            : ActivityLabels.Value(raw);
+
+    static string? FieldNew(JsonElement c, string field)
+    {
+        if (!c.TryGetProperty("fields", out var fs) || fs.ValueKind != JsonValueKind.Array) return null;
+        foreach (var f in fs.EnumerateArray())
+            if (string.Equals(Str(f, "field"), field, StringComparison.OrdinalIgnoreCase)) return Str(f, "new");
+        return null;
+    }
+
+    static bool IsSaleCompletion(JsonElement main, string action) =>
+        Str(main, "type") == "PosSaleOrder" && (action == "Create" || FieldNew(main, "Status") == "Completed");
+
+    static string Qty(string? raw) =>
+        decimal.TryParse(raw, System.Globalization.NumberStyles.Number, Inv, out var q)
+            ? Math.Abs(q).ToString("0.##", Inv) : "";
+
+    /// <summary>«Hóa đơn «HD..» · 15.000đ · coca cola ×1» — một dòng đọc là hiểu đơn bán gì.</summary>
+    static string SaleSummary(JsonElement main, List<JsonElement> list)
+    {
+        var parts = new List<string> { ActivityLabels.Summary("PosSaleOrder", Str(main, "label"), 1) };
+        var total = FieldNew(main, "Total") ?? FieldNew(main, "PaidAmount");
+        if (decimal.TryParse(total, System.Globalization.NumberStyles.Number, Inv, out var t) && t > 0)
+            parts.Add($"{t.ToString("#,##0", Vi)}đ");
+
+        // Món: dòng hóa đơn → biến động kho (tên lấy từ hàng hóa cùng lần lưu) → tên hàng hóa.
+        var names = list.Where(c => Str(c, "type") == "PosProduct")
+            .Select(c => (id: Str(c, "id"), label: Str(c, "label")))
+            .Where(x => x.id != null && !string.IsNullOrWhiteSpace(x.label))
+            .GroupBy(x => x.id!).ToDictionary(g => g.Key, g => g.First().label!);
+        var items = new List<string>();
+        // Bỏ dòng bị xóa (lúc thanh toán dòng được xóa rồi tạo lại) để không lặp tên món.
+        foreach (var c in list.Where(c => Str(c, "type") == "PosSaleOrderLine" && Str(c, "op") != "Delete"))
+        {
+            var n = Str(c, "label");
+            if (string.IsNullOrWhiteSpace(n) || ActivityLabels.IsGuid(n)) continue;
+            var q = Qty(FieldNew(c, "Quantity") ?? FieldNew(c, "Qty"));
+            items.Add(q.Length > 0 ? $"{n} ×{q}" : n);
+        }
+        if (items.Count == 0)
+            foreach (var c in list.Where(c => Str(c, "type") == "PosStockTransaction"))
+            {
+                var pid = FieldNew(c, "ProductId");
+                if (pid == null || !names.TryGetValue(pid, out var n)) continue;
+                var q = Qty(FieldNew(c, "QtyChange") ?? FieldNew(c, "Quantity"));
+                items.Add(q.Length > 0 ? $"{n} ×{q}" : n);
+            }
+        if (items.Count == 0) items.AddRange(names.Values.Distinct());
+        if (items.Count > 0)
+            parts.Add(items.Count > 3 ? $"{string.Join(", ", items.Take(3))} +{items.Count - 3} món" : string.Join(", ", items));
+        var s = string.Join(" · ", parts);
+        return s.Length > 300 ? s[..300] : s;
+    }
+
+    /// <summary>Tên dòng nhật ký: «Loại «nhãn»» + với thao tác Sửa thì ghèm 1–2 trường đổi (cũ → mới) để biết «sửa gì».</summary>
+    static string BuildEntityName(JsonElement main, string type, string action, int count, List<JsonElement> list)
+    {
+        if (IsSaleCompletion(main, action)) return SaleSummary(main, list);
         var baseName = ActivityLabels.Summary(type, Str(main, "label"), count);
         if (action != "Update" || !main.TryGetProperty("fields", out var fs) || fs.ValueKind != JsonValueKind.Array)
             return baseName;
@@ -250,8 +357,9 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
             if (IsNoiseField(Str(f, "field"))) continue;
             var fn = ActivityLabels.Field(Str(f, "field"));
             if (string.IsNullOrWhiteSpace(fn)) continue;
-            var ov = ActivityLabels.Value(Str(f, "old")) ?? "—";
-            var nv = ActivityLabels.Value(Str(f, "new")) ?? "—";
+            var ov = Disp(Str(f, "field"), Str(f, "old")) ?? "—";
+            var nv = Disp(Str(f, "field"), Str(f, "new")) ?? "—";
+            if (ov == nv) continue; // vd giờ chỉ lệch vài giây
             parts.Add($"{fn}: {ov} → {nv}");
         }
         if (parts.Count == 0) return baseName;
@@ -269,11 +377,22 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
             var changes = new List<object>();
             if (root.TryGetProperty("changes", out var arr) && arr.ValueKind == JsonValueKind.Array)
             {
-                foreach (var c in arr.EnumerateArray())
+                // Nhật ký bán hàng: hóa đơn lên đầu; kho / phiếu thu / tồn hàng hóa chỉ hiện tiêu đề (bớt «một tràn»).
+                var all = arr.EnumerateArray().ToList();
+                var isSale = all.Any(c => Str(c, "type") == "PosSaleOrder");
+                var ordered = isSale ? all.OrderBy(c => Str(c, "type") == "PosSaleOrder" ? 0 : 1).ToList() : all;
+                foreach (var c in ordered)
                 {
                     var type = Str(c, "type") ?? "";
                     var label = Str(c, "label");
-                    var fields = c.TryGetProperty("fields", out var fs) && fs.ValueKind == JsonValueKind.Array
+                    // Lúc thanh toán dòng hàng bị xóa rồi tạo lại — bỏ bản xóa để không lặp món.
+                    if (isSale && type == "PosSaleOrderLine" && Str(c, "op") == "Delete") continue;
+                    SaleKeepFields.TryGetValue(type, out var keep);
+                    if (!isSale) keep = null;
+                    var collapse = isSale && (SaleSideTypes.Contains(type)
+                        || (type == "PosProduct" && c.TryGetProperty("fields", out var pf) && pf.ValueKind == JsonValueKind.Array
+                            && pf.EnumerateArray().All(f => StockFields.Contains(Str(f, "field") ?? "") || IsNoiseField(Str(f, "field")))));
+                    var fields = !collapse && c.TryGetProperty("fields", out var fs) && fs.ValueKind == JsonValueKind.Array
                         ? fs.EnumerateArray().Select(f =>
                         {
                             var field = Str(f, "field") ?? "";
@@ -283,16 +402,22 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
                             {
                                 field,
                                 fieldName = ActivityLabels.Field(field),
-                                old = ActivityLabels.Value(oldV),
-                                @new = ActivityLabels.Value(newV),
+                                old = Disp(field, oldV),
+                                @new = Disp(field, newV),
                             };
                         })
                         // Thêm mới: bỏ các trường chỉ là mã nội bộ (vô nghĩa với người xem).
                         .Where(f => !(f.old == null && f.@new != null && f.@new.StartsWith('#') && f.field.EndsWith("Id")))
-                        // Bỏ trường nhiễu (bộ đếm phiên bản / concurrency).
+                        // Bỏ trường nhiễu (bộ đếm phiên bản / concurrency) và «đổi» mà hiển thị như nhau.
                         .Where(f => !IsNoiseField(f.field))
+                        .Where(f => !(f.old != null && f.old == f.@new))
+                        // Đơn bán: chỉ trường chính của hóa đơn / dòng hàng; giảm giá 0 thì bỏ.
+                        .Where(f => keep == null || keep.Contains(f.field))
+                        .Where(f => !(keep != null && f.field.Contains("Discount", StringComparison.OrdinalIgnoreCase) && f.@new == "0"))
                         .ToList<object>()
                         : [];
+                    // Bản thay đổi hóa đơn phụ không còn trường nào (vd chỉ gỡ phiên phòng) — bỏ hẳn.
+                    if (isSale && type == "PosSaleOrder" && fields.Count == 0) continue;
                     changes.Add(new
                     {
                         type,
@@ -335,7 +460,11 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
                 {
                     var main = PickMain(list, a.Action);
                     if (main.ValueKind == JsonValueKind.Object && Str(main, "type") is { } type)
-                        entityName = BuildEntityName(main, type, a.Action, count);
+                    {
+                        entityName = BuildEntityName(main, type, a.Action, count, list);
+                        // Đơn bán đã tóm tắt đủ (số HĐ · tiền · món) — không đếm hàng chục trường phát sinh.
+                        if (IsSaleCompletion(main, a.Action)) fieldCount = 0;
+                    }
                 }
             }
         }
