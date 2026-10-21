@@ -1584,3 +1584,5 @@ CREATE INDEX IF NOT EXISTS "IX_PosPrintJobs_PrinterId_PayloadHash" ON "PosPrintJ
 CREATE INDEX IF NOT EXISTS "IX_PosPrintJobs_CreatedAt" ON "PosPrintJobs" ("CreatedAt");
 
 CREATE INDEX IF NOT EXISTS "IX_StoreScheduledNotifications_StoreId_CreatedByUserId" ON "StoreScheduledNotifications" ("StoreId", "CreatedByUserId");
+-- Dịch vụ tính giờ: khung giờ đặc biệt cộng / trừ giá (JSON)
+ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "TimeSurchargesJson" character varying(2000) NULL;

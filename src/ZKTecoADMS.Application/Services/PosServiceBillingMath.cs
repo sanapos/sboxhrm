@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.Json;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Services;
@@ -159,6 +161,149 @@ public static class PosServiceBillingMath
     {
         var qty = ExtraQty(mode, billableMinutes, openingMinutes, billRoundMinutes);
         return Math.Max(0, openingFee) + qty * unitPrice;
+    }
+
+    // ─── Đơn vị tính khi bán ──────────────────────────────────────────
+
+    static readonly string[] AutoUnitNames = ["", "cái", "chiếc", "giờ", "phút", "block", "ngày", "lượt"];
+
+    /// <summary>
+    /// ĐVT của dịch vụ tính giờ theo cách tính: số lượng là giờ / phút / block / ngày nên không được hiện «cái».
+    /// ĐVT tự đặt khác (vd «Đêm») được giữ; «Cái» / trống / tên tự động cũ thì đổi theo cách tính.
+    /// </summary>
+    public static string TimedUnitName(PosServiceBillingMode mode, string? current = null)
+    {
+        var auto = mode switch
+        {
+            PosServiceBillingMode.PerHour => "Giờ",
+            PosServiceBillingMode.PerMinute => "Phút",
+            PosServiceBillingMode.PerBlock => "Block",
+            PosServiceBillingMode.PerDay => "Ngày",
+            _ => null,
+        };
+        var cur = (current ?? "").Trim();
+        if (auto == null) return string.IsNullOrEmpty(cur) ? "Cái" : cur;
+        return AutoUnitNames.Contains(cur.ToLowerInvariant()) ? auto : cur;
+    }
+
+    // ─── Khung giờ đặc biệt (cộng / trừ giá theo giờ trong ngày) ──────
+
+    /// <summary>Một khung giờ: phút trong ngày [From, To) giờ VN; To ≤ From = qua đêm. Value âm = giảm.</summary>
+    public record TimeSurchargeRule(int FromMinute, int ToMinute, bool IsPercent, decimal Value)
+    {
+        public bool Contains(int minuteOfDay) => FromMinute < ToMinute
+            ? minuteOfDay >= FromMinute && minuteOfDay < ToMinute
+            : minuteOfDay >= FromMinute || minuteOfDay < ToMinute;
+    }
+
+    static int? ParseHm(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var parts = raw.Trim().Split(':');
+        if (parts.Length < 1 || !int.TryParse(parts[0], out var h)) return null;
+        var m = 0;
+        if (parts.Length > 1 && !int.TryParse(parts[1], out m)) return null;
+        if (h is < 0 or > 24 || m is < 0 or > 59) return null;
+        return Math.Min(1440, h * 60 + m) % 1440;
+    }
+
+    /// <summary>Đọc JSON khung giờ; dòng thiếu giờ / giá trị 0 / từ = đến bị bỏ.</summary>
+    public static List<TimeSurchargeRule> ParseTimeSurcharges(string? json)
+    {
+        var list = new List<TimeSurchargeRule>();
+        if (string.IsNullOrWhiteSpace(json)) return list;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) return list;
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                if (el.ValueKind != JsonValueKind.Object) continue;
+                string? Str(string name) =>
+                    el.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+                var from = ParseHm(Str("from"));
+                var to = ParseHm(Str("to"));
+                decimal value = 0;
+                if (el.TryGetProperty("value", out var vEl))
+                {
+                    if (vEl.ValueKind == JsonValueKind.Number) value = vEl.GetDecimal();
+                    else if (vEl.ValueKind == JsonValueKind.String)
+                        decimal.TryParse(vEl.GetString(), NumberStyles.Number, CultureInfo.InvariantCulture, out value);
+                }
+                if (from == null || to == null || from == to || value == 0) continue;
+                var isPercent = !string.Equals(Str("kind"), "amount", StringComparison.OrdinalIgnoreCase);
+                if (isPercent) value = Math.Clamp(value, -100, 1000);
+                list.Add(new TimeSurchargeRule(from.Value, to.Value, isPercent, value));
+            }
+        }
+        catch (JsonException)
+        {
+            // JSON hỏng → coi như không có khung giờ.
+        }
+        return list;
+    }
+
+    /// <summary>Chuẩn hóa JSON lưu DB (bỏ dòng sai); không còn dòng nào → null.</summary>
+    public static string? NormalizeTimeSurcharges(string? json)
+    {
+        var rules = ParseTimeSurcharges(json);
+        if (rules.Count == 0) return null;
+        static string Hm(int m) => $"{m / 60:00}:{m % 60:00}";
+        return JsonSerializer.Serialize(rules.Take(12).Select(r => new
+        {
+            from = Hm(r.FromMinute),
+            to = Hm(r.ToMinute),
+            kind = r.IsPercent ? "percent" : "amount",
+            value = r.Value,
+        }));
+    }
+
+    /// <summary>Số phút của 1 đơn vị giá: giờ 60, phút 1, block = độ dài block. Ngày / cố định = 0 (không áp khung giờ).</summary>
+    static int PriceUnitMinutes(PosServiceBillingMode mode, int? billRoundMinutes) => mode switch
+    {
+        PosServiceBillingMode.PerHour => 60,
+        PosServiceBillingMode.PerMinute => 1,
+        PosServiceBillingMode.PerBlock => billRoundMinutes is > 0 ? billRoundMinutes.Value : 5,
+        _ => 0,
+    };
+
+    /// <summary>
+    /// Tiền cộng (dương) / trừ (âm) do khung giờ đặc biệt cho phần tính theo giá (sau phút đã gồm trong giá giờ đầu).
+    /// Phút tính tiền thứ i ứng với giờ thực = bắt đầu + phút miễn + i (giờ VN, UTC+7). Mỗi phút trong khung:
+    /// % → giá 1 phút × %; giá trị → (giá trị / phút của 1 đơn vị giá). Làm tròn đến đồng.
+    /// </summary>
+    public static decimal TimeSurchargeAmount(
+        PosServiceBillingMode mode,
+        DateTime startedAt,
+        int billableMinutes,
+        decimal unitPrice,
+        int? openingMinutes,
+        int? billRoundMinutes,
+        int? graceMinutes,
+        string? rulesJson)
+    {
+        var unitMinutes = PriceUnitMinutes(mode, billRoundMinutes);
+        if (unitMinutes <= 0 || billableMinutes <= 0) return 0;
+        var rules = ParseTimeSurcharges(rulesJson);
+        if (rules.Count == 0) return 0;
+
+        var included = openingMinutes is > 0 ? openingMinutes.Value : 0;
+        var grace = graceMinutes is > 0 ? graceMinutes.Value : 0;
+        var startVn = AsUtc(startedAt).AddHours(7);
+        var startMinuteOfDay = startVn.Hour * 60 + startVn.Minute;
+        var perMinute = unitPrice / unitMinutes;
+        decimal total = 0;
+        for (var i = included; i < billableMinutes; i++)
+        {
+            var mod = (startMinuteOfDay + grace + i) % 1440;
+            foreach (var r in rules)
+            {
+                if (!r.Contains(mod)) continue;
+                total += r.IsPercent ? perMinute * r.Value / 100m : r.Value / unitMinutes;
+                break;
+            }
+        }
+        return Math.Round(total, 0, MidpointRounding.AwayFromZero);
     }
 
     public record PreviewRow(int ElapsedMinutes, int BillableMinutes, decimal Qty, decimal Total);

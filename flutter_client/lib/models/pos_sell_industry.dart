@@ -1801,6 +1801,35 @@ class PosHotelStayPolicy {
   }
 }
 
+/// Một khung giờ đặc biệt: phút trong ngày [from, to) giờ VN; to ≤ from = qua đêm. value âm = giảm.
+class PosTimeSurchargeRule {
+  const PosTimeSurchargeRule({
+    required this.fromMinute,
+    required this.toMinute,
+    required this.isPercent,
+    required this.value,
+  });
+
+  final int fromMinute;
+  final int toMinute;
+  final bool isPercent;
+  final double value;
+
+  bool contains(int minuteOfDay) => fromMinute < toMinute
+      ? minuteOfDay >= fromMinute && minuteOfDay < toMinute
+      : minuteOfDay >= fromMinute || minuteOfDay < toMinute;
+
+  static String hm(int minute) =>
+      '${(minute ~/ 60).toString().padLeft(2, '0')}:${(minute % 60).toString().padLeft(2, '0')}';
+
+  Map<String, dynamic> toJson() => {
+        'from': hm(fromMinute),
+        'to': hm(toMinute),
+        'kind': isPercent ? 'percent' : 'amount',
+        'value': value == value.roundToDouble() ? value.round() : value,
+      };
+}
+
 class PosServiceBillingCalc {
   static DateTime _asUtc(DateTime value) {
     if (value.isUtc) return value;
@@ -1942,6 +1971,108 @@ class PosServiceBillingCalc {
   }
 
   static double _roundMoney(double v) => double.parse(v.toStringAsFixed(4));
+
+  // ─── Đơn vị tính khi bán ──────────────────────────────────────────
+
+  static const _autoUnitNames = {'', 'cái', 'chiếc', 'giờ', 'phút', 'block', 'ngày', 'lượt'};
+
+  /// ĐVT dịch vụ tính giờ theo cách tính (khớp máy chủ): SL là giờ / phút / block nên không hiện «cái».
+  /// ĐVT tự đặt khác (vd «Đêm») được giữ.
+  static String timedUnitName(PosServiceBillingMode mode, [String? current]) {
+    final auto = switch (mode) {
+      PosServiceBillingMode.perHour => 'Giờ',
+      PosServiceBillingMode.perMinute => 'Phút',
+      PosServiceBillingMode.perBlock => 'Block',
+      PosServiceBillingMode.perDay => 'Ngày',
+      _ => null,
+    };
+    final cur = (current ?? '').trim();
+    if (auto == null) return cur.isEmpty ? 'Cái' : cur;
+    return _autoUnitNames.contains(cur.toLowerCase()) ? auto : cur;
+  }
+
+  // ─── Khung giờ đặc biệt ──────────────────────────────────────────
+
+  static int? _parseHm(String? raw) {
+    final s = (raw ?? '').trim();
+    if (s.isEmpty) return null;
+    final parts = s.split(':');
+    final h = int.tryParse(parts[0]);
+    final m = parts.length > 1 ? int.tryParse(parts[1]) : 0;
+    if (h == null || m == null || h < 0 || h > 24 || m < 0 || m > 59) return null;
+    return (h * 60 + m).clamp(0, 1440) % 1440;
+  }
+
+  /// Đọc JSON khung giờ (khớp PosServiceBillingMath.ParseTimeSurcharges); dòng sai bị bỏ.
+  static List<PosTimeSurchargeRule> parseTimeSurcharges(String? json) {
+    final out = <PosTimeSurchargeRule>[];
+    if (json == null || json.trim().isEmpty) return out;
+    dynamic raw;
+    try {
+      raw = jsonDecode(json);
+    } catch (_) {
+      return out;
+    }
+    if (raw is! List) return out;
+    for (final el in raw) {
+      if (el is! Map) continue;
+      final from = _parseHm(el['from']?.toString());
+      final to = _parseHm(el['to']?.toString());
+      final v = el['value'];
+      var value = v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
+      if (from == null || to == null || from == to || value == 0) continue;
+      final isPercent = '${el['kind'] ?? ''}'.toLowerCase() != 'amount';
+      if (isPercent) value = value.clamp(-100, 1000).toDouble();
+      out.add(PosTimeSurchargeRule(fromMinute: from, toMinute: to, isPercent: isPercent, value: value));
+    }
+    return out;
+  }
+
+  static String? encodeTimeSurcharges(List<PosTimeSurchargeRule> rules) {
+    final valid = rules.where((r) => r.fromMinute != r.toMinute && r.value != 0).take(12).toList();
+    if (valid.isEmpty) return null;
+    return jsonEncode(valid.map((r) => r.toJson()).toList());
+  }
+
+  static int _priceUnitMinutes(PosServiceBillingMode mode, int? billRoundMinutes) => switch (mode) {
+        PosServiceBillingMode.perHour => 60,
+        PosServiceBillingMode.perMinute => 1,
+        PosServiceBillingMode.perBlock => (billRoundMinutes ?? 0) > 0 ? billRoundMinutes! : 5,
+        _ => 0,
+      };
+
+  /// Tiền cộng / trừ do khung giờ đặc biệt — khớp PosServiceBillingMath.TimeSurchargeAmount (giờ VN = UTC+7).
+  static double timeSurchargeAmount({
+    required PosServiceBillingMode mode,
+    required DateTime startedAt,
+    required int billableMinutes,
+    required double unitPrice,
+    int? openingMinutes,
+    int? billRoundMinutes,
+    int? graceMinutes,
+    String? rulesJson,
+  }) {
+    final unitMinutes = _priceUnitMinutes(mode, billRoundMinutes);
+    if (unitMinutes <= 0 || billableMinutes <= 0) return 0;
+    final rules = parseTimeSurcharges(rulesJson);
+    if (rules.isEmpty) return 0;
+    final included = (openingMinutes ?? 0) > 0 ? openingMinutes! : 0;
+    final grace = (graceMinutes ?? 0) > 0 ? graceMinutes! : 0;
+    final vn = _asUtc(startedAt).add(const Duration(hours: 7));
+    final startMod = vn.hour * 60 + vn.minute;
+    final perMinute = unitPrice / unitMinutes;
+    var total = 0.0;
+    for (var i = included; i < billableMinutes; i++) {
+      final mod = (startMod + grace + i) % 1440;
+      for (final r in rules) {
+        if (!r.contains(mod)) continue;
+        total += r.isPercent ? perMinute * r.value / 100 : r.value / unitMinutes;
+        break;
+      }
+    }
+    // Làm tròn nửa xa 0 như decimal AwayFromZero bên máy chủ.
+    return total < 0 ? -((-total).roundToDouble()) : total.roundToDouble();
+  }
 
   static List<({int elapsed, int billable, double qty, double total})> preview({
     required PosServiceBillingMode mode,

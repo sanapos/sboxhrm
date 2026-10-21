@@ -185,6 +185,14 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Phút đã gồm trong phí mở. Phần vượt tính theo block/giờ.</summary>
     public int? OpeningMinutes { get; set; }
 
+    /// <summary>
+    /// Khung giờ đặc biệt (giờ VN) cộng / trừ giá dịch vụ tính giờ — JSON
+    /// <c>[{"from":"18:00","to":"23:00","kind":"percent|amount","value":20}]</c>; value âm = giảm.
+    /// «amount» tính theo đơn vị giá (1 giờ / 1 block / 1 phút). Null = không có.
+    /// </summary>
+    [MaxLength(2000)]
+    public string? TimeSurchargesJson { get; set; }
+
     /// <summary>Thời lượng mặc định khi thêm vào giỏ (phút).</summary>
     public int? DefaultDurationMinutes { get; set; }
 

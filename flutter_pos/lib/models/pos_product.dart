@@ -494,6 +494,8 @@ class PosProduct {
   final int sessionPackCount;
   final double openingFee;
   final int? openingMinutes;
+  /// Khung giờ đặc biệt cộng / trừ giá (JSON, xem PosServiceBillingCalc.parseTimeSurcharges).
+  final String? timeSurchargesJson;
   final int sessionPackValidDays;
   /// Gói giờ bán trước (phút) — > 0: đếm ngược, hết giờ báo + tính quá giờ.
   final int timePackageMinutes;
@@ -590,6 +592,7 @@ class PosProduct {
     this.sessionPackCount = 0,
     this.openingFee = 0,
     this.openingMinutes,
+    this.timeSurchargesJson,
     this.sessionPackValidDays = 0,
     this.timePackageMinutes = 0,
     this.overtimeProductId,
@@ -819,6 +822,8 @@ class PosProduct {
       openingFee: numVal(json['openingFee'] ?? json['OpeningFee']),
       openingMinutes:
           (json['openingMinutes'] ?? json['OpeningMinutes'] as num?)?.toInt(),
+      timeSurchargesJson:
+          (json['timeSurchargesJson'] ?? json['TimeSurchargesJson'])?.toString(),
       sessionPackValidDays:
           (json['sessionPackValidDays'] ?? json['SessionPackValidDays'] as num?)
                   ?.toInt() ??
@@ -934,6 +939,7 @@ class PosProduct {
       'sessionPackCount': sessionPackCount,
       'openingFee': openingFee,
       if (openingMinutes != null) 'openingMinutes': openingMinutes,
+      if (timeSurchargesJson != null) 'timeSurchargesJson': timeSurchargesJson,
       'sessionPackValidDays': sessionPackValidDays,
       'timePackageMinutes': timePackageMinutes,
       if (overtimeProductId != null) 'overtimeProductId': overtimeProductId,
@@ -1067,6 +1073,7 @@ class PosProduct {
       sessionPackCount: this.sessionPackCount,
       openingFee: this.openingFee,
       openingMinutes: this.openingMinutes,
+      timeSurchargesJson: this.timeSurchargesJson,
       sessionPackValidDays: this.sessionPackValidDays,
       timePackageMinutes: this.timePackageMinutes,
       overtimeProductId: this.overtimeProductId,

@@ -1656,7 +1656,7 @@ public partial class PosSellIndustryController(
             SaleOrderId = order.Id,
             ProductId = product.Id,
             ProductName = product.Name,
-            UnitName = product.BaseUnitName,
+            UnitName = PosServiceBillingMath.TimedUnitName(product.ServiceBillingMode, product.BaseUnitName),
             Qty = qty,
             UnitPrice = unitPrice,
             DiscountAmount = 0,

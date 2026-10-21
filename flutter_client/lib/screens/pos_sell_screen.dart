@@ -2,6 +2,7 @@ import '../widgets/pos/pos_customer_purchase_history_sheet.dart';
 import 'dart:async';
 import '../utils/api_datetime.dart';
 import '../widgets/pos/pos_package_timer.dart';
+import '../widgets/pos/pos_ticking_text.dart';
 import '../utils/pos_scale_barcode.dart';
 import '../utils/pos_scale_reader.dart';
 import '../widgets/pos/pos_scale_device_ui.dart';
@@ -286,7 +287,7 @@ class _SellCartLine {
     this.unitId,
     this.variant,
     required this.activeViewKey,
-    required this.unitLabel,
+    required String unitLabel,
     required this.displayCode,
     required this.unitPrice,
     required this.unitViews,
@@ -296,7 +297,8 @@ class _SellCartLine {
     this.discountInput = 0,
     this.vatRate = 8,
     this.vatExempt = false,
-  })  : noteCtrl = TextEditingController(),
+  })  : _unitLabel = unitLabel,
+        noteCtrl = TextEditingController(),
         priceCtrl = TextEditingController(
           text: tr(unitPrice == unitPrice.roundToDouble()
               ? unitPrice.toStringAsFixed(0)
@@ -316,7 +318,18 @@ class _SellCartLine {
   String? unitId;
   PosProductVariant? variant;
   String activeViewKey;
-  String unitLabel;
+  String _unitLabel;
+
+  /// ĐVT hiện / gửi máy chủ. Dịch vụ tính giờ: SL là giờ / phút / block → ĐVT theo cách tính
+  /// (hàng tạo mặc định «Cái» trước đây làm dòng hiện «3 cái» dù tiền tính theo block).
+  String get unitLabel => product.isTimedService
+      ? PosServiceBillingCalc.timedUnitName(
+          PosServiceBillingMode.parse(product.serviceBillingMode), _unitLabel)
+      : _unitLabel;
+  set unitLabel(String v) => _unitLabel = v;
+
+  /// Tiền cộng / trừ của khung giờ đặc biệt (dịch vụ tính giờ) — tính lại mỗi nhịp đồng hồ.
+  double timeSurcharge = 0;
   String displayCode;
   double unitPrice;
   double qty;
@@ -378,7 +391,8 @@ class _SellCartLine {
     final extra = (unitPrice + toppingExtraPerUnit) * qty;
     if (!product.isTimedService) return extra.roundToDouble();
     final fee = product.openingFee;
-    return ((fee < 0 ? 0.0 : fee) + extra).roundToDouble();
+    final gross = ((fee < 0 ? 0.0 : fee) + extra + timeSurcharge).roundToDouble();
+    return gross < 0 ? 0 : gross;
   }
 
   /// Ghi chú phiếu bếp / màn khách: mỗi topping 1 dòng, rồi ghi chú món.
@@ -5085,6 +5099,22 @@ class _PosSellScreenState extends State<PosSellScreen>
         line.qty = qty;
         changed = true;
       }
+      final surcharge = mode == PosServiceBillingMode.perDay
+          ? 0.0
+          : PosServiceBillingCalc.timeSurchargeAmount(
+              mode: mode,
+              startedAt: started,
+              billableMinutes: billable,
+              unitPrice: line.unitPrice,
+              openingMinutes: line.product.openingMinutes,
+              billRoundMinutes: line.product.billRoundMinutes,
+              graceMinutes: line.product.graceMinutes,
+              rulesJson: line.product.timeSurchargesJson,
+            );
+      if ((line.timeSurcharge - surcharge).abs() > 0.5) {
+        line.timeSurcharge = surcharge;
+        changed = true;
+      }
     }
     if (changed && mounted) {
       setState(() => _syncPaidAmount());
@@ -5216,6 +5246,27 @@ class _PosSellScreenState extends State<PosSellScreen>
     );
   }
 
+  /// Thời gian đã dùng tới giây (chỉ để hiện đồng hồ; tiền vẫn tính theo phút như máy chủ).
+  Duration _timedLineDuration(_SellInvoiceTab tab, _SellCartLine line, DateTime start) {
+    final end = (line.timerEndedAt ?? DateTime.now()).toUtc();
+    DateTime? pauseFrom = tab.sessionIsPaused ? tab.sessionPausedAt : null;
+    final lp = line.timerPausedAt;
+    if (lp != null && (pauseFrom == null || lp.isBefore(pauseFrom))) pauseFrom = lp;
+    var d = end.difference(start.toUtc()) -
+        Duration(minutes: tab.accumulatedPauseMinutes + line.timerPauseMinutes);
+    if (pauseFrom != null && pauseFrom.isBefore(end)) d -= end.difference(pauseFrom.toUtc());
+    return d.isNegative ? Duration.zero : d;
+  }
+
+  /// «1:05:09» / «05:09».
+  static String _fmtTimedClock(Duration d) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    final h = d.inHours;
+    final m = d.inMinutes % 60;
+    final sec = d.inSeconds % 60;
+    return h > 0 ? '$h:${two(m)}:${two(sec)}' : '${two(m)}:${two(sec)}';
+  }
+
   DateTime? _timedLineStart(_SellCartLine line) =>
       line.timerStartedAt ??
       (_industrySettings?.enableHourlyBilling == true ? _tab.serviceStartedAt : null);
@@ -5307,19 +5358,27 @@ class _PosSellScreenState extends State<PosSellScreen>
         btn(Icons.play_arrow, 'Bắt đầu', green, () => _lineTimerStart(line)),
       ]);
     }
-    final mins = _timedLineElapsed(_tab, line, start);
-    final dur = PosServiceBillingCalc.formatDurationLabel(mins);
+    final tab = _tab;
     final ended = line.timerEndedAt != null;
-    final paused = !ended && (line.timerPausedAt != null || _tab.sessionIsPaused);
+    final paused = !ended && (line.timerPausedAt != null || tab.sessionIsPaused);
     final overtime = (line.lineNote ?? '').startsWith(tr('Quá giờ'));
     final color = ended ? slate : paused ? amber : overtime ? red : green;
-    final label = ended
-        ? '⏹ ${hm(start)}–${hm(line.timerEndedAt!)} · $dur'
-        : paused
-            ? '⏸ Tạm dừng · $dur'
-            : '⏱ ${overtime ? 'Quá giờ từ' : 'Từ'} ${hm(start)} · $dur';
+    // Đồng hồ tự vẽ lại mỗi giây — trước chỉ vẽ lại khi SL đổi (block 15p → đứng 15 phút).
+    String label() {
+      final dur = _fmtTimedClock(_timedLineDuration(tab, line, start));
+      return ended
+          ? '⏹ ${hm(start)}–${hm(line.timerEndedAt!)} · $dur'
+          : paused
+              ? '⏸ Tạm dừng · $dur'
+              : '⏱ ${overtime ? 'Quá giờ từ' : 'Từ'} ${hm(start)} · $dur';
+    }
+
     return Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-      Text(tr(label), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+      PosTickingText(
+        running: !ended && !paused,
+        text: () => tr(label()),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color),
+      ),
       if (ended)
         btn(Icons.replay, 'Tính tiếp', green, () => _lineTimerReopen(line))
       else ...[
@@ -5335,11 +5394,15 @@ class _PosSellScreenState extends State<PosSellScreen>
   Timer? _timedBillingTimer;
 
   void _ensureTimedBillingTimer() {
-    final need = !_tab.sessionIsPaused &&
-        (_tab.cart.any((l) => l.timerStartedAt != null && l.timerEndedAt == null) ||
+    // Xét mọi hóa đơn đang mở: trước chỉ xét tab hiện tại → sang tab không có giờ là tắt bộ đếm,
+    // quay lại tab phòng hát thì tiền đứng tới khi có thao tác khác.
+    bool tabNeeds(_SellInvoiceTab t) =>
+        !t.sessionIsPaused &&
+        (t.cart.any((l) => l.timerStartedAt != null && l.timerEndedAt == null) ||
             (_industrySettings?.enableHourlyBilling == true &&
-                _tab.serviceStartedAt != null &&
-                _tab.cart.any((l) => l.product.isTimedService)));
+                t.serviceStartedAt != null &&
+                t.cart.any((l) => l.product.isTimedService)));
+    final need = _tabs.any(tabNeeds);
     if (!need) {
       _timedBillingTimer?.cancel();
       _timedBillingTimer = null;
@@ -5814,6 +5877,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       _customerSuggestions = [];
       _syncPaidAmount();
     });
+    // Tab mới có phòng / bàn đang tính giờ → cập nhật SL + tiền ngay, không chờ nhịp 5 giây.
+    _refreshTimedLineQtys();
     _restartDraftLockHeartbeat();
     unawaited(_onSelectedTabActivated());
   }

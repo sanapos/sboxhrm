@@ -8,6 +8,7 @@ using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
@@ -113,7 +114,8 @@ public partial class PosProductsController(
         int? PackShelfLifeDays = null,
         decimal? LoyaltyPercent = null,
         string? AreaQuickSizes = null,
-        string? GymAccessHours = null);
+        string? GymAccessHours = null,
+        string? TimeSurchargesJson = null);
 
     public record PosProductComboLineDto(
         Guid Id,
@@ -230,7 +232,8 @@ public partial class PosProductsController(
         decimal? OriginalOnHandQty = null,
         decimal? LoyaltyPercent = null,
         string? AreaQuickSizes = null,
-        string? GymAccessHours = null);
+        string? GymAccessHours = null,
+        string? TimeSurchargesJson = null);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -401,6 +404,7 @@ public partial class PosProductsController(
                 p.AllowAreaHeight,
                 p.AreaQuickSizes,
                 p.GymAccessHours,
+                p.TimeSurchargesJson,
                 p.ServiceBillingMode,
                 p.MinBillMinutes,
                 p.BillRoundMinutes,
@@ -508,7 +512,8 @@ public partial class PosProductsController(
                 PackShelfLifeDays: r.PackShelfLifeDays,
                 LoyaltyPercent: r.LoyaltyPercent,
                 AreaQuickSizes: r.AreaQuickSizes,
-                GymAccessHours: r.GymAccessHours);
+                GymAccessHours: r.GymAccessHours,
+                TimeSurchargesJson: r.TimeSurchargesJson);
         }).ToList();
 
         if (stockoutFilter != PosStockoutFilter.All)
@@ -785,6 +790,7 @@ public partial class PosProductsController(
             SessionPackCount = Math.Max(0, dto.SessionPackCount),
             OpeningFee = Math.Max(0, dto.OpeningFee),
             OpeningMinutes = dto.OpeningMinutes,
+            TimeSurchargesJson = PosServiceBillingMath.NormalizeTimeSurcharges(dto.TimeSurchargesJson),
             SessionPackValidDays = Math.Max(0, dto.SessionPackValidDays),
             TimePackageMinutes = Math.Clamp(dto.TimePackageMinutes, 0, 7 * 24 * 60),
             OvertimeProductId = dto.OvertimeProductId,
@@ -927,6 +933,7 @@ public partial class PosProductsController(
         entity.SessionPackCount = Math.Max(0, dto.SessionPackCount);
         entity.OpeningFee = Math.Max(0, dto.OpeningFee);
         entity.OpeningMinutes = dto.OpeningMinutes;
+        entity.TimeSurchargesJson = PosServiceBillingMath.NormalizeTimeSurcharges(dto.TimeSurchargesJson);
         entity.SessionPackValidDays = Math.Max(0, dto.SessionPackValidDays);
         entity.TimePackageMinutes = Math.Clamp(dto.TimePackageMinutes, 0, 7 * 24 * 60);
         entity.OvertimeProductId = dto.OvertimeProductId == entity.Id ? null : dto.OvertimeProductId;
@@ -1350,7 +1357,8 @@ public partial class PosProductsController(
             PackShelfLifeDays: p.PackShelfLifeDays,
             LoyaltyPercent: p.LoyaltyPercent,
             AreaQuickSizes: p.AreaQuickSizes,
-            GymAccessHours: p.GymAccessHours);
+            GymAccessHours: p.GymAccessHours,
+            TimeSurchargesJson: p.TimeSurchargesJson);
     }
 
     private async Task<DateTime> ResolveStoreBusinessDateAsync(Guid storeId)
@@ -1746,6 +1754,15 @@ public partial class PosProductsController(
             entity.ShowComboComponentsOnSell = false;
             entity.IsTopping = false;
             // Giữ ServiceBillingMode / phút / SessionPackCount từ DTO
+            if (PosServiceBillingMath.IsTimed(entity.ServiceBillingMode))
+            {
+                // Dịch vụ tính giờ: ĐVT theo cách tính (giờ / phút / block) — trước để «Cái» nên bán hiện «3 cái».
+                entity.BaseUnitName = PosServiceBillingMath.TimedUnitName(entity.ServiceBillingMode, entity.BaseUnitName);
+            }
+            else
+            {
+                entity.TimeSurchargesJson = null;
+            }
         }
         else if (entity.ProductType == PosProductType.Combo)
         {
@@ -1757,6 +1774,7 @@ public partial class PosProductsController(
             entity.AllowAreaQty = false;
             entity.TrackExpiry = false;
             entity.ServiceBillingMode = PosServiceBillingMode.Flat;
+            entity.TimeSurchargesJson = null;
             entity.MinBillMinutes = null;
             entity.BillRoundMinutes = null;
             entity.GraceMinutes = null;
@@ -1778,6 +1796,7 @@ public partial class PosProductsController(
         {
             entity.ShowComboComponentsOnSell = false;
             entity.ServiceBillingMode = PosServiceBillingMode.Flat;
+            entity.TimeSurchargesJson = null;
             entity.MinBillMinutes = null;
             entity.BillRoundMinutes = null;
             entity.GraceMinutes = null;

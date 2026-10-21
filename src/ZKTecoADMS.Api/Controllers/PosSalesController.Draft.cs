@@ -1082,7 +1082,13 @@ public partial class PosSalesController
                 : PosServiceBillingHelper.CalcBillableQty(p.ServiceBillingMode, extra, extra, p.BillRoundMinutes);
             if (p.ServiceBillingMode == PosServiceBillingMode.PerDay && hotelPolicy.NightMode)
                 qty = PosHotelNightMath.Nights(started, ended, hotelPolicy);
-            var gross = p.OpeningFee + line.UnitPrice * qty;
+            var surcharge = p.ServiceBillingMode == PosServiceBillingMode.PerDay
+                ? 0m
+                : PosServiceBillingMath.TimeSurchargeAmount(
+                    p.ServiceBillingMode, started, billable, line.UnitPrice,
+                    p.OpeningMinutes, p.BillRoundMinutes, p.GraceMinutes, p.TimeSurchargesJson);
+            var gross = Math.Max(0, Math.Round(
+                p.OpeningFee + line.UnitPrice * qty + surcharge, 0, MidpointRounding.AwayFromZero));
             var lineTotal = gross - Math.Max(0, Math.Min(line.DiscountAmount, gross));
             var delta = lineTotal - line.LineTotal;
 
@@ -1570,7 +1576,10 @@ public partial class PosSalesController
             }
 
             var catalogPrice = soldVariant?.BasePrice ?? p.BasePrice;
-            string? unitName = p.BaseUnitName;
+            // Dịch vụ tính giờ: SL là giờ / phút / block → ĐVT theo cách tính (dữ liệu cũ còn «Cái»).
+            string? unitName = PosServiceBillingHelper.IsTimed(p.ServiceBillingMode)
+                ? PosServiceBillingMath.TimedUnitName(p.ServiceBillingMode, p.BaseUnitName)
+                : p.BaseUnitName;
             var lineName = soldVariant != null ? $"{p.Name} — {soldVariant.Name}" : p.Name;
 
             if (line.UnitId.HasValue)
@@ -1681,7 +1690,14 @@ public partial class PosSalesController
                     lineQty = PosHotelNightMath.Nights(started, ended ?? DateTime.UtcNow, hotelPolicy);
                 lineStarted ??= started;
                 if (complete) lineEnded ??= ended ?? DateTime.UtcNow;
-                grossLine = Math.Round(p.OpeningFee + (unitPrice + toppingExtra) * lineQty, 0, MidpointRounding.AwayFromZero);
+                // Khung giờ đặc biệt (giờ vàng / giờ khuya…) cộng / trừ thêm — khách sạn tính đêm không áp.
+                var surcharge = p.ServiceBillingMode == PosServiceBillingMode.PerDay
+                    ? 0m
+                    : PosServiceBillingMath.TimeSurchargeAmount(
+                        p.ServiceBillingMode, started, billableMinutes.Value, unitPrice,
+                        p.OpeningMinutes, p.BillRoundMinutes, p.GraceMinutes, p.TimeSurchargesJson);
+                grossLine = Math.Max(0, Math.Round(
+                    p.OpeningFee + (unitPrice + toppingExtra) * lineQty + surcharge, 0, MidpointRounding.AwayFromZero));
                 discAmt = Math.Round(Math.Max(0, Math.Min(line.DiscountAmount, grossLine)), 0, MidpointRounding.AwayFromZero);
                 lineTotal = grossLine - discAmt;
             }

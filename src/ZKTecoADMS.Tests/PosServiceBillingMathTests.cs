@@ -215,4 +215,70 @@ public class PosServiceBillingMathTests
         Assert.Equal(78m, at420.Qty); // (420-30)/5
         Assert.Equal(50_000m + 78 * 10_000m, at420.Total);
     }
+
+    // ─── ĐVT khi bán ─────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(PosServiceBillingMode.PerHour, "Cái", "Giờ")]
+    [InlineData(PosServiceBillingMode.PerHour, null, "Giờ")]
+    [InlineData(PosServiceBillingMode.PerBlock, "Cái", "Block")]
+    [InlineData(PosServiceBillingMode.PerBlock, "Giờ", "Block")]
+    [InlineData(PosServiceBillingMode.PerMinute, "cái", "Phút")]
+    [InlineData(PosServiceBillingMode.PerDay, "Cái", "Ngày")]
+    [InlineData(PosServiceBillingMode.PerDay, "Đêm", "Đêm")]
+    [InlineData(PosServiceBillingMode.Flat, "Lần", "Lần")]
+    public void TimedUnitName_khong_con_hien_cai(PosServiceBillingMode mode, string? current, string expected)
+    {
+        Assert.Equal(expected, PosServiceBillingMath.TimedUnitName(mode, current));
+    }
+
+    // ─── Khung giờ đặc biệt ──────────────────────────────────────
+
+    /// <summary>Giờ VN → UTC (VN = UTC+7).</summary>
+    static DateTime Vn(int h, int m) => new DateTime(2026, 10, 21, h, m, 0, DateTimeKind.Utc).AddHours(-7);
+
+    [Fact]
+    public void Surcharge_percent_chi_tinh_phan_trong_khung()
+    {
+        // 60.000đ/giờ, block 15; 17:30 → 19:30 (120p). Khung 18:00–23:00 +50% → 90p trong khung.
+        const string rules = """[{"from":"18:00","to":"23:00","kind":"percent","value":50}]""";
+        var s = PosServiceBillingMath.TimeSurchargeAmount(
+            PosServiceBillingMode.PerHour, Vn(17, 30), 120, 60_000m, null, 15, null, rules);
+        Assert.Equal(45_000m, s); // 90p × 1.000đ × 50%
+    }
+
+    [Fact]
+    public void Surcharge_amount_theo_block_va_tru_gia()
+    {
+        // Block 15p giá 20.000đ; khung sáng 08:00–12:00 giảm 4.000đ / block; dùng 09:00, 30p = 2 block.
+        const string rules = """[{"from":"08:00","to":"12:00","kind":"amount","value":-4000}]""";
+        var s = PosServiceBillingMath.TimeSurchargeAmount(
+            PosServiceBillingMode.PerBlock, Vn(9, 0), 30, 20_000m, null, 15, null, rules);
+        Assert.Equal(-8_000m, s);
+    }
+
+    [Fact]
+    public void Surcharge_qua_dem_va_bo_qua_phut_da_gom_gio_dau()
+    {
+        // Khung 22:00–02:00 +20%; bắt đầu 21:00, 3 giờ, 60p đầu đã gồm trong giá giờ đầu.
+        // Phần tính giá: 22:00–24:00 = 120p, tất cả trong khung → 120 × 1.000 × 20% = 24.000.
+        const string rules = """[{"from":"22:00","to":"02:00","kind":"percent","value":20}]""";
+        var s = PosServiceBillingMath.TimeSurchargeAmount(
+            PosServiceBillingMode.PerHour, Vn(21, 0), 180, 60_000m, 60, 15, null, rules);
+        Assert.Equal(24_000m, s);
+    }
+
+    [Fact]
+    public void Surcharge_json_hong_hoac_trong_bang_0()
+    {
+        Assert.Equal(0m, PosServiceBillingMath.TimeSurchargeAmount(
+            PosServiceBillingMode.PerHour, Vn(19, 0), 60, 60_000m, null, 15, null, "not json"));
+        Assert.Equal(0m, PosServiceBillingMath.TimeSurchargeAmount(
+            PosServiceBillingMode.PerHour, Vn(19, 0), 60, 60_000m, null, 15, null, null));
+        Assert.Null(PosServiceBillingMath.NormalizeTimeSurcharges("""[{"from":"18:00","to":"18:00","value":10}]"""));
+        Assert.Equal(
+            """[{"from":"18:00","to":"23:00","kind":"amount","value":10000}]""",
+            PosServiceBillingMath.NormalizeTimeSurcharges(
+                """[{"from":"18:00","to":"23:00","kind":"amount","value":"10000"},{"from":"x","to":"1","value":5}]"""));
+    }
 }
