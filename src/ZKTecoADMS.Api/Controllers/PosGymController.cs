@@ -31,7 +31,8 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
         Guid DeviceId, string DeviceName, bool DeviceOnline, string Pin, string? CardNumber,
         Guid? DeviceUserId, int FingerprintCount, int FaceCount,
         string? PackageName, bool Unlimited, int? RemainingSessions, DateTime? ExpiresAt,
-        DateTime? LastVisitAt, DateTime CreatedAt, DateTime? FrozenUntil = null, string? AccessHours = null);
+        DateTime? LastVisitAt, DateTime CreatedAt, DateTime? FrozenUntil = null, string? AccessHours = null,
+        bool? SupportsEnroll = null);
 
     public record AddMemberDto(Guid CustomerId, List<Guid> DeviceIds, string? CardNumber = null);
 
@@ -73,6 +74,9 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
                 DeviceName = m.Device != null ? m.Device.DeviceName : "",
                 DeviceStatus = m.Device != null ? m.Device.DeviceStatus : "",
                 LastOnline = m.Device != null ? m.Device.LastOnline : null,
+                // Máy từ chối lệnh lấy vân tay (-1002, vd LX35) → app hướng dẫn lấy trực tiếp trên máy.
+                SupportsEnroll = m.Device != null && m.Device.DeviceInfo != null
+                    ? m.Device.DeviceInfo.SupportsEnrollFingerprint : null,
                 m.Pin, m.CardNumber, m.DeviceUserId, m.CreatedAt,
             })
             .Take(1000)
@@ -107,7 +111,8 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
                 p?.PackageName, p != null && PosCustomerSessionBalance.IsUnlimitedCount(p.TotalSessions),
                 p?.RemainingSessions, p?.ExpiresAt,
                 lastVisits.TryGetValue(r.CustomerId, out var lv) ? lv : null, r.CreatedAt,
-                p != null && GymVisitRules.IsFrozen(p, now) ? p.FrozenUntil : null, p?.AccessHours);
+                p != null && GymVisitRules.IsFrozen(p, now) ? p.FrozenUntil : null, p?.AccessHours,
+                r.SupportsEnroll);
         }).ToList();
         return Ok(AppResponse<List<MemberDto>>.Success(list));
     }
@@ -747,7 +752,12 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
                     var last = g.Where(b => PosCustomerSessionBalance.IsUnlimitedCount(b.TotalSessions)
                             && b.RemainingSessions > 0 && b.ExpiresAt > now)
                         .Max(b => b.ExpiresAt);
-                    if (last > active.ExpiresAt) active.ExpiresAt = last; // bản AsNoTracking — chỉ để hiển thị
+                    var tail = g.Where(b => PosCustomerSessionBalance.IsUnlimitedCount(b.TotalSessions)
+                            && b.RemainingSessions > 0 && b.ExpiresAt == last)
+                        .FirstOrDefault();
+                    // bản AsNoTracking — chỉ để hiển thị: hạn + tên thẻ cuối chuỗi (vd «The 3 Thang»).
+                    if (last > active.ExpiresAt) active.ExpiresAt = last;
+                    if (tail != null) active.PackageName = tail.PackageName;
                 }
                 else if (active != null)
                 {

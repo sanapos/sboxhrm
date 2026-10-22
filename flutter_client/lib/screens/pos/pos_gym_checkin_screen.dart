@@ -1253,7 +1253,9 @@ class _DoorSettingsCardState extends State<_DoorSettingsCard> {
                 Switch(
                   value: d['mode'] == 'server',
                   // Bật / tắt máy chủ mở cửa = quyền sửa máy chấm công.
-                  onChanged: d['supportsDoor'] == false || !context.read<PermissionProvider>().canEdit('Device')
+                  // Máy không hỗ trợ mở cửa: vẫn cho TẮT (đã bật trước khi máy báo -1002), không cho bật.
+                  onChanged: !context.read<PermissionProvider>().canEdit('Device') ||
+                          (d['supportsDoor'] == false && d['mode'] != 'server')
                       ? null
                       : (v) => _set(d, v),
                 ),
@@ -1719,13 +1721,25 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
               icon: Icons.face_retouching_natural),
           if (card.isNotEmpty) _Pill('Thẻ $card', SboxTone.brand, icon: Icons.credit_card),
         ]),
+        // Máy không nhận lệnh lấy vân tay từ xa (vd LX35 trả -1002) → hướng dẫn lấy trên máy.
+        if (l['supportsEnroll'] == false)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              tr('Máy này không lấy vân tay / khuôn mặt từ xa được — trên máy vào Menu → Người dùng → '
+                  'tìm PIN ${l['pin'] ?? ''} → Đăng ký vân tay / khuôn mặt.'),
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate600),
+            ),
+          ),
         Wrap(spacing: 0, children: [
+          if (l['supportsEnroll'] != false)
           TextButton.icon(
             onPressed: () => _enroll(l, false),
             icon: const Icon(Icons.fingerprint, size: 18),
             label: Text(tr('Lấy vân tay')),
             style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
           ),
+          if (l['supportsEnroll'] != false)
           TextButton.icon(
             onPressed: () => _enroll(l, true),
             icon: const Icon(Icons.face_retouching_natural, size: 18),

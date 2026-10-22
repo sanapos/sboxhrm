@@ -229,6 +229,13 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                   _sumRow('Đã trả hàng', money.format(order.returnedAmount), negative: true),
 
+                for (final g in order.sessionGrants)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(tr('Đã cấp: $g'),
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: SboxColors.brand700),
+                    ),
+                  ),
                 if (order.pointsEarned > 0)
 
                   Padding(

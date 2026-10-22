@@ -661,6 +661,15 @@ class PosProduct {
   }
 
   /// Cột tồn kho: dịch vụ và combo tắt quản lý tồn gói hiện "—", không hiện 999.
+  /// «Thẻ 30 ngày» / «10 buổi · hạn 60 ngày» — hiện trong danh sách hàng (spa / gym).
+  String? get sessionPackLabel {
+    if (sessionPackCount <= 0) return null;
+    if (sessionPackCount >= 9999) {
+      return 'Thẻ ${sessionPackValidDays > 0 ? sessionPackValidDays : 30} ngày · không giới hạn buổi';
+    }
+    return '$sessionPackCount buổi${sessionPackValidDays > 0 ? ' · hạn $sessionPackValidDays ngày' : ''}';
+  }
+
   bool get showsWarehouseStock {
     if (productType == PosProductType.service) return false;
     if (productType == PosProductType.combo) return comboTrackStock;

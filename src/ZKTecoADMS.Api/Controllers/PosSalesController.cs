@@ -344,7 +344,9 @@ public partial class PosSalesController(
         bool EInvoicePrintOnReceipt = false,
         string? PromotionsJson = null,
         Guid? PrintTemplateId = null,
-        string? PrintNote = null);
+        string? PrintNote = null,
+        // Thẻ tập / gói buổi cấp từ đơn (chỉ trả ở chi tiết đơn) — vd «The Tap 1 Thang · hạn 21/03/2027».
+        List<string>? SessionGrants = null);
 
     public record SaleOrderSummaryDto(
         Guid Id,
@@ -1714,8 +1716,23 @@ public partial class PosSalesController(
             return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
 
         var lines = order.Lines?.ToList() ?? [];
-        return Ok(AppResponse<SaleOrderDto>.Success(
-            await MapOrderAsync(storeId, order, lines, deviceId, deviceName)));
+        var dtoOut = await MapOrderAsync(storeId, order, lines, deviceId, deviceName);
+        var grants = await dbContext.PosCustomerSessionTransactions.AsNoTracking()
+            .Where(t => t.StoreId == storeId && t.SaleOrderId == id && t.TransactionType == PosSessionTxnType.Purchase
+                && t.Deleted == null && t.Balance != null)
+            .Select(t => new { t.Balance!.PackageName, t.Balance.TotalSessions, t.Balance.ExpiresAt, Revoked = t.Balance.Deleted != null })
+            .ToListAsync();
+        if (grants.Count > 0)
+            dtoOut = dtoOut with
+            {
+                SessionGrants = grants.Select(g =>
+                    (PosCustomerSessionBalance.IsUnlimitedCount(g.TotalSessions)
+                        ? $"{g.PackageName} · hạn {(g.ExpiresAt is DateTime e ? e.AddHours(7).ToString("dd/MM/yyyy") : "—")}"
+                        : $"{g.PackageName} · {g.TotalSessions} buổi"
+                            + (g.ExpiresAt is DateTime e2 ? $" · hạn {e2.AddHours(7):dd/MM/yyyy}" : ""))
+                    + (g.Revoked ? " · đã thu hồi (hủy đơn)" : "")).ToList(),
+            };
+        return Ok(AppResponse<SaleOrderDto>.Success(dtoOut));
     }
 
     /// <summary>Ghi nhận lần in hóa đơn — tăng PrintCount và trả context in (in lại, tổng ngày).</summary>

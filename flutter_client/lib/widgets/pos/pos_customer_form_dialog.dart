@@ -53,6 +53,9 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
   late final TextEditingController _wardCtrl;
   late final TextEditingController _companyCtrl;
   late final TextEditingController _taxCtrl;
+  /// Mở phần hóa đơn điện tử: khách đã có MST / công ty thì mở sẵn.
+  late bool _showInvoice = (widget.customer?.taxCode ?? '').trim().isNotEmpty ||
+      (widget.customer?.companyName ?? '').trim().isNotEmpty;
   late final TextEditingController _legalRepCtrl;
   late final TextEditingController _legalTitleCtrl;
   late final TextEditingController _noteCtrl;
@@ -475,6 +478,8 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                           ),
                           const SizedBox(height: 16),
                         ],
+                        // Khách lẻ (gym, quán…) không cần MST — thu gọn, bấm mới mở (trước mở ra là MST / công ty).
+                        if (_showInvoice) ...[
                         _sectionTitle('Hóa đơn điện tử'),
                         Text(
                           tr('Điền MST để xuất HĐ đúng tên đơn vị / địa chỉ trên hóa đơn.'),
@@ -547,6 +552,15 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                           },
                         ),
                         const SizedBox(height: 12),
+                        ] else
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: () => setState(() => _showInvoice = true),
+                              icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                              label: Text(tr('Thêm thông tin xuất hóa đơn (MST, công ty)')),
+                            ),
+                          ),
                         Row(
                           children: [
                             Expanded(

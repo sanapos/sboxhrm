@@ -2546,6 +2546,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Gym: thẻ / gói tập không tính giờ kiểu karaoke — ẩn bước «tính theo thời gian sử dụng».
+                  if (_sellProfile != PosSellProfile.gym)
                   PosTimedServiceSetup(
                     key: ValueKey('timed-setup-$_timedSetupEpoch'),
                     mode: _serviceBillingMode,
@@ -2613,6 +2615,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     onChanged: (v) => setState(() {
                       if (v == true) {
                         _sessionPackCountCtrl.text = '9999';
+                        // ĐVT mặc định «Cái» không hợp thẻ tập → «Thẻ».
+                        if (_unitCtrl.text.trim().isEmpty || _unitCtrl.text.trim() == 'Cái') _unitCtrl.text = 'Thẻ';
                         if ((int.tryParse(_sessionPackValidDaysCtrl.text.trim()) ?? 0) <= 0) {
                           _sessionPackValidDaysCtrl.text = '30';
                         }

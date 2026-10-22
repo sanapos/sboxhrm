@@ -216,6 +216,8 @@ class PosSaleOrder {
   final double pointsRedeemed;
   final double pointsDiscount;
   final double pointsEarned;
+  /// Thẻ tập / gói buổi cấp từ đơn (chi tiết đơn) — vd «The Tap 1 Thang · hạn 21/03/2027».
+  final List<String> sessionGrants;
   final DateTime? createdAt;
   final String? createdBy;
   final int lineCount;
@@ -300,6 +302,7 @@ class PosSaleOrder {
     this.pointsRedeemed = 0,
     this.pointsDiscount = 0,
     this.pointsEarned = 0,
+    this.sessionGrants = const [],
     this.createdAt,
     this.createdBy,
     this.lineCount = 0,
@@ -400,6 +403,7 @@ class PosSaleOrder {
         pointsRedeemed: pointsRedeemed,
         pointsDiscount: pointsDiscount,
         pointsEarned: pointsEarned,
+        sessionGrants: sessionGrants,
         createdAt: createdAt,
         createdBy: createdBy,
         lineCount: lineCount,
@@ -554,6 +558,9 @@ class PosSaleOrder {
       pointsRedeemed: n(json['pointsRedeemed'] ?? json['PointsRedeemed']),
       pointsDiscount: n(json['pointsDiscount'] ?? json['PointsDiscount']),
       pointsEarned: n(json['pointsEarned'] ?? json['PointsEarned']),
+      sessionGrants: [
+        for (final g in (json['sessionGrants'] ?? json['SessionGrants'] ?? const []) as List) '$g',
+      ],
       createdAt: parseApiDateTime(json['createdAt'] ?? json['CreatedAt']),
       createdBy: json['createdBy'] ?? json['CreatedBy'] as String?,
       lineCount: i(json['lineCount'] ?? json['LineCount']) > 0

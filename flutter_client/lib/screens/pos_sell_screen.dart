@@ -2325,6 +2325,86 @@ class _PosSellScreenState extends State<PosSellScreen>
     return v is num ? v.toDouble() : c.currentDebt;
   }
 
+  /// Thẻ / gói hiện có của khách (spa / gym) — để màn thanh toán báo hạn sau khi mua thêm.
+  final Map<String, List<Map<String, dynamic>>> _gymBalances = {};
+
+  Future<void> _loadGymBalances(String customerId) async {
+    if (_industrySettings?.enableSessionPacks != true || customerId.isEmpty) return;
+    try {
+      final res = await _api.getGymCustomerBalances(customerId);
+      if (!mounted || res['isSuccess'] != true || res['data'] is! List) return;
+      setState(() => _gymBalances[customerId] = [
+            for (final e in res['data'] as List)
+              if (e is Map) Map<String, dynamic>.from(e),
+          ]);
+    } catch (_) {}
+  }
+
+  /// «Thẻ hiện có đến 21/11 → sau khi mua: đến 21/01» — trước lễ tân không biết mua thêm có cộng nối tiếp.
+  Widget _buildSessionPackPreview() {
+    final c = _tab.customer;
+    if (c == null || _industrySettings?.enableSessionPacks != true) return const SizedBox.shrink();
+    final packLines = _tab.cart.where((l) => l.product.sessionPackCount > 0).toList();
+    if (packLines.isEmpty) return const SizedBox.shrink();
+    final balances = _gymBalances[c.id];
+    if (balances == null) {
+      unawaited(_loadGymBalances(c.id));
+      return const SizedBox.shrink();
+    }
+    final now = DateTime.now();
+    final dmy = DateFormat('dd/MM/yyyy');
+    DateTime? exp(Map b) => DateTime.tryParse('${b['expiresAt'] ?? ''}')?.toLocal();
+    final active = balances.where((b) => b['status'] == 'Active' || b['status'] == 'Frozen').toList();
+    DateTime? cardEnd;
+    for (final b in active.where((b) => b['unlimited'] == true)) {
+      final e = exp(b);
+      if (e != null && e.isAfter(now) && (cardEnd == null || e.isAfter(cardEnd))) cardEnd = e;
+    }
+    final sessionsLeft = active
+        .where((b) => b['unlimited'] != true)
+        .fold<int>(0, (a, b) => a + ((b['remainingSessions'] as num?)?.toInt() ?? 0));
+    final lines = <String>[];
+    var start = cardEnd != null && cardEnd.isAfter(now) ? cardEnd : now;
+    var addSessions = 0;
+    for (final l in packLines) {
+      final p = l.product;
+      final qty = l.qty.round().clamp(1, 999);
+      if (p.sessionPackCount >= 9999) {
+        start = start.add(Duration(days: (p.sessionPackValidDays > 0 ? p.sessionPackValidDays : 30) * qty));
+      } else {
+        addSessions += p.sessionPackCount * qty;
+      }
+    }
+    if (packLines.any((l) => l.product.sessionPackCount >= 9999)) {
+      lines.add(cardEnd != null
+          ? 'Thẻ hiện có đến ${dmy.format(cardEnd)} → sau khi mua: đến ${dmy.format(start)} (cộng nối tiếp)'
+          : 'Chưa có thẻ còn hạn → thẻ mới đến ${dmy.format(start)}');
+    }
+    if (addSessions > 0) {
+      lines.add(sessionsLeft > 0
+          ? 'Gói buổi: còn $sessionsLeft buổi → sau khi mua: ${sessionsLeft + addSessions} buổi'
+          : 'Gói buổi mới: $addSessions buổi');
+    }
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: SboxColors.brand50,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.card_membership_outlined, size: 18, color: SboxColors.brand700),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            tr(lines.join('\n')),
+            style: const TextStyle(fontSize: 12.5, color: SboxColors.slate900, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ]),
+    );
+  }
+
   Future<void> _refreshCustomerDebt(PosCustomer c, {bool alert = false, bool force = false}) async {
     final cached = _debtSummaries[c.id];
     if (!force && cached != null && DateTime.now().difference(cached.at) < const Duration(minutes: 1)) {
@@ -10809,6 +10889,7 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   void _selectCustomer(PosCustomer c) {
     unawaited(_refreshCustomerDebt(c, alert: true));
+    unawaited(_loadGymBalances(c.id));
     setState(() {
       _tab.customer = c;
       _tab._customerSearchCtrl.text = c.name;
@@ -16207,6 +16288,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               ),
             ),
         ],
+        _buildSessionPackPreview(),
         // Màn rộng (T1, tablet ngang, web): trước đây chỉ khung thanh toán điện thoại có chọn bảng giá.
         if (!forMobilePayment) ...[
           const SizedBox(height: 6),

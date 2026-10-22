@@ -395,10 +395,11 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('Hủy đơn (hoàn kho)')),
+        title: Text(tr('Hủy đơn')),
         content: Text(tr('${tr('Hủy đơn ')}${o.orderNo}?\n\n'
             '• Hoàn kho hàng đã bán\n'
             '• Hoàn công nợ / điểm / voucher (nếu có)\n'
+            '• Thu hồi thẻ tập / gói buổi bán trong đơn (nếu có)\n'
             '• Đơn chuyển sang «Đã hủy» (vẫn thấy trong danh sách)\n\n'
             'Chỉ dùng khi đơn đã hoàn thành và chưa trả hàng.')),
         actions: [
@@ -1920,7 +1921,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     }
     if (canEdit && o.canCancelWithStock && perm.canPosCancelPaid()) {
       btns.add(_compactOrderBtn(
-        label: 'Hoàn kho',
+        label: 'Hủy đơn',
         color: Colors.red.shade700,
         onPressed: () => run(() => _cancelOrder(o)),
       ));
