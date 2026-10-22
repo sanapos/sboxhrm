@@ -561,6 +561,8 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                               label: Text(tr('Thêm thông tin xuất hóa đơn (MST, công ty)')),
                             ),
                           ),
+                        // Người đại diện / chức vụ chỉ dùng cho hóa đơn công ty.
+                        if (_showInvoice) ...[
                         Row(
                           children: [
                             Expanded(
@@ -592,6 +594,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                           ],
                         ),
                         const SizedBox(height: 12),
+                        ],
                         TextFormField(
                           controller: _nameCtrl,
                           decoration: PosTheme.inputDecoration(
@@ -604,7 +607,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                         TextFormField(
                           controller: _addressCtrl,
                           decoration: PosTheme.inputDecoration(
-                              label: 'Địa chỉ xuất hóa đơn'),
+                              label: _showInvoice ? 'Địa chỉ xuất hóa đơn' : 'Địa chỉ'),
                           maxLines: 2,
                           validator: (v) {
                             if (_taxCtrl.text.trim().isEmpty) return null;
@@ -631,7 +634,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                               child: TextFormField(
                                 controller: _emailCtrl,
                                 decoration:
-                                    PosTheme.inputDecoration(label: 'Email HĐĐT'),
+                                    PosTheme.inputDecoration(label: _showInvoice ? 'Email HĐĐT' : 'Email'),
                                 keyboardType: TextInputType.emailAddress,
                               ),
                             ),
