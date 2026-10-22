@@ -1166,6 +1166,27 @@ class PosProduct {
         'autoOpenToppingPopup': autoOpenToppingPopup,
         'showComboComponentsOnSell': showComboComponentsOnSell,
         'comboTrackStock': comboTrackStock,
+        // Dịch vụ tính giờ / gói buổi / thẻ tập / hoa hồng: thiếu → mở lại app (danh mục đọc từ đệm)
+        // thẻ tập bị coi là hàng thường (bán không cần khách), đồng hồ dịch vụ tính giờ không chạy.
+        'serviceBillingMode': serviceBillingMode,
+        if (minBillMinutes != null) 'minBillMinutes': minBillMinutes,
+        if (billRoundMinutes != null) 'billRoundMinutes': billRoundMinutes,
+        if (graceMinutes != null) 'graceMinutes': graceMinutes,
+        if (roundAfterMinutes != null) 'roundAfterMinutes': roundAfterMinutes,
+        if (defaultDurationMinutes != null) 'defaultDurationMinutes': defaultDurationMinutes,
+        'sessionPackCount': sessionPackCount,
+        'sessionPackValidDays': sessionPackValidDays,
+        if (gymAccessHours != null) 'gymAccessHours': gymAccessHours,
+        'openingFee': openingFee,
+        if (openingMinutes != null) 'openingMinutes': openingMinutes,
+        if (timeSurchargesJson != null) 'timeSurchargesJson': timeSurchargesJson,
+        'timePackageMinutes': timePackageMinutes,
+        if (overtimeProductId != null) 'overtimeProductId': overtimeProductId,
+        'timeAlertBeforeMinutes': timeAlertBeforeMinutes,
+        'commissionMode': commissionMode,
+        'commissionPercent': commissionPercent,
+        'commissionFixed': commissionFixed,
+        'commissionPerSession': commissionPerSession,
         if (toppingOptions.isNotEmpty)
           'toppingOptions': toppingOptions
               .map((t) => {

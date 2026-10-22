@@ -73,7 +73,7 @@ class PosSellCatalogCache {
   static final PosSellCatalogCache instance = PosSellCatalogCache._();
 
   static const ttl = Duration(minutes: 20);
-  static const _metaPrefix = 'pos_sell_catalog_v1_';
+  static const _metaPrefix = 'pos_sell_catalog_v3_'; // v3: đệm + API bán trả trường dịch vụ / gói buổi — bỏ đệm cũ thiếu trường
   static const _diskDebounce = Duration(milliseconds: 700);
 
   String? _lastStoreId;

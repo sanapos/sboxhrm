@@ -12014,6 +12014,17 @@ class _PosSellScreenState extends State<PosSellScreen>
         }
       }
     }
+    // Thẻ tập / gói buổi gắn theo khách: bán cho «Người tiêu dùng» thì thu tiền nhưng máy chủ
+    // không tạo được thẻ (không có ai để ghi) — chặn trước, kể cả nhánh bán offline.
+    if (_tab.customer == null &&
+        _industrySettings?.enableSessionPacks == true &&
+        _tab.cart.any((l) => l.product.sessionPackCount > 0)) {
+      NotificationOverlayManager().showError(
+        title: 'Thiếu khách hàng',
+        message: tr('Thẻ tập / gói buổi phải gắn với khách — chọn hoặc thêm khách trước khi thanh toán.'),
+      );
+      return;
+    }
     // Khóa UI ngay — trước mọi await — tránh double-tap tạo 2 request chồng.
     setState(() {
       _checkingOut = true;
@@ -12064,17 +12075,6 @@ class _PosSellScreenState extends State<PosSellScreen>
           title: 'Thiếu khách hàng',
           message: tr(
               'Chọn khách hàng để ghi nợ phần còn thiếu (${_moneyFmt.format(due)})'),
-        );
-        return;
-      }
-      // Thẻ tập / gói buổi gắn theo khách: bán cho «Người tiêu dùng» thì thu tiền nhưng máy chủ
-      // không tạo được thẻ (không có ai để ghi) — chặn trước.
-      if (_tab.customer == null &&
-          _industrySettings?.enableSessionPacks == true &&
-          _tab.cart.any((l) => l.product.sessionPackCount > 0)) {
-        NotificationOverlayManager().showError(
-          title: 'Thiếu khách hàng',
-          message: tr('Thẻ tập / gói buổi phải gắn với khách — chọn hoặc thêm khách trước khi thanh toán.'),
         );
         return;
       }

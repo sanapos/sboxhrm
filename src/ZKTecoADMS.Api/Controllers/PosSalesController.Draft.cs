@@ -830,6 +830,18 @@ public partial class PosSalesController
             .Where(p => productIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
             .ToDictionaryAsync(p => p.Id);
 
+        // Thẻ tập / gói buổi ghi theo khách: đơn không có khách thì GrantSessionPacks bỏ qua im lặng
+        // → khách trả tiền mà không có thẻ. Chặn tại máy chủ (máy bán có thể thiếu thông tin gói trong đệm).
+        if (!order.CustomerId.HasValue && sellSettingsComplete?.EnableSessionPacks == true)
+        {
+            var packName = order.Lines
+                .Select(l => productsPreview.TryGetValue(l.ProductId, out var sp) ? sp : null)
+                .FirstOrDefault(sp => sp != null && sp.SessionPackCount > 0)?.Name;
+            if (packName != null)
+                return BadRequest(AppResponse<SaleOrderDto>.Fail(
+                    $"«{packName}» là thẻ tập / gói buổi — chọn khách hàng trước khi thanh toán."));
+        }
+
         var dtoLines = BuildCompleteSaleLineDtos(order.Lines.ToList(), dto?.Lines);
         var warrantyLines = dtoLines
             .Where(l => productsPreview.TryGetValue(l.ProductId, out var wp) &&
@@ -1313,6 +1325,18 @@ public partial class PosSalesController
         var resourceId = dto.ServiceResourceId ?? existing?.ServiceResourceId;
         if (sellSettings?.RequireResourceOnSale == true && !resourceId.HasValue)
             return (null, null, "Cần chọn bàn/phòng trước khi lưu đơn");
+        // Thẻ tập / gói buổi ghi theo khách — thanh toán không khách thì không tạo được thẻ (đơn offline
+        // đã bán thật thì không chặn khi đồng bộ).
+        if (complete && !dto.CustomerId.HasValue && sellSettings?.EnableSessionPacks == true
+            && PosOfflineSaleRules.NormalizeNo(dto.OfflineNo) == null)
+        {
+            var lineProductIds = dto.Lines.Select(l => l.ProductId).Distinct().ToList();
+            var packName = await dbContext.PosProducts.AsNoTracking()
+                .Where(p => lineProductIds.Contains(p.Id) && p.StoreId == storeId && p.SessionPackCount > 0)
+                .Select(p => p.Name).FirstOrDefaultAsync();
+            if (packName != null)
+                return (null, null, $"«{packName}» là thẻ tập / gói buổi — chọn khách hàng trước khi thanh toán.");
+        }
 
         SaleStockPlan? plan = null;
         // Đơn offline: hàng đã giao cho khách lúc mất mạng → cho âm kho khi đồng bộ (báo cáo kiểm soát ghi lại).
