@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'pos_keyboard_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -227,7 +228,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     }
     // Đang gõ (bàn phím mở): thu gọn đầu trang — chỉ giữ thanh định dạng để thấy chỗ đang soạn.
     // Giữ nguyên số phần tử con (không đổi vị trí khung giấy → không mất con trỏ khi bàn phím bật).
-    final typing = MediaQuery.viewInsetsOf(context).bottom > 0;
+    return PosKeyboardBuilder(builder: (context, typing, kbHeight) {
     Widget unlessTyping(Widget w) => typing ? const SizedBox.shrink() : w;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -246,6 +247,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
         Expanded(child: _paperCanvas(preview: _tab == 1)),
       ],
     );
+    });
   }
 
   Widget _compactBar() {

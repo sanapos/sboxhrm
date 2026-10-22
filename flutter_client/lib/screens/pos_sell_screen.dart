@@ -1,4 +1,5 @@
 import '../widgets/pos/pos_customer_purchase_history_sheet.dart';
+import '../widgets/pos/pos_keyboard_builder.dart';
 import 'dart:async';
 import '../utils/api_datetime.dart';
 import '../widgets/pos/pos_package_timer.dart';
@@ -18875,8 +18876,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         ),
         // Màn ngang + bàn phím (tìm khách, nhập tiền): chỉ còn ~250px — thanh nút in / hoàn tất
         // che mất gợi ý khách. Ẩn tạm khi đang gõ, đóng bàn phím là hiện lại.
-        if (MediaQuery.sizeOf(context).height - MediaQuery.viewInsetsOf(context).bottom >= 520)
-        Container(
+        PosKeyboardBuilder(
+          builder: (context, kbOpen, kbHeight) => (kbHeight >= 520)
+              ? Container(
           decoration: const BoxDecoration(
             color: Colors.white,
             border: Border(top: BorderSide(color: PosTheme.border)),
@@ -18928,6 +18930,8 @@ class _PosSellScreenState extends State<PosSellScreen>
                   completeLabel: 'HOÀN TẤT THANH TOÁN (F9)',
                   completeFontSize: 16,
                 ),
+        )
+              : const SizedBox.shrink(),
         ),
       ],
     );

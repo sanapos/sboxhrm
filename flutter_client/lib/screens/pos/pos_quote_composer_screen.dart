@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../widgets/pos/pos_keyboard_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -2289,8 +2290,9 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
             ),
           ),
           // Đang gõ (tìm khách, SL…): ẩn nút chốt để không che gợi ý — màn ngang chỉ còn ~300px.
-          if (MediaQuery.viewInsetsOf(context).bottom == 0)
-          SafeArea(
+          PosKeyboardBuilder(
+            builder: (context, kbOpen, kbHeight) => (!kbOpen)
+                ? SafeArea(
             top: false,
             child: Material(
               elevation: 8,
@@ -2318,6 +2320,8 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                 ),
               ),
             ),
+          )
+                : const SizedBox.shrink(),
           ),
         ],
       ),

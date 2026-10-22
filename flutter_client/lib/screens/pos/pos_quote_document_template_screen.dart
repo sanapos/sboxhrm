@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/pos/pos_keyboard_builder.dart';
 import '../../utils/pos_busy.dart';
 
 import '../../l10n/app_tr.dart';
@@ -237,11 +238,11 @@ class _PosQuoteDocumentTemplateScreenState extends State<PosQuoteDocumentTemplat
       ),
       body: _loading || _html == null
           ? const Center(child: CircularProgressIndicator())
-          : Column(
+          : PosKeyboardBuilder(builder: (context, kbOpen, kbHeight) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Bàn phím mở / màn ngang thấp: ẩn dải hướng dẫn + ô «mẫu cho khách» để thấy văn bản.
-                if (MediaQuery.viewInsetsOf(context).bottom > 0 || MediaQuery.sizeOf(context).height < 600)
+                if (kbOpen || MediaQuery.sizeOf(context).height < 600)
                   const SizedBox.shrink()
                 else
                 Material(
@@ -256,7 +257,7 @@ class _PosQuoteDocumentTemplateScreenState extends State<PosQuoteDocumentTemplat
                     ),
                   ),
                 ),
-                if (MediaQuery.viewInsetsOf(context).bottom > 0) const SizedBox.shrink() else _customerBar(),
+                if (kbOpen) const SizedBox.shrink() else _customerBar(),
                 const Divider(height: 1),
                 Expanded(
                   child: PosCommercialA4Editor(
@@ -269,7 +270,7 @@ class _PosQuoteDocumentTemplateScreenState extends State<PosQuoteDocumentTemplat
                   ),
                 ),
               ],
-            ),
+            )),
     );
   }
 }
