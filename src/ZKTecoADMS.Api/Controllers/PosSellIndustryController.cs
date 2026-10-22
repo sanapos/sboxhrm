@@ -2216,6 +2216,48 @@ public partial class PosSellIndustryController(
         }
     }
 
+    /// <summary>
+    /// Hủy đơn đã bán thẻ tập / gói buổi → thu hồi thẻ / gói cấp từ đơn đó (trước đây hủy đơn, hoàn tiền
+    /// nhưng khách vẫn giữ thẻ). Buổi đã dùng vẫn giữ trong lịch sử; ghi giao dịch điều chỉnh để tra lại.
+    /// </summary>
+    public static async Task RevokeSessionPacksOnSaleCancelAsync(
+        ZKTecoDbContext dbContext, Guid storeId, Guid orderId, string? actorEmail)
+    {
+        var balanceIds = await dbContext.PosCustomerSessionTransactions.AsNoTracking()
+            .Where(t => t.StoreId == storeId && t.SaleOrderId == orderId
+                && t.TransactionType == PosSessionTxnType.Purchase && t.Deleted == null)
+            .Select(t => t.BalanceId)
+            .Distinct()
+            .ToListAsync();
+        if (balanceIds.Count == 0) return;
+        var balances = await dbContext.PosCustomerSessionBalances.AsTracking()
+            .Where(b => balanceIds.Contains(b.Id) && b.StoreId == storeId && b.Deleted == null)
+            .ToListAsync();
+        var now = DateTime.UtcNow;
+        foreach (var b in balances)
+        {
+            var removed = b.RemainingSessions;
+            b.RemainingSessions = 0;
+            b.IsActive = false;
+            b.Deleted = now;
+            b.DeletedBy = actorEmail;
+            dbContext.PosCustomerSessionTransactions.Add(new PosCustomerSessionTransaction
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                BalanceId = b.Id,
+                CustomerId = b.CustomerId,
+                SaleOrderId = orderId,
+                TransactionType = PosSessionTxnType.Adjust,
+                SessionDelta = -removed,
+                RemainingAfter = 0,
+                Note = $"Hủy đơn — thu hồi {b.PackageName}",
+                IsActive = true,
+                CreatedBy = actorEmail,
+            });
+        }
+    }
+
     /// <summary>Thẻ tập theo thời gian — bắt đầu từ lúc hết hạn thẻ cùng loại còn hiệu lực (gia hạn nối tiếp).</summary>
     static async Task AddMembershipAsync(
         ZKTecoDbContext dbContext,
@@ -2229,15 +2271,18 @@ public partial class PosSellIndustryController(
         if (!order.CustomerId.HasValue || days <= 0) return;
         var now = DateTime.UtcNow;
         var customerId = order.CustomerId.Value;
+        // Nối tiếp mọi thẻ thời gian còn hạn CÙNG khung giờ tập (trước chỉ cùng sản phẩm: đang có thẻ 1 tháng
+        // mua thẻ 3 tháng → thẻ mới tính từ hôm nay, chồng lên thẻ cũ, khách mất thời gian đã trả).
+        var hours = product.GymAccessHours ?? "";
         var dbLatest = await dbContext.PosCustomerSessionBalances.AsNoTracking()
-            .Where(b => b.StoreId == storeId && b.CustomerId == customerId && b.ProductId == product.Id
+            .Where(b => b.StoreId == storeId && b.CustomerId == customerId && (b.AccessHours ?? "") == hours
                 && b.Deleted == null && b.TotalSessions >= PosCustomerSessionBalance.UnlimitedSessions
                 && b.ExpiresAt != null && b.ExpiresAt > now)
             .MaxAsync(b => (DateTime?)b.ExpiresAt);
         // Cùng đơn có thể bán 2 dòng thẻ giống nhau → xét cả bản ghi vừa thêm chưa lưu.
         var pendingLatest = dbContext.ChangeTracker.Entries<PosCustomerSessionBalance>()
             .Where(e => e.State == EntityState.Added && e.Entity.CustomerId == customerId
-                && e.Entity.ProductId == product.Id
+                && (e.Entity.AccessHours ?? "") == hours
                 && PosCustomerSessionBalance.IsUnlimitedCount(e.Entity.TotalSessions))
             .Select(e => e.Entity.ExpiresAt)
             .Max();

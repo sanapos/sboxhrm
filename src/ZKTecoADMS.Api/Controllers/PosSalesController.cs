@@ -1901,6 +1901,8 @@ public partial class PosSalesController(
             }
             await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(dbContext, order);
             await PosSaleWarrantyHelper.VoidOrderAsync(dbContext, storeId, order.Id, CurrentUserEmail);
+            await PosSellIndustryController.RevokeSessionPacksOnSaleCancelAsync(
+                dbContext, storeId, order.Id, CurrentUserEmail);
 
             await dbContext.SaveChangesAsync();
 

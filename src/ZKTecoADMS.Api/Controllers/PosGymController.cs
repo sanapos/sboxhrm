@@ -740,6 +740,22 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
                     .ThenByDescending(b => PosCustomerSessionBalance.IsUnlimitedCount(b.TotalSessions))
                     .ThenBy(b => b.ExpiresAt ?? DateTime.MaxValue)
                     .FirstOrDefault();
+                // Mua thêm thẻ thời gian khi còn hạn = thẻ mới nối tiếp (bản ghi riêng) → hiển thị hạn CUỐI chuỗi.
+                // Trước hiện hạn thẻ đầu (21/11) dù đã gia hạn tới 21/03 — trông như mua thêm không cộng thời gian.
+                if (active != null && PosCustomerSessionBalance.IsUnlimitedCount(active.TotalSessions))
+                {
+                    var last = g.Where(b => PosCustomerSessionBalance.IsUnlimitedCount(b.TotalSessions)
+                            && b.RemainingSessions > 0 && b.ExpiresAt > now)
+                        .Max(b => b.ExpiresAt);
+                    if (last > active.ExpiresAt) active.ExpiresAt = last; // bản AsNoTracking — chỉ để hiển thị
+                }
+                else if (active != null)
+                {
+                    // Nhiều gói buổi còn hạn (mua 2 gói 10 buổi) → báo tổng buổi còn, hạn = gói hết sớm nhất.
+                    active.RemainingSessions = g.Where(b => !PosCustomerSessionBalance.IsUnlimitedCount(b.TotalSessions)
+                            && b.RemainingSessions > 0 && (b.ExpiresAt == null || b.ExpiresAt > now))
+                        .Sum(b => b.RemainingSessions);
+                }
                 // Không còn gói hợp lệ → trả gói gần nhất để hiển thị "hết hạn / hết buổi".
                 return active ?? g.OrderByDescending(b => b.ExpiresAt ?? b.CreatedAt).First();
             });
