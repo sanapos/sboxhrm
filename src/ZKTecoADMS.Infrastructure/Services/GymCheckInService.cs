@@ -208,9 +208,10 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
                 visit.PackageName = usable.PackageName;
                 visit.SessionDeducted = true;
                 visit.Status = "Ok";
+                var redeemTxnId = Guid.NewGuid();
                 db.PosCustomerSessionTransactions.Add(new PosCustomerSessionTransaction
                 {
-                    Id = Guid.NewGuid(),
+                    Id = redeemTxnId,
                     StoreId = storeId,
                     BalanceId = usable.Id,
                     CustomerId = customerId,
@@ -222,6 +223,18 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
                     IsActive = true,
                     CreatedBy = actor,
                 });
+                // Gói PT tính hoa hồng mỗi buổi → ghi cho PT phụ trách hội viên (cùng SaveChanges với lượt tập).
+                if (sp.GetService(typeof(IGymSessionCommissionHook)) is IGymSessionCommissionHook hook)
+                {
+                    try
+                    {
+                        await hook.OnSessionDeductedAsync(storeId, customerId, usable, redeemTxnId, utc, actor);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Gym PT commission failed for customer {CustomerId}", customerId);
+                    }
+                }
             }
         }
 

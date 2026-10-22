@@ -18714,7 +18714,11 @@ class _PosSellScreenState extends State<PosSellScreen>
     );
   }
 
-  bool get _showWarehouseAction => _sellProfile.usesWarehouseSlip;
+  /// Gym: phần lớn đơn chỉ là thẻ / gói tập (dịch vụ, không trừ kho) → chỉ hiện «Xuất kho»
+  /// khi giỏ có hàng trừ kho (nước, thực phẩm bổ sung…).
+  bool get _showWarehouseAction =>
+      _sellProfile.usesWarehouseSlip &&
+      (_sellProfile != PosSellProfile.gym || _tab.cart.any((l) => l.product.showsWarehouseStock));
 
   bool get _showKitchenAction =>
       _isTableOrderMode && _sellProfile.usesKitchenNotify;

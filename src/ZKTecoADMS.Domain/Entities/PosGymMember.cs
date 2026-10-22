@@ -64,3 +64,26 @@ public class PosGymVisit : AuditableEntity<Guid>
     public string Source { get; set; } = "Device";
     public string? Note { get; set; }
 }
+
+/// <summary>Phiếu đánh giá thể trạng hội viên do PT ghi (cân nặng, mỡ, cơ, vòng eo, nhận xét / mục tiêu).</summary>
+public class PosGymAssessment : AuditableEntity<Guid>
+{
+    public Guid StoreId { get; set; }
+    public Guid CustomerId { get; set; }
+    public virtual PosCustomer? Customer { get; set; }
+
+    public Guid? TrainerEmployeeId { get; set; }
+    public string? TrainerName { get; set; }
+
+    /// <summary>UTC.</summary>
+    public DateTime AssessedAt { get; set; }
+    public decimal? WeightKg { get; set; }
+    public decimal? HeightCm { get; set; }
+    public decimal? BodyFatPercent { get; set; }
+    public decimal? MuscleKg { get; set; }
+    public decimal? WaistCm { get; set; }
+    /// <summary>Tình trạng / chấn thương / nhận xét của PT.</summary>
+    public string? Condition { get; set; }
+    /// <summary>Mục tiêu tập (giảm mỡ, tăng cơ…).</summary>
+    public string? Goal { get; set; }
+}

@@ -452,6 +452,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     }
   }
 
+  /// Hàng gym tạo trước khi có ĐVT mặc định «Thẻ» / «Gói» còn «Cái» → đề xuất lại, Lưu là cập nhật.
+  /// Gọi cả lúc biết ngành và lúc nạp xong dữ liệu hàng (hai việc chạy song song, không biết cái nào xong trước).
+  void _suggestGymUnit() {
+    if (_sellProfile != PosSellProfile.gym || _unitCtrl.text.trim() != 'Cái') return;
+    final packs = int.tryParse(_sessionPackCountCtrl.text.trim()) ?? 0;
+    if (packs > 0) _unitCtrl.text = packs >= 9999 ? 'Thẻ' : 'Gói';
+  }
+
   Future<void> _loadEditorSectionPrefs() async {
     // Chưa tùy chỉnh → bộ mục gợi ý theo ngành của cửa hàng (bán lẻ: mã vạch, ĐVT, NCC…; spa: gói buổi, hoa hồng…).
     var profile = PosSellProfile.retail;
@@ -471,6 +479,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _editorSections = resolved;
       _editorPrefsLoaded = true;
       _sellProfile = profile;
+      _suggestGymUnit();
       _syncTabController();
     });
   }
@@ -796,6 +805,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _sessionPackValidDaysCtrl.text = data.sessionPackValidDays > 0
           ? '${data.sessionPackValidDays}'
           : '';
+      _suggestGymUnit(); // sau khi đã có số buổi
     });
     if (_isCombo) {
       final comboRes = await _api.getPosComboLines(id);

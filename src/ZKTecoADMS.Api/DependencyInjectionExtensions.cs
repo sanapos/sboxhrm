@@ -131,6 +131,7 @@ public static class DependencyInjectionExtensions
         
         // Register face comparison service
         services.AddScoped<FaceComparisonService>();
+        services.AddScoped<ZKTecoADMS.Application.Interfaces.IGymSessionCommissionHook, ZKTecoADMS.Api.Services.GymSessionCommissionHook>();
         // Register ONNX embedding service as singleton so the InferenceSession
         // is loaded once and reused across requests (heavy init).
         services.AddSingleton<FaceDetectorService>();

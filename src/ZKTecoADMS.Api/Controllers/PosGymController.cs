@@ -24,7 +24,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/pos/gym")]
 [Authorize]
-public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInService gym) : AuthenticatedControllerBase
+public partial class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInService gym) : AuthenticatedControllerBase
 {
     public record MemberDto(
         Guid Id, Guid CustomerId, string CustomerName, string? Phone,
@@ -32,7 +32,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
         Guid? DeviceUserId, int FingerprintCount, int FaceCount,
         string? PackageName, bool Unlimited, int? RemainingSessions, DateTime? ExpiresAt,
         DateTime? LastVisitAt, DateTime CreatedAt, DateTime? FrozenUntil = null, string? AccessHours = null,
-        bool? SupportsEnroll = null);
+        bool? SupportsEnroll = null, string? TrainerName = null, Guid? TrainerEmployeeId = null);
 
     public record AddMemberDto(Guid CustomerId, List<Guid> DeviceIds, string? CardNumber = null);
 
@@ -70,6 +70,8 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
                 m.Id, m.CustomerId,
                 CustomerName = m.Customer != null ? m.Customer.Name : "",
                 Phone = m.Customer != null ? m.Customer.Phone : null,
+                TrainerName = m.Customer != null ? m.Customer.GymTrainerName : null,
+                TrainerEmployeeId = m.Customer != null ? m.Customer.GymTrainerEmployeeId : null,
                 m.DeviceId,
                 DeviceName = m.Device != null ? m.Device.DeviceName : "",
                 DeviceStatus = m.Device != null ? m.Device.DeviceStatus : "",
@@ -112,7 +114,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
                 p?.RemainingSessions, p?.ExpiresAt,
                 lastVisits.TryGetValue(r.CustomerId, out var lv) ? lv : null, r.CreatedAt,
                 p != null && GymVisitRules.IsFrozen(p, now) ? p.FrozenUntil : null, p?.AccessHours,
-                r.SupportsEnroll);
+                r.SupportsEnroll, r.TrainerName, r.TrainerEmployeeId);
         }).ToList();
         return Ok(AppResponse<List<MemberDto>>.Success(list));
     }

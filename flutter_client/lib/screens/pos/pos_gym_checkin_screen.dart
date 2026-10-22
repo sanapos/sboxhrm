@@ -15,6 +15,7 @@ import '../../utils/navigation_notifier.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_gym_trainer.dart';
 import '../../widgets/pos/pos_list_filters.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 
@@ -1332,7 +1333,9 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
     return map.values.toList();
   }
 
+  // Máy không báo mẫu vân tay về (vd LX35) → không tính là «chưa lấy».
   static bool _noBio(Map m) =>
+      m['supportsEnroll'] != false &&
       ((m['fingerprintCount'] as num?) ?? 0) == 0 &&
       ((m['faceCount'] as num?) ?? 0) == 0 &&
       (m['cardNumber'] ?? '').toString().isEmpty;
@@ -1659,12 +1662,17 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
                 _showMemberHistory(context, customerId: m['customerId'].toString(), name: m['customerName'].toString());
               }
               if (v == 'more') _add(customer: {'id': m['customerId'], 'name': m['customerName'], 'phone': m['phone']});
+              if (v == 'pt') {
+                showGymTrainerSheet(context, customerId: m['customerId'].toString(), name: m['customerName'].toString())
+                    .then((_) => _load());
+              }
               if (v == 'cards') {
                 _showBalances(context, customerId: m['customerId'].toString(), name: m['customerName'].toString())
                     .then((_) => _load());
               }
             },
             itemBuilder: (_) => [
+              PopupMenuItem(value: 'pt', child: Text(tr('PT phụ trách & đánh giá thể trạng'))),
               PopupMenuItem(value: 'cards', child: Text(tr('Thẻ / gói · bảo lưu · khung giờ'))),
               PopupMenuItem(value: 'history', child: Text(tr('Lịch sử tập'))),
               PopupMenuItem(value: 'more', child: Text(tr('Đăng ký thêm máy khác'))),
@@ -1686,6 +1694,15 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
                     fontWeight: warn ? FontWeight.w600 : FontWeight.w400)),
           ),
         ]),
+        if ('${m['trainerName'] ?? ''}'.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(children: [
+              const Icon(Icons.sports_gymnastics, size: 16, color: SboxColors.slate500),
+              const SizedBox(width: 6),
+              Text(tr('PT: ${m['trainerName']}'), style: const TextStyle(fontSize: 12.5, color: SboxColors.slate700)),
+            ]),
+          ),
         for (final l in links) _deviceRow(l),
       ]),
     );
@@ -1715,10 +1732,16 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
         ]),
         const SizedBox(height: 6),
         Wrap(spacing: 6, runSpacing: 4, children: [
+          // Máy không gửi mẫu vân tay / khuôn mặt về máy chủ (vd LX35) → không biết đã lấy hay chưa:
+          // trước ghi «Chưa vân tay» dù hội viên đã quét được trên máy.
+          if (l['supportsEnroll'] == false && fp == 0 && face == 0)
+            const _Pill('Vân tay / khuôn mặt: xem trên máy', SboxTone.neutral, icon: Icons.fingerprint)
+          else ...[
           _Pill(fp > 0 ? '$fp vân tay' : 'Chưa vân tay', fp > 0 ? SboxTone.success : SboxTone.neutral,
               icon: Icons.fingerprint),
           _Pill(face > 0 ? 'Có khuôn mặt' : 'Chưa khuôn mặt', face > 0 ? SboxTone.success : SboxTone.neutral,
               icon: Icons.face_retouching_natural),
+          ],
           if (card.isNotEmpty) _Pill('Thẻ $card', SboxTone.brand, icon: Icons.credit_card),
         ]),
         // Máy không nhận lệnh lấy vân tay từ xa (vd LX35 trả -1002) → hướng dẫn lấy trên máy.
@@ -1875,6 +1898,7 @@ class _ReportTabState extends State<_ReportTab> with AutomaticKeepAliveClientMix
             Text(tr('${_dmy.format(from)} – ${_dmy.format(to)}'),
                 style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
             const SizedBox(height: 8),
+            GymTrafficSection(from: from, to: to),
             SboxKpiStrip(items: [
               SboxKpi(label: 'Lượt tập', value: n('totalVisits'), icon: Icons.fitness_center, tone: SboxTone.brand),
               SboxKpi(label: 'Hội viên tập', value: n('members'), icon: Icons.people_outline, tone: SboxTone.violet),

@@ -68,6 +68,10 @@ public class PosCustomer : AuditableEntity<Guid>
     /// <summary>Điểm tích lũy hiện tại.</summary>
     public decimal PointBalance { get; set; }
 
+    /// <summary>Gym: PT (nhân viên) phụ trách hội viên — nhận hoa hồng buổi PT khi khách check-in trừ buổi.</summary>
+    public Guid? GymTrainerEmployeeId { get; set; }
+    public string? GymTrainerName { get; set; }
+
     public virtual ICollection<PosSaleOrder> SaleOrders { get; set; } = [];
     public virtual ICollection<PosCustomerPayment> Payments { get; set; } = [];
     public virtual ICollection<PosCustomerPointTransaction> PointTransactions { get; set; } = [];

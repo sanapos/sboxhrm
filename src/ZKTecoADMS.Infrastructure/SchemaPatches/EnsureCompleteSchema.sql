@@ -1586,3 +1586,33 @@ CREATE INDEX IF NOT EXISTS "IX_PosPrintJobs_CreatedAt" ON "PosPrintJobs" ("Creat
 CREATE INDEX IF NOT EXISTS "IX_StoreScheduledNotifications_StoreId_CreatedByUserId" ON "StoreScheduledNotifications" ("StoreId", "CreatedByUserId");
 -- Dịch vụ tính giờ: khung giờ đặc biệt cộng / trừ giá (JSON)
 ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "TimeSurchargesJson" character varying(2000) NULL;
+
+-- Gym: PT phụ trách hội viên + phiếu đánh giá thể trạng
+ALTER TABLE "PosCustomers" ADD COLUMN IF NOT EXISTS "GymTrainerEmployeeId" uuid NULL;
+ALTER TABLE "PosCustomers" ADD COLUMN IF NOT EXISTS "GymTrainerName" character varying(200) NULL;
+CREATE TABLE IF NOT EXISTS "PosGymAssessments" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "CustomerId" uuid NOT NULL,
+    "TrainerEmployeeId" uuid NULL,
+    "TrainerName" character varying(200) NULL,
+    "AssessedAt" timestamp without time zone NOT NULL,
+    "WeightKg" numeric(6,2) NULL,
+    "HeightCm" numeric(6,2) NULL,
+    "BodyFatPercent" numeric(5,2) NULL,
+    "MuscleKg" numeric(6,2) NULL,
+    "WaistCm" numeric(6,2) NULL,
+    "Condition" character varying(1000) NULL,
+    "Goal" character varying(500) NULL,
+    CONSTRAINT "PK_PosGymAssessments" PRIMARY KEY ("Id")
+);
+CREATE INDEX IF NOT EXISTS "IX_PosGymAssessments_Customer" ON "PosGymAssessments" ("StoreId", "CustomerId", "AssessedAt");

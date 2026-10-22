@@ -20473,6 +20473,69 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Gym: gán / bỏ PT phụ trách hội viên (PT nhận hoa hồng buổi khi khách check-in trừ buổi gói PT).
+  Future<Map<String, dynamic>> setGymTrainer(String customerId, String? employeeId) async {
+    try {
+      final response = await http
+          .put(Uri.parse('$baseUrl/api/pos/gym/customers/$customerId/trainer'),
+              headers: _headers, body: jsonEncode({'employeeId': employeeId}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Gym: lịch sử đánh giá thể trạng + PT phụ trách.
+  Future<Map<String, dynamic>> getGymAssessments(String customerId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/gym/customers/$customerId/assessments'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> addGymAssessment(String customerId, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/gym/customers/$customerId/assessments'),
+              headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteGymAssessment(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/gym/assessments/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Gym: giờ cao điểm (lượt vào / người có mặt theo giờ, theo thứ) + tổng quan hội viên.
+  Future<Map<String, dynamic>> getGymTraffic({DateTime? from, DateTime? to}) async {
+    try {
+      String d(DateTime x) => '${x.year}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+      final q = <String, String>{if (from != null) 'from': d(from), if (to != null) 'to': d(to)};
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/gym/traffic').replace(queryParameters: q.isEmpty ? null : q),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> freezeGymBalance(String balanceId, int days, {String? note}) async {
     try {
       final response = await http
