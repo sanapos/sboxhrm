@@ -210,8 +210,8 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
       double minHoursForWorkDay = 0;
       final minHoursResult = phase1[3] as Map<String, dynamic>;
       if (minHoursResult['isSuccess'] == true && minHoursResult['data'] is Map) {
-        minHoursForWorkDay = parseMinHoursForWorkDay(
-          appSettingValue:
+        minHoursForWorkDay = parseMinWorkDayPercent(
+          legacyHoursAppSettingValue:
               (minHoursResult['data'] as Map)['value']?.toString(),
         );
       }
@@ -227,8 +227,9 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
 
       final salarySettings = phase1[5] as Map<String, dynamic>;
       _salarySettings = salarySettings;
-      if (minHoursForWorkDay == 0) {
-        minHoursForWorkDay = parseMinHoursForWorkDay(salarySettings: salarySettings);
+      if (minHoursForWorkDay == 0 || salarySettings['minWorkDayPercent'] is num) {
+        // % đủ công theo máy chủ (đã quy đổi giờ legacy) — cùng số với bảng lương.
+        minHoursForWorkDay = parseMinWorkDayPercent(salarySettings: salarySettings);
       }
       if (!decimalWorkDayEnabled) {
         decimalWorkDayEnabled =

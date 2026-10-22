@@ -184,13 +184,14 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
 
       var minHoursForWorkDay = 0.0;
       if (minHoursResult['isSuccess'] == true && minHoursResult['data'] is Map) {
-        minHoursForWorkDay = parseMinHoursForWorkDay(
-          appSettingValue:
+        minHoursForWorkDay = parseMinWorkDayPercent(
+          legacyHoursAppSettingValue:
               (minHoursResult['data'] as Map)['value']?.toString(),
         );
       }
-      if (minHoursForWorkDay == 0) {
-        minHoursForWorkDay = parseMinHoursForWorkDay(salarySettings: salarySettings);
+      if (minHoursForWorkDay == 0 || salarySettings['minWorkDayPercent'] is num) {
+        // % đủ công theo máy chủ (đã quy đổi giờ legacy) — cùng số với bảng lương.
+        minHoursForWorkDay = parseMinWorkDayPercent(salarySettings: salarySettings);
       }
 
       var decimalWorkDayEnabled = false;

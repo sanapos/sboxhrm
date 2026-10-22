@@ -347,8 +347,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       var minHoursForWorkDay = 0.0;
       final minHoursResp = results[5] as Map<String, dynamic>;
       if (minHoursResp['isSuccess'] == true && minHoursResp['data'] is Map) {
-        minHoursForWorkDay = parseMinHoursForWorkDay(
-          appSettingValue:
+        minHoursForWorkDay = parseMinWorkDayPercent(
+          legacyHoursAppSettingValue:
               (minHoursResp['data'] as Map)['value']?.toString(),
         );
       }
@@ -361,8 +361,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       }
       final salarySettings = results[7] as Map<String, dynamic>;
-      if (minHoursForWorkDay == 0) {
-        minHoursForWorkDay = parseMinHoursForWorkDay(salarySettings: salarySettings);
+      if (minHoursForWorkDay == 0 || salarySettings['minWorkDayPercent'] is num) {
+        // % đủ công theo máy chủ (đã quy đổi giờ legacy) — cùng số với bảng lương.
+        minHoursForWorkDay = parseMinWorkDayPercent(salarySettings: salarySettings);
       }
       if (!decimalWorkDayEnabled) {
         decimalWorkDayEnabled =
@@ -842,8 +843,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         final minHoursResp = mapOf('min-hours-work-day');
         if (minHoursResp['isSuccess'] == true && minHoursResp['data'] is Map) {
-          _minHoursForWorkDay = parseMinHoursForWorkDay(
-            appSettingValue:
+          _minHoursForWorkDay = parseMinWorkDayPercent(
+            legacyHoursAppSettingValue:
                 (minHoursResp['data'] as Map)['value']?.toString(),
           );
         }
@@ -855,8 +856,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
         }
         final salaryMap = mapOf('salary-settings');
-        if (_minHoursForWorkDay == 0) {
-          _minHoursForWorkDay = parseMinHoursForWorkDay(salarySettings: salaryMap);
+        if (_minHoursForWorkDay == 0 || salaryMap['minWorkDayPercent'] is num) {
+          // % đủ công theo máy chủ (đã quy đổi giờ legacy) — cùng số với bảng lương.
+          _minHoursForWorkDay = parseMinWorkDayPercent(salarySettings: salaryMap);
         }
         if (!_decimalWorkDayEnabled) {
           _decimalWorkDayEnabled =
