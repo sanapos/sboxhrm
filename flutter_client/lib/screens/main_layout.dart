@@ -3421,8 +3421,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     // Build grouped items preserving original indices (only sidebar items)
     final groupedItems = <String, List<MapEntry<int, NavItem>>>{};
+    final sellProfile = _posSellProfile;
     for (int i = 0; i < _navItems.length; i++) {
-      if (!_navItems[i].showInSidebar) continue;
+      final code = _navItems[i].moduleCode;
+      // Menu theo ngành: gym hiện «Check-in hội viên» ngay trên menu (trước chỉ tìm được bằng ô
+      // tìm chức năng); ẩn màn bếp KDS khi không phải nhà hàng, ẩn Menu QR gọi món ở gym.
+      final industryShow = code == 'PosGymCheckIn' && sellProfile == PosSellProfile.gym;
+      if (!_navItems[i].showInSidebar && !industryShow) continue;
+      if (sellProfile != null && !sellProfile.usesFnbItemTypes && code == 'PosKds') continue;
+      if (sellProfile == PosSellProfile.gym && code == 'PosQrOrder') continue;
       if (_navItems[i].adminOnly && !isSuperAdmin) continue;
       if (_navItems[i].requiredRole != null &&
           _navItems[i].requiredRole != userRole) {

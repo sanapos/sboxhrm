@@ -11,6 +11,7 @@ import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/signalr_service.dart';
 import '../../utils/file_saver.dart';
+import '../../utils/navigation_notifier.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
@@ -52,6 +53,15 @@ class _PosGymCheckInScreenState extends State<PosGymCheckInScreen> with SingleTi
     PosGymCheckInScreen.openCount--;
     _tabs.dispose();
     super.dispose();
+  }
+
+  /// Mở từ menu (không qua màn Bán hàng): «Bán / gia hạn gói» → sang Bán hàng, chọn sẵn khách.
+  /// Trước đây nút này ẩn — lễ tân phải tự sang Bán hàng tìm lại khách.
+  void _sellFromMenu(Map<String, dynamic> customer) {
+    final id = '${customer['id'] ?? ''}';
+    if (id.isEmpty) return;
+    NavigationNotifier.pendingSellCustomerId.value = id;
+    NavigationNotifier.navigateToModule.value = 'PosSell';
   }
 
   @override
@@ -98,7 +108,7 @@ class _PosGymCheckInScreenState extends State<PosGymCheckInScreen> with SingleTi
             child: TabBarView(
               controller: _tabs,
               children: [
-                _VisitsTab(onGoMembers: () => _tabs.animateTo(1), onSellPackage: widget.onSellPackage),
+                _VisitsTab(onGoMembers: () => _tabs.animateTo(1), onSellPackage: widget.onSellPackage ?? _sellFromMenu),
                 const _MembersTab(),
                 const _ReportTab(),
               ],
@@ -672,7 +682,7 @@ class _MemberHistoryState extends State<_MemberHistory> {
             Text(
               tr([
                 (v['deviceName'] ?? '').toString(),
-                if (v['sessionDeducted'] == true) 'trừ 1 buổi',
+                if (v['sessionDeducted'] == true && v['unlimited'] != true) 'trừ 1 buổi',
               ].where((s) => s.isNotEmpty).join(' · ')),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1103,7 +1113,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
             // Có gói: tên gói / còn buổi / HSD. Không hợp lệ: lý do (trạng thái đã ghi ở nhãn) — không lặp 3 lần.
             if (hasPack)
               Text(
-                tr([_packageText(v), if (v['sessionDeducted'] == true) 'đã trừ 1 buổi'].join(' · ')),
+                tr([_packageText(v), if (v['sessionDeducted'] == true && v['unlimited'] != true) 'đã trừ 1 buổi'].join(' · ')),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -2314,7 +2324,10 @@ class _BalancesSheetState extends State<_BalancesSheet> {
 
 // ── Nhắc gia hạn ─────────────────────────────────────────────────────────────
 
-Future<void> _showExpiring(BuildContext context) => showModalBottomSheet<void>(
+Future<void> _showExpiring(BuildContext context) {
+  // Ô tìm hội viên phía sau đang giữ focus → mở hộp là bàn phím bật lên che danh sách.
+  FocusManager.instance.primaryFocus?.unfocus();
+  return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -2328,6 +2341,7 @@ Future<void> _showExpiring(BuildContext context) => showModalBottomSheet<void>(
         builder: (ctx, scroll) => _ExpiringSheet(scroll: scroll),
       ),
     );
+}
 
 class _ExpiringSheet extends StatefulWidget {
   const _ExpiringSheet({required this.scroll});
@@ -2448,6 +2462,17 @@ class _ExpiringSheetState extends State<_ExpiringSheet> {
           style: const TextStyle(fontSize: 12.5, color: SboxColors.slate600),
         ),
         Wrap(children: [
+          // Khách đồng ý gia hạn ngay tại quầy → sang Bán hàng, chọn sẵn khách.
+          if ('${r['customerId'] ?? ''}'.isNotEmpty)
+            TextButton.icon(
+              onPressed: () {
+                NavigationNotifier.pendingSellCustomerId.value = '${r['customerId']}';
+                Navigator.of(context).popUntil((route) => route.isFirst);
+                NavigationNotifier.navigateToModule.value = 'PosSell';
+              },
+              icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+              label: Text(tr('Gia hạn')),
+            ),
           if (phone.isNotEmpty)
             TextButton.icon(
               onPressed: () => _open(Uri(scheme: 'tel', path: phone)),

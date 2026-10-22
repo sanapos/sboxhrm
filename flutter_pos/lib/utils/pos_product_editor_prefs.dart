@@ -4,6 +4,15 @@ import '../models/pos_sell_industry.dart';
 
 const _prefKey = 'pos_product_editor_sections_v1';
 
+/// Ngành bán của cửa hàng đang mở form — tùy chọn mục lưu RIÊNG theo ngành. Trước lưu chung cả
+/// máy: máy từng dùng cho cửa hàng vật liệu, sang cửa hàng gym form vẫn ẩn «Gói buổi / thẻ tập».
+PosSellProfile? posProductEditorProfile;
+
+String get _key {
+  final p = posProductEditorProfile;
+  return p == null ? _prefKey : '${_prefKey}_${p.name}';
+}
+
 /// Các khối tùy chọn trên form thêm/sửa hàng — tắt để form gọn.
 enum PosProductEditorSection {
   codes('Mã hàng & barcode'),
@@ -72,7 +81,7 @@ Set<PosProductEditorSection> fullPosProductEditorSections() =>
 Future<Set<PosProductEditorSection>?> loadSavedPosProductEditorSections() async {
   try {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getStringList(_prefKey) == null) return null;
+    if (prefs.getStringList(_key) == null) return null;
   } catch (_) {
     return null;
   }
@@ -82,7 +91,7 @@ Future<Set<PosProductEditorSection>?> loadSavedPosProductEditorSections() async 
 Future<Set<PosProductEditorSection>> loadPosProductEditorSections() async {
   try {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getStringList(_prefKey);
+    final raw = prefs.getStringList(_key);
     if (raw == null) return defaultPosProductEditorSections();
     final out = <PosProductEditorSection>{};
     for (final name in raw) {
@@ -101,6 +110,6 @@ Future<void> savePosProductEditorSections(
   try {
     final prefs = await SharedPreferences.getInstance();
     final names = sections.map((s) => s.name).toList()..sort();
-    await prefs.setStringList(_prefKey, names);
+    await prefs.setStringList(_key, names);
   } catch (_) {}
 }

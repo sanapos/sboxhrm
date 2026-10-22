@@ -141,6 +141,10 @@ class NavigationNotifier {
     return true;
   }
 
+  /// Mở màn Bán hàng và chọn sẵn khách này (vd. Check-in gym → «Bán / gia hạn gói»).
+  static final ValueNotifier<String?> pendingSellCustomerId =
+      ValueNotifier<String?>(null);
+
   /// Mở màn Đơn online QR sau khi vào POS (từ thông báo).
   static final ValueNotifier<bool> pendingOpenQrOnlineOrders =
       ValueNotifier<bool>(false);

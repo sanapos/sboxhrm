@@ -472,7 +472,6 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   Future<void> _loadEditorSectionPrefs() async {
     // Chưa tùy chỉnh → bộ mục gợi ý theo ngành của cửa hàng (bán lẻ: mã vạch, ĐVT, NCC…; spa: gói buổi, hoa hồng…).
-    var sections = await loadSavedPosProductEditorSections();
     // Luôn đọc ngành bán để ẩn ô không hợp ngành (gói buổi/thẻ tập chỉ cho spa/gym).
     var profile = PosSellProfile.retail;
     try {
@@ -481,6 +480,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         profile = PosStoreSellSettingsDto.fromJson(Map<String, dynamic>.from(res['data'] as Map)).sellProfile;
       }
     } catch (_) {}
+    posProductEditorProfile = profile;
+    var sections = await loadSavedPosProductEditorSections();
     sections ??= {...PosProductIndustryPreset.forProfile(profile).sections};
     if (!mounted) return;
     final resolved = sections;
@@ -2663,7 +2664,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       },
                     ),
                   ],
-                  if (!_serviceBillingMode.isTimed) ...[
+                  // Gym: thẻ / gói tập không có «thời lượng» buổi — ẩn cho form gọn.
+                  if (!_serviceBillingMode.isTimed && _sellProfile != PosSellProfile.gym) ...[
                   const SizedBox(height: 12),
                   TextField(
                     controller: _defaultDurationMinutesCtrl,
@@ -2676,6 +2678,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   // Gói buổi / liệu trình / thẻ tập: chỉ spa / salon / gym dùng.
                   // Karaoke / bi-a / khách sạn tính theo giờ → ẩn để form gọn, đúng ngành.
                   if (!_isRoomTimeProfile) ...[
+                  // Thẻ theo thời gian lưu nội bộ 9999 buổi — không hiện số này (khách tưởng gói 9999 buổi).
+                  if ((int.tryParse(_sessionPackCountCtrl.text.trim()) ?? 0) < 9999) ...[
                   const SizedBox(height: 12),
                   TextField(
                     controller: _sessionPackCountCtrl,
@@ -2686,6 +2690,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       hint: '0 = không phải gói',
                     ),
                   ),
+                  ],
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
@@ -2732,8 +2737,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       ),
                     ),
                   ],
+                  // Gói giờ đếm ngược (karaoke / phòng giờ / spa theo giờ) — gym không dùng.
+                  if (_sellProfile != PosSellProfile.gym) ...[
                   const SizedBox(height: 16),
                   _buildTimePackageSection(),
+                  ],
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
@@ -2749,6 +2757,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             _buildUnitsAttributesExpansion(),
           // Món pha chế / chế biến khai là dịch vụ (trà sữa, cà phê…) vẫn cần định lượng để trừ nguyên liệu —
           // trước đây form dịch vụ dạng một trang thiếu mục này (chỉ form nhiều tab có).
+          if (_sellProfile != PosSellProfile.gym)
           _kvSection(
             title: 'Định lượng nguyên vật liệu',
             subtitle:

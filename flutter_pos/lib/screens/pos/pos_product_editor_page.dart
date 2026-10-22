@@ -337,6 +337,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool _generatingVariants = false;
   Set<PosProductEditorSection> _editorSections = defaultPosProductEditorSections();
   bool _editorPrefsLoaded = false;
+  /// Ngành bán của cửa hàng — ẩn ô không hợp ngành (gym: không thời lượng / gói giờ / NVL).
+  PosSellProfile _sellProfile = PosSellProfile.retail;
 
   PosProductType get _type => _productType;
   bool get _isGoods => _type == PosProductType.goods;
@@ -452,22 +454,23 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   Future<void> _loadEditorSectionPrefs() async {
     // Chưa tùy chỉnh → bộ mục gợi ý theo ngành của cửa hàng (bán lẻ: mã vạch, ĐVT, NCC…; spa: gói buổi, hoa hồng…).
+    var profile = PosSellProfile.retail;
+    try {
+      final res = await _api.getPosSellSettings();
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        profile = PosStoreSellSettingsDto.fromJson(Map<String, dynamic>.from(res['data'] as Map)).sellProfile;
+      }
+    } catch (_) {}
+    // Tùy chọn mục lưu riêng theo ngành (trước lưu chung cả máy).
+    posProductEditorProfile = profile;
     var sections = await loadSavedPosProductEditorSections();
-    if (sections == null) {
-      var profile = PosSellProfile.retail;
-      try {
-        final res = await _api.getPosSellSettings();
-        if (res['isSuccess'] == true && res['data'] is Map) {
-          profile = PosStoreSellSettingsDto.fromJson(Map<String, dynamic>.from(res['data'] as Map)).sellProfile;
-        }
-      } catch (_) {}
-      sections = {...PosProductIndustryPreset.forProfile(profile).sections};
-    }
+    sections ??= {...PosProductIndustryPreset.forProfile(profile).sections};
     if (!mounted) return;
     final resolved = sections;
     setState(() {
       _editorSections = resolved;
       _editorPrefsLoaded = true;
+      _sellProfile = profile;
       _syncTabController();
     });
   }
@@ -2627,8 +2630,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       hint: '0 = không hạn — liệu trình / thẻ tập',
                     ),
                   ),
+                  // Gói giờ đếm ngược (karaoke / phòng giờ / spa theo giờ) — gym không dùng.
+                  if (_sellProfile != PosSellProfile.gym) ...[
                   const SizedBox(height: 16),
                   _buildTimePackageSection(),
+                  ],
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
@@ -2643,6 +2649,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             _buildUnitsAttributesExpansion(),
           // Món pha chế / chế biến khai là dịch vụ (trà sữa, cà phê…) vẫn cần định lượng để trừ nguyên liệu —
           // trước đây form dịch vụ dạng một trang thiếu mục này (chỉ form nhiều tab có).
+          if (_sellProfile != PosSellProfile.gym)
           _kvSection(
             title: 'Định lượng nguyên vật liệu',
             subtitle:

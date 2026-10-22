@@ -11708,6 +11708,16 @@ class _PosSellScreenState extends State<PosSellScreen>
         );
         return;
       }
+      // Thẻ tập / gói buổi gắn theo khách: bán cho khách lẻ thì thu tiền mà không tạo được thẻ.
+      if (_tab.customer == null &&
+          _industrySettings?.enableSessionPacks == true &&
+          _tab.cart.any((l) => l.product.sessionPackCount > 0)) {
+        NotificationOverlayManager().showError(
+          title: 'Thiếu khách hàng',
+          message: tr('Thẻ tập / gói buổi phải gắn với khách — chọn hoặc thêm khách trước khi thanh toán.'),
+        );
+        return;
+      }
 
       if (!await _refreshCartStockBeforeCheckout()) return;
       perf.mark('stock(${_tab.cart.length})');
@@ -17796,6 +17806,8 @@ class _PosSellScreenState extends State<PosSellScreen>
                   children: [_buildPaymentSummaryContent()],
                 ),
         ),
+        // Màn ngang + bàn phím (tìm khách, nhập tiền): thanh nút che gợi ý khách — ẩn tạm khi gõ.
+        if (MediaQuery.sizeOf(context).height - MediaQuery.viewInsetsOf(context).bottom >= 520)
         Container(
           decoration: const BoxDecoration(
             color: Colors.white,

@@ -399,7 +399,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
             Text(
               tr([
                 _packageText(v),
-                if (v['sessionDeducted'] == true) 'đã trừ 1 buổi',
+                if (v['sessionDeducted'] == true && v['unlimited'] != true) 'đã trừ 1 buổi',
                 if ((v['deviceName'] ?? '').toString().isNotEmpty) v['deviceName'],
               ].join(' · ')),
               style: TextStyle(fontSize: 12, color: _packageWarn(v) ? Colors.orange.shade800 : SboxColors.slate700),

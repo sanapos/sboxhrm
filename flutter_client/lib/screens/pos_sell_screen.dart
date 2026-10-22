@@ -1440,6 +1440,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         .addListener(_onPendingQrOnlineOrdersChanged);
     NavigationNotifier.pendingOpenQrOnlineDraftId
         .addListener(_onPendingQrOnlineDraftChanged);
+    NavigationNotifier.pendingSellCustomerId.addListener(_onPendingSellCustomer);
     _startSellBadgePolling();
     unawaited(PosQrOrderVoiceAlert.instance.start());
     // Đo mạng cửa hàng (ping / lỗi gọi server / realtime / máy in LAN) → báo cáo «Mạng cửa hàng».
@@ -1500,6 +1501,14 @@ class _PosSellScreenState extends State<PosSellScreen>
         unawaited(_refreshQrOnlinePending());
       }
     }
+  }
+
+  /// Check-in gym «Bán / gia hạn gói» (mở từ menu) → chọn sẵn khách trên hóa đơn đang mở.
+  void _onPendingSellCustomer() {
+    final id = NavigationNotifier.pendingSellCustomerId.value;
+    if (id == null || id.isEmpty || !mounted) return;
+    NavigationNotifier.pendingSellCustomerId.value = null;
+    unawaited(_selectCustomerById(id));
   }
 
   void _onPendingQrOnlineOrdersChanged() {
@@ -1759,6 +1768,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       await _loadPendingPrintQueueFromDisk();
       if (!mounted) return;
       await _bootstrapInvoiceSlots();
+      if (!mounted) return;
+      _onPendingSellCustomer();
     }());
     _scheduleCatalogPrefetch();
     _maybeOpenPendingQrOnlineOrders();
@@ -2173,6 +2184,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         .removeListener(_onPendingQrOnlineOrdersChanged);
     NavigationNotifier.pendingOpenQrOnlineDraftId
         .removeListener(_onPendingQrOnlineDraftChanged);
+    NavigationNotifier.pendingSellCustomerId.removeListener(_onPendingSellCustomer);
     if (_isPosFullscreen && !kIsWeb) {
       SystemUiInsetMode.immersive.value = false;
       unawaited(restoreSystemBarsEdgeToEdge());
@@ -12055,6 +12067,17 @@ class _PosSellScreenState extends State<PosSellScreen>
         );
         return;
       }
+      // Thẻ tập / gói buổi gắn theo khách: bán cho «Người tiêu dùng» thì thu tiền nhưng máy chủ
+      // không tạo được thẻ (không có ai để ghi) — chặn trước.
+      if (_tab.customer == null &&
+          _industrySettings?.enableSessionPacks == true &&
+          _tab.cart.any((l) => l.product.sessionPackCount > 0)) {
+        NotificationOverlayManager().showError(
+          title: 'Thiếu khách hàng',
+          message: tr('Thẻ tập / gói buổi phải gắn với khách — chọn hoặc thêm khách trước khi thanh toán.'),
+        );
+        return;
+      }
       // Hạn mức nợ / đơn quá hạn: hỏi trước (máy chủ vẫn chặn nếu cửa hàng bật chặn).
       if (due > 0.5 && _tab.customer != null && !await _confirmCreditSale(_tab.customer!, due.toDouble())) {
         return;
@@ -18850,6 +18873,9 @@ class _PosSellScreenState extends State<PosSellScreen>
                   children: [_buildPaymentSummaryContent()],
                 ),
         ),
+        // Màn ngang + bàn phím (tìm khách, nhập tiền): chỉ còn ~250px — thanh nút in / hoàn tất
+        // che mất gợi ý khách. Ẩn tạm khi đang gõ, đóng bàn phím là hiện lại.
+        if (MediaQuery.sizeOf(context).height - MediaQuery.viewInsetsOf(context).bottom >= 520)
         Container(
           decoration: const BoxDecoration(
             color: Colors.white,
