@@ -60,7 +60,8 @@ public class GymDoorTests(PosPgFixture fx) : PosFlowTestBase(fx)
             {
                 Id = Guid.NewGuid(), StoreId = store, CustomerId = c.Id, PackageName = "Gói 12 buổi",
                 TotalSessions = 12, RemainingSessions = sessions, ExpiresAt = expires, IsActive = true,
-                CreatedAt = DateTime.UtcNow.AddDays(-10),
+                // Mua trước mọi mốc quét cố định trong test (gói tạo sau giờ quét không được dùng).
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             });
         db.PosGymMemberDevices.Add(new PosGymMemberDevice
         {
