@@ -926,7 +926,8 @@ class _GymTrafficSectionState extends State<GymTrafficSection> {
               SizedBox(
                 width: 190,
                 child: Text(
-                  tr('  ${h['peakPresent']} người cùng lúc · ${h['avgCheckInsPerDay']} lượt/ngày'),
+                  // TB/ngày ít lượt bị làm tròn thành 0 → hiện tổng lượt trong kỳ.
+                  tr('  ${h['peakPresent']} người cùng lúc · ${h['checkIns']} lượt'),
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
