@@ -346,6 +346,14 @@ public partial class PosGymController
             c.UpdatedBy = CurrentUserEmail;
             await db.SaveChangesAsync();
         }
-        return Ok(AppResponse<object>.Success(new { path = $"/o/hv/{c.GymShareToken}", token = c.GymShareToken }));
+        // Link gửi khách luôn trên tên miền portal (mặc định sboxhrm.com), không theo máy chủ app đang gọi.
+        var cfg = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var path = $"/o/hv/{c.GymShareToken}";
+        return Ok(AppResponse<object>.Success(new
+        {
+            path,
+            token = c.GymShareToken,
+            url = PosGymPublicController.PortalBase(cfg) + path,
+        }));
     }
 }

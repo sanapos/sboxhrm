@@ -440,8 +440,9 @@ class _TrainerSheetState extends State<_TrainerSheet> {
       NotificationOverlayManager().showError(title: 'Chưa tạo được link', message: res['message']?.toString() ?? '');
       return;
     }
+    // Server trả link trên tên miền portal (sboxhrm.com); bản API cũ chỉ có path → ghép theo máy chủ app.
     final base = Uri.parse(ApiService.baseUrl);
-    final url = '${base.scheme}://${base.authority}$path';
+    final url = (res['data'] as Map?)?['url']?.toString() ?? '${base.scheme}://${base.authority}$path';
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
