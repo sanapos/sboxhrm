@@ -4233,6 +4233,8 @@ public class ZKTecoDbInitializer(
         ("PosGymCheckIn", "PosSell", (v, c, e, d, x, a) => (v, c, e, d, x, a)),
         // Điều chỉnh công nợ & hạn mức (2026-10) tách khỏi Khách hàng · Sửa — chỉ chủ / quản lý / kế toán.
         ("PosDebtAdjust", "PosCustomers", (v, c, e, d, x, a) => (v, false, e, false, false, false)),
+        // PT · Khách của tôi (2026-10): chủ / quản lý thấy mọi PT; nhân viên PT do chủ cấp riêng (phòng ban PT).
+        ("PosGymTrainer", "PosGymCheckIn", (v, c, e, d, x, a) => (v, c, e, d, false, false)),
     ];
 
     /// <summary>
@@ -4244,10 +4246,11 @@ public class ZKTecoDbInitializer(
     {
         "PosGymCheckIn" => role is "Admin" or "Director" or "Manager" ? f : (f.v, f.c, false, false, f.x, false),
         "PosDebtAdjust" => role is "Admin" or "Director" or "Manager" or "Accountant" ? f : null,
+        "PosGymTrainer" => role is "Admin" or "Director" or "Manager" ? f : null,
         _ => f,
     };
 
-    static readonly HashSet<string> RoleOnlySubs = ["PosGymCheckIn", "PosDebtAdjust"];
+    static readonly HashSet<string> RoleOnlySubs = ["PosGymCheckIn", "PosDebtAdjust", "PosGymTrainer"];
 
     /// <summary>Chức năng có nút / API xuất mới được kiểm quyền Xuất — cấp Xuất cho ai đang Xem (một lần).</summary>
     static readonly string[] ExportGateModules =

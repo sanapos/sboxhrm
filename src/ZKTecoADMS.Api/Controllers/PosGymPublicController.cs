@@ -76,6 +76,14 @@ public class PosGymPublicController(ZKTecoDbContext db, IConfiguration configura
             .Take(20)
             .ToListAsync();
 
+        var upcoming = await db.PosGymPtSessions.IgnoreQueryFilters().AsNoTracking()
+            .Where(x => x.StoreId == c.StoreId && x.CustomerId == c.Id && x.Deleted == null && x.Status == 0
+                && x.StartAt >= now.AddMinutes(-60) && x.StartAt < now.AddDays(21))
+            .OrderBy(x => x.StartAt)
+            .Take(12)
+            .Select(x => new { x.StartAt, x.DurationMinutes, x.TrainerName, x.Note })
+            .ToListAsync();
+
         // ── Tóm tắt thẻ / gói ──────────────────────────────────────────────
         bool Live(PosCustomerSessionBalance b) => b.RemainingSessions > 0 && (b.ExpiresAt == null || b.ExpiresAt > now);
         bool Frozen(PosCustomerSessionBalance b) => b.FrozenAt != null && (b.FrozenUntil == null || b.FrozenUntil > now);
@@ -173,6 +181,25 @@ public class PosGymPublicController(ZKTecoDbContext db, IConfiguration configura
             sb.Append("<a class=\"cta\" href=\"tel:").Append(H(tel)).Append("\">Gọi phòng tập để gia hạn · ").Append(H(store.Phone)).Append("</a>");
         }
         sb.Append("</section>");
+
+        // ── Lịch hẹn PT sắp tới ──
+        if (upcoming.Count > 0)
+        {
+            sb.Append("<section class=\"card\" id=\"lich-pt\"><h2>Lịch tập với PT sắp tới</h2><div class=\"visits\">");
+            foreach (var u in upcoming)
+            {
+                var at = Vn(u.StartAt);
+                sb.Append("<div class=\"visit\"><div class=\"date\"><small>").Append(Wd[WeekdayIndex(at.Date)]).Append("</small><b>")
+                  .Append(at.ToString("dd")).Append("</b><small>th").Append(at.Month).Append("</small></div><div class=\"vbody\">")
+                  .Append("<div class=\"times\">").Append(at.ToString("HH:mm")).Append(" → ").Append(at.AddMinutes(u.DurationMinutes).ToString("HH:mm"));
+                if (at.Date == todayVn) sb.Append("<span class=\"dur\">Hôm nay</span>");
+                sb.Append("</div>");
+                if (!string.IsNullOrWhiteSpace(u.TrainerName)) sb.Append("<div class=\"muted\">").Append(H(u.TrainerName)).Append("</div>");
+                if (!string.IsNullOrWhiteSpace(u.Note)) sb.Append("<div class=\"review\">").Append(H(u.Note)).Append("</div>");
+                sb.Append("</div></div>");
+            }
+            sb.Append("</div></section>");
+        }
 
         // ── Mục lục ──
         sb.Append("<nav class=\"tabs\"><a href=\"#lich\">Lịch tập</a>");

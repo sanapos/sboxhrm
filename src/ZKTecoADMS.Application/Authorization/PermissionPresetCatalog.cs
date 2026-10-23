@@ -96,7 +96,7 @@ public static class PermissionPresetCatalog
     [
         "PosSell", "PosSellPriceEdit", "PosSellDiscount", "PosSellCancelPaid", "PosSaleOrders", "PosSaleReturns",
         "PosCustomers", "PosWarranty", "PosBooking", "PosKds", "PosQrOrder", "PosCashierShift", "PosQuotes", "PosContracts",
-        "PosGymCheckIn", "PosDebtAdjust",
+        "PosGymCheckIn", "PosDebtAdjust", "PosGymTrainer",
     ];
     static readonly string[] PosStock =
     [
@@ -386,6 +386,7 @@ public static class PermissionPresetCatalog
         "PosSellPriceEdit" or "PosSellDiscount" or "PosSellCancelPaid" => allowed.Contains("PosSell"),
         "PosViewCost" => allowed.Contains("PosProducts"),
         "PosDebtAdjust" => allowed.Contains("PosCustomers") || allowed.Contains("PosPurchaseReceipts"),
+        "PosGymTrainer" => allowed.Contains("PosGymCheckIn"),
         "ActivityLog" or "Dashboard" => true,
         _ => false,
     };

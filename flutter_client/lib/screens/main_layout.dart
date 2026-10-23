@@ -103,6 +103,7 @@ import 'pos/pos_label_print_hub_screen.dart';
 import 'pos_sell_screen.dart';
 import 'pos_sale_order_list_screen.dart';
 import 'pos/pos_gym_checkin_screen.dart';
+import 'pos/pos_gym_pt_screen.dart';
 import 'pos/pos_quote_list_screen.dart';
 import 'pos_print_templates_screen.dart';
 import 'pos_sale_return_list_screen.dart';
@@ -2378,6 +2379,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosGymCheckIn',
     ),
+    NavItem(
+      icon: Icons.sports_gymnastics,
+      activeIcon: Icons.sports_gymnastics,
+      label: 'PT · Khách của tôi',
+      subtitle: 'Gym: hội viên, lịch tập, thể trạng',
+      screen: const PosGymPtScreen(),
+      group: 'POS',
+      showInSidebar: false,
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosGymTrainer',
+    ),
     // Thiết lập giá / khuyến mãi — trước đây chỉ mở được từ tab «Nhiều hơn» của POS (điện thoại không còn tab đó)
     // hoặc ô tìm chức năng, nên chủ cửa hàng không thấy chỗ tạo bảng giá dù màn Bán hàng có ô chọn bảng giá.
     NavItem(
@@ -3426,7 +3438,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final code = _navItems[i].moduleCode;
       // Menu theo ngành: gym hiện «Check-in hội viên» ngay trên menu (trước chỉ tìm được bằng ô
       // tìm chức năng); ẩn màn bếp KDS khi không phải nhà hàng, ẩn Menu QR gọi món ở gym.
-      final industryShow = code == 'PosGymCheckIn' && sellProfile == PosSellProfile.gym;
+      final industryShow = (code == 'PosGymCheckIn' || code == 'PosGymTrainer') && sellProfile == PosSellProfile.gym;
       if (!_navItems[i].showInSidebar && !industryShow) continue;
       if (sellProfile != null && !sellProfile.usesFnbItemTypes && code == 'PosKds') continue;
       if (sellProfile == PosSellProfile.gym && code == 'PosQrOrder') continue;

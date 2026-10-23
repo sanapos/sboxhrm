@@ -50,6 +50,7 @@ class PermissionModuleLabels {
     'PosViewCost': '↳ Xem giá vốn & lợi nhuận',
     'PosDebtAdjust': '↳ Điều chỉnh công nợ & hạn mức',
     'PosGymCheckIn': 'Check-in hội viên (gym)',
+    'PosGymTrainer': '↳ PT · Khách của tôi & lịch tập',
     'PosPrintTemplates': 'Mẫu in POS',
     'PosSaleOrders': 'Đơn hàng POS',
     'PosQuotes': 'Báo giá',

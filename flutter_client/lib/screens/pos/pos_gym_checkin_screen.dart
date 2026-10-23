@@ -615,6 +615,10 @@ class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
 
 // ── Lịch sử tập của một hội viên ─────────────────────────────────────────────
 
+/// Lịch sử tập (lượt vào – ra, đánh giá PT) — dùng ở màn PT «Khách của tôi».
+Future<void> showGymMemberHistory(BuildContext context, {required String customerId, required String name}) =>
+    _showMemberHistory(context, customerId: customerId, name: name);
+
 Future<void> _showMemberHistory(BuildContext context,
     {required String customerId, required String name, DateTime? from, DateTime? to}) {
   final now = DateTime.now();

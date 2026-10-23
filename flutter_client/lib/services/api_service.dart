@@ -20577,6 +20577,71 @@ class ApiService implements PayrollApi {
     }
   }
 
+  // ── PT: khách của tôi + lịch tập ─────────────────────────────────────
+
+  Future<Map<String, dynamic>> _gymGet(String path, [Map<String, String>? q]) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/gym/$path').replace(queryParameters: q), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Tài khoản đang dùng là PT nào, có xem mọi PT không (lễ tân / quản lý), danh sách PT.
+  Future<Map<String, dynamic>> getGymPtMe() => _gymGet('pt/me');
+
+  /// Hội viên PT phụ trách ([trainerId] null: PT = chính mình; quản lý = mọi PT).
+  Future<Map<String, dynamic>> getGymPtClients({String? trainerId}) =>
+      _gymGet('pt/clients', {if (trainerId != null) 'trainerId': trainerId});
+
+  Future<Map<String, dynamic>> getGymPtSessions(
+          {required DateTime from, required DateTime to, String? trainerId, String? customerId}) =>
+      _gymGet('pt/sessions', {
+        'from': _gymDate(from),
+        'to': _gymDate(to),
+        if (trainerId != null) 'trainerId': trainerId,
+        if (customerId != null) 'customerId': customerId,
+      });
+
+  /// Đặt lịch tập PT: customerId, startAt (giờ máy), durationMinutes, note, repeatWeeks.
+  Future<Map<String, dynamic>> addGymPtSession(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/gym/pt/sessions'), headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// status: 0 hẹn · 1 đã tập · 2 hủy · 3 vắng; có thể đổi note / startAt / durationMinutes.
+  Future<Map<String, dynamic>> updateGymPtSession(String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(Uri.parse('$baseUrl/api/pos/gym/pt/sessions/$id'), headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// [series]: xóa cả các buổi chưa tập sau đó trong cùng đợt lặp.
+  Future<Map<String, dynamic>> deleteGymPtSession(String id, {bool series = false}) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/gym/pt/sessions/$id${series ? '?series=true' : ''}'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Gym: giờ cao điểm (lượt vào / người có mặt theo giờ, theo thứ) + tổng quan hội viên.
   Future<Map<String, dynamic>> getGymTraffic({DateTime? from, DateTime? to}) async {
     try {

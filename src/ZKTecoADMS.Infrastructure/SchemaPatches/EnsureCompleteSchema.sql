@@ -1652,3 +1652,29 @@ ALTER TABLE "PosGymAssessments" ADD COLUMN IF NOT EXISTS "ThighCm" numeric(6,2) 
 ALTER TABLE "PosGymAssessments" ADD COLUMN IF NOT EXISTS "Kind" integer NOT NULL DEFAULT 0;
 ALTER TABLE "PosGymAssessments" ADD COLUMN IF NOT EXISTS "Rating" integer NULL;
 ALTER TABLE "PosGymAssessments" ADD COLUMN IF NOT EXISTS "VisitId" uuid NULL;
+
+-- Gym: lịch tập PT hẹn với hội viên
+CREATE TABLE IF NOT EXISTS "PosGymPtSessions" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "CustomerId" uuid NOT NULL,
+    "TrainerEmployeeId" uuid NOT NULL,
+    "TrainerName" character varying(200) NULL,
+    "StartAt" timestamp without time zone NOT NULL,
+    "DurationMinutes" integer NOT NULL DEFAULT 60,
+    "Status" integer NOT NULL DEFAULT 0,
+    "Note" character varying(500) NULL,
+    "SeriesId" uuid NULL,
+    CONSTRAINT "PK_PosGymPtSessions" PRIMARY KEY ("Id")
+);
+CREATE INDEX IF NOT EXISTS "IX_PosGymPtSessions_Trainer" ON "PosGymPtSessions" ("StoreId", "TrainerEmployeeId", "StartAt");
+CREATE INDEX IF NOT EXISTS "IX_PosGymPtSessions_Customer" ON "PosGymPtSessions" ("StoreId", "CustomerId", "StartAt");

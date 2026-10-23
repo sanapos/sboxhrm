@@ -98,6 +98,26 @@ public class PosGymAssessment : AuditableEntity<Guid>
     public string? Goal { get; set; }
 }
 
+/// <summary>Lịch tập PT hẹn với hội viên (PT tự đặt trên tài khoản của mình; lễ tân / quản lý xem mọi PT).</summary>
+public class PosGymPtSession : AuditableEntity<Guid>
+{
+    public Guid StoreId { get; set; }
+    public Guid CustomerId { get; set; }
+    public virtual PosCustomer? Customer { get; set; }
+
+    public Guid TrainerEmployeeId { get; set; }
+    public string? TrainerName { get; set; }
+
+    /// <summary>UTC.</summary>
+    public DateTime StartAt { get; set; }
+    public int DurationMinutes { get; set; } = 60;
+    /// <summary>0 = đã hẹn, 1 = đã tập, 2 = hủy, 3 = khách vắng.</summary>
+    public int Status { get; set; }
+    public string? Note { get; set; }
+    /// <summary>Cùng một đợt đặt lặp hàng tuần (hủy / xóa cả chuỗi).</summary>
+    public Guid? SeriesId { get; set; }
+}
+
 /// <summary>Phác đồ / giáo án tập PT giao cho hội viên (hiện trên link chia sẻ của hội viên).</summary>
 public class PosGymWorkoutPlan : AuditableEntity<Guid>
 {

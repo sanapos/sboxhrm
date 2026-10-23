@@ -237,11 +237,16 @@ public partial class PosGymController(ZKTecoDbContext db, IMediator bus, IGymChe
 
     /// <summary>Lượt tập trong kỳ (ngày VN). Mặc định hôm nay.</summary>
     [HttpGet("visits")]
-    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "PosGymCheckIn", "PosGymTrainer")]
     public async Task<ActionResult<AppResponse<object>>> Visits(
         [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null, [FromQuery] Guid? customerId = null)
     {
         var storeId = RequiredStoreId;
+        // PT (không có quyền Check-in) chỉ xem lịch sử tập của khách mình phụ trách.
+        if (customerId is Guid scopeId
+                ? await TrainerScopeErrorAsync(scopeId, ModulePermissionAction.View) is string
+                : !await HasGymDeskAsync(ModulePermissionAction.View))
+            return StatusCode(403, AppResponse<object>.Fail("Hội viên này không do bạn phụ trách"));
         await gym.FinalizeEndedFreezesAsync(storeId);
         var (fromUtc, toUtc) = RangeUtc(from, to);
         var q = db.PosGymVisits.AsNoTracking()
@@ -464,10 +469,12 @@ public partial class PosGymController(ZKTecoDbContext db, IMediator bus, IGymChe
 
     /// <summary>Mọi thẻ / gói của khách (còn hiệu lực trước, rồi mới nhất).</summary>
     [HttpGet("customers/{customerId:guid}/balances")]
-    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "PosGymCheckIn", "PosGymTrainer")]
     public async Task<ActionResult<AppResponse<List<BalanceDto>>>> CustomerBalances(Guid customerId)
     {
         var storeId = RequiredStoreId;
+        if (await TrainerScopeErrorAsync(customerId, ModulePermissionAction.View) is string deny)
+            return StatusCode(403, AppResponse<List<BalanceDto>>.Fail(deny));
         await gym.FinalizeEndedFreezesAsync(storeId);
         var now = DateTime.UtcNow;
         var list = await db.PosCustomerSessionBalances.AsNoTracking()

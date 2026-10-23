@@ -8,9 +8,11 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../l10n/app_tr.dart';
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../utils/pos_einvoice_qr.dart';
@@ -357,116 +359,180 @@ class _TrainerSheetState extends State<_TrainerSheet> {
     await _load();
   }
 
+  /// Phiếu đo thể trạng: ĐIỀN SẴN toàn bộ chỉ số / tình trạng / mục tiêu của phiếu trước — PT chỉ sửa chỗ thay đổi.
+  /// Ô khác phiếu trước được tô màu kèm «trước: …»; nút lưu ghi số thay đổi (hoặc «giống phiếu trước»).
   Future<void> _addAssessment() async {
     final body = _items.where((a) => a['kind'] != 1).toList();
     final last = body.isEmpty ? null : body.first;
-    final weight = TextEditingController();
-    final height = TextEditingController(text: _fmt(last?['heightCm'], ''));
-    final fat = TextEditingController();
-    final muscle = TextEditingController();
-    final waist = TextEditingController();
-    final chest = TextEditingController();
-    final hip = TextEditingController();
-    final arm = TextEditingController();
-    final thigh = TextEditingController();
-    final condition = TextEditingController();
-    final goal = TextEditingController(text: '${last?['goal'] ?? ''}');
+    final lastAt = DateTime.tryParse('${last?['assessedAt'] ?? ''}')?.toLocal();
+    // (khóa API, nhãn, số?) — số: so sánh theo giá trị (78 = 78.0), chữ: bỏ khoảng trắng / hoa thường.
+    const fields = <(String, String, bool)>[
+      ('weightKg', 'Cân nặng (kg)', true),
+      ('heightCm', 'Chiều cao (cm)', true),
+      ('bodyFatPercent', '% mỡ', true),
+      ('muscleKg', 'Cơ (kg)', true),
+      ('chestCm', 'Ngực', true),
+      ('waistCm', 'Eo', true),
+      ('hipCm', 'Mông', true),
+      ('armCm', 'Bắp tay', true),
+      ('thighCm', 'Đùi', true),
+      ('condition', 'Tình trạng', false),
+      ('goal', 'Mục tiêu', false),
+    ];
+    String prevText(String key, bool isNum) =>
+        isNum ? _fmt(last?[key], '') : '${last?[key] ?? ''}'.trim();
+    final ctrl = {for (final f in fields) f.$1: TextEditingController(text: prevText(f.$1, f.$3))};
+    bool changed(String key, bool isNum) {
+      if (last == null) return false;
+      final now = ctrl[key]!.text;
+      if (isNum) {
+        final a = _num(now), b = _num(last[key]);
+        return a == null ? b != null : b == null || (a - b).abs() >= 0.05;
+      }
+      String norm(String x) => x.split(',').map((e) => e.trim().toLowerCase()).where((e) => e.isNotEmpty).join(',');
+      return norm(now) != norm('${last[key] ?? ''}');
+    }
+
+    int changes() => fields.where((f) => changed(f.$1, f.$3)).length;
+
     FocusManager.instance.primaryFocus?.unfocus();
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setState) {
+        Widget numF(String key, String label) {
+          final diff = changed(key, true);
+          final prev = _fmt(last?[key], '');
+          return Expanded(
+            child: TextField(
+              controller: ctrl[key],
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: tr(label),
+                isDense: true,
+                filled: diff,
+                fillColor: SboxColors.warningSoft,
+                helperText: diff ? tr(prev.isEmpty ? 'trước: trống' : 'trước: $prev') : null,
+                helperStyle: const TextStyle(color: SboxColors.warningText, fontWeight: FontWeight.w600),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          );
+        }
+
+        InputDecoration textDeco(String key, String label) {
+          final diff = changed(key, false);
+          final prev = '${last?[key] ?? ''}'.trim();
+          return InputDecoration(
+            labelText: tr(label),
+            isDense: true,
+            filled: diff,
+            fillColor: SboxColors.warningSoft,
+            helperText: diff ? tr(prev.isEmpty ? 'trước: trống' : 'trước: $prev') : null,
+            helperMaxLines: 2,
+            helperStyle: const TextStyle(color: SboxColors.warningText, fontWeight: FontWeight.w600),
+            border: const OutlineInputBorder(),
+          );
+        }
+
+        final n = changes();
+        return AlertDialog(
           title: Text(tr('Đo thể trạng · ${widget.name}')),
           content: SizedBox(
             width: 600,
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                 if (last != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      tr('Lần đo trước: ${[
-                        if (_num(last['weightKg']) != null) _fmt(last['weightKg'], 'kg'),
-                        if (_num(last['bodyFatPercent']) != null) 'mỡ ${_fmt(last['bodyFatPercent'], '%')}',
-                        if (_num(last['waistCm']) != null) 'eo ${_fmt(last['waistCm'], 'cm')}',
-                      ].join(' · ')}'),
-                      style: const TextStyle(fontSize: 12.5, color: SboxColors.slate600),
-                    ),
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+                    decoration: BoxDecoration(color: SboxColors.brand50, borderRadius: BorderRadius.circular(8)),
+                    child: Row(children: [
+                      const Icon(Icons.content_copy, size: 16, color: SboxColors.brand700),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          tr('Đã điền sẵn từ phiếu ${lastAt == null ? 'trước' : _dmy.format(lastAt)} — chỉ sửa ô thay đổi. '
+                              'Ô tô vàng = khác phiếu trước.'),
+                          style: const TextStyle(fontSize: 12.5, color: SboxColors.brand700),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() {
+                          for (final f in fields) {
+                            if (f.$1 != 'heightCm' && f.$1 != 'goal') ctrl[f.$1]!.clear();
+                          }
+                        }),
+                        child: Text(tr('Xóa để nhập mới')),
+                      ),
+                    ]),
                   ),
-                Row(children: [
-                  _numField(weight, 'Cân nặng (kg)'),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  numF('weightKg', 'Cân nặng (kg)'),
                   const SizedBox(width: 8),
-                  _numField(height, 'Chiều cao (cm)'),
+                  numF('heightCm', 'Chiều cao (cm)'),
                   const SizedBox(width: 8),
-                  _numField(fat, '% mỡ'),
+                  numF('bodyFatPercent', '% mỡ'),
                   const SizedBox(width: 8),
-                  _numField(muscle, 'Cơ (kg)'),
+                  numF('muscleKg', 'Cơ (kg)'),
                 ]),
                 const SizedBox(height: 10),
                 Text(tr('Số đo vòng (cm)'), style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
-                Row(children: [
-                  _numField(chest, 'Ngực'),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  numF('chestCm', 'Ngực'),
                   const SizedBox(width: 8),
-                  _numField(waist, 'Eo'),
+                  numF('waistCm', 'Eo'),
                   const SizedBox(width: 8),
-                  _numField(hip, 'Mông'),
+                  numF('hipCm', 'Mông'),
                   const SizedBox(width: 8),
-                  _numField(arm, 'Bắp tay'),
+                  numF('armCm', 'Bắp tay'),
                   const SizedBox(width: 8),
-                  _numField(thigh, 'Đùi'),
+                  numF('thighCm', 'Đùi'),
                 ]),
                 const SizedBox(height: 10),
-                Text(tr('Tình trạng (bấm để chọn)'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text(tr('Tình trạng (bấm để chọn / bỏ)'), style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
-                _tokenChips(condition, _conditionPresets, setState),
+                _tokenChips(ctrl['condition']!, _conditionPresets, setState),
                 const SizedBox(height: 6),
                 TextField(
-                  controller: condition,
+                  controller: ctrl['condition'],
                   maxLines: 2,
                   onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                      labelText: tr('Tình trạng / chấn thương / nhận xét của PT'),
-                      isDense: true,
-                      border: const OutlineInputBorder()),
+                  decoration: textDeco('condition', 'Tình trạng / chấn thương / nhận xét của PT'),
                 ),
                 const SizedBox(height: 10),
                 Text(tr('Mục tiêu'), style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
-                _tokenChips(goal, _goalPresets, setState),
+                _tokenChips(ctrl['goal']!, _goalPresets, setState),
                 const SizedBox(height: 6),
                 TextField(
-                  controller: goal,
+                  controller: ctrl['goal'],
                   onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                      labelText: tr('Mục tiêu (vd giảm 5kg trong 3 tháng)'),
-                      isDense: true,
-                      border: const OutlineInputBorder()),
+                  decoration: textDeco('goal', 'Mục tiêu (vd giảm 5kg trong 3 tháng)'),
                 ),
               ]),
             ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu đánh giá'))),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr(last == null
+                  ? 'Lưu đánh giá'
+                  : n == 0
+                      ? 'Lưu · giống phiếu trước'
+                      : 'Lưu · $n thay đổi')),
+            ),
           ],
-        ),
-      ),
+        );
+      }),
     );
     _dropFocus();
     if (ok != true || !mounted) return;
     final res = await _api.addGymAssessment(widget.customerId, {
-      'weightKg': _num(weight.text),
-      'heightCm': _num(height.text),
-      'bodyFatPercent': _num(fat.text),
-      'muscleKg': _num(muscle.text),
-      'waistCm': _num(waist.text),
-      'chestCm': _num(chest.text),
-      'hipCm': _num(hip.text),
-      'armCm': _num(arm.text),
-      'thighCm': _num(thigh.text),
-      'condition': condition.text.trim(),
-      'goal': goal.text.trim(),
+      for (final f in fields)
+        f.$1: f.$3 ? _num(ctrl[f.$1]!.text) : ctrl[f.$1]!.text.trim(),
     });
     if (!mounted) return;
     if (res['isSuccess'] != true) {
@@ -796,7 +862,8 @@ class _TrainerSheetState extends State<_TrainerSheet> {
                   ),
                 ]),
               ),
-              TextButton(onPressed: _pickTrainer, child: Text(tr(_trainerId == null ? 'Gán PT' : 'Đổi PT'))),
+              if (context.read<PermissionProvider>().canEdit('PosGymCheckIn'))
+                TextButton(onPressed: _pickTrainer, child: Text(tr(_trainerId == null ? 'Gán PT' : 'Đổi PT'))),
             ]),
           ),
           const SizedBox(height: 16),

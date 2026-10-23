@@ -156,6 +156,7 @@ public static class FeatureModuleCatalog
         new("PosSellCancelPaid", "Hủy hóa đơn đã thu", "Hủy đơn đã thanh toán", CatSell, 122, false),
         new("PosViewCost", "Xem giá vốn & lợi nhuận", "Thấy giá vốn, lãi trên hàng hóa / kho", CatSell, 123, false),
         new("PosDebtAdjust", "Điều chỉnh công nợ & hạn mức", "Nhập nợ đầu kỳ, sửa công nợ khách / NCC, đặt hạn mức nợ và hạn thanh toán của khách", CatSell, 124, false),
+        new("PosGymTrainer", "PT · Khách của tôi & lịch tập", "Tài khoản PT: xem hội viên mình phụ trách, đặt lịch tập, đo thể trạng, đánh giá buổi, giao phác đồ", CatSell, 125, false),
 
         // ══════════ KHO HÀNG ══════════
         new("PosPurchaseReceipts", "Nhập hàng", "Phiếu nhập nhà cung cấp", CatWarehouse, 130),

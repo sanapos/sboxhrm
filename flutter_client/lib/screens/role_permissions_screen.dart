@@ -519,6 +519,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'PosDebtAdjust': {'canView', 'canEdit'},
     // Check-in gym: Thêm = check-in / mở cửa / thêm hội viên lên máy; Sửa = bảo lưu, khung giờ, gỡ hội viên.
     'PosGymCheckIn': {'canView', 'canCreate', 'canEdit', 'canExport'},
+    // PT: Xem = khách mình phụ trách + lịch; Thêm = đặt lịch, đo thể trạng, đánh giá, phác đồ; Sửa = đổi lịch, gửi link.
+    'PosGymTrainer': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'PosSaleReturns': {
       // Xem = menu/danh sách; Duyệt = thực hiện trả / hủy phiếu trả
       'canView',

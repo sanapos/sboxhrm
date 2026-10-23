@@ -19,6 +19,8 @@ class PermissionNavigation {
     'BankAccount': ['PosSell', 'CashTransaction'],
     // Thiết lập AI có khi gói có Trợ lý AI.
     'AIGemini': ['AIAssistant'],
+    // PT · Khách của tôi là quyền con của Check-in gym (không chọn riêng trong gói).
+    'PosGymTrainer': ['PosGymCheckIn'],
   };
 
   /// Mục trong Thiết lập Sbox / Thiết lập POS. Menu hub mở khi gói có một trong các mã này,

@@ -65,10 +65,12 @@ public partial class PosGymController
 
     /// <summary>Lịch sử đánh giá thể trạng (mới nhất trước) + PT phụ trách.</summary>
     [HttpGet("customers/{customerId:guid}/assessments")]
-    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "PosGymCheckIn", "PosGymTrainer")]
     public async Task<ActionResult<AppResponse<object>>> Assessments(Guid customerId)
     {
         var storeId = RequiredStoreId;
+        if (await TrainerScopeErrorAsync(customerId, ModulePermissionAction.View) is string deny)
+            return StatusCode(403, AppResponse<object>.Fail(deny));
         var c = await db.PosCustomers.AsNoTracking()
             .Where(x => x.Id == customerId && x.StoreId == storeId && x.Deleted == null)
             .Select(x => new { x.Id, x.Name, x.GymTrainerEmployeeId, x.GymTrainerName })
@@ -100,10 +102,12 @@ public partial class PosGymController
     }
 
     [HttpPost("customers/{customerId:guid}/assessments")]
-    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Create)]
+    [RequireAnyModulePermission(ModulePermissionAction.Create, "PosGymCheckIn", "PosGymTrainer")]
     public async Task<ActionResult<AppResponse<AssessmentDto>>> AddAssessment(Guid customerId, [FromBody] SaveAssessmentDto dto)
     {
         var storeId = RequiredStoreId;
+        if (await TrainerScopeErrorAsync(customerId, ModulePermissionAction.Create) is string deny)
+            return StatusCode(403, AppResponse<AssessmentDto>.Fail(deny));
         var c = await db.PosCustomers.AsNoTracking()
             .Where(x => x.Id == customerId && x.StoreId == storeId && x.Deleted == null)
             .Select(x => new { x.GymTrainerEmployeeId, x.GymTrainerName })
@@ -158,13 +162,15 @@ public partial class PosGymController
     }
 
     [HttpDelete("assessments/{id:guid}")]
-    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Delete)]
+    [RequireAnyModulePermission(ModulePermissionAction.Delete, "PosGymCheckIn", "PosGymTrainer")]
     public async Task<ActionResult<AppResponse<object>>> DeleteAssessment(Guid id)
     {
         var storeId = RequiredStoreId;
         var a = await db.PosGymAssessments.AsTracking()
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (a == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy phiếu đánh giá"));
+        if (await TrainerScopeErrorAsync(a.CustomerId, ModulePermissionAction.Delete) is string deny)
+            return StatusCode(403, AppResponse<object>.Fail(deny));
         a.Deleted = DateTime.UtcNow;
         a.DeletedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
@@ -282,10 +288,12 @@ public partial class PosGymController
 
     /// <summary>PT giao phác đồ / giáo án tập cho hội viên (hiện trên link chia sẻ).</summary>
     [HttpPost("customers/{customerId:guid}/plans")]
-    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Create)]
+    [RequireAnyModulePermission(ModulePermissionAction.Create, "PosGymCheckIn", "PosGymTrainer")]
     public async Task<ActionResult<AppResponse<object>>> AddPlan(Guid customerId, [FromBody] SavePlanDto dto)
     {
         var storeId = RequiredStoreId;
+        if (await TrainerScopeErrorAsync(customerId, ModulePermissionAction.Create) is string deny)
+            return StatusCode(403, AppResponse<object>.Fail(deny));
         var c = await db.PosCustomers.AsNoTracking()
             .Where(x => x.Id == customerId && x.StoreId == storeId && x.Deleted == null)
             .Select(x => new { x.GymTrainerEmployeeId, x.GymTrainerName })
@@ -313,13 +321,15 @@ public partial class PosGymController
     }
 
     [HttpDelete("plans/{id:guid}")]
-    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Delete)]
+    [RequireAnyModulePermission(ModulePermissionAction.Delete, "PosGymCheckIn", "PosGymTrainer")]
     public async Task<ActionResult<AppResponse<object>>> DeletePlan(Guid id)
     {
         var storeId = RequiredStoreId;
         var p = await db.PosGymWorkoutPlans.AsTracking()
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (p == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy phác đồ"));
+        if (await TrainerScopeErrorAsync(p.CustomerId, ModulePermissionAction.Delete) is string deny)
+            return StatusCode(403, AppResponse<object>.Fail(deny));
         p.Deleted = DateTime.UtcNow;
         p.DeletedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
@@ -331,10 +341,12 @@ public partial class PosGymController
     /// [renew] = true đổi mã mới (link cũ hết hiệu lực — khi lỡ gửi nhầm người).
     /// </summary>
     [HttpPost("customers/{customerId:guid}/share-link")]
-    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Edit)]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "PosGymCheckIn", "PosGymTrainer")]
     public async Task<ActionResult<AppResponse<object>>> ShareLink(Guid customerId, [FromQuery] bool renew = false)
     {
         var storeId = RequiredStoreId;
+        if (await TrainerScopeErrorAsync(customerId, ModulePermissionAction.Edit) is string deny)
+            return StatusCode(403, AppResponse<object>.Fail(deny));
         var c = await db.PosCustomers.AsTracking()
             .FirstOrDefaultAsync(x => x.Id == customerId && x.StoreId == storeId && x.Deleted == null);
         if (c == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy khách hàng"));
