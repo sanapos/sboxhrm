@@ -6792,6 +6792,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (p.commissionPerSession && p.sessionPackCount > 0 && p.sessionPackCount < 9999) {
       return false;
     }
+    // Thẻ / gói tập không cài hoa hồng: không hỏi chọn NV mỗi lần bán (gym bán thẻ liên tục).
+    if (p.sessionPackCount > 0 && !p.hasCommission) return false;
     if (p.productType == PosProductType.combo &&
         (p.comboLines?.isNotEmpty ?? false)) {
       return true;

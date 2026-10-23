@@ -365,8 +365,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool get _isMaterial => _type == PosProductType.material;
   bool get _isToppingType => _type == PosProductType.topping;
   bool get _tracksStock => _type.tracksInventory;
+  // Gym: không định lượng NVL (không có bếp / pha chế).
   bool get _canHaveRecipe =>
-      _isGoods || _isService || _isToppingType;
+      _sellProfile != PosSellProfile.gym && (_isGoods || _isService || _isToppingType);
   String get _autoCodeHint => '${_type.codePrefix}00001…';
   bool get _isEditing => widget.product != null;
   bool get _hasVariants => _variants.isNotEmpty;
@@ -2210,7 +2211,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           if (_isGoods) _retailQtyModeButtons(),
           if (_isGoods && _allowAreaQty) _buildAreaAxesSection(),
-          if (_isGoods) _buildMadeToOrderSection(),
+          // Hàng gia công (cửa nhôm kính, nội thất) — gym bán nước / thực phẩm bổ sung không dùng.
+          if (_isGoods && _sellProfile != PosSellProfile.gym) _buildMadeToOrderSection(),
           _buildProductVatSection(),
           if (_showSection(PosProductEditorSection.staffCommission))
             _kvExpansion(
@@ -3762,6 +3764,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       }
                     },
             ),
+            // Bán theo kích thước (kính, vải, gỗ…) — gym không dùng.
+            if (_sellProfile != PosSellProfile.gym)
             FilterChip(
               avatar: Icon(
                 _allowAreaQty ? Icons.straighten : Icons.straighten_outlined,

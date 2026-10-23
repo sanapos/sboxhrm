@@ -124,6 +124,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     try {
       final res = await PosSellSettingsHelper(_api).load();
       final p = res.settings?.sellProfile;
+      if (p != null) posProductPickerFnbTypes = p.usesFnbItemTypes;
       if (mounted && p != null) setState(() => _sellProfile = p);
     } catch (_) {}
   }

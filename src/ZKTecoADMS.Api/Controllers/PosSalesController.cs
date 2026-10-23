@@ -667,6 +667,7 @@ public partial class PosSalesController(
                 CommissionMode = p.CommissionMode.ToString(),
                 p.CommissionPercent,
                 p.CommissionFixed,
+                p.CommissionPerSession,
                 VariantCount = p.Variants.Count(v => v.Deleted == null && v.IsActive),
                 p.DailySoldOutOn,
                 // Dịch vụ tính giờ / gói giờ — thiếu các trường này món thêm từ lưới bán bị coi là hàng thường
@@ -948,6 +949,7 @@ public partial class PosSalesController(
                 p.CommissionMode,
                 p.CommissionPercent,
                 p.CommissionFixed,
+                p.CommissionPerSession,
                 p.VariantCount,
                 p.ServiceBillingMode,
                 p.MinBillMinutes,

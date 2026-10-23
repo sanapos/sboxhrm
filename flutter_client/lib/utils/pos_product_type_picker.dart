@@ -59,6 +59,13 @@ const _kTypeMetas = <_TypeMeta>[
   ),
 ];
 
+/// Ngành bán hiện tại có dùng NVL kho bếp / topping không (nhà hàng, cafe). Màn hàng hóa đặt theo
+/// ngành của cửa hàng — gym, bán lẻ… không hiện hai loại này khi tạo / nhập hàng.
+bool posProductPickerFnbTypes = true;
+
+Iterable<_TypeMeta> get _visibleTypeMetas => _kTypeMetas.where((m) =>
+    posProductPickerFnbTypes || (m.type != PosProductType.material && m.type != PosProductType.topping));
+
 /// Chọn loại hàng khi tạo mới.
 Future<PosProductType?> showPosProductTypePicker(BuildContext context) {
   return showModalBottomSheet<PosProductType>(
@@ -81,7 +88,7 @@ Future<PosProductType?> showPosProductTypePicker(BuildContext context) {
               ),
             ),
           ),
-          for (final m in _kTypeMetas)
+          for (final m in _visibleTypeMetas)
             ListTile(
               leading: Icon(m.icon, color: m.color),
               title: Text(tr(posProductTypeLabel(m.type))),
@@ -119,7 +126,7 @@ void showPosProductCreateSheet(
               ),
             ),
           ),
-          for (final m in _kTypeMetas)
+          for (final m in _visibleTypeMetas)
             ListTile(
               leading: Icon(m.icon, color: m.color),
               title: Text(tr(posProductTypeLabel(m.type))),
@@ -176,7 +183,7 @@ Future<PosProductTypePickResult?> showPosProductTypeHub(
                 ),
               ),
             ),
-            for (final m in _kTypeMetas)
+            for (final m in _visibleTypeMetas)
               ListTile(
                 leading: Icon(m.icon, color: m.color),
                 title: Text(tr(posProductTypeLabel(m.type))),

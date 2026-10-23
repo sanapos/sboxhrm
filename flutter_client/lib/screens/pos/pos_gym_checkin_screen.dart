@@ -622,7 +622,17 @@ class _MemberHistoryState extends State<_MemberHistory> {
               decoration: BoxDecoration(color: SboxColors.slate300, borderRadius: BorderRadius.circular(2))),
         ),
         const SizedBox(height: 12),
-        Text(tr(widget.name), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        Row(children: [
+          Expanded(
+            child: Text(tr(widget.name), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          ),
+          // PT phụ trách / đánh giá thể trạng cho mọi hội viên (kể cả chưa đăng ký lên máy chấm công).
+          TextButton.icon(
+            onPressed: () => showGymTrainerSheet(context, customerId: widget.customerId, name: widget.name),
+            icon: const Icon(Icons.sports_gymnastics, size: 18),
+            label: Text(tr('PT & thể trạng')),
+          ),
+        ]),
         const SizedBox(height: 2),
         Text(tr('Lịch sử tập ${_dmy.format(widget.from)} – ${_dmy.format(widget.to)}'),
             style: const TextStyle(color: SboxColors.slate600)),
