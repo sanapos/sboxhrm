@@ -15,8 +15,16 @@ public interface IGymCheckInService
     Task ProcessPunchesAsync(Device device, IReadOnlyList<Attendance> punches);
 
     /// <summary>Ghi một lần quét / check-in (UTC). Trả về lượt tập vừa tạo hoặc vừa đóng; null nếu là quét trùng.</summary>
+    /// <param name="preferBalanceId">Lễ tân chọn thẻ / gói trừ buổi (vd tập với PT → gói PT thay vì thẻ tháng).</param>
     Task<PosGymVisit?> RecordPunchAsync(
-        Guid storeId, Guid customerId, DateTime utc, Guid? deviceId, string? pin, string source, string? actor);
+        Guid storeId, Guid customerId, DateTime utc, Guid? deviceId, string? pin, string source, string? actor,
+        Guid? preferBalanceId = null);
+
+    /// <summary>
+    /// Đổi thẻ / gói tính cho lượt tập (máy quét trừ thẻ tháng nhưng khách tập với PT → trừ gói PT):
+    /// hoàn buổi đã trừ ở gói cũ (kèm bỏ hoa hồng PT của buổi đó), trừ 1 buổi gói mới. Trả về lỗi hoặc null.
+    /// </summary>
+    Task<string?> SwitchVisitBalanceAsync(Guid storeId, Guid visitId, Guid balanceId, string? actor);
 
     /// <summary>
     /// Đồng bộ trạng thái thẻ xuống máy ở cửa (chế độ «máy chủ mở cửa»): hết hạn / hết buổi → đẩy thông báo riêng

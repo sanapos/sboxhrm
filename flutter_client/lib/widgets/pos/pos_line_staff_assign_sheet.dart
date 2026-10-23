@@ -156,7 +156,7 @@ class _SheetState extends State<_Sheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              tr('Chọn nhân viên làm'),
+              tr(widget.slots.any((x) => x.isService) ? 'Chọn nhân viên làm' : 'Chọn nhân viên bán'),
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -165,7 +165,11 @@ class _SheetState extends State<_Sheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              tr('Combo / gói dịch vụ: chọn NV cho từng phần để tính hoa hồng'),
+              tr(widget.slots.length > 1
+                  ? 'Combo / gói dịch vụ: chọn NV cho từng phần để tính hoa hồng'
+                  : widget.slots.any((x) => x.isService)
+                      ? 'Chọn NV làm dịch vụ / bán gói để tính hoa hồng'
+                      : 'Chọn NV bán hàng để tính hoa hồng'),
               style: TextStyle(fontSize: 13, color: SboxColors.slate600),
             ),
             const SizedBox(height: 12),

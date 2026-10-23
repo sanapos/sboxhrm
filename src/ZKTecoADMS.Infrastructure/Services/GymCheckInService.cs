@@ -88,7 +88,8 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
     }
 
     public async Task<PosGymVisit?> RecordPunchAsync(
-        Guid storeId, Guid customerId, DateTime utc, Guid? deviceId, string? pin, string source, string? actor)
+        Guid storeId, Guid customerId, DateTime utc, Guid? deviceId, string? pin, string source, string? actor,
+        Guid? preferBalanceId = null)
     {
         var (dayFrom, dayTo) = GymVisitRules.VnDayUtc(utc);
         // Lấy cả lượt tối hôm trước còn mở (tập qua nửa đêm: vào 22:00, ra 00:30 là RA, không phải lượt mới trừ thêm buổi).
@@ -146,7 +147,8 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
         };
 
         var deductedToday = today.FirstOrDefault(v => v.SessionDeducted);
-        if (deductedToday != null)
+        // Lễ tân chọn gói khác gói đã trừ hôm nay (sáng tập thẻ tháng, chiều tập PT) → trừ gói được chọn.
+        if (deductedToday != null && (preferBalanceId == null || preferBalanceId == deductedToday.BalanceId))
         {
             // Đã trừ buổi trong ngày: vào lại (sau khi ra) không trừ thêm.
             visit.BalanceId = deductedToday.BalanceId;
@@ -166,12 +168,13 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
             var live = balances
                 .Where(b => b.RemainingSessions > 0 && (b.ExpiresAt == null || b.ExpiresAt > utc) && b.CreatedAt <= utc.AddMinutes(5))
                 .ToList();
-            var usable = live
+            var candidates = live
                 .Where(b => !GymVisitRules.IsFrozen(b, utc) && GymVisitRules.IsWithinHours(b.AccessHours, utc))
                 .OrderByDescending(b => PosCustomerSessionBalance.IsUnlimitedCount(b.TotalSessions))
                 .ThenBy(b => b.ExpiresAt ?? DateTime.MaxValue)
                 .ThenBy(b => b.CreatedAt)
-                .FirstOrDefault();
+                .ToList();
+            var usable = candidates.FirstOrDefault(b => b.Id == preferBalanceId) ?? candidates.FirstOrDefault();
             if (usable == null)
             {
                 visit.Status = balances.Count == 0 ? "NoPackage"
@@ -201,46 +204,122 @@ public class GymCheckInService(ZKTecoDbContext db, ILogger<GymCheckInService> lo
             }
             else
             {
-                usable.RemainingSessions -= 1;
-                usable.UpdatedAt = DateTime.UtcNow;
-                usable.UpdatedBy = actor;
-                visit.BalanceId = usable.Id;
-                visit.PackageName = usable.PackageName;
-                visit.SessionDeducted = true;
                 visit.Status = "Ok";
-                var redeemTxnId = Guid.NewGuid();
-                db.PosCustomerSessionTransactions.Add(new PosCustomerSessionTransaction
-                {
-                    Id = redeemTxnId,
-                    StoreId = storeId,
-                    BalanceId = usable.Id,
-                    CustomerId = customerId,
-                    TransactionType = PosSessionTxnType.Redeem,
-                    SessionDelta = -1,
-                    RemainingAfter = usable.RemainingSessions,
-                    UsedAt = utc,
-                    Note = source == "Device" ? "Check-in máy chấm công" : "Check-in tại quầy",
-                    IsActive = true,
-                    CreatedBy = actor,
-                });
-                // Gói PT tính hoa hồng mỗi buổi → ghi cho PT phụ trách hội viên (cùng SaveChanges với lượt tập).
-                if (sp.GetService(typeof(IGymSessionCommissionHook)) is IGymSessionCommissionHook hook)
-                {
-                    try
-                    {
-                        await hook.OnSessionDeductedAsync(storeId, customerId, usable, redeemTxnId, utc, actor);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex, "Gym PT commission failed for customer {CustomerId}", customerId);
-                    }
-                }
+                await DeductAsync(visit, usable, utc,
+                    source == "Device" ? "Check-in máy chấm công" : "Check-in tại quầy", actor);
             }
         }
 
         db.PosGymVisits.Add(visit);
         await db.SaveChangesAsync();
         return visit;
+    }
+
+    /// <summary>Trừ 1 buổi của <paramref name="balance"/> cho lượt tập + hoa hồng PT (nếu gói PT). Chưa SaveChanges.</summary>
+    async Task DeductAsync(PosGymVisit visit, PosCustomerSessionBalance balance, DateTime utc, string note, string? actor)
+    {
+        balance.RemainingSessions -= 1;
+        balance.UpdatedAt = DateTime.UtcNow;
+        balance.UpdatedBy = actor;
+        visit.BalanceId = balance.Id;
+        visit.PackageName = balance.PackageName;
+        visit.SessionDeducted = true;
+        var redeemTxnId = Guid.NewGuid();
+        db.PosCustomerSessionTransactions.Add(new PosCustomerSessionTransaction
+        {
+            Id = redeemTxnId,
+            StoreId = visit.StoreId,
+            BalanceId = balance.Id,
+            CustomerId = visit.CustomerId,
+            TransactionType = PosSessionTxnType.Redeem,
+            SessionDelta = -1,
+            RemainingAfter = balance.RemainingSessions,
+            UsedAt = utc,
+            Note = note,
+            IsActive = true,
+            CreatedBy = actor,
+        });
+        // Gói PT tính hoa hồng mỗi buổi → ghi cho PT phụ trách hội viên (cùng SaveChanges với lượt tập).
+        if (sp.GetService(typeof(IGymSessionCommissionHook)) is IGymSessionCommissionHook hook)
+        {
+            try
+            {
+                await hook.OnSessionDeductedAsync(visit.StoreId, visit.CustomerId, balance, redeemTxnId, utc, actor);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Gym PT commission failed for customer {CustomerId}", visit.CustomerId);
+            }
+        }
+    }
+
+    public async Task<string?> SwitchVisitBalanceAsync(Guid storeId, Guid visitId, Guid balanceId, string? actor)
+    {
+        var visit = await db.PosGymVisits.AsTracking()
+            .FirstOrDefaultAsync(v => v.Id == visitId && v.StoreId == storeId && v.Deleted == null);
+        if (visit == null) return "Không tìm thấy lượt tập";
+        if (GymVisitRules.IsDenied(visit.Status, visit.CheckInAt, visit.CheckOutAt))
+            return "Lượt bị từ chối ở cửa — check-in lại cho khách";
+        if (visit.SessionDeducted && visit.BalanceId == balanceId) return "Lượt này đã trừ đúng gói đó";
+        var target = await db.PosCustomerSessionBalances.AsTracking()
+            .FirstOrDefaultAsync(b => b.Id == balanceId && b.StoreId == storeId && b.CustomerId == visit.CustomerId
+                && b.Deleted == null);
+        if (target == null) return "Không tìm thấy thẻ / gói của khách";
+        var at = visit.CheckInAt;
+        if (target.RemainingSessions <= 0) return "Gói đã hết buổi";
+        if (target.ExpiresAt is DateTime exp && exp <= at) return "Gói đã hết hạn";
+        if (GymVisitRules.IsFrozen(target, at)) return "Gói đang bảo lưu";
+
+        if (visit.SessionDeducted && visit.BalanceId is Guid oldId)
+        {
+            // Hoàn buổi gói cũ + bỏ hoa hồng PT đã ghi cho buổi đó.
+            var old = await db.PosCustomerSessionBalances.AsTracking()
+                .FirstOrDefaultAsync(b => b.Id == oldId && b.StoreId == storeId);
+            if (old != null)
+            {
+                old.RemainingSessions += 1;
+                old.UpdatedAt = DateTime.UtcNow;
+                old.UpdatedBy = actor;
+                var redeem = await db.PosCustomerSessionTransactions.AsNoTracking()
+                    .Where(t => t.StoreId == storeId && t.BalanceId == oldId && t.CustomerId == visit.CustomerId
+                        && t.TransactionType == PosSessionTxnType.Redeem && t.Deleted == null
+                        && t.UsedAt >= at.AddMinutes(-1) && t.UsedAt <= at.AddMinutes(1))
+                    .OrderByDescending(t => t.CreatedAt)
+                    .Select(t => (Guid?)t.Id)
+                    .FirstOrDefaultAsync();
+                if (redeem is Guid rid)
+                {
+                    var lines = await db.PosSaleCommissionLines.AsTracking()
+                        .Where(l => l.StoreId == storeId && l.SessionTransactionId == rid && l.Deleted == null)
+                        .ToListAsync();
+                    foreach (var l in lines)
+                    {
+                        l.Deleted = DateTime.UtcNow;
+                        l.DeletedBy = actor;
+                    }
+                }
+                db.PosCustomerSessionTransactions.Add(new PosCustomerSessionTransaction
+                {
+                    Id = Guid.NewGuid(),
+                    StoreId = storeId,
+                    BalanceId = old.Id,
+                    CustomerId = visit.CustomerId,
+                    TransactionType = PosSessionTxnType.Adjust,
+                    SessionDelta = 1,
+                    RemainingAfter = old.RemainingSessions,
+                    UsedAt = DateTime.UtcNow,
+                    Note = $"Hoàn buổi — lượt {at.AddHours(7):dd/MM HH:mm} chuyển sang {target.PackageName}",
+                    IsActive = true,
+                    CreatedBy = actor,
+                });
+            }
+        }
+        await DeductAsync(visit, target, at, $"Lượt {at.AddHours(7):dd/MM HH:mm} — lễ tân chọn gói", actor);
+        visit.Status = "Ok";
+        visit.UpdatedAt = DateTime.UtcNow;
+        visit.UpdatedBy = actor;
+        await db.SaveChangesAsync();
+        return null;
     }
 
     public async Task<int> FinalizeEndedFreezesAsync(Guid? storeId)

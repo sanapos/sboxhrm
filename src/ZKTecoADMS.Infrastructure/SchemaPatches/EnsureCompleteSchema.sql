@@ -1643,3 +1643,12 @@ CREATE TABLE IF NOT EXISTS "PosGymWorkoutPlans" (
     CONSTRAINT "PK_PosGymWorkoutPlans" PRIMARY KEY ("Id")
 );
 CREATE INDEX IF NOT EXISTS "IX_PosGymWorkoutPlans_Customer" ON "PosGymWorkoutPlans" ("StoreId", "CustomerId");
+
+-- Gym: phiếu đánh giá thêm số đo vòng + loại «sau buổi tập» (điểm 1–5, gắn lượt tập)
+ALTER TABLE "PosGymAssessments" ADD COLUMN IF NOT EXISTS "ChestCm" numeric(6,2) NULL;
+ALTER TABLE "PosGymAssessments" ADD COLUMN IF NOT EXISTS "HipCm" numeric(6,2) NULL;
+ALTER TABLE "PosGymAssessments" ADD COLUMN IF NOT EXISTS "ArmCm" numeric(6,2) NULL;
+ALTER TABLE "PosGymAssessments" ADD COLUMN IF NOT EXISTS "ThighCm" numeric(6,2) NULL;
+ALTER TABLE "PosGymAssessments" ADD COLUMN IF NOT EXISTS "Kind" integer NOT NULL DEFAULT 0;
+ALTER TABLE "PosGymAssessments" ADD COLUMN IF NOT EXISTS "Rating" integer NULL;
+ALTER TABLE "PosGymAssessments" ADD COLUMN IF NOT EXISTS "VisitId" uuid NULL;

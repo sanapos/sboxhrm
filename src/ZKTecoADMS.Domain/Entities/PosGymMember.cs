@@ -82,6 +82,16 @@ public class PosGymAssessment : AuditableEntity<Guid>
     public decimal? BodyFatPercent { get; set; }
     public decimal? MuscleKg { get; set; }
     public decimal? WaistCm { get; set; }
+    public decimal? ChestCm { get; set; }
+    public decimal? HipCm { get; set; }
+    public decimal? ArmCm { get; set; }
+    public decimal? ThighCm { get; set; }
+    /// <summary>0 = đo thể trạng định kỳ; 1 = đánh giá sau buổi tập.</summary>
+    public int Kind { get; set; }
+    /// <summary>Điểm buổi tập 1–5 (phiếu sau buổi).</summary>
+    public int? Rating { get; set; }
+    /// <summary>Lượt tập được đánh giá (phiếu sau buổi).</summary>
+    public Guid? VisitId { get; set; }
     /// <summary>Tình trạng / chấn thương / nhận xét của PT.</summary>
     public string? Condition { get; set; }
     /// <summary>Mục tiêu tập (giảm mỡ, tăng cơ…).</summary>

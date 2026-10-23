@@ -44,19 +44,24 @@ public partial class PosGymController
     public record AssessmentDto(
         Guid Id, DateTime AssessedAt, Guid? TrainerEmployeeId, string? TrainerName,
         decimal? WeightKg, decimal? HeightCm, decimal? BodyFatPercent, decimal? MuscleKg, decimal? WaistCm,
-        decimal? Bmi, string? Condition, string? Goal);
+        decimal? Bmi, string? Condition, string? Goal,
+        decimal? ChestCm, decimal? HipCm, decimal? ArmCm, decimal? ThighCm, int Kind, int? Rating, Guid? VisitId);
 
+    /// <param name="Kind">0 = đo thể trạng; 1 = đánh giá sau buổi tập (Rating 1–5, VisitId).</param>
     public record SaveAssessmentDto(
         DateTime? AssessedAt, Guid? TrainerEmployeeId,
         decimal? WeightKg, decimal? HeightCm, decimal? BodyFatPercent, decimal? MuscleKg, decimal? WaistCm,
-        string? Condition, string? Goal);
+        string? Condition, string? Goal,
+        decimal? ChestCm = null, decimal? HipCm = null, decimal? ArmCm = null, decimal? ThighCm = null,
+        int Kind = 0, int? Rating = null, Guid? VisitId = null);
 
     static decimal? Bmi(decimal? w, decimal? h) =>
         w is > 0 && h is > 50 ? Math.Round(w.Value / (h.Value / 100m * (h.Value / 100m)), 1) : null;
 
     static AssessmentDto ToDto(PosGymAssessment a) => new(
         a.Id, a.AssessedAt, a.TrainerEmployeeId, a.TrainerName, a.WeightKg, a.HeightCm, a.BodyFatPercent,
-        a.MuscleKg, a.WaistCm, Bmi(a.WeightKg, a.HeightCm), a.Condition, a.Goal);
+        a.MuscleKg, a.WaistCm, Bmi(a.WeightKg, a.HeightCm), a.Condition, a.Goal,
+        a.ChestCm, a.HipCm, a.ArmCm, a.ThighCm, a.Kind, a.Rating, a.VisitId);
 
     /// <summary>Lịch sử đánh giá thể trạng (mới nhất trước) + PT phụ trách.</summary>
     [HttpGet("customers/{customerId:guid}/assessments")]
@@ -105,6 +110,7 @@ public partial class PosGymController
             .FirstOrDefaultAsync();
         if (c == null) return NotFound(AppResponse<AssessmentDto>.Fail("Không tìm thấy khách hàng"));
         if (dto.WeightKg == null && dto.BodyFatPercent == null && dto.MuscleKg == null && dto.WaistCm == null
+            && dto.ChestCm == null && dto.HipCm == null && dto.ArmCm == null && dto.ThighCm == null && dto.Rating == null
             && string.IsNullOrWhiteSpace(dto.Condition) && string.IsNullOrWhiteSpace(dto.Goal))
             return BadRequest(AppResponse<AssessmentDto>.Fail("Nhập ít nhất một chỉ số hoặc nhận xét"));
         var trainerId = dto.TrainerEmployeeId ?? c.GymTrainerEmployeeId;
@@ -134,6 +140,13 @@ public partial class PosGymController
             BodyFatPercent = dto.BodyFatPercent,
             MuscleKg = dto.MuscleKg,
             WaistCm = dto.WaistCm,
+            ChestCm = dto.ChestCm,
+            HipCm = dto.HipCm,
+            ArmCm = dto.ArmCm,
+            ThighCm = dto.ThighCm,
+            Kind = dto.Kind == 1 ? 1 : 0,
+            Rating = dto.Rating is int r ? Math.Clamp(r, 1, 5) : null,
+            VisitId = dto.VisitId,
             Condition = Cut(dto.Condition, 1000),
             Goal = Cut(dto.Goal, 500),
             IsActive = true,

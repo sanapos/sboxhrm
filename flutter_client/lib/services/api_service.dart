@@ -20415,11 +20415,30 @@ class ApiService implements PayrollApi {
   }
 
   /// [force]: lễ tân xác nhận cho khách không có thẻ / gói hợp lệ vào (không force → 409 kèm lý do).
-  Future<Map<String, dynamic>> gymCheckIn(String customerId, {bool force = false}) async {
+  /// [balanceId]: thẻ / gói trừ buổi khi khách có nhiều gói (vd hôm nay tập với PT → gói PT).
+  Future<Map<String, dynamic>> gymCheckIn(String customerId, {bool force = false, String? balanceId}) async {
     try {
       final response = await http
           .post(Uri.parse('$baseUrl/api/pos/gym/check-in'),
-              headers: _headers, body: jsonEncode({'customerId': customerId, if (force) 'force': true}))
+              headers: _headers,
+              body: jsonEncode({
+                'customerId': customerId,
+                if (force) 'force': true,
+                if (balanceId != null) 'balanceId': balanceId,
+              }))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Đổi thẻ / gói tính cho lượt tập (máy trừ thẻ tháng, khách tập với PT → trừ gói PT, hoàn buổi gói cũ).
+  Future<Map<String, dynamic>> gymSwitchVisitBalance(String visitId, String balanceId) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/gym/visits/$visitId/balance'),
+              headers: _headers, body: jsonEncode({'balanceId': balanceId}))
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {

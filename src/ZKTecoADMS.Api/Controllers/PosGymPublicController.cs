@@ -46,13 +46,16 @@ public class PosGymPublicController(ZKTecoDbContext db) : ControllerBase
             .Where(v => v.StoreId == c.StoreId && v.CustomerId == c.Id && v.Deleted == null && v.CheckInAt >= since)
             .OrderByDescending(v => v.CheckInAt)
             .Take(100)
-            .Select(v => new { v.CheckInAt, v.CheckOutAt, v.DurationMinutes, v.Status })
+            .Select(v => new { v.Id, v.CheckInAt, v.CheckOutAt, v.DurationMinutes, v.Status, v.PackageName })
             .ToListAsync();
         var assessments = await db.PosGymAssessments.IgnoreQueryFilters().AsNoTracking()
             .Where(a => a.StoreId == c.StoreId && a.CustomerId == c.Id && a.Deleted == null)
             .OrderByDescending(a => a.AssessedAt)
-            .Take(10)
+            .Take(60)
             .ToListAsync();
+        var sessionNotes = assessments.Where(a => a.Kind == 1 && a.VisitId != null)
+            .GroupBy(a => a.VisitId!.Value).ToDictionary(g => g.Key, g => g.First());
+        var body = assessments.Where(a => a.Kind == 0).Take(12).ToList();
         var plans = await db.PosGymWorkoutPlans.IgnoreQueryFilters().AsNoTracking()
             .Where(p => p.StoreId == c.StoreId && p.CustomerId == c.Id && p.Deleted == null)
             .OrderByDescending(p => p.StartDate ?? p.CreatedAt)
@@ -80,6 +83,7 @@ h2{font-size:16px;margin:0 0 8px}.muted{color:var(--muted);font-size:13px}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:var(--bg);border-radius:10px;padding:8px 10px}
 .stat b{display:block;font-size:20px}table{width:100%;border-collapse:collapse;font-size:14px}
 td,th{padding:6px 4px;border-top:1px solid var(--line);text-align:left}th{color:var(--muted);font-weight:600;font-size:12px}
+.sub{display:block;color:var(--muted);font-size:12px}.star{color:#f59e0b;letter-spacing:1px}
 .plan{border-top:1px solid var(--line);padding:10px 0}.plan:first-of-type{border-top:0}.plan pre{white-space:pre-wrap;font:inherit;margin:6px 0 0}
 </style></head><body>
 """);
@@ -122,25 +126,43 @@ td,th{padding:6px 4px;border-top:1px solid var(--line);text-align:left}th{color:
             foreach (var v in entered.Take(40))
             {
                 var inVn = Vn(v.CheckInAt);
-                sb.Append("<tr><td>").Append(inVn.ToString("dd/MM")).Append("</td><td>").Append(inVn.ToString("HH:mm"))
+                sb.Append("<tr><td>").Append(inVn.ToString("dd/MM"));
+                if (!string.IsNullOrEmpty(v.PackageName)) sb.Append("<span class=\"sub\">").Append(H(v.PackageName)).Append("</span>");
+                sb.Append("</td><td>").Append(inVn.ToString("HH:mm"))
                   .Append("</td><td>").Append(v.CheckOutAt is DateTime o ? Vn(o).ToString("HH:mm") : "—")
                   .Append("</td><td>").Append(v.DurationMinutes is int d && d > 0 ? $"{d / 60}h{d % 60:00}" : "—").Append("</td></tr>");
+                if (sessionNotes.TryGetValue(v.Id, out var sn))
+                {
+                    sb.Append("<tr><td></td><td colspan=\"3\" class=\"muted\">");
+                    if (sn.Rating is int r) sb.Append("<span class=\"star\">").Append(new string('★', r)).Append(new string('☆', 5 - r)).Append("</span> ");
+                    if (sn.WeightKg is decimal w) sb.Append($"{w:0.#}kg · ");
+                    sb.Append(H(sn.Condition)).Append("</td></tr>");
+                }
             }
             sb.Append("</table>");
         }
         sb.Append("</section>");
 
         // Thể trạng
-        if (assessments.Count > 0)
+        if (body.Count > 0)
         {
             sb.Append("<section><h2>Thể trạng</h2><table><tr><th>Ngày</th><th>Cân nặng</th><th>% mỡ</th><th>Cơ</th><th>Eo</th></tr>");
             static string N(decimal? x, string u) => x is decimal d ? $"{d:0.#}{u}" : "—";
-            foreach (var a in assessments)
+            foreach (var a in body)
+            {
                 sb.Append("<tr><td>").Append(Vn(a.AssessedAt).ToString("dd/MM/yy")).Append("</td><td>").Append(N(a.WeightKg, "kg"))
                   .Append("</td><td>").Append(N(a.BodyFatPercent, "%")).Append("</td><td>").Append(N(a.MuscleKg, "kg"))
                   .Append("</td><td>").Append(N(a.WaistCm, "cm")).Append("</td></tr>");
+                var vong = new List<string>();
+                if (a.ChestCm is decimal ch) vong.Add($"ngực {ch:0.#}");
+                if (a.HipCm is decimal hp) vong.Add($"mông {hp:0.#}");
+                if (a.ArmCm is decimal ar) vong.Add($"tay {ar:0.#}");
+                if (a.ThighCm is decimal th) vong.Add($"đùi {th:0.#}");
+                if (vong.Count > 0)
+                    sb.Append("<tr><td></td><td colspan=\"4\" class=\"muted\">Vòng (cm): ").Append(H(string.Join(" · ", vong))).Append("</td></tr>");
+            }
             sb.Append("</table>");
-            var last = assessments[0];
+            var last = body[0];
             if (!string.IsNullOrWhiteSpace(last.Goal)) sb.Append("<p><b>Mục tiêu:</b> ").Append(H(last.Goal)).Append("</p>");
             if (!string.IsNullOrWhiteSpace(last.Condition)) sb.Append("<p class=\"muted\">PT ghi chú: ").Append(H(last.Condition)).Append("</p>");
             sb.Append("</section>");

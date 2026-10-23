@@ -19,6 +19,163 @@ String _fmt(dynamic v, String unit) {
   return '$s$unit';
 }
 
+/// Chèn [text] vào vị trí con trỏ (cuối ô nếu chưa đặt con trỏ).
+void _insertText(TextEditingController c, String text) {
+  final sel = c.selection;
+  final pos = sel.isValid ? sel.end.clamp(0, c.text.length) : c.text.length;
+  c.value = TextEditingValue(
+    text: c.text.replaceRange(pos, pos, text),
+    selection: TextSelection.collapsed(offset: pos + text.length),
+  );
+}
+
+/// Ô dạng «a, b, c»: bấm chip thêm / bỏ mục.
+List<String> _tokens(TextEditingController c) =>
+    c.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+
+void _toggleToken(TextEditingController c, String t) {
+  final list = _tokens(c);
+  list.contains(t) ? list.remove(t) : list.add(t);
+  c.text = list.join(', ');
+}
+
+Widget _tokenChips(TextEditingController c, List<String> items, StateSetter setState) => Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      children: [
+        for (final t in items)
+          FilterChip(
+            label: Text(tr(t), style: const TextStyle(fontSize: 12.5)),
+            visualDensity: VisualDensity.compact,
+            selected: _tokens(c).contains(t),
+            onSelected: (_) => setState(() => _toggleToken(c, t)),
+          ),
+      ],
+    );
+
+Widget _numField(TextEditingController c, String label) => Expanded(
+      child: TextField(
+        controller: c,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(labelText: tr(label), isDense: true, border: const OutlineInputBorder()),
+      ),
+    );
+
+const _conditionPresets = [
+  'Bình thường', 'Mới tập lần đầu', 'Đau lưng', 'Đau gối', 'Đau vai', 'Huyết áp cao', 'Tiểu đường',
+  'Thừa cân', 'Thiếu cân', 'Sau sinh', 'Từng chấn thương',
+];
+const _goalPresets = [
+  'Giảm mỡ', 'Giảm cân', 'Tăng cơ', 'Săn chắc', 'Tăng sức bền', 'Cải thiện tư thế', 'Phục hồi chấn thương',
+  'Thi đấu / body',
+];
+const _sessionNotePresets = [
+  'Hoàn thành giáo án', 'Tăng tạ so với buổi trước', 'Kỹ thuật tốt', 'Cần sửa kỹ thuật', 'Sức bền tốt',
+  'Mệt / thiếu ngủ', 'Đau cơ sau buổi trước', 'Đau khớp — cần theo dõi', 'Ăn uống chưa đúng', 'Cần thêm cardio',
+  'Đi trễ / tập thiếu giờ',
+];
+const _ratingLabels = ['Kém', 'Chưa tốt', 'Đạt', 'Tốt', 'Rất tốt'];
+
+const _planDays = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+const _exercises = <String, List<String>>{
+  'Ngực': ['Đẩy ngực ngang 4×10', 'Đẩy ngực dốc lên 3×12', 'Ép ngực máy 3×12', 'Hít đất 3×15'],
+  'Lưng': ['Kéo xà 4×8', 'Kéo cáp xuống 3×12', 'Kéo cáp ngồi 3×12', 'Chèo tạ đơn 3×12', 'Deadlift 4×6'],
+  'Vai': ['Đẩy vai 4×10', 'Dang tạ bên 3×15', 'Dang tạ sau 3×15'],
+  'Tay': ['Cuốn tạ đơn 3×12', 'Cuốn tạ đòn 3×10', 'Đẩy cáp tay sau 3×12', 'Dips 3×10'],
+  'Chân – mông': ['Squat 4×10', 'Leg press 4×12', 'Lunge 3×12', 'Đá đùi trước 3×15', 'Móc đùi sau 3×15', 'Hip thrust 4×12'],
+  'Bụng – core': ['Plank 3×45s', 'Gập bụng 3×20', 'Nâng chân 3×15', 'Russian twist 3×20'],
+  'Cardio': ['Chạy bộ 20 phút', 'Đạp xe 15 phút', 'HIIT 15 phút', 'Leo cầu thang 10 phút'],
+  'Khác': ['Khởi động 10 phút', 'Giãn cơ 10 phút', 'Nghỉ giữa hiệp 60–90s', 'Uống 2 lít nước / ngày'],
+};
+const _planTemplates = <String, String>{
+  'Người mới · 3 buổi/tuần': 'Thứ 2: Toàn thân\n- Khởi động 10 phút\n- Squat 3×12\n- Hít đất 3×10\n- Kéo cáp xuống 3×12\n'
+      '- Plank 3×30s\nThứ 4: Toàn thân + cardio\n- Leg press 3×12\n- Ép ngực máy 3×12\n- Kéo cáp ngồi 3×12\n'
+      '- Đạp xe 15 phút\nThứ 6: Toàn thân\n- Lunge 3×10\n- Đẩy vai 3×12\n- Gập bụng 3×15\n- Giãn cơ 10 phút\n'
+      'Ghi chú: tập đúng kỹ thuật trước, tăng tạ từ tuần 3.',
+  'Giảm mỡ · 4 buổi/tuần': 'Thứ 2: Chân – mông\n- Squat 4×12\n- Lunge 3×12\n- Hip thrust 4×12\n- HIIT 15 phút\n'
+      'Thứ 3: Ngực – vai – tay sau\n- Đẩy ngực ngang 4×12\n- Đẩy vai 3×12\n- Đẩy cáp tay sau 3×15\n- Chạy bộ 20 phút\n'
+      'Thứ 5: Lưng – tay trước\n- Kéo cáp xuống 4×12\n- Chèo tạ đơn 3×12\n- Cuốn tạ đơn 3×15\n- Đạp xe 20 phút\n'
+      'Thứ 7: Toàn thân + core\n- Deadlift 3×10\n- Hít đất 3×15\n- Plank 3×45s\n- Russian twist 3×20\n'
+      'Dinh dưỡng: thâm hụt ~400 kcal/ngày, đủ đạm, giảm tinh bột buổi tối, 2 lít nước/ngày.',
+  'Tăng cơ · 5 buổi (chia nhóm cơ)': 'Thứ 2: Ngực\n- Đẩy ngực ngang 4×8\n- Đẩy ngực dốc lên 4×10\n- Ép ngực máy 3×12\n'
+      'Thứ 3: Lưng\n- Deadlift 4×6\n- Kéo xà 4×8\n- Chèo tạ đơn 3×10\n'
+      'Thứ 4: Chân\n- Squat 5×6\n- Leg press 4×10\n- Móc đùi sau 3×12\n'
+      'Thứ 5: Vai\n- Đẩy vai 4×8\n- Dang tạ bên 4×12\n- Dang tạ sau 3×15\n'
+      'Thứ 6: Tay\n- Cuốn tạ đòn 4×10\n- Dips 4×10\n- Đẩy cáp tay sau 3×12\n'
+      'Dinh dưỡng: dư ~300 kcal/ngày, đạm 1,6–2 g/kg, ngủ đủ 7–8 tiếng.',
+};
+
+/// Đánh giá sau buổi tập (điểm 1–5, nhận xét nhanh, cân nặng nếu đo) — PT ghi ngay sau buổi, khách xem trên link.
+/// [visitId] gắn phiếu với lượt tập (hiện cạnh lượt đó trên link khách). Trả về true nếu đã lưu.
+Future<bool> showGymSessionReview(BuildContext context,
+    {required String customerId, required String name, String? visitId, String? visitLabel}) async {
+  var rating = 4;
+  final note = TextEditingController();
+  final weight = TextEditingController();
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: Text(tr('Đánh giá buổi tập · $name')),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (visitLabel != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(tr(visitLabel), style: const TextStyle(fontSize: 13, color: SboxColors.slate600)),
+                ),
+              Text(tr('Kết quả buổi tập'), style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Wrap(spacing: 6, runSpacing: 4, children: [
+                for (var i = 1; i <= 5; i++)
+                  ChoiceChip(
+                    label: Text(tr('${'★' * i} ${_ratingLabels[i - 1]}'), style: const TextStyle(fontSize: 12.5)),
+                    selected: rating == i,
+                    onSelected: (_) => setState(() => rating = i),
+                  ),
+              ]),
+              const SizedBox(height: 10),
+              Text(tr('Nhận xét nhanh (bấm để chọn)'), style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              _tokenChips(note, _sessionNotePresets, setState),
+              const SizedBox(height: 8),
+              TextField(
+                controller: note,
+                maxLines: 3,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                    labelText: tr('Nhận xét của PT'), isDense: true, border: const OutlineInputBorder()),
+              ),
+              const SizedBox(height: 8),
+              Row(children: [_numField(weight, 'Cân nặng sau buổi (kg, nếu đo)')]),
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu đánh giá'))),
+        ],
+      ),
+    ),
+  );
+  if (ok != true || !context.mounted) return false;
+  final res = await ApiService().addGymAssessment(customerId, {
+    'kind': 1,
+    'rating': rating,
+    if (visitId != null) 'visitId': visitId,
+    'weightKg': _num(weight.text),
+    'condition': note.text.trim(),
+  });
+  if (res['isSuccess'] != true) {
+    NotificationOverlayManager().showError(title: 'Chưa lưu', message: res['message']?.toString() ?? '');
+    return false;
+  }
+  NotificationOverlayManager().showSuccess(title: 'Đã lưu đánh giá buổi tập', message: tr(name));
+  return true;
+}
+
 /// PT phụ trách hội viên + phiếu đánh giá thể trạng (cân nặng, mỡ, cơ, vòng eo, tình trạng, mục tiêu).
 /// PT phụ trách nhận hoa hồng buổi khi hội viên check-in trừ buổi gói PT (gói chọn «hoa hồng mỗi buổi»).
 Future<void> showGymTrainerSheet(BuildContext context, {required String customerId, required String name}) =>
@@ -140,60 +297,98 @@ class _TrainerSheetState extends State<_TrainerSheet> {
   }
 
   Future<void> _addAssessment() async {
-    final last = _items.isEmpty ? null : _items.first;
+    final body = _items.where((a) => a['kind'] != 1).toList();
+    final last = body.isEmpty ? null : body.first;
     final weight = TextEditingController();
     final height = TextEditingController(text: _fmt(last?['heightCm'], ''));
     final fat = TextEditingController();
     final muscle = TextEditingController();
     final waist = TextEditingController();
+    final chest = TextEditingController();
+    final hip = TextEditingController();
+    final arm = TextEditingController();
+    final thigh = TextEditingController();
     final condition = TextEditingController();
     final goal = TextEditingController(text: '${last?['goal'] ?? ''}');
-    Widget numField(TextEditingController c, String label) => Expanded(
-          child: TextField(
-            controller: c,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: tr(label), isDense: true, border: const OutlineInputBorder()),
-          ),
-        );
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Đánh giá thể trạng · ${widget.name}')),
-        content: SizedBox(
-          width: 520,
-          child: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Row(children: [numField(weight, 'Cân nặng (kg)'), const SizedBox(width: 8), numField(height, 'Chiều cao (cm)')]),
-              const SizedBox(height: 8),
-              Row(children: [
-                numField(fat, '% mỡ'),
-                const SizedBox(width: 8),
-                numField(muscle, 'Cơ (kg)'),
-                const SizedBox(width: 8),
-                numField(waist, 'Vòng eo (cm)'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text(tr('Đo thể trạng · ${widget.name}')),
+          content: SizedBox(
+            width: 600,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (last != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      tr('Lần đo trước: ${[
+                        if (_num(last['weightKg']) != null) _fmt(last['weightKg'], 'kg'),
+                        if (_num(last['bodyFatPercent']) != null) 'mỡ ${_fmt(last['bodyFatPercent'], '%')}',
+                        if (_num(last['waistCm']) != null) 'eo ${_fmt(last['waistCm'], 'cm')}',
+                      ].join(' · ')}'),
+                      style: const TextStyle(fontSize: 12.5, color: SboxColors.slate600),
+                    ),
+                  ),
+                Row(children: [
+                  _numField(weight, 'Cân nặng (kg)'),
+                  const SizedBox(width: 8),
+                  _numField(height, 'Chiều cao (cm)'),
+                  const SizedBox(width: 8),
+                  _numField(fat, '% mỡ'),
+                  const SizedBox(width: 8),
+                  _numField(muscle, 'Cơ (kg)'),
+                ]),
+                const SizedBox(height: 10),
+                Text(tr('Số đo vòng (cm)'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Row(children: [
+                  _numField(chest, 'Ngực'),
+                  const SizedBox(width: 8),
+                  _numField(waist, 'Eo'),
+                  const SizedBox(width: 8),
+                  _numField(hip, 'Mông'),
+                  const SizedBox(width: 8),
+                  _numField(arm, 'Bắp tay'),
+                  const SizedBox(width: 8),
+                  _numField(thigh, 'Đùi'),
+                ]),
+                const SizedBox(height: 10),
+                Text(tr('Tình trạng (bấm để chọn)'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                _tokenChips(condition, _conditionPresets, setState),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: condition,
+                  maxLines: 2,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                      labelText: tr('Tình trạng / chấn thương / nhận xét của PT'),
+                      isDense: true,
+                      border: const OutlineInputBorder()),
+                ),
+                const SizedBox(height: 10),
+                Text(tr('Mục tiêu'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                _tokenChips(goal, _goalPresets, setState),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: goal,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                      labelText: tr('Mục tiêu (vd giảm 5kg trong 3 tháng)'),
+                      isDense: true,
+                      border: const OutlineInputBorder()),
+                ),
               ]),
-              const SizedBox(height: 8),
-              TextField(
-                controller: condition,
-                maxLines: 3,
-                decoration: InputDecoration(
-                    labelText: tr('Tình trạng / chấn thương / nhận xét của PT'),
-                    isDense: true,
-                    border: const OutlineInputBorder()),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: goal,
-                decoration: InputDecoration(
-                    labelText: tr('Mục tiêu (giảm mỡ, tăng cơ…)'), isDense: true, border: const OutlineInputBorder()),
-              ),
-            ]),
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu đánh giá'))),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu đánh giá'))),
-        ],
       ),
     );
     if (ok != true || !mounted) return;
@@ -203,6 +398,10 @@ class _TrainerSheetState extends State<_TrainerSheet> {
       'bodyFatPercent': _num(fat.text),
       'muscleKg': _num(muscle.text),
       'waistCm': _num(waist.text),
+      'chestCm': _num(chest.text),
+      'hipCm': _num(hip.text),
+      'armCm': _num(arm.text),
+      'thighCm': _num(thigh.text),
       'condition': condition.text.trim(),
       'goal': goal.text.trim(),
     });
@@ -285,43 +484,109 @@ class _TrainerSheetState extends State<_TrainerSheet> {
   Future<void> _addPlan() async {
     final title = TextEditingController();
     final content = TextEditingController();
+    var group = _exercises.keys.first;
+    // Dòng mới trước khi chèn (không để 2 mục dính vào cùng một dòng).
+    void addLine(String line) {
+      final t = content.text;
+      final pos = content.selection.isValid ? content.selection.end.clamp(0, t.length) : t.length;
+      final needNl = pos > 0 && t[pos - 1] != '\n';
+      _insertText(content, '${needNl ? '\n' : ''}$line\n');
+    }
+
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Phác đồ tập · ${widget.name}')),
-        content: SizedBox(
-          width: 560,
-          child: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(
-                controller: title,
-                decoration: InputDecoration(
-                    labelText: tr('Tên phác đồ (vd Tuần 1–4: giảm mỡ)'), isDense: true, border: const OutlineInputBorder()),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: content,
-                minLines: 6,
-                maxLines: 14,
-                decoration: InputDecoration(
-                  labelText: tr('Nội dung'),
-                  hintText: tr('Thứ 2: Ngực – vai\n- Đẩy ngực 4×10\n- Đẩy vai 3×12\nThứ 4: Lưng – tay sau…\nDinh dưỡng: …'),
-                  alignLabelWithHint: true,
-                  border: const OutlineInputBorder(),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text(tr('Phác đồ tập · ${widget.name}')),
+          content: SizedBox(
+            width: 640,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr('Mẫu nhanh'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 4, children: [
+                  for (final e in _planTemplates.entries)
+                    ActionChip(
+                      avatar: const Icon(Icons.auto_awesome, size: 16),
+                      label: Text(tr(e.key), style: const TextStyle(fontSize: 12.5)),
+                      onPressed: () => setState(() {
+                        if (title.text.trim().isEmpty) title.text = e.key;
+                        content.text = e.value;
+                      }),
+                    ),
+                  if (_plans.isNotEmpty)
+                    ActionChip(
+                      avatar: const Icon(Icons.copy, size: 16),
+                      label: Text(tr('Chép phác đồ gần nhất'), style: const TextStyle(fontSize: 12.5)),
+                      onPressed: () => setState(() {
+                        title.text = '${_plans.first['title'] ?? ''}';
+                        content.text = '${_plans.first['content'] ?? ''}';
+                      }),
+                    ),
+                ]),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: title,
+                  decoration: InputDecoration(
+                      labelText: tr('Tên phác đồ (vd Tuần 1–4: giảm mỡ)'), isDense: true, border: const OutlineInputBorder()),
                 ),
-              ),
-            ]),
+                const SizedBox(height: 10),
+                Text(tr('Thêm nhanh: ngày → nhóm cơ → bài tập'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 4, children: [
+                  for (final d in _planDays)
+                    ActionChip(
+                      label: Text(tr(d), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => addLine('$d: '),
+                    ),
+                ]),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 4, children: [
+                  for (final g in _exercises.keys)
+                    ChoiceChip(
+                      label: Text(tr(g), style: const TextStyle(fontSize: 12.5)),
+                      visualDensity: VisualDensity.compact,
+                      selected: group == g,
+                      onSelected: (_) => setState(() => group = g),
+                    ),
+                ]),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 4, children: [
+                  for (final ex in _exercises[group]!)
+                    ActionChip(
+                      avatar: const Icon(Icons.add, size: 14),
+                      label: Text(tr(ex), style: const TextStyle(fontSize: 12.5)),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => addLine('- $ex'),
+                    ),
+                ]),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: content,
+                  minLines: 8,
+                  maxLines: 16,
+                  decoration: InputDecoration(
+                    labelText: tr('Nội dung (sửa tự do)'),
+                    hintText: tr('Bấm ngày, rồi bấm bài tập để thêm — hoặc chọn mẫu nhanh.'),
+                    alignLabelWithHint: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+              ]),
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu phác đồ'))),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu phác đồ'))),
-        ],
       ),
     );
     if (ok != true || !mounted) return;
     final res = await _api.addGymPlan(widget.customerId, {
-      'title': title.text.trim(),
+      // Ghép tay bằng chip mà quên đặt tên → tên mặc định theo ngày.
+      'title': title.text.trim().isEmpty ? 'Phác đồ ${_dmy.format(DateTime.now())}' : title.text.trim(),
       'content': content.text.trim(),
       'startDate': DateTime.now().toIso8601String(),
     });
@@ -352,9 +617,10 @@ class _TrainerSheetState extends State<_TrainerSheet> {
 
   /// Chênh lệch so với lần đo trước (mũi tên + số), giúp PT / khách thấy tiến bộ.
   String _delta(String key, int index, String unit) {
-    if (index + 1 >= _items.length) return '';
+    final prevItem = _items.skip(index + 1).where((a) => a['kind'] != 1 && _num(a[key]) != null).firstOrNull;
+    if (prevItem == null) return '';
     final now = _num(_items[index][key]);
-    final prev = _num(_items[index + 1][key]);
+    final prev = _num(prevItem[key]);
     if (now == null || prev == null) return '';
     final d = now - prev;
     if (d.abs() < 0.05) return ' (=)';
@@ -407,13 +673,21 @@ class _TrainerSheetState extends State<_TrainerSheet> {
           const SizedBox(height: 16),
           Row(children: [
             Expanded(
-              child: Text(tr('Đánh giá thể trạng (${_items.length})'),
+              child: Text(tr('Thể trạng & đánh giá buổi tập (${_items.length})'),
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             ),
+            OutlinedButton.icon(
+              onPressed: () async {
+                if (await showGymSessionReview(context, customerId: widget.customerId, name: widget.name)) _load();
+              },
+              icon: const Icon(Icons.rate_review_outlined, size: 18),
+              label: Text(tr('Đánh giá buổi')),
+            ),
+            const SizedBox(width: 8),
             FilledButton.icon(
               onPressed: _addAssessment,
-              icon: const Icon(Icons.add, size: 18),
-              label: Text(tr('Thêm đánh giá')),
+              icon: const Icon(Icons.straighten, size: 18),
+              label: Text(tr('Đo thể trạng')),
             ),
           ]),
           const SizedBox(height: 8),
@@ -483,8 +757,14 @@ class _TrainerSheetState extends State<_TrainerSheet> {
       if (_num(a['bmi']) != null) 'BMI ${_fmt(a['bmi'], '')}',
       if (_num(a['bodyFatPercent']) != null) 'Mỡ ${_fmt(a['bodyFatPercent'], '%')}${_delta('bodyFatPercent', i, '%')}',
       if (_num(a['muscleKg']) != null) 'Cơ ${_fmt(a['muscleKg'], 'kg')}${_delta('muscleKg', i, 'kg')}',
+      if (_num(a['chestCm']) != null) 'Ngực ${_fmt(a['chestCm'], 'cm')}${_delta('chestCm', i, 'cm')}',
       if (_num(a['waistCm']) != null) 'Eo ${_fmt(a['waistCm'], 'cm')}${_delta('waistCm', i, 'cm')}',
+      if (_num(a['hipCm']) != null) 'Mông ${_fmt(a['hipCm'], 'cm')}${_delta('hipCm', i, 'cm')}',
+      if (_num(a['armCm']) != null) 'Tay ${_fmt(a['armCm'], 'cm')}${_delta('armCm', i, 'cm')}',
+      if (_num(a['thighCm']) != null) 'Đùi ${_fmt(a['thighCm'], 'cm')}${_delta('thighCm', i, 'cm')}',
     ];
+    final session = a['kind'] == 1;
+    final rating = (a['rating'] as num?)?.toInt();
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
@@ -496,10 +776,16 @@ class _TrainerSheetState extends State<_TrainerSheet> {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(
-              tr([if (at != null) _dmy.format(at), if ('${a['trainerName'] ?? ''}'.isNotEmpty) 'PT ${a['trainerName']}']
-                  .join(' · ')),
+              tr([
+                session ? 'Sau buổi tập' : 'Đo thể trạng',
+                if (at != null) _dmy.format(at),
+                if ('${a['trainerName'] ?? ''}'.isNotEmpty) '${a['trainerName']}',
+              ].join(' · ')),
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
+            if (session && rating != null)
+              Text(tr('${'★' * rating}${'☆' * (5 - rating)} ${_ratingLabels[rating.clamp(1, 5) - 1]}'),
+                  style: const TextStyle(color: Color(0xFFF59E0B), fontWeight: FontWeight.w700)),
             if (metrics.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -508,7 +794,7 @@ class _TrainerSheetState extends State<_TrainerSheet> {
             if ('${a['condition'] ?? ''}'.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(tr('Tình trạng: ${a['condition']}'),
+                child: Text(tr(session ? '${a['condition']}' : 'Tình trạng: ${a['condition']}'),
                     style: const TextStyle(fontSize: 13, color: SboxColors.slate700)),
               ),
             if ('${a['goal'] ?? ''}'.isNotEmpty)

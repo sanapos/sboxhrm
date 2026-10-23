@@ -200,6 +200,58 @@ String _packageText(Map m) {
   return parts.join(' · ');
 }
 
+/// Thẻ / gói còn dùng được (không bảo lưu, còn hạn, còn buổi) của khách.
+Future<List<Map<String, dynamic>>> _usableBalances(ApiService api, String customerId) async {
+  final res = await api.getGymCustomerBalances(customerId);
+  if (res['isSuccess'] != true || res['data'] is! List) return const [];
+  return [
+    for (final e in res['data'] as List)
+      if (e is Map && e['status'] == 'Active') Map<String, dynamic>.from(e),
+  ];
+}
+
+/// Chọn thẻ / gói tính cho lượt tập (khách có thẻ tháng + gói PT: hôm nay tập với PT → chọn gói PT).
+Future<Map<String, dynamic>?> _pickBalance(BuildContext context, List<Map<String, dynamic>> options,
+    {required String title, String? subtitle}) {
+  String line(Map b) {
+    final exp = DateTime.tryParse('${b['expiresAt'] ?? ''}')?.toLocal();
+    return [
+      b['unlimited'] == true ? 'Không giới hạn buổi' : 'Còn ${b['remainingSessions']}/${b['totalSessions']} buổi',
+      if (exp != null) 'HSD ${_dmy.format(exp)}',
+      if ('${b['accessHours'] ?? ''}'.isNotEmpty) 'giờ ${b['accessHours']}',
+    ].join(' · ');
+  }
+
+  return showDialog<Map<String, dynamic>>(
+    context: context,
+    builder: (ctx) => SimpleDialog(
+      title: Text(tr(title)),
+      children: [
+        if (subtitle != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text(tr(subtitle), style: const TextStyle(fontSize: 13, color: SboxColors.slate600)),
+          ),
+        for (final b in options)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, b),
+            child: Row(children: [
+              Icon(b['unlimited'] == true ? Icons.card_membership : Icons.sports_gymnastics,
+                  color: SboxColors.brand700),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(tr('${b['packageName'] ?? ''}'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(tr(line(b)), style: const TextStyle(fontSize: 12.5, color: SboxColors.slate600)),
+                ]),
+              ),
+            ]),
+          ),
+      ],
+    ),
+  );
+}
+
 bool _packageWarn(Map m) {
   if (m['frozenUntil'] != null) return true;
   final exp = _date(m['expiresAt']);
@@ -858,7 +910,18 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
   Future<void> _manualCheckIn() async {
     final c = await _pickCustomer(context, title: 'Check-in tại quầy');
     if (c == null || !mounted) return;
-    var res = await _api.gymCheckIn(c['id'].toString());
+    // Khách có nhiều thẻ / gói (thẻ tháng + gói PT): hỏi hôm nay tính gói nào.
+    String? balanceId;
+    final usable = await _usableBalances(_api, c['id'].toString());
+    if (!mounted) return;
+    if (usable.length > 1) {
+      final b = await _pickBalance(context, usable,
+          title: 'Hôm nay ${c['name'] ?? ''} tập gói nào?',
+          subtitle: 'Tập với PT → chọn gói PT (trừ 1 buổi, PT nhận hoa hồng). Tập tự do → chọn thẻ tập.');
+      if (b == null || !mounted) return;
+      balanceId = '${b['id']}';
+    }
+    var res = await _api.gymCheckIn(c['id'].toString(), balanceId: balanceId);
     if (!mounted) return;
     if (res['statusCode'] == 409) {
       // Không có thẻ / gói hợp lệ: hỏi trước — trước đây vẫn ghi lượt rồi chỉ báo «cần kiểm tra».
@@ -902,6 +965,32 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
       NotificationOverlayManager()
           .showError(title: 'Không check-in được', message: res['message']?.toString() ?? '');
     }
+  }
+
+  /// Máy quét trừ thẻ tháng nhưng khách tập với PT → tính lượt vào gói PT (hoàn buổi gói cũ).
+  Future<void> _switchBalance(Map v) async {
+    final name = '${v['customerName'] ?? ''}';
+    final current = '${v['balanceId'] ?? ''}';
+    final options = (await _usableBalances(_api, '${v['customerId']}'))
+        .where((b) => '${b['id']}' != current || v['sessionDeducted'] != true)
+        .toList();
+    if (!mounted) return;
+    if (options.isEmpty) {
+      NotificationOverlayManager().showWarning(
+          title: 'Không có gói khác', message: tr('$name chỉ có một thẻ / gói còn hiệu lực.'));
+      return;
+    }
+    final b = await _pickBalance(context, options,
+        title: 'Tính lượt của $name vào gói nào?',
+        subtitle: 'Đang tính: ${v['packageName'] ?? 'chưa có'}. Đổi gói sẽ hoàn 1 buổi cho gói cũ và trừ 1 buổi gói mới '
+            '(gói PT: PT phụ trách nhận hoa hồng buổi này).');
+    if (b == null || !mounted) return;
+    final res = await _api.gymSwitchVisitBalance('${v['id']}', '${b['id']}');
+    if (!mounted) return;
+    res['isSuccess'] == true
+        ? NotificationOverlayManager().showSuccess(title: 'Đã đổi gói', message: tr('$name → ${b['packageName']}'))
+        : NotificationOverlayManager().showError(title: 'Chưa đổi được', message: res['message']?.toString() ?? '');
+    _load();
   }
 
   Future<void> _checkOut(Map v) async {
@@ -1144,6 +1233,30 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
                   style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                 ),
               ),
+              if (ok && v['denied'] != true) ...[
+                TextButton.icon(
+                  onPressed: () => _switchBalance(v),
+                  icon: const Icon(Icons.swap_horiz, size: 16),
+                  label: Text(tr('Đổi gói')),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => showGymSessionReview(context,
+                      customerId: '${v['customerId']}',
+                      name: '${v['customerName'] ?? ''}',
+                      visitId: '${v['id']}',
+                      visitLabel: '$timeText · ${v['packageName'] ?? ''}'),
+                  icon: const Icon(Icons.rate_review_outlined, size: 16),
+                  label: Text(tr('Đánh giá')),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                ),
+              ],
               if (insideNow || (outAt == null && _forgotCheckout(v)))
                 TextButton.icon(
                   onPressed: () => _checkOut(v),

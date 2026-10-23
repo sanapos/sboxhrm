@@ -43,7 +43,10 @@ public partial class PosGymController(ZKTecoDbContext db, IMediator bus, IGymChe
         bool Unlimited, int? RemainingSessions, DateTime? ExpiresAt, Guid? BalanceId = null, bool Denied = false);
 
     /// <param name="Force">Lễ tân xác nhận cho khách không có thẻ / gói hợp lệ vào.</param>
-    public record CheckInDto(Guid CustomerId, bool Force = false);
+    /// <param name="BalanceId">Thẻ / gói trừ buổi (khách có thẻ tháng + gói PT, hôm nay tập với PT).</param>
+    public record CheckInDto(Guid CustomerId, bool Force = false, Guid? BalanceId = null);
+
+    public record VisitBalanceDto(Guid BalanceId);
 
     // ── Hội viên trên máy ────────────────────────────────────────────────
 
@@ -301,12 +304,26 @@ public partial class PosGymController(ZKTecoDbContext db, IMediator bus, IGymChe
             }
         }
         var visit = await gym.RecordPunchAsync(storeId, dto.CustomerId, DateTime.UtcNow, null, null,
-            "Manual", CurrentUserEmail);
+            "Manual", CurrentUserEmail, dto.BalanceId);
         if (visit != null) await gym.SyncDeviceAccessAsync(storeId, dto.CustomerId);
         if (visit == null)
             return BadRequest(AppResponse<VisitDto>.Fail("Khách vừa check-in, thử lại sau vài phút"));
         var row = (await LoadVisitsAsync(storeId, db.PosGymVisits.AsNoTracking().Where(v => v.Id == visit.Id)))
             .First();
+        return Ok(AppResponse<VisitDto>.Success(row));
+    }
+
+    /// <summary>
+    /// Đổi thẻ / gói tính cho lượt (máy quét trừ thẻ tháng, khách tập với PT → trừ gói PT, hoàn buổi thẻ cũ).
+    /// </summary>
+    [HttpPost("visits/{id:guid}/balance")]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<VisitDto>>> SwitchVisitBalance(Guid id, [FromBody] VisitBalanceDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var error = await gym.SwitchVisitBalanceAsync(storeId, id, dto.BalanceId, CurrentUserEmail);
+        if (error != null) return BadRequest(AppResponse<VisitDto>.Fail(error));
+        var row = (await LoadVisitsAsync(storeId, db.PosGymVisits.AsNoTracking().Where(v => v.Id == id))).First();
         return Ok(AppResponse<VisitDto>.Success(row));
     }
 
@@ -763,8 +780,10 @@ public partial class PosGymController(ZKTecoDbContext db, IMediator bus, IGymChe
                 }
                 else if (active != null)
                 {
-                    // Nhiều gói buổi còn hạn (mua 2 gói 10 buổi) → báo tổng buổi còn, hạn = gói hết sớm nhất.
+                    // Nhiều gói CÙNG LOẠI còn hạn (mua 2 gói 10 buổi) → báo tổng buổi còn, hạn = gói hết sớm nhất.
+                    // Gói khác loại (gói thường + gói PT) trừ riêng — không cộng chung.
                     active.RemainingSessions = g.Where(b => !PosCustomerSessionBalance.IsUnlimitedCount(b.TotalSessions)
+                            && b.PackageName == active.PackageName
                             && b.RemainingSessions > 0 && (b.ExpiresAt == null || b.ExpiresAt > now))
                         .Sum(b => b.RemainingSessions);
                 }
@@ -788,9 +807,17 @@ public partial class PosGymController(ZKTecoDbContext db, IMediator bus, IGymChe
             .Where(d => deviceIds.Contains(d.Id))
             .ToDictionaryAsync(d => d.Id, d => d.DeviceName);
         var packs = await BestPackagesAsync(storeId, rows.Select(r => r.CustomerId).Distinct().ToList());
+        // Lượt đã trừ gói buổi (vd gói PT) → hiện buổi còn / hạn của CHÍNH gói đó, không phải thẻ «tốt nhất» của khách.
+        var balanceIds = rows.Where(r => r.BalanceId.HasValue).Select(r => r.BalanceId!.Value).Distinct().ToList();
+        var visitBalances = await db.PosCustomerSessionBalances.AsNoTracking()
+            .Where(b => balanceIds.Contains(b.Id))
+            .ToDictionaryAsync(b => b.Id);
         return rows.Select(r =>
         {
             packs.TryGetValue(r.CustomerId, out var p);
+            if (r.BalanceId is Guid bid && visitBalances.TryGetValue(bid, out var vb)
+                && !PosCustomerSessionBalance.IsUnlimitedCount(vb.TotalSessions))
+                p = vb;
             return new VisitDto(
                 r.Id, r.CustomerId, r.CustomerName, r.Phone,
                 r.DeviceId is Guid d && deviceNames.TryGetValue(d, out var dn) ? dn : (r.Source == "Manual" ? "Tại quầy" : null),

@@ -2360,19 +2360,20 @@ class _PosSellScreenState extends State<PosSellScreen>
       final e = exp(b);
       if (e != null && e.isAfter(now) && (cardEnd == null || e.isAfter(cardEnd))) cardEnd = e;
     }
-    final sessionsLeft = active
-        .where((b) => b['unlimited'] != true)
+    // Buổi còn theo từng gói (tên gói) — gói thường và gói PT trừ riêng, không cộng chung.
+    int leftOf(String name) => active
+        .where((b) => b['unlimited'] != true && '${b['packageName'] ?? ''}'.trim().toLowerCase() == name.trim().toLowerCase())
         .fold<int>(0, (a, b) => a + ((b['remainingSessions'] as num?)?.toInt() ?? 0));
     final lines = <String>[];
     var start = cardEnd != null && cardEnd.isAfter(now) ? cardEnd : now;
-    var addSessions = 0;
+    final addByPack = <String, int>{};
     for (final l in packLines) {
       final p = l.product;
       final qty = l.qty.round().clamp(1, 999);
       if (p.sessionPackCount >= 9999) {
         start = start.add(Duration(days: (p.sessionPackValidDays > 0 ? p.sessionPackValidDays : 30) * qty));
       } else {
-        addSessions += p.sessionPackCount * qty;
+        addByPack[p.name] = (addByPack[p.name] ?? 0) + p.sessionPackCount * qty;
       }
     }
     if (packLines.any((l) => l.product.sessionPackCount >= 9999)) {
@@ -2380,11 +2381,12 @@ class _PosSellScreenState extends State<PosSellScreen>
           ? 'Thẻ hiện có đến ${dmy.format(cardEnd)} → sau khi mua: đến ${dmy.format(start)} (cộng nối tiếp)'
           : 'Chưa có thẻ còn hạn → thẻ mới đến ${dmy.format(start)}');
     }
-    if (addSessions > 0) {
-      lines.add(sessionsLeft > 0
-          ? 'Gói buổi: còn $sessionsLeft buổi → sau khi mua: ${sessionsLeft + addSessions} buổi'
-          : 'Gói buổi mới: $addSessions buổi');
-    }
+    addByPack.forEach((name, add) {
+      final left = leftOf(name);
+      lines.add(left > 0
+          ? '$name: còn $left buổi → sau khi mua: ${left + add} buổi'
+          : '$name: gói mới $add buổi');
+    });
     return Container(
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
