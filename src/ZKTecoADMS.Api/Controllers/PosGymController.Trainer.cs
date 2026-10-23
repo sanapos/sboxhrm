@@ -74,6 +74,14 @@ public partial class PosGymController
             .OrderByDescending(a => a.AssessedAt)
             .Take(200)
             .ToListAsync();
+        var plans = await db.PosGymWorkoutPlans.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.CustomerId == customerId && x.Deleted == null)
+            .OrderByDescending(x => x.StartDate ?? x.CreatedAt)
+            .Take(100)
+            .Select(x => new { x.Id, x.Title, x.Content, x.StartDate, x.TrainerName, x.CreatedAt })
+            .ToListAsync();
+        var shareToken = await db.PosCustomers.AsNoTracking()
+            .Where(x => x.Id == customerId).Select(x => x.GymShareToken).FirstOrDefaultAsync();
         return Ok(AppResponse<object>.Success(new
         {
             customerId = c.Id,
@@ -81,6 +89,8 @@ public partial class PosGymController
             trainerEmployeeId = c.GymTrainerEmployeeId,
             trainerName = c.GymTrainerName,
             items = rows.Select(ToDto).ToList(),
+            plans,
+            sharePath = shareToken == null ? null : $"/o/hv/{shareToken}",
         }));
     }
 
@@ -253,5 +263,76 @@ public partial class PosGymController
                 byPackage,
             },
         }));
+    }
+
+    public record SavePlanDto(string? Title, string? Content, DateTime? StartDate);
+
+    /// <summary>PT giao phác đồ / giáo án tập cho hội viên (hiện trên link chia sẻ).</summary>
+    [HttpPost("customers/{customerId:guid}/plans")]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> AddPlan(Guid customerId, [FromBody] SavePlanDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var c = await db.PosCustomers.AsNoTracking()
+            .Where(x => x.Id == customerId && x.StoreId == storeId && x.Deleted == null)
+            .Select(x => new { x.GymTrainerEmployeeId, x.GymTrainerName })
+            .FirstOrDefaultAsync();
+        if (c == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy khách hàng"));
+        var title = dto.Title?.Trim() ?? "";
+        if (title.Length == 0) return BadRequest(AppResponse<object>.Fail("Nhập tên phác đồ"));
+        var content = dto.Content?.Trim();
+        var plan = new PosGymWorkoutPlan
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            CustomerId = customerId,
+            TrainerEmployeeId = c.GymTrainerEmployeeId,
+            TrainerName = c.GymTrainerName,
+            Title = title.Length > 200 ? title[..200] : title,
+            Content = string.IsNullOrEmpty(content) ? null : content.Length > 8000 ? content[..8000] : content,
+            StartDate = dto.StartDate?.Date,
+            IsActive = true,
+            CreatedBy = CurrentUserEmail,
+        };
+        db.PosGymWorkoutPlans.Add(plan);
+        await db.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(new { plan.Id }));
+    }
+
+    [HttpDelete("plans/{id:guid}")]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Delete)]
+    public async Task<ActionResult<AppResponse<object>>> DeletePlan(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        var p = await db.PosGymWorkoutPlans.AsTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
+        if (p == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy phác đồ"));
+        p.Deleted = DateTime.UtcNow;
+        p.DeletedBy = CurrentUserEmail;
+        await db.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(new { id }));
+    }
+
+    /// <summary>
+    /// Link công khai của hội viên (không cần đăng nhập): gói / buổi còn, lượt tập, thể trạng, phác đồ.
+    /// [renew] = true đổi mã mới (link cũ hết hiệu lực — khi lỡ gửi nhầm người).
+    /// </summary>
+    [HttpPost("customers/{customerId:guid}/share-link")]
+    [RequireModulePermission("PosGymCheckIn", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> ShareLink(Guid customerId, [FromQuery] bool renew = false)
+    {
+        var storeId = RequiredStoreId;
+        var c = await db.PosCustomers.AsTracking()
+            .FirstOrDefaultAsync(x => x.Id == customerId && x.StoreId == storeId && x.Deleted == null);
+        if (c == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy khách hàng"));
+        if (renew || string.IsNullOrEmpty(c.GymShareToken))
+        {
+            c.GymShareToken = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(15))
+                .Replace('+', '-').Replace('/', '_').TrimEnd('=');
+            c.UpdatedAt = DateTime.UtcNow;
+            c.UpdatedBy = CurrentUserEmail;
+            await db.SaveChangesAsync();
+        }
+        return Ok(AppResponse<object>.Success(new { path = $"/o/hv/{c.GymShareToken}", token = c.GymShareToken }));
     }
 }

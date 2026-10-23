@@ -87,3 +87,20 @@ public class PosGymAssessment : AuditableEntity<Guid>
     /// <summary>Mục tiêu tập (giảm mỡ, tăng cơ…).</summary>
     public string? Goal { get; set; }
 }
+
+/// <summary>Phác đồ / giáo án tập PT giao cho hội viên (hiện trên link chia sẻ của hội viên).</summary>
+public class PosGymWorkoutPlan : AuditableEntity<Guid>
+{
+    public Guid StoreId { get; set; }
+    public Guid CustomerId { get; set; }
+    public virtual PosCustomer? Customer { get; set; }
+
+    public Guid? TrainerEmployeeId { get; set; }
+    public string? TrainerName { get; set; }
+
+    public string Title { get; set; } = string.Empty;
+    /// <summary>Nội dung phác đồ: bài tập, số hiệp × lần, lịch tuần, dinh dưỡng…</summary>
+    public string? Content { get; set; }
+    /// <summary>Ngày bắt đầu áp dụng (UTC, chỉ dùng phần ngày).</summary>
+    public DateTime? StartDate { get; set; }
+}

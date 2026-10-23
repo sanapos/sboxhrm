@@ -261,6 +261,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool _comboTrackStock = false;
   String _commissionMode = 'None';
   bool _commissionPerSession = false;
+  /// Gói PT: % hoa hồng cho NV bán gói (PT vẫn nhận theo buổi).
+  final _sellerCommissionCtrl = TextEditingController();
   late final TextEditingController _commissionPercentCtrl;
   late final TextEditingController _loyaltyPercentCtrl;
   late final TextEditingController _commissionFixedCtrl;
@@ -529,6 +531,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _comboTrackStock = p?.comboTrackStock ?? false;
     _commissionMode = p?.commissionMode ?? 'None';
     _commissionPerSession = p?.commissionPerSession ?? false;
+    _sellerCommissionCtrl.text =
+        (p?.sellerCommissionPercent ?? 0) > 0 ? _fmtSellerPct(p!.sellerCommissionPercent) : '';
     _loyaltyPercentCtrl = TextEditingController(text: _fmtPercent(p?.loyaltyPercent));
     _commissionPercentCtrl = TextEditingController(
         text: tr(_fmtInputMoney(p?.commissionPercent ?? 0)));
@@ -762,6 +766,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _comboTrackStock = data.comboTrackStock;
       _commissionMode = data.commissionMode;
       _commissionPerSession = data.commissionPerSession;
+      _sellerCommissionCtrl.text =
+          data.sellerCommissionPercent > 0 ? _fmtSellerPct(data.sellerCommissionPercent) : '';
       _commissionPercentCtrl.text = _fmtInputMoney(data.commissionPercent);
       _loyaltyPercentCtrl.text = _fmtPercent(data.loyaltyPercent);
       _commissionFixedCtrl.text = _fmtInputMoney(data.commissionFixed);
@@ -974,8 +980,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
+  String _fmtSellerPct(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
   @override
   void dispose() {
+    _sellerCommissionCtrl.dispose();
     _tabs.dispose();
     _codeCtrl.dispose();
     _barcodeCtrl.dispose();
@@ -1165,6 +1174,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'commissionPercent': _parseNum(_commissionPercentCtrl.text),
       'commissionFixed': _parseNum(_commissionFixedCtrl.text),
       'commissionPerSession': _commissionPerSession,
+      'sellerCommissionPercent': _commissionPerSession ? _parseNum(_sellerCommissionCtrl.text) : 0,
       'loyaltyPercent': _loyaltyPercentValue,
       'toppings': (_allowToppings && !_isTopping)
           ? _toppingOptions
@@ -3062,6 +3072,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               : 'Hoa hồng ghi ngay khi bán cho NV được chọn trên hóa đơn (combo: chọn NV từng thành phần).'),
           style: TextStyle(fontSize: 12, color: SboxColors.slate600),
         ),
+        // Gói PT: ngoài PT nhận mỗi buổi, NV bán gói (lễ tân / sale) nhận % doanh thu lúc bán.
+        if (_commissionPerSession && !_isCombo) ...[
+          const SizedBox(height: 10),
+          TextField(
+            controller: _sellerCommissionCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: PosTheme.inputDecoration(
+              label: 'Hoa hồng người bán gói (%)',
+              hint: 'vd 5 — NV bán gói nhận 5% tiền gói, PT vẫn nhận theo buổi',
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -3743,6 +3765,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'commissionPercent': _parseNum(_commissionPercentCtrl.text),
       'commissionFixed': _parseNum(_commissionFixedCtrl.text),
       'commissionPerSession': _commissionPerSession,
+      'sellerCommissionPercent': _commissionPerSession ? _parseNum(_sellerCommissionCtrl.text) : 0,
       'loyaltyPercent': _loyaltyPercentValue,
         'toppings': (_allowToppings && !_isTopping)
             ? _toppingOptions

@@ -309,7 +309,36 @@ public static class PosStaffCommissionHelper
                 continue;
             }
 
-            if (IsPerSessionPack(p)) continue;
+            if (IsPerSessionPack(p))
+            {
+                // Gói PT: PT nhận theo buổi khi trừ buổi; NV bán gói nhận % doanh thu (nếu cài) ngay lúc bán.
+                var sellerId = line.AssignedEmployeeId ?? assigns.FirstOrDefault()?.AssignedEmployeeId;
+                if (p.SellerCommissionPercent > 0 && sellerId is Guid sid && sid != Guid.Empty)
+                {
+                    empNames.TryGetValue(sid, out var sellerName);
+                    db.PosSaleCommissionLines.Add(new PosSaleCommissionLine
+                    {
+                        Id = Guid.NewGuid(),
+                        StoreId = storeId,
+                        SaleOrderId = order.Id,
+                        SaleOrderLineId = line.Id,
+                        ProductId = p.Id,
+                        ProductName = $"{line.ProductName} (bán gói)",
+                        EmployeeId = sid,
+                        EmployeeName = sellerName ?? assigns.FirstOrDefault()?.AssignedEmployeeName?.Trim() ?? "",
+                        Qty = line.Qty,
+                        RevenueAmount = line.LineTotal,
+                        CommissionMode = PosCommissionMode.PercentOfLine,
+                        CommissionPercent = p.SellerCommissionPercent,
+                        CommissionFixed = 0,
+                        CommissionAmount = Math.Round(line.LineTotal * p.SellerCommissionPercent / 100m, 0,
+                            MidpointRounding.AwayFromZero),
+                        IsActive = true,
+                        CreatedBy = createdBy,
+                    });
+                }
+                continue;
+            }
             var lineEmp = line.AssignedEmployeeId
                           ?? assigns.FirstOrDefault()?.AssignedEmployeeId;
             if (lineEmp == null || lineEmp == Guid.Empty) continue;

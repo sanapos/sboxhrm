@@ -307,6 +307,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosGymMemberDevice> PosGymMemberDevices => Set<PosGymMemberDevice>();
     public DbSet<PosGymVisit> PosGymVisits => Set<PosGymVisit>();
     public DbSet<PosGymAssessment> PosGymAssessments => Set<PosGymAssessment>();
+    public DbSet<PosGymWorkoutPlan> PosGymWorkoutPlans => Set<PosGymWorkoutPlan>();
     public DbSet<PosResourceReservation> PosResourceReservations => Set<PosResourceReservation>();
     public DbSet<PosKitchenVoidSlip> PosKitchenVoidSlips => Set<PosKitchenVoidSlip>();
     public DbSet<PosCancelReturnAudit> PosCancelReturnAudits => Set<PosCancelReturnAudit>();

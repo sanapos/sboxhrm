@@ -220,6 +220,12 @@ public class PosProduct : AuditableEntity<Guid>
     /// </summary>
     public bool CommissionPerSession { get; set; }
 
+    /// <summary>
+    /// Gói tính hoa hồng mỗi buổi (gói PT): thêm % doanh thu cho NV BÁN gói lúc bán (0 = không).
+    /// PT vẫn nhận hoa hồng theo buổi khi trừ buổi.
+    /// </summary>
+    public decimal SellerCommissionPercent { get; set; }
+
     /// <summary>SP này là topping (trân châu, thạch…).</summary>
     public bool IsTopping { get; set; }
 

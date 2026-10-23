@@ -20521,6 +20521,43 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Gym: phác đồ tập PT giao cho hội viên.
+  Future<Map<String, dynamic>> addGymPlan(String customerId, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/gym/customers/$customerId/plans'),
+              headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteGymPlan(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/gym/plans/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Gym: link công khai của hội viên ([renew] = đổi mã, link cũ hết hiệu lực).
+  Future<Map<String, dynamic>> getGymShareLink(String customerId, {bool renew = false}) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/gym/customers/$customerId/share-link${renew ? '?renew=true' : ''}'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Gym: giờ cao điểm (lượt vào / người có mặt theo giờ, theo thứ) + tổng quan hội viên.
   Future<Map<String, dynamic>> getGymTraffic({DateTime? from, DateTime? to}) async {
     try {

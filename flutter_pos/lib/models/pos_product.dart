@@ -517,6 +517,8 @@ class PosProduct {
   final double commissionFixed;
   /// Gói nhiều buổi / combo liệu trình: hoa hồng tính cho NV làm từng buổi (lúc trừ buổi).
   final bool commissionPerSession;
+  /// Gói PT (hoa hồng mỗi buổi): % doanh thu cho NV bán gói lúc bán.
+  final double sellerCommissionPercent;
   /// Tùy chọn thêm gắn trực tiếp (giống ghi chú nhanh + giá).
   final List<PosProductToppingOption> toppingOptions;
   final List<String> toppingGroupIds;
@@ -606,6 +608,7 @@ class PosProduct {
     this.commissionPercent = 0,
     this.commissionFixed = 0,
     this.commissionPerSession = false,
+    this.sellerCommissionPercent = 0,
     this.toppingOptions = const [],
     this.toppingGroupIds = const [],
     this.toppingGroups = const [],
@@ -851,6 +854,8 @@ class PosProduct {
       commissionFixed:
           numVal(json['commissionFixed'] ?? json['CommissionFixed']),
       commissionPerSession: json['commissionPerSession'] == true || json['CommissionPerSession'] == true,
+      sellerCommissionPercent:
+          ((json['sellerCommissionPercent'] ?? json['SellerCommissionPercent']) as num?)?.toDouble() ?? 0,
       toppingOptions: () {
         final raw = json['toppingOptions'] ?? json['ToppingOptions'];
         if (raw is! List) return const <PosProductToppingOption>[];
@@ -953,6 +958,7 @@ class PosProduct {
       'commissionPercent': commissionPercent,
       'commissionFixed': commissionFixed,
       'commissionPerSession': commissionPerSession,
+      'sellerCommissionPercent': sellerCommissionPercent,
       if (allowToppings && !isTopping)
         'toppings': toppingOptions.map((t) => t.toInputJson()).toList(),
       'toppingGroupIds': toppingGroupIds,
@@ -1087,6 +1093,7 @@ class PosProduct {
       commissionPercent: this.commissionPercent,
       commissionFixed: this.commissionFixed,
       commissionPerSession: this.commissionPerSession,
+      sellerCommissionPercent: this.sellerCommissionPercent,
       toppingOptions: this.toppingOptions,
       toppingGroupIds: this.toppingGroupIds,
       toppingGroups: this.toppingGroups,
@@ -1152,6 +1159,7 @@ class PosProduct {
         'commissionPercent': commissionPercent,
         'commissionFixed': commissionFixed,
         'commissionPerSession': commissionPerSession,
+        'sellerCommissionPercent': sellerCommissionPercent,
         if (toppingOptions.isNotEmpty)
           'toppingOptions': toppingOptions
               .map((t) => {

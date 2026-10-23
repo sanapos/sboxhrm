@@ -100,7 +100,7 @@ class PosSellCatalogCache {
 
   /// Tải lại toàn bộ định kỳ.
   static const fullSyncEvery = Duration(hours: 6);
-  static const _metaPrefix = 'pos_sell_catalog_v4_'; // v4 (thêm CommissionPerSession) · v3: đệm + API bán trả trường dịch vụ / gói buổi — bỏ đệm cũ thiếu trường
+  static const _metaPrefix = 'pos_sell_catalog_v5_'; // v5 SellerCommissionPercent · // v4 (thêm CommissionPerSession) · v3: đệm + API bán trả trường dịch vụ / gói buổi — bỏ đệm cũ thiếu trường
   static const _diskDebounce = Duration(milliseconds: 700);
 
   String? _lastStoreId;

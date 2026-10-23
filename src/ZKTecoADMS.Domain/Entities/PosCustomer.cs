@@ -72,6 +72,9 @@ public class PosCustomer : AuditableEntity<Guid>
     public Guid? GymTrainerEmployeeId { get; set; }
     public string? GymTrainerName { get; set; }
 
+    /// <summary>Gym: mã link công khai cho hội viên xem gói, buổi tập, phác đồ (không cần đăng nhập).</summary>
+    public string? GymShareToken { get; set; }
+
     public virtual ICollection<PosSaleOrder> SaleOrders { get; set; } = [];
     public virtual ICollection<PosCustomerPayment> Payments { get; set; } = [];
     public virtual ICollection<PosCustomerPointTransaction> PointTransactions { get; set; } = [];

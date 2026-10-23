@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 
 import '../../l10n/app_tr.dart';
@@ -53,6 +55,7 @@ class _TrainerSheetState extends State<_TrainerSheet> {
   String? _trainerName;
   List<Map<String, dynamic>> _items = [];
   List<Map<String, dynamic>> _staff = [];
+  List<Map<String, dynamic>> _plans = [];
 
   @override
   void initState() {
@@ -80,6 +83,10 @@ class _TrainerSheetState extends State<_TrainerSheet> {
       _trainerName = d['trainerName']?.toString();
       _items = [
         for (final e in (d['items'] as List? ?? const []))
+          if (e is Map) Map<String, dynamic>.from(e),
+      ];
+      _plans = [
+        for (final e in (d['plans'] as List? ?? const []))
           if (e is Map) Map<String, dynamic>.from(e),
       ];
       _staff = [
@@ -225,6 +232,124 @@ class _TrainerSheetState extends State<_TrainerSheet> {
     if (res['isSuccess'] == true) await _load();
   }
 
+  /// Link công khai cho hội viên: gói, buổi còn, giờ vào – ra, thể trạng, phác đồ (không cần đăng nhập).
+  Future<void> _shareLink({bool renew = false}) async {
+    final res = await _api.getGymShareLink(widget.customerId, renew: renew);
+    if (!mounted) return;
+    final path = (res['data'] as Map?)?['path']?.toString();
+    if (res['isSuccess'] != true || path == null) {
+      NotificationOverlayManager().showError(title: 'Chưa tạo được link', message: res['message']?.toString() ?? '');
+      return;
+    }
+    final base = Uri.parse(ApiService.baseUrl);
+    final url = '${base.scheme}://${base.authority}$path';
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Link cho hội viên · ${widget.name}')),
+        content: SizedBox(
+          width: 520,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('Gửi link này cho khách (Zalo / SMS). Khách mở trên điện thoại xem thẻ / gói, số buổi còn, '
+                'giờ vào – ra từng buổi tập, thể trạng và phác đồ PT giao — không cần đăng nhập.'),
+                style: const TextStyle(fontSize: 13, color: SboxColors.slate600)),
+            const SizedBox(height: 10),
+            SelectableText(url, style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.brand700)),
+          ]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _shareLink(renew: true);
+            },
+            child: Text(tr('Đổi link (link cũ hết hiệu lực)')),
+          ),
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: url));
+              NotificationOverlayManager().showSuccess(title: 'Đã chép link', message: url);
+            },
+            child: Text(tr('Chép link')),
+          ),
+          FilledButton.icon(
+            onPressed: () => Share.share(tr('${widget.name} ơi, xem thẻ tập, số buổi và phác đồ tập của bạn tại: $url')),
+            icon: const Icon(Icons.share, size: 18),
+            label: Text(tr('Gửi')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addPlan() async {
+    final title = TextEditingController();
+    final content = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Phác đồ tập · ${widget.name}')),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(
+                controller: title,
+                decoration: InputDecoration(
+                    labelText: tr('Tên phác đồ (vd Tuần 1–4: giảm mỡ)'), isDense: true, border: const OutlineInputBorder()),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: content,
+                minLines: 6,
+                maxLines: 14,
+                decoration: InputDecoration(
+                  labelText: tr('Nội dung'),
+                  hintText: tr('Thứ 2: Ngực – vai\n- Đẩy ngực 4×10\n- Đẩy vai 3×12\nThứ 4: Lưng – tay sau…\nDinh dưỡng: …'),
+                  alignLabelWithHint: true,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu phác đồ'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final res = await _api.addGymPlan(widget.customerId, {
+      'title': title.text.trim(),
+      'content': content.text.trim(),
+      'startDate': DateTime.now().toIso8601String(),
+    });
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager().showError(title: 'Chưa lưu', message: res['message']?.toString() ?? '');
+      return;
+    }
+    NotificationOverlayManager().showSuccess(title: 'Đã lưu phác đồ', message: tr(widget.name));
+    await _load();
+  }
+
+  Future<void> _deletePlan(Map<String, dynamic> p) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Xóa phác đồ «${p['title']}»?')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Xóa'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final res = await _api.deleteGymPlan('${p['id']}');
+    if (mounted && res['isSuccess'] == true) await _load();
+  }
+
   /// Chênh lệch so với lần đo trước (mũi tên + số), giúp PT / khách thấy tiến bộ.
   String _delta(String key, int index, String unit) {
     if (index + 1 >= _items.length) return '';
@@ -242,7 +367,17 @@ class _TrainerSheetState extends State<_TrainerSheet> {
       controller: widget.scroll,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        Text(tr('PT & thể trạng · ${widget.name}'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        Row(children: [
+          Expanded(
+            child: Text(tr('PT & thể trạng · ${widget.name}'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          ),
+          OutlinedButton.icon(
+            onPressed: _shareLink,
+            icon: const Icon(Icons.link, size: 18),
+            label: Text(tr('Link cho khách')),
+          ),
+        ]),
         const SizedBox(height: 12),
         if (_loading)
           const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
@@ -289,6 +424,52 @@ class _TrainerSheetState extends State<_TrainerSheet> {
                   style: const TextStyle(color: SboxColors.slate600)),
             ),
           for (var i = 0; i < _items.length; i++) _assessmentCard(i),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(
+              child: Text(tr('Phác đồ tập (${_plans.length})'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: _addPlan,
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(tr('Giao phác đồ')),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          if (_plans.isEmpty)
+            Text(tr('Chưa có phác đồ. PT giao bài tập / lịch tuần / dinh dưỡng — khách xem qua «Link cho khách».'),
+                style: const TextStyle(color: SboxColors.slate600)),
+          for (final p in _plans)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+              decoration: BoxDecoration(border: Border.all(color: SboxColors.slate200), borderRadius: BorderRadius.circular(10)),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(tr('${p['title']}'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Text(
+                      tr([
+                        if (DateTime.tryParse('${p['startDate'] ?? ''}') case final d?) 'từ ${_dmy.format(d.toLocal())}',
+                        if ('${p['trainerName'] ?? ''}'.isNotEmpty) '${p['trainerName']}'.toUpperCase().startsWith('PT') ? '${p['trainerName']}' : 'PT ${p['trainerName']}',
+                      ].join(' · ')),
+                      style: const TextStyle(fontSize: 12, color: SboxColors.slate600),
+                    ),
+                    if ('${p['content'] ?? ''}'.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(tr('${p['content']}'), style: const TextStyle(fontSize: 13)),
+                      ),
+                  ]),
+                ),
+                IconButton(
+                  tooltip: tr('Xóa'),
+                  icon: const Icon(Icons.delete_outline, size: 20, color: SboxColors.slate500),
+                  onPressed: () => _deletePlan(p),
+                ),
+              ]),
+            ),
         ],
       ],
     );

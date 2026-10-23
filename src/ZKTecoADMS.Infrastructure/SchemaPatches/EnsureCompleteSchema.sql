@@ -1025,6 +1025,8 @@ ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "TimeAlertBeforeMinutes" inte
 ALTER TABLE "PosResourceSessions" ADD COLUMN IF NOT EXISTS "BillingLockedAt" timestamp without time zone NULL;
 ALTER TABLE "PosResourceSessions" ADD COLUMN IF NOT EXISTS "BillingLockedBy" character varying(256) NULL;
 ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "CommissionPerSession" boolean NOT NULL DEFAULT false;
+-- Gói PT: % hoa hồng cho NV bán gói (ngoài hoa hồng PT mỗi buổi)
+ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "SellerCommissionPercent" numeric(5,2) NOT NULL DEFAULT 0;
 ALTER TABLE "PosSaleCommissionLines" ADD COLUMN IF NOT EXISTS "PerformedAt" timestamp without time zone NULL;
 ALTER TABLE "PosSaleCommissionLines" ADD COLUMN IF NOT EXISTS "SessionTransactionId" uuid NULL;
 
@@ -1616,3 +1618,28 @@ CREATE TABLE IF NOT EXISTS "PosGymAssessments" (
     CONSTRAINT "PK_PosGymAssessments" PRIMARY KEY ("Id")
 );
 CREATE INDEX IF NOT EXISTS "IX_PosGymAssessments_Customer" ON "PosGymAssessments" ("StoreId", "CustomerId", "AssessedAt");
+
+-- Gym: link chia sẻ cho hội viên + phác đồ tập PT
+ALTER TABLE "PosCustomers" ADD COLUMN IF NOT EXISTS "GymShareToken" character varying(40) NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_PosCustomers_GymShareToken" ON "PosCustomers" ("GymShareToken") WHERE "GymShareToken" IS NOT NULL;
+CREATE TABLE IF NOT EXISTS "PosGymWorkoutPlans" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "CustomerId" uuid NOT NULL,
+    "TrainerEmployeeId" uuid NULL,
+    "TrainerName" character varying(200) NULL,
+    "Title" character varying(200) NOT NULL,
+    "Content" character varying(8000) NULL,
+    "StartDate" timestamp without time zone NULL,
+    CONSTRAINT "PK_PosGymWorkoutPlans" PRIMARY KEY ("Id")
+);
+CREATE INDEX IF NOT EXISTS "IX_PosGymWorkoutPlans_Customer" ON "PosGymWorkoutPlans" ("StoreId", "CustomerId");

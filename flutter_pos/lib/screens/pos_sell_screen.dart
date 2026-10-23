@@ -6426,7 +6426,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     final p = line.product;
     // Gói liệu trình tính hoa hồng mỗi buổi: chọn NV lúc trừ buổi.
     if (p.commissionPerSession && p.sessionPackCount > 0 && p.sessionPackCount < 9999) {
-      return false;
+      // PT nhận lúc trừ buổi; chỉ hỏi NV khi gói có hoa hồng cho người bán.
+      return p.sellerCommissionPercent > 0;
     }
     // Thẻ / gói tập không cài hoa hồng: không hỏi chọn NV mỗi lần bán (gym bán thẻ liên tục).
     if (p.sessionPackCount > 0 && !p.hasCommission) return false;
