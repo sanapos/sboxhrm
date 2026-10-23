@@ -1,11 +1,19 @@
+import 'dart:ui' as ui;
+
+import 'package:barcode/barcode.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
+import '../../utils/pos_einvoice_qr.dart';
 import '../notification_overlay.dart';
 
 final _dmy = DateFormat('dd/MM/yyyy');
@@ -17,6 +25,49 @@ String _fmt(dynamic v, String unit) {
   if (d == null) return '';
   final s = d == d.roundToDouble() ? d.toStringAsFixed(0) : d.toStringAsFixed(1);
   return '$s$unit';
+}
+
+/// Ảnh thẻ QR của hội viên (PNG 600×780): tên khách, mã QR mở link, hướng dẫn quét — gửi Zalo hoặc in đưa khách.
+Future<Uint8List?> _memberQrCard(String url, String name) async {
+  try {
+    const w = 600.0, h = 780.0, qrSize = 456.0, qrTop = 150.0;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawRect(const Rect.fromLTWH(0, 0, w, h), Paint()..color = const Color(0xFFFFFFFF));
+    canvas.drawRect(const Rect.fromLTWH(0, 0, w, 124), Paint()..color = const Color(0xFF0E7490));
+    void text(String s, double y, double size, Color color, {FontWeight weight = FontWeight.w400}) {
+      final b = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.center, maxLines: 2, ellipsis: '…'))
+        ..pushStyle(ui.TextStyle(color: color, fontSize: size, fontWeight: weight))
+        ..addText(s);
+      final para = b.build()..layout(const ui.ParagraphConstraints(width: w - 48));
+      canvas.drawParagraph(para, Offset(24, y));
+    }
+
+    text(name, 26, 34, const Color(0xFFFFFFFF), weight: FontWeight.w700);
+    text('Thẻ tập · lịch tập · phác đồ PT', 78, 20, const Color(0xE6FFFFFF));
+    final ink = Paint()
+      ..color = const Color(0xFF0F172A)
+      ..isAntiAlias = false;
+    const left = (w - qrSize) / 2;
+    for (final e in Barcode.qrCode(errorCorrectLevel: BarcodeQRCorrectionLevel.medium)
+        .make(url, width: qrSize, height: qrSize, drawText: false)) {
+      if (e is BarcodeBar && e.black) {
+        canvas.drawRect(
+          Rect.fromLTWH((left + e.left).floorToDouble(), (qrTop + e.top).floorToDouble(), e.width.ceilToDouble() + 0.5,
+              e.height.ceilToDouble() + 0.5),
+          ink,
+        );
+      }
+    }
+    text('Quét mã bằng camera điện thoại để xem', qrTop + qrSize + 24, 23, const Color(0xFF0F172A),
+        weight: FontWeight.w600);
+    text(url, qrTop + qrSize + 64, 16, const Color(0xFF64748B));
+    final image = await recorder.endRecording().toImage(w.toInt(), h.toInt());
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    return bytes?.buffer.asUint8List();
+  } catch (_) {
+    return null;
+  }
 }
 
 /// Chèn [text] vào vị trí con trỏ (cuối ô nếu chưa đặt con trỏ).
@@ -448,14 +499,41 @@ class _TrainerSheetState extends State<_TrainerSheet> {
       builder: (ctx) => AlertDialog(
         title: Text(tr('Link cho hội viên · ${widget.name}')),
         content: SizedBox(
-          width: 520,
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(tr('Gửi link này cho khách (Zalo / SMS). Khách mở trên điện thoại xem thẻ / gói, số buổi còn, '
-                'giờ vào – ra từng buổi tập, thể trạng và phác đồ PT giao — không cần đăng nhập.'),
-                style: const TextStyle(fontSize: 13, color: SboxColors.slate600)),
-            const SizedBox(height: 10),
-            SelectableText(url, style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.brand700)),
-          ]),
+          width: 560,
+          child: SingleChildScrollView(
+            child: Wrap(
+              spacing: 20,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                // Khách quét bằng camera điện thoại tại quầy — không cần gõ link.
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: SboxColors.slate200),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: SvgPicture.string(posQrSvg(url, size: 200), width: 200, height: 200),
+                ),
+                SizedBox(
+                  width: 300,
+                  child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(tr('Khách quét mã QR bằng camera điện thoại, hoặc gửi link qua Zalo / SMS.'),
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    Text(
+                        tr('Xem thẻ / gói, số buổi còn, giờ vào – ra từng buổi tập, thể trạng và phác đồ PT giao '
+                            '— không cần đăng nhập.'),
+                        style: const TextStyle(fontSize: 13, color: SboxColors.slate600)),
+                    const SizedBox(height: 10),
+                    SelectableText(url,
+                        style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.brand700)),
+                  ]),
+                ),
+              ],
+            ),
+          ),
         ),
         actions: [
           TextButton(
@@ -472,10 +550,42 @@ class _TrainerSheetState extends State<_TrainerSheet> {
             },
             child: Text(tr('Chép link')),
           ),
+          TextButton.icon(
+            onPressed: () async {
+              final png = await _memberQrCard(url, widget.name);
+              if (png == null) return;
+              await Printing.layoutPdf(
+                name: 'QR the tap ${widget.name}',
+                onLayout: (_) async {
+                  final doc = pw.Document();
+                  doc.addPage(pw.Page(
+                    pageFormat: PdfPageFormat.a6,
+                    margin: const pw.EdgeInsets.all(16),
+                    build: (_) => pw.Center(child: pw.Image(pw.MemoryImage(png))),
+                  ));
+                  return doc.save();
+                },
+              );
+            },
+            icon: const Icon(Icons.print_outlined, size: 18),
+            label: Text(tr('In QR')),
+          ),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final png = await _memberQrCard(url, widget.name);
+              if (png == null) return;
+              await Share.shareXFiles(
+                [XFile.fromData(png, name: 'qr-the-tap.png', mimeType: 'image/png')],
+                text: tr('${widget.name} ơi, quét mã hoặc mở link để xem thẻ tập, số buổi và phác đồ: $url'),
+              );
+            },
+            icon: const Icon(Icons.qr_code_2, size: 18),
+            label: Text(tr('Gửi ảnh QR')),
+          ),
           FilledButton.icon(
             onPressed: () => Share.share(tr('${widget.name} ơi, xem thẻ tập, số buổi và phác đồ tập của bạn tại: $url')),
             icon: const Icon(Icons.share, size: 18),
-            label: Text(tr('Gửi')),
+            label: Text(tr('Gửi link')),
           ),
         ],
       ),
