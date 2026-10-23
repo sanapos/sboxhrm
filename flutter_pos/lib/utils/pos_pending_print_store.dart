@@ -268,10 +268,15 @@ class PosPendingPrintStore {
   static const _kKey = 'pos_pending_print_queue_v1';
   static const maxJobsPerKind = 40;
 
-  static Future<PosPendingPrintSnapshot> load() async {
+  /// Hàng chờ riêng từng cửa hàng — trước dùng chung cả máy: đăng nhập cửa hàng khác vẫn thấy (và in lại)
+  /// phiếu treo của cửa hàng trước.
+  static String _keyFor(String? storeId) =>
+      (storeId ?? '').trim().isEmpty ? _kKey : '${_kKey}_${storeId!.trim()}';
+
+  static Future<PosPendingPrintSnapshot> load({String? storeId}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_kKey);
+      final raw = prefs.getString(_keyFor(storeId));
       if (raw == null || raw.isEmpty) return const PosPendingPrintSnapshot();
       final map = jsonDecode(raw);
       if (map is! Map) return const PosPendingPrintSnapshot();
@@ -283,19 +288,19 @@ class PosPendingPrintStore {
     }
   }
 
-  static Future<void> save(PosPendingPrintSnapshot snap) async {
+  static Future<void> save(PosPendingPrintSnapshot snap, {String? storeId}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final payload = jsonEncode(_toMap(snap));
-      await prefs.setString(_kKey, payload);
+      await prefs.setString(_keyFor(storeId), payload);
     } catch (e) {
       debugPrint('PosPendingPrintStore.save: $e');
     }
   }
 
-  static Future<void> clear() async {
+  static Future<void> clear({String? storeId}) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kKey);
+    await prefs.remove(_keyFor(storeId));
   }
 
   static Map<String, dynamic> _toMap(PosPendingPrintSnapshot snap) => {

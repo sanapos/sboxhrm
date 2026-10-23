@@ -11820,7 +11820,11 @@ class _PosSellScreenState extends State<PosSellScreen>
           _printSettings.warehousePrintMode == PosWarehousePrintMode.auto;
       // Chip «In bếp» + chế độ in: giữ đúng thiết lập «tự in sau TT».
       // Không tắt bàn F&B — lỗi mẫu sai nằm ở chỗ chọn máy (Sunmi trong), không phải chỗ này.
-      final kitchenAuto = _quickPrintKitchen &&
+      // Chỉ ngành có bếp (nhà hàng / cafe). Thiết lập in lưu theo MÁY: máy từng dùng cho quán ăn đổi sang
+      // cửa hàng bán lẻ vẫn bật «in bếp khi TT» → mỗi đơn siêu thị in phiếu bếp lỗi, kẹt «In treo»
+      // (chip «In bếp» lại ẩn ở bán lẻ nên không tắt được).
+      final kitchenAuto = _sellProfile.usesKitchenNotify &&
+          _quickPrintKitchen &&
           _printSettings.kitchenSlipPrintMode != PosKitchenSlipPrintMode.off &&
           _tab.cart.any((l) => l.kitchenPendingQty > 0);
       final kitchenAutoLines = kitchenAuto
@@ -12347,7 +12351,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Future<void> _loadPendingPrintQueueFromDisk() async {
-    final snap = await PosPendingPrintStore.load();
+    final snap = await PosPendingPrintStore.load(storeId: _storeId);
     if (!mounted || snap.isEmpty) return;
     setState(() {
       _failedWarehousePrints
@@ -12371,7 +12375,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       sales: List.unmodifiable(_failedSalePrints),
       kitchen: List.unmodifiable(_failedKitchenPrints),
       cups: List.unmodifiable(_failedCupPrints),
-    ));
+    ), storeId: _storeId);
   }
 
   /// Id job in gốc nằm trong id phiếu treo (`kitchen_hang_<jobId>`…).

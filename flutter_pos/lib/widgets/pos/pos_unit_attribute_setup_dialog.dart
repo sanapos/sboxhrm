@@ -1855,10 +1855,12 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
           Text(tr('Thêm đơn vị hoặc thuộc tính để sinh dòng hàng'),
               style: TextStyle(color: SboxColors.slate600, fontSize: 13))
         else
-          SingleChildScrollView(
+          // Cuộn ngang không giới hạn bề rộng → các cột Expanded không chia được chỗ, chữ chồng lên nhau.
+          // Cho bảng bề rộng cố định: tối thiểu 720, màn rộng thì kín khung.
+          LayoutBuilder(builder: (context, c) => SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 720),
+            child: SizedBox(
+              width: c.maxWidth.isFinite && c.maxWidth > 720 ? c.maxWidth : 720,
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   border: Border.all(color: PosTheme.border),
@@ -1876,7 +1878,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                 ),
               ),
             ),
-          ),
+          )),
       ],
     );
   }

@@ -36,8 +36,9 @@ Set<PosProductEditorSection> defaultPosProductEditorSections() => {};
 
 /// Bộ mục gợi ý theo ngành hàng — chỉ hiện những ô ngành đó thật sự dùng.
 enum PosProductIndustryPreset {
-  grocery('Tạp hóa / siêu thị', 'Mã vạch, ĐVT thùng/lốc, NCC, định mức tồn, VAT', {
-    PosProductEditorSection.codes, PosProductEditorSection.supplier, PosProductEditorSection.vat, PosProductEditorSection.stockLimits, PosProductEditorSection.unitsVariants,
+  // Siêu thị bán nhiều đồ ăn / uống có hạn dùng → mặc định hiện mục lô / HSD.
+  grocery('Tạp hóa / siêu thị', 'Mã vạch, ĐVT thùng/lốc, lô / hạn dùng, NCC, định mức tồn, VAT', {
+    PosProductEditorSection.codes, PosProductEditorSection.supplier, PosProductEditorSection.vat, PosProductEditorSection.warranty, PosProductEditorSection.stockLimits, PosProductEditorSection.unitsVariants,
   }),
   pharmacy('Nhà thuốc / mỹ phẩm', 'Lô / hạn dùng, ĐVT hộp/vỉ/viên, NCC, định mức tồn', {
     PosProductEditorSection.codes, PosProductEditorSection.supplier, PosProductEditorSection.vat, PosProductEditorSection.warranty, PosProductEditorSection.stockLimits, PosProductEditorSection.unitsVariants,

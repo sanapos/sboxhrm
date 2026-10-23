@@ -41,12 +41,23 @@ class _Line {
     double cost = 0,
     this.requiresSerial = false,
     List<String>? serials,
+    this.trackExpiry = false,
+    this.lotNo = '',
+    this.manufactureDate,
+    this.expiryDate,
   })  : qty = qty,
         cost = cost,
         serials = serials ?? <String>[];
 
   final bool requiresSerial;
   List<String> serials;
+
+  /// Hàng theo dõi lô / HSD: server bắt buộc HSD khi hoàn thành phiếu (trước đây màn này không có ô nhập
+  /// → phiếu không hoàn thành được, hàng có HSD không nhập kho được trên máy tính bảng / điện thoại).
+  final bool trackExpiry;
+  String lotNo;
+  DateTime? manufactureDate;
+  DateTime? expiryDate;
 
   final String productId;
   final String? variantId;
@@ -64,6 +75,12 @@ class _Line {
         'discountAmount': 0,
         'unitName': unit ?? 'Cái',
         if (requiresSerial && serials.isNotEmpty) 'serialNumbers': serials,
+        if (lotNo.trim().isNotEmpty) 'lotNo': lotNo.trim(),
+        if (manufactureDate != null)
+          'manufactureDate':
+              DateTime.utc(manufactureDate!.year, manufactureDate!.month, manufactureDate!.day).toIso8601String(),
+        if (expiryDate != null)
+          'expiryDate': DateTime.utc(expiryDate!.year, expiryDate!.month, expiryDate!.day).toIso8601String(),
       };
 }
 
@@ -93,7 +110,8 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
   bool get _isDirty => !_loading && !_readOnly && _cleanSig != null && _sig() != _cleanSig;
   String _sig() => [
         _supplierId, _paymentMethod, _noteCtrl.text.trim(), _paidCtrl.text,
-        for (final l in _lines) '${l.productId}/${l.variantId}/${l.qty}/${l.cost}/${l.serials.length}',
+        for (final l in _lines)
+          '${l.productId}/${l.variantId}/${l.unit}/${l.qty}/${l.cost}/${l.serials.length}/${l.lotNo}/${l.manufactureDate}/${l.expiryDate}',
       ].join('|');
 
   @override
@@ -162,15 +180,23 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
             cost: l.costPrice,
             requiresSerial: l.requiresSerial,
             serials: List<String>.from(l.serialNumbers),
+            trackExpiry: l.trackExpiry,
+            lotNo: l.lotNo ?? '',
+            manufactureDate: l.manufactureDate?.toLocal(),
+            expiryDate: l.expiryDate?.toLocal(),
           )));
   }
 
   Future<void> _pickProduct(PosPurchaseLookupPick pick) async {
     if (_readOnly) return;
     final addQty = (pick.qty == null || pick.qty! <= 0) ? 1.0 : pick.qty!;
+    final unit = pick.unitLabel ?? pick.product.baseUnitName;
+    // Cộng dồn khi quét lại cùng hàng, cùng đơn vị (lốc ≠ hộp). Hàng theo lô: quét lại cũng cộng vào dòng
+    // đang nhập lô (thường cùng lô); khác lô thì người dùng xóa / thêm dòng.
     final existing = _lines.indexWhere((l) =>
         l.productId == pick.product.id &&
-        (l.variantId ?? '') == (pick.variantId ?? ''));
+        (l.variantId ?? '') == (pick.variantId ?? '') &&
+        (l.unit ?? '') == unit);
     if (existing >= 0) {
       setState(() => _lines[existing].qty += addQty);
       return;
@@ -181,10 +207,11 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
         variantId: pick.variantId,
         name: pick.product.name,
         code: pick.product.productCode,
-        unit: pick.unitLabel ?? pick.product.baseUnitName,
+        unit: unit,
         qty: addQty,
         cost: pick.product.costPrice,
         requiresSerial: pick.product.requiresSerial,
+        trackExpiry: pick.product.trackExpiry,
       ));
     });
   }
@@ -206,6 +233,62 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
           : null,
     );
     if (r != null && mounted) setState(() => l.serials = r);
+  }
+
+  Future<void> _pickDate(_Line l, {required bool expiry}) async {
+    final now = DateTime.now();
+    final initial = (expiry ? l.expiryDate : l.manufactureDate) ??
+        (expiry ? now.add(const Duration(days: 180)) : now);
+    final d = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 10),
+      helpText: tr(expiry ? 'Hạn sử dụng' : 'Ngày sản xuất'),
+    );
+    if (d == null || !mounted) return;
+    setState(() => expiry ? l.expiryDate = d : l.manufactureDate = d);
+  }
+
+  /// Lô / NSX / HSD cho hàng theo dõi hạn dùng (HSD bắt buộc, NSX + mã lô tùy chọn).
+  Widget _lotFields(_Line l) {
+    final fmt = DateFormat('dd/MM/yyyy');
+    final missing = l.expiryDate == null;
+    final expired = l.expiryDate != null && l.expiryDate!.isBefore(DateTime.now());
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        TextFormField(
+          initialValue: l.lotNo,
+          readOnly: _readOnly,
+          decoration: WhMobileTheme.fieldDecoration(label: 'Mã lô (tùy chọn)'),
+          onChanged: (v) => l.lotNo = v,
+        ),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _readOnly ? null : () => _pickDate(l, expiry: false),
+              icon: const Icon(Icons.calendar_today, size: 16),
+              label: Text(tr(l.manufactureDate == null ? 'NSX' : 'NSX ${fmt.format(l.manufactureDate!)}')),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _readOnly ? null : () => _pickDate(l, expiry: true),
+              icon: Icon(Icons.event, size: 16, color: missing || expired ? Colors.orange.shade800 : Colors.green),
+              label: Text(
+                tr(missing ? 'HSD *' : 'HSD ${fmt.format(l.expiryDate!)}${expired ? ' (đã hết hạn)' : ''}'),
+                style: TextStyle(color: missing || expired ? Colors.orange.shade800 : null),
+              ),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+            ),
+          ),
+        ]),
+      ]),
+    );
   }
 
   Widget _serialButton(_Line l, {bool suggest = false}) {
@@ -254,6 +337,20 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
     }
     if (complete) {
       for (final l in _lines) {
+        if (l.trackExpiry && l.expiryDate == null) {
+          NotificationOverlayManager().showWarning(
+            title: 'Thiếu hạn sử dụng',
+            message: tr('«${l.name}» theo dõi lô / HSD — chọn HSD trước khi hoàn thành'),
+          );
+          return;
+        }
+        if (l.manufactureDate != null && l.expiryDate != null && l.manufactureDate!.isAfter(l.expiryDate!)) {
+          NotificationOverlayManager().showWarning(
+            title: 'Ngày không hợp lệ',
+            message: tr('«${l.name}»: NSX sau HSD'),
+          );
+          return;
+        }
         if (l.requiresSerial && l.serials.length != l.qty.round()) {
           NotificationOverlayManager().showWarning(
             title: 'Thiếu seri',
@@ -292,6 +389,9 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
       } else {
         ScreenRefreshNotifier.refreshPosPurchaseReceipts();
       }
+      // Đã lưu → hết «chưa lưu»; thiếu dòng này màn chặn thoát bằng hộp «Dữ liệu chưa được lưu» ngay sau khi
+      // hoàn thành, người dùng bấm tiếp «Lưu tạm» là ra phiếu tạm trùng.
+      _cleanSig = _sig();
       final r = PosPurchaseReceipt.fromJson(res['data'] as Map<String, dynamic>);
       NotificationOverlayManager().showSuccess(
         title: complete ? 'Đã nhập hàng' : 'Đã lưu nháp',
@@ -425,6 +525,7 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                               ),
                             ),
                           if (l.requiresSerial) _serialButton(l),
+                          if (l.trackExpiry || l.expiryDate != null || l.lotNo.isNotEmpty) _lotFields(l),
                           const SizedBox(height: 10),
                           InkWell(
                             onTap: _readOnly
