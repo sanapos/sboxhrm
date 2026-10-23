@@ -72,7 +72,7 @@ public class PosGymPublicController(ZKTecoDbContext db, IConfiguration configura
         var body = assessments.Where(a => a.Kind == 0).Take(24).ToList(); // mới nhất trước
         var plans = await db.PosGymWorkoutPlans.IgnoreQueryFilters().AsNoTracking()
             .Where(p => p.StoreId == c.StoreId && p.CustomerId == c.Id && p.Deleted == null)
-            .OrderByDescending(p => p.StartDate ?? p.CreatedAt)
+            .OrderByDescending(p => p.StartDate ?? p.CreatedAt).ThenByDescending(p => p.CreatedAt)
             .Take(20)
             .ToListAsync();
 

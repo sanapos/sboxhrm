@@ -73,35 +73,46 @@ void posShowSoftKeyboardOnFieldTap() {
   posShowSoftKeyboard();
 }
 
-bool _boxContainsGlobal(RenderBox box, Offset global, {double inflate = 16}) {
-  if (!box.hasSize || !box.attached) return false;
-  final local = box.globalToLocal(global);
-  return box.paintBounds.inflate(inflate).contains(local);
+/// Có ô chữ (không chỉ đọc) trong cây con của [ro], sâu tối đa [depth] cấp.
+bool _hasEditableBelow(RenderObject ro, int depth) {
+  var found = false;
+  void visit(RenderObject c, int d) {
+    if (found) return;
+    if (c is RenderEditable) {
+      if (!c.readOnly) found = true;
+      return;
+    }
+    if (d <= 0) return;
+    c.visitChildren((x) => visit(x, d - 1));
+  }
+
+  visit(ro, depth);
+  return found;
 }
 
-/// Ô chữ hoặc icon prefix/suffix cùng hàng (nút tìm kiếm).
+/// Điểm chạm trúng ô chữ, hoặc icon prefix/suffix / nút cùng hàng với ô (nút tìm kiếm).
+///
+/// Dò bằng hit-test thật: bỏ qua ô bị cắt khi cuộn và ô nằm dưới dialog / bottom sheet.
+/// Trước đây dò theo toạ độ trên cả cây giao diện → chạm nút «Lưu / Hủy» đè lên chỗ ô «Nội dung»
+/// đã cuộn khuất, hoặc chạm chip cùng khối với ô chữ, cũng mở bàn phím (bàn phím tự bật sau khi đóng hộp).
 bool posHitWantsSoftKeyboard(Offset global) {
-  var found = false;
-  void visit(RenderObject ro) {
-    if (found) return;
-    if (ro is RenderEditable && !ro.readOnly && ro.attached) {
-      RenderObject? p = ro;
-      for (var i = 0; i < 12 && p != null; i++) {
-        if (p is RenderBox && _boxContainsGlobal(p, global)) {
-          found = true;
-          return;
-        }
-        p = p.parent;
+  final binding = WidgetsBinding.instance;
+  for (final view in binding.renderViews) {
+    final result = HitTestResult();
+    binding.hitTestInView(result, global, view.flutterView.viewId);
+    for (final entry in result.path) {
+      final t = entry.target;
+      if (t is RenderEditable) {
+        if (!t.readOnly) return true;
+        continue;
+      }
+      // Hàng của ô nhập (khung InputDecorator, Row ô tìm + nút) — thấp, chứa ô chữ.
+      if (t is RenderBox && t.attached && t.hasSize && t.size.height <= 96 && _hasEditableBelow(t, 14)) {
+        return true;
       }
     }
-    ro.visitChildren(visit);
   }
-
-  for (final view in RendererBinding.instance.renderViews) {
-    visit(view);
-    if (found) break;
-  }
-  return found;
+  return false;
 }
 
 bool _posPointerLooksLikeTouch(PointerEvent e) {

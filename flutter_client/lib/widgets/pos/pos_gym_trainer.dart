@@ -70,6 +70,13 @@ Future<Uint8List?> _memberQrCard(String url, String name) async {
   }
 }
 
+/// Bỏ con trỏ quanh hộp thoại: route vừa đóng trả con trỏ về ô nhập cũ ở màn dưới SAU hiệu ứng đóng
+/// → bàn phím tự bật dù không có ô nào hiện. Bỏ trước khi mở và cả sau khi đóng xong.
+void _dropFocus() {
+  FocusManager.instance.primaryFocus?.unfocus();
+  Future.delayed(const Duration(milliseconds: 400), () => FocusManager.instance.primaryFocus?.unfocus());
+}
+
 /// Chèn [text] vào vị trí con trỏ (cuối ô nếu chưa đặt con trỏ).
 void _insertText(TextEditingController c, String text) {
   final sel = c.selection;
@@ -98,6 +105,7 @@ Widget _tokenChips(TextEditingController c, List<String> items, StateSetter setS
           FilterChip(
             label: Text(tr(t), style: const TextStyle(fontSize: 12.5)),
             visualDensity: VisualDensity.compact,
+            showCheckmark: false,
             selected: _tokens(c).contains(t),
             onSelected: (_) => setState(() => _toggleToken(c, t)),
           ),
@@ -163,6 +171,7 @@ Future<bool> showGymSessionReview(BuildContext context,
   var rating = 4;
   final note = TextEditingController();
   final weight = TextEditingController();
+  FocusManager.instance.primaryFocus?.unfocus();
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => StatefulBuilder(
@@ -211,6 +220,7 @@ Future<bool> showGymSessionReview(BuildContext context,
       ),
     ),
   );
+  _dropFocus();
   if (ok != true || !context.mounted) return false;
   final res = await ApiService().addGymAssessment(customerId, {
     'kind': 1,
@@ -361,6 +371,7 @@ class _TrainerSheetState extends State<_TrainerSheet> {
     final thigh = TextEditingController();
     final condition = TextEditingController();
     final goal = TextEditingController(text: '${last?['goal'] ?? ''}');
+    FocusManager.instance.primaryFocus?.unfocus();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -442,6 +453,7 @@ class _TrainerSheetState extends State<_TrainerSheet> {
         ),
       ),
     );
+    _dropFocus();
     if (ok != true || !mounted) return;
     final res = await _api.addGymAssessment(widget.customerId, {
       'weightKg': _num(weight.text),
@@ -466,6 +478,7 @@ class _TrainerSheetState extends State<_TrainerSheet> {
   }
 
   Future<void> _delete(Map<String, dynamic> a) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -494,6 +507,7 @@ class _TrainerSheetState extends State<_TrainerSheet> {
     // Server trả link trên tên miền portal (sboxhrm.com); bản API cũ chỉ có path → ghép theo máy chủ app.
     final base = Uri.parse(ApiService.baseUrl);
     final url = (res['data'] as Map?)?['url']?.toString() ?? '${base.scheme}://${base.authority}$path';
+    FocusManager.instance.primaryFocus?.unfocus();
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -604,6 +618,8 @@ class _TrainerSheetState extends State<_TrainerSheet> {
       _insertText(content, '${needNl ? '\n' : ''}$line\n');
     }
 
+    FocusManager.instance.primaryFocus?.unfocus();
+
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -694,6 +710,7 @@ class _TrainerSheetState extends State<_TrainerSheet> {
         ),
       ),
     );
+    _dropFocus();
     if (ok != true || !mounted) return;
     final res = await _api.addGymPlan(widget.customerId, {
       // Ghép tay bằng chip mà quên đặt tên → tên mặc định theo ngày.
@@ -711,6 +728,7 @@ class _TrainerSheetState extends State<_TrainerSheet> {
   }
 
   Future<void> _deletePlan(Map<String, dynamic> p) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

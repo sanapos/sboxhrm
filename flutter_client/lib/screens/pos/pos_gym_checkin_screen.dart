@@ -252,6 +252,26 @@ Future<Map<String, dynamic>?> _pickBalance(BuildContext context, List<Map<String
   );
 }
 
+/// «★★★☆☆ Kỹ thuật tốt…» — đánh giá sau buổi PT đã ghi cho lượt (null nếu chưa đánh giá).
+Widget? _reviewLine(Map v) {
+  final r = (v['reviewRating'] as num?)?.toInt();
+  final note = '${v['reviewNote'] ?? ''}';
+  if (r == null && note.isEmpty) return null;
+  return Text.rich(
+    TextSpan(children: [
+      if (r != null)
+        TextSpan(
+          text: '${'★' * r.clamp(0, 5)}${'☆' * (5 - r.clamp(0, 5))} ',
+          style: const TextStyle(color: Color(0xFFF59E0B), fontWeight: FontWeight.w700),
+        ),
+      TextSpan(text: tr(note)),
+    ]),
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: const TextStyle(fontSize: 12.5, color: SboxColors.slate700),
+  );
+}
+
 bool _packageWarn(Map m) {
   if (m['frozenUntil'] != null) return true;
   final exp = _date(m['expiresAt']);
@@ -751,6 +771,7 @@ class _MemberHistoryState extends State<_MemberHistory> {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
             ),
+            if (_reviewLine(v) case final review?) review,
           ]),
         ),
         _Pill(label, tone),
@@ -1221,6 +1242,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
                     color: _packageWarn(v) ? SboxColors.warningText : SboxColors.slate600,
                     fontWeight: _packageWarn(v) ? FontWeight.w600 : FontWeight.w400),
               ),
+            if (_reviewLine(v) case final review?) review,
             if (!ok && note.isNotEmpty && note != label)
               Text(tr(note),
                   style: const TextStyle(fontSize: 12.5, color: SboxColors.dangerText, fontWeight: FontWeight.w600)),

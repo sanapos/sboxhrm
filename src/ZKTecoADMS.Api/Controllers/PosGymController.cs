@@ -40,7 +40,8 @@ public partial class PosGymController(ZKTecoDbContext db, IMediator bus, IGymChe
         Guid Id, Guid CustomerId, string CustomerName, string? Phone, string? DeviceName,
         DateTime CheckInAt, DateTime? CheckOutAt, int? DurationMinutes, string? PackageName,
         bool SessionDeducted, string Status, string Source, string? Note,
-        bool Unlimited, int? RemainingSessions, DateTime? ExpiresAt, Guid? BalanceId = null, bool Denied = false);
+        bool Unlimited, int? RemainingSessions, DateTime? ExpiresAt, Guid? BalanceId = null, bool Denied = false,
+        int? ReviewRating = null, string? ReviewNote = null);
 
     /// <param name="Force">Lễ tân xác nhận cho khách không có thẻ / gói hợp lệ vào.</param>
     /// <param name="BalanceId">Thẻ / gói trừ buổi (khách có thẻ tháng + gói PT, hôm nay tập với PT).</param>
@@ -812,8 +813,17 @@ public partial class PosGymController(ZKTecoDbContext db, IMediator bus, IGymChe
         var visitBalances = await db.PosCustomerSessionBalances.AsNoTracking()
             .Where(b => balanceIds.Contains(b.Id))
             .ToDictionaryAsync(b => b.Id);
+        // Đánh giá sau buổi PT đã ghi cho lượt (hiện sao trên thẻ lượt / lịch sử tập).
+        var visitIds = rows.Select(r => (Guid?)r.Id).ToList();
+        var reviews = (await db.PosGymAssessments.AsNoTracking()
+                .Where(a => a.StoreId == storeId && a.Kind == 1 && a.Deleted == null && visitIds.Contains(a.VisitId))
+                .Select(a => new { VisitId = a.VisitId!.Value, a.Rating, a.Condition, a.CreatedAt })
+                .ToListAsync())
+            .GroupBy(a => a.VisitId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.CreatedAt).First());
         return rows.Select(r =>
         {
+            reviews.TryGetValue(r.Id, out var rv);
             packs.TryGetValue(r.CustomerId, out var p);
             if (r.BalanceId is Guid bid && visitBalances.TryGetValue(bid, out var vb)
                 && !PosCustomerSessionBalance.IsUnlimitedCount(vb.TotalSessions))
@@ -825,7 +835,8 @@ public partial class PosGymController(ZKTecoDbContext db, IMediator bus, IGymChe
                 r.Status, r.Source, r.Note,
                 p != null && PosCustomerSessionBalance.IsUnlimitedCount(p.TotalSessions),
                 p?.RemainingSessions, p?.ExpiresAt, r.BalanceId,
-                GymVisitRules.IsDenied(r.Status, r.CheckInAt, r.CheckOutAt));
+                GymVisitRules.IsDenied(r.Status, r.CheckInAt, r.CheckOutAt),
+                rv?.Rating, rv?.Condition);
         }).ToList();
     }
 }

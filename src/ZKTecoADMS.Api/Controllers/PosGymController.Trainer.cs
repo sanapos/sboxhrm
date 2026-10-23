@@ -81,7 +81,7 @@ public partial class PosGymController
             .ToListAsync();
         var plans = await db.PosGymWorkoutPlans.AsNoTracking()
             .Where(x => x.StoreId == storeId && x.CustomerId == customerId && x.Deleted == null)
-            .OrderByDescending(x => x.StartDate ?? x.CreatedAt)
+            .OrderByDescending(x => x.StartDate ?? x.CreatedAt).ThenByDescending(x => x.CreatedAt)
             .Take(100)
             .Select(x => new { x.Id, x.Title, x.Content, x.StartDate, x.TrainerName, x.CreatedAt })
             .ToListAsync();
