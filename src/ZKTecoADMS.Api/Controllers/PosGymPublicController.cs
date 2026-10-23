@@ -430,7 +430,7 @@ public class PosGymPublicController(ZKTecoDbContext db, IConfiguration configura
 <style>
 :root{--bg:#eef3f7;--card:#fff;--ink:#0f172a;--muted:#64748b;--brand:#0e7490;--brand2:#155e75;--soft:#e0f2fe;
 --ok:#15803d;--okbg:#dcfce7;--warn:#b45309;--warnbg:#fef3c7;--bad:#b91c1c;--badbg:#fee2e2;--line:#e2e8f0;--heat:#e2e8f0;--heaton:#0e7490}
-@media (prefers-color-scheme:dark){:root{--bg:#0b1220;--card:#111a2b;--ink:#e2e8f0;--muted:#94a3b8;--soft:#0c3446;--line:#1f2b40;
+@media (prefers-color-scheme:dark){:root{--brand:#22d3ee;--bg:#0b1220;--card:#111a2b;--ink:#e2e8f0;--muted:#94a3b8;--soft:#0c3446;--line:#1f2b40;
 --okbg:#0f2f1d;--ok:#4ade80;--warnbg:#3a2a0a;--warn:#fbbf24;--badbg:#3b1212;--bad:#f87171;--heat:#1f2b40;--heaton:#22d3ee}}
 *{box-sizing:border-box}html{scroll-behavior:smooth}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
@@ -454,7 +454,7 @@ h2{font-size:17px;margin:0 0 10px}
 .bar{height:10px;border-radius:99px;background:var(--heat);overflow:hidden;margin:10px 0 6px}
 .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#06b6d4,#0e7490)}.bar i.warn{background:linear-gradient(90deg,#f59e0b,#d97706)}
 .pack-row{border-top:1px dashed var(--line);margin-top:12px;padding-top:12px}.pack-row:first-child{border:0;margin:0;padding:0}
-.cta{display:block;text-align:center;margin-top:14px;padding:12px;border-radius:12px;background:var(--brand);color:#fff;font-weight:700;text-decoration:none}
+.cta{display:block;text-align:center;margin-top:14px;padding:12px;border-radius:12px;background:#0e7490;color:#fff;font-weight:700;text-decoration:none}
 .tabs{position:sticky;top:0;z-index:5;display:flex;gap:6px;overflow-x:auto;padding:10px 0;margin-top:4px;background:var(--bg)}
 .tabs{scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
 .tabs a{flex:none;padding:6px 14px;border-radius:999px;background:var(--card);border:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:14px;font-weight:600}
