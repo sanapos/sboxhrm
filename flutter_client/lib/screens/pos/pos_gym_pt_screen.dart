@@ -14,7 +14,22 @@ final _dm = DateFormat('dd/MM');
 final _dmy = DateFormat('dd/MM/yyyy');
 const _wd = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
-DateTime? _date(dynamic v) => DateTime.tryParse('${v ?? ''}')?.toLocal();
+/// Giờ API là UTC, có thể thiếu «Z» (vd StartAt đọc từ DB) → đổi về giờ máy.
+DateTime? _date(dynamic v) {
+  final s = '${v ?? ''}';
+  final d = DateTime.tryParse(s);
+  if (d == null) return null;
+  if (!d.isUtc && s.contains('T') && !RegExp(r'([zZ]|[+-]\d\d:?\d\d)$').hasMatch(s)) {
+    return DateTime.utc(d.year, d.month, d.day, d.hour, d.minute, d.second).toLocal();
+  }
+  return d.toLocal();
+}
+
+/// «PT Minh» — tên nhân viên đã có chữ PT thì không thêm.
+String _pt(dynamic name) {
+  final n = '${name ?? ''}'.trim();
+  return n.toUpperCase().startsWith('PT') ? n : 'PT $n';
+}
 DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
 DateTime _weekStart(DateTime d) => _day(d).subtract(Duration(days: d.weekday - 1));
 String _dayLabel(DateTime d) => '${_wd[d.weekday - 1]} ${_dm.format(d)}';
@@ -357,7 +372,7 @@ class _ClientsTabState extends State<_ClientsTab> with AutomaticKeepAliveClientM
                   Text(
                     tr([
                       if ('${c['phone'] ?? ''}'.isNotEmpty) '${c['phone']}',
-                      if (widget.manageAll && '${c['trainerName'] ?? ''}'.isNotEmpty) 'PT ${c['trainerName']}',
+                      if (widget.manageAll && '${c['trainerName'] ?? ''}'.isNotEmpty) _pt(c['trainerName']),
                     ].join(' · ')),
                     style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                   ),
@@ -635,7 +650,7 @@ class _ScheduleTabState extends State<_ScheduleTab> with AutomaticKeepAliveClien
               Text(tr('${s['customerName'] ?? ''}'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               Text(
                 tr([
-                  if (widget.manageAll && '${s['trainerName'] ?? ''}'.isNotEmpty) 'PT ${s['trainerName']}',
+                  if (widget.manageAll && '${s['trainerName'] ?? ''}'.isNotEmpty) _pt(s['trainerName']),
                   if (checkedIn) 'đã check-in',
                   if (s['reviewed'] == true) 'đã đánh giá',
                   if (s['seriesId'] != null) 'lặp hàng tuần',

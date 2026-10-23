@@ -20,6 +20,17 @@ import '../notification_overlay.dart';
 
 final _dmy = DateFormat('dd/MM/yyyy');
 
+/// Giờ API là UTC, có thể thiếu «Z» (đọc từ DB) → giờ máy. Thiếu bước này phiếu đo trước 7h sáng lùi 1 ngày.
+DateTime? _utc(dynamic v) {
+  final s = '${v ?? ''}';
+  final d = DateTime.tryParse(s);
+  if (d == null) return null;
+  if (!d.isUtc && s.contains('T') && !RegExp(r'([zZ]|[+-]\d\d:?\d\d)$').hasMatch(s)) {
+    return DateTime.utc(d.year, d.month, d.day, d.hour, d.minute, d.second).toLocal();
+  }
+  return d.toLocal();
+}
+
 double? _num(dynamic v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}'.replaceAll(',', '.'));
 
 String _fmt(dynamic v, String unit) {
@@ -364,7 +375,7 @@ class _TrainerSheetState extends State<_TrainerSheet> {
   Future<void> _addAssessment() async {
     final body = _items.where((a) => a['kind'] != 1).toList();
     final last = body.isEmpty ? null : body.first;
-    final lastAt = DateTime.tryParse('${last?['assessedAt'] ?? ''}')?.toLocal();
+    final lastAt = _utc(last?['assessedAt']);
     // (khóa API, nhãn, số?) — số: so sánh theo giá trị (78 = 78.0), chữ: bỏ khoảng trắng / hoa thường.
     const fields = <(String, String, bool)>[
       ('weightKg', 'Cân nặng (kg)', true),
@@ -947,7 +958,7 @@ class _TrainerSheetState extends State<_TrainerSheet> {
 
   Widget _assessmentCard(int i) {
     final a = _items[i];
-    final at = DateTime.tryParse('${a['assessedAt'] ?? ''}')?.toLocal();
+    final at = _utc(a['assessedAt']);
     final metrics = <String>[
       if (_num(a['weightKg']) != null) 'Cân nặng ${_fmt(a['weightKg'], 'kg')}${_delta('weightKg', i, 'kg')}',
       if (_num(a['bmi']) != null) 'BMI ${_fmt(a['bmi'], '')}',
