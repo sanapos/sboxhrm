@@ -5480,14 +5480,36 @@ class _PosSellScreenState extends State<PosSellScreen>
     final paused = !ended && (line.timerPausedAt != null || tab.sessionIsPaused);
     final overtime = (line.lineNote ?? '').startsWith(tr('Quá giờ'));
     final color = ended ? slate : paused ? amber : overtime ? red : green;
+    // Giờ block: số phút tính tiền đã làm tròn lên theo block (vd dùng 51p → block 5p tính 55p).
+    // Hiện cạnh đồng hồ giờ thật để khỏi tưởng đếm sai khi 2 số lệch nhau.
+    String blockNote() {
+      final mode = PosServiceBillingMode.parse(line.product.serviceBillingMode);
+      final round = line.product.billRoundMinutes ?? 0;
+      if (round <= 1 ||
+          !(mode == PosServiceBillingMode.perHour ||
+              mode == PosServiceBillingMode.perMinute ||
+              mode == PosServiceBillingMode.perBlock)) {
+        return '';
+      }
+      final billable = PosServiceBillingCalc.billableMinutes(
+        elapsed: _timedLineElapsed(tab, line, start, complete: true),
+        mode: mode,
+        minBillMinutes: line.product.minBillMinutes,
+        billRoundMinutes: line.product.billRoundMinutes,
+        graceMinutes: line.product.graceMinutes,
+        roundAfterMinutes: line.product.roundAfterMinutes,
+      );
+      return billable > 0 ? ' · Giờ block ${posFmtTimedMinutes(billable)} (block ${round}p)' : '';
+    }
+
     // Đồng hồ tự vẽ lại mỗi giây — trước chỉ vẽ lại khi SL đổi (block 15p → đứng 15 phút).
     String label() {
       final dur = _fmtTimedClock(_timedLineDuration(tab, line, start));
       return ended
-          ? '⏹ ${hm(start)}–${hm(line.timerEndedAt!)} · $dur'
+          ? '⏹ ${hm(start)}–${hm(line.timerEndedAt!)} · $dur${blockNote()}'
           : paused
-              ? '⏸ Tạm dừng · $dur'
-              : '⏱ ${overtime ? 'Quá giờ từ' : 'Từ'} ${hm(start)} · $dur';
+              ? '⏸ Tạm dừng · $dur${blockNote()}'
+              : '⏱ ${overtime ? 'Quá giờ từ' : 'Từ'} ${hm(start)} · $dur${blockNote()}';
     }
 
     return Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
