@@ -207,13 +207,28 @@ class _PosTimedServiceSetupState extends State<PosTimedServiceSetup> {
               onChanged: _setPerBlock,
             ),
             const SizedBox(height: 8),
-            _field(
-              ctrl: widget.blockCtrl,
-              label: 'Block tính thời gian sử dụng dịch vụ (phút)',
-              hint: 'VD 15',
-              digitsOnly: true,
-              onChanged: (_) => setState(_syncOpeningMinutes),
-            ),
+            // Block + tính tối thiểu đặt cạnh nhau: karaoke / bi-a hay «60.000đ / giờ, tối thiểu 30 phút»
+            // (trước ô tối thiểu nằm trong «Tùy chọn nâng cao», chủ quán không thấy).
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(
+                child: _field(
+                  ctrl: widget.blockCtrl,
+                  label: 'Block tính thời gian sử dụng dịch vụ (phút)',
+                  hint: 'VD 15',
+                  digitsOnly: true,
+                  onChanged: (_) => setState(_syncOpeningMinutes),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _field(
+                  ctrl: widget.minBillCtrl,
+                  label: 'Tính tối thiểu (phút)',
+                  hint: 'VD 30 — trống = không',
+                  digitsOnly: true,
+                ),
+              ),
+            ]),
             const SizedBox(height: 12),
             _firstBlocksBox(wide),
             const SizedBox(height: 12),
@@ -562,7 +577,7 @@ class _PosTimedServiceSetupState extends State<PosTimedServiceSetup> {
   }
 
   Widget _advanced() {
-    final anySet = [widget.graceCtrl, widget.minBillCtrl, widget.roundAfterCtrl]
+    final anySet = [widget.graceCtrl, widget.roundAfterCtrl]
         .any((c) => c.text.trim().isNotEmpty);
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -573,17 +588,7 @@ class _PosTimedServiceSetupState extends State<PosTimedServiceSetup> {
         title: Text(tr('Tùy chọn nâng cao (ít dùng)'),
             style: const TextStyle(fontSize: 13, color: SboxColors.slate600)),
         children: [
-          Row(children: [
-            Expanded(
-              child: _field(
-                  ctrl: widget.graceCtrl, label: 'Phút đầu miễn phí', hint: 'VD 5', digitsOnly: true),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _field(
-                  ctrl: widget.minBillCtrl, label: 'Tính tối thiểu (phút)', hint: 'VD 60', digitsOnly: true),
-            ),
-          ]),
+          _field(ctrl: widget.graceCtrl, label: 'Phút đầu miễn phí', hint: 'VD 5', digitsOnly: true),
           const SizedBox(height: 12),
           _field(
             ctrl: widget.roundAfterCtrl,
