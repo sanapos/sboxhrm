@@ -877,6 +877,8 @@ public partial class PosProductsController(
         var oldCost = entity.CostPrice;
         // Không có quyền xem giá vốn → form không có giá vốn thật, giữ nguyên giá vốn cũ.
         if (await CanViewCostAsync()) entity.CostPrice = dto.CostPrice;
+        var oldBillingMode = entity.ServiceBillingMode;
+        var oldBlockMinutes = entity.BillRoundMinutes;
         entity.BasePrice = dto.BasePrice;
         entity.VatRate = dto.VatExempt ? 0 : Math.Max(0, dto.VatRate);
         entity.VatExempt = dto.VatExempt;
@@ -965,6 +967,7 @@ public partial class PosProductsController(
             entity.ImageUrl = await TrySaveImageAsync(storeId, dto.ImageBase64);
 
         await dbContext.SaveChangesAsync();
+        await RepriceOpenTimedLinesAsync(storeId, entity, oldBillingMode, oldBlockMinutes);
         await SyncBaseUnitAsync(entity);
         await SyncAttributesAsync(storeId, entity.Id, dto.Attributes);
         await SyncToppingsAsync(storeId, entity.Id, entity.AllowToppings, dto.Toppings);
@@ -1123,6 +1126,32 @@ public partial class PosProductsController(
     }
 
     /// <summary>Sắp xếp thứ tự sản phẩm trên menu bán.</summary>
+    /// <summary>
+    /// Đổi cách tính tiền giờ (giá / block ↔ giá / giờ, đổi độ dài block) khi đang có phòng hát / bàn bi-a mở:
+    /// dòng tiền giờ đang chạy còn giữ đơn giá cũ (5.000đ / block) nhưng bị nhân theo cách mới (× số giờ) →
+    /// phòng 78 giờ tụt từ 4,6 triệu còn 418 nghìn. Cập nhật đơn giá + ĐVT các dòng đang chạy theo giá mới.
+    /// </summary>
+    async Task RepriceOpenTimedLinesAsync(
+        Guid storeId, PosProduct entity, PosServiceBillingMode oldMode, int? oldBlockMinutes)
+    {
+        var mode = entity.ServiceBillingMode;
+        if (!PosServiceBillingMath.IsTimed(mode)) return;
+        var unitChanged = mode != oldMode
+            || (mode == PosServiceBillingMode.PerBlock && (entity.BillRoundMinutes ?? 5) != (oldBlockMinutes ?? 5));
+        if (!unitChanged) return;
+        var unitName = PosServiceBillingMath.TimedUnitName(mode, entity.BaseUnitName);
+        var openOrderIds = dbContext.PosSaleOrders
+            .Where(o => o.StoreId == storeId && o.Deleted == null && o.Status == PosSaleOrderStatus.Draft)
+            .Select(o => o.Id);
+        await dbContext.PosSaleOrderLines
+            .Where(l => l.StoreId == storeId && l.ProductId == entity.Id && l.Deleted == null
+                && l.ServiceEndedAt == null && openOrderIds.Contains(l.SaleOrderId))
+            .ExecuteUpdateAsync(u => u
+                .SetProperty(l => l.UnitPrice, entity.BasePrice)
+                .SetProperty(l => l.UnitName, unitName)
+                .SetProperty(l => l.UnitId, (Guid?)null));
+    }
+
     [HttpPut("sort")]
     [RequireAnyModulePermission(ModulePermissionAction.Edit, "PosProducts", "PosSell")]
     public async Task<ActionResult<AppResponse<object>>> SortProducts([FromBody] ProductSortBatchDto? dto)
