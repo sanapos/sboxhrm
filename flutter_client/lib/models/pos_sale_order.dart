@@ -686,7 +686,10 @@ String posFmtTimedMinutes(int minutes) {
 extension PosSaleOrderLineTimed on PosSaleOrderLine {
   bool get isTimedLine => serviceStartedAt != null && billableMinutes != null;
 
-  bool get _qtyInHours => (unitName ?? '').trim().toLowerCase() == 'giờ';
+  /// SL là số giờ: ĐVT «Giờ» và số phút không vượt phút tính tiền (đơn cũ tính block vẫn ghi «Giờ» với
+  /// SL = số block, vd 17 block / 115 phút — không được hiện thành «17g»).
+  bool get _qtyInHours =>
+      (unitName ?? '').trim().toLowerCase() == 'giờ' && qty * 60 <= (billableMinutes ?? 0) + 0.5;
 
   /// SL dạng thời gian khi tính theo giờ; null = hiện SL như thường (block / phút / ngày).
   String? get timedQtyLabel => isTimedLine && _qtyInHours ? posFmtTimedMinutes((qty * 60).round()) : null;
