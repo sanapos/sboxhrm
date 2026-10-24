@@ -8751,6 +8751,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (_tableAttachStale(attachEpoch)) return;
     if (hydrateSeq != tab.hydrateSeq) {
       // Lượt mới hơn đã ghi giỏ — chỉ trả lại hàng khách vừa thêm mà lượt này đã tạm gỡ.
+      for (final c in cartLines) {
+        c.dispose();
+      }
       final lost = preserve.where((l) => !tab.cart.contains(l)).toList();
       if (lost.isNotEmpty && mounted) {
         setState(() {
