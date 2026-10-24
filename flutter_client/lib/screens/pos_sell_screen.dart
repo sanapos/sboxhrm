@@ -5956,7 +5956,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Future<void> _closeTab(int index) async {
-    if (_slotOpBusy) return;
+    // Đóng liên tiếp (HĐ6 → HĐ5 → HĐ4) mỗi lần chạy riêng — không chặn bằng _slotOpBusy.
     if (index < 0 || index >= _tabs.length) return;
     if (_tabs.length <= 1) {
       NotificationOverlayManager().showWarning(
@@ -6008,7 +6008,6 @@ class _PosSellScreenState extends State<PosSellScreen>
     final prevActive = _activeTab;
     final wasActive = index == _activeTab;
     setState(() {
-      _slotOpBusy = true;
       _tabs.removeAt(index);
       if (_activeTab >= _tabs.length) {
         _activeTab = _tabs.length - 1;
@@ -6052,8 +6051,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         await _applyInvoiceSlotsPayload(res['data'] as Map, hydrateAll: false);
       }
       _restartDraftLockHeartbeat();
-    } finally {
-      if (mounted) setState(() => _slotOpBusy = false);
+    } catch (_) {
+      // Mất mạng giữa chừng: lấy lại danh sách HĐ từ server cho khớp.
+      if (mounted) unawaited(_bootstrapInvoiceSlots());
     }
   }
 
