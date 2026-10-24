@@ -689,12 +689,17 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     unawaited(_loadProducts(forceNetwork: true));
   }
 
+  /// Gói thời gian (karaoke / bi-a / spa…) lên đầu danh sách; món tạm khóa xuống cuối.
+  /// Giữ nguyên thứ tự trong từng nhóm.
   List<PosProduct> _withSoldOutLast(List<PosProduct> source) {
-    if (source.length < 2 || !source.any((p) => p.isDailySoldOut)) {
+    bool pkg(PosProduct p) => p.timePackageMinutes > 0 && !p.isDailySoldOut;
+    if (source.length < 2 ||
+        (!source.any((p) => p.isDailySoldOut) && !source.any(pkg))) {
       return source;
     }
     return [
-      ...source.where((p) => !p.isDailySoldOut),
+      ...source.where(pkg),
+      ...source.where((p) => !pkg(p) && !p.isDailySoldOut),
       ...source.where((p) => p.isDailySoldOut),
     ];
   }
