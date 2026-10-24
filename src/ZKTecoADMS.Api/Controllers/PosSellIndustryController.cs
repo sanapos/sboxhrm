@@ -837,6 +837,21 @@ public partial class PosSellIndustryController(
                 IsSplit = o.SplitFromOrderId != null,
             })
             .ToListAsync();
+        // Tiền giờ đang chạy (karaoke / bi-a): dòng tính giờ chỉ lưu tiền lúc thêm / lúc mở phòng — sơ đồ
+        // trước hiện số cũ (phòng hát 71 giờ hiện 30.000đ phí mở phòng). Cộng phần tiền giờ tính tới hiện tại.
+        var liveExtraByOrder = await LiveTimedExtraAsync(storeId,
+            orderIds.Concat(orphanDraftMeta.Select(x => x.Id)).Distinct().ToList());
+        decimal LiveExtra(Guid orderId) => liveExtraByOrder.GetValueOrDefault(orderId);
+        orderMeta = orderMeta.ToDictionary(kv => kv.Key, kv =>
+        {
+            var v = kv.Value;
+            v.Subtotal += LiveExtra(kv.Key);
+            return v;
+        });
+        orphanDraftMeta = orphanDraftMeta
+            .Select(x => x with { Subtotal = x.Subtotal + LiveExtra(x.Id) })
+            .ToList();
+
         var orphanByResource = orphanDraftMeta
             .GroupBy(x => x.ResourceId)
             .ToDictionary(
@@ -2336,5 +2351,42 @@ public partial class PosSellIndustryController(
             IsActive = true,
             CreatedBy = actorEmail,
         });
+    }
+
+    /// <summary>
+    /// Phần tiền giờ chưa ghi vào dòng của các dịch vụ tính giờ ĐANG CHẠY trên đơn nháp:
+    /// (tiền giờ tính tới hiện tại) − (thành tiền đang lưu). Trả về theo đơn.
+    /// </summary>
+    async Task<Dictionary<Guid, decimal>> LiveTimedExtraAsync(Guid storeId, List<Guid> orderIds)
+    {
+        if (orderIds.Count == 0) return [];
+        var timedModes = PosServiceBillingHelper.TimedModes;
+        var rows = await (from l in db.PosSaleOrderLines.AsNoTracking()
+                          join pr in db.PosProducts.AsNoTracking() on l.ProductId equals pr.Id
+                          where orderIds.Contains(l.SaleOrderId) && l.StoreId == storeId && l.Deleted == null
+                              && l.ServiceStartedAt != null && l.ServiceEndedAt == null
+                              && timedModes.Contains(pr.ServiceBillingMode)
+                          select new
+                          {
+                              l.SaleOrderId, l.ServiceStartedAt, l.ServicePausedAt, l.ServicePauseMinutes,
+                              l.UnitPrice, l.LineTotal, l.DiscountAmount,
+                              pr.ServiceBillingMode, pr.MinBillMinutes, pr.BillRoundMinutes, pr.GraceMinutes,
+                              pr.RoundAfterMinutes, pr.OpeningFee, pr.OpeningMinutes,
+                          })
+            .ToListAsync();
+        var result = new Dictionary<Guid, decimal>();
+        foreach (var r in rows)
+        {
+            var elapsed = PosServiceBillingHelper.CalcElapsedMinutes(
+                r.ServiceStartedAt!.Value, null, r.ServicePauseMinutes, r.ServicePausedAt);
+            var billable = PosServiceBillingHelper.CalcBillableMinutes(
+                elapsed, r.ServiceBillingMode, r.MinBillMinutes, r.BillRoundMinutes, r.GraceMinutes, r.RoundAfterMinutes);
+            var live = PosServiceBillingHelper.CalcTimedLineCharge(
+                r.ServiceBillingMode, billable, r.UnitPrice, r.OpeningFee, r.OpeningMinutes, r.BillRoundMinutes)
+                - Math.Max(0, r.DiscountAmount);
+            var extra = live - r.LineTotal;
+            if (extra > 0) result[r.SaleOrderId] = result.GetValueOrDefault(r.SaleOrderId) + extra;
+        }
+        return result;
     }
 }
