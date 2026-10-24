@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +11,7 @@ import '../../services/api_service.dart';
 import '../../utils/pos_promotion_engine.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/pos/pos_unsaved_changes.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Khuyến mãi tự áp ở màn bán (siêu thị / cửa hàng).
@@ -227,6 +230,8 @@ class _PosPromotionEditorPageState extends State<PosPromotionEditorPage> {
   ({String id, String name})? _addon;
   List<({TextEditingController min, TextEditingController pct})> _tiers = [];
   bool _saving = false;
+  /// Ảnh chụp form lúc mở — khác thì Back hỏi trước khi bỏ (trước đây gõ xong Back là mất).
+  String _initialSnapshot = '';
 
   TextEditingController _c(String key) => _num.putIfAbsent(key, () => TextEditingController());
 
@@ -287,8 +292,19 @@ class _PosPromotionEditorPageState extends State<PosPromotionEditorPage> {
       if (_c('buyQty').text.isEmpty) _c('buyQty').text = '2';
       if (_c('getQty').text.isEmpty) _c('getQty').text = '1';
     }
+    _initialSnapshot = _snapshot();
     _loadCategories();
   }
+
+  String _snapshot() => jsonEncode([
+        _name.text.trim(), _note.text.trim(), _type, _priority, _stackable, _membersOnly, _active,
+        _from?.toIso8601String(), _to?.toIso8601String(), _days,
+        _timeFrom == null ? null : _timeFrom!.hour * 60 + _timeFrom!.minute,
+        _timeTo == null ? null : _timeTo!.hour * 60 + _timeTo!.minute,
+        _config(),
+      ]);
+
+  bool _dirty() => !_saving && _snapshot() != _initialSnapshot;
 
   @override
   void dispose() {
@@ -731,7 +747,10 @@ class _PosPromotionEditorPageState extends State<PosPromotionEditorPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      UnsavedChangesScope(isDirty: _dirty, child: _buildPage(context));
+
+  Widget _buildPage(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(tr(widget.existing == null ? 'Tạo khuyến mãi' : 'Sửa khuyến mãi')),

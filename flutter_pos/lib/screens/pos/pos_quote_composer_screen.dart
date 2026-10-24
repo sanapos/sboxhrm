@@ -1802,10 +1802,13 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           const SizedBox(height: 14),
           if (_priceLists.isNotEmpty) ...[
             _priceListSelector(),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
           ],
           if (_templates.isNotEmpty) ...[
             ClipRect(
+              // Nhãn nổi «Mẫu in A4» nhô lên trên mép khung — chừa chỗ trong vùng cắt, không thì mất nửa chữ.
+              child: Padding(
+              padding: const EdgeInsets.only(top: 8),
               child: DropdownButtonFormField<String?>(
               value: _templates.any((t) => t.id == _printTemplateId)
                   ? _printTemplateId
@@ -1844,6 +1847,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
               onChanged: (v) => setState(() => _printTemplateId = v),
             ),
             ),
+            ),
             const SizedBox(height: 12),
           ],
           _moneyRow('Tổng tiền hàng', _subTotal),
@@ -1864,6 +1868,9 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
               Expanded(
                 child: TextField(
                   controller: _discount,
+                  // Bàn phím bật: cuộn chừa cả hàng nút chọn nhanh (500, 2k…) ngay dưới ô — mặc định
+                  // chỉ chừa 20px nên hàng nút bị che mất nửa.
+                  scrollPadding: const EdgeInsets.only(bottom: 80),
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.right,
                   decoration: InputDecoration(
@@ -1873,7 +1880,14 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                   ),
-                  onTap: () => setState(() => _discountPresetsVisible = true),
+                  onTap: () {
+                    // Ô đang «0»: chạm đặt con trỏ trước số 0 → gõ 5 thành 50. Chọn sẵn để gõ đè.
+                    if ((double.tryParse(_discount.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0) == 0) {
+                      _discount.selection =
+                          TextSelection(baseOffset: 0, extentOffset: _discount.text.length);
+                    }
+                    setState(() => _discountPresetsVisible = true);
+                  },
                   onChanged: (_) => setState(() {}),
                 ),
               ),

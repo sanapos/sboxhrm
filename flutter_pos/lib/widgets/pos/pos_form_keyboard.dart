@@ -159,6 +159,8 @@ class PosTouchImeHost extends StatefulWidget {
 
 class _PosTouchImeHostState extends State<PosTouchImeHost> {
   FocusNode? _last;
+  /// Chỗ chạm xuống — nhấc tay xa hơn ngưỡng kéo là cuộn, không mở bàn phím.
+  Offset? _downAt;
 
   @override
   void initState() {
@@ -189,6 +191,7 @@ class _PosTouchImeHostState extends State<PosTouchImeHost> {
 
   void _onPointerDown(PointerDownEvent e) {
     posLastPointerWasTouch = _posPointerLooksLikeTouch(e);
+    _downAt = e.position;
     final onField = posHitWantsSoftKeyboard(e.position);
     if (!onField) {
       if (posLastPointerWasTouch) {
@@ -199,6 +202,9 @@ class _PosTouchImeHostState extends State<PosTouchImeHost> {
       return;
     }
     if (!posLastPointerWasTouch) return;
+    // App: chưa biết là chạm hay vuốt cuộn — mở ngay thì kéo form bắt đầu trên một ô cũng bật
+    // bàn phím (không ô nào được focus) và che form. Ô chữ tự mở khi chạm; nhấc tay xử lý nốt.
+    if (!kIsWeb) return;
     // Phải focus input HTML ngay trong cử chỉ — post-frame thì Chrome không mở OSK.
     posArmWebImeForGesture();
     posShowSoftKeyboard();
@@ -234,6 +240,9 @@ class _PosTouchImeHostState extends State<PosTouchImeHost> {
       onPointerDown: _onPointerDown,
       onPointerUp: (e) {
         if (!posLastPointerWasTouch) return;
+        final down = _downAt;
+        _downAt = null;
+        if (down != null && (e.position - down).distance > kTouchSlop) return;
         _showIfFocusedEditable(hit: e.position, requireHit: true);
       },
       child: widget.child,
@@ -317,7 +326,7 @@ class _PosKeyboardLiftState extends State<PosKeyboardLift> with WidgetsBindingOb
     final node = FocusManager.instance.primaryFocus;
     if (inset > 0 && posFocusWantsSoftKeyboard(node) && node!.context != null) {
       final state = node.context!.findAncestorStateOfType<EditableTextState>();
-      final box = (state?.context ?? node.context)!.findRenderObject();
+      final box = _fieldFrameBox(state?.context ?? node.context!);
       if (box is RenderBox && box.attached && box.hasSize) {
         // Toạ độ đã gồm phần đang dịch thật → cộng lại để có vị trí gốc (không dùng [_dy]:
         // giữa hiệu ứng, cộng đích sẽ tưởng ô thấp hơn thật rồi đẩy tới kịch trần).
@@ -358,6 +367,21 @@ class _PosKeyboardLiftState extends State<PosKeyboardLift> with WidgetsBindingOb
       ),
     );
   }
+}
+
+/// Khung ô nhập (viền + nhãn) chứa [editable] — chỉ đo phần chữ thì viền dưới / chữ ở dòng
+/// dưới lọt sau bàn phím. Không có [InputDecorator] (ô trơn) → đo chính ô chữ.
+RenderObject? _fieldFrameBox(BuildContext editable) {
+  RenderObject? frame;
+  var depth = 0;
+  editable.visitAncestorElements((e) {
+    if (e.widget is InputDecorator) {
+      frame = e.findRenderObject();
+      return false;
+    }
+    return ++depth < 24;
+  });
+  return frame ?? editable.findRenderObject();
 }
 
 void hidePosSoftKeyboard({int alsoAfterMs = 320}) {
