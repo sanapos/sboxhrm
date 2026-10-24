@@ -510,6 +510,11 @@ class _SellInvoiceTab {
   /// Mở lại bàn offline sau khi app bị tắt: gán lại đúng khóa cũ (không tạo bản giữ trùng).
   String localKey = 'tab-${PosRequestId.newId()}';
   String? offlineSnapFp;
+
+  /// Lượt nạp giỏ từ server. Hai lượt chồng nhau (kéo HĐ khi mở app + kiểm tra đồng bộ /
+  /// realtime) → lượt sau coi dòng lượt trước vừa nạp là «hàng vừa thêm» và giữ lại → giỏ
+  /// nhân đôi (rồi autosave đẩy gấp đôi lên server). Chỉ lượt mới nhất được ghi giỏ.
+  int hydrateSeq = 0;
   _SellInvoiceTab({required this.id});
 
   final int id;
@@ -8608,6 +8613,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         tab.lockVersion = order.lockVersion;
       }
     }
+    final hydrateSeq = ++tab.hydrateSeq;
     final originalRemainingIds = {for (final l in tab.cart) l.rowId};
     // Khôi phục bảng giá trước khi build view/giá dòng.
     final plId = order.priceListId;
@@ -8743,6 +8749,18 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
 
     if (_tableAttachStale(attachEpoch)) return;
+    if (hydrateSeq != tab.hydrateSeq) {
+      // Lượt mới hơn đã ghi giỏ — chỉ trả lại hàng khách vừa thêm mà lượt này đã tạm gỡ.
+      final lost = preserve.where((l) => !tab.cart.contains(l)).toList();
+      if (lost.isNotEmpty && mounted) {
+        setState(() {
+          tab.cart.addAll(lost);
+          tab.localDirty = true;
+          if (identical(tab, _tab)) _syncPaidAmount();
+        });
+      }
+      return;
+    }
     final extra = tab.cart
         .where((l) => !originalRemainingIds.contains(l.rowId))
         .toList();
