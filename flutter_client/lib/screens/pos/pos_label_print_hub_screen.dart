@@ -9,7 +9,7 @@ import '../../widgets/pos/pos_barcode_label_dialog.dart';
 import '../../widgets/pos/pos_scale_label_dialog.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/pos_web_ime.dart';
-import 'pos_printer_settings_hub_screen.dart';
+import 'pos_local_printers_screen.dart';
 import 'pos_label_templates_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -75,7 +75,7 @@ class PosLabelPrintHubScreen extends StatelessWidget {
         title: 'Máy in tem',
         subtitle: 'Kết nối, khổ cuộn tem, khe giấy',
         onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => const PosPrinterSettingsHubScreen(),
+          builder: (_) => const PosLocalPrintersScreen(),
         )),
       ),
     ];

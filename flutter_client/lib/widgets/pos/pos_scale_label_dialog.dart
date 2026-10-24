@@ -306,8 +306,15 @@ class _PosScaleLabelDialogState extends State<_PosScaleLabelDialog> {
   Widget build(BuildContext context) {
     final p = _product;
     final total = _packs.fold<double>(0, (s, x) => s + _amountOf(x.qty));
+    // Máy ngang (C20, T1) bàn phím ảo chiếm nửa màn: bỏ tiêu đề + lề trên/dưới để ô khối lượng
+    // và danh sách gói còn chỗ hiện (trước đây chỉ còn nửa ô nhập).
+    final keyboardUp = MediaQuery.viewInsetsOf(context).bottom > 0;
     return AlertDialog(
-      title: Text(tr('Cân & in tem hàng cân')),
+      title: keyboardUp ? null : Text(tr('Cân & in tem hàng cân')),
+      insetPadding: keyboardUp
+          ? const EdgeInsets.symmetric(horizontal: 40, vertical: 6)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+      actionsPadding: keyboardUp ? const EdgeInsets.fromLTRB(24, 0, 24, 8) : null,
       content: SizedBox(
         width: 520,
         child: SingleChildScrollView(

@@ -150,7 +150,11 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
       ),
     );
     if (yes != true) return;
-    await _store.upsert(p.copyWith(lanHost: hit.host, lanPort: hit.port));
+    await _store.upsert(p.copyWith(
+      name: posPrinterNameForHost(p.name, p.lanHost, hit.host),
+      lanHost: hit.host,
+      lanPort: hit.port,
+    ));
     if (!mounted) return;
     NotificationOverlayManager().showSuccess(
       title: 'Đã đổi IP máy in',
@@ -1152,7 +1156,12 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
       _applySunmiDefaults();
     }
     return base.copyWith(
-      name: _name.text.trim().isEmpty ? base.name : _name.text.trim(),
+      // Tên tự đặt theo IP («Bếp LAN 192.168.1.230») đổi theo khi sửa IP — không thì tên một IP, máy một IP.
+      name: posPrinterNameForHost(
+        _name.text.trim().isEmpty ? base.name : _name.text.trim(),
+        widget.initial?.lanHost,
+        _type == PosThermalConnectionType.lan ? _lanHost.text.trim() : null,
+      ),
       enabled: forTest ? true : _enabled,
       kind: _kind,
       roles: roles.isEmpty ? _defaultRoles(_kind) : roles,
@@ -1854,4 +1863,12 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
 String _newId() {
   final t = DateTime.now().microsecondsSinceEpoch.toRadixString(16);
   return 'loc-$t';
+}
+
+/// Tên máy chứa IP cũ → thay bằng IP mới (tên khác giữ nguyên).
+String posPrinterNameForHost(String name, String? oldHost, String? newHost) {
+  final o = (oldHost ?? '').trim();
+  final n = (newHost ?? '').trim();
+  if (o.isEmpty || n.isEmpty || o == n) return name;
+  return name.replaceAll(RegExp('${RegExp.escape(o)}(?![0-9])'), n);
 }
