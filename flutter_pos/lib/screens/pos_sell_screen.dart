@@ -3735,6 +3735,19 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// Về sơ đồ: nhả khóa ngay để máy khác mở/claim được.
   /// Chỉ xem (draftReadOnly) → không unlock / không «tạm rời» — giữ «Máy khác» của máy đang sửa.
   Future<void> _returnToFloorMap() async {
+    // Món vừa thêm còn chờ lượt tự lưu — trước đây thoát bàn HỦY lượt lưu đó → món / tiền giờ biến mất. Lưu xong mới thoát.
+    final leaving = _tab;
+    if (!leaving.draftReadOnly &&
+        (_draftAutosaveTimer?.isActive == true || leaving.localDirty) &&
+        (leaving.cart.isNotEmpty || (leaving.draftOrderId ?? '').isNotEmpty)) {
+      _draftAutosaveTimer?.cancel();
+      await _awaitDraftAutosaveIdle(maxTicks: 40, tick: const Duration(milliseconds: 80));
+      if (!mounted || !identical(leaving, _tab)) return;
+      if (leaving.localDirty) {
+        await _persistDraftAutosave(forTab: leaving, showLockError: true, retryOnConflict: true);
+        if (!mounted || !identical(leaving, _tab)) return;
+      }
+    }
     final epoch = ++_tableAttachEpoch;
     _draftAutosaveTimer?.cancel();
     _stopDraftLockHeartbeat();
@@ -8194,6 +8207,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     }());
   }
 
+  String? _lastDraftSaveErrorMsg;
+  DateTime? _lastDraftSaveErrorAt;
+
   Future<bool> _persistDraftAutosave({
     _SellInvoiceTab? forTab,
     bool showLockError = false,
@@ -8324,6 +8340,18 @@ class _PosSellScreenState extends State<PosSellScreen>
         // Giữ dirty để lần sau thử lại — không kéo đè giỏ local.
         if (_isLockConflict(res) && showLockError) {
           await _handleMutationLockConflict(res, title: 'Không lưu được đơn tạm');
+        } else if (res['statusCode'] == 400 && mounted) {
+          // Máy chủ từ chối nội dung (không phải mất mạng) — trước đây im lặng: món gọi thêm không lên máy chủ
+          // và mất khi rời bàn. Báo lại, giãn 20 giây / cùng nội dung để không dội thông báo mỗi lần tự lưu.
+          final msg = '${res['message'] ?? 'Máy chủ từ chối lưu đơn'}';
+          final now = DateTime.now();
+          if (msg != _lastDraftSaveErrorMsg ||
+              _lastDraftSaveErrorAt == null ||
+              now.difference(_lastDraftSaveErrorAt!) > const Duration(seconds: 20)) {
+            _lastDraftSaveErrorMsg = msg;
+            _lastDraftSaveErrorAt = now;
+            NotificationOverlayManager().showError(title: 'Không lưu được đơn tạm', message: msg);
+          }
         }
         return false;
       }

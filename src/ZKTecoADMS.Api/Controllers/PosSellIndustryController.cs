@@ -1624,7 +1624,19 @@ public partial class PosSellIndustryController(
         if (settings?.EnableHourlyBilling != true) return;
 
         var productId = resource.DefaultServiceProductId ?? settings.DefaultHourlyProductId;
-        if (productId is null || productId == Guid.Empty) return;
+        if (productId is null || productId == Guid.Empty)
+        {
+            // Chưa chọn SP tính giờ mặc định nhưng cửa hàng chỉ có đúng 1 dịch vụ tính giờ (karaoke / bi-a mới
+            // tạo) → dùng luôn. Trước đây mở phòng không tự tính giờ — thu ngân quên bấm «Tiền giờ» là mất tiền giờ.
+            var timed = await db.PosProducts.AsNoTracking()
+                .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive
+                    && p.ProductType == PosProductType.Service && timedModes.Contains(p.ServiceBillingMode))
+                .Select(p => p.Id)
+                .Take(2)
+                .ToListAsync();
+            if (timed.Count != 1) return;
+            productId = timed[0];
+        }
 
         var lineProductIds = await db.PosSaleOrderLines.AsNoTracking()
             .Where(l => l.SaleOrderId == order.Id && l.Deleted == null)

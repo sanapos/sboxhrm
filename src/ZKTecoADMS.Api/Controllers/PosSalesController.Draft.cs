@@ -1398,7 +1398,13 @@ public partial class PosSalesController
         {
             if (!products.TryGetValue(line.ProductId, out var prod))
                 return (null, null, $"Hàng hóa không hợp lệ: {line.ProductId}");
-            var qtyErr = PosQtyRules.ValidateLineQty(prod, line.Qty, complete ? "Thanh toán" : "Lưu đơn");
+            // Dòng tính giờ (karaoke / bi-a): SL do hệ thống tính (0 khi còn trong phút mở phòng, 1,75 giờ…) — như
+            // PosSaleStockHelper. Trước đây SL 0 bị từ chối «số lượng phải > 0» nên mọi lần lưu nháp của phòng mới
+            // mở đều 400 và món gọi thêm bị mất khi rời phòng.
+            var timedService = prod.ProductType == PosProductType.Service && PosServiceBillingHelper.IsTimed(prod.ServiceBillingMode);
+            var qtyErr = timedService
+                ? (line.Qty < 0 ? $"Số lượng không hợp lệ: {prod.Name}" : null)
+                : PosQtyRules.ValidateLineQty(prod, line.Qty, complete ? "Thanh toán" : "Lưu đơn");
             if (qtyErr != null) return (null, null, qtyErr);
             if (PosDailySoldOutHelper.IsLockedToday(prod.DailySoldOutOn, bizDate)
                 && !priorProductIds.Contains(prod.Id))
