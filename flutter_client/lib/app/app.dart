@@ -1,5 +1,6 @@
 import 'sbox_scroll_behavior.dart';
 import '../widgets/impersonation_banner.dart';
+import '../widgets/notification_overlay.dart';
 import '../screens/design_system_showcase_screen.dart';
 import 'dart:ui' as ui;
 
@@ -147,7 +148,9 @@ class ZKTecoApp extends StatelessWidget {
                               child: PosKeyboardLift(
                                 child: DefaultTextStyle(
                                   style: kDefaultVietnameseTextStyle,
-                                  child: ImpersonationBanner(child: child!),
+                                  child: NotificationOverlay(
+                                    child: ImpersonationBanner(child: child!),
+                                  ),
                                 ),
                               ),
                             ),

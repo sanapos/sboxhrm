@@ -259,12 +259,23 @@ abstract final class PosLabelDesignPainter {
     final rowWmm = d.widthMm * cols + d.columnGapMm * (cols - 1);
     final w = (rowWmm * pxPerMm).round();
     final h = (d.heightMm * pxPerMm).round();
+    // Dời phải mà mẫu chạm mép phải (tem cân: thanh thành tiền, đơn giá căn phải) → phần cuối rơi
+    // ra ngoài tem. Thu nhỏ đều cả mẫu cho vừa phần còn lại thay vì cắt chữ.
+    final shift = shiftRightMm.clamp(0.0, d.widthMm / 2);
+    final contentRight =
+        d.elements.fold<double>(0, (m, e) => math.max(m, e.x + e.w)).clamp(0.0, d.widthMm);
+    final fit = shift > 0 && contentRight + shift > d.widthMm && contentRight > 0
+        ? (d.widthMm - shift) / contentRight
+        : 1.0;
     final rec = ui.PictureRecorder();
     final canvas = ui.Canvas(rec);
     canvas.drawRect(Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()), Paint()..color = Colors.white);
     for (var i = 0; i < rowData.length && i < cols; i++) {
-      paint(canvas, d, rowData[i], pxPerMm,
-          origin: Offset((i * (d.widthMm + d.columnGapMm) + shiftRightMm) * pxPerMm, 0), images: imgs);
+      canvas.save();
+      canvas.translate((i * (d.widthMm + d.columnGapMm) + shift) * pxPerMm, 0);
+      canvas.scale(fit);
+      paint(canvas, d, rowData[i], pxPerMm, images: imgs);
+      canvas.restore();
     }
     final image = await rec.endRecording().toImage(w, h);
     return PosLabelRenderer.imageToRaster(image);

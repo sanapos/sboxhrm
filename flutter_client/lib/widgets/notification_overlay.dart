@@ -222,6 +222,10 @@ class NotificationOverlayItem {
 /// Dùng [Stack] (không insert [OverlayEntry]) vì widget này thường nằm trong
 /// `MaterialApp.builder` — **ngoài** Overlay của Navigator, nên
 /// `Overlay.maybeOf(context)` hay trả null → bấm «Kiểm tra kết nối» im lặng.
+///
+/// Gốc nằm ở `MaterialApp.builder` (trên mọi route). Bản lồng bên trong (khung trang chủ,
+/// POS độc lập…) chỉ trả [child] — nếu không, màn đẩy toàn màn hình (Thiết lập in, Máy in
+/// nội bộ…) che mất thông báo, còn khi cả hai cùng vẽ thì toast hiện đôi.
 class NotificationOverlay extends StatefulWidget {
   final Widget child;
   final double extraTopInset;
@@ -241,10 +245,13 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    if (context.dependOnInheritedWidgetOfExactType<_NotificationOverlayScope>() != null) {
+      return widget.child;
+    }
     return Stack(
       fit: StackFit.expand,
       children: [
-        widget.child,
+        _NotificationOverlayScope(child: widget.child),
         ValueListenableBuilder<bool>(
           valueListenable: PosKdsAlert.uiOpen,
           builder: (context, kdsOpen, _) {
@@ -317,6 +324,13 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
       ],
     );
   }
+}
+
+class _NotificationOverlayScope extends InheritedWidget {
+  const _NotificationOverlayScope({required super.child});
+
+  @override
+  bool updateShouldNotify(_NotificationOverlayScope oldWidget) => false;
 }
 
 class _NotificationCard extends StatefulWidget {

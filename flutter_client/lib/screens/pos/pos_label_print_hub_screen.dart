@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -7,6 +8,7 @@ import '../../services/api_service.dart';
 import '../../widgets/pos/pos_barcode_label_dialog.dart';
 import '../../widgets/pos/pos_scale_label_dialog.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/pos/pos_web_ime.dart';
 import 'pos_printer_settings_hub_screen.dart';
 import 'pos_label_templates_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -241,7 +243,8 @@ class _PosLabelProductPickerState extends State<_PosLabelProductPicker> {
           children: [
             TextField(
               controller: _searchCtrl,
-              autofocus: true,
+              // Máy cảm ứng (C20, T1, điện thoại): tự focus bật bàn phím ảo, danh sách hàng bị ép còn 1 dòng.
+              autofocus: !_touchDevice,
               decoration: InputDecoration(
                 isDense: true,
                 prefixIcon: const Icon(Icons.search, size: 20),
@@ -304,3 +307,7 @@ class _PosLabelProductPickerState extends State<_PosLabelProductPicker> {
     );
   }
 }
+
+bool get _touchDevice => kIsWeb
+    ? posWebHasTouchPoints()
+    : defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS;
