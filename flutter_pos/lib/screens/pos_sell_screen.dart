@@ -10630,6 +10630,9 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   Future<bool> _collectSerialsBeforeCheckout() async {
     for (final line in _tab.cart) {
+      // Tiền giờ (karaoke / bi-a): SL do hệ thống tính — 0 khi còn trong phút mở phòng (tiền là phí mở),
+      // số lẻ khi tính theo giờ. Trước đây phòng dùng < 30 phút không thanh toán được.
+      if (line.product.isTimedService) continue;
       final err = PosQtyRules.validate(line.product, line.qty, action: 'Thanh toán');
       if (err != null) {
         NotificationOverlayManager().showError(title: 'Số lượng', message: tr(err));
