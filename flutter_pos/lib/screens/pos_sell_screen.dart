@@ -873,6 +873,21 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
   /// Slot vừa đóng — bỏ qua nếu sync stale còn trả về (tránh HĐ hiện lại).
   final Map<int, DateTime> _recentlyClosedSlots = {};
+
+  /// Draft của slot vừa đóng. Server cấp lại số slot nhỏ nhất còn trống → đóng HĐ3 rồi bấm «+»
+  /// được HĐ3 MỚI; chặn theo số slot thì HĐ mới bị ẩn 20 giây (bấm + không thấy gì) và giỏ
+  /// không autosave. Chỉ chặn đúng draft đã đóng.
+  final Map<int, String?> _recentlyClosedDraftIds = {};
+
+  /// Đang thêm / đóng hóa đơn — chặn bấm lặp (trước đây bấm + liên tục tạo nhiều HĐ).
+  bool _slotOpBusy = false;
+
+  bool _isClosedSlotDraft(int slot, String? draftId) {
+    if (!_recentlyClosedSlots.containsKey(slot)) return false;
+    final closed = _recentlyClosedDraftIds[slot];
+    if (closed == null || draftId == null || draftId.isEmpty) return true;
+    return closed == draftId;
+  }
   /// Sau khi máy này lưu Draft thành công — không để sync lật readOnly trong vài giây.
   DateTime? _ignoreReadOnlyUntil;
   Timer? _draftLockHeartbeat;
@@ -5401,34 +5416,50 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Future<void> _newTabAsync({bool parkCurrentIfNeeded = true}) async {
-    if (parkCurrentIfNeeded &&
-        !_checkingOut &&
-        !_parking &&
-        (_tab.cart.isNotEmpty || _tab.localDirty) &&
-        !_tab.draftReadOnly) {
-      await _persistDraftAutosave(forTab: _tab);
-    }
-    if (!mounted) return;
+    if (_slotOpBusy) return;
+    setState(() => _slotOpBusy = true);
+    try {
+      // Lưu HĐ đang mở song song với tạo slot (2 draft khác nhau) — trước đây chờ lần lượt
+      // 3–4 lượt mạng nên bấm «+» thấy đơ.
+      final park = parkCurrentIfNeeded &&
+              !_checkingOut &&
+              !_parking &&
+              (_tab.cart.isNotEmpty || _tab.localDirty) &&
+              !_tab.draftReadOnly
+          ? _persistDraftAutosave(forTab: _tab)
+          : Future<Object?>.value();
 
-    await _ensureDeviceReady();
-    final res = await _api.addPosInvoiceSlot(
-      deviceId: _posDeviceId,
-      deviceName: _posDeviceName,
-    );
-    if (!mounted) return;
-    if (res['isSuccess'] != true || res['data'] is! Map) {
-      NotificationOverlayManager().showError(
-        title: 'Không thêm được hóa đơn',
-        message: res['message']?.toString() ?? 'Thử lại',
+      await _ensureDeviceReady();
+      final res = await _api.addPosInvoiceSlot(
+        deviceId: _posDeviceId,
+        deviceName: _posDeviceName,
       );
-      return;
+      await park;
+      if (!mounted) return;
+      if (res['isSuccess'] != true || res['data'] is! Map) {
+        NotificationOverlayManager().showError(
+          title: 'Không thêm được hóa đơn',
+          message: res['message']?.toString() ?? 'Thử lại',
+        );
+        return;
+      }
+      final data = res['data'] as Map;
+      final added = data['addedSlot'] is num ? (data['addedSlot'] as num).toInt() : null;
+      if (added != null) {
+        _recentlyClosedSlots.remove(added);
+        _recentlyClosedDraftIds.remove(added);
+      }
+      // HĐ mới trống: không cần kéo lại cả loạt HĐ khác trước khi hiện.
+      await _applyInvoiceSlotsPayload(data, selectSlot: added, hydrateAll: false);
+      if (!mounted) return;
+      setState(() {
+        _customerSuggestions = [];
+        _syncPaidAmount();
+      });
+      unawaited(_onSelectedTabActivated());
+    } finally {
+      if (mounted) setState(() => _slotOpBusy = false);
     }
-    await _applyInvoiceSlotsPayload(
-      res['data'] as Map,
-      selectSlot: (res['data'] as Map)['addedSlot'] is num
-          ? ((res['data'] as Map)['addedSlot'] as num).toInt()
-          : null,
-    );
   }
 
   /// Áp danh sách slot từ server vào tab UI.
@@ -5441,6 +5472,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (rawItems.isEmpty) return;
     final cutoff = DateTime.now().subtract(const Duration(seconds: 20));
     _recentlyClosedSlots.removeWhere((_, t) => t.isBefore(cutoff));
+    _recentlyClosedDraftIds.removeWhere((k, _) => !_recentlyClosedSlots.containsKey(k));
     final built = <_SellInvoiceTab>[];
     final existingBySlot = {for (final t in _tabs) t.id: t};
 
@@ -5452,7 +5484,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           : int.tryParse('${m['invoiceSlot']}') ?? 0;
       if (slot < 1) continue;
       // Bỏ slot vừa đóng — tránh GET/sync stale hiện lại HĐ đã xóa.
-      if (_recentlyClosedSlots.containsKey(slot)) continue;
+      if (_isClosedSlotDraft(slot, m['id']?.toString())) continue;
       final prev = existingBySlot[slot];
       final tab = prev ?? _SellInvoiceTab(id: slot);
       if (prev == null) {
@@ -5645,6 +5677,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Future<void> _closeTab(int index) async {
+    if (_slotOpBusy) return;
     if (index < 0 || index >= _tabs.length) return;
     if (_tabs.length <= 1) {
       NotificationOverlayManager().showWarning(
@@ -5680,42 +5713,69 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (ok != true) return;
     }
 
+    // Dialog xong, danh sách có thể đã đổi (đồng bộ máy khác) — tìm lại theo slot.
+    index = _tabs.indexOf(tab);
+    if (index < 0 || _tabs.length <= 1) return;
+
     // Không autosave trước khi xóa — tránh tạo lại draft / đua với DELETE.
     _draftAutosaveTimer?.cancel();
+    final wasDirty = tab.localDirty;
     tab.localDirty = false;
     final closedSlot = tab.id;
     _recentlyClosedSlots[closedSlot] = DateTime.now();
+    _recentlyClosedDraftIds[closedSlot] = tab.draftOrderId;
 
-    await _ensureDeviceReady();
-    final res = await _api.removePosInvoiceSlot(
-      closedSlot,
-      force: true, // luôn force: trống hoặc đã xác nhận xóa hàng
-      deviceId: _posDeviceId,
-      deviceName: _posDeviceName,
-    );
-    if (!mounted) return;
-    if (res['isSuccess'] != true) {
-      _recentlyClosedSlots.remove(closedSlot);
-      NotificationOverlayManager().showError(
-        title: 'Không đóng được hóa đơn',
-        message: res['message']?.toString() ?? 'Thử lại',
+    // Bỏ khỏi thanh HĐ ngay — trước đây chờ DELETE xong mới mất, bấm X tưởng không ăn.
+    final prevActive = _activeTab;
+    final wasActive = index == _activeTab;
+    setState(() {
+      _slotOpBusy = true;
+      _tabs.removeAt(index);
+      if (_activeTab >= _tabs.length) {
+        _activeTab = _tabs.length - 1;
+      } else if (_activeTab > index) {
+        _activeTab--;
+      }
+      _customerSuggestions = [];
+      _syncPaidAmount();
+    });
+    if (wasActive) {
+      _refreshTimedLineQtys();
+      unawaited(_onSelectedTabActivated());
+    }
+
+    try {
+      await _ensureDeviceReady();
+      final res = await _api.removePosInvoiceSlot(
+        closedSlot,
+        force: true, // luôn force: trống hoặc đã xác nhận xóa hàng
+        deviceId: _posDeviceId,
+        deviceName: _posDeviceName,
       );
-      return;
+      if (!mounted) return;
+      if (res['isSuccess'] != true) {
+        _recentlyClosedSlots.remove(closedSlot);
+        _recentlyClosedDraftIds.remove(closedSlot);
+        setState(() {
+          tab.localDirty = wasDirty;
+          _tabs.insert(index.clamp(0, _tabs.length), tab);
+          _activeTab = prevActive.clamp(0, _tabs.length - 1);
+          _syncPaidAmount();
+        });
+        NotificationOverlayManager().showError(
+          title: 'Không đóng được hóa đơn',
+          message: res['message']?.toString() ?? 'Thử lại',
+        );
+        return;
+      }
+      tab.dispose();
+      if (res['data'] is Map) {
+        await _applyInvoiceSlotsPayload(res['data'] as Map, hydrateAll: false);
+      }
+      _restartDraftLockHeartbeat();
+    } finally {
+      if (mounted) setState(() => _slotOpBusy = false);
     }
-    if (res['data'] is Map) {
-      await _applyInvoiceSlotsPayload(res['data'] as Map, hydrateAll: false);
-    } else {
-      setState(() {
-        tab.dispose();
-        _tabs.removeAt(index);
-        if (_activeTab >= _tabs.length) {
-          _activeTab = _tabs.length - 1;
-        } else if (_activeTab > index) {
-          _activeTab--;
-        }
-      });
-    }
-    _restartDraftLockHeartbeat();
   }
 
   void _selectTab(int index) {
@@ -8283,7 +8343,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final draftIdAtStart = tab.draftOrderId;
     final hadCartAtStart = tab.cart.isNotEmpty;
     // Slot vừa đóng — không tạo/ghi draft lại.
-    if (_recentlyClosedSlots.containsKey(tab.id)) return false;
+    if (_isClosedSlotDraft(tab.id, tab.draftOrderId)) return false;
     // Giỏ local trống nhưng server còn món — không ghi đè (đang mở/claim bàn).
     if (tab.cart.isEmpty &&
         tab.draftOrderId != null &&
@@ -14150,7 +14210,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                     ),
                                   ),
                                   icon: const Icon(Icons.add, size: 22),
-                                  onPressed: _newTab,
+                                  onPressed: _slotOpBusy ? null : _newTab,
                                 ),
                               ],
                             ),
@@ -18157,7 +18217,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     borderRadius: BorderRadius.circular(10),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(10),
-                      onTap: _newTab,
+                      onTap: _slotOpBusy ? null : _newTab,
                       child: const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 10),
                         child: Icon(Icons.add,
