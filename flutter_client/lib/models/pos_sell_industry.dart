@@ -1831,19 +1831,10 @@ class PosTimeSurchargeRule {
 }
 
 class PosServiceBillingCalc {
-  static DateTime _asUtc(DateTime value) {
-    if (value.isUtc) return value;
-    return DateTime.utc(
-      value.year,
-      value.month,
-      value.day,
-      value.hour,
-      value.minute,
-      value.second,
-      value.millisecond,
-      value.microsecond,
-    );
-  }
+  /// DateTime không phải UTC trong Dart là giờ máy (đúng thời điểm) → đổi sang UTC. Trước đây ghép lại
+  /// thành UTC cùng giờ / phút: phòng mở 13:13 (giờ VN) thành 13:13 UTC = 20:13 VN → giờ bắt đầu ở tương lai,
+  /// phút dùng luôn 0 → tiền giờ đứng ở phí mở phòng dù đồng hồ đã chạy 2 giờ.
+  static DateTime _asUtc(DateTime value) => value.isUtc ? value : value.toUtc();
 
   static int _ceilingMinutes(Duration span) {
     if (span <= Duration.zero) return 0;
