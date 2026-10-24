@@ -151,6 +151,15 @@ public static class PosServiceBillingMath
         return BillableQty(mode, extra, fallbackQty, billRoundMinutes);
     }
 
+    /// <summary>
+    /// Tiền phần giờ = SL × giá. Theo giờ: SL lưu 4 chữ số lẻ (85 phút = 1,4167 giờ) nên nhân thẳng ra 85.002đ —
+    /// quy về số phút (1,4167 × 60 = 85) rồi × giá / 60 để đúng 85.000đ như bảng giá «60.000đ / giờ».
+    /// </summary>
+    public static decimal TimedAmount(PosServiceBillingMode mode, decimal qty, decimal unitPrice) =>
+        mode == PosServiceBillingMode.PerHour
+            ? Math.Round(qty * 60m, 0, MidpointRounding.AwayFromZero) * unitPrice / 60m
+            : qty * unitPrice;
+
     public static decimal TimedLineCharge(
         PosServiceBillingMode mode,
         int billableMinutes,
@@ -160,7 +169,7 @@ public static class PosServiceBillingMath
         int? billRoundMinutes = null)
     {
         var qty = ExtraQty(mode, billableMinutes, openingMinutes, billRoundMinutes);
-        return Math.Max(0, openingFee) + qty * unitPrice;
+        return Math.Max(0, openingFee) + TimedAmount(mode, qty, unitPrice);
     }
 
     // ─── Đơn vị tính khi bán ──────────────────────────────────────────
@@ -333,7 +342,8 @@ public static class PosServiceBillingMath
             var billable = BillableMinutes(
                 elapsed, mode, minBillMinutes, billRoundMinutes, graceMinutes, roundAfterMinutes);
             var qty = ExtraQty(mode, billable, openingMinutes, billRoundMinutes);
-            rows.Add(new PreviewRow(elapsed, billable, qty, Math.Max(0, openingFee) + qty * unitPrice));
+            rows.Add(new PreviewRow(elapsed, billable, qty,
+                Math.Round(Math.Max(0, openingFee) + TimedAmount(mode, qty, unitPrice), 0, MidpointRounding.AwayFromZero)));
         }
         return rows;
     }

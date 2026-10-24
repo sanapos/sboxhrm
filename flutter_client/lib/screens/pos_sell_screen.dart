@@ -329,6 +329,12 @@ class _SellCartLine {
       : _unitLabel;
   set unitLabel(String v) => _unitLabel = v;
 
+  /// SL hiện trên giỏ: tiền giờ theo giờ hiện «1g55p» (format SL nguyên trước đây làm 1,9167 giờ thành «2»).
+  String get qtyLabel => product.isTimedService &&
+          PosServiceBillingMode.parse(product.serviceBillingMode) == PosServiceBillingMode.perHour
+      ? posFmtTimedMinutes((qty * 60).round())
+      : PosQtyRules.format(qty, product: product);
+
   /// Tiền cộng / trừ của khung giờ đặc biệt (dịch vụ tính giờ) — tính lại mỗi nhịp đồng hồ.
   double timeSurcharge = 0;
   String displayCode;
@@ -392,7 +398,9 @@ class _SellCartLine {
     final extra = (unitPrice + toppingExtraPerUnit) * qty;
     if (!product.isTimedService) return extra.roundToDouble();
     final fee = product.openingFee;
-    final gross = ((fee < 0 ? 0.0 : fee) + extra + timeSurcharge).roundToDouble();
+    final timed = PosServiceBillingCalc.timedAmount(
+        PosServiceBillingMode.parse(product.serviceBillingMode), qty, unitPrice + toppingExtraPerUnit);
+    final gross = ((fee < 0 ? 0.0 : fee) + timed + timeSurcharge).roundToDouble();
     return gross < 0 ? 0 : gross;
   }
 
@@ -17370,7 +17378,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  tr(PosQtyRules.format(line.qty, product: line.product)),
+                  tr(line.qtyLabel),
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   style: const TextStyle(
@@ -20335,7 +20343,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     child: InkWell(
                       onTap: () => unawaited(_editLineQty(line)),
                       child: Text(
-                        tr(PosQtyRules.format(line.qty, product: line.product)),
+                        tr(line.qtyLabel),
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 16,

@@ -1612,7 +1612,9 @@ public partial class PosSalesController
                 : p.BaseUnitName;
             var lineName = soldVariant != null ? $"{p.Name} — {soldVariant.Name}" : p.Name;
 
-            if (line.UnitId.HasValue)
+            // Dịch vụ tính giờ không bán theo ĐVT quy đổi: dòng ĐVT cũ («Giờ» giá 5.000 trên dịch vụ tính block)
+            // làm hóa đơn ghi «17 Giờ × 5.000» trong khi 17 là số block — luôn lấy giá + ĐVT theo cách tính.
+            if (line.UnitId.HasValue && !PosServiceBillingHelper.IsTimed(p.ServiceBillingMode))
             {
                 var unit = await dbContext.PosProductUnits.AsNoTracking()
                     .FirstOrDefaultAsync(u => u.Id == line.UnitId && u.ProductId == p.Id && u.Deleted == null);
@@ -1622,7 +1624,7 @@ public partial class PosSalesController
                     catalogPrice = unit.BasePrice;
                 }
             }
-            else if (soldVariant?.AttributeJson != null)
+            else if (soldVariant?.AttributeJson != null && !PosServiceBillingHelper.IsTimed(p.ServiceBillingMode))
             {
                 try
                 {
@@ -1727,7 +1729,8 @@ public partial class PosSalesController
                         p.ServiceBillingMode, started, billableMinutes.Value, unitPrice,
                         p.OpeningMinutes, p.BillRoundMinutes, p.GraceMinutes, p.TimeSurchargesJson);
                 grossLine = Math.Max(0, Math.Round(
-                    p.OpeningFee + (unitPrice + toppingExtra) * lineQty + surcharge, 0, MidpointRounding.AwayFromZero));
+                    p.OpeningFee + PosServiceBillingMath.TimedAmount(p.ServiceBillingMode, lineQty, unitPrice + toppingExtra)
+                    + surcharge, 0, MidpointRounding.AwayFromZero));
                 discAmt = Math.Round(Math.Max(0, Math.Min(line.DiscountAmount, grossLine)), 0, MidpointRounding.AwayFromZero);
                 lineTotal = grossLine - discAmt;
             }
@@ -1750,7 +1753,7 @@ public partial class PosSalesController
                 VariantId = soldVariant?.Id,
                 ProductName = lineName,
                 UnitName = unitName,
-                UnitId = line.UnitId,
+                UnitId = PosServiceBillingHelper.IsTimed(p.ServiceBillingMode) ? null : line.UnitId,
                 Qty = lineQty,
                 UnitPrice = unitPrice,
                 DiscountAmount = discAmt,

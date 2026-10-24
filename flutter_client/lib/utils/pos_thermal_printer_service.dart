@@ -839,7 +839,8 @@ class PosThermalPrinterService {
 
     for (final line in lines) {
       final name = line.productName;
-      final qty = _qty.format(line.qty);
+      // Tiền giờ theo giờ: «1g55p» thay «1,92».
+      final qty = line.timedQtyLabel ?? _qty.format(line.qty);
       final saleUnit = line.qty > 0 ? line.lineTotal / line.qty : line.unitPrice;
       final price = money(
         line.discountAmount > 0 ? saleUnit : line.unitPrice,
@@ -858,6 +859,7 @@ class PosThermalPrinterService {
       for (final row in rows) {
         await b.line(row);
       }
+      if (line.isTimedLine) await b.line(' * ${line.timedNote(money)}');
       final note = posToppingNoteFromSaleLine(line, withPrice: true);
       if (note.isNotEmpty) {
         for (final part in note.split('\n')) {

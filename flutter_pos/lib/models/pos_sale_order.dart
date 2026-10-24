@@ -658,3 +658,45 @@ class PosSaleOrder {
         'lines': lines.map((l) => l.toPrintAgentJson()).toList(),
       };
 }
+
+
+/// «1g55p» / «45p» / «2g» từ số phút.
+String posFmtTimedMinutes(int minutes) {
+  final m = minutes < 0 ? 0 : minutes;
+  final h = m ~/ 60, mm = m % 60;
+  if (h == 0) return '${mm}p';
+  return mm == 0 ? '${h}g' : '${h}g${mm.toString().padLeft(2, '0')}p';
+}
+
+/// Dòng tiền giờ (karaoke / bi-a) trên hóa đơn: bảng giá tính «x đ / giờ» nên SL hiện «1g55p» thay «1,9167»,
+/// và tách phần phí mở phòng (trước đây gộp ngầm vào thành tiền → «17 × 5.000 = 115.000» trông như tính sai).
+extension PosSaleOrderLineTimed on PosSaleOrderLine {
+  bool get isTimedLine => serviceStartedAt != null && billableMinutes != null;
+
+  bool get _qtyInHours => (unitName ?? '').trim().toLowerCase() == 'giờ';
+
+  /// SL dạng thời gian khi tính theo giờ; null = hiện SL như thường (block / phút / ngày).
+  String? get timedQtyLabel => isTimedLine && _qtyInHours ? posFmtTimedMinutes((qty * 60).round()) : null;
+
+  /// Tiền ngoài phần SL × đơn giá: phí mở phòng (+ phụ thu khung giờ nếu có).
+  double get timedFixedFee {
+    if (!isTimedLine) return 0;
+    final base = _qtyInHours ? (qty * 60).round() * unitPrice / 60 : qty * unitPrice;
+    final fee = (lineTotal + discountAmount - base).roundToDouble();
+    return fee > 0 ? fee : 0;
+  }
+
+  /// Ghi chú dưới dòng: «12:22–14:15 · gồm phí mở phòng 30.000».
+  String timedNote(String Function(double) money) {
+    if (!isTimedLine) return '';
+    String hm(DateTime d) {
+      final l = d.toLocal();
+      return '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+    }
+    final parts = <String>[
+      '${hm(serviceStartedAt!)}–${serviceEndedAt != null ? hm(serviceEndedAt!) : '…'}',
+      if (timedFixedFee > 0) 'gồm phí mở phòng ${money(timedFixedFee)}',
+    ];
+    return parts.join(' · ');
+  }
+}

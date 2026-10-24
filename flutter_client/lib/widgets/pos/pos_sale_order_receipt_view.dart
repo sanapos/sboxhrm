@@ -553,9 +553,14 @@ class PosSaleOrderReceiptView extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  tr('${qtyFmt.format(line.qty)}${unit.isEmpty ? '' : ' $unit'} × ${money.format(line.unitPrice)}'),
+                  tr(line.timedQtyLabel != null
+                      ? '${line.timedQtyLabel} × ${money.format(line.unitPrice)}/giờ'
+                      : '${qtyFmt.format(line.qty)}${unit.isEmpty ? '' : ' $unit'} × ${money.format(line.unitPrice)}'),
                   style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
                 ),
+                if (line.isTimedLine)
+                  Text(tr(line.timedNote(money.format)),
+                      style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary)),
                 if (line.lineNote != null && line.lineNote!.trim().isNotEmpty)
                   Text(tr('↳ ${line.lineNote!.trim()}'),
                       maxLines: 2,
@@ -658,6 +663,20 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                   ),
 
+                  if (line.isTimedLine)
+
+                    Text(
+
+                      tr(line.timedNote(money.format)),
+
+                      maxLines: 1,
+
+                      overflow: TextOverflow.ellipsis,
+
+                      style: const TextStyle(fontSize: 10, color: PosTheme.textSecondary),
+
+                    ),
+
                   if (line.lineNote != null && line.lineNote!.trim().isNotEmpty)
 
                     Text(
@@ -708,7 +727,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
               child: Text(
 
-                tr(qtyFmt.format(line.qty)),
+                tr(line.timedQtyLabel ?? qtyFmt.format(line.qty)),
 
                 textAlign: TextAlign.center,
 

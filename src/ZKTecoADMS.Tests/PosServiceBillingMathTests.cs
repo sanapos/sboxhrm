@@ -43,6 +43,18 @@ public class PosServiceBillingMathTests
     }
 
     [Fact]
+    public void PerHour_60k_round5_khongLechDong()
+    {
+        // Bảng giá «60.000đ / giờ», làm tròn 5 phút: 85 phút = 1,4167 giờ — phải ra đúng 85.000đ, không phải 85.002đ.
+        var mode = PosServiceBillingMode.PerHour;
+        Assert.Equal(85_000m, Math.Round(Charge(83, mode, 60_000m, round: 5), 0));
+        Assert.Equal(115_000m, Math.Round(Charge(113, mode, 60_000m, min: 30, round: 5), 0));
+        Assert.Equal(30_000m, Math.Round(Charge(7, mode, 60_000m, min: 30, round: 5), 0));
+        // 50.000đ / giờ: 5 phút = 4.166,67đ → làm tròn đồng ở thành tiền.
+        Assert.Equal(4_167m, Math.Round(Charge(5, mode, 50_000m, round: 5), 0, MidpointRounding.AwayFromZero));
+    }
+
+    [Fact]
     public void PerHour_min1h_round15_karaokeClassic()
     {
         const decimal price = 200_000m;

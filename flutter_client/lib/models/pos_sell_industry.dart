@@ -1951,6 +1951,11 @@ class PosServiceBillingCalc {
     );
   }
 
+  /// Tiền phần giờ = SL × giá. Theo giờ: SL 4 chữ số lẻ (85 phút = 1,4167 giờ) → quy về phút rồi × giá / 60
+  /// để ra đúng 85.000đ với giá 60.000đ / giờ (khớp PosServiceBillingMath.TimedAmount máy chủ).
+  static double timedAmount(PosServiceBillingMode mode, double qty, double unitPrice) =>
+      mode == PosServiceBillingMode.perHour ? (qty * 60).round() * unitPrice / 60 : qty * unitPrice;
+
   static double timedLineCharge({
     required PosServiceBillingMode mode,
     required int billableMinutes,
@@ -1967,7 +1972,7 @@ class PosServiceBillingCalc {
       billRoundMinutes: billRoundMinutes,
     );
     final fee = openingFee < 0 ? 0.0 : openingFee;
-    return _roundMoney(fee + qty * (unitPrice + toppingExtraPerUnit));
+    return _roundMoney(fee + timedAmount(mode, qty, unitPrice + toppingExtraPerUnit));
   }
 
   static double _roundMoney(double v) => double.parse(v.toStringAsFixed(4));

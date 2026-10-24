@@ -666,7 +666,7 @@ class PosSunmiNativePrint {
       await _saleItemRow(
         layout,
         name: name,
-        qty: _qty.format(line.qty),
+        qty: line.timedQtyLabel ?? _qty.format(line.qty),
         price: moneyCell(unitPrice),
         total: moneyCell(line.lineTotal),
       );
@@ -679,6 +679,7 @@ class PosSunmiNativePrint {
           total: '',
         );
       }
+      if (line.isTimedLine) await _left(' * ${line.timedNote(moneyCell)}', size: layout.smallSize);
       final note = posToppingNoteFromSaleLine(line, withPrice: true);
       if (note.isNotEmpty) {
         for (final part in note.split('\n')) {
