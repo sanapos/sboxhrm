@@ -6677,6 +6677,15 @@ class _PosSellScreenState extends State<PosSellScreen>
     // Đánh dirty sớm — chặn sync/pull đè giỏ về 0 trong lúc load đơn vị.
     _markTabDirty(_tab);
     final p = pick.product;
+    // Phòng / bàn đã có dòng tiền giờ: bấm thêm lần nữa (thường bấm nhầm) không thêm dòng thứ hai —
+    // trước đây ra 2 dòng tiền giờ, phòng bị tính gấp đôi.
+    if (p.isTimedService && _tab.cart.any((l) => l.product.id == p.id)) {
+      NotificationOverlayManager().showInfo(
+        title: 'Phòng đang tính giờ',
+        message: tr('«${p.name}» đã có trên phòng — dùng Dừng / Kết thúc / Tính tiếp trên dòng tiền giờ'),
+      );
+      return;
+    }
     List<PosProductUnitView> views =
         _sellUnitViewsCache[p.id] ?? await loadPosSellUnitViews(_api, p);
     if (views.isNotEmpty) _sellUnitViewsCache[p.id] = views;
@@ -10415,6 +10424,29 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   Future<void> _removeLine(int index) async {
     if (!await _ensureCanEditActiveDraft()) return;
+    final timedLine = _tab.cart[index];
+    final timedFrom = timedLine.timerStartedAt ?? _tab.serviceStartedAt;
+    if (timedLine.product.isTimedService && timedFrom != null) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.warning_amber_rounded, color: SboxColors.danger, size: 40),
+          title: Text(tr('Xóa tiền giờ?')),
+          content: Text(tr('Phòng đang tính giờ từ ${DateFormat('HH:mm').format(timedFrom.toLocal())}. '
+              'Xóa dòng này là mất thời gian đã tính — chỉ xóa khi thêm nhầm.\n\n'
+              'Tạm ngưng thì bấm «Dừng», khách về thì bấm «Kết thúc».')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không xóa'))),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: SboxColors.danger),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Xóa tiền giờ')),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
     final line = _tab.cart[index];
     final cancelQty = line.kitchenSentQty;
     if (cancelQty > 0 && _isTableOrderMode) {
@@ -10463,7 +10495,19 @@ class _PosSellScreenState extends State<PosSellScreen>
     _scheduleDraftAutosave();
   }
 
+  /// SL tiền giờ do đồng hồ tính: không cho −/+ / sửa tay (bấm − khi đang «0p» từng xóa mất dòng tiền giờ,
+  /// giờ đã chạy coi như về 0).
+  bool _blockTimedQtyEdit(_SellCartLine line) {
+    if (!line.product.isTimedService) return false;
+    NotificationOverlayManager().showInfo(
+      title: 'Tiền giờ tự tính',
+      message: tr('Số giờ do đồng hồ tính — dùng Dừng / Kết thúc / Tính tiếp trên dòng'),
+    );
+    return true;
+  }
+
   Future<void> _adjustQty(_SellCartLine line, double delta) async {
+    if (_blockTimedQtyEdit(line)) return;
     if (!await _ensureCanEditActiveDraft()) return;
     final next = line.qty + delta;
     if (next > 0) {
@@ -10604,6 +10648,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Future<void> _editLineQty(_SellCartLine line) async {
+    if (_blockTimedQtyEdit(line)) return;
     if (!await _ensureCanEditActiveDraft()) return;
     if (!mounted) return;
     final productNow = await PosQtyRules.withFreshQtyFlags(_api, line.product);
@@ -17322,6 +17367,16 @@ class _PosSellScreenState extends State<PosSellScreen>
   Widget _qtyControls(_SellCartLine line) {
     final showReturn = line.qty > 2;
     const hit = _KiotLayout.qtyHit;
+    if (line.product.isTimedService) {
+      // Tiền giờ: chỉ hiện thời gian, không −/+ (đồng hồ tự tính).
+      return SizedBox(
+        height: hit,
+        child: Center(
+          child: Text(tr(line.qtyLabel),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        ),
+      );
+    }
     const qtyW = 32.0;
     const iconSize = 18.0;
     Widget qtyBtn({
