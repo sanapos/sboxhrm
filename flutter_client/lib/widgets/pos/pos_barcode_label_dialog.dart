@@ -73,6 +73,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   late final TextEditingController _lanPortCtrl;
   // Hàng có sẵn mã vạch (EAN) in đúng mã vạch; chưa có thì in mã hàng.
   PosBarcodeCodeField _codeField = PosBarcodeCodeField.barcode;
+  PosLabelCodeKind _codeKind = PosLabelCodeKind.template;
   PosBarcodePriceMode _priceMode = PosBarcodePriceMode.withVnd;
   PosBarcodeUnitMode _unitMode = PosBarcodeUnitMode.withoutUnit;
   PosBarcodeStoreMode _storeMode = PosBarcodeStoreMode.withoutStore;
@@ -92,6 +93,11 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       _designs.firstOrNull?.d ??
       posLabelDefaultDesign(widget.documentType);
   String get _kDesignPref => '${_kLayoutPref}_design';
+  String get _kCodeKindPref => '${_kLayoutPref}_code_kind';
+
+  /// Mẫu đem in: mẫu đang chọn + loại mã (mã vạch / QR) người dùng chọn.
+  PosLabelDesign get _printDesign =>
+      _isScale ? _design : posLabelDesignWithCodeKind(_design, _codeKind);
   String get _kLayoutPref => switch (widget.documentType) {
         PosPrintDocumentTypes.scaleLabel => 'pos_scale_label_layout_id',
         PosPrintDocumentTypes.specLabel => 'pos_spec_label_layout_id',
@@ -133,7 +139,9 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     } catch (_) {}
     String? saved;
     try {
-      saved = (await SharedPreferences.getInstance()).getString(_kDesignPref);
+      final prefs = await SharedPreferences.getInstance();
+      saved = prefs.getString(_kDesignPref);
+      _codeKind = PosLabelCodeKind.parse(prefs.getString(_kCodeKindPref));
     } catch (_) {}
     if (!mounted) return;
     setState(() {
@@ -272,7 +280,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         storeMode: _storeMode,
         storeName: _storeName,
         specMode: _specMode,
-        design: _design,
+        design: _printDesign,
       );
 
   /// Tổng số tem sẽ in (theo số lượng từng hàng × số bản).
@@ -701,11 +709,23 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         ),
         if (!_isScale) ...[
           const SizedBox(height: 10),
-          _fieldLabel('Mã in trên mã vạch'),
+          _fieldLabel('Mã trên tem'),
+          _dropdown<PosLabelCodeKind>(
+            value: _codeKind,
+            items: PosLabelCodeKind.values,
+            label: (v) => v.label,
+            onChanged: (v) {
+              setState(() => _codeKind = v ?? PosLabelCodeKind.template);
+              SharedPreferences.getInstance()
+                  .then((p) => p.setString(_kCodeKindPref, _codeKind.name))
+                  .catchError((_) => true);
+            },
+          ),
+          const SizedBox(height: 8),
           _dropdown<PosBarcodeCodeField>(
             value: _codeField,
             items: PosBarcodeCodeField.values,
-            label: (v) => v.label,
+            label: (v) => 'Nội dung mã: ${v.label}',
             onChanged: (v) => setState(() => _codeField = v!),
           ),
           const SizedBox(height: 8),
@@ -731,7 +751,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
 
   /// Xem trước tem theo mẫu đang chọn với hàng đầu tiên (đúng bộ vẽ khi in).
   Widget _buildDesignPreview() {
-    final d = _design;
+    final d = _printDesign;
     final t = posBarcodeLabelTemplateForDesign(d);
     final p = widget.products.first;
     return SingleChildScrollView(
@@ -757,7 +777,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
             style: const TextStyle(fontSize: 11.5, color: PosTheme.textSecondary)),
         const SizedBox(height: 12),
         FutureBuilder(
-          key: ValueKey('$_designId|$_codeField|${p.id}'),
+          key: ValueKey('$_designId|$_codeField|$_codeKind|${p.id}'),
           future: PosLabelDesignPainter.renderPng(d, posBarcodeLabelData(p, _options(t)), pxPerMm: 10),
           builder: (context, snap) {
             final png = snap.data;

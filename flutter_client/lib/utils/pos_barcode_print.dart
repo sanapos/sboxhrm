@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:barcode/barcode.dart';
@@ -29,6 +30,80 @@ enum PosBarcodeCodeField {
         PosBarcodeCodeField.productCode => 'Mã hàng',
         PosBarcodeCodeField.barcode => 'Mã vạch',
       };
+}
+
+/// Loại mã in trên tem hàng hóa — đổi phần tử mã của mẫu (mã vạch ↔ QR) khi in, không sửa mẫu.
+enum PosLabelCodeKind {
+  template,
+  barcode,
+  qr;
+
+  String get label => switch (this) {
+        PosLabelCodeKind.template => 'Loại mã: theo mẫu tem',
+        PosLabelCodeKind.barcode => 'Loại mã: mã vạch (barcode)',
+        PosLabelCodeKind.qr => 'Loại mã: mã QR',
+      };
+
+  static PosLabelCodeKind parse(String? v) =>
+      PosLabelCodeKind.values.where((e) => e.name == v).firstOrNull ?? PosLabelCodeKind.template;
+}
+
+/// Đổi mã vạch ↔ QR trên mẫu [d]. QR chứa đúng mã in (mã vạch / mã hàng) để màn bán quét ra hàng.
+PosLabelDesign posLabelDesignWithCodeKind(PosLabelDesign d, PosLabelCodeKind kind) {
+  if (kind == PosLabelCodeKind.template) return d;
+  final toQr = kind == PosLabelCodeKind.qr;
+  final from = toQr ? PosLabelElementType.barcode : PosLabelElementType.qr;
+  if (!d.elements.any((e) => e.type == from)) return d;
+  final out = <PosLabelElement>[];
+  for (final e in d.elements) {
+    if (e.type != from) {
+      out.add(e);
+      continue;
+    }
+    if (toQr) {
+      final code = e.text.trim().isNotEmpty ? e.text : '{Ma_Vach}';
+      // QR vuông giữa ô mã vạch; mã vạch có in số thì chừa 1 dòng số dưới QR.
+      final textH = e.showText && e.h >= 10 ? 3.0 : 0.0;
+      final side = math.min(e.w, e.h - textH);
+      out.add(PosLabelElement(
+        id: e.id,
+        type: PosLabelElementType.qr,
+        x: e.x + (e.w - side) / 2,
+        y: e.y,
+        w: side,
+        h: side,
+        text: code,
+        rotation: e.rotation,
+      ));
+      if (textH > 0) {
+        out.add(PosLabelElement(
+          id: '${e.id}_code',
+          type: PosLabelElementType.text,
+          x: e.x,
+          y: e.y + side,
+          w: e.w,
+          h: textH,
+          text: code,
+          fontSize: 7,
+          align: PosLabelAlign.center,
+          maxLines: 1,
+        ));
+      }
+    } else {
+      // QR mẫu có thể chứa nhiều dòng (mã + tên) — mã vạch chỉ in mã.
+      out.add(PosLabelElement(
+        id: e.id,
+        type: PosLabelElementType.barcode,
+        x: e.x,
+        y: e.y,
+        w: e.w,
+        h: e.h,
+        text: '{Ma_Vach}',
+        rotation: e.rotation,
+      ));
+    }
+  }
+  return d.copyWith(elements: out);
 }
 
 enum PosBarcodePriceMode {
