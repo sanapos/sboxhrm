@@ -839,7 +839,7 @@ class PosThermalPrinterService {
 
     for (final line in lines) {
       final name = line.productName;
-      // Tiền giờ theo giờ: «1g55p» thay «1,92».
+      // Tiền giờ theo giờ: «1h55» thay «1,92».
       final qty = line.timedQtyLabel ?? _qty.format(line.qty);
       final saleUnit = line.qty > 0 ? line.lineTotal / line.qty : line.unitPrice;
       final price = money(

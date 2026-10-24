@@ -329,7 +329,7 @@ class _SellCartLine {
       : _unitLabel;
   set unitLabel(String v) => _unitLabel = v;
 
-  /// SL hiện trên giỏ: tiền giờ theo giờ hiện «1g55p» (format SL nguyên trước đây làm 1,9167 giờ thành «2»).
+  /// SL hiện trên giỏ: tiền giờ theo giờ hiện «1h55» (format SL nguyên trước đây làm 1,9167 giờ thành «2»).
   String get qtyLabel => product.isTimedService &&
           PosServiceBillingMode.parse(product.serviceBillingMode) == PosServiceBillingMode.perHour
       ? posFmtTimedMinutes((qty * 60).round())

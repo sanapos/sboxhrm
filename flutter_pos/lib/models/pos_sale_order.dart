@@ -660,15 +660,15 @@ class PosSaleOrder {
 }
 
 
-/// «1g55p» / «45p» / «2g» từ số phút.
+/// «1h55» / «45p» / «2h» từ số phút (cùng kiểu thẻ phòng trên sơ đồ).
 String posFmtTimedMinutes(int minutes) {
   final m = minutes < 0 ? 0 : minutes;
   final h = m ~/ 60, mm = m % 60;
   if (h == 0) return '${mm}p';
-  return mm == 0 ? '${h}g' : '${h}g${mm.toString().padLeft(2, '0')}p';
+  return mm == 0 ? '${h}h' : '${h}h${mm.toString().padLeft(2, '0')}';
 }
 
-/// Dòng tiền giờ (karaoke / bi-a) trên hóa đơn: bảng giá tính «x đ / giờ» nên SL hiện «1g55p» thay «1,9167»,
+/// Dòng tiền giờ (karaoke / bi-a) trên hóa đơn: bảng giá tính «x đ / giờ» nên SL hiện «1h55» thay «1,9167»,
 /// và tách phần phí mở phòng (trước đây gộp ngầm vào thành tiền → «17 × 5.000 = 115.000» trông như tính sai).
 extension PosSaleOrderLineTimed on PosSaleOrderLine {
   bool get isTimedLine => serviceStartedAt != null && billableMinutes != null;
