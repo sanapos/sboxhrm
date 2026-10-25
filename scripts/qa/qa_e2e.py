@@ -1,4 +1,4 @@
-﻿"""E2E nghiệp vụ qua API trên server test LOCAL (scripts/run-qa-api.ps1, http://localhost:7070).
+"""E2E nghiệp vụ qua API trên server test LOCAL (scripts/run-qa-api.ps1, http://localhost:7070).
 
 Chạy:  python -I scripts/qa/qa_e2e.py [--base http://localhost:7070] [--only register,login,...]
 Tài khoản test sinh ngẫu nhiên, lưu ở scripts/qa/.qa-accounts.json (gitignore) để lần sau dùng lại.
@@ -249,9 +249,9 @@ def step_quote(base, tokens, ctx):
                f'HTTP {st} {len(html)}B {"có" if "210.600" in html else "THIẾU"} tổng 210.600', ms)
 
 
-def sale(api, lines, discount, paid, method='Cash', payments=None, customer_id=None):
+def sale(api, lines, discount, paid, method='Cash', payments=None, customer_id=None, complete=True):
     body = {'lines': lines, 'discount': discount, 'paidAmount': paid, 'paymentMethod': method,
-            'customerName': None, 'customerId': customer_id, 'note': 'QA', 'complete': True,
+            'customerName': None, 'customerId': customer_id, 'note': 'QA', 'complete': complete,
             'clientRequestId': secrets.token_hex(8)}
     if payments:
         body['payments'] = payments
@@ -414,6 +414,110 @@ def step_multi_session(base, acc):
             ok = False
 
 
+def step_roles_promotions(base, tokens, ctx, acc, ind='Restaurant'):
+    """Tài khoản phục vụ (mặc định không có quyền giảm giá): quyền hạn + khuyến mãi tự áp (server chỉ cho giảm đúng phần KM)."""
+    c = ctx.get(ind) or {}
+    if ind not in tokens or len(c.get('products', [])) < 2:
+        return
+    owner = Api(base, tokens[ind])
+    a = c['products'][0]
+    emp_id = c.get('employeeId')
+    if not emp_id:
+        record('roles.employee', ind, False, 'thiếu nhân viên')
+        return
+    cashier = acc.setdefault('_waiter_' + ind, {
+        'email': f'qa.cashier.{secrets.token_hex(3)}@sbox-qa.test',
+        'password': 'Qa' + secrets.token_hex(6) + 'A1',
+    })
+    save_accounts(acc)
+    st, js, ms = owner.call('POST', '/api/accounts', {
+        'employeeId': emp_id, 'userName': cashier['email'], 'email': cashier['email'],
+        'password': cashier['password'], 'firstName': 'Phục', 'lastName': 'Vụ QA', 'role': 'Waiter'})
+    record('roles.create waiter', ind, ok_resp(st, js) or 'đã' in msg(js).lower(), f'HTTP {st} {"" if ok_resp(st, js) else msg(js)}', ms)
+    st, js, ms = Api(base).call('POST', '/api/auth/login', {
+        'storeCode': acc[ind]['storeCode'], 'userName': cashier['email'], 'password': cashier['password']})
+    tk = (data(js) or {}).get('accessToken') if ok_resp(st, js) else None
+    record('roles.waiter login', ind, bool(tk), f'HTTP {st} {"" if tk else msg(js)}', ms)
+    if not tk:
+        return
+    cas = Api(base, tk)
+    today = time.strftime('%Y-%m-%d')
+    # Thu ngân: bán được; không được xóa hàng, xem lãi lỗ, quản lý tài khoản, sửa giá vốn.
+    for name, method, path, body, expect_ok in [
+        ('xem danh mục bán', 'GET', '/api/pos/sales/products?page=1&pageSize=5', None, True),
+        ('xóa hàng', 'DELETE', f"/api/pos/products/{a['id']}", None, False),
+        ('xem lãi lỗ', 'GET', f'/api/pos/reports/pnl/summary?from={today}&to={today}', None, False),
+        ('xem tài khoản', 'GET', '/api/accounts', None, False),
+        ('tạo nhân viên', 'POST', '/api/employees', {'employeeCode': 'X1', 'firstName': 'X', 'lastName': 'Y'}, False),
+    ]:
+        st, js, ms = cas.call(method, path, body)
+        got_ok = ok_resp(st, js)
+        record(f'roles.waiter {name}', ind, got_ok == expect_ok,
+               f'HTTP {st} {"được phép" if got_ok else "bị chặn"} (kỳ vọng {"được" if expect_ok else "chặn"})', ms)
+    # Khuyến mãi giảm 10% mọi lúc.
+    st, js, ms = owner.call('POST', '/api/pos/promotions', {
+        'name': 'QA giảm 10%', 'type': 'time_discount', 'priority': 1, 'stackable': False,
+        'daysOfWeekMask': 127, 'membersOnly': False, 'configJson': '{"percent":10}'})
+    promo = data(js) if ok_resp(st, js) else None
+    record('promo.create', ind, bool(promo), f'HTTP {st} {"" if promo else msg(js)}', ms)
+    if not promo:
+        return
+    try:
+        lines = [{'productId': a['id'], 'qty': 2, 'unitPrice': a['price'], 'discountAmount': 10000}]
+        st, js, ms = sale(cas, lines, 0, 0, complete=False)
+        record('promo.phục vụ giảm đúng KM 10%', ind, ok_resp(st, js) and float((data(js) or {}).get('total') or 0) == 90000,
+               f'HTTP {st} total={(data(js) or {}).get("total")} {"" if ok_resp(st, js) else msg(js)}', ms)
+        lines = [{'productId': a['id'], 'qty': 2, 'unitPrice': a['price'], 'discountAmount': 30000}]
+        st, js, ms = sale(cas, lines, 0, 0, complete=False)
+        record('promo.phục vụ giảm 30% bị chặn', ind, not ok_resp(st, js), f'HTTP {st} {msg(js)}', ms)
+        st, js, ms = sale(owner, lines, 0, 70000)
+        record('promo.chủ giảm 30% được', ind, ok_resp(st, js), f'HTTP {st} {"" if ok_resp(st, js) else msg(js)}', ms)
+    finally:
+        body = {k: promo.get(k) for k in ('name', 'type', 'priority', 'stackable', 'validFrom', 'validTo',
+                                          'daysOfWeekMask', 'timeFromMinutes', 'timeToMinutes', 'membersOnly',
+                                          'configJson', 'note')}
+        body['isActive'] = False
+        st, js, ms = owner.call('PUT', f"/api/pos/promotions/{promo['id']}", body)
+        record('promo.tắt', ind, ok_resp(st, js), f'HTTP {st} {"" if ok_resp(st, js) else msg(js)}', ms)
+
+
+def step_excel_roundtrip(base, tokens, ind='Retail'):
+    """Xuất Excel hàng hóa rồi nhập lại chính file đó: không lỗi, không nhân đôi hàng."""
+    if ind not in tokens:
+        return
+    api = Api(base, tokens[ind])
+    st, js, ms = api.call('GET', '/api/pos/products?page=1&pageSize=200')
+    d = data(js)
+    before = len(d.get('items') if isinstance(d, dict) else d or [])
+    st, raw, ms = api.call('GET', '/api/pos/products/export/excel', raw=True)
+    if st != 200 or raw[:2] != b'PK':
+        record('excel.export', ind, False, f'HTTP {st}', ms)
+        return
+    boundary = 'qa' + secrets.token_hex(8)
+    body = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="hang.xlsx"\r\n'
+            'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n').encode() \
+        + raw + f'\r\n--{boundary}--\r\n'.encode()
+    req = urllib.request.Request(base + '/api/pos/products/import/excel/file', data=body, method='POST')
+    req.add_header('Content-Type', f'multipart/form-data; boundary={boundary}')
+    req.add_header('Authorization', 'Bearer ' + tokens[ind])
+    t0 = time.perf_counter()
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            st, payload = r.status, r.read()
+    except urllib.error.HTTPError as e:
+        st, payload = e.code, e.read()
+    ms = (time.perf_counter() - t0) * 1000
+    try:
+        js = json.loads(payload.decode('utf-8'))
+    except ValueError:
+        js = {'_raw': payload[:200].decode('utf-8', 'replace')}
+    record('excel.import lại file xuất', ind, ok_resp(st, js), f'HTTP {st} {msg(js)[:160]}', ms)
+    st, js, ms = api.call('GET', '/api/pos/products?page=1&pageSize=200')
+    d = data(js)
+    after = len(d.get('items') if isinstance(d, dict) else d or [])
+    record('excel.không nhân đôi hàng', ind, after == before, f'trước {before}, sau {after}', ms)
+
+
 def step_reports(base, tokens, ctx):
     today = time.strftime('%Y-%m-%d')
     for ind, tk in tokens.items():
@@ -458,7 +562,7 @@ def main():
     acc = load_accounts()
     if not args.reuse:
         # Mỗi lần chạy dùng cửa hàng mới: số liệu báo cáo/tồn kho/phòng không lẫn lần trước.
-        acc = {k: v for k, v in acc.items() if k.startswith('_')}
+        acc = {k: v for k, v in acc.items() if k == '_superadmin'}
     tokens = {}
     step_superadmin(args.base, acc)
     step_register(args.base, acc)
@@ -470,6 +574,8 @@ def main():
     step_sales(args.base, tokens, ctx)
     step_floor(args.base, tokens, ctx)
     step_reports(args.base, tokens, ctx)
+    step_roles_promotions(args.base, tokens, ctx, acc)
+    step_excel_roundtrip(args.base, tokens)
     fails = [r for r in RESULTS if not r[2]]
     print(f'\nTổng: {len(RESULTS)} bước, {len(fails)} lỗi')
     return 1 if fails else 0
