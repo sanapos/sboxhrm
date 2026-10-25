@@ -1,1 +1,0 @@
-SELECT pi."Name", pi."StoreId", pt."TierLevel", pt."MinQuantity", pt."MaxQuantity", pt."UnitPrice" FROM "ProductPriceTiers" pt JOIN "ProductItems" pi ON pt."ProductItemId" = pi."Id" WHERE pt."Deleted" IS NULL ORDER BY pi."StoreId", pi."Name", pt."TierLevel" LIMIT 20;

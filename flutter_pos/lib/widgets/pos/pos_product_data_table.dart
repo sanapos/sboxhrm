@@ -693,7 +693,7 @@ class PosProductDataTable extends StatelessWidget {
       child: Row(
         children: [
           TextButton.icon(
-            onPressed: () => onCopy!(p),
+            onPressed: () => onCopy(p),
             icon: const Icon(Icons.copy, size: 16),
             label: Text(tr('Sao chép')),
           ),

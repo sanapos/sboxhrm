@@ -823,7 +823,6 @@ Future<bool> _tryLocalSalePrint({
   String documentType = PosPrintDocumentTypes.saleInvoice,
   double vatAmount = 0,
   bool vatIncludedInPrice = true,
-  double vatRate = 0,
 }) async {
   // Sunmi: luôn in mẫu V2 đã thiết kế. Native chỉ là fallback khi V2 lỗi.
   // Chỉ native khi connectionType = sunmi — không ép máy USB/BT/LAN trên thiết bị Sunmi.

@@ -80,7 +80,7 @@ class BranchFilterHelper {
     final keys = <String>{};
     for (final raw in employees) {
       if (raw is! Map) continue;
-      final m = Map<String, dynamic>.from(raw as Map);
+      final m = Map<String, dynamic>.from(raw);
       if (!branchMatches(m['branchId']?.toString(), branchIds)) continue;
       final id = m['id']?.toString();
       final userId = m['applicationUserId']?.toString();

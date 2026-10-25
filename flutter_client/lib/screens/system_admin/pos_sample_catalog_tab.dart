@@ -376,7 +376,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                                         fit: BoxFit.contain)
                                     : (!isNew && row?['hasImage'] == true)
                                         ? Image.network(
-                                            _imageUrl('${row!['id']}'),
+                                            _imageUrl('${row['id']}'),
                                             fit: BoxFit.contain,
                                             headers: _api.imageAuthHeaders,
                                             errorBuilder: (_, __, ___) =>
@@ -657,12 +657,12 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
     };
     final res = isNew
         ? await _api.createSystemPosSampleCatalog(body)
-        : await _api.updateSystemPosSampleCatalog(row!['id'].toString(), body);
+        : await _api.updateSystemPosSampleCatalog(row['id'].toString(), body);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       var id = isNew
           ? (res['data'] is Map ? res['data']['id']?.toString() : null)
-          : row!['id'].toString();
+          : row['id'].toString();
       if (pendingImage != null && id != null) {
         await _uploadImageBytes(id, pendingImage!, pendingImageName);
       } else if (isNew && id != null && pendingImage == null) {

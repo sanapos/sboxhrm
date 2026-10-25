@@ -23,7 +23,6 @@ import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_print_template_runtime.dart';
 import '../utils/pos_sell_store_settings.dart';
 import '../utils/pos_print_template_renderer.dart';
-import '../utils/pos_receipt_layout.dart';
 import '../utils/pos_printer_transport.dart';
 import '../utils/pos_printer_peripheral.dart';
 import '../utils/pos_store_printer_mapper.dart';
@@ -1361,7 +1360,7 @@ class PosPrintAgentService {
             1;
         itemRows.add('${qtyFmt.format(qtyNum)} × $name');
         final c = DateTime.tryParse(row['calledAt']?.toString() ?? '');
-        if (c != null && (earliestCall == null || c.isBefore(earliestCall!))) {
+        if (c != null && (earliestCall == null || c.isBefore(earliestCall))) {
           earliestCall = c;
         }
       }

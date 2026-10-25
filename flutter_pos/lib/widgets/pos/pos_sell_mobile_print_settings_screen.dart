@@ -18,7 +18,6 @@ import '../../utils/pos_print_template_loader.dart';
 import '../../utils/pos_print_orchestrator.dart';
 import '../../utils/pos_print_config_session.dart';
 import '../../utils/pos_sell_print_settings.dart';
-import '../../utils/pos_printer_transport.dart';
 import '../../utils/pos_thermal_printer_service.dart';
 import '../../utils/pos_thermal_printer_settings.dart';
 import '../../utils/responsive_helper.dart';

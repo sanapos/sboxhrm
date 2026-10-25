@@ -7382,9 +7382,7 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   /// @deprecated path — giữ cho chỗ gọi cũ nếu còn.
   Future<Map<String, dynamic>?> _claimDraftLock(
-    String orderId, {
-    bool allowForcePrompt = true,
-  }) async {
+    String orderId) async {
     final r = await _claimOrViewDraft(orderId);
     if (r == null || r.readOnly) return null;
     return r.lock;
@@ -13081,7 +13079,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         merged['serviceResourceName'] = _tab.serviceResourceName;
       }
       order = PosSaleOrder.fromJson(merged);
-      final PosSaleOrder saleForHang = order!;
+      final PosSaleOrder saleForHang = order;
       final ok = await printPosSaleOrder(
         context: context,
         order: order,
@@ -13138,7 +13136,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (mounted) {
         if (order != null) {
           _enqueueFailedSalePrint(
-            order!,
+            order,
             errorMessage: 'Lỗi in sau thanh toán',
           );
         }
@@ -16816,7 +16814,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         onPressed: canPark
             ? () {
                 HapticFeedback.selectionClick();
-                onPark!();
+                onPark();
               }
             : null,
         style: OutlinedButton.styleFrom(

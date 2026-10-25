@@ -12,7 +12,6 @@ import 'pos_table_label.dart';
 import 'pos_topping_format.dart';
 import 'pos_thermal_bitmap.dart';
 import 'pos_thermal_printer_settings.dart';
-import '../l10n/app_tr.dart';
 
 /// Layout hóa đơn theo khổ giấy — cột vừa khổ, không dư khoảng trống.
 class _SunmiReceiptLayout {

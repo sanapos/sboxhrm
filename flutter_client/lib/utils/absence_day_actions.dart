@@ -23,7 +23,7 @@ class AbsenceDayActions {
   }) {
     for (final raw in employees) {
       if (raw is! Map) continue;
-      final e = Map<String, dynamic>.from(raw as Map);
+      final e = Map<String, dynamic>.from(raw);
       final code = e['employeeCode']?.toString() ?? '';
       final appId = e['applicationUserId']?.toString() ?? '';
       final id = e['id']?.toString() ?? '';

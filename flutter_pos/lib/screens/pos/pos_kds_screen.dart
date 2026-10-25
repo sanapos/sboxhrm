@@ -28,7 +28,6 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../settings_hub_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
-import '../../theme/sbox_tokens.dart';
 /// KDS bếp: món mới = chờ làm. Đang làm → Ra món (in + rời bảng). Hủy: Đồng ý từng món.
 class PosKdsScreen extends StatefulWidget {
   const PosKdsScreen({super.key});

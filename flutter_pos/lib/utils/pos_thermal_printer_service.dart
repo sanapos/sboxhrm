@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 
 import 'package:intl/intl.dart';
 
-import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
 
 

@@ -13742,7 +13742,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         merged['serviceResourceName'] = _tab.serviceResourceName;
       }
       order = PosSaleOrder.fromJson(merged);
-      final PosSaleOrder saleForHang = order!;
+      final PosSaleOrder saleForHang = order;
       final ok = await printPosSaleOrder(
         context: context,
         order: order,
@@ -13814,7 +13814,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (mounted) {
         if (order != null) {
           _enqueueFailedSalePrint(
-            order!,
+            order,
             errorMessage: 'Lỗi in sau thanh toán',
           );
         }
@@ -17948,7 +17948,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         onPressed: canPark
             ? () {
                 HapticFeedback.selectionClick();
-                onPark!();
+                onPark();
               }
             : null,
         style: OutlinedButton.styleFrom(

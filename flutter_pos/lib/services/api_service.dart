@@ -1328,7 +1328,7 @@ class ApiService {
 
       if (data['isSuccess'] == true) {
         final responseData = data['data'];
-        final map = responseData is Map ? responseData as Map : null;
+        final map = responseData is Map ? responseData : null;
         return {
           'items': map != null
               ? (map['items'] ?? map['Items'] ?? [])
@@ -7064,12 +7064,12 @@ class ApiService {
         if (attendanceId != null) 'attendanceId': attendanceId,
         if (oldDate != null)
           'oldDate': oldDate is DateTime
-              ? correctionDateOnly(oldDate as DateTime)
+              ? correctionDateOnly(oldDate)
               : oldDate.toString(),
         if (oldTime != null) 'oldTime': oldTime,
         if (newDate != null)
           'newDate': newDate is DateTime
-              ? correctionDateOnly(newDate as DateTime)
+              ? correctionDateOnly(newDate)
               : newDate.toString(),
         if (newTime != null) 'newTime': newTime,
         if (newType != null) 'newType': newType,

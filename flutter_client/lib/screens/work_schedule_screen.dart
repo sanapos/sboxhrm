@@ -214,7 +214,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         hrId = (empResp['data'] as Map)['id']?.toString() ?? '';
       }
 
-      final benefit = results[1] as Map<String, dynamic>?;
+      final benefit = results[1];
       final sslResp = results[2] as Map<String, dynamic>;
       final sslData = sslResp['data'];
       final shiftSalaryLevels = (sslData is Map

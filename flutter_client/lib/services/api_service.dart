@@ -1444,7 +1444,7 @@ class ApiService implements PayrollApi {
 
       if (data['isSuccess'] == true) {
         final responseData = data['data'];
-        final map = responseData is Map ? responseData as Map : null;
+        final map = responseData is Map ? responseData : null;
         return {
           'items': map != null
               ? (map['items'] ?? map['Items'] ?? [])
@@ -6430,16 +6430,14 @@ class ApiService implements PayrollApi {
         'pageSize': pageSize.toString(),
       };
       if (fromDate != null) {
-        final d = fromDate is DateTime
-            ? fromDate
-            : DateTime.tryParse(fromDate.toString());
+        final d = fromDate;
         if (d != null) {
           params['from'] = apiReportRangeStart(d).toIso8601String();
         }
       }
       if (toDate != null) {
         final d =
-            toDate is DateTime ? toDate : DateTime.tryParse(toDate.toString());
+            toDate;
         if (d != null) {
           params['to'] = apiReportRangeEnd(d).toIso8601String();
         }
@@ -8006,12 +8004,12 @@ class ApiService implements PayrollApi {
         if (attendanceId != null) 'attendanceId': attendanceId,
         if (oldDate != null)
           'oldDate': oldDate is DateTime
-              ? correctionDateOnly(oldDate as DateTime)
+              ? correctionDateOnly(oldDate)
               : oldDate.toString(),
         if (oldTime != null) 'oldTime': oldTime,
         if (newDate != null)
           'newDate': newDate is DateTime
-              ? correctionDateOnly(newDate as DateTime)
+              ? correctionDateOnly(newDate)
               : newDate.toString(),
         if (newTime != null) 'newTime': newTime,
         if (newType != null) 'newType': newType,

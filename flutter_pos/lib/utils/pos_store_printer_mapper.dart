@@ -1,5 +1,4 @@
 import '../models/pos_store_printer.dart';
-import 'pos_barcode_print.dart';
 import 'pos_label_printer_settings.dart';
 import 'pos_thermal_printer_settings.dart';
 

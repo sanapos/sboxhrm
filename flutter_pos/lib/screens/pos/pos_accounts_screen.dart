@@ -51,8 +51,8 @@ class _PosAccountsScreenState extends State<PosAccountsScreen> {
         _api.getRoles(),
       ]);
       if (!mounted) return;
-      final raw = results[0] as List;
-      final parsed = PermissionRoleOptions.parse(results[1] as List);
+      final raw = results[0];
+      final parsed = PermissionRoleOptions.parse(results[1]);
       setState(() {
         _accounts = raw
             .whereType<Map>()
@@ -445,7 +445,7 @@ class _PosAccountsScreenState extends State<PosAccountsScreen> {
       return;
     }
 
-    final editing = account!;
+    final editing = account;
     final id = '${editing['id'] ?? ''}';
     if (id.isEmpty) {
       NotificationOverlayManager().showError(

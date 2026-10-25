@@ -13,7 +13,6 @@ import '../../utils/pos_vietqr_helper.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_bank_account_form_dialog.dart';
-import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/tingee_bank_attach_panel.dart';
 import '../../widgets/settings/settings_page.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';

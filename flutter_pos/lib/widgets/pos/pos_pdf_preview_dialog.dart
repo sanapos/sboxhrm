@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:printing/printing.dart';
 
 import 'pos_pdf_iframe_stub.dart'
     if (dart.library.js_interop) 'pos_pdf_iframe_web.dart';

@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:web/web.dart' as web;
 
 import 'excel_bytes_utils.dart';
-import 'web_excel_save_stub.dart';
 
 /// Handle from [beginWebExcelSave] — write bytes after async fetch completes.
 class WebExcelSaveHandle {

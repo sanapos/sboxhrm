@@ -27,7 +27,6 @@ import '../../utils/paid_leave_schedule_utils.dart';
 import '../../utils/travel_hours_load_utils.dart';
 import '../../utils/travel_salary_utils.dart';
 import '../../services/api_service.dart';
-import '../../widgets/attendance_frozen_employee_name_cell.dart';
 import '../../widgets/hrm_collapsible_overview.dart';
 import '../../widgets/hrm_mini_stat_chip.dart';
 import '../../widgets/hrm_page_chrome.dart';
@@ -986,7 +985,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           _employeeCodeToHolidayOvertimeType[empCodeForLookup] ?? 1;
       var effectiveMultiplier = 1.0;
       if (isHoliday) {
-        effectiveMultiplier = holidayRate!;
+        effectiveMultiplier = holidayRate;
       } else if (isRestDay && holidayOvertimeType == 1) {
         effectiveMultiplier = holidayMultiplier;
       }

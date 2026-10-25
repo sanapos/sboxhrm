@@ -12,7 +12,6 @@ import '../services/api_service.dart';
 import '../utils/travel_hours_load_utils.dart';
 import '../utils/travel_eligibility_utils.dart';
 import 'attendance/attendance_summary_tab.dart';
-import 'package:intl/intl.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import '../utils/responsive_helper.dart';
 import '../utils/vietnamese_font.dart';

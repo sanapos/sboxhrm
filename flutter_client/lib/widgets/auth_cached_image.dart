@@ -196,7 +196,7 @@ class AuthCircleAvatar extends StatelessWidget {
       radius: radius,
       backgroundColor: backgroundColor,
       backgroundImage:
-          hasImage ? apiService.storeImageProvider(path!) : null,
+          hasImage ? apiService.storeImageProvider(path) : null,
       onBackgroundImageError: hasImage ? onBackgroundImageError : null,
       child: child,
     );

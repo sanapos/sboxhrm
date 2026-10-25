@@ -27,7 +27,6 @@ import '../../widgets/pos/pos_empty_cart_brand.dart';
 import '../../widgets/pos/pos_qty_area_dialog.dart';
 import '../../widgets/pos/pos_product_image.dart';
 import '../../widgets/pos/pos_product_unit_view.dart';
-import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../../widgets/pos/pos_sell_product_grid.dart';
 import '../../widgets/pos/pos_form_keyboard.dart';

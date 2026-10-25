@@ -21,7 +21,6 @@ import '../../models/attendance.dart';
 import '../../models/device.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
-import '../../widgets/attendance_frozen_employee_name_cell.dart';
 import '../../widgets/hrm_collapsible_overview.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/attendance_correction_reason_field.dart';

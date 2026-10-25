@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../utils/responsive_helper.dart';
 import '../../models/pos_product.dart';
 import 'pos_mobile_widgets.dart';
 import 'pos_theme.dart';

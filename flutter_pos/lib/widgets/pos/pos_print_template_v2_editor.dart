@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import '../../models/pos_print_template.dart';
 import '../../models/pos_print_template_v2.dart';
-import '../../utils/pos_barcode_print.dart';
 import '../../utils/pos_print_template_compiler.dart';
 import '../../utils/pos_print_template_v2_codec.dart';
 import '../../utils/pos_print_template_v2_presets.dart';

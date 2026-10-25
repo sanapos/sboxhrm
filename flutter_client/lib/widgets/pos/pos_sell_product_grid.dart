@@ -1766,7 +1766,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       code: code,
       unitLabel: multi ? unit : null,
       onUnitTap: multi
-          ? () => unawaited(_pickListUnitWithSheet(p, views!))
+          ? () => unawaited(_pickListUnitWithSheet(p, views))
           : null,
       priceText: _moneyFmt.format(price),
       stockText: stockText,

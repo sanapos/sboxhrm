@@ -6,7 +6,6 @@ import '../models/pos_print_template.dart';
 import '../models/pos_print_template_v2.dart';
 import '../models/pos_sale_order.dart';
 import '../models/pos_store_printer.dart';
-import '../services/api_service.dart';
 import '../services/pos_product_printer_service.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -20,10 +19,7 @@ import 'pos_print_orchestrator.dart';
 import 'pos_print_template_renderer.dart';
 import 'pos_printer_readiness.dart';
 import 'pos_printer_transport.dart';
-import 'pos_receipt_layout.dart';
 import 'pos_store_printer_mapper.dart';
-import 'pos_sunmi_native_print.dart';
-import 'pos_thermal_printer_service.dart';
 import 'pos_thermal_printer_settings.dart';
 import 'pos_usb_printer.dart';
 
@@ -385,7 +381,7 @@ Future<bool> _dispatchWarehouseBytes({
 
     if (tryDirect) {
       final settings = (onDevice
-              ? ownedLocal!.toThermalSettings()
+              ? ownedLocal.toThermalSettings()
               : toThermalSettings(printer))
           .copyWith(openCashDrawer: false);
       final ok = await PosPrintOrchestrator.instance.dispatchLocalEscPos(

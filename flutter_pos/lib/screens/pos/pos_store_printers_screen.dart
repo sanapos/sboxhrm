@@ -177,9 +177,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
             ids.isEmpty &&
             existing != null &&
             existing.printerIds.isNotEmpty;
-    final effectiveIds = keepIds ? existing!.printerIds : ids;
+    final effectiveIds = keepIds ? existing.printerIds : ids;
     final effectiveNames = keepIds
-        ? (existing!.printerNames.isNotEmpty
+        ? (existing.printerNames.isNotEmpty
             ? existing.printerNames
             : names)
         : names;

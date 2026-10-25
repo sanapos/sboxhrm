@@ -27,7 +27,6 @@ import '../../utils/pos_floor_realtime.dart';
 import '../../utils/pos_kitchen_print.dart';
 import '../../utils/pos_sell_print_settings.dart';
 import '../../utils/pos_table_label.dart';
-import '../../utils/responsive_helper.dart';
 import '../../utils/safe_navigator.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_deposit_payment_picker.dart';
@@ -4033,7 +4032,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       area = PosServiceAreaDto.fromJson(
           Map<String, dynamic>.from(areaRes['data'] as Map));
     }
-    final targetArea = area!;
+    final targetArea = area;
 
     const tileW = 120.0;
     const tileH = 100.0;

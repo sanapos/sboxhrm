@@ -23,7 +23,6 @@ import '../utils/ai_assistant_permissions.dart';
 import '../utils/landing_guide_url.dart';
 import '../utils/landing_usage_guide.dart';
 import '../utils/navigation_notifier.dart';
-import '../utils/settings_hub_catalog.dart';
 import 'notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 

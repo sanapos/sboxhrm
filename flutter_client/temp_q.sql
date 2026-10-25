@@ -1,1 +1,0 @@
-SELECT "Id"::text, "OdooEmployeeId", "EmployeeName", "PunchTime"::text, "Status" FROM "MobileAttendanceRecords" WHERE "PunchTime" >= '2026-04-09' ORDER BY "PunchTime" DESC LIMIT 10;

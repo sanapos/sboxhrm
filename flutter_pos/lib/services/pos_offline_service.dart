@@ -579,7 +579,7 @@ class PosOfflineService {
           }
         } else {
           // Máy khác đã mở bàn này trên máy chủ → không gộp: lưu thành hóa đơn tách của bàn (thu ngân chọn khi mở bàn).
-          res = await _api.createPosSale(conflictDraftBody(body, table!['label']?.toString()));
+          res = await _api.createPosSale(conflictDraftBody(body, table['label']?.toString()));
         }
         if (res['isSuccess'] == true) await clearTable(tableId);
       } else {

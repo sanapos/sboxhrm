@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/app_scroll_safe.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../models/mobile_attendance.dart';

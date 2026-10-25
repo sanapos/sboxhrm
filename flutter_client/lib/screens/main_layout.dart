@@ -301,7 +301,7 @@ class ScreenRefreshNotifier {
   }) {
     final hasPatch = sellStockLines != null && sellStockLines.isNotEmpty;
     if (hasPatch) {
-      final lines = List<PosSellStockLineDelta>.from(sellStockLines!);
+      final lines = List<PosSellStockLineDelta>.from(sellStockLines);
       // Listener lưới (nếu mount) áp dụng ngay + ghi cache + clear notifier.
       patchPosSellStockLines(lines);
       // F&B/tablet: lưới dispose → notifier còn lines → ghi cache rồi clear
@@ -3274,7 +3274,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   isSelected: isSelected,
                   selectedColor: primaryColor,
                   unselectedColor: unselectedColor,
-                  onTap: () => (onModuleTap ?? _navigateToModule)(def!.moduleCode!),
+                  onTap: () => (onModuleTap ?? _navigateToModule)(def.moduleCode!),
                 ),
               );
             }),

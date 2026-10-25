@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
 import '../../utils/pos_payment_gateway_listener.dart';
-import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
