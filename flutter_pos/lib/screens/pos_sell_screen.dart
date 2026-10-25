@@ -9740,10 +9740,11 @@ class _PosSellScreenState extends State<PosSellScreen>
     // Mã cân điện tử: tách mã hàng (PLU) + trọng lượng / thành tiền → thêm đúng số lượng.
     final scale = PosScaleBarcodeConfig.parse(_industrySettings?.extraJson).decode(trimmed);
     if (scale != null) {
-      var pick = await lookupOrPickPosProduct(context, _api, scale.plu);
+      var pick = await lookupOrPickPosProduct(context, _api, scale.plu, warnIfNoStock: !_allowNegativeStock);
       final noZeros = scale.plu.replaceFirst(RegExp(r'^0+'), '');
       if (pick == null && noZeros.isNotEmpty && noZeros != scale.plu && mounted) {
-        pick = await lookupOrPickPosProduct(context, _api, noZeros);
+        pick = await lookupOrPickPosProduct(context, _api, noZeros,
+            notifyNotFound: true, warnIfNoStock: !_allowNegativeStock);
       }
       if (!mounted || pick == null) return;
       // Tem ghi thành tiền → chia theo giá của bảng giá đang chọn (trước dùng giá gốc → sai khối lượng).
@@ -9760,7 +9761,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       await _addPick(pick, mergeIfSame: false, addQty: qty);
       return;
     }
-    final pick = await lookupOrPickPosProduct(context, _api, trimmed);
+    final pick = await lookupOrPickPosProduct(context, _api, trimmed,
+        notifyNotFound: true, warnIfNoStock: !_allowNegativeStock);
     if (!mounted) return;
     if (pick == null) return;
     await _addPick(pick, mergeIfSame: mergeIfSame);
@@ -13981,6 +13983,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           // Thu ngân cảm ứng: không tự mở soft keyboard khi vào màn / sau chọn món.
           autofocusOnMount: false,
           restoreFocusAfterPick: false,
+          warnIfNoStock: !_allowNegativeStock,
         ),
       ),
     );

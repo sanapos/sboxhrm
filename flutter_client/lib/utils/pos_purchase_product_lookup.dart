@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../models/pos_product.dart';
 import '../services/api_service.dart';
+import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_quick_add_barcode_sheet.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -27,11 +28,15 @@ class PosPurchaseLookupPick {
 
 /// Quét mã / SKU chính xác hoặc tìm theo tên — hiện danh sách chọn nếu nhiều kết quả.
 /// [offerQuickCreate]: mã chưa có thì gợi ý thêm hàng (giá bán / vốn / ĐVT).
+/// [notifyNotFound]: không thấy hàng và không mở hộp nào (thêm nhanh / chọn) → báo «Không tìm thấy».
+/// Người dùng tự hủy hộp thì không báo.
 Future<PosPurchaseLookupPick?> lookupOrPickPosProduct(
   BuildContext context,
   ApiService api,
   String query, {
   bool offerQuickCreate = true,
+  bool notifyNotFound = false,
+  bool warnIfNoStock = false,
 }) async {
   final q = query.trim();
   if (q.isEmpty) return null;
@@ -49,7 +54,7 @@ Future<PosPurchaseLookupPick?> lookupOrPickPosProduct(
         context.mounted) {
       var hint = PosBarcodeHint.fromLookup(data);
       if (hint.barcode.isEmpty) hint = PosBarcodeHint(barcode: q);
-      final created = await showPosQuickAddByBarcode(context, api, hint);
+      final created = await showPosQuickAddByBarcode(context, api, hint, warnIfNoStock: warnIfNoStock);
       if (created != null) return PosPurchaseLookupPick(product: created);
       return null;
     }
@@ -57,7 +62,7 @@ Future<PosPurchaseLookupPick?> lookupOrPickPosProduct(
 
   final searchRes = await api.getPosProducts(search: q, pageSize: 30);
   if (searchRes['isSuccess'] != true || searchRes['data'] is! Map) {
-    return _maybeQuickAdd(context, api, q, offerQuickCreate);
+    return _maybeQuickAdd(context, api, q, offerQuickCreate, notifyNotFound, warnIfNoStock);
   }
 
   final rawItems = (searchRes['data'] as Map)['items'] as List? ?? [];
@@ -66,7 +71,7 @@ Future<PosPurchaseLookupPick?> lookupOrPickPosProduct(
       .toList();
 
   if (items.isEmpty) {
-    return _maybeQuickAdd(context, api, q, offerQuickCreate);
+    return _maybeQuickAdd(context, api, q, offerQuickCreate, notifyNotFound, warnIfNoStock);
   }
   if (items.length == 1) {
     return _enrichProduct(api, items.first);
@@ -94,14 +99,25 @@ Future<PosPurchaseLookupPick?> _maybeQuickAdd(
   ApiService api,
   String q,
   bool offerQuickCreate,
+  bool notifyNotFound,
+  bool warnIfNoStock,
 ) async {
-  if (!offerQuickCreate || !_looksLikeBarcode(q) || !context.mounted) {
+  if (!context.mounted) return null;
+  if (!offerQuickCreate || !_looksLikeBarcode(q)) {
+    // Mã hàng / mã ngắn không khớp hàng nào: trước đây màn bán hàng im lặng, quét như không quét.
+    if (notifyNotFound) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không tìm thấy sản phẩm',
+        message: tr('Không có hàng hóa với mã "$q"'),
+      );
+    }
     return null;
   }
   final created = await showPosQuickAddByBarcode(
     context,
     api,
     PosBarcodeHint(barcode: q),
+    warnIfNoStock: warnIfNoStock,
   );
   if (created == null) return null;
   return PosPurchaseLookupPick(product: created);

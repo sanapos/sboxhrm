@@ -108,14 +108,18 @@ Future<PosProduct?> showPosQuickAddByBarcode(
   ApiService api,
   PosBarcodeHint hint, {
   List<PosCatalogItem>? categories,
+  bool warnIfNoStock = false,
 }) {
   return showModalBottomSheet<PosProduct>(
     context: context,
     isScrollControlled: true,
+    // Không chui dưới thanh trạng thái — trước đây mất dòng «Mã vạch chưa có / Thêm từ catalog mẫu».
+    useSafeArea: true,
     builder: (ctx) => _QuickAddBarcodeSheet(
       api: api,
       hint: hint,
       categories: categories ?? const [],
+      warnIfNoStock: warnIfNoStock,
     ),
   );
 }
@@ -125,10 +129,13 @@ class _QuickAddBarcodeSheet extends StatefulWidget {
     required this.api,
     required this.hint,
     required this.categories,
+    this.warnIfNoStock = false,
   });
   final ApiService api;
   final PosBarcodeHint hint;
   final List<PosCatalogItem> categories;
+  /// Cửa hàng không cho bán âm kho: lưu hàng tồn 0 thì «Lưu và bán» báo hết hàng, hàng không vào HĐ.
+  final bool warnIfNoStock;
 
   @override
   State<_QuickAddBarcodeSheet> createState() => _QuickAddBarcodeSheetState();
@@ -136,6 +143,10 @@ class _QuickAddBarcodeSheet extends StatefulWidget {
 
 class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
   late final TextEditingController _nameCtrl;
+  /// Ô tự focus khi mở: thiếu tên → «Tên hàng»; có tên (catalog mẫu) mà thiếu giá → «Giá bán»;
+  /// đủ cả → không focus, bàn phím không che thông tin điền sẵn, chỉ cần kiểm rồi Lưu.
+  late final bool _autoName;
+  late final bool _autoPrice;
   late final TextEditingController _priceCtrl;
   late final TextEditingController _costCtrl;
   late final TextEditingController _unitCtrl;
@@ -143,6 +154,7 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
   late final TextEditingController _brandCtrl;
   late final TextEditingController _descCtrl;
   late final TextEditingController _stockCtrl;
+  final _stockFocus = FocusNode();
   String? _categoryId;
   String? _brandId;
   List<PosCatalogItem> _categories = [];
@@ -169,6 +181,8 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
           ? NumberFormat('#,##0', 'vi_VN').format(def)
           : '',
     );
+    _autoName = _nameCtrl.text.trim().isEmpty;
+    _autoPrice = !_autoName && _priceCtrl.text.trim().isEmpty;
     final cost = h.defaultCostPrice;
     _costCtrl = TextEditingController(
       text: cost != null && cost > 0
@@ -249,6 +263,7 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
     _brandCtrl.dispose();
     _descCtrl.dispose();
     _stockCtrl.dispose();
+    _stockFocus.dispose();
     super.dispose();
   }
 
@@ -286,6 +301,30 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
       return;
     }
 
+    if (widget.warnIfNoStock &&
+        _productType.tracksInventory &&
+        (parseFormattedNumber(_stockCtrl.text) ?? 0) <= 0) {
+      final saveAnyway = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(tr('Chưa nhập tồn kho')),
+          content: Text(tr('Cửa hàng không cho bán khi hết hàng — lưu với tồn 0 thì hàng chưa vào được hóa đơn. '
+              'Nhập «Tồn kho đầu» để bán ngay.')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Vẫn lưu'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Nhập tồn kho'))),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (saveAnyway != true) {
+        // Đợi hộp hỏi đóng hẳn: lúc đóng route trả focus về ô cũ, focus ngay sẽ bị đè.
+        Future<void>.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) _stockFocus.requestFocus();
+        });
+        return;
+      }
+    }
     setState(() => _saving = true);
     final barcode = widget.hint.barcode.trim();
     final brandName = _brandCtrl.text.trim();
@@ -467,6 +506,7 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
             const SizedBox(height: 10),
             TextField(
               controller: _nameCtrl,
+              autofocus: _autoName,
               textInputAction: TextInputAction.next,
               decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
             ),
@@ -474,6 +514,7 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
             if (_productType.tracksInventory) ...[
               TextField(
                 controller: _stockCtrl,
+                focusNode: _stockFocus,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [ThousandSeparatorFormatter()],
                 decoration: PosTheme.inputDecoration(
@@ -488,7 +529,7 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
                 Expanded(
                   child: TextField(
                     controller: _priceCtrl,
-                    autofocus: true,
+                    autofocus: _autoPrice,
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
                     decoration: PosTheme.inputDecoration(label: 'Giá bán *'),

@@ -10,7 +10,6 @@ import '../../models/pos_product.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_category_tree.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
-import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos_barcode_scanner.dart';
 import 'pos_form_keyboard.dart';
 import 'pos_product_image.dart';
@@ -63,6 +62,7 @@ class PosPurchaseProductSearchBar extends StatefulWidget {
     this.focusNode,
     this.autofocusOnMount = true,
     this.restoreFocusAfterPick = true,
+    this.warnIfNoStock = false,
     this.hideSuffix = false,
     this.compactSellMobile = false,
     this.showBrowseButton = true,
@@ -82,6 +82,8 @@ class PosPurchaseProductSearchBar extends StatefulWidget {
   final FocusNode? focusNode;
   final bool autofocusOnMount;
   final bool restoreFocusAfterPick;
+  /// Bán hàng, cửa hàng không cho bán âm kho: thêm nhanh hàng mới mà tồn 0 thì hỏi nhập tồn trước.
+  final bool warnIfNoStock;
   /// Bán hàng mobile: nút + / quét đặt ngoài thanh tìm.
   final bool hideSuffix;
   /// Bo góc nhỏ, không icon kính lúp — giống KiotViet.
@@ -372,15 +374,11 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
   Future<void> _submitExact() async {
     final q = _ctrl.text.trim();
     if (q.isEmpty) return;
-    final pick = await lookupOrPickPosProduct(context, widget.api, q);
+    // Không thấy hàng → hàm tra cứu tự báo; bấm Hủy hộp thêm nhanh / chọn hàng thì không báo «không tìm thấy».
+    final pick = await lookupOrPickPosProduct(context, widget.api, q,
+        notifyNotFound: true, warnIfNoStock: widget.warnIfNoStock);
     if (!mounted) return;
-    if (pick == null) {
-      NotificationOverlayManager().showWarning(
-        title: 'Không tìm thấy sản phẩm',
-        message: tr('Không có hàng hóa với mã "$q"'),
-      );
-      return;
-    }
+    if (pick == null) return;
     _ctrl.clear();
     _removeOverlay();
     _focus.unfocus();
