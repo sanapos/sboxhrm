@@ -25,9 +25,19 @@ public class ZKTecoDbInitializer(
         {
             if (context.Database.IsNpgsql())
             {
+                // DB trống (cài mới / dựng lại server): 45 migration EF chỉ có schema đời đầu, phần lớn bảng POS
+                // từng được thêm tay trên server → Migrate trên DB rỗng ra schema thiếu. Dựng thẳng theo model
+                // rồi ghi lịch sử migration để các lần sau không chạy lại.
+                if (await IsEmptyDatabaseAsync())
+                {
+                    logger.LogInformation("Empty database: creating schema from the EF model.");
+                    await context.Database.EnsureCreatedAsync();
+                    await MarkAllMigrationsAppliedAsync();
+                }
+
                 // Check if there are any pending migrations
                 var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
-                
+
                 if (pendingMigrations.Any())
                 {
                     logger.LogInformation("Applying {Count} pending migrations...", pendingMigrations.Count());
@@ -3612,6 +3622,29 @@ public class ZKTecoDbInitializer(
         }
     }
 
+    /// <summary>Schema public chưa có bảng nào (DB vừa tạo).</summary>
+    private async Task<bool> IsEmptyDatabaseAsync()
+    {
+        var tables = await context.Database
+            .SqlQueryRaw<int>("SELECT count(*)::int AS \"Value\" FROM information_schema.tables WHERE table_schema = 'public'")
+            .SingleAsync();
+        return tables == 0;
+    }
+
+    private async Task MarkAllMigrationsAppliedAsync()
+    {
+        var productVersion = typeof(DbContext).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion?.Split('+')[0] ?? "8.0.0";
+        await context.Database.ExecuteSqlRawAsync(
+            "CREATE TABLE IF NOT EXISTS \"__EFMigrationsHistory\" (\"MigrationId\" varchar(150) PRIMARY KEY, \"ProductVersion\" varchar(32) NOT NULL)");
+        foreach (var id in context.Database.GetMigrations())
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ({0}, {1}) ON CONFLICT DO NOTHING",
+                id, productVersion);
+        }
+    }
+
     public async Task SeedAsync()
     {
         try
@@ -3685,6 +3718,11 @@ public class ZKTecoDbInitializer(
 
     private async Task SeedUsersAsync()
     {
+        // Tài khoản mẫu có mật khẩu cố định trong mã nguồn — chỉ cho máy dev. Production: Super Admin đầu tiên
+        // tạo qua POST /api/Auth/Setup; trước đây seed chạy mọi môi trường và tạo lại tài khoản đã xóa mỗi lần deploy.
+        if (!string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development",
+                StringComparison.OrdinalIgnoreCase))
+            return;
         await SeedSuperAdminAsync();
         await SeedUserAsync(Roles.Admin);
         await SeedUserAsync(Roles.Manager);

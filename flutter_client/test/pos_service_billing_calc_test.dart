@@ -78,7 +78,8 @@ void main() {
         billableMinutes: billable,
         unitPrice: 120000,
       ),
-      62004,
+      // 31/60 × 120.000 — tính theo phút như máy chủ, không nhân SL đã làm tròn (0,5167 → 62.004đ).
+      62000,
     );
   });
 

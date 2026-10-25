@@ -133,3 +133,6 @@ __pycache__/
 .claude/
 flutter_client/test/_shots/
 docs/shots/
+
+scripts/qa/.qa-accounts.json
+scripts/qa/qa-api.log

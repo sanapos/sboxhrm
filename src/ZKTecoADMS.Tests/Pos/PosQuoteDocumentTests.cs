@@ -199,7 +199,7 @@ public class PosQuoteDocumentTests(PosPgFixture fx) : PosFlowTestBase(fx)
     }
 
     [Fact]
-    public async Task Gia_da_gom_VAT_khong_chen_dong_thue_vao_bang_tong()
+    public async Task Gia_da_gom_VAT_chi_ghi_so_thue_da_gom_khong_cong_them()
     {
         if (NoDb) return;
         var (_, q) = await SeedAsync(withStages: false);
@@ -211,7 +211,8 @@ public class PosQuoteDocumentTests(PosPgFixture fx) : PosFlowTestBase(fx)
             await db.SaveChangesAsync();
         }
         var html = await HtmlAsync(q, PosQuoteDocumentKind.Quote);
-        Assert.DoesNotContain("7.111.111", html);
+        // Từ 18/10: dòng Thuế GTGT ghi «(đã gồm …)» thay vì để trống, số thuế không cộng vào tổng.
+        Assert.Contains("(đã gồm 7.111.111)", html);
         Assert.Contains("Giá đã bao gồm thuế GTGT 8%", html);
     }
 
