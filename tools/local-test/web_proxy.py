@@ -10,7 +10,9 @@ import sys
 import urllib.error
 import urllib.request
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "flutter_client", "build", "web"))
+# SBOX_WEB_ROOT: thư mục bản web khác (vd. build -o riêng cho server test).
+ROOT = os.environ.get("SBOX_WEB_ROOT") or os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "flutter_client", "build", "web"))
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8190
 API = sys.argv[2] if len(sys.argv) > 2 else "http://localhost:7199"
 PROXY = ("/api/", "/hubs/", "/stores/", "/o/", "/uploads/", "/health")

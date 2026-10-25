@@ -385,6 +385,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                                       ),
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: const Color(0xFFFFB74D),
+                                        backgroundColor: Colors.transparent,
                                         side: BorderSide(
                                           color: SboxColors.warning
                                               .withValues(alpha: 0.3),
@@ -442,6 +443,8 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                                 ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Colors.white70,
+                                  // Theme chung tô nền trắng cho OutlinedButton → chữ trắng biến mất trên màn tối.
+                                  backgroundColor: Colors.transparent,
                                   side: BorderSide(
                                     color: Colors.white.withValues(alpha: 0.15),
                                   ),
