@@ -12356,7 +12356,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         _tab.cart.any((l) => l.product.sessionPackCount > 0)) {
       NotificationOverlayManager().showError(
         title: 'Thiếu khách hàng',
-        message: tr('Thẻ tập / gói buổi phải gắn với khách — chọn hoặc thêm khách trước khi thanh toán.'),
+        message: tr(_industrySettings?.sellProfile == PosSellProfile.gym
+            ? 'Thẻ tập / gói buổi phải gắn với khách — chọn hoặc thêm khách trước khi thanh toán.'
+            : 'Gói buổi / liệu trình phải gắn với khách — chọn hoặc thêm khách trước khi thanh toán.'),
       );
       return;
     }
@@ -12518,7 +12520,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       final printAreaName = _tab.serviceAreaName;
       final printTableName = _tab.serviceResourceName;
       final printResourceId = _tab.serviceResourceId;
-      final cupLabelLines = _quickPrintCup
+      final cupLabelLines = _quickPrintCup && (_industrySettings?.sellProfile.usesFnbItemTypes ?? true)
           ? List<_SellCartLine>.from(
               _tab.cart.where((l) => l.cupLabelPendingQty > 0))
           : const <_SellCartLine>[];
@@ -13698,6 +13700,20 @@ class _PosSellScreenState extends State<PosSellScreen>
         },
       );
       if (!ok && mounted) {
+        // Chưa cài máy in hóa đơn nào → không xếp «In treo» (không có máy để in lại), chỉ nhắc cài máy in.
+        final noBillPrinter = PosPrintOrchestrator.instance
+                    .resolvePrinter(PosPrintDocumentTypes.saleInvoice) ==
+                null &&
+            !await PosPrinterTransport.isSunmiDevice();
+        if (!mounted) return;
+        if (noBillPrinter) {
+          NotificationOverlayManager().showWarning(
+            title: 'Hóa đơn chưa in',
+            message: tr('Chưa cài máy in hóa đơn — vào Thiết lập SBOX › Máy in'),
+            relatedEntityType: kPosPrintNotifyKind,
+          );
+          return;
+        }
         _enqueueFailedSalePrint(
           order,
           errorMessage: 'In sau thanh toán thất bại',
@@ -15562,7 +15578,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               },
             ),
           ),
-          Text(tr('Tổng tiền hàng (${_tab.cart.length})'),
+          Text(tr('${_sellProfile.usesSessionPackages ? 'Tổng tiền' : 'Tổng tiền hàng'} (${_tab.cart.length})'),
             style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
           ),
           const SizedBox(width: 10),
@@ -16741,7 +16757,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 ),
         ],
         const SizedBox(height: 6),
-        _summaryRow('Tổng tiền hàng (${_tab.cart.length})', _moneyFmt.format(_subTotal)),
+        _summaryRow('${_sellProfile.usesSessionPackages ? 'Tổng tiền' : 'Tổng tiền hàng'} (${_tab.cart.length})', _moneyFmt.format(_subTotal)),
         if (_manualLineDiscountTotal > 0) ...[
           const SizedBox(height: 2),
           _summaryRow('Chiết khấu SP', '-${_moneyFmt.format(_manualLineDiscountTotal)}'),
@@ -18004,7 +18020,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     // dù thiết lập in bếp còn sót lại từ ngành cũ.
     final showKitchenChip = _sellProfile.usesKitchenNotify &&
         _printSettings.kitchenSlipPrintMode != PosKitchenSlipPrintMode.off;
-    final showCupChip = _printSettings.cupLabelPrintMode.enabled;
+    // Tem ly là nghiệp vụ F&B — salon / gym / phòng giờ không hiện dù cài in còn bật.
+    final showCupChip = _printSettings.cupLabelPrintMode.enabled &&
+        (_industrySettings?.sellProfile.usesFnbItemTypes ?? true);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),

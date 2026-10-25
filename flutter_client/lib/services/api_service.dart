@@ -25189,6 +25189,76 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Thợ cho một khung giờ hẹn: có ca / nghỉ / bận, thợ quen, số việc hôm nay + thợ gợi ý.
+  Future<Map<String, dynamic>> getPosStaffAvailability({
+    required DateTime slotStart,
+    required int durationMinutes,
+    String? customerId,
+    String? excludeReservationId,
+  }) async {
+    try {
+      final q = <String, String>{
+        'slotStart': slotStart.toUtc().toIso8601String(),
+        'durationMinutes': '$durationMinutes',
+        if (customerId != null && customerId.isNotEmpty) 'customerId': customerId,
+        if (excludeReservationId != null && excludeReservationId.isNotEmpty)
+          'excludeReservationId': excludeReservationId,
+      };
+      final uri = Uri.parse('$baseUrl/api/pos/resource-reservations/staff-availability')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Đặt ca nhanh cho thợ (giờ VN «HH:mm»), nghỉ, hoặc xóa — lặp [repeatDays] ngày.
+  Future<Map<String, dynamic>> setPosStaffShift({
+    required String employeeId,
+    required DateTime day,
+    String? start,
+    String? end,
+    bool dayOff = false,
+    bool clear = false,
+    int repeatDays = 1,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/resource-reservations/staff-shift'),
+            headers: _headers,
+            body: jsonEncode({
+              'employeeId': employeeId,
+              'day': day.toUtc().toIso8601String(),
+              'start': start,
+              'end': end,
+              'dayOff': dayOff,
+              'clear': clear,
+              'repeatDays': repeatDays,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Ca + số việc của từng thợ trong ngày — lưới lịch theo thợ.
+  Future<Map<String, dynamic>> getPosStaffDay(DateTime day) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/resource-reservations/staff-day')
+          .replace(queryParameters: {'day': day.toUtc().toIso8601String()});
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> collectPosResourceReservationDeposit(
     String id,
     Map<String, dynamic> body,

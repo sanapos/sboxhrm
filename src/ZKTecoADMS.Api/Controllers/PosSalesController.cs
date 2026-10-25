@@ -1872,6 +1872,19 @@ public partial class PosSalesController(
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn đã có trả hàng — không thể hủy"));
         }
 
+        // Gói buổi cấp từ đơn đã dùng dở: hủy sẽ hoàn đủ tiền và xóa luôn buổi khách đã làm (+ hoa hồng buổi đó).
+        var usedPacks = await PosSellIndustryController.UsedSessionPacksOnOrderAsync(dbContext, storeId, id);
+        if (usedPacks.Count > 0)
+        {
+            var detail = string.Join(", ", usedPacks.Select(p =>
+                PosCustomerSessionBalance.IsUnlimitedCount(p.Total)
+                    ? $"«{p.PackageName}» đã dùng {p.Used} lượt"
+                    : $"«{p.PackageName}» đã dùng {p.Used}/{p.Total} buổi"));
+            return BadRequest(AppResponse<SaleOrderDto>.Fail(
+                $"Không hủy được đơn: khách đã dùng gói — {detail}. Hủy sẽ hoàn đủ tiền và xóa cả buổi đã làm. " +
+                "Muốn hoàn phần chưa dùng: điều chỉnh gói ở hồ sơ khách rồi lập phiếu chi trả khách."));
+        }
+
         await using var tx = await dbContext.Database.BeginTransactionAsync();
         try
         {
@@ -2410,6 +2423,13 @@ public partial class PosSalesController(
             }
         }
 
+        // Trả dòng gói buổi: kiểm khách chưa dùng vào phần buổi đang trả (thu hồi trong transaction bên dưới).
+        var returnedProducts = allocations.Select(a => (a.Line.ProductId, a.Qty)).ToList();
+        var packErr = await PosSellIndustryController.RevokeSessionPacksOnReturnAsync(
+            dbContext, storeId, order.Id, returnedProducts, CurrentUserEmail, apply: false);
+        if (packErr != null)
+            return BadRequest(AppResponse<object>.Fail(packErr));
+
         var returnNo = PosStockDocumentNo.NewReturn();
         var refundMethod = string.IsNullOrWhiteSpace(dto.RefundPaymentMethod)
             ? order.PaymentMethod
@@ -2568,6 +2588,13 @@ public partial class PosSalesController(
         {
             await tx.RollbackAsync();
             return BadRequest(AppResponse<object>.Fail(warrantyErr));
+        }
+        packErr = await PosSellIndustryController.RevokeSessionPacksOnReturnAsync(
+            dbContext, storeId, order.Id, returnedProducts, CurrentUserEmail, apply: true);
+        if (packErr != null)
+        {
+            await tx.RollbackAsync();
+            return BadRequest(AppResponse<object>.Fail(packErr));
         }
 
         PosCancelAuditHelper.Add(dbContext, new PosCancelReturnAudit

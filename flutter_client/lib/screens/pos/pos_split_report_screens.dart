@@ -14,6 +14,8 @@ import 'pos_offline_sales_screen.dart';
 import 'pos_risk_report_screen.dart';
 import 'pos_reservation_report_screen.dart';
 import '../../utils/api_datetime.dart';
+import '../../utils/pos_sell_settings_helper.dart';
+import '../../models/pos_sell_industry.dart' show PosSellProfile;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -54,10 +56,24 @@ class PosReportsHubScreen extends StatelessWidget {
   static const _muted = SboxColors.slate600;
   static const _hint = Color(0xFF8A9199);
 
+  /// Báo cáo chỉ đúng một số ngành — ẩn khi đã biết ngành (chưa tải được thì hiện đủ).
+  static bool _fitsIndustry(String label) {
+    final p = PosSellSettingsHelper.lastProfile;
+    if (p == null) return true;
+    return switch (label) {
+      'Topping' || 'Nguyên vật liệu' => p.usesFnbItemTypes,
+      'Vận chuyển' => p == PosSellProfile.retail,
+      'Thẻ tập sắp hết hạn' => p.usesSessionPackages,
+      'Sổ khách lưu trú' => p == PosSellProfile.hotel,
+      _ => true,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final perm = Provider.of<PermissionProvider>(context);
+    final profile = PosSellSettingsHelper.lastProfile;
     final items = <({
       String label,
       String subtitle,
@@ -82,7 +98,7 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Kết quả kinh doanh', subtitle: 'P&L', icon: Icons.account_balance, module: 'PosReportPnl', screen: const PosPnlReportScreen()),
       (label: 'Voucher', subtitle: 'Sử dụng', icon: Icons.confirmation_number_outlined, module: 'PosReportVoucher', screen: const PosVoucherUsageReportScreen()),
       (label: 'Bán theo khách', subtitle: 'Doanh thu / nợ KH', icon: Icons.people_outline, module: 'PosReportRevenue', screen: const PosCustomerSalesReportScreen()),
-      (label: 'Đặt bàn & cọc', subtitle: 'Lịch đặt, cọc, không đến theo kỳ', icon: Icons.event_seat_outlined, module: 'PosBooking', screen: const PosReservationReportScreen()),
+      (label: profile?.usesSessionPackages == true ? 'Đặt lịch & cọc' : 'Đặt bàn & cọc', subtitle: 'Lịch đặt, cọc, không đến theo kỳ', icon: Icons.event_seat_outlined, module: 'PosBooking', screen: const PosReservationReportScreen()),
       (label: 'Sức khỏe kho', subtitle: 'Cháy / chậm / chết tồn', icon: Icons.inventory_2_outlined, module: 'PosReportStock', screen: const PosStockHealthReportScreen()),
       (label: 'Nguyên vật liệu', subtitle: 'Dùng theo định lượng · còn đủ mấy ngày · món tốn NVL', icon: Icons.blender_outlined, module: 'PosReportStock', screen: const PosMaterialReportScreen()),
       (label: 'Topping', subtitle: '% ly có topping · topping bán chạy · lãi topping', icon: Icons.bubble_chart_outlined, module: 'PosReportSoldGoods', screen: const PosToppingReportScreen()),
@@ -92,8 +108,8 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Nguy cơ gian lận', subtitle: 'Giảm / hủy sau tạm tính · đá bill · đá món · không in hóa đơn', icon: Icons.policy_outlined, module: 'PosSalesReport', screen: const PosRiskReportScreen()),
       (label: 'Bán offline & kiểm soát', subtitle: 'Đơn bán lúc mất mạng · lịch sử cài app · số HĐ offline', icon: Icons.cloud_off_outlined, module: 'PosSalesReport', screen: const PosOfflineSalesScreen()),
       (label: 'Sổ khách lưu trú', subtitle: 'Khai báo tạm trú', icon: Icons.hotel_outlined, module: 'PosReportStayGuests', screen: const AnalyticsReportViewer(spec: AnalyticsReportSpec.stayGuests)),
-      (label: 'Thẻ tập sắp hết hạn', subtitle: 'Gym / spa — nhắc gia hạn', icon: Icons.fitness_center_outlined, module: 'PosReportSessionExpiry', screen: const AnalyticsReportViewer(spec: AnalyticsReportSpec.sessionExpiry)),
-    ].where((item) => PermissionNavigation.canAccessModule(
+      (label: 'Thẻ tập sắp hết hạn', subtitle: profile == PosSellProfile.salon ? 'Gói liệu trình sắp hết hạn — nhắc gia hạn' : 'Gym / spa — nhắc gia hạn', icon: Icons.fitness_center_outlined, module: 'PosReportSessionExpiry', screen: const AnalyticsReportViewer(spec: AnalyticsReportSpec.sessionExpiry)),
+    ].where((item) => _fitsIndustry(item.label)).where((item) => PermissionNavigation.canAccessModule(
           item.module,
           allowedModules: auth.user?.allowedModules,
           perm: perm,
@@ -159,7 +175,7 @@ class PosReportsHubScreen extends StatelessWidget {
 const _hubGroups = <(String, IconData, List<String>)>[
   ('Bán hàng', Icons.point_of_sale_outlined, [
     'Doanh thu', 'Hàng hóa bán ra', 'Topping', 'Bán theo khách', 'Phương thức thanh toán', 'Tổng kết cuối ngày',
-    'Voucher', 'Đặt bàn & cọc', 'Vận chuyển', 'Hóa đơn điện tử',
+    'Voucher', 'Đặt bàn & cọc', 'Đặt lịch & cọc', 'Vận chuyển', 'Hóa đơn điện tử',
   ]),
   ('Tài chính', Icons.account_balance_wallet_outlined, [
     'Kết quả kinh doanh', 'Lợi nhuận', 'Chi phí', 'Sổ quỹ', 'Công nợ', 'Thuế hộ kinh doanh',

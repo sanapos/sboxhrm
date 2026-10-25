@@ -173,7 +173,10 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              subtitle: Text(tr('${p.productCode} · Tồn: ${p.onHandQty}'),
+                              // Dịch vụ / combo không có tồn — chỉ hiện mã.
+                              subtitle: Text(tr(p.productType == PosProductType.service || p.productType == PosProductType.combo
+                                    ? p.productCode
+                                    : '${p.productCode} · Tồn: ${p.onHandQty}'),
                                 style: const TextStyle(fontSize: 12),
                               ),
                               onTap: () => Navigator.pop(context, p),

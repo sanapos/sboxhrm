@@ -1231,7 +1231,8 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
             },
           ),
           const Divider(height: 1, color: PosTheme.border),
-          if (mobile && !inHub) _buildMobileStockSummary(),
+          // Salon / gym chủ yếu bán dịch vụ — «Tổng tồn 0» chỉ gây rối khi chưa có hàng tồn.
+          if (mobile && !inHub && !((_sellProfile?.usesSessionPackages ?? false) && _totalOnHand == 0)) _buildMobileStockSummary(),
           Expanded(
             child: _loading
                 ? LoadingWidget(message: tr('Đang tải hàng hóa…'))
@@ -2132,7 +2133,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               if (canEdit)
                 ListTile(
                   leading: const Icon(Icons.edit_outlined),
-                  title: Text(tr('Sửa hàng hóa')),
+                  title: Text(tr(switch (p.productType) {
+                    PosProductType.service => 'Sửa dịch vụ',
+                    PosProductType.combo => 'Sửa combo',
+                    _ => 'Sửa hàng hóa',
+                  })),
                   onTap: () {
                     Navigator.pop(ctx);
                     _openEdit(p);
@@ -2432,7 +2437,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       ),
       child: Row(
         children: [
-          Text(tr('Tổng: $_total · Tồn: ${_moneyFmt.format(_totalOnHand)}'),
+          Text(tr((_sellProfile?.usesSessionPackages ?? false) && _totalOnHand == 0
+              ? 'Tổng: $_total'
+              : 'Tổng: $_total · Tồn: ${_moneyFmt.format(_totalOnHand)}'),
             style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
           ),
           const Spacer(),

@@ -907,6 +907,8 @@ class _PosSellIndustrySettingsScreenState
                 : (v) => _patchAndSave(
                     (cur) => cur.copyWith(allowNegativeStock: v)),
           ),
+          // QR gọi món / phiếu bếp là nghiệp vụ F&B — salon, gym… ẩn (trừ khi lỡ bật, để còn tắt được).
+          if (s.sellProfile.usesKitchenNotify || s.enableQrTableOrder) ...[
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(tr('QR order tại bàn')),
@@ -988,6 +990,7 @@ class _PosSellIndustrySettingsScreenState
                       );
                     }),
           ),
+          ],
           const Divider(height: 24),
           Text(tr('Báo cáo & cuối ngày'),
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),

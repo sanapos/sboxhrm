@@ -1670,7 +1670,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     }
     if (_products.isEmpty) {
       return Center(
-        child: Text(tr('Không có hàng bán trực tiếp'),
+        child: Text(tr('Chưa có hàng / dịch vụ để bán'),
           style: TextStyle(color: SboxColors.slate600, fontSize: 13),
         ),
       );
@@ -1808,8 +1808,8 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             children: [
               Text(
                 tr(_loadError != null
-                    ? 'Không tải được hàng hóa'
-                    : 'Không có hàng bán trực tiếp'),
+                    ? 'Không tải được danh sách bán'
+                    : 'Chưa có hàng / dịch vụ để bán'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: SboxColors.slate700, fontSize: 13),
               ),

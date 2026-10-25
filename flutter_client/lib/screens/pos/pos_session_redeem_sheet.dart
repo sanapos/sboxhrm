@@ -81,6 +81,8 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
   String? _employeeId;
   DateTime _usedAt = DateTime.now();
   bool _changed = false;
+  /// Danh sách NV làm — mở từ hồ sơ khách không có sẵn (chỉ màn bán hàng truyền) → tự tải.
+  late List<Map<String, dynamic>> _sellers = widget.sellers;
 
   @override
   void initState() {
@@ -91,6 +93,16 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
       initialIndex: widget.initialTab.clamp(0, 1),
     );
     _load();
+    if (_sellers.isEmpty) _loadSellers();
+  }
+
+  Future<void> _loadSellers() async {
+    final res = await _api.getPosSellSellers();
+    if (!mounted || res['isSuccess'] != true || res['data'] is! List) return;
+    setState(() => _sellers = (res['data'] as List)
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList());
   }
 
   @override
@@ -141,7 +153,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
 
   List<({String id, String name})> get _sellerOpts {
     final out = <({String id, String name})>[];
-    for (final e in widget.sellers) {
+    for (final e in _sellers) {
       final id = (e['id'] ?? e['employeeId'] ?? '').toString();
       if (id.isEmpty) continue;
       final name = (e['name'] ??
@@ -192,6 +204,24 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
       );
       return;
     }
+    // Trừ buổi không hoàn tác được tại quầy — hỏi lại để tránh bấm nhầm / bấm 2 lần mất 2 buổi.
+    final pack = b;
+    final unlimited = pack.totalSessions >= 9999;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Trừ 1 buổi?')),
+        content: Text(tr(unlimited
+            ? 'Ghi 1 lượt dùng «${pack.packageName}» ngày ${_usedAt.day}/${_usedAt.month}/${_usedAt.year}.'
+            : 'Trừ 1 buổi «${pack.packageName}» ngày ${_usedAt.day}/${_usedAt.month}/${_usedAt.year}.\n'
+                'Còn ${pack.remainingSessions - 1}/${pack.totalSessions} buổi sau khi trừ.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Trừ buổi'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
     setState(() => _redeeming = true);
     final res = await _api.redeemPosSessionBalance({
       'balanceId': b.id,

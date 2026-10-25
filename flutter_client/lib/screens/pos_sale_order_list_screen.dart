@@ -43,6 +43,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import '../utils/pos_owner_password_gate.dart';
+import '../utils/pos_sell_settings_helper.dart';
+import '../models/pos_sell_industry.dart' show PosSellProfile;
 enum _ListColumn {
   orderNo('Mã đơn'),
   time('Thời gian'),
@@ -112,6 +114,12 @@ class PosSaleOrderListScreen extends StatefulWidget {
 }
 
 class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
+  /// Tem vận đơn chỉ cho ngành có giao hàng (bán lẻ / F&B) — salon, gym, phòng giờ ẩn.
+  bool get _showShipping {
+    final p = PosSellSettingsHelper.lastProfile;
+    return p == null || p == PosSellProfile.retail || p == PosSellProfile.restaurant;
+  }
+
   final _api = ApiService();
   final _searchCtrl = TextEditingController();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
@@ -399,7 +407,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         content: Text(tr('${tr('Hủy đơn ')}${o.orderNo}?\n\n'
             '• Hoàn kho hàng đã bán\n'
             '• Hoàn công nợ / điểm / voucher (nếu có)\n'
-            '• Thu hồi thẻ tập / gói buổi bán trong đơn (nếu có)\n'
+            '• Thu hồi gói buổi / thẻ dịch vụ bán trong đơn (nếu có)\n'
             '• Đơn chuyển sang «Đã hủy» (vẫn thấy trong danh sách)\n\n'
             'Chỉ dùng khi đơn đã hoàn thành và chưa trả hàng.')),
         actions: [
@@ -1324,6 +1332,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: PosTheme.textPrimary)),
               ),
               if (exportBtn != null) exportBtn,
+              if (_showShipping)
               IconButton(
                 tooltip: tr('In tem vận đơn'),
                 onPressed: _bulkShippingLabels,
@@ -1377,7 +1386,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               ),
               if (!showTitle && exportBtn != null) exportBtn,
               // Có dòng tiêu đề thì nút đã nằm trên đó — trước đây hiện 2 xe tải.
-              if (!showTitle)
+              if (!showTitle && _showShipping)
                 IconButton(
                   tooltip: tr('In tem vận đơn'),
                   onPressed: _bulkShippingLabels,

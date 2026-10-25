@@ -8,15 +8,17 @@ class PosSellSettingsHelper {
 
   final ApiService _api;
 
+  /// Ngành lần tải / lưu gần nhất — cho màn tĩnh (hub báo cáo…) lọc mục theo ngành không cần gọi API.
+  static PosSellProfile? lastProfile;
+
   Future<({PosStoreSellSettingsDto? settings, String? error})> load() async {
     final res = await _api.getPosSellSettings();
     if (res['isSuccess'] == true && res['data'] is Map) {
-      return (
-        settings: PosStoreSellSettingsDto.fromJson(
-          Map<String, dynamic>.from(res['data'] as Map),
-        ),
-        error: null,
+      final s = PosStoreSellSettingsDto.fromJson(
+        Map<String, dynamic>.from(res['data'] as Map),
       );
+      lastProfile = s.sellProfile;
+      return (settings: s, error: null);
     }
     return (
       settings: null,
@@ -37,6 +39,7 @@ class PosSellSettingsHelper {
       final next = PosStoreSellSettingsDto.fromJson(
         Map<String, dynamic>.from(res['data'] as Map),
       );
+      lastProfile = next.sellProfile;
       if (quietRefresh) {
         ScreenRefreshNotifier.refreshPosSellIndustry();
       }
