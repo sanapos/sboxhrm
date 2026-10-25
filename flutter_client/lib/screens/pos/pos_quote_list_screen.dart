@@ -17,6 +17,7 @@ import '../../utils/pos_quote_export.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/page_top_actions.dart';
 import '../../widgets/pos/pos_form_keyboard.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_contract_detail_screen.dart';
 import 'pos_contract_receivables_screen.dart';
@@ -509,6 +510,8 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
 
     return Scaffold(
       backgroundColor: PosTheme.background,
+      // Mở chồng từ menu màn bán: không có khung chính → cần tiêu đề + nút quay lại.
+      appBar: HrmPageChrome.appBar(title: 'Báo giá', context: context),
       body: Column(
         children: [
           Material(

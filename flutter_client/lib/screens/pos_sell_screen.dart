@@ -795,6 +795,27 @@ class PosSellScreen extends StatefulWidget {
 
 class _PosSellScreenState extends State<PosSellScreen>
     with WidgetsBindingObserver {
+  /// Bàn phím đang mở cho ô trong giỏ (ghi chú dòng, giá…): ẩn chân giỏ (tổng + nút) để danh sách món
+  /// còn chỗ — trước đây danh sách bị bóp còn 0, ô ghi chú dòng đang gõ khuất hẳn sau phần tổng tiền.
+  bool _imeHidesCartFooter = false;
+
+  bool _computeImeHidesCartFooter() {
+    if (View.of(context).viewInsets.bottom <= 0) return false;
+    final focusCtx = FocusManager.instance.primaryFocus?.context;
+    final editable = focusCtx?.findAncestorStateOfType<EditableTextState>()?.widget ??
+        (focusCtx?.widget is EditableText ? focusCtx!.widget as EditableText : null);
+    if (editable == null) return false;
+    // Ô «Ghi chú đơn hàng» nằm ngay trên phần tổng — giữ nguyên bố cục.
+    return !identical(editable.controller, _tab._noteCtrl);
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    if (!mounted || _tabs.isEmpty) return;
+    final hide = _computeImeHidesCartFooter();
+    if (hide != _imeHidesCartFooter) setState(() => _imeHidesCartFooter = hide);
+  }
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   final _qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
@@ -3485,7 +3506,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!sync.enabled) {
       NotificationOverlayManager().showWarning(
         title: 'Màn hình phụ',
-        message: tr('Bật trong Cài đặt ngành hàng trước'),
+        message: tr('Bật trong Thiết lập SBOX › Màn hình phụ trước'),
       );
       return;
     }
@@ -11915,6 +11936,14 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Future<void> _openCashDrawerManual() async {
+    // Két tiền: chỉ thu ngân (quyền thanh toán) — trước đây nhân viên chỉ được order cũng mở được két.
+    if (!context.read<PermissionProvider>().canPosPay()) {
+      NotificationOverlayManager().showError(
+        title: 'Không đủ quyền',
+        message: tr('Mở két cần quyền thu ngân (thanh toán) — nhờ quản lý tick trong Phân quyền'),
+      );
+      return;
+    }
     // Một đường duy nhất: két nối máy Sunmi trong → API Sunmi; còn lại → ESC p tới
     // đúng máy hóa đơn. Trước đây gọi cả hai ⇒ Sunmi bật két 2–3 lần, máy khác
     // hãng lại báo «đã mở» dù không gửi được.
@@ -17202,8 +17231,12 @@ class _PosSellScreenState extends State<PosSellScreen>
                     : Colors.white,
             borderRadius: BorderRadius.circular(14),
             child: InkWell(
+              // Mờ vì chưa có tài khoản nhận tiền: chạm vào thì nói lý do (trước đây im lặng).
               onTap: !enabled
-                  ? null
+                  ? () => NotificationOverlayManager().showWarning(
+                        title: 'Chưa có tài khoản nhận tiền',
+                        message: tr('Thêm tài khoản ngân hàng ở Thiết lập SBOX › Tài khoản nhận tiền để thu chuyển khoản'),
+                      )
                   : () => _applyPayQuickMode(id, onMutate: onMutate),
               borderRadius: BorderRadius.circular(14),
               child: Container(
@@ -18569,6 +18602,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     children: [
                       _buildTabletOrderCartHeader(),
                       Expanded(child: _buildDesktopCartColumn()),
+                      if (!_imeHidesCartFooter)
                       _buildTabletOrderFooter(
                         canPay: canPay,
                         canOrder: perm.canPosOrder(),
@@ -18798,10 +18832,8 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Future<void> _openSaleOrdersFromFloor() async {
-    if (NavigationNotifier.mainLayoutReady.value) {
-      NavigationNotifier.navigateToModule.value = 'PosSaleOrders';
-      return;
-    }
+    // Mở chồng lên màn bán (như Báo giá) — trước đây đổi hẳn module trong khung chính,
+    // Back về Trang chủ thay vì về hóa đơn đang bán.
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -18995,7 +19027,8 @@ class _PosSellScreenState extends State<PosSellScreen>
         _invoiceSecondaryButton(
           label: _warehousePrinting
               ? 'Đang gửi…'
-              : _hasWarehouseSlipPending()
+              // Giỏ trống: chưa có gì để báo — trước đây hiện «Đã báo kho» trên hóa đơn mới.
+              : _hasWarehouseSlipPending() || !cartOk
                   ? 'Xuất kho'
                   : 'Đã báo kho',
           color: const Color(0xFF0F766E),

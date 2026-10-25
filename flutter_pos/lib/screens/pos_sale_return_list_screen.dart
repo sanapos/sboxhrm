@@ -10,6 +10,7 @@ import '../utils/api_datetime.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/notification_overlay.dart';
 import '../utils/pos_kiot_time_range.dart';
+import '../widgets/pos/pos_hub_scope.dart';
 import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import 'pos_sale_return_screen.dart';
@@ -160,8 +161,20 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
     TextStyle? struck(_ReturnRow r) =>
         r.isVoided ? const TextStyle(decoration: TextDecoration.lineThrough, color: SboxColors.textMuted) : null;
 
+    // Mở chồng từ menu màn bán: không có khung chính → cần tiêu đề + nút quay lại
+    // (trước đây trống trơn, máy ẩn thanh điều hướng Android là kẹt ở màn này).
+    final pushed = PosHubScope.pushedSubPageOf(context);
     return Scaffold(
       backgroundColor: SboxColors.page,
+      appBar: pushed
+          ? AppBar(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              elevation: 0.5,
+              foregroundColor: SboxColors.text,
+              title: Text(tr('Trả hàng')),
+            )
+          : null,
       body: SboxReportLayout(
         onRefresh: _load,
         filters: SboxFilterBar(

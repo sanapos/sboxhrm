@@ -818,6 +818,7 @@ const Map<String, String> kEnUiMap = <String, String>{
   'Bật thì hiện hộp nhập số khách khi mở trống. ': 'Bật thì hiện hộp nhập số khách khi mở trống. ',
   'Bật thì mỗi lần hủy món bếp, hủy đơn hoặc trả hàng phải chọn lý do': 'If enabled, each time you cancel an item, cancel an order or return an item, you must select a reason',
   'Bật trong Cài đặt ngành hàng trước': 'Enable in Industry Settings first',
+  'Bật trong Thiết lập SBOX › Màn hình phụ trước': 'Enable it in SBOX Setup › Customer display first',
   'Bật trong Thiết lập máy in → Tem dán ly': 'Turn on in Printer Settings → Cup Stickers',
   'Bật tài nguyên phục vụ': 'Enable serving resources',
   'Bật tích điểm / đổi điểm': 'Bật tích điểm / đổi điểm',
