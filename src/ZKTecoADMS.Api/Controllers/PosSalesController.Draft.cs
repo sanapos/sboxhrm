@@ -1771,6 +1771,8 @@ public partial class PosSalesController
                 StaffAssignmentsJson = PosStaffCommissionHelper.SerializeAssignments(line.StaffAssignments),
                 KitchenSentQty = kitchenSent,
                 KitchenSentAt = kitchenSent > 0 ? DateTime.UtcNow : null,
+                // Phiên order do máy bán gán khi báo bếp (giữ nguyên qua mỗi lần autosave dựng lại dòng).
+                KitchenRound = Math.Max(0, line.KitchenRound ?? 0),
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
             });

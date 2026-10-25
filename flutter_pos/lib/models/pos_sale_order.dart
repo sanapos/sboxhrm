@@ -88,6 +88,8 @@ class PosSaleOrderLine {
   final int servicePauseMinutes;
   final double kitchenSentQty;
   final DateTime? kitchenSentAt;
+  /// Phiên order (lượt báo chế biến) của dòng; 0 = chưa báo / dòng cũ chưa có số phiên.
+  final int kitchenRound;
   final List<PosSaleLineTopping> toppings;
 
   PosSaleOrderLine({
@@ -111,6 +113,7 @@ class PosSaleOrderLine {
     this.servicePauseMinutes = 0,
     this.kitchenSentQty = 0,
     this.kitchenSentAt,
+    this.kitchenRound = 0,
     this.toppings = const [],
   });
 
@@ -145,6 +148,7 @@ class PosSaleOrderLine {
       kitchenSentQty: n(json['kitchenSentQty'] ?? json['KitchenSentQty']),
       kitchenSentAt:
           parseApiDateTime(json['kitchenSentAt'] ?? json['KitchenSentAt']),
+      kitchenRound: i(json['kitchenRound'] ?? json['KitchenRound']) ?? 0,
       toppings: parsePosSaleLineToppings(
           json['toppingsJson'] ?? json['ToppingsJson']),
     );

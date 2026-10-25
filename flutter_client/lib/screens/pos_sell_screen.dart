@@ -280,6 +280,12 @@ class _CartStaffAssign {
   String assignedEmployeeName;
 }
 
+/// Ô «Đơn giá» trên dòng giỏ: có dấu chấm ngăn nghìn như ô chiết khấu (trước đây «10000» cạnh «1.000»).
+/// Đọc lại bằng [_parseMoneyInput] (bỏ ký tự không phải số) nên dấu chấm không đổi giá trị.
+String _posLinePriceText(double v) => v == v.roundToDouble()
+    ? NumberFormat('#,##0', 'vi_VN').format(v)
+    : v.toStringAsFixed(2);
+
 class _SellCartLine {
   _SellCartLine({
     required this.rowId,
@@ -300,11 +306,7 @@ class _SellCartLine {
     this.vatExempt = false,
   })  : _unitLabel = unitLabel,
         noteCtrl = TextEditingController(),
-        priceCtrl = TextEditingController(
-          text: tr(unitPrice == unitPrice.roundToDouble()
-              ? unitPrice.toStringAsFixed(0)
-              : unitPrice.toStringAsFixed(2)),
-        ),
+        priceCtrl = TextEditingController(text: _posLinePriceText(unitPrice)),
         discountCtrl = TextEditingController(
           text: tr(discountInput == 0
               ? '0'
@@ -344,6 +346,10 @@ class _SellCartLine {
   double warehouseSlipPrintedQty = 0;
   /// Số lượng đã báo chế biến / gửi bếp (không báo lại nếu chưa tăng SL).
   double kitchenSentQty = 0;
+  /// Phiên order (lượt báo chế biến) — 1 = lần báo đầu, 2 = gọi thêm…; 0 = chưa báo.
+  int kitchenRound = 0;
+  /// Lúc dòng được báo bếp lần đầu (giờ của phiên).
+  DateTime? kitchenSentAt;
   /// Số phần đã in tem ly (1 phần = 1 tem; không in lại phần đã in).
   double cupLabelPrintedQty = 0;
   /// SL hủy đã ghi nhưng chưa in (legacy / chờ Báo bếp). Hủy mới in ngay, không dùng field này.
@@ -818,6 +824,8 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
+  /// Giỏ gom theo phiên order (lượt báo chế biến): Phiên 1, Phiên 2 (gọi thêm)…, Chưa báo.
+  bool _cartByRound = false;
   final _qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
   final _dateFmt = DateFormat('dd/MM/yyyy HH:mm', 'vi_VN');
   final _printBtnKey = GlobalKey();
@@ -1059,9 +1067,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       _expandedCartMode = mode;
       if (mode == _CartRowExpand.priceDiscount) {
         final line = _tab.cart.firstWhere((l) => l.rowId == rowId);
-        line.priceCtrl.text = line.unitPrice == line.unitPrice.roundToDouble()
-            ? line.unitPrice.toStringAsFixed(0)
-            : line.unitPrice.toStringAsFixed(2);
+        line.priceCtrl.text = _posLinePriceText(line.unitPrice);
       }
       if (mode == _CartRowExpand.note) {
         final line = _tab.cart.firstWhere((l) => l.rowId == rowId);
@@ -2174,9 +2180,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       line.unitId = fresh.unitId;
       line.variantId = fresh.variantId;
       line.unitPrice = fresh.basePrice;
-      line.priceCtrl.text = fresh.basePrice == fresh.basePrice.roundToDouble()
-          ? fresh.basePrice.toStringAsFixed(0)
-          : fresh.basePrice.toStringAsFixed(2);
+      line.priceCtrl.text = _posLinePriceText(fresh.basePrice);
     }
     if (!mounted) return;
     // Đổi bảng giá: luôn phân bổ lại TT + ép rebuild panel (kể cả sheet mobile).
@@ -4146,6 +4150,18 @@ class _PosSellScreenState extends State<PosSellScreen>
     });
   }
 
+  /// Báo chế biến thành công: dòng chưa có phiên nhận phiên kế tiếp của hóa đơn (gọi thêm = phiên 2…).
+  void _stampKitchenRound(Iterable<_SellCartLine> sent) {
+    final fresh = sent.where((l) => l.kitchenRound <= 0 && l.qty > 0).toList();
+    if (fresh.isEmpty) return;
+    final next = _tab.cart.fold<int>(0, (m, l) => math.max(m, l.kitchenRound)) + 1;
+    final now = DateTime.now().toUtc();
+    for (final l in fresh) {
+      l.kitchenRound = next;
+      l.kitchenSentAt = now;
+    }
+  }
+
   Future<void> _kitchenSendCurrentTable() async {
     if (_kitchenSending || _checkingOut || _parking) return;
     if (_industrySettings?.sellProfile != PosSellProfile.restaurant) return;
@@ -4359,6 +4375,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (sendTicketLines.isNotEmpty && !already) {
       if (mounted) {
         setState(() {
+          _stampKitchenRound(pendingLines);
           for (final l in pendingLines) {
             l.kitchenSentQty = l.qty;
             l.kitchenCancelPendingQty = 0;
@@ -4792,9 +4809,16 @@ class _PosSellScreenState extends State<PosSellScreen>
             message: tr('Đã gửi in hóa đơn tạm tính'),
           );
         } else {
+          // Nói rõ khi chưa cài máy in hóa đơn (như «Mở két») — trước đây chỉ «Kiểm tra máy in».
+          final orch = PosPrintOrchestrator.instance;
+          final noBillPrinter = orch.resolvePrinter(PosPrintDocumentTypes.saleInvoice) == null &&
+              !await PosPrinterTransport.isSunmiDevice();
+          if (!mounted) return;
           NotificationOverlayManager().showError(
             title: 'In tạm tính thất bại',
-            message: tr('Kiểm tra máy in — thử in lại'),
+            message: tr(noBillPrinter
+                ? 'Chưa cài máy in hóa đơn — vào Thiết lập SBOX › Máy in'
+                : 'Kiểm tra máy in — thử in lại'),
           );
         }
       }());
@@ -6849,7 +6873,9 @@ class _PosSellScreenState extends State<PosSellScreen>
             l.selectedQuickNotes.isEmpty &&
             l.serialNumbers.isEmpty &&
             l.timerStartedAt == null &&
-            l.kitchenCancelPendingQty == 0);
+            l.kitchenCancelPendingQty == 0 &&
+            // Món gọi thêm sau khi đã báo chế biến → dòng mới thuộc phiên sau, không gộp vào phiên trước.
+            l.kitchenSentQty <= 0);
         if (idx >= 0) {
           if (!_validateStockForAdd(p, view, addQty: addQty)) return;
           _tab.cart[idx].qty += addQty;
@@ -8157,6 +8183,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               'lineTotal': l.lineTotal,
               'lineNote': l.lineNote,
               'kitchenSentQty': l.kitchenSentQty,
+              if (l.kitchenRound > 0) 'kitchenRound': l.kitchenRound,
               if (l.toppings.isNotEmpty)
                 'toppingsJson': jsonEncode(l.toppings.map((t) => t.toJson()).toList()),
             },
@@ -8511,6 +8538,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       return;
     }
     setState(() {
+      _stampKitchenRound(pendingLines);
       for (final l in pendingLines) {
         l.kitchenSentQty = l.qty;
         l.kitchenCancelPendingQty = 0;
@@ -9099,6 +9127,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       );
       cartLine.kitchenSentQty =
           line.kitchenSentQty.clamp(0.0, line.qty).toDouble();
+      cartLine.kitchenRound = line.kitchenRound;
+      cartLine.kitchenSentAt = line.kitchenSentAt?.toUtc();
       // Gói giờ / dòng quá giờ: giờ bắt đầu riêng (khác giờ mở bàn).
       final ls = line.serviceStartedAt;
       final lineTimerState = p.isTimedService &&
@@ -10888,9 +10918,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       line.unitLabel = fresh.label;
       line.displayCode = fresh.displayCode;
       line.unitPrice = fresh.basePrice;
-      line.priceCtrl.text = fresh.basePrice == fresh.basePrice.roundToDouble()
-          ? fresh.basePrice.toStringAsFixed(0)
-          : fresh.basePrice.toStringAsFixed(2);
+      line.priceCtrl.text = _posLinePriceText(fresh.basePrice);
       line.variantId = fresh.variantId;
       line.unitId = fresh.unitId;
       line.variant = variant;
@@ -11331,6 +11359,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           'discountAmount': c.discountAmount,
           'lineNote': c.lineNote,
           'kitchenSentQty': c.kitchenSentQty,
+          if (c.kitchenRound > 0) 'kitchenRound': c.kitchenRound,
           if (c.toppings.isNotEmpty)
             'toppingsJson': jsonEncode(c.toppings
                 .map((t) => {
@@ -15547,6 +15576,9 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Widget _buildCartHeader() {
+    // Nút «Theo phiên» chỉ có nghĩa khi hóa đơn đã báo chế biến ít nhất một lần.
+    final hasRounds = _tab.cart.any((l) => l.kitchenSentQty > 0 || l.kitchenRound > 0);
+    final byRound = _cartByRound && hasRounds;
     return Container(
       height: _KiotLayout.cartHeaderHeight,
       padding: const EdgeInsets.symmetric(horizontal: _KiotLayout.sidePadding),
@@ -15555,16 +15587,134 @@ class _PosSellScreenState extends State<PosSellScreen>
         color: SboxColors.slate50,
         border: Border(bottom: BorderSide(color: PosTheme.border)),
       ),
-      child: Text(
-        tr('${_sellProfile.catalogColumnLabel} · ${_lineCountText()}'),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: PosTheme.textSecondary,
-        ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              tr('${_sellProfile.catalogColumnLabel} · ${_lineCountText()}'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: PosTheme.textSecondary,
+              ),
+            ),
+          ),
+          if (hasRounds)
+            Material(
+              color: byRound ? PosTheme.kiotBlueLight : Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => setState(() => _cartByRound = !byRound),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: byRound ? _kiotBlue : PosTheme.border),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.layers_outlined, size: 15,
+                        color: byRound ? _kiotBlue : PosTheme.textSecondary),
+                    const SizedBox(width: 4),
+                    Text(tr('Theo phiên'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: byRound ? _kiotBlue : PosTheme.textSecondary,
+                        )),
+                  ]),
+                ),
+              ),
+            ),
+        ],
       ),
+    );
+  }
+
+  /// Phiên của từng dòng. Dòng đã báo bếp mà chưa có số phiên (đơn cũ, gọi món qua QR, báo từ máy cũ)
+  /// → chia phiên theo phút báo bếp, nối sau các phiên đã biết. 0 = chưa báo chế biến.
+  Map<_SellCartLine, int> _effectiveKitchenRounds() {
+    final out = <_SellCartLine, int>{};
+    var maxKnown = 0;
+    final unknown = <_SellCartLine>[];
+    for (final l in _tab.cart) {
+      if (l.kitchenRound > 0) {
+        out[l] = l.kitchenRound;
+        maxKnown = math.max(maxKnown, l.kitchenRound);
+      } else if (l.kitchenSentQty > 0) {
+        unknown.add(l);
+      } else {
+        out[l] = 0;
+      }
+    }
+    if (unknown.isNotEmpty) {
+      int minuteOf(_SellCartLine l) => (l.kitchenSentAt?.millisecondsSinceEpoch ?? 0) ~/ 60000;
+      final minutes = unknown.map(minuteOf).toSet().toList()..sort();
+      for (final l in unknown) {
+        out[l] = maxKnown + 1 + minutes.indexOf(minuteOf(l));
+      }
+    }
+    return out;
+  }
+
+  /// Danh sách giỏ gom theo phiên: Phiên 1 → Phiên N → Chưa báo chế biến (theo thứ tự gọi món).
+  Widget _buildCartByRoundList() {
+    final rounds = _effectiveKitchenRounds();
+    final keys = rounds.values.toSet().toList()
+      ..sort((a, b) => a == 0 ? 1 : (b == 0 ? -1 : a.compareTo(b)));
+    final items = <Object>[];
+    for (final r in keys) {
+      items.add(r);
+      items.addAll(_tab.cart.where((l) => rounds[l] == r));
+    }
+    final timeFmt = DateFormat('HH:mm');
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(
+          _KiotLayout.sidePadding, 4, _KiotLayout.sidePadding, 12),
+      itemCount: items.length,
+      itemBuilder: (ctx, i) {
+        final it = items[i];
+        if (it is int) {
+          final lines = _tab.cart.where((l) => rounds[l] == it).toList();
+          final total = lines.fold<double>(0, (sum, l) => sum + l.lineTotal);
+          final at = lines
+              .map((l) => l.kitchenSentAt)
+              .whereType<DateTime>()
+              .fold<DateTime?>(null, (m, t) => m == null || t.isBefore(m) ? t : m);
+          final pending = it == 0;
+          final when = at != null ? ' · ${timeFmt.format(at.toLocal())}' : '';
+          final title = pending ? 'Chưa báo chế biến' : 'Phiên $it$when';
+          final color = pending ? Colors.orange.shade800 : _kiotBlue;
+          return Padding(
+            padding: EdgeInsets.only(top: i == 0 ? 4 : 12, bottom: 6),
+            child: Row(children: [
+              Icon(pending ? Icons.schedule_outlined : Icons.soup_kitchen_outlined,
+                  size: 15, color: color),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(tr('$title · ${lines.length} món'),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    )),
+              ),
+              Text(_moneyFmt.format(total),
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+            ]),
+          );
+        }
+        final line = it as _SellCartLine;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: RepaintBoundary(
+            key: ValueKey(line.rowId),
+            child: _buildKiotCartRow(line, _tab.cart.indexOf(line)),
+          ),
+        );
+      },
     );
   }
 
@@ -15593,6 +15743,12 @@ class _PosSellScreenState extends State<PosSellScreen>
                 ),
               )
             : null,
+      );
+    } else if (_cartByRound &&
+        _tab.cart.any((l) => l.kitchenSentQty > 0 || l.kitchenRound > 0)) {
+      body = Scrollbar(
+        thumbVisibility: _tab.cart.length > 5,
+        child: _buildCartByRoundList(),
       );
     } else {
       body = Scrollbar(

@@ -138,7 +138,8 @@ public partial class PosSalesController(
         string? ToppingsJson = null,
         List<PosStaffCommissionHelper.StaffAssignDto>? StaffAssignments = null,
         DateTime? ServicePausedAt = null,
-        int ServicePauseMinutes = 0);
+        int ServicePauseMinutes = 0,
+        int? KitchenRound = null);
 
     public record SalePaymentInputDto(
         decimal Amount,
@@ -433,7 +434,8 @@ public partial class PosSalesController(
         Guid? AssignedEmployeeId = null,
         string? StaffAssignmentsJson = null,
         DateTime? ServicePausedAt = null,
-        int ServicePauseMinutes = 0);
+        int ServicePauseMinutes = 0,
+        int KitchenRound = 0);
 
     [HttpGet("return-history")]
     [RequireModulePermission("PosSaleReturns", ModulePermissionAction.View)]
@@ -2960,7 +2962,7 @@ public partial class PosSalesController(
                 l.DurationMinutes, l.BillableMinutes, l.ServiceStartedAt, l.ServiceEndedAt,
                 l.KitchenSentQty, l.KitchenSentAt, l.ToppingsJson,
                 l.AssignedEmployeeId, l.StaffAssignmentsJson,
-                l.ServicePausedAt, l.ServicePauseMinutes)).ToList(),
+                l.ServicePausedAt, l.ServicePauseMinutes, l.KitchenRound)).ToList(),
             order.ServiceResourceId, order.ResourceSessionId,
             order.ServiceStartedAt, order.ServiceEndedAt,
             serviceResourceCode, serviceResourceName, serviceAreaName,

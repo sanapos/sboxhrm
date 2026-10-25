@@ -68,6 +68,10 @@ public class PosSaleOrderLine : AuditableEntity<Guid>
     /// <summary>Lần gửi bếp gần nhất.</summary>
     public DateTime? KitchenSentAt { get; set; }
 
+    /// <summary>Phiên order (lượt báo chế biến) của dòng: 1 = lần báo đầu, 2 = khách gọi thêm…; 0 = chưa báo
+    /// hoặc dòng cũ chưa có số phiên. Máy bán gán khi báo bếp — giỏ hiển thị gom theo phiên.</summary>
+    public int KitchenRound { get; set; }
+
     /// <summary>Số lượng bếp đã bump / xong trên KDS.</summary>
     public decimal KitchenDoneQty { get; set; }
 

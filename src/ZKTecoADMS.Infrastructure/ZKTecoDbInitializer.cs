@@ -1634,6 +1634,7 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenSentAt"" timestamp without time zone NULL;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenDoneQty"" numeric(18,3) NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenPrepStatus"" character varying(20) NOT NULL DEFAULT 'none';
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenRound"" integer NOT NULL DEFAULT 0;
 
                     CREATE TABLE IF NOT EXISTS ""PosCustomers"" (
                         ""Id"" uuid PRIMARY KEY,

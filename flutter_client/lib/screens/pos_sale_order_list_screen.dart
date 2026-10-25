@@ -1376,11 +1376,13 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 ),
               ),
               if (!showTitle && exportBtn != null) exportBtn,
-              IconButton(
-                tooltip: tr('In tem vận đơn'),
-                onPressed: _bulkShippingLabels,
-                icon: const Icon(Icons.local_shipping_outlined),
-              ),
+              // Có dòng tiêu đề thì nút đã nằm trên đó — trước đây hiện 2 xe tải.
+              if (!showTitle)
+                IconButton(
+                  tooltip: tr('In tem vận đơn'),
+                  onPressed: _bulkShippingLabels,
+                  icon: const Icon(Icons.local_shipping_outlined),
+                ),
             ]),
           ),
           const SizedBox(height: 6),
