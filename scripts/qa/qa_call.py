@@ -8,7 +8,11 @@ import qa_e2e as q  # noqa: E402
 
 sys.stdout.reconfigure(encoding='utf-8')
 ind, method, path = sys.argv[1], sys.argv[2], sys.argv[3]
-body = json.loads(sys.argv[4]) if len(sys.argv) > 4 else None
+raw = sys.argv[4] if len(sys.argv) > 4 else None
+if raw and raw.startswith('@'):  # @đường_dẫn.json — tránh lỗi trích dẫn JSON trên PowerShell
+    with open(raw[1:], encoding='utf-8-sig') as f:
+        raw = f.read()
+body = json.loads(raw) if raw else None
 base = 'http://127.0.0.1:7070'
 acc = q.load_accounts()
 _, _, _, token = q.login(base, acc[ind])

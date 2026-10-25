@@ -115,7 +115,7 @@ class PosSunmiNativePrint {
       final bound = await PosPrinterTransport.ensureSunmiBound();
       if (!bound) return false;
 
-      final layout = _SunmiReceiptLayout.fromMm(settings.paperWidthMm);
+      final layout = _SunmiReceiptLayout.fromMm(await _paperMm(settings.paperWidthMm));
       final raw = linesOverride ?? order.lines;
       final lines = mergeSameItems ? _mergeLines(raw) : raw;
       final titleOverride = slipTitle ?? documentTitle;
@@ -153,6 +153,10 @@ class PosSunmiNativePrint {
     return n < min ? min : n;
   }
 
+  /// Khổ in thật: máy cầm tay không dao (V2s…) chỉ có đầu in 58 mm, dù cài đặt để K80.
+  static Future<int> _paperMm(int configured) async =>
+      await PosPrinterTransport.sunmiHasAutoCutter() ? configured : 58;
+
   static Future<void> _feedPaper(int lines) async {
     // V2s (không dao): giấy đã được đẩy bằng LF nối vào cuối payload raster
     // trong _printImageLines. Gọi finishSunmiSlip ở đây chỉ để CẮT giấy trên
@@ -180,7 +184,7 @@ class PosSunmiNativePrint {
       final bound = await PosPrinterTransport.ensureSunmiBound();
       if (!bound) return false;
 
-      final layout = _SunmiReceiptLayout.fromMm(settings.paperWidthMm);
+      final layout = _SunmiReceiptLayout.fromMm(await _paperMm(settings.paperWidthMm));
       final feed = _resolveFeed(settings.resolvedFeedBeforeCut);
       final date = DateFormat('dd/MM/yyyy HH:mm').format(sentAt);
       final img = <PosReceiptImageLine>[
@@ -270,7 +274,7 @@ class PosSunmiNativePrint {
       final bound = await PosPrinterTransport.ensureSunmiBound();
       if (!bound) return false;
 
-      final layout = _SunmiReceiptLayout.fromMm(settings.paperWidthMm);
+      final layout = _SunmiReceiptLayout.fromMm(await _paperMm(settings.paperWidthMm));
       final feed = _resolveFeed(settings.resolvedFeedBeforeCut);
       for (var c = 0; c < copies.clamp(1, 10); c++) {
         _beginSlipBatch();
@@ -334,7 +338,7 @@ class PosSunmiNativePrint {
       final bound = await PosPrinterTransport.ensureSunmiBound();
       if (!bound) return false;
 
-      final layout = _SunmiReceiptLayout.fromMm(settings.paperWidthMm);
+      final layout = _SunmiReceiptLayout.fromMm(await _paperMm(settings.paperWidthMm));
       final feed = _resolveFeed(settings.resolvedFeedBeforeCut);
       final badge = paperBadge ?? (layout.k58 ? 'K58' : 'K80');
       _beginSlipBatch();
@@ -409,10 +413,13 @@ class PosSunmiNativePrint {
     try {
       final bound = await PosPrinterTransport.ensureSunmiBound();
       if (!bound) return false;
-      final layout = _SunmiReceiptLayout.fromMm(settings.paperWidthMm);
-      final feed = _resolveFeed(settings.resolvedFeedBeforeCut);
-      final dots = PosThermalBitmapEncoder.paperDots(settings.paperWidthMm);
       final handheld = !await PosPrinterTransport.sunmiHasAutoCutter();
+      // Máy cầm tay (V2s…) chỉ có đầu in 58 mm: khổ K80 mặc định dựng ảnh 576 điểm → cắt mép phải.
+      // In thử đã ép 58 mm; hóa đơn thật phải cùng khổ.
+      final paperMm = handheld ? 58 : settings.paperWidthMm;
+      final layout = _SunmiReceiptLayout.fromMm(paperMm);
+      final feed = _resolveFeed(settings.resolvedFeedBeforeCut);
+      final dots = PosThermalBitmapEncoder.paperDots(paperMm);
       for (var c = 0; c < copies.clamp(1, 10); c++) {
         final batch = <PosReceiptImageLine>[];
         _handheldEscAcc = handheld ? <int>[] : null;

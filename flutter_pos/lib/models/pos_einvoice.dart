@@ -27,6 +27,11 @@ class PosEInvoiceSettings {
   final String portalUrl;
   /// In ký hiệu / số / mã CQT / mã tra cứu + QR tra cứu HĐĐT trên bill bán hàng.
   final bool printQrOnReceipt;
+  /// Thuế suất phụ thu trên HĐĐT: 0/5/8/10, -1 = KCT, -2 = KKKNT; null = theo hàng hóa.
+  /// Số phụ thu khách trả coi là đã gồm VAT — HĐĐT tách ngược theo thuế suất này.
+  final double? surchargeTaxPercent;
+  /// Thuế suất phí giao hàng trên HĐĐT (cùng quy ước [surchargeTaxPercent]).
+  final double? deliveryFeeTaxPercent;
 
   const PosEInvoiceSettings({
     this.enabled = false,
@@ -48,6 +53,8 @@ class PosEInvoiceSettings {
     this.signType = 2,
     this.portalUrl = '',
     this.printQrOnReceipt = true,
+    this.surchargeTaxPercent,
+    this.deliveryFeeTaxPercent,
   });
 
   bool get isViettel => provider.toLowerCase() == 'viettel';
@@ -56,6 +63,11 @@ class PosEInvoiceSettings {
 
   factory PosEInvoiceSettings.fromJson(Map<String, dynamic> json) {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 10;
+    double? feeRate(dynamic v) {
+      if (v == null) return null;
+      final d = v is num ? v.toDouble() : double.tryParse('$v');
+      return posEInvoiceFeeTaxOptions.contains(d) ? d : null;
+    }
     return PosEInvoiceSettings(
       enabled: json['enabled'] == true || json['Enabled'] == true,
       provider: (json['provider'] ?? json['Provider'] ?? 'Viettel').toString(),
@@ -88,6 +100,10 @@ class PosEInvoiceSettings {
       portalUrl: (json['portalUrl'] ?? json['PortalUrl'] ?? '').toString(),
       printQrOnReceipt: json['printQrOnReceipt'] != false &&
           json['PrintQrOnReceipt'] != false,
+      surchargeTaxPercent: feeRate(
+          json['surchargeTaxPercent'] ?? json['SurchargeTaxPercent']),
+      deliveryFeeTaxPercent: feeRate(
+          json['deliveryFeeTaxPercent'] ?? json['DeliveryFeeTaxPercent']),
     );
   }
 
@@ -112,7 +128,20 @@ class PosEInvoiceSettings {
         'signType': signType,
         'portalUrl': portalUrl,
         'printQrOnReceipt': printQrOnReceipt,
+        // Gửi cả null = «theo hàng hóa».
+        'surchargeTaxPercent': surchargeTaxPercent,
+        'deliveryFeeTaxPercent': deliveryFeeTaxPercent,
       };
+}
+
+/// Thuế suất cho phụ thu / phí giao hàng trên HĐĐT (-1 = KCT, -2 = KKKNT).
+const posEInvoiceFeeTaxOptions = <double>[0, 5, 8, 10, -1, -2];
+
+String posEInvoiceFeeTaxLabel(double? rate) {
+  if (rate == null) return 'Theo thuế suất hàng hóa';
+  if (rate == -1) return 'KCT — không chịu thuế';
+  if (rate == -2) return 'KKKNT — không kê khai, nộp thuế';
+  return '${rate.toStringAsFixed(0)}%';
 }
 
 /// Tên hiển thị nhà cung cấp HĐĐT.

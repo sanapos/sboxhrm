@@ -90,6 +90,8 @@ public partial class PosEInvoiceService(
         row.SignType = incoming.SignType is 2 or 5 ? incoming.SignType : 2;
         row.PortalUrl = (incoming.PortalUrl ?? "").Trim();
         row.PrintQrOnReceipt = incoming.PrintQrOnReceipt;
+        row.SurchargeTaxPercent = NormalizeFeeTaxPercent(incoming.SurchargeTaxPercent);
+        row.DeliveryFeeTaxPercent = NormalizeFeeTaxPercent(incoming.DeliveryFeeTaxPercent);
         row.UpdatedAt = DateTime.UtcNow;
         row.LastModified = DateTime.UtcNow;
         row.IsActive = true;
@@ -463,14 +465,14 @@ public partial class PosEInvoiceService(
             from = fromUtc,
             to = toUtc,
             issuedCount = await issued.CountAsync(ct),
-            issuedAmount = await issued.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
+            issuedAmount = await issued.SumAsync(o => (decimal?)(o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee), ct) ?? 0,
             issuedVatAmount = await vatIssued.SumAsync(o => (decimal?)o.VatAmount, ct) ?? 0,
-            cancelledAmount = await cancelled.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
-            noneAmount = await none.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
+            cancelledAmount = await cancelled.SumAsync(o => (decimal?)(o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee), ct) ?? 0,
+            noneAmount = await none.SumAsync(o => (decimal?)(o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee), ct) ?? 0,
             skippedCount = await skipped.CountAsync(ct),
-            skippedAmount = await skipped.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
+            skippedAmount = await skipped.SumAsync(o => (decimal?)(o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee), ct) ?? 0,
             failedCount = await failed.CountAsync(ct),
-            failedAmount = await failed.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
+            failedAmount = await failed.SumAsync(o => (decimal?)(o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee), ct) ?? 0,
             pendingCount = await pending.CountAsync(ct),
             draftCount = await draft.CountAsync(ct),
             cancelledCount = await cancelled.CountAsync(ct),
@@ -479,9 +481,9 @@ public partial class PosEInvoiceService(
             noneCount = await none.CountAsync(ct),
             totalCompleted = await q.CountAsync(ct),
             attentionCancelledCount = await cancelledIssued.CountAsync(ct),
-            attentionCancelledAmount = await cancelledIssued.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
+            attentionCancelledAmount = await cancelledIssued.SumAsync(o => (decimal?)(o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee), ct) ?? 0,
             attentionReturnedCount = await returnedIssued.CountAsync(ct),
-            attentionReturnedAmount = await returnedIssued.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
+            attentionReturnedAmount = await returnedIssued.SumAsync(o => (decimal?)(o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee), ct) ?? 0,
         };
     }
 
@@ -526,7 +528,7 @@ public partial class PosEInvoiceService(
                 ["unitPrice"] = (double)l.UnitPrice,
                 ["quantity"] = (double)l.Qty,
                 ["itemTotalAmountWithoutTax"] = (double)l.Without,
-                ["taxPercentage"] = (double)calc.VatRate,
+                ["taxPercentage"] = (double)l.VatRate,
                 ["taxAmount"] = (double)l.Vat,
                 ["itemTotalAmountWithTax"] = (double)l.With,
                 ["discount"] = 0.0,
@@ -606,15 +608,13 @@ public partial class PosEInvoiceService(
                 ["totalAmountWithTax"] = (double)calc.SumWith,
                 ["discountAmount"] = (double)calc.ExtraDiscount,
             },
-            taxBreakdowns = new object[]
+            // Mỗi thuế suất 1 dòng (hàng hóa, phụ thu, phí giao hàng có thể khác thuế suất).
+            taxBreakdowns = calc.Buckets.Select(b => (object)new Dictionary<string, object?>
             {
-                new Dictionary<string, object?>
-                {
-                    ["taxPercentage"] = (double)calc.VatRate,
-                    ["taxableAmount"] = (double)calc.SumWithout,
-                    ["taxAmount"] = (double)calc.SumVat,
-                },
-            },
+                ["taxPercentage"] = (double)b.Rate,
+                ["taxableAmount"] = (double)b.Without,
+                ["taxAmount"] = (double)b.Vat,
+            }).ToArray(),
         };
     }
 
@@ -650,6 +650,7 @@ public partial class PosEInvoiceService(
         var arising = DateTime.SpecifyKind(order.SaleDate ?? DateTime.UtcNow, DateTimeKind.Utc)
             .AddHours(7)
             .ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        // VATRate cấp hóa đơn = thuế suất hàng hóa; từng dòng (phụ thu / phí GH) mang thuế suất riêng.
         var vatRateStr = Num(calc.VatRate, 0);
 
         var products = new XElement("Products");
@@ -666,7 +667,7 @@ public partial class PosEInvoiceService(
                 new XElement("ProdPrice", Num(l.UnitPrice, 4)),
                 new XElement("DiscountAmount", Num(l.LineDiscount, 0)),
                 new XElement("Total", Num(l.Without, 0)),
-                new XElement("VATRate", vatRateStr),
+                new XElement("VATRate", Num(l.VatRate, 0)),
                 new XElement("VATAmount", Num(l.Vat, 0)),
                 new XElement("Amount", Num(l.With, 0)));
             products.Add(product);
@@ -712,31 +713,35 @@ public partial class PosEInvoiceService(
     static string? ResolveInvoiceUnit(string? unitName) =>
         string.IsNullOrWhiteSpace(unitName) ? null : unitName.Trim();
 
+    /// <summary>Tổng theo thuế suất SoftDreams: GrossValue{r} / VatAmount{r} / Amount{r} — mỗi thuế suất một bộ.</summary>
     static void AppendEasyTaxBuckets(XElement invoice, InvoiceCalc calc)
     {
-        var without = Num(calc.SumWithout, 0);
-        var vat = Num(calc.SumVat, 0);
-        var with = Num(calc.SumWith, 0);
-        switch (calc.VatRate)
+        foreach (var b in calc.Buckets)
         {
-            case 10:
-                invoice.Add(new XElement("GrossValue10", without), new XElement("VatAmount10", vat), new XElement("Amount10", with));
-                break;
-            case 8:
-                invoice.Add(new XElement("GrossValue8", without), new XElement("VatAmount8", vat), new XElement("Amount8", with));
-                break;
-            case 5:
-                invoice.Add(new XElement("GrossValue5", without), new XElement("VatAmount5", vat), new XElement("Amount5", with));
-                break;
-            case 0:
-                invoice.Add(new XElement("GrossValue0", without), new XElement("VatAmount0", vat), new XElement("Amount0", with));
-                break;
-            case -1:
-                invoice.Add(new XElement("GrossValue", without));
-                break;
-            default:
-                invoice.Add(new XElement("GrossValueNDeclared", without), new XElement("VatAmountNDeclared", vat), new XElement("AmountNDeclared", with));
-                break;
+            var without = Num(b.Without, 0);
+            var vat = Num(b.Vat, 0);
+            var with = Num(b.With, 0);
+            switch (b.Rate)
+            {
+                case 10:
+                    invoice.Add(new XElement("GrossValue10", without), new XElement("VatAmount10", vat), new XElement("Amount10", with));
+                    break;
+                case 8:
+                    invoice.Add(new XElement("GrossValue8", without), new XElement("VatAmount8", vat), new XElement("Amount8", with));
+                    break;
+                case 5:
+                    invoice.Add(new XElement("GrossValue5", without), new XElement("VatAmount5", vat), new XElement("Amount5", with));
+                    break;
+                case 0:
+                    invoice.Add(new XElement("GrossValue0", without), new XElement("VatAmount0", vat), new XElement("Amount0", with));
+                    break;
+                case -1:
+                    invoice.Add(new XElement("GrossValue", without));
+                    break;
+                default:
+                    invoice.Add(new XElement("GrossValueNDeclared", without), new XElement("VatAmountNDeclared", vat), new XElement("AmountNDeclared", with));
+                    break;
+            }
         }
     }
 
@@ -759,52 +764,100 @@ public partial class PosEInvoiceService(
             taxPct = -2;
         }
 
+        var goodsRate = taxMode == "none" ? -2 : taxPct;
         var extraDiscount = Math.Max(0, lines.Sum(l => l.LineTotal) - order.Total);
         var lineNets = Allocate(lines.Select(l => l.LineTotal).ToList(), extraDiscount);
-        decimal sumWithout = 0, sumVat = 0, sumWith = 0;
-        var calcLines = new List<LineCalc>(lines.Count);
+        var withouts = new decimal[lines.Count];
+        var vats = new decimal[lines.Count];
         for (var i = 0; i < lines.Count; i++)
         {
-            var line = lines[i];
             var net = lineNets[i];
-            decimal without, vat, with;
             if (taxMode == "none")
             {
-                without = net;
-                vat = 0;
-                with = net;
+                withouts[i] = net;
+                vats[i] = 0;
             }
             else if (taxMode == "added")
             {
-                without = net;
-                vat = RoundVnd(net * taxPct / 100m);
-                with = without + vat;
+                withouts[i] = net;
+                vats[i] = RoundVnd(net * taxPct / 100m);
             }
             else
             {
-                with = net;
-                without = taxPct > 0 ? RoundVnd(net / (1 + taxPct / 100m)) : net;
-                vat = with - without;
+                withouts[i] = taxPct > 0 ? RoundVnd(net / (1 + taxPct / 100m)) : net;
+                vats[i] = net - withouts[i];
             }
+        }
 
-            sumWithout += without;
-            sumVat += vat;
-            sumWith += with;
+        // VAT cộng thêm: làm tròn từng dòng có thể lệch vài đồng so với VAT đơn đã thu → dồn chênh lệch
+        // vào dòng lớn nhất để tổng hóa đơn = tiền khách trả (chỉ khi lệch do làm tròn, ≤ 1đ / dòng).
+        if (taxMode == "added" && order.VatAmount > 0 && lines.Count > 0)
+        {
+            var diff = RoundVnd(order.VatAmount) - vats.Sum();
+            if (diff != 0 && Math.Abs(diff) <= lines.Count)
+            {
+                var big = Array.IndexOf(withouts, withouts.Max());
+                if (vats[big] + diff >= 0) vats[big] += diff;
+            }
+        }
+
+        var calcLines = new List<LineCalc>(lines.Count + 2);
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
             var qty = line.Qty <= 0 ? 1 : line.Qty;
             calcLines.Add(new LineCalc(
                 i + 1,
                 LineName(line),
                 ResolveInvoiceUnit(line.UnitName) ?? "",
                 qty,
-                RoundMoney(without / qty, 4),
-                without,
-                vat,
-                with,
+                RoundMoney(withouts[i] / qty, 4),
+                withouts[i],
+                vats[i],
+                withouts[i] + vats[i],
                 line.DiscountAmount,
-                line.LineNote));
+                line.LineNote,
+                goodsRate));
         }
 
-        return new InvoiceCalc(calcLines, sumWithout, sumVat, sumWith, extraDiscount, taxMode == "none" ? -2 : taxPct);
+        // Phụ thu / phí giao hàng: số khách trả là giá cuối (đã gồm VAT) → tách ngược theo thuế suất riêng.
+        AddFeeLine(calcLines, SurchargeLineName, order.SurchargeAmount,
+            ResolveFeeRate(s.SurchargeTaxPercent, goodsRate));
+        AddFeeLine(calcLines, DeliveryFeeLineName, order.DeliveryFee,
+            ResolveFeeRate(s.DeliveryFeeTaxPercent, goodsRate));
+
+        var buckets = calcLines
+            .GroupBy(l => l.VatRate)
+            .Select(g => new TaxBucket(g.Key, g.Sum(l => l.Without), g.Sum(l => l.Vat), g.Sum(l => l.With)))
+            .ToList();
+        return new InvoiceCalc(
+            calcLines,
+            calcLines.Sum(l => l.Without),
+            calcLines.Sum(l => l.Vat),
+            calcLines.Sum(l => l.With),
+            extraDiscount,
+            goodsRate,
+            buckets);
+    }
+
+    internal const string SurchargeLineName = "Phụ thu";
+    internal const string DeliveryFeeLineName = "Phí giao hàng";
+
+    /// <summary>Thuế suất hợp lệ cho phụ thu / phí GH: 0, 5, 8, 10, -1 = KCT, -2 = KKKNT; khác → null (theo hàng hóa).</summary>
+    internal static decimal? NormalizeFeeTaxPercent(decimal? v) =>
+        v is 0 or 5 or 8 or 10 or -1 or -2 ? v : null;
+
+    static decimal ResolveFeeRate(decimal? configured, decimal goodsRate) =>
+        NormalizeFeeTaxPercent(configured) ?? goodsRate;
+
+    /// <summary>Dòng phí (số tiền đã gồm VAT): chưa thuế = phí / (1 + r), VAT = phí − chưa thuế; KCT/KKKNT/0% không thuế.</summary>
+    static void AddFeeLine(List<LineCalc> calcLines, string name, decimal amount, decimal rate)
+    {
+        var gross = RoundVnd(amount);
+        if (gross <= 0) return;
+        var without = rate > 0 ? RoundVnd(gross / (1 + rate / 100m)) : gross;
+        calcLines.Add(new LineCalc(
+            calcLines.Count + 1, name, "", 1, without, without, gross - without, gross, 0, null, rate));
     }
 
     static string LineName(PosSaleOrderLine line)
@@ -836,13 +889,18 @@ public partial class PosEInvoiceService(
         return name;
     }
 
+    /// <summary>VatRate: 0/5/8/10, -1 = KCT, -2 = KKKNT.</summary>
     sealed record LineCalc(
         int No, string Name, string Unit, decimal Qty, decimal UnitPrice,
-        decimal Without, decimal Vat, decimal With, decimal LineDiscount, string? Note);
+        decimal Without, decimal Vat, decimal With, decimal LineDiscount, string? Note, decimal VatRate);
 
+    /// <summary>Tổng theo từng thuế suất (bảng tổng hợp thuế trên hóa đơn).</summary>
+    sealed record TaxBucket(decimal Rate, decimal Without, decimal Vat, decimal With);
+
+    /// <summary>VatRate = thuế suất hàng hóa; Buckets = mọi thuế suất trên hóa đơn (gồm phụ thu / phí GH).</summary>
     sealed record InvoiceCalc(
         List<LineCalc> Lines, decimal SumWithout, decimal SumVat, decimal SumWith,
-        decimal ExtraDiscount, decimal VatRate);
+        decimal ExtraDiscount, decimal VatRate, List<TaxBucket> Buckets);
 
     static List<decimal> Allocate(List<decimal> amounts, decimal extraDiscount)
     {

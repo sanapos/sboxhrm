@@ -8,9 +8,11 @@ public class UserRefreshTokenConfiguration : IEntityTypeConfiguration<UserRefres
 {
     public void Configure(EntityTypeBuilder<UserRefreshToken> builder)
     {
+        // Mỗi máy đăng nhập một dòng (1 tài khoản — nhiều phiên); trước đây 1-1 nên máy sau đá máy trước.
         builder.HasOne(x => x.ApplicationUser)
-            .WithOne(x => x.RefreshToken)
-            .HasForeignKey<UserRefreshToken>(x => x.ApplicationUserId)
+            .WithMany()
+            .HasForeignKey(x => x.ApplicationUserId)
             .OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(x => x.RefreshToken);
     }
 }

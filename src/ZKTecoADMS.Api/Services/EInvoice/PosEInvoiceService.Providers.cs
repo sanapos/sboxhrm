@@ -126,7 +126,6 @@ public partial class PosEInvoiceService
         PosSaleOrder order, List<PosSaleOrderLine> lines, PosEInvoiceSetting s, MisaReplaceInfo? replace)
     {
         var calc = ComputeInvoice(order, lines, s);
-        var rateName = VatRateName(calc.VatRate);
         var hasTax = !string.IsNullOrWhiteSpace(order.EInvoiceBuyerTaxCode);
         var personName = FirstNonEmpty(order.EInvoiceBuyerName, order.CustomerName);
         var companyName = FirstNonEmpty(order.EInvoiceBuyerCompanyName);
@@ -150,7 +149,7 @@ public partial class PosEInvoiceService
             ["Amount"] = l.Without,
             ["AmountWithoutVATOC"] = l.Without,
             ["AmountWithoutVAT"] = l.Without,
-            ["VATRateName"] = rateName,
+            ["VATRateName"] = VatRateName(l.VatRate),
             ["VATAmountOC"] = l.Vat,
             ["VATAmount"] = l.Vat,
         }).ToList();
@@ -188,15 +187,13 @@ public partial class PosEInvoiceService
             ["TotalAmount"] = calc.SumWith,
             ["TotalAmountInWords"] = VndInWords(calc.SumWith) + ".",
             ["OriginalInvoiceDetail"] = details,
-            ["TaxRateInfo"] = new[]
+            // Tài liệu MISA: mỗi thuế suất trên hóa đơn = 1 TaxRateInfo.
+            ["TaxRateInfo"] = calc.Buckets.Select(b => new Dictionary<string, object?>
             {
-                new Dictionary<string, object?>
-                {
-                    ["VATRateName"] = rateName,
-                    ["AmountWithoutVATOC"] = calc.SumWithout,
-                    ["VATAmountOC"] = calc.SumVat,
-                },
-            },
+                ["VATRateName"] = VatRateName(b.Rate),
+                ["AmountWithoutVATOC"] = b.Without,
+                ["VATAmountOC"] = b.Vat,
+            }).ToList(),
             ["OptionUserDefined"] = new Dictionary<string, string>
             {
                 ["MainCurrency"] = "VND",
@@ -335,7 +332,6 @@ public partial class PosEInvoiceService
     string BuildVnptXml(PosSaleOrder order, List<PosSaleOrderLine> lines, PosEInvoiceSetting s)
     {
         var calc = ComputeInvoice(order, lines, s);
-        var rate = VatRateName(calc.VatRate);
         var hasTax = !string.IsNullOrWhiteSpace(order.EInvoiceBuyerTaxCode);
         var personName = FirstNonEmpty(order.EInvoiceBuyerName, order.CustomerName);
         var companyName = FirstNonEmpty(order.EInvoiceBuyerCompanyName);
@@ -366,17 +362,18 @@ public partial class PosEInvoiceService
                 new XElement("TLCKhau", 0),
                 new XElement("STCKhau", 0),
                 new XElement("ThTien", Num(l.Without, 0)),
-                new XElement("TSuat", rate),
+                new XElement("TSuat", VatRateName(l.VatRate)),
                 new XElement("TThue", Num(l.Vat, 0)),
                 new XElement("TSThue", Num(l.With, 0))));
         }
 
         var totals = new XElement("TToan",
+            // Tổng hợp theo từng loại thuế suất (TT78: mỗi TSuat một LTSuat).
             new XElement("THTTLTSuat",
-                new XElement("LTSuat",
-                    new XElement("TSuat", rate),
-                    new XElement("ThTien", Num(calc.SumWithout, 0)),
-                    new XElement("TThue", Num(calc.SumVat, 0)))),
+                calc.Buckets.Select(b => new XElement("LTSuat",
+                    new XElement("TSuat", VatRateName(b.Rate)),
+                    new XElement("ThTien", Num(b.Without, 0)),
+                    new XElement("TThue", Num(b.Vat, 0))))),
             new XElement("TgTCThue", Num(calc.SumWithout, 0)),
             new XElement("TgTThue", Num(calc.SumVat, 0)),
             new XElement("TTCKTMai", 0),

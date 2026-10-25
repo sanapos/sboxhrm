@@ -44,6 +44,9 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
   double _taxPercent = 10;
   int _signType = 2;
   bool _printQr = true;
+  /// Thuế suất phụ thu / phí giao hàng trên HĐĐT (null = theo hàng hóa).
+  double? _surchargeTax;
+  double? _deliveryTax;
   bool _hasPassword = false;
   bool _hasServicePassword = false;
   bool _obscurePass = true;
@@ -112,6 +115,8 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
       _signType = s.signType == 5 ? 5 : 2;
       _portalCtrl.text = s.portalUrl;
       _printQr = s.printQrOnReceipt;
+      _surchargeTax = s.surchargeTaxPercent;
+      _deliveryTax = s.deliveryFeeTaxPercent;
     }
     _saved = null;
     setState(() => _loading = false);
@@ -138,6 +143,8 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
       signType: _signType,
       portalUrl: _portalCtrl.text.trim(),
       printQrOnReceipt: _printQr,
+      surchargeTaxPercent: _surchargeTax,
+      deliveryFeeTaxPercent: _deliveryTax,
     ).toSaveJson(
       password: _passCtrl.text.trim().isEmpty ? null : _passCtrl.text.trim(),
       servicePassword:
@@ -433,6 +440,16 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
     }
   }
 
+  Widget _feeTaxDropdown(double? value, ValueChanged<double?> onChanged) =>
+      DropdownButton<double?>(
+        value: value == null || posEInvoiceFeeTaxOptions.contains(value) ? value : null,
+        items: [
+          for (final r in <double?>[null, ...posEInvoiceFeeTaxOptions])
+            DropdownMenuItem<double?>(value: r, child: Text(tr(posEInvoiceFeeTaxLabel(r)))),
+        ],
+        onChanged: onChanged,
+      );
+
   Widget _taxField() => TextField(
         controller: _taxCtrl,
         decoration:
@@ -442,6 +459,7 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
   /// Ảnh chụp các giá trị để biết có thay đổi chưa lưu.
   String get _snapshot => [
         _enabled, _provider, _invoiceType, _askAtCheckout, _defaultIssue, _taxMode, _taxPercent, _signType, _printQr,
+        _surchargeTax, _deliveryTax,
         for (final c in _ctrls) c.text,
       ].join('|');
 
@@ -567,6 +585,16 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
                   onChanged: (v) => setState(() => _taxPercent = v),
                 ),
               ),
+            SettingsTile(
+              label: 'Thuế suất phụ thu',
+              help: 'Phụ thu khách trả coi là đã gồm VAT — hóa đơn tách thuế theo thuế suất này',
+              control: _feeTaxDropdown(_surchargeTax, (v) => setState(() => _surchargeTax = v)),
+            ),
+            SettingsTile(
+              label: 'Thuế suất phí giao hàng',
+              help: 'Phí giao hàng thu của khách, ghi thành dòng riêng trên hóa đơn',
+              control: _feeTaxDropdown(_deliveryTax, (v) => setState(() => _deliveryTax = v)),
+            ),
           ],
         ),
         SettingsSection(

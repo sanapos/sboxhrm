@@ -41,7 +41,9 @@ public class PosEInvoiceController(
         bool HasServicePassword,
         int SignType,
         string PortalUrl,
-        bool PrintQrOnReceipt);
+        bool PrintQrOnReceipt,
+        decimal? SurchargeTaxPercent,
+        decimal? DeliveryFeeTaxPercent);
 
     static EInvoiceSettingsDto ToDto(PosEInvoiceSetting s) => new(
         s.Enabled,
@@ -62,7 +64,9 @@ public class PosEInvoiceController(
         !string.IsNullOrEmpty(s.ServicePassword),
         s.SignType,
         s.PortalUrl,
-        s.PrintQrOnReceipt);
+        s.PrintQrOnReceipt,
+        s.SurchargeTaxPercent,
+        s.DeliveryFeeTaxPercent);
 
     static bool TryGetProp(JsonElement root, string name, out JsonElement p)
     {
@@ -121,6 +125,13 @@ public class PosEInvoiceController(
         return fallback;
     }
 
+    static decimal? JsonDecOrNull(JsonElement root, string name)
+    {
+        if (!TryGetProp(root, name, out var p) || p.ValueKind == JsonValueKind.Null) return null;
+        if (p.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(p.GetString())) return null;
+        return JsonDec(root, name, decimal.MinValue) is var d && d != decimal.MinValue ? d : null;
+    }
+
     async Task<string> ReadBodyRawAsync()
     {
         Request.EnableBuffering();
@@ -168,6 +179,8 @@ public class PosEInvoiceController(
             return BadRequest(AppResponse<EInvoiceSettingsDto>.Fail("JSON cấu hình HĐĐT không hợp lệ"));
         }
 
+        // App cũ không gửi thuế suất phụ thu / phí GH → giữ giá trị đang lưu (không xóa về «theo hàng hóa»).
+        var current = await eInvoice.GetOrCreateSettingsAsync(RequiredStoreId);
         var incoming = new PosEInvoiceSetting
         {
             Enabled = JsonBool(body, "enabled"),
@@ -187,6 +200,13 @@ public class PosEInvoiceController(
             SignType = (int)JsonDec(body, "signType", 2),
             PortalUrl = JsonStr(body, "portalUrl") ?? "",
             PrintQrOnReceipt = JsonBool(body, "printQrOnReceipt", true),
+            // null = theo thuế suất hàng hóa; thiếu khóa = giữ nguyên.
+            SurchargeTaxPercent = TryGetProp(body, "surchargeTaxPercent", out _)
+                ? JsonDecOrNull(body, "surchargeTaxPercent")
+                : current.SurchargeTaxPercent,
+            DeliveryFeeTaxPercent = TryGetProp(body, "deliveryFeeTaxPercent", out _)
+                ? JsonDecOrNull(body, "deliveryFeeTaxPercent")
+                : current.DeliveryFeeTaxPercent,
         };
 
         logger.LogInformation(

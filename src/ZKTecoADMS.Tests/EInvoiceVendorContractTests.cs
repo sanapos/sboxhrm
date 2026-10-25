@@ -708,6 +708,355 @@ public class EInvoiceVendorContractTests
         Assert.Contains("Error 117", order.EInvoiceError);
     }
 
+    // ───────────────────────────── Phụ thu + phí giao hàng (nhiều thuế suất) ─────────────────────────────
+    // Hàng 8% (150.000 + 12.000) · phụ thu 22.000 @10% → 20.000 + 2.000 · phí GH 30.000 @8% → 27.778 + 2.222.
+    // Bảng thuế: 8% = 177.778 / 14.222 / 192.000; 10% = 20.000 / 2.000 / 22.000; tổng 214.000 = PayableTotal.
+
+    static PosSaleOrder Order8PctWithFees()
+    {
+        var o = Order8Pct();
+        o.SurchargeAmount = 22000m;
+        o.DeliveryFee = 30000m;
+        o.PaidAmount = o.PayableTotal;
+        return o;
+    }
+
+    static void WithFeeRates(PosEInvoiceSetting s, decimal? surcharge, decimal? delivery)
+    {
+        s.SurchargeTaxPercent = surcharge;
+        s.DeliveryFeeTaxPercent = delivery;
+    }
+
+    [Fact]
+    public async Task Fees_misa_lines_and_TaxRateInfo_per_rate()
+    {
+        var (svc, db, http) = NewService();
+        http.OnPath("/auth/token", MisaTokenOk)
+            .OnPath("/api/integration/invoice", MisaPublishOk("TXF", "00000050"));
+        var settings = MisaSettings();
+        WithFeeRates(settings, 10, 8);
+        var order = Order8PctWithFees();
+        await Seed(db, settings, order);
+
+        await svc.IssueNowAsync(order, Buyer);
+
+        Assert.Equal("Issued", order.EInvoiceStatus);
+        var inv = Json(http.Requests.Single(r => r.Uri.AbsolutePath.EndsWith("/integration/invoice")).Body)
+            .GetProperty("InvoiceData")[0];
+        var lines = inv.GetProperty("OriginalInvoiceDetail").EnumerateArray().ToList();
+        Assert.Equal(4, lines.Count);
+        Assert.Equal(new[] { 1, 2, 3, 4 }, lines.Select(l => l.GetProperty("LineNumber").GetInt32()).ToArray());
+        var sur = lines[2];
+        Assert.Equal("Phụ thu", sur.GetProperty("ItemName").GetString());
+        Assert.Equal("10%", sur.GetProperty("VATRateName").GetString());
+        Assert.Equal(20000m, sur.GetProperty("AmountWithoutVATOC").GetDecimal());
+        Assert.Equal(2000m, sur.GetProperty("VATAmountOC").GetDecimal());
+        Assert.Equal(1m, sur.GetProperty("Quantity").GetDecimal());
+        var ship = lines[3];
+        Assert.Equal("Phí giao hàng", ship.GetProperty("ItemName").GetString());
+        Assert.Equal("8%", ship.GetProperty("VATRateName").GetString());
+        Assert.Equal(27778m, ship.GetProperty("AmountWithoutVATOC").GetDecimal());
+        Assert.Equal(2222m, ship.GetProperty("VATAmountOC").GetDecimal());
+
+        var rates = inv.GetProperty("TaxRateInfo").EnumerateArray()
+            .ToDictionary(t => t.GetProperty("VATRateName").GetString()!);
+        Assert.Equal(2, rates.Count);
+        Assert.Equal(177778m, rates["8%"].GetProperty("AmountWithoutVATOC").GetDecimal());
+        Assert.Equal(14222m, rates["8%"].GetProperty("VATAmountOC").GetDecimal());
+        Assert.Equal(20000m, rates["10%"].GetProperty("AmountWithoutVATOC").GetDecimal());
+        Assert.Equal(2000m, rates["10%"].GetProperty("VATAmountOC").GetDecimal());
+
+        Assert.Equal(197778m, inv.GetProperty("TotalAmountWithoutVATOC").GetDecimal());
+        Assert.Equal(16222m, inv.GetProperty("TotalVATAmountOC").GetDecimal());
+        Assert.Equal(214000m, order.PayableTotal);
+        Assert.Equal(order.PayableTotal, inv.GetProperty("TotalAmountOC").GetDecimal());
+        Assert.Equal("Hai trăm mười bốn nghìn đồng.", inv.GetProperty("TotalAmountInWords").GetString());
+        Assert.Equal(inv.GetProperty("TotalVATAmountOC").GetDecimal(),
+            rates.Values.Sum(t => t.GetProperty("VATAmountOC").GetDecimal()));
+    }
+
+    [Fact]
+    public async Task Fees_vnpt_per_line_TSuat_and_LTSuat_breakdown()
+    {
+        var (svc, db, http) = NewService();
+        var settings = VnptSettings();
+        WithFeeRates(settings, 10, 8);
+        var order = Order8PctWithFees();
+        order.EInvoiceTransactionUuid = Guid.NewGuid().ToString();
+        http.OnSoap("ImportAndPublishInv", Soap("ImportAndPublishInv", $"OK:1/001;C26TAA-{order.EInvoiceTransactionUuid}_77"));
+        await Seed(db, settings, order);
+
+        await svc.IssueNowAsync(order, Buyer);
+
+        Assert.Equal("Issued", order.EInvoiceStatus);
+        var op = SoapOp(Assert.Single(http.Requests).Body, "ImportAndPublishInv");
+        var nd = XElement.Parse(op.Elements().First(e => e.Name.LocalName == "xmlInvData").Value)
+            .Element("HDon")!.Element("DLHDon")!.Element("NDHDon")!;
+        var items = nd.Element("DSHHDVu")!.Elements("HHDVu").ToList();
+        Assert.Equal(4, items.Count);
+        Assert.Equal(new[] { "8%", "8%", "10%", "8%" }, items.Select(i => i.Element("TSuat")!.Value).ToArray());
+        Assert.Equal("Phụ thu", items[2].Element("THHDVu")!.Value);
+        Assert.Equal("20000", items[2].Element("ThTien")!.Value);
+        Assert.Equal("2000", items[2].Element("TThue")!.Value);
+        Assert.Equal("Phí giao hàng", items[3].Element("THHDVu")!.Value);
+        Assert.Equal("4", items[3].Element("STT")!.Value);
+        var lt = nd.Element("TToan")!.Element("THTTLTSuat")!.Elements("LTSuat")
+            .ToDictionary(e => e.Element("TSuat")!.Value);
+        Assert.Equal(2, lt.Count);
+        Assert.Equal("177778", lt["8%"].Element("ThTien")!.Value);
+        Assert.Equal("14222", lt["8%"].Element("TThue")!.Value);
+        Assert.Equal("20000", lt["10%"].Element("ThTien")!.Value);
+        Assert.Equal("2000", lt["10%"].Element("TThue")!.Value);
+        var tot = nd.Element("TToan")!;
+        Assert.Equal("197778", tot.Element("TgTCThue")!.Value);
+        Assert.Equal("16222", tot.Element("TgTThue")!.Value);
+        Assert.Equal(order.PayableTotal.ToString("0"), tot.Element("TgTTTBSo")!.Value);
+    }
+
+    [Fact]
+    public async Task Fees_viettel_itemInfo_taxPercentage_and_taxBreakdowns()
+    {
+        var (svc, db, http) = NewService();
+        http.OnPath("/auth/login", ViettelLoginOk)
+            .OnPath("/InvoiceWS/createInvoice/0100109106-215",
+                """{"errorCode":null,"description":null,"result":{"invoiceNo":"C26TAA20","transactionID":"T","reservationCode":"R"}}""");
+        var settings = ViettelSettings();
+        WithFeeRates(settings, 10, 8);
+        var order = Order8PctWithFees();
+        await Seed(db, settings, order);
+
+        await svc.IssueNowAsync(order, Buyer);
+
+        Assert.Equal("Issued", order.EInvoiceStatus);
+        var root = Json(http.Requests.Single(r => r.Uri.AbsolutePath.Contains("/createInvoice/")).Body);
+        var items = root.GetProperty("itemInfo").EnumerateArray().ToList();
+        Assert.Equal(4, items.Count);
+        Assert.Equal(new[] { 8d, 8d, 10d, 8d }, items.Select(i => i.GetProperty("taxPercentage").GetDouble()).ToArray());
+        Assert.Equal("Phụ thu", items[2].GetProperty("itemName").GetString());
+        Assert.Equal(22000d, items[2].GetProperty("itemTotalAmountWithTax").GetDouble());
+        Assert.Equal(2222d, items[3].GetProperty("taxAmount").GetDouble());
+        Assert.False(items[3].TryGetProperty("unitName", out _));
+
+        var tb = root.GetProperty("taxBreakdowns").EnumerateArray()
+            .ToDictionary(t => t.GetProperty("taxPercentage").GetDouble());
+        Assert.Equal(2, tb.Count);
+        Assert.Equal(177778d, tb[8].GetProperty("taxableAmount").GetDouble());
+        Assert.Equal(14222d, tb[8].GetProperty("taxAmount").GetDouble());
+        Assert.Equal(20000d, tb[10].GetProperty("taxableAmount").GetDouble());
+        Assert.Equal(2000d, tb[10].GetProperty("taxAmount").GetDouble());
+
+        var sum = root.GetProperty("summarizeInfo");
+        Assert.Equal(197778d, sum.GetProperty("totalAmountWithoutTax").GetDouble());
+        Assert.Equal(16222d, sum.GetProperty("totalTaxAmount").GetDouble());
+        Assert.Equal((double)order.PayableTotal, sum.GetProperty("totalAmountWithTax").GetDouble());
+    }
+
+    [Fact]
+    public async Task Fees_easy_per_product_VATRate_and_per_rate_totals()
+    {
+        var (svc, db, http) = NewService();
+        var settings = EasySettings();
+        WithFeeRates(settings, 10, 8);
+        var order = Order8PctWithFees();
+        http.OnPath("/api/publish/importAndIssueInvoice",
+            """{"Status":2,"Data":{"Invoices":[{"No":"21","LookupCode":"LK","Pattern":"1C26MAA"}]}}""");
+        await Seed(db, settings, order);
+
+        await svc.IssueNowAsync(order, Buyer);
+
+        Assert.Equal("Issued", order.EInvoiceStatus);
+        var body = Json(Assert.Single(http.Requests).Body);
+        var inv = XElement.Parse(body.GetProperty("XmlData").GetString()!).Element("Inv")!.Element("Invoice")!;
+        var products = inv.Element("Products")!.Elements("Product").ToList();
+        Assert.Equal(4, products.Count);
+        Assert.Equal(new[] { "8", "8", "10", "8" }, products.Select(p => p.Element("VATRate")!.Value).ToArray());
+        Assert.Equal("Phụ thu", products[2].Element("ProdName")!.Value);
+        Assert.Null(products[2].Element("ProdUnit"));
+        Assert.Equal("22000", products[2].Element("Amount")!.Value);
+        Assert.Equal("Phí giao hàng", products[3].Element("ProdName")!.Value);
+        Assert.Equal("27778", products[3].Element("Total")!.Value);
+
+        Assert.Equal("177778", inv.Element("GrossValue8")!.Value);
+        Assert.Equal("14222", inv.Element("VatAmount8")!.Value);
+        Assert.Equal("192000", inv.Element("Amount8")!.Value);
+        Assert.Equal("20000", inv.Element("GrossValue10")!.Value);
+        Assert.Equal("2000", inv.Element("VatAmount10")!.Value);
+        Assert.Equal("22000", inv.Element("Amount10")!.Value);
+        Assert.Equal("197778", inv.Element("Total")!.Value);
+        Assert.Equal("16222", inv.Element("VATAmount")!.Value);
+        Assert.Equal(order.PayableTotal.ToString("0"), inv.Element("Amount")!.Value);
+    }
+
+    /// <summary>Hàng 10% đã gồm thuế 110.000 · phụ thu 10.000 @0% · phí GH 25.000 KCT → tổng 145.000.</summary>
+    static PosSaleOrder Order10PctWithZeroAndKctFees()
+    {
+        var o = Order10PctIncluded();
+        o.SurchargeAmount = 10000m;
+        o.DeliveryFee = 25000m;
+        o.PaidAmount = o.PayableTotal;
+        return o;
+    }
+
+    static PosEInvoiceSetting Included10(PosEInvoiceSetting s)
+    {
+        s.TaxMode = "included";
+        s.DefaultTaxPercent = 10;
+        WithFeeRates(s, 0, -1);
+        return s;
+    }
+
+    [Fact]
+    public async Task Fees_zero_and_KCT_misa_and_vnpt()
+    {
+        var (svc, db, http) = NewService();
+        http.OnPath("/auth/token", MisaTokenOk)
+            .OnPath("/api/integration/invoice", MisaPublishOk("TXK", "00000060"));
+        var order = Order10PctWithZeroAndKctFees();
+        await Seed(db, Included10(MisaSettings()), order);
+
+        await svc.IssueNowAsync(order, Buyer);
+
+        var inv = Json(http.Requests.Single(r => r.Uri.AbsolutePath.EndsWith("/integration/invoice")).Body)
+            .GetProperty("InvoiceData")[0];
+        var lines = inv.GetProperty("OriginalInvoiceDetail").EnumerateArray().ToList();
+        Assert.Equal(new[] { "10%", "0%", "KCT" }, lines.Select(l => l.GetProperty("VATRateName").GetString()).ToArray());
+        Assert.Equal(0m, lines[1].GetProperty("VATAmountOC").GetDecimal());
+        Assert.Equal(10000m, lines[1].GetProperty("AmountWithoutVATOC").GetDecimal());
+        Assert.Equal(0m, lines[2].GetProperty("VATAmountOC").GetDecimal());
+        Assert.Equal(25000m, lines[2].GetProperty("AmountWithoutVATOC").GetDecimal());
+        var rates = inv.GetProperty("TaxRateInfo").EnumerateArray()
+            .ToDictionary(t => t.GetProperty("VATRateName").GetString()!);
+        Assert.Equal(new[] { "10%", "0%", "KCT" }, rates.Keys.ToArray());
+        Assert.Equal(100000m, rates["10%"].GetProperty("AmountWithoutVATOC").GetDecimal());
+        Assert.Equal(10000m, rates["10%"].GetProperty("VATAmountOC").GetDecimal());
+        Assert.Equal(25000m, rates["KCT"].GetProperty("AmountWithoutVATOC").GetDecimal());
+        Assert.Equal(10000m, inv.GetProperty("TotalVATAmountOC").GetDecimal());
+        Assert.Equal(145000m, order.PayableTotal);
+        Assert.Equal(order.PayableTotal, inv.GetProperty("TotalAmountOC").GetDecimal());
+
+        // VNPT cùng đơn
+        var (svc2, db2, http2) = NewService();
+        var order2 = Order10PctWithZeroAndKctFees();
+        order2.EInvoiceTransactionUuid = Guid.NewGuid().ToString();
+        http2.OnSoap("ImportAndPublishInv", Soap("ImportAndPublishInv", $"OK:1/001;C26TAA-{order2.EInvoiceTransactionUuid}_9"));
+        await Seed(db2, Included10(VnptSettings()), order2);
+        await svc2.IssueNowAsync(order2, Buyer);
+        var nd = XElement.Parse(SoapOp(Assert.Single(http2.Requests).Body, "ImportAndPublishInv")
+                .Elements().First(e => e.Name.LocalName == "xmlInvData").Value)
+            .Element("HDon")!.Element("DLHDon")!.Element("NDHDon")!;
+        Assert.Equal(new[] { "10%", "0%", "KCT" },
+            nd.Element("DSHHDVu")!.Elements("HHDVu").Select(i => i.Element("TSuat")!.Value).ToArray());
+        Assert.Equal(new[] { "10%", "0%", "KCT" },
+            nd.Element("TToan")!.Element("THTTLTSuat")!.Elements("LTSuat").Select(e => e.Element("TSuat")!.Value).ToArray());
+        Assert.Equal("145000", nd.Element("TToan")!.Element("TgTTTBSo")!.Value);
+    }
+
+    [Fact]
+    public async Task Fees_zero_and_KCT_viettel_and_easy()
+    {
+        var (svc, db, http) = NewService();
+        http.OnPath("/auth/login", ViettelLoginOk)
+            .OnPath("/InvoiceWS/createInvoice/0100109106-215",
+                """{"errorCode":null,"result":{"invoiceNo":"C26TAA30","reservationCode":"R"}}""");
+        var order = Order10PctWithZeroAndKctFees();
+        await Seed(db, Included10(ViettelSettings()), order);
+        await svc.IssueNowAsync(order, Buyer);
+        var root = Json(http.Requests.Single(r => r.Uri.AbsolutePath.Contains("/createInvoice/")).Body);
+        // Mã thuế suất nội bộ: -1 = KCT (giữ quy ước hiện có — chưa có tài liệu Viettel chính thức để đối chiếu).
+        Assert.Equal(new[] { 10d, 0d, -1d },
+            root.GetProperty("itemInfo").EnumerateArray().Select(i => i.GetProperty("taxPercentage").GetDouble()).ToArray());
+        Assert.Equal(3, root.GetProperty("taxBreakdowns").GetArrayLength());
+        Assert.Equal(145000d, root.GetProperty("summarizeInfo").GetProperty("totalAmountWithTax").GetDouble());
+
+        var (svc2, db2, http2) = NewService();
+        http2.OnPath("/api/publish/importAndIssueInvoice",
+            """{"Status":2,"Data":{"Invoices":[{"No":"31","Pattern":"1C26MAA"}]}}""");
+        var order2 = Order10PctWithZeroAndKctFees();
+        await Seed(db2, Included10(EasySettings()), order2);
+        await svc2.IssueNowAsync(order2, Buyer);
+        var inv = XElement.Parse(Json(Assert.Single(http2.Requests).Body).GetProperty("XmlData").GetString()!)
+            .Element("Inv")!.Element("Invoice")!;
+        Assert.Equal(new[] { "10", "0", "-1" },
+            inv.Element("Products")!.Elements("Product").Select(p => p.Element("VATRate")!.Value).ToArray());
+        Assert.Equal("100000", inv.Element("GrossValue10")!.Value);
+        Assert.Equal("10000", inv.Element("GrossValue0")!.Value);
+        Assert.Equal("0", inv.Element("VatAmount0")!.Value);
+        Assert.Equal("25000", inv.Element("GrossValue")!.Value); // KCT
+        Assert.Equal("145000", inv.Element("Amount")!.Value);
+    }
+
+    [Fact]
+    public async Task Fees_default_to_goods_rate_and_merge_bucket()
+    {
+        var (svc, db, http) = NewService();
+        http.OnPath("/auth/token", MisaTokenOk)
+            .OnPath("/api/integration/invoice", MisaPublishOk("TXD", "00000070"));
+        var order = Order8Pct();
+        order.DeliveryFee = 30000m; // không cấu hình thuế suất phí → theo hàng hóa (8%)
+        await Seed(db, MisaSettings(), order);
+
+        await svc.IssueNowAsync(order, Buyer);
+
+        var inv = Json(http.Requests.Single(r => r.Uri.AbsolutePath.EndsWith("/integration/invoice")).Body)
+            .GetProperty("InvoiceData")[0];
+        var lines = inv.GetProperty("OriginalInvoiceDetail").EnumerateArray().ToList();
+        Assert.Equal(3, lines.Count); // phụ thu = 0 → không thêm dòng
+        Assert.Equal("Phí giao hàng", lines[2].GetProperty("ItemName").GetString());
+        Assert.Equal("8%", lines[2].GetProperty("VATRateName").GetString());
+        var tax = Assert.Single(inv.GetProperty("TaxRateInfo").EnumerateArray().ToList());
+        Assert.Equal(177778m, tax.GetProperty("AmountWithoutVATOC").GetDecimal());
+        Assert.Equal(192000m, inv.GetProperty("TotalAmountOC").GetDecimal());
+        Assert.Equal(order.PayableTotal, inv.GetProperty("TotalAmountOC").GetDecimal());
+    }
+
+    [Fact]
+    public async Task Added_vat_rounding_drift_reconciled_to_order_vat()
+    {
+        // 3 dòng 10.005đ @8%: làm tròn từng dòng = 3 × 800 = 2.400; POS thu VAT trên tổng = 2.401.
+        var (svc, db, http) = NewService();
+        http.OnPath("/auth/token", MisaTokenOk)
+            .OnPath("/api/integration/invoice", MisaPublishOk("TXR", "00000080"));
+        var o = NewOrder(total: 30015m, vat: 2401m);
+        o.SubTotal = 30015m;
+        o.Lines =
+        [
+            Line(o, "Nước suối", "Chai", 1, 10005m, 0m, 10005m),
+            Line(o, "Nước ngọt", "Lon", 1, 10005m, 0m, 10005m),
+            Line(o, "Trà xanh", "Chai", 1, 10005m, 0m, 10005m),
+        ];
+        await Seed(db, MisaSettings(), o);
+
+        await svc.IssueNowAsync(o, Buyer);
+
+        var inv = Json(http.Requests.Single(r => r.Uri.AbsolutePath.EndsWith("/integration/invoice")).Body)
+            .GetProperty("InvoiceData")[0];
+        Assert.Equal(2401m, inv.GetProperty("TotalVATAmountOC").GetDecimal());
+        Assert.Equal(2401m, inv.GetProperty("OriginalInvoiceDetail").EnumerateArray()
+            .Sum(l => l.GetProperty("VATAmountOC").GetDecimal()));
+        Assert.Equal(o.PayableTotal, inv.GetProperty("TotalAmountOC").GetDecimal());
+    }
+
+    [Theory]
+    [InlineData(10, 10)]
+    [InlineData(-1, -1)]
+    [InlineData(-2, -2)]
+    [InlineData(0, 0)]
+    [InlineData(7, null)]
+    [InlineData(null, null)]
+    public async Task Fee_tax_percent_setting_is_normalized_on_save(int? input, int? expected)
+    {
+        var (svc, db, _) = NewService();
+        var incoming = MisaSettings();
+        incoming.SurchargeTaxPercent = input;
+        incoming.DeliveryFeeTaxPercent = input;
+
+        await svc.SaveSettingsAsync(StoreId, incoming, "pw");
+
+        var row = await db.PosEInvoiceSettings.AsNoTracking().SingleAsync(x => x.StoreId == StoreId);
+        Assert.Equal((decimal?)expected, row.SurchargeTaxPercent);
+        Assert.Equal((decimal?)expected, row.DeliveryFeeTaxPercent);
+    }
+
     // ───────────────────────────── Dữ liệu mẫu ─────────────────────────────
 
     const string MisaTestUrl = "https://testapi.meinvoice.vn/api/integration";

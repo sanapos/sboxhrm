@@ -449,7 +449,7 @@ class PosThermalBitmapEncoder {
       final style = _thermalStyle(fontSize: line.fontSize * scale, bold: line.bold);
       if (line.hasSaleColumns) {
         final cols = _saleColWidths(width, style: style, saleLines: saleColLines);
-        final nameTp = _tp(line.text, style: style, maxWidth: cols.nameW, maxLines: 2);
+        final nameTp = _tp(line.text, style: style, maxWidth: cols.nameW, maxLines: 3);
         if (canvas != null) {
           nameTp.paint(canvas, Offset(left, y));
           var x = left + cols.nameW + cols.gap;
@@ -474,7 +474,8 @@ class PosThermalBitmapEncoder {
           right: right,
           rightFrac: line.rightSlotFrac,
         );
-        final leftTp = _tp(line.text, style: style, maxWidth: slots.leftW, maxLines: 2);
+        // Phiếu bếp (tên món + SL): 2 dòng cắt mất đuôi tên món dài trên K58 → bếp làm nhầm món.
+        final leftTp = _tp(line.text, style: style, maxWidth: slots.leftW, maxLines: 4);
         final rightTp = _fitInSlot(right, style, slots.rightW, TextAlign.right);
         if (canvas != null) {
           leftTp.paint(canvas, Offset(left, y));

@@ -136,3 +136,4 @@ docs/shots/
 
 scripts/qa/.qa-accounts.json
 scripts/qa/qa-api.log
+scripts/qa/prints/

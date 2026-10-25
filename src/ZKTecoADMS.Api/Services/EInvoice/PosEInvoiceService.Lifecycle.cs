@@ -93,8 +93,8 @@ public partial class PosEInvoiceService
                 SaleDate = o.SaleDate ?? o.CreatedAt,
                 o.Total,
                 o.VatAmount,
-                // Giá trị hóa đơn = tiền hàng + VAT (cột «Tổng» trước đây chỉ có tiền hàng).
-                GrandTotal = o.Total + o.VatAmount,
+                // Giá trị hóa đơn = tiền hàng + VAT + phụ thu + phí giao hàng (= PayableTotal, khớp HĐĐT).
+                GrandTotal = o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee,
                 OrderStatus = o.Status,
                 HasReturn = o.Status == Domain.Enums.PosSaleOrderStatus.Completed && db.PosStockTransactions.Any(t =>
                     t.SaleOrderId == o.Id && t.StoreId == storeId && t.Deleted == null && t.IsActive &&

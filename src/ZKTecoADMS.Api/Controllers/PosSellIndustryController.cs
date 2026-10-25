@@ -121,7 +121,49 @@ public partial class PosSellIndustryController(
             await db.SaveChangesAsync();
         }
 
-        return Ok(AppResponse<SellSettingsDto>.Success(MapSettings(s)));
+        var dto = MapSettings(s);
+        var store = await db.Stores.AsNoTracking()
+            .Where(x => x.Id == storeId)
+            .Select(x => new { x.Name, x.Address, x.Phone })
+            .FirstOrDefaultAsync();
+        if (store != null)
+            dto = dto with { ExtraJson = WithReceiptStoreDefault(dto.ExtraJson, store.Name, store.Address, store.Phone) };
+        return Ok(AppResponse<SellSettingsDto>.Success(dto));
+    }
+
+    /// <summary>
+    /// Tên/địa chỉ/SĐT in trên hóa đơn (ExtraJson.receiptStore) chưa đặt → lấy theo thông tin cửa hàng.
+    /// Không có mặc định thì bill in «Cửa hàng», hoặc tên cửa hàng cũ còn trong bộ nhớ máy khi máy đổi cửa hàng.
+    /// Chỉ điền chỗ trống — giá trị chủ cửa hàng đã đặt giữ nguyên; không lưu xuống DB.
+    /// </summary>
+    internal static string? WithReceiptStoreDefault(string? extraJson, string? name, string? address, string? phone)
+    {
+        System.Text.Json.Nodes.JsonObject root;
+        try
+        {
+            root = string.IsNullOrWhiteSpace(extraJson)
+                ? new System.Text.Json.Nodes.JsonObject()
+                : System.Text.Json.Nodes.JsonNode.Parse(extraJson) as System.Text.Json.Nodes.JsonObject
+                  ?? new System.Text.Json.Nodes.JsonObject();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return extraJson;
+        }
+        var rs = ((root["receiptStore"] ?? root["ReceiptStore"]) as System.Text.Json.Nodes.JsonObject)?
+                     .DeepClone().AsObject()
+                 ?? new System.Text.Json.Nodes.JsonObject();
+        void Fill(string key, string? value)
+        {
+            var cur = rs[key] is System.Text.Json.Nodes.JsonValue v && v.TryGetValue<string>(out var str) ? str : null;
+            if (string.IsNullOrWhiteSpace(cur) && !string.IsNullOrWhiteSpace(value)) rs[key] = value.Trim();
+        }
+        Fill("name", name);
+        Fill("address", address);
+        Fill("phone", phone);
+        root.Remove("ReceiptStore");
+        root["receiptStore"] = rs;
+        return root.ToJsonString();
     }
 
     [HttpPut("sell-settings")]

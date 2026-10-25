@@ -390,6 +390,30 @@ def step_floor(base, tokens, ctx):
         record('floor.freed-after-pay', ind, still == [], f'phiên còn mở: {still}', ms)
 
 
+def step_multi_session(base, acc):
+    """Cùng tài khoản đăng nhập 2 máy: làm mới token ở máy A không được làm máy B mất phiên."""
+    a = next((v for k, v in acc.items() if not k.startswith('_')), None)
+    if not a:
+        return
+    body = {'storeCode': a['storeCode'], 'userName': a['email'], 'password': a['password']}
+    tokens = []
+    for dev in ('A', 'B'):
+        st, js, ms = Api(base).call('POST', '/api/auth/login', dict(body, deviceKey=f'qa-dev-{dev}'))
+        tokens.append((data(js) or {}).get('refreshToken'))
+    ok = all(tokens)
+    for dev, rt in zip(('A', 'B', 'A', 'B'), tokens + tokens):
+        if not ok:
+            break
+        idx = 0 if dev == 'A' else 1
+        st, js, ms = Api(base).call('POST', '/api/auth/refresh', {'refreshToken': tokens[idx], 'deviceKey': f'qa-dev-{dev}'})
+        new = (data(js) or {}).get('refreshToken') if ok_resp(st, js) else None
+        record(f'auth.refresh máy {dev}', '-', bool(new), f'HTTP {st} {"" if new else msg(js)}', ms)
+        if new:
+            tokens[idx] = new
+        else:
+            ok = False
+
+
 def step_reports(base, tokens, ctx):
     today = time.strftime('%Y-%m-%d')
     for ind, tk in tokens.items():
@@ -439,6 +463,7 @@ def main():
     step_superadmin(args.base, acc)
     step_register(args.base, acc)
     step_login(args.base, acc, tokens)
+    step_multi_session(args.base, acc)
     ctx = {}
     step_catalog(args.base, tokens, ctx)
     step_quote(args.base, tokens, ctx)

@@ -106,6 +106,16 @@ abstract final class PosLabelDesignPresets {
     PosLabelDesignPreset('product_price', 'Giá nổi bật', 'Ô giá nền đen bên phải mã vạch', (w, h) {
       const m = 1.2;
       final k = _k(h);
+      // Tem hẹp (35×22…): mã vạch đặt cạnh ô giá chỉ còn ~17 mm → vạch 1 điểm in, máy quét khó đọc.
+      // Xếp dọc: mã vạch hết chiều ngang, ô giá nền đen ở dưới.
+      if (w < 45) {
+        return _d(PosPrintDocumentTypes.barcodeLabel, w, h, 'Tem giá nổi bật', [
+          _text('{Ten_Hang_Hoa}', m, m * 0.6, w - 2 * m, h * 0.27, size: 8 * k, bold: true, lines: 2),
+          _barcode(m, h * 0.29, w - 2 * m, h * 0.40),
+          _text('{Don_Gia}đ', m, h * 0.71, w - 2 * m, h * 0.27,
+              size: 10.5 * k, bold: true, align: PosLabelAlign.center, invert: true),
+        ]);
+      }
       final priceW = w * 0.38;
       return _d(PosPrintDocumentTypes.barcodeLabel, w, h, 'Tem giá nổi bật', [
         _text('{Ten_Cua_Hang}', m, m * 0.6, w - 2 * m, h * 0.13, size: 6 * k, align: PosLabelAlign.center),

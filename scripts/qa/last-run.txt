@@ -1,197 +1,211 @@
-﻿[PASS] superadmin.login             -                94ms  HTTP 200 
-[PASS] register                     Retail         1605ms  HTTP 200 
-[PASS] register                     Salon          1634ms  HTTP 200 
-[PASS] register                     RoomHourly     2144ms  HTTP 200 
-[PASS] register                     Restaurant     2212ms  HTTP 200 
-[PASS] register                     Gym            1425ms  HTTP 200 
-[PASS] register                     Hotel          1417ms  HTTP 200 
-[PASS] login                        Retail           57ms  HTTP 200 
-[PASS] login                        Salon            66ms  HTTP 200 
-[PASS] login                        RoomHourly       63ms  HTTP 200 
-[PASS] login                        Restaurant       50ms  HTTP 200 
-[PASS] login                        Gym              50ms  HTTP 200 
-[PASS] login                        Hotel            50ms  HTTP 200 
-[PASS] employee.create              Retail           22ms  HTTP 200 
-[PASS] product.create Goods         Retail           75ms  HTTP 200 
-[PASS] product.create Goods         Retail           41ms  HTTP 200 
-[PASS] product.create Service       Retail           36ms  HTTP 200 
-[PASS] product.create Service       Retail           24ms  HTTP 200 
-[PASS] customer.create              Retail            8ms  HTTP 200 
-[PASS] employee.create              Salon            14ms  HTTP 200 
-[PASS] product.create Goods         Salon            15ms  HTTP 200 
-[PASS] product.create Goods         Salon            24ms  HTTP 200 
-[PASS] product.create Service       Salon            19ms  HTTP 200 
-[PASS] product.create Service       Salon            14ms  HTTP 200 
-[PASS] customer.create              Salon             6ms  HTTP 200 
-[PASS] employee.create              RoomHourly       11ms  HTTP 200 
-[PASS] product.create Goods         RoomHourly       13ms  HTTP 200 
-[PASS] product.create Goods         RoomHourly       34ms  HTTP 200 
-[PASS] product.create Service       RoomHourly       11ms  HTTP 200 
-[PASS] product.create Service       RoomHourly       12ms  HTTP 200 
-[PASS] customer.create              RoomHourly        6ms  HTTP 200 
-[PASS] employee.create              Restaurant       13ms  HTTP 200 
-[PASS] product.create Goods         Restaurant       14ms  HTTP 200 
-[PASS] product.create Goods         Restaurant       13ms  HTTP 200 
-[PASS] product.create Service       Restaurant       19ms  HTTP 200 
-[PASS] product.create Service       Restaurant       12ms  HTTP 200 
-[PASS] customer.create              Restaurant        6ms  HTTP 200 
-[PASS] employee.create              Gym              10ms  HTTP 200 
-[PASS] product.create Goods         Gym              13ms  HTTP 200 
-[PASS] product.create Goods         Gym              13ms  HTTP 200 
-[PASS] product.create Service       Gym              13ms  HTTP 200 
-[PASS] product.create Service       Gym              12ms  HTTP 200 
+﻿[PASS] superadmin.login             -               180ms  HTTP 200 
+[PASS] login                        Retail          112ms  HTTP 200 
+[PASS] login                        Salon            59ms  HTTP 200 
+[PASS] login                        RoomHourly       69ms  HTTP 200 
+[PASS] login                        Restaurant       67ms  HTTP 200 
+[PASS] login                        Gym              74ms  HTTP 200 
+[PASS] login                        Hotel            63ms  HTTP 200 
+[PASS] login                        WebSalon         87ms  HTTP 200 
+[PASS] auth.refresh máy A           -                53ms  HTTP 200 
+[PASS] auth.refresh máy B           -                12ms  HTTP 200 
+[PASS] auth.refresh máy A           -                19ms  HTTP 200 
+[PASS] auth.refresh máy B           -                12ms  HTTP 200 
+[PASS] employee.create              Retail          193ms  HTTP 200 
+[PASS] product.create Goods         Retail          412ms  HTTP 200 
+[PASS] product.create Goods         Retail           72ms  HTTP 200 
+[PASS] product.create Service       Retail           56ms  HTTP 200 
+[PASS] product.create Service       Retail           48ms  HTTP 200 
+[PASS] customer.create              Retail           79ms  HTTP 200 
+[PASS] employee.create              Salon            33ms  HTTP 200 
+[PASS] product.create Goods         Salon            42ms  HTTP 200 
+[PASS] product.create Goods         Salon            40ms  HTTP 200 
+[PASS] product.create Service       Salon            36ms  HTTP 200 
+[PASS] product.create Service       Salon            48ms  HTTP 200 
+[PASS] customer.create              Salon             8ms  HTTP 200 
+[PASS] employee.create              RoomHourly       18ms  HTTP 200 
+[PASS] product.create Goods         RoomHourly       43ms  HTTP 200 
+[PASS] product.create Goods         RoomHourly       23ms  HTTP 200 
+[PASS] product.create Service       RoomHourly       48ms  HTTP 200 
+[PASS] product.create Service       RoomHourly       25ms  HTTP 200 
+[PASS] customer.create              RoomHourly       11ms  HTTP 200 
+[PASS] employee.create              Restaurant       23ms  HTTP 200 
+[PASS] product.create Goods         Restaurant       30ms  HTTP 200 
+[PASS] product.create Goods         Restaurant       31ms  HTTP 200 
+[PASS] product.create Service       Restaurant       28ms  HTTP 200 
+[PASS] product.create Service       Restaurant       44ms  HTTP 200 
+[PASS] customer.create              Restaurant       38ms  HTTP 200 
+[PASS] employee.create              Gym              20ms  HTTP 200 
+[PASS] product.create Goods         Gym              21ms  HTTP 200 
+[PASS] product.create Goods         Gym              35ms  HTTP 200 
+[PASS] product.create Service       Gym              23ms  HTTP 200 
+[PASS] product.create Service       Gym              17ms  HTTP 200 
 [PASS] customer.create              Gym               8ms  HTTP 200 
-[PASS] employee.create              Hotel            10ms  HTTP 200 
-[PASS] product.create Goods         Hotel            13ms  HTTP 200 
-[PASS] product.create Goods         Hotel            12ms  HTTP 200 
-[PASS] product.create Service       Hotel            12ms  HTTP 200 
-[PASS] product.create Service       Hotel            12ms  HTTP 200 
-[PASS] customer.create              Hotel             3ms  HTTP 200 
-[PASS] quote.create                 Retail           52ms  HTTP 200 
+[PASS] employee.create              Hotel            25ms  HTTP 200 
+[PASS] product.create Goods         Hotel            27ms  HTTP 200 
+[PASS] product.create Goods         Hotel            15ms  HTTP 200 
+[PASS] product.create Service       Hotel            24ms  HTTP 200 
+[PASS] product.create Service       Hotel            15ms  HTTP 200 
+[PASS] customer.create              Hotel            10ms  HTTP 200 
+[PASS] employee.create              WebSalon         18ms  HTTP 200 
+[PASS] product.create Goods         WebSalon         22ms  HTTP 200 
+[PASS] product.create Goods         WebSalon         23ms  HTTP 200 
+[PASS] product.create Service       WebSalon         19ms  HTTP 200 
+[PASS] product.create Service       WebSalon         19ms  HTTP 200 
+[PASS] customer.create              WebSalon          5ms  HTTP 200 
+[PASS] quote.create                 Retail          293ms  HTTP 200 
 [PASS] quote.total                  Retail            0ms  kỳ vọng 210600, nhận 210600 (VAT 15600)
-[PASS] quote.preview                Retail            9ms  HTTP 200 5512B có tổng 210.600
-[PASS] quote.create                 Salon            31ms  HTTP 200 
+[PASS] quote.preview                Retail           48ms  HTTP 200 5512B có tổng 210.600
+[PASS] quote.create                 Salon            33ms  HTTP 200 
 [PASS] quote.total                  Salon             0ms  kỳ vọng 210600, nhận 210600 (VAT 15600)
-[PASS] quote.preview                Salon             8ms  HTTP 200 5508B có tổng 210.600
-[PASS] quote.create                 RoomHourly       23ms  HTTP 200 
+[PASS] quote.preview                Salon            28ms  HTTP 200 5508B có tổng 210.600
+[PASS] quote.create                 RoomHourly       34ms  HTTP 200 
 [PASS] quote.total                  RoomHourly        0ms  kỳ vọng 210600, nhận 210600 (VAT 15600)
-[PASS] quote.preview                RoomHourly       19ms  HTTP 200 5528B có tổng 210.600
-[PASS] quote.create                 Restaurant       21ms  HTTP 200 
+[PASS] quote.preview                RoomHourly       23ms  HTTP 200 5528B có tổng 210.600
+[PASS] quote.create                 Restaurant       26ms  HTTP 200 
 [PASS] quote.total                  Restaurant        0ms  kỳ vọng 210600, nhận 210600 (VAT 15600)
-[PASS] quote.preview                Restaurant        7ms  HTTP 200 5528B có tổng 210.600
+[PASS] quote.preview                Restaurant       21ms  HTTP 200 5607B có tổng 210.600
 [PASS] quote.create                 Gym              23ms  HTTP 200 
 [PASS] quote.total                  Gym               0ms  kỳ vọng 210600, nhận 210600 (VAT 15600)
-[PASS] quote.preview                Gym               8ms  HTTP 200 5500B có tổng 210.600
-[PASS] quote.create                 Hotel            10ms  HTTP 200 
+[PASS] quote.preview                Gym              24ms  HTTP 200 5500B có tổng 210.600
+[PASS] quote.create                 Hotel            22ms  HTTP 200 
 [PASS] quote.total                  Hotel             0ms  kỳ vọng 210600, nhận 210600 (VAT 15600)
-[PASS] quote.preview                Hotel            15ms  HTTP 200 5508B có tổng 210.600
-[PASS] sale.cash+discount           Retail           73ms  HTTP 200 total=120000 
-[PASS] sale.split-payment           Retail           58ms  HTTP 200 
-[PASS] sale.partial-debt            Retail           27ms  HTTP 200 
-[PASS] customer.debt=30000          Retail            5ms  nợ=30000.0
-[PASS] sale.cancel                  Retail           23ms  HTTP 200 
+[PASS] quote.preview                Hotel            21ms  HTTP 200 5508B có tổng 210.600
+[PASS] quote.create                 WebSalon         22ms  HTTP 200 
+[PASS] quote.total                  WebSalon          0ms  kỳ vọng 210600, nhận 210600 (VAT 15600)
+[PASS] quote.preview                WebSalon         19ms  HTTP 200 5603B có tổng 210.600
+[PASS] sale.cash+discount           Retail          532ms  HTTP 200 total=120000 
+[PASS] sale.split-payment           Retail           88ms  HTTP 200 
+[PASS] sale.partial-debt            Retail          191ms  HTTP 200 
+[PASS] customer.debt=30000          Retail           45ms  nợ=30000.0
+[PASS] sale.cancel                  Retail          160ms  HTTP 200 
 [PASS] stock.after-sales            Retail            0ms  A=97.0 (kỳ vọng 97) B=96.0 (kỳ vọng 96)
-[PASS] sale.cash+discount           Salon            35ms  HTTP 200 total=120000 
-[PASS] sale.split-payment           Salon            45ms  HTTP 200 
-[PASS] sale.partial-debt            Salon            27ms  HTTP 200 
-[PASS] customer.debt=30000          Salon             6ms  nợ=30000.0
-[PASS] sale.cancel                  Salon            21ms  HTTP 200 
+[PASS] sale.cash+discount           Salon            63ms  HTTP 200 total=120000 
+[PASS] sale.split-payment           Salon            39ms  HTTP 200 
+[PASS] sale.partial-debt            Salon            71ms  HTTP 200 
+[PASS] customer.debt=30000          Salon             7ms  nợ=30000.0
+[PASS] sale.cancel                  Salon            36ms  HTTP 200 
 [PASS] stock.after-sales            Salon             0ms  A=97.0 (kỳ vọng 97) B=96.0 (kỳ vọng 96)
-[PASS] sale.cash+discount           Restaurant       22ms  HTTP 200 total=120000 
-[PASS] sale.split-payment           Restaurant       23ms  HTTP 200 
-[PASS] sale.partial-debt            Restaurant       26ms  HTTP 200 
-[PASS] customer.debt=30000          Restaurant        5ms  nợ=30000.0
-[PASS] sale.cancel                  Restaurant       24ms  HTTP 200 
+[PASS] sale.cash+discount           Restaurant       51ms  HTTP 200 total=120000 
+[PASS] sale.split-payment           Restaurant       35ms  HTTP 200 
+[PASS] sale.partial-debt            Restaurant       57ms  HTTP 200 
+[PASS] customer.debt=30000          Restaurant        4ms  nợ=30000.0
+[PASS] sale.cancel                  Restaurant       31ms  HTTP 200 
 [PASS] stock.after-sales            Restaurant        0ms  A=97.0 (kỳ vọng 97) B=96.0 (kỳ vọng 96)
-[PASS] sale.cash+discount           Gym              24ms  HTTP 200 total=120000 
-[PASS] sale.split-payment           Gym              33ms  HTTP 200 
-[PASS] sale.partial-debt            Gym              24ms  HTTP 200 
-[PASS] customer.debt=30000          Gym               4ms  nợ=30000.0
-[PASS] sale.cancel                  Gym              15ms  HTTP 200 
+[PASS] sale.cash+discount           Gym              41ms  HTTP 200 total=120000 
+[PASS] sale.split-payment           Gym              47ms  HTTP 200 
+[PASS] sale.partial-debt            Gym              34ms  HTTP 200 
+[PASS] customer.debt=30000          Gym               6ms  nợ=30000.0
+[PASS] sale.cancel                  Gym              20ms  HTTP 200 
 [PASS] stock.after-sales            Gym               0ms  A=97.0 (kỳ vọng 97) B=96.0 (kỳ vọng 96)
-[PASS] floor.resources              Retail           14ms  0 bàn/phòng có sẵn
-[PASS] floor.area.create            Retail            3ms  HTTP 200 
-[PASS] floor.resource.create        Retail           10ms  HTTP 200 
-[PASS] floor.resource.create        Retail            5ms  HTTP 200 
-[PASS] floor.open bị chặn (đúng)    Retail            2ms  HTTP 400 Hồ sơ ngành hiện tại không bật bàn/tài nguyên phục vụ.
-[PASS] floor.resources              Salon            12ms  0 bàn/phòng có sẵn
-[PASS] floor.area.create            Salon             3ms  HTTP 200 
-[PASS] floor.resource.create        Salon             8ms  HTTP 200 
-[PASS] floor.resource.create        Salon             5ms  HTTP 200 
-[PASS] floor.open                   Salon            13ms  HTTP 200 Phòng QA 1 
-[PASS] floor.checkout               Salon            37ms  HTTP 200 total=52000 
-[PASS] floor.freed-after-pay        Salon             4ms  phiên còn mở: []
-[PASS] floor.resources              RoomHourly       27ms  0 bàn/phòng có sẵn
-[PASS] floor.area.create            RoomHourly        3ms  HTTP 200 
-[PASS] floor.resource.create        RoomHourly        4ms  HTTP 200 
-[PASS] floor.resource.create        RoomHourly        5ms  HTTP 200 
-[PASS] floor.open                   RoomHourly       13ms  HTTP 200 Phòng QA 1 
-[PASS] floor.checkout               RoomHourly       30ms  HTTP 200 total=52000 
-[PASS] floor.freed-after-pay        RoomHourly        4ms  phiên còn mở: []
-[PASS] floor.resources              Restaurant       15ms  0 bàn/phòng có sẵn
-[PASS] floor.area.create            Restaurant        3ms  HTTP 200 
-[PASS] floor.resource.create        Restaurant        9ms  HTTP 200 
-[PASS] floor.resource.create        Restaurant        4ms  HTTP 200 
-[PASS] floor.open                   Restaurant        9ms  HTTP 200 Phòng QA 1 
-[PASS] floor.checkout               Restaurant       41ms  HTTP 200 total=52000 
-[PASS] floor.freed-after-pay        Restaurant       11ms  phiên còn mở: []
-[PASS] floor.resources              Gym               4ms  0 bàn/phòng có sẵn
-[PASS] floor.area.create            Gym              11ms  HTTP 200 
-[PASS] floor.resource.create        Gym              18ms  HTTP 200 
-[PASS] floor.resource.create        Gym               3ms  HTTP 200 
-[PASS] floor.open bị chặn (đúng)    Gym               2ms  HTTP 400 Hồ sơ ngành hiện tại không bật bàn/tài nguyên phục vụ.
-[PASS] floor.resources              Hotel             5ms  0 bàn/phòng có sẵn
-[PASS] floor.area.create            Hotel             3ms  HTTP 200 
-[PASS] floor.resource.create        Hotel             3ms  HTTP 200 
-[PASS] floor.resource.create        Hotel            13ms  HTTP 200 
-[PASS] floor.open                   Hotel            10ms  HTTP 200 Phòng QA 1 
-[PASS] floor.checkout               Hotel            30ms  HTTP 200 total=52000 
-[PASS] floor.freed-after-pay        Hotel             3ms  phiên còn mở: []
-[PASS] report.sales.summary         Retail           13ms  kỳ vọng 260000.0, nhận 260000.0 keys=['from', 'to', 'dayStartHour', 'overnight', 'storeName', 'totalRevenue', 'totalVat', 'totalRevenueInclVat', 'totalRefund', 'totalPaid', 'totalDiscount', 'totalCogs']
-[PASS] report.end-of-day            Retail           12ms  HTTP 200 
-[PASS] report goods/summary         Retail            6ms  HTTP 200 
-[PASS] report profit/by-product     Retail            8ms  HTTP 200 
-[PASS] report cashbook/summary      Retail            6ms  HTTP 200 
-[PASS] report pnl/summary           Retail           17ms  HTTP 200 
-[PASS] report analysis/overview     Retail           16ms  HTTP 200 
+[PASS] sale.cash+discount           WebSalon         76ms  HTTP 200 total=120000 
+[PASS] sale.split-payment           WebSalon         48ms  HTTP 200 
+[PASS] sale.partial-debt            WebSalon         34ms  HTTP 200 
+[PASS] customer.debt=30000          WebSalon          5ms  nợ=30000.0
+[PASS] sale.cancel                  WebSalon         29ms  HTTP 200 
+[PASS] stock.after-sales            WebSalon          0ms  A=97.0 (kỳ vọng 97) B=96.0 (kỳ vọng 96)
+[PASS] floor.resources              Retail           17ms  2 bàn/phòng có sẵn
+[PASS] floor.open bị chặn (đúng)    Retail           34ms  HTTP 400 Hồ sơ ngành hiện tại không bật bàn/tài nguyên phục vụ.
+[PASS] floor.resources              Salon            13ms  2 bàn/phòng có sẵn
+[PASS] floor.open                   Salon           133ms  HTTP 200 Phòng QA 1 
+[PASS] floor.checkout               Salon           174ms  HTTP 200 total=52000 
+[PASS] floor.freed-after-pay        Salon            33ms  phiên còn mở: []
+[PASS] floor.resources              RoomHourly       27ms  2 bàn/phòng có sẵn
+[PASS] floor.open                   RoomHourly       15ms  HTTP 200 Phòng QA 1 
+[PASS] floor.checkout               RoomHourly       62ms  HTTP 200 total=52000 
+[PASS] floor.freed-after-pay        RoomHourly        7ms  phiên còn mở: []
+[PASS] floor.resources              Restaurant        5ms  2 bàn/phòng có sẵn
+[PASS] floor.open                   Restaurant       16ms  HTTP 200 Phòng QA 1 
+[PASS] floor.checkout               Restaurant       58ms  HTTP 200 total=52000 
+[PASS] floor.freed-after-pay        Restaurant        5ms  phiên còn mở: []
+[PASS] floor.resources              Gym               6ms  2 bàn/phòng có sẵn
+[PASS] floor.open bị chặn (đúng)    Gym              17ms  HTTP 400 Hồ sơ ngành hiện tại không bật bàn/tài nguyên phục vụ.
+[PASS] floor.resources              Hotel            23ms  2 bàn/phòng có sẵn
+[PASS] floor.open                   Hotel            16ms  HTTP 200 Phòng QA 1 
+[PASS] floor.checkout               Hotel            47ms  HTTP 200 total=52000 
+[PASS] floor.freed-after-pay        Hotel             4ms  phiên còn mở: []
+[PASS] floor.resources              WebSalon         15ms  0 bàn/phòng có sẵn
+[PASS] floor.area.create            WebSalon         37ms  HTTP 200 
+[PASS] floor.resource.create        WebSalon         24ms  HTTP 200 
+[PASS] floor.resource.create        WebSalon          8ms  HTTP 200 
+[PASS] floor.open                   WebSalon         17ms  HTTP 200 Phòng QA 1 
+[PASS] floor.checkout               WebSalon         39ms  HTTP 200 total=52000 
+[PASS] floor.freed-after-pay        WebSalon          4ms  phiên còn mở: []
+[PASS] report.sales.summary         Retail           22ms  kỳ vọng 520000.0, nhận 520000.0 keys=['from', 'to', 'dayStartHour', 'overnight', 'storeName', 'totalRevenue', 'totalVat', 'totalRevenueInclVat', 'totalRefund', 'totalPaid', 'totalDiscount', 'totalCogs']
+[PASS] report.end-of-day            Retail           69ms  HTTP 200 
+[PASS] report goods/summary         Retail           33ms  HTTP 200 
+[PASS] report profit/by-product     Retail           49ms  HTTP 200 
+[PASS] report cashbook/summary      Retail           82ms  HTTP 200 
+[PASS] report pnl/summary           Retail           66ms  HTTP 200 
+[PASS] report analysis/overview     Retail           61ms  HTTP 200 
 [PASS] report stock/summary         Retail           19ms  HTTP 200 
-[PASS] export /api/pos/reports/sales/export/excel Retail            7ms  HTTP 200 9821B
-[PASS] export /api/pos/products/export/excel Retail            9ms  HTTP 200 13057B
-[PASS] export /api/employees/export/excel Retail            9ms  HTTP 200 7375B
-[PASS] report.sales.summary         Salon            24ms  kỳ vọng 312000.0, nhận 312000.0 keys=['from', 'to', 'dayStartHour', 'overnight', 'storeName', 'totalRevenue', 'totalVat', 'totalRevenueInclVat', 'totalRefund', 'totalPaid', 'totalDiscount', 'totalCogs']
-[PASS] report.end-of-day            Salon            13ms  HTTP 200 
-[PASS] report goods/summary         Salon             6ms  HTTP 200 
-[PASS] report profit/by-product     Salon             9ms  HTTP 200 
-[PASS] report cashbook/summary      Salon            16ms  HTTP 200 
-[PASS] report pnl/summary           Salon            17ms  HTTP 200 
-[PASS] report analysis/overview     Salon            23ms  HTTP 200 
-[PASS] report stock/summary         Salon             6ms  HTTP 200 
-[PASS] export /api/pos/reports/sales/export/excel Salon            19ms  HTTP 200 9903B
-[PASS] export /api/pos/products/export/excel Salon            39ms  HTTP 200 13052B
-[PASS] export /api/employees/export/excel Salon            28ms  HTTP 200 7373B
-[PASS] report.sales.summary         RoomHourly       19ms  kỳ vọng 52000.0, nhận 52000.0 keys=['from', 'to', 'dayStartHour', 'overnight', 'storeName', 'totalRevenue', 'totalVat', 'totalRevenueInclVat', 'totalRefund', 'totalPaid', 'totalDiscount', 'totalCogs']
-[PASS] report.end-of-day            RoomHourly       15ms  HTTP 200 
-[PASS] report goods/summary         RoomHourly       17ms  HTTP 200 
-[PASS] report profit/by-product     RoomHourly       18ms  HTTP 200 
-[PASS] report cashbook/summary      RoomHourly        6ms  HTTP 200 
-[PASS] report pnl/summary           RoomHourly       16ms  HTTP 200 
-[PASS] report analysis/overview     RoomHourly       16ms  HTTP 200 
-[PASS] report stock/summary         RoomHourly        4ms  HTTP 200 
-[PASS] export /api/pos/reports/sales/export/excel RoomHourly        7ms  HTTP 200 9603B
-[PASS] export /api/pos/products/export/excel RoomHourly        8ms  HTTP 200 13062B
-[PASS] export /api/employees/export/excel RoomHourly       11ms  HTTP 200 7380B
-[PASS] report.sales.summary         Restaurant       14ms  kỳ vọng 312000.0, nhận 312000.0 keys=['from', 'to', 'dayStartHour', 'overnight', 'storeName', 'totalRevenue', 'totalVat', 'totalRevenueInclVat', 'totalRefund', 'totalPaid', 'totalDiscount', 'totalCogs']
-[PASS] report.end-of-day            Restaurant       12ms  HTTP 200 
-[PASS] report goods/summary         Restaurant        6ms  HTTP 200 
-[PASS] report profit/by-product     Restaurant        7ms  HTTP 200 
-[PASS] report cashbook/summary      Restaurant        7ms  HTTP 200 
-[PASS] report pnl/summary           Restaurant       16ms  HTTP 200 
-[PASS] report analysis/overview     Restaurant       17ms  HTTP 200 
-[PASS] report stock/summary         Restaurant        3ms  HTTP 200 
-[PASS] export /api/pos/reports/sales/export/excel Restaurant        6ms  HTTP 200 9905B
-[PASS] export /api/pos/products/export/excel Restaurant       23ms  HTTP 200 13057B
-[PASS] export /api/employees/export/excel Restaurant        9ms  HTTP 200 7376B
-[PASS] report.sales.summary         Gym              28ms  kỳ vọng 260000.0, nhận 260000.0 keys=['from', 'to', 'dayStartHour', 'overnight', 'storeName', 'totalRevenue', 'totalVat', 'totalRevenueInclVat', 'totalRefund', 'totalPaid', 'totalDiscount', 'totalCogs']
-[PASS] report.end-of-day            Gym              12ms  HTTP 200 
-[PASS] report goods/summary         Gym               6ms  HTTP 200 
-[PASS] report profit/by-product     Gym               7ms  HTTP 200 
-[PASS] report cashbook/summary      Gym              14ms  HTTP 200 
-[PASS] report pnl/summary           Gym              16ms  HTTP 200 
-[PASS] report analysis/overview     Gym              16ms  HTTP 200 
-[PASS] report stock/summary         Gym               3ms  HTTP 200 
-[PASS] export /api/pos/reports/sales/export/excel Gym              13ms  HTTP 200 9817B
-[PASS] export /api/pos/products/export/excel Gym              10ms  HTTP 200 13054B
-[PASS] export /api/employees/export/excel Gym               8ms  HTTP 200 7371B
-[PASS] report.sales.summary         Hotel            13ms  kỳ vọng 52000.0, nhận 52000.0 keys=['from', 'to', 'dayStartHour', 'overnight', 'storeName', 'totalRevenue', 'totalVat', 'totalRevenueInclVat', 'totalRefund', 'totalPaid', 'totalDiscount', 'totalCogs']
-[PASS] report.end-of-day            Hotel            12ms  HTTP 200 
-[PASS] report goods/summary         Hotel             6ms  HTTP 200 
-[PASS] report profit/by-product     Hotel            16ms  HTTP 200 
-[PASS] report cashbook/summary      Hotel             6ms  HTTP 200 
-[PASS] report pnl/summary           Hotel            10ms  HTTP 200 
-[PASS] report analysis/overview     Hotel            16ms  HTTP 200 
-[PASS] report stock/summary         Hotel             3ms  HTTP 200 
-[PASS] export /api/pos/reports/sales/export/excel Hotel             7ms  HTTP 200 9604B
-[PASS] export /api/pos/products/export/excel Hotel            23ms  HTTP 200 13054B
-[PASS] export /api/employees/export/excel Hotel             7ms  HTTP 200 7372B
+[PASS] export /api/pos/reports/sales/export/excel Retail          394ms  HTTP 200 10049B
+[PASS] export /api/pos/products/export/excel Retail          236ms  HTTP 200 13416B
+[PASS] export /api/employees/export/excel Retail           39ms  HTTP 200 7507B
+[PASS] report.sales.summary         Salon            26ms  kỳ vọng 624000.0, nhận 624000.0 keys=['from', 'to', 'dayStartHour', 'overnight', 'storeName', 'totalRevenue', 'totalVat', 'totalRevenueInclVat', 'totalRefund', 'totalPaid', 'totalDiscount', 'totalCogs']
+[PASS] report.end-of-day            Salon            31ms  HTTP 200 
+[PASS] report goods/summary         Salon             8ms  HTTP 200 
+[PASS] report profit/by-product     Salon            10ms  HTTP 200 
+[PASS] report cashbook/summary      Salon            11ms  HTTP 200 
+[PASS] report pnl/summary           Salon            18ms  HTTP 200 
+[PASS] report analysis/overview     Salon            20ms  HTTP 200 
+[PASS] report stock/summary         Salon             4ms  HTTP 200 
+[PASS] export /api/pos/reports/sales/export/excel Salon            12ms  HTTP 200 10195B
+[PASS] export /api/pos/products/export/excel Salon            19ms  HTTP 200 13409B
+[PASS] export /api/employees/export/excel Salon            17ms  HTTP 200 7507B
+[PASS] report.sales.summary         RoomHourly       16ms  kỳ vọng 208000.0, nhận 208000.0 keys=['from', 'to', 'dayStartHour', 'overnight', 'storeName', 'totalRevenue', 'totalVat', 'totalRevenueInclVat', 'totalRefund', 'totalPaid', 'totalDiscount', 'totalCogs']
+[PASS] report.end-of-day            RoomHourly       16ms  HTTP 200 
+[PASS] report goods/summary         RoomHourly        9ms  HTTP 200 
+[PASS] report profit/by-product     RoomHourly        9ms  HTTP 200 
+[PASS] report cashbook/summary      RoomHourly       11ms  HTTP 200 
+[PASS] report pnl/summary           RoomHourly       27ms  HTTP 200 
+[PASS] report analysis/overview     RoomHourly       19ms  HTTP 200 
+[PASS] report stock/summary         RoomHourly       14ms  HTTP 200 
+[PASS] export /api/pos/reports/sales/export/excel RoomHourly       24ms  HTTP 200 9810B
+[PASS] export /api/pos/products/export/excel RoomHourly       19ms  HTTP 200 13420B
+[PASS] export /api/employees/export/excel RoomHourly       13ms  HTTP 200 7514B
+[PASS] report.sales.summary         Restaurant       17ms  kỳ vọng 1416000.0, nhận 1416000.0 keys=['from', 'to', 'dayStartHour', 'overnight', 'storeName', 'totalRevenue', 'totalVat', 'totalRevenueInclVat', 'totalRefund', 'totalPaid', 'totalDiscount', 'totalCogs']
+[PASS] report.end-of-day            Restaurant       18ms  HTTP 200 
+[PASS] report goods/summary         Restaurant       10ms  HTTP 200 
+[PASS] report profit/by-product     Restaurant       10ms  HTTP 200 
+[PASS] report cashbook/summary      Restaurant       10ms  HTTP 200 
+[PASS] report pnl/summary           Restaurant       29ms  HTTP 200 
+[PASS] report analysis/overview     Restaurant       29ms  HTTP 200 
+[PASS] report stock/summary         Restaurant        6ms  HTTP 200 
+[PASS] export /api/pos/reports/sales/export/excel Restaurant       14ms  HTTP 200 10535B
+[PASS] export /api/pos/products/export/excel Restaurant       22ms  HTTP 200 13416B
+[PASS] export /api/employees/export/excel Restaurant       44ms  HTTP 200 7510B
+[PASS] report.sales.summary         Gym              31ms  kỳ vọng 520000.0, nhận 520000.0 keys=['from', 'to', 'dayStartHour', 'overnight', 'storeName', 'totalRevenue', 'totalVat', 'totalRevenueInclVat', 'totalRefund', 'totalPaid', 'totalDiscount', 'totalCogs']
+[PASS] report.end-of-day            Gym              14ms  HTTP 200 
+[PASS] report goods/summary         Gym              24ms  HTTP 200 
+[PASS] report profit/by-product     Gym               9ms  HTTP 200 
+[PASS] report cashbook/summary      Gym               8ms  HTTP 200 
+[PASS] report pnl/summary           Gym              15ms  HTTP 200 
+[PASS] report analysis/overview     Gym              21ms  HTTP 200 
+[PASS] report stock/summary         Gym               4ms  HTTP 200 
+[PASS] export /api/pos/reports/sales/export/excel Gym              13ms  HTTP 200 10045B
+[PASS] export /api/pos/products/export/excel Gym              21ms  HTTP 200 13443B
+[PASS] export /api/employees/export/excel Gym              24ms  HTTP 200 7507B
+[PASS] report.sales.summary         Hotel            15ms  kỳ vọng 104000.0, nhận 104000.0 keys=['from', 'to', 'dayStartHour', 'overnight', 'storeName', 'totalRevenue', 'totalVat', 'totalRevenueInclVat', 'totalRefund', 'totalPaid', 'totalDiscount', 'totalCogs']
+[PASS] report.end-of-day            Hotel            14ms  HTTP 200 
+[PASS] report goods/summary         Hotel            13ms  HTTP 200 
+[PASS] report profit/by-product     Hotel            10ms  HTTP 200 
+[PASS] report cashbook/summary      Hotel             8ms  HTTP 200 
+[PASS] report pnl/summary           Hotel            22ms  HTTP 200 
+[PASS] report analysis/overview     Hotel            19ms  HTTP 200 
+[PASS] report stock/summary         Hotel            17ms  HTTP 200 
+[PASS] export /api/pos/reports/sales/export/excel Hotel            26ms  HTTP 200 9693B
+[PASS] export /api/pos/products/export/excel Hotel            27ms  HTTP 200 13441B
+[PASS] export /api/employees/export/excel Hotel            24ms  HTTP 200 7507B
+[PASS] report.sales.summary         WebSalon         17ms  kỳ vọng 312000.0, nhận 312000.0 keys=['from', 'to', 'dayStartHour', 'overnight', 'storeName', 'totalRevenue', 'totalVat', 'totalRevenueInclVat', 'totalRefund', 'totalPaid', 'totalDiscount', 'totalCogs']
+[PASS] report.end-of-day            WebSalon         15ms  HTTP 200 
+[PASS] report goods/summary         WebSalon          8ms  HTTP 200 
+[PASS] report profit/by-product     WebSalon         22ms  HTTP 200 
+[PASS] report cashbook/summary      WebSalon         15ms  HTTP 200 
+[PASS] report pnl/summary           WebSalon         18ms  HTTP 200 
+[PASS] report analysis/overview     WebSalon         20ms  HTTP 200 
+[PASS] report stock/summary         WebSalon          3ms  HTTP 200 
+[PASS] export /api/pos/reports/sales/export/excel WebSalon         13ms  HTTP 200 9909B
+[PASS] export /api/pos/products/export/excel WebSalon         43ms  HTTP 200 13046B
+[PASS] export /api/employees/export/excel WebSalon         24ms  HTTP 200 7378B
 
-Tổng: 195 bước, 0 lỗi
+Tổng: 209 bước, 0 lỗi

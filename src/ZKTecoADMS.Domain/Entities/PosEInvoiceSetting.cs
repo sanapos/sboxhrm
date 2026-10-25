@@ -74,4 +74,13 @@ public class PosEInvoiceSetting : AuditableEntity<Guid>
 
     /// <summary>In khối HĐĐT (ký hiệu, số, mã CQT, mã tra cứu, QR tra cứu) trên bill bán hàng.</summary>
     public bool PrintQrOnReceipt { get; set; } = true;
+
+    /// <summary>
+    /// Thuế suất GTGT của phụ thu trên HĐĐT: 0 / 5 / 8 / 10, -1 = KCT, -2 = KKKNT;
+    /// null = theo thuế suất hàng hóa của hóa đơn. Số phụ thu khách trả coi là đã gồm VAT.
+    /// </summary>
+    public decimal? SurchargeTaxPercent { get; set; }
+
+    /// <summary>Thuế suất GTGT của phí giao hàng trên HĐĐT (cùng quy ước <see cref="SurchargeTaxPercent"/>).</summary>
+    public decimal? DeliveryFeeTaxPercent { get; set; }
 }

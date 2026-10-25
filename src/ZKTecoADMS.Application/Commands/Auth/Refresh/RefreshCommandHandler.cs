@@ -64,6 +64,6 @@ public class RefreshCommandHandler(
                 "Thiết bị này đã bị gỡ khỏi cửa hàng. Vui lòng đăng nhập lại.");
         }
 
-        return await authenticateService.Authenticate(user, cancellationToken);
+        return await authenticateService.Authenticate(user, cancellationToken, command.RefreshToken);
     }
 }

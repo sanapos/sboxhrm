@@ -68,6 +68,21 @@ public class ZKTecoDbInitializer(
 
                 try
                 {
+                    // Refresh token: 1 tài khoản nhiều phiên (mỗi máy một dòng) — bỏ chỉ mục duy nhất của quan hệ 1-1 cũ.
+                    await context.Database.ExecuteSqlRawAsync(
+                        "DROP INDEX IF EXISTS \"IX_UserRefreshTokens_ApplicationUserId\";");
+                    await context.Database.ExecuteSqlRawAsync(
+                        "CREATE INDEX IF NOT EXISTS \"IX_UserRefreshTokens_ApplicationUserId\" ON \"UserRefreshTokens\" (\"ApplicationUserId\");");
+                    await context.Database.ExecuteSqlRawAsync(
+                        "CREATE INDEX IF NOT EXISTS \"IX_UserRefreshTokens_RefreshToken\" ON \"UserRefreshTokens\" (\"RefreshToken\");");
+                }
+                catch (Exception tokenIdxEx)
+                {
+                    logger.LogError(tokenIdxEx, "Could not convert UserRefreshTokens to multi-session");
+                }
+
+                try
+                {
                     await context.Database.ExecuteSqlRawAsync(
                         "ALTER TABLE \"Stores\" ADD COLUMN IF NOT EXISTS \"SessionsRevokedAt\" timestamp without time zone NULL;");
                 }
@@ -2206,6 +2221,8 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosEInvoiceSettings"" ADD COLUMN IF NOT EXISTS ""SignType"" integer NOT NULL DEFAULT 2;
                     ALTER TABLE ""PosEInvoiceSettings"" ADD COLUMN IF NOT EXISTS ""PortalUrl"" character varying(300) NOT NULL DEFAULT '';
                     ALTER TABLE ""PosEInvoiceSettings"" ADD COLUMN IF NOT EXISTS ""PrintQrOnReceipt"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosEInvoiceSettings"" ADD COLUMN IF NOT EXISTS ""SurchargeTaxPercent"" numeric(18,2) NULL;
+                    ALTER TABLE ""PosEInvoiceSettings"" ADD COLUMN IF NOT EXISTS ""DeliveryFeeTaxPercent"" numeric(18,2) NULL;
 
                     CREATE TABLE IF NOT EXISTS ""PosBarcodeCatalog"" (
                         ""Id"" uuid NOT NULL,
