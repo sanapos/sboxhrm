@@ -199,8 +199,10 @@ def step_catalog(base, tokens, ctx):
         ]
         c['products'] = []
         for name, ptype, price, cost, qty in prods:
+            # isDirectSale bắt buộc (thiếu = false = không hiện trên màn bán) — app luôn gửi true.
             body = {'name': name, 'productType': ptype, 'basePrice': price, 'costPrice': cost,
-                    'onHandQty': qty, 'vatRate': 0, 'baseUnitName': 'Cái' if ptype == 'Goods' else 'Lần'}
+                    'onHandQty': qty, 'vatRate': 0, 'baseUnitName': 'Cái' if ptype == 'Goods' else 'Lần',
+                    'isDirectSale': True}
             if name.startswith('Giờ'):
                 body.update({'serviceBillingMode': 'PerHour', 'baseUnitName': 'Giờ'})
             st, js, ms = api.call('POST', '/api/pos/products', body)

@@ -128,7 +128,7 @@ public class VnptInvoiceClient(IHttpClientFactory httpFactory, ILogger<VnptInvoi
         if (raw.Error != null) return (false, null, raw.Error);
         var v = (raw.Value ?? "").Trim();
         if (v.StartsWith("ERR", StringComparison.OrdinalIgnoreCase) || v.Length < 50)
-            return (false, null, ErrText(v) ?? $"VNPT không trả file PDF ({v})");
+            return (false, null, ErrText(v, lookup: true) ?? $"VNPT không trả file PDF ({v})");
         try
         {
             return (true, Convert.FromBase64String(v), null);
@@ -151,7 +151,7 @@ public class VnptInvoiceClient(IHttpClientFactory httpFactory, ILogger<VnptInvoi
         if (raw.Error != null) return (false, null, raw.Error);
         var v = (raw.Value ?? "").Trim();
         if (v.StartsWith("ERR", StringComparison.OrdinalIgnoreCase) || v.Length < 20)
-            return (false, null, ErrText(v) ?? $"VNPT không trả hóa đơn ({v})");
+            return (false, null, ErrText(v, lookup: true) ?? $"VNPT không trả hóa đơn ({v})");
         return (true, v, null);
     }
 
@@ -171,7 +171,10 @@ public class VnptInvoiceClient(IHttpClientFactory httpFactory, ILogger<VnptInvoi
         if (raw.Error != null) return (false, [], raw.Error);
         var v = (raw.Value ?? "").Trim();
         if (v.StartsWith("ERR", StringComparison.OrdinalIgnoreCase))
-            return (false, [], ErrText(v) ?? v);
+            return (false, [], ErrText(v, lookup: true) ?? v);
+        // Tài liệu VNPT: thành công = «OK:» + XML <Data><Item>…</Item></Data> — bỏ tiền tố trước khi đọc XML.
+        if (v.StartsWith("OK", StringComparison.OrdinalIgnoreCase))
+            v = v[2..].TrimStart(':', ' ');
         return (true, ParseList(v), null);
     }
 
@@ -294,14 +297,19 @@ public class VnptInvoiceClient(IHttpClientFactory httpFactory, ILogger<VnptInvoi
         return new(false, null, null, null, v, ErrText(v) ?? $"VNPT từ chối: {Trim(v)}");
     }
 
-    /// <summary>Bảng mã lỗi VNPT Invoice thường gặp.</summary>
-    public static string? ErrText(string? raw)
+    /// <summary>
+    /// Bảng mã lỗi VNPT Invoice thường gặp. <paramref name="lookup"/> = hàm tra cứu / tải theo fkey
+    /// (PortalService): ở đó ERR:6 nghĩa là không tìm thấy hóa đơn, không phải hết dải số.
+    /// </summary>
+    public static string? ErrText(string? raw, bool lookup = false)
     {
         var v = (raw ?? "").Trim();
         if (!v.StartsWith("ERR", StringComparison.OrdinalIgnoreCase)) return null;
         var code = v.Length > 4 ? v[4..].Split([':', ' ', ';'], 2)[0] : "";
         var msg = code switch
         {
+            "6" when lookup => "Không tìm thấy hóa đơn trên VNPT theo fkey",
+            "11" => "Hóa đơn VNPT chưa thanh toán nên chưa xem / tải được",
             "1" => "Sai tài khoản / mật khẩu VNPT hoặc tài khoản không có quyền",
             "2" => "Hóa đơn không tồn tại trên VNPT (hoặc mẫu/ký hiệu không đúng)",
             "3" => "Dữ liệu XML hóa đơn không đúng định dạng VNPT",
@@ -332,7 +340,15 @@ public class VnptInvoiceClient(IHttpClientFactory httpFactory, ILogger<VnptInvoi
                     .Select(n => item.Elements().FirstOrDefault(e =>
                         string.Equals(e.Name.LocalName, n, StringComparison.OrdinalIgnoreCase))?.Value)
                     .FirstOrDefault(s => !string.IsNullOrWhiteSpace(s))?.Trim();
-                DateTime? date = DateTime.TryParse(V("publishDate", "ArisingDate", "PublishDate"), out var d) ? d : null;
+                // VNPT trả ngày dd/MM/yyyy — đọc theo định dạng cố định, không phụ thuộc culture máy chủ.
+                var rawDate = V("publishDate", "ArisingDate", "PublishDate");
+                DateTime? date = DateTime.TryParseExact(rawDate,
+                    ["dd/MM/yyyy", "dd/MM/yyyy HH:mm:ss", "d/M/yyyy", "yyyy-MM-dd", "yyyy-MM-ddTHH:mm:ss"],
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var d)
+                    ? d
+                    : DateTime.TryParse(rawDate, System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None, out d) ? d : null;
                 decimal.TryParse(V("amount", "Amount", "total"), System.Globalization.NumberStyles.Any,
                     System.Globalization.CultureInfo.InvariantCulture, out var amt);
                 int.TryParse(V("status", "invStatus"), out var st);
@@ -343,7 +359,7 @@ public class VnptInvoiceClient(IHttpClientFactory httpFactory, ILogger<VnptInvoi
                     V("serial"),
                     date,
                     amt,
-                    V("cusname", "cusName", "customerName"),
+                    V("cusname", "cusName", "customerName", "name"),
                     st));
             }
         }

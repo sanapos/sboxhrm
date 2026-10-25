@@ -768,6 +768,31 @@ public partial class PosShippingService(
         string? queryHash, string? trackingCode, CancellationToken ct) =>
         AuthorizeWebhookAsync(ShippingCarrierCodes.Spx, trackingCode, null, queryHash, null, ct);
 
+    /// <summary>
+    /// Webhook SPX: ưu tiên chữ ký check-sign (docs 4.1 — ký body bằng app-secret của cửa hàng sở hữu vận đơn),
+    /// không có/không khớp thì dùng ?hash= như trước.
+    /// </summary>
+    public async Task<bool> ValidateSpxWebhookAsync(
+        string? queryHash, string? trackingCode, string rawBody,
+        string? checkSign, string? timestamp, string? randomNum, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(checkSign))
+        {
+            var order = await FindOrderByTrackingAsync(trackingCode, null, ct);
+            if (order != null)
+            {
+                var settings = await db.PosShippingCarrierSettings.AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.StoreId == order.StoreId
+                                              && x.CarrierCode == ShippingCarrierCodes.Spx
+                                              && x.Deleted == null, ct);
+                if (settings != null &&
+                    SpxShippingClient.VerifyWebhookSign(settings, rawBody, checkSign, timestamp, randomNum))
+                    return true;
+            }
+        }
+        return await ValidateSpxWebhookHashAsync(queryHash, trackingCode, ct);
+    }
+
     public async Task<bool> ApplySpxWebhookAsync(
         string? trackingCode, string? statusText, CancellationToken ct)
     {
@@ -1085,8 +1110,11 @@ public partial class PosShippingService(
         var tracking = await client.GetTrackingAsync(settings, tn, ct);
         if (!tracking.Success) return tracking;
 
+        // Ưu tiên status_code (1001…7001); StatusName là trạng thái gốc SPX (không phải nhãn tiếng Việt).
+        var spxKey = tracking.StatusCode?.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                     ?? tracking.StatusName;
         await ApplyShipmentStatusAsync(order.Id, ShippingCarrierCodes.Spx,
-            ShipmentStatus.FromSpx(tracking.StatusName), SpxWebhookHelper.StatusLabel(tracking.StatusName),
+            ShipmentStatus.FromSpx(spxKey), SpxWebhookHelper.StatusLabel(spxKey),
             null, "sync", userEmail, ct);
         return tracking;
     }

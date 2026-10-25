@@ -14,6 +14,11 @@ public static class SpxExtraJson
     public const string PartialDeliveryKey = "partialDelivery";
     public const string UseInsuranceKey = "useInsurance";
     public const string ServiceTypeKey = "serviceType";
+    /// <summary>app-id / app-secret SPX cấp cho ứng dụng (ký header check-sign).</summary>
+    public const string AppIdKey = "appId";
+    public const string AppSecretKey = "appSecret";
+    /// <summary>1 = SPX đến lấy (mặc định) · 2 = shop gửi tại bưu cục.</summary>
+    public const string CollectTypeKey = "collectType";
 
     public static string? GetWebhookSecret(string? extraJson) =>
         ViettelPostExtraJson.GetWebhookSecret(extraJson);
@@ -81,6 +86,19 @@ public static class SpxWebhookHelper
         var n = Normalize(status);
         return n switch
         {
+            // Mã status_code chính thức (docs «Order status code»).
+            "1001" or "pending_pickup" => "Chờ lấy hàng",
+            "2001" => "Đang trung chuyển",
+            "2006" => "Đang giao hàng",
+            "3001" => "Tạm hoãn",
+            "4001" => "Đã giao hàng",
+            "5001" or "pickup_failed" => "Lấy hàng thất bại",
+            "5002" or "damaged" => "Hàng hư hỏng",
+            "5003" or "lost" => "Thất lạc",
+            "6001" => "Đang hoàn hàng",
+            "6002" or "return_failed" => "Hoàn hàng thất bại",
+            "6003" => "Đã hoàn hàng",
+            "7001" => "Đã hủy",
             "created" or "pending" or "new" or "order_created" => "Đã tạo đơn",
             "pickup" or "picked_up" or "picked" or "collected" => "Đã lấy hàng",
             "in_transit" or "transit" or "hub_in" or "hub_out" => "Đang trung chuyển",
@@ -99,6 +117,11 @@ public static class SpxWebhookHelper
         var n = Normalize(status);
         return n switch
         {
+            "4001" => QrOnlineOrderStatuses.Delivered,
+            "6003" or "7001" => QrOnlineOrderStatuses.Cancelled,
+            "2001" or "2006" or "3001" or "5001" or "5002" or "5003" or "6001" or "6002"
+                or "pickup_failed" or "return_failed" or "lost" or "damaged" => QrOnlineOrderStatuses.Shipping,
+            "1001" or "pending_pickup" => QrOnlineOrderStatuses.Confirmed,
             "delivered" or "completed" or "success" => QrOnlineOrderStatuses.Delivered,
             "cancelled" or "canceled" or "void" or "failed" or "undelivered"
                 or "delivery_failed" or "returned" or "returning" or "rto"

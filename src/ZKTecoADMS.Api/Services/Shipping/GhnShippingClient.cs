@@ -75,10 +75,9 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
     {
         if (string.IsNullOrWhiteSpace(districtName)) return null;
         if (int.TryParse(districtName.Trim(), out var id) && id > 0) return id;
-        var body = JsonSerializer.Serialize(new { province_id = provinceId });
-        using var res = await http.PostAsync(
-            $"{baseUrl}/shiip/public-api/master-data/district",
-            new StringContent(body, Encoding.UTF8, "application/json"), ct);
+        // Docs GHN (developer.ghn.vn/master-data/get-district): GET ?province_id=.
+        using var res = await http.GetAsync(
+            $"{baseUrl}/shiip/public-api/master-data/district?province_id={provinceId}", ct);
         var raw = await res.Content.ReadAsStringAsync(ct);
         using var doc = JsonDocument.Parse(raw);
         if (!doc.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
@@ -97,10 +96,9 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
     {
         if (string.IsNullOrWhiteSpace(wardName)) return null;
         if (wardName.Trim().All(char.IsDigit)) return wardName.Trim();
-        var body = JsonSerializer.Serialize(new { district_id = districtId });
-        using var res = await http.PostAsync(
-            $"{baseUrl}/shiip/public-api/master-data/ward",
-            new StringContent(body, Encoding.UTF8, "application/json"), ct);
+        // Docs GHN (master-data/get-ward): GET ?district_id=.
+        using var res = await http.GetAsync(
+            $"{baseUrl}/shiip/public-api/master-data/ward?district_id={districtId}", ct);
         var raw = await res.Content.ReadAsStringAsync(ct);
         using var doc = JsonDocument.Parse(raw);
         if (!doc.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
@@ -178,11 +176,9 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
         if (provinceId is null or <= 0)
             return (null, null, $"Không tìm thấy tỉnh GHN: {province}");
 
-        // Lấy danh sách quận
-        var body = JsonSerializer.Serialize(new { province_id = provinceId.Value });
-        using var distRes = await http.PostAsync(
-            $"{baseUrl}/shiip/public-api/master-data/district",
-            new StringContent(body, Encoding.UTF8, "application/json"), ct);
+        // Lấy danh sách quận (GET ?province_id= theo docs GHN).
+        using var distRes = await http.GetAsync(
+            $"{baseUrl}/shiip/public-api/master-data/district?province_id={provinceId.Value}", ct);
         var distRaw = await distRes.Content.ReadAsStringAsync(ct);
         using var distDoc = JsonDocument.Parse(distRaw);
         if (!distDoc.RootElement.TryGetProperty("data", out var distArr) ||
@@ -264,12 +260,14 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
             ["length"] = request.LengthCm,
             ["width"] = request.WidthCm,
             ["height"] = request.HeightCm,
-            ["insurance_value"] = (int)Math.Max(0, request.InsuranceValue),
+            // GHN: insurance_value tối đa 5.000.000 (giống tạo đơn).
+            ["insurance_value"] = (int)Math.Min(Math.Max(0, request.InsuranceValue), 5_000_000),
             ["cod_value"] = (int)Math.Max(0, request.CodAmount),
             ["coupon"] = null,
+            // Docs fee: service_type_id (2 < 20kg · 5 hàng nặng) là trường bắt buộc; service_id chỉ tham khảo.
+            ["service_type_id"] = serviceTypeId,
         };
         if (serviceId is > 0) body["service_id"] = serviceId.Value;
-        else body["service_type_id"] = serviceTypeId;
         if (!string.IsNullOrWhiteSpace(settings.FromWardCode))
             body["from_ward_code"] = settings.FromWardCode.Trim();
 
@@ -295,7 +293,7 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
     /// <summary>Thời gian giao dự kiến (phút) theo API leadtime GHN.</summary>
     async Task<int?> LeadtimeMinutesAsync(
         PosShippingCarrierSetting settings, int fromDistrict, int toDistrict, string? toWard,
-        int serviceId, CancellationToken ct)
+        int serviceTypeId, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(toWard)) return null;
         try
@@ -305,7 +303,8 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
                 ["from_district_id"] = fromDistrict,
                 ["to_district_id"] = toDistrict,
                 ["to_ward_code"] = toWard.Trim(),
-                ["service_id"] = serviceId,
+                // Docs leadtime: dùng service_type_id — service_id không có tác dụng.
+                ["service_type_id"] = serviceTypeId,
             };
             if (!string.IsNullOrWhiteSpace(settings.FromWardCode))
                 body["from_ward_code"] = settings.FromWardCode.Trim();
@@ -386,7 +385,7 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
             {
                 var fee = await FeeAsync(settings, request, from, to, ward, sv.Id, sv.TypeId, sv.Name, ct);
                 if (fee.Success)
-                    fee = fee with { EtaMinutes = await LeadtimeMinutesAsync(settings, from, to, ward, sv.Id, ct) };
+                    fee = fee with { EtaMinutes = await LeadtimeMinutesAsync(settings, from, to, ward, sv.TypeId, ct) };
                 results.Add(fee);
             }
             return results;
@@ -476,10 +475,9 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
         try
         {
             var http = Client(settings);
-            var body = JsonSerializer.Serialize(new { order_code = orderCode });
-            using var res = await http.PostAsync(
-                $"{BaseUrl(settings)}/shiip/public-api/v2/shipping-order/detail",
-                new StringContent(body, Encoding.UTF8, "application/json"), ct);
+            // Docs GHN (order/info): GET ?order_code=.
+            using var res = await http.GetAsync(
+                $"{BaseUrl(settings)}/shiip/public-api/v2/shipping-order/detail?order_code={Uri.EscapeDataString(orderCode)}", ct);
             var raw = await res.Content.ReadAsStringAsync(ct);
             using var doc = JsonDocument.Parse(raw);
             var root = doc.RootElement;
@@ -510,6 +508,10 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
             return new(false, CarrierCode, Message: ex.Message);
         }
     }
+
+    /// <summary>Đơn vị hành chính mới (2 cấp): có Phường nhưng không có Quận/Huyện.</summary>
+    internal static bool IsNewTwoLevelAddress(string? district, string? ward) =>
+        string.IsNullOrWhiteSpace(district) && !string.IsNullOrWhiteSpace(ward);
 
     public async Task<ShippingCreateResult> CreateAsync(
         PosShippingCarrierSetting settings, PosSaleOrder order, ShippingCreateRequest request,
@@ -564,16 +566,31 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
             },
         };
 
-        if (int.TryParse(settings.FromDistrictId, out var fromDistrict))
-            body["from_district_id"] = fromDistrict;
-        if (!string.IsNullOrWhiteSpace(settings.FromWardCode))
-            body["from_ward_code"] = settings.FromWardCode;
+        // Docs create (01/07/2025): địa chỉ 2 cấp (Tỉnh + Phường, không Quận) phải gửi is_new_*_address=true,
+        // nếu không GHN coi là địa chỉ cũ và bắt buộc *_district_name.
+        var newTo = IsNewTwoLevelAddress(district, ward);
+        var newFrom = IsNewTwoLevelAddress(settings.FromDistrictName, settings.FromWardName)
+                      && !int.TryParse(settings.FromDistrictId, out _);
+        body["is_new_to_address"] = newTo;
+        body["is_new_from_address"] = newFrom;
 
-        var (toDistrictId, toWardCode, _) = await ResolveToAsync(settings, province, district, ward, ct);
-        if (toDistrictId is > 0)
-            body["to_district_id"] = toDistrictId.Value;
-        if (!string.IsNullOrWhiteSpace(toWardCode) && toWardCode.All(char.IsDigit))
-            body["to_ward_code"] = toWardCode;
+        if (!newFrom)
+        {
+            if (int.TryParse(settings.FromDistrictId, out var fromDistrict))
+                body["from_district_id"] = fromDistrict;
+            if (!string.IsNullOrWhiteSpace(settings.FromWardCode))
+                body["from_ward_code"] = settings.FromWardCode;
+        }
+
+        if (!newTo)
+        {
+            // Địa chỉ cũ 3 cấp: kèm mã quận/phường GHN (tương thích bản API cũ).
+            var (toDistrictId, toWardCode, _) = await ResolveToAsync(settings, province, district, ward, ct);
+            if (toDistrictId is > 0)
+                body["to_district_id"] = toDistrictId.Value;
+            if (!string.IsNullOrWhiteSpace(toWardCode) && toWardCode.All(char.IsDigit))
+                body["to_ward_code"] = toWardCode;
+        }
 
         try
         {

@@ -36,8 +36,10 @@ public class ShippingWebhookController(
                 ? rs.GetString() : null;
 
             // Bắt buộc ?hash= đúng mã bí mật cửa hàng (trước đây ai cũng đổi được trạng thái đơn).
+            // GHN không ký callback; docs cho phép cấu hình header tùy chỉnh → nhận cả «Authorization: Bearer <mã>».
             var hash = Request.Query["hash"].FirstOrDefault();
-            if (!await shipping.AuthorizeWebhookAsync("Ghn", tracking, clientOrderCode, hash, null, ct))
+            var ghnAuth = Request.Headers.Authorization.ToString();
+            if (!await shipping.AuthorizeWebhookAsync("Ghn", tracking, clientOrderCode, hash, ghnAuth, ct))
                 return Unauthorized(new { code = 401, message = "Unauthorized" });
 
             var ok = await shipping.ApplyWebhookStatusAsync("Ghn", tracking, tracking, status, ct, reason);
@@ -210,13 +212,20 @@ public class ShippingWebhookController(
                 : data.TryGetProperty("tracking_no", out var tn2) ? tn2.GetString()
                 : data.TryGetProperty("order_id", out var oid) ? oid.GetString()
                 : root.TryGetProperty("tracking_number", out var tn3) ? tn3.GetString() : null;
-            var status = data.TryGetProperty("status", out var st) ? st.GetString()
+            // Docs 4.1: status_code (1001…7001) là mã chuẩn — ưu tiên hơn chữ «status».
+            var status = data.TryGetProperty("status_code", out var sc) && sc.ValueKind == JsonValueKind.String
+                         && !string.IsNullOrWhiteSpace(sc.GetString()) ? sc.GetString()
+                : data.TryGetProperty("status", out var st) ? st.GetString()
                 : data.TryGetProperty("current_status", out var cs) ? cs.GetString()
                 : data.TryGetProperty("status_name", out var sn) ? sn.GetString()
                 : root.TryGetProperty("status", out var st2) ? st2.GetString() : null;
 
+            // Docs 4.1: SPX ký body bằng app-secret ở header check-sign; dự phòng ?hash= trên URL đăng ký.
             var hash = Request.Query["hash"].ToString();
-            if (!await shipping.ValidateSpxWebhookHashAsync(hash, tracking, ct))
+            if (!await shipping.ValidateSpxWebhookAsync(hash, tracking, raw,
+                    Request.Headers["check-sign"].FirstOrDefault(),
+                    Request.Headers["timestamp"].FirstOrDefault(),
+                    Request.Headers["random-num"].FirstOrDefault(), ct))
                 return Unauthorized(new { ok = false, message = "hash không khớp" });
 
             var ok = await shipping.ApplySpxWebhookAsync(tracking, status, ct);
@@ -266,6 +275,9 @@ public class ShippingWebhookController(
 
             var hash = Request.Query["hash"].FirstOrDefault();
             var authHeader = Request.Headers.Authorization.ToString();
+            // AhaMove (docs webhook): xác thực qua header «apikey» hoặc Authorization Bearer/Basic.
+            if (string.IsNullOrWhiteSpace(authHeader))
+                authHeader = Request.Headers["apikey"].FirstOrDefault() ?? "";
             var lookup = tracking;
             if (!await shipping.AuthorizeWebhookAsync(carrier, tracking, null, hash, authHeader, ct))
             {

@@ -394,7 +394,8 @@ public class ViettelSInvoiceClient(IHttpClientFactory httpFactory, IMemoryCache 
             var err = Str(rootEl, "errorCode");
             if (!string.IsNullOrWhiteSpace(err) || !res.IsSuccessStatusCode)
                 return (false, TrimErr(Str(rootEl, "description") ?? err ?? body), 0, []);
-            int.TryParse(Str(rootEl, "totalRow"), out var total);
+            // Bản API trả «totalRows» (có s); giữ «totalRow» cho bản cũ — thiếu thì phân trang chỉ thấy 1 trang.
+            int.TryParse(Str(rootEl, "totalRows") ?? Str(rootEl, "totalRow"), out var total);
             var items = new List<ViettelInvoiceItem>();
             if (rootEl.TryGetProperty("invoices", out var arr) && arr.ValueKind == JsonValueKind.Array)
             {

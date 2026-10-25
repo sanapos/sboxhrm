@@ -228,21 +228,31 @@ public class MisaMeInvoiceClient(IHttpClientFactory httpFactory, IMemoryCache ca
             IsInvoiceCalculatingMachine = cashRegister,
         }, ct);
         var r = ParseSimple(body, status, "MISA từ chối gửi email");
-        if (!r.Ok) return r;
-        // data: [{ SendEmailStatus: 2 = lỗi, ErrorCode }]
+        // data: [{ SendEmailStatus: 0 chưa gửi, 1 đang gửi, 2 lỗi, 3 đã gửi, 4 yêu cầu gửi; ErrorCode }]
+        var items = new List<JsonElement>();
         try
         {
-            using var doc = JsonDocument.Parse(body);
-            foreach (var it in ReadJsonArray(doc.RootElement, "data"))
+            if (status > 0)
             {
-                if (it.ValueKind != JsonValueKind.Object) continue;
-                var err = ReadStr(it, "ErrorCode");
-                if (ReadInt(it, "SendEmailStatus") == 2 || !string.IsNullOrWhiteSpace(err))
-                    return (false, MisaErrorText(err) ?? err ?? "MISA gửi email lỗi");
+                using var doc = JsonDocument.Parse(body);
+                items = ReadJsonArray(doc.RootElement, "data").Where(x => x.ValueKind == JsonValueKind.Object).ToList();
             }
         }
-        catch { /* data không phải mảng → coi như OK */ }
-        return (true, null);
+        catch { /* data không phải mảng → theo envelope */ }
+        foreach (var it in items)
+        {
+            var err = ReadStr(it, "ErrorCode");
+            if (ReadInt(it, "SendEmailStatus") == 2 || !string.IsNullOrWhiteSpace(err))
+                return (false, MisaErrorText(err) ?? err ?? "MISA gửi email lỗi");
+        }
+        if (r.Ok) return r;
+        // Ví dụ trong tài liệu MISA: success=false, errorCode=null nhưng từng dòng SendEmailStatus=3 (đã gửi)
+        // → coi là thành công khi mọi dòng đều đã gửi / đang gửi / đã yêu cầu gửi.
+        var env = ParseEnvelope(body);
+        if (status is >= 200 and < 300 && string.IsNullOrWhiteSpace(env.ErrorCode) && items.Count > 0 &&
+            items.All(it => ReadInt(it, "SendEmailStatus") is 1 or 3 or 4))
+            return (true, null);
+        return r;
     }
 
     /// <summary>Link xem PDF hóa đơn đã phát hành (hiệu lực ~5 phút).</summary>

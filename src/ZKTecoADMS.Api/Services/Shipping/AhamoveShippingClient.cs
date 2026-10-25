@@ -541,8 +541,17 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
             ["payment_method"] = pay,
             ["remarks"] = request.Note ?? order.Note ?? $"SBOX {order.OrderNo}",
         };
-        if (useGroup) payload["group_service_id"] = serviceCode;
-        else payload["service_id"] = serviceCode;
+        // Docs create-order: service_id + requests[] hoặc group_service_id + group_requests[] (bảng ghi bắt buộc).
+        if (useGroup)
+        {
+            payload["group_service_id"] = serviceCode;
+            payload["group_requests"] = Array.Empty<object>();
+        }
+        else
+        {
+            payload["service_id"] = serviceCode;
+            payload["requests"] = Array.Empty<object>();
+        }
 
         var items = order.Lines?
             .Where(l => l.Deleted == null)

@@ -50,9 +50,11 @@ public class GhtkShippingClient(IHttpClientFactory httpClientFactory, ILogger<Gh
     {
         if (string.IsNullOrWhiteSpace(settings.ApiToken))
             return new(false, CarrierCode, 0, Message: "Thiếu Token GHTK");
+        // Docs GHTK (api.ghtk.vn/docs, bản 2025): *_district không bắt buộc, *_ward bắt buộc —
+        // địa chỉ 2 cấp (Tỉnh + Phường) hợp lệ.
         if (string.IsNullOrWhiteSpace(settings.FromProvinceName) ||
-            string.IsNullOrWhiteSpace(settings.FromDistrictName))
-            return new(false, CarrierCode, 0, Message: "Thiếu tỉnh/quận lấy hàng GHTK");
+            (string.IsNullOrWhiteSpace(settings.FromDistrictName) && string.IsNullOrWhiteSpace(settings.FromWardName)))
+            return new(false, CarrierCode, 0, Message: "Thiếu tỉnh + quận/phường lấy hàng GHTK");
 
         var recv = ShippingAddressNormalizer.Normalize(
             request.ToAddress, request.ToProvince, request.ToDistrict, request.ToWard);
@@ -65,7 +67,8 @@ public class GhtkShippingClient(IHttpClientFactory httpClientFactory, ILogger<Gh
             ["pick_province"] = settings.FromProvinceName,
             ["pick_district"] = settings.FromDistrictName,
             ["province"] = recv.Province,
-            ["district"] = recv.District,
+            // Normalizer lấy phường thay quận khi địa chỉ 2 cấp — GHTK nhận phường ở «ward», không gửi trùng vào «district».
+            ["district"] = RealDistrict(recv),
             ["address"] = string.IsNullOrWhiteSpace(recv.Address) ? request.ToAddress : recv.Address,
             // OpenAPI GHTK: weight đơn vị Gram (integer) — không phải kg.
             ["weight"] = Math.Max(1, request.WeightGrams).ToString(),
@@ -173,7 +176,8 @@ public class GhtkShippingClient(IHttpClientFactory httpClientFactory, ILogger<Gh
             ["hamlet"] = "Khác",
             ["is_freeship"] = ShippingFeePayer.ShopPaysCarrier(request.ShipFeePayer) ? 1 : 0,
             ["pick_money"] = (int)Math.Max(0, request.CodAmount ?? 0),
-            ["note"] = request.Note ?? order.Note ?? "",
+            // Docs: note tối đa 120 ký tự.
+            ["note"] = Truncate(request.Note ?? order.Note ?? "", 120),
             ["value"] = (int)Math.Max(0, order.PayableTotal),
             ["transport"] = request.ServiceCode is "fly" ? "fly" : "road",
         };
@@ -182,14 +186,17 @@ public class GhtkShippingClient(IHttpClientFactory httpClientFactory, ILogger<Gh
         if (!string.IsNullOrWhiteSpace(pickId) && int.TryParse(pickId, out var pickNum))
             orderObj["pick_address_id"] = pickNum;
 
-        if (request.LengthCm > 0) orderObj["total_length"] = request.LengthCm;
-        if (request.WidthCm > 0) orderObj["total_width"] = request.WidthCm;
-        if (request.HeightCm > 0) orderObj["total_height"] = request.HeightCm;
+        // Docs (pro-docs.ghtk.vn/3-shipping_api): order.length / order.width / order.height (cm).
+        if (request.LengthCm > 0) orderObj["length"] = request.LengthCm;
+        if (request.WidthCm > 0) orderObj["width"] = request.WidthCm;
+        if (request.HeightCm > 0) orderObj["height"] = request.HeightCm;
 
+        // Địa chỉ 2 cấp: Tỉnh + Phường là đủ (district không bắt buộc theo docs 2025).
         if (string.IsNullOrWhiteSpace(orderObj["province"] as string) ||
-            string.IsNullOrWhiteSpace(orderObj["district"] as string))
+            (string.IsNullOrWhiteSpace(orderObj["district"] as string)
+             && string.IsNullOrWhiteSpace(orderObj["ward"] as string)))
             return new(false, CarrierCode,
-                Message: "GHTK cần Tỉnh + Quận/Huyện trên đơn giao hàng");
+                Message: "GHTK cần Tỉnh + Quận/Huyện hoặc Phường/Xã trên đơn giao hàng");
 
         var body = new Dictionary<string, object?>
         {
@@ -210,6 +217,18 @@ public class GhtkShippingClient(IHttpClientFactory httpClientFactory, ILogger<Gh
             if (!ok)
             {
                 var msg = root.TryGetProperty("message", out var m) ? m.GetString() : raw;
+                // Docs: order.id đã tồn tại → GHTK trả error.ghtk_label của đơn cũ (gửi lại sau timeout).
+                // Nhận lại vận đơn đó thay vì báo lỗi — trừ khi đơn cũ đã hủy (-1).
+                if (root.TryGetProperty("error", out var er) && er.ValueKind == JsonValueKind.Object
+                    && er.TryGetProperty("code", out var ec) && ec.GetString() == "ORDER_ID_EXIST"
+                    && er.TryGetProperty("ghtk_label", out var gl) && !string.IsNullOrWhiteSpace(gl.GetString())
+                    && !(er.TryGetProperty("status", out var es) && es.ToString().Trim('"') == "-1"))
+                {
+                    var existing = gl.GetString()!.Trim();
+                    return new(true, CarrierCode, TrackingCode: existing, CarrierOrderId: existing,
+                        LabelUrl: $"{BaseUrl(settings)}/services/label/{Uri.EscapeDataString(existing)}",
+                        Message: "Đơn đã có trên GHTK — dùng lại vận đơn cũ", RawJson: raw);
+                }
                 return new(false, CarrierCode, Message: msg, RawJson: raw);
             }
             string? tracking = null;
@@ -219,8 +238,15 @@ public class GhtkShippingClient(IHttpClientFactory httpClientFactory, ILogger<Gh
                 if (o.TryGetProperty("label", out var l)) tracking = l.GetString();
                 if (o.TryGetProperty("tracking_id", out var t) && string.IsNullOrWhiteSpace(tracking))
                     tracking = t.ValueKind == JsonValueKind.String ? t.GetString() : t.GetRawText().Trim('"');
-                if (o.TryGetProperty("fee", out var f) && f.ValueKind == JsonValueKind.Number)
-                    fee = f.GetDecimal();
+                // Docs: order.fee trả dạng chuỗi ("30400") — đọc cả số lẫn chuỗi.
+                if (o.TryGetProperty("fee", out var f))
+                {
+                    if (f.ValueKind == JsonValueKind.Number) fee = f.GetDecimal();
+                    else if (f.ValueKind == JsonValueKind.String &&
+                             decimal.TryParse(f.GetString(), System.Globalization.NumberStyles.Number,
+                                 System.Globalization.CultureInfo.InvariantCulture, out var fs))
+                        fee = fs;
+                }
             }
             var labelUrl = string.IsNullOrWhiteSpace(tracking)
                 ? null
@@ -305,7 +331,7 @@ public class GhtkShippingClient(IHttpClientFactory httpClientFactory, ILogger<Gh
         {
             var http = Client(settings);
             using var res = await http.GetAsync(
-                $"{BaseUrl(settings)}/services/label/{Uri.EscapeDataString(label)}?original=portrait&paper_size=A6", ct);
+                $"{BaseUrl(settings)}/services/label/{Uri.EscapeDataString(label)}?original=portrait&page_size=A6", ct);
             var bytes = await res.Content.ReadAsByteArrayAsync(ct);
             var isPdf = bytes.Length > 4 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F';
             if (!res.IsSuccessStatusCode || !isPdf)
@@ -331,6 +357,15 @@ public class GhtkShippingClient(IHttpClientFactory httpClientFactory, ILogger<Gh
             return only.GetDecimal();
         return 0;
     }
+
+    /// <summary>Quận thật trên đơn — null khi normalizer chỉ lấy phường thay quận (địa chỉ 2 cấp).</summary>
+    internal static string? RealDistrict(ShippingAddressNormalizer.ReceiverParts recv) =>
+        !string.IsNullOrWhiteSpace(recv.Ward)
+        && string.Equals(recv.District, recv.Ward, StringComparison.OrdinalIgnoreCase)
+            ? null
+            : recv.District;
+
+    static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
 
     static string Query(string baseUrl, Dictionary<string, string?> qs)
     {

@@ -265,7 +265,8 @@ public class ViettelPostShippingClient(
 
     static string PrintPortalBaseUrl(bool sandbox) =>
         sandbox
-            ? "https://devdigitalize.viettelpost.vn/DigitalizePrint/report.do"
+            // Docs printing-code: mẫu link môi trường dev.
+            ? "https://dev-release-print.viettelpost.vn/DigitalizePrint/report.do"
             : "https://digitalize.viettelpost.vn/DigitalizePrint/report.do";
 
     static string BuildPrintLabelUrl(bool sandbox, string printCode, int labelType = 1) =>
@@ -396,7 +397,8 @@ public class ViettelPostShippingClient(
         };
 
         string? printCode = null;
-        foreach (var path in new[] { "/order/encryptLinkPrint", "/order/printOrder" })
+        // Docs partner2.viettelpost.vn: POST /v2/order/printing-code (mã in nằm ở «message»); 2 path cũ giữ làm dự phòng.
+        foreach (var path in new[] { "/order/printing-code", "/order/encryptLinkPrint", "/order/printOrder" })
         {
             try
             {
@@ -783,8 +785,8 @@ public class ViettelPostShippingClient(
         {
             var cod = Math.Max(0, req.CodAmount ?? 0);
             var shopPays = ShippingFeePayer.ShopPaysCarrier(req.ShipFeePayer);
-            // 1 không thu · 2 thu hàng+cước (khách trả ship) · 3 thu hàng, shop trả cước
-            if (cod <= 0) return 1;
+            // Docs createOrder: 1 không thu · 2 thu hàng+cước · 3 chỉ thu hàng · 4 chỉ thu cước.
+            if (cod <= 0) return shopPays ? 1 : 4;
             return shopPays ? 3 : 2;
         }
 

@@ -176,6 +176,8 @@ public partial class PosEInvoiceService
             ["ReceiverName"] = email != null ? Trim(FirstNonEmpty(personName, companyName, "Quý khách"), 100) : null,
             ["TotalSaleAmountOC"] = calc.SumWithout,
             ["TotalSaleAmount"] = calc.SumWithout,
+            // Tài liệu InvoiceData: DiscountRate (cấp hóa đơn) bắt buộc — chiết khấu đơn đã phân bổ vào từng dòng nên = 0.
+            ["DiscountRate"] = 0m,
             ["TotalDiscountAmountOC"] = 0m,
             ["TotalDiscountAmount"] = 0m,
             ["TotalAmountWithoutVATOC"] = calc.SumWithout,

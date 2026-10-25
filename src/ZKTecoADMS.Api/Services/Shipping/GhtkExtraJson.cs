@@ -107,8 +107,9 @@ public static class GhtkWebhookHelper
     public static string? MapOnlineStatus(int? statusId) => statusId switch
     {
         -1 or 7 or 9 => QrOnlineOrderStatuses.Cancelled,
-        5 or 6 or 45 => QrOnlineOrderStatuses.Delivered,
-        3 or 4 or 10 or 12 or 123 => QrOnlineOrderStatuses.Shipping,
+        // 45 «shipper báo đã giao» chỉ là thông tin (docs GHTK) — chờ 5 mới coi là đã giao.
+        5 or 6 => QrOnlineOrderStatuses.Delivered,
+        3 or 4 or 10 or 12 or 45 or 123 => QrOnlineOrderStatuses.Shipping,
         1 or 2 or 8 or 128 => QrOnlineOrderStatuses.Confirmed,
         20 or 21 => QrOnlineOrderStatuses.Cancelled,
         _ => null,

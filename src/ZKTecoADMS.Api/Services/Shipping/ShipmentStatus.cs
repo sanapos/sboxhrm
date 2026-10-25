@@ -104,20 +104,23 @@ public static class ShipmentStatus
                 or "returning" or "return_fail" => Returning,
             "returned" => Returned,
             "cancel" => Cancelled,
-            "exception" or "damage" or "lost" => Issue,
+            "exception" or "damage" or "lost" or "scrap" => Issue,
             _ => null,
         };
     }
 
-    /// <summary>GHTK: status_id số.</summary>
+    /// <summary>
+    /// GHTK: status_id số. 123/127/128/45/49/410 là «shipper báo» — docs GHTK ghi chỉ mang tính thông tin,
+    /// shipper có thể sửa lại (vd 123 → 127) nên không được đẩy vận đơn tới trạng thái cuối / bước khóa lùi.
+    /// </summary>
     public static string? FromGhtk(int? statusId) => statusId switch
     {
         -1 or 7 => Cancelled,
         1 or 2 => Created,
-        8 or 12 or 127 or 128 => Picking,
-        3 or 123 => InTransit,
-        4 or 10 or 410 => Delivering,
-        5 or 6 or 45 => Delivered,
+        8 or 12 or 123 or 127 or 128 => Picking,
+        3 or 30 or 31 or 91 => InTransit,
+        4 or 10 or 45 or 410 => Delivering,
+        5 or 6 => Delivered,
         9 or 49 => DeliveryFailed,
         20 => Returning,
         11 or 21 => Returned,
@@ -135,27 +138,42 @@ public static class ShipmentStatus
         503 or 107 or 201 or 101 => Cancelled,
         506 or 507 => DeliveryFailed,
         500 or 508 or 509 or 550 => Delivering,
-        -100 or -108 or -109 or -110 or 100 or 102 or 103 or 104 or 106 => Created,
+        // 104 «Giao cho bưu tá đi nhận» (docs webhook VTP) = đang lấy hàng.
+        104 => Picking,
+        -100 or -108 or -109 or -110 or 100 or 102 or 103 or 106 => Created,
         105 or 200 or 202 or 300 or 301 or 302 or 303 or 400 or 401 or 402 or 403 or 404 => InTransit,
         _ => code >= 300 && code < 500 ? InTransit : null,
     };
 
-    /// <summary>SPX: status dạng chữ.</summary>
+    /// <summary>SPX: status_code số dạng chuỗi (docs «Order status code») hoặc status dạng chữ.</summary>
     public static string? FromSpx(string? raw)
     {
         var n = (raw ?? "").Trim().ToLowerInvariant().Replace(' ', '_').Replace('-', '_');
         return n switch
         {
+            // Bảng mã chính thức SPX Open API (status_code).
+            "1001" => Created,
+            "2001" => InTransit,
+            "2006" => Delivering,
+            // On Hold: tạm giữ — không phải lần giao thất bại, chỉ ghi nhãn.
+            "3001" or "on_hold" => null,
+            "4001" => Delivered,
+            "5001" or "pickup_failed" => Picking,
+            "5002" or "5003" => Issue,
+            "6001" or "6002" or "return_failed" => Returning,
+            "6003" => Returned,
+            "7001" => Cancelled,
             "delivered" or "completed" or "success" => Delivered,
             "failed" or "undelivered" or "delivery_failed" or "failed_delivery" => DeliveryFailed,
             "returning" or "rto" or "return_in_transit" => Returning,
             "returned" or "return_completed" or "rto_delivered" => Returned,
             "cancelled" or "canceled" or "void" => Cancelled,
             "lost" or "damaged" => Issue,
-            "pickup" or "picking" or "pending_pickup" => Picking,
+            "pending_pickup" => Created,
+            "pickup" or "picking" => Picking,
             "picked_up" or "picked" or "collected" or "in_transit" or "transit" or "hub_in" or "hub_out" => InTransit,
             "delivering" or "out_for_delivery" or "on_delivery" => Delivering,
-            "created" or "pending" or "new" or "order_created" or "on_hold" or "delay" => Created,
+            "created" or "pending" or "new" or "order_created" or "delay" => Created,
             _ => null,
         };
     }
