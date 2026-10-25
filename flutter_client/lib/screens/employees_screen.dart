@@ -1608,7 +1608,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             icon: Icons.people,
             title: 'Không có nhân viên',
             description: _searchQuery.isNotEmpty
-                ? 'No matching employees found'
+                ? 'Không tìm thấy nhân viên phù hợp'
                 : _l10n.addFirstEmployee,
             actionLabel: _perm.canCreate(_module) ? _l10n.addEmployee : null,
             onAction: _perm.canCreate(_module)
@@ -2661,6 +2661,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: nationalIdController,
+                  // CCCD / CMND chỉ gồm số — bật bàn phím số trên máy cảm ứng.
+                  keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: tr('Số CCCD/CMND'),
                     prefixIcon: Icon(Icons.credit_card),
@@ -2888,7 +2890,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           decoration: InputDecoration(
                             labelText: tr(_l10n.department),
                             prefixIcon: const Icon(Icons.business),
-                            hintText: tr('Select department'),
+                            hintText: tr('Chọn phòng ban'),
                           ),
                           items: _departments
                               .where((d) => d != 'Tất cả')
@@ -2930,8 +2932,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           labelText: tr(_l10n.position),
                           prefixIcon: const Icon(Icons.work),
                           hintText: tr(deptName.isEmpty
-                              ? 'Select department first'
-                              : 'Select position'),
+                              ? 'Chọn phòng ban trước'
+                              : 'Chọn chức vụ'),
                         ),
                         items: availablePositions
                             .map((p) =>
@@ -2961,7 +2963,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           decoration: InputDecoration(
                             labelText: tr(_l10n.department),
                             prefixIcon: const Icon(Icons.business),
-                            hintText: tr('Select department'),
+                            hintText: tr('Chọn phòng ban'),
                           ),
                           items: _departments
                               .where((d) => d != 'Tất cả')
@@ -3005,8 +3007,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                 labelText: tr(_l10n.position),
                                 prefixIcon: const Icon(Icons.work),
                                 hintText: tr(deptName.isEmpty
-                                    ? 'Select department first'
-                                    : 'Select position'),
+                                    ? 'Chọn phòng ban trước'
+                                    : 'Chọn chức vụ'),
                               ),
                               items: availablePositions
                                   .map((p) => DropdownMenuItem(

@@ -65,11 +65,18 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _syncGuard();
+  }
+
+  /// Bàn phím bật / tắt → dựng lại để ẩn / hiện thanh Lưu.
+  @override
+  void didChangeMetrics() {
+    if (mounted && widget.dirty) setState(() {});
   }
 
   @override
@@ -80,6 +87,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (widget.dirty) SettingsLeaveGuard.set(null);
     super.dispose();
   }
@@ -179,6 +187,10 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       );
     }
+    // Bàn phím đang mở: thanh Lưu nổi lên ngay trên bàn phím và che đúng ô đang gõ (ô cuối form,
+    // vd «Điều khoản báo giá») → ẩn tạm, đóng bàn phím là hiện lại. Đọc từ View: Scaffold đã gỡ
+    // inset bàn phím khỏi MediaQuery của thân trang nên viewInsetsOf ở đây luôn 0.
+    final showBar = widget.dirty && View.of(context).viewInsets.bottom <= 0;
     return PopScope(
       canPop: !widget.dirty,
       // Flutter 3.22 (A6): chưa có onPopInvokedWithResult.
@@ -198,11 +210,11 @@ class _SettingsPageState extends State<SettingsPage> {
             right: 0,
             bottom: 0,
             child: IgnorePointer(
-              ignoring: !widget.dirty,
+              ignoring: !showBar,
               child: ExcludeSemantics(
-                excluding: !widget.dirty,
+                excluding: !showBar,
                 child: AnimatedSlide(
-                  offset: widget.dirty ? Offset.zero : const Offset(0, 1.2),
+                  offset: showBar ? Offset.zero : const Offset(0, 1.2),
                   duration: const Duration(milliseconds: 180),
                   child: _saveBar(narrow),
                 ),

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -118,13 +120,29 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
     _focus.addListener(_onFocusChange);
     _ctrl.addListener(_onTextChanged);
     if (widget.autofocusOnMount) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => requestSearchFocus());
+      WidgetsBinding.instance.addPostFrameCallback((_) => requestSearchFocus(quiet: true));
     }
   }
 
-  void requestSearchFocus() {
+  /// [quiet]: focus do app tự đặt (mở phiếu / sau khi chọn hàng), không phải người dùng chạm ô.
+  /// Máy cảm ứng Android/iOS: giữ focus cho súng quét (gõ phím) nhưng không bật bàn phím ảo —
+  /// trước đây mở phiếu nhập/kiểm kho là bàn phím đẩy cả màn lên, mất tiêu đề và danh sách dòng hàng.
+  void requestSearchFocus({bool quiet = false}) {
     if (!mounted || widget.readOnly) return;
     _focus.requestFocus();
+    final touchOs = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+    if (!quiet || !touchOs) return;
+    void hide() {
+      if (mounted && _focus.hasFocus) {
+        SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+      }
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => hide());
+    for (final ms in const [120, 320]) {
+      Future<void>.delayed(Duration(milliseconds: ms), hide);
+    }
   }
 
   /// Mở camera quét mã vạch / QR rồi thêm vào giỏ.
@@ -138,7 +156,7 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
       return;
     }
     await Future.delayed(const Duration(milliseconds: 40));
-    if (mounted) requestSearchFocus();
+    if (mounted) requestSearchFocus(quiet: true);
   }
 
   void _dispatchPick(PosPurchaseLookupPick pick, {required bool fromBarcode}) {
