@@ -457,6 +457,52 @@ class PosStoreSellSettingsDto {
     return jsonEncode(root);
   }
 
+  /// Nút phụ dưới hóa đơn (cửa hàng chọn trong Ngành hàng & cách bán):
+  /// 'auto' = theo ngành (bán lẻ / gym: Báo kho, nhà hàng: Báo chế biến), 'warehouse' = Báo kho,
+  /// 'kitchen' = Báo chế biến (karaoke, salon… cũng dùng được), 'none' = không hiện.
+  String get invoiceActionButton {
+    final raw = extraJson;
+    if (raw == null || raw.trim().isEmpty) return 'auto';
+    try {
+      final root = jsonDecode(raw);
+      if (root is Map) {
+        final v = root['invoiceActionButton']?.toString();
+        if (v == 'warehouse' || v == 'kitchen' || v == 'none') return v!;
+      }
+    } catch (_) {}
+    return 'auto';
+  }
+
+  /// Hiện nút «Báo chế biến» (gửi bếp / bar, tạo phiên order) — theo lựa chọn, mặc định theo ngành.
+  bool get kitchenNotifyEnabled => switch (invoiceActionButton) {
+        'kitchen' => true,
+        'warehouse' || 'none' => false,
+        _ => sellProfile.usesKitchenNotify,
+      };
+
+  /// Hiện nút «Báo kho» (phiếu xuất kho) — theo lựa chọn, mặc định theo ngành.
+  bool get warehouseSlipEnabled => switch (invoiceActionButton) {
+        'warehouse' => true,
+        'kitchen' || 'none' => false,
+        _ => sellProfile.usesWarehouseSlip,
+      };
+
+  static String mergeInvoiceActionButton(String? existing, String value) {
+    Map<String, dynamic> root = {};
+    if (existing != null && existing.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(existing);
+        if (decoded is Map) root = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    if (value == 'auto') {
+      root.remove('invoiceActionButton');
+    } else {
+      root['invoiceActionButton'] = value;
+    }
+    return jsonEncode(root);
+  }
+
   static String mergeAllowEditSaleTime(String? existing, bool value) {
     Map<String, dynamic> root = {};
     if (existing != null && existing.trim().isNotEmpty) {

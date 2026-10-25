@@ -43,7 +43,7 @@ class _PosPrinterSettingsHubScreenState
       if (res['isSuccess'] == true && res['data'] is Map) {
         final dto = PosStoreSellSettingsDto.fromJson(
             Map<String, dynamic>.from(res['data'] as Map));
-        showKitchen = dto.sellProfile.usesKitchenNotify;
+        showKitchen = dto.kitchenNotifyEnabled;
       }
     } catch (_) {}
     if (!mounted) return;

@@ -328,12 +328,31 @@ public partial class PosSellIndustryController(
     async Task<ActionResult?> RequireRestaurantKitchenAsync(Guid storeId)
     {
         var s = await LoadSellSettingsAsync(storeId);
-        if (s == null || s.SellProfile != PosSellProfile.Restaurant)
+        // Nhà hàng mặc định có báo chế biến; ngành khác (karaoke, salon…) bật bằng «Nút dưới hóa đơn:
+        // Báo chế biến» trong Ngành hàng & cách bán (ExtraJson.invoiceActionButton = "kitchen").
+        if (s == null || (s.SellProfile != PosSellProfile.Restaurant && !KitchenButtonChosen(s.ExtraJson)))
         {
             return BadRequest(AppResponse<object>.Fail(
-                "Báo chế biến chỉ dùng với hồ sơ Nhà hàng / F&B."));
+                "Báo chế biến chưa bật — chọn «Nút dưới hóa đơn: Báo chế biến» trong Ngành hàng & cách bán."));
         }
         return null;
+    }
+
+    static bool KitchenButtonChosen(string? extraJson)
+    {
+        if (string.IsNullOrWhiteSpace(extraJson)) return false;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(extraJson);
+            return doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("invoiceActionButton", out var v)
+                && v.ValueKind == System.Text.Json.JsonValueKind.String
+                && v.GetString() == "kitchen";
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return false;
+        }
     }
 
     async Task<ActionResult?> RequireProvisionalBillAsync(Guid storeId)

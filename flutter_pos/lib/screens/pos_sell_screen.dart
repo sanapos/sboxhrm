@@ -12071,7 +12071,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       // Chỉ ngành có bếp (nhà hàng / cafe). Thiết lập in lưu theo MÁY: máy từng dùng cho quán ăn đổi sang
       // cửa hàng bán lẻ vẫn bật «in bếp khi TT» → mỗi đơn siêu thị in phiếu bếp lỗi, kẹt «In treo»
       // (chip «In bếp» lại ẩn ở bán lẻ nên không tắt được).
-      final kitchenAuto = _sellProfile.usesKitchenNotify &&
+      final kitchenAuto = _kitchenNotifyOn &&
           _quickPrintKitchen &&
           _printSettings.kitchenSlipPrintMode != PosKitchenSlipPrintMode.off &&
           _tab.cart.any((l) => l.kitchenPendingQty > 0);
@@ -17963,11 +17963,17 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// Gym: phần lớn đơn chỉ là thẻ / gói tập (dịch vụ, không trừ kho) → chỉ hiện «Xuất kho»
   /// khi giỏ có hàng trừ kho (nước, thực phẩm bổ sung…).
   bool get _showWarehouseAction =>
-      _sellProfile.usesWarehouseSlip &&
+      _warehouseSlipOn &&
       (_sellProfile != PosSellProfile.gym || _tab.cart.any((l) => l.product.showsWarehouseStock));
 
-  bool get _showKitchenAction =>
-      _isTableOrderMode && _sellProfile.usesKitchenNotify;
+  bool get _showKitchenAction => _isTableOrderMode && _kitchenNotifyOn;
+
+  /// Nút «Báo chế biến» / «Báo kho»: theo lựa chọn của cửa hàng (Ngành hàng & cách bán), mặc định theo ngành —
+  /// trước đây khóa cứng: karaoke / salon không bật được báo chế biến.
+  bool get _kitchenNotifyOn =>
+      _industrySettings?.kitchenNotifyEnabled ?? _sellProfile.usesKitchenNotify;
+  bool get _warehouseSlipOn =>
+      _industrySettings?.warehouseSlipEnabled ?? _sellProfile.usesWarehouseSlip;
 
   Widget _invoiceSecondaryButton({
     required String label,

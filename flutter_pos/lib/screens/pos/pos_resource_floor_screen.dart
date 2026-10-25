@@ -176,6 +176,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   bool get _isFnB => _sellProfile == PosSellProfile.restaurant;
 
+  /// Cửa hàng bật nút «Báo chế biến» (mặc định chỉ nhà hàng; karaoke / salon bật trong Ngành hàng & cách bán).
+  bool? _loadedKitchenOn;
+  bool get _kitchenOn => _loadedKitchenOn ?? _isFnB;
+
   /// Mã báo bếp đang chờ theo phiên bàn (giữ lại khi lần gửi trước lỗi mạng).
   final Map<String, String> _kitchenSendKeys = {};
   /// Cửa hàng bật tính tiền giờ (salon tính giờ theo ghế cũng cần tạm dừng / chốt giờ).
@@ -367,6 +371,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         setState(() {
           _loadedSellProfile = dto.sellProfile;
           _hourlyBillingOn = dto.enableHourlyBilling;
+          _loadedKitchenOn = dto.kitchenNotifyEnabled;
         });
       }
     } catch (_) {}
@@ -2342,7 +2347,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                       title: Text(tr('Gộp bàn vào đây')),
                       onTap: () => Navigator.pop(ctx, 'merge'),
                     ),
-                    if (_isFnB)
+                    if (_kitchenOn)
                       ListTile(
                         leading: const Icon(Icons.soup_kitchen_outlined),
                         title: Text(

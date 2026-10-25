@@ -524,6 +524,38 @@ class _PosSellIndustrySettingsScreenState
                   },
           ),
           const SizedBox(height: 8),
+          InputDecorator(
+            decoration: PosTheme.inputDecoration(label: 'Nút dưới hóa đơn'),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                isDense: true,
+                value: s.invoiceActionButton,
+                items: [
+                  DropdownMenuItem(
+                    value: 'auto',
+                    child: Text(tr(s.sellProfile.usesKitchenNotify
+                        ? 'Theo ngành — Báo chế biến'
+                        : s.sellProfile.usesWarehouseSlip
+                            ? 'Theo ngành — Báo kho'
+                            : 'Theo ngành — không hiện')),
+                  ),
+                  DropdownMenuItem(value: 'kitchen', child: Text(tr('Báo chế biến (gửi bếp / bar, chia phiên order)'))),
+                  DropdownMenuItem(value: 'warehouse', child: Text(tr('Báo kho (phiếu xuất kho)'))),
+                  DropdownMenuItem(value: 'none', child: Text(tr('Không hiện'))),
+                ],
+                onChanged: _saving
+                    ? null
+                    : (v) {
+                        if (v == null) return;
+                        _patchAndSave((cur) => cur.copyWith(
+                              extraJson: PosStoreSellSettingsDto.mergeInvoiceActionButton(cur.extraJson, v),
+                            ));
+                      },
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(tr('Ca thu ngân (mở ca / đóng két)')),
