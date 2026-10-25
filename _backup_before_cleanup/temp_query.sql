@@ -1,1 +1,0 @@
-SELECT "Id", "EmployeeUserId", "EmployeeName", "EmployeeCode", "Action", "Status" FROM "AttendanceCorrectionRequests";

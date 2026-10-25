@@ -1,1 +1,0 @@
-SELECT "Date", "Name", "IsRecurring", "IsActive", "StoreId", "EmployeeIds", "EmployeeIds" IS NULL AS empids_is_null FROM "Holidays" WHERE "Date" = '2026-04-30';

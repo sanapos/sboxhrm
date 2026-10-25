@@ -1,1 +1,0 @@
-UPDATE "AspNetUsers" SET "AccessFailedCount"=0, "LockoutEnd"=NULL WHERE "UserName"='ngthihanh2011@gmail.com';

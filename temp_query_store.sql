@@ -1,1 +1,0 @@
-SELECT "UserName","StoreId" FROM "AspNetUsers" WHERE "UserName" LIKE '%super%' OR "UserName" LIKE '%admin%' LIMIT 10;

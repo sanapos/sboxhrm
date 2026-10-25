@@ -1,1 +1,0 @@
-docker exec zkteco_postgres psql -U postgres -d ZKTecoIntegration -c 'SELECT count(*) as cnt, (SELECT count(*) FROM "AspNetUsers") as users, (SELECT count(*) FROM "Employees") as emps, (SELECT count(*) FROM "Departments") as depts FROM "Stores";'
