@@ -534,10 +534,14 @@ class _SellInvoiceTab {
   final int id;
 
   /// Nhãn tab gọn: «HĐ N» — đỡ rối khi nhiều slot trên thanh trên.
+  /// Tên thu ngân tự đặt (vd «Anh Nam», «Mang về») — chỉ trên máy này, mất khi hóa đơn kết thúc.
+  String? customName;
+
+  /// «HĐ 1» hoặc tên tự đặt. Không kèm số dòng — trước đây «HĐ 1 · 3» làm tab dài ngắn, nháy liên tục.
   String get label {
-    final head = 'HĐ $id';
-    if (cart.isEmpty) return head;
-    return '$head · ${cart.length}';
+    final n = customName?.trim();
+    if (n != null && n.isNotEmpty) return n;
+    return 'HĐ $id';
   }
 
   final List<_SellCartLine> cart = [];
@@ -681,6 +685,7 @@ class _SellInvoiceTab {
     PosSellStoreSettings? store,
     bool keepTableBinding = false,
   }) {
+    customName = null;
     for (final line in cart) {
       line.dispose();
     }
@@ -1549,6 +1554,9 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      unawaited(_saveTabNames());
+    }
     if (state == AppLifecycleState.resumed && mounted) {
       // Mở lại app: HĐ có thể đã đổi ở máy khác trong lúc chạy nền.
       unawaited(_syncHeldDraftTabs());
@@ -5972,6 +5980,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       return;
     }
     await _applyInvoiceSlotsPayload(res['data'] as Map, hydrateAll: true);
+    await _restoreTabNames();
 
     // Ưu tiên hóa đơn trống để bán ngay
     final emptyIdx = _tabs.indexWhere(
@@ -6105,6 +6114,77 @@ class _PosSellScreenState extends State<PosSellScreen>
       // Mất mạng giữa chừng: lấy lại danh sách HĐ từ server cho khớp.
       if (mounted) unawaited(_bootstrapInvoiceSlots());
     }
+  }
+
+  String get _tabNamesKey => 'pos_sell_tab_names_${_storeId ?? ''}';
+
+  /// Lưu tên tự đặt: ô HĐ → {tên, mã đơn nháp}. Ô HĐ cấp theo từng máy nên lưu trên máy là đủ.
+  Future<void> _saveTabNames() async {
+    final map = <String, dynamic>{
+      for (final t in _tabs)
+        if ((t.customName ?? '').trim().isNotEmpty)
+          '${t.id}': {'n': t.customName!.trim(), 'd': t.draftOrderId},
+    };
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (map.isEmpty) {
+        await prefs.remove(_tabNamesKey);
+      } else {
+        await prefs.setString(_tabNamesKey, jsonEncode(map));
+      }
+    } catch (_) {}
+  }
+
+  /// Mở lại app: chỉ trả tên cho ô còn đúng đơn nháp lúc đặt tên (đã thanh toán / đơn mới → bỏ).
+  Future<void> _restoreTabNames() async {
+    try {
+      final raw = (await SharedPreferences.getInstance()).getString(_tabNamesKey);
+      if (raw == null || raw.isEmpty || !mounted) return;
+      final map = jsonDecode(raw);
+      if (map is! Map) return;
+      var changed = false;
+      for (final t in _tabs) {
+        final e = map['${t.id}'];
+        if (e is! Map) continue;
+        final name = e['n']?.toString().trim() ?? '';
+        final draft = e['d']?.toString();
+        if (name.isEmpty || (draft ?? '') != (t.draftOrderId ?? '')) continue;
+        t.customName = name;
+        changed = true;
+      }
+      if (changed && mounted) setState(() {});
+    } catch (_) {}
+  }
+
+  Future<void> _renameTab(int index) async {
+    if (index < 0 || index >= _tabs.length) return;
+    final tab = _tabs[index];
+    final ctrl = TextEditingController(text: tab.customName ?? '');
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Đổi tên HĐ ${tab.id}')),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 20,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(
+            hintText: tr('VD: Anh Nam, Mang về, Bàn ngoài'),
+            helperText: tr('Để trống = HĐ ${tab.id}. Tên mất khi hóa đơn thanh toán / đóng.'),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: Text(tr('Lưu'))),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (result == null || !mounted) return;
+    setState(() => tab.customName = result.trim().isEmpty ? null : result.trim());
+    unawaited(_saveTabNames());
   }
 
   void _selectTab(int index) {
@@ -13927,6 +14007,16 @@ class _PosSellScreenState extends State<PosSellScreen>
             contentPadding: EdgeInsets.zero,
           ),
         ),
+        if (_showRetailInvoiceTabs)
+          PopupMenuItem(
+            value: 'rename_tab',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.drive_file_rename_outline, size: 20),
+              title: Text(tr('Đổi tên hóa đơn')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
         if (canMod('PosSaleOrders'))
           PopupMenuItem(
             value: 'sale_orders',
@@ -14254,6 +14344,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!mounted || action == null) return;
 
     switch (action) {
+      case 'rename_tab':
+        await _renameTab(_activeTab);
       case 'go_home':
         _goMobileSellHome();
       case 'kitchen':
@@ -15438,6 +15530,8 @@ class _PosSellScreenState extends State<PosSellScreen>
                 _userTouchedTabs = true;
                 _selectTab(index);
               },
+              // Giữ lâu → đổi tên hóa đơn (hoặc Menu ≡ › Đổi tên hóa đơn).
+              onLongPress: () => unawaited(_renameTab(index)),
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: posWebHasTouchPoints() ? 10 : 4, vertical: posWebHasTouchPoints() ? 8 : 4),
                 child: Row(
