@@ -3838,7 +3838,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               ? const <({String code, String name, int no})>[]
               : previewFor(groupName, count, startNo, kind);
           return AlertDialog(
-            title: Text(tr('Tạo bàn nhanh')),
+            title: Text(tr('Tạo ${_resNoun} nhanh')),
             content: SizedBox(
               width: 420,
               child: SingleChildScrollView(
@@ -3858,7 +3858,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                       onChanged: (_) => setLocal(() {}),
                     ),
                     const SizedBox(height: 12),
-                    Text(tr('Số bàn trong nhóm'),
+                    Text(tr('Số ${_resNoun} trong nhóm'),
                         style: const TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 6),
@@ -3940,7 +3940,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                       controller: capacityCtrl,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: tr('Sức chứa mỗi bàn'),
+                        labelText: tr('Sức chứa mỗi ${_resNoun}'),
                         border: const OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -4122,12 +4122,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.edit_outlined),
-              title: Text(tr('Sửa bàn / phòng')),
+              title: Text(tr('Sửa ${_resNoun}')),
               onTap: () => Navigator.pop(ctx, 'edit'),
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: Text(tr('Xóa bàn / phòng')),
+              title: Text(tr('Xóa ${_resNoun}')),
               onTap: () => Navigator.pop(ctx, 'delete'),
             ),
             const SizedBox(height: 8),
@@ -4154,7 +4154,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('Xóa bàn / phòng?')),
+        title: Text(tr('Xóa ${_resNoun}?')),
         content: Text(tr('Xóa «${r.name}» (${r.code})?\nKhông thể hoàn tác.'),
         ),
         actions: [
@@ -4251,7 +4251,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: Text(tr(isEdit ? 'Sửa bàn / phòng' : 'Thêm bàn / ghế / phòng')),
+          title: Text(tr(isEdit ? 'Sửa ${_resNoun}' : 'Thêm ${_resNoun}')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -4392,7 +4392,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (code.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Thiếu mã',
-        message: tr('Nhập mã bàn / phòng'),
+        message: tr('Nhập mã ${_resNoun}'),
       );
       return;
     }
@@ -5268,11 +5268,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                             onPressed: () => showDialog<void>(
                               context: context,
                               builder: (ctx) => AlertDialog(
-                                title: Text(tr('Quản lý bàn / phòng')),
-                                content: Text(tr('• Chạm vào bàn để sửa hoặc xóa.\n'
+                                title: Text(tr('Quản lý ${_resNoun}')),
+                                content: Text(tr('• Chạm vào ${_resNoun} để sửa hoặc xóa.\n'
                                     '• Giữ lâu tên nhóm để đổi tên.\n'
                                     '• «Sắp nhóm» để kéo đổi thứ tự nhóm.\n'
-                                    '• «Tạo nhanh» để thêm nhiều bàn một lần.')),
+                                    '• «Tạo nhanh» để thêm nhiều ${_resNoun} một lần.')),
                                 actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đã hiểu')))],
                               ),
                             ),
@@ -5305,7 +5305,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   if (_layoutEdit)
                     Padding(
                       padding: EdgeInsets.fromLTRB(12, 0, 12, 4),
-                      child: Text(tr('Kéo bàn — thả ra dính ô (cách nhau 16px), rồi Lưu.'),
+                      child: Text(tr('Kéo ${_resNoun} — thả ra dính ô (cách nhau 16px), rồi Lưu.'),
                         style: TextStyle(
                             fontSize: 12, color: PosTheme.textSecondary),
                       ),
@@ -5320,8 +5320,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                 children: [
                                   Text(
                                     tr(widget.manageMode
-                                        ? 'Chưa có bàn/phòng.\nDùng «Tạo bàn nhanh» hoặc thêm từng bàn.'
-                                        : 'Chưa có bàn/phòng.\nVào Nhiều hơn → Quản lý bàn/phòng để thiết lập.'),
+                                        ? 'Chưa có ${_resNoun}.\nDùng «Tạo ${_resNoun} nhanh» hoặc thêm từng ${_resNoun}.'
+                                        : 'Chưa có ${_resNoun}.\nVào Nhiều hơn → Quản lý ${_resNoun} để thiết lập.'),
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                         color: PosTheme.textSecondary),
@@ -5332,7 +5332,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                       onPressed: () =>
                                           unawaited(_showQuickCreateTables()),
                                       icon: const Icon(Icons.playlist_add),
-                                      label: Text(tr('Tạo bàn nhanh')),
+                                      label: Text(tr('Tạo ${_resNoun} nhanh')),
                                     ),
                                   ],
                                 ],
@@ -5363,7 +5363,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           ? AppBar(
               // Bán hàng: chỉ tổng tạm tính (không hiện số bàn).
               title: widget.manageMode
-                  ? Text(tr('Quản lý bàn / phòng'))
+                  ? Text(tr('Quản lý ${_resNoun}'))
                   : totalLabel != null
                       ? Text(
                           tr(totalLabel),
@@ -5385,7 +5385,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     )
                   : null,
               actions: [
-                if (_canOpenKds(context))
+                if (_sellProfile.usesKitchenNotify && _canOpenKds(context))
                   IconButton(
                     tooltip: tr('Màn hình bếp (KDS)'),
                     onPressed: () {
@@ -5396,6 +5396,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     icon: const Icon(Icons.kitchen_outlined),
                   ),
                 if (widget.manageMode) ...[
+                  if (_sellProfile.usesKitchenNotify)
                   IconButton(
                     tooltip: tr('Phiếu hủy bếp'),
                     onPressed: () {
@@ -5426,7 +5427,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     icon: const Icon(Icons.layers_outlined),
                   ),
                   IconButton(
-                    tooltip: tr('Tạo bàn nhanh'),
+                    tooltip: tr('Tạo ${_resNoun} nhanh'),
                     onPressed: () => unawaited(_showQuickCreateTables()),
                     icon: const Icon(Icons.playlist_add),
                   ),
@@ -5722,7 +5723,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               fontWeight: FontWeight.w700,
             ),
           ],
-          if (r.pendingKitchenCount > 0 && !_isWaitingTable(r)) ...[
+          // «n bếp» chỉ có nghĩa với ngành có bếp — salon / phòng giờ không hiện.
+          if (_sellProfile.usesKitchenNotify && r.pendingKitchenCount > 0 && !_isWaitingTable(r)) ...[
             const SizedBox(height: 1),
             _tileMiniRow(
               icon: Icons.soup_kitchen_outlined,

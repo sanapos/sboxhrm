@@ -2266,6 +2266,152 @@ public partial class PosSellIndustryController(
     /// Hủy đơn đã bán thẻ tập / gói buổi → thu hồi thẻ / gói cấp từ đơn đó (trước đây hủy đơn, hoàn tiền
     /// nhưng khách vẫn giữ thẻ). Buổi đã dùng vẫn giữ trong lịch sử; ghi giao dịch điều chỉnh để tra lại.
     /// </summary>
+    /// <summary>
+    /// Gói / thẻ cấp từ đơn đã được dùng buổi nào chưa (lượt trừ buổi còn hiệu lực).
+    /// Đơn có gói đã dùng dở thì không cho hủy: hủy sẽ hoàn đủ tiền và xóa luôn buổi khách đã làm.
+    /// </summary>
+    public static async Task<List<(string PackageName, int Used, int Total)>> UsedSessionPacksOnOrderAsync(
+        ZKTecoDbContext dbContext, Guid storeId, Guid orderId)
+    {
+        var balanceIds = await dbContext.PosCustomerSessionTransactions.AsNoTracking()
+            .Where(t => t.StoreId == storeId && t.SaleOrderId == orderId
+                && t.TransactionType == PosSessionTxnType.Purchase && t.Deleted == null)
+            .Select(t => t.BalanceId)
+            .Distinct()
+            .ToListAsync();
+        if (balanceIds.Count == 0) return [];
+        var used = await dbContext.PosCustomerSessionTransactions.AsNoTracking()
+            .Where(t => t.StoreId == storeId && balanceIds.Contains(t.BalanceId) && t.Deleted == null
+                && t.TransactionType == PosSessionTxnType.Redeem)
+            .GroupBy(t => t.BalanceId)
+            .Select(g => new { BalanceId = g.Key, Used = -g.Sum(x => x.SessionDelta) })
+            .ToListAsync();
+        if (used.Count == 0) return [];
+        var balances = await dbContext.PosCustomerSessionBalances.AsNoTracking()
+            .Where(b => balanceIds.Contains(b.Id) && b.StoreId == storeId && b.Deleted == null)
+            .Select(b => new { b.Id, b.PackageName, b.TotalSessions })
+            .ToListAsync();
+        return balances
+            .Select(b => (b.PackageName ?? "Gói buổi", used.FirstOrDefault(u => u.BalanceId == b.Id)?.Used ?? 0, b.TotalSessions))
+            .Where(x => x.Item2 > 0)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Trả hàng dòng gói buổi (lẻ hoặc trong combo): thu hồi số buổi tương ứng SL trả từ gói cấp bởi đơn này.
+    /// <paramref name="apply"/> = false chỉ kiểm (trước transaction); true thì trừ buổi + ghi sổ điều chỉnh.
+    /// Trả về lỗi khi khách đã dùng vào phần buổi đang trả (hoàn tiền mà vẫn giữ buổi đã làm).
+    /// </summary>
+    public static async Task<string?> RevokeSessionPacksOnReturnAsync(
+        ZKTecoDbContext db, Guid storeId, Guid orderId,
+        IReadOnlyCollection<(Guid ProductId, decimal Qty)> returned, string? actorEmail, bool apply)
+    {
+        if (returned.Count == 0) return null;
+        var ids = returned.Select(r => r.ProductId).Distinct().ToList();
+        var sold = await db.PosProducts.AsNoTracking()
+            .Where(p => ids.Contains(p.Id) && p.StoreId == storeId)
+            .Select(p => new { p.Id, p.Name, p.ProductType, p.SessionPackCount })
+            .ToListAsync();
+        var comboIds = sold.Where(p => p.ProductType == PosProductType.Combo).Select(p => p.Id).ToList();
+        var comps = comboIds.Count == 0
+            ? []
+            : await db.PosProductComboLines.AsNoTracking()
+                .Where(c => comboIds.Contains(c.ComboProductId) && c.Deleted == null
+                    && c.ComponentProduct != null && c.ComponentProduct.SessionPackCount > 0)
+                .Select(c => new { c.ComboProductId, c.ComponentProductId, c.Qty, c.ComponentProduct!.SessionPackCount })
+                .ToListAsync();
+
+        // Gói cần thu: packProductId → (số buổi, thẻ thời gian?)
+        var need = new Dictionary<Guid, (decimal Sessions, bool Unlimited)>();
+        void Add(Guid packId, int packCount, decimal units)
+        {
+            var unlimited = PosCustomerSessionBalance.IsUnlimitedCount(packCount);
+            var cur = need.GetValueOrDefault(packId);
+            need[packId] = (cur.Sessions + (unlimited ? 0 : packCount * units), unlimited || cur.Unlimited);
+        }
+        foreach (var (productId, qty) in returned)
+        {
+            var p = sold.FirstOrDefault(x => x.Id == productId);
+            if (p == null) continue;
+            if (p.SessionPackCount > 0) Add(p.Id, p.SessionPackCount, qty);
+            else if (p.ProductType == PosProductType.Combo)
+                foreach (var c in comps.Where(c => c.ComboProductId == p.Id))
+                    Add(c.ComponentProductId, c.SessionPackCount, Math.Max(1, Math.Round(c.Qty)) * qty);
+        }
+        if (need.Count == 0) return null;
+
+        var balanceIds = await db.PosCustomerSessionTransactions.AsNoTracking()
+            .Where(t => t.StoreId == storeId && t.SaleOrderId == orderId
+                && t.TransactionType == PosSessionTxnType.Purchase && t.Deleted == null)
+            .Select(t => t.BalanceId).Distinct().ToListAsync();
+        var q = db.PosCustomerSessionBalances
+            .Where(b => balanceIds.Contains(b.Id) && b.StoreId == storeId && b.Deleted == null);
+        var balances = apply ? await q.AsTracking().ToListAsync() : await q.AsNoTracking().ToListAsync();
+        var redeemed = await db.PosCustomerSessionTransactions.AsNoTracking()
+            .Where(t => t.StoreId == storeId && balanceIds.Contains(t.BalanceId) && t.Deleted == null
+                && t.TransactionType == PosSessionTxnType.Redeem)
+            .Select(t => t.BalanceId).Distinct().ToListAsync();
+        var now = DateTime.UtcNow;
+
+        foreach (var (packId, (sessions, unlimited)) in need)
+        {
+            var mine = balances.Where(b => b.ProductId == packId).OrderByDescending(b => b.RemainingSessions).ToList();
+            if (mine.Count == 0) continue; // đơn cũ chưa cấp gói (bán khách lẻ) → không có gì để thu
+            var name = mine[0].PackageName ?? "Gói buổi";
+            if (unlimited)
+            {
+                if (mine.Any(b => redeemed.Contains(b.Id)))
+                    return $"Không trả được: thẻ «{name}» đã được dùng — trả hàng sẽ hoàn tiền mà khách vẫn giữ lượt đã dùng.";
+                if (!apply) continue;
+                foreach (var b in mine) Revoke(b, b.RemainingSessions, $"Trả hàng — thu hồi thẻ {name}", delete: true);
+                continue;
+            }
+            var n = (int)Math.Ceiling(sessions);
+            var remaining = mine.Sum(b => b.RemainingSessions);
+            if (remaining < n)
+                return $"Không trả được: gói «{name}» chỉ còn {remaining} buổi (khách đã dùng {mine.Sum(b => b.TotalSessions) - remaining}) " +
+                       $"mà trả hàng cần thu hồi {n} buổi. Điều chỉnh gói ở hồ sơ khách rồi lập phiếu chi trả khách.";
+            if (!apply) continue;
+            foreach (var b in mine)
+            {
+                if (n <= 0) break;
+                var take = Math.Min(n, b.RemainingSessions);
+                if (take <= 0) continue;
+                n -= take;
+                Revoke(b, take, $"Trả hàng — thu hồi {take} buổi {name}",
+                    delete: take == b.RemainingSessions && !redeemed.Contains(b.Id));
+            }
+        }
+        return null;
+
+        void Revoke(PosCustomerSessionBalance b, int take, string note, bool delete)
+        {
+            b.RemainingSessions -= take;
+            b.UpdatedAt = now;
+            b.UpdatedBy = actorEmail;
+            if (delete)
+            {
+                b.IsActive = false;
+                b.Deleted = now;
+                b.DeletedBy = actorEmail;
+            }
+            db.PosCustomerSessionTransactions.Add(new PosCustomerSessionTransaction
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                BalanceId = b.Id,
+                CustomerId = b.CustomerId,
+                SaleOrderId = orderId,
+                TransactionType = PosSessionTxnType.Adjust,
+                SessionDelta = -take,
+                RemainingAfter = b.RemainingSessions,
+                Note = note,
+                IsActive = true,
+                CreatedBy = actorEmail,
+            });
+        }
+    }
+
     public static async Task RevokeSessionPacksOnSaleCancelAsync(
         ZKTecoDbContext dbContext, Guid storeId, Guid orderId, string? actorEmail)
     {

@@ -18,6 +18,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 import '../../theme/sbox_tokens.dart';
+import 'pos_resource_floor_screen.dart';
 Color reservationAccent(PosResourceReservationDto b) {
   if (b.isCancelled) return SboxColors.slate500;
   if (b.isNoShow) return const Color(0xFFC2410C);
@@ -98,6 +99,9 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
   List<PosServiceResourceDto> _resources = [];
   String _statusFilter = 'all';
   bool _showGrid = false;
+  /// Salon: lưới lịch theo cột thợ (ca, lịch hẹn, ô trống bấm để đặt).
+  bool _staffGrid = false;
+  PosStaffAvailabilityResult? _staffDay;
   int? _pipelineBooked;
   double? _pipelineDeposit;
   double? _pipelineExpected;
@@ -204,6 +208,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
       _loading = true;
       _error = null;
     });
+    if (_profile.assignsServiceStaff && !_showMonth) unawaited(_loadStaffDay());
     final dayUtc = DateTime.utc(_day.year, _day.month, _day.day);
     final monthFrom = DateTime.utc(_month.year, _month.month, 1);
     final monthLast = DateUtils.getDaysInMonth(_month.year, _month.month);
@@ -484,12 +489,10 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                   trailing: !_canBook
                       ? null
                       : TextButton.icon(
-                    onPressed: _resources.isEmpty
-                        ? null
-                        : () {
-                            Navigator.pop(ctx);
-                            unawaited(_bookAppointment());
-                          },
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      unawaited(_bookAppointment());
+                    },
                     icon: const Icon(Icons.add, size: 18),
                     label: Text(tr('Thêm')),
                   ),
@@ -747,11 +750,24 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     return true;
   }
 
+  Future<void> _loadStaffDay() async {
+    final res = await _api.getPosStaffDay(DateTime.utc(_day.year, _day.month, _day.day));
+    if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+    setState(() => _staffDay =
+        PosStaffAvailabilityResult.fromJson(Map<String, dynamic>.from(res['data'] as Map)));
+  }
+
   Future<void> _bookAppointment({
     PosServiceResourceDto? resource,
     TimeOfDay? slotHint,
+    String? employeeId,
   }) async {
     if (_denyBooking()) return;
+    if (_loading) return;
+    if (_resources.isEmpty) {
+      await _promptCreateResources();
+      return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => _BookAppointmentDialog(
@@ -760,9 +776,30 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
         initialResourceId: resource?.id ?? widget.initialResourceId,
         slotHint: slotHint,
         sellProfile: _profile,
+        initialEmployeeId: employeeId,
       ),
     );
     if (ok == true && mounted) await _reload();
+  }
+
+  /// Lịch hẹn luôn gắn 1 [_noun] — chưa có thì hướng dẫn tạo trước (trước đây nút bị khóa im lặng).
+  Future<void> _promptCreateResources() async {
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Chưa có $_noun')),
+        content: Text(tr('Mỗi lịch hẹn cần gắn với 1 $_noun.\nTạo $_noun trước rồi đặt lịch.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Để sau'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Tạo $_noun'))),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => PosResourceFloorScreen(manageMode: true, sellProfile: _profile),
+    ));
+    if (mounted) await _reload();
   }
 
   Future<void> _editBooking(PosResourceReservationDto existing) async {
@@ -787,6 +824,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
         booking: b,
         noun: _noun,
         moneyFmt: _moneyFmt,
+        fnb: _profile.usesFnbItemTypes,
       ),
     );
     if (action == null || !mounted) return;
@@ -1105,9 +1143,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
             ),
       floatingActionButton: context.watch<PermissionProvider>().canCreate('PosBooking')
           ? FloatingActionButton.extended(
-              onPressed: _resources.isEmpty
-                  ? null
-                  : () => unawaited(_bookAppointment()),
+              onPressed: () => unawaited(_bookAppointment()),
               icon: const Icon(Icons.add),
               label: Text(tr(_profile.bookActionLabel)),
               backgroundColor: PosTheme.kiotBlue,
@@ -1282,6 +1318,17 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
+                        if (_profile.assignsServiceStaff && _staffDay != null)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: FilterChip(
+                              avatar: const Icon(Icons.view_week_outlined, size: 16),
+                              label: Text(tr('Theo thợ'), style: const TextStyle(fontSize: 12)),
+                              visualDensity: VisualDensity.compact,
+                              selected: _staffGrid,
+                              onSelected: (v) => setState(() => _staffGrid = v),
+                            ),
+                          ),
                         filterChip('all', 'Tất cả (${_items.length})'),
                         filterChip('booked', 'Chưa đến ($_bookedCount)'),
                         filterChip(
@@ -1321,6 +1368,8 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                     ? _buildMonthCalendar()
                     : _showGrid && _useRoomGrid
                     ? _buildAvailabilityGrid()
+                    : _staffGrid && _staffDay != null
+                    ? _buildStaffGrid()
                     : visible.isEmpty
                     ? Center(
                         child: Column(
@@ -1364,6 +1413,327 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
 
   /// Thẻ một lịch: cột giờ gọn (giờ đến lớn, giờ kết thúc nhỏ), tên 1 dòng + trạng thái bên phải,
   /// thông tin dạng biểu tượng ngắn (bàn · khách · thời lượng · SĐT · NV), dịp / cọc / hóa đơn.
+  /// Lưới theo thợ: mỗi cột 1 thợ, nền trắng = trong ca, xám = ngoài ca / nghỉ; bấm ô trống để đặt cho thợ đó.
+  Widget _buildStaffGrid() {
+    final sd = _staffDay!;
+    const pxPerMin = 1.2;
+    const colW = 150.0;
+    const axisW = 46.0;
+    int toMin(String hhmm) {
+      final p = hhmm.split(':');
+      return (int.tryParse(p.first) ?? 0) * 60 + (p.length > 1 ? int.tryParse(p[1]) ?? 0 : 0);
+    }
+
+    final dayStart = DateTime(_day.year, _day.month, _day.day);
+    final bookings = _items.where((b) => !b.isCancelled && !b.isNoShow && b.reservedAt != null).toList();
+    int startMin(PosResourceReservationDto b) => b.reservedAt!.toLocal().difference(dayStart).inMinutes;
+    int durMin(PosResourceReservationDto b) => b.durationMinutes ??
+        (b.reservedUntil != null ? b.reservedUntil!.difference(b.reservedAt!).inMinutes : 60);
+
+    // Khung giờ hiển thị: bao các ca + lịch hẹn, tối thiểu 8h–20h.
+    var from = 8 * 60;
+    var to = 20 * 60;
+    for (final st in sd.items) {
+      for (final sh in st.shifts) {
+        from = from < toMin(sh.$1) ? from : toMin(sh.$1);
+        final e = toMin(sh.$2) <= toMin(sh.$1) ? 24 * 60 : toMin(sh.$2);
+        to = to > e ? to : e;
+      }
+    }
+    for (final b in bookings) {
+      final s0 = startMin(b).clamp(0, 24 * 60);
+      from = from < s0 ? from : s0;
+      final e = (startMin(b) + durMin(b)).clamp(0, 24 * 60);
+      to = to > e ? to : e;
+    }
+    from = (from ~/ 60) * 60;
+    to = ((to + 59) ~/ 60) * 60;
+    final height = (to - from) * pxPerMin;
+
+    final staff = [...sd.items]..sort((a, b) {
+        final sa = a.onLeave ? 2 : (a.shifts.isNotEmpty || !sd.scheduleKnown ? 0 : 1);
+        final sb = b.onLeave ? 2 : (b.shifts.isNotEmpty || !sd.scheduleKnown ? 0 : 1);
+        return sa != sb ? sa.compareTo(sb) : a.name.compareTo(b.name);
+      });
+    final staffIds = {for (final s in staff) s.employeeId};
+    final unassigned = bookings.where((b) => b.assignedEmployeeId == null || !staffIds.contains(b.assignedEmployeeId)).toList();
+
+    Widget header(String title, String sub, {Color? color, VoidCallback? onTap}) => InkWell(
+        onTap: onTap,
+        child: Container(
+          width: colW,
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(right: BorderSide(color: SboxColors.slate200), bottom: BorderSide(color: SboxColors.slate200)),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(tr(title), maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: color ?? SboxColors.slate800)),
+            Text(tr(sub), maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, color: SboxColors.slate600)),
+          ]),
+        ));
+
+    Widget block(PosResourceReservationDto b) {
+      final top = (startMin(b) - from) * pxPerMin;
+      final h = (durMin(b) * pxPerMin).clamp(22.0, height);
+      final accent = reservationAccent(b);
+      final t = b.reservedAt!.toLocal();
+      return Positioned(
+        top: top,
+        left: 3,
+        right: 3,
+        height: h,
+        child: Material(
+          color: accent.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(6),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () => unawaited(_openBooking(b)),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                border: Border(left: BorderSide(color: accent, width: 3)),
+              ),
+              child: Text(
+                tr('${DateFormat('HH:mm').format(t)} ${b.customerName}'
+                    '${(b.serviceProductName ?? '').isNotEmpty ? '\n${b.serviceProductName}' : ''}'),
+                maxLines: h > 40 ? 3 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, height: 1.25),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget column({
+      required List<PosResourceReservationDto> list,
+      required List<(int, int)> workWindows,
+      required bool allDayWork,
+      String? employeeId,
+      String? offLabel,
+    }) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapUp: !_canBook || offLabel != null
+            ? null
+            : (d) {
+                final m = from + (d.localPosition.dy / pxPerMin).floor();
+                final snapped = (m ~/ 15) * 15;
+                final inWork = allDayWork || workWindows.any((w) => snapped >= w.$1 && snapped < w.$2);
+                if (!inWork) {
+                  NotificationOverlayManager().showWarning(
+                    title: 'Ngoài giờ ca',
+                    message: tr('Chọn ô trong giờ ca của thợ (nền trắng)'),
+                  );
+                  return;
+                }
+                unawaited(_bookAppointment(
+                  slotHint: TimeOfDay(hour: snapped ~/ 60, minute: snapped % 60),
+                  employeeId: employeeId,
+                ));
+              },
+        child: Container(
+          width: colW,
+          height: height,
+          decoration: BoxDecoration(
+            color: allDayWork ? Colors.white : SboxColors.slate100,
+            border: const Border(right: BorderSide(color: SboxColors.slate200)),
+          ),
+          child: Stack(children: [
+            for (final w in workWindows)
+              Positioned(
+                top: (w.$1 - from) * pxPerMin,
+                height: (w.$2 - w.$1) * pxPerMin,
+                left: 0,
+                right: 0,
+                child: const ColoredBox(color: Colors.white),
+              ),
+            for (var m = from; m < to; m += 60)
+              Positioned(
+                top: (m - from) * pxPerMin,
+                left: 0,
+                right: 0,
+                child: const Divider(height: 1, thickness: 1, color: SboxColors.slate100),
+              ),
+            if (offLabel != null)
+              Positioned.fill(
+                child: Center(
+                  child: Text(tr(offLabel), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                ),
+              ),
+            for (final b in list) block(b),
+          ]),
+        ),
+      );
+    }
+
+    final headers = <Widget>[
+      for (final st in staff)
+        header(
+          st.name,
+          st.onLeave
+              ? 'Nghỉ phép'
+              : [
+                  if (st.shifts.isNotEmpty) st.shiftLabel else if (sd.scheduleKnown) 'Không ca',
+                  '${st.jobsToday} việc',
+                ].join(' · '),
+          color: st.onLeave ? SboxColors.slate500 : null,
+          onTap: _canBook ? () => unawaited(_editStaffShift(st)) : null,
+        ),
+      if (unassigned.isNotEmpty) header('Chưa gán thợ', '${unassigned.length} lịch', color: SboxColors.warningText),
+    ];
+    final columns = <Widget>[
+      for (final st in staff)
+        column(
+          list: bookings.where((b) => b.assignedEmployeeId == st.employeeId).toList(),
+          workWindows: [
+            for (final sh in st.shifts)
+              (toMin(sh.$1), toMin(sh.$2) <= toMin(sh.$1) ? 24 * 60 : toMin(sh.$2)),
+          ],
+          allDayWork: !sd.scheduleKnown && !st.onLeave,
+          employeeId: st.employeeId,
+          offLabel: st.onLeave ? 'Nghỉ phép' : (sd.scheduleKnown && st.shifts.isEmpty ? 'Không có ca' : null),
+        ),
+      if (unassigned.isNotEmpty)
+        column(list: unassigned, workWindows: const [], allDayWork: true),
+    ];
+
+    // Align: không thì Column cha căn giữa lưới khi ít thợ.
+    return Align(
+      alignment: Alignment.topLeft,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 88),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [const SizedBox(width: axisW, height: 52), ...headers]),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                SizedBox(
+                  width: axisW,
+                  height: height,
+                  child: Stack(children: [
+                    for (var m = from; m < to; m += 60)
+                      Positioned(
+                        top: (m - from) * pxPerMin + 2,
+                        left: 0,
+                        child: Text('${(m ~/ 60).toString().padLeft(2, '0')}:00',
+                            style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
+                      ),
+                  ]),
+                ),
+                ...columns,
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  /// Bấm tên thợ trên lưới: đặt ca / nghỉ cho ngày đang xem (có thể lặp 7 ngày).
+  Future<void> _editStaffShift(PosStaffAvailabilityDto st) async {
+    TimeOfDay parse(String hhmm, TimeOfDay fb) {
+      final p = hhmm.split(':');
+      final h = int.tryParse(p.first);
+      final m = p.length > 1 ? int.tryParse(p[1]) : 0;
+      return h == null ? fb : TimeOfDay(hour: h, minute: m ?? 0);
+    }
+
+    var start = st.shifts.isNotEmpty ? parse(st.shifts.first.$1, const TimeOfDay(hour: 8, minute: 0))
+        : const TimeOfDay(hour: 8, minute: 0);
+    var end = st.shifts.isNotEmpty ? parse(st.shifts.first.$2, const TimeOfDay(hour: 20, minute: 0))
+        : const TimeOfDay(hour: 20, minute: 0);
+    var repeat = 1;
+    String fmt(TimeOfDay t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(tr('Ca của ${st.name} · ${DateFormat('dd/MM').format(_day)}')),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.login, size: 18),
+                  label: Text(tr('Vào ${fmt(start)}')),
+                  onPressed: () async {
+                    final t = await showTimePicker(context: ctx, initialTime: start);
+                    if (t != null) setLocal(() => start = t);
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.logout, size: 18),
+                  label: Text(tr('Ra ${fmt(end)}')),
+                  onPressed: () async {
+                    final t = await showTimePicker(context: ctx, initialTime: end);
+                    if (t != null) setLocal(() => end = t);
+                  },
+                ),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              initialValue: repeat,
+              decoration: InputDecoration(labelText: tr('Áp dụng'), border: const OutlineInputBorder(), isDense: true),
+              items: [
+                DropdownMenuItem(value: 1, child: Text(tr('Chỉ ngày này'))),
+                DropdownMenuItem(value: 7, child: Text(tr('7 ngày từ ngày này'))),
+                DropdownMenuItem(value: 30, child: Text(tr('30 ngày từ ngày này'))),
+              ],
+              onChanged: (v) => setLocal(() => repeat = v ?? 1),
+            ),
+            const SizedBox(height: 8),
+            Text(tr('Đã xếp ca cho một thợ thì thợ chưa xếp ca ngày đó coi như không làm.'),
+                style: const TextStyle(fontSize: 12, color: SboxColors.slate600)),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, 'clear'), child: Text(tr('Xóa ca'))),
+            TextButton(onPressed: () => Navigator.pop(ctx, 'off'), child: Text(tr('Nghỉ'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, 'save'), child: Text(tr('Lưu ca'))),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+    final res = await _api.setPosStaffShift(
+      employeeId: st.employeeId,
+      day: DateTime.utc(_day.year, _day.month, _day.day),
+      start: action == 'save' ? fmt(start) : null,
+      end: action == 'save' ? fmt(end) : null,
+      dayOff: action == 'off',
+      clear: action == 'clear',
+      repeatDays: repeat,
+    );
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã lưu ca',
+        message: tr(switch (action) {
+          'off' => '${st.name} nghỉ',
+          'clear' => 'Đã xóa ca ${st.name}',
+          _ => '${st.name} ${fmt(start)}–${fmt(end)}',
+        }),
+      );
+      await _loadStaffDay();
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Không lưu được ca',
+        message: res['message']?.toString() ?? 'Lỗi',
+      );
+    }
+  }
+
   Widget _bookingCard(PosResourceReservationDto b) {
     final start = b.reservedAt?.toLocal();
     final end = b.reservedUntil?.toLocal();
@@ -1389,7 +1759,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     final occasion = PosReservationOccasion.label(b.occasion);
     final money = <String>[
       if (b.depositPaid > 0) 'Cọc ${_moneyFmt.format(b.depositPaid)}đ (${reservationDepositLabel(b.depositStatus)})',
-      if (b.preOrderValue > 0) 'Món ${_moneyFmt.format(b.preOrderValue)}đ',
+      if (b.preOrderValue > 0) '${_profile.usesFnbItemTypes ? 'Món' : 'Dịch vụ'} ${_moneyFmt.format(b.preOrderValue)}đ',
     ];
     final order = <String>[
       if ((b.orderNo ?? '').isNotEmpty) 'HĐ ${b.orderNo}',
@@ -1412,8 +1782,13 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
             SizedBox(
               width: 54,
               child: Column(children: [
-                Text(start == null ? '—' : DateFormat('HH:mm').format(start),
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: accent)),
+                // «09:00» rộng hơn «11:00» — co chữ thay vì xuống dòng «09:0 / 0».
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(start == null ? '—' : DateFormat('HH:mm').format(start),
+                      maxLines: 1,
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: accent)),
+                ),
                 if (end != null)
                   Text(DateUtils.isSameDay(start, end) ? DateFormat('HH:mm').format(end) : DateFormat('dd/MM').format(end),
                       style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500)),
@@ -1502,11 +1877,15 @@ class _BookingDetailDialog extends StatelessWidget {
     required this.booking,
     required this.noun,
     required this.moneyFmt,
+    this.fnb = true,
   });
 
   final PosResourceReservationDto booking;
   final String noun;
   final NumberFormat moneyFmt;
+
+  /// Nhà hàng: «món đặt trước»; salon / gym / phòng: «dịch vụ đặt trước».
+  final bool fnb;
 
   @override
   Widget build(BuildContext context) {
@@ -1637,7 +2016,7 @@ class _BookingDetailDialog extends StatelessWidget {
                         emphasize: true),
                     row('Số khách', '${b.guestCount}'),
                     row('Điện thoại', b.phone ?? ''),
-                    row('Loại tiệc',
+                    row(fnb ? 'Loại tiệc' : 'Dịp',
                         PosReservationOccasion.label(b.occasion)),
                     row('Yêu cầu thêm', b.specialRequest ?? ''),
                     row('Dịch vụ', b.serviceProductName ?? ''),
@@ -1655,9 +2034,9 @@ class _BookingDetailDialog extends StatelessWidget {
                       ),
                     if (b.preOrderCount > 0 || b.preOrderValue > 0)
                       row(
-                        'Món đặt trước',
+                        fnb ? 'Món đặt trước' : 'Dịch vụ đặt trước',
                         [
-                          if (b.preOrderCount > 0) '${b.preOrderCount} món',
+                          if (b.preOrderCount > 0) '${b.preOrderCount} ${fnb ? 'món' : 'dịch vụ'}',
                           if (b.preOrderValue > 0)
                             '${moneyFmt.format(b.preOrderValue)}đ',
                         ].join(' · '),
@@ -1772,11 +2151,14 @@ class _BookAppointmentDialog extends StatefulWidget {
     this.slotHint,
     this.sellProfile,
     this.existing,
+    this.initialEmployeeId,
   });
 
   final DateTime day;
   final List<PosServiceResourceDto> resources;
   final String? initialResourceId;
+  /// Bấm ô trống trên lưới theo thợ → chọn sẵn thợ đó.
+  final String? initialEmployeeId;
   final TimeOfDay? slotHint;
   final PosSellProfile? sellProfile;
   final PosResourceReservationDto? existing;
@@ -1811,6 +2193,14 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
   List<PosProduct> _services = [];
   List<_EmpOpt> _employees = [];
 
+  /// «Tự xếp»: server chọn thợ rảnh (thợ quen trước, rồi người ít việc).
+  static const _autoStaff = '__auto__';
+  PosStaffAvailabilityResult? _staff;
+  bool _staffLoading = false;
+  int _staffSeq = 0;
+  Timer? _staffDebounce;
+  String? _staffNotice;
+
   PosSellProfile get _profile =>
       widget.sellProfile ?? PosSellProfile.salon;
   bool get _isHotel => _profile == PosSellProfile.hotel;
@@ -1840,7 +2230,7 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
       _occasion = existing.occasion;
       final req = (existing.specialRequest ?? '').trim();
       if (req.isNotEmpty) {
-        for (final chip in PosReservationOccasion.requestChips) {
+        for (final chip in PosReservationOccasion.requestChipsFor(_profile)) {
           if (req.contains(chip)) _requestTags.add(chip);
         }
         final leftover = req
@@ -1861,6 +2251,7 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
         _stayNights = (existing.durationMinutes! / 1440).round().clamp(1, 14);
       }
     } else {
+      _employeeId = widget.initialEmployeeId ?? (_showStaffPicker ? _autoStaff : null);
       _slotTime = widget.slotHint ??
           TimeOfDay(
             hour: DateUtils.isSameDay(widget.day, now)
@@ -1870,10 +2261,57 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
           );
     }
     unawaited(_loadMeta());
+    _refreshStaff();
+  }
+
+  DateTime get _slotLocal => DateTime(
+      _usageDay.year, _usageDay.month, _usageDay.day, _slotTime.hour, _slotTime.minute);
+
+  /// Tải lại danh sách thợ rảnh khi đổi ngày / giờ / thời lượng / dịch vụ / khách.
+  void _refreshStaff() {
+    if (!_showStaffPicker || _isHotel) return;
+    _staffDebounce?.cancel();
+    _staffDebounce = Timer(const Duration(milliseconds: 300), () async {
+      final seq = ++_staffSeq;
+      if (mounted) setState(() => _staffLoading = true);
+      final res = await _api.getPosStaffAvailability(
+        slotStart: _slotLocal,
+        durationMinutes: _durationMinutes,
+        customerId: _customerId,
+        excludeReservationId: widget.existing?.id,
+      );
+      if (!mounted || seq != _staffSeq) return;
+      if (res['isSuccess'] != true || res['data'] is! Map) {
+        // Máy chủ cũ chưa có API xếp thợ — giữ danh sách nhân viên đầy đủ như trước.
+        setState(() {
+          _staffLoading = false;
+          _staff = null;
+          if (_employeeId == _autoStaff) _employeeId = null;
+        });
+        return;
+      }
+      final r = PosStaffAvailabilityResult.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+      setState(() {
+        _staffLoading = false;
+        _staff = r;
+        _staffNotice = null;
+        final cur = _employeeId;
+        if (cur != null && cur != _autoStaff) {
+          final me = r.items.where((i) => i.employeeId == cur).firstOrNull;
+          if (me == null || !me.available) {
+            final why = me?.unavailableReason;
+            _staffNotice = '${me?.name ?? 'Thợ đã chọn'} không rảnh khung này'
+                '${why != null ? ' ($why)' : ''} — chuyển sang Tự xếp';
+            _employeeId = _autoStaff;
+          }
+        }
+      });
+    });
   }
 
   @override
   void dispose() {
+    _staffDebounce?.cancel();
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _noteCtrl.dispose();
@@ -1949,17 +2387,21 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
     _serviceProductId = p.id;
     final d = p.defaultDurationMinutes;
     if (d != null && d > 0) _durationMinutes = d;
+    _refreshStaff();
   }
 
   Future<void> _pickCustomer() async {
     final searchCtrl = TextEditingController();
     var hits = <PosCustomer>[];
     var loading = false;
+    var started = false;
+    Timer? debounce;
     final picked = await showDialog<PosCustomer>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) {
           Future<void> search() async {
+            if (!ctx.mounted) return;
             setLocal(() => loading = true);
             final res = await _api.getPosCustomers(
               search: searchCtrl.text.trim(),
@@ -1988,6 +2430,15 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
             }
           }
 
+          // Mở ra hiện ngay khách gần đây; gõ tới đâu lọc tới đó (trước phải bấm Enter mới tìm).
+          if (!started) {
+            started = true;
+            // Sau frame đầu — gọi setLocal ngay trong build sẽ lỗi.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (ctx.mounted) unawaited(search());
+            });
+          }
+
           return AlertDialog(
             title: Text(tr('Chọn khách hàng')),
             content: SizedBox(
@@ -2005,6 +2456,10 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
                         onPressed: () => unawaited(search()),
                       ),
                     ),
+                    onChanged: (_) {
+                      debounce?.cancel();
+                      debounce = Timer(const Duration(milliseconds: 350), () => unawaited(search()));
+                    },
                     onSubmitted: (_) => unawaited(search()),
                   ),
                   const SizedBox(height: 8),
@@ -2036,10 +2491,12 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
         },
       ),
     );
+    debounce?.cancel();
     searchCtrl.dispose();
     if (picked == null || !mounted) return;
     setState(() {
       _customerId = picked.id;
+      _refreshStaff();
       _nameCtrl.text = picked.name;
       if ((picked.phone ?? '').isNotEmpty) {
         _phoneCtrl.text = picked.phone!;
@@ -2088,7 +2545,8 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
       if (_isHotel) 'stayNights': _stayNights,
       if (!_isHotel) 'durationMinutes': _durationMinutes,
       if (_serviceProductId != null) 'serviceProductId': _serviceProductId,
-      'assignedEmployeeId': _employeeId,
+      'assignedEmployeeId': _employeeId == _autoStaff ? null : _employeeId,
+      if (_employeeId == _autoStaff) 'autoAssignStaff': true,
       'note':
           _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
       'occasion': _occasion,
@@ -2115,8 +2573,14 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
         title: tr(widget.existing == null
             ? 'Đã ${_profile.bookActionLabel.toLowerCase()}'
             : 'Đã lưu lịch'),
-        message:
-            '${DateFormat('HH:mm dd/MM').format(slotLocal)} · ${_nameCtrl.text.trim()}',
+        message: () {
+          final data = res['data'];
+          final staffName = data is Map ? data['assignedEmployeeName']?.toString() : null;
+          final why = data is Map ? data['autoAssignReason']?.toString() : null;
+          return '${DateFormat('HH:mm dd/MM').format(slotLocal)} · ${_nameCtrl.text.trim()}'
+              '${(staffName ?? '').isNotEmpty ? ' · thợ $staffName' : ''}'
+              '${(why ?? '').isNotEmpty ? ' ($why)' : ''}';
+        }(),
       );
       Navigator.pop(context, true);
     } else {
@@ -2126,6 +2590,101 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
       );
     }
   }
+
+  /// Chỉ hiện thợ rảnh khung giờ (có ca, không nghỉ, không trùng) — mặc định «Tự xếp».
+  Widget _staffPicker(OutlineInputBorder field) {
+    final r = _staff!;
+    final free = r.items.where((i) => i.available).toList();
+    final hidden = r.items.where((i) => !i.available).toList();
+    final rec = r.recommended;
+    String detail(PosStaffAvailabilityDto i) => [
+          if (i.isRegular) 'thợ quen ${i.regularVisits} lần',
+          '${i.jobsToday} việc hôm nay',
+          if (i.shifts.isNotEmpty) 'ca ${i.shiftLabel}',
+        ].join(' · ');
+    final value = _employeeId == _autoStaff || free.any((i) => i.employeeId == _employeeId)
+        ? _employeeId
+        : null;
+    final autoTitle = rec == null ? 'Tự xếp — chưa có thợ rảnh' : 'Tự xếp — ${rec.name}';
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      DropdownButtonFormField<String?>(
+        key: ValueKey('staff-$value-${r.items.length}-$_staffSeq'),
+        initialValue: value,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: tr('Thợ làm'),
+          border: field,
+          isDense: true,
+          suffixIcon: _staffLoading
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              : null,
+        ),
+        selectedItemBuilder: (_) => [
+          Text(tr(autoTitle), overflow: TextOverflow.ellipsis),
+          for (final i in free) Text(tr(i.name), overflow: TextOverflow.ellipsis),
+          Text(tr('— Không gán thợ —')),
+        ],
+        items: [
+          DropdownMenuItem<String?>(
+            value: _autoStaff,
+            child: _staffItem(
+              autoTitle,
+              rec == null ? 'Chọn giờ khác hoặc thợ khác' : (r.recommendedReason ?? ''),
+              Icons.auto_awesome,
+            ),
+          ),
+          for (final i in free)
+            DropdownMenuItem<String?>(
+              value: i.employeeId,
+              child: _staffItem(i.name, detail(i), i.isRegular ? Icons.favorite : Icons.person_outline),
+            ),
+          DropdownMenuItem<String?>(value: null, child: Text(tr('— Không gán thợ —'))),
+        ],
+        onChanged: _saving
+            ? null
+            : (v) => setState(() {
+                  _employeeId = v;
+                  _staffNotice = null;
+                }),
+      ),
+      if (_staffNotice != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(tr(_staffNotice!), style: const TextStyle(fontSize: 12, color: SboxColors.warningText)),
+        ),
+      if (!r.scheduleKnown)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(tr('Ngày này chưa xếp ca — coi mọi thợ đang làm đều có ca.'),
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate600)),
+        ),
+      if (hidden.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            tr('Không hiện: ${hidden.map((i) => '${i.name} (${i.unavailableReason ?? 'bận'})').join(', ')}'),
+            style: const TextStyle(fontSize: 12, color: SboxColors.slate600),
+          ),
+        ),
+    ]);
+  }
+
+  Widget _staffItem(String title, String sub, IconData icon) => Row(children: [
+        Icon(icon, size: 18, color: PosTheme.kiotBlue),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text(tr(title), overflow: TextOverflow.ellipsis),
+            if (sub.isNotEmpty)
+              Text(tr(sub),
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: SboxColors.slate600)),
+          ]),
+        ),
+      ]);
 
   @override
   Widget build(BuildContext context) {
@@ -2179,7 +2738,10 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
                   firstDate: DateTime.now().subtract(const Duration(days: 1)),
                   lastDate: DateTime.now().add(const Duration(days: 180)),
                 );
-                if (d != null) setState(() => _usageDay = DateTime(d.year, d.month, d.day));
+                if (d != null) {
+                  setState(() => _usageDay = DateTime(d.year, d.month, d.day));
+                  _refreshStaff();
+                }
               });
     final timePick = pickBox(
         Icons.access_time,
@@ -2196,7 +2758,10 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
                     child: child ?? const SizedBox.shrink(),
                   ),
                 );
-                if (t != null) setState(() => _slotTime = t);
+                if (t != null) {
+                  setState(() => _slotTime = t);
+                  _refreshStaff();
+                }
               });
 
     final mins = <int>{30, 45, 60, 90, 120, 150, 180, 240, _durationMinutes}.toList()..sort();
@@ -2217,7 +2782,13 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
                   child: Text(tr(m % 60 == 0 ? '${m ~/ 60} giờ' : m > 60 ? '${m ~/ 60} giờ ${m % 60}′' : '$m phút')),
                 ),
             ],
-            onChanged: _saving ? null : (v) => v == null ? null : setState(() => _durationMinutes = v),
+            onChanged: _saving
+                ? null
+                : (v) {
+                    if (v == null) return;
+                    setState(() => _durationMinutes = v);
+                    _refreshStaff();
+                  },
           );
 
     final guests = InputDecorator(
@@ -2335,7 +2906,10 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
                   setState(() => _onServicePicked(p));
                 },
         ),
-        if (_showStaffPicker) ...[
+        if (_showStaffPicker && _staff != null) ...[
+          const SizedBox(height: 10),
+          _staffPicker(field),
+        ] else if (_showStaffPicker) ...[
           const SizedBox(height: 10),
           DropdownButtonFormField<String?>(
             initialValue: employeeIds.contains(_employeeId) ? _employeeId : null,
@@ -2350,7 +2924,7 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
         ],
         section('Dịp'),
         Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final o in PosReservationOccasion.options)
+          for (final o in PosReservationOccasion.optionsFor(_profile))
             ChoiceChip(
               label: Text(tr(o.$2)),
               selected: _occasion == o.$1,
@@ -2359,7 +2933,7 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
         ]),
         section('Yêu cầu thêm'),
         Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final chip in PosReservationOccasion.requestChips)
+          for (final chip in PosReservationOccasion.requestChipsFor(_profile))
             FilterChip(
               label: Text(tr(chip)),
               selected: _requestTags.contains(chip),
@@ -2374,7 +2948,11 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
           maxLines: 2,
           decoration: InputDecoration(
             labelText: tr('Yêu cầu khác'),
-            hintText: tr('VD: không cay, bàn gần cửa sổ…'),
+            hintText: tr(switch (_profile) {
+              PosSellProfile.salon => 'VD: cắt ngắn ngang vai, dị ứng thuốc nhuộm…',
+              PosSellProfile.gym => 'VD: đau gối, muốn tập giảm mỡ…',
+              _ => 'VD: không cay, bàn gần cửa sổ…',
+            }),
             border: field,
             isDense: true,
           ),

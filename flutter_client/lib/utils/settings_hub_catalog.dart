@@ -193,9 +193,9 @@ class SettingsHubCatalog {
       keywords: ['ngành', 'cafe', 'nhà hàng', 'bán lẻ', 'ca thu ngân', 'tạm tính', 'tồn kho', 'ngày kinh doanh'],
     ),
     SettingsHubItemDef(
-      index: 19, code: 'floor', icon: Icons.table_restaurant_outlined, label: 'Bàn / phòng', groupTitle: gSell, accent: SboxColors.success,
+      index: 19, code: 'floor', icon: Icons.table_restaurant_outlined, label: 'Sơ đồ bàn / ghế / phòng', groupTitle: gSell, accent: SboxColors.success,
       desc: 'Sơ đồ mặt bằng, khu vực, bàn ghế, phòng', moduleCode: 'SettingsHub', packageModule: 'PosSell',
-      keywords: ['sơ đồ bàn', 'khu vực', 'phòng hát', 'karaoke'],
+      keywords: ['sơ đồ bàn', 'khu vực', 'phòng hát', 'karaoke', 'ghế', 'salon', 'spa'],
     ),
     SettingsHubItemDef(
       index: 23, code: 'customerDisplay', icon: Icons.tv_outlined, label: 'Màn hình phụ', groupTitle: gSell, accent: SboxColors.success,

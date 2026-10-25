@@ -175,7 +175,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
   List<String> _missing() {
     final tax = _taxCtrl.text.trim();
     return [
-      if (_nameCtrl.text.trim().isEmpty) 'Tên người mua',
+      if (_nameCtrl.text.trim().isEmpty) 'Tên khách hàng',
       if (tax.isNotEmpty && !_looksLikeTaxCode(tax)) 'Mã số thuế (10 số, hoặc 10-3 chi nhánh)',
       if (tax.isNotEmpty && _companyCtrl.text.trim().isEmpty) 'Tên đơn vị (có MST)',
       if (tax.isNotEmpty && _addressCtrl.text.trim().isEmpty) 'Địa chỉ xuất hóa đơn (có MST)',
@@ -598,9 +598,9 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                         TextFormField(
                           controller: _nameCtrl,
                           decoration: PosTheme.inputDecoration(
-                              label: 'Tên người mua *'),
+                              label: 'Tên khách hàng *'),
                           validator: (v) => (v == null || v.trim().isEmpty)
-                              ? 'Nhập tên người mua'
+                              ? 'Nhập tên khách hàng'
                               : null,
                         ),
                         const SizedBox(height: 12),
@@ -666,7 +666,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                         TextFormField(
                           controller: _deliveryCtrl,
                           decoration: PosTheme.inputDecoration(
-                              label: 'Địa chỉ nhận hàng'),
+                              label: 'Địa chỉ liên hệ / nhận hàng'),
                           maxLines: 2,
                         ),
                         const SizedBox(height: 12),

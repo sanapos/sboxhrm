@@ -1129,7 +1129,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               const SizedBox(height: 4),
               Text(
                 pct == null
-                    ? tr('Khách mua món này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).')
+                    ? tr('Khách mua ${_isService ? 'dịch vụ' : _sellProfile.usesFnbItemTypes ? 'món' : 'hàng'} này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).')
                     : price > 0
                         ? tr('Bán ${_fmtInputMoney(price)}đ → khách tích ${_fmtInputMoney(earn)}đ vào ví điểm, lần sau trừ vào đơn mới.')
                         : tr('Khách được tích ${_fmtPercent(pct)}% tiền thực trả của món này vào ví điểm.'),
@@ -2463,7 +2463,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       PosProductType.service => (
           const Color(0xFF0369A1),
           Icons.handyman_outlined,
-          'Dịch vụ không quản lý tồn thành phẩm — bán không trừ kho món. Khai định lượng NVL nếu muốn trừ nguyên liệu khi bán.',
+          'Dịch vụ không quản lý tồn thành phẩm — bán không trừ kho. Khai định lượng NVL nếu muốn trừ nguyên liệu khi bán.',
         ),
       PosProductType.combo => (
           SboxColors.warningText,
@@ -2726,13 +2726,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     dense: true,
                     controlAffinity: ListTileControlAffinity.leading,
                     value: (int.tryParse(_sessionPackCountCtrl.text.trim()) ?? 0) >= 9999,
-                    title: Text(tr('Thẻ tập theo thời gian (không giới hạn buổi)')),
-                    subtitle: Text(tr('Thẻ tháng / quý / năm: khách tập bao nhiêu lần cũng được đến hết hạn. '
-                        'Bán SL 3 = 3 kỳ; mua gia hạn khi thẻ còn hạn sẽ cộng nối tiếp.')),
+                    title: Text(tr(_sellProfile == PosSellProfile.gym
+                        ? 'Thẻ tập theo thời gian (không giới hạn buổi)'
+                        : 'Thẻ dịch vụ theo thời gian (không giới hạn lượt)')),
+                    subtitle: Text(tr(_sellProfile == PosSellProfile.gym
+                        ? 'Thẻ tháng / quý / năm: khách tập bao nhiêu lần cũng được đến hết hạn. '
+                            'Bán SL 3 = 3 kỳ; mua gia hạn khi thẻ còn hạn sẽ cộng nối tiếp.'
+                        : 'Thẻ tháng / năm: khách dùng dịch vụ bao nhiêu lần cũng được đến hết hạn. '
+                            'Bán SL 3 = 3 kỳ; mua gia hạn khi thẻ còn hạn sẽ cộng nối tiếp.')),
                     onChanged: (v) => setState(() {
                       if (v == true) {
                         _sessionPackCountCtrl.text = '9999';
-                        // ĐVT mặc định «Cái» không hợp thẻ tập → «Thẻ».
+                        // ĐVT mặc định «Cái» không hợp thẻ → «Thẻ».
                         if (_unitCtrl.text.trim().isEmpty || _unitCtrl.text.trim() == 'Cái') _unitCtrl.text = 'Thẻ';
                         if ((int.tryParse(_sessionPackValidDaysCtrl.text.trim()) ?? 0) <= 0) {
                           _sessionPackValidDaysCtrl.text = '30';
@@ -2748,15 +2753,19 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     keyboardType: TextInputType.number,
                     decoration: PosTheme.inputDecoration(
                       label: 'Hạn gói (ngày)',
-                      hint: '0 = không hạn — liệu trình / thẻ tập',
+                      hint: _sellProfile == PosSellProfile.gym
+                          ? '0 = không hạn — liệu trình / thẻ tập'
+                          : '0 = không hạn — liệu trình / thẻ dịch vụ',
                     ),
                   ),
-                  if ((int.tryParse(_sessionPackCountCtrl.text.trim()) ?? 0) > 0) ...[
+                  // Khung giờ quét thẻ chỉ có nghĩa với máy check-in gym.
+                  if (_sellProfile == PosSellProfile.gym &&
+                      (int.tryParse(_sessionPackCountCtrl.text.trim()) ?? 0) > 0) ...[
                     const SizedBox(height: 12),
                     TextField(
                       controller: _gymHoursCtrl,
                       decoration: PosTheme.inputDecoration(
-                        label: 'Khung giờ tập (gym)',
+                        label: 'Khung giờ tập',
                         hint: 'vd 05:00-16:00 — trống = mọi giờ',
                       ),
                     ),
@@ -2832,11 +2841,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         TextField(
           controller: _nameCtrl,
           textInputAction: TextInputAction.done,
-          decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
+          decoration: PosTheme.inputDecoration(label: 'Tên dịch vụ *'),
         ),
         const SizedBox(height: 12),
         _masterDropdown(
-          label: 'Nhóm hàng',
+          label: 'Nhóm dịch vụ',
           value: _categoryId,
           items: _categories,
           onChanged: (v) => setState(() => _categoryId = v),
@@ -3058,11 +3067,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         TextField(
           controller: _nameCtrl,
           textInputAction: TextInputAction.done,
-          decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
+          decoration: PosTheme.inputDecoration(label: 'Tên combo / gói *'),
         ),
         const SizedBox(height: 12),
         _masterDropdown(
-          label: 'Nhóm hàng',
+          label: _sellProfile.usesSessionPackages ? 'Nhóm dịch vụ' : 'Nhóm hàng',
           value: _categoryId,
           items: _categories,
           onChanged: (v) => setState(() => _categoryId = v),
@@ -4673,7 +4682,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ),
         const SizedBox(height: 12),
         _masterDropdown(
-          label: 'Nhóm hàng',
+          label: _isService ? 'Nhóm dịch vụ' : 'Nhóm hàng',
           value: _categoryId,
           items: _categories,
           onChanged: (v) => setState(() => _categoryId = v),

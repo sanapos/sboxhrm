@@ -381,6 +381,24 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
   bool get _showSessionPacks =>
       (_sellProfile?.usesSessionPackages ?? false) || _sessionBalances.isNotEmpty;
 
+  /// Tổng buổi còn của các gói đếm buổi (thẻ không giới hạn ≥ 9999 ghi riêng).
+  String get _remainingSessionsLabel {
+    var remain = 0;
+    var unlimited = false;
+    for (final b in _sessionBalances) {
+      final total = (b['totalSessions'] as num?)?.toInt() ?? 0;
+      final exp = parseApiUtcDateTime(b['expiresAt']);
+      if (exp != null && exp.isBefore(DateTime.now())) continue;
+      if (total >= 9999) {
+        unlimited = true;
+      } else {
+        remain += (b['remainingSessions'] as num?)?.toInt() ?? 0;
+      }
+    }
+    if (unlimited) return remain > 0 ? '$remain + thẻ' : 'Thẻ không giới hạn';
+    return '$remain';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -400,6 +418,15 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
   static List<Map<String, dynamic>> _maps(dynamic v) =>
       (v as List? ?? []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
   static double _d(dynamic v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
+
+  /// Loại lượt gói buổi — server trả mã enum (Purchase / Redeem / Adjust / Expire hoặc số 0–3).
+  static String _sessionTxnLabel(String raw) => switch (raw) {
+        'Purchase' || '0' => 'Mua gói',
+        'Redeem' || '1' => 'Dùng buổi',
+        'Adjust' || '2' => 'Điều chỉnh',
+        'Expire' || '3' => 'Hết hạn',
+        _ => raw,
+      };
   static String _date(dynamic v) {
     final d = parseApiUtcDateTime(v);
     if (d == null) return '—';
@@ -552,12 +579,73 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
           SboxKpi(label: 'Công nợ', value: SboxFmt.money(c.currentDebt), icon: Icons.account_balance_wallet_outlined,
               tone: c.currentDebt > 0 ? SboxTone.danger : SboxTone.neutral),
           SboxKpi(label: 'Điểm tích lũy', value: SboxFmt.number(c.pointBalance), icon: Icons.stars_outlined, tone: SboxTone.violet),
+          if (_showSessionPacks && !_loading)
+            SboxKpi(label: 'Buổi còn lại', value: _remainingSessionsLabel, icon: Icons.card_membership_outlined, tone: SboxTone.success),
         ],
-        maxKpiColumns: 3,
+        maxKpiColumns: _showSessionPacks && !_loading ? 4 : 3,
         children: [
           if (widget.tiers.isNotEmpty) _tierCard(),
           if (_loading) const SboxLoading(),
           if (!_loading) ...[
+            // Salon / gym: gói buổi là thông tin khách hỏi nhiều nhất — đặt lên đầu, trước đơn và công nợ.
+            if (_showSessionPacks)
+            _section(
+              _sellProfile == PosSellProfile.gym ? 'Gói buổi / thẻ tập' : 'Gói buổi / liệu trình',
+              _sessionBalances.isEmpty
+                  ? const SboxEmptyState(icon: Icons.card_membership_outlined, title: 'Chưa có gói buổi')
+                  : SboxDataTable<Map<String, dynamic>>(
+                      rows: _sessionBalances,
+                      paginate: false,
+                      columns: [
+                        SboxColumn(label: 'Gói', primary: true, flex: 2, minWidth: 180, text: (b) => '${b['packageName'] ?? '—'}'),
+                        SboxColumn(
+                          label: 'Còn / Tổng',
+                          numeric: true,
+                          minWidth: 120,
+                          text: (b) {
+                            final total = (b['totalSessions'] as num?)?.toInt() ?? 0;
+                            final remain = (b['remainingSessions'] as num?)?.toInt() ?? 0;
+                            return total >= 9999 ? 'Không giới hạn' : '$remain / $total buổi';
+                          },
+                        ),
+                        SboxColumn(
+                          label: 'Hạn dùng',
+                          minWidth: 140,
+                          cell: (b) {
+                            final exp = parseApiUtcDateTime(b['expiresAt']);
+                            if (exp == null) return const Text('—');
+                            final expired = exp.isBefore(DateTime.now());
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: SboxStatusChip(
+                                label: '${exp.day.toString().padLeft(2, '0')}/${exp.month.toString().padLeft(2, '0')}/${exp.year}${expired ? ' · hết hạn' : ''}',
+                                tone: expired ? SboxTone.danger : SboxTone.neutral,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+              action: SboxButton.ghost(label: 'Sổ buổi / trừ buổi', icon: Icons.event_available_outlined, onPressed: _openSessions),
+            ),
+            if (_sessionTxns.isNotEmpty)
+              _section(
+                'Lượt dùng gần đây',
+                SboxDataTable<Map<String, dynamic>>(
+                  rows: _sessionTxns,
+                  pageSize: 8,
+                  columns: [
+                    SboxColumn(label: 'Gói', primary: true, minWidth: 160, text: (t) => '${t['packageName'] ?? '—'}'),
+                    SboxColumn(label: 'Loại', minWidth: 100, text: (t) => _sessionTxnLabel('${t['type'] ?? ''}')),
+                    SboxColumn(label: 'Nhân viên', minWidth: 140, text: (t) => '${t['employeeName'] ?? ''}'),
+                    SboxColumn(label: 'Buổi', numeric: true, minWidth: 80, text: (t) {
+                      final d = (t['sessionDelta'] as num?)?.toInt() ?? 0;
+                      return d > 0 ? '+$d' : '$d';
+                    }),
+                    SboxColumn(label: 'Ghi chú', minWidth: 160, hideOnMobile: true, text: (t) => '${t['note'] ?? ''}'),
+                  ],
+                ),
+              ),
             _section(
               'Đơn bán gần đây',
               action: Wrap(spacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
@@ -702,64 +790,6 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                 ],
               ),
             ),
-            if (_showSessionPacks)
-            _section(
-              'Gói buổi / thẻ tập',
-              _sessionBalances.isEmpty
-                  ? const SboxEmptyState(icon: Icons.card_membership_outlined, title: 'Chưa có gói buổi')
-                  : SboxDataTable<Map<String, dynamic>>(
-                      rows: _sessionBalances,
-                      paginate: false,
-                      columns: [
-                        SboxColumn(label: 'Gói', primary: true, flex: 2, minWidth: 180, text: (b) => '${b['packageName'] ?? '—'}'),
-                        SboxColumn(
-                          label: 'Còn / Tổng',
-                          numeric: true,
-                          minWidth: 120,
-                          text: (b) {
-                            final total = (b['totalSessions'] as num?)?.toInt() ?? 0;
-                            final remain = (b['remainingSessions'] as num?)?.toInt() ?? 0;
-                            return total >= 9999 ? 'Không giới hạn' : '$remain / $total buổi';
-                          },
-                        ),
-                        SboxColumn(
-                          label: 'Hạn dùng',
-                          minWidth: 140,
-                          cell: (b) {
-                            final exp = parseApiUtcDateTime(b['expiresAt']);
-                            if (exp == null) return const Text('—');
-                            final expired = exp.isBefore(DateTime.now());
-                            return Align(
-                              alignment: Alignment.centerLeft,
-                              child: SboxStatusChip(
-                                label: '${exp.day.toString().padLeft(2, '0')}/${exp.month.toString().padLeft(2, '0')}/${exp.year}${expired ? ' · hết hạn' : ''}',
-                                tone: expired ? SboxTone.danger : SboxTone.neutral,
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-              action: SboxButton.ghost(label: 'Sổ buổi / trừ buổi', icon: Icons.event_available_outlined, onPressed: _openSessions),
-            ),
-            if (_sessionTxns.isNotEmpty)
-              _section(
-                'Lượt dùng gần đây',
-                SboxDataTable<Map<String, dynamic>>(
-                  rows: _sessionTxns,
-                  pageSize: 8,
-                  columns: [
-                    SboxColumn(label: 'Gói', primary: true, minWidth: 160, text: (t) => '${t['packageName'] ?? '—'}'),
-                    SboxColumn(label: 'Loại', minWidth: 100, text: (t) => '${t['type'] ?? ''}'),
-                    SboxColumn(label: 'Nhân viên', minWidth: 140, text: (t) => '${t['employeeName'] ?? ''}'),
-                    SboxColumn(label: 'Buổi', numeric: true, minWidth: 80, text: (t) {
-                      final d = (t['sessionDelta'] as num?)?.toInt() ?? 0;
-                      return d > 0 ? '+$d' : '$d';
-                    }),
-                    SboxColumn(label: 'Ghi chú', minWidth: 160, hideOnMobile: true, text: (t) => '${t['note'] ?? ''}'),
-                  ],
-                ),
-              ),
           ],
         ],
       ),

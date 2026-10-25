@@ -395,7 +395,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final l = AppLocalizations.of(context);
     final items = <SboxCommandItem>[
       for (final i in _visibleNavIndices())
-        if (_navItems[i].label.isNotEmpty)
+        // Check-in / PT là màn riêng gym — salon, F&B… gõ tìm không nên ra.
+        if (_navItems[i].label.isNotEmpty &&
+            !(_posSellProfile != null &&
+                _posSellProfile != PosSellProfile.gym &&
+                (_navItems[i].moduleCode == 'PosGymCheckIn' || _navItems[i].moduleCode == 'PosGymTrainer')))
           SboxCommandItem(
             label: _navItems[i].localizedLabel(l),
             icon: _navItems[i].icon,

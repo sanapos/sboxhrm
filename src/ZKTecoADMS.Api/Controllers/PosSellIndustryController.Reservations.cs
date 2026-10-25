@@ -48,7 +48,9 @@ public partial class PosSellIndustryController
         string? DepositPaymentMethod = null,
         Guid? DepositBankAccountId = null,
         string? Occasion = null,
-        string? SpecialRequest = null);
+        string? SpecialRequest = null,
+        /// <summary>Salon: không chọn thợ → server xếp thợ rảnh (thợ quen trước, rồi người ít việc).</summary>
+        bool AutoAssignStaff = false);
 
     public record UpdateReservationDto(
         Guid ResourceId,
@@ -64,7 +66,8 @@ public partial class PosSellIndustryController
         Guid? AssignedEmployeeId = null,
         string? Note = null,
         string? Occasion = null,
-        string? SpecialRequest = null);
+        string? SpecialRequest = null,
+        bool AutoAssignStaff = false);
 
     public record CollectDepositDto(
         decimal Amount,
@@ -422,16 +425,38 @@ public partial class PosSellIndustryController
             slotEnd = ToUtc(dto.ReservedUntil);
         }
 
-        if (dto.AssignedEmployeeId.HasValue)
+        // Xếp thợ: «Tự xếp» chọn thợ có ca, không nghỉ, không trùng — thợ quen trước rồi người ít việc.
+        // Chọn tay: vẫn chặn thợ đang bận (lịch khác hoặc khách đang ngồi ghế) khung giờ này.
+        var assignedEmployeeId = dto.AssignedEmployeeId;
+        string? autoAssignReason = null;
+        if (isTimed && (dto.AutoAssignStaff || assignedEmployeeId.HasValue))
+        {
+            var av = await BuildStaffAvailabilityAsync(
+                storeId, VnCalendarDate(slotStart), slotStart, slotEnd, dto.CustomerId, null);
+            if (!assignedEmployeeId.HasValue)
+            {
+                if (av.RecommendedEmployeeId == null)
+                    return BadRequest(AppResponse<object>.Fail(
+                        "Không còn thợ rảnh khung giờ này — chọn giờ khác hoặc chọn thợ"));
+                assignedEmployeeId = av.RecommendedEmployeeId;
+                autoAssignReason = av.RecommendedReason;
+            }
+            else if (av.Items.FirstOrDefault(i => i.EmployeeId == assignedEmployeeId) is { Busy: true } busy)
+            {
+                return BadRequest(AppResponse<object>.Fail($"{busy.Name} đang bận: {busy.UnavailableReason}"));
+            }
+        }
+
+        if (assignedEmployeeId.HasValue)
         {
             var empOk = await db.Employees.AnyAsync(e =>
-                e.Id == dto.AssignedEmployeeId && e.Deleted == null
+                e.Id == assignedEmployeeId && e.Deleted == null
                 && e.WorkStatus != EmployeeWorkStatus.Resigned);
             if (!empOk)
                 return BadRequest(AppResponse<object>.Fail("Nhân viên không hợp lệ"));
         }
 
-        await using var bookingTx = await BeginBookingLockAsync(dto.ResourceId, dto.AssignedEmployeeId);
+        await using var bookingTx = await BeginBookingLockAsync(dto.ResourceId, assignedEmployeeId);
         var live = await db.PosResourceSessions.AnyAsync(s =>
             s.ResourceId == dto.ResourceId
             && (s.Status == PosResourceSessionStatus.Open || s.Status == PosResourceSessionStatus.Paused)
@@ -460,12 +485,12 @@ public partial class PosSellIndustryController
                     : $"Bàn đã có lịch đặt gần giờ này — mỗi lịch giữ bàn từ {HoldBeforeMinutes} phút trước giờ đến tới khoảng {HoldDiningMinutes / 60} tiếng sau"));
         }
 
-        if (isTimed && dto.AssignedEmployeeId.HasValue)
+        if (isTimed && assignedEmployeeId.HasValue)
         {
             var empBooked = await db.PosResourceReservations.AsNoTracking()
                 .Where(x => x.StoreId == storeId && x.Deleted == null
                     && x.Status == PosResourceReservationStatus.Booked
-                    && x.AssignedEmployeeId == dto.AssignedEmployeeId
+                    && x.AssignedEmployeeId == assignedEmployeeId
                     && x.DurationMinutes != null && x.DurationMinutes > 0)
                 .Select(x => new { x.ReservedAt, x.ReservedUntil, x.DurationMinutes })
                 .ToListAsync();
@@ -545,7 +570,7 @@ public partial class PosSellIndustryController
             ReservedUntil = slotEnd,
             DurationMinutes = duration,
             ServiceProductId = serviceProduct?.Id,
-            AssignedEmployeeId = dto.AssignedEmployeeId,
+            AssignedEmployeeId = assignedEmployeeId,
             Status = PosResourceReservationStatus.Booked,
             PreOrderJson = preJson,
             Note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim(),
@@ -606,6 +631,10 @@ public partial class PosSellIndustryController
             isTimedSlot = entity.IsTimedSlot,
             serviceProductId = entity.ServiceProductId,
             assignedEmployeeId = entity.AssignedEmployeeId,
+            assignedEmployeeName = entity.AssignedEmployeeId == null ? null
+                : await db.Employees.AsNoTracking().Where(e => e.Id == entity.AssignedEmployeeId)
+                    .Select(e => (e.LastName + " " + e.FirstName).Trim()).FirstOrDefaultAsync(),
+            autoAssignReason,
         }));
     }
 
@@ -666,16 +695,38 @@ public partial class PosSellIndustryController
             slotEnd = ToUtc(dto.ReservedUntil) ?? entity.ReservedUntil;
         }
 
-        if (dto.AssignedEmployeeId.HasValue)
+        // Xếp thợ: «Tự xếp» chọn thợ có ca, không nghỉ, không trùng — thợ quen trước rồi người ít việc.
+        // Chọn tay: vẫn chặn thợ đang bận (lịch khác hoặc khách đang ngồi ghế) khung giờ này.
+        var assignedEmployeeId = dto.AssignedEmployeeId;
+        string? autoAssignReason = null;
+        if (isTimed && (dto.AutoAssignStaff || assignedEmployeeId.HasValue))
+        {
+            var av = await BuildStaffAvailabilityAsync(
+                storeId, VnCalendarDate(slotStart), slotStart, slotEnd, dto.CustomerId, entity.Id);
+            if (!assignedEmployeeId.HasValue)
+            {
+                if (av.RecommendedEmployeeId == null)
+                    return BadRequest(AppResponse<object>.Fail(
+                        "Không còn thợ rảnh khung giờ này — chọn giờ khác hoặc chọn thợ"));
+                assignedEmployeeId = av.RecommendedEmployeeId;
+                autoAssignReason = av.RecommendedReason;
+            }
+            else if (av.Items.FirstOrDefault(i => i.EmployeeId == assignedEmployeeId) is { Busy: true } busy)
+            {
+                return BadRequest(AppResponse<object>.Fail($"{busy.Name} đang bận: {busy.UnavailableReason}"));
+            }
+        }
+
+        if (assignedEmployeeId.HasValue)
         {
             var empOk = await db.Employees.AnyAsync(e =>
-                e.Id == dto.AssignedEmployeeId && e.Deleted == null
+                e.Id == assignedEmployeeId && e.Deleted == null
                 && e.WorkStatus != EmployeeWorkStatus.Resigned);
             if (!empOk)
                 return BadRequest(AppResponse<object>.Fail("Nhân viên không hợp lệ"));
         }
 
-        await using var bookingTx = await BeginBookingLockAsync(entity.ResourceId, dto.AssignedEmployeeId ?? entity.AssignedEmployeeId);
+        await using var bookingTx = await BeginBookingLockAsync(entity.ResourceId, assignedEmployeeId ?? entity.AssignedEmployeeId);
         var live = await db.PosResourceSessions.AnyAsync(s =>
             s.ResourceId == dto.ResourceId
             && (s.Status == PosResourceSessionStatus.Open || s.Status == PosResourceSessionStatus.Paused)
@@ -705,12 +756,12 @@ public partial class PosSellIndustryController
                     : $"Bàn đã có lịch đặt gần giờ này — mỗi lịch giữ bàn từ {HoldBeforeMinutes} phút trước giờ đến tới khoảng {HoldDiningMinutes / 60} tiếng sau"));
         }
 
-        if (isTimed && dto.AssignedEmployeeId.HasValue)
+        if (isTimed && assignedEmployeeId.HasValue)
         {
             var empBooked = await db.PosResourceReservations.AsNoTracking()
                 .Where(x => x.StoreId == storeId && x.Deleted == null
                     && x.Status == PosResourceReservationStatus.Booked
-                    && x.AssignedEmployeeId == dto.AssignedEmployeeId
+                    && x.AssignedEmployeeId == assignedEmployeeId
                     && x.Id != id
                     && x.DurationMinutes != null && x.DurationMinutes > 0)
                 .Select(x => new { x.ReservedAt, x.ReservedUntil, x.DurationMinutes })
@@ -751,7 +802,7 @@ public partial class PosSellIndustryController
         entity.ReservedUntil = slotEnd;
         entity.DurationMinutes = duration;
         entity.ServiceProductId = serviceProduct?.Id;
-        entity.AssignedEmployeeId = dto.AssignedEmployeeId;
+        entity.AssignedEmployeeId = assignedEmployeeId;
         entity.Note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim();
         entity.Occasion = NormalizeOccasion(dto.Occasion);
         entity.SpecialRequest = TrimMax(dto.SpecialRequest, 500);
