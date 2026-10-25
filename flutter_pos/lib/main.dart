@@ -344,6 +344,7 @@ class _PosAuthShellState extends State<_PosAuthShell>
 
       final storeId = auth.user?.storeId;
       if (storeId != null && storeId.isNotEmpty) {
+        PosPrintAgentSettings.activeStoreId = storeId;
         await _signalR.joinStoreGroup(storeId);
         await PosPrintOrchestrator.instance.ensureListening();
         // SBOX KDS chỉ hiện / in phiếu bếp — không làm Agent in hộ, không nghe cổng thanh toán.

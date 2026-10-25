@@ -242,6 +242,27 @@ public partial class PosProductsController
         return Ok(AppResponse<PosProductDto>.Success(mapped!));
     }
 
+    /// <summary>Chữ thường, bỏ dấu tiếng Việt (đ → d) để so khớp tìm kiếm.</summary>
+    internal static string FoldVietnamese(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        var decomposed = text.ToLowerInvariant().Replace('đ', 'd').Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder(decomposed.Length);
+        foreach (var c in decomposed)
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
+                != System.Globalization.UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+        return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
+    }
+
+    internal static bool SampleMatches(string[] foldedTerms, params string?[] fields)
+    {
+        var hay = FoldVietnamese(string.Join(' ', fields.Where(f => !string.IsNullOrEmpty(f))));
+        return foldedTerms.All(hay.Contains);
+    }
+
     /// <summary>Duyệt catalog mẫu Super Admin (menu món / đồ uống / hàng có mã).</summary>
     [HttpGet("sample-catalog")]
     [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
@@ -263,6 +284,8 @@ public partial class PosProductsController
             .Select(s => s.SellProfile)
             .FirstOrDefaultAsync();
         q = q.WhereMatches(storeProfile);
+        // Chip nhóm chỉ gồm nhóm có mẫu của ngành này — gym không hiện «Bi-a», «Chăm sóc tóc».
+        var profileItems = q;
         if (kind.HasValue) q = q.Where(x => x.Kind == kind);
         if (productType.HasValue) q = q.Where(x => x.ProductType == productType);
         if (categoryId.HasValue) q = q.Where(x => x.CategoryId == categoryId);
@@ -273,12 +296,16 @@ public partial class PosProductsController
         }
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
-            q = q.Where(x =>
-                x.Name.ToLower().Contains(s) ||
-                (x.Barcode != null && x.Barcode.ToLower().Contains(s)) ||
-                (x.CategoryName != null && x.CategoryName.ToLower().Contains(s)) ||
-                (x.BrandName != null && x.BrandName.ToLower().Contains(s)));
+            // Gõ không dấu («goi tap») vẫn ra «Gói tập» — catalog mẫu nhỏ, lọc trong bộ nhớ.
+            // Mọi từ phải có mặt («goi buoi» → «Gói 10 buổi PT»).
+            var terms = FoldVietnamese(search).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var rows = await q.Select(x => new { x.Id, x.Name, x.Barcode, x.CategoryName, x.BrandName })
+                .ToListAsync();
+            var ids = rows
+                .Where(x => SampleMatches(terms, x.Name, x.Barcode, x.CategoryName, x.BrandName))
+                .Select(x => x.Id)
+                .ToList();
+            q = q.Where(x => ids.Contains(x.Id));
         }
         var total = await q.CountAsync();
         var items = await q.OrderBy(x => x.Kind).ThenBy(x => x.SortOrder).ThenBy(x => x.Name)
@@ -309,15 +336,18 @@ public partial class PosProductsController
             })
             .ToListAsync();
 
+        var usedCategoryIds = profileItems.Where(x => x.CategoryId != null).Select(x => x.CategoryId);
+        var usedCategoryNames = profileItems.Where(x => x.CategoryName != null).Select(x => x.CategoryName);
         var categories = await dbContext.PosProductSampleCategory.AsNoTracking()
             .Where(x => x.Deleted == null && x.IsActive)
+            .Where(x => usedCategoryIds.Contains(x.Id) || usedCategoryNames.Contains(x.Name))
             .OrderBy(x => x.SortOrder).ThenBy(x => x.Name)
             .Select(x => new { x.Id, x.Name, Kind = x.Kind.HasValue ? x.Kind.ToString() : null })
             .ToListAsync();
         if (categories.Count == 0)
         {
-            var names = await dbContext.PosProductSampleCatalog.AsNoTracking()
-                .Where(x => x.Deleted == null && x.IsActive && x.CategoryName != null && x.CategoryName != "")
+            var names = await profileItems
+                .Where(x => x.CategoryName != null && x.CategoryName != "")
                 .Select(x => x.CategoryName!)
                 .Distinct()
                 .OrderBy(x => x)

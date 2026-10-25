@@ -112,6 +112,7 @@ class _PosStandaloneShellState extends State<PosStandaloneShell>
 
       final storeId = auth.user?.storeId;
       if (storeId != null && storeId.isNotEmpty) {
+        PosPrintAgentSettings.activeStoreId = storeId;
         await _signalR.joinStoreGroup(storeId);
         await PosPrintOrchestrator.instance.ensureListening();
         final agentSettings = await PosPrintAgentSettings.load();

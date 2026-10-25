@@ -1375,7 +1375,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
             if (_agent.enabled && _agent.assignedPrinterIds.isEmpty)
               Padding(
                 padding: EdgeInsets.only(top: 6),
-                child: Text(tr('⚠ Chưa chọn chip máy in — Agent không nhận được lệnh từ Oppo'),
+                child: Text(tr('⚠ Chưa chọn chip máy in — Agent không nhận được lệnh từ máy khác'),
                   style: TextStyle(color: Colors.orange, fontSize: 12),
                 ),
               ),

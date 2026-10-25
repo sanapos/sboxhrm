@@ -1106,6 +1106,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       // Join store group for store-scoped notifications
       final storeId = authProvider.user?.storeId;
       if (storeId != null && storeId.isNotEmpty) {
+        PosPrintAgentSettings.activeStoreId = storeId;
         await _signalRService.joinStoreGroup(storeId);
         await PosPrintOrchestrator.instance.ensureListening();
         // Gắn tên tài khoản vào heartbeat Agent (máy khác thấy ai đang giữ).

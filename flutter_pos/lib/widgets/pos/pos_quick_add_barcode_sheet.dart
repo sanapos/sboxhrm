@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../../models/pos_product.dart';
+import '../../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../../services/api_service.dart';
 import '../../utils/number_formatter.dart';
 import '../notification_overlay.dart';
@@ -363,6 +364,8 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
       var p = PosProduct.fromJson(res['data'] as Map<String, dynamic>);
       p = await _attachCatalogImage(p);
       if (!mounted) return;
+      // Màn bán đang mở (tab giữ sống) phải thấy hàng mới — không đợi «Thử lại».
+      ScreenRefreshNotifier.refreshPosAfterStockChange();
       Navigator.pop(context, p);
       return;
     }

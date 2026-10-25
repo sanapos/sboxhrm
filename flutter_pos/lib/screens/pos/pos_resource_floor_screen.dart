@@ -1175,7 +1175,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 child: Text(tr('Huỷ'))),
             FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: Text(tr('Mở bàn'))),
+                // Phòng (karaoke / khách sạn) không gọi là «bàn».
+                child: Text(tr(r.resourceKind == PosResourceKind.room
+                    ? 'Mở phòng'
+                    : r.resourceKind == PosResourceKind.chair
+                        ? 'Mở ghế'
+                        : 'Mở bàn'))),
           ],
         ),
       ),
@@ -5676,7 +5681,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               Expanded(
                 child: Text(
                   tr(r.name),
-                  maxLines: 1,
+                  // 2 dòng: «Phòng QA 1» trên ô ~130px bị cắt thành «Phòng Q…».
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,

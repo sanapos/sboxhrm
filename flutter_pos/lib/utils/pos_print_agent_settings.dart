@@ -20,10 +20,28 @@ class PosPrintAgentSettings {
   static const _kPrinterIds = 'pos_print_agent_printer_ids';
   static const _kDeviceId = 'pos_print_device_id';
   static const _kAccountLabel = 'pos_print_agent_account_label';
+  static const _kStoreId = 'pos_print_agent_store_id';
+
+  /// Cửa hàng đang đăng nhập — app gán ngay khi biết storeId. Agent bật ở cửa hàng
+  /// này không chạy khi máy đăng nhập cửa hàng khác (chip máy in là GUID của hàng cũ).
+  static String? activeStoreId;
 
   static Future<PosPrintAgentSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
     final ids = prefs.getStringList(_kPrinterIds) ?? [];
+    final owner = prefs.getString(_kStoreId);
+    final active = activeStoreId;
+    if (active != null && active.isNotEmpty) {
+      if (owner == null || owner.isEmpty) {
+        // Bản cũ chưa lưu cửa hàng: gắn với cửa hàng đang đăng nhập.
+        await prefs.setString(_kStoreId, active);
+      } else if (owner.toLowerCase() != active.toLowerCase()) {
+        return PosPrintAgentSettings(
+          deviceId: prefs.getString(_kDeviceId),
+          accountLabel: prefs.getString(_kAccountLabel),
+        );
+      }
+    }
     return PosPrintAgentSettings(
       enabled: prefs.getBool(_kEnabled) ?? false,
       assignedPrinterIds: ids,
@@ -36,6 +54,10 @@ class PosPrintAgentSettings {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kEnabled, enabled);
     await prefs.setStringList(_kPrinterIds, assignedPrinterIds);
+    final active = activeStoreId;
+    if (active != null && active.isNotEmpty) {
+      await prefs.setString(_kStoreId, active);
+    }
     if (deviceId != null && deviceId!.isNotEmpty) {
       await prefs.setString(_kDeviceId, deviceId!);
     }

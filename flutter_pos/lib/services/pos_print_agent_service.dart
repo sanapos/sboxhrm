@@ -96,6 +96,7 @@ class PosPrintAgentService {
       return;
     }
     if (storeId == null || storeId.isEmpty) return;
+    PosPrintAgentSettings.activeStoreId = storeId;
     if (_ensureRunningInFlight) return;
     _ensureRunningInFlight = true;
     try {

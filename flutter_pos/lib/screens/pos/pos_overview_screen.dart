@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -33,12 +35,19 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
   Map<String, dynamic>? _stock;
   Map<String, dynamic>? _analysis;
   bool _topByRevenue = true;
+  DateTime? _loadedBusinessDay;
+  Timer? _dayRollTimer;
 
   @override
   void initState() {
     super.initState();
     ScreenRefreshNotifier.posOverview.addListener(_onExternalRefresh);
     NavigationNotifier.currentModuleCode.addListener(_onModuleVisible);
+    // Tab giữ sống qua đêm: «Hôm nay» vẫn là ngày hôm qua tới khi có đơn mới → tải lại khi sang ngày.
+    _dayRollTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (!mounted || _loading || _time.isCustom) return;
+      if (_loadedBusinessDay != null && posBusinessToday() != _loadedBusinessDay) _load();
+    });
     _load();
   }
 
@@ -55,12 +64,14 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
 
   @override
   void dispose() {
+    _dayRollTimer?.cancel();
     ScreenRefreshNotifier.posOverview.removeListener(_onExternalRefresh);
     NavigationNotifier.currentModuleCode.removeListener(_onModuleVisible);
     super.dispose();
   }
 
   Future<void> _load() async {
+    _loadedBusinessDay = posBusinessToday();
     setState(() => _loading = true);
     final results = await Future.wait([
       _api.getPosSalesReportSummary(from: _time.from, to: _time.to),

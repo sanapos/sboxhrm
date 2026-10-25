@@ -21,9 +21,16 @@ String formatPosTableOneLine({
   final t = (tableName ?? '').trim();
   final a = (areaName ?? '').trim();
   if (t.isEmpty && a.isEmpty) return '';
-  if (a.isEmpty) return 'Bàn: ${t.isEmpty ? fallback : t}';
+  if (a.isEmpty) return t.isEmpty ? 'Bàn: $fallback' : _withResourceNoun(t);
   if (t.isEmpty) return 'Khu: $a';
-  return 'Bàn: $t    Khu: $a';
+  return '${_withResourceNoun(t)}    Khu: $a';
+}
+
+/// «Bàn: 05» nhưng «Phòng QA 1» (khách sạn / karaoke) — tránh «Bàn: Phòng QA 1».
+String _withResourceNoun(String name) {
+  final n = name.toLowerCase();
+  const nouns = ['bàn', 'phòng', 'ghế', 'giường', 'room', 'table'];
+  return nouns.any(n.startsWith) ? name : 'Bàn: $name';
 }
 
 /// Dòng in nhiệt — bàn và khu cùng một hàng.

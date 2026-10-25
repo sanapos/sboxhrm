@@ -332,10 +332,17 @@ class _SellCartLine {
   set unitLabel(String v) => _unitLabel = v;
 
   /// SL hiện trên giỏ: tiền giờ theo giờ hiện «1h55» (format SL nguyên trước đây làm 1,9167 giờ thành «2»).
-  String get qtyLabel => product.isTimedService &&
-          PosServiceBillingMode.parse(product.serviceBillingMode) == PosServiceBillingMode.perHour
-      ? posFmtTimedMinutes((qty * 60).round())
-      : PosQtyRules.format(qty, product: product);
+  String get qtyLabel {
+    final mode = product.isTimedService
+        ? PosServiceBillingMode.parse(product.serviceBillingMode)
+        : null;
+    if (mode == PosServiceBillingMode.perHour) return posFmtTimedMinutes((qty * 60).round());
+    // Khách sạn: nhận sớm / trả muộn tính ½ đêm — «1,5» (format SL nguyên làm 1,5 đêm thành «2»).
+    if (mode == PosServiceBillingMode.perDay && qty != qty.roundToDouble()) {
+      return qty.toStringAsFixed(1).replaceAll('.', ',');
+    }
+    return PosQtyRules.format(qty, product: product);
+  }
 
   /// Tiền cộng / trừ của khung giờ đặc biệt (dịch vụ tính giờ) — tính lại mỗi nhịp đồng hồ.
   double timeSurcharge = 0;
@@ -1459,6 +1466,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     // Nạp lại định kỳ: chương trình mới / hàng cận hạn đổi trong ngày.
     _promotionsTimer = Timer.periodic(const Duration(minutes: 10), (_) => unawaited(_loadPromotions()));
     ScreenRefreshNotifier.posSellIndustry.addListener(_onSellIndustryChanged);
+    PosSellPrintSettings.revision.addListener(_loadPrintSettings);
     NavigationNotifier.posHandleSystemBack = _onSystemBack;
     _floorRealtime.start((event) {
       if (!mounted) return;
@@ -2287,6 +2295,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     ScreenRefreshNotifier.posPriceLists.removeListener(_onPriceListsChanged);
     _promotionsTimer?.cancel();
     ScreenRefreshNotifier.posSellIndustry.removeListener(_onSellIndustryChanged);
+    PosSellPrintSettings.revision.removeListener(_loadPrintSettings);
     HardwareKeyboard.instance.removeHandler(_onKey);
     PosScaleReader.instance.removeListener(_onScaleChanged);
     _tabScrollCtrl.dispose();

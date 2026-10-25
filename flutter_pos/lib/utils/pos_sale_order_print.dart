@@ -524,7 +524,7 @@ Future<bool> printPosSaleOrder({
   await configF;
   perf.mark('printerConfig');
   perf.done('(chuẩn bị in — phần gửi lệnh = invoicePrint − phần này)');
-  final cloudPrinters = PosPrintOrchestrator.instance
+  var cloudPrinters = PosPrintOrchestrator.instance
       .resolveCloudPrinters(PosCloudDocumentTypes.saleInvoice);
 
   // App: in local khi máy này có cổng hóa đơn (không cần bật Agent).
@@ -632,6 +632,14 @@ Future<bool> printPosSaleOrder({
         return false;
       }
     }
+  }
+
+  // Bản đệm cấu hình quá hạn vẫn được dùng (tải lại ở nền) → máy in vừa được chia sẻ
+  // Agent sẽ trượt đúng lần in đầu. Chưa thấy máy cloud nào → tải lại ngay 1 lần.
+  if (cloudPrinters.isEmpty) {
+    await PosPrintOrchestrator.instance.refreshConfig(force: true);
+    cloudPrinters = PosPrintOrchestrator.instance
+        .resolveCloudPrinters(PosCloudDocumentTypes.saleInvoice);
   }
 
   // Cloud → Print Agent (app + web). Web bán hàng dùng đường này để giống app.

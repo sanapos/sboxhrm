@@ -1037,10 +1037,21 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               lineItems: posPrintSampleLines(),
             );
 
-      final settings = toThermalSettings(picked).copyWith(
+      final machine = toThermalSettings(picked);
+      // Mẫu K80 in thử ra máy K58: ảnh 576 điểm bị cắt mất mép phải (đầu in chỉ 384 điểm)
+      // → dựng theo khổ máy; mẫu hẹp hơn máy thì giữ khổ mẫu.
+      final narrowMachine = v2.paperSize == PosPrintPaperSizes.k80 &&
+          machine.paperWidthMm == 58;
+      final settings = machine.copyWith(
         enabled: true,
-        paperSize: v2.paperSize,
+        paperSize: narrowMachine ? PosPrintPaperSizes.k58 : v2.paperSize,
       );
+      if (narrowMachine) {
+        NotificationOverlayManager().showWarning(
+          title: 'Khổ giấy khác mẫu',
+          message: tr('Mẫu 80mm, máy ${picked.name} 58mm — in thử theo khổ 58mm'),
+        );
+      }
 
       final bytes = await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
         output: output,

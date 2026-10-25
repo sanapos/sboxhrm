@@ -12683,7 +12683,7 @@ const Map<String, String> kEnUiMap = <String, String>{
   '⚠ BSSID=02:00:... → GPS tắt': '⚠ BSSID=02:00:... → GPS turns off',
   '⚠ BSSID=02:00:... → GPS tắt?': '⚠ BSSID=02:00:... → GPS off?',
   '⚠ Chênh lệch lớn - cần cân bằng lại phân ca': '⚠ Big difference - need to rebalance shifts',
-  '⚠ Chưa chọn chip máy in — Agent không nhận được lệnh từ Oppo': '⚠ Printer chip not selected — Agent did not receive command from Oppo',
+  '⚠ Chưa chọn chip máy in — Agent không nhận được lệnh từ máy khác': '⚠ Printer chip not selected — Agent will not receive jobs from other devices',
   '⚠ Chưa được xếp ca nào': '⚠ No shifts have been assigned yet',
   '⚠ CẢNH BÁO: Không thể hoàn tác!': '⚠ WARNING: Cannot be undone!',
   '⚠ Lỗi': '⚠ Error',

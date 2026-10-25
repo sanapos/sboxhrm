@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
@@ -340,5 +341,10 @@ class PosSellPrintSettings {
     } else {
       await prefs.remove(_kWarehouseTemplate);
     }
+    revision.value++;
   }
+
+  /// Tăng mỗi lần [save] — màn bán hàng (giữ sống trong tab) nạp lại thiết lập,
+  /// không thì bật «In hóa đơn khi thanh toán» ở Thiết lập SBOX phải mở lại app mới ăn.
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
 }
