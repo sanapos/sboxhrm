@@ -73,6 +73,29 @@ class PosPrintOrchestrator {
   PosPrintOrchestrator._();
   static final PosPrintOrchestrator instance = PosPrintOrchestrator._();
 
+  /// printerId → lần cuối có Print Agent báo đang nhận máy này (heartbeat).
+  final Map<String, DateTime> _agentSeenAt = {};
+  StreamSubscription<Map<String, dynamic>>? _agentHbSub;
+
+  void _watchAgentHeartbeats() {
+    _agentHbSub ??= SignalRService().onPrintAgentHeartbeat.listen((data) {
+      if (data['isOnline'] == false) return;
+      final ids = data['printerIds'];
+      if (ids is! List) return;
+      final now = DateTime.now();
+      for (final id in ids) {
+        _agentSeenAt['$id'.toLowerCase()] = now;
+      }
+    });
+  }
+
+  /// Có Agent nhận máy in này trong 5 phút gần đây (heartbeat thưa 2–4 phút).
+  bool _agentSeenRecently(String printerId) {
+    _watchAgentHeartbeats();
+    final t = _agentSeenAt[printerId.toLowerCase()];
+    return t != null && DateTime.now().difference(t) < const Duration(minutes: 5);
+  }
+
   /// Thời gian chờ Agent in trước khi đưa phiếu vào hàng treo (máy gửi).
   static const hangAfterDefault = Duration(seconds: 60);
 
@@ -1591,11 +1614,21 @@ class PosPrintOrchestrator {
         if (facing != null) printer = facing;
       }
     }
+    // Máy bếp LAN đẩy cloud mà không Agent nào nhận (vd «LAN zywell» khai báo trên máy khác, Agent tắt):
+    // trước đây phiếu nằm hàng đợi rồi hết hạn sau 5 phút — bếp không có món, thu ngân vẫn thấy «Đã gửi».
+    // Cùng mạng quán → in thẳng IP từ máy này; không được mới đẩy hàng đợi + cảnh báo.
+    // forceCloud ở đây chỉ là «để điều phối tự quyết» (báo bếp luôn truyền true) — không chặn in thẳng.
+    final lanDirect = effectiveForceCloud &&
+        !kIsWeb &&
+        printer.isLan &&
+        (printer.lanHost ?? '').trim().isNotEmpty &&
+        !_agentSeenRecently(printer.id);
+    var lanDirectFailed = false;
     debugPrint(
       'Kitchen DBG dispatchKitchenSlip: printer=${printer.name} isSunmi=${printer.isSunmi} '
       'isAgent=$isAgent onSunmiHw=$onSunmiHw canLocal=$canLocal '
       'forceCloud=$effectiveForceCloud preferDirect=$effectivePreferDirect '
-      'isDeviceLocal=${printer.isDeviceLocal}',
+      'isDeviceLocal=${printer.isDeviceLocal} lanDirect=$lanDirect host=${printer.lanHost}',
     );
 
     // Máy in trong Sunmi: chỉ khi đã cài máy nội bộ Sunmi trên thiết bị này.
@@ -1639,7 +1672,7 @@ class PosPrintOrchestrator {
     // Cloud/Agent: luôn KitchenSlipJson — payload nhỏ; Agent tự dựng ESC/POS.
     // Trước đây A7 compile EscPos bitmap VN rồi gửi base64: 2+ món rất nặng →
     // Agent USB chậm/timeout → phiếu treo; hủy từng món (payload nhỏ) lại in được.
-    if (!effectiveForceCloud && !kIsWeb) {
+    if ((!effectiveForceCloud || lanDirect) && !kIsWeb) {
       final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
       final table = tableName.trim().isEmpty ? 'Bàn' : tableName.trim();
       final sender = senderName.trim().isEmpty ? 'admin' : senderName.trim();
@@ -1737,7 +1770,31 @@ class PosPrintOrchestrator {
         debugPrint(
           'Kitchen DBG: on-device local fail ${printer.name} — fallback cloud JSON',
         );
+      } else if (lanDirect) {
+        final lanOk = await dispatchLocalEscPos(
+          bytes: bytes,
+          showFeedback: showFeedback,
+          successTitle: successTitle,
+          settingsOverride: toThermalSettings(printer).copyWith(openCashDrawer: false),
+          skipDedup: true,
+          documentType: kitchenDoc,
+          waitForCompletion: true,
+        );
+        if (lanOk) {
+          debugPrint('Kitchen DBG: in thẳng LAN ${printer.lanHost} (không Agent nhận ${printer.name})');
+          return true;
+        }
+        lanDirectFailed = true;
       }
+    }
+
+    if (lanDirectFailed) {
+      // Luôn báo (kể cả showFeedback=false): thu ngân phải biết bếp chưa có phiếu.
+      NotificationOverlayManager().showWarning(
+        title: 'Máy bếp chưa in',
+        message: tr('${printer.name} (${printer.lanHost}) không kết nối được và chưa có máy Agent nào nhận — '
+            'phiếu đang chờ trong Hàng đợi in. Kiểm tra nguồn / mạng máy in.'),
+      );
     }
 
     debugPrint(

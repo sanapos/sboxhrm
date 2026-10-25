@@ -189,8 +189,16 @@ object UsbEscPosPrinter {
             } catch (_: Exception) {
                 null
             }
+            // Máy quét mã / bàn phím USB (HID) không có cổng ghi in — báo cho app để không gắn nhầm làm máy in.
+            val canPrint = findBulkOut(device) != null
+            val hidOnly = device.interfaceCount > 0 &&
+                (0 until device.interfaceCount).all {
+                    device.getInterface(it).interfaceClass == UsbConstants.USB_CLASS_HID
+                }
             out.add(
                 mapOf(
+                    "canPrint" to canPrint,
+                    "isHid" to hidOnly,
                     "deviceName" to device.deviceName,
                     "vendorId" to device.vendorId,
                     "productId" to device.productId,

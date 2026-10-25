@@ -1077,12 +1077,16 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                     final selected = d.stableId == _usbStableId;
                     return ListTile(
                       selected: selected,
+                      // Máy quét mã / bàn phím USB: hiện để biết máy đã nhận, nhưng không chọn làm máy in.
+                      enabled: d.canPrint,
                       leading: Icon(
                         Icons.usb,
                         color: selected ? PosTheme.kiotBlue : null,
                       ),
                       title: Text(PosUsbLabels.title(d)),
-                      subtitle: Text(PosUsbLabels.subtitle(d)),
+                      subtitle: Text(d.canPrint
+                          ? PosUsbLabels.subtitle(d)
+                          : tr('Không phải máy in (máy quét mã / bàn phím) — không chọn được')),
                       trailing: selected
                           ? const Icon(Icons.check_circle,
                               color: PosTheme.kiotBlue)

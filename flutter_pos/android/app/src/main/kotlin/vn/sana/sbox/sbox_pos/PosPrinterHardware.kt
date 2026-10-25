@@ -120,9 +120,9 @@ object PosPrinterHardware {
             "deviceCount" to devices,
             "sdk" to Build.VERSION.SDK_INT,
             "hint" to when {
-                !hasHost -> "Thiet bi khong ho tro USB host (OTG)."
-                devices == 0 -> "Khong thay may USB. Cam may in vao cong USB Type-A (khong dung cong sac/ADB). Rut cap PC neu dang cam."
-                else -> "Co $devices thiet bi USB."
+                !hasHost -> "Thiết bị không hỗ trợ USB host (OTG)."
+                devices == 0 -> "Không thấy máy USB. Cắm máy in vào cổng USB Type-A (không dùng cổng sạc/ADB). Rút cáp PC nếu đang cắm."
+                else -> "Có $devices thiết bị USB."
             },
         )
     }

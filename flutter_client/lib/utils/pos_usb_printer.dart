@@ -20,6 +20,8 @@ class PosUsbDevice {
     this.manufacturerName,
     this.deviceClass,
     this.hasPermission = false,
+    this.canPrint = true,
+    this.isHid = false,
   });
 
   final String deviceName;
@@ -33,6 +35,10 @@ class PosUsbDevice {
   final String? manufacturerName;
   final int? deviceClass;
   final bool hasPermission;
+  /// Có cổng ghi dữ liệu in (bulk OUT). Máy quét mã / bàn phím USB = false.
+  final bool canPrint;
+  /// Thiết bị HID (máy quét mã, bàn phím) — không phải máy in.
+  final bool isHid;
 
   factory PosUsbDevice.fromMap(Map<dynamic, dynamic> m) {
     return PosUsbDevice(
@@ -47,6 +53,9 @@ class PosUsbDevice {
       manufacturerName: m['manufacturerName']?.toString(),
       deviceClass: (m['deviceClass'] as num?)?.toInt(),
       hasPermission: m['hasPermission'] == true,
+      // Bản app cũ / Windows không gửi cờ → coi như in được (giữ hành vi cũ).
+      canPrint: m['canPrint'] != false,
+      isHid: m['isHid'] == true,
     );
   }
 

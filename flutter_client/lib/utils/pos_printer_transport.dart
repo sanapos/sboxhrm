@@ -321,8 +321,11 @@ class PosPrinterTransport {
       );
       return false;
     }
-    if (list.length == 1) {
-      final only = list.first;
+    // Chỉ 1 thiết bị in được (bỏ máy quét mã / bàn phím USB) — trước đây máy quét cắm cùng là
+    // «thiết bị duy nhất» nên lệnh in gửi nhầm vào máy quét.
+    final printable = list.where((d) => d.canPrint).toList();
+    if (printable.length == 1) {
+      final only = printable.first;
       if (!only.hasPermission) {
         final granted = await PosUsbPrinter.requestPermission(only);
         if (!granted) return false;

@@ -7506,8 +7506,9 @@ class _PosSellScreenState extends State<PosSellScreen>
 
     NotificationOverlayManager().showWarning(
       title: 'Chỉ xem',
-      message: activelyHeld
-          ? 'Bàn đang mở trên $holder — chờ máy đó về sơ đồ bàn rồi thử lại'
+      // Luôn nói máy nào đang giữ — trước đây giành khóa hụt chỉ báo «thử lại sau vài giây», thu ngân không biết vì sao.
+      message: activelyHeld || holder.trim().isNotEmpty
+          ? 'Bàn đang mở trên $holder — máy đó bấm «Thoát bàn» (hoặc về sơ đồ) rồi thử lại'
           : 'Không lấy được quyền sửa — thử lại sau vài giây',
     );
     return false;
