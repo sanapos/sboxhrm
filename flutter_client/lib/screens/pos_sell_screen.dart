@@ -4172,7 +4172,8 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   Future<void> _kitchenSendCurrentTable() async {
     if (_kitchenSending || _checkingOut || _parking) return;
-    if (_industrySettings?.sellProfile != PosSellProfile.restaurant) return;
+    // Theo «Nút dưới hóa đơn» (mặc định nhà hàng) — trước đây khóa cứng nhà hàng, karaoke bấm không có gì.
+    if (!_kitchenNotifyOn) return;
     final sid = _tab.resourceSessionId;
     if (sid == null || sid.isEmpty) {
       NotificationOverlayManager().showWarning(
@@ -14097,7 +14098,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           ),
         if (!_isTableOrderMode &&
             (_tab.resourceSessionId ?? '').isNotEmpty &&
-            _industrySettings?.sellProfile == PosSellProfile.restaurant)
+            _kitchenNotifyOn)
           PopupMenuItem(
             value: 'kitchen',
             enabled: !_kitchenSending && !_checkingOut && !_parking,
@@ -15233,7 +15234,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!floorCompact) {
       if (!tableMode &&
           (_tab.resourceSessionId ?? '').isNotEmpty &&
-          _industrySettings?.sellProfile == PosSellProfile.restaurant) {
+          _kitchenNotifyOn) {
         actions.add(_SellMoreAction(
           id: 'kitchen',
           icon: Icons.soup_kitchen_outlined,
