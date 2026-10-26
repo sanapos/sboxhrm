@@ -34,7 +34,8 @@ class _MealTicketStationScreenState extends State<MealTicketStationScreen> {
   bool _busy = false;
   String? _storeName;
   String? _error;
-  DateTime _now = DateTime.now();
+  // Đồng hồ trên thanh tiêu đề: chỉ vẽ lại chữ giờ mỗi giây, không setState cả màn.
+  final ValueNotifier<DateTime> _now = ValueNotifier(DateTime.now());
   List<MealTicket> _today = [];
   Map<String, int> _servedBySession = {};
   MealTicket? _last;
@@ -52,7 +53,7 @@ class _MealTicketStationScreenState extends State<MealTicketStationScreen> {
       _timer = Timer.periodic(_pollEvery, (_) => _tick());
     });
     _clock = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _now = DateTime.now());
+      if (mounted) _now.value = DateTime.now();
     });
   }
 
@@ -60,6 +61,7 @@ class _MealTicketStationScreenState extends State<MealTicketStationScreen> {
   void dispose() {
     _timer?.cancel();
     _clock?.cancel();
+    _now.dispose();
     super.dispose();
   }
 
@@ -199,8 +201,11 @@ class _MealTicketStationScreenState extends State<MealTicketStationScreen> {
           const SizedBox(width: 10),
           Flexible(child: Text(tr('Trạm in phiếu ăn'), overflow: TextOverflow.ellipsis)),
           const SizedBox(width: 14),
-          Text(DateFormat('HH:mm:ss').format(_now),
-              style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()], color: SboxColors.slate300)),
+          ValueListenableBuilder<DateTime>(
+            valueListenable: _now,
+            builder: (_, now, __) => Text(DateFormat('HH:mm:ss').format(now),
+                style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()], color: SboxColors.slate300)),
+          ),
         ]),
         actions: [
           _statusPill(),

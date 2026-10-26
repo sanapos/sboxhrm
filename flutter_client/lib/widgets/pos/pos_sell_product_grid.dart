@@ -185,13 +185,26 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       _viewsForDisplay(p);
       unawaited(_viewsFor(p).then((views) {
         if (!mounted || views.length < 2) return;
-        setState(() {});
+        _scheduleUnitViewsRebuild();
       }));
     }
     _imagePrefetchDebounce?.cancel();
     _imagePrefetchDebounce = Timer(const Duration(milliseconds: 350), () {
       if (mounted) _prefetchPageImages();
     });
+  }
+
+  bool _unitViewsRebuildScheduled = false;
+
+  /// Gom nhiều lần ĐVT tải xong (tới 60 món) thành một lần dựng lại lưới mỗi frame.
+  void _scheduleUnitViewsRebuild() {
+    if (_unitViewsRebuildScheduled) return;
+    _unitViewsRebuildScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _unitViewsRebuildScheduled = false;
+      if (mounted) setState(() {});
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _prefetchPageImages() {
@@ -1899,6 +1912,8 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
 
     final cols = _columnsForWidth(gridWidth);
     final extra = _loadingMore ? 1 : 0;
+    // Tính một lần mỗi build — _pageItems lọc/spread lại cả danh sách, gọi trong itemBuilder là O(n²) khi cuộn.
+    final pageItems = _pageItems;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1918,9 +1933,9 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
                 ),
-                itemCount: _pageItems.length + extra,
+                itemCount: pageItems.length + extra,
                 itemBuilder: (_, i) {
-                  if (i >= _pageItems.length) {
+                  if (i >= pageItems.length) {
                     return const Center(
                       child: Padding(
                         padding: EdgeInsets.all(8),
@@ -1932,7 +1947,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                       ),
                     );
                   }
-                  return _productCard(_pageItems[i]);
+                  return _productCard(pageItems[i]);
                 },
               ),
             ),

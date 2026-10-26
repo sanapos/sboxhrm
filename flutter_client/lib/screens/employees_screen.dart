@@ -376,13 +376,17 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           });
         }
       } else {
-        await _loadDepartments();
-        await _loadBranches();
-        final data = await _apiService.getEmployees(
-          pageSize: 200,
-          branchId: _filterBranchId,
-          includeChildBranches: true,
-        );
+        // Phòng ban, chi nhánh và danh sách NV độc lập nhau → tải song song
+        final results = await Future.wait<dynamic>([
+          _loadDepartments(),
+          _loadBranches(),
+          _apiService.getEmployees(
+            pageSize: 200,
+            branchId: _filterBranchId,
+            includeChildBranches: true,
+          ),
+        ]);
+        final data = results[2] as List<dynamic>;
         if (mounted) {
           setState(() {
             _employees = data.map((e) => Employee.fromJson(e)).toList();

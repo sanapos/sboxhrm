@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'shared_http_client.dart';
 import 'package:http_parser/http_parser.dart';
 
 import 'api_service.dart';
@@ -43,11 +44,11 @@ class WorkApi {
       final uri = _u(path, query);
       final b = body == null ? null : jsonEncode(body);
       return switch (method) {
-        'GET' => http.get(uri, headers: _headers),
-        'POST' => http.post(uri, headers: _headers, body: b),
-        'PUT' => http.put(uri, headers: _headers, body: b),
-        'PATCH' => http.patch(uri, headers: _headers, body: b),
-        _ => http.delete(uri, headers: _headers),
+        'GET' => sharedHttpClient.get(uri, headers: _headers),
+        'POST' => sharedHttpClient.post(uri, headers: _headers, body: b),
+        'PUT' => sharedHttpClient.put(uri, headers: _headers, body: b),
+        'PATCH' => sharedHttpClient.patch(uri, headers: _headers, body: b),
+        _ => sharedHttpClient.delete(uri, headers: _headers),
       }.timeout(const Duration(seconds: 60));
     }
 
@@ -141,7 +142,7 @@ class WorkApi {
   String reportPdfUrl(String taskId) => '${ApiService.baseUrl}/api/tasks/$taskId/report.pdf';
   Future<List<int>?> reportPdf(String taskId) async {
     try {
-      final r = await http.get(_u('/api/tasks/$taskId/report.pdf'), headers: {...?_api.imageAuthHeaders})
+      final r = await sharedHttpClient.get(_u('/api/tasks/$taskId/report.pdf'), headers: {...?_api.imageAuthHeaders})
           .timeout(const Duration(seconds: 120));
       return r.statusCode == 200 ? r.bodyBytes : null;
     } catch (_) {

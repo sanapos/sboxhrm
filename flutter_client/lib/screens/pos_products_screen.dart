@@ -427,8 +427,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       productType: type,
     );
     if (saved == true) {
-      await _loadCatalogs();
-      await _loadProducts(page: 1);
+      await Future.wait([_loadCatalogs(), _loadProducts(page: 1)]);
       if (mounted) setState(() {});
     }
   }

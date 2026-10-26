@@ -2996,8 +2996,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         // Navigate to target week
         final firstTarget = (List.of(targetDates)..sort()).first;
         setState(() => _selectedWeekStart = _getWeekStart(firstTarget));
-        await _loadSchedules();
-        await _loadRegistrations();
+        await Future.wait([_loadSchedules(), _loadRegistrations()]);
       } else {
         appNotification.showWarning(
           title: 'Không có dữ liệu',
@@ -3712,8 +3711,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             title: 'Sao chép tháng thành công',
             message: tr('Đã thêm $addedCount đăng ký vào danh sách chờ gửi'));
         setState(() => _selectedWeekStart = _getWeekStart(targetStart));
-        await _loadSchedules();
-        await _loadRegistrations();
+        await Future.wait([_loadSchedules(), _loadRegistrations()]);
       } else {
         appNotification.showWarning(
             title: 'Không có dữ liệu',

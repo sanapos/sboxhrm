@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -135,6 +136,18 @@ class ThemeProvider extends ChangeNotifier {
       textTheme: tt,
       scaffoldBackgroundColor: page,
       canvasColor: surface,
+      // Mặc định Android / web / Windows dùng hiệu ứng Zoom (vẽ lại cả 2 màn, nặng trên máy POS
+      // Android 6 chạy Skia). FadeUpwards nhẹ hơn nhiều; iOS / macOS giữ Cupertino để vuốt lùi.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        },
+      ),
       primaryColor: primary,
       dividerColor: border,
       colorScheme: (dark ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(

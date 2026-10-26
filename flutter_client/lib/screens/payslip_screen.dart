@@ -51,8 +51,11 @@ class _PayslipScreenState extends State<PayslipScreen> {
         role == 'Agent' ||
         role == 'DepartmentHead' ||
         role == 'HR';
-    if (_isManager) await _loadEmployees();
-    await _loadData();
+    // DS nhân viên (bộ lọc) và phiếu lương độc lập → tải song song
+    await Future.wait([
+      if (_isManager) _loadEmployees(),
+      _loadData(),
+    ]);
   }
 
   Future<void> _loadEmployees() async {

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
@@ -99,8 +101,10 @@ class CommAvatar extends StatelessWidget {
       child: Text(commInitials(name), style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: size * 0.36)),
     );
     if (photo == null || photo!.isEmpty) return fallback;
+    // Giải mã ảnh theo kích thước hiển thị (x2 để BoxFit.cover vẫn nét với ảnh ngang tới 2:1)
+    final cacheW = size.isFinite ? (size * MediaQuery.devicePixelRatioOf(context) * 2).round() : null;
     return ClipOval(
-      child: Image.network(commUrl(photo!), width: size, height: size, fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback),
+      child: Image.network(commUrl(photo!), width: size, height: size, cacheWidth: cacheW, fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback),
     );
   }
 }
@@ -200,8 +204,14 @@ class CommImageGrid extends StatelessWidget {
     return GestureDetector(
       onTap: () => _open(context, i),
       child: Stack(fit: StackFit.expand, children: [
-        Image.network(commUrl(urls[i]), fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(color: SboxColors.slate100, child: const Icon(Icons.broken_image_outlined))),
+        // Giải mã theo kích thước ô (rộng ≥ 2× cao để BoxFit.cover vẫn nét với ảnh ngang tới 2:1)
+        LayoutBuilder(builder: (context, c) {
+          final w = c.hasBoundedWidth ? c.maxWidth : height;
+          final h = c.hasBoundedHeight ? c.maxHeight : height;
+          final cacheW = (math.max(w, h * 2) * MediaQuery.devicePixelRatioOf(context)).round();
+          return Image.network(commUrl(urls[i]), fit: BoxFit.cover, cacheWidth: cacheW,
+              errorBuilder: (_, __, ___) => Container(color: SboxColors.slate100, child: const Icon(Icons.broken_image_outlined)));
+        }),
         if (more != null)
           Container(color: Colors.black45, alignment: Alignment.center, child: Text(more, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700))),
         if (onRemove != null)

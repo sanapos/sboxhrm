@@ -162,8 +162,10 @@ class AaAvatar extends StatelessWidget {
       child: Text(ini, style: TextStyle(fontSize: size * 0.36, fontWeight: FontWeight.w700, color: SboxColors.brand700)),
     );
     if (photo == null || photo!.isEmpty) return fallback;
+    // Giải mã ảnh theo kích thước hiển thị (x2 để BoxFit.cover vẫn nét với ảnh ngang tới 2:1)
+    final cacheW = size.isFinite ? (size * MediaQuery.devicePixelRatioOf(context) * 2).round() : null;
     return ClipOval(
-      child: Image.network(aaUrl(photo!), width: size, height: size, fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback),
+      child: Image.network(aaUrl(photo!), width: size, height: size, cacheWidth: cacheW, fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback),
     );
   }
 }

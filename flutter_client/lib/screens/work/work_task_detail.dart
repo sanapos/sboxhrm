@@ -561,6 +561,10 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
     );
   }
 
+  /// Bề rộng giải mã ảnh thumbnail (x2 để BoxFit.cover vẫn nét với ảnh ngang).
+  int _thumbCacheWidth(double logicalWidth) =>
+      (logicalWidth * MediaQuery.devicePixelRatioOf(context) * 2).round();
+
   Widget _checklist(WorkTask t) {
     final items = t.checklistItems;
     final canTick = t.isOpen && (widget.viewer.isManager || widget.viewer.isParticipant(t));
@@ -605,7 +609,7 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
                                 child: ClipRRect(
                                   borderRadius: SboxRadius.smAll,
                                   child: Image.network(workImageUrl(it.photoUrl!),
-                                      width: 96, height: 72, fit: BoxFit.cover,
+                                      width: 96, height: 72, cacheWidth: _thumbCacheWidth(96), fit: BoxFit.cover,
                                       errorBuilder: (_, __, ___) => Container(
                                           width: 96, height: 72, color: SboxColors.slate100, child: const Icon(Icons.broken_image_outlined))),
                                 ),
@@ -679,7 +683,7 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
                             onTap: () => _openPhoto(u),
                             child: ClipRRect(
                               borderRadius: SboxRadius.smAll,
-                              child: Image.network(workImageUrl(u), width: 80, height: 60, fit: BoxFit.cover,
+                              child: Image.network(workImageUrl(u), width: 80, height: 60, cacheWidth: _thumbCacheWidth(80), fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => Container(width: 80, height: 60, color: SboxColors.slate100)),
                             ),
                           ),
@@ -695,7 +699,7 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
             child: Wrap(spacing: 6, children: [
               for (final u in _commentPhotos)
                 Stack(children: [
-                  ClipRRect(borderRadius: SboxRadius.smAll, child: Image.network(workImageUrl(u), width: 64, height: 48, fit: BoxFit.cover)),
+                  ClipRRect(borderRadius: SboxRadius.smAll, child: Image.network(workImageUrl(u), width: 64, height: 48, cacheWidth: _thumbCacheWidth(64), fit: BoxFit.cover)),
                   Positioned(
                     right: 0,
                     top: 0,

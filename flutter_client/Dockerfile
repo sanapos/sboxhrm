@@ -7,7 +7,7 @@ RUN flutter pub get
 
 COPY . .
 ARG API_BASE_URL=http://localhost:7070
-RUN flutter build web --release --base-href="/" --no-tree-shake-icons \
+RUN flutter build web --release --base-href="/" \
     --dart-define=API_BASE_URL=$API_BASE_URL && \
     rm -f build/web/flutter_service_worker.js && \
     sed -i 's/_flutter.loader.load({[^}]*});/_flutter.loader.load();/g' build/web/flutter_bootstrap.js 2>/dev/null || true

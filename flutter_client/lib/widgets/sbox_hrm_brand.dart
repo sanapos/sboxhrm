@@ -157,10 +157,16 @@ class SboxBrandLockup extends StatelessWidget {
     final muted = sloganColor ?? titleColor.withValues(alpha: 0.62);
     final isPos = SboxAppVariant.posBranding;
     final color = isPos ? const Color(SboxAppVariant.posGreen) : titleColor;
+    // Logo gốc 1024×1024 (vuông) mà chỉ hiển thị nhỏ → giải mã vừa kích thước
+    // (x2 dự phòng khi nằm trong FittedBox phóng to).
+    final logoCacheW =
+        (logoSize * 1.15 * (MediaQuery.maybeDevicePixelRatioOf(context) ?? 3) * 2)
+            .round();
     if (isPos) {
       final mark = Image.asset(
         SboxAppVariant.logoAsset,
         height: logoSize * 1.15,
+        cacheWidth: logoCacheW,
         fit: BoxFit.contain,
         filterQuality: FilterQuality.high,
         errorBuilder: (_, __, ___) => Icon(
@@ -239,6 +245,7 @@ class SboxBrandLockup extends StatelessWidget {
             'assets/logo.png',
             width: logoSize,
             height: logoSize,
+            cacheWidth: logoCacheW,
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => Icon(
               Icons.bubble_chart_rounded,

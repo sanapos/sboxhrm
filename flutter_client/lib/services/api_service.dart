@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:http/http.dart' as http;
+import 'shared_http_client.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -237,7 +238,7 @@ class ApiService implements PayrollApi {
   }) async {
     try {
       final response = await _retryOnUnauthorized(
-        () => http.get(uri, headers: _binaryDownloadHeaders).timeout(timeout),
+        () => sharedHttpClient.get(uri, headers: _binaryDownloadHeaders).timeout(timeout),
       );
       return _parseExcelExportResponse(response);
     } catch (e) {
@@ -697,7 +698,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getPublicServicePackages() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
         Uri.parse('$baseUrl/api/auth/publicservicepackages'),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 10));
@@ -714,7 +715,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> seedSampleData(String storeCode) async {
     try {
       debugPrint('🌱 Seeding sample data for store: $storeCode');
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/sampledata/seed/${Uri.encodeComponent(storeCode)}'),
         headers: _headers,
       ).timeout(const Duration(seconds: 90));
@@ -1495,7 +1496,7 @@ class ApiService implements PayrollApi {
       }
       final uri = Uri.parse('$baseUrl/api/attendances/devices/$deviceId/count')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       final data = _handleResponse(response);
       if (data['isSuccess'] == true) {
         final v = data['data'];
@@ -2446,7 +2447,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/attendance-edit-marks')
           .replace(queryParameters: {'fromDate': d(from), 'toDate': d(to)});
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -2461,7 +2462,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> _hubGet(String path, [Map<String, String>? q]) async {
     try {
       final uri = Uri.parse('$baseUrl$path').replace(queryParameters: q == null || q.isEmpty ? null : q);
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -2608,10 +2609,10 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/employee-career/$path');
       final r = await _retryOnUnauthorized(() => (switch (method) {
-            'POST' => http.post(uri, headers: _headers, body: json.encode(body ?? {})),
-            'PUT' => http.put(uri, headers: _headers, body: json.encode(body ?? {})),
-            'DELETE' => http.delete(uri, headers: _headers),
-            _ => http.get(uri, headers: _headers),
+            'POST' => sharedHttpClient.post(uri, headers: _headers, body: json.encode(body ?? {})),
+            'PUT' => sharedHttpClient.put(uri, headers: _headers, body: json.encode(body ?? {})),
+            'DELETE' => sharedHttpClient.delete(uri, headers: _headers),
+            _ => sharedHttpClient.get(uri, headers: _headers),
           })
               .timeout(const Duration(seconds: 25)));
       return _handleResponse(r);
@@ -2641,7 +2642,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> _deptV2Get(String path, [Map<String, String>? q]) async {
     try {
       final uri = Uri.parse('$baseUrl/api/departments/v2/$path').replace(queryParameters: q);
-      final r = await _retryOnUnauthorized(() => http.get(uri, headers: _headers).timeout(const Duration(seconds: 25)));
+      final r = await _retryOnUnauthorized(() => sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 25)));
       return _handleResponse(r);
     } catch (e) {
       return _connectionFailure(e);
@@ -3133,7 +3134,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> _alGet(String path) async {
     try {
-      final r = await http.get(Uri.parse('$baseUrl/api/annual-leave/$path'), headers: _headers).timeout(const Duration(seconds: 30));
+      final r = await sharedHttpClient.get(Uri.parse('$baseUrl/api/annual-leave/$path'), headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(r);
     } catch (e) {
       return _connectionFailure(e);
@@ -3145,9 +3146,9 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/annual-leave/$path');
       final enc = body == null ? null : jsonEncode(body);
       final r = await (switch (method) {
-        'PUT' => http.put(uri, headers: _headers, body: enc),
-        'DELETE' => http.delete(uri, headers: _headers),
-        _ => http.post(uri, headers: _headers, body: enc),
+        'PUT' => sharedHttpClient.put(uri, headers: _headers, body: enc),
+        'DELETE' => sharedHttpClient.delete(uri, headers: _headers),
+        _ => sharedHttpClient.post(uri, headers: _headers, body: enc),
       })
           .timeout(const Duration(seconds: 45));
       return _handleResponse(r);
@@ -4207,7 +4208,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/branch-ops/$path').replace(
           queryParameters: q == null ? null : (Map.of(q)..removeWhere((k, v) => v.isEmpty)));
-      final r = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      final r = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(r);
     } catch (e) {
       return _connectionFailure(e);
@@ -4271,7 +4272,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/permissions/presets')
           .replace(queryParameters: package == null ? null : {'package': package});
-      final r = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      final r = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
       return _handleResponse(r);
     } catch (e) {
       return _connectionFailure(e);
@@ -4394,8 +4395,8 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/notification-center/templates${id == null ? '' : '/$id'}');
       final r = await (id == null
-              ? http.post(uri, headers: _headers, body: jsonEncode(body))
-              : http.put(uri, headers: _headers, body: jsonEncode(body)))
+              ? sharedHttpClient.post(uri, headers: _headers, body: jsonEncode(body))
+              : sharedHttpClient.put(uri, headers: _headers, body: jsonEncode(body)))
           .timeout(const Duration(seconds: 10));
       return _handleResponse(r);
     } catch (e) {
@@ -5621,7 +5622,7 @@ class ApiService implements PayrollApi {
         if (employeeUserId != null) 'employeeUserId': employeeUserId,
         if (employeeId != null) 'employeeId': employeeId,
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/AdvanceRequests'),
         headers: _headers,
         body: json.encode(body),
@@ -5649,7 +5650,7 @@ class ApiService implements PayrollApi {
         'rejectionReason': rejectionReason,
         if (approvedAmount != null) 'approvedAmount': approvedAmount,
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/AdvanceRequests/$requestId/approve'),
         headers: _headers,
         body: json.encode(body),
@@ -5665,7 +5666,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> undoApproveAdvanceRequest(
       String requestId) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/AdvanceRequests/$requestId/undo-approve'),
         headers: _headers,
       );
@@ -5682,7 +5683,7 @@ class ApiService implements PayrollApi {
     try {
       final body = <String, dynamic>{};
       if (paymentMethod != null) body['paymentMethod'] = paymentMethod;
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/AdvanceRequests/$requestId/pay'),
         headers: _headers,
         body: json.encode(body),
@@ -5697,7 +5698,7 @@ class ApiService implements PayrollApi {
   // Xóa yêu cầu ứng lương
   Future<Map<String, dynamic>> deleteAdvanceRequest(String requestId) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse('$baseUrl/api/AdvanceRequests/$requestId'),
         headers: _headers,
       );
@@ -5711,7 +5712,7 @@ class ApiService implements PayrollApi {
   // Hủy yêu cầu ứng lương
   Future<Map<String, dynamic>> cancelAdvanceRequest(String requestId) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/AdvanceRequests/$requestId/cancel'),
         headers: _headers,
       );
@@ -5762,7 +5763,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getBusinessTripCase(String id) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
         Uri.parse('$baseUrl/api/BusinessTripCases/$id'),
         headers: _headers,
       );
@@ -5775,7 +5776,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createBusinessTripCase(
       Map<String, dynamic> body) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/BusinessTripCases'),
         headers: _headers,
         body: jsonEncode(body),
@@ -5789,7 +5790,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateBusinessTripCase(
       String id, Map<String, dynamic> body) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
         Uri.parse('$baseUrl/api/BusinessTripCases/$id'),
         headers: _headers,
         body: jsonEncode(body),
@@ -5802,7 +5803,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteBusinessTripCase(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse('$baseUrl/api/BusinessTripCases/$id'),
         headers: _headers,
       );
@@ -5815,7 +5816,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createBusinessTripAdvance(
       String caseId, Map<String, dynamic> body) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/BusinessTripCases/$caseId/advance'),
         headers: _headers,
         body: jsonEncode(body),
@@ -5830,7 +5831,7 @@ class ApiService implements PayrollApi {
       String caseId, bool isApproved,
       {String? rejectionReason}) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/BusinessTripCases/$caseId/advance/approve'),
         headers: _headers,
         body: jsonEncode({
@@ -5847,7 +5848,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> payBusinessTripAdvance(String caseId,
       {String? paymentMethod}) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/BusinessTripCases/$caseId/advance/pay'),
         headers: _headers,
         body: jsonEncode(
@@ -5862,7 +5863,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> saveBusinessTripSettlement(
       String caseId, Map<String, dynamic> body) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/BusinessTripCases/$caseId/settlement'),
         headers: _headers,
         body: jsonEncode(body),
@@ -5877,7 +5878,7 @@ class ApiService implements PayrollApi {
       String caseId, bool isApproved,
       {String? rejectionReason, bool surplusAsCashRefund = false}) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/BusinessTripCases/$caseId/settlement/approve'),
         headers: _headers,
         body: jsonEncode({
@@ -5895,7 +5896,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> confirmBusinessTripSurplus(String caseId,
       {bool asAdvanceDebt = true, String? paymentMethod}) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse(
             '$baseUrl/api/BusinessTripCases/$caseId/settlement/confirm-surplus'),
         headers: _headers,
@@ -5913,7 +5914,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> payBusinessTripSettlementExtra(String caseId,
       {String? paymentMethod}) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse(
             '$baseUrl/api/BusinessTripCases/$caseId/settlement/pay-extra'),
         headers: _headers,
@@ -5928,7 +5929,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getBusinessTripExpenseCategories() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
         Uri.parse('$baseUrl/api/BusinessTripCases/categories'),
         headers: _headers,
       );
@@ -5945,7 +5946,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/BusinessTripCases/categories')
           .replace(queryParameters: id != null ? {'id': id} : null);
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         uri,
         headers: _headers,
         body: jsonEncode(body),
@@ -5959,7 +5960,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> deleteBusinessTripExpenseCategory(
       String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse('$baseUrl/api/BusinessTripCases/categories/$id'),
         headers: _headers,
       );
@@ -5971,7 +5972,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> seedBusinessTripExpenseCategories() async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/BusinessTripCases/categories/seed-defaults'),
         headers: _headers,
       );
@@ -6007,7 +6008,7 @@ class ApiService implements PayrollApi {
 
       final uri =
           Uri.parse('$baseUrl/api/Assets').replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting assets: $e');
@@ -6063,7 +6064,7 @@ class ApiService implements PayrollApi {
       if (location != null) body['location'] = location;
       if (notes != null) body['notes'] = notes;
 
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Assets'),
         headers: _headers,
         body: json.encode(body),
@@ -6123,7 +6124,7 @@ class ApiService implements PayrollApi {
       if (location != null) body['location'] = location;
       if (notes != null) body['notes'] = notes;
 
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
         Uri.parse('$baseUrl/api/Assets/$assetId'),
         headers: _headers,
         body: json.encode(body),
@@ -6137,7 +6138,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteAsset(String assetId) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse('$baseUrl/api/Assets/$assetId'),
         headers: _headers,
       );
@@ -6153,7 +6154,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse(
           '$baseUrl/api/Assets/categories${hierarchical ? '?hierarchical=true' : ''}');
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting asset categories: $e');
@@ -6175,7 +6176,7 @@ class ApiService implements PayrollApi {
       if (description != null) body['description'] = description;
       if (parentCategoryId != null) body['parentCategoryId'] = parentCategoryId;
 
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Assets/categories'),
         headers: _headers,
         body: json.encode(body),
@@ -6201,7 +6202,7 @@ class ApiService implements PayrollApi {
       if (description != null) body['description'] = description;
       if (parentCategoryId != null) body['parentCategoryId'] = parentCategoryId;
 
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
         Uri.parse('$baseUrl/api/Assets/categories/$categoryId'),
         headers: _headers,
         body: json.encode(body),
@@ -6215,7 +6216,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteAssetCategory(String categoryId) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse('$baseUrl/api/Assets/categories/$categoryId'),
         headers: _headers,
       );
@@ -6231,7 +6232,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse(
           '$baseUrl/api/Assets/transfers?page=$page&pageSize=$pageSize');
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting asset transfers: $e');
@@ -6253,7 +6254,7 @@ class ApiService implements PayrollApi {
       if (reason != null) body['reason'] = reason;
       if (notes != null) body['notes'] = notes;
 
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Assets/assign'),
         headers: _headers,
         body: json.encode(body),
@@ -6281,7 +6282,7 @@ class ApiService implements PayrollApi {
       if (reason != null) body['reason'] = reason;
       if (notes != null) body['notes'] = notes;
 
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Assets/transfer'),
         headers: _headers,
         body: json.encode(body),
@@ -6309,7 +6310,7 @@ class ApiService implements PayrollApi {
       if (notes != null) body['notes'] = notes;
       if (returnCondition != null) body['returnCondition'] = returnCondition;
 
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Assets/return'),
         headers: _headers,
         body: json.encode(body),
@@ -6324,7 +6325,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> confirmAssetTransfer(String transferId,
       {String? notes}) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Assets/transfers/$transferId/confirm'),
         headers: _headers,
         body: json.encode(
@@ -6342,7 +6343,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse(
           '$baseUrl/api/Assets/inventories?page=$page&pageSize=$pageSize');
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting asset inventories: $e');
@@ -6375,7 +6376,7 @@ class ApiService implements PayrollApi {
         body['assetIds'] = assetIds;
       }
 
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Assets/inventories'),
         headers: _headers,
         body: json.encode(body),
@@ -6389,7 +6390,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getAssetInventoryHistory(String assetId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
         Uri.parse('$baseUrl/api/Assets/$assetId/inventory-history'),
         headers: _headers,
       );
@@ -6416,7 +6417,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getAssetStatistics() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
         Uri.parse('$baseUrl/api/Assets/statistics'),
         headers: _headers,
       );
@@ -6457,7 +6458,7 @@ class ApiService implements PayrollApi {
       if (type != null) params['type'] = type.toString();
       final uri = Uri.parse('$baseUrl/api/reports/finance/cash-transactions')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -6478,7 +6479,7 @@ class ApiService implements PayrollApi {
       }
       final uri = Uri.parse('$baseUrl/api/reports/finance/penalty-summary')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -6491,7 +6492,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl$path').replace(queryParameters: params);
       final response = await _retryOnUnauthorized(
-        () => http.get(uri, headers: _headers).timeout(const Duration(seconds: 60)),
+        () => sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 60)),
       );
       return _handleResponse(response);
     } catch (e) {
@@ -6547,7 +6548,7 @@ class ApiService implements PayrollApi {
       if (status != null) params['status'] = status.toString();
       final uri = Uri.parse('$baseUrl/api/reports/finance/advance-debt')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -6570,7 +6571,7 @@ class ApiService implements PayrollApi {
       if (status != null) params['status'] = status.toString();
       final uri = Uri.parse('$baseUrl/api/reports/finance/business-trip')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -6590,7 +6591,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/reports/assets/summary').replace(
         queryParameters: params.isNotEmpty ? params : null,
       );
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportSummary: $e');
@@ -6613,7 +6614,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/reports/assets/register').replace(
         queryParameters: params.isNotEmpty ? params : null,
       );
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportRegister: $e');
@@ -6634,7 +6635,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/reports/assets/assignments').replace(
         queryParameters: params.isNotEmpty ? params : null,
       );
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportAssignments: $e');
@@ -6653,7 +6654,7 @@ class ApiService implements PayrollApi {
       };
       final uri = Uri.parse('$baseUrl/api/reports/assets/transfers')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportTransfers: $e');
@@ -6676,7 +6677,7 @@ class ApiService implements PayrollApi {
       }
       final uri = Uri.parse('$baseUrl/api/reports/assets/stock-ledger')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportStockLedger: $e');
@@ -6701,7 +6702,7 @@ class ApiService implements PayrollApi {
       if (to != null) params['to'] = to.toIso8601String();
       final uri = Uri.parse('$baseUrl/api/reports/assets/inventory-variance')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportInventoryVariance: $e');
@@ -6720,7 +6721,7 @@ class ApiService implements PayrollApi {
       };
       final uri = Uri.parse('$baseUrl/api/reports/assets/warranty-expiring')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getAssetReportWarrantyExpiring: $e');
@@ -6730,7 +6731,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> lookupAssetByCode(String code) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
         Uri.parse(
             '$baseUrl/api/Assets/lookup?code=${Uri.encodeComponent(code)}'),
         headers: _headers,
@@ -6744,7 +6745,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getInventoryDetail(String inventoryId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
         Uri.parse('$baseUrl/api/Assets/inventories/$inventoryId'),
         headers: _headers,
       );
@@ -6780,7 +6781,7 @@ class ApiService implements PayrollApi {
       }
       if (notes != null) body['notes'] = notes;
 
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Assets/inventories/items/check'),
         headers: _headers,
         body: json.encode(body),
@@ -6818,7 +6819,7 @@ class ApiService implements PayrollApi {
       }
       if (notes != null) body['notes'] = notes;
 
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Assets/inventories/$inventoryId/scan'),
         headers: _headers,
         body: json.encode(body),
@@ -6832,7 +6833,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> completeInventory(String inventoryId) async {
     try {
-      final response = await http.patch(
+      final response = await sharedHttpClient.patch(
         Uri.parse('$baseUrl/api/Assets/inventories/$inventoryId/complete'),
         headers: _headers,
       );
@@ -6845,7 +6846,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> cancelInventory(String inventoryId) async {
     try {
-      final response = await http.patch(
+      final response = await sharedHttpClient.patch(
         Uri.parse('$baseUrl/api/Assets/inventories/$inventoryId/cancel'),
         headers: _headers,
       );
@@ -6858,7 +6859,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteInventory(String inventoryId) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse('$baseUrl/api/Assets/inventories/$inventoryId'),
         headers: _headers,
       );
@@ -6960,7 +6961,7 @@ class ApiService implements PayrollApi {
       if (fileName != null) body['fileName'] = fileName;
       if (description != null) body['description'] = description;
 
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Assets/$assetId/images'),
         headers: _headers,
         body: json.encode(body),
@@ -6991,7 +6992,7 @@ class ApiService implements PayrollApi {
       if (referenceCode != null) body['referenceCode'] = referenceCode;
       if (notes != null) body['notes'] = notes;
 
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Assets/stock/in'),
         headers: _headers,
         body: json.encode(body),
@@ -7019,7 +7020,7 @@ class ApiService implements PayrollApi {
       if (referenceCode != null) body['referenceCode'] = referenceCode;
       if (notes != null) body['notes'] = notes;
 
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Assets/stock/out'),
         headers: _headers,
         body: json.encode(body),
@@ -7054,7 +7055,7 @@ class ApiService implements PayrollApi {
 
       final uri = Uri.parse('$baseUrl/api/Assets/stock/transactions')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return {'isSuccess': false, 'message': 'Lỗi lấy lịch sử: $e'};
@@ -7063,7 +7064,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getStockSummary() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
         Uri.parse('$baseUrl/api/Assets/stock/summary'),
         headers: _headers,
       );
@@ -7106,7 +7107,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createTransaction(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Transactions'),
         headers: _headers,
         body: json.encode(data),
@@ -7121,7 +7122,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateTransaction(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
         Uri.parse('$baseUrl/api/Transactions/$id'),
         headers: _headers,
         body: json.encode(data),
@@ -7135,7 +7136,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteTransaction(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse('$baseUrl/api/Transactions/$id'),
         headers: _headers,
       );
@@ -7156,7 +7157,7 @@ class ApiService implements PayrollApi {
       if (disbursementMode != null && disbursementMode.isNotEmpty) {
         body['disbursementMode'] = disbursementMode;
       }
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
         Uri.parse('$baseUrl/api/Transactions/$id/status'),
         headers: _headers,
         body: json.encode(body),
@@ -7177,7 +7178,7 @@ class ApiService implements PayrollApi {
       if (disbursementMode != null && disbursementMode.isNotEmpty) {
         body['disbursementMode'] = disbursementMode;
       }
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Transactions/bulk-approve'),
         headers: _headers,
         body: json.encode(body),
@@ -7191,7 +7192,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> bulkPayTransactions(
       List<String> ids, String paymentMethod) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/Transactions/bulk-pay'),
         headers: _headers,
         body: json.encode({'ids': ids, 'paymentMethod': paymentMethod}),
@@ -7211,7 +7212,7 @@ class ApiService implements PayrollApi {
 
       final uri = Uri.parse('$baseUrl/api/ContentCategories')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       final result = _handleResponse(response);
       if (result['isSuccess'] == true && result['data'] != null) {
         return result['data'] is List ? result['data'] : [];
@@ -7226,7 +7227,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createContentCategory(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/ContentCategories'),
         headers: _headers,
         body: json.encode(data),
@@ -7241,7 +7242,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateContentCategory(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
         Uri.parse('$baseUrl/api/ContentCategories/$id'),
         headers: _headers,
         body: json.encode(data),
@@ -7255,7 +7256,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteContentCategory(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse('$baseUrl/api/ContentCategories/$id'),
         headers: _headers,
       );
@@ -7292,7 +7293,7 @@ class ApiService implements PayrollApi {
 
       final uri = Uri.parse('$baseUrl/api/communications')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting communications: $e');
@@ -7303,7 +7304,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createCommunication(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/communications'),
         headers: _headers,
         body: json.encode(data),
@@ -7318,7 +7319,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateCommunication(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
         Uri.parse('$baseUrl/api/communications/$id'),
         headers: _headers,
         body: json.encode(data),
@@ -7332,7 +7333,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteCommunication(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse('$baseUrl/api/communications/$id'),
         headers: _headers,
       );
@@ -7345,7 +7346,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> publishCommunication(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/communications/$id/publish'),
         headers: _headers,
       );
@@ -7362,7 +7363,7 @@ class ApiService implements PayrollApi {
       // Use base64 endpoint for web compatibility
       if (kIsWeb) {
         final base64Data = base64Encode(bytes);
-        final response = await http.post(
+        final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/communications/upload-image-base64'),
           headers: _headers,
           body: json.encode({'base64Data': base64Data, 'fileName': fileName}),
@@ -7410,7 +7411,7 @@ class ApiService implements PayrollApi {
           'POST', Uri.parse('$baseUrl/api/communications/ai-generate'));
       request.headers.addAll(_headers);
       request.body = json.encode(data);
-      final streamedResponse = await http.Client().send(request);
+      final streamedResponse = await sharedHttpClient.send(request);
       await for (final chunk
           in streamedResponse.stream.transform(utf8.decoder)) {
         yield chunk;
@@ -7440,7 +7441,7 @@ class ApiService implements PayrollApi {
       if (isActive != null) params['isActive'] = isActive.toString();
       final uri = Uri.parse('$baseUrl/api/Departments')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -7456,7 +7457,7 @@ class ApiService implements PayrollApi {
       }
       final uri = Uri.parse('$baseUrl/api/Departments/tree')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -7492,7 +7493,7 @@ class ApiService implements PayrollApi {
         if (sortOrder != null) 'sortOrder': sortOrder,
         if (positions != null) 'positions': positions,
       };
-      final response = await http.post(Uri.parse('$baseUrl/api/Departments'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/Departments'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -7523,7 +7524,7 @@ class ApiService implements PayrollApi {
         if (positions != null) 'positions': positions,
       };
       final id = departmentId ?? '';
-      final response = await http.put(Uri.parse('$baseUrl/api/Departments/$id'),
+      final response = await sharedHttpClient.put(Uri.parse('$baseUrl/api/Departments/$id'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -7550,7 +7551,7 @@ class ApiService implements PayrollApi {
       if (isActive != null) params['isActive'] = isActive.toString();
       final uri = Uri.parse('$baseUrl/api/branches')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -7559,7 +7560,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getBranchTree() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/branches/tree'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/branches/tree'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -7569,7 +7570,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getBranchStats() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/branches/stats'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/branches/stats'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -7579,7 +7580,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getBranchesForSelect() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/branches/select'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/branches/select'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -7590,7 +7591,7 @@ class ApiService implements PayrollApi {
   /// Hạn mức chi nhánh theo gói / cấu hình riêng: max (0 = không giới hạn), used, remaining, canAdd.
   Future<Map<String, dynamic>> getBranchLimits() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/branches/limits'), headers: _headers);
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/branches/limits'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -7599,7 +7600,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> createBranch(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/branches'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/branches'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -7610,7 +7611,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateBranch(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(Uri.parse('$baseUrl/api/branches/$id'),
+      final response = await sharedHttpClient.put(Uri.parse('$baseUrl/api/branches/$id'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -7620,7 +7621,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> toggleBranchActive(String id) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/branches/$id/toggle-active'),
           headers: _headers);
       return _handleResponse(response);
@@ -7631,7 +7632,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteBranch(String id) async {
     try {
-      final response = await http.delete(Uri.parse('$baseUrl/api/branches/$id'),
+      final response = await sharedHttpClient.delete(Uri.parse('$baseUrl/api/branches/$id'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -7642,7 +7643,7 @@ class ApiService implements PayrollApi {
   /// Dữ liệu đang gắn với chi nhánh (xem trước khi xóa).
   Future<Map<String, dynamic>> getBranchUsage(String id) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/branches/$id/usage'), headers: _headers);
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/branches/$id/usage'), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -7651,7 +7652,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getBranchPermissions(String branchId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/branches/$branchId/permissions'),
           headers: _headers);
       return _handleResponse(response);
@@ -7663,7 +7664,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createBranchPermission(
       String branchId, Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/branches/$branchId/permissions'),
           headers: _headers,
           body: jsonEncode(data));
@@ -7676,7 +7677,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateBranchPermission(
       String permId, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/branches/permissions/$permId'),
           headers: _headers,
           body: jsonEncode(data));
@@ -7688,7 +7689,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteBranchPermission(String permId) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/branches/permissions/$permId'),
           headers: _headers);
       return _handleResponse(response);
@@ -7699,7 +7700,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getMyBranches() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/branches/my-branches'),
           headers: _headers);
       return _handleResponse(response);
@@ -7727,7 +7728,7 @@ class ApiService implements PayrollApi {
       if (toDate != null) params['toDate'] = toDate;
       final uri = Uri.parse('$baseUrl/api/Leaves/my-leaves')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -7754,7 +7755,7 @@ class ApiService implements PayrollApi {
       if (employeeId != null) params['employeeId'] = employeeId;
       final uri = Uri.parse('$baseUrl/api/Leaves')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -7772,7 +7773,7 @@ class ApiService implements PayrollApi {
       }
       final uri = Uri.parse('$baseUrl/api/Leaves/pending')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -7815,7 +7816,7 @@ class ApiService implements PayrollApi {
         if (bhxhDocumentNote != null && bhxhDocumentNote.isNotEmpty)
           'bhxhDocumentNote': bhxhDocumentNote,
       };
-      final response = await http.post(Uri.parse('$baseUrl/api/Leaves'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/Leaves'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -7857,7 +7858,7 @@ class ApiService implements PayrollApi {
         if (sickLeaveMode != null) 'sickLeaveMode': sickLeaveMode,
         if (bhxhDocumentNote != null) 'bhxhDocumentNote': bhxhDocumentNote,
       };
-      final response = await http.put(Uri.parse('$baseUrl/api/Leaves/$leaveId'),
+      final response = await sharedHttpClient.put(Uri.parse('$baseUrl/api/Leaves/$leaveId'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -7867,7 +7868,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> cancelLeave(String id) async {
     try {
-      final response = await http.delete(Uri.parse('$baseUrl/api/Leaves/$id'),
+      final response = await sharedHttpClient.delete(Uri.parse('$baseUrl/api/Leaves/$id'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -7877,7 +7878,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getAnnualLeaveBalance(String employeeId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
         Uri.parse('$baseUrl/api/Leaves/annual-balance/$employeeId'),
         headers: _headers,
       );
@@ -7892,7 +7893,7 @@ class ApiService implements PayrollApi {
       final body = countAsWork != null
           ? json.encode({'countAsWork': countAsWork})
           : null;
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/Leaves/$id/approve'),
           headers: _headers,
           body: body);
@@ -7904,7 +7905,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> rejectLeave(String id, [String? reason]) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/Leaves/$id/reject'),
           headers: _headers,
           body: json.encode({'rejectionReason': reason ?? ''}));
@@ -7916,7 +7917,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> undoLeaveApproval(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/Leaves/$id/undo-approve'),
           headers: _headers);
       return _handleResponse(response);
@@ -7927,7 +7928,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> forceDeleteLeave(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/Leaves/$id/force'),
           headers: _headers);
       return _handleResponse(response);
@@ -7949,7 +7950,7 @@ class ApiService implements PayrollApi {
       if (status != null) params['status'] = status.toString();
       final uri = Uri.parse('$baseUrl/api/AttendanceCorrections/my')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -7983,7 +7984,7 @@ class ApiService implements PayrollApi {
       if (employeeUserId != null) params['employeeUserId'] = employeeUserId;
       final uri = Uri.parse('$baseUrl/api/AttendanceCorrections')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -8030,7 +8031,7 @@ class ApiService implements PayrollApi {
         if (targetApproverName != null)
           'targetApproverName': targetApproverName,
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/AttendanceCorrections'),
           headers: _headers,
           body: json.encode(data));
@@ -8049,7 +8050,7 @@ class ApiService implements PayrollApi {
         'isApproved': isApproved,
         if (approverNote != null) 'approverNote': approverNote
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/AttendanceCorrections/$requestId/approve'),
           headers: _headers,
           body: json.encode(data));
@@ -8066,7 +8067,7 @@ class ApiService implements PayrollApi {
       if (requestId.isEmpty) {
         return {'isSuccess': false, 'message': 'Mã yêu cầu không hợp lệ'};
       }
-      final response = await _retryOnUnauthorized(() => http.post(
+      final response = await _retryOnUnauthorized(() => sharedHttpClient.post(
             Uri.parse(
                 '$baseUrl/api/AttendanceCorrections/$requestId/undo-approve'),
             headers: _headers,
@@ -8079,7 +8080,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteAttendanceCorrection(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/AttendanceCorrections/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -8090,7 +8091,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getAttendanceCorrectionById(String id) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/AttendanceCorrections/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -8421,7 +8422,7 @@ class ApiService implements PayrollApi {
   // ==================== ORGCHART ====================
   Future<Map<String, dynamic>> getOrgChartTree() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/orgchart/tree'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/orgchart/tree'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -8431,7 +8432,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getOrgChartStats() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/orgchart/stats'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/orgchart/stats'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -8452,7 +8453,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateOrgPosition(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/orgchart/positions/$id'),
           headers: _headers,
           body: json.encode(data));
@@ -8464,7 +8465,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteOrgPosition(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/orgchart/positions/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -8479,7 +8480,7 @@ class ApiService implements PayrollApi {
       if (employeeId != null) params['employeeId'] = employeeId;
       final uri = Uri.parse('$baseUrl/api/orgchart/assignments')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -8489,7 +8490,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createOrgAssignment(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/orgchart/assignments'),
           headers: _headers,
           body: json.encode(data));
@@ -8502,7 +8503,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateOrgAssignment(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/orgchart/assignments/$id'),
           headers: _headers,
           body: json.encode(data));
@@ -8514,7 +8515,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteOrgAssignment(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/orgchart/assignments/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -8525,7 +8526,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getApprovalFlows() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/orgchart/approval-flows'),
           headers: _headers);
       return _handleResponse(response);
@@ -8537,7 +8538,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createApprovalFlow(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/orgchart/approval-flows'),
           headers: _headers,
           body: json.encode(data));
@@ -8550,7 +8551,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateApprovalFlow(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/orgchart/approval-flows/$id'),
           headers: _headers,
           body: json.encode(data));
@@ -8562,7 +8563,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteApprovalFlow(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/orgchart/approval-flows/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -8573,7 +8574,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getUnassignedEmployees() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/orgchart/unassigned-employees'),
           headers: _headers);
       return _handleResponse(response);
@@ -8594,15 +8595,15 @@ class ApiService implements PayrollApi {
       final http.Response response;
       switch (method) {
         case 'POST':
-          response = await http.post(uri, headers: _headers, body: encoded ?? '{}');
+          response = await sharedHttpClient.post(uri, headers: _headers, body: encoded ?? '{}');
         case 'PUT':
-          response = await http.put(uri, headers: _headers, body: encoded ?? '{}');
+          response = await sharedHttpClient.put(uri, headers: _headers, body: encoded ?? '{}');
         case 'PATCH':
-          response = await http.patch(uri, headers: _headers, body: encoded ?? '{}');
+          response = await sharedHttpClient.patch(uri, headers: _headers, body: encoded ?? '{}');
         case 'DELETE':
-          response = await http.delete(uri, headers: _headers);
+          response = await sharedHttpClient.delete(uri, headers: _headers);
         default:
-          response = await http.get(uri, headers: _headers);
+          response = await sharedHttpClient.get(uri, headers: _headers);
       }
       return _handleResponse(response);
     } catch (e) {
@@ -8872,7 +8873,7 @@ class ApiService implements PayrollApi {
   /// File Excel chuyển lương hàng loạt theo mẫu ngân hàng. Null = lỗi.
   Future<List<int>?> downloadPayrollBankFile(List<String> ids, String template) async {
     try {
-      final r = await http.post(Uri.parse('$baseUrl/api/payslips/bank-export'),
+      final r = await sharedHttpClient.post(Uri.parse('$baseUrl/api/payslips/bank-export'),
           headers: _headers, body: jsonEncode({'ids': ids, 'template': template}));
       final type = r.headers['content-type'] ?? '';
       return r.statusCode == 200 && !type.contains('json') ? r.bodyBytes : null;
@@ -8889,7 +8890,7 @@ class ApiService implements PayrollApi {
         if (isUsed != null) 'isUsed': '$isUsed',
         if (agentId != null) 'agentId': agentId,
       });
-      final r = await http.get(uri, headers: _headers);
+      final r = await sharedHttpClient.get(uri, headers: _headers);
       return r.statusCode == 200 ? r.bodyBytes : null;
     } catch (_) {
       return null;
@@ -9071,7 +9072,7 @@ class ApiService implements PayrollApi {
       }
       final uri = Uri.parse('$baseUrl/api/Tasks')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9080,7 +9081,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getTaskById(String id) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/Tasks/$id'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/Tasks/$id'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -9104,7 +9105,7 @@ class ApiService implements PayrollApi {
       if (isOverdue == true) params['isOverdue'] = 'true';
       final uri = Uri.parse('$baseUrl/api/Tasks/my')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9139,7 +9140,7 @@ class ApiService implements PayrollApi {
           'dueDate': dueDate is DateTime ? dueDate.toIso8601String() : dueDate,
         if (estimatedHours != null) 'estimatedHours': estimatedHours,
       };
-      final response = await http.post(Uri.parse('$baseUrl/api/Tasks'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/Tasks'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -9153,7 +9154,7 @@ class ApiService implements PayrollApi {
       final data = statusData is Map<String, dynamic>
           ? statusData
           : {'status': statusData};
-      final response = await http.patch(
+      final response = await sharedHttpClient.patch(
           Uri.parse('$baseUrl/api/Tasks/$id/status'),
           headers: _headers,
           body: json.encode(data));
@@ -9169,7 +9170,7 @@ class ApiService implements PayrollApi {
       final data = progressData is Map<String, dynamic>
           ? progressData
           : {'progress': progressData};
-      final response = await http.patch(
+      final response = await sharedHttpClient.patch(
           Uri.parse('$baseUrl/api/Tasks/$id/progress'),
           headers: _headers,
           body: json.encode(data));
@@ -9186,7 +9187,7 @@ class ApiService implements PayrollApi {
         'taskIds': taskIds,
         if (status != null) 'status': status
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/Tasks/batch/status'),
           headers: _headers,
           body: json.encode(data));
@@ -9203,7 +9204,7 @@ class ApiService implements PayrollApi {
         'taskIds': taskIds,
         if (assigneeId != null) 'assigneeId': assigneeId
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/Tasks/batch/assign'),
           headers: _headers,
           body: json.encode(data));
@@ -9215,7 +9216,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteTask(String id) async {
     try {
-      final response = await http.delete(Uri.parse('$baseUrl/api/Tasks/$id'),
+      final response = await sharedHttpClient.delete(Uri.parse('$baseUrl/api/Tasks/$id'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -9225,7 +9226,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> batchDeleteTasks(List<String> taskIds) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/Tasks/batch/delete'),
           headers: _headers,
           body: json.encode({'taskIds': taskIds}));
@@ -9248,7 +9249,7 @@ class ApiService implements PayrollApi {
       if (onlyAssignedToMe == true) params['onlyAssignedToMe'] = 'true';
       final uri = Uri.parse('$baseUrl/api/Tasks/kanban')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9277,7 +9278,7 @@ class ApiService implements PayrollApi {
       }
       final uri = Uri.parse('$baseUrl/api/Tasks/statistics')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9286,7 +9287,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getTaskHistory(String taskId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/Tasks/$taskId/history'),
           headers: _headers);
       return _handleResponse(response);
@@ -9301,7 +9302,7 @@ class ApiService implements PayrollApi {
       final data = commentData is Map<String, dynamic>
           ? commentData
           : {'content': commentData};
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/Tasks/$taskId/comments'),
           headers: _headers,
           body: json.encode(data));
@@ -9314,7 +9315,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateTask(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(Uri.parse('$baseUrl/api/Tasks/$id/full'),
+      final response = await sharedHttpClient.put(Uri.parse('$baseUrl/api/Tasks/$id/full'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -9328,7 +9329,7 @@ class ApiService implements PayrollApi {
       int urgencyLevel = 0}) async {
     try {
       final response =
-          await http.post(Uri.parse('$baseUrl/api/Tasks/$taskId/reminders'),
+          await sharedHttpClient.post(Uri.parse('$baseUrl/api/Tasks/$taskId/reminders'),
               headers: _headers,
               body: json.encode({
                 'taskId': taskId,
@@ -9344,7 +9345,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getTaskReminders(String taskId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/Tasks/$taskId/reminders'),
           headers: _headers);
       return _handleResponse(response);
@@ -9360,7 +9361,7 @@ class ApiService implements PayrollApi {
       String? comment}) async {
     try {
       final response =
-          await http.post(Uri.parse('$baseUrl/api/Tasks/$taskId/evaluations'),
+          await sharedHttpClient.post(Uri.parse('$baseUrl/api/Tasks/$taskId/evaluations'),
               headers: _headers,
               body: json.encode({
                 'qualityScore': qualityScore,
@@ -9376,7 +9377,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getTaskEvaluations(String taskId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/Tasks/$taskId/evaluations'),
           headers: _headers);
       return _handleResponse(response);
@@ -9395,7 +9396,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/Tasks/assignment-dashboard').replace(
         queryParameters: params.isNotEmpty ? params : null,
       );
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getTaskAssignmentDashboard: $e');
@@ -9406,7 +9407,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> acceptTask(String id,
       {bool startImmediately = false}) async {
     try {
-      final response = await http.patch(
+      final response = await sharedHttpClient.patch(
         Uri.parse('$baseUrl/api/Tasks/$id/accept'),
         headers: _headers,
         body: jsonEncode({'startImmediately': startImmediately}),
@@ -9420,7 +9421,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> rejectTask(String id, String reason) async {
     try {
-      final response = await http.patch(
+      final response = await sharedHttpClient.patch(
         Uri.parse('$baseUrl/api/Tasks/$id/reject'),
         headers: _headers,
         body: jsonEncode({'reason': reason}),
@@ -9477,7 +9478,7 @@ class ApiService implements PayrollApi {
       // Work-day window comes solely from AppSettings day_end_time on the server.
       final uri = Uri.parse('$baseUrl/api/Reports/attendance/daily')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9499,7 +9500,7 @@ class ApiService implements PayrollApi {
           includeChildBranches: includeChildBranches);
       final uri = Uri.parse('$baseUrl/api/Reports/attendance/monthly')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9531,7 +9532,7 @@ class ApiService implements PayrollApi {
           includeChildBranches: includeChildBranches);
       final uri = Uri.parse('$baseUrl/api/Reports/late-early')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9555,7 +9556,7 @@ class ApiService implements PayrollApi {
       }
       final uri = Uri.parse('$baseUrl/api/Reports/department-summary')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9579,7 +9580,7 @@ class ApiService implements PayrollApi {
           includeChildBranches: includeChildBranches);
       final uri = Uri.parse('$baseUrl/api/Reports/export/daily')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'isSuccess': true, 'data': response.body};
       }
@@ -9607,7 +9608,7 @@ class ApiService implements PayrollApi {
           includeChildBranches: includeChildBranches);
       final uri = Uri.parse('$baseUrl/api/Reports/export/monthly')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'isSuccess': true, 'data': response.body};
       }
@@ -9645,7 +9646,7 @@ class ApiService implements PayrollApi {
           includeChildBranches: includeChildBranches);
       final uri = Uri.parse('$baseUrl/api/Reports/export/late-early')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'isSuccess': true, 'data': response.body};
       }
@@ -9762,7 +9763,7 @@ class ApiService implements PayrollApi {
       }
       final uri = Uri.parse('$baseUrl/api/Reports/overtime')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9819,7 +9820,7 @@ class ApiService implements PayrollApi {
           includeChildBranches: includeChildBranches);
       final uri = Uri.parse('$baseUrl/api/Reports/leave-summary')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9859,7 +9860,7 @@ class ApiService implements PayrollApi {
       if (trendDays != null) params['trendDays'] = trendDays.toString();
       final uri = Uri.parse('$baseUrl/api/Dashboard/full')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9884,7 +9885,7 @@ class ApiService implements PayrollApi {
       if (date != null) params['date'] = date.toIso8601String().split('T')[0];
       final uri = Uri.parse('$baseUrl/api/Dashboard/manager')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9897,7 +9898,7 @@ class ApiService implements PayrollApi {
       if (count != null) params['count'] = count.toString();
       final uri = Uri.parse('$baseUrl/api/Dashboard/top-performers')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9910,7 +9911,7 @@ class ApiService implements PayrollApi {
       if (count != null) params['count'] = count.toString();
       final uri = Uri.parse('$baseUrl/api/Dashboard/late-employees')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9919,7 +9920,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getDepartmentStats() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/Dashboard/department-stats'),
           headers: _headers);
       return _handleResponse(response);
@@ -9931,7 +9932,7 @@ class ApiService implements PayrollApi {
   // ==================== SYSTEM ADMIN ====================
   Future<Map<String, dynamic>> getSystemDashboard() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/dashboard'),
           headers: _headers);
       return _handleResponse(response);
@@ -9949,7 +9950,7 @@ class ApiService implements PayrollApi {
       if (storeId != null && storeId.isNotEmpty) params['storeId'] = storeId;
       final uri = Uri.parse('$baseUrl/api/system-admin/pos-overview')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9965,7 +9966,7 @@ class ApiService implements PayrollApi {
       if (storeId != null && storeId.isNotEmpty) params['storeId'] = storeId;
       final uri = Uri.parse('$baseUrl/api/agent/pos-overview')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -9980,7 +9981,7 @@ class ApiService implements PayrollApi {
       if (toDate != null) params['toDate'] = toDate;
       final uri = Uri.parse('$baseUrl/api/system-admin/dashboard')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -10013,7 +10014,7 @@ class ApiService implements PayrollApi {
       if (isLocked != null) params['isLocked'] = isLocked.toString();
       final uri = Uri.parse('$baseUrl/api/system-admin/stores')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -10044,7 +10045,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getStoreFullDetail(String id) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/stores/$id/full'),
           headers: _headers);
       return _handleResponse(response);
@@ -10055,7 +10056,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> toggleStoreStatus(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/stores/$id/toggle-status'),
           headers: _headers);
       return _handleResponse(response);
@@ -10067,7 +10068,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> lockStore(String id, [String? reason]) async {
     try {
       final body = reason != null ? json.encode({'reason': reason}) : null;
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/stores/$id/lock'),
           headers: _headers,
           body: body);
@@ -10079,7 +10080,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> unlockStore(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/stores/$id/unlock'),
           headers: _headers);
       return _handleResponse(response);
@@ -10090,7 +10091,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> resetStoreAccessDevices(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/stores/$id/reset-access-devices'),
           headers: _headers);
       return _handleResponse(response);
@@ -10113,7 +10114,7 @@ class ApiService implements PayrollApi {
         if (province != null) 'province': province,
         if (phone != null) 'phone': phone,
       };
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/system-admin/stores/$id'),
           headers: _headers,
           body: json.encode(data));
@@ -10131,7 +10132,7 @@ class ApiService implements PayrollApi {
         if (maxUsers != null) 'maxUsers': maxUsers,
         if (maxDevices != null) 'maxDevices': maxDevices,
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/stores/$id/extend'),
           headers: _headers,
           body: json.encode(data));
@@ -10147,7 +10148,7 @@ class ApiService implements PayrollApi {
       final data = licenseData is Map<String, dynamic>
           ? licenseData
           : {'licenseKey': licenseData};
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse(
               '$baseUrl/api/system-admin/stores/$storeId/activate-license'),
           headers: _headers,
@@ -10161,7 +10162,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> getActivatableLicensesForStore(
       String storeId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse(
               '$baseUrl/api/system-admin/stores/$storeId/activatable-licenses'),
           headers: _headers);
@@ -10173,7 +10174,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteAllStoreData(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse(
               '$baseUrl/api/system-admin/stores/$id/data?confirmDelete=true'),
           headers: _headers);
@@ -10185,7 +10186,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteStore(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/system-admin/stores/$id?confirmDelete=true'),
           headers: _headers);
       return _handleResponse(response);
@@ -10198,7 +10199,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getAvailableModules() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse(
               '$baseUrl/api/system-admin/service-packages/available-modules'),
           headers: _headers);
@@ -10210,7 +10211,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getServicePackages() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/service-packages'),
           headers: _headers);
       return _handleResponse(response);
@@ -10222,7 +10223,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createServicePackage(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/service-packages'),
           headers: _headers,
           body: json.encode(data));
@@ -10235,7 +10236,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateServicePackage(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/system-admin/service-packages/$id'),
           headers: _headers,
           body: json.encode(data));
@@ -10247,7 +10248,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteServicePackage(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/system-admin/service-packages/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -10259,7 +10260,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> assignPackageToStore(
       String storeId, String packageId) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse(
               '$baseUrl/api/system-admin/stores/$storeId/assign-package/$packageId'),
           headers: _headers);
@@ -10271,7 +10272,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> extendStoreDays(String storeId, int days) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/stores/$storeId/extend-days'),
           headers: _headers,
           body: json.encode({'days': days}));
@@ -10285,7 +10286,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getKeyPromotions() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/key-promotions'),
           headers: _headers);
       return _handleResponse(response);
@@ -10297,7 +10298,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createKeyPromotion(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/key-promotions'),
           headers: _headers,
           body: json.encode(data));
@@ -10310,7 +10311,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateKeyPromotion(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/system-admin/key-promotions/$id'),
           headers: _headers,
           body: json.encode(data));
@@ -10322,7 +10323,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteKeyPromotion(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/system-admin/key-promotions/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -10334,7 +10335,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> bulkActivateLicenses(
       String storeId, List<String> licenseKeys) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/stores/$storeId/activate-bulk'),
           headers: _headers,
           body: json.encode({'licenseKeys': licenseKeys}));
@@ -10347,7 +10348,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> previewBulkActivation(
       String storeId, List<String> licenseKeys) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse(
               '$baseUrl/api/system-admin/stores/$storeId/activate-bulk-preview'),
           headers: _headers,
@@ -10378,7 +10379,7 @@ class ApiService implements PayrollApi {
       if (agentId != null) params['agentId'] = agentId;
       final uri = Uri.parse('$baseUrl/api/system-admin/users')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -10405,7 +10406,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> assignStoreToAgent(
       String agentId, String storeId) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/system-admin/agents/$agentId/stores/$storeId'),
         headers: _headers,
       );
@@ -10419,7 +10420,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> removeStoreFromAgent(
       String agentId, String storeId) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse('$baseUrl/api/system-admin/agents/$agentId/stores/$storeId'),
         headers: _headers,
       );
@@ -10432,7 +10433,7 @@ class ApiService implements PayrollApi {
   /// Vai trò đã cấu hình phân quyền của một cửa hàng (SuperAdmin).
   Future<Map<String, dynamic>> getSystemAdminStoreRoles(String storeId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
         Uri.parse('$baseUrl/api/system-admin/stores/$storeId/roles'),
         headers: _headers,
       );
@@ -10450,7 +10451,7 @@ class ApiService implements PayrollApi {
         if (password != null) 'password': password,
         if (fullName != null) 'fullName': fullName,
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/create-superadmin'),
           headers: _headers,
           body: json.encode(data));
@@ -10468,7 +10469,7 @@ class ApiService implements PayrollApi {
         if (newPassword != null) 'newPassword': newPassword,
         if (fullName != null) 'fullName': fullName,
       };
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/system-admin/users/$userId/credentials'),
           headers: _headers,
           body: json.encode(data));
@@ -10481,7 +10482,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateUserRole(
       String userId, String role) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/system-admin/users/$userId/role'),
           headers: _headers,
           body: json.encode({'role': role}));
@@ -10493,7 +10494,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteSystemUser(String userId) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/system-admin/users/$userId'),
           headers: _headers);
       return _handleResponse(response);
@@ -10526,7 +10527,7 @@ class ApiService implements PayrollApi {
       if (noAgent == true) params['noAgent'] = 'true';
       final uri = Uri.parse('$baseUrl/api/system-admin/devices')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -10563,7 +10564,7 @@ class ApiService implements PayrollApi {
       }
       final data = <String, dynamic>{'commandType': commandType};
       if (command != null) data['command'] = command;
-      final response = await _retryOnUnauthorized(() => http.post(
+      final response = await _retryOnUnauthorized(() => sharedHttpClient.post(
           Uri.parse('$baseUrl/api/devices/$deviceId/commands'),
           headers: _headers,
           body: json.encode(data)));
@@ -10575,7 +10576,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> unassignSystemDevice(String deviceId) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse(
               '$baseUrl/api/system-admin/devices/$deviceId/unassign-store'),
           headers: _headers);
@@ -10588,7 +10589,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> assignSystemDeviceToStore(
       String deviceId, String storeId) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse(
               '$baseUrl/api/system-admin/devices/$deviceId/assign-store/$storeId'),
           headers: _headers);
@@ -10623,7 +10624,7 @@ class ApiService implements PayrollApi {
       if (search != null) params['search'] = search;
       final uri = Uri.parse('$baseUrl/api/system-admin/licenses')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -10646,7 +10647,7 @@ class ApiService implements PayrollApi {
         if (notes != null) 'notes': notes,
         if (servicePackageId != null) 'servicePackageId': servicePackageId,
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/licenses'),
           headers: _headers,
           body: json.encode(data));
@@ -10672,7 +10673,7 @@ class ApiService implements PayrollApi {
         if (maxDevices != null) 'maxDevices': maxDevices,
         if (servicePackageId != null) 'servicePackageId': servicePackageId,
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/licenses/batch'),
           headers: _headers,
           body: json.encode(data));
@@ -10684,7 +10685,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> revokeLicenseKey(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/system-admin/licenses/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -10695,7 +10696,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteLicenseKeyPermanent(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/system-admin/licenses/$id/permanent'),
           headers: _headers);
       return _handleResponse(response);
@@ -10709,7 +10710,7 @@ class ApiService implements PayrollApi {
       final data = licenseData is Map<String, dynamic>
           ? licenseData
           : {'licenseKeyIds': licenseData};
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/licenses/batch-revoke'),
           headers: _headers,
           body: json.encode(data));
@@ -10736,7 +10737,7 @@ class ApiService implements PayrollApi {
       if (isActive != null) params['isActive'] = isActive.toString();
       final uri = Uri.parse('$baseUrl/api/system-admin/licenses/export')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -10746,7 +10747,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> batchAssignLicensesToAgent(
       {required List<String> licenseKeyIds, required String agentId}) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/licenses/batch-assign-agent'),
           headers: _headers,
           body: json
@@ -10769,7 +10770,7 @@ class ApiService implements PayrollApi {
         if (servicePackageId != null) 'servicePackageId': servicePackageId,
         if (licenseType != null) 'licenseType': licenseType,
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse(
               '$baseUrl/api/system-admin/licenses/batch-assign-agent-by-count'),
           headers: _headers,
@@ -10783,7 +10784,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> batchAssignLicensesToStore(
       {required List<String> licenseKeyIds, required String storeId}) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/licenses/batch-assign-store'),
           headers: _headers,
           body: json
@@ -10819,7 +10820,7 @@ class ApiService implements PayrollApi {
       if (licenseStatus != null) params['licenseStatus'] = licenseStatus;
       final uri = Uri.parse('$baseUrl/api/system-admin/agents')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -10831,7 +10832,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse(
           '$baseUrl/api/AgentRegistration/lookup/${Uri.encodeComponent(code)}');
       final response =
-          await http.get(uri, headers: {'Content-Type': 'application/json'});
+          await sharedHttpClient.get(uri, headers: {'Content-Type': 'application/json'});
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -10871,7 +10872,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse(
           '$baseUrl/api/AgentRegistration/store-contact/${Uri.encodeComponent(storeCode.trim())}');
       final response =
-          await http.get(uri, headers: {'Content-Type': 'application/json'});
+          await sharedHttpClient.get(uri, headers: {'Content-Type': 'application/json'});
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -10881,7 +10882,7 @@ class ApiService implements PayrollApi {
   /// Liên hệ đại lý của cửa hàng đang đăng nhập.
   Future<Map<String, dynamic>> getStoreAgentContact() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
         Uri.parse('$baseUrl/api/accounts/store-agent-contact'),
         headers: _headers,
       );
@@ -10913,7 +10914,7 @@ class ApiService implements PayrollApi {
         if (tokenValidDays != null) 'tokenValidDays': tokenValidDays,
         if (password != null && password.isNotEmpty) 'password': password,
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/agents'),
           headers: _headers,
           body: json.encode(data));
@@ -10943,7 +10944,7 @@ class ApiService implements PayrollApi {
         if (isActive != null) 'isActive': isActive,
       };
       final agentId = id ?? '';
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/system-admin/agents/$agentId'),
           headers: _headers,
           body: json.encode(data));
@@ -10963,7 +10964,7 @@ class ApiService implements PayrollApi {
         if (setBalance != null) 'setBalance': setBalance,
         if (addDays != null) 'addDays': addDays,
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse(
               '$baseUrl/api/system-admin/agents/$agentId/renewal-balance'),
           headers: _headers,
@@ -10980,7 +10981,7 @@ class ApiService implements PayrollApi {
       final id = agentId ?? '';
       final body =
           validDays != null ? json.encode({'validDays': validDays}) : null;
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/agents/$id/regenerate-token'),
           headers: _headers,
           body: body);
@@ -10992,7 +10993,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteAgent(String agentId) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse('$baseUrl/api/system-admin/agents/$agentId'),
         headers: _headers,
       );
@@ -11031,7 +11032,7 @@ class ApiService implements PayrollApi {
         'displayOrder': displayOrder,
         'isPublic': isPublic,
       };
-      final response = await http.post(Uri.parse('$baseUrl/api/settings/app'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/settings/app'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -11041,7 +11042,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getAllAppSettings() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/settings'),
           headers: _headers);
       return _handleResponse(response);
@@ -11052,7 +11053,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> initializeAppSettings() async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/settings/initialize'),
           headers: _headers);
       return _handleResponse(response);
@@ -11064,7 +11065,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateAppSettingsBatch(dynamic settings) async {
     try {
       final data = settings is List ? {'settings': settings} : settings;
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/system-admin/settings/batch'),
           headers: _headers,
           body: json.encode(data));
@@ -11106,7 +11107,7 @@ class ApiService implements PayrollApi {
       if (search != null) params['search'] = search;
       final uri = Uri.parse('$baseUrl/api/system-admin/audit-logs')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -11133,8 +11134,8 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/system-admin/articles${id == null ? '' : '/$id'}');
       final response = await (id == null
-              ? http.post(uri, headers: _headers, body: jsonEncode(body))
-              : http.put(uri, headers: _headers, body: jsonEncode(body)))
+              ? sharedHttpClient.post(uri, headers: _headers, body: jsonEncode(body))
+              : sharedHttpClient.put(uri, headers: _headers, body: jsonEncode(body)))
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
@@ -11263,7 +11264,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getAuditStats() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/audit-logs/stats'),
           headers: _headers);
       return _handleResponse(response);
@@ -11275,7 +11276,7 @@ class ApiService implements PayrollApi {
   // ── AI dùng chung (Super Admin) ─────────────────────────────
   Future<Map<String, dynamic>> getSystemAiConfig() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/ai-config'),
           headers: _headers);
       return _handleResponse(response);
@@ -11286,7 +11287,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> saveSystemAiConfig(Map<String, dynamic> body) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/system-admin/ai-config'),
           headers: _headers,
           body: jsonEncode(body));
@@ -11310,7 +11311,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getSystemHealth() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/system-health'),
           headers: _headers);
       return _handleResponse(response);
@@ -11321,7 +11322,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getSystemHealthMetrics({int hours = 24}) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse(
               '$baseUrl/api/system-admin/system-health/metrics?hours=$hours'),
           headers: _headers);
@@ -11333,7 +11334,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getServerStorage() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/server/storage'),
           headers: _headers);
       return _handleResponse(response);
@@ -11347,7 +11348,7 @@ class ApiService implements PayrollApi {
     required bool apply,
   }) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/server/cleanup'),
           headers: _headers,
           body: json.encode({'scope': scope, 'apply': apply}));
@@ -11359,7 +11360,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getServerReleases() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/server/releases'),
           headers: _headers);
       return _handleResponse(response);
@@ -11403,7 +11404,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> deleteServerRelease(String name,
       {bool force = false}) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse(
               '$baseUrl/api/system-admin/server/releases/${Uri.encodeComponent(name)}?force=$force'),
           headers: _headers);
@@ -11416,7 +11417,7 @@ class ApiService implements PayrollApi {
   // ==================== DATABASE MANAGEMENT ====================
   Future<Map<String, dynamic>> getDatabaseInfo() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/database/info'),
           headers: _headers);
       return _handleResponse(response);
@@ -11427,7 +11428,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> backupDatabase() async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/database/backup'),
           headers: _headers);
       return _handleResponse(response);
@@ -11438,7 +11439,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> backupStoreData(String storeId) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/database/backup/store/$storeId'),
           headers: _headers);
       return _handleResponse(response);
@@ -11449,7 +11450,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getBackupFiles() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/database/backups'),
           headers: _headers);
       return _handleResponse(response);
@@ -11460,7 +11461,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteBackupFile(String fileName) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/system-admin/database/backups/$fileName'),
           headers: _headers);
       return _handleResponse(response);
@@ -11471,7 +11472,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> restoreDatabase(String fileName) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/system-admin/database/restore'),
         headers: _headers,
         body: json.encode({'fileName': fileName, 'confirmRestore': true}),
@@ -11484,7 +11485,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> purgeAllData(String confirmCode) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse(
             '$baseUrl/api/system-admin/database/purge-all?confirmCode=$confirmCode'),
         headers: _headers,
@@ -11501,7 +11502,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteStoreData(String storeId) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse(
             '$baseUrl/api/system-admin/stores/$storeId/data?confirmDelete=true'),
         headers: _headers,
@@ -11515,7 +11516,7 @@ class ApiService implements PayrollApi {
   // ==================== AGENT REGISTRATION ====================
   Future<Map<String, dynamic>> getAgentByRegistrationToken(String token) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/AgentRegistration/$token'),
           headers: _headers);
       return _handleResponse(response);
@@ -11542,7 +11543,7 @@ class ApiService implements PayrollApi {
         if (confirmPassword != null) 'confirmPassword': confirmPassword,
         if (registrationToken != null) 'registrationToken': registrationToken,
       };
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/AgentRegistration'),
           headers: _headers,
           body: json.encode(data));
@@ -11555,7 +11556,7 @@ class ApiService implements PayrollApi {
   // ==================== AI SETTINGS ====================
   Future<Map<String, dynamic>> getAiProviders() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/communications/ai/providers'),
           headers: _headers);
       return _handleResponse(response);
@@ -11575,7 +11576,7 @@ class ApiService implements PayrollApi {
     int maxTokens = 1024,
   }) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/ai/assist'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/ai/assist'),
           headers: _headers,
           body: json.encode({
             'kind': kind,
@@ -11598,7 +11599,7 @@ class ApiService implements PayrollApi {
   }) async {
     try {
       final response =
-          await http.post(Uri.parse('$baseUrl/api/ai/assistant/chat'),
+          await sharedHttpClient.post(Uri.parse('$baseUrl/api/ai/assistant/chat'),
               headers: _headers,
               body: json.encode({
                 'messages': messages,
@@ -11614,7 +11615,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> getPosCustomerPurchaseHistory(String customerId, {String? search, int days = 365}) async {
     try {
       final q = <String, String>{'days': '$days', if (search != null && search.trim().isNotEmpty) 'search': search.trim()};
-      final r = await http.get(
+      final r = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/pos/customers/$customerId/purchase-history').replace(queryParameters: q),
           headers: _headers);
       return _handleResponse(r);
@@ -11682,7 +11683,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getPosCustomerStatement(String customerId, DateTime from, DateTime to) async {
     try {
-      final r = await http.get(
+      final r = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/pos/customers/$customerId/statement')
               .replace(queryParameters: {'from': _ymd(from), 'to': _ymd(to)}),
           headers: _headers);
@@ -11695,7 +11696,7 @@ class ApiService implements PayrollApi {
   /// Xác nhận phiếu Trợ lý ảo đề xuất → server gọi API thật bằng phiên của người dùng.
   Future<Map<String, dynamic>> confirmAiAction(String id) async {
     try {
-      final r = await http.post(Uri.parse('$baseUrl/api/ai/assistant/actions/$id/confirm'), headers: _headers);
+      final r = await sharedHttpClient.post(Uri.parse('$baseUrl/api/ai/assistant/actions/$id/confirm'), headers: _headers);
       return _handleResponse(r);
     } catch (e) {
       return _connectionFailure(e);
@@ -11704,7 +11705,7 @@ class ApiService implements PayrollApi {
 
   Future<void> discardAiAction(String id) async {
     try {
-      await http.post(Uri.parse('$baseUrl/api/ai/assistant/actions/$id/discard'), headers: _headers);
+      await sharedHttpClient.post(Uri.parse('$baseUrl/api/ai/assistant/actions/$id/discard'), headers: _headers);
     } catch (_) {}
   }
 
@@ -11748,7 +11749,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getGeminiConfig() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/communications/ai/config'),
           headers: _headers);
       return _handleResponse(response);
@@ -11760,7 +11761,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateGeminiConfig(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/communications/ai/config'),
           headers: _headers,
           body: json.encode(data));
@@ -11772,7 +11773,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> testGeminiConnection() async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/communications/ai/test'),
           headers: _headers);
       return _handleResponse(response);
@@ -11783,7 +11784,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getDeepSeekConfig() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/communications/ai/deepseek/config'),
           headers: _headers);
       return _handleResponse(response);
@@ -11795,7 +11796,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateDeepSeekConfig(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/communications/ai/deepseek/config'),
           headers: _headers,
           body: json.encode(data));
@@ -11807,7 +11808,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> testDeepSeekConnection() async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/communications/ai/deepseek/test'),
           headers: _headers);
       return _handleResponse(response);
@@ -11820,7 +11821,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> forgotPassword(
       String storeCode, String email) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/Auth/ForgotPassword'),
           headers: {'Content-Type': 'application/json'},
           body: json.encode({'storeCode': storeCode, 'email': email}));
@@ -11834,7 +11835,7 @@ class ApiService implements PayrollApi {
       String newPassword, String confirmPassword) async {
     try {
       final response =
-          await http.post(Uri.parse('$baseUrl/api/Auth/ResetPassword'),
+          await sharedHttpClient.post(Uri.parse('$baseUrl/api/Auth/ResetPassword'),
               headers: {'Content-Type': 'application/json'},
               body: json.encode({
                 'email': email,
@@ -11851,7 +11852,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> verifyOtp(String storeCode, String email,
       String otp, String newPassword, String confirmPassword) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/Auth/VerifyOtp'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/Auth/VerifyOtp'),
           headers: {'Content-Type': 'application/json'},
           body: json.encode({
             'storeCode': storeCode,
@@ -11882,7 +11883,7 @@ class ApiService implements PayrollApi {
       if (toDate != null) params['toDate'] = toDate.toIso8601String();
       final uri = Uri.parse('$baseUrl/api/Attendances/devices/$deviceId')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.delete(uri, headers: _headers);
+      final response = await sharedHttpClient.delete(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -11902,7 +11903,7 @@ class ApiService implements PayrollApi {
       final body = <String, dynamic>{};
       if (fromTime != null) body['fromTime'] = fromTime.toIso8601String();
       if (toTime != null) body['toTime'] = toTime.toIso8601String();
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/Attendances/sync/$deviceId'),
           headers: _headers,
           body: body.isNotEmpty ? json.encode(body) : null);
@@ -11915,7 +11916,7 @@ class ApiService implements PayrollApi {
   // ==================== COMMUNICATION (EXTENDED) ====================
   Future<Map<String, dynamic>> getCommunicationStats() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/communications/stats'),
           headers: _headers);
       return _handleResponse(response);
@@ -11942,7 +11943,7 @@ class ApiService implements PayrollApi {
       final data = reactionData is Map<String, dynamic>
           ? reactionData
           : {'reactionType': reactionData};
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/communications/$id/reactions'),
           headers: _headers,
           body: json.encode(data));
@@ -11955,7 +11956,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> generateAiCommunicationContent(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/communications/ai/generate'),
           headers: _headers,
           body: json.encode(data));
@@ -11967,7 +11968,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getCommunicationComments(String id) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/communications/$id/comments'),
           headers: _headers);
       return _handleResponse(response);
@@ -11982,7 +11983,7 @@ class ApiService implements PayrollApi {
       final data = commentData is Map<String, dynamic>
           ? commentData
           : {'content': commentData};
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/communications/$id/comments'),
           headers: _headers,
           body: json.encode(data));
@@ -12033,7 +12034,7 @@ class ApiService implements PayrollApi {
     try {
       final data =
           textData is Map<String, dynamic> ? textData : {'ocrText': textData};
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/Upload/parse-cccd-text'),
           headers: _headers,
           body: json.encode(data));
@@ -12156,7 +12157,7 @@ class ApiService implements PayrollApi {
   // ==================== KPI ====================
   Future<Map<String, dynamic>> getKpiConfigs() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/kpi/configs'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/kpi/configs'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -12167,7 +12168,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createKpiConfig(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/kpi/configs'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/kpi/configs'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -12178,7 +12179,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateKpiConfig(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(Uri.parse('$baseUrl/api/kpi/configs/$id'),
+      final response = await sharedHttpClient.put(Uri.parse('$baseUrl/api/kpi/configs/$id'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -12198,7 +12199,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getKpiPeriods() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/kpi/periods'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/kpi/periods'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -12209,7 +12210,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createKpiPeriod(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/kpi/periods'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/kpi/periods'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -12220,7 +12221,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateKpiPeriod(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(Uri.parse('$baseUrl/api/kpi/periods/$id'),
+      final response = await sharedHttpClient.put(Uri.parse('$baseUrl/api/kpi/periods/$id'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -12231,7 +12232,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateKpiPeriodStatus(
       String id, String status) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/kpi/periods/$id/status'),
           headers: _headers,
           body: json.encode({'status': status}));
@@ -12253,7 +12254,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getKpiBonusRules() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/kpi/bonus-rules'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/kpi/bonus-rules'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -12264,7 +12265,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> saveKpiBonusRules(
       List<Map<String, dynamic>> rules) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/kpi/bonus-rules'),
           headers: _headers,
           body: json.encode(rules));
@@ -12280,7 +12281,7 @@ class ApiService implements PayrollApi {
       if (periodId != null) params['periodId'] = periodId;
       final uri = Uri.parse('$baseUrl/api/kpi/results')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -12289,7 +12290,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> saveKpiResults(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/kpi/results'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/kpi/results'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -12299,7 +12300,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getKpiDashboard() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/kpi/dashboard'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/kpi/dashboard'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -12313,7 +12314,7 @@ class ApiService implements PayrollApi {
       if (periodId != null) params['periodId'] = periodId;
       final uri = Uri.parse('$baseUrl/api/kpi/employee-targets')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -12323,7 +12324,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> saveKpiEmployeeTargets(
       String periodId, List<Map<String, dynamic>> targets) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/kpi/employee-targets/batch'),
           headers: _headers,
           body: json.encode({'periodId': periodId, 'targets': targets}));
@@ -12335,7 +12336,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteKpiEmployeeTarget(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/kpi/employee-targets/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -12347,7 +12348,7 @@ class ApiService implements PayrollApi {
   // ==================== KPI SALARY ====================
   Future<Map<String, dynamic>> calculateKpiSalary(String periodId) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/kpi/salary/calculate'),
           headers: _headers,
           body: json.encode({'periodId': periodId}));
@@ -12361,7 +12362,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/kpi/salary')
           .replace(queryParameters: {'periodId': periodId});
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -12371,7 +12372,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> approveKpiSalaries(
       List<String> salaryIds) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/kpi/salary/approve'),
           headers: _headers,
           body: json.encode({'salaryIds': salaryIds}));
@@ -12385,7 +12386,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> saveKpiGSheetConfig(
       String periodId, Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/kpi/gsheet-config/$periodId'),
           headers: _headers,
           body: json.encode(data));
@@ -12398,7 +12399,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> testKpiGSheetConnection(
       String googleSheetUrl) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/kpi/gsheet-config/test-connection'),
         headers: _headers,
         body: json.encode({'googleSheetUrl': googleSheetUrl}),
@@ -12412,7 +12413,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> copyKpiGSheetConfig(
       String periodId, String sourcePeriodId) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse(
             '$baseUrl/api/kpi/gsheet-config/$periodId/copy-from/$sourcePeriodId'),
         headers: _headers,
@@ -12425,7 +12426,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> syncKpiActualsFromGSheet(String periodId) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/kpi/sync-actuals/$periodId'),
           headers: _headers);
       return _handleResponse(response);
@@ -12436,7 +12437,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getGSheetCredentialsStatus() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/kpi/gsheet-config/credentials-status'),
           headers: _headers);
       return _handleResponse(response);
@@ -12467,7 +12468,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> createKpiGSheetTemplate(String periodId) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/kpi/gsheet-config/$periodId/create-template'),
         headers: _headers,
       );
@@ -12479,7 +12480,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> writeKpiTargetsToGSheet(String periodId) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/kpi/gsheet-config/$periodId/write-targets'),
         headers: _headers,
       );
@@ -12492,7 +12493,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> importKpiExcelActuals(String periodId,
       {List<Map<String, dynamic>>? data}) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/kpi/import-actuals/$periodId'),
         headers: _headers,
         body: json.encode(data ?? []),
@@ -12508,7 +12509,7 @@ class ApiService implements PayrollApi {
     // Tạo file mẫu Excel từ danh sách targets hiện tại
     // Sẽ gọi endpoint backend hoặc tạo local
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/kpi/excel-template/$periodId'),
           headers: _headers);
       if (response.statusCode == 200) {
@@ -12523,7 +12524,7 @@ class ApiService implements PayrollApi {
   // ==================== COMMISSION SETTINGS ====================
   Future<Map<String, dynamic>> getCommissionSettings() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/settings/app/commission_settings'),
           headers: _headers);
       final result = _handleResponse(response);
@@ -12542,7 +12543,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> saveCommissionSettings(
       Map<String, dynamic> settings) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/settings/app'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/settings/app'),
           headers: _headers,
           body: json.encode({
             'key': 'commission_settings',
@@ -12581,7 +12582,7 @@ class ApiService implements PayrollApi {
       if (year != null) params['year'] = year.toString();
       final uri = Uri.parse('$baseUrl/api/overtimes')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -12590,7 +12591,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getMyOvertimes() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/overtimes/my-overtimes'),
           headers: _headers);
       return _handleResponse(response);
@@ -12601,7 +12602,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> createOvertime(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/overtimes'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/overtimes'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -12612,7 +12613,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateOvertime(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(Uri.parse('$baseUrl/api/overtimes/$id'),
+      final response = await sharedHttpClient.put(Uri.parse('$baseUrl/api/overtimes/$id'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -12642,7 +12643,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> approveOvertime(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/overtimes/$id/approve'),
           headers: _headers);
       return _handleResponse(response);
@@ -12654,7 +12655,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> rejectOvertime(String id,
       {String? reason}) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/overtimes/$id/reject'),
           headers: _headers,
           body: json.encode({'reason': reason}));
@@ -12666,7 +12667,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> completeOvertime(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/overtimes/$id/complete'),
           headers: _headers);
       return _handleResponse(response);
@@ -12677,7 +12678,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getOvertimeStatistics() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/overtimes/statistics'),
           headers: _headers);
       return _handleResponse(response);
@@ -12690,7 +12691,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> getEmployeePayslips(
       String employeeUserId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/payslips/employee/$employeeUserId'),
           headers: _headers);
       return _handleResponse(response);
@@ -12701,7 +12702,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getMyPayslips() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/payslips/my-payslips'),
           headers: _headers);
       return _handleResponse(response);
@@ -12712,7 +12713,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getPayslipById(String id) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/payslips/$id'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/payslips/$id'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -12722,7 +12723,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getPayslipAttendanceSnapshot(String id) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/payslips/$id/attendance-snapshot'),
           headers: _headers);
       return _handleResponse(response);
@@ -12758,7 +12759,7 @@ class ApiService implements PayrollApi {
       }
       final uri = Uri.parse('$baseUrl/api/payslips/store')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -12769,7 +12770,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> finalizePayroll(
       Map<String, dynamic> body) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/payslips/finalize'),
         headers: _headers,
         body: jsonEncode(body),
@@ -12785,7 +12786,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/payroll/summary')
           .replace(queryParameters: {'from': _ymd(from), 'to': _ymd(to)});
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 200));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 200));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -12823,7 +12824,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/shiftswaps')
           .replace(queryParameters: {'pageNumber': '1', 'pageSize': pageSize.toString()});
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -12832,7 +12833,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getShiftSwapsPendingForMe() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/shiftswaps/pending-for-me'),
           headers: _headers);
       return _handleResponse(response);
@@ -12843,7 +12844,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getShiftSwapsPendingApproval() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/shiftswaps/pending-approval'),
           headers: _headers);
       return _handleResponse(response);
@@ -12854,7 +12855,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getShiftSwapColleagues() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/shiftswaps/colleagues'),
           headers: _headers);
       return _handleResponse(response);
@@ -12883,7 +12884,7 @@ class ApiService implements PayrollApi {
             .toIso8601String(),
         if (reason != null && reason.isNotEmpty) 'reason': reason,
       };
-      final response = await http.post(Uri.parse('$baseUrl/api/shiftswaps'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/shiftswaps'),
           headers: _headers, body: json.encode(body));
       return _handleResponse(response);
     } catch (e) {
@@ -12897,7 +12898,7 @@ class ApiService implements PayrollApi {
     String? rejectionReason,
   }) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/shiftswaps/$id/respond'),
           headers: _headers,
           body: json.encode({
@@ -12918,7 +12919,7 @@ class ApiService implements PayrollApi {
     String? note,
   }) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/shiftswaps/$id/approve'),
           headers: _headers,
           body: json.encode({
@@ -12957,7 +12958,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createShiftRegistration(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/shifts'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/shifts'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -12967,7 +12968,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteShiftRegistration(String id) async {
     try {
-      final response = await http.delete(Uri.parse('$baseUrl/api/shifts/$id'),
+      final response = await sharedHttpClient.delete(Uri.parse('$baseUrl/api/shifts/$id'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -12977,7 +12978,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getPendingShifts() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/shifts/pending'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/shifts/pending'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -12987,7 +12988,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getManagedShifts() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/shifts/managed'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/shifts/managed'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -12997,7 +12998,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> approveShift(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/shifts/$id/approve'),
           headers: _headers);
       return _handleResponse(response);
@@ -13008,7 +13009,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> rejectShift(String id, {String? reason}) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/shifts/$id/reject'),
           headers: _headers,
           body: json.encode({'reason': reason}));
@@ -13021,7 +13022,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateShiftTimes(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/shifts/$id/times'),
           headers: _headers,
           body: json.encode(data));
@@ -13034,7 +13035,7 @@ class ApiService implements PayrollApi {
   // ==================== SHIFT SALARY LEVELS ====================
   Future<Map<String, dynamic>> getShiftSalaryLevels() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/shift-salary-levels'),
           headers: _headers);
       return _handleResponse(response);
@@ -13046,7 +13047,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createShiftSalaryLevel(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/shift-salary-levels'),
           headers: _headers,
           body: json.encode(data));
@@ -13059,7 +13060,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateShiftSalaryLevel(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/shift-salary-levels/$id'),
           headers: _headers,
           body: json.encode(data));
@@ -13071,7 +13072,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteShiftSalaryLevel(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/shift-salary-levels/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -13083,7 +13084,7 @@ class ApiService implements PayrollApi {
   // ==================== BIOMETRICS ====================
   Future<Map<String, dynamic>> getBiometricsByDevice(String deviceId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/biometrics/device/$deviceId'),
           headers: _headers);
       return _handleResponse(response);
@@ -13094,7 +13095,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getBiometricSummary(String deviceId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/biometrics/device/$deviceId/summary'),
           headers: _headers);
       return _handleResponse(response);
@@ -13112,7 +13113,7 @@ class ApiService implements PayrollApi {
               'Thiết bị đang offline. Vui lòng kiểm tra kết nối mạng của máy chấm công.'
         };
       }
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/biometrics/device/$deviceId/sync'),
           headers: _headers);
       return _handleResponse(response);
@@ -13123,7 +13124,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> cancelBiometricSync(String deviceId) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/biometrics/device/$deviceId/cancel-sync'),
           headers: _headers);
       return _handleResponse(response);
@@ -13135,7 +13136,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> cancelAllBiometricCommands(
       String deviceId) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse(
               '$baseUrl/api/biometrics/device/$deviceId/cancel-all-commands'),
           headers: _headers);
@@ -13162,7 +13163,7 @@ class ApiService implements PayrollApi {
       if (sourceUserIds != null && sourceUserIds.isNotEmpty) {
         body['sourceUserIds'] = sourceUserIds;
       }
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/biometrics/copy'),
         headers: _headers,
         body: json.encode(body),
@@ -13176,7 +13177,7 @@ class ApiService implements PayrollApi {
   // ==================== GEOFENCES ====================
   Future<Map<String, dynamic>> getGeofences() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/geofences'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/geofences'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -13186,7 +13187,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> createGeofence(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/geofences'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/geofences'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -13197,7 +13198,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateGeofence(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(Uri.parse('$baseUrl/api/geofences/$id'),
+      final response = await sharedHttpClient.put(Uri.parse('$baseUrl/api/geofences/$id'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -13218,7 +13219,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> validateGeofenceLocation(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/geofences/validate'),
           headers: _headers,
           body: json.encode(data));
@@ -13250,7 +13251,7 @@ class ApiService implements PayrollApi {
       }
       final uri = Uri.parse('$baseUrl/api/hr-documents')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -13259,7 +13260,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getExpiringDocuments() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/hr-documents/expiring'),
           headers: _headers);
       return _handleResponse(response);
@@ -13271,7 +13272,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createHrDocument(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/hr-documents'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/hr-documents'),
           headers: _headers, body: json.encode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -13282,7 +13283,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateHrDocument(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/hr-documents/$id'),
           headers: _headers,
           body: json.encode(data));
@@ -13294,7 +13295,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteHrDocument(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/hr-documents/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -13307,7 +13308,7 @@ class ApiService implements PayrollApi {
 
   /// HTTP GET with default timeout
   Future<http.Response> _get(Uri url, {Map<String, String>? headers}) {
-    return http.get(url, headers: headers ?? _headers).timeout(_defaultTimeout);
+    return sharedHttpClient.get(url, headers: headers ?? _headers).timeout(_defaultTimeout);
   }
 
   /// HTTP POST with default timeout
@@ -13526,7 +13527,7 @@ class ApiService implements PayrollApi {
 
   /// Lấy danh sách nhóm thông báo
   Future<Map<String, dynamic>> getNotificationCategories() async {
-    final response = await http.get(
+    final response = await sharedHttpClient.get(
       Uri.parse('$baseUrl/api/notification-preferences/categories'),
       headers: _headers,
     );
@@ -13535,7 +13536,7 @@ class ApiService implements PayrollApi {
 
   /// Lấy thiết lập nhận thông báo của user hiện tại
   Future<Map<String, dynamic>> getNotificationPreferences() async {
-    final response = await http.get(
+    final response = await sharedHttpClient.get(
       Uri.parse('$baseUrl/api/notification-preferences'),
       headers: _headers,
     );
@@ -13545,7 +13546,7 @@ class ApiService implements PayrollApi {
   /// Cập nhật thiết lập nhận thông báo
   Future<Map<String, dynamic>> updateNotificationPreferences(
       List<Map<String, dynamic>> preferences) async {
-    final response = await http.put(
+    final response = await sharedHttpClient.put(
       Uri.parse('$baseUrl/api/notification-preferences'),
       headers: _headers,
       body: jsonEncode({'preferences': preferences}),
@@ -13777,7 +13778,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getAgentProfile() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/agent/profile'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/agent/profile'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -13812,7 +13813,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/agent/stores')
           .replace(queryParameters: {'pageSize': pageSize.toString()});
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -13821,7 +13822,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getAgentReferralLink() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/agent/referral-link'),
           headers: _headers);
       return _handleResponse(response);
@@ -13838,7 +13839,7 @@ class ApiService implements PayrollApi {
       if (toDate != null) params['toDate'] = toDate;
       final uri = Uri.parse('$baseUrl/api/agent/dashboard')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -13862,7 +13863,7 @@ class ApiService implements PayrollApi {
       if (search != null && search.isNotEmpty) params['search'] = search;
       final uri = Uri.parse('$baseUrl/api/agent/devices')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -13885,7 +13886,7 @@ class ApiService implements PayrollApi {
       if (search != null && search.isNotEmpty) params['search'] = search;
       final uri = Uri.parse('$baseUrl/api/agent/my-licenses')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -13909,7 +13910,7 @@ class ApiService implements PayrollApi {
       if (role != null && role.isNotEmpty) params['role'] = role;
       final uri = Uri.parse('$baseUrl/api/agent/users')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -13935,7 +13936,7 @@ class ApiService implements PayrollApi {
       if (search != null && search.isNotEmpty) params['search'] = search;
       final uri = Uri.parse('$baseUrl/api/agent/devices/manage')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -13944,7 +13945,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getAgentStoreFullDetail(String id) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/agent/stores/$id/full'),
           headers: _headers);
       return _handleResponse(response);
@@ -13963,7 +13964,7 @@ class ApiService implements PayrollApi {
         if (province != null) 'province': province,
         if (phone != null) 'phone': phone,
       };
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/agent/stores/$id'),
           headers: _headers,
           body: json.encode(body));
@@ -13975,7 +13976,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> agentToggleStoreStatus(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/agent/stores/$id/toggle-status'),
           headers: _headers);
       return _handleResponse(response);
@@ -13986,7 +13987,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> agentLockStore(String id, [String? reason]) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/agent/stores/$id/lock'),
           headers: _headers,
           body: json.encode({'reason': reason ?? ''}));
@@ -13998,7 +13999,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> agentUnlockStore(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/agent/stores/$id/unlock'),
           headers: _headers);
       return _handleResponse(response);
@@ -14009,7 +14010,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> agentExtendStoreDays(String storeId, int days) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/agent/stores/$storeId/extend'),
           headers: _headers,
           body: json.encode({'daysToAdd': days}));
@@ -14025,7 +14026,7 @@ class ApiService implements PayrollApi {
       final data = licenseData is Map<String, dynamic>
           ? licenseData
           : {'licenseKey': licenseData};
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/agent/stores/$storeId/activate-license'),
           headers: _headers,
           body: json.encode(data));
@@ -14038,7 +14039,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> getAgentActivatableLicensesForStore(
       String storeId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse(
               '$baseUrl/api/agent/stores/$storeId/activatable-licenses'),
           headers: _headers);
@@ -14050,7 +14051,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> agentUnassignDevice(String deviceId) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/agent/devices/$deviceId/unassign-store'),
           headers: _headers);
       return _handleResponse(response);
@@ -14062,7 +14063,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> agentAssignDeviceToStore(
       String deviceId, String storeId) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse(
               '$baseUrl/api/agent/devices/$deviceId/assign-store/$storeId'),
           headers: _headers);
@@ -14080,7 +14081,7 @@ class ApiService implements PayrollApi {
         if (newPassword != null) 'newPassword': newPassword,
         if (fullName != null) 'fullName': fullName,
       };
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/agent/users/$userId/credentials'),
           headers: _headers,
           body: json.encode(body));
@@ -14106,7 +14107,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createProductGroup(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/production/groups'),
           headers: _headers,
           body: json.encode(data));
@@ -14119,7 +14120,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateProductGroup(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/production/groups/$id'),
           headers: _headers,
           body: json.encode(data));
@@ -14131,7 +14132,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteProductGroup(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/production/groups/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -14147,7 +14148,7 @@ class ApiService implements PayrollApi {
       if (groupId != null) params['groupId'] = groupId;
       final uri = Uri.parse('$baseUrl/api/production/items')
           .replace(queryParameters: params.isNotEmpty ? params : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14157,7 +14158,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createProductItem(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/production/items'),
           headers: _headers,
           body: json.encode(data));
@@ -14170,7 +14171,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateProductItem(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/production/items/$id'),
           headers: _headers,
           body: json.encode(data));
@@ -14182,7 +14183,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteProductItem(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/production/items/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -14213,7 +14214,7 @@ class ApiService implements PayrollApi {
       if (productItemId != null) params['productItemId'] = productItemId;
       final uri = Uri.parse('$baseUrl/api/production/entries')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14223,7 +14224,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createProductionEntry(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/production/entries'),
           headers: _headers,
           body: json.encode(data));
@@ -14236,7 +14237,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createProductionEntryBatch(
       List<Map<String, dynamic>> entries) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/production/entries/batch'),
           headers: _headers,
           body: json.encode({'entries': entries}));
@@ -14249,7 +14250,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateProductionEntry(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/production/entries/$id'),
           headers: _headers,
           body: json.encode(data));
@@ -14261,7 +14262,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteProductionEntry(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/production/entries/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -14286,7 +14287,7 @@ class ApiService implements PayrollApi {
       if (productGroupId != null) params['productGroupId'] = productGroupId;
       final uri = Uri.parse('$baseUrl/api/production/export')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14309,7 +14310,7 @@ class ApiService implements PayrollApi {
       if (productGroupId != null) params['productGroupId'] = productGroupId;
       final uri = Uri.parse('$baseUrl/api/production/summary')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14335,7 +14336,7 @@ class ApiService implements PayrollApi {
       if (productGroupId != null) params['productGroupId'] = productGroupId;
       final uri = Uri.parse('$baseUrl/api/production/report')
           .replace(queryParameters: params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14349,7 +14350,7 @@ class ApiService implements PayrollApi {
     String? productItemId,
   }) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
         Uri.parse('$baseUrl/api/production/reprice'),
         headers: _headers,
         body: json.encode({
@@ -14372,7 +14373,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/kpi/salary/for-payroll')
           .replace(queryParameters: {'from': _ymd(from), 'to': _ymd(to)});
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14384,7 +14385,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/kpi/report').replace(
           queryParameters: periodId == null ? null : {'periodId': periodId});
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14396,7 +14397,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> importProductionFromExcel(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/production/import'),
           headers: _headers,
           body: json.encode(data));
@@ -14409,7 +14410,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> testProductionGSheetConnection(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/production/gsheet/test-connection'),
           headers: _headers,
           body: json.encode(data));
@@ -14422,7 +14423,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> getProductionGSheetNames(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/production/gsheet/sheet-names'),
           headers: _headers,
           body: json.encode(data));
@@ -14435,7 +14436,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> syncProductionFromGSheet(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/production/gsheet/sync'),
           headers: _headers,
           body: json.encode(data));
@@ -14448,7 +14449,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> syncProductionFromGSheetMulti(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/production/gsheet/sync-multi'),
           headers: _headers,
           body: json.encode(data));
@@ -14469,11 +14470,11 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl$path');
       final payload = body == null ? null : json.encode(body);
       final response = switch (method) {
-        'POST' => await http.post(uri, headers: _headers, body: payload),
-        'PUT' => await http.put(uri, headers: _headers, body: payload),
-        'PATCH' => await http.patch(uri, headers: _headers, body: payload),
-        'DELETE' => await http.delete(uri, headers: _headers),
-        _ => await http.get(uri, headers: _headers),
+        'POST' => await sharedHttpClient.post(uri, headers: _headers, body: payload),
+        'PUT' => await sharedHttpClient.put(uri, headers: _headers, body: payload),
+        'PATCH' => await sharedHttpClient.patch(uri, headers: _headers, body: payload),
+        'DELETE' => await sharedHttpClient.delete(uri, headers: _headers),
+        _ => await sharedHttpClient.get(uri, headers: _headers),
       };
       return _handleResponse(response);
     } catch (e) {
@@ -14603,7 +14604,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> _mealGet(String path, Map<String, String> q) async {
     try {
       final uri = Uri.parse('$baseUrl$path').replace(queryParameters: q.isEmpty ? null : q);
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14634,7 +14635,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> markMealTicketPrinted(String id) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/meals/tickets/$id/printed'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/meals/tickets/$id/printed'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -14658,7 +14659,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getMealSessions() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/meals/sessions'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/meals/sessions'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -14669,7 +14670,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createMealSession(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/meals/sessions'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/meals/sessions'),
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -14680,7 +14681,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateMealSession(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/meals/sessions/$id'),
           headers: _headers,
           body: jsonEncode(data));
@@ -14692,7 +14693,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteMealSession(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/meals/sessions/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -14707,7 +14708,7 @@ class ApiService implements PayrollApi {
       if (date != null) queryParams['date'] = date;
       final uri = Uri.parse('$baseUrl/api/meals/estimate').replace(
           queryParameters: queryParams.isNotEmpty ? queryParams : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14726,7 +14727,7 @@ class ApiService implements PayrollApi {
       if (mealSessionId != null) queryParams['mealSessionId'] = mealSessionId;
       final uri = Uri.parse('$baseUrl/api/meals/records')
           .replace(queryParameters: queryParams);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14748,7 +14749,7 @@ class ApiService implements PayrollApi {
       }
       final uri = Uri.parse('$baseUrl/api/meals/summary')
           .replace(queryParameters: queryParams);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14763,7 +14764,7 @@ class ApiService implements PayrollApi {
       if (mealSessionId != null) queryParams['mealSessionId'] = mealSessionId;
       final uri = Uri.parse('$baseUrl/api/meals/menu').replace(
           queryParameters: queryParams.isNotEmpty ? queryParams : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14777,7 +14778,7 @@ class ApiService implements PayrollApi {
       if (weekStartDate != null) queryParams['weekStartDate'] = weekStartDate;
       final uri = Uri.parse('$baseUrl/api/meals/menu/weekly').replace(
           queryParameters: queryParams.isNotEmpty ? queryParams : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14786,7 +14787,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> createMealMenu(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/meals/menu'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/meals/menu'),
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -14797,7 +14798,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateMealMenu(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(Uri.parse('$baseUrl/api/meals/menu/$id'),
+      final response = await sharedHttpClient.put(Uri.parse('$baseUrl/api/meals/menu/$id'),
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -14819,7 +14820,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> registerMeal(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/meals/register'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/meals/register'),
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -14830,7 +14831,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> batchRegisterMeal(
       List<Map<String, dynamic>> registrations) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/meals/register/batch'),
           headers: _headers,
           body: jsonEncode({'registrations': registrations}));
@@ -14853,7 +14854,7 @@ class ApiService implements PayrollApi {
       final query = params.isNotEmpty
           ? '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}'
           : '';
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/meals/register/my$query'),
           headers: _headers);
       return _handleResponse(response);
@@ -14871,7 +14872,7 @@ class ApiService implements PayrollApi {
       final query = params.isNotEmpty
           ? '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}'
           : '';
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/meals/register/summary$query'),
           headers: _headers);
       return _handleResponse(response);
@@ -14884,7 +14885,7 @@ class ApiService implements PayrollApi {
       {String? mealSessionId, String? qrCode}) async {
     try {
       final response =
-          await http.post(Uri.parse('$baseUrl/api/meals/checkin/qr'),
+          await sharedHttpClient.post(Uri.parse('$baseUrl/api/meals/checkin/qr'),
               headers: _headers,
               body: jsonEncode({
                 if (mealSessionId != null) 'mealSessionId': mealSessionId,
@@ -14907,7 +14908,7 @@ class ApiService implements PayrollApi {
       if (to != null) params['to'] = to.toIso8601String();
       final uri = Uri.parse('$baseUrl/api/meals/debt/summary')
           .replace(queryParameters: params.isEmpty ? null : params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14922,7 +14923,7 @@ class ApiService implements PayrollApi {
       if (period != null) params['period'] = period;
       final uri = Uri.parse('$baseUrl/api/meals/debt/history')
           .replace(queryParameters: params.isEmpty ? null : params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14931,7 +14932,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> createMealDebt(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/meals/debt'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/meals/debt'),
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -14941,7 +14942,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> batchChargeMeals(String period) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/meals/debt/batch-charge'),
           headers: _headers,
           body: jsonEncode({'period': period}));
@@ -14955,7 +14956,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getMealDishes() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/meals/dishes'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/meals/dishes'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -14965,7 +14966,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> createMealDish(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/meals/dishes'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/meals/dishes'),
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -14976,7 +14977,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateMealDish(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/meals/dishes/$id'),
           headers: _headers,
           body: jsonEncode(data));
@@ -14988,7 +14989,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteMealDish(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/meals/dishes/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -15002,7 +15003,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createMealRecord(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/meals/records'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/meals/records'),
           headers: _headers, body: jsonEncode(data));
       return _handleResponse(response);
     } catch (e) {
@@ -15013,7 +15014,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateMealRecord(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/meals/records/$id'),
           headers: _headers,
           body: jsonEncode(data));
@@ -15025,7 +15026,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteMealRecord(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/meals/records/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -15045,7 +15046,7 @@ class ApiService implements PayrollApi {
       final query = params.isNotEmpty
           ? '?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}'
           : '';
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/meals/registrations$query'),
           headers: _headers);
       return _handleResponse(response);
@@ -15057,7 +15058,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createMealRegistration(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/meals/registrations'),
           headers: _headers,
           body: jsonEncode(data));
@@ -15069,7 +15070,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteMealRegistration(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/meals/registrations/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -15093,7 +15094,7 @@ class ApiService implements PayrollApi {
       final query = params.isNotEmpty
           ? '?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}'
           : '';
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/field-checkin/locations$query'),
           headers: _headers);
       return _handleResponse(response);
@@ -15105,7 +15106,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> registerFieldLocation(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/field-checkin/locations'),
           headers: _headers,
           body: jsonEncode(data));
@@ -15118,7 +15119,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateFieldLocation(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/field-checkin/locations/$id'),
           headers: _headers,
           body: jsonEncode(data));
@@ -15130,7 +15131,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteFieldLocation(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/field-checkin/locations/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -15144,7 +15145,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> getFieldAssignments({String? employeeId}) async {
     try {
       final query = employeeId != null ? '?employeeId=$employeeId' : '';
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/field-checkin/assignments$query'),
           headers: _headers);
       return _handleResponse(response);
@@ -15156,7 +15157,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> getMyFieldAssignments({int? dayOfWeek}) async {
     try {
       final query = dayOfWeek != null ? '?dayOfWeek=$dayOfWeek' : '';
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/field-checkin/my-assignments$query'),
           headers: _headers);
       return _handleResponse(response);
@@ -15168,7 +15169,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createFieldAssignment(
       Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/field-checkin/assignments'),
           headers: _headers,
           body: jsonEncode(data));
@@ -15181,7 +15182,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> bulkFieldAssign(
       List<Map<String, dynamic>> items) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/field-checkin/assignments/bulk'),
           headers: _headers,
           body: jsonEncode({'items': items}));
@@ -15194,7 +15195,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateFieldAssignment(
       String id, Map<String, dynamic> data) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/field-checkin/assignments/$id'),
           headers: _headers,
           body: jsonEncode(data));
@@ -15206,7 +15207,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteFieldAssignment(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/field-checkin/assignments/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -15217,7 +15218,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> fieldCheckIn(Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/field-checkin/checkin'),
           headers: _headers,
           body: jsonEncode(data));
@@ -15230,7 +15231,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> fieldCheckOut(
       String visitId, Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/field-checkin/checkout/$visitId'),
           headers: _headers,
           body: jsonEncode(data));
@@ -15252,7 +15253,7 @@ class ApiService implements PayrollApi {
       if (status != null) params['status'] = status;
       final uri = Uri.parse('$baseUrl/api/field-checkin/my-visits')
           .replace(queryParameters: params.isEmpty ? null : params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15261,7 +15262,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getTodayFieldVisits() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/field-checkin/today'),
           headers: _headers);
       return _handleResponse(response);
@@ -15286,7 +15287,7 @@ class ApiService implements PayrollApi {
       if (status != null) params['status'] = status;
       final uri = Uri.parse('$baseUrl/api/field-checkin/reports')
           .replace(queryParameters: params.isEmpty ? null : params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15296,7 +15297,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> reviewFieldVisit(
       String visitId, Map<String, dynamic> data) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/field-checkin/review/$visitId'),
           headers: _headers,
           body: jsonEncode(data));
@@ -15316,7 +15317,7 @@ class ApiService implements PayrollApi {
       if (toDate != null) params['toDate'] = toDate.toIso8601String();
       final uri = Uri.parse('$baseUrl/api/field-checkin/summary')
           .replace(queryParameters: params.isEmpty ? null : params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15327,7 +15328,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> startJourney() async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/field-checkin/journey/start'),
           headers: _headers);
       return _handleResponse(response);
@@ -15339,7 +15340,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> trackJourneyPoints(
       List<Map<String, dynamic>> points) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/field-checkin/journey/track'),
           headers: _headers,
           body: jsonEncode({'points': points}));
@@ -15351,7 +15352,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> endJourney({String? note}) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/field-checkin/journey/end'),
           headers: _headers,
           body: jsonEncode({'note': note}));
@@ -15363,7 +15364,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getTodayJourney() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/field-checkin/journey/today'),
           headers: _headers);
       return _handleResponse(response);
@@ -15384,7 +15385,7 @@ class ApiService implements PayrollApi {
       if (toDate != null) params['toDate'] = toDate.toIso8601String();
       final uri = Uri.parse('$baseUrl/api/field-checkin/journey/reports')
           .replace(queryParameters: params.isEmpty ? null : params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15401,7 +15402,7 @@ class ApiService implements PayrollApi {
       if (toDate != null) params['toDate'] = toDate.toIso8601String();
       final uri = Uri.parse('$baseUrl/api/field-checkin/journey/my-history')
           .replace(queryParameters: params.isEmpty ? null : params);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15410,7 +15411,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getActiveJourneys() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/field-checkin/journey/active'),
           headers: _headers);
       return _handleResponse(response);
@@ -15426,7 +15427,7 @@ class ApiService implements PayrollApi {
           .replace(
               queryParameters:
                   fieldStaffOnly ? {'fieldStaffOnly': 'true'} : null);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15462,7 +15463,7 @@ class ApiService implements PayrollApi {
         if (shiftId != null) 'shiftId': shiftId,
         if (wholeDay) 'wholeDay': 'true',
       });
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15476,7 +15477,7 @@ class ApiService implements PayrollApi {
     double? speed,
   }) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/field-checkin/report-location'),
           headers: _headers,
           body: jsonEncode({
@@ -15493,7 +15494,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getJourneyDetail(String journeyId) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/field-checkin/journey/$journeyId'),
           headers: _headers);
       return _handleResponse(response);
@@ -15505,7 +15506,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> reviewJourney(String journeyId,
       {String? reviewNote}) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/field-checkin/journey/$journeyId/review'),
           headers: _headers,
           body: jsonEncode({'reviewNote': reviewNote}));
@@ -15536,7 +15537,7 @@ class ApiService implements PayrollApi {
       };
       final uri = Uri.parse('$baseUrl/api/system-admin/announcements')
           .replace(queryParameters: qp);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15546,7 +15547,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createSystemAnnouncement(
       Map<String, dynamic> body) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/announcements'),
           headers: _headers,
           body: jsonEncode(body));
@@ -15558,7 +15559,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> sendSystemAnnouncement(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/announcements/$id/send'),
           headers: _headers);
       return _handleResponse(response);
@@ -15569,7 +15570,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> resendFailedAnnouncement(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse(
               '$baseUrl/api/system-admin/announcements/$id/resend-failed'),
           headers: _headers);
@@ -15581,7 +15582,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> cancelSystemAnnouncement(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/announcements/$id/cancel'),
           headers: _headers);
       return _handleResponse(response);
@@ -15592,7 +15593,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteSystemAnnouncement(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/system-admin/announcements/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -15603,7 +15604,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getAnnouncementStats(String id) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/announcements/$id/stats'),
           headers: _headers);
       return _handleResponse(response);
@@ -15615,7 +15616,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> previewAnnouncementAudience(
       Map<String, dynamic> audience) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/announcements/preview-audience'),
           headers: _headers,
           body: jsonEncode(audience));
@@ -15627,7 +15628,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getActiveAnnouncements() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/announcements/active'),
           headers: _headers);
       return _handleResponse(response);
@@ -15638,7 +15639,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> markAnnouncementSeen(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/announcements/$id/seen'),
           headers: _headers);
       return _handleResponse(response);
@@ -15649,7 +15650,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> markAnnouncementClicked(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/announcements/$id/clicked'),
           headers: _headers);
       return _handleResponse(response);
@@ -15660,7 +15661,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> markAnnouncementAcked(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/announcements/$id/ack'),
           headers: _headers);
       return _handleResponse(response);
@@ -15671,7 +15672,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> dismissAnnouncement(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/announcements/$id/dismiss'),
           headers: _headers);
       return _handleResponse(response);
@@ -15686,7 +15687,7 @@ class ApiService implements PayrollApi {
       {bool? activeOnly}) async {
     try {
       final qs = activeOnly == true ? '?activeOnly=true' : '';
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/maintenance$qs'),
           headers: _headers);
       return _handleResponse(response);
@@ -15698,7 +15699,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createMaintenanceWindow(
       Map<String, dynamic> body) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/maintenance'),
           headers: _headers,
           body: jsonEncode(body));
@@ -15710,7 +15711,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> activateMaintenanceWindow(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/maintenance/$id/activate'),
           headers: _headers);
       return _handleResponse(response);
@@ -15721,7 +15722,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deactivateMaintenanceWindow(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/maintenance/$id/deactivate'),
           headers: _headers);
       return _handleResponse(response);
@@ -15732,7 +15733,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteMaintenanceWindow(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/system-admin/maintenance/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -15757,7 +15758,7 @@ class ApiService implements PayrollApi {
       {bool? activeOnly}) async {
     try {
       final qs = activeOnly == true ? '?activeOnly=true' : '';
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/marketing/templates$qs'),
           headers: _headers);
       return _handleResponse(response);
@@ -15769,7 +15770,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createNotificationTemplate(
       Map<String, dynamic> body) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/marketing/templates'),
           headers: _headers,
           body: jsonEncode(body));
@@ -15782,7 +15783,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> updateNotificationTemplate(
       String id, Map<String, dynamic> body) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/system-admin/marketing/templates/$id'),
           headers: _headers,
           body: jsonEncode(body));
@@ -15794,7 +15795,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteNotificationTemplate(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/system-admin/marketing/templates/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -15806,7 +15807,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> listMarketingCampaigns(
       {int page = 1, int pageSize = 50}) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse(
               '$baseUrl/api/system-admin/marketing/campaigns?page=$page&pageSize=$pageSize'),
           headers: _headers);
@@ -15818,7 +15819,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getMarketingCampaign(String id) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/marketing/campaigns/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -15830,7 +15831,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> createMarketingCampaign(
       Map<String, dynamic> body) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/marketing/campaigns'),
           headers: _headers,
           body: jsonEncode(body));
@@ -15842,7 +15843,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> launchMarketingCampaign(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/marketing/campaigns/$id/launch'),
           headers: _headers);
       return _handleResponse(response);
@@ -15853,7 +15854,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> cancelMarketingCampaign(String id) async {
     try {
-      final response = await http.post(
+      final response = await sharedHttpClient.post(
           Uri.parse('$baseUrl/api/system-admin/marketing/campaigns/$id/cancel'),
           headers: _headers);
       return _handleResponse(response);
@@ -15864,7 +15865,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> deleteMarketingCampaign(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
           Uri.parse('$baseUrl/api/system-admin/marketing/campaigns/$id'),
           headers: _headers);
       return _handleResponse(response);
@@ -15879,7 +15880,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getAppPage(String type) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/app-pages/$type'),
+      final response = await sharedHttpClient.get(Uri.parse('$baseUrl/api/app-pages/$type'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -15889,7 +15890,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> adminGetAllAppPages() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/system-admin/app-pages'),
           headers: _headers);
       return _handleResponse(response);
@@ -15901,7 +15902,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> adminUpsertAppPage(
       String type, Map<String, dynamic> body) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/system-admin/app-pages/$type'),
           headers: _headers,
           body: jsonEncode(body));
@@ -15918,7 +15919,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> submitAppBugReport(
       Map<String, dynamic> body) async {
     try {
-      final response = await http.post(Uri.parse('$baseUrl/api/app-reports'),
+      final response = await sharedHttpClient.post(Uri.parse('$baseUrl/api/app-reports'),
           headers: _headers, body: jsonEncode(body));
       return _handleResponse(response);
     } catch (e) {
@@ -15941,7 +15942,7 @@ class ApiService implements PayrollApi {
       };
       final uri = Uri.parse('$baseUrl/api/system-admin/app-reports')
           .replace(queryParameters: qp);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15951,7 +15952,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> adminUpdateAppBugReport(
       String id, Map<String, dynamic> body) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/system-admin/app-reports/$id'),
           headers: _headers,
           body: jsonEncode(body));
@@ -15976,7 +15977,7 @@ class ApiService implements PayrollApi {
       };
       final uri = Uri.parse('$baseUrl/api/system-admin/consultation-requests')
           .replace(queryParameters: qp);
-      final response = await http.get(uri, headers: _headers);
+      final response = await sharedHttpClient.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15986,7 +15987,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> adminUpdateConsultationRequest(
       String id, Map<String, dynamic> body) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/system-admin/consultation-requests/$id'),
           headers: _headers,
           body: jsonEncode(body));
@@ -15998,7 +15999,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> adminDeleteConsultationRequest(String id) async {
     try {
-      final response = await http.delete(
+      final response = await sharedHttpClient.delete(
         Uri.parse('$baseUrl/api/system-admin/consultation-requests/$id'),
         headers: _headers,
       );
@@ -16058,7 +16059,7 @@ class ApiService implements PayrollApi {
       }
       final uri = Uri.parse('$baseUrl/api/pos/products').replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getPosProducts: $e');
@@ -16171,7 +16172,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/pos/reports/materials/summary')
           .replace(queryParameters: {'from': from, 'to': to});
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -16183,7 +16184,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/pos/reports/toppings/summary')
           .replace(queryParameters: {'from': from, 'to': to});
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -16292,7 +16293,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/products/$id/favorite')
           .replace(queryParameters: {'value': value.toString()});
       final response =
-          await http.post(uri, headers: _headers).timeout(const Duration(seconds: 15));
+          await sharedHttpClient.post(uri, headers: _headers).timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -16921,7 +16922,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/products/sample-catalog')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -16985,7 +16986,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -17117,7 +17118,7 @@ class ApiService implements PayrollApi {
               '$baseUrl/api/system-admin/pos-sample-catalog/categories')
           .replace(queryParameters: {'includeInactive': '$includeInactive'});
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -17378,7 +17379,7 @@ class ApiService implements PayrollApi {
       final uri =
           Uri.parse('$baseUrl/api/pos/stock').replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -17417,7 +17418,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/stock/receipts')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -17479,7 +17480,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/sales/products')
           .replace(queryParameters: params);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -17569,7 +17570,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/einvoice/summary')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -17596,7 +17597,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/einvoice/invoices')
           .replace(queryParameters: qp);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -17737,7 +17738,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/einvoice/provider-invoices')
           .replace(queryParameters: qp);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 90));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 90));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -17776,7 +17777,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/einvoice/report')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -17866,8 +17867,8 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/pos/promotions${id == null ? '' : '/$id'}');
       final response = await (id == null
-              ? http.post(uri, headers: _headers, body: jsonEncode(body))
-              : http.put(uri, headers: _headers, body: jsonEncode(body)))
+              ? sharedHttpClient.post(uri, headers: _headers, body: jsonEncode(body))
+              : sharedHttpClient.put(uri, headers: _headers, body: jsonEncode(body)))
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
@@ -17991,7 +17992,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/price-lists/$priceListId/items')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18132,7 +18133,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/staff-commission')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18150,7 +18151,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/sales/summary')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18193,7 +18194,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/sales/orders')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18230,7 +18231,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/goods/summary')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18248,7 +18249,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/analysis/overview')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18267,7 +18268,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/profit/by-product')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18286,7 +18287,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/profit/by-dimension')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18315,7 +18316,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/stock/health')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18335,7 +18336,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/customers/sales')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18354,7 +18355,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/supplier-debt')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18374,7 +18375,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/purchases/summary')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18396,7 +18397,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/reservations/summary')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18427,7 +18428,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/end-of-day')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18445,7 +18446,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/cashbook/summary')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18463,7 +18464,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/expenses/summary')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18481,7 +18482,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/vouchers/summary')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18499,7 +18500,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/pnl/summary')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18518,7 +18519,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/end-of-day/staff')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18725,7 +18726,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/stock/issues')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18862,7 +18863,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/stock/counts')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18979,7 +18980,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/stock/$kind')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -19135,7 +19136,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/stock/products')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -19147,7 +19148,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/stock/lots/expiring/summary')
           .replace(queryParameters: {'days': '$days'});
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -19164,7 +19165,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/stock/lots/by-product/$productId')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 15));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -19196,7 +19197,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/stock/lots')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -19251,7 +19252,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/purchase/receipts')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -19410,7 +19411,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/purchase/returns')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -19538,7 +19539,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/purchase/suppliers')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -19743,7 +19744,7 @@ class ApiService implements PayrollApi {
         queryParameters: q.isEmpty ? null : q,
       );
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -19819,7 +19820,7 @@ class ApiService implements PayrollApi {
       final uri =
           Uri.parse('$baseUrl/api/pos/sales').replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -19914,7 +19915,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/sales/return-history')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -20076,7 +20077,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/sales/invoice-slots')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -20138,7 +20139,7 @@ class ApiService implements PayrollApi {
       if (phone != null && phone.trim().isNotEmpty) q['phone'] = phone.trim();
       if (orderNo != null && orderNo.trim().isNotEmpty) q['orderNo'] = orderNo.trim();
       final uri = Uri.parse('$baseUrl/api/pos/warranty/lookup').replace(queryParameters: q);
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -20251,7 +20252,7 @@ class ApiService implements PayrollApi {
         'productId': productId,
         if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
       });
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -20331,7 +20332,7 @@ class ApiService implements PayrollApi {
           'includeExpired': includeExpired.toString(),
         },
       );
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -20854,7 +20855,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/customers')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -20890,7 +20891,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/quotes')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -21230,7 +21231,7 @@ class ApiService implements PayrollApi {
         'page': '$page',
         'pageSize': '$pageSize',
       });
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -21282,7 +21283,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/quotes/$id/export/$format')
           .replace(queryParameters: {'includeImages': '$includeImages'});
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
       if (response.statusCode != 200) return null;
       return response.bodyBytes;
     } catch (_) {
@@ -21298,7 +21299,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/quotes/$id/export/html')
           .replace(queryParameters: {'includeImages': '$includeImages'});
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
       if (response.statusCode != 200) return null;
       return response.body;
     } catch (_) {
@@ -21340,7 +21341,7 @@ class ApiService implements PayrollApi {
         if (customerId != null && customerId.isNotEmpty) 'customerId': customerId,
         if (phone != null && phone.isNotEmpty) 'phone': phone,
       });
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -21624,7 +21625,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/customers/$customerId/points')
           .replace(queryParameters: {'page': '$page', 'pageSize': '$pageSize'});
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -21637,7 +21638,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/customers/$customerId/history')
           .replace(queryParameters: {'take': '$take'});
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -21658,7 +21659,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/reports/customer-debt')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -21680,7 +21681,7 @@ class ApiService implements PayrollApi {
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       final uri = Uri.parse('$baseUrl/api/pos/vouchers').replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -21810,7 +21811,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/print-templates')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -21824,7 +21825,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/print-templates/catalog')
           .replace(queryParameters: {'documentType': documentType});
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -21881,7 +21882,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/print-templates/presets')
           .replace(queryParameters: {'documentType': documentType});
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -21962,7 +21963,7 @@ class ApiService implements PayrollApi {
       {Duration timeout = const Duration(seconds: 120)}) async {
     try {
       final response = await _retryOnUnauthorized(
-        () => http.get(uri, headers: _binaryDownloadHeaders).timeout(timeout),
+        () => sharedHttpClient.get(uri, headers: _binaryDownloadHeaders).timeout(timeout),
       );
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'isSuccess': true, 'data': response.bodyBytes.toList()};
@@ -22015,7 +22016,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getPosDocxTemplateFields() async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/pos/print-templates/docx/fields'),
           headers: _headers);
       return _handleResponse(response);
@@ -22026,7 +22027,7 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getPosDocxTemplateMapping(String id) async {
     try {
-      final response = await http.get(
+      final response = await sharedHttpClient.get(
           Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/mapping'),
           headers: _headers);
       return _handleResponse(response);
@@ -22038,7 +22039,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> savePosDocxTemplateMapping(String id,
       List<Map<String, dynamic>> replacements, List<String> removeRowParagraphIds) async {
     try {
-      final response = await http.put(
+      final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/mapping'),
           headers: _headers,
           body: jsonEncode({
@@ -22426,7 +22427,7 @@ class ApiService implements PayrollApi {
       String id, String? printerId) async {
     return _mutateProductPrinterApi(
       '/categories/$id',
-      (uri) => http.put(
+      (uri) => sharedHttpClient.put(
         uri,
         headers: _headers,
         body: jsonEncode({'printerId': printerId}),
@@ -22441,7 +22442,7 @@ class ApiService implements PayrollApi {
   }) async {
     return _mutateProductPrinterApi(
       '/categories/$id/apply',
-      (uri) => http.post(
+      (uri) => sharedHttpClient.post(
         uri,
         headers: _headers,
         body: jsonEncode({
@@ -22456,7 +22457,7 @@ class ApiService implements PayrollApi {
       String id, String? printerId) async {
     return _mutateProductPrinterApi(
       '/products/$id',
-      (uri) => http.put(
+      (uri) => sharedHttpClient.put(
         uri,
         headers: _headers,
         body: jsonEncode({'printerId': printerId}),
@@ -22483,7 +22484,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> cleanupPosAgentOrphanPrinters() async {
     return _mutateProductPrinterApi(
       '/printers/cleanup-agent-orphans',
-      (uri) => http.post(uri, headers: _headers, body: '{}'),
+      (uri) => sharedHttpClient.post(uri, headers: _headers, body: '{}'),
     );
   }
 
@@ -22496,7 +22497,7 @@ class ApiService implements PayrollApi {
   }) async {
     return _mutateProductPrinterApi(
       '/printers/$targetPrinterId/copy-from',
-      (uri) => http.post(
+      (uri) => sharedHttpClient.post(
         uri,
         headers: _headers,
         body: jsonEncode({
@@ -22544,7 +22545,7 @@ class ApiService implements PayrollApi {
   }) async {
     return _mutateProductPrinterApi(
       '/printers/$printerId/assign',
-      (uri) => http.post(
+      (uri) => sharedHttpClient.post(
         uri,
         headers: _headers,
         body: jsonEncode({
@@ -22570,7 +22571,7 @@ class ApiService implements PayrollApi {
   }) async {
     return _mutateProductPrinterApi(
       '/printers/$printerId/unassign',
-      (uri) => http.post(
+      (uri) => sharedHttpClient.post(
         uri,
         headers: _headers,
         body: jsonEncode({
@@ -22589,7 +22590,7 @@ class ApiService implements PayrollApi {
   ) async {
     return _mutateProductPrinterApi(
       '/printers/$printerId/unassign-inactive',
-      (uri) => http.post(uri, headers: _headers, body: '{}'),
+      (uri) => sharedHttpClient.post(uri, headers: _headers, body: '{}'),
     );
   }
 
@@ -22719,7 +22720,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/print-jobs')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -22733,7 +22734,7 @@ class ApiService implements PayrollApi {
         'includeCompleted': '$includeCompleted',
         'hours': '$hours',
       });
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -22839,7 +22840,7 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> getPosRiskReport({required String from, required String to}) async {
     try {
       final uri = Uri.parse('$baseUrl/api/pos/risk-report').replace(queryParameters: {'from': from, 'to': to});
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -22851,7 +22852,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/pos/network/report')
           .replace(queryParameters: {'from': from, 'to': to});
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -22863,7 +22864,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/pos/printers/stale')
           .replace(queryParameters: {'days': '$days'});
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -22875,7 +22876,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/pos/printers/stale/deactivate')
           .replace(queryParameters: {'days': '$days'});
-      final response = await http.post(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      final response = await sharedHttpClient.post(uri, headers: _headers).timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -22963,7 +22964,7 @@ class ApiService implements PayrollApi {
         },
       );
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -23407,7 +23408,7 @@ class ApiService implements PayrollApi {
     try {
       final uri = Uri.parse('$baseUrl/api/pos/shipping/report')
           .replace(queryParameters: _shippingReportQuery(from, to, carrier));
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -23521,7 +23522,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/payment-gateway/credit-purchases')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -23536,7 +23537,7 @@ class ApiService implements PayrollApi {
               '$baseUrl/api/pos/payment-gateway/credit-ledgers?limit=$limit')
           .replace(queryParameters: {'limit': '$limit'});
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -23967,7 +23968,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/payment-gateway/transfer-intents')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -24148,7 +24149,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/service-resources')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -24417,7 +24418,7 @@ class ApiService implements PayrollApi {
       if (from != null) q['from'] = from.toIso8601String();
       if (to != null) q['to'] = to.toIso8601String();
       final uri = Uri.parse('$baseUrl/api/pos/reports/staff/summary').replace(queryParameters: q.isEmpty ? null : q);
-      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -25072,7 +25073,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/kitchen-voids')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -25103,7 +25104,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/cancel-return-audits')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -25228,7 +25229,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/resource-reservations')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -25253,7 +25254,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/resource-reservations/staff-availability')
           .replace(queryParameters: q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -25298,7 +25299,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/resource-reservations/staff-day')
           .replace(queryParameters: {'day': day.toUtc().toIso8601String()});
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -25384,7 +25385,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/resource-reservations/pipeline')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -25405,7 +25406,7 @@ class ApiService implements PayrollApi {
           Uri.parse('$baseUrl/api/pos/resource-reservations/availability')
               .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -25417,7 +25418,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/session-balances/history')
           .replace(queryParameters: {'customerId': customerId});
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -25436,7 +25437,7 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/pos/session-balances')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
-          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

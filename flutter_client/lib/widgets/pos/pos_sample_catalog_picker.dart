@@ -52,6 +52,15 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
   List<Map<String, dynamic>> _items = [];
   List<Map<String, dynamic>> _categories = [];
   String? _categoryFilter;
+  // Cache future ảnh theo id mẫu — tránh tải lại/giải mã lại mỗi lần rebuild
+  final Map<String, Future<Uint8List?>> _imageFutures = {};
+
+  Future<Uint8List?> _imageBytes(String id) => _imageFutures.putIfAbsent(
+        id,
+        () => widget.api.getPosSampleCatalogImageBytes(id).then(
+              (b) => b == null ? null : Uint8List.fromList(b),
+            ),
+      );
 
   static const _kinds = [
     (null, 'Tất cả'),
@@ -277,9 +286,8 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
                     color: const Color(0xFFF5F7FA),
                     child: id.isEmpty
                         ? const Icon(Icons.restaurant_menu_outlined)
-                        : FutureBuilder<List<int>?>(
-                            future:
-                                widget.api.getPosSampleCatalogImageBytes(id),
+                        : FutureBuilder<Uint8List?>(
+                            future: _imageBytes(id),
                             builder: (_, snap) {
                               if (snap.connectionState ==
                                   ConnectionState.waiting) {
@@ -297,7 +305,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
                                   snap.data != null &&
                                   snap.data!.isNotEmpty) {
                                 return Image.memory(
-                                  Uint8List.fromList(snap.data!),
+                                  snap.data!,
                                   fit: BoxFit.cover,
                                   gaplessPlayback: true,
                                   errorBuilder: (_, __, ___) => Icon(

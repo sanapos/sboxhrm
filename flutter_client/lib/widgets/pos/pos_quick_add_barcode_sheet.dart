@@ -380,11 +380,25 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
   // API giờ hỗ trợ dùng chung ảnh catalog để giảm dữ liệu lưu trữ.
   Future<PosProduct> _attachCatalogImage(PosProduct p) async => p;
 
+  // Cache future ảnh mẫu theo id — tránh tải lại/giải mã lại mỗi lần rebuild
+  String? _sampleImageId;
+  Future<Uint8List?>? _sampleImageFuture;
+
+  Future<Uint8List?> _sampleImageBytes(String sampleId) {
+    if (_sampleImageFuture == null || _sampleImageId != sampleId) {
+      _sampleImageId = sampleId;
+      _sampleImageFuture = widget.api
+          .getPosSampleCatalogImageBytes(sampleId)
+          .then((b) => b == null ? null : Uint8List.fromList(b));
+    }
+    return _sampleImageFuture!;
+  }
+
   Widget _imagePreview() {
     final sampleId = widget.hint.sampleCatalogId?.trim();
     if (sampleId != null && sampleId.isNotEmpty) {
-      return FutureBuilder<List<int>?>(
-        future: widget.api.getPosSampleCatalogImageBytes(sampleId),
+      return FutureBuilder<Uint8List?>(
+        future: _sampleImageBytes(sampleId),
         builder: (ctx, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -397,7 +411,7 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
           }
           if (snap.hasData && snap.data != null && snap.data!.isNotEmpty) {
             return Image.memory(
-              Uint8List.fromList(snap.data!),
+              snap.data!,
               height: 88,
               width: 88,
               fit: BoxFit.cover,

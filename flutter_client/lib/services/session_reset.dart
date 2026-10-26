@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/permission_provider.dart';
 import '../services/mobile_bottom_nav_prefs.dart';
 import '../services/mobile_quick_actions_prefs.dart';
+import 'shared_http_client.dart';
 import '../utils/navigation_notifier.dart';
 
 /// Xóa cache in-memory khi đổi tài khoản / cửa hàng (logout → login).
@@ -21,6 +22,7 @@ class SessionReset {
     _permissionProvider?.clear();
     MobileBottomNavPrefs.clearCache();
     MobileQuickActionsPrefs.clearCache();
+    clearSharedHttpCache();
     NavigationNotifier.resetForNewSession();
     try {
       final prefs = await SharedPreferences.getInstance();

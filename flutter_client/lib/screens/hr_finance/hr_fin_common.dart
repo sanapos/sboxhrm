@@ -156,8 +156,10 @@ class HrFinAvatar extends StatelessWidget {
     );
     final p = photo;
     if (p == null || p.isEmpty) return fallback;
+    // Giải mã ảnh theo kích thước hiển thị (x2 để BoxFit.cover vẫn nét với ảnh ngang tới 2:1)
+    final cacheW = size.isFinite ? (size * MediaQuery.devicePixelRatioOf(context) * 2).round() : null;
     return ClipOval(
-      child: Image.network(hrFinUrl(p), width: size, height: size, fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback),
+      child: Image.network(hrFinUrl(p), width: size, height: size, cacheWidth: cacheW, fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback),
     );
   }
 }

@@ -51,16 +51,28 @@ class RegisterPageTopActions extends StatefulWidget {
 }
 
 class _RegisterPageTopActionsState extends State<RegisterPageTopActions> {
+  /// Màn bị shell giữ ngầm (Offstage + TickerMode tắt) không được đẩy action lên top bar.
+  bool _visible = true;
+
+  void _sync() {
+    if (_visible) {
+      PageTopActions.instance.setActions(widget.actions, owner: this);
+    } else {
+      PageTopActions.instance.clear(owner: this);
+    }
+  }
+
   @override
-  void initState() {
-    super.initState();
-    PageTopActions.instance.setActions(widget.actions, owner: this);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _visible = TickerMode.of(context);
+    _sync();
   }
 
   @override
   void didUpdateWidget(covariant RegisterPageTopActions oldWidget) {
     super.didUpdateWidget(oldWidget);
-    PageTopActions.instance.setActions(widget.actions, owner: this);
+    _sync();
   }
 
   @override

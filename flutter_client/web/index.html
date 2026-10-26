@@ -60,6 +60,8 @@
   <!-- Vietnamese UI fallback when CanvasKit font atlas is not ready -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- CanvasKit mặc định tải từ www.gstatic.com — mở kết nối sớm trong lúc chờ main.dart.js. -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <!-- Không chặn hiển thị: app Flutter dùng font đóng gói sẵn, đây chỉ là font dự phòng. -->
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
@@ -453,25 +455,22 @@
           await Promise.all(keys.map(function (k) { return caches.delete(k); }));
         }
       }
-      function loadBootstrap() {
-        var bust = Date.now();
-        fetch('version.json?_=' + bust, { cache: 'no-store' })
-          .then(function (r) { return r.ok ? r.json() : {}; })
-          .then(function (v) {
-            if (v && v.build_number) bust = v.build_number;
-            var s = document.createElement('script');
-            s.src = 'flutter_bootstrap.js?v=' + encodeURIComponent(bust);
-            s.async = true;
-            document.body.appendChild(s);
-          })
-          .catch(function () {
-            var s = document.createElement('script');
-            s.src = 'flutter_bootstrap.js?v=' + bust;
-            s.async = true;
-            document.body.appendChild(s);
-          });
+      function appendBootstrap(bust) {
+        var s = document.createElement('script');
+        s.src = 'flutter_bootstrap.js?v=' + encodeURIComponent(bust);
+        s.async = true;
+        document.body.appendChild(s);
       }
-      clearWebCaches().then(loadBootstrap).catch(loadBootstrap);
+      // Xóa cache và đọc version.json chạy song song (trước đây nối tiếp: xóa xong mới hỏi version).
+      var bust = Date.now();
+      var versionReady = fetch('version.json?_=' + bust, { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : {}; })
+        .then(function (v) { return (v && v.build_number) ? v.build_number : bust; })
+        .catch(function () { return bust; });
+      var cachesCleared = clearWebCaches().catch(function () {});
+      Promise.all([versionReady, cachesCleared])
+        .then(function (r) { appendBootstrap(r[0]); })
+        .catch(function () { appendBootstrap(bust); });
     })();
   </script>
 </body>

@@ -525,9 +525,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         widget.dayEndMinute,
       );
 
+  // _filteredAttendances là getter tạo list mới mỗi lần → không dùng identity của nó
+  // (cache sẽ không bao giờ trúng). Các đầu vào của bộ lọc đã nằm trong _summaryRowsFp.
   int get _shiftRecordsCacheFp => Object.hash(
         _summaryRowsFp,
-        identityHashCode(_filteredAttendances),
+        widget.minHoursForWorkDay,
+        widget.decimalWorkDayEnabled,
+        widget.standardWorkHours,
       );
 
   int get _displayDataFp => Object.hash(

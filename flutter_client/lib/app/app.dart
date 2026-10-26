@@ -21,7 +21,9 @@ import '../screens/login_screen.dart';
 import '../screens/register_screen.dart';
 import '../screens/forgot_password_screen.dart';
 import '../screens/reset_password_screen.dart';
-import '../screens/system_admin_screen.dart';
+// Deferred: chỉ tài khoản SuperAdmin / Đại lý mở — bản web không tải phần này cho cửa hàng.
+import '../screens/system_admin_screen.dart' deferred as system_admin;
+import '../widgets/deferred_screen.dart';
 import '../screens/agent_register_screen.dart';
 import '../screens/admin_login_screen.dart';
 import '../screens/landing_guide_screen.dart';
@@ -36,6 +38,8 @@ import '../utils/store_role_helper.dart';
 import '../widgets/app_boot_screen.dart';
 import '../widgets/web_static_home_redirect.dart';
 import '../widgets/pos/pos_form_keyboard.dart';
+
+bool _overlayStyleResetScheduled = false;
 
 class ZKTecoApp extends StatelessWidget {
   const ZKTecoApp({super.key});
@@ -116,10 +120,15 @@ class ZKTecoApp extends StatelessWidget {
                 }
                 // MaterialApp (_themeBuilder) luôn set OverlayStyle.dark (icon tối)
                 // trên theme sáng — ghi đè lại sau frame để giờ/Wi‑Fi hiện trên thanh đen.
-                WidgetsBinding.instance.addPostFrameCallback((_) {
+                // Builder chạy lại mỗi frame khi bàn phím / cửa sổ đổi cỡ → chỉ đăng ký 1 callback mỗi frame.
+                if (!_overlayStyleResetScheduled) {
+                  _overlayStyleResetScheduled = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _overlayStyleResetScheduled = false;
+                    SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnDarkBg);
+                  });
                   SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnDarkBg);
-                });
-                SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnDarkBg);
+                }
                 // Màn cảm ứng (web trên tablet / POS cảm ứng): vùng chạm tối thiểu 48px cho mọi nút Material
                 // (nền web / Windows mặc định thu nhỏ vùng chạm theo kiểu chuột).
                 final touchUi = kIsWeb && posWebHasTouchPoints();
@@ -270,8 +279,11 @@ class ZKTecoApp extends StatelessWidget {
                 if (SboxAppVariant.standalonePos) {
                   return const _StandalonePosAdminBlocked();
                 }
-                return SystemAdminScreen(
-                  agentMode: state.role.toLowerCase() == 'agent',
+                final agentMode = state.role.toLowerCase() == 'agent';
+                return DeferredScreen(
+                  load: system_admin.loadLibrary,
+                  builder: () =>
+                      system_admin.SystemAdminScreen(agentMode: agentMode),
                 );
               }
               if (SboxAppVariant.standalonePos) {
@@ -302,8 +314,10 @@ class _AdminRouteGuard extends StatelessWidget {
         }
 
         if (StoreRoleHelper.isSystemPortalRole(state.role)) {
-          return SystemAdminScreen(
-            agentMode: state.role!.toLowerCase() == 'agent',
+          final agentMode = state.role!.toLowerCase() == 'agent';
+          return DeferredScreen(
+            load: system_admin.loadLibrary,
+            builder: () => system_admin.SystemAdminScreen(agentMode: agentMode),
           );
         }
 

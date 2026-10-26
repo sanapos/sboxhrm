@@ -2868,6 +2868,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
 
   void _showAssetDetail(Asset asset) {
     final isMobile = Responsive.isMobile(context);
+    // Tạo future 1 lần — builder của dialog có thể rebuild (resize/bàn phím)
+    final inventoryHistoryFuture =
+        _apiService.getAssetInventoryHistory(asset.id);
     showDialog(
       context: context,
       builder: (context) {
@@ -2929,7 +2932,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       const SizedBox(height: 16),
                       // Inventory history section
                       FutureBuilder<Map<String, dynamic>>(
-                        future: _apiService.getAssetInventoryHistory(asset.id),
+                        future: inventoryHistoryFuture,
                         builder: (context, snapshot) {
                           if (snapshot.connectionState == ConnectionState.waiting) {
                             return _detailSection('Lịch sử kiểm kê', [

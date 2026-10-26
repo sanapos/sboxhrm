@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -79,40 +77,43 @@ class _WhGlassAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: EdgeInsets.fromLTRB(8, topPadding + 4, 8, 12),
-          decoration: BoxDecoration(
-            color: WhMobileTheme.surfaceGlass,
-            border: Border(
-              bottom: BorderSide(color: WhMobileTheme.divider.withOpacity(0.5)),
+    // Không dùng BackdropFilter blur: nền surfaceGlass đã gần đục, blur tính lại mỗi frame
+    // cuộn (giật trên máy yếu).
+    return Container(
+      padding: EdgeInsets.fromLTRB(8, topPadding + 4, 8, 12),
+      decoration: BoxDecoration(
+        color: WhMobileTheme.surfaceGlass,
+        border: Border(
+          bottom: BorderSide(color: WhMobileTheme.divider.withOpacity(0.5)),
+        ),
+      ),
+      child: Row(
+        children: [
+          leading ??
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                color: WhMobileTheme.primary,
+                onPressed: () => Navigator.maybePop(context),
+              ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(tr(title),
+                    style: WhMobileTheme.titleMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                if (subtitle != null)
+                  Text(tr(subtitle!),
+                      style: WhMobileTheme.caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+              ],
             ),
           ),
-          child: Row(
-            children: [
-              leading ??
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-                    color: WhMobileTheme.primary,
-                    onPressed: () => Navigator.maybePop(context),
-                  ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(tr(title), style: WhMobileTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    if (subtitle != null)
-                      Text(tr(subtitle!), style: WhMobileTheme.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ],
-                ),
-              ),
-              if (actions != null) ...actions!,
-            ],
-          ),
-        ),
+          if (actions != null) ...actions!,
+        ],
       ),
     );
   }
@@ -144,66 +145,67 @@ class WhMobileBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottom),
-          decoration: BoxDecoration(
-            color: WhMobileTheme.surfaceGlass,
-            border: Border(
-              top: BorderSide(color: WhMobileTheme.divider.withOpacity(0.5)),
-            ),
-          ),
-          child: readOnly
-              ? (dangerAction ?? secondaryAction ?? const SizedBox.shrink())
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        if (onSaveDraft != null)
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: loading ? null : onSaveDraft,
-                              style: WhMobileTheme.secondaryButton(),
-                              child: Text(tr(loading ? 'Đang lưu…' : saveDraftLabel)),
-                            ),
-                          ),
-                        if (onSaveDraft != null && onComplete != null)
-                          const SizedBox(width: 10),
-                        if (onComplete != null)
-                          Expanded(
-                            flex: onSaveDraft != null ? 1 : 2,
-                            child: FilledButton(
-                              onPressed: loading ? null : onComplete,
-                              style: WhMobileTheme.primaryButton(),
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(tr(loading ? 'Đang lưu…' : completeLabel), maxLines: 1, softWrap: false),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    if (secondaryAction != null) ...[
-                      const SizedBox(height: 8),
-                      secondaryAction!,
-                    ],
-                    if (dangerAction != null) ...[
-                      const SizedBox(height: 8),
-                      dangerAction!,
-                    ],
-                  ],
-                ),
+    // Không blur — như _WhGlassAppBar.
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottom),
+      decoration: BoxDecoration(
+        color: WhMobileTheme.surfaceGlass,
+        border: Border(
+          top: BorderSide(color: WhMobileTheme.divider.withOpacity(0.5)),
         ),
       ),
+      child: readOnly
+          ? (dangerAction ?? secondaryAction ?? const SizedBox.shrink())
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    if (onSaveDraft != null)
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: loading ? null : onSaveDraft,
+                          style: WhMobileTheme.secondaryButton(),
+                          child:
+                              Text(tr(loading ? 'Đang lưu…' : saveDraftLabel)),
+                        ),
+                      ),
+                    if (onSaveDraft != null && onComplete != null)
+                      const SizedBox(width: 10),
+                    if (onComplete != null)
+                      Expanded(
+                        flex: onSaveDraft != null ? 1 : 2,
+                        child: FilledButton(
+                          onPressed: loading ? null : onComplete,
+                          style: WhMobileTheme.primaryButton(),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                                tr(loading ? 'Đang lưu…' : completeLabel),
+                                maxLines: 1,
+                                softWrap: false),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (secondaryAction != null) ...[
+                  const SizedBox(height: 8),
+                  secondaryAction!,
+                ],
+                if (dangerAction != null) ...[
+                  const SizedBox(height: 8),
+                  dangerAction!,
+                ],
+              ],
+            ),
     );
   }
 }
 
 class WhStatusPill extends StatelessWidget {
-  const WhStatusPill({super.key, required this.status, this.draftLabel = 'Phiếu tạm'});
+  const WhStatusPill(
+      {super.key, required this.status, this.draftLabel = 'Phiếu tạm'});
 
   final String status;
   final String draftLabel;
@@ -393,7 +395,8 @@ class _WhQtyStepperState extends State<WhQtyStepper> {
     return double.tryParse(t);
   }
 
-  double _clamp(double v) => v.clamp(widget.min, widget.max ?? double.infinity).toDouble();
+  double _clamp(double v) =>
+      v.clamp(widget.min, widget.max ?? double.infinity).toDouble();
 
   @override
   void initState() {
@@ -419,7 +422,8 @@ class _WhQtyStepperState extends State<WhQtyStepper> {
   void _onFocus() {
     if (_focus.hasFocus) {
       // Chọn sẵn cả số — gõ là thay số cũ.
-      _ctrl.selection = TextSelection(baseOffset: 0, extentOffset: _ctrl.text.length);
+      _ctrl.selection =
+          TextSelection(baseOffset: 0, extentOffset: _ctrl.text.length);
     } else {
       _commit();
     }
@@ -449,7 +453,8 @@ class _WhQtyStepperState extends State<WhQtyStepper> {
   Widget build(BuildContext context) {
     final value = widget.value;
     final canDec = !widget.readOnly && value > widget.min;
-    final canInc = !widget.readOnly && (widget.max == null || value + widget.step <= widget.max!);
+    final canInc = !widget.readOnly &&
+        (widget.max == null || value + widget.step <= widget.max!);
 
     return Row(
       children: [
@@ -640,7 +645,8 @@ class WhLineCard extends StatelessWidget {
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  constraints:
+                      const BoxConstraints(minWidth: 28, minHeight: 28),
                   icon: Icon(Icons.close_rounded,
                       size: 18, color: WhMobileTheme.danger.withOpacity(0.8)),
                   onPressed: onRemove,
@@ -667,7 +673,8 @@ class WhSectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
       child: Row(
         children: [
-          Expanded(child: Text(tr(title.toUpperCase()), style: WhMobileTheme.label)),
+          Expanded(
+              child: Text(tr(title.toUpperCase()), style: WhMobileTheme.label)),
           if (action != null) action!,
         ],
       ),
@@ -698,7 +705,8 @@ class WhSearchField extends StatelessWidget {
       style: WhMobileTheme.body,
       decoration: WhMobileTheme.fieldDecoration(
         hint: hint,
-        prefix: const Icon(Icons.search_rounded, color: WhMobileTheme.textSecondary, size: 22),
+        prefix: const Icon(Icons.search_rounded,
+            color: WhMobileTheme.textSecondary, size: 22),
       ).copyWith(
         suffixIcon: ValueListenableBuilder(
           valueListenable: controller,
@@ -778,10 +786,12 @@ class WhEmptyState extends StatelessWidget {
           children: [
             Icon(icon, size: 56, color: WhMobileTheme.textTertiary),
             const SizedBox(height: 16),
-            Text(tr(title), style: WhMobileTheme.titleMedium, textAlign: TextAlign.center),
+            Text(tr(title),
+                style: WhMobileTheme.titleMedium, textAlign: TextAlign.center),
             if (subtitle != null) ...[
               const SizedBox(height: 8),
-              Text(tr(subtitle!), style: WhMobileTheme.caption, textAlign: TextAlign.center),
+              Text(tr(subtitle!),
+                  style: WhMobileTheme.caption, textAlign: TextAlign.center),
             ],
             if (action != null) ...[const SizedBox(height: 20), action!],
           ],

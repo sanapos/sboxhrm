@@ -61,6 +61,8 @@ class PosMoreScreen extends StatefulWidget {
 
 class _PosMoreScreenState extends State<PosMoreScreen> {
   PosStoreSellSettingsDto? _sell;
+  // Lấy thông tin phiên bản 1 lần — không gọi lại mỗi lần build
+  final Future<PackageInfo> _packageInfoFuture = PackageInfo.fromPlatform();
 
   bool get _shiftOn => _sell?.enableCashierShift == true;
   bool get _qrOn => _sell?.enableQrTableOrder == true;
@@ -352,8 +354,8 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                FutureBuilder(
-                  future: PackageInfo.fromPlatform(),
+                FutureBuilder<PackageInfo>(
+                  future: _packageInfoFuture,
                   builder: (context, snap) {
                     final info = snap.data;
                     final label = info == null

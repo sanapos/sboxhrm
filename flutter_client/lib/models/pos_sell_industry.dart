@@ -503,6 +503,30 @@ class PosStoreSellSettingsDto {
     return jsonEncode(root);
   }
 
+  /// ExtraJson.autoStartTimedOnPick — chọn món tính giờ (bi-a, giờ phòng…) là đồng hồ dòng
+  /// chạy ngay. Mặc định BẬT; tắt thì dòng chờ bấm «Bắt đầu» như trước.
+  bool get autoStartTimedOnPick {
+    final raw = extraJson;
+    if (raw == null || raw.trim().isEmpty) return true;
+    try {
+      final root = jsonDecode(raw);
+      if (root is Map) return root['autoStartTimedOnPick'] != false;
+    } catch (_) {}
+    return true;
+  }
+
+  static String mergeAutoStartTimedOnPick(String? existing, bool value) {
+    Map<String, dynamic> root = {};
+    if (existing != null && existing.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(existing);
+        if (decoded is Map) root = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    root['autoStartTimedOnPick'] = value;
+    return jsonEncode(root);
+  }
+
   static String mergeAllowEditSaleTime(String? existing, bool value) {
     Map<String, dynamic> root = {};
     if (existing != null && existing.trim().isNotEmpty) {

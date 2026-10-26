@@ -76,8 +76,9 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     _canPickStaff = StoreRoleHelper.isManagerOrAbove(auth.userRole) ||
         perm.canViewAllPosStaffReports();
-    await _loadSellSettings();
-    await _loadStaff();
+    // Thiết lập bán hàng và DS nhân viên độc lập → tải song song;
+    // báo cáo cần cả hai (giờ chốt ngày + NV đã chọn) nên chạy sau.
+    await Future.wait([_loadSellSettings(), _loadStaff()]);
     await _loadReport();
   }
 

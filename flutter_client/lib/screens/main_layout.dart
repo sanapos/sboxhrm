@@ -59,7 +59,9 @@ import 'employees_screen.dart';
 import 'device_users_screen.dart';
 import 'attendance_screen.dart';
 import 'settings_screen.dart';
-import 'system_admin_screen.dart';
+// Deferred: bản web tách thành file JS riêng (flutter_quill, flutter_html) — chỉ tải khi mở.
+import 'system_admin_screen.dart' deferred as system_admin;
+import '../widgets/deferred_screen.dart';
 import 'settings_hub_screen.dart';
 import 'business_trip_expense_screen.dart';
 import 'notifications_screen.dart';
@@ -146,7 +148,7 @@ import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_command_palette.dart';
 import 'overview/business_overview_screen.dart';
 import 'work/work_hub_screen.dart';
-import 'comm/comm_hub_screen.dart';
+import 'comm/comm_hub_screen.dart' deferred as comm_hub;
 import 'hr_finance/hr_finance_hub_screen.dart';
 import 'attendance_approval_v2/aa_hub_screen.dart';
 import 'branch_ops/branch_report_screen.dart';
@@ -946,8 +948,79 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   void _bumpModuleVisit(int index) {
     if (_keepScreenAlive(index)) return;
+    // Màn vừa rời còn giữ (desktop / web) và chưa quá hạn → hiện lại ngay, không tải lại.
+    final left = _keptAliveLeftAt[index];
+    if (_keptAliveIndices.contains(index) &&
+        left != null &&
+        DateTime.now().difference(left) < _kKeepAliveFor) {
+      _keptAliveIndices.remove(index);
+      return;
+    }
+    _keptAliveIndices.remove(index);
     _moduleVisitGen[index] = (_moduleVisitGen[index] ?? 0) + 1;
     _mobileBottomScreenCache.remove(index);
+  }
+
+  /// Desktop / web (Windows, macOS, Linux, trình duyệt): giữ tối đa [_kKeepAliveMax] màn
+  /// vừa rời trong cây (Offstage) để quay lại tức thì. Android / iOS không giữ — máy POS
+  /// 2–3 GB RAM từng bị dừng khi nhiều màn cùng sống.
+  static const int _kKeepAliveMax = 2;
+  static const Duration _kKeepAliveFor = Duration(minutes: 2);
+  final List<int> _keptAliveIndices = [];
+  final Map<int, DateTime> _keptAliveLeftAt = {};
+  bool _wideLayout = false;
+
+  bool get _canKeepScreensAlive =>
+      _wideLayout &&
+      (kIsWeb ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.linux);
+
+  void _rememberLeftScreen(int index) {
+    if (!_canKeepScreensAlive || index == 0 || index < 0 || index >= _navItems.length) {
+      return;
+    }
+    final code = _screenModuleCode(index);
+    // Bán hàng / bếp toàn màn: nặng và có luồng realtime riêng — không giữ ngầm.
+    if (code == 'PosSell' || code == 'PosKds') return;
+    // Thiết lập SBOX / Công việc điều khiển nút back + tiêu đề shell qua callback static —
+    // giữ ngầm sẽ chiếm nút back của màn khác.
+    if (_navItems[index].screen is SettingsHubScreen ||
+        SettingsHubScreen.internalBackCallback != null ||
+        TaskManagementScreen.internalBackCallback != null) {
+      return;
+    }
+    _keptAliveIndices.remove(index);
+    _keptAliveIndices.insert(0, index);
+    _keptAliveLeftAt[index] = DateTime.now();
+    while (_keptAliveIndices.length > _kKeepAliveMax) {
+      _keptAliveLeftAt.remove(_keptAliveIndices.removeLast());
+    }
+    // Quá hạn thì gỡ khỏi cây — màn ẩn không chạy polling / timer mãi.
+    _keepAlivePruneTimer?.cancel();
+    _keepAlivePruneTimer = Timer(
+      _kKeepAliveFor + const Duration(seconds: 1),
+      _pruneKeptAliveScreens,
+    );
+  }
+
+  Timer? _keepAlivePruneTimer;
+
+  void _pruneKeptAliveScreens() {
+    if (!mounted) return;
+    final now = DateTime.now();
+    final expired = _keptAliveIndices.where((i) {
+      final left = _keptAliveLeftAt[i];
+      return left == null || now.difference(left) >= _kKeepAliveFor;
+    }).toList();
+    if (expired.isEmpty) return;
+    setState(() {
+      for (final i in expired) {
+        _keptAliveIndices.remove(i);
+        _keptAliveLeftAt.remove(i);
+      }
+    });
   }
 
   /// Tài khoản của mình (đổi tên, SĐT, mật khẩu) — không phụ thuộc index cứng / quyền SettingsHub.
@@ -970,6 +1043,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (_navigationHistory.length > 50) {
         _navigationHistory.removeAt(0);
       }
+      _rememberLeftScreen(_selectedIndex);
       _selectedIndex = index;
       _bumpModuleVisit(index);
     });
@@ -991,6 +1065,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     }
     if (_navigationHistory.isNotEmpty && mounted) {
       setState(() {
+        _rememberLeftScreen(_selectedIndex);
         _selectedIndex = _navigationHistory.removeLast();
         _bumpModuleVisit(_selectedIndex);
       });
@@ -1030,11 +1105,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   /// Đổi chi nhánh làm việc → dựng lại màn đang mở để tải dữ liệu của chi nhánh mới.
   void _onBranchChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {
+      // Màn giữ ngầm đổi key theo chi nhánh → sẽ cùng tải lại một lúc; bỏ hẳn cho nhẹ.
+      _keptAliveIndices.clear();
+      _keptAliveLeftAt.clear();
+    });
   }
 
   @override
   void dispose() {
+    _keepAlivePruneTimer?.cancel();
     BranchSession.instance.removeListener(_onBranchChanged);
     HardwareKeyboard.instance.removeHandler(_onGlobalKey);
     MobileBottomNavPrefs.revision.removeListener(_onMobileNavPrefsChanged);
@@ -1872,7 +1953,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.campaign,
       label: 'Truyền thông',
       subtitle: 'Thông báo',
-      screen: const CommHubScreen(),
+      screen: DeferredScreen(
+        load: comm_hub.loadLibrary,
+        builder: () => comm_hub.CommHubScreen(),
+      ),
       group: 'Quản lý Vận hành',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Communication',
@@ -2346,7 +2430,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.admin_panel_settings,
       label: 'Quản trị hệ thống',
       subtitle: 'Server',
-      screen: const SystemAdminScreen(),
+      screen: DeferredScreen(
+        load: system_admin.loadLibrary,
+        builder: () => system_admin.SystemAdminScreen(),
+      ),
       group: 'Cài đặt',
       showInSidebar: true,
       themeColor: HrmPageChrome.primaryNavy,
@@ -2461,11 +2548,30 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // Rebuild khi allowedModules được tải sau đăng nhập / khôi phục phiên.
-    context.watch<AuthProvider>();
+    // Rebuild khi allowedModules được tải sau đăng nhập / khôi phục phiên, hoặc thông tin
+    // hiển thị đổi. Không watch cả AuthProvider: refresh token cũng notify → dựng lại cả shell.
+    context.select<AuthProvider, int>((a) {
+      final u = a.user;
+      if (u == null) return 0;
+      return Object.hash(
+        u.id,
+        u.employeeId,
+        u.email,
+        u.fullName,
+        u.role,
+        u.storeId,
+        u.avatarUrl,
+        u.department,
+        u.position,
+        u.allowedModules == null ? null : Object.hashAll(u.allowedModules!),
+      );
+    });
 
-    final isDesktop = MediaQuery.of(context).size.width >= 1024;
-    final isTablet = MediaQuery.of(context).size.width >= 768;
+    // sizeOf: chỉ phụ thuộc kích thước, không rebuild cả shell mỗi frame khi bàn phím mở / đóng.
+    final width = MediaQuery.sizeOf(context).width;
+    final isDesktop = width >= 1024;
+    final isTablet = width >= 768;
+    _wideLayout = isTablet;
 
     if (isDesktop) {
       return _buildDesktopLayout();
@@ -2539,7 +2645,31 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           // Trang chủ ẩn: dừng banner / hoãn tải lại theo chấm công đến khi quay lại.
           child: TickerMode(enabled: _selectedIndex == 0, child: _getHomeScreen()),
         ),
-        if (_selectedIndex != 0) _getScreenForIndex(_selectedIndex),
+        // Màn vừa rời (desktop / web) + màn hiện tại, xếp theo index để Element không bị
+        // đổi chỗ (đổi chỗ = mất State). Key theo index giữ đúng màn khi danh sách đổi.
+        for (final i in ({
+          if (_canKeepScreensAlive) ..._keptAliveIndices,
+          if (_selectedIndex != 0) _selectedIndex,
+        }.toList()
+          ..sort()))
+          KeyedSubtree(
+            key: ValueKey('keep_alive_$i'),
+            child: Offstage(
+              offstage: i != _selectedIndex,
+              // Màn ẩn: tắt animation, không giữ focus bàn phím, không tham gia Hero
+              // (FAB trùng tag mặc định giữa 2 màn → lỗi khi đẩy route).
+              child: TickerMode(
+                enabled: i == _selectedIndex,
+                child: ExcludeFocus(
+                  excluding: i != _selectedIndex,
+                  child: HeroMode(
+                    enabled: i == _selectedIndex,
+                    child: _getScreenForIndex(i),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -4689,9 +4819,10 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     // tự phục vụ rồi bung ra đủ menu (giao diện nhảy).
     if ((!permProvider.isLoaded && !permProvider.loadFailed) ||
         (!widget.bypassPackageFilter && widget.allowedModules == null)) {
+      // Khung xương tĩnh cùng dáng lưới menu thay spinner: không nháy trắng → nội dung.
       return ColoredBox(
         color: isMobile || kIsWeb ? PosTheme.background : const Color(0xFFF1F4F6),
-        child: const Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+        child: _HomeMenuSkeleton(padding: padding, columns: isMobile ? 4 : 6),
       );
     }
     // Group items
@@ -5092,6 +5223,76 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       'Th12'
     ];
     return '${weekdays[now.weekday - 1]}, ${now.day} ${months[now.month - 1]} ${now.year}';
+  }
+}
+
+/// Khung xương trang chủ khi quyền / gói chưa tải: vài nhóm ô xám tĩnh (không animation —
+/// nhẹ cho máy POS) cùng bố cục lưới menu thật.
+class _HomeMenuSkeleton extends StatelessWidget {
+  const _HomeMenuSkeleton({required this.padding, required this.columns});
+
+  final double padding;
+  final int columns;
+
+  @override
+  Widget build(BuildContext context) {
+    const block = Color(0xFFE4E8EE);
+    Widget bar(double w, double h) => Container(
+          width: w,
+          height: h,
+          decoration: BoxDecoration(
+            color: block,
+            borderRadius: BorderRadius.circular(6),
+          ),
+        );
+    Widget group(int tiles) => Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              bar(120, 14),
+              const SizedBox(height: 12),
+              GridView.count(
+                crossAxisCount: columns,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 1.1,
+                children: List.generate(
+                  tiles,
+                  (_) => DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE8ECF0)),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        bar(32, 32),
+                        const SizedBox(height: 8),
+                        bar(48, 10),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+    return IgnorePointer(
+      child: ListView(
+        padding: EdgeInsets.all(padding),
+        children: [
+          bar(double.infinity, 64),
+          const SizedBox(height: 20),
+          group(columns),
+          group(columns * 2),
+          group(columns),
+        ],
+      ),
+    );
   }
 }
 

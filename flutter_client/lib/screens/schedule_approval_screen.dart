@@ -3173,8 +3173,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             ? _registrationApprovalMessage(data, approved: true)
             : 'Đã duyệt đăng ký';
         appNotification.showSuccess(title: 'Duyệt đăng ký', message: message);
-        await _loadSchedules();
-        await _loadRegistrations();
+        await Future.wait([_loadSchedules(), _loadRegistrations()]);
       } else {
         appNotification.showError(
             title: 'Không thể duyệt',
@@ -3240,8 +3239,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         }
         appNotification.showWarning(
             title: 'Từ chối đăng ký', message: tr('Đã từ chối đăng ký'));
-        await _loadSchedules();
-        await _loadRegistrations();
+        await Future.wait([_loadSchedules(), _loadRegistrations()]);
       } else {
         appNotification.showError(
             title: 'Không thể từ chối',
@@ -3263,8 +3261,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         }
         appNotification.showSuccess(
             title: 'Hoàn duyệt', message: tr('Đã hoàn duyệt đăng ký'));
-        await _loadSchedules();
-        await _loadRegistrations();
+        await Future.wait([_loadSchedules(), _loadRegistrations()]);
       } else {
         appNotification.showError(
             title: 'Lỗi',
@@ -3294,8 +3291,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               message: result['message'] ?? 'Không thể xóa đăng ký');
         }
       }
-      await _loadSchedules();
-      await _loadRegistrations();
+      await Future.wait([_loadSchedules(), _loadRegistrations()]);
     } catch (e) {
       if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
     }
@@ -3341,8 +3337,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             title: 'Duyệt một phần',
             message: tr('Thành công $ok, thất bại $fail'));
       }
-      await _loadSchedules();
-      await _loadRegistrations();
+      await Future.wait([_loadSchedules(), _loadRegistrations()]);
     } catch (e) {
       if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
     } finally {
@@ -3389,8 +3384,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             title: 'Từ chối một phần',
             message: tr('Thành công $ok, thất bại $fail'));
       }
-      await _loadSchedules();
-      await _loadRegistrations();
+      await Future.wait([_loadSchedules(), _loadRegistrations()]);
     } catch (e) {
       if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
     } finally {
@@ -3428,8 +3422,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               message: tr('Thành công $ok/${regs.length}${lastError == null ? '' : ' — $lastError'}'));
         }
       }
-      await _loadSchedules();
-      await _loadRegistrations();
+      await Future.wait([_loadSchedules(), _loadRegistrations()]);
     } catch (e) {
       if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
     } finally {
@@ -3466,8 +3459,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               message: tr('Thành công $ok/${regs.length}${lastError == null ? '' : ' — $lastError'}'));
         }
       }
-      await _loadSchedules();
-      await _loadRegistrations();
+      await Future.wait([_loadSchedules(), _loadRegistrations()]);
     } catch (e) {
       if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
     } finally {

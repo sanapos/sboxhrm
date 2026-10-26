@@ -107,17 +107,19 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   bool _isAutoSubmitting = false;
 
   /// Đồng hồ — một Timer duy nhất, tránh tạo Stream mới mỗi lần build (gây Stack Overflow).
-  DateTime _clockNow = DateTime.now();
+  /// ValueNotifier: mỗi giây chỉ vẽ lại chữ giờ, không setState cả màn (camera, bản đồ…).
+  final ValueNotifier<DateTime> _clockNow = ValueNotifier(DateTime.now());
   Timer? _clockTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Chạy / dừng theo trạng thái nút trong [_syncPulse].
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
-    )..repeat(reverse: true);
+    );
 
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
@@ -127,7 +129,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     _initVerification();
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      setState(() => _clockNow = DateTime.now());
+      _clockNow.value = DateTime.now();
     });
   }
 
@@ -187,6 +189,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _clockTimer?.cancel();
+    _clockNow.dispose();
     _monitorTimer?.cancel();
     _pulseController.dispose();
     super.dispose();
@@ -1781,13 +1784,29 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     );
   }
 
+  /// Nhịp phóng to nút chỉ chạy khi nút bấm được. Trước đây lặp mãi cả khi «TẠM KHÓA»
+  /// → màn vẽ lại 60 khung/giây lúc đứng yên (tốn CPU / pin máy POS).
+  void _syncPulse(bool enabled) {
+    if (enabled == _pulseController.isAnimating) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || enabled == _pulseController.isAnimating) return;
+      if (enabled) {
+        _pulseController.repeat(reverse: true);
+      } else {
+        _pulseController
+          ..stop()
+          ..value = 0;
+      }
+    });
+  }
+
   Widget _buildClockAndPunchButton() {
     final isEnabled = _canTapPunch && !_isAutoSubmitting;
+    _syncPulse(isEnabled);
     final nextPunchType = _getNextPunchType();
     final isCheckIn = nextPunchType == 0;
     final needsFaceScan = _needsFaceScanOnPunch;
-    final now = _clockNow;
-    final weekdays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const weekdays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
     final List<Color> activeGradient = isCheckIn
         ? [SboxColors.brand500, HrmPageChrome.chipMid]
@@ -1830,38 +1849,47 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       child: _glassCard(
         child: Column(
           children: [
-            Text(
-              tr('${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'),
-              style: const TextStyle(
-                fontSize: 56,
-                fontWeight: FontWeight.w600,
-                color: SboxColors.slate900,
-                fontFeatures: [FontFeature.tabularFigures()],
-                letterSpacing: -1,
-                height: 1.05,
-              ),
-            ),
-            Text(
-              tr(':${now.second.toString().padLeft(2, '0')}'),
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: SboxColors.slate400,
-                  fontFeatures: [FontFeature.tabularFigures()]),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-              decoration: BoxDecoration(
-                color: SboxColors.slate100,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                tr('${weekdays[now.weekday % 7]}, ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}'),
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: SboxColors.slate600),
+            ValueListenableBuilder<DateTime>(
+              valueListenable: _clockNow,
+              builder: (context, now, _) => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    tr('${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'),
+                    style: const TextStyle(
+                      fontSize: 56,
+                      fontWeight: FontWeight.w600,
+                      color: SboxColors.slate900,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                      letterSpacing: -1,
+                      height: 1.05,
+                    ),
+                  ),
+                  Text(
+                    tr(':${now.second.toString().padLeft(2, '0')}'),
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: SboxColors.slate400,
+                        fontFeatures: [FontFeature.tabularFigures()]),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: SboxColors.slate100,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      tr('${weekdays[now.weekday % 7]}, ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}'),
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: SboxColors.slate600),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 14),
