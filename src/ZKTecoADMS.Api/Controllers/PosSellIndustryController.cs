@@ -227,7 +227,7 @@ public partial class PosSellIndustryController(
             s.DefaultSellMode = dto.DefaultSellMode.Trim().ToLowerInvariant();
         if (dto.ReportDayStartHour.HasValue)
             s.ReportDayStartHour = Math.Clamp(dto.ReportDayStartHour.Value, 0, 23);
-        if (dto.ExtraJson != null) s.ExtraJson = dto.ExtraJson;
+        if (dto.ExtraJson != null) s.ExtraJson = PosBidaLightHelper.KeepServerNode(dto.ExtraJson, s.ExtraJson);
         if (dto.SetDefaultHourlyProductId)
         {
             var pid = dto.DefaultHourlyProductId;

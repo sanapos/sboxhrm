@@ -34,6 +34,7 @@ import 'penalty_settings_screen.dart';
 import 'pos/pos_customer_display_settings_screen.dart';
 import 'pos/pos_einvoice_settings_screen.dart';
 import 'pos/pos_payment_gateway_settings_screen.dart';
+import 'pos/pos_bida_light_settings_screen.dart';
 import 'pos/pos_cancel_return_settings_screen.dart';
 import 'pos/pos_loyalty_settings_screen.dart';
 import 'pos/pos_printers_tabs_screen.dart';
@@ -401,6 +402,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const PosLoyaltySettingsScreen();
       case 34:
         return const PosCancelReturnSettingsScreen();
+      case 35:
+        return const PosBidaLightSettingsScreen();
       default:
         return const SizedBox();
     }

@@ -23187,6 +23187,42 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Đèn bàn bi-a (ESP32-C3 + relay): trạng thái bật + khóa thiết bị.
+  Future<Map<String, dynamic>> getPosBidaLight() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/bida-light'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Bật / tắt / đổi khóa — đổi khóa thì bộ relay đang dùng khóa cũ bị từ chối ngay.
+  Future<Map<String, dynamic>> savePosBidaLight({
+    required bool enabled,
+    bool rotate = false,
+    bool? pausedOn,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/bida-light'),
+            headers: _headers,
+            body: jsonEncode({
+              'enabled': enabled,
+              'rotate': rotate,
+              if (pausedOn != null) 'pausedOn': pausedOn,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   // ── Shipping carriers (GHN / GHTK / Viettel Post / AhaMove) ──
 
   Future<Map<String, dynamic>> getPosShippingSettings() async {

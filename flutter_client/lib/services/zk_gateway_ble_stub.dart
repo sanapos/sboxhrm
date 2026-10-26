@@ -43,4 +43,4 @@ class _UnsupportedBle implements ZkGatewayBle {
   Future<void> dispose() async {}
 }
 
-ZkGatewayBle createZkGatewayBle() => _UnsupportedBle();
+ZkGatewayBle createZkGatewayBle(SboxBleProfile profile) => _UnsupportedBle();

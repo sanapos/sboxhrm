@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SBOX Đèn bàn bi-a</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--fg:#1d2733;--mut:#6b7785;--line:#dde3ea;--pri:#0b6bcb;--on:#f5b301;--ok:#1f9d55;--err:#d64545}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--fg)}
+header{background:#0f2a44;color:#fff;padding:14px 16px}
+header h1{margin:0;font-size:18px}
+header small{opacity:.75}
+main{max-width:820px;margin:0 auto;padding:12px 16px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.card h2{margin:0 0 10px;font-size:16px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:13px;background:#e9eef3}
+.pill.ok{background:#dcf3e5;color:var(--ok)}.pill.err{background:#fbe2e2;color:var(--err)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tbl{border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;background:#fafbfc}
+.tbl.lit{background:#fff8dc;border-color:var(--on)}
+.bulb{font-size:30px;line-height:1;filter:grayscale(1);opacity:.35}
+.tbl.lit .bulb{filter:none;opacity:1}
+.tbl b{display:block;margin-top:4px}
+.tbl .sub{font-size:12px;color:var(--mut);min-height:16px}
+.seg{display:flex;margin-top:8px;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{flex:1;border:0;background:#fff;padding:5px 0;font-size:12px;cursor:pointer}
+.seg button.sel{background:var(--pri);color:#fff}
+label{display:block;font-size:13px;color:var(--mut);margin:8px 0 3px}
+input,select{width:100%;padding:8px;border:1px solid var(--line);border-radius:7px;font-size:15px;background:#fff;color:var(--fg)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+@media(max-width:520px){.two{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse}
+td,th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+th{color:var(--mut);font-weight:500}
+td input,td select{padding:6px}
+.btn{border:0;border-radius:8px;padding:10px 16px;font-size:15px;cursor:pointer;background:var(--pri);color:#fff}
+.btn.ghost{background:#e9eef3;color:var(--fg)}.btn.red{background:var(--err)}
+.chk{display:flex;gap:8px;align-items:center;margin-top:10px}.chk input{width:auto}
+.note{font-size:13px;color:var(--mut)}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#222;color:#fff;padding:9px 14px;border-radius:8px;display:none;max-width:90%}
+</style>
+</head>
+<body>
+<header><h1 id="title">Đèn bàn bi-a</h1><small id="sub">Đang tải…</small></header>
+<main>
+  <div class="card">
+    <h2>Trạng thái</h2>
+    <div class="row" id="pills"></div>
+    <p class="note" id="srvmsg"></p>
+  </div>
+
+  <div class="card">
+    <h2>Bàn &amp; đèn</h2>
+    <div class="grid" id="tables"></div>
+    <p class="note">«Tự động» = theo máy POS: mở bàn sáng, thanh toán tắt. «Bật» / «Tắt» = giữ tay (dọn bàn, bảo trì), bấm lại «Tự động» để trả về POS.</p>
+  </div>
+
+  <div class="card">
+    <h2>Cấu hình</h2>
+    <div class="two">
+      <div><label>Tên bộ điều khiển</label><input id="name" maxlength="63"></div>
+      <div><label>Địa chỉ máy chủ</label><input id="serverUrl" maxlength="127"></div>
+      <div><label>Tên WiFi (2.4 GHz)</label><input id="wifiSsid" maxlength="63"></div>
+      <div><label>Mật khẩu WiFi <span class="note">(để trống = giữ)</span></label><input id="wifiPass" type="password" maxlength="63"></div>
+    </div>
+    <label>Khóa thiết bị <span class="note" id="keyhint"></span></label>
+    <input id="deviceKey" maxlength="79" placeholder="Dán khóa lấy trong app: Thiết lập bán hàng → Đèn bàn bi-a">
+    <div class="two">
+      <div><label>Hỏi máy chủ mỗi (mili giây)</label><input id="pollMs" type="number" min="1000" max="60000" step="500"></div>
+      <div><label>Mất máy chủ quá N phút thì tắt hết (0 = giữ nguyên)</label><input id="offlineOffMin" type="number" min="0" max="1440"></div>
+      <div><label>Mật khẩu trang này <span class="note">(để trống = giữ)</span></label><input id="adminPass" type="password" maxlength="63"></div>
+    </div>
+    <div class="chk"><input type="checkbox" id="activeLow"><span>Module relay kích mức thấp (đa số module relay 5V xanh)</span></div>
+
+    <h2 style="margin-top:16px">Kênh relay</h2>
+    <table>
+      <thead><tr><th>Kênh</th><th>Chân GPIO</th><th>Bàn trên POS</th></tr></thead>
+      <tbody id="chrows"></tbody>
+    </table>
+    <datalist id="codes"></datalist>
+    <p class="note">Chân dùng được: 0, 1, 3, 4, 5, 6, 7, 10, 20, 21. Tránh GPIO2/8/9 (chân khởi động) và 18/19 (USB). -1 = bỏ kênh.</p>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" onclick="save()">Lưu &amp; khởi động lại</button>
+      <button class="btn ghost" onclick="post('/api/reboot',{}).then(()=>toast('Đang khởi động lại…'))">Khởi động lại</button>
+      <button class="btn red" onclick="factory()">Xóa cấu hình</button>
+    </div>
+  </div>
+</main>
+<div id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+let st=null, tables=[], formLoaded=false, pass='';
+try{pass=sessionStorage.getItem('p')||''}catch(e){}
+
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',3500)}
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+async function post(url,body){
+  for(let tries=0;tries<2;tries++){
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Pass':pass},body:JSON.stringify(body)});
+    const j=await r.json().catch(()=>({ok:false,msg:'Lỗi '+r.status}));
+    if(r.status===401){
+      const p=prompt('Mật khẩu quản lý:');if(p===null)throw new Error('cancel');
+      pass=p;try{sessionStorage.setItem('p',p)}catch(e){}continue;
+    }
+    if(!j.ok){toast(j.msg||'Lỗi');throw new Error(j.msg)}
+    return j;
+  }
+  throw new Error('auth');
+}
+
+function tableName(code){const t=tables.find(x=>String(x.c).toLowerCase()===String(code).toLowerCase());return t?t.n:''}
+
+function render(){
+  $('title').textContent=st.name||'Đèn bàn bi-a';
+  $('sub').textContent='Firmware '+st.fw+' · '+(st.wifi?('IP '+st.ip+' · WiFi '+st.rssi+' dBm'):'chưa vào WiFi')+(st.ap?' · đang phát '+st.apSsid:'');
+  const s=st.server;
+  $('pills').innerHTML=
+    `<span class="pill ${st.wifi?'ok':'err'}">WiFi ${st.wifi?'đã nối':'chưa nối'}</span>`+
+    `<span class="pill ${s.ok?'ok':'err'}">Máy chủ ${s.ok?'OK':'lỗi'}</span>`+
+    `<span class="pill">Lần hỏi tốt cuối: ${s.agoSec<0?'chưa có':s.agoSec+' giây trước'}</span>`+
+    `<span class="pill">${s.okCount} tốt / ${s.failCount} lỗi</span>`;
+  $('srvmsg').textContent=s.msg;
+  const modes=['Tự động','Bật','Tắt'];
+  $('tables').innerHTML=st.channels.map((c,i)=>c.gpio<0?'':`
+    <div class="tbl ${c.on?'lit':''}">
+      <div class="bulb">💡</div>
+      <b>Kênh ${i+1}${c.code?' · '+esc(c.code):''}</b>
+      <div class="sub">${c.code?(c.unknown?'⚠ POS không có bàn này':esc(tableName(c.code))+(c.serverOn?' · đang mở':' · trống')):'chưa gắn bàn'}</div>
+      <div class="seg">${modes.map((m,k)=>`<button class="${c.mode===k?'sel':''}" onclick="setMode(${i},${k})">${m}</button>`).join('')}</div>
+    </div>`).join('');
+  if(!formLoaded) fillForm();
+}
+
+function fillForm(){
+  formLoaded=true;
+  const c=st.cfg;
+  $('name').value=st.name;$('serverUrl').value=c.serverUrl;$('wifiSsid').value=c.wifiSsid;
+  $('pollMs').value=c.pollMs;$('offlineOffMin').value=c.offlineOffMin;$('activeLow').checked=c.activeLow;
+  $('keyhint').textContent=c.hasKey?'(đang dùng khóa …'+c.keyTail+', để trống = giữ)':'(chưa có)';
+  $('chrows').innerHTML=st.channels.map((ch,i)=>`<tr><td>${i+1}</td>
+    <td><input type="number" id="g${i}" value="${ch.gpio}" min="-1" max="21" style="width:80px"></td>
+    <td><input id="c${i}" list="codes" maxlength="23" value="${esc(ch.code)}" placeholder="mã bàn, ví dụ B01"></td></tr>`).join('');
+}
+
+async function setMode(ch,mode){try{await post('/api/mode',{ch,mode});refresh()}catch(e){}}
+
+async function save(){
+  const body={name:$('name').value.trim(),serverUrl:$('serverUrl').value.trim(),wifiSsid:$('wifiSsid').value.trim(),
+    wifiPass:$('wifiPass').value,deviceKey:$('deviceKey').value.trim(),adminPass:$('adminPass').value,
+    pollMs:+$('pollMs').value,offlineOffMin:+$('offlineOffMin').value,activeLow:$('activeLow').checked,
+    channels:st.channels.map((_,i)=>({gpio:+$('g'+i).value,code:$('c'+i).value.trim()}))};
+  try{await post('/api/config',body);toast('Đã lưu, đang khởi động lại… mở lại trang sau 10 giây');formLoaded=false}catch(e){}
+}
+
+async function factory(){
+  if(!confirm('Xóa toàn bộ cấu hình (WiFi, khóa, kênh)? Thiết bị sẽ phát lại WiFi cấu hình.'))return;
+  try{await post('/api/factory-reset',{});toast('Đã xóa, đang khởi động lại…')}catch(e){}
+}
+
+async function refresh(){
+  try{
+    st=await (await fetch('/api/status',{cache:'no-store'})).json();
+    tables=await (await fetch('/api/tables',{cache:'no-store'})).json().catch(()=>[]);
+    $('codes').innerHTML=tables.map(t=>`<option value="${esc(t.c)}">${esc(t.n)}</option>`).join('');
+    render();
+  }catch(e){$('sub').textContent='Mất kết nối với thiết bị…'}
+}
+refresh();setInterval(refresh,3000);
+</script>
+</body>
+</html>

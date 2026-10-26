@@ -217,6 +217,11 @@ class SettingsHubCatalog {
       desc: 'Bắt buộc lý do, lý do mẫu, chống gian lận khi hủy món / trả hàng', moduleCode: 'SettingsHub', packageModule: 'PosSell',
       keywords: ['hủy món', 'trả hàng', 'lý do hủy', 'gian lận'],
     ),
+    SettingsHubItemDef(
+      index: 35, code: 'bidaLight', icon: Icons.lightbulb_outline_rounded, label: 'Đèn bàn bi-a', groupTitle: gSell, accent: SboxColors.success,
+      desc: 'Bộ ESP32-C3 + relay: mở bàn đèn sáng, thanh toán tắt đèn', moduleCode: 'SettingsHub', packageModule: 'PosSell',
+      keywords: ['bida', 'bi-a', 'billiard', 'đèn', 'relay', 'esp32'],
+    ),
     // ── Thanh toán & hóa đơn
     SettingsHubItemDef(
       index: 28, code: 'payment', icon: Icons.account_balance_outlined, label: 'Tài khoản nhận tiền', groupTitle: gMoney, accent: SboxColors.warning,

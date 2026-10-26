@@ -8,6 +8,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'zk_gateway_ble.dart';
 
 class _IoZkGatewayBle implements ZkGatewayBle {
+  _IoZkGatewayBle(this._profile);
+
+  final SboxBleProfile _profile;
   BluetoothDevice? _device;
   BluetoothCharacteristic? _configChr;
   BluetoothCharacteristic? _statusChr;
@@ -79,10 +82,10 @@ class _IoZkGatewayBle implements ZkGatewayBle {
                 ? r.advertisementData.advName
                 : r.device.platformName;
             final hasSvc = r.advertisementData.serviceUuids.any(
-              (u) => u.str.toLowerCase() == ZkBleUuids.service.toLowerCase(),
+              (u) => u.str.toLowerCase() == _profile.service.toLowerCase(),
             );
-            if (!_isSboxGatewayName(name) && !hasSvc) continue;
-            final label = name.isNotEmpty ? name : 'SBOX-Gateway';
+            if (!_profile.matchesName(name) && !hasSvc) continue;
+            final label = name.isNotEmpty ? name : _profile.namePrefixes.first.replaceAll(RegExp(r'-$'), '');
             byId[r.device.remoteId.str] = ZkBleDevice(
               id: r.device.remoteId.str,
               name: label,
@@ -131,27 +134,27 @@ class _IoZkGatewayBle implements ZkGatewayBle {
     final services = await device.discoverServices();
     BluetoothService? svc;
     for (final s in services) {
-      if (s.uuid.str.toLowerCase() == ZkBleUuids.service.toLowerCase()) {
+      if (s.uuid.str.toLowerCase() == _profile.service.toLowerCase()) {
         svc = s;
         break;
       }
     }
     if (svc == null) {
       await disconnect();
-      throw const ZkBleException(
-        'Thiết bị BLE không phải gateway SBOX (thiếu service)',
+      throw ZkBleException(
+        'Thiết bị BLE không phải ${_profile.label} (thiếu service)',
       );
     }
 
     for (final c in svc.characteristics) {
       final id = c.uuid.str.toLowerCase();
-      if (id == ZkBleUuids.config.toLowerCase()) _configChr = c;
-      if (id == ZkBleUuids.status.toLowerCase()) _statusChr = c;
-      if (id == ZkBleUuids.info.toLowerCase()) _infoChr = c;
+      if (id == _profile.config.toLowerCase()) _configChr = c;
+      if (id == _profile.status.toLowerCase()) _statusChr = c;
+      if (id == _profile.info.toLowerCase()) _infoChr = c;
     }
     if (_configChr == null || _statusChr == null) {
       await disconnect();
-      throw const ZkBleException('Gateway BLE thiếu characteristic cấu hình');
+      throw ZkBleException('${_profile.label} thiếu characteristic cấu hình');
     }
 
     try {
@@ -210,10 +213,10 @@ class _IoZkGatewayBle implements ZkGatewayBle {
   Future<void> writeConfig(Map<String, dynamic> payload) async {
     final chr = _configChr;
     if (chr == null) {
-      throw const ZkBleException('Chưa kết nối gateway BLE');
+      throw ZkBleException('Chưa kết nối ${_profile.label} qua Bluetooth');
     }
     final bytes = utf8.encode(jsonEncode(payload));
-    if (bytes.length > 480) {
+    if (bytes.length > 512) {
       throw const ZkBleException('Cấu hình quá dài');
     }
     await chr.write(bytes, withoutResponse: false, allowLongWrite: true);
@@ -225,10 +228,6 @@ class _IoZkGatewayBle implements ZkGatewayBle {
     await disconnect();
   }
 
-  bool _isSboxGatewayName(String name) {
-    final n = name.trim();
-    return n.startsWith('SBOX-Gateway-') || n.startsWith('SBOX-GW-');
-  }
 
   Map<String, dynamic> _decodeJsonMap(List<int> raw) {
     final text = utf8.decode(raw, allowMalformed: true).trim();
@@ -241,4 +240,4 @@ class _IoZkGatewayBle implements ZkGatewayBle {
   }
 }
 
-ZkGatewayBle createZkGatewayBle() => _IoZkGatewayBle();
+ZkGatewayBle createZkGatewayBle(SboxBleProfile profile) => _IoZkGatewayBle(profile);

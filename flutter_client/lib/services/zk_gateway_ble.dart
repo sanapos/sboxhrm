@@ -26,6 +26,7 @@ class ZkBleProvStatus {
     this.message = '',
     this.wifi = false,
     this.provisioned = false,
+    this.server = false,
   });
 
   final String state;
@@ -33,6 +34,9 @@ class ZkBleProvStatus {
   final String message;
   final bool wifi;
   final bool provisioned;
+
+  /// Bộ đèn bi-a: đã hỏi máy chủ thành công bằng khóa thiết bị.
+  final bool server;
 
   bool get isConnected => state == 'connected' && (wifi || ip.isNotEmpty);
   bool get isFailed => state == 'failed';
@@ -45,6 +49,7 @@ class ZkBleProvStatus {
         message: json['msg']?.toString() ?? json['message']?.toString() ?? '',
         wifi: json['wifi'] == true,
         provisioned: json['provisioned'] == true,
+        server: json['server'] == true,
       );
 }
 
@@ -56,13 +61,56 @@ abstract final class ZkBleUuids {
   static const info = 'a6b10001-0a7c-4b8e-9f21-5b0c90000004';
 }
 
+/// Loại thiết bị SBOX cài qua Bluetooth — cùng giao thức (ghi JSON, đọc trạng thái / thông tin),
+/// khác UUID và tên quảng cáo.
+class SboxBleProfile {
+  const SboxBleProfile({
+    required this.service,
+    required this.config,
+    required this.status,
+    required this.info,
+    required this.namePrefixes,
+    required this.label,
+  });
+
+  final String service;
+  final String config;
+  final String status;
+  final String info;
+  final List<String> namePrefixes;
+
+  /// Tên gọi trong thông báo lỗi ("gateway SBOX", "bộ đèn bi-a SBOX").
+  final String label;
+
+  static const gateway = SboxBleProfile(
+    service: ZkBleUuids.service,
+    config: ZkBleUuids.config,
+    status: ZkBleUuids.status,
+    info: ZkBleUuids.info,
+    namePrefixes: ['SBOX-Gateway-', 'SBOX-GW-'],
+    label: 'gateway SBOX',
+  );
+
+  /// Firmware `firmware/esp32c3-bida-light` (ble_link.c).
+  static const bidaLight = SboxBleProfile(
+    service: 'a6b10002-0a7c-4b8e-9f21-5b0c90000001',
+    config: 'a6b10002-0a7c-4b8e-9f21-5b0c90000002',
+    status: 'a6b10002-0a7c-4b8e-9f21-5b0c90000003',
+    info: 'a6b10002-0a7c-4b8e-9f21-5b0c90000004',
+    namePrefixes: ['SBOX-Den-'],
+    label: 'bộ đèn bi-a SBOX',
+  );
+
+  bool matchesName(String name) => namePrefixes.any(name.trim().startsWith);
+}
+
 /// API cấu hình gateway qua Bluetooth LE.
 abstract class ZkGatewayBle {
   bool get isSupported;
 
   Future<void> ensureReady();
 
-  /// Quét thiết bị tên bắt đầu bằng `SBOX-Gateway-`.
+  /// Quét thiết bị SBOX theo hồ sơ (tên quảng cáo hoặc UUID service).
   Stream<List<ZkBleDevice>> scan({
     Duration timeout = const Duration(seconds: 12),
   });
@@ -85,7 +133,8 @@ abstract class ZkGatewayBle {
   Future<void> dispose();
 }
 
-ZkGatewayBle createZkGatewayBle() => impl.createZkGatewayBle();
+ZkGatewayBle createZkGatewayBle({SboxBleProfile profile = SboxBleProfile.gateway}) =>
+    impl.createZkGatewayBle(profile);
 
 class ZkBleException implements Exception {
   const ZkBleException(this.message);
