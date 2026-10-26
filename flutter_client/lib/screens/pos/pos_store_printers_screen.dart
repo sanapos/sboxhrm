@@ -594,10 +594,21 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     return p.isLabelPrinter;
   }
 
+  List<String> _assignRoles(PosStorePrinter p) {
+    final roles = _rolesForPrinter(p.id);
+    return roles.isEmpty ? p.documentTypes : roles.toList();
+  }
+
+  bool _assignIsLabel(PosStorePrinter p) => assignLaneIsLabel(
+        isLabelPrinter: p.isLabelPrinter,
+        roles: _assignRoles(p),
+      );
+
   String _productAssignButtonLabel(PosStorePrinter p) {
-    final purpose = purposeFromRoles(_rolesForPrinter(p.id).isEmpty
-        ? p.documentTypes
-        : _rolesForPrinter(p.id));
+    final purpose = purposeForAssignLane(
+      isLabel: _assignIsLabel(p),
+      roles: _assignRoles(p),
+    );
     return switch (purpose) {
       PosAssignPrinterPurpose.kitchenSlip => 'Gán món báo bếp',
       PosAssignPrinterPurpose.kitchenLabel => 'Gán món in tem',
@@ -607,20 +618,15 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
   }
 
   Future<void> _openProductAssign(PosStorePrinter p) async {
-    final roles = _rolesForPrinter(p.id);
+    final isLabel = _assignIsLabel(p);
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => PosPrinterManageProductsScreen(
           printerId: p.id,
           printerName: p.name,
-          isLabel: p.isLabelPrinter ||
-              roles.contains(PosLocalPrinterRoles.kitchenLabel) ||
-              roles.contains(PosLocalPrinterRoles.barcodeLabel),
-          purpose: purposeFromFlags(
-            isLabel: p.isLabelPrinter,
-            documentTypes: roles.isEmpty ? p.documentTypes : roles.toList(),
-          ),
+          isLabel: isLabel,
+          purpose: purposeForAssignLane(isLabel: isLabel, roles: _assignRoles(p)),
         ),
       ),
     );

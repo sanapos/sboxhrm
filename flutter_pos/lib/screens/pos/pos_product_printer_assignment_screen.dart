@@ -80,14 +80,38 @@ PosAssignPrinterPurpose purposeFromRoles(Iterable<String> roles) {
   return PosAssignPrinterPurpose.mixed;
 }
 
-PosAssignPrinterPurpose purposeFromFlags({
-  required bool isLabel,
-  List<String> documentTypes = const [],
+const _labelRoleKeys = {'kitchenlabel', 'barcodelabel', 'scalelabel', 'speclabel'};
+const _slipRoleKeys = {'kitchenslip', 'kitchenvoid', 'saleinvoice', 'stockissue'};
+
+/// Gán món vào lane tem hay lane phiếu bếp — cùng quy tắc server (IsLabelPrinterEntity):
+/// máy có vai trò phiếu (bếp / hủy / hóa đơn / kho) là lane phiếu dù kèm vai trò tem.
+/// Server tự gán mọi loại chứng từ (cả KitchenLabel, BarcodeLabel) cho máy cloud đầu tiên →
+/// trước đây máy K80 báo bếp bị coi là máy tem: gán món vào lane tem, phiếu bếp không theo gán.
+bool assignLaneIsLabel({
+  required bool isLabelPrinter,
+  required Iterable<String> roles,
 }) {
-  if (documentTypes.isNotEmpty) return purposeFromRoles(documentTypes);
-  return isLabel
-      ? PosAssignPrinterPurpose.kitchenLabel
-      : PosAssignPrinterPurpose.kitchenSlip;
+  final set = roles.map((e) => e.trim().toLowerCase()).toSet();
+  final hasLabel = set.any(_labelRoleKeys.contains);
+  final hasSlip = set.any(_slipRoleKeys.contains);
+  if (hasLabel || hasSlip) return hasLabel && !hasSlip;
+  return isLabelPrinter;
+}
+
+/// Mục đích màn gán theo đúng lane [assignLaneIsLabel] (lane phiếu bỏ qua vai trò tem kèm theo).
+PosAssignPrinterPurpose purposeForAssignLane({
+  required bool isLabel,
+  required Iterable<String> roles,
+}) {
+  if (roles.isEmpty) {
+    return isLabel
+        ? PosAssignPrinterPurpose.kitchenLabel
+        : PosAssignPrinterPurpose.kitchenSlip;
+  }
+  if (isLabel) return purposeFromRoles(roles);
+  return purposeFromRoles(
+    roles.where((r) => !_labelRoleKeys.contains(r.trim().toLowerCase())),
+  );
 }
 
 /// Máy [printerId] là máy nội bộ CỦA THIẾT BỊ NÀY (gán món lưu trên máy) hay máy cửa hàng / Agent (gán trên server).
@@ -851,25 +875,29 @@ class _PosPrinterManageProductsScreenState
       _inactiveAssigned = 0;
       return;
     }
-    final res = await _api.getPosProductPrinterProducts(
-      search: _searchCtrl.text,
-      page: 1,
-      pageSize: 200,
-      forLabel: widget.isLabel,
-      ownerDeviceId: await PosPrintDeviceScope.myDeviceId(),
-      deviceLocalOnly: true,
-    );
-    var items = <_ProductItem>[];
-    if (res['isSuccess'] == true && res['data'] is Map) {
+    // Duyệt hết các trang: trước chỉ đọc 200 món đầu (theo tên) nên cửa hàng nhiều món
+    // gán xong không thấy món trong danh sách máy.
+    final owner = await PosPrintDeviceScope.myDeviceId();
+    final items = <_ProductItem>[];
+    for (var page = 1; page <= 100 && items.length < want.length; page++) {
+      final res = await _api.getPosProductPrinterProducts(
+        search: _searchCtrl.text,
+        page: page,
+        pageSize: 200,
+        forLabel: widget.isLabel,
+        ownerDeviceId: owner,
+        deviceLocalOnly: true,
+      );
+      if (res['isSuccess'] != true || res['data'] is! Map) break;
       final data = Map<String, dynamic>.from(res['data'] as Map);
       final raw = data['items'] ?? data['Items'];
-      if (raw is List) {
-        items = raw
-            .whereType<Map>()
-            .map((e) => _ProductItem.fromJson(Map<String, dynamic>.from(e)))
-            .where((p) => want.contains(p.id.trim().toLowerCase()))
-            .toList();
-      }
+      if (raw is! List || raw.isEmpty) break;
+      items.addAll(raw
+          .whereType<Map>()
+          .map((e) => _ProductItem.fromJson(Map<String, dynamic>.from(e)))
+          .where((p) => want.contains(p.id.trim().toLowerCase())));
+      final total = _readInt(data, 'total') ?? 0;
+      if (raw.length < 200 || page * 200 >= total) break;
     }
     _assigned = items;
     _total = items.length;
@@ -1357,8 +1385,15 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
 
   String _lanePrinterId(_ProductItem p) {
     if (_mineLocal) {
-      // Chỉ map máy này — không lấy DefaultPrinterId cửa hàng (máy POS khác).
-      return _deviceLane[p.id]?.trim() ?? '';
+      // Chỉ map trên thiết bị này — không lấy DefaultPrinterId cửa hàng (máy POS khác).
+      // Gán trỏ máy nội bộ đã xóa thì lúc in cũng bỏ qua → coi như chưa gán.
+      final id = _deviceLane[p.id]?.trim() ?? '';
+      if (id.isEmpty ||
+          id.toLowerCase() == widget.printerId.toLowerCase() ||
+          _devicePrinterNames.containsKey(id.toLowerCase())) {
+        return id;
+      }
+      return '';
     }
     return (widget.isLabel ? p.labelPrinterId : p.defaultPrinterId)?.trim() ??
         '';
@@ -1366,12 +1401,12 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
 
   String _lanePrinterName(_ProductItem p) {
     if (_mineLocal) {
-      final id = _deviceLane[p.id]?.trim() ?? '';
+      final id = _lanePrinterId(p);
       if (id.isEmpty) return '';
       if (id.toLowerCase() == widget.printerId.toLowerCase()) {
         return widget.printerName;
       }
-      return _devicePrinterNames[id.toLowerCase()] ?? 'máy nội bộ này';
+      return _devicePrinterNames[id.toLowerCase()] ?? 'máy nội bộ khác';
     }
     return (widget.isLabel ? p.labelPrinterName : p.defaultPrinterName)
             ?.trim() ??
@@ -1384,9 +1419,8 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
         id.toLowerCase() == widget.printerId.toLowerCase();
   }
 
+  /// Máy nội bộ: «máy khác» = máy nội bộ khác trên thiết bị này (không gồm máy Agent / máy POS khác).
   bool _isOther(_ProductItem p) {
-    // Máy nội bộ: không hiện gán máy LAN/Agent/máy POS khác.
-    if (_mineLocal) return false;
     final id = _lanePrinterId(p);
     return id.isNotEmpty &&
         id.toLowerCase() != widget.printerId.toLowerCase();
@@ -1507,14 +1541,62 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
           res['message']?.toString() ?? 'Không tải được danh sách sản phẩm';
     }
     if (_mineLocal) {
-      final mine = await PosDeviceProductPrinters.instance.productIdsForPrinter(
-        widget.printerId,
-        label: widget.isLabel,
-      );
+      // Cả map của thiết bị (mọi máy nội bộ) — trước chỉ lấy máy này nên món đã gán
+      // máy nội bộ khác hiện «Chưa gán» rồi bị chuyển máy mà không hỏi.
       _deviceLane
         ..clear()
-        ..addEntries(mine.map((id) => MapEntry(id, widget.printerId)));
+        ..addAll(await PosDeviceProductPrinters.instance
+            .laneSnapshot(label: widget.isLabel));
     }
+  }
+
+  /// Máy nội bộ: «Tất cả» / nhóm → danh sách món cụ thể (gán lưu trên thiết bị, không lên server).
+  Future<List<_ProductItem>> _expandLocalSelection() async {
+    final wantCats = <String>{};
+    if (!_selectAll && _selectedCategoryIds.isNotEmpty) {
+      // Gồm nhóm con — giống server gán cả nhóm (IncludeChildCategories).
+      wantCats.addAll(_selectedCategoryIds);
+      var grew = true;
+      while (grew) {
+        grew = false;
+        for (final c in _categories) {
+          final parent = (c.parentId ?? '').trim();
+          if (parent.isNotEmpty &&
+              wantCats.contains(parent) &&
+              wantCats.add(c.id)) {
+            grew = true;
+          }
+        }
+      }
+    }
+    final out = <_ProductItem>[];
+    final owner = await PosPrintDeviceScope.myDeviceId();
+    for (var page = 1; page <= 100; page++) {
+      final res = await _api.getPosProductPrinterProducts(
+        page: page,
+        pageSize: 200,
+        forLabel: widget.isLabel,
+        ownerDeviceId: owner,
+        deviceLocalOnly: true,
+      );
+      if (res['isSuccess'] != true || res['data'] is! Map) {
+        throw Exception(
+            res['message']?.toString() ?? 'Không tải được danh sách sản phẩm');
+      }
+      final data = Map<String, dynamic>.from(res['data'] as Map);
+      final raw = data['items'] ?? data['Items'];
+      if (raw is! List || raw.isEmpty) break;
+      for (final e in raw.whereType<Map>()) {
+        final p = _ProductItem.fromJson(Map<String, dynamic>.from(e));
+        if (p.id.isEmpty || p.id == 'null') continue;
+        if (_selectAll || wantCats.contains((p.categoryId ?? '').trim())) {
+          out.add(p);
+        }
+      }
+      final total = _readInt(data, 'total') ?? 0;
+      if (raw.length < 200 || page * 200 >= total) break;
+    }
+    return out;
   }
 
   Future<void> _refreshMineLocal() async {
@@ -1620,6 +1702,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
   Future<void> _doAssign({
     required bool forceReassign,
     bool openConfirmIfNeeded = false,
+    bool localSkipOthers = false,
   }) async {
     setState(() {
       _saving = true;
@@ -1634,16 +1717,40 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
         'all=$_selectAll cats=${_selectedCategoryIds.length} ids=${ids.length}',
       );
       if (_mineLocal) {
-        final localIds = [...ids];
-        if (localIds.isEmpty &&
-            !_selectAll &&
-            _selectedCategoryIds.isEmpty) {
-          _snack('Chọn sản phẩm rồi bấm Gán', error: true);
+        // Gán lưu trên thiết bị (không lên server — tránh đè gán máy Agent).
+        // «Tất cả» / nhóm: tải danh sách món rồi gán từng món trên máy này.
+        final expanded = _selectAll || _selectedCategoryIds.isNotEmpty
+            ? await _expandLocalSelection()
+            : const <_ProductItem>[];
+        final byId = <String, _ProductItem>{
+          for (final p in _products) p.id: p,
+          for (final p in expanded) p.id: p,
+        };
+        final chosen = <String>{...ids, ...expanded.map((p) => p.id)};
+        _ProductItem item(String id) =>
+            byId[id] ?? _ProductItem(id: id, productCode: '', name: id);
+        // Mỗi món chỉ 1 máy nội bộ / lane: món đang ở máy nội bộ khác → hỏi trước khi chuyển.
+        final others = [
+          for (final id in chosen)
+            if (_isOther(item(id))) item(id),
+        ];
+        var localIds = chosen.toList();
+        if (localSkipOthers) {
+          final skip = others.map((p) => p.id).toSet();
+          localIds = localIds.where((id) => !skip.contains(id)).toList();
+        } else if (others.isNotEmpty && !forceReassign) {
+          setState(() => _conflictPrompt = _ConflictPrompt.batch(others));
+          _snack(
+            'Có ${others.length} món đang gán máy nội bộ khác — xác nhận để chuyển',
+            warning: true,
+          );
           return;
         }
-        if (_selectAll || _selectedCategoryIds.isNotEmpty) {
+        if (localIds.isEmpty) {
           _snack(
-            'Máy nội bộ máy này: gán từng món (không gán Tất cả/nhóm lên server — tránh đè Agent).',
+            chosen.isEmpty
+                ? 'Chọn sản phẩm rồi bấm Gán'
+                : 'Các món đã chọn đều đang thuộc máy khác',
             error: true,
           );
           return;
@@ -1791,6 +1898,10 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
     }
     if (choice == 'skip') {
       setState(() => _conflictPrompt = null);
+      if (_mineLocal) {
+        await _doAssign(forceReassign: false, localSkipOthers: true);
+        return;
+      }
       if (_selectAll || _selectedCategoryIds.isNotEmpty) {
         _snack(
           'Đang chọn nhóm/Tất cả — hãy bấm «Chuyển sang máy này» hoặc bỏ chọn nhóm',
@@ -1958,15 +2069,14 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                         onSelected: (_) => setState(
                             () => _filter = _ProductAssignFilter.unassigned),
                       ),
-                      if (!_mineLocal)
-                        ChoiceChip(
-                          label: Text(tr(widget.isLabel
-                              ? 'Tem máy khác ($otherOnPage)'
-                              : 'Bếp máy khác ($otherOnPage)')),
-                          selected: _filter == _ProductAssignFilter.other,
-                          onSelected: (_) => setState(
-                              () => _filter = _ProductAssignFilter.other),
-                        ),
+                      ChoiceChip(
+                        label: Text(tr(widget.isLabel
+                            ? 'Tem máy khác ($otherOnPage)'
+                            : 'Bếp máy khác ($otherOnPage)')),
+                        selected: _filter == _ProductAssignFilter.other,
+                        onSelected: (_) => setState(
+                            () => _filter = _ProductAssignFilter.other),
+                      ),
                       ChoiceChip(
                         label: Text(tr('Máy này')),
                         selected: _filter == _ProductAssignFilter.onThis,
@@ -2401,14 +2511,13 @@ class _PrinterSummary {
   final bool isLabelFlag;
   final List<String> documentTypes;
 
-  PosAssignPrinterPurpose get purpose => purposeFromFlags(
-        isLabel: isLabelFlag,
-        documentTypes: documentTypes,
-      );
-
   /// Nhãn hiển thị và lane gán phải cùng một gốc, nếu không máy hiện «Báo kho»
   /// lại ghi vào lane tem → gán xong SP biến mất khỏi danh sách.
-  bool get isLabel => purpose == PosAssignPrinterPurpose.kitchenLabel;
+  PosAssignPrinterPurpose get purpose =>
+      purposeForAssignLane(isLabel: isLabel, roles: documentTypes);
+
+  bool get isLabel =>
+      assignLaneIsLabel(isLabelPrinter: isLabelFlag, roles: documentTypes);
 
   factory _PrinterSummary.fromJson(Map<String, dynamic> j) => _PrinterSummary(
         id: (j['printerId'] ?? j['PrinterId'] ?? j['id'] ?? j['Id'])
@@ -2506,16 +2615,19 @@ class _CategoryItem {
   _CategoryItem({
     required this.id,
     required this.name,
+    this.parentId,
     this.productCount = 0,
   });
 
   final String id;
   final String name;
+  final String? parentId;
   final int productCount;
 
   factory _CategoryItem.fromJson(Map<String, dynamic> j) => _CategoryItem(
         id: (j['id'] ?? j['Id']).toString(),
         name: (j['name'] ?? j['Name'] ?? '').toString(),
+        parentId: (j['parentId'] ?? j['ParentId'])?.toString(),
         productCount: (j['productCount'] as num?)?.toInt() ??
             (j['ProductCount'] as num?)?.toInt() ??
             0,
