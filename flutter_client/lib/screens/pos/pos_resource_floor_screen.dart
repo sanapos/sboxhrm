@@ -1177,12 +1177,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 child: Text(tr('Huỷ'))),
             FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                // Phòng (karaoke / khách sạn) không gọi là «bàn».
-                child: Text(tr(r.resourceKind == PosResourceKind.room
-                    ? 'Mở phòng'
-                    : r.resourceKind == PosResourceKind.chair
-                        ? 'Mở ghế'
-                        : 'Mở bàn'))),
+                // Theo ngành như tiêu đề khu («0/2 phòng») — khách sạn / karaoke không gọi là «bàn».
+                child: Text(tr('Mở $_resNoun'))),
           ],
         ),
       ),
