@@ -204,11 +204,14 @@ class PosPrinterAutoDetect {
       if (parts.length >= 2) pendingVp.add('${parts[0]}:${parts[1]}');
     }
 
+    // Máy nhiệt cắm USB = máy hóa đơn, trừ khi đã có máy hóa đơn USB đang cắm / Bluetooth trên
+    // máy này. Máy LAN (thường là máy bếp) và máy USB cũ đã rút không giữ chỗ hóa đơn.
     var invoiceTaken = existing.any((p) =>
         p.enabled &&
         !p.isLabel &&
-        p.connectionType != PosThermalConnectionType.sunmi &&
-        p.hasRole(PosLocalPrinterRoles.saleInvoice));
+        p.hasRole(PosLocalPrinterRoles.saleInvoice) &&
+        ((p.connectionType == PosThermalConnectionType.usb && matched[p.id] != null) ||
+            p.connectionType == PosThermalConnectionType.bluetooth));
     for (final d in printable) {
       if (used.contains(d.deviceName)) continue;
       final vp = usbIgnoreKey(d.vendorId, d.productId);

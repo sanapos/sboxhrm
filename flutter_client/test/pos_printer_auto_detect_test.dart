@@ -94,6 +94,44 @@ void main() {
       expect(r[1].roles.contains(PosLocalPrinterRoles.kitchenSlip), isTrue);
     });
 
+    test('máy LAN / máy USB cũ đã rút có vai trò hóa đơn → máy cắm USB vẫn là máy hóa đơn', () {
+      // Giống C20: «Bếp LAN» có Hóa đơn + «xprinter usb» cũ (khác model, đang rút).
+      const lan = PosLocalPrinterProfile(
+        id: 'lan',
+        name: 'Bếp LAN',
+        connectionType: PosThermalConnectionType.lan,
+        lanHost: '192.168.1.230',
+      );
+      const oldUsb = PosLocalPrinterProfile(
+        id: 'old',
+        name: 'xprinter usb',
+        connectionType: PosThermalConnectionType.usb,
+        usbDeviceName: '1626:1:|/dev/bus/usb/003/003',
+      );
+      final r = plan(
+        existing: [lan, oldUsb],
+        devices: [usb(path: '/dev/bus/usb/004/002', vid: 1155, pid: 22339, serial: '012345678AB')],
+      );
+      expect(r, hasLength(1));
+      expect(r.first.roles, {PosLocalPrinterRoles.saleInvoice});
+      expect(r.first.paperSize, 'K80');
+    });
+
+    test('đã có máy hóa đơn USB đang cắm → máy USB mới làm máy bếp', () {
+      const cur = PosLocalPrinterProfile(
+        id: 'cur',
+        name: 'Quầy',
+        connectionType: PosThermalConnectionType.usb,
+        usbDeviceName: '1046:20497:SN1|/dev/bus/usb/001/005',
+      );
+      final r = plan(existing: [cur], devices: [
+        usb(path: '/dev/bus/usb/001/005', serial: 'SN1'),
+        usb(path: '/dev/bus/usb/001/007', vid: 0x28E9, pid: 0x0289, product: 'ZY-80'),
+      ]);
+      expect(r, hasLength(1));
+      expect(r.first.roles.contains(PosLocalPrinterRoles.kitchenSlip), isTrue);
+    });
+
     test('rút ra cắm cổng khác (không serial) → không tạo máy trùng', () {
       const existing = PosLocalPrinterProfile(
         id: 'x',

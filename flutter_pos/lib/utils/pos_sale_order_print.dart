@@ -593,16 +593,23 @@ Future<bool> printPosSaleOrder({
     }
 
     if (thermalCandidates.isNotEmpty) {
-      // A6 Sunmi: ưu tiên in native trước USB/LAN — tránh USB «OK» giả rồi bỏ Sunmi.
-      if (await PosPrinterTransport.isSunmiDevice()) {
-        thermalCandidates.sort((a, b) {
-          final aS =
-              a.connectionType == PosThermalConnectionType.sunmi ? 0 : 1;
-          final bS =
-              b.connectionType == PosThermalConnectionType.sunmi ? 0 : 1;
-          return aS.compareTo(bS);
+      // Ưu tiên máy gắn thẳng vào thiết bị: Sunmi (in native — tránh USB «OK» giả rồi bỏ Sunmi),
+      // rồi USB, sau cùng LAN/BT. Máy nhiệt cắm USB ở quầy là máy hóa đơn; trước đây theo thứ tự
+      // danh sách nên máy bếp LAN có vai trò Hóa đơn in bill trước. Cùng nhóm giữ thứ tự cũ.
+      int rank(PosThermalPrinterSettings s) => switch (s.connectionType) {
+            PosThermalConnectionType.sunmi => 0,
+            PosThermalConnectionType.usb => 1,
+            _ => 2,
+          };
+      final indexed = [
+        for (var i = 0; i < thermalCandidates.length; i++) (i, thermalCandidates[i]),
+      ]..sort((a, b) {
+          final r = rank(a.$2).compareTo(rank(b.$2));
+          return r != 0 ? r : a.$1.compareTo(b.$1);
         });
-      }
+      thermalCandidates
+        ..clear()
+        ..addAll(indexed.map((e) => e.$2));
       final isProvisional =
           (documentTitle ?? '').toUpperCase().contains('TẠM');
       var anyOk = false;
