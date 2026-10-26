@@ -402,7 +402,16 @@ Future<bool> printPosSaleOrder({
       ? Future.value(true)
       : PosPrintOrchestrator.instance.refreshConfig();
   final storeSettingsF = PosSellStoreSettings.load();
-  var printOrder = await _resolvePrintOrder(order);
+  // Hóa đơn chọn mẫu A4/A5 cho lần in này: chỉ mở hộp xem trước — ghi lần in khi bấm «In»
+  // (mở xem rồi đóng không tính là đã in lại).
+  final earlyPick = nz(order.printTemplateId);
+  PosPrintTemplate? pageTemplate;
+  if (!hasOverride && earlyPick != null && order.lines.isNotEmpty) {
+    final t = await templateF;
+    if (t != null && t.id == earlyPick && _isPagePrintTemplate(t)) pageTemplate = t;
+  }
+  var printOrder =
+      pageTemplate != null ? _peekPrintOrder(order) : await _resolvePrintOrder(order);
   if (firstCopy && printOrder.printCount > 1) {
     printOrder = printOrder.copyWithPrintContext(printCount: 1);
   }
@@ -464,9 +473,7 @@ Future<bool> printPosSaleOrder({
       template != null &&
       pickedId != null &&
       template.id == pickedId &&
-      !template.isDocx &&
-      (template.paperSize == PosPrintPaperSizes.a4 || template.paperSize == PosPrintPaperSizes.a5) &&
-      template.htmlContent.trim().startsWith('<') &&
+      _isPagePrintTemplate(template) &&
       context.mounted) {
     final html = renderSaleOrderTemplate(
       template.htmlContent,
@@ -484,6 +491,11 @@ Future<bool> printPosSaleOrder({
       htmlDocument: html,
       initialCopies: copies,
       a4Paper: template.paperSize == PosPrintPaperSizes.a4,
+      onPrinted: pageTemplate != null ? () => _recordPagePrinted(order) : null,
+      agentPagePrint: true,
+      agentDocumentType: documentType,
+      referenceNo: printOrder.orderNo,
+      referenceId: printOrder.id,
     );
     return true;
   }
@@ -1073,6 +1085,30 @@ Future<bool> _tryLocalSalePrint({
 
 /// Server cũ chưa có record-print-lite → dùng bản đầy đủ, khỏi thử lại mỗi lần in.
 bool _printLiteUnsupported = false;
+
+bool _isPagePrintTemplate(PosPrintTemplate? t) =>
+    t != null &&
+    !t.isDocx &&
+    (t.paperSize == PosPrintPaperSizes.a4 || t.paperSize == PosPrintPaperSizes.a5) &&
+    t.htmlContent.trim().startsWith('<');
+
+/// Mẫu khổ trang chỉ mở hộp xem trước — chưa ghi lần in (đếm +1 cục bộ để in «lần thứ …»).
+PosSaleOrder _peekPrintOrder(PosSaleOrder order) {
+  if (order.id.isEmpty || order.status != 'Completed' || order.id.startsWith('offline-')) {
+    return order;
+  }
+  return order.copyWithPrintContext(printCount: order.printCount + 1);
+}
+
+/// Ghi lần in khi người dùng thật sự bấm «In» trong hộp xem trước A4/A5.
+Future<void> _recordPagePrinted(PosSaleOrder order) async {
+  if (order.id.isEmpty || order.status != 'Completed' || order.id.startsWith('offline-')) return;
+  try {
+    await ApiService().recordPosSalePrint(order.id);
+  } catch (e) {
+    debugPrint('recordPosSalePrint (A4/A5) error: $e');
+  }
+}
 
 Future<PosSaleOrder> _resolvePrintOrder(PosSaleOrder order) async {
   if (order.id.isEmpty || order.status != 'Completed') return order;

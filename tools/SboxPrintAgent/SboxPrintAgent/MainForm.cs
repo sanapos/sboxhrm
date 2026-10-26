@@ -1094,6 +1094,8 @@ public sealed class MainForm : Form
                 ConnLabel.IsUsb(p) &&
                 string.Equals(p.UsbDeviceName, winName, StringComparison.OrdinalIgnoreCase));
             Guid id;
+            // Máy văn phòng (A4) chỉ in chứng từ khổ trang gửi chủ động — không gán phiếu bếp / bill nhiệt.
+            var paper = existing?.PaperSize ?? WindowsSpooler.GuessPaperSize(winName);
             if (existing != null)
             {
                 id = existing.Id;
@@ -1101,12 +1103,17 @@ public sealed class MainForm : Form
             }
             else
             {
-                id = await _api.CreateUsbPrinterAsync(name, winName, "K80", isDefault: false, CancellationToken.None);
+                id = await _api.CreateUsbPrinterAsync(name, winName, paper, isDefault: false, CancellationToken.None);
+                if (WindowsSpooler.IsPagePaper(paper))
+                    Log($"«{winName}» là máy in văn phòng — khổ {paper}, dùng cho hóa đơn / chứng từ A4.");
             }
 
-            var roles = new[] { "SaleInvoice", "KitchenSlip", "StockIssue", "KitchenLabel" };
-            var merged = RouteMerge.AssignTypes(await _api.GetRoutesAsync(CancellationToken.None), roles, id);
-            await _api.SaveRoutesAsync(merged, CancellationToken.None);
+            if (!WindowsSpooler.IsPagePaper(paper))
+            {
+                var roles = new[] { "SaleInvoice", "KitchenSlip", "StockIssue", "KitchenLabel" };
+                var merged = RouteMerge.AssignTypes(await _api.GetRoutesAsync(CancellationToken.None), roles, id);
+                await _api.SaveRoutesAsync(merged, CancellationToken.None);
+            }
 
             _settings.RememberLocalPrinter(id);
             await RefreshPrintersAsync();

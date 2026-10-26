@@ -6,6 +6,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../widgets/pos/pos_html_preview_stub.dart'
     if (dart.library.js_interop) '../widgets/pos/pos_html_preview_web.dart';
+import 'pos_html_agent_print.dart';
 import 'pos_print_template_defaults.dart';
 
 import '../theme/sbox_tokens.dart';
@@ -54,6 +55,21 @@ Future<bool> printOrSharePosHtml({
     if (!canHtml) {
       posHtmlPrintLastError = 'Thiết bị không hỗ trợ chuyển HTML sang PDF';
       return false;
+    }
+    // Android: mở hộp in hệ thống ngay, PDF dựng trong lúc hộp đang mở — trước đây chờ WebView
+    // dựng PDF xong (~10 giây trên máy yếu) mới thấy hộp in. Hủy trong hộp in → không báo lỗi.
+    if (defaultTargetPlatform == TargetPlatform.android && info.canPrint) {
+      var printed = false;
+      for (var i = 0; i < copies.clamp(1, 10); i++) {
+        final ok = await Printing.layoutPdf(
+          name: title,
+          format: format,
+          onLayout: (f) => Printing.convertHtml(html: html, format: f),
+        );
+        if (!ok) break;
+        printed = true;
+      }
+      return printed;
     }
     Uint8List? bytes;
     Object? convertError;
@@ -106,7 +122,20 @@ Future<void> showPosHtmlPrintDialog(
   required String htmlDocument,
   int initialCopies = 1,
   bool? a4Paper,
+  /// Gọi một lần khi in thành công (VD: ghi lần in hóa đơn — mở xem rồi đóng không tính).
+  Future<void> Function()? onPrinted,
+  /// Hiện nút gửi máy in văn phòng A4/A5 qua Print Agent Windows (chứng từ khổ trang).
+  bool agentPagePrint = false,
+  String agentDocumentType = 'SaleInvoice',
+  String? referenceNo,
+  String? referenceId,
 }) async {
+  var printedOnce = false;
+  Future<void> markPrinted() async {
+    if (printedOnce || onPrinted == null) return;
+    printedOnce = true;
+    await onPrinted();
+  }
   PosBusy.hideLayer(); // lớp «Đang mở…» không nằm sau hộp này
   // Ô nhập phía sau (ghi chú báo giá…) còn focus → bàn phím ảo bật đè lên trang xem trước.
   FocusManager.instance.primaryFocus?.unfocus();
@@ -159,7 +188,21 @@ Future<void> showPosHtmlPrintDialog(
                       if (v != null) setDlg(() => copies = v);
                     },
                   ),
-                  const Spacer(),
+                  if (!agentPagePrint) const Spacer(),
+                  if (agentPagePrint)
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: PosAgentPagePrintButton(
+                          htmlDocument: htmlDocument,
+                          copies: () => copies,
+                          documentType: agentDocumentType,
+                          referenceNo: referenceNo,
+                          referenceId: referenceId,
+                          onSent: markPrinted,
+                        ),
+                      ),
+                    ),
                   if (kIsWeb)
                     FilledButton.icon(
                       style: FilledButton.styleFrom(backgroundColor: _blue),
@@ -167,6 +210,7 @@ Future<void> showPosHtmlPrintDialog(
                         for (var i = 0; i < copies; i++) {
                           await printPosHtmlDocument(htmlDocument);
                         }
+                        await markPrinted();
                       },
                       icon: const Icon(Icons.print, size: 18),
                       label: Text(tr('In')),
@@ -186,12 +230,13 @@ Future<void> showPosHtmlPrintDialog(
                                 title: title,
                                 copies: copies,
                               );
+                              if (ok) await markPrinted();
                               if (!ctx.mounted) return;
                               setDlg(() {
                                 printing = false;
-                                if (!ok) {
-                                  printError = posHtmlPrintLastError ??
-                                      'Không tạo được PDF để in';
+                                // Hủy trong hộp in hệ thống: không có lý do lỗi → không báo.
+                                if (!ok && posHtmlPrintLastError != null) {
+                                  printError = posHtmlPrintLastError;
                                 }
                               });
                             },

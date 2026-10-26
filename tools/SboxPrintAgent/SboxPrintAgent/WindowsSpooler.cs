@@ -39,6 +39,34 @@ public static class WindowsSpooler
         return partial ?? want;
     }
 
+    /// <summary>
+    /// Đoán khổ khi thêm máy in Windows: máy văn phòng (driver có khổ A4, tên không giống máy nhiệt/tem)
+    /// → «A4» (chỉ nhận chứng từ khổ trang qua PDF); còn lại → «K80».
+    /// </summary>
+    public static string GuessPaperSize(string printerName)
+    {
+        var name = (printerName ?? "").Trim();
+        if (System.Text.RegularExpressions.Regex.IsMatch(name,
+                @"\bpos|receipt|thermal|\bbill|tm-|xp-|k58|k80|\b(57|58|72|80)\b|\brp\d|tsp|gp-|label|\btem\b|zebra|godex|\btsc|sunmi",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            return "K80";
+        try
+        {
+            var ps = new PrinterSettings { PrinterName = ResolvePrinterName(name) };
+            if (!ps.IsValid) return "K80";
+            foreach (PaperSize p in ps.PaperSizes)
+            {
+                if (p.Kind == PaperKind.A4) return "A4";
+            }
+        }
+        catch { /* driver lỗi → coi như máy nhiệt */ }
+        return "K80";
+    }
+
+    public static bool IsPagePaper(string? paperSize) =>
+        string.Equals(paperSize, "A4", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(paperSize, "A5", StringComparison.OrdinalIgnoreCase);
+
     public static void SendRaw(string printerName, byte[] data)
     {
         if (string.IsNullOrWhiteSpace(printerName))

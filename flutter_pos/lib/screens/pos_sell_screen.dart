@@ -13132,7 +13132,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         _enqueueFailedSalePrint(
           order,
           errorMessage: PosPrinterTransport.lastSunmiError != null
-              ? 'Máy in Sunmi báo lỗi (${PosPrinterTransport.lastSunmiError}) — kiểm tra giấy / nắp máy rồi in lại'
+              ? 'Máy in Sunmi: ${PosPrinterTransport.lastSunmiError} — xử lý rồi in lại'
               : 'In sau thanh toán thất bại',
         );
         NotificationOverlayManager().showWarning(

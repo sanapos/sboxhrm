@@ -1253,9 +1253,18 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
     final ok = _isLabel
         ? await PosLabelPrinterService.testPrint(draft.toLabelSettings())
         : await PosThermalPrinterService.testPrint(draft.toThermalSettings());
+    // Sunmi: đọc trạng thái sau in — hết giấy / nắp mở / chưa kết nối dịch vụ in thì báo rõ.
+    final sunmiOk = ok && !_isLabel && _type == PosThermalConnectionType.sunmi
+        ? await PosPrinterTransport.verifySunmiAfterPrint()
+        : true;
     if (!mounted) return;
     setState(() => _testing = false);
-    if (ok) {
+    if (ok && !sunmiOk) {
+      NotificationOverlayManager().showError(
+        title: 'Máy in Sunmi',
+        message: '${PosPrinterTransport.lastSunmiError} — kiểm tra giấy / nắp máy rồi in thử lại',
+      );
+    } else if (ok) {
       NotificationOverlayManager()
           .showSuccess(title: 'In thử', message: tr('Đã gửi lệnh in thử'));
     } else {

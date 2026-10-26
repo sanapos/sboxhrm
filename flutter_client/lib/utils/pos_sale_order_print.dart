@@ -397,12 +397,23 @@ Future<bool> printPosSaleOrder({
   /// lần lỗi đã được ghi đếm nên bản này bị coi «IN LẠI» — khách nhận bản đầu lại ghi in lại.
   bool firstCopy = false,
 }) async {
-  var printOrder = await _resolvePrintOrder(order);
+  String? nz(String? v) => (v == null || v.isEmpty) ? null : v;
+  final hasOverride = overridePrinter != null ||
+      (overridePrinterId ?? '').trim().isNotEmpty;
+  // Hóa đơn chọn mẫu A4/A5 cho lần in này: chỉ mở hộp xem trước — ghi lần in khi bấm «In»
+  // (mở xem rồi đóng không tính là đã in lại).
+  final earlyPick = nz(order.printTemplateId);
+  PosPrintTemplate? pageTemplate;
+  if (!hasOverride && earlyPick != null && order.lines.isNotEmpty) {
+    final t = await _resolveSalePrintTemplate(earlyPick, documentType: documentType);
+    if (t != null && t.id == earlyPick && _isPagePrintTemplate(t)) pageTemplate = t;
+  }
+  var printOrder =
+      pageTemplate != null ? _peekPrintOrder(order) : await _resolvePrintOrder(order);
   if (firstCopy && printOrder.printCount > 1) {
     printOrder = printOrder.copyWithPrintContext(printCount: 1);
   }
   // Hóa đơn có mẫu nhớ riêng / mẫu chọn cho lần in này → thắng mẫu của thiết lập máy in.
-  String? nz(String? v) => (v == null || v.isEmpty) ? null : v;
   templateId = nz(order.printTemplateId) ?? nz(printOrder.printTemplateId) ?? templateId;
   // Ghi chú in riêng của hóa đơn: in kèm ghi chú đơn (không đổi số liệu bán).
   final printNote = (order.printNote ?? printOrder.printNote ?? '').trim();
@@ -420,10 +431,11 @@ Future<bool> printPosSaleOrder({
           await PosVietQrHelper.resolvePrintImageUrlForOrder(printOrder);
     }
   }
-  final template = await _resolveSalePrintTemplate(
-    templateId,
-    documentType: documentType,
-  );
+  final template = pageTemplate ??
+      await _resolveSalePrintTemplate(
+        templateId,
+        documentType: documentType,
+      );
   final effectiveVat = vatAmount ?? printOrder.vatAmount;
   // Ưu tiên flag caller; không có thì theo thiết lập cửa hàng (giá đã gồm → không cộng VAT).
   final storeTaxMode = (await PosSellStoreSettings.load()).taxMode;
@@ -450,9 +462,6 @@ Future<bool> printPosSaleOrder({
             : store.phone;
   }
 
-  final hasOverride = overridePrinter != null ||
-      (overridePrinterId ?? '').trim().isNotEmpty;
-
   // Cùng điều kiện mở két với bản ESC/POS bên dưới — dùng cho máy Sunmi in native.
   bool kickDrawerFor(PosStorePrinter printer) {
     final isProvisional = (documentTitle ?? '').toUpperCase().contains('TẠM');
@@ -473,9 +482,7 @@ Future<bool> printPosSaleOrder({
       template != null &&
       pickedId != null &&
       template.id == pickedId &&
-      !template.isDocx &&
-      (template.paperSize == PosPrintPaperSizes.a4 || template.paperSize == PosPrintPaperSizes.a5) &&
-      template.htmlContent.trim().startsWith('<') &&
+      _isPagePrintTemplate(template) &&
       context.mounted) {
     final html = renderSaleOrderTemplate(
       template.htmlContent,
@@ -493,6 +500,11 @@ Future<bool> printPosSaleOrder({
       htmlDocument: html,
       initialCopies: copies,
       a4Paper: template.paperSize == PosPrintPaperSizes.a4,
+      onPrinted: pageTemplate != null ? () => _recordPagePrinted(order) : null,
+      agentPagePrint: true,
+      agentDocumentType: documentType,
+      referenceNo: printOrder.orderNo,
+      referenceId: printOrder.id,
     );
     return true;
   }
@@ -1078,6 +1090,30 @@ Future<bool> _tryLocalSalePrint({
     );
   }
   return false;
+}
+
+bool _isPagePrintTemplate(PosPrintTemplate? t) =>
+    t != null &&
+    !t.isDocx &&
+    (t.paperSize == PosPrintPaperSizes.a4 || t.paperSize == PosPrintPaperSizes.a5) &&
+    t.htmlContent.trim().startsWith('<');
+
+/// Mẫu khổ trang chỉ mở hộp xem trước — chưa ghi lần in (đếm +1 cục bộ để in «lần thứ …»).
+PosSaleOrder _peekPrintOrder(PosSaleOrder order) {
+  if (order.id.isEmpty || order.status != 'Completed' || order.id.startsWith('offline-')) {
+    return order;
+  }
+  return order.copyWithPrintContext(printCount: order.printCount + 1);
+}
+
+/// Ghi lần in khi người dùng thật sự bấm «In» trong hộp xem trước A4/A5.
+Future<void> _recordPagePrinted(PosSaleOrder order) async {
+  if (order.id.isEmpty || order.status != 'Completed' || order.id.startsWith('offline-')) return;
+  try {
+    await ApiService().recordPosSalePrint(order.id);
+  } catch (e) {
+    debugPrint('recordPosSalePrint (A4/A5) error: $e');
+  }
 }
 
 Future<PosSaleOrder> _resolvePrintOrder(PosSaleOrder order) async {

@@ -220,13 +220,34 @@ class SunmiPrinter {
 }
 
 class SunmiPrinterPlus {
+  /// Plugin trả «ERROR» (mã 0) khi chưa nối được dịch vụ in (`_woyouService` null).
+  static Future<bool> _serviceConnected() async {
+    try {
+      return await sp.SunmiPrinter.getPrinterStatus() != sp.PrinterStatus.ERROR;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> rebindPrinter() async {
     try {
+      if (await _serviceConnected()) return true;
       final bound = await sp.SunmiPrinter.bindingPrinter();
       if (bound != true) {
         debugPrint('Sunmi bindingPrinter => $bound');
         return false;
       }
+      // bindService bất đồng bộ: chờ dịch vụ nối xong. Trước đây in ngay sau khi bind → plugin
+      // nuốt lỗi (dịch vụ null), lần in đầu sau khi mở app không ra giấy và trạng thái báo ERROR.
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        if (await _serviceConnected()) {
+          await sp.SunmiPrinter.initPrinter();
+          return true;
+        }
+      }
+      // Không đọc được trạng thái (một số firmware) — vẫn thử in như trước; kiểm tra sau in sẽ báo rõ.
+      debugPrint('Sunmi printer service status unavailable after bind');
       await sp.SunmiPrinter.initPrinter();
       return true;
     } catch (e) {
@@ -265,7 +286,19 @@ class SunmiConfig {
     try {
       // Trả tên enum (NORMAL / OUT_OF_PAPER / …) — transport check theo keyword.
       final st = await sp.SunmiPrinter.getPrinterStatus();
-      return st.name;
+      // sunmi_printer_plus 2.x lệch một số so với mã Sunmi updatePrinterState()
+      // (2 = đang chuẩn bị, 3 = lỗi giao tiếp, 4 = hết giấy): đọc lại cho đúng —
+      // trước đây máy hết giấy bị coi là «PREPARING» (in được).
+      switch (st) {
+        case sp.PrinterStatus.ABNORMAL_COMMUNICATION:
+          return 'PREPARING';
+        case sp.PrinterStatus.OUT_OF_PAPER:
+          return 'ABNORMAL_COMMUNICATION';
+        case sp.PrinterStatus.PREPARING:
+          return 'OUT_OF_PAPER';
+        default:
+          return st.name;
+      }
     } catch (e) {
       debugPrint('Sunmi getStatus: $e');
       return null;

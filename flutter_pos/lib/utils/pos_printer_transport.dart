@@ -419,12 +419,25 @@ class PosPrinterTransport {
       final status = await SunmiConfig.getStatus();
       debugPrint('Sunmi post-print status: $status');
       final ok = sunmiStatusLooksOk(status);
-      lastSunmiError = ok ? null : '$status';
+      lastSunmiError = ok ? null : sunmiStatusLabel(status);
       return ok;
     } catch (e) {
       debugPrint('Sunmi post-print getStatus: $e');
       return false;
     }
+  }
+
+  /// Trạng thái Sunmi dễ hiểu cho thu ngân.
+  static String sunmiStatusLabel(Object? status) {
+    final s = '${status ?? ''}'.trim().toUpperCase();
+    if (s.contains('OUT_OF_PAPER')) return 'hết giấy';
+    if (s.contains('OPEN_THE_LID')) return 'nắp máy đang mở';
+    if (s.contains('OVERHEAT')) return 'đầu in quá nóng';
+    if (s.contains('ABNORMAL_COMMUNICATION')) return 'lỗi giao tiếp máy in';
+    if (s.contains('CUTTER')) return 'lỗi dao cắt';
+    if (s.contains('NO_PRINTER')) return 'không thấy máy in';
+    if (s == 'ERROR') return 'chưa kết nối được dịch vụ in';
+    return s.isEmpty ? 'không rõ trạng thái' : s;
   }
 
   static Future<bool> _sendSunmi(List<int> bytes, int feedLines) async {

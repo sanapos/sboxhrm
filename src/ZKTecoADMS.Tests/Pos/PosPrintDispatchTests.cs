@@ -687,4 +687,31 @@ public class PosPrintDispatchTests(PosPgFixture fx)
             retryOf: "ksend|HD2|abc");
         Assert.NotEqual(a.Id, b.Id);
     }
+    [Fact]
+    public async Task Pdf_to_printer_without_agent_is_refused_not_sent_to_thermal()
+    {
+        if (NoDb) return;
+        var s = await SeedRoutingAsync();
+        await using var db = fx.NewDb();
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => Svc(db).EnqueueJobAsync(
+            new EnqueuePrintJobRequest(
+                s.Store, PosPrintDocumentType.SaleInvoice, PosPrintPayloadFormat.PdfBase64,
+                "JVBERi0xLjQ" + Guid.NewGuid().ToString("N"), 1, "HD-A4", null, null, "test",
+                PrinterIdOverride: s.Orphan)));
+        Assert.Contains("Print Agent", ex.Message);
+    }
+
+    [Fact]
+    public async Task Pdf_to_agent_printer_stays_on_that_printer()
+    {
+        if (NoDb) return;
+        var s = await SeedRoutingAsync();
+        // Máy của Agent đang tắt tạm (vẫn «có chủ») → giữ đúng máy, chờ Agent bật lại.
+        await using var db = fx.NewDb();
+        var job = await Svc(db).EnqueueJobAsync(new EnqueuePrintJobRequest(
+            s.Store, PosPrintDocumentType.SaleInvoice, PosPrintPayloadFormat.PdfBase64,
+            "JVBERi0xLjQ" + Guid.NewGuid().ToString("N"), 1, "HD-A4b", null, null, "test",
+            PrinterIdOverride: s.OfflineAgentPrinter));
+        Assert.Equal(s.OfflineAgentPrinter, job.PrinterId);
+    }
 }

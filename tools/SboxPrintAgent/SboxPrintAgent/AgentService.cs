@@ -355,6 +355,25 @@ public sealed class AgentService : IAsyncDisposable
             try { await _api.MarkPrintingAsync(job.JobId, _agentId, ct); }
             catch (Exception ex) { _log("MarkPrinting: " + SboxApiClient.FormatError(ex)); }
 
+            if (string.Equals(job.PayloadFormat, "PdfBase64", StringComparison.OrdinalIgnoreCase))
+            {
+                // Chứng từ A4/A5: in qua driver Windows (máy in văn phòng), không gửi RAW.
+                if (!ConnLabel.IsUsb(printer))
+                    throw new InvalidOperationException(
+                        "Chứng từ A4/A5 cần máy in đã cài trên Windows — máy in mạng hãy cài driver rồi chọn máy in Windows.");
+                var pdf = Convert.FromBase64String((job.Payload ?? "").Trim());
+                _log($"In PDF {pdf.Length / 1024} KB → {printer.Name} ({printer.UsbDeviceName})");
+                await PdfPagePrinter.PrintAsync(
+                    printer.UsbDeviceName!, pdf, job.Copies,
+                    "SBOX " + DocTypes.LabelOf(job.DocumentType), ct: ct);
+                await CompleteJobAsync(job, printer, ct);
+                return;
+            }
+
+            if (WindowsSpooler.IsPagePaper(printer.PaperSize))
+                throw new InvalidOperationException(
+                    $"Máy in {printer.PaperSize} «{printer.Name}» chỉ in chứng từ khổ trang — phiếu nhiệt hãy gán cho máy in nhiệt.");
+
             var bytes = EscPosBuilder.BuildFromJob(job, printer);
             if (bytes.Length == 0)
                 throw new InvalidOperationException("Payload in rỗng / không đọc được");
@@ -368,27 +387,7 @@ public sealed class AgentService : IAsyncDisposable
                 if (i + 1 < copies) await Task.Delay(200, ct);
             }
 
-            Exception? completeEx = null;
-            for (var attempt = 0; attempt < 3; attempt++)
-            {
-                try
-                {
-                    await _api.CompleteAsync(job.JobId, _agentId, ct);
-                    completeEx = null;
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    completeEx = ex;
-                    _log($"Complete lần {attempt + 1} lỗi: {SboxApiClient.FormatError(ex)}");
-                    await Task.Delay(500 * (attempt + 1), ct);
-                }
-            }
-            if (completeEx != null) throw completeEx;
-
-            await _api.ReportHealthAsync(printer.Id, "Online", null, ct);
-            MarkSettled(job.JobId);
-            _log($"✓ Đã in xong → {printer.Name}");
+            await CompleteJobAsync(job, printer, ct);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -397,6 +396,31 @@ public sealed class AgentService : IAsyncDisposable
             await _api.ReportHealthAsync(printer.Id, "Offline", SboxApiClient.FormatError(ex), CancellationToken.None);
             await FailSafe(job.JobId, "PRINT_FAILED", SboxApiClient.FormatError(ex), CancellationToken.None);
         }
+    }
+
+    async Task CompleteJobAsync(ClaimJob job, PrinterItem printer, CancellationToken ct)
+    {
+        Exception? completeEx = null;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            try
+            {
+                await _api.CompleteAsync(job.JobId, _agentId, ct);
+                completeEx = null;
+                break;
+            }
+            catch (Exception ex)
+            {
+                completeEx = ex;
+                _log($"Complete lần {attempt + 1} lỗi: {SboxApiClient.FormatError(ex)}");
+                await Task.Delay(500 * (attempt + 1), ct);
+            }
+        }
+        if (completeEx != null) throw completeEx;
+
+        await _api.ReportHealthAsync(printer.Id, "Online", null, ct);
+        MarkSettled(job.JobId);
+        _log($"✓ Đã in xong → {printer.Name}");
     }
 
     async Task<ClaimJob> EnsurePayloadAsync(ClaimJob job, CancellationToken ct)

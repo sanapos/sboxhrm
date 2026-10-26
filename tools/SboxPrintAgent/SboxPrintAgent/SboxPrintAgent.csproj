@@ -2,13 +2,15 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <!-- Windows.Data.Pdf: dựng trang PDF (chứng từ A4/A5) để in qua driver Windows. -->
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SboxPrintAgent</AssemblyName>
     <RootNamespace>SboxPrintAgent</RootNamespace>
-    <Version>1.4.6</Version>
+    <Version>1.5.0</Version>
     <Product>SBOX Print Agent</Product>
     <Description>SBOX — kết nối máy in và nhận lệnh in từ phần mềm bán hàng</Description>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>

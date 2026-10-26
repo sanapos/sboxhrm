@@ -339,18 +339,28 @@ public class PosPrintDispatchService(
 
     static readonly TimeSpan OrphanAgentWindow = TimeSpan.FromDays(14);
 
-    async Task<PosStorePrinter> RedirectOrphanPrinterAsync(
-        PosStorePrinter printer, PosPrintDocumentType documentType, CancellationToken ct)
+    static bool IsPagePayload(PosPrintPayloadFormat format) =>
+        format is PosPrintPayloadFormat.PdfBase64 or PosPrintPayloadFormat.HtmlUtf8;
+
+    /// <summary>Máy in được Agent (còn hoạt động trong <see cref="OrphanAgentWindow"/>) nhận phục vụ.</summary>
+    async Task<HashSet<Guid>> ServedPrinterIdsAsync(Guid storeId, CancellationToken ct)
     {
         var since = DateTime.UtcNow.Subtract(OrphanAgentWindow);
         var agentJsons = await db.PosPrintAgents.AsNoTracking()
-            .Where(a => a.StoreId == printer.StoreId && a.Deleted == null
+            .Where(a => a.StoreId == storeId && a.Deleted == null
                 && a.LastHeartbeatAt != null && a.LastHeartbeatAt >= since)
             .Select(a => a.AssignedPrinterIdsJson)
             .ToListAsync(ct);
         var served = new HashSet<Guid>();
         foreach (var json in agentJsons)
             foreach (var id in ParsePrinterIds(json)) served.Add(id);
+        return served;
+    }
+
+    async Task<PosStorePrinter> RedirectOrphanPrinterAsync(
+        PosStorePrinter printer, PosPrintDocumentType documentType, CancellationToken ct)
+    {
+        var served = await ServedPrinterIdsAsync(printer.StoreId, ct);
         // Chưa có Agent nào (cửa hàng chỉ in nội bộ / web) → giữ nguyên như trước.
         if (served.Count == 0 || served.Contains(printer.Id)) return printer;
 
@@ -422,13 +432,25 @@ public class PosPrintDispatchService(
         }
 
         printer = await ResolveCloudAgentTwinAsync(printer, ct);
-        // Hóa đơn / tạm tính: đúng máy đã cài. Máy offline → job treo, không đổi máy.
-        if (!IsInvoiceFamily(request.DocumentType))
-            printer = await RedirectToLiveAgentTwinAsync(printer, ct);
+        if (IsPagePayload(request.PayloadFormat))
+        {
+            // Chứng từ khổ trang (PDF A4/A5): chỉ Agent Windows của đúng máy văn phòng in được —
+            // không đổi sang máy nhiệt (trước đây PDF bị đẩy sang máy bếp K58 rồi báo lỗi định dạng).
+            var served = await ServedPrinterIdsAsync(printer.StoreId, ct);
+            if (!served.Contains(printer.Id))
+                throw new InvalidOperationException(
+                    $"Máy in «{StripLocalPrefix(printer.Name)}» chưa gắn SBOX Print Agent — mở Print Agent trên máy tính nối máy in và thêm máy này.");
+        }
+        else
+        {
+            // Hóa đơn / tạm tính: đúng máy đã cài. Máy offline → job treo, không đổi máy.
+            if (!IsInvoiceFamily(request.DocumentType))
+                printer = await RedirectToLiveAgentTwinAsync(printer, ct);
 
-        // Máy không thuộc Agent nào (kể cả Agent đang tắt) → không bao giờ có ai nhận, treo «Chờ in» mãi.
-        // Đổi sang máy mặc định có Agent. Máy của Agent đang offline tạm thời thì GIỮ — không in nhầm quầy.
-        printer = await RedirectOrphanPrinterAsync(printer, request.DocumentType, ct);
+            // Máy không thuộc Agent nào (kể cả Agent đang tắt) → không bao giờ có ai nhận, treo «Chờ in» mãi.
+            // Đổi sang máy mặc định có Agent. Máy của Agent đang offline tạm thời thì GIỮ — không in nhầm quầy.
+            printer = await RedirectOrphanPrinterAsync(printer, request.DocumentType, ct);
+        }
 
         var tracked = await db.PosStorePrinters.FirstAsync(p => p.Id == printer.Id, ct);
 

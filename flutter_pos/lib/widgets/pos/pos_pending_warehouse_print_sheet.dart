@@ -634,6 +634,7 @@ class _PendingWarehousePrintSheetBodyState
       _busyJobId = 'sale:${job.id}';
       _statusMessage = null;
     });
+    PosPrinterTransport.lastSunmiError = null;
     final ok = await retry(
       job,
       overridePrinterId: overridePrinterId,
@@ -652,8 +653,11 @@ class _PendingWarehousePrintSheetBodyState
       if (_totalCount == 0 && mounted) Navigator.pop(context);
       return;
     }
+    final sunmi = PosPrinterTransport.lastSunmiError;
     setState(() {
-      _statusMessage = 'In lại hóa đơn thất bại — thử chọn máy khác';
+      _statusMessage = sunmi != null
+          ? 'Máy in Sunmi: $sunmi — xử lý rồi bấm In lại'
+          : 'In lại hóa đơn thất bại — thử chọn máy khác';
       _busyJobId = null;
     });
   }

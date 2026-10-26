@@ -23,8 +23,8 @@ if ($Server -ne $SiteServers[$Site]) {
 $plink = "C:\Program Files\PuTTY\plink.exe"
 $pscp = "C:\Program Files\PuTTY\pscp.exe"
 
-if (-not $Password) {
-    Write-Error "Set SBOX_DEPLOY_PASSWORD env var"
+if (-not $Password -and -not $env:SBOX_DEPLOY_KEY) {
+    Write-Error "Set SBOX_DEPLOY_KEY (SSH key) or SBOX_DEPLOY_PASSWORD env var"
 }
 
 $downloads = Join-Path $RepoRoot "src\ZKTecoADMS.Api\wwwroot\downloads"
