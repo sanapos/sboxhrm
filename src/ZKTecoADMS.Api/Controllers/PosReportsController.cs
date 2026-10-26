@@ -43,18 +43,20 @@ public partial class PosReportsController(
                         (o.SaleDate ?? o.CreatedAt) >= fromDt &&
                         (o.SaleDate ?? o.CreatedAt) < toDt));
 
-        var orderIds = await orders.Select(o => o.Id).ToListAsync();
-        var totalRevenue = await orders.SumAsync(o => o.Total);
-        var totalVat = await orders.SumAsync(o => o.VatAmount);
-        var totalPaid = await orders.SumAsync(o => o.PaidAmount);
+        // Mã đơn của kỳ là truy vấn con (IN (SELECT …)) — kỳ 1 năm không nạp ~100 nghìn mã rồi gửi lại thành mảng.
+        var orderIds = orders.Select(o => o.Id);
+        var totals = await OrderTotalsAsync(orders);
+        var totalRevenue = totals.Revenue;
+        var totalVat = totals.Vat;
+        var totalPaid = totals.Paid;
         // Giảm giá = giảm từng dòng + giảm cả đơn + voucher + đổi điểm (doanh thu đã trừ đủ các khoản này).
-        var totalDiscount = await orders.SumAsync(o => o.Discount + o.VoucherDiscount + o.PointsDiscount)
+        var totalDiscount = totals.Discount
             + await dbContext.PosSaleOrderLines.AsNoTracking()
-                .Where(l => orders.Select(o => o.Id).Contains(l.SaleOrderId) && l.Deleted == null)
+                .Where(l => orderIds.Contains(l.SaleOrderId) && l.Deleted == null)
                 .SumAsync(l => l.DiscountAmount);
-        var orderCount = await orders.CountAsync();
-        var totalRefund = await SumPeriodSaleRefundsAsync(
-            storeId, fromDt, toDt, IsManager ? await BranchRefundOrderIdsAsync(storeId) : orderIds);
+        var orderCount = totals.Count;
+        var totalRefund = await PosSaleReturnLedger.SumRefundsByReturnDateAsync(
+            dbContext, storeId, fromDt, toDt, IsManager ? BranchRefundOrderIds(storeId) : orderIds);
         var totalRevenueInclVat = totalRevenue + totalVat;
 
         var byPaymentRaw = await dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
@@ -102,8 +104,7 @@ public partial class PosReportsController(
         }
 
 
-        var topProducts = PosReportLineExpand
-            .Aggregate(await LoadSaleLinesForExpandAsync(storeId, orderIds))
+        var topProducts = (await PosReportMoney.ProductSalesAsync(dbContext, storeId, orderIds))
             .Take(20)
             .Select(x => new
             {
@@ -555,17 +556,15 @@ public partial class PosReportsController(
             includeGoods, includeService, includeCombo, activeOnly, inactiveOnly);
 
         // staffKey: «Hàng bán theo nhân viên» — chỉ đơn của người bán đó.
-        var goodsOrderIds = await ApplyStaffKey(ScopeOrdersForViewer(dbContext.PosSaleOrders.AsNoTracking()
+        var goodsOrderIds = ApplyStaffKey(ScopeOrdersForViewer(dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
                         o.Status == PosSaleOrderStatus.Completed &&
                         (o.SaleDate ?? o.CreatedAt) >= fromDt &&
                         (o.SaleDate ?? o.CreatedAt) < toDt)), staffKey)
-            .Select(o => o.Id)
-            .ToListAsync();
+            .Select(o => o.Id);
         var allowedProducts = await productScope.Select(p => new { p.Id, p.ProductCode }).ToListAsync();
         var codeById = allowedProducts.ToDictionary(p => p.Id, p => p.ProductCode);
-        var topByRevenue = PosReportLineExpand
-            .Aggregate(await LoadSaleLinesForExpandAsync(storeId, goodsOrderIds))
+        var topByRevenue = (await PosReportMoney.ProductSalesAsync(dbContext, storeId, goodsOrderIds))
             .Where(x => codeById.ContainsKey(x.ProductId))
             .Take(limit)
             .Select(x => new
@@ -637,7 +636,7 @@ public partial class PosReportsController(
         var prevFrom = prevRange.fromUtc;
         var prevTo = prevRange.toUtcExclusive;
 
-        var refundBranchOrderIds = IsManager ? await BranchRefundOrderIdsAsync(storeId) : null;
+        var refundBranchOrderIds = IsManager ? BranchRefundOrderIds(storeId) : null;
 
         async Task<(decimal revenue, decimal vat, decimal cogs, int orders, decimal discount, decimal refund)> PeriodAsync(
             DateTime start, DateTime end)
@@ -647,18 +646,19 @@ public partial class PosReportsController(
                             o.Status == PosSaleOrderStatus.Completed &&
                             (o.SaleDate ?? o.CreatedAt) >= start &&
                             (o.SaleDate ?? o.CreatedAt) < end));
-            var revenue = await q.SumAsync(o => (decimal?)o.Total) ?? 0;
-            var vat = await q.SumAsync(o => (decimal?)o.VatAmount) ?? 0;
-            var count = await q.CountAsync();
-            var ids = await q.Select(o => o.Id).ToListAsync();
+            var totals = await OrderTotalsAsync(q);
+            var revenue = totals.Revenue;
+            var vat = totals.Vat;
+            var count = totals.Count;
+            var ids = q.Select(o => o.Id);
             // Cùng cách tính với báo cáo bán hàng: giảm đơn + voucher + đổi điểm + giảm từng dòng.
-            var discount = (await q.SumAsync(o => (decimal?)(o.Discount + o.VoucherDiscount + o.PointsDiscount)) ?? 0)
+            var discount = totals.Discount
                 + (await dbContext.PosSaleOrderLines.AsNoTracking()
                     .Where(l => ids.Contains(l.SaleOrderId) && l.Deleted == null)
                     .SumAsync(l => (decimal?)l.DiscountAmount) ?? 0);
-            var cogs = (await PosReportMoney.CogsByOrderAsync(dbContext, storeId, ids)).Values.Sum();
-            var refund = await SumPeriodSaleRefundsAsync(
-                storeId, start, end, IsManager ? refundBranchOrderIds : ids);
+            var cogs = await PosReportMoney.CogsTotalAsync(dbContext, storeId, ids);
+            var refund = await PosSaleReturnLedger.SumRefundsByReturnDateAsync(
+                dbContext, storeId, start, end, IsManager ? refundBranchOrderIds : ids);
             // Total = tiền hàng đã trừ giảm giá và hàng trả, CHƯA gồm VAT (VAT lưu riêng ở VatAmount).
             // Tiền hoàn chỉ để xem — Total đã giảm khi trả hàng, không trừ thêm.
             return (revenue, vat, cogs, count, discount, refund);
@@ -680,15 +680,13 @@ public partial class PosReportsController(
             .OrderByDescending(x => x.revenue)
             .ToListAsync();
 
-        var analysisOrderIds = await ScopeOrdersForViewer(dbContext.PosSaleOrders.AsNoTracking()
+        var analysisOrderIds = ScopeOrdersForViewer(dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
                         o.Status == PosSaleOrderStatus.Completed &&
                         (o.SaleDate ?? o.CreatedAt) >= fromDt &&
                         (o.SaleDate ?? o.CreatedAt) < toDt))
-            .Select(o => o.Id)
-            .ToListAsync();
-        var analysisAgg = PosReportLineExpand.Aggregate(
-            await LoadSaleLinesForExpandAsync(storeId, analysisOrderIds));
+            .Select(o => o.Id);
+        var analysisAgg = await PosReportMoney.ProductSalesAsync(dbContext, storeId, analysisOrderIds);
         var analysisProductIds = analysisAgg.Select(x => x.ProductId).Distinct().ToList();
         var analysisCatOf = analysisProductIds.Count == 0
             ? new Dictionary<Guid, Guid?>()
@@ -1157,13 +1155,14 @@ public partial class PosReportsController(
         var orderIds = await completedQuery.Select(o => o.Id).ToListAsync();
         // Tiền hoàn trả khách trong ngày (theo ngày trả, mọi đơn của người xem) — chỉ để đối chiếu két;
         // doanh thu (netSales = Total) đã giảm khi trả hàng nên không trừ thêm.
+        // Truy vấn con (mọi đơn của người xem / chi nhánh, mọi kỳ) — trước đây nạp hết mã đơn về máy chủ.
         var viewerOrderIds = string.IsNullOrWhiteSpace(effectiveStaff) && !effectiveEmployeeId.HasValue
-            ? (IsManager ? await BranchRefundOrderIdsAsync(storeId) : null)
-            : await ApplyStaffFilter(
+            ? (IsManager ? BranchRefundOrderIds(storeId) : null)
+            : ApplyStaffFilter(
                     dbContext.PosSaleOrders.AsNoTracking().Where(o => o.StoreId == storeId && o.Deleted == null),
                     effectiveStaff, effectiveEmployeeId, filter)
-                .Select(o => o.Id).ToListAsync();
-        var refundTotal = await SumPeriodSaleRefundsAsync(storeId, fromDt, toDt, viewerOrderIds);
+                .Select(o => o.Id);
+        var refundTotal = await PosSaleReturnLedger.SumRefundsByReturnDateAsync(dbContext, storeId, fromDt, toDt, viewerOrderIds);
 
         var lineDiscountTotal = orderIds.Count == 0
             ? 0m
@@ -1527,7 +1526,9 @@ public partial class PosReportsController(
         [FromQuery] string? search,
         [FromQuery] decimal? debtFrom,
         [FromQuery] decimal? debtTo,
-        [FromQuery] bool includeZeroDebt = false)
+        [FromQuery] bool includeZeroDebt = false,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null)
     {
         var storeId = RequiredStoreId;
         // Xem theo chi nhánh: công nợ = phần còn nợ của các đơn thuộc chi nhánh đó (khách mua ở nhiều chi nhánh có nợ riêng từng nơi).
@@ -1537,11 +1538,11 @@ public partial class PosReportsController(
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive);
         if (branchScoped)
         {
-            var branchCustomerIds = await dbContext.PosSaleOrders.AsNoTracking()
+            var branchCustomerIds = dbContext.PosSaleOrders.AsNoTracking()
                 .Where(o => o.StoreId == storeId && o.Deleted == null && o.Status == PosSaleOrderStatus.Completed &&
                             o.CustomerId != null &&
                             o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee > o.PaidAmount)
-                .ApplyBranchScope(bctx).Select(o => o.CustomerId!.Value).Distinct().ToListAsync();
+                .ApplyBranchScope(bctx).Select(o => o.CustomerId!.Value);
             custQ = custQ.Where(c => branchCustomerIds.Contains(c.Id));
         }
         else if (!includeZeroDebt) custQ = custQ.Where(c => c.CurrentDebt > 0);
@@ -1574,8 +1575,10 @@ public partial class PosReportsController(
             })
             .ToListAsync();
 
-        var customerIds = customers.Select(c => c.Id).ToList();
-        var unpaidOrders = customerIds.Count == 0
+        // Đơn còn nợ của các khách trong danh sách (truy vấn con, không gửi lại mảng mã khách); tra theo khách một lần
+        // — trước đây mỗi khách lọc lại toàn bộ đơn nợ (N khách × M đơn).
+        var customerIds = custQ.Select(c => c.Id);
+        var unpaidOrders = customers.Count == 0
             ? []
             : await dbContext.PosSaleOrders.AsNoTracking()
                 .Where(o => o.StoreId == storeId && o.Deleted == null &&
@@ -1590,6 +1593,7 @@ public partial class PosReportsController(
                     BizAt = o.SaleDate ?? o.CreatedAt,
                 })
                 .ToListAsync();
+        var unpaidByCustomer = unpaidOrders.ToLookup(x => x.CustomerId);
 
         // Tuổi nợ theo ngày Việt Nam (trước đây ngày UTC: đơn bán 0h–7h sáng bị tính lùi một ngày).
         var today = DateTime.UtcNow;
@@ -1604,7 +1608,7 @@ public partial class PosReportsController(
 
         var items = customers.Select(c =>
         {
-            var rows = unpaidOrders.Where(x => x.CustomerId == c.Id).ToList();
+            var rows = unpaidByCustomer[c.Id].ToList();
             decimal BucketSum(int bucket) =>
                 rows.Where(x => AgingBucket(x.BizAt, today) == bucket).Sum(x => x.Due);
             var d0 = BucketSum(0);
@@ -1637,6 +1641,11 @@ public partial class PosReportsController(
                                      && (!debtTo.HasValue || x.CurrentDebt <= debtTo))
                 .OrderByDescending(x => x.CurrentDebt).ThenBy(x => x.Name).ToList();
 
+        // Tổng trên mọi khách; ?page=&pageSize= chỉ cắt danh sách trả về (cửa hàng nhiều khách nợ: trước đây trả hết
+        // hàng chục nghìn dòng — vài MB — mỗi lần mở báo cáo). Không truyền → như cũ, trả đủ (xuất Excel).
+        var paged = page.HasValue || pageSize.HasValue;
+        var size = Math.Clamp(pageSize ?? 100, 1, 500);
+        var pageNo = Math.Max(1, page ?? 1);
         return Ok(AppResponse<object>.Success(new
         {
             totalCustomers = items.Count,
@@ -1646,7 +1655,9 @@ public partial class PosReportsController(
             sumDebt31To60 = items.Sum(x => x.debt31To60),
             sumDebt61To90 = items.Sum(x => x.debt61To90),
             sumDebtOver90 = items.Sum(x => x.debtOver90),
-            items,
+            page = paged ? pageNo : (int?)null,
+            pageSize = paged ? size : (int?)null,
+            items = paged ? items.Skip((pageNo - 1) * size).Take(size).ToList() : items,
         }));
     }
 
@@ -1659,15 +1670,6 @@ public partial class PosReportsController(
             .FirstOrDefaultAsync();
         return Math.Clamp(h ?? 0, 0, 23);
     }
-
-    /// <summary>
-    /// Hoàn trả khách (giá bán) trong kỳ — phiếu Return còn hiệu lực, loại "Hủy đơn" / "Hủy trả hàng".
-    /// Combo ghi LineAmount đủ trên mỗi NVL nên gộp theo phiếu + ghi chú.
-    /// </summary>
-    /// <summary>Tiền hoàn theo ngày trả (thông tin) — sổ trả hàng; phiếu cũ suy từ thẻ kho không cộng trùng combo.</summary>
-    Task<decimal> SumPeriodSaleRefundsAsync(
-        Guid storeId, DateTime fromDt, DateTime toDt, IReadOnlyCollection<Guid>? restrictOrderIds = null) =>
-        PosSaleReturnLedger.SumRefundsByReturnDateAsync(dbContext, storeId, fromDt, toDt, restrictOrderIds);
 
     static IQueryable<PosProduct> ApplyGoodsProductScope(
         IQueryable<PosProduct> query,
@@ -1754,14 +1756,26 @@ public partial class PosReportsController(
     /// <summary>
     /// Tiền hoàn trả tính theo ngày trả nên cần đơn của chi nhánh đang lọc (mọi kỳ). Không lọc chi nhánh → null (cả cửa hàng).
     /// </summary>
-    private async Task<List<Guid>?> BranchRefundOrderIdsAsync(Guid storeId)
+    private IQueryable<Guid>? BranchRefundOrderIds(Guid storeId)
     {
         var ctx = HttpContext.BranchContext();
         if (ctx is not { StoreUsesBranches: true } || (ctx.FilterBranchId == null && ctx.AllowedBranchIds == null)) return null;
-        return await dbContext.PosSaleOrders.AsNoTracking()
+        // Truy vấn con — trước đây nạp MỌI đơn của chi nhánh (mọi kỳ) về máy chủ ở mỗi lần xem báo cáo.
+        return dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null)
-            .ApplyBranchScope(ctx).Select(o => o.Id).ToListAsync();
+            .ApplyBranchScope(ctx).Select(o => o.Id);
     }
+
+    internal sealed record OrderTotals(decimal Revenue, decimal Vat, decimal Paid, decimal Discount, int Count);
+
+    /// <summary>Tổng tiền / VAT / đã trả / giảm giá đơn + số đơn trong một truy vấn (trước đây 4–5 lần quét đơn).</summary>
+    static async Task<OrderTotals> OrderTotalsAsync(IQueryable<PosSaleOrder> orders) =>
+        await orders.GroupBy(o => 1)
+            .Select(g => new OrderTotals(
+                g.Sum(o => o.Total), g.Sum(o => o.VatAmount), g.Sum(o => o.PaidAmount),
+                g.Sum(o => o.Discount + o.VoucherDiscount + o.PointsDiscount), g.Count()))
+            .FirstOrDefaultAsync()
+        ?? new OrderTotals(0, 0, 0, 0, 0);
 
     /// <summary>Tồn theo chi nhánh đang lọc / được phép xem (cộng các chi nhánh). null = báo cáo tồn cả cửa hàng.</summary>
     private IQueryable<PosSaleOrder> ScopeOrdersForViewer(IQueryable<PosSaleOrder> query)
@@ -1783,7 +1797,7 @@ public partial class PosReportsController(
     /// <paramref name="viewerOrderIds"/> ≠ null: chỉ phiếu gắn đơn của nhân viên đang xem.
     /// </summary>
     private async Task<(decimal Debt, decimal DebtCash, decimal Refund, decimal RefundCash)> LoadEodDebtAndRefundAsync(
-        Guid storeId, DateTime fromDt, DateTime toDt, List<Guid>? viewerOrderIds)
+        Guid storeId, DateTime fromDt, DateTime toDt, IQueryable<Guid>? viewerOrderIds)
     {
         var rows = await dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
@@ -1804,8 +1818,8 @@ public partial class PosReportsController(
         }
 
         var paymentOrder = new Dictionary<Guid, Guid?>();
-        var scope = viewerOrderIds?.ToHashSet();
-        if (scope != null)
+        HashSet<Guid>? scope = null;
+        if (viewerOrderIds != null)
         {
             var payIds = rows.Where(r => r.Note.StartsWith(PosFinanceSyncHelper.CustomerPaymentMarker))
                 .Select(r => IdAfter(r.Note, PosFinanceSyncHelper.CustomerPaymentMarker))
@@ -1813,6 +1827,12 @@ public partial class PosReportsController(
             paymentOrder = await dbContext.PosCustomerPayments.AsNoTracking()
                 .Where(p => p.StoreId == storeId && payIds.Contains(p.Id))
                 .ToDictionaryAsync(p => p.Id, p => p.SaleOrderId);
+            // Chỉ hỏi các đơn có phiếu trong ngày có thuộc phạm vi người xem không.
+            var candidates = rows.Where(r => r.Note.StartsWith(PosFinanceSyncHelper.CustomerReturnMarker))
+                .Select(r => IdAfter(r.Note, PosFinanceSyncHelper.CustomerReturnMarker))
+                .Concat(paymentOrder.Values)
+                .Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+            scope = (await viewerOrderIds.Where(id => candidates.Contains(id)).ToListAsync()).ToHashSet();
         }
 
         bool InScope(string note)

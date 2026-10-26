@@ -36,16 +36,15 @@ public partial class PosReportsController
         if (categoryId.HasValue)
             productScope = productScope.Where(p => p.CategoryId == categoryId);
 
-        var orderIds = await ScopeOrdersForViewer(dbContext.PosSaleOrders.AsNoTracking()
+        var orderIds = ScopeOrdersForViewer(dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
                         o.Status == PosSaleOrderStatus.Completed &&
                         (o.SaleDate ?? o.CreatedAt) >= fromDt &&
                         (o.SaleDate ?? o.CreatedAt) < toDt))
-            .Select(o => o.Id)
-            .ToListAsync();
+            .Select(o => o.Id);
 
         // Dòng bán thuần (trừ hàng trả, phân bổ giảm giá đơn, SL đơn vị cơ bản) — tổng khớp doanh thu đơn.
-        var expanded = PosReportLineExpand.Aggregate(await LoadSaleLinesForExpandAsync(storeId, orderIds));
+        var expanded = await PosReportMoney.ProductSalesAsync(dbContext, storeId, orderIds);
         var allowedIds = (await productScope.Select(p => p.Id).ToListAsync()).ToHashSet();
         // Giá vốn thuần theo món bán (thành phần combo / NVL định lượng quy về món, đã trừ hàng trả).
         var cogsByProduct = await PosReportMoney.CogsByProductAsync(dbContext, storeId, orderIds);
@@ -205,7 +204,12 @@ public partial class PosReportsController
             })
             .ToListAsync();
 
-        var orderIds = orders.Select(o => o.Id).ToList();
+        var orderIds = ScopeOrdersForViewer(dbContext.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
+                        o.Status == PosSaleOrderStatus.Completed &&
+                        (o.SaleDate ?? o.CreatedAt) >= fromDt &&
+                        (o.SaleDate ?? o.CreatedAt) < toDt))
+            .Select(o => o.Id);
         var cogsByOrder = await PosReportMoney.CogsByOrderAsync(dbContext, storeId, orderIds);
 
         object items;
@@ -229,8 +233,7 @@ public partial class PosReportsController
         }
         else
         {
-            var catAgg = PosReportLineExpand.Aggregate(
-                await LoadSaleLinesForExpandAsync(storeId, orderIds));
+            var catAgg = await PosReportMoney.ProductSalesAsync(dbContext, storeId, orderIds);
             var catProductIds = catAgg.Select(x => x.ProductId).Distinct().ToList();
             var catOf = catProductIds.Count == 0
                 ? new Dictionary<Guid, Guid?>()
@@ -247,7 +250,7 @@ public partial class PosReportsController
 
             var cogsByProduct = await PosReportMoney.CogsByProductAsync(dbContext, storeId, orderIds);
 
-            var lineOrderMap = orderIds.Count == 0
+            var lineOrderMap = orders.Count == 0
                 ? new Dictionary<Guid, List<Guid>>()
                 : (await dbContext.PosSaleOrderLines.AsNoTracking()
                     .Where(l => l.StoreId == storeId && l.Deleted == null &&
@@ -343,22 +346,18 @@ public partial class PosReportsController
             .Select(p => new { p.Id, p.CreatedAt })
             .ToDictionaryAsync(p => p.Id, p => p.CreatedAt);
 
-        var healthOrderIds = await dbContext.PosSaleOrders.AsNoTracking()
+        var healthOrderIds = dbContext.PosSaleOrders.AsNoTracking()
             .ApplyBranchScope(bctx)
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
                         o.Status == PosSaleOrderStatus.Completed &&
                         (o.SaleDate ?? o.CreatedAt) >= fromDt &&
                         (o.SaleDate ?? o.CreatedAt) < toDt)
-            .Select(o => o.Id)
-            .ToListAsync();
-        var sold = PosReportLineExpand.Aggregate(
-            await LoadSaleLinesForExpandAsync(storeId, healthOrderIds));
+            .Select(o => o.Id);
+        var sold = await PosReportMoney.ProductSalesAsync(dbContext, storeId, healthOrderIds);
         var soldMap = sold.ToDictionary(x => x.ProductId);
         // Lượng tiêu hao thực theo thẻ kho (đơn vị cơ bản): gồm NVL định lượng, thành phần combo, topping —
         // trước đây chỉ đếm dòng hóa đơn nên NVL / thành phần luôn bị xếp «tồn chết». Trừ hàng khách trả.
-        var consumed = healthOrderIds.Count == 0
-            ? []
-            : await dbContext.PosStockTransactions.AsNoTracking()
+        var consumed = await dbContext.PosStockTransactions.AsNoTracking()
                 .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive &&
                             t.SaleOrderId != null && healthOrderIds.Contains(t.SaleOrderId.Value) &&
                             (t.TransactionType == PosStockTransactionType.Sale ||
@@ -505,8 +504,13 @@ public partial class PosReportsController
             })
             .ToListAsync();
 
-        var orderIds = orders.Select(o => o.Id).ToList();
-        var cogsByOrder = await PosReportMoney.CogsByOrderAsync(dbContext, storeId, orderIds);
+        var cogsByOrder = await PosReportMoney.CogsByOrderAsync(dbContext, storeId, ScopeOrdersForViewer(
+                dbContext.PosSaleOrders.AsNoTracking()
+                    .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
+                                o.Status == PosSaleOrderStatus.Completed &&
+                                (o.SaleDate ?? o.CreatedAt) >= fromDt &&
+                                (o.SaleDate ?? o.CreatedAt) < toDt))
+            .Select(o => o.Id));
 
         var customerIds = orders.Where(o => o.CustomerId.HasValue).Select(o => o.CustomerId!.Value).Distinct().ToList();
         var customers = customerIds.Count == 0

@@ -478,15 +478,6 @@ public partial class PosSalesController(
             baseFilter = baseFilter.Where(t => t.CreatedAt >= fromUtc && t.CreatedAt < toUtc);
         }
 
-        var voidedReturnNos = await dbContext.PosStockTransactions.AsNoTracking()
-            .Where(t => t.StoreId == storeId && t.Deleted == null &&
-                        t.Note != null && t.Note.StartsWith("Hủy trả hàng"))
-            .Select(t => t.ReferenceNo)
-            .Where(r => r != null)
-            .Distinct()
-            .ToListAsync();
-        var voidedSet = voidedReturnNos.ToHashSet(StringComparer.OrdinalIgnoreCase);
-
         var groupQuery = baseFilter
             .GroupBy(t => new { t.ReferenceNo, t.SaleOrderId })
             .Select(g => new
@@ -520,7 +511,19 @@ public partial class PosSalesController(
             .Where(t => keySet.Contains((t.ReferenceNo!, t.SaleOrderId!.Value)))
             .ToList();
 
-        var ledgerAmounts = await ReturnSlipAmountsAsync(storeId, pageKeys.Select(k => k.SaleOrderId!.Value).Distinct().ToList());
+        // Phiếu đã hủy (thẻ kho «Hủy trả hàng: …» ghi kèm đơn) — chỉ hỏi các đơn của trang; trước đây quét mọi thẻ kho
+        // của cửa hàng theo ghi chú (không có chỉ mục) ở mỗi lần mở danh sách.
+        var pageOrderIds = pageKeys.Select(k => k.SaleOrderId!.Value).Distinct().ToList();
+        var voidedSet = (await dbContext.PosStockTransactions.AsNoTracking()
+                .Where(t => t.StoreId == storeId && t.Deleted == null &&
+                            t.SaleOrderId != null && pageOrderIds.Contains(t.SaleOrderId.Value) &&
+                            t.Note != null && t.Note.StartsWith("Hủy trả hàng") && t.ReferenceNo != null)
+                .Select(t => t.ReferenceNo!)
+                .Distinct()
+                .ToListAsync())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var ledgerAmounts = await ReturnSlipAmountsAsync(storeId, pageOrderIds);
         var items = pageKeys.Select(k =>
         {
             var g = pageTxs

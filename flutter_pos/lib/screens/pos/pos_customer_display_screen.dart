@@ -74,12 +74,20 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     _promoFingerprint = _fingerprint();
     _restartIdleTimer();
     unawaited(_ensurePromoMedia());
-    if ((_viewerCode ?? '').length >= 4) {
-      _remotePoll = Timer.periodic(const Duration(milliseconds: 1500), (_) {
-        unawaited(_pollRemoteState());
-      });
-      unawaited(_pollRemoteState());
-    }
+    if ((_viewerCode ?? '').length >= 4) unawaited(_pollRemoteLoop());
+  }
+
+  // Xem từ xa (?v=CODE): hỏi trạng thái 1,5 giây/lần khi giỏ đang đổi; đứng yên 30 giây (không khách) → 3 giây/lần.
+  // Hẹn lần sau khi lần trước xong — mạng chậm không chồng request.
+  String? _lastRemoteJson;
+  int _remoteUnchanged = 0;
+
+  Future<void> _pollRemoteLoop() async {
+    if (!mounted) return;
+    await _pollRemoteState();
+    if (!mounted) return;
+    final idle = _remoteUnchanged >= 20;
+    _remotePoll = Timer(Duration(milliseconds: idle ? 3000 : 1500), () => unawaited(_pollRemoteLoop()));
   }
 
   @override
@@ -100,6 +108,8 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     if (res['isSuccess'] == true && res['data'] is Map) {
       final json = (res['data'] as Map)['stateJson']?.toString();
       if (json != null && json.isNotEmpty) {
+        _remoteUnchanged = json == _lastRemoteJson ? _remoteUnchanged + 1 : 0;
+        _lastRemoteJson = json;
         _sync.applyRemoteStateJson(json);
         if (_awaitingRemote || _remoteStatus != null) {
           setState(() {

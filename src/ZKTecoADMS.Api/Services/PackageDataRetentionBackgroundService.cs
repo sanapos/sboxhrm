@@ -100,23 +100,30 @@ public class PackageDataRetentionBackgroundService : BackgroundService
 
     private static DateTime VietnamNow() => DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Unspecified);
 
-    private static async Task<int> DeleteAttendanceAsync(
-        ZKTecoDbContext db, Guid storeId, DateTime cutoff, CancellationToken stoppingToken)
+    // Xóa theo từng đợt: lần chạy đầu ở cửa hàng lớn có thể là hàng trăm nghìn đơn / lượt chấm công — trước đây một
+    // lệnh DELETE khổng lồ (mảng mã cả trăm nghìn phần tử) khóa bảng lâu và có thể quá thời gian chờ.
+    internal const int OrderBatch = 2000;
+    internal const int AttendanceBatch = 5000;
+
+    internal static async Task<int> DeleteAttendanceAsync(
+        ZKTecoDbContext db, Guid storeId, DateTime cutoff, CancellationToken stoppingToken, int batch = AttendanceBatch)
     {
         var deviceIds = await db.Devices.AsNoTracking()
             .Where(d => d.StoreId == storeId)
             .Select(d => d.Id)
             .ToListAsync(stoppingToken);
 
-        var logIds = deviceIds.Count == 0
-            ? new List<Guid>()
-            : await db.AttendanceLogs.IgnoreQueryFilters()
-                .Where(a => deviceIds.Contains(a.DeviceId) && a.AttendanceTime < cutoff)
-                .Select(a => a.Id)
-                .ToListAsync(stoppingToken);
-
-        if (logIds.Count > 0)
+        var deleted = 0;
+        while (deviceIds.Count > 0 && !stoppingToken.IsCancellationRequested)
         {
+            var logIds = await db.AttendanceLogs.IgnoreQueryFilters()
+                .Where(a => deviceIds.Contains(a.DeviceId) && a.AttendanceTime < cutoff)
+                .OrderBy(a => a.Id)
+                .Select(a => a.Id)
+                .Take(batch)
+                .ToListAsync(stoppingToken);
+            if (logIds.Count == 0) break;
+
             await db.AttendanceCorrectionRequests.IgnoreQueryFilters()
                 .Where(x => x.AttendanceId != null && logIds.Contains(x.AttendanceId.Value))
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.AttendanceId, (Guid?)null), stoppingToken);
@@ -132,28 +139,57 @@ public class PackageDataRetentionBackgroundService : BackgroundService
             await db.Shifts.IgnoreQueryFilters()
                 .Where(x => x.CheckOutAttendanceId != null && logIds.Contains(x.CheckOutAttendanceId.Value))
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.CheckOutAttendanceId, (Guid?)null), stoppingToken);
-            await db.AttendanceLogs.IgnoreQueryFilters()
+            var n = await db.AttendanceLogs.IgnoreQueryFilters()
                 .Where(a => logIds.Contains(a.Id))
                 .ExecuteDeleteAsync(stoppingToken);
+            deleted += n;
+            if (n == 0) break;
         }
 
-        var mobile = await db.MobileAttendanceRecords.IgnoreQueryFilters()
-            .Where(m => m.StoreId == storeId && m.PunchTime < cutoff)
-            .ExecuteDeleteAsync(stoppingToken);
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var mobileIds = await db.MobileAttendanceRecords.IgnoreQueryFilters()
+                .Where(m => m.StoreId == storeId && m.PunchTime < cutoff)
+                .OrderBy(m => m.Id)
+                .Select(m => m.Id)
+                .Take(batch)
+                .ToListAsync(stoppingToken);
+            if (mobileIds.Count == 0) break;
+            var n = await db.MobileAttendanceRecords.IgnoreQueryFilters()
+                .Where(m => mobileIds.Contains(m.Id))
+                .ExecuteDeleteAsync(stoppingToken);
+            deleted += n;
+            if (n == 0) break;
+        }
 
-        return logIds.Count + mobile;
+        return deleted;
     }
 
-    private static async Task<int> DeleteSaleOrdersAsync(
-        ZKTecoDbContext db, Guid storeId, DateTime cutoff, CancellationToken stoppingToken)
+    internal static async Task<int> DeleteSaleOrdersAsync(
+        ZKTecoDbContext db, Guid storeId, DateTime cutoff, CancellationToken stoppingToken, int batch = OrderBatch)
     {
-        var orderIds = await db.PosSaleOrders.IgnoreQueryFilters()
-            .Where(o => o.StoreId == storeId
-                && o.Status != PosSaleOrderStatus.Draft
-                && (o.SaleDate ?? o.CreatedAt) < cutoff)
-            .Select(o => o.Id)
-            .ToListAsync(stoppingToken);
-        if (orderIds.Count == 0) return 0;
+        var deleted = 0;
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var orderIds = await db.PosSaleOrders.IgnoreQueryFilters()
+                .Where(o => o.StoreId == storeId
+                    && o.Status != PosSaleOrderStatus.Draft
+                    && (o.SaleDate ?? o.CreatedAt) < cutoff)
+                .OrderBy(o => o.Id)
+                .Select(o => o.Id)
+                .Take(batch)
+                .ToListAsync(stoppingToken);
+            if (orderIds.Count == 0) break;
+            var n = await DeleteSaleOrderBatchAsync(db, orderIds, stoppingToken);
+            deleted += n;
+            if (n == 0) break;
+        }
+        return deleted;
+    }
+
+    private static async Task<int> DeleteSaleOrderBatchAsync(
+        ZKTecoDbContext db, List<Guid> orderIds, CancellationToken stoppingToken)
+    {
 
         await db.PosSaleOrderLines.IgnoreQueryFilters()
             .Where(l => orderIds.Contains(l.SaleOrderId))

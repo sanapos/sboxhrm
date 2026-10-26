@@ -1549,10 +1549,17 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (mounted) unawaited(_refreshSystemUnreadNotifications());
   }
 
+  /// App chạy nền (ẩn / tạm dừng) — các vòng hỏi định kỳ nghỉ, mở lại thì tải ngay.
+  bool _appInBackground = false;
+
+  /// Màn bán đang hiện: app không chạy nền và không bị ẩn sau tab khác của hub POS (TickerMode tắt).
+  bool get _pollsActive =>
+      mounted && !_appInBackground && TickerMode.getNotifier(context).value;
+
   void _startSellBadgePolling() {
     _sellBadgePollTimer?.cancel();
     _sellBadgePollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (!mounted) return;
+      if (!_pollsActive) return;
       unawaited(_refreshSystemUnreadNotifications());
       if (_qrOnlineFeatureEnabled) {
         unawaited(_refreshQrOnlinePending());
@@ -1565,7 +1572,15 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       unawaited(_saveTabNames());
     }
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      _appInBackground = true;
+    } else if (state == AppLifecycleState.resumed) {
+      _appInBackground = false;
+    }
     if (state == AppLifecycleState.resumed && mounted) {
+      unawaited(_storePrintTick());
       // Mở lại app: HĐ có thể đã đổi ở máy khác trong lúc chạy nền.
       unawaited(_syncHeldDraftTabs());
       unawaited(_refreshSystemUnreadNotifications());
@@ -13321,16 +13336,19 @@ class _PosSellScreenState extends State<PosSellScreen>
   int _storePrintProblems = 0;
   Timer? _storePrintPollTimer;
 
+  Future<void> _storePrintTick() async {
+    final res = await _api.getPosPrintQueue();
+    if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+    final n = ((res['data'] as Map)['problemCount'] as num?)?.toInt() ?? 0;
+    if (n != _storePrintProblems) setState(() => _storePrintProblems = n);
+    await _dropSettledKitchenPending();
+  }
+
   void _startStorePrintPoll() {
-    Future<void> tick() async {
-      final res = await _api.getPosPrintQueue();
-      if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
-      final n = ((res['data'] as Map)['problemCount'] as num?)?.toInt() ?? 0;
-      if (n != _storePrintProblems) setState(() => _storePrintProblems = n);
-      await _dropSettledKitchenPending();
-    }
-    unawaited(tick());
-    _storePrintPollTimer = Timer.periodic(const Duration(seconds: 30), (_) => unawaited(tick()));
+    unawaited(_storePrintTick());
+    _storePrintPollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (_pollsActive) unawaited(_storePrintTick());
+    });
   }
 
   /// Phiếu bếp treo mà lệnh gốc đã in xong (Agent chậm / máy khác In lại) → gỡ, không hủy lệnh.

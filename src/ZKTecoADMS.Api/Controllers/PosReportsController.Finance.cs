@@ -334,17 +334,16 @@ public partial class PosReportsController
                 .Where(l => orders.Select(o => o.Id).Contains(l.SaleOrderId) && l.Deleted == null)
                 .SumAsync(l => (decimal?)l.DiscountAmount) ?? 0);
         var orderCount = await orders.CountAsync();
-        var orderIds = await orders.Select(o => o.Id).ToListAsync();
+        var orderIds = orders.Select(o => o.Id);
         var returnedByOrder = await PosSaleReturnLedger.ReturnedByOrderAsync(dbContext, storeId, orderIds);
         // Hàng trả của các đơn trong kỳ (trình bày: tiền hàng trước trả − hàng trả = doanh thu thuần).
         var refunds = returnedByOrder.Values.Sum(x => x.Refund);
         var grossSales = revenue + refunds;
 
         // ── Giá vốn thuần của các đơn: giá vốn khi bán (gồm dịch vụ, topping) − giá vốn hàng khách trả.
-        var cogsByOrder = await PosReportMoney.CogsByOrderAsync(dbContext, storeId, orderIds);
-        var cogs = cogsByOrder.Values.Sum();
         var returnedCost = returnedByOrder.Values.Sum(x => x.Cost);
-        var saleCost = cogs + returnedCost;
+        var saleCost = await PosReportMoney.SaleCogsTotalAsync(dbContext, storeId, orderIds);
+        var cogs = saleCost - returnedCost;
         var gross = revenue - cogs;
 
         // ── Hao hụt kho trong kỳ: xuất hủy, xuất dùng nội bộ, xuất khác, chênh lệch kiểm kê (thiếu − thừa)

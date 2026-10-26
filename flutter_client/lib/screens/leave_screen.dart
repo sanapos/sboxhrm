@@ -105,12 +105,20 @@ class _LeaveScreenState extends State<LeaveScreen>
             .toString()
             .toLowerCase();
         if (category.contains('leave') || category.contains('approval')) {
-          _loadData();
+          _loadData(background: true);
         }
       });
-      // Periodic refresh every 30 seconds as fallback
+      // Dự phòng khi mất thông báo realtime: 30 giây nếu SignalR mất kết nối; đang kết nối thì đơn mới đã
+      // tự tải qua thông báo → chỉ tải lại mỗi 5 phút (trước đây 30 giây tải lại TẤT CẢ đơn + nhân viên + ca).
       _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-        if (mounted) _loadData();
+        if (!mounted) return;
+        final last = _lastLoadAt;
+        if (SignalRService().isConnected &&
+            last != null &&
+            DateTime.now().difference(last) < const Duration(minutes: 5)) {
+          return;
+        }
+        _loadData(background: true);
       });
       _loadData();
     }
@@ -154,29 +162,37 @@ class _LeaveScreenState extends State<LeaveScreen>
     }
   }
 
-  Future<void> _loadData() async {
+  DateTime? _lastLoadAt;
+  bool _referenceLoaded = false;
+
+  /// [background]: tải lại theo thông báo / định kỳ — chỉ đơn nghỉ phép, giữ ca / nhân viên / chi nhánh đã tải.
+  Future<void> _loadData({bool background = false}) async {
     if (_isLoading) return; // Prevent concurrent loads
     setState(() => _isLoading = true);
+    _lastLoadAt = DateTime.now();
     try {
-      try {
-        final shiftsResult = await _apiService.getShifts();
-        _shifts = shiftsResult;
-      } catch (e) {
-        _shifts = [];
-      }
-      try {
-        _employees = await _apiService.getEmployeesForSelect();
-      } catch (e) {
-        _employees = [];
-      }
-      try {
-        final br = await _apiService.getBranchesForSelect();
-        final bd = br['data'];
-        if (bd is List && mounted) {
-          setState(() => _branches =
-              bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+      if (!background || !_referenceLoaded) {
+        try {
+          final shiftsResult = await _apiService.getShifts();
+          _shifts = shiftsResult;
+        } catch (e) {
+          _shifts = [];
         }
-      } catch (_) {}
+        try {
+          _employees = await _apiService.getEmployeesForSelect();
+        } catch (e) {
+          _employees = [];
+        }
+        try {
+          final br = await _apiService.getBranchesForSelect();
+          final bd = br['data'];
+          if (bd is List && mounted) {
+            setState(() => _branches =
+                bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
+          }
+        } catch (_) {}
+        _referenceLoaded = true;
+      }
       try {
         final myResult = await _apiService.getMyLeaves();
         if (myResult['isSuccess'] == true && myResult['data'] != null) {

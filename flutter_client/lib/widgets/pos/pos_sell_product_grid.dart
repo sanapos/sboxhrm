@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../notification_overlay.dart';
 import '../../models/pos_product.dart';
@@ -456,8 +457,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     _loadingMore = false;
 
     // Đã có đủ danh mục trên máy → tìm / lọc nhóm ngay, không chờ mạng.
+    var shownLocal = false;
     if (!forceNetwork && _hasActiveFilter && storeId.isNotEmpty) {
       final snap = await PosSellCatalogCache.instance.read(storeId);
+      final capped = await _isCatalogCapped(storeId);
       if (gen != _loadGen || !mounted) return;
       if (snap != null && snap.complete && snap.items.isNotEmpty) {
         final filtered = _filterLocal(snap.items);
@@ -470,7 +473,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           _hasMore = false;
         });
         _prefetchPageUnitViews();
-        return;
+        // Danh mục trên máy chỉ có phần đầu (cửa hàng quá lớn): hiện kết quả có sẵn, rồi hỏi server cho đủ
+        // (mất mạng → giữ kết quả trên máy).
+        if (!capped) return;
+        shownLocal = true;
       }
     }
 
@@ -499,7 +505,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       }
     }
 
-    if (mounted && (_products.isEmpty || forceNetwork || _hasActiveFilter)) {
+    if (mounted && (_products.isEmpty || forceNetwork || (_hasActiveFilter && !shownLocal))) {
       setState(() => _loading = true);
     }
     await _fetchCatalogPage(storeId, reset: true, gen: gen);
@@ -560,6 +566,32 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     });
   }
 
+  /// Đồng bộ đủ tối đa [_fullSyncMaxPages] × 100 món. Cửa hàng nhiều món hơn: danh mục trên máy chỉ có phần đầu
+  /// («bị cắt») — tìm kiếm vẫn hỏi server, và số món lệch server là bình thường. Trước đây lệch số món ⇒ tải lại
+  /// toàn bộ 200 trang ở MỖI lần đồng bộ phần thay đổi (mỗi đơn bán ở máy khác), danh mục vẫn không bao giờ đủ.
+  static const _fullSyncMaxPages = 200;
+  static final Map<String, bool> _cappedCatalog = {};
+  static String _cappedKey(String storeId) => 'pos_sell_catalog_capped_$storeId';
+
+  static Future<bool> _isCatalogCapped(String storeId) async {
+    final known = _cappedCatalog[storeId];
+    if (known != null) return known;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return _cappedCatalog[storeId] = prefs.getBool(_cappedKey(storeId)) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> _setCatalogCapped(String storeId, bool capped) async {
+    _cappedCatalog[storeId] = capped;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_cappedKey(storeId), capped);
+    } catch (_) {}
+  }
+
   /// Tải ĐỦ danh mục (mọi trang) rồi mới ghi cache — trước đây ghi đè cache bằng trang 1
   /// (48 món) ⇒ lần mở sau chỉ còn 48 món, không tải thêm.
   Future<void> _syncFullCatalog(String storeId) async {
@@ -571,7 +603,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       DateTime? version;
       DateTime? serverTime;
       var total = 0;
-      for (var page = 1; page <= 200; page++) {
+      for (var page = 1; page <= _fullSyncMaxPages; page++) {
         final res = await widget.api.getPosSellProducts(page: page, pageSize: size);
         if (res['isSuccess'] != true || res['data'] is! Map) return; // giữ bản cũ
         final data = res['data'] as Map<String, dynamic>;
@@ -592,6 +624,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         if (raw.length < size || all.length >= total) break;
       }
       final unique = uniquePosProductsById(all);
+      await _setCatalogCapped(storeId, all.length >= _fullSyncMaxPages * size && total > all.length);
       await PosSellCatalogCache.instance.write(
         storeId,
         items: unique,
@@ -655,7 +688,9 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       }
       merged.addAll(changed.values); // món mới thêm
       final sellableTotal = (data['sellableTotal'] as num?)?.toInt();
-      if (sellableTotal != null && sellableTotal != merged.length) {
+      if (sellableTotal != null &&
+          sellableTotal != merged.length &&
+          !(sellableTotal > merged.length && await _isCatalogCapped(storeId))) {
         // Lệch số món (đổi nhóm bán / dữ liệu cũ) → tải lại đủ cho chắc.
         await _syncFullCatalog(storeId);
         return;

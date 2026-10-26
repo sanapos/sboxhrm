@@ -324,6 +324,11 @@ class ScreenRefreshNotifier {
 
   static Timer? _attendanceRefreshTimer;
   static Timer? _notificationCountTimer;
+  static Timer? _dashboardPunchTimer;
+  static DateTime? _lastDashboardPunchRefresh;
+
+  /// Trang chủ tải lại ~25 API — giờ vào ca (máy chấm liên tục) chỉ tải lại tối đa 1 lần / 30 giây.
+  static const dashboardPunchRefreshInterval = Duration(seconds: 30);
 
   /// Gom refresh chấm công — tối đa 1 lần / 2s thay vì mỗi punch.
   static void scheduleAttendanceDataRefresh() {
@@ -333,8 +338,26 @@ class ScreenRefreshNotifier {
       refreshAttendanceSummaryScreen();
       refreshAttendanceByShiftScreen();
       refreshPayrollScreen();
-      refreshDashboardScreen();
+      _scheduleDashboardPunchRefresh();
     });
+  }
+
+  static void _scheduleDashboardPunchRefresh() {
+    if (_dashboardPunchTimer?.isActive == true) return; // đã hẹn lần tải sau
+    final last = _lastDashboardPunchRefresh;
+    final wait = last == null
+        ? Duration.zero
+        : dashboardPunchRefreshInterval - DateTime.now().difference(last);
+    void run() {
+      _lastDashboardPunchRefresh = DateTime.now();
+      refreshDashboardScreen();
+    }
+
+    if (wait <= Duration.zero) {
+      run();
+    } else {
+      _dashboardPunchTimer = Timer(wait, run);
+    }
   }
 
   static void scheduleNotificationCountRefresh() {
@@ -2513,7 +2536,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       children: [
         Offstage(
           offstage: _selectedIndex != 0,
-          child: _getHomeScreen(),
+          // Trang chủ ẩn: dừng banner / hoãn tải lại theo chấm công đến khi quay lại.
+          child: TickerMode(enabled: _selectedIndex == 0, child: _getHomeScreen()),
         ),
         if (_selectedIndex != 0) _getScreenForIndex(_selectedIndex),
       ],

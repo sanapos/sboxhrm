@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/pos_store_printer.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/signalr_service.dart';
 import '../../utils/pos_floor_realtime.dart';
 import '../../utils/pos_kds_alert.dart';
 import '../../utils/pos_kitchen_direct_connect.dart';
@@ -122,6 +123,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   int _lastOpenCount = 0;
   Timer? _poll;
   Timer? _clock;
+  StreamSubscription<bool>? _connSub;
+  DateTime? _lastTicketsLoadAt;
   final _nowTick = ValueNotifier<DateTime>(DateTime.now());
 
   @override
@@ -146,8 +149,21 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         voidMessage: reason == 'kitchenvoid' ? msg : null,
       ));
     });
-    _poll = Timer.periodic(Duration(seconds: 8), (_) {
-      if (mounted) unawaited(_loadTickets(silent: true));
+    // Dự phòng khi mất sự kiện realtime: 8 giây khi SignalR mất kết nối; đang kết nối thì vé mới đã về qua
+    // sự kiện → chỉ hỏi lại mỗi 30 giây (trước đây 8 giây/lần dù đang kết nối — mỗi màn bếp ~450 lần/giờ).
+    _poll = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (!mounted) return;
+      final last = _lastTicketsLoadAt;
+      if (SignalRService().isConnected &&
+          last != null &&
+          DateTime.now().difference(last) < const Duration(seconds: 30)) {
+        return;
+      }
+      unawaited(_loadTickets(silent: true));
+    });
+    // Vừa kết nối lại: có thể đã lỡ sự kiện → tải ngay.
+    _connSub = SignalRService().onConnectionStateChanged.listen((connected) {
+      if (connected && mounted) unawaited(_loadTickets(silent: true));
     });
     _clock = Timer.periodic(Duration(seconds: 1), (_) {
       if (!mounted) return;
@@ -170,6 +186,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     _floor.dispose();
     _poll?.cancel();
     _clock?.cancel();
+    _connSub?.cancel();
     _nowTick.dispose();
     _boardRev.dispose();
     if (_isKdsFullscreen && !kIsWeb) {
@@ -979,6 +996,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       return;
     }
     _ticketsLoading = true;
+    _lastTicketsLoadAt = DateTime.now();
     if (!silent && mounted) {
       setState(() {
         _loading = true;

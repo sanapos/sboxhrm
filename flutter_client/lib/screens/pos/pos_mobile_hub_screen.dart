@@ -257,7 +257,8 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     if (!_activatedTabs.contains(index)) {
       return const SizedBox.shrink();
     }
-    return child;
+    // Tab ẩn (IndexedStack vẫn giữ sống): tắt ticker — hoạt ảnh và các vòng hỏi định kỳ (Bán hàng) nghỉ.
+    return TickerMode(enabled: index == _tab, child: child);
   }
 
   void _onSlotTap(int slotIndex, String slotId, PermissionProvider perm) {

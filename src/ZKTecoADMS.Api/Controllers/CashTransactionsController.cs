@@ -660,11 +660,9 @@ public class CashTransactionsController(
         var effectiveFrom = fromDate ?? new DateTime(nowVn.Year, nowVn.Month, 1);
         var effectiveTo = toDate ?? nowVn;
 
-        var query = context.CashTransactions
-            .Include(x => x.Category)
-            .Include(x => x.CreatedByUser)
-            .Where(x => x.StoreId == storeId && 
-                        x.IsActive && 
+        var query = context.CashTransactions.AsNoTracking()
+            .Where(x => x.StoreId == storeId &&
+                        x.IsActive &&
                         x.Status == CashTransactionStatus.Completed &&
                         x.TransactionDate >= effectiveFrom &&
                         x.TransactionDate <= effectiveTo)
@@ -674,15 +672,20 @@ public class CashTransactionsController(
         // Thu chi và sổ quỹ bán hàng. Trước đây lọc theo chi nhánh của người lập phiếu → 2 màn ra 2 con số.
         query = await ScopeByBranchAsync(query, storeId, branchId, includeChildBranches);
 
-        var transactions = await query.ToListAsync();
+        // Cộng trong CSDL theo (loại, nhóm, ngày) — trước đây nạp mọi phiếu của kỳ (kèm nhóm, người lập) về máy chủ.
+        // Nhóm theo cả tên / biểu tượng / màu nhóm như trước (phiếu thuộc nhóm đã xóa không tính, như Include cũ).
+        var groups = await query
+            .GroupBy(x => new { x.Type, x.CategoryId, x.Category.Name, x.Category.Icon, x.Category.Color, Day = x.TransactionDate.Date })
+            .Select(g => new { g.Key.Type, g.Key.CategoryId, g.Key.Name, g.Key.Icon, g.Key.Color, g.Key.Day, Amount = g.Sum(x => x.Amount), Count = g.Count() })
+            .ToListAsync();
 
-        var incomeTotal = transactions.Where(x => x.Type == CashTransactionType.Income).Sum(x => x.Amount);
-        var expenseTotal = transactions.Where(x => x.Type == CashTransactionType.Expense).Sum(x => x.Amount);
+        var incomeTotal = groups.Where(x => x.Type == CashTransactionType.Income).Sum(x => x.Amount);
+        var expenseTotal = groups.Where(x => x.Type == CashTransactionType.Expense).Sum(x => x.Amount);
 
         // Group by category
-        var incomeByCategory = transactions
-            .Where(x => x.Type == CashTransactionType.Income)
-            .GroupBy(x => new { x.CategoryId, x.Category.Name, x.Category.Icon, x.Category.Color })
+        List<CategorySummaryDto> ByCategory(CashTransactionType type, decimal total) => groups
+            .Where(x => x.Type == type)
+            .GroupBy(x => new { x.CategoryId, x.Name, x.Icon, x.Color })
             .Select(g => new CategorySummaryDto
             {
                 CategoryId = g.Key.CategoryId,
@@ -690,34 +693,20 @@ public class CashTransactionsController(
                 Icon = g.Key.Icon,
                 Color = g.Key.Color,
                 Amount = g.Sum(x => x.Amount),
-                Count = g.Count(),
-                Percentage = incomeTotal > 0 ? Math.Round(g.Sum(x => x.Amount) / incomeTotal * 100, 2) : 0
+                Count = g.Sum(x => x.Count),
+                Percentage = total > 0 ? Math.Round(g.Sum(x => x.Amount) / total * 100, 2) : 0
             })
             .OrderByDescending(x => x.Amount)
             .ToList();
-
-        var expenseByCategory = transactions
-            .Where(x => x.Type == CashTransactionType.Expense)
-            .GroupBy(x => new { x.CategoryId, x.Category.Name, x.Category.Icon, x.Category.Color })
-            .Select(g => new CategorySummaryDto
-            {
-                CategoryId = g.Key.CategoryId,
-                CategoryName = g.Key.Name,
-                Icon = g.Key.Icon,
-                Color = g.Key.Color,
-                Amount = g.Sum(x => x.Amount),
-                Count = g.Count(),
-                Percentage = expenseTotal > 0 ? Math.Round(g.Sum(x => x.Amount) / expenseTotal * 100, 2) : 0
-            })
-            .OrderByDescending(x => x.Amount)
-            .ToList();
+        var incomeByCategory = ByCategory(CashTransactionType.Income, incomeTotal);
+        var expenseByCategory = ByCategory(CashTransactionType.Expense, expenseTotal);
 
         incomeByCategory = incomeByCategory.Select(FixCategorySummaryEncoding).ToList();
         expenseByCategory = expenseByCategory.Select(FixCategorySummaryEncoding).ToList();
 
         // Daily summary
-        var dailySummary = transactions
-            .GroupBy(x => x.TransactionDate.Date)
+        var dailySummary = groups
+            .GroupBy(x => x.Day)
             .Select(g => new DailySummaryDto
             {
                 Date = g.Key,
@@ -737,22 +726,25 @@ public class CashTransactionsController(
 
         pendingQuery = await ScopeByBranchAsync(pendingQuery, storeId, branchId, includeChildBranches);
 
-        var pendingList = await pendingQuery.ToListAsync();
-        var pendingIncome = pendingList.Where(x => x.Type == CashTransactionType.Income).ToList();
-        var pendingExpense = pendingList.Where(x => x.Type == CashTransactionType.Expense).ToList();
+        var pendingByType = await pendingQuery
+            .GroupBy(x => x.Type)
+            .Select(g => new { Type = g.Key, Amount = g.Sum(x => x.Amount), Count = g.Count() })
+            .ToListAsync();
+        var pendingIncome = pendingByType.Where(x => x.Type == CashTransactionType.Income).ToList();
+        var pendingExpense = pendingByType.Where(x => x.Type == CashTransactionType.Expense).ToList();
 
         var summary = new CashTransactionSummaryDto
         {
             TotalIncome = incomeTotal,
             TotalExpense = expenseTotal,
-            TotalTransactions = transactions.Count,
-            IncomeTransactions = transactions.Count(x => x.Type == CashTransactionType.Income),
-            ExpenseTransactions = transactions.Count(x => x.Type == CashTransactionType.Expense),
-            PendingTransactions = pendingList.Count,
+            TotalTransactions = groups.Sum(x => x.Count),
+            IncomeTransactions = groups.Where(x => x.Type == CashTransactionType.Income).Sum(x => x.Count),
+            ExpenseTransactions = groups.Where(x => x.Type == CashTransactionType.Expense).Sum(x => x.Count),
+            PendingTransactions = pendingByType.Sum(x => x.Count),
             PendingIncomeAmount = pendingIncome.Sum(x => x.Amount),
             PendingExpenseAmount = pendingExpense.Sum(x => x.Amount),
-            PendingIncomeCount = pendingIncome.Count,
-            PendingExpenseCount = pendingExpense.Count,
+            PendingIncomeCount = pendingIncome.Sum(x => x.Count),
+            PendingExpenseCount = pendingExpense.Sum(x => x.Count),
             FromDate = fromDate,
             ToDate = toDate,
             IncomeByCategory = incomeByCategory,

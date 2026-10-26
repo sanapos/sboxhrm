@@ -35,7 +35,11 @@ internal static class PosReportLineExpand
         // Số hóa đơn có bán món này (đếm đơn khác nhau).
         int OrderCount = 0);
 
-    public static List<ProductAgg> Aggregate(IEnumerable<LineIn> lines)
+    public static List<ProductAgg> Aggregate(IEnumerable<LineIn> lines) => Aggregate(lines, []);
+
+    /// <param name="preAggregated">Hàng đã cộng sẵn (trong CSDL) của các đơn KHÔNG có trong <paramref name="lines"/> —
+    /// cộng SL / doanh thu / giảm giá / số đơn, lấy lần bán cuối muộn nhất; tên giữ theo dòng gặp trước.</param>
+    public static List<ProductAgg> Aggregate(IEnumerable<LineIn> lines, IEnumerable<ProductAgg> preAggregated)
     {
         var map = new Dictionary<Guid, ProductAgg>();
         var ordersByProduct = new Dictionary<Guid, HashSet<Guid>>();
@@ -107,9 +111,24 @@ internal static class PosReportLineExpand
             }
         }
 
-        return map.Values
+        var result = map.Values
             .Select(x => x with { OrderCount = ordersByProduct.TryGetValue(x.ProductId, out var o) ? o.Count : 0 })
-            .OrderByDescending(x => x.Revenue).ToList();
+            .ToDictionary(x => x.ProductId);
+        foreach (var p in preAggregated)
+        {
+            result[p.ProductId] = result.TryGetValue(p.ProductId, out var e)
+                ? e with
+                {
+                    Qty = e.Qty + p.Qty,
+                    Revenue = e.Revenue + p.Revenue,
+                    LineDiscount = e.LineDiscount + p.LineDiscount,
+                    LastSoldAt = Max(e.LastSoldAt, p.LastSoldAt),
+                    ProductName = string.IsNullOrWhiteSpace(e.ProductName) ? p.ProductName : e.ProductName,
+                    OrderCount = e.OrderCount + p.OrderCount,
+                }
+                : p;
+        }
+        return result.Values.OrderByDescending(x => x.Revenue).ToList();
     }
 
     static DateTime? Max(DateTime? a, DateTime? b)

@@ -147,8 +147,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // để hiển thị mỗi ca mỗi dòng (không gộp theo nhân viên).
   List<DailyShiftPair> _shiftPairs = const [];
 
-  // Rolling banner
-  int _bannerIndex = 0;
+  // Rolling banner — chỉ khung banner dựng lại mỗi 3 giây (trước đây setState cả trang chủ).
+  final ValueNotifier<int> _bannerIndex = ValueNotifier<int>(0);
+  // Trang chủ đang hiện (desktop / tablet giữ trang chủ Offstage khi mở module khác).
+  bool _visible = true;
+  // Có yêu cầu tải lại khi đang ẩn → tải khi hiện lại (không gọi ~25 API nền mỗi lần chấm công).
+  bool _refreshWhenVisible = false;
   Timer? _bannerTimer;
   Timer? _scrollResumeBannerTimer;
   late final ScrollController _scrollController;
@@ -224,8 +228,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final visible = TickerMode.of(context);
+    if (visible == _visible) return;
+    _visible = visible;
+    if (!visible) {
+      _bannerTimer?.cancel();
+      _scrollResumeBannerTimer?.cancel();
+      return;
+    }
+    if (_refreshWhenVisible) {
+      _refreshWhenVisible = false;
+      _onExternalDashboardRefresh();
+    } else {
+      _startBannerTimer();
+    }
+  }
+
   void _onExternalDashboardRefresh() {
     if (!mounted) return;
+    if (!_visible) {
+      _refreshWhenVisible = true;
+      return;
+    }
     if (_isEmployee) {
       _loadEmployeeData();
     } else {
@@ -240,6 +267,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _bannerTimer?.cancel();
     _scrollResumeBannerTimer?.cancel();
     _scrollController.dispose();
+    _bannerIndex.dispose();
     super.dispose();
   }
 
@@ -269,11 +297,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _startBannerTimer() {
     _bannerTimer?.cancel();
+    if (!_visible) return;
     _bannerTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!mounted) return;
       final items = _bannerItems;
       if (items.length > 1) {
-        setState(() => _bannerIndex = (_bannerIndex + 1) % items.length);
+        _bannerIndex.value = (_bannerIndex.value + 1) % items.length;
       }
     });
   }
@@ -1937,11 +1966,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Widget _buildRollingBanner() {
+  Widget _buildRollingBanner() => ValueListenableBuilder<int>(
+        valueListenable: _bannerIndex,
+        builder: (context, bannerIndex, _) => _buildRollingBannerAt(bannerIndex),
+      );
+
+  Widget _buildRollingBannerAt(int bannerIndex) {
     final items = _bannerItems;
     if (items.isEmpty) return const SizedBox.shrink();
 
-    final idx = _bannerIndex.clamp(0, items.length - 1);
+    final idx = bannerIndex.clamp(0, items.length - 1);
     final item = items[idx];
     final color = Color(item['color'] as int);
 

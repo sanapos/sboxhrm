@@ -81,9 +81,16 @@ internal static class PosSaleReturnLedger
     static decimal LegacySlipCost(IEnumerable<PosStockTransaction> slip) =>
         slip.Sum(x => x.QtyChange * (x.UnitCost ?? 0));
 
+    /// <summary>
+    /// Danh sách đơn có sẵn → truy vấn con, để mọi hàm bên dưới chỉ có một bản lọc theo đơn. Báo cáo kỳ dài truyền
+    /// thẳng truy vấn đơn (IN (SELECT …)) thay vì nạp hàng trăm nghìn mã đơn rồi gửi lại thành mảng <c>= ANY(@ids)</c>.
+    /// </summary>
+    internal static IQueryable<Guid> OrderIdsQuery(ZKTecoDbContext db, IReadOnlyCollection<Guid> ids) =>
+        db.PosSaleOrders.IgnoreQueryFilters().Where(o => ids.Contains(o.Id)).Select(o => o.Id);
+
     /// <summary>Số phiếu đã ghi trong PosSaleReturnLines (kể cả đã hủy) — để bỏ qua bản suy từ thẻ kho.</summary>
     static async Task<HashSet<(Guid OrderId, string ReturnNo)>> LedgerSlipsAsync(
-        ZKTecoDbContext db, Guid storeId, IReadOnlyCollection<Guid>? orderIds)
+        ZKTecoDbContext db, Guid storeId, IQueryable<Guid>? orderIds)
     {
         var q = db.PosSaleReturnLines.AsNoTracking().Where(r => r.StoreId == storeId && r.Deleted == null);
         if (orderIds != null) q = q.Where(r => orderIds.Contains(r.SaleOrderId));
@@ -93,10 +100,13 @@ internal static class PosSaleReturnLedger
 
     /// <summary>Đã trả theo dòng hóa đơn (đơn vị bán) cho nhiều đơn.</summary>
     public static async Task<Dictionary<Guid, decimal>> ReturnedQtyByLineAsync(
-        ZKTecoDbContext db, Guid storeId, IReadOnlyCollection<Guid> orderIds)
+        ZKTecoDbContext db, Guid storeId, IReadOnlyCollection<Guid> orderIds) =>
+        orderIds.Count == 0 ? [] : await ReturnedQtyByLineAsync(db, storeId, OrderIdsQuery(db, orderIds));
+
+    public static async Task<Dictionary<Guid, decimal>> ReturnedQtyByLineAsync(
+        ZKTecoDbContext db, Guid storeId, IQueryable<Guid> orderIds)
     {
         var result = new Dictionary<Guid, decimal>();
-        if (orderIds.Count == 0) return result;
 
         var ledger = await db.PosSaleReturnLines.AsNoTracking()
             .Where(r => r.StoreId == storeId && r.Deleted == null && !r.IsVoided && orderIds.Contains(r.SaleOrderId))
@@ -182,10 +192,13 @@ internal static class PosSaleReturnLedger
 
     /// <summary>Tiền hoàn + giá vốn hàng trả theo đơn (mọi thời điểm) — để ra doanh thu / giá vốn thuần của đơn.</summary>
     public static async Task<Dictionary<Guid, (decimal Refund, decimal Cost)>> ReturnedByOrderAsync(
-        ZKTecoDbContext db, Guid storeId, IReadOnlyCollection<Guid> orderIds)
+        ZKTecoDbContext db, Guid storeId, IReadOnlyCollection<Guid> orderIds) =>
+        orderIds.Count == 0 ? [] : await ReturnedByOrderAsync(db, storeId, OrderIdsQuery(db, orderIds));
+
+    public static async Task<Dictionary<Guid, (decimal Refund, decimal Cost)>> ReturnedByOrderAsync(
+        ZKTecoDbContext db, Guid storeId, IQueryable<Guid> orderIds)
     {
         var result = new Dictionary<Guid, (decimal Refund, decimal Cost)>();
-        if (orderIds.Count == 0) return result;
         var ledger = await db.PosSaleReturnLines.AsNoTracking()
             .Where(r => r.StoreId == storeId && r.Deleted == null && !r.IsVoided && orderIds.Contains(r.SaleOrderId))
             .GroupBy(r => r.SaleOrderId)
@@ -228,7 +241,7 @@ internal static class PosSaleReturnLedger
             .Where(t => t.SaleOrderId != null && t.CreatedAt >= fromUtc && t.CreatedAt < toUtc)
             .ToListAsync();
         if (txs.Count == 0) return rows;
-        var known = await LedgerSlipsAsync(db, storeId, txs.Select(t => t.SaleOrderId!.Value).Distinct().ToList());
+        var known = await LedgerSlipsAsync(db, storeId, OrderIdsQuery(db, txs.Select(t => t.SaleOrderId!.Value).Distinct().ToList()));
         foreach (var slip in txs
                      .Where(t => !known.Contains((t.SaleOrderId!.Value, t.ReferenceNo ?? "")))
                      .GroupBy(t => (t.SaleOrderId!.Value, t.ReferenceNo ?? t.Id.ToString())))
@@ -241,6 +254,13 @@ internal static class PosSaleReturnLedger
         ZKTecoDbContext db, Guid storeId, DateTime fromUtc, DateTime toUtc, IReadOnlyCollection<Guid>? restrictOrderIds = null)
     {
         if (restrictOrderIds != null && restrictOrderIds.Count == 0) return 0;
+        return await SumRefundsByReturnDateAsync(db, storeId, fromUtc, toUtc,
+            restrictOrderIds == null ? null : OrderIdsQuery(db, restrictOrderIds));
+    }
+
+    public static async Task<decimal> SumRefundsByReturnDateAsync(
+        ZKTecoDbContext db, Guid storeId, DateTime fromUtc, DateTime toUtc, IQueryable<Guid>? restrictOrderIds)
+    {
         var lq = db.PosSaleReturnLines.AsNoTracking()
             .Where(r => r.StoreId == storeId && r.Deleted == null && !r.IsVoided &&
                         r.CreatedAt >= fromUtc && r.CreatedAt < toUtc);
@@ -253,7 +273,7 @@ internal static class PosSaleReturnLedger
         var txs = await tq.ToListAsync();
         if (txs.Count == 0) return total;
         var orderIds = txs.Where(t => t.SaleOrderId.HasValue).Select(t => t.SaleOrderId!.Value).Distinct().ToList();
-        var known = await LedgerSlipsAsync(db, storeId, orderIds);
+        var known = await LedgerSlipsAsync(db, storeId, OrderIdsQuery(db, orderIds));
         foreach (var slip in txs
                      .Where(t => !(t.SaleOrderId.HasValue && known.Contains((t.SaleOrderId.Value, t.ReferenceNo ?? ""))))
                      .GroupBy(t => (t.SaleOrderId, t.ReferenceNo ?? t.Id.ToString())))

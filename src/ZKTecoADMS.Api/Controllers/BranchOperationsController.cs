@@ -79,7 +79,8 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
         var products = await pq
             .Select(p => new { p.Id, p.ProductCode, p.Name, p.BaseUnitName, p.OnHandQty, p.CostPrice, p.MinStockQty, p.ImageUrl })
             .ToListAsync();
-        var ids = products.Select(p => p.Id).ToList();
+        // Không tìm → tồn chi nhánh của mọi hàng (không gửi mảng hàng chục nghìn mã hàng vào 4 truy vấn tồn).
+        var ids = string.IsNullOrWhiteSpace(search) ? null : products.Select(p => p.Id).ToList();
         var qty = await BranchStockService.GetBranchQtyAsync(db, storeId, bId.Value, branchCtx.HeadquarterBranchId, ids);
 
         var rows = products.Select(p =>
