@@ -455,12 +455,12 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     _nextApiPage = 1;
     _hasMore = true;
     _loadingMore = false;
+    final serverMode = storeId.isNotEmpty && await _isServerCatalog(storeId);
+    if (gen != _loadGen || !mounted) return;
 
     // Đã có đủ danh mục trên máy → tìm / lọc nhóm ngay, không chờ mạng.
-    var shownLocal = false;
-    if (!forceNetwork && _hasActiveFilter && storeId.isNotEmpty) {
+    if (!forceNetwork && !serverMode && _hasActiveFilter && storeId.isNotEmpty) {
       final snap = await PosSellCatalogCache.instance.read(storeId);
-      final capped = await _isCatalogCapped(storeId);
       if (gen != _loadGen || !mounted) return;
       if (snap != null && snap.complete && snap.items.isNotEmpty) {
         final filtered = _filterLocal(snap.items);
@@ -473,14 +473,11 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           _hasMore = false;
         });
         _prefetchPageUnitViews();
-        // Danh mục trên máy chỉ có phần đầu (cửa hàng quá lớn): hiện kết quả có sẵn, rồi hỏi server cho đủ
-        // (mất mạng → giữ kết quả trên máy).
-        if (!capped) return;
-        shownLocal = true;
+        return;
       }
     }
 
-    if (!forceNetwork && !_hasActiveFilter && storeId.isNotEmpty) {
+    if (!forceNetwork && !serverMode && !_hasActiveFilter && storeId.isNotEmpty) {
       final cached = await PosSellCatalogCache.instance.read(storeId);
       if (cached != null && cached.items.isNotEmpty && gen == _loadGen) {
         if (!mounted) return;
@@ -505,13 +502,20 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       }
     }
 
-    if (mounted && (_products.isEmpty || forceNetwork || (_hasActiveFilter && !shownLocal))) {
+    if (mounted && (_products.isEmpty || forceNetwork || _hasActiveFilter)) {
       setState(() => _loading = true);
     }
+    _unfilteredTotal = null;
     await _fetchCatalogPage(storeId, reset: true, gen: gen);
     // Hiện trang đầu cho nhanh, đồng thời tải đủ danh mục ở nền để lần sau mở là có ngay.
-    if (storeId.isNotEmpty && !_hasActiveFilter) {
-      unawaited(_syncFullCatalog(storeId));
+    if (storeId.isNotEmpty && !_hasActiveFilter && gen == _loadGen) {
+      if (!serverMode) {
+        unawaited(_syncFullCatalog(storeId));
+      } else if ((_unfilteredTotal ?? _offlineCatalogMaxItems + 1) <= _offlineCatalogMaxItems) {
+        // Cửa hàng đã bớt món (≤ ngưỡng) → quay lại danh mục offline.
+        await _setServerCatalog(storeId, false);
+        unawaited(_syncFullCatalog(storeId));
+      }
     }
   }
 
@@ -555,7 +559,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     _catalogDeltaTimer = Timer(const Duration(milliseconds: 1500), () async {
       if (!mounted) return;
       final storeId = widget.storeId?.trim() ?? '';
-      if (storeId.isEmpty) return;
+      if (storeId.isEmpty || await _isServerCatalog(storeId)) return;
       final snap = await PosSellCatalogCache.instance.read(storeId);
       if (!mounted) return;
       if (snap == null || !snap.complete) {
@@ -566,36 +570,49 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     });
   }
 
-  /// Đồng bộ đủ tối đa [_fullSyncMaxPages] × 100 món. Cửa hàng nhiều món hơn: danh mục trên máy chỉ có phần đầu
-  /// («bị cắt») — tìm kiếm vẫn hỏi server, và số món lệch server là bình thường. Trước đây lệch số món ⇒ tải lại
-  /// toàn bộ 200 trang ở MỖI lần đồng bộ phần thay đổi (mỗi đơn bán ở máy khác), danh mục vẫn không bao giờ đủ.
+  /// Cửa hàng quá [_offlineCatalogMaxItems] món bán: không tải toàn bộ danh mục về máy (dung lượng, pin, máy POS
+  /// yếu) — lưới phân trang và tìm kiếm trên server, quét mã hỏi server. Cửa hàng nhỏ hơn: danh mục offline như cũ.
+  /// Trước đây tải tối đa 200 trang (20.000 món) rồi coi là đủ ⇒ cửa hàng lớn hơn tải lại 200 trang ở mỗi lần đồng
+  /// bộ phần thay đổi (mỗi đơn bán ở máy khác) mà tìm theo tên vẫn thiếu món.
+  static const _offlineCatalogMaxItems = 5000;
+  /// Tổng món bán (không lọc) của lần tải trang 1 thành công gần nhất — để biết cửa hàng đã về dưới ngưỡng.
+  int? _unfilteredTotal;
   static const _fullSyncMaxPages = 200;
-  static final Map<String, bool> _cappedCatalog = {};
-  static String _cappedKey(String storeId) => 'pos_sell_catalog_capped_$storeId';
+  static final Map<String, bool> _serverCatalog = {};
+  static String _serverCatalogKey(String storeId) => 'pos_sell_catalog_server_$storeId';
 
-  static Future<bool> _isCatalogCapped(String storeId) async {
-    final known = _cappedCatalog[storeId];
+  static Future<bool> _isServerCatalog(String storeId) async {
+    final known = _serverCatalog[storeId];
     if (known != null) return known;
     try {
       final prefs = await SharedPreferences.getInstance();
-      return _cappedCatalog[storeId] = prefs.getBool(_cappedKey(storeId)) ?? false;
+      return _serverCatalog[storeId] = prefs.getBool(_serverCatalogKey(storeId)) ?? false;
     } catch (_) {
       return false;
     }
   }
 
-  static Future<void> _setCatalogCapped(String storeId, bool capped) async {
-    _cappedCatalog[storeId] = capped;
+  static Future<void> _setServerCatalog(String storeId, bool on) async {
+    if (_serverCatalog[storeId] == on) return;
+    _serverCatalog[storeId] = on;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_cappedKey(storeId), capped);
+      await prefs.setBool(_serverCatalogKey(storeId), on);
     } catch (_) {}
+    // Bỏ bản lưu cũ: màn bán / màn phụ / vá tồn không dùng nhầm danh mục cũ (tự hỏi server khi không có).
+    if (on) await PosSellCatalogCache.instance.invalidate(storeId);
+  }
+
+  /// Đổi sang lưới phân trang trên server ngay khi biết cửa hàng vượt ngưỡng.
+  Future<void> _switchToServerCatalog(String storeId) async {
+    await _setServerCatalog(storeId, true);
+    if (mounted) unawaited(_loadProducts(forceNetwork: true));
   }
 
   /// Tải ĐỦ danh mục (mọi trang) rồi mới ghi cache — trước đây ghi đè cache bằng trang 1
   /// (48 món) ⇒ lần mở sau chỉ còn 48 món, không tải thêm.
   Future<void> _syncFullCatalog(String storeId) async {
-    if (_fullSyncRunning || storeId.isEmpty) return;
+    if (_fullSyncRunning || storeId.isEmpty || await _isServerCatalog(storeId)) return;
     _fullSyncRunning = true;
     try {
       const size = 100;
@@ -611,6 +628,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           total = (data['total'] as num?)?.toInt() ?? 0;
           version = DateTime.tryParse('${data['catalogVersion'] ?? ''}');
           serverTime = DateTime.tryParse('${data['serverTime'] ?? ''}');
+          if (total > _offlineCatalogMaxItems) {
+            await _switchToServerCatalog(storeId);
+            return;
+          }
         }
         final raw = data['items'] as List? ?? const [];
         for (final e in raw) {
@@ -624,7 +645,6 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         if (raw.length < size || all.length >= total) break;
       }
       final unique = uniquePosProductsById(all);
-      await _setCatalogCapped(storeId, all.length >= _fullSyncMaxPages * size && total > all.length);
       await PosSellCatalogCache.instance.write(
         storeId,
         items: unique,
@@ -651,7 +671,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       await _syncFullCatalog(storeId);
       return;
     }
-    if (_fullSyncRunning) return;
+    if (_fullSyncRunning || await _isServerCatalog(storeId)) return;
     try {
       final res = await widget.api.getPosSellProducts(
         page: 1,
@@ -661,6 +681,11 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       );
       if (res['isSuccess'] != true || res['data'] is! Map) return;
       final data = res['data'] as Map<String, dynamic>;
+      final sellableTotal = (data['sellableTotal'] as num?)?.toInt();
+      if (sellableTotal != null && sellableTotal > _offlineCatalogMaxItems) {
+        await _switchToServerCatalog(storeId);
+        return;
+      }
       final raw = data['items'] as List? ?? const [];
       if (raw.length >= 500) {
         await _syncFullCatalog(storeId);
@@ -687,10 +712,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         merged.add(changed.remove(key) ?? p);
       }
       merged.addAll(changed.values); // món mới thêm
-      final sellableTotal = (data['sellableTotal'] as num?)?.toInt();
-      if (sellableTotal != null &&
-          sellableTotal != merged.length &&
-          !(sellableTotal > merged.length && await _isCatalogCapped(storeId))) {
+      if (sellableTotal != null && sellableTotal != merged.length) {
         // Lệch số món (đổi nhóm bán / dữ liệu cũ) → tải lại đủ cho chắc.
         await _syncFullCatalog(storeId);
         return;
@@ -791,6 +813,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           ..addAll(uniqueBatch);
         _serverTotal = (data['total'] as num?)?.toInt() ??
             (reset ? batch.length : _allProducts.length + batch.length);
+        if (reset && !_hasActiveFilter) _unfilteredTotal = (data['total'] as num?)?.toInt();
         _nextApiPage = page + 1;
         _hasMore = batch.length >= _apiPageSize &&
             (reset ? batch.length : _allProducts.length + batch.length) <
