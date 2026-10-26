@@ -1405,6 +1405,20 @@ public class PosPrintDispatchService(
                 throw new InvalidOperationException($"«{printer.Name}» không phải máy in tem — chọn máy in tem");
             if (!labelDoc && labelPrinter)
                 throw new InvalidOperationException($"«{printer.Name}» là máy in tem — chọn máy in phiếu / hóa đơn");
+            // ESC/POS đã dựng sẵn theo khổ giấy máy cũ (hóa đơn K80 = 576 điểm): chuyển nguyên lệnh sang máy
+            // khác khổ (K58) thì máy mới cắt mất nửa phải / in lỗi. Phiếu JSON (bếp, đơn) Agent tự dựng theo máy → chuyển được.
+            if (job.PayloadFormat == PosPrintPayloadFormat.EscPosBase64)
+            {
+                var old = await db.PosStorePrinters.IgnoreQueryFilters().AsNoTracking()
+                    .Where(p => p.Id == job.PrinterId)
+                    .Select(p => p.PaperSize)
+                    .FirstOrDefaultAsync(ct);
+                static string Paper(string? s) => string.IsNullOrWhiteSpace(s) ? "K80" : s.Trim().ToUpperInvariant();
+                if (old != null && Paper(old) != Paper(printer.PaperSize))
+                    throw new InvalidOperationException(
+                        $"«{printer.Name}» khổ {Paper(printer.PaperSize)}, lệnh cũ dựng cho khổ {Paper(old)} — " +
+                        "không chuyển nguyên lệnh được, in lại từ đơn / phiếu gốc để dựng đúng khổ");
+            }
         }
         var now = DateTime.UtcNow;
         await db.PosPrintJobs

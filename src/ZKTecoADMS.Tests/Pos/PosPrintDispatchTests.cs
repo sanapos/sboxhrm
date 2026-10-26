@@ -348,6 +348,51 @@ public class PosPrintDispatchTests(PosPgFixture fx)
     }
 
     [Fact]
+    public async Task Retry_MoveEscPosToOtherPaperSize_Rejected_SamePaperOrJsonMoves()
+    {
+        if (NoDb) return;
+        var s = await SeedAsync();
+        Guid k58 = Guid.NewGuid(), k80 = Guid.NewGuid();
+        await using (var db = fx.NewDb())
+        {
+            db.PosStorePrinters.Add(new PosStorePrinter
+            {
+                Id = k58, StoreId = s.Store, Name = "Quầy K58", ConnectionType = PosPrinterConnectionType.Lan,
+                LanHost = "192.168.1.51", PaperSize = "K58", IsActive = true,
+            });
+            db.PosStorePrinters.Add(new PosStorePrinter
+            {
+                Id = k80, StoreId = s.Store, Name = "Quầy K80", ConnectionType = PosPrinterConnectionType.Lan,
+                LanHost = "192.168.1.52", PaperSize = "k80", IsActive = true,
+            });
+            await db.SaveChangesAsync();
+        }
+        // Hóa đơn ESC/POS dựng cho máy K80 (máy «Bếp» mặc định K80) → không chuyển nguyên lệnh sang máy K58.
+        var job = await QueueAsync(s, PosPrintDocumentType.SaleInvoice);
+        await using (var db = fx.NewDb())
+        {
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                Svc(db).RetryJobAsync(s.Store, job, k58, "thu ngân"));
+            Assert.Contains("khổ K58", ex.Message);
+            Assert.DoesNotContain("đang in", ex.Message);
+        }
+        Assert.Equal(s.Printer, (await JobAsync(job)).PrinterId);
+        // Cùng khổ (không phân biệt hoa thường) → chuyển được, vẫn đúng lệnh cũ.
+        await using (var db = fx.NewDb())
+            Assert.Equal(job, (await Svc(db).RetryJobAsync(s.Store, job, k80, "thu ngân"))!.Id);
+        Assert.Equal(k80, (await JobAsync(job)).PrinterId);
+        // Phiếu JSON (Agent tự dựng theo máy) → chuyển sang khổ khác được.
+        var slip = await QueueAsync(s);
+        await using (var db = fx.NewDb())
+        {
+            await db.PosPrintJobs.Where(j => j.Id == slip)
+                .ExecuteUpdateAsync(x => x.SetProperty(j => j.PayloadFormat, PosPrintPayloadFormat.KitchenSlipJson));
+            await Svc(db).RetryJobAsync(s.Store, slip, k58, "thu ngân");
+        }
+        Assert.Equal(k58, (await JobAsync(slip)).PrinterId);
+    }
+
+    [Fact]
     public async Task StaleAgentFail_DoesNotKillRetriedJob()
     {
         if (NoDb) return;
