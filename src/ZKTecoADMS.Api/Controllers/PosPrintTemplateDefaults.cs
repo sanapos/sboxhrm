@@ -132,12 +132,13 @@ public static class PosPrintTemplateDefaults
             };
         }
 
-        // Hóa đơn / xuất kho / phiếu khác: 3 mẫu (K80 chuẩn, K58, A5 sheet)
+        // Hóa đơn / xuất kho / phiếu khác: K80 chuẩn, K58, trang A5 / A4 (máy in văn phòng)
         return new[]
         {
             Spec(PosPrintPaperSize.K80, 0, true),
             Spec(PosPrintPaperSize.K58, 1, false),
             Spec(PosPrintPaperSize.A5, 2, false),
+            Spec(PosPrintPaperSize.A4, 3, false),
         };
     }
 
@@ -358,50 +359,116 @@ public static class PosPrintTemplateDefaults
             "<div style=\"margin-top:4px;font-size:11px;text-align:center\">{Ghi_Chu}</div></div>";
     }
 
+    /// <summary>
+    /// Phiếu khổ trang (máy in văn phòng). A4: đủ cột (mã hàng, ĐVT, CK); A5 (nửa A4): bỏ mã hàng / ĐVT / CK cho gọn.
+    /// Dòng chiết khấu / phụ thu / phí giao / VAT / còn nợ chỉ in khi khác 0 (<!--IF:…-->).
+    /// </summary>
     static string BuildSheetHtml(string title, PosPrintPaperSize size)
     {
-        var pad = size == PosPrintPaperSize.A5 ? "12px" : "20px";
-        return
-            "<div style=\"font-family:Arial,sans-serif;font-size:11px;color:#000;padding:" + pad + "\">" +
+        var a5 = size == PosPrintPaperSize.A5;
+        var fs = a5 ? "11px" : "12.5px";
+        var cell = a5 ? "padding:3px 4px" : "padding:5px 6px";
+        var th = "border:1px solid #000;" + cell + ";font-weight:bold;white-space:nowrap";
+        var td = "border:1px solid #000;" + cell;
+        var signGap = a5 ? "36px" : "60px";
+
+        string Row(string label, string field, bool bold = false)
+        {
+            var w = bold ? ";font-weight:bold" : "";
+            return "<!--IF:" + field + "--><tr><td style=\"padding:2px 0" + w + "\">" + label +
+                "</td><td style=\"padding:2px 0;text-align:right" + w + "\">{" + field +
+                "}</td></tr><!--ENDIF:" + field + "-->";
+        }
+
+        string If(string field, string inner) => "<!--IF:" + field + "-->" + inner + "<!--ENDIF:" + field + "-->";
+
+        var head =
+            "<div style=\"font-family:Arial,sans-serif;font-size:" + fs + ";color:#000;line-height:1.35\">" +
             "<table style=\"width:100%;border-collapse:collapse\"><tr>" +
-            "<td style=\"width:60%;vertical-align:top\">" +
-            "<div style=\"font-weight:bold;font-size:16px\">{Ten_Cua_Hang}</div>" +
-            "<div>{Dia_Chi_Chi_Nhanh}</div><div>ĐT: {Dien_Thoai_Chi_Nhanh}</div></td>" +
-            "<td style=\"text-align:right;vertical-align:top\">" +
-            "<div style=\"font-weight:bold;font-size:18px\">" + title + "</div>" +
-            "<div>Số: <b>{Ma_Don_Hang}</b></div><div>Ngày: {Ngay} {Gio}</div></td></tr></table>" +
-            "<div style=\"margin:12px 0\"><b>Khách hàng:</b> {Khach_Hang} &nbsp;|&nbsp; <b>SDT:</b> {SDT}<br/>" +
-            "<b>Địa chỉ:</b> {Dia_Chi_Khach_Hang}</div>" +
-            "<table style=\"width:100%;border-collapse:collapse;border:1px solid #ccc\">" +
-            "<thead><tr style=\"background:#f3f4f6\">" +
-            "<th style=\"border:1px solid #ccc;padding:6px\">STT</th>" +
-            "<th style=\"border:1px solid #ccc;padding:6px\">Mã hàng</th>" +
-            "<th style=\"border:1px solid #ccc;padding:6px\">Tên hàng</th>" +
-            "<th style=\"border:1px solid #ccc;padding:6px;text-align:right\">Đơn giá</th>" +
-            "<th style=\"border:1px solid #ccc;padding:6px;text-align:center\">SL</th>" +
-            "<th style=\"border:1px solid #ccc;padding:6px;text-align:right\">CK</th>" +
-            "<th style=\"border:1px solid #ccc;padding:6px;text-align:right\">Thành tiền</th>" +
-            "</tr></thead><tbody><!--BEGIN_ITEMS-->" +
-            "<tr><td style=\"border:1px solid #ccc;padding:5px;text-align:center\">{STT}</td>" +
-            "<td style=\"border:1px solid #ccc;padding:5px\">{Ma_Hang}</td>" +
-            "<td style=\"border:1px solid #ccc;padding:5px\">{Ten_Hang_Hoa}</td>" +
-            "<td style=\"border:1px solid #ccc;padding:5px;text-align:right\">{Don_Gia}</td>" +
-            "<td style=\"border:1px solid #ccc;padding:5px;text-align:center\">{So_Luong}</td>" +
-            "<td style=\"border:1px solid #ccc;padding:5px;text-align:right\">{Chiet_Khau}</td>" +
-            "<td style=\"border:1px solid #ccc;padding:5px;text-align:right\">{Thanh_Tien}</td></tr>" +
-            "<!--END_ITEMS--></tbody></table>" +
-            "<table style=\"width:100%;margin-top:12px\"><tr><td style=\"width:55%\"></td>" +
-            "<td style=\"width:45%;vertical-align:top\"><table style=\"width:100%;font-size:12px\">" +
-            "<tr><td>Tổng tiền hàng:</td><td style=\"text-align:right\"><b>{Tong_Tien_Hang}</b></td></tr>" +
-            "<tr><td>Chiết khấu:</td><td style=\"text-align:right\">{Chiet_Khau_Hoa_Don}</td></tr>" +
-            "<tr><td style=\"font-weight:bold\">Tổng cộng:</td><td style=\"text-align:right;font-weight:bold\">{Tong_Cong}</td></tr>" +
-            "<tr><td>Đã thanh toán:</td><td style=\"text-align:right\">{Khach_Thanh_Toan}</td></tr>" +
-            "<tr><td>Còn lại:</td><td style=\"text-align:right\">{Con_Lai}</td></tr></table>" +
-            "<div style=\"margin-top:8px;font-style:italic\">{Tong_Cong_Bang_Chu}</div></td></tr></table>" +
-            "<div style=\"margin-top:16px\"><b>Ghi chú:</b> {Ghi_Chu}</div>" +
-            "<table style=\"width:100%;margin-top:32px;text-align:center\"><tr>" +
-            "<td style=\"width:50%\"><b>Khách hàng</b><br/><br/><br/>(Ký, họ tên)</td>" +
-            "<td style=\"width:50%\"><b>Người bán</b><br/><br/><br/>{Nguoi_Ban}</td>" +
-            "</tr></table></div>";
+            "<td style=\"vertical-align:top\">" +
+            "<div style=\"font-weight:bold;font-size:" + (a5 ? "15px" : "18px") + "\">{Ten_Cua_Hang}</div>" +
+            If("Dia_Chi_Chi_Nhanh", "<div>{Dia_Chi_Chi_Nhanh}</div>") +
+            If("Dien_Thoai_Chi_Nhanh", "<div>ĐT: {Dien_Thoai_Chi_Nhanh}</div>") +
+            "</td><td style=\"text-align:right;vertical-align:top;white-space:nowrap\">" +
+            "<div style=\"font-weight:bold;font-size:" + (a5 ? "16px" : "20px") + "\">" + title.ToUpperInvariant() + "</div>" +
+            "<div>Số: <b>{Ma_Don_Hang}</b></div><div>Ngày: {Ngay} {Gio}</div>" +
+            If("In_Lai", "<div style=\"font-weight:bold\">{In_Lai}</div>") +
+            "</td></tr></table>" +
+            "<div style=\"border-top:2px solid #000;margin:6px 0\"></div>" +
+            "<table style=\"width:100%;border-collapse:collapse;margin-bottom:6px\"><tr><td style=\"vertical-align:top\">" +
+            "<div><b>Khách hàng:</b> " + If("Khach_Hang", "{Khach_Hang}") +
+            "<!--IFNOT:Khach_Hang-->Khách lẻ<!--ENDIFNOT:Khach_Hang--></div>" +
+            If("SDT", "<div><b>Điện thoại:</b> {SDT}</div>") +
+            If("Dia_Chi_Khach_Hang", "<div><b>Địa chỉ:</b> {Dia_Chi_Khach_Hang}</div>") +
+            "</td><td style=\"vertical-align:top;text-align:right\">" +
+            If("Ten_Ban", "<div><b>Bàn/Phòng:</b> {Ten_Ban}</div>") +
+            If("Nguoi_Ban", "<div><b>Người bán:</b> {Nguoi_Ban}</div>") +
+            "</td></tr></table>";
+
+        var noteCell = If("Ghi_Chu", "<div style=\"font-size:90%;font-style:italic\">{Ghi_Chu}</div>");
+        var cols = a5
+            ? "<th style=\"" + th + ";width:7%\">STT</th>" +
+              "<th style=\"" + th + ";text-align:left\">Tên hàng</th>" +
+              "<th style=\"" + th + ";width:9%\">SL</th>" +
+              "<th style=\"" + th + ";text-align:right;width:19%\">Đơn giá</th>" +
+              "<th style=\"" + th + ";text-align:right;width:22%\">Thành tiền</th>"
+            : "<th style=\"" + th + ";width:6%\">STT</th>" +
+              "<th style=\"" + th + ";width:12%\">Mã hàng</th>" +
+              "<th style=\"" + th + ";text-align:left\">Tên hàng</th>" +
+              "<th style=\"" + th + ";width:8%\">ĐVT</th>" +
+              "<th style=\"" + th + ";width:7%\">SL</th>" +
+              "<th style=\"" + th + ";text-align:right;width:13%\">Đơn giá</th>" +
+              "<th style=\"" + th + ";text-align:right;width:10%\">CK</th>" +
+              "<th style=\"" + th + ";text-align:right;width:15%\">Thành tiền</th>";
+        var line = a5
+            ? "<tr><td style=\"" + td + ";text-align:center\">{STT}</td>" +
+              "<td style=\"" + td + "\">{Ten_Hang_Hoa}" + noteCell + "</td>" +
+              "<td style=\"" + td + ";text-align:center\">{So_Luong}</td>" +
+              "<td style=\"" + td + ";text-align:right\">{Don_Gia}</td>" +
+              "<td style=\"" + td + ";text-align:right\">{Thanh_Tien}</td></tr>"
+            : "<tr><td style=\"" + td + ";text-align:center\">{STT}</td>" +
+              "<td style=\"" + td + "\">{Ma_Hang}</td>" +
+              "<td style=\"" + td + "\">{Ten_Hang_Hoa}" + noteCell + "</td>" +
+              "<td style=\"" + td + ";text-align:center\">{Don_Vi_Tinh}</td>" +
+              "<td style=\"" + td + ";text-align:center\">{So_Luong}</td>" +
+              "<td style=\"" + td + ";text-align:right\">{Don_Gia}</td>" +
+              "<td style=\"" + td + ";text-align:right\">{Chiet_Khau}</td>" +
+              "<td style=\"" + td + ";text-align:right\">{Thanh_Tien}</td></tr>";
+
+        var items =
+            "<table style=\"width:100%;border-collapse:collapse\"><thead><tr>" + cols +
+            "</tr></thead><tbody><!--BEGIN_ITEMS-->" + line + "<!--END_ITEMS--></tbody></table>";
+
+        var totals =
+            "<table style=\"width:100%;border-collapse:collapse;margin-top:8px\"><tr>" +
+            "<td style=\"width:" + (a5 ? "40%" : "52%") + ";vertical-align:top;padding-right:10px\">" +
+            If("Hinh_Thuc_Thanh_Toan", "<div><b>Thanh toán:</b> {Hinh_Thuc_Thanh_Toan}</div>") +
+            If("HDDT_So", "<div style=\"margin-top:4px\"><b>HĐĐT:</b> {HDDT_Ky_Hieu} số {HDDT_So}" +
+                If("HDDT_Ma_Tra_Cuu", " · Mã tra cứu: {HDDT_Ma_Tra_Cuu}") + "</div>") +
+            "</td><td style=\"vertical-align:top\"><table style=\"width:100%;border-collapse:collapse\">" +
+            Row("Tổng tiền hàng:", "Tong_Tien_Hang") +
+            Row("Chiết khấu:", "Chiet_Khau_Hoa_Don") +
+            Row("Phụ thu:", "Phu_Thu") +
+            Row("Phí giao hàng:", "Phi_Giao_Hang") +
+            Row("Thuế GTGT:", "VAT") +
+            "<tr><td colspan=\"2\" style=\"border-top:1px solid #000\"></td></tr>" +
+            "<tr><td style=\"padding:3px 0;font-weight:bold;font-size:115%\">TỔNG CỘNG:</td>" +
+            "<td style=\"padding:3px 0;text-align:right;font-weight:bold;font-size:115%\">{Tong_Cong}</td></tr>" +
+            Row("Khách thanh toán:", "Khach_Thanh_Toan") +
+            Row("Tiền thừa:", "Tien_Thua") +
+            Row("Còn nợ:", "Con_Lai", bold: true) +
+            "</table></td></tr></table>" +
+            "<div style=\"margin-top:4px;font-style:italic\">Bằng chữ: {Tong_Cong_Bang_Chu}</div>";
+
+        var sign =
+            "<table style=\"width:100%;margin-top:" + (a5 ? "14px" : "28px") + ";text-align:center\"><tr>" +
+            "<td style=\"width:50%;vertical-align:top\"><b>Khách hàng</b><div style=\"font-style:italic\">(Ký, ghi rõ họ tên)</div>" +
+            "<div style=\"height:" + signGap + "\"></div></td>" +
+            "<td style=\"width:50%;vertical-align:top\"><b>Người bán</b><div style=\"font-style:italic\">(Ký, ghi rõ họ tên)</div>" +
+            "<div style=\"height:" + signGap + "\"></div><div>{Nguoi_Ban}</div></td>" +
+            "</tr></table>" +
+            "<div style=\"text-align:center;margin-top:6px;font-style:italic\">Cảm ơn quý khách!</div></div>";
+
+        return head + items + totals + sign;
     }
 }

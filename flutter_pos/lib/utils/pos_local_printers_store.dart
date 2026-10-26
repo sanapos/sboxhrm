@@ -11,6 +11,7 @@ import 'pos_device_identity.dart';
 import 'pos_print_orchestrator.dart';
 import 'pos_label_printer_settings.dart';
 import 'pos_thermal_printer_settings.dart';
+import 'pos_printer_auto_detect.dart';
 
 /// Loại máy in nội bộ trên thiết bị.
 enum PosLocalPrinterKind {
@@ -688,6 +689,14 @@ class PosLocalPrintersStore {
     return null;
   }
 
+  /// Định danh máy USB không gồm đường dẫn cổng: `vid:pid:serial|/dev/bus/usb/001/005`
+  /// → `vid:pid:serial`. Rút ra cắm cổng khác vẫn là cùng máy (giống UsbIdentity phía server).
+  static String usbIdentity(String? saved) {
+    final s = (saved ?? '').trim().toLowerCase();
+    final i = s.indexOf('|');
+    return i >= 0 ? s.substring(0, i).trim() : s;
+  }
+
   static bool matchesStorePrinter(
     PosLocalPrinterProfile local,
     PosStorePrinter store, {
@@ -712,8 +721,8 @@ class PosLocalPrintersStore {
         if (a.isEmpty || b.isEmpty) return false;
         return a.toLowerCase() == b.toLowerCase();
       case PosThermalConnectionType.usb:
-        final a = (store.usbDeviceName ?? '').trim();
-        final b = (local.usbDeviceName ?? '').trim();
+        final a = usbIdentity(store.usbDeviceName);
+        final b = usbIdentity(local.usbDeviceName);
         if (a.isNotEmpty && b.isNotEmpty) return a == b;
         // Gán món / 2 máy «Bếp»: không khớp chỉ vì cùng tên — A7 in local + Agent.
         if (exactPort) return false;
@@ -767,8 +776,8 @@ class PosLocalPrintersStore {
             return norm(old.lanHost).isNotEmpty &&
                 norm(p.lanHost) == norm(old.lanHost);
           case PosThermalConnectionType.usb:
-            return norm(old.usbDeviceName).isNotEmpty &&
-                norm(p.usbDeviceName) == norm(old.usbDeviceName);
+            return usbIdentity(old.usbDeviceName).isNotEmpty &&
+                usbIdentity(p.usbDeviceName) == usbIdentity(old.usbDeviceName);
           case PosThermalConnectionType.bluetooth:
             return norm(old.bluetoothAddress).isNotEmpty &&
                 norm(p.bluetoothAddress) == norm(old.bluetoothAddress);
@@ -801,6 +810,8 @@ class PosLocalPrintersStore {
     final victim = list.where((p) => p.id == id).firstOrNull;
     list.removeWhere((p) => p.id == id);
     await saveAll(list);
+    // Xóa tay máy Sunmi / USB → không tự nhận lại khi quét.
+    if (victim != null) await PosPrinterAutoDetect.rememberRemoved(victim);
     if (syncServer &&
         victim?.storePrinterId != null &&
         victim!.storePrinterId!.isNotEmpty) {

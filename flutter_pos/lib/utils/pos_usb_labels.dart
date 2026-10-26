@@ -49,6 +49,9 @@ class PosUsbLabels {
     if (blob.contains('rongta') || blob.contains('rp80')) {
       return _productOr('Rongta', product);
     }
+    if (blob.contains('gprinter') || blob.contains('gp-')) {
+      return _productOr('Gprinter', product);
+    }
 
     switch (vendorId) {
       case 0x0FE6:
@@ -89,6 +92,9 @@ class PosUsbLabels {
     if (blob.contains('hprt')) return PosThermalPrinterBrand.hprt;
     if (blob.contains('epson')) return PosThermalPrinterBrand.epson;
     if (blob.contains('sunmi')) return PosThermalPrinterBrand.sunmi;
+    if (blob.contains('rongta') || blob.contains('rp80')) return PosThermalPrinterBrand.rp80;
+    // Gprinter: ESC/POS chuẩn, chưa có chế độ riêng.
+    if (blob.contains('gprinter') || blob.contains('gp-')) return PosThermalPrinterBrand.generic;
     switch (vendorId) {
       case 0x0FE6:
       case 0x2D84:

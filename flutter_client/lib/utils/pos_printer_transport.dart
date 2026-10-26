@@ -9,6 +9,7 @@ import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
 import 'pos_thermal_printer_settings.dart';
 import 'pos_thermal_bitmap.dart';
 import 'pos_usb_printer.dart';
+import 'pos_printer_auto_detect.dart';
 
 /// Gửi byte thô tới máy in qua Bluetooth / LAN / USB / Sunmi.
 class PosPrinterTransport {
@@ -266,7 +267,7 @@ class PosPrinterTransport {
     }
 
     // Ưu tiên savedRaw (stableId|deviceName) — tránh lấy nhầm máy cùng VID/PID.
-    final resolved = await PosUsbPrinter.resolveSaved(
+    final saved = await PosUsbPrinter.resolveSaved(
       savedRaw: name.isNotEmpty ? name : null,
       stableId: stable.isEmpty ? null : stable,
       deviceName: name.contains('|')
@@ -276,6 +277,9 @@ class PosPrinterTransport {
       productId: usbProductId,
       serialNumber: usbSerial,
     );
+    // Cắm sang cổng USB khác: cổng cũ không còn → khớp lại theo VID/PID, lưu cổng mới.
+    final resolved =
+        saved ?? await PosPrinterAutoDetect.resolveMovedUsb(name.isNotEmpty ? name : stable);
 
     if (resolved != null) {
       if (!resolved.hasPermission) {
@@ -594,11 +598,16 @@ class PosPrinterTransport {
   }
 
   /// Đọc trạng thái sau khi gửi lệnh in (hết giấy / nắp mở → fail).
+  /// Trạng thái Sunmi lần in gần nhất khi báo lỗi (hiện trong phiếu «In treo»); null = in tốt.
+  static String? lastSunmiError;
+
   static Future<bool> verifySunmiAfterPrint() async {
     try {
       final status = await SunmiConfig.getStatus();
       debugPrint('Sunmi post-print status: $status');
-      return sunmiStatusLooksOk(status);
+      final ok = sunmiStatusLooksOk(status);
+      lastSunmiError = ok ? null : '$status';
+      return ok;
     } catch (e) {
       debugPrint('Sunmi post-print getStatus: $e');
       return false;

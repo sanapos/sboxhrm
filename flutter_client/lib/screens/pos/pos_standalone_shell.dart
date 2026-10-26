@@ -21,6 +21,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'pos_mobile_hub_screen.dart';
+import '../../utils/pos_printer_auto_detect.dart';
 
 /// Shell POS độc lập (Play / flavor `pos`): quyền fail-open, SignalR + in,
 /// hub 5 tab — cùng luồng A6, không mở [MainLayout] HRM.
@@ -113,6 +114,8 @@ class _PosStandaloneShellState extends State<PosStandaloneShell>
       final storeId = auth.user?.storeId;
       if (storeId != null && storeId.isNotEmpty) {
         PosPrintAgentSettings.activeStoreId = storeId;
+        // Máy Sunmi / máy in USB cắm vào → tự cài máy hóa đơn / máy tem.
+        unawaited(PosPrinterAutoDetect.instance.start());
         await _signalR.joinStoreGroup(storeId);
         await PosPrintOrchestrator.instance.ensureListening();
         final agentSettings = await PosPrintAgentSettings.load();

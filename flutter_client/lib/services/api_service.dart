@@ -342,6 +342,11 @@ class ApiService implements PayrollApi {
 
   /// Làm mới access token. Nhiều yêu cầu 401 cùng lúc chỉ gọi server 1 lần; mã làm mới hỏng / hết hạn
   /// thì xóa (không gửi lại mãi — trước đây 1 máy gửi ~10 lần/giây); lỗi mạng thì nghỉ 30 giây.
+  /// Lần làm mới token gần nhất bị MÁY CHỦ từ chối (mã hết hạn / bị thu hồi / không còn mã).
+  /// false = lỗi mạng / timeout / 5xx → giữ phiên, thử lại sau; trước đây mọi lỗi đều đăng xuất
+  /// (mất mạng đúng lúc token hết hạn → thu ngân bị đá ra màn đăng nhập).
+  static bool lastRefreshRejected = false;
+
   Future<Map<String, dynamic>?> refreshToken() {
     final failedAt = _refreshFailedAt;
     if (failedAt != null && DateTime.now().difference(failedAt) < const Duration(seconds: 30)) {
@@ -353,8 +358,12 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>?> _refreshTokenOnce() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      lastRefreshRejected = false;
       final refreshTk = prefs.getString(_refreshTokenKey);
-      if (refreshTk == null) return null;
+      if (refreshTk == null) {
+        lastRefreshRejected = true;
+        return null;
+      }
 
       final response = await http
           .post(
@@ -398,6 +407,7 @@ class ApiService implements PayrollApi {
       if (response.statusCode == 400 || response.statusCode == 401 || response.statusCode == 403 ||
           (response.statusCode >= 200 && response.statusCode < 300)) {
         await prefs.remove(_refreshTokenKey);
+        lastRefreshRejected = true;
       }
     } catch (e) {
       debugPrint('❌ ApiService: Refresh token error: $e');
@@ -421,9 +431,11 @@ class ApiService implements PayrollApi {
           debugPrint('❌ ApiService: Still 401 after refresh → session expired');
           await _triggerSessionExpired();
         }
-      } else {
-        debugPrint('❌ ApiService: Token refresh failed → session expired');
+      } else if (lastRefreshRejected) {
+        debugPrint('❌ ApiService: Token refresh rejected → session expired');
         await _triggerSessionExpired();
+      } else {
+        debugPrint('⚠️ ApiService: Token refresh lỗi mạng — giữ phiên, thử lại sau');
       }
     }
     await _maybeTriggerLicenseExpired(response);

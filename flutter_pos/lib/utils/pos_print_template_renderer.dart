@@ -259,7 +259,7 @@ Map<String, String> posPrintSampleData({
     'Khach_Thanh_Toan': money.format(30505000),
     'Tien_Thua': money.format(0),
     'Con_Lai': money.format(0),
-    'Tong_Cong_Bang_Chu': vietnameseMoneyInWords(28200000),
+    'Tong_Cong_Bang_Chu': vietnameseMoneyInWords(30505000),
     'Hinh_Thuc_Thanh_Toan': 'Tiền mặt',
     'Nguoi_Ban': 'NV Bán hàng',
     'Ghi_Chu': '',
@@ -616,9 +616,15 @@ String renderPosPrintTemplateHtml(
     final block = _withLineNoteAndDiscount(
       html.substring(begin + _itemBegin.length, end),
     );
+    // Dòng hàng có cột ĐVT riêng (mẫu A4/A5) → tên không kèm «(ĐVT)».
+    final hasUnitColumn = block.contains('{Don_Vi_Tinh}');
     final rendered = StringBuffer();
     for (final line in lineItems) {
       final filled = Map<String, String>.from(line);
+      final plainName = line['Ten_Hang_Goc'];
+      if (hasUnitColumn && plainName != null && plainName.isNotEmpty) {
+        filled['Ten_Hang_Hoa'] = plainName;
+      }
       filled['Sbox_Ghi_Chu'] = _lineNoteHtml(line['Ghi_Chu']);
       filled['Sbox_Chiet_Khau'] = _lineDiscountHtml(line['Chiet_Khau']);
       filled['Sbox_Hinh_Anh'] = line['Hinh_Anh'] ?? '';
@@ -808,8 +814,11 @@ List<Map<String, String>> buildSaleOrderPrintLines(
     final dims = parsePosAreaDims(l.lineNote);
     return {
       'STT': '${i + 1}',
-      'Ma_Hang': l.productId.length > 8 ? l.productId.substring(0, 8) : l.productId,
+      'Ma_Hang': (l.productCode ?? '').isNotEmpty
+          ? l.productCode!
+          : (l.productId.length > 8 ? l.productId.substring(0, 8) : l.productId),
       'Ten_Hang_Hoa': name,
+      'Ten_Hang_Goc': l.productName,
       'Don_Gia': lineMoney(l.unitPrice),
       'So_Luong': qtyFmt.format(l.qty),
       'Don_Vi_Tinh': l.unitName ?? '',
@@ -838,6 +847,7 @@ List<PosSaleOrderLine> _mergeLines(List<PosSaleOrderLine> lines) {
         productId: existing.productId,
         variantId: existing.variantId,
         productName: existing.productName,
+        productCode: existing.productCode,
         unitName: existing.unitName,
         qty: existing.qty + l.qty,
         unitPrice: existing.unitPrice,

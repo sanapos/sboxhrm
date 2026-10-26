@@ -49,6 +49,7 @@ import 'utils/pos_notify_focus.dart';
 
 import 'theme/sbox_theme.dart';
 import 'theme/sbox_tokens.dart';
+import 'utils/pos_printer_auto_detect.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   applyLowRamImageCache();
@@ -345,6 +346,8 @@ class _PosAuthShellState extends State<_PosAuthShell>
       final storeId = auth.user?.storeId;
       if (storeId != null && storeId.isNotEmpty) {
         PosPrintAgentSettings.activeStoreId = storeId;
+        // Máy Sunmi / máy in USB cắm vào → tự cài máy hóa đơn / máy tem.
+        unawaited(PosPrinterAutoDetect.instance.start());
         await _signalR.joinStoreGroup(storeId);
         await PosPrintOrchestrator.instance.ensureListening();
         // SBOX KDS chỉ hiện / in phiếu bếp — không làm Agent in hộ, không nghe cổng thanh toán.

@@ -201,10 +201,13 @@ class AuthProvider extends ChangeNotifier {
       debugPrint(
           '🔄 AuthProvider: Stored token expired/expiring, refreshing...');
       final refreshed = await _tryRefreshToken();
-      if (!refreshed) {
-        debugPrint('⚠️ AuthProvider: Token refresh failed, clearing session');
+      if (!refreshed && ApiService.lastRefreshRejected) {
+        debugPrint('⚠️ AuthProvider: Token refresh rejected, clearing session');
         _token = null;
         _user = null;
+      } else if (!refreshed) {
+        // Mở app lúc mất mạng: giữ phiên, gọi API sau sẽ làm mới lại khi có mạng.
+        debugPrint('⚠️ AuthProvider: Token refresh lỗi mạng — giữ phiên');
       }
     }
 

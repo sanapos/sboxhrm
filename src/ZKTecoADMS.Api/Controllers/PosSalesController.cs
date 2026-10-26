@@ -435,7 +435,8 @@ public partial class PosSalesController(
         string? StaffAssignmentsJson = null,
         DateTime? ServicePausedAt = null,
         int ServicePauseMinutes = 0,
-        int KitchenRound = 0);
+        int KitchenRound = 0,
+        string? ProductCode = null);
 
     [HttpGet("return-history")]
     [RequireModulePermission("PosSaleReturns", ModulePermissionAction.View)]
@@ -2894,12 +2895,19 @@ public partial class PosSalesController(
                     .FirstOrDefaultAsync();
             }
         }
+        // Mã hàng cho cột «Mã hàng» của mẫu A4/A5.
+        var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
+        var productCodes = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => productIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.ProductCode })
+            .ToDictionaryAsync(p => p.Id, p => p.ProductCode);
         var dto = MapOrder(
             order, lines, returnedMap.GetValueOrDefault(order.Id),
             returnedQtyMap, dailyIndex, dailyTotal, serialMap, customerCode, customerPhone,
             resourceCode, resourceName, areaName, CurrentUserId,
             viewerDeviceId: viewerDeviceId,
-            viewerDeviceName: viewerDeviceName);
+            viewerDeviceName: viewerDeviceName,
+            productCodes: productCodes);
         try
         {
             // In bill: link tra cứu + MST người bán cho khối mã QR HĐĐT.
@@ -2950,7 +2958,8 @@ public partial class PosSalesController(
         string? serviceAreaName = null,
         Guid? viewerUserId = null,
         string? viewerDeviceId = null,
-        string? viewerDeviceName = null)
+        string? viewerDeviceName = null,
+        Dictionary<Guid, string>? productCodes = null)
     {
         returnedQtyByLine ??= new Dictionary<(Guid, Guid?), decimal>();
         serialsByLine ??= new Dictionary<Guid, List<string>>();
@@ -2989,7 +2998,8 @@ public partial class PosSalesController(
                 l.DurationMinutes, l.BillableMinutes, l.ServiceStartedAt, l.ServiceEndedAt,
                 l.KitchenSentQty, l.KitchenSentAt, l.ToppingsJson,
                 l.AssignedEmployeeId, l.StaffAssignmentsJson,
-                l.ServicePausedAt, l.ServicePauseMinutes, l.KitchenRound)).ToList(),
+                l.ServicePausedAt, l.ServicePauseMinutes, l.KitchenRound,
+                productCodes?.GetValueOrDefault(l.ProductId))).ToList(),
             order.ServiceResourceId, order.ResourceSessionId,
             order.ServiceStartedAt, order.ServiceEndedAt,
             serviceResourceCode, serviceResourceName, serviceAreaName,

@@ -600,7 +600,8 @@ public partial class PosPrintersController(
             var host = (dto.LanHost ?? "").Trim().ToLowerInvariant();
             var port = dto.LanPort <= 0 ? 9100 : dto.LanPort;
             var mac = (dto.BluetoothAddress ?? "").Trim().ToUpperInvariant();
-            var usb = (dto.UsbDeviceName ?? "").Trim().ToLowerInvariant();
+            // Cắm lại cổng khác: đường dẫn /dev/bus/usb/… đổi → so theo VID:PID:serial.
+            var usb = UsbIdentity(dto.UsbDeviceName);
             var candidates = await db.PosStorePrinters.AsTracking()
                 .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsDeviceLocal &&
                             p.OwnerDeviceId == owner && p.ConnectionType == dto.ConnectionType)
@@ -616,7 +617,7 @@ public partial class PosPrintersController(
                     PosPrinterConnectionType.Bluetooth => mac.Length > 0 &&
                         (p.BluetoothAddress ?? "").Trim().ToUpperInvariant() == mac,
                     PosPrinterConnectionType.Usb => usb.Length > 0 &&
-                        (p.UsbDeviceName ?? "").Trim().ToLowerInvariant() == usb,
+                        UsbIdentity(p.UsbDeviceName) == usb,
                     _ => true, // Sunmi tích hợp: mỗi máy một
                 });
         }

@@ -393,8 +393,14 @@ Future<bool> printPosSaleOrder({
   String? overridePrinterId,
   PosStorePrinter? overridePrinter,
   PosPrintHangCallback? onCloudHang,
+  /// In lại từ hàng «In treo» hóa đơn CHƯA từng ra giấy (lần in sau thanh toán lỗi):
+  /// lần lỗi đã được ghi đếm nên bản này bị coi «IN LẠI» — khách nhận bản đầu lại ghi in lại.
+  bool firstCopy = false,
 }) async {
   var printOrder = await _resolvePrintOrder(order);
+  if (firstCopy && printOrder.printCount > 1) {
+    printOrder = printOrder.copyWithPrintContext(printCount: 1);
+  }
   // Hóa đơn có mẫu nhớ riêng / mẫu chọn cho lần in này → thắng mẫu của thiết lập máy in.
   String? nz(String? v) => (v == null || v.isEmpty) ? null : v;
   templateId = nz(order.printTemplateId) ?? nz(printOrder.printTemplateId) ?? templateId;
@@ -457,6 +463,38 @@ Future<bool> printPosSaleOrder({
           toThermalSettings(printer),
           printOrder,
         );
+  }
+
+  // Khách chọn mẫu khổ trang (A4/A5) cho lần in này (Tùy chọn in / mẫu nhớ theo hóa đơn) → in trang
+  // HTML / PDF cho máy in văn phòng (Android: dịch vụ in hệ thống). Trước đây mẫu A4 bị bỏ qua,
+  // vẫn đẩy bản K80 ra máy nhiệt.
+  final pickedId = nz(order.printTemplateId) ?? nz(printOrder.printTemplateId);
+  if (!hasOverride &&
+      template != null &&
+      pickedId != null &&
+      template.id == pickedId &&
+      !template.isDocx &&
+      (template.paperSize == PosPrintPaperSizes.a4 || template.paperSize == PosPrintPaperSizes.a5) &&
+      template.htmlContent.trim().startsWith('<') &&
+      context.mounted) {
+    final html = renderSaleOrderTemplate(
+      template.htmlContent,
+      printOrder,
+      storeName: branchName,
+      storeAddress: storeAddress,
+      storePhone: storePhone,
+      paperSize: template.paperSize,
+      mergeSameItems: mergeSameItems,
+    );
+    await showPosHtmlPrintDialog(
+      context,
+      title: 'Hóa đơn ${printOrder.orderNo.isEmpty ? 'tạm' : printOrder.orderNo}'
+          ' · ${template.paperSize}${printOrder.isReprint ? ' (IN LẠI)' : ''}',
+      htmlDocument: html,
+      initialCopies: copies,
+      a4Paper: template.paperSize == PosPrintPaperSizes.a4,
+    );
+    return true;
   }
 
   // In lại chọn máy: bỏ máy nội bộ mặc định — gửi đúng máy đã chọn (cloud/Agent).

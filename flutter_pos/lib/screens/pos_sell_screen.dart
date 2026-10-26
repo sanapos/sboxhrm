@@ -12870,6 +12870,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           openCashDrawer: false,
           overridePrinterId: overridePrinterId,
           overridePrinter: overridePrinter,
+          // Hóa đơn chưa từng ra giấy (in sau thanh toán lỗi) → không ghi «IN LẠI».
+          firstCopy: job.order.printCount == 0,
         );
       },
       onRetryKitchen: (job, {overridePrinterId, overridePrinter}) async {
@@ -13129,7 +13131,9 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (!ok && mounted) {
         _enqueueFailedSalePrint(
           order,
-          errorMessage: 'In sau thanh toán thất bại',
+          errorMessage: PosPrinterTransport.lastSunmiError != null
+              ? 'Máy in Sunmi báo lỗi (${PosPrinterTransport.lastSunmiError}) — kiểm tra giấy / nắp máy rồi in lại'
+              : 'In sau thanh toán thất bại',
         );
         NotificationOverlayManager().showWarning(
           title: 'Hóa đơn chưa in',

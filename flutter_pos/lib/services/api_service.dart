@@ -241,11 +241,20 @@ class ApiService {
   }
 
   // Refresh access token using refresh token
+  /// Lần làm mới token gần nhất bị MÁY CHỦ từ chối (mã hết hạn / bị thu hồi / không còn mã).
+  /// false = lỗi mạng / timeout / 5xx → giữ phiên, thử lại sau; trước đây mọi lỗi đều đăng xuất
+  /// (mất mạng đúng lúc token hết hạn → thu ngân bị đá ra màn đăng nhập).
+  static bool lastRefreshRejected = false;
+
   Future<Map<String, dynamic>?> refreshToken() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      lastRefreshRejected = false;
       final refreshTk = prefs.getString(_refreshTokenKey);
-      if (refreshTk == null) return null;
+      if (refreshTk == null) {
+        lastRefreshRejected = true;
+        return null;
+      }
 
       final response = await http
           .post(
@@ -284,6 +293,11 @@ class ApiService {
           }
         }
       }
+      // Máy chủ trả lời nhưng từ chối mã làm mới (hết hạn / sai / bị thu hồi).
+      if (response.statusCode == 400 || response.statusCode == 401 || response.statusCode == 403 ||
+          (response.statusCode >= 200 && response.statusCode < 300)) {
+        lastRefreshRejected = true;
+      }
     } catch (e) {
       debugPrint('❌ ApiService: Refresh token error: $e');
     }
@@ -305,9 +319,11 @@ class ApiService {
           debugPrint('❌ ApiService: Still 401 after refresh → session expired');
           await _triggerSessionExpired();
         }
-      } else {
-        debugPrint('❌ ApiService: Token refresh failed → session expired');
+      } else if (lastRefreshRejected) {
+        debugPrint('❌ ApiService: Token refresh rejected → session expired');
         await _triggerSessionExpired();
+      } else {
+        debugPrint('⚠️ ApiService: Token refresh lỗi mạng — giữ phiên, thử lại sau');
       }
     }
     await _maybeTriggerLicenseExpired(response);

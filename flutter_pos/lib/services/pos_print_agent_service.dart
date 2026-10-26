@@ -60,6 +60,9 @@ class PosPrintAgentService {
   Timer? _claimDebounce;
   String? _lastRegisterError;
   bool _warnedNoPrinters = false;
+  /// Cảnh báo «chưa thấy cổng in» chỉ 1 lần cho tới khi cổng in lại được (trước đây
+  /// cờ chung bị đặt lại mỗi nhịp tim → thông báo hiện lại mỗi ~12 giây, che nút góc phải).
+  bool _warnedNoPort = false;
   DateTime? _lastConfigRefreshAt;
   DateTime? _lastRegisterAt;
   StreamSubscription<Map<String, dynamic>>? _forceStopSub;
@@ -313,8 +316,8 @@ class PosPrintAgentService {
         '⚠️ Print Agent: ${printerIds.length} chip đã chọn nhưng chưa thấy cổng in '
         '— vẫn đăng ký (USB có thể bị ADB chiếm)',
       );
-      if (!_warnedNoPrinters) {
-        _warnedNoPrinters = true;
+      if (!_warnedNoPort) {
+        _warnedNoPort = true;
         NotificationOverlayManager().showWarning(
           title: 'Agent: chưa thấy cổng in',
           message: tr(
@@ -323,7 +326,7 @@ class PosPrintAgentService {
         );
       }
     } else {
-      _warnedNoPrinters = false;
+      _warnedNoPort = false;
     }
 
     try {

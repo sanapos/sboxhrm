@@ -20,14 +20,21 @@ bool _pdfBytesOk(Uint8List? bytes) {
       bytes[3] == 0x46;
 }
 
+/// Lý do lần in HTML gần nhất thất bại (hiện trong hộp in — snackbar bị hộp che mất).
+String? posHtmlPrintLastError;
+
 /// In / chia sẻ PDF (Times + khổ/lề trong HTML). Không share raw HTML.
 Future<bool> printOrSharePosHtml({
   required String htmlDocument,
   required String title,
   int copies = 1,
 }) async {
+  posHtmlPrintLastError = null;
   var html = htmlDocument.trim();
-  if (html.isEmpty) return false;
+  if (html.isEmpty) {
+    posHtmlPrintLastError = 'Mẫu in trống';
+    return false;
+  }
   if (!html.toLowerCase().contains('<html')) {
     final setup = PosCommercialPageSetup.parse(html);
     html = wrapPosCommercialPrintHtml(html, setup);
@@ -41,11 +48,34 @@ Future<bool> printOrSharePosHtml({
   );
   try {
     final info = await Printing.info();
-    Uint8List? bytes;
-    if (info.canConvertHtml) {
-      bytes = await Printing.convertHtml(html: html, format: format);
+    // Plugin Android có convertHtml (WebView) nhưng không khai báo canConvertHtml.
+    final canHtml =
+        info.canConvertHtml || defaultTargetPlatform == TargetPlatform.android;
+    if (!canHtml) {
+      posHtmlPrintLastError = 'Thiết bị không hỗ trợ chuyển HTML sang PDF';
+      return false;
     }
-    if (!_pdfBytesOk(bytes)) return false;
+    Uint8List? bytes;
+    Object? convertError;
+    try {
+      bytes = await Printing.convertHtml(html: html, format: format);
+    } catch (e) {
+      convertError = e;
+    }
+    if (!_pdfBytesOk(bytes)) {
+      debugPrint('printOrSharePosHtml: convertHtml lỗi ($convertError) — thử in qua hộp in hệ thống');
+      if (!info.canPrint) {
+        posHtmlPrintLastError = 'Không tạo được PDF (${convertError ?? 'PDF rỗng'})';
+        return false;
+      }
+      // Một số máy (WebView ngoài màn hình) chỉ dựng PDF được trong lúc hộp in hệ thống đang mở.
+      final ok = await Printing.layoutPdf(
+        name: title,
+        format: format,
+        onLayout: (f) => Printing.convertHtml(html: html, format: f),
+      );
+      return ok;
+    }
     final pdf = bytes!;
     if (info.canPrint) {
       for (var i = 0; i < copies.clamp(1, 10); i++) {
@@ -61,7 +91,11 @@ Future<bool> printOrSharePosHtml({
       await Printing.sharePdf(bytes: pdf, filename: '$title.pdf');
       return true;
     }
-  } catch (_) {}
+  } catch (e) {
+    debugPrint('printOrSharePosHtml: $e');
+    posHtmlPrintLastError = '$e';
+  }
+  posHtmlPrintLastError ??= 'Máy không có dịch vụ in / chia sẻ';
   return false;
 }
 
@@ -77,6 +111,8 @@ Future<void> showPosHtmlPrintDialog(
   // Ô nhập phía sau (ghi chú báo giá…) còn focus → bàn phím ảo bật đè lên trang xem trước.
   FocusManager.instance.primaryFocus?.unfocus();
   var copies = initialCopies.clamp(1, 10);
+  var printing = false;
+  String? printError;
   final screenW = MediaQuery.sizeOf(context).width;
   final isMobile = !kIsWeb && screenW < 600;
   await showDialog<void>(
@@ -138,24 +174,47 @@ Future<void> showPosHtmlPrintDialog(
                   else
                     FilledButton.icon(
                       style: FilledButton.styleFrom(backgroundColor: _blue),
-                      onPressed: () async {
-                        final ok = await printOrSharePosHtml(
-                          htmlDocument: htmlDocument,
-                          title: title,
-                          copies: copies,
-                        );
-                        if (!ok && ctx.mounted) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                            content: Text(tr('Không tạo được PDF để in')),
-                          ));
-                        }
-                      },
-                      icon: const Icon(Icons.print, size: 18),
+                      onPressed: printing
+                          ? null
+                          : () async {
+                              setDlg(() {
+                                printing = true;
+                                printError = null;
+                              });
+                              final ok = await printOrSharePosHtml(
+                                htmlDocument: htmlDocument,
+                                title: title,
+                                copies: copies,
+                              );
+                              if (!ctx.mounted) return;
+                              setDlg(() {
+                                printing = false;
+                                if (!ok) {
+                                  printError = posHtmlPrintLastError ??
+                                      'Không tạo được PDF để in';
+                                }
+                              });
+                            },
+                      icon: printing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.print, size: 18),
                       label: Text(tr(isMobile ? 'In / PDF' : 'In')),
                     ),
                 ],
               ),
             ),
+            if (printError != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                child: Text(
+                  '${tr('Không in được')}: $printError',
+                  style: const TextStyle(color: SboxColors.danger, fontSize: 13),
+                ),
+              ),
             const SizedBox(height: 8),
             Expanded(
               child: Padding(

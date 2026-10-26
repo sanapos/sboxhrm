@@ -184,6 +184,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
 
   void _applyLocalDefault({String? paperSize}) {
     _selected = null;
+    _isPageTemplate = false;
     if (_isCommercialDoc) {
       _commercialPaper = PosPrintPaperSizes.a4;
       _legacyHtml = posPrintDefaultHtml(
@@ -224,7 +225,14 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   }
 
   void _bindTemplateContent(PosPrintTemplate? t) {
-    if (_isCommercialDoc) {
+    final rawContent = (t?.htmlContent ?? '').trim();
+    _isPageTemplate = !_isCommercialDoc &&
+        t != null &&
+        !t.isDocx &&
+        (t.paperSize == PosPrintPaperSizes.a4 || t.paperSize == PosPrintPaperSizes.a5) &&
+        rawContent.startsWith('<') &&
+        !PosPrintTemplateV2Codec.isV2Content(rawContent);
+    if (_isPageDoc) {
       final raw = (t?.htmlContent ?? '').trim();
       // JSON V2 (`<!--POS_TEMPLATE_V2-->…`) cũng khởi đầu bằng `<`; phải loại
       // trước khi dán vào editor Word, nếu không editor sẽ hiển thị raw JSON.
@@ -425,7 +433,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       return;
     }
     setState(() => _saving = true);
-    if (_isCommercialDoc) {
+    if (_isPageDoc) {
       final paper = PosPrintPaperSizes.normalizeCommercialPaper(_commercialPaper);
       final rawHtml = (_legacyHtml ?? '').trim().isEmpty
           ? posPrintDefaultHtml(
@@ -673,6 +681,13 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   bool get _isCommercialDoc =>
       PosPrintDocumentTypes.isCommercial(_docType);
 
+  /// Mẫu hóa đơn / phiếu khổ trang (A4/A5) bằng HTML — máy in văn phòng. Soạn và xem trước
+  /// như báo giá (trang HTML), không dùng bộ soạn khối của máy nhiệt (xem trước sai bố cục).
+  bool _isPageTemplate = false;
+
+  /// Soạn / lưu / in thử theo trang HTML.
+  bool get _isPageDoc => _isCommercialDoc || _isPageTemplate;
+
   /// Loại phiếu dùng được mẫu Word A4 giữ bố cục (báo giá / HĐ / biên bản + hóa đơn bán, trả, giao hàng).
   bool get _supportsWordTpl =>
       _isCommercialDoc ||
@@ -784,7 +799,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       );
       return;
     }
-    if (_isCommercialDoc) {
+    if (_isPageDoc) {
       final paper = PosPrintPaperSizes.normalizeCommercialPaper(_commercialPaper);
       final raw = (_legacyHtml ?? '').trim().isEmpty
           ? posPrintDefaultHtml(
@@ -1633,7 +1648,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         topBar!,
-        if (_legacyHtml != null && !_isCommercialDoc)
+        if (_legacyHtml != null && !_isPageDoc)
           Material(
             color: SboxColors.warningSoft,
             child: ListTile(
@@ -1653,7 +1668,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-            child: _isCommercialDoc
+            child: _isPageDoc
                 ? PosCommercialA4Editor(
                     html: _legacyHtml ?? posPrintDefaultHtml(documentType: _docType, paperSize: _commercialPaper),
                     documentType: _docType,
@@ -1690,7 +1705,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_legacyHtml != null && !_isCommercialDoc)
+          if (_legacyHtml != null && !_isPageDoc)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
               child: Material(
@@ -1711,7 +1726,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               ),
             ),
           Expanded(
-            child: _isCommercialDoc
+            child: _isPageDoc
                 ? Padding(
                     padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
                     child: PosCommercialA4Editor(

@@ -74,6 +74,8 @@ class SignalRService {
   HubConnection? _hubConnection;
   bool _isConnected = false;
   bool _isReconnecting = false;
+  /// Đã ngắt chủ động (đăng xuất / thoát): không tự kết nối lại nữa.
+  bool _stopped = false;
   int _reconnectAttempt = 0;
   String? _lastConnectionError;
   Completer<void>? _connectCompleter; // Mutex for concurrent connect calls
@@ -153,6 +155,7 @@ class SignalRService {
   /// Connect to the SignalR hub
   /// [tokenFactory] is called to get a fresh token on each (re)connection
   Future<void> connect([String? baseUrl, String? accessToken, Future<String?> Function()? tokenFactory]) async {
+    _stopped = false;
     // Prevent concurrent connect calls (token race condition)
     if (_connectCompleter != null && !_connectCompleter!.isCompleted) {
       debugPrint('📡 Connect already in progress, waiting...');
@@ -271,10 +274,23 @@ class SignalRService {
   void _scheduleReconnect() {
     if (_isReconnecting) return;
     _isReconnecting = true;
-    final delay = math.min(5 * math.pow(2, _reconnectAttempt).toInt(), 60);
+    // Giới hạn số mũ: 2^63 tràn số → delay âm / 0 giây → vòng lặp kết nối lại liên tục
+    // (đã gặp: 54.000 lần/giờ sau khi mất kết nối ~1 giờ, dội server + nghẽn mạng máy).
+    final delay = math.min(5 * (1 << math.min(_reconnectAttempt, 4)), 60);
     _reconnectAttempt++;
     debugPrint('📡 Scheduling reconnect in $delay seconds (attempt $_reconnectAttempt)...');
     Future.delayed(Duration(seconds: delay), () async {
+      if (_stopped) {
+        _isReconnecting = false;
+        return;
+      }
+      // Đã đăng xuất (không còn token): hub bắt buộc đăng nhập → thử lại vô ích.
+      if (_tokenFactory != null && (await _tokenFactory!()) == null) {
+        debugPrint('📡 Không còn phiên đăng nhập — dừng kết nối lại SignalR');
+        _isReconnecting = false;
+        _reconnectAttempt = 0;
+        return;
+      }
       if (_isConnected) {
         _isReconnecting = false;
         _reconnectAttempt = 0;
@@ -566,6 +582,10 @@ class SignalRService {
 
   /// Disconnect from the SignalR hub
   Future<void> disconnect() async {
+    // Hủy cả vòng kết nối lại đang chờ (trước đây vẫn chạy tiếp sau khi ngắt / đăng xuất).
+    _stopped = true;
+    _isReconnecting = false;
+    _reconnectAttempt = 0;
     if (_hubConnection != null) {
       await _hubConnection!.stop();
       _isConnected = false;

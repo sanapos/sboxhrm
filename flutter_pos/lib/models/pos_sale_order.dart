@@ -71,6 +71,8 @@ class PosSaleOrderLine {
   final String productId;
   final String? variantId;
   final String productName;
+  /// Mã hàng (server trả ở chi tiết đơn) — cột «Mã hàng» mẫu A4/A5.
+  final String? productCode;
   final String? unitName;
   final double qty;
   final double unitPrice;
@@ -97,6 +99,7 @@ class PosSaleOrderLine {
     required this.productId,
     this.variantId,
     required this.productName,
+    this.productCode,
     this.unitName,
     this.qty = 1,
     this.unitPrice = 0,
@@ -126,6 +129,7 @@ class PosSaleOrderLine {
       productId: (json['productId'] ?? json['ProductId']).toString(),
       variantId: (json['variantId'] ?? json['VariantId'])?.toString(),
       productName: (json['productName'] ?? json['ProductName'] ?? '').toString(),
+      productCode: (json['productCode'] ?? json['ProductCode'])?.toString(),
       unitName: json['unitName'] ?? json['UnitName'] as String?,
       qty: n(json['qty'] ?? json['Qty']),
       unitPrice: n(json['unitPrice'] ?? json['UnitPrice']),

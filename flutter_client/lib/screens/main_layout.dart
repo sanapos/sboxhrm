@@ -153,6 +153,7 @@ import 'branch_ops/branch_report_screen.dart';
 import 'branch_ops/branch_stock_view.dart';
 import 'branch_ops/stock_transfer_screen.dart';
 import '../utils/pos_notify_focus.dart';
+import '../utils/pos_printer_auto_detect.dart';
 export '../utils/navigation_notifier.dart';
 
 /// Global notifiers for screen refresh
@@ -1107,6 +1108,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final storeId = authProvider.user?.storeId;
       if (storeId != null && storeId.isNotEmpty) {
         PosPrintAgentSettings.activeStoreId = storeId;
+        // Máy Sunmi / máy in USB cắm vào → tự cài máy hóa đơn / máy tem.
+        unawaited(PosPrinterAutoDetect.instance.start());
         await _signalRService.joinStoreGroup(storeId);
         await PosPrintOrchestrator.instance.ensureListening();
         // Gắn tên tài khoản vào heartbeat Agent (máy khác thấy ai đang giữ).

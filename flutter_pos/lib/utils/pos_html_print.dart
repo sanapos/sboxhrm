@@ -33,8 +33,11 @@ Future<bool> printOrSharePosHtml({
   );
   try {
     final info = await Printing.info();
+    // Plugin Android có convertHtml (WebView) nhưng không khai báo canConvertHtml.
+    final canHtml =
+        info.canConvertHtml || defaultTargetPlatform == TargetPlatform.android;
     Uint8List? bytes;
-    if (info.canConvertHtml) {
+    if (canHtml) {
       bytes = await Printing.convertHtml(html: html, format: format);
     }
     if (bytes != null && bytes.isNotEmpty) {
@@ -58,7 +61,7 @@ Future<bool> printOrSharePosHtml({
         name: title,
         format: format,
         onLayout: (_) async {
-          if (info.canConvertHtml) {
+          if (canHtml) {
             return Printing.convertHtml(html: html, format: format);
           }
           return Uint8List(0);

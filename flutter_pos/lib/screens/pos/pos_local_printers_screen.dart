@@ -25,6 +25,8 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 import 'pos_product_printer_assignment_screen.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/pos_printer_auto_detect.dart';
+import '../../utils/pos_printer_transport.dart';
 /// Quản lý nhiều máy in nội bộ (nhiệt + tem) trên thiết bị này.
 class PosLocalPrintersScreen extends StatefulWidget {
   const PosLocalPrintersScreen({super.key});
@@ -51,10 +53,20 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
       if (mounted && !_loading) unawaited(_refreshLinkStatus());
     });
     if (!kIsWeb && PosUsbPrinter.isSupported) {
-      _usbEventSub = PosUsbPrinter.deviceEvents.listen((_) {
+      _usbEventSub = PosUsbPrinter.deviceEvents.listen((e) {
         if (mounted && !_loading) unawaited(_refreshLinkStatus());
+        if (e['action'] == 'attached') unawaited(_autoDetect());
       });
     }
+    unawaited(_autoDetect());
+  }
+
+  /// Máy USB vừa cắm / Sunmi chưa cài → tự thêm rồi hiện ngay trong danh sách.
+  Future<void> _autoDetect() async {
+    if (kIsWeb) return;
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    final added = await PosPrinterAutoDetect.instance.scan();
+    if (added.isNotEmpty && mounted) await _reload();
   }
 
   @override
@@ -810,7 +822,11 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
   void _applySunmiDefaults() {
     _brand = PosThermalPrinterBrand.sunmi;
     _textMode = PosThermalTextMode.utf8;
-    _paperSize = _paperSize.isEmpty ? 'K80' : _paperSize;
+    // Khổ theo máy: Sunmi có dao cắt (T1/T2) in K80; máy cầm tay (V2s) giấy 58mm.
+    // Trước đây giữ K80 mặc định của form → V2s in tràn khổ.
+    unawaited(PosPrinterTransport.sunmiHasAutoCutter().then((cutter) {
+      if (mounted) setState(() => _paperSize = cutter ? 'K80' : 'K58');
+    }));
   }
 
   void _setKind(PosLocalPrinterKind kind) {
