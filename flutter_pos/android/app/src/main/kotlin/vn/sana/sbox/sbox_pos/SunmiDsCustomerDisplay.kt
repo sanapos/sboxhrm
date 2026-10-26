@@ -18,6 +18,7 @@ import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import sunmi.ds.DSKernel
+import sunmi.ds.callback.ICheckFileCallback
 import sunmi.ds.callback.IConnectionCallback
 import sunmi.ds.callback.IReceiveCallback
 import sunmi.ds.callback.ISendCallback
@@ -286,6 +287,12 @@ object SunmiDsCustomerDisplay {
     private val slideFiles = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     /**
+     * fileId màn phụ đã nhận cho từng file slide (đường dẫn). Vòng chiếu sau hỏi màn phụ còn file
+     * (DSKernel.checkFileExist) rồi chỉ gửi lệnh hiện — không chuyển lại ảnh qua cổng nối mỗi lượt.
+     */
+    private val slideFileIds = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    /**
      * Idle: TRÌNH CHIẾU mọi ảnh promo (ảnh upload + ảnh hàng hóa), đổi sau mỗi idleSeconds.
      * Trước đây chỉ lấy ảnh đầu tiên, gửi nguyên cỡ gốc (vd 1536×1024) → màn T1 cắt / méo, không bao giờ đổi ảnh.
      * Mỗi ảnh được vẽ lên khung 1024×600: nền tối, ảnh hiện trọn (không cắt), dải tên + giá ở đáy.
@@ -359,6 +366,7 @@ object SunmiDsCustomerDisplay {
                 fallbackTitle = store.take(40),
                 fallbackBody = listOf("Xin chào quý khách"),
                 fallbackFooter = null,
+                reuse = true,
             )
             if (slides.size > 1) {
                 mainHandler.postDelayed(
@@ -373,6 +381,11 @@ object SunmiDsCustomerDisplay {
     private fun renderSlideFile(ctx: Context, slide: PromoSlide, store: String): String? {
         val key = "${slide.url}|${slide.title}|${slide.price}"
         slideFiles[key]?.let { if (File(it).length() > 100) return it }
+        val cachedFile = resolveMediaFile(ctx, "sbox_cd_slide_${Integer.toHexString(key.hashCode())}.jpg")
+        if (cachedFile.length() > 100) {
+            slideFiles[key] = cachedFile.absolutePath
+            return cachedFile.absolutePath
+        }
         val src = downloadBitmap(slide.url) ?: run {
             Log.w(TAG, "idle promo download fail url=${slide.url}")
             return null
@@ -815,13 +828,42 @@ object SunmiDsCustomerDisplay {
         fallbackTitle: String?,
         fallbackBody: List<String>?,
         fallbackFooter: String?,
+        reuse: Boolean = false,
     ) {
         val k = kernel ?: return
         if (token != gen.get()) return
         val pkg = DSKernel.getDSDPackageName() ?: "sunmi.dsd"
+        val knownId = if (reuse) slideFileIds[path] else null
+        if (knownId != null) {
+            try {
+                k.checkFileExist(knownId, object : ICheckFileCallback {
+                    override fun onResult(exist: Boolean) {
+                        if (token != gen.get()) return
+                        if (exist) {
+                            showPictureById(k, pkg, knownId, path)
+                        } else {
+                            slideFileIds.remove(path)
+                            sendFullScreenPicture(path, token, fallbackTitle, fallbackBody, fallbackFooter, reuse)
+                        }
+                    }
+
+                    override fun onCheckFail() {
+                        slideFileIds.remove(path)
+                        if (token == gen.get()) {
+                            sendFullScreenPicture(path, token, fallbackTitle, fallbackBody, fallbackFooter, reuse)
+                        }
+                    }
+                })
+                return
+            } catch (e: Exception) {
+                Log.w(TAG, "checkFileExist: ${e.message}")
+                slideFileIds.remove(path)
+            }
+        }
         try {
             k.sendFile(pkg, path, object : ISendCallback {
                 override fun onSendSuccess(fileId: Long) {
+                    if (reuse) slideFileIds[path] = fileId
                     if (token != gen.get()) return
                     try {
                         val json = JSONObject()
@@ -853,6 +895,19 @@ object SunmiDsCustomerDisplay {
             if (fallbackTitle != null) {
                 showTextTemplate(fallbackTitle, fallbackFooter ?: "")
             }
+        }
+    }
+
+    private fun showPictureById(k: DSKernel, pkg: String, fileId: Long, path: String) {
+        try {
+            val json = JSONObject()
+                .put("dataModel", "SHOW_IMG_WELCOME")
+                .put("data", "default")
+                .toString()
+            k.sendCMD(pkg, json, fileId, sendCb)
+            Log.i(TAG, "SHOW_IMG_WELCOME (dùng lại) fileId=$fileId path=$path")
+        } catch (e: Exception) {
+            Log.e(TAG, "sendCMD picture reuse", e)
         }
     }
 

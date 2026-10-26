@@ -17,6 +17,12 @@ class CustomerDisplayPlatformBridge {
 
   static Future<void> publishNative(String json) async {}
 
+  static Future<void> setLocal({
+    required bool on,
+    required String mode,
+    String? storeName,
+  }) async {}
+
   static Future<String?> readNative() async => null;
 
   static Stream<String>? nativeStateStream() => null;

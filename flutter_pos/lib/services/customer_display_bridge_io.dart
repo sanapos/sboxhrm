@@ -83,6 +83,21 @@ class CustomerDisplayPlatformBridge {
     } catch (_) {}
   }
 
+  /// Bật / tắt màn khách gắn trên máy (T1 7″, Presentation) theo thiết lập — native nhớ qua lần mở app.
+  static Future<void> setLocal({
+    required bool on,
+    required String mode,
+    String? storeName,
+  }) async {
+    try {
+      await _method.invokeMethod('setLocal', {
+        'on': on,
+        'mode': mode,
+        'storeName': storeName,
+      });
+    } catch (_) {}
+  }
+
   static Future<String?> readNative() async {
     try {
       return await _method.invokeMethod<String>('read');

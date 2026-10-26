@@ -94,6 +94,15 @@ class CustomerDisplayActivity : FlutterActivity() {
                             LeTrust.setAuth(call.argument<String>("token"), call.argument<String>("baseUrl"))
                             result.success(true)
                         }
+                        "setLocal" -> {
+                            CustomerDisplayController.setLocal(
+                                context,
+                                call.argument<Boolean>("on") != false,
+                                call.argument<String>("mode"),
+                                call.argument<String>("storeName"),
+                            )
+                            result.success(true)
+                        }
                         "publish" -> {
                             val json = call.argument<String>("json") ?: ""
                             CustomerDisplayController.publish(context, json)
@@ -175,6 +184,13 @@ class CustomerDisplayNativePresentation(
 
     private var qrLoadToken = 0
     private var promoLoadToken = 0
+
+    /** Ảnh trình chiếu đã tải (theo URL) — vòng chiếu sau không tải lại qua mạng. */
+    private val promoCache = object : android.util.LruCache<String, Bitmap>(
+        (Runtime.getRuntime().maxMemory() / 8 / 1024).toInt().coerceAtLeast(4 * 1024),
+    ) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount / 1024
+    }
     private lateinit var scrollView: ScrollView
     private var promoUrls: List<String> = emptyList()
     private var promoIndex = 0
@@ -394,8 +410,13 @@ class CustomerDisplayNativePresentation(
 
     private fun loadPromo(url: String) {
         val token = ++promoLoadToken
+        promoCache.get(url)?.let {
+            promoView.setImageBitmap(it)
+            return
+        }
         io.execute {
             val bmp = downloadBitmap(url, maxSide = 1280)
+            if (bmp != null) promoCache.put(url, bmp)
             mainHandler.post {
                 if (token != promoLoadToken) return@post
                 if (bmp != null) promoView.setImageBitmap(bmp)
@@ -411,8 +432,17 @@ class CustomerDisplayNativePresentation(
                 instanceFollowRedirects = true
             }
             LeTrust.apply(conn)
-            conn.inputStream.use { input ->
-                val raw = BitmapFactory.decodeStream(input) ?: return null
+            if (conn.responseCode !in 200..299) return null
+            val bytes = conn.inputStream.use { it.readBytes() }
+            // Giải mã thu nhỏ ngay (inSampleSize): ảnh 4000px không làm tràn RAM máy yếu.
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            var sample = 1
+            while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxSide) sample *= 2
+            run {
+                val raw = BitmapFactory.decodeByteArray(
+                    bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample },
+                ) ?: return null
                 val w = raw.width
                 val h = raw.height
                 val longest = maxOf(w, h)
@@ -458,6 +488,57 @@ object CustomerDisplayController {
     /** true khi đang đẩy bill qua Sunmi DSKernel (T1 7″), không phải Presentation. */
     private var usingDsKernel: Boolean = false
     private var activeMode: String = "t1Native"
+    private const val KEY_LOCAL_ON = "local_on"
+
+    /**
+     * Màn khách tại máy (T1 7″ DSKernel / Presentation native) có nhận bill không.
+     * Tắt khi thiết lập chọn «Window / trình duyệt» hoặc tắt «Bật màn hình phụ» — trước đây
+     * màn 7″ vẫn hiện bill trong cả hai trường hợp. Lưu prefs: đúng ngay từ lần publish đầu sau khi mở app.
+     */
+    fun isLocalOn(context: Context): Boolean = prefs(context).getBoolean(KEY_LOCAL_ON, true)
+
+    fun setLocal(context: Context, on: Boolean, mode: String?, storeName: String?) {
+        val was = isLocalOn(context)
+        prefs(context).edit().putBoolean(KEY_LOCAL_ON, on).apply()
+        if (!mode.isNullOrBlank()) activeMode = normalizeMode(mode)
+        if (on == was) return
+        if (!on) {
+            hidePresentations()
+            // Màn 7″ không tắt được bằng lệnh: về màn chào (dừng trình chiếu + xóa bill đang hiện).
+            if (SunmiDsCustomerDisplay.isLikelyAvailable(context)) {
+                try {
+                    SunmiDsCustomerDisplay.ensureInit(context)
+                    SunmiDsCustomerDisplay.showText(
+                        storeName?.takeIf { it.isNotBlank() }?.take(40) ?: "SBOX POS",
+                        "Xin chào quý khách",
+                    )
+                } catch (_: Exception) {
+                }
+            }
+            usingDsKernel = false
+        } else {
+            val json = read(context)
+            if (nativePresentation == null && flutterPresentation == null &&
+                SunmiDsCustomerDisplay.isLikelyAvailable(context)
+            ) {
+                try {
+                    SunmiDsCustomerDisplay.ensureInit(context)
+                    SunmiDsCustomerDisplay.showFromJson(json, force = true)
+                    usingDsKernel = true
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    private fun normalizeMode(mode: String?): String {
+        val resolved = (mode ?: "t1Native").trim().lowercase(Locale.US)
+        return when {
+            resolved.contains("flutter") || resolved == "android" -> "androidFlutter"
+            resolved.contains("window") || resolved == "web" || resolved == "browser" -> "window"
+            else -> "t1Native"
+        }
+    }
     private val eventSinks = java.util.concurrent.CopyOnWriteArrayList<EventChannel.EventSink>()
 
     fun registerHost(activity: CustomerDisplayActivity) {
@@ -479,6 +560,7 @@ object CustomerDisplayController {
             } catch (_: Exception) {
             }
         }
+        if (!isLocalOn(context)) return
         try {
             nativePresentation?.applyJson(json)
         } catch (_: Exception) {
@@ -544,12 +626,7 @@ object CustomerDisplayController {
         preferredDisplayId: Int? = null,
         mode: String? = null,
     ): Boolean {
-        val resolved = (mode ?: "t1Native").trim().lowercase(Locale.US)
-        activeMode = when {
-            resolved.contains("flutter") || resolved == "android" -> "androidFlutter"
-            resolved.contains("window") || resolved == "web" || resolved == "browser" -> "window"
-            else -> "t1Native"
-        }
+        activeMode = normalizeMode(mode)
 
         // Window: không mở màn local — chỉ sync qua JSON/API.
         if (activeMode == "window") {
@@ -567,6 +644,7 @@ object CustomerDisplayController {
         }
 
         hidePresentations()
+        if (!isLocalOn(activity)) return false
 
         // T1: không có DisplayManager secondary → DSKernel / VICE.
         if (target == null) {

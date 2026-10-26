@@ -158,6 +158,12 @@ window.sboxOpenCustomerDisplayOnSecondScreen = async function (url) {
     } catch (_) {}
   }
 
+  static Future<void> setLocal({
+    required bool on,
+    required String mode,
+    String? storeName,
+  }) async {}
+
   static Future<String?> readNative() async {
     try {
       return web.window.localStorage.getItem('sbox_customer_display_state');

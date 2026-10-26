@@ -320,6 +320,7 @@ class CustomerDisplayConfig {
     this.autoOpenOnPos = false,
     this.viewerCode = '',
     this.target = CustomerDisplayTarget.t1Native,
+    this.configured = false,
   });
 
   final bool enabled;
@@ -335,6 +336,15 @@ class CustomerDisplayConfig {
   final String viewerCode;
   /// T1 native | Android Flutter | Window/browser.
   final CustomerDisplayTarget target;
+
+  /// Cửa hàng đã lưu thiết lập màn hình phụ (có mục `customerDisplay` trong extraJson).
+  final bool configured;
+
+  /// Màn khách gắn trên máy (T1 7″ / màn phụ Android) có hiện bill không.
+  /// Tắt khi chọn «Window / trình duyệt» hoặc đã tắt «Bật màn hình phụ».
+  /// Cửa hàng chưa từng lưu thiết lập: vẫn hiện như trước (máy T1 đang dùng không mất màn khách).
+  bool get localDisplayOn =>
+      target != CustomerDisplayTarget.window && (enabled || !configured);
 
   static String newViewerCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -387,6 +397,7 @@ class CustomerDisplayConfig {
         autoOpenOnPos: m['autoOpenOnPos'] == true,
         viewerCode: code.length >= 4 ? code : '',
         target: CustomerDisplayTargetX.parse(targetRaw),
+        configured: true,
       );
     } catch (_) {
       return const CustomerDisplayConfig();
@@ -426,6 +437,7 @@ class CustomerDisplayConfig {
     bool? autoOpenOnPos,
     String? viewerCode,
     CustomerDisplayTarget? target,
+    bool? configured,
   }) {
     return CustomerDisplayConfig(
       enabled: enabled ?? this.enabled,
@@ -437,6 +449,7 @@ class CustomerDisplayConfig {
       autoOpenOnPos: autoOpenOnPos ?? this.autoOpenOnPos,
       viewerCode: viewerCode ?? this.viewerCode,
       target: target ?? this.target,
+      configured: configured ?? this.configured,
     );
   }
 

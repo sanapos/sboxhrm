@@ -80,6 +80,11 @@ class CustomerDisplaySync extends ChangeNotifier {
     }
     _config = config.copyWith(viewerCode: code);
     notifyListeners();
+    unawaited(bridge.CustomerDisplayPlatformBridge.setLocal(
+      on: _config.localDisplayOn,
+      mode: _config.target.wire,
+      storeName: _state.storeName,
+    ));
   }
 
   Future<void> _persistViewerCode(String code) async {
