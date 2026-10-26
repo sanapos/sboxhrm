@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -105,15 +106,6 @@ public partial class PosPrintersController
         Guid CurrentPrinterId,
         string CurrentPrinterName);
 
-    static bool IsLabelBrand(string? brand) =>
-        string.Equals(brand, "label", StringComparison.OrdinalIgnoreCase);
-
-    static bool LooksLikeLabelPaper(string? paperSize) =>
-        !string.IsNullOrWhiteSpace(paperSize) &&
-        (paperSize.StartsWith("roll_", StringComparison.OrdinalIgnoreCase) ||
-         paperSize.Contains("50x30", StringComparison.OrdinalIgnoreCase) ||
-         paperSize.Contains("40x30", StringComparison.OrdinalIgnoreCase) ||
-         paperSize.Contains("x30", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Loại chứng từ đã cấu hình là nguồn tin cậy nhất — hãng/khổ giấy chỉ là suy đoán.
@@ -139,8 +131,8 @@ public partial class PosPrintersController
             t.Equals("StockIssue", StringComparison.OrdinalIgnoreCase));
         if (labelish || kitchenish) return labelish && !kitchenish;
 
-        if (IsLabelBrand(p.PrinterBrand)) return true;
-        if (LooksLikeLabelPaper(p.PaperSize)) return true;
+        if (PosPrinterKind.IsLabelBrand(p.PrinterBrand)) return true;
+        if (PosPrinterKind.LooksLikeLabelPaper(p.PaperSize)) return true;
         return false;
     }
 
@@ -154,9 +146,6 @@ public partial class PosPrintersController
                 p.Id == printerId && p.StoreId == storeId && p.Deleted == null);
         return printer != null && IsLabelPrinterEntity(printer);
     }
-
-    async Task<bool> IsLabelPrinterAsync(Guid printerId, Guid storeId) =>
-        await ResolveAssignForLabelAsync(printerId, storeId, null);
 
     [HttpGet("product-assignment/printers/summary")]
     [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
@@ -756,12 +745,14 @@ public partial class PosPrintersController
     /// <summary>Go gan cac mon ngung ban (IsActive=false) khoi may — don rac sau khi gan ca cua hang cu.</summary>
     [HttpPost("product-assignment/printers/{printerId:guid}/unassign-inactive")]
     [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
-    public async Task<ActionResult<AppResponse<object>>> UnassignInactiveProductsFromPrinter(Guid printerId)
+    public async Task<ActionResult<AppResponse<object>>> UnassignInactiveProductsFromPrinter(
+        Guid printerId, [FromQuery] bool? forLabel = null)
     {
         var storeId = RequiredStoreId;
-        var forLabel = await IsLabelPrinterAsync(printerId, storeId);
+        // Client gửi lane đang mở (như gán / xem danh sách) — trước tự suy theo máy nên gỡ nhầm lane.
+        var lane = await ResolveAssignForLabelAsync(printerId, storeId, forLabel);
         int updated;
-        if (forLabel)
+        if (lane)
         {
             updated = await db.PosProducts
                 .Where(p => p.StoreId == storeId && p.Deleted == null && !p.IsActive &&
@@ -781,7 +772,7 @@ public partial class PosPrintersController
                     .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
                     .SetProperty(p => p.UpdatedBy, CurrentUserEmail));
         }
-        return Ok(AppResponse<object>.Success(new { updated, forLabel }));
+        return Ok(AppResponse<object>.Success(new { updated, forLabel = lane }));
     }
     [HttpPost("product-assignment/printers/{printerId:guid}/unassign")]
     [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
@@ -792,7 +783,9 @@ public partial class PosPrintersController
             return BadRequest(AppResponse<object>.Fail("Thiếu dữ liệu"));
 
         var storeId = RequiredStoreId;
-        var forLabel = await IsLabelPrinterAsync(printerId, storeId);
+        // Gỡ đúng lane client gửi (dto.ForLabel) — trước bỏ qua, tự suy theo máy: món lỡ gán vào
+        // lane tem của máy phiếu bếp không gỡ được.
+        var forLabel = await ResolveAssignForLabelAsync(printerId, storeId, dto.ForLabel);
         var targetIds = await ResolveAssignProductIdsAsync(storeId, dto, activeOnly: false);
         if (targetIds.Count == 0)
             return BadRequest(AppResponse<object>.Fail("Chưa chọn sản phẩm"));
@@ -1057,7 +1050,7 @@ public partial class PosPrintersController
                     entity = twin;
                 }
             }
-            forLabel = IsLabelBrand(entity.PrinterBrand);
+            forLabel = PosPrinterKind.IsLabelBrand(entity.PrinterBrand);
         }
 
         if (forLabel)
@@ -1163,7 +1156,7 @@ public partial class PosPrintersController
                     entity = twin;
                 }
             }
-            forLabel = IsLabelBrand(entity.PrinterBrand);
+            forLabel = PosPrinterKind.IsLabelBrand(entity.PrinterBrand);
         }
 
         if (forLabel)

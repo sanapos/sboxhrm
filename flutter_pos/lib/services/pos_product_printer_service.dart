@@ -42,6 +42,8 @@ class PosProductPrinterService {
         map[id] = _PrinterMapEntry(
           productPrinterId: raw['productPrinterId']?.toString(),
           categoryPrinterId: raw['categoryPrinterId']?.toString(),
+          productLabelPrinterId: raw['productLabelPrinterId']?.toString(),
+          categoryLabelPrinterId: raw['categoryLabelPrinterId']?.toString(),
         );
       }
     }
@@ -61,6 +63,17 @@ class PosProductPrinterService {
     }
     if (e.categoryPrinterId != null && e.categoryPrinterId!.isNotEmpty) {
       return e.categoryPrinterId;
+    }
+    return null;
+  }
+
+  /// Máy tem gán cho [productId] trên cửa hàng (lane tem): ưu tiên SP → nhóm hàng.
+  Future<String?> resolveLabelPrinterId(String productId) async {
+    if (productId.isEmpty) return null;
+    final e = (await _load())[productId];
+    if (e == null) return null;
+    for (final id in [e.productLabelPrinterId, e.categoryLabelPrinterId]) {
+      if (id != null && id.trim().isNotEmpty) return id.trim();
     }
     return null;
   }
@@ -85,7 +98,14 @@ class PosProductPrinterService {
 }
 
 class _PrinterMapEntry {
-  const _PrinterMapEntry({this.productPrinterId, this.categoryPrinterId});
+  const _PrinterMapEntry({
+    this.productPrinterId,
+    this.categoryPrinterId,
+    this.productLabelPrinterId,
+    this.categoryLabelPrinterId,
+  });
   final String? productPrinterId;
   final String? categoryPrinterId;
+  final String? productLabelPrinterId;
+  final String? categoryLabelPrinterId;
 }

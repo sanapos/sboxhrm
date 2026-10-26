@@ -697,6 +697,8 @@ class PosLocalPrintersStore {
     return i >= 0 ? s.substring(0, i).trim() : s;
   }
 
+  static int _lanPortOf(int port) => port <= 0 ? 9100 : port;
+
   static bool matchesStorePrinter(
     PosLocalPrinterProfile local,
     PosStorePrinter store, {
@@ -714,7 +716,9 @@ class PosLocalPrintersStore {
         final host = (store.lanHost ?? '').trim();
         final localHost = (local.lanHost ?? '').trim();
         if (host.isEmpty || localHost.isEmpty) return false;
-        return host.toLowerCase() == localHost.toLowerCase();
+        // Cùng IP khác cổng (print server nhiều cổng) là 2 máy khác nhau.
+        return host.toLowerCase() == localHost.toLowerCase() &&
+            _lanPortOf(store.lanPort) == _lanPortOf(local.lanPort);
       case PosThermalConnectionType.bluetooth:
         final a = (store.bluetoothAddress ?? '').trim();
         final b = (local.bluetoothAddress ?? '').trim();
@@ -774,7 +778,8 @@ class PosLocalPrintersStore {
         switch (old.connectionType) {
           case PosThermalConnectionType.lan:
             return norm(old.lanHost).isNotEmpty &&
-                norm(p.lanHost) == norm(old.lanHost);
+                norm(p.lanHost) == norm(old.lanHost) &&
+                _lanPortOf(p.lanPort) == _lanPortOf(old.lanPort);
           case PosThermalConnectionType.usb:
             return usbIdentity(old.usbDeviceName).isNotEmpty &&
                 usbIdentity(p.usbDeviceName) == usbIdentity(old.usbDeviceName);

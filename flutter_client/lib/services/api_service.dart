@@ -22883,6 +22883,7 @@ class ApiService implements PayrollApi {
     List<String>? categoryIds,
     bool allProducts = false,
     bool includeChildCategories = true,
+    bool? forLabel,
   }) async {
     return _mutateProductPrinterApi(
       '/printers/$printerId/unassign',
@@ -22894,6 +22895,7 @@ class ApiService implements PayrollApi {
           'categoryIds': categoryIds ?? [],
           'allProducts': allProducts,
           'includeChildCategories': includeChildCategories,
+          if (forLabel != null) 'forLabel': forLabel,
         }),
       ),
     );
@@ -22901,10 +22903,12 @@ class ApiService implements PayrollApi {
 
   /// Gỡ các món ngừng bán (IsActive=false) khỏi máy — dọn gán thừa.
   Future<Map<String, dynamic>> unassignInactiveProductsFromPosPrinter(
-    String printerId,
-  ) async {
+    String printerId, {
+    bool? forLabel,
+  }) async {
     return _mutateProductPrinterApi(
-      '/printers/$printerId/unassign-inactive',
+      '/printers/$printerId/unassign-inactive'
+      '${forLabel == null ? '' : '?forLabel=$forLabel'}',
       (uri) => sharedHttpClient.post(uri, headers: _headers, body: '{}'),
     );
   }

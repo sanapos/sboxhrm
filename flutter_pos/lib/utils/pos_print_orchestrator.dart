@@ -475,6 +475,38 @@ class PosPrintOrchestrator {
   /// Remove a jobId from the cancelled set (used when re-dispatching a new job).
   void clearServerCancelled(String jobId) => _cancelledJobs.remove(jobId);
 
+  bool _localResyncRunning = false;
+  Set<String> _storePrinterIds = const {};
+  final _localResyncTried = <String>{};
+
+  /// Máy nội bộ có mã máy cửa hàng không còn trong danh sách cửa hàng đang đăng nhập (máy đăng
+  /// nhập cửa hàng khác, bản ghi server bị xóa, chưa từng đồng bộ) → đăng ký lại cho cửa hàng này.
+  /// Trước: máy vẫn in (phần cứng gắn trên thiết bị) nhưng không có trong danh sách cửa hàng —
+  /// không gán món được, gán trên thiết bị trỏ mã cũ nên bị bỏ qua lúc in.
+  Future<void> _resyncStaleLocalPrinters() async {
+    if (kIsWeb || _localResyncRunning) return;
+    _localResyncRunning = true;
+    try {
+      // Gồm cả máy đã tắt trên cửa hàng — không bật lại máy người dùng tắt.
+      final known = _storePrinterIds;
+      var changed = false;
+      for (final p in await PosLocalPrintersStore.instance.loadAll()) {
+        final id = (p.storePrinterId ?? '').trim().toLowerCase();
+        if (!p.enabled || (id.isNotEmpty && known.contains(id))) continue;
+        // Mỗi máy / mã thử 1 lần mỗi phiên (thiếu quyền Sửa máy in → không lặp lại).
+        if (!_localResyncTried.add('${p.id}|$id')) continue;
+        final synced = await PosLocalPrintersStore.instance.syncOne(p);
+        final next = (synced?.storePrinterId ?? '').trim().toLowerCase();
+        if (next.isNotEmpty && next != id) changed = true;
+      }
+      if (changed) _cacheAt = null;
+    } catch (e) {
+      debugPrint('PosPrintOrchestrator: đồng bộ lại máy nội bộ lỗi — $e');
+    } finally {
+      _localResyncRunning = false;
+    }
+  }
+
   Future<void> invalidateCache() async {
     _cacheAt = null;
     _printers = [];
@@ -507,14 +539,16 @@ class PosPrintOrchestrator {
       final printersRes = both[0];
       if (printersRes['isSuccess'] != true) return false;
       final routesRes = both[1];
-      _printers = (printersRes['data'] as List? ?? [])
+      final all = (printersRes['data'] as List? ?? [])
           .map((e) => PosStorePrinter.fromJson(e as Map<String, dynamic>))
-          .where((p) => p.isActive)
           .toList();
+      _storePrinterIds = {for (final p in all) p.id.toLowerCase()};
+      _printers = all.where((p) => p.isActive).toList();
       _routes = (routesRes['data'] as List? ?? [])
           .map((e) => PosPrinterRoute.fromJson(e as Map<String, dynamic>))
           .toList();
       _cacheAt = DateTime.now();
+      unawaited(_resyncStaleLocalPrinters());
       return _printers.isNotEmpty;
     } catch (e) {
       debugPrint('PosPrintOrchestrator.refreshConfig: $e');
@@ -577,8 +611,11 @@ class PosPrintOrchestrator {
     } else if (printer.isLan) {
       final host = (printer.lanHost ?? '').trim().toLowerCase();
       if (host.isNotEmpty) {
+        int port(int v) => v <= 0 ? 9100 : v;
         final hits = cloud
-            .where((p) => (p.lanHost ?? '').trim().toLowerCase() == host)
+            .where((p) =>
+                (p.lanHost ?? '').trim().toLowerCase() == host &&
+                port(p.lanPort) == port(printer.lanPort))
             .toList();
         if (hits.length == 1) twin = hits.first;
       }

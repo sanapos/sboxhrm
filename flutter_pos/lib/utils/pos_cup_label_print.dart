@@ -14,6 +14,8 @@ import 'pos_label_printer_service.dart';
 import 'pos_label_printer_settings.dart';
 import 'pos_label_renderer.dart';
 import 'pos_local_printers_store.dart';
+import '../services/pos_product_printer_service.dart';
+import 'pos_device_product_printers.dart';
 import 'pos_print_device_scope.dart';
 import 'pos_print_orchestrator.dart';
 import 'pos_print_template_compiler.dart';
@@ -31,6 +33,7 @@ import '../l10n/app_tr.dart';
 class CupLabelTicket {
   const CupLabelTicket({
     required this.productName,
+    this.productId,
     this.toppings,
     this.note,
     this.qtyLabel,
@@ -41,6 +44,8 @@ class CupLabelTicket {
   });
 
   final String productName;
+  /// Món của tem — để in ra máy tem đã gán món (lane tem). null = máy tem mặc định.
+  final String? productId;
   final String? toppings;
   final String? note;
   final String? qtyLabel;
@@ -126,7 +131,82 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
   CupLabelCloudHangCallback? onCloudHang,
 }) async {
   if (tickets.isEmpty) return const [];
-  if (!await hasReadyCupLabelPrinter()) {
+  Future<List<CupLabelTicket>> run(List<CupLabelTicket> part, String? target) =>
+      _printCupLabelsOn(
+        targetPrinterId: target,
+        tickets: part,
+        printedAt: printedAt,
+        showFeedback: showFeedback,
+        templateOverride: templateOverride,
+      );
+  // Món gán máy tem (lane tem) → in đúng máy đó; món chưa gán → máy tem mặc định như trước.
+  // Trước: mọi tem dồn 1 máy tem, màn «Gán món in tem» không có tác dụng khi in.
+  final routes = await _cupLabelRoutes(tickets);
+  if (routes.every((r) => r == null)) return run(tickets, null);
+  final groups = <String?, List<CupLabelTicket>>{};
+  for (var i = 0; i < tickets.length; i++) {
+    groups.putIfAbsent(routes[i], () => []).add(tickets[i]);
+  }
+  final left = Set<CupLabelTicket>.identity();
+  for (final e in groups.entries) {
+    left.addAll(await run(e.value, e.key));
+  }
+  return [for (final t in tickets) if (left.contains(t)) t];
+}
+
+/// Máy tem gán cho từng tem: gán trên thiết bị này trước, rồi gán cửa hàng (SP → nhóm).
+/// Máy đã xóa / tắt coi như chưa gán.
+Future<List<String?>> _cupLabelRoutes(List<CupLabelTicket> tickets) async {
+  if (tickets.every((t) => (t.productId ?? '').trim().isEmpty)) {
+    return List<String?>.filled(tickets.length, null);
+  }
+  final svc = PosProductPrinterService.instance;
+  try {
+    await PosPrintOrchestrator.instance.refreshConfig();
+    await svc.preload();
+  } catch (e) {
+    debugPrint('Cup label: không tải gán máy tem — $e');
+  }
+  String? live(String? id) {
+    final v = (id ?? '').trim();
+    if (v.isEmpty) return null;
+    final p = PosPrintOrchestrator.instance.printerByIdExact(v);
+    return p != null && p.isActive ? v : null;
+  }
+  final byProduct = <String, String?>{};
+  final out = <String?>[];
+  for (final t in tickets) {
+    final pid = (t.productId ?? '').trim();
+    if (pid.isEmpty) {
+      out.add(null);
+      continue;
+    }
+    if (!byProduct.containsKey(pid)) {
+      final device = kIsWeb
+          ? null
+          : live(await PosDeviceProductPrinters.instance
+              .printerIdForProduct(pid, label: true));
+      byProduct[pid] = device ?? live(await svc.resolveLabelPrinterId(pid));
+    }
+    out.add(byProduct[pid]);
+  }
+  return out;
+}
+
+bool _sameId(String? a, String b) =>
+    (a ?? '').trim().toLowerCase() == b.trim().toLowerCase();
+
+/// [targetPrinterId]: in lên đúng máy đã gán (nội bộ nếu có cổng trên máy này, không thì Agent);
+/// null = chọn máy tem mặc định như trước.
+Future<List<CupLabelTicket>> _printCupLabelsOn({
+  String? targetPrinterId,
+  required List<CupLabelTicket> tickets,
+  DateTime? printedAt,
+  bool showFeedback = false,
+  PosPrintTemplateV2? templateOverride,
+}) async {
+  if (tickets.isEmpty) return const [];
+  if (targetPrinterId == null && !await hasReadyCupLabelPrinter()) {
     if (showFeedback) {
       NotificationOverlayManager().showWarning(
         title: 'Chưa có máy in tem',
@@ -206,10 +286,12 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
         .where((p) =>
             PosLocalPrintersStore.profileAllowsDirectLocal(p) &&
             p.isLabel &&
-            p.hasRole(PosLocalPrinterRoles.kitchenLabel))
+            (targetPrinterId != null
+                ? _sameId(p.storePrinterId, targetPrinterId)
+                : p.hasRole(PosLocalPrinterRoles.kitchenLabel)))
         .toList();
     // 2) Mọi máy tem nội bộ đang bật (kể cả chỉ BarcodeLabel)
-    if (labelTargets.isEmpty) {
+    if (labelTargets.isEmpty && targetPrinterId == null) {
       labelTargets = all
           .where((p) =>
               PosLocalPrintersStore.profileAllowsDirectLocal(p) && p.isLabel)
@@ -289,9 +371,12 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
         .where((p) =>
             PosLocalPrintersStore.profileAllowsDirectLocal(p) &&
             !p.isLabel &&
-            p.hasRole(PosLocalPrinterRoles.kitchenLabel) &&
-            !p.hasRole(PosLocalPrinterRoles.kitchenSlip) &&
-            !p.hasRole(PosLocalPrinterRoles.kitchenVoid))
+            (targetPrinterId != null
+                // Món gán máy này (lane tem) → in đúng máy đó dù máy cũng in phiếu bếp.
+                ? _sameId(p.storePrinterId, targetPrinterId)
+                : p.hasRole(PosLocalPrinterRoles.kitchenLabel) &&
+                    !p.hasRole(PosLocalPrinterRoles.kitchenSlip) &&
+                    !p.hasRole(PosLocalPrinterRoles.kitchenVoid)))
         .toList();
     if (thermalCup.isNotEmpty && done < total) {
       final v2 = templateOverride ?? await _loadKitchenLabelTemplate();
@@ -341,7 +426,9 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
   );
 
   await PosPrintOrchestrator.instance.refreshConfig();
-  var cloudPrinter = await _resolveCupLabelCloudPrinter();
+  var cloudPrinter = targetPrinterId != null
+      ? await PosPrintDeviceScope.agentFacingPrinter(targetPrinterId)
+      : await _resolveCupLabelCloudPrinter();
   if (cloudPrinter != null &&
       PosPrintOrchestrator.instance.isServedBySelfAgent(cloudPrinter)) {
     // Agent chính máy này không nhận lệnh do mình gửi → tem treo; báo lỗi để thu ngân in lại.
@@ -399,7 +486,8 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
           done++;
         }
         if (done >= total) return const [];
-      } else if (!_isKitchenReceiptPrinter(cloudPrinter)) {
+      } else if (targetPrinterId != null ||
+          !_isKitchenReceiptPrinter(cloudPrinter)) {
         final cupSettings = toThermalSettings(cloudPrinter).copyWith(
           feedBeforeCut: 8,
           openCashDrawer: false,

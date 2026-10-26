@@ -225,6 +225,7 @@ class PendingCupLabelPrintJob {
         'tickets': tickets
             .map((t) => {
                   'productName': t.productName,
+                  if (t.productId != null) 'productId': t.productId,
                   'toppings': t.toppings,
                   'note': t.note,
                   'qtyLabel': t.qtyLabel,
@@ -245,6 +246,7 @@ class PendingCupLabelPrintJob {
         final m = Map<String, dynamic>.from(e);
         tickets.add(CupLabelTicket(
           productName: (m['productName'] ?? '').toString(),
+          productId: m['productId']?.toString(),
           toppings: m['toppings']?.toString(),
           note: m['note']?.toString(),
           qtyLabel: m['qtyLabel']?.toString(),

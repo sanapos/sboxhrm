@@ -5226,6 +5226,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         for (var i = 0; i < copies; i++) {
           tickets.add(CupLabelTicket(
             productName: l.product.name,
+            productId: l.product.id,
             toppings: toppings.isEmpty ? null : toppings,
             note: noteOnly.isEmpty ? null : noteOnly,
             qtyLabel: '${i + 1}/$copies',
@@ -5238,6 +5239,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       } else {
         tickets.add(CupLabelTicket(
           productName: l.product.name,
+          productId: l.product.id,
           toppings: toppings.isEmpty ? null : toppings,
           note: noteOnly.isEmpty ? null : noteOnly,
           qtyLabel: _qtyFmt.format(pending),
@@ -5257,6 +5259,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         if (q != '1' && !q.contains('/')) continue;
         tickets[i] = CupLabelTicket(
           productName: t.productName,
+          productId: t.productId,
           toppings: t.toppings,
           note: t.note,
           qtyLabel: '${i + 1}/${tickets.length}',

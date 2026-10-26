@@ -115,9 +115,21 @@ public class PosPrintDispatchService(
 
         if (printers.Count == 1)
         {
-            foreach (PosPrintDocumentType dt in Enum.GetValues<PosPrintDocumentType>())
+            // Chỉ cài vai trò mặc định cho máy chưa có vai trò nào (máy mới / vừa khôi phục).
+            // Trước: chạy mỗi lần gọi và hồi sinh vai trò người dùng đã bỏ tick → bỏ không được.
+            var hasLiveRoute = await db.PosPrinterDocumentRoutes.AsNoTracking()
+                .AnyAsync(r => r.StoreId == storeId && r.PrinterId == defaultPrinter.Id
+                               && r.Deleted == null && r.IsActive, ct);
+            if (!hasLiveRoute)
             {
-                await UpsertRouteAsync(storeId, defaultPrinter.Id, dt, ct);
+                // Chỉ chứng từ hợp loại máy: máy nhiệt K80 không nhận vai trò tem (trước nhận cả
+                // KitchenLabel/BarcodeLabel → app coi là máy tem, gán món báo bếp rơi vào lane tem).
+                var label = PosPrinterKind.IsLabelHardware(defaultPrinter);
+                foreach (PosPrintDocumentType dt in Enum.GetValues<PosPrintDocumentType>())
+                {
+                    if (PosPrinterKind.IsLabelDocument(dt) != label) continue;
+                    await UpsertRouteAsync(storeId, defaultPrinter.Id, dt, ct);
+                }
             }
             await db.SaveChangesAsync(ct);
             return;

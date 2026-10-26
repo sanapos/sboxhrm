@@ -958,7 +958,10 @@ class _PosPrinterManageProductsScreenState
     setState(() => _busy = true);
     try {
       final res =
-          await _api.unassignInactiveProductsFromPosPrinter(widget.printerId);
+          await _api.unassignInactiveProductsFromPosPrinter(
+            widget.printerId,
+            forLabel: widget.isLabel,
+          );
       if (res['isSuccess'] != true) {
         if (mounted) {
           NotificationOverlayManager().showError(
@@ -1049,6 +1052,7 @@ class _PosPrinterManageProductsScreenState
       final res = await _api.unassignProductsFromPosPrinter(
         widget.printerId,
         productIds: [p.id],
+        forLabel: widget.isLabel,
       );
       if (res['isSuccess'] == true) {
         await PosProductPrinterService.instance.invalidate();
