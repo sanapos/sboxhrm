@@ -35,15 +35,15 @@ class ThemeProvider extends ChangeNotifier {
   bool get isDarkMode => darkModeAvailable && _isDarkMode;
   Locale get locale => _locale;
   String get languageLabel =>
-      _locale.languageCode == 'vi' ? 'Tiếng Việt' : 'English';
+      AppLocale.languages[_locale.languageCode] ?? 'Tiếng Việt';
 
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
-    final langCode = prefs.getString('languageCode') ?? 'vi';
+    final saved = prefs.getString('languageCode') ?? 'vi';
+    final langCode = AppLocale.isSupported(saved) ? saved : 'vi';
+    await trUseLanguage(langCode);
     _locale = Locale(langCode);
-    AppLocale.setLanguageCode(langCode);
-    trResetCache();
     notifyListeners();
   }
 
@@ -55,12 +55,12 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   Future<void> setLocale(Locale locale) async {
-    _locale = locale;
-    AppLocale.setLanguageCode(locale.languageCode);
-    trResetCache();
+    // Load the language pack before rebuilding, so the UI never shows a mix.
+    await trUseLanguage(locale.languageCode);
+    _locale = Locale(AppLocale.languageCode);
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('languageCode', locale.languageCode);
+    await prefs.setString('languageCode', _locale.languageCode);
   }
 
   /// Màu chính (nút, liên kết, tab chọn) — xanh thương hiệu tông đậm đủ tương phản.

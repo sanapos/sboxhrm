@@ -3,15 +3,63 @@ import 'package:zkteco_flutter_client/l10n/app_locale.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 void main() {
-  setUp(() {
-    AppLocale.setLanguageCode('en');
-    trResetCache();
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() => trUseLanguage('en'));
+
+  test('Vietnamese is untouched while Vietnamese is the active language',
+      () async {
+    await trUseLanguage('vi');
+    expect(tr('Nhân viên'), 'Nhân viên');
   });
 
-  test('Vietnamese is untouched while Vietnamese is the active language', () {
-    AppLocale.setLanguageCode('vi');
-    trResetCache();
+  test('unknown language codes fall back to Vietnamese', () async {
+    await trUseLanguage('xx');
+    expect(AppLocale.languageCode, 'vi');
     expect(tr('Nhân viên'), 'Nhân viên');
+  });
+
+  group('Korean / Japanese / Chinese packs', () {
+    final cjk = {
+      'ko': RegExp(r'[가-힯]'),
+      'ja': RegExp(r'[぀-ヿ一-鿿]'),
+      'zh': RegExp(r'[一-鿿]'),
+    };
+    final vn = RegExp(r'[ăâđêôơưạảấầẩậắằẳặẹẻếềểệịỉọỏốồổộớờởợụủứừửựỳỷỹ]');
+
+    for (final e in cjk.entries) {
+      test('${e.key}: common labels are translated', () async {
+        await trUseLanguage(e.key);
+        for (final s in const ['Lưu', 'Hủy', 'Nhân viên', 'Chấm công', 'Tồn kho']) {
+          final out = tr(s);
+          expect(out, contains(e.value), reason: '"$s" -> "$out"');
+          expect(out, isNot(contains(vn)), reason: '"$s" -> "$out"');
+        }
+      });
+    }
+
+    test('interpolated sentences use the whole-sentence template', () async {
+      await trUseLanguage('ko');
+      // tr('Không tải được danh sách: \$e') — the value is kept verbatim.
+      final out = tr('Không tải được danh sách: timeout 504');
+      expect(out, contains('timeout 504'));
+      expect(out, isNot(contains(vn)));
+    });
+
+    test('ALL-CAPS labels reuse the sentence-case translation', () async {
+      await trUseLanguage('ko');
+      expect(tr('MÃ CỬA HÀNG'), tr('Mã cửa hàng'));
+      await trUseLanguage('en');
+      expect(tr('MÃ CỬA HÀNG'), tr('Mã cửa hàng').toUpperCase());
+    });
+
+    test('strings missing from a pack fall back to English, not Vietnamese',
+        () async {
+      await trUseLanguage('ja');
+      // Present in the English base map only if the ja pack lacks it; either way
+      // the result must not be Vietnamese.
+      expect(tr('Đăng nhập'), isNot(contains(vn)));
+    });
   });
 
   test('exact UI strings come from the map', () {

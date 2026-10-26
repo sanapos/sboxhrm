@@ -145,6 +145,8 @@ flutter:
     - assets/sbox_pos_login_hero.webp
     - assets/mobilefacenet.tflite
     - assets/w600k_mbf.onnx
+    # Gói ngôn ngữ en/ko/ja/zh (VI → ngôn ngữ đích), nạp khi người dùng chọn ngôn ngữ.
+    - assets/l10n/
     - assets/fonts/BeVietnamPro-Regular.ttf
     - assets/fonts/BeVietnamPro-Bold.ttf
 

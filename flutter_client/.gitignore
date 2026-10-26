@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# i18n: chunk files & per-agent outputs (rebuilt by tool/i18n_extract.py → i18n_check_chunk.py → i18n_build.py)
+tool/i18n/work/

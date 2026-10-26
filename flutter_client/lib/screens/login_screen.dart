@@ -20,6 +20,7 @@ import '../config/sbox_app_variant.dart';
 import '../widgets/store_agent_support_card.dart';
 import '../utils/web_marketing_gate_stub.dart'
     if (dart.library.html) '../utils/web_marketing_gate_web.dart' as web_home;
+import 'package:zkteco_flutter_client/l10n/app_locale.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
@@ -84,33 +85,59 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _loginLanguageSwitch() {
     final theme = context.watch<ThemeProvider>();
     final code = theme.locale.languageCode;
-    Widget chip(String label, String lang) {
-      final selected = code == lang;
-      return Padding(
-        padding: const EdgeInsets.only(left: 6),
-        child: ChoiceChip(
-          label: Text(label),
-          selected: selected,
-          onSelected: (_) => theme.setLocale(Locale(lang)),
-          visualDensity: VisualDensity.compact,
-          labelStyle: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: selected ? Colors.white : SboxColors.slate700,
+    return PopupMenuButton<String>(
+      tooltip: AppLocale.languages[code],
+      initialValue: code,
+      onSelected: (lang) => theme.setLocale(Locale(lang)),
+      itemBuilder: (_) => [
+        for (final e in AppLocale.languages.entries)
+          PopupMenuItem<String>(
+            value: e.key,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 28,
+                  child: Text(
+                    AppLocale.shortLabels[e.key]!,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: e.key == code ? _brand : SboxColors.slate500,
+                    ),
+                  ),
+                ),
+                Text(e.value),
+                if (e.key == code) ...[
+                  const SizedBox(width: 8),
+                  Icon(Icons.check, size: 16, color: _brand),
+                ],
+              ],
+            ),
           ),
-          selectedColor: _brand,
-          backgroundColor: SboxColors.slate100,
-          side: BorderSide.none,
-        ),
-      );
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        chip('VI', 'vi'),
-        chip('EN', 'en'),
       ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: SboxColors.slate100,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.language, size: 16, color: SboxColors.slate700),
+            const SizedBox(width: 4),
+            Text(
+              AppLocale.shortLabels[code] ?? 'VI',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: SboxColors.slate700,
+              ),
+            ),
+            const Icon(Icons.arrow_drop_down,
+                size: 18, color: SboxColors.slate700),
+          ],
+        ),
+      ),
     );
   }
 

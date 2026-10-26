@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'app_locale.dart';
+import 'app_tr.dart';
+
 class AppLocalizations {
   final Locale locale;
 
@@ -14,14 +17,14 @@ class AppLocalizations {
 
   String get(String key) {
     final lang = locale.languageCode;
-    final map = _localizedValues[lang] ?? _localizedValues['vi']!;
-    final value = map[key];
-    if (value != null) return value;
-    // English must not silently fall back to Vietnamese (mixed UI).
     if (lang == 'en') {
+      // English must not silently fall back to Vietnamese (mixed UI).
       return _localizedValues['en']![key] ?? key;
     }
-    return _localizedValues['vi']![key] ?? key;
+    final vi = _localizedValues['vi']![key] ?? key;
+    // ko / ja / zh: the Vietnamese copy goes through the language pack like any
+    // other UI string (see app_tr.dart).
+    return lang == 'vi' ? vi : tr(vi);
   }
 
   // Convenience getters for common strings
@@ -1407,7 +1410,7 @@ class _AppLocalizationsDelegate
   const _AppLocalizationsDelegate();
 
   @override
-  bool isSupported(Locale locale) => ['vi', 'en'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => AppLocale.isSupported(locale.languageCode);
 
   @override
   Future<AppLocalizations> load(Locale locale) async {

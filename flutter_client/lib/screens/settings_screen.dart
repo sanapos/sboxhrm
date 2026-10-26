@@ -8,6 +8,7 @@ import '../widgets/hrm_page_chrome.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/app_locale.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../config/sbox_app_variant.dart';
@@ -395,33 +396,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: Text(tr('🇻🇳')),
-              title: Text(tr('Tiếng Việt')),
-              trailing: currentLang == 'vi'
-                  ? const Icon(Icons.check, color: Colors.green)
-                  : null,
-              onTap: () {
-                themeProvider.setLocale(const Locale('vi'));
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Text(tr('🇺🇸')),
-              title: Text(tr('English')),
-              trailing: currentLang == 'en'
-                  ? const Icon(Icons.check, color: Colors.green)
-                  : null,
-              onTap: () {
-                themeProvider.setLocale(const Locale('en'));
-                Navigator.pop(context);
-              },
-            ),
+            for (final e in AppLocale.languages.entries)
+              ListTile(
+                leading: Text(_languageFlags[e.key] ?? ''),
+                // Native names on purpose: a user who picked the wrong language
+                // must still recognise their own.
+                title: Text(e.value),
+                trailing: currentLang == e.key
+                    ? const Icon(Icons.check, color: Colors.green)
+                    : null,
+                onTap: () {
+                  themeProvider.setLocale(Locale(e.key));
+                  Navigator.pop(context);
+                },
+              ),
           ],
         ),
       ),
     );
   }
+
+  static const Map<String, String> _languageFlags = {
+    'vi': '🇻🇳',
+    'en': '🇺🇸',
+    'ko': '🇰🇷',
+    'ja': '🇯🇵',
+    'zh': '🇨🇳',
+  };
 
   Future<void> _showServerDialog(BuildContext context) async {
     await showServerUrlDialog(context);

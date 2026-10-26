@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/app_locale.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/theme_provider.dart';
@@ -98,9 +99,8 @@ class ZKTecoApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          supportedLocales: const [
-            Locale('vi'),
-            Locale('en'),
+          supportedLocales: [
+            for (final code in AppLocale.languages.keys) Locale(code),
           ],
           locale: themeProvider.locale,
           builder: (context, child) {
