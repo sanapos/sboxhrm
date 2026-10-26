@@ -1190,10 +1190,15 @@ public partial class PosReportsController(
         if (orderIds.Count > 0)
         {
             var orderIdSet = orderIds.ToHashSet();
+            // Dòng thu của đơn luôn ghi SAU khi tạo đơn → chặn dưới bằng đơn tạo sớm nhất trong kỳ.
+            // Trước đây tải MỌI dòng thu bán hàng từ trước tới nay của cửa hàng rồi mới lọc theo đơn trong ngày.
+            var earliestOrder = await completedQuery.MinAsync(o => (DateTime?)o.CreatedAt) ?? fromDt;
+            var cashFrom = earliestOrder.AddDays(-1); // dư 1 ngày phòng lệch múi giờ giữa 2 bảng
             var saleCashTx = await dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
                 .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                     && c.Status == CashTransactionStatus.Completed
                     && c.Type == CashTransactionType.Income
+                    && c.CreatedAt >= cashFrom
                     && c.InternalNote != null
                     && c.InternalNote.StartsWith(PosFinanceSyncHelper.SaleMarker))
                 .ToListAsync();

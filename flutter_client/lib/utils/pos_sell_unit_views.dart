@@ -35,15 +35,16 @@ bool posProductHasEmbeddedSellViews(PosProduct product) {
 
 /// Tải đầy đủ ĐVT/biến thể — ưu tiên dữ liệu nhúng, fallback API.
 
+/// [trustEmbedded]: SP lấy từ danh mục bán (/api/pos/sales/products) — đã nhúng ĐỦ ĐVT + biến thể (kể cả
+/// danh sách rỗng) → không gọi API. Trước đây lưới bán gọi 3 API cho MỖI món đơn giản khi mở màn bán
+/// (cửa hàng 20.000 món ≈ 60.000 request).
 Future<List<PosProductUnitView>> loadPosSellUnitViews(
-
   ApiService api,
-
-  PosProduct product,
-
-) async {
-
-  if (posProductHasEmbeddedSellViews(product)) {
+  PosProduct product, {
+  bool trustEmbedded = false,
+}) async {
+  if (posProductHasEmbeddedSellViews(product) ||
+      (trustEmbedded && product.units != null && product.variants != null)) {
 
     return buildPosSellUnitViewsFromProduct(product);
 

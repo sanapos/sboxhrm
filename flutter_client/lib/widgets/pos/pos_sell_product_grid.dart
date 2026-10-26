@@ -169,7 +169,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     }
 
     return _unitViewsLoading.putIfAbsent(p.id, () async {
-      var views = await loadPosSellUnitViews(widget.api, p);
+      var views = await loadPosSellUnitViews(widget.api, p, trustEmbedded: true);
       views = applyPosPriceListToViews(views, p, widget.priceOverrides);
       _unitViewsCache[p.id] = views;
       _unitViewsFullyLoaded.add(p.id);
@@ -179,7 +179,8 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   void _prefetchPageUnitViews() {
-    for (final p in _pageItems) {
+    // Chỉ các món đầu lưới — cache danh mục cũ (thiếu ĐVT nhúng) không được kéo API cho cả nghìn món.
+    for (final p in _pageItems.take(60)) {
       _viewsForDisplay(p);
       unawaited(_viewsFor(p).then((views) {
         if (!mounted || views.length < 2) return;
@@ -692,7 +693,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   void _scheduleCatalogImageWarmup(List<PosProduct> items) {
     _imageWarmupTimer?.cancel();
     _imageWarmupTimer = Timer(const Duration(seconds: 3), () async {
-      final withImage = items.where((p) => (p.imageUrl ?? '').trim().isNotEmpty).toList();
+      // Chỉ làm nóng ảnh các món đầu danh mục — trước đây tải trước ẢNH CỦA MỌI MÓN (cửa hàng lớn: hàng nghìn
+      // ảnh mỗi lần mở, tốn băng thông / 4G). Món còn lại tải khi cuộn tới.
+      final withImage =
+          items.where((p) => (p.imageUrl ?? '').trim().isNotEmpty).take(200).toList();
       for (var i = 0; i < withImage.length && mounted; i += 2) {
         await Future.wait([
           for (final p in withImage.skip(i).take(2))

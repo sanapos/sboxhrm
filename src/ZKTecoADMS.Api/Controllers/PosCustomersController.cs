@@ -74,7 +74,8 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
             query = query.Where(c =>
                 VnSearch.Has(c.Name, s) ||
                 VnSearch.Has(c.CustomerCode, s) ||
-                (c.Phone != null && c.Phone.Contains(s)) ||
+                // VnSearch.Has (LIKE) dùng được chỉ mục pg_trgm; Phone.Contains dịch thành strpos → quét cả bảng.
+                (c.Phone != null && VnSearch.Has(c.Phone, s)) ||
                 (c.TaxCode != null && VnSearch.Has(c.TaxCode, s)));
         }
         if (debtFrom.HasValue) query = query.Where(c => c.CurrentDebt >= debtFrom);
@@ -232,7 +233,7 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
         var tail = norm[^3..];
         var candidates = await dbContext.PosCustomers.AsNoTracking()
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive && c.Phone != null
-                        && c.Phone.Contains(tail) && (exceptId == null || c.Id != exceptId))
+                        && VnSearch.Has(c.Phone, tail) && (exceptId == null || c.Id != exceptId))
             .ToListAsync();
         return candidates.FirstOrDefault(c => NormalizePhone(c.Phone) == norm);
     }

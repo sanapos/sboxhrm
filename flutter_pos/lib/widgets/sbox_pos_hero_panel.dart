@@ -18,7 +18,7 @@ class SboxPosHeroPanel extends StatelessWidget {
           final cacheW = (c.maxWidth * dpr).round().clamp(1024, 2560);
           return SizedBox.expand(
             child: Image.asset(
-              'assets/sbox_pos_login_hero.png',
+              'assets/sbox_pos_login_hero.webp',
               fit: BoxFit.cover,
               alignment: const Alignment(0, -0.08),
               filterQuality: FilterQuality.medium,

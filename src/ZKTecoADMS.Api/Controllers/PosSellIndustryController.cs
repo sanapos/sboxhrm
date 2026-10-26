@@ -942,8 +942,14 @@ public partial class PosSellIndustryController(
         if (reservations.Count > 0)
         {
             var bookResourceIds = reservations.Select(b => b.ResourceId).Distinct().ToList();
+            // Phiên chỉ chồng lịch khi bắt đầu quanh giờ đặt (≥ đầu khung lịch) → bỏ lịch sử cũ. Trước đây
+            // màn sơ đồ bàn (hỏi mỗi 8–12 giây) tải MỌI phiên từ trước tới nay của các bàn có lịch đặt.
+            var sessionsFrom = reservations
+                .Min(b => BookingWindow(b).Start < b.ReservedAt ? BookingWindow(b).Start : b.ReservedAt)
+                .AddHours(-1);
             var sessionsAfterBook = await db.PosResourceSessions.AsNoTracking()
-                .Where(s => bookResourceIds.Contains(s.ResourceId) && s.Deleted == null)
+                .Where(s => bookResourceIds.Contains(s.ResourceId) && s.Deleted == null
+                    && s.StartedAt >= sessionsFrom)
                 .Select(s => new { s.ResourceId, s.StartedAt })
                 .ToListAsync();
             var nowHealBook = DateTime.UtcNow;

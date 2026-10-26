@@ -162,7 +162,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     }
 
     return _unitViewsLoading.putIfAbsent(p.id, () async {
-      var views = await loadPosSellUnitViews(widget.api, p);
+      var views = await loadPosSellUnitViews(widget.api, p, trustEmbedded: true);
       views = applyPosPriceListToViews(views, p, widget.priceOverrides);
       _unitViewsCache[p.id] = views;
       _unitViewsFullyLoaded.add(p.id);
@@ -172,7 +172,8 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   void _prefetchPageUnitViews() {
-    for (final p in _pageItems) {
+    // Chỉ các món đầu lưới — cache danh mục cũ (thiếu ĐVT nhúng) không được kéo API cho cả nghìn món.
+    for (final p in _pageItems.take(60)) {
       _viewsForDisplay(p);
       unawaited(_viewsFor(p).then((views) {
         if (!mounted || views.length < 2) return;

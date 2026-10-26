@@ -62,7 +62,7 @@ flutter:
     - assets/sbox_pos_screen.png
     - assets/sbox_pos_family.png
     - assets/sbox_pos_poster.png
-    - assets/sbox_pos_login_hero.png
+    - assets/sbox_pos_login_hero.webp
     - assets/fonts/BeVietnamPro-Regular.ttf
     - assets/fonts/BeVietnamPro-Bold.ttf
     - assets/certs/isrgrootx1.pem
