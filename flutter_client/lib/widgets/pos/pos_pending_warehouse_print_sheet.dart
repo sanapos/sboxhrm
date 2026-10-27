@@ -455,34 +455,43 @@ class _PendingWarehousePrintSheetBodyState
     }
     final n = _visibleCount;
     if (n == 0) return const SizedBox.shrink();
+    final buttons = <Widget>[
+      FilledButton.icon(
+        onPressed: _busyJobId == null ? () => _retryAllVisible() : null,
+        icon: const Icon(Icons.refresh, size: 18),
+        label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr('In lại tất cả ($n)'), maxLines: 1)),
+      ),
+      if (_visKitchen.isNotEmpty && widget.onRetryKitchen != null)
+        OutlinedButton.icon(
+          onPressed: _busyJobId == null ? _moveKitchenVisible : null,
+          icon: const Icon(Icons.print_outlined, size: 18),
+          label: Text(tr('Chuyển phiếu bếp (${_visKitchen.length})…')),
+        ),
+      OutlinedButton.icon(
+        onPressed: _busyJobId == null ? _dismissVisible : null,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.red.shade700,
+          side: BorderSide(color: Colors.red.shade200),
+        ),
+        icon: const Icon(Icons.close, size: 18),
+        label: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(tr(_groupFilter == null ? 'Bỏ tất cả ($n)' : 'Bỏ $n phiếu'), maxLines: 1),
+        ),
+      ),
+    ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 6,
-        children: [
-          FilledButton.icon(
-            onPressed: _busyJobId == null ? () => _retryAllVisible() : null,
-            icon: const Icon(Icons.refresh, size: 18),
-            label: Text(tr('In lại tất cả ($n)')),
-          ),
-          if (_visKitchen.isNotEmpty && widget.onRetryKitchen != null)
-            OutlinedButton.icon(
-              onPressed: _busyJobId == null ? _moveKitchenVisible : null,
-              icon: const Icon(Icons.print_outlined, size: 18),
-              label: Text(tr('Chuyển phiếu bếp (${_visKitchen.length})…')),
-            ),
-          OutlinedButton.icon(
-            onPressed: _busyJobId == null ? _dismissVisible : null,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.red.shade700,
-              side: BorderSide(color: Colors.red.shade200),
-            ),
-            icon: const Icon(Icons.close, size: 18),
-            label: Text(tr(_groupFilter == null ? 'Bỏ tất cả ($n)' : 'Bỏ $n phiếu')),
-          ),
-        ],
-      ),
+      // 2 nút: chia đôi full ngang cho thẳng mép thẻ bên dưới (Wrap để hở mép phải).
+      child: buttons.length == 2
+          ? Row(
+              children: [
+                Expanded(child: buttons[0]),
+                const SizedBox(width: 8),
+                Expanded(child: buttons[1]),
+              ],
+            )
+          : Wrap(spacing: 8, runSpacing: 6, children: buttons),
     );
   }
 
@@ -854,7 +863,7 @@ class _PendingWarehousePrintSheetBodyState
                           const SizedBox(height: 2),
                           Text(
                             tr(error!),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12,
@@ -966,24 +975,25 @@ class _PendingWarehousePrintSheetBodyState
             borderRadius: BorderRadius.circular(10),
             border: border == null ? null : Border.all(color: border),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: fg),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
+          // Thu nhỏ chữ thay vì cắt «Máy kh…» khi 3 nút chung hàng trên màn hẹp (V2s).
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: fg),
+                const SizedBox(width: 4),
+                Text(
                   tr(label),
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: fg,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

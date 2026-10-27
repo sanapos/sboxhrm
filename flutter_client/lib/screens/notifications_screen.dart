@@ -612,6 +612,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final unreadInCat = _category == null
         ? _unreadCount
         : _categoryCounts.where((c) => c.code == _category).fold<int>(0, (s, c) => s + c.unread);
+    // Điện thoại không có tiêu đề trong trang → đưa nút soạn lên hàng icon, khỏi để trống nửa trái.
+    final composeInHeader = _canCompose && !_showInlineTitle(context);
+    final composeButton = FilledButton.tonalIcon(
+      onPressed: _openComposer,
+      icon: const Icon(Icons.campaign_rounded, size: 18),
+      label: Text(tr('Gửi thông báo cho nhân viên'), maxLines: 1, overflow: TextOverflow.ellipsis),
+      style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+    );
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
@@ -643,18 +651,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             )
           else ...[
             Expanded(
-              child: Text.rich(
+              child: composeInHeader
+                  ? Align(alignment: Alignment.centerLeft, child: composeButton)
+                  : Text.rich(
                 TextSpan(children: [
-                  TextSpan(
-                      text: tr('Thông báo'),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
+                  // Điện thoại: thanh trên của main_layout đã ghi «Thông báo» — không lặp tiêu đề lần 2.
+                  if (_showInlineTitle(context))
+                    TextSpan(
+                        text: tr('Thông báo'),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
                   if (_unreadCount > 0)
                     TextSpan(
-                      text: '  ${tr('$_unreadCount chưa đọc')}',
+                      text: '${_showInlineTitle(context) ? '  ' : ''}${tr('$_unreadCount chưa đọc')}',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SboxColors.danger),
                     ),
                 ]),
-              ),
+                    ),
             ),
             _headerIcon(Icons.search_rounded, 'Tìm kiếm', () => setState(() => _searchOpen = true)),
           ],
@@ -703,18 +715,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ],
           ),
         ]),
-        if (_canCompose)
+        if (_canCompose && !composeInHeader)
           Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton.tonalIcon(
-                onPressed: _openComposer,
-                icon: const Icon(Icons.campaign_rounded, size: 18),
-                label: Text(tr('Gửi thông báo cho nhân viên')),
-                style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-              ),
-            ),
+            child: Align(alignment: Alignment.centerLeft, child: composeButton),
           ),
         const SizedBox(height: 8),
         // Trạng thái đọc
@@ -741,6 +745,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ]),
     );
   }
+
+  bool _showInlineTitle(BuildContext context) =>
+      widget.adminPortalMode || MediaQuery.sizeOf(context).width >= 600;
 
   Widget _headerIcon(IconData icon, String tooltip, VoidCallback onTap, {Color? color}) => IconButton(
         tooltip: tr(tooltip),

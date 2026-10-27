@@ -360,33 +360,45 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
           ),
         ),
         const SizedBox(height: 8),
-        SegmentedButton<CashPartyKind>(
-          segments: [
-            ButtonSegment(
-              value: CashPartyKind.customer,
-              label: Text(tr('Khách hàng'), style: const TextStyle(fontSize: 12)),
-              icon: const Icon(Icons.storefront_outlined, size: 16),
+        // Màn hẹp (V2s ~300dp): bỏ icon để chữ không bị bẻ «Khác/h/hàng».
+        LayoutBuilder(builder: (context, c) {
+          final narrow = c.maxWidth < 360;
+          Widget label(String s) => Text(
+                tr(s),
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12),
+              );
+          return SegmentedButton<CashPartyKind>(
+            showSelectedIcon: !narrow,
+            segments: [
+              ButtonSegment(
+                value: CashPartyKind.customer,
+                label: label('Khách hàng'),
+                icon: narrow ? null : const Icon(Icons.storefront_outlined, size: 16),
+              ),
+              ButtonSegment(
+                value: CashPartyKind.employee,
+                label: label('Nhân viên'),
+                icon: narrow ? null : const Icon(Icons.badge_outlined, size: 16),
+              ),
+              ButtonSegment(
+                value: CashPartyKind.other,
+                label: label('Khác'),
+                icon: narrow ? null : const Icon(Icons.edit_outlined, size: 16),
+              ),
+            ],
+            selected: {_kind},
+            onSelectionChanged: (s) => _setKind(s.first),
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              padding: WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: narrow ? 4 : pad, vertical: 8),
+              ),
             ),
-            ButtonSegment(
-              value: CashPartyKind.employee,
-              label: Text(tr('Nhân viên'), style: const TextStyle(fontSize: 12)),
-              icon: const Icon(Icons.badge_outlined, size: 16),
-            ),
-            ButtonSegment(
-              value: CashPartyKind.other,
-              label: Text(tr('Khác'), style: const TextStyle(fontSize: 12)),
-              icon: const Icon(Icons.edit_outlined, size: 16),
-            ),
-          ],
-          selected: {_kind},
-          onSelectionChanged: (s) => _setKind(s.first),
-          style: ButtonStyle(
-            visualDensity: VisualDensity.compact,
-            padding: WidgetStatePropertyAll(
-              EdgeInsets.symmetric(horizontal: pad, vertical: 8),
-            ),
-          ),
-        ),
+          );
+        }),
         const SizedBox(height: 12),
         if (_kind == CashPartyKind.other) ...[
           TextFormField(

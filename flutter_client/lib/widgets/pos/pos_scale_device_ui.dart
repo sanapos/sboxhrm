@@ -127,7 +127,14 @@ class _ScaleDeviceDialogState extends State<_ScaleDeviceDialog> {
   @override
   Widget build(BuildContext context) {
     final supported = _reader.supported;
+    final narrow = MediaQuery.sizeOf(context).width < 420;
     return AlertDialog(
+      // Điện thoại: lề mặc định 40dp mỗi bên làm chữ / ô chọn bị cắt.
+      insetPadding: narrow
+          ? const EdgeInsets.symmetric(horizontal: 12, vertical: 24)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+      contentPadding: narrow ? const EdgeInsets.fromLTRB(16, 12, 16, 8) : null,
+      titlePadding: narrow ? const EdgeInsets.fromLTRB(16, 16, 16, 0) : null,
       title: Row(children: [
         const Icon(Icons.scale_outlined),
         const SizedBox(width: 8),
@@ -167,7 +174,7 @@ class _ScaleDeviceDialogState extends State<_ScaleDeviceDialog> {
                       label: Text(tr(_ports.isEmpty ? 'Chọn cổng cân' : 'Chọn cổng cân khác (${_ports.join(', ')})')),
                     )
                   else
-                    Row(children: [
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           value: _ports.contains(_s.port) ? _s.port : null,
@@ -179,6 +186,7 @@ class _ScaleDeviceDialogState extends State<_ScaleDeviceDialog> {
                                 : _reader.kind == 'android'
                                     ? 'Không thấy cáp cân — cắm cáp rồi bấm ↻'
                                     : 'Không thấy cổng COM — cắm cáp cân, cài driver USB-Serial'),
+                            helperMaxLines: 2,
                             border: const OutlineInputBorder(),
                             isDense: true,
                           ),

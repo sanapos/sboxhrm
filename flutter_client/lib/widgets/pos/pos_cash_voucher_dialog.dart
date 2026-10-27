@@ -166,11 +166,11 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
     return wrapPosFormDialog(
       context,
       Dialog(
-      insetPadding: const EdgeInsets.all(24),
+      insetPadding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 420 ? 12 : 24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 420 ? 16 : 20),
           child: _loadingCats
               ? const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()))
               : SingleChildScrollView(
@@ -216,44 +216,71 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                       ),
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      tr(_paymentMethod == PaymentMethodType.cash ? 'Tiền mặt' : 'Chuyển khoản'),
-                      style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
-                    ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
+                    // Trước chỉ là dòng chữ «Tiền mặt» cố định dưới ô số tiền — trông như gợi ý, không đổi được.
                     Row(
                       children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: _pickDateTime,
-                            child: InputDecorator(
-                              decoration: InputDecoration(
-                                labelText: tr('Thời gian'),
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                              ),
-                              child: Text(tr(dtFmt.format(_when))),
+                        for (final m in const [PaymentMethodType.cash, PaymentMethodType.bankTransfer]) ...[
+                          if (m != PaymentMethodType.cash) const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: Text(tr(m.label)),
+                            selected: _paymentMethod == m,
+                            showCheckmark: false,
+                            visualDensity: VisualDensity.compact,
+                            selectedColor: PosTheme.kiotBlueLight,
+                            labelStyle: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _paymentMethod == m ? _kiotBlue : PosTheme.textSecondary,
                             ),
+                            onSelected: (_) => setState(() => _paymentMethod = m),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: _categoryId,
-                            decoration: InputDecoration(
-                              labelText: tr('Danh mục'),
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            items: _categories
-                                .map((c) => DropdownMenuItem(value: c.id, child: Text(tr(c.name))))
-                                .toList(),
-                            onChanged: (v) => setState(() => _categoryId = v),
-                          ),
-                        ),
+                        ],
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    LayoutBuilder(builder: (context, c) {
+                      final timeField = InkWell(
+                        onTap: _pickDateTime,
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: tr('Thời gian'),
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          child: Text(tr(dtFmt.format(_when)), maxLines: 1, softWrap: false),
+                        ),
+                      );
+                      final categoryField = DropdownButtonFormField<String>(
+                        value: _categoryId,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: tr('Danh mục'),
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: _categories
+                            .map((c) => DropdownMenuItem(
+                                value: c.id,
+                                child: Text(tr(c.name), maxLines: 1, overflow: TextOverflow.ellipsis)))
+                            .toList(),
+                        onChanged: (v) => setState(() => _categoryId = v),
+                      );
+                      // Màn hẹp: chung hàng thì ngày giờ bẻ 2 dòng, cao lệch ô Danh mục.
+                      if (c.maxWidth < 420) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [timeField, const SizedBox(height: 12), categoryField],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(child: timeField),
+                          const SizedBox(width: 12),
+                          Expanded(child: categoryField),
+                        ],
+                      );
+                    }),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _noteCtrl,
@@ -264,29 +291,51 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        OutlinedButton(
-                          onPressed: _loading ? null : () => Navigator.pop(context),
-                          child: Text(tr('Bỏ qua')),
-                        ),
-                        const SizedBox(width: 8),
-                        FilledButton(
-                          style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
-                          onPressed: _loading ? null : () => _save(),
-                          child: _loading
-                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                              : Text(tr(_isIncome ? 'Tạo phiếu thu' : 'Tạo phiếu chi')),
-                        ),
-                        const SizedBox(width: 8),
-                        FilledButton(
-                          style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
-                          onPressed: _loading ? null : () => _save(andPrint: true),
-                          child: Text(tr(_isIncome ? 'Tạo phiếu thu & In' : 'Tạo phiếu chi & In')),
-                        ),
-                      ],
-                    ),
+                    LayoutBuilder(builder: (context, c) {
+                      final cancel = OutlinedButton(
+                        onPressed: _loading ? null : () => Navigator.pop(context),
+                        child: Text(tr('Bỏ qua')),
+                      );
+                      final create = FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
+                        onPressed: _loading ? null : () => _save(),
+                        child: _loading
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                            : Text(tr(_isIncome ? 'Tạo phiếu thu' : 'Tạo phiếu chi')),
+                      );
+                      final createPrint = FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
+                        onPressed: _loading ? null : () => _save(andPrint: true),
+                        child: Text(tr(_isIncome ? 'Tạo phiếu thu & In' : 'Tạo phiếu chi & In')),
+                      );
+                      // Màn hẹp: 3 nút một hàng tràn khỏi hộp — xếp 2 hàng, nút rộng đều.
+                      if (c.maxWidth < 460) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            createPrint,
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(child: cancel),
+                                const SizedBox(width: 8),
+                                Expanded(child: create),
+                              ],
+                            ),
+                          ],
+                        );
+                      }
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          cancel,
+                          const SizedBox(width: 8),
+                          create,
+                          const SizedBox(width: 8),
+                          createPrint,
+                        ],
+                      );
+                    }),
                   ],
                 ),
               ),

@@ -413,7 +413,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: Text(tr(_order != null ? 'Trả hàng · ${_order!.orderNo}' : 'Trả hàng bán')),
+        title: Text(tr(_order != null ? 'Trả hàng' : 'Trả hàng bán')),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0.5,
@@ -490,9 +490,9 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                   ),
                 ),
               ),
-              if (o.createdAt != null)
+              if ((o.saleDate ?? o.createdAt) != null)
                 Text(
-                  tr(_dateFmt.format(o.createdAt!.toLocal())),
+                  tr(_dateFmt.format((o.saleDate ?? o.createdAt)!.toLocal())),
                   style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
                 ),
             ],
@@ -729,11 +729,30 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                         color: _kiotBlue)),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
+          // Bộ tăng giảm gọn bên phải (trước: ô SL giãn hết hàng, viền dính nút «−», nhãn nổi đè viền).
           Row(
             children: [
+              Text(tr('SL trả'),
+                  style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+              const Spacer(),
+              TextButton(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: rl.maxReturnable > 0
+                    ? () => _setReturnQty(rl, rl.maxReturnable)
+                    : null,
+                child: Text(tr('Hết'),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(width: 6),
               _qtyBtn(Icons.remove, ret > 0 ? () => _adjustReturnQty(rl, -1) : null),
-              Expanded(
+              const SizedBox(width: 6),
+              SizedBox(
+                width: 64,
                 child: TextField(
                   controller: rl.qtyCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -742,12 +761,10 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
                   ],
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 6),
-                    border: const OutlineInputBorder(),
-                    labelText: tr('SL trả'),
-                    labelStyle: const TextStyle(fontSize: 11),
+                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    border: OutlineInputBorder(),
                   ),
                   onChanged: (_) => setState(() {}),
                   onSubmitted: (v) {
@@ -755,20 +772,9 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                   },
                 ),
               ),
+              const SizedBox(width: 6),
               _qtyBtn(Icons.add, ret < rl.maxReturnable ? () => _adjustReturnQty(rl, 1) : null,
                   primary: true),
-              const SizedBox(width: 4),
-              TextButton(
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: const Size(0, 32),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                onPressed: rl.maxReturnable > 0
-                    ? () => _setReturnQty(rl, rl.maxReturnable)
-                    : null,
-                child: Text(tr('Hết'), style: const TextStyle(fontSize: 11)),
-              ),
             ],
           ),
         ],
@@ -979,8 +985,8 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
         children: [
           Text(tr(o.soldBy ?? o.createdBy ?? '—'),
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-          if (o.createdAt != null)
-            Text(tr(_dateFmt.format(o.createdAt!.toLocal())),
+          if ((o.saleDate ?? o.createdAt) != null)
+            Text(tr(_dateFmt.format((o.saleDate ?? o.createdAt)!.toLocal())),
                 style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
           const SizedBox(height: 8),
           Text(tr('${tr('Khách: ')}${o.customerName ?? 'Khách lẻ'}'), style: const TextStyle(fontSize: 13)),
@@ -1037,7 +1043,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                     Text(tr('Cần trả khách'),
                         style: TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
                     Text(
-                      tr(_moneyFmt.format(_returnTotal)),
+                      tr('${_moneyFmt.format(_returnTotal)} đ'),
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -1058,7 +1064,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(tr('TRẢ HÀNG'),
+                    : Text(tr('Trả hàng'),
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
             ],

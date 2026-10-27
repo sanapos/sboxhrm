@@ -415,15 +415,10 @@ Widget buildPosDiscountPresetChips({
       }).toList(),
     );
   }
-  return Wrap(
-    spacing: 4,
-    runSpacing: 4,
-    children: values.map((p) {
-      return SizedBox(
-        width: 44,
-        child: _discountChip('$p%', () => onPickPercent(p.toDouble())),
-      );
-    }).toList(),
+  return _evenChipGrid(
+    values
+        .map((p) => _discountChip('$p%', () => onPickPercent(p.toDouble())))
+        .toList(),
   );
 }
 
@@ -453,18 +448,31 @@ Widget buildPosDiscountMoneyPresetChips({
     );
   }
 
-  return Wrap(
-    spacing: 4,
-    runSpacing: 4,
-    children: amounts.map((amount) {
-      return SizedBox(
-        width: 72,
-        child: _discountChip(
-          _compactVndLabel(amount, moneyFmt),
-          () => onPickAmount(amount.toDouble()),
-        ),
+  return _evenChipGrid(
+    amounts.map((amount) {
+      return _discountChip(
+        _compactVndLabel(amount, moneyFmt),
+        () => onPickAmount(amount.toDouble()),
       );
     }).toList(),
+  );
+}
+
+/// Lưới chip giãn đều full chiều ngang (trước: ô rộng cố định → hở mép phải, lệch với ô nhập).
+Widget _evenChipGrid(List<Widget> chips) {
+  const gap = 4.0;
+  final cols = chips.length <= 9 ? 3 : 4;
+  return LayoutBuilder(
+    builder: (context, c) {
+      final w = c.maxWidth.isFinite
+          ? ((c.maxWidth - gap * (cols - 1)) / cols).floorToDouble()
+          : 72.0;
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [for (final chip in chips) SizedBox(width: w, child: chip)],
+      );
+    },
   );
 }
 

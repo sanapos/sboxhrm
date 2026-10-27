@@ -53,8 +53,6 @@ class _PosPickSaleOrderPage extends StatelessWidget {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr(_title)),
-        backgroundColor: _kiotBlue,
-        foregroundColor: Colors.white,
       ),
       body: SafeArea(child: _PosPickSaleOrderShell(compact: false, purpose: purpose)),
     );
@@ -289,8 +287,8 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    tr(o.createdAt != null
-                        ? _dateFmt.format(o.createdAt!.toLocal())
+                    tr((o.saleDate ?? o.createdAt) != null
+                        ? _dateFmt.format((o.saleDate ?? o.createdAt)!.toLocal())
                         : '—'),
                     style: const TextStyle(
                       fontSize: 12,
@@ -364,7 +362,9 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
             SboxColumn(
                 label: 'Thời gian',
                 minWidth: 100,
-                text: (o) => o.createdAt != null ? shortFmt.format(o.createdAt!.toLocal()) : '—'),
+                text: (o) => (o.saleDate ?? o.createdAt) != null
+                    ? shortFmt.format((o.saleDate ?? o.createdAt)!.toLocal())
+                    : '—'),
             SboxColumn(label: 'Nhân viên', minWidth: 120, hideOnMobile: true, text: (o) => o.soldBy ?? o.createdBy ?? '—'),
             SboxColumn(label: 'Khách hàng', flex: 2, minWidth: 140, text: (o) => o.customerName ?? 'Khách lẻ'),
             SboxColumn(label: 'Tổng cộng', numeric: true, minWidth: 100, text: (o) => _moneyFmt.format(o.total)),

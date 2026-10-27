@@ -6303,6 +6303,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           decoration: InputDecoration(
             hintText: tr('VD: Anh Nam, Mang về, Bàn ngoài'),
             helperText: tr('Để trống = HĐ ${tab.id}. Tên mất khi hóa đơn thanh toán / đóng.'),
+            helperMaxLines: 3,
           ),
           onSubmitted: (v) => Navigator.pop(ctx, v),
         ),
@@ -14478,14 +14479,15 @@ class _PosSellScreenState extends State<PosSellScreen>
               tr(accountName),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              // Mục bị tắt (chỉ hiển thị) → Flutter làm xám; giữ màu chữ thường.
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: PosTheme.textPrimary),
             ),
             subtitle: accountSubtitle != null && accountSubtitle.isNotEmpty
                 ? Text(
                     tr(accountSubtitle),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11),
+                    style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
                   )
                 : null,
             contentPadding: EdgeInsets.zero,
@@ -18336,16 +18338,40 @@ class _PosSellScreenState extends State<PosSellScreen>
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          tr(draftLines == 0
-                              ? 'Chưa chọn hàng'
-                              : 'Đã chọn $draftLines SP · ${_qtyFmtInt(draftCount)}'),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: PosTheme.textPrimary,
-                          ),
-                        ),
+                        child: draftLines == 0
+                            ? Text(
+                                tr('Chưa chọn hàng'),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: PosTheme.textSecondary,
+                                ),
+                              )
+                            : Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    tr('Đã chọn'),
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      color: PosTheme.textSecondary,
+                                      height: 1.2,
+                                    ),
+                                  ),
+                                  Text(
+                                    tr('$draftLines mặt hàng · ${_qtyFmtInt(draftCount)} đơn vị'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: PosTheme.textPrimary,
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                ],
+                              ),
                       ),
                       FilledButton(
                         onPressed: draftLines == 0
@@ -20028,12 +20054,29 @@ class _PosSellScreenState extends State<PosSellScreen>
                       children: [
                         const Icon(Icons.sell_outlined, size: 20, color: _kiotBlue),
                         const SizedBox(width: 8),
+                        // Tên hàng xuống dòng riêng: chung dòng tiêu đề bị cắt «Giá & chiết khấu · D…».
                         Expanded(
-                          child: Text(
-                            tr('Giá & chiết khấu · ${line.product.name}'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                tr('Giá & chiết khấu'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                              ),
+                              Text(
+                                line.product.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: PosTheme.textSecondary,
+                                  height: 1.25,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 8),
