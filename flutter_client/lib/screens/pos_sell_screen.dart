@@ -10555,6 +10555,11 @@ class _PosSellScreenState extends State<PosSellScreen>
   void _onDiscountInputChanged(String raw, {VoidCallback? onMutate}) {
     if (!_guardReadOnlyEdit()) return;
     final v = _parseMoneyInput(raw);
+    // Giảm theo tiền: bàn phím trả «3000» thô → hiện «3.000» như ô tiền mặt.
+    if (!_tab.discountIsPercent) {
+      final shown = v > 0 ? _moneyFmt.format(v) : '';
+      if (_tab._discountCtrl.text != shown) _tab._discountCtrl.text = shown;
+    }
     setState(() {
       _tab.discountInput = v;
       if (!_tab.paidManuallyEdited && !_tab.paymentsManuallyEdited) {
@@ -16560,11 +16565,13 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// [showPriceList] false: ô Bảng giá đã nằm ở cột giỏ hàng (màn thanh toán tablet ngang).
   /// [wideLayout]: Giảm giá + voucher chung một hàng, nút phương thức thấp — đủ chỗ hiện số tiền
   /// và tiền thối mà không phải cuộn.
+  /// Ô Bảng giá màn rộng: chạm → menu thả ngay dưới ô (trước đây bảng trượt từ đáy màn lên).
   Widget _buildPriceListTile({VoidCallback? onMutate}) {
-    return InkWell(
+    return Builder(
+      builder: (tileCtx) => InkWell(
             borderRadius: BorderRadius.circular(6),
             onTap: () async {
-              await _openMobilePriceListPicker(onMutate: onMutate);
+              await _openPriceListMenu(tileCtx, onMutate: onMutate);
               if (mounted) setState(() {});
               onMutate?.call();
             },
@@ -16584,7 +16591,89 @@ class _PosSellScreenState extends State<PosSellScreen>
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ),
-          );
+          ),
+    );
+  }
+
+  Future<void> _openPriceListMenu(BuildContext anchor, {VoidCallback? onMutate}) async {
+    if (_priceLists.isEmpty) await _loadPriceLists();
+    if (!mounted || !anchor.mounted) return;
+    final options = _priceLists.isNotEmpty
+        ? _priceLists
+        : [PosPriceList(id: '', name: 'Bảng giá chung')];
+    final box = anchor.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(anchor).context.findRenderObject() as RenderBox;
+    final topLeft = box.localToGlobal(Offset(0, box.size.height + 4), ancestor: overlay);
+    final canSetup =
+        Provider.of<PermissionProvider>(context, listen: false).canEdit('PosProducts');
+    const setupKey = '__setup__';
+    const generalKey = '__general__';
+    final picked = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        topLeft.dx,
+        topLeft.dy,
+        overlay.size.width - topLeft.dx - box.size.width,
+        0,
+      ),
+      constraints: BoxConstraints(minWidth: box.size.width, maxWidth: box.size.width),
+      items: [
+        for (final pl in options)
+          PopupMenuItem<String>(
+            value: pl.id.isEmpty ? generalKey : pl.id,
+            child: Row(children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(tr(pl.name), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    if (pl.isDefault || pl.validFrom != null || pl.validTo != null)
+                      Text(
+                        tr([
+                          if (pl.isDefault) 'Mặc định',
+                          if (pl.validFrom != null || pl.validTo != null)
+                            '${pl.validFrom != null ? DateFormat('dd/MM').format(pl.validFrom!) : '…'}'
+                                '→${pl.validTo != null ? DateFormat('dd/MM').format(pl.validTo!) : '…'}',
+                        ].join(' · ')),
+                        style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                      ),
+                  ],
+                ),
+              ),
+              if (_tab.priceListId == pl.id ||
+                  (_tab.priceListId == null && _tab.priceListLabel == pl.name))
+                const Icon(Icons.check, color: _kiotBlue, size: 20),
+            ]),
+          ),
+        if (canSetup) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem<String>(
+            value: setupKey,
+            child: Row(children: [
+              const Icon(Icons.settings_outlined, size: 18, color: _kiotBlue),
+              const SizedBox(width: 8),
+              Text(tr('Thiết lập bảng giá'), style: const TextStyle(color: _kiotBlue)),
+            ]),
+          ),
+        ],
+      ],
+    );
+    if (picked == null || !mounted) return;
+    if (picked == setupKey) {
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => PosHubScope.pushed(child: const PosPriceListsScreen())));
+      if (!mounted) return;
+      _priceOverrideCache.clear();
+      await _loadPriceLists();
+      return;
+    }
+    final pl = options.firstWhere((o) => (o.id.isEmpty ? generalKey : o.id) == picked);
+    if (pl.id.isNotEmpty) {
+      await _selectPriceList(pl, onMutate: onMutate);
+    } else {
+      await _clearPriceListSelection(label: pl.name, onMutate: onMutate);
+    }
   }
 
   Widget _buildVoucherRow({VoidCallback? onMutate}) {
@@ -16836,9 +16925,13 @@ class _PosSellScreenState extends State<PosSellScreen>
               child: PosNoSoftKeyboardField(
                 controller: _tab._discountCtrl,
                 enabled: !_tab.draftReadOnly && context.read<PermissionProvider>().canPosDiscount(),
-                allowDecimal: true,
+                // Số nguyên: _parseMoneyInput bỏ dấu chấm — «12.5» trước đây thành 125.
+                allowDecimal: false,
                 textAlign: TextAlign.right,
                 keypadTitle: 'Giảm giá đơn',
+                // Chọn nhanh ngay trên bàn phím: % (bấm là chọn) hoặc mệnh giá cộng dồn như tiền khách đưa.
+                quickPercents: _tab.discountIsPercent ? kPosDiscountPresets : null,
+                offerCashNotes: !_tab.discountIsPercent,
                 decoration: InputDecoration(
                   isDense: true,
                   filled: true,
@@ -16865,7 +16958,10 @@ class _PosSellScreenState extends State<PosSellScreen>
           ],
         ),
         ),
-        if (_orderDiscountPresetsVisible && context.read<PermissionProvider>().canPosDiscount())
+        // Màn rộng: chọn nhanh đã nằm trên bàn phím số — không lặp hàng chip dưới ô.
+        if (!wideLayout &&
+            _orderDiscountPresetsVisible &&
+            context.read<PermissionProvider>().canPosDiscount())
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: _tab.discountIsPercent

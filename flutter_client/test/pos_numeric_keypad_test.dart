@@ -4,7 +4,7 @@ import 'package:zkteco_flutter_client/widgets/pos/pos_numeric_keypad.dart';
 
 void main() {
   Future<String?> enter(WidgetTester tester, String initial, List<String> keys,
-      {bool allowDecimal = false, bool cashNotes = false}) async {
+      {bool allowDecimal = false, bool cashNotes = false, List<int>? percents}) async {
     tester.view.physicalSize = const Size(1200, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -19,6 +19,7 @@ void main() {
               initial: initial,
               allowDecimal: allowDecimal,
               offerCashNotes: cashNotes,
+              quickPercents: percents,
             ),
             child: const Text('open'),
           ),
@@ -77,5 +78,9 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     expect(find.text('+500k'), findsNothing);
+  });
+
+  testWidgets('nút % chọn nhanh thay giá trị, bấm lại % khác thì đổi', (tester) async {
+    expect(await enter(tester, '0', ['10%', '25%'], percents: const [5, 10, 15, 20, 25]), '25');
   });
 }

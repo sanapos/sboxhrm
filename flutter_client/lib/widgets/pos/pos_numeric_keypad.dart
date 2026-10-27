@@ -52,6 +52,7 @@ class PosNoSoftKeyboardField extends StatelessWidget {
     this.offerDecimalToggle = false,
     this.onDecimalToggle,
     this.offerCashNotes = false,
+    this.quickPercents,
   });
 
   final TextEditingController controller;
@@ -74,6 +75,8 @@ class PosNoSoftKeyboardField extends StatelessWidget {
   final ValueChanged<bool>? onDecimalToggle;
   /// Hiện nút mệnh giá tiền mặt «+1k … +500k» (cộng dồn) trên bàn phím số.
   final bool offerCashNotes;
+  /// Nút % chọn nhanh (bấm là thay giá trị) — ô giảm giá theo %.
+  final List<int>? quickPercents;
 
   Future<void> _openPad(BuildContext context) async {
     if (!enabled || !openKeypadOnTap) return;
@@ -88,6 +91,7 @@ class PosNoSoftKeyboardField extends StatelessWidget {
       offerDecimalToggle: offerDecimalToggle,
       onDecimalToggle: onDecimalToggle,
       offerCashNotes: offerCashNotes,
+      quickPercents: quickPercents,
     );
     if (next == null || !context.mounted) return;
     controller.text = next;
@@ -137,6 +141,7 @@ Future<String?> showPosNumericKeypad({
   bool offerDecimalToggle = false,
   ValueChanged<bool>? onDecimalToggle,
   bool offerCashNotes = false,
+  List<int>? quickPercents,
 }) {
   return showModalBottomSheet<String>(
     context: context,
@@ -153,6 +158,7 @@ Future<String?> showPosNumericKeypad({
       offerDecimalToggle: offerDecimalToggle,
       onDecimalToggle: onDecimalToggle,
       offerCashNotes: offerCashNotes,
+      quickPercents: quickPercents,
     ),
   );
 }
@@ -166,6 +172,7 @@ class _PosNumericKeypadSheet extends StatefulWidget {
     required this.offerDecimalToggle,
     required this.onDecimalToggle,
     this.offerCashNotes = false,
+    this.quickPercents,
   });
 
   final String title;
@@ -175,6 +182,7 @@ class _PosNumericKeypadSheet extends StatefulWidget {
   final bool offerDecimalToggle;
   final ValueChanged<bool>? onDecimalToggle;
   final bool offerCashNotes;
+  final List<int>? quickPercents;
 
   @override
   State<_PosNumericKeypadSheet> createState() => _PosNumericKeypadSheetState();
@@ -258,6 +266,11 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
       _fresh = false;
     });
   }
+
+  void _pickPercent(int p) => setState(() {
+        _value = '$p';
+        _fresh = false;
+      });
 
   String get _shownValue {
     if (_value.isEmpty) return '0';
@@ -378,6 +391,13 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
                 for (final n in row)
                   _key('+${n ~/ 1000}k',
                       onTap: () => _addNote(n), bg: SboxColors.successSoft, fg: SboxColors.successText),
+              ]),
+          if (widget.quickPercents != null && widget.quickPercents!.isNotEmpty)
+            for (var i = 0; i < widget.quickPercents!.length; i += 5)
+              Row(children: [
+                for (final p in widget.quickPercents!.skip(i).take(5))
+                  _key('$p%',
+                      onTap: () => _pickPercent(p), bg: SboxColors.brand50, fg: SboxColors.brand700),
               ]),
           Row(children: [
             _key('7', onTap: () => _append('7')),
