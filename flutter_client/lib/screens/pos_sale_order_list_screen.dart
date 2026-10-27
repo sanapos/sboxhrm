@@ -1621,7 +1621,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           children: [
             Expanded(
               child: Text(
-                tr('$_total HĐ${returnedTotal > 0 ? ' · Trả ${_moneyFmt.format(returnedTotal)}' : ''}'),
+                tr('$_total HĐ${returnedTotal > 0 ? ' · Trả ${_moneyFmt.format(returnedTotal)} đ' : ''}'),
                 style: const TextStyle(
                     fontSize: 12, color: PosTheme.textSecondary),
                 maxLines: 1,
@@ -1651,37 +1651,18 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       .where((o) => o.status == 'Completed')
       .fold<double>(0, (sum, o) => sum + o.returnedAmount);
 
+  // Số tiền đã trả nằm trong chip «Trả một phần · … đ» ở dòng 2 — cột tổng chỉ 1 dòng,
+  // không đẩy mã đơn xa tên khách.
   Widget _buildOrderTotalColumn(PosSaleOrder o) {
     final cancelled = o.status == 'Cancelled';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(tr('${_moneyFmt.format(o.total)} đ'),
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: cancelled ? Colors.red.shade800 : null,
-            decoration: cancelled ? TextDecoration.lineThrough : null,
-            decorationColor: cancelled ? Colors.red.shade400 : null,
-          ),
-        ),
-        if (o.hasReturns)
-          Container(
-            margin: const EdgeInsets.only(top: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(tr('Đã trả ${_moneyFmt.format(o.returnedAmount)}'),
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: Colors.orange.shade800,
-              ),
-            ),
-          ),
-      ],
+    return Text(tr('${_moneyFmt.format(o.total)} đ'),
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: cancelled ? Colors.red.shade800 : null,
+        decoration: cancelled ? TextDecoration.lineThrough : null,
+        decorationColor: cancelled ? Colors.red.shade400 : null,
+      ),
     );
   }
 
@@ -2133,7 +2114,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                       ),
                     ),
                   ),
-                  posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
+                  posSaleOrderStatusChip(o.status,
+                      returnStatus: o.returnStatus, returnedAmount: o.returnedAmount),
                 ],
               ),
               const SizedBox(height: 2),

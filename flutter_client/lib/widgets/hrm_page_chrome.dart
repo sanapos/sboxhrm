@@ -121,8 +121,12 @@ class HrmPageChrome {
       HrmShellChrome.isVisible(context);
 
   /// Route được push đè lên shell — phải tự vẽ tiêu đề + back.
+  /// Màn ở route đầu (trong khung chính) mà có dialog đè thì canPop cũng true — không tính là bị push
+  /// (trước đây mở chi tiết hóa đơn rồi đóng, sau lưng hiện thêm «← Hóa đơn» dưới «← Đơn hàng»).
   static bool isPushedOverShell(BuildContext context) =>
-      Navigator.of(context).canPop() && !isHubBody(context);
+      Navigator.of(context).canPop() &&
+      !isHubBody(context) &&
+      !(ModalRoute.of(context)?.isFirst ?? false);
 
   /// Ẩn tiêu đề in-page vì AppBar MainLayout / hub đã hiện.
   static bool hideInPageTitle(BuildContext context) =>

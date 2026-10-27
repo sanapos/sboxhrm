@@ -330,6 +330,13 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
                   ),
                 const SizedBox(height: WhMobileTheme.gap),
                 WhSectionHeader(title: 'Hàng trả (${_lines.length})'),
+                if (_lines.isEmpty)
+                  const WhEmptyState(
+                    icon: Icons.assignment_return_outlined,
+                    title: 'Chưa có hàng',
+                    subtitle: 'Quét mã hoặc tìm sản phẩm ở trên',
+                  )
+                else
                 ...List.generate(_lines.length, (i) {
                   final l = _lines[i];
                   return WhLineCard(

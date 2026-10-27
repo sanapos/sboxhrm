@@ -422,6 +422,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   static const _kPaletteExtraKeywords = <String, List<String>>{
     // Theo nhãn gốc: mã quyền PosSalesReport dùng chung với «Công nợ khách hàng».
     'Báo cáo POS': ['doanh thu', 'bán hàng', 'cuối ngày', 'doanh số'],
+    // Gõ «lịch hẹn» / «đặt bàn» trước đây không ra gì.
+    'Đặt lịch': ['lịch hẹn', 'hẹn khách', 'đặt bàn', 'đặt chỗ', 'booking'],
   };
 
   Future<void> _openCommandPalette() async {

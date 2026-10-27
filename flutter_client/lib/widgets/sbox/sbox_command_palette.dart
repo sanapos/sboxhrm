@@ -218,7 +218,8 @@ class _PaletteState extends State<_Palette> {
                                           overflow: TextOverflow.ellipsis,
                                           style: SboxType.bodyStyle(on ? SboxColors.brand900 : SboxColors.text)
                                               .copyWith(fontWeight: SboxType.medium)),
-                                      if (it.subtitle != null)
+                                      // Mô tả trùng tên («Đặt lịch / Đặt lịch») — bỏ dòng lặp.
+                                      if (it.subtitle != null && tr(it.subtitle!) != tr(it.label))
                                         Text(tr(it.subtitle!),
                                             maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.captionStyle()),
                                     ],

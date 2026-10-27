@@ -1098,10 +1098,7 @@ class PosMobileKiotHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final inHub = PosHubScope.of(context);
     final pushed = PosHubScope.pushedSubPageOf(context);
-    // Màn nằm ở route đầu (trong khung chính) mà có dialog đè lên thì canPop cũng true — không
-    // phải bị push đè, đừng hiện thêm «← tiêu đề» phía sau dialog.
-    final pushedOverShell = HrmPageChrome.isPushedOverShell(context) &&
-        !(ModalRoute.of(context)?.isFirst ?? false);
+    final pushedOverShell = HrmPageChrome.isPushedOverShell(context);
     final showBack = (pushed || pushedOverShell) && !inHub;
     final compactHeader = inHub;
     // Tablet trong khung MainLayout: thanh trên đã có «← Hàng hóa» — không lặp tiêu đề lần 2,
