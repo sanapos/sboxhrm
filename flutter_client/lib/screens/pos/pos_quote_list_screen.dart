@@ -704,7 +704,17 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text(_error!));
     if (rows.isEmpty) {
-      return Center(child: Text(tr(empty)));
+      // Có lề (trước chữ dính mép màn); đang tìm thì báo không khớp, khỏi tưởng chưa có hợp đồng nào.
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            tr(_search.text.trim().isNotEmpty ? 'Không có kết quả phù hợp' : empty),
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, color: SboxColors.slate500, height: 1.4),
+          ),
+        ),
+      );
     }
     return RefreshIndicator(
       onRefresh: _reloadAll,
