@@ -592,6 +592,11 @@ class _SellInvoiceTab {
   String? tingeeTransferExternalId;
   /// Optimistic lock version từ server (Gửi kèm khi Giữ đơn / TT).
   int lockVersion = 0;
+  /// Các dòng đơn trên server lần giỏ khớp server gần nhất (tải về / lưu xong). Gửi kèm khi lưu để server
+  /// gộp 3 chiều: máy này cầm giỏ cũ (409 rồi lưu lại) không xóa món máy khác / bếp vừa thêm.
+  /// null = chưa biết → server lưu đè như cũ.
+  List<Map<String, dynamic>>? serverBaseLines;
+  String? serverBaseOrderId;
   /// Slot cố định trên server (= id tab: Hóa đơn 1..N).
   int get invoiceSlot => id;
   /// true = máy khác đang giữ — chỉ xem, poll cập nhật dòng hàng.
@@ -722,6 +727,8 @@ class _SellInvoiceTab {
     draftOrderId = null;
     draftOrderNo = null;
     lockVersion = 0;
+    serverBaseLines = null;
+    serverBaseOrderId = null;
     draftReadOnly = false;
     lockedByLabel = null;
     serverLineCount = 0;
@@ -2591,6 +2598,8 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// Tablet lớn (≥1024) + F&B: true = đang ở màn thanh toán riêng (sau khi
   /// bấm "Thanh toán" từ màn chọn món), false = đang ở màn chọn món/giỏ hàng.
   bool _tabletPaymentStage = false;
+  bool _enteringPaymentStage = false;
+  DateTime? _paymentStageOpenedAt;
   /// Overlay QR chờ CK trên màn chính — thu gọn được trong lúc chờ webhook.
   bool _paymentQrOverlayDismissed = false;
   Timer? _tingeeIntentPoll;
@@ -2973,14 +2982,10 @@ class _PosSellScreenState extends State<PosSellScreen>
       final id = (r['id'] ?? '').toString();
       final identityHit = (ext.isNotEmpty && (orderNo == ext || external == ext)) ||
           (draftId.isNotEmpty && saleOrderId.toLowerCase() == draftId.toLowerCase());
-      // Khớp theo số tiền chỉ với CK không gắn đơn, đến SAU khi mở QR —
-      // tránh lấy nhầm CK cũ cùng số tiền của đơn/bàn khác rồi tự hoàn tất đơn chưa trả.
-      final amountHit = saleOrderId.isEmpty &&
-          !_tingeeSeenConfirmedIds.contains(id) &&
-          amount != null &&
-          expected > 0 &&
-          (amount - expected).abs() < 1;
-      if (!identityHit && !amountHit) continue;
+      // Chỉ khớp theo mã đơn / mã giao dịch của CHÍNH hóa đơn này. Trước đây còn khớp «cùng số tiền»:
+      // 2 máy (hoặc 2 hóa đơn) cùng chờ 45.000 → một lần chuyển khoản hoàn tất cả hai đơn.
+      if (!identityHit) continue;
+      if (amount != null && expected > 0 && (amount - expected).abs() >= 1) continue;
       _tingeeSeenConfirmedIds = {..._tingeeSeenConfirmedIds, id};
       _completeTingeePaidOrder(
         tr('Đã nhận chuyển khoản — đang hoàn tất đơn…'),
@@ -3014,12 +3019,19 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Future<void> _enterPaymentStageAsync() async {
-    if (!await _guardReadOnlyBeforePay()) return;
-    if (!await _ensureOpenCashierShiftIfRequired()) return;
+    if (_enteringPaymentStage) return;
+    _enteringPaymentStage = true;
+    try {
+      if (!await _guardReadOnlyBeforePay()) return;
+      if (!await _ensureOpenCashierShiftIfRequired()) return;
+    } finally {
+      _enteringPaymentStage = false;
+    }
     if (!mounted) return;
     setState(() {
       _syncCheckoutKitchenChip();
       _tabletPaymentStage = true;
+      _paymentStageOpenedAt = DateTime.now();
       _paymentQrOverlayDismissed = false;
       _orderDiscountPresetsVisible = false;
     });
@@ -3935,6 +3947,29 @@ class _PosSellScreenState extends State<PosSellScreen>
     });
   }
 
+  /// Hỏi khi rời bàn mà món chưa lưu: 'retry' / 'discard' / null (ở lại).
+  Future<String?> _askUnsavedTableLeave({required bool canRetry}) {
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Món chưa lưu lên máy chủ')),
+        content: Text(tr(canRetry
+            ? 'Mạng chậm hoặc lưu bị lỗi. Rời bàn bây giờ thì món vừa thêm sẽ mất.'
+            : 'Máy khác đang giữ quyền sửa bàn này. Món vừa thêm trên máy này chưa được lưu.')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'discard'),
+            child: Text(tr('Bỏ món chưa lưu'), style: TextStyle(color: Colors.red.shade700)),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Ở lại bàn'))),
+          if (canRetry)
+            FilledButton(onPressed: () => Navigator.pop(ctx, 'retry'), child: Text(tr('Thử lưu lại'))),
+        ],
+      ),
+    );
+  }
+
   /// Về sơ đồ: nhả khóa ngay để máy khác mở/claim được.
   /// Chỉ xem (draftReadOnly) → không unlock / không «tạm rời» — giữ «Máy khác» của máy đang sửa.
   Future<void> _returnToFloorMap() async {
@@ -3949,6 +3984,24 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (leaving.localDirty) {
         await _persistDraftAutosave(forTab: leaving, showLockError: true, retryOnConflict: true);
         if (!mounted || !identical(leaving, _tab)) return;
+      }
+    }
+    // Vẫn còn món chưa lên máy chủ (mạng chậm quá 3 giây, lưu lỗi, máy khác vừa lấy quyền) → KHÔNG rời
+    // bàn âm thầm. Trước đây vẫn đánh dấu «đã lưu» rồi về sơ đồ — mở lại bàn món vừa thêm biến mất.
+    if (leaving.localDirty && leaving.cart.isNotEmpty) {
+      while (true) {
+        final choice = await _askUnsavedTableLeave(canRetry: !leaving.draftReadOnly);
+        if (!mounted || !identical(leaving, _tab)) return;
+        if (choice == 'retry') {
+          await _awaitDraftAutosaveIdle(maxTicks: 60, tick: const Duration(milliseconds: 80), notifyBusy: false);
+          if (!mounted || !identical(leaving, _tab)) return;
+          await _persistDraftAutosave(forTab: leaving, showLockError: true, retryOnConflict: true);
+          if (!mounted || !identical(leaving, _tab)) return;
+          if (!leaving.localDirty) break;
+          continue;
+        }
+        if (choice == 'discard') break;
+        return; // Ở lại bàn — giữ nguyên giỏ, tự lưu tiếp.
       }
     }
     final epoch = ++_tableAttachEpoch;
@@ -7934,13 +7987,14 @@ class _PosSellScreenState extends State<PosSellScreen>
     Duration tick = const Duration(milliseconds: 80),
     String busyTitle = 'Đang lưu đơn',
     String? busyMessage,
+    bool notifyBusy = true,
   }) async {
     _draftAutosaveTimer?.cancel();
     for (var i = 0; i < maxTicks && _autosavingDraft; i++) {
       await Future<void>.delayed(tick);
     }
     if (_autosavingDraft) {
-      if (mounted) {
+      if (notifyBusy && mounted) {
         NotificationOverlayManager().showWarning(
           title: busyTitle,
           message: tr(busyMessage ?? 'Đợi lưu xong rồi thử lại'),
@@ -8751,6 +8805,19 @@ class _PosSellScreenState extends State<PosSellScreen>
         // Giữ dirty để lần sau thử lại — không kéo đè giỏ local.
         if (_isLockConflict(res) && showLockError) {
           await _handleMutationLockConflict(res, title: 'Không lưu được đơn tạm');
+        } else if (res['statusCode'] == 400 &&
+            mounted &&
+            '${res['message'] ?? ''}'.contains('Chỉ sửa được đơn tạm') &&
+            (tab.draftOrderId ?? '').isNotEmpty) {
+          // Đơn đã thanh toán / đóng trên máy khác: giỏ trên máy này là bản cũ — trước đây giữ nguyên, tự lưu
+          // lỗi mãi, bấm TT lại «thành công» và in thêm hóa đơn. Làm trống giỏ, nhả đơn.
+          _floorReleasedOrderIds.add(tab.draftOrderId!);
+          _invalidateStaleDraftTab(
+            tab,
+            title: 'Đơn đã thanh toán hoặc đã đóng',
+            message: tr('Đơn ${tab.draftOrderNo ?? ''} đã được thanh toán / đóng trên máy khác — giỏ trên máy này đã được làm trống.'),
+          );
+          return false;
         } else if (res['statusCode'] == 400 && mounted) {
           // Máy chủ từ chối nội dung (không phải mất mạng) — trước đây im lặng: món gọi thêm không lên máy chủ
           // và mất khi rời bàn. Báo lại, giãn 20 giây / cùng nội dung để không dội thông báo mỗi lần tự lưu.
@@ -8769,6 +8836,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       final data = res['data'] as Map<String, dynamic>?;
       final orderId = data?['id']?.toString();
       final orderNo = data?['orderNo']?.toString() ?? '';
+      final mergedRemote = (data?['mergedRemoteLines'] as num?)?.toInt() ?? 0;
       // Thanh toán / về sơ đồ / reset tab trong lúc await — không gắn lại draft (tránh món «ma»).
       if (_checkingOut || _parking || _suspendDraftAutosave) {
         if (orderId != null && orderId.isNotEmpty) {
@@ -8808,7 +8876,26 @@ class _PosSellScreenState extends State<PosSellScreen>
           tab.localDirty = false;
         }
         _applyLockMetaFromMap(data, tab: tab);
+        if (mergedRemote == 0) _setServerBase(tab, orderId ?? tab.draftOrderId, data?['lines']);
       });
+      if (mergedRemote > 0 && data != null) {
+        // Server đã gộp món máy khác / bếp vừa thêm vào giỏ máy này → nạp lại giỏ theo đơn trả về (giỏ
+        // trên máy đang thiếu các món đó; lưu tiếp mà không nạp sẽ xóa chúng).
+        tab.localDirty = false;
+        await _hydrateTabCartFromOrder(
+          tab,
+          PosSaleOrder.fromJson(data),
+          orderJson: data,
+          readOnly: false,
+          notify: false,
+          force: true,
+        );
+        if (!mounted) return true;
+        NotificationOverlayManager().showWarning(
+          title: 'Giỏ vừa cập nhật từ máy khác',
+          message: tr('Đã giữ món máy khác / bếp vừa thêm vào bàn này — kiểm tra lại giỏ.'),
+        );
+      }
       // Đã lên máy chủ → bỏ bản giữ trên máy.
       tab.offlineSnapFp = null;
       unawaited(PosOfflineService.instance.removeCart(tab.localKey));
@@ -8835,6 +8922,49 @@ class _PosSellScreenState extends State<PosSellScreen>
         });
       }
     }
+  }
+
+  /// Ghi nền gộp 3 chiều từ danh sách dòng server trả về (JSON thô — giữ nguyên chuỗi topping).
+  void _setServerBase(_SellInvoiceTab tab, String? orderId, Object? lines) {
+    if (orderId == null || orderId.isEmpty || lines is! List) {
+      tab.serverBaseLines = null;
+      tab.serverBaseOrderId = null;
+      return;
+    }
+    tab.serverBaseOrderId = orderId;
+    tab.serverBaseLines = [
+      for (final raw in lines)
+        if (raw is Map)
+          {
+            'id': raw['id'] ?? raw['Id'],
+            'productId': raw['productId'] ?? raw['ProductId'],
+            'variantId': raw['variantId'] ?? raw['VariantId'],
+            'toppingsJson': raw['toppingsJson'] ?? raw['ToppingsJson'],
+            'lineNote': raw['lineNote'] ?? raw['LineNote'],
+            'qty': raw['qty'] ?? raw['Qty'] ?? 0,
+          },
+    ];
+  }
+
+  void _setServerBaseFromOrder(_SellInvoiceTab tab, PosSaleOrder order) {
+    if (order.id.isEmpty) {
+      tab.serverBaseLines = null;
+      tab.serverBaseOrderId = null;
+      return;
+    }
+    tab.serverBaseOrderId = order.id;
+    tab.serverBaseLines = [
+      for (final l in order.lines)
+        {
+          'id': l.id,
+          'productId': l.productId,
+          'variantId': l.variantId,
+          'toppingsJson':
+              l.toppings.isEmpty ? null : jsonEncode(l.toppings.map((t) => t.toJson()).toList()),
+          'lineNote': l.lineNote,
+          'qty': l.qty,
+        },
+    ];
   }
 
   Future<void> _pullServerOrderIntoTab(
@@ -8884,6 +9014,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         tab.serverLineCount = order.lines.length;
         tab.serverTotal = order.total;
         _applyLockMetaFromMap(res['data'] as Map<String, dynamic>, tab: tab);
+        _setServerBase(tab, orderId, (res['data'] as Map<String, dynamic>)['lines']);
         tab.draftReadOnly = false;
         return;
       }
@@ -8910,6 +9041,11 @@ class _PosSellScreenState extends State<PosSellScreen>
     int? attachEpoch,
   }) async {
     if (_tableAttachStale(attachEpoch)) return;
+    if (orderJson != null) {
+      _setServerBase(tab, order.id, orderJson['lines']);
+    } else {
+      _setServerBaseFromOrder(tab, order);
+    }
     // Món user vừa chọn khi mở bàn (GET/hydrate chậm) — giữ rồi merge sau snapshot server.
     final preserve = (tab.localDirty && tab.cart.isNotEmpty)
         ? List<_SellCartLine>.from(tab.cart)
@@ -11156,8 +11292,11 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   /// Mã chống trùng tạo đơn. Giữ nguyên khi bấm lại với cùng giỏ hàng (mất mạng lúc
   /// server trả kết quả); đổi giỏ / đơn trước đã tạo xong → mã mới.
-  String _saleRequestIdFor(_SellInvoiceTab tab) {
+  String _saleRequestIdFor(_SellInvoiceTab tab, {required bool complete}) {
     final fp = [
+      // Tự lưu nháp và thanh toán KHÔNG dùng chung mã: nháp tạo xong mà mất phản hồi, bấm TT cùng mã →
+      // máy chủ cũ trả lại nháp như «đã thanh toán».
+      'complete:$complete',
       for (final c in tab.cart)
         '${c.product.id}|${c.variantId}|${c.unitId}|${c.product.isTimedService ? '' : c.qty}|${c.unitPrice}',
       'cus:${tab.customer?.id}',
@@ -11193,7 +11332,8 @@ class _PosSellScreenState extends State<PosSellScreen>
         ? tab.paymentLines.where((p) => p.amount > 0).toList()
         : <_SellPaymentLine>[];
     final started = tab.serviceStartedAt;
-    final clientRequestId = tab.draftOrderId == null ? _saleRequestIdFor(tab) : null;
+    final clientRequestId =
+        tab.draftOrderId == null ? _saleRequestIdFor(tab, complete: complete) : null;
     return <String, dynamic>{
       if (clientRequestId != null) 'clientRequestId': clientRequestId,
       'lines': tab.cart.map((c) {
@@ -11316,6 +11456,10 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (_posDeviceId != null) 'deviceId': _posDeviceId,
       if (_posDeviceName != null) 'deviceName': _posDeviceName,
       if (tab.lockVersion >= 0) 'expectedLockVersion': tab.lockVersion,
+      if (tab.serverBaseLines != null &&
+          tab.draftOrderId != null &&
+          tab.serverBaseOrderId == tab.draftOrderId)
+        'baseLines': tab.serverBaseLines,
       if (tab.priceListId != null) 'priceListId': tab.priceListId,
       if (_defaultSellerEmployeeId != null) 'soldByEmployeeId': _defaultSellerEmployeeId,
       if (tab.serviceResourceId != null)
@@ -12138,6 +12282,10 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   /// Nút Thanh toán / Hoàn thành do người bấm (không dùng cho tự hoàn tất chuyển khoản).
   Future<void> _checkoutTapped() async {
+    // Chạm xuyên: lần chạm thứ 2 vào «Thanh toán» rơi đúng nút «HOÀN TẤT» vừa hiện cùng chỗ → đơn hoàn
+    // tất ngay, chưa kịp xem tiền. Bỏ qua lần bấm trong 0,7 giây đầu sau khi mở màn thanh toán.
+    final opened = _paymentStageOpenedAt;
+    if (opened != null && DateTime.now().difference(opened) < const Duration(milliseconds: 700)) return;
     if (!await _guardReadOnlyBeforePay()) return;
     await _checkout();
   }
@@ -12275,6 +12423,27 @@ class _PosSellScreenState extends State<PosSellScreen>
         await _checkoutOffline(afterFailure: true);
         return;
       }
+      if (res['isSuccess'] != true &&
+          '${res['message'] ?? ''} ${res['errors'] ?? ''}'.contains('vừa thay đổi ở máy khác')) {
+        // Máy khác / bếp vừa thêm món vào bàn — máy chủ không thu theo giỏ cũ. Lưu giỏ (máy chủ gộp, máy
+        // nạp lại giỏ đã gộp), báo thu ngân xem lại tổng rồi bấm lại. Món chưa lưu trên máy này vẫn giữ.
+        setState(() => _checkingOut = false);
+        _tab.localDirty = true;
+        final saved = await _persistDraftAutosave(
+          forTab: _tab,
+          showLockError: true,
+          retryOnConflict: true,
+        );
+        if (!mounted) return;
+        if (!saved) await _reconcileDraftTabAgainstServer(_tab);
+        if (!mounted) return;
+        await _showBlockingPayDialog(
+          title: 'Bàn vừa có thay đổi',
+          message: 'Máy khác hoặc bếp vừa thêm / sửa món trên bàn này. Giỏ đã được cập nhật — '
+              'kiểm tra lại tổng tiền rồi bấm thanh toán lại.',
+        );
+        return;
+      }
       if (res['isSuccess'] != true) {
         if (_isLockConflict(res)) {
           await _handleMutationLockConflict(res, title: 'Không thanh toán được');
@@ -12295,11 +12464,20 @@ class _PosSellScreenState extends State<PosSellScreen>
       final data = res['data'] as Map<String, dynamic>?;
       final orderId = data?['id']?.toString();
       final orderNo = data?['orderNo']?.toString() ?? '';
+      // Máy chủ: đơn đã hoàn tất TRƯỚC lần bấm này (máy khác / Tingee / lần gửi trước) → không phải vừa
+      // thu tiền: không in, không HĐĐT, báo rõ để thu ngân không thu lần hai. Giỏ vẫn làm trống, trả bàn.
+      final alreadyPaid = data?['alreadyCompleted'] == true;
 
       // Viên gọn góc trái dưới, không kêu — trước đây thanh toán xong không có phản hồi nào
       // (in / kho vẫn báo riêng khi lỗi).
-      debugPrint('POS checkout OK: $orderNo');
-      NotificationOverlayManager().showSuccess(
+      debugPrint('POS checkout OK: $orderNo${alreadyPaid ? ' (đã TT trước đó)' : ''}');
+      if (alreadyPaid) {
+        unawaited(_showBlockingPayDialog(
+          title: 'Đơn đã được thanh toán trước đó',
+          message: '${orderNo.isEmpty ? 'Đơn này' : orderNo} đã được thanh toán (máy khác, chuyển khoản tự '
+              'động hoặc lần gửi trước). Không thu tiền thêm. Cần in lại thì mở Đơn hàng.',
+        ));
+      } else NotificationOverlayManager().showSuccess(
         title: 'Đã thanh toán',
         message: [
           if (orderNo.isNotEmpty) orderNo,
@@ -12307,7 +12485,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           '${_moneyFmt.format(_grandTotal)}đ',
         ].join(' · '),
       );
-      _notifyEInvoiceAfterCheckout(data, orderNo);
+      if (!alreadyPaid) _notifyEInvoiceAfterCheckout(data, orderNo);
 
       final shipPartner = _sellMode == _SellMode.delivery ? _tab.deliveryPartner : null;
       final shipOrderId = orderId;
@@ -12330,15 +12508,16 @@ class _PosSellScreenState extends State<PosSellScreen>
       final paidSlot = _tab.invoiceSlot;
       final paidResourceId = _tab.serviceResourceId?.toLowerCase();
       final useFloor = _useFloorAsPrimary;
-      final wantInvoicePrint = _quickPrintInvoice || _forceInvoicePrintOnce;
-      final warehouseAuto =
+      final wantInvoicePrint = !alreadyPaid && (_quickPrintInvoice || _forceInvoicePrintOnce);
+      final warehouseAuto = !alreadyPaid &&
           _printSettings.warehousePrintMode == PosWarehousePrintMode.auto;
       // Chip «In bếp» + chế độ in: giữ đúng thiết lập «tự in sau TT».
       // Không tắt bàn F&B — lỗi mẫu sai nằm ở chỗ chọn máy (Sunmi trong), không phải chỗ này.
       // Chỉ ngành có bếp (nhà hàng / cafe). Thiết lập in lưu theo MÁY: máy từng dùng cho quán ăn đổi sang
       // cửa hàng bán lẻ vẫn bật «in bếp khi TT» → mỗi đơn siêu thị in phiếu bếp lỗi, kẹt «In treo»
       // (chip «In bếp» lại ẩn ở bán lẻ nên không tắt được).
-      final kitchenAuto = _kitchenNotifyOn &&
+      final kitchenAuto = !alreadyPaid &&
+          _kitchenNotifyOn &&
           _quickPrintKitchen &&
           _printSettings.kitchenSlipPrintMode != PosKitchenSlipPrintMode.off &&
           _tab.cart.any((l) => l.kitchenPendingQty > 0);
@@ -12384,7 +12563,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         ));
       }
 
-      if (cupLabelLines.isNotEmpty && !cupAfterInvoice) printCupLabels();
+      if (!alreadyPaid && cupLabelLines.isNotEmpty && !cupAfterInvoice) printCupLabels();
 
       _stopDraftLockHeartbeat();
       _draftAutosaveTimer?.cancel();
