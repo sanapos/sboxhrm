@@ -51,6 +51,7 @@ class PosNoSoftKeyboardField extends StatelessWidget {
     this.openKeypadOnTap = true,
     this.offerDecimalToggle = false,
     this.onDecimalToggle,
+    this.offerCashNotes = false,
   });
 
   final TextEditingController controller;
@@ -71,6 +72,8 @@ class PosNoSoftKeyboardField extends StatelessWidget {
   /// Hiện chip «Bán số lẻ» trên bàn phím số.
   final bool offerDecimalToggle;
   final ValueChanged<bool>? onDecimalToggle;
+  /// Hiện nút mệnh giá tiền mặt «+1k … +500k» (cộng dồn) trên bàn phím số.
+  final bool offerCashNotes;
 
   Future<void> _openPad(BuildContext context) async {
     if (!enabled || !openKeypadOnTap) return;
@@ -84,6 +87,7 @@ class PosNoSoftKeyboardField extends StatelessWidget {
       allowNegative: allowNegative,
       offerDecimalToggle: offerDecimalToggle,
       onDecimalToggle: onDecimalToggle,
+      offerCashNotes: offerCashNotes,
     );
     if (next == null || !context.mounted) return;
     controller.text = next;
@@ -132,6 +136,7 @@ Future<String?> showPosNumericKeypad({
   bool allowNegative = false,
   bool offerDecimalToggle = false,
   ValueChanged<bool>? onDecimalToggle,
+  bool offerCashNotes = false,
 }) {
   return showModalBottomSheet<String>(
     context: context,
@@ -147,6 +152,7 @@ Future<String?> showPosNumericKeypad({
       allowNegative: allowNegative,
       offerDecimalToggle: offerDecimalToggle,
       onDecimalToggle: onDecimalToggle,
+      offerCashNotes: offerCashNotes,
     ),
   );
 }
@@ -159,6 +165,7 @@ class _PosNumericKeypadSheet extends StatefulWidget {
     required this.allowNegative,
     required this.offerDecimalToggle,
     required this.onDecimalToggle,
+    this.offerCashNotes = false,
   });
 
   final String title;
@@ -167,6 +174,7 @@ class _PosNumericKeypadSheet extends StatefulWidget {
   final bool allowNegative;
   final bool offerDecimalToggle;
   final ValueChanged<bool>? onDecimalToggle;
+  final bool offerCashNotes;
 
   @override
   State<_PosNumericKeypadSheet> createState() => _PosNumericKeypadSheetState();
@@ -238,6 +246,25 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
       if (_value.isEmpty) return;
       _value = _value.substring(0, _value.length - 1);
     });
+  }
+
+  /// Mệnh giá tiền Việt: bấm lần đầu thay số điền sẵn, bấm tiếp cộng dồn (khách đưa 200k + 50k → 250.000).
+  static const _cashNotes = [1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000];
+
+  void _addNote(int note) {
+    setState(() {
+      final base = _fresh ? 0 : (int.tryParse(_value.split('.').first) ?? 0);
+      _value = '${base + note}';
+      _fresh = false;
+    });
+  }
+
+  String get _shownValue {
+    if (_value.isEmpty) return '0';
+    // Số nguyên hiện dấu chấm nghìn («250.000») — cộng dồn mệnh giá ra số lớn, khó đọc khi để thô.
+    if (_allowDecimal) return _value;
+    final n = int.tryParse(_value);
+    return n == null ? _value : NumberFormat('#,##0', 'vi_VN').format(n);
   }
 
   void _clear() => setState(() {
@@ -318,7 +345,7 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
               border: Border.all(color: _fresh ? SboxColors.brand600 : PosTheme.border),
             ),
             child: Text(
-              _value.isEmpty ? '0' : _value,
+              _shownValue,
               textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize: 28,
@@ -345,6 +372,13 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
                 ),
               ),
             ),
+          if (widget.offerCashNotes)
+            for (final row in [_cashNotes.sublist(0, 5), _cashNotes.sublist(5)])
+              Row(children: [
+                for (final n in row)
+                  _key('+${n ~/ 1000}k',
+                      onTap: () => _addNote(n), bg: SboxColors.successSoft, fg: SboxColors.successText),
+              ]),
           Row(children: [
             _key('7', onTap: () => _append('7')),
             _key('8', onTap: () => _append('8')),

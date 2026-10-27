@@ -17548,6 +17548,8 @@ class _PosSellScreenState extends State<PosSellScreen>
                               allowDecimal: false,
                               textAlign: TextAlign.right,
                               keypadTitle: 'Số tiền thanh toán',
+                              // Tiền mặt: nút mệnh giá «+1k … +500k» cộng dồn số khách đưa.
+                              offerCashNotes: pay.sourceKey == _PosPaymentSource.cashKey,
                               decoration: InputDecoration(
                                 labelText: tr('Số tiền'),
                                 isDense: true,
@@ -17608,6 +17610,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                           allowDecimal: false,
                           textAlign: TextAlign.right,
                           keypadTitle: 'Số tiền thanh toán',
+                          offerCashNotes: pay.sourceKey == _PosPaymentSource.cashKey,
                           decoration: const InputDecoration(
                             isDense: true,
                             border: OutlineInputBorder(),

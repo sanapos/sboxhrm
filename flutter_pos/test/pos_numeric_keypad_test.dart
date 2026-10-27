@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sbox_pos/widgets/pos/pos_numeric_keypad.dart';
 
 void main() {
-  Future<String?> enter(WidgetTester tester, String initial, List<String> keys, {bool allowDecimal = false}) async {
+  Future<String?> enter(WidgetTester tester, String initial, List<String> keys,
+      {bool allowDecimal = false, bool cashNotes = false}) async {
     tester.view.physicalSize = const Size(1200, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -17,6 +18,7 @@ void main() {
               title: 'Số tiền thanh toán',
               initial: initial,
               allowDecimal: allowDecimal,
+              offerCashNotes: cashNotes,
             ),
             child: const Text('open'),
           ),
@@ -48,5 +50,32 @@ void main() {
 
   testWidgets('ô trống / 0 gõ nối như cũ', (tester) async {
     expect(await enter(tester, '', ['1', '2']), '12');
+  });
+
+  testWidgets('mệnh giá tiền mặt: bấm đầu thay số điền sẵn, bấm tiếp cộng dồn', (tester) async {
+    expect(await enter(tester, '65000', ['+200k', '+50k', '+10k'], cashNotes: true), '260000');
+  });
+
+  testWidgets('mệnh giá cộng vào số vừa gõ tay', (tester) async {
+    expect(await enter(tester, '65000', ['5', '+1k'], cashNotes: true), '1005');
+  });
+
+  testWidgets('không bật mệnh giá → không có nút', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (ctx) => Scaffold(
+          body: TextButton(
+            onPressed: () => showPosNumericKeypad(context: ctx, title: 'Số lượng', allowDecimal: false),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('+500k'), findsNothing);
   });
 }
