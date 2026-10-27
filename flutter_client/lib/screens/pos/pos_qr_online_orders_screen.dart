@@ -23,6 +23,7 @@ import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_basics.dart';
 /// Theo dõi / đổi trạng thái đơn QR đặt online.
 class PosQrOnlineOrdersScreen extends StatefulWidget {
   const PosQrOnlineOrdersScreen({super.key, this.highlightOrderId});
@@ -1656,16 +1657,14 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                             ],
                           )
                         : _orders.isEmpty
+                            // Cùng kiểu màn trống với «Hóa đơn» (biểu tượng + gợi ý, giữa màn).
                             ? ListView(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(32),
-                                    child: Text(
-                                      tr('Chưa có đơn online'),
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                          color: SboxColors.slate700),
-                                    ),
+                                children: const [
+                                  SizedBox(height: 60),
+                                  SboxEmptyState(
+                                    icon: Icons.delivery_dining_outlined,
+                                    title: 'Chưa có đơn online',
+                                    message: 'Đổi khoảng thời gian hoặc trạng thái để xem thêm.',
                                   ),
                                 ],
                               )

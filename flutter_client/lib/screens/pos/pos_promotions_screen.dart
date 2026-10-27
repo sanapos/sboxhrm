@@ -13,6 +13,7 @@ import '../../services/branch_session.dart';
 import '../../utils/pos_report_open.dart';
 import '../../utils/pos_promotion_engine.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_numeric_keypad.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/pos_unsaved_changes.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -497,8 +498,13 @@ class _PosPromotionEditorPageState extends State<PosPromotionEditorPage> {
     return picked == null ? null : (id: picked.id, name: picked.name);
   }
 
+  // Ô tiền (đ) trên máy cảm ứng: chạm → bàn phím số của app như các màn POS khác.
   Widget _numField(String key, String label, {String? hint, String? suffix}) => TextField(
         controller: _c(key),
+        readOnly: posUsesAppKeypad && suffix == 'đ',
+        onTap: posUsesAppKeypad && suffix == 'đ'
+            ? () => posPickAmountInto(context, _c(key), title: label)
+            : null,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
         decoration: PosTheme.inputDecoration(label: suffix == null ? label : '$label ($suffix)', hint: hint),

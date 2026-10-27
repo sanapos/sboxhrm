@@ -109,13 +109,16 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
             _count = c;
             _apply(c.countNo, c.status, c.name, c.note,
                 '${c.checkedCount}/${c.lineCount} đã kiểm · ${_svc.formatDate(c.createdAt)}',
-                c.totalDiffValue.abs(), c.lineCount,
+                // Giữ dấu như danh sách phiếu và từng dòng (trước đây đầu phiếu «134.483 đ», dòng «-134.483 đ»).
+                c.totalDiffValue, c.lineCount,
                 c.lines.map((l) => {
                       'name': l.productName,
                       'qty': l.countedQty,
+                      'qtyPrefix': 'Thực tế',
                       'unit': l.unitName ?? '',
                       'total': l.diffValue,
-                      'extra': 'Tồn HT: ${formatViQty(l.systemQty)}',
+                      'extra': 'Tồn HT: ${formatViQty(l.systemQty)}'
+                          '${l.countedQty == null || l.diffQty == 0 ? '' : ' · Lệch ${l.diffQty > 0 ? '+' : ''}${formatViQty(l.diffQty)}'}',
                     }).toList());
           }
         case WhDocType.damageIssue:
@@ -524,7 +527,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                           child: Text(
                             _lines[i]['qty'] == null
                                 ? tr('Chưa kiểm')
-                                : tr('SL: ${_qtyLabel(_lines[i])}'),
+                                : tr('${_lines[i]['qtyPrefix'] ?? 'SL'}: ${_qtyLabel(_lines[i])}'),
                             style: WhMobileTheme.body.copyWith(fontWeight: FontWeight.w600),
                           ),
                         ),

@@ -1247,7 +1247,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           ),
           const Divider(height: 1, color: PosTheme.border),
           // Salon / gym chủ yếu bán dịch vụ — «Tổng tồn 0» chỉ gây rối khi chưa có hàng tồn.
-          if (mobile && !inHub && !((_sellProfile?.usesSessionPackages ?? false) && _totalOnHand == 0)) _buildMobileStockSummary(),
+          if (_showsMobileStockSummary) _buildMobileStockSummary(),
           Expanded(
             child: _loading
                 ? LoadingWidget(message: tr('Đang tải hàng hóa…'))
@@ -1819,6 +1819,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       ),
     );
   }
+
+  bool get _showsMobileStockSummary =>
+      posUseMobileList(context) &&
+      !PosHubScope.of(context) &&
+      !((_sellProfile?.usesSessionPackages ?? false) && _totalOnHand == 0);
 
   Widget _buildMobileStockSummary() {
     return Container(
@@ -2453,7 +2458,8 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       ),
       child: Row(
         children: [
-          Text(tr((_sellProfile?.usesSessionPackages ?? false) && _totalOnHand == 0
+          // Đã có dòng «Tổng tồn» phía trên danh sách → chân trang chỉ đếm số mặt hàng.
+          Text(tr((_sellProfile?.usesSessionPackages ?? false) && _totalOnHand == 0 || _showsMobileStockSummary
               ? 'Tổng: ${_moneyFmt.format(_total)}'
               : 'Tổng: ${_moneyFmt.format(_total)} · Tồn: ${_moneyFmt.format(_totalOnHand)}'),
             style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),

@@ -649,7 +649,11 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
                     const SizedBox(height: 4),
                     _categoryFilterBar(cats),
                     const SizedBox(height: 6),
-                    if (_items.isEmpty)
+                    // Menu riêng đang tắt → khách thấy toàn bộ hàng bán trực tiếp (dòng phụ của công tắc
+                    // đã nói); «Chưa có món» lúc đó dễ hiểu nhầm là menu QR đang trống.
+                    if (_items.isEmpty && !_useCustomMenu)
+                      const SizedBox.shrink()
+                    else if (_items.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 28),
                         child: Center(

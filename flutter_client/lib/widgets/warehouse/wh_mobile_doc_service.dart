@@ -130,7 +130,7 @@ class WhMobileDocService {
           final name = c.name.trim() == c.countNo.trim() ? '' : c.name.trim();
           final diff = c.totalDiffQty == 0
               ? ''
-              : 'lệch ${c.totalDiffQty > 0 ? '+' : ''}${c.totalDiffQty.toStringAsFixed(c.totalDiffQty == c.totalDiffQty.roundToDouble() ? 0 : 2)}';
+              : 'Lệch ${c.totalDiffQty > 0 ? '+' : ''}${c.totalDiffQty.toStringAsFixed(c.totalDiffQty == c.totalDiffQty.roundToDouble() ? 0 : 2)}';
           return WhDocListItem(
               id: c.id,
               docNo: c.countNo,

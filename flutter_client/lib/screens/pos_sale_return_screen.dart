@@ -418,7 +418,9 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
         surfaceTintColor: Colors.white,
         elevation: 0.5,
         foregroundColor: SboxColors.text,
+        // Chưa chọn HĐ: giữa màn đã có nút «Chọn hóa đơn» — không lặp «Đổi HĐ» trên thanh tiêu đề.
         actions: [
+          if (_order != null)
           TextButton.icon(
             onPressed: _pickOrder,
             icon: const Icon(Icons.receipt_long, color: SboxColors.primary, size: 18),
@@ -447,7 +449,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
             Icon(Icons.assignment_return_outlined,
                 size: 56, color: _kiotBlue.withOpacity(0.6)),
             const SizedBox(height: 16),
-            Text(tr('Trả hàng bán hàng'),
+            Text(tr('Chọn hóa đơn trả hàng'),
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
@@ -655,8 +657,12 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                             ? null
                             : () => _voidReturn(h.returnNo),
                       ),
-                    Text(
-                      tr(_moneyFmt.format(h.refundAmount)),
+                    // Rộng cố định, canh phải: số tiền các phiếu thẳng cột dù nút hủy / nhãn «Đã hủy» khác rộng.
+                    SizedBox(
+                      width: 110,
+                      child: Text(
+                      '${_moneyFmt.format(h.refundAmount)} đ',
+                      textAlign: TextAlign.right,
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         color: h.isVoided
@@ -665,6 +671,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                         decoration:
                             h.isVoided ? TextDecoration.lineThrough : null,
                       ),
+                    ),
                     ),
                   ],
                 ),
