@@ -15128,10 +15128,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             if (floorPrimary) ...[
               _buildFloorMenuModeTabs(compact: true),
               const SizedBox(width: 6),
-              if (onFloor) ...[
-                _buildFloorActiveTotalsChip(),
-                const SizedBox(width: 6),
-              ],
+              // Bỏ «290.000đ · 1 bàn» cạnh nút Thực đơn — tổng từng khu đã ghi trên sơ đồ bàn.
             ],
             if (!floorPrimary && _showRetailInvoiceTabs)
               // Hóa đơn chiếm đúng chỗ cần, ô tìm kiếm dời sang phải; hết chỗ thì cuộn ngang.
@@ -19169,27 +19166,6 @@ class _PosSellScreenState extends State<PosSellScreen>
             ),
         ],
       ),
-    );
-  }
-
-  Widget _buildFloorActiveTotalsChip() {
-    return ValueListenableBuilder<(double, int)>(
-      valueListenable: _floorActiveTotals,
-      builder: (_, v, __) {
-        return ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 140),
-          child: Text(
-            tr('${_moneyFmt.format(v.$1)}đ · ${v.$2} ${_sellProfile.resourceNounPlural}'),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
-          ),
-        );
-      },
     );
   }
 
