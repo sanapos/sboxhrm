@@ -487,9 +487,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             icon: d.$2,
             group: 'POS / Bán hàng',
             keywords: [...d.$4, d.$3],
-            onSelect: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => PosHubScope.pushed(child: d.$5())),
-            ),
+            onSelect: () => _openShellExtra(d.$1, d.$5),
           ),
     ];
   }
@@ -1047,8 +1045,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   void _navigateToIndex(int index) {
-    if (index == _selectedIndex) return;
+    if (index == _selectedIndex) {
+      if (_shellExtra != null) setState(() => _shellExtra = null);
+      return;
+    }
     setState(() {
+      _shellExtra = null;
       _navigationHistory.add(_selectedIndex);
       // Keep history manageable
       if (_navigationHistory.length > 50) {
@@ -1064,7 +1066,28 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     });
   }
 
+  /// Màn POS phụ (Ca thu ngân, Voucher…) mở từ ô tìm chức năng, hiện TRONG khung chính
+  /// (sidebar + «← tiêu đề») thay vì đè cả màn với thanh trắng riêng — cùng kiểu Hàng hóa / Khách hàng.
+  ({String title, Widget child})? _shellExtra;
+
+  /// Mở [child] trong khung chính khi khung đang hiện (tablet / desktop); còn lại push như cũ.
+  void _openShellExtra(String title, Widget Function() child) {
+    final immersive = SystemUiInsetMode.immersive.value;
+    if (!_wideLayout ||
+        _hideShellForModule(_screenModuleCode(_selectedIndex), immersive: immersive)) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => PosHubScope.pushed(child: child())),
+      );
+      return;
+    }
+    setState(() => _shellExtra = (title: title, child: KeyedSubtree(key: UniqueKey(), child: child())));
+  }
+
   void _goBack() {
+    if (_shellExtra != null) {
+      setState(() => _shellExtra = null);
+      return;
+    }
     // If SettingsHub has an active sub-screen, go back to hub menu first
     if (SettingsHubScreen.internalBackCallback != null) {
       SettingsHubScreen.internalBackCallback!();
@@ -1092,6 +1115,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   bool get _canGoBack =>
+      _shellExtra != null ||
       _navigationHistory.isNotEmpty ||
       SettingsHubScreen.internalBackCallback != null ||
       TaskManagementScreen.internalBackCallback != null ||
@@ -1102,6 +1126,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   String _settingsHubTitle(AppLocalizations l) {
+    final extra = _shellExtra;
+    if (extra != null) return extra.title;
     final sub = SettingsHubScreen.activeSubPageTitle;
     if (sub != null && sub.isNotEmpty) return sub;
     return _navItems[_selectedIndex].localizedLabel(l);
@@ -2648,6 +2674,20 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   /// Desktop/tablet: keep home mounted (Offstage) so returning from a module restores scroll.
   Widget _buildPersistentMainContent() {
+    final extra = _shellExtra;
+    final main = _buildKeptMainStack();
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Màn chính giữ State (Offstage) khi đang mở màn phụ — Back quay về đúng chỗ cũ.
+        Offstage(offstage: extra != null, child: TickerMode(enabled: extra == null, child: main)),
+        if (extra != null)
+          ColoredBox(color: Theme.of(context).scaffoldBackgroundColor, child: extra.child),
+      ],
+    );
+  }
+
+  Widget _buildKeptMainStack() {
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -3097,6 +3137,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final nav = Navigator.of(context);
     if (nav.canPop()) {
       nav.pop();
+      return;
+    }
+    if (_shellExtra != null) {
+      _goBack();
       return;
     }
     if (SettingsHubScreen.internalBackCallback != null) {

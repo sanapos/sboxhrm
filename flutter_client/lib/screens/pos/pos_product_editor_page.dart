@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -30,6 +31,7 @@ import '../../widgets/pos/pos_combo_component_picker.dart';
 import '../../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../../widgets/pos/pos_product_editor_sections_dialog.dart';
 import '../../widgets/pos/pos_form_keyboard.dart';
+import '../../widgets/pos/pos_numeric_keypad.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/pos_timed_service_setup.dart';
 import '../../widgets/pos_barcode_scanner.dart';
@@ -1077,6 +1079,29 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   void _selectAllIfZero(TextEditingController c) {
     if (_parseNum(c.text) != 0) return;
     c.selection = TextSelection(baseOffset: 0, extentOffset: c.text.length);
+  }
+
+  /// Máy cảm ứng (Android / iOS): ô giá mở bàn phím số của app như màn thanh toán — bàn phím số
+  /// hệ thống (Gboard) lẫn ( ) # * = và che nửa form. Web / desktop vẫn gõ phím thường.
+  bool get _moneyKeypad =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
+  Future<void> _tapMoneyField(TextEditingController c) async {
+    if (!_moneyKeypad) {
+      _selectAllIfZero(c);
+      return;
+    }
+    final v = _parseNum(c.text).round();
+    final next = await showPosNumericKeypad(
+      context: context,
+      title: identical(c, _costCtrl) ? 'Giá vốn' : _priceLabel,
+      initial: v == 0 ? '' : '$v',
+      allowDecimal: false,
+    );
+    if (next == null || !mounted) return;
+    setState(() => c.text = _fmtInputMoney(int.tryParse(next) ?? 0));
   }
 
   /// Số phút mỗi block (mặc định 5 như công thức tính tiền).
@@ -2210,7 +2235,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 Expanded(
                   child: TextField(
                     controller: _costCtrl,
-                    onTap: () => _selectAllIfZero(_costCtrl),
+                    readOnly: _moneyKeypad,
+                    onTap: () => _tapMoneyField(_costCtrl),
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
                     enabled: _canViewCost,
@@ -2222,7 +2248,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 Expanded(
                   child: TextField(
                     controller: _priceCtrl,
-                    onTap: () => _selectAllIfZero(_priceCtrl),
+                    readOnly: _moneyKeypad,
+                    onTap: () => _tapMoneyField(_priceCtrl),
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
                     decoration: PosTheme.inputDecoration(label: _priceLabel),
@@ -2629,7 +2656,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     Expanded(
                       child: TextField(
                         controller: _costCtrl,
-                        onTap: () => _selectAllIfZero(_costCtrl),
+                        readOnly: _moneyKeypad,
+                        onTap: () => _tapMoneyField(_costCtrl),
                         keyboardType: TextInputType.number,
                         inputFormatters: [ThousandSeparatorFormatter()],
                         enabled: _canViewCost,
@@ -2643,7 +2671,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       Expanded(
                         child: TextField(
                           controller: _priceCtrl,
-                          onTap: () => _selectAllIfZero(_priceCtrl),
+                          readOnly: _moneyKeypad,
+                          onTap: () => _tapMoneyField(_priceCtrl),
                           keyboardType: TextInputType.number,
                           inputFormatters: [ThousandSeparatorFormatter()],
                           decoration: PosTheme.inputDecoration(label: _priceLabel),
@@ -2930,7 +2959,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 Expanded(
                   child: TextField(
                     controller: _priceCtrl,
-                    onTap: () => _selectAllIfZero(_priceCtrl),
+                    readOnly: _moneyKeypad,
+                    onTap: () => _tapMoneyField(_priceCtrl),
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
                     decoration: PosTheme.inputDecoration(label: _priceLabel),
@@ -4762,7 +4792,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               Expanded(
                 child: TextField(
                   controller: _costCtrl,
-                  onTap: () => _selectAllIfZero(_costCtrl),
+                  readOnly: _moneyKeypad,
+                  onTap: () => _tapMoneyField(_costCtrl),
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
                   enabled: _canViewCost,
@@ -4774,7 +4805,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               Expanded(
                 child: TextField(
                   controller: _priceCtrl,
-                  onTap: () => _selectAllIfZero(_priceCtrl),
+                  readOnly: _moneyKeypad,
+                  onTap: () => _tapMoneyField(_priceCtrl),
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
                   decoration: PosTheme.inputDecoration(label: _priceLabel),
@@ -4900,7 +4932,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               Expanded(
                 child: TextField(
                   controller: _costCtrl,
-                  onTap: () => _selectAllIfZero(_costCtrl),
+                  readOnly: _moneyKeypad,
+                  onTap: () => _tapMoneyField(_costCtrl),
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
                   enabled: _canViewCost,
@@ -4912,7 +4945,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               Expanded(
                 child: TextField(
                   controller: _priceCtrl,
-                  onTap: () => _selectAllIfZero(_priceCtrl),
+                  readOnly: _moneyKeypad,
+                  onTap: () => _tapMoneyField(_priceCtrl),
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
                   decoration: PosTheme.inputDecoration(label: priceLabel),

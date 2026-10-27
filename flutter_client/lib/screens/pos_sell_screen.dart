@@ -18567,7 +18567,10 @@ class _PosSellScreenState extends State<PosSellScreen>
                   child: TextField(
                     controller: _tab._noteCtrl,
                     readOnly: _tab.draftReadOnly || _tableAttachBusy,
-                    onTap: posShowSoftKeyboardOnFieldTap,
+                    // Chỉ xem: chạm ô thì nói lý do thay vì im lặng.
+                    onTap: () => _tab.draftReadOnly
+                        ? _guardReadOnlyEdit()
+                        : posShowSoftKeyboardOnFieldTap(),
                     decoration: InputDecoration(
                       hintText: tr('Ghi chú đơn hàng'),
                       isDense: true,
@@ -19072,6 +19075,35 @@ class _PosSellScreenState extends State<PosSellScreen>
                 foregroundColor: PosTheme.kiotBlue,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 visualDensity: VisualDensity.compact,
+              ),
+            ),
+          // Phiếu đang khoá trên máy khác: trước đây chỉ thấy nút Thanh toán xám, ô ghi chú không gõ
+          // được mà không rõ vì sao. Chạm chip = xem máy nào đang giữ bàn.
+          if (_tab.draftReadOnly)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Material(
+                color: SboxColors.warning.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => _guardReadOnlyEdit(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.lock_outline, size: 14, color: SboxColors.warning),
+                      const SizedBox(width: 4),
+                      Text(
+                        tr('Đang mở trên máy khác'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: SboxColors.warning,
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
               ),
             ),
           Container(

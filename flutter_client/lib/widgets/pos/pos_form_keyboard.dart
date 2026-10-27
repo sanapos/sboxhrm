@@ -340,6 +340,10 @@ class _PosKeyboardLiftState extends State<PosKeyboardLift> with WidgetsBindingOb
       final state = node.context!.findAncestorStateOfType<EditableTextState>();
       final box = _fieldFrameBox(state?.context ?? node.context!);
       if (box is RenderBox && box.attached && box.hasSize) {
+        // Dialog co theo bàn phím bằng hiệu ứng: Flutter cuộn ô vào tầm nhìn ngay lúc bàn phím
+        // bật (khung còn cao) → co xong ô bị cắt dưới mép thân form, chỉ thấy nhãn. Đo lại sau
+        // khi ổn định thì cuộn cả khung ô (nhãn + viền) vào vùng nhìn thấy; đã thấy đủ thì không cuộn.
+        box.showOnScreen(duration: const Duration(milliseconds: 150), curve: Curves.easeOut);
         // Toạ độ đã gồm phần đang dịch thật → cộng lại để có vị trí gốc (không dùng [_dy]:
         // giữa hiệu ứng, cộng đích sẽ tưởng ô thấp hơn thật rồi đẩy tới kịch trần).
         final top = box.localToGlobal(Offset.zero).dy + _applied;

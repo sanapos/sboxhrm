@@ -29,6 +29,24 @@ class HrmShellChrome extends InheritedWidget {
       visible != oldWidget.visible;
 }
 
+/// AppBar của màn có thể mở cả trong khung chính (MainLayout đã vẽ «← tiêu đề») lẫn push riêng.
+/// Trong khung: bỏ tiêu đề + nút back (trùng), chỉ giữ hàng nút hành động / tab nếu có.
+PreferredSizeWidget? shellAwareAppBar(BuildContext context, AppBar bar) {
+  if (!HrmShellChrome.isVisible(context)) return bar;
+  final acts = bar.actions ?? const <Widget>[];
+  if (acts.isEmpty && bar.bottom == null) return null;
+  return AppBar(
+    automaticallyImplyLeading: false,
+    toolbarHeight: acts.isEmpty ? 0 : 48,
+    backgroundColor: bar.backgroundColor ?? Colors.white,
+    surfaceTintColor: bar.surfaceTintColor ?? Colors.white,
+    foregroundColor: bar.foregroundColor,
+    elevation: bar.elevation ?? 0.5,
+    actions: acts,
+    bottom: bar.bottom,
+  );
+}
+
 /// Shared layout tokens and helpers for HRM settings sub-pages.
 class HrmPageChrome {
   HrmPageChrome._();

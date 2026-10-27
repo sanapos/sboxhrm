@@ -302,7 +302,7 @@ class _PosCustomerDisplaySettingsScreenState
 
     return Scaffold(
       backgroundColor: PosTheme.background,
-      appBar: AppBar(
+      appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Màn hình phụ (khách)')),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
@@ -327,7 +327,7 @@ class _PosCustomerDisplaySettingsScreenState
               ),
             ),
         ],
-      ),
+      )),
       body: body,
     );
   }
