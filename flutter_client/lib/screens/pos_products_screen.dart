@@ -917,11 +917,19 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     if (!perm.canCreate('PosProducts')) return;
     final fileResult = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['xlsx', 'xls'],
+      // .xls (Excel 97-2003) máy chủ không đọc được — nhận .xlsx hoặc .csv.
+      allowedExtensions: ['xlsx', 'csv'],
       withData: true,
     );
     if (fileResult == null || fileResult.files.isEmpty) return;
     final file = fileResult.files.first;
+    if (file.name.toLowerCase().endsWith('.xls')) {
+      NotificationOverlayManager().showError(
+        title: tr('Chưa đọc được file .xls'),
+        message: tr('Mở file bằng Excel, chọn Lưu thành (Save As) dạng .xlsx rồi chọn lại.'),
+      );
+      return;
+    }
     if (file.bytes == null) return;
     final res = await _api.importPosProductsExcelFile(
       file.bytes!,
@@ -931,10 +939,18 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       final data = res['data'] as Map<String, dynamic>?;
+      final rowErrors = ((data?['errors'] as List?) ?? const []).map((e) => '$e').toList();
       NotificationOverlayManager().showSuccess(
         title: 'Import thành công',
         message: 'Tạo mới: ${data?['created'] ?? 0}, Cập nhật: ${data?['updated'] ?? 0}',
       );
+      if (rowErrors.isNotEmpty) {
+        // Dòng lỗi (thiếu tên, giá âm, quá dài…) bị bỏ qua — báo để người dùng sửa file.
+        NotificationOverlayManager().showWarning(
+          title: tr('${rowErrors.length} dòng không nhập được'),
+          message: rowErrors.take(5).join('\n') + (rowErrors.length > 5 ? '\n…' : ''),
+        );
+      }
       await _loadAll();
       setState(() {});
     } else {

@@ -62,8 +62,12 @@ public partial class PosProductsController
         if (entity == null)
             return NotFound(AppResponse<PosProductDto>.Fail("Không tìm thấy hàng hóa"));
 
-        if (!PosProductTypeRules.TracksInventory(entity.ProductType))
-            return BadRequest(AppResponse<PosProductDto>.Fail("Chỉ hàng hóa / NVL / topping mới sửa nhanh giá/tồn"));
+        // Giá bán / giá vốn sửa nhanh được cho mọi loại (dịch vụ, combo…); tồn kho chỉ hàng có theo dõi tồn.
+        var tracksStock = PosProductTypeRules.TracksInventory(entity.ProductType);
+        if (dto.OnHandQty.HasValue && !tracksStock)
+            return BadRequest(AppResponse<PosProductDto>.Fail("Chỉ hàng hóa / NVL / topping mới sửa nhanh tồn kho"));
+        if (dto.BasePrice is < 0 || dto.CostPrice is < 0)
+            return BadRequest(AppResponse<PosProductDto>.Fail("Giá không được âm"));
 
         if (dto.BasePrice.HasValue) entity.BasePrice = dto.BasePrice.Value;
         if (dto.CostPrice.HasValue && await CanViewCostAsync())
@@ -73,9 +77,11 @@ public partial class PosProductsController
             if (oldCost != newCost)
             {
                 entity.CostPrice = newCost;
-                PosStockRecording.RecordCostChangeIfChanged(
-                    dbContext, storeId, entity.Id, null, entity.OnHandQty,
-                    oldCost, newCost, CurrentUserEmail);
+                // Thẻ kho chỉ ghi đổi giá vốn cho hàng có tồn (dịch vụ / combo không có thẻ kho).
+                if (tracksStock)
+                    PosStockRecording.RecordCostChangeIfChanged(
+                        dbContext, storeId, entity.Id, null, entity.OnHandQty,
+                        oldCost, newCost, CurrentUserEmail);
             }
         }
         if (dto.OnHandQty.HasValue)

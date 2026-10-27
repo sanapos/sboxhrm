@@ -284,12 +284,18 @@ public partial class PosProductsController
         try
         {
             await using var stream = file.OpenReadStream();
-            parsed = PosProductExcelImportParser.ParseAll(stream);
+            await using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var bytes = ms.ToArray();
+            // ClosedXML chỉ đọc .xlsx — .xls (Excel 97-2003) báo rõ cách lưu lại.
+            if (PosProductExcelImportParser.IsLegacyXls(bytes, file.FileName))
+                return BadRequest(AppResponse<object>.Fail(PosMenuSheetReader.XlsMessage));
+            parsed = PosProductExcelImportParser.ParseAll(bytes, file.FileName);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "POS product import parse failed");
-            return BadRequest(AppResponse<object>.Fail("Không đọc được file Excel"));
+            return BadRequest(AppResponse<object>.Fail("Không đọc được file Excel — kiểm tra file .xlsx / .csv mở được bằng Excel."));
         }
 
         var rows = parsed.Products;
@@ -331,12 +337,15 @@ public partial class PosProductsController
             .ToListAsync();
         var byCode = new Dictionary<string, PosProduct>(StringComparer.OrdinalIgnoreCase);
         var byBarcode = new Dictionary<string, PosProduct>(StringComparer.OrdinalIgnoreCase);
-        foreach (var p in existingProducts)
+        // Dòng không ghi mã hàng / mã vạch → khớp hàng đã có theo tên giống hệt (giữ dấu) để nhập lại không nhân đôi.
+        var byName = new Dictionary<string, PosProduct>();
+        foreach (var p in existingProducts.OrderBy(p => p.CreatedAt))
         {
             if (!string.IsNullOrWhiteSpace(p.ProductCode))
                 byCode[p.ProductCode] = p;
             if (!string.IsNullOrWhiteSpace(p.Barcode) && !byBarcode.ContainsKey(p.Barcode))
                 byBarcode[p.Barcode] = p;
+            byName.TryAdd(PosProductNameMatch.ExactKey(p.Name), p);
         }
 
         var nextByPrefix = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
@@ -376,6 +385,14 @@ public partial class PosProductsController
 
         foreach (var (row, i) in rows.Select((r, idx) => (r, idx + 1)))
         {
+            // Kiểm tra trước khi thêm gì vào DbContext — dòng lỗi không để lại hàng / nhóm dở dang.
+            if (PosProductExcelImportParser.ValidateRow(row) is string invalid)
+            {
+                errors.Add($"Dòng {i} «{row.Name}»: {invalid}");
+                continue;
+            }
+            var addedThisRow = new List<object>();
+            PosProduct? newEntity = null;
             try
             {
                 Guid? catId = null;
@@ -417,13 +434,7 @@ public partial class PosProductsController
                     return e.Id;
                 });
 
-                PosProduct? entity = null;
-                if (!string.IsNullOrWhiteSpace(row.ProductCode) &&
-                    byCode.TryGetValue(row.ProductCode.Trim(), out var byCodeHit))
-                    entity = byCodeHit;
-                else if (!string.IsNullOrWhiteSpace(row.Barcode) &&
-                         byBarcode.TryGetValue(row.Barcode.Trim(), out var byBcHit))
-                    entity = byBcHit;
+                var entity = PosProductExcelImportParser.MatchExisting(row, byCode, byBarcode, byName);
 
                 var isNew = entity == null;
                 if (entity == null)
@@ -443,7 +454,7 @@ public partial class PosProductsController
                         CreatedBy = CurrentUserEmail,
                     };
                     dbContext.PosProducts.Add(entity);
-                    dbContext.PosProductUnits.Add(new PosProductUnit
+                    var baseUnit = new PosProductUnit
                     {
                         Id = Guid.NewGuid(),
                         StoreId = storeId,
@@ -455,11 +466,35 @@ public partial class PosProductsController
                         IsBaseUnit = true,
                         IsActive = true,
                         CreatedBy = CurrentUserEmail,
-                    });
+                    };
+                    dbContext.PosProductUnits.Add(baseUnit);
+                    addedThisRow.Add(entity);
+                    addedThisRow.Add(baseUnit);
+                    newEntity = entity;
                     byCode[code] = entity;
-                    created++;
                 }
-                else updated++;
+
+                // Khớp theo tên (file không có mã hàng / mã vạch): chỉ cập nhật ô có dữ liệu, không xóa mã vạch,
+                // đơn vị, loại hàng… của hàng đã có.
+                if (!isNew && string.IsNullOrWhiteSpace(row.ProductCode) && string.IsNullOrWhiteSpace(row.Barcode))
+                {
+                    if (catId != null) entity.CategoryId = catId;
+                    if (brandId != null) entity.BrandId = brandId;
+                    if (supplierId != null) entity.SupplierId = supplierId;
+                    if (locId != null) entity.StorageLocationId = locId;
+                    if (row.BasePrice > 0) entity.BasePrice = row.BasePrice;
+                    if (row.CostPrice > 0 && await CanViewCostAsync()) entity.CostPrice = row.CostPrice;
+                    if (row.MinStockQty > 0) entity.MinStockQty = row.MinStockQty;
+                    if (row.MaxStockQty > 0) entity.MaxStockQty = row.MaxStockQty;
+                    if (row.IsActive is bool act) entity.IsActive = act;
+                    if (row.Weight != null) entity.Weight = row.Weight;
+                    if (!string.IsNullOrWhiteSpace(row.Description)) entity.Description = row.Description;
+                    if (!string.IsNullOrWhiteSpace(row.ImageUrl)) entity.ImageUrl = row.ImageUrl.Trim();
+                    entity.UpdatedAt = DateTime.UtcNow;
+                    entity.UpdatedBy = CurrentUserEmail;
+                    updated++;
+                    continue;
+                }
 
                 entity.Barcode = row.Barcode;
                 entity.Name = row.Name;
@@ -520,12 +555,20 @@ public partial class PosProductsController
                             CreatedBy = CurrentUserEmail,
                         };
                         dbContext.PosBarcodeCatalog.Add(catRowNew);
+                        addedThisRow.Add(catRowNew);
                         catalogCache[ck] = catRowNew;
                     }
                 }
+                byName.TryAdd(PosProductNameMatch.ExactKey(row.Name), entity);
+                if (isNew) created++;
+                else updated++;
             }
             catch (Exception ex)
             {
+                // Bỏ hàng / đơn vị vừa thêm của dòng lỗi để không lưu bản dở dang.
+                foreach (var e in addedThisRow)
+                    dbContext.Entry(e).State = EntityState.Detached;
+                if (newEntity != null) byCode.Remove(newEntity.ProductCode);
                 errors.Add($"Dòng {i}: {ex.Message}");
             }
         }

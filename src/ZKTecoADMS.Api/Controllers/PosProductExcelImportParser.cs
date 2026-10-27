@@ -146,6 +146,38 @@ internal static class PosProductExcelImportParser
 
     }
 
+    /// <summary>File .xls (Excel 97-2003) — ClosedXML không đọc được.</summary>
+    public static bool IsLegacyXls(byte[] head, string? fileName) =>
+        string.Equals(Path.GetExtension(fileName ?? ""), ".xls", StringComparison.OrdinalIgnoreCase)
+        || (head.Length >= 4 && head[0] == 0xD0 && head[1] == 0xCF && head[2] == 0x11 && head[3] == 0xE0);
+
+    static bool IsCsv(byte[] bytes, string? fileName)
+    {
+        var ext = Path.GetExtension(fileName ?? "").ToLowerInvariant();
+        var isZip = bytes.Length >= 4 && bytes[0] == 0x50 && bytes[1] == 0x4B && bytes[2] == 0x03 && bytes[3] == 0x04;
+        return !isZip && ext is ".csv" or ".tsv" or ".txt";
+    }
+
+    /// <summary>Đọc .xlsx hoặc CSV (CSV dựng thành một sheet tạm rồi đọc như Excel).</summary>
+    public static ParseResult ParseAll(byte[] bytes, string? fileName)
+    {
+        if (!IsCsv(bytes, fileName))
+        {
+            using var ms = new MemoryStream(bytes);
+            return ParseAll(ms);
+        }
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("HangHoa");
+        var r = 1;
+        foreach (var cells in ZKTecoADMS.Api.Services.PosMenuSheetReader.ReadCsvCells(bytes))
+        {
+            for (var c = 0; c < cells.Count; c++)
+                if (cells[c].Length > 0) ws.Cell(r, c + 1).SetValue(cells[c]);
+            r++;
+        }
+        return new ParseResult(ParseProductSheet(ws), []);
+    }
+
 
 
     public static List<ImportRow> Parse(Stream stream) => ParseAll(stream).Products;
@@ -175,10 +207,12 @@ internal static class PosProductExcelImportParser
         if (cols.NameCol <= 0) return [];
         var lastRow = ws.LastRowUsed()?.RowNumber() ?? headerRow;
         var rows = new List<ImportRow>();
-        for (var r = headerRow + 1; r <= lastRow; r++)
+        for (var r = DataStartRow(ws, headerRow); r <= lastRow; r++)
         {
             var name = Cell(ws, r, cols.NameCol);
             if (string.IsNullOrWhiteSpace(name)) continue;
+            // Dòng tiêu đề lặp lại giữa bảng (in nhiều trang) → bỏ.
+            if (IsNameHeader(Norm(name))) continue;
             var typeRaw = Cell(ws, r, cols.TypeCol);
             var productType = PosProductTypeRules.Parse(typeRaw);
             var directRaw = Cell(ws, r, cols.DirectSaleCol);
@@ -194,15 +228,15 @@ internal static class PosProductExcelImportParser
                 NullIfEmpty(Cell(ws, r, cols.CategoryCol)),
                 NullIfEmpty(Cell(ws, r, cols.BrandCol)),
                 NullIfEmpty(Cell(ws, r, cols.SupplierCol)),
-                ParseDec(Cell(ws, r, cols.CostCol)),
-                ParseDec(Cell(ws, r, cols.PriceCol)),
-                ParseDec(Cell(ws, r, cols.StockCol)),
-                ParseDec(Cell(ws, r, cols.MinStockCol)),
-                ParseDec(Cell(ws, r, cols.MaxStockCol)),
+                NumCell(ws, r, cols.CostCol, price: true),
+                NumCell(ws, r, cols.PriceCol, price: true),
+                NumCell(ws, r, cols.StockCol),
+                NumCell(ws, r, cols.MinStockCol),
+                NumCell(ws, r, cols.MaxStockCol),
                 string.IsNullOrWhiteSpace(Cell(ws, r, cols.UnitCol)) ? "Cái" : Cell(ws, r, cols.UnitCol).Trim(),
                 productType,
                 isDirect,
-                ParseDecNullable(Cell(ws, r, cols.WeightCol)),
+                string.IsNullOrWhiteSpace(Cell(ws, r, cols.WeightCol)) ? null : NumCell(ws, r, cols.WeightCol),
                 NullIfEmpty(Cell(ws, r, cols.LocationCol)),
                 NullIfEmpty(Cell(ws, r, cols.DescCol)),
                 NullIfEmpty(Cell(ws, r, cols.PrinterCol)),
@@ -258,7 +292,7 @@ internal static class PosProductExcelImportParser
 
 
 
-            var qty = cols.QtyCol > 0 ? ParseDec(Cell(ws, r, cols.QtyCol)) : 1m;
+            var qty = cols.QtyCol > 0 ? NumCell(ws, r, cols.QtyCol) : 1m;
 
             if (qty <= 0) qty = 1;
 
@@ -282,36 +316,103 @@ internal static class PosProductExcelImportParser
 
 
 
+    const int HeaderScanRows = 15;
+    const int HeaderScanCols = 30;
+
+    /// <summary>Cột tên hàng: «Tên hàng», «Tên món», «Tên sản phẩm», «Mặt hàng», «Sản phẩm», «Món», «Product», «Item»…</summary>
+    internal static bool IsNameHeader(string h) =>
+        h.Length > 0 &&
+        (h.Contains("tenhang", StringComparison.Ordinal) ||
+         h.Contains("tenmon", StringComparison.Ordinal) ||
+         h.Contains("tensanpham", StringComparison.Ordinal) ||
+         h.Contains("tenmathang", StringComparison.Ordinal) ||
+         h.Contains("tendichvu", StringComparison.Ordinal) ||
+         h.Contains("productname", StringComparison.Ordinal) ||
+         h.Contains("itemname", StringComparison.Ordinal) ||
+         h is "name" or "ten" or "tensp" or "mon" or "monan" or "mathang" or "sanpham" or "hanghoa" or "product"
+             or "item" or "items" or "products" or "menu" or "dichvu");
+
+    internal static bool IsPriceHeader(string h) =>
+        h.Length > 0 && !IsCostHeader(h) &&
+        (h.StartsWith("giaban", StringComparison.Ordinal) ||
+         h.StartsWith("dongia", StringComparison.Ordinal) ||
+         h.StartsWith("giale", StringComparison.Ordinal) ||
+         h.StartsWith("gianiemyet", StringComparison.Ordinal) ||
+         h.StartsWith("giatien", StringComparison.Ordinal) ||
+         h is "gia" or "giavnd" or "giad" or "giadong" or "giak" or "gia1000d" ||
+         h.Contains("saleprice", StringComparison.Ordinal) ||
+         h.Contains("price", StringComparison.Ordinal));
+
+    internal static bool IsCostHeader(string h) =>
+        h.Contains("giavon", StringComparison.Ordinal) ||
+        h.Contains("gianhap", StringComparison.Ordinal) ||
+        h.Contains("giamua", StringComparison.Ordinal) ||
+        h.Contains("cost", StringComparison.Ordinal);
+
+    /// <summary>Dòng tiêu đề trong ~15 dòng đầu: có cột tên hàng (ưu tiên dòng có thêm cột giá / mã / đơn vị…).</summary>
     static int FindHeaderRow(IXLWorksheet ws)
 
     {
 
-        var lastRow = Math.Min(ws.LastRowUsed()?.RowNumber() ?? 30, 30);
+        var lastRow = Math.Min(ws.LastRowUsed()?.RowNumber() ?? HeaderScanRows, HeaderScanRows);
+        var nameOnly = -1;
 
         for (var r = 1; r <= lastRow; r++)
 
         {
 
-            for (var c = 1; c <= 20; c++)
+            var hasName = false;
+            var others = 0;
+            for (var c = 1; c <= HeaderScanCols; c++)
 
             {
 
-                var h = Norm(ws.Cell(r, c).GetFormattedString());
-
-                if (h.Contains("tenhang", StringComparison.Ordinal) ||
-
-                    h.Contains("tên hàng", StringComparison.Ordinal) ||
-
-                    h == "name")
-
-                    return r;
+                var h = Norm(HeaderText(ws, r, c));
+                if (h.Length == 0) continue;
+                if (IsNameHeader(h)) hasName = true;
+                else if (KnownHeader(h)) others++;
 
             }
 
+            if (hasName && others > 0) return r;
+            if (hasName && nameOnly < 0) nameOnly = r;
+
         }
 
-        return -1;
+        return nameOnly;
 
+    }
+
+    static bool KnownHeader(string h)
+    {
+        var m = new ColumnMap();
+        MapHeader(m, h, 1);
+        return m.CodeCol > 0 || m.BarcodeCol > 0 || m.CategoryCol > 0 || m.CostCol > 0 || m.PriceCol > 0
+               || m.StockCol > 0 || m.UnitCol > 0 || m.TypeCol > 0;
+    }
+
+    /// <summary>Chữ tiêu đề; ô nằm trong vùng gộp lấy chữ của ô đầu vùng.</summary>
+    static string HeaderText(IXLWorksheet ws, int r, int c)
+    {
+        var cell = ws.Cell(r, c);
+        var text = cell.GetFormattedString();
+        if (string.IsNullOrWhiteSpace(text) && cell.IsMerged())
+            text = cell.MergedRange()?.FirstCell().GetFormattedString() ?? "";
+        return text;
+    }
+
+    /// <summary>Tiêu đề gộp dọc nhiều dòng → dữ liệu bắt đầu sau dòng cuối của vùng gộp.</summary>
+    static int DataStartRow(IXLWorksheet ws, int headerRow)
+    {
+        var start = headerRow + 1;
+        for (var c = 1; c <= HeaderScanCols; c++)
+        {
+            var cell = ws.Cell(headerRow, c);
+            if (!cell.IsMerged()) continue;
+            var last = cell.MergedRange()?.LastRow().RowNumber() ?? headerRow;
+            if (last + 1 > start && last - headerRow <= 3) start = last + 1;
+        }
+        return start;
     }
 
 
@@ -354,65 +455,95 @@ internal static class PosProductExcelImportParser
 
         var map = new ColumnMap();
 
-        for (var c = 1; c <= 25; c++)
+        for (var c = 1; c <= HeaderScanCols; c++)
 
         {
 
-            var h = Norm(ws.Cell(headerRow, c).GetFormattedString());
-
-            if (h.Contains("mahang", StringComparison.Ordinal) || h == "code") map.CodeCol = c;
-
-            else if (h.Contains("mavach", StringComparison.Ordinal) || h.Contains("barcode", StringComparison.Ordinal)) map.BarcodeCol = c;
-
-            else if (h.Contains("tenhang", StringComparison.Ordinal) || h == "name") map.NameCol = c;
-
-            else if (h.Contains("nhomhang", StringComparison.Ordinal) || h.Contains("category", StringComparison.Ordinal)) map.CategoryCol = c;
-
-            else if (h.Contains("thuonghieu", StringComparison.Ordinal) || h.Contains("brand", StringComparison.Ordinal)) map.BrandCol = c;
-
-            else if (h.Contains("nhacungcap", StringComparison.Ordinal) || h.Contains("supplier", StringComparison.Ordinal)) map.SupplierCol = c;
-
-            else if (h.Contains("giavon", StringComparison.Ordinal) || h.Contains("cost", StringComparison.Ordinal)) map.CostCol = c;
-
-            else if (h.Contains("giaban", StringComparison.Ordinal) || h.Contains("price", StringComparison.Ordinal)) map.PriceCol = c;
-
-            else if (h.Contains("tonkho", StringComparison.Ordinal) || h.Contains("stock", StringComparison.Ordinal)) map.StockCol = c;
-
-            else if (h.Contains("tonthap", StringComparison.Ordinal) || h.Contains("minstock", StringComparison.Ordinal)) map.MinStockCol = c;
-
-            else if (h.Contains("toncao", StringComparison.Ordinal) || h.Contains("maxstock", StringComparison.Ordinal)) map.MaxStockCol = c;
-
-            else if (h.Contains("donvi", StringComparison.Ordinal) || h.Contains("unit", StringComparison.Ordinal)) map.UnitCol = c;
-
-            else if (h.Contains("loaihang", StringComparison.Ordinal) || h.Contains("type", StringComparison.Ordinal)) map.TypeCol = c;
-
-            else if (h.Contains("bantructiep", StringComparison.Ordinal) || h.Contains("direct", StringComparison.Ordinal)) map.DirectSaleCol = c;
-
-            else if (h.Contains("trongluong", StringComparison.Ordinal) || h.Contains("weight", StringComparison.Ordinal)) map.WeightCol = c;
-
-            else if (h.Contains("vitri", StringComparison.Ordinal) || h.Contains("location", StringComparison.Ordinal)) map.LocationCol = c;
-
-            else if (h.Contains("mota", StringComparison.Ordinal) || h.Contains("description", StringComparison.Ordinal)) map.DescCol = c;
-
-            else if (h.Contains("mayin", StringComparison.Ordinal) || h.Contains("printer", StringComparison.Ordinal)) map.PrinterCol = c;
-            else if (h.Contains("dangkd", StringComparison.Ordinal) ||
-                     h.Contains("trangthai", StringComparison.Ordinal) ||
-                     h.Contains("isactive", StringComparison.Ordinal) ||
-                     h.Contains("active", StringComparison.Ordinal))
-                map.IsActiveCol = c;
-            else if (h is "anh" or "hinh" or "photo" or "picture" ||
-                     h.Contains("hinhanh") ||
-                     h.Contains("linkanh") ||
-                     h.Contains("linkhinh") ||
-                     h.Contains("urlanh") ||
-                     h.Contains("anhsp") ||
-                     h.Contains("imageurl") ||
-                     h.Contains("image"))
-                map.ImageCol = c;
+            var h = Norm(HeaderText(ws, headerRow, c));
+            if (h.Length > 0) MapHeader(map, h, c);
 
         }
 
         return map;
+
+    }
+
+    /// <summary>Gán cột theo tiêu đề (đã chuẩn hóa bỏ dấu); cột đầu tiên khớp được giữ (không ghi đè).</summary>
+    static void MapHeader(ColumnMap map, string h, int c)
+    {
+        static void Set(ref int field, int col)
+        {
+            if (field <= 0) field = col;
+        }
+
+        if (h.Contains("mahang", StringComparison.Ordinal) || h.Contains("masanpham", StringComparison.Ordinal) ||
+            h.Contains("productcode", StringComparison.Ordinal) || h.Contains("itemcode", StringComparison.Ordinal) ||
+            h is "code" or "ma" or "masp" or "mamon" or "mahh" or "sku" or "mahanghoa")
+            Set(ref map.CodeCol, c);
+
+        else if (h.Contains("mavach", StringComparison.Ordinal) || h.Contains("barcode", StringComparison.Ordinal) ||
+                 h is "ean" or "upc" or "ean13")
+            Set(ref map.BarcodeCol, c);
+
+        else if (IsNameHeader(h)) Set(ref map.NameCol, c);
+
+        else if (h.Contains("nhomhang", StringComparison.Ordinal) || h.Contains("nhommon", StringComparison.Ordinal) ||
+                 h.Contains("category", StringComparison.Ordinal) || h.Contains("danhmuc", StringComparison.Ordinal) ||
+                 h.Contains("nganhhang", StringComparison.Ordinal) ||
+                 h is "nhom" or "nhomsp" or "nhomsanpham" or "group")
+            Set(ref map.CategoryCol, c);
+
+        else if (h.Contains("thuonghieu", StringComparison.Ordinal) || h.Contains("brand", StringComparison.Ordinal)) Set(ref map.BrandCol, c);
+
+        else if (h.Contains("nhacungcap", StringComparison.Ordinal) || h.Contains("supplier", StringComparison.Ordinal) || h == "ncc")
+            Set(ref map.SupplierCol, c);
+
+        else if (IsCostHeader(h)) Set(ref map.CostCol, c);
+
+        else if (IsPriceHeader(h)) Set(ref map.PriceCol, c);
+
+        else if (h.Contains("tonthap", StringComparison.Ordinal) || h.Contains("minstock", StringComparison.Ordinal)) Set(ref map.MinStockCol, c);
+
+        else if (h.Contains("toncao", StringComparison.Ordinal) || h.Contains("maxstock", StringComparison.Ordinal)) Set(ref map.MaxStockCol, c);
+
+        else if (h.Contains("tonkho", StringComparison.Ordinal) || h.Contains("soluongton", StringComparison.Ordinal) ||
+                 h.Contains("stock", StringComparison.Ordinal) || h.Contains("onhand", StringComparison.Ordinal) ||
+                 h is "ton" or "slton" or "tondauky" or "soluong" or "sl" or "qty" or "quantity")
+            Set(ref map.StockCol, c);
+
+        else if (h.Contains("donvi", StringComparison.Ordinal) || h.Contains("unit", StringComparison.Ordinal) ||
+                 h is "dvt" or "uom")
+            Set(ref map.UnitCol, c);
+
+        else if (h.Contains("loaihang", StringComparison.Ordinal) || h.Contains("type", StringComparison.Ordinal) ||
+                 h is "kieuhang" or "loaisp")
+            Set(ref map.TypeCol, c);
+
+        else if (h.Contains("bantructiep", StringComparison.Ordinal) || h.Contains("direct", StringComparison.Ordinal)) Set(ref map.DirectSaleCol, c);
+
+        else if (h.Contains("trongluong", StringComparison.Ordinal) || h.Contains("weight", StringComparison.Ordinal)) Set(ref map.WeightCol, c);
+
+        else if (h.Contains("vitri", StringComparison.Ordinal) || h.Contains("location", StringComparison.Ordinal)) Set(ref map.LocationCol, c);
+
+        else if (h.Contains("mota", StringComparison.Ordinal) || h.Contains("description", StringComparison.Ordinal) ||
+                 h is "ghichu" or "note")
+            Set(ref map.DescCol, c);
+
+        else if (h.Contains("mayin", StringComparison.Ordinal) || h.Contains("printer", StringComparison.Ordinal)) Set(ref map.PrinterCol, c);
+        else if (h.Contains("dangkd", StringComparison.Ordinal) ||
+                 h.Contains("trangthai", StringComparison.Ordinal) ||
+                 h.Contains("isactive", StringComparison.Ordinal) ||
+                 h.Contains("active", StringComparison.Ordinal))
+            Set(ref map.IsActiveCol, c);
+        else if (h is "anh" or "hinh" or "photo" or "picture" ||
+                 h.Contains("hinhanh") ||
+                 h.Contains("linkanh") ||
+                 h.Contains("linkhinh") ||
+                 h.Contains("urlanh") ||
+                 h.Contains("anhsp") ||
+                 h.Contains("imageurl") ||
+                 h.Contains("image"))
+            Set(ref map.ImageCol, c);
 
     }
 
@@ -553,14 +684,45 @@ internal static class PosProductExcelImportParser
     }
 
 
-    static decimal ParseDec(string s) =>
+    /// <summary>
+    /// Số trong ô: ô kiểu số lấy thẳng giá trị (không qua chữ hiển thị «25.000 ₫»); ô chữ đọc kiểu Việt Nam
+    /// («25.000» / «25,000đ» = 25000, «1,5» = 1.5, giá «35k» / «1tr2»).
+    /// </summary>
+    static decimal NumCell(IXLWorksheet ws, int row, int col, bool price = false)
+    {
+        if (col <= 0) return 0;
+        var cell = ws.Cell(row, col);
+        try
+        {
+            if (cell.DataType == XLDataType.Number && cell.TryGetValue<double>(out var d)
+                && !double.IsNaN(d) && !double.IsInfinity(d) && Math.Abs(d) < 1e15)
+                return (decimal)d;
+        }
+        catch (Exception)
+        {
+            // Công thức lỗi… → đọc theo chữ hiển thị.
+        }
+        return ParseDec(cell.GetFormattedString(), price);
+    }
 
-        decimal.TryParse(s.Replace(",", "").Replace(" ", ""), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0;
-
-
-
-    static decimal? ParseDecNullable(string s) =>
-        string.IsNullOrWhiteSpace(s) ? null : ParseDec(s);
+    internal static decimal ParseDec(string? s, bool price = false)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return 0;
+        var t = s.Trim();
+        var negative = t.StartsWith('-') || (t.StartsWith('(') && t.EndsWith(')'));
+        t = t.Trim('-', '(', ')', ' ');
+        if (price)
+        {
+            var p = ZKTecoADMS.Api.Services.MenuPriceParser.Parse(t);
+            if (p.Value is decimal pv && p.Flag is not ZKTecoADMS.Api.Services.MenuPriceFlag.Unreadable)
+                return negative ? -pv : pv;
+        }
+        // Số lượng / trọng lượng: lấy số đầu chuỗi («10 cái», «1,5 kg»).
+        var m = Regex.Match(t.Replace(" ", ""), @"^\d+(?:[.,]\d+)*");
+        if (!m.Success) return 0;
+        var v = ZKTecoADMS.Api.Services.MenuPriceParser.ParseNumber(m.Value) ?? 0;
+        return negative ? -v : v;
+    }
 
     static bool? ParseActive(string s)
     {
@@ -587,6 +749,42 @@ internal static class PosProductExcelImportParser
 
 
     static string? NullIfEmpty(string s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    /// <summary>Kiểm tra dòng trước khi tạo / sửa hàng (không để entity dở dang vào DbContext). Null = hợp lệ.</summary>
+    internal static string? ValidateRow(ImportRow row)
+    {
+        if (string.IsNullOrWhiteSpace(row.Name)) return "thiếu tên hàng";
+        if (row.Name.Trim().Length > 500) return "tên hàng dài quá 500 ký tự";
+        if (row.ProductCode?.Trim().Length > 50) return "mã hàng dài quá 50 ký tự";
+        if (row.Barcode?.Trim().Length > 50) return "mã vạch dài quá 50 ký tự";
+        if (row.BaseUnitName.Trim().Length > 100) return "đơn vị dài quá 100 ký tự";
+        if (row.CategoryName?.Trim().Length > 200) return "tên nhóm hàng dài quá 200 ký tự";
+        if (row.BasePrice < 0) return "giá bán âm";
+        if (row.CostPrice < 0) return "giá vốn âm";
+        if (row.BasePrice > 100_000_000_000m || row.CostPrice > 100_000_000_000m) return "giá quá lớn";
+        if (row.MinStockQty < 0 || row.MaxStockQty < 0) return "tồn thấp / tồn cao âm";
+        return null;
+    }
+
+    /// <summary>
+    /// Hàng đã có ứng với dòng Excel: theo mã hàng, rồi mã vạch; dòng KHÔNG ghi mã hàng / mã vạch thì theo tên giống hệt
+    /// (không phân biệt hoa thường / khoảng trắng, giữ dấu) — nhập lại file không có cột mã không nhân đôi hàng.
+    /// </summary>
+    internal static T? MatchExisting<T>(
+        ImportRow row,
+        IReadOnlyDictionary<string, T> byCode,
+        IReadOnlyDictionary<string, T> byBarcode,
+        IReadOnlyDictionary<string, T> byNameKey) where T : class
+    {
+        if (!string.IsNullOrWhiteSpace(row.ProductCode))
+            return byCode.TryGetValue(row.ProductCode.Trim(), out var c) ? c
+                : !string.IsNullOrWhiteSpace(row.Barcode) && byBarcode.TryGetValue(row.Barcode.Trim(), out var cb) ? cb
+                : null;
+        // Có mã vạch mà chưa có → hàng mới (cùng tên khác mã vạch là hàng khác, vd nhiều quy cách).
+        if (!string.IsNullOrWhiteSpace(row.Barcode))
+            return byBarcode.TryGetValue(row.Barcode.Trim(), out var b) ? b : null;
+        return byNameKey.TryGetValue(ZKTecoADMS.Api.Services.PosProductNameMatch.ExactKey(row.Name), out var n) ? n : null;
+    }
 
 }
 
