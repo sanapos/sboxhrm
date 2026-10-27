@@ -75,6 +75,29 @@ public partial class PosSalesController
             ]));
         }
 
+        // Gộp 3 chiều với đơn hiện tại: máy cầm giỏ cũ (409 rồi lưu lại, chưa kịp tải) không xóa món máy
+        // khác / báo bếp vừa thêm. Đơn offline đồng bộ là đơn đã bán thật — giữ nguyên.
+        var mergedRemote = 0;
+        if (offlineNo == null && dto.BaseLines != null)
+        {
+            var serverRows = order.Lines?.Where(l => l.Deleted == null).ToList() ?? [];
+            var merge = MergeDraftLines(dto.Lines ?? [], dto.BaseLines, serverRows);
+            if (merge.MergedKeys > 0 && dto.Complete)
+            {
+                // Không thu tiền theo giỏ cũ: thiếu món máy khác vừa gọi → bàn còn món / thu thiếu.
+                SaleOrderDto staleMapped;
+                try { staleMapped = await MapOrderAsync(storeId, order, serverRows, dto.DeviceId, dto.DeviceName); }
+                catch { staleMapped = MapOrder(order, serverRows, viewerUserId: CurrentUserId, viewerDeviceId: dto.DeviceId, viewerDeviceName: dto.DeviceName); }
+                return Conflict(AppResponse<SaleOrderDto>.Create(false, staleMapped with { MergedRemoteLines = merge.MergedKeys },
+                    [StaleCartBeforePayMessage]));
+            }
+            if (merge.MergedKeys > 0)
+            {
+                mergedRemote = merge.MergedKeys;
+                dto = dto with { Lines = merge.Lines };
+            }
+        }
+
         // Draft clear: cho phép lines rỗng — xóa hàng + nhả khóa (đồng bộ đa máy).
         if (!dto.Complete && (dto.Lines == null || dto.Lines.Count == 0))
         {
@@ -650,7 +673,7 @@ public partial class PosSalesController
             // HĐ quầy (dùng chung giữa các máy): máy khác cập nhật ngay thay vì đợi vòng hỏi 10s.
             NotifyFloorChanged(storeId, "slotSaved", orderId: order.Id);
         }
-        return Ok(AppResponse<SaleOrderDto>.Success(mapped));
+        return Ok(AppResponse<SaleOrderDto>.Success(mapped with { MergedRemoteLines = mergedRemote }));
     }
 
     static string KitchenMergeKey(

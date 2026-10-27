@@ -253,7 +253,10 @@ public partial class PosSalesController(
         string? OfflineNo = null,
         DateTime? OfflineAt = null,
         string? OfflineDeviceKey = null,
-        bool CollectOldDebt = false);
+        bool CollectOldDebt = false,
+        /// <summary>Giỏ máy bán nhận từ server lần đồng bộ gần nhất — server gộp 3 chiều (xem MergeDraftLines).
+        /// null = app cũ, lưu đè như trước.</summary>
+        List<BaseLineDto>? BaseLines = null);
 
     public record SaleOrderDto(
         Guid Id,
@@ -352,6 +355,9 @@ public partial class PosSalesController(
         /// <summary>Đơn đã hoàn tất TRƯỚC yêu cầu này (máy khác / webhook / lần gửi trước) — máy bán
         /// báo «đã thanh toán», không coi là vừa thu tiền và không in như đơn mới.</summary>
         public bool AlreadyCompleted { get; init; }
+
+        /// <summary>Số nhóm món server đã gộp từ máy khác vào giỏ gửi lên — máy bán tải lại giỏ theo đơn trả về.</summary>
+        public int MergedRemoteLines { get; init; }
     }
 
     public record SaleOrderSummaryDto(
