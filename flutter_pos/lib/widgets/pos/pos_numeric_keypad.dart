@@ -55,7 +55,8 @@ class PosNoSoftKeyboardField extends StatelessWidget {
     final next = await showPosNumericKeypad(
       context: context,
       title: keypadTitle ?? 'Nhập số',
-      initial: controller.text,
+      // Ô số nguyên hay hiển thị «30.000» — keypad sẽ hiểu dấu chấm là phần thập phân.
+      initial: allowDecimal ? controller.text : controller.text.replaceAll(RegExp(r'[^\d-]'), ''),
       allowDecimal: allowDecimal,
       allowNegative: allowNegative,
       offerDecimalToggle: offerDecimalToggle,
@@ -152,11 +153,16 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
   late String _value;
   late bool _allowDecimal;
 
+  /// Giá trị điền sẵn coi như «đang bôi đen»: phím số đầu tiên thay hẳn, xóa lùi đầu tiên xóa hết.
+  /// Trước đây gõ nối vào sau — ô tiền thanh toán sẵn «65.000», khách đưa 100.000 → «65.000100000».
+  late bool _fresh;
+
   @override
   void initState() {
     super.initState();
     _value = _normalize(widget.initial);
     _allowDecimal = widget.allowDecimal;
+    _fresh = _value.isNotEmpty && _value != '0';
   }
 
   void _toggleDecimal(bool on) {
@@ -178,6 +184,8 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
 
   void _append(String ch) {
     setState(() {
+      if (_fresh && ch != '-') _value = '';
+      _fresh = false;
       if (ch == '.' || ch == ',') {
         if (!_allowDecimal) return;
         if (_value.contains('.')) return;
@@ -199,12 +207,20 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
 
   void _backspace() {
     setState(() {
+      if (_fresh) {
+        _fresh = false;
+        _value = '';
+        return;
+      }
       if (_value.isEmpty) return;
       _value = _value.substring(0, _value.length - 1);
     });
   }
 
-  void _clear() => setState(() => _value = '');
+  void _clear() => setState(() {
+        _fresh = false;
+        _value = '';
+      });
 
   Widget _key(
     String label, {
@@ -273,9 +289,10 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
             margin: const EdgeInsets.only(bottom: 10, top: 4),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: SboxColors.slate50,
+              // Giá trị sẵn đang «bôi đen» (phím tiếp theo sẽ thay) → nền xanh nhạt như vùng chọn.
+              color: _fresh ? SboxColors.brand50 : SboxColors.slate50,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: PosTheme.border),
+              border: Border.all(color: _fresh ? SboxColors.brand600 : PosTheme.border),
             ),
             child: Text(
               _value.isEmpty ? '0' : _value,
