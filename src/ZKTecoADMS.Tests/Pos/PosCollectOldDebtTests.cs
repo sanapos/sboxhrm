@@ -55,7 +55,7 @@ public class PosCollectOldDebtTests(PosPgFixture fx) : PosFlowTestBase(fx)
             Assert.Contains("Thu nợ cũ kèm đơn", pay.Note);
             Assert.Contains($"Trừ nợ đơn: {debtOrderNo}", pay.Note);
             // Trừ đúng một đơn → phiếu gắn đơn đó (mở hóa đơn gốc từ phiếu thu).
-            var debtOrder = await db.PosSaleOrders.FirstAsync(o => o.OrderNo == debtOrderNo);
+            var debtOrder = await db.PosSaleOrders.FirstAsync(o => o.StoreId == store && o.OrderNo == debtOrderNo);
             Assert.Equal(debtOrder.Id, pay.SaleOrderId);
             Assert.Equal(100000m, debtOrder.PaidAmount);
             // Đơn 2 chỉ ghi nhận đúng số phải trả (phần thối không vào đơn).
@@ -68,7 +68,7 @@ public class PosCollectOldDebtTests(PosPgFixture fx) : PosFlowTestBase(fx)
         // Lịch sử thanh toán của đơn nợ: chỉ dòng thu nợ 100.000 (không tính thêm «thu khi bán» = PaidAmount).
         await using (var db = Fx.NewDb())
         {
-            var debtId = (await db.PosSaleOrders.FirstAsync(o => o.OrderNo == debtOrderNo)).Id;
+            var debtId = (await db.PosSaleOrders.FirstAsync(o => o.StoreId == store && o.OrderNo == debtOrderNo)).Id;
             var pays = Data(await Sales(db, store).GetPayments(debtId));
             Assert.Equal(100000m, pays.Sum(x => x.Amount));
         }

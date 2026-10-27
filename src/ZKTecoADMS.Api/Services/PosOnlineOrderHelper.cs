@@ -138,6 +138,17 @@ public static class PosOnlineOrderHelper
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
         try
         {
+            // Nhận đơn nguyên tử (cùng cách PosSalesController): thu ngân vừa bấm hoàn tất / máy khác
+            // đã TT → 0 dòng → không trừ kho, ghi phiếu thu lần hai.
+            var claimed = await db.PosSaleOrders
+                .Where(o => o.Id == order.Id && o.StoreId == storeId
+                    && o.Status == PosSaleOrderStatus.Draft && o.Deleted == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.UpdatedAt, DateTime.UtcNow), ct);
+            if (claimed == 0)
+            {
+                await tx.RollbackAsync(ct);
+                return await AfterLostClaimAsync(db, order, ct);
+            }
             await PosSaleStockHelper.EnsureLineUnitIdsAsync(db, order.Lines);
             var lineInputs = order.Lines
                 .Where(l => l.Deleted == null)
@@ -181,6 +192,12 @@ public static class PosOnlineOrderHelper
             await tx.CommitAsync(ct);
             return (true, null);
         }
+        catch (Exception ex) when (IsSerializationFailure(ex))
+        {
+            // Giao dịch khác (thu ngân) đang hoàn tất cùng đơn → xem kết quả của nó.
+            await tx.RollbackAsync(ct);
+            return await AfterLostClaimAsync(db, order, ct);
+        }
         catch (InvalidOperationException ex) when (ex is not ObjectDisposedException)
         {
             // Lỗi nghiệp vụ kho (thiếu lô/HSD, lô vừa đổi…) → báo rõ thay vì lỗi hệ thống.
@@ -192,6 +209,30 @@ public static class PosOnlineOrderHelper
             await tx.RollbackAsync(ct);
             throw;
         }
+    }
+
+    /// <summary>Yêu cầu khác đã nhận đơn trước: bỏ thay đổi trên bộ nhớ, đọc lại trạng thái thật.</summary>
+    static async Task<(bool Ok, string? Error)> AfterLostClaimAsync(
+        ZKTecoDbContext db, PosSaleOrder order, CancellationToken ct)
+    {
+        db.ChangeTracker.Clear();
+        var status = await db.PosSaleOrders.AsNoTracking()
+            .Where(o => o.Id == order.Id)
+            .Select(o => (PosSaleOrderStatus?)o.Status)
+            .FirstOrDefaultAsync(ct);
+        return status == PosSaleOrderStatus.Completed
+            ? (true, null)
+            : (false, "Đơn không ở trạng thái tạm");
+    }
+
+    static bool IsSerializationFailure(Exception ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException)
+        {
+            if (e is Npgsql.PostgresException { SqlState: "40001" or "40P01" })
+                return true;
+        }
+        return false;
     }
 
     /// <summary>Người ghi phiếu thu: nhân viên đang thao tác (theo email) → chủ cửa hàng → tài khoản đầu tiên của cửa hàng.</summary>

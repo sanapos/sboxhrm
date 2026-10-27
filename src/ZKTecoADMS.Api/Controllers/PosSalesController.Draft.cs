@@ -45,7 +45,7 @@ public partial class PosSalesController
             SaleOrderDto already;
             try { already = await MapOrderAsync(storeId, order); }
             catch { already = MapOrder(order, order.Lines?.ToList() ?? [], viewerUserId: CurrentUserId); }
-            return Ok(AppResponse<SaleOrderDto>.Success(already));
+            return Ok(AppResponse<SaleOrderDto>.Success(already with { AlreadyCompleted = true }));
         }
         if (order.Status != PosSaleOrderStatus.Draft)
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Chỉ sửa được đơn tạm"));
@@ -200,7 +200,7 @@ public partial class PosSalesController
                             already = MapOrder(order, doneLines, viewerUserId: CurrentUserId,
                                 viewerDeviceId: dto.DeviceId, viewerDeviceName: dto.DeviceName);
                         }
-                        return Ok(AppResponse<SaleOrderDto>.Success(already));
+                        return Ok(AppResponse<SaleOrderDto>.Success(already with { AlreadyCompleted = true }));
                     }
                     if (order.Status != PosSaleOrderStatus.Draft)
                         return BadRequest(AppResponse<SaleOrderDto>.Fail("Chỉ sửa được đơn tạm"));
@@ -213,6 +213,20 @@ public partial class PosSalesController
                 await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
                 try
                 {
+                    // Nhận đơn nguyên tử: chỉ MỘT yêu cầu chuyển được Draft → hoàn tất. Yêu cầu đến sau
+                    // (máy khác, webhook Tingee, bấm lại) thấy 0 dòng → thử lại → trả đơn đã hoàn tất,
+                    // không trừ kho / ghi phiếu thu lần hai. Hàng đang bị giao dịch khác khóa → lỗi
+                    // serialization → thử lại như cũ.
+                    var claimed = await dbContext.PosSaleOrders
+                        .Where(o => o.Id == order.Id && o.StoreId == storeId
+                            && o.Status == PosSaleOrderStatus.Draft && o.Deleted == null)
+                        .ExecuteUpdateAsync(s => s.SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
+                    if (claimed == 0)
+                    {
+                        await tx.RollbackAsync();
+                        savedComplete = false;
+                        continue;
+                    }
                     var (_, builtLines, errComplete) =
                         await BuildSaleAsync(storeId, order, createDto, complete: true,
                             allowManualPriceOverride: await CanEditSellPriceAsync(),
@@ -244,6 +258,11 @@ public partial class PosSalesController
                     PosKitchenKdsHelper.CloseOpenOnPaid(builtLines);
                     dbContext.PosSaleOrderLines.AddRange(builtLines);
                     await SaveSaleChangesWithUniqueRetriesAsync(order, storeId);
+                    // Dọn bàn (đóng phiên, xóa nháp sót) CÙNG transaction: trước đây chạy sau commit,
+                    // lỗi một lần → đơn đã TT nhưng bàn kẹt nháp còn món, bấm lại rơi vào nhánh
+                    // «đã hoàn tất» nên không dọn nữa.
+                    if (order.Status == PosSaleOrderStatus.Completed)
+                        await CloseResourceSessionForCompletedOrderAsync(storeId, order);
                     await tx.CommitAsync();
                     linesComplete = builtLines;
                     savedComplete = true;
@@ -318,7 +337,6 @@ public partial class PosSalesController
                     mappedComplete = MapOrder(order, linesComplete, viewerUserId: CurrentUserId,
                         viewerDeviceId: dto.DeviceId, viewerDeviceName: dto.DeviceName);
                 }
-                await CloseResourceSessionForCompletedOrderAsync(storeId, order);
                 try
                 {
                     await PosNotificationHelper.NotifySaleCompletedAsync(
@@ -777,7 +795,7 @@ public partial class PosSalesController
             SaleOrderDto already;
             try { already = await MapOrderAsync(storeId, order); }
             catch { already = MapOrder(order, order.Lines?.ToList() ?? [], viewerUserId: CurrentUserId); }
-            return Ok(AppResponse<SaleOrderDto>.Success(already));
+            return Ok(AppResponse<SaleOrderDto>.Success(already with { AlreadyCompleted = true }));
         }
         if (order.Status != PosSaleOrderStatus.Draft)
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn không ở trạng thái tạm"));
@@ -872,8 +890,11 @@ public partial class PosSalesController
                     return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
                 if (order.Status == PosSaleOrderStatus.Completed)
                 {
-                    savedComplete = true;
-                    break;
+                    // Yêu cầu khác vừa hoàn tất — trả đơn, không chạy lại thông báo / HĐĐT / dọn bàn.
+                    SaleOrderDto doneByOther;
+                    try { doneByOther = await MapOrderAsync(storeId, order); }
+                    catch { doneByOther = MapOrder(order, order.Lines?.ToList() ?? [], viewerUserId: CurrentUserId); }
+                    return Ok(AppResponse<SaleOrderDto>.Success(doneByOther with { AlreadyCompleted = true }));
                 }
                 if (order.Status != PosSaleOrderStatus.Draft)
                     return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn không ở trạng thái tạm"));
@@ -897,6 +918,20 @@ public partial class PosSalesController
             await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
             try
             {
+                // Nhận đơn nguyên tử: chỉ MỘT yêu cầu chuyển được Draft → hoàn tất. Yêu cầu đến sau
+                // (máy khác, webhook Tingee, bấm lại) thấy 0 dòng → thử lại → trả đơn đã hoàn tất,
+                // không trừ kho / ghi phiếu thu lần hai. Hàng đang bị giao dịch khác khóa → lỗi
+                // serialization → thử lại như cũ.
+                var claimed = await dbContext.PosSaleOrders
+                    .Where(o => o.Id == order.Id && o.StoreId == storeId
+                        && o.Status == PosSaleOrderStatus.Draft && o.Deleted == null)
+                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
+                if (claimed == 0)
+                {
+                    await tx.RollbackAsync();
+                    savedComplete = false;
+                    continue;
+                }
                 // Nhả giữ chỗ draft TRONG tx trước khi trừ tồn — tránh ReservedQty rò rỉ đa máy.
                 var priorReserve = order.Lines
                     .Where(l => l.Deleted == null)
@@ -973,6 +1008,8 @@ public partial class PosSalesController
                 await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(dbContext, order, CurrentUserId);
                 PosKitchenKdsHelper.CloseOpenOnPaid(order.Lines);
                 await SaveSaleChangesWithUniqueRetriesAsync(order, storeId);
+                // Dọn bàn cùng transaction (xem UpdateSale).
+                await CloseResourceSessionForCompletedOrderAsync(storeId, order);
                 await tx.CommitAsync();
                 savedComplete = true;
             }
@@ -1009,8 +1046,6 @@ public partial class PosSalesController
             return Conflict(AppResponse<SaleOrderDto>.Fail(
                 "Xung đột dữ liệu khi hoàn thành đơn — vui lòng bấm lại"));
         }
-
-        await CloseResourceSessionForCompletedOrderAsync(storeId, order);
 
         var lowStockItems = plan!.Products.Values
             .Select(p => (p.Id, p.Name, p.OnHandQty, p.MinStockQty));
@@ -2169,7 +2204,9 @@ public partial class PosSalesController
                 .Where(o => o.StoreId == storeId && o.Deleted == null
                     && o.Status == PosSaleOrderStatus.Draft
                     && o.ServiceResourceId == tableId
-                    && o.Id != order.Id)
+                    && o.Id != order.Id
+                    // Bill tách chưa trả vẫn của khách đang ngồi — trước đây bị xóa khi trả bill chính.
+                    && o.SplitFromOrderId == null)
                 .Select(o => o.Id)
                 .ToListAsync();
             if (leftoverIds.Count > 0)

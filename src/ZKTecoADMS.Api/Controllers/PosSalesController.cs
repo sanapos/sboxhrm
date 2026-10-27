@@ -347,7 +347,12 @@ public partial class PosSalesController(
         Guid? PrintTemplateId = null,
         string? PrintNote = null,
         // Thẻ tập / gói buổi cấp từ đơn (chỉ trả ở chi tiết đơn) — vd «The Tap 1 Thang · hạn 21/03/2027».
-        List<string>? SessionGrants = null);
+        List<string>? SessionGrants = null)
+    {
+        /// <summary>Đơn đã hoàn tất TRƯỚC yêu cầu này (máy khác / webhook / lần gửi trước) — máy bán
+        /// báo «đã thanh toán», không coi là vừa thu tiền và không in như đơn mới.</summary>
+        public bool AlreadyCompleted { get; init; }
+    }
 
     public record SaleOrderSummaryDto(
         Guid Id,
@@ -1338,7 +1343,37 @@ public partial class PosSalesController(
         if (clientRequestId != null
             && await FindOrderByClientRequestAsync(storeId, clientRequestId) is { } existingOrder)
         {
-            return Ok(AppResponse<SaleOrderDto>.Success(existingOrder));
+            // Cùng mã nhưng đơn còn là nháp (lần tự lưu trước đã tạo, mất phản hồi) mà giờ bấm thanh toán
+            // → hoàn tất chính đơn đó. Trước đây trả nháp như «đã thanh toán»: máy bán in hóa đơn, reset
+            // giỏ trong khi tiền chưa ghi, bàn vẫn còn món.
+            if (dto.Complete && existingOrder.Status == nameof(PosSaleOrderStatus.Draft))
+            {
+                return await UpdateSale(existingOrder.Id, new UpdateSaleDto(
+                    dto.Lines, dto.Discount, dto.PaidAmount, dto.PaymentMethod,
+                    dto.CustomerName, dto.CustomerId, dto.Note, Complete: true,
+                    IsDelivery: dto.IsDelivery, DeliveryAddress: dto.DeliveryAddress,
+                    DeliveryPhone: dto.DeliveryPhone, DeliveryPartner: dto.DeliveryPartner,
+                    DeliveryProvince: dto.DeliveryProvince, DeliveryDistrict: dto.DeliveryDistrict,
+                    DeliveryWard: dto.DeliveryWard, DeliveryStatus: dto.DeliveryStatus,
+                    DeliveryDate: dto.DeliveryDate, SoldBy: dto.SoldBy,
+                    SoldByEmployeeId: dto.SoldByEmployeeId, SalesChannel: dto.SalesChannel,
+                    PriceListName: dto.PriceListName, PriceListId: dto.PriceListId,
+                    Payments: dto.Payments, VoucherCode: dto.VoucherCode,
+                    PointsToRedeem: dto.PointsToRedeem, ServiceResourceId: dto.ServiceResourceId,
+                    ResourceSessionId: dto.ResourceSessionId, ServiceStartedAt: dto.ServiceStartedAt,
+                    ServiceEndedAt: dto.ServiceEndedAt, ExpectedLockVersion: null,
+                    DeviceId: dto.DeviceId, DeviceName: dto.DeviceName, InvoiceSlot: dto.InvoiceSlot,
+                    VatAmount: dto.VatAmount, IssueEInvoice: dto.IssueEInvoice,
+                    EInvoiceBuyer: dto.EInvoiceBuyer, SurchargeAmount: dto.SurchargeAmount,
+                    DeliveryFee: dto.DeliveryFee, SaleDate: dto.SaleDate,
+                    PromotionsJson: dto.PromotionsJson, OfflineNo: dto.OfflineNo,
+                    OfflineAt: dto.OfflineAt, OfflineDeviceKey: dto.OfflineDeviceKey,
+                    CollectOldDebt: dto.CollectOldDebt));
+            }
+            return Ok(AppResponse<SaleOrderDto>.Success(existingOrder with
+            {
+                AlreadyCompleted = dto.Complete && existingOrder.Status == nameof(PosSaleOrderStatus.Completed),
+            }));
         }
 
         // Bán nhanh (không qua draft) không có transaction cách ly trước đây → 2 đơn bán cùng
