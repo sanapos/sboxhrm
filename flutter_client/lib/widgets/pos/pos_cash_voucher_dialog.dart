@@ -264,6 +264,8 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                       final categoryField = DropdownButtonFormField<String>(
                         value: _categoryId,
                         isExpanded: true,
+                        // Cùng cỡ chữ với ô Thời gian — mặc định dropdown to hơn hẳn các ô cạnh bên.
+                        style: const TextStyle(fontSize: 16, color: PosTheme.textPrimary),
                         decoration: InputDecoration(
                           labelText: tr('Danh mục'),
                           // Store chưa có danh mục loại này: báo ngay, khỏi đợi bấm tạo mới biết lỗi.
