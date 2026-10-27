@@ -231,7 +231,7 @@ class _SboxDataTableState<T> extends State<SboxDataTable<T>> {
         ),
         child: Row(children: [
           for (var i = 0; i < cols.length; i++)
-            SizedBox(width: w(cols[i]), child: _headerCell(i, cols[i])),
+            SizedBox(width: w(cols[i]), child: _headerCell(i, cols[i], gapLeft: _afterNumeric(cols, i))),
           if (actionsW > 0) SizedBox(width: actionsW),
         ]),
       );
@@ -253,7 +253,8 @@ class _SboxDataTableState<T> extends State<SboxDataTable<T>> {
                   border: const Border(bottom: BorderSide(color: SboxColors.divider)),
                 ),
                 child: Row(children: [
-                  for (final c in cols) SizedBox(width: w(c), child: _cell(c, rows[r])),
+                  for (var i = 0; i < cols.length; i++)
+                    SizedBox(width: w(cols[i]), child: _cell(cols[i], rows[r], gapLeft: _afterNumeric(cols, i))),
                   if (actionsW > 0)
                     SizedBox(
                       width: actionsW,
@@ -269,12 +270,18 @@ class _SboxDataTableState<T> extends State<SboxDataTable<T>> {
       return Scrollbar(
         controller: _hScroll,
         thumbVisibility: true,
-        child: SingleChildScrollView(controller: _hScroll, scrollDirection: Axis.horizontal, child: table),
+        // Chừa chỗ cho thanh cuộn luôn hiện — không đè lên dòng cuối.
+        child: SingleChildScrollView(
+            controller: _hScroll, scrollDirection: Axis.horizontal, padding: const EdgeInsets.only(bottom: 10), child: table),
       );
     });
   }
 
-  Widget _headerCell(int i, SboxColumn<T> c) {
+  /// Cột chữ (căn trái) ngay sau cột số (căn phải): hai nội dung dính sát nhau
+  /// («20.000 đ|Hình thức») — đệm thêm bên trái cho tách cột.
+  static bool _afterNumeric(List<SboxColumn> cols, int i) => i > 0 && cols[i - 1].numeric && !cols[i].numeric;
+
+  Widget _headerCell(int i, SboxColumn<T> c, {bool gapLeft = false}) {
     final sortable = c.sortValue != null;
     final active = _sortCol == i;
     final label = Text(
@@ -304,14 +311,14 @@ class _SboxDataTableState<T> extends State<SboxDataTable<T>> {
       ],
     );
     return Padding(
-      padding: const EdgeInsets.only(right: SboxSpace.md),
+      padding: EdgeInsets.only(left: gapLeft ? SboxSpace.lg : 0, right: SboxSpace.md),
       child: sortable
           ? InkWell(onTap: () => _toggleSort(i), borderRadius: SboxRadius.smAll, child: content)
           : content,
     );
   }
 
-  Widget _cell(SboxColumn<T> c, T row) {
+  Widget _cell(SboxColumn<T> c, T row, {bool gapLeft = false}) {
     Widget child;
     if (c.cell != null) {
       child = Align(alignment: c.numeric ? Alignment.centerRight : Alignment.centerLeft, child: c.cell!(row));
@@ -329,7 +336,7 @@ class _SboxDataTableState<T> extends State<SboxDataTable<T>> {
       // Chữ dài: rê chuột xem đầy đủ.
       child = s.length > 18 ? Tooltip(message: s, child: t) : t;
     }
-    return Padding(padding: const EdgeInsets.only(right: SboxSpace.md), child: child);
+    return Padding(padding: EdgeInsets.only(left: gapLeft ? SboxSpace.lg : 0, right: SboxSpace.md), child: child);
   }
 
   // ── Dạng thẻ (điện thoại) ──

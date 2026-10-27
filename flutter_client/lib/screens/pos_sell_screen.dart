@@ -822,9 +822,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     final focusCtx = FocusManager.instance.primaryFocus?.context;
     final editable = focusCtx?.findAncestorStateOfType<EditableTextState>()?.widget ??
         (focusCtx?.widget is EditableText ? focusCtx!.widget as EditableText : null);
-    if (editable == null) return false;
-    // Ô «Ghi chú đơn hàng» nằm ngay trên phần tổng — giữ nguyên bố cục.
-    return !identical(editable.controller, _tab._noteCtrl);
+    // Cả ô «Ghi chú đơn hàng»: giữ chân giỏ thì bàn phím Sunmi (~½ màn) bóp danh sách món còn 0,
+    // chỉ thấy ô ghi chú + tổng tiền — không biết đang ghi chú cho đơn nào.
+    return editable != null;
   }
 
   @override
@@ -18587,7 +18587,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildDraftSyncStatusBar(),
+          // Đang gõ: nhường dòng trạng thái đồng bộ cho danh sách món.
+          if (!_imeHidesCartFooter) _buildDraftSyncStatusBar(),
           Expanded(child: _buildKiotCartList()),
           Container(
             height: 36,
@@ -18606,7 +18607,10 @@ class _PosSellScreenState extends State<PosSellScreen>
                   child: TextField(
                     controller: _tab._noteCtrl,
                     readOnly: _tab.draftReadOnly || _tableAttachBusy,
-                    onTap: posShowSoftKeyboardOnFieldTap,
+                    // Chỉ xem: chạm ô thì nói lý do thay vì im lặng.
+                    onTap: () => _tab.draftReadOnly
+                        ? _guardReadOnlyEdit()
+                        : posShowSoftKeyboardOnFieldTap(),
                     decoration: InputDecoration(
                       hintText: tr('Ghi chú đơn hàng'),
                       isDense: true,
@@ -19063,9 +19067,11 @@ class _PosSellScreenState extends State<PosSellScreen>
       if ((_tab.serviceAreaName ?? '').isNotEmpty) _tab.serviceAreaName,
       if ((_tab.serviceResourceName ?? '').isNotEmpty) _tab.serviceResourceName,
     ].whereType<String>().join(' · ');
+    // Giỏ đã có món mà chưa gắn bàn: cùng tiêu đề ở tab sơ đồ lẫn thực đơn (trước đây sơ đồ ghi
+    // «Chọn bàn để bán», thực đơn ghi «Phiếu bàn» cho cùng một phiếu).
     final title = tableLabel.isNotEmpty
         ? tableLabel
-        : (_floorMapVisible && _useFloorAsPrimary
+        : (_floorMapVisible && _useFloorAsPrimary && _tab.cart.isEmpty
             ? 'Chọn ${_sellProfile.resourceNoun} để bán'
             : _sellProfile.invoiceTitle);
     return Container(
@@ -19111,6 +19117,35 @@ class _PosSellScreenState extends State<PosSellScreen>
                 foregroundColor: PosTheme.kiotBlue,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 visualDensity: VisualDensity.compact,
+              ),
+            ),
+          // Phiếu đang khoá trên máy khác: trước đây chỉ thấy nút Thanh toán xám, ô ghi chú không gõ
+          // được mà không rõ vì sao. Chạm chip = xem máy nào đang giữ bàn.
+          if (_tab.draftReadOnly)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Material(
+                color: SboxColors.warning.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => _guardReadOnlyEdit(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.lock_outline, size: 14, color: SboxColors.warning),
+                      const SizedBox(width: 4),
+                      Text(
+                        tr('Đang mở trên máy khác'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: SboxColors.warning,
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
               ),
             ),
           Container(
@@ -21297,38 +21332,79 @@ class _PosSellScreenState extends State<PosSellScreen>
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
+          // Chạm tên topping = +1 (vùng chạm lớn); nút −/+ 44px như nút số lượng trong giỏ —
+          // trước đây IconButton compact ~36px, bấm trên máy POS hay trượt.
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600)),
-                Text(
-                  tr('+${_moneyFmt.format(unitPrice)} đ'
-                      '${q > 1 ? ' · ${q} × = ${_moneyFmt.format(unitPrice * q)}' : ''}'),
-                  style: const TextStyle(color: _kiotBlue, fontSize: 12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: q >= 99 ? null : () => onChanged(q + 1),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                    Text(
+                      tr('+${_moneyFmt.format(unitPrice)} đ'
+                          '${q > 1 ? ' × $q = ${_moneyFmt.format(unitPrice * q)} đ' : ''}'),
+                      style: const TextStyle(color: _kiotBlue, fontSize: 13),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            onPressed: q <= 0 ? null : () => onChanged(q - 1),
-            icon: const Icon(Icons.remove_circle_outline),
+          _toppingStepButton(
+            icon: Icons.remove,
+            onTap: q <= 0 ? null : () => onChanged(q - 1),
           ),
           SizedBox(
-            width: 28,
+            width: 40,
             child: Text(
               '$q',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 17,
+                color: q > 0 ? _kiotBlue : PosTheme.textSecondary,
+              ),
             ),
           ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            onPressed: q >= 99 ? null : () => onChanged(q + 1),
-            icon: const Icon(Icons.add_circle_outline),
+          _toppingStepButton(
+            icon: Icons.add,
+            primary: true,
+            onTap: q >= 99 ? null : () => onChanged(q + 1),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _toppingStepButton({
+    required IconData icon,
+    required VoidCallback? onTap,
+    bool primary = false,
+  }) {
+    final enabled = onTap != null;
+    return Material(
+      color: primary && enabled ? _kiotBlue.withValues(alpha: 0.08) : Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: primary && enabled ? _kiotBlue : PosTheme.border),
+          ),
+          child: Icon(
+            icon,
+            size: 22,
+            color: !enabled ? SboxColors.slate300 : (primary ? _kiotBlue : PosTheme.textPrimary),
+          ),
+        ),
       ),
     );
   }
