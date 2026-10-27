@@ -8,6 +8,7 @@ import '../../utils/pos_payment_gateway_listener.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_basics.dart';
 /// Danh sách đơn chờ / đã xác nhận chuyển khoản (Tingee webhook).
 class PosTransferConfirmScreen extends StatefulWidget {
   const PosTransferConfirmScreen({super.key});
@@ -81,12 +82,17 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
+            // «TB» = lượt thông báo chuyển khoản (Tingee): thêm chuông + giữ để xem tên đầy đủ.
             child: Center(
-              child: Chip(
+              child: Tooltip(
+                message: tr('Kho lượt thông báo CK (Sbox)'),
+                child: Chip(
+                avatar: const Icon(Icons.notifications_active_outlined, size: 18),
                 label: Text(tr('Còn $remain lượt TB')),
                 backgroundColor: remain <= 10
                     ? Colors.orange.shade100
                     : Colors.green.shade100,
+              ),
               ),
             ),
           ),
@@ -110,11 +116,10 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
 
   Widget _listPane(List<Map<String, dynamic>> rows, {required bool waiting}) {
     if (rows.isEmpty) {
-      return Center(
-        child: Text(
-          tr(waiting ? 'Không có đơn chờ xác nhận' : 'Chưa có đơn đã xác nhận'),
-          style: const TextStyle(color: SboxColors.slate500),
-        ),
+      // Cùng kiểu màn trống với các danh sách POS khác (biểu tượng + chữ, giữa màn).
+      return SboxEmptyState(
+        icon: Icons.account_balance_outlined,
+        title: waiting ? 'Không có đơn chờ xác nhận' : 'Chưa có đơn đã xác nhận',
       );
     }
     return RefreshIndicator(

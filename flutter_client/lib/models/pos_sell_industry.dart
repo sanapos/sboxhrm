@@ -1187,7 +1187,8 @@ class PosServiceResourceDto {
     if (mins <= 0) return '';
     final h = mins ~/ 60;
     final m = mins % 60;
-    if (h > 0) return '${h}h${m.toString().padLeft(2, '0')}';
+    // Có «p» ở cuối như «45p»: «22h10» trước đây đọc như giờ đồng hồ 22:10 thay vì đã ngồi 22 tiếng 10 phút.
+    if (h > 0) return '${h}h${m.toString().padLeft(2, '0')}p';
     return '${m}p';
   }
 
