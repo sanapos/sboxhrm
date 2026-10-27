@@ -33,7 +33,6 @@ import '../widgets/pos/pos_cancel_return_reason_dialog.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/responsive_helper.dart';
-import '../utils/store_role_helper.dart';
 import '../services/pos_network_monitor.dart';
 import '../widgets/pos/pos_offline_banner.dart';
 import '../services/pos_offline_service.dart';
@@ -1017,7 +1016,6 @@ class _PosSellScreenState extends State<PosSellScreen>
   int? _expandedCartRowId;
   _CartRowExpand? _expandedCartMode;
   List<Map<String, dynamic>> _sellSellers = [];
-  bool _canPickSeller = false;
   String? _defaultSellerEmployeeId;
   List<PosPriceList> _priceLists = [];
   /// Khuyến mãi đang hiệu lực hôm nay (khung giờ / thứ xét lúc tính).
@@ -1713,14 +1711,12 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
 
     final shippingCarriers = _parseEnabledShippingCarriers(shippingRes);
-    final auth = Provider.of<AuthProvider>(context, listen: false);
     final sellers = <Map<String, dynamic>>[];
     if (sellersRes['isSuccess'] == true && sellersRes['data'] is List) {
       for (final e in sellersRes['data'] as List) {
         if (e is Map) sellers.add(Map<String, dynamic>.from(e));
       }
     }
-    final canPick = StoreRoleHelper.isManagerOrAbove(auth.userRole);
     Map<String, dynamic>? self;
     for (final item in sellers) {
       if (item['isSelf'] == true) {
@@ -1728,7 +1724,8 @@ class _PosSellScreenState extends State<PosSellScreen>
         break;
       }
     }
-    self ??= sellers.isNotEmpty ? sellers.first : null;
+    // Người bán = tài khoản đang đăng nhập. Không lấy người đầu danh sách: tài khoản không gắn
+    // nhân viên (chủ / quản lý) trước đây ghi nhầm đơn cho người khác. null → server ghi theo tài khoản.
     final defaultSellerId = self?['employeeId']?.toString();
 
     // Banks / payment sources
@@ -1798,7 +1795,6 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
       _sellMode = sellMode;
       _sellSellers = sellers;
-      _canPickSeller = canPick;
       _defaultSellerEmployeeId = defaultSellerId;
       _bankAccounts = accounts;
       _paymentGatewaySettings = gatewaySettings;
@@ -2030,12 +2026,10 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!mounted) return;
     if (res['isSuccess'] != true || res['data'] is! List) return;
 
-    final auth = Provider.of<AuthProvider>(context, listen: false);
     final list = (res['data'] as List)
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
-    final canPick = StoreRoleHelper.isManagerOrAbove(auth.userRole);
     Map<String, dynamic>? self;
     for (final item in list) {
       if (item['isSelf'] == true) {
@@ -2043,12 +2037,10 @@ class _PosSellScreenState extends State<PosSellScreen>
         break;
       }
     }
-    self ??= list.isNotEmpty ? list.first : null;
     final defaultId = self?['employeeId']?.toString();
 
     setState(() {
       _sellSellers = list;
-      _canPickSeller = canPick;
       _defaultSellerEmployeeId = defaultId;
       for (final t in _tabs) {
         t.sellerEmployeeId ??= defaultId;
@@ -11315,7 +11307,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (_posDeviceName != null) 'deviceName': _posDeviceName,
       if (tab.lockVersion >= 0) 'expectedLockVersion': tab.lockVersion,
       if (tab.priceListId != null) 'priceListId': tab.priceListId,
-      if (tab.sellerEmployeeId != null) 'soldByEmployeeId': tab.sellerEmployeeId,
+      if (_defaultSellerEmployeeId != null) 'soldByEmployeeId': _defaultSellerEmployeeId,
       if (tab.serviceResourceId != null)
         'serviceResourceId': tab.serviceResourceId,
       // Phiên bàn mở lúc mất mạng (offline-…) chỉ có trên máy — không gửi lên máy chủ.
@@ -11360,8 +11352,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (tab.voucherCode != null && tab.voucherCode!.isNotEmpty)
         'voucherCode': tab.voucherCode,
       if (tab.pointsToRedeem > 0) 'pointsToRedeem': tab.pointsToRedeem,
-      if ((tab.sellerEmployeeId ?? _defaultSellerEmployeeId) != null)
-        'soldByEmployeeId': tab.sellerEmployeeId ?? _defaultSellerEmployeeId,
+      // Đơn ghi cho tài khoản đang thanh toán (đơn tạm do người khác mở vẫn đổi theo người thu).
+      if (_defaultSellerEmployeeId != null) 'soldByEmployeeId': _defaultSellerEmployeeId,
     };
   }
 
