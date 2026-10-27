@@ -32,7 +32,13 @@ public interface IPosPrintDispatchService
     Task<PosPrintJob?> RetryJobAsync(Guid storeId, Guid jobId, Guid? printerId, string? by, CancellationToken ct = default);
     /// <summary>Hủy lệnh chưa in xong (thu ngân bỏ phiếu treo).</summary>
     Task<PosPrintJob?> CancelJobAsync(Guid storeId, Guid jobId, string? by, CancellationToken ct = default);
+    /// <summary>Phiếu bếp server tự gửi không in được → trả dòng món về «chưa báo bếp», báo các máy bán.</summary>
+    Task RevertKitchenLinesAsync(Guid storeId, Guid orderId, IReadOnlyCollection<KitchenLineRef> rows,
+        string? referenceNo, CancellationToken ct = default);
 }
+
+/// <summary>Một dòng món (và số lượng) mà phiếu bếp server tự gửi đã đánh dấu «đã báo bếp».</summary>
+public record KitchenLineRef(Guid LineId, decimal Qty);
 
 public record EnqueuePrintJobRequest(
     Guid StoreId,
@@ -51,7 +57,9 @@ public record EnqueuePrintJobRequest(
     /// In lại phiếu treo: mã tham chiếu GỐC của lần gửi đầu. Lần đầu thật ra đã tới server và in xong
     /// (máy gửi mất mạng nên không biết) → trả lệnh đó, không in phiếu thứ hai.
     /// </summary>
-    string? RetryOfReference = null);
+    string? RetryOfReference = null,
+    /// <summary>Phiếu bếp server tự gửi: dòng món đã đánh dấu «đã báo bếp» (PosPrintDispatchService.SerializeKitchenLines).</summary>
+    string? KitchenLinesJson = null);
 
 public class PosPrintDispatchService(
     ZKTecoDbContext db,
@@ -561,6 +569,7 @@ public class PosPrintDispatchService(
             CreatedAt = DateTime.UtcNow,
             CreatedBy = request.RequestedByUserId,
             ClientRequestId = clientRequestId,
+            KitchenLinesJson = request.KitchenLinesJson,
         };
 
         db.PosPrintJobs.Add(job);
@@ -848,7 +857,8 @@ public class PosPrintDispatchService(
                             && j.AgentId == agentId)
                          || (j.Status == PosPrintJobStatus.Queued && j.AgentId == null && j.ErrorCode == "SOFT_REQUEUE")
                          || (j.Status == PosPrintJobStatus.Cancelled && j.AgentId == agentId
-                             && j.ErrorCode == "STUCK_NO_REQUEUE")
+                             && (j.ErrorCode == "STUCK_NO_REQUEUE" || j.ErrorCode == StuckPrinting
+                                 || j.ErrorCode == StuckClaimed))
                          || (j.Status == PosPrintJobStatus.Failed && j.AgentId == agentId
                              && j.ErrorCode == "PRINT_TIMEOUT")))
             .ExecuteUpdateAsync(setters => setters
@@ -866,6 +876,8 @@ public class PosPrintDispatchService(
         }
 
         var job = await db.PosPrintJobs.FirstAsync(j => j.Id == jobId, ct);
+        // Giấy thật ra (báo muộn) sau khi đã trả món về «chưa báo bếp» → đánh dấu lại, tránh thu ngân báo bếp lần 2.
+        await ReapplyKitchenLinesAsync(job, ct);
         await db.PosStorePrinters
             .Where(p => p.Id == job.PrinterId)
             .ExecuteUpdateAsync(s => s
@@ -889,7 +901,8 @@ public class PosPrintDispatchService(
         {
             PosPrintJobStatus.Claimed or PosPrintJobStatus.Printing => jobAgentId == agentId,
             PosPrintJobStatus.Queued => jobAgentId == null && errorCode == "SOFT_REQUEUE",
-            PosPrintJobStatus.Cancelled => jobAgentId == agentId && errorCode == "STUCK_NO_REQUEUE",
+            PosPrintJobStatus.Cancelled => jobAgentId == agentId
+                && errorCode is "STUCK_NO_REQUEUE" or StuckPrinting or StuckClaimed,
             PosPrintJobStatus.Failed => jobAgentId == agentId && errorCode == "PRINT_TIMEOUT",
             _ => false,
         };
@@ -940,6 +953,7 @@ public class PosPrintDispatchService(
 
         var printer = await db.PosStorePrinters.FirstAsync(p => p.Id == job.PrinterId, ct);
         await BroadcastJobAsync("PrintJobStatusChanged", job, printer, ct);
+        await RevertUnprintedKitchenJobsAsync([jobId], ct);
         return job;
     }
 
@@ -1344,6 +1358,7 @@ public class PosPrintDispatchService(
                 .SetProperty(j => j.UpdatedAt, now)
                 .SetProperty(j => j.UpdatedBy, by), ct);
         var fresh = await db.PosPrintJobs.AsNoTracking().FirstAsync(j => j.Id == jobId, ct);
+        await ReapplyKitchenLinesAsync(fresh, ct);
         try { await BroadcastJobAsync("PrintJobNew", fresh, printer, ct); }
         catch (Exception ex) { logger.LogWarning(ex, "Broadcast retry failed for job {JobId}", jobId); }
         return fresh;
@@ -1578,9 +1593,13 @@ public class PosPrintDispatchService(
             .Where(p => p.StoreId == storeId && (p.Deleted != null || !p.IsActive))
             .Select(p => p.Id)
             .ToListAsync(ct);
-        await db.PosPrintJobs
+        var orphanJobIds = await db.PosPrintJobs.AsNoTracking()
             .Where(j => j.StoreId == storeId && j.Deleted == null && j.Status == PosPrintJobStatus.Queued
                 && (orphanPrinterIds.Contains(j.PrinterId) || j.ExpiresAt <= now))
+            .Select(j => j.Id)
+            .ToListAsync(ct);
+        if (orphanJobIds.Count > 0) await db.PosPrintJobs
+            .Where(j => orphanJobIds.Contains(j.Id) && j.Status == PosPrintJobStatus.Queued)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(j => j.Status, PosPrintJobStatus.Cancelled)
                 .SetProperty(j => j.ErrorCode, j => j.ExpiresAt <= now ? "EXPIRED" : "PRINTER_DELETED")
@@ -1674,14 +1693,25 @@ public class PosPrintDispatchService(
                     || (j.Status == PosPrintJobStatus.Printing && j.ClaimedAt < printingBefore)))
             .Select(j => j.Id)
             .ToListAsync(ct);
+        // Tách 2 trường hợp (trước đây chung STUCK_NO_REQUEUE, máy bán coi là «chưa in» → in lại ra 2 phiếu):
+        // • Claimed: Agent chỉ in sau khi server xác nhận «đang in» → chắc chắn chưa ra giấy.
+        // • Printing: Agent đã bắt đầu in rồi mất liên lạc → CÓ THỂ đã ra giấy.
         var stuckCancelled = stuckIds.Count == 0 ? 0 : await db.PosPrintJobs
-            .Where(j => stuckIds.Contains(j.Id)
-                && (j.Status == PosPrintJobStatus.Claimed || j.Status == PosPrintJobStatus.Printing))
+            .Where(j => stuckIds.Contains(j.Id) && j.Status == PosPrintJobStatus.Claimed)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(j => j.Status, PosPrintJobStatus.Cancelled)
-                .SetProperty(j => j.ErrorCode, "STUCK_NO_REQUEUE")
+                .SetProperty(j => j.ErrorCode, StuckClaimed)
                 .SetProperty(j => j.ErrorMessage,
-                    "Có thể ĐÃ IN — Agent nhận lệnh nhưng không báo xong (mất mạng?). Kiểm tra máy in / bếp trước khi in lại")
+                    "Agent nhận lệnh nhưng chưa bắt đầu in (mất kết nối?) — phiếu CHƯA in, in lại được")
+                .SetProperty(j => j.CompletedAt, now)
+                .SetProperty(j => j.UpdatedAt, now), ct);
+        stuckCancelled += stuckIds.Count == 0 ? 0 : await db.PosPrintJobs
+            .Where(j => stuckIds.Contains(j.Id) && j.Status == PosPrintJobStatus.Printing)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(j => j.Status, PosPrintJobStatus.Cancelled)
+                .SetProperty(j => j.ErrorCode, StuckPrinting)
+                .SetProperty(j => j.ErrorMessage,
+                    "Có thể ĐÃ IN — Agent đang in thì mất liên lạc, không báo xong. Kiểm tra máy in / bếp trước khi in lại")
                 .SetProperty(j => j.CompletedAt, now)
                 .SetProperty(j => j.UpdatedAt, now), ct);
         if (stuckCancelled > 0) cancelledIds.AddRange(stuckIds);
@@ -1717,10 +1747,138 @@ public class PosPrintDispatchService(
             logger.LogWarning("Cancelled {Count} stale queued print job(s) in store {StoreId}", cancelled, storeId);
 
         await BroadcastCancelledAsync(cancelledIds, ct);
+        await RevertUnprintedKitchenJobsAsync([.. cancelledIds, .. orphanJobIds], ct);
 
         // Claim set Busy nhưng STUCK/MAX_ATTEMPTS không clear → máy in «treo» trên UI
         // và hàng đợi trông như chết dù Agent vẫn poll.
         await ClearOrphanBusyPrintersAsync(storeId, now, ct);
+    }
+
+    public const string StuckClaimed = "STUCK_CLAIMED";
+    public const string StuckPrinting = "STUCK_PRINTING";
+
+    /// <summary>Mã hủy mà chắc chắn chưa ra giấy (lệnh chưa ai in / Agent chưa bắt đầu in).</summary>
+    static readonly HashSet<string> NotPrintedCancelCodes = ["STALE_QUEUED", StuckClaimed, "EXPIRED", "PRINTER_DELETED"];
+
+    sealed record KitchenLineJson(Guid l, decimal q);
+
+    public static string SerializeKitchenLines(IEnumerable<KitchenLineRef> rows) =>
+        JsonSerializer.Serialize(rows.Select(r => new KitchenLineJson(r.LineId, r.Qty)));
+
+    static List<KitchenLineRef> ParseKitchenLines(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return (JsonSerializer.Deserialize<List<KitchenLineJson>>(json) ?? [])
+                .Where(x => x.l != Guid.Empty && x.q > 0)
+                .Select(x => new KitchenLineRef(x.l, x.q))
+                .ToList();
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>Lệnh bếp server tự gửi vừa hủy / lỗi mà chắc chắn chưa in → trả món về «chưa báo bếp».
+    /// Lỗi khi in (trừ PRINT_TIMEOUT — có thể đã in) coi là chưa ra giấy, giống cách máy bán xử lý lệnh Failed.</summary>
+    async Task RevertUnprintedKitchenJobsAsync(IReadOnlyCollection<Guid> jobIds, CancellationToken ct)
+    {
+        if (jobIds.Count == 0) return;
+        var ids = jobIds.Distinct().ToList();
+        var jobs = await db.PosPrintJobs.AsNoTracking()
+            .Where(j => ids.Contains(j.Id) && j.KitchenLinesJson != null && !j.KitchenLinesReverted)
+            .ToListAsync(ct);
+        foreach (var j in jobs)
+        {
+            var notPrinted = (j.Status == PosPrintJobStatus.Cancelled
+                              && j.ErrorCode != null && NotPrintedCancelCodes.Contains(j.ErrorCode))
+                             || (j.Status == PosPrintJobStatus.Failed && j.ErrorCode != "PRINT_TIMEOUT");
+            if (!notPrinted || j.ReferenceId is not Guid orderId) continue;
+            // Giành cờ: 2 lượt dọn chạy song song không trả món hai lần.
+            var won = await db.PosPrintJobs
+                .Where(x => x.Id == j.Id && !x.KitchenLinesReverted)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.KitchenLinesReverted, true), ct);
+            if (won == 0) continue;
+            try
+            {
+                await RevertKitchenLinesAsync(j.StoreId, orderId, ParseKitchenLines(j.KitchenLinesJson), j.ReferenceNo, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Revert kitchen lines failed for print job {JobId}", j.Id);
+            }
+        }
+    }
+
+    public async Task RevertKitchenLinesAsync(Guid storeId, Guid orderId, IReadOnlyCollection<KitchenLineRef> rows,
+        string? referenceNo, CancellationToken ct = default)
+    {
+        if (rows.Count == 0) return;
+        var now = DateTime.UtcNow;
+        var lineIds = rows.Select(r => r.LineId).Distinct().ToList();
+        var lines = await db.PosSaleOrderLines.AsTracking()
+            .Where(l => lineIds.Contains(l.Id) && l.StoreId == storeId && l.Deleted == null)
+            .ToListAsync(ct);
+        foreach (var line in lines)
+        {
+            var qty = rows.Where(r => r.LineId == line.Id).Sum(r => r.Qty);
+            line.KitchenSentQty = Math.Max(0, line.KitchenSentQty - qty);
+            if (line.KitchenSentQty <= 0) line.KitchenSentAt = null;
+            PosKitchenKdsHelper.Clamp(line);
+            line.UpdatedAt = now;
+        }
+        var order = await db.PosSaleOrders.AsTracking()
+            .FirstOrDefaultAsync(o => o.Id == orderId && o.StoreId == storeId, ct);
+        // Đổi phiên bản đơn → máy đang mở bàn tải lại, thấy món «chưa báo bếp».
+        if (order != null) Controllers.PosDraftLockHelper.BumpVersionOnly(order, now);
+        await db.SaveChangesAsync(ct);
+
+        string? table = null;
+        if (order?.ServiceResourceId is Guid rid)
+            table = await db.PosServiceResources.AsNoTracking()
+                .Where(r => r.Id == rid).Select(r => r.Name).FirstOrDefaultAsync(ct);
+        var label = table ?? (string.IsNullOrWhiteSpace(order?.CustomerName) ? null : order!.CustomerName);
+        PosFloorRealtimeHelper.Notify(hubContext, storeId, "kitchenUnprinted",
+            orderId: orderId,
+            resourceId: order?.ServiceResourceId,
+            tableName: table,
+            orderNo: order?.OrderNo,
+            message: $"Phiếu bếp {(label ?? order?.OrderNo ?? referenceNo ?? "")} chưa in được — "
+                + $"{lines.Count} món đã trả về «chưa báo bếp», báo bếp lại.");
+        logger.LogWarning("Kitchen ticket {Ref} not printed — reverted {Count} line(s) of order {OrderId}",
+            referenceNo, lines.Count, orderId);
+    }
+
+    /// <summary>In lại / báo in xong muộn lệnh đã trả món → đánh dấu «đã báo bếp» lại.</summary>
+    async Task ReapplyKitchenLinesAsync(PosPrintJob job, CancellationToken ct)
+    {
+        if (!job.KitchenLinesReverted || job.KitchenLinesJson == null || job.ReferenceId is not Guid orderId) return;
+        var won = await db.PosPrintJobs
+            .Where(x => x.Id == job.Id && x.KitchenLinesReverted)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.KitchenLinesReverted, false), ct);
+        if (won == 0) return;
+        job.KitchenLinesReverted = false;
+        var rows = ParseKitchenLines(job.KitchenLinesJson);
+        var lineIds = rows.Select(r => r.LineId).Distinct().ToList();
+        var now = DateTime.UtcNow;
+        var lines = await db.PosSaleOrderLines.AsTracking()
+            .Where(l => lineIds.Contains(l.Id) && l.Deleted == null)
+            .ToListAsync(ct);
+        foreach (var line in lines)
+        {
+            var qty = rows.Where(r => r.LineId == line.Id).Sum(r => r.Qty);
+            line.KitchenSentQty = Math.Min(line.Qty, line.KitchenSentQty + qty);
+            line.KitchenSentAt ??= now;
+            PosKitchenKdsHelper.OnSent(line);
+            line.UpdatedAt = now;
+        }
+        var order = await db.PosSaleOrders.AsTracking().FirstOrDefaultAsync(o => o.Id == orderId, ct);
+        if (order != null) Controllers.PosDraftLockHelper.BumpVersionOnly(order, now);
+        await db.SaveChangesAsync(ct);
+        PosFloorRealtimeHelper.Notify(hubContext, job.StoreId, "kitchenSend", orderId: orderId,
+            resourceId: order?.ServiceResourceId);
     }
 
     async Task ClearOrphanBusyPrintersAsync(Guid storeId, DateTime now, CancellationToken ct)

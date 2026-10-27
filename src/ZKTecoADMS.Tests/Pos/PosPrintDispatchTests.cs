@@ -415,7 +415,8 @@ public class PosPrintDispatchTests(PosPgFixture fx)
         }
         var j = await JobAsync(job);
         Assert.Equal(PosPrintJobStatus.Cancelled, j.Status);
-        Assert.Equal("STUCK_NO_REQUEUE", j.ErrorCode);
+        // Đang in thì mất liên lạc → có thể đã ra giấy (máy bán hỏi trước khi in lại).
+        Assert.Equal(PosPrintDispatchService.StuckPrinting, j.ErrorCode);
     }
 
     [Fact]

@@ -321,7 +321,7 @@ public sealed class PosTingeePaidOrderService(
         await db.SaveChangesAsync(ct);
 
         var fallback = await dispatch.ResolvePrinterAsync(storeId, PosPrintDocumentType.KitchenSlip, ct);
-        var groups = new Dictionary<Guid, List<(string Name, decimal Qty, string? Unit, string? Note)>>();
+        var groups = new Dictionary<Guid, List<(Guid LineId, string Name, decimal Qty, string? Unit, string? Note)>>();
         foreach (var row in added)
         {
             var printerId = row.Product.DefaultPrinterId
@@ -333,15 +333,21 @@ public sealed class PosTingeePaidOrderService(
                 list = [];
                 groups[printerId.Value] = list;
             }
-            list.Add((row.Line.ProductName, row.Qty, row.Line.UnitName,
+            list.Add((row.Line.Id, row.Line.ProductName, row.Qty, row.Line.UnitName,
                 PosSaleStockHelper.FormatToppingKitchenNote(row.Line.ToppingsJson, row.Line.LineNote)));
         }
         if (groups.Count == 0 && fallback != null)
         {
             groups[fallback.Id] = added.Select(r =>
-                (r.Line.ProductName, r.Qty, r.Line.UnitName,
+                (r.Line.Id, r.Line.ProductName, r.Qty, r.Line.UnitName,
                     PosSaleStockHelper.FormatToppingKitchenNote(r.Line.ToppingsJson, r.Line.LineNote))).ToList();
         }
+        // Món không thuộc phiếu nào (chưa gán máy in bếp) → trả về «chưa báo bếp», báo máy bán.
+        var covered = groups.Values.SelectMany(g => g).Select(x => x.LineId).ToHashSet();
+        var orphanRows = added.Where(r => !covered.Contains(r.Line.Id))
+            .Select(r => new KitchenLineRef(r.Line.Id, r.Qty)).ToList();
+        if (orphanRows.Count > 0)
+            await dispatch.RevertKitchenLinesAsync(storeId, order.Id, orphanRows, order.OrderNo, ct);
 
         var tbl = string.IsNullOrWhiteSpace(order.CustomerName)
             ? "Đơn online"
@@ -365,17 +371,26 @@ public sealed class PosTingeePaidOrderService(
                 }),
             });
             var refNo = $"QR|{order.OrderNo}|{stamp}|{g.Key.ToString("N")[..6]}";
-            await dispatch.EnqueueJobAsync(new EnqueuePrintJobRequest(
-                storeId,
-                PosPrintDocumentType.KitchenSlip,
-                PosPrintPayloadFormat.KitchenSlipJson,
-                payload,
-                1,
-                refNo,
-                order.Id,
-                null,
-                "Tingee",
-                g.Key), ct);
+            var lineRefs = g.Value.Select(l => new KitchenLineRef(l.LineId, l.Qty)).ToList();
+            try
+            {
+                await dispatch.EnqueueJobAsync(new EnqueuePrintJobRequest(
+                    storeId,
+                    PosPrintDocumentType.KitchenSlip,
+                    PosPrintPayloadFormat.KitchenSlipJson,
+                    payload,
+                    1,
+                    refNo,
+                    order.Id,
+                    null,
+                    "Tingee",
+                    g.Key,
+                    KitchenLinesJson: PosPrintDispatchService.SerializeKitchenLines(lineRefs)), ct);
+            }
+            catch (InvalidOperationException)
+            {
+                await dispatch.RevertKitchenLinesAsync(storeId, order.Id, lineRefs, refNo, ct);
+            }
         }
     }
 

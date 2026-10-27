@@ -67,4 +67,11 @@ public class PosPrintJob : AuditableEntity<Guid>
     public string? ClientRequestId { get; set; }
 
     public DateTime ExpiresAt { get; set; }
+
+    /// <summary>Phiếu bếp server tự gửi (QR / online / Tingee): các dòng món đã đánh dấu «đã báo bếp» theo
+    /// lệnh này — JSON [{"l":lineId,"q":qty}]. Lệnh hủy / lỗi mà chắc chắn chưa in → trả món về «chưa báo bếp».</summary>
+    public string? KitchenLinesJson { get; set; }
+
+    /// <summary>Đã trả các dòng món về «chưa báo bếp» (In lại / báo in xong muộn → đánh dấu lại).</summary>
+    public bool KitchenLinesReverted { get; set; }
 }

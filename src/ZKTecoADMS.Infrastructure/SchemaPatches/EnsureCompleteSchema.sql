@@ -1678,3 +1678,6 @@ CREATE TABLE IF NOT EXISTS "PosGymPtSessions" (
 );
 CREATE INDEX IF NOT EXISTS "IX_PosGymPtSessions_Trainer" ON "PosGymPtSessions" ("StoreId", "TrainerEmployeeId", "StartAt");
 CREATE INDEX IF NOT EXISTS "IX_PosGymPtSessions_Customer" ON "PosGymPtSessions" ("StoreId", "CustomerId", "StartAt");
+-- Phiếu bếp server tự gửi: dòng món theo lệnh, trả về «chưa báo bếp» khi lệnh không in được.
+ALTER TABLE "PosPrintJobs" ADD COLUMN IF NOT EXISTS "KitchenLinesJson" text NULL;
+ALTER TABLE "PosPrintJobs" ADD COLUMN IF NOT EXISTS "KitchenLinesReverted" boolean NOT NULL DEFAULT false;
