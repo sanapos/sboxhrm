@@ -53,8 +53,6 @@ class _PosPickSaleOrderPage extends StatelessWidget {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr(_title)),
-        backgroundColor: _kiotBlue,
-        foregroundColor: Colors.white,
       ),
       body: SafeArea(child: _PosPickSaleOrderShell(compact: false, purpose: purpose)),
     );

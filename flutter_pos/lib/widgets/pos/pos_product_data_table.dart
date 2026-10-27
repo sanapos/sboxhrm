@@ -63,6 +63,9 @@ class PosProductDataTable extends StatelessWidget {
   final List<PosProduct> items;
   final NumberFormat moneyFmt;
   final DateFormat dateFmt;
+
+  /// Cột «Ngày tạo» hẹp — dd/MM/yy để không bị cắt «26/10/202…».
+  static final _shortDate = DateFormat('dd/MM/yy');
   final PosProductSortBy sortBy;
   final bool sortDesc;
   final Set<PosProductTableColumn> visibleColumns;
@@ -494,7 +497,7 @@ class PosProductDataTable extends StatelessWidget {
           color: !p.showsWarehouseStock ? SboxColors.slate500 : null,
         ),
       PosProductTableColumn.createdAt => _cellText(
-          p.createdAt != null ? dateFmt.format(p.createdAt!) : '—',
+          p.createdAt != null ? _shortDate.format(p.createdAt!) : '—',
           color: PosTheme.textSecondary,
         ),
       PosProductTableColumn.stockout => _cellText(
@@ -652,7 +655,7 @@ class PosProductDataTable extends StatelessWidget {
         ),
       PosProductTableColumn.stock => _variantStockCell(parent, v),
       PosProductTableColumn.createdAt => _cellText(
-          parent.createdAt != null ? dateFmt.format(parent.createdAt!) : '—',
+          parent.createdAt != null ? _shortDate.format(parent.createdAt!) : '—',
           color: PosTheme.textSecondary,
         ),
       _ => _cellText('—', color: PosTheme.textSecondary),

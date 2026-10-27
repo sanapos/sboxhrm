@@ -86,8 +86,6 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Mạng cửa hàng')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             tooltip: tr('Tải lại'),

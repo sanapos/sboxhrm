@@ -22,6 +22,7 @@ import '../../utils/pos_qr_order_voice.dart';
 import '../../utils/pos_browser_fullscreen.dart';
 import '../../utils/play_system_ui.dart';
 import '../../utils/system_ui_inset_mode.dart';
+import '../../utils/vietnamese_font.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../models/hrm.dart' show NotificationType;
 import '../../widgets/notification_overlay.dart';
@@ -1320,6 +1321,9 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final aggs = _visibleAggs;
     return Theme(
       data: ThemeData(
+        // ThemeData mới không kế thừa font app → giữ Be Vietnam Pro như các màn khác.
+        fontFamily: kVietnameseFontFamily,
+        fontFamilyFallback: kVietnameseFontFallback,
         brightness: _dark ? Brightness.dark : Brightness.light,
         scaffoldBackgroundColor: _bg,
         colorScheme: (_dark ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(

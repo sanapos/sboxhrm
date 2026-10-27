@@ -323,8 +323,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         backgroundColor: PosTheme.background,
         appBar: AppBar(
           title: Text(tr(SettingsHubScreen.activeSubPageTitle ?? 'Thiết lập SBOX')),
-          backgroundColor: PosTheme.kiotBlue,
-          foregroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
@@ -345,8 +343,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Thiết lập SBOX')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
         elevation: 0,
         leading: (ModalRoute.of(context)?.canPop ?? false)
             ? IconButton(
@@ -432,11 +428,13 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(14),
+            // Logo SBOX POS chính thức (cùng trang đăng nhập / menu bán hàng).
             child: Image.asset(
-              'assets/logo.png',
-              width: 52,
+              'assets/sbox_pos_logo_wide.png',
+              width: 96,
               height: 52,
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
               errorBuilder: (_, __, ___) => CircleAvatar(
                 radius: 26,
                 backgroundColor: PosTheme.kiotBlueLight,

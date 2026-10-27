@@ -45,14 +45,19 @@ abstract final class SboxTheme {
         error: SboxColors.danger,
         onError: Colors.white,
       ),
-      // Thanh trên POS giữ nền xanh thương hiệu (nhận diện máy thu ngân).
-      appBarTheme: AppBarTheme(
-        backgroundColor: SboxColors.primary,
-        foregroundColor: Colors.white,
+      // Thanh tiêu đề trang: nền trắng, chữ tối, viền dưới mảnh — cùng kiểu các màn
+      // mới (báo cáo, khách hàng, voucher…); trước đây nửa xanh nửa trắng lẫn lộn.
+      // Thanh bán hàng / thanh toán tự vẽ nền xanh riêng, không dùng theme này.
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.white,
+        foregroundColor: SboxColors.text,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        titleTextStyle: tt.titleLarge?.copyWith(color: Colors.white),
+        shape: Border(bottom: BorderSide(color: SboxColors.border)),
+        // Không đặt titleTextStyle màu cố định: AppBar mặc định dùng titleLarge
+        // + foregroundColor, nên thanh nền trắng (foregroundColor tối) vẫn thấy
+        // tiêu đề — trước đây chữ trắng trên nền trắng (vd. Tổng kết cuối ngày).
       ),
       cardTheme: const CardTheme(
         color: SboxColors.surface,
@@ -115,6 +120,13 @@ abstract final class SboxTheme {
         floatingLabelStyle: tt.labelMedium?.copyWith(color: SboxColors.primary),
       ),
       dividerTheme: const DividerThemeData(color: SboxColors.divider, thickness: 1, space: 1),
+      // Nút nổi: nền xanh thương hiệu, chữ trắng (mặc định M3 nền xanh nhạt + chữ tối
+      // trông như nút bị vô hiệu).
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: SboxColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 2,
+      ),
       tabBarTheme: TabBarTheme(
         labelColor: SboxColors.primary,
         unselectedLabelColor: SboxColors.textSecondary,

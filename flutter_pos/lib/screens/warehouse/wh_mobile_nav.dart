@@ -12,8 +12,10 @@ import 'wh_mobile_list_screen.dart';
 
 /// Chuyển mobile → UI Kho mới; desktop giữ màn hình cũ.
 abstract final class WhMobileNav {
+  /// Cùng tiêu chí với danh sách POS (posUseMobileList): màn ngang rộng nhưng
+  /// thấp như Sunmi T1 (1280×632dp) dùng bảng, không dùng thẻ điện thoại.
   static bool useNewMobileUi(BuildContext context) =>
-      Responsive.isMobile(context) || Responsive.isCompactViewport(context);
+      !Responsive.preferTableListLayout(context);
 
   static void openHub(BuildContext context) {
     if (useNewMobileUi(context)) {

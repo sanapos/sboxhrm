@@ -142,6 +142,7 @@ class SboxBrandLockup extends StatelessWidget {
     this.sloganColor,
     this.alignment = MainAxisAlignment.start,
     this.expandText = true,
+    this.stacked = false,
   });
 
   final double logoSize;
@@ -153,10 +154,48 @@ class SboxBrandLockup extends StatelessWidget {
   final MainAxisAlignment alignment;
   /// `false` khi nằm trong FittedBox (đăng nhập) — tránh Expanded unbounded.
   final bool expandText;
+  /// Logo (đã cắt khoảng trắng) ở trên, slogan căn giữa bên dưới — trang đăng nhập.
+  /// [logoSize] là chiều cao logo.
+  final bool stacked;
 
   @override
   Widget build(BuildContext context) {
     final muted = sloganColor ?? titleColor.withOpacity(0.62);
+    if (stacked) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            'assets/sbox_pos_logo_wide.png',
+            height: logoSize,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.medium,
+            errorBuilder: (_, __, ___) => Icon(
+              Icons.point_of_sale_rounded,
+              color: titleColor,
+              size: logoSize,
+            ),
+          ),
+          if (showSlogan) ...[
+            SizedBox(height: logoSize * 0.18),
+            Text(
+              // Ngắt dòng theo cụm nghĩa (bản tiếng Việt), tránh «hiệu / quả».
+              tr(SboxBrand.slogan).replaceFirst(' vận hành ', '\nvận hành '),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: sloganSize,
+                fontWeight: FontWeight.w500,
+                color: muted,
+                height: 1.4,
+                letterSpacing: 0.1,
+              ),
+            ),
+          ],
+        ],
+      );
+    }
     final text = Column(
       crossAxisAlignment: alignment == MainAxisAlignment.center
           ? CrossAxisAlignment.center
@@ -164,7 +203,7 @@ class SboxBrandLockup extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          tr(SboxBrand.slogan),
+          tr(SboxBrand.productLine),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(

@@ -401,8 +401,14 @@ class _LoginScreenState extends State<LoginScreen>
         math.min(MediaQuery.sizeOf(context).width,
                 MediaQuery.sizeOf(context).height) <
             600;
-    final hPad = isDesktop ? 60.0 : 24.0;
-    final vPad = isCompactMobile ? 16.0 : 32.0;
+    // Màn ngang thấp (Sunmi T1/T2 1920x1080 @1.5x ≈ 632dp): thu gọn khoảng
+    // cách để thấy trọn form + nút Đăng nhập mà không phải cuộn.
+    final isShortDesktop =
+        isDesktop && MediaQuery.sizeOf(context).height < 760;
+    final tight = isCompactMobile || isShortDesktop;
+    final hPad = isDesktop ? (isShortDesktop ? 48.0 : 60.0) : 24.0;
+    final vPad = tight ? 12.0 : 32.0;
+    final fieldGap = tight ? 12.0 : 20.0;
     final scrollContent = LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -473,20 +479,14 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                     ),
                   ),
-                  SizedBox(height: isCompactMobile ? 4 : 8),
-                  Align(
-                    alignment: Alignment.center,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: _buildLogo(isDesktop: isDesktop),
-                    ),
-                  ),
-                  SizedBox(height: isCompactMobile ? 12 : 24),
+                  SizedBox(height: tight ? 0 : 8),
+                  _buildLogo(isDesktop: isDesktop, tight: tight),
+                  SizedBox(height: tight ? 16 : 28),
                   Align(
                     alignment: Alignment.center,
                     child: Text(tr('Chào mừng trở lại'),
                       style: TextStyle(
-                        fontSize: isCompactMobile ? 22 : 26,
+                        fontSize: tight ? 22 : 26,
                         fontWeight: FontWeight.w700,
                         color: Color(0xFF2B3437),
                         letterSpacing: -0.3,
@@ -494,7 +494,7 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: tight ? 4 : 8),
                   Align(
                     alignment: Alignment.center,
                     child: Text(tr(kSboxKdsApp ? 'Đăng nhập để mở màn hình bếp SBOX KDS.' : 'Nhập thông tin để vào SBOX POS.'),
@@ -502,7 +502,7 @@ class _LoginScreenState extends State<LoginScreen>
                           color: SboxColors.slate600, fontSize: 14, height: 1.5),
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  SizedBox(height: tight ? 18 : 32),
 
                   // Form
                   Form(
@@ -533,7 +533,7 @@ class _LoginScreenState extends State<LoginScreen>
                             compact: true,
                           ),
                         ],
-                        const SizedBox(height: 20),
+                        SizedBox(height: fieldGap),
 
                         // Email
                         _buildLabel('EMAIL / SĐT'),
@@ -546,7 +546,7 @@ class _LoginScreenState extends State<LoginScreen>
                               ? 'Vui lòng nhập email hoặc số điện thoại'
                               : null,
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: fieldGap),
 
                         // Password
                         Row(
@@ -583,6 +583,9 @@ class _LoginScreenState extends State<LoginScreen>
                           hint: 'Nhập mật khẩu',
                           icon: Icons.lock_outline_rounded,
                           obscure: _obscurePassword,
+                          onSubmitted: (_) {
+                            if (!_isLoading) _handleLogin();
+                          },
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
@@ -604,7 +607,7 @@ class _LoginScreenState extends State<LoginScreen>
                             return null;
                           },
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: tight ? 12 : 16),
 
                         // Remember me
                         GestureDetector(
@@ -639,7 +642,7 @@ class _LoginScreenState extends State<LoginScreen>
                             ],
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        SizedBox(height: tight ? 16 : 24),
 
                         // Login button - gradient from primary to primary-dim
                         SizedBox(
@@ -916,12 +919,12 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildLogo({bool isDesktop = false}) {
+  Widget _buildLogo({bool isDesktop = false, bool tight = false}) {
     return SboxBrandLockup(
-      expandText: false,
-      showSlogan: false,
-      logoSize: isDesktop ? 92 : 72,
-      alignment: MainAxisAlignment.center,
+      stacked: true,
+      logoSize: tight ? 60 : (isDesktop ? 80 : 68),
+      sloganSize: tight ? 13 : 14,
+      sloganColor: SboxColors.slate600,
     );
   }
 
@@ -1137,11 +1140,15 @@ class _LoginScreenState extends State<LoginScreen>
     bool obscure = false,
     Widget? suffixIcon,
     String? Function(String?)? validator,
+    ValueChanged<String>? onSubmitted,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscure,
+      textInputAction:
+          onSubmitted != null ? TextInputAction.done : TextInputAction.next,
+      onFieldSubmitted: onSubmitted,
       style:
           const TextStyle(color: Color(0xFF2B3437), fontSize: 16, height: 1.5),
       validator: validator,

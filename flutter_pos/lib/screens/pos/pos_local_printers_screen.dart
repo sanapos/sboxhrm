@@ -379,8 +379,6 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Máy in nội bộ')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: tr('Quay lại'),
@@ -417,7 +415,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: PosTheme.kiotBlue),
                   )
                 : const Icon(Icons.cloud_upload_outlined),
           ),

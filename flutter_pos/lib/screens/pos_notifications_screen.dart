@@ -332,8 +332,6 @@ class _PosNotificationsScreenState extends State<PosNotificationsScreen> {
     return Scaffold(
       backgroundColor: SboxColors.slate100,
       appBar: AppBar(
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
         title: Text(tr('Thông báo')),
         actions: [
           if (_unread > 0)
@@ -341,7 +339,8 @@ class _PosNotificationsScreenState extends State<PosNotificationsScreen> {
               onPressed: _markAllRead,
               child: Text(
                 tr('Đọc hết'),
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(
+                    color: PosTheme.kiotBlue, fontWeight: FontWeight.w600),
               ),
             ),
           if (_items.isNotEmpty)

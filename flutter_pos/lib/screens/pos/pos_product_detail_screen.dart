@@ -218,8 +218,6 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Chi tiết hàng hóa')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
         elevation: 0,
       ),
       body: _loading

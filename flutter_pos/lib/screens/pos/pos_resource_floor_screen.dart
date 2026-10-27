@@ -1140,8 +1140,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  for (final n in const [1, 2, 4, 6, 8])
-                    if (n <= maxGuests)
+                  // Bàn nhỏ (≤8 chỗ): đủ 1…sức chứa (trước thiếu «3» ở bàn 4 chỗ).
+                  for (final n in maxGuests <= 8
+                      ? [for (var i = 1; i <= maxGuests; i++) i]
+                      : const [1, 2, 3, 4, 6, 8])
                       ChoiceChip(
                         label: Text('$n'),
                         selected: guests == n,
@@ -4792,7 +4794,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (usable < 300) return 2;
     if (usable < 380) return 3;
     // Mục tiêu ô ~100–112px → tablet nửa màn ~5–6 cột, full ~7–8.
-    const minTile = 104.0;
+    // Khung rộng (Sunmi T1 ~766dp): ô ≥130 để tên «Phòng QA 1» + nút ⋯ đủ 1 dòng.
+    final minTile = usable >= 700 ? 130.0 : 104.0;
     return ((usable + gap) / (minTile + gap)).floor().clamp(3, 8);
   }
 
@@ -5682,9 +5685,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 12,
+                    fontSize: 13,
                     color: _tileNameColor(r),
-                    height: 1.05,
+                    height: 1.1,
                   ),
                 ),
               ),

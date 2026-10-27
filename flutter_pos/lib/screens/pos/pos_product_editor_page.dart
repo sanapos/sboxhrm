@@ -2039,15 +2039,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr(_pageTitle)),
-        backgroundColor: PosTheme.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
+        // Thanh trắng + tab màu thương hiệu theo theme chung.
         bottom: TabBar(
           controller: _tabs,
           isScrollable: _tabLabels.length > 4,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
           tabs: _tabLabels.map((t) => Tab(text: tr(t))).toList(),
         ),
       ),

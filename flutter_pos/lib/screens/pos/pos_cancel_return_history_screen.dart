@@ -155,9 +155,9 @@ class _PosCancelReturnHistoryScreenState
             color: Colors.white,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-              child: Column(
-                children: [
-                  Row(
+              // Màn rộng (máy POS ngang): 2 hàng lọc thay vì 4 hàng dọc chiếm 1/3 màn.
+              child: LayoutBuilder(builder: (context, cons) {
+                  final dates = Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
@@ -175,9 +175,8 @@ class _PosCancelReturnHistoryScreenState
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<_ActionFilter>(
+                  );
+                  final action = DropdownButtonFormField<_ActionFilter>(
                     value: _action,
                     decoration: InputDecoration(
                       labelText: tr('Loại thao tác'),
@@ -202,9 +201,8 @@ class _PosCancelReturnHistoryScreenState
                       setState(() => _action = v);
                       unawaited(_load());
                     },
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<_BillPhaseFilter>(
+                  );
+                  final phase = DropdownButtonFormField<_BillPhaseFilter>(
                     value: _phase,
                     decoration: InputDecoration(
                       labelText: tr('Trước / sau tạm tính'),
@@ -227,9 +225,8 @@ class _PosCancelReturnHistoryScreenState
                       setState(() => _phase = v);
                       unawaited(_load());
                     },
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
+                  );
+                  final search = Row(
                     children: [
                       Expanded(
                         child: TextField(
@@ -259,9 +256,36 @@ class _PosCancelReturnHistoryScreenState
                         icon: const Icon(Icons.search),
                       ),
                     ],
-                  ),
-                ],
-              ),
+                  );
+                  if (cons.maxWidth >= 900) {
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(flex: 3, child: dates),
+                            const SizedBox(width: 8),
+                            Expanded(flex: 2, child: action),
+                            const SizedBox(width: 8),
+                            Expanded(flex: 2, child: phase),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        search,
+                      ],
+                    );
+                  }
+                  return Column(
+                    children: [
+                      dates,
+                      const SizedBox(height: 8),
+                      action,
+                      const SizedBox(height: 8),
+                      phase,
+                      const SizedBox(height: 8),
+                      search,
+                    ],
+                  );
+                }),
             ),
           ),
           const Divider(height: 1),

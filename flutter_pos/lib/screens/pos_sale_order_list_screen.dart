@@ -1362,8 +1362,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       ),
       child: Row(
         children: [
+          // Flex / độ rộng phải khớp từng ô ở _buildOrderBlock, nếu không cột lệch.
           const SizedBox(width: 24),
-          col(_ListColumn.orderNo),
+          col(_ListColumn.orderNo, flex: 3),
           col(_ListColumn.time),
           col(_ListColumn.customer),
           col(_ListColumn.subTotal, align: TextAlign.right),
@@ -1373,8 +1374,20 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           col(_ListColumn.balance, align: TextAlign.right),
           col(_ListColumn.delivery, flex: 1),
           col(_ListColumn.deliveryStatus, flex: 2),
-          col(_ListColumn.status, flex: 1, align: TextAlign.right),
-          col(_ListColumn.eInvoice, flex: 2),
+          if (_visibleColumns.contains(_ListColumn.status))
+            SizedBox(
+              width: 90,
+              child: Text(tr(_ListColumn.status.label),
+                  style: h, textAlign: TextAlign.center),
+            ),
+          if (_visibleColumns.contains(_ListColumn.eInvoice))
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: Text(tr(_ListColumn.eInvoice.label), style: h),
+              ),
+            ),
         ],
       ),
     );
@@ -1902,7 +1915,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     ),
                   ),
                   Text(
-                    tr(o.paymentMethod),
+                    tr(_paymentMethodLabel(o.paymentMethod)),
                     style: const TextStyle(
                       fontSize: 11,
                       color: PosTheme.textSecondary,
@@ -1924,6 +1937,24 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         ),
       ),
     );
+  }
+
+  /// Server lưu mã tiếng Anh (Cash / Transfer…) — hiển thị tên tiếng Việt.
+  static String _paymentMethodLabel(String raw) {
+    switch (raw.trim().toLowerCase()) {
+      case 'cash':
+        return 'Tiền mặt';
+      case 'transfer':
+      case 'banktransfer':
+      case 'bank':
+        return 'Chuyển khoản';
+      case 'card':
+        return 'Thẻ';
+      case 'mixed':
+        return 'Tiền mặt + CK';
+      default:
+        return raw;
+    }
   }
 
   String _qtyFmt(double q) {
@@ -2117,16 +2148,19 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     SizedBox(
                       width: 90,
                       child: Align(
-                        alignment: Alignment.centerRight,
+                        alignment: Alignment.center,
                         child: posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
                       ),
                     ),
                   if (_visibleColumns.contains(_ListColumn.eInvoice))
                     Expanded(
                       flex: 2,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: _eInvoiceChip(o),
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 12),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: _eInvoiceChip(o),
+                        ),
                       ),
                     ),
                 ],

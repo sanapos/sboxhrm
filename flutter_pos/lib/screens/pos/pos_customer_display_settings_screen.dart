@@ -306,8 +306,6 @@ class _PosCustomerDisplaySettingsScreenState
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Màn hình phụ')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: tr('Quay lại'),
@@ -322,7 +320,7 @@ class _PosCustomerDisplaySettingsScreenState
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
+                      strokeWidth: 2, color: PosTheme.kiotBlue),
                 ),
               ),
             ),

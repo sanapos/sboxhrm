@@ -64,7 +64,8 @@ class WhMobileHubScreen extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: WhMobileTheme.gap,
             crossAxisSpacing: WhMobileTheme.gap,
-            childAspectRatio: MediaQuery.sizeOf(context).width >= 700 ? 1.6 : 1.05,
+            // Màn ngang: ô thấp hơn (1.6 → 2.4) — trước ô ~190dp chỉ có icon + chữ ở nửa trên.
+            childAspectRatio: MediaQuery.sizeOf(context).width >= 700 ? 2.4 : 1.05,
             children: [
               for (final t in tiles)
                 WhHubTile(

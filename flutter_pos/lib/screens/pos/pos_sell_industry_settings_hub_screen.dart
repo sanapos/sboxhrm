@@ -187,8 +187,6 @@ class _PosSellIndustrySettingsHubScreenState
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Ngành hàng & bán hàng')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: tr('Quay lại'),

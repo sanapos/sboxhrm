@@ -955,8 +955,6 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         overflow: TextOverflow.ellipsis,
         maxLines: 1,
       ),
-      backgroundColor: PosTheme.kiotBlue,
-      foregroundColor: Colors.white,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         tooltip: tr('Quay lại'),

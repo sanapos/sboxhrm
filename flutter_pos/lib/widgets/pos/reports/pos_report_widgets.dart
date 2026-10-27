@@ -45,6 +45,29 @@ String posReportMoney(num value) {
   return '$sign${_dotFmt.format(abs.round())}';
 }
 
+/// Trục Y «đẹp»: bước 1/2/5×10ⁿ, min/max làm tròn ra bội số bước — ~4 vạch lưới,
+/// không còn nhãn đỉnh lẻ («211k» đè «200k») hay lưới dày đặc khi chỉ 1 điểm.
+({double min, double max, double step}) posReportNiceAxis(
+  double minV,
+  double maxV, {
+  int ticks = 4,
+}) {
+  var lo = minV < 0 ? minV : 0.0;
+  var hi = maxV > 0 ? maxV : 0.0;
+  if (hi - lo <= 0) hi = lo + 1000;
+  final raw = (hi - lo) / ticks;
+  var mag = 1.0;
+  while (mag * 10 <= raw) {
+    mag *= 10;
+  }
+  final norm = raw / mag;
+  final step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+  lo = (lo / step).floorToDouble() * step;
+  hi = (hi / step).ceilToDouble() * step;
+  if (hi <= maxV) hi += step;
+  return (min: lo, max: hi, step: step);
+}
+
 String posReportAxis(double v) {
   final sign = v < 0 ? '-' : '';
   final abs = v.abs();
@@ -605,19 +628,19 @@ class PosReportBarChart extends StatelessWidget {
     final values = points.map((p) => p.value).toList();
     final minY = values.reduce((a, b) => a < b ? a : b);
     final maxY = values.reduce((a, b) => a > b ? a : b);
-    final pad = ((maxY - minY).abs() * 0.15).clamp(1000.0, double.infinity);
+    final axis = posReportNiceAxis(minY, maxY);
 
     return SizedBox(
       height: height,
       child: BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
-          minY: minY < 0 ? minY - pad : 0,
-          maxY: maxY + pad,
+          minY: axis.min,
+          maxY: axis.max,
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: pad > 0 ? pad : 1000,
+            horizontalInterval: axis.step,
             getDrawingHorizontalLine: (_) => const FlLine(
               color: Color(0xFFE8ECF0),
               strokeWidth: 1,
@@ -628,10 +651,11 @@ class PosReportBarChart extends StatelessWidget {
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 48,
+                interval: axis.step,
                 getTitlesWidget: (v, _) => Text(
                   posReportAxis(v),
                   textAlign: TextAlign.right,
-                  style: const TextStyle(fontSize: 9, color: _hint, height: 1),
+                  style: const TextStyle(fontSize: 10, color: _hint, height: 1),
                 ),
               ),
             ),
@@ -697,7 +721,7 @@ class PosReportMultiLineChart extends StatelessWidget {
     final allVals = points.expand((p) => [p.revenue, p.cogs, p.profit]).toList();
     final minY = allVals.reduce((a, b) => a < b ? a : b);
     final maxY = allVals.reduce((a, b) => a > b ? a : b);
-    final pad = ((maxY - minY).abs() * 0.1).clamp(500.0, double.infinity);
+    final axis = posReportNiceAxis(minY, maxY);
 
     List<FlSpot> spots(List<double> vals) =>
         [for (var i = 0; i < vals.length; i++) FlSpot(i.toDouble(), vals[i])];
@@ -706,11 +730,12 @@ class PosReportMultiLineChart extends StatelessWidget {
       height: height,
       child: LineChart(
         LineChartData(
-          minY: minY - pad,
-          maxY: maxY + pad,
+          minY: axis.min,
+          maxY: axis.max,
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
+            horizontalInterval: axis.step,
             getDrawingHorizontalLine: (_) => const FlLine(
               color: Color(0xFFE8ECF0),
               strokeWidth: 1,
@@ -721,10 +746,11 @@ class PosReportMultiLineChart extends StatelessWidget {
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 48,
+                interval: axis.step,
                 getTitlesWidget: (v, _) => Text(
                   posReportAxis(v),
                   textAlign: TextAlign.right,
-                  style: const TextStyle(fontSize: 9, color: _hint, height: 1),
+                  style: const TextStyle(fontSize: 10, color: _hint, height: 1),
                 ),
               ),
             ),

@@ -31,8 +31,13 @@ class Responsive {
       isCompactViewport(context) || (!kIsWeb && isMobile(context));
 
   /// Bảng DataTable chỉ khi đủ rộng; viewport hẹp dùng thẻ + cuộn dọc.
-  static bool preferTableListLayout(BuildContext context) =>
-      !isCompactViewport(context) && (kIsWeb || !isMobile(context));
+  /// Màn POS ngang rộng nhưng thấp (Sunmi T1/T2 1920×1080 @1.5x ≈ 1280×632dp)
+  /// vẫn dùng bảng — kiểu thẻ điện thoại ở đây chỉ hiện 4 dòng, giữa trống trơn.
+  static bool preferTableListLayout(BuildContext context) {
+    if (isMobile(context)) return false;
+    if (!isCompactViewport(context)) return true;
+    return MediaQuery.sizeOf(context).width >= 1200;
+  }
 
   static double dialogMaxHeight(BuildContext context) =>
       MediaQuery.sizeOf(context).height * 0.72;

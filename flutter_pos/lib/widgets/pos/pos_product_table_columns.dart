@@ -44,6 +44,7 @@ extension PosProductTableColumnX on PosProductTableColumn {
   String get headerLabel => switch (this) {
         PosProductTableColumn.image => 'Ảnh',
         PosProductTableColumn.reserved => 'Đặt',
+        PosProductTableColumn.stock => 'Tồn',
         PosProductTableColumn.createdAt => 'Ngày tạo',
         PosProductTableColumn.stockout => 'Dự kiến hết',
         _ => label,

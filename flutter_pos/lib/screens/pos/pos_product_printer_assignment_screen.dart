@@ -570,8 +570,6 @@ class _PosProductPrinterAssignmentScreenState
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Gán sản phẩm cho máy in')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
         actions: [
           if (_orphanEmpty.isNotEmpty)
             IconButton(

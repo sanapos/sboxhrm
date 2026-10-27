@@ -311,6 +311,16 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
 
       var availDays = <String>[];
       var availItems = <Map<String, dynamic>>[];
+      // Server lọc theo loại (kind=room…): phòng khai nhầm loại «bàn» → trả rỗng dù
+      // sơ đồ có phòng, lưới báo «Chưa có bàn/phòng». Rỗng mà có tài nguyên đang
+      // hoạt động → tự tính lịch trống từ danh sách tài nguyên (nhánh else).
+      if (avail != null) {
+        final items = avail['items'] ?? avail['Items'];
+        if ((items is! List || items.isEmpty) &&
+            resources.any((x) => x.isActive)) {
+          avail = null;
+        }
+      }
       if (avail != null) {
         final days = avail['days'] ?? avail['Days'];
         if (days is List) {
@@ -1099,7 +1109,9 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
               title: Text(tr(_calendarTitle)),
               actions: headerActions,
             ),
-      floatingActionButton: context.watch<PermissionProvider>().canCreate('PosBooking')
+      // Danh sách trống đã có nút «Đặt chỗ» giữa màn → không hiện thêm nút nổi trùng.
+      floatingActionButton: context.watch<PermissionProvider>().canCreate('PosBooking') &&
+              !(visible.isEmpty && !_showMonth && !(_showGrid && _useRoomGrid))
           ? FloatingActionButton.extended(
               onPressed: _resources.isEmpty
                   ? null
@@ -1107,6 +1119,8 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
               icon: const Icon(Icons.add),
               label: Text(tr(_profile.bookActionLabel)),
               backgroundColor: PosTheme.kiotBlue,
+              // Chữ trắng (mặc định M3 lấy màu tối trên nền xanh → trông như bị mờ).
+              foregroundColor: Colors.white,
             )
           : null,
       body: Column(

@@ -14,6 +14,8 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/pos_unsaved_changes.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
+
 /// Khuyến mãi tự áp ở màn bán (siêu thị / cửa hàng).
 class PosPromotionsScreen extends StatefulWidget {
   const PosPromotionsScreen({super.key});
@@ -111,13 +113,27 @@ class _PosPromotionsScreenState extends State<PosPromotionsScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _items.isEmpty
+              // Giới hạn bề rộng: trên màn ngang dòng gợi ý trải hết 1280dp, khó đọc.
               ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      tr('Chưa có chương trình khuyến mãi.\nVí dụ: giờ vàng 18h–21h rau cá giảm 30%, mua 2 tặng 1, '
-                          'mua từ 5 cái giảm 20%, hóa đơn từ 500.000đ giảm 50.000đ…'),
-                      textAlign: TextAlign.center,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.local_offer_outlined,
+                              size: 48, color: SboxColors.slate400),
+                          const SizedBox(height: 12),
+                          Text(
+                            tr('Chưa có chương trình khuyến mãi.\nVí dụ: giờ vàng 18h–21h rau cá giảm 30%, mua 2 tặng 1, '
+                                'mua từ 5 cái giảm 20%, hóa đơn từ 500.000đ giảm 50.000đ…'),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                color: SboxColors.slate600, height: 1.5),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 )

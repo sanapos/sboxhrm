@@ -72,8 +72,6 @@ class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Bán offline & kiểm soát')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             tooltip: tr('Tải lại'),

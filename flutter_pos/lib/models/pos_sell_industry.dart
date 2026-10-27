@@ -169,7 +169,8 @@ enum PosSellProfile {
         PosSellProfile.salon => 'Tìm dịch vụ (F3)',
         PosSellProfile.roomHourly => 'Tìm dịch vụ (F3)',
         PosSellProfile.hotel => 'Tìm phòng / dịch vụ (F3)',
-        PosSellProfile.gym => 'Tìm gói / dịch vụ (F3)',
+        // Ngắn: ô tìm trên thanh HĐ (máy ngang) chỉ ~200dp — «Tìm gói / dịc…» bị cắt.
+        PosSellProfile.gym => 'Tìm gói (F3)',
         PosSellProfile.restaurant => 'Tìm món (F3)',
         _ => 'Tìm hàng (F3)',
       };

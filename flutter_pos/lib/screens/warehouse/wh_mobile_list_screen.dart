@@ -115,7 +115,8 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
       title: _type.listTitle,
       subtitle: '$_total phiếu',
       showAppBar: PosHubScope.pushedSubPageOf(context),
-      floatingAction: canEdit
+      // Danh sách trống đã có nút tạo giữa màn — không hiện thêm nút nổi trùng.
+      floatingAction: canEdit && (_loading || _items.isNotEmpty)
           ? FloatingActionButton.extended(
               onPressed: _openCreate,
               // Mọi loại phiếu cùng màu nút chính của app (trước đây xanh lá / tím / đỏ / cam lẫn lộn).

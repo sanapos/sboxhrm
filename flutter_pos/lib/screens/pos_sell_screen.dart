@@ -5344,17 +5344,18 @@ class _PosSellScreenState extends State<PosSellScreen>
           child: InkWell(
             onTap: readOnly ? null : onTap,
             borderRadius: BorderRadius.circular(6),
+            // Cao ~34dp (trước ~20dp) — nút Dừng / Kết thúc dễ chạm trên máy POS.
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: c.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: c.withOpacity(0.35)),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(icon, size: 14, color: c),
-                const SizedBox(width: 3),
-                Text(tr(tip), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c)),
+                Icon(icon, size: 16, color: c),
+                const SizedBox(width: 4),
+                Text(tr(tip), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: c)),
               ]),
             ),
           ),
@@ -12243,9 +12244,11 @@ class _PosSellScreenState extends State<PosSellScreen>
               if (e.toLowerCase() != paidResourceId) e,
           };
         }
+        // Thanh toán xong luôn về màn bán (bán lẻ trước đây kẹt ở màn TT trống
+        // «0 hàng», thu ngân phải tự bấm quay lại).
+        _tabletPaymentStage = false;
         if (useFloor) {
           _floorMapVisible = true;
-          _tabletPaymentStage = false;
           // Không bump epoch — tránh remount sơ đồ chậm; poll/flags đủ cập nhật Free.
         }
       });
@@ -13339,32 +13342,22 @@ class _PosSellScreenState extends State<PosSellScreen>
         PopupMenuItem<String>(
           enabled: false,
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-          child: Row(
-            children: [
-              Image.asset(
-                'assets/logo.png',
-                height: 36,
-                width: 36,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Icon(
-                  Icons.point_of_sale,
-                  size: 32,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Image.asset(
+              'assets/sbox_pos_logo_wide.png',
+              height: 38,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
+              errorBuilder: (_, __, ___) => const Text(
+                'SBOX POS',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                   color: PosTheme.kiotBlue,
                 ),
               ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  'SBOX POS',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: PosTheme.kiotBlue,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
         const PopupMenuDivider(),
@@ -16442,6 +16435,19 @@ class _PosSellScreenState extends State<PosSellScreen>
                                 : PosTheme.textPrimary,
                       ),
                     ),
+                    if (!enabled) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        tr('Chưa có TK nhận tiền'),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: SboxColors.slate500,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -17210,7 +17216,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   Widget _summaryRow(String label, String value, {bool bold = false, bool blue = false, double? labelSize}) {
     final ls = labelSize ?? 14;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           child: Text(
@@ -17219,7 +17225,9 @@ class _PosSellScreenState extends State<PosSellScreen>
           ),
         ),
         const SizedBox(width: 8),
-        Flexible(
+        // Expanded (không phải Flexible) để Text chiếm trọn nửa phải → số tiền
+        // canh thẳng mép phải cùng ô giảm giá / cột thành tiền.
+        Expanded(
           child: Text(
             tr(value),
             textAlign: TextAlign.right,
@@ -17638,7 +17646,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         storeId: _storeId,
         priceOverrides: overrides,
         allowNegativeStock: _allowNegativeStock,
-        onPick: _addPick,
+        // Chạm lại cùng hàng → tăng SL dòng cũ (như mobile), không đẻ dòng trùng.
+        // _addPick tự bỏ qua dòng có topping / đã báo chế biến.
+        onPick: (pick) => _addPick(pick, mergeIfSame: _mobileMergeSameOnAdd),
         onSetQty: (product, qty, {areaNote}) {
           unawaited(_applyCatalogAreaQty(product, qty, areaNote: areaNote));
         },
@@ -17987,7 +17997,11 @@ class _PosSellScreenState extends State<PosSellScreen>
     final title = tableLabel.isNotEmpty
         ? tableLabel
         : (_floorMapVisible && _useFloorAsPrimary
-            ? 'Chọn ${_sellProfile.resourceNoun} để bán'
+            // Giỏ còn món (đơn tạm/mang về) mà chưa gắn bàn: «Chọn bàn để bán»
+            // cạnh danh sách món + nút Thanh toán làm thu ngân hiểu nhầm.
+            ? (_tab.cart.isEmpty
+                ? 'Chọn ${_sellProfile.resourceNoun} để bán'
+                : 'Đơn chưa gắn ${_sellProfile.resourceNoun}')
             : _sellProfile.invoiceTitle);
     return Container(
       height: 44,
@@ -19784,6 +19798,32 @@ class _PosSellScreenState extends State<PosSellScreen>
     });
   }
 
+  Widget _toppingStepButton(IconData icon, VoidCallback? onTap) {
+    final enabled = onTap != null;
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: Material(
+        color: enabled ? Colors.white : SboxColors.slate50,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(
+            color: enabled ? SboxColors.slate300 : SboxColors.slate200,
+          ),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Icon(
+            icon,
+            size: 22,
+            color: enabled ? PosTheme.textPrimary : SboxColors.slate400,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _toppingQtyRow({
     required String name,
     required double unitPrice,
@@ -19808,23 +19848,22 @@ class _PosSellScreenState extends State<PosSellScreen>
               ],
             ),
           ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            onPressed: q <= 0 ? null : () => onChanged(q - 1),
-            icon: const Icon(Icons.remove_circle_outline),
+          // Nút vuông 44dp như stepper giỏ hàng (trước: icon tròn ~24dp khó bấm).
+          _toppingStepButton(
+            Icons.remove,
+            q <= 0 ? null : () => onChanged(q - 1),
           ),
           SizedBox(
-            width: 28,
+            width: 40,
             child: Text(
               '$q',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
             ),
           ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            onPressed: q >= 99 ? null : () => onChanged(q + 1),
-            icon: const Icon(Icons.add_circle_outline),
+          _toppingStepButton(
+            Icons.add,
+            q >= 99 ? null : () => onChanged(q + 1),
           ),
         ],
       ),
