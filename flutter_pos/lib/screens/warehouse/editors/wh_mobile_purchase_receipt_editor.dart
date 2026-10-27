@@ -305,13 +305,6 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
   }
 
 
-  Future<void> _scan() async {
-    final code = await scanBarcodeWithCamera(context);
-    if (code == null || !mounted) return;
-    final pick = await lookupOrPickPosProduct(context, _api, code);
-    if (pick != null && mounted) await _pickProduct(pick);
-  }
-
   double get _linesTotal => _lines.fold(0.0, (s, l) => s + l.qty * l.cost);
   double get _paid => double.tryParse(_paidCtrl.text.replaceAll(',', '')) ?? 0;
 
@@ -410,14 +403,6 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
       child: WhMobileScaffold(
       title: _receiptNo.isEmpty ? 'Tạo phiếu nhập' : _receiptNo,
       subtitle: 'Nhập hàng NCC',
-      actions: [
-        if (!_readOnly)
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner_rounded),
-            color: WhMobileTheme.primary,
-            onPressed: _scan,
-          ),
-      ],
       bottomBar: WhMobileBottomBar(
         readOnly: _readOnly,
         loading: _saving,

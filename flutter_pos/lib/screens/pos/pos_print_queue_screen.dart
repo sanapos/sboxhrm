@@ -712,8 +712,9 @@ class _PosPrintQueueScreenState extends State<PosPrintQueueScreen> {
       _DocGroup.label: 'Tem',
       _DocGroup.other: 'Khác',
     };
-    return Column(children: [
-      SizedBox(
+    // Một hàng: lọc theo máy | lọc theo loại phiếu — trước đây 2 hàng chồng nhau, mỗi hàng chỉ 1 nút
+    // khi chưa có lệnh, bỏ trống gần hết bề ngang tablet.
+    return SizedBox(
         height: 44,
         child: ListView(
           scrollDirection: Axis.horizontal,
@@ -733,15 +734,11 @@ class _PosPrintQueueScreenState extends State<PosPrintQueueScreen> {
                     : _healthDot(_printerById(id)!),
                 onTap: () => setState(() => _printerFilter = _printerFilter == id ? null : id),
               ),
-          ],
-        ),
-      ),
-      SizedBox(
-        height: 44,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          children: [
+            Container(
+              width: 1,
+              margin: const EdgeInsets.fromLTRB(4, 12, 10, 12),
+              color: SboxColors.border,
+            ),
             _chip(
               label: 'Mọi loại phiếu',
               selected: _docFilter == _DocGroup.all,
@@ -756,8 +753,7 @@ class _PosPrintQueueScreenState extends State<PosPrintQueueScreen> {
                 ),
           ],
         ),
-      ),
-    ]);
+      );
   }
 
   Widget _bulkBar() {

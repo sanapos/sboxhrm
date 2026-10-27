@@ -1167,17 +1167,17 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                       if (hideTitle) ...headerActions,
                     ],
                   ),
+                  // 7 ngày chia đều bề ngang — trước đây ô cố định 44px dồn trái, tablet trống nửa hàng.
                   if (!_showMonth)
                   SizedBox(
                     height: 52,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: 7,
-                      itemBuilder: (_, i) {
+                    child: Row(
+                      children: List.generate(7, (i) {
                         final d = weekStart.add(Duration(days: i));
                         final selected = DateUtils.isSameDay(d, _day);
                         final today = DateUtils.isSameDay(d, DateTime.now());
-                        return Padding(
+                        return Expanded(
+                          child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 3),
                           child: InkWell(
                             onTap: () {
@@ -1187,7 +1187,6 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                             },
                             borderRadius: BorderRadius.circular(10),
                             child: Container(
-                              width: 44,
                               decoration: BoxDecoration(
                                 color: selected
                                     ? PosTheme.kiotBlue
@@ -1223,8 +1222,9 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                               ),
                             ),
                           ),
+                        ),
                         );
-                      },
+                      }),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1288,7 +1288,10 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                       ),
                     ),
                   const SizedBox(height: 8),
-                  SingleChildScrollView(
+                  // Canh trái thẳng với dải ngày / ô tổng — trước đây hàng lọc ngắn bị Column canh giữa.
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
@@ -1305,6 +1308,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                             'Không đến (${_items.where((e) => e.isNoShow).length})'),
                       ],
                     ),
+                  ),
                   ),
                   if (isToday)
                     Align(

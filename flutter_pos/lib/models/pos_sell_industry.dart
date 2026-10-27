@@ -497,6 +497,30 @@ class PosStoreSellSettingsDto {
     return jsonEncode(root);
   }
 
+  /// ExtraJson.autoStartTimedOnPick — chọn món tính giờ (bi-a, giờ phòng…) là đồng hồ dòng
+  /// chạy ngay. Mặc định BẬT; tắt thì dòng chờ bấm «Bắt đầu» như trước.
+  bool get autoStartTimedOnPick {
+    final raw = extraJson;
+    if (raw == null || raw.trim().isEmpty) return true;
+    try {
+      final root = jsonDecode(raw);
+      if (root is Map) return root['autoStartTimedOnPick'] != false;
+    } catch (_) {}
+    return true;
+  }
+
+  static String mergeAutoStartTimedOnPick(String? existing, bool value) {
+    Map<String, dynamic> root = {};
+    if (existing != null && existing.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(existing);
+        if (decoded is Map) root = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    root['autoStartTimedOnPick'] = value;
+    return jsonEncode(root);
+  }
+
   static String mergeAllowEditSaleTime(String? existing, bool value) {
     Map<String, dynamic> root = {};
     if (existing != null && existing.trim().isNotEmpty) {
@@ -1157,7 +1181,8 @@ class PosServiceResourceDto {
     if (mins <= 0) return '';
     final h = mins ~/ 60;
     final m = mins % 60;
-    if (h > 0) return '${h}h${m.toString().padLeft(2, '0')}';
+    // Có «p» ở cuối như «45p»: «22h10» trước đây đọc như giờ đồng hồ 22:10 thay vì đã ngồi 22 tiếng 10 phút.
+    if (h > 0) return '${h}h${m.toString().padLeft(2, '0')}p';
     return '${m}p';
   }
 

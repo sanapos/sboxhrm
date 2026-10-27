@@ -242,9 +242,9 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                 _section(
                   context,
                   perm,
-                  title: 'Hàng hoá',
+                  title: 'Hàng hóa',
                   items: [
-                    _Item('Hàng hoá', Icons.inventory_2_outlined, 'PosProducts',
+                    _Item('Hàng hóa', Icons.inventory_2_outlined, 'PosProducts',
                         const PosProductsScreen()),
                     _Item('Bảng giá', Icons.price_change_outlined, 'PosProducts',
                         const PosPriceListsScreen(),

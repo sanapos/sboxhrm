@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../widgets/hrm_page_chrome.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -91,7 +92,7 @@ class _PosPromotionsScreenState extends State<PosPromotionsScreen> {
     final canEdit = perm.canEdit('PosPromotions') || perm.canCreate('PosPromotions');
     final now = DateTime.now();
     return Scaffold(
-      appBar: AppBar(
+      appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Khuyến mãi')),
         actions: [
           TextButton.icon(
@@ -102,7 +103,7 @@ class _PosPromotionsScreenState extends State<PosPromotionsScreen> {
           ),
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
-      ),
+      )),
       floatingActionButton: canEdit
           ? FloatingActionButton.extended(
               onPressed: () => _edit(),

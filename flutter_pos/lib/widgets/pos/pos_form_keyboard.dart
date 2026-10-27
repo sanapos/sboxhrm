@@ -49,11 +49,20 @@ class PosImeAvoidingPadding extends StatelessWidget {
   }
 }
 
-/// Gỡ inset IME khỏi MediaQuery của dialog — tránh form co mất.
+/// Chiều cao tối thiểu còn lại trên bàn phím để dialog form co vào (tiêu đề + 1–2 ô + nút Lưu).
+/// C20 (720dp, Gboard báo inset ~427dp) còn ~293dp — ngưỡng 300 cũ làm dialog không co.
+const double _kPosDialogMinAboveIme = 240;
+
+/// Dialog form khi bàn phím bật: còn đủ chỗ thì co dialog vào phần trên bàn phím (giữ tiêu đề,
+/// nút X và «Lưu» trong tầm nhìn, thân form tự cuộn tới ô đang gõ). Màn quá thấp → gỡ inset để
+/// form không co mất, [PosKeyboardLift] đẩy ô đang gõ lên.
 Widget wrapPosFormDialog(BuildContext context, Widget dialog) {
-  return MediaQuery.removeViewInsets(
-    context: context,
-    removeBottom: true,
+  final mq = MediaQuery.of(context);
+  final keep = mq.size.height - mq.viewInsets.bottom >= _kPosDialogMinAboveIme;
+  // Luôn cùng một lớp MediaQuery — đổi qua lại «dialog trần / bọc MediaQuery» khi bàn phím chạy
+  // hiệu ứng làm cây con dựng lại, ô đang gõ mất focus, bàn phím vừa bật đã tắt.
+  return MediaQuery(
+    data: keep ? mq : mq.removeViewInsets(removeBottom: true),
     child: dialog,
   );
 }
@@ -328,6 +337,10 @@ class _PosKeyboardLiftState extends State<PosKeyboardLift> with WidgetsBindingOb
       final state = node.context!.findAncestorStateOfType<EditableTextState>();
       final box = _fieldFrameBox(state?.context ?? node.context!);
       if (box is RenderBox && box.attached && box.hasSize) {
+        // Dialog co theo bàn phím bằng hiệu ứng: Flutter cuộn ô vào tầm nhìn ngay lúc bàn phím
+        // bật (khung còn cao) → co xong ô bị cắt dưới mép thân form, chỉ thấy nhãn. Đo lại sau
+        // khi ổn định thì cuộn cả khung ô (nhãn + viền) vào vùng nhìn thấy; đã thấy đủ thì không cuộn.
+        box.showOnScreen(duration: const Duration(milliseconds: 150), curve: Curves.easeOut);
         // Toạ độ đã gồm phần đang dịch thật → cộng lại để có vị trí gốc (không dùng [_dy]:
         // giữa hiệu ứng, cộng đích sẽ tưởng ô thấp hơn thật rồi đẩy tới kịch trần).
         final top = box.localToGlobal(Offset.zero).dy + _applied;

@@ -73,9 +73,12 @@ class PosLineStaffAssignSheet {
           PosStaffSlot(
             key: c.componentProductId,
             label: c.componentProductName,
-            subtitle: c.qty == c.qty.roundToDouble()
-                ? 'SL ${c.qty.toStringAsFixed(0)}'
-                : 'SL ${c.qty}',
+            // SL 1 là mặc định — chỉ ghi khi bước làm nhiều lần (đỡ chật hộp chọn NV).
+            subtitle: c.qty == 1
+                ? null
+                : c.qty == c.qty.roundToDouble()
+                    ? 'SL ${c.qty.toStringAsFixed(0)}'
+                    : 'SL ${c.qty}',
             componentProductId: c.componentProductId,
             isService: c.componentProductType.toLowerCase() == 'service',
           ),
@@ -173,6 +176,48 @@ class _SheetState extends State<_Sheet> {
               style: TextStyle(fontSize: 13, color: SboxColors.slate600),
             ),
             const SizedBox(height: 12),
+            // Combo nhiều bước (cắt – gội – massage…): chọn nhanh 1 NV cho mọi bước rồi
+            // đổi riêng bước nào người khác làm.
+            if (widget.slots.length > 1) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      value: null,
+                      decoration: InputDecoration(
+                        labelText: tr('Một người làm cả combo'),
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      items: [
+                        for (final e in items)
+                          DropdownMenuItem<String>(
+                            value: e.id,
+                            child: Text(tr(e.name), overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() {
+                          for (final s in widget.slots) {
+                            _picked[s.key] = v;
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    tr('Đã gán ${widget.slots.where((s) => (_picked[s.key] ?? '').isNotEmpty).length}/${widget.slots.length} bước'),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate600),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             Flexible(
               child: ListView.separated(
                 shrinkWrap: true,
@@ -182,7 +227,9 @@ class _SheetState extends State<_Sheet> {
                   final slot = widget.slots[i];
                   return InputDecorator(
                     decoration: InputDecoration(
-                      labelText: tr(slot.label),
+                      labelText: widget.slots.length > 1
+                          ? tr('Bước ${i + 1} · ${slot.label}')
+                          : tr(slot.label),
                       helperText: slot.subtitle == null ? null : tr(slot.subtitle!),
                       isDense: true,
                       border: OutlineInputBorder(

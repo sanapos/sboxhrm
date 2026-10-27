@@ -85,7 +85,24 @@ class _PaletteState extends State<_Palette> {
         final hay = SboxCommandPalette.fold(
             '${tr(it.label)} ${tr(it.group)} ${it.subtitle == null ? '' : tr(it.subtitle!)} ${it.keywords.join(' ')}');
         if (!words.every(hay.contains)) continue;
-        final score = label.startsWith(f) ? 0 : (label.contains(f) ? 1 : 2);
+        // Khớp nguyên cụm ở tên / mô tả / từ khóa trước; khớp nhờ tên nhóm xếp cuối —
+        // «doanh thu» trước đây ra «Báo cáo thu chi» đầu tiên (chữ «doanh» lấy từ nhóm «Báo cáo kinh doanh»).
+        final own = SboxCommandPalette.fold(
+            '${tr(it.label)} ${it.subtitle == null ? '' : tr(it.subtitle!)} ${it.keywords.join(' ')}');
+        // Khớp đầu một từ của tên trước khớp giữa chữ — «huy» ra «Xuất hủy» trước «Khuyến mãi» (k-huy-ến).
+        final score = label.startsWith(f)
+            ? 0
+            : ' $label'.contains(' $f')
+                ? 1
+                : label.contains(f)
+                    ? 2
+                    : own.contains(f)
+                        ? 3
+                        : words.every(label.contains)
+                            ? 4
+                            : words.every(own.contains)
+                                ? 5
+                                : 6;
         scored.add((score, it));
       }
       scored.sort((a, b) => a.$1.compareTo(b.$1));
@@ -201,7 +218,8 @@ class _PaletteState extends State<_Palette> {
                                           overflow: TextOverflow.ellipsis,
                                           style: SboxType.bodyStyle(on ? SboxColors.brand900 : SboxColors.text)
                                               .copyWith(fontWeight: SboxType.medium)),
-                                      if (it.subtitle != null)
+                                      // Mô tả trùng tên («Đặt lịch / Đặt lịch») — bỏ dòng lặp.
+                                      if (it.subtitle != null && tr(it.subtitle!) != tr(it.label))
                                         Text(tr(it.subtitle!),
                                             maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.captionStyle()),
                                     ],

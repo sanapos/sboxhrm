@@ -1500,11 +1500,17 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
+                  // Ô tìm và 2 nút ngày cùng cao 44, ngày có icon lịch + chữ 13 — trước đây nút ngày cao 36,
+                  // chữ 11, giãn ~370px mỗi nút chỉ để ghi «20/10».
+                  SizedBox(
+                    height: 44,
+                    child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
                         flex: 3,
                         child: TextField(
+                          textAlignVertical: TextAlignVertical.center,
                           decoration: InputDecoration(
                             hintText: tr('Tìm đơn, SĐT…'),
                             prefixIcon: const Icon(Icons.search, size: 18),
@@ -1521,35 +1527,40 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _busy ? null : _pickFromDate,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            visualDensity: VisualDensity.compact,
-                            minimumSize: const Size(0, 36),
+                      ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 150),
+                          child: OutlinedButton.icon(
+                            onPressed: _busy ? null : _pickFromDate,
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              minimumSize: const Size(96, 44),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                            label: Text(DateFormat('dd/MM').format(_from),
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                           ),
-                          child: Text(DateFormat('dd/MM').format(_from),
-                              style: const TextStyle(fontSize: 11)),
-                        ),
                       ),
                       const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 2),
-                        child: Text('–', style: TextStyle(fontSize: 12)),
+                        padding: EdgeInsets.symmetric(horizontal: 4),
+                        child: Center(child: Text('–', style: TextStyle(fontSize: 13))),
                       ),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _busy ? null : _pickToDate,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            visualDensity: VisualDensity.compact,
-                            minimumSize: const Size(0, 36),
+                      ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 150),
+                          child: OutlinedButton.icon(
+                            onPressed: _busy ? null : _pickToDate,
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              minimumSize: const Size(96, 44),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                            label: Text(DateFormat('dd/MM').format(_to),
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                           ),
-                          child: Text(DateFormat('dd/MM').format(_to),
-                              style: const TextStyle(fontSize: 11)),
-                        ),
                       ),
                     ],
+                  ),
                   ),
                   if (_productFilters.isNotEmpty) ...[
                     const SizedBox(height: 4),

@@ -251,6 +251,10 @@ class SboxBarChart extends StatelessWidget {
     }
     final top = _niceMax(maxY);
     final bottom = minY < 0 ? -_niceMax(-minY) : 0.0;
+    // Đếm lượt / số đơn (toàn số nguyên, đỉnh nhỏ): bước trục 1 — fl_chart tự chọn 0,5 rồi nhãn làm
+    // tròn thành «0, 1, 1, 2», vạch «2» thật ra là 1,5 nên cột giá trị 2 vượt quá vạch.
+    final allInt = series.every((s) => s.values.every((v) => v == v.roundToDouble()));
+    final yInterval = allInt && top <= 10 && bottom == 0 ? 1.0 : null;
 
     return LayoutBuilder(builder: (context, cons) {
       final groupW = (cons.maxWidth - 60) / math.max(1, n);
@@ -263,9 +267,20 @@ class SboxBarChart extends StatelessWidget {
             maxY: top,
             minY: bottom,
             alignment: BarChartAlignment.spaceAround,
-            gridData: _grid,
+            gridData: yInterval == null
+                ? _grid
+                : FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    horizontalInterval: yInterval,
+                    getDrawingHorizontalLine: (_) => const FlLine(color: SboxChartColors.grid, strokeWidth: 1),
+                  ),
             borderData: FlBorderData(show: false),
-            titlesData: _titles(labels: labels, axisFormat: axisFormat, maxLabels: math.max(3, (cons.maxWidth / 56).floor()).clamp(3, maxLabels)),
+            titlesData: _titles(
+                labels: labels,
+                axisFormat: axisFormat,
+                interval: yInterval,
+                maxLabels: math.max(3, (cons.maxWidth / 56).floor()).clamp(3, maxLabels)),
             barTouchData: BarTouchData(
               touchTooltipData: BarTouchTooltipData(
                 getTooltipColor: (_) => SboxChartColors.tooltipBg,

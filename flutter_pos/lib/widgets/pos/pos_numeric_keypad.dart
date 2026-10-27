@@ -1,5 +1,6 @@
 ﻿import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +9,27 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 import 'pos_theme.dart';
 
 import '../../theme/sbox_tokens.dart';
+
+/// Máy cảm ứng (Android / iOS) dùng bàn phím số của app cho ô tiền — bàn phím số hệ thống
+/// lẫn ( ) # * = và che nửa form. Web / desktop gõ phím thường (ô chỉ-đọc sẽ không gõ được).
+bool get posUsesAppKeypad =>
+    !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
+
+/// Ô tiền (TextField thường, có formatter riêng) trên máy cảm ứng: chạm → bàn phím số app,
+/// ghi lại số nguyên định dạng nghìn «30.000». Dùng với `readOnly: posUsesAppKeypad`.
+Future<void> posPickAmountInto(BuildContext context, TextEditingController c, {String title = 'Số tiền'}) async {
+  final next = await showPosNumericKeypad(
+    context: context,
+    title: title,
+    initial: c.text.replaceAll(RegExp(r'[^\d]'), ''),
+    allowDecimal: false,
+  );
+  if (next == null || !context.mounted) return;
+  final n = int.tryParse(next);
+  c.text = n == null ? '' : NumberFormat('#,##0', 'vi_VN').format(n);
+  c.selection = TextSelection.collapsed(offset: c.text.length);
+}
+
 /// Ô số không mở soft keyboard — tap mở [showPosNumericKeypad].
 /// Vẫn nhận bàn phím cứng khi đã focus (`showSoftInputOnFocus: false`).
 class PosNoSoftKeyboardField extends StatelessWidget {
@@ -30,6 +52,7 @@ class PosNoSoftKeyboardField extends StatelessWidget {
     this.offerDecimalToggle = false,
     this.onDecimalToggle,
     this.offerCashNotes = false,
+    this.quickPercents,
   });
 
   final TextEditingController controller;
@@ -52,6 +75,8 @@ class PosNoSoftKeyboardField extends StatelessWidget {
   final ValueChanged<bool>? onDecimalToggle;
   /// Hiện nút mệnh giá tiền mặt «+1k … +500k» (cộng dồn) trên bàn phím số.
   final bool offerCashNotes;
+  /// Nút % chọn nhanh (bấm là thay giá trị) — ô giảm giá theo %.
+  final List<int>? quickPercents;
 
   Future<void> _openPad(BuildContext context) async {
     if (!enabled || !openKeypadOnTap) return;
@@ -66,6 +91,7 @@ class PosNoSoftKeyboardField extends StatelessWidget {
       offerDecimalToggle: offerDecimalToggle,
       onDecimalToggle: onDecimalToggle,
       offerCashNotes: offerCashNotes,
+      quickPercents: quickPercents,
     );
     if (next == null || !context.mounted) return;
     controller.text = next;
@@ -115,6 +141,7 @@ Future<String?> showPosNumericKeypad({
   bool offerDecimalToggle = false,
   ValueChanged<bool>? onDecimalToggle,
   bool offerCashNotes = false,
+  List<int>? quickPercents,
 }) {
   return showModalBottomSheet<String>(
     context: context,
@@ -131,6 +158,7 @@ Future<String?> showPosNumericKeypad({
       offerDecimalToggle: offerDecimalToggle,
       onDecimalToggle: onDecimalToggle,
       offerCashNotes: offerCashNotes,
+      quickPercents: quickPercents,
     ),
   );
 }
@@ -144,6 +172,7 @@ class _PosNumericKeypadSheet extends StatefulWidget {
     required this.offerDecimalToggle,
     required this.onDecimalToggle,
     this.offerCashNotes = false,
+    this.quickPercents,
   });
 
   final String title;
@@ -153,6 +182,7 @@ class _PosNumericKeypadSheet extends StatefulWidget {
   final bool offerDecimalToggle;
   final ValueChanged<bool>? onDecimalToggle;
   final bool offerCashNotes;
+  final List<int>? quickPercents;
 
   @override
   State<_PosNumericKeypadSheet> createState() => _PosNumericKeypadSheetState();
@@ -236,6 +266,11 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
       _fresh = false;
     });
   }
+
+  void _pickPercent(int p) => setState(() {
+        _value = '$p';
+        _fresh = false;
+      });
 
   String get _shownValue {
     if (_value.isEmpty) return '0';
@@ -356,6 +391,13 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
                 for (final n in row)
                   _key('+${n ~/ 1000}k',
                       onTap: () => _addNote(n), bg: SboxColors.successSoft, fg: SboxColors.successText),
+              ]),
+          if (widget.quickPercents != null && widget.quickPercents!.isNotEmpty)
+            for (var i = 0; i < widget.quickPercents!.length; i += 5)
+              Row(children: [
+                for (final p in widget.quickPercents!.skip(i).take(5))
+                  _key('$p%',
+                      onTap: () => _pickPercent(p), bg: SboxColors.brand50, fg: SboxColors.brand700),
               ]),
           Row(children: [
             _key('7', onTap: () => _append('7')),

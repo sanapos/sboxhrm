@@ -29,6 +29,35 @@ class HrmShellChrome extends InheritedWidget {
       visible != oldWidget.visible;
 }
 
+/// AppBar của màn có thể mở cả trong khung chính (MainLayout đã vẽ «← tiêu đề») lẫn push riêng.
+/// Trong khung: bỏ tiêu đề + nút back (trùng), chỉ giữ hàng nút hành động / tab nếu có.
+PreferredSizeWidget? shellAwareAppBar(BuildContext context, AppBar bar) {
+  if (!HrmShellChrome.isVisible(context)) return bar;
+  final acts = bar.actions ?? const <Widget>[];
+  final bottom = bar.bottom;
+  if (acts.isEmpty && bottom == null) return null;
+  // flutter_pos: khung chính không có thanh nhận nút của trang (PageTopActions bên app HRM)
+  // → giữ nút hành động trên một hàng mảnh căn phải, nằm trên tab (nếu có).
+  final actionsRow = acts.isEmpty
+      ? null
+      : SizedBox(
+          height: 44,
+          child: Row(mainAxisAlignment: MainAxisAlignment.end, children: acts),
+        );
+  final height = (actionsRow == null ? 0.0 : 44.0) + (bottom?.preferredSize.height ?? 0);
+  return PreferredSize(
+    preferredSize: Size.fromHeight(height),
+    child: Material(
+      color: bar.backgroundColor ?? Colors.white,
+      elevation: bar.elevation ?? 0.5,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [if (actionsRow != null) actionsRow, if (bottom != null) bottom],
+      ),
+    ),
+  );
+}
+
 /// Shared layout tokens and helpers for HRM settings sub-pages.
 class HrmPageChrome {
   HrmPageChrome._();
@@ -95,8 +124,12 @@ class HrmPageChrome {
       HrmShellChrome.isVisible(context);
 
   /// Route được push đè lên shell — phải tự vẽ tiêu đề + back.
+  /// Màn ở route đầu (trong khung chính) mà có dialog đè thì canPop cũng true — không tính là bị push
+  /// (trước đây mở chi tiết hóa đơn rồi đóng, sau lưng hiện thêm «← Hóa đơn» dưới «← Đơn hàng»).
   static bool isPushedOverShell(BuildContext context) =>
-      Navigator.of(context).canPop() && !isHubBody(context);
+      Navigator.of(context).canPop() &&
+      !isHubBody(context) &&
+      !(ModalRoute.of(context)?.isFirst ?? false);
 
   /// Ẩn tiêu đề in-page vì AppBar MainLayout / hub đã hiện.
   static bool hideInPageTitle(BuildContext context) =>

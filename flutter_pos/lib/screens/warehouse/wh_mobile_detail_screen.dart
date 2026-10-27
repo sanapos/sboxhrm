@@ -109,13 +109,16 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
             _count = c;
             _apply(c.countNo, c.status, c.name, c.note,
                 '${c.checkedCount}/${c.lineCount} đã kiểm · ${_svc.formatDate(c.createdAt)}',
-                c.totalDiffValue.abs(), c.lineCount,
+                // Giữ dấu như danh sách phiếu và từng dòng (trước đây đầu phiếu «134.483 đ», dòng «-134.483 đ»).
+                c.totalDiffValue, c.lineCount,
                 c.lines.map((l) => {
                       'name': l.productName,
                       'qty': l.countedQty,
+                      'qtyPrefix': 'Thực tế',
                       'unit': l.unitName ?? '',
                       'total': l.diffValue,
-                      'extra': 'Tồn HT: ${formatViQty(l.systemQty)}',
+                      'extra': 'Tồn HT: ${formatViQty(l.systemQty)}'
+                          '${l.countedQty == null || l.diffQty == 0 ? '' : ' · Lệch ${l.diffQty > 0 ? '+' : ''}${formatViQty(l.diffQty)}'}',
                     }).toList());
           }
         case WhDocType.damageIssue:
@@ -400,11 +403,13 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          _lines[i]['qty'] == null
-                              ? tr('Chưa kiểm')
-                              : tr('SL: ${formatViQty(_lines[i]['qty'] as num)}'),
-                          style: WhMobileTheme.body.copyWith(fontWeight: FontWeight.w600),
+                        Flexible(
+                          child: Text(
+                            _lines[i]['qty'] == null
+                                ? tr('Chưa kiểm')
+                                : tr('${_lines[i]['qtyPrefix'] ?? 'SL'}: ${_qtyLabel(_lines[i])}'),
+                            style: WhMobileTheme.body.copyWith(fontWeight: FontWeight.w600),
+                          ),
                         ),
                         if (_lines[i]['extra'] != null)
                           Text(tr(_lines[i]['extra'].toString()), style: WhMobileTheme.caption),
@@ -418,5 +423,16 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
               ],
             ),
     );
+  }
+
+  /// «10 Cái × 15.000 đ» — trước đây chỉ «SL: 10», không biết đơn vị lẫn đơn giá của dòng.
+  /// Phiếu kiểm (có «Tồn HT») giữ số lượng + đơn vị: tiền dòng là giá trị chênh, không phải đơn giá × SL.
+  String _qtyLabel(Map<String, dynamic> l) {
+    final qty = l['qty'] as num;
+    final unit = (l['unit'] ?? '').toString().trim();
+    final base = '${formatViQty(qty)}${unit.isEmpty ? '' : ' $unit'}';
+    final total = (l['total'] as num?)?.toDouble() ?? 0;
+    if (l['extra'] != null || qty == 0 || total == 0) return base;
+    return '$base × ${_svc.formatMoney(total / qty)}';
   }
 }

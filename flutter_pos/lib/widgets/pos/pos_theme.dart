@@ -28,8 +28,9 @@ abstract final class PosTheme {
   static const Color materialColor = Color(0xFF0F766E);
   static const Color toppingColor = Color(0xFFDB2777);
 
+  // Nút «Lưu» / «Chỉnh sửa» trên thanh tiêu đề — màu nút chính của app; xanh lá dành cho thanh toán.
   static ButtonStyle filledButtonStyle = FilledButton.styleFrom(
-    backgroundColor: primary,
+    backgroundColor: kiotBlue,
     foregroundColor: Colors.white,
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SboxRadius.md)),

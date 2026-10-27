@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../providers/permission_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -511,7 +512,7 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
     final canDelete = perm.canDelete('PosProducts');
     return Scaffold(
       backgroundColor: PosTheme.background,
-      appBar: AppBar(
+      appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Nhóm topping')),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
@@ -519,7 +520,7 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
         foregroundColor: SboxColors.text,
         actions: [
         ],
-      ),
+      )),
       floatingActionButton: canCreate
           ? FloatingActionButton.extended(
               onPressed: () => _editGroup(),

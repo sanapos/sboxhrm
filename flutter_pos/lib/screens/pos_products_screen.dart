@@ -1205,7 +1205,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           if (!inHub) const PosModuleToolbar(activeModule: 'PosProducts'),
           if (mobile)
             PosMobileKiotHeader(
-              title: 'Hàng hoá',
+              title: 'Hàng hóa',
               onSearch: () => _focusSearch(),
               onFilter: inHub ? null : () => _openMobileFilters(perm),
               onSort: inHub ? null : _showSortSheet,
@@ -2146,11 +2146,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       context: context,
       isScrollControlled: true,
       builder: (ctx) => SafeArea(
+        // Màn ngang thấp (tablet POS 720dp): 42% không đủ 4 thao tác, dòng cuối bị cắt dưới đáy.
         child: DraggableScrollableSheet(
           expand: false,
-          initialChildSize: 0.42,
+          initialChildSize: MediaQuery.sizeOf(ctx).height < 820 ? 0.52 : 0.42,
           minChildSize: 0.28,
-          maxChildSize: 0.72,
+          maxChildSize: 0.9,
           builder: (_, scrollCtrl) => ListView(
             controller: scrollCtrl,
             children: [

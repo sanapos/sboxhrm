@@ -194,13 +194,6 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
     }
   }
 
-  Future<void> _scan() async {
-    final code = await scanBarcodeWithCamera(context);
-    if (code == null || !mounted) return;
-    final pick = await lookupOrPickPosProduct(context, _api, code);
-    if (pick != null && mounted) await _pickProduct(pick);
-  }
-
   Future<void> _removeLine(_Line line) async {
     if (_readOnly || _issueId == null) return;
     final res = await _api.removePosStockIssueDocLine(_config.kind, _issueId!, line.lineId);
@@ -339,14 +332,6 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
       child: WhMobileScaffold(
       title: _issueNo.isEmpty ? widget.docType.createLabel : _issueNo,
       subtitle: widget.docType.title,
-      actions: [
-        if (!_readOnly)
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner_rounded),
-            color: WhMobileTheme.primary,
-            onPressed: _scan,
-          ),
-      ],
       bottomBar: WhMobileBottomBar(
         readOnly: _readOnly,
         loading: _saving,

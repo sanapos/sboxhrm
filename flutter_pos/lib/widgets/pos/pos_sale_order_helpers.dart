@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../utils/pos_doc_status.dart';
 import 'pos_theme.dart';
@@ -41,8 +42,12 @@ TextStyle? posSaleOrderCancelledTextStyle(String status, {TextStyle? base}) {
   );
 }
 
-Widget posSaleOrderStatusChip(String status, {String? returnStatus}) {
+/// [returnedAmount] > 0 → ghép số tiền vào chip trả hàng («Trả một phần · 77.677 đ»).
+Widget posSaleOrderStatusChip(String status, {String? returnStatus, double? returnedAmount}) {
   final returnLabel = posSaleReturnStatusLabel(returnStatus);
+  final amountSuffix = (returnedAmount ?? 0) > 0
+      ? ' · ${NumberFormat('#,##0', 'vi_VN').format(returnedAmount)} đ'
+      : '';
   // Wrap: ô trạng thái hẹp (bảng hoá đơn 90dp) → «Trả 1 phần» xuống dòng dưới
   // «Hoàn thành» thay vì tràn đè cột HĐĐT.
   return Wrap(
@@ -60,7 +65,7 @@ Widget posSaleOrderStatusChip(String status, {String? returnStatus}) {
             borderRadius: BorderRadius.circular(14),
           ),
           child: Text(
-            tr(returnLabel),
+            '${tr(returnLabel)}$amountSuffix',
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,

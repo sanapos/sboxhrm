@@ -695,6 +695,20 @@ class _PosSellIndustrySettingsScreenState
                 : (v) => _patchAndSave(
                     (cur) => cur.copyWith(enableHourlyBilling: v)),
           ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Tự bắt đầu tính giờ khi chọn món')),
+            subtitle: Text(tr(
+                'Bật: chọn món tính giờ (giờ bi-a, giờ phòng…) là đồng hồ chạy ngay. '
+                'Tắt: dòng hiện «Chưa tính giờ», thu ngân bấm «Bắt đầu» khi khách bắt đầu dùng.')),
+            value: s.autoStartTimedOnPick,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave((cur) => cur.copyWith(
+                      extraJson: PosStoreSellSettingsDto.mergeAutoStartTimedOnPick(
+                          cur.extraJson, v),
+                    )),
+          ),
           if (s.sellProfile == PosSellProfile.hotel) _hotelPolicyCard(s),
           if (s.sellProfile == PosSellProfile.retail || s.sellProfile == PosSellProfile.restaurant)
             _scaleBarcodeCard(s),

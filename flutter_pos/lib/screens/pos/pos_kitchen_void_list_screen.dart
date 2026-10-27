@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../utils/api_datetime.dart';
 
 import 'package:flutter/material.dart';
@@ -137,7 +138,7 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: PosTheme.background,
-      appBar: AppBar(
+      appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Phiếu hủy bếp')),
         backgroundColor: Colors.white,
         foregroundColor: SboxColors.text,
@@ -145,7 +146,7 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
-      ),
+      )),
       body: Column(
         children: [
           Material(

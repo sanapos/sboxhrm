@@ -508,6 +508,20 @@ class PermissionProvider extends ChangeNotifier {
   /// Thu ngân — thanh toán / hoàn tất hóa đơn.
   bool canPosPay() => canApprove('PosSell');
 
+  bool _knows(String moduleCode) => _permissions.containsKey(moduleCode);
+
+  /// Đổi đơn giá tay khi bán (chưa cấu hình riêng → theo quyền thanh toán).
+  bool canPosPriceEdit() {
+    if (_isSuperUser) return true;
+    return _knows('PosSellPriceEdit') ? _flag('PosSellPriceEdit', 'canEdit') : canPosPay();
+  }
+
+  /// Chiết khấu dòng / đơn khi bán (chưa cấu hình riêng → theo quyền thanh toán).
+  bool canPosDiscount() {
+    if (_isSuperUser) return true;
+    return _knows('PosSellDiscount') ? _flag('PosSellDiscount', 'canEdit') : canPosPay();
+  }
+
   /// Module thiết lập POS — tick trên ma trận, không alias từ PosSell.
   static const List<String> posSetupModuleCodes = [
     'SettingsHub',

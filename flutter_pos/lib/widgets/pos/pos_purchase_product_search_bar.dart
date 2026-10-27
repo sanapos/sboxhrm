@@ -685,7 +685,8 @@ class _SuggestionTile extends StatelessWidget {
                     tr(
                       // Ghi rõ «Giá vốn/Giá bán» — trước chỉ «· 5.172» không biết là số gì.
                       '${suggestion.displayCode} · Tồn ${moneyFmt.format(suggestion.onHandQty)} · '
-                      '${sellMode && suggestion.costPrice <= 0 ? 'Giá bán' : 'Giá vốn'} ${moneyFmt.format(price)}',
+                      // sellMode: trường costPrice của gợi ý đang chứa giá bán.
+                      '${sellMode ? 'Giá bán' : 'Giá vốn'} ${moneyFmt.format(price)}',
                     ),
                     style: TextStyle(
                       fontSize: compact ? 11 : 12,
