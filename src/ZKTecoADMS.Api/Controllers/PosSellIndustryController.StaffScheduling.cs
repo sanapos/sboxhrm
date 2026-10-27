@@ -29,7 +29,12 @@ public partial class PosSellIndustryController
         DateTime? LastServedAt,
         int JobsToday,
         int BookedMinutesToday,
-        List<StaffShiftDto> Shifts);
+        List<StaffShiftDto> Shifts,
+        /// <summary>Lý do bận dạng thô để app tự ghép câu theo ngôn ngữ: «booking» / «serving».</summary>
+        string? BusyKind = null,
+        /// <summary>«HH:mm» giờ VN.</summary>
+        string? BusyFrom = null,
+        string? BusyTo = null);
 
     public record StaffAvailabilityResultDto(
         bool ScheduleKnown,
@@ -351,6 +356,7 @@ public partial class PosSellIndustryController
             var myOpen = openSessions.Where(s => orderStaff.TryGetValue(s.OrderId, out var st) && st.Contains(e.Id)).ToList();
 
             string? busyReason = null;
+            string? busyKind = null, busyFrom = null, busyTo = null;
             if (slotStart.HasValue)
             {
                 foreach (var r in myRes.Where(r => r.Status == PosResourceReservationStatus.Booked))
@@ -360,6 +366,7 @@ public partial class PosSellIndustryController
                     if (slotStart.Value < re && rs < slotEnd!.Value)
                     {
                         busyReason = $"Có lịch {ToVn(rs):HH:mm}–{ToVn(re):HH:mm}";
+                        (busyKind, busyFrom, busyTo) = ("booking", $"{ToVn(rs):HH:mm}", $"{ToVn(re):HH:mm}");
                         break;
                     }
                 }
@@ -374,6 +381,7 @@ public partial class PosSellIndustryController
                         if (slotStart.Value < est && s.StartedAt < slotEnd!.Value)
                         {
                             busyReason = $"Đang làm cho khách, dự kiến xong {ToVn(est):HH:mm}";
+                            (busyKind, busyFrom, busyTo) = ("serving", $"{ToVn(s.StartedAt):HH:mm}", $"{ToVn(est):HH:mm}");
                             break;
                         }
                     }
@@ -407,7 +415,10 @@ public partial class PosSellIndustryController
                 bookedMinutes,
                 shiftsByEmp.TryGetValue(e.Id, out var sl)
                     ? sl.Select(s => new StaffShiftDto(FmtTime(s.Start), FmtTime(s.End))).ToList()
-                    : new List<StaffShiftDto>()));
+                    : new List<StaffShiftDto>(),
+                busyKind,
+                busyFrom,
+                busyTo));
         }
 
         var ordered = items

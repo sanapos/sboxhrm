@@ -1129,7 +1129,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               const SizedBox(height: 4),
               Text(
                 pct == null
-                    ? tr('Khách mua ${_isService ? 'dịch vụ' : _sellProfile.usesFnbItemTypes ? 'món' : 'hàng'} này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).')
+                    ? (_isService
+                        ? tr('Khách mua dịch vụ này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).')
+                        : _sellProfile.usesFnbItemTypes
+                            ? tr('Khách mua món này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).')
+                            : tr('Khách mua hàng này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).'))
                     : price > 0
                         ? tr('Bán ${_fmtInputMoney(price)}đ → khách tích ${_fmtInputMoney(earn)}đ vào ví điểm, lần sau trừ vào đơn mới.')
                         : tr('Khách được tích ${_fmtPercent(pct)}% tiền thực trả của món này vào ví điểm.'),

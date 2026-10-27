@@ -1304,6 +1304,7 @@
   "Bậc thuế, giảm trừ gia cảnh": "세율 구간, 부양가족 공제",
   "Bậc thưởng vượt chỉ tiêu (=100": "목표 초과 상여 단계 (=100",
   "Bậc thưởng vượt chỉ tiêu (=100%)": "목표 초과 상여 단계 (=100%)",
+  "Bận": "바쁨",
   "Bật": "켜기",
   "Bật / tắt thông báo chấm công, công việc, bán hàng": "근태, 업무, 판매 알림 켜기 / 끄기",
   "Bật / tắt tất cả": "모두 켜기 / 끄기",
@@ -6625,7 +6626,10 @@
   "Khách lẻ": "일반 고객",
   "Khách lẻ (chưa chọn khách)": "일반 고객 (고객 미선택)",
   "Khách mua": "구매 고객",
+  "Khách mua dịch vụ này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).": "이 서비스를 구매한 고객은 공통 설정(SBOX 설정 › 포인트 적립)에 따라 포인트가 적립됩니다.",
   "Khách mua gói phải được chọn trên hóa đơn — không có khách thì không cộng buổi được.": "패키지를 구매한 고객을 영수증에서 선택해야 합니다 — 고객이 없으면 횟수를 적립할 수 없습니다.",
+  "Khách mua hàng này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).": "이 상품을 구매한 고객은 공통 설정(SBOX 설정 › 포인트 적립)에 따라 포인트가 적립됩니다.",
+  "Khách mua món này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).": "이 메뉴를 주문한 고객은 공통 설정(SBOX 설정 › 포인트 적립)에 따라 포인트가 적립됩니다.",
   "Khách mua nhiều nhất": "구매가 가장 많은 고객",
   "Khách mới (chưa có trong danh sách)": "신규 고객 (목록에 없음)",
   "Khách mới, khách cũ, khách lẻ": "신규 고객, 기존 고객, 일반 고객",
@@ -13926,6 +13930,7 @@
   "Thời điểm phân chia ngày chấm công": "근태 일자 구분 시각",
   "Thợ làm": "기술자",
   "Thợ quen": "단골 기사",
+  "Thợ đã chọn": "선택한 기술자",
   "Thủ công": "수동",
   "Thủ kho": "창고 담당자",
   "Thủ quỹ": "출납 담당자",
@@ -16695,6 +16700,7 @@
   "Xin chào SBOX HRM": "SBOX HRM에 오신 것을 환영합니다",
   "Xin chào SBOX HRM!": "SBOX HRM에 오신 것을 환영합니다!",
   "Xin chào quý khách": "어서 오세요, 고객님",
+  "Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng và nhân sự (theo quyền của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ, chấm công, đi trễ, nghỉ phép, lương… Tôi cũng lập / sửa phiếu theo lời bạn (phiếu thu chi, phạt, thưởng, ứng lương, tăng ca, bổ sung chấm công, hóa đơn bán) — bạn chỉ cần kiểm tra rồi bấm Xác nhận. Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.": "안녕하세요! 저는 매장의 가상 비서입니다. 판매·인사 보고서를 (권한 범위 내에서) 읽고 매출, 이익, 인기 상품, 재고, 미수금, 출퇴근, 지각, 휴가, 급여 등을 답변하고 분석합니다. 말씀하시면 전표(입출금, 벌금, 상여, 급여 가불, 초과근무, 출퇴근 보정, 판매 영수증)도 작성·수정해 드립니다 — 확인 후 확인 버튼만 누르세요. 마이크를 누르거나 질문을 입력하거나 아래 추천 질문을 선택하세요.",
   "Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng và nhân sự (đúng quyền và phạm vi của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ, chấm công, đi trễ, nghỉ phép, lương… Tôi cũng làm thay bạn: lập / sửa phiếu, duyệt hoặc từ chối đơn, đổi giá, ngừng bán, xóa phiếu, hủy hóa đơn — bạn kiểm tra rồi bấm Xác nhận (thao tác xóa / hủy sẽ hỏi lại một lần nữa). Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.": "안녕하세요! 저는 매장의 AI 어시스턴트입니다. 회원님의 권한과 범위에 맞게 판매 및 인사 보고서를 읽고 답변하고 분석합니다: 매출, 이익, 인기 상품, 재고, 채무, 근태, 지각, 휴가, 급여… 직접 처리도 해드립니다: 전표 작성 / 수정, 신청 승인 또는 거절, 가격 변경, 판매 중단, 전표 삭제, 영수증 취소 — 확인 후 확인 버튼을 눌러 주세요 (삭제 / 취소 작업은 한 번 더 확인합니다). 마이크를 누르거나 질문을 입력하거나 아래 추천 질문을 선택하세요.",
   "Xin chào! Tôi là trợ lý ảo HRM của bạn. Bạn có thể hỏi về phép, chấm công, lương, hoặc nhờ tôi hướng dẫn đăng ký nghỉ / đổi ca / báo quên chấm công. Bấm micro để nói hoặc gõ tin nhắn.": "안녕하세요! 저는 HRM AI 어시스턴트입니다. 휴가, 출퇴근, 급여에 대해 물어보시거나 휴가 신청 / 근무조 변경 / 출퇴근 누락 신고 방법을 안내해 달라고 요청하실 수 있습니다. 마이크를 눌러 말하거나 메시지를 입력하세요.",
   "Xin chào, tôi là trợ lý ảo của cửa hàng.": "안녕하세요, 매장의 AI 어시스턴트입니다.",
@@ -22695,6 +22701,10 @@
    "고객이 {0} 메뉴를 주문했습니다"
   ],
   [
+   "Có lịch {0}–{1}",
+   "{0}–{1} 예약 있음"
+  ],
+  [
    "Có mặt – {0}",
    "출근 – {0}"
   ],
@@ -23197,6 +23207,10 @@
   [
    "Dải số hóa đơn offline đã cấp ({0})",
    "발급된 오프라인 영수증 번호 범위 ({0})"
+  ],
+  [
+   "Dịch vụ {0}đ",
+   "서비스 {0}đ"
   ],
   [
    "Dự kiến {0} · khớp {1} · thiếu {2} · mã lạ {3}",
@@ -25735,6 +25749,10 @@
    "메뉴 항목 ({0})"
   ],
   [
+   "Món {0}đ",
+   "메뉴 {0}đ"
+  ],
+  [
    "Mất KN: {0}",
    "연결 끊김: {0}"
   ],
@@ -27421,6 +27439,10 @@
   [
    "Thời lượng: {0} (tính {1})",
    "이용 시간: {0} (과금 {1})"
+  ],
+  [
+   "Thợ quen của khách ({0} lần)",
+   "고객의 단골 기사 ({0}회)"
   ],
   [
    "Thừa {0}đ",
@@ -29867,6 +29889,14 @@
    "{0}은(는) 이 시간대에 가능하지 않음"
   ],
   [
+   "{0} không rảnh khung này ({1}) — chuyển sang Tự xếp",
+   "{0}은(는) 이 시간에 가능하지 않습니다 ({1}) — 자동 배정으로 전환"
+  ],
+  [
+   "{0} không rảnh khung này — chuyển sang Tự xếp",
+   "{0}은(는) 이 시간에 가능하지 않습니다 — 자동 배정으로 전환"
+  ],
+  [
    "{0} không đến",
    "{0} 미방문"
   ],
@@ -31923,6 +31953,10 @@
    "음력 {0}/{1}"
   ],
   [
+   "Ít việc nhất hôm nay ({0} việc)",
+   "오늘 업무가 가장 적음 ({0}건)"
+  ],
+  [
    "Ô {0} — chọn chức năng",
    "셀 {0} — 기능 선택"
   ],
@@ -32013,6 +32047,10 @@
   [
    "Đang liên kết: {0}. Chọn nhân viên khác để thay đổi.",
    "연결 중: {0}. 변경하려면 다른 직원을 선택하세요."
+  ],
+  [
+   "Đang làm cho khách, dự kiến xong {0}",
+   "고객 응대 중, {0} 종료 예정"
   ],
   [
    "Đang lập {0}…",

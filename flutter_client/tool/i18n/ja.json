@@ -1304,6 +1304,7 @@
   "Bậc thuế, giảm trừ gia cảnh": "税率区分、扶養控除",
   "Bậc thưởng vượt chỉ tiêu (=100": "目標超過賞与段階(=100",
   "Bậc thưởng vượt chỉ tiêu (=100%)": "目標超過賞与段階(=100%)",
+  "Bận": "対応中",
   "Bật": "オン",
   "Bật / tắt thông báo chấm công, công việc, bán hàng": "勤怠、タスク、販売の通知をオン / オフ",
   "Bật / tắt tất cả": "すべてオン/オフ",
@@ -6625,7 +6626,10 @@
   "Khách lẻ": "一般のお客様",
   "Khách lẻ (chưa chọn khách)": "一般のお客様（顧客未選択）",
   "Khách mua": "購入したお客様",
+  "Khách mua dịch vụ này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).": "このサービスを購入したお客様には共通設定(SBOX設定 › ポイント付与)に従ってポイントが付与されます。",
   "Khách mua gói phải được chọn trên hóa đơn — không có khách thì không cộng buổi được.": "パッケージを購入したお客様を伝票で選択する必要があります — 顧客がいないと回数を加算できません。",
+  "Khách mua hàng này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).": "この商品を購入したお客様には共通設定(SBOX設定 › ポイント付与)に従ってポイントが付与されます。",
+  "Khách mua món này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).": "このメニューを注文したお客様には共通設定(SBOX設定 › ポイント付与)に従ってポイントが付与されます。",
   "Khách mua nhiều nhất": "購入額が最も多いお客様",
   "Khách mới (chưa có trong danh sách)": "新規のお客様（リストにない）",
   "Khách mới, khách cũ, khách lẻ": "新規顧客、既存顧客、一般客",
@@ -13926,6 +13930,7 @@
   "Thời điểm phân chia ngày chấm công": "勤怠日の区切り時刻",
   "Thợ làm": "施術担当",
   "Thợ quen": "なじみの職人",
+  "Thợ đã chọn": "選択した施術担当",
   "Thủ công": "手動",
   "Thủ kho": "倉庫担当",
   "Thủ quỹ": "出納担当",
@@ -16695,6 +16700,7 @@
   "Xin chào SBOX HRM": "SBOX HRMへようこそ",
   "Xin chào SBOX HRM!": "SBOX HRMへようこそ！",
   "Xin chào quý khách": "いらっしゃいませ",
+  "Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng và nhân sự (theo quyền của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ, chấm công, đi trễ, nghỉ phép, lương… Tôi cũng lập / sửa phiếu theo lời bạn (phiếu thu chi, phạt, thưởng, ứng lương, tăng ca, bổ sung chấm công, hóa đơn bán) — bạn chỉ cần kiểm tra rồi bấm Xác nhận. Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.": "こんにちは！私はお店のバーチャルアシスタントです。売上・人事レポートを（あなたの権限の範囲で）読み、売上、利益、売れ筋商品、在庫、売掛金、勤怠、遅刻、休暇、給与などについて回答・分析します。ご依頼に応じて伝票（入出金、罰金、賞与、給与前払い、残業、打刻補正、販売伝票）の作成・修正も行います — 内容を確認して「確定」を押すだけです。マイクを押すか、質問を入力するか、下の候補を選んでください。",
   "Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng và nhân sự (đúng quyền và phạm vi của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ, chấm công, đi trễ, nghỉ phép, lương… Tôi cũng làm thay bạn: lập / sửa phiếu, duyệt hoặc từ chối đơn, đổi giá, ngừng bán, xóa phiếu, hủy hóa đơn — bạn kiểm tra rồi bấm Xác nhận (thao tác xóa / hủy sẽ hỏi lại một lần nữa). Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.": "こんにちは！店舗のAIアシスタントです。あなたの権限と範囲に応じて、販売・人事のレポートを読み、回答や分析を行います：売上、利益、売れ筋、在庫、債権債務、勤怠、遅刻、休暇、給与…。代わりに操作もします：伝票の作成 / 編集、申請の承認または却下、価格変更、販売停止、伝票削除、請求書の取消 — 内容を確認して「確認」を押してください（削除 / 取消の操作はもう一度確認します）。マイクを押すか、質問を入力するか、下の候補を選んでください。",
   "Xin chào! Tôi là trợ lý ảo HRM của bạn. Bạn có thể hỏi về phép, chấm công, lương, hoặc nhờ tôi hướng dẫn đăng ký nghỉ / đổi ca / báo quên chấm công. Bấm micro để nói hoặc gõ tin nhắn.": "こんにちは！HRMのAIアシスタントです。休暇、勤怠、給与についてご質問いただけるほか、休暇申請／シフト変更／打刻漏れ報告の手順もご案内します。マイクを押して話すか、メッセージを入力してください。",
   "Xin chào, tôi là trợ lý ảo của cửa hàng.": "こんにちは、店舗のAIアシスタントです。",
@@ -22695,6 +22701,10 @@
    "お客様が{0}を注文しました"
   ],
   [
+   "Có lịch {0}–{1}",
+   "{0}–{1} 予約あり"
+  ],
+  [
    "Có mặt – {0}",
    "出勤 – {0}"
   ],
@@ -23197,6 +23207,10 @@
   [
    "Dải số hóa đơn offline đã cấp ({0})",
    "発行済みオフライン伝票番号の範囲（{0}）"
+  ],
+  [
+   "Dịch vụ {0}đ",
+   "サービス {0}đ"
   ],
   [
    "Dự kiến {0} · khớp {1} · thiếu {2} · mã lạ {3}",
@@ -25735,6 +25749,10 @@
    "メニューの品目（{0}）"
   ],
   [
+   "Món {0}đ",
+   "料理 {0}đ"
+  ],
+  [
    "Mất KN: {0}",
    "接続切れ: {0}"
   ],
@@ -27421,6 +27439,10 @@
   [
    "Thời lượng: {0} (tính {1})",
    "利用時間: {0}（課金 {1}）"
+  ],
+  [
+   "Thợ quen của khách ({0} lần)",
+   "お客様のなじみの職人（{0}回）"
   ],
   [
    "Thừa {0}đ",
@@ -29867,6 +29889,14 @@
    "{0}はこの時間帯は空いていません"
   ],
   [
+   "{0} không rảnh khung này ({1}) — chuyển sang Tự xếp",
+   "{0}はこの時間帯に空いていません（{1}）— 自動割り当てに切り替えました"
+  ],
+  [
+   "{0} không rảnh khung này — chuyển sang Tự xếp",
+   "{0}はこの時間帯に空いていません — 自動割り当てに切り替えました"
+  ],
+  [
    "{0} không đến",
    "{0} 来店なし"
   ],
@@ -31923,6 +31953,10 @@
    "旧暦 {0}/{1}"
   ],
   [
+   "Ít việc nhất hôm nay ({0} việc)",
+   "本日いちばん空いている（{0}件）"
+  ],
+  [
    "Ô {0} — chọn chức năng",
    "セル {0} — 機能を選択"
   ],
@@ -32013,6 +32047,10 @@
   [
    "Đang liên kết: {0}. Chọn nhân viên khác để thay đổi.",
    "連携中: {0}。変更するには別の従業員を選択してください。"
+  ],
+  [
+   "Đang làm cho khách, dự kiến xong {0}",
+   "接客中、{0} 終了予定"
   ],
   [
    "Đang lập {0}…",
