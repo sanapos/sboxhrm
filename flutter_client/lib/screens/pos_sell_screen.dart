@@ -969,6 +969,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       const PosThermalPrinterSettings();
   /// In bill/tem lần TT này — độc lập thiết lập «tự động»; gieo từ settings.
   bool _quickPrintInvoice = false;
+  /// Chip «In 2 liên» ở màn thanh toán — mặc định tắt; bật thì hóa đơn sau thanh toán in 2 bản.
+  bool _quickPrintTwoCopies = false;
   /// Tingee đã nhận CK → in hóa đơn cho đúng đơn này, không bật chip «In HĐ» cho các đơn sau.
   bool _forceInvoicePrintOnce = false;
   bool _quickPrintCup = false;
@@ -13899,7 +13901,8 @@ class _PosSellScreenState extends State<PosSellScreen>
         storeAddress: _storeSettings.address.isNotEmpty ? _storeSettings.address : null,
         storePhone: _storeSettings.phone.isNotEmpty ? _storeSettings.phone : null,
         mergeSameItems: _printSettings.mergeSameItems,
-        copies: 1, // Sau TT luôn 1 liên; in lại / cài đặt copies dùng nút in tay
+        // Sau TT 1 liên; bật chip «In 2 liên» thì 2 bản. In lại / cài đặt copies dùng nút in tay.
+        copies: _quickPrintTwoCopies ? 2 : 1,
         templateId: _printSettings.templateId,
         vietQrImageUrl: _buildVietQrImageUrlForOrder(order),
         skipDedup: true,
@@ -15985,7 +15988,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     );
   }
 
-  Widget _buildKiotCartList() {
+  Widget _buildKiotCartList({bool showHeader = true}) {
     final Widget body;
     if (_tableAttachBusy && _tab.cart.isEmpty) {
       body = const Center(
@@ -16042,7 +16045,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildCartHeader(),
+        if (showHeader) _buildCartHeader(),
         Expanded(child: body),
       ],
     );
@@ -18188,6 +18191,20 @@ class _PosSellScreenState extends State<PosSellScreen>
                 onChanged?.call();
               },
             ),
+            const SizedBox(width: 12),
+            chip(
+              label: 'In 2 liên',
+              icon: Icons.copy_all_outlined,
+              selected: _quickPrintTwoCopies,
+              onSelected: (v) {
+                // Bật 2 liên mà chưa bật in hóa đơn → bật luôn, kẻo bấm xong không in gì.
+                setState(() {
+                  _quickPrintTwoCopies = v;
+                  if (v) _quickPrintInvoice = true;
+                });
+                onChanged?.call();
+              },
+            ),
             if (showCupChip) ...[
               const SizedBox(width: 12),
               chip(
@@ -18725,7 +18742,26 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   /// Cột giỏ (desktop 3 vùng) — tách khỏi panel thanh toán.
-  Widget _buildDesktopCartColumn() {
+  /// [forPayment]: màn thanh toán — bỏ dải «Đồng bộ server…» và dòng «Món · n món» (tiêu đề cột
+  /// đã ghi số món), ô ghi chú có viền rõ.
+  Widget _buildDesktopCartColumn({bool forPayment = false}) {
+    if (forPayment) {
+      return RepaintBoundary(
+        child: ColoredBox(
+          color: Colors.white,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _buildKiotCartList(showHeader: false)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                child: _buildOrderNoteField(bordered: true),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return RepaintBoundary(
       child: ColoredBox(
       color: Colors.white,
@@ -18748,23 +18784,47 @@ class _PosSellScreenState extends State<PosSellScreen>
                 const Icon(Icons.edit_outlined,
                     size: 15, color: PosTheme.textSecondary),
                 const SizedBox(width: 6),
-                Expanded(
-                  child: TextField(
+                Expanded(child: _buildOrderNoteField()),
+              ],
+            ),
+          ),
+        ],
+      ),
+      ),
+    );
+  }
+
+  /// Ô ghi chú đơn hàng. [bordered]: khung viền rõ (màn thanh toán) — chữ «Ghi chú đơn hàng» chỉ là gợi ý,
+  /// gõ vào là ẩn.
+  Widget _buildOrderNoteField({bool bordered = false}) {
+    return TextField(
                     controller: _tab._noteCtrl,
                     readOnly: _tab.draftReadOnly || _tableAttachBusy,
                     // Chỉ xem: chạm ô thì nói lý do thay vì im lặng.
                     onTap: () => _tab.draftReadOnly
                         ? _guardReadOnlyEdit()
                         : posShowSoftKeyboardOnFieldTap(),
-                    decoration: InputDecoration(
-                      hintText: tr('Ghi chú đơn hàng'),
-                      isDense: true,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(vertical: 4),
-                    ),
-                    style: const TextStyle(fontSize: 12),
+                    decoration: bordered
+                        ? InputDecoration(
+                            hintText: tr('Ghi chú đơn hàng'),
+                            isDense: true,
+                            prefixIcon: const Icon(Icons.edit_outlined, size: 18),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: SboxColors.slate300),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                          )
+                        : InputDecoration(
+                            hintText: tr('Ghi chú đơn hàng'),
+                            isDense: true,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 4),
+                          ),
+                    style: TextStyle(fontSize: bordered ? 14 : 12),
                     onChanged: (v) {
                       if (_tab.draftReadOnly) return;
                       _tab.note = v.trim().isEmpty ? null : v;
@@ -18775,14 +18835,6 @@ class _PosSellScreenState extends State<PosSellScreen>
                     onSubmitted: (_) {
                       if (_guardReadOnlyEdit()) _scheduleDraftAutosave();
                     },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      ),
     );
   }
 
@@ -19644,7 +19696,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                               padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
                               child: _buildPriceListTile(),
                             ),
-                            Expanded(child: _buildDesktopCartColumn()),
+                            Expanded(child: _buildDesktopCartColumn(forPayment: true)),
                             // Nút in ở đáy cột trái — trước đây chiếm một hàng riêng trải cả màn.
                             Container(
                               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
