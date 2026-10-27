@@ -1142,7 +1142,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  for (final n in const [1, 2, 4, 6, 8])
+                  // Bàn nhỏ (≤ 6 chỗ): đủ từng số — bàn 4 chỗ trước đây chỉ có 1 · 2 · 4, thiếu 3.
+                  for (final n in maxGuests <= 6
+                      ? [for (var i = 1; i <= maxGuests; i++) i]
+                      : const [1, 2, 4, 6, 8])
                     if (n <= maxGuests)
                       ChoiceChip(
                         label: Text('$n'),
@@ -3285,7 +3288,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               spacing: 6,
               runSpacing: 6,
               children: [
-                for (final n in const [1, 2, 4, 6, 8])
+                for (final n in maxGuests <= 6
+                    ? [for (var i = 1; i <= maxGuests; i++) i]
+                    : const [1, 2, 4, 6, 8])
                   if (n <= maxGuests)
                     ChoiceChip(
                       label: Text('$n'),

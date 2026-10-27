@@ -17210,7 +17210,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         if (_changeAmount > 0)
           Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: _summaryRow('Tiền trả khách', _moneyFmt.format(_changeAmount)),
+            // Số thu ngân phải thối lại — đậm, xanh như «Nợ đơn này» (trước đây chữ thường, dễ bỏ sót).
+            child: _summaryRow('Tiền trả khách', _moneyFmt.format(_changeAmount),
+                bold: true, blue: true, labelSize: 16),
           ),
         if (_dueAmount > 0) _debtNoteBox(),
         if (_dueAmount > 0) ...[
@@ -17542,7 +17544,8 @@ class _PosSellScreenState extends State<PosSellScreen>
                           Expanded(
                             child: PosNoSoftKeyboardField(
                               controller: pay.amountCtrl,
-                              allowDecimal: true,
+                              // Tiền VND số nguyên: «65.000» điền sẵn không bị hiểu là 65,000 (thập phân).
+                              allowDecimal: false,
                               textAlign: TextAlign.right,
                               keypadTitle: 'Số tiền thanh toán',
                               decoration: InputDecoration(
@@ -17602,7 +17605,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                         flex: 2,
                         child: PosNoSoftKeyboardField(
                           controller: pay.amountCtrl,
-                          allowDecimal: true,
+                          allowDecimal: false,
                           textAlign: TextAlign.right,
                           keypadTitle: 'Số tiền thanh toán',
                           decoration: const InputDecoration(
@@ -17665,6 +17668,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     setState(() {
       _tab.paymentsManuallyEdited = true;
       pay.amount = _parseMoneyInput(raw);
+      // Bàn phím số trả «100000» thô → hiện «100.000» như số điền sẵn.
+      final shown = pay.amount > 0 ? _moneyFmt.format(pay.amount) : '';
+      if (pay.amountCtrl.text != shown) pay.amountCtrl.text = shown;
       if (_payQuickMode == 'mixed' &&
           _tab.paymentLines.length >= 2 &&
           identical(pay, _tab.paymentLines.first)) {
