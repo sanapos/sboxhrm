@@ -3575,7 +3575,10 @@ class _PosSellScreenState extends State<PosSellScreen>
                       const SizedBox(height: 10),
                       Text(
                         tr(
-                          'Khách quét mã trên màn phụ. Bạn có thể thu gọn để tiếp tục thao tác.',
+                          // Không bật màn hình phụ (vd máy một màn) → khách quét ngay trên máy này.
+                          CustomerDisplaySync.instance.enabled
+                              ? 'Khách quét mã trên màn phụ. Bạn có thể thu gọn để tiếp tục thao tác.'
+                              : 'Quay màn hình cho khách quét mã. Bạn có thể thu gọn để tiếp tục thao tác.',
                         ),
                         textAlign: TextAlign.center,
                         style: TextStyle(
@@ -5655,17 +5658,18 @@ class _PosSellScreenState extends State<PosSellScreen>
           child: InkWell(
             onTap: readOnly ? null : onTap,
             borderRadius: BorderRadius.circular(6),
+            // Cao ~34dp (trước ~20dp) — nút Dừng / Kết thúc dễ chạm trên máy POS.
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: c.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: c.withOpacity(0.35)),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(icon, size: 14, color: c),
-                const SizedBox(width: 3),
-                Text(tr(tip), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c)),
+                Icon(icon, size: 16, color: c),
+                const SizedBox(width: 4),
+                Text(tr(tip), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: c)),
               ]),
             ),
           ),
@@ -16107,7 +16111,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
     if (line.promoDiscount > 0) {
       meta.add(Text(
-        tr('KM ${line.promoLabel ?? ''}: -${_moneyFmt.format(line.promoDiscount)}'),
+        tr('${_promoLineLabel(line.promoLabel)}: -${_moneyFmt.format(line.promoDiscount)}'),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(fontSize: 12, height: 1.25, color: Colors.green.shade800, fontWeight: FontWeight.w600),
@@ -17586,6 +17590,21 @@ class _PosSellScreenState extends State<PosSellScreen>
                       ),
                     ),
                     ),
+                    // Ô mờ không rõ vì sao — ghi lý do ngay dưới nhãn. Bản compact (1 hàng
+                    // ngang, tablet) giữ gọn; chạm vào vẫn hiện cảnh báo như trên.
+                    if (!enabled && !compact) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        tr('Chưa có TK nhận tiền'),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: SboxColors.slate500,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -19242,10 +19261,16 @@ class _PosSellScreenState extends State<PosSellScreen>
     ].whereType<String>().join(' · ');
     // Giỏ đã có món mà chưa gắn bàn: cùng tiêu đề ở tab sơ đồ lẫn thực đơn (trước đây sơ đồ ghi
     // «Chọn bàn để bán», thực đơn ghi «Phiếu bàn» cho cùng một phiếu).
+    // Ngành có sơ đồ: ghi rõ «Đơn chưa gắn bàn» (đơn tạm/mang về) — «Phiếu bàn» cạnh nút
+    // Thanh toán làm thu ngân tưởng đơn đã gắn bàn.
     final title = tableLabel.isNotEmpty
         ? tableLabel
-        : (_floorMapVisible && _useFloorAsPrimary && _tab.cart.isEmpty
-            ? 'Chọn ${_sellProfile.resourceNoun} để bán'
+        : (_useFloorAsPrimary && _sellProfile.resourceNoun.isNotEmpty
+            ? (_tab.cart.isEmpty
+                ? (_floorMapVisible
+                    ? 'Chọn ${_sellProfile.resourceNoun} để bán'
+                    : _sellProfile.invoiceTitle)
+                : 'Đơn chưa gắn ${_sellProfile.resourceNoun}')
             : _sellProfile.invoiceTitle);
     return Container(
       height: 44,
@@ -21223,7 +21248,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                       ),
                     if (line.promoDiscount > 0)
                       Text(
-                        tr('KM ${line.promoLabel ?? ''} -${_moneyFmt.format(line.promoDiscount)}'),
+                        tr('${_promoLineLabel(line.promoLabel)} -${_moneyFmt.format(line.promoDiscount)}'),
                         style: TextStyle(
                             fontSize: 12, color: Colors.green.shade800, fontWeight: FontWeight.w600),
                       ),
@@ -21523,6 +21548,13 @@ class _PosSellScreenState extends State<PosSellScreen>
       _scheduleDraftAutosave();
       _scheduleCustomerDisplayPublish();
     });
+  }
+
+  /// «KM <tên>» — bỏ chữ KM thừa khi tên chương trình đã bắt đầu bằng KM («KM KM T1 10»).
+  static String _promoLineLabel(String? name) {
+    final n = (name ?? '').trim();
+    if (n.isEmpty) return 'KM';
+    return n.toUpperCase().startsWith('KM') ? n : 'KM $n';
   }
 
   Widget _toppingQtyRow({

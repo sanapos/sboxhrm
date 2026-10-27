@@ -25,6 +25,11 @@ abstract final class SboxFmt {
   /// Một chữ số thập phân khi cần (2,5 ngày; 1,5 giờ) — [number] làm tròn số nguyên.
   static String decimal(num? v) => _dec1.format(v ?? 0);
 
+  static final _qty2 = NumberFormat('#,##0.##', 'vi_VN');
+
+  /// Số lượng bán: giữ tới 2 số lẻ (giờ phòng 0,03 giờ) — [number] làm tròn thành «0».
+  static String qty(num? v) => _qty2.format(v ?? 0);
+
   /// Rút gọn cho trục / thẻ: 950k · 12,5 tr · 1,2 tỷ.
   static String compact(num? v) {
     final x = (v ?? 0).toDouble();

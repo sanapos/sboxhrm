@@ -169,6 +169,16 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
     final canCreate = perm.canCreate('PosCustomers') || perm.canCreate('PosProducts');
     return Scaffold(
       backgroundColor: SboxColors.page,
+      // Mở từ «Nhiều hơn» (route riêng): cần tiêu đề + nút quay lại như Voucher.
+      appBar: Navigator.of(context).canPop()
+          ? AppBar(
+              title: Text(tr('Khách hàng')),
+              backgroundColor: Colors.white,
+              foregroundColor: SboxColors.text,
+              surfaceTintColor: Colors.white,
+              elevation: 0.5,
+            )
+          : null,
       body: SboxReportLayout(
         onRefresh: () async {
           await Future.wait([_load(), _loadTiers()]);

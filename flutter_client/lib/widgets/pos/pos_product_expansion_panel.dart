@@ -76,7 +76,24 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
       _p = widget.product;
       _tabIndex = 0;
       _load();
+    } else if (!identical(oldWidget.product, widget.product)) {
+      // Cùng hàng nhưng danh sách đã tải lại sau khi sửa → làm mới khung chi tiết
+      // (trước đây bảng hiện giá mới mà khung chi tiết vẫn giá / mã vạch cũ).
+      _p = widget.product;
+      _load();
     }
+  }
+
+  /// Mặc định max 999.999.999 = không giới hạn → in gọn, khỏi xuống dòng.
+  String _stockRangeText() {
+    final min = _p.minStockQty;
+    final max = _p.maxStockQty;
+    if (max <= 0 || max >= 999999999) {
+      return min > 0
+          ? '${tr('Từ')} ${widget.moneyFmt.format(min)}'
+          : 'Không giới hạn';
+    }
+    return '${widget.moneyFmt.format(min)} – ${widget.moneyFmt.format(max)}';
   }
 
   void _onTabTap(int i) {
@@ -285,7 +302,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
                     if (tracksStock)
                       _infoCell(
                         'Định mức tồn',
-                        '${widget.moneyFmt.format(_p.minStockQty)} - ${widget.moneyFmt.format(_p.maxStockQty)}',
+                        _stockRangeText(),
                       ),
                     _infoCell('Thương hiệu', _p.brandName ?? 'Chưa có'),
                     if (tracksStock)
@@ -447,7 +464,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
           ),
           _infoCell(
             'Định mức tồn',
-            '${widget.moneyFmt.format(_p.minStockQty)} - ${widget.moneyFmt.format(_p.maxStockQty)}',
+            _stockRangeText(),
           ),
           if (_p.estimatedStockoutDate != null)
             _infoCell(

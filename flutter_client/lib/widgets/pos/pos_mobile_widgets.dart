@@ -36,7 +36,11 @@ Future<void> showPosLogoutDialog(BuildContext context) async {
     ),
   );
   if (ok == true && context.mounted) {
-    await Provider.of<AuthProvider>(context, listen: false).logout();
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    // Đóng các trang đang mở (Cài đặt, Thiết lập…) về gốc trước khi đăng xuất —
+    // trước đây đăng xuất từ trang Cài đặt vẫn đứng lại ở trang đó, không về đăng nhập.
+    Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);
+    await auth.logout();
   }
 }
 
@@ -332,14 +336,18 @@ class PosMobileMetricTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            tr(value),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: valueColor ?? PosTheme.textPrimary,
+          // Co chữ cho số lớn (1.338.856.000 đ) thay vì cắt «1.338.856....».
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              tr(value),
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: valueColor ?? PosTheme.textPrimary,
+              ),
             ),
           ),
           if (subtitle != null && subtitle!.isNotEmpty) ...[
@@ -696,7 +704,16 @@ class PosMobileListHeader extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    Icon(icon, color: PosTheme.kiotBlue),
+                    // Mở đè từ menu ☰ bán hàng / «Nhiều hơn» (máy POS ngang) — trước đây chỉ có
+                    // icon, không nút quay lại → kẹt ở màn, phải bấm Back hệ thống.
+                    if (showBack && Navigator.of(context).canPop())
+                      IconButton(
+                        tooltip: tr('Quay lại'),
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () => Navigator.maybePop(context),
+                      )
+                    else
+                      Icon(icon, color: PosTheme.kiotBlue),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(tr(title),

@@ -5743,9 +5743,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 12,
+                    // 13: tên bàn đọc rõ trên máy POS ngang (12 quá nhỏ so với số tiền / giờ trong ô).
+                    fontSize: 13,
                     color: _tileNameColor(r),
-                    height: 1.05,
+                    height: 1.1,
                   ),
                 ),
               ),

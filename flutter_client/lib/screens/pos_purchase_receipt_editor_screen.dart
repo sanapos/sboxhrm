@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -29,6 +31,7 @@ import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'pos/pos_product_editor_page.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../widgets/pos/pos_serial_list_dialog.dart';
+import '../widgets/pos/pos_unsaved_changes.dart';
 
 import '../theme/sbox_tokens.dart';
 const _blue = SboxColors.brand600;
@@ -235,6 +238,8 @@ class _PosPurchaseReceiptEditorScreenState
 
   bool _loading = true;
   bool _saving = false;
+  /// Ảnh chụp phiếu lúc mở — khác đi (thêm dòng, sửa SL…) thì hỏi trước khi rời màn.
+  String? _cleanSnapshot;
   String? _receiptId;
   String _receiptNo = '';
   String _status = 'Draft';
@@ -271,8 +276,16 @@ class _PosPurchaseReceiptEditorScreenState
     if (_receiptId != null && _receiptId!.isNotEmpty) {
       await _loadReceipt(_receiptId!);
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+      _cleanSnapshot = _snapshot();
+    }
   }
+
+  String _snapshot() => jsonEncode(_buildBody(complete: false));
+
+  bool get _isDirty =>
+      !_loading && !_readOnly && _cleanSnapshot != null && _snapshot() != _cleanSnapshot;
 
   Future<void> _loadSuppliers() async {
     final res = await _api.getPosPurchaseSuppliers(pageSize: 200);
@@ -661,15 +674,20 @@ class _PosPurchaseReceiptEditorScreenState
     if (_readOnly) {
       return Text(tr(l.qtyCtrl.text), style: const TextStyle(fontSize: 13));
     }
+    // Nút −/+ 36dp không giữ vùng chạm 48dp mặc định — trước đây 2 nút chiếm hết ô,
+    // ô số lượng co còn 1 vạch, không thấy con số.
+    Widget step(IconData icon, VoidCallback onTap, {Color? color}) => SizedBox(
+          width: 36,
+          height: 36,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onTap,
+            child: Icon(icon, size: 20, color: color),
+          ),
+        );
     return Row(
       children: [
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-          icon: const Icon(Icons.remove, size: 18),
-          onPressed: () => _adjustQty(l, -1),
-        ),
+        step(Icons.remove, () => _adjustQty(l, -1)),
         Expanded(
           child: TextField(
             controller: l.qtyCtrl,
@@ -690,13 +708,7 @@ class _PosPurchaseReceiptEditorScreenState
             onChanged: (_) => setState(() {}),
           ),
         ),
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-          icon: const Icon(Icons.add, size: 18, color: _blue),
-          onPressed: () => _adjustQty(l, 1),
-        ),
+        step(Icons.add, () => _adjustQty(l, 1), color: _blue),
       ],
     );
   }
@@ -1490,7 +1502,10 @@ class _PosPurchaseReceiptEditorScreenState
       return Scaffold(body: Center(child: Text(tr('Không có quyền nhập hàng'))));
     }
 
-    return PosBarcodeKeyboardScope(
+    return UnsavedChangesScope(
+      isDirty: () => _isDirty,
+      message: 'Phiếu nhập có thay đổi chưa lưu. Thoát sẽ mất các dòng hàng vừa nhập.',
+      child: PosBarcodeKeyboardScope(
       enabled: !_readOnly && !_loading,
       onBarcode: _onBarcodeScanned,
       child: Scaffold(
@@ -1630,6 +1645,7 @@ class _PosPurchaseReceiptEditorScreenState
                     ],
                   ),
     ),
+    ),
     );
   }
 
@@ -1655,7 +1671,8 @@ class _PosPurchaseReceiptEditorScreenState
         _PurchaseLineColumn.code => 2,
         _PurchaseLineColumn.name => 5,
         _PurchaseLineColumn.unit => 2,
-        _PurchaseLineColumn.qty => 2,
+        // 3 phần: chừa chỗ cho số sau 2 nút −/+.
+        _PurchaseLineColumn.qty => 3,
         _PurchaseLineColumn.cost => 2,
         _PurchaseLineColumn.discount => 2,
         _PurchaseLineColumn.vat => 2,

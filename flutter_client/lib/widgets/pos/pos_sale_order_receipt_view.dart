@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import 'package:intl/intl.dart';
@@ -61,6 +63,29 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
   static const _wTotal = 88.0;
 
+  /// Khuyến mãi tự áp lưu trong promotionsJson: các CT (tên, số tiền) + phần giảm
+  /// trên tổng đơn (`bill`, đã gộp sẵn vào [PosSaleOrder.discount]).
+  static ({List<(String, double)> applied, double bill}) _appliedPromos(String? json) {
+    const empty = (applied: <(String, double)>[], bill: 0.0);
+    if (json == null || json.trim().isEmpty) return empty;
+    try {
+      final m = jsonDecode(json);
+      if (m is! Map) return empty;
+      final applied = m['applied'];
+      return (
+        applied: [
+          if (applied is List)
+            for (final a in applied)
+              if (a is Map && ((a['amount'] as num?) ?? 0) > 0)
+                ((a['name'] ?? 'Khuyến mãi').toString(), (a['amount'] as num).toDouble()),
+        ],
+        bill: (m['bill'] as num?)?.toDouble() ?? 0,
+      );
+    } catch (_) {
+      return empty;
+    }
+  }
+
 
 
   @override
@@ -68,6 +93,13 @@ class PosSaleOrderReceiptView extends StatelessWidget {
   Widget build(BuildContext context) {
 
     final money = NumberFormat('#,##0', 'vi_VN');
+
+    final promos = _appliedPromos(order.promotionsJson);
+
+    // «Giảm giá» chỉ còn phần giảm tay — phần KM trên tổng đơn đã hiện ở dòng «Khuyến mãi».
+    final manualDiscount = promos.applied.isEmpty
+        ? order.discount
+        : (order.discount - promos.bill).clamp(0.0, order.discount).toDouble();
 
     final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
 
@@ -193,9 +225,14 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                 _sumRow('Tạm tính', money.format(order.subTotal)),
 
-                if (order.discount > 0)
+                // Khuyến mãi tự áp (lưu trong promotionsJson) — trước đây không hiện,
+                // Tạm tính − Voucher ≠ Tổng cộng làm thu ngân tưởng sai tiền.
+                for (final p in promos.applied)
+                  _sumRow('Khuyến mãi: ${p.$1}', '-${money.format(p.$2)}', negative: true),
 
-                  _sumRow('Giảm giá', '-${money.format(order.discount)}', negative: true),
+                if (manualDiscount > 0.5)
+
+                  _sumRow('Giảm giá', '-${money.format(manualDiscount)}', negative: true),
 
                 if (order.voucherDiscount > 0)
 

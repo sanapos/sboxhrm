@@ -106,6 +106,8 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
                       decoration: InputDecoration(labelText: tr('Mã voucher *')),
                       textCapitalization: TextCapitalization.characters,
                     ),
+                    // Các ô cách đều 12 — trước đây dính sát nhau, nhãn nổi đè viền ô trên.
+                    const SizedBox(height: 12),
                     TextField(controller: nameCtrl, decoration: InputDecoration(labelText: tr('Tên chương trình'))),
                     const SizedBox(height: 12),
                     SegmentedButton<bool>(
@@ -116,6 +118,7 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
                       selected: {isPercent},
                       onSelectionChanged: (v) => setDlg(() => isPercent = v.first),
                     ),
+                    const SizedBox(height: 12),
                     Row(children: [
                       Expanded(
                         child: TextField(
@@ -138,6 +141,7 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
                         ),
                       ],
                     ]),
+                    const SizedBox(height: 12),
                     Row(children: [
                       Expanded(
                         child: TextField(

@@ -826,8 +826,7 @@ class _PosPurchaseReceiptListScreenState
             children: [
               _detailTabBtn(0, 'Thông tin'),
               _detailTabBtn(1, 'Lịch sử thanh toán'),
-              const Spacer(),
-              purchaseStatusChip(r.status),
+              // Không lặp chip trạng thái — dòng phiếu ngay trên đã hiện trạng thái.
             ],
           ),
           const SizedBox(height: 8),

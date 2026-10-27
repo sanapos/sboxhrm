@@ -48,12 +48,15 @@ Widget posSaleOrderStatusChip(String status, {String? returnStatus, double? retu
   final amountSuffix = (returnedAmount ?? 0) > 0
       ? ' · ${NumberFormat('#,##0', 'vi_VN').format(returnedAmount)} đ'
       : '';
-  return Row(
-    mainAxisSize: MainAxisSize.min,
+  // Wrap: ô trạng thái hẹp (cột bảng hoá đơn) → «Trả 1 phần» xuống dòng dưới
+  // «Hoàn thành» thay vì tràn đè cột HĐĐT.
+  return Wrap(
+    crossAxisAlignment: WrapCrossAlignment.center,
+    spacing: 4,
+    runSpacing: 2,
     children: [
       posDocStatusChip(status, completedLabel: 'Hoàn thành'),
       if (returnLabel != null) ...[
-        const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(

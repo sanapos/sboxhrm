@@ -731,12 +731,18 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ===== Form Panel (Right side / Mobile) =====
   Widget _buildFormPanel({required bool isDesktop}) {
+    // Màn ngang thấp (Lenovo C20 / Sunmi T1 1920x1080 ≈ 632–720dp): thu gọn
+    // khoảng cách để thấy trọn form + nút Đăng nhập mà không phải cuộn.
+    final isShortDesktop =
+        isDesktop && MediaQuery.sizeOf(context).height < 760;
+    final tight = isShortDesktop;
+    final fieldGap = tight ? 12.0 : 20.0;
     final scrollContent = Center(
       child: SingleChildScrollView(
         controller: _scrollController,
         padding: EdgeInsets.symmetric(
-          horizontal: isDesktop ? 60 : 24,
-          vertical: 32,
+          horizontal: isDesktop ? (isShortDesktop ? 48 : 60) : 24,
+          vertical: tight ? 12 : 32,
         ),
         child: FadeTransition(
           opacity: _fadeAnim,
@@ -789,22 +795,22 @@ class _LoginScreenState extends State<LoginScreen>
                       _loginLanguageSwitch(),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: tight ? 0 : 8),
                   Align(
                     alignment: Alignment.center,
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: _buildLogo(isDesktop: isDesktop),
+                      child: _buildLogo(isDesktop: isDesktop, tight: tight),
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  SizedBox(height: tight ? 16 : 28),
                   Align(
                     alignment: _isPos || !isDesktop
                         ? Alignment.center
                         : Alignment.centerLeft,
                     child: Text(tr('Chào mừng trở lại'),
                       style: TextStyle(
-                        fontSize: 26,
+                        fontSize: tight ? 22 : 26,
                         fontWeight: FontWeight.w700,
                         color: Color(0xFF2B3437),
                         letterSpacing: -0.3,
@@ -812,7 +818,7 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: tight ? 4 : 8),
                   Align(
                     alignment: _isPos || !isDesktop
                         ? Alignment.center
@@ -822,7 +828,7 @@ class _LoginScreenState extends State<LoginScreen>
                           color: SboxColors.slate600, fontSize: 14, height: 1.5),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: tight ? 14 : 20),
 
                   // Form
                   Form(
@@ -863,7 +869,7 @@ class _LoginScreenState extends State<LoginScreen>
                             compact: true,
                           ),
                         ],
-                        const SizedBox(height: 20),
+                        SizedBox(height: fieldGap),
 
                         // Email
                         _buildLabel('EMAIL / SĐT'),
@@ -881,7 +887,7 @@ class _LoginScreenState extends State<LoginScreen>
                               ? 'Vui lòng nhập email hoặc số điện thoại'
                               : null,
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: fieldGap),
 
                         // Password
                         Row(
@@ -944,7 +950,7 @@ class _LoginScreenState extends State<LoginScreen>
                           },
                         ),
                         CapsLockHint(focusNode: _passwordFocus),
-                        const SizedBox(height: 16),
+                        SizedBox(height: tight ? 12 : 16),
 
                         // Remember me
                         GestureDetector(
@@ -979,7 +985,7 @@ class _LoginScreenState extends State<LoginScreen>
                             ],
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        SizedBox(height: tight ? 16 : 24),
 
                         // Login button - gradient from primary to primary-dim
                         SizedBox(
@@ -1204,12 +1210,12 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildLogo({bool isDesktop = false}) {
+  Widget _buildLogo({bool isDesktop = false, bool tight = false}) {
     if (_isPos) {
       return SboxBrandLockup(
         expandText: false,
         showSlogan: false,
-        logoSize: isDesktop ? 92 : 72,
+        logoSize: tight ? 64 : (isDesktop ? 92 : 72),
         alignment: MainAxisAlignment.center,
       );
     }

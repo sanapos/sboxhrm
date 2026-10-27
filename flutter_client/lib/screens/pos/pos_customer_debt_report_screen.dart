@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 
@@ -93,6 +94,16 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
         );
     return Scaffold(
       backgroundColor: SboxColors.page,
+      // Mở từ «Nhiều hơn» / Báo cáo (route riêng): cần tiêu đề + nút quay lại.
+      appBar: Navigator.of(context).canPop()
+          ? AppBar(
+              title: Text(tr('Công nợ khách hàng')),
+              backgroundColor: Colors.white,
+              foregroundColor: SboxColors.text,
+              surfaceTintColor: Colors.white,
+              elevation: 0.5,
+            )
+          : null,
       body: SboxReportLayout(
         onRefresh: _load,
         filters: SboxFilterBar(

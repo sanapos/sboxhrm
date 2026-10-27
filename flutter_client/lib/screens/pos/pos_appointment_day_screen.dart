@@ -316,6 +316,16 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
 
       var availDays = <String>[];
       var availItems = <Map<String, dynamic>>[];
+      // Server lọc theo loại (kind=room…): phòng khai nhầm loại «bàn» → trả rỗng dù
+      // sơ đồ có phòng, lưới báo «Chưa có bàn/phòng». Rỗng mà có tài nguyên đang
+      // hoạt động → tự tính lịch trống từ danh sách tài nguyên (nhánh else).
+      if (avail != null) {
+        final items = avail['items'] ?? avail['Items'];
+        if ((items is! List || items.isEmpty) &&
+            resources.any((x) => x.isActive)) {
+          avail = null;
+        }
+      }
       if (avail != null) {
         final days = avail['days'] ?? avail['Days'];
         if (days is List) {
@@ -1141,12 +1151,20 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
               title: Text(tr(_calendarTitle)),
               actions: headerActions,
             ),
-      floatingActionButton: context.watch<PermissionProvider>().canCreate('PosBooking')
+      // Danh sách trống đã có nút «Đặt chỗ» giữa màn → không hiện thêm nút nổi trùng.
+      floatingActionButton: context.watch<PermissionProvider>().canCreate('PosBooking') &&
+              !(_error == null &&
+                  visible.isEmpty &&
+                  !_showMonth &&
+                  !(_showGrid && _useRoomGrid) &&
+                  !(_staffGrid && _staffDay != null))
           ? FloatingActionButton.extended(
               onPressed: () => unawaited(_bookAppointment()),
               icon: const Icon(Icons.add),
               label: Text(tr(_profile.bookActionLabel)),
               backgroundColor: PosTheme.kiotBlue,
+              // Chữ trắng (mặc định M3 lấy màu tối trên nền xanh → trông như bị mờ).
+              foregroundColor: Colors.white,
             )
           : null,
       body: Column(
@@ -2873,10 +2891,11 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
           Expanded(flex: 2, child: timePick),
         ]),
         const SizedBox(height: 10),
+        // Cùng tỉ lệ cột với hàng Ngày / Giờ đến — hai hàng thẳng mép.
         Row(children: [
-          Expanded(child: durationPick),
+          Expanded(flex: 3, child: durationPick),
           const SizedBox(width: 8),
-          Expanded(child: guests),
+          Expanded(flex: 2, child: guests),
         ]),
         section('$nounCap & dịch vụ'),
         DropdownButtonFormField<String>(

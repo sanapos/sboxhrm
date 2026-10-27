@@ -82,8 +82,6 @@ class _PosMaterialReportScreenState extends State<PosMaterialReportScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Nguyên vật liệu')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             tooltip: tr('Xuất Excel'),

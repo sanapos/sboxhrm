@@ -1948,7 +1948,11 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               builder: (_) => PosSaleReturnScreen(orderId: o.id),
             ),
           );
-          if (ok == true && mounted) _load();
+          if (ok == true && mounted) {
+            _load();
+            // Khung chi tiết đang mở giữ số cũ (Tổng 305.171 trong khi dòng đã 256.623).
+            unawaited(_refreshExpandedDetail(o.id));
+          }
         },
       ));
     }
@@ -2131,7 +2135,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     ),
                   ),
                   Text(
-                    tr(o.paymentLabel),
+                    // Đơn tạm / đã hủy: paymentLabel trả mã thô (Cash…) → hiện tiếng Việt.
+                    tr(posPaymentMethodVi(o.paymentLabel)),
                     style: TextStyle(
                       fontSize: 11,
                       color: o.paymentLabel.contains('Công nợ') ? SboxColors.dangerText : PosTheme.textSecondary,
@@ -2321,7 +2326,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     ),
                   if (_visibleColumns.contains(_ListColumn.payment))
                     // Thu chưa đủ → «Công nợ» / «Tiền mặt + Công nợ» (chữ đỏ).
-                    _cell(_ListColumn.payment, Text(tr(o.paymentLabel),
+                    _cell(_ListColumn.payment, Text(tr(posPaymentMethodVi(o.paymentLabel)),
                           style: TextStyle(
                               fontSize: 12,
                               color: o.paymentLabel.contains('Công nợ') ? SboxColors.dangerText : null,
@@ -2380,8 +2385,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             children: [
               _detailTabBtn(0, 'Thông tin'),
               _detailTabBtn(1, 'Lịch sử thanh toán'),
-              const Spacer(),
-              posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
+              // Trạng thái đã có ở dòng bảng và đầu tờ hoá đơn — không lặp lần 3.
             ],
           ),
           const SizedBox(height: 8),

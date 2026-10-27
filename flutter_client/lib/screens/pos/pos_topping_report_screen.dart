@@ -87,8 +87,6 @@ class _PosToppingReportScreenState extends State<PosToppingReportScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Topping')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             tooltip: tr('Xuất Excel'),

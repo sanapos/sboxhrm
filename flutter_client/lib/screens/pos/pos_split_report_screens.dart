@@ -932,13 +932,13 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
             value: byQty.isEmpty ? '—' : nameOf(byQty.first),
             icon: Icons.local_fire_department_outlined,
             tone: SboxTone.warning,
-            note: byQty.isEmpty ? null : 'SL ${SboxFmt.number(_n(byQty.first['qty']))}'),
+            note: byQty.isEmpty ? null : 'SL ${SboxFmt.qty(_n(byQty.first['qty']))}'),
       ],
       charts: [
         SboxChartCard(
           title: 'Top 10 theo doanh thu',
           child: SboxRankList(maxItems: 10, items: [
-            for (final p in items) SboxSlice(nameOf(p), _n(p['revenue']), caption: 'SL ${SboxFmt.number(_n(p['qty']))}'),
+            for (final p in items) SboxSlice(nameOf(p), _n(p['revenue']), caption: 'SL ${SboxFmt.qty(_n(p['qty']))}'),
           ]),
         ),
         SboxChartCard(

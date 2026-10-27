@@ -6,7 +6,7 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/warehouse/wh_doc_type.dart';
 import '../../widgets/warehouse/wh_mobile_components.dart';
 import '../../widgets/warehouse/wh_mobile_theme.dart';
-import 'wh_mobile_list_screen.dart';
+import 'wh_mobile_nav.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Trung tâm điều hướng module Kho trên mobile.
@@ -64,14 +64,16 @@ class WhMobileHubScreen extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: WhMobileTheme.gap,
             crossAxisSpacing: WhMobileTheme.gap,
-            childAspectRatio: MediaQuery.sizeOf(context).width >= 700 ? 1.6 : 1.05,
+            // Màn ngang: ô thấp hơn (1.6 → 2.4) — trước ô ~190dp chỉ có icon + chữ ở nửa trên.
+            childAspectRatio: MediaQuery.sizeOf(context).width >= 700 ? 2.4 : 1.05,
             children: [
               for (final t in tiles)
                 WhHubTile(
                   icon: t.type.icon,
                   label: t.type.title,
                   color: t.type.accentColor,
-                  onTap: () => WhMobileDocListScreen.open(context, t.type),
+                  // Theo khổ màn (bảng trên màn rộng), giống khi vào từ menu.
+                  onTap: () => WhMobileNav.openList(context, t.type),
                 ),
             ],
           ),

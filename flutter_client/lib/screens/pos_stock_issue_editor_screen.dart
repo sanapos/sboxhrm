@@ -696,7 +696,9 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
         IconButton(
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          // 36dp, không giữ vùng chạm 48dp — tránh 2 nút chiếm hết ô số lượng.
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           icon: const Icon(Icons.remove, size: 18),
           onPressed: () => _adjustQty(l, -1),
         ),
@@ -716,7 +718,9 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
         IconButton(
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          // 36dp, không giữ vùng chạm 48dp — tránh 2 nút chiếm hết ô số lượng.
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           icon: const Icon(Icons.add, size: 18, color: _blue),
           onPressed: () => _adjustQty(l, 1),
         ),

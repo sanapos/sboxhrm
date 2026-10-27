@@ -1126,11 +1126,12 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   bool _useHorizontalCategories(double w) => true;
 
   double _aspectRatioForWidth(double w, int cols) {
-    // KiotViet: ảnh lớn + tên ngắn — tỉ lệ rộng hơn một chút.
-    if (cols >= 5) return 0.78;
-    if (cols == 4) return 0.74;
-    if (cols == 3) return 0.72;
-    return 0.70;
+    // Ô thấp hơn (hàng 1 đơn vị không còn thanh đơn vị riêng) → màn ngang
+    // thấy thêm một hàng sản phẩm.
+    if (cols >= 5) return 0.92;
+    if (cols == 4) return 0.88;
+    if (cols == 3) return 0.84;
+    return 0.80;
   }
 
   Future<void> _setLockMode(bool enabled) async {
@@ -1580,10 +1581,6 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     );
   }
 
-  Widget _buildUnitBar(PosProduct p) {
-    return _unitBar(p, _viewsForDisplay(p));
-  }
-
   Widget _productCardContent(PosProduct p, List<PosProductUnitView>? views) {
         final view = views != null && views.isNotEmpty
             ? (pickDefaultSellUnitView(p, views) ?? views.first)
@@ -1600,6 +1597,13 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             isPosSellOutOfStock(p, views ?? const []);
         final price =
             applyPosPriceListToProductBase(p, widget.priceOverrides);
+        // Chỉ hiện thanh chọn đơn vị khi hàng có ≥2 đơn vị; 1 đơn vị thì ghi
+        // kèm nhãn giá («50.000 / Cái») — chạm ô là thêm đơn vị đó.
+        final unitViews = views ?? const <PosProductUnitView>[];
+        final showUnitBar = unitViews.length > 1;
+        final singleUnit = unitViews.length == 1
+            ? unitViews.first.label
+            : (p.baseUnitName.isNotEmpty ? p.baseUnitName : 'Cái');
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -1657,8 +1661,20 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                                     topRight: Radius.circular(6),
                                   ),
                                 ),
-                                child: Text(
-                                  tr(_moneyFmt.format(price)),
+                                child: Text.rich(
+                                  TextSpan(
+                                    text: tr(_moneyFmt.format(price)),
+                                    children: [
+                                      if (!showUnitBar)
+                                        TextSpan(
+                                          text: ' / ${tr(singleUnit)}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 13,
@@ -1701,7 +1717,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                   ),
                 ),
               ),
-              _buildUnitBar(p),
+              if (showUnitBar) _unitBar(p, unitViews),
             ],
           ),
         );

@@ -688,9 +688,13 @@ class _SuggestionTile extends StatelessWidget {
                   Text(
                     tr(
                       // Dịch vụ / combo không giữ tồn: bỏ «Tồn 0» (trông như hết hàng).
+                      // Ghi rõ «Giá vốn/Giá bán» — trước chỉ «· 5.172» không biết là số gì
+                      // (sellMode: costPrice của gợi ý đã là giá bán — basePrice).
                       p.showsWarehouseStock
-                          ? '${suggestion.displayCode} · Tồn ${moneyFmt.format(suggestion.onHandQty)} · ${moneyFmt.format(price)}'
-                          : '${suggestion.displayCode} · ${moneyFmt.format(price)}',
+                          ? '${suggestion.displayCode} · Tồn ${moneyFmt.format(suggestion.onHandQty)} · '
+                              '${sellMode ? 'Giá bán' : 'Giá vốn'} ${moneyFmt.format(price)}'
+                          : '${suggestion.displayCode} · '
+                              '${sellMode ? 'Giá bán' : 'Giá vốn'} ${moneyFmt.format(price)}',
                     ),
                     style: TextStyle(
                       fontSize: compact ? 11 : 12,

@@ -138,6 +138,9 @@ class _PosBankAccountFormDialogState extends State<_PosBankAccountFormDialog> {
         children: [
           DropdownButtonFormField<String>(
             value: _selectedBankCode,
+            // Bắt buộc: mục có Expanded → không isExpanded thì ô đã chọn vẽ rỗng
+            // (chọn Vietcombank xong ô «Ngân hàng» vẫn trống).
+            isExpanded: true,
             decoration: InputDecoration(
               labelText: tr('Ngân hàng *'),
               border: OutlineInputBorder(),
@@ -150,15 +153,22 @@ class _PosBankAccountFormDialogState extends State<_PosBankAccountFormDialog> {
                     child: Row(
                       children: [
                         if (b.logoUrl.isNotEmpty)
+                          // Logo ngân hàng là ảnh ngang — 22×22 chỉ còn vệt ~10px cao.
                           CachedNetworkImage(
                             imageUrl: b.logoUrl,
-                            width: 22,
-                            height: 22,
+                            width: 56,
+                            height: 24,
+                            fit: BoxFit.contain,
                             errorWidget: (_, __, ___) =>
                                 const Icon(Icons.account_balance, size: 18),
                           ),
                         const SizedBox(width: 8),
-                        Expanded(child: Text(tr(b.shortName), style: const TextStyle(fontSize: 13))),
+                        Expanded(
+                          child: Text(tr(b.shortName),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 14)),
+                        ),
                       ],
                     ),
                   ),
