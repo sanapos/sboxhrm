@@ -160,7 +160,7 @@ Future<String?> _askCommercialNote(BuildContext context, String title) async {
         ),
         FilledButton(
           onPressed: () => Navigator.pop(ctx, true),
-          child: Text(tr('OK')),
+          child: Text(tr('Tạo')),
         ),
       ],
     ),

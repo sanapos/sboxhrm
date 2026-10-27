@@ -77,7 +77,9 @@ public partial class PosQuotesController(
         string VatMode = "per_item",
         decimal? VatPercent = null,
         Guid? PriceListId = null,
-        string? PriceListName = null);
+        string? PriceListName = null,
+        // Số hợp đồng (chứng từ Contract mới nhất) — tab «Hợp đồng» hiện số HĐ thay số báo giá.
+        string? ContractNo = null);
 
     public record QuoteLineInput(
         string? ProductId,
@@ -140,10 +142,13 @@ public partial class PosQuotesController(
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
+            // Số chứng từ (HĐ / đề nghị TT / nghiệm thu…) — ô tìm tab Hợp đồng ghi «Số HĐ / khách».
+            var docNo = search.Trim().ToUpperInvariant();
             q = q.Where(x =>
                 VnSearch.Has(x.QuoteNo, s) ||
                 (x.CustomerName != null && VnSearch.Has(x.CustomerName, s)) ||
-                (x.CustomerPhone != null && x.CustomerPhone.Contains(s)));
+                (x.CustomerPhone != null && x.CustomerPhone.Contains(s)) ||
+                x.Documents.Any(d => d.Deleted == null && d.DocNo.ToUpper().Contains(docNo)));
         }
         if (!string.IsNullOrWhiteSpace(commercialStage))
         {
@@ -174,7 +179,16 @@ public partial class PosQuotesController(
             .ToListAsync();
         var names = await EmployeeNamesAsync(rows.Select(x => x.QuotedByEmployeeId));
         var byEmail = await UserNamesByEmailAsync(rows.Select(x => x.QuotedBy));
-        var items = rows.Select(x => WithQuoterName(MapList(x, names), byEmail)).ToList();
+        var ids = rows.Select(x => x.Id).ToList();
+        var contractNos = (await dbContext.PosQuoteDocuments.AsNoTracking()
+                .Where(d => ids.Contains(d.QuoteId) && d.Deleted == null && d.Kind == PosQuoteDocumentKind.Contract)
+                .Select(d => new { d.QuoteId, d.DocNo, d.IssuedAt })
+                .ToListAsync())
+            .GroupBy(d => d.QuoteId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(d => d.IssuedAt).First().DocNo);
+        var items = rows
+            .Select(x => WithQuoterName(MapList(x, names), byEmail) with { ContractNo = contractNos.GetValueOrDefault(x.Id) })
+            .ToList();
         return Ok(AppResponse<object>.Success(new
         {
             total,

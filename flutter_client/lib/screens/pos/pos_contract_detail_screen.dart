@@ -338,7 +338,9 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                               const SizedBox(height: 12),
                               SizedBox(
                                 width: double.infinity,
-                                child: FilledButton.tonalIcon(
+                                // Viền: theme vẽ tonal y hệt nút đặc → 2 nút xanh đặc, không rõ nút chính.
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
                                   onPressed: contract == null
                                       ? null
                                       : () => PosBusy.run(context, () => _openDoc(contract),
@@ -393,25 +395,29 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                       for (final d in _handovers) _docTile(d),
                       for (final d in _acceptances) _docTile(d),
                       const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                      // 3 nút chia đều một hàng (trước: Wrap rớt «Nghiệm thu» xuống hàng riêng, rộng lệch nhau).
+                      Row(
                         children: [
-                          ActionChip(
-                            avatar: const Icon(Icons.add, size: 16),
-                            label: Text(tr('Đề nghị TT')),
-                            onPressed: _busy ? null : () => _create('PaymentRequest'),
-                          ),
-                          ActionChip(
-                            avatar: const Icon(Icons.add, size: 16),
-                            label: Text(tr('Bàn giao')),
-                            onPressed: _busy ? null : () => _create('Handover'),
-                          ),
-                          ActionChip(
-                            avatar: const Icon(Icons.add, size: 16),
-                            label: Text(tr('Nghiệm thu')),
-                            onPressed: _busy ? null : () => _create('Acceptance'),
-                          ),
+                          for (final (i, kind, label) in const [
+                            (0, 'PaymentRequest', 'Đề nghị TT'),
+                            (1, 'Handover', 'Bàn giao'),
+                            (2, 'Acceptance', 'Nghiệm thu'),
+                          ]) ...[
+                            if (i > 0) const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                                ),
+                                onPressed: _busy ? null : () => _create(kind),
+                                icon: const Icon(Icons.add, size: 16),
+                                label: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(tr(label), maxLines: 1),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ],

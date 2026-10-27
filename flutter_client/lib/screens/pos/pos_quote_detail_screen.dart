@@ -78,7 +78,8 @@ class PosQuoteFlow {
             'khách chấp nhận (khóa sửa báo giá), sau đó lập hợp đồng.')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Khách chốt & lập HĐ'))),
+          // Nhãn ngắn: «Khách chốt & lập HĐ» quá dài, 2 nút rớt thành 2 hàng lệch trên điện thoại.
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lập hợp đồng'))),
         ],
       ),
     );
@@ -753,7 +754,9 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
           ),
         ],
         const Divider(height: 16),
-        sumRow('Tiền hàng', q.subTotal),
+        // Σ thành tiền các dòng (đã trừ CK dòng) — q.subTotal là SL × giá chưa trừ CK dòng, hiện nó thì
+        // Tiền hàng − Giảm giá + VAT không ra Tổng cộng (vd 210.000 − 10.000 + 15.600 ≠ 210.600).
+        sumRow('Tiền hàng', q.lines.fold<double>(0, (a, l) => a + l.net)),
         if (q.discount > 0) sumRow('Giảm giá', -q.discount, color: SboxColors.danger),
         if (q.vatAmount > 0 && q.vatMode != PosQuoteVat.included) sumRow('Thuế VAT', q.vatAmount),
         sumRow(q.vatMode == PosQuoteVat.included && q.vatAmount > 0 ? 'Tổng cộng (đã gồm VAT)' : 'Tổng cộng', q.total,

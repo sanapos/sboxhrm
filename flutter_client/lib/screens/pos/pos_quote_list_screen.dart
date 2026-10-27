@@ -750,6 +750,13 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     });
   }
 
+  /// Tab Hợp đồng: số HĐ (ô tìm ghi «Số HĐ / khách»), kèm số báo giá gốc; tab khác / máy chủ cũ: số BG.
+  String _cardNo(PosQuote q) {
+    final c = (q.contractNo ?? '').trim();
+    if (_tab != 1 || c.isEmpty) return q.quoteNo;
+    return '$c · ${q.quoteNo}';
+  }
+
   static const _tabDefs = [
     (0, 'Báo giá', Icons.request_quote_outlined),
     (1, 'Hợp đồng', Icons.handshake_outlined),
@@ -759,6 +766,59 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
 
   /// Tab gạch chân, cuộn ngang trên điện thoại (thay SegmentedButton bị bóp chữ).
   Widget _tabsBar() {
+    // Điện thoại hẹp (V2s): cuộn ngang thì «Đề ng…» bị cắt, «Nghiệm thu» khuất hẳn — chia đều 4 tab,
+    // icon trên chữ, đủ cả 4 trong một màn.
+    return LayoutBuilder(builder: (context, c) {
+      if (c.maxWidth >= 440) return _tabsBarScroll();
+      return SizedBox(
+        height: 52,
+        child: Row(
+          children: [
+            for (final t in _tabDefs)
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () {
+                    if (_tab == t.$1) return;
+                    setState(() => _tab = t.$1);
+                    _reloadAll();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: _tab == t.$1 ? PosTheme.kiotBlue : Colors.transparent,
+                          width: 2.5,
+                        ),
+                      ),
+                    ),
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(t.$3, size: 18, color: _tab == t.$1 ? PosTheme.kiotBlue : SboxColors.slate500),
+                      const SizedBox(height: 2),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          tr(t.$2),
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: _tab == t.$1 ? FontWeight.w700 : FontWeight.w500,
+                            color: _tab == t.$1 ? PosTheme.kiotBlue : SboxColors.slate600,
+                          ),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _tabsBarScroll() {
     return SizedBox(
       height: 40,
       child: ListView(
@@ -882,7 +942,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
               Expanded(
-                child: Text(q.quoteNo,
+                child: Text(_cardNo(q),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SboxColors.slate500)),
@@ -1240,7 +1300,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                   child: Row(children: [
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(q.quoteNo, style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                        Text(_cardNo(q), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
                         Text(tr(name.isEmpty ? 'Khách lẻ' : name),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

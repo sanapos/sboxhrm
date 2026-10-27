@@ -1812,7 +1812,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                 backgroundColor: _kiotBlue,
                 visualDensity: VisualDensity.compact,
               ),
-              child: Text(tr('OK')),
+              child: Text(tr('Lưu')),
             ),
           ),
         ],

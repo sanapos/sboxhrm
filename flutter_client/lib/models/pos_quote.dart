@@ -246,6 +246,7 @@ class PosQuote {
     this.vatPercent,
     this.priceListId,
     this.priceListName,
+    this.contractNo,
     this.createdAt,
     this.lines = const [],
     this.documents = const [],
@@ -292,6 +293,9 @@ class PosQuote {
   /// Bảng giá (Thiết lập › Bảng giá) dùng lấy đơn giá khi soạn — null = giá bán chung.
   final String? priceListId;
   final String? priceListName;
+
+  /// Số hợp đồng mới nhất (danh sách trả kèm) — null khi chưa lập HĐ / máy chủ cũ.
+  final String? contractNo;
   final DateTime? createdAt;
   final List<PosQuoteLine> lines;
   final List<PosQuoteDocument> documents;
@@ -408,6 +412,7 @@ class PosQuote {
           json['IncludeImages'] == true,
       priceListId: (json['priceListId'] ?? json['PriceListId'])?.toString(),
       priceListName: (json['priceListName'] ?? json['PriceListName'])?.toString(),
+      contractNo: (json['contractNo'] ?? json['ContractNo'])?.toString(),
       createdAt: d(json['createdAt'] ?? json['CreatedAt']),
       lines: parseLines(rawLines),
       documents: rawDocs is List

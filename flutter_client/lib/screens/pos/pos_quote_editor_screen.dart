@@ -298,7 +298,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
               child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text(tr('OK'))),
+              child: Text(tr('Tạo'))),
         ],
       ),
     );
@@ -621,7 +621,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
               child: Text(tr('Hủy'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text(tr('OK'))),
+              child: Text(tr('Lưu'))),
         ],
       ),
     );

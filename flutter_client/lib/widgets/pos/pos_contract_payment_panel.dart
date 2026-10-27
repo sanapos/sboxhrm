@@ -504,6 +504,14 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
 
   double get _sum => _amounts.fold(0.0, (a, v) => a + v);
 
+  /// Mọi đợt nhập % đủ 100% → đợt cuối nhận phần còn lại (khớp [_stageRate] ở màn chi tiết).
+  bool _isRemainderRow(_StageRow r) {
+    if (_rows.length < 2 || !identical(_rows.last, r)) return false;
+    if (!_rows.every((x) => x.isPercent && _raw(x) > 0)) return false;
+    final sum = _rows.fold<double>(0, (a, x) => a + _raw(x));
+    return (sum - 100).abs() < 0.01;
+  }
+
   /// Mẫu nhôm kính: cọc (theo báo giá, tính trên trước VAT; mặc định 50%) · lắp đặt xong 40% ·
   /// nghiệm thu phần còn lại.
   void _fillTemplate() {
@@ -539,11 +547,18 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
-      title: Text(tr(label)),
+      // Điện thoại: có ngày + nút «×» thì «Ngày ký hợp đồng» bẻ 2 dòng, lệch các dòng dưới —
+      // thu gọn nút, nhãn một dòng (thu nhỏ nếu vẫn chật).
+      title: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(tr(label), maxLines: 1),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextButton(
+            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6)),
             onPressed: () async {
               final d = await _pick(value);
               if (d != null) setState(() => onSet(d));
@@ -553,6 +568,9 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
           if (value != null)
             IconButton(
               tooltip: tr('Bỏ'),
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: EdgeInsets.zero,
               onPressed: () => setState(() => onSet(null)),
               icon: const Icon(Icons.close, size: 18),
             ),
@@ -706,7 +724,12 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
                         : _isDepositRow(r)
                             ? '% giá trị trước VAT'
                             : '% giá trị HĐ'),
-                    helperText: r.isPercent ? '= ${_money.format(_amountOf(r))}đ' : null,
+                    // Đợt cuối nhận phần còn lại (cọc tính trên trước VAT) → số tiền ≠ đúng % ghi;
+                    // ghi rõ như màn chi tiết, khỏi tưởng tính sai (vd 10% mà = 28.860đ).
+                    helperText: r.isPercent
+                        ? '= ${_money.format(_amountOf(r))}đ${_isRemainderRow(r) ? tr(' (phần còn lại)') : ''}'
+                        : null,
+                    helperMaxLines: 2,
                     isDense: true,
                     border: const OutlineInputBorder(),
                   ),
@@ -872,19 +895,28 @@ class _CollectDialogState extends State<_CollectDialog> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [ThousandSeparatorFormatter()],
                 onChanged: (_) => setState(() => _error = null),
-                decoration: PosTheme.inputDecoration(label: 'Số tiền thu'),
+                decoration: PosTheme.inputDecoration(label: 'Số tiền thu', suffix: Text(tr('đ'))),
               ),
               const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final m in _methods)
-                    ChoiceChip(
-                      label: Text(tr(m)),
-                      selected: _method == m,
-                      onSelected: (_) => setState(() => _method = m),
-                    ),
-                ],
+              // Một hàng chia đều (trước: Wrap để «Tiền mặt» một mình, 2 nút kia rớt xuống hàng dưới).
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<String>(
+                  showSelectedIcon: false,
+                  segments: [
+                    for (final m in _methods)
+                      ButtonSegment(
+                        value: m,
+                        label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr(m), maxLines: 1)),
+                      ),
+                  ],
+                  selected: {_method},
+                  onSelectionChanged: (s) => setState(() => _method = s.first),
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4, vertical: 10)),
+                  ),
+                ),
               ),
               ListTile(
                 dense: true,

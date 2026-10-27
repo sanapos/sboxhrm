@@ -460,14 +460,17 @@ class _PosA4ZoomablePreviewState extends State<PosA4ZoomablePreview> {
                   if (i >= 0) _zoom = _steps[i];
                 }),
               ),
-              TextButton(
-                onPressed: () => setState(() => _zoom = 0),
-                child: Text(tr('Cả trang')),
-              ),
-              TextButton(
-                onPressed: () => setState(() => _zoom = 1),
-                child: Text(tr('100%')),
-              ),
+              // Ẩn lối tắt trùng mức đang xem (trước: «− Cả trang +» rồi lại nút «Cả trang» ngay cạnh).
+              if (_zoom > 0)
+                TextButton(
+                  onPressed: () => setState(() => _zoom = 0),
+                  child: Text(tr('Cả trang')),
+                ),
+              if (_zoom != 1)
+                TextButton(
+                  onPressed: () => setState(() => _zoom = 1),
+                  child: Text(tr('100%')),
+                ),
             ],
           ),
         ),
