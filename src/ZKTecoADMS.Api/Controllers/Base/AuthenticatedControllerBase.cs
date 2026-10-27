@@ -1,6 +1,7 @@
-using ZKTecoADMS.Domain.Exceptions;
+﻿using ZKTecoADMS.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using Microsoft.Extensions.Caching.Memory;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Domain.Enums;
@@ -73,6 +74,15 @@ public abstract class AuthenticatedControllerBase : ControllerBase
     protected bool IsAccountant =>
         CurrentUserRole.Equals(nameof(Roles.Accountant), StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Lý do không được duyệt / từ chối / bỏ duyệt / chi đơn này (nhân viên ngoài phạm vi quản lý, hoặc đơn của chính
+    /// mình); null = được phép. Thao tác hàng loạt gọi cho từng đơn (đơn bị chặn tính là thất bại). Xem
+    /// <see cref="Services.ApprovalScopeGuard"/>.
+    /// </summary>
+    protected Task<string?> DenyApprovalAsync(Services.ApprovalScopeGuard.Kind kind, Guid id) =>
+        HttpContext.RequestServices.GetRequiredService<Services.ApprovalScopeGuard>()
+            .DenyAsync(kind, id, CurrentUserId, RequiredStoreId, CurrentUserRole, HttpContext.RequestAborted);
+
     /// <summary>QL / kế toán / admin — xem & thao tác hồ sơ công tác của người khác trong store.</summary>
     protected bool IsBusinessTripPrivileged => IsManager || IsAdmin || IsAccountant;
     
@@ -86,6 +96,17 @@ public abstract class AuthenticatedControllerBase : ControllerBase
     protected bool CanBypassStoreRenewalLimit =>
         CurrentUserRole.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase)
         && string.Equals(CurrentUserEmail, StoreRenewalBypassEmail, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Khoá / mở / gia hạn / bật-tắt cửa hàng có hiệu lực ngay với StoreLicenseMiddleware (cache 60s).</summary>
+    protected void InvalidateStoreAccessCache(IEnumerable<Guid> storeIds)
+    {
+        var cache = HttpContext?.RequestServices.GetService(typeof(IMemoryCache)) as IMemoryCache;
+        if (cache == null) return;
+        foreach (var id in storeIds)
+            cache.Remove(StoreLicenseHelper.AccessCacheKey(id));
+    }
+
+    protected void InvalidateStoreAccessCache(Guid storeId) => InvalidateStoreAccessCache([storeId]);
 
     protected bool IsStoreRenewalLimitReached(int renewalCount) =>
         renewalCount >= MaxStoreRenewals && !CanBypassStoreRenewalLimit;

@@ -313,10 +313,21 @@ public sealed class AttendanceCorrectionApplyHelper(
                     correction.AttendanceId.Value, cancellationToken: cancellationToken);
                 if (attendanceEdit == null)
                     throw new InvalidOperationException("Không tìm thấy bản ghi chấm công cần sửa");
+                var editChanged = false;
                 if (correction.NewDate.HasValue && correction.NewTime.HasValue)
                 {
                     attendanceEdit.AttendanceTime =
                         correction.NewDate.Value.Date.Add(correction.NewTime.Value);
+                    editChanged = true;
+                }
+                // Phiếu chọn lại Vào/Ra → áp dụng luôn, tránh log giữ loại cũ (vd 07:48 vẫn là Ra).
+                if (!string.IsNullOrWhiteSpace(correction.NewPunchType))
+                {
+                    attendanceEdit.AttendanceState = ResolvePunchState(correction.NewPunchType);
+                    editChanged = true;
+                }
+                if (editChanged)
+                {
                     attendanceEdit.Note = $"Điều chỉnh giờ chấm công [YC:{correction.Id}]";
                     await attendanceRepository.UpdateAsync(attendanceEdit, cancellationToken);
                 }

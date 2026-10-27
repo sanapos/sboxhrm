@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Commands.AdvanceRequests;
 using ZKTecoADMS.Application.Queries.AdvanceRequests;
 using ZKTecoADMS.Application.Constants;
@@ -205,6 +206,8 @@ public class AdvanceRequestsController(
         Guid id,
         [FromBody] ApproveAdvanceRequestDto request)
     {
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Advance, id) is { } denied)
+            return Ok(AppResponse<AdvanceRequestDto>.Error(denied));
         var storeId = RequiredStoreId;
         var command = new ApproveAdvanceRequestCommand(
             storeId,
@@ -244,6 +247,8 @@ public class AdvanceRequestsController(
     [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<AdvanceRequestDto>>> UndoApproveAdvanceRequest(Guid id)
     {
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Advance, id) is { } denied)
+            return Ok(AppResponse<AdvanceRequestDto>.Error(denied));
         var storeId = RequiredStoreId;
         var command = new UndoApproveAdvanceRequestCommand(storeId, id, CurrentUserId);
         var result = await mediator.Send(command);
@@ -285,6 +290,8 @@ public class AdvanceRequestsController(
     [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<AdvanceRequestDto>>> PayAdvanceRequest(Guid id, [FromBody] PayAdvanceRequestDto? request = null)
     {
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Advance, id) is { } denied)
+            return Ok(AppResponse<AdvanceRequestDto>.Error(denied));
         var command = new PayAdvanceRequestCommand(
             RequiredStoreId,
             id,
@@ -306,6 +313,7 @@ public class AdvanceRequestsController(
         {
             try
             {
+                if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Advance, id) != null) { failed++; continue; }
                 var command = new ApproveAdvanceRequestCommand(storeId, id, CurrentUserId, true, null);
                 var result = await mediator.Send(command);
                 if (result.IsSuccess)
@@ -331,6 +339,7 @@ public class AdvanceRequestsController(
         {
             try
             {
+                if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Advance, id) != null) { failed++; continue; }
                 var command = new ApproveAdvanceRequestCommand(RequiredStoreId, id, CurrentUserId, false, request.Reason);
                 var result = await mediator.Send(command);
                 if (result.IsSuccess) success++; else failed++;
@@ -350,6 +359,7 @@ public class AdvanceRequestsController(
         {
             try
             {
+                if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Advance, id) != null) { failed++; continue; }
                 var command = new PayAdvanceRequestCommand(RequiredStoreId, id, CurrentUserId, request.PaymentMethod);
                 var result = await mediator.Send(command);
                 if (result.IsSuccess) success++; else failed++;

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Models;
@@ -408,6 +409,8 @@ public class OvertimesController(
     [RequireModulePermission("Overtime", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<bool>>> ApproveOvertime(Guid id)
     {
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Overtime, id) is { } denied)
+            return BadRequest(AppResponse<bool>.Fail(denied));
         try
         {
             var storeId = RequiredStoreId;
@@ -464,6 +467,8 @@ public class OvertimesController(
         Guid id,
         [FromBody] RejectOvertimeRequest request)
     {
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Overtime, id) is { } denied)
+            return BadRequest(AppResponse<bool>.Fail(denied));
         try
         {
             var storeId = RequiredStoreId;

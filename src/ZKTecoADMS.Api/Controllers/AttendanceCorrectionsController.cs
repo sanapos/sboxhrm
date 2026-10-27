@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Commands.AttendanceCorrections;
 using ZKTecoADMS.Application.Queries.AttendanceCorrections;
 using ZKTecoADMS.Application.Constants;
@@ -91,6 +92,8 @@ public class AttendanceCorrectionsController(IMediator mediator) : Authenticated
         Guid id, 
         [FromBody] ApproveAttendanceCorrectionDto request)
     {
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.AttendanceCorrection, id) is { } denied)
+            return Ok(AppResponse<AttendanceCorrectionRequestDto>.Error(denied));
         var command = new ApproveAttendanceCorrectionCommand(
             RequiredStoreId,
             id,
@@ -117,6 +120,8 @@ public class AttendanceCorrectionsController(IMediator mediator) : Authenticated
     [RequireAnyModulePermission(ModulePermissionAction.Approve, "AttendanceApproval", "AttendanceCorrection")]
     public async Task<ActionResult<AppResponse<AttendanceCorrectionRequestDto>>> UndoApproveAttendanceCorrection(Guid id)
     {
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.AttendanceCorrection, id) is { } denied)
+            return Ok(AppResponse<AttendanceCorrectionRequestDto>.Error(denied));
         var command = new UndoApproveAttendanceCorrectionCommand(RequiredStoreId, id, CurrentUserId);
         var result = await mediator.Send(command);
         return Ok(result);

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Commands.Leaves.CreateLeave;
 using ZKTecoADMS.Application.Commands.Leaves.UpdateLeave;
 using ZKTecoADMS.Application.Commands.Leaves.CancelLeave;
@@ -166,6 +167,8 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
     [RequireModulePermission("Leave", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<bool>>> ApproveLeave(Guid id, [FromBody] ApproveLeaveRequest? request = null)
     {
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Leave, id) is { } denied)
+            return Ok(AppResponse<bool>.Error(denied));
         var command = new ApproveLeaveCommand(
             RequiredStoreId,
             id,
@@ -180,6 +183,8 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
     [RequireModulePermission("Leave", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<bool>>> RejectLeave(Guid id, [FromBody] RejectLeaveRequest request)
     {
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Leave, id) is { } denied)
+            return Ok(AppResponse<bool>.Error(denied));
         var command = new RejectLeaveCommand(RequiredStoreId, id, CurrentUserId, request.RejectionReason);
         var result = await mediator.Send(command);
         return Ok(result);
@@ -190,6 +195,8 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
     [RequireModulePermission("Leave", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<bool>>> UndoLeaveApproval(Guid id)
     {
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Leave, id) is { } denied)
+            return Ok(AppResponse<bool>.Error(denied));
         var command = new UndoLeaveApprovalCommand(RequiredStoreId, id, CurrentUserId);
         var result = await mediator.Send(command);
         return Ok(result);

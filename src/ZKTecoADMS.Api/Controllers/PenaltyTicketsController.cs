@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
@@ -275,6 +276,8 @@ public class PenaltyTicketsController(
     [RequireModulePermission("PenaltyTickets", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<PenaltyTicketDto>>> CancelPenaltyTicket(Guid id, [FromBody] CancelPenaltyRequest request)
     {
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Penalty, id) is { } denied)
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail(denied));
         var storeId = RequiredStoreId;
         var ticket = await dbContext.PenaltyTickets
             .Include(pt => pt.Employee)
@@ -338,6 +341,8 @@ public class PenaltyTicketsController(
     [RequireModulePermission("PenaltyTickets", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<PenaltyTicketDto>>> ApprovePenaltyTicket(Guid id, [FromBody] ApprovePenaltyRequest? request)
     {
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Penalty, id) is { } denied)
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail(denied));
         var storeId = RequiredStoreId;
         var ticket = await dbContext.PenaltyTickets
             .Include(pt => pt.Employee)
@@ -718,6 +723,8 @@ public class PenaltyTicketsController(
     [RequireModulePermission("PenaltyTickets", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<PenaltyTicketDto>>> UnapprovePenaltyTicket(Guid id)
     {
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.Penalty, id) is { } denied)
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail(denied));
         var storeId = RequiredStoreId;
         var ticket = await dbContext.PenaltyTickets
             .Include(pt => pt.Employee)
