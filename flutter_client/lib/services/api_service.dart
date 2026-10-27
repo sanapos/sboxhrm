@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:http/http.dart' as http;
 import 'shared_http_client.dart';
+import 'auth_retry_client.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -102,7 +103,10 @@ class ApiService implements PayrollApi {
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
-  ApiService._internal();
+  ApiService._internal() {
+    AuthRetryClient.refreshAccessToken = () async => await refreshToken() == null ? null : _token;
+    AuthRetryClient.currentAccessToken = () => _token;
+  }
 
   /// Đo mạng cửa hàng (PosNetworkMonitor): mỗi lần gọi server có trả lời / lỗi kết nối.
   static void Function(int statusCode)? onApiResponse;

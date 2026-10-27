@@ -123,7 +123,7 @@ double _niceMax(double v) {
 }
 
 /// Nhãn trục X: tự thưa bớt khi quá nhiều điểm.
-Widget _bottomLabel(List<String> labels, double v, {required int maxLabels}) {
+Widget _bottomLabel(List<String> labels, double v, {required int maxLabels, double? axisWidth}) {
   final i = v.round();
   if ((v - i).abs() > 0.01 || i < 0 || i >= labels.length) return const SizedBox.shrink();
   final step = math.max(1, (labels.length / maxLabels).ceil());
@@ -135,8 +135,10 @@ Widget _bottomLabel(List<String> labels, double v, {required int maxLabels}) {
     padding: const EdgeInsets.only(top: 6),
     child: Tooltip(
       message: labels[i],
+      // Ô nhãn rộng bằng phần trục của mỗi cột (ít cột → nhãn đủ chỗ): trước đây cố định 54px nên
+      // «31–60 ngày» bị cắt thành «31–60 ng…» dù biểu đồ còn rộng.
       child: SizedBox(
-        width: 54.0 * step,
+        width: math.max(54.0, axisWidth == null || labels.isEmpty ? 0.0 : axisWidth / labels.length - 8) * step,
         child: Text(labels[i],
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -174,7 +176,7 @@ FlTitlesData _titles({
           showTitles: true,
           reservedSize: 24,
           interval: 1,
-          getTitlesWidget: (v, _) => _bottomLabel(labels, v, maxLabels: maxLabels),
+          getTitlesWidget: (v, meta) => _bottomLabel(labels, v, maxLabels: maxLabels, axisWidth: meta.parentAxisSize),
         ),
       ),
       rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),

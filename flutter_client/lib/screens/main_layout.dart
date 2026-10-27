@@ -424,6 +424,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     'Báo cáo POS': ['doanh thu', 'bán hàng', 'cuối ngày', 'doanh số'],
     // Gõ «lịch hẹn» / «đặt bàn» trước đây không ra gì.
     'Đặt lịch': ['lịch hẹn', 'hẹn khách', 'đặt bàn', 'đặt chỗ', 'booking'],
+    // Công nợ phải trả NCC xem / trả ở màn Nhà cung cấp — gõ «nợ ncc» trước đây không ra gì.
+    'Nhà cung cấp': ['công nợ ncc', 'nợ nhà cung cấp', 'phải trả', 'trả nợ ncc'],
   };
 
   Future<void> _openCommandPalette() async {
