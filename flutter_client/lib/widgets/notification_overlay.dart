@@ -474,12 +474,15 @@ class _NotificationCardState extends State<_NotificationCard>
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
                 ),
+                // IntrinsicHeight: thanh màu giãn theo nội dung (lỗi dài 3–4 dòng).
+                child: IntrinsicHeight(
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Color indicator
                     Container(
                       width: 4,
-                      height: 72,
+                      constraints: const BoxConstraints(minHeight: 72),
                       decoration: BoxDecoration(
                         color: color,
                         borderRadius: const BorderRadius.only(
@@ -490,13 +493,15 @@ class _NotificationCardState extends State<_NotificationCard>
                     ),
                     const SizedBox(width: 12),
                     // Icon
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(_getIcon(), color: color, size: 20),
                       ),
-                      child: Icon(_getIcon(), color: color, size: 20),
                     ),
                     const SizedBox(width: 12),
                     // Content
@@ -505,7 +510,7 @@ class _NotificationCardState extends State<_NotificationCard>
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               tr(widget.item.title),
@@ -524,7 +529,11 @@ class _NotificationCardState extends State<_NotificationCard>
                                 fontSize: 13,
                                 color: SboxColors.slate400,
                               ),
-                              maxLines: 2,
+                              // Lỗi / cảnh báo thường kèm cách xử lý ở cuối câu — 2 dòng là cắt mất phần đó.
+                              maxLines: widget.item.type == NotificationType.error ||
+                                      widget.item.type == NotificationType.warning
+                                  ? 4
+                                  : 2,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
@@ -532,7 +541,8 @@ class _NotificationCardState extends State<_NotificationCard>
                       ),
                     ),
                     // Close button
-                    IconButton(
+                    Center(
+                      child: IconButton(
                       icon:
                           Icon(Icons.close, size: 18, color: SboxColors.slate500),
                       onPressed: _dismiss,
@@ -540,8 +550,10 @@ class _NotificationCardState extends State<_NotificationCard>
                       constraints:
                           const BoxConstraints(minWidth: 36, minHeight: 36),
                     ),
+                    ),
                     const SizedBox(width: 4),
                   ],
+                ),
                 ),
               ),
             ),
