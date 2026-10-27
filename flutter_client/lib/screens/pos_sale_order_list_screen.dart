@@ -1059,7 +1059,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final perm = Provider.of<PermissionProvider>(context);
     if (!perm.canView('PosSaleOrders') && !perm.canView('PosProducts')) {
       return Scaffold(
-          appBar: AppBar(title: Text(tr('Hoá đơn'))),
+          appBar: AppBar(title: Text(tr('Hóa đơn'))),
           body: Center(child: Text(tr('Không có quyền xem đơn hàng'))));
     }
     final canEdit =

@@ -831,7 +831,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                   contentPadding: EdgeInsets.zero,
                   title: Text(tr('Dùng máy in tem'), style: TextStyle(fontSize: 13)),
                   value: _labelPrinter.enabled,
-                  activeColor: PosTheme.kiotBlue,
+                  activeTrackColor: PosTheme.kiotBlue,
                   onChanged: (v) =>
                       setState(() => _labelPrinter = _labelPrinter.copyWith(enabled: v)),
                 ),

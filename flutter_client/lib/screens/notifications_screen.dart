@@ -617,7 +617,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final composeButton = FilledButton.tonalIcon(
       onPressed: _openComposer,
       icon: const Icon(Icons.campaign_rounded, size: 18),
-      label: Text(tr('Gửi thông báo cho nhân viên'), maxLines: 1, overflow: TextOverflow.ellipsis),
+      // Chung hàng với icon trên điện thoại: nhãn đầy đủ bị cắt «…cho nhân…» → dùng nhãn ngắn.
+      label: Text(tr(composeInHeader ? 'Gửi thông báo' : 'Gửi thông báo cho nhân viên'),
+          maxLines: 1, overflow: TextOverflow.ellipsis),
       style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
     );
     return Container(

@@ -27,6 +27,7 @@ import '../notification_overlay.dart';
 import 'pos_hub_scope.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../../screens/pos/pos_printers_tabs_screen.dart' show PosPrinterTabsScope;
 
 import '../../theme/sbox_tokens.dart';
 const _blue = PosTheme.kiotBlue;
@@ -570,7 +571,31 @@ class _PosSellMobilePrintSettingsScreenState
       body: ListView(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
               children: [
-                if (hubBody) ...[
+                if (hubBody && PosPrinterTabsScope.inTabs(context)) ...[
+                  // Trong tab «Trên máy này»: cloud / hàng đợi đã là tab bên cạnh — chỉ còn máy nội bộ + Lưu.
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            _openOverlay<void>(const PosLocalPrintersScreen());
+                          },
+                          icon: const Icon(Icons.phone_android, size: 18),
+                          label: Text(tr('Máy nội bộ')),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _loading ? null : _save,
+                          icon: const Icon(Icons.save_outlined, size: 18),
+                          label: Text(tr('Lưu')),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ] else if (hubBody) ...[
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -614,7 +639,7 @@ class _PosSellMobilePrintSettingsScreenState
                       style: TextStyle(fontSize: 11),
                     ),
                     value: _print.autoPrint,
-                    activeColor: _blue,
+                    activeTrackColor: _blue,
                     onChanged: (v) =>
                         setState(() => _print = _print.copyWith(autoPrint: v)),
                   ),
@@ -649,7 +674,7 @@ class _PosSellMobilePrintSettingsScreenState
                   SwitchListTile(
                     title: Text(tr('Gộp hàng cùng loại khi in')),
                     value: _print.mergeSameItems,
-                    activeColor: _blue,
+                    activeTrackColor: _blue,
                     onChanged: (v) =>
                         setState(() => _print = _print.copyWith(mergeSameItems: v)),
                   ),
@@ -659,7 +684,7 @@ class _PosSellMobilePrintSettingsScreenState
                       style: TextStyle(fontSize: 11),
                     ),
                     value: _print.printVietQrOnReceipt,
-                    activeColor: _blue,
+                    activeTrackColor: _blue,
                     onChanged: (v) => setState(
                       () => _print = _print.copyWith(printVietQrOnReceipt: v),
                     ),
@@ -783,7 +808,7 @@ class _PosSellMobilePrintSettingsScreenState
                         style: const TextStyle(fontSize: 11),
                       ),
                       value: _print.printCupOnKitchenNotify,
-                      activeColor: _blue,
+                      activeTrackColor: _blue,
                       onChanged: (v) => setState(() =>
                           _print = _print.copyWith(printCupOnKitchenNotify: v)),
                     ),

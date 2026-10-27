@@ -9,6 +9,17 @@ import '../../widgets/sbox/sbox_ui.dart';
 import 'pos_printer_settings_hub_screen.dart';
 import 'pos_store_printers_screen.dart';
 
+/// Đánh dấu nội dung đang nằm trong các tab Máy in — trang con khỏi vẽ lại nút sang tab bên cạnh.
+class PosPrinterTabsScope extends InheritedWidget {
+  const PosPrinterTabsScope({super.key, required super.child});
+
+  static bool inTabs(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PosPrinterTabsScope>() != null;
+
+  @override
+  bool updateShouldNotify(PosPrinterTabsScope oldWidget) => false;
+}
+
 /// Thiết lập SBOX › Máy in: một mục, hai tab — máy in nối với máy này (Bluetooth / LAN / USB)
 /// và máy in cloud dùng chung cả cửa hàng (Print Agent). Mỗi tab theo quyền riêng của nó.
 class PosPrintersTabsScreen extends StatelessWidget {
@@ -44,7 +55,8 @@ class PosPrintersTabsScreen extends StatelessWidget {
     if (tabs.length == 1) return tabs.first.$3;
     return DefaultTabController(
       length: tabs.length,
-      initialIndex: cloudFirst && cloud ? tabs.length - 1 : 0,
+      // Tab cloud đứng sau «Trên máy này» (nếu có) — trước lấy tab cuối nên mở nhầm «Hàng đợi in».
+      initialIndex: cloudFirst && cloud && device ? 1 : 0,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Material(
           color: SboxColors.surface,
@@ -52,11 +64,20 @@ class PosPrintersTabsScreen extends StatelessWidget {
             labelColor: SboxColors.brand700,
             unselectedLabelColor: SboxColors.slate500,
             indicatorColor: SboxColors.brand600,
-            tabs: [for (final t in tabs) Tab(icon: Icon(t.$2, size: 20), text: tr(t.$1), iconMargin: const EdgeInsets.only(bottom: 2))],
+            labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+            tabs: [
+              for (final t in tabs)
+                Tab(
+                  icon: Icon(t.$2, size: 20),
+                  iconMargin: const EdgeInsets.only(bottom: 2),
+                  // Điện thoại: «Trên máy này» bị cắt «Trên máy nà…» → thu nhỏ chữ cho vừa.
+                  child: FittedBox(fit: BoxFit.scaleDown, child: Text(tr(t.$1), maxLines: 1)),
+                ),
+            ],
           ),
         ),
         const Divider(height: 1, color: SboxColors.border),
-        Expanded(child: TabBarView(children: [for (final t in tabs) t.$3])),
+        Expanded(child: PosPrinterTabsScope(child: TabBarView(children: [for (final t in tabs) t.$3]))),
       ]),
     );
   }

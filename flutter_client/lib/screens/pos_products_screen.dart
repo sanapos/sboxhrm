@@ -1209,7 +1209,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           if (!inHub) const PosModuleToolbar(activeModule: 'PosProducts'),
           if (mobile)
             PosMobileKiotHeader(
-              title: 'Hàng hoá',
+              title: 'Hàng hóa',
               onSearch: () => _focusSearch(),
               onFilter: inHub ? null : () => _openMobileFilters(perm),
               onSort: inHub ? null : _showSortSheet,
@@ -2437,8 +2437,8 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       child: Row(
         children: [
           Text(tr((_sellProfile?.usesSessionPackages ?? false) && _totalOnHand == 0
-              ? 'Tổng: $_total'
-              : 'Tổng: $_total · Tồn: ${_moneyFmt.format(_totalOnHand)}'),
+              ? 'Tổng: ${_moneyFmt.format(_total)}'
+              : 'Tổng: ${_moneyFmt.format(_total)} · Tồn: ${_moneyFmt.format(_totalOnHand)}'),
             style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
           ),
           const Spacer(),

@@ -173,8 +173,14 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
           padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 420 ? 16 : 20),
           child: _loadingCats
               ? const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()))
-              : SingleChildScrollView(
-                  child: Column(
+              // Nút ghim dưới đáy hộp, chỉ phần nhập liệu cuộn (trước: nút bị mép hộp cắt nửa trên V2s).
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -256,6 +262,8 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                         isExpanded: true,
                         decoration: InputDecoration(
                           labelText: tr('Danh mục'),
+                          // Store chưa có danh mục loại này: báo ngay, khỏi đợi bấm tạo mới biết lỗi.
+                          errorText: _categories.isEmpty ? tr('Chưa có danh mục thu chi') : null,
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -290,7 +298,11 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                         isDense: true,
                       ),
                     ),
-                    const SizedBox(height: 20),
+                  ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     LayoutBuilder(builder: (context, c) {
                       final cancel = OutlinedButton(
                         onPressed: _loading ? null : () => Navigator.pop(context),
@@ -338,7 +350,6 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                     }),
                   ],
                 ),
-              ),
         ),
       ),
     ),

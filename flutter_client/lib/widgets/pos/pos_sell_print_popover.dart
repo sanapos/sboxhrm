@@ -381,7 +381,7 @@ Widget _toggleRow(String label, bool value, ValueChanged<bool> onChanged) {
       Expanded(child: Text(tr(label), style: const TextStyle(fontSize: 13))),
       Switch(
         value: value,
-        activeColor: PosTheme.kiotBlue,
+        activeTrackColor: PosTheme.kiotBlue,
         onChanged: onChanged,
       ),
     ],

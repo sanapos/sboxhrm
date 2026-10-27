@@ -33,7 +33,7 @@ abstract final class MobileQuickActionsCatalog {
     ),
     MobileQuickActionDef(
       moduleCode: 'PosSaleOrders',
-      label: 'Hoá đơn',
+      label: 'Hóa đơn',
       icon: Icons.receipt_long_outlined,
     ),
     MobileQuickActionDef(

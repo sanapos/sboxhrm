@@ -170,7 +170,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                     _Item('PT · Khách của tôi', Icons.sports_gymnastics, 'PosGymTrainer',
                         const PosGymPtScreen(),
                         visible: _gymOn),
-                    _Item('Hoá đơn', Icons.receipt_long_outlined, 'PosSaleOrders',
+                    _Item('Hóa đơn', Icons.receipt_long_outlined, 'PosSaleOrders',
                         const PosSaleOrderListScreen()),
                     _Item('Trả hàng bán', Icons.assignment_return_outlined, 'PosSaleReturns',
                         const PosSaleReturnListScreen()),
@@ -212,9 +212,9 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                 _section(
                   context,
                   perm,
-                  title: 'Hàng hoá',
+                  title: 'Hàng hóa',
                   items: [
-                    _Item('Hàng hoá', Icons.inventory_2_outlined, 'PosProducts',
+                    _Item('Hàng hóa', Icons.inventory_2_outlined, 'PosProducts',
                         const PosProductsScreen()),
                     _Item('Bảng giá', Icons.price_change_outlined, 'PosProducts',
                         const PosPriceListsScreen(),

@@ -248,11 +248,19 @@ class _KpiTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = k.delta;
     final dColor = d?.good == null ? SboxColors.textMuted : (d!.good! ? SboxColors.successText : SboxColors.dangerText);
+    final labelStyle = SboxType.smallStyle(SboxColors.textMuted).copyWith(height: 1.3);
+    // Điện thoại: nhãn được 2 dòng → giữ chỗ đủ 2 dòng cho mọi thẻ, để số liệu các thẻ cùng hàng
+    // thẳng nhau (trước: «Doanh thu (chưa VAT)» xuống dòng đẩy số thấp hơn thẻ bên cạnh).
+    final labelMinHeight = compact
+        ? MediaQuery.textScalerOf(context).scale(labelStyle.fontSize ?? 12) * 1.3 * 2
+        : 0.0;
     return SboxCard(
       onTap: k.onTap,
       padding: EdgeInsets.all(compact ? SboxSpace.md : SboxSpace.lg),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
+        ConstrainedBox(
+          constraints: BoxConstraints(minHeight: labelMinHeight),
+          child: Row(children: [
           if (k.icon != null && showIcon) ...[
             Container(
               width: compact ? 26 : 30,
@@ -263,9 +271,10 @@ class _KpiTile extends StatelessWidget {
             const SizedBox(width: SboxSpace.sm),
           ],
           Expanded(
-            child: Text(tr(k.label), maxLines: compact ? 2 : 1, overflow: TextOverflow.ellipsis, style: SboxType.smallStyle(SboxColors.textMuted)),
+            child: Text(tr(k.label), maxLines: compact ? 2 : 1, overflow: TextOverflow.ellipsis, style: labelStyle),
           ),
         ]),
+        ),
         SizedBox(height: compact ? SboxSpace.sm : SboxSpace.md),
         FittedBox(
           fit: BoxFit.scaleDown,

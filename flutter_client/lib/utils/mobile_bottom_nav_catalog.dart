@@ -159,7 +159,7 @@ abstract final class MobileBottomNavCatalog {
     ),
     MobileBottomNavItemDef(
       id: 'PosProducts',
-      label: 'Hàng hoá',
+      label: 'Hàng hóa',
       icon: Icons.inventory_2_outlined,
       activeIcon: Icons.inventory_2,
       moduleCode: 'PosProducts',
@@ -174,7 +174,7 @@ abstract final class MobileBottomNavCatalog {
     ),
     MobileBottomNavItemDef(
       id: 'PosSaleOrders',
-      label: 'Hoá đơn',
+      label: 'Hóa đơn',
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long,
       moduleCode: 'PosSaleOrders',

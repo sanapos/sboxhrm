@@ -128,13 +128,13 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
         ),
       if (canMod('PosProducts'))
         PosMobileHubGridItem(
-          label: 'Hàng hoá',
+          label: 'Hàng hóa',
           icon: Icons.inventory_2_outlined,
           onTap: () => _goHubTab(1),
         ),
       if (canMod('PosSaleOrders'))
         PosMobileHubGridItem(
-          label: 'Hoá đơn',
+          label: 'Hóa đơn',
           icon: Icons.receipt_long_outlined,
           onTap: () => _goHubTab(3),
         ),
