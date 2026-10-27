@@ -89,17 +89,20 @@ class _PaletteState extends State<_Palette> {
         // «doanh thu» trước đây ra «Báo cáo thu chi» đầu tiên (chữ «doanh» lấy từ nhóm «Báo cáo kinh doanh»).
         final own = SboxCommandPalette.fold(
             '${tr(it.label)} ${it.subtitle == null ? '' : tr(it.subtitle!)} ${it.keywords.join(' ')}');
+        // Khớp đầu một từ của tên trước khớp giữa chữ — «huy» ra «Xuất hủy» trước «Khuyến mãi» (k-huy-ến).
         final score = label.startsWith(f)
             ? 0
-            : label.contains(f)
+            : ' $label'.contains(' $f')
                 ? 1
-                : own.contains(f)
+                : label.contains(f)
                     ? 2
-                    : words.every(label.contains)
+                    : own.contains(f)
                         ? 3
-                        : words.every(own.contains)
+                        : words.every(label.contains)
                             ? 4
-                            : 5;
+                            : words.every(own.contains)
+                                ? 5
+                                : 6;
         scored.add((score, it));
       }
       scored.sort((a, b) => a.$1.compareTo(b.$1));

@@ -208,13 +208,6 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
   }
 
 
-  Future<void> _scan() async {
-    final code = await scanBarcodeWithCamera(context);
-    if (code == null || !mounted) return;
-    final pick = await lookupOrPickPosProduct(context, _api, code);
-    if (pick != null && mounted) await _pickProduct(pick);
-  }
-
   Map<String, dynamic> _body({required bool complete}) => {
         'supplierId': _supplierId,
         'note': _noteCtrl.text.trim(),
@@ -279,14 +272,6 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
       child: WhMobileScaffold(
       title: _returnNo.isEmpty ? 'Tạo phiếu trả' : _returnNo,
       subtitle: 'Trả hàng nhập',
-      actions: [
-        if (!_readOnly)
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner_rounded),
-            color: WhMobileTheme.primary,
-            onPressed: _scan,
-          ),
-      ],
       bottomBar: WhMobileBottomBar(
         readOnly: _readOnly,
         loading: _saving,
