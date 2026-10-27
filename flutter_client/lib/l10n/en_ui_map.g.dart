@@ -1546,7 +1546,7 @@ const Map<String, String> kEnUiMap = <String, String>{
   'Chưa lưu trạng thái tạm tính': 'The temporary state has not been saved',
   'Chưa lưu đơn': 'Order not saved yet',
   'Chưa lưu được đơn': 'The order has not been saved',
-  'Chưa lọc': 'Unrefined',
+  'Chưa lọc': 'No filter',
   'Chưa mở ca': 'Haven\'t opened yet',
   'Chưa nhận được dữ liệu khuôn mặt. Hãy đăng ký trực tiếp trên máy rồi thử đồng bộ lại.': 'Face data has not been received. Please register directly on your device and then try syncing again.',
   'Chưa nhập': 'Not entered yet',

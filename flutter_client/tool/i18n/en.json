@@ -31,10 +31,12 @@
   "% tích lũy cho khách": "% accrued for customer",
   "% đủ 1 công phải từ 1 đến 100": "% for a full work day must be between 1 and 100",
   "(0973 024 042 → 973024042) — không trùng, dễ tra; khách không có số di động được cấp mã bắt đầu bằng 9. ": "(0973 024 042 → 973024042) — unique and easy to look up; customers without a mobile number get a code starting with 9. ",
+  "(?<=\\d)[đd](?=$|-)": "(?<=\\d)[đd](?=$|-)",
   "(Chưa chọn)": "(Not selected)",
   "(Cập nhật|Có hiệu lực)": "(Updated|In effect)",
   "(Cửa trước / Kho) để dễ phân biệt.": "(Front door / Warehouse) to tell them apart.",
   "(WiFi SBOX-Den-xxxx, http://192.168.4.1). Một cửa hàng dùng được nhiều bộ relay với cùng một khóa.": "(WiFi SBOX-Den-xxxx, http://192.168.4.1). One store can use several relay sets with the same key.",
+  "(\\d)\\s?đ\\b": "(\\d)\\s?đ\\b",
   "(\\d[\\d.,]*)\\s?(?:đ|₫|vnđ|vnd|VND|VNĐ)(?![a-zà-ỹ])": "(\\d[\\d.,]*)\\s?(?:đ|₫|vnđ|vnd|VND|VNĐ)(?![a-zà-ỹ])",
   "(_sboxgw._tcp) cộng UDP. Lần đầu iOS hỏi quyền Mạng cục bộ — ": "(_sboxgw._tcp) plus UDP. The first time, iOS asks for Local Network permission — ",
   "(bấm Lưu để hệ thống tạo mã)": "(tap Save and the system generates the code)",
@@ -52,6 +54,7 @@
   "(hệ thống đổi key → token user). Portal test: business-stg.ahamove.com": "(the system exchanges the key for a user token). Test portal: business-stg.ahamove.com",
   "(không dùng sboxadms.local khi có nhiều mạch).": "(do not use sboxadms.local when there are several boards).",
   "(không tên)": "(no name)",
+  "(k|nghìn|nghin|ngàn|ngan|tr|triệu|trieu)": "(k|nghìn|nghin|ngàn|ngan|tr|triệu|trieu)",
   "(k|nghìn|ngàn|tr|triệu)": "(k|nghìn|ngàn|tr|triệu)",
   "(lượt ghi «cần kiểm tra», không trừ buổi).": "(logged as “needs review”, no session is deducted).",
   "(mật khẩu sbox12345). Dùng WiFi đó để mở 192.168.4.1 ": "(password sbox12345). Use that WiFi to open 192.168.4.1 ",
@@ -214,11 +217,15 @@
   "A6 và A7 cùng cửa hàng phải thấy cùng mẫu mặc định. Nếu lệch: vào Mẫu in, chọn lại mặc định của store — không copy tay từ máy khác.": "A6 and A7 in the same store must show the same default template. If they differ: go to Print templates and re-select the store default — don't copy by hand from another device.",
   "A7 C20Lite / điện thoại / web: mở app HRM (sbox.sana.vn) → menu Bán hàng (POS nằm trong HRM)": "A7 C20Lite / phone / web: open the HRM app (sbox.sana.vn) → Sales menu (POS lives inside HRM)",
   "A7: nên chọn giọng «Máy» (local). Giọng Mạng dễ mất tiếng.": "A7: choose the \"Device\" (local) voice. Network voices often lose sound.",
+  "AI chỉ được gọi 1 lần mỗi ngày cho cả cửa hàng. AI lỗi hoặc hết lượt thì vẫn gửi bản tin số liệu.": "AI is called only once a day for the whole store. If AI fails or runs out of quota, the figures-only brief is still sent.",
   "AI dùng chung (Gemini)": "Shared AI (Gemini)",
   "AI soạn nội dung": "AI writes content",
+  "AI đang bận": "AI is busy",
   "AI đang viết…": "AI is writing…",
+  "AI đang đọc hóa đơn…": "AI is reading the invoice…",
   "AI đang đọc menu… (có thể mất 30–60 giây)": "AI is reading the menu… (may take 30–60 seconds)",
   "AI đang đọc mẫu Word… (30–60 giây)": "AI is reading the Word template… (30–60 seconds)",
+  "AI đang đọc… (có thể mất 30–90 giây)": "AI is reading… (may take 30–90 seconds)",
   "AI đọc tài liệu và dựng lại thành bài; tệp gốc được đính kèm vào bài": "AI reads the document and rebuilds it as a post; the original file is attached to the post",
   "API Key AhaMove (để trống = giữ đã lưu)": "AhaMove API Key (leave blank to keep the saved one)",
   "API Token (để trống = giữ đã lưu)": "API Token (leave blank to keep the saved one)",
@@ -472,6 +479,8 @@
   "Bản nháp — chỉ bạn thấy": "Draft — only you can see it",
   "Bản sao không gắn cửa hàng nào. Đổi số máy hoặc chức năng trước khi lưu. Mặc định ẩn khỏi đăng ký để gán tay.": "The copy is not attached to any store. Change the device number or function before saving. Hidden from registration by default so it can be assigned manually.",
   "Bản thân người nộp thuế": "The taxpayer",
+  "Bản tin": "Brief",
+  "Bản tin sáng tự động": "Automatic morning brief",
   "Bản trong Tải xuống được giữ lại và sẽ không bị nhập lại vào danh sách.": "The copy in Downloads is kept and will not be imported into the list again.",
   "Bản «cần xem» và «rủi ro cao» vẫn gửi quản lý trực tiếp duyệt.": "“Needs review” and “high risk” items are still sent to the direct manager for approval.",
   "Bản đã chốt vẫn khôi phục được ở «Lịch sử nội dung».": "Finalized versions can still be restored from “Content history”.",
@@ -560,6 +569,7 @@
   "Bật hãng vận chuyển trong Cài đặt POS": "Enable carriers in POS settings",
   "Bật hãng → dán API Token → địa chỉ lấy hàng đủ ": "Enable the carrier → paste the API token → enter the full pickup address ",
   "Bật hãng, điền điểm lấy hàng, rồi Lưu / Thử kết nối (check giá).": "Turn on the carrier, fill in the pickup point, then Save / Test connection (check rates).",
+  "Bật khi hóa đơn bán lẻ / ghi «giá đã bao gồm VAT»": "Turn on when the invoice is a retail one / says «price includes VAT»",
   "Bật loa tự đọc": "Turn on auto read-aloud",
   "Bật lại trong danh sách nếu cần": "Turn it back on in the list if needed",
   "Bật phí giao hàng": "Enable delivery fee",
@@ -640,10 +650,12 @@
   "Bỏ khẩu trang, kính râm; không để tóc che mặt": "Remove your mask and sunglasses; keep hair off your face",
   "Bỏ khỏi phòng ban": "Remove from department",
   "Bỏ liên kết": "Unlink",
+  "Bỏ liên kết mẫu": "Unlink sample",
   "Bỏ lưu": "Unsave",
   "Bỏ lọc hoặc đổi từ khóa.": "Clear the filter or change the keyword.",
   "Bỏ lọc nhân viên": "Clear employee filter",
   "Bỏ mẫu của khách": "Remove customer template",
+  "Bỏ mẫu này": "Discard this template",
   "Bỏ mẫu riêng của khách": "Remove customer's own template",
   "Bỏ qua lệnh trùng": "Skip duplicate commands",
   "Bỏ qua phiếu cũ": "Skip old vouchers",
@@ -653,6 +665,7 @@
   "Bỏ thời hạn": "Remove deadline",
   "Bỏ toàn bộ trường đã gắn, chữ đã sửa và dòng đã bỏ — mẫu trở về đúng file bạn tải lên. ": "Removes all inserted fields, edited text and deleted rows — the template goes back to exactly the file you uploaded. ",
   "Bỏ trống = theo tên": "Leave blank = by name",
+  "Bỏ trống nếu đã khai báo": "Leave blank if already defined",
   "Bỏ tất cả bộ lọc": "Clear all filters",
   "Bỏ tệp": "Remove file",
   "Bỏ định lượng riêng — dùng «Mọi size»": "Remove separate recipe — use «All sizes»",
@@ -772,6 +785,7 @@
   "Chia sẻ Zalo": "Share on Zalo",
   "Chia sẻ tin tức, thông báo, tài liệu cho mọi người.": "Share news, announcements and documents with everyone.",
   "Chia sẻ điều gì đó với mọi người…": "Share something with everyone…",
+  "Chiết khấu cả hóa đơn": "Whole-invoice discount",
   "Chiết khấu đơn (đ)": "Order discount (đ)",
   "Chiều cao": "Height",
   "Chiều cao (cm)": "Height (cm)",
@@ -857,6 +871,7 @@
   "Chăm sóc": "Follow-up",
   "Chăm sóc khách": "Customer care",
   "Chăm sóc theo nhân viên": "Customer care by employee",
+  "Chưa": "Not yet",
   "Chưa VAT (cộng thuế)": "Excl. VAT (tax added)",
   "Chưa ai chấm công": "No one has punched yet",
   "Chưa bán offline được": "Offline selling is not available yet",
@@ -870,15 +885,19 @@
   "Chưa bật phương thức nào — nhân viên sẽ chấm công không cần xác thực. Nên bật ít nhất Khuôn mặt hoặc GPS.": "No method is enabled — employees will punch without verification. We recommend enabling at least Face or GPS.",
   "Chưa bật đơn vị giao hàng — Thiết lập → Đơn vị giao hàng": "No carrier enabled — Setup → Carriers",
   "Chưa bật đơn vị giao hàng — vào Thiết lập → Đơn vị giao hàng": "No carrier enabled — go to Setup → Carriers",
+  "Chưa bật được mẫu": "Couldn't activate the template",
   "Chưa bật đọc tem cân": "Scale label reading is off",
   "Chưa bỏ được": "Could not remove",
   "Chưa chia đợt thanh toán — bấm «Sửa» để chia (cọc, lắp đặt, nghiệm thu…).": "Payments are not split into installments — tap “Edit” to split them (deposit, installation, acceptance…).",
   "Chưa chia đợt thanh toán.": "Payments are not split into installments.",
+  "Chưa chép được lời — bạn bấm micro nói lại sau vài giây.": "Couldn't transcribe — tap the mic and speak again in a few seconds.",
   "Chưa chấm": "Not punched",
   "Chưa chấm cơm": "Meal not checked",
   "Chưa chấm điểm": "Not scored",
+  "Chưa chọn NCC — số tiền đã trả không ghi vào công nợ NCC.": "No supplier selected — the amount paid will not be recorded in supplier payables.",
   "Chưa chọn cổng COM của cân": "No scale COM port selected",
   "Chưa chọn gói": "No package selected",
+  "Chưa chọn hàng — chọn hàng có sẵn hoặc bật «Tạo hàng mới»": "No item selected — pick an existing item or turn on «Create new item»",
   "Chưa chọn hãng": "No carrier selected",
   "Chưa chọn khách": "No customer selected",
   "Chưa chọn máy in bếp. Mở biểu tượng máy in, kết nối USB/LAN.": "No kitchen printer selected. Open the printer icon and connect USB/LAN.",
@@ -913,6 +932,7 @@
   "Chưa có bán hàng trong kỳ": "No sales in the period",
   "Chưa có báo giá": "No quotes yet",
   "Chưa có báo giá — bật hãng trong Cài đặt vận chuyển": "No quotes — enable a carrier in Shipping settings",
+  "Chưa có bản tin nào": "No briefs yet",
   "Chưa có ca làm việc nào.": "No shifts yet.",
   "Chưa có chu kỳ KPI": "No KPI cycle yet",
   "Chưa có chương trình khuyến mãi.\nVí dụ: giờ vàng 18h–21h rau cá giảm 30%, mua 2 tặng 1, ": "No promotions yet.\nExample: happy hour 18:00–21:00 vegetables & fish 30% off, buy 2 get 1, ",
@@ -1017,6 +1037,7 @@
   "Chưa có phác đồ. PT giao bài tập / lịch tuần / dinh dưỡng — khách xem qua «Link cho khách».": "No programs yet. The trainer assigns exercises / weekly schedule / nutrition — clients view them via the «Client link».",
   "Chưa có phòng ban nào": "No departments yet",
   "Chưa có phụ cấp": "No allowances",
+  "Chưa có quyền micro": "No microphone permission",
   "Chưa có quản lý": "No managers yet",
   "Chưa có seri nào.\nSeri xuất hiện khi nhập hàng bắt buộc seri vào kho.": "No serials yet.\nSerials appear when you receive goods that require serial numbers into stock.",
   "Chưa có sản lượng trong khoảng này": "No output in this period yet",
@@ -1025,6 +1046,7 @@
   "Chưa có số liệu.": "No data yet.",
   "Chưa có số tài khoản": "No account number",
   "Chưa có sự kiện": "No events yet",
+  "Chưa có thao tác nào qua Trợ lý ảo.": "No actions through the assistant yet.",
   "Chưa có thay đổi nào.": "No changes yet.",
   "Chưa có thiết bị nào đăng nhập": "No devices signed in",
   "Chưa có thiết lập lương — chưa có quỹ phép năm.": "No payroll setup — no annual leave balance.",
@@ -1056,6 +1078,7 @@
   "Chưa có đơn bán gắn khách này": "No sales orders linked to this customer yet",
   "Chưa có đơn bán offline.": "No offline sales orders yet.",
   "Chưa có đơn bán trong kỳ": "No sales orders in the period",
+  "Chưa có đơn giá": "No unit price",
   "Chưa có đơn hàng hôm nay": "No orders today",
   "Chưa có đơn mua credit": "No credit purchase orders",
   "Chưa có đơn nghỉ phép nào": "No leave requests yet",
@@ -1168,6 +1191,7 @@
   "Chưa đặt được lịch": "Could not book",
   "Chưa đặt định mức": "Quota not set",
   "Chưa đến": "Not arrived",
+  "Chưa đọc được file .xls": "Can't read .xls files yet",
   "Chưa đổi": "Not changed",
   "Chưa đổi được": "Could not change",
   "Chưa đổi được mẫu": "Could not change the template",
@@ -1176,6 +1200,7 @@
   "Chương trình": "Program",
   "Chương trình chưa có hóa đơn nào áp dụng — xem lại điều kiện, thời gian hoặc dừng nếu không còn cần.": "No invoices have used this program yet — review the conditions and dates, or stop it if no longer needed.",
   "Chương trình đang tắt.": "The program is off.",
+  "Chương trình ưu đãi khi cửa hàng kích hoạt key theo gói": "Promotions applied when a store activates a key for a package",
   "Chạm vào chữ trên trang để sửa như Word. Bôi đen rồi chọn đậm / font / màu.": "Tap text on the page to edit it like Word. Select it, then choose bold / font / color.",
   "Chạm vào một ca để xem chi tiết tài khoản / tiền két": "Tap a shift to see account / cash drawer details",
   "Chạm để bật tiếng": "Tap to turn on sound",
@@ -1330,6 +1355,7 @@
   "Chọn hàng in tem": "Select items to print labels",
   "Chọn hàng in tem thông số": "Select items to print spec labels",
   "Chọn hàng mua kèm": "Select add-on items",
+  "Chọn hàng trong kho": "Pick an item from stock",
   "Chọn hàng từ danh sách bên dưới": "Pick items from the list below",
   "Chọn hãng báo giá thành công": "Carrier quote selected",
   "Chọn hạn": "Select deadline",
@@ -1427,7 +1453,9 @@
   "Chọn ít nhất 1 nhóm hàng": "Select at least 1 product category",
   "Chọn ít nhất 2 chiều: Dài, Rộng hoặc Cao.": "Select at least 2 dimensions: Length, Width or Height.",
   "Chọn ít nhất một hàng hóa / dịch vụ": "Select at least one product / service",
+  "Chọn ít nhất một mục trong bản tin": "Select at least one brief section",
   "Chọn ít nhất một nhân viên.": "Select at least one employee.",
+  "Chọn ít nhất một nhóm người nhận": "Select at least one recipient group",
   "Chọn ô trong giờ ca của thợ (nền trắng)": "Select a cell within the technician's shift hours (white background)",
   "Chọn đúng ngành trước khi nhập hàng hóa.": "Choose the right industry before entering products.",
   "Chọn đúng ngân hàng và STK cửa hàng đang dùng. QR thanh toán báo về đúng tài khoản này.": "Select the correct bank and account number used by the store. Payment QR notifications go to this account.",
@@ -1465,7 +1493,12 @@
   "Chờ đánh giá": "Waiting for review",
   "Chụp / thêm ảnh": "Take / add photos",
   "Chụp 5 góc: thẳng, trái, phải, trên, dưới": "Capture 5 angles: straight, left, right, up, down",
+  "Chụp hóa đơn (AI)": "Snap invoice (AI)",
+  "Chụp hóa đơn nhà cung cấp": "Snap supplier invoice",
+  "Chụp thẳng, đủ sáng, lấy hết bảng hàng và dòng tổng cộng. Hóa đơn nhiều trang: mỗi trang một ảnh.": "Shoot straight on, with good light, capturing the whole item table and the total line. Multi-page invoices: one photo per page.",
+  "Chụp ảnh hóa đơn": "Photograph the invoice",
   "Chủ cửa hàng": "Store owner",
+  "Chủ cửa hàng / Admin": "Store owner / Admin",
   "Chủ doanh nghiệp": "Business owner",
   "Chủ hộ kinh doanh": "Household business owner",
   "Chủ tài khoản": "Account owner",
@@ -1535,6 +1568,7 @@
   "Cuối tuần: rà Tổng hợp theo ca vài ngày; sửa lịch/đổi ca trước khi phát sinh phạt oan": "Weekend: review the per-shift summary for a few days; fix the schedule / swap shifts before unfair penalties arise",
   "Cuốn tạ đòn 3×10": "Barbell curl 3×10",
   "Cuốn tạ đơn 3×12": "Dumbbell curl 3×12",
+  "Cuộc trò chuyện mới": "New conversation",
   "CÁC LỚP (trên cùng ở đầu)": "LAYERS (top first)",
   "CÒN LẠI": "REMAINING",
   "CÒN NỢ": "BALANCE DUE",
@@ -1568,6 +1602,7 @@
   "Cá nhân": "Personal",
   "Các bài trong kênh được chuyển sang Bảng tin.": "Posts in the channel are moved to the Feed.",
   "Các công việc vẫn giữ lại nhưng không còn thuộc dự án.": "Tasks are kept but no longer belong to the project.",
+  "Các dòng hiện tại (kể cả phần đã sửa) sẽ bị thay bằng kết quả đọc mới.": "The current lines (including edits) will be replaced by the new reading.",
   "Các dòng này chưa nhập SL thực tế:": "These rows have no actual quantity entered:",
   "Các giá trị trên trang sẽ về mặc định. Bấm «Lưu» để áp dụng.": "The values on this page will be reset to default. Tap «Save» to apply.",
   "Các gói khách thấy khi tự đăng ký.": "Plans customers see when they sign up themselves.",
@@ -1578,6 +1613,7 @@
   "Các lựa chọn (mỗi dòng một lựa chọn)": "Options (one per line)",
   "Các máy cloud không còn trong danh sách máy của Agent sẽ bị xóa. ": "Cloud devices no longer in the Agent's device list will be deleted. ",
   "Các mục dưới đây dành cho kỹ thuật viên. Người dùng cửa hàng ": "The items below are for technicians. Store users ",
+  "Các mục trong bản tin": "Brief sections",
   "Các phiếu này sẽ không được in nữa (vẫn xem lại được ở «Tất cả 24h»).": "These slips will no longer be printed (still viewable in «All 24h»).",
   "Các phiếu này sẽ không được in nữa.": "These slips will no longer be printed.",
   "Các quy tắc hệ thống luôn áp dụng — giúp số liệu doanh thu, kho, công nợ và hóa đơn khớp nhau.": "Rules the system always applies — keeping revenue, stock, debts and invoices consistent.",
@@ -1669,6 +1705,7 @@
   "Có / không có hóa đơn": "With / without invoice",
   "Có AI hỗ trợ": "AI assisted",
   "Có dùng": "In use",
+  "Có gợi ý của AI. Cả ngày dùng chung một lần gọi AI — bản gửi theo giờ hẹn dùng lại gợi ý này.": "Includes AI tips. The whole day shares one AI call — the scheduled send reuses these tips.",
   "Có khoản chưa phân loại": "Has unclassified items",
   "Có khuôn mặt": "Has face",
   "Có khách gọi phục vụ": "Customer is calling for service",
@@ -1697,6 +1734,7 @@
   "Có thể cài số tiền gợi ý mặc định tự nhảy": "You can set a default suggested amount that fills in automatically",
   "Có thể duyệt nhanh": "Can be approved quickly",
   "Có thể duyệt thấp hơn số xin": "Can approve less than requested",
+  "Có thể mất đến 1–2 phút, đừng tắt màn hình.": "This may take 1–2 minutes, don't turn off the screen.",
   "Có thể việc đã bị xóa hoặc bạn không có quyền xem.": "The task may have been deleted or you may not have permission to view it.",
   "Có thể đổi bố cục, cỡ chữ, căn lề. Không đổi tên tham số và không xóa <!--BEGIN_ITEMS--> <!--END_ITEMS-->.": "You can change the layout, font size, alignment. Do not rename parameters and do not delete <!--BEGIN_ITEMS--> <!--END_ITEMS-->.",
   "Có topping": "Has toppings",
@@ -1716,6 +1754,7 @@
   "Công khai (đăng ký)": "Public (sign-up)",
   "Công khai đăng ký": "Public registration",
   "Công nợ hợp đồng": "Contract receivables/payables",
+  "Công nợ khách": "Customer debts",
   "Công nợ khách hàng": "Customer receivables/payables",
   "Công nợ nhà cung cấp": "Supplier debts",
   "Công nợ: thanh toán một phần, thu nợ sau tại khách hoặc báo cáo Công nợ": "Debt: partial payment, collect the rest later from the customer or in the Debts report",
@@ -1754,6 +1793,7 @@
   "CẢM ƠN QUÝ KHÁCH": "THANK YOU",
   "CẢM ƠN QUÝ KHÁCH!": "THANK YOU!",
   "CẢM ƠN!": "THANKS!",
+  "Cả cửa hàng": "Whole store",
   "Cả khách hàng": "All customers",
   "Cả ngày": "All day",
   "Cả trang": "Whole page",
@@ -1870,6 +1910,8 @@
   "Cộng thêm ngày phép theo số năm làm việc": "Add leave days by years of service",
   "Cộng thêm vào giá khi bán": "Add to price when selling",
   "Cộng thêm vào phiếu trễ / về sớm từ lần vi phạm thứ N trong tháng (gộp cả trễ và về sớm)": "Add to the late / early-leave ticket from the Nth violation in the month (late and early combined)",
+  "Cộng tiền hàng": "Goods subtotal",
+  "Cộng tồn kho và ghi công nợ NCC ngay khi tạo phiếu": "Add to stock and record supplier payables as soon as the receipt is created",
   "Cộng vào hạn hiện tại (hoặc từ hôm nay nếu đã hết hạn)": "Add to the current expiry (or from today if already expired)",
   "Cộng vào lương": "Add to salary",
   "Cộng vào lương (khoản Thưởng) khi việc được duyệt hoàn thành": "Added to salary (as Bonus) when the task is approved as completed",
@@ -2014,6 +2056,7 @@
   "Dòng hàng (dòng bảng được lặp theo số mặt hàng)": "Product row (table row repeats per number of items)",
   "Dòng hàng (lặp)": "Item row (repeating)",
   "Dòng máy": "Device model",
+  "Dòng thêm tay": "Manually added line",
   "Dòng thời gian": "Timeline",
   "Dòng tiền sổ quỹ theo ngày": "Cash book cash flow by day",
   "Dòng trống": "Blank line",
@@ -2129,12 +2172,14 @@
   "Excel: xuất/nhập tên, mã, nhóm, giá, thuế, ngành. Ảnh upload riêng.": "Excel: export/import name, code, category, price, tax, industry. Images are uploaded separately.",
   "F&B: sau khi order, gửi bếp để in phiếu / hiện KDS. Phiếu bếp in giờ gọi một lần ở đầu phiếu.": "F&B: after ordering, send to the kitchen to print the ticket / show on KDS. The kitchen ticket prints the order time once at the top.",
   "F7 = lấy lại khối lượng cho dòng vừa chọn.": "F7 = re-read the weight for the line just selected.",
+  "File Excel lộn xộn (tự làm, xuất từ phần mềm khác) → AI đọc ra món. ": "Messy Excel file (hand-made or exported from other software) → AI reads out the items. ",
   "File Word cũ (.doc)": "Old Word file (.doc)",
   "File hóa đơn lỗi": "Invoice file error",
   "File máy này": "This device's file",
   "File mẫu": "Sample file",
   "File trên server (/downloads)": "File on server (/downloads)",
   "File vân tay đã trên server.\nCó thể Copy sang máy khác.": "The fingerprint file is on the server.\nIt can be copied to another device.",
+  "File đã có cột rõ ràng / rất nhiều dòng: dùng «Nhập Excel» thường.": "File already has clear columns / very many rows: use the regular «Import Excel».",
   "Form gọn: giá, topping, ghi chú bán nhanh": "Compact form: price, topping, quick sale notes",
   "GHI CHÚ": "NOTES",
   "GHN, GHTK, SPX, Viettel Post, AhaMove — kết nối, tạo vận đơn": "GHN, GHTK, SPX, Viettel Post, AhaMove — connect, create waybills",
@@ -2228,6 +2273,7 @@
   "Giá bán được thiết lập cho từng block?": "Is the selling price set per block?",
   "Giá bán ở trên là đơn giá / m². Giá 1 bộ = diện tích × đơn giá, không thấp hơn giá tối thiểu.": "The selling price above is a unit price / m². Price per set = area × unit price, not lower than the minimum price.",
   "Giá cả combo": "Combo price",
+  "Giá dưới 1.000đ — có thiếu «k» / «nghìn» không?": "Price under 1,000đ — missing «k» / «thousand»?",
   "Giá gần nhất": "Latest price",
   "Giá lần trước": "Last price",
   "Giá nổi bật": "Featured price",
@@ -2263,6 +2309,7 @@
   "Giá tính theo": "Price calculated by",
   "Giá tối thiểu mỗi bộ": "Minimum price per set",
   "Giá vốn (không có quyền xem)": "Cost price (no permission to view)",
+  "Giá vốn = đơn giá nhập, giá bán đặt sau trong Hàng hóa": "Cost = purchase unit price; set the selling price later in Products",
   "Giá vốn cao hơn giá bán thêm — tăng giá topping hoặc giảm định lượng.": "Cost is higher than the add-on price — raise the topping price or reduce the amount.",
   "Giá vốn gợi ý": "Suggested cost price",
   "Giá vốn tính bình quân gia quyền mỗi lần nhập. Hủy phiếu nhập: trừ lại tồn và trả giá vốn về như trước (cần còn đủ tồn để trừ)": "Cost is a weighted average on each receipt. Cancelling a receipt: deducts the stock again and restores the previous cost (enough stock must remain to deduct)",
@@ -2326,6 +2373,8 @@
   "Giờ di chuyển": "Travel hours",
   "Giờ di chuyển theo ngày": "Travel hours by day",
   "Giờ gợi ý theo ca (bấm để chọn):": "Suggested times by shift (tap to select):",
+  "Giờ gửi (giờ Việt Nam)": "Send time (Vietnam time)",
+  "Giờ gửi bản tin (giờ Việt Nam)": "Brief send time (Vietnam time)",
   "Giờ hẹn chưa hợp lệ": "Invalid appointment time",
   "Giờ in": "Print time",
   "Giờ không hợp lệ — nhập dạng 08:05": "Invalid time — enter in the format 08:05",
@@ -2408,6 +2457,7 @@
   "Gói dịch vụ chưa bật đẩy thông báo lên điện thoại — nhân viên sẽ thấy trong app.": "The service plan does not have phone push notifications enabled — staff will see them in the app.",
   "Gói dịch vụ chưa bật đẩy thông báo — chỉ hiện trong app": "The service plan has push notifications off — shown only in the app",
   "Gói dịch vụ của cửa hàng chưa bật thông báo đẩy — thông báo vẫn hiện trong app.": "The store's service plan has push notifications off — notifications still appear in the app.",
+  "Gói dịch vụ của cửa hàng chưa có «Trợ lý AI» — bản tin sẽ không được gửi.": "The store's plan doesn't include «AI Assistant» — the brief won't be sent.",
   "Gói giờ đếm ngược": "Countdown hours package",
   "Gói giờ đếm ngược (vd gói 1 giờ): dịch vụ nhập «Thời lượng gói (phút)», «Báo trước khi hết» và «Dịch vụ tính quá giờ». Trên hóa đơn bấm ▶ Bắt đầu → đếm ngược; sắp hết máy báo, hết giờ báo và tự thêm dòng quá giờ": "Countdown-hours pack (e.g. 1-hour pack): enter «Pack duration (min)», «Warn before end» and «Overtime service» on the service. On the bill tap ▶ Start → countdown; the device alerts near the end and at time-up, and auto-adds an overtime line",
   "Gói gán tay": "Manually assigned plan",
@@ -2431,6 +2481,7 @@
   "Góp ý chung": "General feedback",
   "Gõ RESET (chữ in hoa) để xác nhận xóa toàn bộ dữ liệu ": "Type RESET (uppercase) to confirm deleting all data ",
   "Gõ tên hoặc mã": "Type name or code",
+  "Gõ ít nhất 2 ký tự để tìm hàng": "Type at least 2 characters to search items",
   "Gạch dưới": "Underline",
   "Gập bụng 3×20": "Crunches 3×20",
   "Gắn / đổi ngân hàng với Tingee": "Link / change bank with Tingee",
@@ -2489,6 +2540,7 @@
   "Gửi Zalo": "Send via Zalo",
   "Gửi bản nháp cho khách kiểm tra": "Send draft to customer to check",
   "Gửi bản nháp cho khách kiểm tra tên / MST / địa chỉ TRƯỚC khi phát hành (Viettel, Easy, MISA) — bản nháp chưa có giá trị pháp lý": "Send a draft to the customer to check name / tax code / address BEFORE issuing (Viettel, Easy, MISA) — a draft has no legal validity",
+  "Gửi bản tin mỗi sáng": "Send a brief every morning",
   "Gửi bếp": "Send to kitchen",
   "Gửi bếp & phiếu chế biến": "Send to kitchen & prep ticket",
   "Gửi bếp: sau khi gọi món bấm Gửi bếp / In bếp; gọi thêm chỉ gửi phần mới. Bếp xem trên Màn hình bếp (KDS): đang làm / sẵn sàng / xong": "Send to kitchen: after ordering tap Send to kitchen / Print to kitchen; extra orders send only the new part. The kitchen watches the Kitchen display (KDS): in progress / ready / done",
@@ -2582,6 +2634,7 @@
   "Hoàn thành giáo án": "Complete lesson plan",
   "Hoàn thành hủy": "Cancellation completed",
   "Hoàn thành kiểm kho": "Complete stock count",
+  "Hoàn thành luôn": "Complete now",
   "Hoàn thành theo phòng ban": "Completion by department",
   "Hoàn thành trung bình": "Average completion",
   "Hoàn thành xuất sắc": "Completed excellently",
@@ -2629,11 +2682,14 @@
   "Hàng không còn trong danh mục": "Item no longer in catalog",
   "Hàng không quản lý tồn (dịch vụ…)": "Non-stock goods (services, etc.)",
   "Hàng mua kèm": "Add-on goods",
+  "Hàng mẫu theo ngành để cửa hàng mới chọn nhanh": "Sample products by industry so new stores can pick quickly",
   "Hàng ngày": "Daily",
+  "Hàng nào cần nhập tuần này? Lập sẵn phiếu nhập": "Which items need restocking this week? Prepare a purchase receipt",
   "Hàng nào tồn lâu không bán được?": "Which goods have sat in stock without selling?",
   "Hàng phải mua": "Required goods",
   "Hàng seri chỉ bán số nguyên": "Serial items can only be sold in whole numbers",
   "Hàng seri không nhập theo kích thước.": "Serial items are not received by size.",
+  "Hàng sắp hết": "Low stock",
   "Hàng sắp hết hạn": "Goods about to expire",
   "Hàng sắp hết tại chi nhánh": "Low-stock goods at branch",
   "Hàng sẽ được nhập lại kho và đơn bán bị hủy (trừ doanh thu, công nợ, điểm).": "Goods will be returned to stock and the sales order canceled (revenue, receivables and points deducted).",
@@ -2641,6 +2697,7 @@
   "Hàng tháng": "Monthly",
   "Hàng tươi bán theo kg / gram / lạng: khối lượng, đơn giá, thành tiền, mã cân, HSD": "Fresh goods sold by kg / gram / tael: weight, unit price, amount, scale code, expiry date",
   "Hàng tặng (trống = tặng cùng loại)": "Free gift item (blank = same item)",
+  "Hàng «": "Item «",
   "Hàng «Theo dõi lô / HSD»: bán / xuất lô hết hạn sớm nhất trước (FEFO)": "\"Batch / expiry tracking\" goods: sell / issue the earliest-expiring batch first (FEFO)",
   "Hàng «Định mức theo ca»: người có mặt (đã trừ nghỉ phép) / tối thiểu–tối đa; đỏ = thiếu, bấm để kêu gọi bổ sung": "\"Shift quota\" row: people present (leave excluded) / min–max; red = short, tap to call for more staff",
   "Hàng đã bán": "Goods sold",
@@ -2673,6 +2730,7 @@
   "Hóa đơn chốt ngày khác": "Bills closed on another day",
   "Hóa đơn có KM": "Invoices with promotion",
   "Hóa đơn dùng voucher": "Invoices using vouchers",
+  "Hóa đơn ghi": "Invoice says",
   "Hóa đơn gốc": "Original invoice",
   "Hóa đơn khách đang hiện trên màn hình thứ 2": "Customer bill currently shown on the 2nd screen",
   "Hóa đơn khởi tạo từ máy tính tiền (không ký)": "Invoice created from the cash register (unsigned)",
@@ -2791,6 +2849,7 @@
   "Họp lớp": "Class reunion",
   "Hỏi & phân tích doanh thu, lợi nhuận, tồn kho, nhân sự": "Ask & analyze revenue, profit, stock, HR",
   "Hỏi hoặc ra lệnh (VD: \"Phạt An 50k đi trễ\")": "Ask or give a command (e.g. \"Fine An 50k for being late\")",
+  "Hỏi số liệu, lập / duyệt / sửa phiếu theo quyền của bạn": "Ask for figures, create / approve / edit documents within your permissions",
   "Hỏi thu ngân lúc thanh toán": "Ask the cashier at payment",
   "Hỏng / bảo trì": "Broken / maintenance",
   "Hỏng, sắp hết bảo hành, bảo trì, nằm kho lâu": "Broken, warranty expiring, maintenance, long in storage",
@@ -2960,6 +3019,7 @@
   "Khai báo: giá mỗi giờ (hoặc block), Phí mở phòng + số phút đã gồm, block làm tròn (vd 15 phút), phút tối thiểu, ân hạn": "Set: price per hour (or block), room opening fee + minutes included, rounding block (e.g. 15 min), minimum minutes, grace",
   "Khe giữa tem (mm)": "Label gap (mm)",
   "Khi bán combo / dịch vụ: chọn NV làm từng phần (cắt, gội, massage, SP bán kèm) để tính hoa hồng": "When selling a combo / service: pick the staff for each part (cut, shampoo, massage, add-on products) to calculate commission",
+  "Khi bạn nói bằng micro, đoạn ghi âm giọng nói cũng được gửi để chép thành chữ (không lưu lại sau khi chép).\n\n": "When you speak into the microphone, the voice recording is also sent to be transcribed into text (not kept after transcription).\n\n",
   "Khi bật in xuất kho, app sẽ báo lỗi thay vì in nhầm máy báo bếp.\n": "When stock-out printing is on, the app shows an error instead of printing to the kitchen printer by mistake.\n",
   "Khi bật nhiều phương thức": "When multiple methods are enabled",
   "Khi bật, hóa đơn đang mở ở máy này sẽ báo «đang được mở» trên máy khác.": "When on, an invoice open on this device shows \"already open\" on other devices.",
@@ -3098,6 +3158,7 @@
   "Không bảo hành": "No warranty",
   "Không bắt buộc. Liên kết để nhân viên xem công, lương, gửi đơn của mình.": "Optional. Link so the employee can view their own attendance and pay, and submit requests.",
   "Không bắt buộc. Để trống = không trừ NVL khi bán.": "Optional. Leave blank to not deduct raw materials when selling.",
+  "Không bỏ được mẫu": "Couldn't discard the template",
   "Không bỏ được nội dung riêng": "Can't remove the custom content",
   "Không ca": "No shift",
   "Không check-in được": "Cannot check in",
@@ -3180,6 +3241,7 @@
   "Không có máy in cũ": "No old printers",
   "Không có máy nguồn": "No source device",
   "Không có món khớp bộ lọc": "No items match the filter",
+  "Không có món nào cần kiểm tra.": "No items need checking.",
   "Không có món phù hợp": "No matching items",
   "Không có món trong nhóm này": "No items in this group",
   "Không có món trễ": "No overdue items",
@@ -3249,6 +3311,8 @@
   "Không giới hạn hạn mức ứng cho kỳ này": "No advance limit for this period",
   "Không gán được hồ sơ lương cho nhân viên.": "Cannot assign a payroll profile to the employee.",
   "Không gán được mã PLU": "Unable to assign PLU code",
+  "Không gắn NCC": "No supplier",
+  "Không gắn NCC (phiếu không ghi công nợ NCC)": "No supplier (receipt not recorded in supplier payables)",
   "Không gắn khách thì đơn vẫn bán được — nhưng không tích điểm / không lên công nợ.": "Orders can still be sold without a customer — but no points are earned and no receivable is recorded.",
   "Không gọi Zalo được vì chưa có số điện thoại": "Cannot call via Zalo because there is no phone number",
   "Không gọi được": "Cannot call",
@@ -3377,6 +3441,7 @@
   "Không tìm thấy báo cáo": "Report not found",
   "Không tìm thấy báo giá": "Quotation not found",
   "Không tìm thấy chức năng phù hợp": "No matching feature found",
+  "Không tìm thấy hàng": "Item not found",
   "Không tìm thấy hàng hóa / dịch vụ": "Product / service not found",
   "Không tìm thấy hàng.": "Product not found.",
   "Không tìm thấy hội viên": "Member not found",
@@ -3405,6 +3470,7 @@
   "Không tạo được khách": "Cannot create the customer",
   "Không tạo được mã cân": "Cannot generate the scale code",
   "Không tạo được mẫu Word": "Unable to create the Word template",
+  "Không tạo được phiếu nhập": "Couldn't create the purchase receipt",
   "Không tạo được tài khoản.": "Cannot create the account.",
   "Không tạo được vận đơn": "Cannot create the waybill",
   "Không tạo được đơn": "Cannot create the order",
@@ -3465,6 +3531,7 @@
   "Không tải được số liệu căn tin": "Cannot load canteen data",
   "Không tải được sổ seri": "Cannot load the serial ledger",
   "Không tải được sổ đối chiếu": "Cannot load the reconciliation ledger",
+  "Không tải được thiết lập bản tin": "Couldn't load brief settings",
   "Không tải được thiết lập thông báo": "Cannot load notification settings",
   "Không tải được thông tin PT": "Unable to load PT info",
   "Không tải được thẻ / gói": "Unable to load card / package",
@@ -3479,6 +3546,7 @@
   "Không tải được đối soát": "Cannot load reconciliation",
   "Không upload video lên server SBOX (nặng máy chủ). ": "Videos are not uploaded to the SBOX server (heavy on the server). ",
   "Không vào được WiFi — kiểm tra tên / mật khẩu, WiFi phải là 2.4 GHz": "Cannot join WiFi — check the name / password; the WiFi must be 2.4 GHz",
+  "Không xem thử được": "Couldn't preview",
   "Không xem trước được": "Unable to preview",
   "Không xem trước được.": "Cannot preview.",
   "Không xem được báo cáo": "Cannot view the report",
@@ -3513,7 +3581,9 @@
   "Không đọc được file (thử lại trên web/desktop)": "Cannot read the file (try again on web/desktop)",
   "Không đọc được file ảnh": "Cannot read the image file",
   "Không đọc được file ảnh — thử chọn lại": "Cannot read the image file — try selecting again",
+  "Không đọc được hóa đơn": "Couldn't read the invoice",
   "Không đọc được menu": "Unable to read menu",
+  "Không đọc được ảnh": "Couldn't read the image",
   "Không đọc được ảnh (dùng PNG / JPG)": "Unable to read image (use PNG / JPG)",
   "Không đồng phục": "No uniform",
   "Không đổi được trạng thái": "Cannot change status",
@@ -3540,6 +3610,7 @@
   "Khổ giấy khác mẫu": "Paper size differs from the template",
   "Khổ tem tùy chỉnh": "Custom label size",
   "Khổ tùy chỉnh… (nhập rộng × cao mm)": "Custom size… (enter width × height in mm)",
+  "Khớp gần đúng": "Approximate match",
   "Khớp hồ sơ": "Profile match",
   "Khớp khuôn mặt": "Face match",
   "Khớp két": "Cash drawer matches",
@@ -3556,6 +3627,7 @@
   "Kiểm kho: tạo phiếu → thêm hàng → NHẬP SỐ ĐẾM NGAY KHI ĐẾM (hệ thống chốt tồn sổ lúc nhập) → Hoàn thành để cân bằng": "Stock count: create a sheet → add goods → ENTER THE COUNT AS YOU COUNT (the system locks book stock at entry) → Complete to balance",
   "Kiểm kê tài sản": "Asset inventory check",
   "Kiểm lại": "Recheck",
+  "Kiểm lại rồi bấm «Nhập hàng vào kho».": "Review, then tap «Receive into stock».",
   "Kiểm soát": "Control",
   "Kiểm toàn bộ hàng quản lý theo seri. Mỗi mã quét được đối chiếu với seri hoặc mã thẻ gắn trong sổ.": "Check all serial-managed items. Each scanned code is matched against the serial or card code in the ledger.",
   "Kiểm tra": "Check",
@@ -3567,6 +3639,7 @@
   "Kiểm tra lại trước khi tạo: loại hàng, đơn vị, giá. Size ghi dạng «M 30.000; L 38k». ": "Double-check before creating: item type, unit, price. Write sizes as \"M 30.000; L 38k\". ",
   "Kiểm tra máy in — thử in lại": "Check the printer — try printing again",
   "Kiểm tra mạng ngay": "Check network now",
+  "Kiểm tra trước khi tạo phiếu": "Check before creating the receipt",
   "Kiểm tra: điện thoại đã về WiFi nhà chưa, mật khẩu WiFi có ": "Check: is the phone back on home WiFi, is the WiFi password ",
   "Kiểu chữ": "Font style",
   "Kiểu tính công": "Work-day calculation type",
@@ -3756,6 +3829,7 @@
   "Lưng": "Back",
   "Lưng – tay": "Back – arms",
   "Lưu & chọn": "Save & select",
+  "Lưu & dùng mẫu": "Save & use template",
   "Lưu & in phiếu": "Save & print voucher",
   "Lưu & nối cân": "Save & connect scale",
   "Lưu 30 ngày": "Keep 30 days",
@@ -3765,6 +3839,7 @@
   "Lưu VietQR": "Save VietQR",
   "Lưu bài": "Save post",
   "Lưu báo giá": "Save quote",
+  "Lưu bản tin": "Save brief",
   "Lưu ca": "Save shift",
   "Lưu ca trước, sau đó mở lại ca để thêm mức lương ca (lương cố định, theo giờ hoặc nhân hệ số).": "Save the shift first, then reopen it to add the shift pay (fixed, hourly or multiplier).",
   "Lưu chính sách": "Save policy",
@@ -3783,8 +3858,10 @@
   "Lưu vào bộ đèn": "Save to light set",
   "Lưu · giống phiếu trước": "Save · same as previous voucher",
   "Lưu ý khi giới hạn thấp hơn mức đang dùng": "Notes when the limit is set lower than current usage",
+  "Lưu ý khi đọc": "Reading notes",
   "Lưu ý sau khi tạo": "Notes after creation",
   "Lưu ý: viettelpost.vn/cau-hinh-tai-khoan chỉ lấy token 32 ký tự — không phải trang webhook.": "Note: viettelpost.vn/cau-hinh-tai-khoan only provides the 32-character token — it is not the webhook page.",
+  "Lưu để bắt đầu dùng, hoặc bỏ mẫu này.": "Save it to start using it, or discard this template.",
   "Lưu định lượng NVL thất bại": "Failed to save ingredient recipe",
   "Lưu → «Kiểm tra kết nối» (chỉ xác thực, không tạo hóa đơn)": "Save → \"Test connection\" (authentication only, no invoice is created)",
   "Lưu*": "Save*",
@@ -3896,6 +3973,7 @@
   "Lịch làm việc đã duyệt": "Approved work schedule",
   "Lịch lặp và người nhận": "Recurrence and recipients",
   "Lịch này đặt lặp hàng tuần.": "This schedule repeats weekly.",
+  "Lịch sử 14 ngày gần nhất": "Last 14 days",
   "Lịch sử chăm sóc": "Care history",
   "Lịch sử chấm": "Punch history",
   "Lịch sử key & gia hạn": "Key & renewal history",
@@ -4015,6 +4093,7 @@
   "Máy chưa có giọng tiếng Việt. Cài Google Text-to-Speech + gói tiếng Việt offline.": "This device has no Vietnamese voice. Install Google Text-to-Speech and the offline Vietnamese pack.",
   "Máy chưa gửi dữ liệu mới (có thể danh sách đã khớp, hoặc máy đang ngoại tuyến). Bấm Tải lại sau ít phút.": "The device hasn't sent new data (the list may already match, or the device is offline). Tap Reload after a few minutes.",
   "Máy chưa được cấp số hóa đơn offline — cần có mạng ít nhất 1 lần sau khi bật bán offline": "This device has not been issued offline invoice numbers — it needs a network connection at least once after turning on offline selling",
+  "Máy chấm công ZKTeco: trạng thái online, cửa hàng đang gán": "ZKTeco time clocks: online status and assigned store",
   "Máy chấm công dùng chung: lượt chấm của hội viên không vào bảng công nhân viên": "Shared attendance device: member punches are not included in the employee attendance summary",
   "Máy chấm công sẽ bị XÓA SẠCH:\n": "The attendance device will be WIPED:\n",
   "Máy chấm công đặt tại căn tin: mỗi lượt chấm in 1 phiếu ăn, tự đếm số người ăn và tính tiền ăn để thu.": "Attendance device placed in the canteen: each punch prints one meal ticket, automatically counts diners and calculates meal charges.",
@@ -4055,6 +4134,7 @@
   "Máy in kim (TM-U220…)": "Dot-matrix printer (TM-U220…)",
   "Máy in laser A4": "A4 laser printer",
   "Máy in lỗi": "Label printer (Bluetooth / LAN / USB)",
+  "Máy in nhiệt và máy bán hàng (Android) vẫn in theo mẫu thường.": "Thermal printers and POS devices (Android) still print with the regular template.",
   "Máy in phiếu ăn": "Meal ticket printer",
   "Máy in tem (Bluetooth / LAN / USB)": "Label printer (Bluetooth / LAN / USB)",
   "Máy in thiết bị": "Device printer",
@@ -4195,6 +4275,7 @@
   "Mất cọc (thu nhập)": "Forfeited deposit (income)",
   "Mất kết nối cân": "Scale disconnected",
   "Mất kết nối cân (rút cáp?)": "Scale disconnected (cable unplugged?)",
+  "Mất kết nối khi trợ lý đang trả lời — bấm Gửi lại.": "Connection lost while the assistant was replying — tap Resend.",
   "Mất kết nối máy": "Device disconnected",
   "Mất kết nối máy chủ": "Server disconnected",
   "Mất kết nối máy chủ — chưa thanh toán được": "Server disconnected — can't take payment yet",
@@ -4214,6 +4295,8 @@
   "Mẫu 3 đợt": "3-installment template",
   "Mẫu A4 đang dùng đã cập nhật": "The A4 template in use has been updated",
   "Mẫu Word": "Word template",
+  "Mẫu Word chưa được dùng": "Word template not in use yet",
+  "Mẫu Word hóa đơn chỉ dùng khi in từ trình duyệt (web) mà không có máy in hóa đơn / Print Agent. ": "The Word invoice template is only used when printing from the browser (web) without a receipt printer / Print Agent. ",
   "Mẫu Word: Cài đặt → Mẫu in → «Tải file Word của bạn» (.docx; file PDF hãy mở bằng Word rồi Lưu thành .docx). Hệ thống giữ nguyên bố cục gốc và AI tự gợi ý chỗ gắn trường dữ liệu (tên khách, SĐT, ngày, tổng tiền, bảng hàng…)": "Word template: Settings → Print templates → «Upload your Word file» (.docx; open a PDF in Word and Save as .docx). The system keeps the original layout and AI suggests where to insert data fields (customer name, phone, date, total, item table…)",
   "Mẫu báo giá A4": "A4 quotation template",
   "Mẫu chung — chọn là cả cửa hàng in giống nhau": "Shared template — chosen once, the whole store prints the same",
@@ -4234,6 +4317,7 @@
   "Mẫu mặc định cửa hàng": "Store default template",
   "Mẫu một màn danh sách chuẩn: tiêu đề, số liệu, bộ lọc, bảng, phân trang": "Standard list screen template: title, figures, filters, table, pagination",
   "Mẫu nhanh": "Quick template",
+  "Mẫu nháp — chưa dùng để in. Kiểm tra các chỗ gắn trường rồi bấm «Lưu & dùng mẫu».": "Draft template — not used for printing yet. Check the mapped fields, then tap «Save & use template».",
   "Mẫu này đang ở dạng HTML thuần": "This template is plain HTML",
   "Mẫu phân quyền": "Permission template",
   "Mẫu phân quyền dựng sẵn": "Prebuilt permission templates",
@@ -4250,6 +4334,7 @@
   "Mẫu việc mới": "New task template",
   "Mẫu việc theo ngành": "Task templates by industry",
   "Mẫu việc, biểu mẫu và việc định kỳ": "Task templates, forms and recurring tasks",
+  "Mẫu vừa tải lên đang ở dạng nháp, chưa dùng để in báo giá / hóa đơn. ": "The template you just uploaded is a draft and isn't used for printing quotes / invoices yet. ",
   "Mẫu đang dùng của cửa hàng vẫn theo bố cục cũ.": "The template in use at the store keeps the old layout.",
   "Mẫu đang dùng sẽ theo bố cục chuẩn mới nhất (giữ khổ giấy và lề). ": "The template in use will switch to the latest standard layout (paper size and margins kept). ",
   "Mẫu đang dùng đã cập nhật — máy bán hàng in theo bản mới": "The template in use has been updated — sales devices print with the new version",
@@ -4305,6 +4390,7 @@
   "Mọi người bấm «Tôi đã đọc và cam kết»; bạn xem được ai chưa đọc": "Everyone taps \"I have read and commit\"; you can see who hasn't read it",
   "Mọi người có quyền đăng bài": "Everyone can post",
   "Mọi người phải đọc và xác nhận lại": "Everyone must read and confirm again",
+  "Mọi người xem được báo cáo bán hàng": "People who can view sales reports",
   "Mọi người được đăng": "Everyone can post",
   "Mọi nhân viên": "All employees",
   "Mọi nhân viên đang làm việc đều nhận được bài": "All active employees receive the post",
@@ -4344,8 +4430,10 @@
   "Mỗi mạch ESP chỉ nên gắn một máy chấm công (một IP máy / một SN). ": "Attach only one attendance device per ESP board (one device IP / one SN). ",
   "Mỗi mặt hàng cộng thuế suất riêng đã khai báo ở hàng hóa.": "Each item adds the tax rate declared on the product.",
   "Mỗi ngày nghỉ chỉ một chế độ — không vừa lương DN vừa trợ cấp BHXH.\n": "Each day off follows only one scheme — not both company pay and social-insurance allowance.\\n\n",
+  "Mỗi người chỉ thấy mục mình có quyền xem; đơn chờ duyệt và chấm công lọc theo phạm vi quản lý": "Each person only sees sections they may view; pending requests and attendance are filtered by management scope",
   "Mỗi người nhận một việc riêng — tự tick checklist, cập nhật tiến độ của mình.": "Each assignee gets their own task — they tick the checklist and update their own progress.",
   "Mỗi người phụ thuộc": "Per dependant",
+  "Mỗi sáng gửi chủ / quản lý doanh thu hôm qua, hàng sắp hết, đơn chờ duyệt, ai đi trễ / vắng, ": "Every morning, send the owner / managers yesterday's revenue, low stock, pending requests, who was late / absent, ",
   "Mỗi thanh là một dải số cấp cho một máy. Xanh = đã dùng và đã về; đỏ = nhảy cóc; xám = chưa dùng.": "Each bar is a range of numbers issued to one device. Green = used and returned; red = skipped; grey = unused.",
   "Mỗi tài khoản dùng 1 điện thoại. Quản lý duyệt xong là bạn chấm công được ngay trên máy này.": "Each account uses one phone. Once a manager approves, you can clock in on this device right away.",
   "Mỗi tài khoản thu ngân mở ca riêng. Thanh toán bắt buộc có ca mở; ": "Each cashier account opens its own shift. Payment requires an open shift; ",
@@ -4369,16 +4457,19 @@
   "Mới về": "New arrivals",
   "Mới về chưa bán": "Arrived, not yet sold",
   "Mời chấm vân tay / khuôn mặt tại máy căn tin": "Please scan your fingerprint / face at the canteen device",
+  "Mở Cài đặt của máy → cấp quyền Micro cho ứng dụng.": "Open the device Settings → grant Microphone permission to the app.",
   "Mở Google Maps": "Open Google Maps",
   "Mở Máy in cloud → bật Agent và chip máy hóa đơn (Sunmi), không gán Hóa đơn cho máy bếp.": "Open Cloud printers → turn on the Agent and the receipt printer chip (Sunmi); do not assign Invoice to the kitchen device.",
   "Mở SDK chọn ngân hàng": "Open bank selection SDK",
   "Mở SDK ngân hàng": "Open bank SDK",
   "Mở app ngân hàng để duyệt (deep link hết hạn ~5 phút)": "Open the bank app to approve (deep link expires in ~5 minutes)",
   "Mở bàn: chạm bàn trống → nhập Số khách (nếu bật hỏi số khách) → Vào chọn món / dịch vụ": "Open a table: tap an empty table → enter Guests (if guest count is asked) → Enter to pick dishes / services",
+  "Mở báo cáo": "Open report",
   "Mở bảo lưu": "Release hold",
   "Mở chốt giờ": "Open time closing",
   "Mở cổng SPX (Hồ sơ Shop)": "Open the SPX portal (Shop profile)",
   "Mở cửa tay": "Open door manually",
+  "Mở file bằng Excel, chọn Lưu thành (Save As) dạng .xlsx rồi chọn lại.": "Open the file in Excel, choose Save As .xlsx, then pick it again.",
   "Mở file bằng Word → Lưu thành (.docx) rồi tải lên để giữ nguyên bố cục.": "Open the file in Word → save as (.docx), then upload it to keep the layout intact.",
   "Mở gần đây": "Recently opened",
   "Mở hóa đơn gốc": "Open original bill",
@@ -4534,6 +4625,7 @@
   "Ngày dùng": "Date used",
   "Ngày giao": "Delivery date",
   "Ngày giờ in": "Print date & time",
+  "Ngày hóa đơn": "Invoice date",
   "Ngày in": "Print date",
   "Ngày không hợp lệ": "Invalid date",
   "Ngày ký HĐ": "Contract signing date",
@@ -4735,6 +4827,7 @@
   "Nhập họ hoặc tên": "Enter last or first name",
   "Nhập họ tên khách": "Enter the customer's full name",
   "Nhập họ và tên.": "Enter the full name.",
+  "Nhập kho luôn": "Receive into stock now",
   "Nhập khóa AI trước khi bật trợ lý": "Enter the AI key before turning on the assistant",
   "Nhập lý do": "Enter a reason",
   "Nhập lý do (ít nhất 3 ký tự)": "Enter a reason (at least 3 characters)",
@@ -4814,6 +4907,7 @@
   "Nhập − trả NCC": "Purchases − returns to supplier",
   "Nhật Bản": "Japan",
   "Nhật ký kho Sbox": "Sbox stock log",
+  "Nhật ký thao tác AI": "AI action log",
   "Nhật ký token": "Token log",
   "Nhắc NV chưa đăng ký lịch": "Remind employees who haven't registered their schedule",
   "Nhắc gia hạn: tab «Hội viên trên máy» → «Cần nhắc gia hạn» → gọi / Zalo kèm tin nhắn soạn sẵn": "Renewal reminder: tab «Members on device» → «Need renewal reminder» → call / Zalo with a ready-made message",
@@ -4850,6 +4944,7 @@
   "Nạp mẫu cho vai trò này": "Load a template for this role",
   "Nạp vào bảng quyền": "Load into permission table",
   "Nạp vào kho": "Add to stock",
+  "Nếu AI báo lỗi, chuyển ảnh sang JPG rồi thử lại.": "If AI reports an error, convert the image to JPG and try again.",
   "Nếu chưa đếm, quay lại nhập SL.": "If you haven't counted yet, go back and enter the quantity.",
   "Nếu gói có POS: sang tab POS — ngành hàng → hàng hóa → máy in → bán thử → xem Báo cáo POS": "If your plan includes POS: go to the POS tab — business type → goods → printer → trial sale → see POS Reports",
   "Nếu điền, SPX phải gọi URL có ?hash= khớp chuỗi này": "If filled in, SPX must call a URL whose ?hash= matches this string",
@@ -5031,6 +5126,7 @@
   "Phạt An 50k vì đi trễ hôm nay": "Fine An 50k for being late today",
   "Phạt theo lý do": "Penalty by reason",
   "Phạt thủ công": "Manual penalty",
+  "Phạt tất cả ai đi trễ hôm nay theo nội quy": "Fine everyone who was late today per the rules",
   "Phạt tự động": "Automatic penalty",
   "Phải thu (gồm VAT, phí)": "Receivable (incl. VAT, fees)",
   "Phải thu / trả": "Receivable / payable",
@@ -5141,6 +5237,7 @@
   "Quên quét ra": "Forgot to scan out",
   "Quý khách": "Dear customer",
   "Quý khách vui lòng kiểm tra tên, MST, địa chỉ và phản hồi nếu cần sửa.": "Please check the name, tax code and address, and reply if anything needs to be corrected.",
+  "Quản lý / Giám đốc / Trưởng phòng": "Manager / Director / Department head",
   "Quản lý HĐĐT: xem, gửi, thay thế, hủy, đồng bộ": "E-invoice management: view, send, replace, cancel, sync",
   "Quản lý Phòng ban": "Department Management",
   "Quản lý buổi ăn: đặt giờ Sáng / Trưa / Tối và giá suất; chấm sớm / trễ tối đa 30 phút vẫn nhận, ngoài khung giờ không tính": "Meal management: set Breakfast / Lunch / Dinner times and meal price; punching up to 30 minutes early or late still counts, outside the window does not",
@@ -5365,6 +5462,7 @@
   "Số khách còn nợ (đúng)": "Amount customers still owe (accurate)",
   "Số kênh relay": "Number of relay channels",
   "Số liệu 28 · 700": "Numbers 28 · 700",
+  "Số liệu là của ngày hôm trước. Máy chủ khởi động lại muộn vẫn gửi bù trong 6 tiếng sau giờ hẹn": "Figures are for the previous day. If the server restarts late, it still catches up within 6 hours after the scheduled time",
   "Số liệu lệch: kiểm tra kiểu chấm công + lịch ca + ân hạn trước khi sửa tay. Báo cáo bán hàng nằm ở tab POS.": "Numbers off: check the punch mode + schedule + grace period before editing by hand. Sales reports are in the POS tab.",
   "Số ly (phần món) khách có thêm ít nhất 1 topping ÷ tổng số ly của các món cho chọn topping.": "Cups where the customer added at least 1 topping ÷ total cups of items that allow toppings.",
   "Số lượng (tồn combo)": "Quantity (combo stock)",
@@ -5862,6 +5960,7 @@
   "Thêm từ catalog mẫu": "Add from sample catalog",
   "Thêm từ menu / catalog mẫu": "Add from menu / sample catalog",
   "Thêm việc vào cột này": "Add a task to this column",
+  "Thêm vào cuối danh sách.": "Added to the end of the list.",
   "Thêm vào danh sách (bỏ chọn = thay toàn bộ)": "Add to list (unchecked = replace all)",
   "Thêm vào danh sách, giữ các khóa cũ": "Add to list, keep existing keys",
   "Thêm vào đơn": "Add to order",
@@ -5876,6 +5975,7 @@
   "Thông báo đã gửi": "Sent notifications",
   "Thông báo đẩy": "Push notification",
   "Thông báo đẩy (FCM)": "Push notifications (FCM)",
+  "Thông báo đẩy (tóm tắt) + thông báo trong app (đầy đủ). Bấm vào thông báo để mở Trợ lý AI": "Push notification (summary) + in-app notification (full). Tap the notification to open the AI Assistant",
   "Thông số": "Specs",
   "Thông số + QR": "Specs + QR",
   "Thông số + mã vạch": "Specs + barcode",
@@ -6022,6 +6122,7 @@
   "Tiếp nhận bảo hành": "Receive warranty claim",
   "Tiếp nhận xử lý": "Accept for handling",
   "Tiếp tục in tự động": "Continue auto printing",
+  "Tiếp tục soạn": "Keep editing",
   "Tiền\nphép": "Leave\npay",
   "Tiền (đ)": "Amount (đ)",
   "Tiền 1 ngày = lương tháng ÷ số công (lương ngày/giờ/ca lấy đơn giá ngày)": "Pay for 1 day = monthly salary ÷ work days (daily/hourly/shift pay uses the daily rate)",
@@ -6047,6 +6148,7 @@
   "Tiền giờ tự tính": "Auto-calculated time charge",
   "Tiền giờ vẫn tăng khi khách đã xin tính tiền: dùng Chốt tiền giờ trên sơ đồ phòng": "Time charges keep rising after the guest asks for the bill: use Lock time charge on the room map",
   "Tiền hoàn": "Refund amount",
+  "Tiền hàng (trước thuế)": "Goods amount (before tax)",
   "Tiền khoán (đ)": "Contract amount (đ)",
   "Tiền khoán mỗi việc (đ)": "Contract amount per task (đ)",
   "Tiền két": "Drawer cash",
@@ -6140,6 +6242,7 @@
   "Trên 30 phút": "Over 30 minutes",
   "Trên Bán hàng (bàn đang mở): thêm món → Gửi bếp / In bếp": "On Sales (open table): add dishes → Send to kitchen / Print kitchen",
   "Trên hãng": "On the provider's side",
+  "Trên hóa đơn": "On the invoice",
   "Trên màn «Đơn online», tự in hóa đơn tạm tính khi bấm xác nhận.": "On the \"Online orders\" screen, auto-print the provisional bill when Confirm is tapped.",
   "Trên máy đó bấm «Thoát bàn» hoặc về sơ đồ bàn, rồi thanh toán lại ở đây.": "On that device tap “Leave table” or go back to the table map, then pay again here.",
   "Trên portal Pattern = «1C26MAA» (HĐ máy tính tiền), cột Ký hiệu trống. ": "On the portal Pattern = “1C26MAA” (cash-register invoice), the Series column is blank. ",
@@ -6209,6 +6312,7 @@
   "Trả tiền hết": "Pay in full",
   "Trả tiền phép": "Pay leave allowance",
   "Trả tiền phép còn lại": "Pay out remaining leave",
+  "Trả đủ": "Pay in full",
   "Trần Quốc Bảo": "Trần Quốc Bảo",
   "Trễ (phút)": "Late (min)",
   "Trễ / sớm": "Late / early",
@@ -6305,6 +6409,7 @@
   "Tài khoản đã được xóa": "Account deleted",
   "Tài khoản đóng ca": "Shift closed by",
   "Tài khoản đăng nhập meInvoice": "meInvoice login account",
+  "Tài khoản đăng nhập theo cửa hàng: đặt lại mật khẩu, đổi quyền, bảo mật": "Store login accounts: reset password, change role, security",
   "Tài sản đang cấp phát": "Assets issued",
   "Tài sản đang giao": "Assets in use",
   "Tài sản — tổng hợp": "Assets — summary",
@@ -6314,6 +6419,7 @@
   "Tên *": "Name *",
   "Tên A → Z": "Name A → Z",
   "Tên A→Z": "Name A→Z",
+  "Tên NCC": "Supplier name",
   "Tên WiFi của quán (2.4 GHz)": "Shop WiFi name (2.4 GHz)",
   "Tên bảng giá mới": "New price list name",
   "Tên bộ đèn (ví dụ: Tủ điện tầng 1)": "Light set name (e.g. Floor 1 electrical cabinet)",
@@ -6331,6 +6437,7 @@
   "Tên hàng / SL / Đơn giá / Thanh toán — chỉnh riêng cỡ chữ, đậm": "Item name / Qty / Unit price / Payment — adjust font size and bold separately",
   "Tên hàng hóa": "Product name",
   "Tên hàng luôn in. Bật từng mục: số lượng, ĐVT, đơn giá, ghi chú": "Item name is always printed. Turn on each of: quantity, unit, unit price, note",
+  "Tên hàng mới": "New item name",
   "Tên hạng": "Tier name",
   "Tên hội viên *": "Member name *",
   "Tên in hóa đơn, thông tin công ty, logo, thuế VAT, phụ thu — đồng bộ mọi máy bán hàng": "Receipt name, company info, logo, VAT, surcharges — synced to all sales devices",
@@ -6368,6 +6475,7 @@
   "Tên đợt": "Batch name",
   "Tên, loại ca, giờ vào – ra và nghỉ giữa ca": "Name, shift type, in – out times and mid-shift break",
   "Tên, địa chỉ, logo, VAT, phụ thu, phí giao hàng": "Name, address, logo, VAT, surcharges, delivery fee",
+  "Tìm NCC theo tên, mã, SĐT, MST…": "Search suppliers by name, code, phone, tax ID…",
   "Tìm PIN / tên...": "Search PIN / name...",
   "Tìm Zywell / Xprinter / HPRT (cổng 9100) trên mạng nội bộ.": "Find Zywell / Xprinter / HPRT (port 9100) on the local network.",
   "Tìm bài": "Search articles",
@@ -6529,6 +6637,8 @@
   "Tạm ứng đợt 1": "Advance #1",
   "Tạo / giao key": "Create / issue key",
   "Tạo / nhập theo loại": "Create / import by type",
+  "Tạo NCC mới": "Create new supplier",
+  "Tạo NCC mới khi tạo phiếu": "Create a new supplier when creating the receipt",
   "Tạo bàn: trên Sơ đồ bàn bấm Tạo bàn nhanh / Sửa bàn / phòng; chia khu vực (Tầng 1, Sân vườn…)": "Create tables: on the Table map tap Quick create table / Edit table / room; split into areas (Floor 1, Garden…)",
   "Tạo báo cáo": "Create report",
   "Tạo báo giá": "Create quotation",
@@ -6543,7 +6653,10 @@
   "Tạo gói": "Create package",
   "Tạo gói dịch vụ": "Create service plan",
   "Tạo hoặc nhập theo loại": "Create or import by type",
+  "Tạo hàng cho các ảnh này trước, hoặc xóa bớt ảnh đã đọc rồi thêm ảnh mới.": "Create items for these images first, or remove read images and add new ones.",
+  "Tạo hàng mới": "Create new item",
   "Tạo hàng từ ảnh menu (AI)": "Create items from menu photo (AI)",
+  "Tạo hàng từ ảnh menu / Excel (AI)": "Create items from menu photo / Excel (AI)",
   "Tạo hồ sơ": "Create profile",
   "Tạo hộ, sửa / huỷ đơn, hoàn tác duyệt, phép năm": "Create on behalf, edit / cancel requests, undo approval, annual leave",
   "Tạo khuyến mãi": "Create promotion",
@@ -6572,6 +6685,8 @@
   "Tạo phiếu nhập nháp": "Create draft purchase receipt",
   "Tạo phiếu thu chờ thu, bảng lương bỏ qua": "Create a pending receipt voucher; payroll ignores it",
   "Tạo phiếu thu «Thu tiền hợp đồng» trong sổ quỹ.": "Create a «Contract payment» receipt voucher in the cash book.",
+  "Tạo phiếu tạm": "Create draft receipt",
+  "Tạo phiếu tạm — kiểm lại trên màn phiếu nhập rồi mới nhập kho": "Create a draft — review it on the purchase receipt screen before receiving into stock",
   "Tạo phiếu xuất dùng": "Create stock usage slip",
   "Tạo phòng ban đầu tiên": "Create your first department",
   "Tạo thêm bảng giá (giá sỉ, giá VIP, giá khuyến mãi theo ngày…) ở «Thiết lập bảng giá» ": "Create more price lists (wholesale, VIP, daily promotion prices…) in «Price list setup» ",
@@ -6695,6 +6810,7 @@
   "Tồn hiện tại": "Current stock",
   "Tồn hiện tại ÷ lượng dùng bình quân mỗi ngày của kỳ đang xem.": "Current stock ÷ average daily usage over the period being viewed.",
   "Tồn kho là số thực có trong kho. Tồn khả dụng = tồn kho − phần đang giữ chỗ cho bàn / đơn tạm / đơn online chưa thanh toán.": "Stock on hand is the real quantity in the warehouse. Available stock = stock on hand − quantity reserved for tables / draft orders / unpaid online orders.",
+  "Tồn kho và công nợ NCC đã được cập nhật.": "Stock and supplier payables have been updated.",
   "Tồn kho · Nhập hàng · Hàng sắp hết hạn": "Stock · Purchase · Items nearing expiry",
   "Tồn kho đầu": "Opening stock",
   "Tồn nhiều": "Overstocked",
@@ -6758,6 +6874,7 @@
   "Tổng nguyên liệu bị trừ do bán món trong kỳ, đã cộng lại phần hủy đơn / khách trả.": "Total ingredients deducted by items sold in the period, with cancelled orders / customer returns added back.",
   "Tổng nhân sự": "Total staff",
   "Tổng nợ phải thu": "Total receivables",
+  "Tổng phiếu nhập": "Receipt total",
   "Tổng phát sinh": "Total movement",
   "Tổng phút trễ trong kỳ": "Total late minutes in the period",
   "Tổng quan & tiến độ": "Overview & progress",
@@ -7096,6 +7213,7 @@
   "Xem thiết lập": "View setup",
   "Xem thêm ca cũ": "See older shifts",
   "Xem thẻ / gói, số buổi còn, giờ vào – ra từng buổi tập, thể trạng và phác đồ PT giao ": "View cards / packages, sessions left, in – out time of each workout, fitness status and the program set by PT ",
+  "Xem thử bản tin hôm nay": "Preview today's brief",
   "Xem thử với hàng": "Preview with items",
   "Xem tiến độ (Gantt)": "View progress (Gantt)",
   "Xem toàn bộ bài AI viết": "View the full AI-written post",
@@ -7162,6 +7280,7 @@
   "Xác nhận đọc": "Confirm read",
   "Xóa (Delete)": "Delete",
   "Xóa (đã có dữ liệu)": "Delete (has data)",
+  "Xóa / hủy / duyệt hàng loạt": "Bulk delete / cancel / approve",
   "Xóa bài": "Delete post",
   "Xóa bài viết?": "Delete post?",
   "Xóa báo giá": "Delete quote",
@@ -7172,6 +7291,7 @@
   "Xóa chữ này khi in": "Remove this text when printing",
   "Xóa cả các buổi sau": "Also delete all later sessions",
   "Xóa danh sách": "Clear list",
+  "Xóa dòng": "Delete row",
   "Xóa dòng bảng": "Delete table row",
   "Xóa dòng này là mất thời gian đã tính — chỉ xóa khi thêm nhầm.\n\n": "Deleting this row loses the time already calculated — only delete it if added by mistake.\n\n",
   "Xóa dữ liệu mẫu": "Delete sample data",
@@ -7247,6 +7367,7 @@
   "Zalo — đã chép tin nhắc nợ": "Zalo — debt reminder message copied",
   "[\\s.,đĐ₫vndVND]": "[\\s.,đĐ₫vndVND]",
   "[^\\n]*đồng chẵn": "[^\\n]*đồng chẵn",
+  "\\s*(đến|tới|~|–|—)\\s*": "\\s*(đến|tới|~|–|—)\\s*",
   "\\s*[\\(\\[]\\s*(usb|lan|wifi|wi-?fi|agent|local|cloud|máy này)[^)\\]]*[\\)\\]]": "\\s*[\\(\\[]\\s*(usb|lan|wifi|wi-?fi|agent|local|cloud|máy này)[^)\\]]*[\\)\\]]",
   "\\s*\\(bản sao(?: \\d+)?\\)$": "\\s*\\(bản sao(?: \\d+)?\\)$",
   "\\s\\d+ phút$": "\\s\\d+ phút$",
@@ -7298,12 +7419,14 @@
   "chấm": "punch",
   "chế độ bán": "selling mode",
   "chế độ cách ly thiết bị làm dò tìm không thấy — khi đó dùng ": "device isolation mode can make discovery fail — in that case use ",
+  "chỉ số liệu": "figures only",
   "chọn Cho phép rồi bấm dò lại. Nếu đã từ chối: ": "choose Allow, then tap search again. If you already denied: ",
   "chọn vị trí chấm công": "choose punch location",
   "chốt ca": "close shift",
   "chốt giờ": "close time",
   "chờ xác nhận": "awaiting confirmation",
   "chụp khuôn mặt": "capture face",
+  "chụp lại hoặc lưu ảnh dạng JPG / PNG rồi thử lại.": "retake the photo or save it as JPG / PNG and try again.",
   "chức năng ngoài gói sẽ không được cấp.": "features outside the plan will not be granted.",
   "chữ hoa + thường": "upper + lower case",
   "cuối": "end",
@@ -7315,9 +7438,11 @@
   "còn nợ": "still owes",
   "còn được ứng": "Advance available",
   "có": "yes",
+  "có gợi ý AI": "with AI tips",
   "có thể làm thay đổi kết quả tổng hợp công những ngày chưa chốt lương.\n\n": "may change the attendance summary for days whose payroll is not yet closed.\n\n",
   "có voucher": "has voucher",
   "công nợ khách": "customer debt",
+  "công nợ khách kèm 1–2 gợi ý của AI": "customer debts, plus 1–2 AI tips",
   "công. Nó đọc dữ liệu chấm công qua cổng 4370 rồi đẩy lên máy chủ, ": "work day. It reads attendance data through port 4370 and pushes it to the server, ",
   "cùng kỳ tháng trước": "same period last month",
   "cơ sở": "base",
@@ -7357,6 +7482,7 @@
   "gán tay": "assigned manually",
   "gói buổi": "session package",
   "gói giờ": "hour package",
+  "gần đúng": "approximate",
   "gắn vai trò Tem bếp hoặc Tem mã vạch.": "assign the Kitchen label or Barcode label role.",
   "gọi lại khách": "call the customer back",
   "gọi món": "order",
@@ -7419,6 +7545,10 @@
   "không tính công, không hiện trong danh sách nhân sự. Sau khi đăng ký, lấy vân tay / khuôn mặt.": "not counted as work and not shown in the staff list. After registering, enroll fingerprint / face.",
   "không đo được": "not measurable",
   "khấu hao, cọc khách bỏ tính riêng bên dưới.": "depreciation and refunded customer deposits are counted separately below.",
+  "khớp gần đúng theo tên — kiểm tra lại": "approximate name match — please check",
+  "khớp theo mã số thuế": "matched by tax ID",
+  "khớp theo số điện thoại": "matched by phone number",
+  "khớp theo tên": "matched by name",
   "kênh": "channel",
   "kênh cho bàn. Mở bàn trên POS thì đèn sáng sau vài giây, thanh toán thì tắt.": "channel for the table. Open the table on POS and the light turns on after a few seconds; pay and it turns off.",
   "kí": "kg",
@@ -7593,6 +7723,10 @@
   "tráng": "coating",
   "trên số phiếu đã giải quyết": "on resolved tickets",
   "trí tuệ nhân tạo": "artificial intelligence",
+  "trùng mã hàng": "same item code",
+  "trùng mã vạch": "same barcode",
+  "trùng tên": "same name",
+  "trùng tên (khác dấu)": "same name (different accents)",
   "trưa": "noon",
   "trước: trống": "before: empty",
   "trạng thái": "status",
@@ -7640,8 +7774,10 @@
   "vd: Chấm công, Tính lương": "e.g. Attendance, Payroll",
   "vd: Giờ vàng rau cá": "e.g. Veggie & fish golden hour",
   "vd: rau mồng tơi, thịt ba chỉ": "e.g. malabar spinach, pork belly",
+  "vnđ": "vnđ",
   "voucher / điểm khi offline. Chủ quán xem «Bán offline & kiểm soát» (lịch sử cài app, số chưa về).": "vouchers / points when offline. The owner can view “Offline sales & control” (app install history, pending count).",
   "và làm ngay các việc bên dưới.": "and do the items below right away.",
+  "và thay bằng kết quả đọc mới.": "and replaced with the new reading results.",
   "vận chuyển": "shipping",
   "vận hành hrm": "HRM operations",
   "vận đơn": "waybill",
@@ -7724,6 +7860,7 @@
   "Đang chuyển kho": "Stock transfer in progress",
   "Đang chuẩn bị file…": "Preparing file…",
   "Đang chuẩn bị gửi khách…": "Preparing to send to customer…",
+  "Đang chuẩn bị ảnh (nén, xoay đúng chiều)…": "Preparing images (compressing, fixing rotation)…",
   "Đang chào giá": "Quoting",
   "Đang chép lời…": "Transcribing…",
   "Đang chọn «Hủy phép còn lại» — chỉ người nghỉ việc được trả tiền phép.": "“Cancel remaining leave” selected — only employees who leave are paid for leave.",
@@ -7827,6 +7964,7 @@
   "Đi nhóm": "Group class",
   "Đi trễ / Về sớm — danh sách vi phạm giờ (đối chiếu phiếu phạt)": "Late / Early leave — time violation list (check against penalty tickets)",
   "Đi trễ / tập thiếu giờ": "Late / short training time",
+  "Đi trễ / vắng": "Late / absent",
   "Đi trễ bị phạt dù vào sớm vài phút: tăng ân hạn trên Thiết lập ca, không sửa từng phiếu": "Fined for being late even though they arrived minutes early: increase the grace period in Shift setup instead of editing each ticket",
   "Đi trễ hôm nay": "Late today",
   "Đi trễ nhiều nhất": "Most late",
@@ -7912,6 +8050,7 @@
   "Đã bật tự động cập nhật (10 giây/lần)": "Auto-update enabled (every 10 seconds)",
   "Đã bắt đầu": "Started",
   "Đã bắt đầu tính giờ": "Timer started",
+  "Đã bỏ": "Discarded",
   "Đã bỏ PT": "PT removed",
   "Đã bỏ ca": "Shift dropped",
   "Đã bỏ ghim": "Unpinned",
@@ -8060,6 +8199,7 @@
   "Đã lưu ca": "Shift saved",
   "Đã lưu chính sách phép năm": "Annual leave policy saved",
   "Đã lưu chính sách tính lương": "Payroll policy saved",
+  "Đã lưu chỗ gắn trường nhưng mẫu vẫn là nháp — bấm Lưu lại để thử.": "Field mapping saved but the template is still a draft — tap Save again to retry.",
   "Đã lưu chức năng riêng": "Custom features saved",
   "Đã lưu chữ ký": "Signature saved",
   "Đã lưu cài đặt": "Settings saved",
@@ -8093,11 +8233,13 @@
   "Đã lưu tổng — kiểm tra giỏ": "Total saved — check the cart",
   "Đã lưu tỷ lệ cho cửa hàng này": "Rate saved for this store",
   "Đã lưu vai trò máy in": "Printer role saved",
+  "Đã lưu và bật dùng mẫu Word": "Saved and activated the Word template",
   "Đã lưu · cần kiểm tra": "Saved · needs checking",
   "Đã lưu · kết nối OK": "Saved · connection OK",
   "Đã lưu đánh giá": "Review saved",
   "Đã lưu đánh giá buổi tập": "Session review saved",
   "Đã lưu ảnh 1920px — dùng chung mọi cửa hàng": "1920px image saved — shared by all stores",
+  "Đã lưu — bản tin sáng đang tắt": "Saved — the morning brief is off",
   "Đã lưu — để trống nếu không đổi": "Saved — leave blank to keep unchanged",
   "Đã lưu. Bấm «Dùng mẫu này» để dùng khi in": "Saved. Tap “Use this template” to use it when printing",
   "Đã lưu. Bấm «Dùng mẫu này» để máy bán hàng in theo mẫu này": "Saved. Tap “Use this template” so sales devices print with it",
@@ -8161,6 +8303,7 @@
   "Đã thêm thiết bị — đang Online": "Device added — Online",
   "Đã thêm vào lịch chăm sóc khách": "Added to customer care schedule",
   "Đã thích": "Liked",
+  "Đã thực hiện": "Done",
   "Đã tiếp nhận": "Received",
   "Đã tiếp nhận bảo hành": "Warranty claim received",
   "Đã trả / giảm": "Paid / reduced",
@@ -8320,6 +8463,7 @@
   "Đơn giá giờ tính theo": "Hourly rate based on",
   "Đơn giá một giờ đi đường": "Rate per hour of travel",
   "Đơn giá ngày = lương tháng ÷ số công cố định": "Daily rate = monthly salary ÷ fixed number of work days",
+  "Đơn giá đã gồm thuế GTGT": "Unit price includes VAT",
   "Đơn hàng, nhập hàng, tồn kho thấp, đơn QR": "Orders, purchases, low stock, QR orders",
   "Đơn hàng: tra cứu, in lại, hủy (đúng quyền). Trả hàng: menu «Trả hàng bán», chọn đơn gốc và số lượng trả": "Orders: look up, reprint, cancel (with permission). Returns: “Sales return” menu, pick the original order and quantity returned",
   "Đơn hôm nay": "Orders today",
@@ -8472,12 +8616,18 @@
   "Định mức tối thiểu": "Minimum norm",
   "Định mức tối đa": "Maximum norm",
   "Định vị": "Location",
+  "Đọc file Excel / CSV bằng AI": "Read Excel / CSV file with AI",
+  "Đọc hóa đơn bằng AI": "Read invoice with AI",
   "Đọc hết nhóm này": "Read this whole group",
   "Đọc khối lượng trực tiếp từ cân (RS232 / USB) cho «Cân & in tem» và màn Bán hàng. ": "Read weight directly from the scale (RS232 / USB) for “Weigh & print label” and the Sales screen. ",
   "Đọc lại": "Read again",
+  "Đọc lại hóa đơn?": "Read the invoice again?",
+  "Đọc lại tất cả ảnh": "Re-read all images",
+  "Đọc lại tất cả ảnh?": "Re-read all images?",
   "Đọc menu bằng AI": "Read menu with AI",
   "Đọc mã vạch cân điện tử": "Read electronic scale barcode",
   "Đọc món cần chế biến. Giữ để chọn giọng": "Reads out items to prepare. Long-press to choose a voice",
+  "Đọc và tạo hàng xong, xóa ảnh cũ rồi thêm phần menu còn lại.": "Once read and the items are created, remove the old images and add the rest of the menu.",
   "Đọng vốn — cân nhắc giảm nhập": "Capital tied up — consider ordering less",
   "Đỏ / vàng xếp đầu. Bấm để xem dùng cho món nào.": "Red / yellow come first. Tap to see which items use it.",
   "Đối chiếu chấm công": "Attendance reconciliation",
@@ -8485,6 +8635,7 @@
   "Đối chiếu chấm công với lịch làm việc": "Reconcile attendance with the work schedule",
   "Đối chiếu công nợ với khách": "Reconcile balances with the customer",
   "Đối chiếu tiền mặt ngăn kéo với cột tiền mặt; chuyển khoản / QR với sao kê ngân hàng": "Check drawer cash against the cash column; bank transfer / QR against the bank statement",
+  "Đối chiếu tổng": "Total check",
   "Đối chiếu với POS": "Reconcile with POS",
   "Đối chiếu với tiền mặt két ca": "Reconcile with shift drawer cash",
   "Đối soát": "Reconcile",
@@ -8562,6 +8713,7 @@
   "Đợi lưu xong rồi thử lại": "Wait for saving to finish, then try again",
   "Đợi lưu xong rồi xóa hóa đơn": "Wait for saving to finish, then delete the invoice",
   "Đợt thanh toán": "Payment installment",
+  "Đợt thanh toán (dòng bảng được lặp theo số đợt)": "Payment stages (table row repeats per stage)",
   "Đủ": "Enough",
   "Đủ 1 công khi làm từ": "Full day credit when working from",
   "Đủ bán": "Enough to sell",
@@ -8596,6 +8748,7 @@
   "đã hết": "used up",
   "đã hết buổi": "no sessions left",
   "đã hết hạn": "expired",
+  "đã nhớ từ lần trước": "remembered from last time",
   "đã trừ 1 buổi": "1 session deducted",
   "đã trừ vào hóa đơn": "deducted from the invoice",
   "đã tắt": "off",
@@ -8622,6 +8775,7 @@
   "đề nghị thanh toán, biên bản và lịch chăm sóc khách. ": "payment requests, minutes and customer care schedule. ",
   "để đăng ký bổ sung?": "to register additionally?",
   "địa chỉ": "address",
+  "đồng": "đồng",
   "đồng giá": "flat price",
   "đổi ngành": "change industry",
   "Ưu tiên (khi giảm bằng nhau)": "Priority (when discounts are equal)",
@@ -8634,6 +8788,7 @@
   "Ảnh & tài liệu báo cáo": "Report photos & documents",
   "Ảnh (chưa chọn)": "Photo (not selected)",
   "Ảnh / logo": "Photo / logo",
+  "Ảnh HEIC": "HEIC image",
   "Ảnh báo cáo": "Report photos",
   "Ảnh bìa (URL)": "Cover image (URL)",
   "Ảnh chụp (giữ sắc độ bằng chấm điểm)": "Captured photo (tones kept via dithering)",
@@ -8650,6 +8805,7 @@
   "Ảnh lưu trên máy chủ SBOX": "Photos stored on the SBOX server",
   "Ảnh lưu vào Google Drive của bạn": "Photos saved to your Google Drive",
   "Ảnh mới sẽ lưu trên máy chủ SBOX. Ảnh cũ vẫn nằm trên Drive của bạn.": "New photos will be stored on the SBOX server. Old photos stay on your Drive.",
+  "Ảnh quá lớn — chụp lại hoặc bớt ảnh": "Image too large — retake or use fewer images",
   "Ảnh quảng cáo": "Ad image",
   "Ảnh sau": "After photo",
   "Ảnh trước": "Before photo",
@@ -8902,6 +9058,10 @@
    " · owes {0}đ"
   ],
   [
+   " · {0} dòng cần xem",
+   " · {0} lines to review"
+  ],
+  [
    " · {0} nhóm topping gắn vào {1} món",
    " · {0} topping groups linked to {1} items"
   ],
@@ -9058,6 +9218,10 @@
    "1 minute = {0}, i.e. 1 hour = {1}"
   ],
   [
+   "1 {0} = {1} {2} → nhập kho {3} {4}",
+   "1 {0} = {1} {2} → stock in {3} {4}"
+  ],
+  [
    "6 ngày tiếp theo còn {0} lịch chờ đến",
    "{0} upcoming appointments in the next 6 days"
   ],
@@ -9084,6 +9248,10 @@
   [
    "= {0}đ > hạn mức {1}đ",
    "= {0}đ > limit {1}đ"
+  ],
+  [
+   "= {0}đ{1}",
+   "= {0}đ{1}"
   ],
   [
    "=COUNTIF({0}:{1},\"<>\")&\" ngày\"",
@@ -9506,6 +9674,14 @@
    "Revision {0}"
   ],
   [
+   "Bản tin chỉ có số liệu{0}",
+   "Figures-only brief{0}"
+  ],
+  [
+   "Bản tin {0}/{1}",
+   "Brief {0}/{1}"
+  ],
+  [
    "Bản trong app tự dọn sau {0} ngày hoặc khi quá {1} MB; bản ở thư mục Tải xuống không bị xóa trừ khi bạn chọn xóa cả hai.",
    "The in-app copy is cleaned automatically after {0} days or when over {1} MB; the copy in the Downloads folder is not deleted unless you choose to delete both."
   ],
@@ -9636,6 +9812,10 @@
   [
    "Bỏ tất cả ({0})",
    "Deselect all ({0})"
+  ],
+  [
+   "Bỏ {0} món đã có trong danh sách (giữ dòng bạn đã sửa).",
+   "Skipped {0} items already in the list (kept the rows you edited)."
   ],
   [
    "Bỏ {0} phiếu",
@@ -9978,6 +10158,10 @@
    "Not sent ({0}) — open the top-right button to send"
   ],
   [
+   "Chưa gửi (đã xem thử) · {0}",
+   "Not sent (previewed) · {0}"
+  ],
+  [
    "Chưa gửi được {0} mã — {1}. Tự thử lại…",
    "Couldn't send {0} codes yet — {1}. Retrying automatically…"
   ],
@@ -10106,8 +10290,16 @@
    "Only keys of agent \"{0}\" or shared keys (not assigned to an agent)."
   ],
   [
+   "Chỉ món cần kiểm tra ({0})",
+   "Only items to check ({0})"
+  ],
+  [
    "Chỉ người chưa đọc ({0})",
    "Unread only ({0})"
+  ],
+  [
+   "Chỉ thêm được {0} ảnh",
+   "Only {0} more images can be added"
   ],
   [
    "Chỉ tạo được {0}/{1} {2}",
@@ -10414,6 +10606,10 @@
    "Still owed (on account): {0}"
   ],
   [
+   "Còn nợ NCC: {0}đ",
+   "Owed to supplier: {0}đ"
+  ],
+  [
    "Còn nợ {0}",
    "Owes {0}"
   ],
@@ -10452,6 +10648,10 @@
   [
    "Còn {0} dòng chưa nhập SL thực tế. Tiếp tục cân bằng kho?",
    "{0} rows have no actual quantity entered. Continue balancing stock?"
+  ],
+  [
+   "Còn {0} dòng chưa xong",
+   "{0} lines not finished"
   ],
   [
    "Còn {0} gợi ý SEO nên xem lại",
@@ -10916,6 +11116,10 @@
   [
    "Danh sách yêu cầu đã gửi ({0})",
    "Sent requests ({0})"
+  ],
+  [
+   "Danh sách {0} món hiện tại (kể cả phần đã sửa) sẽ bị xóa ",
+   "The current list of {0} items (including your edits) will be cleared "
   ],
   [
    "Danh sách {0}/{1} hóa đơn",
@@ -13662,6 +13866,14 @@
    "Milestone {0} already exists"
   ],
   [
+   "Mỗi hóa đơn tối đa {0} ảnh — xóa bớt ảnh rồi thêm ảnh khác.",
+   "Up to {0} images per invoice — remove some before adding others."
+  ],
+  [
+   "Mỗi hóa đơn tối đa {0} ảnh — đã bỏ {1} ảnh.",
+   "Up to {0} images per invoice — {1} images skipped."
+  ],
+  [
    "Mỗi kỳ trừ khoảng {0}",
    "About {0} deducted each period"
   ],
@@ -14550,6 +14762,10 @@
    "Size {0} has no price — the cheapest size's price will be used"
   ],
   [
+   "Size {0} giá dưới 1.000đ — có thiếu «k» / «nghìn» không?",
+   "Size {0} price under 1,000đ — missing «k» / «thousand»?"
+  ],
+  [
    "Sunmi/Agent không nhận mẫu ({0})",
    "Sunmi/Agent did not receive the template ({0})"
   ],
@@ -14938,6 +15154,10 @@
    "By plan: {0}"
   ],
   [
+   "Theo món mẫu «{0}»",
+   "From sample item «{0}»"
+  ],
+  [
    "Theo nhân viên ({0})",
    "By employee ({0})"
   ],
@@ -15084,6 +15304,10 @@
   [
    "Thành tiền tháng: {0} → ",
    "Monthly amount: {0} → "
+  ],
+  [
+   "Thành tiền {0}đ khác hóa đơn {1}đ",
+   "Amount {0}đ differs from invoice {1}đ"
   ],
   [
    "Thành tiền: {0} đ",
@@ -15714,6 +15938,10 @@
    "Create ({0})"
   ],
   [
+   "Tạo NCC mới «{0}»",
+   "Create new supplier «{0}»"
+  ],
+  [
    "Tạo PDF thất bại ({0})",
    "PDF creation failed ({0})"
   ],
@@ -15856,6 +16084,10 @@
   [
    "Tối thiểu {0} · ",
    "Min {0} · "
+  ],
+  [
+   "Tối đa {0} ảnh mỗi lần — đã bỏ {1} ảnh. ",
+   "Up to {0} images at a time — {1} images were dropped. "
   ],
   [
    "Tối đa: {0}",
@@ -16024,6 +16256,10 @@
   [
    "Tổng nợ: {0}",
    "Total debt: {0}"
+  ],
+  [
+   "Tổng phiếu {0}đ khác tổng hóa đơn {1}đ",
+   "Receipt total {0}đ differs from invoice total {1}đ"
   ],
   [
    "Tổng số lượng hàng: {0}",
@@ -16874,6 +17110,10 @@
    "{0} more items"
   ],
   [
+   "có thể trùng hàng «{0}»",
+   "may duplicate item «{0}»"
+  ],
+  [
    "cước hãng {0}",
    "carrier fee {0}"
   ],
@@ -16896,6 +17136,10 @@
   [
    "giá TB {0} · {1} NV",
    "avg price {0} · {1} employees"
+  ],
+  [
+   "giá vốn {0}",
+   "cost {0}"
   ],
   [
    "giảm {0}đ",
@@ -17486,6 +17730,10 @@
    "{0} stores ({1} active, {2} expiring soon) · {3} unused keys"
   ],
   [
+   "{0} cửa hàng chưa gán gói",
+   "{0} stores without a package"
+  ],
+  [
    "{0} cửa hàng mới",
    "{0} new stores"
   ],
@@ -17508,6 +17756,14 @@
   [
    "{0} dòng giá · {1}",
    "{0} price rows · {1}"
+  ],
+  [
+   "{0} dòng hàng",
+   "{0} item lines"
+  ],
+  [
+   "{0} dòng không nhập được",
+   "{0} rows couldn't be imported"
   ],
   [
    "{0} dòng · {1}",
@@ -17916,6 +18172,10 @@
   [
    "{0} món",
    "{0} items"
+  ],
+  [
+   "{0} món cần kiểm tra",
+   "{0} items need checking"
   ],
   [
    "{0} món cần kiểm tra giá",
@@ -19194,6 +19454,10 @@
    "{0} photos captured successfully"
   ],
   [
+   "{0} ảnh đọc lỗi (dấu !) — bấm «Đọc {1} ảnh mới / lỗi» để đọc lại riêng các ảnh đó.",
+   "{0} images failed to read (marked !) — tap «Read {1} new / failed images» to re-read just those."
+  ],
+  [
    "{0} ảnh đồng bộ từ đăng ký khuôn mặt của nhân viên",
    "{0} photos synced from employee face enrollment"
   ],
@@ -19450,6 +19714,14 @@
    "{0}: no permission (403)"
   ],
   [
+   "{0}: không mở được ảnh (định dạng lạ hoặc ảnh quá lớn) — ",
+   "{0}: couldn't open the image (unusual format or too large) — "
+  ],
+  [
+   "{0}: không mở được ảnh — chụp lại hoặc lưu dạng JPG / PNG rồi thử lại.",
+   "{0}: couldn't open the image — retake it or save as JPG / PNG and try again."
+  ],
+  [
    "{0}: lỗi {1}",
    "{0}: error {1}"
   ],
@@ -19460,6 +19732,10 @@
   [
    "{0}: máy in đã in — bỏ khỏi hàng chờ",
    "{0}: the printer has printed — removed from the queue"
+  ],
+  [
+   "{0}: máy không xem trước được ảnh HEIC, vẫn gửi cho AI đọc. ",
+   "{0}: this device can't preview HEIC images, they are still sent for AI to read. "
   ],
   [
    "{0}: mốc bậc 1 phải lớn hơn 0",
@@ -19778,6 +20054,14 @@
    "Registered: {0}"
   ],
   [
+   "ĐVT {0}",
+   "Unit {0}"
+  ],
+  [
+   "ĐVT «{0}» chưa khai báo — nhập hệ số quy đổi hoặc sửa SL theo ĐVT gốc",
+   "Unit «{0}» isn't defined — enter a conversion factor or change the quantity to the base unit"
+  ],
+  [
    "ĐVT: {0}",
    "Unit: {0}"
   ],
@@ -20064,6 +20348,10 @@
   [
    "Đã chọn {0}",
    "{0} selected"
+  ],
+  [
+   "Đã chọn {0} / {1} món",
+   "Selected {0} / {1} items"
   ],
   [
    "Đã chọn {0} SP · {1}",
@@ -20462,6 +20750,10 @@
    "Submitted {0} registrations"
   ],
   [
+   "Đã gửi {0}:{1} · {2} người nhận · {3}",
+   "Sent {0}:{1} · {2} recipients · {3}"
+  ],
+  [
    "Đã hoàn duyệt {0} đăng ký",
    "Revoked approval of {0} registrations"
   ],
@@ -20614,6 +20906,10 @@
    "Saved · added {0} AI keys"
   ],
   [
+   "Đã lưu — bản tin sẽ gửi lúc {0} mỗi sáng",
+   "Saved — the brief will be sent at {0} every morning"
+  ],
+  [
    "Đã mất mạng quá {0} giờ — không bán offline thêm (giới hạn của cửa hàng)",
    "Offline for over {0} hours — no more offline sales (store limit)"
   ],
@@ -20648,6 +20944,10 @@
   [
    "Đã nhận {0} ({1})",
    "Received {0} ({1})"
+  ],
+  [
+   "Đã nhập kho phiếu {0}",
+   "Receipt {0} received into stock"
   ],
   [
    "Đã nhập kho {0} SP",
@@ -20770,6 +21070,10 @@
    "Added {0} punches"
   ],
   [
+   "Đã thêm {0} món",
+   "Added {0} items"
+  ],
+  [
    "Đã thêm {0} sản phẩm",
    "Added {0} products"
   ],
@@ -20836,6 +21140,14 @@
   [
    "Đã tạo nhắc nhở gọi điện {0}",
    "Created call reminder {0}"
+  ],
+  [
+   "Đã tạo phiếu tạm {0}",
+   "Draft receipt {0} created"
+  ],
+  [
+   "Đã tạo phiếu {0}",
+   "Receipt {0} created"
   ],
   [
    "Đã tạo phòng ban {0}",
@@ -21154,6 +21466,10 @@
    "All {0} records present (matches device {1})"
   ],
   [
+   "Đã đủ {0} ảnh",
+   "Already {0} images"
+  ],
+  [
    "Đã ứng {0} / hạn mức {1}",
    "Advanced {0} / limit {1}"
   ],
@@ -21454,6 +21770,10 @@
    "Read {0} again. No more items to prepare"
   ],
   [
+   "Đọc {0} ảnh mới / lỗi",
+   "Read {0} new / failed images"
+  ],
+  [
    "Đồng bộ server · {0} · tự lưu khi sửa hàng",
    "Server sync · {0} · auto-saved when editing rows"
   ],
@@ -21610,6 +21930,10 @@
    "Estimated fee: {0} đ"
   ],
   [
+   "Ảnh hóa đơn ({0}/{1})",
+   "Invoice images ({0}/{1})"
+  ],
+  [
    "Ảnh hưởng tới {0}/{1} cửa hàng",
    "Affects {0}/{1} stores"
   ],
@@ -21712,6 +22036,10 @@
   [
    "… và {0} người khác",
    "… and {0} more people"
+  ],
+  [
+   "→ nhập kho {0} {1}",
+   "→ stock in {0} {1}"
   ],
   [
    "− {0} (còn xin được {1})",
