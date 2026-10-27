@@ -23,6 +23,8 @@ class PosModuleToolbar extends StatelessWidget {
     'PosPurchaseReceipts': 'Phiếu nhập hàng',
     'PosPurchaseReturns': 'Trả hàng nhập',
     'PosStockCounts': 'Kiểm kho',
+    'PosDamageIssues': 'Xuất hủy',
+    'PosInternalUseIssues': 'Dùng nội bộ',
   };
 
   @override

@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 
 import '../../utils/responsive_helper.dart';
+import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/warehouse/wh_doc_type.dart';
 import '../pos_damage_issue_list_screen.dart';
 import '../pos_internal_use_list_screen.dart';
@@ -39,7 +40,9 @@ abstract final class WhMobileNav {
         WhDocType.damageIssue => const PosDamageIssueListScreen(),
         WhDocType.internalUseIssue => const PosInternalUseListScreen(),
       };
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+      // pushed: màn bảng tự hiện thanh tiêu đề + nút quay lại (PosModuleToolbar).
+      Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => PosHubScope.pushed(child: screen)));
     }
   }
 }

@@ -143,7 +143,7 @@ class PosProductFilterSidebar extends StatelessWidget {
             title: Text(tr('Gồm ngừng kinh doanh'),
                 style: TextStyle(fontSize: 13)),
             value: includeInactive,
-            activeColor: PosTheme.kiotBlue,
+            activeColor: Colors.white, activeTrackColor: PosTheme.kiotBlue,
             onChanged: onIncludeInactiveChanged,
           ),
         ],

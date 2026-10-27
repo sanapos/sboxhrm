@@ -1237,7 +1237,21 @@ public partial class PosReportsController(
             .Select(o => new { o.Id, Payable = o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee, o.PaidAmount })
             .ToListAsync();
         var useSaleTx = saleInByOrder.Count > 0;
-        decimal ReceivedOf(Guid id, decimal paid) => useSaleTx ? saleInByOrder.GetValueOrDefault(id) : paid;
+        // Cọc đặt bàn đã trừ vào đơn: thu lúc đặt (phiếu thu cọc), không có phiếu thu bán hàng →
+        // trước đây đơn trả hết bằng cọc bị tính «Ghi nợ», dù «Thực thu HĐ» ghi là gồm cọc trừ.
+        var depositByOrder = orderIds.Count == 0
+            ? new Dictionary<Guid, decimal>()
+            : await dbContext.PosResourceReservations.AsNoTracking()
+                .Where(x => x.StoreId == storeId
+                    && x.DepositStatus == PosReservationDepositStatus.Applied
+                    && x.DepositAppliedOrderId != null
+                    && orderIds.Contains(x.DepositAppliedOrderId.Value))
+                .GroupBy(x => x.DepositAppliedOrderId!.Value)
+                .Select(g => new { g.Key, Sum = g.Sum(x => x.DepositPaid) })
+                .ToDictionaryAsync(x => x.Key, x => x.Sum);
+        decimal ReceivedOf(Guid id, decimal paid) => useSaleTx
+            ? saleInByOrder.GetValueOrDefault(id) + depositByOrder.GetValueOrDefault(id)
+            : paid;
         var actualReceived = orderMoney.Sum(o => ReceivedOf(o.Id, o.PaidAmount));
         var debtTotal = orderMoney.Sum(o => Math.Max(0, o.Payable - ReceivedOf(o.Id, o.PaidAmount)));
 
@@ -1330,7 +1344,7 @@ public partial class PosReportsController(
                     t.vat,
                     t.rounding,
                     returnFee = returnedMap.GetValueOrDefault(t.Id),
-                    actualReceived = useSaleTx ? saleInByOrder.GetValueOrDefault(t.Id) : t.actualReceived,
+                    actualReceived = ReceivedOf(t.Id, t.actualReceived),
                     t.PaymentMethod,
                     t.SoldBy,
                     t.CreatedBy,

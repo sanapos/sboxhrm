@@ -755,8 +755,6 @@ class _PosPurchaseReceiptListScreenState
             children: [
               _detailTabBtn(0, 'Thông tin'),
               _detailTabBtn(1, 'Lịch sử thanh toán'),
-              const Spacer(),
-              purchaseStatusChip(r.status),
             ],
           ),
           const SizedBox(height: 8),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/cash_transaction.dart';
 import '../../services/api_service.dart';
 import 'pos_theme.dart';
+import 'pos_vnd_thousands_formatter.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Hình thức thu cọc — TM / CK / VietQR (+ TKNH).
@@ -192,7 +193,9 @@ Future<({double amount, PosDepositPayChoice pay})?> showPosCollectDepositDialog(
   required String title,
   String? initialAmount,
 }) async {
-  final amountCtrl = TextEditingController(text: initialAmount ?? '');
+  final amountCtrl = TextEditingController(
+      text: PosVndThousandsFormatter.format(
+          PosVndThousandsFormatter.parse(initialAmount ?? '')));
   var pay = const PosDepositPayChoice();
   final ok = await showDialog<bool>(
     context: context,
@@ -207,6 +210,7 @@ Future<({double amount, PosDepositPayChoice pay})?> showPosCollectDepositDialog(
               TextField(
                 controller: amountCtrl,
                 keyboardType: TextInputType.number,
+                inputFormatters: [PosVndThousandsFormatter()],
                 autofocus: true,
                 decoration: InputDecoration(
                   labelText: tr('Số tiền cọc'),
@@ -235,7 +239,7 @@ Future<({double amount, PosDepositPayChoice pay})?> showPosCollectDepositDialog(
       ),
     ),
   );
-  final amount = double.tryParse(amountCtrl.text.trim().replaceAll(',', '')) ?? 0;
+  final amount = PosVndThousandsFormatter.parse(amountCtrl.text);
   amountCtrl.dispose();
   if (ok != true || amount <= 0) return null;
   return (amount: amount, pay: pay);

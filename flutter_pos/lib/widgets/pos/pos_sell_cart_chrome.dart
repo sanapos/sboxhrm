@@ -83,7 +83,10 @@ class PosSellDraftSyncBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         color: SboxColors.brand50,
         child: Text(
-          tr('Đồng bộ server · ${no != null && no.isNotEmpty ? no : '—'} · tự lưu khi sửa hàng'),
+          // Chưa có đơn (chưa chọn bàn/ghế) — bỏ «· — ·» trống.
+          no != null && no.isNotEmpty
+              ? tr('Đồng bộ server · $no · tự lưu khi sửa hàng')
+              : tr('Đồng bộ server · tự lưu khi sửa hàng'),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 12, height: 1.25, color: SboxColors.brand700),

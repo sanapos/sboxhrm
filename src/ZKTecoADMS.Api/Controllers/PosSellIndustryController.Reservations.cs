@@ -1016,13 +1016,10 @@ public partial class PosSellIndustryController
                 CreatedBy = CurrentUserEmail,
                 CreatedAt = now,
             };
-            var lockDisplay = CurrentUserEmail;
-            if (string.IsNullOrWhiteSpace(lockDisplay))
-                lockDisplay = CurrentUserId.ToString("N")[..8];
-            PosDraftLockHelper.AssignOnCreate(
-                order,
-                new PosDraftLockHelper.LockActor(
-                    CurrentUserId, EmployeeId, lockDisplay!, null, null));
+            // Không gắn khóa: request nhận bàn không mang deviceId, khóa «chưa ghim máy» khiến chính
+            // máy vừa nhận bàn mở đơn ở chế độ Chỉ xem (và «Lấy quyền» bị chặn 45s đầu).
+            // Máy mở đơn ngay sau đó tự lấy khóa kèm deviceId như mở bàn thường.
+            order.LockVersion = 1;
 
             db.PosSaleOrders.Add(order);
             await db.SaveChangesAsync();

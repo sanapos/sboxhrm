@@ -187,7 +187,11 @@ class AppErrorUtils {
         ? fallbackMessage
         : info.message;
     final hint = info.technicalHint;
-    if (hint != null && hint.isNotEmpty && !message.contains(hint)) {
+    // Mất mạng / quá giờ: lời nhắn thân thiện là đủ — chi tiết socket (port, uri…)
+    // chỉ làm thu ngân hoang mang; vẫn có trong debugPrint ở trên.
+    final friendly = info.kind == AppErrorKind.network ||
+        info.kind == AppErrorKind.timeout;
+    if (!friendly && hint != null && hint.isNotEmpty && !message.contains(hint)) {
       message = '$message\n($hint)';
     }
     return {

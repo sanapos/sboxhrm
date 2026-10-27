@@ -1421,11 +1421,12 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _countPill(tr('Chờ'), queuedN, _orange,
+                        // Đếm theo PHẦN (1+1+3=5) — ghi rõ để khỏi lẫn với số món ở hàng lọc «Chờ làm (3)».
+                        _countPill(tr('phần chờ'), queuedN, _orange,
                             on: _statusFilter == 'queued',
                             onTap: () => setState(() => _statusFilter =
                                 _statusFilter == 'queued' ? null : 'queued')),
-                        _countPill(tr('Đang làm'), cookingN, _blue,
+                        _countPill(tr('phần đang làm'), cookingN, _blue,
                             on: _statusFilter == 'cooking',
                             onTap: () => setState(() => _statusFilter =
                                 _statusFilter == 'cooking' ? null : 'cooking')),

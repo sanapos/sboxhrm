@@ -30,7 +30,9 @@ class PosPrintersTabsScreen extends StatelessWidget {
     final device = debugTabs?.device ?? (all || perm.canViewExact('PosPrinters'));
     final cloud = debugTabs?.cloud ?? (all || perm.canViewExact('PosStorePrinters'));
     final tabs = <(String, IconData, Widget)>[
-      if (device) ('Trên máy này', Icons.print_outlined, const PosPrinterSettingsHubScreen()),
+      if (device)
+        ('Trên máy này', Icons.print_outlined,
+            PosPrinterSettingsHubScreen(inPrinterTabs: cloud || device)),
       if (cloud) ('Máy in cloud', Icons.cloud_outlined, const PosStorePrintersScreen(embeddedInSettings: true)),
       // Lệnh in của mọi máy trong cửa hàng: chờ / treo / lỗi → In lại, chuyển máy in, hủy.
       if (device || cloud) ('Hàng đợi in', Icons.queue_outlined, const PosPrintQueueScreen(embedded: true)),

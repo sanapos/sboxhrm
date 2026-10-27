@@ -158,13 +158,25 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
     return l.unitPrice;
   }
 
+  /// Hệ số chia giảm giá đơn / voucher / đổi điểm vào từng dòng — giống server
+  /// (PosReportMoney.Factors). Trước đây màn này báo hoàn 30.000 trong khi server
+  /// ghi 29.129 (đơn có voucher) → thu ngân trả thừa tiền mặt.
+  double get _billFactor {
+    final o = _order;
+    if (o == null) return 1;
+    final sum = o.lines.fold<double>(0, (s, l) => s + l.lineTotal);
+    if (sum <= 0) return 1;
+    final f = (sum - o.discount - o.voucherDiscount - o.pointsDiscount) / sum;
+    return f.clamp(0.0, 1.0);
+  }
+
   double get _returnTotal {
     var sum = 0.0;
     for (final rl in _lines) {
       final q = _returnQty(rl);
       if (q > 0) sum += q * _unitRefund(rl.line);
     }
-    return sum;
+    return (sum * _billFactor).roundToDouble();
   }
 
   void _setReturnQty(_ReturnLine rl, double value) {
@@ -784,8 +796,8 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: SizedBox(
-          width: 32,
-          height: 32,
+          width: 40,
+          height: 40,
           child: Icon(icon, size: 18, color: primary ? Colors.white : SboxColors.text),
         ),
       ),
@@ -874,7 +886,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
           SizedBox(width: 44),
           Expanded(child: Text(tr('Tên hàng'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
           SizedBox(width: 56, child: Text(tr('ĐVT'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
-          SizedBox(width: 120, child: Text(tr('SL trả'), textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+          SizedBox(width: 170, child: Text(tr('SL trả'), textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
           SizedBox(width: 72, child: Text(tr('Giá'), textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
           SizedBox(width: 80, child: Text(tr('T.Tiền'), textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
         ],
@@ -926,30 +938,23 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
               width: 56,
               child: Text(tr(l.unitName ?? 'cái'), style: const TextStyle(fontSize: 12)),
             ),
+            // Nút −/+ 40dp như màn trả hàng điện thoại (trước icon 16dp, vùng chạm 28dp).
             SizedBox(
-              width: 120,
+              width: 170,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                    icon: const Icon(Icons.remove, size: 16),
-                    onPressed: ret > 0 ? () => _adjustReturnQty(rl, -1) : null,
+                  _qtyBtn(Icons.remove, ret > 0 ? () => _adjustReturnQty(rl, -1) : null),
+                  Expanded(
+                    child: Text(
+                      tr('${_qtyFmt.format(ret)} / ${_qtyFmt.format(rl.maxReturnable)}'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
                   ),
-                  Text(
-                    tr('${_qtyFmt.format(ret)} / ${_qtyFmt.format(rl.maxReturnable)}'),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                    icon: const Icon(Icons.add, size: 16, color: _kiotBlue),
-                    onPressed:
-                        ret < rl.maxReturnable ? () => _adjustReturnQty(rl, 1) : null,
-                  ),
+                  _qtyBtn(Icons.add,
+                      ret < rl.maxReturnable ? () => _adjustReturnQty(rl, 1) : null,
+                      primary: true),
                 ],
               ),
             ),
@@ -979,8 +984,9 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
         children: [
           Text(tr(o.soldBy ?? o.createdBy ?? '—'),
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-          if (o.createdAt != null)
-            Text(tr(_dateFmt.format(o.createdAt!.toLocal())),
+          // Giờ bán (không phải giờ mở bàn/tạo đơn tạm) — khớp danh sách hoá đơn.
+          if ((o.saleDate ?? o.createdAt) != null)
+            Text(tr(_dateFmt.format((o.saleDate ?? o.createdAt)!.toLocal())),
                 style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
           const SizedBox(height: 8),
           Text(tr('${tr('Khách: ')}${o.customerName ?? 'Khách lẻ'}'), style: const TextStyle(fontSize: 13)),
@@ -989,9 +995,15 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
           if (o.returnedAmount > 0)
             _sumRow('Đã trả trước', _moneyFmt.format(o.returnedAmount)),
           _sumRow('Tiền trả lần này', _moneyFmt.format(_returnTotal)),
-          const Spacer(),
-          _sumRow('Cần trả khách', _moneyFmt.format(_returnTotal),
-              bold: true, blue: true),
+          if (_billFactor < 0.9999 && _returnTotal > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                tr('Đã trừ phần giảm giá / voucher của hoá đơn theo tỉ lệ.'),
+                style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+              ),
+            ),
+          // «Cần trả khách» đã có ở thanh dưới — không lặp lại ở đây.
         ],
       ),
     );

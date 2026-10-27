@@ -11,7 +11,10 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Máy in / mẫu in runtime — Settings hub (HRM). Tái dùng UI mobile print settings.
 class PosPrinterSettingsHubScreen extends StatefulWidget {
-  const PosPrinterSettingsHubScreen({super.key});
+  const PosPrinterSettingsHubScreen({super.key, this.inPrinterTabs = false});
+
+  /// Tab «Trên máy này» của màn Máy in (đã có tab cloud / hàng đợi).
+  final bool inPrinterTabs;
 
   @override
   State<PosPrinterSettingsHubScreen> createState() =>
@@ -68,6 +71,7 @@ class _PosPrinterSettingsHubScreenState
     return PosSellMobilePrintSettingsScreen(
       initialPrintSettings: _print!,
       initialThermalSettings: _thermal!,
+      inPrinterTabs: widget.inPrinterTabs,
     );
   }
 }

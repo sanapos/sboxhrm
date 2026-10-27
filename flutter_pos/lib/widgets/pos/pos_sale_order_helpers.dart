@@ -43,12 +43,16 @@ TextStyle? posSaleOrderCancelledTextStyle(String status, {TextStyle? base}) {
 
 Widget posSaleOrderStatusChip(String status, {String? returnStatus}) {
   final returnLabel = posSaleReturnStatusLabel(returnStatus);
-  return Row(
-    mainAxisSize: MainAxisSize.min,
+  // Wrap: ô trạng thái hẹp (bảng hoá đơn 90dp) → «Trả 1 phần» xuống dòng dưới
+  // «Hoàn thành» thay vì tràn đè cột HĐĐT.
+  return Wrap(
+    alignment: WrapAlignment.center,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    spacing: 4,
+    runSpacing: 2,
     children: [
       posDocStatusChip(status, completedLabel: 'Hoàn thành'),
       if (returnLabel != null) ...[
-        const SizedBox(width: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(

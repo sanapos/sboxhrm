@@ -7,6 +7,7 @@ import '../../widgets/warehouse/wh_doc_type.dart';
 import '../../widgets/warehouse/wh_mobile_components.dart';
 import '../../widgets/warehouse/wh_mobile_theme.dart';
 import 'wh_mobile_list_screen.dart';
+import 'wh_mobile_nav.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Trung tâm điều hướng module Kho trên mobile.
@@ -72,7 +73,8 @@ class WhMobileHubScreen extends StatelessWidget {
                   icon: t.type.icon,
                   label: t.type.title,
                   color: t.type.accentColor,
-                  onTap: () => WhMobileDocListScreen.open(context, t.type),
+                  // Theo khổ màn (bảng trên máy POS ngang), giống khi vào từ «Nhiều hơn».
+                  onTap: () => WhMobileNav.openList(context, t.type),
                 ),
             ],
           ),

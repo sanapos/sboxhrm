@@ -1582,8 +1582,25 @@ class _PosSellScreenState extends State<PosSellScreen>
     var store = await storeFut;
     final printS = await printFut;
     final thermal = await thermalFut;
-    final industryRes = await industryFut;
+    var industryRes = await industryFut;
     if (!mounted) return;
+
+    // Mất mạng lúc mở màn bán: dùng cấu hình ngành lưu lần trước — trước đây nhà
+    // hàng / karaoke rơi về giao diện bán lẻ (mất sơ đồ bàn) cho tới khi có mạng.
+    final industryCacheKey = 'pos_sell_settings_cache_v1_${_storeId ?? ''}';
+    if (industryRes['isSuccess'] == true && industryRes['data'] is Map) {
+      unawaited(SharedPreferences.getInstance().then((p) => p.setString(
+          industryCacheKey, jsonEncode(industryRes['data']))));
+    } else {
+      final cached =
+          (await SharedPreferences.getInstance()).getString(industryCacheKey);
+      if (!mounted) return;
+      if (cached != null && cached.isNotEmpty) {
+        try {
+          industryRes = {'isSuccess': true, 'data': jsonDecode(cached)};
+        } catch (_) {}
+      }
+    }
 
     PosStoreSellSettingsDto? industry;
     var sellMode = _SellMode.quick;
@@ -2979,7 +2996,10 @@ class _PosSellScreenState extends State<PosSellScreen>
                       const SizedBox(height: 10),
                       Text(
                         tr(
-                          'Khách quét mã trên màn phụ. Bạn có thể thu gọn để tiếp tục thao tác.',
+                          // Không bật màn hình phụ (vd T1 một màn) → khách quét ngay trên máy này.
+                          CustomerDisplaySync.instance.enabled
+                              ? 'Khách quét mã trên màn phụ. Bạn có thể thu gọn để tiếp tục thao tác.'
+                              : 'Quay màn hình cho khách quét mã. Bạn có thể thu gọn để tiếp tục thao tác.',
                         ),
                         textAlign: TextAlign.center,
                         style: TextStyle(
@@ -14933,7 +14953,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
     if (line.promoDiscount > 0) {
       meta.add(Text(
-        tr('KM ${line.promoLabel ?? ''}: -${_moneyFmt.format(line.promoDiscount)}'),
+        tr('${_promoLineLabel(line.promoLabel)}: -${_moneyFmt.format(line.promoDiscount)}'),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(fontSize: 12, height: 1.25, color: Colors.green.shade800, fontWeight: FontWeight.w600),
@@ -18036,10 +18056,12 @@ class _PosSellScreenState extends State<PosSellScreen>
             TextButton.icon(
               onPressed: () => unawaited(_returnToFloorMap()),
               icon: const Icon(Icons.table_restaurant_outlined, size: 16),
+              // Nút này chỉ quay về sơ đồ để chọn bàn khác — «Đổi bàn» dễ hiểu nhầm là
+              // chuyển đơn sang bàn khác (chức năng đó nằm ở menu ⋯ của ô bàn).
               label: Text(
                 tr(_sellProfile.resourceNoun.isEmpty
-                    ? 'Đổi'
-                    : 'Đổi ${_sellProfile.resourceNoun}'),
+                    ? 'Sơ đồ'
+                    : 'Chọn ${_sellProfile.resourceNoun} khác'),
                 style: const TextStyle(fontSize: 12),
               ),
               style: TextButton.styleFrom(
@@ -19500,7 +19522,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                       ),
                     if (line.promoDiscount > 0)
                       Text(
-                        tr('KM ${line.promoLabel ?? ''} -${_moneyFmt.format(line.promoDiscount)}'),
+                        tr('${_promoLineLabel(line.promoLabel)} -${_moneyFmt.format(line.promoDiscount)}'),
                         style: TextStyle(
                             fontSize: 12, color: Colors.green.shade800, fontWeight: FontWeight.w600),
                       ),
@@ -19796,6 +19818,13 @@ class _PosSellScreenState extends State<PosSellScreen>
       _scheduleDraftAutosave();
       _scheduleCustomerDisplayPublish();
     });
+  }
+
+  /// «KM <tên>» — bỏ chữ KM thừa khi tên chương trình đã bắt đầu bằng KM («KM KM T1 10»).
+  static String _promoLineLabel(String? name) {
+    final n = (name ?? '').trim();
+    if (n.isEmpty) return 'KM';
+    return n.toUpperCase().startsWith('KM') ? n : 'KM $n';
   }
 
   Widget _toppingStepButton(IconData icon, VoidCallback? onTap) {

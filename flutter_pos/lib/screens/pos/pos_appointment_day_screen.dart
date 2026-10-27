@@ -1248,7 +1248,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                               : [
                                   '${_items.where((e) => !e.isCancelled).length} lịch',
                                   if (_bookedCount > 0) '$_bookedCount chưa đến',
-                                  if (_items.any((e) => e.isSeated)) '${_items.where((e) => e.isSeated).length} đã nhận bàn',
+                                  if (_items.any((e) => e.isSeated)) '${_items.where((e) => e.isSeated).length} đã nhận $_noun',
                                   if (_items.any((e) => e.isNoShow)) '${_items.where((e) => e.isNoShow).length} không đến',
                                 ].join(' · ')),
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
@@ -1296,7 +1296,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                         filterChip('booked', 'Chưa đến ($_bookedCount)'),
                         filterChip(
                             'seated',
-                            'Đã nhận bàn (${_items.where((e) => e.isSeated).length})'),
+                            'Đã nhận $_noun (${_items.where((e) => e.isSeated).length})'),
                         filterChip(
                             'cancelled',
                             'Đã hủy (${_items.where((e) => e.isCancelled).length})'),
@@ -1399,7 +1399,9 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     final occasion = PosReservationOccasion.label(b.occasion);
     final money = <String>[
       if (b.depositPaid > 0) 'Cọc ${_moneyFmt.format(b.depositPaid)}đ (${reservationDepositLabel(b.depositStatus)})',
-      if (b.preOrderValue > 0) 'Món ${_moneyFmt.format(b.preOrderValue)}đ',
+      // Theo ngành: Món (nhà hàng) / Dịch vụ (salon, phòng giờ, khách sạn).
+      if (b.preOrderValue > 0)
+        '${_profile.lineUnit[0].toUpperCase()}${_profile.lineUnit.substring(1)} ${_moneyFmt.format(b.preOrderValue)}đ',
     ];
     final order = <String>[
       if ((b.orderNo ?? '').isNotEmpty) 'HĐ ${b.orderNo}',
@@ -1689,9 +1691,9 @@ class _BookingDetailDialog extends StatelessWidget {
                         b.isOrderCompleted
                             ? 'Khách đã dùng · đã thanh toán'
                             : b.isUsingTable
-                                ? 'Khách đang dùng bàn'
+                                ? 'Khách đang dùng $noun'
                                 : b.isSeated
-                                    ? 'Đã nhận bàn'
+                                    ? 'Đã nhận $noun'
                                     : reservationOrderStatusLabel(
                                         b.orderStatus),
                         emphasize: true,
@@ -2291,10 +2293,11 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
           Expanded(flex: 2, child: timePick),
         ]),
         const SizedBox(height: 10),
+        // Cùng tỉ lệ cột với hàng Ngày / Giờ đến — hai hàng thẳng mép.
         Row(children: [
-          Expanded(child: durationPick),
+          Expanded(flex: 3, child: durationPick),
           const SizedBox(width: 8),
-          Expanded(child: guests),
+          Expanded(flex: 2, child: guests),
         ]),
         section('$nounCap & dịch vụ'),
         DropdownButtonFormField<String>(

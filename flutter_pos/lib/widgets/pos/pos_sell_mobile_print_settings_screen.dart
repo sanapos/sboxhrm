@@ -37,10 +37,14 @@ class PosSellMobilePrintSettingsScreen extends StatefulWidget {
     super.key,
     required this.initialPrintSettings,
     required this.initialThermalSettings,
+    this.inPrinterTabs = false,
   });
 
   final PosSellPrintSettings initialPrintSettings;
   final PosThermalPrinterSettings initialThermalSettings;
+
+  /// Nằm trong màn «Máy in» có tab Máy in cloud / Hàng đợi in → ẩn 2 nút tắt trùng.
+  final bool inPrinterTabs;
 
   @override
   State<PosSellMobilePrintSettingsScreen> createState() =>
@@ -580,7 +584,7 @@ class _PosSellMobilePrintSettingsScreenState
                         icon: const Icon(Icons.phone_android, size: 18),
                         label: Text(tr('Máy nội bộ')),
                       ),
-                      if (canStore)
+                      if (canStore && !widget.inPrinterTabs)
                         OutlinedButton.icon(
                           onPressed: () {
                             _openOverlay<void>(const PosStorePrintersScreen());
@@ -588,13 +592,14 @@ class _PosSellMobilePrintSettingsScreenState
                           icon: const Icon(Icons.cloud_outlined, size: 18),
                           label: Text(tr('Máy in cloud')),
                         ),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          _openOverlay<void>(const PosPrintQueueScreen());
-                        },
-                        icon: const Icon(Icons.queue_outlined, size: 18),
-                        label: Text(tr('Hàng đợi in')),
-                      ),
+                      if (!widget.inPrinterTabs)
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            _openOverlay<void>(const PosPrintQueueScreen());
+                          },
+                          icon: const Icon(Icons.queue_outlined, size: 18),
+                          label: Text(tr('Hàng đợi in')),
+                        ),
                       FilledButton(
                         onPressed: _loading ? null : _save,
                         child: Text(tr('Lưu')),
@@ -611,7 +616,7 @@ class _PosSellMobilePrintSettingsScreenState
                       style: TextStyle(fontSize: 11),
                     ),
                     value: _print.autoPrint,
-                    activeColor: _blue,
+                    activeColor: Colors.white, activeTrackColor: _blue,
                     onChanged: (v) =>
                         setState(() => _print = _print.copyWith(autoPrint: v)),
                   ),
@@ -646,7 +651,7 @@ class _PosSellMobilePrintSettingsScreenState
                   SwitchListTile(
                     title: Text(tr('Gộp hàng cùng loại khi in')),
                     value: _print.mergeSameItems,
-                    activeColor: _blue,
+                    activeColor: Colors.white, activeTrackColor: _blue,
                     onChanged: (v) =>
                         setState(() => _print = _print.copyWith(mergeSameItems: v)),
                   ),
@@ -779,7 +784,7 @@ class _PosSellMobilePrintSettingsScreenState
                         style: const TextStyle(fontSize: 11),
                       ),
                       value: _print.printCupOnKitchenNotify,
-                      activeColor: _blue,
+                      activeColor: Colors.white, activeTrackColor: _blue,
                       onChanged: (v) => setState(() =>
                           _print = _print.copyWith(printCupOnKitchenNotify: v)),
                     ),

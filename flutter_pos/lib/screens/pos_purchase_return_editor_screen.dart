@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../widgets/pos/pos_unit_qty_convert.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,6 +25,7 @@ import '../widgets/pos_barcode_scanner.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
 import '../widgets/pos/pos_serial_list_dialog.dart';
+import '../widgets/pos/pos_unsaved_changes.dart';
 
 import '../theme/sbox_tokens.dart';
 const _blue = SboxColors.brand600;
@@ -133,6 +136,8 @@ class _PosPurchaseReturnEditorScreenState
 
   bool _loading = true;
   bool _saving = false;
+  /// Ảnh chụp phiếu lúc mở / vừa lưu — khác đi thì hỏi trước khi rời màn.
+  String? _cleanSnapshot;
   String? _returnId;
   String _returnNo = '';
   String _status = 'Draft';
@@ -177,8 +182,16 @@ class _PosPurchaseReturnEditorScreenState
     } else if (_sourceReceiptId != null && _sourceReceiptId!.isNotEmpty) {
       await _loadFromReceipt(_sourceReceiptId!);
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+      _cleanSnapshot = _snapshot();
+    }
   }
+
+  String _snapshot() => jsonEncode(_buildBody(complete: false));
+
+  bool get _isDirty =>
+      !_loading && !_readOnly && _cleanSnapshot != null && _snapshot() != _cleanSnapshot;
 
   Future<void> _loadSuppliers() async {
     final res = await _api.getPosPurchaseSuppliers(pageSize: 200);
@@ -462,6 +475,7 @@ class _PosPurchaseReturnEditorScreenState
         Navigator.pop(context, true);
       } else {
         await _loadReturn(r.id);
+        if (mounted) _cleanSnapshot = _snapshot();
       }
     } else {
       NotificationOverlayManager()
@@ -582,7 +596,9 @@ class _PosPurchaseReturnEditorScreenState
         IconButton(
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          // 36dp, không giữ vùng chạm 48dp — tránh 2 nút chiếm hết ô số lượng.
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           icon: const Icon(Icons.remove, size: 18),
           onPressed: () => _adjustQty(l, -1),
         ),
@@ -602,7 +618,9 @@ class _PosPurchaseReturnEditorScreenState
         IconButton(
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          // 36dp, không giữ vùng chạm 48dp — tránh 2 nút chiếm hết ô số lượng.
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           icon: const Icon(Icons.add, size: 18, color: _blue),
           onPressed: () => _adjustQty(l, 1),
         ),
@@ -866,7 +884,10 @@ class _PosPurchaseReturnEditorScreenState
       return Scaffold(body: Center(child: Text(tr('Không có quyền trả hàng nhập'))));
     }
 
-    return Shortcuts(
+    return UnsavedChangesScope(
+      isDirty: () => _isDirty,
+      message: 'Phiếu trả hàng có thay đổi chưa lưu. Thoát sẽ mất các dòng hàng vừa nhập.',
+      child: Shortcuts(
       shortcuts: const {SingleActivator(LogicalKeyboardKey.f3): _ReturnSearchIntent()},
       child: Actions(
         actions: {
@@ -1164,6 +1185,7 @@ class _PosPurchaseReturnEditorScreenState
                 ),
         ),
       ),
+    ),
     );
   }
 }

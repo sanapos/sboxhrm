@@ -458,7 +458,8 @@ class _PosPrintTemplateCardState extends State<PosPrintTemplateCard> {
                                 visualDensity: VisualDensity.compact,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
-                              child: Text(tr('Dùng mẫu này'), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              // «Dùng mẫu này» bị cắt «Dùng mẫ…» trên thẻ hẹp → nhãn ngắn, rõ nghĩa.
+                              child: Text(tr('Dùng mẫu'), maxLines: 1, overflow: TextOverflow.ellipsis),
                             ),
                     ),
                   ]),

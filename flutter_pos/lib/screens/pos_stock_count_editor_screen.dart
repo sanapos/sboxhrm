@@ -17,6 +17,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../widgets/pos/pos_stock_count_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
+import '../widgets/pos/pos_unsaved_changes.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
@@ -36,6 +37,8 @@ class _CountLine {
   final double systemQty;
   final double costPrice;
   final TextEditingController countedCtrl;
+  /// SL đếm đang có trên server — khác ô nhập nghĩa là chưa lưu.
+  final String savedCounted;
 
   _CountLine({
     required this.lineId,
@@ -47,7 +50,8 @@ class _CountLine {
     this.systemQty = 0,
     this.costPrice = 0,
     double? countedQty,
-  }) : countedCtrl = TextEditingController(
+  })  : savedCounted = countedQty != null ? _formatQty(countedQty) : '',
+        countedCtrl = TextEditingController(
           text: tr(countedQty != null ? _formatQty(countedQty) : ''),
         );
 
@@ -110,6 +114,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
   final _qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
 
   bool _loading = true;
+  String _savedNote = '';
   bool _saving = false;
   String? _countId;
   String _countNo = '';
@@ -157,7 +162,14 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
     _countNoCtrl.text = c.countNo;
     _status = c.status;
     _noteCtrl.text = c.note ?? '';
+    _savedNote = _noteCtrl.text;
   }
+
+  bool get _isDirty =>
+      !_loading &&
+      !_readOnly &&
+      (_noteCtrl.text != _savedNote ||
+          _lines.any((l) => l.countedCtrl.text.trim() != l.savedCounted));
 
   Future<void> _loadCount(String id) async {
     final res = await _api.getPosStockCount(id);
@@ -511,7 +523,9 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
         IconButton(
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          // 36dp, không giữ vùng chạm 48dp — tránh 2 nút chiếm hết ô số lượng.
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           icon: const Icon(Icons.remove, size: 18),
           onPressed: () => _adjustCounted(l, -1),
         ),
@@ -532,7 +546,9 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
         IconButton(
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          // 36dp, không giữ vùng chạm 48dp — tránh 2 nút chiếm hết ô số lượng.
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           icon: const Icon(Icons.add, size: 18, color: _blue),
           onPressed: () => _adjustCounted(l, 1),
         ),
@@ -689,7 +705,10 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
       return Scaffold(body: Center(child: Text(tr('Không có quyền kiểm kê kho'))));
     }
 
-    return Shortcuts(
+    return UnsavedChangesScope(
+      isDirty: () => _isDirty,
+      message: 'Phiếu kiểm kho có số đếm chưa lưu. Thoát sẽ mất các số vừa nhập.',
+      child: Shortcuts(
       shortcuts: const {SingleActivator(LogicalKeyboardKey.f3): _CountSearchIntent()},
       child: Actions(
         actions: {
@@ -849,6 +868,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
                 ),
         ),
       ),
+    ),
     );
   }
 

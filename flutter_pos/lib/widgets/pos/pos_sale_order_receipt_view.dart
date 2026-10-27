@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import 'package:intl/intl.dart';
@@ -60,6 +62,23 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
   static const _wTotal = 88.0;
 
+  /// (tên, số tiền) các chương trình khuyến mãi đã áp trên đơn.
+  static List<(String, double)> _appliedPromos(String? json) {
+    if (json == null || json.trim().isEmpty) return const [];
+    try {
+      final m = jsonDecode(json);
+      final applied = m is Map ? m['applied'] : null;
+      if (applied is! List) return const [];
+      return [
+        for (final a in applied)
+          if (a is Map && ((a['amount'] as num?) ?? 0) > 0)
+            ((a['name'] ?? 'Khuyến mãi').toString(), (a['amount'] as num).toDouble()),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
 
 
   @override
@@ -115,9 +134,10 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
             ...List.generate(order.lines.length, (i) {
 
-              final line = order.lines[order.lines.length - 1 - i];
+              // Giữ thứ tự như lúc gọi món / như bản in (trước: đảo ngược, STT 5→1).
+              final line = order.lines[i];
 
-              final index = order.lines.length - i;
+              final index = i + 1;
 
               return Column(
 
@@ -190,6 +210,11 @@ class PosSaleOrderReceiptView extends StatelessWidget {
                 ],
 
                 _sumRow('Tạm tính', money.format(order.subTotal)),
+
+                // Khuyến mãi tự áp (lưu trong promotionsJson) — trước đây không hiện,
+                // Tạm tính − Voucher ≠ Tổng cộng làm thu ngân tưởng sai tiền.
+                for (final p in _appliedPromos(order.promotionsJson))
+                  _sumRow('Khuyến mãi: ${p.$1}', '-${money.format(p.$2)}', negative: true),
 
                 if (order.discount > 0)
 
