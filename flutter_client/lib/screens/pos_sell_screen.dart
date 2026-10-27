@@ -602,6 +602,11 @@ class _SellInvoiceTab {
   String? tingeeTransferExternalId;
   /// Optimistic lock version từ server (Gửi kèm khi Giữ đơn / TT).
   int lockVersion = 0;
+  /// Các dòng đơn trên server lần giỏ khớp server gần nhất (tải về / lưu xong). Gửi kèm khi lưu để server
+  /// gộp 3 chiều: máy này cầm giỏ cũ (409 rồi lưu lại) không xóa món máy khác / bếp vừa thêm.
+  /// null = chưa biết → server lưu đè như cũ.
+  List<Map<String, dynamic>>? serverBaseLines;
+  String? serverBaseOrderId;
   /// Slot cố định trên server (= id tab: Hóa đơn 1..N).
   int get invoiceSlot => id;
   /// true = máy khác đang giữ — chỉ xem, poll cập nhật dòng hàng.
@@ -733,6 +738,8 @@ class _SellInvoiceTab {
     draftOrderId = null;
     draftOrderNo = null;
     lockVersion = 0;
+    serverBaseLines = null;
+    serverBaseOrderId = null;
     draftReadOnly = false;
     lockedByLabel = null;
     serverLineCount = 0;
@@ -9159,6 +9166,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       final data = res['data'] as Map<String, dynamic>?;
       final orderId = data?['id']?.toString();
       final orderNo = data?['orderNo']?.toString() ?? '';
+      final mergedRemote = (data?['mergedRemoteLines'] as num?)?.toInt() ?? 0;
       // Thanh toán / về sơ đồ / reset tab trong lúc await — không gắn lại draft (tránh món «ma»).
       if (_checkingOut || _parking || _suspendDraftAutosave) {
         if (orderId != null && orderId.isNotEmpty) {
@@ -9198,7 +9206,26 @@ class _PosSellScreenState extends State<PosSellScreen>
           tab.localDirty = false;
         }
         _applyLockMetaFromMap(data, tab: tab);
+        if (mergedRemote == 0) _setServerBase(tab, orderId ?? tab.draftOrderId, data?['lines']);
       });
+      if (mergedRemote > 0 && data != null) {
+        // Server đã gộp món máy khác / bếp vừa thêm vào giỏ máy này → nạp lại giỏ theo đơn trả về (giỏ
+        // trên máy đang thiếu các món đó; lưu tiếp mà không nạp sẽ xóa chúng).
+        tab.localDirty = false;
+        await _hydrateTabCartFromOrder(
+          tab,
+          PosSaleOrder.fromJson(data),
+          orderJson: data,
+          readOnly: false,
+          notify: false,
+          force: true,
+        );
+        if (!mounted) return true;
+        NotificationOverlayManager().showWarning(
+          title: 'Giỏ vừa cập nhật từ máy khác',
+          message: tr('Đã giữ món máy khác / bếp vừa thêm vào bàn này — kiểm tra lại giỏ.'),
+        );
+      }
       // Đã lên máy chủ → bỏ bản giữ trên máy.
       tab.offlineSnapFp = null;
       unawaited(PosOfflineService.instance.removeCart(tab.localKey));
@@ -9220,6 +9247,49 @@ class _PosSellScreenState extends State<PosSellScreen>
         });
       }
     }
+  }
+
+  /// Ghi nền gộp 3 chiều từ danh sách dòng server trả về (JSON thô — giữ nguyên chuỗi topping).
+  void _setServerBase(_SellInvoiceTab tab, String? orderId, Object? lines) {
+    if (orderId == null || orderId.isEmpty || lines is! List) {
+      tab.serverBaseLines = null;
+      tab.serverBaseOrderId = null;
+      return;
+    }
+    tab.serverBaseOrderId = orderId;
+    tab.serverBaseLines = [
+      for (final raw in lines)
+        if (raw is Map)
+          {
+            'id': raw['id'] ?? raw['Id'],
+            'productId': raw['productId'] ?? raw['ProductId'],
+            'variantId': raw['variantId'] ?? raw['VariantId'],
+            'toppingsJson': raw['toppingsJson'] ?? raw['ToppingsJson'],
+            'lineNote': raw['lineNote'] ?? raw['LineNote'],
+            'qty': raw['qty'] ?? raw['Qty'] ?? 0,
+          },
+    ];
+  }
+
+  void _setServerBaseFromOrder(_SellInvoiceTab tab, PosSaleOrder order) {
+    if (order.id.isEmpty) {
+      tab.serverBaseLines = null;
+      tab.serverBaseOrderId = null;
+      return;
+    }
+    tab.serverBaseOrderId = order.id;
+    tab.serverBaseLines = [
+      for (final l in order.lines)
+        {
+          'id': l.id,
+          'productId': l.productId,
+          'variantId': l.variantId,
+          'toppingsJson':
+              l.toppings.isEmpty ? null : jsonEncode(l.toppings.map((t) => t.toJson()).toList()),
+          'lineNote': l.lineNote,
+          'qty': l.qty,
+        },
+    ];
   }
 
   Future<void> _pullServerOrderIntoTab(
@@ -9269,6 +9339,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         tab.serverLineCount = order.lines.length;
         tab.serverTotal = order.total;
         _applyLockMetaFromMap(res['data'] as Map<String, dynamic>, tab: tab);
+        _setServerBase(tab, orderId, (res['data'] as Map<String, dynamic>)['lines']);
         tab.draftReadOnly = false;
         return;
       }
@@ -9295,6 +9366,11 @@ class _PosSellScreenState extends State<PosSellScreen>
     int? attachEpoch,
   }) async {
     if (_tableAttachStale(attachEpoch)) return;
+    if (orderJson != null) {
+      _setServerBase(tab, order.id, orderJson['lines']);
+    } else {
+      _setServerBaseFromOrder(tab, order);
+    }
     // Món user vừa chọn khi mở bàn (GET/hydrate chậm) — giữ rồi merge sau snapshot server.
     final preserve = (tab.localDirty && tab.cart.isNotEmpty)
         ? List<_SellCartLine>.from(tab.cart)
@@ -11758,6 +11834,10 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (_posDeviceId != null) 'deviceId': _posDeviceId,
       if (_posDeviceName != null) 'deviceName': _posDeviceName,
       if (tab.lockVersion >= 0) 'expectedLockVersion': tab.lockVersion,
+      if (tab.serverBaseLines != null &&
+          tab.draftOrderId != null &&
+          tab.serverBaseOrderId == tab.draftOrderId)
+        'baseLines': tab.serverBaseLines,
       if (tab.priceListId != null) 'priceListId': tab.priceListId,
       if (_defaultSellerEmployeeId != null) 'soldByEmployeeId': _defaultSellerEmployeeId,
       if (tab.serviceResourceId != null)
@@ -12744,6 +12824,27 @@ class _PosSellScreenState extends State<PosSellScreen>
           PosOfflineService.isConnectionFailure(res) &&
           PosOfflineService.instance.enabled) {
         await _checkoutOffline(afterFailure: true);
+        return;
+      }
+      if (res['isSuccess'] != true &&
+          '${res['message'] ?? ''} ${res['errors'] ?? ''}'.contains('vừa thay đổi ở máy khác')) {
+        // Máy khác / bếp vừa thêm món vào bàn — máy chủ không thu theo giỏ cũ. Lưu giỏ (máy chủ gộp, máy
+        // nạp lại giỏ đã gộp), báo thu ngân xem lại tổng rồi bấm lại. Món chưa lưu trên máy này vẫn giữ.
+        setState(() => _checkingOut = false);
+        _tab.localDirty = true;
+        final saved = await _persistDraftAutosave(
+          forTab: _tab,
+          showLockError: true,
+          retryOnConflict: true,
+        );
+        if (!mounted) return;
+        if (!saved) await _reconcileDraftTabAgainstServer(_tab);
+        if (!mounted) return;
+        await _showBlockingPayDialog(
+          title: 'Bàn vừa có thay đổi',
+          message: 'Máy khác hoặc bếp vừa thêm / sửa món trên bàn này. Giỏ đã được cập nhật — '
+              'kiểm tra lại tổng tiền rồi bấm thanh toán lại.',
+        );
         return;
       }
       if (res['isSuccess'] != true) {
