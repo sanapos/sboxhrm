@@ -40,19 +40,30 @@ public sealed class AiVoiceService(
 
     // ─── Nghe ───────────────────────────────────────────────────────
 
-    public async Task<string> TranscribeAsync(byte[] audio, string mimeType, Guid storeId, CancellationToken ct)
+    /// <param name="language">Ngôn ngữ giao diện (vi / en / ko / ja / zh) — ngôn ngữ người dùng thường nói.</param>
+    public async Task<string> TranscribeAsync(byte[] audio, string mimeType, Guid storeId, CancellationToken ct, string? language = null)
     {
         var vocab = await VocabularyAsync(storeId, ct);
-        var prompt = new StringBuilder("""
-            Chép lại CHÍNH XÁC lời người dùng nói trong đoạn ghi âm (tiếng Việt, đang ra lệnh cho trợ lý phần mềm
-            quản lý bán hàng / nhân sự). Quy tắc:
-            - Chỉ trả về câu nói đã chép — không giải thích, không thêm dấu ngoặc, không trả lời câu hỏi.
-            - Viết tiếng Việt có dấu đúng chính tả; bỏ tiếng ậm ừ ("ờ", "à", "ừm"), từ lặp do ngập ngừng, câu nói lại.
-            - Số tiền viết bằng số có dấu chấm ngăn cách nghìn: "năm trăm nghìn" → 500.000; "một triệu rưỡi" → 1.500.000;
-              "hai trăm k" → 200.000. Giờ viết HH:mm (17:30), ngày viết dd/MM nếu người nói đọc ngày cụ thể.
-            - Tên người / hàng / khách nghe gần giống danh sách dưới đây thì viết ĐÚNG như trong danh sách.
-            - Không nghe rõ hoặc không có lời nói → trả về chuỗi rỗng.
-            """);
+        var vi = AiLanguage.IsVietnamese(language);
+        var prompt = new StringBuilder(vi
+            ? """
+              Chép lại CHÍNH XÁC lời người dùng nói trong đoạn ghi âm (tiếng Việt, đang ra lệnh cho trợ lý phần mềm
+              quản lý bán hàng / nhân sự). Quy tắc:
+              - Chỉ trả về câu nói đã chép — không giải thích, không thêm dấu ngoặc, không trả lời câu hỏi.
+              - Viết tiếng Việt có dấu đúng chính tả; bỏ tiếng ậm ừ ("ờ", "à", "ừm"), từ lặp do ngập ngừng, câu nói lại.
+              - Số tiền viết bằng số có dấu chấm ngăn cách nghìn: "năm trăm nghìn" → 500.000; "một triệu rưỡi" → 1.500.000;
+                "hai trăm k" → 200.000. Giờ viết HH:mm (17:30), ngày viết dd/MM nếu người nói đọc ngày cụ thể.
+              - Tên người / hàng / khách nghe gần giống danh sách dưới đây thì viết ĐÚNG như trong danh sách.
+              - Không nghe rõ hoặc không có lời nói → trả về chuỗi rỗng.
+              """
+            : $"""
+              Chép lại CHÍNH XÁC lời người dùng nói trong đoạn ghi âm (thường là {AiLanguage.Describe(language)}, có thể lẫn
+              tên tiếng Việt; đang ra lệnh cho trợ lý phần mềm quản lý bán hàng / nhân sự). Quy tắc:
+              - Chép ĐÚNG ngôn ngữ người nói (không dịch); chỉ trả về câu đã chép, không giải thích, không trả lời.
+              - Bỏ tiếng ậm ừ, từ lặp do ngập ngừng. Số viết bằng chữ số; giờ HH:mm.
+              - Tên người / hàng / khách (thường là tiếng Việt) nghe gần giống danh sách dưới đây thì viết ĐÚNG như danh sách.
+              - Không nghe rõ hoặc không có lời nói → trả về chuỗi rỗng.
+              """);
         if (vocab.Length > 0) prompt.AppendLine().AppendLine("TỪ VỰNG CỦA CỬA HÀNG:").AppendLine(vocab);
 
         var body = new
@@ -135,13 +146,19 @@ public sealed class AiVoiceService(
     // ─── Đọc ────────────────────────────────────────────────────────
 
     /// <summary>Đọc câu trả lời → WAV (PCM 24 kHz mono). Câu giống nhau dùng lại bản đã đọc (cache 30 phút).</summary>
-    public async Task<byte[]> SpeakAsync(string text, string? voice, CancellationToken ct)
+    /// <param name="language">Ngôn ngữ đọc (vi / en / ko / ja / zh) — theo ngôn ngữ giao diện.</param>
+    public async Task<byte[]> SpeakAsync(string text, string? voice, CancellationToken ct, string? language = null)
     {
         var v = voice != null && Voices.ContainsKey(voice) ? voice : DefaultVoice;
+        var lang = AiLanguage.Normalize(language);
         var clean = text.Trim();
         if (clean.Length > 1500) clean = clean[..1500];
-        var key = "ai-tts:" + v + ":" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(clean)))[..32];
+        var key = "ai-tts:" + v + ":" + lang + ":" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(clean)))[..32];
         if (cache.TryGetValue(key, out byte[]? hit) && hit != null) return hit;
+        var style = lang == AiLanguage.Vietnamese
+            ? "Đọc bằng tiếng Việt, giọng nhân viên chăm sóc khách hàng thân thiện, tự nhiên, nhịp vừa phải, ngắt nghỉ đúng dấu câu:\n"
+            : $"Read aloud in {AiLanguage.Describe(lang)} with a friendly, natural customer-care voice, moderate pace; "
+              + "pronounce Vietnamese names as Vietnamese:\n";
 
         var body = new
         {
@@ -153,8 +170,7 @@ public sealed class AiVoiceService(
                     parts = new[]
                     {
                         // Chỉ dẫn phong cách đọc (model TTS hiểu lời dặn trước đoạn văn).
-                        new { text = "Đọc bằng tiếng Việt, giọng nhân viên chăm sóc khách hàng thân thiện, tự nhiên, "
-                                     + "nhịp vừa phải, ngắt nghỉ đúng dấu câu:\n" + clean },
+                        new { text = style + clean },
                     },
                 },
             },
@@ -173,9 +189,9 @@ public sealed class AiVoiceService(
             {
                 content = await gemini.GenerateContentRawAsync(body, ct, model);
             }
-            catch (AiApiException ex) when (ex.StatusCode is 404 or 400)
+            catch (AiApiException ex) when (ex.StatusCode is 404 or 400 or 503 || ex.IsQuotaError)
             {
-                // Model chưa / không còn — thử tên kế tiếp.
+                // Model chưa / không còn, quá tải hoặc hết lượt riêng của model đó — thử model TTS kế tiếp.
                 last = ex;
                 continue;
             }

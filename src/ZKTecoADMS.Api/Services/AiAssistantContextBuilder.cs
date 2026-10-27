@@ -27,7 +27,8 @@ public static class AiAssistantContextBuilder
         ILogger logger,
         CancellationToken ct,
         IReadOnlyDictionary<string, Application.DTOs.Permissions.ModulePermissionDto>? perms = null,
-        bool isSuperUser = false)
+        bool isSuperUser = false,
+        AiAssistantScope? scope = null)
     {
         var buf = new StringBuilder();
         var todayVn = AiAssistantVnTime.NowVn().Date;
@@ -291,9 +292,18 @@ public static class AiAssistantContextBuilder
                 perms ?? new Dictionary<string, Application.DTOs.Permissions.ModulePermissionDto>(),
                 isSuperUser,
                 role);
-            if (allowTeam)
+            // Nhân viên tự phục vụ không thấy tình hình người khác dù có quyền xem màn Chấm công (chỉ xem của mình).
+            if (allowTeam && scope is not { SelfOnly: true })
             {
-                await AppendManagerContextAsync(db, storeId, userId, todayVn, todayQueryStart, todayQueryEnd, buf, logger, ct);
+                await AppendManagerContextAsync(db, storeId, userId, todayVn, todayQueryStart, todayQueryEnd, buf, logger, ct,
+                    scope ?? AiAssistantScope.Whole());
+            }
+            if (scope != null)
+            {
+                buf.AppendLine();
+                buf.AppendLine($"=== PHẠM VI DỮ LIỆU NHÂN SỰ: {scope.Describe()} ===");
+                if (!scope.WholeStore)
+                    buf.AppendLine("- Hỏi về nhân viên ngoài phạm vi → trả lời tài khoản không xem được dữ liệu người đó.");
             }
         }
         catch (Exception ex)
@@ -338,8 +348,7 @@ public static class AiAssistantContextBuilder
         if (leaveHistIdx >= 0
             && context.IndexOf('|', leaveHistIdx) > leaveHistIdx)
             parts.Add("có lịch sử nghỉ");
-        if (context.Contains("ĐƠN CHỜ DUYỆT (toàn cửa hàng)", StringComparison.Ordinal)
-            || context.Contains("ĐƠN CHỜ DUYỆT (của bạn)", StringComparison.Ordinal))
+        if (context.Contains("ĐƠN CHỜ DUYỆT (", StringComparison.Ordinal))
             parts.Add("có đơn chờ duyệt");
 
         var summary = parts.Count > 0 ? string.Join("; ", parts) : "chỉ thông tin cơ bản (kiểm tra liên kết hồ sơ NV)";
@@ -355,18 +364,24 @@ public static class AiAssistantContextBuilder
         DateTime todayQueryEnd,
         StringBuilder buf,
         ILogger logger,
-        CancellationToken ct)
+        CancellationToken ct,
+        AiAssistantScope scope)
     {
         try
         {
+            var users = scope.UserIds;
+            var scopedEmps = scope.EmployeeIds;
             var pendingLeaves = await db.Leaves.AsNoTracking()
                 .Where(l => l.StoreId == storeId && l.Status == LeaveStatus.Pending)
+                .Where(l => users == null || users.Contains(l.EmployeeUserId))
                 .CountAsync(ct);
             var pendingAdv = await db.AdvanceRequests.AsNoTracking()
                 .Where(a => a.StoreId == storeId && a.Status == AdvanceRequestStatus.Pending)
+                .Where(a => users == null || (a.EmployeeUserId != null && users.Contains(a.EmployeeUserId.Value))
+                            || (scopedEmps != null && a.EmployeeId != null && scopedEmps.Contains(a.EmployeeId.Value)))
                 .CountAsync(ct);
             buf.AppendLine();
-            buf.AppendLine("=== ĐƠN CHỜ DUYỆT (toàn cửa hàng) ===");
+            buf.AppendLine(scope.WholeStore ? "=== ĐƠN CHỜ DUYỆT (toàn cửa hàng) ===" : "=== ĐƠN CHỜ DUYỆT (trong phạm vi bạn quản lý) ===");
             buf.AppendLine($"- Nghỉ phép: {pendingLeaves} | Ứng lương: {pendingAdv}");
 
             var isHoliday = await db.Holidays.AsNoTracking()
@@ -391,6 +406,7 @@ public static class AiAssistantContextBuilder
 
             var activeEmps = await db.Employees.AsNoTracking()
                 .Where(e => e.StoreId == storeId && e.WorkStatus == EmployeeWorkStatus.Active)
+                .Where(e => scopedEmps == null || scopedEmps.Contains(e.Id))
                 .Select(e => new { e.Id, e.ApplicationUserId, e.FirstName, e.LastName, e.EmployeeCode })
                 .ToListAsync(ct);
 
@@ -498,7 +514,7 @@ public static class AiAssistantContextBuilder
                 .ToList();
 
             buf.AppendLine();
-            buf.AppendLine($"=== TÌNH HÌNH NHÂN SỰ HÔM NAY ({todayVn:dd/MM/yyyy}) ===");
+            buf.AppendLine($"=== TÌNH HÌNH NHÂN SỰ HÔM NAY ({todayVn:dd/MM/yyyy}{(scope.WholeStore ? "" : " · trong phạm vi bạn quản lý")}) ===");
             if (isHoliday)
                 buf.AppendLine($"- Hôm nay là ngày lễ: {holidayName}. Số vắng có thể không phản ánh nghỉ tuần.");
             if (scheduledUserIds.Count > 0)

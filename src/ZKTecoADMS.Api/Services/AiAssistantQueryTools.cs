@@ -20,8 +20,10 @@ public static class AiAssistantQueryTools
         IReadOnlyDictionary<string, ModulePermissionDto> perms,
         bool isSuperUser,
         ILogger logger,
-        CancellationToken ct)
+        CancellationToken ct,
+        AiAssistantScope? scope = null)
     {
+        scope ??= AiAssistantScope.Whole();
         var q = (userQuery ?? "").ToLowerInvariant();
         var buf = new StringBuilder();
         try
@@ -33,9 +35,9 @@ public static class AiAssistantQueryTools
                     buf.AppendLine(AiAssistantHelpCorpus.FormatForPrompt(chunks));
             }
 
-            if (LooksLikePendingApprovals(q) && CanAnyApprove(perms, isSuperUser))
+            if (LooksLikePendingApprovals(q) && CanAnyApprove(perms, isSuperUser) && !scope.SelfOnly)
             {
-                await AppendPendingApprovalsAsync(db, storeId, perms, isSuperUser, buf, ct);
+                await AppendPendingApprovalsAsync(db, storeId, perms, isSuperUser, buf, ct, scope);
             }
 
             if (LooksLikeBusinessTrip(q) && CanView(perms, "BusinessTripExpense", isSuperUser))
@@ -50,7 +52,7 @@ public static class AiAssistantQueryTools
 
             if (LooksLikePenalty(q) && CanView(perms, "PenaltyTickets", isSuperUser))
             {
-                await AppendPenaltySummaryAsync(db, storeId, buf, ct);
+                await AppendPenaltySummaryAsync(db, storeId, buf, ct, scope);
             }
 
             if (LooksLikeSales(q) && (CanView(perms, "PosSalesReport", isSuperUser) || CanView(perms, "PosReportRevenue", isSuperUser)))
@@ -175,25 +177,31 @@ public static class AiAssistantQueryTools
     private static async Task AppendPendingApprovalsAsync(
         ZKTecoDbContext db, Guid storeId,
         IReadOnlyDictionary<string, ModulePermissionDto> perms, bool isSuper,
-        StringBuilder buf, CancellationToken ct)
+        StringBuilder buf, CancellationToken ct, AiAssistantScope scope)
     {
+        var users = scope.UserIds;
+        var emps = scope.EmployeeIds;
         buf.AppendLine();
-        buf.AppendLine("=== CHỜ DUYỆT (theo quyền) ===");
+        buf.AppendLine(scope.WholeStore ? "=== CHỜ DUYỆT (theo quyền) ===" : "=== CHỜ DUYỆT (theo quyền, trong phạm vi bạn quản lý) ===");
         if (isSuper || CanApprove(perms, "Leave") || CanView(perms, "Leave", isSuper))
         {
             var n = await db.Leaves.AsNoTracking()
+                .Where(l => users == null || users.Contains(l.EmployeeUserId))
                 .CountAsync(l => l.StoreId == storeId && l.Status == LeaveStatus.Pending, ct);
             buf.AppendLine($"- Nghỉ phép chờ duyệt: {n}");
         }
         if (isSuper || CanApprove(perms, "AdvanceRequests") || CanView(perms, "AdvanceRequests", isSuper))
         {
             var n = await db.AdvanceRequests.AsNoTracking()
+                .Where(a => users == null || (a.EmployeeUserId != null && users.Contains(a.EmployeeUserId.Value))
+                            || (emps != null && a.EmployeeId != null && emps.Contains(a.EmployeeId.Value)))
                 .CountAsync(a => a.StoreId == storeId && a.Status == AdvanceRequestStatus.Pending, ct);
             buf.AppendLine($"- Ứng lương chờ duyệt: {n}");
         }
         if (isSuper || CanApprove(perms, "Overtime") || CanView(perms, "Overtime", isSuper))
         {
             var n = await db.Overtimes.AsNoTracking()
+                .Where(o => users == null || users.Contains(o.EmployeeUserId))
                 .CountAsync(o => o.StoreId == storeId && o.Status == OvertimeStatus.Pending, ct);
             buf.AppendLine($"- Tăng ca chờ duyệt: {n}");
         }
@@ -257,16 +265,19 @@ public static class AiAssistantQueryTools
     }
 
     private static async Task AppendPenaltySummaryAsync(
-        ZKTecoDbContext db, Guid storeId, StringBuilder buf, CancellationToken ct)
+        ZKTecoDbContext db, Guid storeId, StringBuilder buf, CancellationToken ct, AiAssistantScope scope)
     {
         var from = DateTime.UtcNow.AddDays(-30);
+        var emps = scope.EmployeeIds;
         var rows = await db.PenaltyTickets.AsNoTracking()
             .Where(p => p.StoreId == storeId && p.CreatedAt >= from)
+            .Where(p => emps == null || emps.Contains(p.EmployeeId))
             .Select(p => new { p.Status, p.Amount })
             .ToListAsync(ct);
 
         buf.AppendLine();
-        buf.AppendLine("=== PHIẾU PHẠT (30 ngày) ===");
+        buf.AppendLine(scope.WholeStore ? "=== PHIẾU PHẠT (30 ngày) ==="
+            : scope.SelfOnly ? "=== PHIẾU PHẠT CỦA BẠN (30 ngày) ===" : "=== PHIẾU PHẠT (30 ngày, trong phạm vi bạn quản lý) ===");
         if (rows.Count == 0)
             buf.AppendLine("- Chưa có phiếu");
         else

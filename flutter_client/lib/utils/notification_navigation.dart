@@ -568,6 +568,10 @@ NotificationNavigationTarget? resolveNotificationNavigation(
     case 'systemannouncement':
       return const NotificationNavigationTarget(moduleCode: 'Notification');
 
+    // Bản tin sáng tự động → mở Trợ lý AI (MainLayout xử lý mã giả 'AiAssistant')
+    case 'aimorningbrief':
+      return const NotificationNavigationTarget(moduleCode: 'AiAssistant');
+
     default:
       return null;
   }

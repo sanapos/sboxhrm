@@ -6,11 +6,51 @@ public sealed record AiAssistantParsedReply(
     string Text,
     List<string> Actions,
     List<string> Creates,
-    List<string> Guides);
+    List<string> Guides,
+    List<AiChart>? Charts = null);
 
-/// <summary>Gỡ thẻ [[ACTION]] / [[CREATE]] / [[GUIDE]] khỏi câu trả lời (Gemini hoặc bot rule).</summary>
+/// <summary>Biểu đồ nhỏ trong câu trả lời: bar (cột) / line (đường) / pie (tròn); OpenModule = màn báo cáo đầy đủ.</summary>
+public sealed record AiChart(string Type, string Title, List<string> Labels, List<decimal> Values, string? OpenModule);
+
+/// <summary>Gỡ thẻ [[ACTION]] / [[CREATE]] / [[GUIDE]] / [[CHART]] khỏi câu trả lời (Gemini hoặc bot rule).</summary>
 public static class AiAssistantReplyParser
 {
+    public const int MaxChartPoints = 12;
+
+    /// <summary>
+    /// [[CHART:loại|Tiêu đề|Nhãn=số;Nhãn=số|MãMàn]] → biểu đồ. Sai cú pháp / dưới 2 điểm → bỏ (không làm hỏng câu trả lời).
+    /// </summary>
+    public static AiChart? ParseChart(string tag, IReadOnlyDictionary<string, ModulePermissionDto> permMap, bool isSuperUser)
+    {
+        var parts = tag.Split('|');
+        if (parts.Length < 3) return null;
+        var type = parts[0].Trim().ToLowerInvariant() switch { "line" => "line", "pie" => "pie", _ => "bar" };
+        var labels = new List<string>();
+        var values = new List<decimal>();
+        foreach (var p in parts[2].Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var eq = p.LastIndexOf('=');
+            if (eq <= 0) continue;
+            if (ChartNumber(p[(eq + 1)..].Trim()) is not decimal v) continue;
+            labels.Add(p[..eq].Trim());
+            values.Add(v);
+            if (labels.Count >= MaxChartPoints) break;
+        }
+        if (labels.Count < 2) return null;
+        string? open = null;
+        if (parts.Length > 3 && parts[3].Trim() is { Length: > 0 } code && AiAssistantMenuMap.Paths.ContainsKey(code)
+            && (isSuperUser || (permMap.TryGetValue(code, out var mp) && mp.CanView)))
+            open = code;
+        return new AiChart(type, parts[1].Trim(), labels, values, open);
+    }
+
+    /// <summary>Số thô (1250000, -3.5) hoặc kiểu nói / viết tiền Việt (1.250.000, 1tr25, 500k).</summary>
+    static decimal? ChartNumber(string raw) =>
+        decimal.TryParse(raw, System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingSign,
+            System.Globalization.CultureInfo.InvariantCulture, out var v)
+            ? v
+            : AiAssistantActions.ParseMoney(raw);
+
     public static AiAssistantParsedReply Parse(
         string reply,
         IReadOnlyDictionary<string, ModulePermissionDto> permMap,
@@ -84,6 +124,20 @@ public static class AiAssistantReplyParser
             gStart = gi;
         }
 
+        var charts = new List<AiChart>();
+        var chStart = 0;
+        while (true)
+        {
+            var hi = cleaned.IndexOf("[[CHART:", chStart, StringComparison.Ordinal);
+            if (hi < 0) break;
+            var hj = cleaned.IndexOf("]]", hi, StringComparison.Ordinal);
+            if (hj < 0) break;
+            if (charts.Count < 2 && ParseChart(cleaned.Substring(hi + 8, hj - (hi + 8)), permMap, isSuperUser) is { } chart)
+                charts.Add(chart);
+            cleaned = cleaned.Remove(hi, hj - hi + 2);
+            chStart = hi;
+        }
+
         if (guides.Count == 0 && suggestedGuides.Count > 0 && LooksLikeHowTo(userQuery))
             guides.Add(suggestedGuides[0]);
 
@@ -94,7 +148,7 @@ public static class AiAssistantReplyParser
         creates = creates.Distinct().ToList();
         guides = guides.Distinct().Take(2).ToList();
 
-        return new AiAssistantParsedReply(cleaned.Trim(), actions, creates, guides);
+        return new AiAssistantParsedReply(cleaned.Trim(), actions, creates, guides, charts);
     }
 
     public static bool LooksLikeHowTo(string query)

@@ -877,29 +877,15 @@ public partial class PosReportsController(
     public async Task<ActionResult<AppResponse<object>>> GetReorderSuggestions()
     {
         var storeId = RequiredStoreId;
-        var tracked = new[] { PosProductType.Goods, PosProductType.Material, PosProductType.Topping };
-        var rows = await dbContext.PosProducts.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive &&
-                        tracked.Contains(p.ProductType) && p.MinStockQty > 0 && p.OnHandQty <= p.MinStockQty)
-            .Select(p => new
-            {
-                p.Id, p.ProductCode, p.Name, p.BaseUnitName, p.OnHandQty, p.MinStockQty, p.MaxStockQty,
-                p.CostPrice, p.SupplierId, SupplierName = p.Supplier != null ? p.Supplier.Name : null,
-            })
-            .OrderBy(p => p.SupplierName).ThenBy(p => p.OnHandQty)
-            .ToListAsync();
-        var items = rows.Select(p =>
+        // Cùng truy vấn với trợ lý ảo (find_reorder_suggestions).
+        var rows = await PosReorderSuggestionHelper.LoadAsync(dbContext, storeId);
+        var items = rows.Select(p => new
         {
-            var target = p.MaxStockQty > p.MinStockQty ? p.MaxStockQty : p.MinStockQty * 2;
-            var suggest = Math.Max(Math.Ceiling(target - Math.Max(p.OnHandQty, 0)), 1);
-            return new
-            {
-                productId = p.Id, productCode = p.ProductCode, name = p.Name, unitName = p.BaseUnitName,
-                onHand = p.OnHandQty, minStock = p.MinStockQty, maxStock = p.MaxStockQty,
-                suggestQty = suggest, costPrice = p.CostPrice, amount = suggest * p.CostPrice,
-                supplierId = p.SupplierId, supplierName = p.SupplierName,
-                outOfStock = p.OnHandQty <= 0,
-            };
+            productId = p.ProductId, productCode = p.ProductCode, name = p.Name, unitName = p.UnitName,
+            onHand = p.OnHand, minStock = p.MinStock, maxStock = p.MaxStock,
+            suggestQty = p.SuggestQty, costPrice = p.CostPrice, amount = p.Amount,
+            supplierId = p.SupplierId, supplierName = p.SupplierName,
+            outOfStock = p.OutOfStock,
         }).ToList();
         return Ok(AppResponse<object>.Success(new
         {

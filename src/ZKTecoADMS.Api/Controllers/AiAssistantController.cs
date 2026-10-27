@@ -1,10 +1,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Authorization;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Infrastructure;
 
 namespace ZKTecoADMS.Api.Controllers;
@@ -22,14 +26,19 @@ public class AiAssistantController(
     AiAssistantAgent agent,
     AiAssistantActions actions,
     AiVoiceService voice,
+    IDataScopeService dataScope,
+    IMemoryCache cache,
     ILogger<AiAssistantController> logger) : AuthenticatedControllerBase
 {
-    public sealed record SpeakRequest(string Text, string? Voice);
+    /// <summary>Câu hỏi số liệu giống hệt hỏi lại trong khoảng này → trả câu đã có, không tốn lượt AI.</summary>
+    static readonly TimeSpan AnswerCacheTtl = TimeSpan.FromMinutes(3);
+
+    public sealed record SpeakRequest(string Text, string? Voice, string? Language = null);
 
     /// <summary>Ghi âm → chữ (Gemini nghe, có từ vựng cửa hàng). 409 = cửa hàng chưa có AI → app dùng nhận dạng của máy.</summary>
     [HttpPost("transcribe")]
     [RequestSizeLimit(12 * 1024 * 1024)]
-    public async Task<IActionResult> Transcribe(IFormFile audio, CancellationToken ct)
+    public async Task<IActionResult> Transcribe(IFormFile audio, CancellationToken ct, [FromQuery] string? language = null)
     {
         if (audio == null || audio.Length == 0) return BadRequest(AppResponse<string>.Fail("Chưa có ghi âm"));
         if (!geminiAiService.IsConfigured || !geminiAiService.IsEnabled)
@@ -38,7 +47,7 @@ public class AiAssistantController(
         await audio.CopyToAsync(ms, ct);
         try
         {
-            var text = await voice.TranscribeAsync(ms.ToArray(), audio.ContentType, RequiredStoreId, ct);
+            var text = await voice.TranscribeAsync(ms.ToArray(), audio.ContentType, RequiredStoreId, ct, language);
             return Ok(AppResponse<string>.Success(text));
         }
         catch (AiApiException ex)
@@ -57,7 +66,7 @@ public class AiAssistantController(
             return StatusCode(409, AppResponse<string>.Fail("Cửa hàng chưa bật AI"));
         try
         {
-            var wav = await voice.SpeakAsync(dto.Text, dto.Voice, ct);
+            var wav = await voice.SpeakAsync(dto.Text, dto.Voice, ct, dto.Language);
             return File(wav, "audio/wav");
         }
         catch (AiApiException ex)
@@ -84,6 +93,8 @@ public class AiAssistantController(
     {
         public List<ChatMessage> Messages { get; set; } = new();
         public string? Provider { get; set; } // "gemini" (only supported provider)
+        /// <summary>Ngôn ngữ giao diện (vi / en / ko / ja / zh) — trợ lý trả lời bằng ngôn ngữ này.</summary>
+        public string? Language { get; set; }
     }
 
     public class ChatResponse
@@ -99,27 +110,124 @@ public class AiAssistantController(
         public List<string> Reports { get; set; } = new();
         /// <summary>Phiếu trợ lý đã dựng sẵn — chờ người dùng bấm Xác nhận.</summary>
         public List<PendingActionDto> PendingActions { get; set; } = new();
+        /// <summary>Biểu đồ nhỏ minh họa số liệu trong câu trả lời (tối đa 2).</summary>
+        public List<AiChart> Charts { get; set; } = new();
     }
 
+    /// <param name="Risk">normal | high — high: app hiện thẻ đỏ, hỏi lại trước khi gửi xác nhận (acknowledged).</param>
     public sealed record PendingActionDto(
-        string Id, string Kind, string Title, List<AiAssistantActions.Line> Lines, List<string> Warnings, string? OpenModule);
+        string Id, string Kind, string Title, List<AiAssistantActions.Line> Lines, List<string> Warnings, string? OpenModule,
+        string Risk = "normal");
 
-    public sealed record ActionResultDto(bool Ok, string Message, string? DocNo, string? OpenModule);
+    /// <param name="CanUndo">Hoàn tác được trong <see cref="AiAssistantActions.UndoWindow"/>.</param>
+    /// <param name="NeedsAcknowledge">Thao tác rủi ro cao — gửi lại kèm acknowledged = true sau khi người dùng xác nhận lần hai.</param>
+    public sealed record ActionResultDto(bool Ok, string Message, string? DocNo, string? OpenModule,
+        bool CanUndo = false, int UndoSeconds = 0, bool NeedsAcknowledge = false);
+
+    public sealed class ConfirmRequest
+    {
+        public bool Acknowledged { get; set; }
+    }
+
+    static ActionResultDto Dto(AiAssistantActions.ExecResult r) => new(r.Ok, r.Message, r.DocNo, r.OpenModule,
+        r.CanUndo, r.CanUndo ? (int)AiAssistantActions.UndoWindow.TotalSeconds : 0, r.NeedsAcknowledge);
 
     /// <summary>Người dùng xác nhận phiếu trợ lý đề xuất → gọi API thật của app bằng phiên của họ.</summary>
     [HttpPost("actions/{id}/confirm")]
-    public async Task<IActionResult> ConfirmAction(string id, CancellationToken ct)
+    public async Task<IActionResult> ConfirmAction(string id, [FromBody] ConfirmRequest? body, CancellationToken ct)
     {
-        var r = await actions.ExecuteAsync(id, CurrentUserId, RequiredStoreId, ct);
-        var dto = new ActionResultDto(r.Ok, r.Message, r.DocNo, r.OpenModule);
-        return Ok(r.Ok ? AppResponse<ActionResultDto>.Success(dto) : AppResponse<ActionResultDto>.Fail(r.Message));
+        var r = await actions.ExecuteAsync(id, CurrentUserId, RequiredStoreId, ct, body?.Acknowledged == true);
+        var dto = Dto(r);
+        return Ok(r.Ok ? AppResponse<ActionResultDto>.Success(dto) : AppResponse<ActionResultDto>.Create(false, dto, [r.Message]));
     }
 
     [HttpPost("actions/{id}/discard")]
-    public IActionResult DiscardAction(string id)
+    public async Task<IActionResult> DiscardAction(string id, CancellationToken ct)
     {
-        actions.Discard(id, CurrentUserId, RequiredStoreId);
+        await actions.DiscardAsync(id, CurrentUserId, RequiredStoreId, ct);
         return Ok(AppResponse<bool>.Success(true));
+    }
+
+    /// <summary>Hoàn tác thao tác trợ lý vừa ghi (trong 10 phút, chỉ người đã xác nhận).</summary>
+    [HttpPost("actions/{id}/undo")]
+    public async Task<IActionResult> UndoAction(string id, CancellationToken ct)
+    {
+        var r = await actions.UndoAsync(id, CurrentUserId, RequiredStoreId, ct);
+        return Ok(r.Ok ? AppResponse<ActionResultDto>.Success(Dto(r)) : AppResponse<ActionResultDto>.Fail(r.Message));
+    }
+
+    public sealed record RecentActionsDto(bool WholeStore, bool CanSeeWholeStore, List<AiAssistantActions.LogRow> Items);
+
+    /// <summary>
+    /// Nhật ký thao tác trợ lý: của chính người dùng; [all]=true → cả cửa hàng (chỉ chủ / người có quyền sửa thiết lập AI).
+    /// </summary>
+    [HttpGet("actions/recent")]
+    public async Task<IActionResult> RecentActions([FromQuery] int take = 50, [FromQuery] bool all = false,
+        [FromQuery] string? status = null, [FromQuery] bool highRisk = false, CancellationToken ct = default)
+    {
+        var canAll = await CanEditStoreProfileAsync(ct);
+        var whole = all && canAll;
+        var items = await actions.RecentAsync(CurrentUserId, RequiredStoreId, take, ct, whole, status, highRisk);
+        return Ok(AppResponse<RecentActionsDto>.Success(new RecentActionsDto(whole, canAll, items)));
+    }
+
+    // ─── Hồ sơ cửa hàng cho trợ lý ───────────────────────────────────
+
+    public sealed class StoreProfileDto
+    {
+        public string Content { get; set; } = "";
+        public DateTime? UpdatedAt { get; set; }
+        public int MaxLength { get; set; } = AiAssistantStoreKnowledge.MaxProfileChars;
+        public bool CanEdit { get; set; }
+    }
+
+    async Task<bool> CanEditStoreProfileAsync(CancellationToken ct)
+    {
+        var role = CurrentUserRole;
+        if (ModulePermissionDefaults.IsSuperRole(role)) return true;
+        var perms = await modulePermissionService.GetEffectivePermissionsAsync(CurrentUserId, role, CurrentStoreId, ct);
+        return perms.TryGetValue("AIGemini", out var p) && p.CanEdit;
+    }
+
+    [HttpGet("store-profile")]
+    public async Task<IActionResult> GetStoreProfile(CancellationToken ct)
+    {
+        var storeId = RequiredStoreId;
+        var row = await db.AiStoreProfiles.AsNoTracking().Where(p => p.StoreId == storeId)
+            .Select(p => new { p.Content, p.UpdatedAt, p.CreatedAt }).FirstOrDefaultAsync(ct);
+        return Ok(AppResponse<StoreProfileDto>.Success(new StoreProfileDto
+        {
+            Content = row?.Content ?? "", UpdatedAt = row?.UpdatedAt ?? row?.CreatedAt, CanEdit = await CanEditStoreProfileAsync(ct),
+        }));
+    }
+
+    [HttpPut("store-profile")]
+    public async Task<IActionResult> SaveStoreProfile([FromBody] StoreProfileDto dto, CancellationToken ct)
+    {
+        if (!await CanEditStoreProfileAsync(ct))
+            return StatusCode(403, AppResponse<StoreProfileDto>.Fail("Tài khoản không có quyền sửa thiết lập Trợ lý AI."));
+        var content = (dto?.Content ?? "").Trim();
+        if (content.Length > AiAssistantStoreKnowledge.MaxProfileChars)
+            return BadRequest(AppResponse<StoreProfileDto>.Fail($"Tối đa {AiAssistantStoreKnowledge.MaxProfileChars} ký tự."));
+        var storeId = RequiredStoreId;
+        var row = await db.AiStoreProfiles.AsTracking().FirstOrDefaultAsync(p => p.StoreId == storeId, ct);
+        if (row == null)
+        {
+            row = new AiStoreProfile { Id = Guid.NewGuid(), StoreId = storeId, Content = content, CreatedBy = CurrentUserId.ToString() };
+            db.AiStoreProfiles.Add(row);
+        }
+        else
+        {
+            row.Content = content;
+            row.UpdatedAt = DateTime.UtcNow;
+            row.UpdatedBy = CurrentUserId.ToString();
+        }
+        await db.SaveChangesAsync(ct);
+        cache.Remove(AiAssistantStoreKnowledge.ProfileKey(storeId));
+        return Ok(AppResponse<StoreProfileDto>.Success(new StoreProfileDto
+        {
+            Content = content, UpdatedAt = row.UpdatedAt ?? row.CreatedAt, CanEdit = true,
+        }));
     }
 
     /// <summary>
@@ -127,7 +235,49 @@ public class AiAssistantController(
     /// rồi chuyển tới Gemini. AI có thể trả về text + tag ACTION gợi ý Flutter điều hướng.
     /// </summary>
     [HttpPost("chat")]
-    public async Task<IActionResult> Chat([FromBody] ChatRequest dto, CancellationToken ct)
+    public Task<IActionResult> Chat([FromBody] ChatRequest dto, CancellationToken ct) => ChatCoreAsync(dto, null, ct);
+
+    static readonly System.Text.Json.JsonSerializerOptions SseJson = new(System.Text.Json.JsonSerializerDefaults.Web);
+
+    /// <summary>
+    /// Như <see cref="Chat"/> nhưng trả dần (Server-Sent Events): <c>status</c> (đang xem báo cáo…), <c>delta</c> (đoạn chữ
+    /// mới), <c>reset</c> (bỏ chữ tạm), cuối cùng <c>done</c> = đúng phản hồi của /chat (status + body). Người dùng thấy chữ
+    /// chạy ngay thay vì chờ cả câu trả lời; bot rule / câu đã lưu đệm chỉ có <c>done</c>.
+    /// </summary>
+    [HttpPost("chat/stream")]
+    public async Task ChatStream([FromBody] ChatRequest dto, CancellationToken ct)
+    {
+        Response.ContentType = "text/event-stream; charset=utf-8";
+        Response.Headers.CacheControl = "no-cache";
+        Response.Headers["X-Accel-Buffering"] = "no"; // nginx không gom cả luồng rồi mới gửi
+        var gate = new SemaphoreSlim(1, 1);
+        async Task Send(string evt, object data)
+        {
+            await gate.WaitAsync(ct);
+            try
+            {
+                await Response.WriteAsync($"event: {evt}\ndata: {System.Text.Json.JsonSerializer.Serialize(data, SseJson)}\n\n", ct);
+                await Response.Body.FlushAsync(ct);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+        IActionResult result;
+        try
+        {
+            result = await ChatCoreAsync(dto, e => Send(e.Type, new { text = e.Text }), ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return; // người dùng đóng trợ lý giữa chừng
+        }
+        var obj = result as ObjectResult;
+        await Send("done", new { status = obj?.StatusCode ?? 200, body = obj?.Value });
+    }
+
+    async Task<IActionResult> ChatCoreAsync(ChatRequest dto, Func<AiAssistantAgent.AgentEvent, Task>? onEvent, CancellationToken ct)
     {
         try
         {
@@ -145,15 +295,17 @@ public class AiAssistantController(
             var isSuperUser = ModulePermissionDefaults.IsSuperRole(role);
             var allowedActions = AiAssistantPermissionRules.AllowedActionTags(permMap, isSuperUser);
             var allowedCreates = AiAssistantPermissionRules.AllowedCreateExamples(permMap, isSuperUser);
+            // Phạm vi nhân sự của người hỏi (cả cửa hàng / cấp dưới / chỉ bản thân) — mọi tra cứu trực tiếp của trợ lý lọc theo.
+            var scope = await AiAssistantScope.ResolveAsync(db, dataScope, HttpContext, CurrentUserId, RequiredStoreId, role, ct);
 
             var contextText = await AiAssistantContextBuilder.BuildAsync(
-                db, CurrentUserId, RequiredStoreId, role, logger, ct, permMap, isSuperUser);
+                db, CurrentUserId, RequiredStoreId, role, logger, ct, permMap, isSuperUser, scope);
             contextText += "\n\n=== QUYỀN TÀI KHOẢN ===\n";
             contextText += AiAssistantPermissionRules.BuildPermissionsSummary(permMap, isSuperUser, role);
 
             var extra = await AiAssistantQueryTools.BuildExtraContextAsync(
                 db, CurrentUserId, RequiredStoreId, role, lastUserMessage.Content,
-                permMap, isSuperUser, logger, ct);
+                permMap, isSuperUser, logger, ct, scope);
             if (!string.IsNullOrWhiteSpace(extra))
                 contextText += "\n\n" + extra;
 
@@ -181,23 +333,35 @@ public class AiAssistantController(
                 .Distinct()
                 .OrderBy(p => p, StringComparer.Ordinal)
                 .ToList();
+            bool CanView(string m) => isSuperUser || (permMap.TryGetValue(m, out var mp) && mp.CanView);
+            var storeKnowledge = await AiAssistantStoreKnowledge.BuildAsync(db, cache, RequiredStoreId,
+                pos: CanView("PosSell") || CanView("PosProducts") || CanView("PosSalesReport"),
+                hr: scope.WholeStore && (CanView("Employee") || CanView("Department")), logger, ct);
+            var lang = AiLanguage.Normalize(dto.Language);
             var systemPrompt = AiAssistantPromptBuilder.Build(
-                contextText, allowedActions, allowedCreates, suggestedGuides, menuPaths);
+                contextText, allowedActions, allowedCreates, suggestedGuides, menuPaths, storeKnowledge, lang);
             logger.LogInformation(
                 "AI assistant context for {UserId}: {Length} chars, digest: {Digest}",
                 CurrentUserId,
                 contextText.Length,
                 AiAssistantContextBuilder.BuildDigest(contextText));
 
+            // 12 lượt gần nhất; câu trả lời dài cũ chỉ giữ phần đầu — mỗi vòng gọi AI đều gửi lại toàn bộ lịch sử.
             var chatTurns = dto.Messages
                 .Where(m => !string.IsNullOrWhiteSpace(m.Content))
                 .Where(m => !IsBoilerplateAssistantMessage(m))
-                .TakeLast(16)
+                .TakeLast(12)
                 .Select(m => (
                     Role: string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase)
                         ? "assistant" : "user",
                     Content: m.Content.Trim()))
                 .ToList();
+            for (var i = 0; i < chatTurns.Count - 2; i++)
+                if (chatTurns[i].Role == "assistant" && chatTurns[i].Content.Length > 700)
+                    chatTurns[i] = (chatTurns[i].Role, chatTurns[i].Content[..700] + "…");
+            var userTurns = dto.Messages.Where(m => string.Equals(m.Role, "user", StringComparison.OrdinalIgnoreCase))
+                .Select(m => m.Content).ToList();
+            var recentUser = userTurns.TakeLast(3).ToList();
 
             // Ghim tóm tắt dữ liệu vào câu hỏi cuối — tránh model bỏ qua system instruction dài.
             if (chatTurns.Count > 0)
@@ -219,10 +383,17 @@ public class AiAssistantController(
             }
 
             var geminiOk = geminiAiService.IsConfigured && geminiAiService.IsEnabled;
+            // Thêm / sửa / xóa / duyệt bằng lời → agent có công cụ đề xuất (bot rule chỉ mở form). Câu trả lời ngắn tiếp
+            // theo một lệnh («ừ, 500k», «người thứ hai») vẫn thuộc lệnh đó → xét cả vài câu trước.
+            var lastText = lastUserMessage.Content;
+            // Bộ dò từ khóa (ý định, bot rule) chỉ hiểu tiếng Việt — câu tiếng Anh / Hàn / Nhật / Trung để Gemini tự hiểu,
+            // kèm đủ công cụ thao tác (tốn token hơn nhưng không bỏ sót lệnh).
+            var vi = lang == AiLanguage.Vietnamese;
+            var withActions = !vi || AiAssistantIntent.LooksLikeAction(lastText)
+                              || (!AiAssistantAgent.LooksAnalytical(lastText) && recentUser.SkipLast(1).Any(AiAssistantIntent.LooksLikeAction));
+            var toolGroups = withActions && vi ? AiAssistantIntent.Groups(recentUser) : null;
             // Câu hỏi phân tích / báo cáo → đi thẳng agent (gọi báo cáo thật); câu cá nhân đơn giản → bot rule (nhanh, không tốn lượt).
-            // Thêm / sửa phiếu bằng lời → agent có công cụ đề xuất (bot rule chỉ mở form).
-            var analytical = geminiOk && (AiAssistantAgent.LooksAnalytical(lastUserMessage.Content)
-                                          || AiAssistantAgent.LooksLikeWrite(lastUserMessage.Content));
+            var analytical = geminiOk && (!vi || AiAssistantAgent.LooksAnalytical(lastText) || withActions);
             var rule = analytical
                 ? new AiAssistantRuleResult(false, "")
                 : AiAssistantRuleBot.Build(
@@ -248,12 +419,20 @@ public class AiAssistantController(
                 reply = rule.Reply;
                 usedProvider = "sbox";
             }
+            else if (!withActions && userTurns.Count == 1
+                     && cache.TryGetValue(AnswerKey(lastText, lang), out ChatResponse? cachedAnswer) && cachedAnswer != null)
+            {
+                // Hỏi lại đúng câu số liệu vừa hỏi (mở lại trợ lý, bấm gợi ý hai lần) → không tốn thêm lượt AI.
+                logger.LogInformation("AI chat: answer cache hit");
+                return Ok(AppResponse<ChatResponse>.Success(cachedAnswer));
+            }
             else
             {
                 try
                 {
                     var result = await agent.RunAsync(
-                        systemPrompt, chatTurns, RequiredStoreId, permMap, isSuperUser, ct, CurrentUserId, role);
+                        systemPrompt, chatTurns, RequiredStoreId, permMap, isSuperUser, ct, CurrentUserId, role,
+                        new AiAssistantAgent.Options(scope, lastText, withActions, toolGroups, onEvent));
                     reply = result.Reply;
                     reportsUsed = result.ReportsUsed;
                     proposed = result.Proposed;
@@ -284,19 +463,25 @@ public class AiAssistantController(
             var parsed = AiAssistantReplyParser.Parse(
                 reply, permMap, isSuperUser, suggestedGuides, lastUserMessage.Content);
 
-            return Ok(AppResponse<ChatResponse>.Success(new ChatResponse
+            var response = new ChatResponse
             {
                 Reply = parsed.Text,
                 Provider = usedProvider,
                 Actions = parsed.Actions,
                 Guides = parsed.Guides,
                 Reports = reportsUsed.Distinct().Select(AiAssistantReportCatalog.TitleOf).ToList(),
+                // Chỉ vẽ khi số liệu lấy từ báo cáo thật (không vẽ số bot rule / AI tự nghĩ ra).
+                Charts = reportsUsed.Count > 0 ? parsed.Charts ?? [] : [],
                 PendingActions = proposed
-                    .Select(p => new PendingActionDto(p.Id, p.Kind, p.Title, p.Lines, p.Warnings, p.OpenModule))
+                    .Select(p => new PendingActionDto(p.Id, p.Kind, p.Title, p.Lines, p.Warnings, p.OpenModule, p.Risk))
                     .ToList(),
                 // Đã có thẻ xác nhận thì bỏ thẻ CREATE cũ (tránh hai nút cho cùng một phiếu).
                 Creates = proposed.Count > 0 ? new List<string>() : parsed.Creates,
-            }));
+            };
+            if (usedProvider == "gemini" && !withActions && proposed.Count == 0 && userTurns.Count == 1 && reportsUsed.Count > 0)
+                cache.Set(AnswerKey(lastText, lang), response,
+                    new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = AnswerCacheTtl, Size = 1 });
+            return Ok(AppResponse<ChatResponse>.Success(response));
         }
         catch (Exception ex)
         {
@@ -305,12 +490,17 @@ public class AiAssistantController(
         }
     }
 
+    /// <summary>Khóa đệm câu trả lời: theo người hỏi (quyền + phạm vi riêng), ngôn ngữ trả lời và câu hỏi đã bỏ dấu.</summary>
+    string AnswerKey(string question, string lang) =>
+        $"ai-answer:{RequiredStoreId}:{CurrentUserId}:{lang}:{VnSearch.FoldText(question)}";
+
     private static bool IsBoilerplateAssistantMessage(ChatMessage m)
     {
         if (!string.Equals(m.Role, "assistant", StringComparison.OrdinalIgnoreCase))
             return false;
         var c = m.Content.Trim();
-        return c.StartsWith("Xin chào! Tôi là trợ lý", StringComparison.Ordinal)
+        // Lời chào mở đầu của app không mang thông tin — không gửi lại cho AI (đỡ token mỗi lượt).
+        return c.StartsWith("Xin chào! Tôi là trợ lý", StringComparison.OrdinalIgnoreCase)
                || c.StartsWith("Xin chào! Tôi trả lời phép", StringComparison.Ordinal)
                || c.StartsWith("⚠️", StringComparison.Ordinal)
                || c.StartsWith("❌", StringComparison.Ordinal)

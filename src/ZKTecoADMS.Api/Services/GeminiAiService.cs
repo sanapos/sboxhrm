@@ -36,6 +36,16 @@ public interface IGeminiAiService
     /// Trả về <c>candidates[0].content</c> (role model, parts: text / functionCall), đã Clone.
     /// </summary>
     Task<JsonElement> GenerateContentRawAsync(object requestBody, CancellationToken cancellationToken = default, string? model = null);
+
+    /// <summary>
+    /// Như <see cref="GenerateContentRawAsync"/> nhưng trả dần (SSE): mỗi phần tử là <c>candidates[0].content</c> của
+    /// một đoạn (parts: text / functionCall). Mặc định (lớp không hỗ trợ stream, lớp giả trong test) = một đoạn duy nhất.
+    /// </summary>
+    async IAsyncEnumerable<JsonElement> StreamGenerateContentRawAsync(object requestBody,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default, string? model = null)
+    {
+        yield return await GenerateContentRawAsync(requestBody, cancellationToken, model);
+    }
     bool IsConfigured { get; }
     bool IsEnabled { get; }
     void UpdateConfig(string? apiKey, string? model = null, int? maxTokens = null, double? temperature = null, bool? enabled = null);
@@ -268,30 +278,50 @@ QUAN TRỌNG: Trả lời ĐÚNG theo format JSON sau (không markdown, không c
             });
         }
 
-        var requestBody = new Dictionary<string, object>
+        var thinkingBudget = _jsonThinkingBudget.Value;
+        Dictionary<string, object> BuildBody(bool withThinking)
         {
-            ["systemInstruction"] = new { parts = new[] { new { text = systemPrompt } } },
-            ["contents"] = new[] { new Dictionary<string, object> { ["role"] = "user", ["parts"] = parts } },
-            ["generationConfig"] = new Dictionary<string, object>
+            var generationConfig = new Dictionary<string, object>
             {
                 ["temperature"] = 0.1,
                 ["maxOutputTokens"] = Math.Max(maxTokens, 1024),
                 ["responseMimeType"] = "application/json",
-            },
-        };
+            };
+            // Token suy nghĩ tính chung vào maxOutputTokens — giới hạn để phần trả lời không bị cắt.
+            if (withThinking && thinkingBudget is int tb)
+                generationConfig["thinkingConfig"] = new Dictionary<string, object> { ["thinkingBudget"] = tb };
+            return new Dictionary<string, object>
+            {
+                ["systemInstruction"] = new { parts = new[] { new { text = systemPrompt } } },
+                ["contents"] = new[] { new Dictionary<string, object> { ["role"] = "user", ["parts"] = parts } },
+                ["generationConfig"] = generationConfig,
+            };
+        }
 
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={_apiKey}";
-        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        async Task<(System.Net.HttpStatusCode Status, bool Ok, string Body)> SendAsync(bool withThinking)
         {
-            Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json"),
-        };
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
+            using var request = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(BuildBody(withThinking)), Encoding.UTF8, "application/json"),
+            };
+            using var resp = await _httpClient.SendAsync(request, cancellationToken);
+            return (resp.StatusCode, resp.IsSuccessStatusCode, await resp.Content.ReadAsStringAsync(cancellationToken));
+        }
+
+        var (statusCode, ok, responseBody) = await SendAsync(thinkingBudget != null);
+        if (!ok && thinkingBudget != null && statusCode == System.Net.HttpStatusCode.BadRequest
+            && !responseBody.Contains("API_KEY_INVALID", StringComparison.Ordinal))
         {
-            _logger.LogError("Gemini JSON API error {StatusCode}: {Body}", response.StatusCode,
+            // Model không nhận thinkingBudget (vd. bắt buộc suy nghĩ / dùng thinkingLevel) → gửi lại không giới hạn.
+            _logger.LogInformation("Gemini model {Model} từ chối thinkingBudget — gửi lại không có thinkingConfig", _model);
+            (statusCode, ok, responseBody) = await SendAsync(false);
+        }
+        if (!ok)
+        {
+            _logger.LogError("Gemini JSON API error {StatusCode}: {Body}", statusCode,
                 responseBody.Length > 500 ? responseBody[..500] : responseBody);
-            throw new AiApiException(ParseGeminiError(response.StatusCode, responseBody), (int)response.StatusCode);
+            throw new AiApiException(ParseGeminiError(statusCode, responseBody), (int)statusCode);
         }
 
         using var doc = JsonDocument.Parse(responseBody);
@@ -321,7 +351,45 @@ QUAN TRỌNG: Trả lời ĐÚNG theo format JSON sau (không markdown, không c
         if (text.StartsWith("```json")) text = text[7..];
         if (text.StartsWith("```")) text = text[3..];
         if (text.EndsWith("```")) text = text[..^3];
-        return text.Trim();
+        text = text.Trim();
+
+        // Hết độ dài trả lời giữa chừng: JSON bị cắt → báo rõ (kèm phần đã đọc để bên gọi cứu được nếu muốn).
+        if (finish == "MAX_TOKENS" && !IsCompleteJson(text))
+            throw new AiOutputTruncatedException(
+                "Nội dung quá dài cho một lần đọc — AI mới trả được một phần. Chia nhỏ ảnh / file (ít món hơn mỗi lần) rồi thử lại.",
+                text);
+        return text;
+    }
+
+    static bool IsCompleteJson(string text)
+    {
+        try
+        {
+            using var _ = JsonDocument.Parse(text);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    static readonly AsyncLocal<int?> _jsonThinkingBudget = new();
+
+    /// <summary>
+    /// Giới hạn token suy nghĩ (thinkingConfig.thinkingBudget) cho các lần gọi <see cref="GenerateJsonAsync"/>
+    /// trong phạm vi <c>using</c> (kể cả qua lớp bọc theo cửa hàng). Model không nhận → tự gửi lại không giới hạn.
+    /// </summary>
+    public static IDisposable UseJsonThinkingBudget(int budget)
+    {
+        var prev = _jsonThinkingBudget.Value;
+        _jsonThinkingBudget.Value = Math.Max(0, budget);
+        return new ThinkingBudgetScope(prev);
+    }
+
+    sealed class ThinkingBudgetScope(int? prev) : IDisposable
+    {
+        public void Dispose() => _jsonThinkingBudget.Value = prev;
     }
 
     private string BuildSystemPrompt(string typeLabel, string tone, string? context, int maxLength)
@@ -505,6 +573,59 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
         return content.Clone();
     }
 
+    /// <summary>
+    /// Bản stream của <see cref="GenerateContentRawAsync"/> (streamGenerateContent?alt=sse). Lỗi HTTP (hết lượt, sai khóa…)
+    /// ném TRƯỚC đoạn đầu tiên — lớp chọn khóa theo cửa hàng chuyển khóa như bản thường.
+    /// </summary>
+    public async IAsyncEnumerable<JsonElement> StreamGenerateContentRawAsync(object requestBody,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default, string? model = null)
+    {
+        if (!IsConfigured)
+            throw new InvalidOperationException("Gemini API key chưa được cấu hình.");
+        if (!IsEnabled)
+            throw new InvalidOperationException("Gemini AI chưa được bật.");
+
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model ?? _model}:streamGenerateContent?alt=sse&key={_apiKey}";
+        var json = requestBody as string ?? JsonSerializer.Serialize(requestBody, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        });
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogError("Gemini raw stream error {StatusCode}: {Body}", response.StatusCode, errorBody);
+            throw new AiApiException(ParseGeminiError(response.StatusCode, errorBody), (int)response.StatusCode);
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        while (await reader.ReadLineAsync(cancellationToken) is { } line)
+        {
+            if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
+            var data = line["data:".Length..].Trim();
+            if (data.Length == 0) continue;
+            JsonElement? content = null;
+            try
+            {
+                using var doc = JsonDocument.Parse(data);
+                if (doc.RootElement.TryGetProperty("candidates", out var cands) && cands.GetArrayLength() > 0
+                    && cands[0].TryGetProperty("content", out var c))
+                    content = c.Clone();
+            }
+            catch (JsonException)
+            {
+                // Dòng hỏng — bỏ qua, đoạn sau vẫn đọc.
+            }
+            if (content is JsonElement ce) yield return ce;
+        }
+    }
+
     public async IAsyncEnumerable<string> StreamGenerateCommunicationContentAsync(
         string prompt, string typeLabel, string tone, string? context, int maxLength,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -662,4 +783,10 @@ public class AiApiException : Exception
     {
         StatusCode = statusCode;
     }
+}
+
+/// <summary>AI dừng vì hết maxOutputTokens (finishReason = MAX_TOKENS) — <see cref="PartialText"/> là JSON bị cắt.</summary>
+public sealed class AiOutputTruncatedException(string message, string partialText) : AiApiException(message, 422)
+{
+    public string PartialText { get; } = partialText;
 }

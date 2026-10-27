@@ -6,6 +6,7 @@ import '../services/mobile_bottom_nav_prefs.dart';
 import '../services/mobile_quick_actions_prefs.dart';
 import 'shared_http_client.dart';
 import '../utils/navigation_notifier.dart';
+import '../widgets/ai_assistant_sheet.dart';
 
 /// Xóa cache in-memory khi đổi tài khoản / cửa hàng (logout → login).
 class SessionReset {
@@ -24,6 +25,8 @@ class SessionReset {
     MobileQuickActionsPrefs.clearCache();
     clearSharedHttpCache();
     NavigationNotifier.resetForNewSession();
+    // Cuộc trò chuyện với trợ lý (có số liệu của tài khoản cũ) không mang sang tài khoản / cửa hàng mới.
+    AiAssistantSheet.resetSession();
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('main_layout_last_nav_index');

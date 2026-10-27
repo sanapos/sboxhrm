@@ -18,7 +18,7 @@ namespace ZKTecoADMS.Api.Services;
 /// «Xác nhận» trên thẻ thì server mới gọi API đó bằng chính phiên đăng nhập của họ (cùng quyền, gói, chi nhánh,
 /// cùng kiểm tra nghiệp vụ như thao tác tay) — AI không tự ghi dữ liệu.
 /// </summary>
-public sealed class AiAssistantActions(
+public sealed partial class AiAssistantActions(
     ZKTecoDbContext db,
     IMemoryCache cache,
     IHttpContextAccessor http,
@@ -46,26 +46,51 @@ public sealed class AiAssistantActions(
         public List<Step>? Steps { get; init; }
         /// <summary>Số lượng theo hàng cho bước điền dòng (LinesFrom).</summary>
         public Dictionary<Guid, decimal>? LineQty { get; init; }
+        /// <summary>
+        /// "normal" | "high". Rủi ro cao (xóa, hủy chứng từ, duyệt hàng loạt): thẻ đỏ, người dùng phải xác nhận hai lần
+        /// (server đòi cờ acknowledged) và không hoàn tác được.
+        /// </summary>
+        public string Risk { get; init; } = "normal";
+        /// <summary>Các bước độc lập (duyệt nhiều đơn): chạy hết, lỗi đơn nào báo đơn đó — không dừng giữa chừng.</summary>
+        public bool Batch { get; init; }
+        /// <summary>Bước hoàn tác tương ứng từng bước của <see cref="Batch"/> (null = bước đó không hoàn tác được).</summary>
+        public List<Step?>? BatchUndo { get; init; }
+        /// <summary>
+        /// API GET trả bản ghi hiện tại: khi xác nhận, lấy bản này rồi ghi đè các trường trong Body và PUT lại
+        /// (API sửa khách / NCC ghi đè toàn bộ — gửi thiếu trường là xóa trắng).
+        /// </summary>
+        public string? MergeFrom { get; init; }
+        /// <summary>Hoàn tác biết trước lúc đề xuất (vd trả lại giá cũ). Null = tính theo loại phiếu + id vừa tạo.</summary>
+        public List<Step>? Undo { get; init; }
     }
 
     /// <summary>
     /// Một bước gọi API. Path có «{id}» = id phiếu tạo ở bước đầu. LinesFrom = "qty" | "counted": thân dựng từ
     /// danh sách dòng bước trước trả về (lineId theo hàng) + <see cref="Pending.LineQty"/>.
     /// </summary>
-    public sealed record Step(string Method, string Path, string? Body, string? LinesFrom = null);
+    /// <param name="Label">Nhãn bước trong lô (tên nhân viên của đơn) — báo lỗi đúng đơn.</param>
+    public sealed record Step(string Method, string Path, string? Body, string? LinesFrom = null, string? Label = null);
 
+    /// <param name="Scope">Phạm vi nhân sự của người hỏi — tra cứu / lập phiếu cho người khác chỉ trong phạm vi này.</param>
+    /// <param name="Prompt">Câu lệnh gốc (ghi nhật ký thao tác AI).</param>
     public sealed record Ctx(
         Guid StoreId, Guid UserId, string Role,
-        IReadOnlyDictionary<string, ModulePermissionDto> Perms, bool IsSuper, IReadOnlyCollection<string>? Package);
+        IReadOnlyDictionary<string, ModulePermissionDto> Perms, bool IsSuper, IReadOnlyCollection<string>? Package,
+        AiAssistantScope Scope, string Prompt = "");
 
+    /// <param name="Need">C = tạo, E = sửa, D = xóa / hủy, A = duyệt.</param>
+    /// <param name="ManagerOnly">Chỉ người quản lý người khác (phạm vi nhân sự rộng hơn bản thân).</param>
     sealed record Def(string Name, string Module, char Need, bool ManagerOnly, string Description,
         Dictionary<string, (string Type, string Desc)> Params, string[] Required);
 
-    static readonly string[] ManagerRoles = ["Admin", "Director", "SuperAdmin", "Manager", "DepartmentHead", "Accountant", "Agent"];
-
     // ─── Danh mục thao tác ─────────────────────────────────────────
 
-    static readonly Def[] Defs =
+    static Def[]? _defs;
+
+    /// <summary>Thao tác gốc + duyệt đơn + sửa / xóa / hủy (khai báo ở các tệp partial).</summary>
+    static Def[] Defs => _defs ??= [.. CoreDefs, .. ReviewDefs, .. ManageDefs, .. OpsDefs];
+
+    static readonly Def[] CoreDefs =
     [
         new("propose_advance", "AdvanceRequests", 'C', false,
             "Lập YÊU CẦU ỨNG LƯƠNG (chờ duyệt). Không có employee_id = ứng cho chính người hỏi.",
@@ -283,59 +308,75 @@ public sealed class AiAssistantActions(
         if (c.Package is { Count: > 0 } pkg && !pkg.Contains(module, StringComparer.OrdinalIgnoreCase)) return false;
         if (c.IsSuper) return true;
         if (!c.Perms.TryGetValue(module, out var p)) return false;
-        return need switch { 'E' => p.CanEdit, 'A' => p.CanApprove, _ => p.CanCreate };
+        return need switch { 'E' => p.CanEdit, 'A' => p.CanApprove, 'D' => p.CanDelete, _ => p.CanCreate };
     }
 
-    bool IsManager(Ctx c) => c.IsSuper || ManagerRoles.Contains(c.Role, StringComparer.OrdinalIgnoreCase);
+    /// <summary>
+    /// Quản lý người khác = phạm vi nhân sự rộng hơn bản thân (cấp dưới / phòng ban / chi nhánh được giao, hoặc cả cửa hàng)
+    /// — theo phân quyền dữ liệu thật, không theo tên vai trò (vai trò tự tạo vẫn dùng được).
+    /// </summary>
+    static bool IsManager(Ctx c) => c.IsSuper || c.Scope.ManagesOthers;
 
-    IEnumerable<Def> AllowedDefs(Ctx c) => Defs.Where(d => Can(c, d.Module, d.Need) && (!d.ManagerOnly || IsManager(c)));
+    static bool CanSeeCost(Ctx c) => c.IsSuper || (c.Perms.TryGetValue("PosViewCost", out var p) && p.CanView);
+
+    /// <summary>
+    /// Thao tác được phép. Module bắt đầu bằng «@» = công cụ nhiều loại chứng từ (duyệt / xóa / hủy / sửa liên hệ):
+    /// được phép khi có quyền với ít nhất một loại; từng loại kiểm lại lúc dựng phiếu.
+    /// </summary>
+    IEnumerable<Def> AllowedDefs(Ctx c) => Defs.Where(d =>
+        (d.Module.StartsWith('@') ? AllowedKinds(c, d.Module).Count > 0 : Can(c, d.Module, d.Need))
+        && (!d.ManagerOnly || IsManager(c)));
+
+    /// <summary>Tên các thao tác được phép (kiểm thử / nhật ký).</summary>
+    public IReadOnlyList<string> AllowedToolNames(Ctx c) => AllowedDefs(c).Select(d => d.Name).ToList();
 
     // ─── Khai báo công cụ cho Gemini ───────────────────────────────
 
-    public List<object> ToolDeclarations(Ctx c)
+    /// <param name="groups">
+    /// Chỉ khai báo thao tác thuộc các nhóm này (xem <see cref="AiAssistantIntent"/>) — câu hỏi về kho không cần gửi
+    /// khai báo phạt / thưởng: bớt hàng nghìn token mỗi lượt gọi AI. null = mọi nhóm.
+    /// </param>
+    public List<object> ToolDeclarations(Ctx c, IReadOnlySet<string>? groups = null)
     {
-        var allowed = AllowedDefs(c).ToList();
+        var allowed = AllowedDefs(c).Where(d => groups == null || groups.Contains(AiAssistantIntent.GroupOf(d.Name))).ToList();
         if (allowed.Count == 0) return [];
         var decls = new List<object>();
-        if (IsManager(c))
+        if (IsManager(c) && allowed.Any(d => d.Params.ContainsKey("employee_id") || AiAssistantIntent.GroupOf(d.Name) is "hr" or "review"))
             decls.Add(Fn("find_employees", "Tìm nhân viên theo tên / mã (không dấu cũng được) → id dùng cho các công cụ đề xuất.",
                 new() { ["query"] = ("STRING", "Tên hoặc mã nhân viên") }, ["query"]));
-        if (allowed.Any(d => d.Name == "propose_sale_order"))
-        {
-            decls.Add(Fn("find_products", "Tìm hàng hóa / dịch vụ theo tên / mã / mã vạch → id, giá bán, đơn vị, tồn.",
-                new() { ["query"] = ("STRING", "Tên / mã hàng") }, ["query"]));
-            decls.Add(Fn("find_customers", "Tìm khách hàng theo tên / SĐT.",
-                new() { ["query"] = ("STRING", "Tên / SĐT") }, ["query"]));
-        }
-        if (allowed.Any(d => d.Name is "propose_product" or "propose_purchase_receipt" or "propose_stock_count"
+        if (allowed.Any(d => d.Name is "propose_sale_order" or "propose_product" or "propose_purchase_receipt" or "propose_stock_count"
                 or "propose_damage_issue" or "propose_internal_use" or "propose_purchase_return" or "propose_promotion"
-                or "propose_customer_return")
-            && !decls.Any(x => x.GetType().GetProperty("name")?.GetValue(x) as string == "find_products"))
+                or "propose_customer_return" or "propose_update_product" or "propose_delete"))
             decls.Add(Fn("find_products", "Tìm hàng hóa / dịch vụ theo tên / mã / mã vạch → id, giá bán, giá vốn, đơn vị, tồn.",
                 new() { ["query"] = ("STRING", "Tên / mã hàng") }, ["query"]));
-        if (allowed.Any(d => d.Name is "propose_promotion" or "propose_product"))
+        if (allowed.Any(d => d.Name is "propose_sale_order" or "propose_update_contact" or "propose_delete"))
+            decls.Add(Fn("find_customers", "Tìm khách hàng theo tên / SĐT.",
+                new() { ["query"] = ("STRING", "Tên / SĐT") }, ["query"]));
+        if (allowed.Any(d => d.Name is "propose_promotion" or "propose_product" or "propose_update_product"))
             decls.Add(Fn("find_categories", "Danh sách nhóm hàng của cửa hàng (tên chính xác để áp khuyến mãi / xếp hàng mới).",
                 new(), []));
-        if (allowed.Any(d => d.Name is "propose_purchase_receipt" or "propose_purchase_return"))
+        if (allowed.Any(d => d.Name is "propose_purchase_receipt" or "propose_purchase_return" or "propose_update_contact" or "propose_delete"))
             decls.Add(Fn("find_suppliers", "Tìm nhà cung cấp theo tên / SĐT.",
                 new() { ["query"] = ("STRING", "Tên / SĐT nhà cung cấp") }, ["query"]));
-        if (allowed.Any(d => d.Name == "propose_customer_return"))
+        if (allowed.Any(d => d.Name is "propose_customer_return" or "propose_cancel_document"))
             decls.Add(Fn("find_orders", "Tìm hóa đơn bán (để trả hàng) theo mã HĐ / tên / SĐT khách, trong 60 ngày.",
                 new() { ["query"] = ("STRING", "Mã hóa đơn / khách") }, ["query"]));
         if (allowed.Any(d => d.Module == "CashTransaction"))
             decls.Add(Fn("find_cash_categories", "Danh mục thu / chi của cửa hàng.",
                 new() { ["direction"] = ("STRING", "income | expense") }, []));
-        if (allowed.Any(d => d.Need == 'E'))
-            decls.Add(Fn("find_records", "Tìm phiếu đã có để sửa: penalty (phiếu phạt) | reward (phiếu thưởng) | cash (phiếu thu chi).",
+        if (allowed.Any(d => d.Need is 'E' or 'D'))
+            decls.Add(Fn("find_records", "Tìm phiếu / chứng từ đã có để sửa, xóa hoặc hủy (trả id, mã, trạng thái).",
                 new()
                 {
-                    ["kind"] = ("STRING", "penalty | reward | cash"),
-                    ["employee_id"] = ("STRING", "Lọc theo nhân viên (penalty / reward)"),
-                    ["query"] = ("STRING", "Mã phiếu / nội dung"),
+                    ["kind"] = ("STRING", string.Join(" | ", RecordKinds)),
+                    ["employee_id"] = ("STRING", "Lọc theo nhân viên (phiếu nhân sự)"),
+                    ["query"] = ("STRING", "Mã phiếu / nội dung / tên"),
                     ["days"] = ("INTEGER", "Trong bao nhiêu ngày gần đây (mặc định 45)"),
                 }, ["kind"]));
+        AddReviewFinders(c, allowed, decls);
+        AddOpsFinders(c, allowed, decls);
         foreach (var d in allowed)
-            decls.Add(Fn(d.Name, d.Description + " CHỈ tạo bản nháp — người dùng bấm Xác nhận mới ghi.", d.Params, d.Required));
+            decls.Add(Fn(d.Name, d.Description + " CHỈ tạo bản nháp — người dùng bấm Xác nhận mới ghi.", KindParams(c, d), d.Required));
         return decls;
     }
 
@@ -369,12 +410,17 @@ public sealed class AiAssistantActions(
     }
 
     public static string Instructions(bool any) => !any ? "" : """
-        === THÊM / SỬA CHỨNG TỪ ===
-        - Người dùng muốn tạo / sửa phiếu (ứng lương, phạt, thưởng, thu chi, tăng ca, bổ sung chấm công, hóa đơn bán,
-          hàng hóa mới, nhập kho, kiểm kho, xuất hủy, dùng nội bộ, khách trả hàng, trả hàng NCC, voucher, khuyến mãi…):
-          dùng công cụ propose_* tương ứng (KHÔNG dùng thẻ [[CREATE:...]] cho các loại này).
+        === THÊM / SỬA / XÓA / DUYỆT THAY NGƯỜI DÙNG ===
+        - Người dùng muốn tạo / sửa / xóa / hủy phiếu hay duyệt đơn: dùng công cụ propose_* tương ứng
+          (KHÔNG dùng thẻ [[CREATE:...]] cho các loại này). Chỉ có công cụ được khai báo = đúng quyền của tài khoản;
+          việc không có công cụ → nói tài khoản không có quyền, chỉ chỗ thao tác trên app.
         - Nhắc tên người / hàng / khách → gọi find_employees / find_products / find_customers trước để lấy id.
-          Nhiều kết quả trùng tên → hỏi lại người dùng chọn ai, KHÔNG tự chọn.
+          Nhiều kết quả trùng tên → hỏi lại người dùng chọn ai, KHÔNG tự chọn. find_employees chỉ trả người trong
+          phạm vi quản lý — không thấy ai thì nói người đó ngoài phạm vi / không tồn tại.
+        - Duyệt / từ chối đơn: gọi find_pending_requests xem đơn chờ (đưa người dùng danh sách nếu họ chưa nói rõ đơn nào),
+          rồi propose_review_requests với đúng id. "Duyệt hết" chỉ áp cho các đơn vừa liệt kê.
+        - Xóa / hủy: find_records (hoặc find_orders / find_products / find_customers / find_suppliers) lấy id rồi
+          propose_delete / propose_cancel_document. Đây là thao tác RỦI RO CAO: nêu rõ hậu quả (trả kho, hoàn tiền, mất phiếu).
         - Thiếu thông tin bắt buộc (số tiền, ngày, giờ, người…) → hỏi lại ngắn gọn, chưa gọi propose_*.
         - Có thể đề xuất nhiều phiếu một lượt (vd phạt 3 người) — mỗi phiếu một lời gọi propose_*.
         - Sau khi đề xuất: tóm tắt 1–2 câu và nhắc người dùng bấm «Xác nhận» trên thẻ. TUYỆT ĐỐI không nói "đã tạo".
@@ -382,6 +428,12 @@ public sealed class AiAssistantActions(
         - Khuyến mãi nhắc nhóm hàng («đồ uống», «món nướng»…) → gọi find_categories rồi truyền category đúng tên;
           nhắc từng món → find_products rồi truyền product_ids. Chỉ để trống khi người dùng nói áp cho MỌI hàng.
         - Kiểm kho: qty là số ĐẾM THỰC TẾ (không phải số chênh lệch). Khách trả hàng: tra find_orders để lấy order_id.
+        - Xếp ca: find_shift_templates lấy shift_id → propose_assign_shift (nhiều người × nhiều ngày một thẻ). Đổi ca: propose_shift_swap.
+        - Chuyển kho: propose_stock_transfer (tên chi nhánh, find_branches). Thu nợ: find_customers → propose_collect_debt.
+        - Thông báo nội bộ: propose_announcement. Giao việc: propose_task. Chốt ca: hỏi tiền ĐẾM THỰC TẾ → propose_close_cashier_shift.
+        - «Phạt ai đi trễ / về sớm / vắng…» cả loạt: propose_penalties_for_late (MỘT thẻ, tự bỏ người đã có phiếu). Không có amount =
+          theo Thiết lập phạt; mức ghi trong nội quy / hồ sơ cửa hàng thì PHẢI truyền amount.
+        - Nhập hàng theo gợi ý: find_reorder_suggestions → người dùng chốt → propose_purchase_receipt mỗi NCC một lần.
         - Quy đổi lời nói: "năm trăm nghìn / năm trăm k / 500k" = 500000; "1 triệu rưỡi" = 1500000; "chiều nay 5 giờ" = 17:00.
         """;
 
@@ -389,6 +441,8 @@ public sealed class AiAssistantActions(
 
     public bool Handles(string tool) => tool is "find_employees" or "find_products" or "find_customers"
         or "find_cash_categories" or "find_records" or "find_suppliers" or "find_orders" or "find_categories"
+        or "find_pending_requests"
+        || OpsFinders.Contains(tool)
         || tool.StartsWith("propose_", StringComparison.Ordinal);
 
     public async Task<object> HandleAsync(string tool, JsonElement args, Ctx c, List<Pending> proposed, CancellationToken ct)
@@ -403,6 +457,8 @@ public sealed class AiAssistantActions(
             case "find_records": return await FindRecordsAsync(c, a, ct);
             case "find_suppliers": return await FindSuppliersAsync(c, S(a, "query"), ct);
             case "find_orders": return await FindOrdersAsync(c, S(a, "query"), ct);
+            case "find_pending_requests": return await FindPendingRequestsAsync(c, a, ct);
+            case "find_shift_templates" or "find_branches" or "find_reorder_suggestions": return await OpsFindAsync(tool, a, c, ct);
             case "find_categories":
                 return new
                 {
@@ -440,7 +496,7 @@ public sealed class AiAssistantActions(
                 "propose_purchase_return" => await PurchaseReturnAsync(c, a, ct),
                 "propose_voucher" => VoucherProposal(c, a),
                 "propose_promotion" => await PromotionAsync(c, a, ct),
-                _ => null,
+                _ => await ManageProposalAsync(tool, c, a, ct),
             };
         }
         catch (ActionError e)
@@ -449,13 +505,14 @@ public sealed class AiAssistantActions(
         }
         if (p == null) return new { error = "Không dựng được phiếu." };
 
-        cache.Set(Key(p.Id), p, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30), Size = 1 });
+        await RememberAsync(p, c, ct);
         proposed.Add(p);
         return new
         {
             status = "cho_xac_nhan",
             tom_tat = p.Title + ": " + string.Join("; ", p.Lines.Select(l => $"{l.Label} {l.Value}")),
             canh_bao = p.Warnings,
+            rui_ro = p.Risk == "high" ? "CAO — không hoàn tác được, người dùng phải xác nhận hai lần" : null,
             luu_y = "Đã hiện thẻ cho người dùng bấm Xác nhận. Chưa ghi dữ liệu — không nói đã tạo.",
         };
     }
@@ -466,13 +523,18 @@ public sealed class AiAssistantActions(
 
     sealed record Emp(Guid Id, Guid? UserId, string Code, string Name, string? Dept);
 
-    async Task<List<Emp>> EmployeesAsync(Ctx c, CancellationToken ct) =>
-        (await db.Employees.AsNoTracking()
-            .Where(e => e.StoreId == c.StoreId && e.Deleted == null && e.WorkStatus != EmployeeWorkStatus.Resigned)
-            .Select(e => new { e.Id, e.ApplicationUserId, e.EmployeeCode, e.FirstName, e.LastName, Dept = e.Department })
-            .ToListAsync(ct))
-        .Select(e => new Emp(e.Id, e.ApplicationUserId, e.EmployeeCode, $"{e.FirstName} {e.LastName}".Trim(), e.Dept))
-        .ToList();
+    /// <summary>Nhân viên đang làm trong PHẠM VI của người hỏi (cả cửa hàng / cấp dưới / chỉ bản thân).</summary>
+    async Task<List<Emp>> EmployeesAsync(Ctx c, CancellationToken ct)
+    {
+        var scoped = c.Scope.EmployeeIds;
+        return (await db.Employees.AsNoTracking()
+                .Where(e => e.StoreId == c.StoreId && e.Deleted == null && e.WorkStatus != EmployeeWorkStatus.Resigned)
+                .Where(e => scoped == null || scoped.Contains(e.Id))
+                .Select(e => new { e.Id, e.ApplicationUserId, e.EmployeeCode, e.FirstName, e.LastName, Dept = e.Department })
+                .ToListAsync(ct))
+            .Select(e => new Emp(e.Id, e.ApplicationUserId, e.EmployeeCode, $"{e.FirstName} {e.LastName}".Trim(), e.Dept))
+            .ToList();
+    }
 
     static int Score(string fold, string q)
     {
@@ -494,7 +556,9 @@ public sealed class AiAssistantActions(
             .Take(8)
             .Select(x => new { id = x.e.Id, ma = x.e.Code, ten = x.e.Name, phong_ban = x.e.Dept })
             .ToList();
-        return list.Count == 0 ? new { ket_qua = "Không tìm thấy nhân viên khớp" } : new { ket_qua = list };
+        return list.Count == 0
+            ? new { ket_qua = c.Scope.WholeStore ? "Không tìm thấy nhân viên khớp" : "Không có nhân viên khớp trong phạm vi bạn quản lý" }
+            : new { ket_qua = list };
     }
 
     async Task<object> FindProductsAsync(Ctx c, string? query, CancellationToken ct)
@@ -503,20 +567,24 @@ public sealed class AiAssistantActions(
         if (q.Length == 0) return new { error = "Thiếu tên hàng" };
         var raw = query!.Trim();
         var rows = await db.PosProducts.AsNoTracking()
-            .Where(p => p.StoreId == c.StoreId && p.Deleted == null && p.IsActive)
-            .Select(p => new { p.Id, p.ProductCode, p.Barcode, p.Name, p.BasePrice, p.CostPrice, p.BaseUnitName, p.OnHandQty, p.ProductType })
+            .Where(p => p.StoreId == c.StoreId && p.Deleted == null)
+            .Select(p => new { p.Id, p.ProductCode, p.Barcode, p.Name, p.BasePrice, p.CostPrice, p.BaseUnitName, p.OnHandQty, p.ProductType, p.IsActive })
             .ToListAsync(ct);
         var list = rows
             .Select(p => (p, s: p.ProductCode.Equals(raw, StringComparison.OrdinalIgnoreCase) || p.Barcode == raw
                 ? 100 : Score(VnSearch.Fold(p.Name), q)))
             .Where(x => x.s > 0)
-            .OrderByDescending(x => x.s).ThenBy(x => x.p.Name.Length)
+            // Hàng đang bán lên trước; hàng ngừng bán vẫn trả (để «mở bán lại») nhưng có cờ.
+            .OrderByDescending(x => x.p.IsActive).ThenByDescending(x => x.s).ThenBy(x => x.p.Name.Length)
             .Take(8)
             .Select(x => new
             {
-                id = x.p.Id, ma = x.p.ProductCode, ten = x.p.Name, gia_ban = x.p.BasePrice, gia_von = x.p.CostPrice,
+                id = x.p.Id, ma = x.p.ProductCode, ten = x.p.Name, gia_ban = x.p.BasePrice,
+                // Giá vốn chỉ cho người có quyền «Xem giá vốn & lợi nhuận» (như màn Hàng hóa).
+                gia_von = CanSeeCost(c) ? x.p.CostPrice : (decimal?)null,
                 don_vi = x.p.BaseUnitName,
                 ton = x.p.ProductType == PosProductType.Goods ? x.p.OnHandQty : (decimal?)null,
+                ngung_ban = x.p.IsActive ? (bool?)null : true,
             })
             .ToList();
         return list.Count == 0 ? new { ket_qua = "Không tìm thấy hàng khớp" } : new { ket_qua = list };
@@ -570,6 +638,7 @@ public sealed class AiAssistantActions(
         Guid? emp = G(a, "employee_id");
         var names = (await EmployeesAsync(c, ct)).ToDictionary(e => e.Id, e => e.Name);
         string N(Guid? id) => id is Guid g && names.TryGetValue(g, out var n) ? n : "";
+        var scoped = c.Scope.EmployeeIds;
 
         switch (kind)
         {
@@ -577,6 +646,7 @@ public sealed class AiAssistantActions(
             {
                 var rows = await db.PenaltyTickets.AsNoTracking()
                     .Where(t => t.StoreId == c.StoreId && t.CreatedAt >= since && (emp == null || t.EmployeeId == emp))
+                    .Where(t => scoped == null || scoped.Contains(t.EmployeeId))
                     .OrderByDescending(t => t.CreatedAt).Take(60)
                     .Select(t => new { t.Id, t.TicketCode, t.EmployeeId, t.Amount, t.Type, t.Status, t.ViolationDate, t.Description })
                     .ToListAsync(ct);
@@ -590,7 +660,7 @@ public sealed class AiAssistantActions(
             case "reward":
             {
                 // Phiếu thưởng không có StoreId — giới hạn theo nhân viên của cửa hàng.
-                var storeEmp = await db.Employees.AsNoTracking().Where(e => e.StoreId == c.StoreId).Select(e => e.Id).ToListAsync(ct);
+                var storeEmp = scoped ?? await db.Employees.AsNoTracking().Where(e => e.StoreId == c.StoreId).Select(e => e.Id).ToListAsync(ct);
                 var rows = await db.PaymentTransactions.AsNoTracking()
                     .Where(t => t.EmployeeId != null && storeEmp.Contains(t.EmployeeId.Value)
                                 && t.Type == "Bonus" && t.CreatedAt >= since && (emp == null || t.EmployeeId == emp))
@@ -624,7 +694,7 @@ public sealed class AiAssistantActions(
                 };
             }
             default:
-                return new { error = "kind phải là penalty | reward | cash" };
+                return await FindMoreRecordsAsync(c, kind, a, since, q, emp, N, ct);
         }
     }
 
@@ -633,7 +703,8 @@ public sealed class AiAssistantActions(
         var all = await EmployeesAsync(c, ct);
         if (id is Guid g)
         {
-            var e = all.FirstOrDefault(x => x.Id == g) ?? throw new ActionError("Không tìm thấy nhân viên — dùng find_employees để lấy đúng id.");
+            var e = all.FirstOrDefault(x => x.Id == g)
+                    ?? throw new ActionError("Không tìm thấy nhân viên trong phạm vi bạn quản lý — dùng find_employees để lấy đúng id.");
             if (!IsManager(c) && e.UserId != c.UserId) throw new ActionError("Chỉ quản lý mới tạo phiếu cho người khác.");
             return e;
         }
@@ -701,6 +772,7 @@ public sealed class AiAssistantActions(
         var id = G(a, "record_id") ?? throw new ActionError("Thiếu id phiếu — dùng find_records kind=penalty.");
         var t = await db.PenaltyTickets.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == c.StoreId, ct)
                 ?? throw new ActionError("Không tìm thấy phiếu phạt.");
+        if (!c.Scope.HasEmployee(t.EmployeeId)) throw new ActionError("Phiếu phạt của nhân viên ngoài phạm vi bạn quản lý.");
         var amount = a.ContainsKey("amount") ? Money(a, "amount") : (decimal?)null;
         var type = S(a, "type") is { } ty ? PenaltyType(ty) : null;
         var desc = S(a, "description");
@@ -737,6 +809,7 @@ public sealed class AiAssistantActions(
                 ?? throw new ActionError("Không tìm thấy phiếu thưởng.");
         if (t.EmployeeId is not Guid te || !await db.Employees.AnyAsync(e => e.Id == te && e.StoreId == c.StoreId, ct))
             throw new ActionError("Không tìm thấy phiếu thưởng.");
+        if (!c.Scope.HasEmployee(te)) throw new ActionError("Phiếu thưởng của nhân viên ngoài phạm vi bạn quản lý.");
         var amount = a.ContainsKey("amount") ? Money(a, "amount") : (decimal?)null;
         var desc = S(a, "description");
         var date = D(a, "date");
@@ -1340,142 +1413,6 @@ public sealed class AiAssistantActions(
             daysOfWeekMask = mask, timeFromMinutes = tf, timeToMinutes = tt, membersOnly = members,
             configJson = cfg.ToJsonString(), note = "Tạo bằng Trợ lý ảo", isActive = true,
         }, "PosPromotions");
-    }
-
-    /// <summary>Phiếu kho nhiều bước: id phiếu từ bước đầu; bước điền dòng ghép lineId theo hàng.</summary>
-    async Task<ExecResult> ExecuteStepsAsync(Pending p, HttpContext ctx, CancellationToken ct)
-    {
-        string? docId = null;
-        JsonNode? lastData = null;
-        string? docNo = null;
-        foreach (var step in p.Steps!)
-        {
-            var path = step.Path.Replace("{id}", docId ?? "");
-            var body = step.Body;
-            if (step.LinesFrom != null)
-            {
-                var lineList = new JsonArray();
-                foreach (var l in lastData?["lines"]?.AsArray() ?? [])
-                {
-                    if (l?["productId"]?.ToString() is not { } pid || !Guid.TryParse(pid, out var g)
-                        || p.LineQty?.TryGetValue(g, out var q) != true) continue;
-                    var o = new JsonObject { ["lineId"] = l["id"]?.ToString() };
-                    if (step.LinesFrom == "counted") { o["countedQty"] = q; o["isChecked"] = true; }
-                    else o["qty"] = q;
-                    lineList.Add(o);
-                }
-                body = new JsonObject { ["lines"] = lineList }.ToJsonString();
-            }
-            using var req = new HttpRequestMessage(new HttpMethod(step.Method), $"http://127.0.0.1:{ctx.Connection.LocalPort}{path}");
-            if (body != null) req.Content = new StringContent(body, Encoding.UTF8, "application/json");
-            else if (step.Method is "POST" or "PUT") req.Content = new StringContent("{}", Encoding.UTF8, "application/json");
-            if (AuthenticationHeaderValue.TryParse(ctx.Request.Headers.Authorization.ToString(), out var auth))
-                req.Headers.Authorization = auth;
-            var branch = ctx.Request.Headers["X-Branch-Id"].ToString();
-            if (!string.IsNullOrWhiteSpace(branch)) req.Headers.TryAddWithoutValidation("X-Branch-Id", branch);
-            req.Headers.TryAddWithoutValidation("X-Sbox-Ai-Assistant", "1");
-            using var resp = await Loopback.SendAsync(req, ct);
-            var text = await resp.Content.ReadAsStringAsync(ct);
-            logger.LogInformation("AI action {Kind} step {Method} {Path} → {Status}", p.Kind, step.Method, path, (int)resp.StatusCode);
-            JsonNode? node = null;
-            try { node = JsonNode.Parse(text); } catch (JsonException) { }
-            var ok = resp.IsSuccessStatusCode && (node?["isSuccess"] is not JsonValue v || !v.TryGetValue<bool>(out var s2) || s2);
-            if (!ok)
-            {
-                var msg = (int)resp.StatusCode is 401 or 403
-                    ? "Tài khoản không có quyền thực hiện thao tác này."
-                    : node?["message"]?.ToString() is { Length: > 0 } m ? m : $"Không thực hiện được ({(int)resp.StatusCode}).";
-                // Phiếu đã tạo dở (nháp) vẫn nằm ở màn tương ứng — báo để người dùng xử lý tiếp.
-                return new(false, docId == null ? msg : $"{msg} Phiếu nháp đã tạo — mở màn {p.Title.ToLower(Vi)} để hoàn tất.", null, p.OpenModule);
-            }
-            lastData = node?["data"];
-            docId ??= lastData?["id"]?.ToString();
-            foreach (var k in new[] { "issueNo", "countNo", "code", "documentNo" })
-                if (lastData?[k] is JsonValue dv && dv.ToString() is { Length: > 0 } dn) { docNo = dn; break; }
-        }
-        return new(true, $"Đã tạo và hoàn thành {p.Title.ToLower(Vi)}{(docNo != null ? " " + docNo : "")}.", docNo, p.OpenModule);
-    }
-
-    // ─── Xác nhận / thực thi ───────────────────────────────────────
-
-    static string Key(string id) => "ai-action:" + id;
-
-    public Pending? Get(string id, Guid userId, Guid storeId) =>
-        cache.TryGetValue(Key(id), out Pending? p) && p != null && p.UserId == userId && p.StoreId == storeId ? p : null;
-
-    public sealed record ExecResult(bool Ok, string Message, string? DocNo, string? OpenModule);
-
-    public async Task<ExecResult> ExecuteAsync(string id, Guid userId, Guid storeId, CancellationToken ct)
-    {
-        var p = Get(id, userId, storeId);
-        if (p == null) return new(false, "Phiếu đề xuất đã hết hạn hoặc đã xử lý — hỏi lại trợ lý.", null, null);
-        // Mỗi đề xuất chỉ ghi một lần (bấm hai lần không tạo trùng).
-        cache.Remove(Key(id));
-
-        var ctx = http.HttpContext ?? throw new InvalidOperationException("Không có phiên làm việc");
-        if (p.Steps is { Count: > 0 })
-            return await ExecuteStepsAsync(p, ctx, ct);
-        var url = $"http://127.0.0.1:{ctx.Connection.LocalPort}{p.Path}";
-        using var req = new HttpRequestMessage(new HttpMethod(p.Method), url);
-        var payload = p.Body;
-        if (payload != null && p.Kind is "cash" or "update_cash" && JsonNode.Parse(payload) is JsonObject bo
-            && bo["categoryId"]?.ToString() == Guid.Empty.ToString())
-        {
-            bo["categoryId"] = (await EnsureGeneralCategoryAsync(storeId,
-                (CashTransactionType)(int)bo["type"]!, ct)).ToString();
-            payload = bo.ToJsonString();
-        }
-        if (payload != null) req.Content = new StringContent(payload, Encoding.UTF8, "application/json");
-        if (AuthenticationHeaderValue.TryParse(ctx.Request.Headers.Authorization.ToString(), out var auth))
-            req.Headers.Authorization = auth;
-        var branch = ctx.Request.Headers["X-Branch-Id"].ToString();
-        if (!string.IsNullOrWhiteSpace(branch)) req.Headers.TryAddWithoutValidation("X-Branch-Id", branch);
-        req.Headers.TryAddWithoutValidation("X-Sbox-Ai-Assistant", "1");
-
-        using var resp = await Loopback.SendAsync(req, ct);
-        var text = await resp.Content.ReadAsStringAsync(ct);
-        logger.LogInformation("AI action {Kind} {Method} {Path} → {Status}", p.Kind, p.Method, p.Path, (int)resp.StatusCode);
-        JsonNode? node = null;
-        try { node = JsonNode.Parse(text); } catch (JsonException) { }
-        var message = node?["message"]?.ToString();
-        var success = resp.IsSuccessStatusCode && (node?["isSuccess"] is not JsonValue v || !v.TryGetValue<bool>(out var s) || s);
-        if (!success)
-        {
-            if ((int)resp.StatusCode is 401 or 403)
-                return new(false, "Tài khoản không có quyền thực hiện thao tác này.", null, null);
-            // Lỗi thì giữ lại đề xuất để người dùng sửa thông tin rồi thử lại.
-            cache.Set(Key(id), p, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30), Size = 1 });
-            return new(false, string.IsNullOrWhiteSpace(message) ? $"Không thực hiện được ({(int)resp.StatusCode})." : message!, null, null);
-        }
-        var data = node?["data"];
-        string? docNo = null;
-        foreach (var k in new[] { "returnNo", "receiptNo", "ticketCode", "transactionCode", "requestCode", "orderNo", "code", "documentNo" })
-            if (data?[k] is JsonValue dv && dv.ToString() is { Length: > 0 } dn) { docNo = dn; break; }
-        var done = p.Title.StartsWith("Sửa ", StringComparison.Ordinal)
-            ? "Đã " + p.Title.ToLower(Vi)
-            : "Đã tạo " + p.Title.ToLower(Vi);
-        return new(true, $"{done}{(docNo != null ? " " + docNo : "")}.", docNo, p.OpenModule);
-    }
-
-    async Task<Guid> EnsureGeneralCategoryAsync(Guid storeId, CashTransactionType type, CancellationToken ct)
-    {
-        var name = type == CashTransactionType.Income ? "Thu khác" : "Chi khác";
-        var existing = await db.TransactionCategories
-            .Where(x => x.StoreId == storeId && x.Deleted == null && x.Type == type && x.Name == name)
-            .Select(x => (Guid?)x.Id).FirstOrDefaultAsync(ct);
-        if (existing is Guid g) return g;
-        var cat = new ZKTecoADMS.Domain.Entities.TransactionCategory
-        {
-            Id = Guid.NewGuid(), StoreId = storeId, Name = name, Type = type, IsActive = true, SortOrder = 99,
-        };
-        db.TransactionCategories.Add(cat);
-        await db.SaveChangesAsync(ct);
-        return cat.Id;
-    }
-
-    public void Discard(string id, Guid userId, Guid storeId)
-    {
-        if (Get(id, userId, storeId) != null) cache.Remove(Key(id));
     }
 
     // ─── Đọc tham số ───────────────────────────────────────────────

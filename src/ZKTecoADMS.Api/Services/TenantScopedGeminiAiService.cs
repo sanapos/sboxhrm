@@ -296,6 +296,38 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         // Model chỉ định (TTS, Flash Lite dự phòng): hạn mức Google tính riêng từng model → hết lượt chỉ cho nghỉ khóa với model đó.
         return WithFailoverAsync(() => _inner.GenerateContentRawAsync(requestBody, cancellationToken, model), model);
     }
+
+    /// <summary>
+    /// Stream theo khóa của cửa hàng: mở luồng + lấy đoạn đầu trong vòng chuyển khóa (hết lượt / sai khóa → khóa kế tiếp);
+    /// đã có dữ liệu thì đọc tiếp trên khóa đó (lỗi giữa chừng ném cho nơi gọi).
+    /// </summary>
+    public async IAsyncEnumerable<System.Text.Json.JsonElement> StreamGenerateContentRawAsync(object requestBody,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default, string? model = null)
+    {
+        var (e, has) = await WithFailoverAsync(async () =>
+        {
+            var en = _inner.StreamGenerateContentRawAsync(requestBody, cancellationToken, model).GetAsyncEnumerator(cancellationToken);
+            try
+            {
+                return (en, await en.MoveNextAsync());
+            }
+            catch
+            {
+                await en.DisposeAsync();
+                throw;
+            }
+        }, model);
+        try
+        {
+            if (!has) yield break;
+            yield return e.Current;
+            while (await e.MoveNextAsync()) yield return e.Current;
+        }
+        finally
+        {
+            await e.DisposeAsync();
+        }
+    }
 }
 
 public static class GeminiSharedKeyExtensions

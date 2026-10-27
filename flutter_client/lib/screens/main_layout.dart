@@ -765,6 +765,19 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       return;
     }
 
+    // Bấm thông báo «Bản tin sáng» → mở Trợ lý AI (gói không có trợ lý → danh sách thông báo).
+    if (code == 'AiAssistant') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (canUseAiAssistant(context)) {
+          showAiAssistant(context);
+        } else {
+          NavigationNotifier.goToNotifications();
+        }
+      });
+      return;
+    }
+
     if (idx != null) {
       if (idx != _selectedIndex) {
         if (!_tryNavigateToIndex(idx)) return;

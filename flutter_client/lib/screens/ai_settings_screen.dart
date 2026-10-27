@@ -7,6 +7,7 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import '../widgets/settings/settings_page.dart';
+import 'ai_morning_brief_section.dart';
 
 /// Cấu hình Trợ lý AI (Gemini) của cửa hàng.
 class AiConfig {
@@ -224,6 +225,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       children: [
         if (!edit) const SettingsNote('Bạn chỉ có quyền xem. Cần quyền «Thiết lập AI» để thay đổi.', icon: Icons.lock_outline_rounded, tone: SboxTone.neutral),
         _statusSection(edit),
+        _AiStoreProfileSection(api: _api),
+        const AiMorningBriefSection(),
         _keysSection(edit),
         _modelSection(edit),
         _testSection(),
@@ -411,6 +414,109 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         if (_dirty) const SettingsNote('Lưu thay đổi trước khi kiểm tra.', icon: Icons.info_outline_rounded, tone: SboxTone.neutral),
         if (t != null)
           SettingsNote(t.$2, icon: t.$1 ? Icons.check_circle_rounded : Icons.error_outline_rounded, tone: t.$1 ? SboxTone.success : SboxTone.danger),
+      ],
+    );
+  }
+}
+
+/// «Hồ sơ cửa hàng cho Trợ lý AI»: chủ cửa hàng viết giờ mở cửa, chính sách, nội quy, tên gọi tắt món…
+/// Trợ lý đọc mỗi lần trả lời để nói đúng kiểu của cửa hàng. Lưu riêng (nút Lưu hồ sơ), không theo nút Lưu của trang.
+class _AiStoreProfileSection extends StatefulWidget {
+  const _AiStoreProfileSection({required this.api});
+
+  final ApiService api;
+
+  @override
+  State<_AiStoreProfileSection> createState() => _AiStoreProfileSectionState();
+}
+
+class _AiStoreProfileSectionState extends State<_AiStoreProfileSection> {
+  final _text = TextEditingController();
+  String _saved = '';
+  int _max = 3000;
+  bool _canEdit = false;
+  bool _loading = true;
+  bool _saving = false;
+
+  static const _example = 'Ví dụ:\n'
+      '• Mở cửa 7:00–22:00, chủ nhật nghỉ chiều.\n'
+      '• "cf sữa" = Cà phê sữa đá; "trà đào" = Trà đào cam sả.\n'
+      '• Đổi trả trong 3 ngày, còn hóa đơn. Khách quen gọi là "anh / chị".\n'
+      '• Đi trễ quá 15 phút phạt 20k; quên chấm công phạt 10k.';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final r = await widget.api.getAiStoreProfile();
+    if (!mounted) return;
+    final d = r['data'] is Map ? Map<String, dynamic>.from(r['data'] as Map) : const <String, dynamic>{};
+    setState(() {
+      _saved = d['content']?.toString() ?? '';
+      _text.text = _saved;
+      _max = (d['maxLength'] as num?)?.toInt() ?? 3000;
+      _canEdit = d['canEdit'] == true;
+      _loading = false;
+    });
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final r = await widget.api.saveAiStoreProfile(_text.text.trim());
+    if (!mounted) return;
+    final ok = r['isSuccess'] == true;
+    setState(() {
+      _saving = false;
+      if (ok) _saved = _text.text.trim();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(tr(ok ? 'Đã lưu hồ sơ cửa hàng — trợ lý dùng ngay từ câu hỏi tiếp theo' : (r['message']?.toString() ?? 'Không lưu được'))),
+      backgroundColor: ok ? null : SboxColors.danger,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dirty = _text.text.trim() != _saved;
+    return SettingsSection(
+      title: 'Hồ sơ cửa hàng cho trợ lý',
+      subtitle: 'Viết điều trợ lý cần biết về cửa hàng: giờ giấc, chính sách, nội quy, tên gọi tắt món / hàng. '
+          'Trợ lý trả lời và lập phiếu theo đúng các quy định này',
+      icon: Icons.storefront_outlined,
+      trailing: _canEdit
+          ? SboxButton.secondary(
+              label: 'Lưu hồ sơ',
+              icon: Icons.save_outlined,
+              loading: _saving,
+              onPressed: _saving || !dirty ? null : _save,
+            )
+          : null,
+      children: [
+        if (_loading)
+          const Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator())
+        else
+          TextField(
+            controller: _text,
+            enabled: _canEdit,
+            minLines: 5,
+            maxLines: 14,
+            maxLength: _max,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: tr(_example),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
       ],
     );
   }
