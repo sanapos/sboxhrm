@@ -236,9 +236,11 @@ public static class DependencyInjectionExtensions
         services.AddScoped<TenantScopedGeminiAiService>();
         services.AddScoped<IGeminiAiService>(sp => sp.GetRequiredService<TenantScopedGeminiAiService>());
         services.AddScoped<AiAssistantActions>();
+        services.AddScoped<ApprovalScopeGuard>();
         services.AddScoped<AiVoiceService>();
         services.AddScoped<AiAssistantAgent>();
         services.AddScoped<PosAiMenuService>();
+        services.AddScoped<PosAiInvoiceService>();
         services.AddScoped<PosDocxTemplateAiService>();
         services.AddSingleton<OfficePdfConverter>();
         
@@ -278,7 +280,13 @@ public static class DependencyInjectionExtensions
         services.AddSingleton<ServerMetricsState>();
         services.AddSingleton<ServerOpsService>();
         services.AddHostedService<ServerMetricsBackgroundService>();
-        
+
+        // Bản tin sáng tự động (AI): thiết lập / xem thử / gửi nền mỗi sáng
+        services.AddSingleton<IAiMorningBriefGemini, AiMorningBriefGemini>();
+        services.AddScoped<IAiMorningBriefNotifier, AiMorningBriefNotifier>();
+        services.AddScoped<AiMorningBriefService>();
+        services.AddHostedService<AiMorningBriefBackgroundService>();
+
         services.AddSwaggerGen(config =>
         {
             config.CustomSchemaIds(x => x.FullName);

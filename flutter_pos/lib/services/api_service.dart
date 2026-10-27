@@ -36,6 +36,9 @@ class ApiService {
 
   static const String licenseExpiredCode = 'LICENSE_EXPIRED';
 
+  /// Cửa hàng bị SuperAdmin / đại lý khoá — xử lý như hết hạn (đăng xuất kèm lý do).
+  static const String storeLockedCode = 'STORE_LOCKED';
+
   String? _token;
 
   /// Token hiện tại (màn hình phụ native tải ảnh /api/upload/serve cần đăng nhập).
@@ -334,10 +337,11 @@ class ApiService {
       http.Response response, Map<String, dynamic> normalized) {
     final header = response.headers['x-sbox-error-code'] ??
         response.headers['X-SBOX-Error-Code'];
-    if (header?.toUpperCase() == licenseExpiredCode) return true;
+    const codes = {licenseExpiredCode, storeLockedCode};
+    if (codes.contains(header?.toUpperCase())) return true;
     final errors = normalized['errors'] ?? normalized['Errors'];
     if (errors is List &&
-        errors.any((e) => e.toString().toUpperCase() == licenseExpiredCode)) {
+        errors.any((e) => codes.contains(e.toString().toUpperCase()))) {
       return true;
     }
     final msg = (normalized['message'] ?? '').toString().toLowerCase();
@@ -19503,8 +19507,9 @@ class ApiService {
     }
   }
 
+  /// [activate] = mẫu nháp vừa tải lên → bật dùng để in (người dùng bấm «Lưu & dùng mẫu»).
   Future<Map<String, dynamic>> savePosDocxTemplateMapping(String id,
-      List<Map<String, dynamic>> replacements, List<String> removeRowParagraphIds) async {
+      List<Map<String, dynamic>> replacements, List<String> removeRowParagraphIds, {bool activate = false}) async {
     try {
       final response = await http.put(
           Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/mapping'),
@@ -19512,6 +19517,7 @@ class ApiService {
           body: jsonEncode({
             'replacements': replacements,
             'removeRowParagraphIds': removeRowParagraphIds,
+            if (activate) 'activate': true,
           }));
       return _handleResponse(response);
     } catch (e) {
@@ -22528,6 +22534,27 @@ class ApiService {
       };
     } catch (e) {
       return _connectionFailure(e, fallback: 'Không tải được firmware gateway.');
+    }
+  }
+
+  // ===== AI tạo menu từ file Excel / CSV (thêm cho tính năng AI tạo menu) =====
+
+  /// AI đọc file Excel (.xlsx) / CSV lộn xộn → danh sách món (cùng dạng kết quả với [scanPosMenuAi]).
+  Future<Map<String, dynamic>> scanPosMenuSheetAi(
+      List<int> fileBytes, String fileName) async {
+    try {
+      final request = http.MultipartRequest(
+          'POST', Uri.parse('$baseUrl/api/pos/ai/menu/scan-sheet'));
+      final authHeaders = _headers;
+      if (authHeaders.containsKey('Authorization')) {
+        request.headers['Authorization'] = authHeaders['Authorization']!;
+      }
+      request.files.add(http.MultipartFile.fromBytes('file', fileBytes, filename: fileName));
+      final streamed = await request.send().timeout(const Duration(seconds: 200));
+      final response = await http.Response.fromStream(streamed);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
     }
   }
 }

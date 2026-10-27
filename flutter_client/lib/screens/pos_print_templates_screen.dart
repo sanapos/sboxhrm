@@ -693,14 +693,14 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   /// Soạn / lưu / in thử theo trang HTML.
   bool get _isPageDoc => _isCommercialDoc || _isPageTemplate;
 
-  /// Loại phiếu dùng được mẫu Word A4 giữ bố cục (báo giá / HĐ / biên bản + hóa đơn bán, trả, giao hàng).
-  bool get _supportsWordTpl =>
-      _isCommercialDoc ||
-      const [
+  /// Loại phiếu dùng được mẫu Word A4 giữ bố cục (báo giá / HĐ / biên bản + hóa đơn / đơn bán).
+  /// Phiếu trả hàng / giao hàng chưa in bằng mẫu Word (luôn in mẫu HTML) → không cho tải mẫu Word.
+  bool get _supportsWordTpl => _isCommercialDoc || _isSaleWordDoc;
+
+  /// Hóa đơn / đơn bán: mẫu Word chỉ dùng khi in trên trình duyệt không có máy in hóa đơn.
+  bool get _isSaleWordDoc => const [
         PosPrintDocumentTypes.saleInvoice,
         PosPrintDocumentTypes.saleOrder,
-        PosPrintDocumentTypes.saleReturn,
-        PosPrintDocumentTypes.delivery,
       ].contains(_docType);
 
   /// Mẫu Word của khách giữ nguyên bố cục: AI chỉ chỗ dữ liệu động → xem lại → lưu.
@@ -1527,6 +1527,24 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Text(tr('Chưa chọn mẫu đang dùng — bấm «Dùng mẫu này» trên một mẫu để máy bán hàng in theo mẫu đó.'),
                   style: const TextStyle(fontSize: 13, color: Color(0xFF9A3412))),
+            ),
+          ),
+        if (_isSaleWordDoc && _templates.any((t) => t.isDocx))
+          Material(
+            color: SboxColors.brand50,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Row(children: [
+                const Icon(Icons.info_outline, size: 18, color: SboxColors.brand600),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr('Mẫu Word hóa đơn chỉ dùng khi in từ trình duyệt (web) mà không có máy in hóa đơn / Print Agent. '
+                        'Máy in nhiệt và máy bán hàng (Android) vẫn in theo mẫu thường.'),
+                    style: const TextStyle(fontSize: 13, color: SboxColors.slate700),
+                  ),
+                ),
+              ]),
             ),
           ),
         Expanded(child: grid),

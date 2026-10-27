@@ -296,6 +296,10 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         entity.IsActive = false;
         entity.IsDefault = false;
         await dbContext.SaveChangesAsync();
+        // Mẫu Word: bỏ bản PDF xem trước lưu tạm (bản cũ nằm trong wwwroot, tải được qua link).
+        if (entity.DocxFilePath != null)
+            PosDocxTemplatesController.DeletePreviewCache(
+                HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>(), entity.DocxFilePath);
         return Ok(AppResponse<object>.Success(null));
     }
 
@@ -321,7 +325,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         if (IsDesignerLabel(documentType))
         {
             // Mẫu chung HTML cũ của tem → ẩn (không cho chọn nữa).
-            var stale = await dbContext.PosPrintTemplateCatalogs
+            var stale = await dbContext.PosPrintTemplateCatalogs.AsTracking()
                 .Where(t => t.DocumentType == documentType && t.Deleted == null && t.IsActive)
                 .ToListAsync();
             foreach (var t in stale)

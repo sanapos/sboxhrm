@@ -27,6 +27,7 @@ import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos/pos_supplier_debt_pay_dialog.dart';
+import '../widgets/pos/pos_ai_invoice_import.dart';
 import 'pos_purchase_receipt_editor_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
@@ -230,6 +231,26 @@ class _PosPurchaseReceiptListScreenState
       ),
     );
     if (mounted) _load(page: _page);
+  }
+
+  /// Chụp hóa đơn NCC → AI đọc → phiếu nhập. Phiếu tạm thì mở luôn để kiểm / nhập kho.
+  Future<void> _openAiInvoice() async {
+    final result = await showPosAiInvoiceImport(context);
+    if (result == null || !mounted) return;
+    if (result.isDraft) {
+      NotificationOverlayManager().showSuccess(
+        title: tr('Đã tạo phiếu tạm ${result.receiptNo}'),
+        message: tr('Kiểm lại rồi bấm «Nhập hàng vào kho».'),
+      );
+      await _openEditor(receiptId: result.receiptId);
+      return;
+    }
+    ScreenRefreshNotifier.refreshPosAfterStockChange();
+    NotificationOverlayManager().showSuccess(
+      title: tr('Đã nhập kho phiếu ${result.receiptNo}'),
+      message: tr('Tồn kho và công nợ NCC đã được cập nhật.'),
+    );
+    await _load(page: 1);
   }
 
   void _onTimeFilterChanged(PosKiotTimeFilterState s) {
@@ -510,6 +531,9 @@ class _PosPurchaseReceiptListScreenState
         ),
       ],
       actions: [
+        if (canEdit)
+          SboxButton.secondary(
+              label: 'Chụp hóa đơn (AI)', icon: Icons.document_scanner_outlined, onPressed: _openAiInvoice),
         if (canEdit) SboxButton(label: 'Tạo phiếu nhập', icon: Icons.add, onPressed: () => _openEditor()),
       ],
     );

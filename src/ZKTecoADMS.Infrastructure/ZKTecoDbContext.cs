@@ -327,6 +327,11 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosPlatformNotificationCredit> PosPlatformNotificationCredits => Set<PosPlatformNotificationCredit>();
     public DbSet<PosPlatformNotificationCreditLedger> PosPlatformNotificationCreditLedgers => Set<PosPlatformNotificationCreditLedger>();
     public DbSet<PosPlatformTingeeSetting> PosPlatformTingeeSettings => Set<PosPlatformTingeeSetting>();
+    public DbSet<AiActionLog> AiActionLogs => Set<AiActionLog>();
+    public DbSet<AiStoreProfile> AiStoreProfiles => Set<AiStoreProfile>();
+    public DbSet<AiMorningBriefSetting> AiMorningBriefSettings => Set<AiMorningBriefSetting>();
+    public DbSet<AiMorningBriefLog> AiMorningBriefLogs => Set<AiMorningBriefLog>();
+    public DbSet<PosAiInvoiceMapping> PosAiInvoiceMappings => Set<PosAiInvoiceMapping>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

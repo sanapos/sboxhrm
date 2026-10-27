@@ -700,6 +700,8 @@ Map<String, String> buildSaleOrderPrintData(
   bool vatIncludedInPrice = false,
   double? surchargeAmount,
   double? deliveryFee,
+  /// Hồ sơ thương mại cửa hàng (tên công ty, MST, tài khoản, logo, con dấu) — mẫu Word / A4 hóa đơn.
+  Map<String, dynamic>? commercialProfile,
 }) {
   final money = NumberFormat('#,##0', 'vi_VN');
   final saleDate = order.saleDate?.toLocal() ?? order.createdAt?.toLocal() ?? DateTime.now();
@@ -715,11 +717,21 @@ Map<String, String> buildSaleOrderPrintData(
   final surchargeText = money.format(surcharge);
   final shipText = money.format(ship);
 
-  return {
+  return withPosCommercialProfile({
     'PaperSize': paperSize,
     'Ten_Cua_Hang': storeName ?? 'Cửa hàng',
     'Dia_Chi_Chi_Nhanh': storeAddress ?? '',
     'Dien_Thoai_Chi_Nhanh': storePhone ?? '',
+    // Bên bán (mẫu A4 / Word): mặc định theo cửa hàng; hồ sơ thương mại (nếu có) ghi đè bên dưới.
+    'Ten_Cong_Ty': storeName ?? 'Cửa hàng',
+    'Dia_Chi_Cong_Ty': storeAddress ?? '',
+    'Dien_Thoai_Cong_Ty': storePhone ?? '',
+    'Ngay_So': DateFormat('dd').format(saleDate),
+    'Thang': DateFormat('MM').format(saleDate),
+    'Nam': DateFormat('yyyy').format(saleDate),
+    // Người mua trên HĐĐT (đơn vị / MST) — trống khi chưa xuất hóa đơn điện tử.
+    'Ten_Cong_Ty_Khach': (order.eInvoiceBuyerName ?? '').trim(),
+    'MST_Khach_Hang': (order.eInvoiceBuyerTaxCode ?? '').trim(),
     'Tieu_De_In': titleOverride ??
         (order.printCount > 1
             ? 'HÓA ĐƠN BÁN HÀNG — IN LẠI'
@@ -767,6 +779,19 @@ Map<String, String> buildSaleOrderPrintData(
     'Thu_Tu_Hoa_Don_Ngay': '',
     'Tong_Hoa_Don_Trong_Ngay': '',
     ...posEInvoicePrintTokens(order),
+  }, commercialProfile);
+}
+
+/// Gộp hồ sơ thương mại (tên công ty, MST, tài khoản, người đại diện, logo, con dấu) vào dữ liệu in hóa đơn.
+/// Giá trị trống của hồ sơ không ghi đè dữ liệu cửa hàng đã có.
+Map<String, String> withPosCommercialProfile(
+    Map<String, String> data, Map<String, dynamic>? commercialProfile) {
+  final profile = posPrintCommercialProfileData(commercialProfile);
+  if (profile.isEmpty) return data;
+  return {
+    ...data,
+    for (final e in profile.entries)
+      if (e.value.trim().isNotEmpty || !data.containsKey(e.key)) e.key: e.value,
   };
 }
 

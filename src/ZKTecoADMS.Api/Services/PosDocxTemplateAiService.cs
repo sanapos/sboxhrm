@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Api.Services;
 
@@ -133,6 +134,7 @@ public sealed class PosDocxTemplateAiService(IGeminiAiService gemini)
         ["Dot_Han"] = "Hạn thanh toán của đợt",
         ["Dot_Da_Thu"] = "Số đã thu của đợt",
         ["Dot_Con_Lai"] = "Số còn lại của đợt",
+        ["Dot_Ghi_Chu"] = "Ghi chú của đợt",
     };
 
     /// <summary>Trường của từng dòng hàng (dòng bảng được nhân bản).</summary>
@@ -153,6 +155,88 @@ public sealed class PosDocxTemplateAiService(IGeminiAiService gemini)
         ["Ghi_Chu"] = "Ghi chú / quy cách của dòng",
         ["Hinh_Anh"] = "Ảnh sản phẩm của dòng (ảnh)",
     };
+
+    // ─── Trường theo loại chứng từ ──────────────────────────────────
+    // Chỉ cho gắn trường mà bộ dựng dữ liệu của loại đó thật sự điền (báo giá / HĐ: PosQuoteDocumentHtml.BuildData;
+    // hóa đơn / đơn bán: buildSaleOrderPrintData trên máy bán hàng) — gắn trường không có dữ liệu thì in ra trống.
+
+    /// <summary>Báo giá / hợp đồng / biên bản / đề nghị thanh toán / phiếu xuất kho theo báo giá.</summary>
+    public static bool IsCommercial(PosPrintDocumentType t) => t is PosPrintDocumentType.Quote
+        or PosPrintDocumentType.Contract or PosPrintDocumentType.Handover or PosPrintDocumentType.Acceptance
+        or PosPrintDocumentType.PaymentRequest or PosPrintDocumentType.StockIssue;
+
+    /// <summary>Hóa đơn bán / đơn bán hàng (máy bán hàng dựng dữ liệu, máy chủ điền mẫu Word).</summary>
+    public static bool IsSale(PosPrintDocumentType t) => t is PosPrintDocumentType.SaleOrder or PosPrintDocumentType.SaleInvoice;
+
+    /// <summary>Loại chứng từ có in bằng mẫu Word (loại khác: phiếu trả / giao hàng… chưa dùng mẫu Word khi in).</summary>
+    public static bool SupportsWord(PosPrintDocumentType t) => IsCommercial(t) || IsSale(t);
+
+    /// <summary>Trường chỉ có ở hóa đơn bán tại quầy — báo giá / hợp đồng không có dữ liệu.</summary>
+    static readonly HashSet<string> SaleOnlyFields = ["Ten_Ban", "Phi_Giao_Hang", "Phu_Thu", "Tien_Thua"];
+
+    /// <summary>Trường chung mà hóa đơn / đơn bán có dữ liệu (khớp buildSaleOrderPrintData + hồ sơ thương mại).</summary>
+    static readonly HashSet<string> SaleDocumentFields =
+    [
+        "Ten_Cong_Ty", "Dia_Chi_Cong_Ty", "Dien_Thoai_Cong_Ty", "Email_Cua_Hang", "MST_Cong_Ty",
+        "Tai_Khoan_Cua_Hang", "Ngan_Hang_Cua_Hang", "Chu_Tai_Khoan_Cua_Hang", "Nguoi_Dai_Dien_Cua_Hang", "Chuc_Vu_Cua_Hang",
+        "Ngay", "Ngay_So", "Thang", "Nam",
+        "Khach_Hang", "Ten_Cong_Ty_Khach", "MST_Khach_Hang", "SDT", "Dia_Chi_Khach_Hang",
+        "Tong_Tien_Hang", "Chiet_Khau_Hoa_Don", "Tien_Thue", "Tong_Cong", "Tong_Cong_Bang_Chu",
+        "Hinh_Thuc_Thanh_Toan", "Ghi_Chu",
+        "Ten_Cua_Hang", "Dia_Chi_Chi_Nhanh", "Dien_Thoai_Chi_Nhanh", "MST_Cua_Hang", "Ma_Don_Hang", "Gio",
+        "Nguoi_Ban", "Ten_Ban", "Phi_Giao_Hang", "Phu_Thu", "Khach_Can_Tra", "Khach_Thanh_Toan", "Tien_Thua", "Con_Lai",
+        "Logo", "Con_Dau", ClearField,
+    ];
+
+    /// <summary>Trường dòng hàng của hóa đơn bán (không có bảo hành / ảnh dòng).</summary>
+    static readonly HashSet<string> SaleLineFields =
+    [
+        "STT", "Ma_Hang", "Ten_Hang_Hoa", "Don_Vi_Tinh", "So_Luong", "Don_Gia", "Chiet_Khau", "Thanh_Tien",
+        "Chieu_Dai", "Chieu_Rong", "Chieu_Cao", "Ghi_Chu",
+    ];
+
+    /// <summary>Hóa đơn bán không có các trường này → đổi sang trường gần nghĩa (quy tắc nhãn nhận theo mẫu hợp đồng).</summary>
+    static readonly Dictionary<string, string> SaleFallback = new()
+    {
+        ["Dia_Diem_Thi_Cong"] = "Dia_Chi_Khach_Hang",
+        ["Nguoi_Dai_Dien_Khach"] = "Khach_Hang",
+    };
+
+    public sealed record DocumentFieldSet(
+        IReadOnlyDictionary<string, string> Document,
+        IReadOnlyDictionary<string, string> Line,
+        IReadOnlyDictionary<string, string> Stage)
+    {
+        public IEnumerable<string> AllKeys => Document.Keys.Concat(Line.Keys).Concat(Stage.Keys);
+        public bool Contains(string key) => Document.ContainsKey(key) || Line.ContainsKey(key) || Stage.ContainsKey(key);
+    }
+
+    static IReadOnlyDictionary<string, string> Pick(IReadOnlyDictionary<string, string> all, Func<string, bool> keep) =>
+        all.Where(kv => keep(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+    /// <summary>Bộ trường dùng được cho loại chứng từ; null / loại khác → toàn bộ danh mục (mẫu cũ).</summary>
+    public static DocumentFieldSet FieldsFor(PosPrintDocumentType? type)
+    {
+        if (type is { } t && IsSale(t))
+            return new DocumentFieldSet(Pick(DocumentFields, SaleDocumentFields.Contains), Pick(LineFields, SaleLineFields.Contains),
+                new Dictionary<string, string>());
+        if (type is { } c && IsCommercial(c))
+            return new DocumentFieldSet(Pick(DocumentFields, k => !SaleOnlyFields.Contains(k)), LineFields, StageFields);
+        return new DocumentFieldSet(DocumentFields, LineFields, StageFields);
+    }
+
+    /// <summary>Bỏ / đổi các chỗ gắn (quy tắc nhãn) có trường không dùng được cho loại chứng từ.</summary>
+    public static List<DocxReplacement> AdaptToDocumentType(IEnumerable<DocxReplacement> replacements, PosPrintDocumentType type)
+    {
+        var set = FieldsFor(type);
+        var result = new List<DocxReplacement>();
+        foreach (var r in replacements)
+        {
+            if (set.Contains(r.Field) || r.Field == DocxTemplateEngine.TextField) result.Add(r);
+            else if (IsSale(type) && SaleFallback.TryGetValue(r.Field, out var alt) && set.Contains(alt)) result.Add(r with { Field = alt });
+        }
+        return result;
+    }
 
     const string SystemPrompt = """
         Bạn biến một văn bản Word mẫu (báo giá, hợp đồng, biên bản, đề nghị thanh toán) của doanh nghiệp Việt Nam
@@ -188,19 +272,28 @@ public sealed class PosDocxTemplateAiService(IGeminiAiService gemini)
           các dòng đợt còn lại đưa vào "extraStageRowIds". Hệ thống tự nhân bản theo số đợt thật của báo giá.
           Đợt thanh toán viết thành câu (không phải bảng) thì dùng Tien_Coc / Phan_Tram_Coc / Con_Lai_Hop_Dong.
         - Ngày viết tách «ngày 05 tháng 10 năm 2026»: gắn riêng từng số (Ngay_So / Thang / Nam, hoặc Ngay_HD_So / Thang_HD / Nam_HD ở phần ký hợp đồng).
-        - Chỉ dùng mã trường trong danh sách.
+        - HÓA ĐƠN BÁN HÀNG / ĐƠN HÀNG: số hóa đơn → Ma_Don_Hang; giờ → Gio; thu ngân / nhân viên bán → Nguoi_Ban;
+          bàn / phòng → Ten_Ban; người mua → Khach_Hang (đơn vị mua → Ten_Cong_Ty_Khach, MST người mua → MST_Khach_Hang);
+          các dòng dưới bảng hàng: tiền hàng → Tong_Tien_Hang, chiết khấu → Chiet_Khau_Hoa_Don, thuế → Tien_Thue,
+          phí giao hàng → Phi_Giao_Hang, phụ thu → Phu_Thu, tổng thanh toán / khách cần trả → Tong_Cong (hoặc Khach_Can_Tra),
+          khách đưa → Khach_Thanh_Toan, tiền thừa → Tien_Thua, còn nợ → Con_Lai. Hóa đơn không có bảng đợt thanh toán.
+        - Chỉ dùng mã trường trong danh sách (danh sách đã lọc theo loại văn bản — trường không có trong danh sách thì bỏ qua).
         """;
 
     public async Task<DocxTemplateAnalysis> AnalyzeAsync(
-        IReadOnlyList<DocxParagraph> paragraphs, string documentTitle, CancellationToken ct)
+        IReadOnlyList<DocxParagraph> paragraphs, string documentTitle, PosPrintDocumentType? documentType, CancellationToken ct)
     {
+        var set = FieldsFor(documentType);
         var prompt = new StringBuilder();
         prompt.Append("Loại văn bản: ").Append(documentTitle).Append("\n\nTRƯỜNG CHUNG:\n");
-        foreach (var (k, v) in DocumentFields) prompt.Append(k).Append(": ").Append(v).Append('\n');
+        foreach (var (k, v) in set.Document) prompt.Append(k).Append(": ").Append(v).Append('\n');
         prompt.Append("\nTRƯỜNG DÒNG HÀNG (chỉ dùng trong itemRow):\n");
-        foreach (var (k, v) in LineFields) prompt.Append(k).Append(": ").Append(v).Append('\n');
-        prompt.Append("\nTRƯỜNG ĐỢT THANH TOÁN (chỉ dùng trong stageRow):\n");
-        foreach (var (k, v) in StageFields) prompt.Append(k).Append(": ").Append(v).Append('\n');
+        foreach (var (k, v) in set.Line) prompt.Append(k).Append(": ").Append(v).Append('\n');
+        if (set.Stage.Count > 0)
+        {
+            prompt.Append("\nTRƯỜNG ĐỢT THANH TOÁN (chỉ dùng trong stageRow):\n");
+            foreach (var (k, v) in set.Stage) prompt.Append(k).Append(": ").Append(v).Append('\n');
+        }
         prompt.Append("\nNỘI DUNG (id | [bảng] | chữ):\n");
         foreach (var p in paragraphs)
         {
@@ -211,12 +304,16 @@ public sealed class PosDocxTemplateAiService(IGeminiAiService gemini)
 
         // Mẫu hợp đồng / báo giá: mọi cửa hàng được dùng khóa AI chung (ưu tiên khóa riêng).
         var json = await gemini.AllowSharedKey().GenerateJsonAsync(SystemPrompt, prompt.ToString(), null, 32768, ct);
-        return Validate(json, paragraphs);
+        return Validate(json, paragraphs, documentType);
     }
 
-    /// <summary>Bỏ đề xuất sai: đoạn không tồn tại, cụm chữ không có thật, trường lạ.</summary>
-    public static DocxTemplateAnalysis Validate(string json, IReadOnlyList<DocxParagraph> paragraphs)
+    /// <summary>
+    /// Bỏ đề xuất sai: đoạn không tồn tại, cụm chữ không có thật, trường lạ / không dùng cho loại chứng từ.
+    /// Cảnh báo chỗ chưa gắn: gọi <see cref="ReviewWarnings"/> sau khi gộp với quy tắc nhãn.
+    /// </summary>
+    public static DocxTemplateAnalysis Validate(string json, IReadOnlyList<DocxParagraph> paragraphs, PosPrintDocumentType? documentType = null)
     {
+        var set = FieldsFor(documentType);
         var byId = paragraphs.ToDictionary(p => p.Id);
         var warnings = new List<string>();
         var result = new List<DocxReplacement>();
@@ -254,15 +351,14 @@ public sealed class PosDocxTemplateAiService(IGeminiAiService gemini)
             }
         }
 
-        Take("replacements", DocumentFields);
-        Take("itemRow", LineFields);
-        Take("stageRow", StageFields);
+        Take("replacements", set.Document);
+        Take("itemRow", set.Line);
+        Take("stageRow", set.Stage);
         Propagate(result, paragraphs);
         List<string> Ids(string prop) => root.TryGetProperty(prop, out var ex) && ex.ValueKind == JsonValueKind.Array
             ? ex.EnumerateArray().Select(x => x.GetString() ?? "").Where(byId.ContainsKey).ToList()
             : [];
         var extra = Ids("extraItemRowIds").Concat(Ids("extraStageRowIds")).Distinct().ToList();
-        warnings.AddRange(UnmappedWarnings(result, paragraphs));
         return new DocxTemplateAnalysis(result, extra, warnings);
     }
 
@@ -287,7 +383,8 @@ public sealed class PosDocxTemplateAiService(IGeminiAiService gemini)
             if (!p.InTable)
                 foreach (System.Text.RegularExpressions.Match m in MoneyRx.Matches(p.Text))
                     if (!Covered(m.Value)) money.Add(m.Value);
-            if (BlankRx.IsMatch(p.Text) && mine.Count == 0)
+            // Đoạn đã có mã {Truong} (mẫu sửa tay) coi như đã gắn.
+            if (BlankRx.IsMatch(p.Text) && mine.Count == 0 && !LiteralTokenRx.IsMatch(p.Text))
                 blanks.Add(Short(p.Text.Trim()));
         }
         var result = new List<string>();
@@ -297,6 +394,59 @@ public sealed class PosDocxTemplateAiService(IGeminiAiService gemini)
             result.Add($"Còn {blanks.Count} chỗ trống «……» chưa gắn trường, vd: «{blanks[0]}»");
         return result;
     }
+
+    static readonly System.Text.RegularExpressions.Regex LiteralTokenRx =
+        new(@"\{([A-Za-z][A-Za-z0-9_]*)\}", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Trường đã gắn: theo danh sách chỗ thay + mã {Truong} có sẵn trong chữ (mẫu tải lên đã sửa tay).</summary>
+    static HashSet<string> MappedFields(IReadOnlyList<DocxReplacement> mapped, IReadOnlyList<DocxParagraph> paragraphs)
+    {
+        var set = mapped.Select(r => r.Field).ToHashSet();
+        foreach (var p in paragraphs)
+            foreach (System.Text.RegularExpressions.Match m in LiteralTokenRx.Matches(p.Text))
+                set.Add(m.Groups[1].Value);
+        return set;
+    }
+
+    /// <summary>Trường dòng hàng dùng để nhận bảng hàng (Ghi_Chu / Bao_Hanh cũng là trường chung — không tính).</summary>
+    static readonly HashSet<string> ItemRowMarkers =
+        ["STT", "Ma_Hang", "Ten_Hang_Hoa", "Don_Vi_Tinh", "So_Luong", "Don_Gia", "Chiet_Khau", "Thanh_Tien", "Chieu_Dai", "Chieu_Rong", "Chieu_Cao", "Hinh_Anh"];
+
+    static readonly string[][] ItemHeaderWords = [["số lượng", "sl"], ["đơn giá"], ["thành tiền"]];
+
+    /// <summary>
+    /// Cảnh báo bố cục: bảng hàng (cột Số lượng / Đơn giá / Thành tiền) chưa gắn trường dòng hàng → in ra giữ nguyên hàng mẫu;
+    /// thiếu Tổng cộng → tổng tiền in ra là số cũ.
+    /// </summary>
+    public static List<string> StructureWarnings(
+        IReadOnlyList<DocxReplacement> mapped, IReadOnlyList<DocxParagraph> paragraphs, PosPrintDocumentType? documentType = null)
+    {
+        var fields = MappedFields(mapped, paragraphs);
+        var result = new List<string>();
+        // Ô tiêu đề cột: đoạn ngắn trong bảng; «SL» phải đứng riêng, cụm dài hơn chỉ cần có trong ô.
+        static bool IsHeader(string text, string word)
+        {
+            var t = text.Trim().TrimEnd(':', '.');
+            return t.Length <= 40 && (string.Equals(t, word, StringComparison.OrdinalIgnoreCase)
+                                      || (word.Length > 2 && t.Contains(word, StringComparison.OrdinalIgnoreCase)));
+        }
+        var headerHits = ItemHeaderWords.Count(words => paragraphs.Any(p => p.InTable && words.Any(w => IsHeader(p.Text, w))));
+        if (headerHits >= 2 && !fields.Any(ItemRowMarkers.Contains))
+            result.Add("Bảng hàng (Số lượng / Đơn giá / Thành tiền) chưa gắn trường dòng hàng — in ra sẽ giữ nguyên hàng mẫu cũ. "
+                       + "Gắn trường cho dòng hàng đầu tiên (STT, Tên hàng, Số lượng, Đơn giá, Thành tiền).");
+        var needsTotal = documentType is PosPrintDocumentType.Quote or PosPrintDocumentType.Contract
+                             or PosPrintDocumentType.PaymentRequest or PosPrintDocumentType.SaleOrder or PosPrintDocumentType.SaleInvoice
+                         || paragraphs.Any(p => p.Text.Contains("tổng cộng", StringComparison.OrdinalIgnoreCase)
+                                                || p.Text.Contains("tổng giá trị", StringComparison.OrdinalIgnoreCase));
+        if (needsTotal && !fields.Contains("Tong_Cong") && !fields.Contains("Khach_Can_Tra"))
+            result.Add("Chưa gắn trường «Tổng cộng» (Tong_Cong) — tổng tiền in ra sẽ giữ số cũ của mẫu.");
+        return result;
+    }
+
+    /// <summary>Cảnh báo cho màn xem lại: chỗ trống / số tiền chưa gắn + bố cục bảng hàng / tổng cộng.</summary>
+    public static List<string> ReviewWarnings(
+        IReadOnlyList<DocxReplacement> mapped, IReadOnlyList<DocxParagraph> paragraphs, PosPrintDocumentType? documentType = null) =>
+        [.. UnmappedWarnings(mapped, paragraphs), .. StructureWarnings(mapped, paragraphs, documentType)];
 
     static string Short(string s) => s.Length > 40 ? s[..40] + "…" : s;
 

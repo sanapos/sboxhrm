@@ -286,8 +286,166 @@ public class DocxTemplateEngineTests
             new("document:1", "Đại diện bên A: ……………", false),
         };
         var a = PosDocxTemplateAiService.Validate("""{"replacements":[]}""", paras);
-        Assert.Contains(a.Warnings, w => w.Contains("103.680.000"));
-        Assert.Contains(a.Warnings, w => w.Contains("chỗ trống"));
+        // Cảnh báo chỗ chưa gắn chạy SAU khi gộp quy tắc (kể cả khi AI lỗi) — không nằm trong Validate.
+        var warnings = PosDocxTemplateAiService.ReviewWarnings(a.Replacements, paras);
+        Assert.Contains(warnings, w => w.Contains("103.680.000"));
+        Assert.Contains(warnings, w => w.Contains("chỗ trống"));
+    }
+
+    [Fact]
+    public void Review_warnings_run_after_rule_merge_even_without_ai()
+    {
+        var paras = new List<DocxParagraph>
+        {
+            new("document:0", "Họ tên: ……………………", false),
+            new("document:1", "Giá trị hợp đồng: 103.680.000 VNĐ", false),
+        };
+        // AI lỗi → không có đề xuất AI; quy tắc vẫn gắn chỗ trống sau «Họ tên».
+        var merged = DocxRuleDetector.Merge(paras, [], DocxRuleDetector.Detect(paras));
+        var warnings = PosDocxTemplateAiService.ReviewWarnings(merged, paras, ZKTecoADMS.Domain.Enums.PosPrintDocumentType.Contract);
+        Assert.Contains(warnings, w => w.Contains("103.680.000"));        // số cũ còn cứng
+        Assert.DoesNotContain(warnings, w => w.Contains("chỗ trống"));     // chỗ trống đã được quy tắc gắn
+        Assert.Contains(warnings, w => w.Contains("Tong_Cong"));           // hợp đồng thiếu tổng cộng
+    }
+
+    [Fact]
+    public void Structure_warnings_flag_item_table_without_line_fields()
+    {
+        var paras = new List<DocxParagraph>
+        {
+            new("document:0", "STT", true),
+            new("document:1", "Tên hàng", true),
+            new("document:2", "Số lượng", true),
+            new("document:3", "Đơn giá", true),
+            new("document:4", "Thành tiền", true),
+            new("document:5", "Tổng cộng: 5.000.000", false),
+        };
+        var none = PosDocxTemplateAiService.StructureWarnings([], paras, ZKTecoADMS.Domain.Enums.PosPrintDocumentType.Quote);
+        Assert.Contains(none, w => w.Contains("Bảng hàng"));
+        Assert.Contains(none, w => w.Contains("Tong_Cong"));
+
+        var ok = PosDocxTemplateAiService.StructureWarnings(
+            [new("document:9", "x", "Ten_Hang_Hoa"), new("document:5", "5.000.000", "Tong_Cong")], paras,
+            ZKTecoADMS.Domain.Enums.PosPrintDocumentType.Quote);
+        Assert.Empty(ok);
+
+        // Mẫu tải lên đã có sẵn mã {Truong} trong chữ → coi như đã gắn.
+        var literal = new List<DocxParagraph>(paras) { new("document:6", "{So_Luong}", true), new("document:7", "{Tong_Cong}", false) };
+        Assert.Empty(PosDocxTemplateAiService.StructureWarnings([], literal, ZKTecoADMS.Domain.Enums.PosPrintDocumentType.Quote));
+    }
+
+    [Fact]
+    public void Field_sets_follow_document_type()
+    {
+        var quote = PosDocxTemplateAiService.FieldsFor(ZKTecoADMS.Domain.Enums.PosPrintDocumentType.Quote);
+        Assert.Contains("Dot_So_Tien", quote.Stage.Keys);
+        Assert.Contains("Dot_Ghi_Chu", quote.Stage.Keys);   // trường đợt có dữ liệu (PosQuoteDocumentHtml)
+        Assert.Contains("So_Hop_Dong", quote.Document.Keys);
+        Assert.DoesNotContain("Ten_Ban", quote.Document.Keys);       // báo giá không có bàn / tiền thừa / phí giao
+        Assert.DoesNotContain("Tien_Thua", quote.Document.Keys);
+        Assert.DoesNotContain("Phi_Giao_Hang", quote.Document.Keys);
+
+        var invoice = PosDocxTemplateAiService.FieldsFor(ZKTecoADMS.Domain.Enums.PosPrintDocumentType.SaleInvoice);
+        Assert.Empty(invoice.Stage);
+        Assert.Contains("Ten_Ban", invoice.Document.Keys);
+        Assert.Contains("Ten_Cong_Ty", invoice.Document.Keys);
+        Assert.DoesNotContain("So_Hop_Dong", invoice.Document.Keys);
+        Assert.DoesNotContain("Hinh_Anh", invoice.Line.Keys);
+        Assert.True(PosDocxTemplateAiService.SupportsWord(ZKTecoADMS.Domain.Enums.PosPrintDocumentType.SaleOrder));
+        Assert.False(PosDocxTemplateAiService.SupportsWord(ZKTecoADMS.Domain.Enums.PosPrintDocumentType.SaleReturn));
+        Assert.False(PosDocxTemplateAiService.SupportsWord(ZKTecoADMS.Domain.Enums.PosPrintDocumentType.Delivery));
+
+        // Mọi trường của từng loại đều có trong danh mục (màn soạn / lưu nhận đúng mã).
+        foreach (var key in invoice.AllKeys.Concat(quote.AllKeys))
+            Assert.True(PosDocxTemplateAiService.DocumentFields.ContainsKey(key)
+                        || PosDocxTemplateAiService.LineFields.ContainsKey(key)
+                        || PosDocxTemplateAiService.StageFields.ContainsKey(key), key);
+    }
+
+    [Fact]
+    public void Validate_and_rules_drop_fields_without_data_for_document_type()
+    {
+        var paras = new List<DocxParagraph>
+        {
+            new("document:0", "Số HĐ: HĐ-01, Bàn 5", false),
+            new("document:1", "Địa chỉ giao hàng: ……………", false),
+        };
+        const string json = """
+            {"replacements":[
+               {"id":"document:0","find":"HĐ-01","field":"So_Hop_Dong"},
+               {"id":"document:0","find":"Bàn 5","field":"Ten_Ban"}]}
+            """;
+        var invoice = PosDocxTemplateAiService.Validate(json, paras, ZKTecoADMS.Domain.Enums.PosPrintDocumentType.SaleInvoice);
+        Assert.Equal(["Ten_Ban"], invoice.Replacements.Select(r => r.Field));
+        var quote = PosDocxTemplateAiService.Validate(json, paras, ZKTecoADMS.Domain.Enums.PosPrintDocumentType.Quote);
+        Assert.Equal(["So_Hop_Dong"], quote.Replacements.Select(r => r.Field));
+
+        // Quy tắc nhãn (theo mẫu hợp đồng) → hóa đơn không có địa điểm thi công: đổi sang địa chỉ khách.
+        var rules = PosDocxTemplateAiService.AdaptToDocumentType(DocxRuleDetector.Detect(paras),
+            ZKTecoADMS.Domain.Enums.PosPrintDocumentType.SaleInvoice);
+        Assert.Contains(rules, r => r.ParagraphId == "document:1" && r.Field == "Dia_Chi_Khach_Hang");
+    }
+
+    [Fact]
+    public void Render_blanks_catalog_fields_without_data_but_keeps_unknown_codes()
+    {
+        var docx = DocxOf(P("Bàn: {Ten_Ban}") + P("Đợt: {Dot_Ghi_Chu}") + P("Mã lạ: {Khong_Co}") + P("Khách: {Khach_Hang}"));
+        var texts = Texts(DocxTemplateEngine.Render(docx, new Dictionary<string, string> { ["Khach_Hang"] = "An" }, []));
+        Assert.Equal(["Bàn: ", "Đợt: ", "Mã lạ: {Khong_Co}", "Khách: An"], texts);
+    }
+
+    [Fact]
+    public void Stage_note_field_repeats_with_stage_rows()
+    {
+        var docx = DocxOf("<w:tbl>" + Row("{Dot_STT}", "{Dot_Ten}", "{Dot_Ghi_Chu}") + "</w:tbl>");
+        var stages = System.Text.Json.JsonSerializer.Serialize(new[]
+        {
+            new Dictionary<string, string> { ["Dot_STT"] = "1", ["Dot_Ten"] = "Cọc", ["Dot_Ghi_Chu"] = "Chuyển khoản" },
+            new Dictionary<string, string> { ["Dot_STT"] = "2", ["Dot_Ten"] = "Bàn giao" },
+        });
+        var texts = Texts(DocxTemplateEngine.Render(docx,
+            new Dictionary<string, string> { [PosPrintTemplateHtmlRenderer.StagesKey] = stages }, []));
+        Assert.Equal(["1", "Cọc", "Chuyển khoản", "2", "Bàn giao"], texts); // đợt 2 không ghi chú → ô trống
+    }
+
+    [Fact]
+    public void Editor_html_escapes_colors_fonts_and_fills_from_the_docx()
+    {
+        const string evilColor = "000000;background:url(javascript:alert(1))";
+        const string evilFont = "Arial'\"><script>alert(1)</script>";
+        const string evilFill = "\"><img src=x onerror=alert(2)>";
+        var body =
+            "<w:p><w:pPr><w:shd w:fill=\"" + System.Security.SecurityElement.Escape(evilFill) + "\"/></w:pPr>" +
+            "<w:r><w:rPr><w:rFonts w:ascii=\"" + System.Security.SecurityElement.Escape(evilFont) + "\"/>" +
+            "<w:color w:val=\"" + System.Security.SecurityElement.Escape(evilColor) + "\"/></w:rPr><w:t>Xin chào</w:t></w:r></w:p>" +
+            "<w:p><w:r><w:rPr><w:color w:val=\"FF0000\"/><w:shd w:fill=\"00ff00\"/><w:rFonts w:ascii=\"Times New Roman\"/></w:rPr><w:t>Đỏ</w:t></w:r></w:p>" +
+            "<w:tbl><w:tr><w:tc><w:tcPr><w:shd w:fill=\"" + System.Security.SecurityElement.Escape(evilFill) + "\"/>" +
+            "<w:tcBorders><w:top w:val=\"single\" w:sz=\"8\" w:color=\"" + System.Security.SecurityElement.Escape(evilFill) + "\"/></w:tcBorders></w:tcPr>" +
+            P("Ô") + "</w:tc></w:tr></w:tbl>";
+        var html = DocxHtmlRenderer.Render(DocxOf(body), new Dictionary<string, List<DocxHtmlRenderer.Range>>(),
+            new HashSet<string>(), new Dictionary<string, string>(), new HashSet<string>());
+        var bodyHtml = html[html.IndexOf("<body>", StringComparison.Ordinal)..];
+        Assert.DoesNotContain("<script>alert", html);
+        Assert.DoesNotContain("<img src=x", html);
+        Assert.DoesNotContain("onerror", html);
+        Assert.DoesNotContain("javascript:", html);
+        Assert.DoesNotContain("url(", html);
+        // Tên font chỉ còn chữ / số / khoảng trắng — không dấu nháy thoát khỏi style.
+        Assert.Contains("font-family:&#39;Arialscriptalert1script&#39;", bodyHtml);
+        // Màu hợp lệ vẫn giữ.
+        Assert.Contains("color:#FF0000", bodyHtml);
+        Assert.Contains("background:#00ff00", bodyHtml);
+        Assert.Contains("font-family:&#39;Times New Roman&#39;", bodyHtml);
+    }
+
+    [Fact]
+    public void Paper_size_is_detected_from_section_page_size()
+    {
+        static byte[] WithPage(int w, int h) => DocxOf(P("x") + $"<w:sectPr><w:pgSz w:w=\"{w}\" w:h=\"{h}\"/></w:sectPr>");
+        Assert.Equal(ZKTecoADMS.Domain.Enums.PosPrintPaperSize.A5, DocxTemplateEngine.DetectPaperSize(WithPage(8391, 11906)));
+        Assert.Equal(ZKTecoADMS.Domain.Enums.PosPrintPaperSize.A5, DocxTemplateEngine.DetectPaperSize(WithPage(11906, 8391))); // A5 ngang
+        Assert.Equal(ZKTecoADMS.Domain.Enums.PosPrintPaperSize.A4, DocxTemplateEngine.DetectPaperSize(WithPage(11906, 16838)));
+        Assert.Null(DocxTemplateEngine.DetectPaperSize(DocxOf(P("không có sectPr"))));
     }
 
     [Fact]

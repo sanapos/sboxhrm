@@ -43,11 +43,11 @@ public static class DocxHtmlRenderer
             if (rPr.Element(W + "u") is { } u) Underline = Val(u) ?? "single";
             if (Val(rPr.Element(W + "sz")) is { } sz && double.TryParse(sz, NumberStyles.Any, CultureInfo.InvariantCulture, out var half))
                 Size = (half / 2).ToString("0.#", CultureInfo.InvariantCulture) + "pt";
-            if (Val(rPr.Element(W + "color")) is { } c && c != "auto") Color = "#" + c;
+            if (SafeColor(Val(rPr.Element(W + "color"))) is { } c) Color = c;
             if (rPr.Element(W + "rFonts") is { } f)
-                Font = (string?)f.Attribute(W + "ascii") ?? (string?)f.Attribute(W + "hAnsi") ?? (string?)f.Attribute(W + "cs") ?? Font;
+                Font = SafeFont((string?)f.Attribute(W + "ascii") ?? (string?)f.Attribute(W + "hAnsi") ?? (string?)f.Attribute(W + "cs")) ?? Font;
             if (Val(rPr.Element(W + "highlight")) is { } h && h != "none") Highlight = HighlightColor(h);
-            if (rPr.Element(W + "shd")?.Attribute(W + "fill")?.Value is { } fill && fill != "auto") Shade = "#" + fill;
+            if (SafeColor(rPr.Element(W + "shd")?.Attribute(W + "fill")?.Value) is { } fill) Shade = fill;
             if (Val(rPr.Element(W + "vertAlign")) is { } va) VertAlign = va;
         }
 
@@ -63,7 +63,7 @@ public static class DocxHtmlRenderer
             if (Caps == true) sb.Append("text-transform:uppercase;");
             if (Size != null) sb.Append("font-size:").Append(Size).Append(';');
             if (Color != null) sb.Append("color:").Append(Color).Append(';');
-            if (Font != null) sb.Append("font-family:'").Append(Font.Replace("'", "")).Append("',serif;");
+            if (SafeFont(Font) is { } font) sb.Append("font-family:'").Append(font).Append("',serif;");
             if ((Highlight ?? Shade) is { } bg) sb.Append("background:").Append(bg).Append(';');
             if (VertAlign == "superscript") sb.Append("vertical-align:super;font-size:70%;");
             if (VertAlign == "subscript") sb.Append("vertical-align:sub;font-size:70%;");
@@ -106,7 +106,7 @@ public static class DocxHtmlRenderer
                 if (Twips(ind.Attribute(W + "firstLine")) is { } fl) FirstLine = fl;
                 if (Twips(ind.Attribute(W + "hanging")) is { } hg) FirstLine = -hg;
             }
-            if (pPr.Element(W + "shd")?.Attribute(W + "fill")?.Value is { } fill && fill != "auto") Shade = "#" + fill;
+            if (SafeColor(pPr.Element(W + "shd")?.Attribute(W + "fill")?.Value) is { } fill) Shade = fill;
             if (pPr.Element(W + "numPr") is { } np && Val(np.Element(W + "numId")) is { } numId && numId != "0")
                 Num = (numId, int.TryParse(Val(np.Element(W + "ilvl")), out var l) ? l : 0);
         }
@@ -237,7 +237,7 @@ public static class DocxHtmlRenderer
 
         sb.Append("<p");
         if (pid.Length > 0) sb.Append(" data-pid=\"").Append(pid).Append('"');
-        sb.Append(" style=\"").Append(pp.Css()).Append(rp.Css()).Append("\">");
+        sb.Append(" style=\"").Append(Enc(pp.Css() + rp.Css())).Append("\">");
 
         if (pp.Num is { } num && NumberPrefix(ctx, num.NumId, num.Level) is { } prefix)
             sb.Append("<span class=\"num\">").Append(Enc(prefix)).Append("</span>");
@@ -321,7 +321,7 @@ public static class DocxHtmlRenderer
                 var key = m.Value[1..^1];
                 var cls = ctx.LineFields.Contains(key) ? "fld lit line" : "fld lit";
                 sb.Append("<span class=\"").Append(cls).Append("\" data-o=\"").Append(pos + m.Index)
-                    .Append("\" title=\"Mã trường có sẵn trong file\" style=\"").Append(style).Append("\">")
+                    .Append("\" title=\"Mã trường có sẵn trong file\" style=\"").Append(Enc(style)).Append("\">")
                     .Append(Enc(m.Value)).Append("</span>");
                 last = m.Index + m.Length;
             }
@@ -331,7 +331,7 @@ public static class DocxHtmlRenderer
     }
 
     static void AppendStatic(StringBuilder sb, string text, int offset, string style) =>
-        sb.Append("<span class=\"t\" data-o=\"").Append(offset).Append("\" style=\"").Append(style).Append("\">")
+        sb.Append("<span class=\"t\" data-o=\"").Append(offset).Append("\" style=\"").Append(Enc(style)).Append("\">")
           .Append(Enc(text)).Append("</span>");
 
     static void AppendChip(StringBuilder sb, string pid, Range r, Ctx ctx, string style)
@@ -345,7 +345,7 @@ public static class DocxHtmlRenderer
         };
         sb.Append("<span class=\"").Append(cls).Append("\" data-pid=\"").Append(pid)
             .Append("\" data-s=\"").Append(r.Start).Append("\" data-l=\"").Append(r.Length)
-            .Append("\" data-field=\"").Append(Enc(r.Field)).Append("\" style=\"").Append(style).Append("\">")
+            .Append("\" data-field=\"").Append(Enc(r.Field)).Append("\" style=\"").Append(Enc(style)).Append("\">")
             .Append(Enc(label.Length == 0 ? " " : label)).Append("</span>");
     }
 
@@ -428,10 +428,10 @@ public static class DocxHtmlRenderer
                     if (!cellBorders.ContainsKey(side))
                         key = side is "top" or "bottom" ? "insideH" : "insideV";
                     sb.Append("border-").Append(side).Append(':')
-                        .Append(cellBorders.TryGetValue(key, out var b) ? b : "none").Append(';');
+                        .Append(Enc(cellBorders.TryGetValue(key, out var b) ? b : "none")).Append(';');
                 }
-                if (tcPr?.Element(W + "shd")?.Attribute(W + "fill")?.Value is { } fill && fill != "auto")
-                    sb.Append("background:#").Append(fill).Append(';');
+                if (SafeColor(tcPr?.Element(W + "shd")?.Attribute(W + "fill")?.Value) is { } fill)
+                    sb.Append("background:").Append(fill).Append(';');
                 if (Val(tcPr?.Element(W + "vAlign")) is { } va)
                     sb.Append("vertical-align:").Append(va == "center" ? "middle" : va == "bottom" ? "bottom" : "top").Append(';');
                 else sb.Append("vertical-align:top;");
@@ -457,7 +457,7 @@ public static class DocxHtmlRenderer
                 continue;
             }
             var sz = int.TryParse((string?)b.Attribute(W + "sz"), out var s8) ? Math.Max(1, s8 / 8.0 * 96 / 72) : 1;
-            var color = (string?)b.Attribute(W + "color") is { } c && c != "auto" ? "#" + c : "#000";
+            var color = SafeColor((string?)b.Attribute(W + "color")) ?? "#000";
             var style = val switch { "double" => "double", "dashed" => "dashed", "dotted" => "dotted", _ => "solid" };
             into[side] = $"{sz.ToString("0.#", CultureInfo.InvariantCulture)}px {style} {color}";
         }
@@ -607,6 +607,23 @@ public static class DocxHtmlRenderer
 
     static string? Val(XElement? e) => (string?)e?.Attribute(W + "val");
 
+    static readonly Regex HexColor = new("^[0-9A-Fa-f]{6}$", RegexOptions.Compiled);
+
+    /// <summary>Màu Word (w:color / w:fill) → «#RRGGBB»; «auto» / giá trị lạ (có thể chèn CSS / HTML) → null.</summary>
+    internal static string? SafeColor(string? v) => v != null && HexColor.IsMatch(v) ? "#" + v : null;
+
+    /// <summary>
+    /// Tên font chỉ giữ chữ / số / khoảng trắng / «-», «_», «.» — bỏ dấu nháy, «;», «&lt;»… để tên font
+    /// (do file Word khách tải lên quyết định) không thoát được khỏi thuộc tính style / thẻ style.
+    /// </summary>
+    internal static string? SafeFont(string? v)
+    {
+        if (string.IsNullOrWhiteSpace(v)) return null;
+        var s = new string(v.Where(c => char.IsLetterOrDigit(c) || c is ' ' or '-' or '_' or '.').ToArray()).Trim();
+        if (s.Length > 64) s = s[..64];
+        return s.Length == 0 ? null : s;
+    }
+
     static bool? Flag(XElement? e)
     {
         if (e == null) return null;
@@ -703,6 +720,16 @@ public static class DocxHtmlRenderer
             e.preventDefault();
             var tr=p.closest('tr');
             post({type:'para', pid:p.dataset.pid, inTable:!!tr, rowRemoved:!!(tr&&tr.classList.contains('removed-row'))});
+          });
+          // Khung chạy sandbox (khác origin với app): app không đọc / đặt được vị trí cuộn → trang tự báo, nhận lệnh cuộn lại.
+          var st=null;
+          window.addEventListener('scroll', function(){
+            if(st) return;
+            st=setTimeout(function(){ st=null; post({type:'scroll', y:window.scrollY||0}); }, 150);
+          });
+          window.addEventListener('message', function(e){
+            if(e.source!==parent) return;
+            try{ var m=JSON.parse(e.data); if(m&&m.src==='sbox-docx-parent'&&m.scrollY>0) window.scrollTo(0,+m.scrollY); }catch(x){}
           });
           window.addEventListener('load', function(){ post({type:'ready'}); });
         })();

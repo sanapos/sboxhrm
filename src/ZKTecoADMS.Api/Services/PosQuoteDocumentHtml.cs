@@ -559,6 +559,9 @@ public static class PosQuoteDocumentHtml
             ["Da_Thanh_Toan_Hien"] = Money(collected),
             ["Con_Phai_Thu"] = Money(stillDue),
             ["Con_Phai_Thu_Bang_Chu"] = PosVietnameseMoney.InWords(stillDue),
+            // Tên trường của hóa đơn bán (mẫu Word dùng chung): đã thu / còn nợ theo báo giá.
+            ["Khach_Thanh_Toan"] = Money(collected),
+            ["Con_Lai"] = Money(stillDue),
             ["De_Nghi_Dot"] = requestTitle,
             ["De_Nghi_So_Tien"] = Money(request),
             ["De_Nghi_Bang_Chu"] = PosVietnameseMoney.InWords(request),

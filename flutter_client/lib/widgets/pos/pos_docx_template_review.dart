@@ -129,6 +129,12 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
   var _warnings = <String>[];
   var _docFields = <MapEntry<String, String>>[];
   var _lineFields = <MapEntry<String, String>>[];
+  /// Trường đợt thanh toán (dòng bảng tiến độ được lặp theo số đợt).
+  var _stageFields = <MapEntry<String, String>>[];
+  /// Mã trường dùng được cho loại chứng từ của mẫu (máy chủ trả); rỗng = không lọc (máy chủ cũ).
+  var _allowed = <String>{};
+  /// false = mẫu nháp vừa tải lên, chưa dùng để in — bấm Lưu mới bật.
+  bool _isActive = true;
   String _name = '';
   bool _aiUsed = false;
   bool _loading = true;
@@ -234,8 +240,9 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
         return StatefulBuilder(builder: (ctx, setLocal) {
           bool match(MapEntry<String, String> e) =>
               q.isEmpty || e.value.toLowerCase().contains(q) || e.key.toLowerCase().contains(q);
-          final doc = _docFields.where((e) => e.key != _clearField && match(e)).toList();
-          final line = _lineFields.where(match).toList();
+          final doc = _usable(_docFields).where((e) => e.key != _clearField && match(e)).toList();
+          final line = _usable(_lineFields).where(match).toList();
+          final stage = _usable(_stageFields).where(match).toList();
           Widget tile(MapEntry<String, String> e, bool isLine) => ListTile(
                 dense: true,
                 selected: e.key == current,
@@ -280,6 +287,13 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
                           ),
                         for (final e in line) tile(e, true),
+                        if (stage.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 10, 8, 2),
+                            child: Text(tr('Đợt thanh toán (dòng bảng được lặp theo số đợt)'),
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                          ),
+                        for (final e in stage) tile(e, true),
                       ],
                     ),
                   ),
@@ -586,6 +600,10 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
   void _apply(Map<String, dynamic> d) {
     _name = (d['name'] ?? '').toString();
     _aiUsed = d['aiUsed'] == true;
+    if (d['isActive'] is bool) _isActive = d['isActive'] as bool;
+    if (d['allowedFields'] is List) {
+      _allowed = (d['allowedFields'] as List).map((e) => '$e').toSet();
+    }
     _warnings = ((d['warnings'] as List?) ?? const []).map((e) => '$e').toList();
     _removeRows = ((d['removeRowParagraphIds'] as List?) ?? const []).map((e) => '$e').toList();
     _paragraphs = ((d['paragraphs'] as List?) ?? const [])
@@ -618,38 +636,88 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
             .toList();
         _docFields = read(f['document']);
         _lineFields = read(f['line']);
+        _stageFields = read(f['stage']);
       }
       if (mapping is Map) _apply(Map<String, dynamic>.from(mapping));
       _loading = false;
     });
   }
 
-  Future<void> _save() async {
+  /// Lưu chỗ gắn trường; mẫu nháp → bật dùng để in (cùng một lời gọi, máy chủ đặt «đang dùng»). Trả `true` nếu lưu được.
+  Future<bool> _save() async {
+    final wasDraft = !_isActive;
     setState(() => _saving = true);
     final res = await widget.api.savePosDocxTemplateMapping(
       widget.templateId,
       _items.map((e) => e.toJson()).toList(),
       _removeRows,
+      activate: wasDraft,
     );
-    if (!mounted) return;
-    setState(() => _saving = false);
+    if (!mounted) return false;
     if (res['isSuccess'] != true) {
+      setState(() => _saving = false);
       NotificationOverlayManager().showError(
         title: tr('Không lưu được'),
         message: res['message']?.toString() ?? tr('Vui lòng thử lại'),
       );
-      return;
+      return false;
     }
+    final data = res['data'] is Map ? Map<String, dynamic>.from(res['data'] as Map) : const <String, dynamic>{};
     setState(() {
-      if (res['data'] is Map) _apply(Map<String, dynamic>.from(res['data'] as Map));
+      if (data.isNotEmpty) _apply(data);
       _changed = true;
       _previewVersion++;
     });
+    final activated = !wasDraft || (data['isActive'] ?? data['IsActive']) == true;
+    if (activated) setState(() => _isActive = true);
+    setState(() => _saving = false);
     if (posDocxEditorSupported) _loadEditor();
+    if (!activated) {
+      NotificationOverlayManager().showError(
+        title: tr('Chưa bật được mẫu'),
+        message: tr('Đã lưu chỗ gắn trường nhưng mẫu vẫn là nháp — bấm Lưu lại để thử.'),
+      );
+      return true;
+    }
     NotificationOverlayManager().showSuccess(
-      title: tr('Đã lưu mẫu Word'),
+      title: wasDraft ? tr('Đã lưu và bật dùng mẫu Word') : tr('Đã lưu mẫu Word'),
       message: tr('Xem tab «Bản in thử» để kiểm tra. Xuất báo giá / hợp đồng sẽ dùng mẫu này.'),
     );
+    return true;
+  }
+
+  /// Đóng màn khi mẫu còn là nháp: lưu & dùng / bỏ mẫu / ở lại soạn tiếp.
+  Future<void> _confirmLeaveDraft() async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Mẫu Word chưa được dùng')),
+        content: Text(tr('Mẫu vừa tải lên đang ở dạng nháp, chưa dùng để in báo giá / hóa đơn. '
+            'Lưu để bắt đầu dùng, hoặc bỏ mẫu này.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, 'stay'), child: Text(tr('Tiếp tục soạn'))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'discard'),
+            style: TextButton.styleFrom(foregroundColor: SboxColors.danger),
+            child: Text(tr('Bỏ mẫu này')),
+          ),
+          FilledButton(onPressed: () => Navigator.pop(ctx, 'save'), child: Text(tr('Lưu & dùng mẫu'))),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (choice == 'save') {
+      if (await _save() && mounted) Navigator.of(context).pop(true);
+    } else if (choice == 'discard') {
+      final res = await widget.api.deletePosPrintTemplate(widget.templateId);
+      if (!mounted) return;
+      if (res['isSuccess'] != true) {
+        NotificationOverlayManager().showError(
+            title: tr('Không bỏ được mẫu'), message: res['message']?.toString() ?? tr('Vui lòng thử lại'));
+        return;
+      }
+      Navigator.of(context).pop(true);
+    }
   }
 
   Future<void> _download() async {
@@ -695,27 +763,46 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
   }
 
   String _label(String key) {
-    for (final e in [..._docFields, ..._lineFields]) {
+    for (final e in [..._docFields, ..._lineFields, ..._stageFields]) {
       if (e.key == key) return e.value;
     }
     return key;
   }
 
-  List<DropdownMenuItem<String>> _fieldItems() => [
-        for (final e in _docFields)
-          DropdownMenuItem(value: e.key, child: Text(e.value, overflow: TextOverflow.ellipsis)),
-        for (final e in _lineFields)
-          if (!_docFields.any((d) => d.key == e.key))
-            DropdownMenuItem(
-                value: e.key,
-                child: Text('${tr('Dòng hàng')}: ${e.value}', overflow: TextOverflow.ellipsis)),
-      ];
+  /// Chỉ trường có dữ liệu ở loại chứng từ của mẫu (gắn trường khác in ra sẽ trống).
+  List<MapEntry<String, String>> _usable(List<MapEntry<String, String>> fields) =>
+      _allowed.isEmpty ? fields : fields.where((e) => _allowed.contains(e.key)).toList();
+
+  List<DropdownMenuItem<String>> _fieldItems({String? keep}) {
+    final doc = _usable(_docFields);
+    final line = _usable(_lineFields);
+    final stage = _usable(_stageFields);
+    final items = <DropdownMenuItem<String>>[
+      for (final e in doc)
+        DropdownMenuItem(value: e.key, child: Text(e.value, overflow: TextOverflow.ellipsis)),
+      for (final e in line)
+        if (!doc.any((d) => d.key == e.key))
+          DropdownMenuItem(
+              value: e.key,
+              child: Text('${tr('Dòng hàng')}: ${e.value}', overflow: TextOverflow.ellipsis)),
+      for (final e in stage)
+        DropdownMenuItem(
+            value: e.key,
+            child: Text('${tr('Đợt thanh toán')}: ${e.value}', overflow: TextOverflow.ellipsis)),
+    ];
+    // Trường đang gắn nằm ngoài danh sách (mẫu cũ) vẫn hiện để không mất khi lưu.
+    if (keep != null && keep.isNotEmpty && !items.any((e) => e.value == keep)) {
+      items.add(DropdownMenuItem(value: keep, child: Text(_label(keep), overflow: TextOverflow.ellipsis)));
+    }
+    return items;
+  }
 
   Future<void> _addManual() async {
     if (_paragraphs.isEmpty) return;
     Map<String, dynamic>? para = _paragraphs.first;
     final findCtrl = TextEditingController(text: '${para['text']}');
-    String? field = _docFields.isNotEmpty ? _docFields.first.key : null;
+    final usableDoc = _usable(_docFields);
+    String? field = usableDoc.isNotEmpty ? usableDoc.first.key : null;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -789,7 +876,12 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
       canPop: false,
       // ignore: deprecated_member_use
       onPopInvoked: (didPop) {
-        if (!didPop) Navigator.of(context).pop(_changed);
+        if (didPop) return;
+        if (!_isActive && !_loading) {
+          _confirmLeaveDraft();
+          return;
+        }
+        Navigator.of(context).pop(_changed);
       },
       child: DefaultTabController(
         length: posDocxEditorSupported ? 5 : 4,
@@ -816,7 +908,7 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                         ? const SizedBox(
                             width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.save),
-                    label: Text(tr('Lưu')),
+                    label: Text(_isActive ? tr('Lưu') : tr('Lưu & dùng mẫu')),
                   ),
                 ),
               ],
@@ -836,7 +928,28 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
             ),
             body: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
+                : Column(
+                    children: [
+                      if (!_isActive)
+                        Container(
+                          width: double.infinity,
+                          color: SboxColors.warningSoft,
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.edit_note, size: 18, color: SboxColors.warningText),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  tr('Mẫu nháp — chưa dùng để in. Kiểm tra các chỗ gắn trường rồi bấm «Lưu & dùng mẫu».'),
+                                  style: const TextStyle(
+                                      fontSize: 13, fontWeight: FontWeight.w600, color: SboxColors.warningText),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Expanded(child: TabBarView(
                     physics: const NeverScrollableScrollPhysics(),
                     children: [
                       _DocxPdfTab(
@@ -867,6 +980,8 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                         hint: tr('Mẫu điền dữ liệu giả (2 dòng hàng) — đúng như khi xuất PDF báo giá / hợp đồng.'),
                       ),
                       _buildFieldList(),
+                    ],
+                  )),
                     ],
                   ),
           ),
@@ -954,9 +1069,9 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                   const SizedBox(height: 6),
                   DropdownButton<String>(
                     isExpanded: true,
-                    value: _fieldItems().any((e) => e.value == it.field) ? it.field : null,
+                    value: _fieldItems(keep: it.field).any((e) => e.value == it.field) ? it.field : null,
                     hint: Text(_label(it.field)),
-                    items: _fieldItems(),
+                    items: _fieldItems(keep: it.field),
                     onChanged: (v) => setState(() {
                       if (v != null) it.field = v;
                                     }),

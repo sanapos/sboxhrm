@@ -34,10 +34,9 @@ class _PosDocxEditorFrameState extends State<PosDocxEditorFrame> {
       ..style.border = 'none'
       ..style.width = '100%'
       ..style.height = '100%';
-    _iframe.onload = ((web.Event _) {
-      final win = _iframe.contentWindow;
-      if (win != null && _scrollY > 0) win.scrollTo(web.ScrollToOptions(top: _scrollY));
-    }).toJS;
+    // HTML dựng từ file Word khách tải lên → chạy cô lập: chỉ cho script của trang soạn (không cùng origin với app
+    // → không đọc được token / gọi API thay người dùng). Liên lạc với app chỉ qua postMessage.
+    _iframe.setAttribute('sandbox', 'allow-scripts');
     _iframe.srcdoc = widget.html.toJS;
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (_) => _iframe);
 
@@ -47,7 +46,17 @@ class _PosDocxEditorFrameState extends State<PosDocxEditorFrame> {
       try {
         // Chỉ nhận chuỗi JSON (khung soạn gửi JSON.stringify); dữ liệu khác → lỗi → bỏ qua.
         final m = jsonDecode((e.data as JSString).toDart);
-        if (m is Map && m['src'] == 'sbox-docx') widget.onMessage(Map<String, dynamic>.from(m));
+        if (m is! Map || m['src'] != 'sbox-docx') return;
+        // Khung cô lập (sandbox) không cho đọc / đặt vị trí cuộn từ ngoài → trang soạn tự báo và nhận lệnh cuộn.
+        if (m['type'] == 'scroll') {
+          _scrollY = (m['y'] as num?)?.toDouble() ?? _scrollY;
+          return;
+        }
+        if (m['type'] == 'ready' && _scrollY > 0) {
+          _iframe.contentWindow
+              ?.postMessage(jsonEncode({'src': 'sbox-docx-parent', 'scrollY': _scrollY}).toJS, '*'.toJS);
+        }
+        widget.onMessage(Map<String, dynamic>.from(m));
       } catch (_) {}
     }).toJS;
     web.window.addEventListener('message', _listener);
@@ -57,7 +66,7 @@ class _PosDocxEditorFrameState extends State<PosDocxEditorFrame> {
   void didUpdateWidget(covariant PosDocxEditorFrame oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.html != widget.html) {
-      _scrollY = _iframe.contentWindow?.scrollY.toDouble() ?? 0;
+      // Vị trí cuộn: lấy theo tin «scroll» trang soạn gửi lên (khung sandbox không đọc được scrollY).
       _iframe.srcdoc = widget.html.toJS;
     }
   }

@@ -94,6 +94,9 @@ class ApiService implements PayrollApi {
 
   static const String licenseExpiredCode = 'LICENSE_EXPIRED';
 
+  /// Cửa hàng bị SuperAdmin / đại lý khoá — xử lý như hết hạn (đăng xuất kèm lý do).
+  static const String storeLockedCode = 'STORE_LOCKED';
+
   String? _token;
 
   // Singleton pattern
@@ -447,10 +450,11 @@ class ApiService implements PayrollApi {
       http.Response response, Map<String, dynamic> normalized) {
     final header = response.headers['x-sbox-error-code'] ??
         response.headers['X-SBOX-Error-Code'];
-    if (header?.toUpperCase() == licenseExpiredCode) return true;
+    const codes = {licenseExpiredCode, storeLockedCode};
+    if (codes.contains(header?.toUpperCase())) return true;
     final errors = normalized['errors'] ?? normalized['Errors'];
     if (errors is List &&
-        errors.any((e) => e.toString().toUpperCase() == licenseExpiredCode)) {
+        errors.any((e) => codes.contains(e.toString().toUpperCase()))) {
       return true;
     }
     final msg = (normalized['message'] ?? '').toString().toLowerCase();
@@ -11593,9 +11597,11 @@ class ApiService implements PayrollApi {
   }
 
   /// AI Assistant chat - trợ lý ảo cá nhân với context người dùng.
+  /// [language] = ngôn ngữ giao diện (vi / en / ko / ja / zh) — trợ lý trả lời bằng ngôn ngữ này.
   Future<Map<String, dynamic>> aiAssistantChat({
     required List<Map<String, String>> messages,
     String? provider,
+    String? language,
   }) async {
     try {
       final response =
@@ -11604,6 +11610,7 @@ class ApiService implements PayrollApi {
               body: json.encode({
                 'messages': messages,
                 if (provider != null) 'provider': provider,
+                if (language != null) 'language': language,
               }));
       return _handleResponse(response);
     } catch (e) {
@@ -11694,9 +11701,59 @@ class ApiService implements PayrollApi {
   }
 
   /// Xác nhận phiếu Trợ lý ảo đề xuất → server gọi API thật bằng phiên của người dùng.
-  Future<Map<String, dynamic>> confirmAiAction(String id) async {
+  /// [acknowledged] = người dùng đã xác nhận lần hai (bắt buộc với thao tác rủi ro cao: xóa, hủy, duyệt hàng loạt).
+  Future<Map<String, dynamic>> confirmAiAction(String id, {bool acknowledged = false}) async {
     try {
-      final r = await sharedHttpClient.post(Uri.parse('$baseUrl/api/ai/assistant/actions/$id/confirm'), headers: _headers);
+      final r = await sharedHttpClient.post(Uri.parse('$baseUrl/api/ai/assistant/actions/$id/confirm'),
+          headers: _headers, body: json.encode({'acknowledged': acknowledged}));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Hoàn tác thao tác trợ lý vừa ghi (trong vài phút sau khi xác nhận).
+  Future<Map<String, dynamic>> undoAiAction(String id) async {
+    try {
+      final r = await sharedHttpClient.post(Uri.parse('$baseUrl/api/ai/assistant/actions/$id/undo'), headers: _headers);
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Nhật ký thao tác Trợ lý ảo: của mình; [all] = cả cửa hàng (chỉ chủ / người sửa được thiết lập AI).
+  /// [status]: done | failed | undone | discarded; [highRisk] = chỉ xóa / hủy / duyệt hàng loạt.
+  Future<Map<String, dynamic>> getAiActionLog({bool all = false, String? status, bool highRisk = false, int take = 100}) async {
+    try {
+      final r = await sharedHttpClient.get(
+          Uri.parse('$baseUrl/api/ai/assistant/actions/recent').replace(queryParameters: {
+            'take': '$take',
+            if (all) 'all': 'true',
+            if (status != null && status.isNotEmpty) 'status': status,
+            if (highRisk) 'highRisk': 'true',
+          }),
+          headers: _headers);
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Hồ sơ cửa hàng cho Trợ lý ảo (giờ mở cửa, chính sách, nội quy, tên gọi tắt…).
+  Future<Map<String, dynamic>> getAiStoreProfile() async {
+    try {
+      final r = await sharedHttpClient.get(Uri.parse('$baseUrl/api/ai/assistant/store-profile'), headers: _headers);
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> saveAiStoreProfile(String content) async {
+    try {
+      final r = await sharedHttpClient.put(Uri.parse('$baseUrl/api/ai/assistant/store-profile'),
+          headers: _headers, body: json.encode({'content': content}));
       return _handleResponse(r);
     } catch (e) {
       return _connectionFailure(e);
@@ -11710,9 +11767,16 @@ class ApiService implements PayrollApi {
   }
 
   /// Ghi âm → chữ bằng Gemini (có từ vựng cửa hàng). null = không dùng được (chưa bật AI / hết lượt) → dùng nhận dạng của máy.
-  Future<String?> aiTranscribe(List<int> audio, String mimeType) async {
+  Future<String?> aiTranscribe(List<int> audio, String mimeType) async =>
+      (await aiTranscribeEx(audio, mimeType)).text;
+
+  /// Như [aiTranscribe] kèm mã lỗi: 409 = cửa hàng chưa bật AI (chuyển nhận dạng của máy), 429 / 502 / 0 (mạng, quá giờ)
+  /// = tạm thời — giữ chế độ AI, chỉ báo nói lại. [language] = ngôn ngữ giao diện (vi / en / ko / ja / zh).
+  Future<({String? text, int status})> aiTranscribeEx(List<int> audio, String mimeType, {String? language}) async {
     try {
-      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/api/ai/assistant/transcribe'));
+      final uri = Uri.parse('$baseUrl/api/ai/assistant/transcribe')
+          .replace(queryParameters: language == null ? null : {'language': language});
+      final request = http.MultipartRequest('POST', uri);
       if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
       final branch = currentBranchId;
       if (branch != null && branch.isNotEmpty) request.headers['X-Branch-Id'] = branch;
@@ -11725,25 +11789,37 @@ class ApiService implements PayrollApi {
       ));
       final streamed = await request.send().timeout(const Duration(seconds: 40));
       final r = await http.Response.fromStream(streamed);
-      if (r.statusCode != 200) return null;
+      if (r.statusCode != 200) return (text: null, status: r.statusCode);
       final body = json.decode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
-      return body['isSuccess'] == true ? (body['data'] as String? ?? '') : null;
+      return body['isSuccess'] == true
+          ? (text: body['data'] as String? ?? '', status: 200)
+          : (text: null, status: 502);
     } catch (_) {
-      return null;
+      return (text: null, status: 0);
     }
   }
 
   /// Đọc câu trả lời bằng giọng Gemini TTS → WAV. null = lỗi / hết lượt → đọc bằng giọng của máy.
-  Future<Uint8List?> aiSpeak(String text, {String? voice}) async {
+  Future<Uint8List?> aiSpeak(String text, {String? voice}) async => (await aiSpeakEx(text, voice: voice)).audio;
+
+  /// Như [aiSpeak] kèm mã lỗi (409 = cửa hàng chưa bật AI). [language] = ngôn ngữ đọc.
+  Future<({Uint8List? audio, int status})> aiSpeakEx(String text, {String? voice, String? language}) async {
     try {
       final r = await http
           .post(Uri.parse('$baseUrl/api/ai/assistant/speak'),
-              headers: _headers, body: json.encode({'text': text, if (voice != null) 'voice': voice}))
+              headers: _headers,
+              body: json.encode({
+                'text': text,
+                if (voice != null) 'voice': voice,
+                if (language != null) 'language': language,
+              }))
           .timeout(const Duration(seconds: 45));
       final type = r.headers['content-type'] ?? '';
-      return r.statusCode == 200 && type.contains('audio') ? r.bodyBytes : null;
+      return r.statusCode == 200 && type.contains('audio')
+          ? (audio: r.bodyBytes, status: 200)
+          : (audio: null, status: r.statusCode);
     } catch (_) {
-      return null;
+      return (audio: null, status: 0);
     }
   }
 
@@ -22036,8 +22112,9 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// [activate] = mẫu nháp vừa tải lên → bật dùng để in (người dùng bấm «Lưu & dùng mẫu»).
   Future<Map<String, dynamic>> savePosDocxTemplateMapping(String id,
-      List<Map<String, dynamic>> replacements, List<String> removeRowParagraphIds) async {
+      List<Map<String, dynamic>> replacements, List<String> removeRowParagraphIds, {bool activate = false}) async {
     try {
       final response = await sharedHttpClient.put(
           Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/mapping'),
@@ -22045,6 +22122,7 @@ class ApiService implements PayrollApi {
           body: jsonEncode({
             'replacements': replacements,
             'removeRowParagraphIds': removeRowParagraphIds,
+            if (activate) 'activate': true,
           }));
       return _handleResponse(response);
     } catch (e) {
@@ -25503,6 +25581,27 @@ class ApiService implements PayrollApi {
       };
     } catch (e) {
       return _connectionFailure(e, fallback: 'Không tải được firmware gateway.');
+    }
+  }
+
+  // ===== AI tạo menu từ file Excel / CSV (thêm cho tính năng AI tạo menu) =====
+
+  /// AI đọc file Excel (.xlsx) / CSV lộn xộn → danh sách món (cùng dạng kết quả với [scanPosMenuAi]).
+  Future<Map<String, dynamic>> scanPosMenuSheetAi(
+      List<int> fileBytes, String fileName) async {
+    try {
+      final request = http.MultipartRequest(
+          'POST', Uri.parse('$baseUrl/api/pos/ai/menu/scan-sheet'));
+      final authHeaders = _headers;
+      if (authHeaders.containsKey('Authorization')) {
+        request.headers['Authorization'] = authHeaders['Authorization']!;
+      }
+      request.files.add(http.MultipartFile.fromBytes('file', fileBytes, filename: fileName));
+      final streamed = await request.send().timeout(const Duration(seconds: 200));
+      final response = await http.Response.fromStream(streamed);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
     }
   }
 }

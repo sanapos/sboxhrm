@@ -41,7 +41,24 @@ public static class DocxTemplateEngine
 
     /// <summary>Trường của đợt thanh toán — w:tr chứa trường này là dòng đợt mẫu (nhân bản theo số đợt).</summary>
     static readonly HashSet<string> StageRowKeys =
-        ["Dot_STT", "Dot_Ten", "Dot_Phan_Tram", "Dot_So_Tien", "Dot_Han", "Dot_Da_Thu", "Dot_Con_Lai"];
+        ["Dot_STT", "Dot_Ten", "Dot_Phan_Tram", "Dot_So_Tien", "Dot_Han", "Dot_Da_Thu", "Dot_Con_Lai", "Dot_Ghi_Chu"];
+
+    /// <summary>
+    /// Mã trường thuộc danh mục hệ thống — khi in mà không có dữ liệu thì để trống (không in «{Ma}» ra giấy).
+    /// Mã lạ (không thuộc danh mục) giữ nguyên để người dùng thấy và sửa.
+    /// </summary>
+    // Lười: ImageKeys khai báo phía dưới (trường static khởi tạo theo thứ tự trong file).
+    static HashSet<string> CatalogKeys => _catalogKeys ??= PosDocxTemplateAiService.DocumentFields.Keys
+        .Concat(PosDocxTemplateAiService.LineFields.Keys)
+        .Concat(PosDocxTemplateAiService.StageFields.Keys)
+        .Concat(ImageKeys)
+        .Where(k => k != ClearField)
+        .ToHashSet();
+    static HashSet<string>? _catalogKeys;
+
+    /// <summary>Giá trị điền cho một mã: có dữ liệu → giá trị; trường danh mục thiếu dữ liệu → rỗng; mã lạ → null (giữ nguyên).</summary>
+    static string? ValueFor(string key, Func<string, string?> lookup) =>
+        lookup(key) ?? (CatalogKeys.Contains(key) ? "" : null);
 
     static List<Dictionary<string, string>> StagesOf(IReadOnlyDictionary<string, string> data)
     {
@@ -74,6 +91,36 @@ public static class DocxTemplateEngine
             }
         });
         return result;
+    }
+
+    /// <summary>
+    /// Khổ giấy theo trang cuối của file (w:sectPr/w:pgSz, đơn vị twips): cạnh ngắn ≈ 148 mm → A5, còn lại A4.
+    /// Không đọc được → null.
+    /// </summary>
+    public static ZKTecoADMS.Domain.Enums.PosPrintPaperSize? DetectPaperSize(byte[] docx)
+    {
+        try
+        {
+            using var zip = new ZipArchive(new MemoryStream(docx), ZipArchiveMode.Read);
+            var entry = zip.GetEntry("word/document.xml");
+            if (entry == null) return null;
+            XDocument doc;
+            using (var s = entry.Open()) doc = XDocument.Load(s);
+            var pg = doc.Descendants(W + "sectPr").LastOrDefault()?.Element(W + "pgSz");
+            if (!double.TryParse((string?)pg?.Attribute(W + "w"), System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var w)
+                || !double.TryParse((string?)pg?.Attribute(W + "h"), System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var h)
+                || w <= 0 || h <= 0)
+                return null;
+            var shortMm = Math.Min(w, h) / 1440.0 * 25.4;
+            // A5 = 148 × 210 mm; A4 = 210 × 297 mm.
+            return shortMm < 180 ? ZKTecoADMS.Domain.Enums.PosPrintPaperSize.A5 : ZKTecoADMS.Domain.Enums.PosPrintPaperSize.A4;
+        }
+        catch (Exception ex) when (ex is InvalidDataException or System.Xml.XmlException or IOException)
+        {
+            return null;
+        }
     }
 
     // ─── Chèn mã trường vào mẫu ────────────────────────────────────────
@@ -367,7 +414,7 @@ public static class DocxTemplateEngine
             if (images != null && TryFillWithImages(t, lookup, images)) continue;
             var replaced = TokenRx.Replace(t.Value, m =>
             {
-                var v = lookup(m.Groups[1].Value);
+                var v = ValueFor(m.Groups[1].Value, lookup);
                 if (v == null) return m.Value; // trường lạ: để nguyên để người dùng thấy
                 return LooksLikeHtml(v) ? "" : v;
             });
@@ -455,7 +502,7 @@ public static class DocxTemplateEngine
         var last = 0;
         string Text(string raw) => TokenRx.Replace(raw, m =>
         {
-            var v = lookup(m.Groups[1].Value);
+            var v = ValueFor(m.Groups[1].Value, lookup);
             return v == null ? m.Value : LooksLikeHtml(v) ? "" : v;
         });
         foreach (var (m, img) in found)
@@ -767,7 +814,7 @@ public static class DocxTemplateEngine
             ["Ngay_Ban_Giao"] = DateTime.UtcNow.AddHours(7).AddDays(15).ToString("dd/MM/yyyy"),
             [PosPrintTemplateHtmlRenderer.StagesKey] = System.Text.Json.JsonSerializer.Serialize(new[]
             {
-                new Dictionary<string, string> { ["Dot_STT"] = "1", ["Dot_Ten"] = "Đặt cọc ký hợp đồng", ["Dot_Phan_Tram"] = "30%", ["Dot_So_Tien"] = "7.290.000", ["Dot_Han"] = "", ["Dot_Da_Thu"] = "7.290.000", ["Dot_Con_Lai"] = "0" },
+                new Dictionary<string, string> { ["Dot_STT"] = "1", ["Dot_Ten"] = "Đặt cọc ký hợp đồng", ["Dot_Phan_Tram"] = "30%", ["Dot_So_Tien"] = "7.290.000", ["Dot_Han"] = "", ["Dot_Da_Thu"] = "7.290.000", ["Dot_Con_Lai"] = "0", ["Dot_Ghi_Chu"] = "Chuyển khoản" },
                 new Dictionary<string, string> { ["Dot_STT"] = "2", ["Dot_Ten"] = "Giao hàng", ["Dot_Phan_Tram"] = "50%", ["Dot_So_Tien"] = "12.150.000", ["Dot_Han"] = "", ["Dot_Da_Thu"] = "0", ["Dot_Con_Lai"] = "12.150.000" },
                 new Dictionary<string, string> { ["Dot_STT"] = "3", ["Dot_Ten"] = "Nghiệm thu bàn giao", ["Dot_Phan_Tram"] = "20%", ["Dot_So_Tien"] = "4.860.000", ["Dot_Han"] = "", ["Dot_Da_Thu"] = "0", ["Dot_Con_Lai"] = "4.860.000" },
             }),

@@ -39,11 +39,16 @@ public class PosDocxTemplatesController(
         List<string> RemoveRowParagraphIds,
         List<string> Warnings,
         bool AiUsed,
-        List<ParagraphItem> Paragraphs);
+        List<ParagraphItem> Paragraphs,
+        // false = mẫu nháp vừa tải lên, chưa dùng để in (bật khi người dùng Lưu ở màn xem lại).
+        bool IsActive,
+        // Mã trường dùng được cho loại chứng từ của mẫu (ô chọn trường chỉ hiện các trường này).
+        List<string> AllowedFields);
 
     public sealed record ParagraphItem(string Id, string Text, bool InTable);
 
-    public sealed record SaveMappingRequest(List<MappingItem> Replacements, List<string>? RemoveRowParagraphIds);
+    /// <param name="Activate">Mẫu nháp (vừa tải lên) → bật dùng để in sau khi người dùng đã xem lại và bấm «Lưu &amp; dùng mẫu».</param>
+    public sealed record SaveMappingRequest(List<MappingItem> Replacements, List<string>? RemoveRowParagraphIds, bool Activate = false);
 
     sealed record StoredMapping(List<DocxReplacement> Replacements, List<string> RemoveRowParagraphIds);
 
@@ -54,7 +59,11 @@ public class PosDocxTemplatesController(
     {
         document = PosDocxTemplateAiService.DocumentFields.Select(x => new { key = x.Key, label = x.Value }),
         line = PosDocxTemplateAiService.LineFields.Select(x => new { key = x.Key, label = x.Value }),
+        stage = PosDocxTemplateAiService.StageFields.Select(x => new { key = x.Key, label = x.Value }),
     }));
+
+    /// <summary>Thời gian tối đa chờ AI đọc mẫu (client chờ 200 giây — trả kết quả trước khi client bỏ cuộc).</summary>
+    static readonly TimeSpan AiTimeout = TimeSpan.FromSeconds(150);
 
     [HttpPost("import")]
     [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.Create)]
@@ -72,6 +81,8 @@ public class PosDocxTemplatesController(
             return BadRequest(AppResponse<MappingDto>.Fail("Chỉ nhận file .docx (Word 2007 trở lên). File .doc cũ: mở bằng Word → Lưu thành .docx."));
         if (file.Length > MaxBytes)
             return BadRequest(AppResponse<MappingDto>.Fail("File quá lớn (tối đa 15 MB)."));
+        if (!PosDocxTemplateAiService.SupportsWord(documentType))
+            return BadRequest(AppResponse<MappingDto>.Fail("Loại chứng từ này chưa in bằng mẫu Word — dùng mẫu HTML."));
 
         byte[] original;
         await using (var ms = new MemoryStream())
@@ -92,16 +103,39 @@ public class PosDocxTemplatesController(
         if (paragraphs.Count == 0)
             return BadRequest(AppResponse<MappingDto>.Fail("File Word không có nội dung chữ."));
 
+        // Lưu file + mẫu NHÁP (chưa dùng để in) TRƯỚC khi gọi AI: client hết giờ chờ rồi gửi lại cũng không sinh
+        // mẫu đang dùng trùng lặp; báo giá / hóa đơn chỉ tự chọn mẫu đang bật → không in nhầm file gốc của khách cũ.
+        var template = new PosPrintTemplate
+        {
+            Id = Guid.NewGuid(),
+            StoreId = RequiredStoreId,
+            Name = string.IsNullOrWhiteSpace(name) ? Path.GetFileNameWithoutExtension(file.FileName) : name.Trim(),
+            DocumentType = documentType,
+            PaperSize = DocxTemplateEngine.DetectPaperSize(original) ?? PosPrintPaperSize.A4,
+            IsActive = false,
+            CreatedBy = CurrentUserEmail,
+        };
+        template.DocxFilePath = RelativePath(template.StoreId, template.Id);
+        await System.IO.File.WriteAllBytesAsync(OrigPath(template), original, ct);
+
+        // Quy tắc (nhãn + chỗ trống «……») bổ sung chỗ AI chưa gắn — và vẫn chạy khi AI lỗi / hết lượt.
+        var rules = PosDocxTemplateAiService.AdaptToDocumentType(DocxRuleDetector.Detect(paragraphs), documentType);
+        var applied = await ApplyAndSaveAsync(template, original, rules, [], ct);
+        db.PosPrintTemplates.Add(template);
+        await db.SaveChangesAsync(ct);
+
         var analysis = new DocxTemplateAnalysis([], [], []);
         var aiUsed = false;
         if (useAi)
         {
+            using var aiCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            aiCts.CancelAfter(AiTimeout);
             try
             {
-                var title = PosPrintDocumentTypes.IsCommercial(documentType)
+                var title = PosDocxTemplateAiService.IsCommercial(documentType)
                     ? PosQuoteDocumentHtml.TitleOf(KindOf(documentType))
                     : PosPrintTemplateDefaults.DocumentTitle(documentType);
-                analysis = await ai.AnalyzeAsync(paragraphs, title, ct);
+                analysis = await ai.AnalyzeAsync(paragraphs, title, documentType, aiCts.Token);
                 aiUsed = true;
             }
             catch (Exception ex) when (ex is AiApiException or InvalidOperationException or JsonException)
@@ -110,32 +144,39 @@ public class PosDocxTemplatesController(
                 logger.LogWarning("AI docx analysis failed: {Message}", ex.Message);
                 analysis = new DocxTemplateAnalysis([], [], [ex is JsonException ? "AI trả kết quả không đọc được — gắn trường thủ công hoặc thử lại." : ex.Message]);
             }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                // Hết thời gian chờ AI (không phải người dùng hủy): mẫu đã lưu dạng nháp → gắn tay / thử lại.
+                logger.LogWarning("AI docx analysis timed out after {Seconds}s", AiTimeout.TotalSeconds);
+                analysis = new DocxTemplateAnalysis([], [], [
+                    $"AI đọc mẫu quá lâu (quá {AiTimeout.TotalSeconds:0} giây) nên đã dừng — mẫu đã lưu dạng nháp, gắn trường thủ công "
+                    + "hoặc xóa mẫu rồi tải lại để thử AI lần nữa."]);
+            }
+            catch (HttpRequestException ex)
+            {
+                logger.LogWarning("AI docx analysis network error: {Message}", ex.Message);
+                analysis = new DocxTemplateAnalysis([], [], [
+                    "Không kết nối được dịch vụ AI — mẫu đã lưu dạng nháp, gắn trường thủ công hoặc thử lại sau."]);
+            }
         }
 
-        var template = new PosPrintTemplate
-        {
-            Id = Guid.NewGuid(),
-            StoreId = RequiredStoreId,
-            Name = string.IsNullOrWhiteSpace(name) ? Path.GetFileNameWithoutExtension(file.FileName) : name.Trim(),
-            DocumentType = documentType,
-            PaperSize = PosPrintPaperSize.A4,
-            IsActive = true,
-            CreatedBy = CurrentUserEmail,
-        };
-        template.DocxFilePath = RelativePath(template.StoreId, template.Id);
-        await System.IO.File.WriteAllBytesAsync(OrigPath(template), original, ct);
-
-        // Quy tắc (nhãn + chỗ trống «……») bổ sung chỗ AI chưa gắn — và vẫn chạy khi AI lỗi / hết lượt.
-        var rules = DocxRuleDetector.Detect(paragraphs);
-        var replacements = DocxRuleDetector.Merge(paragraphs, analysis.Replacements, rules);
-        var ruleAdded = replacements.Count - analysis.Replacements.Count;
         var warnings = analysis.Warnings.ToList();
-        if (ruleAdded > 0)
-            warnings.Add($"Nhận thêm {ruleAdded} chỗ trống theo nhãn (Họ tên, MST, Địa chỉ…) — kiểm tra lại.");
-        var applied = await ApplyAndSaveAsync(template, original, replacements, analysis.RemoveRowParagraphIds, ct);
-        db.PosPrintTemplates.Add(template);
-        await db.SaveChangesAsync(ct);
-        return Ok(AppResponse<MappingDto>.Success(ToDto(template, applied, analysis.RemoveRowParagraphIds, paragraphs, warnings, aiUsed)));
+        var removeRows = new List<string>();
+        if (aiUsed)
+        {
+            var replacements = DocxRuleDetector.Merge(paragraphs, analysis.Replacements, rules);
+            var ruleAdded = replacements.Count - analysis.Replacements.Count;
+            if (ruleAdded > 0)
+                warnings.Add($"Nhận thêm {ruleAdded} chỗ trống theo nhãn (Họ tên, MST, Địa chỉ…) — kiểm tra lại.");
+            removeRows = analysis.RemoveRowParagraphIds;
+            applied = await ApplyAndSaveAsync(template, original, replacements, removeRows, ct);
+            await db.SaveChangesAsync(ct);
+        }
+        else if (applied.Count > 0)
+            warnings.Add($"Nhận {applied.Count} chỗ trống theo nhãn (Họ tên, MST, Địa chỉ…) — kiểm tra lại.");
+        // Luôn soát sau khi gộp (kể cả AI lỗi): số tiền / tên còn chữ cứng, bảng hàng / tổng cộng chưa gắn.
+        warnings.AddRange(PosDocxTemplateAiService.ReviewWarnings(applied, paragraphs, documentType));
+        return Ok(AppResponse<MappingDto>.Success(ToDto(template, applied, removeRows, paragraphs, warnings, aiUsed)));
     }
 
     [HttpGet("{id:guid}/mapping")]
@@ -146,7 +187,9 @@ public class PosDocxTemplatesController(
         if (t == null) return NotFound(AppResponse<MappingDto>.Fail("Không tìm thấy mẫu Word"));
         var stored = ReadMapping(t);
         var paragraphs = DocxTemplateEngine.ExtractParagraphs(await System.IO.File.ReadAllBytesAsync(OrigPath(t), ct));
-        return Ok(AppResponse<MappingDto>.Success(ToDto(t, Resolve(stored.Replacements, paragraphs), stored.RemoveRowParagraphIds, paragraphs, [], false)));
+        var resolved = Resolve(stored.Replacements, paragraphs);
+        return Ok(AppResponse<MappingDto>.Success(ToDto(t, resolved, stored.RemoveRowParagraphIds, paragraphs,
+            PosDocxTemplateAiService.ReviewWarnings(resolved, paragraphs, t.DocumentType), false)));
     }
 
     /// <summary>
@@ -195,21 +238,39 @@ public class PosDocxTemplatesController(
     {
         var t = await FindAsync(id, ct, track: true);
         if (t == null) return NotFound(AppResponse<MappingDto>.Fail("Không tìm thấy mẫu Word"));
-        var allowed = PosDocxTemplateAiService.DocumentFields.Keys.Concat(PosDocxTemplateAiService.LineFields.Keys)
-            .Append(DocxTemplateEngine.TextField).ToHashSet();
-        var replacements = (request.Replacements ?? [])
-            .Where(r => (!string.IsNullOrEmpty(r.Find) || r.Start != null) && allowed.Contains(r.Field))
+        // Trường dùng được cho loại chứng từ (kể cả đợt thanh toán) + trường đã lưu sẵn trong mẫu
+        // (mẫu cũ gắn trường ngoài danh sách vẫn giữ — bỏ đi thì in ra chữ cứng của mẫu gốc).
+        var typeFields = PosDocxTemplateAiService.FieldsFor(t.DocumentType);
+        var storedFields = ReadMapping(t).Replacements.Select(r => r.Field).ToHashSet();
+        var allowed = typeFields.AllKeys.Concat(storedFields)
+            .Append(DocxTemplateEngine.TextField).Append(DocxTemplateEngine.ClearField).ToHashSet();
+        var requested = (request.Replacements ?? [])
+            .Where(r => !string.IsNullOrEmpty(r.Find) || r.Start != null)
+            .ToList();
+        var replacements = requested
+            .Where(r => allowed.Contains(r.Field))
             .Select(r => new DocxReplacement(r.ParagraphId, r.Find ?? "", r.Field, r.Start, r.Text))
             .ToList();
         var original = await System.IO.File.ReadAllBytesAsync(OrigPath(t), ct);
         var applied = await ApplyAndSaveAsync(t, original, replacements, request.RemoveRowParagraphIds ?? [], ct);
+        if (request.Activate) t.IsActive = true;
         t.UpdatedAt = DateTime.UtcNow;
         t.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync(ct);
         var paragraphs = DocxTemplateEngine.ExtractParagraphs(original);
+        var warnings = new List<string>();
+        var rejected = requested.Where(r => !allowed.Contains(r.Field)).Select(r => r.Field).Distinct().ToList();
+        if (rejected.Count > 0)
+            warnings.Add($"Bỏ {rejected.Count} trường không dùng cho loại chứng từ này: {string.Join(", ", rejected.Take(5))}");
+        var outOfType = applied.Select(r => r.Field)
+            .Where(f => f is not (DocxTemplateEngine.TextField or DocxTemplateEngine.ClearField) && !typeFields.Contains(f))
+            .Distinct().ToList();
+        if (outOfType.Count > 0)
+            warnings.Add($"Trường không có dữ liệu ở loại chứng từ này (in ra để trống): {string.Join(", ", outOfType.Take(5))}");
         var skipped = replacements.Count - applied.Count;
-        return Ok(AppResponse<MappingDto>.Success(ToDto(t, applied, request.RemoveRowParagraphIds ?? [], paragraphs,
-            skipped > 0 ? [$"{skipped} chỗ không tìm thấy trong file gốc"] : [], false)));
+        if (skipped > 0) warnings.Add($"{skipped} chỗ không tìm thấy trong file gốc");
+        warnings.AddRange(PosDocxTemplateAiService.ReviewWarnings(applied, paragraphs, t.DocumentType));
+        return Ok(AppResponse<MappingDto>.Success(ToDto(t, applied, request.RemoveRowParagraphIds ?? [], paragraphs, warnings, false)));
     }
 
     /// <summary>Tải file mẫu đã gắn mã trường để chỉnh tay trong Word.</summary>
@@ -233,6 +294,8 @@ public class PosDocxTemplatesController(
         if (t == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy mẫu Word"));
         if (file == null || file.Length == 0 || file.Length > MaxBytes)
             return BadRequest(AppResponse<object>.Fail("Chọn file .docx (tối đa 15 MB)."));
+        if (!string.Equals(Path.GetExtension(file.FileName), ".docx", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(AppResponse<object>.Fail("Chỉ nhận file .docx (Word 2007 trở lên). File .doc cũ: mở bằng Word → Lưu thành .docx."));
         byte[] bytes;
         await using (var ms = new MemoryStream())
         {
@@ -252,6 +315,7 @@ public class PosDocxTemplatesController(
         await System.IO.File.WriteAllBytesAsync(TemplatePath(t), bytes, ct);
         t.DocxMappingJson = JsonSerializer.Serialize(new StoredMapping([], []), JsonOpts);
         t.HtmlContent = DocxTemplateEngine.ToPlainHtml(bytes);
+        if (DocxTemplateEngine.DetectPaperSize(bytes) is { } paper) t.PaperSize = paper;
         t.UpdatedAt = DateTime.UtcNow;
         t.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync(ct);
@@ -276,7 +340,10 @@ public class PosDocxTemplatesController(
         if (!System.IO.File.Exists(source))
             return NotFound(AppResponse<object>.Fail("Thiếu file mẫu trên máy chủ — tải lại file Word."));
 
-        var cache = $"{TemplatePath(t)}.{view}.pdf";
+        // Bản PDF lưu tạm: đuôi lạ (máy chủ tĩnh không phát file đuôi lạ) → chỉ đọc được qua API có đăng nhập.
+        // Bản cũ «.pdf» nằm trong wwwroot ai có link cũng tải được → xóa.
+        DeleteLegacyPreviewCache(TemplatePath(t));
+        var cache = PreviewCachePath(TemplatePath(t), view);
         var stamp = System.IO.File.GetLastWriteTimeUtc(source);
         // Dữ liệu mẫu có ngày hôm nay → chỉ dùng lại trong ngày.
         var fresh = System.IO.File.Exists(cache)
@@ -314,7 +381,7 @@ public class PosDocxTemplatesController(
         var path = TemplatePath(t);
         if (!System.IO.File.Exists(path))
             return NotFound(AppResponse<object>.Fail("Thiếu file mẫu trên máy chủ — tải lại file Word."));
-        var kind = PosPrintDocumentTypes.IsCommercial(t.DocumentType) ? KindOf(t.DocumentType) : PosQuoteDocumentKind.Quote;
+        var kind = PosDocxTemplateAiService.IsCommercial(t.DocumentType) ? KindOf(t.DocumentType) : PosQuoteDocumentKind.Quote;
         var (data, lines) = await PosQuoteDocumentHtml.BuildFieldsAsync(
             db, quote, kind, quote.QuoteNo, quote.Note, quote.IncludeImages, env.ContentRootPath);
         var docx = DocxTemplateEngine.Render(await System.IO.File.ReadAllBytesAsync(path, ct), data,
@@ -354,8 +421,10 @@ public class PosDocxTemplatesController(
             return NotFound(AppResponse<object>.Fail("Thiếu file mẫu trên máy chủ — tải lại file Word."));
 
         static string Clean(string? v) => (v ?? "").Length > 4000 ? v![..4000] : v ?? "";
+        // Logo / con dấu (ảnh nhúng data:) dài hơn chữ thường — cắt 4000 ký tự là hỏng ảnh.
+        static string CleanImage(string? v) => (v ?? "").Length > 3_000_000 ? "" : v ?? "";
         var data = (body.Data ?? []).Where(kv => kv.Key.Length <= 60)
-            .ToDictionary(kv => kv.Key, kv => Clean(kv.Value));
+            .ToDictionary(kv => kv.Key, kv => DocxTemplateEngine.ImageKeys.Contains(kv.Key) ? CleanImage(kv.Value) : Clean(kv.Value));
         var lines = (body.Lines ?? []).Take(2000)
             .Select(l => (IReadOnlyDictionary<string, string>)l.Where(kv => kv.Key.Length <= 60)
                 .ToDictionary(kv => kv.Key, kv => Clean(kv.Value)))
@@ -435,14 +504,9 @@ public class PosDocxTemplatesController(
                 textById.TryGetValue(r.ParagraphId, out var ctx) ? (ctx.Length > 160 ? ctx[..160] + "…" : ctx) : null,
                 r.Start, r.Text)).ToList(),
             removeRows, warnings, aiUsed,
-            paragraphs.Select(p => new ParagraphItem(p.Id, p.Text, p.InTable)).ToList());
-    }
-
-    static class PosPrintDocumentTypes
-    {
-        public static bool IsCommercial(PosPrintDocumentType t) => t is PosPrintDocumentType.Quote
-            or PosPrintDocumentType.Contract or PosPrintDocumentType.Handover or PosPrintDocumentType.Acceptance
-            or PosPrintDocumentType.PaymentRequest or PosPrintDocumentType.StockIssue;
+            paragraphs.Select(p => new ParagraphItem(p.Id, p.Text, p.InTable)).ToList(),
+            t.IsActive,
+            PosDocxTemplateAiService.FieldsFor(t.DocumentType).AllKeys.ToList());
     }
 
     static PosQuoteDocumentKind KindOf(PosPrintDocumentType t) => t switch
@@ -468,6 +532,45 @@ public class PosDocxTemplatesController(
     }
 
     string OrigPath(PosPrintTemplate t) => TemplatePath(t) + ".orig";
+
+    static readonly string[] PreviewViews = ["original", "fields", "sample"];
+
+    static string PreviewCachePath(string templatePath, string view) => $"{templatePath}.{view}.pdfcache";
+
+    static void DeleteLegacyPreviewCache(string templatePath)
+    {
+        foreach (var v in PreviewViews)
+        {
+            var legacy = $"{templatePath}.{v}.pdf";
+            try
+            {
+                if (System.IO.File.Exists(legacy)) System.IO.File.Delete(legacy);
+            }
+            catch (IOException) { /* đang bị đọc — lần sau xóa */ }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>Xóa bản PDF xem trước lưu tạm của mẫu Word (gọi khi xóa mẫu).</summary>
+    public static void DeletePreviewCache(IWebHostEnvironment env, string? relativePath)
+    {
+        if (string.IsNullOrEmpty(relativePath)) return;
+        var path = ResolveTemplateFile(env, relativePath);
+        // Chỉ xóa trong thư mục mẫu in của cửa hàng (đường dẫn lưu trong DB).
+        if (!path.StartsWith(Path.GetFullPath(Path.Combine(env.ContentRootPath, "wwwroot", "stores")), StringComparison.OrdinalIgnoreCase))
+            return;
+        DeleteLegacyPreviewCache(path);
+        foreach (var v in PreviewViews)
+        {
+            try
+            {
+                var cache = PreviewCachePath(path, v);
+                if (System.IO.File.Exists(cache)) System.IO.File.Delete(cache);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
 
     /// <summary>File mẫu đã gắn mã trường của một PosPrintTemplate (dùng khi xuất chứng từ).</summary>
     public static string ResolveTemplateFile(IWebHostEnvironment env, string relativePath) =>
