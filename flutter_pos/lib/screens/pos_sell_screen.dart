@@ -1462,6 +1462,16 @@ class _PosSellScreenState extends State<PosSellScreen>
           unawaited(_refreshQrOnlinePending());
         }
       }
+      // Phiếu bếp server tự gửi (QR / online / Tingee) không in được: máy chủ đã trả món về «chưa báo bếp».
+      if (reason == 'kitchenunprinted' && mounted) {
+        final msg = (event['message'] ?? event['Message'] ?? '').toString();
+        NotificationOverlayManager().showWarning(
+          title: 'Phiếu bếp chưa in',
+          message: msg.isNotEmpty ? msg : tr('Có món chưa ra phiếu bếp — mở bàn và báo bếp lại'),
+          relatedEntityType: kPosPrintNotifyKind,
+          duration: const Duration(seconds: 12),
+        );
+      }
     });
     _notifSignalSub = SignalRService().onNewNotification.listen((_) {
       if (mounted) unawaited(_refreshSystemUnreadNotifications());
@@ -12902,6 +12912,42 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   /// Server đã in xong / đã hủy phiếu này → gỡ khỏi hàng chờ, không in lại.
+  /// Lệnh gốc bị hủy / lỗi khi máy in ĐANG in → có thể đã ra giấy: hỏi thu ngân trước khi in lại.
+  /// null = không cần hỏi; true = in lại; false = đã có phiếu (gỡ khỏi hàng chờ).
+  Future<bool?> _confirmReprintIfMaybePrinted(String? jobId, String label) async {
+    if (jobId == null || jobId.isEmpty) return null;
+    try {
+      final res = await _api.getPosPrintJob(jobId);
+      if (res['isSuccess'] != true || res['data'] is! Map) return null;
+      final data = res['data'] as Map;
+      final status = data['status']?.toString() ?? '';
+      if (status != 'Cancelled' && status != 'Failed') return null;
+      if (!PosPrintOrchestrator.isMaybePrintedCode(data['errorCode']?.toString())) return null;
+    } catch (_) {
+      return null;
+    }
+    if (!mounted) return false;
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Phiếu có thể đã in')),
+        content: Text(tr(
+            '$label: máy in mất liên lạc khi đang in phiếu này — có thể giấy đã ra. '
+            'Kiểm tra máy in / hỏi bếp trước. In lại khi chắc chắn chưa có phiếu (tránh làm món 2 lần).')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Đã có phiếu — bỏ khỏi hàng chờ')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Chưa có — in lại')),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<bool> _kitchenPendingSettledOnServer(PendingKitchenPrintJob job) async {
     final jobId = _pendingKitchenSourceJobId(job.id);
     if (jobId == null) return false;
@@ -12915,6 +12961,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       final code = (data['errorCode']?.toString() ?? '').toUpperCase();
       if (status == 'Cancelled' &&
           (code == 'STUCK_NO_REQUEUE' ||
+              code == 'STUCK_CLAIMED' ||
+              code == 'STUCK_PRINTING' ||
               code == 'STALE_QUEUED' ||
               code == 'MAX_ATTEMPTS')) {
         return false;
@@ -13063,6 +13111,12 @@ class _PosSellScreenState extends State<PosSellScreen>
             ),
             relatedEntityType: kPosPrintNotifyKind,
           );
+          return true;
+        }
+        final maybeAsk = await _confirmReprintIfMaybePrinted(
+            _pendingKitchenSourceJobId(job.id), job.tableName);
+        if (maybeAsk == false) {
+          if (mounted) _removeFailedKitchenPrint(job);
           return true;
         }
         // In lại cùng máy treo: vẫn ép override để không fan-out lại về máy lỗi

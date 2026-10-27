@@ -419,12 +419,15 @@ class PosPrintOrchestrator {
       // Không đưa vào pending queue — không báo thất bại giả.
       // Trừ hủy vì Agent treo / hết hạn hàng đợi: giấy KHÔNG ra mà im lặng thì
       // bếp mất món. Coi như thất bại để thu ngân thấy phiếu chờ và in lại.
-      if (_isNothingPrintedCancel(errorCode)) {
+      if (_isNothingPrintedCancel(errorCode) || isMaybePrintedCode(errorCode)) {
+        // Vẫn vào hàng chờ để in lại; «có thể đã in» thì nói rõ (bấm In lại sẽ hỏi trước).
         _finishJob(
           jobId,
           _JobOutcome(
             false,
-            'Phiếu chưa in — máy in/Agent offline quá 5 phút. In lại từ hàng chờ.',
+            isMaybePrintedCode(errorCode)
+                ? 'Máy in mất liên lạc khi đang in — phiếu CÓ THỂ đã ra giấy. Kiểm tra máy in / bếp trước khi in lại.'
+                : 'Phiếu chưa in — máy in/Agent offline quá 5 phút. In lại từ hàng chờ.',
             printerName: printerName,
           ),
           showFeedback: true,
@@ -447,12 +450,20 @@ class PosPrintOrchestrator {
     }
   }
 
-  /// Hủy do server dọn hàng đợi — chắc chắn chưa có giấy nào ra.
+  /// Hủy do server dọn hàng đợi — chắc chắn chưa có giấy nào ra (chưa ai nhận / Agent chưa bắt đầu in).
   static bool _isNothingPrintedCancel(String? errorCode) {
     final code = (errorCode ?? '').toUpperCase();
-    return code == 'STUCK_NO_REQUEUE' ||
-        code == 'STALE_QUEUED' ||
-        code == 'MAX_ATTEMPTS';
+    return code == 'STALE_QUEUED' || code == 'STUCK_CLAIMED';
+  }
+
+  /// Lệnh bị hủy / lỗi khi Agent ĐANG in rồi mất liên lạc → có thể đã ra giấy. Trước đây coi là «chưa in»
+  /// → thu ngân in lại → bếp nhận 2 phiếu, làm món 2 lần. STUCK_NO_REQUEUE: mã cũ (server chưa tách).
+  static bool isMaybePrintedCode(String? errorCode) {
+    final code = (errorCode ?? '').toUpperCase();
+    return code == 'STUCK_PRINTING' ||
+        code == 'STUCK_NO_REQUEUE' ||
+        code == 'MAX_ATTEMPTS' ||
+        code == 'PRINT_TIMEOUT';
   }
 
   /// True if the job was cancelled server-side (operator / idempotency / replaced).
