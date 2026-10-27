@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -11,7 +11,7 @@ using ZKTecoADMS.Domain.Repositories;
 namespace ZKTecoADMS.Api.Middlewares;
 
 /// <summary>
-/// Chặn mọi API (trừ whitelist) khi license cửa hàng đã hết hạn.
+/// Chặn mọi API (trừ whitelist) khi license cửa hàng đã hết hạn hoặc cửa hàng bị khoá.
 /// SuperAdmin vẫn truy cập được để gia hạn.
 /// </summary>
 public class StoreLicenseMiddleware
@@ -73,35 +73,37 @@ public class StoreLicenseMiddleware
             return;
         }
 
-        var cacheKey = $"__store_license_expired__{storeId}";
-        var isExpired = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        // null = cho qua; ngược lại là (mã lỗi, thông báo) — hết hạn / ngừng hoạt động hoặc bị khoá.
+        var block = await _cache.GetOrCreateAsync(StoreLicenseHelper.AccessCacheKey(storeId), async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
             entry.Size = 1;
             try
             {
                 var store = await storeRepository.GetByIdAsync(storeId, cancellationToken: ctx.RequestAborted);
-                if (store == null || !store.IsActive)
-                    return true;
-                return StoreLicenseHelper.IsExpired(store);
+                if (store == null || !store.IsActive || StoreLicenseHelper.IsExpired(store))
+                    return new StoreBlock(StoreLicenseHelper.ExpiredErrorCode, StoreLicenseHelper.ExpiredMessage);
+                if (store.IsLocked)
+                    return new StoreBlock(StoreLicenseHelper.LockedErrorCode, StoreLicenseHelper.LockedMessage(store.LockReason));
+                return null;
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to evaluate store license for {StoreId}", storeId);
-                return false;
+                return null;
             }
         });
 
-        if (isExpired)
+        if (block != null)
         {
             ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
             ctx.Response.ContentType = "application/json; charset=utf-8";
-            ctx.Response.Headers["X-SBOX-Error-Code"] = StoreLicenseHelper.ExpiredErrorCode;
+            ctx.Response.Headers["X-SBOX-Error-Code"] = block.Code;
             var body = new
             {
                 isSuccess = false,
-                message = StoreLicenseHelper.ExpiredMessage,
-                errors = new[] { StoreLicenseHelper.ExpiredErrorCode }
+                message = block.Message,
+                errors = new[] { block.Code }
             };
             await ctx.Response.WriteAsync(JsonSerializer.Serialize(body), ctx.RequestAborted);
             return;
@@ -109,6 +111,8 @@ public class StoreLicenseMiddleware
 
         await _next(ctx);
     }
+
+    private sealed record StoreBlock(string Code, string Message);
 }
 
 public static class StoreLicenseMiddlewareExtensions

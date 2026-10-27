@@ -12,8 +12,10 @@ import '../../utils/excel_download_helper.dart';
 import '../../utils/image_compress.dart';
 import '../../widgets/notification_overlay.dart';
 import 'system_admin_helpers.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 
 import '../../theme/sbox_tokens.dart';
+
 /// Super Admin — catalog hàng mẫu / menu món (ảnh dùng chung, Excel, nhóm hàng).
 class PosSampleCatalogTab extends StatefulWidget {
   const PosSampleCatalogTab({super.key});
@@ -91,7 +93,8 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
     setState(() => _loading = true);
     final results = await Future.wait([
       _api.getSystemPosSampleCatalog(
-        search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
+        search:
+            _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
         kind: _kindFilter,
         productType: _typeFilter,
         category: _categoryFilter,
@@ -289,7 +292,8 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
 
   Future<void> _edit([Map<String, dynamic>? row]) async {
     final isNew = row == null;
-    final nameCtrl = TextEditingController(text: row?['name']?.toString() ?? '');
+    final nameCtrl =
+        TextEditingController(text: row?['name']?.toString() ?? '');
     final barcodeCtrl =
         TextEditingController(text: row?['barcode']?.toString() ?? '');
     final unitCtrl =
@@ -302,18 +306,16 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
       text: row?['defaultPrice'] != null ? '${row!['defaultPrice']}' : '',
     );
     final costCtrl = TextEditingController(
-      text: row?['defaultCostPrice'] != null
-          ? '${row!['defaultCostPrice']}'
-          : '',
+      text:
+          row?['defaultCostPrice'] != null ? '${row!['defaultCostPrice']}' : '',
     );
     var kind = row?['kind']?.toString() ?? 'Food';
     var productType = row?['productType']?.toString() ?? 'Goods';
     var selectedProfiles = _parseProfiles(row?['sellProfiles']);
     var categoryName = row?['categoryName']?.toString() ?? '';
     var categoryId = row?['categoryId']?.toString();
-    var vatRate = (row?['vatRate'] is num)
-        ? (row!['vatRate'] as num).toDouble()
-        : 8.0;
+    var vatRate =
+        (row?['vatRate'] is num) ? (row!['vatRate'] as num).toDouble() : 8.0;
     var vatExempt = row?['vatExempt'] == true;
     if (vatExempt) vatRate = 0;
     var active = row?['isActive'] != false;
@@ -380,8 +382,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                                             fit: BoxFit.contain,
                                             headers: _api.imageAuthHeaders,
                                             errorBuilder: (_, __, ___) =>
-                                                const Icon(
-                                                    Icons.image_outlined,
+                                                const Icon(Icons.image_outlined,
                                                     size: 48),
                                           )
                                         : Center(
@@ -402,7 +403,8 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                       items: [
                         DropdownMenuItem(
                             value: 'Packaged', child: Text(tr('Có mã vạch'))),
-                        DropdownMenuItem(value: 'Food', child: Text(tr('Món ăn'))),
+                        DropdownMenuItem(
+                            value: 'Food', child: Text(tr('Món ăn'))),
                         DropdownMenuItem(
                             value: 'Drink', child: Text(tr('Đồ uống'))),
                       ],
@@ -427,7 +429,8 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                       children: [
                         for (final p in PosSellProfile.values)
                           FilterChip(
-                            label: Text(p.label, style: const TextStyle(fontSize: 12)),
+                            label: Text(p.label,
+                                style: const TextStyle(fontSize: 12)),
                             selected: selectedProfiles.contains(p.apiValue),
                             onSelected: (on) => setLocal(() {
                               if (on) {
@@ -447,8 +450,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                             value: 'Goods', child: Text(tr('Hàng hóa'))),
                         DropdownMenuItem(
                             value: 'Service', child: Text(tr('Dịch vụ'))),
-                        DropdownMenuItem(
-                            value: 'Combo', child: Text('Combo')),
+                        DropdownMenuItem(value: 'Combo', child: Text('Combo')),
                         DropdownMenuItem(
                             value: 'Material',
                             child: Text(tr('Nguyên vật liệu'))),
@@ -473,12 +475,12 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                       decoration: InputDecoration(labelText: tr('Đơn vị *')),
                     ),
                     DropdownButtonFormField<String>(
-                      value: catItems.contains(categoryName)
-                          ? categoryName
-                          : '',
+                      value:
+                          catItems.contains(categoryName) ? categoryName : '',
                       decoration: InputDecoration(
                         labelText: tr('Nhóm hàng'),
-                        helperText: tr('Chọn nhóm có sẵn hoặc tạo mới bên dưới'),
+                        helperText:
+                            tr('Chọn nhóm có sẵn hoặc tạo mới bên dưới'),
                       ),
                       items: [
                         DropdownMenuItem(
@@ -514,8 +516,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                     ),
                     TextField(
                       controller: brandCtrl,
-                      decoration:
-                          InputDecoration(labelText: tr('Thương hiệu')),
+                      decoration: InputDecoration(labelText: tr('Thương hiệu')),
                     ),
                     TextField(
                       controller: priceCtrl,
@@ -573,8 +574,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                         alignment: Alignment.centerLeft,
                         child: TextButton.icon(
                           onPressed: () async {
-                            final picked =
-                                await FilePicker.platform.pickFiles(
+                            final picked = await FilePicker.platform.pickFiles(
                               type: FileType.image,
                               withData: true,
                               withReadStream: true,
@@ -642,8 +642,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
       'categoryName': categoryName.trim().isEmpty ? null : categoryName.trim(),
       'categoryId': categoryId,
       'brandName': brandCtrl.text.trim(),
-      'description':
-          descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
+      'description': descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
       'kind': kind,
       'productType': productType,
       'sellProfiles':
@@ -729,8 +728,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
       );
       return;
     }
-    await _uploadImageBytes(
-        id, raw, f.name.isEmpty ? 'sample.jpg' : f.name);
+    await _uploadImageBytes(id, raw, f.name.isEmpty ? 'sample.jpg' : f.name);
   }
 
   Future<void> _uploadImageBytes(
@@ -740,9 +738,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
       maxEdge: 1920,
       jpegQuality: 88,
     );
-    final name = bytes.length < raw.length
-        ? jpegFileName(filename)
-        : filename;
+    final name = bytes.length < raw.length ? jpegFileName(filename) : filename;
     final res = await _api.uploadSystemPosSampleCatalogImage(id, bytes, name);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
@@ -818,124 +814,30 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
         .join(', ');
   }
 
+  /// Ô lọc viền như các trang quản trị khác (thay DropdownButton gạch chân).
+  Widget _filterBox(Widget dropdown) => Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: SboxColors.slate300),
+        ),
+        child: DropdownButtonHideUnderline(child: dropdown),
+      );
+
   @override
   Widget build(BuildContext context) {
+    final pad = SboxSpace.pagePadding(MediaQuery.sizeOf(context).width);
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              SizedBox(
-                width: 240,
-                child: TextField(
-                  controller: _searchCtrl,
-                  decoration: InputDecoration(
-                    hintText: tr('Tìm tên / mã / nhóm…'),
-                    isDense: true,
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                  ),
-                  onSubmitted: (_) => loadData(),
-                ),
-              ),
-              DropdownButton<String?>(
-                value: _kindFilter,
-                hint: Text(tr('Loại mẫu')),
-                items: [
-                  for (final k in _kinds)
-                    DropdownMenuItem(value: k.$1, child: Text(tr(k.$2))),
-                ],
-                onChanged: (v) {
-                  setState(() => _kindFilter = v);
-                  loadData();
-                },
-              ),
-              DropdownButton<String?>(
-                value: _typeFilter,
-                hint: Text(tr('Loại hàng')),
-                items: [
-                  for (final t in _types)
-                    DropdownMenuItem(value: t.$1, child: Text(tr(t.$2))),
-                ],
-                onChanged: (v) {
-                  setState(() => _typeFilter = v);
-                  loadData();
-                },
-              ),
-              DropdownButton<String?>(
-                value: _categories.any((c) => '${c['name']}' == _categoryFilter)
-                    ? _categoryFilter
-                    : null,
-                hint: Text(tr('Nhóm hàng')),
-                items: [
-                  DropdownMenuItem(value: null, child: Text(tr('Mọi nhóm'))),
-                  for (final c in _categories)
-                    DropdownMenuItem(
-                      value: '${c['name']}',
-                      child: Text('${c['name']}'),
-                    ),
-                ],
-                onChanged: (v) {
-                  setState(() => _categoryFilter = v);
-                  loadData();
-                },
-              ),
-              DropdownButton<String?>(
-                value: _brands.contains(_brandFilter) ? _brandFilter : null,
-                hint: Text(tr('Thương hiệu')),
-                items: [
-                  DropdownMenuItem(
-                      value: null, child: Text(tr('Mọi thương hiệu'))),
-                  for (final b in _brands)
-                    DropdownMenuItem(value: b, child: Text(b)),
-                ],
-                onChanged: (v) {
-                  setState(() => _brandFilter = v);
-                  loadData();
-                },
-              ),
-              DropdownButton<String?>(
-                value: _profileFilter,
-                hint: Text(tr('Ngành')),
-                items: [
-                  DropdownMenuItem(value: null, child: Text(tr('Mọi ngành'))),
-                  for (final p in PosSellProfile.values)
-                    DropdownMenuItem(value: p.apiValue, child: Text(tr(p.label))),
-                ],
-                onChanged: (v) {
-                  setState(() => _profileFilter = v);
-                  loadData();
-                },
-              ),
-              DropdownButton<bool?>(
-                value: _hasImageFilter,
-                hint: Text(tr('Ảnh')),
-                items: [
-                  DropdownMenuItem(value: null, child: Text(tr('Mọi ảnh'))),
-                  DropdownMenuItem(value: true, child: Text(tr('Có ảnh'))),
-                  DropdownMenuItem(value: false, child: Text(tr('Chưa ảnh'))),
-                ],
-                onChanged: (v) {
-                  setState(() => _hasImageFilter = v);
-                  loadData();
-                },
-              ),
-              DropdownButton<bool?>(
-                value: _activeFilter,
-                hint: Text(tr('Trạng thái')),
-                items: [
-                  DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
-                  DropdownMenuItem(value: true, child: Text(tr('Đang dùng'))),
-                  DropdownMenuItem(value: false, child: Text(tr('Đã ẩn'))),
-                ],
-                onChanged: (v) {
-                  setState(() => _activeFilter = v);
-                  loadData();
-                },
-              ),
+          padding: EdgeInsets.fromLTRB(pad, pad, pad, SboxSpace.md),
+          child: SboxPageHeader(
+            title: 'Catalog mẫu POS',
+            subtitle: 'Hàng mẫu theo ngành để cửa hàng mới chọn nhanh',
+            actions: [
               FilledButton.icon(
                 onPressed: () => _edit(),
                 icon: const Icon(Icons.add, size: 18),
@@ -968,7 +870,125 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          padding: EdgeInsets.fromLTRB(pad, 0, pad, 8),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 240,
+                child: TextField(
+                  controller: _searchCtrl,
+                  decoration: InputDecoration(
+                    hintText: tr('Tìm tên / mã / nhóm…'),
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                  ),
+                  onSubmitted: (_) => loadData(),
+                ),
+              ),
+              _filterBox(DropdownButton<String?>(
+                value: _kindFilter,
+                hint: Text(tr('Loại mẫu')),
+                items: [
+                  for (final k in _kinds)
+                    DropdownMenuItem(value: k.$1, child: Text(tr(k.$2))),
+                ],
+                onChanged: (v) {
+                  setState(() => _kindFilter = v);
+                  loadData();
+                },
+              )),
+              _filterBox(DropdownButton<String?>(
+                value: _typeFilter,
+                hint: Text(tr('Loại hàng')),
+                items: [
+                  for (final t in _types)
+                    DropdownMenuItem(value: t.$1, child: Text(tr(t.$2))),
+                ],
+                onChanged: (v) {
+                  setState(() => _typeFilter = v);
+                  loadData();
+                },
+              )),
+              _filterBox(DropdownButton<String?>(
+                value: _categories.any((c) => '${c['name']}' == _categoryFilter)
+                    ? _categoryFilter
+                    : null,
+                hint: Text(tr('Nhóm hàng')),
+                items: [
+                  DropdownMenuItem(value: null, child: Text(tr('Mọi nhóm'))),
+                  for (final c in _categories)
+                    DropdownMenuItem(
+                      value: '${c['name']}',
+                      child: Text('${c['name']}'),
+                    ),
+                ],
+                onChanged: (v) {
+                  setState(() => _categoryFilter = v);
+                  loadData();
+                },
+              )),
+              _filterBox(DropdownButton<String?>(
+                value: _brands.contains(_brandFilter) ? _brandFilter : null,
+                hint: Text(tr('Thương hiệu')),
+                items: [
+                  DropdownMenuItem(
+                      value: null, child: Text(tr('Mọi thương hiệu'))),
+                  for (final b in _brands)
+                    DropdownMenuItem(value: b, child: Text(b)),
+                ],
+                onChanged: (v) {
+                  setState(() => _brandFilter = v);
+                  loadData();
+                },
+              )),
+              _filterBox(DropdownButton<String?>(
+                value: _profileFilter,
+                hint: Text(tr('Ngành')),
+                items: [
+                  DropdownMenuItem(value: null, child: Text(tr('Mọi ngành'))),
+                  for (final p in PosSellProfile.values)
+                    DropdownMenuItem(
+                        value: p.apiValue, child: Text(tr(p.label))),
+                ],
+                onChanged: (v) {
+                  setState(() => _profileFilter = v);
+                  loadData();
+                },
+              )),
+              _filterBox(DropdownButton<bool?>(
+                value: _hasImageFilter,
+                hint: Text(tr('Ảnh')),
+                items: [
+                  DropdownMenuItem(value: null, child: Text(tr('Mọi ảnh'))),
+                  DropdownMenuItem(value: true, child: Text(tr('Có ảnh'))),
+                  DropdownMenuItem(value: false, child: Text(tr('Chưa ảnh'))),
+                ],
+                onChanged: (v) {
+                  setState(() => _hasImageFilter = v);
+                  loadData();
+                },
+              )),
+              _filterBox(DropdownButton<bool?>(
+                value: _activeFilter,
+                hint: Text(tr('Trạng thái')),
+                items: [
+                  DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+                  DropdownMenuItem(value: true, child: Text(tr('Đang dùng'))),
+                  DropdownMenuItem(value: false, child: Text(tr('Đã ẩn'))),
+                ],
+                onChanged: (v) {
+                  setState(() => _activeFilter = v);
+                  loadData();
+                },
+              )),
+            ],
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(pad, 0, pad, 8),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
@@ -1054,8 +1074,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                                   _imageUrl(id),
                                   fit: BoxFit.cover,
                                   headers: _api.imageAuthHeaders,
-                                  errorBuilder: (_, __, ___) =>
-                                      _kindIcon(kind),
+                                  errorBuilder: (_, __, ___) => _kindIcon(kind),
                                 ),
                               )
                             : InkWell(
@@ -1113,8 +1132,8 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                           .join(' · '),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 11, color: SboxColors.slate700),
+                      style:
+                          TextStyle(fontSize: 11, color: SboxColors.slate700),
                     ),
                   ],
                 ),
@@ -1277,10 +1296,12 @@ class _SampleGroupsDialogState extends State<_SampleGroupsDialog> {
               ),
               DropdownButtonFormField<String?>(
                 value: kind,
-                decoration: InputDecoration(labelText: tr('Loại mẫu (tuỳ chọn)')),
+                decoration:
+                    InputDecoration(labelText: tr('Loại mẫu (tuỳ chọn)')),
                 items: [
                   DropdownMenuItem(value: null, child: Text(tr('Mọi loại'))),
-                  DropdownMenuItem(value: 'Packaged', child: Text(tr('Có mã vạch'))),
+                  DropdownMenuItem(
+                      value: 'Packaged', child: Text(tr('Có mã vạch'))),
                   DropdownMenuItem(value: 'Food', child: Text(tr('Món ăn'))),
                   DropdownMenuItem(value: 'Drink', child: Text(tr('Đồ uống'))),
                 ],
@@ -1371,7 +1392,8 @@ class _SampleGroupsDialogState extends State<_SampleGroupsDialog> {
                   const SizedBox(height: 8),
                   Expanded(
                     child: _items.isEmpty
-                        ? Center(child: Text(tr('Chưa có nhóm — bấm Thêm nhóm')))
+                        ? Center(
+                            child: Text(tr('Chưa có nhóm — bấm Thêm nhóm')))
                         : ListView.separated(
                             itemCount: _items.length,
                             separatorBuilder: (_, __) =>

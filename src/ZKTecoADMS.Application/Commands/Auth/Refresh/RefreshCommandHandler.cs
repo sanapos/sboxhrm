@@ -56,6 +56,11 @@ public class RefreshCommandHandler(
             return AppResponse<AuthenticateResponse>.Error(StoreLicenseHelper.ExpiredMessage);
         }
 
+        if (user.Store is { IsLocked: true })
+        {
+            return AppResponse<AuthenticateResponse>.Error(StoreLicenseHelper.LockedMessage(user.Store.LockReason));
+        }
+
         // Thiết bị đã bị gỡ (Thiết lập › Thiết bị truy cập) → buộc đăng nhập lại để kiểm hạn mức gói.
         if (user.StoreId is Guid storeId
             && await storeLicenseLimitService.IsAccessDeviceReleasedAsync(storeId, command.DeviceKey, cancellationToken))

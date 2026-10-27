@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
@@ -466,6 +466,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             store.UpdatedBy = CurrentUserId.ToString();
 
             await _dbContext.SaveChangesAsync();
+            InvalidateStoreAccessCache(store.Id);
 
             _logger.LogInformation("SuperAdmin {UserId} toggled store {StoreId} status to {IsActive}", 
                 CurrentUserId, id, store.IsActive);
@@ -837,6 +838,15 @@ public class SystemAdminController : AuthenticatedControllerBase
     [HttpPost("create-superadmin")]
     public async Task<ActionResult<AppResponse<SystemUserDto>>> CreateSuperAdmin([FromBody] CreateSuperAdminRequest request)
     {
+        var email = request.Email?.Trim() ?? "";
+        var fullName = request.FullName?.Trim() ?? "";
+        if (fullName.Length == 0)
+            return BadRequest(AppResponse<SystemUserDto>.Fail("Nhập họ tên"));
+        if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(email)
+            || !email.Contains('.', StringComparison.Ordinal))
+            return BadRequest(AppResponse<SystemUserDto>.Fail("Email không hợp lệ"));
+        request = request with { Email = email, FullName = fullName };
+
         try
         {
             // Check if email already exists
@@ -2226,6 +2236,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             store.UpdatedBy = CurrentUserId.ToString();
 
             await _dbContext.SaveChangesAsync();
+            InvalidateStoreAccessCache(store.Id);
 
             _logger.LogInformation("SuperAdmin {UserId} locked Store {StoreId}. Reason: {Reason}", 
                 CurrentUserId, id, request.Reason);
@@ -2266,6 +2277,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             store.UpdatedBy = CurrentUserId.ToString();
 
             await _dbContext.SaveChangesAsync();
+            InvalidateStoreAccessCache(store.Id);
 
             _logger.LogInformation("SuperAdmin {UserId} unlocked Store {StoreId}", CurrentUserId, id);
 
@@ -2284,6 +2296,13 @@ public class SystemAdminController : AuthenticatedControllerBase
     [HttpPost("stores/{id}/extend")]
     public async Task<ActionResult<AppResponse<StoreDetailDto>>> ExtendStoreSubscription(Guid id, [FromBody] ExtendSubscriptionRequest request)
     {
+        if (request.DaysToAdd < 0)
+            return BadRequest(AppResponse<StoreDetailDto>.Fail("Số ngày gia hạn không được âm"));
+        if (request.DaysToAdd > 0 && !TryValidateRenewalDays(request.DaysToAdd, out var daysError))
+            return BadRequest(AppResponse<StoreDetailDto>.Fail(daysError));
+        if (request.MaxUsers is < 0 or > 100000 || request.MaxDevices is < 0 or > 100000)
+            return BadRequest(AppResponse<StoreDetailDto>.Fail("Số tài khoản / thiết bị không hợp lệ (0 = không giới hạn)"));
+
         try
         {
             var store = await _dbContext.Stores
@@ -2298,8 +2317,16 @@ public class SystemAdminController : AuthenticatedControllerBase
                 return NotFound(AppResponse<StoreDetailDto>.Fail("Store not found"));
             }
 
-            store.ExpiryDate = StoreLicenseHelper.ComputeExtendedExpiryDate(store, request.DaysToAdd);
-            
+            // Cùng quy tắc với extend-days: số ngày theo mốc cho phép, tối đa 3 lần gia hạn.
+            if (request.DaysToAdd > 0)
+            {
+                if (IsStoreRenewalLimitReached(store.RenewalCount))
+                    return BadRequest(AppResponse<StoreDetailDto>.Fail(
+                        "Cửa hàng đã gia hạn tối đa 3 lần. Vui lòng kích hoạt key mới."));
+                store.ExpiryDate = StoreLicenseHelper.ComputeExtendedExpiryDate(store, request.DaysToAdd);
+                store.RenewalCount++;
+            }
+
             if (request.MaxUsers.HasValue)
             {
                 store.MaxUsers = request.MaxUsers.Value;
@@ -2319,6 +2346,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             store.UpdatedBy = CurrentUserId.ToString();
 
             await _dbContext.SaveChangesAsync();
+            InvalidateStoreAccessCache(store.Id);
 
             await InvalidateRenewalAlertsAsync(store, sendSuccessNotification: true);
 
@@ -2340,6 +2368,9 @@ public class SystemAdminController : AuthenticatedControllerBase
     [HttpPut("stores/{id}/limits")]
     public async Task<ActionResult<AppResponse<StoreDetailDto>>> UpdateStoreLimits(Guid id, [FromBody] UpdateStoreLimitsRequest request)
     {
+        if (request.MaxUsers is < 0 or > 100000 || request.MaxDevices is < 0 or > 100000)
+            return BadRequest(AppResponse<StoreDetailDto>.Fail("Số tài khoản / thiết bị không hợp lệ (0 = không giới hạn)"));
+
         try
         {
             var store = await _dbContext.Stores
@@ -4559,12 +4590,17 @@ public class SystemAdminController : AuthenticatedControllerBase
     [HttpPost("service-packages")]
     public async Task<ActionResult<AppResponse<ServicePackageDto>>> CreateServicePackage([FromBody] CreateServicePackageRequest request)
     {
+        var invalid = ValidatePackageRequest(request.Name, request.DefaultDurationDays,
+            request.MaxUsers, request.MaxDevices, request.MaxAccessDevices, request.MaxBranches);
+        if (invalid != null)
+            return BadRequest(AppResponse<ServicePackageDto>.Fail(invalid));
+
         try
         {
             var package = new ServicePackage
             {
                 Id = Guid.NewGuid(),
-                Name = request.Name,
+                Name = request.Name.Trim(),
                 Description = request.Description,
                 DefaultDurationDays = request.DefaultDurationDays,
                 IsActive = true,
@@ -4595,12 +4631,31 @@ public class SystemAdminController : AuthenticatedControllerBase
         }
     }
 
+    /// <summary>Tên bắt buộc; số ngày và giới hạn không âm (0 = không giới hạn).</summary>
+    private static string? ValidatePackageRequest(string? name, int durationDays, params int[] limits)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "Nhập tên gói dịch vụ";
+        if (name.Trim().Length > 200)
+            return "Tên gói tối đa 200 ký tự";
+        if (durationDays is < 0 or > 3660)
+            return "Số ngày mặc định phải từ 0 đến 3660";
+        if (limits.Any(v => v is < 0 or > 100000))
+            return "Giới hạn tài khoản / thiết bị / chi nhánh không hợp lệ (0 = không giới hạn)";
+        return null;
+    }
+
     /// <summary>
     /// Cập nhật gói dịch vụ
     /// </summary>
     [HttpPut("service-packages/{id:guid}")]
     public async Task<ActionResult<AppResponse<ServicePackageDto>>> UpdateServicePackage(Guid id, [FromBody] UpdateServicePackageRequest request)
     {
+        var invalid = ValidatePackageRequest(request.Name, request.DefaultDurationDays,
+            request.MaxUsers, request.MaxDevices, request.MaxAccessDevices, request.MaxBranches);
+        if (invalid != null)
+            return BadRequest(AppResponse<ServicePackageDto>.Fail(invalid));
+
         try
         {
             var package = await _dbContext.ServicePackages
@@ -4614,7 +4669,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             // Mốc chức năng cũ trước khi sửa — chức năng mới thêm vào gói sẽ được cấp quyền vai trò.
             await StorePermissionSyncHelper.EnsureBaselineAsync(_dbContext, package.Stores.Select(s => s.Id));
 
-            package.Name = request.Name;
+            package.Name = request.Name.Trim();
             package.Description = request.Description;
             package.DefaultDurationDays = request.DefaultDurationDays;
             package.IsActive = request.IsActive;
@@ -4726,6 +4781,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             }
 
             await _dbContext.SaveChangesAsync();
+            InvalidateStoreAccessCache(store.Id);
 
             await InvalidateRenewalAlertsAsync(store, sendSuccessNotification: true);
 
@@ -4786,6 +4842,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             store.UpdatedBy = CurrentUserId.ToString();
 
             await _dbContext.SaveChangesAsync();
+            InvalidateStoreAccessCache(store.Id);
 
             await InvalidateRenewalAlertsAsync(store, sendSuccessNotification: true);
 

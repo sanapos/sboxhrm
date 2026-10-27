@@ -64,6 +64,16 @@ bool get isLoginDeepLink {
   return segs.first == 'login-app' || segs.first == 'login';
 }
 
+/// Cổng quản trị: `/admin` hoặc `/#/admin` — khi chưa đăng nhập phải hiện màn đăng nhập admin,
+/// không để màn gốc chuyển về trang chủ tĩnh.
+bool get isAdminDeepLink {
+  if (!kIsWeb) return false;
+  final path = Uri.base.path;
+  if (path == '/admin' || path.startsWith('/admin/')) return true;
+  final segs = parseWebHashPathSegments();
+  return segs.isNotEmpty && segs.first == 'admin';
+}
+
 bool get isForgotPasswordDeepLink {
   if (!kIsWeb) return false;
   final path = Uri.base.path;
@@ -94,6 +104,7 @@ class InitialWebRoute {
   static bool showRegister = false;
   static bool showAgentRegister = false;
   static bool showLogin = false;
+  static bool showAdmin = false;
   static bool showForgotPassword = false;
   static bool showGuide = false;
   static bool showCustomerDisplay = false;
@@ -109,6 +120,7 @@ class InitialWebRoute {
     agentRegisterToken = parseAgentRegistrationToken();
     showRegister = isPublicRegisterDeepLink;
     showLogin = isLoginDeepLink;
+    showAdmin = isAdminDeepLink;
     showForgotPassword = isForgotPasswordDeepLink;
     showGuide = isGuideDeepLink;
 

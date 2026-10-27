@@ -298,6 +298,10 @@
           sessionStorage.setItem('sbox_route', 'forgot-password');
           return;
         }
+        if (path === '/admin') {
+          sessionStorage.setItem('sbox_route', 'admin');
+          return;
+        }
         if (path === '/register') {
           sessionStorage.setItem('sbox_route', 'register');
           var qs = new URLSearchParams(location.search || '');
@@ -322,6 +326,8 @@
       if (!hash) return;
       if (hash === 'login-app' || hash === 'login' || hash.indexOf('login-app?') === 0) {
         try { sessionStorage.setItem('sbox_route', 'login'); } catch (e) {}
+      } else if (hash === 'admin' || hash.indexOf('admin?') === 0) {
+        try { sessionStorage.setItem('sbox_route', 'admin'); } catch (e) {}
       } else if (hash === 'forgot-password' || hash.indexOf('forgot-password?') === 0) {
         try { sessionStorage.setItem('sbox_route', 'forgot-password'); } catch (e) {}
       } else if (hash === 'register' || hash.indexOf('register?') === 0) {

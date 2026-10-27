@@ -8,6 +8,7 @@ import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 class UsersTab extends StatefulWidget {
   final bool agentMode;
 
@@ -256,9 +257,15 @@ class UsersTabState extends State<UsersTab> {
     }
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          SboxPageHeader(
+            title: widget.agentMode ? 'Tài khoản cửa hàng' : 'Tài khoản',
+            subtitle: 'Tài khoản đăng nhập theo cửa hàng: đặt lại mật khẩu, đổi quyền, bảo mật',
+          ),
+          const SizedBox(height: SboxSpace.md),
           AdminHelpers.searchBar(
             controller: _searchCtrl,
             hint: 'Tìm theo tên, email, cửa hàng...',

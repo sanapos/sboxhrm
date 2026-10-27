@@ -56,7 +56,7 @@ abstract final class SboxAppVariant {
       posBranding ? 'Đăng ký cửa hàng' : 'Đăng ký doanh nghiệp';
 
   static String get copyright =>
-      posBranding ? '@2026 SBOX POS' : '@2026 SBOX HRM';
+      posBranding ? '© 2026 SBOX POS' : '© 2026 SBOX HRM';
 
   static String get logoAsset =>
       posBranding ? 'assets/sbox_pos_logo.png' : 'assets/logo.png';

@@ -39,6 +39,11 @@ public class LoginCommandHandler(
             return AppResponse<AuthenticateResponse>.Error(StoreLicenseHelper.ExpiredMessage);
         }
 
+        if (store.IsLocked)
+        {
+            return AppResponse<AuthenticateResponse>.Error(StoreLicenseHelper.LockedMessage(store.LockReason));
+        }
+
         // App Review was given demo@gmail.com for store demopos. That mailbox
         // does not exist; the working cashier is demopos@gmail.com.
         var loginName = request.UserName.Trim();

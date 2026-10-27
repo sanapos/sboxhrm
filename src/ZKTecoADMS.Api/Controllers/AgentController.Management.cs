@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
@@ -181,6 +181,7 @@ public partial class AgentController
         store.UpdatedAt = DateTime.UtcNow;
         store.UpdatedBy = CurrentUserId.ToString();
         await _dbContext.SaveChangesAsync();
+        InvalidateStoreAccessCache(store.Id);
 
         return Ok(AppResponse<StoreDetailDto>.Success(AgentStoreMapper.ToStoreDetailDto(store)));
     }
@@ -206,6 +207,7 @@ public partial class AgentController
         store.UpdatedAt = DateTime.UtcNow;
         store.UpdatedBy = CurrentUserId.ToString();
         await _dbContext.SaveChangesAsync();
+        InvalidateStoreAccessCache(store.Id);
 
         return Ok(AppResponse<StoreDetailDto>.Success(AgentStoreMapper.ToStoreDetailDto(store)));
     }
@@ -229,6 +231,7 @@ public partial class AgentController
         store.UpdatedAt = DateTime.UtcNow;
         store.UpdatedBy = CurrentUserId.ToString();
         await _dbContext.SaveChangesAsync();
+        InvalidateStoreAccessCache(store.Id);
 
         return Ok(AppResponse<StoreDetailDto>.Success(AgentStoreMapper.ToStoreDetailDto(store)));
     }
@@ -285,6 +288,7 @@ public partial class AgentController
         store.UpdatedAt = DateTime.UtcNow;
         store.UpdatedBy = CurrentUserId.ToString();
         await _dbContext.SaveChangesAsync();
+        InvalidateStoreAccessCache(store.Id);
 
         try
         {

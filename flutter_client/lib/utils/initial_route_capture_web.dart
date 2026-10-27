@@ -10,6 +10,11 @@ void captureInitialRouteFromStorage() {
     web.window.sessionStorage.removeItem('sbox_route');
     return;
   }
+  if (route == 'admin') {
+    InitialWebRoute.showAdmin = true;
+    web.window.sessionStorage.removeItem('sbox_route');
+    return;
+  }
   if (route == 'forgot-password') {
     InitialWebRoute.showForgotPassword = true;
     web.window.sessionStorage.removeItem('sbox_route');

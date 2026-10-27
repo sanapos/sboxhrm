@@ -1686,20 +1686,8 @@ class DashboardTabState extends State<DashboardTab> {
     return '${mb.toStringAsFixed(0)} MB';
   }
 
-  String _healthStatusLabel(dynamic status) {
-    switch (status?.toString()) {
-      case 'Healthy':
-        return 'Ổn định';
-      case 'Warning':
-        return 'Cảnh báo';
-      case 'Unhealthy':
-        return 'Lỗi';
-      case 'N/A':
-        return 'N/A';
-      default:
-        return status?.toString() ?? 'N/A';
-    }
-  }
+  String _healthStatusLabel(dynamic status) =>
+      AdminHelpers.healthStatusLabel(status);
 
   Widget _legendDot(Color color, String label) {
     return Row(mainAxisSize: MainAxisSize.min, children: [

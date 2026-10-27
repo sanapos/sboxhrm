@@ -11,7 +11,7 @@ import 'sa_v2_common.dart';
 
 const _statusLabels = {
   'all': 'Tất cả',
-  'active': 'Hoạt động',
+  'active': 'Đã kích hoạt',
   'trial': 'Dùng thử',
   'expiring': 'Sắp hết hạn',
   'expired': 'Hết hạn',
@@ -262,7 +262,7 @@ class _StoresV2ViewState extends State<StoresV2View> {
           const SizedBox(height: SboxSpace.sm),
           Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.sm, crossAxisAlignment: WrapCrossAlignment.center, children: [
             SizedBox(
-              width: 280,
+              width: SboxBreakpoints.isMobile(context) ? double.infinity : 280,
               child: TextField(
                 controller: _search,
                 decoration: saInput('Tìm tên, mã, SĐT, email chủ').copyWith(prefixIcon: const Icon(Icons.search_rounded, size: 18)),
@@ -276,7 +276,7 @@ class _StoresV2ViewState extends State<StoresV2View> {
               ),
             ),
             SizedBox(
-              width: 240,
+              width: SboxBreakpoints.isMobile(context) ? double.infinity : 240,
               child: DropdownButtonFormField<String?>(
                 initialValue: _packageId,
                 isExpanded: true,
@@ -376,13 +376,16 @@ class _StoresV2ViewState extends State<StoresV2View> {
       if (s['isLocked'] == true && s['lockReason'] != null)
         Padding(padding: const EdgeInsets.only(top: 4), child: Text('Khóa: ${s['lockReason']}', style: SboxType.captionStyle(SboxColors.dangerText))),
     ]);
-    final actions = Wrap(spacing: 4, children: [
-      IconButton(tooltip: tr('Đổi gói dịch vụ'), icon: const Icon(Icons.swap_horiz_rounded, size: 20), onPressed: () => _bulk('assign-package', ids: [id])),
-      IconButton(tooltip: tr('Giới hạn & thông báo'), icon: const Icon(Icons.settings_suggest_outlined, size: 20), onPressed: () => _limits(s)),
-      IconButton(tooltip: tr('Chức năng riêng'), icon: const Icon(Icons.tune_rounded, size: 20), onPressed: () => _modules(s)),
-      IconButton(tooltip: tr('Lịch sử key & gia hạn'), icon: const Icon(Icons.vpn_key_outlined, size: 20), onPressed: () => _history(s)),
-      IconButton(tooltip: tr('Gia hạn'), icon: const Icon(Icons.update, size: 20), onPressed: () => _bulk('extend', ids: [id])),
+    // Điện thoại: nút gọn để 6 thao tác nằm trên một dòng.
+    final dense = mobile ? VisualDensity.compact : null;
+    final actions = Wrap(spacing: mobile ? 0 : 4, children: [
+      IconButton(visualDensity: dense, tooltip: tr('Đổi gói dịch vụ'), icon: const Icon(Icons.swap_horiz_rounded, size: 20), onPressed: () => _bulk('assign-package', ids: [id])),
+      IconButton(visualDensity: dense, tooltip: tr('Giới hạn & thông báo'), icon: const Icon(Icons.settings_suggest_outlined, size: 20), onPressed: () => _limits(s)),
+      IconButton(visualDensity: dense, tooltip: tr('Chức năng riêng'), icon: const Icon(Icons.tune_rounded, size: 20), onPressed: () => _modules(s)),
+      IconButton(visualDensity: dense, tooltip: tr('Lịch sử key & gia hạn'), icon: const Icon(Icons.vpn_key_outlined, size: 20), onPressed: () => _history(s)),
+      IconButton(visualDensity: dense, tooltip: tr('Gia hạn'), icon: const Icon(Icons.update, size: 20), onPressed: () => _bulk('extend', ids: [id])),
       IconButton(
+        visualDensity: dense,
         tooltip: tr(s['isLocked'] == true ? 'Mở khóa' : 'Khóa'),
         icon: Icon(s['isLocked'] == true ? Icons.lock_open : Icons.lock_outline, size: 20, color: s['isLocked'] == true ? SboxColors.success : SboxColors.danger),
         onPressed: () => _bulk(s['isLocked'] == true ? 'unlock' : 'lock', ids: [id]),

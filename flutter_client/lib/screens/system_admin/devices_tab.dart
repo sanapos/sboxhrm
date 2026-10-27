@@ -8,6 +8,7 @@ import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 class DevicesTab extends StatefulWidget {
   final List<Map<String, dynamic>> stores;
   final bool agentMode;
@@ -365,9 +366,15 @@ class DevicesTabState extends State<DevicesTab> {
     }
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const SboxPageHeader(
+            title: 'Thiết bị',
+            subtitle: 'Máy chấm công ZKTeco: trạng thái online, cửa hàng đang gán',
+          ),
+          const SizedBox(height: SboxSpace.md),
           AdminHelpers.searchBar(
             controller: _searchCtrl,
             hint: 'Tìm thiết bị theo tên, SN, IP...',

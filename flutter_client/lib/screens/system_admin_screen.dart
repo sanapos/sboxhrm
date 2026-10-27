@@ -630,14 +630,15 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
               if (health != null)
                 Padding(
                   padding: const EdgeInsets.only(right: 4),
-                  child: Icon(
-                    health['status'] == 'Healthy'
-                        ? Icons.check_circle
-                        : Icons.error,
-                    color: health['status'] == 'Healthy'
-                        ? Colors.greenAccent
-                        : Colors.redAccent,
-                    size: 20,
+                  child: Tooltip(
+                    message: tr(AdminHelpers.healthStatusLabel(health['status'])),
+                    child: Icon(
+                      health['status'] == 'Healthy'
+                          ? Icons.check_circle
+                          : Icons.error,
+                      color: AdminHelpers.healthStatusColor(health['status']),
+                      size: 20,
+                    ),
                   ),
                 ),
               _buildNotificationBell(),
@@ -709,7 +710,8 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                   decoration: BoxDecoration(
                     color: health['status'] == 'Healthy'
                         ? HrmPageChrome.primaryNavy.withValues(alpha: 0.3)
-                        : Colors.red.withValues(alpha: 0.3),
+                        : AdminHelpers.healthStatusColor(health['status'])
+                            .withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -720,7 +722,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                         color: Colors.white,
                         size: 14),
                     const SizedBox(width: 4),
-                    Text(tr(health['status']?.toString() ?? 'N/A'),
+                    Text(tr(AdminHelpers.healthStatusLabel(health['status'])),
                         style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,

@@ -468,7 +468,8 @@ class AdminMobileDrawer extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: healthStatus == 'Healthy'
                           ? Colors.green.withValues(alpha: 0.25)
-                          : Colors.red.withValues(alpha: 0.25),
+                          : AdminHelpers.healthStatusColor(healthStatus)
+                              .withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -482,7 +483,7 @@ class AdminMobileDrawer extends StatelessWidget {
                           size: 14,
                         ),
                         const SizedBox(width: 6),
-                        Text(tr(healthStatus!),
+                        Text(tr(AdminHelpers.healthStatusLabel(healthStatus)),
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,

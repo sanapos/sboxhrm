@@ -9,6 +9,17 @@ public static class StoreLicenseHelper
     public const string ExpiredMessage =
         "Cửa hàng đã hết hạn sử dụng. Vui lòng liên hệ quản trị viên để gia hạn.";
 
+    public const string LockedErrorCode = "STORE_LOCKED";
+
+    /// <summary>Thông báo khi SuperAdmin / đại lý đã khoá cửa hàng.</summary>
+    public static string LockedMessage(string? reason) =>
+        string.IsNullOrWhiteSpace(reason)
+            ? "Cửa hàng đã bị khóa. Vui lòng liên hệ quản trị viên."
+            : $"Cửa hàng đã bị khóa: {reason.Trim()}. Vui lòng liên hệ quản trị viên.";
+
+    /// <summary>Cache trạng thái chặn của StoreLicenseMiddleware — xoá khi khoá/mở/gia hạn để có hiệu lực ngay.</summary>
+    public static string AccessCacheKey(Guid storeId) => $"__store_license_expired__{storeId}";
+
     /// <summary>
     /// Cùng logic với LoginCommandHandler: ExpiryDate hoặc hết trial.
     /// </summary>

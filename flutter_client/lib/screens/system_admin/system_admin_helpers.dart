@@ -64,6 +64,32 @@ class AdminHelpers {
   static const Color warning = Color(0xFFEA580C);
   static const Color info = Color(0xFF0891B2);
   static const Color bgLight = Color(0xFFF0F4F8);
+
+  /// Nhãn tiếng Việt cho trạng thái sức khoẻ hệ thống (API trả Healthy / Warning / Unhealthy).
+  static String healthStatusLabel(Object? status) {
+    switch (status?.toString()) {
+      case 'Healthy':
+        return 'Ổn định';
+      case 'Warning':
+        return 'Cảnh báo';
+      case 'Unhealthy':
+        return 'Lỗi';
+      default:
+        return status?.toString() ?? 'N/A';
+    }
+  }
+
+  /// Ổn định xanh, Cảnh báo cam, Lỗi đỏ.
+  static Color healthStatusColor(Object? status) {
+    switch (status?.toString()) {
+      case 'Healthy':
+        return Colors.greenAccent;
+      case 'Warning':
+        return Colors.orangeAccent;
+      default:
+        return Colors.redAccent;
+    }
+  }
   static const Color cardBg = Colors.white;
   static const Color surfaceBg = SboxColors.slate50;
 

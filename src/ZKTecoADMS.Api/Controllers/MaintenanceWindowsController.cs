@@ -28,6 +28,10 @@ public class MaintenanceWindowsController : AuthenticatedControllerBase
     [HttpPost]
     public async Task<ActionResult<AppResponse<MaintenanceWindowDto>>> Create([FromBody] CreateMaintenanceWindowDto dto, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(dto.Title))
+            return BadRequest(AppResponse<MaintenanceWindowDto>.Fail("Nhập tiêu đề bảo trì"));
+        if (dto.EndAt <= dto.StartAt)
+            return BadRequest(AppResponse<MaintenanceWindowDto>.Fail("Thời gian kết thúc phải sau thời gian bắt đầu"));
         var data = await _svc.CreateAsync(dto, CurrentUserId, ct);
         return Ok(AppResponse<MaintenanceWindowDto>.Success(data));
     }

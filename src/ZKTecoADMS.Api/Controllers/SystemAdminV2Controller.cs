@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -15,6 +15,7 @@ using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
 using ZKTecoADMS.Infrastructure.Helpers;
+using ZKTecoADMS.Api.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -257,9 +258,11 @@ public class SystemAdminV2Controller(
     {
         if (!s.IsActive) return "inactive";
         if (s.IsLocked) return "locked";
-        if (s.ExpiryDate != null && s.ExpiryDate <= now) return "expired";
+        // Hạn hiệu lực gồm cả cuối kỳ dùng thử — cùng logic với đăng nhập / StoreLicenseMiddleware.
+        if (StoreLicenseHelper.IsExpired(s, now)) return "expired";
         if (string.IsNullOrEmpty(s.LicenseKey) && s.TrialStartDate != null) return "trial";
-        if (s.ExpiryDate != null && s.ExpiryDate <= now.AddDays(7)) return "expiring";
+        var expiry = StoreLicenseHelper.GetEffectiveExpiryDate(s);
+        if (expiry != null && expiry <= now.AddDays(7)) return "expiring";
         return "active";
     }
 
@@ -303,10 +306,11 @@ public class SystemAdminV2Controller(
             s.ServicePackage = r.pkg;
             var limits = StorePackageHelper.ResolveLimits(s);
             var st = StoreStatus(s, now);
+            var expiry = StoreLicenseHelper.GetEffectiveExpiryDate(s);
             return new
             {
-                id = s.Id, s.Name, s.Code, s.Phone, s.Province, s.CreatedAt, s.ExpiryDate,
-                daysLeft = s.ExpiryDate == null ? (int?)null : (int)Math.Ceiling((s.ExpiryDate.Value - now).TotalDays),
+                id = s.Id, s.Name, s.Code, s.Phone, s.Province, s.CreatedAt, ExpiryDate = expiry,
+                daysLeft = expiry == null ? (int?)null : (int)Math.Ceiling((expiry.Value - now).TotalDays),
                 status = st, s.IsLocked, s.LockReason, s.RenewalCount, s.LicenseKey,
                 packageId = s.ServicePackageId, r.packageName, r.productLine, agentId = s.AgentId, r.agentName,
                 r.ownerName, r.ownerEmail, r.ownerPhone, r.users, MaxUsers = limits.MaxUsers,
@@ -509,6 +513,7 @@ public class SystemAdminV2Controller(
                 return Ok(AppResponse<object>.Fail("Thao tác không hỗ trợ"));
         }
         await db.SaveChangesAsync();
+        InvalidateStoreAccessCache(stores.Select(s => s.Id));
         var packageWarnings = new List<string>();
         if (pkg != null)
             foreach (var s in stores)
@@ -671,18 +676,13 @@ public class SystemAdminV2Controller(
         else if (lastBackup < now.AddDays(-2)) Warn("warning", $"Bản sao lưu gần nhất đã {(int)(now - lastBackup.Value).TotalDays} ngày", "database");
 
         double? diskFreeGb = null, diskTotalGb = null;
-        try
+        // Cùng nguồn với Tổng quan và tab Máy chủ (ServerResourceReader) — tránh mỗi nơi đọc một ổ khác nhau.
+        if (ServerResourceReader.TryReadDisk(out _, out var diskTotalMb, out var diskFreeMb, out _, out _))
         {
-            var root = Path.GetPathRoot(Directory.GetCurrentDirectory());
-            if (!string.IsNullOrEmpty(root))
-            {
-                var d = new DriveInfo(root);
-                diskFreeGb = Math.Round(d.AvailableFreeSpace / 1024.0 / 1024 / 1024, 1);
-                diskTotalGb = Math.Round(d.TotalSize / 1024.0 / 1024 / 1024, 1);
-                if (diskTotalGb > 0 && diskFreeGb / diskTotalGb < 0.1) Warn("danger", $"Ổ đĩa máy chủ còn {diskFreeGb} GB", "server");
-            }
+            diskFreeGb = Math.Round(diskFreeMb / 1024.0, 1);
+            diskTotalGb = Math.Round(diskTotalMb / 1024.0, 1);
+            if (diskTotalGb > 0 && diskFreeGb / diskTotalGb < 0.1) Warn("danger", $"Ổ đĩa máy chủ còn {diskFreeGb} GB", "server");
         }
-        catch { /* bỏ qua */ }
 
         var maint = await db.MaintenanceWindows.AsNoTracking()
             .Where(m => m.IsActive && m.EndAt > now)

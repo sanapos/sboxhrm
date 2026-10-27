@@ -7,6 +7,8 @@ import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_ui.dart';
+
 class KeyPromotionsTab extends StatefulWidget {
   const KeyPromotionsTab({super.key});
 
@@ -37,12 +39,10 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
       ]);
       if (!mounted) return;
       if (results[0]['isSuccess'] == true) {
-        _promotions =
-            List<Map<String, dynamic>>.from(results[0]['data'] ?? []);
+        _promotions = List<Map<String, dynamic>>.from(results[0]['data'] ?? []);
       }
       if (results[1]['isSuccess'] == true) {
-        _packages =
-            List<Map<String, dynamic>>.from(results[1]['data'] ?? []);
+        _packages = List<Map<String, dynamic>>.from(results[1]['data'] ?? []);
       }
     } catch (e) {
       debugPrint('KeyPromotionsTab error: $e');
@@ -68,27 +68,34 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
               ? AdminHelpers.emptyState(
                   Icons.card_giftcard, 'Chưa có chương trình kích hoạt nào')
               : MediaQuery.of(context).size.width < 600
-                ? ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    itemCount: _promotions.length,
-                    itemBuilder: (_, i) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: SboxColors.slate200),
-                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
+                  ? ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      itemCount: _promotions.length,
+                      itemBuilder: (_, i) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: SboxColors.slate200),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2))
+                            ],
+                          ),
+                          child: _buildPromoDeckItem(_promotions[i]),
                         ),
-                        child: _buildPromoDeckItem(_promotions[i]),
                       ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: _promotions.length,
+                      itemBuilder: (ctx, i) =>
+                          _buildPromotionCard(_promotions[i]),
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: _promotions.length,
-                    itemBuilder: (ctx, i) => _buildPromotionCard(_promotions[i]),
-                  ),
         ),
       ],
     );
@@ -96,30 +103,28 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
 
   Widget _buildToolbar() {
     final active = _promotions.where((p) => p['isActive'] == true).length;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 6,
-        alignment: WrapAlignment.spaceBetween,
-        children: [
+    final pad = SboxSpace.pagePadding(MediaQuery.sizeOf(context).width);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(pad, pad, pad, 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SboxPageHeader(
+          title: 'Khuyến mãi key',
+          subtitle: 'Chương trình ưu đãi khi cửa hàng kích hoạt key theo gói',
+          actions: [
+            SboxButton(
+                label: 'Tạo CT mới',
+                icon: Icons.add_rounded,
+                onPressed: () => _showCreateEditDialog(null)),
+          ],
+        ),
+        const SizedBox(height: SboxSpace.md),
+        Wrap(spacing: 8, runSpacing: 6, children: [
           AdminHelpers.countBadge(
               'Tổng CT', _promotions.length, AdminHelpers.info),
-          AdminHelpers.countBadge('Đang hoạt động', active, AdminHelpers.success),
-          FilledButton.icon(
-            onPressed: () => _showCreateEditDialog(null),
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(tr('Tạo CT mới')),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AdminHelpers.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape:
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          ),
-        ],
-      ),
+          AdminHelpers.countBadge(
+              'Đang hoạt động', active, AdminHelpers.success),
+        ]),
+      ]),
     );
   }
 
@@ -136,23 +141,59 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Row(children: [
           Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.card_giftcard, color: Colors.amber, size: 18),
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10)),
+            child:
+                const Icon(Icons.card_giftcard, color: Colors.amber, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr(name),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text(tr([pkg, if (endDate != null) '\u0110\u1ebfn ${endDate.day}/${endDate.month}/${endDate.year}'].join(' \u00b7 ')),
-                style: const TextStyle(color: SboxColors.slate500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(
+                  tr([
+                    pkg,
+                    if (endDate != null)
+                      '\u0110\u1ebfn ${endDate.day}/${endDate.month}/${endDate.year}'
+                  ].join(' \u00b7 ')),
+                  style:
+                      const TextStyle(color: SboxColors.slate500, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: isExpired ? Colors.red.withValues(alpha: 0.1) : isActive ? Colors.green.withValues(alpha: 0.1) : SboxColors.slate500.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: Text(tr(isExpired ? 'H\u1ebft h\u1ea1n' : isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isExpired ? Colors.red : isActive ? Colors.green : SboxColors.slate500)),
+            decoration: BoxDecoration(
+                color: isExpired
+                    ? Colors.red.withValues(alpha: 0.1)
+                    : isActive
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : SboxColors.slate500.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10)),
+            child: Text(
+                tr(isExpired
+                    ? 'H\u1ebft h\u1ea1n'
+                    : isActive
+                        ? 'H\u0110'
+                        : 'T\u1eaft'),
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: isExpired
+                        ? Colors.red
+                        : isActive
+                            ? Colors.green
+                            : SboxColors.slate500)),
           ),
         ]),
       ),
@@ -210,7 +251,11 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
-                    tr(isExpired ? 'Hết hạn' : isActive ? 'Hoạt động' : 'Tắt'),
+                    tr(isExpired
+                        ? 'Hết hạn'
+                        : isActive
+                            ? 'Hoạt động'
+                            : 'Tắt'),
                     style: TextStyle(
                       color: isExpired
                           ? Colors.red
@@ -229,11 +274,11 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                     if (v == 'delete') _confirmDelete(promo);
                   },
                   itemBuilder: (_) => [
-                    PopupMenuItem(
-                        value: 'edit', child: Text(tr('Chỉnh sửa'))),
+                    PopupMenuItem(value: 'edit', child: Text(tr('Chỉnh sửa'))),
                     PopupMenuItem(
                         value: 'delete',
-                        child: Text(tr('Xóa'), style: TextStyle(color: Colors.red))),
+                        child: Text(tr('Xóa'),
+                            style: TextStyle(color: Colors.red))),
                   ],
                 ),
               ],
@@ -241,9 +286,11 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
             const Divider(height: 32),
             Row(
               children: [
-                _infoChip(Icons.calendar_today, 'Từ', _fmtDate(promo['startDate']?.toString())),
+                _infoChip(Icons.calendar_today, 'Từ',
+                    _fmtDate(promo['startDate']?.toString())),
                 const SizedBox(width: 16),
-                _infoChip(Icons.event, 'Đến', _fmtDate(promo['endDate']?.toString())),
+                _infoChip(
+                    Icons.event, 'Đến', _fmtDate(promo['endDate']?.toString())),
               ],
             ),
             const SizedBox(height: 12),
@@ -269,8 +316,10 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
       children: [
         Icon(icon, size: 14, color: SboxColors.slate600),
         const SizedBox(width: 4),
-        Text(tr('$label: '), style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
-        Text(tr(value), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        Text(tr('$label: '),
+            style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
+        Text(tr(value),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
       ],
     );
   }
@@ -304,19 +353,21 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         title: Text(tr('Xác nhận xóa')),
-        content: Text(tr('${tr('Bạn có chắc muốn xóa chương trình "')}${promo['name']}"?')),
+        content: Text(tr(
+            '${tr('Bạn có chắc muốn xóa chương trình "')}${promo['name']}"?')),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(tr('Hủy'))),
+              onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              final res = await _apiService.deleteKeyPromotion(promo['id'].toString());
+              final res =
+                  await _apiService.deleteKeyPromotion(promo['id'].toString());
               if (res['isSuccess'] == true) {
                 loadData();
                 if (mounted) {
-                  NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã xóa chương trình'));
+                  NotificationOverlayManager().showSuccess(
+                      title: 'Thành công', message: tr('Đã xóa chương trình'));
                 }
               }
             },
@@ -330,18 +381,21 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
   void _showCreateEditDialog(Map<String, dynamic>? promo) {
     final isEdit = promo != null;
     final nameCtrl = TextEditingController(text: tr(promo?['name'] ?? ''));
-    final bonus1Ctrl = TextEditingController(text: tr((promo?['bonus1Key'] ?? 0).toString()));
-    final bonus2Ctrl = TextEditingController(text: tr((promo?['bonus2Keys'] ?? 0).toString()));
-    final bonus3Ctrl = TextEditingController(text: tr((promo?['bonus3Keys'] ?? 0).toString()));
-    final bonus4Ctrl = TextEditingController(text: tr((promo?['bonus4Keys'] ?? 0).toString()));
+    final bonus1Ctrl =
+        TextEditingController(text: tr((promo?['bonus1Key'] ?? 0).toString()));
+    final bonus2Ctrl =
+        TextEditingController(text: tr((promo?['bonus2Keys'] ?? 0).toString()));
+    final bonus3Ctrl =
+        TextEditingController(text: tr((promo?['bonus3Keys'] ?? 0).toString()));
+    final bonus4Ctrl =
+        TextEditingController(text: tr((promo?['bonus4Keys'] ?? 0).toString()));
 
     String? selectedPackageId = promo?['servicePackageId']?.toString();
     DateTime startDate =
         DateTime.tryParse(promo?['startDate'] ?? '')?.toLocal() ??
             DateTime.now();
-    DateTime endDate =
-        DateTime.tryParse(promo?['endDate'] ?? '')?.toLocal() ??
-            DateTime.now().add(const Duration(days: 30));
+    DateTime endDate = DateTime.tryParse(promo?['endDate'] ?? '')?.toLocal() ??
+        DateTime.now().add(const Duration(days: 30));
 
     showDialog(
       context: context,
@@ -396,7 +450,8 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                               border: OutlineInputBorder(),
                               suffixIcon: Icon(Icons.calendar_today, size: 18),
                             ),
-                            child: Text(tr(DateFormat('dd/MM/yyyy').format(startDate))),
+                            child: Text(
+                                tr(DateFormat('dd/MM/yyyy').format(startDate))),
                           ),
                         ),
                       ),
@@ -418,7 +473,8 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                               border: OutlineInputBorder(),
                               suffixIcon: Icon(Icons.event, size: 18),
                             ),
-                            child: Text(tr(DateFormat('dd/MM/yyyy').format(endDate))),
+                            child: Text(
+                                tr(DateFormat('dd/MM/yyyy').format(endDate))),
                           ),
                         ),
                       ),
@@ -492,12 +548,13 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(tr('Hủy'))),
+                onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
               onPressed: () async {
                 if (nameCtrl.text.isEmpty || selectedPackageId == null) {
-                  NotificationOverlayManager().showWarning(title: 'Thiếu thông tin', message: tr('Vui lòng nhập đầy đủ thông tin'));
+                  NotificationOverlayManager().showWarning(
+                      title: 'Thiếu thông tin',
+                      message: tr('Vui lòng nhập đầy đủ thông tin'));
                   return;
                 }
                 final data = {
@@ -511,14 +568,16 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                   'bonus4Keys': int.tryParse(bonus4Ctrl.text) ?? 0,
                 };
                 final res = isEdit
-                    ? await _apiService.updateKeyPromotion(promo['id'].toString(), data)
+                    ? await _apiService.updateKeyPromotion(
+                        promo['id'].toString(), data)
                     : await _apiService.createKeyPromotion(data);
                 if (res['isSuccess'] == true) {
                   if (ctx.mounted) Navigator.pop(ctx);
                   loadData();
                 } else {
                   if (mounted) {
-                    NotificationOverlayManager().showError(title: 'Lỗi', message: res['message'] ?? 'Lỗi');
+                    NotificationOverlayManager().showError(
+                        title: 'Lỗi', message: res['message'] ?? 'Lỗi');
                   }
                 }
               },

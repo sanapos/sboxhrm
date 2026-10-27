@@ -30,12 +30,17 @@ class PackagesV2TabState extends State<PackagesV2Tab> {
     loadData();
   }
 
+  /// Tổng số cửa hàng — để báo số cửa hàng chưa gán gói (nhãn «Dùng thử» ở tab Cửa hàng là trạng thái, không phải gói).
+  int? _allStores;
+
   Future<void> loadData() async {
     setState(() => _loading = true);
-    final rs = await Future.wait([_api.saCatalog(), _api.saPackages()]);
+    final rs = await Future.wait([_api.saCatalog(), _api.saPackages(), _api.saStores(pageSize: 10)]);
     if (!mounted) return;
     setState(() {
       _loading = false;
+      final st = rs[2]['data'];
+      _allStores = st is Map ? (st['total'] as num?)?.toInt() : null;
       if (rs[0]['isSuccess'] == true && rs[0]['data'] is Map) _catalog = SaCatalog.fromJson(Map<String, dynamic>.from(rs[0]['data'] as Map));
       packages = rs[1]['data'] is List
           ? (rs[1]['data'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
@@ -89,7 +94,8 @@ class PackagesV2TabState extends State<PackagesV2Tab> {
           SboxKpiStrip(maxColumns: 4, items: [
             SboxKpi(label: 'Gói đang bán', value: '${packages.where((p) => p['isActive'] == true && p['isPublic'] == true).length}', icon: Icons.storefront_outlined),
             SboxKpi(label: 'Gói gán tay', value: '${packages.where((p) => p['isPublic'] != true).length}', icon: Icons.lock_outline, tone: SboxTone.neutral),
-            SboxKpi(label: 'Cửa hàng dùng gói', value: '$totalStores', icon: Icons.store_mall_directory_outlined, tone: SboxTone.success),
+            SboxKpi(label: 'Cửa hàng dùng gói', value: '$totalStores', icon: Icons.store_mall_directory_outlined, tone: SboxTone.success,
+                note: _allStores != null && _allStores! > totalStores ? '${_allStores! - totalStores} cửa hàng chưa gán gói' : null),
             SboxKpi(label: 'Gói cần kiểm tra', value: '$warn', icon: Icons.warning_amber_rounded, tone: warn > 0 ? SboxTone.warning : SboxTone.neutral,
                 note: 'Thiếu chức năng phụ thuộc / mã cũ'),
           ]),
