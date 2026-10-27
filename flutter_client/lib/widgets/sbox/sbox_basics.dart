@@ -292,10 +292,19 @@ class SboxPageHeader extends StatelessWidget {
     if (actions.isEmpty) return titleBlock;
     final acts = Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.sm, children: actions);
     if (mobile) {
+      // ≤ 3 nút: chia đều bề ngang (không để hụt một khoảng bên phải); nhiều hơn thì xuống dòng.
+      final mobileActs = actions.length <= 3
+          ? Row(children: [
+              for (var i = 0; i < actions.length; i++) ...[
+                if (i > 0) const SizedBox(width: SboxSpace.sm),
+                Expanded(child: actions[i]),
+              ],
+            ])
+          : acts;
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         titleBlock,
         const SizedBox(height: SboxSpace.md),
-        acts,
+        mobileActs,
       ]);
     }
     return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [

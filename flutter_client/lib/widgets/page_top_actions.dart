@@ -33,6 +33,17 @@ class PageTopActions extends ChangeNotifier {
     if (_byOwner.remove(key) == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
   }
+
+  /// Chiều cao cụm FAB mà [PageTopActionsFab] đang vẽ (0 khi không có) — danh sách
+  /// chừa khoảng này ở cuối để thẻ cuối / nút ⋮ của thẻ không nằm dưới FAB.
+  double fabStackHeight() {
+    final hrm = actions.whereType<HrmTopBarAction>().toList(growable: false);
+    if (hrm.isEmpty) return 0;
+    final hasPrimary = hrm.any((a) => a.primary && a.onPressed != null);
+    if (!hasPrimary) return 56;
+    // FAB có chữ 48 + (nút ⋯ nhỏ 40 + khoảng 10 nếu còn thao tác phụ).
+    return 48 + (hrm.length > 1 ? 50 : 0);
+  }
 }
 
 /// Đăng ký [actions] vào top bar khi widget còn mounted.

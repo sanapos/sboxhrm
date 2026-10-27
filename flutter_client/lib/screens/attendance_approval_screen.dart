@@ -1837,8 +1837,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: ConstrainedBox(
+                  // Card margin 4px mỗi bên — trừ ra để không sinh cuộn ngang.
                   constraints: BoxConstraints(
-                      minWidth: MediaQuery.of(context).size.width - 280),
+                      minWidth: (constraints.maxWidth - 8).clamp(0, double.infinity)),
                   child: DataTable(
                     showCheckboxColumn: false,
                     headingRowHeight: 40,

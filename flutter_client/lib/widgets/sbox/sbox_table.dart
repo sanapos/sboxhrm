@@ -549,7 +549,8 @@ class SboxFilterBar extends StatelessWidget {
           child: bar,
         );
       }
-      return Row(children: [
+      // Căn đỉnh: bộ lọc xuống 2 dòng thì ô tìm + nút vẫn thẳng hàng với dòng lọc đầu (không trôi giữa).
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Nhiều bộ lọc → ô tìm hẹp lại để cả hàng không phải xuống dòng.
         SizedBox(width: math.min(filters.length >= 4 ? 280 : 360, c.maxWidth * (filters.length >= 4 ? 0.26 : 0.4)), child: search),
         const SizedBox(width: SboxSpace.sm),

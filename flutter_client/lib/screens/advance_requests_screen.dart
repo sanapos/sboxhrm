@@ -2511,7 +2511,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     final endIndex = (startIndex + _itemsPerPage).clamp(0, allFiltered.length);
     final displayed = allFiltered.sublist(startIndex, endIndex);
 
-    return Container(
+    return LayoutBuilder(builder: (context, constraints) => Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.only(
@@ -2530,8 +2530,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: ConstrainedBox(
-              constraints: BoxConstraints(
-                  minWidth: MediaQuery.of(context).size.width - 250),
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
               child: DataTable(
                 showCheckboxColumn: false,
                 sortColumnIndex: _getSortColumnIndex(),
@@ -2653,7 +2652,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildRowActions(AdvanceRequest r) {

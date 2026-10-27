@@ -2652,10 +2652,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     });
   }
 
-  Widget _buildAttFilterChipRow(List<Widget> chips) {
-    return SafeEqualHeightRow(children: chips);
-  }
-
   Widget _buildAttFilterChip({
     required String title,
     required String value,
@@ -2900,11 +2896,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       margin: EdgeInsets.zero,
       padding: const EdgeInsets.all(10),
       children: [
-        _buildAttFilterChipRow([chipTime, chipDevice]),
-        const SizedBox(height: 8),
-        _buildAttFilterChipRow([chipVerify, chipBranch]),
-        const SizedBox(height: 8),
-        _buildAttFilterChipRow([chipEmployee, chipClear]),
+        SafeFilterChipGrid(children: [
+          chipTime,
+          chipDevice,
+          chipVerify,
+          chipBranch,
+          chipEmployee,
+          chipClear,
+        ]),
         if (!Responsive.isMobile(context) &&
             canSyncAttendanceFromDevice(
               role: Provider.of<AuthProvider>(context, listen: false)
@@ -2973,8 +2972,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                        minWidth: MediaQuery.of(context).size.width - 250),
+                    constraints:
+                        BoxConstraints(minWidth: constraints.maxWidth),
                     child: DataTable(
                       showCheckboxColumn: false,
                       headingRowColor: WidgetStateProperty.all(

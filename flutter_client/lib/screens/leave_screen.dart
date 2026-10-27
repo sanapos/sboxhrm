@@ -990,10 +990,6 @@ class _LeaveScreenState extends State<LeaveScreen>
     });
   }
 
-  Widget _buildFilterChipRow(List<Widget> chips) {
-    return SafeEqualHeightRow(children: chips);
-  }
-
   Widget _buildFilterChip({
     required String title,
     required String value,
@@ -1216,11 +1212,14 @@ class _LeaveScreenState extends State<LeaveScreen>
       margin: EdgeInsets.zero,
       padding: EdgeInsets.symmetric(horizontal: pad, vertical: 10),
       children: [
-        _buildFilterChipRow([chipType, chipStatus]),
-        const SizedBox(height: 8),
-        _buildFilterChipRow([chipTime, chipBranchOrCount]),
-        const SizedBox(height: 8),
-        _buildFilterChipRow([chipEmployeeOrBalance, chipClear]),
+        SafeFilterChipGrid(children: [
+          chipType,
+          chipStatus,
+          chipTime,
+          chipBranchOrCount,
+          chipEmployeeOrBalance,
+          chipClear,
+        ]),
       ],
     );
   }

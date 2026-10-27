@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/responsive_helper.dart';
+import 'page_top_actions.dart';
 
 /// On mobile: [headerSections] and [mobileSlivers] share one [CustomScrollView].
 /// On tablet/desktop: [headerSections] stay fixed above [Expanded(desktopBody)].
@@ -33,8 +34,22 @@ class HrmResponsiveListLayout extends StatelessWidget {
 
   List<Widget> _wrapMobileSlivers(BuildContext context) {
     final slivers = mobileSlivers(context);
-    if (!fabAware || !Responsive.useUnifiedPageScroll(context)) {
-      return slivers;
+    if (!Responsive.useUnifiedPageScroll(context)) return slivers;
+    if (!fabAware) {
+      // Kể cả khi danh sách trống (SliverFillRemaining): vẫn chừa để cuộn được ô lọc cuối ra khỏi FAB.
+      // FAB chung của main_layout (PageTopActionsFab) đè lên thẻ cuối — chừa đủ chiều cao cụm FAB.
+      return [
+        ...slivers,
+        SliverToBoxAdapter(
+          child: ListenableBuilder(
+            listenable: PageTopActions.instance,
+            builder: (context, _) {
+              final h = PageTopActions.instance.fabStackHeight();
+              return SizedBox(height: h > 0 ? h + 24 : 0);
+            },
+          ),
+        ),
+      ];
     }
     return [
       SliverPadding(

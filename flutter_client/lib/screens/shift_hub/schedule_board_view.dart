@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -215,9 +216,19 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
   // ── Lưới tuần (máy tính) ──
 
   static const _nameW = 200.0;
-  static const _dayW = 124.0;
+  static const _minDayW = 124.0;
+  /// Cột ngày giãn theo bề ngang khung (tối thiểu [_minDayW]) — tránh lưới hụt, trống bên phải.
+  double _dayW = _minDayW;
 
-  Widget _grid() {
+  Widget _grid() => LayoutBuilder(builder: (context, c) {
+        final n = _days.length;
+        _dayW = n == 0
+            ? _minDayW
+            : math.max(_minDayW, (c.maxWidth - 2 - _nameW - 70) / n);
+        return _gridBody();
+      });
+
+  Widget _gridBody() {
     final days = _days;
     final emps = _rows(_d?['employees']);
     final today = _d?['today']?.toString();

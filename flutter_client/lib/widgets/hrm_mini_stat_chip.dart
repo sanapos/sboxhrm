@@ -278,26 +278,27 @@ class HrmStatSummaryCard extends StatelessWidget {
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   tr(label),
                   style: const TextStyle(
                     color: HrmPageChrome.textMuted,
-                    fontSize: 10,
+                    fontSize: 11,
                     height: 1.1,
                     fontWeight: FontWeight.w600,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
+                  textAlign: TextAlign.start,
                 ),
                 const SizedBox(height: 1),
                 SizedBox(
                   width: double.infinity,
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
                     child: Text(
                       tr(value),
                       style: TextStyle(
@@ -307,7 +308,7 @@ class HrmStatSummaryCard extends StatelessWidget {
                         height: 1.05,
                       ),
                       maxLines: 1,
-                      textAlign: TextAlign.center,
+                      textAlign: TextAlign.start,
                     ),
                   ),
                 ),
@@ -321,7 +322,7 @@ class HrmStatSummaryCard extends StatelessWidget {
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
+                    textAlign: TextAlign.start,
                   ),
                 ],
               ],

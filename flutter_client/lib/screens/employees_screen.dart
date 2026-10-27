@@ -29,6 +29,7 @@ import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/safe_layout_widgets.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/page_top_actions.dart';
+import '../widgets/pos/pos_unsaved_changes.dart';
 import 'main_layout.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/image_source_picker.dart';
@@ -1277,10 +1278,6 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     });
   }
 
-  Widget _buildEmpFilterChipRow(List<Widget> chips) {
-    return SafeEqualHeightRow(children: chips);
-  }
-
   Widget _buildEmpFilterChip({
     required String title,
     required String value,
@@ -1453,11 +1450,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       margin: EdgeInsets.zero,
       padding: const EdgeInsets.all(10),
       children: [
-        _buildEmpFilterChipRow([chipDept, chipStatus]),
-        const SizedBox(height: 8),
-        _buildEmpFilterChipRow([chipBranch, chipSearch]),
-        const SizedBox(height: 8),
-        _buildEmpFilterChipRow([
+        SafeFilterChipGrid(children: [
+          chipDept,
+          chipStatus,
+          chipBranch,
+          chipSearch,
           _buildEmpFilterChip(
             title: 'Kết quả',
             value: '$count / ${_employees.length} NV',
@@ -2369,11 +2366,32 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       }
     }
 
+    // Ảnh chụp dữ liệu form — so khi đóng để hỏi trước khi bỏ thông tin đang nhập.
+    String formSnapshot() => [
+          for (final c in [
+            employeeCodeController, fullNameController, phoneController,
+            emailController, companyEmailController, permanentAddressController,
+            temporaryAddressController, emergencyContactController,
+            emergencyContactNameController, departmentController,
+            positionController, bankAccountNameController,
+            bankAccountNumberController, nationalIdController,
+          ])
+            c.text,
+          selectedHometown, selectedBank, selectedGender, selectedMaritalStatus,
+          selectedEducationLevel, selectedWorkStatus, selectedDateOfBirth,
+          selectedJoinDate, selectedContractEndDate, selectedManagerId,
+          selectedBranchId, photoUrl, cccdFrontUrl, cccdBackUrl,
+        ].join('\u0001');
+    final initialSnapshot = formSnapshot();
+
     final isMobileForm = Responsive.isMobile(context);
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
+        // Lưu xong gọi Navigator.pop trực tiếp (không bị chặn); ✕ / Hủy / back / chạm nền thì hỏi.
+        builder: (context, setDialogState) => UnsavedChangesScope(
+          isDirty: () => formSnapshot() != initialSnapshot,
+          child: Builder(builder: (context) {
           final formContent = SingleChildScrollView(
             padding: isMobileForm ? const EdgeInsets.all(16) : EdgeInsets.zero,
             child: Column(
@@ -3607,7 +3625,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         tr(isEditing ? _l10n.editEmployee : _l10n.addNewEmployee)),
                     leading: IconButton(
                         icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context)),
+                        onPressed: () => Navigator.maybePop(context)),
                   ),
                   body: formContent,
                   bottomNavigationBar: Padding(
@@ -3616,7 +3634,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           TextButton(
-                              onPressed: () => Navigator.pop(context),
+                              onPressed: () => Navigator.maybePop(context),
                               child: Text(tr(_l10n.cancel))),
                           const SizedBox(width: 12),
                           FilledButton(
@@ -3650,13 +3668,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             ),
             actions: [
               AppDialogActions(
+                onCancel: () => Navigator.maybePop(context),
                 onConfirm: isSaving ? null : onSave,
                 confirmLabel: isEditing ? _l10n.save : _l10n.addEmployee,
                 isLoading: isSaving,
               ),
             ],
           );
-        },
+        }),
+        ),
       ),
     );
   }

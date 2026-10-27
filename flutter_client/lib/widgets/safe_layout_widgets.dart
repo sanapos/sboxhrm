@@ -24,6 +24,47 @@ class SafeEqualHeightRow extends StatelessWidget {
   }
 }
 
+/// Lưới ô lọc: 2 cột trên màn hẹp, 3 cột khi đủ rộng — 6 ô lọc chỉ chiếm 2 hàng
+/// trên desktop, không bị khung header (giới hạn chiều cao) cắt mất hàng cuối.
+class SafeFilterChipGrid extends StatelessWidget {
+  const SafeFilterChipGrid({
+    super.key,
+    required this.children,
+    this.wideBreakpoint = 1000,
+    this.spacing = 8,
+  });
+
+  final List<Widget> children;
+  final double wideBreakpoint;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cols = constraints.maxWidth >= wideBreakpoint ? 3 : 2;
+        final rows = <Widget>[];
+        for (var i = 0; i < children.length; i += cols) {
+          final slice = children.sublist(
+              i, (i + cols).clamp(0, children.length).toInt());
+          if (rows.isNotEmpty) rows.add(SizedBox(height: spacing));
+          rows.add(SafeEqualHeightRow(children: [
+            ...slice,
+            // Giữ độ rộng cột đều ở hàng cuối thiếu ô.
+            for (var k = slice.length; k < cols; k++) const SizedBox.shrink(),
+          ]));
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: rows,
+        );
+      },
+    );
+  }
+}
+
 /// Timeline / approval step — tránh [IntrinsicHeight] + [Expanded] line.
 class SafeTimelineRow extends StatelessWidget {
   const SafeTimelineRow({
