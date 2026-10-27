@@ -67,20 +67,26 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
   static const _wTotal = 88.0;
 
-  /// (tên, số tiền) các chương trình khuyến mãi đã áp trên đơn.
-  static List<(String, double)> _appliedPromos(String? json) {
-    if (json == null || json.trim().isEmpty) return const [];
+  /// Khuyến mãi tự áp lưu trong promotionsJson: các CT (tên, số tiền) + phần giảm
+  /// trên tổng đơn (`bill`, đã gộp sẵn vào [PosSaleOrder.discount]).
+  static ({List<(String, double)> applied, double bill}) _appliedPromos(String? json) {
+    const empty = (applied: <(String, double)>[], bill: 0.0);
+    if (json == null || json.trim().isEmpty) return empty;
     try {
       final m = jsonDecode(json);
-      final applied = m is Map ? m['applied'] : null;
-      if (applied is! List) return const [];
-      return [
-        for (final a in applied)
-          if (a is Map && ((a['amount'] as num?) ?? 0) > 0)
-            ((a['name'] ?? 'Khuyến mãi').toString(), (a['amount'] as num).toDouble()),
-      ];
+      if (m is! Map) return empty;
+      final applied = m['applied'];
+      return (
+        applied: [
+          if (applied is List)
+            for (final a in applied)
+              if (a is Map && ((a['amount'] as num?) ?? 0) > 0)
+                ((a['name'] ?? 'Khuyến mãi').toString(), (a['amount'] as num).toDouble()),
+        ],
+        bill: (m['bill'] as num?)?.toDouble() ?? 0,
+      );
     } catch (_) {
-      return const [];
+      return empty;
     }
   }
 
@@ -91,6 +97,13 @@ class PosSaleOrderReceiptView extends StatelessWidget {
   Widget build(BuildContext context) {
 
     final money = NumberFormat('#,##0', 'vi_VN');
+
+    final promos = _appliedPromos(order.promotionsJson);
+
+    // «Giảm giá» chỉ còn phần giảm tay — phần KM trên tổng đơn đã hiện ở dòng «Khuyến mãi».
+    final manualDiscount = promos.applied.isEmpty
+        ? order.discount
+        : (order.discount - promos.bill).clamp(0.0, order.discount).toDouble();
 
     final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
 
@@ -222,12 +235,12 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                 // Khuyến mãi tự áp (lưu trong promotionsJson) — trước đây không hiện,
                 // Tạm tính − Voucher ≠ Tổng cộng làm thu ngân tưởng sai tiền.
-                for (final p in _appliedPromos(order.promotionsJson))
+                for (final p in promos.applied)
                   _sumRow('Khuyến mãi: ${p.$1}', '-${money.format(p.$2)}', negative: true),
 
-                if (order.discount > 0)
+                if (manualDiscount > 0.5)
 
-                  _sumRow('Giảm giá', '-${money.format(order.discount)}', negative: true),
+                  _sumRow('Giảm giá', '-${money.format(manualDiscount)}', negative: true),
 
                 if (order.voucherDiscount > 0)
 
