@@ -85,11 +85,17 @@ class PosProductFilterSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    // Cột trái màn rộng (cao cố định) → tự cuộn; trước đây khóa cuộn nên «Nhà cung cấp»
+    // trở xuống bị che trên T1. Trong sheet lọc điện thoại (đã có khung cuộn) → co theo nội dung.
+    return LayoutBuilder(builder: (context, constraints) {
+      final bounded = constraints.hasBoundedHeight;
+      return Material(
       color: Colors.white,
       child: ListView(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
+        shrinkWrap: !bounded,
+        physics: bounded
+            ? const ClampingScrollPhysics()
+            : const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
           _sectionHeader('Nhóm hàng',
@@ -149,6 +155,7 @@ class PosProductFilterSidebar extends StatelessWidget {
         ],
       ),
     );
+    });
   }
 
   Widget _sectionHeader(String title, {VoidCallback? onCreate, VoidCallback? onManage}) {

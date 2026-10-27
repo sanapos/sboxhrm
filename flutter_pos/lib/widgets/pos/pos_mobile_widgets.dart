@@ -704,7 +704,16 @@ class PosMobileListHeader extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    Icon(icon, color: PosTheme.kiotBlue),
+                    // Mở đè từ menu ☰ bán hàng / «Nhiều hơn» (máy POS ngang) — trước đây chỉ có
+                    // icon, không nút quay lại → kẹt ở màn, phải bấm Back hệ thống.
+                    if (showBack && Navigator.of(context).canPop())
+                      IconButton(
+                        tooltip: tr('Quay lại'),
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () => Navigator.maybePop(context),
+                      )
+                    else
+                      Icon(icon, color: PosTheme.kiotBlue),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(tr(title),
