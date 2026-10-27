@@ -159,7 +159,7 @@ abstract final class MobileBottomNavCatalog {
     ),
     MobileBottomNavItemDef(
       id: 'PosProducts',
-      label: 'Hàng hoá',
+      label: 'Hàng hóa',
       icon: Icons.inventory_2_outlined,
       activeIcon: Icons.inventory_2,
       moduleCode: 'PosProducts',

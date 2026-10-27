@@ -1209,7 +1209,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           if (!inHub) const PosModuleToolbar(activeModule: 'PosProducts'),
           if (mobile)
             PosMobileKiotHeader(
-              title: 'Hàng hoá',
+              title: 'Hàng hóa',
               onSearch: () => _focusSearch(),
               onFilter: inHub ? null : () => _openMobileFilters(perm),
               onSort: inHub ? null : _showSortSheet,

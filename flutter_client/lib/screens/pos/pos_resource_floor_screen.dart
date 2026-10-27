@@ -4793,8 +4793,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   int _floorGridColumns(double usable, {double gap = 8}) {
     if (usable < 300) return 2;
     if (usable < 380) return 3;
-    // Mục tiêu ô ~100–112px → tablet nửa màn ~5–6 cột, full ~7–8.
-    const minTile = 104.0;
+    // Mục tiêu ô ~130–150px → pane trái tablet 10" ~5 cột, full ~7–8. Ô 104px làm «Phòng QA 1»
+    // xuống 2 dòng, ô trông chật dù pane còn thừa chỗ.
+    const minTile = 128.0;
     return ((usable + gap) / (minTile + gap)).floor().clamp(3, 8);
   }
 

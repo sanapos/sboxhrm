@@ -85,7 +85,21 @@ class _PaletteState extends State<_Palette> {
         final hay = SboxCommandPalette.fold(
             '${tr(it.label)} ${tr(it.group)} ${it.subtitle == null ? '' : tr(it.subtitle!)} ${it.keywords.join(' ')}');
         if (!words.every(hay.contains)) continue;
-        final score = label.startsWith(f) ? 0 : (label.contains(f) ? 1 : 2);
+        // Khớp nguyên cụm ở tên / mô tả / từ khóa trước; khớp nhờ tên nhóm xếp cuối —
+        // «doanh thu» trước đây ra «Báo cáo thu chi» đầu tiên (chữ «doanh» lấy từ nhóm «Báo cáo kinh doanh»).
+        final own = SboxCommandPalette.fold(
+            '${tr(it.label)} ${it.subtitle == null ? '' : tr(it.subtitle!)} ${it.keywords.join(' ')}');
+        final score = label.startsWith(f)
+            ? 0
+            : label.contains(f)
+                ? 1
+                : own.contains(f)
+                    ? 2
+                    : words.every(label.contains)
+                        ? 3
+                        : words.every(own.contains)
+                            ? 4
+                            : 5;
         scored.add((score, it));
       }
       scored.sort((a, b) => a.$1.compareTo(b.$1));

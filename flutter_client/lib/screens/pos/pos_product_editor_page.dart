@@ -1073,6 +1073,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   double _parseNum(String s) =>
       parseFormattedNumber(s)?.toDouble() ?? 0;
 
+  /// Ô tiền đang là 0: chạm vào thì bôi đen cả ô — gõ số là thay luôn, không thành «05.000».
+  void _selectAllIfZero(TextEditingController c) {
+    if (_parseNum(c.text) != 0) return;
+    c.selection = TextSelection(baseOffset: 0, extentOffset: c.text.length);
+  }
+
   /// Số phút mỗi block (mặc định 5 như công thức tính tiền).
   int get _blockMinutes {
     final v = int.tryParse(_billRoundMinutesCtrl.text.trim());
@@ -1904,6 +1910,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final size = MediaQuery.sizeOf(context);
     final pad = MediaQuery.paddingOf(context);
     final narrow = size.width < 600;
+    // Đang gõ: dialog co vào phần trên bàn phím — bỏ hàng tab «Thông tin / Mô tả» để thân form
+    // còn chỗ, giữ tiêu đề + nút Lưu trong tầm nhìn.
+    final showTabs = _tabLabels.length > 1 && MediaQuery.viewInsetsOf(context).bottom <= 0;
     return wrapPosFormDialog(
       context,
       Dialog(
@@ -1926,7 +1935,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             _buildKiotVietHeader(),
             Material(
               color: Colors.white,
-              child: _tabLabels.length > 1
+              child: showTabs
                   ? TabBar(
                       controller: _tabs,
                       labelColor: PosTheme.kiotBlue,
@@ -1937,7 +1946,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     )
                   : const SizedBox.shrink(),
             ),
-            if (_tabLabels.length > 1) const Divider(height: 1),
+            if (showTabs) const Divider(height: 1),
             Expanded(
               child: _loading
                   ? const Center(
@@ -2201,6 +2210,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 Expanded(
                   child: TextField(
                     controller: _costCtrl,
+                    onTap: () => _selectAllIfZero(_costCtrl),
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
                     enabled: _canViewCost,
@@ -2212,6 +2222,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 Expanded(
                   child: TextField(
                     controller: _priceCtrl,
+                    onTap: () => _selectAllIfZero(_priceCtrl),
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
                     decoration: PosTheme.inputDecoration(label: _priceLabel),
@@ -2618,6 +2629,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     Expanded(
                       child: TextField(
                         controller: _costCtrl,
+                        onTap: () => _selectAllIfZero(_costCtrl),
                         keyboardType: TextInputType.number,
                         inputFormatters: [ThousandSeparatorFormatter()],
                         enabled: _canViewCost,
@@ -2631,6 +2643,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       Expanded(
                         child: TextField(
                           controller: _priceCtrl,
+                          onTap: () => _selectAllIfZero(_priceCtrl),
                           keyboardType: TextInputType.number,
                           inputFormatters: [ThousandSeparatorFormatter()],
                           decoration: PosTheme.inputDecoration(label: _priceLabel),
@@ -2909,11 +2922,15 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           _kvExpansion(
             title: 'Giá bán',
-            child: Row(
+            // Chừa chỗ cho nhãn nổi của ô (bị cắt mép trên khi ô sát tiêu đề mục).
+            child: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _priceCtrl,
+                    onTap: () => _selectAllIfZero(_priceCtrl),
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
                     decoration: PosTheme.inputDecoration(label: _priceLabel),
@@ -2937,6 +2954,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   ),
                 ),
               ],
+            ),
             ),
           ),
           _buildProductVatSection(),
@@ -4744,6 +4762,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               Expanded(
                 child: TextField(
                   controller: _costCtrl,
+                  onTap: () => _selectAllIfZero(_costCtrl),
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
                   enabled: _canViewCost,
@@ -4755,6 +4774,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               Expanded(
                 child: TextField(
                   controller: _priceCtrl,
+                  onTap: () => _selectAllIfZero(_priceCtrl),
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
                   decoration: PosTheme.inputDecoration(label: _priceLabel),
@@ -4880,6 +4900,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               Expanded(
                 child: TextField(
                   controller: _costCtrl,
+                  onTap: () => _selectAllIfZero(_costCtrl),
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
                   enabled: _canViewCost,
@@ -4891,6 +4912,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               Expanded(
                 child: TextField(
                   controller: _priceCtrl,
+                  onTap: () => _selectAllIfZero(_priceCtrl),
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
                   decoration: PosTheme.inputDecoration(label: priceLabel),

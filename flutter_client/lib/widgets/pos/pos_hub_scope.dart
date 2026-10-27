@@ -61,7 +61,7 @@ abstract final class PosHubModules {
 
   static const tabLabels = [
     'Tổng quan',
-    'Hàng hoá',
+    'Hàng hóa',
     'Bán hàng',
     'Hoá đơn',
     'Nhiều hơn',

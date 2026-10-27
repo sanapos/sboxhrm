@@ -416,6 +416,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return true;
   }
 
+  /// Từ người dùng hay gõ mà tên / mô tả mục không có — chỉ để khớp tìm, không hiển thị.
+  /// «doanh thu» trước đây chỉ ra «Báo cáo thu chi» (khớp nhờ nhóm «Báo cáo kinh doanh»).
+  static const _kPaletteExtraKeywords = <String, List<String>>{
+    // Theo nhãn gốc: mã quyền PosSalesReport dùng chung với «Công nợ khách hàng».
+    'Báo cáo POS': ['doanh thu', 'bán hàng', 'cuối ngày', 'doanh số'],
+  };
+
   Future<void> _openCommandPalette() async {
     if (_paletteOpen) return;
     final l = AppLocalizations.of(context);
@@ -431,7 +438,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             icon: _navItems[i].icon,
             group: _navItems[i].localizedGroup(l),
             subtitle: _navItems[i].subtitle,
-            keywords: [_navItems[i].label, _navItems[i].moduleCode ?? ''],
+            keywords: [
+              _navItems[i].label,
+              _navItems[i].moduleCode ?? '',
+              ...?_kPaletteExtraKeywords[_navItems[i].label],
+            ],
             onSelect: () => _tryNavigateToIndex(i),
           ),
       ..._posExtraCommandItems(),
