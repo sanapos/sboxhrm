@@ -63,6 +63,7 @@ import 'settings_screen.dart';
 import 'system_admin_screen.dart' deferred as system_admin;
 import '../widgets/deferred_screen.dart';
 import 'settings_hub_screen.dart';
+import '../utils/settings_hub_catalog.dart';
 import 'business_trip_expense_screen.dart';
 import 'notifications_screen.dart';
 import 'schedule_approval_screen.dart';
@@ -416,6 +417,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return true;
   }
 
+  /// Từ người dùng hay gõ mà tên / mô tả mục không có — chỉ để khớp tìm, không hiển thị.
+  /// «doanh thu» trước đây chỉ ra «Báo cáo thu chi» (khớp nhờ nhóm «Báo cáo kinh doanh»).
+  static const _kPaletteExtraKeywords = <String, List<String>>{
+    // Theo nhãn gốc: mã quyền PosSalesReport dùng chung với «Công nợ khách hàng».
+    'Báo cáo POS': ['doanh thu', 'bán hàng', 'cuối ngày', 'doanh số'],
+  };
+
   Future<void> _openCommandPalette() async {
     if (_paletteOpen) return;
     final l = AppLocalizations.of(context);
@@ -431,17 +439,47 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             icon: _navItems[i].icon,
             group: _navItems[i].localizedGroup(l),
             subtitle: _navItems[i].subtitle,
-            keywords: [_navItems[i].label, _navItems[i].moduleCode ?? ''],
+            keywords: [
+              _navItems[i].label,
+              _navItems[i].moduleCode ?? '',
+              ...?_kPaletteExtraKeywords[_navItems[i].label],
+            ],
             onSelect: () => _tryNavigateToIndex(i),
           ),
       ..._posExtraCommandItems(),
     ];
+    items.addAll(_settingsCommandItems({for (final i in items) i.label.toLowerCase()}));
     _paletteOpen = true;
     try {
       await SboxCommandPalette.show(context, items, hint: 'Tìm chức năng… (vd: nhập hàng, bảng lương)');
     } finally {
       _paletteOpen = false;
     }
+  }
+
+  /// Trang con của Thiết lập SBOX («Ngành hàng & cách bán», «Tài khoản nhận tiền»…) — trước đây gõ
+  /// «ngành hàng» không ra gì dù màn Ca thu ngân / Thanh toán chỉ người dùng vào đó.
+  List<SboxCommandItem> _settingsCommandItems(Set<String> takenLabels) {
+    final hubIdx = _visibleNavIndices()
+        .where((i) => _navItems[i].moduleCode == 'SettingsHub')
+        .toList();
+    if (hubIdx.isEmpty) return const [];
+    final visible = SettingsHubScreen.visibleItems(context, SettingsHubCatalog.itemsForCurrentApp);
+    return [
+      for (final it in visible)
+        if (!takenLabels.contains(it.label.toLowerCase()))
+          SboxCommandItem(
+            label: it.label,
+            icon: it.icon,
+            group: 'Thiết lập SBOX',
+            subtitle: it.desc,
+            keywords: [it.groupTitle, ...it.keywords],
+            onSelect: () {
+              SettingsHubScreen.openCode(it.code);
+              _tryNavigateToIndex(hubIdx.first);
+            },
+          ),
+    ];
   }
 
   /// Màn POS chỉ mở từ menu «Nhiều hơn» / màn Bán hàng (không nằm trên thanh điều hướng)
@@ -476,9 +514,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             icon: d.$2,
             group: 'POS / Bán hàng',
             keywords: [...d.$4, d.$3],
-            onSelect: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => PosHubScope.pushed(child: d.$5())),
-            ),
+            onSelect: () => _openShellExtra(d.$1, d.$5),
           ),
     ];
   }
@@ -931,11 +967,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (_navItems[index].openAsPage) {
       final screen = _navItems[index].screen;
       // Sau khung hình: nơi gọi (ngăn «Thêm», truy cập nhanh) còn đóng ngăn kéo bằng Navigator.pop.
+      // Tablet / desktop: hiện trong khung chính như màn POS phụ khác; điện thoại / màn bán: push.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => PosHubScope.pushed(child: screen)),
-        );
+        _openShellExtra(_navItems[index].localizedLabel(AppLocalizations.of(context)), () => screen);
       });
       return true;
     }
@@ -1049,8 +1084,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   void _navigateToIndex(int index) {
-    if (index == _selectedIndex) return;
+    if (index == _selectedIndex) {
+      if (_shellExtra != null) setState(() => _shellExtra = null);
+      return;
+    }
     setState(() {
+      _shellExtra = null;
       _navigationHistory.add(_selectedIndex);
       // Keep history manageable
       if (_navigationHistory.length > 50) {
@@ -1066,7 +1105,28 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     });
   }
 
+  /// Màn POS phụ (Ca thu ngân, Voucher…) mở từ ô tìm chức năng, hiện TRONG khung chính
+  /// (sidebar + «← tiêu đề») thay vì đè cả màn với thanh trắng riêng — cùng kiểu Hàng hóa / Khách hàng.
+  ({String title, Widget child})? _shellExtra;
+
+  /// Mở [child] trong khung chính khi khung đang hiện (tablet / desktop); còn lại push như cũ.
+  void _openShellExtra(String title, Widget Function() child) {
+    final immersive = SystemUiInsetMode.immersive.value;
+    if (!_wideLayout ||
+        _hideShellForModule(_screenModuleCode(_selectedIndex), immersive: immersive)) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => PosHubScope.pushed(child: child())),
+      );
+      return;
+    }
+    setState(() => _shellExtra = (title: title, child: KeyedSubtree(key: UniqueKey(), child: child())));
+  }
+
   void _goBack() {
+    if (_shellExtra != null) {
+      setState(() => _shellExtra = null);
+      return;
+    }
     // If SettingsHub has an active sub-screen, go back to hub menu first
     if (SettingsHubScreen.internalBackCallback != null) {
       SettingsHubScreen.internalBackCallback!();
@@ -1094,6 +1154,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   bool get _canGoBack =>
+      _shellExtra != null ||
       _navigationHistory.isNotEmpty ||
       SettingsHubScreen.internalBackCallback != null ||
       TaskManagementScreen.internalBackCallback != null ||
@@ -1104,6 +1165,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   String _settingsHubTitle(AppLocalizations l) {
+    final extra = _shellExtra;
+    if (extra != null) return extra.title;
     final sub = SettingsHubScreen.activeSubPageTitle;
     if (sub != null && sub.isNotEmpty) return sub;
     return _navItems[_selectedIndex].localizedLabel(l);
@@ -2650,6 +2713,20 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   /// Desktop/tablet: keep home mounted (Offstage) so returning from a module restores scroll.
   Widget _buildPersistentMainContent() {
+    final extra = _shellExtra;
+    final main = _buildKeptMainStack();
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Màn chính giữ State (Offstage) khi đang mở màn phụ — Back quay về đúng chỗ cũ.
+        Offstage(offstage: extra != null, child: TickerMode(enabled: extra == null, child: main)),
+        if (extra != null)
+          ColoredBox(color: Theme.of(context).scaffoldBackgroundColor, child: extra.child),
+      ],
+    );
+  }
+
+  Widget _buildKeptMainStack() {
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -3099,6 +3176,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final nav = Navigator.of(context);
     if (nav.canPop()) {
       nav.pop();
+      return;
+    }
+    if (_shellExtra != null) {
+      _goBack();
       return;
     }
     if (SettingsHubScreen.internalBackCallback != null) {

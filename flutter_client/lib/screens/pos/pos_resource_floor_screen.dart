@@ -2685,7 +2685,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
-        final h = MediaQuery.sizeOf(ctx).height * 0.62;
+        // Cao vừa số bàn (trần 62% màn) — trước đây luôn 62%: 1 bàn trống mà sheet trắng gần hết màn.
+        final maxH = MediaQuery.sizeOf(ctx).height * 0.62;
+        final want = 64.0 + (areaOptions.length > 1 ? 44 : 0) + free.length * 64.0 + 16;
+        final h = want < maxH ? want : maxH;
         return SafeArea(
           child: SizedBox(
             height: h,
@@ -2698,10 +2701,19 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: Text(tr(title),
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600)),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 4, 0),
+                      child: Row(children: [
+                        Expanded(
+                          child: Text(tr(title),
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w600)),
+                        ),
+                        IconButton(
+                          tooltip: tr('Đóng'),
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ]),
                     ),
                     if (areaOptions.length > 1)
                       SizedBox(
@@ -2745,9 +2757,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                               itemBuilder: (_, i) {
                                 final t = filtered[i];
                                 return ListTile(
+                                  leading: Icon(_kindIcon(t.resourceKind),
+                                      color: PosTheme.kiotBlue),
                                   title: Text(tr(t.name)),
                                   subtitle:
                                       Text(tr('${t.code} · ${t.areaName}')),
+                                  trailing: const Icon(Icons.chevron_right),
                                   onTap: () => Navigator.pop(ctx, t),
                                 );
                               },
@@ -2921,7 +2936,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 return CheckboxListTile(
                   value: selected.contains(id),
                   title: Text(tr(name)),
-                  subtitle: Text(tr('SL $qty')),
+                  // «SL 3» chứ không «SL 3.0» (double in thẳng).
+                  subtitle: Text(tr('SL ${NumberFormat('#,##0.##', 'vi_VN').format(qty)}')),
                   onChanged: (v) => setLocal(() {
                     if (v == true) {
                       selected.add(id);
@@ -2937,8 +2953,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 child: Text(tr('Huỷ'))),
+            // Chưa chọn món thì «Tiếp» mờ — trước đây bấm được rồi đóng hộp im lặng.
             FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
+                onPressed: selected.isEmpty ? null : () => Navigator.pop(ctx, true),
                 child: Text(tr('Tiếp'))),
           ],
         ),
@@ -3251,17 +3268,51 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Future<void> _setGuests(PosServiceResourceDto r) async {
     final sid = r.openSessionId;
     if (sid == null) return;
-    final ctrl = TextEditingController(text: tr('${r.guestCount > 0 ? r.guestCount : 1}'));
+    final maxGuests = r.capacity > 0 ? r.capacity : 99;
+    var guests = r.guestCount > 0 ? r.guestCount : 1;
+    final ctrl = TextEditingController(text: '$guests');
+    // Cùng kiểu hộp «Mở bàn»: chip 1/2/4/6/8 + ô số — trước đây chỉ một ô trơn phải gõ.
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
         title: Text(tr('Số khách')),
-        content: PosNoSoftKeyboardField(
-          controller: ctrl,
-          allowDecimal: false,
-          autofocus: true,
-          keypadTitle: 'Số khách',
-          decoration: const InputDecoration(border: OutlineInputBorder()),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final n in const [1, 2, 4, 6, 8])
+                  if (n <= maxGuests)
+                    ChoiceChip(
+                      label: Text('$n'),
+                      selected: guests == n,
+                      onSelected: (_) => setLocal(() {
+                        guests = n;
+                        ctrl.text = '$n';
+                      }),
+                    ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            PosNoSoftKeyboardField(
+              controller: ctrl,
+              allowDecimal: false,
+              keypadTitle: 'Số khách',
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                hintText: tr('Số khác'),
+                isDense: true,
+              ),
+              onChanged: (v) {
+                final n = int.tryParse(v.trim());
+                if (n != null) setLocal(() => guests = n.clamp(1, maxGuests));
+              },
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -3272,9 +3323,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               child: Text(tr('Lưu'))),
         ],
       ),
+      ),
     );
     if (ok != true) return;
-    final n = int.tryParse(ctrl.text.trim()) ?? 1;
+    final n = (int.tryParse(ctrl.text.trim()) ?? guests).clamp(1, maxGuests);
     await _api.setPosResourceSessionGuests(sid, n);
     await _reload();
   }
@@ -4793,8 +4845,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   int _floorGridColumns(double usable, {double gap = 8}) {
     if (usable < 300) return 2;
     if (usable < 380) return 3;
-    // Mục tiêu ô ~100–112px → tablet nửa màn ~5–6 cột, full ~7–8.
-    const minTile = 104.0;
+    // Mục tiêu ô ~130–150px → pane trái tablet 10" ~5 cột, full ~7–8. Ô 104px làm «Phòng QA 1»
+    // xuống 2 dòng, ô trông chật dù pane còn thừa chỗ.
+    const minTile = 128.0;
     return ((usable + gap) / (minTile + gap)).floor().clamp(3, 8);
   }
 

@@ -287,7 +287,7 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
                   label: 'Khách hàng',
                   primary: true,
                   flex: 3,
-                  minWidth: 220,
+                  minWidth: 200,
                   cell: (c) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                     Row(mainAxisSize: MainAxisSize.min, children: [
                       Flexible(
@@ -311,7 +311,7 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
                 ),
                 SboxColumn(label: 'Điện thoại', minWidth: 130, text: (c) => c.phone ?? '—'),
                 SboxColumn(label: 'Sinh nhật', minWidth: 90, hideOnMobile: true, text: (c) => _dm(c.birthday)),
-                SboxColumn(label: 'Mua gần nhất', minWidth: 120, hideOnMobile: true, text: (c) => c.orderCount > 0 ? '${_ago(c.lastPurchaseAt)} · ${c.orderCount} đơn' : 'Chưa mua'),
+                SboxColumn(label: 'Mua gần nhất', flex: 2, minWidth: 150, hideOnMobile: true, text: (c) => c.orderCount > 0 ? '${_ago(c.lastPurchaseAt)} · ${c.orderCount} đơn' : 'Chưa mua'),
                 SboxColumn(label: 'Tổng mua', numeric: true, minWidth: 130, text: (c) => SboxFmt.money(c.totalPurchase)),
                 SboxColumn(
                   label: 'Công nợ',
@@ -642,7 +642,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                       final d = (t['sessionDelta'] as num?)?.toInt() ?? 0;
                       return d > 0 ? '+$d' : '$d';
                     }),
-                    SboxColumn(label: 'Ghi chú', minWidth: 160, hideOnMobile: true, text: (t) => '${t['note'] ?? ''}'),
+                    SboxColumn(label: 'Ghi chú', flex: 2, minWidth: 160, hideOnMobile: true, text: (t) => '${t['note'] ?? ''}'),
                   ],
                 ),
               ),
@@ -686,9 +686,6 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                       );
                     },
                   ),
-                  SboxColumn(label: 'Phải trả', numeric: true, minWidth: 120,
-                      text: (o) => SboxFmt.money(_d(o['payableTotal'] ?? o['total']))),
-                  SboxColumn(label: 'Đã trả', numeric: true, minWidth: 120, text: (o) => SboxFmt.money(_d(o['paidAmount']))),
                   SboxColumn(
                     label: 'Hình thức',
                     minWidth: 140,
@@ -699,6 +696,9 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                           style: SboxType.bodyStyle(l.contains('Công nợ') ? SboxColors.dangerText : SboxColors.text));
                     },
                   ),
+                  SboxColumn(label: 'Phải trả', numeric: true, minWidth: 120,
+                      text: (o) => SboxFmt.money(_d(o['payableTotal'] ?? o['total']))),
+                  SboxColumn(label: 'Đã trả', numeric: true, minWidth: 120, text: (o) => SboxFmt.money(_d(o['paidAmount']))),
                   SboxColumn(
                     label: 'Còn nợ',
                     numeric: true,
@@ -770,7 +770,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                         style: SboxType.bodyStyle(p >= 0 ? SboxColors.successText : SboxColors.dangerText));
                   }),
                   SboxColumn(label: 'Còn lại', numeric: true, minWidth: 90, text: (t) => SboxFmt.number(_d(t['balanceAfter']))),
-                  SboxColumn(label: 'Ghi chú', minWidth: 160, hideOnMobile: true, text: (t) => '${t['note'] ?? ''}'),
+                  SboxColumn(label: 'Ghi chú', flex: 2, minWidth: 160, hideOnMobile: true, text: (t) => '${t['note'] ?? ''}'),
                 ],
               ),
             ),
@@ -784,7 +784,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                 columns: [
                   SboxColumn(label: 'Số phiếu', primary: true, minWidth: 140, text: (p) => '${p['paymentNo'] ?? '—'}'),
                   SboxColumn(label: 'Ngày', minWidth: 140, text: (p) => _date(p['paidAt'])),
-                  SboxColumn(label: 'Hình thức', minWidth: 120, text: (p) => '${p['paymentMethod'] ?? ''}'),
+                  SboxColumn(label: 'Hình thức', minWidth: 120, text: (p) => tr(posPaymentMethodVi('${p['paymentMethod'] ?? ''}'))),
                   SboxColumn(label: 'Số tiền', numeric: true, minWidth: 120, text: (p) => SboxFmt.money(_d(p['amount']))),
                   SboxColumn(label: 'Ghi chú / đơn trừ nợ', minWidth: 200, hideOnMobile: true, text: (p) => '${p['note'] ?? ''}'),
                 ],

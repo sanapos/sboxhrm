@@ -1313,6 +1313,7 @@
   "Bậc thuế, giảm trừ gia cảnh": "税率档次、家庭扶养扣除",
   "Bậc thưởng vượt chỉ tiêu (=100": "超额奖金档次（=100",
   "Bậc thưởng vượt chỉ tiêu (=100%)": "超额奖金档次（=100%）",
+  "Bận": "忙碌",
   "Bật": "开",
   "Bật / tắt thông báo chấm công, công việc, bán hàng": "开启 / 关闭考勤、任务、销售通知",
   "Bật / tắt tất cả": "全部开启/关闭",
@@ -6685,7 +6686,10 @@
   "Khách lẻ": "散客",
   "Khách lẻ (chưa chọn khách)": "散客（未选择客户）",
   "Khách mua": "购买客户",
+  "Khách mua dịch vụ này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).": "购买此服务的顾客按通用设置（SBOX 设置 › 积分）累积积分。",
   "Khách mua gói phải được chọn trên hóa đơn — không có khách thì không cộng buổi được.": "购买套餐的客户必须在账单上选定 — 没有客户就无法累加次数。",
+  "Khách mua hàng này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).": "购买此商品的顾客按通用设置（SBOX 设置 › 积分）累积积分。",
+  "Khách mua món này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).": "点此菜品的顾客按通用设置（SBOX 设置 › 积分）累积积分。",
   "Khách mua nhiều nhất": "购买最多的客户",
   "Khách mới (chưa có trong danh sách)": "新客户（不在列表中）",
   "Khách mới, khách cũ, khách lẻ": "新客户、老客户、散客",
@@ -14026,6 +14030,7 @@
   "Thời điểm phân chia ngày chấm công": "考勤日划分时间",
   "Thợ làm": "技师",
   "Thợ quen": "熟悉的师傅",
+  "Thợ đã chọn": "所选技师",
   "Thủ công": "手动",
   "Thủ kho": "仓管",
   "Thủ quỹ": "出纳",
@@ -16813,6 +16818,7 @@
   "Xin chào SBOX HRM": "欢迎使用 SBOX HRM",
   "Xin chào SBOX HRM!": "欢迎使用 SBOX HRM！",
   "Xin chào quý khách": "欢迎光临",
+  "Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng và nhân sự (theo quyền của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ, chấm công, đi trễ, nghỉ phép, lương… Tôi cũng lập / sửa phiếu theo lời bạn (phiếu thu chi, phạt, thưởng, ứng lương, tăng ca, bổ sung chấm công, hóa đơn bán) — bạn chỉ cần kiểm tra rồi bấm Xác nhận. Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.": "您好！我是本店的虚拟助手。我会（在您的权限范围内）读取销售和人事报表，回答并分析：营业额、利润、畅销商品、库存、欠款、考勤、迟到、请假、工资……我也可以按您的要求创建或修改单据（收支单、罚款、奖金、预支工资、加班、补打卡、销售发票）——您只需检查后点击确认。点击麦克风、输入问题或选择下方的建议。",
   "Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng và nhân sự (đúng quyền và phạm vi của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ, chấm công, đi trễ, nghỉ phép, lương… Tôi cũng làm thay bạn: lập / sửa phiếu, duyệt hoặc từ chối đơn, đổi giá, ngừng bán, xóa phiếu, hủy hóa đơn — bạn kiểm tra rồi bấm Xác nhận (thao tác xóa / hủy sẽ hỏi lại một lần nữa). Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.": "您好！我是门店的智能助手。我会在您的权限和范围内读取销售与人事报表，用于回答和分析：营业额、利润、热销商品、库存、往来款、考勤、迟到、请假、工资…我也能替您操作：创建 / 修改单据、批准或拒绝申请、改价、停售、删除单据、作废发票 — 请核对后点击确认（删除 / 作废操作会再确认一次）。点击麦克风、输入问题或选择下方建议。",
   "Xin chào! Tôi là trợ lý ảo HRM của bạn. Bạn có thể hỏi về phép, chấm công, lương, hoặc nhờ tôi hướng dẫn đăng ký nghỉ / đổi ca / báo quên chấm công. Bấm micro để nói hoặc gõ tin nhắn.": "您好！我是您的 HRM 智能助手。您可以询问请假、考勤、工资，也可以让我指导您申请休假 / 换班 / 报告漏打卡。点击麦克风说话或输入消息。",
   "Xin chào, tôi là trợ lý ảo của cửa hàng.": "您好，我是门店的智能助手。",
@@ -22895,6 +22901,10 @@
    "有客人点了{0}"
   ],
   [
+   "Có lịch {0}–{1}",
+   "已有预约 {0}–{1}"
+  ],
+  [
    "Có mặt – {0}",
    "到岗 – {0}"
   ],
@@ -23401,6 +23411,10 @@
   [
    "Dải số hóa đơn offline đã cấp ({0})",
    "已分配的离线账单号段（{0}）"
+  ],
+  [
+   "Dịch vụ {0}đ",
+   "服务 {0}đ"
   ],
   [
    "Dự kiến {0} · khớp {1} · thiếu {2} · mã lạ {3}",
@@ -25939,6 +25953,10 @@
    "菜单中的菜品（{0}）"
   ],
   [
+   "Món {0}đ",
+   "菜品 {0}đ"
+  ],
+  [
    "Mất KN: {0}",
    "断线：{0}"
   ],
@@ -27645,6 +27663,10 @@
   [
    "Thời lượng: {0} (tính {1})",
    "时长：{0}（计费 {1}）"
+  ],
+  [
+   "Thợ quen của khách ({0} lần)",
+   "顾客的熟悉师傅（{0}次）"
   ],
   [
    "Thừa {0}đ",
@@ -30123,6 +30145,14 @@
    "{0} 此时段无空"
   ],
   [
+   "{0} không rảnh khung này ({1}) — chuyển sang Tự xếp",
+   "{0} 此时段没空（{1}）— 已改为自动排班"
+  ],
+  [
+   "{0} không rảnh khung này — chuyển sang Tự xếp",
+   "{0} 此时段没空 — 已改为自动排班"
+  ],
+  [
    "{0} không đến",
    "{0} 未到"
   ],
@@ -32199,6 +32229,10 @@
    "农历 {0}/{1}"
   ],
   [
+   "Ít việc nhất hôm nay ({0} việc)",
+   "今天任务最少（{0}项）"
+  ],
+  [
    "Ô {0} — chọn chức năng",
    "单元格 {0} — 选择功能"
   ],
@@ -32297,6 +32331,10 @@
   [
    "Đang liên kết: {0}. Chọn nhân viên khác để thay đổi.",
    "已关联：{0}。如需更改请选择其他员工。"
+  ],
+  [
+   "Đang làm cho khách, dự kiến xong {0}",
+   "正在服务顾客，预计 {0} 完成"
   ],
   [
    "Đang lập {0}…",

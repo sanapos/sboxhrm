@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../utils/api_datetime.dart';
 
 import 'package:flutter/material.dart';
@@ -410,14 +411,14 @@ class _PosCancelReturnHistoryScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: PosTheme.background,
-      appBar: AppBar(
+      appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Lịch sử hủy / trả')),
         backgroundColor: Colors.white,
         foregroundColor: SboxColors.text,
         elevation: 0.5,
         actions: [
         ],
-      ),
+      )),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(

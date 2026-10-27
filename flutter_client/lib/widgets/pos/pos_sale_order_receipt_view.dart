@@ -116,9 +116,10 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
             ...List.generate(order.lines.length, (i) {
 
-              final line = order.lines[order.lines.length - 1 - i];
+              // Thứ tự như hóa đơn in (STT 1, 2, 3…) — trước đây đảo ngược, STT chạy 4, 3, 2, 1.
+              final line = order.lines[i];
 
-              final index = order.lines.length - i;
+              final index = i + 1;
 
               return Column(
 

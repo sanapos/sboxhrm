@@ -57,6 +57,10 @@ import 'tax_settings_screen.dart';
 class SettingsHubScreen extends StatefulWidget {
   const SettingsHubScreen({super.key});
 
+  /// Mục Thiết lập người dùng này thấy được (quyền + gói) — hub và ô «Tìm chức năng» dùng chung.
+  static List<SettingsHubItemDef> visibleItems(BuildContext context, List<SettingsHubItemDef> items) =>
+      _settingsVisibleItems(context, items);
+
   /// MainLayout lắng nghe để hiện tiêu đề + nút back khi mở trang con.
   static final ValueNotifier<int> chromeEpoch = ValueNotifier(0);
 
@@ -795,7 +799,12 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
 
   // ─── Quyền / gói dịch vụ ───────────────────────────────────────
 
-  List<SettingsHubItemDef> _filterItems(List<SettingsHubItemDef> items) {
+  List<SettingsHubItemDef> _filterItems(List<SettingsHubItemDef> items) =>
+      SettingsHubScreen.visibleItems(context, items);
+}
+
+/// Lọc mục Thiết lập theo quyền / gói — dùng chung cho hub và ô «Tìm chức năng».
+List<SettingsHubItemDef> _settingsVisibleItems(BuildContext context, List<SettingsHubItemDef> items) {
     final authUser = Provider.of<AuthProvider>(context, listen: false).user;
     final role = (authUser?.role ?? '').toLowerCase();
     if (role == 'superadmin') return items;
@@ -836,7 +845,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       if (item.moduleCode != null && !permProvider.canViewExact(item.moduleCode!)) return false;
       return true;
     }).toList();
-  }
 }
 
 class _SettingsAccessDeniedScreen extends StatelessWidget {

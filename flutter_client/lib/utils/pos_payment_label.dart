@@ -2,19 +2,21 @@
 /// Nhãn đã là tiếng Việt hoặc tên tài khoản nhận tiền thì giữ nguyên.
 String posPaymentMethodVi(String? method) {
   final m = (method ?? '').trim();
-  switch (m.toLowerCase()) {
+  switch (m.toLowerCase().replaceAll(RegExp(r'[\s_-]'), '')) {
     case 'cash':
       return 'Tiền mặt';
     case 'transfer':
     case 'banktransfer':
-    case 'bank_transfer':
     case 'bank':
       return 'Chuyển khoản';
     case 'card':
+    case 'creditcard':
       return 'Thẻ';
     case 'debt':
     case 'credit':
       return 'Công nợ';
+    case 'mixed':
+      return 'Tiền mặt + CK';
   }
   return m;
 }

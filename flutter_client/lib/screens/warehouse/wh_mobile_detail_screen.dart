@@ -520,11 +520,13 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          _lines[i]['qty'] == null
-                              ? tr('Chưa kiểm')
-                              : tr('SL: ${formatViQty(_lines[i]['qty'] as num)}'),
-                          style: WhMobileTheme.body.copyWith(fontWeight: FontWeight.w600),
+                        Flexible(
+                          child: Text(
+                            _lines[i]['qty'] == null
+                                ? tr('Chưa kiểm')
+                                : tr('SL: ${_qtyLabel(_lines[i])}'),
+                            style: WhMobileTheme.body.copyWith(fontWeight: FontWeight.w600),
+                          ),
                         ),
                         if (_lines[i]['extra'] != null)
                           Text(tr(_lines[i]['extra'].toString()), style: WhMobileTheme.caption),
@@ -538,5 +540,16 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
               ],
             ),
     );
+  }
+
+  /// «10 Cái × 15.000 đ» — trước đây chỉ «SL: 10», không biết đơn vị lẫn đơn giá của dòng.
+  /// Phiếu kiểm (có «Tồn HT») giữ số lượng + đơn vị: tiền dòng là giá trị chênh, không phải đơn giá × SL.
+  String _qtyLabel(Map<String, dynamic> l) {
+    final qty = l['qty'] as num;
+    final unit = (l['unit'] ?? '').toString().trim();
+    final base = '${formatViQty(qty)}${unit.isEmpty ? '' : ' $unit'}';
+    final total = (l['total'] as num?)?.toDouble() ?? 0;
+    if (l['extra'] != null || qty == 0 || total == 0) return base;
+    return '$base × ${_svc.formatMoney(total / qty)}';
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../widgets/hrm_page_chrome.dart';
 import 'package:flutter/material.dart';
 import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
@@ -258,7 +259,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
     final pushed = PosHubScope.pushedSubPageOf(context);
     return Scaffold(
       backgroundColor: SboxColors.slate100,
-      appBar: AppBar(
+      appBar: shellAwareAppBar(context, AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0.5,
@@ -267,7 +268,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
         title: Text(tr('Ca thu ngân')),
         actions: [
         ],
-      ),
+      )),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(

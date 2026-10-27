@@ -2239,6 +2239,9 @@ class PosStaffAvailabilityDto {
     this.jobsToday = 0,
     this.bookedMinutesToday = 0,
     this.shifts = const [],
+    this.busyKind,
+    this.busyFrom,
+    this.busyTo,
   });
 
   final String employeeId;
@@ -2255,6 +2258,11 @@ class PosStaffAvailabilityDto {
 
   /// Ca trong ngày theo giờ VN: [(«08:00», «17:00»)].
   final List<(String, String)> shifts;
+
+  /// Bận vì «booking» (lịch khác) hay «serving» (đang làm cho khách) — giờ «HH:mm» VN.
+  final String? busyKind;
+  final String? busyFrom;
+  final String? busyTo;
 
   String get shiftLabel => shifts.map((s) => '${s.$1}–${s.$2}').join(', ');
 
@@ -2273,6 +2281,9 @@ class PosStaffAvailabilityDto {
       jobsToday: ((j['jobsToday'] ?? j['JobsToday']) as num?)?.toInt() ?? 0,
       bookedMinutesToday:
           ((j['bookedMinutesToday'] ?? j['BookedMinutesToday']) as num?)?.toInt() ?? 0,
+      busyKind: (j['busyKind'] ?? j['BusyKind'])?.toString(),
+      busyFrom: (j['busyFrom'] ?? j['BusyFrom'])?.toString(),
+      busyTo: (j['busyTo'] ?? j['BusyTo'])?.toString(),
       shifts: rawShifts is List
           ? [
               for (final s in rawShifts.whereType<Map>())

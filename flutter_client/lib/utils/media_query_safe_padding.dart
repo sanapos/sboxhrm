@@ -102,6 +102,10 @@ Widget padAwaySystemBars(BuildContext context, Widget child, {bool? immersive}) 
           raw.padding.bottom,
           raw.viewPadding.bottom,
         ]);
+  // Bàn phím đang mở: inset IME tính từ đáy màn, đã phủ cả thanh điều hướng. Đệm thêm
+  // viewPadding (thanh điều hướng ~48dp) làm màn bị đẩy dư → dải nền trống giữa ô đang gõ
+  // và bàn phím (đo trên C20: inset 376dp = đúng mép bàn phím, dư đúng 48dp).
+  if (inherited.viewInsets.bottom > 1) bottom = 0;
   if (hideBars) {
     if (top <= 0.5) top = 0;
     if (inherited.viewInsets.bottom <= 1 && bottom <= 0.5) bottom = 0;

@@ -125,21 +125,28 @@ class WhMobileDocService {
     final data = res['data'] as Map;
     final items = ((data['items'] as List?) ?? [])
         .map((e) => PosStockCount.fromJson(e as Map<String, dynamic>))
-        .map((c) => WhDocListItem(
+        .map((c) {
+          // Phiếu không đặt tên thì tên = mã — đừng lặp «KK000001 · lệch» ngay dưới mã phiếu.
+          final name = c.name.trim() == c.countNo.trim() ? '' : c.name.trim();
+          final diff = c.totalDiffQty == 0
+              ? ''
+              : 'lệch ${c.totalDiffQty > 0 ? '+' : ''}${c.totalDiffQty.toStringAsFixed(c.totalDiffQty == c.totalDiffQty.roundToDouble() ? 0 : 2)}';
+          return WhDocListItem(
               id: c.id,
               docNo: c.countNo,
               status: c.status,
               // Tiền chênh lệch có dấu (âm = thiếu) — trước đây bỏ dấu nên không biết thừa hay thiếu.
               amount: c.totalDiffValue,
               lineCount: c.lineCount,
-              subtitle: c.totalDiffQty == 0
-                  ? c.name
-                  : '${c.name} · lệch ${c.totalDiffQty > 0 ? '+' : ''}${c.totalDiffQty.toStringAsFixed(c.totalDiffQty == c.totalDiffQty.roundToDouble() ? 0 : 2)}',
+              subtitle: name.isEmpty && diff.isEmpty
+                  ? null
+                  : [name, diff].where((s) => s.isNotEmpty).join(' · '),
               meta: '${c.checkedCount}/${c.lineCount} đã kiểm · ${formatDate(c.createdAt)}',
               createdAt: c.createdAt,
               createdBy: c.createdBy,
               note: c.note,
-            ))
+            );
+        })
         .toList();
     return (items: items, total: (data['total'] as num?)?.toInt() ?? items.length);
   }

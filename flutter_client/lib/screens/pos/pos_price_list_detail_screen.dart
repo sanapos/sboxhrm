@@ -601,11 +601,18 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  child: Row(
+                  // Nút và ô lọc cùng cao 48, thẳng mép — trước đây nút 38px, ô 46px lệch nhau.
+                  child: SizedBox(
+                    height: 48,
+                    child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _openBulkAdd,
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
                           icon: const Icon(Icons.playlist_add, size: 18),
                           label: Text(tr('Thêm nhiều SP')),
                         ),
@@ -614,16 +621,19 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                       Expanded(
                         child: TextField(
                           controller: _filterCtrl,
+                          textAlignVertical: TextAlignVertical.center,
                           decoration: InputDecoration(
                             hintText: tr('Lọc trong bảng…'),
                             isDense: true,
-                            prefixIcon: Icon(Icons.filter_list, size: 18),
-                            border: OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.filter_list, size: 18),
+                            contentPadding: EdgeInsets.zero,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           onChanged: (v) => setState(() => _filter = v),
                         ),
                       ),
                     ],
+                  ),
                   ),
                 ),
                 _buildQuickActions(selectedCount),

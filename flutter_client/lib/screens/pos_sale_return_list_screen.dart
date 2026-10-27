@@ -239,7 +239,8 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                       style: (struck(r) ?? const TextStyle(color: SboxColors.primary))
                           .copyWith(fontWeight: SboxType.semibold)),
                 ),
-                SboxColumn(label: 'Hóa đơn', minWidth: 130, text: (r) => r.orderNo),
+                // Mã HĐ 14 ký tự (HD271020260002) — 130px bị cắt «HD2710202600…».
+                SboxColumn(label: 'Hóa đơn', minWidth: 170, text: (r) => r.orderNo),
                 SboxColumn(label: 'Thời gian', minWidth: 140, text: (r) => r.createdAt != null ? _dateFmt.format(r.createdAt!) : '—'),
                 SboxColumn(label: 'Khách hàng', flex: 2, minWidth: 160, text: (r) => r.customerName ?? 'Khách lẻ'),
                 SboxColumn(label: 'Hoàn qua', minWidth: 120, hideOnMobile: true, text: (r) => r.refundPaymentMethod ?? '—'),
@@ -253,7 +254,8 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                 ),
                 SboxColumn(
                   label: 'Trạng thái',
-                  minWidth: 110,
+                  // Cố định vừa chip — co giãn thì cột chip ăn ~200px trống, chừa ít chỗ cho mã HĐ.
+                  width: 120,
                   cell: (r) => Align(
                     alignment: Alignment.centerLeft,
                     child: SboxStatusChip(

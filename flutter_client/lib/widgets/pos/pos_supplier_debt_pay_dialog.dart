@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../models/pos_purchase.dart';
 import '../../services/api_service.dart';
 import '../notification_overlay.dart';
+import 'pos_form_keyboard.dart';
+import 'pos_numeric_keypad.dart';
 import 'pos_theme.dart';
 import 'pos_vnd_thousands_formatter.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -109,7 +111,11 @@ class _PosSupplierDebtPayDialogState extends State<PosSupplierDebtPayDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    // scrollable + co trên bàn phím: gõ ghi chú trên máy cảm ứng vẫn thấy nút.
+    return wrapPosFormDialog(
+      context,
+      AlertDialog(
+      scrollable: true,
       title: Text(tr('Thanh toán công nợ NCC')),
       content: SizedBox(
         width: 360,
@@ -129,6 +135,8 @@ class _PosSupplierDebtPayDialogState extends State<PosSupplierDebtPayDialog> {
             TextField(
               controller: _amountCtrl,
               keyboardType: TextInputType.number,
+              readOnly: posUsesAppKeypad,
+              onTap: posUsesAppKeypad ? () => posPickAmountInto(context, _amountCtrl) : null,
               decoration: InputDecoration(
                 labelText: tr('Số tiền'),
                 border: OutlineInputBorder(),
@@ -138,6 +146,7 @@ class _PosSupplierDebtPayDialogState extends State<PosSupplierDebtPayDialog> {
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               value: _method,
+              style: const TextStyle(fontSize: 16, color: PosTheme.textPrimary),
               decoration: InputDecoration(
                 labelText: tr('Hình thức'),
                 border: OutlineInputBorder(),
@@ -176,6 +185,7 @@ class _PosSupplierDebtPayDialogState extends State<PosSupplierDebtPayDialog> {
               : Text(tr('Thanh toán')),
         ),
       ],
+      ),
     );
   }
 }
@@ -256,7 +266,10 @@ class _PosSupplierPayAllDialogState extends State<_PosSupplierPayAllDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return wrapPosFormDialog(
+      context,
+      AlertDialog(
+      scrollable: true,
       title: Text(tr('Trả nợ nhà cung cấp')),
       content: SizedBox(
         width: 380,
@@ -277,12 +290,15 @@ class _PosSupplierPayAllDialogState extends State<_PosSupplierPayAllDialog> {
               controller: _amountCtrl,
               keyboardType: TextInputType.number,
               inputFormatters: [PosVndThousandsFormatter()],
+              readOnly: posUsesAppKeypad,
+              onTap: posUsesAppKeypad ? () => posPickAmountInto(context, _amountCtrl) : null,
               decoration: InputDecoration(
                   labelText: tr('Số tiền'), border: const OutlineInputBorder(), isDense: true, suffixText: 'đ'),
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               initialValue: _method,
+              style: const TextStyle(fontSize: 16, color: PosTheme.textPrimary),
               decoration: InputDecoration(
                   labelText: tr('Hình thức'), border: const OutlineInputBorder(), isDense: true),
               items: _PosSupplierDebtPayDialogState._methods
@@ -308,6 +324,7 @@ class _PosSupplierPayAllDialogState extends State<_PosSupplierPayAllDialog> {
               : Text(tr('Trả nợ')),
         ),
       ],
+      ),
     );
   }
 }

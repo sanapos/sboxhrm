@@ -85,7 +85,10 @@ class _PosCustomerQuoteCareSectionState extends State<PosCustomerQuoteCareSectio
       return Padding(padding: const EdgeInsets.all(12), child: Text(tr('Khách chưa có báo giá nào')));
     }
     final acts = _showAll ? _acts : _acts.take(5).toList();
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    // Đặt trong SboxCard không đệm (chi tiết khách) — ListTile contentPadding 0 sẽ dính mép thẻ.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       for (final q in _quotes)
         ListTile(
           dense: true,
@@ -129,6 +132,7 @@ class _PosCustomerQuoteCareSectionState extends State<PosCustomerQuoteCareSectio
             child: TextButton(onPressed: () => setState(() => _showAll = true), child: Text('${tr('Xem tất cả')} (${_acts.length})')),
           ),
       ],
-    ]);
+    ]),
+    );
   }
 }

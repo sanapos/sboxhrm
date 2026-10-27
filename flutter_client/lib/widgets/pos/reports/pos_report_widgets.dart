@@ -87,6 +87,7 @@ class PosReportMoneyLabel extends StatelessWidget {
     this.align = Alignment.centerRight,
     this.maxWidth = 120,
     this.format,
+    this.full = false,
   });
 
   final num value;
@@ -97,12 +98,15 @@ class PosReportMoneyLabel extends StatelessWidget {
   final Alignment align;
   final double maxWidth;
   final NumberFormat? format;
+  /// Đủ chỗ (màn rộng): hiện số đầy đủ thay vì «1,4 tr» — cùng danh sách không lẫn 2 kiểu.
+  final bool full;
 
   @override
   Widget build(BuildContext context) {
-    final text = '$prefix${posReportMoneyOf(value, format)}';
+    final f = format;
+    final text = '$prefix${full && f != null ? f.format(value) : posReportMoneyOf(value, f)}';
     return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: maxWidth),
+      constraints: BoxConstraints(maxWidth: full ? maxWidth + 80 : maxWidth),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: align,
@@ -489,7 +493,7 @@ class _RankRow extends StatelessWidget {
     final row = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
+        LayoutBuilder(builder: (context, c) => Row(
           children: [
             Expanded(
               child: Text(
@@ -509,6 +513,7 @@ class _RankRow extends StatelessWidget {
               format: moneyFmt,
               color: value < 0 ? _rose : _ink,
               fontSize: 13,
+              full: c.maxWidth >= 560,
             ),
             if (onTap != null)
               const Padding(
@@ -516,7 +521,7 @@ class _RankRow extends StatelessWidget {
                 child: Icon(Icons.chevron_right, size: 18, color: _hint),
               ),
           ],
-        ),
+        )),
         const SizedBox(height: 4),
         ClipRRect(
           borderRadius: BorderRadius.circular(2),
@@ -882,6 +887,10 @@ class PosReportMetricTiles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Màn rộng: số đầy đủ ở mọi ô (FittedBox vẫn thu nhỏ nếu thiếu chỗ) — trước đây cùng hàng
+    // lẫn «77.677» với «1,5 tr».
+    final fmt = moneyFmt;
+    final full = fmt != null && MediaQuery.sizeOf(context).width >= 900;
     return Row(
       children: [
         for (var i = 0; i < tiles.length; i++) ...[
@@ -927,7 +936,7 @@ class PosReportMetricTiles extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                              posReportMoneyOf(tiles[i].value, moneyFmt),
+                              full ? fmt!.format(tiles[i].value) : posReportMoneyOf(tiles[i].value, fmt),
                         maxLines: 1,
                         softWrap: false,
                         style: const TextStyle(

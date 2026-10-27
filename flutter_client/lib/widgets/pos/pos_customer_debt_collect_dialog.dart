@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../models/pos_customer.dart';
 import '../../services/api_service.dart';
 import '../notification_overlay.dart';
+import 'pos_form_keyboard.dart';
+import 'pos_numeric_keypad.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -92,7 +94,9 @@ class _PosCustomerDebtCollectDialogState extends State<PosCustomerDebtCollectDia
   @override
   Widget build(BuildContext context) {
     final c = widget.customer;
-    return Dialog(
+    return wrapPosFormDialog(
+      context,
+      Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
@@ -108,26 +112,43 @@ class _PosCustomerDebtCollectDialogState extends State<PosCustomerDebtCollectDia
               Text(tr('Nợ hiện tại: ${_moneyFmt.format(c.currentDebt)} đ'),
                 style: const TextStyle(color: PosTheme.textSecondary),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _amountCtrl,
-                keyboardType: TextInputType.number,
-                decoration: PosTheme.inputDecoration(label: 'Số tiền thu *'),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: _method,
-                decoration: PosTheme.inputDecoration(label: 'Hình thức'),
-                items: _methods
-                    .map((m) => DropdownMenuItem(value: m, child: Text(tr(m))))
-                    .toList(),
-                onChanged: _saving ? null : (v) => setState(() => _method = v ?? _method),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _noteCtrl,
-                decoration: PosTheme.inputDecoration(label: 'Ghi chú'),
-                maxLines: 2,
+              // Chỉ thân form cuộn — bàn phím bật (ghi chú), dialog co lại vẫn giữ hàng nút.
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Bàn phím số của app (bàn phím số hệ thống lẫn ( ) # * = và che nút).
+                      PosNoSoftKeyboardField(
+                        controller: _amountCtrl,
+                        allowDecimal: false,
+                        openKeypadOnTap: posUsesAppKeypad,
+                        keypadTitle: 'Số tiền',
+                        decoration: PosTheme.inputDecoration(label: 'Số tiền thu *'),
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: _method,
+                        decoration: PosTheme.inputDecoration(label: 'Hình thức'),
+                        style: const TextStyle(fontSize: 16, color: PosTheme.textPrimary),
+                        items: _methods
+                            .map((m) => DropdownMenuItem(value: m, child: Text(tr(m))))
+                            .toList(),
+                        onChanged: _saving ? null : (v) => setState(() => _method = v ?? _method),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _noteCtrl,
+                        decoration: PosTheme.inputDecoration(label: 'Ghi chú'),
+                        style: const TextStyle(fontSize: 16),
+                        maxLines: 2,
+                      ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 20),
               Row(
@@ -149,6 +170,7 @@ class _PosCustomerDebtCollectDialogState extends State<PosCustomerDebtCollectDia
             ],
           ),
         ),
+      ),
       ),
     );
   }

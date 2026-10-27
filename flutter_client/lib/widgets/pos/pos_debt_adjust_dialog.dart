@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../../l10n/app_tr.dart';
 import '../../theme/sbox_tokens.dart';
 import '../notification_overlay.dart';
+import 'pos_form_keyboard.dart';
+import 'pos_numeric_keypad.dart';
 
 /// Nhập nợ đầu kỳ / điều chỉnh công nợ (khách hàng hoặc nhà cung cấp) về số đúng, bắt buộc lý do.
 /// [submit] gọi API (newBalance, reason) → map phản hồi. Trả true khi đã lưu.
@@ -92,7 +94,11 @@ class _DebtAdjustDialogState extends State<_DebtAdjustDialog> {
   Widget build(BuildContext context) {
     final v = _newBalance;
     final delta = v == null ? null : v - widget.currentDebt;
-    return AlertDialog(
+    // scrollable + co trên bàn phím: nhập lý do trên máy cảm ứng vẫn thấy nút Lưu.
+    return wrapPosFormDialog(
+      context,
+      AlertDialog(
+      scrollable: true,
       title: Text(tr('Điều chỉnh công nợ — ${widget.partyName}')),
       content: SizedBox(
         width: 440,
@@ -100,11 +106,12 @@ class _DebtAdjustDialogState extends State<_DebtAdjustDialog> {
           Text(tr('Công nợ hiện tại: ${_money.format(widget.currentDebt)}đ'),
               style: const TextStyle(color: SboxColors.slate600)),
           const SizedBox(height: 10),
-          TextField(
+          PosNoSoftKeyboardField(
             controller: _balanceCtrl,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+            autofocus: !posUsesAppKeypad,
+            allowDecimal: false,
+            openKeypadOnTap: posUsesAppKeypad,
+            keypadTitle: 'Số tiền',
             decoration: InputDecoration(
               labelText: tr(widget.supplier ? 'Số mình còn nợ NCC (đúng)' : 'Số khách còn nợ (đúng)'),
               suffixText: 'đ',
@@ -146,6 +153,7 @@ class _DebtAdjustDialogState extends State<_DebtAdjustDialog> {
         TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Hủy'))),
         FilledButton(onPressed: _saving ? null : _save, child: Text(tr(_saving ? 'Đang lưu…' : 'Lưu'))),
       ],
+      ),
     );
   }
 }

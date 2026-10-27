@@ -7,6 +7,7 @@ import '../../services/api_service.dart';
 import '../../widgets/cash_party_picker.dart';
 import '../../widgets/notification_overlay.dart';
 import 'pos_form_keyboard.dart';
+import 'pos_numeric_keypad.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
@@ -213,6 +214,9 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                       controller: _amountCtrl,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      // Máy cảm ứng: bàn phím số của app (bàn phím số hệ thống lẫn ( ) # * = và che nút).
+                      readOnly: posUsesAppKeypad,
+                      onTap: posUsesAppKeypad ? () => posPickAmountInto(context, _amountCtrl) : null,
                       decoration: InputDecoration(
                         labelText: tr('Số tiền'),
                         hintText: tr('0'),

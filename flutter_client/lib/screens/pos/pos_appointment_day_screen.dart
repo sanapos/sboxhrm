@@ -1193,17 +1193,17 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                       if (hideTitle) ...headerActions,
                     ],
                   ),
+                  // 7 ngày chia đều bề ngang — trước đây ô cố định 44px dồn trái, tablet trống nửa hàng.
                   if (!_showMonth)
                   SizedBox(
                     height: 52,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: 7,
-                      itemBuilder: (_, i) {
+                    child: Row(
+                      children: List.generate(7, (i) {
                         final d = weekStart.add(Duration(days: i));
                         final selected = DateUtils.isSameDay(d, _day);
                         final today = DateUtils.isSameDay(d, DateTime.now());
-                        return Padding(
+                        return Expanded(
+                          child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 3),
                           child: InkWell(
                             onTap: () {
@@ -1213,7 +1213,6 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                             },
                             borderRadius: BorderRadius.circular(10),
                             child: Container(
-                              width: 44,
                               decoration: BoxDecoration(
                                 color: selected
                                     ? PosTheme.kiotBlue
@@ -1249,8 +1248,9 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                               ),
                             ),
                           ),
+                        ),
                         );
-                      },
+                      }),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1314,7 +1314,10 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                       ),
                     ),
                   const SizedBox(height: 8),
-                  SingleChildScrollView(
+                  // Canh trái thẳng với dải ngày / ô tổng — trước đây hàng lọc ngắn bị Column canh giữa.
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
@@ -1342,6 +1345,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                             'Không đến (${_items.where((e) => e.isNoShow).length})'),
                       ],
                     ),
+                  ),
                   ),
                   if (isToday)
                     Align(
@@ -1759,7 +1763,10 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     final occasion = PosReservationOccasion.label(b.occasion);
     final money = <String>[
       if (b.depositPaid > 0) 'Cọc ${_moneyFmt.format(b.depositPaid)}đ (${reservationDepositLabel(b.depositStatus)})',
-      if (b.preOrderValue > 0) '${_profile.usesFnbItemTypes ? 'Món' : 'Dịch vụ'} ${_moneyFmt.format(b.preOrderValue)}đ',
+      if (b.preOrderValue > 0)
+        _profile.usesFnbItemTypes
+            ? 'Món ${_moneyFmt.format(b.preOrderValue)}đ'
+            : 'Dịch vụ ${_moneyFmt.format(b.preOrderValue)}đ',
     ];
     final order = <String>[
       if ((b.orderNo ?? '').isNotEmpty) 'HĐ ${b.orderNo}',
@@ -2299,9 +2306,10 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
         if (cur != null && cur != _autoStaff) {
           final me = r.items.where((i) => i.employeeId == cur).firstOrNull;
           if (me == null || !me.available) {
-            final why = me?.unavailableReason;
-            _staffNotice = '${me?.name ?? 'Thợ đã chọn'} không rảnh khung này'
-                '${why != null ? ' ($why)' : ''} — chuyển sang Tự xếp';
+            final name = me?.name ?? tr('Thợ đã chọn');
+            _staffNotice = me == null
+                ? tr('$name không rảnh khung này — chuyển sang Tự xếp')
+                : tr('$name không rảnh khung này (${_staffReason(me)}) — chuyển sang Tự xếp');
             _employeeId = _autoStaff;
           }
         }
@@ -2632,7 +2640,11 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
             value: _autoStaff,
             child: _staffItem(
               autoTitle,
-              rec == null ? 'Chọn giờ khác hoặc thợ khác' : (r.recommendedReason ?? ''),
+              rec == null
+                  ? 'Chọn giờ khác hoặc thợ khác'
+                  : rec.isRegular
+                      ? tr('Thợ quen của khách (${rec.regularVisits} lần)')
+                      : tr('Ít việc nhất hôm nay (${rec.jobsToday} việc)'),
               Icons.auto_awesome,
             ),
           ),
@@ -2665,11 +2677,20 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(
-            tr('Không hiện: ${hidden.map((i) => '${i.name} (${i.unavailableReason ?? 'bận'})').join(', ')}'),
+            tr('Không hiện: ${hidden.map((i) => '${i.name} (${_staffReason(i)})').join(', ')}'),
             style: const TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
         ),
     ]);
+  }
+
+  /// Lý do thợ không rảnh — ghép từ dữ liệu thô để gói ngôn ngữ dịch được (server chỉ trả tiếng Việt).
+  static String _staffReason(PosStaffAvailabilityDto i) {
+    if (i.onLeave) return tr('Nghỉ phép');
+    if (!i.onShift) return i.shifts.isEmpty ? tr('Không có ca hôm nay') : tr('Ngoài giờ ca');
+    if (i.busyKind == 'booking') return tr('Có lịch ${i.busyFrom}–${i.busyTo}');
+    if (i.busyKind == 'serving') return tr('Đang làm cho khách, dự kiến xong ${i.busyTo}');
+    return tr('Bận');
   }
 
   Widget _staffItem(String title, String sub, IconData icon) => Row(children: [

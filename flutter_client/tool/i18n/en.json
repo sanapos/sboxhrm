@@ -553,6 +553,7 @@
   "Bấm: sửa / xoá · Bấm đúp: sửa nhanh": "Click: edit / delete · Double-click: quick edit",
   "Bất thường": "Anomaly",
   "Bậc ": "Tier ",
+  "Bận": "Busy",
   "Bật / tắt thông báo chấm công, công việc, bán hàng": "Turn attendance, task and sales notifications on / off",
   "Bật / tắt tất cả": "Turn all on / off",
   "Bật / tắt, in QR dán bàn, khách tự gọi món": "On / off, print QR to stick on tables, customers order by themselves",
@@ -3099,7 +3100,10 @@
   "Khách lưu trú (tạm trú)": "Hotel guests (temporary residence)",
   "Khách lẻ (chưa chọn khách)": "Walk-in customer (none selected)",
   "Khách mua": "Buyer",
+  "Khách mua dịch vụ này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).": "Customers buying this service earn points per the store-wide setting (SBOX Settings › Loyalty points).",
   "Khách mua gói phải được chọn trên hóa đơn — không có khách thì không cộng buổi được.": "The customer buying a package must be selected on the invoice — without a customer, sessions can't be credited.",
+  "Khách mua hàng này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).": "Customers buying this item earn points per the store-wide setting (SBOX Settings › Loyalty points).",
+  "Khách mua món này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).": "Customers ordering this dish earn points per the store-wide setting (SBOX Settings › Loyalty points).",
   "Khách mua nhiều nhất": "Top buyers",
   "Khách mới (chưa có trong danh sách)": "New customer (not in list)",
   "Khách mới, khách cũ, khách lẻ": "New, returning and walk-in customers",
@@ -6056,6 +6060,7 @@
   "Thời điểm gửi": "Send time",
   "Thợ làm": "Technician",
   "Thợ quen": "Regular technician",
+  "Thợ đã chọn": "Selected technician",
   "Thứ 2: Chân – mông\n- Squat 4×12\n- Lunge 3×12\n- Hip thrust 4×12\n- HIIT 15 phút\n": "Mon: Legs – glutes\n- Squat 4×12\n- Lunge 3×12\n- Hip thrust 4×12\n- HIIT 15 min\n",
   "Thứ 2: Ngực\n- Đẩy ngực ngang 4×8\n- Đẩy ngực dốc lên 4×10\n- Ép ngực máy 3×12\n": "Mon: Chest\n- Flat bench press 4×8\n- Incline press 4×10\n- Machine chest fly 3×12\n",
   "Thứ 2: Toàn thân\n- Khởi động 10 phút\n- Squat 3×12\n- Hít đất 3×10\n- Kéo cáp xuống 3×12\n": "Mon: Full body\n- Warm-up 10 min\n- Squat 3×12\n- Push-up 3×10\n- Cable pulldown 3×12\n",
@@ -7226,6 +7231,7 @@
   "Xem trước: khách dùng bao lâu thì trả bao nhiêu": "Preview: how much a customer pays for how long they use it",
   "Xem tất cả đơn online": "View all online orders",
   "Xem việc của": "View tasks of",
+  "Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng và nhân sự (theo quyền của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ, chấm công, đi trễ, nghỉ phép, lương… Tôi cũng lập / sửa phiếu theo lời bạn (phiếu thu chi, phạt, thưởng, ứng lương, tăng ca, bổ sung chấm công, hóa đơn bán) — bạn chỉ cần kiểm tra rồi bấm Xác nhận. Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.": "Hello! I'm the store's virtual assistant. I read sales and HR reports (within your permissions) to answer and analyze: revenue, profit, best sellers, stock, debts, attendance, late arrivals, leave, payroll… I can also create or edit vouchers for you (receipts/payments, penalties, bonuses, salary advances, overtime, attendance corrections, sales invoices) — just review and tap Confirm. Tap the mic, type a question or pick a suggestion below.",
   "Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng và nhân sự (đúng quyền và phạm vi của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ, chấm công, đi trễ, nghỉ phép, lương… Tôi cũng làm thay bạn: lập / sửa phiếu, duyệt hoặc từ chối đơn, đổi giá, ngừng bán, xóa phiếu, hủy hóa đơn — bạn kiểm tra rồi bấm Xác nhận (thao tác xóa / hủy sẽ hỏi lại một lần nữa). Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.": "Hello! I'm the store's virtual assistant. I read sales and HR reports (within your permissions and scope) to answer and analyze: revenue, profit, best sellers, stock, debts, attendance, lateness, leave, payroll… I can also act for you: create / edit vouchers, approve or reject requests, change prices, stop selling, delete vouchers, cancel invoices — review, then tap Confirm (delete / cancel actions ask once more). Tap the mic, type a question or pick a suggestion below.",
   "Xin chào, tôi là trợ lý ảo của cửa hàng.": "Hello, I'm the store's virtual assistant.",
   "Xin chào. Đây là giọng đọc. Bàn 5, hai món. Phở bò số lượng 1. Cơm gà số lượng 2.": "Hello. This is the voice sample. Table 5, two items. Beef pho, quantity 1. Chicken rice, quantity 2.",
@@ -10734,6 +10740,10 @@
    "A customer ordered {0}"
   ],
   [
+   "Có lịch {0}–{1}",
+   "Booked {0}–{1}"
+  ],
+  [
    "Có mặt – {0}",
    "Present – {0}"
   ],
@@ -11240,6 +11250,10 @@
   [
    "Dải số hóa đơn offline đã cấp ({0})",
    "Offline invoice number range issued ({0})"
+  ],
+  [
+   "Dịch vụ {0}đ",
+   "Services {0}đ"
   ],
   [
    "Dự kiến {0} · khớp {1} · thiếu {2} · mã lạ {3}",
@@ -13778,6 +13792,10 @@
    "Menu items ({0})"
   ],
   [
+   "Món {0}đ",
+   "Dishes {0}đ"
+  ],
+  [
    "Mất KN: {0}",
    "Disconnected: {0}"
   ],
@@ -15484,6 +15502,10 @@
   [
    "Thời lượng: {0} (tính {1})",
    "Duration: {0} (billed {1})"
+  ],
+  [
+   "Thợ quen của khách ({0} lần)",
+   "Customer's regular technician ({0} visits)"
   ],
   [
    "Thừa {0}đ",
@@ -17962,6 +17984,14 @@
    "{0} is not free in this slot"
   ],
   [
+   "{0} không rảnh khung này ({1}) — chuyển sang Tự xếp",
+   "{0} is not free at this time ({1}) — switched to Auto-assign"
+  ],
+  [
+   "{0} không rảnh khung này — chuyển sang Tự xếp",
+   "{0} is not free at this time — switched to Auto-assign"
+  ],
+  [
    "{0} không đến",
    "{0} no-show"
   ],
@@ -20038,6 +20068,10 @@
    "Lunar {0}/{1}"
   ],
   [
+   "Ít việc nhất hôm nay ({0} việc)",
+   "Least busy today ({0} jobs)"
+  ],
+  [
    "Ô {0} — chọn chức năng",
    "Cell {0} — choose function"
   ],
@@ -20136,6 +20170,10 @@
   [
    "Đang liên kết: {0}. Chọn nhân viên khác để thay đổi.",
    "Linked: {0}. Choose another employee to change."
+  ],
+  [
+   "Đang làm cho khách, dự kiến xong {0}",
+   "Serving a customer, expected to finish at {0}"
   ],
   [
    "Đang lập {0}…",

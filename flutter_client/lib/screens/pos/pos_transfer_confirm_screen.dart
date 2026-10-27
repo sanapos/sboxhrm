@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../widgets/hrm_page_chrome.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -61,7 +62,7 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
   Widget build(BuildContext context) {
     final remain = (_credits?['remainingCount'] as num?)?.toInt() ?? 0;
     return Scaffold(
-      appBar: AppBar(
+      appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Xác nhận chuyển khoản')),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
@@ -94,7 +95,7 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
             icon: const Icon(Icons.refresh),
           ),
         ],
-      ),
+      )),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : TabBarView(

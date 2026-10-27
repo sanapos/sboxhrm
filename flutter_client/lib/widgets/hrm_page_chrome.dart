@@ -4,6 +4,7 @@ import '../screens/settings_hub_screen.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/responsive_helper.dart';
 import 'hrm/hrm_settings_mobile_kit.dart';
+import 'page_top_actions.dart';
 import 'pos/pos_hub_scope.dart';
 import 'pos/pos_theme.dart';
 import '../l10n/app_tr.dart';
@@ -27,6 +28,29 @@ class HrmShellChrome extends InheritedWidget {
   @override
   bool updateShouldNotify(HrmShellChrome oldWidget) =>
       visible != oldWidget.visible;
+}
+
+/// AppBar của màn có thể mở cả trong khung chính (MainLayout đã vẽ «← tiêu đề») lẫn push riêng.
+/// Trong khung: bỏ tiêu đề + nút back (trùng), chỉ giữ hàng nút hành động / tab nếu có.
+PreferredSizeWidget? shellAwareAppBar(BuildContext context, AppBar bar) {
+  if (!HrmShellChrome.isVisible(context)) return bar;
+  final acts = bar.actions ?? const <Widget>[];
+  final bottom = bar.bottom;
+  if (acts.isEmpty && bottom == null) return null;
+  // Nút hành động đưa lên thanh tiêu đề của khung (cạnh «← tiêu đề») — trước đây chiếm thêm
+  // một hàng trắng 48dp chỉ để chứa 1 nút làm mới.
+  final register = RegisterPageTopActions(actions: acts, child: const SizedBox.shrink());
+  if (bottom == null) {
+    return PreferredSize(preferredSize: Size.zero, child: register);
+  }
+  return PreferredSize(
+    preferredSize: bottom.preferredSize,
+    child: Material(
+      color: bar.backgroundColor ?? Colors.white,
+      elevation: bar.elevation ?? 0.5,
+      child: Stack(children: [register, bottom]),
+    ),
+  );
 }
 
 /// Shared layout tokens and helpers for HRM settings sub-pages.
