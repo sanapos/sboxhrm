@@ -855,8 +855,12 @@ class PosMobilePager extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (total <= pageSize) return const SizedBox.shrink();
-    // Thanh phân trang chuẩn SBOX (tự gọn trên điện thoại).
-    return SboxPager(page: page, pageSize: pageSize, total: total, onPage: onPageChanged);
+    // Thanh phân trang chuẩn SBOX (tự gọn trên điện thoại). Kéo hết chiều ngang: trong Column
+    // căn giữa thanh trắng co theo nội dung, hai bên lộ nền xám.
+    return SizedBox(
+      width: double.infinity,
+      child: SboxPager(page: page, pageSize: pageSize, total: total, onPage: onPageChanged),
+    );
   }
 }
 
@@ -1307,6 +1311,8 @@ class PosMobileProductRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final showStepper = (selectedQty ?? 0) > 0 &&
         (onIncrement != null || onDecrement != null);
+    // Đang chọn: tồn chuyển sang dòng mã để cột phải chỉ còn bộ +/- và giá.
+    final stockOnLeft = showStepper && stockText.isNotEmpty;
     return Material(
       color: isSelected ? const Color(0xFFE8F0FE) : Colors.white,
       child: InkWell(
@@ -1314,7 +1320,11 @@ class PosMobileProductRow extends StatelessWidget {
         onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
+          // Chiều cao dòng cố định dù chọn hay chưa: trước đây chọn 1 món thì dòng cao thêm
+          // ~16dp, các dòng dưới bị đẩy xuống → bấm liền tay trúng nhầm món khác.
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: kiotSellStyle ? 58 : 0),
+            child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               ClipRRect(
@@ -1377,6 +1387,10 @@ class PosMobileProductRow extends StatelessWidget {
                         ],
                       ],
                     ),
+                    if (stockOnLeft) ...[
+                      const SizedBox(height: 2),
+                      _stockLabel(),
+                    ],
                   ],
                 ),
               ),
@@ -1399,7 +1413,7 @@ class PosMobileProductRow extends StatelessWidget {
                           onQtyTap: onQtyTap,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                     ],
                     Text(
                       tr(priceText),
@@ -1408,27 +1422,15 @@ class PosMobileProductRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 16,
+                        height: 1.2,
                         fontWeight: FontWeight.bold,
                         color: PosTheme.kiotBlue,
+                        fontFeatures: [FontFeature.tabularFigures()],
                       ),
                     ),
-                    if (stockText.isNotEmpty) ...[
+                    if (stockText.isNotEmpty && !stockOnLeft) ...[
                       const SizedBox(height: 2),
-                      Text(
-                        tr(stockText),
-                        textAlign: TextAlign.right,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: kiotSellStyle
-                              ? FontWeight.w600
-                              : FontWeight.w500,
-                          color: stockText.contains('Hết')
-                              ? const Color(0xFFB42318)
-                              : PosTheme.textSecondary,
-                        ),
-                      ),
+                      _stockLabel(alignRight: true),
                     ],
                     if (orderReservedText != null) ...[
                       const SizedBox(height: 2),
@@ -1438,8 +1440,25 @@ class PosMobileProductRow extends StatelessWidget {
                 ),
               ),
             ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _stockLabel({bool alignRight = false}) {
+    return Text(
+      tr(stockText),
+      textAlign: alignRight ? TextAlign.right : TextAlign.left,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: kiotSellStyle ? FontWeight.w600 : FontWeight.w500,
+        color: stockText.contains('Hết')
+            ? const Color(0xFFB42318)
+            : PosTheme.textSecondary,
       ),
     );
   }

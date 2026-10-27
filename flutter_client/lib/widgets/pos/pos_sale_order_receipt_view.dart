@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 
 import '../../models/pos_sale_order.dart';
+import '../../utils/pos_payment_label.dart';
 
 import 'pos_product_image.dart';
 
@@ -221,7 +222,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                 _sumRow('Tổng cộng', money.format(order.total), bold: true, accent: true),
 
-                _sumRow('Đã thanh toán (${order.paidAmount > 0.5 ? order.paymentMethod : 'chưa trả'})', money.format(order.paidAmount)),
+                _sumRow('Đã thanh toán (${order.paidAmount > 0.5 ? posPaymentMethodVi(order.paymentMethod) : 'chưa trả'})', money.format(order.paidAmount)),
 
                 if (balance > 0) _sumRow('Còn nợ (ghi công nợ)', money.format(balance), bold: true),
 

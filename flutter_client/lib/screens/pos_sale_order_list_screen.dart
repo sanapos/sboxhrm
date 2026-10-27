@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../utils/pos_shipping_label_print.dart';
 import '../utils/api_datetime.dart';
+import '../utils/pos_payment_label.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -1628,10 +1629,12 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               ),
             ),
             Text(
-              tr(_moneyFmt.format(totalAmount)),
+              // Cùng kiểu «… đ» với tổng ngày và từng hóa đơn bên dưới.
+              '${_moneyFmt.format(totalAmount)} đ',
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
+                color: PosTheme.kiotBlue,
               ),
             ),
           ],
@@ -1870,15 +1873,21 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
 
   Widget _orderDetailActionBar(List<Widget> children) {
     if (children.isEmpty) return const SizedBox.shrink();
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: children.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
-        itemBuilder: (_, i) => children[i],
-      ),
-    );
+    // Lưới nút đều nhau: trước đây cuộn ngang → nút «In» hẹp, nút cuối bị cắt mép phải.
+    const gap = 6.0;
+    return LayoutBuilder(builder: (context, c) {
+      if (!c.hasBoundedWidth) {
+        return Wrap(spacing: gap, runSpacing: gap, children: children);
+      }
+      final fit = ((c.maxWidth + gap) / (104 + gap)).floor();
+      final perRow = fit < 1 ? 1 : (fit > children.length ? children.length : fit);
+      final w = ((c.maxWidth - gap * (perRow - 1)) / perRow).floorToDouble();
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [for (final b in children) SizedBox(width: w, height: 40, child: b)],
+      );
+    });
   }
 
   List<Widget> _orderActionButtons(
@@ -2449,7 +2458,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       final kind = (p['kind'] ?? p['Kind'] ?? 'sale').toString();
       final paidAt = p['paidAt'] ?? p['PaidAt'];
       final dt = paidAt != null ? parseApiUtcDateTime(paidAt.toString()) : null;
-      final method = (p['paymentMethod'] ?? p['PaymentMethod'])?.toString();
+      final method = posPaymentMethodVi((p['paymentMethod'] ?? p['PaymentMethod'])?.toString());
       final (icon, color, label) = switch (kind) {
         'deposit' => (Icons.event_available_outlined, SboxColors.brand600, 'Tiền cọc'),
         'debt' => (Icons.savings_outlined, SboxColors.success, 'Thu nợ'),
@@ -2473,7 +2482,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary)),
               Text(
-                tr([if (dt != null) _dateFmt.format(dt.toLocal()), if (method != null && method.isNotEmpty) method]
+                tr([if (dt != null) _dateFmt.format(dt.toLocal()), if (method.isNotEmpty) method]
                     .join(' · ')),
                 style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
               ),

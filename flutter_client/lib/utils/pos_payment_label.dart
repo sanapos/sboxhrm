@@ -1,8 +1,29 @@
+/// Mã phương thức tiếng Anh (đơn tạo qua API / import / dữ liệu cũ) → nhãn tiếng Việt.
+/// Nhãn đã là tiếng Việt hoặc tên tài khoản nhận tiền thì giữ nguyên.
+String posPaymentMethodVi(String? method) {
+  final m = (method ?? '').trim();
+  switch (m.toLowerCase()) {
+    case 'cash':
+      return 'Tiền mặt';
+    case 'transfer':
+    case 'banktransfer':
+    case 'bank_transfer':
+    case 'bank':
+      return 'Chuyển khoản';
+    case 'card':
+      return 'Thẻ';
+    case 'debt':
+    case 'credit':
+      return 'Công nợ';
+  }
+  return m;
+}
+
 /// Hình thức thanh toán hiển thị của đơn bán: đơn thu chưa đủ ghi thêm «Công nợ»
 /// (khách chưa trả gì → «Công nợ»; trả một phần → «Tiền mặt + Công nợ»).
 /// Đơn lưu phương thức của tiền đã thu — «Công nợ» chỉ là nhãn, không lưu.
 String posPaymentLabel(String? method, {required double paid, required double due}) {
-  final m = (method ?? '').trim();
+  final m = posPaymentMethodVi(method);
   if (due <= 0.5) return m.isEmpty ? 'Tiền mặt' : m;
   if (paid <= 0.5) return 'Công nợ';
   return '${m.isEmpty ? 'Tiền mặt' : m} + Công nợ';
@@ -18,7 +39,7 @@ String posPaymentLabelOf(Map<String, dynamic> o) {
   final status = '${o['status'] ?? o['Status'] ?? ''}'.toLowerCase();
   // Đơn tạm / đã hủy: không phải công nợ.
   if (status == '0' || status == 'draft' || status == '2' || status == 'cancelled') {
-    return '${o['paymentMethod'] ?? o['PaymentMethod'] ?? ''}';
+    return posPaymentMethodVi('${o['paymentMethod'] ?? o['PaymentMethod'] ?? ''}');
   }
   return posPaymentLabel('${o['paymentMethod'] ?? o['PaymentMethod'] ?? ''}', paid: paid, due: due);
 }

@@ -899,15 +899,15 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
     bool bold = false,
     VoidCallback? onTap,
   }) {
+    // Dòng con thụt vào 14 so với dòng chính. Trước đây dòng chính có ô trống 22 còn dòng con
+    // chỉ lùi 16 → dòng con lại nằm NGOÀI dòng chính, các mục lệch lề nhau.
     final line = Padding(
-      padding: EdgeInsets.only(left: indent ? 16 : 0, top: 4, bottom: 4),
+      padding: EdgeInsets.only(left: indent ? 14 : 0, top: 4, bottom: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (idx.isNotEmpty)
-            SizedBox(width: 22, child: Text(tr(idx), style: const TextStyle(fontSize: 12)))
-          else if (!indent)
-            const SizedBox(width: 22),
+            SizedBox(width: 22, child: Text(tr(idx), style: const TextStyle(fontSize: 12))),
           Expanded(
             child: Text(
               tr(label),
@@ -922,6 +922,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],

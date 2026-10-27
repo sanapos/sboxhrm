@@ -17415,6 +17415,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   ),
                 ),
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       icon,
@@ -17456,13 +17457,17 @@ class _PosSellScreenState extends State<PosSellScreen>
         Text(tr('Khách thanh toán'),
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
-        Row(
+        // Nhãn 1 dòng / 2 dòng → ô cao thấp lệch nhau; ép 4 ô cùng chiều cao.
+        IntrinsicHeight(
+          child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             btn('cash', 'Tiền mặt', Icons.payments_outlined),
             btn('transfer', 'Chuyển khoản', Icons.account_balance_outlined),
             btn('mixed', 'Tiền mặt + CK', Icons.swap_horiz),
             btn('debt', 'Ghi nợ', Icons.edit_note),
           ],
+          ),
         ),
       ],
     );
@@ -18217,7 +18222,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   Widget _summaryRow(String label, String value, {bool bold = false, bool blue = false, double? labelSize}) {
     final ls = labelSize ?? 14;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           child: Text(
@@ -18226,14 +18231,19 @@ class _PosSellScreenState extends State<PosSellScreen>
           ),
         ),
         const SizedBox(width: 8),
+        // Align giữ số tiền sát lề phải; Flexible lỏng một mình để số nằm giữa dòng.
         Flexible(
-          child: Text(
-            tr(value),
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: bold ? (ls + 3) : ls,
-              fontWeight: bold ? FontWeight.bold : FontWeight.w500,
-              color: blue ? _kiotBlue : PosTheme.textPrimary,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              tr(value),
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: bold ? (ls + 3) : ls,
+                fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+                color: blue ? _kiotBlue : PosTheme.textPrimary,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ),
         ),
@@ -19542,7 +19552,10 @@ class _PosSellScreenState extends State<PosSellScreen>
             padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
             child: SizedBox(
               height: 34,
-              child: ListView(
+              child: Row(
+              children: [
+                Expanded(
+                  child: ListView(
                 controller: _tabScrollCtrl,
                 scrollDirection: Axis.horizontal,
                 children: [
@@ -19612,21 +19625,27 @@ class _PosSellScreenState extends State<PosSellScreen>
                     const SizedBox(width: 6),
                   ],
                   ..._pendingSlotChips(onBlue: false, gap: 0),
-                  Material(
-                    color: PosTheme.kiotBlueLight,
+                ],
+                  ),
+                ),
+                // Nút «+» ghim ngoài danh sách cuộn: nhiều hóa đơn vẫn luôn thấy, không bị cắt mép phải.
+                const SizedBox(width: 6),
+                Material(
+                  color: PosTheme.kiotBlueLight,
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(10),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: _slotOpBusy ? null : _newTab,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10),
-                        child: Icon(Icons.add,
-                            color: PosTheme.kiotBlue, size: 20),
-                      ),
+                    onTap: _slotOpBusy ? null : _newTab,
+                    child: const SizedBox(
+                      width: 44,
+                      height: 34,
+                      child: Icon(Icons.add,
+                          color: PosTheme.kiotBlue, size: 20),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
             ),
           ),
         const Divider(height: 1, color: PosTheme.border),
