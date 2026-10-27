@@ -16557,9 +16557,87 @@ class _PosSellScreenState extends State<PosSellScreen>
     onMutate?.call();
   }
 
+  /// [showPriceList] false: ô Bảng giá đã nằm ở cột giỏ hàng (màn thanh toán tablet ngang).
+  /// [wideLayout]: Giảm giá + voucher chung một hàng, nút phương thức thấp — đủ chỗ hiện số tiền
+  /// và tiền thối mà không phải cuộn.
+  Widget _buildPriceListTile({VoidCallback? onMutate}) {
+    return InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () async {
+              await _openMobilePriceListPicker(onMutate: onMutate);
+              if (mounted) setState(() {});
+              onMutate?.call();
+            },
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: tr('Bảng giá'),
+                isDense: true,
+                prefixIcon: const Icon(Icons.sell_outlined, size: 18),
+                suffixIcon: const Icon(Icons.expand_more_rounded, size: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              ),
+              child: Text(
+                tr(_tab.priceListLabel),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          );
+  }
+
+  Widget _buildVoucherRow({VoidCallback? onMutate}) {
+    return Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _tab._voucherCtrl,
+                decoration: InputDecoration(
+                  hintText: tr('Mã voucher'),
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.confirmation_number_outlined, size: 18),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                ),
+                style: const TextStyle(fontSize: 12),
+                textCapitalization: TextCapitalization.characters,
+                onSubmitted: (_) => _applyVoucher(onMutate: onMutate),
+              ),
+            ),
+            const SizedBox(width: 6),
+            TextButton(
+              onPressed: _tab._voucherValidating ? null : () => _applyVoucher(onMutate: onMutate),
+              child: _tab._voucherValidating
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Text(tr('Áp dụng'), style: TextStyle(fontSize: 12)),
+            ),
+          ],
+        );
+  }
+
+  /// Màn rộng: Giảm giá đơn và Mã voucher chung một hàng (cả hai là khoản giảm).
+  Widget _discountVoucherRow({
+    required bool wide,
+    VoidCallback? onMutate,
+    required Widget discount,
+  }) {
+    if (!wide) return discount;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: discount),
+        const SizedBox(width: 16),
+        Expanded(child: _buildVoucherRow(onMutate: onMutate)),
+      ],
+    );
+  }
+
   Widget _buildPaymentSummaryContent({
     bool forMobilePayment = false,
     VoidCallback? onMutate,
+    bool showPriceList = true,
+    bool wideLayout = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -16690,32 +16768,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         ],
         _buildSessionPackPreview(),
         // Màn rộng (T1, tablet ngang, web): trước đây chỉ khung thanh toán điện thoại có chọn bảng giá.
-        if (!forMobilePayment) ...[
+        if (!forMobilePayment && showPriceList) ...[
           const SizedBox(height: 6),
-          InkWell(
-            borderRadius: BorderRadius.circular(6),
-            onTap: () async {
-              await _openMobilePriceListPicker(onMutate: onMutate);
-              if (mounted) setState(() {});
-              onMutate?.call();
-            },
-            child: InputDecorator(
-              decoration: InputDecoration(
-                labelText: tr('Bảng giá'),
-                isDense: true,
-                prefixIcon: const Icon(Icons.sell_outlined, size: 18),
-                suffixIcon: const Icon(Icons.expand_more_rounded, size: 18),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              ),
-              child: Text(
-                tr(_tab.priceListLabel),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ),
+          _buildPriceListTile(onMutate: onMutate),
         ],
         if (_sellSellers.isNotEmpty) ...[
           const SizedBox(height: 6),
@@ -16763,7 +16818,10 @@ class _PosSellScreenState extends State<PosSellScreen>
         ],
         ..._promoSummaryWidgets(),
         const SizedBox(height: 6),
-        Row(
+        _discountVoucherRow(
+          wide: wideLayout,
+          onMutate: onMutate,
+          discount: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             SizedBox(
@@ -16805,6 +16863,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               ),
             ),
           ],
+        ),
         ),
         if (_orderDiscountPresetsVisible && context.read<PermissionProvider>().canPosDiscount())
           Padding(
@@ -17052,33 +17111,10 @@ class _PosSellScreenState extends State<PosSellScreen>
             _summaryRow('VAT', _moneyFmt.format(_vatAmount)),
           ],
         ],
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _tab._voucherCtrl,
-                decoration: InputDecoration(
-                  hintText: tr('Mã voucher'),
-                  isDense: true,
-                  prefixIcon: const Icon(Icons.confirmation_number_outlined, size: 18),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                ),
-                style: const TextStyle(fontSize: 12),
-                textCapitalization: TextCapitalization.characters,
-                onSubmitted: (_) => _applyVoucher(onMutate: onMutate),
-              ),
-            ),
-            const SizedBox(width: 6),
-            TextButton(
-              onPressed: _tab._voucherValidating ? null : () => _applyVoucher(onMutate: onMutate),
-              child: _tab._voucherValidating
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(tr('Áp dụng'), style: TextStyle(fontSize: 12)),
-            ),
-          ],
-        ),
+        if (!wideLayout) ...[
+          const SizedBox(height: 8),
+          _buildVoucherRow(onMutate: onMutate),
+        ],
         if (_tab.voucherDiscount > 0)
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -17184,6 +17220,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         const SizedBox(height: 6),
         _buildPaymentQuickPicks(
           onMutate: onMutate,
+          compact: wideLayout,
         ),
         const SizedBox(height: 6),
         _buildPaymentSplits(
@@ -17387,7 +17424,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     return names.isEmpty ? 'Tiền mặt' : names.join(' + ');
   }
 
-  Widget _buildPaymentQuickPicks({VoidCallback? onMutate}) {
+  /// [compact]: biểu tượng nhỏ cạnh chữ, ô thấp (~44 thay vì ~76) — màn thanh toán tablet ngang.
+  Widget _buildPaymentQuickPicks({VoidCallback? onMutate, bool compact = false}) {
     final mode = _payQuickMode;
     final hasBank = _transferSourceKey != null;
     Widget btn(String id, String label, IconData icon) {
@@ -17413,8 +17451,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   : () => _applyPayQuickMode(id, onMutate: onMutate),
               borderRadius: BorderRadius.circular(14),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+                padding: EdgeInsets.symmetric(vertical: compact ? 10 : 14, horizontal: 6),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
@@ -17422,23 +17459,25 @@ class _PosSellScreenState extends State<PosSellScreen>
                     width: selected ? 1.5 : 1,
                   ),
                 ),
-                child: Column(
+                child: Flex(
+                  direction: compact ? Axis.horizontal : Axis.vertical,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       icon,
-                      size: 22,
+                      size: compact ? 18 : 22,
                       color: !enabled
                           ? Colors.black26
                           : selected
                               ? Colors.white
                               : PosTheme.textPrimary,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
+                    SizedBox(height: compact ? 0 : 4, width: compact ? 6 : 0),
+                    Flexible(
+                      child: Text(
                       tr(label),
                       textAlign: TextAlign.center,
-                      maxLines: 2,
+                      maxLines: compact ? 1 : 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 13,
@@ -17449,6 +17488,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                 ? Colors.white
                                 : PosTheme.textPrimary,
                       ),
+                    ),
                     ),
                   ],
                 ),
@@ -19370,6 +19410,68 @@ class _PosSellScreenState extends State<PosSellScreen>
   Widget _buildTabletPaymentStage(PermissionProvider perm) {
     final canPay = perm.canPosPay();
     final widePay = MediaQuery.sizeOf(context).width >= 900;
+    // Thanh Tạm tính / Hoàn tất (+ nút in khi màn hẹp).
+    Widget actionBar({required bool printChips}) => PosKeyboardBuilder(
+          builder: (context, kbOpen, kbHeight) => (kbHeight >= 520)
+              ? Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: PosTheme.border)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: _tab.cart.isEmpty && _isSplitBill
+              ? Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: (_checkingOut || _parking || _splitBillBusy)
+                            ? null
+                            : () => unawaited(_deleteCurrentSplitBill()),
+                        icon: const Icon(Icons.delete_outline),
+                        label: Text(tr('Xóa hóa đơn')),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red.shade700,
+                          minimumSize: const Size(0, 56),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _tabletPaymentStage = false;
+                            _paymentQrOverlayDismissed = false;
+                          });
+                          _scheduleCustomerDisplayPublish(delayMs: 50);
+                        },
+                        icon: const Icon(Icons.add),
+                        label: Text(tr('Thêm món')),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _kiotBlue,
+                          minimumSize: const Size(0, 56),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : _buildCheckoutActions(
+                  canPay: canPay,
+                  canOrder: perm.canPosOrder(),
+                  busy: _checkingOut || _parking || _provisionalPrinting,
+                  onComplete: _checkoutTapped,
+                  height: 56,
+                  radius: 10,
+                  // Tiền thối ghi ngay trên nút — không phải cuộn tìm dòng «Tiền trả khách».
+                  completeLabel: _changeAmount > 0
+                      ? '${tr('HOÀN TẤT')} (F9) · ${tr('Tiền trả khách')} ${_moneyFmt.format(_changeAmount)}'
+                      : 'HOÀN TẤT THANH TOÁN (F9)',
+                  completeFontSize: 16,
+                  showQuickPrintChips: printChips,
+                ),
+        )
+              : const SizedBox.shrink(),
+        );
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -19441,7 +19543,20 @@ class _PosSellScreenState extends State<PosSellScreen>
                                 ),
                               ),
                             ),
+                            // Bảng giá đổi giá cả giỏ → đặt ngay trên danh sách món (cột phải dành cho tiền).
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                              child: _buildPriceListTile(),
+                            ),
                             Expanded(child: _buildDesktopCartColumn()),
+                            // Nút in ở đáy cột trái — trước đây chiếm một hàng riêng trải cả màn.
+                            Container(
+                              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                              decoration: const BoxDecoration(
+                                border: Border(top: BorderSide(color: PosTheme.border)),
+                              ),
+                              child: _buildCheckoutQuickPrintChips(),
+                            ),
                           ],
                         ),
                       ),
@@ -19450,9 +19565,23 @@ class _PosSellScreenState extends State<PosSellScreen>
                         width: 1, thickness: 1, color: PosTheme.border),
                     Expanded(
                       flex: 6,
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                        children: [_buildPaymentSummaryContent()],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: ListView(
+                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                              children: [
+                                _buildPaymentSummaryContent(
+                                  showPriceList: false,
+                                  wideLayout: true,
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Tạm tính / Hoàn tất chỉ dưới cột phải, sát phần tiền.
+                          actionBar(printChips: false),
+                        ],
                       ),
                     ),
                   ],
@@ -19462,65 +19591,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   children: [_buildPaymentSummaryContent()],
                 ),
         ),
-        // Màn ngang + bàn phím (tìm khách, nhập tiền): chỉ còn ~250px — thanh nút in / hoàn tất
-        // che mất gợi ý khách. Ẩn tạm khi đang gõ, đóng bàn phím là hiện lại.
-        PosKeyboardBuilder(
-          builder: (context, kbOpen, kbHeight) => (kbHeight >= 520)
-              ? Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: PosTheme.border)),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-          child: _tab.cart.isEmpty && _isSplitBill
-              ? Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: (_checkingOut || _parking || _splitBillBusy)
-                            ? null
-                            : () => unawaited(_deleteCurrentSplitBill()),
-                        icon: const Icon(Icons.delete_outline),
-                        label: Text(tr('Xóa hóa đơn')),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red.shade700,
-                          minimumSize: const Size(0, 56),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _tabletPaymentStage = false;
-                            _paymentQrOverlayDismissed = false;
-                          });
-                          _scheduleCustomerDisplayPublish(delayMs: 50);
-                        },
-                        icon: const Icon(Icons.add),
-                        label: Text(tr('Thêm món')),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _kiotBlue,
-                          minimumSize: const Size(0, 56),
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              : _buildCheckoutActions(
-                  canPay: canPay,
-                  canOrder: perm.canPosOrder(),
-                  busy: _checkingOut || _parking || _provisionalPrinting,
-                  onComplete: _checkoutTapped,
-                  height: 56,
-                  radius: 10,
-                  completeLabel: 'HOÀN TẤT THANH TOÁN (F9)',
-                  completeFontSize: 16,
-                ),
-        )
-              : const SizedBox.shrink(),
-        ),
+        if (!widePay) actionBar(printChips: true),
       ],
     );
     if (!_shouldShowPaymentQrOverlay()) return body;
