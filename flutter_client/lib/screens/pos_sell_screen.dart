@@ -39,7 +39,6 @@ import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/pos_after_bill_approval_config.dart';
 import '../utils/responsive_helper.dart';
-import '../utils/store_role_helper.dart';
 import '../services/pos_network_monitor.dart';
 import '../widgets/pos/pos_offline_banner.dart';
 import '../utils/pos_notify_focus.dart';
@@ -1031,7 +1030,6 @@ class _PosSellScreenState extends State<PosSellScreen>
   int? _expandedCartRowId;
   _CartRowExpand? _expandedCartMode;
   List<Map<String, dynamic>> _sellSellers = [];
-  bool _canPickSeller = false;
   String? _defaultSellerEmployeeId;
   List<PosPriceList> _priceLists = [];
   /// Khuyến mãi đang hiệu lực hôm nay (khung giờ / thứ xét lúc tính).
@@ -1790,14 +1788,12 @@ class _PosSellScreenState extends State<PosSellScreen>
     final shippingCarriers = _parseEnabledShippingCarriers(shippingRes);
 
     // Sellers
-    final auth = Provider.of<AuthProvider>(context, listen: false);
     final sellers = <Map<String, dynamic>>[];
     if (sellersRes['isSuccess'] == true && sellersRes['data'] is List) {
       for (final e in sellersRes['data'] as List) {
         if (e is Map) sellers.add(Map<String, dynamic>.from(e));
       }
     }
-    final canPick = StoreRoleHelper.isManagerOrAbove(auth.userRole);
     Map<String, dynamic>? self;
     for (final item in sellers) {
       if (item['isSelf'] == true) {
@@ -1805,7 +1801,8 @@ class _PosSellScreenState extends State<PosSellScreen>
         break;
       }
     }
-    self ??= sellers.isNotEmpty ? sellers.first : null;
+    // Người bán = tài khoản đang đăng nhập. Không lấy người đầu danh sách: tài khoản không gắn
+    // nhân viên (chủ / quản lý) trước đây ghi nhầm đơn cho người khác. null → server ghi theo tài khoản.
     final defaultSellerId = self?['employeeId']?.toString();
 
     // Banks / payment sources
@@ -1875,7 +1872,6 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
       _sellMode = sellMode;
       _sellSellers = sellers;
-      _canPickSeller = canPick;
       _defaultSellerEmployeeId = defaultSellerId;
       _bankAccounts = accounts;
       _paymentSources = sources;
@@ -2107,12 +2103,10 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!mounted) return;
     if (res['isSuccess'] != true || res['data'] is! List) return;
 
-    final auth = Provider.of<AuthProvider>(context, listen: false);
     final list = (res['data'] as List)
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
-    final canPick = StoreRoleHelper.isManagerOrAbove(auth.userRole);
     Map<String, dynamic>? self;
     for (final item in list) {
       if (item['isSelf'] == true) {
@@ -2120,12 +2114,10 @@ class _PosSellScreenState extends State<PosSellScreen>
         break;
       }
     }
-    self ??= list.isNotEmpty ? list.first : null;
     final defaultId = self?['employeeId']?.toString();
 
     setState(() {
       _sellSellers = list;
-      _canPickSeller = canPick;
       _defaultSellerEmployeeId = defaultId;
       for (final t in _tabs) {
         t.sellerEmployeeId ??= defaultId;
@@ -11703,7 +11695,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (_posDeviceName != null) 'deviceName': _posDeviceName,
       if (tab.lockVersion >= 0) 'expectedLockVersion': tab.lockVersion,
       if (tab.priceListId != null) 'priceListId': tab.priceListId,
-      if (tab.sellerEmployeeId != null) 'soldByEmployeeId': tab.sellerEmployeeId,
+      if (_defaultSellerEmployeeId != null) 'soldByEmployeeId': _defaultSellerEmployeeId,
       if (tab.serviceResourceId != null)
         'serviceResourceId': tab.serviceResourceId,
       // Phiên bàn mở lúc mất mạng (offline-…) chỉ có trên máy — không gửi lên máy chủ.
@@ -11748,8 +11740,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (tab.voucherCode != null && tab.voucherCode!.isNotEmpty)
         'voucherCode': tab.voucherCode,
       if (tab.pointsToRedeem > 0) 'pointsToRedeem': tab.pointsToRedeem,
-      if ((tab.sellerEmployeeId ?? _defaultSellerEmployeeId) != null)
-        'soldByEmployeeId': tab.sellerEmployeeId ?? _defaultSellerEmployeeId,
+      // Đơn ghi cho tài khoản đang thanh toán (đơn tạm do người khác mở vẫn đổi theo người thu).
+      if (_defaultSellerEmployeeId != null) 'soldByEmployeeId': _defaultSellerEmployeeId,
     };
   }
 
@@ -14126,13 +14118,75 @@ class _PosSellScreenState extends State<PosSellScreen>
         ? box.localToGlobal(box.size.topRight(Offset.zero), ancestor: overlay)
         : Offset(MediaQuery.sizeOf(context).width - 8, 56);
 
+    PopupMenuItem<String> item(
+      String value,
+      IconData icon,
+      String label, {
+      bool enabled = true,
+      Color? color,
+      Color? iconColor,
+      String? subtitle,
+    }) =>
+        // Gọn hơn ListTile (48dp → 40dp) — cả menu vừa màn ngang, ít phải cuộn.
+        PopupMenuItem<String>(
+          value: value,
+          enabled: enabled,
+          height: subtitle == null ? 40 : 52,
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: iconColor ?? color),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tr(label),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 14, color: color)),
+                    if (subtitle != null)
+                      Text(tr(subtitle),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+    // Nhóm có tiêu đề; nhóm rỗng (không mục nào hợp ngành / quyền) thì ẩn luôn tiêu đề.
+    List<PopupMenuEntry<String>> section(String title, List<PopupMenuEntry<String>> items) =>
+        items.isEmpty
+            ? const []
+            : [
+                const PopupMenuDivider(height: 8),
+                PopupMenuItem<String>(
+                  enabled: false,
+                  height: 28,
+                  child: Text(
+                    tr(title).toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                      color: SboxColors.slate500,
+                    ),
+                  ),
+                ),
+                ...items,
+              ];
+
     final menuMaxH = MediaQuery.sizeOf(context).height - topRight.dy - 16;
-    final action = await showMenu<String>(
+    final menuPos = RelativeRect.fromLTRB(
+        topRight.dx - 260, topRight.dy, topRight.dx, topRight.dy + 8);
+    // Gom nhóm như bản Sunmi T1: mục hay dùng khi bán lên trước, mục ít dùng vào «Khác…».
+    var action = await showMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(
-          topRight.dx - 240, topRight.dy, topRight.dx, topRight.dy + 8),
+      position: menuPos,
       constraints: BoxConstraints(
-        minWidth: 240,
+        minWidth: 260,
         maxWidth: 300,
         maxHeight: menuMaxH.clamp(280, 900),
       ),
@@ -14168,309 +14222,65 @@ class _PosSellScreenState extends State<PosSellScreen>
             ],
           ),
         ),
+        // Nhóm 1 — thao tác trên bàn / hoá đơn đang mở (dùng nhiều nhất khi bán).
+        ...section('Bàn / hoá đơn đang mở', [
+          if (_isTableOrderMode)
+            item(
+                'guests',
+                Icons.people_outline,
+                _tab.tableGuestCount > 0 ? 'Số khách (${_tab.tableGuestCount})' : 'Số khách',
+                enabled: !_tab.draftReadOnly),
+          if (!_isTableOrderMode && (_tab.resourceSessionId ?? '').isNotEmpty && _kitchenNotifyOn)
+            item('kitchen', Icons.soup_kitchen_outlined, 'Báo chế biến',
+                enabled: !_kitchenSending && !_checkingOut && !_parking),
+          if (_printSettings.showCupLabelManualButton)
+            item('cup_label', Icons.sticky_note_2_outlined,
+                _cupLabelPendingCount > 0 ? 'In tem ly ($_cupLabelPendingCount)' : 'In tem ly',
+                enabled: _cupLabelActionEnabled),
+          if (_isTableOrderMode && (_tab.splitFromOrderId ?? '').isEmpty && _tab.cart.isNotEmpty)
+            item('split_bill', Icons.call_split, _splitBillBusy ? 'Đang tách…' : 'Tách hóa đơn',
+                enabled: !_splitBillBusy && !_checkingOut && !_parking),
+          if (_isSplitBill)
+            item('delete_split', Icons.delete_outline, 'Xóa hóa đơn tách',
+                color: Colors.red.shade700,
+                enabled: !_checkingOut && !_parking && !_splitBillBusy),
+          if (_showRetailInvoiceTabs)
+            item('rename_tab', Icons.drive_file_rename_outline, 'Đổi tên hóa đơn'),
+          item('price_list', Icons.sell_outlined, 'Bảng giá: ${_tab.priceListLabel}'),
+          if (!_isSplitBill &&
+              (_isTableOrderMode ||
+                  (_useFloorAsPrimary && (_floorPaneKey.currentState?.busyTableCount ?? 0) > 0)))
+            item('return_table', Icons.event_seat_outlined, 'Trả về bàn trống',
+                color: Colors.red.shade700,
+                enabled: !_checkingOut && !_parking && !_splitBillBusy),
+        ]),
+        // Nhóm 2 — tra cứu đơn / lịch / trả hàng.
+        ...section('Đơn & khách', [
+          if (canMod('PosSaleOrders')) item('sale_orders', Icons.receipt_long_outlined, 'Đơn hàng'),
+          if (_useFloorAsPrimary && canMod('PosBooking'))
+            item('booking', Icons.calendar_month_outlined, 'Đặt lịch'),
+          if (_qrOnlineFeatureEnabled && canMod('PosQrOrder'))
+            item('qr_online_orders', Icons.delivery_dining_outlined,
+                _qrOnlinePending.isEmpty ? 'Đơn online' : 'Đơn online (${_qrOnlinePending.length})'),
+          if (canReturn) item('return', Icons.keyboard_return, 'Trả hàng'),
+          if (_industrySettings?.enableSessionPacks == true)
+            item('session_redeem', Icons.confirmation_number_outlined, 'Trừ buổi gói'),
+        ]),
+        // Nhóm 3 — tiền mặt / két / chốt ca.
+        ...section('Tiền & ca', [
+          item('open_drawer', Icons.lock_open_outlined, 'Mở két'),
+          if (canMod('CashTransaction')) ...[
+            item('receipt', Icons.call_received_rounded, 'Lập phiếu thu', iconColor: Colors.green),
+            item('payment', Icons.call_made_rounded, 'Lập phiếu chi', iconColor: Colors.red),
+          ],
+          if (canMod('PosCashierShift') && _industrySettings?.enableCashierShift == true)
+            item('cashier_shift', Icons.account_balance_wallet_outlined, 'Ca thu ngân'),
+          if (canEod) item('eod', Icons.summarize_outlined, 'Cuối ngày'),
+        ]),
         const PopupMenuDivider(),
-        PopupMenuItem(
-          value: 'go_home',
-          child: ListTile(
-            dense: true,
-            leading: Icon(
-              NavigationNotifier.mainLayoutReady.value
-                  ? Icons.apps_outlined
-                  : Icons.home_outlined,
-              size: 20,
-            ),
-            title: Text(tr('Trở về trang chủ')),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        if (_showRetailInvoiceTabs)
-          PopupMenuItem(
-            value: 'rename_tab',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.drive_file_rename_outline, size: 20),
-              title: Text(tr('Đổi tên hóa đơn')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (canMod('PosSaleOrders'))
-          PopupMenuItem(
-            value: 'sale_orders',
-            child: ListTile(
-              dense: true,
-              leading: Icon(Icons.receipt_long_outlined, size: 20),
-              title: Text(tr('Đơn hàng')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (canMod('PosQuotes'))
-          PopupMenuItem(
-            value: 'quotes',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.request_quote_outlined, size: 20),
-              title: Text(tr('Báo giá')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (canMod('PosQuotes') && canMod('PosPrintTemplates'))
-          PopupMenuItem(
-            value: 'quote_templates',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.article_outlined, size: 20),
-              title: Text(tr('Mẫu in báo giá')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (_qrOnlineFeatureEnabled && canMod('PosQrOrder'))
-          PopupMenuItem(
-            value: 'qr_online_orders',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.delivery_dining_outlined, size: 20),
-              title: Text(tr(_qrOnlinePending.isEmpty
-                  ? 'Đơn online'
-                  : 'Đơn online (${_qrOnlinePending.length})')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (_useFloorAsPrimary && canMod('PosBooking'))
-          PopupMenuItem(
-            value: 'booking',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.calendar_month_outlined, size: 20),
-              title: Text(tr('Đặt lịch')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (_isTableOrderMode)
-          PopupMenuItem(
-            value: 'guests',
-            enabled: !_tab.draftReadOnly,
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.people_outline, size: 20),
-              title: Text(tr(_tab.tableGuestCount > 0
-                  ? 'Số khách (${_tab.tableGuestCount})'
-                  : 'Số khách')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (_printSettings.showCupLabelManualButton)
-          PopupMenuItem(
-            value: 'cup_label',
-            enabled: _cupLabelActionEnabled,
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.sticky_note_2_outlined, size: 20),
-              title: Text(tr(_cupLabelPendingCount > 0
-                  ? 'In tem ly ($_cupLabelPendingCount)'
-                  : 'In tem ly')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (!_isTableOrderMode &&
-            (_tab.resourceSessionId ?? '').isNotEmpty &&
-            _kitchenNotifyOn)
-          PopupMenuItem(
-            value: 'kitchen',
-            enabled: !_kitchenSending && !_checkingOut && !_parking,
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.soup_kitchen_outlined, size: 20),
-              title: Text(tr('Báo chế biến')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (canMod('CashTransaction')) ...[
-          PopupMenuItem(
-            value: 'receipt',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.call_received_rounded, size: 20, color: Colors.green),
-              title: Text(tr('Lập phiếu thu')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          PopupMenuItem(
-            value: 'payment',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.call_made_rounded, size: 20, color: Colors.red),
-              title: Text(tr('Lập phiếu chi')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ],
-        PopupMenuItem(
-          value: 'price_list',
-          child: ListTile(
-            dense: true,
-            leading: const Icon(Icons.sell_outlined, size: 20),
-            title: Text(tr('Bảng giá: ${_tab.priceListLabel}')),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        if (canMod('PosCustomerDisplay'))
-          PopupMenuItem(
-            value: 'customer_display',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.cast_connected_outlined, size: 20),
-              title: Text(tr('Màn hình khách')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (_isTableOrderMode &&
-            (_tab.splitFromOrderId ?? '').isEmpty &&
-            _tab.cart.isNotEmpty)
-          PopupMenuItem(
-            value: 'split_bill',
-            enabled: !_splitBillBusy && !_checkingOut && !_parking,
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.call_split, size: 20),
-              title: Text(tr(_splitBillBusy ? 'Đang tách…' : 'Tách hóa đơn')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (_isSplitBill)
-          PopupMenuItem(
-            value: 'delete_split',
-            enabled: !_checkingOut && !_parking && !_splitBillBusy,
-            child: ListTile(
-              dense: true,
-              leading: Icon(Icons.delete_outline,
-                  size: 20, color: Colors.red.shade700),
-              title: Text(tr('Xóa hóa đơn tách')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (!_isSplitBill &&
-            (_isTableOrderMode ||
-                (_useFloorAsPrimary &&
-                    (_floorPaneKey.currentState?.busyTableCount ?? 0) > 0)))
-          PopupMenuItem(
-            value: 'return_table',
-            enabled: !_checkingOut && !_parking && !_splitBillBusy,
-            child: ListTile(
-              dense: true,
-              leading: Icon(Icons.event_seat_outlined,
-                  size: 20, color: Colors.red.shade700),
-              title: Text(tr('Trả về bàn trống')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (canReturn)
-          PopupMenuItem(
-            value: 'return',
-            child: ListTile(
-              dense: true,
-              leading: Icon(Icons.keyboard_return, size: 20),
-              title: Text(tr('Trả hàng')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (canMod('PosCashierShift') &&
-            _industrySettings?.enableCashierShift == true)
-          PopupMenuItem(
-            value: 'cashier_shift',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.account_balance_wallet_outlined, size: 20),
-              title: Text(tr('Ca thu ngân')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        PopupMenuItem(
-          value: 'open_drawer',
-          child: ListTile(
-            dense: true,
-            leading: const Icon(Icons.lock_open_outlined, size: 20),
-            title: Text(tr('Mở két')),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        if (canEod)
-          PopupMenuItem(
-            value: 'eod',
-            child: ListTile(
-              dense: true,
-              leading: Icon(Icons.summarize_outlined, size: 20),
-              title: Text(tr('Cuối ngày')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (_industrySettings?.enableSessionPacks == true)
-          PopupMenuItem(
-            value: 'session_redeem',
-            child: ListTile(
-              dense: true,
-              leading: Icon(Icons.confirmation_number_outlined, size: 20),
-              title: Text(tr('Trừ buổi gói')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (_industrySettings?.enableSessionPacks == true &&
-            Provider.of<PermissionProvider>(context, listen: false).canView('PosGymCheckIn'))
-          PopupMenuItem(
-            value: 'gym_checkin',
-            child: ListTile(
-              dense: true,
-              leading: Icon(Icons.fingerprint, size: 20),
-              title: Text(tr('Check-in hội viên (máy chấm công)')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (!Responsive.isMobile(context))
-          PopupMenuItem(
-            value: 'shortcuts',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.keyboard_outlined, size: 20),
-              title: Text(tr('Phím tắt (F1)')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (PosScaleReader.instance.supported)
-          PopupMenuItem(
-            value: 'scale_device',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.scale_outlined, size: 20),
-              title: Text(tr('Cân điện tử nối máy')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        PopupMenuItem(
-          value: 'fullscreen',
-          child: ListTile(
-            dense: true,
-            leading: Icon(
-              _isPosFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-              size: 20,
-            ),
-            title: Text(tr(_isPosFullscreen
-                ? 'Thoát toàn màn hình'
-                : 'Phóng toàn màn hình')),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          value: 'pos_settings_hub',
-          child: ListTile(
-            dense: true,
-            leading: const Icon(Icons.settings_outlined, size: 20),
-            title: Text(tr('Thiết lập SBOX')),
-            subtitle: Text(tr('Cửa hàng, in, QR, KDS…'),
-                style: const TextStyle(fontSize: 11)),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuDivider(),
+        // Ít dùng → gom vào «Khác…» (menu phụ) cho gọn, khỏi phải cuộn trên máy ngang.
+        item('more', Icons.more_horiz, 'Khác…',
+            subtitle: 'Báo giá, màn hình khách, toàn màn hình, thiết lập'),
         PopupMenuItem<String>(
           enabled: false,
           child: ListTile(
@@ -14505,20 +14315,38 @@ class _PosSellScreenState extends State<PosSellScreen>
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        PopupMenuItem(
-          value: 'logout',
-          child: ListTile(
-            dense: true,
-            leading: const Icon(Icons.logout, size: 20, color: Colors.red),
-            title: Text(tr('Đăng xuất'),
-              style: TextStyle(color: Colors.red.shade700),
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
+        item('logout', Icons.logout, 'Đăng xuất', color: Colors.red.shade700, iconColor: Colors.red),
       ],
     );
     if (!mounted || action == null) return;
+    if (action == 'more') {
+      action = await showMenu<String>(
+        context: context,
+        position: menuPos,
+        constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
+        items: [
+          if (canMod('PosQuotes')) item('quotes', Icons.request_quote_outlined, 'Báo giá'),
+          if (canMod('PosQuotes') && canMod('PosPrintTemplates'))
+            item('quote_templates', Icons.article_outlined, 'Mẫu in báo giá'),
+          if (canMod('PosCustomerDisplay'))
+            item('customer_display', Icons.cast_connected_outlined, 'Màn hình khách'),
+          if (_industrySettings?.enableSessionPacks == true &&
+              Provider.of<PermissionProvider>(context, listen: false).canView('PosGymCheckIn'))
+            item('gym_checkin', Icons.fingerprint, 'Check-in hội viên', subtitle: 'Qua máy chấm công'),
+          if (!Responsive.isMobile(context)) item('shortcuts', Icons.keyboard_outlined, 'Phím tắt (F1)'),
+          if (PosScaleReader.instance.supported)
+            item('scale_device', Icons.scale_outlined, 'Cân điện tử nối máy'),
+          item('fullscreen', _isPosFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+              _isPosFullscreen ? 'Thoát toàn màn hình' : 'Phóng toàn màn hình'),
+          item('pos_settings_hub', Icons.settings_outlined, 'Thiết lập SBOX',
+              subtitle: 'Cửa hàng, in, QR, KDS…'),
+          item('go_home',
+              NavigationNotifier.mainLayoutReady.value ? Icons.apps_outlined : Icons.home_outlined,
+              'Trở về trang chủ'),
+        ],
+      );
+      if (!mounted || action == null) return;
+    }
 
     switch (action) {
       case 'rename_tab':
@@ -16865,44 +16693,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           const SizedBox(height: 6),
           _buildPriceListTile(onMutate: onMutate),
         ],
-        if (_sellSellers.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          _canPickSeller
-              ? DropdownButtonFormField<String>(
-                  value: _tab.sellerEmployeeId ?? _defaultSellerEmployeeId,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: tr('Người bán'),
-                    isDense: true,
-                    prefixIcon: const Icon(Icons.badge_outlined, size: 18),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  ),
-                  style: const TextStyle(fontSize: 12, color: SboxColors.text),
-                  items: _sellSellers
-                      .map((s) => DropdownMenuItem<String>(
-                            value: s['employeeId']?.toString(),
-                            child: Text(
-                              tr(s['displayName']?.toString() ?? '—'),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ))
-                      .where((item) => item.value != null && item.value!.isNotEmpty)
-                      .toList(),
-                  onChanged: (v) => setState(() => _tab.sellerEmployeeId = v),
-                )
-              : _summaryRow(
-                  'Người bán',
-                  _sellSellers
-                          .where((s) =>
-                              s['employeeId']?.toString() ==
-                              (_tab.sellerEmployeeId ?? _defaultSellerEmployeeId))
-                          .map((s) => s['displayName']?.toString())
-                          .firstOrNull ??
-                      '—',
-                ),
-        ],
+        // Bỏ ô «Người bán»: tài khoản nào thanh toán thì đơn ghi cho tài khoản đó (không chọn người
+        // khác). Nhân viên làm dịch vụ (hoa hồng) gán ở từng dòng trong giỏ.
         const SizedBox(height: 6),
         _summaryRow('${_sellProfile.usesSessionPackages ? 'Tổng tiền' : 'Tổng tiền hàng'} (${_tab.cart.length})', _moneyFmt.format(_subTotal)),
         if (_manualLineDiscountTotal > 0) ...[
