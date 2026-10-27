@@ -1083,10 +1083,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   /// Máy cảm ứng (Android / iOS): ô giá mở bàn phím số của app như màn thanh toán — bàn phím số
   /// hệ thống (Gboard) lẫn ( ) # * = và che nửa form. Web / desktop vẫn gõ phím thường.
-  bool get _moneyKeypad =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
+  bool get _moneyKeypad => posUsesAppKeypad;
 
   Future<void> _tapMoneyField(TextEditingController c) async {
     if (!_moneyKeypad) {

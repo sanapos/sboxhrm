@@ -225,9 +225,17 @@ class SboxKpiStrip extends StatelessWidget {
       final w = cons.maxWidth;
       // Điện thoại: chia cột sao cho không có thẻ lẻ rớt xuống hàng (3 số → 3 cột, 6 số → 2×3…).
       final n = items.length;
-      final cols = w < SboxBreakpoints.mobile
+      var cols = w < SboxBreakpoints.mobile
           ? (n <= 3 ? math.max(1, n) : (n.isEven ? 2 : (n % 3 == 0 ? 3 : 2)))
           : math.min(maxColumns, math.min(items.length, math.max(3, (w / 220).floor())));
+      // Màn rộng: tránh một thẻ lẻ rớt hàng cuối (5 số / 4 cột) — thêm cột nếu thẻ còn đủ rộng, không thì bớt cột.
+      if (w >= SboxBreakpoints.mobile && cols < n && n % cols == 1) {
+        if (cols + 1 <= maxColumns && w / (cols + 1) >= 190) {
+          cols += 1;
+        } else if (cols > 2) {
+          cols -= 1;
+        }
+      }
       return SboxGrid(
         columns: cols,
         spacing: w < SboxBreakpoints.mobile ? SboxSpace.sm : SboxSpace.md,

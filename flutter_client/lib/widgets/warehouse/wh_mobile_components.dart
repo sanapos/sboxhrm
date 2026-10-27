@@ -589,7 +589,10 @@ class WhLineCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: WhMobileTheme.card(radius: WhMobileTheme.radiusSm),
-      padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
+      // Xem phiếu (chỉ đọc): lề 16 như thẻ tổng phía trên — số tiền dòng thẳng cột với tổng phiếu.
+      padding: readOnly
+          ? const EdgeInsets.fromLTRB(16, 12, 16, 12)
+          : const EdgeInsets.fromLTRB(10, 8, 6, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -708,6 +711,12 @@ class WhSearchField extends StatelessWidget {
         prefix: const Icon(Icons.search_rounded,
             color: WhMobileTheme.textSecondary, size: 22),
       ).copyWith(
+        // Nền trắng + viền nhạt: fieldDecoration tô nền trùng màu nền trang, ô tìm gần như vô hình.
+        fillColor: WhMobileTheme.surface,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(WhMobileTheme.radiusSm),
+          borderSide: const BorderSide(color: WhMobileTheme.divider),
+        ),
         suffixIcon: ValueListenableBuilder(
           valueListenable: controller,
           builder: (_, __, ___) {

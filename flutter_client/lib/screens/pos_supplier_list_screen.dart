@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math' as math;
 import '../utils/pos_report_open.dart';
 import '../utils/api_datetime.dart';
+import '../utils/pos_payment_label.dart';
 
 import 'package:flutter/material.dart';
 import '../widgets/pos/pos_debt_adjust_dialog.dart';
@@ -154,7 +156,9 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
       isScrollControlled: true,
       builder: (ctx) => SafeArea(
         child: SizedBox(
-          height: MediaQuery.sizeOf(ctx).height * 0.6,
+          // Vừa nội dung (tiêu đề ~72 + mỗi dòng ~64), tối đa 60% — 1–2 chứng từ không để trống nửa màn.
+          height: math.min(MediaQuery.sizeOf(ctx).height * 0.6,
+              88.0 + math.max(1, items.length) * 64),
           child: Column(
             children: [
               ListTile(
@@ -177,7 +181,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                           final amount =
                               (m['amount'] ?? m['Amount'] as num?)?.toDouble() ??
                                   0;
-                          final status =
+                          final rawStatus =
                               (m['status'] ?? m['Status'] ?? '').toString();
                           final dateRaw = m['date'] ?? m['Date'];
                           final date = dateRaw != null
@@ -187,6 +191,15 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                           // Lần trả tiền NCC (giảm công nợ) — trạng thái = hình thức thanh toán.
                           final isPayment = type.toLowerCase() == 'payment';
                           final docId = (m['id'] ?? m['Id'] ?? '').toString();
+                          // API trả mã thô («Completed», «Cash»…) — hiện tiếng Việt.
+                          final status = isPayment
+                              ? posPaymentMethodName(rawStatus)
+                              : switch (rawStatus.toLowerCase()) {
+                                  'completed' || 'done' => 'Hoàn thành',
+                                  'draft' => 'Nháp',
+                                  'cancelled' || 'canceled' => 'Đã hủy',
+                                  _ => rawStatus,
+                                };
                           return ListTile(
                             dense: true,
                             onTap: isPayment || docId.isEmpty

@@ -4,6 +4,7 @@ import '../screens/settings_hub_screen.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/responsive_helper.dart';
 import 'hrm/hrm_settings_mobile_kit.dart';
+import 'page_top_actions.dart';
 import 'pos/pos_hub_scope.dart';
 import 'pos/pos_theme.dart';
 import '../l10n/app_tr.dart';
@@ -34,16 +35,21 @@ class HrmShellChrome extends InheritedWidget {
 PreferredSizeWidget? shellAwareAppBar(BuildContext context, AppBar bar) {
   if (!HrmShellChrome.isVisible(context)) return bar;
   final acts = bar.actions ?? const <Widget>[];
-  if (acts.isEmpty && bar.bottom == null) return null;
-  return AppBar(
-    automaticallyImplyLeading: false,
-    toolbarHeight: acts.isEmpty ? 0 : 48,
-    backgroundColor: bar.backgroundColor ?? Colors.white,
-    surfaceTintColor: bar.surfaceTintColor ?? Colors.white,
-    foregroundColor: bar.foregroundColor,
-    elevation: bar.elevation ?? 0.5,
-    actions: acts,
-    bottom: bar.bottom,
+  final bottom = bar.bottom;
+  if (acts.isEmpty && bottom == null) return null;
+  // Nút hành động đưa lên thanh tiêu đề của khung (cạnh «← tiêu đề») — trước đây chiếm thêm
+  // một hàng trắng 48dp chỉ để chứa 1 nút làm mới.
+  final register = RegisterPageTopActions(actions: acts, child: const SizedBox.shrink());
+  if (bottom == null) {
+    return PreferredSize(preferredSize: Size.zero, child: register);
+  }
+  return PreferredSize(
+    preferredSize: bottom.preferredSize,
+    child: Material(
+      color: bar.backgroundColor ?? Colors.white,
+      elevation: bar.elevation ?? 0.5,
+      child: Stack(children: [register, bottom]),
+    ),
   );
 }
 

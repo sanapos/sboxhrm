@@ -374,7 +374,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
             title: Text(tr('Ngừng kinh doanh')),
             subtitle: Text(tr('Ẩn sản phẩm khỏi mọi kênh bán')),
             value: !_product.isActive,
-            activeColor: PosTheme.kiotBlue,
+            activeTrackColor: PosTheme.kiotBlue,
             onChanged: (v) => _toggleActive(!v),
           ),
           const Divider(height: 1),
@@ -382,7 +382,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
             title: Text(tr('Ẩn POS')),
             subtitle: Text(tr('Không hiển thị trên màn hình bán hàng')),
             value: !_product.isDirectSale,
-            activeColor: PosTheme.kiotBlue,
+            activeTrackColor: PosTheme.kiotBlue,
             onChanged: _product.isActive ? (v) => _toggleDirectSale(!v) : null,
           ),
         ],
@@ -436,7 +436,10 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
           _detailRow('Khách đặt', _moneyFmt.format(p.reservedQty)),
           _detailRow(
             'Định mức tồn',
-            '${_moneyFmt.format(p.minStockQty)} - ${_moneyFmt.format(p.maxStockQty)}',
+            // Chưa đặt (0 – 0, hoặc trần mặc định 999.999.999) → «Chưa có» như Mã vạch / Thương hiệu.
+            p.minStockQty <= 0 && (p.maxStockQty <= 0 || p.maxStockQty >= 999999999)
+                ? 'Chưa có'
+                : '${_moneyFmt.format(p.minStockQty)} - ${_moneyFmt.format(p.maxStockQty)}',
           ),
         ],
         _detailRow('Thương hiệu', p.brandName ?? 'Chưa có'),
@@ -447,12 +450,15 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
         if (p.estimatedStockoutDate != null)
           _detailRow(
             'Dự kiến hết hàng',
-            _dateFmt.format(p.estimatedStockoutDate!.toLocal()),
+            // Ước tính theo ngày — giờ phút («12:57» = giờ mở màn) không có nghĩa.
+            DateFormat('dd/MM/yyyy').format(p.estimatedStockoutDate!.toLocal()),
           ),
         if (p.avgDailySales != null && p.avgDailySales! > 0)
           _detailRow(
             'Bán TB/ngày (30 ngày)',
-            _moneyFmt.format(p.avgDailySales),
+            // Bán ít (2 ly / 30 ngày = 0,07) trước đây làm tròn thành «0» — cạnh ngày dự kiến hết hàng
+            // 2 năm sau trông như lỗi.
+            NumberFormat('#,##0.##', 'vi_VN').format(p.avgDailySales),
           ),
         if (p.description != null && p.description!.trim().isNotEmpty)
           _detailRow('Mô tả', p.description!),
@@ -471,7 +477,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 130,
+            width: 170,
             child: Text(
               tr(label),
               style: const TextStyle(

@@ -63,6 +63,7 @@ import 'settings_screen.dart';
 import 'system_admin_screen.dart' deferred as system_admin;
 import '../widgets/deferred_screen.dart';
 import 'settings_hub_screen.dart';
+import '../utils/settings_hub_catalog.dart';
 import 'business_trip_expense_screen.dart';
 import 'notifications_screen.dart';
 import 'schedule_approval_screen.dart';
@@ -447,12 +448,38 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           ),
       ..._posExtraCommandItems(),
     ];
+    items.addAll(_settingsCommandItems({for (final i in items) i.label.toLowerCase()}));
     _paletteOpen = true;
     try {
       await SboxCommandPalette.show(context, items, hint: 'Tìm chức năng… (vd: nhập hàng, bảng lương)');
     } finally {
       _paletteOpen = false;
     }
+  }
+
+  /// Trang con của Thiết lập SBOX («Ngành hàng & cách bán», «Tài khoản nhận tiền»…) — trước đây gõ
+  /// «ngành hàng» không ra gì dù màn Ca thu ngân / Thanh toán chỉ người dùng vào đó.
+  List<SboxCommandItem> _settingsCommandItems(Set<String> takenLabels) {
+    final hubIdx = _visibleNavIndices()
+        .where((i) => _navItems[i].moduleCode == 'SettingsHub')
+        .toList();
+    if (hubIdx.isEmpty) return const [];
+    final visible = SettingsHubScreen.visibleItems(context, SettingsHubCatalog.itemsForCurrentApp);
+    return [
+      for (final it in visible)
+        if (!takenLabels.contains(it.label.toLowerCase()))
+          SboxCommandItem(
+            label: it.label,
+            icon: it.icon,
+            group: 'Thiết lập SBOX',
+            subtitle: it.desc,
+            keywords: [it.groupTitle, ...it.keywords],
+            onSelect: () {
+              SettingsHubScreen.openCode(it.code);
+              _tryNavigateToIndex(hubIdx.first);
+            },
+          ),
+    ];
   }
 
   /// Màn POS chỉ mở từ menu «Nhiều hơn» / màn Bán hàng (không nằm trên thanh điều hướng)
@@ -927,11 +954,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (_navItems[index].openAsPage) {
       final screen = _navItems[index].screen;
       // Sau khung hình: nơi gọi (ngăn «Thêm», truy cập nhanh) còn đóng ngăn kéo bằng Navigator.pop.
+      // Tablet / desktop: hiện trong khung chính như màn POS phụ khác; điện thoại / màn bán: push.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => PosHubScope.pushed(child: screen)),
-        );
+        _openShellExtra(_navItems[index].localizedLabel(AppLocalizations.of(context)), () => screen);
       });
       return true;
     }

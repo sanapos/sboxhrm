@@ -182,6 +182,7 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
 
   void _onFocusChange() {
     if (!_focus.hasFocus) {
+      _debounce?.cancel();
       Future.delayed(const Duration(milliseconds: 180), () {
         if (!_focus.hasFocus) _removeOverlay();
       });
@@ -210,6 +211,9 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
   }
 
   Future<void> _runSearch(String q) async {
+    // Ô đã mất focus (bấm sang nút khác / mở dialog) trước khi hết 280ms chờ gõ: đừng bật lại
+    // hộp gợi ý — trước đây nó nổi đè lên cả lớp mờ của dialog vừa mở.
+    if (!_focus.hasFocus) return;
     final gen = ++_searchGen;
     setState(() => _loading = true);
     _showOverlay();
@@ -683,7 +687,10 @@ class _SuggestionTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     tr(
-                      '${suggestion.displayCode} · Tồn ${moneyFmt.format(suggestion.onHandQty)} · ${moneyFmt.format(price)}',
+                      // Dịch vụ / combo không giữ tồn: bỏ «Tồn 0» (trông như hết hàng).
+                      p.showsWarehouseStock
+                          ? '${suggestion.displayCode} · Tồn ${moneyFmt.format(suggestion.onHandQty)} · ${moneyFmt.format(price)}'
+                          : '${suggestion.displayCode} · ${moneyFmt.format(price)}',
                     ),
                     style: TextStyle(
                       fontSize: compact ? 11 : 12,

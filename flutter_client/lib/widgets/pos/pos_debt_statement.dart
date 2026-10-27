@@ -253,7 +253,7 @@ class _PosDebtStatementViewState extends State<PosDebtStatementView> {
               cell: (r) => Text(SboxFmt.money(_d(r['balance'])),
                   textAlign: TextAlign.right, style: SboxType.bodyStyle().copyWith(fontWeight: SboxType.semibold)),
             ),
-            SboxColumn(label: 'Ghi chú', minWidth: 180, hideOnMobile: true, text: (r) => '${r['note'] ?? ''}'),
+            SboxColumn(label: 'Ghi chú', flex: 2, minWidth: 180, hideOnMobile: true, text: (r) => '${r['note'] ?? ''}'),
           ],
         ),
       ],

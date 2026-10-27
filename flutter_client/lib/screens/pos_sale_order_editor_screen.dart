@@ -849,7 +849,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
               contentPadding: EdgeInsets.zero,
               title: Text(tr('Giao hàng'), style: TextStyle(fontSize: 14)),
               value: _isDelivery,
-              activeColor: _blue,
+              activeTrackColor: _blue,
               onChanged: _readOnly ? null : (v) => setState(() => _isDelivery = v),
             ),
             if (_isDelivery) ...[

@@ -567,8 +567,11 @@ class _PosSellMobilePrintSettingsScreenState
                 ),
               ],
             ),
-      body: ListView(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
+      // Màn rộng: cột cài đặt ≤ 960px ở giữa (công tắc không trôi ra mép phải cách nhãn cả màn).
+      body: LayoutBuilder(builder: (context, c) => ListView(
+              padding: EdgeInsets.fromLTRB(
+                c.maxWidth > 988 ? (c.maxWidth - 960) / 2 : 14, 6,
+                c.maxWidth > 988 ? (c.maxWidth - 960) / 2 : 14, 24),
               children: [
                 if (hubBody) ...[
                   Wrap(
@@ -614,7 +617,7 @@ class _PosSellMobilePrintSettingsScreenState
                       style: TextStyle(fontSize: 11),
                     ),
                     value: _print.autoPrint,
-                    activeColor: _blue,
+                    activeTrackColor: _blue,
                     onChanged: (v) =>
                         setState(() => _print = _print.copyWith(autoPrint: v)),
                   ),
@@ -649,7 +652,7 @@ class _PosSellMobilePrintSettingsScreenState
                   SwitchListTile(
                     title: Text(tr('Gộp hàng cùng loại khi in')),
                     value: _print.mergeSameItems,
-                    activeColor: _blue,
+                    activeTrackColor: _blue,
                     onChanged: (v) =>
                         setState(() => _print = _print.copyWith(mergeSameItems: v)),
                   ),
@@ -659,7 +662,7 @@ class _PosSellMobilePrintSettingsScreenState
                       style: TextStyle(fontSize: 11),
                     ),
                     value: _print.printVietQrOnReceipt,
-                    activeColor: _blue,
+                    activeTrackColor: _blue,
                     onChanged: (v) => setState(
                       () => _print = _print.copyWith(printVietQrOnReceipt: v),
                     ),
@@ -783,7 +786,7 @@ class _PosSellMobilePrintSettingsScreenState
                         style: const TextStyle(fontSize: 11),
                       ),
                       value: _print.printCupOnKitchenNotify,
-                      activeColor: _blue,
+                      activeTrackColor: _blue,
                       onChanged: (v) => setState(() =>
                           _print = _print.copyWith(printCupOnKitchenNotify: v)),
                     ),
@@ -960,12 +963,13 @@ class _PosSellMobilePrintSettingsScreenState
                   ]),
                 ],
               ],
-            ),
+            )),
     );
   }
 
+  // Cách thẻ phía trên 14px — trước đây tiêu đề nhóm dính sát đáy thẻ trước, xa thẻ của chính nó.
   Widget _sectionTitle(String text) => Padding(
-        padding: const EdgeInsets.only(left: 4, bottom: 8),
+        padding: const EdgeInsets.only(left: 4, top: 14, bottom: 8),
         child: Text(
           tr(text),
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _blue),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'pos_numeric_keypad.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
@@ -173,8 +174,9 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
           padding: const EdgeInsets.all(20),
           child: _loadingCats
               ? const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()))
-              : SingleChildScrollView(
-                  child: Column(
+              // Tiêu đề + hàng nút cố định, chỉ thân form cuộn — trước đây cả nút «Tạo phiếu» nằm trong
+              // vùng cuộn: bàn phím bật, dialog co lại là mất nút.
+              : Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -186,7 +188,14 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                         IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
                     CashPartyPicker(
                       nameController: _contactCtrl,
                       phoneController: _phoneCtrl,
@@ -203,10 +212,12 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    TextField(
+                    // Bàn phím số của app như màn thanh toán (bàn phím số hệ thống lẫn ( ) # * =).
+                    PosNoSoftKeyboardField(
                       controller: _amountCtrl,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      allowDecimal: false,
+                      openKeypadOnTap: posUsesAppKeypad,
+                      keypadTitle: 'Số tiền',
                       decoration: InputDecoration(
                         labelText: tr('Số tiền'),
                         hintText: tr('0'),
@@ -233,7 +244,7 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                                 border: OutlineInputBorder(),
                                 isDense: true,
                               ),
-                              child: Text(tr(dtFmt.format(_when))),
+                              child: Text(tr(dtFmt.format(_when)), style: const TextStyle(fontSize: 15)),
                             ),
                           ),
                         ),
@@ -241,6 +252,8 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             value: _categoryId,
+                            // Cùng cỡ chữ với ô Thời gian — mặc định dropdown to hơn hẳn các ô cạnh bên.
+                            style: const TextStyle(fontSize: 15, color: PosTheme.textPrimary),
                             decoration: InputDecoration(
                               labelText: tr('Danh mục'),
                               border: OutlineInputBorder(),
@@ -263,7 +276,11 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                         isDense: true,
                       ),
                     ),
-                    const SizedBox(height: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -289,7 +306,6 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
                     ),
                   ],
                 ),
-              ),
         ),
       ),
     ),

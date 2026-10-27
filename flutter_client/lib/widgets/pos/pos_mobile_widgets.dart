@@ -1103,6 +1103,17 @@ class PosMobileKiotHeader extends StatelessWidget {
     // Tablet trong khung MainLayout: thanh trên đã có «← Hàng hóa» — không lặp tiêu đề lần 2,
     // chỉ giữ hàng nút tìm / lọc / sắp xếp.
     final shellShowsTitle = !inHub && !showBack && HrmShellChrome.isVisible(context);
+    // Khung đã có tiêu đề mà trang không có nút nào (Bảng giá…) → khỏi vẽ hàng trống + vạch kẻ.
+    if (shellShowsTitle &&
+        (trailing == null || trailing!.isEmpty) &&
+        filterChips == null &&
+        onSearch == null &&
+        onFilter == null &&
+        onSort == null &&
+        onMore == null &&
+        onRefresh == null) {
+      return const SizedBox.shrink();
+    }
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

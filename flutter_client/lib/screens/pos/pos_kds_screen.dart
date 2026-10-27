@@ -1651,22 +1651,15 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               child: Row(children: [...leftChips, const SizedBox(width: 8), ...rightChips]),
             );
           }
-          return Row(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(children: leftChips),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(children: rightChips),
-                ),
-              ),
-            ],
+          // Màn rộng: chip xuống dòng khi hết chỗ — trước đây chia đôi 2 vùng cuộn, nửa trái thiếu chỗ
+          // nên chip máy in bị cắt ngang («LAN 127.(») dính sát chip «Lâu nhất» của nửa phải.
+          return SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [...leftChips, const SizedBox(width: 8), ...rightChips],
+            ),
           );
         }),
       ),
@@ -2115,7 +2108,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: _statusSoft(status),
+        // Thẻ món đã dùng _statusSoft làm nền — pill cần đậm hơn mới thấy.
+        color: accent.withOpacity(0.14),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -2176,19 +2170,22 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         Expanded(
           child: SizedBox(
             height: 40,
-            child: FilledButton(
-              onPressed: _busy ? null : onCook,
+            // Đã đang làm: nhãn trạng thái (nền nhạt, ✓, không bấm) — trước đây vẫn là nút đặc «Đang làm»
+            // giống hệt nút hành động, bấm cũng không đổi gì.
+            child: FilledButton.icon(
+              onPressed: _busy || cooking ? null : onCook,
               style: FilledButton.styleFrom(
-                backgroundColor: cooking ? _blue : _orange,
+                backgroundColor: _orange,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: cooking ? _blue : _orange,
-                disabledForegroundColor: Colors.white,
+                disabledBackgroundColor: cooking ? _blueSoft : _orange,
+                disabledForegroundColor: cooking ? _blue : Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
               ),
-              child: Text(
+              icon: cooking ? const Icon(Icons.check, size: 16) : const SizedBox.shrink(),
+              label: Text(
                 tr('Đang làm'),
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
@@ -2843,10 +2840,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(

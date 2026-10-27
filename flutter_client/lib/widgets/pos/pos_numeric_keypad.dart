@@ -1,12 +1,35 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import 'pos_theme.dart';
 
 import '../../theme/sbox_tokens.dart';
+
+/// Máy cảm ứng (Android / iOS) dùng bàn phím số của app cho ô tiền — bàn phím số hệ thống
+/// lẫn ( ) # * = và che nửa form. Web / desktop gõ phím thường (ô chỉ-đọc sẽ không gõ được).
+bool get posUsesAppKeypad =>
+    !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
+
+/// Ô tiền (TextField thường, có formatter riêng) trên máy cảm ứng: chạm → bàn phím số app,
+/// ghi lại số nguyên định dạng nghìn «30.000». Dùng với `readOnly: posUsesAppKeypad`.
+Future<void> posPickAmountInto(BuildContext context, TextEditingController c, {String title = 'Số tiền'}) async {
+  final next = await showPosNumericKeypad(
+    context: context,
+    title: title,
+    initial: c.text.replaceAll(RegExp(r'[^\d]'), ''),
+    allowDecimal: false,
+  );
+  if (next == null || !context.mounted) return;
+  final n = int.tryParse(next);
+  c.text = n == null ? '' : NumberFormat('#,##0', 'vi_VN').format(n);
+  c.selection = TextSelection.collapsed(offset: c.text.length);
+}
+
 /// Ô số không mở soft keyboard — tap mở [showPosNumericKeypad].
 /// Vẫn nhận bàn phím cứng khi đã focus (`showSoftInputOnFocus: false`).
 class PosNoSoftKeyboardField extends StatelessWidget {
@@ -55,7 +78,8 @@ class PosNoSoftKeyboardField extends StatelessWidget {
     final next = await showPosNumericKeypad(
       context: context,
       title: keypadTitle ?? 'Nhập số',
-      initial: controller.text,
+      // Ô số nguyên hay hiển thị «30.000» — keypad sẽ hiểu dấu chấm là phần thập phân.
+      initial: allowDecimal ? controller.text : controller.text.replaceAll(RegExp(r'[^\d-]'), ''),
       allowDecimal: allowDecimal,
       allowNegative: allowNegative,
       offerDecimalToggle: offerDecimalToggle,

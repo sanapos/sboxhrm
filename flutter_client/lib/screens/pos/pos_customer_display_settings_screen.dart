@@ -335,8 +335,12 @@ class _PosCustomerDisplaySettingsScreenState
   Widget _buildBody() {
     final cd = _cfg;
     final busy = _saving || _uploading;
+    // Màn rộng (tablet ngang / desktop): giữ cột cài đặt ≤ 960px ở giữa — trước đây ô chọn kéo dài
+    // cả màn, công tắc nằm tít mép phải cách nhãn ~1.700px.
+    return LayoutBuilder(builder: (context, c) {
+    final side = c.maxWidth > 992 ? (c.maxWidth - 960) / 2 : 16.0;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(side, 16, side, 16),
       children: [
         Text(
           tr('Chờ khách: ảnh / video chiếu toàn màn · Có đơn: media | hóa đơn (màn dọc: media trên, hóa đơn dưới). '
@@ -656,5 +660,6 @@ class _PosCustomerDisplaySettingsScreenState
           ),
       ],
     );
+    });
   }
 }

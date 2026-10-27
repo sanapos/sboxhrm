@@ -2078,8 +2078,10 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Dòng 1: khách (cỡ nhỏ hơn để hết 1 hàng) · tổng tiền phải
+              // Dòng 1: khách (cỡ nhỏ hơn để hết 1 hàng) · tổng tiền phải. Canh trên: đơn có trả hàng
+              // (tổng + «Đã trả …» 2 dòng) trước đây đẩy tên khách xuống giữa, lệch các dòng khác.
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (isCancelled) ...[
                     Icon(Icons.cancel, size: 16, color: Colors.red.shade700),
