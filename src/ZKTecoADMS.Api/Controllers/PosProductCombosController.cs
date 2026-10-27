@@ -72,7 +72,7 @@ public class PosProductCombosController(ZKTecoDbContext dbContext) : Authenticat
         Guid comboProductId, [FromBody] SaveComboLinesDto dto)
     {
         var storeId = RequiredStoreId;
-        var combo = await dbContext.PosProducts
+        var combo = await dbContext.PosProducts.AsTracking()
             .FirstOrDefaultAsync(p => p.Id == comboProductId && p.StoreId == storeId && p.Deleted == null);
         if (combo == null)
             return NotFound(AppResponse<List<ComboLineDto>>.Fail("Không tìm thấy hàng hóa"));

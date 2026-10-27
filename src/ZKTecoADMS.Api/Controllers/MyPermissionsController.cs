@@ -167,7 +167,7 @@ public class MyPermissionsController(ZKTecoDbContext context, ILogger<MyPermissi
                 .ToHashSet();
             if (sellModuleIds.Count > 0)
             {
-                var sellPerms = await context.RolePermissions
+                var sellPerms = await context.RolePermissions.AsTracking()
                     .Where(rp => rp.RoleName == roleName &&
                                  (rp.StoreId == storeId || rp.StoreId == null) &&
                                  rp.IsActive &&

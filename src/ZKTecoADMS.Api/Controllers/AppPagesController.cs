@@ -99,7 +99,7 @@ public class AppPagesAdminController(ZKTecoDbContext db) : AuthenticatedControll
     public async Task<ActionResult<AppResponse<object>>> Upsert(string type, [FromBody] AppPageUpdateDto dto)
     {
         var normalizedType = type.ToLower();
-        var page = await db.AppPages.FirstOrDefaultAsync(p => p.Type == normalizedType);
+        var page = await db.AppPages.AsTracking().FirstOrDefaultAsync(p => p.Type == normalizedType);
 
         if (page == null)
         {

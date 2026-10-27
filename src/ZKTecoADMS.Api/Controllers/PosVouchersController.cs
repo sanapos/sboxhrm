@@ -124,7 +124,9 @@ public class PosVouchersController(ZKTecoDbContext dbContext) : AuthenticatedCon
     public async Task<ActionResult<AppResponse<VoucherDto>>> Update(Guid id, [FromBody] VoucherSaveDto dto)
     {
         var storeId = RequiredStoreId;
-        var v = await dbContext.PosVouchers.FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
+        // Context mặc định NoTracking — phải AsTracking thì SaveChanges mới ghi (trước đây báo thành công mà không lưu).
+        var v = await dbContext.PosVouchers.AsTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (v == null) return NotFound(AppResponse<VoucherDto>.Fail("Không tìm thấy voucher"));
         var code = dto.Code?.Trim().ToUpperInvariant() ?? "";
         if (code.Length == 0) return BadRequest(AppResponse<VoucherDto>.Fail("Mã voucher không được trống"));
@@ -155,7 +157,8 @@ public class PosVouchersController(ZKTecoDbContext dbContext) : AuthenticatedCon
     public async Task<ActionResult<AppResponse<bool>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;
-        var v = await dbContext.PosVouchers.FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
+        var v = await dbContext.PosVouchers.AsTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (v == null) return NotFound(AppResponse<bool>.Fail("Không tìm thấy voucher"));
         v.Deleted = DateTime.UtcNow;
         v.DeletedBy = CurrentUserEmail;

@@ -201,7 +201,7 @@ public class BusinessTripCasesController(
         {
             if (result.IsSuccess && dto.IsApproved && result.Data?.Settlement?.Status == (int)AdvanceRequestStatus.Approved)
             {
-                var tripCase = await context.BusinessTripCases
+                var tripCase = await context.BusinessTripCases.AsTracking()
                     .Include(c => c.SettlementClaim)
                     .Include(c => c.Employee)
                     .Include(c => c.EmployeeUser)
@@ -251,7 +251,7 @@ public class BusinessTripCasesController(
         Guid id, [FromBody] ConfirmSurplusDto dto)
     {
         var storeId = RequiredStoreId;
-        var tripCase = await context.BusinessTripCases
+        var tripCase = await context.BusinessTripCases.AsTracking()
             .Include(c => c.SettlementClaim)
             .Include(c => c.Employee)
             .Include(c => c.EmployeeUser)

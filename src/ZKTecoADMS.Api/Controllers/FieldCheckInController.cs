@@ -1097,7 +1097,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
         var (today, _, _) = VnTodayRange();
 
         // Check if journey already exists for today
-        var existing = await _dbContext.JourneyTrackings
+        var existing = await _dbContext.JourneyTrackings.AsTracking()
             .FirstOrDefaultAsync(j => j.StoreId == storeId
                 && j.EmployeeId == employeeId
                 && j.JourneyDate == today
@@ -1735,7 +1735,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
         var (today, vnStart, vnEnd) = VnTodayRange();
 
         // Auto-link Employees.ApplicationUserId where missing
-        var unlinkedEmps = await _dbContext.Employees
+        var unlinkedEmps = await _dbContext.Employees.AsTracking()
             .Where(e => e.StoreId == storeId && e.Deleted == null && e.ApplicationUserId == null)
             .ToListAsync();
         if (unlinkedEmps.Count > 0)

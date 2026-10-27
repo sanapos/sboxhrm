@@ -61,7 +61,7 @@ public class MarketingService : IMarketingService
 
     public async Task<bool> UpdateTemplateAsync(Guid id, CreateNotificationTemplateDto dto, CancellationToken ct = default)
     {
-        var ent = await _db.NotificationTemplates.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var ent = await _db.NotificationTemplates.AsTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (ent == null) return false;
         ent.Title = dto.Title;
         ent.Body = dto.Body;
@@ -130,7 +130,7 @@ public class MarketingService : IMarketingService
 
     public async Task<bool> CancelCampaignAsync(Guid id, CancellationToken ct = default)
     {
-        var ent = await _db.MarketingCampaigns.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var ent = await _db.MarketingCampaigns.AsTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (ent == null) return false;
         ent.Status = CampaignStatus.Cancelled;
         await _db.SaveChangesAsync(ct);

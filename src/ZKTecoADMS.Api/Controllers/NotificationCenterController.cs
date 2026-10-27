@@ -55,7 +55,7 @@ public class NotificationCenterController(
         if (req.QuietEnabled && start == end)
             return Ok(AppResponse<PushSettingsDto>.Fail("Giờ bắt đầu và kết thúc yên lặng phải khác nhau."));
 
-        var s = await db.UserNotificationSettings.FirstOrDefaultAsync(x => x.UserId == CurrentUserId);
+        var s = await db.UserNotificationSettings.AsTracking().FirstOrDefaultAsync(x => x.UserId == CurrentUserId);
         if (s == null)
         {
             s = new UserNotificationSetting { UserId = CurrentUserId };
@@ -169,7 +169,7 @@ public class NotificationCenterController(
     public async Task<ActionResult<AppResponse<bool>>> DeleteTemplate(Guid id)
     {
         var storeId = RequiredStoreId;
-        var t = await db.StoreNotificationTemplates.FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId);
+        var t = await db.StoreNotificationTemplates.AsTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId);
         if (t == null) return Ok(AppResponse<bool>.Fail("Không tìm thấy mẫu"));
         t.IsActive = false;
         await db.SaveChangesAsync();
@@ -191,7 +191,7 @@ public class NotificationCenterController(
         StoreNotificationTemplate? t;
         if (id.HasValue)
         {
-            t = await db.StoreNotificationTemplates.FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.IsActive);
+            t = await db.StoreNotificationTemplates.AsTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.IsActive);
             if (t == null) return Ok(AppResponse<TemplateDto>.Fail("Không tìm thấy mẫu"));
         }
         else

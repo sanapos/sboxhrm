@@ -678,7 +678,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     public async Task<ActionResult<AppResponse<object>>> RepairCategoryEncoding()
     {
         var storeId = RequiredStoreId;
-        var categories = await context.TransactionCategories
+        var categories = await context.TransactionCategories.AsTracking()
             .Where(x => x.StoreId == storeId)
             .ToListAsync();
 

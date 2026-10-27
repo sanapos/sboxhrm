@@ -168,7 +168,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         Guid id, [FromBody] UpdateStockCountDto dto)
     {
         var storeId = RequiredStoreId;
-        var count = await dbContext.PosStockCounts
+        var count = await dbContext.PosStockCounts.AsTracking()
             .Include(c => c.Lines)
             .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == storeId && c.Deleted == null);
         if (count == null)

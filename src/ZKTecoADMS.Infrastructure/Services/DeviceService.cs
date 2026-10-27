@@ -90,7 +90,7 @@ public class DeviceService(
 
     public async Task UpdateCommandStatusAsync(long commandId, CommandStatus status, string? responseData, string? errorMessage)
     {
-        var command = await context.DeviceCommands.SingleOrDefaultAsync(i => i.CommandId == commandId);
+        var command = await context.DeviceCommands.AsTracking().SingleOrDefaultAsync(i => i.CommandId == commandId);
         if (command != null)
         {
             command.Status = status;

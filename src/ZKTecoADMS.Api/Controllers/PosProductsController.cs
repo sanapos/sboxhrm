@@ -1184,7 +1184,7 @@ public partial class PosProductsController(
     public async Task<ActionResult<AppResponse<object>>> ToggleFavorite(Guid id, [FromQuery] bool value)
     {
         var storeId = RequiredStoreId;
-        var entity = await dbContext.PosProducts
+        var entity = await dbContext.PosProducts.AsTracking()
             .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
         if (entity == null)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy hàng hóa"));
@@ -1206,7 +1206,7 @@ public partial class PosProductsController(
         Guid id, [FromBody] SetAllowDecimalQtyBody? body)
     {
         var storeId = RequiredStoreId;
-        var entity = await dbContext.PosProducts
+        var entity = await dbContext.PosProducts.AsTracking()
             .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
         if (entity == null)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy hàng hóa"));
@@ -1469,7 +1469,7 @@ public partial class PosProductsController(
     private async Task SyncToppingGroupsAsync(
         Guid storeId, Guid productId, List<Guid>? groupIds)
     {
-        var existing = await dbContext.PosProductToppingGroupLinks
+        var existing = await dbContext.PosProductToppingGroupLinks.AsTracking()
             .Where(l => l.ProductId == productId && l.StoreId == storeId && l.Deleted == null)
             .ToListAsync();
         if (groupIds == null || groupIds.Count == 0)
@@ -1531,7 +1531,7 @@ public partial class PosProductsController(
     private async Task SyncToppingsAsync(
         Guid storeId, Guid productId, bool allowToppings, List<PosProductToppingInput>? toppings)
     {
-        var existing = await dbContext.PosProductToppingOptions
+        var existing = await dbContext.PosProductToppingOptions.AsTracking()
             .Where(t => t.ProductId == productId && t.StoreId == storeId && t.Deleted == null)
             .ToListAsync();
         if (!allowToppings || toppings == null || toppings.Count == 0)

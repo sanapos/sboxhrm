@@ -108,7 +108,7 @@ public class AnnouncementService : IAnnouncementService
 
     public async Task<bool> CancelAsync(Guid id, CancellationToken ct = default)
     {
-        var ent = await _db.SystemAnnouncements.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var ent = await _db.SystemAnnouncements.AsTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (ent == null) return false;
         ent.Status = AnnouncementStatus.Cancelled;
         await _db.SaveChangesAsync(ct);
@@ -126,7 +126,7 @@ public class AnnouncementService : IAnnouncementService
 
     public async Task<int> SendAsync(Guid id, CancellationToken ct = default)
     {
-        var ent = await _db.SystemAnnouncements.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var ent = await _db.SystemAnnouncements.AsTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (ent == null) return 0;
         if (ent.Status == AnnouncementStatus.Sent || ent.Status == AnnouncementStatus.Cancelled) return 0;
         ent.Status = AnnouncementStatus.Sending;
@@ -136,12 +136,12 @@ public class AnnouncementService : IAnnouncementService
 
     public async Task<int> ResendFailedAsync(Guid id, CancellationToken ct = default)
     {
-        var failed = await _db.AnnouncementDeliveries
+        var failed = await _db.AnnouncementDeliveries.AsTracking()
             .Where(x => x.AnnouncementId == id && (x.Status == DeliveryStatus.Failed || x.Status == DeliveryStatus.Pending))
             .ToListAsync(ct);
         if (failed.Count == 0) return 0;
 
-        var ann = await _db.SystemAnnouncements.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var ann = await _db.SystemAnnouncements.AsTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (ann == null) return 0;
 
         var count = 0;
@@ -337,7 +337,7 @@ public class AnnouncementService : IAnnouncementService
 
     public async Task MarkDismissedAsync(Guid announcementId, Guid userId, CancellationToken ct = default)
     {
-        var d = await _db.AnnouncementDeliveries.FirstOrDefaultAsync(x => x.AnnouncementId == announcementId && x.UserId == userId, ct);
+        var d = await _db.AnnouncementDeliveries.AsTracking().FirstOrDefaultAsync(x => x.AnnouncementId == announcementId && x.UserId == userId, ct);
         if (d == null || d.DismissedAt.HasValue) return;
         d.DismissedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
@@ -451,7 +451,7 @@ public class AnnouncementService : IAnnouncementService
             foreach (var ch in requestedExternal)
             {
                 var provider = _channelProviders.FirstOrDefault(p => p.Channel == ch);
-                var pendingDeliveries = await _db.AnnouncementDeliveries
+                var pendingDeliveries = await _db.AnnouncementDeliveries.AsTracking()
                     .Where(d => d.AnnouncementId == entity.Id && d.Channel == ch && d.Status == DeliveryStatus.Pending)
                     .ToListAsync(ct);
 

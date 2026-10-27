@@ -94,7 +94,7 @@ public partial class MobileAttendanceController
             .Select(g => g.First())
             .ToList();
 
-        var existing = await _dbContext.MobileLocationEmployees
+        var existing = await _dbContext.MobileLocationEmployees.AsTracking()
             .Where(x => x.StoreId == storeId && x.WorkLocationId == locationId && x.Deleted == null)
             .ToListAsync();
 

@@ -395,7 +395,7 @@ public sealed class TingeeMerchantProvisioningService(
         if (number.Length < 6 || bin.Length == 0)
             return;
 
-        var existing = await db.BankAccounts.FirstOrDefaultAsync(
+        var existing = await db.BankAccounts.AsTracking().FirstOrDefaultAsync(
             x => x.StoreId == storeId && x.AccountNumber == number && x.Deleted == null, ct);
         var meta = VietQRBanks.FindByBin(bin);
         var name = FirstNonEmpty(accountName, meta?.Name, "Tingee")!;

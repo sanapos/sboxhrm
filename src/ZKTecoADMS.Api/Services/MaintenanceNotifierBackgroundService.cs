@@ -42,7 +42,7 @@ public class MaintenanceNotifierBackgroundService : BackgroundService
         var now = DateTime.UtcNow;
 
         var horizon = now.AddHours(24);
-        var windows = await db.MaintenanceWindows
+        var windows = await db.MaintenanceWindows.AsTracking()
             .Where(w => w.IsActive && w.EndAt > now.AddMinutes(-10) && w.StartAt <= horizon)
             .ToListAsync(ct);
 

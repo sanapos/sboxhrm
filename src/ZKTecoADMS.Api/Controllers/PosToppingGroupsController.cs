@@ -159,7 +159,7 @@ public class PosToppingGroupsController(ZKTecoDbContext dbContext) : Authenticat
         Guid id, [FromBody] ToppingGroupUpsertDto dto)
     {
         var storeId = RequiredStoreId;
-        var entity = await dbContext.PosToppingGroups
+        var entity = await dbContext.PosToppingGroups.AsTracking()
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (entity == null)
             return NotFound(AppResponse<ToppingGroupDto>.Fail("Không tìm thấy nhóm topping"));
@@ -183,7 +183,7 @@ public class PosToppingGroupsController(ZKTecoDbContext dbContext) : Authenticat
     public async Task<ActionResult<AppResponse<object>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;
-        var entity = await dbContext.PosToppingGroups
+        var entity = await dbContext.PosToppingGroups.AsTracking()
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (entity == null)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy nhóm topping"));
@@ -193,7 +193,7 @@ public class PosToppingGroupsController(ZKTecoDbContext dbContext) : Authenticat
         entity.DeletedBy = CurrentUserEmail;
         entity.IsActive = false;
 
-        var items = await dbContext.PosToppingGroupItems
+        var items = await dbContext.PosToppingGroupItems.AsTracking()
             .Where(i => i.GroupId == id && i.StoreId == storeId && i.Deleted == null)
             .ToListAsync();
         foreach (var i in items)
@@ -203,7 +203,7 @@ public class PosToppingGroupsController(ZKTecoDbContext dbContext) : Authenticat
             i.IsActive = false;
         }
 
-        var links = await dbContext.PosProductToppingGroupLinks
+        var links = await dbContext.PosProductToppingGroupLinks.AsTracking()
             .Where(l => l.GroupId == id && l.StoreId == storeId && l.Deleted == null)
             .ToListAsync();
         foreach (var l in links)
@@ -239,7 +239,8 @@ public class PosToppingGroupsController(ZKTecoDbContext dbContext) : Authenticat
     private async Task SyncItemsAsync(
         Guid storeId, Guid groupId, List<ToppingGroupItemInput>? items)
     {
-        var existing = await dbContext.PosToppingGroupItems
+        // Context mặc định NoTracking — dòng sửa / xóa mềm phải được theo dõi thì SaveChanges mới ghi.
+        var existing = await dbContext.PosToppingGroupItems.AsTracking()
             .Where(i => i.GroupId == groupId && i.StoreId == storeId && i.Deleted == null)
             .ToListAsync();
         if (items == null || items.Count == 0)

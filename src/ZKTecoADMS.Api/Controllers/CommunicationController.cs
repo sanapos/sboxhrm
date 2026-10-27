@@ -511,7 +511,7 @@ public class CommunicationController(
     {
         try
         {
-            var entity = await dbContext.InternalCommunications
+            var entity = await dbContext.InternalCommunications.AsTracking()
                 .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == RequiredStoreId);
             if (entity == null)
                 return NotFound(AppResponse<object>.Fail("Không tìm thấy bài truyền thông"));

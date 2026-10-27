@@ -42,7 +42,7 @@ public class EmployeeSalaryProfileRepository : EfRepository<EmployeeBenefit>, IE
 
     public async Task DeactivateOtherProfilesAsync(Guid employeeId, Guid currentProfileId, CancellationToken cancellationToken = default)
     {
-        var otherProfiles = await _context.Set<EmployeeBenefit>()
+        var otherProfiles = await _context.Set<EmployeeBenefit>().AsTracking()
             .Where(x => x.EmployeeId == employeeId && x.Id != currentProfileId && x.IsActive)
             .ToListAsync(cancellationToken);
 

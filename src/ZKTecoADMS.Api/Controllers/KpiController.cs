@@ -1783,7 +1783,7 @@ public partial class KpiController(
         if (lockErr != null) return BadRequest(AppResponse<object>.Fail(lockErr));
         try
         {
-            var period = await dbContext.KpiPeriods
+            var period = await dbContext.KpiPeriods.AsTracking()
                 .FirstOrDefaultAsync(p => p.Id == periodId && p.StoreId == RequiredStoreId && p.Deleted == null);
             if (period == null)
                 return NotFound(AppResponse<object>.Fail("Không tìm thấy chu kỳ"));

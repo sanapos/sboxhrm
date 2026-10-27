@@ -193,7 +193,7 @@ public partial class PosProductSampleCatalogAdminController(
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<AppResponse<SampleDto>>> Update(Guid id, [FromBody] SampleUpsertDto dto)
     {
-        var entity = await dbContext.PosProductSampleCatalog
+        var entity = await dbContext.PosProductSampleCatalog.AsTracking()
             .FirstOrDefaultAsync(x => x.Id == id && x.Deleted == null);
         if (entity == null)
             return NotFound(AppResponse<SampleDto>.Fail("Không tìm thấy mẫu"));

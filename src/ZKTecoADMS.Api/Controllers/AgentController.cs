@@ -81,7 +81,7 @@ public partial class AgentController : AuthenticatedControllerBase
             var (agent, err) = await RequireCurrentAgentAsync();
             if (err != null) return err;
 
-            var tracked = await _dbContext.Agents.FirstOrDefaultAsync(a => a.Id == agent.Id);
+            var tracked = await _dbContext.Agents.AsTracking().FirstOrDefaultAsync(a => a.Id == agent.Id);
             if (tracked == null)
                 return NotFound(AppResponse<AgentProfileDto>.Fail("Không tìm thấy đại lý"));
 

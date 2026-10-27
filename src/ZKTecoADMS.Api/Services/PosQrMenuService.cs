@@ -153,7 +153,7 @@ public class PosQrMenuService(ZKTecoDbContext db)
         settings.UpdatedAt = DateTime.UtcNow;
         settings.UpdatedBy = userEmail;
 
-        var existing = await db.PosQrMenuItems
+        var existing = await db.PosQrMenuItems.AsTracking()
             .Where(x => x.StoreId == storeId && x.Deleted == null)
             .ToListAsync(ct);
         var byProduct = existing.ToDictionary(x => x.ProductId);

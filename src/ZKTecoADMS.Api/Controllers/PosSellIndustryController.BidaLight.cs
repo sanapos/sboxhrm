@@ -38,7 +38,7 @@ public partial class PosSellIndustryController
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<BidaLightDto>.Fail("Thiếu cửa hàng"));
-        var s = await db.PosStoreSellSettings
+        var s = await db.PosStoreSellSettings.AsTracking()
             .FirstOrDefaultAsync(x => x.StoreId == storeId && x.Deleted == null);
         if (s == null)
         {

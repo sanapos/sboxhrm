@@ -2794,7 +2794,19 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
     {
 
 
-        var storeId = RequiredStoreId;
+        // SuperAdmin / đại lý không thuộc cửa hàng nào → không có thiết bị chấm công (trước đây ném lỗi 500).
+        if (CurrentStoreId is not Guid storeId)
+        {
+            return Ok(AppResponse<object>.Success(new
+            {
+                registered = false,
+                approved = false,
+                registeredOnOtherDevice = false,
+                trackLocation = false,
+                pending = false,
+                lastRejection = (object?)null,
+            }));
+        }
 
         // Store có bật chức năng "Bản đồ nhân sự" → app tự động báo vị trí (server chỉ
         // lưu trong thời gian ca làm việc đã duyệt). Store không có chức năng → không theo dõi.
@@ -9009,7 +9021,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             var punchTimeEnd = punchTime.AddSeconds(1);
 
             // Đã sync theo MobileAttendanceRecordId → cập nhật metadata/giờ.
-            var linked = await _dbContext.AttendanceLogs
+            var linked = await _dbContext.AttendanceLogs.AsTracking()
                 .FirstOrDefaultAsync(a => a.MobileAttendanceRecordId == record.Id);
             if (linked != null)
             {
@@ -9041,7 +9053,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             else
             {
                 // Trùng UX_Attendance_Device_Pin_Time → gắn bản ghi mobile, không insert mới.
-                var existingSameKey = await _dbContext.AttendanceLogs
+                var existingSameKey = await _dbContext.AttendanceLogs.AsTracking()
                     .FirstOrDefaultAsync(a =>
                         a.DeviceId == mobileDevice.Id
                         && a.PIN == pin
@@ -9089,7 +9101,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                     {
                         // Race / lệch thời gian → gắn vào bản ghi đã có.
                         _dbContext.ChangeTracker.Clear();
-                        var raced = await _dbContext.AttendanceLogs
+                        var raced = await _dbContext.AttendanceLogs.AsTracking()
                             .FirstOrDefaultAsync(a =>
                                 a.DeviceId == mobileDevice.Id
                                 && a.PIN == pin

@@ -203,7 +203,7 @@ public class ConsultationRequestsAdminController : AuthenticatedControllerBase
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<AppResponse<object>>> Update(Guid id, [FromBody] UpdateConsultationRequestDto dto)
     {
-        var request = await _dbContext.ConsultationRequests.FirstOrDefaultAsync(x => x.Id == id);
+        var request = await _dbContext.ConsultationRequests.AsTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (request == null)
         {
             return NotFound(AppResponse<object>.Fail("Không tìm thấy yêu cầu tư vấn"));

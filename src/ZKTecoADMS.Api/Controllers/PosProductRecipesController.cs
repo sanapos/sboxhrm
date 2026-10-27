@@ -55,7 +55,7 @@ public class PosProductRecipesController(ZKTecoDbContext dbContext) : Authentica
         Guid productId, [FromBody] SaveRecipeLinesDto dto)
     {
         var storeId = RequiredStoreId;
-        var parent = await dbContext.PosProducts
+        var parent = await dbContext.PosProducts.AsTracking()
             .FirstOrDefaultAsync(p => p.Id == productId && p.StoreId == storeId && p.Deleted == null);
         if (parent == null)
             return NotFound(AppResponse<List<RecipeLineDto>>.Fail("Không tìm thấy hàng hóa"));
@@ -117,7 +117,7 @@ public class PosProductRecipesController(ZKTecoDbContext dbContext) : Authentica
             }
         }
 
-        var existing = await dbContext.PosProductRecipeLines
+        var existing = await dbContext.PosProductRecipeLines.AsTracking()
             .Where(x => x.ParentProductId == productId && x.Deleted == null)
             .ToListAsync();
         foreach (var e in existing)

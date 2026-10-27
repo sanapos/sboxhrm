@@ -146,7 +146,7 @@ public class NotificationsController(
     public async Task<ActionResult<AppResponse<bool>>> MarkNotificationAsUnread(Guid id)
     {
         var filter = NotificationUserScope.FilterById(id, CurrentUserId, CurrentStoreId, NotificationCrossStore);
-        var n = await db.Notifications.Where(filter).FirstOrDefaultAsync();
+        var n = await db.Notifications.AsTracking().Where(filter).FirstOrDefaultAsync();
         if (n == null) return Ok(AppResponse<bool>.Fail("Không tìm thấy thông báo"));
         if (n.IsRead)
         {

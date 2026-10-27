@@ -291,7 +291,7 @@ public partial class PosShippingService(
         if (!ShippingCarrierCodes.All.Contains(code, StringComparer.OrdinalIgnoreCase))
             throw new InvalidOperationException($"Carrier không hỗ trợ: {req.CarrierCode}");
 
-        var row = await db.PosShippingCarrierSettings
+        var row = await db.PosShippingCarrierSettings.AsTracking()
             .FirstOrDefaultAsync(x => x.StoreId == storeId && x.CarrierCode == code && x.Deleted == null, ct);
         if (row == null)
         {

@@ -278,7 +278,7 @@ public class OrgChartController(
         var storeId = RequiredStoreId;
 
         // Validate employee exists
-        var employee = await dbContext.Employees
+        var employee = await dbContext.Employees.AsTracking()
             .FirstOrDefaultAsync(e => e.Id == request.EmployeeId && e.StoreId == storeId && e.Deleted == null);
         if (employee == null)
             return Ok(AppResponse<OrgAssignmentDto>.Error("Không tìm thấy nhân viên"));

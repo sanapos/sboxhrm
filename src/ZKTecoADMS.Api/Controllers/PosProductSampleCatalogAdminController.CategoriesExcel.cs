@@ -317,20 +317,20 @@ public partial class PosProductSampleCatalogAdminController
             PosProductSampleCatalog? entity = null;
             if (row.Id.HasValue)
             {
-                entity = await dbContext.PosProductSampleCatalog
+                entity = await dbContext.PosProductSampleCatalog.AsTracking()
                     .FirstOrDefaultAsync(x => x.Id == row.Id && x.Deleted == null);
             }
             if (entity == null && !string.IsNullOrWhiteSpace(row.Barcode))
             {
                 var bc = row.Barcode.Trim().ToLower();
-                entity = await dbContext.PosProductSampleCatalog
+                entity = await dbContext.PosProductSampleCatalog.AsTracking()
                     .FirstOrDefaultAsync(x => x.Deleted == null && x.Barcode != null &&
                                               x.Barcode.ToLower() == bc);
             }
             if (entity == null)
             {
                 var n = row.Name.Trim().ToLower();
-                entity = await dbContext.PosProductSampleCatalog
+                entity = await dbContext.PosProductSampleCatalog.AsTracking()
                     .FirstOrDefaultAsync(x => x.Deleted == null && x.Name.ToLower() == n);
             }
 
