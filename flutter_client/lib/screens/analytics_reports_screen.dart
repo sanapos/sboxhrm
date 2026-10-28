@@ -88,7 +88,8 @@ class _AnalyticsReportsScreenState extends State<AnalyticsReportsScreen> {
     }
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      appBar: AppBar(title: Text(tr('Báo cáo phân tích'))),
+      // Trong khung chính (điện thoại): thanh trên đã ghi tiêu đề — không vẽ AppBar thứ hai.
+      appBar: HrmPageChrome.showInPageAppBar(context) ? AppBar(title: Text(tr('Báo cáo phân tích'))) : null,
       body: LayoutBuilder(builder: (context, cons) {
         final cols = cons.maxWidth >= 1100 ? 3 : (cons.maxWidth >= 680 ? 2 : 1);
         return ListView(

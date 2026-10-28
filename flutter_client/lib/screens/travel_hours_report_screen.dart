@@ -850,7 +850,8 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
                         onToggle: () => setState(
                             () => _showOverviewPanel = !_showOverviewPanel),
                         betweenKpiAndFilter: [
-                          if (canSupplement)
+                          // Điện thoại đã có nút nổi «Thêm đi đường» — không lặp nút đầu trang.
+                          if (canSupplement && !Responsive.isMobile(context))
                             Padding(
                               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                               child: Align(

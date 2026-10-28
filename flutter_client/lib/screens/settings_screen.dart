@@ -71,7 +71,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (!widget.showAppBar) Text(
+            // Điện thoại: thanh trên đã ghi «Cài đặt» — bỏ tiêu đề to lặp lại.
+            if (!widget.showAppBar && !Responsive.isMobile(context)) Text(
               tr('Cài đặt'),
               style: const TextStyle(
                 fontSize: 24,

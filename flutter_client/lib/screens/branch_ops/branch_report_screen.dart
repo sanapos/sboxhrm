@@ -61,15 +61,18 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
           children: [
-            Row(children: [
-              const Icon(Icons.account_tree_rounded, color: SboxColors.brand600),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(tr('Báo cáo chi nhánh'),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
-              ),
-            ]),
-            const SizedBox(height: 8),
+            // Điện thoại: thanh trên đã ghi «Báo cáo chi nhánh» — bỏ tiêu đề lặp.
+            if (MediaQuery.sizeOf(context).width >= 600) ...[
+              Row(children: [
+                const Icon(Icons.account_tree_rounded, color: SboxColors.brand600),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(tr('Báo cáo chi nhánh'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
+                ),
+              ]),
+              const SizedBox(height: 8),
+            ],
             BranchPeriodBar(
               value: _period,
               onChanged: (p) {

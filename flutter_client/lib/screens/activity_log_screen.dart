@@ -342,11 +342,14 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                 _stat('Thêm', _creates, SboxColors.success, 'Create'),
                 _stat('Sửa', _updates, SboxColors.warning, 'Update'),
                 _stat('Xóa', _deletes, SboxColors.danger, 'Delete'),
+                // Cuối hàng cuộn (trước đứng ngoài, đè lên chip «Xóa» trên điện thoại).
+                Padding(
+                  padding: const EdgeInsets.only(left: 2, right: 4),
+                  child: Text(tr('Lưu 30 ngày'), style: const TextStyle(fontSize: 11.5, color: SboxColors.slate400)),
+                ),
               ]),
             ),
           ),
-          const SizedBox(width: 6),
-          Text(tr('Lưu 30 ngày'), style: const TextStyle(fontSize: 11.5, color: SboxColors.slate400)),
         ]),
       );
 
@@ -398,7 +401,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     final children = <Widget>[];
     String? lastDay;
     for (final it in _items) {
-      final t = parseApiUtcDateTime(it['timestamp']);
+      // API trả giờ tường VN (ReportHelpers.ToVn, không «Z») — parseApiUtcDateTime coi là UTC, +7h lần nữa.
+      final t = parseAttendanceWallClock(it['timestamp']);
       final day = t == null ? '' : _dmy.format(t);
       if (day != lastDay) {
         lastDay = day;
@@ -538,7 +542,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     final d = res['data'] as Map;
     final details = d['details'] is Map ? d['details'] as Map : const {};
     final changes = ((details['changes'] as List?) ?? []).whereType<Map>().toList();
-    final t = parseApiUtcDateTime(it['timestamp']);
+    final t = parseAttendanceWallClock(it['timestamp']);
     final (label, color, _) = _actionStyle('${it['action']}');
     await showModalBottomSheet<void>(
       context: context,
