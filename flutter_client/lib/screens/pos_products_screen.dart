@@ -2004,6 +2004,25 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
 
   Widget _buildContent(PermissionProvider perm, bool wide) {
     if (_items.isEmpty) {
+      // Đang lọc loại / tìm kiếm mà không ra gì: trước đây vẫn báo «Chưa có hàng hóa» (tab Combo trống
+      // trong khi cửa hàng có 8 mặt hàng).
+      final emptyTypeTitle = switch (_typeFilter) {
+        PosProductType.goods => 'Chưa có hàng hóa',
+        PosProductType.service => 'Chưa có dịch vụ',
+        PosProductType.combo => 'Chưa có combo',
+        PosProductType.material => 'Chưa có nguyên vật liệu',
+        PosProductType.topping => 'Chưa có topping',
+        null => null,
+      };
+      if (emptyTypeTitle != null || _searchCtrl.text.trim().isNotEmpty) {
+        return EmptyState(
+          icon: Icons.search_off_rounded,
+          title: emptyTypeTitle != null && _searchCtrl.text.trim().isEmpty
+              ? emptyTypeTitle
+              : 'Không có hàng phù hợp',
+          description: 'Đổi bộ lọc hoặc từ khóa tìm kiếm',
+        );
+      }
       return EmptyState(
         icon: Icons.inventory_2_outlined,
         title: 'Chưa có hàng hóa',

@@ -703,7 +703,6 @@ class ApiService {
           ? '$baseUrl/api/devices?storeOnly=true'
           : '$baseUrl/api/devices';
       debugPrint('🌐 GET $url');
-      debugPrint('🔑 Headers: $_headers');
       final response = await _retryOnUnauthorized(() => http
           .get(
             Uri.parse(url),
@@ -711,7 +710,7 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10)));
       debugPrint('📥 Response status: ${response.statusCode}');
-      debugPrint('📥 Response body: ${response.body}');
+      if (kDebugMode) debugPrint('📥 Response body: ${response.body}');
       final data = _handleResponse(response);
       if (data['isSuccess'] == true) {
         final devices = data['data'] ?? [];
@@ -1805,7 +1804,7 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10)));
       debugPrint('📥 createDeviceUser Response Status: ${response.statusCode}');
-      debugPrint('📥 createDeviceUser Response Body: ${response.body}');
+      if (kDebugMode) debugPrint('📥 createDeviceUser Response Body: ${response.body}');
       final data = _handleResponse(response);
       return data;
     } catch (e) {
@@ -1878,7 +1877,6 @@ class ApiService {
       debugPrint('📤 Sending sync users command');
       debugPrint('📤 URL: $url');
       debugPrint('📤 DeviceId: $deviceId');
-      debugPrint('📤 Headers: $_headers');
       debugPrint('📤 Body: {"commandType":8,"priority":10}');
 
       final response = await http
@@ -1894,7 +1892,7 @@ class ApiService {
 
       debugPrint('📥 Response status: ${response.statusCode}');
       debugPrint('📥 Response headers: ${response.headers}');
-      debugPrint('📥 Response body: ${response.body}');
+      if (kDebugMode) debugPrint('📥 Response body: ${response.body}');
 
       final data = _handleResponse(response);
       debugPrint('📥 Parsed data: $data');
@@ -1936,7 +1934,7 @@ class ApiService {
           .timeout(const Duration(seconds: 10));
 
       debugPrint('📥 Response status: ${response.statusCode}');
-      debugPrint('📥 Response body: ${response.body}');
+      if (kDebugMode) debugPrint('📥 Response body: ${response.body}');
 
       final data = _handleResponse(response);
       debugPrint('📥 isSuccess: ${data['isSuccess']}');
@@ -2398,7 +2396,7 @@ class ApiService {
             headers: _headers,
           )
           .timeout(const Duration(seconds: 10)));
-      debugPrint('📋 Shifts response: ${response.body}');
+      if (kDebugMode) debugPrint('📋 Shifts response: ${response.body}');
       final data = _handleResponse(response);
       if (data['isSuccess'] == true && data['data'] != null) {
         debugPrint('📋 Shifts data: ${data['data']}');
@@ -3641,7 +3639,6 @@ class ApiService {
       final uri = Uri.parse('$baseUrl/api/notifications')
           .replace(queryParameters: queryParams);
       debugPrint('📨 Getting notifications from: $uri');
-      debugPrint('📨 Headers: $_headers');
       final response = await http
           .get(uri, headers: _headers)
           .timeout(const Duration(seconds: 10));

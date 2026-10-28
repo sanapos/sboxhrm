@@ -19340,6 +19340,17 @@ class _PosSellScreenState extends State<PosSellScreen>
   Widget _buildTabletOrderStage(PermissionProvider perm) =>
       _buildTabletSplitStage(perm);
 
+  /// Tiêu đề cột giỏ ở màn thanh toán: tên bàn nếu đã gắn; đơn tạm / mang về ở ngành có sơ đồ ghi
+  /// «Đơn chưa gắn bàn» (trước đây luôn «Phiếu bàn» — khác đầu giỏ ở màn bán).
+  String _paymentOrderTitle() {
+    final table = (_tab.serviceResourceName ?? '').trim();
+    if (table.isNotEmpty) return table;
+    if (_useFloorAsPrimary && _sellProfile.resourceNoun.isNotEmpty) {
+      return 'Đơn chưa gắn ${_sellProfile.resourceNoun}';
+    }
+    return _sellProfile.invoiceTitle;
+  }
+
   /// Đầu cột giỏ hàng: tên bàn/khu + số món — phân biệt rõ với vùng chọn món.
   Widget _buildTabletOrderCartHeader() {
     final tableLabel = [
@@ -19777,7 +19788,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                         BorderSide(color: PosTheme.border)),
                               ),
                               child: Text(
-                                tr('${_sellProfile.invoiceTitle} · ${_lineCountText()} · ${_moneyFmt.format(_grandTotal)}đ'),
+                                tr('${_paymentOrderTitle()} · ${_lineCountText()} · ${_moneyFmt.format(_grandTotal)}đ'),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,

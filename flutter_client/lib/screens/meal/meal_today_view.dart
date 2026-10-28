@@ -9,8 +9,10 @@ import 'meal_ui.dart';
 /// «Hôm nay ăn gì»: thực đơn từng buổi của ngày, trạng thái suất ăn của tôi
 /// (đã ăn – số phiếu / đã đăng ký) và tiền ăn tháng này. Căn tin (quyền Sửa) nhập thực đơn ngay tại đây.
 class MealTodayView extends StatefulWidget {
-  const MealTodayView({super.key, required this.canEditMenu});
+  const MealTodayView({super.key, required this.canEditMenu, this.onManageSessions});
   final bool canEditMenu;
+  /// Mở «Quản lý buổi ăn» — nút ngay trong màn trống (trước đây chỉ là biểu tượng không nhãn trên thanh trên).
+  final VoidCallback? onManageSessions;
 
   @override
   State<MealTodayView> createState() => _MealTodayViewState();
@@ -77,6 +79,14 @@ class _MealTodayViewState extends State<MealTodayView> {
                   const SizedBox(height: 8),
                   Text(tr('Chưa cấu hình buổi ăn. Quản lý vào «Quản lý buổi ăn» để thêm Sáng / Trưa / Tối.'),
                       textAlign: TextAlign.center, style: const TextStyle(color: SboxColors.slate500)),
+                  if (widget.onManageSessions != null) ...[
+                    const SizedBox(height: 12),
+                    FilledButton.tonalIcon(
+                      onPressed: widget.onManageSessions,
+                      icon: const Icon(Icons.restaurant_menu, size: 18),
+                      label: Text(tr('Quản lý buổi ăn')),
+                    ),
+                  ],
                 ]),
               )
             else

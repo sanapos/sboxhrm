@@ -1820,7 +1820,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       };
 
   Widget _tabBody(String k) => switch (k) {
-        'today' => MealTodayView(canEditMenu: _canManage),
+        // Key theo số buổi ăn: thêm buổi xong → màn Hôm nay tải lại (trước đây vẫn báo «Chưa cấu hình»).
+        'today' => MealTodayView(
+            key: ValueKey('today-${_sessions.length}'),
+            canEditMenu: _canManage,
+            onManageSessions: _canManage ? _showSessionsDialog : null),
         'canteen' => const MealCanteenLiveView(),
         'register' => !_sessionsLoaded
             ? const Center(child: CircularProgressIndicator())
