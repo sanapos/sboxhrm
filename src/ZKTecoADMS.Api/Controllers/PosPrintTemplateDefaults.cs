@@ -132,7 +132,19 @@ public static class PosPrintTemplateDefaults
             };
         }
 
-        // Hóa đơn / xuất kho / phiếu khác: K80 chuẩn, K58, trang A5 / A4 (máy in văn phòng)
+        // Nhập hàng / kho / thu chi: chứng từ kế toán — mặc định A4 (máy in mực), vẫn giữ K80/K58 cho tiệm chỉ có máy nhiệt.
+        if (IsOfficeFirstDoc(docType))
+        {
+            return new[]
+            {
+                Spec(PosPrintPaperSize.A4, 0, true),
+                Spec(PosPrintPaperSize.A5, 1, false),
+                Spec(PosPrintPaperSize.K80, 2, false),
+                Spec(PosPrintPaperSize.K58, 3, false),
+            };
+        }
+
+        // Hóa đơn / đặt / giao / trả / đổi hàng: K80 chuẩn, K58, trang A5 / A4 (máy in văn phòng)
         return new[]
         {
             Spec(PosPrintPaperSize.K80, 0, true),
@@ -141,6 +153,12 @@ public static class PosPrintTemplateDefaults
             Spec(PosPrintPaperSize.A4, 3, false),
         };
     }
+
+    /// <summary>Chứng từ nhập / kho / quỹ — mẫu khuyên dùng là A4.</summary>
+    public static bool IsOfficeFirstDoc(PosPrintDocumentType t) => t is PosPrintDocumentType.PurchaseOrder
+        or PosPrintDocumentType.PurchaseReceipt or PosPrintDocumentType.PurchaseReturn
+        or PosPrintDocumentType.StockTransfer or PosPrintDocumentType.StockIssue
+        or PosPrintDocumentType.CashReceipt or PosPrintDocumentType.CashPayment;
 
     /// <summary>Khổ seed theo loại chứng từ — tem không dùng K58/K80.</summary>
     public static IReadOnlyList<PosPrintPaperSize> SizesForDocument(PosPrintDocumentType docType)
@@ -164,9 +182,28 @@ public static class PosPrintTemplateDefaults
             or PosPrintDocumentType.Handover or PosPrintDocumentType.Acceptance
             or PosPrintDocumentType.PaymentRequest)
             return ZKTecoADMS.Api.Services.PosQuoteDocumentHtml.DefaultA4Html(title);
-        return paperSize is PosPrintPaperSize.K58 or PosPrintPaperSize.K80
-            ? BuildThermalV2(docType, paperSize)
-            : BuildSheetHtml(title, paperSize);
+        if (paperSize is PosPrintPaperSize.K58 or PosPrintPaperSize.K80)
+            return BuildThermalV2(docType, paperSize);
+        return LoadSheet(docType, paperSize) ?? BuildSheetHtml(title, paperSize);
+    }
+
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string?> SheetCache = new();
+
+    /// <summary>
+    /// Mẫu khổ trang riêng từng loại chứng từ — một nguồn: PrintTemplates/Sheet/{Loại}.{A4|A5}.html
+    /// (app Flutter sinh từ cùng file qua scripts/gen_commercial_templates.py).
+    /// </summary>
+    public static string? LoadSheet(PosPrintDocumentType docType, PosPrintPaperSize size)
+    {
+        if (size is not (PosPrintPaperSize.A4 or PosPrintPaperSize.A5)) return null;
+        return SheetCache.GetOrAdd($"{docType}.{size}", key =>
+        {
+            using var stream = typeof(PosPrintTemplateDefaults).Assembly
+                .GetManifestResourceStream($"Sbox.Sheet.{key}.html");
+            if (stream == null) return null;
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd().Trim();
+        });
     }
 
     static string LabelWidthCss(PosPrintPaperSize size) => size switch

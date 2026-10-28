@@ -18,6 +18,7 @@ class PosCommercialPageSetup {
     this.bottomMm = defaultMm,
     this.leftMm = defaultMm,
     this.baseRev = 1,
+    this.landscape = false,
   });
 
   static const defaultMm = 12.0;
@@ -33,11 +34,19 @@ class PosCommercialPageSetup {
   /// Mẫu chuẩn gốc — xem [kPosCommercialBaseRev].
   final int baseRev;
 
+  /// Giấy xoay ngang (phiếu thu / chi A5 ngang) — `orient="landscape"` trong comment khổ.
+  final bool landscape;
+
   bool get isA5 => paperSize == PosPrintPaperSizes.a5;
 
-  /// CSS @ 96dpi — A4 210×297, A5 148×210.
-  double get cssWidth => isA5 ? 559.0 : 794.0;
-  double get cssHeight => isA5 ? 794.0 : 1123.0;
+  /// CSS @ 96dpi — A4 210×297, A5 148×210 (ngang: đảo hai chiều).
+  double get _shortCss => isA5 ? 559.0 : 794.0;
+  double get _longCss => isA5 ? 794.0 : 1123.0;
+  double get cssWidth => landscape ? _longCss : _shortCss;
+  double get cssHeight => landscape ? _shortCss : _longCss;
+
+  /// Chiều rộng trang (mm) theo khổ + hướng giấy.
+  String get widthMm => landscape ? (isA5 ? '210mm' : '297mm') : (isA5 ? '148mm' : '210mm');
 
   String get paddingCss =>
       '${_fmt(topMm)}mm ${_fmt(rightMm)}mm ${_fmt(bottomMm)}mm ${_fmt(leftMm)}mm';
@@ -49,6 +58,7 @@ class PosCommercialPageSetup {
     double? bottomMm,
     double? leftMm,
     int? baseRev,
+    bool? landscape,
   }) {
     return PosCommercialPageSetup(
       paperSize: paperSize ?? this.paperSize,
@@ -57,6 +67,7 @@ class PosCommercialPageSetup {
       bottomMm: bottomMm ?? this.bottomMm,
       leftMm: leftMm ?? this.leftMm,
       baseRev: baseRev ?? this.baseRev,
+      landscape: landscape ?? this.landscape,
     );
   }
 
@@ -78,6 +89,7 @@ class PosCommercialPageSetup {
     final paper = PosPrintPaperSizes.normalizeCommercialPaper(
       _attr(html, 'paper') ?? fallbackPaper,
     );
+    final landscape = _attr(html, 'orient')?.toLowerCase() == 'landscape';
     final margin = _attr(html, 'margin');
     if (margin != null) {
       final parts = margin.split(RegExp(r'[,\s]+')).where((s) => s.isNotEmpty);
@@ -89,6 +101,7 @@ class PosCommercialPageSetup {
           rightMm: _clampMm(nums[1]),
           bottomMm: _clampMm(nums[2]),
           leftMm: _clampMm(nums[3]),
+          landscape: landscape,
         );
       }
     }
@@ -99,6 +112,7 @@ class PosCommercialPageSetup {
       bottomMm: _clampMm(double.tryParse(_attr(html, 'mb') ?? '')),
       leftMm: _clampMm(double.tryParse(_attr(html, 'ml') ?? '')),
       baseRev: int.tryParse(_attr(html, 'rev') ?? '') ?? 1,
+      landscape: landscape,
     );
   }
 
@@ -117,7 +131,8 @@ class PosCommercialPageSetup {
         .replaceFirst(RegExp(r'<!--POS_PAGE[^>]*-->'), '');
     return '<!--POS_A4_V9 paper="$paperSize" mt="${_fmt(topMm)}" '
         'mr="${_fmt(rightMm)}" mb="${_fmt(bottomMm)}" '
-        'ml="${_fmt(leftMm)}" rev="$baseRev"-->$body';
+        'ml="${_fmt(leftMm)}" rev="$baseRev"'
+        '${landscape ? ' orient="landscape"' : ''}-->$body';
   }
 }
 
@@ -147,14 +162,15 @@ String wrapPosCommercialPrintHtml(
       .replaceAll(RegExp(r'</script', caseSensitive: false), '<\\/script')
       .replaceAll(RegExp(r'</body', caseSensitive: false), '<\\/body');
   final page = setup.isA5 ? 'A5' : 'A4';
-  final maxW = setup.isA5 ? '148mm' : '210mm';
+  final orient = setup.landscape ? 'landscape' : 'portrait';
+  final maxW = setup.widthMm;
   return '''
 <!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  @page { size: $page portrait; margin: 0; }
+  @page { size: $page $orient; margin: 0; }
   html,body{margin:0;background:#fff;}
 $posCommercialContentCss
   body{
@@ -186,6 +202,9 @@ String posPrintDefaultHtml({
   if (PosPrintPaperSizes.isThermal(paperSize)) {
     return _thermalHtml(title, paperSize);
   }
+  // Mẫu khổ trang riêng từng loại — cùng nguồn PrintTemplates/Sheet với máy chủ.
+  final sheet = posSheetTemplateHtml['$documentType.$paperSize'];
+  if (sheet != null) return sheet;
   return _sheetHtml(title, paperSize);
 }
 

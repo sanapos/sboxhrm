@@ -12,6 +12,8 @@ import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/pos_mutation_result.dart';
+import '../utils/pos_sheet_document_print.dart';
+import '../models/pos_print_template.dart';
 import '../utils/pos_purchase_product_lookup.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
@@ -507,6 +509,55 @@ class _PosPurchaseReturnEditorScreenState
         message: result.errorMessage ?? res['message']?.toString() ?? '',
       );
     }
+  }
+
+  Future<void> _printReturn() async {
+    final supplier = _suppliers.where((s) => s.id == _supplierId).firstOrNull;
+    double n(TextEditingController c) => double.tryParse(c.text.replaceAll(',', '')) ?? 0;
+    await printPosSheetDocument(
+      context,
+      documentType: PosPrintDocumentTypes.purchaseReturn,
+      title: 'Phiếu trả hàng nhập ${_returnNo.isEmpty ? 'tạm' : _returnNo}',
+      referenceNo: _returnNo,
+      referenceId: _returnId,
+      lines: [
+        for (final l in _lines)
+          {
+            'Ma_Hang': l.productCode,
+            'Ten_Hang_Hoa': l.productName,
+            'Ten_Hang_Goc': l.productName,
+            'Don_Vi_Tinh': l.unitName,
+            'So_Luong': posSheetQty(n(l.qtyCtrl)),
+            'Don_Gia': posSheetMoney(n(l.returnPriceCtrl)),
+            'Chiet_Khau': posSheetMoney(n(l.discountCtrl)),
+            'Thanh_Tien': posSheetMoney(l.lineTotal),
+            'Ghi_Chu': [
+              if (l.serials.isNotEmpty) 'Serial: ${l.serials.join(', ')}',
+              if (l.lineNoteCtrl.text.trim().isNotEmpty) l.lineNoteCtrl.text.trim(),
+            ].join(' · '),
+          },
+      ],
+      data: {
+        ...posSheetDateData(_returnDate),
+        'Ma_Don_Hang': _returnNo,
+        'Nha_Cung_Cap': supplier?.name ?? '',
+        'Ma_NCC': supplier?.supplierCode ?? '',
+        'Dia_Chi_NCC': supplier?.address ?? '',
+        'SDT_NCC': supplier?.phone ?? '',
+        'MST_NCC': supplier?.taxCode ?? '',
+        'Ma_Phieu_Goc': _sourceReceiptNo ?? '',
+        'Nguoi_Lap': _returnedBy ?? '',
+        'Ghi_Chu': _noteCtrl.text.trim(),
+        'Hinh_Thuc_Thanh_Toan': _refundReceived > 0 ? _paymentMethod : '',
+        'Tong_So_Luong': posSheetQty(_lines.fold<double>(0, (a, l) => a + n(l.qtyCtrl))),
+        'Tong_Tien_Hang': posSheetMoney(_linesTotal),
+        'Chiet_Khau_Hoa_Don': posSheetMoney(_discountAmount),
+        'Tong_Cong': posSheetMoney(_supplierOwed),
+        'Tong_Cong_Bang_Chu': posSheetMoneyWords(_supplierOwed),
+        'NCC_Da_Hoan': posSheetMoney(_refundReceived),
+        'Con_Lai': posSheetMoney(_debtBalance),
+      },
+    );
   }
 
   Future<void> _deleteDraft() async {
@@ -1142,6 +1193,14 @@ class _PosPurchaseReturnEditorScreenState
                               maxLines: 3,
                               decoration: PosTheme.inputDecoration(label: 'Ghi chú'),
                             ),
+                            if (_returnId != null) ...[
+                              const SizedBox(height: 12),
+                              OutlinedButton.icon(
+                                onPressed: _saving ? null : _printReturn,
+                                icon: const Icon(Icons.print_outlined, size: 18),
+                                label: Text(tr('In phiếu')),
+                              ),
+                            ],
                             if (!_readOnly) ...[
                               const SizedBox(height: 16),
                               OutlinedButton(

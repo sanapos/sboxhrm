@@ -373,6 +373,11 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
                     row.IsRecommended = spec.IsRecommended;
                     dirty = true;
                 }
+                if (row.SortOrder != spec.SortOrder)
+                {
+                    row.SortOrder = spec.SortOrder;
+                    dirty = true;
+                }
                 if (!row.IsActive)
                 {
                     row.IsActive = true;

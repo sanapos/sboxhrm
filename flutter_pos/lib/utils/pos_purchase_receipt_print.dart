@@ -9,6 +9,8 @@ import 'package:printing/printing.dart';
 import '../models/pos_purchase.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 import 'pos_pdf_fonts.dart';
+import 'pos_sheet_document_print.dart';
+import '../models/pos_print_template.dart';
 import '../theme/sbox_tokens.dart';
 import '../widgets/pos/pos_pdf_iframe_stub.dart'
     if (dart.library.js_interop) '../widgets/pos/pos_pdf_iframe_web.dart';
@@ -312,7 +314,53 @@ Future<void> printPosPurchaseReceipt({
   required double paidAmount,
   required double grandTotal,
   required List<PosPurchaseLine> lines,
+  String? purchaseOrderNo,
 }) async {
+  // Phiếu nháp chưa nhập kho = đơn đặt hàng gửi NCC → cho chọn in «Đặt hàng nhập».
+  var documentType = PosPrintDocumentTypes.purchaseReceipt;
+  if (status == 'Draft') {
+    final picked = await pickPosSheetDocumentType(
+      context,
+      const [PosPrintDocumentTypes.purchaseReceipt, PosPrintDocumentTypes.purchaseOrder],
+    );
+    if (picked == null || !context.mounted) return;
+    documentType = picked;
+  }
+  final asOrder = documentType == PosPrintDocumentTypes.purchaseOrder;
+  // Mẫu in A4/A5 của cửa hàng (Thiết lập → Mẫu in → Nhập hàng); lỗi dựng mẫu → PDF dựng sẵn bên dưới.
+  try {
+    await printPosSheetDocument(
+      context,
+      documentType: documentType,
+      title: '${asOrder ? 'Đặt hàng nhập' : 'Phiếu nhập'} ${receiptNo.isEmpty ? 'tạm' : receiptNo}',
+      referenceNo: receiptNo,
+      lines: posPurchaseLinesPrintData(lines),
+      data: {
+        ...posSheetDateData(importDate),
+        'Ma_Don_Hang': receiptNo,
+        'Chi_Nhanh': branchName ?? '',
+        'Nguoi_Lap': createdBy ?? '',
+        'Nha_Cung_Cap': supplierName ?? '',
+        'Dia_Chi_NCC': supplierAddress ?? '',
+        'So_HD_Dau_Vao': inputInvoiceNo ?? '',
+        'Ma_Phieu_Goc': purchaseOrderNo ?? '',
+        'Ghi_Chu': note ?? '',
+        'Hinh_Thuc_Thanh_Toan': paidAmount > 0 ? paymentMethod : '',
+        'Tong_So_Luong': posSheetQty(lines.fold<double>(0, (a, l) => a + l.qty)),
+        'Tong_Tien_Hang': posSheetMoney(linesTotal),
+        'Chiet_Khau_Hoa_Don': posSheetMoney(discountAmount),
+        'VAT': posSheetMoney(totalVat),
+        'Tong_Cong': posSheetMoney(grandTotal),
+        'Tong_Cong_Bang_Chu': posSheetMoneyWords(grandTotal),
+        'Da_Tra_NCC': posSheetMoney(paidAmount),
+        'Con_No_NCC': posSheetMoney(grandTotal - paidAmount),
+      },
+    );
+    return;
+  } catch (e) {
+    debugPrint('printPosPurchaseReceipt (mẫu in) lỗi, dùng PDF: $e');
+  }
+  if (!context.mounted) return;
   await showPosPurchaseReceiptPrintDialog(
     context,
     title: 'Phiếu nhập ${receiptNo.isEmpty ? 'tạm' : receiptNo}',

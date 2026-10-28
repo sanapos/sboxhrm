@@ -620,6 +620,115 @@ abstract final class PosPrintTokens {
     ('HDDT_Link_Tra_Cuu', 'HĐĐT: link tra cứu'),
   ];
 
+  static const _supplier = [
+    ('Nha_Cung_Cap', 'Nhà cung cấp'),
+    ('Ma_NCC', 'Mã NCC'),
+    ('Dia_Chi_NCC', 'Địa chỉ NCC'),
+    ('SDT_NCC', 'Điện thoại NCC'),
+    ('MST_NCC', 'MST NCC'),
+    ('Chi_Nhanh', 'Chi nhánh'),
+    ('Nguoi_Lap', 'Người lập phiếu'),
+    ('Tong_So_Luong', 'Tổng số lượng'),
+    ('VAT', 'Thuế GTGT'),
+  ];
+
+  /// Token riêng chứng từ khổ trang (đặt / giao / trả / đổi / nhập / kho / thu chi).
+  static List<(String, String)> forDocument(String documentType) => switch (documentType) {
+        PosPrintDocumentTypes.saleOrder => const [
+            ('Ngay_Hen_Giao', 'Ngày hẹn giao'),
+            ('Dia_Chi_Giao', 'Địa chỉ giao'),
+            ('Tien_Coc', 'Tiền cọc'),
+            ('Con_Phai_Thu', 'Còn phải thanh toán'),
+          ],
+        PosPrintDocumentTypes.delivery => const [
+            ('Nguoi_Nhan', 'Người nhận'),
+            ('SDT_Nguoi_Nhan', 'SĐT người nhận'),
+            ('Dia_Chi_Giao', 'Địa chỉ giao'),
+            ('Don_Vi_Van_Chuyen', 'Đơn vị vận chuyển'),
+            ('Ma_Van_Don', 'Mã vận đơn'),
+            ('Ngay_Giao', 'Ngày giao'),
+            ('Nguoi_Giao', 'Người giao hàng'),
+            ('Thu_Ho', 'Tiền thu hộ (COD)'),
+          ],
+        PosPrintDocumentTypes.saleReturn => const [
+            ('Ma_HD_Goc', 'Hóa đơn gốc'),
+            ('Ly_Do', 'Lý do'),
+            ('Phi_Tra_Hang', 'Phí trả hàng'),
+            ('Da_Hoan', 'Đã hoàn'),
+          ],
+        PosPrintDocumentTypes.saleExchange => const [
+            ('Ma_HD_Goc', 'Hóa đơn gốc'),
+            ('Ly_Do', 'Lý do'),
+            ('Loai_Dong', 'Loại dòng (Trả lại / Đổi mới)'),
+            ('Tien_Hang_Tra', 'Tiền hàng trả lại'),
+            ('Tien_Hang_Doi', 'Tiền hàng đổi mới'),
+            ('Phi_Tra_Hang', 'Phí đổi hàng'),
+            ('Khach_Tra_Them', 'Khách trả thêm'),
+            ('Tien_Hoan', 'Cửa hàng hoàn lại'),
+          ],
+        PosPrintDocumentTypes.purchaseOrder => const [
+            ..._supplier,
+            ('Ngay_Du_Kien', 'Ngày dự kiến nhận'),
+            ('Da_Tra_NCC', 'Đã trả trước'),
+            ('Con_No_NCC', 'Còn phải trả'),
+          ],
+        PosPrintDocumentTypes.purchaseReceipt => const [
+            ..._supplier,
+            ('So_HD_Dau_Vao', 'Số HĐ đầu vào'),
+            ('Ma_Phieu_Goc', 'Theo đơn đặt'),
+            ('Da_Tra_NCC', 'Đã trả NCC'),
+            ('Con_No_NCC', 'Còn nợ NCC'),
+          ],
+        PosPrintDocumentTypes.purchaseReturn => const [
+            ..._supplier,
+            ('Ma_Phieu_Goc', 'Phiếu nhập gốc'),
+            ('Ly_Do', 'Lý do'),
+            ('NCC_Da_Hoan', 'NCC đã hoàn'),
+          ],
+        PosPrintDocumentTypes.stockTransfer => const [
+            ('Kho_Di', 'Từ kho'),
+            ('Kho_Den', 'Đến kho'),
+            ('Trang_Thai', 'Trạng thái'),
+            ('Ngay_Chuyen', 'Ngày chuyển'),
+            ('Ngay_Nhan', 'Ngày nhận'),
+            ('Nguoi_Lap', 'Người lập'),
+            ('Nguoi_Nhan', 'Người nhận'),
+            ('SL_Nhan', 'SL nhận (dòng)'),
+            ('Tong_So_Luong', 'Tổng SL chuyển'),
+            ('Tong_SL_Nhan', 'Tổng SL nhận'),
+          ],
+        PosPrintDocumentTypes.stockIssue => const [
+            ('Nguoi_Nhan', 'Người nhận hàng'),
+            ('Bo_Phan', 'Bộ phận'),
+            ('Ly_Do', 'Lý do xuất'),
+            ('Kho_Di', 'Xuất tại kho'),
+            ('Chung_Tu_Kem_Theo', 'Chứng từ kèm theo'),
+            ('Nguoi_Lap', 'Người lập phiếu'),
+            ('Ngay_So', 'Ngày (số)'),
+            ('Thang', 'Tháng'),
+            ('Nam', 'Năm'),
+          ],
+        PosPrintDocumentTypes.cashReceipt || PosPrintDocumentTypes.cashPayment => const [
+            ('Nguoi_Nop_Nhan', 'Người nộp / nhận tiền'),
+            ('Dia_Chi_Nguoi_Nop_Nhan', 'Địa chỉ người nộp / nhận'),
+            ('SDT_Nguoi_Nop_Nhan', 'SĐT người nộp / nhận'),
+            ('Ly_Do', 'Lý do thu / chi'),
+            ('Loai_Thu_Chi', 'Loại thu / chi'),
+            ('Ma_Chung_Tu_Goc', 'Chứng từ gốc'),
+            ('So_Tien', 'Số tiền'),
+            ('So_Tien_Bang_Chu', 'Số tiền bằng chữ'),
+            ('Chung_Tu_Kem_Theo', 'Số chứng từ kèm theo'),
+            ('Quyen_So', 'Quyển số'),
+            ('TK_No', 'TK Nợ'),
+            ('TK_Co', 'TK Có'),
+            ('Nguoi_Lap', 'Người lập phiếu'),
+            ('Ngay_So', 'Ngày (số)'),
+            ('Thang', 'Tháng'),
+            ('Nam', 'Năm'),
+          ],
+        _ => const [],
+      };
+
   static const blockHint =
       '<!--BEGIN_ITEMS--> ... <!--END_ITEMS--> — lặp cho từng dòng hàng';
 }

@@ -10,6 +10,8 @@ import '../models/pos_stock_issue_doc.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/pos_mutation_result.dart';
+import '../utils/pos_sheet_document_print.dart';
+import '../models/pos_print_template.dart';
 import '../utils/pos_purchase_product_lookup.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
@@ -120,6 +122,8 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
   String _issueNo = '';
   String _status = 'Draft';
   String? _categoryName;
+  DateTime? _issuedAt;
+  String? _issuedBy;
   final List<_IssueLine> _lines = [];
   Timer? _lineSaveDebounce;
   bool _lineSaveInFlight = false;
@@ -162,6 +166,8 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     _status = doc.status;
     _noteCtrl.text = doc.note ?? '';
     _categoryName = doc.categoryName;
+    _issuedAt = doc.issuedAt ?? doc.completedAt ?? doc.createdAt;
+    _issuedBy = doc.issuedBy ?? doc.createdBy;
     _recipientCtrl.text = doc.recipientName ?? '';
   }
 
@@ -352,6 +358,41 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
       _status = doc.status;
     });
     return doc.id;
+  }
+
+  Future<void> _printIssue() async {
+    final title = _config.title;
+    await printPosSheetDocument(
+      context,
+      documentType: PosPrintDocumentTypes.stockIssue,
+      title: '$title ${_issueNo.isEmpty ? 'tạm' : _issueNo}',
+      referenceNo: _issueNo,
+      referenceId: _issueId,
+      lines: [
+        for (final l in _lines)
+          {
+            'Ma_Hang': l.productCode,
+            'Ten_Hang_Hoa': l.productName,
+            'Ten_Hang_Goc': l.productName,
+            'Don_Vi_Tinh': l.unitName,
+            'So_Luong': posSheetQty(l.qty),
+            'Don_Gia': posSheetMoney(l.costPrice),
+            'Thanh_Tien': posSheetMoney(l.lineTotal),
+            'Ghi_Chu': l.serials.isEmpty ? '' : 'Serial: ${l.serials.join(', ')}',
+          },
+      ],
+      data: {
+        ...posSheetDateData(_issuedAt),
+        'Ma_Don_Hang': _issueNo,
+        'Nguoi_Nhan': _recipientCtrl.text.trim(),
+        'Ly_Do': [title, if ((_categoryName ?? '').trim().isNotEmpty) _categoryName!.trim()].join(' — '),
+        'Nguoi_Lap': _issuedBy ?? '',
+        'Ghi_Chu': _noteCtrl.text.trim(),
+        'Tong_So_Luong': posSheetQty(_totalQty),
+        'Tong_Cong': posSheetMoney(_totalValue),
+        'Tong_Cong_Bang_Chu': posSheetMoneyWords(_totalValue),
+      },
+    );
   }
 
   double get _totalValue => _lines.fold(0.0, (a, l) => a + l.lineTotal);
@@ -986,6 +1027,14 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
           maxLines: 3,
           decoration: PosTheme.inputDecoration(label: 'Ghi chú'),
         ),
+        if (_issueId != null) ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _saving ? null : _printIssue,
+            icon: const Icon(Icons.print_outlined, size: 18),
+            label: Text(tr('In phiếu')),
+          ),
+        ],
         if (!_readOnly) ...[
           const SizedBox(height: 16),
           FilledButton(
@@ -1037,10 +1086,12 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
           itemBuilder: (ctx) => [
             PopupMenuItem(value: 'draft', child: Text(tr('Lưu tạm (chưa trừ kho)'))),
             PopupMenuItem(value: 'delete', child: Text(tr('Xóa phiếu'))),
+            if (_issueId != null) PopupMenuItem(value: 'print', child: Text(tr('In phiếu'))),
           ],
           onSelected: (v) {
             if (v == 'draft') _saveDraft();
             if (v == 'delete') _deleteDraft();
+            if (v == 'print') _printIssue();
           },
           child: const Padding(
             padding: EdgeInsets.symmetric(horizontal: 12),

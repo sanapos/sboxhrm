@@ -10,6 +10,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../models/cash_transaction.dart';
+import '../utils/cash_voucher_print.dart';
 import '../models/fund_transfer.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
@@ -1762,6 +1763,14 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                         transaction, CashTransactionStatus.cancelled);
                   },
                 ),
+              ListTile(
+                leading: const Icon(Icons.print_outlined, color: SboxColors.brand500),
+                title: Text(tr('In phiếu')),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  printCashTransactionVoucher(context, transaction);
+                },
+              ),
               if (transaction.paymentMethod == PaymentMethodType.vietQR ||
                   transaction.paymentMethod == PaymentMethodType.bankTransfer)
                 ListTile(
@@ -2111,6 +2120,13 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                     const SizedBox(width: 6),
                   ],
                 ],
+                _ActionBtn(
+                  icon: Icons.print_outlined,
+                  label: 'In phiếu',
+                  color: SboxColors.brand500,
+                  onTap: () => printCashTransactionVoucher(context, transaction),
+                ),
+                const SizedBox(width: 6),
                 if (transaction.paymentMethod == PaymentMethodType.vietQR ||
                     transaction.paymentMethod == PaymentMethodType.bankTransfer) ...[
                   _ActionBtn(

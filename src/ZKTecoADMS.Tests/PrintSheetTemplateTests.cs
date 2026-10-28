@@ -35,6 +35,83 @@ public class PrintSheetTemplateTests
             Assert.Contains(f, html);
     }
 
+    public static readonly TheoryData<PosPrintDocumentType> SheetDocs = new()
+    {
+        PosPrintDocumentType.SaleInvoice, PosPrintDocumentType.SaleOrder, PosPrintDocumentType.Delivery,
+        PosPrintDocumentType.SaleReturn, PosPrintDocumentType.SaleExchange, PosPrintDocumentType.PurchaseOrder,
+        PosPrintDocumentType.PurchaseReceipt, PosPrintDocumentType.PurchaseReturn, PosPrintDocumentType.StockTransfer,
+        PosPrintDocumentType.StockIssue, PosPrintDocumentType.CashReceipt, PosPrintDocumentType.CashPayment,
+    };
+
+    [Theory]
+    [MemberData(nameof(SheetDocs))]
+    public void Moi_loai_chung_tu_co_mau_A4_A5_rieng(PosPrintDocumentType doc)
+    {
+        foreach (var size in new[] { PosPrintPaperSize.A4, PosPrintPaperSize.A5 })
+        {
+            var html = PosPrintTemplateDefaults.LoadSheet(doc, size);
+            Assert.False(string.IsNullOrWhiteSpace(html), $"Thiếu PrintTemplates/Sheet/{doc}.{size}.html");
+            Assert.Equal(html, PosPrintTemplateDefaults.BuildHtml(doc, size));
+            foreach (var tag in new[] { "IF", "IFNOT" })
+                foreach (Match m in Regex.Matches(html!, "<!--" + tag + ":([A-Za-z_]+)-->"))
+                    Assert.Contains("<!--END" + tag + ":" + m.Groups[1].Value + "-->", html);
+            Assert.Contains("{Ten_Cua_Hang}", html);
+            Assert.Contains("{Ma_Don_Hang}", html);
+        }
+    }
+
+    [Theory]
+    [InlineData(PosPrintDocumentType.PurchaseOrder)]
+    [InlineData(PosPrintDocumentType.PurchaseReceipt)]
+    [InlineData(PosPrintDocumentType.PurchaseReturn)]
+    public void Phieu_nhap_ghi_nha_cung_cap_khong_phai_khach_le(PosPrintDocumentType doc)
+    {
+        var html = PosPrintTemplateDefaults.BuildHtml(doc, PosPrintPaperSize.A4);
+        Assert.Contains("{Nha_Cung_Cap}", html);
+        Assert.DoesNotContain("Khách lẻ", html);
+        Assert.DoesNotContain("Cảm ơn quý khách", html);
+    }
+
+    [Theory]
+    [InlineData(PosPrintDocumentType.CashReceipt, "PHIẾU THU", "01 - TT")]
+    [InlineData(PosPrintDocumentType.CashPayment, "PHIẾU CHI", "02 - TT")]
+    public void Phieu_thu_chi_khong_co_bang_hang_A5_ngang(PosPrintDocumentType doc, string title, string form)
+    {
+        var a4 = PosPrintTemplateDefaults.BuildHtml(doc, PosPrintPaperSize.A4);
+        var a5 = PosPrintTemplateDefaults.BuildHtml(doc, PosPrintPaperSize.A5);
+        foreach (var html in new[] { a4, a5 })
+        {
+            Assert.Contains("<!--NO_ITEMS-->", html);
+            Assert.DoesNotContain("BEGIN_ITEMS", html);
+            Assert.Contains(title, html);
+            Assert.Contains(form, html);
+            Assert.Contains("{So_Tien_Bang_Chu}", html);
+        }
+        Assert.Contains("orient=\"landscape\"", a5);
+    }
+
+    [Fact]
+    public void Chuyen_hang_co_kho_di_kho_den_va_SL_nhan()
+    {
+        var html = PosPrintTemplateDefaults.BuildHtml(PosPrintDocumentType.StockTransfer, PosPrintPaperSize.A5);
+        Assert.Contains("{Kho_Di}", html);
+        Assert.Contains("{Kho_Den}", html);
+        Assert.Contains("{SL_Nhan}", html);
+    }
+
+    [Theory]
+    [InlineData(PosPrintDocumentType.PurchaseReceipt)]
+    [InlineData(PosPrintDocumentType.StockTransfer)]
+    [InlineData(PosPrintDocumentType.CashPayment)]
+    public void Nhap_kho_quy_khuyen_dung_A4(PosPrintDocumentType doc)
+    {
+        var specs = PosPrintTemplateDefaults.CatalogSpecs(doc);
+        Assert.Equal(PosPrintPaperSize.A4, specs.Single(s => s.IsRecommended).PaperSize);
+        Assert.Equal(
+            new[] { PosPrintPaperSize.A4, PosPrintPaperSize.A5, PosPrintPaperSize.K80, PosPrintPaperSize.K58 },
+            specs.Select(s => s.PaperSize));
+    }
+
     [Fact]
     public void A5_gon_hon_A4_bo_cot_ma_hang_va_CK()
     {

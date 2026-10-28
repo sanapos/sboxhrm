@@ -282,6 +282,7 @@ class _PosPurchaseReceiptListScreenState
       paidAmount: r.paidAmount,
       grandTotal: r.grandTotal != 0 ? r.grandTotal : r.totalCost + r.totalVat - r.discountAmount,
       lines: r.lines,
+      purchaseOrderNo: r.purchaseOrderNo,
     );
   }
 

@@ -5,6 +5,7 @@ import '../../models/pos_print_template.dart';
 import '../../models/pos_sale_order.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_print_template_loader.dart';
+import '../../utils/pos_sheet_document_print.dart';
 import '../notification_overlay.dart';
 
 /// Kết quả chọn mẫu khi in lại một hóa đơn.
@@ -51,12 +52,24 @@ Future<void> showPosSalePrintOptions(
                 : Text(order.printNote!.trim(), maxLines: 2, overflow: TextOverflow.ellipsis),
             onTap: () => Navigator.pop(ctx, 'note'),
           ),
+          // Chứng từ khổ trang khác hóa đơn — mẫu A4/A5 «Đặt hàng» / «Giao hàng» của cửa hàng.
+          for (final t in const [PosPrintDocumentTypes.saleOrder, PosPrintDocumentTypes.delivery])
+            ListTile(
+              leading: const Icon(Icons.print_outlined),
+              title: Text(tr(PosPrintDocumentTypes.all[t]!)),
+              subtitle: const Text('A4 / A5'),
+              onTap: () => Navigator.pop(ctx, 'sheet:$t'),
+            ),
           const SizedBox(height: 8),
         ],
       ),
     ),
   );
   if (action == null || !context.mounted) return;
+  if (action.startsWith('sheet:')) {
+    await printPosSaleSheet(context, order, action.substring('sheet:'.length));
+    return;
+  }
   if (action == 'template') {
     final choice = await pickPosSalePrintTemplate(context, order: order);
     if (choice == null || !context.mounted) return;

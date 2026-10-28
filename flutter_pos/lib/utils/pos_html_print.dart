@@ -26,7 +26,8 @@ Future<bool> printOrSharePosHtml({
     html = wrapPosCommercialPrintHtml(html, setup);
   }
   final setup = PosCommercialPageSetup.parse(html);
-  final format = (setup.isA5 ? PdfPageFormat.a5 : PdfPageFormat.a4).copyWith(
+  final page = setup.isA5 ? PdfPageFormat.a5 : PdfPageFormat.a4;
+  final format = (setup.landscape ? page.landscape : page).copyWith(
     marginTop: 0,
     marginBottom: 0,
     marginLeft: 0,

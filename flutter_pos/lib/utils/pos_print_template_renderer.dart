@@ -375,7 +375,154 @@ Map<String, String> posPrintSampleData({
       'Don_Vi_Tinh': 'Size L',
     };
   }
+  final sheetExtras = _posSheetSampleExtras(documentType, money);
+  if (sheetExtras.isNotEmpty) return {...base, ...sheetExtras};
   return base;
+}
+
+/// Dữ liệu xem trước riêng từng loại chứng từ khổ trang (nhập / kho / quỹ / đặt / giao / trả / đổi).
+Map<String, String> _posSheetSampleExtras(String documentType, NumberFormat money) {
+  const t = PosPrintDocumentTypes.all;
+  final common = <String, String>{'Tieu_De_In': (t[documentType] ?? '').toUpperCase()};
+  const supplier = <String, String>{
+    'Nha_Cung_Cap': 'Công ty TNHH Phân phối Minh Phát',
+    'Ma_NCC': 'NCC0012',
+    'Dia_Chi_NCC': '125 Lê Lợi, Q.1, TP.HCM',
+    'SDT_NCC': '0283 822 1234',
+    'MST_NCC': '0312345678',
+    'Chi_Nhanh': 'Chi nhánh trung tâm',
+    'Nguoi_Lap': 'Nguyễn Văn Kho',
+    'Tong_So_Luong': '6',
+  };
+  switch (documentType) {
+    case PosPrintDocumentTypes.saleOrder:
+      return {
+        ...common,
+        'Ma_Don_Hang': 'DH000021',
+        'Ngay_Hen_Giao': '30/06/2026',
+        'Dia_Chi_Giao': '12 Nguyễn Huệ, Q.1, TP.HCM',
+        'Tien_Coc': money.format(10000000),
+        'Con_Phai_Thu': money.format(20505000),
+        'Khach_Thanh_Toan': '',
+        'Tien_Thua': '',
+      };
+    case PosPrintDocumentTypes.delivery:
+      return {
+        ...common,
+        'Ma_Don_Hang': 'GH000034',
+        'Nguoi_Nhan': 'Chị Lan',
+        'SDT_Nguoi_Nhan': '0912345678',
+        'Dia_Chi_Giao': '12 Nguyễn Huệ, Q.1, TP.HCM',
+        'Don_Vi_Van_Chuyen': 'Giao Hàng Nhanh',
+        'Ma_Van_Don': 'GHN8812345',
+        'Ngay_Giao': '29/06/2026',
+        'Nguoi_Giao': 'Trần Văn Giao',
+        'Khach_Thanh_Toan': money.format(10505000),
+        'Thu_Ho': money.format(20000000),
+      };
+    case PosPrintDocumentTypes.saleReturn:
+      return {
+        ...common,
+        'Ma_Don_Hang': 'TH000008',
+        'Ma_HD_Goc': 'HD000050',
+        'Ly_Do': 'Hàng lỗi kỹ thuật',
+        'Phi_Tra_Hang': money.format(50000),
+        'Da_Hoan': money.format(30455000),
+        'Con_Lai': '0',
+        'Khach_Thanh_Toan': '',
+        'Tien_Thua': '',
+      };
+    case PosPrintDocumentTypes.saleExchange:
+      return {
+        ...common,
+        'Ma_Don_Hang': 'DT000003',
+        'Ma_HD_Goc': 'HD000050',
+        'Ly_Do': 'Đổi size',
+        'Tien_Hang_Tra': money.format(700000),
+        'Tien_Hang_Doi': money.format(850000),
+        'Loai_Dong': 'Đổi mới',
+        'Khach_Tra_Them': money.format(150000),
+        'Tien_Hoan': '0',
+        'Tong_Cong': money.format(150000),
+        'Tong_Cong_Bang_Chu': vietnameseMoneyInWords(150000),
+      };
+    case PosPrintDocumentTypes.purchaseOrder:
+      return {
+        ...common,
+        ...supplier,
+        'Ma_Don_Hang': 'DHN000015',
+        'Ngay_Du_Kien': '05/07/2026',
+        'Da_Tra_NCC': money.format(5000000),
+        'Con_No_NCC': money.format(25505000),
+      };
+    case PosPrintDocumentTypes.purchaseReceipt:
+      return {
+        ...common,
+        ...supplier,
+        'Ma_Don_Hang': 'PN000042',
+        'So_HD_Dau_Vao': '0001234',
+        'Ma_Phieu_Goc': 'DHN000015',
+        'Da_Tra_NCC': money.format(20000000),
+        'Con_No_NCC': money.format(10505000),
+      };
+    case PosPrintDocumentTypes.purchaseReturn:
+      return {
+        ...common,
+        ...supplier,
+        'Ma_Don_Hang': 'THN000004',
+        'Ma_Phieu_Goc': 'PN000042',
+        'Ly_Do': 'Hàng sai quy cách',
+        'NCC_Da_Hoan': money.format(30505000),
+        'Con_Lai': '0',
+      };
+    case PosPrintDocumentTypes.stockTransfer:
+      return {
+        ...common,
+        'Ma_Don_Hang': 'CK000011',
+        'Trang_Thai': 'Đã nhận',
+        'Kho_Di': 'Kho tổng Q.7',
+        'Kho_Den': 'Chi nhánh Q.1',
+        'Ngay_Chuyen': '28/06/2026 09:00',
+        'Ngay_Nhan': '28/06/2026 15:30',
+        'Nguoi_Lap': 'Nguyễn Văn Kho',
+        'Nguoi_Nhan': 'Lê Thị Nhận',
+        'Tong_So_Luong': '6',
+        'Tong_SL_Nhan': '6',
+        'SL_Nhan': '1',
+      };
+    case PosPrintDocumentTypes.stockIssue:
+      return {
+        ...common,
+        'Ma_Don_Hang': 'XK000027',
+        'Nguoi_Nhan': 'Phạm Văn Bếp',
+        'Bo_Phan': 'Bếp',
+        'Ly_Do': 'Xuất nguyên liệu chế biến',
+        'Kho_Di': 'Kho nguyên liệu',
+        'Chung_Tu_Kem_Theo': '01',
+        'Nguoi_Lap': 'Nguyễn Văn Kho',
+      };
+    case PosPrintDocumentTypes.cashReceipt:
+    case PosPrintDocumentTypes.cashPayment:
+      final receipt = documentType == PosPrintDocumentTypes.cashReceipt;
+      return {
+        ...common,
+        'Ma_Don_Hang': receipt ? 'PT000105' : 'PC000058',
+        'Nguoi_Nop_Nhan': receipt ? 'Anh Hòa Q.1' : 'Công ty TNHH Phân phối Minh Phát',
+        'Dia_Chi_Nguoi_Nop_Nhan': receipt ? 'Q.1, TP.HCM' : '125 Lê Lợi, Q.1, TP.HCM',
+        'SDT_Nguoi_Nop_Nhan': receipt ? '0909123456' : '0283 822 1234',
+        'Ly_Do': receipt ? 'Thu nợ hóa đơn HD000050' : 'Trả tiền hàng phiếu nhập PN000042',
+        'Loai_Thu_Chi': receipt ? 'Thu nợ khách hàng' : 'Chi trả nhà cung cấp',
+        'Ma_Chung_Tu_Goc': receipt ? 'HD000050' : 'PN000042',
+        'Hinh_Thuc_Thanh_Toan': 'Tiền mặt',
+        'So_Tien': money.format(5000000),
+        'So_Tien_Bang_Chu': vietnameseMoneyInWords(5000000),
+        'Tong_Cong_Bang_Chu': vietnameseMoneyInWords(5000000),
+        'Chung_Tu_Kem_Theo': '01',
+        'Nguoi_Lap': 'Thu ngân Hoa',
+      };
+    default:
+      return const {};
+  }
 }
 
 /// Map thông tin cửa hàng thương mại → token in A4.
@@ -778,6 +925,18 @@ Map<String, String> buildSaleOrderPrintData(
     'Lan_In': order.printCount > 1 ? '${order.printCount}' : '',
     'Thu_Tu_Hoa_Don_Ngay': '',
     'Tong_Hoa_Don_Trong_Ngay': '',
+    // Phiếu giao / đơn đặt khổ trang — trống khi đơn không giao hàng.
+    'Dia_Chi_Giao': (order.deliveryAddress ?? '').trim(),
+    'SDT_Nguoi_Nhan': (order.deliveryPhone ?? '').trim(),
+    'Don_Vi_Van_Chuyen': (order.deliveryPartner ?? '').trim(),
+    'Ma_Van_Don': (order.deliveryTrackingCode ?? '').trim(),
+    'Ngay_Giao': order.deliveryDate == null
+        ? ''
+        : DateFormat('dd/MM/yyyy').format(order.deliveryDate!.toLocal()),
+    'Thu_Ho': (order.deliveryPartner ?? '').trim().isEmpty ? '' : money.format(due),
+    'Con_Phai_Thu': money.format(due),
+    // Phiếu trả hàng dựng từ đơn gốc (orderNo = số HĐ gốc).
+    'Ma_HD_Goc': order.status == 'Return' ? order.orderNo : '',
     ...posEInvoicePrintTokens(order),
   }, commercialProfile);
 }

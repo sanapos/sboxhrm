@@ -8,7 +8,9 @@ import '../models/pos_stock_issue_doc.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/pos/pos_stock_issue_config.dart';
 import '../widgets/pos/pos_stock_issue_helpers.dart';
+import '../models/pos_print_template.dart';
 import 'pos_purchase_receipt_print.dart';
+import 'pos_sheet_document_print.dart';
 import 'pos_simple_doc_print.dart';
 import 'pos_stock_count_print.dart';
 
@@ -42,6 +44,7 @@ Future<void> printPurchaseReceiptDoc(BuildContext context, PosPurchaseReceipt r)
     paidAmount: r.paidAmount,
     grandTotal: r.grandTotal != 0 ? r.grandTotal : r.totalCost + r.totalVat - r.discountAmount,
     lines: r.lines,
+    purchaseOrderNo: r.purchaseOrderNo,
   );
 }
 
@@ -51,7 +54,39 @@ double purchaseReturnSupplierOwed(PosPurchaseReturn r) {
   return r.totalAmount - r.discountAmount;
 }
 
-Future<void> printPurchaseReturnDoc(BuildContext context, PosPurchaseReturn r) {
+Future<void> printPurchaseReturnDoc(BuildContext context, PosPurchaseReturn r) async {
+  // Mẫu in A4/A5 «Trả hàng nhập» của cửa hàng; lỗi dựng mẫu → bảng PDF đơn giản bên dưới.
+  try {
+    final owed = purchaseReturnSupplierOwed(r);
+    await printPosSheetDocument(
+      context,
+      documentType: PosPrintDocumentTypes.purchaseReturn,
+      title: 'Phiếu trả hàng nhập ${r.returnNo}',
+      referenceNo: r.returnNo,
+      referenceId: r.id,
+      lines: posPurchaseLinesPrintData(r.lines),
+      data: {
+        ...posSheetDateData(r.returnDate),
+        'Ma_Don_Hang': r.returnNo,
+        'Nha_Cung_Cap': r.supplierName ?? '',
+        'Ma_Phieu_Goc': r.sourceReceiptNo ?? '',
+        'Chi_Nhanh': _branchName(context),
+        'Nguoi_Lap': r.createdBy ?? '',
+        'Ghi_Chu': r.note ?? '',
+        'Tong_So_Luong': posSheetQty(r.lines.fold<double>(0, (a, l) => a + l.qty)),
+        'Tong_Tien_Hang': posSheetMoney(r.totalAmount),
+        'Chiet_Khau_Hoa_Don': posSheetMoney(r.discountAmount),
+        'Tong_Cong': posSheetMoney(owed),
+        'Tong_Cong_Bang_Chu': posSheetMoneyWords(owed),
+        'NCC_Da_Hoan': posSheetMoney(r.refundReceived),
+        'Con_Lai': posSheetMoney(owed - r.refundReceived),
+      },
+    );
+    return;
+  } catch (e) {
+    debugPrint('printPurchaseReturnDoc (mẫu in) lỗi, dùng PDF: $e');
+  }
+  if (!context.mounted) return;
   final when = r.returnDate?.toLocal();
   final statusLabel = switch (r.status) {
     'Draft' => 'Phiếu tạm',
@@ -59,7 +94,7 @@ Future<void> printPurchaseReturnDoc(BuildContext context, PosPurchaseReturn r) {
     'Cancelled' => 'Đã hủy',
     _ => r.status,
   };
-  return printPosSimpleDoc(
+  await printPosSimpleDoc(
     context,
     title: 'PHIẾU TRẢ HÀNG NHẬP',
     docNo: r.returnNo,
@@ -93,9 +128,25 @@ Future<void> printPurchaseReturnDoc(BuildContext context, PosPurchaseReturn r) {
   );
 }
 
-Future<void> printStockIssueDoc(BuildContext context, PosStockIssueDoc doc, PosStockIssueConfig config) {
+Future<void> printStockIssueDoc(BuildContext context, PosStockIssueDoc doc, PosStockIssueConfig config) async {
+  // Mẫu in A4/A5 «Xuất kho» (mẫu 02-VT) của cửa hàng; lỗi dựng mẫu → bảng PDF đơn giản bên dưới.
+  try {
+    await printPosSheetDocument(
+      context,
+      documentType: PosPrintDocumentTypes.stockIssue,
+      title: '${config.title} ${doc.issueNo}',
+      referenceNo: doc.issueNo,
+      referenceId: doc.id,
+      lines: posStockIssueLinesPrintData(doc.lines),
+      data: posStockIssuePrintData(doc, config.title),
+    );
+    return;
+  } catch (e) {
+    debugPrint('printStockIssueDoc (mẫu in) lỗi, dùng PDF: $e');
+  }
+  if (!context.mounted) return;
   final when = (doc.issuedAt ?? doc.createdAt)?.toLocal();
-  return printPosSimpleDoc(
+  await printPosSimpleDoc(
     context,
     title: 'PHIẾU ${config.title.toUpperCase()}',
     docNo: doc.issueNo,

@@ -8,6 +8,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'pos_pdf_fonts.dart';
 import 'api_datetime.dart';
 import 'pos_purchase_receipt_print.dart';
+import 'pos_sheet_document_print.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// PDF phiếu chuyển kho (A4 dọc) — dữ liệu là JSON phiếu từ /api/branch-ops/transfers.
@@ -122,7 +123,15 @@ Future<Uint8List> buildPosStockTransferPdfBytes({
 Future<void> printPosStockTransfer({
   required BuildContext context,
   required Map<String, dynamic> transfer,
-}) {
+}) async {
+  // Mẫu in A4/A5 của cửa hàng (Chuyển hàng); lỗi dựng mẫu → PDF dựng sẵn.
+  try {
+    await printPosStockTransferSheet(context, transfer);
+    return;
+  } catch (e) {
+    debugPrint('printPosStockTransfer (mẫu in) lỗi, dùng PDF: $e');
+  }
+  if (!context.mounted) return;
   return showPosPurchaseReceiptPrintDialog(
     context,
     title: 'Phiếu chuyển kho ${transfer['transferNo'] ?? ''}',
