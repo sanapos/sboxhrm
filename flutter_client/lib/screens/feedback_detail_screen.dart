@@ -326,7 +326,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     );
     if (d == null) return;
     final due = DateTime(d.year, d.month, d.day, 17, 0);
-    await _run(_api.manageFeedback(widget.feedbackId, {'dueAt': due.toIso8601String()}), 'Đã đặt hạn xử lý');
+    await _run(_api.manageFeedback(widget.feedbackId, {'dueAt': due.toUtc().toIso8601String()}), 'Đã đặt hạn xử lý');
   }
 
   // ═════════════ GIAO DIỆN ═════════════

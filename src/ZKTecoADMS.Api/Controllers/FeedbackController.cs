@@ -226,7 +226,7 @@ public class FeedbackController(
 
     async Task<List<object>> ToDtosAsync(List<Feedback> items, Viewer v, Dictionary<Guid, int>? replyCounts = null)
     {
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var emps = await EmployeesAsync(items.SelectMany(f =>
             new[] { f.SenderEmployeeId, f.RecipientEmployeeId, f.AssigneeEmployeeId, f.RespondedByEmployeeId }));
         var users = await UserNamesAsync(items.SelectMany(f => new[] { f.CreatedBy, f.UpdatedBy }));
@@ -295,7 +295,7 @@ public class FeedbackController(
         int? priority, Guid? senderEmployeeId, Guid? recipientEmployeeId, bool? generalMailboxOnly,
         bool? overdue, string? search, DateTime? fromDate, DateTime? toDate)
     {
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         if (status == "Open") q = q.Where(f => f.Status == FeedbackRules.Pending || f.Status == FeedbackRules.InProgress);
         else if (!string.IsNullOrEmpty(status)) q = q.Where(f => f.Status == status);
         if (!string.IsNullOrEmpty(category)) q = q.Where(f => f.Category == category);
@@ -338,7 +338,7 @@ public class FeedbackController(
         pageSize = Math.Clamp(pageSize, 1, 100);
 
         var baseQ = Scoped(storeId, v).Where(f => f.SenderEmployeeId != emp && f.CreatedBy != v.UserId);
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var counts = new
         {
             open = await baseQ.CountAsync(f => f.Status == FeedbackRules.Pending || f.Status == FeedbackRules.InProgress),
@@ -422,7 +422,7 @@ public class FeedbackController(
             imagesJson = images.Count == 0 ? null : JsonSerializer.Serialize(images);
         }
 
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var monthStart = new DateTime(now.Year, now.Month, 1);
         var seq = await dbContext.Feedbacks.IgnoreQueryFilters()
             .CountAsync(f => f.StoreId == storeId && f.CreatedAt >= monthStart) + 1;
@@ -503,7 +503,7 @@ public class FeedbackController(
             return Ok(AppResponse<bool>.Error(
                 $"Không thể chuyển từ «{FeedbackRules.StatusName(f.Status)}» sang «{FeedbackRules.StatusName(dto.Status)}»"));
 
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var from = f.Status;
         ApplyStatus(f, dto.Status, v.EmployeeId, now);
         var me = await MyNameAsync(v.EmployeeId);
@@ -540,7 +540,7 @@ public class FeedbackController(
         var (f, v, error) = await LoadForAsync(id, manage: true);
         if (error != null) return error;
         var me = await MyNameAsync(v.EmployeeId);
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var changed = false;
         Guid? newAssigneeUser = null;
 
@@ -605,7 +605,7 @@ public class FeedbackController(
         var (f, v, error) = await LoadForAsync(id, manage: false);
         if (error != null) return error;
         if (!IsSender(f!, v)) return StatusCode(403, AppResponse<bool>.Fail("Chỉ người gửi được mở lại phiếu"));
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         if (!FeedbackRules.CanSenderReopen(f!.Status, f.ResolvedAt, now))
             return Ok(AppResponse<bool>.Error($"Chỉ mở lại được phiếu đã giải quyết trong {FeedbackRules.ReopenWindowDays} ngày"));
 
@@ -642,7 +642,7 @@ public class FeedbackController(
 
         f.Rating = dto.Rating;
         f.RatingComment = string.IsNullOrWhiteSpace(dto.Comment) ? null : dto.Comment.Trim()[..Math.Min(1000, dto.Comment.Trim().Length)];
-        f.UpdatedAt = DateTime.Now;
+        f.UpdatedAt = DateTime.UtcNow;
         AddEvent(f, null, $"Người gửi đánh giá {dto.Rating}/5 sao" + (f.RatingComment != null ? $": {f.RatingComment}" : ""));
         await dbContext.SaveChangesAsync();
         await NotifyAsync(await HandlerUserIdsAsync(f), f, "Đánh giá kiến nghị", $"{Label(f)}: {dto.Rating}/5 sao");
@@ -664,7 +664,7 @@ public class FeedbackController(
             if (f!.Status != FeedbackRules.Pending)
                 return Ok(AppResponse<bool>.Error("Phiếu đã được tiếp nhận — không thể thu hồi"));
         }
-        f!.Deleted = DateTime.Now;
+        f!.Deleted = DateTime.UtcNow;
         f.DeletedBy = v.UserId;
         await dbContext.SaveChangesAsync();
         return Ok(AppResponse<bool>.Success(true));
@@ -766,7 +766,7 @@ public class FeedbackController(
 
         var handlers = canManage ? await HandlersAsync(f!.StoreId ?? RequiredStoreId) : [];
 
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         return Ok(AppResponse<object>.Success(new
         {
             feedback = (await ToDtosAsync([f!], v))[0],
@@ -803,7 +803,7 @@ public class FeedbackController(
         if (dto.Internal && !canManage)
             return StatusCode(403, AppResponse<FeedbackReplyDto>.Fail("Chỉ người xử lý được ghi chú nội bộ"));
 
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var reply = new FeedbackReply
         {
             Id = Guid.NewGuid(),
@@ -885,7 +885,7 @@ public class FeedbackController(
         var v = await ViewerAsync();
         if (!v.Handler) return StatusCode(403, AppResponse<object>.Fail("Chỉ người xử lý được xem báo cáo"));
 
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var to = (toDate ?? now).Date.AddDays(1);
         var from = (fromDate ?? now.Date.AddMonths(-5).AddDays(1 - now.Day)).Date;
         var list = await Scoped(storeId, v).Where(f => f.CreatedAt >= from && f.CreatedAt < to).ToListAsync();

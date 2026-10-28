@@ -99,7 +99,8 @@ class FeedbackUi {
     final diff = due.difference(DateTime.now());
     String fmt(Duration d) {
       final a = d.abs();
-      if (a.inDays >= 1) return '${a.inDays} ngày';
+      // Làm tròn ngày (trước cắt xuống: phiếu vừa gửi hạn 3 ngày hiện «Còn 2 ngày»).
+      if (a.inDays >= 1) return '${(a.inMinutes / 1440).round()} ngày';
       if (a.inHours >= 1) return '${a.inHours} giờ';
       return '${a.inMinutes.clamp(1, 59)} phút';
     }

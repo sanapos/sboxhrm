@@ -545,13 +545,19 @@ class _FeedbackScreenState extends State<FeedbackScreen> with SingleTickerProvid
                       Row(children: [
                         Icon(FeedbackUi.categoryIcon(category), size: 16, color: FeedbackUi.categoryColor(category)),
                         const SizedBox(width: 6),
-                        Text(tr(FeedbackUi.categories[category] ?? ''),
+                        // Nhãn ngắn («Kiến nghị») để mã phiếu hiện đủ trên điện thoại.
+                        Text(tr((FeedbackUi.categories[category] ?? '').split(' / ').first),
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: FeedbackUi.categoryColor(category))),
-                        if ((f['code']?.toString() ?? '').isNotEmpty) ...[
-                          const Text('  ·  ', style: TextStyle(color: SboxColors.slate300)),
-                          Text(f['code'].toString(), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
-                        ],
-                        const Spacer(),
+                        // Mã phiếu co lại / cắt «…» thay vì tràn: trước «KN-2610-0002» dính sát «31 phút trước».
+                        Expanded(
+                          child: (f['code']?.toString() ?? '').isEmpty
+                              ? const SizedBox.shrink()
+                              : Text('  ·  ${f['code']}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                        ),
+                        const SizedBox(width: 8),
                         Text(tr(FeedbackUi.ago(FeedbackUi.date(f['updatedAt']) ?? FeedbackUi.date(f['createdAt']))),
                             style: const TextStyle(fontSize: 11.5, color: SboxColors.slate400)),
                       ]),

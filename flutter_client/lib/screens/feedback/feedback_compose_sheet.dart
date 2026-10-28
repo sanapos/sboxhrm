@@ -130,7 +130,8 @@ class _FeedbackComposeState extends State<_FeedbackCompose> {
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
         children: [
           _label('Bạn muốn gửi'),
-          Row(children: [
+          // Cao bằng nhau (trước ô «Khiếu nại» thấp hơn 2 ô bên cạnh).
+          IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             for (final c in const ['Complaint', 'Suggestion', 'General'])
               Expanded(
                 child: Padding(
@@ -138,7 +139,7 @@ class _FeedbackComposeState extends State<_FeedbackCompose> {
                   child: _typeCard(c),
                 ),
               ),
-          ]),
+          ])),
           const SizedBox(height: 18),
           _label('Chủ đề'),
           Wrap(spacing: 8, runSpacing: 8, children: [
@@ -335,9 +336,11 @@ class _FeedbackComposeState extends State<_FeedbackCompose> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Icon(FeedbackUi.categoryIcon(c), color: color),
           const SizedBox(height: 6),
-          Text(tr(FeedbackUi.categories[c]!),
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontWeight: FontWeight.w700, color: sel ? color : SboxColors.slate800)),
+          // Ô hẹp (3 cột trên điện thoại): «Kiến nghị / đề xuất» bị cắt «Kiến ngh…» → nhãn ngắn (phần trước
+          // « / »), tối đa 2 dòng; nhãn đầy đủ vẫn ở nút gửi.
+          Text(tr(FeedbackUi.categories[c]!.split(' / ').first),
+              maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontWeight: FontWeight.w700, height: 1.2, color: sel ? color : SboxColors.slate800)),
           Text(tr(FeedbackUi.categoryHints[c]!),
               maxLines: 2, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),

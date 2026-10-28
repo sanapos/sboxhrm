@@ -160,10 +160,12 @@ public sealed class TingeePaymentWebhookProvider : IPaymentWebhookProvider
     {
         if (string.IsNullOrWhiteSpace(yyyyMMddHHmmss)) return null;
         var s = yyyyMMddHHmmss.Trim();
+        // Tingee gửi giờ VN (GMT+7). Trước AssumeLocal trên máy chủ chạy UTC → lưu giờ VN như UTC,
+        // app hiện «đã thanh toán» +7h. Quy về UTC như mọi mốc thời gian khác trong DB.
         if (s.Length >= 14 &&
             DateTime.TryParseExact(s[..14], "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeLocal, out var dt))
-            return dt;
+                DateTimeStyles.None, out var dt))
+            return DateTime.SpecifyKind(dt.AddHours(-7), DateTimeKind.Utc);
         return null;
     }
 
