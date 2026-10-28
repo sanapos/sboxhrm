@@ -340,6 +340,21 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
   bool _mdContract = false;
   int _mdSeq = 0;
 
+  /// Đổi tab. Chia đôi: hồ sơ đang mở bên phải đổi theo tab (Báo giá → tổng quan báo giá, tab hồ sơ →
+  /// chi tiết hợp đồng). Trước đây sang tab Hợp đồng vẫn hiện màn báo giá (cùng id) dù thẻ HĐ đang chọn.
+  void _switchTab(int tab) {
+    if (_tab == tab) return;
+    setState(() {
+      _tab = tab;
+      final contract = tab != 0;
+      if (_mdId != null && _mdContract != contract) {
+        _mdContract = contract;
+        _mdSeq++;
+      }
+    });
+    _reloadAll();
+  }
+
   void _selectMd(PosQuote q, {required bool contract}) {
     if (_mdId == q.id && _mdContract == contract) return;
     setState(() {
@@ -400,6 +415,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
               ? PosContractDetailScreen(
                   key: ValueKey('ct-$id-$_mdSeq'),
                   quoteId: id,
+                  onChanged: _reloadAll,
                   onClose: () {
                     setState(() => _mdId = null);
                     _reloadAll();
@@ -878,11 +894,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
               Expanded(
                 child: InkWell(
                   borderRadius: BorderRadius.circular(8),
-                  onTap: () {
-                    if (_tab == t.$1) return;
-                    setState(() => _tab = t.$1);
-                    _reloadAll();
-                  },
+                  onTap: () => _switchTab(t.$1),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
                     decoration: BoxDecoration(
@@ -927,11 +939,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
           for (final t in _tabDefs)
             InkWell(
               borderRadius: BorderRadius.circular(8),
-              onTap: () {
-                if (_tab == t.$1) return;
-                setState(() => _tab = t.$1);
-                _reloadAll();
-              },
+              onTap: () => _switchTab(t.$1),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(

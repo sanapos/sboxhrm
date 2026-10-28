@@ -23,9 +23,13 @@ import 'dart:typed_data';
 import '../../widgets/pos/pos_pdf_preview_dialog.dart';
 /// Chi tiết hợp đồng: tạm ứng + biên bản nghiệm thu.
 class PosContractDetailScreen extends StatefulWidget {
-  const PosContractDetailScreen({super.key, required this.quoteId, this.onClose});
+  const PosContractDetailScreen({super.key, required this.quoteId, this.onChanged, this.onClose});
 
   final String quoteId;
+
+  /// Hồ sơ vừa đổi (tạo trọn bộ, thu tiền, sửa đợt…) → màn chia đôi tải lại danh sách bên trái.
+  /// Trước đây thẻ bên trái vẫn «Đã lập HĐ · 4/7» trong khi chi tiết đã «Đã nghiệm thu».
+  final VoidCallback? onChanged;
 
   /// Nhúng ở cột phải màn chia đôi: nút đóng thay nút quay lại.
   final VoidCallback? onClose;
@@ -40,6 +44,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
   final _money = NumberFormat('#,##0', 'vi_VN');
   PosQuote? _quote;
   bool _loading = true;
+  bool _loadedOnce = false;
   bool _busy = false;
 
   List<PosQuoteDocument> get _docs => _quote?.documents ?? const [];
@@ -84,6 +89,9 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
       _loading = false;
       _quote = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map));
     });
+    // Lần tải đầu chỉ là mở màn; các lần sau là tải lại sau một thao tác.
+    if (_loadedOnce) widget.onChanged?.call();
+    _loadedOnce = true;
   }
 
   /// Tải lại báo giá sau khi thu tiền / sửa đợt — không thay màn bằng vòng chờ.
@@ -91,6 +99,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
     final res = await _api.getPosQuote(widget.quoteId);
     if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
     setState(() => _quote = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map)));
+    widget.onChanged?.call();
   }
 
   Future<void> _openDoc(PosQuoteDocument d) async {
@@ -266,8 +275,24 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: Text(contract?.docNo ?? tr('Hợp đồng')),
+        // Số HĐ trong khung bo góc như chip (cùng kiểu chi tiết báo giá / thẻ danh sách).
+        title: contract == null
+            ? Text(tr('Hợp đồng'))
+            : Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: SboxColors.slate50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: SboxColors.slate200),
+                ),
+                child: Text(contract.docNo,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: SboxColors.slate800)),
+              ),
         automaticallyImplyLeading: widget.onClose == null,
+        // Cột chi tiết khi chia đôi: thanh tiêu đề thấp như chi tiết báo giá.
+        toolbarHeight: widget.onClose != null ? 48 : null,
         actions: [
           if (widget.onClose != null)
             IconButton(tooltip: tr('Đóng'), icon: const Icon(Icons.close), onPressed: widget.onClose),
