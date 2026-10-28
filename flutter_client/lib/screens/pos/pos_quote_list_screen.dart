@@ -487,8 +487,8 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
   }
 
   /// Báo giá chưa chốt → ghi nhận khách chốt trước (máy chủ chỉ lập HĐ từ báo giá đã chấp nhận).
-  Future<PosQuote?> _acceptedQuote(PosQuote q) async {
-    if (!await PosQuoteFlow.ensureAccepted(context, q)) return null;
+  Future<PosQuote?> _acceptedQuote(PosQuote q, {bool package = false}) async {
+    if (!await PosQuoteFlow.ensureAccepted(context, q, package: package)) return null;
     if (q.status == 'Accepted') return q;
     final res = await ApiService().getPosQuote(q.id);
     return res['isSuccess'] == true && res['data'] is Map
@@ -516,7 +516,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
 
   Future<void> _createPackage(PosQuote q) async {
     hidePosSoftKeyboard(alsoAfterMs: 0);
-    final accepted = await _acceptedQuote(q);
+    final accepted = await _acceptedQuote(q, package: true);
     if (accepted == null || !mounted) {
       if (mounted) await _reloadAll();
       return;
@@ -1372,11 +1372,15 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                     child: Text(tr(title),
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: SboxColors.slate500)),
                   ),
-                  GridView.count(
-                    crossAxisCount: 4,
+                  // Chiều cao ô theo nội dung (biểu tượng + 2 dòng chữ), không theo bề ngang: trước đây
+                  // childAspectRatio 0.95 trên bảng rộng (C20 ~640 dp) cho ô ~150 dp → hở lớn giữa các hàng.
+                  GridView(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    childAspectRatio: 0.95,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      mainAxisExtent: 16 + 44 + 6 + MediaQuery.textScalerOf(ctx).scale(11.5) * 1.2 * 2 + 6,
+                    ),
                     children: tiles,
                   ),
                 ]),

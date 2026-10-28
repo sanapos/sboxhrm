@@ -67,32 +67,17 @@ Future<bool> createPosQuoteCommercialPackage(
   required PosQuote quote,
   bool includeImages = false,
 }) async {
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(tr('Tạo trọn bộ hồ sơ?')),
-      content: Text(tr(
-          'Sẽ lập (nếu chưa có): hợp đồng, đề nghị tạm ứng, biên bản bàn giao, biên bản nghiệm thu.')),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: Text(tr('Hủy')),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: Text(tr('Tạo hồ sơ')),
-        ),
-      ],
-    ),
+  // Một hộp: giải thích + ghi chú (trước đây 2 hộp liên tiếp: «Tạo trọn bộ hồ sơ?» rồi «Trọn bộ hồ sơ»).
+  final note = await _askCommercialNote(
+    context,
+    'Tạo trọn bộ hồ sơ?',
+    message: 'Sẽ lập (nếu chưa có): hợp đồng, đề nghị tạm ứng, biên bản bàn giao, biên bản nghiệm thu.',
+    confirmLabel: 'Tạo hồ sơ',
   );
-  if (ok != true || !context.mounted) return false;
+  if (note == null || !context.mounted) return false;
 
   final api = ApiService();
   var current = quote;
-
-  if (!context.mounted) return false;
-  final note = await _askCommercialNote(context, 'Trọn bộ hồ sơ');
-  if (note == null) return false;
 
   final detailRes = await api.getPosQuote(current.id);
   if (detailRes['isSuccess'] == true && detailRes['data'] is Map) {
@@ -132,18 +117,30 @@ Future<bool> createPosQuoteCommercialPackage(
   return true;
 }
 
-Future<String?> _askCommercialNote(BuildContext context, String title) async {
+/// [message]: câu giải thích phía trên ô ghi chú (vd. trọn bộ hồ sơ sẽ lập những gì).
+Future<String?> _askCommercialNote(
+  BuildContext context,
+  String title, {
+  String? message,
+  String confirmLabel = 'OK',
+}) async {
   final c = TextEditingController();
+  final field = TextField(
+    controller: c,
+    maxLines: 3,
+    decoration: PosTheme.inputDecoration(label: 'Ghi chú chứng từ (tuỳ chọn)'),
+  );
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(title),
-      content: TextField(
-        controller: c,
-        maxLines: 3,
-        decoration:
-            PosTheme.inputDecoration(label: 'Ghi chú chứng từ (tuỳ chọn)'),
-      ),
+      title: Text(tr(title)),
+      content: message == null
+          ? field
+          : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr(message)),
+              const SizedBox(height: 14),
+              field,
+            ]),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
@@ -151,7 +148,7 @@ Future<String?> _askCommercialNote(BuildContext context, String title) async {
         ),
         FilledButton(
           onPressed: () => Navigator.pop(ctx, true),
-          child: Text(tr('OK')),
+          child: Text(tr(confirmLabel)),
         ),
       ],
     ),

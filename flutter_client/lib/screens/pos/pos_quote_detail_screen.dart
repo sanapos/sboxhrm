@@ -57,7 +57,9 @@ class PosQuoteFlow {
 
   /// Lập hợp đồng khi báo giá chưa chốt: hỏi xác nhận → phát hành (nếu nháp) → ghi nhận khách chốt.
   /// Máy chủ chỉ cho lập hợp đồng từ báo giá đã chấp nhận. Trả true khi báo giá đã ở trạng thái chấp nhận.
-  static Future<bool> ensureAccepted(BuildContext context, PosQuote q) async {
+  /// [package]: đi từ «Trọn bộ hồ sơ» — câu chữ / nút nói «trọn bộ hồ sơ» thay vì «lập hợp đồng»
+  /// (hộp kế tiếp mới là hộp tạo hồ sơ).
+  static Future<bool> ensureAccepted(BuildContext context, PosQuote q, {bool package = false}) async {
     if (q.status == 'Accepted') return true;
     if (isStopped(q)) {
       NotificationOverlayManager().showError(
@@ -75,11 +77,12 @@ class PosQuoteFlow {
       builder: (ctx) => AlertDialog(
         title: Text(tr('Khách đã chốt báo giá?')),
         content: Text(tr('Báo giá ${q.quoteNo} sẽ được ghi nhận ${q.status == 'Draft' ? 'đã gửi khách và ' : ''}'
-            'khách chấp nhận (khóa sửa báo giá), sau đó lập hợp đồng.')),
+            'khách chấp nhận (khóa sửa báo giá), sau đó ${package ? 'lập trọn bộ hồ sơ' : 'lập hợp đồng'}.')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           // Nhãn ngắn: «Khách chốt & lập HĐ» quá dài, 2 nút rớt thành 2 hàng lệch trên điện thoại.
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lập hợp đồng'))),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true), child: Text(tr(package ? 'Tiếp tục' : 'Lập hợp đồng'))),
         ],
       ),
     );
