@@ -304,18 +304,23 @@ class _KpiTile extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: Text(k.value, style: SboxType.moneyStyle(size: compact ? SboxType.title : SboxType.headline)),
         ),
-        const SizedBox(height: SboxSpace.xs),
-        Row(children: [
-          if (d?.good != null) ...[
-            Icon(d!.up ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded, size: 13, color: dColor),
-            const SizedBox(width: 2),
-          ],
-          Expanded(
-            child: Text(d == null ? ' ' : tr(d.text),
-                // Điện thoại: ghi chú dài (vd «Đã chi … · Chờ chi …») được 2 dòng thay vì bị cắt.
-                maxLines: twoLine ? 2 : 1, overflow: TextOverflow.ellipsis, style: SboxType.captionStyle(dColor)),
-          ),
-        ]),
+        // Không có ghi chú so sánh → bỏ hẳn dòng (trước giữ một dòng trống, thẻ dư khoảng trắng dưới số
+        // — Khách hàng POS, Thu chi). Số liệu vẫn thẳng hàng nhờ chỗ nhãn cố định ở trên; IntrinsicHeight
+        // của lưới giữ các thẻ cùng hàng cao bằng nhau.
+        if (d != null) ...[
+          const SizedBox(height: SboxSpace.xs),
+          Row(children: [
+            if (d.good != null) ...[
+              Icon(d.up ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded, size: 13, color: dColor),
+              const SizedBox(width: 2),
+            ],
+            Expanded(
+              child: Text(tr(d.text),
+                  // Điện thoại: ghi chú dài (vd «Đã chi … · Chờ chi …») được 2 dòng thay vì bị cắt.
+                  maxLines: twoLine ? 2 : 1, overflow: TextOverflow.ellipsis, style: SboxType.captionStyle(dColor)),
+            ),
+          ]),
+        ],
       ]),
     );
   }

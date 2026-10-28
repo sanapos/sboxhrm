@@ -222,7 +222,8 @@ class HrmPageChrome {
         }
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: Responsive.horizontalScrollPadding,
+          // Không thêm lề: nơi gọi (khối tổng quan / thẻ) đã có lề — thêm 16 nữa thì thẻ đầu thụt vào,
+          // lệch với ô lọc bên dưới (Nghỉ phép trên V2s). Nhánh một hàng ở trên cũng không có lề.
           clipBehavior: Clip.none,
           child: IntrinsicHeight(
             child: Row(

@@ -5464,14 +5464,35 @@ class _HomeGridTile extends StatelessWidget {
                 child: Icon(data.icon, size: 22, color: fg),
               ),
               const SizedBox(height: 6),
-              Text(
-                tr(data.label),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: SboxType.captionStyle(SboxColors.text)
-                    .copyWith(height: 1.25),
-              ),
+              // Ô hẹp (4 cột trên V2s): «Đăng ký chấm công» cần 3 dòng → bị cắt «chấm côn…».
+              // Thu nhỏ chữ tới khi vừa 2 dòng (tối đa 80%), giữ ô cao đều 96.
+              LayoutBuilder(builder: (context, c) {
+                final base = SboxType.captionStyle(SboxColors.text).copyWith(height: 1.25);
+                final label = tr(data.label);
+                final scaler = MediaQuery.textScalerOf(context);
+                var style = base;
+                final size0 = base.fontSize ?? 12;
+                for (var f = size0; f >= size0 * 0.8; f -= 0.5) {
+                  style = base.copyWith(fontSize: f);
+                  final tp = TextPainter(
+                    text: TextSpan(text: label, style: style),
+                    textDirection: Directionality.of(context),
+                    textAlign: TextAlign.center,
+                    textScaler: scaler,
+                    maxLines: 2,
+                  )..layout(maxWidth: c.maxWidth);
+                  final fits = !tp.didExceedMaxLines;
+                  tp.dispose();
+                  if (fits) break;
+                }
+                return Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: style,
+                );
+              }),
             ],
           ),
         ),

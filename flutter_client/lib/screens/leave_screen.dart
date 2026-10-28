@@ -1272,11 +1272,25 @@ class _LeaveScreenState extends State<LeaveScreen>
         ),
       );
       if (Responsive.isMobile(context)) {
+        // Điện thoại: vùng dưới tab chỉ còn ~140dp, bản căn giữa bị nút nổi «Tạo đơn» đè chữ, lại thêm
+        // nút «Tạo đơn mới» trùng nút nổi. Gọn: icon nhỏ + một dòng, sát trên, tạo đơn bằng nút nổi.
         return _leaveMobileListScroll(
           children: [
-            SizedBox(
-              height: MediaQuery.sizeOf(context).height * 0.32,
-              child: emptyContent,
+            // Một dòng ngang, căn trái, sát trên: nằm gọn trên nút nổi «Tạo đơn» và lệch trái khỏi nút «⋯».
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 96, 96),
+              child: Row(
+                children: [
+                  Icon(Icons.event_busy_outlined, size: 22, color: SboxColors.slate400),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      tr(showApprovalActions ? _l10n.noPendingRequests : _l10n.noLeaveRequests),
+                      style: TextStyle(fontSize: 14, color: SboxColors.slate500, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         );
