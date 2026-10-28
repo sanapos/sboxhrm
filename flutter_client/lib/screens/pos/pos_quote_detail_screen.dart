@@ -114,9 +114,14 @@ class PosQuoteFlow {
 
 /// Màn tổng quan một báo giá: tiến độ hồ sơ, bước tiếp theo, hàng hóa, hồ sơ, liên hệ / chia sẻ.
 class PosQuoteDetailScreen extends StatefulWidget {
-  const PosQuoteDetailScreen({super.key, required this.quoteId});
+  const PosQuoteDetailScreen({super.key, required this.quoteId, this.onChanged, this.onClose});
 
   final String quoteId;
+
+  /// Nhúng ở cột phải màn chia đôi (C20 ngang): có thay đổi → báo danh sách tải lại;
+  /// đóng / xóa xong → [onClose] thay vì đóng trang.
+  final VoidCallback? onChanged;
+  final VoidCallback? onClose;
 
   @override
   State<PosQuoteDetailScreen> createState() => _PosQuoteDetailScreenState();
@@ -129,6 +134,11 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
   bool _loading = true;
   bool _busy = false;
   bool _changed = false;
+
+  void _markChanged() {
+    _changed = true;
+    widget.onChanged?.call();
+  }
 
   @override
   void initState() {
@@ -157,7 +167,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
           title: 'Chưa thực hiện được', message: res['message']?.toString() ?? tr('Thao tác thất bại'));
       return;
     }
-    _changed = true;
+    _markChanged();
     NotificationOverlayManager().showSuccess(title: done, message: _q?.quoteNo ?? '');
     await _load();
   }
@@ -184,8 +194,8 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
   Future<void> _push(Widget page) async {
     final r = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => page));
     if (!mounted) return;
-    if (r == true) _changed = true;
-    _changed = true;
+    // Trang con có thể đổi báo giá dù không trả true — luôn coi là đã đổi.
+    _markChanged();
     await _load();
   }
 
@@ -229,7 +239,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
     }
     if (!mounted) return;
     if (doc != null) {
-      _changed = true;
+      _markChanged();
       if (kind == 'Contract' && canUsePosContracts(context)) {
         await _openContract();
         return;
@@ -244,7 +254,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
     final ok = await createPosQuoteCommercialPackage(context, quote: q, includeImages: q.includeImages);
     if (!mounted) return;
     if (ok) {
-      _changed = true;
+      _markChanged();
       await _openContract();
     }
   }
@@ -287,6 +297,12 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
       return;
     }
     NotificationOverlayManager().showSuccess(title: 'Đã xóa', message: q.quoteNo);
+    final close = widget.onClose;
+    if (close != null) {
+      widget.onChanged?.call();
+      close();
+      return;
+    }
     Navigator.of(context).pop(true);
   }
 
@@ -294,8 +310,9 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
   Widget build(BuildContext context) {
     final q = _q;
     final perm = context.watch<PermissionProvider>();
+    // Nhúng cột phải: không chặn nút quay lại của trang danh sách.
     return PopScope(
-      canPop: false,
+      canPop: widget.onClose != null,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) Navigator.of(context).pop(_changed);
       },
@@ -303,6 +320,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
         backgroundColor: PosTheme.background,
         appBar: AppBar(
           title: Text(q?.quoteNo ?? tr('Báo giá')),
+          automaticallyImplyLeading: widget.onClose == null,
           actions: [
             if (q != null) ...[
               IconButton(
@@ -339,6 +357,8 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
                 ],
               ),
             ],
+            if (widget.onClose != null)
+              IconButton(tooltip: tr('Đóng'), icon: const Icon(Icons.close), onPressed: widget.onClose),
           ],
         ),
         body: _loading
@@ -637,7 +657,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
     final q = _q;
     if (q == null) return;
     if (!await PosQuoteFlow.ensureAccepted(context, q)) return;
-    _changed = true;
+    _markChanged();
     await _load();
     if (!mounted) return;
     await _createDoc('Contract');

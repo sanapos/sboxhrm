@@ -279,8 +279,11 @@ class WhDocListTile extends StatelessWidget {
     this.subtitle,
     this.onTap,
     this.draftLabel = 'Phiếu tạm',
+    this.selected = false,
   });
 
+  /// Phiếu đang xem ở cột phải (màn chia đôi) — viền xanh.
+  final bool selected;
   final String docNo;
   final String status;
   final String amountLabel;
@@ -293,8 +296,8 @@ class WhDocListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     // Mã phiếu + số tiền một hàng; NCC / số dòng · ngày + trạng thái hàng dưới — không bẻ mã phiếu
     // khi chữ hệ thống phóng to (trước đây «PN00 / 0015»).
-    return WhGlassCard(
-      margin: const EdgeInsets.only(bottom: WhMobileTheme.gap),
+    final card = WhGlassCard(
+      margin: selected ? EdgeInsets.zero : const EdgeInsets.only(bottom: WhMobileTheme.gap),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       onTap: onTap,
       child: Column(
@@ -345,6 +348,18 @@ class WhDocListTile extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+    if (!selected) return card;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: WhMobileTheme.gap),
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          border: Border.all(color: WhMobileTheme.primary, width: 2),
+          borderRadius: BorderRadius.circular(WhMobileTheme.radiusLg),
+        ),
+        child: card,
       ),
     );
   }

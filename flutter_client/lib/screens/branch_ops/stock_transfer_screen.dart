@@ -12,6 +12,7 @@ import '../../theme/sbox_tokens.dart';
 import '../../utils/api_datetime.dart';
 import '../../utils/pos_stock_transfer_print.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_master_detail_layout.dart';
 import '../../widgets/pos_barcode_scanner.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/page_top_actions.dart';
@@ -103,7 +104,54 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
     if (ok == true) _load();
   }
 
+  // ── Màn chia đôi (C20 ngang ≥1000dp): danh sách trái · chi tiết phiếu phải như T1 ──
+  bool _md = false;
+  String? _mdId;
+
+  Map<String, dynamic>? get _mdTransfer {
+    for (final t in _items) {
+      if (t['id'].toString() == _mdId) return t;
+    }
+    return null;
+  }
+
+  Widget _buildMdPane() {
+    final t = _mdTransfer;
+    if (t == null) {
+      return ColoredBox(
+        color: SboxColors.slate50,
+        child: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.local_shipping_outlined, size: 56, color: SboxColors.slate400),
+            const SizedBox(height: 12),
+            Text(tr('Chọn phiếu chuyển bên trái'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Text(tr('Hàng trong phiếu và thao tác (gửi hàng, nhận hàng, hủy, in) hiện ở đây'),
+                style: const TextStyle(fontSize: 13, color: SboxColors.slate500)),
+          ]),
+        ),
+      );
+    }
+    return ColoredBox(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: _TransferDetailSheet(
+          // Trạng thái đổi (gửi / nhận / hủy) → dựng lại với dữ liệu mới.
+          key: ValueKey('tr-${t['id']}-${t['status']}'),
+          transfer: t,
+          onChanged: _load,
+          onClose: () => setState(() => _mdId = null),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openDetail(Map<String, dynamic> t) async {
+    if (_md) {
+      setState(() => _mdId = t['id'].toString());
+      return;
+    }
     final changed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -115,7 +163,8 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final list = RefreshIndicator(
+    _md = !widget.embedded && MediaQuery.sizeOf(context).width >= 1000;
+    final listView = RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         padding: EdgeInsets.fromLTRB(widget.embedded ? 0 : 14, 12, widget.embedded ? 0 : 14, 90),
@@ -184,6 +233,16 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
         ],
       ),
     );
+    final list = _md
+        ? PosMasterDetailLayout(
+            prefsKey: 'stock_transfers',
+            initialFraction: 0.42,
+            minMasterWidth: 420,
+            minDetailWidth: 460,
+            master: listView,
+            detail: _buildMdPane(),
+          )
+        : listView;
     // Chỉ người có quyền tạo (khớp API) mới thấy nút tạo phiếu.
     final canCreate = context.watch<PermissionProvider>().canCreate('PosProducts');
     final fab = FloatingActionButton.extended(
@@ -268,12 +327,14 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
   Widget _card(Map<String, dynamic> t) {
     final status = (t['status'] as num?)?.toInt() ?? 0;
     final created = parseApiUtcDateTime(t['createdAt']);
+    final selected = _md && t['id'].toString() == _mdId;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: selected ? SboxColors.brand50 : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: SboxColors.slate200),
+        border: Border.all(
+            color: selected ? SboxColors.brand500 : SboxColors.slate200, width: selected ? 2 : 1),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -316,8 +377,12 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
 // ─────────────────────────── Chi tiết phiếu ───────────────────────────
 
 class _TransferDetailSheet extends StatefulWidget {
-  const _TransferDetailSheet({required this.transfer});
+  const _TransferDetailSheet({super.key, required this.transfer, this.onChanged, this.onClose});
   final Map<String, dynamic> transfer;
+
+  /// Nhúng ở cột phải màn chia đôi: xong thao tác gọi [onChanged] (tải lại danh sách) thay vì đóng sheet.
+  final VoidCallback? onChanged;
+  final VoidCallback? onClose;
 
   @override
   State<_TransferDetailSheet> createState() => _TransferDetailSheetState();
@@ -346,7 +411,12 @@ class _TransferDetailSheetState extends State<_TransferDetailSheet> {
     setState(() => _busy = false);
     if (r['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(title: okMsg, message: _t['transferNo']?.toString() ?? '');
-      Navigator.pop(context, true);
+      final changed = widget.onChanged;
+      if (changed != null) {
+        changed();
+      } else {
+        Navigator.pop(context, true);
+      }
     } else {
       NotificationOverlayManager().showError(title: 'Không thực hiện được', message: r['message']?.toString() ?? '');
     }
@@ -385,8 +455,13 @@ class _TransferDetailSheetState extends State<_TransferDetailSheet> {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        child: Column(
+            // Nhúng cột phải: chiếm hết chiều cao, nút thao tác ghim đáy.
+            mainAxisSize: widget.onClose != null ? MainAxisSize.max : MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
           Flexible(
+            fit: widget.onClose != null ? FlexFit.tight : FlexFit.loose,
             child: SingleChildScrollView(
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
@@ -399,6 +474,8 @@ class _TransferDetailSheetState extends State<_TransferDetailSheet> {
                 icon: const Icon(Icons.print_outlined),
                 onPressed: () => printPosStockTransfer(context: context, transfer: _t),
               ),
+              if (widget.onClose != null)
+                IconButton(tooltip: tr('Đóng'), icon: const Icon(Icons.close), onPressed: widget.onClose),
             ]),
             const SizedBox(height: 6),
             Text(tr('${_t['fromBranchName']} → ${_t['toBranchName']}'), style: const TextStyle(fontWeight: FontWeight.w600)),

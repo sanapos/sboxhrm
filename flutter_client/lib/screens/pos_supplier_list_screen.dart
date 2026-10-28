@@ -16,6 +16,8 @@ import '../services/api_service.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_debt_statement.dart';
+import '../widgets/pos/pos_master_detail_layout.dart';
+import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_supplier_debt_pay_dialog.dart';
 import '../widgets/pos/pos_supplier_form_dialog.dart';
 import '../widgets/pos/pos_theme.dart';
@@ -55,6 +57,36 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
     super.dispose();
   }
 
+  // ── Màn chia đôi (C20 ngang ≥1000dp): danh sách trái · NCC đang xem phải ──
+  bool _md = false;
+  String? _mdId;
+  List<Map<String, dynamic>> _mdHistory = const [];
+  bool _mdHistLoading = false;
+
+  PosSupplierFull? get _mdSupplier => _items.where((x) => x.id == _mdId).firstOrNull;
+
+  Future<void> _selectMd(PosSupplierFull s) async {
+    setState(() {
+      _mdId = s.id;
+      _mdHistory = const [];
+      _mdHistLoading = true;
+    });
+    await _loadMdHistory();
+  }
+
+  Future<void> _loadMdHistory() async {
+    final id = _mdId;
+    if (id == null) return;
+    final res = await _api.getPosPurchaseSupplierHistory(id);
+    if (!mounted || _mdId != id) return;
+    setState(() {
+      _mdHistory = res['isSuccess'] == true && res['data'] is List
+          ? (res['data'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+          : const [];
+      _mdHistLoading = false;
+    });
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
     final res = await _api.getPosPurchaseSuppliers(
@@ -76,7 +108,11 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
         _sumDebt = (data['sumDebt'] as num?)?.toDouble() ?? 0;
         _sumPurchase = (data['sumPurchase'] as num?)?.toDouble() ?? 0;
         _loading = false;
+        // NCC đang xem không còn trong danh sách (đổi lọc, tìm, xóa…) → bỏ chọn.
+        if (_mdId != null && !list.any((x) => x.id == _mdId)) _mdId = null;
       });
+      // Trả nợ / điều chỉnh xong: lịch sử cột phải cũng đổi.
+      if (_mdId != null) _loadMdHistory();
     } else {
       setState(() => _loading = false);
       NotificationOverlayManager().showError(
@@ -145,6 +181,64 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
     }
   }
 
+  /// Một chứng từ trong lịch sử NCC (phiếu nhập / trả hàng / lần trả tiền).
+  Widget _historyTile(Map<String, dynamic> m) {
+    final type =
+        (m['docType'] ?? m['DocType'] ?? '').toString();
+    final no = (m['docNo'] ?? m['DocNo'] ?? '').toString();
+    final amount =
+        (m['amount'] ?? m['Amount'] as num?)?.toDouble() ??
+            0;
+    final rawStatus =
+        (m['status'] ?? m['Status'] ?? '').toString();
+    final dateRaw = m['date'] ?? m['Date'];
+    final date = dateRaw != null
+        ? parseApiUtcDateTime(dateRaw.toString())
+        : null;
+    final isReturn = type.toLowerCase().contains('return');
+    // Lần trả tiền NCC (giảm công nợ) — trạng thái = hình thức thanh toán.
+    final isPayment = type.toLowerCase() == 'payment';
+    final docId = (m['id'] ?? m['Id'] ?? '').toString();
+    // API trả mã thô («Completed», «Cash»…) — hiện tiếng Việt.
+    final status = isPayment
+        ? posPaymentMethodVi(rawStatus)
+        : switch (rawStatus.toLowerCase()) {
+            'completed' || 'done' => 'Hoàn thành',
+            'draft' => 'Nháp',
+            'cancelled' || 'canceled' => 'Đã hủy',
+            _ => rawStatus,
+          };
+    return ListTile(
+      dense: true,
+      onTap: isPayment || docId.isEmpty
+          ? null
+          : () => isReturn
+              ? PosReportOpen.purchaseReturn(context, docId)
+              : PosReportOpen.purchaseReceipt(context, docId),
+      leading: Icon(
+        isPayment
+            ? Icons.payments_outlined
+            : isReturn
+                ? Icons.reply_outlined
+                : Icons.shopping_cart_outlined,
+        color: isPayment
+            ? Colors.green
+            : isReturn
+                ? Colors.orange
+                : PosTheme.kiotBlue,
+      ),
+      title: Text(tr(no)),
+      subtitle: Text(tr(
+          '${isPayment ? 'Trả tiền NCC' : isReturn ? 'Trả hàng NCC' : 'Nhập'} · $status'
+          '${date != null ? ' · ${DateFormat('dd/MM/yyyy').format(date.toLocal())}' : ''}')),
+      trailing: Text(
+        tr('${_moneyFmt.format(amount)}đ'),
+        style:
+            const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
   Future<void> _showHistory(PosSupplierFull s) async {
     final res = await _api.getPosPurchaseSupplierHistory(s.id);
     if (!mounted) return;
@@ -173,63 +267,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                     : ListView.separated(
                         itemCount: items.length,
                         separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (_, i) {
-                          final m = Map<String, dynamic>.from(items[i] as Map);
-                          final type =
-                              (m['docType'] ?? m['DocType'] ?? '').toString();
-                          final no = (m['docNo'] ?? m['DocNo'] ?? '').toString();
-                          final amount =
-                              (m['amount'] ?? m['Amount'] as num?)?.toDouble() ??
-                                  0;
-                          final rawStatus =
-                              (m['status'] ?? m['Status'] ?? '').toString();
-                          final dateRaw = m['date'] ?? m['Date'];
-                          final date = dateRaw != null
-                              ? parseApiUtcDateTime(dateRaw.toString())
-                              : null;
-                          final isReturn = type.toLowerCase().contains('return');
-                          // Lần trả tiền NCC (giảm công nợ) — trạng thái = hình thức thanh toán.
-                          final isPayment = type.toLowerCase() == 'payment';
-                          final docId = (m['id'] ?? m['Id'] ?? '').toString();
-                          // API trả mã thô («Completed», «Cash»…) — hiện tiếng Việt.
-                          final status = isPayment
-                              ? posPaymentMethodVi(rawStatus)
-                              : switch (rawStatus.toLowerCase()) {
-                                  'completed' || 'done' => 'Hoàn thành',
-                                  'draft' => 'Nháp',
-                                  'cancelled' || 'canceled' => 'Đã hủy',
-                                  _ => rawStatus,
-                                };
-                          return ListTile(
-                            dense: true,
-                            onTap: isPayment || docId.isEmpty
-                                ? null
-                                : () => isReturn
-                                    ? PosReportOpen.purchaseReturn(context, docId)
-                                    : PosReportOpen.purchaseReceipt(context, docId),
-                            leading: Icon(
-                              isPayment
-                                  ? Icons.payments_outlined
-                                  : isReturn
-                                      ? Icons.reply_outlined
-                                      : Icons.shopping_cart_outlined,
-                              color: isPayment
-                                  ? Colors.green
-                                  : isReturn
-                                      ? Colors.orange
-                                      : PosTheme.kiotBlue,
-                            ),
-                            title: Text(tr(no)),
-                            subtitle: Text(tr(
-                                '${isPayment ? 'Trả tiền NCC' : isReturn ? 'Trả hàng NCC' : 'Nhập'} · $status'
-                                '${date != null ? ' · ${DateFormat('dd/MM/yyyy').format(date.toLocal())}' : ''}')),
-                            trailing: Text(
-                              tr('${_moneyFmt.format(amount)}đ'),
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                          );
-                        },
+                        itemBuilder: (_, i) => _historyTile(Map<String, dynamic>.from(items[i] as Map)),
                       ),
               ),
             ],
@@ -266,6 +304,18 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
     final canPay = perm.canEdit('PosPurchaseReceipts');
     final canAdjust = perm.canEdit('PosDebtAdjust');
     final indebted = _items.where((x) => x.currentDebt > 0).length;
+    _md = posUseMobileList(context) && MediaQuery.sizeOf(context).width >= 1000;
+    final kpis = <SboxKpi>[
+      SboxKpi(label: 'Nhà cung cấp', value: SboxFmt.number(_total), icon: Icons.local_shipping_outlined),
+      SboxKpi(label: 'Tổng mua', value: SboxFmt.money(_sumPurchase), icon: Icons.shopping_cart_outlined, tone: SboxTone.brand),
+      SboxKpi(
+        label: 'Đang nợ NCC',
+        value: SboxFmt.money(_sumDebt),
+        icon: Icons.account_balance_wallet_outlined,
+        tone: _sumDebt > 0 ? SboxTone.danger : SboxTone.neutral,
+        note: indebted > 0 ? '$indebted nhà cung cấp' : null,
+      ),
+    ];
     return Scaffold(
       backgroundColor: SboxColors.page,
       // Trong khung chính thanh trên đã ghi tên màn — chỉ hiện thanh riêng khi mở thành trang con.
@@ -278,7 +328,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
               surfaceTintColor: Colors.white,
               elevation: 0.5,
             ),
-      body: SboxReportLayout(
+      body: _wrapMd(SboxReportLayout(
         onRefresh: _load,
         filters: SboxFilterBar(
           searchHint: 'Tìm mã, tên, SĐT…',
@@ -302,17 +352,8 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
             if (canCreate) SboxButton(label: 'Thêm NCC', icon: Icons.add_business_outlined, onPressed: () => _addOrEdit()),
           ],
         ),
-        kpis: [
-          SboxKpi(label: 'Nhà cung cấp', value: SboxFmt.number(_total), icon: Icons.local_shipping_outlined),
-          SboxKpi(label: 'Tổng mua', value: SboxFmt.money(_sumPurchase), icon: Icons.shopping_cart_outlined, tone: SboxTone.brand),
-          SboxKpi(
-            label: 'Đang nợ NCC',
-            value: SboxFmt.money(_sumDebt),
-            icon: Icons.account_balance_wallet_outlined,
-            tone: _sumDebt > 0 ? SboxTone.danger : SboxTone.neutral,
-            note: indebted > 0 ? '$indebted nhà cung cấp' : null,
-          ),
-        ],
+        // Màn chia đôi: số liệu tổng hiện ở cột phải lúc chưa chọn NCC.
+        kpis: _md ? const [] : kpis,
         maxKpiColumns: 3,
         table: SboxCard(
           padding: EdgeInsets.zero,
@@ -320,49 +361,17 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
             loading: _loading,
             rows: _items,
             pageSize: 50,
-            onRowTap: _showHistory,
+            onRowTap: (s) => _md ? _selectMd(s) : _showHistory(s),
+            forceCards: _md,
+            selectedRow: _md ? _mdSupplier : null,
             emptyTitle: 'Chưa có nhà cung cấp',
             emptyMessage: canCreate ? 'Thêm NCC để theo dõi nhập hàng và công nợ.' : null,
             rowActions: (s) => PopupMenuButton<String>(
               tooltip: tr('Thao tác'),
               icon: const Icon(Icons.more_horiz, color: SboxColors.slate500),
-              onSelected: (a) async {
-                switch (a) {
-                  case 'edit':
-                    await _addOrEdit(existing: s);
-                  case 'history':
-                    await _showHistory(s);
-                  case 'statement':
-                    await _showStatement(s);
-                  case 'pay':
-                    await _payAll(s);
-                  case 'adjust':
-                    if (await showPosDebtAdjustDialog(
-                      context,
-                      partyName: s.name,
-                      currentDebt: s.currentDebt,
-                      supplier: true,
-                      submit: (v, reason) => _api.adjustPosSupplierDebt(s.id, v, reason),
-                    )) {
-                      await _load();
-                    }
-                  case 'toggle':
-                    await _toggleActive(s);
-                  case 'delete':
-                    await _delete(s);
-                }
-              },
-              itemBuilder: (_) => [
-                if (canEdit) PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
-                PopupMenuItem(value: 'history', child: Text(tr('Lịch sử nhập / trả'))),
-                PopupMenuItem(value: 'statement', child: Text(tr('Sổ đối chiếu công nợ'))),
-                if (canPay && s.currentDebt > 0) PopupMenuItem(value: 'pay', child: Text(tr('Trả nợ'))),
-                if (canAdjust) PopupMenuItem(value: 'adjust', child: Text(tr('Nhập nợ đầu kỳ / điều chỉnh'))),
-                if (canEdit)
-                  PopupMenuItem(value: 'toggle', child: Text(tr(s.isActive ? 'Ngừng hoạt động' : 'Kích hoạt'))),
-                if (canDelete)
-                  PopupMenuItem(value: 'delete', child: Text(tr('Xóa'), style: const TextStyle(color: Colors.red))),
-              ],
+              onSelected: (a) => _runAction(a, s),
+              itemBuilder: (_) => _actionItems(s,
+                  canEdit: canEdit, canPay: canPay, canAdjust: canAdjust, canDelete: canDelete),
             ),
             columns: [
               SboxColumn(
@@ -407,7 +416,156 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
             ],
           ),
         ),
-      ),
+      ), kpis),
+    );
+  }
+
+  Future<void> _runAction(String a, PosSupplierFull s) async {
+    switch (a) {
+      case 'edit':
+        await _addOrEdit(existing: s);
+      case 'history':
+        await _showHistory(s);
+      case 'statement':
+        await _showStatement(s);
+      case 'pay':
+        await _payAll(s);
+      case 'adjust':
+        if (await showPosDebtAdjustDialog(
+          context,
+          partyName: s.name,
+          currentDebt: s.currentDebt,
+          supplier: true,
+          submit: (v, reason) => _api.adjustPosSupplierDebt(s.id, v, reason),
+        )) {
+          await _load();
+        }
+      case 'toggle':
+        await _toggleActive(s);
+      case 'delete':
+        await _delete(s);
+    }
+  }
+
+  List<PopupMenuEntry<String>> _actionItems(PosSupplierFull s,
+          {required bool canEdit, required bool canPay, required bool canAdjust, required bool canDelete}) =>
+      [
+        if (canEdit) PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
+        // Màn chia đôi: lịch sử đã hiện ở cột phải.
+        if (!_md) PopupMenuItem(value: 'history', child: Text(tr('Lịch sử nhập / trả'))),
+        PopupMenuItem(value: 'statement', child: Text(tr('Sổ đối chiếu công nợ'))),
+        if (canPay && s.currentDebt > 0) PopupMenuItem(value: 'pay', child: Text(tr('Trả nợ'))),
+        if (canAdjust) PopupMenuItem(value: 'adjust', child: Text(tr('Nhập nợ đầu kỳ / điều chỉnh'))),
+        if (canEdit) PopupMenuItem(value: 'toggle', child: Text(tr(s.isActive ? 'Ngừng hoạt động' : 'Kích hoạt'))),
+        if (canDelete)
+          PopupMenuItem(value: 'delete', child: Text(tr('Xóa'), style: const TextStyle(color: Colors.red))),
+      ];
+
+  Widget _wrapMd(Widget list, List<SboxKpi> kpis) {
+    if (!_md) return list;
+    return PosMasterDetailLayout(
+      prefsKey: 'suppliers',
+      initialFraction: 0.45,
+      minMasterWidth: 420,
+      minDetailWidth: 460,
+      master: list,
+      detail: _buildMdPane(kpis),
+    );
+  }
+
+  Widget _buildMdPane(List<SboxKpi> kpis) {
+    final s = _mdSupplier;
+    if (s == null) {
+      return ColoredBox(
+        color: SboxColors.page,
+        child: ListView(padding: const EdgeInsets.all(SboxSpace.lg), children: [
+          SboxKpiStrip(items: kpis, maxColumns: 3),
+          const SboxEmptyState(
+            icon: Icons.local_shipping_outlined,
+            title: 'Chọn nhà cung cấp bên trái',
+            message: 'Công nợ, lịch sử nhập / trả và thao tác (sửa, trả nợ, đối chiếu…) hiện ở đây',
+          ),
+        ]),
+      );
+    }
+    final perm = context.read<PermissionProvider>();
+    final canEdit = perm.canEdit('PosProducts');
+    final canPay = perm.canEdit('PosPurchaseReceipts');
+    final canAdjust = perm.canEdit('PosDebtAdjust');
+    final canDelete = perm.canDelete('PosProducts');
+    final info = [
+      s.supplierCode,
+      if ((s.phone ?? '').isNotEmpty) s.phone!,
+      if (!s.isActive) 'Ngừng hoạt động',
+    ].join(' · ');
+    return ColoredBox(
+      color: Colors.white,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+          child: Row(children: [
+            CircleAvatar(
+              backgroundColor: SboxColors.brand50,
+              child: Text(s.name.isNotEmpty ? s.name[0].toUpperCase() : 'N',
+                  style: const TextStyle(color: SboxColors.brand700, fontWeight: FontWeight.w800)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.titleSmStyle()),
+                Text(info, maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.smallStyle(SboxColors.textMuted)),
+              ]),
+            ),
+            PopupMenuButton<String>(
+              tooltip: tr('Thao tác khác'),
+              icon: const Icon(Icons.more_horiz, color: SboxColors.slate500),
+              onSelected: (a) => _runAction(a, s),
+              itemBuilder: (_) => _actionItems(s,
+                  canEdit: canEdit, canPay: canPay, canAdjust: canAdjust, canDelete: canDelete),
+            ),
+            IconButton(tooltip: tr('Đóng'), icon: const Icon(Icons.close), onPressed: () => setState(() => _mdId = null)),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: SboxKpiStrip(maxColumns: 2, items: [
+            SboxKpi(label: 'Tổng mua', value: SboxFmt.money(s.totalPurchase), icon: Icons.shopping_cart_outlined, tone: SboxTone.brand),
+            SboxKpi(
+              label: 'Công nợ',
+              value: SboxFmt.money(s.currentDebt),
+              icon: Icons.account_balance_wallet_outlined,
+              tone: s.currentDebt > 0 ? SboxTone.danger : SboxTone.neutral,
+            ),
+          ]),
+        ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text(tr('Lịch sử nhập / trả / thanh toán'), style: SboxType.titleSmStyle()),
+        ),
+        Expanded(
+          child: _mdHistLoading
+              ? const SboxLoading()
+              : _mdHistory.isEmpty
+                  ? const SboxEmptyState(icon: Icons.receipt_long_outlined, title: 'Chưa có phiếu nhập / trả / thanh toán')
+                  : ListView.separated(
+                      itemCount: _mdHistory.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, i) => _historyTile(_mdHistory[i]),
+                    ),
+        ),
+        const Divider(height: 1),
+        // Nút thao tác chính ghim đáy.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          child: Wrap(alignment: WrapAlignment.end, spacing: 8, runSpacing: 8, children: [
+            SboxButton.ghost(label: 'Đối chiếu công nợ', icon: Icons.receipt_long_outlined, onPressed: () => _showStatement(s)),
+            if (canEdit) SboxButton.secondary(label: 'Sửa', icon: Icons.edit_outlined, onPressed: () => _addOrEdit(existing: s)),
+            if (canPay && s.currentDebt > 0)
+              SboxButton(label: 'Trả nợ', icon: Icons.payments_outlined, onPressed: () => _payAll(s)),
+          ]),
+        ),
+      ]),
     );
   }
 }

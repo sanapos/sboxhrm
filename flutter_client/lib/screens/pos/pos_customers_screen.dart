@@ -17,6 +17,8 @@ import '../../widgets/pos/pos_debt_adjust_dialog.dart';
 import '../../widgets/pos/pos_customer_form_dialog.dart';
 import '../../widgets/pos/pos_customer_quote_care_section.dart';
 import '../../widgets/pos/pos_debt_statement.dart';
+import '../../widgets/pos/pos_master_detail_layout.dart';
+import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'pos_session_redeem_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -82,7 +84,14 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
     });
   }
 
-  Future<void> _load() async {
+  // ── Màn chia đôi (C20 ngang ≥1000dp): danh sách trái · chi tiết khách phải ──
+  bool _md = false;
+  String? _mdId;
+  PosCustomer? _mdCustomer;
+  int _mdSeq = 0;
+
+  /// [keepSelection]: tải lại sau khi sửa ở cột phải — giữ khách đang xem dù không còn khớp bộ lọc.
+  Future<void> _load({bool keepSelection = false}) async {
     setState(() => _loading = true);
     final res = await _api.getPosCustomers(
       search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
@@ -108,6 +117,11 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
         _sumPoints = _d(data['sumPoints']);
         _birthdaysThisMonth = (data['birthdaysThisMonth'] as num?)?.toInt() ?? 0;
         _loading = false;
+        // Đổi lọc / tìm / trang mà khách đang xem không còn trong danh sách → bỏ chọn.
+        if (!keepSelection && _mdId != null && !_items.any((c) => c.id == _mdId)) {
+          _mdId = null;
+          _mdCustomer = null;
+        }
       });
     } else {
       setState(() => _loading = false);
@@ -152,6 +166,15 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
   }
 
   Future<void> _openDetail(PosCustomer c) async {
+    if (_md) {
+      if (_mdId == c.id) return;
+      setState(() {
+        _mdId = c.id;
+        _mdCustomer = c;
+        _mdSeq++;
+      });
+      return;
+    }
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => _PosCustomerDetailScreen(customer: c, tiers: _tiers, onChanged: _load)),
@@ -167,6 +190,31 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
       return const Scaffold(body: SboxEmptyState(icon: Icons.lock_outline, title: 'Không có quyền xem khách hàng'));
     }
     final canCreate = perm.canCreate('PosCustomers') || perm.canCreate('PosProducts');
+    _md = posUseMobileList(context) && MediaQuery.sizeOf(context).width >= 1000;
+    final kpis = <SboxKpi>[
+      SboxKpi(label: 'Khách hàng', value: SboxFmt.number(_total), icon: Icons.groups_outlined),
+      SboxKpi(label: 'Tổng mua', value: SboxFmt.money(_sumPurchase), icon: Icons.shopping_bag_outlined, tone: SboxTone.success),
+      SboxKpi(
+        label: 'Tổng công nợ',
+        value: SboxFmt.money(_sumDebt),
+        icon: Icons.account_balance_wallet_outlined,
+        tone: _sumDebt > 0 ? SboxTone.danger : SboxTone.neutral,
+        onTap: _debt == 'debt' ? null : () => _setFilter(() => _debt = 'debt'),
+      ),
+      SboxKpi(label: 'Điểm đang có', value: SboxFmt.number(_sumPoints), icon: Icons.stars_outlined, tone: SboxTone.violet),
+      SboxKpi(
+        label: 'Sinh nhật tháng này',
+        value: SboxFmt.number(_birthdaysThisMonth),
+        icon: Icons.cake_outlined,
+        tone: SboxTone.warning,
+        onTap: _birthday == 'month'
+            ? null
+            : () => _setFilter(() {
+                  _birthday = 'month';
+                  _sort = 'birthday';
+                }),
+      ),
+    ];
     return Scaffold(
       backgroundColor: SboxColors.page,
       // Mở từ «Nhiều hơn» (route riêng): cần tiêu đề + nút quay lại như Voucher.
@@ -179,7 +227,7 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
               elevation: 0.5,
             )
           : null,
-      body: SboxReportLayout(
+      body: _wrapMd(SboxReportLayout(
         onRefresh: () async {
           await Future.wait([_load(), _loadTiers()]);
         },
@@ -257,30 +305,8 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
             if (canCreate) SboxButton(label: 'Thêm khách', icon: Icons.person_add_alt_1_outlined, onPressed: _openAdd),
           ],
         ),
-        kpis: [
-          SboxKpi(label: 'Khách hàng', value: SboxFmt.number(_total), icon: Icons.groups_outlined),
-          SboxKpi(label: 'Tổng mua', value: SboxFmt.money(_sumPurchase), icon: Icons.shopping_bag_outlined, tone: SboxTone.success),
-          SboxKpi(
-            label: 'Tổng công nợ',
-            value: SboxFmt.money(_sumDebt),
-            icon: Icons.account_balance_wallet_outlined,
-            tone: _sumDebt > 0 ? SboxTone.danger : SboxTone.neutral,
-            onTap: _debt == 'debt' ? null : () => _setFilter(() => _debt = 'debt'),
-          ),
-          SboxKpi(label: 'Điểm đang có', value: SboxFmt.number(_sumPoints), icon: Icons.stars_outlined, tone: SboxTone.violet),
-          SboxKpi(
-            label: 'Sinh nhật tháng này',
-            value: SboxFmt.number(_birthdaysThisMonth),
-            icon: Icons.cake_outlined,
-            tone: SboxTone.warning,
-            onTap: _birthday == 'month'
-                ? null
-                : () => _setFilter(() {
-                      _birthday = 'month';
-                      _sort = 'birthday';
-                    }),
-          ),
-        ],
+        // Màn chia đôi: số liệu tổng hiện ở cột phải lúc chưa chọn khách (cột trái để dành cho danh sách).
+        kpis: _md ? const [] : kpis,
         maxKpiColumns: 5,
         table: SboxCard(
           padding: EdgeInsets.zero,
@@ -290,6 +316,8 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
               paginate: false,
               rows: _items,
               onRowTap: _openDetail,
+              forceCards: _md,
+              selectedRow: _md ? _items.where((c) => c.id == _mdId).firstOrNull : null,
               emptyTitle: _debt == 'debt' ? 'Không có khách đang nợ' : 'Chưa có khách hàng',
               emptyMessage: canCreate ? 'Thêm khách để tích điểm, theo dõi công nợ và lịch sử mua.' : null,
               columns: [
@@ -356,16 +384,62 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
               ),
           ]),
         ),
-      ),
+      ), kpis),
+    );
+  }
+
+  Widget _wrapMd(Widget list, List<SboxKpi> kpis) {
+    if (!_md) return list;
+    final c = _mdCustomer;
+    return PosMasterDetailLayout(
+      prefsKey: 'customers',
+      initialFraction: 0.42,
+      minMasterWidth: 420,
+      minDetailWidth: 520,
+      master: list,
+      detail: c == null
+          ? ColoredBox(
+              color: SboxColors.page,
+              child: ListView(padding: const EdgeInsets.all(SboxSpace.lg), children: [
+                SboxKpiStrip(items: kpis, maxColumns: 3),
+                const SboxEmptyState(
+                  icon: Icons.person_search_outlined,
+                  title: 'Chọn khách hàng bên trái',
+                  message: 'Công nợ, lịch sử mua, điểm và thao tác (sửa, thu nợ…) hiện ở đây',
+                ),
+              ]),
+            )
+          : _PosCustomerDetailScreen(
+              key: ValueKey('cus-${c.id}-$_mdSeq'),
+              customer: c,
+              tiers: _tiers,
+              onChanged: () {
+                _load(keepSelection: true);
+                _loadTiers();
+              },
+              onClose: () => setState(() {
+                _mdId = null;
+                _mdCustomer = null;
+              }),
+            ),
     );
   }
 }
 
 class _PosCustomerDetailScreen extends StatefulWidget {
-  const _PosCustomerDetailScreen({required this.customer, required this.onChanged, this.tiers = const []});
+  const _PosCustomerDetailScreen({
+    super.key,
+    required this.customer,
+    required this.onChanged,
+    this.tiers = const [],
+    this.onClose,
+  });
 
   final PosCustomer customer;
   final VoidCallback onChanged;
+
+  /// Nhúng ở cột phải màn chia đôi: nút đóng thay nút quay lại.
+  final VoidCallback? onClose;
 
   /// Hạng thành viên của cửa hàng (tăng dần theo tổng mua).
   final List<PosCustomerTier> tiers;
@@ -556,7 +630,14 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
 
     return Scaffold(
       backgroundColor: SboxColors.page,
-      appBar: AppBar(title: Text(tr('Chi tiết khách hàng'))),
+      appBar: AppBar(
+        title: Text(tr('Chi tiết khách hàng')),
+        automaticallyImplyLeading: widget.onClose == null,
+        actions: [
+          if (widget.onClose != null)
+            IconButton(tooltip: tr('Đóng'), icon: const Icon(Icons.close), onPressed: widget.onClose),
+        ],
+      ),
       body: SboxReportLayout(
         onRefresh: () async {
           await _reloadCustomer();

@@ -1,5 +1,6 @@
 import 'dart:async';
 import '../utils/pos_list_prefs.dart';
+import '../widgets/pos/pos_master_detail_layout.dart';
 import '../utils/pos_shipping_label_print.dart';
 import '../utils/api_datetime.dart';
 import '../utils/pos_payment_label.dart';
@@ -280,6 +281,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           _loading = false;
           _items = [];
           _total = 0;
+          _dropMissingMdOrder();
         });
       }
       return;
@@ -316,6 +318,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             .where((o) => !(o.status == 'Draft' &&
                 o.orderNo.toUpperCase().startsWith('TMP')))
             .toList();
+        _dropMissingMdOrder();
       });
       await _loadPeriodSummary();
     } else {
@@ -447,6 +450,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     setState(() {
       _items = _items.map((x) => x.id == updated.id ? updated : x).toList();
       if (_expandedId == updated.id) _expandedDetail = updated;
+      if (_mdOrder?.id == updated.id) _mdOrder = updated;
     });
   }
 
@@ -577,6 +581,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       setState(() {
         _items = _items.where((x) => x.id != o.id).toList();
         if (_total > 0) _total -= 1;
+        _dropMissingMdOrder();
       });
       ScreenRefreshNotifier.refreshPosAfterStockChange();
       await _loadPeriodSummary();
@@ -1128,6 +1133,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final canEdit =
         perm.canEdit('PosSaleOrders') || perm.canEdit('PosProducts');
     final mobile = posUseMobileList(context);
+    _md = mobile && MediaQuery.sizeOf(context).width >= 1000;
     final inHub = PosHubScope.of(context);
     // Mở đè lên shell («Nhiều hơn», báo cáo, sơ đồ bàn…) → tự vẽ nút quay lại + tiêu đề.
     final pushed = !inHub &&
@@ -1147,45 +1153,68 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               child: _buildFilterBar(perm),
             ),
           ],
-          if (mobile) _buildMobileSummaryCard(),
+          if (mobile && !_md) _buildMobileSummaryCard(),
           Expanded(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: mobile ? 0 : 12),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: _loading
-                        ? const LoadingWidget()
-                        : _items.isEmpty
-                            ? RefreshIndicator(
-                                onRefresh: () => _load(page: _page),
-                                child: ListView(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  children: const [
-                                    SizedBox(height: 60),
-                                    SboxEmptyState(
-                                      icon: Icons.receipt_long_outlined,
-                                      title: 'Chưa có hóa đơn',
-                                      message: 'Đổi khoảng thời gian hoặc trạng thái để xem thêm.',
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.stretch,
-                                children: [
-                                  _buildTableHeader(),
-                                  Expanded(child: _buildList(canEdit)),
-                                ],
-                              ),
-                  ),
-                  _buildPager(),
-                ],
-              ),
-            ),
+            child: _md
+                // Màn ngang rộng dạng mobile (C20 ~1280dp): danh sách trái · chi tiết phải như T1.
+                ? PosMasterDetailLayout(
+                    prefsKey: 'sale_orders',
+                    initialFraction: 0.42,
+                    minMasterWidth: 420,
+                    minDetailWidth: 460,
+                    master: ColoredBox(
+                      color: SboxColors.page,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildMobileSummaryCard(),
+                          Expanded(child: _buildListArea(mobile, canEdit)),
+                        ],
+                      ),
+                    ),
+                    detail: _buildMdOrderPane(canEdit),
+                  )
+                : _buildListArea(mobile, canEdit),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListArea(bool mobile, bool canEdit) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: mobile ? 0 : 12),
+      child: Column(
+        children: [
+          Expanded(
+            child: _loading
+                ? const LoadingWidget()
+                : _items.isEmpty
+                    ? RefreshIndicator(
+                        onRefresh: () => _load(page: _page),
+                        child: ListView(
+                          physics:
+                              const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            SizedBox(height: 60),
+                            SboxEmptyState(
+                              icon: Icons.receipt_long_outlined,
+                              title: 'Chưa có hóa đơn',
+                              message: 'Đổi khoảng thời gian hoặc trạng thái để xem thêm.',
+                            ),
+                          ],
+                        ),
+                      )
+                    : Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.stretch,
+                        children: [
+                          _buildTableHeader(),
+                          Expanded(child: _buildList(canEdit)),
+                        ],
+                      ),
+          ),
+          _buildPager(),
         ],
       ),
     );
@@ -2066,6 +2095,104 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     return btns;
   }
 
+  // ── Màn chia đôi (C20 ngang): đơn đang xem ở cột phải ──
+  bool _md = false;
+  PosSaleOrder? _mdOrder;
+  List<Map<String, dynamic>> _mdPayments = const [];
+  bool _mdLoading = false;
+
+  /// Đổi lọc / tìm / trang hoặc xóa mà đơn đang xem không còn trong danh sách → về «Chọn hóa đơn bên trái».
+  void _dropMissingMdOrder() {
+    final o = _mdOrder;
+    if (o != null && !_items.any((x) => x.id == o.id)) _mdOrder = null;
+  }
+
+  Future<void> _selectMdOrder(PosSaleOrder summary) async {
+    setState(() {
+      _mdOrder = summary;
+      _mdPayments = const [];
+      _mdLoading = true;
+    });
+    final results = await Future.wait([_api.getPosSale(summary.id), _api.getPosSalePayments(summary.id)]);
+    if (!mounted || _mdOrder?.id != summary.id) return;
+    final res = results[0];
+    final payRes = results[1];
+    if (res['isSuccess'] == true && res['data'] is Map<String, dynamic>) {
+      _patchOrderInList(PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>));
+    }
+    setState(() {
+      _mdPayments = payRes['isSuccess'] == true && payRes['data'] is List
+          ? (payRes['data'] as List).cast<Map<String, dynamic>>()
+          : const [];
+      _mdLoading = false;
+    });
+  }
+
+  Widget _buildMdOrderPane(bool canEdit) {
+    final o = _mdOrder;
+    if (o == null) {
+      return ColoredBox(
+        color: SboxColors.slate50,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.receipt_long_outlined, size: 56, color: SboxColors.slate400),
+              const SizedBox(height: 12),
+              Text(tr('Chọn hóa đơn bên trái'),
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Text(tr('Chi tiết, lịch sử thanh toán và thao tác (in lại, trả hàng, hủy…) hiện ở đây'),
+                  style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
+            ],
+          ),
+        ),
+      );
+    }
+    return ColoredBox(
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+            child: Row(children: [
+              Expanded(
+                child: Text(tr('Chi tiết hóa đơn'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              ),
+              IconButton(
+                tooltip: tr('Đóng'),
+                icon: const Icon(Icons.close),
+                onPressed: () => setState(() => _mdOrder = null),
+              ),
+            ]),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: _mdLoading
+                ? const LoadingWidget()
+                : SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        PosSaleOrderReceiptView(order: o),
+                        _mobilePaymentHistory(o, _mdPayments),
+                      ],
+                    ),
+                  ),
+          ),
+          const Divider(height: 1),
+          // Nút thao tác ghim đáy.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+            child: _orderDetailActionBar(_orderActionButtons(o, canEdit)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showMobileOrderDetail(PosSaleOrder summary, bool canEdit) async {
     PosSaleOrder order = summary;
     final results = await Future.wait([_api.getPosSale(summary.id), _api.getPosSalePayments(summary.id)]);
@@ -2151,10 +2278,14 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final firstLine = o.lines.isNotEmpty ? o.lines.first : null;
     final isCancelled = o.status == 'Cancelled';
 
+    final selected = _md && _mdOrder?.id == o.id;
     return Material(
-      color: posSaleOrderRowBackground(o.status),
+      color: selected ? PosTheme.kiotBlueLight : posSaleOrderRowBackground(o.status),
+      shape: selected
+          ? const Border(left: BorderSide(color: PosTheme.kiotBlue, width: 3))
+          : null,
       child: InkWell(
-        onTap: () => _showMobileOrderDetail(o, canEdit),
+        onTap: () => _md ? _selectMdOrder(o) : _showMobileOrderDetail(o, canEdit),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Column(

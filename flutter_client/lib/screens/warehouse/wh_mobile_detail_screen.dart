@@ -26,10 +26,17 @@ class WhMobileDocDetailScreen extends StatefulWidget {
     super.key,
     required this.docType,
     required this.docId,
+    this.onDone,
+    this.onClose,
   });
 
   final WhDocType docType;
   final String docId;
+
+  /// Nhúng ở cột phải màn chia đôi (C20 ngang): xong thao tác gọi [onDone] thay vì đóng trang,
+  /// nút đóng gọi [onClose] thay vì quay lại.
+  final VoidCallback? onDone;
+  final VoidCallback? onClose;
 
   @override
   State<WhMobileDocDetailScreen> createState() => _WhMobileDocDetailScreenState();
@@ -68,6 +75,16 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
         await printStockCountDoc(context, c);
       case PosStockIssueDoc doc:
         await printStockIssueDoc(context, doc, widget.docType.stockIssueConfig!);
+    }
+  }
+
+  /// Xong thao tác (hoàn thành, xóa, sao chép…): đóng trang, hoặc báo màn chia đôi tải lại.
+  void _finish() {
+    final done = widget.onDone;
+    if (done != null) {
+      done();
+    } else {
+      Navigator.pop(context, true);
     }
   }
 
@@ -194,7 +211,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
     if (!mounted) return;
     // Lưu nháp rồi back cũng phải hiện số liệu mới.
     await _load();
-    if (ok == true && mounted) Navigator.pop(context, true);
+    if (ok == true && mounted) _finish();
   }
 
   /// Kiểm kho: chặn khi còn dòng chưa kiểm, liệt kê dòng lệch để xác nhận trước khi
@@ -285,7 +302,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
         message: result.successMessage(_docNo, completedLabel: widget.docType.completeLabel),
       );
       ScreenRefreshNotifier.refreshPosAfterStockChange();
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) _finish();
     } else {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
@@ -376,7 +393,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
       return;
     }
     await WhMobileEditorRouter.openEdit(context, widget.docType, newId);
-    if (mounted) Navigator.pop(context, true);
+    if (mounted) _finish();
   }
 
   /// Phiếu đã hoàn thành / đã hủy: không còn nút Chỉnh sửa → các thao tác còn lại ở thanh dưới.
@@ -450,7 +467,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
     final result = PosDocMutationResult.parseDelete(Map<String, dynamic>.from(res));
     if (result.ok) {
       NotificationOverlayManager().showSuccess(title: 'Đã xóa', message: _docNo);
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) _finish();
     } else {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
@@ -467,6 +484,13 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
     return WhMobileScaffold(
       title: _docNo.isEmpty ? 'Chi tiết phiếu' : _docNo,
       subtitle: widget.docType.title,
+      leading: widget.onClose == null
+          ? null
+          : IconButton(
+              tooltip: tr('Đóng'),
+              icon: const Icon(Icons.close_rounded),
+              onPressed: widget.onClose,
+            ),
       actions: [
         if (!_loading && _doc != null)
           IconButton(

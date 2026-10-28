@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/permission_provider.dart';
 import '../../utils/pos_list_prefs.dart';
+import '../../widgets/pos/pos_master_detail_layout.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/warehouse/wh_doc_type.dart';
@@ -150,6 +151,8 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
       _page = page;
       _items = result.items;
       _total = result.total;
+      // Đổi lọc / tìm / trang mà phiếu đang xem không còn trong danh sách → về «Chọn phiếu bên trái».
+      if (_mdId != null && !_items.any((x) => x.id == _mdId)) _mdId = null;
     });
   }
 
@@ -159,7 +162,47 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
     if (mounted) _load(page: _page);
   }
 
+  // ── Màn chia đôi (C20 ngang ≥1000dp): danh sách trái · chi tiết phiếu phải như T1 ──
+  bool _md = false;
+  String? _mdId;
+  int _mdSeq = 0;
+
+  Widget _wrapMd(Widget list) {
+    if (!_md) return list;
+    final id = _mdId;
+    return PosMasterDetailLayout(
+      prefsKey: 'wh_${_type.name}',
+      initialFraction: 0.4,
+      minMasterWidth: 400,
+      minDetailWidth: 480,
+      master: list,
+      detail: id == null
+          ? WhEmptyState(
+              icon: _type.icon,
+              title: 'Chọn phiếu bên trái',
+              subtitle: 'Chi tiết hàng trong phiếu và thao tác (sửa, hoàn thành, in, sao chép…) hiện ở đây',
+            )
+          : WhMobileDocDetailScreen(
+              key: ValueKey('wh-$id-$_mdSeq'),
+              docType: _type,
+              docId: id,
+              onDone: () {
+                setState(() => _mdId = null);
+                _load(page: _page);
+              },
+              onClose: () => setState(() => _mdId = null),
+            ),
+    );
+  }
+
   Future<void> _openItem(WhDocListItem item) async {
+    if (_md) {
+      setState(() {
+        _mdId = item.id;
+        _mdSeq++;
+      });
+      return;
+    }
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => PosHubScope(
@@ -176,13 +219,15 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     final canEdit = perm.canEdit(_type.moduleCode) || perm.canEdit('PosProducts');
+    _md = MediaQuery.sizeOf(context).width >= 1000;
 
     return WhMobileScaffold(
       title: _type.listTitle,
       subtitle: '$_total phiếu',
       showAppBar: PosHubScope.pushedSubPageOf(context),
       // Danh sách trống đã có nút tạo giữa màn — không thêm nút nổi trùng nhãn.
-      floatingAction: canEdit && (_loading || _items.isNotEmpty)
+      // Màn chia đôi: nút nổi che nút thao tác của phiếu bên phải → dùng nút «+» cạnh sắp xếp.
+      floatingAction: canEdit && !_md && (_loading || _items.isNotEmpty)
           ? FloatingActionButton.extended(
               onPressed: _openCreate,
               // Mọi loại phiếu cùng màu nút chính của app (trước đây xanh lá / tím / đỏ / cam lẫn lộn).
@@ -193,7 +238,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
             )
           : null,
-      body: Column(
+      body: _wrapMd(Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
@@ -203,15 +248,29 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
               WhMobileTheme.padH,
               0,
             ),
-            child: WhSearchField(
-              controller: _searchCtrl,
-              hint: 'Tìm mã phiếu, tên hàng, ghi chú…',
-              onSubmitted: (_) => _load(),
-              onChanged: (_) {
-                _debounce?.cancel();
-                _debounce = Timer(const Duration(milliseconds: 400), () => _load());
-              },
-            ),
+            child: Row(children: [
+              Expanded(
+                child: WhSearchField(
+                  controller: _searchCtrl,
+                  hint: 'Tìm mã phiếu, tên hàng, ghi chú…',
+                  onSubmitted: (_) => _load(),
+                  onChanged: (_) {
+                    _debounce?.cancel();
+                    _debounce = Timer(const Duration(milliseconds: 400), () => _load());
+                  },
+                ),
+              ),
+              // Màn chia đôi: nút tạo phiếu cạnh ô tìm (nút nổi sẽ che nút thao tác của phiếu bên phải).
+              if (_md && canEdit) ...[
+                const SizedBox(width: 10),
+                FilledButton.icon(
+                  onPressed: _openCreate,
+                  style: FilledButton.styleFrom(backgroundColor: SboxColors.brand600),
+                  icon: const Icon(Icons.add_rounded, size: 20),
+                  label: Text(tr(_type.createLabel)),
+                ),
+              ],
+            ]),
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -266,6 +325,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
                               amountLabel: _svc.formatMoney(item.amount),
                               subtitle: item.subtitle,
                               meta: item.meta ?? '',
+                              selected: _md && _mdId == item.id,
                               onTap: () => _openItem(item),
                             );
                           },
@@ -273,7 +333,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
                       ),
           ),
         ],
-      ),
+      )),
     );
   }
 

@@ -307,11 +307,21 @@ class SboxPageHeader extends StatelessWidget {
         mobileActs,
       ]);
     }
-    return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-      Expanded(child: titleBlock),
-      const SizedBox(width: SboxSpace.lg),
-      acts,
-    ]);
+    // Khung hẹp trên màn rộng (cột phải màn chia đôi): nút xuống dòng dưới tên, khỏi bóp tên còn «Kh…».
+    return LayoutBuilder(builder: (context, c) {
+      if (c.maxWidth < 760) {
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          titleBlock,
+          const SizedBox(height: SboxSpace.md),
+          acts,
+        ]);
+      }
+      return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        Expanded(child: titleBlock),
+        const SizedBox(width: SboxSpace.lg),
+        acts,
+      ]);
+    });
   }
 }
 

@@ -17,6 +17,8 @@ import '../../utils/pos_quote_export.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/page_top_actions.dart';
 import '../../widgets/pos/pos_form_keyboard.dart';
+import '../../widgets/pos/pos_master_detail_layout.dart';
+import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_contract_detail_screen.dart';
@@ -330,8 +332,79 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     if (mounted) await _reloadAll();
   }
 
+  // ── Màn chia đôi (C20 ngang ≥1000dp): danh sách trái · tổng quan báo giá / hợp đồng phải ──
+  bool _md = false;
+  String? _mdId;
+
+  /// Cột phải đang mở tổng quan báo giá (tab Báo giá) hay chi tiết hợp đồng (các tab hồ sơ).
+  bool _mdContract = false;
+  int _mdSeq = 0;
+
+  void _selectMd(PosQuote q, {required bool contract}) {
+    if (_mdId == q.id && _mdContract == contract) return;
+    setState(() {
+      _mdId = q.id;
+      _mdContract = contract;
+      _mdSeq++;
+    });
+  }
+
+  List<PosQuote> get _tabRows => switch (_tab) {
+        1 => _contracts,
+        2 => _payments,
+        3 => _accepts,
+        _ => _items,
+      };
+
+  Widget _wrapMd(Widget list) {
+    if (!_md) return list;
+    final id = _mdId;
+    // Đổi tab / lọc / tìm mà báo giá đang xem không còn trong danh sách → về «Chọn … bên trái»
+    // (đang tải lại thì giữ, khỏi dựng lại cột phải).
+    final shown = id != null && (_loading || _tabRows.any((q) => q.id == id));
+    return PosMasterDetailLayout(
+      prefsKey: 'quotes',
+      initialFraction: 0.42,
+      minMasterWidth: 420,
+      minDetailWidth: 520,
+      master: list,
+      detail: !shown
+          ? Container(
+              color: SboxColors.slate50,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.all(24),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.request_quote_outlined, size: 56, color: SboxColors.slate400),
+                const SizedBox(height: 12),
+                Text(tr(_tab == 0 ? 'Chọn báo giá bên trái' : 'Chọn hồ sơ bên trái'),
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Text(tr('Tiến độ hồ sơ, hàng hóa, bước tiếp theo và thao tác hiện ở đây'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 13, color: SboxColors.slate500)),
+              ]),
+            )
+          : _mdContract
+              ? PosContractDetailScreen(
+                  key: ValueKey('ct-$id-$_mdSeq'),
+                  quoteId: id,
+                  onClose: () {
+                    setState(() => _mdId = null);
+                    _reloadAll();
+                  },
+                )
+              : PosQuoteDetailScreen(
+                  key: ValueKey('qt-$id-$_mdSeq'),
+                  quoteId: id,
+                  onChanged: _reloadAll,
+                  onClose: () => setState(() => _mdId = null),
+                ),
+    );
+  }
+
   /// Bấm thẻ báo giá → màn tổng quan (tiến độ + bước tiếp theo).
   Future<void> _openDetail(PosQuote q) async {
+    if (_md) return _selectMd(q, contract: false);
     hidePosSoftKeyboard(alsoAfterMs: 0);
     FocusManager.instance.primaryFocus?.unfocus();
     await Navigator.of(context).push<bool>(
@@ -376,6 +449,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
 
   Future<void> _openContract(PosQuote q) async {
     hidePosSoftKeyboard(alsoAfterMs: 0);
+    if (_md) return _selectMd(q, contract: true);
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => PosContractDetailScreen(quoteId: q.id),
@@ -507,6 +581,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     final canCreate = perm.canCreate('PosQuotes') || perm.canEdit('PosQuotes');
     final canEdit = perm.canEdit('PosQuotes');
     final canDelete = perm.canDelete('PosQuotes');
+    _md = posUseMobileList(context) && MediaQuery.sizeOf(context).width >= 1000;
 
     return Scaffold(
       backgroundColor: PosTheme.background,
@@ -574,7 +649,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
           if (_tab == 0) _statusStrip(),
           const SizedBox(height: 8),
           Expanded(
-            child: switch (_tab) {
+            child: _wrapMd(switch (_tab) {
               1 => _stageList(
                   _contracts,
                   canEdit,
@@ -592,7 +667,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                   empty: 'Chưa có biên bản nghiệm thu.',
                 ),
               _ => _quoteList(canCreate, canEdit, canDelete),
-            },
+            }),
           ),
         ],
       ),
@@ -937,8 +1012,10 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     final statusText =
         q.status == 'Accepted' ? PosQuote.stageLabel(q.commercialStage) : PosQuote.statusLabel(q.status);
     final date = q.issuedAt ?? q.createdAt;
+    // Màn chia đôi: thẻ đang xem bên phải viền xanh.
+    final selected = _md && q.id == _mdId;
     return Material(
-      color: Colors.white,
+      color: selected ? SboxColors.brand50 : Colors.white,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -946,7 +1023,9 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: SboxColors.slate200),
+            border: selected
+                ? Border.all(color: SboxColors.brand500, width: 2)
+                : Border.all(color: SboxColors.slate200),
           ),
           padding: const EdgeInsets.fromLTRB(14, 8, 4, 12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

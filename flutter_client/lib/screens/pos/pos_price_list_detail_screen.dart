@@ -58,9 +58,13 @@ class _PriceRow {
 
 /// Thiết lập giá theo bảng giá — nhiều SP + tính giá nhanh.
 class PosPriceListDetailScreen extends StatefulWidget {
-  const PosPriceListDetailScreen({super.key, required this.priceList});
+  const PosPriceListDetailScreen({super.key, required this.priceList, this.onSaved, this.onClose});
 
   final PosPriceList priceList;
+
+  /// Nhúng ở cột phải màn chia đôi: lưu xong báo danh sách tải lại (số mức giá), nút đóng thay quay lại.
+  final VoidCallback? onSaved;
+  final VoidCallback? onClose;
 
   @override
   State<PosPriceListDetailScreen> createState() =>
@@ -288,6 +292,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {
       ScreenRefreshNotifier.refreshPosPriceLists();
+      widget.onSaved?.call();
       final data = res['data'];
       final saved = data is Map
           ? ((data['saved'] ?? data['Saved'] as num?)?.toInt() ?? items.length)
@@ -570,6 +575,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
         backgroundColor: Colors.white,
         foregroundColor: SboxColors.text,
         elevation: 0.5,
+        automaticallyImplyLeading: widget.onClose == null,
         actions: [
           if (canEdit && selectedCount > 0)
             IconButton(
@@ -577,6 +583,8 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
               onPressed: _removeSelected,
               icon: const Icon(Icons.delete_outline, color: Colors.red),
             ),
+          if (widget.onClose != null)
+            IconButton(tooltip: tr('Đóng'), icon: const Icon(Icons.close), onPressed: widget.onClose),
         ],
       ),
       body: _loading

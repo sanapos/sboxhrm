@@ -69,6 +69,7 @@ class SboxDataTable<T> extends StatefulWidget {
     this.paginate = true,
     this.dense = false,
     this.mobileCards = true,
+    this.forceCards = false,
     this.selectedRow,
   });
 
@@ -85,6 +86,9 @@ class SboxDataTable<T> extends StatefulWidget {
   final bool paginate;
   final bool dense;
   final bool mobileCards;
+
+  /// Luôn dạng thẻ — cột danh sách hẹp của màn chia đôi (màn hình rộng nhưng khung hẹp).
+  final bool forceCards;
   final T? selectedRow;
 
   @override
@@ -153,7 +157,7 @@ class _SboxDataTableState<T> extends State<SboxDataTable<T>> {
     final visible = widget.paginate
         ? all.skip((_page - 1) * _pageSize).take(_pageSize).toList()
         : all;
-    final mobile = widget.mobileCards && SboxBreakpoints.isMobile(context);
+    final mobile = widget.forceCards || (widget.mobileCards && SboxBreakpoints.isMobile(context));
 
     Widget body;
     if (widget.loading && widget.rows.isEmpty) {
@@ -364,7 +368,12 @@ class _SboxDataTableState<T> extends State<SboxDataTable<T>> {
             padding: const EdgeInsets.fromLTRB(SboxSpace.md, 10, SboxSpace.md, 10),
             decoration: BoxDecoration(
               color: r == widget.selectedRow ? SboxColors.brand50 : SboxColors.surface,
-              border: const Border(bottom: BorderSide(color: SboxColors.divider)),
+              border: Border(
+                left: r == widget.selectedRow
+                    ? const BorderSide(color: SboxColors.brand600, width: 3)
+                    : BorderSide.none,
+                bottom: const BorderSide(color: SboxColors.divider),
+              ),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

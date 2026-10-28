@@ -46,6 +46,8 @@ import '../widgets/pos/pos_product_image.dart';
 import '../utils/navigation_notifier.dart';
 import 'pos/pos_product_detail_screen.dart';
 import 'pos/pos_product_editor_page.dart';
+import '../widgets/pos/pos_master_detail_layout.dart';
+import '../widgets/pos/pos_unsaved_changes.dart';
 import 'pos/pos_topping_groups_screen.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
@@ -275,11 +277,22 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   Future<void> _reloadProducts({bool forceNetwork = false}) async {
     if (!forceNetwork && _canFilterLocally) {
       _applyLocalFilters();
+      _dropMissingDetail();
       if (mounted) setState(() {});
       return;
     }
     await _loadProducts(page: 1);
+    _dropMissingDetail();
     if (mounted) setState(() {});
+  }
+
+  void _dropMissingDetail() {
+    final cur = _detailProduct;
+    if (!_md || cur == null || _detailHandle.isDirty()) return;
+    if (_items.any((x) => x.id == cur.id)) return;
+    _detailProduct = null;
+    _detailTemplate = null;
+    _detailSeq++;
   }
 
   Future<void> _loadAll() async {
@@ -423,6 +436,18 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   Future<void> _openCreate(PosProductType type) async {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     if (!perm.canCreate('PosProducts')) return;
+    if (_md) {
+      if (_detailHandle.isDirty() && !await confirmDiscardUnsavedChanges(context)) return;
+      if (!mounted) return;
+      setState(() {
+        _detailProduct = null;
+        _detailTemplate = null;
+        _detailNewType = type;
+        _detailSeq++;
+        _detailHandle.isDirty = () => false;
+      });
+      return;
+    }
     final saved = await PosProductEditorPage.open(
       context,
       productType: type,
@@ -1206,11 +1231,13 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     final perm = Provider.of<PermissionProvider>(context);
     final wide = Responsive.preferTableListLayout(context) && Responsive.isDesktop(context);
     final mobile = posUseMobileList(context);
+    _md = mobile && MediaQuery.sizeOf(context).width >= 1000;
     final inHub = PosHubScope.of(context);
 
     return Scaffold(
       backgroundColor: SboxColors.page,
-      floatingActionButton: mobile && perm.canCreate('PosProducts')
+      // Màn chia đôi: nút tạo nằm trên thanh đầu (nút nổi che dòng tổng và nút Lưu của form).
+      floatingActionButton: mobile && !_md && perm.canCreate('PosProducts')
           ? PosMobileFab(
               onPressed: () => _openTypeHub(
                 perm,
@@ -1234,6 +1261,17 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               onRefresh: inHub ? null : () => _reloadProducts(forceNetwork: true),
               activeFilterCount: _activeMobileFilterCount,
               filterChips: null,
+              trailing: _md && perm.canCreate('PosProducts')
+                  ? [
+                      FilledButton.icon(
+                        onPressed: () => _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại'),
+                        style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
+                        icon: const Icon(Icons.add_rounded, size: 20),
+                        label: Text(tr('Thêm hàng')),
+                      ),
+                      const SizedBox(width: 4),
+                    ]
+                  : null,
             )
           else
             _buildMainToolbar(perm, wide),
@@ -1252,19 +1290,34 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           Expanded(
             child: _loading
                 ? LoadingWidget(message: tr('Đang tải hàng hóa…'))
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: Column(
+                : _md
+                    // Màn ngang rộng dạng mobile (C20): danh sách trái · sửa / xem hàng bên phải như T1.
+                    ? PosMasterDetailLayout(
+                        prefsKey: 'products',
+                        initialFraction: 0.4,
+                        minMasterWidth: 400,
+                        minDetailWidth: 520,
+                        master: Column(
                           children: [
                             Expanded(child: _buildContent(perm, wide)),
                             _buildPagination(),
                           ],
                         ),
+                        detail: _buildDetailPane(perm),
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Expanded(child: _buildContent(perm, wide)),
+                                _buildPagination(),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
           ),
         ],
         ),
@@ -2078,7 +2131,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
             ),
           );
         }
-        return _buildKiotMobileProductRow(_items[i], perm);
+        final p = _items[i];
+        final row = _buildKiotMobileProductRow(p, perm);
+        return _md && _detailProduct?.id == p.id ? KeyedSubtree(key: _detailRowKey, child: row) : row;
       },
     );
   }
@@ -2354,6 +2409,133 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     );
   }
 
+  // ── Màn chia đôi (C20 ngang): hàng đang xem / sửa ở cột phải ──
+  bool _md = false;
+  PosProduct? _detailProduct;
+
+  /// «Lưu & sao chép»: form mới điền sẵn từ hàng vừa lưu.
+  PosProduct? _detailTemplate;
+
+  /// «Tạo mới»: form thêm hàng loại này.
+  PosProductType? _detailNewType;
+  int _detailSeq = 0;
+  final _detailHandle = PosProductEditorHandle();
+
+  Future<void> _selectDetail(PosProduct p) async {
+    if (_detailProduct?.id == p.id && _detailTemplate == null) return;
+    if (_detailHandle.isDirty() && !await confirmDiscardUnsavedChanges(context)) return;
+    if (!mounted) return;
+    setState(() {
+      _detailProduct = p;
+      _detailTemplate = null;
+      _detailNewType = null;
+      _detailSeq++;
+      _detailHandle.isDirty = () => false;
+    });
+  }
+
+  void _closeDetail() {
+    setState(() {
+      _detailProduct = null;
+      _detailTemplate = null;
+      _detailNewType = null;
+      _detailSeq++;
+      _detailHandle.isDirty = () => false;
+    });
+  }
+
+  Future<void> _onDetailSaved(String? id, {required bool copy}) async {
+    PosProduct? saved;
+    if (id != null) {
+      final res = await _api.getPosProduct(id);
+      if (!mounted) return;
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        saved = PosProduct.fromJson(res['data'] as Map<String, dynamic>);
+      }
+    }
+    final idx = saved == null ? -1 : _items.indexWhere((x) => x.id == saved!.id);
+    if (idx >= 0 && _detailNewType == null) {
+      _items[idx] = saved!;
+      _localCatalog = null;
+    } else {
+      await _loadProducts(page: 1);
+      if (!mounted) return;
+    }
+    if (_detailNewType != null) await _loadCatalogs();
+    if (!mounted) return;
+    setState(() {
+      _detailHandle.isDirty = () => false;
+      _detailNewType = null;
+      if (copy && saved != null) {
+        _detailProduct = null;
+        _detailTemplate = saved;
+      } else {
+        _detailProduct = saved ?? _detailProduct;
+        _detailTemplate = null;
+      }
+      _detailSeq++;
+    });
+    if (!copy && saved != null) _revealDetailRow(saved.id);
+  }
+
+  /// Dòng đang xem ở cột phải — để cuộn tới sau khi lưu.
+  final _detailRowKey = GlobalKey();
+
+  /// Cuộn danh sách tới hàng [id] (dòng chưa dựng thì nhảy ước lượng trước rồi canh lại).
+  void _revealDetailRow(String id) {
+    final i = _items.indexWhere((x) => x.id == id);
+    if (i < 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final ctx = _detailRowKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(ctx, alignment: 0.3, duration: const Duration(milliseconds: 250));
+        return;
+      }
+      if (!_listScroll.hasClients) return;
+      final pos = _listScroll.position;
+      _listScroll.jumpTo((i * 64.0).clamp(0, pos.maxScrollExtent));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final c = _detailRowKey.currentContext;
+        if (mounted && c != null) {
+          Scrollable.ensureVisible(c, alignment: 0.3, duration: const Duration(milliseconds: 200));
+        }
+      });
+    });
+  }
+
+  Widget _buildDetailPane(PermissionProvider perm) {
+    final p = _detailProduct;
+    final tpl = _detailTemplate;
+    final newType = _detailNewType;
+    if (p == null && tpl == null && newType == null) {
+      return const ColoredBox(
+        color: Color(0xFFF0F2F5),
+        child: EmptyState(
+          icon: Icons.touch_app_outlined,
+          title: 'Chọn hàng hóa bên trái',
+          description:
+              'Chi tiết hiện ở đây — sửa xong bấm «Lưu» hoặc «Lưu & sao chép» để tạo hàng tương tự',
+        ),
+      );
+    }
+    if (p != null && !perm.canEdit('PosProducts')) {
+      return PosProductDetailScreen(key: ValueKey('view-${p.id}-$_detailSeq'), product: p);
+    }
+    return PosProductEditorPage(
+      key: ValueKey('edit-${p?.id ?? 'new'}-$_detailSeq'),
+      productType: (p ?? tpl)?.productType ?? newType!,
+      product: p,
+      templateProduct: tpl,
+      embedded: true,
+      handle: _detailHandle,
+      onSaved: (id, {required copy}) {
+        _onDetailSaved(id, copy: copy);
+      },
+      onClose: _closeDetail,
+    );
+  }
+
   Widget _buildKiotMobileProductRow(PosProduct p, PermissionProvider perm) {
     final variants = _variantsByProductId[p.id] ?? [];
     final unitViews = buildPosProductUnitViews(p, variants);
@@ -2395,8 +2577,14 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           borderRadius: 8,
         ),
       ),
-      onTap: () => _showMobileProductActions(p, perm),
-      onLongPress: perm.canEdit('PosProducts') ? () => _openEdit(p) : null,
+      // Màn chia đôi: bấm mở bên phải, giữ để xem thao tác (in tem, sao chép, xóa…).
+      isSelected: _md && _detailProduct?.id == p.id,
+      onTap: _md ? () => _selectDetail(p) : () => _showMobileProductActions(p, perm),
+      onLongPress: _md
+          ? () => _showMobileProductActions(p, perm)
+          : perm.canEdit('PosProducts')
+              ? () => _openEdit(p)
+              : null,
     );
   }
 

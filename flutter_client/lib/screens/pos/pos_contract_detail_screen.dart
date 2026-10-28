@@ -23,9 +23,12 @@ import 'dart:typed_data';
 import '../../widgets/pos/pos_pdf_preview_dialog.dart';
 /// Chi tiết hợp đồng: tạm ứng + biên bản nghiệm thu.
 class PosContractDetailScreen extends StatefulWidget {
-  const PosContractDetailScreen({super.key, required this.quoteId});
+  const PosContractDetailScreen({super.key, required this.quoteId, this.onClose});
 
   final String quoteId;
+
+  /// Nhúng ở cột phải màn chia đôi: nút đóng thay nút quay lại.
+  final VoidCallback? onClose;
 
   @override
   State<PosContractDetailScreen> createState() =>
@@ -264,6 +267,11 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(contract?.docNo ?? tr('Hợp đồng')),
+        automaticallyImplyLeading: widget.onClose == null,
+        actions: [
+          if (widget.onClose != null)
+            IconButton(tooltip: tr('Đóng'), icon: const Icon(Icons.close), onPressed: widget.onClose),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

@@ -6,6 +6,7 @@ import '../../models/pos_price_list.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_master_detail_layout.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_price_list_detail_screen.dart';
@@ -26,6 +27,29 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
   List<PosPriceList> _lists = [];
   bool _loading = true;
 
+  // ── Màn chia đôi (C20 ngang ≥1000dp): danh sách trái · mức giá của bảng đang chọn phải ──
+  bool _md = false;
+  String? _mdId;
+  int _mdSeq = 0;
+
+  PosPriceList? get _mdList => _lists.where((x) => x.id == _mdId).firstOrNull;
+
+  Future<void> _open(PosPriceList pl) async {
+    if (_md) {
+      if (_mdId == pl.id) return;
+      setState(() {
+        _mdId = pl.id;
+        _mdSeq++;
+      });
+      return;
+    }
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => PosPriceListDetailScreen(priceList: pl)),
+    );
+    _load();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +66,7 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
             .map((e) => PosPriceList.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList();
         _loading = false;
+        if (_mdId != null && !_lists.any((x) => x.id == _mdId)) _mdId = null;
       });
     } else {
       setState(() => _loading = false);
@@ -361,19 +386,21 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
   Widget build(BuildContext context) {
     final canEdit =
         Provider.of<PermissionProvider>(context).canEdit('PosProducts');
+    _md = posUseMobileList(context) && MediaQuery.sizeOf(context).width >= 1000;
     return Scaffold(
       backgroundColor: PosTheme.background,
-      floatingActionButton: canEdit
+      // Màn chia đôi: nút nằm ở đầu danh sách (nút nổi sẽ che nút «Lưu bảng giá» bên phải).
+      floatingActionButton: canEdit && !_md
           ? FloatingActionButton.extended(
               onPressed: _createList,
               icon: const Icon(Icons.add),
               label: Text(tr('Thêm bảng giá')),
             )
           : null,
-      body: Column(
+      body: _wrapMd(Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const PosMobileKiotHeader(title: 'Bảng giá'),
+          if (!_md) const PosMobileKiotHeader(title: 'Bảng giá'),
           // Giải thích ngắn: bảng giá để làm gì và chọn ở đâu khi bán.
           Container(
             margin: const EdgeInsets.fromLTRB(12, 10, 12, 2),
@@ -392,6 +419,19 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
               ),
             ]),
           ),
+          if (_md && canEdit)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: _createList,
+                  style: PosTheme.filledButtonStyle,
+                  icon: const Icon(Icons.add),
+                  label: Text(tr('Thêm bảng giá')),
+                ),
+              ),
+            ),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -404,21 +444,18 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                       itemBuilder: (ctx, i) {
                         final pl = _lists[i];
                         final range = _rangeLabel(pl);
+                        final selected = _md && pl.id == _mdId;
                         return Material(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
+                          color: selected ? PosTheme.kiotBlueLight : Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: selected
+                                ? const BorderSide(color: PosTheme.kiotBlue, width: 2)
+                                : BorderSide.none,
+                          ),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(10),
-                            onTap: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      PosPriceListDetailScreen(priceList: pl),
-                                ),
-                              );
-                              _load();
-                            },
+                            onTap: () => _open(pl),
                             onLongPress: canEdit ? () => _editList(pl) : null,
                             child: Padding(
                               padding: const EdgeInsets.all(14),
@@ -477,10 +514,11 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                                         color: PosTheme.textSecondary,
                                       ),
                                     ),
-                                  const Icon(
-                                    Icons.chevron_right,
-                                    color: PosTheme.textSecondary,
-                                  ),
+                                  if (!_md)
+                                    const Icon(
+                                      Icons.chevron_right,
+                                      color: PosTheme.textSecondary,
+                                    ),
                                 ],
                               ),
                             ),
@@ -491,7 +529,49 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                   ),
           ),
         ],
-      ),
+      )),
+    );
+  }
+
+  Widget _wrapMd(Widget list) {
+    if (!_md) return list;
+    final pl = _mdList;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const PosMobileKiotHeader(title: 'Bảng giá'),
+        Expanded(
+          child: PosMasterDetailLayout(
+            prefsKey: 'price_lists',
+            initialFraction: 0.38,
+            minMasterWidth: 380,
+            minDetailWidth: 560,
+            master: list,
+            detail: pl == null
+                ? Container(
+                    color: SboxColors.slate50,
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.all(24),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.sell_outlined, size: 56, color: SboxColors.slate400),
+                      const SizedBox(height: 12),
+                      Text(tr('Chọn bảng giá bên trái'),
+                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      Text(tr('Mức giá từng hàng, thêm hàng, tăng / giảm giá hàng loạt hiện ở đây'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
+                    ]),
+                  )
+                : PosPriceListDetailScreen(
+                    key: ValueKey('pl-${pl.id}-$_mdSeq'),
+                    priceList: pl,
+                    onSaved: _load,
+                    onClose: () => setState(() => _mdId = null),
+                  ),
+          ),
+        ),
+      ],
     );
   }
 }
