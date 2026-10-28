@@ -3453,7 +3453,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           title: Text(tr('Trả ${r.name} về trống?')),
           content: Text(tr(
             'Bàn còn ${r.lineCount} món'
-            '${r.subtotal > 0 ? ' · ${_moneyFmt.format(r.subtotal)}đ' : ''}.\n'
+            '${r.subtotal > 0 ? ' · ${_moneyFmt.format(r.subtotal)}đ' : ''}'
+            '${r.draftBillCount > 1 ? ' trên ${r.draftBillCount} hóa đơn' : ''}.\n'
             'Xóa đơn tạm, không thu tiền, đóng phiên.',
           )),
           actions: [
@@ -3472,16 +3473,23 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       if (ok != true) return false;
     }
 
-    final orderId = (r.openOrderId ?? '').trim();
-    if (orderId.isNotEmpty && busy) {
+    // Bàn có nhiều hóa đơn (tách bill): xóa hết hóa đơn còn món. Trước đây chỉ xóa hóa đơn đang mở → máy chủ
+    // từ chối trả bàn vì còn hóa đơn khác, hóa đơn kia đã mất mà bàn vẫn không trống.
+    final orderIds = <String>{
+      if (busy && (r.openOrderId ?? '').trim().isNotEmpty) r.openOrderId!.trim(),
+      for (final b in r.draftBills)
+        if (b.id.trim().isNotEmpty && (b.lineCount > 0 || b.subtotal > 0)) b.id.trim(),
+    };
+    for (final orderId in orderIds) {
       final del = await _api.deletePosSale(orderId);
       if (!mounted) return false;
-      if (del['isSuccess'] != true) {
+      if (del['isSuccess'] != true && del['statusCode'] != 404) {
         NotificationOverlayManager().showError(
           title: 'Không xóa được đơn',
           message: del['message']?.toString() ??
               'Không trả được bàn còn món. Mở bàn → xóa món hoặc hủy đơn.',
         );
+        await _reload(silent: true);
         return false;
       }
     }
