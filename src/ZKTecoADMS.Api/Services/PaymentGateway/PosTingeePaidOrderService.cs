@@ -344,8 +344,9 @@ public sealed class PosTingeePaidOrderService(
         }
         // Món không thuộc phiếu nào (chưa gán máy in bếp) → trả về «chưa báo bếp», báo máy bán.
         var covered = groups.Values.SelectMany(g => g).Select(x => x.LineId).ToHashSet();
+        var lineById = added.GroupBy(r => r.Line.Id).ToDictionary(g => g.Key, g => g.First().Line);
         var orphanRows = added.Where(r => !covered.Contains(r.Line.Id))
-            .Select(r => new KitchenLineRef(r.Line.Id, r.Qty)).ToList();
+            .Select(r => KitchenLineRef.Of(r.Line, r.Qty)).ToList();
         if (orphanRows.Count > 0)
             await dispatch.RevertKitchenLinesAsync(storeId, order.Id, orphanRows, order.OrderNo, ct);
 
@@ -371,7 +372,7 @@ public sealed class PosTingeePaidOrderService(
                 }),
             });
             var refNo = $"QR|{order.OrderNo}|{stamp}|{g.Key.ToString("N")[..6]}";
-            var lineRefs = g.Value.Select(l => new KitchenLineRef(l.LineId, l.Qty)).ToList();
+            var lineRefs = g.Value.Select(l => KitchenLineRef.Of(lineById[l.LineId], l.Qty)).ToList();
             try
             {
                 await dispatch.EnqueueJobAsync(new EnqueuePrintJobRequest(

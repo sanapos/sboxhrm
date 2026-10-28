@@ -2483,8 +2483,9 @@ public class PosQrTableOrderController(
         }
         // Món đã đánh dấu «đã báo bếp» nhưng không thuộc phiếu nào (chưa gán máy in bếp) → trả lại, báo máy bán.
         var covered = groups.Values.SelectMany(g => g).Select(x => x.LineId).ToHashSet();
+        var lineById = added.GroupBy(r => r.Line.Id).ToDictionary(g => g.Key, g => g.First().Line);
         var orphanRows = added.Where(r => !covered.Contains(r.Line.Id))
-            .Select(r => new KitchenLineRef(r.Line.Id, r.Qty)).ToList();
+            .Select(r => KitchenLineRef.Of(r.Line, r.Qty)).ToList();
         if (!isCancel && orphanRows.Count > 0)
             await dispatch.RevertKitchenLinesAsync(storeId, order.Id, orphanRows, order.OrderNo);
 
@@ -2511,7 +2512,7 @@ public class PosQrTableOrderController(
             });
             // Thêm mã ngẫu nhiên: 2 lần gọi món cùng bàn trong cùng giây không bị coi là trùng (mất phiếu).
             var refNo = $"{(isCancel ? "QRV" : "QR")}|{order.OrderNo}|{stamp}|{g.Key.ToString("N")[..6]}|{Guid.NewGuid().ToString("N")[..4]}";
-            var lineRefs = g.Value.Select(l => new KitchenLineRef(l.LineId, l.Qty)).ToList();
+            var lineRefs = g.Value.Select(l => KitchenLineRef.Of(lineById[l.LineId], l.Qty)).ToList();
             try
             {
                 await dispatch.EnqueueJobAsync(new EnqueuePrintJobRequest(

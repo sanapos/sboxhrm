@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using ZKTecoADMS.Api.Controllers;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Domain.Entities;
@@ -272,5 +274,87 @@ public class PosKitchenUnprintedTests(PosPgFixture fx)
         await using (var db = fx.NewDb())
             await Svc(db).RevertKitchenLinesAsync(s.Store, s.Order, [new KitchenLineRef(s.Line, 2)], "QR|x");
         Assert.Equal(0, (await LineAsync(s)).Sent);
+    }
+
+    /// <summary>Máy bán lưu nháp (xóa-tạo lại dòng, id mới) trong lúc chờ Agent — trước đây tìm theo id không thấy,
+    /// món vẫn «đã báo bếp» mà bếp chưa nhận.</summary>
+    [Fact]
+    public async Task Line_recreated_by_a_draft_save_is_still_returned_by_item_key()
+    {
+        if (NoDb) return;
+        var s = await SeedAsync();
+        Guid job;
+        await using (var db = fx.NewDb())
+        {
+            var line = await db.PosSaleOrderLines.FirstAsync(x => x.Id == s.Line);
+            job = (await Svc(db).EnqueueJobAsync(new EnqueuePrintJobRequest(
+                s.Store, PosPrintDocumentType.KitchenSlip, PosPrintPayloadFormat.KitchenSlipJson,
+                "{\"lines\":[]}", 1, "QR|" + Guid.NewGuid().ToString("N")[..8], s.Order, null, "QR khách", s.Printer,
+                KitchenLinesJson: PosPrintDispatchService.SerializeKitchenLines([KitchenLineRef.Of(line, 2)])))).Id;
+        }
+        var recreated = await RecreateLineAsync(s);
+
+        await using (var db = fx.NewDb())
+        {
+            await Svc(db).ClaimNextJobAsync(s.Store, s.Agent);
+            await Svc(db).FailJobAsync(job, s.Agent, "AGENT_ERROR", "Lỗi cổng in");
+        }
+        await using (var db = fx.NewDb())
+            Assert.Equal(0, (await db.PosSaleOrderLines.FirstAsync(x => x.Id == recreated)).KitchenSentQty);
+
+        // In lại được → đánh dấu lại đúng dòng mới.
+        await using (var db = fx.NewDb())
+            await Svc(db).RetryJobAsync(s.Store, job, null, "admin");
+        await using (var db = fx.NewDb())
+            Assert.Equal(2, (await db.PosSaleOrderLines.FirstAsync(x => x.Id == recreated)).KitchenSentQty);
+    }
+
+    /// <summary>Lưu nháp: xóa dòng cũ, tạo dòng cùng món với id mới (như UpdateSale).</summary>
+    async Task<Guid> RecreateLineAsync(Seed s)
+    {
+        await using var db = fx.NewDb();
+        var old = await db.PosSaleOrderLines.AsTracking().FirstAsync(x => x.Id == s.Line);
+        var id = Guid.NewGuid();
+        db.PosSaleOrderLines.Add(new PosSaleOrderLine
+        {
+            Id = id, StoreId = s.Store, SaleOrderId = s.Order, ProductId = old.ProductId, ProductName = old.ProductName,
+            Qty = old.Qty, UnitPrice = old.UnitPrice, LineTotal = old.LineTotal,
+            KitchenSentQty = old.KitchenSentQty, KitchenSentAt = old.KitchenSentAt, KitchenPrepStatus = old.KitchenPrepStatus,
+        });
+        db.PosSaleOrderLines.Remove(old);
+        await db.SaveChangesAsync();
+        return id;
+    }
+
+    /// <summary>Máy cầm giỏ cũ (thấy «đã báo 2») lưu lại sau khi server trả món — không được đánh dấu lại «đã báo».</summary>
+    [Fact]
+    public async Task Stale_cart_save_does_not_mark_returned_items_sent_again()
+    {
+        if (NoDb) return;
+        var s = await SeedAsync();
+        Guid product;
+        await using (var db = fx.NewDb())
+            product = (await db.PosSaleOrderLines.FirstAsync(x => x.Id == s.Line)).ProductId;
+        await using (var db = fx.NewDb())
+            await Svc(db).RevertKitchenLinesAsync(s.Store, s.Order, [new KitchenLineRef(s.Line, 2)], "QR|x");
+        Assert.Equal(0, (await LineAsync(s)).Sent);
+
+        PosSalesController.UpdateSaleDto Save(decimal? baseSent) => new(
+            [new PosSalesController.SaleLineDto(product, 2, null, 50000, null, KitchenSentQty: 2)],
+            0, 0, "Tiền mặt", null, null, null,
+            BaseLines: [new PosSalesController.BaseLineDto(s.Line, product, null, null, null, 2, baseSent)]);
+
+        await using (var db = fx.NewDb())
+            Assert.IsType<OkObjectResult>((await PosPgFixture.As(
+                new PosSalesController(db, null!, null!, null!, null!), s.Store).UpdateSale(s.Order, Save(2))).Result);
+        await using (var db = fx.NewDb())
+            Assert.Equal(0, (await db.PosSaleOrderLines.SingleAsync(x => x.SaleOrderId == s.Order)).KitchenSentQty);
+
+        // Máy tự báo bếp thêm (giỏ > nền) thì vẫn ghi nhận.
+        await using (var db = fx.NewDb())
+            Assert.IsType<OkObjectResult>((await PosPgFixture.As(
+                new PosSalesController(db, null!, null!, null!, null!), s.Store).UpdateSale(s.Order, Save(0))).Result);
+        await using (var db = fx.NewDb())
+            Assert.Equal(2, (await db.PosSaleOrderLines.SingleAsync(x => x.SaleOrderId == s.Order)).KitchenSentQty);
     }
 }

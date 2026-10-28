@@ -38,7 +38,13 @@ public interface IPosPrintDispatchService
 }
 
 /// <summary>Một dòng món (và số lượng) mà phiếu bếp server tự gửi đã đánh dấu «đã báo bếp».</summary>
-public record KitchenLineRef(Guid LineId, decimal Qty);
+/// <param name="Key">Nhóm món (SP + biến thể + topping + ghi chú). Lưu nháp xóa-tạo lại dòng với id mới →
+/// tìm theo id không thấy thì tìm theo nhóm món.</param>
+public record KitchenLineRef(Guid LineId, decimal Qty, string? Key = null)
+{
+    public static KitchenLineRef Of(PosSaleOrderLine line, decimal qty) =>
+        new(line.Id, qty, Controllers.PosSalesController.KitchenMergeKey(line));
+}
 
 public record EnqueuePrintJobRequest(
     Guid StoreId,
@@ -1760,10 +1766,10 @@ public class PosPrintDispatchService(
     /// <summary>Mã hủy mà chắc chắn chưa ra giấy (lệnh chưa ai in / Agent chưa bắt đầu in).</summary>
     static readonly HashSet<string> NotPrintedCancelCodes = ["STALE_QUEUED", StuckClaimed, "EXPIRED", "PRINTER_DELETED"];
 
-    sealed record KitchenLineJson(Guid l, decimal q);
+    sealed record KitchenLineJson(Guid l, decimal q, string? k = null);
 
     public static string SerializeKitchenLines(IEnumerable<KitchenLineRef> rows) =>
-        JsonSerializer.Serialize(rows.Select(r => new KitchenLineJson(r.LineId, r.Qty)));
+        JsonSerializer.Serialize(rows.Select(r => new KitchenLineJson(r.LineId, r.Qty, r.Key)));
 
     static List<KitchenLineRef> ParseKitchenLines(string? json)
     {
@@ -1772,7 +1778,7 @@ public class PosPrintDispatchService(
         {
             return (JsonSerializer.Deserialize<List<KitchenLineJson>>(json) ?? [])
                 .Where(x => x.l != Guid.Empty && x.q > 0)
-                .Select(x => new KitchenLineRef(x.l, x.q))
+                .Select(x => new KitchenLineRef(x.l, x.q, x.k))
                 .ToList();
         }
         catch (JsonException)
@@ -1817,23 +1823,28 @@ public class PosPrintDispatchService(
     {
         if (rows.Count == 0) return;
         var now = DateTime.UtcNow;
-        var lineIds = rows.Select(r => r.LineId).Distinct().ToList();
-        var lines = await db.PosSaleOrderLines.AsTracking()
-            .Where(l => lineIds.Contains(l.Id) && l.StoreId == storeId && l.Deleted == null)
-            .ToListAsync(ct);
-        foreach (var line in lines)
-        {
-            var qty = rows.Where(r => r.LineId == line.Id).Sum(r => r.Qty);
-            line.KitchenSentQty = Math.Max(0, line.KitchenSentQty - qty);
-            if (line.KitchenSentQty <= 0) line.KitchenSentAt = null;
-            PosKitchenKdsHelper.Clamp(line);
-            line.UpdatedAt = now;
-        }
+        // Khóa hàng đơn: lưu nháp máy bán (xóa-tạo lại dòng) không chen giữa lúc đọc và lúc trả món.
+        await using var tx = db.Database.CurrentTransaction == null && Controllers.PosFloorOpGuard.IsPostgres(db)
+            ? await db.Database.BeginTransactionAsync(ct)
+            : null;
+        await Controllers.PosFloorOpGuard.LockOrderRowsAsync(db, [orderId]);
         var order = await db.PosSaleOrders.AsTracking()
-            .FirstOrDefaultAsync(o => o.Id == orderId && o.StoreId == storeId, ct);
+            .FirstOrDefaultAsync(o => o.Id == orderId && o.StoreId == storeId && o.Deleted == null, ct);
+        var touched = order?.Status == PosSaleOrderStatus.Draft
+            ? await ShiftKitchenSentAsync(storeId, orderId, rows, revert: true, now, ct)
+            : 0;
+        if (touched == 0)
+        {
+            // Đơn đã thanh toán / đã hủy / món đã bị xóa — không còn gì để báo lại.
+            if (tx != null) await tx.RollbackAsync(ct);
+            logger.LogWarning("Kitchen ticket {Ref} not printed — no line left to revert on order {OrderId}",
+                referenceNo, orderId);
+            return;
+        }
         // Đổi phiên bản đơn → máy đang mở bàn tải lại, thấy món «chưa báo bếp».
         if (order != null) Controllers.PosDraftLockHelper.BumpVersionOnly(order, now);
         await db.SaveChangesAsync(ct);
+        if (tx != null) await tx.CommitAsync(ct);
 
         string? table = null;
         if (order?.ServiceResourceId is Guid rid)
@@ -1846,9 +1857,58 @@ public class PosPrintDispatchService(
             tableName: table,
             orderNo: order?.OrderNo,
             message: $"Phiếu bếp {(label ?? order?.OrderNo ?? referenceNo ?? "")} chưa in được — "
-                + $"{lines.Count} món đã trả về «chưa báo bếp», báo bếp lại.");
+                + $"{touched} món đã trả về «chưa báo bếp», báo bếp lại.");
         logger.LogWarning("Kitchen ticket {Ref} not printed — reverted {Count} line(s) of order {OrderId}",
-            referenceNo, lines.Count, orderId);
+            referenceNo, touched, orderId);
+    }
+
+    /// <summary>
+    /// Trừ (revert) / cộng lại số «đã báo bếp» cho các món của phiếu. Tìm dòng theo id trước; lưu nháp đã
+    /// xóa-tạo lại dòng (id mới) thì tìm theo nhóm món trong đơn — trước đây tìm theo id không thấy, im lặng
+    /// bỏ qua, món vẫn «đã báo» mà bếp chưa nhận. Trả về số dòng đã đổi.
+    /// </summary>
+    async Task<int> ShiftKitchenSentAsync(Guid storeId, Guid orderId, IReadOnlyCollection<KitchenLineRef> rows,
+        bool revert, DateTime now, CancellationToken ct)
+    {
+        var ids = rows.Select(r => r.LineId).Distinct().ToList();
+        var lines = await db.PosSaleOrderLines.AsTracking()
+            .Where(l => l.StoreId == storeId && l.Deleted == null
+                && (l.SaleOrderId == orderId || ids.Contains(l.Id)))
+            .ToListAsync(ct);
+        var touched = new HashSet<Guid>();
+        foreach (var r in rows)
+        {
+            var left = r.Qty;
+            var byId = lines.Where(l => l.Id == r.LineId);
+            var byKey = r.Key == null
+                ? Enumerable.Empty<PosSaleOrderLine>()
+                : lines.Where(l => l.Id != r.LineId && l.SaleOrderId == orderId
+                        && Controllers.PosSalesController.KitchenMergeKey(l) == r.Key)
+                    .OrderByDescending(l => revert ? l.KitchenSentQty : l.Qty - l.KitchenSentQty);
+            foreach (var line in byId.Concat(byKey))
+            {
+                if (left <= 0) break;
+                var room = revert ? line.KitchenSentQty : line.Qty - line.KitchenSentQty;
+                var take = Math.Min(left, room);
+                if (take <= 0) continue;
+                left -= take;
+                touched.Add(line.Id);
+                if (revert)
+                {
+                    line.KitchenSentQty -= take;
+                    if (line.KitchenSentQty <= 0) line.KitchenSentAt = null;
+                    PosKitchenKdsHelper.Clamp(line);
+                }
+                else
+                {
+                    line.KitchenSentQty += take;
+                    line.KitchenSentAt ??= now;
+                    PosKitchenKdsHelper.OnSent(line);
+                }
+                line.UpdatedAt = now;
+            }
+        }
+        return touched.Count;
     }
 
     /// <summary>In lại / báo in xong muộn lệnh đã trả món → đánh dấu «đã báo bếp» lại.</summary>
@@ -1861,22 +1921,16 @@ public class PosPrintDispatchService(
         if (won == 0) return;
         job.KitchenLinesReverted = false;
         var rows = ParseKitchenLines(job.KitchenLinesJson);
-        var lineIds = rows.Select(r => r.LineId).Distinct().ToList();
         var now = DateTime.UtcNow;
-        var lines = await db.PosSaleOrderLines.AsTracking()
-            .Where(l => lineIds.Contains(l.Id) && l.Deleted == null)
-            .ToListAsync(ct);
-        foreach (var line in lines)
-        {
-            var qty = rows.Where(r => r.LineId == line.Id).Sum(r => r.Qty);
-            line.KitchenSentQty = Math.Min(line.Qty, line.KitchenSentQty + qty);
-            line.KitchenSentAt ??= now;
-            PosKitchenKdsHelper.OnSent(line);
-            line.UpdatedAt = now;
-        }
+        await using var tx = db.Database.CurrentTransaction == null && Controllers.PosFloorOpGuard.IsPostgres(db)
+            ? await db.Database.BeginTransactionAsync(ct)
+            : null;
+        await Controllers.PosFloorOpGuard.LockOrderRowsAsync(db, [orderId]);
+        await ShiftKitchenSentAsync(job.StoreId, orderId, rows, revert: false, now, ct);
         var order = await db.PosSaleOrders.AsTracking().FirstOrDefaultAsync(o => o.Id == orderId, ct);
         if (order != null) Controllers.PosDraftLockHelper.BumpVersionOnly(order, now);
         await db.SaveChangesAsync(ct);
+        if (tx != null) await tx.CommitAsync(ct);
         PosFloorRealtimeHelper.Notify(hubContext, job.StoreId, "kitchenSend", orderId: orderId,
             resourceId: order?.ServiceResourceId);
     }

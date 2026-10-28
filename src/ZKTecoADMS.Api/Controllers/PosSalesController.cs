@@ -2058,14 +2058,27 @@ public partial class PosSalesController(
     [HttpDelete("{id:guid}")]
     [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("saleDeleted", "order")]
     [RequireAnyActionOnModule("PosSaleOrders", ModulePermissionAction.Delete, ModulePermissionAction.Edit)]
-    public async Task<ActionResult<AppResponse<object>>> DeleteSale(Guid id)
+    public async Task<ActionResult<AppResponse<object>>> DeleteSale(
+        Guid id,
+        [FromQuery] string? deviceId = null,
+        [FromQuery] string? deviceName = null,
+        [FromQuery] int? expectedLockVersion = null)
     {
         var storeId = RequiredStoreId;
+        // Khóa hàng đơn rồi mới đọc + xóa trong 1 transaction: trước đây máy khác vừa thanh toán / thêm món
+        // giữa lúc đọc và lúc xóa → xóa luôn đơn đã trả / món vừa gọi.
+        await using var tx = PosFloorOpGuard.IsPostgres(dbContext)
+            ? await dbContext.Database.BeginTransactionAsync()
+            : null;
+        await PosFloorOpGuard.LockOrderRowsAsync(dbContext, [id]);
         var order = await dbContext.PosSaleOrders
             .Include(o => o.Lines)
             .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null);
         if (order == null)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn hàng"));
+        if (order.Status == PosSaleOrderStatus.Draft
+            && PosFloorOpGuard.Check(order, CurrentLockActor(deviceId, deviceName), expectedLockVersion) is { } lockErr)
+            return Conflict(AppResponse<object>.Fail(lockErr));
         if (order.Status == PosSaleOrderStatus.Completed)
         {
             var returnedMap = await GetReturnedAmountsAsync(storeId, [id]);
@@ -2098,8 +2111,9 @@ public partial class PosSalesController(
 
         await PosCancelAuditHelper.AddOrderRemovalAsync(dbContext, HttpContext, storeId, order,
             PosCancelAuditHelper.OrderDelete, CurrentUserEmail);
+        var loadedStatus = order.Status;
         var deleted = await dbContext.PosSaleOrders
-            .Where(o => o.Id == id && o.StoreId == storeId && o.Deleted == null)
+            .Where(o => o.Id == id && o.StoreId == storeId && o.Deleted == null && o.Status == loadedStatus)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(o => o.Deleted, DateTime.UtcNow)
                 .SetProperty(o => o.UpdatedAt, DateTime.UtcNow)
@@ -2109,7 +2123,17 @@ public partial class PosSalesController(
             return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn hàng hoặc đã xóa"));
 
         // Đảm bảo ReservedQty đã nhả được ghi (nếu có thay đổi trước ExecuteUpdate).
-        await dbContext.SaveChangesAsync();
+        try
+        {
+            await dbContext.SaveChangesAsync();
+            if (tx != null) await tx.CommitAsync();
+        }
+        catch (Exception ex) when (PosFloorOpGuard.IsRace(ex))
+        {
+            // Tồn giữ chỗ đổi cùng lúc: hoàn tác cả xóa đơn (trước đây đơn đã mất mà tồn chưa nhả, không nhật ký).
+            if (tx != null) await tx.RollbackAsync();
+            return Conflict(AppResponse<object>.Fail(PosFloorOpGuard.ChangedMessage));
+        }
 
         return Ok(AppResponse<object>.Success(new { deleted = true }));
     }
@@ -2120,9 +2144,17 @@ public partial class PosSalesController(
     [HttpPost("{id:guid}/cancel-draft")]
     [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("draftCancelled", "order")]
     [RequireAnyActionOnModule("PosSell", ModulePermissionAction.Create, ModulePermissionAction.Edit)]
-    public async Task<ActionResult<AppResponse<object>>> CancelDraftSale(Guid id)
+    public async Task<ActionResult<AppResponse<object>>> CancelDraftSale(
+        Guid id,
+        [FromQuery] string? deviceId = null,
+        [FromQuery] string? deviceName = null,
+        [FromQuery] int? expectedLockVersion = null)
     {
         var storeId = RequiredStoreId;
+        await using var tx = PosFloorOpGuard.IsPostgres(dbContext)
+            ? await dbContext.Database.BeginTransactionAsync()
+            : null;
+        await PosFloorOpGuard.LockOrderRowsAsync(dbContext, [id]);
         var order = await dbContext.PosSaleOrders
             .AsNoTracking()
             .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null);
@@ -2130,6 +2162,8 @@ public partial class PosSalesController(
             return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn hàng"));
         if (order.Status != PosSaleOrderStatus.Draft)
             return BadRequest(AppResponse<object>.Fail("Chỉ hủy được đơn tạm"));
+        if (PosFloorOpGuard.Check(order, CurrentLockActor(deviceId, deviceName), expectedLockVersion) is { } lockErr)
+            return Conflict(AppResponse<object>.Fail(lockErr));
 
         // Sau tạm tính (cửa hàng bật «cần quản lý duyệt»): nhân viên không tự xóa / hủy đơn đang có món.
         if (order.Status == PosSaleOrderStatus.Draft && order.Total > 0
@@ -2172,7 +2206,16 @@ public partial class PosSalesController(
         if (deleted == 0)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn tạm hoặc đã xóa"));
 
-        await dbContext.SaveChangesAsync();
+        try
+        {
+            await dbContext.SaveChangesAsync();
+            if (tx != null) await tx.CommitAsync();
+        }
+        catch (Exception ex) when (PosFloorOpGuard.IsRace(ex))
+        {
+            if (tx != null) await tx.RollbackAsync();
+            return Conflict(AppResponse<object>.Fail(PosFloorOpGuard.ChangedMessage));
+        }
         return Ok(AppResponse<object>.Success(new { deleted = true, split = order.SplitFromOrderId.HasValue }));
     }
 

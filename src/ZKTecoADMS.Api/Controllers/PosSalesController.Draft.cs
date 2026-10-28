@@ -38,6 +38,7 @@ public partial class PosSalesController
             .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null);
         if (order == null)
             return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
+        var loadedLockVersion = order.LockVersion;
         // Idempotent như CompleteSale: webhook Tingee / máy khác đã hoàn tất đơn → trả đơn hiện tại
         // để thu ngân vẫn in hóa đơn, không báo "Không thanh toán được".
         if (dto.Complete && order.Status == PosSaleOrderStatus.Completed)
@@ -159,6 +160,12 @@ public partial class PosSalesController
             {
                 try
                 {
+                    if (offlineNo == null && await DraftChangedSinceLoadAsync(order.Id, loadedLockVersion))
+                    {
+                        await txClear.RollbackAsync();
+                        dbContext.ChangeTracker.Clear();
+                        return Conflict(AppResponse<SaleOrderDto>.Fail("Đơn đang được máy khác lưu — thử lại"));
+                    }
                     await dbContext.SaveChangesAsync();
                     await txClear.CommitAsync();
                 }
@@ -421,6 +428,24 @@ public partial class PosSalesController
         var remainingPrior = priorKitchen.ToDictionary(kv => kv.Key, kv => kv.Value.Sent);
         var remainingAt = priorKitchen.ToDictionary(kv => kv.Key, kv => kv.Value.At);
         var remainingDto = dtoKitchenByKey.ToDictionary(kv => kv.Key, kv => kv.Value);
+        var serverOwnedKitchenKeys = new HashSet<string>();
+        // Máy không báo bếp thêm món nào so với lúc đồng bộ (giỏ ≤ nền) → theo số trên máy chủ. Trước đây luôn
+        // lấy max(giỏ, máy chủ): phiếu bếp server tự gửi không in được đã trả món về «chưa báo bếp», máy cầm
+        // giỏ cũ lưu lại → món lại thành «đã báo», bếp không bao giờ nhận.
+        if (dto.BaseLines != null && dto.BaseLines.Any(b => b.KitchenSentQty.HasValue))
+        {
+            var baseKitchen = dto.BaseLines
+                .GroupBy(b => KitchenMergeKey(b.ProductId, b.VariantId, b.ToppingsJson, b.LineNote))
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.KitchenSentQty ?? 0));
+            foreach (var key in remainingDto.Keys.ToList())
+            {
+                if (remainingDto[key] <= baseKitchen.GetValueOrDefault(key))
+                {
+                    remainingDto[key] = 0;
+                    serverOwnedKitchenKeys.Add(key);
+                }
+            }
+        }
 
         var liveRows = await dbContext.PosSaleOrderLines.AsNoTracking()
             .Where(l => l.SaleOrderId == order.Id && l.Deleted == null)
@@ -455,6 +480,12 @@ public partial class PosSalesController
         foreach (var line in lines)
         {
             var key = KitchenMergeKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote);
+            if (serverOwnedKitchenKeys.Contains(key))
+            {
+                // Dòng dựng từ giỏ mang số «đã báo» của máy — bỏ, lấy theo máy chủ ngay dưới.
+                line.KitchenSentQty = 0;
+                line.KitchenSentAt = null;
+            }
             remainingDto.TryGetValue(key, out var fromClient);
             remainingPrior.TryGetValue(key, out var fromPrior);
             var take = Math.Max(fromClient, fromPrior);
@@ -629,6 +660,13 @@ public partial class PosSalesController
         {
             try
             {
+                // Thao tác bàn (tách bill / chuyển / tách / gộp bàn, báo bếp…) vừa xong giữa lúc nạp đơn và lúc
+                // ghi → không ghi đè: xóa-tạo lại dòng theo bản nạp cũ sẽ xóa luôn dòng vừa chuyển sang đơn khác.
+                if (offlineNo == null && await DraftChangedSinceLoadAsync(order.Id, loadedLockVersion))
+                {
+                    await txDraft.RollbackAsync();
+                    return Conflict(AppResponse<SaleOrderDto>.Fail("Đơn đang được máy khác lưu — thử lại"));
+                }
                 for (var attempt = 0; ; attempt++)
                 {
                     try
@@ -676,7 +714,23 @@ public partial class PosSalesController
         return Ok(AppResponse<SaleOrderDto>.Success(mapped with { MergedRemoteLines = mergedRemote }));
     }
 
-    static string KitchenMergeKey(
+    /// <summary>Khóa hàng đơn (trong transaction đang mở) rồi so phiên bản với lúc nạp.</summary>
+    async Task<bool> DraftChangedSinceLoadAsync(Guid orderId, int loadedLockVersion)
+    {
+        if (!PosFloorOpGuard.IsPostgres(dbContext)) return false;
+        await PosFloorOpGuard.LockOrderRowsAsync(dbContext, [orderId]);
+        var live = await dbContext.PosSaleOrders.AsNoTracking()
+            .Where(o => o.Id == orderId)
+            .Select(o => new { o.LockVersion, o.Status, o.Deleted })
+            .FirstOrDefaultAsync();
+        return live == null || live.Deleted != null || live.Status != PosSaleOrderStatus.Draft
+            || live.LockVersion != loadedLockVersion;
+    }
+
+    internal static string KitchenMergeKey(PosSaleOrderLine line) =>
+        KitchenMergeKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote);
+
+    internal static string KitchenMergeKey(
         Guid productId, Guid? variantId, string? toppingsJson, string? lineNote)
     {
         var top = string.IsNullOrWhiteSpace(toppingsJson) ? "" : toppingsJson.Trim();
@@ -1565,8 +1619,17 @@ public partial class PosSalesController
                 order, qrGuest.Value, dto.CustomerName, dto.DeliveryPhone,
                 dto.DeliveryAddress, dto.IsDelivery);
         }
-        order.ServiceResourceId = dto.ServiceResourceId ?? order.ServiceResourceId;
-        order.ResourceSessionId = dto.ResourceSessionId ?? order.ResourceSessionId;
+        // Đơn đã gắn phiên bàn: bàn do máy chủ quản (chuyển / tách / gộp bàn). Máy cầm giỏ cũ gửi bàn cũ
+        // không được kéo đơn về bàn cũ — trước đây thanh toán xong đóng nhầm phiên khách mới ngồi bàn cũ.
+        if (order.ResourceSessionId == null)
+        {
+            order.ServiceResourceId = dto.ServiceResourceId ?? order.ServiceResourceId;
+            order.ResourceSessionId = dto.ResourceSessionId ?? order.ResourceSessionId;
+        }
+        else
+        {
+            order.ServiceResourceId ??= dto.ServiceResourceId;
+        }
         order.ServiceStartedAt = dto.ServiceStartedAt ?? order.ServiceStartedAt;
         order.ServiceEndedAt = dto.ServiceEndedAt ?? order.ServiceEndedAt;
         if (complete && order.ServiceStartedAt.HasValue && !order.ServiceEndedAt.HasValue)

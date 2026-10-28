@@ -40,7 +40,16 @@ public partial class PosSellIndustryController(
         Guid? sessionId = null,
         string? tableName = null,
         string? message = null)
-        => PosFloorRealtimeHelper.Notify(hub, storeId, reason, orderId, resourceId, sessionId, tableName, message);
+    {
+        // Trong thao tác bàn (transaction): gửi sau khi commit — máy khác tải lại phải thấy dữ liệu mới.
+        if (_deferredFloorNotify != null)
+        {
+            _deferredFloorNotify.Add(() =>
+                PosFloorRealtimeHelper.Notify(hub, storeId, reason, orderId, resourceId, sessionId, tableName, message));
+            return;
+        }
+        PosFloorRealtimeHelper.Notify(hub, storeId, reason, orderId, resourceId, sessionId, tableName, message);
+    }
 
     bool TryGetStoreId(out Guid storeId)
     {
@@ -1848,10 +1857,17 @@ public partial class PosSellIndustryController(
     /// </summary>
     [HttpPost("service-resources/{id:guid}/free")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
-    public async Task<ActionResult<AppResponse<object>>> FreeResource(Guid id)
+    public async Task<ActionResult<AppResponse<object>>> FreeResource(
+        Guid id, [FromQuery] string? deviceId = null, [FromQuery] string? deviceName = null)
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+        return await RunFloorOpAsync(storeId, () => FreeResourceCore(id, storeId, deviceId, deviceName));
+    }
+
+    async Task<ActionResult<AppResponse<object>>> FreeResourceCore(
+        Guid id, Guid storeId, string? deviceId, string? deviceName)
+    {
 
         var resource = await db.PosServiceResources.AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null);
@@ -1879,6 +1895,23 @@ public partial class PosSellIndustryController(
         var now = DateTime.UtcNow;
         var by = CurrentUserEmail;
 
+        // Đơn tạm (kể cả trống) máy khác vừa mở để gọi món → không trả bàn sau lưng máy đó.
+        var liveDraftIds = await db.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId && o.Deleted == null
+                && o.Status == PosSaleOrderStatus.Draft && o.ServiceResourceId == id)
+            .Select(o => (Guid?)o.Id)
+            .ToListAsync();
+        await PosFloorOpGuard.LockOrderRowsAsync(db, liveDraftIds);
+        var freeActor = FloorActor(deviceId, deviceName);
+        foreach (var held in await db.PosSaleOrders.AsNoTracking()
+                     .Where(o => liveDraftIds.Contains(o.Id) && o.Deleted == null)
+                     .ToListAsync())
+        {
+            if (PosFloorOpGuard.Check(held, freeActor, null) is { } lockErr
+                && held.Status == PosSaleOrderStatus.Draft)
+                return Conflict(AppResponse<object>.Fail(lockErr));
+        }
+
         // 1) Đóng mọi phiên đang mở trên bàn (không phụ thuộc StoreId lệch).
         var closed = await db.PosResourceSessions
             .Where(s => s.ResourceId == id && s.Deleted == null
@@ -1902,8 +1935,11 @@ public partial class PosSellIndustryController(
         var draftsRemoved = 0;
         if (emptyDraftIds.Count > 0)
         {
+            // Xét lại lúc ghi: chỉ xóa đơn còn là đơn tạm và vẫn trống (máy khác vừa thêm món thì giữ).
             draftsRemoved = await db.PosSaleOrders
-                .Where(o => emptyDraftIds.Contains(o.Id) && o.StoreId == storeId)
+                .Where(o => emptyDraftIds.Contains(o.Id) && o.StoreId == storeId
+                    && o.Status == PosSaleOrderStatus.Draft && o.Deleted == null
+                    && !o.Lines.Any(l => l.Deleted == null))
                 .ExecuteUpdateAsync(o => o
                     .SetProperty(x => x.Deleted, now)
                     .SetProperty(x => x.DeletedBy, by)

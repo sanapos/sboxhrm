@@ -5,8 +5,10 @@ namespace ZKTecoADMS.Api.Controllers;
 public partial class PosSalesController
 {
     /// <summary>Một dòng trong bản giỏ máy bán nhận từ server lần đồng bộ gần nhất (nền để gộp 3 chiều).</summary>
+    /// <param name="KitchenSentQty">Số đã báo bếp máy thấy lúc đồng bộ (null = app cũ không gửi).</param>
     public record BaseLineDto(
-        Guid? Id, Guid ProductId, Guid? VariantId, string? ToppingsJson, string? LineNote, decimal Qty);
+        Guid? Id, Guid ProductId, Guid? VariantId, string? ToppingsJson, string? LineNote, decimal Qty,
+        decimal? KitchenSentQty = null);
 
     public record DraftMergeResult(List<SaleLineDto> Lines, int MergedKeys);
 
