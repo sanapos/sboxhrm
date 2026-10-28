@@ -4746,7 +4746,8 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     return 'Chi nhánh';
   }
 
-  Widget _buildMobileQuickActionsGrid(BuildContext context) {
+  /// Ô «Truy cập nhanh» (điện thoại / web hẹp) theo cấu hình người dùng.
+  List<_HomeTileData> _mobileQuickActions(BuildContext context) {
     final authUser =
         Provider.of<AuthProvider>(context, listen: false).user;
     final perm = Provider.of<PermissionProvider>(context, listen: false);
@@ -4774,38 +4775,33 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     final modules = MobileQuickActionsPrefs.layout
         .normalized(allowedModules: allowed)
         .modules
-        .where((c) => c.isNotEmpty)
-        .toList(growable: false);
-    PosMobileHubGridItem? tileFor(String code) {
+        .where((c) => c.isNotEmpty);
+    final tiles = <_HomeTileData>[];
+    for (final code in modules) {
       final def = MobileQuickActionsCatalog.map[code];
-      if (def == null) return null;
-      return PosMobileHubGridItem(
+      if (def == null) continue;
+      final idx = widget.navItems.indexWhere((n) => n.moduleCode == code);
+      tiles.add(_HomeTileData(
         label: def.label,
         icon: def.icon,
+        // Cùng tông với nhóm của chức năng trên Trang chủ.
+        tint: idx >= 0
+            ? _HomeMenuScreen.tintOf(
+                _HomeMenuScreen.homeGroupOf(widget.navItems[idx]))
+            : _HomeMenuScreen.tintOf('Bán hàng'),
         onTap: () {
           if (widget.onModuleTap != null) {
             widget.onModuleTap!(code);
             return;
           }
-          final idx =
-              widget.navItems.indexWhere((n) => n.moduleCode == code);
           if (idx >= 0) widget.onItemTap(idx);
         },
-      );
+      ));
     }
-
-    final items = modules
-        .map(tileFor)
-        .whereType<PosMobileHubGridItem>()
-        .toList(growable: false);
-    if (items.isEmpty) return const SizedBox.shrink();
-
-    return PosMobileHubSectionGrid(
-      title: 'Truy cập nhanh',
-      items: items,
-    );
+    return tiles;
   }
 
+  /// Điện thoại / web hẹp: lời chào + truy cập nhanh + chip nhóm + từng nhóm dạng lưới icon.
   Widget _buildMobileKiotHome(
     BuildContext context,
     User? user,
@@ -4815,78 +4811,145 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     final groupNames = _HomeMenuScreen._groupOrder
         .where((g) => groupedItems.containsKey(g))
         .toList(growable: false);
-
-    List<PosMobileHubGridItem> itemsFor(String groupName) =>
-        groupedItems[groupName]!
-            .map(
-              (entry) => PosMobileHubGridItem(
-                label: entry.value.localizedLabel(l),
-                icon: entry.value.activeIcon,
-                onTap: () => widget.onItemTap(entry.key),
-              ),
-            )
-            .toList();
-
-    final hPad = kIsWeb ? 20.0 : 12.0;
-    final maxContent = kIsWeb ? 1180.0 : double.infinity;
-
-    final scroll = CustomScrollView(
-      controller: _scrollController,
-      key: const PageStorageKey<String>('home_menu_scroll'),
-      cacheExtent: 800,
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(hPad, kIsWeb ? 16 : 8, hPad, 0),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              RepaintBoundary(
-                child: PosMobileProfileCard(
-                  name: user?.fullName ?? 'User',
-                  subtitle: _profileSubtitle(user),
-                ),
-              ),
-              const SizedBox(height: 12),
-              RepaintBoundary(child: _buildMobileQuickActionsGrid(context)),
-            ]),
-          ),
-        ),
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 28),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final groupName = groupNames[index];
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index == groupNames.length - 1 ? 0 : 12,
-                  ),
-                  child: RepaintBoundary(
-                    child: PosMobileHubSectionGrid(
-                      title: NavItem._groupMap[groupName]?.call(l) ??
-                          tr(groupName),
-                      items: itemsFor(groupName),
-                    ),
-                  ),
-                );
-              },
-              childCount: groupNames.length,
-            ),
-          ),
-        ),
-      ],
-    );
+    String groupTitle(String g) => tr(NavItem._groupMap[g]?.call(l) ?? g);
+    final quick = _mobileQuickActions(context);
+    final name = (user?.fullName ?? '').trim().isEmpty
+        ? 'User'
+        : user!.fullName.trim();
 
     return ColoredBox(
-      color: PosTheme.background,
-      child: !kIsWeb
-          ? scroll
-          : Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxContent),
-                child: scroll,
-              ),
+      color: SboxColors.page,
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        key: const PageStorageKey<String>('home_menu_scroll'),
+        padding: const EdgeInsets.fromLTRB(
+            SboxSpace.lg, SboxSpace.lg, SboxSpace.lg, SboxSpace.xxl),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ═══════════════ LỜI CHÀO + TÀI KHOẢN ═══════════════
+                InkWell(
+                  borderRadius: SboxRadius.lgAll,
+                  onTap: () => NavigationNotifier.goToModule('Settings'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: SboxSpace.xs),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor: SboxColors.brand50,
+                          child: Text(
+                            name[0].toUpperCase(),
+                            style: SboxType.titleStyle(SboxColors.brand700)
+                                .copyWith(fontWeight: SboxType.bold),
+                          ),
+                        ),
+                        const SizedBox(width: SboxSpace.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${tr(_greeting)},',
+                                style:
+                                    SboxType.captionStyle(SboxColors.textMuted),
+                              ),
+                              Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: SboxType.titleStyle()
+                                    .copyWith(fontWeight: SboxType.bold),
+                              ),
+                              Text(
+                                tr(_profileSubtitle(user)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: SboxType.smallStyle(SboxColors.textMuted),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: tr('Đăng xuất'),
+                          onPressed: () => showPosLogoutDialog(context),
+                          icon: const Icon(Icons.logout,
+                              color: SboxColors.danger, size: 22),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                if (quick.isNotEmpty) ...[
+                  const SizedBox(height: SboxSpace.lg),
+                  _HomeGridSection(
+                    title: tr('Truy cập nhanh'),
+                    icon: Icons.bolt_rounded,
+                    tint: (SboxColors.brand700, SboxColors.brand50),
+                    tiles: quick,
+                  ),
+                ],
+
+                const SizedBox(height: SboxSpace.lg),
+
+                // ═══════════════ CHIP NHÓM: bấm để cuộn tới nhóm ═══════════════
+                SizedBox(
+                  height: 40,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: groupNames.length,
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(width: SboxSpace.sm),
+                    itemBuilder: (context, i) {
+                      final groupName = groupNames[i];
+                      final (fg, bg) = _HomeMenuScreen.tintOf(groupName);
+                      return _GroupJumpChip(
+                        icon: _HomeMenuScreen._groupIcons[groupName] ??
+                            Icons.folder,
+                        label: groupTitle(groupName),
+                        count: groupedItems[groupName]!.length,
+                        fg: fg,
+                        bg: bg,
+                        onTap: () => _scrollToGroup(groupName),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: SboxSpace.md),
+
+                for (final groupName in groupNames)
+                  RepaintBoundary(
+                    key: _groupKeys.putIfAbsent(groupName, GlobalKey.new),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: SboxSpace.md),
+                      child: _HomeGridSection(
+                        title: groupTitle(groupName),
+                        icon: _HomeMenuScreen._groupIcons[groupName] ??
+                            Icons.folder,
+                        tint: _HomeMenuScreen.tintOf(groupName),
+                        count: groupedItems[groupName]!.length,
+                        tiles: [
+                          for (final entry in groupedItems[groupName]!)
+                            _HomeTileData(
+                              label: entry.value.localizedLabel(l),
+                              icon: entry.value.activeIcon,
+                              tint: _HomeMenuScreen.tintOf(groupName),
+                              onTap: () => widget.onItemTap(entry.key),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -4960,8 +5023,8 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       groupedItems[group]!.add(MapEntry(i, item));
     }
 
-    // Web + mobile: cùng layout Kiot (profile + lưới section).
-    if (isMobile || kIsWeb) {
+    // Điện thoại / web hẹp: lưới icon; web rộng dùng chung bố cục với C20 / máy tính.
+    if (isMobile) {
       return _buildMobileKiotHome(context, user, groupedItems);
     }
 
@@ -5276,6 +5339,142 @@ class _HomeMenuSkeleton extends StatelessWidget {
           group(columns * 2),
           group(columns),
         ],
+      ),
+    );
+  }
+}
+
+class _HomeTileData {
+  final String label;
+  final IconData icon;
+
+  /// (màu icon, nền icon).
+  final (Color, Color) tint;
+  final VoidCallback onTap;
+
+  const _HomeTileData({
+    required this.label,
+    required this.icon,
+    required this.tint,
+    required this.onTap,
+  });
+}
+
+/// Khối nhóm trên Trang chủ điện thoại: tiêu đề + lưới ô icon.
+class _HomeGridSection extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final (Color, Color) tint;
+  final int? count;
+  final List<_HomeTileData> tiles;
+
+  const _HomeGridSection({
+    required this.title,
+    required this.icon,
+    required this.tint,
+    required this.tiles,
+    this.count,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final (fg, bg) = tint;
+    return Container(
+      decoration: BoxDecoration(
+        color: SboxColors.surface,
+        borderRadius: SboxRadius.lgAll,
+        border: Border.all(color: SboxColors.border),
+      ),
+      padding: const EdgeInsets.fromLTRB(
+          SboxSpace.md, SboxSpace.md, SboxSpace.md, SboxSpace.xs),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration:
+                    BoxDecoration(color: bg, borderRadius: SboxRadius.smAll),
+                child: Icon(icon, size: 16, color: fg),
+              ),
+              const SizedBox(width: SboxSpace.sm),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: SboxType.titleSmStyle(),
+                ),
+              ),
+              if (count != null)
+                Text('$count', style: SboxType.captionStyle()),
+            ],
+          ),
+          const SizedBox(height: SboxSpace.sm),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              final cols = w >= 640
+                  ? 6
+                  : w >= 480
+                      ? 5
+                      : w >= 280
+                          ? 4
+                          : 3;
+              final tileWidth = w / cols;
+              return Wrap(
+                children: [
+                  for (final t in tiles)
+                    SizedBox(width: tileWidth, child: _HomeGridTile(data: t)),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeGridTile extends StatelessWidget {
+  final _HomeTileData data;
+
+  const _HomeGridTile({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final (fg, bg) = data.tint;
+    return InkWell(
+      onTap: data.onTap,
+      borderRadius: SboxRadius.mdAll,
+      child: SizedBox(
+        height: 96,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: SboxSpace.xxs, vertical: SboxSpace.sm),
+          child: Column(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration:
+                    BoxDecoration(color: bg, borderRadius: SboxRadius.mdAll),
+                child: Icon(data.icon, size: 22, color: fg),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                tr(data.label),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: SboxType.captionStyle(SboxColors.text)
+                    .copyWith(height: 1.25),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
