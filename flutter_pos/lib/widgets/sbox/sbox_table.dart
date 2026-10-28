@@ -430,7 +430,7 @@ class SboxPager extends StatelessWidget {
 }
 
 /// Thanh tìm kiếm + bộ lọc + nút, tự xuống dòng trên màn hẹp.
-class SboxFilterBar extends StatelessWidget {
+class SboxFilterBar extends StatefulWidget {
   const SboxFilterBar({
     super.key,
     this.searchHint = 'Tìm kiếm',
@@ -438,6 +438,8 @@ class SboxFilterBar extends StatelessWidget {
     this.searchController,
     this.filters = const [],
     this.actions = const [],
+    this.collapseFilters = false,
+    this.activeFilterCount = 0,
   });
 
   final String searchHint;
@@ -446,16 +448,114 @@ class SboxFilterBar extends StatelessWidget {
   final List<Widget> filters;
   final List<Widget> actions;
 
+  /// Gom [filters] vào một nút «Bộ lọc (n)» — bấm mới mở bảng lọc trượt từ trái
+  /// (màn danh sách · chi tiết trên T1/tablet).
+  final bool collapseFilters;
+
+  /// Số bộ lọc đang khác mặc định — hiện trên nút khi [collapseFilters].
+  final int activeFilterCount;
+
+  @override
+  State<SboxFilterBar> createState() => _SboxFilterBarState();
+}
+
+class _SboxFilterBarState extends State<SboxFilterBar> {
+  /// Bảng lọc đang mở dựng lại theo bộ lọc mới mỗi lần màn cha rebuild.
+  late final _panel = ValueNotifier<SboxFilterBar>(widget);
+
+  @override
+  void didUpdateWidget(covariant SboxFilterBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _panel.value = widget;
+    });
+  }
+
+  @override
+  void dispose() {
+    _panel.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openPanel() {
+    return showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: tr('Bộ lọc'),
+      barrierColor: Colors.black26,
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (ctx, _, __) => Align(
+        alignment: Alignment.centerLeft,
+        child: Material(
+          color: SboxColors.surface,
+          elevation: 8,
+          child: SizedBox(
+            width: 380,
+            height: double.infinity,
+            child: SafeArea(
+              child: ValueListenableBuilder<SboxFilterBar>(
+                valueListenable: _panel,
+                builder: (_, w, __) {
+                  final n = w.activeFilterCount;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                        child: Row(children: [
+                          const Icon(Icons.filter_list, color: SboxColors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              tr(n > 0 ? 'Bộ lọc ($n)' : 'Bộ lọc'),
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: tr('Đóng'),
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
+                        ]),
+                      ),
+                      const Divider(height: 1, color: SboxColors.border),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                          child: Wrap(
+                            spacing: SboxSpace.sm,
+                            runSpacing: 12,
+                            children: w.filters,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+      transitionBuilder: (ctx, anim, _, child) => SlideTransition(
+        position: Tween(begin: const Offset(-1, 0), end: Offset.zero)
+            .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+        child: child,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final w = widget;
     final search = SizedBox(
       height: SboxSize.control,
       child: TextField(
-        controller: searchController,
-        onChanged: onSearch,
+        controller: w.searchController,
+        onChanged: w.onSearch,
         style: SboxType.bodyStyle(),
         decoration: InputDecoration(
-          hintText: tr(searchHint),
+          hintText: tr(w.searchHint),
           prefixIcon: const Icon(Icons.search_rounded, size: 20),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
@@ -463,22 +563,46 @@ class SboxFilterBar extends StatelessWidget {
     );
     return LayoutBuilder(builder: (context, c) {
       final narrow = c.maxWidth < 720;
+      if (w.collapseFilters && w.filters.isNotEmpty && !narrow) {
+        final n = w.activeFilterCount;
+        final on = n > 0;
+        return Row(children: [
+          SizedBox(width: math.min(360, c.maxWidth * 0.4), child: search),
+          const SizedBox(width: SboxSpace.sm),
+          SizedBox(
+            height: SboxSize.control,
+            child: OutlinedButton.icon(
+              onPressed: _openPanel,
+              icon: const Icon(Icons.filter_list, size: 20),
+              label: Text(tr(on ? 'Bộ lọc ($n)' : 'Bộ lọc')),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: on ? SboxColors.primary : SboxColors.text,
+                backgroundColor: on ? SboxColors.primarySoft : null,
+                side: BorderSide(color: on ? SboxColors.primary : SboxColors.borderStrong),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+              ),
+            ),
+          ),
+          const Spacer(),
+          if (w.actions.isNotEmpty) Wrap(spacing: SboxSpace.sm, children: w.actions),
+        ]);
+      }
       if (narrow) {
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           search,
-          if (filters.isNotEmpty || actions.isNotEmpty) ...[
+          if (w.filters.isNotEmpty || w.actions.isNotEmpty) ...[
             const SizedBox(height: SboxSpace.sm),
-            Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.sm, children: [...filters, ...actions]),
+            Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.sm, children: [...w.filters, ...w.actions]),
           ],
         ]);
       }
       return Row(children: [
         SizedBox(width: math.min(360, c.maxWidth * 0.4), child: search),
         const SizedBox(width: SboxSpace.sm),
-        Expanded(child: Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.sm, children: filters)),
-        if (actions.isNotEmpty) ...[
+        Expanded(child: Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.sm, children: w.filters)),
+        if (w.actions.isNotEmpty) ...[
           const SizedBox(width: SboxSpace.sm),
-          Wrap(spacing: SboxSpace.sm, children: actions),
+          Wrap(spacing: SboxSpace.sm, children: w.actions),
         ],
       ]);
     });

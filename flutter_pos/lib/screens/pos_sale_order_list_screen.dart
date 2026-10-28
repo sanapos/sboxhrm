@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../utils/pos_list_prefs.dart';
 import '../utils/pos_shipping_label_print.dart';
 import '../models/pos_einvoice.dart';
 import '../utils/pos_einvoice_actions.dart';
@@ -27,6 +28,7 @@ import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_kiot_time_filter.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
+import '../widgets/pos/pos_master_detail_layout.dart';
 import '../widgets/pos/pos_hub_scope.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
@@ -168,6 +170,15 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     }
     ScreenRefreshNotifier.posSaleOrders.addListener(_onExternalRefresh);
     _load();
+    _restoreSort();
+  }
+
+  /// Lấy lại cách sắp xếp đã chọn lần trước trên máy này.
+  Future<void> _restoreSort() async {
+    final v = await PosListPrefs.loadSort('sale_orders');
+    if (!mounted || v == null || v == _sort || !_sortLabels.containsKey(v)) return;
+    setState(() => _sort = v);
+    _load();
   }
 
   void _onExternalRefresh() {
@@ -178,6 +189,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   void dispose() {
     ScreenRefreshNotifier.posSaleOrders.removeListener(_onExternalRefresh);
     _searchCtrl.dispose();
+    _uiTick.dispose();
     super.dispose();
   }
 
@@ -206,6 +218,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       isDelivery: _isDeliveryFilter,
       from: _timeFilter.from,
       to: _timeFilter.to,
+      sort: _sort,
       page: page,
       pageSize: _pageSize,
     );
@@ -1022,7 +1035,12 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     var n = 0;
     if (_paymentMethod != null) n++;
     if (_isDeliveryFilter != null) n++;
-    if (_statusFilter.length < 3) n++;
+    // Mặc định Hoàn thành + Đã hủy — chỉ đếm khi người dùng đổi khác mặc định.
+    if (!(_statusFilter.length == 2 &&
+        _statusFilter.contains('Completed') &&
+        _statusFilter.contains('Cancelled'))) {
+      n++;
+    }
     return n;
   }
 
@@ -1189,6 +1207,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         perm.canEdit('PosSaleOrders') || perm.canEdit('PosProducts');
     final mobile = posUseMobileList(context);
     final inHub = PosHubScope.of(context);
+    _md = !mobile && MediaQuery.sizeOf(context).width >= 1100;
 
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
@@ -1251,7 +1270,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             ),
           if (mobile) _buildMobileSummaryCard(),
           Expanded(
-            child: PosResponsiveFilterLayout(
+            child: _md
+                ? _buildMasterDetail(canEdit)
+                : PosResponsiveFilterLayout(
               filterPanel: PosPurchaseFilterPanel(child: _buildFilterPanel()),
               child: Column(
                 children: [
@@ -1297,6 +1318,368 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   ),
                   _buildPager(),
                 ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Màn ngang rộng (T1, tablet, web): danh sách bên trái · chi tiết bên phải ──
+  // Bộ lọc thu vào nút trên thanh tiêu đề (panel trượt) — trước đây cột lọc chiếm thường trực.
+  bool _md = false;
+  PosSaleOrder? _selectedSummary;
+  /// Panel lọc dựng một lần — mỗi setState báo panel vẽ lại để ô tích / radio hiện đúng.
+  final _uiTick = ValueNotifier<int>(0);
+
+  @override
+  void setState(VoidCallback fn) {
+    super.setState(fn);
+    _uiTick.value++;
+  }
+
+  Future<void> _selectOrder(PosSaleOrder o) async {
+    if (_expandedId == o.id) return;
+    _selectedSummary = o;
+    await _toggleExpand(o);
+  }
+
+  void _closeOrderDetail() {
+    _selectedSummary = null;
+    _collapseExpanded();
+  }
+
+  Future<void> _openFilterPanel() async {
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: tr('Bộ lọc'),
+      barrierColor: Colors.black26,
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (ctx, _, __) => Align(
+        alignment: Alignment.centerLeft,
+        child: Material(
+          color: Colors.white,
+          elevation: 8,
+          child: SizedBox(
+            width: 360,
+            height: double.infinity,
+            child: SafeArea(
+              child: ValueListenableBuilder<int>(
+                valueListenable: _uiTick,
+                builder: (_, __, ___) {
+                  final n = _activeFilterCount;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.filter_list, color: PosTheme.kiotBlue),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                tr(n > 0 ? 'Bộ lọc ($n)' : 'Bộ lọc'),
+                                style: const TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            if (n > 0)
+                              TextButton(
+                                onPressed: _resetFilters,
+                                child: Text(tr('Xóa lọc')),
+                              ),
+                            IconButton(
+                              tooltip: tr('Đóng'),
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.pop(ctx),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1, color: PosTheme.border),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                          child: _buildFilterPanel(),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+      transitionBuilder: (ctx, anim, _, child) => SlideTransition(
+        position: Tween(begin: const Offset(-1, 0), end: Offset.zero)
+            .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+        child: child,
+      ),
+    );
+  }
+
+  /// Sắp xếp danh sách (server): time_desc | time_asc | total_desc | total_asc.
+  String _sort = 'time_desc';
+
+  static const _sortLabels = {
+    'time_desc': 'Mới nhất',
+    'time_asc': 'Cũ nhất',
+    'total_desc': 'Tổng tiền cao → thấp',
+    'total_asc': 'Tổng tiền thấp → cao',
+  };
+
+  /// Nút lọc ngay trên cột danh sách (khỏi với lên góc phải).
+  Widget _buildListFilterButton() {
+    final n = _activeFilterCount;
+    final on = n > 0;
+    return InkWell(
+      onTap: _openFilterPanel,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: on ? PosTheme.kiotBlueLight : null,
+          border: Border.all(color: on ? PosTheme.kiotBlue : PosTheme.border),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.filter_list, size: 18, color: PosTheme.kiotBlue),
+            if (on) ...[
+              const SizedBox(width: 4),
+              Text(
+                '$n',
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: PosTheme.kiotBlue),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSortButton() {
+    final byTotal = _sort.startsWith('total');
+    return PopupMenuButton<String>(
+      tooltip: tr('Sắp xếp'),
+      onSelected: (v) {
+        if (v == _sort) return;
+        setState(() => _sort = v);
+        PosListPrefs.saveSort('sale_orders', v);
+        _load();
+      },
+      itemBuilder: (_) => [
+        for (final e in _sortLabels.entries)
+          PopupMenuItem(
+            value: e.key,
+            child: Row(
+              children: [
+                Expanded(child: Text(tr(e.value))),
+                if (e.key == _sort)
+                  const Icon(Icons.check, size: 18, color: PosTheme.kiotBlue),
+              ],
+            ),
+          ),
+      ],
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: _sort == 'time_desc' ? null : PosTheme.kiotBlueLight,
+          border: Border.all(
+              color: _sort == 'time_desc' ? PosTheme.border : PosTheme.kiotBlue),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(byTotal ? Icons.payments_outlined : Icons.schedule,
+                size: 18, color: PosTheme.kiotBlue),
+            const SizedBox(width: 2),
+            Icon(
+              _sort.endsWith('desc') ? Icons.arrow_downward : Icons.arrow_upward,
+              size: 16,
+              color: PosTheme.kiotBlue,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMasterDetail(bool canEdit) {
+    return PosMasterDetailLayout(
+      prefsKey: 'sale_orders',
+      initialFraction: 0.36,
+      minMasterWidth: 400,
+      master: ColoredBox(
+                color: Colors.white,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _searchCtrl,
+                              decoration: InputDecoration(
+                                hintText: tr('Tìm mã đơn, khách hàng…'),
+                                prefixIcon: const Icon(Icons.search, size: 20),
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                                filled: true,
+                                fillColor: Colors.white,
+                              ),
+                              onSubmitted: (_) => _load(),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildSortButton(),
+                          const SizedBox(width: 8),
+                          _buildListFilterButton(),
+                        ],
+                      ),
+                    ),
+                    _buildMobileSummaryCard(),
+                    Expanded(
+                      child: _loading
+                          ? const LoadingWidget()
+                          : _items.isEmpty
+                              ? Center(child: Text(tr('Chưa có đơn hàng')))
+                              : _buildGroupedList(canEdit),
+                    ),
+                    _buildPager(),
+                  ],
+                ),
+              ),
+      detail: _buildOrderDetailPane(canEdit),
+    );
+  }
+
+  Widget _buildOrderDetailPane(bool canEdit) {
+    final summary = _selectedSummary;
+    if (_expandedId == null || summary == null) {
+      return ColoredBox(
+        color: SboxColors.slate50,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.receipt_long_outlined,
+                  size: 56, color: SboxColors.slate400),
+              const SizedBox(height: 12),
+              Text(
+                tr('Chọn hóa đơn bên trái'),
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                tr('Chi tiết, lịch sử thanh toán và thao tác (in lại, trả hàng, hủy…) hiện ở đây'),
+                style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final o = _expandedDetail ?? summary;
+    final dt = o.saleDate ?? o.createdAt;
+    return ColoredBox(
+      color: SboxColors.slate50,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 8, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr(o.orderNo),
+                          style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w700,
+                            color: posSaleOrderAccentColor(o.status,
+                                fallback: PosTheme.kiotBlue),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          tr('${dt != null ? _dateFmt.format(dt.toLocal()) : '—'} · ${o.customerName ?? 'Khách lẻ'}'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 13, color: PosTheme.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  posSaleOrderStatusChip(o.status,
+                      returnStatus: o.returnStatus,
+                      returnedAmount: o.returnedAmount),
+                  const SizedBox(width: 16),
+                  Text(
+                    tr('${_moneyFmt.format(o.total)} đ'),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                  ),
+                  IconButton(
+                    tooltip: tr('Đóng'),
+                    icon: const Icon(Icons.close),
+                    onPressed: _closeOrderDetail,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Material(
+            color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Row(
+                children: [
+                  _detailTabBtn(0, 'Thông tin'),
+                  _detailTabBtn(1, 'Lịch sử thanh toán'),
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 1, color: PosTheme.border),
+          Expanded(
+            child: _detailLoading
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: _detailTab == 0
+                        ? _buildInfoTab(o, showTitle: false)
+                        : _buildPaymentsTab(o),
+                  ),
+          ),
+          // Thao tác ghim đáy — đơn dài vẫn thấy nút In / Trả hàng / Hủy không phải cuộn.
+          Material(
+            color: Colors.white,
+            child: Container(
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: PosTheme.border)),
+              ),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              child: _orderDetailActionBar(
+                _orderActionButtons(o, canEdit, desktopExtras: true),
               ),
             ),
           ),
@@ -1468,11 +1851,14 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   Widget _buildGroupedList(bool canEdit) {
     final groups = <String, List<PosSaleOrder>>{};
     final order = <String>[];
+    final byTotal = _sort.startsWith('total');
     for (final o in _items) {
       final dt = o.saleDate ?? o.createdAt;
-      final key = dt != null
-          ? DateFormat('yyyy-MM-dd').format(dt.toLocal())
-          : 'unknown';
+      final key = byTotal
+          ? 'all'
+          : dt != null
+              ? DateFormat('yyyy-MM-dd').format(dt.toLocal())
+              : 'unknown';
       if (!groups.containsKey(key)) {
         groups[key] = [];
         order.add(key);
@@ -1483,6 +1869,12 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final children = <Widget>[];
     for (final key in order) {
       final list = groups[key]!;
+      if (byTotal) {
+        for (final o in list) {
+          children.add(_buildKiotInvoiceTile(o, canEdit));
+        }
+        continue;
+      }
       final label = _dayHeaderLabel(key);
       final dayNet = _daySalesTotal(list);
       final dayReturn = _dayReturnTotal(list);
@@ -1517,7 +1909,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         ),
       );
       for (final o in list) {
-        if (posUseMobileList(context)) {
+        if (posUseMobileList(context) || _md) {
           children.add(_buildKiotInvoiceTile(o, canEdit));
         } else {
           children.add(_buildOrderBlock(o, canEdit));
@@ -1824,7 +2216,90 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     );
   }
 
+  /// Khách lẻ ghi sẵn «Bán cho người tiêu dùng» — không lặp ở mỗi dòng danh sách.
+  static bool _isWalkInName(String? name) {
+    final n = (name ?? '').trim().toLowerCase();
+    return n.isEmpty ||
+        n == 'khách lẻ' ||
+        n == 'bán cho người tiêu dùng' ||
+        n == 'người tiêu dùng';
+  }
+
+  /// Dòng danh sách màn rộng: mã đơn + tổng tiền / giờ · thanh toán · khách + trạng thái.
+  Widget _buildMdInvoiceRow(PosSaleOrder o) {
+    final selected = _expandedId == o.id;
+    final cancelled = o.status == 'Cancelled';
+    final dt = o.saleDate ?? o.createdAt;
+    final meta = [
+      if (dt != null) DateFormat('HH:mm').format(dt.toLocal()),
+      _paymentMethodLabel(o.paymentMethod),
+      if (!_isWalkInName(o.customerName)) o.customerName!.trim(),
+    ].where((e) => e.isNotEmpty).join(' · ');
+    return Material(
+      color: selected ? PosTheme.kiotBlueLight : posSaleOrderRowBackground(o.status),
+      child: InkWell(
+        onTap: () => _selectOrder(o),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: selected ? PosTheme.kiotBlue : Colors.transparent,
+                width: 3,
+              ),
+              bottom: const BorderSide(color: PosTheme.border),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(13, 10, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      tr(o.orderNo),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: posSaleOrderAccentColor(o.status,
+                            fallback: PosTheme.textPrimary),
+                        decoration: cancelled ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildOrderTotalColumn(o),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      tr(meta),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 12.5, color: PosTheme.textSecondary),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  posSaleOrderStatusChip(o.status,
+                      returnStatus: o.returnStatus,
+                      returnedAmount: o.returnedAmount),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildKiotInvoiceTile(PosSaleOrder o, bool canEdit) {
+    if (_md) return _buildMdInvoiceRow(o);
     final dt = o.saleDate ?? o.createdAt;
     final timeStr =
         dt != null ? DateFormat('dd/MM/yyyy HH:mm', 'vi_VN').format(dt.toLocal()) : '—';
@@ -1832,10 +2307,26 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final isCancelled = o.status == 'Cancelled';
 
     return Material(
-      color: posSaleOrderRowBackground(o.status),
+      color: _md && _expandedId == o.id
+          ? PosTheme.kiotBlueLight
+          : posSaleOrderRowBackground(o.status),
       child: InkWell(
-        onTap: () => _showMobileOrderDetail(o, canEdit),
-        child: Padding(
+        onTap: () => _md ? _selectOrder(o) : _showMobileOrderDetail(o, canEdit),
+        child: Container(
+          // Màn rộng: dòng đang xem có vạch xanh bên trái, chi tiết nằm cột phải.
+          decoration: _md
+              ? BoxDecoration(
+                  border: Border(
+                    left: BorderSide(
+                      color: _expandedId == o.id
+                          ? PosTheme.kiotBlue
+                          : Colors.transparent,
+                      width: 3,
+                    ),
+                    bottom: const BorderSide(color: PosTheme.border),
+                  ),
+                )
+              : null,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1929,6 +2420,10 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
 
   /// Server lưu mã tiếng Anh (Cash / Transfer…) — hiển thị tên tiếng Việt.
   static String _paymentMethodLabel(String raw) {
+    // Nhiều hình thức: «Cash + BankTransfer» → «Tiền mặt + Chuyển khoản».
+    if (raw.contains('+')) {
+      return raw.split('+').map((e) => _paymentMethodLabel(e)).join(' + ');
+    }
     switch (raw.trim().toLowerCase()) {
       case 'cash':
         return 'Tiền mặt';
@@ -2211,10 +2706,10 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     );
   }
 
-  Widget _buildInfoTab(PosSaleOrder o) {
+  Widget _buildInfoTab(PosSaleOrder o, {bool showTitle = true}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
-      child: PosSaleOrderReceiptView(order: o),
+      child: PosSaleOrderReceiptView(order: o, showTitle: showTitle),
     );
   }
 

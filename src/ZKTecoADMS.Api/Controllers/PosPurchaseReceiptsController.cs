@@ -77,6 +77,7 @@ public class PosPurchaseReceiptsController(
         [FromQuery] string? inputInvoiceNo,
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
+        [FromQuery] string? sort,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
@@ -92,8 +93,11 @@ public class PosPurchaseReceiptsController(
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
+            // Cả tên / mã hàng trong phiếu: «tìm phiếu đã nhập Bánh QA».
             query = query.Where(r => VnSearch.Has(r.ReceiptNo, s) ||
-                                     (r.Note != null && VnSearch.Has(r.Note, s)));
+                                     (r.Note != null && VnSearch.Has(r.Note, s)) ||
+                                     r.Lines.Any(l => l.Product != null &&
+                                         (VnSearch.Has(l.Product.Name, s) || VnSearch.Has(l.Product.ProductCode, s))));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {
@@ -116,8 +120,16 @@ public class PosPurchaseReceiptsController(
         if (to.HasValue) query = query.Where(r => (r.ImportDate ?? r.CreatedAt) < to.Value.Date.AddDays(1));
 
         var total = await query.CountAsync();
-        var items = await query
-            .OrderByDescending(r => r.ImportDate ?? r.CreatedAt)
+        // sort: time_desc (mặc định) | time_asc | value_desc | value_asc | no_asc.
+        var ordered = sort switch
+        {
+            "time_asc" => query.OrderBy(r => r.ImportDate ?? r.CreatedAt),
+            "value_desc" => query.OrderByDescending(r => r.TotalCost).ThenByDescending(r => r.ImportDate ?? r.CreatedAt),
+            "value_asc" => query.OrderBy(r => r.TotalCost).ThenByDescending(r => r.ImportDate ?? r.CreatedAt),
+            "no_asc" => query.OrderBy(r => r.ReceiptNo),
+            _ => query.OrderByDescending(r => r.ImportDate ?? r.CreatedAt),
+        };
+        var items = await ordered
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(r => new ReceiptSummaryDto(

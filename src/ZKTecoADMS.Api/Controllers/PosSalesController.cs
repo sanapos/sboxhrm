@@ -1642,6 +1642,7 @@ public partial class PosSalesController(
         [FromQuery] bool? hasVoucher,
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
+        [FromQuery] string? sort,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
@@ -1727,10 +1728,16 @@ public partial class PosSalesController(
         // Tổng tiền HĐ hoàn thành theo đúng bộ lọc đang xem (thẻ tóm tắt danh sách).
         var completedTotal = await query.Where(o => o.Status == PosSaleOrderStatus.Completed)
             .SumAsync(o => (decimal?)o.Total) ?? 0m;
-        var rows = await query
+        // sort: time_desc (mặc định) | time_asc | total_desc | total_asc.
+        var ordered = sort switch
+        {
+            "time_asc" => query.OrderBy(o => o.SaleDate ?? o.CreatedAt).ThenBy(o => o.OrderNo),
+            "total_desc" => query.OrderByDescending(o => o.Total).ThenByDescending(o => o.SaleDate ?? o.CreatedAt),
+            "total_asc" => query.OrderBy(o => o.Total).ThenByDescending(o => o.SaleDate ?? o.CreatedAt),
+            _ => query.OrderByDescending(o => o.SaleDate ?? o.CreatedAt).ThenByDescending(o => o.OrderNo),
+        };
+        var rows = await ordered
             .Include(o => o.Lines)
-            .OrderByDescending(o => o.SaleDate ?? o.CreatedAt)
-            .ThenByDescending(o => o.OrderNo)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();

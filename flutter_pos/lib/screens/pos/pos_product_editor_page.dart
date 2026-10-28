@@ -47,7 +47,20 @@ class PosProductEditorPage extends StatefulWidget {
     this.openUnitSetup = false,
     this.unitSetupAddMore = false,
     this.unitSetupFocusVariantId,
+    this.embedded = false,
+    this.onSaved,
+    this.onClose,
+    this.handle,
   });
+
+  /// Nhúng làm khung chi tiết bên phải màn Hàng hóa (màn ngang) — không bọc Dialog, không tự pop.
+  final bool embedded;
+  /// [embedded]: lưu xong báo id hàng; [copy] = bấm «Lưu & sao chép» (mở bản sao từ hàng vừa lưu).
+  final void Function(String? productId, {required bool copy})? onSaved;
+  /// [embedded]: «Bỏ qua» / X — màn cha đóng khung chi tiết.
+  final VoidCallback? onClose;
+  /// Màn cha hỏi «còn sửa chưa lưu?» trước khi đổi sang hàng khác.
+  final PosProductEditorHandle? handle;
 
   final PosProductType productType;
   final PosProduct? product;
@@ -203,6 +216,11 @@ class PosProductEditorPage extends StatefulWidget {
 
   @override
   State<PosProductEditorPage> createState() => _PosProductEditorPageState();
+}
+
+/// Cầu nối để màn danh sách đọc trạng thái form đang nhúng.
+class PosProductEditorHandle {
+  bool Function() isDirty = () => false;
 }
 
 class _VariantAttrRow {
@@ -516,6 +534,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   @override
   void initState() {
     super.initState();
+    widget.handle?.isDirty = () => _isDirty;
     _productType = widget.product?.productType ??
         widget.templateProduct?.productType ??
         widget.productType;
@@ -1119,7 +1138,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return _attributeValues.map((a) => a.toInputJson()).toList();
   }
 
-  Future<void> _save({bool createAnother = false}) async {
+  Future<void> _save({bool createAnother = false, bool copyAfter = false}) async {
     if (_nameCtrl.text.trim().isEmpty) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
@@ -1381,7 +1400,15 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         title: 'Thành công',
         message: _isEditing ? 'Đã lưu hàng hóa' : 'Đã tạo hàng hóa',
       );
-      if (createAnother && !_isEditing) {
+      if (widget.embedded) {
+        _cleanSig = _formSig();
+        widget.onSaved?.call(
+          _isEditing
+              ? widget.product!.id
+              : (res['data'] as Map<String, dynamic>?)?['id']?.toString(),
+          copy: copyAfter,
+        );
+      } else if (createAnother && !_isEditing) {
         _resetForAnother();
         setState(() {});
         _cleanSig = _formSig();
@@ -1789,6 +1816,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) return _buildEmbeddedPanel();
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) {
@@ -1815,7 +1843,52 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   Future<void> _requestClose() async {
     if (_saving) return;
     if (_isDirty && !await confirmDiscardUnsavedChanges(context)) return;
-    if (mounted) Navigator.pop(context);
+    if (!mounted) return;
+    if (widget.embedded) {
+      widget.onClose?.call();
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
+  /// Khung chi tiết bên phải màn Hàng hóa: cùng nội dung form, không Dialog.
+  Widget _buildEmbeddedPanel() {
+    return Material(
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildKiotVietHeader(),
+          if (_tabLabels.length > 1) ...[
+            TabBar(
+              controller: _tabs,
+              labelColor: PosTheme.kiotBlue,
+              unselectedLabelColor: PosTheme.textSecondary,
+              indicatorColor: PosTheme.kiotBlue,
+              indicatorWeight: 3,
+              tabs: _tabLabels.map((t) => Tab(text: tr(t))).toList(),
+            ),
+            const Divider(height: 1),
+          ],
+          Expanded(
+            child: _loading
+                ? const Center(
+                    child: CircularProgressIndicator(color: PosTheme.kiotBlue))
+                : _tabLabels.length > 1
+                    ? TabBarView(
+                        controller: _tabs,
+                        children: [
+                          _buildTypeInfoTab(),
+                          _buildDescTab(),
+                        ],
+                      )
+                    : _buildTypeInfoTab(),
+          ),
+          const Divider(height: 1),
+          _buildKiotVietFooter(),
+        ],
+      ),
+    );
   }
 
   Widget _buildKiotVietDialog() {
@@ -1935,7 +2008,20 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         onPressed: _saving ? null : _requestClose,
         child: Text(tr('Bỏ qua')),
       ),
-      if (!_isEditing) ...[
+      if (widget.embedded) ...[
+        const SizedBox(width: 6),
+        // Lưu hàng đang sửa rồi mở ngay bản sao (đổi tên / mã là thành hàng mới).
+        OutlinedButton.icon(
+          onPressed: _saving ? null : () => _save(copyAfter: true),
+          icon: const Icon(Icons.copy_outlined, size: 18),
+          label: Text(tr('Lưu & sao chép')),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: PosTheme.kiotBlue,
+            side: const BorderSide(color: PosTheme.kiotBlue),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+      ] else if (!_isEditing) ...[
         const SizedBox(width: 6),
         OutlinedButton(
           onPressed: _saving ? null : () => _save(createAnother: true),

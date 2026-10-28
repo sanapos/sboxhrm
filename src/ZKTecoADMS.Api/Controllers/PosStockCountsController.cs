@@ -102,6 +102,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         [FromQuery] string? createdBy,
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
+        [FromQuery] string? sort,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
@@ -119,7 +120,9 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             query = query.Where(c => VnSearch.Has(c.CountNo, s) ||
                                      VnSearch.Has(c.Name, s) ||
-                                     (c.Note != null && VnSearch.Has(c.Note, s)));
+                                     (c.Note != null && VnSearch.Has(c.Note, s)) ||
+                                     c.Lines.Any(l => VnSearch.Has(l.ProductName, s) ||
+                                         (l.ProductCode != null && VnSearch.Has(l.ProductCode, s))));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {
@@ -138,8 +141,14 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         if (to.HasValue) query = query.Where(c => c.CreatedAt < to.Value.Date.AddDays(1));
 
         var total = await query.CountAsync();
-        var rows = await query
-            .OrderByDescending(c => c.CreatedAt)
+        // sort: time_desc (mặc định) | time_asc | no_asc.
+        var ordered = sort switch
+        {
+            "time_asc" => query.OrderBy(c => c.CreatedAt),
+            "no_asc" => query.OrderBy(c => c.CountNo),
+            _ => query.OrderByDescending(c => c.CreatedAt),
+        };
+        var rows = await ordered
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();

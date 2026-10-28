@@ -6,6 +6,7 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/warehouse/wh_doc_type.dart';
 import '../../widgets/warehouse/wh_mobile_components.dart';
 import '../../widgets/warehouse/wh_mobile_theme.dart';
+import '../pos_stock_transfer_screen.dart';
 import 'wh_mobile_list_screen.dart';
 import 'wh_mobile_nav.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
@@ -75,6 +76,14 @@ class WhMobileHubScreen extends StatelessWidget {
                   color: t.type.accentColor,
                   // Theo khổ màn (bảng trên máy POS ngang), giống khi vào từ «Nhiều hơn».
                   onTap: () => WhMobileNav.openList(context, t.type),
+                ),
+              if (perm.canView('PosProducts'))
+                WhHubTile(
+                  icon: Icons.local_shipping_outlined,
+                  label: 'Chuyển kho',
+                  color: const Color(0xFF0D9488),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => PosHubScope.pushed(child: const PosStockTransferScreen()))),
                 ),
             ],
           ),

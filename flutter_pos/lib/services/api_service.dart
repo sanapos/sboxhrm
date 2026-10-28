@@ -16976,11 +16976,13 @@ class ApiService {
     String? createdBy,
     DateTime? from,
     DateTime? to,
+    String? sort,
     int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (sort != null && sort.isNotEmpty) q['sort'] = sort;
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (statuses != null && statuses.isNotEmpty) {
         q['statuses'] = statuses.join(',');
@@ -17090,11 +17092,13 @@ class ApiService {
     String? issuedBy,
     DateTime? from,
     DateTime? to,
+    String? sort,
     int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (sort != null && sort.isNotEmpty) q['sort'] = sort;
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (statuses != null && statuses.isNotEmpty) {
         q['statuses'] = statuses.join(',');
@@ -17355,11 +17359,13 @@ class ApiService {
     String? inputInvoiceNo,
     DateTime? from,
     DateTime? to,
+    String? sort,
     int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (sort != null && sort.isNotEmpty) q['sort'] = sort;
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (statuses != null && statuses.isNotEmpty) {
         q['statuses'] = statuses.join(',');
@@ -17517,11 +17523,13 @@ class ApiService {
     String? returnedBy,
     DateTime? from,
     DateTime? to,
+    String? sort,
     int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (sort != null && sort.isNotEmpty) q['sort'] = sort;
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (statuses != null && statuses.isNotEmpty) {
         q['statuses'] = statuses.join(',');
@@ -17868,11 +17876,13 @@ class ApiService {
     bool? hasVoucher,
     DateTime? from,
     DateTime? to,
+    String? sort,
     int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (sort != null && sort.isNotEmpty) q['sort'] = sort;
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (statuses != null && statuses.isNotEmpty) {
         q['statuses'] = statuses.join(',');
@@ -20278,6 +20288,64 @@ class ApiService {
       return _connectionFailure(e);
     }
   }
+
+  // ── Chuyển kho giữa chi nhánh (/api/branch-ops) ─────────────────────────
+
+  Future<Map<String, dynamic>> _branchGet(String path, [Map<String, String>? q]) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/branch-ops/$path').replace(
+          queryParameters: q == null ? null : (Map.of(q)..removeWhere((k, v) => v.isEmpty)));
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> _branchPost(String path, [Object? body]) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/branch-ops/$path'),
+              headers: _headers, body: body == null ? null : json.encode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Chi nhánh người dùng được thao tác (usesBranches = false → cửa hàng chưa dùng chi nhánh).
+  Future<Map<String, dynamic>> getBranchContext() => _branchGet('context');
+
+  Future<Map<String, dynamic>> getBranchStock(
+          {String? branchId, String? search, String? filter, int page = 1, int pageSize = 100}) =>
+      _branchGet('stock', {
+        'branchId': branchId ?? '',
+        'search': search ?? '',
+        'filter': filter ?? '',
+        'page': '$page',
+        'pageSize': '$pageSize',
+      });
+
+  /// Tồn 1 mặt hàng ở từng chi nhánh người dùng được xem.
+  Future<Map<String, dynamic>> getBranchStockMatrix(String productId) =>
+      _branchGet('stock/matrix/$productId');
+
+  /// [status]: 0 nháp · 1 đang chuyển · 2 đã nhận · 3 đã hủy.
+  Future<Map<String, dynamic>> getStockTransfers({int? status, String? branchId}) =>
+      _branchGet('transfers', {'status': status?.toString() ?? '', 'branchId': branchId ?? ''});
+
+  Future<Map<String, dynamic>> getStockTransfer(String id) => _branchGet('transfers/$id');
+
+  Future<Map<String, dynamic>> createStockTransfer(Map<String, dynamic> body) =>
+      _branchPost('transfers', body);
+
+  Future<Map<String, dynamic>> sendStockTransfer(String id) => _branchPost('transfers/$id/send');
+
+  Future<Map<String, dynamic>> receiveStockTransfer(String id, {List<Map<String, dynamic>>? lines}) =>
+      _branchPost('transfers/$id/receive', {'lines': lines});
+
+  Future<Map<String, dynamic>> cancelStockTransfer(String id) => _branchPost('transfers/$id/cancel');
 
   // ── Bán offline ───────────────────────────────────────────────────────────
 

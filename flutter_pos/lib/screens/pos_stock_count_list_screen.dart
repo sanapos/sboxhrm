@@ -16,8 +16,10 @@ import '../widgets/notification_overlay.dart';
 import '../utils/pos_kiot_time_range.dart';
 import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/sbox/sbox_ui.dart';
+import '../utils/pos_list_prefs.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
+import '../widgets/pos/pos_master_detail_layout.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_stock_count_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
@@ -60,6 +62,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
   void initState() {
     super.initState();
     _load();
+    _restoreSort();
   }
 
   @override
@@ -91,6 +94,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
           : _createdByCtrl.text.trim(),
       from: _timeFilter.from,
       to: _timeFilter.to,
+      sort: _sort,
       page: page,
       pageSize: _pageSize,
     );
@@ -344,9 +348,15 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
 
   int get _moreFilterCount => [_createdByCtrl].where((c) => c.text.trim().isNotEmpty).length;
 
+  /// Số bộ lọc khác mặc định (đủ trạng thái, mọi NCC) — hiện trên nút «Bộ lọc (n)».
+  int get _activeFilterCount =>
+      (_statusFilter.length < 3 ? 1 : 0) + _moreFilterCount;
+
   Widget _buildFilterBar(bool canEdit) {
     return SboxFilterBar(
-      searchHint: 'Tìm mã KK, ghi chú…',
+      collapseFilters: _md,
+      activeFilterCount: _activeFilterCount,
+      searchHint: 'Tìm mã KK, tên hàng, ghi chú…',
       searchController: _searchCtrl,
       onSearch: _onSearchChanged,
       filters: [
@@ -388,6 +398,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
     }
     final canEdit = perm.canEdit('PosStockCounts');
     final mobile = posUseMobileList(context);
+    _md = !mobile && MediaQuery.sizeOf(context).width >= 1100;
 
     return Scaffold(
       backgroundColor: SboxColors.page,
@@ -413,15 +424,326 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              _buildTableHeader(),
-                              Expanded(child: _buildList(canEdit)),
+                              if (!_md) _buildTableHeader(),
+                              Expanded(
+                                  child: _md
+                                      ? _buildMdSplit(canEdit)
+                                      : _buildList(canEdit)),
                             ],
                           ),
+              ),
+            ),
+            if (!_md) _buildPager(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Màn ngang rộng (T1, tablet, web): danh sách phiếu bên trái · chi tiết bên phải ──
+  bool _md = false;
+  PosStockCount? _mdSelected;
+
+  Future<void> _mdSelect(PosStockCount c) async {
+    if (_expandedId == c.id) return;
+    _mdSelected = c;
+    await _toggleExpand(c);
+  }
+
+  /// Sắp xếp danh sách (server): time_desc | time_asc | value_desc | value_asc | no_asc.
+  String _sort = 'time_desc';
+
+  static const _sortLabels = {
+    'time_desc': 'Mới nhất',
+    'time_asc': 'Cũ nhất',
+    'no_asc': 'Theo mã phiếu',
+  };
+
+  String get _sortPrefsKey => 'stock_counts';
+
+  /// Lấy lại cách sắp xếp đã chọn lần trước trên máy này.
+  Future<void> _restoreSort() async {
+    final v = await PosListPrefs.loadSort(_sortPrefsKey);
+    if (!mounted || v == null || v == _sort || !_sortLabels.containsKey(v)) return;
+    setState(() => _sort = v);
+    _load();
+  }
+
+  Widget _buildSortButton() {
+    final on = _sort != 'time_desc';
+    return PopupMenuButton<String>(
+      tooltip: tr('Sắp xếp'),
+      onSelected: (v) {
+        if (v == _sort) return;
+        setState(() => _sort = v);
+        PosListPrefs.saveSort(_sortPrefsKey, v);
+        _load();
+      },
+      itemBuilder: (_) => [
+        for (final e in _sortLabels.entries)
+          PopupMenuItem(
+            value: e.key,
+            child: Row(
+              children: [
+                Expanded(child: Text(tr(e.value))),
+                if (e.key == _sort)
+                  const Icon(Icons.check, size: 18, color: PosTheme.kiotBlue),
+              ],
+            ),
+          ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.sort, size: 18, color: on ? PosTheme.kiotBlue : PosTheme.textSecondary),
+            const SizedBox(width: 4),
+            Text(
+              tr(_sortLabels[_sort] ?? ''),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: on ? PosTheme.kiotBlue : PosTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMdSplit(bool canEdit) {
+    return PosMasterDetailLayout(
+      prefsKey: 'stock_counts',
+      initialFraction: 0.36,
+      minMasterWidth: 380,
+      master: Material(
+        color: Colors.white,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: PosTheme.border)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      tr('$_total phiếu'),
+                      style: const TextStyle(
+                          fontSize: 12.5, color: PosTheme.textSecondary),
+                    ),
+                  ),
+                  _buildSortButton(),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _items.length,
+                itemBuilder: (_, i) => _buildMdRow(_items[i]),
               ),
             ),
             _buildPager(),
           ],
         ),
+      ),
+      detail: _buildMdDetail(canEdit),
+    );
+  }
+
+  Widget _buildMdRow(PosStockCount c) {
+    final selected = _expandedId == c.id;
+    final cancelled = c.status == 'Cancelled';
+    final dt = c.completedAt ?? c.createdAt;
+    return Material(
+      color: selected ? PosTheme.kiotBlueLight : Colors.white,
+      child: InkWell(
+        onTap: () => _mdSelect(c),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: selected ? PosTheme.kiotBlue : Colors.transparent,
+                width: 3,
+              ),
+              bottom: const BorderSide(color: PosTheme.border),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(13, 10, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      tr(c.countNo),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: cancelled ? Colors.red.shade700 : PosTheme.textPrimary,
+                        decoration: cancelled ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  stockCountStatusChip(c.status),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      tr(dt != null ? _dateFmt.format(dt.toLocal()) : ''),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 12.5, color: PosTheme.textSecondary),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    tr('SL thực tế ${_fmtQty(c.totalActualQty)}'),
+                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMdDetail(bool canEdit) {
+    final sel = _mdSelected;
+    if (_expandedId == null || sel == null) {
+      return ColoredBox(
+        color: SboxColors.slate50,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.inventory_2_outlined,
+                  size: 56, color: SboxColors.slate400),
+              const SizedBox(height: 12),
+              Text(
+                tr('Chọn phiếu kiểm kho bên trái'),
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                tr('Chi tiết hàng trong phiếu và thao tác (mở, hoàn thành, sao chép, hủy…) hiện ở đây'),
+                style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final c = _expandedDetail ?? sel;
+    final dt = c.completedAt ?? c.createdAt;
+    return ColoredBox(
+      color: SboxColors.slate50,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Thanh đầu: mã phiếu + trạng thái / ngày · NCC — giá trị chính bên phải.
+          Material(
+            color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 8, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                tr(c.countNo),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w700,
+                                  color: PosTheme.kiotBlue,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            stockCountStatusChip(c.status),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          tr([if (dt != null) _dateFmt.format(dt.toLocal()), 'Đã kiểm ${c.checkedCount}/${c.lineCount}'].join(' · ')),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 13, color: PosTheme.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        tr('Chênh lệch'),
+                        style: const TextStyle(
+                            fontSize: 12, color: PosTheme.textSecondary),
+                      ),
+                      Text(
+                        tr('${c.totalDiffQty >= 0 ? '+' : ''}${_fmtQty(c.totalDiffQty)}'),
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    tooltip: tr('Đóng'),
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      _mdSelected = null;
+                      _collapseExpanded();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 1, color: PosTheme.border),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+              child: _buildDetailPanel(sel, canEdit),
+            ),
+          ),
+          // Nút thao tác ghim đáy — không phải cuộn hết bảng hàng mới thấy.
+          if (!_detailLoading)
+            Material(
+              color: Colors.white,
+              child: Container(
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: PosTheme.border)),
+                ),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                child: _buildDetailActions(c, canEdit),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -642,7 +964,8 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
+          if (!_md)
+            Row(
             children: [
               Text(tr('Chi tiết phiếu'),
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
@@ -731,56 +1054,62 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (canEdit && c.status == 'InProgress')
-                FilledButton(
-                  onPressed: () => _openEditor(countId: c.id),
-                  style: FilledButton.styleFrom(backgroundColor: _blue),
-                  child: Text(tr('Mở phiếu')),
-                ),
-              if (canEdit && c.status == 'InProgress')
-                OutlinedButton.icon(
-                  onPressed: () => _completeCount(c),
-                  icon: const Icon(Icons.inventory_2_outlined, size: 16),
-                  label: Text(tr('Cân bằng kho')),
-                ),
-              if (canEdit)
-                OutlinedButton.icon(
-                  onPressed: () => _copyCount(c),
-                  icon: const Icon(Icons.copy, size: 16),
-                  label: Text(tr('Sao chép')),
-                ),
-              if (canEdit && c.status == 'InProgress')
-                OutlinedButton.icon(
-                  onPressed: () => _deleteCount(c),
-                  icon: const Icon(Icons.delete_outline, size: 16),
-                  label: Text(tr('Xóa')),
-                ),
-              if (canEdit && c.status == 'Completed')
-                OutlinedButton.icon(
-                  onPressed: () => _voidCompletedCount(c),
-                  icon: const Icon(Icons.cancel_outlined, size: 16),
-                  label: Text(tr('Hủy')),
-                ),
-              if (canEdit && c.status == 'Cancelled')
-                OutlinedButton.icon(
-                  onPressed: () => _deleteCount(c),
-                  icon: const Icon(Icons.delete_outline, size: 16),
-                  label: Text(tr('Xóa')),
-                ),
-              OutlinedButton.icon(
-                onPressed: () => _printCount(c),
-                icon: const Icon(Icons.print, size: 16),
-                label: Text(tr('In')),
-              ),
-            ],
-          ),
+          if (!_md) ...[
+            const SizedBox(height: 10),
+            _buildDetailActions(c, canEdit),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildDetailActions(PosStockCount c, bool canEdit) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (canEdit && c.status == 'InProgress')
+          FilledButton(
+            onPressed: () => _openEditor(countId: c.id),
+            style: FilledButton.styleFrom(backgroundColor: _blue),
+            child: Text(tr('Mở phiếu')),
+          ),
+        if (canEdit && c.status == 'InProgress')
+          OutlinedButton.icon(
+            onPressed: () => _completeCount(c),
+            icon: const Icon(Icons.inventory_2_outlined, size: 16),
+            label: Text(tr('Cân bằng kho')),
+          ),
+        if (canEdit)
+          OutlinedButton.icon(
+            onPressed: () => _copyCount(c),
+            icon: const Icon(Icons.copy, size: 16),
+            label: Text(tr('Sao chép')),
+          ),
+        if (canEdit && c.status == 'InProgress')
+          OutlinedButton.icon(
+            onPressed: () => _deleteCount(c),
+            icon: const Icon(Icons.delete_outline, size: 16),
+            label: Text(tr('Xóa')),
+          ),
+        if (canEdit && c.status == 'Completed')
+          OutlinedButton.icon(
+            onPressed: () => _voidCompletedCount(c),
+            icon: const Icon(Icons.cancel_outlined, size: 16),
+            label: Text(tr('Hủy')),
+          ),
+        if (canEdit && c.status == 'Cancelled')
+          OutlinedButton.icon(
+            onPressed: () => _deleteCount(c),
+            icon: const Icon(Icons.delete_outline, size: 16),
+            label: Text(tr('Xóa')),
+          ),
+        OutlinedButton.icon(
+          onPressed: () => _printCount(c),
+          icon: const Icon(Icons.print, size: 16),
+          label: Text(tr('In')),
+        ),
+      ],
     );
   }
 

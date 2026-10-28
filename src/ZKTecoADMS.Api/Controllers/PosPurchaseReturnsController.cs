@@ -56,6 +56,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
         [FromQuery] string? returnedBy,
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
+        [FromQuery] string? sort,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
@@ -71,7 +72,9 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
-            query = query.Where(r => VnSearch.Has(r.ReturnNo, s));
+            query = query.Where(r => VnSearch.Has(r.ReturnNo, s) ||
+                                     r.Lines.Any(l => VnSearch.Has(l.ProductName, s) ||
+                                         (l.ProductCode != null && VnSearch.Has(l.ProductCode, s))));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {
@@ -92,8 +95,16 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
         if (to.HasValue) query = query.Where(r => (r.ReturnDate ?? r.CreatedAt) < to.Value.Date.AddDays(1));
 
         var total = await query.CountAsync();
-        var items = await query
-            .OrderByDescending(r => r.ReturnDate ?? r.CreatedAt)
+        // sort: time_desc (mặc định) | time_asc | value_desc | value_asc | no_asc.
+        var ordered = sort switch
+        {
+            "time_asc" => query.OrderBy(r => r.ReturnDate ?? r.CreatedAt),
+            "value_desc" => query.OrderByDescending(r => r.TotalAmount).ThenByDescending(r => r.ReturnDate ?? r.CreatedAt),
+            "value_asc" => query.OrderBy(r => r.TotalAmount).ThenByDescending(r => r.ReturnDate ?? r.CreatedAt),
+            "no_asc" => query.OrderBy(r => r.ReturnNo),
+            _ => query.OrderByDescending(r => r.ReturnDate ?? r.CreatedAt),
+        };
+        var items = await ordered
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(r => new ReturnSummaryDto(

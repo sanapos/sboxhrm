@@ -20,6 +20,7 @@ import '../pos_products_screen.dart';
 import '../pos_sale_order_list_screen.dart';
 import '../pos_sale_return_list_screen.dart';
 import '../pos_sell_screen.dart';
+import '../pos_stock_transfer_screen.dart';
 import '../warehouse/wh_mobile_hub_screen.dart';
 import '../warehouse/wh_mobile_nav.dart';
 import 'pos_warranty_lookup_screen.dart';
@@ -257,6 +258,8 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                         'PosDamageIssues', const WhAdaptiveDamageIssueList()),
                     _Item('Dùng nội bộ', Icons.build_outlined,
                         'PosInternalUseIssues', const WhAdaptiveInternalUseList()),
+                    _Item('Chuyển kho', Icons.local_shipping_outlined, 'PosProducts',
+                        const PosStockTransferScreen()),
                   ],
                 ),
                 const SizedBox(height: 12),

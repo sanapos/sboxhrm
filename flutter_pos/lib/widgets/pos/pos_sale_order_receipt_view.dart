@@ -30,6 +30,8 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
     this.showMeta = true,
 
+    this.showTitle = true,
+
   });
 
 
@@ -37,6 +39,9 @@ class PosSaleOrderReceiptView extends StatelessWidget {
   final PosSaleOrder order;
 
   final bool showMeta;
+
+  /// false: bỏ dòng mã đơn · trạng thái · tổng tiền (khung chi tiết đã có thanh đầu ghi các mục này).
+  final bool showTitle;
 
 
 
@@ -315,6 +320,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
         children: [
 
+          if (showTitle) ...[
           Row(
 
             children: [
@@ -357,6 +363,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
           ),
 
           const SizedBox(height: 8),
+          ],
 
           _infoLine('Ngày bán', dateStr),
 

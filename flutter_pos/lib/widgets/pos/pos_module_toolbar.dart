@@ -25,6 +25,7 @@ class PosModuleToolbar extends StatelessWidget {
     'PosStockCounts': 'Kiểm kho',
     'PosDamageIssues': 'Xuất hủy',
     'PosInternalUseIssues': 'Dùng nội bộ',
+    'PosStockTransfers': 'Chuyển kho',
   };
 
   @override

@@ -165,6 +165,8 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         [FromQuery] DateTime? to,
 
+        [FromQuery] string? sort,
+
         [FromQuery] int page = 1,
 
         [FromQuery] int pageSize = 50)
@@ -206,7 +208,11 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
                                      (i.CategoryName != null && VnSearch.Has(i.CategoryName, s)) ||
 
-                                     (i.RecipientName != null && VnSearch.Has(i.RecipientName, s)));
+                                     (i.RecipientName != null && VnSearch.Has(i.RecipientName, s)) ||
+
+                                     i.Lines.Any(l => VnSearch.Has(l.ProductName, s) ||
+
+                                         (l.ProductCode != null && VnSearch.Has(l.ProductCode, s))));
 
         }
 
@@ -252,9 +258,16 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         var total = await query.CountAsync();
 
-        var rows = await query
-
-            .OrderByDescending(i => i.IssuedAt ?? i.CreatedAt)
+        // sort: time_desc (mặc định) | time_asc | value_desc | value_asc | no_asc.
+        var ordered = sort switch
+        {
+            "time_asc" => query.OrderBy(i => i.IssuedAt ?? i.CreatedAt),
+            "value_desc" => query.OrderByDescending(i => i.TotalValue).ThenByDescending(i => i.IssuedAt ?? i.CreatedAt),
+            "value_asc" => query.OrderBy(i => i.TotalValue).ThenByDescending(i => i.IssuedAt ?? i.CreatedAt),
+            "no_asc" => query.OrderBy(i => i.IssueNo),
+            _ => query.OrderByDescending(i => i.IssuedAt ?? i.CreatedAt),
+        };
+        var rows = await ordered
 
             .Skip((page - 1) * pageSize)
 
