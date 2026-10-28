@@ -102,7 +102,7 @@ public class PosCollectOldDebtTests(PosPgFixture fx) : PosFlowTestBase(fx)
     static async Task<int> CountAsync(PosSalesController ctl, string paymentMethod)
     {
         var data = Data(await ctl.GetSales(null, "Completed", null, paymentMethod, null, null, null, null, null, null,
-            null, null, null, null, null, null));
+            null, null, null, null, null, null, null));
         using var doc = JsonDocument.Parse(JsonSerializer.Serialize(data));
         var root = doc.RootElement;
         foreach (var name in new[] { "total", "Total", "totalCount", "TotalCount" })
