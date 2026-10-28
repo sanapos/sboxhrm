@@ -1519,6 +1519,11 @@ class _PosSellScreenState extends State<PosSellScreen>
           relatedEntityType: kPosPrintNotifyKind,
           duration: const Duration(seconds: 12),
         );
+        // Bàn đang mở trên máy này: tải lại để món hiện «chưa báo bếp» (không thì bấm Báo bếp ra «không có món mới»).
+        final orderId = (event['orderId'] ?? event['OrderId'] ?? '').toString().toLowerCase();
+        if (orderId.isNotEmpty && (_tab.draftOrderId ?? '').toLowerCase() == orderId) {
+          unawaited(_pullServerOrderIntoTab(_tab, quiet: true));
+        }
       }
       // Hội viên gym quét thẻ hết hạn / hết buổi: báo ngay ở màn bán (trước đây chỉ báo khi đang mở màn check-in).
       if (reason == 'gym_scan') _onGymScan(event);
@@ -4293,6 +4298,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           releasedOrderIds: Set<String>.from(_floorReleasedOrderIds),
           freedResourceIds: Set<String>.from(_floorFreedResourceIds),
           onReconcileOptimisticFlags: _reconcileOptimisticFloorFlags,
+          onKitchenPrintFailed: _enqueueFailedKitchenPrint,
         ),
       ),
     );
@@ -9277,6 +9283,9 @@ class _PosSellScreenState extends State<PosSellScreen>
             'toppingsJson': raw['toppingsJson'] ?? raw['ToppingsJson'],
             'lineNote': raw['lineNote'] ?? raw['LineNote'],
             'qty': raw['qty'] ?? raw['Qty'] ?? 0,
+            // Số đã báo bếp lúc đồng bộ: máy chủ trả món về «chưa báo bếp» (phiếu không in được) thì giỏ cũ
+            // (vẫn thấy «đã báo») lưu lại không đánh dấu lại.
+            'kitchenSentQty': raw['kitchenSentQty'] ?? raw['KitchenSentQty'] ?? 0,
           },
     ];
   }
@@ -9298,6 +9307,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               l.toppings.isEmpty ? null : jsonEncode(l.toppings.map((t) => t.toJson()).toList()),
           'lineNote': l.lineNote,
           'qty': l.qty,
+          'kitchenSentQty': l.kitchenSentQty,
         },
     ];
   }
@@ -14897,6 +14907,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                 Set<String>.from(_floorFreedResourceIds),
                             onReconcileOptimisticFlags:
                                 _reconcileOptimisticFloorFlags,
+                            onKitchenPrintFailed: _enqueueFailedKitchenPrint,
                           ),
                         ),
                       ],

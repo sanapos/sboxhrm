@@ -16,6 +16,7 @@ import '../utils/attendance_correction_dates.dart';
 import '../utils/excel_bytes_utils.dart';
 import '../models/pos_product.dart';
 
+import '../utils/pos_device_identity.dart';
 import '../utils/pos_request_id.dart';
 import 'package:payroll_engine/payroll_api.dart';
 /// Query phân trang cho API dùng [PaginationRequest] (pageNumber + alias page).
@@ -19938,7 +19939,7 @@ class ApiService implements PayrollApi {
     return _posGuarded(() async {
       try {
         final response = await http
-            .delete(Uri.parse('$baseUrl/api/pos/sales/$id'), headers: _headers)
+            .delete(await _withPosDevice(Uri.parse('$baseUrl/api/pos/sales/$id')), headers: _headers)
             .timeout(const Duration(seconds: 30));
         return _handleResponse(response);
       } catch (e) {
@@ -24308,12 +24309,27 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Mã máy cho thao tác bàn: máy chủ chặn khi MÁY KHÁC đang mở bàn (không chặn chính máy này).
+  Future<Map<String, String>> _posDeviceFields() async {
+    try {
+      final d = await PosDeviceIdentity.get();
+      return {'deviceId': d.id, 'deviceName': d.name};
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  Future<Uri> _withPosDevice(Uri uri) async {
+    final f = await _posDeviceFields();
+    return f.isEmpty ? uri : uri.replace(queryParameters: {...uri.queryParameters, ...f});
+  }
+
   /// Trả bàn về trống — đóng mọi phiên Open/Paused + xóa draft trống.
   Future<Map<String, dynamic>> freePosServiceResource(String resourceId) async {
     try {
       final response = await http
           .post(
-            Uri.parse('$baseUrl/api/pos/service-resources/$resourceId/free'),
+            await _withPosDevice(Uri.parse('$baseUrl/api/pos/service-resources/$resourceId/free')),
             headers: _headers,
           )
           .timeout(const Duration(seconds: 30));
@@ -24373,7 +24389,7 @@ class ApiService implements PayrollApi {
           .post(
             Uri.parse('$baseUrl/api/pos/resource-sessions/$id/transfer'),
             headers: _headers,
-            body: jsonEncode({'targetResourceId': targetResourceId}),
+            body: jsonEncode({'targetResourceId': targetResourceId, ...await _posDeviceFields()}),
           )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -24391,7 +24407,7 @@ class ApiService implements PayrollApi {
             Uri.parse(
                 '$baseUrl/api/pos/service-resources/$fromResourceId/transfer'),
             headers: _headers,
-            body: jsonEncode({'targetResourceId': targetResourceId}),
+            body: jsonEncode({'targetResourceId': targetResourceId, ...await _posDeviceFields()}),
           )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -24413,6 +24429,7 @@ class ApiService implements PayrollApi {
             body: jsonEncode({
               'targetResourceId': targetResourceId,
               'lineIds': lineIds,
+              ...await _posDeviceFields(),
             }),
           )
           .timeout(const Duration(seconds: 30));
@@ -24970,7 +24987,7 @@ class ApiService implements PayrollApi {
       try {
         final response = await http
             .post(
-              Uri.parse('$baseUrl/api/pos/sales/$id/cancel-draft'),
+              await _withPosDevice(Uri.parse('$baseUrl/api/pos/sales/$id/cancel-draft')),
               headers: _headers,
               body: jsonEncode({}),
             )
@@ -24989,7 +25006,7 @@ class ApiService implements PayrollApi {
           .post(
             Uri.parse('$baseUrl/api/pos/resource-sessions/$id/merge'),
             headers: _headers,
-            body: jsonEncode({'sourceSessionId': sourceSessionId}),
+            body: jsonEncode({'sourceSessionId': sourceSessionId, ...await _posDeviceFields()}),
           )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -25051,7 +25068,7 @@ class ApiService implements PayrollApi {
           .put(
             Uri.parse('$baseUrl/api/pos/resource-sessions/$id/guests'),
             headers: _headers,
-            body: jsonEncode({'guestCount': guestCount}),
+            body: jsonEncode({'guestCount': guestCount, ...await _posDeviceFields()}),
           )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);

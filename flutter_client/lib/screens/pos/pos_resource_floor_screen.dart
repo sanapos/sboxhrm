@@ -25,6 +25,7 @@ import '../../utils/pos_owner_password_gate.dart';
 import '../../utils/pos_device_identity.dart';
 import '../../utils/pos_floor_realtime.dart';
 import '../../utils/pos_kitchen_print.dart';
+import '../../utils/pos_pending_print_store.dart';
 import '../../utils/pos_sell_print_settings.dart';
 import '../../utils/pos_table_label.dart';
 import '../../utils/safe_navigator.dart';
@@ -76,7 +77,12 @@ class PosResourceFloorScreen extends StatefulWidget {
     this.pendingOpenCode,
     this.pendingOpenToken = 0,
     this.paneActive = true,
+    this.onKitchenPrintFailed,
   });
+
+  /// Báo bếp từ sơ đồ in lỗi / treo → đưa phiếu vào «In treo» của màn bán. Máy chủ đã đánh dấu «đã báo bếp»
+  /// trước khi in: phiếu mất mà không vào hàng chờ thì món chìm luôn.
+  final void Function(PendingKitchenPrintJob job)? onKitchenPrintFailed;
 
   /// Nhúng trong màn bán hàng (không push route).
   final bool embedded;
@@ -2603,7 +2609,38 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     PosServiceResourceDto r,
     Map data,
   ) async {
+    final tableName = formatPosTableLabel(areaName: r.areaName, tableName: r.name);
+    final orderNo = data['orderNo']?.toString();
+    var sender = '';
+    var queued = false;
+    var printLines = <KitchenTicketLine>[];
+    void fail(List<KitchenTicketLine> lines, String error,
+        {String? id, String? printerId, String? printerName}) {
+      queued = true;
+      final cb = widget.onKitchenPrintFailed;
+      if (cb != null) {
+        cb(PendingKitchenPrintJob(
+          id: id ?? 'kitchen_floor_${printerId ?? ''}_${DateTime.now().millisecondsSinceEpoch}',
+          isCancel: false,
+          tableName: tableName,
+          senderName: sender,
+          orderNo: orderNo,
+          lines: lines,
+          printerId: printerId,
+          printerName: printerName,
+          errorMessage: error,
+        ));
+      }
+      NotificationOverlayManager().showWarning(
+        title: 'Phiếu bếp chưa in',
+        message: tr('$tableName: ${lines.length} món chưa ra phiếu bếp — ${cb != null ? 'mở «In treo» để in lại' : error}'),
+        relatedEntityType: kPosPrintNotifyKind,
+        duration: const Duration(seconds: 8),
+      );
+    }
+
     try {
+      sender = (await PosDeviceIdentity.get()).name;
       final settings = await PosSellPrintSettings.load();
       if (!settings.kitchenSlipPrintMode.shouldPrintOnBaoBep) return;
 
@@ -2628,21 +2665,37 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         ));
       }
       if (lines.isEmpty) return;
+      printLines = lines;
 
-      await printKitchenCompactSlip(
-        tableName: formatPosTableLabel(
-          areaName: r.areaName,
-          tableName: r.name,
-        ),
+      final ok = await printKitchenCompactSlip(
+        tableName: tableName,
         isCancel: false,
         lines: lines,
-        senderName: (await PosDeviceIdentity.get()).name,
-        orderNo: data['orderNo']?.toString(),
+        senderName: sender,
+        orderNo: orderNo,
         waitForCompletion: false,
         showFeedback: false,
+        onCloudHang: ({
+          required String jobId,
+          required String printerId,
+          required String printerName,
+          required List<KitchenTicketLine> lines,
+          String? referenceNo,
+        }) =>
+            fail(lines, 'Chưa in sau 60s ($printerName) — chọn máy khác hoặc in lại',
+                id: 'kitchen_hang_$jobId', printerId: printerId, printerName: printerName),
+        onPrinterFailed: ({
+          required String printerId,
+          required String printerName,
+          required List<KitchenTicketLine> lines,
+          required String errorMessage,
+        }) =>
+            fail(lines, errorMessage, printerId: printerId, printerName: printerName),
       );
+      if (!ok && !queued) fail(lines, 'Gửi lệnh in thất bại — kiểm tra máy in / giấy');
     } catch (e) {
       debugPrint('Floor kitchen print: $e');
+      if (!queued && printLines.isNotEmpty) fail(printLines, 'Lỗi in phiếu bếp: $e');
     }
   }
 
