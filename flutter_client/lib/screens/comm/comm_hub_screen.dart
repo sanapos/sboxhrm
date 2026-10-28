@@ -324,7 +324,10 @@ class _CommHubScreenState extends State<CommHubScreen> {
     if (ctx == null) return const ColoredBox(color: SboxColors.page, child: SboxLoading());
     final showLeft = w >= 1000;
     final showRight = w >= 1280;
-    final feed = _feed(ctx, compact: !showLeft);
+    // Cột bài viết giữa 2 cột (C20 1280 dp: ~580 dp) không đủ cho 7 chip lọc + ô tìm (~960 dp) — hàng chip
+    // cuộn ngang mất «Tài liệu / Đã lưu / Bài của tôi», chữ «Bình chọn» bị cắt ở mép → dùng nút lọc dạng menu.
+    final feedWidth = w - (showLeft ? 250 : 0) - (showRight ? 300 : 0);
+    final feed = _feed(ctx, compact: !showLeft, filterMenu: !showLeft || feedWidth < 900);
     return ColoredBox(
       color: SboxColors.page,
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -388,7 +391,9 @@ class _CommHubScreenState extends State<CommHubScreen> {
     ]);
   }
 
-  Widget _feed(CommContext ctx, {required bool compact}) {
+  /// [filterMenu]: lọc bài bằng 1 nút menu (điện thoại / cột giữa hẹp) thay vì hàng chip.
+  Widget _feed(CommContext ctx, {required bool compact, bool? filterMenu}) {
+    final useFilterMenu = filterMenu ?? compact;
     final ch = ctx.channel(_channelId);
     final filters = [
       ..._filters,
@@ -430,8 +435,8 @@ class _CommHubScreenState extends State<CommHubScreen> {
       const SizedBox(height: 10),
       _composerBox(ctx, compact: compact),
       const SizedBox(height: 12),
-      // Điện thoại: 1 nút lọc (đủ mọi lựa chọn trong menu) + ô tìm rộng — không cắt chữ «Bắt buộc đọc».
-      if (compact)
+      // Điện thoại / cột hẹp: 1 nút lọc (đủ mọi lựa chọn trong menu) + ô tìm rộng — không cắt chữ «Bắt buộc đọc».
+      if (useFilterMenu)
         Row(children: [
           PopupMenuButton<String>(
             tooltip: tr('Lọc bài'),
