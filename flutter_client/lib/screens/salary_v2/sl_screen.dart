@@ -312,7 +312,14 @@ class _SalaryV2ScreenState extends State<SalaryV2Screen> {
       icon: Icons.gavel_rounded,
       onPressed: _canEdit ? _editStoreRates : null,
     );
-    if (narrow) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [title, const SizedBox(height: 12), Align(alignment: Alignment.centerLeft, child: rates)]);
+    // Điện thoại: thanh trên đã ghi «Thiết lập lương» — bỏ khối tiêu đề lặp, chỉ còn mô tả ngắn + chính sách.
+    if (narrow) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(tr('Loại lương, mức lương, tăng ca, BHXH và cách chấm công của từng nhân viên.'), style: SboxType.smallStyle()),
+        const SizedBox(height: 10),
+        Align(alignment: Alignment.centerLeft, child: rates),
+      ]);
+    }
     return Row(children: [Expanded(child: title), rates]);
   }
 

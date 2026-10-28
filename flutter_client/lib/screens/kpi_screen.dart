@@ -339,7 +339,21 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _selPeriodId == null && _periods.isEmpty
-                    ? _emptyState('Chưa có chu kỳ KPI', Icons.calendar_today)
+                    // Chưa có chu kỳ: màn trống thay cả TabBarView (kể cả tab Thiết lập — nơi có nút tạo),
+                    // nên store mới không tạo được chu kỳ đầu tiên. Đặt nút tạo ngay tại đây.
+                    ? _emptyState(
+                        'Chưa có chu kỳ KPI',
+                        Icons.calendar_today,
+                        action: FilledButton.icon(
+                          onPressed: _showPeriodDialog,
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: Text(tr('Tạo chu kỳ')),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _accent,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                        ),
+                      )
                     : TabBarView(
                         controller: _tabCtrl,
                         children: [
@@ -5077,7 +5091,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _emptyState(String text, IconData icon) {
+  Widget _emptyState(String text, IconData icon, {Widget? action}) {
     return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
       Container(
@@ -5097,6 +5111,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       const SizedBox(height: 8),
       Text(tr('Bắt đầu bằng cách tạo dữ liệu mới'),
           style: TextStyle(color: SboxColors.slate400, fontSize: 12)),
+      if (action != null) ...[
+        const SizedBox(height: 16),
+        action,
+      ],
     ]));
   }
 

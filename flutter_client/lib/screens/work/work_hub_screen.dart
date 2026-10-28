@@ -495,8 +495,11 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
       return Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(tr(p?.name ?? 'Công việc'), style: SboxType.titleStyle(), maxLines: 1, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 2),
+            // Không chọn nhóm việc: thanh trên đã ghi «Công việc» — bỏ dòng lặp, chỉ còn bộ chọn phạm vi.
+            if (p != null) ...[
+              Text(tr(p.name), style: SboxType.titleStyle(), maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 2),
+            ],
             // Phạm vi xem (Tất cả / Của tôi / Việc lẻ / nhóm việc) — chạm để đổi; thay hàng chip cuộn ngang.
             InkWell(
               borderRadius: SboxRadius.smAll,

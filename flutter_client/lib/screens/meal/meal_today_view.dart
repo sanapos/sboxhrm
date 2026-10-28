@@ -3,6 +3,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
+import '../../utils/responsive_helper.dart';
 import 'meal_menu_quick_editor.dart';
 import 'meal_ui.dart';
 
@@ -64,7 +65,8 @@ class _MealTodayViewState extends State<MealTodayView> {
         final cols = c.maxWidth >= 1100 ? 3 : c.maxWidth >= 720 ? 2 : 1;
         final w = (c.maxWidth - pad * 2 - (cols - 1) * 14) / cols;
         return ListView(
-          padding: EdgeInsets.fromLTRB(pad, pad, pad, 40),
+          // Điện thoại: chừa chỗ nút nổi thao tác — trước nút đè lên số «Còn phải trả» ở thẻ cuối.
+          padding: Responsive.fabListInsets(context, base: EdgeInsets.fromLTRB(pad, pad, pad, 40)),
           children: [
             _hero(sessions),
             const SizedBox(height: 16),

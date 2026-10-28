@@ -701,7 +701,12 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(nameW >= 150 ? (e['name']?.toString() ?? '') : _shortName(e['name']?.toString() ?? ''),
                           maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
-                      Text('${ShiftUi.n((e['totals'] as Map?)?['hours'])}g · ${e['department'] ?? ''}',
+                      // Chưa có phòng ban: bỏ « · » dư (trước hiện «0g ·»).
+                      Text(
+                          [
+                            '${ShiftUi.n((e['totals'] as Map?)?['hours'])}g',
+                            if ('${e['department'] ?? ''}'.trim().isNotEmpty) '${e['department']}'.trim(),
+                          ].join(' · '),
                           maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: SboxColors.slate500)),
                     ]),
                   ),
