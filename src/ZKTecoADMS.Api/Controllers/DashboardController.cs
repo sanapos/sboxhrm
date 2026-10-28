@@ -227,7 +227,8 @@ public class DashboardController(
             var storeId = RequiredStoreId;
             days = Math.Clamp(days, 1, 90);
             var endDate = DateTime.UtcNow.AddHours(7).Date;
-            var startDate = endDate.AddDays(-days);
+            // N ngày tính cả hôm nay (trước AddDays(-days) ra N+1 ngày: «7 ngày gần nhất» vẽ 8 cột).
+            var startDate = endDate.AddDays(-(days - 1));
             var rangeStart = startDate;
             var rangeEnd = endDate.AddDays(1);
 

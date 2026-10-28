@@ -292,8 +292,24 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
 
   // ─── Biểu đồ ────────────────────────────────────────────────────
 
+  /// Máy chủ chỉ trả ngày có bán → ngày 0 đồng biến mất khỏi trục (vd thiếu hôm nay).
+  /// Điền đủ mọi ngày trong kỳ với 0 để trục ngày liên tục, khớp «7 ngày gần nhất».
+  List<Map<String, dynamic>> _fillDays(List<Map<String, dynamic>> rows) {
+    final (from, to) = _shortPeriod ? SboxPeriod.last7.range() : _period.range();
+    String key(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final byDay = {for (final r in rows) '${r['date'] ?? ''}'.split('T').first: r};
+    final out = <Map<String, dynamic>>[];
+    for (var d = DateTime(from.year, from.month, from.day);
+        !d.isAfter(to) && out.length < 92;
+        d = DateTime(d.year, d.month, d.day + 1)) {
+      out.add(byDay[key(d)] ?? {'date': key(d), 'revenue': 0, 'profit': 0});
+    }
+    return out.isEmpty ? rows : out;
+  }
+
   Widget _revenueChart({bool wide = false}) {
-    final days = _list(_salesTrend?['profitByDay']);
+    final days = _fillDays(_list(_salesTrend?['profitByDay']));
     return SboxChartCard(
       title: _profitHidden ? 'Doanh thu' : 'Doanh thu & lợi nhuận',
       subtitle: _shortPeriod ? '7 ngày gần nhất' : _period.label,

@@ -431,6 +431,9 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                               value: _supplierId,
                               decoration: WhMobileTheme.fieldDecoration(
                                   label: 'Nhà cung cấp *'),
+                              // Chưa có NCC: ô bị khóa, trước không báo gì — người dùng không biết phải bấm «+» bên cạnh.
+                              disabledHint: Text(tr('Chưa có nhà cung cấp'),
+                                  style: const TextStyle(color: WhMobileTheme.primary)),
                               items: _suppliers
                                   .map((s) => DropdownMenuItem(
                                         value: s.id,
