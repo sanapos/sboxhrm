@@ -247,6 +247,8 @@ class PosQuote {
     this.priceListId,
     this.priceListName,
     this.contractNo,
+    this.paymentRequestNo,
+    this.acceptanceNo,
     this.createdAt,
     this.lines = const [],
     this.documents = const [],
@@ -296,6 +298,8 @@ class PosQuote {
 
   /// Số hợp đồng mới nhất (danh sách trả kèm) — null khi chưa lập HĐ / máy chủ cũ.
   final String? contractNo;
+  final String? paymentRequestNo;
+  final String? acceptanceNo;
   final DateTime? createdAt;
   final List<PosQuoteLine> lines;
   final List<PosQuoteDocument> documents;
@@ -413,6 +417,8 @@ class PosQuote {
       priceListId: (json['priceListId'] ?? json['PriceListId'])?.toString(),
       priceListName: (json['priceListName'] ?? json['PriceListName'])?.toString(),
       contractNo: (json['contractNo'] ?? json['ContractNo'])?.toString(),
+      paymentRequestNo: (json['paymentRequestNo'] ?? json['PaymentRequestNo'])?.toString(),
+      acceptanceNo: (json['acceptanceNo'] ?? json['AcceptanceNo'])?.toString(),
       createdAt: d(json['createdAt'] ?? json['CreatedAt']),
       lines: parseLines(rawLines),
       documents: rawDocs is List

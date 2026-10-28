@@ -843,10 +843,17 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     });
   }
 
-  /// Tab Hợp đồng: số HĐ (ô tìm ghi «Số HĐ / khách»), kèm số báo giá gốc; tab khác / máy chủ cũ: số BG.
+  /// Tab Hợp đồng / Đề nghị TT / Nghiệm thu: số chứng từ của tab (ô tìm ghi «Số HĐ / Số ĐN…»), kèm
+  /// số báo giá gốc; tab Báo giá / máy chủ cũ chưa trả số: số BG.
   String _cardNo(PosQuote q) {
-    final c = (q.contractNo ?? '').trim();
-    if (_tab != 1 || c.isEmpty) return q.quoteNo;
+    final doc = switch (_tab) {
+      1 => q.contractNo,
+      2 => q.paymentRequestNo,
+      3 => q.acceptanceNo,
+      _ => null,
+    };
+    final c = (doc ?? '').trim();
+    if (c.isEmpty) return q.quoteNo;
     return '$c · ${q.quoteNo}';
   }
 

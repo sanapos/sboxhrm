@@ -78,8 +78,10 @@ public partial class PosQuotesController(
         decimal? VatPercent = null,
         Guid? PriceListId = null,
         string? PriceListName = null,
-        // Số hợp đồng (chứng từ Contract mới nhất) — tab «Hợp đồng» hiện số HĐ thay số báo giá.
-        string? ContractNo = null);
+        // Số chứng từ mới nhất theo loại — tab Hợp đồng / Đề nghị TT / Nghiệm thu hiện số chứng từ thay số BG.
+        string? ContractNo = null,
+        string? PaymentRequestNo = null,
+        string? AcceptanceNo = null);
 
     public record QuoteLineInput(
         string? ProductId,
@@ -180,14 +182,22 @@ public partial class PosQuotesController(
         var names = await EmployeeNamesAsync(rows.Select(x => x.QuotedByEmployeeId));
         var byEmail = await UserNamesByEmailAsync(rows.Select(x => x.QuotedBy));
         var ids = rows.Select(x => x.Id).ToList();
-        var contractNos = (await dbContext.PosQuoteDocuments.AsNoTracking()
-                .Where(d => ids.Contains(d.QuoteId) && d.Deleted == null && d.Kind == PosQuoteDocumentKind.Contract)
-                .Select(d => new { d.QuoteId, d.DocNo, d.IssuedAt })
+        PosQuoteDocumentKind[] listedKinds =
+            [PosQuoteDocumentKind.Contract, PosQuoteDocumentKind.PaymentRequest, PosQuoteDocumentKind.Acceptance];
+        var latestNo = (await dbContext.PosQuoteDocuments.AsNoTracking()
+                .Where(d => ids.Contains(d.QuoteId) && d.Deleted == null && listedKinds.Contains(d.Kind))
+                .Select(d => new { d.QuoteId, d.Kind, d.DocNo, d.IssuedAt })
                 .ToListAsync())
-            .GroupBy(d => d.QuoteId)
+            .GroupBy(d => (d.QuoteId, d.Kind))
             .ToDictionary(g => g.Key, g => g.OrderByDescending(d => d.IssuedAt).First().DocNo);
+        string? No(Guid id, PosQuoteDocumentKind k) => latestNo.GetValueOrDefault((id, k));
         var items = rows
-            .Select(x => WithQuoterName(MapList(x, names), byEmail) with { ContractNo = contractNos.GetValueOrDefault(x.Id) })
+            .Select(x => WithQuoterName(MapList(x, names), byEmail) with
+            {
+                ContractNo = No(x.Id, PosQuoteDocumentKind.Contract),
+                PaymentRequestNo = No(x.Id, PosQuoteDocumentKind.PaymentRequest),
+                AcceptanceNo = No(x.Id, PosQuoteDocumentKind.Acceptance),
+            })
             .ToList();
         return Ok(AppResponse<object>.Success(new
         {
