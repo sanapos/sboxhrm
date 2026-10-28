@@ -42,6 +42,8 @@ import '../widgets/pos/pos_shipping_compare_sheet.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_ui.dart';
+import '../utils/pos_owner_password_gate.dart';
 enum _ListColumn {
   orderNo('Mã đơn'),
   time('Thời gian'),
@@ -140,6 +142,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   @override
   void initState() {
     super.initState();
+    PosManagerApproval.attach(context);
     final w = widget;
     if (w.initialSearch != null && w.initialSearch!.trim().isNotEmpty) {
       _searchCtrl.text = w.initialSearch!.trim();
@@ -187,6 +190,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
 
   @override
   void dispose() {
+    PosManagerApproval.detach(context);
     ScreenRefreshNotifier.posSaleOrders.removeListener(_onExternalRefresh);
     _searchCtrl.dispose();
     _uiTick.dispose();

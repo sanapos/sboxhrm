@@ -27,6 +27,7 @@ import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/pos_owner_password_gate.dart';
 const _blue = SboxColors.brand600;
 
 enum _SaleLineColumn {
@@ -153,12 +154,14 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
   @override
   void initState() {
     super.initState();
+    PosManagerApproval.attach(context);
     _orderId = widget.orderId;
     _bootstrap();
   }
 
   @override
   void dispose() {
+    PosManagerApproval.detach(context);
     _noteCtrl.dispose();
     _discountCtrl.dispose();
     _paidCtrl.dispose();

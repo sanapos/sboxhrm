@@ -14,6 +14,7 @@ import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../models/pos_after_bill_approval_config.dart';
 /// Thiết lập hồ sơ ngành / tài nguyên (tách khỏi màn phụ & hủy-trả).
 ///
 /// [section]: `profile` | `resources` | `all` (legacy).
@@ -799,6 +800,24 @@ class _PosSellIndustrySettingsScreenState
                 : (v) => _patchAndSave(
                     (cur) => cur.copyWith(allowProvisionalBill: v)),
           ),
+          // Chỉ hiện khi đang cho phép tạm tính — tắt tạm tính thì tùy chọn này không có tác dụng.
+          if (s.allowProvisionalBill)
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(Icons.admin_panel_settings_outlined),
+                title: Text(tr('Sau tạm tính: cần quản lý duyệt')),
+                subtitle: Text(tr(
+                    'Khách đã nhận phiếu tạm tính thì nhân viên không tự hủy món, hủy / xóa đơn hay thu ít hơn '
+                    'số trên phiếu — chủ / quản lý nhập mật khẩu trên máy để duyệt. Chống «đá món, đá bill».')),
+                value: PosAfterBillApprovalConfig.enabledIn(s.extraJson),
+                onChanged: _saving
+                    ? null
+                    : (v) => _patchAndSave((cur) => cur.copyWith(
+                        extraJson: PosAfterBillApprovalConfig.merge(cur.extraJson, v))),
+              ),
+            ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(tr(s.sellProfile.resourceNoun.isEmpty

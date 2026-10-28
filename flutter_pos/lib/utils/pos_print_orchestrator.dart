@@ -30,6 +30,7 @@ import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_thermal_printer_settings.dart';
 import 'pos_usb_printer.dart';
+import 'pos_printer_peripheral.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 import 'pos_print_template_v2_codec.dart';
 import 'pos_print_template_compiler.dart';
@@ -256,6 +257,40 @@ class PosPrintOrchestrator {
         _invokeHangCallback(jobId);
       }());
     });
+  }
+
+  /// «In lại» một lệnh treo: XẾP LẠI đúng lệnh cũ trên máy chủ (đổi máy nếu [printerId]) thay vì gửi lệnh mới.
+  /// Gửi lệnh mới mà lệnh cũ vẫn chờ → hàng đợi cửa hàng thêm 1 lệnh treo và Agent sống lại in cả hai (trùng phiếu).
+  /// true = đã xếp lại; tiếp tục theo dõi — treo nữa thì gọi [onHang] với cùng [jobId] (phiếu chờ cũ quay lại,
+  /// không sinh phiếu mới). false = máy chủ không xếp lại được (lệnh đã dọn / đang in / máy in bị xóa…) → [error].
+  Future<({bool ok, String? error, String? status})> requeueServerJob({
+    required String jobId,
+    required String documentType,
+    String? printerId,
+    String? referenceNo,
+    PosPrintHangCallback? onHang,
+  }) async {
+    final res = await _api.retryPosPrintJob(jobId, printerId: printerId);
+    if (res['isSuccess'] != true) {
+      return (ok: false, error: res['message']?.toString(), status: null);
+    }
+    final data = res['data'] is Map ? Map<String, dynamic>.from(res['data'] as Map) : const <String, dynamic>{};
+    final pid = (data['printerId'] ?? printerId ?? '').toString();
+    await refreshConfig();
+    final printer = _printers.where((p) => p.id.toLowerCase() == pid.toLowerCase()).firstOrNull;
+    if (printer != null) {
+      _armHangWatch(
+        jobId: jobId,
+        documentType: documentType,
+        printer: printer,
+        referenceNo: referenceNo,
+        acceptClaimedAsSuccess: false,
+        onHang: onHang,
+      );
+    }
+    // Agent chính máy này (nếu có) nhận ngay, không chờ vòng quét.
+    PosPrintAgentService.instance.nudgeClaim();
+    return (ok: true, error: null, status: data['status']?.toString());
   }
 
   void _invokeHangCallback(String jobId) {
@@ -714,7 +749,10 @@ class PosPrintOrchestrator {
     final byKey = <String, PosStorePrinter>{};
     final unmatched = <PosStorePrinter>[];
     for (final p in eligible) {
-      final key = _physicalPickerKey(p) ?? _namePickerKey(p);
+      // Máy tem và máy nhiệt cùng địa chỉ là hai máy khác nhau — không gộp (gộp xong bảng chọn
+      // hóa đơn lọc bỏ máy tem là mất luôn máy nhiệt).
+      final phys = _physicalPickerKey(p);
+      final key = phys == null ? _namePickerKey(p) : '${p.isLabelPrinter ? 'label' : 'receipt'}:$phys';
       if (key.isEmpty) {
         unmatched.add(p);
         continue;
@@ -1078,6 +1116,9 @@ class PosPrintOrchestrator {
     PosPrintHangCallback? onHang,
     Duration hangAfter = hangAfterDefault,
     bool? vatIncludedInPrice,
+    /// Có mở két cho máy này không (tiền mặt, không phải in lại…). Máy ESC/POS đã
+    /// gắn ESC p trong [buildEscPos]; Sunmi in native cần biết để gọi SunmiDrawer.
+    bool Function(PosStorePrinter printer)? shouldKickDrawer,
   }) async {
     if (!skipDedup &&
         PosPrintDedup.shouldSkip(
@@ -1149,6 +1190,13 @@ class PosPrintOrchestrator {
             showFeedback: false,
             successTitle: successTitle,
           );
+          // Trước đây in Sunmi native qua danh sách máy in cửa hàng không mở két (thu tiền mặt két vẫn đóng).
+          if (ok) {
+            await PosPrinterPeripheral.afterSunmiNativePrint(
+              toThermalSettings(printer),
+              openDrawer: shouldKickDrawer?.call(printer) ?? false,
+            );
+          }
         } else if (printer.isSunmi) {
           // A7/web → Agent Sunmi: JSON native. EscPosBase64 bị Agent từ chối
           // (UNSUPPORTED_ON_SUNMI) — máy «nhận lệnh» nhưng không ra giấy.
@@ -1168,6 +1216,7 @@ class PosPrintOrchestrator {
             onHang: onHang,
             hangAfter: hangAfter,
             vatIncludedInPrice: vatIncludedInPrice,
+            openCashDrawer: shouldKickDrawer?.call(printer) ?? false,
           );
         } else {
           final bytes = await buildEscPos(printer);
@@ -1324,6 +1373,7 @@ class PosPrintOrchestrator {
     PosPrintHangCallback? onHang,
     Duration hangAfter = hangAfterDefault,
     bool? vatIncludedInPrice,
+    bool openCashDrawer = false,
   }) async {
     // Gửi kèm full order — Agent in native giống Oppo, không phụ thuộc getPosSale.
     final included = vatIncludedInPrice ??
@@ -1338,6 +1388,7 @@ class PosPrintOrchestrator {
       'mergeSameItems': mergeSameItems,
       'documentTitle': documentTitle,
       'vatIncludedInPrice': included,
+      if (openCashDrawer) 'openCashDrawer': true,
     });
     final res = await _api.createPosPrintJob(
       documentType: PosCloudDocumentTypes.saleInvoice,

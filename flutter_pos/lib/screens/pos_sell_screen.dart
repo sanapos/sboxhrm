@@ -32,6 +32,7 @@ import '../utils/customer_display_media.dart';
 import '../widgets/pos/pos_cancel_return_reason_dialog.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
+import '../models/pos_after_bill_approval_config.dart';
 import '../utils/responsive_helper.dart';
 import '../services/pos_network_monitor.dart';
 import '../widgets/pos/pos_offline_banner.dart';
@@ -70,6 +71,7 @@ import '../utils/pos_vietqr_helper.dart';
 import '../utils/pos_payment_gateway_listener.dart';
 import '../utils/notification_sound.dart';
 import '../widgets/pos/pos_vietqr_payment_panel.dart';
+import '../utils/api_datetime.dart';
 import '../utils/pos_printer_transport.dart';
 import '../utils/pos_thermal_printer_settings.dart';
 import '../utils/pos_price_list_resolver.dart';
@@ -400,9 +402,10 @@ class _SellCartLine {
   String get lineKey => '${product.id}|$activeViewKey';
 
   double get maxQty => activeView.onHandQty;
+  /// Thành tiền dòng — làm tròn đến đồng (hàng cân 0,333kg… không để số lẻ). Khớp server.
   double get lineGross {
     final extra = (unitPrice + toppingExtraPerUnit) * qty;
-    if (!product.isTimedService) return extra;
+    if (!product.isTimedService) return extra.roundToDouble();
     final fee = product.openingFee;
     final timed = PosServiceBillingCalc.timedAmount(
         PosServiceBillingMode.parse(product.serviceBillingMode), qty, unitPrice + toppingExtraPerUnit);
@@ -437,7 +440,7 @@ class _SellCartLine {
   double get manualDiscountAmount {
     if (discountInput <= 0) return 0;
     if (discountIsPercent) {
-      return (lineGross * discountInput / 100).clamp(0, lineGross);
+      return (lineGross * discountInput / 100).roundToDouble().clamp(0, lineGross);
     }
     return discountInput.clamp(0, lineGross);
   }
@@ -578,6 +581,8 @@ class _SellInvoiceTab {
   String? voucherCode;
   double voucherDiscount = 0;
   String? voucherName;
+  /// Tiền đơn lúc máy chủ tính voucher — giỏ đổi (khác số này) thì phải tính lại.
+  double voucherBase = 0;
   double pointsToRedeem = 0;
   double pointsDiscount = 0;
   String? draftOrderId;
@@ -722,6 +727,7 @@ class _SellInvoiceTab {
     voucherCode = null;
     voucherDiscount = 0;
     voucherName = null;
+    voucherBase = 0;
     pointsToRedeem = 0;
     pointsDiscount = 0;
     draftOrderId = null;
@@ -769,14 +775,15 @@ class _SellInvoiceTab {
 
   void applyDiscount(double baseAfterLineDiscount) {
     final manual = discountIsPercent
-        ? baseAfterLineDiscount * discountInput / 100
+        ? (baseAfterLineDiscount * discountInput / 100).roundToDouble()
         : discountInput;
     discount = (manual + promoBillDiscount).clamp(0, baseAfterLineDiscount).toDouble();
   }
 
   void applySurcharge(double baseAfterDiscount) {
     if (surchargeIsPercent) {
-      surchargeAmount = (baseAfterDiscount * surchargeInput / 100).clamp(0, double.infinity);
+      surchargeAmount =
+          (baseAfterDiscount * surchargeInput / 100).roundToDouble().clamp(0, double.infinity);
     } else {
       surchargeAmount = surchargeInput.clamp(0, double.infinity);
     }
@@ -969,6 +976,8 @@ class _PosSellScreenState extends State<PosSellScreen>
   bool _forceInvoicePrintOnce = false;
   bool _quickPrintCup = false;
   bool _quickPrintKitchen = false;
+  /// Thu ngân đã bật / tắt «In bếp» cho đơn này — không tự bật lại lúc thanh toán.
+  bool _kitchenChipUserSet = false;
   bool _quickIssueEInvoice = false;
   PosEInvoiceSettings _eInvoiceSettings = const PosEInvoiceSettings();
   PosSellStoreSettings _storeSettings = const PosSellStoreSettings();
@@ -1423,6 +1432,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   @override
   void initState() {
     super.initState();
+    PosManagerApproval.attach(context);
     PosNotifyFocus.enter();
     WidgetsBinding.instance.addObserver(this);
     _startStorePrintPoll();
@@ -1460,6 +1470,10 @@ class _PosSellScreenState extends State<PosSellScreen>
       _draftSyncDebounce = Timer(const Duration(milliseconds: 350), () {
         if (mounted) unawaited(_syncHeldDraftTabs());
       });
+    });
+    // Mất kết nối realtime rồi nối lại → có thể đã lỡ sự kiện: đồng bộ ngay.
+    _signalRConnSub = SignalRService().onConnectionStateChanged.listen((connected) {
+      if (connected && mounted) unawaited(_syncHeldDraftTabs());
     });
     _qrOnlineSignalSub = SignalRService().onPosFloorChanged.listen((event) {
       final reason =
@@ -1546,6 +1560,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
     if (state == AppLifecycleState.resumed && mounted) {
       unawaited(_storePrintTick());
+      // Mở lại app: HĐ có thể đã đổi ở máy khác trong lúc chạy nền.
+      unawaited(_syncHeldDraftTabs());
       unawaited(_refreshSystemUnreadNotifications());
       if (_qrOnlineFeatureEnabled) {
         unawaited(_refreshQrOnlinePending());
@@ -2297,7 +2313,9 @@ class _PosSellScreenState extends State<PosSellScreen>
   @override
   void dispose() {
     _disposing = true;
+    PosManagerApproval.detach(context);
     PosNotifyFocus.leave();
+    _voucherRevalidateTimer?.cancel();
     _storePrintPollTimer?.cancel();
     if (identical(NavigationNotifier.posHandleSystemBack, _onSystemBack)) {
       NavigationNotifier.posHandleSystemBack = null;
@@ -2318,6 +2336,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     PosNetworkMonitor.instance.reachable.removeListener(_onReachabilityChanged);
     PosOfflineService.instance.isLiveCart = null;
     WidgetsBinding.instance.removeObserver(this);
+    _signalRConnSub?.cancel();
     _qrOnlineSignalSub?.cancel();
     _notifSignalSub?.cancel();
     _sellBadgePollTimer?.cancel();
@@ -2419,7 +2438,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       _quickPrintKitchen = false;
       return;
     }
-    if (_printSettings.kitchenSlipPrintMode.shouldPrintOnCheckout) {
+    if (_printSettings.kitchenSlipPrintMode.shouldPrintOnCheckout && !_kitchenChipUserSet) {
       _quickPrintKitchen = true;
     }
   }
@@ -2623,6 +2642,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   bool _qrOnlineFeatureEnabled = false;
   List<PosOnlineToolbarOrder> _qrOnlinePending = [];
   StreamSubscription<Map<String, dynamic>>? _qrOnlineSignalSub;
+  StreamSubscription<bool>? _signalRConnSub;
   StreamSubscription<Map<String, dynamic>>? _notifSignalSub;
   Timer? _sellBadgePollTimer;
 
@@ -4488,19 +4508,23 @@ class _PosSellScreenState extends State<PosSellScreen>
     required List<_SellCartLine> pendingLines,
   }) async {
     var kitchenOk = true;
+    // Chốt bàn / đơn / người gửi lúc gửi — phiếu treo dựng sau 60s, lúc đó thu ngân có thể đã sang bàn khác.
+    final hangTable = formatPosTableLabel(
+      areaName: _tab.serviceAreaName,
+      tableName: _tab.serviceResourceName,
+    );
+    final hangOrderNo = _tab.draftOrderNo;
+    final hangSender = _kitchenSenderName();
     if (shouldPrint) {
       var enqueuedPerPrinterFail = false;
       final pp = PosPerf('kitchenPrint');
       try {
       kitchenOk = await printKitchenCompactSlip(
-        tableName: formatPosTableLabel(
-          areaName: _tab.serviceAreaName,
-          tableName: _tab.serviceResourceName,
-        ),
+        tableName: hangTable,
         isCancel: false,
         lines: sendTicketLines,
-        senderName: _kitchenSenderName(),
-        orderNo: _tab.draftOrderNo,
+        senderName: hangSender,
+        orderNo: hangOrderNo,
         waitForCompletion: false,
         showFeedback: false,
         onCloudHang: ({
@@ -4515,12 +4539,9 @@ class _PosSellScreenState extends State<PosSellScreen>
             PendingKitchenPrintJob(
               id: 'kitchen_hang_$jobId',
               isCancel: false,
-              tableName: formatPosTableLabel(
-                areaName: _tab.serviceAreaName,
-                tableName: _tab.serviceResourceName,
-              ),
-              senderName: _kitchenSenderName(),
-              orderNo: _tab.draftOrderNo,
+              tableName: hangTable,
+              senderName: hangSender,
+              orderNo: hangOrderNo,
               lines: lines,
               printerId: printerId,
               printerName: printerName,
@@ -4553,12 +4574,9 @@ class _PosSellScreenState extends State<PosSellScreen>
               id:
                   'kitchen_fail_${printerId}_${DateTime.now().millisecondsSinceEpoch}',
               isCancel: false,
-              tableName: formatPosTableLabel(
-                areaName: _tab.serviceAreaName,
-                tableName: _tab.serviceResourceName,
-              ),
-              senderName: _kitchenSenderName(),
-              orderNo: _tab.draftOrderNo,
+              tableName: hangTable,
+              senderName: hangSender,
+              orderNo: hangOrderNo,
               lines: lines,
               printerId: printerId,
               printerName: printerName,
@@ -4576,12 +4594,9 @@ class _PosSellScreenState extends State<PosSellScreen>
           PendingKitchenPrintJob(
             id: 'kitchen_${DateTime.now().millisecondsSinceEpoch}',
             isCancel: false,
-            tableName: formatPosTableLabel(
-              areaName: _tab.serviceAreaName,
-              tableName: _tab.serviceResourceName,
-            ),
-            senderName: _kitchenSenderName(),
-            orderNo: _tab.draftOrderNo,
+            tableName: hangTable,
+            senderName: hangSender,
+            orderNo: hangOrderNo,
             lines: sendTicketLines,
             errorMessage: 'Gửi lệnh in thất bại — kiểm tra máy in / giấy',
           ),
@@ -4883,6 +4898,18 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// In phiếu hủy bếp + ghi log server (đánh dấu nếu đã tạm tính).
   /// [reasonResult] truyền sẵn nếu đã hỏi lý do trước khi sửa giỏ (tránh hủy dialog mà món đã mất).
   /// Trả về false nếu user hủy dialog lý do (chưa ghi log / chưa in).
+  /// Sau tạm tính + cửa hàng bật «cần quản lý duyệt»: hỏi duyệt TRƯỚC khi bỏ món (máy chủ cũng chặn —
+  /// đây chỉ để không bỏ món trên máy rồi mới bị từ chối).
+  Future<bool> _ensureAfterBillApproval(String action) async {
+    final s = _industrySettings;
+    if (s == null || !PosAfterBillApprovalConfig.isActive(s)) return true;
+    final rid = _tab.serviceResourceId?.toLowerCase();
+    if (rid == null || !_billRequestedResourceIds.any((e) => e.toLowerCase() == rid)) return true;
+    if (PosAfterBillApprovalConfig.isManagerRole(context.read<AuthProvider>().user?.role)) return true;
+    if (ApiService.hasPosApprovalToken) return true;
+    return confirmPosManagerApproval(context, 'Cần quản lý duyệt: $action sau khi đã in tạm tính cho khách.');
+  }
+
   Future<bool> _voidKitchenSentLines(
     List<KitchenTicketLine> lines, {
     CancelReturnReasonResult? reasonResult,
@@ -4891,6 +4918,13 @@ class _PosSellScreenState extends State<PosSellScreen>
     final resolved = reasonResult ?? await _promptKitchenVoidReason();
     if (resolved == null || !mounted) return false;
     final reasonNote = _kitchenVoidReasonNote(resolved);
+    // Chốt bàn / đơn / người gửi lúc gửi — phiếu treo dựng sau 60s, lúc đó thu ngân có thể đã sang bàn khác.
+    final hangTable = formatPosTableLabel(
+      areaName: _tab.serviceAreaName,
+      tableName: _tab.serviceResourceName,
+    );
+    final hangOrderNo = _tab.draftOrderNo;
+    final hangSender = _kitchenSenderName();
     final printLines = [
       for (final l in lines)
         KitchenTicketLine(
@@ -4906,20 +4940,59 @@ class _PosSellScreenState extends State<PosSellScreen>
           calledAt: l.calledAt,
         ),
     ];
+    final body = <String, dynamic>{
+      'lines': lines
+          .map((l) => {
+                if ((l.productId ?? '').isNotEmpty) 'productId': l.productId,
+                'productName': l.productName,
+                'qty': l.qty,
+                if ((l.unitName ?? '').isNotEmpty) 'unitName': l.unitName,
+                if ((l.note ?? '').isNotEmpty) 'lineNote': l.note,
+              })
+          .toList(),
+      if (_tab.draftOrderId != null) 'saleOrderId': _tab.draftOrderId,
+      if (hangOrderNo != null) 'orderNo': hangOrderNo,
+      if (_tab.resourceSessionId != null)
+        'resourceSessionId': _tab.resourceSessionId,
+      if (_tab.serviceResourceId != null)
+        'serviceResourceId': _tab.serviceResourceId,
+      'resourceName': hangTable,
+      // ok=true chỉ nghĩa là đã gửi/enqueue — chưa chắc giấy đã ra.
+      'printed': false,
+      if (_posDeviceName != null) 'deviceName': _posDeviceName,
+      if (resolved.reason.isNotEmpty) 'reason': resolved.reason,
+      if ((resolved.detailNote ?? '').isNotEmpty)
+        'detailNote': resolved.detailNote,
+    };
+    // Ghi lên máy chủ TRƯỚC khi in phiếu hủy / bỏ món: sau tạm tính máy chủ có thể đòi quản lý duyệt
+    // (ApiService tự mở hộp duyệt rồi gửi lại). Không được duyệt → giữ nguyên món. Mất mạng → vẫn hủy như cũ.
+    var voidRes = const <String, dynamic>{};
+    if (PosNetworkMonitor.instance.reachable.value) {
+      voidRes = await _api.createPosKitchenVoids(body);
+    } else {
+      unawaited(_api.createPosKitchenVoids(body));
+    }
+    if (ApiService.isPosApprovalDenied(voidRes)) {
+      if (mounted) {
+        NotificationOverlayManager().showWarning(
+          title: 'Chưa hủy món',
+          message: tr('Cần chủ / quản lý duyệt vì khách đã nhận phiếu tạm tính'),
+        );
+      }
+      return false;
+    }
+    if (!mounted) return false;
     final shouldPrint =
         _printSettings.kitchenSlipPrintMode != PosKitchenSlipPrintMode.off;
     var enqueuedPerPrinterFail = false;
     final ok = !shouldPrint
         ? true
         : await printKitchenCompactSlip(
-            tableName: formatPosTableLabel(
-              areaName: _tab.serviceAreaName,
-              tableName: _tab.serviceResourceName,
-            ),
+            tableName: hangTable,
             isCancel: true,
             lines: printLines,
-            senderName: _kitchenSenderName(),
-            orderNo: _tab.draftOrderNo,
+            senderName: hangSender,
+            orderNo: hangOrderNo,
             waitForCompletion: false,
             skipDedup: true,
             onCloudHang: ({
@@ -4934,12 +5007,9 @@ class _PosSellScreenState extends State<PosSellScreen>
                 PendingKitchenPrintJob(
                   id: 'kcancel_hang_$jobId',
                   isCancel: true,
-                  tableName: formatPosTableLabel(
-                    areaName: _tab.serviceAreaName,
-                    tableName: _tab.serviceResourceName,
-                  ),
-                  senderName: _kitchenSenderName(),
-                  orderNo: _tab.draftOrderNo,
+                  tableName: hangTable,
+                  senderName: hangSender,
+                  orderNo: hangOrderNo,
                   lines: lines,
                   printerId: printerId,
                   printerName: printerName,
@@ -4960,12 +5030,9 @@ class _PosSellScreenState extends State<PosSellScreen>
                   id:
                       'kcancel_fail_${printerId}_${DateTime.now().millisecondsSinceEpoch}',
                   isCancel: true,
-                  tableName: formatPosTableLabel(
-                    areaName: _tab.serviceAreaName,
-                    tableName: _tab.serviceResourceName,
-                  ),
-                  senderName: _kitchenSenderName(),
-                  orderNo: _tab.draftOrderNo,
+                  tableName: hangTable,
+                  senderName: hangSender,
+                  orderNo: hangOrderNo,
                   lines: lines,
                   printerId: printerId,
                   printerName: printerName,
@@ -4974,33 +5041,6 @@ class _PosSellScreenState extends State<PosSellScreen>
               );
             },
           );
-    final body = <String, dynamic>{
-      'lines': lines
-          .map((l) => {
-                'productName': l.productName,
-                'qty': l.qty,
-                if ((l.unitName ?? '').isNotEmpty) 'unitName': l.unitName,
-                if ((l.note ?? '').isNotEmpty) 'lineNote': l.note,
-              })
-          .toList(),
-      if (_tab.draftOrderId != null) 'saleOrderId': _tab.draftOrderId,
-      if (_tab.draftOrderNo != null) 'orderNo': _tab.draftOrderNo,
-      if (_tab.resourceSessionId != null)
-        'resourceSessionId': _tab.resourceSessionId,
-      if (_tab.serviceResourceId != null)
-        'serviceResourceId': _tab.serviceResourceId,
-      'resourceName': formatPosTableLabel(
-        areaName: _tab.serviceAreaName,
-        tableName: _tab.serviceResourceName,
-      ),
-      // ok=true chỉ nghĩa là đã gửi/enqueue — chưa chắc giấy đã ra.
-      'printed': false,
-      if (_posDeviceName != null) 'deviceName': _posDeviceName,
-      if (resolved.reason.isNotEmpty) 'reason': resolved.reason,
-      if ((resolved.detailNote ?? '').isNotEmpty)
-        'detailNote': resolved.detailNote,
-    };
-    unawaited(_api.createPosKitchenVoids(body));
     if (!mounted) return true;
     if (ok) {
       NotificationOverlayManager().showSuccess(
@@ -5013,12 +5053,9 @@ class _PosSellScreenState extends State<PosSellScreen>
           PendingKitchenPrintJob(
             id: 'kcancel_${DateTime.now().millisecondsSinceEpoch}',
             isCancel: true,
-            tableName: formatPosTableLabel(
-              areaName: _tab.serviceAreaName,
-              tableName: _tab.serviceResourceName,
-            ),
-            senderName: _kitchenSenderName(),
-            orderNo: _tab.draftOrderNo,
+            tableName: hangTable,
+            senderName: hangSender,
+            orderNo: hangOrderNo,
             lines: lines,
             errorMessage: 'In phiếu hủy thất bại',
           ),
@@ -5194,6 +5231,10 @@ class _PosSellScreenState extends State<PosSellScreen>
     final remaining = await printCupLabelsRemaining(
       tickets: tickets,
       showFeedback: showFeedback,
+      onCloudHang: _cupCloudHang(
+        tableLabel: table.isEmpty ? null : table,
+        orderNo: orderNo.isEmpty ? null : orderNo,
+      ),
     );
     if (remaining.isNotEmpty) {
       // Chỉ tem CHƯA in vào hàng chờ; dòng giỏ coi như đã xử lý tem (phần còn lại nằm trong hàng chờ)
@@ -6311,7 +6352,83 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (_storeSettings.enableSurcharge) {
       _tab.applySurcharge(afterOrderDiscount);
     }
+    // Voucher % / đơn tối thiểu phụ thuộc tiền đơn — giỏ đổi thì máy chủ tính lại (trước đây giữ số cũ:
+    // màn bán thu theo số cũ, máy chủ ghi số mới → lệch két).
+    if (_tab.voucherCode != null && (_tab.voucherBase - _total).abs() > 0.5) {
+      _scheduleVoucherRevalidate();
+    }
+    _capPointsToOrder(_tab);
     if (publishDisplay) _scheduleCustomerDisplayPublish();
+  }
+
+  Timer? _voucherRevalidateTimer;
+
+  void _scheduleVoucherRevalidate() {
+    _voucherRevalidateTimer?.cancel();
+    final tab = _tab;
+    _voucherRevalidateTimer = Timer(const Duration(milliseconds: 350), () {
+      if (mounted && identical(tab, _tab)) unawaited(_revalidateVoucher());
+    });
+  }
+
+  /// Tính lại voucher theo tiền đơn hiện tại (giỏ đã đổi). Không còn hợp lệ → bỏ voucher, báo thu ngân.
+  /// true = voucher (nếu có) đã khớp đơn hiện tại.
+  Future<bool> _revalidateVoucher() async {
+    final tab = _tab;
+    final code = tab.voucherCode;
+    if (code == null) return true;
+    final base = _total;
+    if ((tab.voucherBase - base).abs() <= 0.5) return true;
+    final res = await _api.validatePosVoucher(
+      code: code,
+      orderAmount: base,
+      customerId: tab.customer?.id,
+    );
+    if (!mounted || !identical(tab, _tab)) return false;
+    if (res['isSuccess'] != true || res['data'] is! Map) return false; // mất mạng: giữ, máy chủ tính khi TT
+    final data = res['data'] as Map<String, dynamic>;
+    setState(() {
+      if (data['valid'] == true) {
+        tab.voucherDiscount = (data['discountAmount'] as num?)?.toDouble() ??
+            double.tryParse('${data['discountAmount']}') ??
+            0;
+        tab.voucherBase = base;
+      } else {
+        tab.voucherCode = null;
+        tab.voucherDiscount = 0;
+        tab.voucherName = null;
+        tab.voucherBase = 0;
+        tab._voucherCtrl.clear();
+        NotificationOverlayManager().showWarning(
+          title: 'Đã bỏ voucher $code',
+          message: tr(data['message']?.toString() ?? 'Voucher không còn áp dụng cho đơn này'),
+        );
+      }
+      _capPointsToOrder(tab);
+      _syncPaidAmount();
+    });
+    _notifyPaymentUi(null);
+    return true;
+  }
+
+  /// Đổi điểm: giới hạn lại theo đơn hiện tại (giỏ / voucher đổi) — cùng quy tắc máy chủ (CalcPointsRedeem).
+  void _capPointsToOrder(_SellInvoiceTab tab) {
+    if (tab.pointsToRedeem <= 0) return;
+    final rates = _loyaltyRates;
+    final c = tab.customer;
+    if (c == null || !rates.canRedeem) {
+      tab.pointsToRedeem = 0;
+      tab.pointsDiscount = 0;
+      tab._pointsCtrl.clear();
+      return;
+    }
+    final afterLine = (tab.cart.fold<double>(0.0, (a, l) => a + l.lineGross - l.discountAmount))
+        .clamp(0.0, double.infinity);
+    final maxBase = (afterLine - tab.discount - tab.voucherDiscount).clamp(0.0, double.infinity);
+    final requested = double.tryParse(tab._pointsCtrl.text.replaceAll(',', '')) ?? tab.pointsToRedeem;
+    final capped = rates.capRedeem(requestedPoints: requested, balance: c.pointBalance, maxFromOrder: maxBase);
+    tab.pointsToRedeem = capped.points;
+    tab.pointsDiscount = capped.discount;
   }
 
   double get _total => (_afterLineDiscount - _tab.discount).clamp(0, double.infinity);
@@ -6328,7 +6445,9 @@ class _PosSellScreenState extends State<PosSellScreen>
       .toList();
 
   double get _vatAmount {
-    final net = _storeSettings.taxMode == PosSellTaxMode.perItem ? _total : _merchandiseAfterPromo;
+    // Voucher / đổi điểm là giảm giá trên hóa đơn → giảm giá tính thuế (cả thuế từng mặt hàng:
+    // phần giảm chia theo tỷ lệ từng dòng trong PosSellTax).
+    final net = _merchandiseAfterPromo;
     return PosSellTax.vatAmount(
       mode: _storeSettings.taxMode,
       netTotal: net,
@@ -6341,15 +6460,6 @@ class _PosSellScreenState extends State<PosSellScreen>
   double get _grandTotal {
     final fees = (_storeSettings.enableSurcharge ? _tab.surchargeAmount : 0) +
         (_storeSettings.enableDeliveryFee ? _tab.deliveryFee : 0);
-    if (_storeSettings.taxMode == PosSellTaxMode.perItem) {
-      final base = PosSellTax.grandTotal(
-        mode: _storeSettings.taxMode,
-        netTotal: _total,
-        vatAmount: _vatAmount,
-      );
-      return (base - _tab.voucherDiscount - _tab.pointsDiscount + fees)
-          .clamp(0, double.infinity);
-    }
     return PosSellTax.grandTotal(
           mode: _storeSettings.taxMode,
           netTotal: _merchandiseAfterPromo,
@@ -6785,12 +6895,19 @@ class _PosSellScreenState extends State<PosSellScreen>
     _SellCartLine? focusLine;
     setState(() {
       if (mergeIfSame) {
+        // Chỉ gộp vào dòng «trơn»: dòng có ghi chú / serial / đang tính giờ giữ riêng.
+        // Phần đã gửi bếp vẫn đúng nhờ kitchenSentQty (bếp chỉ nhận phần mới).
         final idx = _tab.cart.indexWhere((l) =>
             l.product.id == p.id &&
             !_autoOpensToppingPopup(p) &&
             l.variantId == view.variantId &&
             l.unitId == view.unitId &&
             l.toppings.isEmpty &&
+            (l.lineNote ?? '').trim().isEmpty &&
+            l.selectedQuickNotes.isEmpty &&
+            l.serialNumbers.isEmpty &&
+            l.timerStartedAt == null &&
+            l.kitchenCancelPendingQty == 0 &&
             // Món gọi thêm sau khi đã báo chế biến → dòng mới thuộc phiên sau, không gộp vào phiên trước.
             l.kitchenSentQty <= 0);
         if (idx >= 0) {
@@ -7400,7 +7517,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!isLocked) return false;
     final expRaw = data['lockExpiresAt'] ?? data['LockExpiresAt'];
     if (expRaw != null) {
-      final exp = DateTime.tryParse(expRaw.toString())?.toUtc();
+      // Giờ máy chủ có thể thiếu hậu tố Z — DateTime.tryParse coi là giờ máy (lệch 7 tiếng).
+      final exp = parseApiUtcDateTime(expRaw.toString())?.toUtc();
       if (exp != null && exp.isBefore(DateTime.now().toUtc())) return false;
     }
     return true;
@@ -7424,7 +7542,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!_isLockLive(data) || !_isLockedByAnotherDevice(data)) return false;
     final atRaw = data!['lockedAt'] ?? data['LockedAt'];
     if (atRaw != null) {
-      final at = DateTime.tryParse(atRaw.toString())?.toUtc();
+      final at = parseApiUtcDateTime(atRaw.toString())?.toUtc();
       if (at != null) {
         return DateTime.now().toUtc().difference(at).inSeconds < 45;
       }
@@ -10215,9 +10333,12 @@ class _PosSellScreenState extends State<PosSellScreen>
             unitId: pick.unitId,
           ) ??
           pick.product.basePrice;
+      // Tem «thành tiền»: SL 4 số lẻ (cột SL lưu 4 số) — giá × SL làm tròn ra đúng tiền in trên tem
+      // (trước đây 3 số lẻ: tem 33.330đ, giá 150.000 → SL 0,222 → thu 33.300đ).
+      // Tem trọng lượng ghi kg → SL theo đơn vị gốc (gram / lạng / kg).
       final qty = scale.isWeight
-          ? scale.value
-          : (price > 0 ? double.parse((scale.value / price).toStringAsFixed(3)) : 1.0);
+          ? posScaleQtyFromKg(scale.value, pick.product.baseUnitName)
+          : (price > 0 ? double.parse((scale.value / price).toStringAsFixed(4)) : 1.0);
       await _addPick(pick, mergeIfSame: false, addQty: qty);
       return;
     }
@@ -10544,6 +10665,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (ticket != null) {
       voidReason = await _promptKitchenVoidReason();
       if (voidReason == null || !mounted) return;
+      if (!await _ensureAfterBillApproval('hủy món') || !mounted) return;
     }
 
     setState(() {
@@ -10619,6 +10741,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
       final voidReason = await _promptKitchenVoidReason();
       if (voidReason == null || !mounted) return;
+      if (!await _ensureAfterBillApproval('hủy món') || !mounted) return;
       final ticket = KitchenTicketLine(
         productName: line.product.name,
         qty: cancelQty,
@@ -10688,6 +10811,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         }
         final voidReason = await _promptKitchenVoidReason();
         if (voidReason == null || !mounted) return;
+        if (!await _ensureAfterBillApproval('hủy món') || !mounted) return;
         final ticket = KitchenTicketLine(
           productName: line.product.name,
           qty: cancelQty,
@@ -10747,6 +10871,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         }
         final voidReason = await _promptKitchenVoidReason();
         if (voidReason == null || !mounted) return;
+        if (!await _ensureAfterBillApproval('hủy món') || !mounted) return;
         final ticket = KitchenTicketLine(
           productName: line.product.name,
           qty: cut,
@@ -11212,6 +11337,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         _tab.voucherCode = code.toUpperCase();
         _tab.voucherDiscount = discount;
         _tab.voucherName = data['name']?.toString();
+        _tab.voucherBase = _total;
       });
       _recalcPointsDiscount(onMutate: onMutate);
       _syncPaidAmount();
@@ -11973,22 +12099,36 @@ class _PosSellScreenState extends State<PosSellScreen>
       );
       return;
     }
-    final sunmi = await PosPrinterPeripheral.kickDrawerManual();
-    final sent = await PosPrintOrchestrator.instance.dispatchEscPosToAll(
-      documentType: PosPrintDocumentTypes.saleInvoice,
-      buildBytes: (_) async => PosPrinterPeripheral.openDrawerEscPos(),
-      skipDedup: true,
-      showFeedback: false,
-      copies: 1,
-    );
+    // Một đường duy nhất: két nối máy Sunmi trong → API Sunmi; còn lại → ESC p tới
+    // đúng máy hóa đơn. Trước đây gọi cả hai ⇒ Sunmi bật két 2–3 lần, máy khác
+    // hãng lại báo «đã mở» dù không gửi được.
+    final orch = PosPrintOrchestrator.instance;
+    await orch.refreshConfig();
+    final bill = orch.resolvePrinter(PosPrintDocumentTypes.saleInvoice);
+    final onSunmi = await PosPrinterTransport.isSunmiDevice();
+    var ok = false;
+    if (onSunmi && (bill == null || bill.isSunmi)) {
+      ok = await PosPrinterPeripheral.kickDrawerManual();
+    } else if (bill != null) {
+      ok = await orch.dispatchEscPos(
+        documentType: PosPrintDocumentTypes.saleInvoice,
+        bytes: PosPrinterPeripheral.openDrawerEscPos(),
+        printerId: bill.id,
+        skipDedup: true,
+        showFeedback: false,
+        acceptClaimedAsSuccess: false,
+      );
+    }
     if (!mounted) return;
-    if (sunmi || sent) {
+    if (ok) {
       NotificationOverlayManager()
           .showSuccess(title: 'Két', message: tr('Đã gửi lệnh mở két'));
     } else {
       NotificationOverlayManager().showError(
         title: 'Két',
-        message: tr('Không mở được két — kiểm tra máy in hóa đơn / két RJ11'),
+        message: bill == null && !onSunmi
+            ? tr('Chưa cài máy in hóa đơn — két mở qua cổng RJ11 của máy in')
+            : tr('Không mở được két — kiểm tra máy in hóa đơn / két RJ11'),
       );
     }
   }
@@ -12385,6 +12525,15 @@ class _PosSellScreenState extends State<PosSellScreen>
       perf.mark('canEdit');
       if (!_ensureResourceIfRequired()) return;
 
+      // Voucher phải khớp giỏ hiện tại trước khi tính còn thiếu / hạn mức nợ.
+      _voucherRevalidateTimer?.cancel();
+      if (!await _revalidateVoucher()) {
+        NotificationOverlayManager().showWarning(
+          title: 'Voucher',
+          message: tr('Chưa kiểm tra lại được voucher theo giỏ mới — máy chủ sẽ tính lại khi thanh toán.'),
+        );
+      }
+      if (!mounted) return;
       final paid = _effectivePaidAmount;
       final due = (_grandTotal - paid).clamp(0, double.infinity);
       if (due > 0 && _tab.customer == null) {
@@ -12753,6 +12902,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       _forceInvoicePrintOnce = false;
       if (mounted) setState(() => _checkingOut = false);
     }
+    // «In bếp» chỉ theo đơn vừa TT; «In hóa đơn» / «In tem» / «Xuất HĐĐT» giữ cho các đơn sau.
+    if (_tab.cart.isEmpty) _kitchenChipUserSet = false;
   }
 
   /// Quy đổi SL bán → ĐVT cơ bản (khớp server QtyInBase) để patch tồn lưới đúng.
@@ -12994,9 +13145,12 @@ class _PosSellScreenState extends State<PosSellScreen>
   String? get _warehouseStorePhone =>
       _storeSettings.phone.isNotEmpty ? _storeSettings.phone : null;
 
-  void _enqueueFailedSalePrint(PosSaleOrder order, {String? errorMessage}) {
+  void _enqueueFailedSalePrint(PosSaleOrder order, {String? errorMessage, String? sourceJobId}) {
     if (order.id.isEmpty) return;
-    final job = PendingSalePrintJob(order: order, errorMessage: errorMessage);
+    // Cùng đơn đã có phiếu treo với lệnh gốc → giữ lệnh gốc (lần lỗi sau không có mã lệnh không làm mất nó).
+    final keepJob = sourceJobId ??
+        _failedSalePrints.where((j) => j.id == order.id).map((j) => j.sourceJobId).firstOrNull;
+    final job = PendingSalePrintJob(order: order, errorMessage: errorMessage, sourceJobId: keepJob);
     setState(() {
       _failedSalePrints.removeWhere((j) => j.id == job.id);
       _failedSalePrints.insert(0, job);
@@ -13007,7 +13161,14 @@ class _PosSellScreenState extends State<PosSellScreen>
     unawaited(_persistPendingPrintQueue());
   }
 
-  void _removeFailedSalePrint(PendingSalePrintJob job) {
+  void _removeFailedSalePrint(PendingSalePrintJob job, {bool cancelServerJob = true}) {
+    // Bỏ phiếu hóa đơn treo → hủy luôn lệnh cũ trên máy chủ (Agent sống lại không in muộn).
+    final src = job.sourceJobId;
+    if (cancelServerJob && src != null && src.isNotEmpty && !_requeuedPrintJobIds.remove(src)) {
+      unawaited(_api.cancelPosPrintJob(src).then((_) {
+        if (mounted) _startStorePrintPollOnce();
+      }));
+    }
     setState(() => _failedSalePrints.removeWhere((j) => j.id == job.id));
     unawaited(_persistPendingPrintQueue());
   }
@@ -13035,6 +13196,8 @@ class _PosSellScreenState extends State<PosSellScreen>
   void _cancelServerHangJob(PendingKitchenPrintJob job) {
     final jobId = _pendingKitchenSourceJobId(job.id);
     if (jobId == null) return;
+    // Vừa «In lại» = xếp lại đúng lệnh này → không hủy (bảng phiếu chờ gọi «bỏ» sau khi in lại thành công).
+    if (_requeuedPrintJobIds.remove(jobId)) return;
     unawaited(_api.cancelPosPrintJob(jobId).then((_) {
       if (mounted) _startStorePrintPollOnce();
     }));
@@ -13051,7 +13214,14 @@ class _PosSellScreenState extends State<PosSellScreen>
     unawaited(_persistPendingPrintQueue());
   }
 
-  void _removeFailedCupPrint(PendingCupLabelPrintJob job) {
+  void _removeFailedCupPrint(PendingCupLabelPrintJob job, {bool cancelServerJob = true}) {
+    // Bỏ tem treo → hủy lệnh cũ trên máy chủ (Agent sống lại không in tem muộn). Vừa «In lại» = giữ lệnh.
+    final src = job.sourceJobId;
+    if (cancelServerJob && src != null && src.isNotEmpty && !_requeuedPrintJobIds.remove(src)) {
+      unawaited(_api.cancelPosPrintJob(src).then((_) {
+        if (mounted) _startStorePrintPollOnce();
+      }));
+    }
     setState(() => _failedCupPrints.removeWhere((j) => j.id == job.id));
     unawaited(_persistPendingPrintQueue());
   }
@@ -13084,6 +13254,53 @@ class _PosSellScreenState extends State<PosSellScreen>
     ), storeId: _storeId);
   }
 
+  /// Lệnh trên máy chủ vừa được xếp lại bằng «In lại» — gỡ phiếu khỏi hàng chờ không được hủy các lệnh này.
+  final Set<String> _requeuedPrintJobIds = {};
+
+  /// Lệnh xếp lại / in lại vẫn treo → đưa đúng phiếu bếp đó trở lại hàng chờ (cùng id, không sinh phiếu mới).
+  PosPrintHangCallback _kitchenRetryHang(PendingKitchenPrintJob job) => ({
+        required String jobId,
+        required String documentType,
+        required String printerId,
+        required String printerName,
+        String? referenceNo,
+      }) {
+        if (!mounted) return;
+        _enqueueFailedKitchenPrint(job.copyWith(
+          errorMessage: 'Vẫn chưa in sau khi in lại ($printerName)',
+          attemptCount: job.attemptCount + 1,
+          printerId: printerId,
+          printerName: printerName,
+        ));
+      };
+
+  /// Tem ly gửi Agent rồi treo → vào «Phiếu chưa in» (bàn / HĐ lấy lúc gửi), nhớ lệnh để in lại / hủy đúng lệnh.
+  CupLabelCloudHangCallback _cupCloudHang({String? tableLabel, String? orderNo, String? message}) =>
+      (tickets, {required jobId, required printerName}) {
+        if (!mounted || tickets.isEmpty) return;
+        _enqueueFailedCupPrint(PendingCupLabelPrintJob(
+          id: 'cup_hang_$jobId',
+          tickets: tickets,
+          tableLabel: tableLabel,
+          orderNo: orderNo,
+          sourceJobId: jobId,
+          errorMessage: '${message ?? 'Chưa in sau 90s'} ($printerName)',
+        ));
+      };
+
+  /// Hóa đơn in lại vẫn treo → đưa lại hàng chờ, nhớ lệnh đang treo.
+  PosPrintHangCallback _saleRetryHang(PendingSalePrintJob job) => ({
+        required String jobId,
+        required String documentType,
+        required String printerId,
+        required String printerName,
+        String? referenceNo,
+      }) {
+        if (!mounted) return;
+        _enqueueFailedSalePrint(job.order,
+            errorMessage: 'Vẫn chưa in sau khi in lại ($printerName)', sourceJobId: jobId);
+      };
+
   /// Id job in gốc nằm trong id phiếu treo (`kitchen_hang_<jobId>`…).
   /// Hỏi server khi thu ngân bấm In lại — Agent chậm vẫn có thể đã in xong.
   String? _pendingKitchenSourceJobId(String id) {
@@ -13098,6 +13315,28 @@ class _PosSellScreenState extends State<PosSellScreen>
       return jobId.length >= 32 ? jobId : null;
     }
     return null;
+  }
+
+  /// Máy chủ từ chối In lại vì máy in đang in đúng lệnh đó → báo thu ngân đợi.
+  bool _printJobBusy(String? error) {
+    final e = (error ?? '').toLowerCase();
+    if (!e.contains('đang in')) return false;
+    NotificationOverlayManager().showWarning(
+      title: 'Máy in đang in phiếu này',
+      message: tr(error ?? 'Đợi khoảng 1 phút rồi mới in lại'),
+      relatedEntityType: kPosPrintNotifyKind,
+    );
+    return true;
+  }
+
+  /// Lệnh in trên máy chủ đã ra giấy (Completed).
+  Future<bool> _serverJobPrinted(String jobId) async {
+    try {
+      final res = await _api.getPosPrintJob(jobId);
+      return res['isSuccess'] == true && res['data'] is Map && (res['data'] as Map)['status']?.toString() == 'Completed';
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Server đã in xong / đã hủy phiếu này → gỡ khỏi hàng chờ, không in lại.
@@ -13263,6 +13502,39 @@ class _PosSellScreenState extends State<PosSellScreen>
         unawaited(_persistPendingPrintQueue());
       },
       onRetrySale: (job, {overridePrinterId, overridePrinter}) async {
+        final pickId = overridePrinterId ?? overridePrinter?.id;
+        final src = job.sourceJobId;
+        if (src != null && src.isNotEmpty) {
+          // Lệnh gốc đã ra giấy (Agent chậm) → chỉ gỡ khỏi hàng chờ, không in lần hai.
+          if ((pickId ?? '').isEmpty && await _serverJobPrinted(src)) {
+            if (!mounted) return true;
+            _removeFailedSalePrint(job, cancelServerJob: false);
+            NotificationOverlayManager().showInfo(
+              title: 'Hóa đơn đã in rồi',
+              message: tr('${job.orderLabel}: máy in đã in — bỏ khỏi hàng chờ'),
+              relatedEntityType: kPosPrintNotifyKind,
+            );
+            return true;
+          }
+          // Xếp lại đúng lệnh cũ (đổi máy nếu chọn) — không tạo lệnh mới → không in trùng, hàng đợi không thêm lệnh.
+          final r = await PosPrintOrchestrator.instance.requeueServerJob(
+            jobId: src,
+            documentType: PosCloudDocumentTypes.saleInvoice,
+            printerId: pickId,
+            referenceNo: job.order.orderNo,
+            onHang: _saleRetryHang(job),
+          );
+          if (r.ok) {
+            _requeuedPrintJobIds.add(src);
+            if (mounted) _startStorePrintPollOnce();
+            return true;
+          }
+          // Máy in đang in đúng lệnh này → chờ, KHÔNG hủy + gửi lệnh mới (ra 2 hóa đơn).
+          if (_printJobBusy(r.error)) return false;
+          // Không xếp lại được (lệnh đã dọn…): hủy lệnh cũ cho chắc rồi in lệnh mới.
+          await _api.cancelPosPrintJob(src);
+        }
+        if (!mounted) return false;
         return printPosSaleOrder(
           context: context,
           order: job.order,
@@ -13282,6 +13554,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           overridePrinter: overridePrinter,
           // Hóa đơn chưa từng ra giấy (in sau thanh toán lỗi) → không ghi «IN LẠI».
           firstCopy: job.order.printCount == 0,
+          // Lệnh in lại treo → phiếu quay lại hàng chờ (trước đây đã gỡ khỏi hàng chờ là mất luôn).
+          onCloudHang: _saleRetryHang(job),
         );
       },
       onRetryKitchen: (job, {overridePrinterId, overridePrinter}) async {
@@ -13315,6 +13589,26 @@ class _PosSellScreenState extends State<PosSellScreen>
             : (job.printerId ?? '').trim().isNotEmpty
                 ? job.printerId
                 : null;
+        final src = _pendingKitchenSourceJobId(job.id);
+        if (src != null) {
+          // Phiếu treo có lệnh gốc: xếp lại đúng lệnh đó (đổi máy nếu chọn). Trước đây gửi lệnh MỚI trong khi lệnh
+          // cũ vẫn chờ → hàng đợi thêm 1 lệnh treo, Agent sống lại in cả 2 → bếp làm trùng món.
+          final r = await PosPrintOrchestrator.instance.requeueServerJob(
+            jobId: src,
+            documentType: job.isCancel ? PosCloudDocumentTypes.kitchenVoid : PosCloudDocumentTypes.kitchenSlip,
+            printerId: userPicked ? pickId : null,
+            referenceNo: job.orderNo,
+            onHang: _kitchenRetryHang(job),
+          );
+          if (r.ok) {
+            _requeuedPrintJobIds.add(src);
+            if (mounted) _startStorePrintPollOnce();
+            return true;
+          }
+          // Máy in đang in đúng phiếu này → chờ, không gửi thêm phiếu (bếp làm trùng món).
+          if (_printJobBusy(r.error)) return false;
+          await _api.cancelPosPrintJob(src);
+        }
         return printKitchenCompactSlip(
           tableName: job.tableName,
           isCancel: job.isCancel,
@@ -13325,10 +13619,65 @@ class _PosSellScreenState extends State<PosSellScreen>
           skipDedup: true,
           overridePrinterId: pickId,
           overridePrinter: overridePrinter,
+          // Lệnh mới vẫn treo → phiếu quay lại hàng chờ (cùng id), không mất phiếu.
+          onCloudHang: ({
+            required String jobId,
+            required String printerId,
+            required String printerName,
+            required List<KitchenTicketLine> lines,
+            String? referenceNo,
+          }) =>
+              _kitchenRetryHang(job)(
+                jobId: jobId,
+                documentType: PosCloudDocumentTypes.kitchenSlip,
+                printerId: printerId,
+                printerName: printerName,
+                referenceNo: referenceNo,
+              ),
         );
       },
       onRetryCup: (job) async {
-        final remaining = await printCupLabelsRemaining(tickets: job.tickets, showFeedback: true);
+        final src = job.sourceJobId;
+        final retryHang = _cupCloudHang(
+          tableLabel: job.tableLabel,
+          orderNo: job.orderNo,
+          message: 'Vẫn chưa in sau khi in lại',
+        );
+        if (src != null && src.isNotEmpty) {
+          // Lệnh gốc đã ra tem (Agent chậm) → chỉ gỡ khỏi hàng chờ, không in lần hai.
+          if (await _serverJobPrinted(src)) {
+            if (!mounted) return true;
+            _removeFailedCupPrint(job, cancelServerJob: false);
+            return true;
+          }
+          // Xếp lại đúng lệnh cũ — trước đây gửi lệnh mới, lệnh cũ vẫn chờ → Agent sống lại in tem 2 lần.
+          final r = await PosPrintOrchestrator.instance.requeueServerJob(
+            jobId: src,
+            documentType: PosCloudDocumentTypes.kitchenLabel,
+            referenceNo: job.orderNo,
+            onHang: ({
+              required String jobId,
+              required String documentType,
+              required String printerId,
+              required String printerName,
+              String? referenceNo,
+            }) =>
+                retryHang(job.tickets, jobId: jobId, printerName: printerName),
+          );
+          if (r.ok) {
+            _requeuedPrintJobIds.add(src);
+            if (mounted) _startStorePrintPollOnce();
+            return true;
+          }
+          // Máy tem đang in đúng lệnh này → chờ, không gửi lệnh mới (ra tem trùng).
+          if (_printJobBusy(r.error)) return false;
+          await _api.cancelPosPrintJob(src);
+        }
+        final remaining = await printCupLabelsRemaining(
+          tickets: job.tickets,
+          showFeedback: true,
+          onCloudHang: retryHang,
+        );
         if (remaining.isEmpty) return true;
         // In được một phần: bỏ các tem đã ra khỏi phiếu chờ (sửa tại chỗ — bảng chờ đang giữ cùng phiếu),
         // lần in lại sau chỉ còn tem thiếu.
@@ -13532,6 +13881,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           _enqueueFailedSalePrint(
             saleForHang,
             errorMessage: 'Chưa in sau 30s ($printerName)',
+            sourceJobId: jobId,
           );
           NotificationOverlayManager().showWarning(
             title: 'Hóa đơn treo',
@@ -15161,12 +15511,15 @@ class _PosSellScreenState extends State<PosSellScreen>
     final isExpanded = _expandedCartRowId == line.rowId;
     final noteExpanded = isExpanded && _expandedCartMode == _CartRowExpand.note;
     final priceExpanded = isExpanded && _expandedCartMode == _CartRowExpand.priceDiscount;
-    final canEditPrice = context.read<PermissionProvider>().canPosPay();
+    // Sửa giá / giảm giá trên dòng: quyền riêng (trước đây chỉ cần quyền thu ngân — máy chủ vẫn chặn, giỏ lệch
+    // với hóa đơn lưu).
+    final sellPerm = context.read<PermissionProvider>();
+    final canEditPrice = sellPerm.canPosPriceEdit() || sellPerm.canPosDiscount();
     void openPriceEditor() {
       if (!canEditPrice) {
         NotificationOverlayManager().showError(
           title: tr('Không đủ quyền'),
-          message: tr('Cần quyền thu ngân (duyệt) để đổi giá / chiết khấu'),
+          message: tr('Cần quyền «Sửa giá khi bán» hoặc «Giảm giá khi bán» — nhờ quản lý tick trong Phân quyền'),
         );
         return;
       }
@@ -17252,7 +17605,10 @@ class _PosSellScreenState extends State<PosSellScreen>
                 icon: Icons.soup_kitchen_outlined,
                 selected: _quickPrintKitchen,
                 onSelected: (v) {
-                  setState(() => _quickPrintKitchen = v);
+                  setState(() {
+                    _quickPrintKitchen = v;
+                    _kitchenChipUserSet = true;
+                  });
                   onChanged?.call();
                 },
               ),
@@ -19764,6 +20120,11 @@ class _PosSellScreenState extends State<PosSellScreen>
                           _tab._customerSearchCtrl.text =
                               kPosWalkInCustomerLabel;
                           _customerSuggestions = [];
+                          // Khách lẻ không đổi điểm (máy chủ báo lỗi khi TT).
+                          _tab.pointsToRedeem = 0;
+                          _tab.pointsDiscount = 0;
+                          _tab._pointsCtrl.clear();
+                          _syncPaidAmount();
                         });
                         Navigator.pop(ctx);
                       },

@@ -14,6 +14,7 @@ import '../models/pos_print_template_v2.dart';
 import '../utils/pos_cup_label_print.dart';
 import '../utils/pos_device_identity.dart';
 import '../utils/pos_local_printers_store.dart';
+import '../utils/pos_printer_peripheral.dart';
 import '../utils/pos_kds_alert.dart';
 import '../utils/pos_print_agent_settings.dart';
 import '../utils/pos_print_config_session.dart';
@@ -772,6 +773,13 @@ class PosPrintAgentService {
           copies: copies,
           vatIncludedInPrice: vatIncludedInPrice,
         );
+        // Máy gửi đã xét tiền mặt / in lại → chỉ mở két khi được yêu cầu (trước đây T1 làm Agent bỏ qua cờ này).
+        if (ok && !warehouseSlip) {
+          await PosPrinterPeripheral.afterSunmiNativePrint(
+            settings,
+            openDrawer: map['openCashDrawer'] == true,
+          );
+        }
       } catch (e) {
         await _api.failPosPrintJob(
           jobId,

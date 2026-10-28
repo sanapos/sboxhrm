@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -118,9 +120,21 @@ class _PosScaleLabelDialogState extends State<_PosScaleLabelDialog> {
 
   double _amountOf(double qty) => (qty * _unitPrice).roundToDouble();
 
+  /// Khối lượng làm tròn theo số lẻ mã cân (3 số = gram). Trước đây tiền tính trên số chưa làm tròn
+  /// (0,4555 kg → tem ghi 68.325đ) nhưng mã cân ghi 0,456 kg → thanh toán 68.400đ.
+  double _roundQty(double q) {
+    // Làm tròn theo độ phân giải mã cân (kg, 3 số lẻ = 1 gram) rồi quy về đơn vị của hàng
+    // (gram: số nguyên; lạng: 2 số lẻ).
+    final f = math.pow(10, _scale.isWeight ? _scale.decimals : 3).toDouble();
+    final kg = (posScaleKgFromQty(q, _unit) * f).round() / f;
+    return posScaleQtyFromKg(kg, _unit);
+  }
+
   void _addPack() {
-    final q = double.tryParse(_qtyCtrl.text.trim().replaceAll(',', '.'));
-    if (q == null || q <= 0) return;
+    final raw = double.tryParse(_qtyCtrl.text.trim().replaceAll(',', '.'));
+    if (raw == null || raw <= 0) return;
+    final q = _roundQty(raw);
+    if (q <= 0) return;
     setState(() {
       _packs.add(_Pack(q));
       _qtyCtrl.clear();
@@ -176,14 +190,19 @@ class _PosScaleLabelDialogState extends State<_PosScaleLabelDialog> {
       final labels = <PosProduct>[];
       for (final pack in _packs) {
         final amount = _amountOf(pack.qty);
-        final value = encodeCfg.isWeight ? pack.qty : amount;
+        // Mã cân trọng lượng ghi kg — hàng bán theo gram / lạng quy đổi.
+        final value = encodeCfg.isWeight ? posScaleKgFromQty(pack.qty, _unit) : amount;
         final code = encodeCfg.encode(plu, value);
         if (code == null) {
           NotificationOverlayManager().showError(
             title: 'Không tạo được mã cân',
             message: encodeCfg.isWeight
-                ? tr('Khối lượng tối đa ${_qtyFmt.format(encodeCfg.maxValue)} $_unit, PLU tối đa ${encodeCfg.pluDigits} số')
-                : tr('Mã cân đang để «thành tiền», tối đa ${_money.format(encodeCfg.maxValue)}đ — đổi sang «trọng lượng» ở Thiết lập ngành hàng'),
+                ? tr('Khối lượng tối đa ${_qtyFmt.format(encodeCfg.maxValue)} kg '
+                    '(${_qtyFmt.format(posScaleQtyFromKg(encodeCfg.maxValue, _unit))} $_unit), '
+                    'PLU tối đa ${encodeCfg.pluDigits} số')
+                : tr('Mã cân «thành tiền» chứa tối đa ${_money.format(encodeCfg.maxValue)}đ/tem '
+                    '(PLU ${encodeCfg.pluDigits} số). Gói lớn hơn: chọn «Số chữ số PLU» = 4 (tối đa 999.999đ) '
+                    'hoặc «Cân in» = «Trọng lượng» ở Thiết lập ngành hàng'),
           );
           return;
         }

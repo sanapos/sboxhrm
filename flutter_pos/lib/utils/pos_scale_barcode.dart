@@ -9,6 +9,51 @@ class PosScaleBarcode {
   const PosScaleBarcode(this.plu, this.value, this.isWeight);
 }
 
+/// Số kg của 1 đơn vị gốc hàng cân. Mã cân «trọng lượng» luôn ghi kg; hàng bán theo gram / lạng
+/// phải quy đổi (trước đây hiểu thẳng giá trị là SL đơn vị gốc → 0,45 kg thành 0,45 gram).
+/// null = không phải đơn vị khối lượng (mét, cái…): giữ nguyên giá trị như trước.
+double? posScaleKgPerUnit(String? unit) {
+  final u = (unit ?? '').trim().toLowerCase().replaceAll('.', '');
+  switch (u) {
+    case 'kg':
+    case 'kgs':
+    case 'kí':
+    case 'ký':
+    case 'ki':
+    case 'kilo':
+    case 'kilogram':
+    case 'cân':
+      return 1;
+    case 'g':
+    case 'gr':
+    case 'gam':
+    case 'gram':
+    case 'grams':
+      return 0.001;
+    case 'lạng':
+    case 'lang':
+    case 'hg':
+      return 0.1;
+    case 'yến':
+      return 10;
+    case 'tạ':
+      return 100;
+  }
+  return null;
+}
+
+/// kg trên mã cân → số lượng theo đơn vị gốc của hàng (gram: 0,456 kg → 456).
+double posScaleQtyFromKg(double kg, String? unit) {
+  final k = posScaleKgPerUnit(unit) ?? 1;
+  return double.parse((kg / k).toStringAsFixed(6));
+}
+
+/// Số lượng theo đơn vị gốc → kg ghi trên mã cân.
+double posScaleKgFromQty(double qty, String? unit) {
+  final k = posScaleKgPerUnit(unit) ?? 1;
+  return double.parse((qty * k).toStringAsFixed(6));
+}
+
 /// Cấu hình trong PosStoreSellSettings.ExtraJson → "scale".
 class PosScaleBarcodeConfig {
   final bool enabled;

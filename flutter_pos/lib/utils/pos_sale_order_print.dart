@@ -38,11 +38,15 @@ class PendingSalePrintJob {
   PendingSalePrintJob({
     required this.order,
     this.errorMessage,
+    this.sourceJobId,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
   final PosSaleOrder order;
   final String? errorMessage;
+  /// Lệnh in cloud gốc đang treo (phiếu treo sau 30–60s). «In lại» xếp lại đúng lệnh này trên máy chủ
+  /// thay vì gửi lệnh mới (tránh in 2 hóa đơn khi Agent sống lại). Null = in lỗi ngay, chưa có lệnh.
+  final String? sourceJobId;
   final DateTime createdAt;
 
   String get id => order.id;
@@ -465,6 +469,18 @@ Future<bool> printPosSaleOrder({
             : store.phone;
   }
 
+  // Cùng điều kiện mở két với bản ESC/POS bên dưới — dùng cho máy Sunmi in native.
+  bool kickDrawerFor(PosStorePrinter printer) {
+    final isProvisional = (documentTitle ?? '').toUpperCase().contains('TẠM');
+    final allowKick = openCashDrawer ?? !printOrder.isReprint;
+    return !isProvisional &&
+        allowKick &&
+        PosPrinterPeripheral.shouldOpenDrawerForOrder(
+          toThermalSettings(printer),
+          printOrder,
+        );
+  }
+
   // Khách chọn mẫu khổ trang (A4/A5) cho lần in này (Tùy chọn in / mẫu nhớ theo hóa đơn) → in trang
   // HTML / PDF cho máy in văn phòng (Android: dịch vụ in hệ thống). Trước đây mẫu A4 bị bỏ qua,
   // vẫn đẩy bản K80 ra máy nhiệt.
@@ -534,6 +550,7 @@ Future<bool> printPosSaleOrder({
       documentTitle: documentTitle,
       vatIncludedInPrice: effectiveIncluded,
       overridePrinter: target,
+      shouldKickDrawer: kickDrawerFor,
       buildEscPos: (printer) async {
         var settings = toThermalSettings(printer);
         final tpl = await _resolveSalePrintTemplate(
@@ -719,6 +736,7 @@ Future<bool> printPosSaleOrder({
       overridePrinterId: overridePrinterId,
       overridePrinter: overridePrinter,
       onHang: onCloudHang,
+      shouldKickDrawer: kickDrawerFor,
       buildEscPos: (printer) async {
         var settings = toThermalSettings(printer);
         final tpl = await _resolveSalePrintTemplate(
