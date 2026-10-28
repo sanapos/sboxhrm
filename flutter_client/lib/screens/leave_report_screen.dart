@@ -661,7 +661,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
               style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
           style: const TextStyle(fontSize: 12, color: SboxColors.slate900),
           items: [
-            DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+            DropdownMenuItem(value: null, child: Text(tr('Mọi trạng thái'))),
             DropdownMenuItem(value: 0, child: Text(tr('Chờ duyệt'))),
             DropdownMenuItem(value: 1, child: Text(tr('Đã duyệt'))),
             DropdownMenuItem(value: 2, child: Text(tr('Từ chối'))),

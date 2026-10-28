@@ -292,7 +292,13 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
             _debounce = Timer(const Duration(milliseconds: 400), _load);
           },
           actions: [
-            if (canEdit) SboxButton(label: 'Thêm voucher', icon: Icons.add, onPressed: () => _openEditor()),
+            // Điện thoại: nhãn ngắn nhường chỗ ô tìm (trước bị cắt «Tìm mã vouc…»).
+            if (canEdit)
+              SboxButton(
+                label: MediaQuery.sizeOf(context).width < 420 ? 'Thêm' : 'Thêm voucher',
+                icon: Icons.add,
+                onPressed: () => _openEditor(),
+              ),
           ],
         ),
         kpis: [

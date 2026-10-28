@@ -149,7 +149,7 @@ class _PosWarrantyLookupScreenState extends State<PosWarrantyLookupScreen> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(tr('Tra')),
+                      : Text(tr('Tra cứu')),
                 ),
               ],
             ),

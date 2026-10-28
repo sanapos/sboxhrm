@@ -721,8 +721,13 @@ class _StaffMapScreenState extends State<StaffMapScreen> {
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
           Text('${StaffMapUi.n(value)}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
-          Text(tr(label), maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: SboxColors.slate600)),
+          // Ô hẹp (3 cột trên điện thoại): «Mất tín hiệu trong ca» bị cắt «…tr…» → thu nhỏ chữ cho vừa.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(tr(label), maxLines: 1,
+                style: const TextStyle(fontSize: 11, color: SboxColors.slate600)),
+          ),
         ]),
       ),
     );

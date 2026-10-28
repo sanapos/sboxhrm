@@ -1287,8 +1287,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     const SizedBox(height: 16),
                     Text(tr('Chưa có dữ liệu sản lượng'),
                         style: TextStyle(color: SboxColors.slate500)),
-                    if (Provider.of<PermissionProvider>(context, listen: false)
-                        .canCreate('Production')) ...[
+                    // Điện thoại đã có nút nổi «Nhập sản lượng» — không lặp nút ở giữa màn trống.
+                    if (!Responsive.isMobile(context) &&
+                        Provider.of<PermissionProvider>(context, listen: false)
+                            .canCreate('Production')) ...[
                       const SizedBox(height: 16),
                       FilledButton.icon(
                         onPressed: _openAddEntry,

@@ -737,7 +737,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
               style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
           style: const TextStyle(fontSize: 12, color: SboxColors.slate900),
           items: [
-            DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+            DropdownMenuItem(value: null, child: Text(tr('Mọi trạng thái'))),
             for (int i = 0; i <= 9; i++)
               if (i != 9)
                 DropdownMenuItem(

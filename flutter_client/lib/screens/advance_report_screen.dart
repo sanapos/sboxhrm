@@ -563,7 +563,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
               style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
           style: const TextStyle(fontSize: 12, color: SboxColors.slate900),
           items: [
-            DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+            DropdownMenuItem(value: null, child: Text(tr('Mọi trạng thái'))),
             ...AdvanceRequestStatus.values.map(
                 (s) => DropdownMenuItem(value: s, child: Text(tr(_statusLabel(s))))),
           ],
