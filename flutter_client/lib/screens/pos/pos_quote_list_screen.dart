@@ -1038,11 +1038,23 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
           padding: const EdgeInsets.fromLTRB(14, 8, 4, 12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
+              // Mã BG / HĐ trong khung bo góc như chip — tách khỏi tên khách / số tiền bên dưới.
               Expanded(
-                child: Text(_cardNo(q),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SboxColors.slate500)),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: SboxColors.slate50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: SboxColors.slate200),
+                    ),
+                    child: Text(_cardNo(q),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SboxColors.slate600)),
+                  ),
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

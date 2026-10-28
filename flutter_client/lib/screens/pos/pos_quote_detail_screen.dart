@@ -319,7 +319,21 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
       child: Scaffold(
         backgroundColor: PosTheme.background,
         appBar: AppBar(
-          title: Text(q?.quoteNo ?? tr('Báo giá')),
+          // Mã báo giá trong khung bo góc như chip (cùng kiểu thẻ danh sách).
+          title: q == null
+              ? Text(tr('Báo giá'))
+              : Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: SboxColors.slate50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: SboxColors.slate200),
+                  ),
+                  child: Text(q.quoteNo,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: SboxColors.slate800)),
+                ),
           automaticallyImplyLeading: widget.onClose == null,
           // Cột chi tiết khi chia đôi: thanh tiêu đề thấp hơn, nhường chỗ cho nội dung.
           toolbarHeight: widget.onClose != null ? 48 : null,
