@@ -10,6 +10,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
 /// Gym: hội viên check-in bằng máy chấm công (vân tay / khuôn mặt / thẻ) hoặc tại quầy.
 /// Tách biệt chấm công nhân viên — hội viên có PIN riêng (9xxxxxxx), lượt quét ghi vào lượt tập,
 /// trừ 1 buổi / ngày (thẻ thời gian chỉ kiểm tra hạn).
@@ -56,7 +57,9 @@ class _PosGymCheckInScreenState extends State<PosGymCheckInScreen> with SingleTi
 final _hm = DateFormat('HH:mm');
 final _dmy = DateFormat('dd/MM/yyyy');
 
-DateTime? _date(dynamic v) => v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
+// Mốc check-in / check-out từ server là UTC không kèm Z — đọc như local là lệch 7 giờ
+// (và «đang tập X phút» cộng thừa 420 phút).
+DateTime? _date(dynamic v) => parseApiUtcDateTime(v);
 
 String _duration(int minutes) {
   if (minutes < 60) return '$minutes phút';

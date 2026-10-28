@@ -1,3 +1,5 @@
+import '../utils/api_datetime.dart';
+
 class PosCustomer {
   final String id;
   final String customerCode;
@@ -88,7 +90,7 @@ class PosCustomer {
       currentDebt: n(json['currentDebt'] ?? json['CurrentDebt']),
       pointBalance: n(json['pointBalance'] ?? json['PointBalance']),
       isActive: (json['isActive'] ?? json['IsActive']) != false,
-      lastPurchaseAt: DateTime.tryParse('${json['lastPurchaseAt'] ?? json['LastPurchaseAt'] ?? ''}'),
+      lastPurchaseAt: parseApiUtcDateTime(json['lastPurchaseAt'] ?? json['LastPurchaseAt']),
       orderCount: (json['orderCount'] ?? json['OrderCount'] ?? 0) is num
           ? ((json['orderCount'] ?? json['OrderCount'] ?? 0) as num).toInt()
           : 0,

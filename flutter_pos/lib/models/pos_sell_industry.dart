@@ -3,6 +3,7 @@ library;
 
 import '../utils/pos_kiot_time_range.dart';
 import 'dart:convert';
+import '../utils/api_datetime.dart';
 
 enum PosSellProfile {
   retail,
@@ -1686,9 +1687,8 @@ class PosSessionTxnDto {
       remainingAfter:
           (json['remainingAfter'] ?? json['RemainingAfter'] as num?)?.toInt() ??
               0,
-      at: DateTime.tryParse(atRaw) ?? DateTime.now(),
-      usedAt: DateTime.tryParse(
-          (json['usedAt'] ?? json['UsedAt'] ?? '').toString()),
+      at: parseApiUtcDateTime(atRaw) ?? DateTime.now(),
+      usedAt: parseApiUtcDateTime(json['usedAt'] ?? json['UsedAt']),
       employeeId: (json['employeeId'] ?? json['EmployeeId'])?.toString(),
       employeeName: (json['employeeName'] ?? json['EmployeeName'])?.toString(),
       note: (json['note'] ?? json['Note'])?.toString(),
@@ -1726,8 +1726,7 @@ class PosSessionOrderDto {
       total: (json['total'] ?? json['Total'] as num?)?.toDouble() ?? 0,
       paidAmount:
           (json['paidAmount'] ?? json['PaidAmount'] as num?)?.toDouble() ?? 0,
-      saleDate: DateTime.tryParse(
-          (json['saleDate'] ?? json['SaleDate'] ?? '').toString()),
+      saleDate: parseApiUtcDateTime(json['saleDate'] ?? json['SaleDate']),
       items: rawItems is List
           ? rawItems.map((e) => e.toString()).where((e) => e.isNotEmpty).toList()
           : const [],

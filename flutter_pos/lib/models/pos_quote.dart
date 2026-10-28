@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../utils/pos_area_dims.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/api_datetime.dart';
 class PosQuoteLine {
   PosQuoteLine({
     this.id = '',
@@ -149,10 +150,7 @@ class PosQuoteDocument {
   final String? wordingUpdatedBy;
 
   factory PosQuoteDocument.fromJson(Map<String, dynamic> json) {
-    DateTime? d(dynamic v) {
-      if (v == null) return null;
-      return DateTime.tryParse(v.toString());
-    }
+    DateTime? d(dynamic v) => parseApiUtcDateTime(v);
 
     return PosQuoteDocument(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
@@ -307,10 +305,7 @@ class PosQuote {
 
   factory PosQuote.fromJson(Map<String, dynamic> json) {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
-    DateTime? d(dynamic v) {
-      if (v == null) return null;
-      return DateTime.tryParse(v.toString());
-    }
+    DateTime? d(dynamic v) => parseApiUtcDateTime(v);
 
     final rawLines = json['lines'] ?? json['Lines'];
     final rawDocs = json['documents'] ?? json['Documents'];
@@ -468,10 +463,7 @@ class PosQuoteActivity {
       };
 
   factory PosQuoteActivity.fromJson(Map<String, dynamic> json) {
-    DateTime? d(dynamic v) {
-      if (v == null) return null;
-      return DateTime.tryParse(v.toString());
-    }
+    DateTime? d(dynamic v) => parseApiUtcDateTime(v);
 
     return PosQuoteActivity(
       id: (json['id'] ?? json['Id'] ?? '').toString(),

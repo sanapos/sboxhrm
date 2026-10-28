@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import 'pos_pdf_fonts.dart';
+import 'api_datetime.dart';
 import 'pos_purchase_receipt_print.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
@@ -26,7 +27,7 @@ Future<Uint8List> buildPosStockTransferPdfBytes({
 
   num n(Object? v) => v is num ? v : num.tryParse('$v') ?? 0;
   String date(Object? v) {
-    final d = v == null ? null : DateTime.tryParse('$v');
+    final d = v == null ? null : parseApiUtcDateTime(v);
     return d == null ? '—' : dateFmt.format(d.toLocal());
   }
 

@@ -403,6 +403,20 @@ double _n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 /// Giờ từ API là UTC (thường thiếu «Z») → đổi sang giờ máy; trước đây đọc như giờ địa phương nên lệch 7 tiếng.
 DateTime? _parseDate(dynamic v) => parseApiUtcDateTime(v);
 
+/// Ngày phiếu thu / chi (`transactionDate`) server lưu sẵn GIỜ VN — không coi là UTC
+/// (đọc như UTC thì sổ quỹ / chi phí lệch +7 giờ: phiếu lúc 14:45 thành 21:45).
+DateTime? _parseWallDate(dynamic v) {
+  if (v == null) return null;
+  final d = DateTime.tryParse(v.toString());
+  if (d == null) return null;
+  return d.isUtc ? d.toLocal() : d;
+}
+
+String _fmtWallDt(dynamic v) {
+  final dt = _parseWallDate(v);
+  return dt == null ? '' : DateFormat('dd/MM HH:mm').format(dt);
+}
+
 List<Map<String, dynamic>> _maps(dynamic raw) => ((raw as List?) ?? [])
     .whereType<Map>()
     .map((e) => Map<String, dynamic>.from(e))
@@ -497,7 +511,7 @@ Future<(int total, List<Map<String, dynamic>> items)> _fetchSalesOrders(
 ) {
   final map = <DateTime, double>{};
   for (final e in items) {
-    final d = _parseDate(e[dateKey]);
+    final d = dateKey == 'transactionDate' ? _parseWallDate(e[dateKey]) : _parseDate(e[dateKey]);
     if (d == null) continue;
     final l = d.isUtc ? d.toLocal() : d;
     final k = DateTime(l.year, l.month, l.day);
@@ -2001,7 +2015,7 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
               e['category'] ?? '',
               e['description'] ?? '',
               e['paymentMethod'] ?? '',
-              _fmtDt(e['transactionDate']),
+              _fmtWallDt(e['transactionDate']),
               _n(e['amount']),
             ],
         ],
@@ -2095,7 +2109,7 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
                   ),
                 ),
                 Text(
-                  tr([note, _fmtDt(e['transactionDate'])]
+                  tr([note, _fmtWallDt(e['transactionDate'])]
                       .where((s) => s.isNotEmpty)
                       .join(' · ')),
                   style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
@@ -2407,7 +2421,7 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
               e['category'] ?? '',
               e['description'] ?? '',
               _methodLabel(e['paymentMethod']),
-              _fmtDt(e['transactionDate']),
+              _fmtWallDt(e['transactionDate']),
               _n(e['amount']),
             ],
         ],
@@ -2515,7 +2529,7 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
                   tr([
                     e['description']?.toString() ?? '',
                     _methodLabel(e['paymentMethod']),
-                    _fmtDt(e['transactionDate']),
+                    _fmtWallDt(e['transactionDate']),
                   ].where((s) => s.isNotEmpty).join(' · ')),
                   style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
                 ),

@@ -8,6 +8,7 @@ import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
 /// Lịch sử hủy món / hủy đơn / trả hàng — lọc thao tác & trước/sau tạm tính.
 class PosCancelReturnHistoryScreen extends StatefulWidget {
   const PosCancelReturnHistoryScreen({super.key});
@@ -312,7 +313,7 @@ class _PosCancelReturnHistoryScreenState
   Widget _tile(Map<String, dynamic> m) {
     final action = m['actionType']?.toString();
     final after = m['afterProvisionalBill'] == true;
-    final occurred = DateTime.tryParse(m['occurredAt']?.toString() ?? '');
+    final occurred = parseApiUtcDateTime(m['occurredAt']);
     final amount = (m['amount'] as num?)?.toDouble() ?? 0;
     final qty = (m['qty'] as num?)?.toDouble() ?? 0;
     final product = m['productName']?.toString() ?? '';

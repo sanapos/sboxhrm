@@ -7,6 +7,7 @@ import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_theme.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
 /// Theo dõi chăm sóc khách tiềm năng theo báo giá: điểm thang 10 (nóng 8–10, ấm 5–7, lạnh 0–4),
 /// xu hướng so với lần chấm trước, lịch hẹn quá hạn / hôm nay, khách lâu chưa liên hệ.
 class PosQuoteCareBoardScreen extends StatefulWidget {
@@ -29,12 +30,12 @@ class _CareItem {
         previousScore = (j['previousScore'] as num?)?.toInt(),
         trend = (j['trend'] as num?)?.toInt() ?? 0,
         band = '${j['band'] ?? 'none'}',
-        lastContactAt = DateTime.tryParse('${j['lastContactAt'] ?? ''}'),
+        lastContactAt = parseApiUtcDateTime(j['lastContactAt']),
         lastContactKind = j['lastContactKind'] as String?,
         lastContent = j['lastContent'] as String?,
         daysSinceContact = (j['daysSinceContact'] as num?)?.toInt(),
         stale = j['stale'] == true,
-        nextFollowUpAt = DateTime.tryParse('${j['nextFollowUpAt'] ?? ''}'),
+        nextFollowUpAt = parseApiUtcDateTime(j['nextFollowUpAt']),
         followUp = '${j['followUp'] ?? 'none'}',
         contactCount = (j['contactCount'] as num?)?.toInt() ?? 0,
         ownerName = j['ownerName'] as String?,

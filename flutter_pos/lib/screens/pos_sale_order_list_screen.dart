@@ -44,6 +44,7 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import '../utils/pos_owner_password_gate.dart';
+import '../utils/api_datetime.dart';
 enum _ListColumn {
   orderNo('Mã đơn'),
   time('Thời gian'),
@@ -2740,7 +2741,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     return Column(
       children: _payments.map((p) {
         final paidAt = p['paidAt'] ?? p['PaidAt'];
-        final dt = paidAt != null ? DateTime.tryParse(paidAt.toString()) : null;
+        final dt = parseApiUtcDateTime(paidAt);
         return ListTile(
           dense: true,
           contentPadding: EdgeInsets.zero,
@@ -2749,9 +2750,10 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               style: const TextStyle(fontSize: 12)),
           subtitle: Text(
             tr([
-              if (dt != null) _dateFmt.format(dt.toLocal()),
+              if (dt != null) _dateFmt.format(dt),
               p['paymentMethod'] ?? p['PaymentMethod'],
-              if (p['note'] ?? p['Note'] != null) p['note'] ?? p['Note'],
+              // Ngoặc: «a ?? b != null» là «a ?? (b != null)» → ghi chú dạng chuỗi làm vỡ màn.
+              if ((p['note'] ?? p['Note']) != null) p['note'] ?? p['Note'],
             ].whereType<String>().join(' · ')),
             style: const TextStyle(fontSize: 11),
           ),

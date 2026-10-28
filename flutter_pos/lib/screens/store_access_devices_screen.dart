@@ -11,6 +11,7 @@ import '../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/api_datetime.dart';
 /// Nhả slot thiết bị đăng nhập (web / app / POS) theo hạn mức gói.
 class StoreAccessDevicesScreen extends StatefulWidget {
   const StoreAccessDevicesScreen({super.key});
@@ -108,9 +109,9 @@ class _StoreAccessDevicesScreenState extends State<StoreAccessDevicesScreen> {
 
   String _seenText(dynamic v) {
     if (v == null) return '—';
-    final parsed = DateTime.tryParse(v.toString());
+    final parsed = parseApiUtcDateTime(v);
     if (parsed == null) return '—';
-    return _fmt.format(parsed.toLocal());
+    return _fmt.format(parsed);
   }
 
   Future<void> _release(Map<String, dynamic> row) async {

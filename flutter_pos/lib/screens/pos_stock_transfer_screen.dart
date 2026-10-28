@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/api_datetime.dart';
 import '../utils/pos_stock_transfer_print.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
@@ -378,7 +379,7 @@ class _PosStockTransferScreenState extends State<PosStockTransferScreen> {
   Widget _buildRow(Map<String, dynamic> t) {
     final selected = t['id'].toString() == _selectedId;
     final status = (t['status'] as num?)?.toInt() ?? 0;
-    final created = DateTime.tryParse('${t['createdAt']}');
+    final created = parseApiUtcDateTime(t['createdAt']);
     final cancelled = status == 3;
     return Material(
       color: selected ? PosTheme.kiotBlueLight : Colors.white,
@@ -660,7 +661,7 @@ class _TransferDetailPanelState extends State<_TransferDetailPanel> {
                     for (final e in events)
                       if (e.$2 != null)
                         Text(
-                          tr('${e.$1}: ${_dt.format(DateTime.parse('${e.$2}').toLocal())}'
+                          tr('${e.$1}: ${_dt.format(parseApiUtcDateTime(e.$2)!)}'
                               '${e.$3 != null ? ' · ${e.$3}' : ''}'),
                           style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
                         ),
