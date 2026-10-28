@@ -356,8 +356,20 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
         _ => _items,
       };
 
-  Widget _wrapMd(Widget list) {
+  /// Ô tìm / lọc + chip trạng thái phía trên danh sách. Điện thoại và cột trái khi chia đôi (~500 dp):
+  /// một hàng (ô tìm + nút Lọc) thay vì ô tìm / thời gian / nhân viên xếp chồng nhiều hàng.
+  List<Widget> _listFilters(bool canCreate) => [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+          child: _md || MediaQuery.sizeOf(context).width < 600 ? _phoneFilterRow(canCreate) : _filterBar(canCreate),
+        ),
+        if (_tab == 0) _statusStrip(),
+        const SizedBox(height: 8),
+      ];
+
+  Widget _wrapMd(bool canCreate, Widget list) {
     if (!_md) return list;
+    list = Column(children: [..._listFilters(canCreate), Expanded(child: list)]);
     final id = _mdId;
     // Đổi tab / lọc / tìm mà báo giá đang xem không còn trong danh sách → về «Chọn … bên trái»
     // (đang tải lại thì giữ, khỏi dựng lại cột phải).
@@ -641,15 +653,11 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-            // Điện thoại: một hàng (ô tìm + nút Lọc) thay vì ô tìm / thời gian / nhân viên xếp chồng nhiều hàng.
-            child: MediaQuery.sizeOf(context).width < 600 ? _phoneFilterRow(canCreate) : _filterBar(canCreate),
-          ),
-          if (_tab == 0) _statusStrip(),
-          const SizedBox(height: 8),
+          // Chia đôi: ô tìm / lọc / chip trạng thái chỉ dành cho danh sách → nằm trong cột trái, cột chi tiết
+          // cao từ ngay dưới hàng tab (trước đây bị đẩy xuống dưới cả 2 hàng lọc, còn ~340 dp trên C20).
+          if (!_md) ..._listFilters(canCreate),
           Expanded(
-            child: _wrapMd(switch (_tab) {
+            child: _wrapMd(canCreate, switch (_tab) {
               1 => _stageList(
                   _contracts,
                   canEdit,
@@ -1182,7 +1190,9 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     // Nút «Thêm báo giá» vào nút nổi chung của app (như SboxFilterBar trên điện thoại).
     return RegisterPageTopActions(
       actions: [
-        HrmTopBarAction(icon: Icons.add, label: 'Thêm báo giá', onPressed: _openComposer, primary: true, showLabel: true),
+        // Chia đôi (màn ngang rộng): giữ nút có chữ như thanh lọc đầy đủ trước đây, không chỉ biểu tượng «+».
+        HrmTopBarAction(
+            icon: Icons.add, label: 'Thêm báo giá', onPressed: _openComposer, primary: true, showLabel: true, iconOnly: !_md),
       ],
       child: row,
     );

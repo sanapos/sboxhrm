@@ -321,6 +321,8 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
         appBar: AppBar(
           title: Text(q?.quoteNo ?? tr('Báo giá')),
           automaticallyImplyLeading: widget.onClose == null,
+          // Cột chi tiết khi chia đôi: thanh tiêu đề thấp hơn, nhường chỗ cho nội dung.
+          toolbarHeight: widget.onClose != null ? 48 : null,
           actions: [
             if (q != null) ...[
               IconButton(
@@ -427,6 +429,42 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
       if ((q.customerAddress ?? '').trim().isNotEmpty) q.customerAddress!.trim(),
     ].join(' · ');
     final by = q.staffLabel;
+    if (widget.onClose != null) {
+      // Chia đôi danh sách · chi tiết: thẻ bên trái đã có số BG / khách / tổng / trạng thái → thẻ đầu gọn
+      // 2 dòng (trước ~180 dp) để tiến độ + hàng hóa lên màn hình C20 mà không phải cuộn.
+      const meta = TextStyle(fontSize: 12, color: SboxColors.slate500);
+      return _card(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            _pill(PosQuote.statusLabel(q.status), PosQuote.statusColor(q.status)),
+            if (q.revision > 1) ...[const SizedBox(width: 6), _pill('Bản sửa ${q.revision - 1}', SboxColors.slate500)],
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(tr(name.isEmpty ? 'Khách lẻ (chưa chọn khách)' : name),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: SboxColors.slate900)),
+            ),
+            const SizedBox(width: 10),
+            Text(tr('${_money.format(q.total)} đ'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: PosTheme.kiotBlue)),
+          ]),
+          const SizedBox(height: 6),
+          Wrap(spacing: 12, runSpacing: 2, children: [
+            if (sub.isNotEmpty) Text(tr(sub), style: meta),
+            if (q.depositAmount > 0)
+              Text(
+                  tr('Cọc ${_money.format(q.depositAmount)} đ${q.depositPercent != null ? ' (${q.depositPercent!.round()}%)' : ''}'),
+                  style: meta),
+            if (by.isNotEmpty) Text(tr('Người báo giá: $by'), style: meta),
+            if (q.issuedAt != null) Text(tr('Ngày ${DateFormat('dd/MM/yyyy').format(q.issuedAt!.toLocal())}'), style: meta),
+            if (validity != null)
+              Text(tr(validity.$1), style: TextStyle(fontSize: 12, color: validity.$2, fontWeight: FontWeight.w600)),
+          ]),
+        ]),
+      );
+    }
     return _card(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
