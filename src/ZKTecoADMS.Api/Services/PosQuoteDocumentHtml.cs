@@ -25,7 +25,9 @@ public static class PosQuoteDocumentHtml
     public static string PrefixOf(PosQuoteDocumentKind kind) => kind switch
     {
         PosQuoteDocumentKind.Quote => "BG",
-        PosQuoteDocumentKind.Contract => "HD",
+        // «HDKT» (hợp đồng kinh tế): «HD» trùng số hóa đơn bán hàng (HD27102026…) — khó phân biệt,
+        // nội dung chuyển khoản dễ khớp nhầm đơn. Hợp đồng đã phát hành giữ số cũ; số mới đánh lại từ 0001.
+        PosQuoteDocumentKind.Contract => "HDKT",
         PosQuoteDocumentKind.Handover => "BB",
         PosQuoteDocumentKind.Acceptance => "NT",
         PosQuoteDocumentKind.PaymentRequest => "DN",
