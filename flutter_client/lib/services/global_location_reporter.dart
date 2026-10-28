@@ -14,6 +14,10 @@ class GlobalLocationReporter {
   Timer? _timer;
   bool _running = false;
   static const _reportInterval = Duration(seconds: 30);
+  /// Không có quyền vị trí / GPS tắt → tạm nghỉ tới mốc này. Trước đây mỗi 30 giây thử 3 lần
+  /// (bật hộp xin quyền liên tục nếu quyền đang «từ chối» chưa vĩnh viễn) và ghi log liên tục.
+  DateTime? _noPermissionUntil;
+  static const _noPermissionBackoff = Duration(minutes: 10);
 
   bool _parseBool(dynamic value) {
     if (value == null) return false;
@@ -63,6 +67,8 @@ class GlobalLocationReporter {
 
   /// Gọi khi app resume — khởi động lại reporter và gửi GPS ngay (không chờ chu kỳ 30s).
   Future<void> resume({String? employeeId}) async {
+    // Mở lại app: có thể vừa cấp quyền vị trí trong Cài đặt máy → thử lại ngay.
+    _noPermissionUntil = null;
     await startIfEligible(employeeId: employeeId);
     if (_running) {
       await _reportWithRetry();
@@ -88,9 +94,15 @@ class GlobalLocationReporter {
   Future<void> _reportWithRetry() async {
     const delays = [Duration.zero, Duration(seconds: 3), Duration(seconds: 8)];
     for (final delay in delays) {
+      if (_permissionBlocked) return;
       if (delay > Duration.zero) await Future<void>.delayed(delay);
       if (await _reportOnce()) return;
     }
+  }
+
+  bool get _permissionBlocked {
+    final until = _noPermissionUntil;
+    return until != null && DateTime.now().isBefore(until);
   }
 
   Future<bool> _reportOnce() async {
@@ -98,9 +110,12 @@ class GlobalLocationReporter {
       if (!kIsWeb) {
         final ok = await ensureLocationPermission();
         if (!ok) {
-          debugPrint('📍 GlobalLocationReporter: no location permission');
+          _noPermissionUntil = DateTime.now().add(_noPermissionBackoff);
+          debugPrint('📍 GlobalLocationReporter: no location permission — thử lại sau '
+              '${_noPermissionBackoff.inMinutes} phút');
           return false;
         }
+        _noPermissionUntil = null;
       }
       // Ưu tiên vị trí đo mới — vị trí đệm của hệ điều hành có thể đã cũ nhiều phút, gửi lên sẽ
       // làm lộ trình trong ca bị «đứng yên» sai. Chỉ dùng vị trí đệm khi đo mới thất bại và đệm < 2 phút.

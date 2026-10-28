@@ -7866,7 +7866,9 @@ class _PosSellScreenState extends State<PosSellScreen>
       message: message ??
           (_tab.lockedByLabel != null
               ? 'Bàn đang mở trên ${_tab.lockedByLabel} — không thể sửa'
-              : 'Về sơ đồ bàn bấm «Lấy quyền» để sửa'),
+              : _tab.isTableBound
+                  ? 'Về sơ đồ bàn bấm «Lấy quyền» để sửa'
+                  : 'Bấm «Tạm rời · bấm để mở lại» ở đầu đơn để sửa tiếp'),
     );
     return false;
   }
@@ -19404,6 +19406,9 @@ class _PosSellScreenState extends State<PosSellScreen>
             ),
           // Phiếu đang khoá trên máy khác: trước đây chỉ thấy nút Thanh toán xám, ô ghi chú không gõ
           // được mà không rõ vì sao. Chạm chip = xem máy nào đang giữ bàn.
+          // Không có máy nào giữ (lockedByLabel null) = chính máy này vừa «Về sơ đồ» nhả đơn: trước đây
+          // vẫn ghi «Đang mở trên máy khác» và bảo «về sơ đồ bấm Lấy quyền» — đơn chưa gắn bàn không có
+          // ô nào trên sơ đồ để bấm → kẹt. Chạm chip = mở lại đơn.
           if (_tab.draftReadOnly)
             Padding(
               padding: const EdgeInsets.only(right: 6),
@@ -19412,14 +19417,17 @@ class _PosSellScreenState extends State<PosSellScreen>
                 borderRadius: BorderRadius.circular(20),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(20),
-                  onTap: () => _guardReadOnlyEdit(),
+                  onTap: _tab.lockedByLabel == null
+                      ? () => unawaited(_forceClaimActiveDraft(forceTake: false))
+                      : () => _guardReadOnlyEdit(),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.lock_outline, size: 14, color: SboxColors.warning),
+                      Icon(_tab.lockedByLabel == null ? Icons.lock_open_outlined : Icons.lock_outline,
+                          size: 14, color: SboxColors.warning),
                       const SizedBox(width: 4),
                       Text(
-                        tr('Đang mở trên máy khác'),
+                        tr(_tab.lockedByLabel == null ? 'Tạm rời · bấm để mở lại' : 'Đang mở trên máy khác'),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

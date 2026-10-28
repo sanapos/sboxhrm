@@ -236,20 +236,35 @@ class SboxKpiStrip extends StatelessWidget {
           cols -= 1;
         }
       }
+      final spacing = w < SboxBreakpoints.mobile ? SboxSpace.sm : SboxSpace.md;
+      // Ô hẹp (6 thẻ / hàng trên máy tính bảng ngang ~190dp): nhãn / ghi chú 1 dòng bị cắt
+      // («Hồ sơ thiếu thôn…», «Chưa gắn nhân v…») → cho 2 dòng.
+      final cellWidth = (w - spacing * (cols - 1)) / cols;
+      final twoLine = w < SboxBreakpoints.mobile || cellWidth < 250;
       return SboxGrid(
         columns: cols,
-        spacing: w < SboxBreakpoints.mobile ? SboxSpace.sm : SboxSpace.md,
+        spacing: spacing,
         // Điện thoại 3 cột: bỏ biểu tượng để nhãn đủ chỗ, không xuống dòng.
-        children: [for (final k in items) _KpiTile(k: k, compact: w < SboxBreakpoints.mobile, showIcon: !(w < SboxBreakpoints.mobile && cols >= 3))],
+        children: [
+          for (final k in items)
+            _KpiTile(
+              k: k,
+              compact: w < SboxBreakpoints.mobile,
+              twoLine: twoLine,
+              showIcon: !(w < SboxBreakpoints.mobile && cols >= 3),
+            ),
+        ],
       );
     });
   }
 }
 
 class _KpiTile extends StatelessWidget {
-  const _KpiTile({required this.k, required this.compact, this.showIcon = true});
+  const _KpiTile({required this.k, required this.compact, this.twoLine = false, this.showIcon = true});
   final SboxKpi k;
   final bool compact;
+  /// Nhãn / ghi chú được 2 dòng (điện thoại hoặc ô hẹp).
+  final bool twoLine;
   final bool showIcon;
 
   @override
@@ -259,7 +274,7 @@ class _KpiTile extends StatelessWidget {
     final labelStyle = SboxType.smallStyle(SboxColors.textMuted).copyWith(height: 1.3);
     // Điện thoại: nhãn được 2 dòng → giữ chỗ đủ 2 dòng cho mọi thẻ, để số liệu các thẻ cùng hàng
     // thẳng nhau (trước: «Doanh thu (chưa VAT)» xuống dòng đẩy số thấp hơn thẻ bên cạnh).
-    final labelMinHeight = compact
+    final labelMinHeight = twoLine
         ? MediaQuery.textScalerOf(context).scale(labelStyle.fontSize ?? 12) * 1.3 * 2
         : 0.0;
     return SboxCard(
@@ -279,7 +294,7 @@ class _KpiTile extends StatelessWidget {
             const SizedBox(width: SboxSpace.sm),
           ],
           Expanded(
-            child: Text(tr(k.label), maxLines: compact ? 2 : 1, overflow: TextOverflow.ellipsis, style: labelStyle),
+            child: Text(tr(k.label), maxLines: twoLine ? 2 : 1, overflow: TextOverflow.ellipsis, style: labelStyle),
           ),
         ]),
         ),
@@ -298,7 +313,7 @@ class _KpiTile extends StatelessWidget {
           Expanded(
             child: Text(d == null ? ' ' : tr(d.text),
                 // Điện thoại: ghi chú dài (vd «Đã chi … · Chờ chi …») được 2 dòng thay vì bị cắt.
-                maxLines: compact ? 2 : 1, overflow: TextOverflow.ellipsis, style: SboxType.captionStyle(dColor)),
+                maxLines: twoLine ? 2 : 1, overflow: TextOverflow.ellipsis, style: SboxType.captionStyle(dColor)),
           ),
         ]),
       ]),

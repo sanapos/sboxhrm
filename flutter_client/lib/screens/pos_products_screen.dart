@@ -2009,8 +2009,8 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         title: 'Chưa có hàng hóa',
         description: perm.canCreate('PosProducts')
             ? (_fnbTypes
-                ? 'Nhấn «Tạo mới» để thêm hàng hóa, dịch vụ, combo, NVL hoặc topping'
-                : 'Nhấn «Tạo mới» để thêm hàng hóa, dịch vụ hoặc combo')
+                ? 'Nhấn «Thêm hàng» để thêm hàng hóa, dịch vụ, combo, NVL hoặc topping'
+                : 'Nhấn «Thêm hàng» để thêm hàng hóa, dịch vụ hoặc combo')
             : null,
       );
     }

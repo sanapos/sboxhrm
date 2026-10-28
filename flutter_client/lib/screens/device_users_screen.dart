@@ -860,7 +860,10 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     var list = _overviewFilteredUsers;
     final branchIds = _selectedBranchIds;
     if (branchIds != null) {
+      // User chưa liên kết hồ sơ chưa có chi nhánh → vẫn hiện (trước đây bị ẩn: thẻ
+      // «Chưa liên kết 1» nhưng bấm vào ra danh sách rỗng).
       list = list.where((u) {
+        if (u.employeeId == null || u.employeeId!.isEmpty) return true;
         final emp = _employeeOf(u);
         return emp != null && BranchFilterHelper.branchMatches(emp.branchId, branchIds);
       }).toList();
