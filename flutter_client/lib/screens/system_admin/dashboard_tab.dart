@@ -11,6 +11,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
 class DashboardTab extends StatefulWidget {
   final bool agentMode;
   final VoidCallback? onLoaded;
@@ -1863,7 +1864,7 @@ class DashboardTabState extends State<DashboardTab> {
             String timeStr = '';
             if (createdAt != null) {
               try {
-                final dt = DateTime.parse(createdAt).toLocal();
+                final dt = parseApiUtcDateTime(createdAt)!;
                 timeStr = DateFormat('dd/MM HH:mm').format(dt);
               } catch (_) {}
             }
@@ -1933,7 +1934,7 @@ class DashboardTabState extends State<DashboardTab> {
       final v = raw?.toString();
       if (v == null || v.trim().isEmpty) return '';
       try {
-        final dt = DateTime.parse(v).toLocal();
+        final dt = parseApiUtcDateTime(v)!;
         return DateFormat('dd/MM HH:mm').format(dt);
       } catch (_) {
         return v;

@@ -8,6 +8,7 @@ import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/page_top_actions.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import '../mobile_device_registration_screen.dart';
+import '../../utils/api_datetime.dart';
 
 /// Đăng ký chấm công Mobile.
 /// Quản lý: Cần duyệt (đăng ký mới + đổi máy) · Đã cấp quyền · Chưa đăng ký · Điện thoại của tôi.
@@ -347,7 +348,7 @@ class _MdInboxViewState extends State<MdInboxView> {
           _info(Icons.smartphone_rounded,
               isChange ? '${it['oldDeviceName'] ?? '?'}  ›  ${it['deviceName'] ?? ''}' : '${it['deviceName'] ?? ''}'),
           if ('${it['deviceModel'] ?? ''}'.isNotEmpty) _info(Icons.memory_rounded, '${it['deviceModel']} ${it['osVersion'] ?? ''}'.trim()),
-          _info(Icons.schedule_rounded, 'Gửi ${_ago(DateTime.tryParse('${it['requestedAt']}'))}'),
+          _info(Icons.schedule_rounded, 'Gửi ${_ago(parseApiUtcDateTime(it['requestedAt']))}'),
           if ('${it['wifiBssid'] ?? ''}'.isNotEmpty) _info(Icons.wifi_rounded, 'Wi-Fi ${it['wifiBssid']}'),
         ]),
       ),

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
 
 /// Nhãn / màu / biểu tượng dùng chung cho kiến nghị – khiếu nại.
 class FeedbackUi {
@@ -79,7 +80,7 @@ class FeedbackUi {
       };
 
   static int n(dynamic v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
-  static DateTime? date(dynamic v) => v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
+  static DateTime? date(dynamic v) => parseApiUtcDateTime(v);
   static bool isOpen(String? s) => s == 'Pending' || s == 'InProgress';
 
   static String ago(DateTime? d) {

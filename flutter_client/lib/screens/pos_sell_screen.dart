@@ -5901,7 +5901,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final items = ((res['data'] as Map)['items'] as List? ?? const []).whereType<Map>();
     final deducted = items.where((v) => v['sessionDeducted'] == true).firstOrNull;
     if (deducted == null) return true;
-    final at = DateTime.tryParse('${deducted['checkInAt']}')?.toLocal();
+    final at = parseApiUtcDateTime(deducted['checkInAt']);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -7316,6 +7316,12 @@ class _PosSellScreenState extends State<PosSellScreen>
     return line.assignedEmployeeName;
   }
 
+  bool _staffFullyAssigned(_SellCartLine line) {
+    if (_staffLabelForLine(line)?.isNotEmpty != true) return false;
+    final steps = PosLineStaffAssignSheet.slotsForProduct(line.product).length;
+    return steps <= 1 || line.staffAssignments.length >= steps;
+  }
+
   Future<void> _resumeDraftFromList() async {
     await _openWaitingOrdersSheet();
   }
@@ -8384,6 +8390,10 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   bool _autosaveLockRetrying = false;
 
+  /// Số lần tự lưu đơn tạm thất bại liên tiếp — giãn lần thử lại (280ms → tối đa 30s) để máy chủ lỗi
+  /// không bị dội hàng trăm PUT mỗi phút. Lưu được là về 0.
+  int _draftSaveFailStreak = 0;
+
 
   // ── Mất mạng: giữ giỏ, báo bếp offline, thanh toán offline ─────────────────
 
@@ -9096,6 +9106,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final snapshotLineCount = tab.cart.length;
     final snapshotFp = _cartSyncFingerprint(tab);
     _autosavingDraft = true;
+    var saveOk = false;
     try {
       await _ensureDeviceReady();
       if (identical(tab, _tab)) {
@@ -9246,15 +9257,20 @@ class _PosSellScreenState extends State<PosSellScreen>
       tab.offlineSnapFp = null;
       unawaited(PosOfflineService.instance.removeCart(tab.localKey));
       _ensureDraftSyncLoop();
+      saveOk = true;
       return true;
     } catch (_) {
       // im lặng — lần sau autosave/heartbeat sẽ thử lại
       return false;
     } finally {
       _autosavingDraft = false;
+      _draftSaveFailStreak = saveOk ? 0 : (_draftSaveFailStreak + 1).clamp(0, 8);
       if (mounted && tab.localDirty && !_suspendDraftAutosave) {
+        final retryMs = saveOk
+            ? 280
+            : (280 * (1 << _draftSaveFailStreak)).clamp(280, 30000);
         _draftAutosaveTimer?.cancel();
-        _draftAutosaveTimer = Timer(const Duration(milliseconds: 280), () {
+        _draftAutosaveTimer = Timer(Duration(milliseconds: retryMs), () {
           unawaited(_persistDraftAutosave(forTab: tab));
         });
       } else if (_syncPending && mounted) {
@@ -14793,6 +14809,27 @@ class _PosSellScreenState extends State<PosSellScreen>
   Widget build(BuildContext context) {
     // Khung giờ khuyến mãi bắt đầu / kết thúc hoặc giỏ đổi → tính lại trước khi vẽ tổng tiền.
     if (_tabs.isNotEmpty) _applyPromotionsIfChanged(_tab);
+    // Chưa load quyền → spinner (không hiện thoáng «không có quyền» lúc mới đăng nhập).
+    final permLoading = context.select<PermissionProvider, bool>(
+        (p) => !p.isLoaded && p.isLoading);
+    if (permLoading) {
+      return Scaffold(
+        backgroundColor: SboxColors.slate100,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: _kiotBlue),
+              const SizedBox(height: 12),
+              Text(
+                tr('Đang tải quyền…'),
+                style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     // Chỉ nghe đúng quyền cần — PermissionProvider refresh định kỳ không dựng lại cả màn bán.
     final canSell = context.select<PermissionProvider, bool>(
         (p) => p.canView('PosSell') || p.canView('PosProducts'));
@@ -16282,7 +16319,8 @@ class _PosSellScreenState extends State<PosSellScreen>
                                           : 'Chọn NV hoa hồng'),
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: _staffLabelForLine(line)?.isNotEmpty == true
+                                        // Xanh khi đủ người; cam khi chưa gán / combo còn bước trống.
+                                        color: _staffFullyAssigned(line)
                                             ? const Color(0xFF0F766E)
                                             : SboxColors.warningText,
                                         fontWeight: FontWeight.w600,

@@ -7,6 +7,7 @@ import '../l10n/app_tr.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/sbox/sbox_ui.dart';
+import '../utils/api_datetime.dart';
 import 'accounts_v2/ac_common.dart' show agoText;
 
 /// Thiết bị truy cập: mỗi điện thoại / trình duyệt / máy POS đăng nhập chiếm 1 chỗ theo gói.
@@ -33,7 +34,7 @@ class _Device {
   String? get user => (m['userName'] ?? m['UserName'])?.toString();
   String get key => '${m['deviceKey'] ?? m['DeviceKey'] ?? ''}';
   bool get isThis => m['isThisDevice'] == true || m['IsThisDevice'] == true;
-  DateTime? get lastSeen => DateTime.tryParse('${m['lastSeenAt'] ?? m['LastSeenAt'] ?? ''}');
+  DateTime? get lastSeen => parseApiUtcDateTime(m['lastSeenAt'] ?? m['LastSeenAt']);
   bool get stale => lastSeen != null && DateTime.now().difference(lastSeen!.toLocal()).inDays >= _staleDays;
 
   String get platformLabel => switch (platform) {

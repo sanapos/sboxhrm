@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/app_tr.dart';
 import '../../../widgets/sbox/sbox_ui.dart';
+import '../../../utils/api_datetime.dart';
 
 /// Danh mục chức năng từ server (api/system-admin/v2/catalog).
 class SaModule {
@@ -121,7 +122,8 @@ SboxTone saProductLineTone(String? v) => switch (v) {
 String saMoney(num? v) => v == null ? 'Liên hệ' : SboxFmt.money(v);
 
 String saDate(dynamic v) {
-  final d = DateTime.tryParse('${v ?? ''}')?.toLocal();
+  // Mốc server (UTC, JSON thường không kèm Z) — đọc như local là lùi ngày cho sự kiện 00:00–07:00.
+  final d = parseApiUtcDateTime(v);
   if (d == null) return '—';
   return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 }

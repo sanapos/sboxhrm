@@ -21,31 +21,34 @@ class WhMobileDocService {
     WhDocType type, {
     String? search,
     List<String>? statuses,
+    String? sort,
     int page = 1,
     int pageSize = 30,
   }) async {
     final st = statuses ?? ['Draft', 'InProgress', 'Completed', 'Cancelled'];
     switch (type) {
       case WhDocType.purchaseReceipt:
-        return _loadPurchaseReceipts(search: search, statuses: st, page: page, pageSize: pageSize);
+        return _loadPurchaseReceipts(search: search, statuses: st, sort: sort, page: page, pageSize: pageSize);
       case WhDocType.purchaseReturn:
-        return _loadPurchaseReturns(search: search, statuses: st, page: page, pageSize: pageSize);
+        return _loadPurchaseReturns(search: search, statuses: st, sort: sort, page: page, pageSize: pageSize);
       case WhDocType.stockCount:
-        return _loadStockCounts(search: search, statuses: st, page: page, pageSize: pageSize);
+        return _loadStockCounts(search: search, statuses: st, sort: sort, page: page, pageSize: pageSize);
       case WhDocType.damageIssue:
       case WhDocType.internalUseIssue:
-        return _loadStockIssues(type, search: search, statuses: st, page: page, pageSize: pageSize);
+        return _loadStockIssues(type, search: search, statuses: st, sort: sort, page: page, pageSize: pageSize);
     }
   }
 
   Future<({List<WhDocListItem> items, int total})> _loadPurchaseReceipts({
     String? search,
     required List<String> statuses,
+    String? sort,
     required int page,
     required int pageSize,
   }) async {
     final res = await _api.getPosPurchaseReceipts(
       search: search,
+      sort: sort,
       statuses: statuses.where((s) => s != 'InProgress').toList(),
       page: page,
       pageSize: pageSize,
@@ -75,11 +78,13 @@ class WhMobileDocService {
   Future<({List<WhDocListItem> items, int total})> _loadPurchaseReturns({
     String? search,
     required List<String> statuses,
+    String? sort,
     required int page,
     required int pageSize,
   }) async {
     final res = await _api.getPosPurchaseReturns(
       search: search,
+      sort: sort,
       statuses: statuses.where((s) => s != 'InProgress').toList(),
       page: page,
       pageSize: pageSize,
@@ -109,12 +114,14 @@ class WhMobileDocService {
   Future<({List<WhDocListItem> items, int total})> _loadStockCounts({
     String? search,
     required List<String> statuses,
+    String? sort,
     required int page,
     required int pageSize,
   }) async {
     final normalized = statuses.map((s) => s == 'Draft' ? 'InProgress' : s).toSet().toList();
     final res = await _api.getPosStockCounts(
       search: search,
+      sort: sort,
       statuses: normalized,
       page: page,
       pageSize: pageSize,
@@ -155,6 +162,7 @@ class WhMobileDocService {
     WhDocType type, {
     String? search,
     required List<String> statuses,
+    String? sort,
     required int page,
     required int pageSize,
   }) async {
@@ -162,6 +170,7 @@ class WhMobileDocService {
     final res = await _api.getPosStockIssueDocs(
       kind,
       search: search,
+      sort: sort,
       statuses: statuses.where((s) => s != 'InProgress').toList(),
       page: page,
       pageSize: pageSize,

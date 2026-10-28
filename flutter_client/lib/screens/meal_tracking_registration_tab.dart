@@ -13,6 +13,7 @@ import '../widgets/employee_search_picker.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/api_datetime.dart';
 /// Tab đăng ký suất ăn (NV) + tổng hợp đăng ký (quản lý) + chấm QR.
 class MealRegistrationTab extends StatefulWidget {
   final List<MealSession> sessions;
@@ -451,8 +452,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
                 subtitle: Text(tr(session ?? sid)),
                 trailing: r['registeredAt'] != null
                     ? Text(tr(DateFormat('HH:mm').format(
-                        DateTime.tryParse(r['registeredAt'].toString()) ??
-                            DateTime.now())))
+                        parseApiUtcDateTime(r['registeredAt']) ?? DateTime.now())))
                     : null,
               ),
             );

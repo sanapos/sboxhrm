@@ -10,6 +10,7 @@ import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
 class ConsultationRequestsTab extends StatefulWidget {
   const ConsultationRequestsTab({super.key});
 
@@ -383,7 +384,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
   DateTime? _tryParseDate(String? value) {
     if (value == null || value.isEmpty) return null;
     try {
-      return DateTime.parse(value).toLocal();
+      return parseApiUtcDateTime(value);
     } catch (_) {
       return null;
     }

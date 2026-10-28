@@ -7883,7 +7883,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       String lastSeen = '';
       if (lastOnlineRaw != null && !isOnline) {
         try {
-          final lo = DateTime.parse(lastOnlineRaw.toString()).toLocal();
+          final lo = parseApiUtcDateTime(lastOnlineRaw)!;
           lastSeen = _relativeTime(lo);
         } catch (_) {}
       }

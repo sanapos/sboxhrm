@@ -12,6 +12,7 @@ import '../../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
 class StoresTab extends StatefulWidget {
   final bool agentMode;
 
@@ -2546,7 +2547,7 @@ class StoresTabState extends State<StoresTab> {
   String _fmtDate(dynamic d) {
     if (d == null) return '';
     try {
-      final dt = DateTime.parse(d.toString()).toLocal();
+      final dt = parseApiUtcDateTime(d)!;
       return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
     } catch (_) {
       return d.toString();

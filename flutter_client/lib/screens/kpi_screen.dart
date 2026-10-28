@@ -25,6 +25,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import 'kpi/kpi_report_view.dart';
+import '../utils/api_datetime.dart';
 class KpiScreen extends StatefulWidget {
   const KpiScreen({super.key});
 
@@ -5192,8 +5193,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   String _fmtDateTime(dynamic d) {
     if (d == null) return '';
     try {
-      return DateFormat('dd/MM/yyyy HH:mm')
-          .format(DateTime.parse(d.toString()).toLocal());
+      return DateFormat('dd/MM/yyyy HH:mm').format(parseApiUtcDateTime(d)!);
     } catch (_) {
       return d.toString();
     }

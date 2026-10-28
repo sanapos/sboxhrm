@@ -15,10 +15,11 @@ import '../widgets/notification_overlay.dart';
 import '../utils/pos_kiot_time_range.dart';
 import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/sbox/sbox_ui.dart';
+import '../utils/pos_list_prefs.dart';
+import '../utils/pos_wh_doc_print.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_doc_row_menu.dart';
-import '../utils/pos_simple_doc_print.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_stock_issue_config.dart';
 import '../widgets/pos/pos_stock_issue_helpers.dart';
@@ -61,10 +62,32 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
 
   PosStockIssueConfig get _config => widget.config;
 
+  /// Sắp xếp (server): time_desc | time_asc | value_desc | value_asc | no_asc — nhớ theo máy,
+  /// dùng chung khóa với màn danh sách phiếu dạng mobile.
+  String _sort = 'time_desc';
+
+  static const _sortLabels = {
+    'time_desc': 'Mới nhất',
+    'time_asc': 'Cũ nhất',
+    'value_desc': 'Giá trị cao → thấp',
+    'value_asc': 'Giá trị thấp → cao',
+    'no_asc': 'Theo mã phiếu',
+  };
+
+  String get _sortPrefsKey => _config.kind == 'damage' ? 'wh_damageIssue' : 'wh_internalUseIssue';
+
+  Future<void> _restoreSort() async {
+    final v = await PosListPrefs.loadSort(_sortPrefsKey);
+    if (!mounted || v == null || v == _sort || !_sortLabels.containsKey(v)) return;
+    setState(() => _sort = v);
+    _load();
+  }
+
   @override
   void initState() {
     super.initState();
     _load();
+    _restoreSort();
   }
 
   @override
@@ -97,6 +120,7 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
           : _createdByCtrl.text.trim(),
       from: _timeFilter.from,
       to: _timeFilter.to,
+      sort: _sort,
       page: page,
       pageSize: _pageSize,
     );
@@ -260,33 +284,8 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
       }
       doc = PosStockIssueDoc.fromJson(res['data'] as Map<String, dynamic>);
     }
-    final when = (doc.issuedAt ?? doc.createdAt)?.toLocal();
-    await printPosSimpleDoc(
-      context,
-      title: 'PHIẾU ${_config.title.toUpperCase()}',
-      docNo: doc.issueNo,
-      statusLabel: stockIssueStatusLabel(doc.status),
-      infoLines: [
-        if (when != null) 'Ngày: ${_dateFmt.format(when)}',
-        'Người tạo: ${doc.createdBy ?? '—'}',
-        if (doc.categoryName != null && doc.categoryName!.isNotEmpty) 'Loại xuất: ${doc.categoryName}',
-        if (doc.recipientName != null && doc.recipientName!.isNotEmpty) 'Người nhận: ${doc.recipientName}',
-      ],
-      headers: const ['STT', 'Mã hàng', 'Tên hàng', 'SL', 'Giá vốn', 'Thành tiền'],
-      rows: [
-        for (var i = 0; i < doc.lines.length; i++)
-          [
-            '${i + 1}',
-            doc.lines[i].productCode,
-            '${doc.lines[i].productName}${doc.lines[i].unitName?.isNotEmpty == true ? ' (${doc.lines[i].unitName})' : ''}',
-            _fmtQty(doc.lines[i].qty),
-            _moneyFmt.format(doc.lines[i].costPrice),
-            _moneyFmt.format(doc.lines[i].lineTotal),
-          ],
-      ],
-      totalLines: ['Tổng SL: ${_fmtQty(doc.totalQty)}', 'Tổng giá trị: ${_moneyFmt.format(doc.totalValue)} đ'],
-      note: doc.note,
-    );
+    if (!mounted) return;
+    await printStockIssueDoc(context, doc, _config);
   }
 
   Future<void> _reopenForEdit(PosStockIssueDoc doc) async {
@@ -432,6 +431,17 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
           },
         ),
         PosTimeRangeChip(state: _timeFilter, onChanged: _onTimeFilterChanged),
+        SboxFilterChip<String>(
+          label: 'Sắp xếp',
+          value: _sort,
+          options: _sortLabels,
+          onChanged: (v) {
+            if (v == _sort) return;
+            setState(() => _sort = v);
+            PosListPrefs.saveSort(_sortPrefsKey, v);
+            _load();
+          },
+        ),
         PosMoreFiltersButton(
           activeCount: _moreFilterCount,
           onApply: () => _load(),

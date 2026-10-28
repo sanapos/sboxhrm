@@ -15,7 +15,7 @@ class PosStockIssueConfig {
     required this.voidDialogTitle,
     required this.voidDialogMessage,
     this.showInternalFields = false,
-    this.searchHint = 'Tìm mã phiếu, ghi chú…',
+    this.searchHint = 'Tìm mã phiếu, tên hàng, ghi chú…',
   });
 
   final String title;
@@ -46,7 +46,7 @@ class PosStockIssueConfig {
     completeDialogMessage: 'Hoàn thành phiếu và trừ tồn kho?',
     voidDialogTitle: 'Hủy phiếu xuất hủy',
     voidDialogMessage: 'Hủy phiếu và hoàn tồn kho?',
-    searchHint: 'Tìm mã XH, ghi chú…',
+    searchHint: 'Tìm mã XH, tên hàng, ghi chú…',
   );
 
   static const internalUse = PosStockIssueConfig(
@@ -63,7 +63,7 @@ class PosStockIssueConfig {
     voidDialogTitle: 'Hủy phiếu xuất dùng',
     voidDialogMessage: 'Hủy phiếu và hoàn tồn kho?',
     showInternalFields: true,
-    searchHint: 'Tìm mã XDNB, ghi chú, người nhận…',
+    searchHint: 'Tìm mã XDNB, tên hàng, người nhận…',
   );
 }
 

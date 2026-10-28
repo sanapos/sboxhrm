@@ -9,6 +9,7 @@ import '../../services/api_service.dart';
 import '../../utils/number_formatter.dart';
 import '../../utils/pos_doc_status.dart';
 import '../../utils/pos_mutation_result.dart';
+import '../../utils/pos_wh_doc_print.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/warehouse/wh_doc_type.dart';
@@ -53,6 +54,23 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
   /// Phiếu kiểm kho vừa nạp — dùng cho hộp xác nhận «Cân bằng kho».
   PosStockCount? _count;
 
+  /// Phiếu vừa nạp (đủ dòng) — dùng cho nút In.
+  Object? _doc;
+
+  Future<void> _print() async {
+    final d = _doc;
+    switch (d) {
+      case PosPurchaseReceipt r:
+        await printPurchaseReceiptDoc(context, r);
+      case PosPurchaseReturn r:
+        await printPurchaseReturnDoc(context, r);
+      case PosStockCount c:
+        await printStockCountDoc(context, c);
+      case PosStockIssueDoc doc:
+        await printStockIssueDoc(context, doc, widget.docType.stockIssueConfig!);
+    }
+  }
+
   bool get _isDraft =>
       _status == widget.docType.draftStatus || _status == 'Draft';
 
@@ -70,6 +88,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
           final res = await _api.getPosPurchaseReceipt(widget.docId);
           if (res['isSuccess'] == true) {
             final r = PosPurchaseReceipt.fromJson(res['data'] as Map<String, dynamic>);
+            _doc = r;
             final due = r.balanceDue != 0 ? r.balanceDue : r.grandTotal - r.paidAmount;
             _money = r.status == 'Cancelled'
                 ? const []
@@ -88,6 +107,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
           final res = await _api.getPosPurchaseReturn(widget.docId);
           if (res['isSuccess'] == true) {
             final r = PosPurchaseReturn.fromJson(res['data'] as Map<String, dynamic>);
+            _doc = r;
             final owed = r.supplierRefundAmount - r.refundReceived;
             _money = r.status == 'Cancelled'
                 ? const []
@@ -107,6 +127,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
           if (res['isSuccess'] == true) {
             final c = PosStockCount.fromJson(res['data'] as Map<String, dynamic>);
             _count = c;
+            _doc = c;
             _apply(c.countNo, c.status, c.name, c.note,
                 '${c.checkedCount}/${c.lineCount} đã kiểm · ${_svc.formatDate(c.createdAt)}',
                 // Giữ dấu như danh sách phiếu và từng dòng (trước đây đầu phiếu «134.483 đ», dòng «-134.483 đ»).
@@ -127,6 +148,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
           final res = await _api.getPosStockIssueDoc(kind, widget.docId);
           if (res['isSuccess'] == true) {
             final d = PosStockIssueDoc.fromJson(res['data'] as Map<String, dynamic>);
+            _doc = d;
             _apply(d.issueNo, d.status, d.recipientName ?? d.categoryName, d.note,
                 '${d.lines.length} dòng · ${_svc.formatDate(d.createdAt)}',
                 d.totalValue, d.lines.length,
@@ -445,6 +467,14 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
     return WhMobileScaffold(
       title: _docNo.isEmpty ? 'Chi tiết phiếu' : _docNo,
       subtitle: widget.docType.title,
+      actions: [
+        if (!_loading && _doc != null)
+          IconButton(
+            tooltip: tr('In phiếu'),
+            icon: const Icon(Icons.print_outlined),
+            onPressed: _print,
+          ),
+      ],
       bottomBar: _loading
           ? null
           : WhMobileBottomBar(

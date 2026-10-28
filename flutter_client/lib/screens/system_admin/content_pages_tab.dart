@@ -7,6 +7,7 @@ import '../../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
 /// SuperAdmin – Tab quản lý nội dung: Điều khoản, Chính sách, Trợ giúp + Báo lỗi
 class ContentPagesTab extends StatefulWidget {
   const ContentPagesTab({super.key});
@@ -497,7 +498,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
     final createdAt = r['createdAt'] as String?;
     DateTime? dt;
     try {
-      dt = createdAt != null ? DateTime.parse(createdAt).toLocal() : null;
+      dt = parseApiUtcDateTime(createdAt);
     } catch (_) {}
 
     return ListTile(

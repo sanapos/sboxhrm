@@ -1,3 +1,5 @@
+import '../utils/api_datetime.dart';
+
 // Asset Management Models for Flutter
 // Quản lý tài sản
 
@@ -143,7 +145,7 @@ class AssetCategory {
       parentCategoryName: json['parentCategoryName'],
       assetCount: json['assetCount'] ?? 0,
       isActive: json['isActive'] ?? true,
-      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
       subCategories: (json['subCategories'] as List?)
           ?.map((e) => AssetCategory.fromJson(e))
           .toList(),
@@ -281,7 +283,7 @@ class Asset {
       currentAssigneeName: json['currentAssigneeName'],
       assignedDate: json['assignedDate'] != null ? DateTime.tryParse(json['assignedDate']) : null,
       isActive: json['isActive'] ?? true,
-      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
       createdBy: json['createdBy'],
       images: (json['images'] as List?)?.map((e) => AssetImage.fromJson(e)).toList(),
       primaryImageUrl: json['primaryImageUrl'],
@@ -387,8 +389,8 @@ class AssetTransfer {
       performedById: json['performedById'],
       performedByName: json['performedByName'],
       isConfirmed: json['isConfirmed'] ?? false,
-      confirmedAt: json['confirmedAt'] != null ? DateTime.tryParse(json['confirmedAt']) : null,
-      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      confirmedAt: parseApiUtcDateTime(json['confirmedAt']),
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
     );
   }
 }
@@ -449,7 +451,7 @@ class AssetInventory {
       checkedCount: json['checkedCount'] ?? 0,
       issueCount: json['issueCount'] ?? 0,
       progressPercent: (json['progressPercent'] ?? 0).toDouble(),
-      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
       items: (json['items'] as List?)?.map((e) => AssetInventoryItem.fromJson(e)).toList(),
     );
   }
@@ -508,7 +510,7 @@ class AssetInventoryItem {
       assetCode: json['assetCode'],
       assetName: json['assetName'],
       isChecked: json['isChecked'] ?? false,
-      checkedAt: json['checkedAt'] != null ? DateTime.tryParse(json['checkedAt']) : null,
+      checkedAt: parseApiUtcDateTime(json['checkedAt']),
       checkedById: json['checkedById'],
       checkedByName: json['checkedByName'],
       condition: parseCondition(json['condition']),

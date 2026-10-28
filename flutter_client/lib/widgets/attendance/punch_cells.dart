@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
 
 /// Kiểu tô ô giờ chấm.
 enum PunchTone { normal, warn }
@@ -396,7 +397,8 @@ class HoverRowCell extends StatelessWidget {
 /// Nội dung tooltip «đã sửa tay» từ 1 bản ghi dấu sửa (API attendance-edit-marks).
 String? editMarkTooltip(Map<String, dynamic>? m) {
   if (m == null) return null;
-  final at = DateTime.tryParse(m['at']?.toString() ?? '')?.toLocal();
+  // Giờ duyệt / sửa tay (UTC từ server), không phải giờ chấm công.
+  final at = parseApiUtcDateTime(m['at']);
   final when = at == null
       ? ''
       : ' lúc ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')} ${at.day}/${at.month}';

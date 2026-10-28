@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/pos_list_prefs.dart';
 import '../utils/pos_shipping_label_print.dart';
 import '../utils/api_datetime.dart';
 import '../utils/pos_payment_label.dart';
@@ -195,6 +196,67 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     }
     ScreenRefreshNotifier.posSaleOrders.addListener(_onExternalRefresh);
     _load();
+    _restoreSort();
+  }
+
+  /// Sắp xếp danh sách (server): time_desc | time_asc | total_desc | total_asc — nhớ theo máy.
+  String _sort = 'time_desc';
+
+  static const _sortLabels = {
+    'time_desc': 'Mới nhất',
+    'time_asc': 'Cũ nhất',
+    'total_desc': 'Tổng tiền cao → thấp',
+    'total_asc': 'Tổng tiền thấp → cao',
+  };
+
+  Future<void> _restoreSort() async {
+    final v = await PosListPrefs.loadSort('sale_orders');
+    if (!mounted || v == null || v == _sort || !_sortLabels.containsKey(v)) return;
+    setState(() => _sort = v);
+    _load();
+  }
+
+  Widget _buildSortButton() {
+    final byTotal = _sort.startsWith('total');
+    return PopupMenuButton<String>(
+      tooltip: tr('Sắp xếp'),
+      onSelected: (v) {
+        if (v == _sort) return;
+        setState(() => _sort = v);
+        PosListPrefs.saveSort('sale_orders', v);
+        _load();
+      },
+      itemBuilder: (_) => [
+        for (final e in _sortLabels.entries)
+          PopupMenuItem(
+            value: e.key,
+            child: Row(children: [
+              Expanded(child: Text(tr(e.value))),
+              if (e.key == _sort) const Icon(Icons.check, size: 18, color: PosTheme.kiotBlue),
+            ]),
+          ),
+      ],
+      // Nút có chữ («Mới nhất ▾») — biểu tượng đồng hồ nhỏ trước đây khó nhận ra là nút sắp xếp.
+      child: Container(
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: _sort == 'time_desc' ? Colors.white : PosTheme.kiotBlueLight,
+          border: Border.all(
+              color: _sort == 'time_desc' ? PosTheme.border : PosTheme.kiotBlue),
+          borderRadius: BorderRadius.circular(17),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(byTotal ? Icons.payments_outlined : Icons.sort,
+              size: 16, color: PosTheme.kiotBlue),
+          const SizedBox(width: 4),
+          Text(tr(_sortLabels[_sort] ?? ''),
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600, color: PosTheme.kiotBlue)),
+          const Icon(Icons.arrow_drop_down, size: 18, color: PosTheme.kiotBlue),
+        ]),
+      ),
+    );
   }
 
   void _onExternalRefresh() {
@@ -235,6 +297,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       isDelivery: _isDeliveryFilter,
       from: _timeFilter.from,
       to: _timeFilter.to,
+      sort: _sort,
       page: page,
       pageSize: _pageSize,
     );
@@ -1155,6 +1218,17 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         ),
         PosTimeRangeChip(state: _timeFilter, onChanged: _onTimeFilterChanged),
         SboxFilterChip<String>(
+          label: 'Sắp xếp',
+          value: _sort,
+          options: _sortLabels,
+          onChanged: (v) {
+            if (v == _sort) return;
+            setState(() => _sort = v);
+            PosListPrefs.saveSort('sale_orders', v);
+            _load();
+          },
+        ),
+        SboxFilterChip<String>(
           label: 'Loại đơn',
           value: _isDeliveryFilter == null ? 'all' : (_isDeliveryFilter! ? 'ship' : 'store'),
           options: const {'all': 'Tất cả', 'store': 'Không giao hàng', 'ship': 'Giao hàng'},
@@ -1637,6 +1711,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 color: PosTheme.kiotBlue,
               ),
             ),
+            const SizedBox(width: 10),
+            _buildSortButton(),
           ],
         ),
       ),
@@ -1683,11 +1759,15 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   Widget _buildGroupedList(bool canEdit) {
     final groups = <String, List<PosSaleOrder>>{};
     final order = <String>[];
+    // Xếp theo tổng tiền: một danh sách liền, không chia nhóm theo ngày.
+    final byTotal = _sort.startsWith('total');
     for (final o in _items) {
       final dt = o.saleDate ?? o.createdAt;
-      final key = dt != null
-          ? DateFormat('yyyy-MM-dd').format(dt.toLocal())
-          : 'unknown';
+      final key = byTotal
+          ? 'all'
+          : dt != null
+              ? DateFormat('yyyy-MM-dd').format(dt.toLocal())
+              : 'unknown';
       if (!groups.containsKey(key)) {
         groups[key] = [];
         order.add(key);
@@ -1698,6 +1778,14 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final children = <Widget>[];
     for (final key in order) {
       final list = groups[key]!;
+      if (byTotal) {
+        for (final o in list) {
+          children.add(posUseMobileList(context)
+              ? _buildKiotInvoiceTile(o, canEdit)
+              : _buildOrderBlock(o, canEdit));
+        }
+        continue;
+      }
       final label = _dayHeaderLabel(key);
       final dayNet = _daySalesTotal(list);
       final dayReturn = _dayReturnTotal(list);
@@ -2552,7 +2640,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             tr([
               if (dt != null) _dateFmt.format(dt.toLocal()),
               p['paymentMethod'] ?? p['PaymentMethod'],
-              if (p['note'] ?? p['Note'] != null) p['note'] ?? p['Note'],
+              // Ngoặc: «a ?? b != null» là «a ?? (b != null)» → ghi chú dạng chuỗi làm vỡ màn.
+              if ((p['note'] ?? p['Note']) != null) p['note'] ?? p['Note'],
             ].whereType<String>().join(' · ')),
             style: const TextStyle(fontSize: 11),
           ),

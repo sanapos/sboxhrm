@@ -1318,12 +1318,20 @@ class PosMobileProductRow extends StatelessWidget {
     this.typeBadge,
     this.unitLabel,
     this.onUnitTap,
+    this.stockPill = false,
+    this.stockOut = false,
+    this.onStockTap,
   });
 
   final String name;
   final String code;
   final String priceText;
   final String stockText;
+
+  /// Danh sách Hàng hóa: tồn hiện thành nhãn màu (xanh / đỏ khi hết), bấm được ([onStockTap]).
+  final bool stockPill;
+  final bool stockOut;
+  final VoidCallback? onStockTap;
   final Widget? typeBadge;
   final Widget? image;
   final VoidCallback? onTap;
@@ -1463,8 +1471,8 @@ class PosMobileProductRow extends StatelessWidget {
                       ),
                     ),
                     if (stockText.isNotEmpty && !stockOnLeft) ...[
-                      const SizedBox(height: 2),
-                      _stockLabel(alignRight: true),
+                      SizedBox(height: stockPill ? 4 : 2),
+                      if (stockPill) _stockPillLabel() else _stockLabel(alignRight: true),
                     ],
                     if (orderReservedText != null) ...[
                       const SizedBox(height: 2),
@@ -1477,6 +1485,35 @@ class PosMobileProductRow extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _stockPillLabel() {
+    final pill = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: stockOut ? SboxColors.dangerSoft : SboxColors.successSoft,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        tr(stockText),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: stockOut ? SboxColors.dangerText : SboxColors.successText,
+        ),
+      ),
+    );
+    if (onStockTap == null) return Align(alignment: Alignment.centerRight, child: pill);
+    return Align(
+      alignment: Alignment.centerRight,
+      child: InkWell(
+        onTap: onStockTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: pill),
       ),
     );
   }

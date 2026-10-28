@@ -14,10 +14,11 @@ import '../widgets/notification_overlay.dart';
 import '../utils/pos_kiot_time_range.dart';
 import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/sbox/sbox_ui.dart';
+import '../utils/pos_list_prefs.dart';
+import '../utils/pos_wh_doc_print.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_doc_row_menu.dart';
-import '../utils/pos_simple_doc_print.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
@@ -58,11 +59,33 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
   PosPurchaseReturn? _expandedDetail;
   bool _detailLoading = false;
 
+  /// Sắp xếp (server): time_desc | time_asc | value_desc | value_asc | no_asc — nhớ theo máy,
+  /// dùng chung khóa với màn danh sách phiếu dạng mobile.
+  String _sort = 'time_desc';
+
+  static const _sortLabels = {
+    'time_desc': 'Mới nhất',
+    'time_asc': 'Cũ nhất',
+    'value_desc': 'Giá trị cao → thấp',
+    'value_asc': 'Giá trị thấp → cao',
+    'no_asc': 'Theo mã phiếu',
+  };
+
+  String get _sortPrefsKey => 'wh_purchaseReturn';
+
+  Future<void> _restoreSort() async {
+    final v = await PosListPrefs.loadSort(_sortPrefsKey);
+    if (!mounted || v == null || v == _sort || !_sortLabels.containsKey(v)) return;
+    setState(() => _sort = v);
+    _load();
+  }
+
   @override
   void initState() {
     super.initState();
     _loadSuppliers();
     _load();
+    _restoreSort();
   }
 
   @override
@@ -110,6 +133,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
           : _returnedByCtrl.text.trim(),
       from: _timeFilter.from,
       to: _timeFilter.to,
+      sort: _sort,
       page: page,
       pageSize: _pageSize,
     );
@@ -264,45 +288,8 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
       }
       r = PosPurchaseReturn.fromJson(res['data'] as Map<String, dynamic>);
     }
-    final when = r.returnDate?.toLocal();
-    final statusLabel = switch (r.status) {
-      'Draft' => 'Phiếu tạm',
-      'Completed' => 'Đã trả hàng',
-      'Cancelled' => 'Đã hủy',
-      _ => r.status,
-    };
-    await printPosSimpleDoc(
-      context,
-      title: 'PHIẾU TRẢ HÀNG NHẬP',
-      docNo: r.returnNo,
-      statusLabel: statusLabel,
-      infoLines: [
-        if (when != null) 'Ngày trả: ${_dateFmt.format(when)}',
-        'Nhà cung cấp: ${r.supplierName ?? '—'}',
-        if (r.sourceReceiptNo != null && r.sourceReceiptNo!.isNotEmpty) 'Từ phiếu nhập: ${r.sourceReceiptNo}',
-        'Người tạo: ${r.createdBy ?? '—'}',
-      ],
-      headers: const ['STT', 'Mã hàng', 'Tên hàng', 'SL', 'Giá trả lại', 'Giảm giá', 'Thành tiền'],
-      rows: [
-        for (var i = 0; i < r.lines.length; i++)
-          [
-            '${i + 1}',
-            r.lines[i].productCode,
-            '${r.lines[i].productName}${r.lines[i].unitName?.isNotEmpty == true ? ' (${r.lines[i].unitName})' : ''}',
-            r.lines[i].qty.toStringAsFixed(r.lines[i].qty == r.lines[i].qty.roundToDouble() ? 0 : 2),
-            _moneyFmt.format(r.lines[i].costPrice),
-            _moneyFmt.format(r.lines[i].discountAmount),
-            _moneyFmt.format(r.lines[i].lineTotal),
-          ],
-      ],
-      totalLines: [
-        'Tổng tiền hàng: ${_moneyFmt.format(r.totalAmount)} đ',
-        'Giảm giá: ${_moneyFmt.format(r.discountAmount)} đ',
-        'NCC đã trả: ${_moneyFmt.format(r.refundReceived)} đ',
-        'NCC cần trả: ${_moneyFmt.format(_supplierOwed(r))} đ',
-      ],
-      note: r.note,
-    );
+    if (!mounted) return;
+    await printPurchaseReturnDoc(context, r);
   }
 
   Future<void> _reopenForEdit(PosPurchaseReturn r) async {
@@ -428,7 +415,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
 
   Widget _buildFilterBar(bool canEdit) {
     return SboxFilterBar(
-      searchHint: 'Tìm mã phiếu trả, ghi chú…',
+      searchHint: 'Tìm mã phiếu trả, tên hàng…',
       searchController: _searchCtrl,
       onSearch: _onSearchChanged,
       filters: [
@@ -444,6 +431,17 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
           },
         ),
         PosTimeRangeChip(state: _timeFilter, onChanged: _onTimeFilterChanged),
+        SboxFilterChip<String>(
+          label: 'Sắp xếp',
+          value: _sort,
+          options: _sortLabels,
+          onChanged: (v) {
+            if (v == _sort) return;
+            setState(() => _sort = v);
+            PosListPrefs.saveSort(_sortPrefsKey, v);
+            _load();
+          },
+        ),
         PosPickChip(
           label: 'NCC',
           value: _supplierId,

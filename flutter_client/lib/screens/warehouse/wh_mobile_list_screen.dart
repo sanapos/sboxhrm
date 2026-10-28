@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/permission_provider.dart';
+import '../../utils/pos_list_prefs.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/warehouse/wh_doc_type.dart';
@@ -48,6 +49,69 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
   String _statusFilter = 'all';
   Timer? _debounce;
 
+  /// Sắp xếp (server): time_desc | time_asc | value_desc | value_asc | no_asc — nhớ theo máy.
+  String _sort = 'time_desc';
+
+  Map<String, String> get _sortLabels => {
+        'time_desc': 'Mới nhất',
+        'time_asc': 'Cũ nhất',
+        if (_type != WhDocType.stockCount) ...{
+          'value_desc': 'Giá trị cao → thấp',
+          'value_asc': 'Giá trị thấp → cao',
+        },
+        'no_asc': 'Theo mã phiếu',
+      };
+
+  String get _sortPrefsKey => 'wh_${_type.name}';
+
+  Future<void> _restoreSort() async {
+    final v = await PosListPrefs.loadSort(_sortPrefsKey);
+    if (!mounted || v == null || v == _sort || !_sortLabels.containsKey(v)) return;
+    setState(() => _sort = v);
+    _load();
+  }
+
+  Widget _buildSortButton() {
+    final on = _sort != 'time_desc';
+    return PopupMenuButton<String>(
+      tooltip: tr('Sắp xếp'),
+      onSelected: (v) {
+        if (v == _sort) return;
+        setState(() => _sort = v);
+        PosListPrefs.saveSort(_sortPrefsKey, v);
+        _load();
+      },
+      itemBuilder: (_) => [
+        for (final e in _sortLabels.entries)
+          PopupMenuItem(
+            value: e.key,
+            child: Row(children: [
+              Expanded(child: Text(tr(e.value))),
+              if (e.key == _sort) const Icon(Icons.check, size: 18, color: SboxColors.brand600),
+            ]),
+          ),
+      ],
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: on ? SboxColors.brand50 : Colors.white,
+          border: Border.all(color: on ? SboxColors.brand500 : SboxColors.slate300),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.sort, size: 18, color: on ? SboxColors.brand600 : SboxColors.slate600),
+          const SizedBox(width: 4),
+          Text(tr(_sortLabels[_sort] ?? ''),
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: on ? SboxColors.brand600 : SboxColors.slate700)),
+        ]),
+      ),
+    );
+  }
+
   WhDocType get _type => widget.docType;
 
   List<String> get _statuses => switch (_statusFilter) {
@@ -61,6 +125,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
   void initState() {
     super.initState();
     _load();
+    _restoreSort();
   }
 
   @override
@@ -76,6 +141,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
       _type,
       search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
       statuses: _statuses,
+      sort: _sort,
       page: page,
     );
     if (!mounted) return;
@@ -139,7 +205,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
             ),
             child: WhSearchField(
               controller: _searchCtrl,
-              hint: 'Tìm mã phiếu, ghi chú…',
+              hint: 'Tìm mã phiếu, tên hàng, ghi chú…',
               onSubmitted: (_) => _load(),
               onChanged: (_) {
                 _debounce?.cancel();
@@ -158,6 +224,8 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
                 _FilterChip(label: _type.draftStatusLabel, value: 'draft', group: _statusFilter, onSelect: () => _onFilter('draft')),
                 _FilterChip(label: 'Hoàn thành', value: 'done', group: _statusFilter, onSelect: () => _onFilter('done')),
                 _FilterChip(label: 'Đã hủy', value: 'cancelled', group: _statusFilter, onSelect: () => _onFilter('cancelled')),
+                const SizedBox(width: 8),
+                Center(child: _buildSortButton()),
               ],
             ),
           ),

@@ -9,7 +9,10 @@ import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
+import '../../utils/pos_stock_transfer_print.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos_barcode_scanner.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/page_top_actions.dart';
 import 'branch_ops_ui.dart';
@@ -41,8 +44,33 @@ class StockTransferScreen extends StatefulWidget {
 class _StockTransferScreenState extends State<StockTransferScreen> {
   final _api = ApiService();
   int? _status;
+  /// Lọc theo chi nhánh (chỉ khi mở màn chung, không phải tab trong chi tiết chi nhánh).
+  String? _branchFilter;
+  final _searchCtrl = TextEditingController();
   bool _loading = true;
   List<Map<String, dynamic>> _items = [];
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  /// Tìm ngay trên danh sách đã tải (mã phiếu, chi nhánh, ghi chú, tên / mã hàng).
+  List<Map<String, dynamic>> get _visible {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    if (q.isEmpty) return _items;
+    bool hit(Object? v) => '${v ?? ''}'.toLowerCase().contains(q);
+    return [
+      for (final t in _items)
+        if (hit(t['transferNo']) ||
+            hit(t['fromBranchName']) ||
+            hit(t['toBranchName']) ||
+            hit(t['note']) ||
+            (t['lines'] as List? ?? const []).any((l) => hit((l as Map)['productName']) || hit(l['sku'])))
+          t,
+    ];
+  }
 
   @override
   void initState() {
@@ -58,7 +86,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final r = await _api.getStockTransfers(status: _status, branchId: widget.branchId);
+    final r = await _api.getStockTransfers(status: _status, branchId: widget.branchId ?? _branchFilter);
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -110,9 +138,36 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
                 ),
             ]),
           ),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: tr('Tìm mã phiếu, chi nhánh, hàng…'),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ),
+            if (widget.branchId == null && BranchSession.instance.branches.length > 1) ...[
+              const SizedBox(width: 8),
+              _branchFilterButton(),
+            ],
+          ]),
           const SizedBox(height: 10),
           if (_loading)
             const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+          else if (_items.isNotEmpty && _visible.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                child: Text(tr('Không có phiếu khớp «${_searchCtrl.text.trim()}»'),
+                    style: const TextStyle(color: SboxColors.slate500)),
+              ),
+            )
           else if (_items.isEmpty)
             BranchBox(
               child: Column(children: [
@@ -125,7 +180,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
               ]),
             )
           else
-            for (final t in _items) _card(t),
+            for (final t in _visible) _card(t),
         ],
       ),
     );
@@ -165,9 +220,54 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
     );
   }
 
+  Widget _branchFilterButton() {
+    final branches = BranchSession.instance.branches;
+    String? name;
+    for (final b in branches) {
+      if (b.id == _branchFilter) name = b.name;
+    }
+    final on = _branchFilter != null;
+    return PopupMenuButton<String>(
+      tooltip: tr('Lọc theo chi nhánh'),
+      onSelected: (v) {
+        setState(() => _branchFilter = v.isEmpty ? null : v);
+        _load();
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(value: '', child: Text(tr('Mọi chi nhánh'))),
+        for (final b in branches)
+          PopupMenuItem(
+            value: b.id,
+            child: Text(tr('${b.name}${b.isHeadquarter ? ' (trụ sở)' : ''}')),
+          ),
+      ],
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: on ? SboxColors.brand50 : Colors.white,
+          border: Border.all(color: on ? SboxColors.brand500 : SboxColors.slate300),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.store_outlined, size: 18, color: on ? SboxColors.brand600 : SboxColors.slate500),
+          const SizedBox(width: 4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 120),
+            child: Text(tr(name ?? 'Mọi CN'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontWeight: FontWeight.w600, color: on ? SboxColors.brand600 : SboxColors.slate700)),
+          ),
+          const Icon(Icons.expand_more, size: 18),
+        ]),
+      ),
+    );
+  }
+
   Widget _card(Map<String, dynamic> t) {
     final status = (t['status'] as num?)?.toInt() ?? 0;
-    final created = DateTime.tryParse('${t['createdAt']}');
+    final created = parseApiUtcDateTime(t['createdAt']);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -252,6 +352,28 @@ class _TransferDetailSheetState extends State<_TransferDetailSheet> {
     }
   }
 
+  /// Hỏi lại trước khi hủy — phiếu đang chuyển thì hàng trả về kho đi.
+  Future<void> _confirmCancel(int status) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Hủy phiếu ${_t['transferNo'] ?? ''}?')),
+        content: Text(tr(status == 1 ? 'Hàng đang chuyển sẽ trả về kho đi.' : 'Phiếu nháp sẽ bị hủy.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: SboxColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Hủy phiếu')),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await _run(() => _api.cancelStockTransfer(_t['id'].toString()), 'Đã hủy phiếu');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final status = (_t['status'] as num?)?.toInt() ?? 0;
@@ -263,12 +385,20 @@ class _TransferDetailSheetState extends State<_TransferDetailSheet> {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
-        child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Flexible(
+            child: SingleChildScrollView(
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
               Text(_t['transferNo']?.toString() ?? '', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
               const SizedBox(width: 8),
               TransferStatusChip(status: status, label: _t['statusLabel']?.toString() ?? ''),
+              const Spacer(),
+              IconButton(
+                tooltip: tr('In phiếu chuyển'),
+                icon: const Icon(Icons.print_outlined),
+                onPressed: () => printPosStockTransfer(context: context, transfer: _t),
+              ),
             ]),
             const SizedBox(height: 6),
             Text(tr('${_t['fromBranchName']} → ${_t['toBranchName']}'), style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -281,7 +411,7 @@ class _TransferDetailSheetState extends State<_TransferDetailSheet> {
               ])
                 if (e.$2 != null)
                   Text(
-                    tr('${e.$1}: ${_dt.format(DateTime.parse('${e.$2}').toLocal())}${e.$3 != null ? ' · ${e.$3}' : ''}'),
+                    tr('${e.$1}: ${_dt.format(parseApiUtcDateTime(e.$2)!)}${e.$3 != null ? ' · ${e.$3}' : ''}'),
                     style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500),
                   ),
             ]),
@@ -327,11 +457,15 @@ class _TransferDetailSheetState extends State<_TransferDetailSheet> {
                 child: Text(tr('Nhận thiếu → phần thiếu tự trả về kho đi.'),
                     style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500)),
               ),
-            const SizedBox(height: 6),
+          ]),
+            ),
+          ),
+          // Nút gửi / nhận / hủy ghim đáy — phiếu nhiều dòng không phải cuộn hết mới thấy.
+          const Divider(height: 16),
             Row(children: [
               if (canCancel)
                 TextButton.icon(
-                  onPressed: _busy ? null : () => _run(() => _api.cancelStockTransfer(_t['id'].toString()), 'Đã hủy phiếu'),
+                  onPressed: _busy ? null : () => _confirmCancel(status),
                   style: TextButton.styleFrom(foregroundColor: SboxColors.danger),
                   icon: const Icon(Icons.close_rounded),
                   label: Text(tr(status == 1 ? 'Hủy & trả hàng về kho đi' : 'Hủy phiếu')),
@@ -362,8 +496,7 @@ class _TransferDetailSheetState extends State<_TransferDetailSheet> {
                   label: Text(tr('Xác nhận đã nhận')),
                 ),
             ]),
-          ]),
-        ),
+        ]),
       ),
     );
   }
@@ -381,12 +514,27 @@ class _CreateTransferPage extends StatefulWidget {
 }
 
 class _Line {
-  _Line(this.productId, this.name, this.unit, this.available, this.qty);
+  _Line(this.productId, this.name, this.unit, this.available, double qty)
+      : _value = qty,
+        ctrl = TextEditingController(text: bQty(qty));
   final String productId;
   final String name;
   final String unit;
   double available;
-  double qty;
+  double _value;
+
+  /// Ô gõ số lượng — đồng bộ với nút +/−.
+  final TextEditingController ctrl;
+
+  double get qty => _value;
+  set qty(double v) {
+    _value = v < 0 ? 0 : v;
+    ctrl.text = bQty(_value);
+  }
+
+  void setFromText(String t) {
+    _value = double.tryParse(t.trim().replaceAll('.', '').replaceAll(',', '.')) ?? 0;
+  }
 }
 
 class _CreateTransferPageState extends State<_CreateTransferPage> {
@@ -413,6 +561,8 @@ class _CreateTransferPageState extends State<_CreateTransferPage> {
     if (_from == _to) {
       _from = s.branches.firstWhere((b) => b.id != _to, orElse: () => s.branches.first).id;
     }
+    // Chưa chọn kho đến (mở từ nút «+») → lấy sẵn chi nhánh khác kho đi, đỡ phải chọn mới lưu được.
+    _to ??= s.branches.where((b) => b.id != _from).map((b) => b.id).firstOrNull;
     final p = widget.prefill;
     if (p != null) {
       _lines.add(_Line(p['productId'].toString(), p['name']?.toString() ?? '', p['unit']?.toString() ?? '', 0, 1));
@@ -426,6 +576,9 @@ class _CreateTransferPageState extends State<_CreateTransferPage> {
     _debounce?.cancel();
     _note.dispose();
     _search.dispose();
+    for (final l in _lines) {
+      l.ctrl.dispose();
+    }
     super.dispose();
   }
 
@@ -454,6 +607,37 @@ class _CreateTransferPageState extends State<_CreateTransferPage> {
         l.available = map[l.productId] ?? 0;
       }
     });
+  }
+
+  /// Máy quét (gõ mã + Enter vào ô tìm) hoặc camera: tìm đúng mã / mã vạch ở kho đi rồi thêm 1.
+  Future<void> _addByCode(String raw) async {
+    final code = raw.trim();
+    if (code.isEmpty || _from == null) return;
+    final r = await _api.getBranchStock(branchId: _from, search: code, filter: 'instock', pageSize: 10);
+    if (!mounted) return;
+    final items = [
+      for (final x in ((r['data'] as Map?)?['items'] as List? ?? const [])) Map<String, dynamic>.from(x as Map)
+    ];
+    final lc = code.toLowerCase();
+    final exact = items.where((it) => '${it['productCode']}'.toLowerCase() == lc).toList();
+    final pick = exact.isNotEmpty ? exact.first : (items.length == 1 ? items.first : null);
+    if (pick == null) {
+      NotificationOverlayManager().showWarning(
+        title: items.isEmpty ? 'Không tìm thấy hàng' : 'Nhiều hàng khớp',
+        message: tr(items.isEmpty ? '«$code» không có hoặc đã hết ở kho đi' : 'Chọn hàng trong danh sách bên dưới'),
+      );
+      _search.text = code;
+      _doSearch();
+      return;
+    }
+    _add(pick);
+    _search.clear();
+    _doSearch();
+  }
+
+  Future<void> _scanCamera() async {
+    final code = await scanBarcodeWithCamera(context);
+    if (code != null && mounted) await _addByCode(code);
   }
 
   void _add(Map<String, dynamic> it) {
@@ -574,12 +758,23 @@ class _CreateTransferPageState extends State<_CreateTransferPage> {
                           ),
                           IconButton(
                             visualDensity: VisualDensity.compact,
-                            onPressed: () => setState(() => l.qty = (l.qty - 1).clamp(0, double.infinity)),
+                            onPressed: () => setState(() => l.qty = l.qty - 1),
                             icon: const Icon(Icons.remove_circle_outline),
                           ),
                           SizedBox(
-                            width: 56,
-                            child: Text(bQty(l.qty), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800)),
+                            width: 64,
+                            child: TextField(
+                              controller: l.ctrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontWeight: FontWeight.w800),
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                              ),
+                              onChanged: (t) => setState(() => l.setFromText(t)),
+                            ),
                           ),
                           IconButton(
                             visualDensity: VisualDensity.compact,
@@ -588,7 +783,10 @@ class _CreateTransferPageState extends State<_CreateTransferPage> {
                           ),
                           IconButton(
                             visualDensity: VisualDensity.compact,
-                            onPressed: () => setState(() => _lines.remove(l)),
+                            onPressed: () => setState(() {
+                              _lines.remove(l);
+                              l.ctrl.dispose();
+                            }),
                             icon: const Icon(Icons.delete_outline, color: SboxColors.danger),
                           ),
                         ]),
@@ -605,11 +803,17 @@ class _CreateTransferPageState extends State<_CreateTransferPage> {
                   _debounce?.cancel();
                   _debounce = Timer(const Duration(milliseconds: 350), _doSearch);
                 },
+                onSubmitted: _addByCode,
                 decoration: InputDecoration(
                   isDense: true,
                   prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: tr('Tìm hàng còn tồn ở kho đi…'),
+                  hintText: tr('Tìm hoặc quét mã vạch hàng ở kho đi…'),
                   border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    tooltip: tr('Quét mã vạch bằng camera'),
+                    icon: const Icon(Icons.qr_code_scanner),
+                    onPressed: _scanCamera,
+                  ),
                 ),
               ),
               const SizedBox(height: 6),

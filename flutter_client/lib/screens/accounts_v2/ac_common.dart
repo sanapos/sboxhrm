@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
 import '../../utils/permission_role_options.dart';
 import '../../widgets/sbox/sbox_ui.dart';
+import '../../utils/api_datetime.dart';
 
 /// Tài khoản đăng nhập (từ GET /api/accounts).
 class Account {
@@ -50,7 +51,7 @@ class Account {
               ? 'Hồ sơ nhân viên có vấn đề'
               : null;
 
-  DateTime? get lastLoginAt => DateTime.tryParse('${m['lastLoginAt'] ?? ''}');
+  DateTime? get lastLoginAt => parseApiUtcDateTime(m['lastLoginAt']);
   DateTime? get createdAt => DateTime.tryParse('${m['createdAt'] ?? ''}');
 
   /// Chữ cái đầu để làm avatar.

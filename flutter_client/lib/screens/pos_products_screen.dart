@@ -10,6 +10,7 @@ import '../models/pos_product.dart';
 import '../models/pos_sell_industry.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../services/branch_session.dart';
 import '../utils/pos_sell_settings_helper.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/responsive_helper.dart';
@@ -2106,11 +2107,15 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Row(
                   children: [
-                    PosProductImage(
-                      productId: p.id,
-                      imageUrl: p.imageUrl,
-                      size: 44,
-                      borderRadius: 8,
+                    GestureDetector(
+                      onTap: (p.imageUrl ?? '').isEmpty ? null : () => _showImagePreview(p),
+                      child: PosProductImage(
+                        productId: p.id,
+                        imageUrl: p.imageUrl,
+                        updatedAt: p.updatedAt,
+                        size: 44,
+                        borderRadius: 8,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -2151,6 +2156,15 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                   );
                 },
               ),
+              if (p.showsWarehouseStock && BranchSession.instance.branches.length > 1)
+                ListTile(
+                  leading: const Icon(Icons.store_outlined),
+                  title: Text(tr('Tồn theo chi nhánh')),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showBranchStock(p);
+                  },
+                ),
               if (canEdit)
                 ListTile(
                   leading: const Icon(Icons.edit_outlined),
@@ -2222,6 +2236,124 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     );
   }
 
+  /// Bấm ảnh nhỏ ở danh sách: xem ảnh lớn.
+  Future<void> _showImagePreview(PosProduct p) {
+    // Vuông, vừa chiều cao màn (T1 ngang chỉ ~630dp) — chừa thanh tiêu đề.
+    final screen = MediaQuery.sizeOf(context);
+    // Vuông, vừa cả chiều cao (máy ngang) lẫn chiều rộng (điện thoại dọc như C20).
+    final side = [screen.height - 160, screen.width - 112, 560.0]
+        .reduce((a, b) => a < b ? a : b)
+        .clamp(200.0, 560.0);
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+              child: Row(children: [
+                Expanded(
+                  child: Text(tr(p.name),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                ),
+                IconButton(
+                  tooltip: tr('Đóng'),
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: InteractiveViewer(
+              maxScale: 4,
+              child: PosProductImage(
+                productId: p.id,
+                imageUrl: p.imageUrl,
+                updatedAt: p.updatedAt,
+                size: side,
+                borderRadius: 0,
+                fit: BoxFit.contain,
+              ),
+            ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Bấm nhãn tồn ở danh sách: tồn mặt hàng ở từng chi nhánh.
+  Future<void> _showBranchStock(PosProduct p) async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Tồn theo chi nhánh · ${p.name}')),
+        content: SizedBox(
+          width: 420,
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: _api.getBranchStockMatrix(p.id),
+            builder: (_, snap) {
+              if (!snap.hasData) {
+                return const SizedBox(
+                    height: 80, child: Center(child: CircularProgressIndicator()));
+              }
+              final data = snap.data!['data'];
+              final rows = data is Map ? (data['branches'] as List? ?? const []) : const [];
+              if (rows.isEmpty) {
+                return Text(tr(
+                    'Cửa hàng chưa chia chi nhánh — tồn chung: ${_moneyFmt.format(p.onHandQty)}'));
+              }
+              final total = rows.fold<num>(0, (a, b) => a + ((b as Map)['qty'] as num? ?? 0));
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final b in rows.cast<Map>())
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                          b['isHeadquarter'] == true
+                              ? Icons.home_work_outlined
+                              : Icons.store_outlined,
+                          color: PosTheme.kiotBlue),
+                      title: Text(tr('${b['name']}${b['isHeadquarter'] == true ? ' (trụ sở)' : ''}')),
+                      trailing: Text(
+                        _moneyFmt.format(b['qty'] as num? ?? 0),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: (b['qty'] as num? ?? 0) <= 0
+                              ? SboxColors.danger
+                              : PosTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                  const Divider(),
+                  Row(children: [
+                    Expanded(
+                      child: Text(tr('Tổng'),
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                    Text(_moneyFmt.format(total),
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                  ]),
+                ],
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
+        ],
+      ),
+    );
+  }
+
   Widget _buildKiotMobileProductRow(PosProduct p, PermissionProvider perm) {
     final variants = _variantsByProductId[p.id] ?? [];
     final unitViews = buildPosProductUnitViews(p, variants);
@@ -2230,6 +2362,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     final stockUnit = activeView.label.isNotEmpty
         ? activeView.label
         : p.baseUnitName;
+    final stockQty = p.productType == PosProductType.combo
+        ? (p.sellableQty ?? activeView.onHandQty)
+        : activeView.onHandQty;
 
     return PosMobileProductRow(
       name: p.name,
@@ -2237,15 +2372,28 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       priceText: _moneyFmt.format(activeView.basePrice),
       stockText: !p.showsWarehouseStock
           ? (p.sessionPackLabel ?? '')
-          : p.productType == PosProductType.combo
-              ? 'Bán ${_moneyFmt.format(p.sellableQty ?? activeView.onHandQty)}'
-              : 'Tồn ${_moneyFmt.format(activeView.onHandQty)} $stockUnit',
+          : stockQty <= 0
+              ? 'Hết hàng'
+              : p.productType == PosProductType.combo
+                  ? 'Bán ${_moneyFmt.format(stockQty)}'
+                  : 'Tồn ${_moneyFmt.format(stockQty)} $stockUnit',
+      // Hàng có tồn: nhãn màu, bấm xem tồn từng chi nhánh (cửa hàng nhiều chi nhánh).
+      stockPill: p.showsWarehouseStock,
+      stockOut: p.showsWarehouseStock && stockQty <= 0,
+      onStockTap: p.showsWarehouseStock && BranchSession.instance.branches.length > 1
+          ? () => _showBranchStock(p)
+          : null,
       typeBadge: PosProductTypeBadge(type: p.productType, compact: true),
-      image: PosProductImage(
-        productId: p.id,
-        imageUrl: p.imageUrl,
-        size: 48,
-        borderRadius: 8,
+      // Bấm ảnh: xem ảnh lớn; bấm dòng: thao tác.
+      image: GestureDetector(
+        onTap: (p.imageUrl ?? '').isEmpty ? null : () => _showImagePreview(p),
+        child: PosProductImage(
+          productId: p.id,
+          imageUrl: p.imageUrl,
+          updatedAt: p.updatedAt,
+          size: 48,
+          borderRadius: 8,
+        ),
       ),
       onTap: () => _showMobileProductActions(p, perm),
       onLongPress: perm.canEdit('PosProducts') ? () => _openEdit(p) : null,

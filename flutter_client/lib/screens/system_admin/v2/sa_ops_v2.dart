@@ -8,6 +8,7 @@ import '../../../services/api_service.dart';
 import '../../../utils/file_saver.dart' as file_saver;
 import '../../../widgets/sbox/sbox_ui.dart';
 import 'sa_v2_common.dart';
+import '../../../utils/api_datetime.dart';
 
 /// Khung 2 chế độ xem: màn mới + màn cũ (giữ trạng thái cả hai).
 class SaHubSwitch extends StatefulWidget {
@@ -433,9 +434,11 @@ class _AgentsV2ViewState extends State<AgentsV2View> {
 // ─── Tình trạng hệ thống ────────────────────────────────────────────
 
 String _dt(dynamic v) {
-  final d = DateTime.tryParse('${v ?? ''}')?.toLocal();
+  // Lịch bảo trì: server lưu UTC, JSON không kèm Z.
+  final d = parseApiUtcDateTime(v);
   if (d == null) return '—';
-  return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')} ${saDate(v)}';
+  String two(int x) => x.toString().padLeft(2, '0');
+  return '${two(d.hour)}:${two(d.minute)} ${two(d.day)}/${two(d.month)}/${d.year}';
 }
 
 class SystemStatusView extends StatefulWidget {

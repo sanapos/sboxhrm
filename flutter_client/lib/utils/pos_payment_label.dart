@@ -2,6 +2,10 @@
 /// Nhãn đã là tiếng Việt hoặc tên tài khoản nhận tiền thì giữ nguyên.
 String posPaymentMethodVi(String? method) {
   final m = (method ?? '').trim();
+  // Nhiều hình thức: «Cash + BankTransfer» → «Tiền mặt + Chuyển khoản».
+  if (m.contains('+')) {
+    return m.split('+').map((e) => posPaymentMethodVi(e)).join(' + ');
+  }
   switch (m.toLowerCase().replaceAll(RegExp(r'[\s_-]'), '')) {
     case 'cash':
       return 'Tiền mặt';

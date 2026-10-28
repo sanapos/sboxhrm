@@ -18925,11 +18925,13 @@ class ApiService implements PayrollApi {
     String? createdBy,
     DateTime? from,
     DateTime? to,
+    String? sort,
     int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (sort != null && sort.isNotEmpty) q['sort'] = sort;
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (statuses != null && statuses.isNotEmpty) {
         q['statuses'] = statuses.join(',');
@@ -19039,11 +19041,13 @@ class ApiService implements PayrollApi {
     String? issuedBy,
     DateTime? from,
     DateTime? to,
+    String? sort,
     int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (sort != null && sort.isNotEmpty) q['sort'] = sort;
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (statuses != null && statuses.isNotEmpty) {
         q['statuses'] = statuses.join(',');
@@ -19307,11 +19311,13 @@ class ApiService implements PayrollApi {
     String? inputInvoiceNo,
     DateTime? from,
     DateTime? to,
+    String? sort,
     int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (sort != null && sort.isNotEmpty) q['sort'] = sort;
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (statuses != null && statuses.isNotEmpty) {
         q['statuses'] = statuses.join(',');
@@ -19469,11 +19475,13 @@ class ApiService implements PayrollApi {
     String? returnedBy,
     DateTime? from,
     DateTime? to,
+    String? sort,
     int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (sort != null && sort.isNotEmpty) q['sort'] = sort;
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (statuses != null && statuses.isNotEmpty) {
         q['statuses'] = statuses.join(',');
@@ -19863,11 +19871,13 @@ class ApiService implements PayrollApi {
     bool? hasVoucher,
     DateTime? from,
     DateTime? to,
+    String? sort,
     int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (sort != null && sort.isNotEmpty) q['sort'] = sort;
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (statuses != null && statuses.isNotEmpty) {
         q['statuses'] = statuses.join(',');

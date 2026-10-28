@@ -11,6 +11,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/page_top_actions.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/api_datetime.dart';
 
 /// Lịch sử thao tác của cửa hàng (30 ngày): ai thêm / sửa / xóa gì, lúc nào, ở chức năng nào.
 class ActivityLogScreen extends StatefulWidget {
@@ -397,7 +398,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     final children = <Widget>[];
     String? lastDay;
     for (final it in _items) {
-      final t = DateTime.tryParse('${it['timestamp']}')?.toLocal();
+      final t = parseApiUtcDateTime(it['timestamp']);
       final day = t == null ? '' : _dmy.format(t);
       if (day != lastDay) {
         lastDay = day;
@@ -537,7 +538,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     final d = res['data'] as Map;
     final details = d['details'] is Map ? d['details'] as Map : const {};
     final changes = ((details['changes'] as List?) ?? []).whereType<Map>().toList();
-    final t = DateTime.tryParse('${it['timestamp']}')?.toLocal();
+    final t = parseApiUtcDateTime(it['timestamp']);
     final (label, color, _) = _actionStyle('${it['action']}');
     await showModalBottomSheet<void>(
       context: context,

@@ -16,6 +16,7 @@ import '../widgets/notification_overlay.dart';
 import '../utils/pos_kiot_time_range.dart';
 import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/sbox/sbox_ui.dart';
+import '../utils/pos_list_prefs.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_doc_row_menu.dart';
@@ -57,10 +58,30 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
   PosStockCount? _expandedDetail;
   bool _detailLoading = false;
 
+  /// Sắp xếp (server): time_desc | time_asc | value_desc | value_asc | no_asc — nhớ theo máy,
+  /// dùng chung khóa với màn danh sách phiếu dạng mobile.
+  String _sort = 'time_desc';
+
+  static const _sortLabels = {
+    'time_desc': 'Mới nhất',
+    'time_asc': 'Cũ nhất',
+    'no_asc': 'Theo mã phiếu',
+  };
+
+  String get _sortPrefsKey => 'wh_stockCount';
+
+  Future<void> _restoreSort() async {
+    final v = await PosListPrefs.loadSort(_sortPrefsKey);
+    if (!mounted || v == null || v == _sort || !_sortLabels.containsKey(v)) return;
+    setState(() => _sort = v);
+    _load();
+  }
+
   @override
   void initState() {
     super.initState();
     _load();
+    _restoreSort();
   }
 
   @override
@@ -92,6 +113,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
           : _createdByCtrl.text.trim(),
       from: _timeFilter.from,
       to: _timeFilter.to,
+      sort: _sort,
       page: page,
       pageSize: _pageSize,
     );
@@ -375,7 +397,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
 
   Widget _buildFilterBar(bool canEdit) {
     return SboxFilterBar(
-      searchHint: 'Tìm mã KK, ghi chú…',
+      searchHint: 'Tìm mã KK, tên hàng, ghi chú…',
       searchController: _searchCtrl,
       onSearch: _onSearchChanged,
       filters: [
@@ -391,6 +413,17 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
           },
         ),
         PosTimeRangeChip(state: _timeFilter, onChanged: _onTimeFilterChanged),
+        SboxFilterChip<String>(
+          label: 'Sắp xếp',
+          value: _sort,
+          options: _sortLabels,
+          onChanged: (v) {
+            if (v == _sort) return;
+            setState(() => _sort = v);
+            PosListPrefs.saveSort(_sortPrefsKey, v);
+            _load();
+          },
+        ),
         PosMoreFiltersButton(
           activeCount: _moreFilterCount,
           onApply: () => _load(),

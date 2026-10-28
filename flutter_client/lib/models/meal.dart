@@ -1,3 +1,5 @@
+import '../utils/api_datetime.dart';
+
 class MealSession {
   final String id;
   final String name;
@@ -348,10 +350,10 @@ class MealRegistration {
       date: DateTime.parse(json['date'].toString()),
       isRegistered: json['isRegistered'] ?? true,
       registeredAt: json['registeredAt'] != null
-          ? DateTime.tryParse(json['registeredAt'].toString())
+          ? parseApiUtcDateTime(json['registeredAt'])
           : null,
       cancelledAt: json['cancelledAt'] != null
-          ? DateTime.tryParse(json['cancelledAt'].toString())
+          ? parseApiUtcDateTime(json['cancelledAt'])
           : null,
       note: json['note'],
     );
@@ -542,8 +544,8 @@ class MealRegistrationDetail {
       mealSessionId: json['mealSessionId']?.toString() ?? '',
       date: DateTime.parse(json['date'].toString()),
       isRegistered: json['isRegistered'] ?? true,
-      registeredAt: json['registeredAt'] != null ? DateTime.tryParse(json['registeredAt'].toString()) : null,
-      cancelledAt: json['cancelledAt'] != null ? DateTime.tryParse(json['cancelledAt'].toString()) : null,
+      registeredAt: parseApiUtcDateTime(json['registeredAt']),
+      cancelledAt: parseApiUtcDateTime(json['cancelledAt']),
       note: json['note'],
     );
   }

@@ -6,6 +6,7 @@ import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
 /// SuperAdmin – tab "Thông báo / Broadcast" (Phase 1).
 class AnnouncementsTab extends StatefulWidget {
   const AnnouncementsTab({super.key});
@@ -251,7 +252,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
                   style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
               const Spacer(),
               if (a['createdAt'] != null)
-                Text(tr(_df.format(DateTime.parse(a['createdAt']).toLocal())),
+                Text(tr(_df.format(parseApiUtcDateTime(a['createdAt'])!)),
                     style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
             ]),
           ],

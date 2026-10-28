@@ -6,6 +6,7 @@ import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
 /// SuperAdmin – tab "Bảo trì hệ thống" (Phase 2).
 class MaintenanceTab extends StatefulWidget {
   const MaintenanceTab({super.key});
@@ -80,8 +81,8 @@ class MaintenanceTabState extends State<MaintenanceTab> {
   }
 
   Widget _item(Map<String, dynamic> w) {
-    final start = DateTime.tryParse(w['startAt']?.toString() ?? '')?.toLocal();
-    final end = DateTime.tryParse(w['endAt']?.toString() ?? '')?.toLocal();
+    final start = parseApiUtcDateTime(w['startAt']);
+    final end = parseApiUtcDateTime(w['endAt']);
     final isActive = w['isActive'] == true;
     final now = DateTime.now();
     final inWindow = start != null &&

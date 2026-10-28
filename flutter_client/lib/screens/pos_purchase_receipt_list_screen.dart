@@ -7,12 +7,10 @@ import 'package:provider/provider.dart';
 
 import '../models/pos_product.dart';
 import '../models/pos_purchase.dart';
-import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/pos_doc_status.dart';
 import '../utils/pos_mutation_result.dart';
-import '../utils/pos_purchase_receipt_print.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
@@ -21,6 +19,8 @@ import '../utils/pos_barcode_print.dart' show posLabelDetail;
 import '../utils/pos_kiot_time_range.dart';
 import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/sbox/sbox_ui.dart';
+import '../utils/pos_list_prefs.dart';
+import '../utils/pos_wh_doc_print.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_doc_row_menu.dart';
@@ -71,6 +71,27 @@ class _PosPurchaseReceiptListScreenState
   int _detailTab = 0;
   List<Map<String, dynamic>> _payments = [];
 
+  /// Sắp xếp (server): time_desc | time_asc | value_desc | value_asc | no_asc — nhớ theo máy,
+  /// dùng chung khóa với màn danh sách phiếu dạng mobile.
+  String _sort = 'time_desc';
+
+  static const _sortLabels = {
+    'time_desc': 'Mới nhất',
+    'time_asc': 'Cũ nhất',
+    'value_desc': 'Giá trị cao → thấp',
+    'value_asc': 'Giá trị thấp → cao',
+    'no_asc': 'Theo mã phiếu',
+  };
+
+  String get _sortPrefsKey => 'wh_purchaseReceipt';
+
+  Future<void> _restoreSort() async {
+    final v = await PosListPrefs.loadSort(_sortPrefsKey);
+    if (!mounted || v == null || v == _sort || !_sortLabels.containsKey(v)) return;
+    setState(() => _sort = v);
+    _load();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -81,6 +102,7 @@ class _PosPurchaseReceiptListScreenState
     ScreenRefreshNotifier.posPurchaseReceipts.addListener(_onExternalRefresh);
     _loadSuppliers();
     _load();
+    _restoreSort();
   }
 
   void _onExternalRefresh() {
@@ -142,6 +164,7 @@ class _PosPurchaseReceiptListScreenState
           _invoiceNoCtrl.text.trim().isEmpty ? null : _invoiceNoCtrl.text.trim(),
       from: _timeFilter.from,
       to: _timeFilter.to,
+      sort: _sort,
       page: page,
       pageSize: _pageSize,
     );
@@ -259,28 +282,7 @@ class _PosPurchaseReceiptListScreenState
     _load();
   }
 
-  Future<void> _printReceipt(PosPurchaseReceipt r) async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    await printPosPurchaseReceipt(
-      context: context,
-      receiptNo: r.receiptNo,
-      importDate: r.importDate?.toLocal() ?? r.createdAt?.toLocal() ?? DateTime.now(),
-      branchName: auth.currentUser?.department,
-      createdBy: r.createdBy ?? auth.currentUser?.fullName,
-      supplierName: r.supplierName,
-      inputInvoiceNo: r.inputInvoiceNo,
-      note: r.note,
-      status: r.status,
-      linesTotal: r.totalCost,
-      totalVat: r.totalVat,
-      discountAmount: r.discountAmount,
-      discountIsPercent: r.discountIsPercent,
-      discountInput: r.discountInput,
-      paidAmount: r.paidAmount,
-      grandTotal: r.grandTotal != 0 ? r.grandTotal : r.totalCost + r.totalVat - r.discountAmount,
-      lines: r.lines,
-    );
-  }
+  Future<void> _printReceipt(PosPurchaseReceipt r) => printPurchaseReceiptDoc(context, r);
 
   /// In tem theo phiếu nhập: mỗi dòng in đúng số lượng nhập (quy đổi về đơn vị cơ bản, vd 2 Thùng × 24
   /// = 48 tem lon), kèm lô / HSD của dòng. Trước đây in mỗi mặt hàng 1 tem (× số bản chung) và gọi API
@@ -538,7 +540,7 @@ class _PosPurchaseReceiptListScreenState
 
   Widget _buildFilterBar(bool canEdit) {
     return SboxFilterBar(
-      searchHint: 'Tìm mã phiếu nhập, ghi chú…',
+      searchHint: 'Tìm mã phiếu nhập, tên hàng, ghi chú…',
       searchController: _searchCtrl,
       onSearch: _onSearchChanged,
       filters: [
@@ -554,6 +556,17 @@ class _PosPurchaseReceiptListScreenState
           },
         ),
         PosTimeRangeChip(state: _timeFilter, onChanged: _onTimeFilterChanged),
+        SboxFilterChip<String>(
+          label: 'Sắp xếp',
+          value: _sort,
+          options: _sortLabels,
+          onChanged: (v) {
+            if (v == _sort) return;
+            setState(() => _sort = v);
+            PosListPrefs.saveSort(_sortPrefsKey, v);
+            _load();
+          },
+        ),
         PosPickChip(
           label: 'NCC',
           value: _supplierId,

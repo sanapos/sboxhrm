@@ -20,6 +20,7 @@ import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/api_datetime.dart';
 class MobileDeviceRegistrationScreen extends StatefulWidget {
   const MobileDeviceRegistrationScreen({super.key});
 
@@ -491,7 +492,7 @@ class _MobileDeviceRegistrationScreenState
               _existingDeviceName = data['deviceName'];
               _existingDeviceModel = data['deviceModel'];
               _registeredAt = data['registeredAt'] != null
-                  ? DateTime.parse(data['registeredAt'])
+                  ? parseApiUtcDateTime(data['registeredAt'])
                   : null;
             });
           }
@@ -500,7 +501,7 @@ class _MobileDeviceRegistrationScreenState
           setState(() {
             _status = _RegStatus.pending;
             _registeredDeviceName = data['deviceName'];
-            _registeredAt = data['registeredAt'] != null ? DateTime.tryParse(data['registeredAt'].toString()) : null;
+            _registeredAt = data['registeredAt'] != null ? parseApiUtcDateTime(data['registeredAt']) : null;
           });
         } else if (!registered) {
           final changeReqResponse =
@@ -523,7 +524,7 @@ class _MobileDeviceRegistrationScreenState
             _status = _RegStatus.approved;
             _registeredDeviceName = data['deviceName'];
             _registeredAt = data['registeredAt'] != null
-                ? DateTime.parse(data['registeredAt'])
+                ? parseApiUtcDateTime(data['registeredAt'])
                 : null;
           });
         } else {
@@ -531,7 +532,7 @@ class _MobileDeviceRegistrationScreenState
             _status = _RegStatus.pending;
             _registeredDeviceName = data['deviceName'];
             _registeredAt = data['registeredAt'] != null
-                ? DateTime.parse(data['registeredAt'])
+                ? parseApiUtcDateTime(data['registeredAt'])
                 : null;
           });
         }
@@ -689,7 +690,7 @@ class _MobileDeviceRegistrationScreenState
             _registeredDeviceName =
                 data?['existingDeviceName']?.toString() ?? _deviceName;
             _registeredAt = data?['registeredAt'] != null
-                ? DateTime.tryParse(data!['registeredAt'].toString())
+                ? parseApiUtcDateTime(data!['registeredAt'])
                 : null;
             _capturedImages.clear();
           });

@@ -1,3 +1,5 @@
+import '../utils/api_datetime.dart';
+
 // ==========================================
 // lib/models/task.dart
 // Task Management Models - Quản lý công việc
@@ -546,7 +548,7 @@ class TaskComment {
       imageUrls: json['imageUrls'],
       linkUrls: json['linkUrls'],
       progressSnapshot: json['progressSnapshot'],
-      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
       replies: json['replies'] != null
           ? (json['replies'] as List).map((e) => TaskComment.fromJson(e)).toList()
           : null,
@@ -666,7 +668,7 @@ class TaskHistory {
       oldValue: json['oldValue'],
       newValue: json['newValue'],
       description: json['description'],
-      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
     );
   }
 }
@@ -897,9 +899,7 @@ class TaskEvaluation {
           (json['timelinessScore'] ?? json['TimelinessScore'] ?? 0) as int,
       overallScore: (json['overallScore'] ?? json['OverallScore'] ?? 0) as int,
       comment: json['comment'] ?? json['Comment'],
-      createdAt: DateTime.tryParse(
-              (json['createdAt'] ?? json['CreatedAt'] ?? '').toString()) ??
-          DateTime.now(),
+      createdAt: parseApiUtcDateTime(json['createdAt'] ?? json['CreatedAt']) ?? DateTime.now(),
     );
   }
 }

@@ -6,6 +6,7 @@ import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
 /// SuperAdmin – tab "Marketing" (Phase 3): templates + campaigns đa kênh.
 class MarketingTab extends StatefulWidget {
   const MarketingTab({super.key});
@@ -365,9 +366,9 @@ class MarketingTabState extends State<MarketingTab>
     final channels = AdminHelpers.parseEnumInt(
         c['channels'], AdminHelpers.notificationChannelMap);
     final schedule =
-        DateTime.tryParse(c['scheduleAt']?.toString() ?? '')?.toLocal();
+        parseApiUtcDateTime(c['scheduleAt']);
     final launched =
-        DateTime.tryParse(c['launchedAt']?.toString() ?? '')?.toLocal();
+        parseApiUtcDateTime(c['launchedAt']);
     final statusColor = switch (status) {
       1 => AdminHelpers.info,
       2 => AdminHelpers.warning,
