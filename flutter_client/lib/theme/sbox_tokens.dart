@@ -83,6 +83,10 @@ abstract final class SboxColors {
   static const violetSoft = Color(0xFFEDE9FE);
   static const violetText = Color(0xFF5B21B6);
 
+  /// Hàng hóa / kho (tông nhận diện nhóm trên Trang chủ).
+  static const teal = Color(0xFF0F766E);
+  static const tealSoft = Color(0xFFCCFBF1);
+
   /// Nút Thanh toán POS (xanh lá — hành động thu tiền).
   static const pay = Color(0xFF16A34A);
   static const payHover = Color(0xFF15803D);

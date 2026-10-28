@@ -4662,6 +4662,21 @@ class _HomeMenuScreen extends StatefulWidget {
     'Cài đặt': HrmPageChrome.primaryNavy,
   };
 
+  /// Tông nhẹ theo khu vực (màu icon, nền icon) — nhận ra vùng Bán hàng / Nhân sự / Kho… khi cuộn.
+  static const _groupTints = <String, (Color, Color)>{
+    'Hồ sơ nhân sự': (SboxColors.violet, SboxColors.violetSoft),
+    'Chấm công': (SboxColors.violet, SboxColors.violetSoft),
+    'Tài chính': (SboxColors.successText, SboxColors.successSoft),
+    'Quản lý Vận hành': (SboxColors.warningText, SboxColors.warningSoft),
+    'Bán hàng': (SboxColors.brand700, SboxColors.brand50),
+    'Thương mại': (SboxColors.brand700, SboxColors.brand50),
+    'Khách hàng & khuyến mãi': (SboxColors.brand700, SboxColors.brand50),
+    'Hàng hóa & kho': (SboxColors.teal, SboxColors.tealSoft),
+  };
+
+  static (Color, Color) tintOf(String group) =>
+      _groupTints[group] ?? (SboxColors.slate600, SboxColors.slate100);
+
   static const _groupDescriptions = {
     'Hồ sơ nhân sự': 'Nhân viên, phòng ban',
     'Chấm công': 'Giờ làm, ca làm',
@@ -4683,7 +4698,6 @@ class _HomeMenuScreen extends StatefulWidget {
 
 class _HomeMenuScreenState extends State<_HomeMenuScreen> {
   String _greeting = '';
-  String _greetingIcon = '☀️';
   static double _savedScrollOffset = 0;
   late final ScrollController _scrollController;
 
@@ -4713,13 +4727,10 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     final hour = DateTime.now().hour;
     if (hour < 12) {
       _greeting = 'Chào buổi sáng';
-      _greetingIcon = '☀️';
     } else if (hour < 18) {
       _greeting = 'Chào buổi chiều';
-      _greetingIcon = '🌤️';
     } else {
       _greeting = 'Chào buổi tối';
-      _greetingIcon = '🌙';
     }
   }
 
@@ -4919,7 +4930,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
         (!widget.bypassPackageFilter && widget.allowedModules == null)) {
       // Khung xương tĩnh cùng dáng lưới menu thay spinner: không nháy trắng → nội dung.
       return ColoredBox(
-        color: isMobile || kIsWeb ? PosTheme.background : const Color(0xFFF1F4F6),
+        color: isMobile || kIsWeb ? PosTheme.background : SboxColors.page,
         child: _HomeMenuSkeleton(padding: padding, columns: isMobile ? 4 : 6),
       );
     }
@@ -4954,344 +4965,220 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       return _buildMobileKiotHome(context, user, groupedItems);
     }
 
-    return Container(
-      color: const Color(0xFFF1F4F6),
-      child: ListView(
+    final groupNames = _HomeMenuScreen._groupOrder
+        .where((g) => groupedItems.containsKey(g))
+        .toList(growable: false);
+    final l = AppLocalizations.of(context);
+    String groupTitle(String g) => tr(NavItem._groupMap[g]?.call(l) ?? g);
+
+    // Column (không ListView lười) để chip nhóm cuộn tới được cả nhóm ở cuối trang.
+    return ColoredBox(
+      color: SboxColors.page,
+      child: SingleChildScrollView(
         controller: _scrollController,
         key: const PageStorageKey<String>('home_menu_scroll'),
-        cacheExtent: 800,
         padding: EdgeInsets.all(padding),
-        children: [
-          // ═══════════════ QUICK NAV STRIP (trước lưới chức năng) ═══════════════
-          SizedBox(
-            height: 42,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: _HomeMenuScreen._groupOrder
-                  .where((g) => groupedItems.containsKey(g))
-                  .map((groupName) {
-                final groupColor =
-                    _HomeMenuScreen._groupColors[groupName] ?? SboxColors.slate500;
-                final groupIcon =
-                    _HomeMenuScreen._groupIcons[groupName] ?? Icons.folder;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ActionChip(
-                    avatar: Icon(groupIcon, size: 16, color: groupColor),
-                    label: Builder(
-                      builder: (context) {
-                        final l = AppLocalizations.of(context);
-                        return Text(
-                          tr(NavItem._groupMap[groupName]?.call(l) ?? groupName),
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: groupColor),
-                        );
-                      },
-                    ),
-                    backgroundColor: groupColor.withValues(alpha: 0.06),
-                    side: BorderSide(color: groupColor.withValues(alpha: 0.15)),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20)),
-                    onPressed: () {
-                      final items = groupedItems[groupName];
-                      if (items != null && items.isNotEmpty) {
-                        widget.onItemTap(items.first.key);
-                      }
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // ═══════════════ HERO GREETING BANNER ═══════════════
-          Container(
-            padding: EdgeInsets.all(isMobile ? 20 : 28),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  HrmPageChrome.primaryNavy,
-                  HrmPageChrome.primaryNavy.withValues(alpha: 0.85),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.3),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Row(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1440),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        tr('$_greetingIcon $_greeting,'),
-                        style: TextStyle(
-                          fontSize: isMobile ? 14 : 16,
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        tr(user?.fullName ?? 'User'),
-                        style: TextStyle(
-                          fontSize: isMobile ? 20 : 26,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          tr(_formatTodayDate()),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontWeight: FontWeight.w600,
+                // ═══════════════ LỜI CHÀO (gọn, không banner) ═══════════════
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${tr(_greeting)},',
+                            style: SboxType.smallStyle(SboxColors.textMuted),
                           ),
-                        ),
+                          const SizedBox(height: SboxSpace.xxs),
+                          Text(
+                            user?.fullName ?? 'User',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: SboxType.headlineStyle(),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: SboxSpace.md),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: SboxSpace.md, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: SboxColors.surface,
+                        borderRadius: SboxRadius.pillAll,
+                        border: Border.all(color: SboxColors.border),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.calendar_today_outlined,
+                              size: 14, color: SboxColors.textMuted),
+                          const SizedBox(width: 6),
+                          Text(
+                            tr(_formatTodayDate()),
+                            style:
+                                SboxType.captionStyle(SboxColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                if (isMobile)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: tr('Thiết lập SBOX'),
-                        onPressed: () {
-                          final idx = widget.navItems.indexWhere(
-                              (n) => n.moduleCode == 'SettingsHub');
-                          if (idx >= 0) widget.onItemTap(idx);
-                        },
-                        icon: Icon(
-                          Icons.settings_outlined,
-                          color: Colors.white.withValues(alpha: 0.95),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: tr('Đăng xuất'),
-                        onPressed: () async {
-                          final l = AppLocalizations.of(context);
-                          final ok = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: Text(tr(l.logout)),
-                              content: Text(tr(l.logoutConfirm)),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(ctx, false),
-                                  child: Text(tr(l.cancel)),
-                                ),
-                                FilledButton(
-                                  onPressed: () => Navigator.pop(ctx, true),
-                                  style: FilledButton.styleFrom(
-                                      backgroundColor: Colors.red),
-                                  child: Text(tr(l.logout)),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (ok == true && context.mounted) {
-                            await Provider.of<AuthProvider>(context,
-                                    listen: false)
-                                .logout();
-                          }
-                        },
-                        icon: Icon(
-                          Icons.logout,
-                          color: Colors.red.shade200,
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Icon(
-                      Icons.bubble_chart,
-                      size: 40,
-                      color: Colors.white.withValues(alpha: 0.6),
-                    ),
-                  ),
-              ],
-            ),
-          ),
 
-          const SizedBox(height: 28),
+                const SizedBox(height: SboxSpace.lg),
 
-          // ═══════════════ FEATURE GROUPS ═══════════════
-          ..._HomeMenuScreen._groupOrder
-              .where((g) => groupedItems.containsKey(g))
-              .map((groupName) {
-            final items = groupedItems[groupName]!;
-            final groupColor =
-                _HomeMenuScreen._groupColors[groupName] ?? SboxColors.slate500;
-            final groupIcon =
-                _HomeMenuScreen._groupIcons[groupName] ?? Icons.folder;
-            final groupDesc =
-                _HomeMenuScreen._groupDescriptions[groupName] ?? '';
-
-            return RepaintBoundary(
-              child: Padding(
-              padding: const EdgeInsets.only(bottom: 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Group header
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              groupColor,
-                              groupColor.withValues(alpha: 0.7)
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(groupIcon, size: 18, color: Colors.white),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Builder(
-                              builder: (context) {
-                                final l = AppLocalizations.of(context);
-                                return Text(
-                                  tr(NavItem._groupMap[groupName]?.call(l) ??
-                                      groupName),
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF2B3437),
-                                    letterSpacing: -0.3,
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              tr(groupDesc),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: SboxColors.slate600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: groupColor.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          tr('${items.length}'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: groupColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Items - list on mobile, grid on desktop
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isMobileLayout = constraints.maxWidth < 600;
-
-                      if (isMobileLayout) {
-                        // DECK layout: mỗi chức năng 1 hàng
-                        return Column(
-                          children: items.map((entry) {
-                            final item = entry.value;
-                            final index = entry.key;
-                            final itemColor = HrmPageChrome.primaryNavy;
-                            final l = AppLocalizations.of(context);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: _MenuCard(
-                                icon: item.activeIcon,
-                                label: item.localizedLabel(l),
-                                subtitle: item.localizedSubtitle(l),
-                                color: itemColor,
-                                onTap: () => widget.onItemTap(index),
-                              ),
-                            );
-                          }).toList(),
-                        );
-                      }
-
-                      // Desktop: grid layout
-                      final crossAxisCount = constraints.maxWidth > 900 ? 4 : 3;
-                      return Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: items.map((entry) {
-                          final item = entry.value;
-                          final index = entry.key;
-                          final itemColor = HrmPageChrome.primaryNavy;
-                          final cardWidth = (constraints.maxWidth -
-                                  (crossAxisCount - 1) * 10) /
-                              crossAxisCount;
-
-                          final l = AppLocalizations.of(context);
-                          return SizedBox(
-                            width: cardWidth,
-                            child: _MenuCard(
-                              icon: item.activeIcon,
-                              label: item.localizedLabel(l),
-                              subtitle: item.localizedSubtitle(l),
-                              color: itemColor,
-                              onTap: () => widget.onItemTap(index),
-                            ),
-                          );
-                        }).toList(),
+                // ═══════════════ CHIP NHÓM: bấm để cuộn tới nhóm ═══════════════
+                SizedBox(
+                  height: 40,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: groupNames.length,
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(width: SboxSpace.sm),
+                    itemBuilder: (context, i) {
+                      final groupName = groupNames[i];
+                      final (fg, bg) = _HomeMenuScreen.tintOf(groupName);
+                      return _GroupJumpChip(
+                        icon: _HomeMenuScreen._groupIcons[groupName] ??
+                            Icons.folder,
+                        label: groupTitle(groupName),
+                        count: groupedItems[groupName]!.length,
+                        fg: fg,
+                        bg: bg,
+                        onTap: () => _scrollToGroup(groupName),
                       );
                     },
                   ),
-                ],
+                ),
+
+                const SizedBox(height: SboxSpace.xl),
+
+                // ═══════════════ NHÓM CHỨC NĂNG ═══════════════
+                for (final groupName in groupNames)
+                  RepaintBoundary(
+                    key: _groupKeys.putIfAbsent(groupName, GlobalKey.new),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: SboxSpace.xl),
+                      child: _buildHomeGroup(
+                        context,
+                        title: groupTitle(groupName),
+                        description:
+                            _HomeMenuScreen._groupDescriptions[groupName] ?? '',
+                        icon: _HomeMenuScreen._groupIcons[groupName] ??
+                            Icons.folder,
+                        tint: _HomeMenuScreen.tintOf(groupName),
+                        items: groupedItems[groupName]!,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  final Map<String, GlobalKey> _groupKeys = {};
+
+  void _scrollToGroup(String groupName) {
+    final ctx = _groupKeys[groupName]?.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Widget _buildHomeGroup(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required IconData icon,
+    required (Color, Color) tint,
+    required List<MapEntry<int, NavItem>> items,
+  }) {
+    final (fg, bg) = tint;
+    final l = AppLocalizations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration:
+                  BoxDecoration(color: bg, borderRadius: SboxRadius.mdAll),
+              child: Icon(icon, size: 18, color: fg),
+            ),
+            const SizedBox(width: SboxSpace.md),
+            Flexible(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: SboxType.titleSmStyle(),
               ),
             ),
+            if (description.isNotEmpty) ...[
+              const SizedBox(width: SboxSpace.sm),
+              Expanded(
+                child: Text(
+                  '· ${tr(description)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: SboxType.smallStyle(SboxColors.textMuted),
+                ),
+              ),
+            ] else
+              const Spacer(),
+          ],
+        ),
+        const SizedBox(height: SboxSpace.md),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            final cols = w >= 1400
+                ? 6
+                : w >= 1100
+                    ? 5
+                    : w >= 820
+                        ? 4
+                        : w >= 560
+                            ? 3
+                            : 1;
+            const gap = SboxSpace.md;
+            final cardWidth = (w - (cols - 1) * gap) / cols;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final entry in items)
+                  SizedBox(
+                    width: cardWidth,
+                    child: _MenuCard(
+                      icon: entry.value.activeIcon,
+                      label: entry.value.localizedLabel(l),
+                      subtitle: entry.value.localizedSubtitle(l),
+                      color: fg,
+                      tint: bg,
+                      onTap: () => widget.onItemTap(entry.key),
+                    ),
+                  ),
+              ],
             );
-          }),
-        ],
-      ),
+          },
+        ),
+      ],
     );
   }
 
@@ -5394,11 +5281,73 @@ class _HomeMenuSkeleton extends StatelessWidget {
   }
 }
 
+/// Chip nhóm trên Trang chủ — bấm để cuộn tới nhóm đó.
+class _GroupJumpChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int count;
+  final Color fg;
+  final Color bg;
+  final VoidCallback onTap;
+
+  const _GroupJumpChip({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.fg,
+    required this.bg,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: SboxColors.surface,
+      shape: const StadiumBorder(side: BorderSide(color: SboxColors.border)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 6, right: SboxSpace.md),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+                child: Icon(icon, size: 15, color: fg),
+              ),
+              const SizedBox(width: SboxSpace.sm),
+              Text(
+                label,
+                style: SboxType.smallStyle(SboxColors.text)
+                    .copyWith(fontWeight: SboxType.semibold),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '$count',
+                style: SboxType.captionStyle(SboxColors.textMuted),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Ô chức năng trên Trang chủ (C20 / máy tính).
 class _MenuCard extends StatefulWidget {
   final IconData icon;
   final String label;
   final String? subtitle;
+
+  /// Màu icon.
   final Color color;
+
+  /// Nền icon (tông nhạt cùng họ với [color]).
+  final Color tint;
   final VoidCallback onTap;
 
   const _MenuCard({
@@ -5406,6 +5355,7 @@ class _MenuCard extends StatefulWidget {
     required this.label,
     this.subtitle,
     required this.color,
+    required this.tint,
     required this.onTap,
   });
 
@@ -5413,144 +5363,83 @@ class _MenuCard extends StatefulWidget {
   State<_MenuCard> createState() => _MenuCardState();
 }
 
-class _MenuCardState extends State<_MenuCard>
-    with SingleTickerProviderStateMixin {
+class _MenuCardState extends State<_MenuCard> {
   bool _isHovered = false;
-  late final AnimationController _animController;
-  late final Animation<double> _scaleAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.97).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTapDown: (_) => _animController.forward(),
-        onTapUp: (_) {
-          _animController.reverse();
-          widget.onTap();
-        },
-        onTapCancel: () => _animController.reverse(),
-        child: ScaleTransition(
-          scale: _scaleAnim,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            decoration: BoxDecoration(
-              color: _isHovered
-                  ? widget.color.withValues(alpha: 0.06)
-                  : Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: _isHovered
-                    ? widget.color.withValues(alpha: 0.25)
-                    : const Color(0xFFE8ECF0),
-                width: 1,
-              ),
-              boxShadow: _isHovered
-                  ? [
-                      BoxShadow(
-                        color: widget.color.withValues(alpha: 0.12),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ]
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-            ),
-            child: Row(
-              children: [
-                // Icon container with gradient
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        widget.color.withValues(alpha: 0.15),
-                        widget.color.withValues(alpha: 0.06),
-                      ],
+    final label = tr(widget.label);
+    final sub = widget.subtitle == null ? '' : tr(widget.subtitle!);
+    // Chữ phụ trùng tên chính («Phòng ban / Phòng ban») thì bỏ.
+    final showSub = sub.isNotEmpty && sub.trim() != label.trim();
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        borderRadius: SboxRadius.lgAll,
+        boxShadow: _isHovered ? SboxShadow.card : const [],
+      ),
+      child: Material(
+        color: SboxColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: SboxRadius.lgAll,
+          side: BorderSide(
+            color: _isHovered
+                ? widget.color.withValues(alpha: 0.35)
+                : SboxColors.border,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: widget.onTap,
+          onHover: (v) => setState(() => _isHovered = v),
+          onFocusChange: (v) => setState(() => _isHovered = v),
+          splashColor: widget.tint,
+          highlightColor: widget.tint.withValues(alpha: 0.5),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints.tightFor(height: 80),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: SboxSpace.md + 2, vertical: SboxSpace.md),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: widget.tint,
+                      borderRadius: SboxRadius.mdAll,
                     ),
-                    borderRadius: BorderRadius.circular(10),
+                    child: Icon(widget.icon, color: widget.color, size: 22),
                   ),
-                  child: Icon(widget.icon, color: widget.color, size: 20),
-                ),
-                const SizedBox(width: 12),
-                // Label
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        tr(widget.label),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: _isHovered
-                              ? widget.color
-                              : const Color(0xFF2B3437),
-                          letterSpacing: -0.1,
-                          height: 1.3,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (widget.subtitle != null &&
-                          widget.subtitle!.isNotEmpty) ...[
-                        const SizedBox(height: 3),
+                  const SizedBox(width: SboxSpace.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                         Text(
-                          tr(widget.subtitle!),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF8A9199),
-                            height: 1.3,
-                          ),
-                          maxLines: 1,
+                          label,
+                          style: SboxType.bodyStrong().copyWith(height: 1.3),
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        if (showSub) ...[
+                          const SizedBox(height: SboxSpace.xxs),
+                          Text(
+                            sub,
+                            style: SboxType.captionStyle(SboxColors.textMuted)
+                                .copyWith(fontWeight: SboxType.regular),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                AnimatedOpacity(
-                  opacity: _isHovered ? 1.0 : 0.3,
-                  duration: const Duration(milliseconds: 200),
-                  child: Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 14,
-                    color: _isHovered ? widget.color : const Color(0xFFB0B7BD),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
