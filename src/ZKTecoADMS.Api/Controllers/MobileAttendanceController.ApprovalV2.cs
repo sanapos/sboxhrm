@@ -145,6 +145,8 @@ public partial class MobileAttendanceController
 
     private async Task<(bool ok, string? error)> DecideMobileRecordAsync(MobileAttendanceRecord record, bool approved, string? reason)
     {
+        if (await DenyApprovalAsync(Services.ApprovalScopeGuard.Kind.MobilePunch, record.Id) is { } denied)
+            return (false, $"{record.EmployeeName}: {denied}");
         record.Status = approved ? "approved" : "rejected";
         record.ApprovedBy = CurrentUserEmail;
         record.ApprovedAt = DateTime.UtcNow;

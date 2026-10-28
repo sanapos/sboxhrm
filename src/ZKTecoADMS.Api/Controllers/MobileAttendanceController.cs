@@ -617,7 +617,13 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         if (request.EnableWifi.HasValue) settings.EnableWifi = request.EnableWifi.Value;
 
 
-        if (!string.IsNullOrEmpty(request.VerificationMode)) settings.VerificationMode = request.VerificationMode;
+        if (!string.IsNullOrEmpty(request.VerificationMode))
+        {
+            var mode = request.VerificationMode.Trim().ToLowerInvariant();
+            if (mode is not ("all" or "any"))
+                return BadRequest(AppResponse<object>.Fail("Chế độ xác thực chỉ nhận \"all\" hoặc \"any\""));
+            settings.VerificationMode = mode;
+        }
 
 
         if (request.EnableLivenessDetection.HasValue) settings.EnableLivenessDetection = request.EnableLivenessDetection.Value;
@@ -859,7 +865,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         _cache.Remove($"work_locations_{storeId}");
 
 
-        _cache.Remove("wifi_locations_all");
+        _cache.Remove($"wifi_locations_{storeId}");
 
 
 
@@ -998,7 +1004,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         _cache.Remove($"work_locations_{storeId}");
 
 
-        _cache.Remove("wifi_locations_all");
+        _cache.Remove($"wifi_locations_{storeId}");
 
 
 
@@ -1110,7 +1116,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         _cache.Remove($"work_locations_{storeId}");
 
 
-        _cache.Remove("wifi_locations_all");
+        _cache.Remove($"wifi_locations_{storeId}");
 
 
 
@@ -1137,7 +1143,8 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
     [HttpGet("face-registrations")]
 
 
-    [Authorize]
+    // Danh sách ảnh sinh trắc học cả store — chỉ quản lý (NV nào cũng có quyền xem MobileAttendance).
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
 
 
     [RequireModulePermission("MobileAttendance", ModulePermissionAction.View)]
@@ -1738,6 +1745,12 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             await ResolveCanonicalEmployeeIdAsync(storeId, request.EmployeeId);
         if (string.IsNullOrWhiteSpace(canonicalEmployeeId))
             return BadRequest(AppResponse<object>.Fail("Không xác định được nhân viên"));
+
+        // Cấp thẳng = duyệt luôn → cùng phạm vi duyệt, không tự cấp máy cho chính mình.
+        if (await HttpContext.RequestServices.GetRequiredService<ApprovalScopeGuard>()
+                .DenyForMobileEmployeeAsync(canonicalEmployeeId, CurrentUserId, storeId, CurrentUserRole, HttpContext.RequestAborted)
+            is { } scopeDenied)
+            return BadRequest(AppResponse<object>.Fail(scopeDenied));
 
 
 
@@ -2813,6 +2826,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         var trackLocation = await StorePackageHelper
             .IsModuleAllowedAsync(_dbContext, storeId, "FieldCheckIn");
 
+        var selfErr = await ValidateSelfServiceEmployeeQueryAsync(storeId, employeeId);
+        if (selfErr != null) return selfErr;
+
         var currentId = currentDeviceId?.Trim();
         var rawEmpId = employeeId ?? CurrentUserId.ToString();
         var (canonicalEmpId, _) = await ResolveCanonicalEmployeeIdAsync(storeId, rawEmpId);
@@ -2821,14 +2837,26 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         if (!string.IsNullOrWhiteSpace(rawEmpId)) empKeys.Add(rawEmpId);
         if (!string.IsNullOrWhiteSpace(canonicalEmpId)) empKeys.Add(canonicalEmpId);
         empKeys.Add(CurrentUserId.ToString());
+        // Dữ liệu cũ có thể lưu EmployeeId = mã NV / ApplicationUserId.
+        if (Guid.TryParse(canonicalEmpId, out var canonicalGuid))
+        {
+            var empAlias = await _dbContext.Employees.AsNoTracking()
+                .Where(e => e.Id == canonicalGuid && e.StoreId == storeId)
+                .Select(e => new { e.EmployeeCode, e.ApplicationUserId })
+                .FirstOrDefaultAsync();
+            if (!string.IsNullOrWhiteSpace(empAlias?.EmployeeCode)) empKeys.Add(empAlias.EmployeeCode);
+            if (empAlias?.ApplicationUserId is Guid aliasUserId) empKeys.Add(aliasUserId.ToString());
+        }
 
         // Ưu tiên đúng thiết bị đang chấm (theo hardware id), sau đó mọi thiết bị gắn NV.
+        // Luôn lọc theo NV: máy này nếu thuộc người khác thì không được trả về (lộ ảnh mặt / cờ).
         AuthorizedMobileDevice? device = null;
         if (!string.IsNullOrEmpty(currentId))
         {
             device = await _dbContext.AuthorizedMobileDevices
                 .AsNoTracking()
-                .Where(d => d.DeviceId == currentId && d.StoreId == storeId && d.Deleted == null)
+                .Where(d => d.DeviceId == currentId && empKeys.Contains(d.EmployeeId)
+                    && d.StoreId == storeId && d.Deleted == null)
                 .OrderByDescending(d => d.AuthorizedAt)
                 .FirstOrDefaultAsync();
         }
@@ -3070,6 +3098,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
             return NotFound(AppResponse<object>.Fail("Không tìm thấy thiết bị"));
+
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.MobileDevice, device.Id) is { } denied)
+            return BadRequest(AppResponse<object>.Fail(denied));
 
 
 
@@ -3764,6 +3795,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
         var storeId = RequiredStoreId;
 
+        var selfErr = await ValidateSelfServiceEmployeeQueryAsync(storeId, employeeId);
+        if (selfErr != null) return selfErr;
+
 
         var empId = employeeId ?? CurrentUserId.ToString();
 
@@ -4029,6 +4063,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
             return BadRequest(AppResponse<object>.Fail("Yêu cầu này đã được xử lý"));
+
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.MobileDeviceChange, changeReq.Id) is { } denied)
+            return BadRequest(AppResponse<object>.Fail(denied));
 
 
 
@@ -4602,13 +4639,8 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        // First try with user's StoreId, then fallback to ALL active locations
-
-
-        // BSSID is a hardware MAC address (globally unique), safe to match across stores
-
-
-        var locations = await _cache.GetOrCreateAsync("wifi_locations_all", async entry =>
+        // Cache theo từng store: khóa chung từng làm store này nhận (và lộ) địa điểm của store khác.
+        var locations = await _cache.GetOrCreateAsync($"wifi_locations_{storeId}", async entry =>
 
 
         {
@@ -4626,7 +4658,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 .AsNoTracking()
 
 
-                .Where(l => l.Deleted == null && l.IsActive
+                .Where(l => l.StoreId == storeId && l.Deleted == null && l.IsActive
 
 
                     && (l.WifiSsid != null || l.WifiBssid != null || l.AllowedIpRange != null))
@@ -5594,7 +5626,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         var enableWifi = settings?.EnableWifi ?? false;
 
 
-        var verificationMode = settings?.VerificationMode ?? "all";
+        // Giá trị lạ (vd "ALL" lưu từ trước) mà so khớp nguyên văn sẽ bỏ qua mọi điều kiện
+        // → chỉ "any" mới nới lỏng, còn lại coi là "all".
+        var verificationMode = string.Equals(settings?.VerificationMode?.Trim(), "any", StringComparison.OrdinalIgnoreCase)
+            ? "any" : "all";
 
 
 
@@ -7346,6 +7381,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             .FirstOrDefaultAsync(r => r.Id == recordId && r.StoreId == storeId && r.Deleted == null);
         if (record == null)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy bản ghi chấm công"));
+        // Chỉ chủ bản ghi (hoặc QL) được gắn / thay ảnh hiện trường.
+        if (!IsPrivilegedMobileUser && !await EmployeeIdBelongsToCurrentUserAsync(storeId, record.OdooEmployeeId))
+            return Forbid();
 
         try
         {
@@ -7439,7 +7477,15 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        if (!string.IsNullOrEmpty(employeeId))
+        if (!IsBusinessTripPrivileged)
+        {
+            // NV thường chỉ xem lịch sử của mình (trước đây bỏ trống employeeId là xem GPS / ảnh cả store).
+            var selfErr = await ValidateSelfServiceEmployeeQueryAsync(storeId, employeeId);
+            if (selfErr != null) return selfErr;
+            var ownKeys = await GetCurrentUserEmployeeKeysAsync(storeId);
+            query = query.Where(r => ownKeys.Contains(r.OdooEmployeeId));
+        }
+        else if (!string.IsNullOrEmpty(employeeId))
 
 
             query = query.Where(r => r.OdooEmployeeId == employeeId);
@@ -7806,6 +7852,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
             return BadRequest(AppResponse<object>.Fail("Bản ghi này đã được xử lý"));
+
+        if (await DenyApprovalAsync(ApprovalScopeGuard.Kind.MobilePunch, record.Id) is { } denied)
+            return BadRequest(AppResponse<object>.Fail(denied));
 
 
 
@@ -8655,6 +8704,55 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         if (!EmployeeIdMatchesCurrentUser(requestEmployeeId))
             return Forbid();
         return null;
+    }
+
+    /// <summary>
+    /// Mã NV (Employee.Id / mã NV / ApplicationUserId) có phải của người đang đăng nhập không.
+    /// Dùng cho các GET nhận employeeId từ query — trước đây đổi mã là xem được dữ liệu người khác.
+    /// </summary>
+    private async Task<bool> EmployeeIdBelongsToCurrentUserAsync(Guid storeId, string? employeeId)
+    {
+        if (string.IsNullOrWhiteSpace(employeeId))
+            return false;
+        if (EmployeeIdMatchesCurrentUser(employeeId))
+            return true;
+        var (canonicalId, _) = await ResolveCanonicalEmployeeIdAsync(storeId, employeeId);
+        if (!Guid.TryParse(canonicalId, out var empGuid))
+            return false;
+        if (EmployeeId == empGuid)
+            return true;
+        var userId = CurrentUserId;
+        return await _dbContext.Employees.AsNoTracking()
+            .AnyAsync(e => e.Id == empGuid && e.StoreId == storeId && e.Deleted == null
+                && e.ApplicationUserId == userId);
+    }
+
+    /// <summary>Mọi mã có thể đã lưu cho NV đang đăng nhập (userId, Employee.Id, mã NV).</summary>
+    private async Task<List<string>> GetCurrentUserEmployeeKeysAsync(Guid storeId)
+    {
+        var userId = CurrentUserId;
+        var empId = EmployeeId;
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { userId.ToString() };
+        if (empId.HasValue) keys.Add(empId.Value.ToString());
+        var employees = await _dbContext.Employees.AsNoTracking()
+            .Where(e => e.StoreId == storeId && e.Deleted == null
+                && (e.ApplicationUserId == userId || (empId != null && e.Id == empId)))
+            .Select(e => new { e.Id, e.EmployeeCode })
+            .ToListAsync();
+        foreach (var e in employees)
+        {
+            keys.Add(e.Id.ToString());
+            if (!string.IsNullOrWhiteSpace(e.EmployeeCode)) keys.Add(e.EmployeeCode);
+        }
+        return keys.ToList();
+    }
+
+    /// <summary>NV thường chỉ được truy vấn chính mình; quản lý / admin được truy vấn bất kỳ ai.</summary>
+    private async Task<ActionResult?> ValidateSelfServiceEmployeeQueryAsync(Guid storeId, string? employeeId)
+    {
+        if (IsPrivilegedMobileUser || string.IsNullOrWhiteSpace(employeeId))
+            return null;
+        return await EmployeeIdBelongsToCurrentUserAsync(storeId, employeeId) ? null : Forbid();
     }
 
 

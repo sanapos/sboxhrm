@@ -116,6 +116,32 @@ public class ApprovalScopeGuardTests
     }
 
     [Fact]
+    public async Task Cham_cong_mobile_theo_pham_vi_va_khong_tu_duyet()
+    {
+        await using var db = await SeedAsync();
+        // Mã NV mobile lưu dạng chuỗi: userId / Employee.Id / mã NV.
+        Guid punchA = Guid.NewGuid(), punchB = Guid.NewGuid(), deviceHead = Guid.NewGuid(), changeB = Guid.NewGuid();
+        db.MobileAttendanceRecords.AddRange(
+            new MobileAttendanceRecord { Id = punchA, StoreId = Store, OdooEmployeeId = AUser.ToString(), PunchTime = DateTime.UtcNow },
+            new MobileAttendanceRecord { Id = punchB, StoreId = Store, OdooEmployeeId = BEmp.ToString(), PunchTime = DateTime.UtcNow });
+        db.AuthorizedMobileDevices.Add(new AuthorizedMobileDevice { Id = deviceHead, StoreId = Store, EmployeeId = "Head", DeviceId = "d1" });
+        db.DeviceChangeRequests.Add(new DeviceChangeRequest { Id = changeB, StoreId = Store, EmployeeId = "Binh" });
+        await db.SaveChangesAsync();
+        var g = Guard(db);
+
+        Assert.Null(await g.DenyAsync(ApprovalScopeGuard.Kind.MobilePunch, punchA, HeadUser, Store, "DepartmentHead"));
+        Assert.Equal(ApprovalScopeGuard.OutOfScopeMessage,
+            await g.DenyAsync(ApprovalScopeGuard.Kind.MobilePunch, punchB, HeadUser, Store, "DepartmentHead"));
+        Assert.Equal(ApprovalScopeGuard.OutOfScopeMessage,
+            await g.DenyAsync(ApprovalScopeGuard.Kind.MobileDeviceChange, changeB, HeadUser, Store, "DepartmentHead"));
+        Assert.Equal(ApprovalScopeGuard.OwnRequestMessage,
+            await g.DenyAsync(ApprovalScopeGuard.Kind.MobileDevice, deviceHead, HeadUser, Store, "DepartmentHead"));
+        Assert.Equal(ApprovalScopeGuard.OwnRequestMessage,
+            await g.DenyForMobileEmployeeAsync(HeadEmp.ToString(), HeadUser, Store, "DepartmentHead"));
+        Assert.Null(await Guard(db).DenyAsync(ApprovalScopeGuard.Kind.MobileDevice, deviceHead, HeadUser, Store, "Admin"));
+    }
+
+    [Fact]
     public async Task Khong_tim_thay_don_de_api_bao_loi_nhu_cu()
     {
         await using var db = await SeedAsync();

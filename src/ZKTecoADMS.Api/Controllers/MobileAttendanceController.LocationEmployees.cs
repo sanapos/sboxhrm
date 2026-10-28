@@ -18,6 +18,8 @@ public partial class MobileAttendanceController
     public async Task<ActionResult> GetPunchLocations([FromQuery] string? employeeId)
     {
         var storeId = RequiredStoreId;
+        var selfErr = await ValidateSelfServiceEmployeeQueryAsync(storeId, employeeId);
+        if (selfErr != null) return selfErr;
         var empId = !string.IsNullOrWhiteSpace(employeeId)
             ? employeeId.Trim()
             : CurrentUserId.ToString();

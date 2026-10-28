@@ -19,7 +19,7 @@ namespace ZKTecoADMS.Api.Services;
 /// </summary>
 public sealed class ApprovalScopeGuard(ZKTecoDbContext db, IDataScopeService dataScope, IHttpContextAccessor http)
 {
-    public enum Kind { Leave, Advance, Overtime, AttendanceCorrection, Penalty }
+    public enum Kind { Leave, Advance, Overtime, AttendanceCorrection, Penalty, MobilePunch, MobileDevice, MobileDeviceChange }
 
     public const string OutOfScopeMessage = "Nhân viên này không thuộc phạm vi bạn quản lý";
     public const string OwnRequestMessage = "Không thể tự duyệt đơn của chính mình";
@@ -32,6 +32,18 @@ public sealed class ApprovalScopeGuard(ZKTecoDbContext db, IDataScopeService dat
     {
         if (ModulePermissionDefaults.IsSuperRole(role)) return null;
         var target = await TargetAsync(kind, id, storeId, approverUserId, ct);
+        if (target == null) return null;
+        var (scope, selfEmployeeId) = await ApproverAsync(approverUserId, storeId, role, ct);
+        return Decide(role, approverUserId, selfEmployeeId, target, scope);
+    }
+
+    /// <summary>
+    /// Như <see cref="DenyAsync"/> nhưng theo mã NV chấm công mobile (QL cấp thẳng thiết bị — chưa có bản ghi để duyệt).
+    /// </summary>
+    public async Task<string?> DenyForMobileEmployeeAsync(string? employeeKey, Guid approverUserId, Guid storeId, string role, CancellationToken ct = default)
+    {
+        if (ModulePermissionDefaults.IsSuperRole(role)) return null;
+        var target = await MobileTargetAsync(employeeKey, storeId, ct);
         if (target == null) return null;
         var (scope, selfEmployeeId) = await ApproverAsync(approverUserId, storeId, role, ct);
         return Decide(role, approverUserId, selfEmployeeId, target, scope);
@@ -86,9 +98,36 @@ public sealed class ApprovalScopeGuard(ZKTecoDbContext db, IDataScopeService dat
             .Select(c => new Target(null, c.EmployeeUserId,
                 db.ApprovalRecords.Any(r => r.CorrectionRequestId == c.Id && r.AssignedUserId == approver)))
             .FirstOrDefaultAsync(ct),
-        _ => await db.PenaltyTickets.AsNoTracking()
+        Kind.Penalty => await db.PenaltyTickets.AsNoTracking()
             .Where(t => t.Id == id && t.StoreId == storeId && t.Deleted == null)
             .Select(t => new Target(t.EmployeeId, null, false))
             .FirstOrDefaultAsync(ct),
+        Kind.MobilePunch => await MobileTargetAsync(await db.MobileAttendanceRecords.AsNoTracking()
+            .Where(r => r.Id == id && r.StoreId == storeId)
+            .Select(r => r.OdooEmployeeId).FirstOrDefaultAsync(ct), storeId, ct),
+        Kind.MobileDevice => await MobileTargetAsync(await db.AuthorizedMobileDevices.AsNoTracking()
+            .Where(d => d.Id == id && d.StoreId == storeId)
+            .Select(d => d.EmployeeId).FirstOrDefaultAsync(ct), storeId, ct),
+        _ => await MobileTargetAsync(await db.DeviceChangeRequests.AsNoTracking()
+            .Where(r => r.Id == id && r.StoreId == storeId)
+            .Select(r => r.EmployeeId).FirstOrDefaultAsync(ct), storeId, ct),
     };
+
+    /// <summary>
+    /// Chấm công mobile lưu NV bằng chuỗi (Employee.Id / ApplicationUserId / mã NV) → quy về Employee + User.
+    /// </summary>
+    async Task<Target?> MobileTargetAsync(string? employeeKey, Guid storeId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(employeeKey)) return null;
+        var key = employeeKey.Trim();
+        Guid? keyGuid = Guid.TryParse(key, out var g) ? g : null;
+        var emp = await db.Employees.AsNoTracking()
+            .Where(e => e.StoreId == storeId && e.Deleted == null
+                && ((keyGuid != null && (e.Id == keyGuid || e.ApplicationUserId == keyGuid)) || e.EmployeeCode == key))
+            .Select(e => new { e.Id, e.ApplicationUserId })
+            .FirstOrDefaultAsync(ct);
+        return emp != null
+            ? new Target(emp.Id, emp.ApplicationUserId, false)
+            : new Target(null, keyGuid, false);
+    }
 }
