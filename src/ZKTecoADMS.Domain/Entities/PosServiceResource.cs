@@ -125,6 +125,11 @@ public class PosResourceSession : AuditableEntity<Guid>
 
     [MaxLength(500)]
     public string? Note { get; set; }
+
+    /// <summary>Phiên vừa chuyển / gộp từ bàn này sang (khách quét QR bàn cũ → món đi theo sang bàn mới).</summary>
+    public Guid? MovedFromResourceId { get; set; }
+
+    public DateTime? MovedFromAt { get; set; }
 }
 
 /// <summary>Đặt bàn trước — lưu khách + món đặt trước; khi đến mới mở phiên.</summary>

@@ -117,24 +117,38 @@ public static class PosAfterBillApproval
     public static async Task<string?> DenyPaymentBelowBillAsync(
         ZKTecoDbContext db, HttpContext http, Guid storeId, PosSaleOrder order, string? callerRole)
     {
-        if (order.ResourceSessionId is not Guid sid || IsManagerRole(callerRole)) return null;
+        if (IsManagerRole(callerRole)) return null;
+        // Hóa đơn tách (cùng bàn) không gắn phiên — lấy phiên qua đơn gốc. Trước đây thu bill tách không kiểm,
+        // còn thu bill chính thì không cộng bill tách đã thu → đòi duyệt sai.
+        var sid = order.ResourceSessionId;
+        if (sid == null && order.SplitFromOrderId is Guid parentId)
+            sid = await db.PosSaleOrders.AsNoTracking()
+                .Where(o => o.Id == parentId && o.StoreId == storeId)
+                .Select(o => o.ResourceSessionId)
+                .FirstOrDefaultAsync();
+        if (sid == null) return null;
         var printed = await db.PosResourceSessions.AsNoTracking()
             .Where(s => s.Id == sid && s.StoreId == storeId && s.Deleted == null)
             .Select(s => s.BillRequestedTotal)
             .FirstOrDefaultAsync();
         if (printed is not > 0) return null;
-        var otherPaid = await db.PosSaleOrders.AsNoTracking()
+        var sessionOrderIds = db.PosSaleOrders
+            .Where(o => o.StoreId == storeId && o.ResourceSessionId == sid)
+            .Select(o => o.Id);
+        var tableOrders = db.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.Id != order.Id
-                && o.ResourceSessionId == sid && o.Status == PosSaleOrderStatus.Completed)
+                && (o.ResourceSessionId == sid
+                    || (o.SplitFromOrderId != null && sessionOrderIds.Contains(o.SplitFromOrderId.Value))));
+        var otherPaid = await tableOrders
+            .Where(o => o.Status == PosSaleOrderStatus.Completed)
             .SumAsync(o => (decimal?)o.Total) ?? 0m;
-        var stillOpen = await db.PosSaleOrders.AsNoTracking()
-            .AnyAsync(o => o.StoreId == storeId && o.Deleted == null && o.Id != order.Id
-                && o.ResourceSessionId == sid && o.Status == PosSaleOrderStatus.Draft && o.Total > 0);
+        var stillOpen = await tableOrders
+            .AnyAsync(o => o.Status == PosSaleOrderStatus.Draft && o.Total > 0);
         // Còn hóa đơn tách chưa thu → chưa so được tổng (thu nốt hóa đơn cuối mới kiểm).
         if (stillOpen) return null;
         var paid = otherPaid + order.Total;
         if (paid >= printed.Value - Tolerance) return null;
-        return await DenyAsync(db, http, storeId, sid, callerRole,
+        return await DenyAsync(db, http, storeId, sid.Value, callerRole,
             $"thu {Money(paid)} thấp hơn phiếu tạm tính {Money(printed.Value)}", alreadyAfterBill: true);
     }
 

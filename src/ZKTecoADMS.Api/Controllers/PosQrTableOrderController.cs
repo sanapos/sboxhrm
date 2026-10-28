@@ -351,6 +351,30 @@ public class PosQrTableOrderController(
                 session = await db.PosResourceSessions.AsTracking()
                     .FirstOrDefaultAsync(s => s.ResourceId == resource!.Id && s.Deleted == null
                         && (s.Status == PosResourceSessionStatus.Open || s.Status == PosResourceSessionStatus.Paused));
+                if (session == null)
+                {
+                    // Bàn vừa chuyển / gộp sang bàn khác (≤ 6 giờ), bàn cũ còn trống: khách vẫn mở trang QR bàn cũ
+                    // gọi thêm → món theo sang bàn mới. Trước đây mở lại bàn cũ, bếp làm món cho bàn trống.
+                    var since = now.AddHours(-6);
+                    var moved = await db.PosResourceSessions.AsTracking()
+                        .Where(s => s.MovedFromResourceId == resource!.Id && s.MovedFromAt > since
+                            && s.StoreId == storeId && s.Deleted == null
+                            && (s.Status == PosResourceSessionStatus.Open || s.Status == PosResourceSessionStatus.Paused)
+                            && db.PosSaleOrders.Any(o => o.Id == s.SaleOrderId && o.Deleted == null
+                                && o.Status == PosSaleOrderStatus.Draft))
+                        .OrderByDescending(s => s.MovedFromAt)
+                        .FirstOrDefaultAsync();
+                    var movedTo = moved == null
+                        ? null
+                        : await db.PosServiceResources.AsNoTracking()
+                            .Include(r => r.Area)
+                            .FirstOrDefaultAsync(r => r.Id == moved.ResourceId && r.StoreId == storeId && r.Deleted == null);
+                    if (moved != null && movedTo != null)
+                    {
+                        session = moved;
+                        resource = movedTo;
+                    }
+                }
                 order = null;
                 if (session?.SaleOrderId is Guid oid)
                 {

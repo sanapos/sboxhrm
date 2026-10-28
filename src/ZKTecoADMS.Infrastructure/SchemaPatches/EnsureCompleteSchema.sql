@@ -1681,3 +1681,6 @@ CREATE INDEX IF NOT EXISTS "IX_PosGymPtSessions_Customer" ON "PosGymPtSessions" 
 -- Phiếu bếp server tự gửi: dòng món theo lệnh, trả về «chưa báo bếp» khi lệnh không in được.
 ALTER TABLE "PosPrintJobs" ADD COLUMN IF NOT EXISTS "KitchenLinesJson" text NULL;
 ALTER TABLE "PosPrintJobs" ADD COLUMN IF NOT EXISTS "KitchenLinesReverted" boolean NOT NULL DEFAULT false;
+-- Phiên bàn vừa chuyển / gộp từ bàn khác: QR gọi món ở bàn cũ đi theo sang bàn mới.
+ALTER TABLE "PosResourceSessions" ADD COLUMN IF NOT EXISTS "MovedFromResourceId" uuid NULL;
+ALTER TABLE "PosResourceSessions" ADD COLUMN IF NOT EXISTS "MovedFromAt" timestamp without time zone NULL;

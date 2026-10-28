@@ -53,15 +53,30 @@ public class PosRiskController(ZKTecoDbContext db) : AuthenticatedControllerBase
         var sessionIds = sessions.Select(s => s.Id).ToList();
         var auditOrderIds = audits.Where(a => a.SaleOrderId != null).Select(a => a.SaleOrderId!.Value).Distinct().ToList();
         // Đơn trong kỳ (theo giờ bán) + đơn của bàn đã tạm tính + đơn bị hủy / trả trong kỳ (có thể bán từ trước).
+        // Hóa đơn tách (cùng bàn) không gắn phiên — tính vào phiên của đơn gốc (trước đây thu đủ qua bill tách
+        // vẫn bị gắn cờ «thu ít hơn tạm tính»).
         var orders = await db.PosSaleOrders.AsNoTracking()
-            .Where(o => o.StoreId == storeId && o.Deleted == null
-                && (((o.SaleDate ?? o.CreatedAt) >= fromUtc && (o.SaleDate ?? o.CreatedAt) < toUtc
-                        && o.Status != PosSaleOrderStatus.Draft)
-                    || (o.ResourceSessionId != null && sessionIds.Contains(o.ResourceSessionId.Value))
-                    || auditOrderIds.Contains(o.Id)))
+            .Select(o => new
+            {
+                o,
+                Sid = o.ResourceSessionId ?? db.PosSaleOrders
+                    .Where(p => p.Id == o.SplitFromOrderId)
+                    .Select(p => p.ResourceSessionId)
+                    .FirstOrDefault(),
+            })
+            .Where(x => x.o.StoreId == storeId && x.o.Deleted == null
+                && (((x.o.SaleDate ?? x.o.CreatedAt) >= fromUtc && (x.o.SaleDate ?? x.o.CreatedAt) < toUtc
+                        && x.o.Status != PosSaleOrderStatus.Draft)
+                    || (x.Sid != null && sessionIds.Contains(x.Sid.Value))
+                    || auditOrderIds.Contains(x.o.Id)))
+            .Select(x => x.o)
             .Select(o => new PosSaleRiskReportBuilder.OrderRow(
                 o.Id, o.OrderNo, o.Status, o.SaleDate ?? o.CreatedAt, o.SubTotal, o.Discount, o.Total, o.PaymentMethod,
-                o.PrintCount, o.UpdatedBy ?? o.CreatedBy, o.SoldBy, o.ResourceSessionId,
+                o.PrintCount, o.UpdatedBy ?? o.CreatedBy, o.SoldBy,
+                o.ResourceSessionId ?? db.PosSaleOrders
+                    .Where(p => p.Id == o.SplitFromOrderId)
+                    .Select(p => p.ResourceSessionId)
+                    .FirstOrDefault(),
                 o.ServiceResource != null ? o.ServiceResource.Name : null, o.EInvoiceStatus))
             .ToListAsync(ct);
 

@@ -200,6 +200,16 @@ public sealed class PosTingeePaidOrderService(
         var online = PosOnlineOrderHelper.IsQrOnlineOrder(order);
         var closeTable = !online && (order.ServiceResourceId.HasValue || order.ResourceSessionId.HasValue);
 
+        if (order.Status == PosSaleOrderStatus.Draft && paid > orderDue + 1m
+            && await db.PosSaleOrders.AnyAsync(o => o.SplitFromOrderId == order.Id && o.StoreId == storeId
+                && o.Deleted == null && o.Status == PosSaleOrderStatus.Draft, ct))
+        {
+            // QR in theo tổng cả bàn, sau đó bàn tách hóa đơn: tiền về nhiều hơn phần còn lại của đơn. Trước đây tự
+            // hoàn tất đơn với tiền dư, bill tách vẫn hiện chưa thu → dễ thu lần hai. Để thu ngân phân bổ.
+            logger.LogWarning("Tingee: CK {Paid} cho đơn {OrderNo} đã tách hóa đơn (còn {Due})", paid, order.OrderNo, orderDue);
+            return $"Đã nhận chuyển khoản {paid:0} đồng cho {order.OrderNo} — bàn đã tách hóa đơn (đơn này còn {orderDue:0}). "
+                + "Chưa tự hoàn tất: thu ngân hoàn tất đơn và bill tách bằng khoản chuyển khoản này";
+        }
         if (order.Status == PosSaleOrderStatus.Draft)
         {
             var (ok, err) = await PosOnlineOrderHelper.TryCompletePaidDraftAsync(
@@ -215,6 +225,11 @@ public sealed class PosTingeePaidOrderService(
         {
             // Khách chuyển khoản cho đơn quán đã hủy → báo thu ngân để hoàn tiền (không tự mở lại đơn).
             logger.LogWarning("Tingee: nhận chuyển khoản cho đơn đã hủy {OrderNo}", order.OrderNo);
+            // Đơn hủy vì gộp bàn: món đã sang đơn bàn kia — tiền dùng cho đơn đó, không phải hoàn.
+            var mergedInto = System.Text.RegularExpressions.Regex.Match(order.Note ?? "", @"Gộp vào (\S+)");
+            if (mergedInto.Success)
+                return $"Đã nhận chuyển khoản {paid:0} đồng cho {order.OrderNo} — bàn này đã gộp vào đơn "
+                    + $"{mergedInto.Groups[1].Value}. Trừ khoản này khi thu đơn đó";
             return $"Đã nhận chuyển khoản {paid:0} đồng cho đơn ĐÃ HỦY {order.OrderNo}. Liên hệ khách để hoàn tiền";
         }
         else if (order.Status != PosSaleOrderStatus.Completed)

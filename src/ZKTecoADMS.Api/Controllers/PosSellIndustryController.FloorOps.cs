@@ -296,6 +296,8 @@ public partial class PosSellIndustryController
 
         var fromId = session.ResourceId;
         session.ResourceId = target.Id;
+        session.MovedFromResourceId = fromId;
+        session.MovedFromAt = DateTime.UtcNow;
         session.UpdatedAt = DateTime.UtcNow;
         session.UpdatedBy = CurrentUserEmail;
 
@@ -370,7 +372,8 @@ public partial class PosSellIndustryController
             ? PosResourceReservationStatus.Seated
             : PosResourceReservationStatus.Cancelled;
 
-        // Classic (không duration) hoặc timed đang/đã bắt đầu trong cửa sổ gần → clear.
+        // Chỉ lịch đã / sắp tới giờ (≤ 30 phút nữa). Trước đây đặt bàn kiểu thường (không thời lượng) luôn bị xóa:
+        // chuyển khách sang bàn trống lúc trưa làm mất lịch đặt bàn tối nay của bàn đó.
         // Timed tương lai giữ nguyên để salon multi-slot không mất lịch.
         var candidates = await db.PosResourceReservations
             .Where(x => x.ResourceId == resourceId && x.Deleted == null
@@ -382,7 +385,7 @@ public partial class PosSellIndustryController
         var clearIds = candidates
             .Where(x =>
             {
-                if (x.DurationMinutes is null or <= 0) return true;
+                if (x.DurationMinutes is null or <= 0) return x.ReservedAt <= now.AddMinutes(30);
                 var end = x.ReservedUntil ?? x.ReservedAt.AddMinutes(x.DurationMinutes.Value);
                 // Đang trong slot hoặc slot đã bắt đầu ≤ 30' trước (khách đến sớm / muộn ít).
                 return x.ReservedAt <= now.AddMinutes(30) && now < end.AddMinutes(ReservationNoShowGraceMinutes);
@@ -843,20 +846,29 @@ public partial class PosSellIndustryController
         var now = DateTime.UtcNow;
         // Chốt pause bàn nguồn (đang đóng); bàn đích giữ pause hiện tại nếu đang tạm dừng.
         PosServiceBillingHelper.FinalizeOpenPause(sourceSession, now);
+        // Tiền giờ tính theo giờ bắt đầu của dòng (thiếu thì theo đơn) trừ thời gian dừng của phiên + của dòng.
+        // Chốt giờ bắt đầu của món bàn đích trước khi lùi giờ mở bàn — trước đây món giờ bàn đích bị tính từ giờ
+        // mở bàn nguồn (thừa tiền); cộng pause bàn nguồn vào phiên đích trừ luôn vào món bàn đích (thiếu tiền).
+        foreach (var l in targetOrder.Lines.Where(l => l.Deleted == null))
+            l.ServiceStartedAt ??= targetOrder.ServiceStartedAt ?? targetSession.StartedAt;
         if (sourceSession.StartedAt < targetSession.StartedAt)
         {
             targetSession.StartedAt = sourceSession.StartedAt;
             targetOrder.ServiceStartedAt =
                 sourceOrder.ServiceStartedAt ?? sourceSession.StartedAt;
         }
-        targetSession.AccumulatedPauseMinutes += sourceSession.AccumulatedPauseMinutes;
+        // Pause bàn nguồn chỉ thuộc món bàn nguồn (pause bàn đích sẽ trừ thêm vào món đó — bù lại phần trùng).
+        var movedPause = Math.Max(0, sourceSession.AccumulatedPauseMinutes - targetSession.AccumulatedPauseMinutes);
+        targetSession.MovedFromResourceId = sourceSession.ResourceId;
+        targetSession.MovedFromAt = now;
 
         var moveLines = sourceOrder.Lines.Where(l => l.Deleted == null).ToList();
         foreach (var line in moveLines)
         {
             sourceOrder.Lines.Remove(line);
             line.SaleOrderId = targetOrder.Id;
-            line.ServiceStartedAt ??= sourceSession.StartedAt;
+            line.ServiceStartedAt ??= sourceOrder.ServiceStartedAt ?? sourceSession.StartedAt;
+            line.ServicePauseMinutes = Math.Max(0, line.ServicePauseMinutes) + movedPause;
             line.UpdatedAt = now;
             line.UpdatedBy = CurrentUserEmail;
             targetOrder.Lines.Add(line);
@@ -879,6 +891,15 @@ public partial class PosSellIndustryController
 
         targetOrder.LockVersion = Math.Max(1, targetOrder.LockVersion) + 1;
         targetOrder.UpdatedAt = now;
+        // Giảm giá cả đơn + tiền cọc đặt bàn của bàn nguồn đi theo sang (trước đây mất: đơn nguồn đã hủy).
+        targetOrder.Discount += sourceOrder.Discount;
+        sourceOrder.Discount = 0;
+        await db.PosResourceReservations
+            .Where(r => r.DepositAppliedOrderId == sourceOrder.Id
+                && r.DepositStatus == PosReservationDepositStatus.Applied)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.DepositAppliedOrderId, targetOrder.Id)
+                .SetProperty(r => r.UpdatedAt, now));
 
         var fromResource = await db.PosServiceResources
             .AsTracking().FirstOrDefaultAsync(r => r.Id == sourceSession.ResourceId && r.StoreId == storeId);
