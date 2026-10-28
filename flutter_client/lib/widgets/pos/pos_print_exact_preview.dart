@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:barcode/barcode.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/pos_print_template.dart';
 import '../../models/pos_print_template_v2.dart';
 import '../../utils/pos_label_renderer.dart';
+import '../../utils/pos_print_code_lines.dart';
 import '../../utils/pos_print_template_compiler.dart';
 import '../../utils/pos_print_template_renderer.dart';
 import '../../utils/pos_sell_store_settings.dart';
@@ -28,31 +28,13 @@ bool posPrintHasExactPreview(String paperSize) =>
     paperSize != PosPrintPaperSizes.a4 && paperSize != PosPrintPaperSizes.a5;
 
 class _Segment {
-  _Segment.text(this.png, this.width, this.height, this.rows, this.lines)
-      : qr = null,
-        barcode = null;
-  _Segment.qr(this.qr)
-      : png = null,
-        width = 0,
-        height = 0,
-        rows = const [],
-        lines = const [],
-        barcode = null;
-  _Segment.barcode(this.barcode)
-      : png = null,
-        width = 0,
-        height = 0,
-        rows = const [],
-        lines = const [],
-        qr = null;
+  _Segment(this.png, this.width, this.height, this.rows, this.lines);
 
-  final Uint8List? png;
+  final Uint8List png;
   final int width;
   final int height;
   final List<({int line, double top, double height})> rows;
   final List<PosReceiptImageLine> lines;
-  final PosPrintCompiledQr? qr;
-  final PosPrintCompiledBarcode? barcode;
 }
 
 /// Xem trước ĐÚNG BẢN IN: dùng chính bộ vẽ ảnh gửi máy in nhiệt / máy tem
@@ -64,6 +46,7 @@ class PosPrintExactPreview extends StatefulWidget {
     this.selectedBlockIndex,
     this.onSelectBlock,
     this.zoom = 1.0,
+    this.printWidthMm,
   });
 
   final PosPrintTemplateV2 template;
@@ -71,6 +54,8 @@ class PosPrintExactPreview extends StatefulWidget {
   final ValueChanged<int>? onSelectBlock;
   /// 1.0 = vừa khung; > 1 phóng to (cuộn).
   final double zoom;
+  /// Khổ đầu in thật (mm) khi khác khổ mẫu — vd mẫu K80 in trên máy cầm tay 58 mm.
+  final int? printWidthMm;
 
   @override
   State<PosPrintExactPreview> createState() => _PosPrintExactPreviewState();
@@ -86,10 +71,15 @@ class _PosPrintExactPreviewState extends State<PosPrintExactPreview> {
   int _gen = 0;
   Timer? _debounce;
   String _lastKey = '';
+  final _scroll = ScrollController();
+  /// px màn hình / điểm in của lần vẽ gần nhất — để cuộn tới khối đang chọn.
+  double _k = 1;
 
   bool get _isLabel => PosPrintPaperSizes.isLabelSize(widget.template.paperSize);
 
   int get _paperDots {
+    final override = widget.printWidthMm;
+    if (override != null && !_isLabel) return PosThermalBitmapEncoder.paperDots(override);
     final wMm = PosPrintPaperSizes.widthMm(widget.template.paperSize);
     return _isLabel ? (wMm * 203 / 25.4).round() : (wMm <= 58 ? 384 : 576);
   }
@@ -106,11 +96,17 @@ class _PosPrintExactPreviewState extends State<PosPrintExactPreview> {
   void didUpdateWidget(covariant PosPrintExactPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.template.documentType != widget.template.documentType) _loadStore();
-    if (oldWidget.template.encode() != widget.template.encode()) _schedule();
+    if (oldWidget.selectedBlockIndex != widget.selectedBlockIndex) _revealSelected();
+    if (oldWidget.printWidthMm != widget.printWidthMm) {
+      _schedule(immediate: true, force: true);
+    } else if (oldWidget.template.encode() != widget.template.encode()) {
+      _schedule();
+    }
   }
 
   @override
   void dispose() {
+    _scroll.dispose();
     _debounce?.cancel();
     _label?.dispose();
     super.dispose();
@@ -164,37 +160,21 @@ class _PosPrintExactPreviewState extends State<PosPrintExactPreview> {
         });
         return;
       }
+      // Cùng đường dựng với máy in: mọi bước (kể cả mã vạch / QR) → dòng ảnh → một ảnh khổ giấy.
+      final lines = await posPrintOutputImageLines(output, paperDots: _paperDots);
       final segs = <_Segment>[];
-      var batch = <PosReceiptImageLine>[];
-      Future<void> flush() async {
-        if (batch.isEmpty) return;
+      if (lines.isNotEmpty) {
         final r = await PosThermalBitmapEncoder.receiptPreview(
-          batch,
+          lines,
           paperDots: _paperDots,
           frameStyle: output.frameStyle,
           frameInsetMm: output.frameInsetMm,
           frameMarginMm: output.frameMarginMm,
           sidePaddingMm: output.sidePaddingMm,
+          monochrome: true,
         );
-        if (r != null) segs.add(_Segment.text(r.png, r.width, r.height, r.rows, batch));
-        batch = [];
+        if (r != null) segs.add(_Segment(r.png, r.width, r.height, r.rows, lines));
       }
-
-      for (final step in output.steps) {
-        if (step is PosPrintCompiledQr) {
-          await flush();
-          segs.add(_Segment.qr(step));
-          continue;
-        }
-        if (step is PosPrintCompiledBarcode) {
-          await flush();
-          segs.add(_Segment.barcode(step));
-          continue;
-        }
-        final line = compiledStepToImageLine(step);
-        if (line != null) batch.add(line);
-      }
-      await flush();
       if (gen != _gen || !mounted) return;
       setState(() {
         _segments = segs;
@@ -202,6 +182,7 @@ class _PosPrintExactPreviewState extends State<PosPrintExactPreview> {
         _busy = false;
         _error = null;
       });
+      _revealSelected();
     } catch (e) {
       if (gen != _gen || !mounted) return;
       setState(() {
@@ -209,6 +190,31 @@ class _PosPrintExactPreviewState extends State<PosPrintExactPreview> {
         _error = '$e';
       });
     }
+  }
+
+  /// Cuộn để khối đang chọn nằm trong khung (bấm khối ở danh sách / mở bảng sửa khối).
+  void _revealSelected() {
+    final idx = widget.selectedBlockIndex;
+    if (idx == null || _segments.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final s = _segments.first;
+      final hit = s.rows.where((r) => s.lines[r.line].sourceBlockIndex == idx).toList();
+      if (hit.isEmpty) return;
+      // 12 lề trên + ~24 dòng chú thích khổ giấy phía trên tờ in.
+      final top = 36 + hit.first.top * _k;
+      final bottom = 36 + (hit.last.top + hit.last.height) * _k;
+      final pos = _scroll.position;
+      double? target;
+      if (top < pos.pixels) {
+        target = top - 24;
+      } else if (bottom > pos.pixels + pos.viewportDimension) {
+        target = bottom - pos.viewportDimension + 24;
+      }
+      if (target == null) return;
+      _scroll.animateTo(target.clamp(0.0, pos.maxScrollExtent),
+          duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    });
   }
 
   static Future<Uint8List?> _rasterToPng(Uint8List raster, int w, int h) async {
@@ -236,14 +242,19 @@ class _PosPrintExactPreviewState extends State<PosPrintExactPreview> {
   @override
   Widget build(BuildContext context) {
     final tpl = widget.template;
-    final wMm = PosPrintPaperSizes.widthMm(tpl.paperSize);
+    final wMm = _isLabel || widget.printWidthMm == null
+        ? PosPrintPaperSizes.widthMm(tpl.paperSize)
+        : widget.printWidthMm!.toDouble();
     return LayoutBuilder(builder: (context, c) {
       // Vừa khung; zoom > 1 thì cho cuộn ngang.
-      final fitW = (c.maxWidth - 24).clamp(120.0, 760.0);
+      // Trần ~520 px: khung rộng (C20 ngang) không phóng tờ in quá cỡ, vẫn thấy cả bill.
+      final fitW = (c.maxWidth - 24).clamp(120.0, 520.0);
       final displayW = fitW * widget.zoom;
       final k = displayW / _paperDots; // px màn hình / điểm in
+      _k = k;
       final paper = _isLabel ? _buildLabel(displayW) : _buildReceipt(displayW, k);
       return SingleChildScrollView(
+        controller: _scroll,
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -299,21 +310,17 @@ class _PosPrintExactPreviewState extends State<PosPrintExactPreview> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final s in _segments)
-          if (s.png != null)
-            SizedBox(
-              width: displayW,
-              height: s.height * k,
-              child: Stack(children: [
-                Positioned.fill(
-                  child: Image.memory(s.png!, fit: BoxFit.fill, filterQuality: FilterQuality.medium, gaplessPlayback: true),
-                ),
-                for (final r in s.rows) _rowOverlay(s, r, k),
-              ]),
-            )
-          else if (s.qr != null)
-            _qrBox(s.qr!, k)
-          else if (s.barcode != null)
-            _barcodeBox(s.barcode!, k, displayW),
+          SizedBox(
+            width: displayW,
+            height: s.height * k,
+            child: Stack(children: [
+              Positioned.fill(
+                // Ảnh 1 bit: phóng nguyên điểm để thấy đúng nét máy in.
+                child: Image.memory(s.png, fit: BoxFit.fill, filterQuality: k >= 1 ? FilterQuality.none : FilterQuality.medium, gaplessPlayback: true),
+              ),
+              for (final r in s.rows) _rowOverlay(s, r, k),
+            ]),
+          ),
       ],
     );
   }
@@ -342,101 +349,6 @@ class _PosPrintExactPreviewState extends State<PosPrintExactPreview> {
       ),
     );
   }
-
-  Widget _wrapSelect(int? idx, Widget child) {
-    final selected = idx != null && idx == widget.selectedBlockIndex;
-    return GestureDetector(
-      onTap: idx == null || widget.onSelectBlock == null ? null : () => widget.onSelectBlock!(idx),
-      child: Container(
-        decoration: BoxDecoration(
-          color: selected ? const Color(0x1A1E88E5) : null,
-          border: selected ? Border.all(color: const Color(0xFF1E88E5)) : null,
-        ),
-        child: child,
-      ),
-    );
-  }
-
-  Widget _qrBox(PosPrintCompiledQr q, double k) {
-    TextStyle st(double dots, {bool bold = false}) => TextStyle(
-          fontFamily: 'BeVietnamPro',
-          fontSize: dots * k,
-          fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
-          color: Colors.black,
-          height: 1.28,
-        );
-    final size = q.size * k;
-    return _wrapSelect(
-      q.sourceBlockIndex,
-      Padding(
-        padding: EdgeInsets.symmetric(vertical: 4 * k),
-        child: Column(children: [
-          if ((q.title ?? '').trim().isNotEmpty) Text(q.title!.trim(), style: st(24, bold: true), textAlign: TextAlign.center),
-          Container(
-            width: size,
-            height: size,
-            margin: EdgeInsets.symmetric(vertical: 4 * k),
-            decoration: BoxDecoration(border: Border.all(color: Colors.black54), color: const Color(0xFFF2F2F2)),
-            child: Icon(Icons.qr_code_2, size: size * 0.8, color: Colors.black87),
-          ),
-          if (q.caption.trim().isNotEmpty) Text(q.caption.trim(), style: st(22), textAlign: TextAlign.center),
-          if ((q.amountText ?? '').trim().isNotEmpty) Text('${q.amountText!.trim()} đ', style: st(24, bold: true)),
-        ]),
-      ),
-    );
-  }
-
-  Widget _barcodeBox(PosPrintCompiledBarcode b, double k, double displayW) {
-    return _wrapSelect(
-      b.sourceBlockIndex,
-      Padding(
-        padding: EdgeInsets.symmetric(vertical: 6 * k),
-        child: Column(children: [
-          if (b.qr)
-            SizedBox(
-              width: b.height * 1.6 * k,
-              height: b.height * 1.6 * k,
-              child: CustomPaint(painter: _BarcodePainter(b.data, qr: true)),
-            )
-          else
-            SizedBox(
-              width: displayW * 0.62,
-              height: b.height * k,
-              child: CustomPaint(painter: _BarcodePainter(b.data)),
-            ),
-          if (b.showText)
-            Text(b.data,
-                textAlign: TextAlign.center,
-                maxLines: b.qr ? 2 : 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontFamily: 'BeVietnamPro', fontSize: (b.qr ? 14 : 20) * k, color: Colors.black)),
-        ]),
-      ),
-    );
-  }
-}
-
-class _BarcodePainter extends CustomPainter {
-  _BarcodePainter(this.data, {this.qr = false});
-  final String data;
-  final bool qr;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    try {
-      final els = (qr ? Barcode.qrCode() : Barcode.code128())
-          .make(data, width: size.width, height: size.height, drawText: false);
-      final p = Paint()..color = Colors.black;
-      for (final e in els) {
-        if (e is BarcodeBar && e.black) {
-          canvas.drawRect(Rect.fromLTWH(e.left, e.top, e.width, e.height), p);
-        }
-      }
-    } catch (_) {}
-  }
-
-  @override
-  bool shouldRepaint(covariant _BarcodePainter old) => old.data != data;
 }
 
 class _MmRuler extends StatelessWidget {

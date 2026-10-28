@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
 
 import '../models/pos_sale_order.dart';
+import 'pos_print_code_lines.dart';
 import 'pos_print_template_compiler.dart';
 import 'pos_printer_transport.dart';
 import 'pos_receipt_layout.dart';
@@ -417,47 +418,27 @@ class PosSunmiNativePrint {
       // Máy cầm tay (V2s…) chỉ có đầu in 58 mm: khổ K80 mặc định dựng ảnh 576 điểm → cắt mép phải.
       // In thử đã ép 58 mm; hóa đơn thật phải cùng khổ.
       final paperMm = handheld ? 58 : settings.paperWidthMm;
-      final layout = _SunmiReceiptLayout.fromMm(paperMm);
       final feed = _resolveFeed(settings.resolvedFeedBeforeCut);
       final dots = PosThermalBitmapEncoder.paperDots(paperMm);
       for (var c = 0; c < copies.clamp(1, 10); c++) {
-        final batch = <PosReceiptImageLine>[];
         _handheldEscAcc = handheld ? <int>[] : null;
         _handheldAccDots = dots;
-        Future<void> flushBatch() async {
-          if (batch.isEmpty) return;
-          final png = await PosThermalBitmapEncoder.receiptToPng(
-            List<PosReceiptImageLine>.from(batch),
-            paperDots: dots,
-            frameStyle: output.frameStyle,
-            frameInsetMm: output.frameInsetMm,
-            frameMarginMm: output.frameMarginMm,
-            trailingFeedLines: 0,
-            sidePaddingMm: output.sidePaddingMm,
-          );
-          batch.clear();
-          if (png != null) {
-            await _emitSunmiPng(png);
-          }
-        }
-
         try {
-          for (final step in output.steps) {
-            if (step is PosPrintCompiledQr) {
-              await flushBatch();
-              await _printCompiledQr(step, layout);
-              continue;
-            }
-            if (step is PosPrintCompiledBarcode) {
-              await flushBatch();
-              await _flushHandheldAccNow();
-              await _printCompiledBarcode(step);
-              continue;
-            }
-            final img = compiledStepToImageLine(step);
-            if (img != null) batch.add(img);
-          }
-          await flushBatch();
+          // Cùng các dòng ảnh với bản xem trước của trình soạn mẫu, in thành một ảnh
+          // (V2s đẩy đuôi trắng sau mỗi ảnh).
+          final lines = await posPrintOutputImageLines(output, paperDots: dots);
+          final png = lines.isEmpty
+              ? null
+              : await PosThermalBitmapEncoder.receiptToPng(
+                  lines,
+                  paperDots: dots,
+                  frameStyle: output.frameStyle,
+                  frameInsetMm: output.frameInsetMm,
+                  frameMarginMm: output.frameMarginMm,
+                  trailingFeedLines: 0,
+                  sidePaddingMm: output.sidePaddingMm,
+                );
+          if (png != null) await _emitSunmiPng(png);
           if (handheld) {
             await _commitHandheldAcc(feedLines: feed, paperDots: dots);
           } else {
@@ -756,74 +737,12 @@ class PosSunmiNativePrint {
     return PosPrinterTransport.verifySunmiAfterPrint();
   }
 
-  static Future<void> _printCompiledQr(
-    PosPrintCompiledQr qr,
-    _SunmiReceiptLayout layout,
-  ) async {
-    if (qr.title != null && qr.title!.trim().isNotEmpty) {
-      await _center(qr.title!.trim(), size: layout.smallSize, bold: true);
-    }
-    final dots = layout.k58 ? 384 : 576;
-    final png = await PosThermalBitmapEncoder.qrCenteredOnPaper(
-      qr.imageUrl,
-      paperDots: dots,
-    );
-    if (png != null) {
-      await _emitSunmiPng(png);
-    }
-    if (qr.caption.trim().isNotEmpty) {
-      await _center(qr.caption.trim(), size: layout.smallSize, bold: true);
-    }
-    if (qr.amountText != null && qr.amountText!.trim().isNotEmpty) {
-      await _center('${qr.amountText!.trim()} đ', size: layout.bodySize, bold: true);
-    }
-  }
-
-  static Future<void> _printCompiledBarcode(PosPrintCompiledBarcode barcode) async {
-    final data = barcode.data.trim();
-    if (data.isEmpty) return;
-    if (barcode.qr) {
-      try {
-        await SunmiPrinter.printQRCode(data, style: SunmiQrcodeStyle(qrcodeSize: 6));
-        if (barcode.showText) await _center(data, size: 18);
-      } catch (e) {
-        debugPrint('Sunmi QR failed, fallback text: $e');
-        await _center(data, size: 18);
-      }
-      return;
-    }
-    try {
-      await SunmiPrinter.printBarCode(
-        data,
-        style: SunmiBarcodeStyle(
-          type: SunmiBarcodeType.CODE128,
-          height: barcode.height.clamp(40, 162),
-          size: 2,
-          textPos: barcode.showText
-              ? SunmiBarcodeTextPos.TEXT_UNDER
-              : SunmiBarcodeTextPos.NO_TEXT,
-          align: SunmiPrintAlign.CENTER,
-        ),
-      );
-    } catch (e) {
-      debugPrint('Sunmi barcode failed, fallback text: $e');
-      await _center(data, size: 22, bold: true);
-    }
-  }
-
   /// Gộp nhiều dòng thành 1 printImage — V2s đẩy đuôi trắng sau mỗi ảnh.
   static List<PosReceiptImageLine>? _slipBatch;
 
   /// V2s mẫu V2: gom mọi GS v 0 thành 1 printEscPos rồi mới nhồi feed.
   static List<int>? _handheldEscAcc;
   static int _handheldAccDots = 384;
-
-  static Future<void> _flushHandheldAccNow() async {
-    final acc = _handheldEscAcc;
-    if (acc == null || acc.isEmpty) return;
-    await SunmiPrinter.printEscPos(List<int>.from(acc));
-    acc.clear();
-  }
 
   static Future<void> _commitHandheldAcc({
     required int feedLines,
@@ -969,7 +888,8 @@ class PosSunmiNativePrint {
 
   static Future<void> _emitSunmiPng(Uint8List png) async {
     if (await PosPrinterTransport.sunmiHasAutoCutter()) {
-      await SunmiPrinter.printImage(png, align: SunmiPrintAlign.CENTER);
+      final mono = await PosThermalBitmapEncoder.toMonochromePng(png);
+      await SunmiPrinter.printImage(mono ?? png, align: SunmiPrintAlign.CENTER);
       return;
     }
     final raster = await PosThermalBitmapEncoder.pngToEscPos(png);

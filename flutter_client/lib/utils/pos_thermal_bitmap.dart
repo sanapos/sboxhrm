@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -29,6 +30,7 @@ class PosReceiptImageLine {
     this.indentRight = 0,
     this.imageBytes,
     this.imageWidthFrac = 0.6,
+    this.imageWidthDots,
     this.minHeight = 0,
     this.sourceBlockIndex,
   });
@@ -57,6 +59,9 @@ class PosReceiptImageLine {
   final Uint8List? imageBytes;
   /// Chiều rộng ảnh theo phần khổ nội dung (0.1–1).
   final double imageWidthFrac;
+  /// Chiều rộng ảnh tính bằng điểm in (mã vạch / QR — giữ đúng ô điểm, không co giãn).
+  /// Khác null thì bỏ qua [imageWidthFrac].
+  final double? imageWidthDots;
   /// Chiều cao tối thiểu (dot) — khoảng trống của khối «Cách dòng».
   final double minHeight;
   /// Khối mẫu tạo ra dòng này (xem trước bấm chọn khối).
@@ -139,6 +144,7 @@ class PosThermalBitmapEncoder {
     double frameInsetMm = 2.5,
     double frameMarginMm = 1.5,
     double? sidePaddingMm,
+    bool monochrome = false,
   }) async {
     final rows = <({int line, double top, double height})>[];
     final image = await _renderReceiptImage(
@@ -154,6 +160,13 @@ class PosThermalBitmapEncoder {
     if (image == null) return null;
     final w = image.width;
     final h = image.height;
+    if (monochrome) {
+      // Cắt ngưỡng đúng như khi gửi máy in ([_imageToEscPos]) — xem trước thấy đúng nét đậm/mảnh trên giấy.
+      final png = await _monochromePng(image);
+      image.dispose();
+      if (png == null) return null;
+      return (png: png, width: w, height: h, rows: rows);
+    }
     final bd = await image.toByteData(format: ui.ImageByteFormat.png);
     image.dispose();
     if (bd == null) return null;
@@ -421,7 +434,10 @@ class PosThermalBitmapEncoder {
       final width = (contentW - (line.indentLeft + line.indentRight) * scale).clamp(40.0, contentW);
       final img = images[i];
       if (img != null) {
-        final w = (width * line.imageWidthFrac.clamp(0.1, 1.0)).clamp(8.0, width);
+        final exact = line.imageWidthDots;
+        final w = exact != null
+            ? (exact * scale).clamp(8.0, width)
+            : (width * line.imageWidthFrac.clamp(0.1, 1.0)).clamp(8.0, width);
         final h = w * img.height / img.width;
         if (canvas != null) {
           final x = line.center
@@ -432,8 +448,9 @@ class PosThermalBitmapEncoder {
           canvas.drawImageRect(
             img,
             Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
-            Rect.fromLTWH(x, y, w, h),
-            Paint()..filterQuality = FilterQuality.high,
+            Rect.fromLTWH(x.roundToDouble(), y.roundToDouble(), w, h),
+            // Mã vạch / QR: phóng nguyên điểm (không làm mờ cạnh vạch).
+            Paint()..filterQuality = exact != null ? FilterQuality.none : FilterQuality.high,
           );
         }
         return h + lineGap * scale;
@@ -785,6 +802,45 @@ class PosThermalBitmapEncoder {
     return picture.toImage(tw, th);
   }
 
+  static Future<Uint8List?> _monochromePng(ui.Image image) async {
+    final w = image.width;
+    final h = image.height;
+    final raw = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    if (raw == null) return null;
+    final px = raw.buffer.asUint8List();
+    for (var i = 0; i < px.length; i += 4) {
+      final v = _isInk(px[i], px[i + 1], px[i + 2]) ? 0 : 255;
+      px[i] = v;
+      px[i + 1] = v;
+      px[i + 2] = v;
+      px[i + 3] = 255;
+    }
+    final c = Completer<ui.Image>();
+    ui.decodeImageFromPixels(px, w, h, ui.PixelFormat.rgba8888, c.complete);
+    final mono = await c.future;
+    final bd = await mono.toByteData(format: ui.ImageByteFormat.png);
+    mono.dispose();
+    return bd?.buffer.asUint8List();
+  }
+
+  /// PNG xám → PNG đen trắng theo đúng ngưỡng in — cho máy tự in ảnh (Sunmi printImage)
+  /// ra giống bản xem trước thay vì tự cắt ngưỡng / chấm sần.
+  static Future<Uint8List?> toMonochromePng(Uint8List png) async {
+    try {
+      final frame = await (await ui.instantiateImageCodec(png)).getNextFrame();
+      try {
+        return await _monochromePng(frame.image);
+      } finally {
+        frame.image.dispose();
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Điểm có mực khi in nhiệt. Ngưỡng thấp hơn → nét đậm, tránh răng cưa xám thành lỗ.
+  static bool _isInk(int r, int g, int b) => 0.299 * r + 0.587 * g + 0.114 * b < 160;
+
   static Future<List<int>?> _imageToEscPos(
     ui.Image image, {
     bool initPrinter = false,
@@ -808,11 +864,7 @@ class PosThermalBitmapEncoder {
           final x = xByte * 8 + bit;
           if (x >= w) continue;
           final idx = (y * w + x) * 4;
-          final lum = 0.299 * rgba[idx] +
-              0.587 * rgba[idx + 1] +
-              0.114 * rgba[idx + 2];
-          // Ngưỡng thấp hơn → nét đậm, tránh răng cưa xám thành lỗ.
-          if (lum < 160) {
+          if (_isInk(rgba[idx], rgba[idx + 1], rgba[idx + 2])) {
             b |= (0x80 >> bit);
           }
         }

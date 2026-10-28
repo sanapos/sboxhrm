@@ -242,6 +242,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<PosAiMenuService>();
         services.AddScoped<PosAiInvoiceService>();
         services.AddScoped<PosDocxTemplateAiService>();
+        services.AddScoped<PosPrintTemplateAiService>();
         services.AddSingleton<OfficePdfConverter>();
         
         // Register DeepSeek AI service

@@ -734,7 +734,10 @@ class PosPrintOrchestrator {
     final byKey = <String, PosStorePrinter>{};
     final unmatched = <PosStorePrinter>[];
     for (final p in eligible) {
-      final key = _physicalPickerKey(p) ?? _namePickerKey(p);
+      // Máy tem và máy nhiệt cùng địa chỉ là hai máy khác nhau — không gộp (gộp xong bảng chọn
+      // hóa đơn lọc bỏ máy tem là mất luôn máy nhiệt).
+      final phys = _physicalPickerKey(p);
+      final key = phys == null ? _namePickerKey(p) : '${p.isLabelPrinter ? 'label' : 'receipt'}:$phys';
       if (key.isEmpty) {
         unmatched.add(p);
         continue;
@@ -2757,6 +2760,8 @@ class PosPrintOrchestrator {
           template: template,
           data: data,
           lineItems: lineItems,
+          // In thử: QR mẫu như khung xem trước của trình soạn.
+          vietQrImageUrl: 'sample',
         );
       }
       if (printer.isSunmi && await PosPrinterTransport.isSunmiDevice()) {

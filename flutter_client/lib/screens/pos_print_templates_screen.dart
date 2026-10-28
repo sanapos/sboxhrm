@@ -25,6 +25,8 @@ import '../utils/pos_print_template_v2_presets.dart';
 import '../utils/pos_print_template_compiler.dart';
 import '../utils/pos_print_template_runtime.dart';
 import '../utils/pos_print_orchestrator.dart';
+import '../utils/pos_printer_transport.dart';
+import '../utils/pos_thermal_printer_settings.dart';
 import '../utils/pos_print_config_session.dart';
 import '../utils/pos_sell_print_settings.dart';
 import '../utils/pos_sell_store_settings.dart';
@@ -855,6 +857,13 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         if (ao != bo) return ao.compareTo(bo);
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
+      if (active.isEmpty &&
+          !PosPrintPaperSizes.isLabelSize(v2.paperSize) &&
+          await PosPrinterTransport.isSunmiDevice()) {
+        // Máy Sunmi chưa khai báo máy in nào: in thử ra đầu in tích hợp (đúng ảnh xem trước).
+        await _testPrintOnBuiltInSunmi(v2);
+        return;
+      }
       if (active.isEmpty) {
         if (!mounted) return;
         NotificationOverlayManager().showWarning(
@@ -1055,6 +1064,8 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               template: v2,
               data: sample,
               lineItems: posPrintSampleLines(),
+              // QR mẫu như khung xem trước — in thử ra đúng bố cục đang thấy.
+              vietQrImageUrl: 'sample',
             );
 
       final machine = toThermalSettings(picked);
@@ -1113,6 +1124,53 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       );
     } finally {
       if (mounted) setState(() => _testingPrint = false);
+    }
+  }
+
+  Future<void> _testPrintOnBuiltInSunmi(PosPrintTemplateV2 v2) async {
+    final store = await PosSellStoreSettings.load();
+    final isKitchen = v2.documentType == PosPrintDocumentTypes.kitchenSlip ||
+        v2.documentType == PosPrintDocumentTypes.kitchenVoid;
+    final output = isKitchen
+        ? PosPrintTemplateRuntime.compileKitchenSlip(
+            template: v2,
+            tableName: 'Bàn 05',
+            isCancel: v2.documentType == PosPrintDocumentTypes.kitchenVoid,
+            lines: const [
+              (name: 'Phở bò tái', qty: '2', unit: 'tô', note: 'Ít hành'),
+              (name: 'Trà đá', qty: '2', unit: 'ly', note: null),
+            ],
+            senderName: 'NV Demo',
+            orderNo: 'DH0001',
+            sentAt: DateTime.now(),
+          )
+        : PosPrintTemplateCompiler.compile(
+            template: v2,
+            data: posPrintSampleData(
+              documentType: v2.documentType,
+              storeName: store.storeName,
+              storeAddress: store.address,
+              storePhone: store.phone,
+            ),
+            lineItems: posPrintSampleLines(),
+            vietQrImageUrl: 'sample',
+          );
+    final ok = await PosPrintTemplateRuntime.printCompiledSunmi(
+      output: output,
+      settings: PosThermalPrinterSettings(
+        enabled: true,
+        connectionType: PosThermalConnectionType.sunmi,
+        printerBrand: PosThermalPrinterBrand.sunmi,
+        paperSize: v2.paperSize,
+      ),
+      kitchenFeed: isKitchen,
+    );
+    if (!mounted) return;
+    if (ok) {
+      NotificationOverlayManager().showSuccess(title: 'In thử', message: tr('Đã in ra máy in Sunmi của máy này'));
+    } else {
+      NotificationOverlayManager().showError(
+          title: 'In thử thất bại', message: tr('Máy in Sunmi không phản hồi — kiểm tra giấy / nắp máy'));
     }
   }
 

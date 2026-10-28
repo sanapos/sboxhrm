@@ -10,7 +10,9 @@ import '../../utils/pos_print_template_v2_codec.dart';
 import '../../utils/pos_print_template_v2_presets.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/pos/pos_print_template_preview.dart';
+import '../../utils/pos_printer_transport.dart';
 import 'pos_print_exact_preview.dart';
+import 'pos_print_template_ai_sheet.dart';
 import 'pos_print_template_tools.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -52,6 +54,16 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
   final List<PosPrintTemplateV2> _redo = [];
   /// Thu phóng khung xem trước (1 = vừa khung).
   double _zoom = 1.0;
+  /// Máy đang chạy là Sunmi cầm tay (V2s…): đầu in chỉ 58 mm — mẫu K80 bị dàn lại khi in.
+  bool _handheld58 = false;
+  /// Xem trước theo khổ máy này in (58 mm) thay vì khổ mẫu.
+  bool _previewAsDevice = false;
+
+  // Tab điện thoại: xem trước đứng đầu (thấy ngay kết quả), chạm dòng để sửa.
+  static const _tabPreview = 0;
+  /// Màn ngang thấp (C20 / T1, trình soạn trong Thiết lập): xem trước cố định bên trái, tab bên phải.
+  bool _split = false;
+  int get _tabEdit => _split ? 1 : 2;
 
   PosPrintTemplateV2 get _tpl => widget.template;
 
@@ -61,7 +73,82 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
   @override
   void initState() {
     super.initState();
+    _detectHandheld();
   }
+
+  Future<void> _detectHandheld() async {
+    final sunmi = await PosPrinterTransport.isSunmiDevice();
+    if (!sunmi) return;
+    final cutter = await PosPrinterTransport.sunmiHasAutoCutter();
+    if (!mounted || cutter) return;
+    setState(() {
+      _handheld58 = true;
+      _previewAsDevice = true;
+    });
+  }
+
+  /// Khổ in thật để xem trước: mẫu K80 trên máy cầm tay in ra 58 mm.
+  int? get _previewPaperMm =>
+      _previewAsDevice && _handheld58 && _tpl.paperSize == PosPrintPaperSizes.k80 ? 58 : null;
+
+  Future<void> _openAi() async {
+    final r = await showPosPrintTemplateAiSheet(context, template: _tpl);
+    if (r == null || !mounted) return;
+    _update(r.template);
+    setState(() => _selectedIndex = _selectedIndex.clamp(0, (r.template.blocks.length - 1).clamp(0, 999)));
+    if (!_split) _mobileTabs?.animateTo(_tabPreview);
+    final msg = [r.summary, ...r.warnings].join('\n');
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(tr('AI: $msg')),
+        duration: const Duration(seconds: 8),
+        action: SnackBarAction(label: tr('Hoàn tác'), onPressed: _undoEdit),
+      ));
+  }
+
+  /// Chạm dòng trên bản xem trước: điện thoại mở luôn bảng sửa khối đó.
+  void _onPreviewTap(int i) {
+    if (_split) {
+      _selectBlock(i, openProperties: true);
+      return;
+    }
+    _selectBlock(i);
+    if (_isCompact(context)) _openExpandedPropertiesEditor();
+  }
+
+  Future<void> _confirmRestorePreset() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Khôi phục mẫu gốc?')),
+        content: Text(tr('Mọi khối đang soạn được thay bằng mẫu chuẩn của khổ này. Sai thì bấm Hoàn tác (Ctrl+Z).')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Khôi phục'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    _update(PosPrintTemplateV2Presets.build(
+      documentType: _tpl.documentType,
+      paperSize: _tpl.paperSize,
+      printerProfile: _tpl.printerProfile,
+    ));
+  }
+
+  Widget _aiButton({bool compact = false}) => widget.readOnly
+      ? const SizedBox.shrink()
+      : FilledButton.tonalIcon(
+          key: const ValueKey('print-tpl-ai'),
+          onPressed: _openAi,
+          icon: const Icon(Icons.auto_awesome, size: 18),
+          label: Text(tr(compact ? 'AI' : 'AI sửa nhanh')),
+          style: FilledButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 14, vertical: 8),
+          ),
+        );
 
   @override
   void didUpdateWidget(covariant PosPrintTemplateV2Editor oldWidget) {
@@ -129,7 +216,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
   void _selectBlock(int i, {bool openProperties = false}) {
     setState(() => _selectedIndex = i.clamp(0, _tpl.blocks.length - 1));
     if (openProperties && _mobileTabs != null) {
-      _mobileTabs!.animateTo(1);
+      _mobileTabs!.animateTo(_tabEdit);
     }
   }
 
@@ -225,7 +312,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     final nextIndex = _tpl.blocks.length;
     _update(_tpl.copyWith(blocks: [..._tpl.blocks, block]));
     setState(() => _selectedIndex = nextIndex);
-    _mobileTabs?.animateTo(1);
+    _mobileTabs?.animateTo(_tabEdit);
   }
 
 
@@ -241,7 +328,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
       final nextIndex = _tpl.blocks.length;
       _update(_tpl.copyWith(blocks: [..._tpl.blocks, block]));
       setState(() => _selectedIndex = nextIndex);
-      _mobileTabs?.animateTo(1);
+      _mobileTabs?.animateTo(_tabEdit);
       return;
     }
     _addBlock(
@@ -273,7 +360,27 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
 
   @override
   Widget build(BuildContext context) {
-    final body = _isCompact(context) ? _buildMobileShell(context) : _buildDesktopLayout(context);
+    final body = !_isCompact(context)
+        ? _buildDesktopLayout(context)
+        : LayoutBuilder(builder: (context, c) {
+            final split = c.maxWidth >= 760;
+            if (split != _split) {
+              _split = split;
+              // Số tab đổi (có / không tab xem trước): bỏ bộ điều khiển cũ sau khung này.
+              final old = _mobileTabs;
+              _mobileTabs = null;
+              if (old != null) WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+            }
+            if (!split) return _buildMobileShell(context);
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(width: (c.maxWidth * 0.42).clamp(320.0, 460.0), child: _buildPreviewPanel(compact: true)),
+                const VerticalDivider(width: 1),
+                Expanded(child: _buildMobileShell(context, withPreview: false)),
+              ],
+            );
+          });
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyZ, control: true): _undoEdit,
@@ -284,25 +391,33 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     );
   }
 
-  Widget _buildMobileShell(BuildContext context) {
-    final tabs = _mobileTabs ??= TabController(length: 4, vsync: this);
+  Widget _buildMobileShell(BuildContext context, {bool withPreview = true}) {
+    final tabs = _mobileTabs ??= TabController(length: withPreview ? 4 : 3, vsync: this);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Material(
           color: Colors.white,
-          child: TabBar(
-            controller: tabs,
-            isScrollable: true,
-            labelColor: PosTheme.edgeBlue,
-            unselectedLabelColor: PosTheme.textSecondary,
-            indicatorColor: PosTheme.edgeBlue,
-            labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-            tabs: [
-              Tab(text: tr('Khối')),
-              Tab(text: tr('Chỉnh sửa')),
-              Tab(text: tr('Xem trước')),
-              Tab(text: tr('Mã nguồn')),
+          child: Row(
+            children: [
+              Expanded(
+                child: TabBar(
+                  controller: tabs,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  labelColor: PosTheme.edgeBlue,
+                  unselectedLabelColor: PosTheme.textSecondary,
+                  indicatorColor: PosTheme.edgeBlue,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  tabs: [
+                    if (withPreview) Tab(text: tr('Xem trước')),
+                    Tab(text: tr('Khối')),
+                    Tab(text: tr('Chỉnh sửa')),
+                    Tab(text: tr('Mã nguồn')),
+                  ],
+                ),
+              ),
+              Padding(padding: const EdgeInsets.only(right: 6), child: _aiButton(compact: true)),
             ],
           ),
         ),
@@ -310,9 +425,9 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
           child: TabBarView(
             controller: tabs,
             children: [
+              if (withPreview) _buildPreviewPanel(compact: true),
               _buildMobileBlocksTab(context),
               _buildMobilePropertiesTab(context),
-              _buildPreviewPanel(compact: true),
               _SourceCodePanel(
                 template: _tpl,
                 readOnly: widget.readOnly,
@@ -627,16 +742,30 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
       children: [
         _buildSettingsCard(fullWidth: false),
         const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: SegmentedButton<int>(
+        Row(
+          children: [
+            SegmentedButton<int>(
             segments: [
               ButtonSegment(value: 0, label: Text(tr('Trực quan')), icon: Icon(Icons.view_quilt_outlined, size: 18)),
               ButtonSegment(value: 1, label: Text(tr('Mã nguồn')), icon: Icon(Icons.code, size: 18)),
             ],
-            selected: {_desktopMode},
-            onSelectionChanged: (s) => setState(() => _desktopMode = s.first),
-          ),
+              selected: {_desktopMode},
+              onSelectionChanged: (s) => setState(() => _desktopMode = s.first),
+            ),
+            const SizedBox(width: 10),
+            _aiButton(),
+            const SizedBox(width: 10),
+            if (!widget.readOnly)
+              Expanded(
+                child: Text(
+                  tr('Bấm vào dòng trên bản xem trước để chọn khối · Ctrl+Z hoàn tác'),
+                  textAlign: TextAlign.end,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: SboxColors.slate600),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         Expanded(
@@ -1103,14 +1232,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
 
     final restoreBtn = !widget.readOnly
         ? OutlinedButton.icon(
-            onPressed: () {
-              final preset = PosPrintTemplateV2Presets.build(
-                documentType: _tpl.documentType,
-                paperSize: _tpl.paperSize,
-                printerProfile: _tpl.printerProfile,
-              );
-              _update(preset);
-            },
+            onPressed: _confirmRestorePreset,
             icon: const Icon(Icons.refresh_rounded, size: 18),
             label: Text(tr('Khôi phục mẫu gốc')),
           )
@@ -1126,8 +1248,20 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: fullWidth
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            ? ExpansionTile(
+                key: const PageStorageKey('print-tpl-settings'),
+                tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+                childrenPadding: EdgeInsets.zero,
+                shape: const Border(),
+                collapsedShape: const Border(),
+                leading: const Icon(Icons.tune, size: 20),
+                title: Text(tr('Khổ giấy · máy in · khung'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                  tr('${PosPrintPaperSizes.displayLabel(_tpl.paperSize)} · ${PosPrintPrinterProfiles.labels[_tpl.printerProfile] ?? _tpl.printerProfile}'),
+                  style: const TextStyle(fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 children: [
                   paperField,
                   const SizedBox(height: 8),
@@ -1228,20 +1362,46 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                       ? PosPrintExactPreview(
                           template: _tpl,
                           zoom: _zoom,
+                          printWidthMm: _previewPaperMm,
                           selectedBlockIndex: _selectedIndex,
-                          onSelectBlock: widget.readOnly ? null : _selectBlock,
+                          onSelectBlock: widget.readOnly ? null : _onPreviewTap,
                         )
                       : buildPosPrintTemplatePreview(
                           _tpl,
                           selectedBlockIndex: _selectedIndex,
-                          onSelectBlock: widget.readOnly ? null : _selectBlock,
+                          onSelectBlock: widget.readOnly ? null : _onPreviewTap,
                         ),
                 ),
               ),
             ),
           ),
+          if (_handheld58 && _tpl.paperSize == PosPrintPaperSizes.k80) _handheldNote(),
         ],
       ),
+    );
+  }
+
+  /// Máy cầm tay chỉ in 58 mm — cho xem đúng bản in ở máy này hoặc theo khổ mẫu.
+  Widget _handheldNote() {
+    return Container(
+      color: const Color(0xFFFFF7E6),
+      padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
+      child: Row(children: [
+        const Icon(Icons.info_outline, size: 16, color: Color(0xFFB45309)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            tr(_previewAsDevice
+                ? 'Máy này in khổ 58 mm — đang xem đúng bản in ở máy này. Nên dùng mẫu K58.'
+                : 'Đang xem khổ 80 mm của mẫu — máy này chỉ in 58 mm.'),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+          ),
+        ),
+        TextButton(
+          onPressed: () => setState(() => _previewAsDevice = !_previewAsDevice),
+          child: Text(tr(_previewAsDevice ? 'Xem khổ 80' : 'Xem khổ máy này')),
+        ),
+      ]),
     );
   }
 
@@ -1279,10 +1439,25 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     );
   }
 
+  /// Nhãn dễ hiểu của mã trường (vd Dia_Chi_Chi_Nhanh → «Địa chỉ chi nhánh»).
+  static final Map<String, String> _tokenLabels = {
+    for (final e in [
+      ...PosPrintTokens.totals,
+      ...PosPrintTokens.label,
+      ...PosPrintTokens.line,
+      ...PosPrintTokens.customer,
+      ...PosPrintTokens.order,
+      ...PosPrintTokens.store,
+    ])
+      e.$1: e.$2,
+  };
+
+  static String _tokenLabel(String? key) => _tokenLabels[key] ?? key ?? '?';
+
   static String _blockLabel(PosPrintBlock b) => switch (b.type) {
         PosPrintBlockType.text => (b.text ?? '').trim().isEmpty ? 'Dòng trống' : b.text!,
-        PosPrintBlockType.field => '{${b.field ?? '?'}}',
-        PosPrintBlockType.pair => '${b.leftField} | ${b.rightField}',
+        PosPrintBlockType.field => _tokenLabel(b.field),
+        PosPrintBlockType.pair => '${_tokenLabel(b.leftField)} | ${_tokenLabel(b.rightField)}',
         PosPrintBlockType.divider => '━━━',
         PosPrintBlockType.lineItems =>
           b.usesCustomLineFields ? 'Tên hàng' : 'Danh sách hàng',
@@ -1425,11 +1600,18 @@ class _ExpandedBlockEditorSheetState extends State<_ExpandedBlockEditorSheet> {
         color: SboxColors.slate50,
         border: Border(left: wide ? BorderSide(color: SboxColors.slate300) : BorderSide.none),
       ),
-      child: buildPosPrintTemplatePreview(
-        _tpl,
-        selectedBlockIndex: i,
-        onSelectBlock: widget.readOnly ? null : _goTo,
-      ),
+      // Cùng ảnh in thật như khung xem trước chính (khổ nhiệt / tem).
+      child: posPrintHasExactPreview(_tpl.paperSize)
+          ? PosPrintExactPreview(
+              template: _tpl,
+              selectedBlockIndex: i,
+              onSelectBlock: widget.readOnly ? null : _goTo,
+            )
+          : buildPosPrintTemplatePreview(
+              _tpl,
+              selectedBlockIndex: i,
+              onSelectBlock: widget.readOnly ? null : _goTo,
+            ),
     );
 
     return SizedBox(

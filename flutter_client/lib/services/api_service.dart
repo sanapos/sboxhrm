@@ -22252,6 +22252,22 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// AI sửa nhanh mẫu in V2 theo câu lệnh — trả `{template, summary, warnings}` (chưa lưu).
+  Future<Map<String, dynamic>> aiEditPosPrintTemplate(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/print-templates/ai-edit'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 90));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> deletePosPrintTemplate(String id) async {
     try {
       final response = await http

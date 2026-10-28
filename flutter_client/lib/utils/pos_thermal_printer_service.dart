@@ -14,6 +14,7 @@ import 'pos_topping_format.dart';
 
 import 'pos_esc_pos_text_codec.dart';
 
+import 'pos_print_code_lines.dart';
 import 'pos_print_template_compiler.dart';
 
 import 'pos_thermal_bitmap.dart';
@@ -292,49 +293,37 @@ class PosThermalPrinterService {
     b._frameMarginMm = output.frameMarginMm;
     b._sidePaddingMm = output.sidePaddingMm;
     for (final step in output.steps) {
-      if (step is PosPrintCompiledQr) {
-        if (b._useImageBatch) await b.flushImageBatch();
-        if (settings.isImpact) {
-          // Máy kim không in ảnh QR — chỉ in chú thích / số tiền.
-          b.center();
-          if (step.caption.trim().isNotEmpty) await b.line(step.caption.trim());
-          if (step.amountText != null && step.amountText!.trim().isNotEmpty) {
-            await b.line('${step.amountText!.trim()} đ');
-          }
-          continue;
-        }
+      if (step is PosPrintCompiledQr && settings.isImpact) {
+        // Máy kim không in ảnh QR — chỉ in chú thích / số tiền.
         b.center();
-        if (step.title != null && step.title!.trim().isNotEmpty) {
-          await b.line(step.title!.trim());
-        }
-        if (b._useImageBatch) await b.flushImageBatch();
-        final raster = await PosThermalBitmapEncoder.networkPngToEscPos(
-          step.imageUrl,
-          maxWidth: step.size,
-        );
-        if (raster != null) {
-          b.appendRaw(raster);
-        }
-        if (step.caption.trim().isNotEmpty) {
-          await b.line(step.caption.trim());
-        }
+        if (step.caption.trim().isNotEmpty) await b.line(step.caption.trim());
         if (step.amountText != null && step.amountText!.trim().isNotEmpty) {
           await b.line('${step.amountText!.trim()} đ');
         }
         continue;
       }
-      if (step is PosPrintCompiledBarcode && step.qr) {
-        if (b._useImageBatch) await b.flushImageBatch();
-        b.printQr(step.data, showText: step.showText);
+      if (step is PosPrintCompiledBarcode && settings.isImpact) {
+        // Máy kim không in mã vạch → in mã dạng chữ.
+        b.center();
+        await b.line(step.data.trim());
         continue;
       }
-      if (step is PosPrintCompiledBarcode) {
-        if (b._useImageBatch) await b.flushImageBatch();
-        b.printCode128(
-          step.data,
-          height: step.height,
-          showText: step.showText,
-        );
+      if (step is PosPrintCompiledQr || step is PosPrintCompiledBarcode) {
+        // Mã vạch / QR vẽ bằng cùng bộ vẽ với bản xem trước của trình soạn mẫu.
+        final lines = await posPrintCodeStepLines(step, paperDots: b._paperDots);
+        if (b._useImageBatch) {
+          for (final l in lines) {
+            b.queueReceiptImageLine(l);
+          }
+        } else if (lines.isNotEmpty) {
+          final raster = await PosThermalBitmapEncoder.receiptToRaster(
+            lines,
+            paperDots: b._paperDots,
+            sidePaddingMm: output.sidePaddingMm,
+            initPrinter: false,
+          );
+          if (raster != null) b.appendRaw(raster);
+        }
         continue;
       }
 
