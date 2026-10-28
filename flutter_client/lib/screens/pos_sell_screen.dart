@@ -19002,6 +19002,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       releasedOrderIds: Set<String>.from(_floorReleasedOrderIds),
       freedResourceIds: Set<String>.from(_floorFreedResourceIds),
       onReconcileOptimisticFlags: _reconcileOptimisticFloorFlags,
+      onKitchenPrintFailed: _enqueueFailedKitchenPrint,
     );
     return _cachedDesktopFloorPane!;
   }
