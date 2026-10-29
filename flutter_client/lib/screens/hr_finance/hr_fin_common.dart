@@ -296,7 +296,8 @@ class HrFinItemTile extends StatelessWidget {
       hrFinKindLabel(item.kind),
       hrFinDate(item.date),
       if (item.code != null && item.code!.isNotEmpty) item.code!,
-      if (item.settlement == 'salary') 'Trừ/cộng lương',
+      // Theo chiều tiền — trước luôn «Trừ/cộng lương», phiếu thưởng cũng ghi «trừ».
+      if (item.settlement == 'salary') item.isIn ? 'Cộng vào lương' : 'Trừ vào lương',
       if (item.settlement == 'cash') 'Tiền mặt',
       if (item.evidence.isNotEmpty) '${item.evidence.length} tệp đính kèm',
     ].join(' · ');
@@ -324,7 +325,7 @@ class HrFinItemTile extends StatelessWidget {
         if (item.isDisputeOpen && item.disputeReason != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Text('Khiếu nại: ${item.disputeReason}',
+            child: Text(tr('Khiếu nại: ${item.disputeReason}'),
                 style: SboxType.captionStyle(SboxColors.warningText), maxLines: 2, overflow: TextOverflow.ellipsis),
           ),
       ]),

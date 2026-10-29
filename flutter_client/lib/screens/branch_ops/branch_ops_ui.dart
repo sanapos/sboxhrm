@@ -13,9 +13,10 @@ String bMoney(num? v) => '${_money.format(v ?? 0)}đ';
 String bMoneyShort(num? v) {
   final x = (v ?? 0).toDouble();
   final a = x.abs();
-  if (a >= 1e9) return '${(x / 1e9).toStringAsFixed(2).replaceAll('.', ',')} tỷ';
-  if (a >= 1e6) return '${(x / 1e6).toStringAsFixed(1).replaceAll('.', ',')} tr';
-  if (a >= 1e3) return '${(x / 1e3).toStringAsFixed(0)} N';
+  // Có dấu nghìn: trước «1338,86 tỷ» / «1250,5 tr».
+  if (a >= 1e9) return '${NumberFormat('#,##0.00', 'vi_VN').format(x / 1e9)} tỷ';
+  if (a >= 1e6) return '${NumberFormat('#,##0.0', 'vi_VN').format(x / 1e6)} tr';
+  if (a >= 1e3) return '${_money.format((x / 1e3).round())} N';
   return x.toStringAsFixed(0);
 }
 

@@ -1589,7 +1589,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     String h(num v) => '${SboxFmt.number(v)} giờ';
     final w = SboxInsightPanel(
       kpis: [
-        SboxKpi(label: 'Tổng giờ công', value: h(totalHours), icon: Icons.schedule_outlined, note: '${days.length} ngày có dữ liệu'),
+        SboxKpi(label: 'Tổng giờ công', value: h(totalHours), icon: Icons.schedule_outlined, note: '${byDayPeople.length} ngày có dữ liệu'), // chỉ ngày có giờ công — trước đếm cả ngày 0 giờ («25 ngày» mà 0 giờ)
         SboxKpi(label: 'Tổng số công', value: SboxFmt.number(totalWork), icon: Icons.fact_check_outlined, tone: SboxTone.success),
         SboxKpi(label: 'Nhân viên', value: SboxFmt.number(people), icon: Icons.groups_2_outlined, tone: SboxTone.violet),
         SboxKpi(label: 'TB giờ / nhân viên', value: h(people > 0 ? totalHours / people : 0), icon: Icons.person_outline, tone: SboxTone.neutral,

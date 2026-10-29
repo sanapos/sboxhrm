@@ -101,7 +101,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         _loadEmployees(),
         _loadAssets(),
         _loadCategories(),
-        _loadStatistics(),
+        _loadStatistics(refreshDashboard: false),
       ]);
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -172,12 +172,15 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     }
   }
 
-  Future<void> _loadStatistics() async {
+  /// [refreshDashboard]: dựng lại tab Tổng quan — sau thêm / sửa / chuyển tài sản trước đây
+  /// tab «Tài sản» đã đếm 1 mà Tổng quan vẫn «Chưa có tài sản nào».
+  Future<void> _loadStatistics({bool refreshDashboard = true}) async {
     final result = await _apiService.getAssetStatistics();
     if (result['isSuccess'] == true && result['data'] != null) {
       if (mounted) {
         setState(() {
           _statistics = AssetStatistics.fromJson(result['data']);
+          if (refreshDashboard) _dashboardVersion++;
         });
       }
     }
@@ -2522,11 +2525,17 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         // Basic info
                         Text(tr('Thông tin cơ bản'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: SboxColors.slate600)),
                         const SizedBox(height: 12),
-                        Row(children: [
-                          Expanded(child: qrField('Mã tài sản *', codeCtrl)),
-                          const SizedBox(width: 16),
-                          Expanded(child: qrField('Số Serial', serialCtrl)),
-                        ]),
+                        // Điện thoại: mỗi ô một hàng — 2 ô + 2 nút quét chung hàng cắt nhãn «Mã tài s…».
+                        if (isMobile) ...[
+                          qrField('Mã tài sản *', codeCtrl),
+                          const SizedBox(height: 12),
+                          qrField('Số Serial', serialCtrl),
+                        ] else
+                          Row(children: [
+                            Expanded(child: qrField('Mã tài sản *', codeCtrl)),
+                            const SizedBox(width: 16),
+                            Expanded(child: qrField('Số Serial', serialCtrl)),
+                          ]),
                         const SizedBox(height: 12),
                         _dialogField('Tên tài sản *', nameCtrl),
                         const SizedBox(height: 12),
@@ -2576,13 +2585,23 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         // Financial
                         Text(tr('Tài chính & Mua sắm'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: SboxColors.slate600)),
                         const SizedBox(height: 12),
-                        Row(children: [
-                          Expanded(flex: 2, child: _dialogField('Giá mua *', priceCtrl, inputType: TextInputType.number, suffix: 'VND')),
-                          const SizedBox(width: 16),
-                          Expanded(child: _dialogField('Số lượng', qtyCtrl, inputType: TextInputType.number)),
-                          const SizedBox(width: 16),
-                          Expanded(child: _dialogField('Đơn vị', unitCtrl)),
-                        ]),
+                        // Điện thoại: giá mua một hàng riêng — 3 ô chung hàng cắt nhãn «Số lư…».
+                        if (isMobile) ...[
+                          _dialogField('Giá mua *', priceCtrl, inputType: TextInputType.number, suffix: 'VND'),
+                          const SizedBox(height: 12),
+                          Row(children: [
+                            Expanded(child: _dialogField('Số lượng', qtyCtrl, inputType: TextInputType.number)),
+                            const SizedBox(width: 16),
+                            Expanded(child: _dialogField('Đơn vị', unitCtrl)),
+                          ]),
+                        ] else
+                          Row(children: [
+                            Expanded(flex: 2, child: _dialogField('Giá mua *', priceCtrl, inputType: TextInputType.number, suffix: 'VND')),
+                            const SizedBox(width: 16),
+                            Expanded(child: _dialogField('Số lượng', qtyCtrl, inputType: TextInputType.number)),
+                            const SizedBox(width: 16),
+                            Expanded(child: _dialogField('Đơn vị', unitCtrl)),
+                          ]),
                         const SizedBox(height: 12),
                         Row(children: [
                           Expanded(child: _dialogField('Nhà cung cấp', supplierCtrl)),

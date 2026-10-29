@@ -112,13 +112,15 @@ class HrFinSettlementPicker extends StatelessWidget {
       );
     }
 
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    // Hai thẻ cao bằng nhau (trước mô tả dài hơn làm thẻ «Cộng vào lương» cao lệch).
+    return IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       opt('salary', Icons.receipt_long_outlined, isPenalty ? 'Trừ vào lương' : 'Cộng vào lương',
           'Tự động vào bảng lương kỳ này, không tạo phiếu quỹ'),
       const SizedBox(width: SboxSpace.sm),
       opt('cash', Icons.payments_outlined, isPenalty ? 'Thu tiền mặt' : 'Chi tiền mặt',
           isPenalty ? 'Tạo phiếu thu chờ thu, bảng lương bỏ qua' : 'Tạo phiếu chi chờ chi, bảng lương bỏ qua'),
-    ]);
+    ]));
   }
 }
 
@@ -236,8 +238,8 @@ class HrFinActions {
         title: isPenalty ? 'Duyệt phiếu phạt' : 'Duyệt phiếu thưởng',
         subtitle: '${it.employeeName} · ${hrFinMoney(it.amount)}',
         body: (ctx, setS) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text(it.title, style: SboxType.bodyStrong()),
-              if (it.subtitle != null) Text(it.subtitle!, style: SboxType.smallStyle()),
+              Text(tr(it.title), style: SboxType.bodyStrong()),
+              if (it.subtitle != null) Text(tr(it.subtitle!), style: SboxType.smallStyle()),
               if (it.evidence.isNotEmpty) ...[const SizedBox(height: SboxSpace.sm), HrFinEvidenceStrip(urls: it.evidence)],
               const SizedBox(height: SboxSpace.lg),
               Text(tr('Xử lý tiền'), style: SboxType.captionStyle()),
@@ -269,7 +271,7 @@ class HrFinActions {
         body: (ctx, setS) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Text('${it.title} · ${hrFinDate(it.date)}', style: SboxType.bodyStrong()),
               Text(hrFinMoney(it.amount), style: SboxType.moneyStyle(size: SboxType.title, c: SboxColors.dangerText)),
-              if (it.subtitle != null) Text(it.subtitle!, style: SboxType.smallStyle()),
+              if (it.subtitle != null) Text(tr(it.subtitle!), style: SboxType.smallStyle()),
               const SizedBox(height: SboxSpace.md),
               TextField(controller: reason, decoration: hrFinInput('Lý do hủy (nếu hủy)')),
               const SizedBox(height: SboxSpace.lg),
@@ -292,7 +294,7 @@ class HrFinActions {
         title: 'Xử lý khiếu nại',
         subtitle: '${it.employeeName} · ${hrFinKindLabel(it.kind)} ${hrFinMoney(it.amount)}',
         body: (ctx, setS) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text(it.title, style: SboxType.bodyStrong()),
+              Text(tr(it.title), style: SboxType.bodyStrong()),
               const SizedBox(height: SboxSpace.sm),
               Container(
                 padding: const EdgeInsets.all(SboxSpace.md),
@@ -538,7 +540,11 @@ class HrFinActions {
                   decoration: hrFinInput('Trừ vào lương kỳ'),
                   child: Row(children: [
                     InkWell(onTap: () => setS(() => month = DateTime(month.year, month.month - 1)), child: const Icon(Icons.chevron_left, size: 18)),
-                    Expanded(child: Text(hrFinMonthLabel(month), textAlign: TextAlign.center, style: SboxType.bodyStrong())),
+                    // Một dòng: trước «Tháng / 10/2026» xuống 2 dòng, ô cao lệch ô «Trả góp».
+                    Expanded(
+                        child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(tr(hrFinMonthLabel(month)), maxLines: 1, style: SboxType.bodyStrong()))),
                     InkWell(onTap: () => setS(() => month = DateTime(month.year, month.month + 1)), child: const Icon(Icons.chevron_right, size: 18)),
                   ]),
                 ),
@@ -550,7 +556,7 @@ class HrFinActions {
                   decoration: hrFinInput('Trả góp'),
                   items: [
                     for (var i = 1; i <= (l?.maxInstallments ?? 3); i++)
-                      DropdownMenuItem(value: i, child: Text(i == 1 ? 'Trừ 1 lần' : '$i kỳ')),
+                      DropdownMenuItem(value: i, child: Text(tr(i == 1 ? 'Trừ 1 lần' : '$i kỳ'))),
                   ],
                   onChanged: (x) => setS(() => installments = x ?? 1),
                 ),
@@ -559,12 +565,12 @@ class HrFinActions {
             if (installments > 1 && v > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text('Mỗi kỳ trừ khoảng ${hrFinMoney(perPeriod)}', style: SboxType.captionStyle()),
+                child: Text(tr('Mỗi kỳ trừ khoảng ${hrFinMoney(perPeriod)}'), style: SboxType.captionStyle()),
               ),
             if (over)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text('Vượt hạn mức còn lại ${hrFinMoney(l.remaining)}', style: SboxType.captionStyle(SboxColors.dangerText)),
+                child: Text(tr('Vượt hạn mức còn lại ${hrFinMoney(l.remaining)}'), style: SboxType.captionStyle(SboxColors.dangerText)),
               ),
             const SizedBox(height: SboxSpace.md),
             TextField(controller: reason, maxLines: 2, decoration: hrFinInput('Lý do')),
@@ -620,11 +626,14 @@ class HrFinActions {
               Text('${it.isIn ? '+' : '−'}${hrFinMoney(it.amount)}',
                   style: SboxType.moneyStyle(size: SboxType.display, c: it.isIn ? SboxColors.successText : SboxColors.dangerText)),
               const SizedBox(height: SboxSpace.sm),
-              Text(it.title, style: SboxType.bodyStrong()),
-              if (it.subtitle != null) Text(it.subtitle!, style: SboxType.smallStyle()),
+              Text(tr(it.title), style: SboxType.bodyStrong()),
+              if (it.subtitle != null) Text(tr(it.subtitle!), style: SboxType.smallStyle()),
               const SizedBox(height: SboxSpace.sm),
-              Text('Ngày: ${hrFinDate(it.date)}'
-                  '${it.settlement == 'salary' ? ' · Trừ/cộng vào lương' : it.settlement == 'cash' ? ' · Tiền mặt' : ''}',
+              Text([
+                tr('Ngày: ${hrFinDate(it.date)}'),
+                if (it.settlement == 'salary') tr(it.isIn ? 'Cộng vào lương' : 'Trừ vào lương'),
+                if (it.settlement == 'cash') tr('Tiền mặt'),
+              ].join(' · '),
                   style: SboxType.captionStyle()),
               if (it.evidence.isNotEmpty) ...[
                 const SizedBox(height: SboxSpace.md),
@@ -640,15 +649,15 @@ class HrFinActions {
                       color: it.disputeStatus == 1 ? SboxColors.warningSoft : SboxColors.slate50, borderRadius: SboxRadius.mdAll),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(
-                        switch (it.disputeStatus) {
+                        tr(switch (it.disputeStatus) {
                           1 => 'Đang khiếu nại',
                           2 => 'Khiếu nại được chấp nhận',
                           _ => 'Khiếu nại không được chấp nhận',
-                        },
+                        }),
                         style: SboxType.bodyStrong()),
-                    if (it.disputeReason != null) Text('Lý do: ${it.disputeReason}', style: SboxType.smallStyle()),
+                    if (it.disputeReason != null) Text(tr('Lý do: ${it.disputeReason}'), style: SboxType.smallStyle()),
                     if (it.disputeResponse != null && it.disputeResponse!.isNotEmpty)
-                      Text('Phản hồi: ${it.disputeResponse}', style: SboxType.smallStyle()),
+                      Text(tr('Phản hồi: ${it.disputeResponse}'), style: SboxType.smallStyle()),
                   ]),
                 ),
               ],
@@ -700,8 +709,8 @@ class _LimitCard extends StatelessWidget {
               ? Text(tr('Không giới hạn hạn mức ứng cho kỳ này'), style: SboxType.smallStyle(SboxColors.brand800))
               : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
-                    Expanded(child: Text('Hạn mức ${hrFinMonthLabel(month).toLowerCase()}', style: SboxType.captionStyle(SboxColors.brand800))),
-                    Text('Còn ${hrFinMoney(l.remaining)}', style: SboxType.bodyStrong(SboxColors.brand800)),
+                    Expanded(child: Text(tr('Hạn mức ${hrFinMonthLabel(month).toLowerCase()}'), style: SboxType.captionStyle(SboxColors.brand800))),
+                    Text(tr('Còn ${hrFinMoney(l.remaining)}'), style: SboxType.bodyStrong(SboxColors.brand800)),
                   ]),
                   const SizedBox(height: 6),
                   ClipRRect(

@@ -184,8 +184,9 @@ class ThemeProvider extends ChangeNotifier {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: tt.titleLarge,
-        iconTheme: IconThemeData(color: text),
+        // Không đặt titleTextStyle / iconTheme: Flutter tự lấy textTheme.titleLarge + màu theo
+        // foregroundColor. Đặt cứng ở đây thì AppBar nền màu (foregroundColor: white — công tác phí,
+        // nguy cơ gian lận, đơn nghỉ…) vẫn chữ / mũi tên tối, gần như không đọc được.
         shape: Border(bottom: BorderSide(color: border)),
         systemOverlayStyle: kPlayOverlayOnDarkBg,
       ),

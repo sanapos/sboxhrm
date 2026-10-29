@@ -129,7 +129,7 @@ class _HrFinMyMoneyState extends State<HrFinMyMoney> {
                 ),
               ),
               const SizedBox(height: 6),
-              Text('Đã ứng ${hrFinMoney(l.used)} / hạn mức ${hrFinMoney(l.limit)}', style: SboxType.captionStyle()),
+              Text(tr('Đã ứng ${hrFinMoney(l.used)} / hạn mức ${hrFinMoney(l.limit)}'), style: SboxType.captionStyle()),
             ]),
     );
 

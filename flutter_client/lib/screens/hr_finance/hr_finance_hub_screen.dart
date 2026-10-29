@@ -713,7 +713,7 @@ class _HrFinanceHubScreenState extends State<HrFinanceHubScreen> {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(_ledger!.employeeName, style: SboxType.titleStyle()),
-                      Text('6 tháng gần nhất · ${[_ledger!.employeeCode, _ledger!.department].whereType<String>().join(' · ')}',
+                      Text(tr('6 tháng gần nhất · ${[_ledger!.employeeCode, _ledger!.department].whereType<String>().join(' · ')}'),
                           style: SboxType.captionStyle()),
                     ]),
                   ),
