@@ -108,6 +108,8 @@ String penaltyTypeDisplayLabel(dynamic raw) {
       return 'Tái phạm';
     case 'Disciplinary':
       return 'Kỷ luật';
+    case 'Manual':
+      return 'Phạt thủ công';
     case 'Financial':
     case 'FinancialPenalty':
       return 'Phạt tiền';
@@ -353,6 +355,7 @@ Future<({List<Map<String, dynamic>> items, int totalCount, String? error})>
     status: statusFilter,
     page: page,
     pageSize: pageSize,
+    includeManual: true,
   );
   final parsed = parsePagedReportListResponse(r);
   return (

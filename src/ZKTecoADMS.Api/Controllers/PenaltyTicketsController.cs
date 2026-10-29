@@ -116,7 +116,8 @@ public class PenaltyTicketsController(
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null,
         [FromQuery] Guid? branchId = null,
-        [FromQuery] bool includeChildBranches = true)
+        [FromQuery] bool includeChildBranches = true,
+        [FromQuery] bool includeManual = false)
     {
         var storeId = RequiredStoreId;
 
@@ -167,16 +168,28 @@ public class PenaltyTicketsController(
         if (toDate.HasValue)
             query = query.Where(pt => pt.ViolationDate <= toDate.Value.Date);
 
-        var totalCount = await query.CountAsync();
+        // Báo cáo phạt: gộp phạt thủ công (Thưởng / phạt → PaymentTransaction Type = Penalty) với phiếu
+        // phạt chấm công — trước đây báo cáo chỉ có phiếu chấm công nên phạt thủ công không hiện.
+        // Màn quản lý phiếu phạt (duyệt / hủy theo mã phiếu) không bật cờ này.
+        var manual = includeManual && !type.HasValue
+            ? await ManualPenaltyRowsAsync(storeId, branchScope?.EmployeeIds, employeeId, status, fromDate, toDate)
+            : new List<PenaltyTicketDto>();
 
-        var totalPending = await query.Where(pt => pt.Status == PenaltyTicketStatus.Pending).SumAsync(pt => pt.Amount);
-        var totalApproved = await query.Where(pt => pt.Status == PenaltyTicketStatus.Approved || pt.Status == PenaltyTicketStatus.AutoApproved).SumAsync(pt => pt.Amount);
+        var totalCount = await query.CountAsync() + manual.Count;
 
-        var items = await query
+        var totalPending = await query.Where(pt => pt.Status == PenaltyTicketStatus.Pending).SumAsync(pt => pt.Amount)
+            + manual.Where(m => m.Status == nameof(PenaltyTicketStatus.Pending)).Sum(m => m.Amount);
+        var totalApproved = await query.Where(pt => pt.Status == PenaltyTicketStatus.Approved || pt.Status == PenaltyTicketStatus.AutoApproved).SumAsync(pt => pt.Amount)
+            + manual.Where(m => m.Status == nameof(PenaltyTicketStatus.Approved)).Sum(m => m.Amount);
+
+        var ordered = query
             .OrderByDescending(pt => pt.ViolationDate)
-            .ThenByDescending(pt => pt.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .ThenByDescending(pt => pt.CreatedAt);
+        // Có phạt thủ công thì phải trộn hai nguồn trước khi chia trang (lấy đủ phiếu tới hết trang này).
+        var paged = manual.Count == 0
+            ? ordered.Skip((page - 1) * pageSize).Take(pageSize)
+            : ordered.Take(page * pageSize);
+        var items = await paged
             .Select(pt => new PenaltyTicketDto
             {
                 Id = pt.Id,
@@ -205,6 +218,15 @@ public class PenaltyTicketsController(
                 CreatedAt = pt.CreatedAt
             })
             .ToListAsync();
+        if (manual.Count > 0)
+        {
+            items = items.Concat(manual)
+                .OrderByDescending(i => i.ViolationDate)
+                .ThenByDescending(i => i.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+        }
 
         var response = new PenaltyTicketListResponse
         {
@@ -217,6 +239,57 @@ public class PenaltyTicketsController(
         };
 
         return Ok(AppResponse<PenaltyTicketListResponse>.Success(response));
+    }
+
+    /// <summary>Phạt thủ công (Thưởng / phạt) dạng dòng phiếu phạt cho báo cáo — Type = «Manual».</summary>
+    private async Task<List<PenaltyTicketDto>> ManualPenaltyRowsAsync(
+        Guid storeId, IEnumerable<Guid>? scopeEmployeeIds, Guid? employeeId,
+        PenaltyTicketStatus? status, DateTime? fromDate, DateTime? toDate)
+    {
+        var q = dbContext.PaymentTransactions.AsNoTracking()
+            .Where(t => t.Type == "Penalty" && t.Deleted == null
+                && t.EmployeeId != null && t.Employee != null && t.Employee.StoreId == storeId);
+        if (scopeEmployeeIds != null) q = q.Where(t => scopeEmployeeIds.Contains(t.EmployeeId!.Value));
+        if (employeeId.HasValue) q = q.Where(t => t.EmployeeId == employeeId.Value);
+        if (fromDate.HasValue) q = q.Where(t => t.TransactionDate >= fromDate.Value.Date);
+        if (toDate.HasValue) q = q.Where(t => t.TransactionDate < toDate.Value.Date.AddDays(1));
+        var rows = await q
+            .Select(t => new
+            {
+                t.Id, t.EmployeeId, t.Amount, t.TransactionDate, t.Description, t.Note, t.Status,
+                t.Settlement, t.PaymentMethod, t.CashTransactionId, t.CreatedAt,
+                EmpName = (t.Employee!.LastName + " " + t.Employee.FirstName).Trim(),
+                EmpCode = t.Employee.EmployeeCode,
+            })
+            .ToListAsync();
+        static string MapStatus(string? s) => (s ?? "").ToLowerInvariant() switch
+        {
+            "pending" => nameof(PenaltyTicketStatus.Pending),
+            "cancelled" or "canceled" or "rejected" => nameof(PenaltyTicketStatus.Cancelled),
+            _ => nameof(PenaltyTicketStatus.Approved),
+        };
+        var list = rows.Select(t => new PenaltyTicketDto
+        {
+            Id = t.Id,
+            TicketCode = string.Empty,
+            EmployeeId = t.EmployeeId!.Value,
+            EmployeeName = t.EmpName,
+            EmployeeCode = t.EmpCode,
+            Type = "Manual",
+            Status = MapStatus(t.Status),
+            Amount = Math.Abs(t.Amount),
+            ViolationDate = t.TransactionDate,
+            Description = string.IsNullOrWhiteSpace(t.Note) ? t.Description : $"{t.Description} — {t.Note}",
+            CashTransactionId = t.CashTransactionId,
+            CollectionMethod = t.Settlement == "cash" ? "Cash" : null,
+            CreatedAt = t.CreatedAt,
+        }).ToList();
+        if (status.HasValue)
+        {
+            var want = status.Value == PenaltyTicketStatus.AutoApproved ? PenaltyTicketStatus.Approved : status.Value;
+            list = list.Where(m => m.Status == want.ToString()).ToList();
+        }
+        return list;
     }
 
     /// <summary>

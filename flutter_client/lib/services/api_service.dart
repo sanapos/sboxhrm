@@ -13664,12 +13664,15 @@ class ApiService implements PayrollApi {
     String? type,
     DateTime? fromDate,
     DateTime? toDate,
+    bool includeManual = false,
   }) async {
     try {
       var queryParams = 'page=$page&pageSize=$pageSize';
       if (employeeId != null) queryParams += '&employeeId=$employeeId';
       if (status != null) queryParams += '&status=$status';
       if (type != null) queryParams += '&type=$type';
+      // Báo cáo phạt: gộp cả phạt thủ công (Thưởng / phạt).
+      if (includeManual) queryParams += '&includeManual=true';
       if (fromDate != null) {
         queryParams += '&fromDate=${fromDate.toIso8601String()}';
       }

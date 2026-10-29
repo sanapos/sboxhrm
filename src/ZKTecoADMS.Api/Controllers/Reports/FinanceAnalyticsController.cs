@@ -101,14 +101,77 @@ public class FinanceAnalyticsController(
                 .OrderByDescending(i => i.TotalAmount)
                 .ToList();
 
+            // Phạt thủ công (Thưởng / phạt → PaymentTransaction Type = Penalty) gộp vào báo cáo — trước đây
+            // báo cáo chỉ đọc phiếu phạt chấm công nên phạt thủ công không hiện. Lọc theo loại vi phạm thì bỏ qua.
+            // TransactionDate lưu theo ngày lịch (DateTime.Now khi tạo, như màn Thưởng / phạt) → so theo ngày VN.
+            var (vnFrom, vnTo, _, _) = ReportHelpers.VnRange(from, to);
+            var manualFrom = vnFrom.Date;
+            var manualTo = vnTo.Date.AddDays(1);
+            var manualQuery =
+                from t in db.PaymentTransactions.IgnoreQueryFilters()
+                join e in db.Employees.IgnoreQueryFilters() on t.EmployeeId equals e.Id
+                where e.StoreId == storeId && t.Type == "Penalty" && t.Deleted == null
+                    && t.TransactionDate >= manualFrom && t.TransactionDate < manualTo
+                select new { t.Amount, t.Status, e.EmployeeCode, e.FirstName, e.LastName, e.Department };
+            var manualRows = type.HasValue
+                ? manualQuery.Take(0).ToList()
+                : await manualQuery.ToListAsync(ct);
+            if (!string.IsNullOrWhiteSpace(department))
+                manualRows = manualRows.Where(r => (r.Department ?? "").Contains(department, StringComparison.OrdinalIgnoreCase)).ToList();
+            static string ManualStatus(string? s) => (s ?? "").ToLowerInvariant() switch
+            {
+                "pending" => nameof(PenaltyTicketStatus.Pending),
+                "cancelled" or "canceled" or "rejected" => nameof(PenaltyTicketStatus.Cancelled),
+                _ => nameof(PenaltyTicketStatus.Approved),
+            };
+            var manualActive = manualRows.Where(r => ManualStatus(r.Status) != nameof(PenaltyTicketStatus.Cancelled)).ToList();
+            if (manualActive.Count > 0)
+            {
+                byType.Add(new PenaltyTypeItemDto
+                {
+                    Type = "Manual",
+                    Count = manualActive.Count,
+                    TotalAmount = manualActive.Sum(x => Math.Abs(x.Amount)),
+                    AvgAmount = Math.Round(manualActive.Average(x => Math.Abs(x.Amount)), 0)
+                });
+                byType = byType.OrderByDescending(i => i.TotalAmount).ToList();
+                foreach (var g in manualActive.GroupBy(r => new { r.EmployeeCode, r.FirstName, r.LastName, r.Department }))
+                {
+                    var item = byEmployee.FirstOrDefault(i => i.EmployeeCode == g.Key.EmployeeCode);
+                    if (item == null)
+                    {
+                        item = new PenaltyEmployeeItemDto
+                        {
+                            EmployeeCode = g.Key.EmployeeCode,
+                            EmployeeName = ReportHelpers.FullName(g.Key.LastName, g.Key.FirstName),
+                            Department = g.Key.Department ?? "Chưa có phòng ban",
+                        };
+                        byEmployee.Add(item);
+                    }
+                    item.TicketCount += g.Count();
+                    item.OtherCount += g.Count();
+                    item.TotalAmount += g.Sum(x => Math.Abs(x.Amount));
+                }
+                byEmployee = byEmployee.OrderByDescending(i => i.TotalAmount).ToList();
+            }
+            foreach (var g in manualRows.GroupBy(r => ManualStatus(r.Status)))
+            {
+                var st = byStatus.FirstOrDefault(i => i.Status == g.Key);
+                if (st == null) byStatus.Add(st = new PenaltyStatusItemDto { Status = g.Key });
+                st.Count += g.Count();
+                st.TotalAmount += g.Sum(x => Math.Abs(x.Amount));
+            }
+
             var report = new PenaltySummaryReportDto
             {
                 From = ReportHelpers.ToVn(fromUtc),
                 To = ReportHelpers.ToVn(toUtc.AddTicks(-1)),
-                TotalTickets = activeRows.Count,
-                TotalAmount = activeRows.Sum(r => r.Amount),
-                ApprovedAmount = activeRows.Where(r => r.Status == PenaltyTicketStatus.Approved || r.Status == PenaltyTicketStatus.AutoApproved).Sum(r => r.Amount),
-                CancelledAmount = rows.Where(r => r.Status == PenaltyTicketStatus.Cancelled).Sum(r => r.Amount),
+                TotalTickets = activeRows.Count + manualActive.Count,
+                TotalAmount = activeRows.Sum(r => r.Amount) + manualActive.Sum(r => Math.Abs(r.Amount)),
+                ApprovedAmount = activeRows.Where(r => r.Status == PenaltyTicketStatus.Approved || r.Status == PenaltyTicketStatus.AutoApproved).Sum(r => r.Amount)
+                    + manualActive.Where(r => ManualStatus(r.Status) == nameof(PenaltyTicketStatus.Approved)).Sum(r => Math.Abs(r.Amount)),
+                CancelledAmount = rows.Where(r => r.Status == PenaltyTicketStatus.Cancelled).Sum(r => r.Amount)
+                    + manualRows.Where(r => ManualStatus(r.Status) == nameof(PenaltyTicketStatus.Cancelled)).Sum(r => Math.Abs(r.Amount)),
                 ByType = byType,
                 ByStatus = byStatus,
                 ByEmployee = byEmployee
