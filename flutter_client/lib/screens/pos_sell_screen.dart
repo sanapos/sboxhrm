@@ -4192,6 +4192,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     final hasDraft = (_tab.draftOrderId ?? '').isNotEmpty;
     final draftId = _tab.draftOrderId;
     final wasViewOnly = _tab.draftReadOnly;
+    // Đơn tạm máy chủ đã xác nhận 0 món (không phải giỏ trống vì tải món lỗi) → được hủy khi rời bàn.
+    final draftConfirmedEmpty = emptyCart && hasDraft && !wasViewOnly && !_tab.localDirty && _tab.serverLineCount == 0;
     _lastLeftEditableDraftId = (!wasViewOnly && hasDraft) ? draftId : null;
 
     // Đánh dấu nhả trước — chặn heartbeat/autosave gắn lại khóa + tô «tạm rời» trên sơ đồ.
@@ -4226,6 +4228,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       hasDraft: hasDraft,
       draftId: draftId,
       emptyCart: emptyCart,
+      draftConfirmedEmpty: draftConfirmedEmpty,
       resourceId: rid,
       sessionId: sid,
     ));
@@ -4238,6 +4241,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     required bool hasDraft,
     required String? draftId,
     required bool emptyCart,
+    bool draftConfirmedEmpty = false,
     required String? resourceId,
     required String? sessionId,
   }) async {
@@ -4261,6 +4265,16 @@ class _PosSellScreenState extends State<PosSellScreen>
               'Đã về sơ đồ — máy khác thử «Lấy quyền» nếu vẫn báo đang sửa'),
         );
       }
+    }
+
+    // Xóa hết món rồi thoát (vd dòng tiền giờ tự thêm khi mở ghế): đơn tạm rỗng vẫn giữ bàn — sơ đồ hiện
+    // «-- · 1 khách» thay vì «Trống», phải vào menu «Trả về bàn trống». Hủy đơn tạm rỗng đó.
+    if (draftConfirmedEmpty && draftId != null && draftId.isNotEmpty &&
+        !PosOfflineService.isOfflineSession(sessionId)) {
+      try {
+        await _api.cancelPosSaleDraft(draftId);
+      } catch (_) {}
+      if (mounted && epoch == _tableAttachEpoch) _scheduleFloorQuietRefresh();
     }
 
     if (PosOfflineService.isOfflineSession(sessionId)) {
