@@ -843,6 +843,7 @@ List<SettingsHubItemDef> _settingsVisibleItems(BuildContext context, List<Settin
       }
       // Tick đúng chức năng trên Phân quyền — không suy từ PosSell.
       if (item.moduleCode != null && !permProvider.canViewExact(item.moduleCode!)) return false;
+      if (item.requiresEdit && !permProvider.canEdit(item.moduleCode)) return false;
       return true;
     }).toList();
 }

@@ -97,7 +97,7 @@ public static class PosSaleRiskReportBuilder
     static bool IsCash(string? pm) => string.IsNullOrWhiteSpace(pm) || pm.Contains("mặt", StringComparison.OrdinalIgnoreCase)
         || pm.Contains("cash", StringComparison.OrdinalIgnoreCase);
 
-    static string Money(decimal v) => $"{v:#,##0}đ".Replace(',', '.');
+    static string Money(decimal v) => $"{v:#,##0} đ".Replace(',', '.');
 
     static int Rank(string level) => level switch { "high" => 0, "medium" => 1, _ => 2 };
 

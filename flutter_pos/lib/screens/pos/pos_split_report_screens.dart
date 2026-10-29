@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'pos_network_report_screen.dart';
 import 'pos_offline_sales_screen.dart';
+import 'pos_risk_report_screen.dart';
+import '../analytics_reports_screen.dart' show AnalyticsReportSpec, AnalyticsReportViewer;
 import 'pos_reservation_report_screen.dart';
 import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
@@ -79,7 +81,7 @@ class _PosReportsHubScreenState extends State<PosReportsHubScreen> {
     };
     // Topping là món kèm đồ uống (F&B) — salon / gym / khách sạn không bán topping.
     final showTopping = profile == null ||
-        !{PosSellProfile.salon, PosSellProfile.gym, PosSellProfile.hotel}.contains(profile);
+        !{PosSellProfile.salon, PosSellProfile.gym, PosSellProfile.hotel, PosSellProfile.retail}.contains(profile);
     final items = <({
       String label,
       String subtitle,
@@ -99,13 +101,18 @@ class _PosReportsHubScreenState extends State<PosReportsHubScreen> {
       (label: 'Tổng kết cuối ngày', subtitle: 'Cuối ngày', icon: Icons.nightlight_round, module: 'PosReportEndOfDay', screen: const PosEndOfDayScreen()),
       (label: 'Doanh thu theo nhân viên', subtitle: 'Thu ngân', icon: Icons.badge_outlined, module: 'PosReportStaffRevenue', screen: const PosStaffRevenueReportScreen()),
       (label: 'Hoa hồng nhân viên', subtitle: 'DV / combo', icon: Icons.handshake_outlined, module: 'PosReportStaffCommission', screen: const PosStaffCommissionReportScreen()),
+      // Giao hàng qua hãng chỉ có ở bán lẻ (như C20).
+      if (profile == null || profile == PosSellProfile.retail)
       (label: 'Vận chuyển', subtitle: 'Hãng / thất bại / hoàn / COD', icon: Icons.local_shipping_outlined, module: 'PosShipping', screen: const PosShippingReportScreen()),
       (label: 'Sổ quỹ', subtitle: 'Thu chi · tồn quỹ', icon: Icons.menu_book_outlined, module: 'PosReportCashbook', screen: const PosCashbookReportScreen()),
       (label: 'Kết quả kinh doanh', subtitle: 'P&L', icon: Icons.account_balance, module: 'PosReportPnl', screen: const PosPnlReportScreen()),
       (label: 'Voucher', subtitle: 'Sử dụng', icon: Icons.confirmation_number_outlined, module: 'PosReportVoucher', screen: const PosVoucherUsageReportScreen()),
       (label: 'Bán theo khách', subtitle: 'Doanh thu / nợ KH', icon: Icons.people_outline, module: 'PosReportRevenue', screen: const PosCustomerSalesReportScreen()),
+      // Bán lẻ không có bàn / lịch hẹn — không có gì để đặt.
+      if (profile != PosSellProfile.retail)
       (label: bookingLabel, subtitle: 'Lịch đặt, cọc, không đến theo kỳ', icon: Icons.event_seat_outlined, module: 'PosBooking', screen: PosReservationReportScreen(title: bookingLabel, profile: profile)),
       (label: 'Sức khỏe kho', subtitle: 'Cháy / chậm / chết tồn', icon: Icons.inventory_2_outlined, module: 'PosReportStock', screen: const PosStockHealthReportScreen()),
+      if (showTopping)
       (label: 'Nguyên vật liệu', subtitle: 'Dùng theo định lượng · còn đủ mấy ngày · món tốn NVL', icon: Icons.blender_outlined, module: 'PosReportStock', screen: const PosMaterialReportScreen()),
       if (showTopping)
       (label: 'Topping', subtitle: '% ly có topping · topping bán chạy · lãi topping', icon: Icons.bubble_chart_outlined, module: 'PosReportSoldGoods', screen: const PosToppingReportScreen()),
@@ -113,6 +120,11 @@ class _PosReportsHubScreenState extends State<PosReportsHubScreen> {
       (label: 'Thuế hộ kinh doanh', subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ', icon: Icons.request_quote_outlined, module: 'HkdBooks', screen: const PosHkdBooksScreen()),
       (label: 'Mạng cửa hàng', subtitle: 'Mạng có đủ ổn định để order / in qua mạng', icon: Icons.wifi_tethering, module: 'PosPrinters', screen: const PosNetworkReportScreen()),
       (label: 'Bán offline & kiểm soát', subtitle: 'Đơn bán lúc mất mạng · lịch sử cài app · số HĐ offline', icon: Icons.cloud_off_outlined, module: 'PosSalesReport', screen: const PosOfflineSalesScreen()),
+      (label: 'Nguy cơ gian lận', subtitle: 'Giảm / hủy sau tạm tính · đá bill · đá món · không in hóa đơn', icon: Icons.policy_outlined, module: 'PosSalesReport', screen: const PosRiskReportScreen()),
+      if (profile == null || profile == PosSellProfile.hotel)
+      (label: 'Sổ khách lưu trú', subtitle: 'Khai báo tạm trú', icon: Icons.hotel_outlined, module: 'PosReportStayGuests', screen: const AnalyticsReportViewer(spec: AnalyticsReportSpec.stayGuests)),
+      if (profile == null || profile == PosSellProfile.salon || profile == PosSellProfile.gym)
+      (label: 'Thẻ tập sắp hết hạn', subtitle: profile == PosSellProfile.salon ? 'Gói liệu trình sắp hết hạn — nhắc gia hạn' : 'Gym / spa — nhắc gia hạn', icon: Icons.fitness_center_outlined, module: 'PosReportSessionExpiry', screen: const AnalyticsReportViewer(spec: AnalyticsReportSpec.sessionExpiry)),
     ].where((item) => PermissionNavigation.canAccessModule(
           item.module,
           allowedModules: auth.user?.allowedModules,
@@ -188,7 +200,8 @@ const _hubGroups = <(String, IconData, List<String>)>[
     'Tồn kho', 'Sức khỏe kho', 'Nguyên vật liệu', 'Hàng sắp hết hạn', 'Báo cáo nhập hàng',
   ]),
   ('Nhân viên', Icons.badge_outlined, ['Doanh thu theo nhân viên', 'Hoa hồng nhân viên']),
-  ('Hệ thống', Icons.router_outlined, ['Mạng cửa hàng', 'Bán offline & kiểm soát']),
+  ('Kiểm soát', Icons.policy_outlined, ['Nguy cơ gian lận', 'Bán offline & kiểm soát']),
+  ('Hệ thống', Icons.router_outlined, ['Mạng cửa hàng']),
 ];
 
 class _PosReportsHubSection extends StatefulWidget {

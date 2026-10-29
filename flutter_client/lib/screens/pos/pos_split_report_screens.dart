@@ -57,6 +57,13 @@ class PosReportsHubScreen extends StatelessWidget {
   static const _hint = Color(0xFF8A9199);
 
   /// Báo cáo chỉ đúng một số ngành — ẩn khi đã biết ngành (chưa tải được thì hiện đủ).
+  /// Salon / gym gọi là «đặt lịch», karaoke / khách sạn «đặt phòng», còn lại «đặt bàn» (như T1).
+  static String _bookingReportLabel(PosSellProfile? p) => switch (p) {
+        PosSellProfile.salon || PosSellProfile.gym => 'Đặt lịch & cọc',
+        PosSellProfile.roomHourly || PosSellProfile.hotel => 'Đặt phòng & cọc',
+        _ => 'Đặt bàn & cọc',
+      };
+
   static bool _fitsIndustry(String label) {
     final p = PosSellSettingsHelper.lastProfile;
     if (p == null) return true;
@@ -65,6 +72,8 @@ class PosReportsHubScreen extends StatelessWidget {
       'Vận chuyển' => p == PosSellProfile.retail,
       'Thẻ tập sắp hết hạn' => p.usesSessionPackages,
       'Sổ khách lưu trú' => p == PosSellProfile.hotel,
+      // Bán lẻ không có bàn / lịch hẹn — không có gì để đặt.
+      'Đặt bàn & cọc' || 'Đặt lịch & cọc' || 'Đặt phòng & cọc' => p != PosSellProfile.retail,
       _ => true,
     };
   }
@@ -98,7 +107,7 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Kết quả kinh doanh', subtitle: 'P&L', icon: Icons.account_balance, module: 'PosReportPnl', screen: const PosPnlReportScreen()),
       (label: 'Voucher', subtitle: 'Sử dụng', icon: Icons.confirmation_number_outlined, module: 'PosReportVoucher', screen: const PosVoucherUsageReportScreen()),
       (label: 'Bán theo khách', subtitle: 'Doanh thu / nợ KH', icon: Icons.people_outline, module: 'PosReportRevenue', screen: const PosCustomerSalesReportScreen()),
-      (label: profile?.usesSessionPackages == true ? 'Đặt lịch & cọc' : 'Đặt bàn & cọc', subtitle: 'Lịch đặt, cọc, không đến theo kỳ', icon: Icons.event_seat_outlined, module: 'PosBooking', screen: PosReservationReportScreen(
+      (label: _bookingReportLabel(profile), subtitle: 'Lịch đặt, cọc, không đến theo kỳ', icon: Icons.event_seat_outlined, module: 'PosBooking', screen: PosReservationReportScreen(
           title: profile?.usesSessionPackages == true ? 'Đặt lịch & cọc' : 'Đặt bàn & cọc', profile: profile)),
       (label: 'Sức khỏe kho', subtitle: 'Cháy / chậm / chết tồn', icon: Icons.inventory_2_outlined, module: 'PosReportStock', screen: const PosStockHealthReportScreen()),
       (label: 'Nguyên vật liệu', subtitle: 'Dùng theo định lượng · còn đủ mấy ngày · món tốn NVL', icon: Icons.blender_outlined, module: 'PosReportStock', screen: const PosMaterialReportScreen()),
@@ -176,7 +185,7 @@ class PosReportsHubScreen extends StatelessWidget {
 const _hubGroups = <(String, IconData, List<String>)>[
   ('Bán hàng', Icons.point_of_sale_outlined, [
     'Doanh thu', 'Hàng hóa bán ra', 'Topping', 'Bán theo khách', 'Phương thức thanh toán', 'Tổng kết cuối ngày',
-    'Voucher', 'Đặt bàn & cọc', 'Đặt lịch & cọc', 'Vận chuyển', 'Hóa đơn điện tử',
+    'Voucher', 'Đặt bàn & cọc', 'Đặt lịch & cọc', 'Đặt phòng & cọc', 'Vận chuyển', 'Hóa đơn điện tử',
   ]),
   ('Tài chính', Icons.account_balance_wallet_outlined, [
     'Kết quả kinh doanh', 'Lợi nhuận', 'Chi phí', 'Sổ quỹ', 'Công nợ', 'Thuế hộ kinh doanh',

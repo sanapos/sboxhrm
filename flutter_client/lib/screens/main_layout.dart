@@ -134,6 +134,7 @@ import 'pos/pos_vouchers_screen.dart';
 import 'pos/pos_promotions_screen.dart';
 import 'shift_swap_screen.dart';
 import '../utils/permission_navigation.dart';
+import '../utils/permission_role_options.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/store_role_helper.dart';
 import '../widgets/module_route_guard.dart';
@@ -894,6 +895,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       return false;
     }
     if (isAgent && item.requiredRole != 'Agent') return false;
+    // Quyền chưa tải xong: mục không gắn mã quyền (vd «Quản lý tài liệu tải xuống») trước đây hiện
+    // một mình dưới «Báo cáo kinh doanh» rồi mới bung đủ menu — chờ như trang chủ.
+    if (item.moduleCode == null &&
+        item.group != 'Tổng quan' &&
+        !perm.isLoaded &&
+        !perm.loadFailed) {
+      return false;
+    }
     // Mục chỉ dùng khi nhiều chi nhánh (báo cáo CN, chuyển kho, kho theo CN) —
     // ẩn khi cửa hàng chưa bật chi nhánh hoặc chỉ có 1 CN (dùng chung điều kiện
     // với bộ chọn chi nhánh trên thanh trên cùng).
@@ -3984,7 +3993,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   ),
                   const SizedBox(height: 1),
                   Text(
-                    tr(user?.role ?? 'Employee'),
+                    // Mã vai trò (Admin / Waiter…) → tên hiển thị tiếng Việt như trang Phân quyền.
+                    tr(PermissionRoleOptions.displayNameOf(user?.role ?? 'Employee')),
                     style: const TextStyle(
                       color: SboxColors.slate600,
                       fontSize: 12,

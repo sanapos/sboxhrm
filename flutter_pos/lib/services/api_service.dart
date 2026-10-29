@@ -20436,6 +20436,40 @@ class ApiService {
     }
   }
 
+  /// Nguy cơ gian lận (chủ / quản lý) — [from]/[to] ngày VN (yyyy-MM-dd).
+  Future<Map<String, dynamic>> getPosRiskReport({required String from, required String to}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/risk-report').replace(queryParameters: {'from': from, 'to': to});
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Báo cáo phân tích máy chủ (JSON) — `path` dạng `/api/...` (sổ khách lưu trú, thẻ tập sắp hết hạn).
+  Future<Map<String, dynamic>> getAnalyticsReport(
+      String path, Map<String, String> params) async {
+    try {
+      final uri = Uri.parse('$baseUrl$path').replace(queryParameters: params);
+      final response = await _retryOnUnauthorized(
+        () => http.get(uri, headers: _headers).timeout(const Duration(seconds: 60)),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Cùng báo cáo nhưng tải file Excel do máy chủ dựng (`format=excel`).
+  Future<Map<String, dynamic>> downloadAnalyticsReportExcel(
+          String path, Map<String, String> params) =>
+      _getBinary(
+        Uri.parse('$baseUrl$path')
+            .replace(queryParameters: {...params, 'format': 'excel'}),
+        timeout: const Duration(seconds: 90),
+      );
+
   /// Báo cáo mạng cửa hàng — [from]/[to] ngày VN (yyyy-MM-dd).
   Future<Map<String, dynamic>> getNetworkReport({required String from, required String to}) async {
     try {

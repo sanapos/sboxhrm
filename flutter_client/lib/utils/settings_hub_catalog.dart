@@ -20,7 +20,12 @@ class SettingsHubItemDef {
     this.keywords = const [],
     this.packageModule,
     this.altModuleCodes = const [],
+    this.requiresEdit = false,
   });
+
+  /// Mục cấu hình gắn với chức năng tự phục vụ (xin phép, chấm công, đăng ký ca) — nhân viên nào cũng
+  /// có quyền Xem, nên chỉ hiện khi có quyền Sửa (máy chủ cũng chỉ cho lưu khi có quyền Sửa).
+  final bool requiresEdit;
 
   /// Mã số cố định (lưu thứ tự / ẩn hiện / mở gần đây trên máy). Không đổi khi sắp xếp lại.
   final int index;
@@ -132,7 +137,7 @@ class SettingsHubCatalog {
     ),
     SettingsHubItemDef(
       index: 14, code: 'staffing', icon: Icons.groups_outlined, label: 'Định mức nhân sự', groupTitle: gHr, accent: SboxColors.brand700,
-      desc: 'Số người tối thiểu / tối đa mỗi ca theo bộ phận, thứ trong tuần', moduleCode: 'WorkSchedule',
+      desc: 'Số người tối thiểu / tối đa mỗi ca theo bộ phận, thứ trong tuần', moduleCode: 'WorkSchedule', requiresEdit: true,
       keywords: ['min max', 'xếp ca', 'thiếu người'],
     ),
     SettingsHubItemDef(
@@ -142,7 +147,7 @@ class SettingsHubCatalog {
     ),
     SettingsHubItemDef(
       index: 1, code: 'mobileAttendance', icon: Icons.phone_android_outlined, label: 'Chấm công Mobile', groupTitle: gHr, accent: SboxColors.brand700,
-      desc: 'Vị trí chấm công, GPS, khuôn mặt, ảnh hiện trường, tự duyệt', moduleCode: 'MobileAttendance', healthKey: 'mobile',
+      desc: 'Vị trí chấm công, GPS, khuôn mặt, ảnh hiện trường, tự duyệt', moduleCode: 'MobileAttendance', requiresEdit: true, healthKey: 'mobile',
       keywords: ['gps', 'face id', 'khuôn mặt', 'vị trí', 'wifi', 'điện thoại'],
     ),
     SettingsHubItemDef(
@@ -158,7 +163,7 @@ class SettingsHubCatalog {
     // ── Lương & chính sách
     SettingsHubItemDef(
       index: 31, code: 'annualLeave', icon: Icons.beach_access_outlined, label: 'Phép năm', groupTitle: gPay, accent: SboxColors.violet,
-      desc: 'Số ngày phép, thâm niên, chuyển phép, tiền phép còn lại', moduleCode: 'Leave',
+      desc: 'Số ngày phép, thâm niên, chuyển phép, tiền phép còn lại', moduleCode: 'Leave', requiresEdit: true,
       keywords: ['nghỉ phép', 'phép tồn', 'thâm niên', 'trả tiền phép'],
     ),
     SettingsHubItemDef(
