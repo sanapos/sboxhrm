@@ -963,7 +963,7 @@ Map<String, String> buildSaleOrderPrintData(
     'Tong_Cong_Bang_Chu': _amountInWords(payable),
     'Hinh_Thuc_Thanh_Toan': order.paymentLabel,
     'Cong_No': order.balanceDue > 0.5 ? money.format(order.balanceDue) : '',
-    'Nguoi_Ban': order.soldBy ?? order.createdBy ?? '',
+    'Nguoi_Ban': order.sellerLabel ?? '',
     'Ghi_Chu': order.note ?? '',
     'Ten_Ban': (order.serviceResourceName ?? '').trim(),
     'Khu_Vuc': (order.serviceAreaName ?? '').trim(),

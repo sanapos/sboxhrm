@@ -401,7 +401,11 @@ public partial class PosSalesController(
         string? EInvoiceNo = null,
         string? EInvoiceError = null,
         DateTime? EInvoiceEmailSentAt = null,
-        string? EInvoiceKind = null);
+        string? EInvoiceKind = null)
+    {
+        /// <summary>Họ tên người bán khi SoldBy là email tài khoản (chủ cửa hàng…); null nếu SoldBy đã là tên.</summary>
+        public string? SoldByName { get; init; }
+    }
 
     /// <param name="Kind">sale = thu khi bán · deposit = cọc đặt chỗ trừ vào đơn · debt = thu nợ sau.</param>
     public record SalePaymentDto(
@@ -1750,11 +1754,27 @@ public partial class PosSalesController(
         var returnedMap = await GetReturnedAmountsAsync(storeId, orderIds);
         var returnedQtyByOrder = await GetReturnedQtyByOrdersAsync(storeId, orderIds);
 
+        // Đơn của tài khoản không gắn nhân viên ghi SoldBy = email → kèm họ tên để danh sách không hiện email.
+        var soldByEmails = rows.Select(o => o.SoldBy?.Trim())
+            .Where(s => !string.IsNullOrEmpty(s) && s.Contains('@'))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var userNames = soldByEmails.Count == 0
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            : (await dbContext.Users.AsNoTracking()
+                    .Where(u => u.Email != null && soldByEmails.Contains(u.Email))
+                    .Select(u => new { u.Email, Name = ((u.LastName ?? "") + " " + (u.FirstName ?? "")).Trim() })
+                    .ToListAsync())
+                .Where(u => u.Name.Length > 0)
+                .GroupBy(u => u.Email!, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Name, StringComparer.OrdinalIgnoreCase);
+
         var items = rows.Select(o =>
         {
             var returned = returnedMap.GetValueOrDefault(o.Id);
             returnedQtyByOrder.TryGetValue(o.Id, out var qtyByLine);
-            return MapSummary(o, returned, o.Lines.Count, qtyByLine, CurrentUserId);
+            var dto = MapSummary(o, returned, o.Lines.Count, qtyByLine, CurrentUserId);
+            return userNames.TryGetValue(o.SoldBy?.Trim() ?? "", out var name) ? dto with { SoldByName = name } : dto;
         }).ToList();
 
         return Ok(AppResponse<object>.Success(new { total, page, pageSize, completedTotal, items }));
@@ -3047,6 +3067,9 @@ public partial class PosSalesController(
         {
             // Không để thông tin HĐĐT làm fail GetSale.
         }
+        // Phiếu in sau thanh toán dùng response này: chủ cửa hàng (SoldBy = email) → in họ tên, không in email.
+        if (order.SoldBy?.Contains('@') == true)
+            dto = dto with { SoldByName = await PersonDisplayNameAsync(null, order.SoldBy) };
         return dto;
     }
 

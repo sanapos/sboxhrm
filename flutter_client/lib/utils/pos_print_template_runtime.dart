@@ -264,7 +264,7 @@ abstract final class PosPrintTemplateRuntime {
           : PosReceiptLayout.formatSaleInvoiceNo(order.orderNo),
       'Ngay': DateFormat('dd/MM/yyyy').format(saleDate),
       'Gio': DateFormat('HH:mm').format(saleDate),
-      'Nguoi_Ban': order.soldBy ?? order.createdBy ?? '',
+      'Nguoi_Ban': order.sellerLabel ?? '',
       'Ghi_Chu': order.note ?? '',
       'Khach_Hang': order.customerName ?? '',
       'Ten_Ban': (order.serviceResourceName ?? '').trim(),

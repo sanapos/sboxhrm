@@ -229,6 +229,15 @@ class PosSaleOrder {
   /// Họ tên người bán / người tạo (API chi tiết đơn) — [soldBy]/[createdBy] có thể là email.
   final String? soldByName;
   final String? createdByName;
+
+  /// Người bán để hiển thị / in: họ tên nếu API có, không thì [soldBy] rồi [createdBy].
+  String? get sellerLabel {
+    for (final v in [soldByName, soldBy, createdByName, createdBy]) {
+      final t = v?.trim();
+      if (t != null && t.isNotEmpty) return t;
+    }
+    return null;
+  }
   final String? soldByEmployeeId;
   final String? salesChannel;
   final String? priceListId;
@@ -419,6 +428,7 @@ class PosSaleOrder {
         printNote: printNote,
         saleDate: saleDate,
         soldBy: soldBy,
+        soldByName: soldByName,
         soldByEmployeeId: soldByEmployeeId,
         salesChannel: salesChannel,
         priceListId: priceListId,
@@ -681,6 +691,7 @@ class PosSaleOrder {
         'note': note,
         'saleDate': saleDate?.toIso8601String(),
         'soldBy': soldBy,
+        'soldByName': soldByName,
         'createdAt': createdAt?.toIso8601String(),
         'printCount': printCount,
         'dailyOrderIndex': dailyOrderIndex,

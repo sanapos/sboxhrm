@@ -299,9 +299,9 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                   Text(tr('${tr('Khách: ')}${o.customerName ?? 'Khách lẻ'}'),
                     style: const TextStyle(fontSize: 13),
                   ),
-                  if ((o.soldBy ?? o.createdBy)?.isNotEmpty == true)
+                  if (o.sellerLabel != null)
                     Text(
-                      tr('NV: ${o.soldBy ?? o.createdBy}'),
+                      tr('NV: ${o.sellerLabel}'),
                       style: const TextStyle(
                         fontSize: 12,
                         color: PosTheme.textSecondary,
@@ -365,7 +365,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                 text: (o) => (o.saleDate ?? o.createdAt) != null
                     ? shortFmt.format((o.saleDate ?? o.createdAt)!.toLocal())
                     : '—'),
-            SboxColumn(label: 'Nhân viên', minWidth: 120, hideOnMobile: true, text: (o) => o.soldBy ?? o.createdBy ?? '—'),
+            SboxColumn(label: 'Nhân viên', minWidth: 120, hideOnMobile: true, text: (o) => o.sellerLabel ?? '—'),
             SboxColumn(label: 'Khách hàng', flex: 2, minWidth: 140, text: (o) => o.customerName ?? 'Khách lẻ'),
             SboxColumn(label: 'Tổng cộng', numeric: true, minWidth: 100, text: (o) => _moneyFmt.format(o.total)),
           ],

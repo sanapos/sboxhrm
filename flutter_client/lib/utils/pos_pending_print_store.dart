@@ -415,6 +415,7 @@ class PosPendingPrintStore {
         'note': o.note,
         'saleDate': o.saleDate?.toIso8601String(),
         'soldBy': o.soldBy,
+        'soldByName': o.soldByName,
         'createdAt': o.createdAt?.toIso8601String(),
         'createdBy': o.createdBy,
         'printCount': o.printCount,

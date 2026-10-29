@@ -718,8 +718,9 @@ class PosThermalPrinterService {
       'KH: ${order.customerName ?? 'Khach le'}',
     );
 
-    if (order.soldBy != null && order.soldBy!.trim().isNotEmpty) {
-      await b.line('Thu ngân: ${order.soldBy!.trim()}');
+    final seller = (order.soldByName ?? order.soldBy)?.trim();
+    if (seller != null && seller.isNotEmpty) {
+      await b.line('Thu ngân: $seller');
     }
 
     await b.separator();

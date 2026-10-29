@@ -622,8 +622,9 @@ class PosSunmiNativePrint {
       size: layout.bodySize,
       bold: true,
     );
-    if (order.soldBy != null && order.soldBy!.trim().isNotEmpty) {
-      final nv = order.soldBy!.trim();
+    final seller = (order.soldByName ?? order.soldBy)?.trim();
+    if (seller != null && seller.isNotEmpty) {
+      final nv = seller;
       // Không in tên thiết bị lên phiếu.
       final looksDevice = nv.toUpperCase().contains('SUNMI') ||
           nv.toUpperCase().contains('V2S') ||
