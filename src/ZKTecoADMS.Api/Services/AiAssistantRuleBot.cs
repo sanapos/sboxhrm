@@ -378,7 +378,7 @@ public static class AiAssistantRuleBot
         ContainsAny(q, "phiếu phạt", "phieu phat", "phạt nhân", "penalty");
 
     static bool LooksLikeBusinessTrip(string q) =>
-        ContainsAny(q, "công tác", "cong tac", "hoạch toán", "ứng công tác", "quyết toán");
+        ContainsAny(q, "công tác", "cong tac", "hạch toán", "hoạch toán", "ứng công tác", "quyết toán");
 
     static bool LooksLikeSetup(string q) =>
         ContainsAny(q, "thiết lập", "thiet lap", "cấu hình", "cau hinh",

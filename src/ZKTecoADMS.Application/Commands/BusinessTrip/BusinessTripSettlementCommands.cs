@@ -44,7 +44,7 @@ public class SaveBusinessTripSettlementHandler(
         else if (tripCase.Status != BusinessTripCaseStatus.AdvancePaid
             && tripCase.Status != BusinessTripCaseStatus.SettlementDraft
             && tripCase.SettlementClaim?.Status is not AdvanceRequestStatus.Rejected)
-            return AppResponse<BusinessTripCaseDto>.Error("Chưa thể hoạch toán ở trạng thái hiện tại");
+            return AppResponse<BusinessTripCaseDto>.Error("Chưa thể hạch toán ở trạng thái hiện tại");
 
         if (request.Lines.Count == 0)
             return AppResponse<BusinessTripCaseDto>.Error("Cần ít nhất một dòng chi phí");
@@ -59,7 +59,7 @@ public class SaveBusinessTripSettlementHandler(
             {
                 var cat = categories.FirstOrDefault(c => c.Id == line.CategoryId);
                 if (cat?.RequiresInvoice == true && !line.HasInvoice)
-                    return AppResponse<BusinessTripCaseDto>.Error($"Hạn mục {cat.Name} bắt buộc đánh dấu có hóa đơn");
+                    return AppResponse<BusinessTripCaseDto>.Error($"Hạng mục {cat.Name} bắt buộc đánh dấu có hóa đơn");
             }
         }
 
@@ -202,7 +202,7 @@ public class SaveBusinessTripSettlementHandler(
             {
                 await notificationService.CreateAndSendToUsersAsync(
                     set, NotificationType.ApprovalRequired,
-                    "Hoạch toán công tác chờ duyệt",
+                    "Hạch toán công tác chờ duyệt",
                     $"{tripCase.CaseCode} — {total:N0}đ",
                     relatedEntityId: tripCase.Id, relatedEntityType: "BusinessTripCase",
                     fromUserId: tripCase.EmployeeUserId, categoryCode: "business_trip", storeId: request.StoreId);
@@ -234,11 +234,12 @@ public class ApproveBusinessTripSettlementHandler(
         var tripCase = await BusinessTripCaseLoader.LoadAsync(caseRepository, request.CaseId, request.StoreId, ct);
         var settlement = tripCase?.SettlementClaim;
         if (settlement == null)
-            return AppResponse<BusinessTripCaseDto>.Error("Không tìm thấy phiếu hoạch toán");
+            return AppResponse<BusinessTripCaseDto>.Error("Không tìm thấy phiếu hạch toán");
 
         if (settlement.Status != AdvanceRequestStatus.Pending)
-            return AppResponse<BusinessTripCaseDto>.Error("Phiếu hoạch toán đã được xử lý");
+            return AppResponse<BusinessTripCaseDto>.Error("Phiếu hạch toán đã được xử lý");
 
+        BusinessTripCaseLoader.DetachApprovalBackReferences(settlement);
         var approver = await userManager.FindByIdAsync(request.ApprovedById.ToString());
         var approverName = approver?.FullName ?? approver?.Email ?? "Unknown";
         var records = settlement.ApprovalRecords.OrderBy(r => r.StepOrder).ToList();
@@ -285,7 +286,7 @@ public class ApproveBusinessTripSettlementHandler(
                 {
                     await notificationService.CreateAndSendAsync(
                         tripCase.EmployeeUserId.Value, NotificationType.Success,
-                        "Hoạch toán công tác đã duyệt",
+                        "Hạch toán công tác đã duyệt",
                         SettlementMessage(settlement),
                         relatedEntityId: tripCase.Id, relatedEntityType: "BusinessTripCase",
                         fromUserId: request.ApprovedById, categoryCode: "business_trip", storeId: request.StoreId);
@@ -321,7 +322,7 @@ public class ApproveBusinessTripSettlementHandler(
                         request.RejectionReason != null
                             && request.RejectionReason.Contains("Bổ sung", StringComparison.OrdinalIgnoreCase)
                             ? "Yêu cầu bổ sung giấy tờ công tác"
-                            : "Hoạch toán công tác bị từ chối",
+                            : "Hạch toán công tác bị từ chối",
                         $"{tripCase.CaseCode}: {reason}",
                         relatedEntityId: tripCase.Id, relatedEntityType: "BusinessTripCase",
                         fromUserId: request.ApprovedById, categoryCode: "business_trip", storeId: request.StoreId);

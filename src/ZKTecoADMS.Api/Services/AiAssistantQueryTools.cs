@@ -97,7 +97,7 @@ public static class AiAssistantQueryTools
         || q.Contains("phê duyệt") || q.Contains("duyệt đơn");
 
     private static bool LooksLikeBusinessTrip(string q) =>
-        q.Contains("công tác") || q.Contains("hoạch toán") || q.Contains("ứng công tác")
+        q.Contains("công tác") || q.Contains("hạch toán") || q.Contains("hoạch toán") || q.Contains("ứng công tác")
         || q.Contains("businesstrip") || q.Contains("quyết toán");
 
     private static bool LooksLikeCash(string q) =>
@@ -213,7 +213,7 @@ public static class AiAssistantQueryTools
             var set = await db.BusinessTripCases.AsNoTracking()
                 .CountAsync(c => c.StoreId == storeId && c.Deleted == null
                                  && c.Status == BusinessTripCaseStatus.SettlementPending, ct);
-            buf.AppendLine($"- Công tác chờ duyệt ứng: {adv} | hoạch toán: {set}");
+            buf.AppendLine($"- Công tác chờ duyệt ứng: {adv} | hạch toán: {set}");
         }
     }
 

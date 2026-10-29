@@ -392,7 +392,7 @@ public class FinanceAnalyticsController(
                 .ThenByDescending(i => i.TotalAdvance)
                 .ToList();
 
-            // Tổng hợp theo hạng mục chi phí từ dòng hoạch toán của hồ sơ active.
+            // Tổng hợp theo hạng mục chi phí từ dòng hạch toán của hồ sơ active.
             var expenseLines = active
                 .SelectMany(c => (c.SettlementClaim?.Lines ?? Enumerable.Empty<BusinessTripExpenseLine>())
                     .Where(l => l.Deleted == null)
@@ -456,7 +456,7 @@ public class FinanceAnalyticsController(
             if (string.Equals(format, "excel", StringComparison.OrdinalIgnoreCase))
             {
                 return ReportHelpers.ExcelFile("Công tác phí",
-                    new[] { "Mã HS", "Tiêu đề", "Mã NV", "Họ tên", "Phòng ban", "Điểm đến", "Trạng thái", "Đã ứng", "Hoạch toán", "Chênh lệch", "Ngày tạo" },
+                    new[] { "Mã HS", "Tiêu đề", "Mã NV", "Họ tên", "Phòng ban", "Điểm đến", "Trạng thái", "Đã ứng", "Hạch toán", "Chênh lệch", "Ngày tạo" },
                     (ws, dataStartRow) =>
                     {
                         int row = dataStartRow;

@@ -799,7 +799,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     if (_byCategory.isEmpty) {
       return const ReportEmptyState(
         title: 'Chưa có chi phí theo loại',
-        subtitle: 'Chưa có dòng hoạch toán trong kỳ hoặc chưa gắn hạng mục',
+        subtitle: 'Chưa có dòng hạch toán trong kỳ hoặc chưa gắn hạng mục',
       );
     }
     return Column(

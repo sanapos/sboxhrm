@@ -102,6 +102,18 @@ internal static class BusinessTripCaseLoader
     }
 
     /// <summary>
+    /// Gọi ngay sau khi tải, trước khi Update từng bản ghi duyệt. Bản ghi duyệt trỏ ngược về phiếu →
+    /// hồ sơ, nên Update(record) gắn cả đồ thị vào ChangeTracker; sau đó Detach…Navigations gán null
+    /// trên entity ĐANG theo dõi → EF xóa phiếu hạch toán như bản ghi mồ côi (kèm các dòng chi) và
+    /// xóa EmployeeUserId của hồ sơ. Cắt liên kết ngược khi đồ thị còn chưa theo dõi thì an toàn.
+    /// </summary>
+    public static void DetachApprovalBackReferences(BusinessTripSettlementClaim settlement)
+    {
+        foreach (var r in settlement.ApprovalRecords)
+            r.SettlementClaim = null;
+    }
+
+    /// <summary>
     /// After hard-deleting old lines/approvals, clear collections so Update() does not
     /// re-attach deleted entities (DbUpdateConcurrencyException).
     /// </summary>

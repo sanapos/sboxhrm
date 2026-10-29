@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../widgets/pos/pos_theme.dart';
+import '../widgets/pos/pos_vnd_thousands_formatter.dart';
 
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
@@ -222,6 +223,9 @@ class _BusinessTripCaseDetailScreenState
   }
 
   double get _balance {
+    // Đang nhập khoản chi: số server (balanceAmount = 0 lúc nháp) chưa gồm dòng mới
+    // → trước hiện «Thiếu (chi bù) 0 ₫» dù Tổng chi 150.000, chưa ứng.
+    if (_canEditSettlement && _lines.isNotEmpty) return _linesTotal - _advanceAmount;
     final settlement = _case?['settlement'];
     if (settlement is Map && settlement['balanceAmount'] is num) {
       return (settlement['balanceAmount'] as num).toDouble();
@@ -506,12 +510,10 @@ class _BusinessTripCaseDetailScreenState
             TextField(
               controller: amountCtrl,
               keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))
-              ],
+              inputFormatters: [PosVndThousandsFormatter()],
               decoration: InputDecoration(
                 labelText: tr('Số tiền ứng *'),
-                prefixText: tr('₫ '),
+                suffixText: tr('₫'),
               ),
             ),
             TextField(
@@ -530,7 +532,7 @@ class _BusinessTripCaseDetailScreenState
         ],
       ),
     );
-    final amount = double.tryParse(amountCtrl.text.replaceAll(',', '')) ?? 0;
+    final amount = PosVndThousandsFormatter.parse(amountCtrl.text);
     final reason = reasonCtrl.text.trim();
     amountCtrl.dispose();
     reasonCtrl.dispose();
@@ -606,7 +608,7 @@ class _BusinessTripCaseDetailScreenState
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(tr('Dư ứng công tác')),
-          content: Text(tr('${tr('Hoạch toán dư ')}${_currency.format(bal.abs())}.\n'
+          content: Text(tr('${tr('Hạch toán dư ')}${_currency.format(bal.abs())}.\n'
             'Chọn cách xử lý:'),
             style: const TextStyle(height: 1.4),
           ),
@@ -642,7 +644,7 @@ class _BusinessTripCaseDetailScreenState
             ? (surplusAsCashRefund
                 ? 'Đã tạo phiếu thu hoàn dư ứng'
                 : 'Đã ghi nợ ứng lương (trừ kỳ lương)')
-            : 'Hoạch toán đã duyệt',
+            : 'Hạch toán đã duyệt',
       );
       await _reload();
     } else {
@@ -836,7 +838,7 @@ class _BusinessTripCaseDetailScreenState
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(tr('Phiếu hoạch toán sẽ trả về nhân viên để bổ sung/sửa khoản chi và đính kèm. Nhập nội dung cần bổ sung:'),
+            Text(tr('Phiếu hạch toán sẽ trả về nhân viên để bổ sung/sửa khoản chi và đính kèm. Nhập nội dung cần bổ sung:'),
               style: TextStyle(height: 1.35),
             ),
             const SizedBox(height: 12),
@@ -881,7 +883,7 @@ class _BusinessTripCaseDetailScreenState
     if (res['isSuccess'] == true) {
       appNotification.showSuccess(
         title: 'Đã gửi',
-        message: tr('Đã yêu cầu NV bổ sung giấy tờ / sửa hoạch toán'),
+        message: tr('Đã yêu cầu NV bổ sung giấy tờ / sửa hạch toán'),
       );
       await _reload();
     } else {
@@ -897,7 +899,7 @@ class _BusinessTripCaseDetailScreenState
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('Từ chối hoạch toán')),
+        title: Text(tr('Từ chối hạch toán')),
         content: TextField(
           controller: ctrl,
           maxLines: 3,
@@ -945,7 +947,7 @@ class _BusinessTripCaseDetailScreenState
   Future<void> _addOrEditLine({_DraftExpenseLine? existing, int? index}) async {
     if (_categories.isEmpty) {
       appNotification.showError(
-        title: 'Chưa có hạn mục',
+        title: 'Chưa có hạng mục',
         message: tr('Chưa seed được danh mục chi phí. Thử tải lại.'),
       );
       return;
@@ -958,7 +960,7 @@ class _BusinessTripCaseDetailScreenState
         );
 
     final amountCtrl =
-        TextEditingController(text: tr(line.amount > 0 ? line.amount.toStringAsFixed(0) : ''));
+        TextEditingController(text: line.amount > 0 ? PosVndThousandsFormatter.format(line.amount) : '');
     final descCtrl = TextEditingController(text: tr(line.description));
     final noteCtrl = TextEditingController(text: tr(line.note));
     final invoiceCtrl = TextEditingController(text: tr(line.invoiceNumber ?? ''));
@@ -1028,7 +1030,8 @@ class _BusinessTripCaseDetailScreenState
                     Row(
                       children: [
                         Text(
-                          tr(existing == null ? 'Thêm khoản chi' : 'Sửa khoản chi'),
+                          // Nút nhanh «Tiền ăn»… truyền dòng nháp (existing) nhưng chưa có trong danh sách (index null) → vẫn là thêm mới.
+                          tr(index == null ? 'Thêm khoản chi' : 'Sửa khoản chi'),
                           style: Theme.of(ctx).textTheme.titleLarge,
                         ),
                         const Spacer(),
@@ -1039,7 +1042,7 @@ class _BusinessTripCaseDetailScreenState
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text(tr('Hạn mục'),
+                    Text(tr('Hạng mục'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: SboxColors.slate700)),
@@ -1071,9 +1074,11 @@ class _BusinessTripCaseDetailScreenState
                       controller: amountCtrl,
                       keyboardType: TextInputType.number,
                       autofocus: true,
+                      // «150.000 ₫» như ô tiền khác (trước «₫ 150000» không dấu nghìn).
+                      inputFormatters: [PosVndThousandsFormatter()],
                       decoration: InputDecoration(
                         labelText: tr('Số tiền *'),
-                        prefixText: tr('₫ '),
+                        suffixText: tr('₫'),
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -1190,10 +1195,7 @@ class _BusinessTripCaseDetailScreenState
                     const SizedBox(height: 16),
                     FilledButton(
                       onPressed: () {
-                        final amount = double.tryParse(
-                              amountCtrl.text.replaceAll(',', ''),
-                            ) ??
-                            0;
+                        final amount = PosVndThousandsFormatter.parse(amountCtrl.text);
                         if (amount <= 0) {
                           appNotification.showError(
                             title: 'Thiếu thông tin',
@@ -1204,7 +1206,7 @@ class _BusinessTripCaseDetailScreenState
                         if (categoryId == null) {
                           appNotification.showError(
                             title: 'Thiếu thông tin',
-                            message: tr('Chọn hạn mục chi phí'),
+                            message: tr('Chọn hạng mục chi phí'),
                           );
                           return;
                         }
@@ -1234,7 +1236,7 @@ class _BusinessTripCaseDetailScreenState
                         }
                         Navigator.pop(ctx, true);
                       },
-                      child: Text(tr(existing == null ? 'Thêm vào danh sách' : 'Lưu')),
+                      child: Text(tr(index == null ? 'Thêm vào danh sách' : 'Lưu')),
                     ),
                   ],
                 ),
@@ -1281,13 +1283,13 @@ class _BusinessTripCaseDetailScreenState
       if (res['isSuccess'] == true) {
         appNotification.showSuccess(
           title: 'Thành công',
-          message: tr('Đã gửi hoạch toán công tác'),
+          message: tr('Đã gửi hạch toán công tác'),
         );
         await _reload();
       } else {
         appNotification.showError(
           title: 'Lỗi',
-          message: res['message']?.toString() ?? 'Không gửi được hoạch toán',
+          message: res['message']?.toString() ?? 'Không gửi được hạch toán',
         );
       }
     } finally {
@@ -1452,7 +1454,7 @@ class _BusinessTripCaseDetailScreenState
               Text(tr('${tr('Trạng thái: ')}${advanceStatusLabel(advance['status'])}')),
               Text(tr('${tr('Đã chi: ')}${advance['isPaid'] == true ? 'Có' : 'Chưa'}')),
             ] else if (_status == 0)
-              Text(tr('Chưa có phiếu ứng. Có thể tạo ứng trước, hoặc bỏ qua và hoạch toán trực tiếp.'),
+              Text(tr('Chưa có phiếu ứng. Có thể tạo ứng trước, hoặc bỏ qua và hạch toán trực tiếp.'),
                 style: TextStyle(color: SboxColors.slate700, height: 1.35),
               ),
           ],
@@ -1475,7 +1477,7 @@ class _BusinessTripCaseDetailScreenState
                 const Icon(Icons.receipt_long, color: _theme),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(tr('Hoạch toán chi phí'),
+                  child: Text(tr('Hạch toán chi phí'),
                       style:
                           TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 ),
@@ -1592,10 +1594,10 @@ class _BusinessTripCaseDetailScreenState
                 child: Text(
                   tr(_case?['settlement'] == null &&
                           ((_case?['settledAmount'] as num?) ?? 0) != 0
-                      ? 'Chi tiết hạn mục không còn trên hồ sơ (dữ liệu hoạch toán bị mất).\nTổng đã quyết toán: ${_currency.format(_linesTotal)}.'
+                      ? 'Chi tiết hạng mục không còn trên hồ sơ (dữ liệu hạch toán bị mất).\nTổng đã quyết toán: ${_currency.format(_linesTotal)}.'
                       : _canEditSettlement
                           ? 'Chưa có khoản chi.\nThêm tiền ăn, tiền xe, nhà nghỉ, vé máy bay… giống nhập hàng.'
-                          : 'Chưa có dòng hoạch toán.'),
+                          : 'Chưa có dòng hạch toán.'),
                   style: TextStyle(color: SboxColors.slate700, height: 1.4),
                 ),
               )
@@ -1707,7 +1709,7 @@ class _BusinessTripCaseDetailScreenState
                       ),
                       if (_canEditSettlement) ...[
                         const SizedBox(height: 8),
-                        Text(tr('Hãy sửa khoản chi / đính kèm rồi bấm Gửi hoạch toán lại.'),
+                        Text(tr('Hãy sửa khoản chi / đính kèm rồi bấm Gửi hạch toán lại.'),
                           style: TextStyle(
                               fontSize: 12, color: SboxColors.slate700),
                         ),
@@ -1836,7 +1838,7 @@ class _BusinessTripCaseDetailScreenState
               const SizedBox(height: 8),
               FilledButton(
                 onPressed: _approveSettlementWithSurplusCheck,
-                child: Text(tr('Duyệt hoạch toán')),
+                child: Text(tr('Duyệt hạch toán')),
               ),
             ],
             if (settlement != null &&

@@ -1,6 +1,6 @@
 namespace ZKTecoADMS.Domain.Enums;
 
-/// <summary>Trạng thái hồ sơ công tác (ứng → hoạch toán → đóng).</summary>
+/// <summary>Trạng thái hồ sơ công tác (ứng → hạch toán → đóng).</summary>
 public enum BusinessTripCaseStatus
 {
     Draft = 0,
@@ -15,7 +15,7 @@ public enum BusinessTripCaseStatus
     Cancelled = 9
 }
 
-/// <summary>Kết quả quyết toán sau hoạch toán.</summary>
+/// <summary>Kết quả quyết toán sau hạch toán.</summary>
 public enum BusinessTripSettlementType
 {
     Balanced = 0,

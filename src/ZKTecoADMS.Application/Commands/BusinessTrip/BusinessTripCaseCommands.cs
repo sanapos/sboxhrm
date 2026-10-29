@@ -150,7 +150,7 @@ public class DeleteBusinessTripCaseHandler(
             return AppResponse<bool>.Error("Hồ sơ đã đóng");
 
         if (tripCase.AdvanceClaim?.IsPaid == true || tripCase.SettlementClaim?.Status == AdvanceRequestStatus.Approved)
-            return AppResponse<bool>.Error("Không thể xóa hồ sơ đã chi ứng / đã duyệt hoạch toán. Hãy liên hệ quản lý.");
+            return AppResponse<bool>.Error("Không thể xóa hồ sơ đã chi ứng / đã duyệt hạch toán. Hãy liên hệ quản lý.");
 
         // Hủy claim ứng / HT chưa hoàn tất + phiếu Thu chi chờ thanh toán liên quan.
         await CancelRelatedFinanceAsync(tripCase, request.StoreId, ct);

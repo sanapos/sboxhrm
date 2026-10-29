@@ -180,6 +180,7 @@ String? _inferEntityTypeFromTitle(String? title) {
   if (t.contains('ứng lương')) return 'AdvanceRequest';
   if (t.contains('ứng công tác') ||
       t.contains('công tác phí') ||
+      t.contains('hạch toán công tác') ||
       t.contains('hoạch toán công tác') ||
       t.contains('bổ sung giấy tờ công tác') ||
       (t.contains('công tác') &&

@@ -258,7 +258,7 @@ public class BusinessTripCasesController(
             .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == storeId);
         var settlement = tripCase?.SettlementClaim;
         if (tripCase == null || settlement == null)
-            return Ok(AppResponse<BusinessTripCaseDto>.Error("Không tìm thấy hoạch toán"));
+            return Ok(AppResponse<BusinessTripCaseDto>.Error("Không tìm thấy hạch toán"));
         if (settlement.Status != AdvanceRequestStatus.Approved || settlement.BalanceAmount >= 0)
             return Ok(AppResponse<BusinessTripCaseDto>.Error("Không có khoản dư ứng cần xử lý"));
         if (settlement.SurplusAdvanceRequestId.HasValue

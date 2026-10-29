@@ -4,7 +4,7 @@ using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Domain.Entities;
 
-/// <summary>Hồ sơ công tác — gom ứng trước + hoạch toán + quyết toán.</summary>
+/// <summary>Hồ sơ công tác — gom ứng trước + hạch toán + quyết toán.</summary>
 public class BusinessTripCase : AuditableEntity<Guid>
 {
     [Required]
