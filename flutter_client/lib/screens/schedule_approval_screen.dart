@@ -1835,10 +1835,49 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             final emp = _findEmployee(reg.employeeUserId);
             return _buildRegRow(reg, emp);
           }),
+          // Người được xếp lịch trực tiếp (không qua đăng ký) — trước đây ngày chỉ có tiêu đề, trống trơn.
+          ..._directSchedules(shift.id, day, regs).map(_buildScheduledRow),
         ]),
       ));
     }
     return widgets;
+  }
+
+  List<WorkSchedule> _directSchedules(
+      String? shiftId, DateTime day, List<ScheduleRegistration> regs) {
+    if (shiftId == null) return const [];
+    final dateStr = DateFormat('yyyy-MM-dd').format(day);
+    final registered = regs.map((r) => r.employeeUserId).toSet();
+    return _schedules
+        .where((s) =>
+            s.shiftId == shiftId &&
+            !s.isDayOff &&
+            DateFormat('yyyy-MM-dd').format(s.date) == dateStr &&
+            !registered.contains(s.employeeUserId))
+        .toList();
+  }
+
+  Widget _buildScheduledRow(WorkSchedule s) {
+    final emp = _findEmployee(s.employeeUserId);
+    // Hồ sơ NV trước («Họ Tên»); employeeName của lịch đảo thứ tự («Bảy Nhân viên QA»).
+    final empName = '${emp.lastName} ${emp.firstName}'.trim();
+    final name = empName.isNotEmpty ? empName : s.employeeName;
+    final code = s.employeeCode.trim().isNotEmpty ? s.employeeCode : emp.employeeCode;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(children: [
+        const Icon(Icons.event_available, size: 18, color: SboxColors.success),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(tr(code.isEmpty ? name : '$name · $code'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, color: SboxColors.slate900)),
+        ),
+        Text(tr('Đã xếp lịch'),
+            style: const TextStyle(fontSize: 11, color: SboxColors.success, fontWeight: FontWeight.w600)),
+      ]),
+    );
   }
 
   Widget _buildMiniQuotaChip(

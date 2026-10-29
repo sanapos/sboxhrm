@@ -19,6 +19,7 @@ import 'app_info_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/permission_role_options.dart';
 /// «Cài đặt» — trang cá nhân dùng chung HRM và POS: hồ sơ, mật khẩu, giao diện, ngôn ngữ,
 /// thanh công cụ dưới, phiên bản, trợ giúp, đăng xuất, xóa tài khoản.
 /// Cấu hình cửa hàng nằm ở «Thiết lập SBOX» (dữ liệu mẫu → Tham số hệ thống).
@@ -329,7 +330,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
-                    tr(user?.role ?? 'Employee'),
+                    // Tên vai trò tiếng Việt («Admin» → «Quản trị viên») như màn Phân quyền.
+                    tr(PermissionRoleOptions.displayNameOf(user?.role ?? 'Employee')),
                     style: TextStyle(
                       color: Theme.of(context).primaryColor,
                       fontSize: 12,
@@ -506,7 +508,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
                   _buildInfoRow('Email', user?.email ?? 'N/A'),
-                  _buildInfoRow('Vai trò', user?.role ?? 'N/A'),
+                  _buildInfoRow('Vai trò', user?.role == null ? '—' : PermissionRoleOptions.displayNameOf(user!.role)),
                 ],
               ),
             ),
