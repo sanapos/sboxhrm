@@ -426,6 +426,7 @@ class _ShiftTemplatesV2ScreenState extends State<ShiftTemplatesV2Screen> {
               ),
             ]),
           ),
+          const SizedBox(width: 8),
           if (!s.isActive)
             const SboxStatusChip(label: 'Ngừng dùng', tone: SboxTone.neutral, dot: true)
           else

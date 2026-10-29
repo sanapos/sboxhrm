@@ -333,18 +333,6 @@ class _ProductSalarySettingsScreenState
                           color: SboxColors.slate900),
                       overflow: TextOverflow.ellipsis),
                 ),
-                if (groupName.isNotEmpty)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: SboxColors.slate100,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(tr(groupName),
-                        style: const TextStyle(
-                            fontSize: 11, color: SboxColors.slate500)),
-                  ),
                 if (_perm.canEdit('ProductSalary')) ...[
                   const SizedBox(width: 4),
                   IconButton(
@@ -369,10 +357,15 @@ class _ProductSalarySettingsScreenState
                 ],
               ],
             ),
-            if (item['unit'] != null && (item['unit'] as String).isNotEmpty)
+            // Nhóm ở dòng dưới — trước là chip cạnh tên, máy hẹp tên chỉ còn «Chai …».
+            if ((item['unit'] as String? ?? '').isNotEmpty || groupName.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(tr('${tr('Đơn vị: ')}${item['unit']}'),
+                child: Text(
+                    [
+                      if ((item['unit'] as String? ?? '').isNotEmpty) '${tr('Đơn vị: ')}${item['unit']}',
+                      if (groupName.isNotEmpty) '${tr('Nhóm: ')}${tr(groupName)}',
+                    ].join(' · '),
                     style: const TextStyle(
                         fontSize: 12, color: SboxColors.slate500)),
               ),

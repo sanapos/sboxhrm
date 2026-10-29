@@ -266,11 +266,13 @@ class _EmployeeCareerV2ScreenState extends State<EmployeeCareerV2Screen> {
   Widget _summary(bool wide) {
     final s = Map<String, dynamic>.from((_data?['summary'] as Map?) ?? {});
     num n(String k) => (s[k] as num?) ?? 0;
+    // Đếm theo nhóm như bộ lọc — thưởng/phạt tiền từ Tài chính cũng tính, khớp số tiền bên dưới.
+    int g(String group) => _events.where((e) => EcKind.of('${e['kind']}').group == group).length;
     final cards = [
       SboxMetricCard(label: 'Điều chuyển / bổ nhiệm', value: '${n('moves')}', icon: Icons.swap_horiz_rounded),
       SboxMetricCard(
         label: 'Khen thưởng',
-        value: '${n('awards')}',
+        value: '${g('reward')}',
         icon: Icons.emoji_events_rounded,
         tone: SboxTone.warning,
         delta: n('bonusTotal') > 0 ? '+${SboxFmt.money(n('bonusTotal'))}' : null,
@@ -278,7 +280,7 @@ class _EmployeeCareerV2ScreenState extends State<EmployeeCareerV2Screen> {
       ),
       SboxMetricCard(
         label: 'Kỷ luật',
-        value: '${n('disciplines')}',
+        value: '${g('discipline')}',
         icon: Icons.gavel_rounded,
         tone: SboxTone.danger,
         delta: n('penaltyTotal') > 0 ? '−${SboxFmt.money(n('penaltyTotal'))}' : null,
