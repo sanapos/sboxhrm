@@ -776,7 +776,12 @@ class _CreateTransferPageState extends State<_CreateTransferPage> {
           decoration: InputDecoration(labelText: tr(label), isDense: true, border: const OutlineInputBorder()),
           items: [
             for (final b in s.branches)
-              DropdownMenuItem(value: b.id, child: Text(tr('${b.name}${b.isHeadquarter ? ' (trụ sở)' : ''}'))),
+              // 1 dòng + «…»: tên dài xuống dòng thì ô chọn chỉ còn chữ đầu («QA» thay vì «QA Retail …»).
+              DropdownMenuItem(
+                value: b.id,
+                child: Text(tr('${b.name}${b.isHeadquarter ? ' (trụ sở)' : ''}'),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
           ],
           onChanged: onChanged,
         );
@@ -803,6 +808,12 @@ class _CreateTransferPageState extends State<_CreateTransferPage> {
                 ),
                 Expanded(child: branchPick('Kho đến', _to, (v) => setState(() => _to = v))),
               ]),
+              if (s.branches.length < 2)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(tr('Cửa hàng mới có 1 kho — cần thêm chi nhánh mới chuyển kho được.'),
+                      style: const TextStyle(fontSize: 12, color: SboxColors.warningText)),
+                ),
               const SizedBox(height: 10),
               TextField(
                 controller: _note,

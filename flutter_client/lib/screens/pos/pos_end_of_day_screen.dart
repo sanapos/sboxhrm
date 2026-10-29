@@ -748,8 +748,9 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 ],
                 const Divider(height: 16),
                 section('TRẢ / HỦY'),
-                _summaryLine('', 'Trả hàng', _fmt(r.refundTotal)),
-                _summaryLine('', 'Sau trả', _fmt(r.totalAfterRefund)),
+                // Doanh thu / DT ròng đã trừ hàng trả (API) — dòng «Sau trả» cũ bằng đúng DT ròng,
+                // đặt dưới «Trả hàng» làm người đọc tưởng phải trừ thêm lần nữa.
+                _summaryLine('', 'Trả hàng (đã trừ DT)', _fmt(r.refundTotal)),
                 _summaryLine('', 'Hủy đơn', '${r.canceledCount}', onTap: _openSales),
                 const Divider(height: 16),
                 section('THANH TOÁN BÁN HÀNG'),

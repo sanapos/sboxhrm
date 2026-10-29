@@ -20637,7 +20637,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                   style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
                             ),
                           const Divider(height: 24),
-                          _priceSummaryRow(tr('Thành tiền (${NumberFormat('#,##0.###', 'vi_VN').format(line.qty)} ×${_moneyFmt.format(line.unitPrice)})'),
+                          _priceSummaryRow(tr('Thành tiền (${NumberFormat('#,##0.###', 'vi_VN').format(line.qty)} × ${_moneyFmt.format(line.unitPrice)})'),
                               _moneyFmt.format(line.lineGross)),
                           if (line.discountAmount > 0)
                             _priceSummaryRow(tr('Chiết khấu dòng'),

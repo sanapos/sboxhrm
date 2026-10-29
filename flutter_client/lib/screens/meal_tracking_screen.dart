@@ -21,6 +21,7 @@ import '../providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/pos/pos_vnd_thousands_formatter.dart';
 import 'meal_tracking_registration_tab.dart';
 import 'meal/meal_canteen_live_view.dart';
 import 'meal/meal_report_view.dart';
@@ -293,10 +294,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             TextField(
               controller: amountCtl,
               keyboardType: TextInputType.number,
+              inputFormatters: [PosVndThousandsFormatter()],
               decoration: InputDecoration(
                 labelText: tr('Số tiền thu *'),
                 border: OutlineInputBorder(),
-                prefixText: tr('₫ '),
+                suffixText: tr('đ'),
               ),
             ),
             const SizedBox(height: 12),
@@ -314,8 +316,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () async {
-              final amount = double.tryParse(amountCtl.text.trim());
-              if (amount == null || amount <= 0) return;
+              final amount = PosVndThousandsFormatter.parse(amountCtl.text);
+              if (amount <= 0) return;
               Navigator.pop(ctx);
               try {
                 final res = await _apiService.createMealDebt({
@@ -375,7 +377,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}:00',
               'endTime':
                   '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}:00',
-              'pricePerMeal': double.tryParse(priceCtl.text.trim()) ?? 0,
+              'pricePerMeal': PosVndThousandsFormatter.parse(priceCtl.text),
               'shiftTemplateIds': <String>[],
             };
             final res = await _apiService.createMealSession(data);
@@ -407,9 +409,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               TextField(
                 controller: priceCtl,
                 keyboardType: TextInputType.number,
+                // Dấu nghìn như các ô tiền khác (trước: «₫ 30000»); đơn vị đã ở nhãn.
+                inputFormatters: [PosVndThousandsFormatter()],
                 decoration: InputDecoration(
                   labelText: tr('Giá mỗi suất (đ)'),
-                  prefixText: tr('₫ '),
                 ),
               ),
               const SizedBox(height: 12),

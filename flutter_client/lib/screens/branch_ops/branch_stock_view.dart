@@ -223,8 +223,9 @@ class _BranchStockViewState extends State<BranchStockView> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
+                    // 2 dòng: kho lớn «50.002 mặt hàng · 7.465.386 đơn vị» + «Giá trị …» không đủ 1 hàng trên điện thoại.
                     tr('${bQty(_data['totalCount'])} mặt hàng · ${bQty(_data['totalQty'])} đơn vị'),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 13, color: SboxColors.slate700),
                   ),

@@ -123,8 +123,7 @@ class _EodThermalLayout {
       ],
       _rule(chars),
       '>> TRẢ / HỦY',
-      _lr('Trả hàng', _money(r.refundTotal), chars),
-      _lr('Sau trả', _money(r.totalAfterRefund), chars),
+      _lr('Trả hàng (đã trừ DT)', _money(r.refundTotal), chars),
       _lr('Hủy đơn', '${r.canceledCount}', chars),
       if (r.canceledTotal > 0) _lr('GT hủy', _money(r.canceledTotal), chars),
       _rule(chars),
@@ -201,8 +200,7 @@ class _EodThermalLayout {
           .toList();
 
   List<({String left, String right, bool bold})> refundRows() => [
-        (left: 'Trả hàng', right: _money(report.refundTotal), bold: false),
-        (left: 'Sau trả', right: _money(report.totalAfterRefund), bold: false),
+        (left: 'Trả hàng (đã trừ DT)', right: _money(report.refundTotal), bold: false),
         (left: 'Hủy đơn', right: '${report.canceledCount}', bold: false),
         if (report.canceledTotal > 0)
           (left: 'GT hủy', right: _money(report.canceledTotal), bold: false),
@@ -298,8 +296,7 @@ String _buildBillHtml(
   }
   rows
     ..write(section('TRẢ / HỦY'))
-    ..write(row('Trả hàng', _money(r.refundTotal)))
-    ..write(row('Sau trả hàng', _money(r.totalAfterRefund)))
+    ..write(row('Trả hàng (đã trừ DT)', _money(r.refundTotal)))
     ..write(row('Hóa đơn hủy', '${r.canceledCount}'))
     ..write(section('THANH TOÁN BÁN HÀNG'))
     ..write(row('Tiền mặt HĐ', _money(r.cashTotal), sub: true))
@@ -376,8 +373,7 @@ String _buildA4(PosEndOfDayReport r, {required bool showProductDetail}) {
     ${r.deliveryFeeTotal > 0 ? '<tr><td>Phí giao hàng</td><td class="r">${_money(r.deliveryFeeTotal)}</td></tr>' : ''}
     <tr><td>Doanh thu ròng</td><td class="r">${_money(r.netSales)}</td></tr>
     ${r.closedOffDayOrders.isNotEmpty ? '<tr><td>Chốt ngày khác</td><td class="r">${r.closedOffDayCount}</td></tr>' : ''}
-    <tr><td>Trả hàng</td><td class="r">${_money(r.refundTotal)}</td></tr>
-    <tr><td>Sau trả hàng</td><td class="r">${_money(r.totalAfterRefund)}</td></tr>
+    <tr><td>Trả hàng (đã trừ DT)</td><td class="r">${_money(r.refundTotal)}</td></tr>
     <tr><td>Hóa đơn hủy</td><td class="r">${r.canceledCount} (${_money(r.canceledTotal)})</td></tr>
     <tr><td>Tiền mặt</td><td class="r">${_money(r.cashTotal)}</td></tr>
     <tr><td>Ghi nợ</td><td class="r">${_money(r.debtTotal)}</td></tr>

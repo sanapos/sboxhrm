@@ -103,6 +103,10 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
     final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
 
+    // Tạm tính là tiền hàng trước CK từng món — thiếu dòng này thì Tạm tính − Giảm giá ≠ Tổng cộng.
+    final lineDiscountTotal =
+        order.lines.fold<double>(0, (s, l) => s + (l.discountAmount > 0 ? l.discountAmount : 0));
+
     final balance =
 
         order.balanceDue != 0 ? order.balanceDue : order.total - order.paidAmount;
@@ -224,6 +228,9 @@ class PosSaleOrderReceiptView extends StatelessWidget {
                 ],
 
                 _sumRow('Tạm tính', money.format(order.subTotal)),
+
+                if (lineDiscountTotal > 0.5)
+                  _sumRow('Chiết khấu SP', '-${money.format(lineDiscountTotal)}', negative: true),
 
                 // Khuyến mãi tự áp (lưu trong promotionsJson) — trước đây không hiện,
                 // Tạm tính − Voucher ≠ Tổng cộng làm thu ngân tưởng sai tiền.
@@ -608,6 +615,9 @@ class PosSaleOrderReceiptView extends StatelessWidget {
                 if (line.discountAmount > 0)
                   Text(tr('CK: -${money.format(line.discountAmount)}'),
                       style: TextStyle(fontSize: 11, color: Colors.red.shade700)),
+                if (line.returnedQty > 0)
+                  Text(tr('Đã trả ${qtyFmt.format(line.returnedQty)}${unit.isEmpty ? '' : ' $unit'}'),
+                      style: const TextStyle(fontSize: 11, color: SboxColors.warningText)),
                 if (line.serialNumbers.isNotEmpty)
                   Text(tr('Seri: ${line.serialNumbers.join(', ')}'),
                       maxLines: 2,
@@ -738,6 +748,12 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                       style: TextStyle(fontSize: 10, color: Colors.red.shade700),
 
+                    ),
+
+                  if (line.returnedQty > 0)
+                    Text(
+                      tr('Đã trả ${qtyFmt.format(line.returnedQty)}'),
+                      style: const TextStyle(fontSize: 10, color: SboxColors.warningText),
                     ),
 
                   if (line.serialNumbers.isNotEmpty)

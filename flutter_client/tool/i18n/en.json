@@ -1987,6 +1987,7 @@
   "Cửa hàng dùng gói": "Store's plan",
   "Cửa hàng hoàn lại": "Store refunds",
   "Cửa hàng không cho bán khi hết hàng — lưu với tồn 0 thì hàng chưa vào được hóa đơn. ": "The store does not allow selling when out of stock — saving with stock 0 means the item cannot be added to a bill yet. ",
+  "Cửa hàng mới có 1 kho — cần thêm chi nhánh mới chuyển kho được.": "The store has only 1 warehouse — add a branch to transfer stock.",
   "Cửa hàng qua đại lý": "Stores via agents",
   "Cửa hàng thuộc vùng": "Store's region",
   "Cửa hàng tự quyết từng mục (ví dụ nhân viên bán thời gian không trả ngày lễ). Mặc định giữ cách tính trước đây.": "The store decides each item (e.g. part-time staff get no holiday pay). By default the previous calculation is kept.",
@@ -2811,6 +2812,7 @@
   "Hôm nay là ngày nghỉ": "Today is a day off",
   "Hôm nay tôi chấm công chưa?": "Have I punched in today?",
   "Hôm nay ăn gì?": "What to eat today?",
+  "Hôm nay — chưa có giờ chấm": "Today — no punch yet",
   "HĐ K58": "Invoice K58",
   "HĐ K80": "Invoice K80",
   "HĐ bình quân có KM": "Avg invoice with promotion",
@@ -6441,6 +6443,7 @@
   "Trả cho ngày phép chưa nghỉ (nghỉ việc / cuối năm) — cộng vào bảng lương": "Pay for unused leave days (resignation / year-end) — added to payroll",
   "Trả góp": "Installments",
   "Trả góp tối đa": "Maximum installments",
+  "Trả hàng (đã trừ DT)": "Returns (deducted from revenue)",
   "Trả hàng / ": "Return / ",
   "Trả hàng cho NCC: menu «Trả hàng nhập» — giảm tồn, giảm công nợ NCC": "Return goods to supplier: menu «Purchase return» — reduces stock and supplier payable",
   "Trả lương": "Pay salary",
@@ -9147,6 +9150,10 @@
  },
  "t": [
   [
+   "\n    <tr><td>Số đơn hàng</td><td class=\"r\">{0}</td></tr>\n    <tr><td>Tổng doanh thu</td><td class=\"r\">{1}</td></tr>\n    {2}\n    <tr><td>Chiết khấu đơn</td><td class=\"r\">{3}</td></tr>\n    {4}\n    {5}\n    <tr><td>VAT</td><td class=\"r\">{6}</td></tr>\n    {7}\n    {8}\n    <tr><td>Doanh thu ròng</td><td class=\"r\">{9}</td></tr>\n    {10}\n    <tr><td>Trả hàng (đã trừ DT)</td><td class=\"r\">{11}</td></tr>\n    <tr><td>Hóa đơn hủy</td><td class=\"r\">{12} ({13})</td></tr>\n    <tr><td>Tiền mặt</td><td class=\"r\">{14}</td></tr>\n    <tr><td>Ghi nợ</td><td class=\"r\">{15}</td></tr>\n    <tr><td><b>Thực thu</b></td><td class=\"r\"><b>{16}</b></td></tr>\n    <tr><td>Giảm giá dòng hàng</td><td class=\"r\">{17}</td></tr>\n  ",
+   "\n    <tr><td>Orders</td><td class=\"r\">{0}</td></tr>\n    <tr><td>Total revenue</td><td class=\"r\">{1}</td></tr>\n    {2}\n    <tr><td>Order discount</td><td class=\"r\">{3}</td></tr>\n    {4}\n    {5}\n    <tr><td>VAT</td><td class=\"r\">{6}</td></tr>\n    {7}\n    {8}\n    <tr><td>Net revenue</td><td class=\"r\">{9}</td></tr>\n    {10}\n    <tr><td>Returns (deducted from revenue)</td><td class=\"r\">{11}</td></tr>\n    <tr><td>Cancelled invoices</td><td class=\"r\">{12} ({13})</td></tr>\n    <tr><td>Cash</td><td class=\"r\">{14}</td></tr>\n    <tr><td>On credit</td><td class=\"r\">{15}</td></tr>\n    <tr><td><b>Actually received</b></td><td class=\"r\"><b>{16}</b></td></tr>\n    <tr><td>Line discounts</td><td class=\"r\">{17}</td></tr>\n  "
+  ],
+  [
    "\n    <tr><td>Số đơn hàng</td><td class=\"r\">{0}</td></tr>\n    <tr><td>Tổng doanh thu</td><td class=\"r\">{1}</td></tr>\n    {2}\n    <tr><td>Chiết khấu đơn</td><td class=\"r\">{3}</td></tr>\n    {4}\n    {5}\n    <tr><td>VAT</td><td class=\"r\">{6}</td></tr>\n    {7}\n    {8}\n    <tr><td>Doanh thu ròng</td><td class=\"r\">{9}</td></tr>\n    {10}\n    <tr><td>Trả hàng</td><td class=\"r\">{11}</td></tr>\n    <tr><td>Sau trả hàng</td><td class=\"r\">{12}</td></tr>\n    <tr><td>Hóa đơn hủy</td><td class=\"r\">{13} ({14})</td></tr>\n    <tr><td>Tiền mặt</td><td class=\"r\">{15}</td></tr>\n    <tr><td>Ghi nợ</td><td class=\"r\">{16}</td></tr>\n    <tr><td><b>Thực thu</b></td><td class=\"r\"><b>{17}</b></td></tr>\n    <tr><td>Giảm giá dòng hàng</td><td class=\"r\">{18}</td></tr>\n  ",
    "\n    <tr><td>Orders</td><td class=\"r\">{0}</td></tr>\n    <tr><td>Total revenue</td><td class=\"r\">{1}</td></tr>\n    {2}\n    <tr><td>Order discount</td><td class=\"r\">{3}</td></tr>\n    {4}\n    {5}\n    <tr><td>VAT</td><td class=\"r\">{6}</td></tr>\n    {7}\n    {8}\n    <tr><td>Net revenue</td><td class=\"r\">{9}</td></tr>\n    {10}\n    <tr><td>Returns</td><td class=\"r\">{11}</td></tr>\n    <tr><td>After returns</td><td class=\"r\">{12}</td></tr>\n    <tr><td>Cancelled invoices</td><td class=\"r\">{13} ({14})</td></tr>\n    <tr><td>Cash</td><td class=\"r\">{15}</td></tr>\n    <tr><td>On account</td><td class=\"r\">{16}</td></tr>\n    <tr><td><b>Actual receipts</b></td><td class=\"r\"><b>{17}</b></td></tr>\n    <tr><td>Line discount</td><td class=\"r\">{18}</td></tr>\n  "
   ],
@@ -9201,6 +9208,10 @@
   [
    " (thêm {0}, gỡ {1})",
    " (added {0}, removed {1})"
+  ],
+  [
+   " (tối thiểu {0} đ/bộ)",
+   " (min {0} đ/set)"
   ],
   [
    " (tối thiểu {0}đ/bộ)",
@@ -9259,6 +9270,10 @@
    " · code {0}"
   ],
   [
+   " · nợ {0} đ",
+   " · owes {0} đ"
+  ],
+  [
    " · nợ {0}đ",
    " · owes {0}đ"
   ],
@@ -9285,6 +9300,10 @@
   [
    " · âm lịch {0}/{1}",
    " · lunar {0}/{1}"
+  ],
+  [
+   " × {0} đ",
+   " × {0} đ"
   ],
   [
    " × {0}đ",
@@ -9451,6 +9470,14 @@
    "<div style=\"margin-top:2px;font-size:11px\">Discount: {0}</div>"
   ],
   [
+   "= {0} đ > hạn mức {1} đ",
+   "= {0} đ > limit {1} đ"
+  ],
+  [
+   "= {0} đ{1}",
+   "= {0} đ{1}"
+  ],
+  [
    "= {0}đ",
    "= {0}đ"
   ],
@@ -9521,6 +9548,10 @@
   [
    "Backup thất bại: {0}",
    "Backup failed: {0}"
+  ],
+  [
+   "Biên LN: {0}",
+   "Margin: {0}"
   ],
   [
    "Biên LN: {0}%",
@@ -9629,6 +9660,10 @@
   [
    "Bán {0} · về máy chủ {1} (sau {2}) · ",
    "Sold {0} · to server {1} (after {2}) · "
+  ],
+  [
+   "Bán {0} đ → khách tích {1} đ vào ví điểm, lần sau trừ vào đơn mới.",
+   "Spend {0} đ → customer earns {1} đ in the points wallet, deducted from the next order."
   ],
   [
    "Bán {0}đ → khách tích {1}đ vào ví điểm, lần sau trừ vào đơn mới.",
@@ -10087,8 +10122,16 @@
    "By: {0}"
   ],
   [
+   "CL: {0} đ",
+   "Diff: {0} đ"
+  ],
+  [
    "CL: {0}đ",
    "Diff: {0}đ"
+  ],
+  [
+   "COD quá 7 ngày chưa đối soát: {0} đơn · {1} đ",
+   "COD unreconciled over 7 days: {0} orders · {1} đ"
   ],
   [
    "COD quá 7 ngày chưa đối soát: {0} đơn · {1}đ",
@@ -10671,6 +10714,10 @@
    "Pending payment / receipt ({0})"
   ],
   [
+   "Chờ chi {0} đ",
+   "Pending payout {0} đ"
+  ],
+  [
    "Chờ chi {0}đ",
    "Pending payment {0}đ"
   ],
@@ -10823,6 +10870,10 @@
    "Still owed (on account): {0}"
   ],
   [
+   "Còn nợ NCC: {0} đ",
+   "Owed to supplier: {0} đ"
+  ],
+  [
    "Còn nợ NCC: {0}đ",
    "Owed to supplier: {0}đ"
   ],
@@ -10833,6 +10884,10 @@
   [
    "Còn nợ: {0} đ",
    "Owed: {0} đ"
+  ],
+  [
+   "Còn phải thu: {0} đ",
+   "Receivable: {0} đ"
   ],
   [
    "Còn phải thu: {0}đ",
@@ -10943,6 +10998,10 @@
    "Offline selling on {0} days ({1} orders). Tall bars = days with long outages — check the network on those days."
   ],
   [
+   "Có hóa đơn: {0} đ · Không HĐ: {1} đ",
+   "With invoice: {0} đ · Without invoice: {1} đ"
+  ],
+  [
    "Có hóa đơn: {0}đ · Không HĐ: {1}đ",
    "With invoice: {0}đ · Without invoice: {1}đ"
   ],
@@ -11027,6 +11086,10 @@
    "Current balance owed {0}"
   ],
   [
+   "Công nợ hiện tại {0} đ",
+   "Current debt {0} đ"
+  ],
+  [
    "Công nợ hiện tại {0}đ",
    "Current debt {0}đ"
   ],
@@ -11035,8 +11098,16 @@
    "Current debt: {0}"
   ],
   [
+   "Công nợ hiện tại: {0} đ",
+   "Current debt: {0} đ"
+  ],
+  [
    "Công nợ hiện tại: {0}đ",
    "Current debt: {0}đ"
+  ],
+  [
+   "Công nợ {0} đ",
+   "Debt {0} đ"
   ],
   [
    "Công nợ {0}đ",
@@ -11187,12 +11258,24 @@
    "Forfeited customer deposit: {0}"
   ],
   [
+   "Cọc mất (không đến) {0} đ",
+   "Forfeited deposit (no-show) {0} đ"
+  ],
+  [
    "Cọc mất (không đến) {0}đ",
    "Deposit forfeited (no-show) {0}đ"
   ],
   [
    "Cọc {0}",
    "Deposit {0}"
+  ],
+  [
+   "Cọc {0} đ",
+   "Deposit {0} đ"
+  ],
+  [
+   "Cọc {0} đ ({1})",
+   "Deposit {0} đ ({1})"
   ],
   [
    "Cọc {0} đ{1}",
@@ -11205,6 +11288,10 @@
   [
    "Cọc {0}đ ({1})",
    "Deposit {0}đ ({1})"
+  ],
+  [
+   "Cọc đang giữ {0} đ",
+   "Deposit held {0} đ"
   ],
   [
    "Cọc đang giữ {0}đ",
@@ -11317,6 +11404,10 @@
   [
    "DT kèm VC: {0}",
    "Revenue incl. shipping: {0}"
+  ],
+  [
+   "DT {0} m²/bộ · {1} đ/m²{2}",
+   "Area {0} m²/set · {1} đ/m²{2}"
   ],
   [
    "DT {0} m²/bộ · {1}đ/m²{2}",
@@ -11471,6 +11562,10 @@
    "Offline invoice number range issued ({0})"
   ],
   [
+   "Dịch vụ {0} đ",
+   "Services {0} đ"
+  ],
+  [
    "Dịch vụ {0}đ",
    "Services {0}đ"
   ],
@@ -11611,6 +11706,10 @@
    "Price per block ({0} min)"
   ],
   [
+   "Giá 1 bộ: {0} đ{1}",
+   "Price per set: {0} đ{1}"
+  ],
+  [
    "Giá 1 bộ: {0}đ{1}",
    "Price per set: {0}đ{1}"
   ],
@@ -11665,6 +11764,10 @@
   [
    "Giá vốn = {0} × hệ số quy đổi",
    "Cost = {0} × conversion factor"
+  ],
+  [
+   "Giá vốn {0}",
+   "Cost {0}"
   ],
   [
    "Giá vốn: {0}",
@@ -11865,6 +11968,10 @@
   [
    "Gọi điện cho {0}",
    "Call {0}"
+  ],
+  [
+   "Gốc {0} đ",
+   "Original {0} đ"
   ],
   [
    "Gốc {0}đ",
@@ -12367,6 +12474,10 @@
    "Cancel invoice {0}"
   ],
   [
+   "Hủy lần thu {0} đ ngày {1}. Phiếu thu {2} trong sổ quỹ chuyển «Đã hủy».",
+   "Cancel the {0} đ collection on {1}. Receipt voucher {2} in the cash book becomes «Cancelled»."
+  ],
+  [
    "Hủy lần thu {0}đ ngày {1}. Phiếu thu {2} trong sổ quỹ chuyển «Đã hủy».",
    "Cancel the {0}đ collection on {1}. Receipt voucher {2} in the cash book becomes «Canceled»."
   ],
@@ -12575,8 +12686,16 @@
    "Face verified, but other conditions are not met: {0}"
   ],
   [
+   "Khách chưa trả — ghi công nợ toàn bộ {0} đ",
+   "Customer has not paid — record the full {0} đ as debt"
+  ],
+  [
    "Khách chưa trả — ghi công nợ toàn bộ {0}đ",
    "Customer has not paid — the full {0}đ goes on account"
+  ],
+  [
+   "Khách còn nợ {0} đ",
+   "Customer still owes {0} đ"
   ],
   [
    "Khách còn nợ {0}đ",
@@ -12601,6 +12720,10 @@
   [
    "Khách mới ({0})",
    "New customers ({0})"
+  ],
+  [
+   "Khách trả {0} đ ({1}), ghi công nợ {2} đ",
+   "Customer pays {0} đ ({1}), {2} đ recorded as debt"
   ],
   [
    "Khách trả {0}đ ({1}), ghi công nợ {2}đ",
@@ -14031,6 +14154,10 @@
    "Menu items ({0})"
   ],
   [
+   "Món {0} đ",
+   "Items {0} đ"
+  ],
+  [
    "Món {0}đ",
    "Dishes {0}đ"
   ],
@@ -14567,6 +14694,10 @@
    "Debt {0}"
   ],
   [
+   "Nợ {0} đ",
+   "Debt {0} đ"
+  ],
+  [
    "Nợ {0}đ",
    "Owes {0}đ"
   ],
@@ -14867,6 +14998,10 @@
    "Overdue {0} days"
   ],
   [
+   "Quá hạn: {0} đ",
+   "Overdue: {0} đ"
+  ],
+  [
    "Quá hạn: {0}đ",
    "Overdue: {0}đ"
   ],
@@ -15111,12 +15246,24 @@
    "Will be sent at {0} to {1} people"
   ],
   [
+   "Sẽ trừ {0} ngày phép năm. Còn lại: ",
+   "Will deduct {0} days of annual leave. Remaining: "
+  ],
+  [
    "Sẽ trừ {0} ngày phép năm. Còn lại: {1} ngày.",
    "{0} days of annual leave will be deducted. Remaining: {1} days."
   ],
   [
+   "Sẽ tích {0} điểm (mỗi {1} đ → 1 điểm)",
+   "Will earn {0} points (1 point per {1} đ)"
+  ],
+  [
    "Sẽ tích {0} điểm (mỗi {1}đ → 1 điểm)",
    "Will earn {0} points (every {1}đ → 1 point)"
+  ],
+  [
+   "Sẽ tích {0} điểm ≈ {1} đ cho lần mua sau",
+   "Will earn {0} points ≈ {1} đ for the next purchase"
   ],
   [
    "Sẽ tích {0} điểm ≈ {1}đ cho lần mua sau",
@@ -15327,6 +15474,14 @@
    "Avg {0} tickets/employee"
   ],
   [
+   "TB {0} đ/NV",
+   "Avg {0} đ/employee"
+  ],
+  [
+   "TB {0} đ/phiếu",
+   "Avg {0} đ/voucher"
+  ],
+  [
    "TB {0}/chuyến",
    "Avg {0}/trip"
   ],
@@ -15503,6 +15658,10 @@
    "Short {0}"
   ],
   [
+   "Thiếu {0} đ",
+   "Short {0} đ"
+  ],
+  [
    "Thiếu {0}đ",
    "Short {0}đ"
   ],
@@ -15583,12 +15742,20 @@
    "Stock components cover about {0} combos. Selling deducts combo stock and bottle/box stock."
   ],
   [
+   "Thành tiền ({0} × {1})",
+   "Amount ({0} × {1})"
+  ],
+  [
    "Thành tiền ({0} ×{1})",
    "Amount ({0} ×{1})"
   ],
   [
    "Thành tiền tháng: {0} → ",
    "Monthly amount: {0} → "
+  ],
+  [
+   "Thành tiền {0} đ khác hóa đơn {1} đ",
+   "Amount {0} đ differs from invoice {1} đ"
   ],
   [
    "Thành tiền {0}đ khác hóa đơn {1}đ",
@@ -15773,6 +15940,10 @@
   [
    "Thợ quen của khách ({0} lần)",
    "Customer's regular technician ({0} visits)"
+  ],
+  [
+   "Thừa {0} đ",
+   "Excess {0} đ"
   ],
   [
    "Thừa {0}đ",
@@ -16047,6 +16218,10 @@
    "Salary deduction this period {0}"
   ],
   [
+   "Trừ lương {0} đ · Thu tiền mặt {1} đ",
+   "Payroll deduction {0} đ · Cash collected {1} đ"
+  ],
+  [
    "Trừ lương {0}đ · Thu tiền mặt {1}đ",
    "Salary deduction {0}đ · Cash collected {1}đ"
   ],
@@ -16211,6 +16386,10 @@
    "OT {0}m"
   ],
   [
+   "Tăng {0} đ",
+   "Up {0} đ"
+  ],
+  [
    "Tăng {0}đ",
    "Increase {0}đ"
   ],
@@ -16221,6 +16400,10 @@
   [
    "Tạm dừng · {0}",
    "Paused · {0}"
+  ],
+  [
+   "Tạm tính {0} đ",
+   "Subtotal {0} đ"
   ],
   [
    "Tạm tính {0}đ",
@@ -16447,6 +16630,10 @@
    "Opening stock: {0} đ"
   ],
   [
+   "Tồn đầu {0} đ + thu − chi",
+   "Opening {0} đ + income − expense"
+  ],
+  [
    "Tồn đầu {0}đ + thu − chi",
    "Opening {0}đ + income − expense"
   ],
@@ -16495,6 +16682,10 @@
    "Total mandatory: employee {0}% · employer {1}% (excluding union fee)."
   ],
   [
+   "Tổng chi phí: {0} đ",
+   "Total cost: {0} đ"
+  ],
+  [
    "Tổng chi phí: {0}đ",
    "Total cost: {0}đ"
   ],
@@ -16503,8 +16694,16 @@
    "Total difference ({0}): {1}"
   ],
   [
+   "Tổng các đợt = giá trị hợp đồng {0} đ",
+   "Total of installments = contract value {0} đ"
+  ],
+  [
    "Tổng các đợt = giá trị hợp đồng {0}đ",
    "Total of installments = contract value {0}đ"
+  ],
+  [
+   "Tổng các đợt {0} đ — {1} {2} đ so với giá trị HĐ {3} đ",
+   "Installments total {0} đ — {1} {2} đ vs contract value {3} đ"
   ],
   [
    "Tổng các đợt {0}đ — {1} {2}đ so với giá trị HĐ {3}đ",
@@ -16557,6 +16756,10 @@
   [
    "Tổng nợ: {0}",
    "Total debt: {0}"
+  ],
+  [
+   "Tổng phiếu {0} đ khác tổng hóa đơn {1} đ",
+   "Voucher total {0} đ differs from invoice total {1} đ"
   ],
   [
    "Tổng phiếu {0}đ khác tổng hóa đơn {1}đ",
@@ -16641,6 +16844,10 @@
   [
    "Tổng {0} · Đang làm {1} · Quá hạn {2}",
    "Total {0} · In progress {1} · Overdue {2}"
+  ],
+  [
+   "Tổng {0} đ",
+   "Total {0} đ"
   ],
   [
    "Tổng {0}đ",
@@ -16859,6 +17066,10 @@
    "Fingerprint is on the device.\nReceiving the file on the server… ({0}s)"
   ],
   [
+   "Ví dụ đơn {0} đ: tích {1} điểm",
+   "Example: order {0} đ earns {1} points"
+  ],
+  [
    "Ví dụ đơn {0}đ: tích {1} điểm",
    "Example: an order of {0}đ earns {1} points"
   ],
@@ -16879,12 +17090,20 @@
    "Exceeds remaining limit {0}"
   ],
   [
+   "Vượt hạn mức: nợ hiện tại {0} đ + đơn này {1} đ ",
+   "Over limit: current debt {0} đ + this order {1} đ "
+  ],
+  [
    "Vượt hạn mức: nợ hiện tại {0}đ + đơn này {1}đ ",
    "Over the limit: current debt {0}đ + this order {1}đ "
   ],
   [
    "Vượt mức trần — chỉ tính trên {0} ₫.",
    "Over the cap — only {0} ₫ is counted."
+  ],
+  [
+   "Vượt số còn phải thu {0} đ",
+   "Exceeds the receivable {0} đ"
   ],
   [
    "Vượt số còn phải thu {0}đ",
@@ -17275,6 +17494,10 @@
    "Original request: {0}"
   ],
   [
+   "YC ban đầu: {0} đ",
+   "Originally requested: {0} đ"
+  ],
+  [
    "YC ban đầu: {0}đ",
    "Original request: {0}đ"
   ],
@@ -17443,6 +17666,10 @@
    "cost {0}"
   ],
   [
+   "giảm {0} đ",
+   "minus {0} đ"
+  ],
+  [
    "giảm {0}đ",
    "{0}đ off"
   ],
@@ -17471,6 +17698,10 @@
    "stock shrinkage {0}"
   ],
   [
+   "hạn mức {0} đ (còn {1} đ)",
+   "limit {0} đ ({1} đ left)"
+  ],
+  [
    "hạn mức {0}đ (còn {1}đ)",
    "limit {0}đ ({1}đ left)"
   ],
@@ -17489,6 +17720,10 @@
   [
    "khách chấp nhận (khóa sửa báo giá), sau đó {0}.",
    "customer accepts (quote locked for editing), then {0}."
+  ],
+  [
+   "không KM: {0} đ",
+   "no promo: {0} đ"
   ],
   [
    "không KM: {0}đ",
@@ -17605,6 +17840,10 @@
   [
    "tiềm năng {0}/10",
    "potential {0}/10"
+  ],
+  [
+   "trên tổng {0} đ",
+   "of total {0} đ"
   ],
   [
    "trên tổng {0}đ",
@@ -17827,12 +18066,20 @@
    "{0} / {1} · {2} left ({3}%)"
   ],
   [
+   "{0} > {1} · {2} đ",
+   "{0} > {1} · {2} đ"
+  ],
+  [
    "{0} > {1} · {2}đ",
    "{0} > {1} · {2}đ"
   ],
   [
    "{0} Có thể thiếu ngày cuối tháng — thu hẹp thiết bị hoặc khoảng ngày.",
    "{0} End-of-month days may be missing — narrow the devices or date range."
+  ],
+  [
+   "{0} HS · ứng {1} đ",
+   "{0} profiles · advance {1} đ"
   ],
   [
    "{0} HS · ứng {1}đ",
@@ -18207,8 +18454,16 @@
    "{0} invoices · tap to open the voucher"
   ],
   [
+   "{0} hóa đơn · doanh thu {1} đ · bình quân {2} đ/HĐ · giảm {3}% giá trị hàng",
+   "{0} invoices · revenue {1} đ · average {2} đ/invoice · {3}% off goods value"
+  ],
+  [
    "{0} hóa đơn · doanh thu {1}đ · bình quân {2}đ/HĐ · giảm {3}% giá trị hàng",
    "{0} invoices · revenue {1}đ · avg {2}đ/invoice · {3}% off goods value"
+  ],
+  [
+   "{0} hóa đơn · tổng giảm {1} đ",
+   "{0} invoices · total discount {1} đ"
   ],
   [
    "{0} hóa đơn · tổng giảm {1}đ",
@@ -18265,6 +18520,10 @@
   [
    "{0} khách",
    "{0} guests"
+  ],
+  [
+   "{0} khách + khách lẻ",
+   "{0} customers + walk-in"
   ],
   [
    "{0} khách mới",
@@ -18397,6 +18656,10 @@
   [
    "{0} lần ứng",
    "{0} advances"
+  ],
+  [
+   "{0} lần ứng · chờ chi {1} đ",
+   "{0} advances · pending payout {1} đ"
   ],
   [
    "{0} lần ứng · chờ chi {1}đ",
@@ -18603,6 +18866,10 @@
    "{0} products · {1} units"
   ],
   [
+   "{0} mặt hàng · ~{1} đ",
+   "{0} items · ~{1} đ"
+  ],
+  [
    "{0} mặt hàng · ~{1}đ",
    "{0} products · ~{1}đ"
   ],
@@ -18701,6 +18968,10 @@
   [
    "{0} ngày · còn {1}",
    "{0} days · {1} left"
+  ],
+  [
+   "{0} ngày.",
+   "{0} days."
   ],
   [
    "{0} ngày{1}",
@@ -18911,6 +19182,10 @@
    "{0} vouchers — go to Stock → Purchase receipts to check and complete"
   ],
   [
+   "{0} phiếu • {1} đ",
+   "{0} vouchers • {1} đ"
+  ],
+  [
    "{0} phiếu • {1}đ",
    "{0} vouchers • {1}đ"
   ],
@@ -18945,6 +19220,10 @@
   [
    "{0} phần · ~{1} / ly",
    "{0} portions · ~{1} / cup"
+  ],
+  [
+   "{0} phần · ≈{1} / ly",
+   "{0} portions · ≈{1} / cup"
   ],
   [
    "{0} phụ cấp theo ca",
@@ -19259,6 +19538,10 @@
    "{0} · {1}-day trial · {2}"
   ],
   [
+   "{0} · SL {1} · DT {2} · biên {3}",
+   "{0} · Qty {1} · Rev {2} · margin {3}"
+  ],
+  [
    "{0} · SL {1} · DT {2} · biên {3}%",
    "{0} · Qty {1} · Revenue {2} · margin {3}%"
   ],
@@ -19463,6 +19746,10 @@
    "{0} · {1} · {2} tickets"
   ],
   [
+   "{0} · {1} · {2} đ",
+   "{0} · {1} · {2} đ"
+  ],
+  [
    "{0} · {1} · {2}đ",
    "{0} · {1} · {2}đ"
   ],
@@ -19473,6 +19760,10 @@
   [
    "{0} · {1} điểm",
    "{0} · {1} points"
+  ],
+  [
+   "{0} · {1} đ{2}",
+   "{0} · {1} đ{2}"
   ],
   [
    "{0} · {1} đã hết ",
@@ -19559,8 +19850,36 @@
    "{0} đ"
   ],
   [
+   "{0} đ chi phí",
+   "{0} đ in costs"
+  ],
+  [
+   "{0} đ | {1}",
+   "{0} đ | {1}"
+  ],
+  [
    "{0} đ · {1}",
    "{0} đ · {1}"
+  ],
+  [
+   "{0} đ · {1} HĐ",
+   "{0} đ · {1} invoices"
+  ],
+  [
+   "{0} đ · {1} món",
+   "{0} đ · {1} items"
+  ],
+  [
+   "{0} đ · {1} · {2}",
+   "{0} đ · {1} · {2}"
+  ],
+  [
+   "{0} đ · {1}/{2} {3}",
+   "{0} đ · {1}/{2} {3}"
+  ],
+  [
+   "{0} đ đang chờ",
+   "{0} đ pending"
   ],
   [
    "{0} đ — {1}",
@@ -19727,6 +20046,10 @@
    "{0} orders · avg {1}"
   ],
   [
+   "{0} đơn · biên {1}",
+   "{0} orders · margin {1}"
+  ],
+  [
    "{0} đơn · biên {1}%",
    "{0} orders · margin {1}%"
   ],
@@ -19877,6 +20200,10 @@
   [
    "{0} → {1} · {2} ngày{3}",
    "{0} → {1} · {2} days{3}"
+  ],
+  [
+   "{0}% (≈ {1} đ)",
+   "{0}% (≈ {1} đ)"
   ],
   [
    "{0}% (≈ {1}đ)",
@@ -20115,6 +20442,10 @@
    "{0}: {1} invoices · {2}"
   ],
   [
+   "{0}: {1} HĐ · −{2} đ",
+   "{0}: {1} invoices · −{2} đ"
+  ],
+  [
    "{0}: {1} HĐ · −{2}đ",
    "{0}: {1} invoices · −{2}đ"
   ],
@@ -20137,6 +20468,14 @@
   [
    "{0}: {1} suất",
    "{0}: {1} portions"
+  ],
+  [
+   "{0}: {1} đ",
+   "{0}: {1} đ"
+  ],
+  [
+   "{0}: {1} đ (phiếu thu nợ kèm đơn {2})",
+   "{0}: {1} đ (debt receipt with order {2})"
   ],
   [
    "{0}: {1}/{2} ly có topping ({3})",
@@ -20677,6 +21016,10 @@
   [
    "Đã check-in · cách địa điểm {0} m",
    "Checked in · {0} m from the location"
+  ],
+  [
+   "Đã chi {0} đ · Chờ chi {1} đ",
+   "Paid out {0} đ · Pending {1} đ"
   ],
   [
    "Đã chi {0}đ · Chờ chi {1}đ",
@@ -21395,6 +21738,14 @@
    "Set: {0}"
   ],
   [
+   "Đã thu cọc {0} đ. ",
+   "Deposit collected {0} đ. "
+  ],
+  [
+   "Đã thu cọc {0} đ. Hoàn hay mất cọc?",
+   "Deposit collected {0} đ. Refund or forfeit the deposit?"
+  ],
+  [
    "Đã thu cọc {0}đ. ",
    "Deposit of {0}đ collected. "
   ],
@@ -21473,6 +21824,10 @@
   [
    "Đã trả {0} / {1}",
    "Paid {0} / {1}"
+  ],
+  [
+   "Đã trả {0} đ",
+   "Paid {0} đ"
   ],
   [
    "Đã trả {0}đ",
@@ -21931,6 +22286,10 @@
    "Order not linked to {0}"
   ],
   [
+   "Đơn còn thiếu {0} đ — chọn khách hàng để ghi công nợ (khách lẻ không ghi nợ được).",
+   "Order is short {0} đ — choose a customer to record debt (walk-in customers cannot owe)."
+  ],
+  [
    "Đơn còn thiếu {0}đ — chọn khách hàng để ghi công nợ (khách lẻ không ghi nợ được).",
    "Order is short by {0}đ — choose a customer to record the debt (walk-in customers cannot owe)."
   ],
@@ -22063,6 +22422,10 @@
    "Agent: {0}"
   ],
   [
+   "Đầu {0}",
+   "Opening {0}"
+  ],
+  [
    "Đầu {0} · +{1} · −{2}",
    "Opening {0} · +{1} · −{2}"
   ],
@@ -22097,6 +22460,10 @@
   [
    "Đếm {0} · {1}",
    "Counted {0} · {1}"
+  ],
+  [
+   "Đếm {0} đ − kỳ vọng {1} đ",
+   "Counted {0} đ − expected {1} đ"
   ],
   [
    "Đếm {0}đ − kỳ vọng {1}đ",
@@ -22209,6 +22576,10 @@
   [
    "Đổi {0} điểm",
    "Redeem {0} points"
+  ],
+  [
+   "Đổi điểm (có {0} · 1đ = {1} đ)",
+   "Redeem points (have {0} · 1 pt = {1} đ)"
   ],
   [
    "Đổi điểm (có {0} · 1đ = {1}đ)",
@@ -22375,6 +22746,10 @@
    "Advance: {0} · Settled: {1}"
   ],
   [
+   "Ứng: {0} đ",
+   "Advance: {0} đ"
+  ],
+  [
    "Ứng: {0}đ",
    "Advance: {0}đ"
   ],
@@ -22425,6 +22800,10 @@
   [
    "− {0} (còn xin được {1})",
    "− {0} ({1} more can be requested)"
+  ],
+  [
+   "−{0} đ",
+   "−{0} đ"
   ],
   [
    "−{0}đ",

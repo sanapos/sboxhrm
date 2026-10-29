@@ -1729,24 +1729,32 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       child: Container(
         decoration: PosTheme.mobileCardDecoration(),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        // Tổng tiền trên, số HĐ / đã trả dưới — cùng một hàng thì tổng tỷ đồng đẩy «7130 HĐ · Trả …» thành «7130 H…».
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                tr('$_total HĐ${returnedTotal > 0 ? ' · Trả ${_moneyFmt.format(returnedTotal)} đ' : ''}'),
-                style: const TextStyle(
-                    fontSize: 12, color: PosTheme.textSecondary),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Text(
-              // Cùng kiểu «… đ» với tổng ngày và từng hóa đơn bên dưới.
-              '${_moneyFmt.format(totalAmount)} đ',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: PosTheme.kiotBlue,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    // Cùng kiểu «… đ» với tổng ngày và từng hóa đơn bên dưới.
+                    '${_moneyFmt.format(totalAmount)} đ',
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: PosTheme.kiotBlue,
+                    ),
+                  ),
+                  Text(
+                    tr('$_total HĐ${returnedTotal > 0 ? ' · Trả ${_moneyFmt.format(returnedTotal)} đ' : ''}'),
+                    style: const TextStyle(
+                        fontSize: 12, color: PosTheme.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 10),
@@ -2331,23 +2339,30 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 ],
               ),
               const SizedBox(height: 4),
-              // Dòng 2: mã đơn trái · trạng thái (dưới tổng tiền) phải
+              // Dòng 2: mã đơn trái · trạng thái (dưới tổng tiền) phải. Mã đơn luôn đủ chữ — chip
+              // «Hoàn thành» + «Trả một phần · … đ» thu nhỏ lại thay vì cắt mã thành «HD291020260…».
               Row(
                 children: [
+                  Text(
+                    tr(o.orderNo),
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: PosTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      tr(o.orderNo),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: PosTheme.textPrimary,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: posSaleOrderStatusChip(o.status,
+                            returnStatus: o.returnStatus, returnedAmount: o.returnedAmount),
                       ),
                     ),
                   ),
-                  posSaleOrderStatusChip(o.status,
-                      returnStatus: o.returnStatus, returnedAmount: o.returnedAmount),
                 ],
               ),
               const SizedBox(height: 2),

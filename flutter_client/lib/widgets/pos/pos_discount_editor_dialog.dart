@@ -53,6 +53,11 @@ List<int> posDiscountMoneyPresetsForAmount(double baseAmount) {
   }
   picked.add(max);
 
+  // Thừa ô: bỏ bớt mức % lẻ (15%, 25%…) trước — lấy mẫu đều làm rơi mất mức tròn như 10k.
+  for (final v in picked.toList().reversed) {
+    if (picked.length <= 9) break;
+    if (v != max && !nice.contains(v)) picked.remove(v);
+  }
   final sorted = picked.toList()..sort();
   if (sorted.length <= 9) return sorted;
 
