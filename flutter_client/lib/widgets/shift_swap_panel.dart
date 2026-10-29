@@ -151,7 +151,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
               style: TextStyle(color: SboxColors.slate600),
             ),
             const SizedBox(height: 8),
-            Text(tr('Mở menu góc phải → Yêu cầu đổi ca'),
+            Text(tr('Bấm «Yêu cầu đổi ca» để gửi yêu cầu'),
               style: TextStyle(fontSize: 12, color: SboxColors.slate500),
             ),
           ],
