@@ -2187,7 +2187,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     if (isMobile) {
       return SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(10),
+        // Chừa chỗ FAB «Thao tác»: trước che mất «Trang 1 / 1» và nút trang sau.
+        padding: Responsive.fabListInsets(context, base: const EdgeInsets.all(10)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

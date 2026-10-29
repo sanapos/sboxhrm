@@ -443,7 +443,14 @@ class _PayslipScreenState extends State<PayslipScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextButton(onPressed: _resetFilters, child: Text(tr('Xóa lọc'))),
+            // Chỉ hiện khi đang lọc — trước «Xóa lọc» luôn hiện dù chưa chọn gì.
+            if (_filterYear != null ||
+                _filterMonth != null ||
+                _filterEmployeeUserId != null ||
+                _filterDepartment != null ||
+                _filterFromDate != null ||
+                _filterToDate != null)
+              TextButton(onPressed: _resetFilters, child: Text(tr('Xóa lọc'))),
             Icon(
               _filtersExpanded ? Icons.expand_less : Icons.expand_more,
               color: SboxColors.slate600,

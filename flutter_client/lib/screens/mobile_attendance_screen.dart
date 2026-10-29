@@ -29,6 +29,7 @@ import '../widgets/notification_overlay.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'mobile_attendance_history_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_locale.dart';
 
 import '../theme/sbox_tokens.dart';
 class MobileAttendanceScreen extends StatefulWidget {
@@ -1806,7 +1807,6 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     final nextPunchType = _getNextPunchType();
     final isCheckIn = nextPunchType == 0;
     final needsFaceScan = _needsFaceScanOnPunch;
-    const weekdays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
     final List<Color> activeGradient = isCheckIn
         ? [SboxColors.brand500, HrmPageChrome.chipMid]
@@ -1882,7 +1882,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
-                      tr('${weekdays[now.weekday % 7]}, ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}'),
+                      tr('${AppLocale.weekdayShort(now.weekday)}, ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}'),
                       style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -2522,7 +2522,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                             : 'Trong phạm vi')
                         : (_allowOutsideCheckIn
                             ? 'Chưa có GPS'
-                            : 'Ngoài phạm vi')),
+                            // Cửa hàng chưa khai vị trí: trước hiện «Ngoài phạm vi» trống, không rõ lý do.
+                            : !_workLocations.any((l) => l.isActive)
+                                ? 'Chưa có vị trí'
+                                : 'Ngoài phạm vi')),
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,

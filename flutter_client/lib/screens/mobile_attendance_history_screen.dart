@@ -8,6 +8,7 @@ import '../widgets/punch_photo_preview.dart';
 import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_locale.dart';
 
 import '../theme/sbox_tokens.dart';
 class MobileAttendanceHistoryScreen extends StatefulWidget {
@@ -31,11 +32,36 @@ class _MobileAttendanceHistoryScreenState
   String? _statusFilter;
   bool _isLoading = false;
   bool _showOverviewPanel = true;
+  final ScrollController _dayStripCtrl = ScrollController();
+
+  /// Ô ngày: rộng 50 + lề 4×2.
+  static const double _dayItemExtent = 58;
 
   @override
   void initState() {
     super.initState();
     _loadRecords();
+    _scrollDayStripToToday();
+  }
+
+  @override
+  void dispose() {
+    _dayStripCtrl.dispose();
+    super.dispose();
+  }
+
+  /// Trước dải ngày luôn mở ở ngày 1 — cuối tháng phải vuốt mới thấy hôm nay.
+  void _scrollDayStripToToday() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_dayStripCtrl.hasClients) return;
+      final now = DateTime.now();
+      final pos = _dayStripCtrl.position;
+      double target = 0;
+      if (_selectedMonth.year == now.year && _selectedMonth.month == now.month) {
+        target = 12 + (now.day - 1) * _dayItemExtent - (pos.viewportDimension - _dayItemExtent) / 2;
+      }
+      _dayStripCtrl.jumpTo(target.clamp(0, pos.maxScrollExtent));
+    });
   }
 
   Future<void> _loadRecords() async {
@@ -103,6 +129,7 @@ class _MobileAttendanceHistoryScreenState
       _currentPage = 1;
     });
     _loadRecords();
+    _scrollDayStripToToday();
   }
 
   @override
@@ -168,12 +195,6 @@ class _MobileAttendanceHistoryScreenState
   }
 
   Widget _buildMonthSelector() {
-    final months = [
-      'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4',
-      'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8',
-      'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
-    ];
-    
     return Container(
       padding: const EdgeInsets.all(16),
       color: Colors.white,
@@ -193,7 +214,7 @@ class _MobileAttendanceHistoryScreenState
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                tr('${months[_selectedMonth.month - 1]} ${_selectedMonth.year}'),
+                AppLocale.monthYear(_selectedMonth.year, _selectedMonth.month),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -219,6 +240,7 @@ class _MobileAttendanceHistoryScreenState
       height: 90,
       color: Colors.white,
       child: ListView.builder(
+        controller: _dayStripCtrl,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         itemCount: daysInMonth,
@@ -235,8 +257,6 @@ class _MobileAttendanceHistoryScreenState
               r.punchTime.day == date.day &&
               r.punchTime.month == date.month &&
               r.punchTime.year == date.year);
-          
-          final weekdays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
           
           return GestureDetector(
             onTap: () {
@@ -263,7 +283,7 @@ class _MobileAttendanceHistoryScreenState
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    tr(weekdays[date.weekday - 1]),
+                    AppLocale.weekdayShort(date.weekday),
                     style: TextStyle(
                       fontSize: 11,
                       color: isSelected
@@ -738,6 +758,7 @@ class _MobileAttendanceHistoryScreenState
         _selectedDate = null;
       });
       _loadRecords();
+      _scrollDayStripToToday();
     }
   }
 

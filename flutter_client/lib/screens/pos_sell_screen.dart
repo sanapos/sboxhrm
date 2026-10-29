@@ -3067,7 +3067,8 @@ class _PosSellScreenState extends State<PosSellScreen>
             _tab.cart.any((l) => l.product.productType != PosProductType.service)
         ? 'mục'
         : _sellProfile.lineUnit;
-    return '$c $unit';
+    // Dịch riêng đơn vị: chuỗi ghép «3 hàng» không khớp mẫu dịch → ko/ja/zh hiện «합계 (3 hàng)».
+    return '$c ${tr(unit)}';
   }
 
   /// true = đang xem sơ đồ (chưa vào bàn).

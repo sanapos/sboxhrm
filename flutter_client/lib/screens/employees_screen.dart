@@ -4228,11 +4228,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       child: OutlinedButton.icon(
                         onPressed: openCareer,
                         icon: const Icon(Icons.work_history_outlined, size: 18),
-                        label: Text(tr('Quá trình CT')),
+                        // Một dòng: trước xuống 2 dòng, nút cao lệch với «Gọi» / «Đóng».
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(tr('Quá trình CT'), maxLines: 1),
+                        ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF0369A1),
                           side: const BorderSide(color: Color(0xFF0369A1)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                         ),
                       ),
                     ),
@@ -4383,6 +4387,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          // Nhãn dài («Trình độ học vấn») trước dính sát giá trị.
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               tr(value),
