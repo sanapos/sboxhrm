@@ -70,6 +70,9 @@ public sealed class TingeePaymentWebhookProvider : IPaymentWebhookProvider
             var externalOrderId = ExtractOrderIdFromContent(content)
                 ?? GetAdditionalData(root, "billId")
                 ?? GetAdditionalData(root, "orderId");
+            // type: credit (ghi có, mặc định khi thiếu) | debit (ghi nợ = tiền ra).
+            var isDebit = string.Equals(GetString(root, "type", "Type")?.Trim(), "debit",
+                StringComparison.OrdinalIgnoreCase);
 
             return new PaymentWebhookPayload(
                 IsSuccess: !string.IsNullOrWhiteSpace(txnCode),
@@ -82,7 +85,8 @@ public sealed class TingeePaymentWebhookProvider : IPaymentWebhookProvider
                 Amount: amount,
                 TransactionAt: ParseTxnDate(GetString(root, "transactionDate", "TransactionDate")),
                 RawJson: rawBody,
-                ErrorMessage: string.IsNullOrWhiteSpace(txnCode) ? "Missing transactionCode" : null);
+                ErrorMessage: string.IsNullOrWhiteSpace(txnCode) ? "Missing transactionCode" : null,
+                IsDebit: isDebit);
         }
         catch (Exception ex)
         {

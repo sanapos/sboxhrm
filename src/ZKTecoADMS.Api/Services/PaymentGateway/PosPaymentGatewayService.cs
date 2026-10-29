@@ -295,6 +295,16 @@ public sealed class PosPaymentGatewayService(
             CreatedBy = "webhook",
         };
 
+        // Tiền ra khỏi tài khoản: chỉ lưu vết, không khớp đơn/gói. Trả 00 để Tingee không gửi lại.
+        if (payload.IsDebit)
+        {
+            audit.EventType = "debit_ignored";
+            audit.ResultCode = "00";
+            db.PosPaymentWebhookEvents.Add(audit);
+            await db.SaveChangesAsync(ct);
+            return new WebhookProcessResult("00", "Debit transaction ignored", false, null, null, null, null);
+        }
+
         if (!payload.IsSuccess || string.IsNullOrWhiteSpace(payload.TransactionCode))
         {
             audit.SignatureValid = false;

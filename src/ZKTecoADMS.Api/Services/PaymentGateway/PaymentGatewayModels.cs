@@ -13,7 +13,9 @@ public sealed record PaymentWebhookPayload(
     decimal? Amount,
     DateTime? TransactionAt,
     string? RawJson,
-    string? ErrorMessage);
+    string? ErrorMessage,
+    // Giao dịch tiền ra (Tingee type=debit) — không phải khoản thu, không được khớp đơn.
+    bool IsDebit = false);
 
 public sealed record WebhookProcessResult(
     string ResponseCode,
