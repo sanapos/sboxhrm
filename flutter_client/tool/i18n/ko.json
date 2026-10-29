@@ -253,6 +253,7 @@
   "1. Lấy Token tại khachhang.giaohangtietkiem.vn → Cấu hình API.\n": "1. khachhang.giaohangtietkiem.vn → API 설정에서 토큰을 받으세요.\n",
   "1. Mở sheet MauChamCong (hoặc ChamCong).": "1. MauChamCong(또는 ChamCong) 시트를 엽니다.",
   "1. Thiết bị": "1. 단말기",
+  "1. Thiết bị chưa đăng ký": "1. 등록되지 않은 기기",
   "1. Tạo và thiết lập ca": "1. 근무조 생성 및 설정",
   "1. Tạo yêu cầu: chọn ca của bạn, đồng nghiệp và ca/ngày muốn đổi": "1. 요청 작성: 내 근무조, 동료, 바꾸고 싶은 근무조/날짜를 선택합니다",
   "1. Tạo yêu cầu: chọn ca của bạn, đồng nghiệp và ca/ngày muốn đổi.": "1. 요청 작성: 내 근무조, 동료, 바꾸고 싶은 근무조/날짜를 선택합니다.",
@@ -2598,6 +2599,7 @@
   "Chưa gửi thông báo nào cho nhân viên.": "직원에게 보낸 알림이 없습니다.",
   "Chưa gửi về máy chủ": "서버로 아직 전송되지 않음",
   "Chưa gửi vị trí hôm nay": "오늘 위치를 아직 전송하지 않았습니다",
+  "Chưa gửi được": "아직 보내지 못했습니다",
   "Chưa hoàn tất": "미완료",
   "Chưa hoàn tất đăng ký tài khoản": "계정 가입이 완료되지 않았습니다",
   "Chưa hủy món": "메뉴를 취소하지 않았습니다",
@@ -2632,6 +2634,7 @@
   "Chưa lưu được ghi chú": "메모를 저장하지 못했습니다",
   "Chưa lưu được mẫu": "템플릿을 저장하지 못했습니다",
   "Chưa lưu được đơn": "주문을 저장하지 못했습니다",
+  "Chưa lưu được đơn lên máy chủ — kiểm tra kết nối rồi thử lại.": "주문을 서버에 저장하지 못했습니다 — 연결을 확인한 후 다시 시도하세요.",
   "Chưa lọc": "필터 없음",
   "Chưa mua": "미구매",
   "Chưa mua sản phẩm nào": "구매한 상품이 없습니다",
@@ -3361,6 +3364,7 @@
   "Chọn sản phẩm": "상품 선택",
   "Chọn sản phẩm (hoặc nhóm / Tất cả) rồi bấm Gán / Chuyển": "상품(또는 그룹 / 전체)을 선택한 뒤 배정 / 이동을 누르세요",
   "Chọn sản phẩm rồi bấm Gán": "상품을 선택한 후 지정을 누르세요",
+  "Chọn sản phẩm và nhập số lượng": "제품을 선택하고 수량을 입력하세요",
   "Chọn sản phẩm, nhóm hàng hoặc \"Tất cả\"": "상품, 상품 분류 또는 \"전체\" 선택",
   "Chọn sổ và kỳ dữ liệu để xem chi tiết trên màn hình.": "장부와 기간을 선택하면 화면에서 상세 내용을 볼 수 있습니다.",
   "Chọn thiết bị *": "단말기 선택 *",
@@ -3954,6 +3958,7 @@
   "Có đính kèm": "첨부 있음",
   "Có đóng BHXH": "사회보험 가입",
   "Có đơn QR cần xác nhận trước khi in bếp": "주방 인쇄 전에 확인이 필요한 QR 주문이 있습니다",
+  "Có đơn cần thanh toán": "결제 대기 주문이 있습니다",
   "Có đơn nào đang chờ tôi duyệt?": "내 승인을 기다리는 신청이 있나요?",
   "Có đơn đặt hàng online. Gọi lại khách để xác nhận.": "온라인 주문이 있습니다. 고객에게 다시 전화해 확인하세요.",
   "Có ảnh": "사진 있음",
@@ -4204,6 +4209,7 @@
   "Cần quyền vị trí để lấy MAC WiFi": "WiFi MAC을 가져오려면 위치 권한이 필요합니다",
   "Cần quyền «Sửa giá khi bán» hoặc «Giảm giá khi bán» — nhờ quản lý tick trong Phân quyền": "«판매 시 가격 수정» 또는 «판매 시 할인» 권한이 필요합니다 — 관리자에게 권한 설정에서 체크해 달라고 요청하세요",
   "Cần quản lý duyệt": "관리자 승인이 필요합니다",
+  "Cần quản lý duyệt: hủy món đã gửi bếp — tài khoản chưa có quyền «Hủy món đã gửi bếp».": "관리자 승인 필요: 주방에 보낸 메뉴 취소 — 이 계정에는 «주방에 보낸 메뉴 취소» 권한이 없습니다.",
   "Cần số VA Tingee khớp tài khoản ngân hàng trước khi mua token.": "토큰을 구매하기 전에 은행 계좌와 일치하는 Tingee VA 번호가 필요합니다.",
   "Cần sửa kỹ thuật": "기술 수리 필요",
   "Cần thu hồi gấp": "긴급 회수 필요",
@@ -5677,6 +5683,7 @@
   "Gửi phản hồi cho nhà phát triển": "개발자에게 피드백 보내기",
   "Gửi phản ánh / Ý kiến": "접수 / 의견 보내기",
   "Gửi push thông báo tới app khi cần đọc ngay": "즉시 읽어야 할 때 앱으로 푸시 알림 보내기",
+  "Gửi thu ngân": "계산원에게 보내기",
   "Gửi thông báo": "알림 보내기",
   "Gửi thông báo cho nhân viên": "직원에게 알림 보내기",
   "Gửi thông báo nhắc nhở đăng ký lịch đến": "일정 등록 리마인더 알림을 다음 대상에게 보내기:",
@@ -7892,6 +7899,7 @@
   "Không tạo được Word": "Word를 생성할 수 없습니다",
   "Không tạo được bản in": "인쇄본을 생성할 수 없습니다",
   "Không tạo được bảng báo giá": "견적서 표를 생성할 수 없습니다",
+  "Không tạo được chu kỳ": "기간을 생성할 수 없습니다",
   "Không tạo được chứng từ dư ứng": "초과 가불 증빙을 생성할 수 없습니다",
   "Không tạo được file": "파일을 생성할 수 없습니다",
   "Không tạo được file Excel hợp lệ.": "유효한 Excel 파일을 생성할 수 없습니다.",
@@ -9597,6 +9605,7 @@
   "Máy thu ngân A6 / A7 & app nào dùng": "A6 / A7 계산대 기기 및 사용하는 앱",
   "Máy thu ngân phải đang mở bán hàng (để đẩy hóa đơn).": "계산대 기기는 판매 화면이 열려 있어야 합니다 (영수증 전송을 위해).",
   "Máy thu ngân phải đang mở bán hàng (để đẩy hóa đơn). ": "계산대 기기에서 판매 화면이 열려 있어야 합니다(영수증 전송). ",
+  "Máy thu ngân đã nhận yêu cầu tính tiền.": "계산대 기기가 결제 요청을 받았습니다.",
   "Máy trả về mã lỗi": "기기가 오류 코드를 반환했습니다",
   "Máy tính bảng / máy POS cắm với máy in; máy khác gửi phiếu in qua máy này.": "태블릿 / POS 기기를 프린터에 연결해 두면 다른 기기가 이 기기를 통해 전표를 인쇄합니다.",
   "Máy tự xuất hiện trong danh sách bên dưới sau ít phút.": "기기는 잠시 후 아래 목록에 자동으로 나타납니다.",
@@ -11312,6 +11321,7 @@
   "Nút «Lưu phân loại» chỉ lưu bảng gán máy in ↔ chứng từ trên máy chủ.": "«분류 저장» 버튼은 프린터 ↔ 전표 지정 표만 서버에 저장합니다.",
   "Nút «Xuất HĐĐT» bật sẵn, thu ngân vẫn tắt được": "«전자세금계산서 발행» 버튼이 기본으로 켜져 있으며 계산원이 끌 수 있습니다",
   "Năm": "연도",
+  "Năm không hợp lệ": "연도가 올바르지 않습니다",
   "Năm nay": "올해",
   "Năm nay (âm lịch)": "올해 (음력)",
   "Năm sau": "내년",
@@ -12790,6 +12800,7 @@
   "Số tiền cộng thêm": "추가 금액",
   "Số tiền duyệt": "승인 금액",
   "Số tiền duyệt *": "승인 금액 *",
+  "Số tiền duyệt không được vượt số tiền xin ứng": "승인 금액은 신청한 가불 금액을 초과할 수 없습니다",
   "Số tiền duyệt phải lớn hơn 0": "승인 금액은 0보다 커야 합니다",
   "Số tiền dòng chi phải lớn hơn 0": "지출 항목 금액은 0보다 커야 합니다",
   "Số tiền giảm": "할인 금액",
@@ -13726,6 +13737,7 @@
   "Tháng nguồn:": "원본 월:",
   "Tháng này": "이번 달",
   "Tháng này (âm lịch)": "이번 달 (음력)",
+  "Tháng phải từ 1 đến 12": "월은 1에서 12 사이여야 합니다",
   "Tháng sau": "다음 달",
   "Tháng trước": "지난달",
   "Tháng trước (âm lịch)": "지난달 (음력)",
@@ -14820,6 +14832,7 @@
   "Tài khoản / SĐT Viettel Post": "Viettel Post 계정 / 전화번호",
   "Tài khoản API": "API 계정",
   "Tài khoản Easy Invoice": "Easy Invoice 계정",
+  "Tài khoản Order chỉ tạm tính — bấm «Gửi thu ngân» để thu ngân tính tiền.": "주문 계정은 소계만 계산합니다 — «계산대로 보내기»를 눌러 계산대에서 결제하세요.",
   "Tài khoản Order chỉ tạm tính — cần tài khoản Thu ngân để thanh toán": "주문 계정은 임시 계산만 가능합니다 — 결제하려면 캐셔 계정이 필요합니다",
   "Tài khoản VietQR": "VietQR 계좌",
   "Tài khoản Viettel SInvoice": "Viettel SInvoice 계정",
@@ -19324,6 +19337,7 @@
   "Đã gửi qua Bluetooth. Gateway đang vào WiFi nhà — ": "블루투스로 전송했습니다. 게이트웨이가 집 WiFi에 연결 중입니다 — ",
   "Đã gửi tem QR": "QR 라벨 전송됨",
   "Đã gửi tem mẫu": "샘플 라벨을 전송했습니다",
+  "Đã gửi thu ngân": "계산대로 보냄",
   "Đã gửi thông báo": "알림을 보냈습니다",
   "Đã gửi thông báo kêu gọi đăng ký": "등록 독려 알림 전송됨",
   "Đã gửi thông báo thử": "테스트 알림 전송됨",
@@ -20266,6 +20280,7 @@
   "Được duyệt": "승인됨",
   "Được hưởng": "적용 대상",
   "Được hưởng đủ phép cả năm": "연간 휴가 전체 적용",
+  "Được hủy": "취소 가능",
   "Được sửa / điền:": "수정 / 입력 가능:",
   "Đại diện cửa hàng": "매장 대표",
   "Đại diện khách hàng": "고객 대표",
@@ -20367,6 +20382,7 @@
   "Đến hạn hôm nay": "오늘 기한 도래",
   "Đến kho": "입고 창고",
   "Đến ngày": "종료일",
+  "Đến ngày phải sau hoặc bằng Từ ngày": "종료일은 시작일과 같거나 이후여야 합니다",
   "Đến điểm": "도착 지점",
   "Đến điểm làm": "근무지 도착",
   "Đến điểm làm thành công!": "근무지에 도착했습니다!",
@@ -21173,6 +21189,7 @@
   "→ vượt": "→ 초과",
   "↳ Giảm giá / chiết khấu khi bán": "↳ 판매 시 할인 / 에누리",
   "↳ Hủy hóa đơn đã thu": "↳ 수납된 영수증 취소",
+  "↳ Hủy món đã gửi bếp": "↳ 주방에 보낸 메뉴 취소",
   "↳ PT · Khách của tôi & lịch tập": "↳ PT · 내 고객 및 운동 일정",
   "↳ Sửa giá khi bán": "↳ 판매 시 가격 수정",
   "↳ Xem giá vốn & lợi nhuận": "↳ 원가 및 이익 보기",
@@ -27088,6 +27105,10 @@
    "배달비 {0}"
   ],
   [
+   "Phòng ban \"{0}\" đã có ở cấp này",
+   "부서 \"{0}\"이(가) 이 단계에 이미 있습니다"
+  ],
+  [
    "Phòng ban còn {0} phòng con. Chuyển hoặc xóa phòng con trước.",
    "이 부서에 하위 부서가 {0}개 있습니다. 먼저 하위 부서를 이동하거나 삭제하세요."
   ],
@@ -28406,6 +28427,10 @@
   [
    "Trừ lương kỳ này {0}",
    "이번 기간 급여 공제 {0}"
+  ],
+  [
+   "Trừ lương kỳ {0}/{1}",
+   "{1}년 {0}월 급여에서 공제"
   ],
   [
    "Trừ lương {0} đ · Thu tiền mặt {1} đ",
@@ -30482,6 +30507,10 @@
   [
    "{0} cần chi",
    "지출 필요 {0}"
+  ],
+  [
+   "{0} cần thanh toán",
+   "{0} 결제 대기"
   ],
   [
    "{0} cửa hàng",

@@ -744,6 +744,14 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     final full = <double>[], half = <double>[], leave = <double>[], absent = <double>[];
     final lateBy = <String, double>{};
     final absentBy = <String, double>{};
+    String nameOf(Map emp) =>
+        emp['fullName']?.toString() ?? emp['name']?.toString() ?? emp['employeeCode']?.toString() ?? '';
+    // Nhân viên trùng tên (vd 4 «Ngân QA Thu») trước đây bị cộng dồn thành 1 dòng «96 ngày vắng» — thêm mã NV.
+    final nameCount = <String, int>{};
+    for (final emp in emps) {
+      final n = nameOf(emp);
+      nameCount[n] = (nameCount[n] ?? 0) + 1;
+    }
     for (final d in days) {
       var f = 0.0, h = 0.0, l = 0.0, a = 0.0;
       for (final emp in emps) {
@@ -751,7 +759,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         final code = emp['employeeCode']?.toString() ?? '';
         final cell = _dayCells['${id.isNotEmpty ? id : code}|${_fmtDate.format(d)}'];
         if (cell == null) continue;
-        final n = emp['fullName']?.toString() ?? emp['name']?.toString() ?? code;
+        final baseName = nameOf(emp);
+        final n = (nameCount[baseName] ?? 0) > 1 && code.isNotEmpty ? '$baseName · $code' : baseName;
         final st = cell['status']?.toString() ?? '';
         if (st == _DayStatus.present.name) {
           f++;

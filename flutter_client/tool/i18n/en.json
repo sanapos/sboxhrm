@@ -118,6 +118,7 @@
   "1. Doanh nghiệp trả lương\n": "1. The business pays salary\n",
   "1. Khổ tem": "1. Label size",
   "1. Lấy Token tại khachhang.giaohangtietkiem.vn → Cấu hình API.\n": "1. Get the Token at khachhang.giaohangtietkiem.vn → API configuration.\n",
+  "1. Thiết bị chưa đăng ký": "1. Unregistered device",
   "1. Tạo yêu cầu: chọn ca của bạn, đồng nghiệp và ca/ngày muốn đổi.\n\n": "1. Create a request: choose your shift, a colleague and the shift/day to swap.\n\n",
   "1. Upload file .mp4 (khuyến nghị 1280×720 H.264) lên Google Drive\n": "1. Upload the .mp4 file (recommended 1280×720 H.264) to Google Drive\n",
   "1. Điện thoại cùng WiFi với gateway (không dùng 4G).\n": "1. The phone must be on the same WiFi as the gateway (not 4G).\n",
@@ -1149,6 +1150,7 @@
   "Chưa gửi thông báo nào cho nhân viên.": "No notifications sent to employees yet.",
   "Chưa gửi về máy chủ": "Not sent to the server yet",
   "Chưa gửi vị trí hôm nay": "No location sent today",
+  "Chưa gửi được": "Not sent yet",
   "Chưa hoàn tất đăng ký tài khoản": "Account sign-up not completed",
   "Chưa hủy món": "No items cancelled",
   "Chưa in bếp": "Not printed to kitchen",
@@ -1164,6 +1166,7 @@
   "Chưa lưu dòng — đóng sheet, đợi 1 giây rồi tách lại": "Line not saved — close the sheet, wait 1 second, then split again",
   "Chưa lưu được ghi chú": "Could not save the note",
   "Chưa lưu được mẫu": "Could not save the template",
+  "Chưa lưu được đơn lên máy chủ — kiểm tra kết nối rồi thử lại.": "Could not save the order to the server — check your connection and try again.",
   "Chưa mua": "Not bought",
   "Chưa mua sản phẩm nào": "No products bought yet",
   "Chưa mở được": "Could not open",
@@ -1470,6 +1473,7 @@
   "Chọn sai địa điểm": "Wrong location selected",
   "Chọn seri (tự lấy theo thứ tự nhập)": "Select serial (auto-picked by receiving order)",
   "Chọn sản phẩm rồi bấm Gán": "Select products then tap Assign",
+  "Chọn sản phẩm và nhập số lượng": "Select a product and enter the quantity",
   "Chọn sổ và kỳ dữ liệu để xem chi tiết trên màn hình.": "Choose a ledger and period to view details on screen.",
   "Chọn tháng (ngày bất kỳ)": "Select month (any date)",
   "Chọn tháng lương nhận tiền phép": "Choose the payroll month for the leave payout",
@@ -1516,6 +1520,7 @@
   "Chồng lên chỗ đã gắn": "Overlay on the already attached spot",
   "Chỗ tô vàng = dữ liệu động của chứng từ; tô xanh = dòng hàng (lặp theo số mặt hàng); xanh lá = đợt thanh toán (lặp theo số đợt). ": "Yellow = the document's dynamic data; blue = item row (repeats per item); green = payment installment (repeats per installment). ",
   "Chờ bạn nhận": "Waiting for you to accept",
+  "Chờ chi": "Awaiting payment",
   "Chờ chi / thu": "Waiting to pay / collect",
   "Chờ hiệu lực": "Pending effect",
   "Chờ in": "Waiting to print",
@@ -1793,6 +1798,7 @@
   "Có vị trí": "Has location",
   "Có đóng BHXH": "Pays social insurance",
   "Có đơn QR cần xác nhận trước khi in bếp": "A QR order needs confirmation before kitchen printing",
+  "Có đơn cần thanh toán": "Orders awaiting payment",
   "Có đơn nào đang chờ tôi duyệt?": "Are there any requests waiting for my approval?",
   "Có đơn đặt hàng online. Gọi lại khách để xác nhận.": "There is an online order. Call the customer back to confirm.",
   "Có ảnh": "Has photo",
@@ -1906,6 +1912,7 @@
   "Cần quyền duyệt báo giá": "Quotation approval permission is needed",
   "Cần quyền «Sửa giá khi bán» hoặc «Giảm giá khi bán» — nhờ quản lý tick trong Phân quyền": "Requires the «Edit price when selling» or «Discount when selling» permission — ask a manager to tick it in Permissions",
   "Cần quản lý duyệt": "Manager approval required",
+  "Cần quản lý duyệt: hủy món đã gửi bếp — tài khoản chưa có quyền «Hủy món đã gửi bếp».": "Manager approval needed: void items already sent to the kitchen — this account lacks the «Void items sent to kitchen» permission.",
   "Cần số VA Tingee khớp tài khoản ngân hàng trước khi mua token.": "A Tingee VA number matching the bank account is required before buying tokens.",
   "Cần sửa kỹ thuật": "Needs technical repair",
   "Cần thu hồi gấp": "Urgent recall needed",
@@ -2624,6 +2631,7 @@
   "Gửi lại đơn lỗi": "Resend failed orders",
   "Gửi một câu hỏi thử bằng cấu hình đã lưu": "Send a test question using the saved configuration",
   "Gửi nhắc": "Send reminder",
+  "Gửi thu ngân": "Send to cashier",
   "Gửi thông báo": "Send notification",
   "Gửi thông báo cho nhân viên": "Send notification to employees",
   "Gửi thông báo đến nhân viên chưa đăng ký lịch làm việc cho tuần ": "Send a notification to employees who have not registered their work schedule for the week ",
@@ -3546,6 +3554,7 @@
   "Không tạo được QR từ VA hiện tại.": "Cannot generate a QR from the current VA.",
   "Không tạo được Word": "Cannot create the Word file",
   "Không tạo được bảng báo giá": "Unable to create the quotation table",
+  "Không tạo được chu kỳ": "Could not create the period",
   "Không tạo được file": "Cannot create the file",
   "Không tạo được hàng hóa": "Unable to create the product",
   "Không tạo được hồ sơ lương.": "Cannot create the payroll profile.",
@@ -4268,6 +4277,7 @@
   "Máy thu ngân (A7): xem Online khi Agent (A6) đang nhận chip đó. ": "Cashier device (A7): shows Online when the Agent (A6) is receiving that chip. ",
   "Máy thu ngân A6 / A7 & app nào dùng": "A6 / A7 cashier devices & apps in use",
   "Máy thu ngân phải đang mở bán hàng (để đẩy hóa đơn). ": "The cashier device must have Sales open (to push bills). ",
+  "Máy thu ngân đã nhận yêu cầu tính tiền.": "The cashier device has received the checkout request.",
   "Máy tính bảng / máy POS cắm với máy in; máy khác gửi phiếu in qua máy này.": "Connect a tablet / POS device to the printer; other devices send slips to print through this one.",
   "Máy tự xuất hiện trong danh sách bên dưới sau ít phút.": "The device appears in the list below automatically after a few minutes.",
   "Máy đang dùng 4G — nên dùng Wi-Fi / dây LAN của quán cho ổn định.": "The device is on 4G — use the shop's Wi-Fi / LAN cable for stability.",
@@ -5055,6 +5065,7 @@
   "Nút dưới hóa đơn": "Buttons under the invoice",
   "Nút quét WiFi chỉ dùng khi cấu hình SoftAP.": "The WiFi scan button is only used for SoftAP setup.",
   "Nút «Xuất HĐĐT» bật sẵn, thu ngân vẫn tắt được": "The «Issue e-invoice» button is on by default; cashiers can still turn it off",
+  "Năm không hợp lệ": "Invalid year",
   "Năm sau": "Next year",
   "Năng suất hôm nay": "Today's productivity",
   "Nơi lưu ảnh báo cáo": "Where report images are saved",
@@ -5655,6 +5666,7 @@
   "Số tiền bằng chữ": "Amount in words",
   "Số tiền có thể bị thất thoát nếu dấu hiệu là thật — cần kiểm tra để biết chắc.": "Money that could be lost if the signs are real — needs checking to be sure.",
   "Số tiền cố định / 1 lần": "Fixed amount / once",
+  "Số tiền duyệt không được vượt số tiền xin ứng": "Approved amount cannot exceed the requested advance",
   "Số tiền giảm *": "Discount amount *",
   "Số tiền nhận được ít hơn số cần thu — kiểm tra rồi thu thêm": "The amount received is less than the amount due — check and collect the rest",
   "Số tiền phạt (đ)": "Penalty amount (đ)",
@@ -5914,6 +5926,7 @@
   "Theo người duyệt": "By approver",
   "Theo ngưỡng (1 / 0,5)": "By threshold (1 / 0.5)",
   "Theo nhà cung cấp": "By supplier",
+  "Theo nhân viên": "By employee",
   "Theo nhân viên trong năm": "By employee, this year",
   "Theo nhân viên trong tháng": "By employee, this month",
   "Theo nhân viên và phòng ban": "By employee and department",
@@ -6045,6 +6058,7 @@
   "Thành tiền (đ)": "Amount (đ)",
   "Thành tiền bên phải": "Amount on the right",
   "Thành tiền sản lượng mỗi ngày": "Daily output amount",
+  "Tháng phải từ 1 đến 12": "Month must be between 1 and 12",
   "Tháng sau": "Next month",
   "Tháng vào làm được tính nếu vào trước ngày": "Join month counts if joined before this day",
   "Thâm niên": "Seniority",
@@ -6541,6 +6555,7 @@
   "Tài chính → Thưởng phạt → Tạo thưởng / phạt": "Finance → Bonus & penalty → Create bonus / penalty",
   "Tài khoản & thiết bị": "Accounts & devices",
   "Tài khoản / SĐT Viettel Post": "Viettel Post account / phone",
+  "Tài khoản Order chỉ tạm tính — bấm «Gửi thu ngân» để thu ngân tính tiền.": "Order accounts only calculate a subtotal — tap «Send to cashier» for the cashier to check out.",
   "Tài khoản bị đăng xuất ngay và không đăng nhập được nữa. Chỗ trống trong gói dịch vụ được trả lại. Dữ liệu vẫn giữ nguyên, mở khóa lại bất cứ lúc nào.": "The account is signed out immediately and can no longer log in. The seat in the service plan is released. Data is kept and you can unlock it at any time.",
   "Tài khoản chi lương": "Payroll paying account",
   "Tài khoản chưa liên kết hồ sơ nhân viên": "Account not linked to an employee profile",
@@ -8267,6 +8282,7 @@
   "Đã check-in": "Checked in",
   "Đã check-in — cần kiểm tra thẻ / gói": "Checked in — card / package needs checking",
   "Đã check-out": "Checked out",
+  "Đã chi": "Paid",
   "Đã chi trong tháng": "Spent this month",
   "Đã chi tạm ứng": "Advance paid out",
   "Đã chi đủ": "Paid in full",
@@ -8363,6 +8379,7 @@
   "Đã gửi phiếu in thử": "Test print sent",
   "Đã gửi qua Bluetooth. Gateway đang vào WiFi nhà — ": "Sent via Bluetooth. The gateway is joining home WiFi — ",
   "Đã gửi tem QR": "QR label sent",
+  "Đã gửi thu ngân": "Sent to cashier",
   "Đã gửi thông báo kêu gọi đăng ký": "Registration reminder notification sent",
   "Đã gửi thông báo thử": "Test notification sent",
   "Đã gửi tên. Đang lấy vân tay từ máy nguồn…\nKhông cần bấm lại.": "Name sent. Fetching fingerprints from the source device…\nNo need to tap again.",
@@ -8733,6 +8750,7 @@
   "Đường dẫn (slug)": "Path (slug)",
   "Được hưởng": "Entitled",
   "Được hưởng đủ phép cả năm": "Entitled to full-year leave",
+  "Được hủy": "Can void",
   "Đại diện cửa hàng": "Store representative",
   "Đại diện khách hàng": "Customer representative",
   "Đại lý hoạt động": "Active agents",
@@ -8785,6 +8803,7 @@
   "Đếm thực tế": "Counted",
   "Đến hạn hôm nay": "Due today",
   "Đến kho": "To warehouse",
+  "Đến ngày phải sau hoặc bằng Từ ngày": "End date must be on or after the start date",
   "Đến: ": "To: ",
   "ĐỀ NGHỊ THANH TOÁN": "PAYMENT REQUEST",
   "Đề nghị TT": "Payment request",
@@ -9144,6 +9163,7 @@
   "↑↓ chọn · Enter mở · Esc đóng": "↑↓ select · Enter open · Esc close",
   "↳ Giảm giá / chiết khấu khi bán": "↳ Discounts when selling",
   "↳ Hủy hóa đơn đã thu": "↳ Cancel paid invoices",
+  "↳ Hủy món đã gửi bếp": "↳ Void items sent to kitchen",
   "↳ PT · Khách của tôi & lịch tập": "↳ PT · My customers & training schedule",
   "↳ Sửa giá khi bán": "↳ Edit price when selling",
   "↳ Xem giá vốn & lợi nhuận": "↳ View cost price & profit",
@@ -14927,6 +14947,10 @@
    "Delivery fee {0}"
   ],
   [
+   "Phòng ban \"{0}\" đã có ở cấp này",
+   "Department \"{0}\" already exists at this level"
+  ],
+  [
    "Phòng ban còn {0} phòng con. Chuyển hoặc xóa phòng con trước.",
    "This department still has {0} sub-departments. Move or delete them first."
   ],
@@ -16245,6 +16269,10 @@
   [
    "Trừ lương kỳ này {0}",
    "Salary deduction this period {0}"
+  ],
+  [
+   "Trừ lương kỳ {0}/{1}",
+   "Deduct from payroll {0}/{1}"
   ],
   [
    "Trừ lương {0} đ · Thu tiền mặt {1} đ",
@@ -18321,6 +18349,10 @@
   [
    "{0} cần chi",
    "{0} to pay"
+  ],
+  [
+   "{0} cần thanh toán",
+   "{0} awaiting payment"
   ],
   [
    "{0} cửa hàng",

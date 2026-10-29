@@ -253,6 +253,7 @@
   "1. Lấy Token tại khachhang.giaohangtietkiem.vn → Cấu hình API.\n": "1. khachhang.giaohangtietkiem.vn → API設定でトークンを取得します。\n",
   "1. Mở sheet MauChamCong (hoặc ChamCong).": "1. MauChamCong(またはChamCong)シートを開きます。",
   "1. Thiết bị": "1. 端末",
+  "1. Thiết bị chưa đăng ký": "1. 未登録の端末",
   "1. Tạo và thiết lập ca": "1. シフトの作成と設定",
   "1. Tạo yêu cầu: chọn ca của bạn, đồng nghiệp và ca/ngày muốn đổi": "1. 申請を作成: 自分のシフト、同僚、交換したいシフト/日付を選択します",
   "1. Tạo yêu cầu: chọn ca của bạn, đồng nghiệp và ca/ngày muốn đổi.": "1. 申請を作成: 自分のシフト、同僚、交換したいシフト/日付を選択します。",
@@ -2598,6 +2599,7 @@
   "Chưa gửi thông báo nào cho nhân viên.": "従業員に送信した通知はありません。",
   "Chưa gửi về máy chủ": "サーバーにまだ送信されていません",
   "Chưa gửi vị trí hôm nay": "本日はまだ位置情報を送信していません",
+  "Chưa gửi được": "まだ送信できていません",
   "Chưa hoàn tất": "未完了",
   "Chưa hoàn tất đăng ký tài khoản": "アカウント登録が完了していません",
   "Chưa hủy món": "メニューを取り消していません",
@@ -2632,6 +2634,7 @@
   "Chưa lưu được ghi chú": "メモを保存できませんでした",
   "Chưa lưu được mẫu": "テンプレートを保存できませんでした",
   "Chưa lưu được đơn": "注文を保存できませんでした",
+  "Chưa lưu được đơn lên máy chủ — kiểm tra kết nối rồi thử lại.": "注文をサーバーに保存できませんでした — 接続を確認して再試行してください。",
   "Chưa lọc": "フィルターなし",
   "Chưa mua": "未購入",
   "Chưa mua sản phẩm nào": "購入した商品がありません",
@@ -3361,6 +3364,7 @@
   "Chọn sản phẩm": "商品を選択",
   "Chọn sản phẩm (hoặc nhóm / Tất cả) rồi bấm Gán / Chuyển": "商品（またはグループ / すべて）を選択して、割り当て / 移動をタップしてください",
   "Chọn sản phẩm rồi bấm Gán": "商品を選択して「割り当て」を押してください",
+  "Chọn sản phẩm và nhập số lượng": "商品を選択して数量を入力してください",
   "Chọn sản phẩm, nhóm hàng hoặc \"Tất cả\"": "商品、商品カテゴリ、または「すべて」を選択",
   "Chọn sổ và kỳ dữ liệu để xem chi tiết trên màn hình.": "帳簿と期間を選択すると、画面で詳細を確認できます。",
   "Chọn thiết bị *": "端末を選択 *",
@@ -3954,6 +3958,7 @@
   "Có đính kèm": "添付あり",
   "Có đóng BHXH": "社会保険加入",
   "Có đơn QR cần xác nhận trước khi in bếp": "キッチン印刷前に確認が必要なQR注文があります",
+  "Có đơn cần thanh toán": "支払い待ちの注文があります",
   "Có đơn nào đang chờ tôi duyệt?": "私の承認待ちの申請はありますか?",
   "Có đơn đặt hàng online. Gọi lại khách để xác nhận.": "オンライン注文があります。お客様に折り返し電話して確認してください。",
   "Có ảnh": "写真あり",
@@ -4204,6 +4209,7 @@
   "Cần quyền vị trí để lấy MAC WiFi": "WiFiのMACを取得するには位置情報の権限が必要です",
   "Cần quyền «Sửa giá khi bán» hoặc «Giảm giá khi bán» — nhờ quản lý tick trong Phân quyền": "「販売時の価格変更」または「販売時の割引」の権限が必要です — 管理者に権限設定でチェックしてもらってください",
   "Cần quản lý duyệt": "管理者の承認が必要です",
+  "Cần quản lý duyệt: hủy món đã gửi bếp — tài khoản chưa có quyền «Hủy món đã gửi bếp».": "管理者の承認が必要です：厨房に送信済みの品目の取消 — このアカウントには「厨房送信済み品目の取消」権限がありません。",
   "Cần số VA Tingee khớp tài khoản ngân hàng trước khi mua token.": "トークンを購入する前に、銀行口座と一致するTingee VA番号が必要です。",
   "Cần sửa kỹ thuật": "技術的な修理が必要",
   "Cần thu hồi gấp": "至急回収が必要",
@@ -5677,6 +5683,7 @@
   "Gửi phản hồi cho nhà phát triển": "開発者にフィードバックを送信",
   "Gửi phản ánh / Ý kiến": "報告／ご意見を送信",
   "Gửi push thông báo tới app khi cần đọc ngay": "すぐに読んでほしいときはアプリにプッシュ通知を送信",
+  "Gửi thu ngân": "レジへ送る",
   "Gửi thông báo": "通知を送信",
   "Gửi thông báo cho nhân viên": "従業員に通知を送信",
   "Gửi thông báo nhắc nhở đăng ký lịch đến": "スケジュール登録のリマインド通知を次の対象に送信：",
@@ -7892,6 +7899,7 @@
   "Không tạo được Word": "Wordを作成できません",
   "Không tạo được bản in": "印刷用データを作成できません",
   "Không tạo được bảng báo giá": "見積書の表を作成できません",
+  "Không tạo được chu kỳ": "期間を作成できませんでした",
   "Không tạo được chứng từ dư ứng": "前払い超過の証憑を作成できません",
   "Không tạo được file": "ファイルを作成できません",
   "Không tạo được file Excel hợp lệ.": "有効なExcelファイルを作成できません。",
@@ -9597,6 +9605,7 @@
   "Máy thu ngân A6 / A7 & app nào dùng": "A6／A7レジ端末と使用アプリ",
   "Máy thu ngân phải đang mở bán hàng (để đẩy hóa đơn).": "レジ端末は販売画面を開いておく必要があります (伝票送信のため)。",
   "Máy thu ngân phải đang mở bán hàng (để đẩy hóa đơn). ": "レジ端末で販売画面を開いておく必要があります(伝票の送信のため)。 ",
+  "Máy thu ngân đã nhận yêu cầu tính tiền.": "レジ端末が会計リクエストを受信しました。",
   "Máy trả về mã lỗi": "端末がエラーコードを返しました",
   "Máy tính bảng / máy POS cắm với máy in; máy khác gửi phiếu in qua máy này.": "タブレット／POS端末をプリンターに接続しておくと、他の端末がこの端末経由で伝票を印刷します。",
   "Máy tự xuất hiện trong danh sách bên dưới sau ít phút.": "端末はしばらくすると下のリストに自動で表示されます。",
@@ -11312,6 +11321,7 @@
   "Nút «Lưu phân loại» chỉ lưu bảng gán máy in ↔ chứng từ trên máy chủ.": "「分類を保存」ボタンは、プリンター ↔ 伝票の割り当て表のみをサーバーに保存します。",
   "Nút «Xuất HĐĐT» bật sẵn, thu ngân vẫn tắt được": "「電子インボイス発行」ボタンは初期オンで、レジ担当がオフにできます",
   "Năm": "年",
+  "Năm không hợp lệ": "年が無効です",
   "Năm nay": "今年",
   "Năm nay (âm lịch)": "今年（旧暦）",
   "Năm sau": "来年",
@@ -12790,6 +12800,7 @@
   "Số tiền cộng thêm": "追加金額",
   "Số tiền duyệt": "承認金額",
   "Số tiền duyệt *": "承認金額 *",
+  "Số tiền duyệt không được vượt số tiền xin ứng": "承認額は申請した前払い額を超えることはできません",
   "Số tiền duyệt phải lớn hơn 0": "承認金額は0より大きくしてください",
   "Số tiền dòng chi phải lớn hơn 0": "支出明細の金額は0より大きくしてください",
   "Số tiền giảm": "割引額",
@@ -13726,6 +13737,7 @@
   "Tháng nguồn:": "コピー元の月:",
   "Tháng này": "今月",
   "Tháng này (âm lịch)": "今月 (旧暦)",
+  "Tháng phải từ 1 đến 12": "月は1から12の間で入力してください",
   "Tháng sau": "来月",
   "Tháng trước": "先月",
   "Tháng trước (âm lịch)": "先月 (旧暦)",
@@ -14820,6 +14832,7 @@
   "Tài khoản / SĐT Viettel Post": "Viettel Postアカウント / 電話番号",
   "Tài khoản API": "APIアカウント",
   "Tài khoản Easy Invoice": "Easy Invoiceアカウント",
+  "Tài khoản Order chỉ tạm tính — bấm «Gửi thu ngân» để thu ngân tính tiền.": "注文アカウントは小計のみ — 「レジへ送信」を押してレジで会計してください。",
   "Tài khoản Order chỉ tạm tính — cần tài khoản Thu ngân để thanh toán": "注文アカウントは仮会計のみ可能です — 会計にはレジ担当アカウントが必要です",
   "Tài khoản VietQR": "VietQRアカウント",
   "Tài khoản Viettel SInvoice": "Viettel SInvoiceアカウント",
@@ -19324,6 +19337,7 @@
   "Đã gửi qua Bluetooth. Gateway đang vào WiFi nhà — ": "Bluetoothで送信しました。ゲートウェイが自宅のWiFiに接続中です — ",
   "Đã gửi tem QR": "QRラベルを送信しました",
   "Đã gửi tem mẫu": "サンプルラベルを送信しました",
+  "Đã gửi thu ngân": "レジへ送信しました",
   "Đã gửi thông báo": "通知を送信しました",
   "Đã gửi thông báo kêu gọi đăng ký": "登録を促す通知を送信しました",
   "Đã gửi thông báo thử": "テスト通知を送信しました",
@@ -20266,6 +20280,7 @@
   "Được duyệt": "承認済み",
   "Được hưởng": "対象",
   "Được hưởng đủ phép cả năm": "年間の休暇を全日数付与",
+  "Được hủy": "取消可",
   "Được sửa / điền:": "編集 / 入力可能:",
   "Đại diện cửa hàng": "店舗代表者",
   "Đại diện khách hàng": "顧客代表者",
@@ -20367,6 +20382,7 @@
   "Đến hạn hôm nay": "本日期限",
   "Đến kho": "移動先倉庫",
   "Đến ngày": "終了日",
+  "Đến ngày phải sau hoặc bằng Từ ngày": "終了日は開始日以降にしてください",
   "Đến điểm": "到着地点",
   "Đến điểm làm": "勤務地に到着",
   "Đến điểm làm thành công!": "勤務地に到着しました!",
@@ -21173,6 +21189,7 @@
   "→ vượt": "→ 超過",
   "↳ Giảm giá / chiết khấu khi bán": "↳ 販売時の割引 / 値引き",
   "↳ Hủy hóa đơn đã thu": "↳ 入金済み伝票の取消",
+  "↳ Hủy món đã gửi bếp": "↳ 厨房送信済み品目の取消",
   "↳ PT · Khách của tôi & lịch tập": "↳ PT · 担当顧客とトレーニング予定",
   "↳ Sửa giá khi bán": "↳ 販売時の価格変更",
   "↳ Xem giá vốn & lợi nhuận": "↳ 原価と利益の表示",
@@ -27088,6 +27105,10 @@
    "配送料 {0}"
   ],
   [
+   "Phòng ban \"{0}\" đã có ở cấp này",
+   "部署「{0}」はこの階層に既に存在します"
+  ],
+  [
    "Phòng ban còn {0} phòng con. Chuyển hoặc xóa phòng con trước.",
    "この部署には下位部署が{0}件あります。先に下位部署を移動または削除してください。"
   ],
@@ -28406,6 +28427,10 @@
   [
    "Trừ lương kỳ này {0}",
    "今期の給与控除 {0}"
+  ],
+  [
+   "Trừ lương kỳ {0}/{1}",
+   "{1}年{0}月の給与から控除"
   ],
   [
    "Trừ lương {0} đ · Thu tiền mặt {1} đ",
@@ -30482,6 +30507,10 @@
   [
    "{0} cần chi",
    "支払い必要 {0}"
+  ],
+  [
+   "{0} cần thanh toán",
+   "{0} 支払い待ち"
   ],
   [
    "{0} cửa hàng",

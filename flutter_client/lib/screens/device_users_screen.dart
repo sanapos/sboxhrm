@@ -1570,16 +1570,19 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         label: 'NV chưa có trên máy',
         value: '$notOnDevice',
         icon: Icons.person_add_alt_1_outlined,
-        tone: notOnDevice > 0 ? SboxTone.warning : SboxTone.success,
-        note: notOnDevice > 0 ? 'Bấm để đồng bộ lên máy' : 'Đã có đủ',
-        onTap: notOnDevice > 0 ? _showSyncEmployeeDialog : null,
+        // Chưa có máy nào: trước ghi «Bấm để đồng bộ lên máy» / «Tất cả đang kết nối» (0/0) gây hiểu nhầm.
+        tone: _devices.isEmpty ? SboxTone.neutral : (notOnDevice > 0 ? SboxTone.warning : SboxTone.success),
+        note: _devices.isEmpty ? 'Chưa có máy chấm công' : (notOnDevice > 0 ? 'Bấm để đồng bộ lên máy' : 'Đã có đủ'),
+        onTap: notOnDevice > 0 && _devices.isNotEmpty ? _showSyncEmployeeDialog : null,
       ),
       SboxKpi(
         label: _l10n.onlineDevices,
         value: '$onlineDevices/${_devices.length}',
         icon: Icons.router,
-        tone: offline > 0 ? SboxTone.warning : SboxTone.success,
-        note: sel(DeviceUsersOverviewFilter.onOnlineDevice, offline > 0 ? '$offline máy mất kết nối' : 'Tất cả đang kết nối'),
+        tone: _devices.isEmpty ? SboxTone.neutral : (offline > 0 ? SboxTone.warning : SboxTone.success),
+        note: sel(DeviceUsersOverviewFilter.onOnlineDevice, _devices.isEmpty
+            ? 'Chưa có máy chấm công'
+            : (offline > 0 ? '$offline máy mất kết nối' : 'Tất cả đang kết nối')),
         onTap: () => _setOverviewFilter(DeviceUsersOverviewFilter.onOnlineDevice),
       ),
     ]);

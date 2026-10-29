@@ -173,6 +173,11 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
     final byDay = <DateTime, double>{};
     final byEmp = <String, double>{};
     final empCnt = <String, int>{};
+    // Trùng tên (vd nhiều «Ngân QA Thu») thì thêm mã NV — tránh cộng dồn nhiều người thành một dòng.
+    final codesByName = <String, Set<String>>{};
+    for (final t in f) {
+      codesByName.putIfAbsent(t['employeeName']?.toString() ?? '—', () => {}).add(t['employeeCode']?.toString() ?? '');
+    }
     for (final t in f) {
       final amt = reportSafeDouble(t['amount']);
       final type = (t['penaltyTypeLabel'] ?? penaltyTypeDisplayLabel(t['type'])).toString();
@@ -182,7 +187,9 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         final k = DateTime(d.year, d.month, d.day);
         byDay[k] = (byDay[k] ?? 0) + amt;
       }
-      final n = t['employeeName']?.toString() ?? '—';
+      final baseName = t['employeeName']?.toString() ?? '—';
+      final code = t['employeeCode']?.toString() ?? '';
+      final n = (codesByName[baseName]?.length ?? 0) > 1 && code.isNotEmpty ? '$baseName · $code' : baseName;
       byEmp[n] = (byEmp[n] ?? 0) + amt;
       empCnt[n] = (empCnt[n] ?? 0) + 1;
     }

@@ -253,6 +253,7 @@
   "1. Lấy Token tại khachhang.giaohangtietkiem.vn → Cấu hình API.\n": "1. 在 khachhang.giaohangtietkiem.vn → API 配置中获取 Token。\n",
   "1. Mở sheet MauChamCong (hoặc ChamCong).": "1. 打开 MauChamCong（或 ChamCong）工作表。",
   "1. Thiết bị": "1. 设备",
+  "1. Thiết bị chưa đăng ký": "1. 未注册设备",
   "1. Tạo và thiết lập ca": "1. 创建并设置班次",
   "1. Tạo yêu cầu: chọn ca của bạn, đồng nghiệp và ca/ngày muốn đổi": "1. 创建申请：选择您的班次、同事以及想要调换的班次/日期",
   "1. Tạo yêu cầu: chọn ca của bạn, đồng nghiệp và ca/ngày muốn đổi.": "1. 创建申请：选择您的班次、同事以及想要调换的班次/日期。",
@@ -2598,6 +2599,7 @@
   "Chưa gửi thông báo nào cho nhân viên.": "尚未向员工发送任何通知。",
   "Chưa gửi về máy chủ": "尚未上传到服务器",
   "Chưa gửi vị trí hôm nay": "今天尚未上报位置",
+  "Chưa gửi được": "尚未发送",
   "Chưa hoàn tất": "未完成",
   "Chưa hoàn tất đăng ký tài khoản": "尚未完成账号注册",
   "Chưa hủy món": "尚未退菜",
@@ -2632,6 +2634,7 @@
   "Chưa lưu được ghi chú": "无法保存备注",
   "Chưa lưu được mẫu": "无法保存模板",
   "Chưa lưu được đơn": "订单保存失败",
+  "Chưa lưu được đơn lên máy chủ — kiểm tra kết nối rồi thử lại.": "无法将订单保存到服务器 — 请检查网络后重试。",
   "Chưa lọc": "未筛选",
   "Chưa mua": "未购买",
   "Chưa mua sản phẩm nào": "尚未购买任何商品",
@@ -3361,6 +3364,7 @@
   "Chọn sản phẩm": "选择商品",
   "Chọn sản phẩm (hoặc nhóm / Tất cả) rồi bấm Gán / Chuyển": "选择商品（或分组 / 全部）后点击分配 / 转移",
   "Chọn sản phẩm rồi bấm Gán": "选择商品后点击分配",
+  "Chọn sản phẩm và nhập số lượng": "请选择产品并输入数量",
   "Chọn sản phẩm, nhóm hàng hoặc \"Tất cả\"": "选择商品、商品分类或“全部”",
   "Chọn sổ và kỳ dữ liệu để xem chi tiết trên màn hình.": "选择账簿和期间即可在屏幕上查看详情。",
   "Chọn thiết bị *": "选择设备 *",
@@ -3954,6 +3958,7 @@
   "Có đính kèm": "有附件",
   "Có đóng BHXH": "已缴社保",
   "Có đơn QR cần xác nhận trước khi in bếp": "有二维码订单需在送厨房打印前确认",
+  "Có đơn cần thanh toán": "有待付款的订单",
   "Có đơn nào đang chờ tôi duyệt?": "有哪些申请在等我审批？",
   "Có đơn đặt hàng online. Gọi lại khách để xác nhận.": "有在线订单，请回电给客户确认。",
   "Có ảnh": "有图片",
@@ -4204,6 +4209,7 @@
   "Cần quyền vị trí để lấy MAC WiFi": "获取WiFi MAC需要定位权限",
   "Cần quyền «Sửa giá khi bán» hoặc «Giảm giá khi bán» — nhờ quản lý tick trong Phân quyền": "需要«销售时改价»或«销售时打折»权限 — 请让经理在权限管理中勾选",
   "Cần quản lý duyệt": "需要经理审批",
+  "Cần quản lý duyệt: hủy món đã gửi bếp — tài khoản chưa có quyền «Hủy món đã gửi bếp».": "需要管理员批准：取消已送厨房的菜品 — 此账号没有«取消已送厨房的菜品»权限。",
   "Cần số VA Tingee khớp tài khoản ngân hàng trước khi mua token.": "购买 Token 前，需要与银行账户匹配的 Tingee VA 号。",
   "Cần sửa kỹ thuật": "需技术维修",
   "Cần thu hồi gấp": "急需收回",
@@ -5677,6 +5683,7 @@
   "Gửi phản hồi cho nhà phát triển": "向开发者提交反馈",
   "Gửi phản ánh / Ý kiến": "提交反馈 / 意见",
   "Gửi push thông báo tới app khi cần đọc ngay": "需要立即查看时向应用发送推送通知",
+  "Gửi thu ngân": "发送给收银员",
   "Gửi thông báo": "发送通知",
   "Gửi thông báo cho nhân viên": "向员工发送通知",
   "Gửi thông báo nhắc nhở đăng ký lịch đến": "向以下对象发送排班登记提醒通知：",
@@ -7892,6 +7899,7 @@
   "Không tạo được Word": "无法生成Word",
   "Không tạo được bản in": "无法生成打印件",
   "Không tạo được bảng báo giá": "无法生成报价单表格",
+  "Không tạo được chu kỳ": "无法创建周期",
   "Không tạo được chứng từ dư ứng": "无法生成预支超额凭证",
   "Không tạo được file": "无法生成文件",
   "Không tạo được file Excel hợp lệ.": "无法生成有效的Excel文件。",
@@ -9597,6 +9605,7 @@
   "Máy thu ngân A6 / A7 & app nào dùng": "A6 / A7 收银设备及所用应用",
   "Máy thu ngân phải đang mở bán hàng (để đẩy hóa đơn).": "收银设备必须打开销售界面（以便推送账单）。",
   "Máy thu ngân phải đang mở bán hàng (để đẩy hóa đơn). ": "收银设备必须已打开销售界面(用于推送账单)。 ",
+  "Máy thu ngân đã nhận yêu cầu tính tiền.": "收银机已收到结账请求。",
   "Máy trả về mã lỗi": "设备返回了错误码",
   "Máy tính bảng / máy POS cắm với máy in; máy khác gửi phiếu in qua máy này.": "将平板/POS 设备连接打印机，其他设备可通过本机打印单据。",
   "Máy tự xuất hiện trong danh sách bên dưới sau ít phút.": "设备稍后会自动出现在下方列表中。",
@@ -11312,6 +11321,7 @@
   "Nút «Lưu phân loại» chỉ lưu bảng gán máy in ↔ chứng từ trên máy chủ.": "«保存分类»按钮只会将打印机 ↔ 单据的分配表保存到服务器。",
   "Nút «Xuất HĐĐT» bật sẵn, thu ngân vẫn tắt được": "「开具电子发票」按钮默认开启，收银员仍可关闭",
   "Năm": "年",
+  "Năm không hợp lệ": "年份无效",
   "Năm nay": "今年",
   "Năm nay (âm lịch)": "今年（农历）",
   "Năm sau": "明年",
@@ -12790,6 +12800,7 @@
   "Số tiền cộng thêm": "追加金额",
   "Số tiền duyệt": "批准金额",
   "Số tiền duyệt *": "批准金额 *",
+  "Số tiền duyệt không được vượt số tiền xin ứng": "批准金额不能超过申请的预支金额",
   "Số tiền duyệt phải lớn hơn 0": "批准金额必须大于0",
   "Số tiền dòng chi phải lớn hơn 0": "支出行金额必须大于0",
   "Số tiền giảm": "折扣金额",
@@ -13726,6 +13737,7 @@
   "Tháng nguồn:": "来源月份：",
   "Tháng này": "本月",
   "Tháng này (âm lịch)": "本月（农历）",
+  "Tháng phải từ 1 đến 12": "月份必须在 1 到 12 之间",
   "Tháng sau": "下月",
   "Tháng trước": "上月",
   "Tháng trước (âm lịch)": "上月（农历）",
@@ -14820,6 +14832,7 @@
   "Tài khoản / SĐT Viettel Post": "Viettel Post 账号 / 手机号",
   "Tài khoản API": "API 账号",
   "Tài khoản Easy Invoice": "Easy Invoice 账号",
+  "Tài khoản Order chỉ tạm tính — bấm «Gửi thu ngân» để thu ngân tính tiền.": "点单账号只计算小计 — 点击«发送至收银»由收银结账。",
   "Tài khoản Order chỉ tạm tính — cần tài khoản Thu ngân để thanh toán": "点单账号只能预结——付款需要收银员账号",
   "Tài khoản VietQR": "VietQR 账户",
   "Tài khoản Viettel SInvoice": "Viettel SInvoice 账号",
@@ -19324,6 +19337,7 @@
   "Đã gửi qua Bluetooth. Gateway đang vào WiFi nhà — ": "已通过蓝牙发送。网关正在连接家中 WiFi — ",
   "Đã gửi tem QR": "已发送二维码标签",
   "Đã gửi tem mẫu": "已发送样张标签",
+  "Đã gửi thu ngân": "已发送至收银",
   "Đã gửi thông báo": "已发送通知",
   "Đã gửi thông báo kêu gọi đăng ký": "已发送催促登记的通知",
   "Đã gửi thông báo thử": "已发送测试通知",
@@ -20266,6 +20280,7 @@
   "Được duyệt": "已批准",
   "Được hưởng": "享有",
   "Được hưởng đủ phép cả năm": "享有全年年假",
+  "Được hủy": "可取消",
   "Được sửa / điền:": "可修改 / 填写：",
   "Đại diện cửa hàng": "门店代表",
   "Đại diện khách hàng": "客户代表",
@@ -20367,6 +20382,7 @@
   "Đến hạn hôm nay": "今日到期",
   "Đến kho": "调入仓库",
   "Đến ngày": "截止日期",
+  "Đến ngày phải sau hoặc bằng Từ ngày": "结束日期必须等于或晚于开始日期",
   "Đến điểm": "目的地",
   "Đến điểm làm": "到达工作点",
   "Đến điểm làm thành công!": "已到达工作点！",
@@ -21173,6 +21189,7 @@
   "→ vượt": "→ 超出",
   "↳ Giảm giá / chiết khấu khi bán": "↳ 销售时折扣 / 优惠",
   "↳ Hủy hóa đơn đã thu": "↳ 作废已收款账单",
+  "↳ Hủy món đã gửi bếp": "↳ 取消已送厨房的菜品",
   "↳ PT · Khách của tôi & lịch tập": "↳ 私教 · 我的客户及训练日程",
   "↳ Sửa giá khi bán": "↳ 销售时修改价格",
   "↳ Xem giá vốn & lợi nhuận": "↳ 查看成本价和利润",
@@ -27088,6 +27105,10 @@
    "配送费 {0}"
   ],
   [
+   "Phòng ban \"{0}\" đã có ở cấp này",
+   "部门“{0}”在此层级已存在"
+  ],
+  [
    "Phòng ban còn {0} phòng con. Chuyển hoặc xóa phòng con trước.",
    "该部门下还有 {0} 个子部门。请先转移或删除子部门。"
   ],
@@ -28406,6 +28427,10 @@
   [
    "Trừ lương kỳ này {0}",
    "本期扣工资 {0}"
+  ],
+  [
+   "Trừ lương kỳ {0}/{1}",
+   "从{1}年{0}月工资中扣除"
   ],
   [
    "Trừ lương {0} đ · Thu tiền mặt {1} đ",
@@ -30482,6 +30507,10 @@
   [
    "{0} cần chi",
    "{0} 待支付"
+  ],
+  [
+   "{0} cần thanh toán",
+   "{0} 待付款"
   ],
   [
    "{0} cửa hàng",
