@@ -300,7 +300,7 @@ public class EfRepository<TEntity>(
 
         try
         {
-            entity.UpdatedAt = DateTime.Now;
+            entity.UpdatedAt = DateTime.UtcNow; // UTC như CreatedAt — máy chủ giờ VN trước lệch +7h
 
             // If the same entity key is already tracked by EF (e.g. added earlier in
             // the same request scope), update its values in-place to avoid the

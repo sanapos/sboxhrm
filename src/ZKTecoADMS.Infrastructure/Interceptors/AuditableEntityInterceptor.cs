@@ -36,7 +36,7 @@ public class AuditableEntityInterceptor : SaveChangesInterceptor
                         entry.Entity.LastModifiedBy = entry.Entity.CreatedBy;
                     break;
                 case EntityState.Modified:
-                    entry.Entity.LastModified = DateTime.Now;
+                    entry.Entity.LastModified = DateTime.UtcNow; // khớp nhánh Added (UtcNow)
                     if (string.IsNullOrEmpty(entry.Entity.LastModifiedBy))
                         entry.Entity.LastModifiedBy = "API";
                     break;

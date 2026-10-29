@@ -379,7 +379,7 @@ public class DeviceService(
         device.ClaimedAt = null;
         device.DeviceStatus = "Available";
         device.IsActive = false;
-        device.UpdatedAt = DateTime.Now;
+        device.UpdatedAt = DateTime.UtcNow;
 
         await deviceRepository.UpdateAsync(device);
         
