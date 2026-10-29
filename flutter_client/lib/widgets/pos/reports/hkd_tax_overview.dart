@@ -207,8 +207,10 @@ class HkdThresholdBar extends StatelessWidget {
       const barTop = 22.0;
       const barH = 18.0;
       final est = estimate;
-      return SizedBox(
-        height: 86,
+      // Chú thích nằm ngoài Stack: màn hẹp xuống 3 dòng — trước đây đặt trong khung cao cố định nên tràn khỏi thẻ.
+      return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        SizedBox(
+        height: barTop + barH + 24,
         child: Stack(clipBehavior: Clip.none, children: [
           // Vùng ngưỡng (nhạt).
           Positioned(
@@ -236,17 +238,20 @@ class HkdThresholdBar extends StatelessWidget {
             ),
           ),
           // Mốc ngưỡng.
-          for (final (v, label) in [(exemptBelow, '1 tỷ'), (incomeAbove, '3 tỷ')]) ...[
+          for (final v in [exemptBelow, incomeAbove])
             Positioned(left: x(v) - 1, top: barTop - 4, width: 2, height: barH + 8, child: Container(color: SboxColors.slate500)),
+          // Nhãn mốc: doanh thu lớn (vd 40 tỷ) → hai vạch sát nhau, gộp một nhãn «1–3 tỷ» thay vì «1 tỷ» đè «3 tỷ».
+          for (final (v, label) in x(incomeAbove) - x(exemptBelow) < 48
+              ? [((exemptBelow + incomeAbove) / 2, '1–3 tỷ')]
+              : [(exemptBelow, '1 tỷ'), (incomeAbove, '3 tỷ')])
             Positioned(
-              left: x(v) - 30,
+              left: (x(v) - 30).clamp(0.0, math.max(0.0, w - 60)),
               top: barTop + barH + 6,
               width: 60,
               child: Text(tr(label),
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: SboxColors.slate600)),
             ),
-          ],
           // Dự kiến cả năm.
           if (est != null && est > ytd)
             Positioned(
@@ -274,18 +279,14 @@ class HkdThresholdBar extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: barTop + barH + 24,
-            child: const PosHealthLegend(items: [
-              ('Dưới 1 tỷ: không nộp thuế', PosHealth.green),
-              ('1–3 tỷ: thuế % doanh thu', PosHealth.yellow),
-              ('Trên 3 tỷ: thuế trên thu nhập', PosHealth.red),
-            ]),
-          ),
         ]),
-      );
+        ),
+        const PosHealthLegend(items: [
+          ('Dưới 1 tỷ: không nộp thuế', PosHealth.green),
+          ('1–3 tỷ: thuế % doanh thu', PosHealth.yellow),
+          ('Trên 3 tỷ: thuế trên thu nhập', PosHealth.red),
+        ]),
+      ]);
     });
   }
 }
