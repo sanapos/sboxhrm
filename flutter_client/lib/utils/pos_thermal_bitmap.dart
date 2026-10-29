@@ -278,7 +278,16 @@ class PosThermalBitmapEncoder {
     final anyQty = saleLines.any((l) => l.colQty != null);
     final anyPrice = saleLines.any((l) => l.colPrice != null);
     final anyTotal = saleLines.any((l) => l.colTotal != null);
-    final qtyW = anyQty ? measure('SL', k58 ? 56.0 : 44.0, k58 ? 80.0 : 80.0) : 0.0;
+    // Đo cả giá trị thật (vd «1h55» giờ karaoke, «12,5») — trước đây chỉ đo chữ «SL» nên ô hẹp,
+    // giá trị dài bị thu nhỏ còn 60% và cắt mất ký tự.
+    var qtyW = 0.0;
+    if (anyQty) {
+      qtyW = measure('SL', k58 ? 56.0 : 44.0, contentW * 0.22);
+      for (final line in saleLines) {
+        final q = (line.colQty ?? '').trim();
+        if (q.isNotEmpty) qtyW = measure(q, qtyW, contentW * 0.22);
+      }
+    }
     var priceW = 0.0;
     var totalW = 0.0;
     final capPrice = contentW * 0.30;
@@ -470,10 +479,15 @@ class PosThermalBitmapEncoder {
         if (canvas != null) {
           nameTp.paint(canvas, Offset(left, y));
           var x = left + cols.nameW + cols.gap;
+          // Cùng đường chân chữ với tên hàng — ô bị thu nhỏ chữ không còn «nổi» lên mép trên.
+          final nameBase = nameTp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
           void slot(String? v, double w, TextAlign a) {
             if (w <= 0) return;
             final tp = _fitInSlot(v ?? '', style, w, TextAlign.right);
-            _paintInSlot(canvas, tp, slotLeft: x, slotW: w, y: y, align: a);
+            final dy = (v ?? '').isEmpty
+                ? 0.0
+                : nameBase - tp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+            _paintInSlot(canvas, tp, slotLeft: x, slotW: w, y: y + dy, align: a);
             x += w + cols.gap;
           }
           slot(line.colQty, cols.qtyW, TextAlign.center);

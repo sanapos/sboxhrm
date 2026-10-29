@@ -1044,6 +1044,8 @@ List<Map<String, String>> buildSaleOrderPrintLines(
       money: money,
     );
     final dims = parsePosAreaDims(l.lineNote);
+    // Tiền giờ karaoke / bi-a: SL «1h55» thay «1,92»; giờ vào–ra in dưới dòng như hóa đơn Sunmi.
+    final timed = l.timedNote(money.format);
     return {
       'STT': '${i + 1}',
       'Ma_Hang': (l.productCode ?? '').isNotEmpty
@@ -1052,11 +1054,11 @@ List<Map<String, String>> buildSaleOrderPrintLines(
       'Ten_Hang_Hoa': name,
       'Ten_Hang_Goc': l.productName,
       'Don_Gia': lineMoney(l.unitPrice),
-      'So_Luong': qtyFmt.format(l.qty),
+      'So_Luong': l.timedQtyLabel ?? qtyFmt.format(l.qty),
       'Don_Vi_Tinh': l.unitName ?? '',
       'Chiet_Khau': l.discountAmount > 0 ? money.format(l.discountAmount) : '0',
       'Thanh_Tien': lineMoney(l.lineTotal),
-      'Ghi_Chu': note,
+      'Ghi_Chu': [if (timed.isNotEmpty) timed, if (note.isNotEmpty) note].join('\n'),
       'Chieu_Dai': formatPosDim(dims.length),
       'Chieu_Rong': formatPosDim(dims.width),
       'Chieu_Cao': formatPosDim(dims.height),

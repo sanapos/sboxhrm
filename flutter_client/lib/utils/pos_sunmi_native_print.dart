@@ -827,6 +827,10 @@ class PosSunmiNativePrint {
         bold: true,
       );
 
+  /// Cỡ chữ dòng hàng (tên, SL, đơn giá, thành tiền) — gần bằng dòng thông tin (20 / 30) cho dễ đọc;
+  /// trước đây 15 / 22 nên K58 in chữ rất nhỏ.
+  static double _saleRowFontSize(_SunmiReceiptLayout layout) => layout.k58 ? 19 : 26;
+
   static PosReceiptImageLine _imgSale(
     _SunmiReceiptLayout layout, {
     required String name,
@@ -843,7 +847,7 @@ class PosSunmiNativePrint {
       colQty: hasCols ? qty : null,
       colPrice: hasCols ? price : null,
       colTotal: hasCols ? total : null,
-      fontSize: layout.k58 ? (header ? 17 : 15) : 22,
+      fontSize: _saleRowFontSize(layout),
       bold: header,
     );
   }
@@ -984,7 +988,7 @@ class PosSunmiNativePrint {
           colQty: hasCols ? qty : null,
           colPrice: hasCols ? price : null,
           colTotal: hasCols ? total : null,
-          fontSize: layout.k58 ? (header ? 17 : 15) : 22,
+          fontSize: _saleRowFontSize(layout),
           bold: header,
         ),
       ],

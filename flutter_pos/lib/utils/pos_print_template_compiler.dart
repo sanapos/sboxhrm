@@ -1386,10 +1386,10 @@ abstract final class PosPrintTemplateCompiler {
     final price = showPrice ? (item['Don_Gia'] ?? '') : '';
     final total = showTotal ? (item['Thanh_Tien'] ?? '') : '';
     final note = showNote ? (item['Ghi_Chu'] ?? item['note'] ?? '').trim() : '';
-    final bodySize = k58
-        ? (style.fontSize - 2).clamp(13.0, 48.0)
-        : style.fontSize.clamp(14.0, 48.0);
-    final smallSize = (bodySize - 6).clamp(11.0, 48.0);
+    // Dòng hàng là phần khách đọc kỹ nhất: không thu nhỏ trên K58 (trước đây −2), sàn 18 / 22 điểm in.
+    // Ghi chú dưới dòng (topping, giờ vào–ra karaoke) chỉ nhỏ hơn 3 cỡ (trước đây −6 → 11–12 điểm, khó đọc).
+    final bodySize = style.fontSize.clamp(k58 ? 18.0 : 22.0, 48.0);
+    final smallSize = (bodySize - 3).clamp(15.0, 48.0);
 
     steps.add(PosPrintCompiledSaleRow(
       name: name,
