@@ -60,15 +60,30 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     return isTeamReportView(role: role);
   }
 
+  /// Hồ sơ không gắn nhân viên (chủ cửa hàng / tài khoản không có hồ sơ NV, mã NV «—») không khớp NV
+  /// nào của chi nhánh → trước đây bị loại hết («Tổng hồ sơ 0» trong khi biểu đồ khoản mục vẫn có số).
+  /// Tính về trụ sở như dữ liệu chưa gắn chi nhánh (BranchFilterHelper.branchMatches); lọc phòng ban thì loại.
+  bool _isUnassignedHqRow(Map<String, dynamic> c) {
+    if ((_selectedDepartmentId ?? '').isNotEmpty) return false;
+    final branch = _selectedBranchId;
+    if (branch == null || branch.isEmpty) return false;
+    final empId = (c['employeeId'] ?? c['EmployeeId'])?.toString() ?? '';
+    final code = (c['employeeCode'] ?? c['EmployeeCode'])?.toString().trim() ?? '';
+    final hasEmployee = (empId.isNotEmpty && empId != 'null') || (code.isNotEmpty && code != '—');
+    return !hasEmployee && BranchFilterHelper.branchMatches(null, {branch});
+  }
+
   List<Map<String, dynamic>> get _filtered {
     var result = _cases;
     if (_teamView) {
       result = result
-          .where((c) => _branchFilter.mapRowInScope(
+          .where((c) =>
+              _branchFilter.mapRowInScope(
                 c,
                 branchId: _selectedBranchId,
                 departmentId: _selectedDepartmentId,
-              ))
+              ) ||
+              _isUnassignedHqRow(c))
           .toList();
     }
     if (_teamView && _empSearch.isNotEmpty) {
