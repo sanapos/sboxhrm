@@ -288,6 +288,8 @@ class _ProductSalarySettingsScreenState
       deleteIcon: groupId == null || !_perm.canEdit('ProductSalary')
           ? null
           : const Icon(Icons.edit, size: 16, color: SboxColors.slate500),
+      // Nút bút chì mở «Sửa nhóm» — nhãn mặc định của chip là «Xóa».
+      deleteButtonTooltipMessage: tr('Sửa nhóm'),
     );
   }
 
@@ -602,7 +604,7 @@ class _ProductSalarySettingsScreenState
             child: Text(tr('Xóa nhóm'),
                 style: TextStyle(color: Colors.red)),
           ),
-          const Spacer(),
+          // Không đặt Spacer trong actions (OverflowBar) — làm hộp thoại treo trên điện thoại.
           TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: Text(tr('Hủy'))),

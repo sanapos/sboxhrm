@@ -102,6 +102,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   static const _accent = HrmPageChrome.primaryNavy;
   final ApiService _apiService = ApiService();
   final _currencyFormat = NumberFormat('#,###', 'vi_VN');
+  static final _qtyFormat = NumberFormat('#,##0.##', 'vi_VN');
+
+  /// «1.200» thay vì «1200.0» (API trả số lượng dạng double).
+  String _fmtQty(dynamic v) => _qtyFormat.format(_toDouble(v));
 
   static double _toDouble(dynamic v, [double fallback = 0]) {
     if (v == null) return fallback;
@@ -368,10 +372,13 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
 
   void _openAddEntry() {
     if (_items.isEmpty) {
-      NotificationOverlayManager().showError(
+      // Sản lượng dùng danh mục sản phẩm riêng (không phải hàng POS) — mở luôn hộp thêm sản phẩm
+      // thay vì báo lỗi đỏ (nút «Thêm sản phẩm» nằm khuất trong «Thao tác khác» trên điện thoại).
+      NotificationOverlayManager().showInfo(
         title: 'Chưa có sản phẩm',
         message: tr('Vui lòng thêm sản phẩm trước khi nhập sản lượng'),
       );
+      _showAddProductDialog();
       return;
     }
     _showAddEntryDialog();
@@ -1088,7 +1095,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 const SizedBox(height: 12),
                 Row(
                   children: [
+                    // flex 2 : 3 — flex 1 : 2 làm nhãn «Mã SP *» bị cắt thành «Mã …» trên điện thoại.
                     Expanded(
+                      flex: 2,
                       child: TextField(
                         controller: codeCtl,
                         decoration: InputDecoration(
@@ -1100,7 +1109,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      flex: 2,
+                      flex: 3,
                       child: TextField(
                         controller: nameCtl,
                         decoration: InputDecoration(
@@ -1148,7 +1157,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               onPressed: () => _showQuickAddGroupDialog(),
               child: Text(tr('Thêm nhóm mới')),
             ),
-            const Spacer(),
+            // Không đặt Spacer trong actions (OverflowBar): trên V2s hộp thoại treo «không phản hồi».
             TextButton(
                 onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton(
@@ -1390,7 +1399,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     DataCell(Text(tr(entry['employeeCode'] ?? ''))),
                     DataCell(Text(tr(entry['productGroupName'] ?? ''))),
                     DataCell(Text(tr(entry['productItemName'] ?? ''))),
-                    DataCell(Text(tr('${entry['quantity'] ?? 0}'))),
+                    DataCell(Text(tr(_fmtQty(entry['quantity'])))),
                     DataCell(Text(tr(_currencyFormat
                         .format(_toDouble(entry['unitPrice']))))),
                     DataCell(Text(tr(_currencyFormat
@@ -1511,7 +1520,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                             color: primary),
                       ),
                       Text(
-                        tr('SL: ${entry['quantity'] ?? 0}'),
+                        tr('SL: ${_fmtQty(entry['quantity'])}'),
                         style: const TextStyle(
                             fontSize: 12, color: SboxColors.slate500),
                       ),
@@ -1721,7 +1730,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                                 fontSize: 16,
                                 color: HrmPageChrome.primaryNavy),
                           ),
-                          Text(tr('${tr('Tổng SL: ')}${summary['totalQuantity'] ?? 0}'),
+                          Text(tr('${tr('Tổng SL: ')}${_fmtQty(summary['totalQuantity'])}'),
                             style: const TextStyle(
                                 fontSize: 12, color: SboxColors.slate500),
                           ),
@@ -1739,7 +1748,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                                   child: Text(
                                       tr('${item['groupName'] ?? ''} > ${item['productName'] ?? ''}'),
                                       style: const TextStyle(fontSize: 13))),
-                              Text(tr('SL: ${item['quantity'] ?? 0}'),
+                              Text(tr('SL: ${_fmtQty(item['quantity'])}'),
                                   style: const TextStyle(
                                       fontSize: 13, color: SboxColors.slate500)),
                               const SizedBox(width: 16),
@@ -2071,7 +2080,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     String? selItemId = entry['productItemId']?.toString();
     DateTime workDate =
         DateTime.tryParse(entry['workDate'] ?? '') ?? DateTime.now();
-    final qtyCtl = TextEditingController(text: tr('${entry['quantity'] ?? ''}'));
+    final q = entry['quantity'];
+    final qtyCtl = TextEditingController(
+        text: q is num ? (q == q.roundToDouble() ? q.toInt().toString() : q.toString()) : '${q ?? ''}');
     final noteCtl = TextEditingController(text: tr(entry['note'] ?? ''));
 
     if (selEmployeeId != null &&
