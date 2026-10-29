@@ -1793,8 +1793,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     final inHub = PosHubScope.of(context);
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       builder: (ctx) => SafeArea(
-        child: Column(
+        // Cuộn được: trên V2s đủ mục thì mục cuối bị cắt ở đáy màn hình.
+        child: SingleChildScrollView(
+         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (inHub) ...[
@@ -1860,15 +1863,18 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                 _scanSearch();
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.refresh),
-              title: Text(tr('Làm mới')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _loadAll();
-              },
-            ),
+            // Trong hub đã có «Làm mới» ở nhóm đầu — trước đây menu hiện 2 mục «Làm mới».
+            if (!inHub)
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: Text(tr('Làm mới')),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _loadAll();
+                },
+              ),
           ],
+         ),
         ),
       ),
     );

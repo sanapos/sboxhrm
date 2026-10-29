@@ -12,6 +12,7 @@ import '../../../widgets/loading_widget.dart';
 import '../../../widgets/notification_overlay.dart';
 import '../../../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../../../widgets/pos/pos_supplier_form_dialog.dart';
+import '../../../widgets/pos/pos_vnd_thousands_formatter.dart';
 import '../../../widgets/pos_barcode_scanner.dart';
 import '../../../widgets/pos/pos_serial_list_dialog.dart';
 import '../../../widgets/pos/pos_unsaved_changes.dart';
@@ -166,7 +167,7 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
     _status = r.status;
     _supplierId = r.supplierId;
     _noteCtrl.text = r.note ?? '';
-    _paidCtrl.text = r.paidAmount.toStringAsFixed(0);
+    _paidCtrl.text = r.paidAmount > 0 ? PosVndThousandsFormatter.format(r.paidAmount) : '0';
     _importDate = r.importDate ?? DateTime.now();
     _lines
       ..clear()
@@ -306,7 +307,7 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
 
 
   double get _linesTotal => _lines.fold(0.0, (s, l) => s + l.qty * l.cost);
-  double get _paid => double.tryParse(_paidCtrl.text.replaceAll(',', '')) ?? 0;
+  double get _paid => PosVndThousandsFormatter.parse(_paidCtrl.text);
 
   Map<String, dynamic> _body({required bool complete}) => {
         'supplierId': _supplierId,
@@ -588,6 +589,8 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                         controller: _paidCtrl,
                         readOnly: _readOnly,
                         keyboardType: TextInputType.number,
+                        // «200.000» như các ô tiền khác (trước: «200000»).
+                        inputFormatters: [PosVndThousandsFormatter()],
                         decoration: WhMobileTheme.fieldDecoration(label: 'Đã trả NCC'),
                         onChanged: (_) => setState(() {}),
                       ),

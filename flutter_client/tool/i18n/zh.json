@@ -2160,6 +2160,8 @@
   "Chưa có doanh thu trong năm.": "今年暂无营业额。",
   "Chưa có dòng hoạch toán trong kỳ hoặc chưa gắn hạng mục": "本期无记账行，或尚未关联科目",
   "Chưa có dòng hoạch toán.": "暂无记账行。",
+  "Chưa có dòng hạch toán trong kỳ hoặc chưa gắn hạng mục": "本期无报销明细或未设置费用类别",
+  "Chưa có dòng hạch toán.": "暂无报销明细。",
   "Chưa có dịch vụ": "暂无服务",
   "Chưa có dịch vụ tính giờ trên đơn — thêm SP theo giờ hoặc cấu hình SP mặc định khi mở bàn.": "订单中暂无计时服务 — 请添加计时商品，或配置开台时的默认商品。",
   "Chưa có dịch vụ tính giờ. Tạo một dịch vụ (vd «Quá giờ») với cách tính Theo giờ / Theo block rồi chọn lại.": "暂无计时服务。请创建一项服务（如«超时»），计费方式选按小时 / 按时段，然后重新选择。",
@@ -2232,6 +2234,7 @@
   "Chưa có hóa đơn áp khuyến mãi trong khoảng này": "该时段暂无应用促销的账单",
   "Chưa có hạn mục": "暂无科目",
   "Chưa có hạng": "暂无等级",
+  "Chưa có hạng mục": "暂无费用类别",
   "Chưa có hạng. Ví dụ: Bạc từ 2.000.000đ, Vàng từ 10.000.000đ, Kim cương từ 50.000.000đ.": "暂无等级。例如：银卡 2.000.000đ 起，金卡 10.000.000đ 起，钻石 50.000.000đ 起。",
   "Chưa có hồ sơ công tác": "暂无工作档案",
   "Chưa có hồ sơ lương": "暂无工资档案",
@@ -2397,6 +2400,7 @@
   "Chưa có phiếu đánh giá. PT đo lần đầu khi khách bắt đầu tập, sau đó đo lại định kỳ để theo dõi tiến bộ.": "暂无评估表。教练在客户开始训练时首次测量，之后定期复测以跟踪进步。",
   "Chưa có phiếu để sửa": "暂无可修改的单据",
   "Chưa có phiếu ứng. Có thể tạo ứng trước, hoặc bỏ qua và hoạch toán trực tiếp.": "暂无预支单。可创建预支，或跳过直接入账。",
+  "Chưa có phiếu ứng. Có thể tạo ứng trước, hoặc bỏ qua và hạch toán trực tiếp.": "暂无预支单。可先申请预支，或跳过直接报销。",
   "Chưa có phác đồ. PT giao bài tập / lịch tuần / dinh dưỡng — khách xem qua «Link cho khách».": "暂无训练方案。教练分配训练 / 每周安排 / 营养后，客户通过«客户链接»查看。",
   "Chưa có phòng ban": "暂无部门",
   "Chưa có phòng ban nào": "暂无部门",
@@ -3170,6 +3174,7 @@
   "Chọn hóa đơn đã hoàn thành để trả một phần hoặc toàn bộ hàng.": "选择已完成的账单，对部分或全部商品办理退货。",
   "Chọn hạn": "选择期限",
   "Chọn hạn mục chi phí": "选择费用科目",
+  "Chọn hạng mục chi phí": "请选择费用类别",
   "Chọn hết": "全选",
   "Chọn hết trang": "全选本页",
   "Chọn hồ sơ bên trái": "请在左侧选择档案",
@@ -4571,6 +4576,7 @@
   "Duyệt hoạch toán": "审批记账",
   "Duyệt hàng loạt": "批量批准",
   "Duyệt hàng loạt thất bại": "批量批准失败",
+  "Duyệt hạch toán": "审批报销",
   "Duyệt luôn": "直接批准",
   "Duyệt luôn khi tạo": "创建时直接批准",
   "Duyệt lương": "工资审批",
@@ -5992,6 +5998,7 @@
   "Hãy nối WiFi vào sóng SBOX-Gateway-XXXX (mật khẩu sbox12345),": "请将WiFi连接到 SBOX-Gateway-XXXX（密码 sbox12345），",
   "Hãy nối WiFi vào sóng SBOX-Gateway-XXXX (mật khẩu sbox12345), ": "请将 WiFi 连接到 SBOX-Gateway-XXXX(密码 sbox12345)，然后 ",
   "Hãy sửa khoản chi / đính kèm rồi bấm Gửi hoạch toán lại.": "请修改支出项/附件后，点击“重新提交核算”。",
+  "Hãy sửa khoản chi / đính kèm rồi bấm Gửi hạch toán lại.": "请修改费用 / 附件后点击重新提交报销。",
   "Hãy thiết lập lương trước — sau đó báo cáo mới tính được lương và xuất Excel.": "请先设置工资——之后报表才能计算工资并导出Excel。",
   "Hãy thêm chi nhánh để xem thống kê.": "请添加分店以查看统计。",
   "Hãy thêm các chi nhánh để hiển thị cây.": "请添加分店以显示树形结构。",
@@ -6114,6 +6121,9 @@
   "Hướng mặt vào camera": "请面向摄像头",
   "Hưởng BHXH": "享受社保",
   "Hưởng đủ lương ngày lễ": "享受节假日全薪",
+  "Hạch toán chi phí": "费用报销",
+  "Hạch toán dư ": "报销结余 ",
+  "Hạch toán đã duyệt": "报销已审批",
   "Hạn": "期限",
   "Hạn bàn giao, nghiệm thu": "交付、验收期限",
   "Hạn báo giá": "报价有效期",
@@ -6759,6 +6769,7 @@
   "Khách phải bật vị trí — có thể giả GPS trên máy root.": "客户必须开启定位 — root过的设备可能伪造GPS。",
   "Khách quen": "常客",
   "Khách quen: chọn khách trước khi thanh toán để tích điểm / ghi công nợ": "常客：结账前选择客户，可积分 / 记应收账款",
+  "Khách quét QR đang thấy toàn bộ hàng bán trực tiếp. Muốn chỉ hiện một số món: bật «Dùng menu riêng» hoặc bấm «Thêm món».": "扫码的顾客目前可看到所有直接销售的商品。若只想显示部分菜品，请开启「使用专属菜单」或点击「添加菜品」。",
   "Khách quét mã QR bằng camera điện thoại, hoặc gửi link qua Zalo / SMS.": "顾客用手机摄像头扫描二维码，或通过Zalo / 短信发送链接。",
   "Khách quét mã trên màn phụ. Bạn có thể thu gọn để tiếp tục thao tác.": "客人扫描副屏上的二维码。您可以收起以继续操作。",
   "Khách sạn": "酒店",
@@ -7209,6 +7220,7 @@
   "Không gửi được dữ liệu tới máy in": "无法向打印机发送数据",
   "Không gửi được hoạch toán": "无法发送记账数据",
   "Không gửi được hóa đơn": "无法发送账单",
+  "Không gửi được hạch toán": "无法提交报销",
   "Không gửi được lệnh": "无法发送指令",
   "Không gửi được máy in / Print Agent offline — phiếu treo, không mở mẫu.": "无法发送到打印机 / Print Agent 离线 — 单据已挂起，不打开模板。",
   "Không gửi được phiếu thử. Kiểm tra kết nối máy in.": "无法发送测试单据。请检查打印机连接。",
@@ -11519,6 +11531,7 @@
   "Phiếu hoàn thành": "已完成单据",
   "Phiếu hoạch toán sẽ trả về nhân viên để bổ sung/sửa khoản chi và đính kèm. Nhập nội dung cần bổ sung:": "核算单将退回给员工，以补充/修改支出项目并附上凭证。请输入需补充的内容：",
   "Phiếu hoạch toán đã được xử lý": "核算单已处理",
+  "Phiếu hạch toán sẽ trả về nhân viên để bổ sung/sửa khoản chi và đính kèm. Nhập nội dung cần bổ sung:": "报销将退回给员工补充/修改费用和附件。请输入需要补充的内容：",
   "Phiếu hủy bếp": "厨房退单",
   "Phiếu hủy hoặc từ chối không tính vào báo cáo": "已取消或被拒绝的单据不计入报表",
   "Phiếu hủy món": "退菜单",
@@ -16212,6 +16225,7 @@
   "Từ chối hoạch toán": "拒绝记账",
   "Từ chối hàng loạt": "批量拒绝",
   "Từ chối hàng loạt thất bại": "批量拒绝失败",
+  "Từ chối hạch toán": "驳回报销",
   "Từ chối một phần": "部分拒绝",
   "Từ chối nhận việc": "拒绝接收任务",
   "Từ chối thất bại": "拒绝失败",
@@ -17761,6 +17775,7 @@
   "hôm sau": "次日",
   "hđđt": "电子发票",
   "hướng dẫn nhanh": "快速指南",
+  "hạch toán công tác": "差旅报销",
   "hẹn khách": "客户预约",
   "hết hàng": "缺货",
   "hết hạn sử dụng": "已过期",
@@ -19261,6 +19276,7 @@
   "Đã gửi gắn STK": "已发送绑定账号请求",
   "Đã gửi hoạch toán công tác": "已提交出差核算",
   "Đã gửi hàng": "已发货",
+  "Đã gửi hạch toán công tác": "已提交差旅报销",
   "Đã gửi in hóa đơn tạm tính": "已发送预结账单打印",
   "Đã gửi in lại": "已发送重新打印",
   "Đã gửi in lại phiếu bếp": "已重新打印厨房单",
@@ -19880,6 +19896,7 @@
   "Đã xử lý": "已处理",
   "Đã xử lý hết": "已全部处理",
   "Đã yêu cầu NV bổ sung giấy tờ / sửa hoạch toán": "已要求员工补充单据 / 修改记账",
+  "Đã yêu cầu NV bổ sung giấy tờ / sửa hạch toán": "已要求员工补充单据 / 修改报销",
   "Đã áp dụng (tự động duyệt). Mở Duyệt chấm công → Tất cả hoặc Đã duyệt → lọc hành động Xóa.": "已应用（自动审批）。打开考勤审批 → 全部或已审批 → 筛选「删除」操作。",
   "Đã áp dụng JSON V2 vào mẫu in.": "已将JSON V2应用到打印模板。",
   "Đã áp dụng mẫu phân quyền": "已应用权限模板",
@@ -22373,6 +22390,10 @@
   [
    "Chi tiết hạn mục không còn trên hồ sơ (dữ liệu hoạch toán bị mất).\nTổng đã quyết toán: {0}.",
    "科目明细已不在档案中（核算数据丢失）。\n已结算合计：{0}。"
+  ],
+  [
+   "Chi tiết hạng mục không còn trên hồ sơ (dữ liệu hạch toán bị mất).\nTổng đã quyết toán: {0}.",
+   "费用类别明细已不在记录中（报销数据丢失）。\n已结算合计：{0}。"
   ],
   [
    "Chi tiết phiếu ({0})",
@@ -25229,6 +25250,10 @@
   [
    "Không tính {0} nhập hàng / hoàn trả",
    "不计入进货 / 退货的{0}"
+  ],
+  [
+   "Không tính {0} đơn từ chối / hủy",
+   "不含 {0} 份已拒绝 / 已取消的申请"
   ],
   [
    "Không tạo được PDF ({0})",
@@ -30473,6 +30498,10 @@
   [
    "{0} cửa hàng · trang {1}/{2}",
    "{0} 家门店 · 第 {1}/{2} 页"
+  ],
+  [
+   "{0} doanh thu đã có HĐĐT · ",
+   "{0} 营业额已开具电子发票 · "
   ],
   [
    "{0} duyệt",

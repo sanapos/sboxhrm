@@ -964,6 +964,8 @@
   "Chưa có danh mục. Bấm Quản lý để khởi tạo mẫu.": "No categories yet. Tap Manage to create the template.",
   "Chưa có danh sách nhân viên — trừ buổi vẫn ghi ngày.": "No staff list — session deductions still record the date.",
   "Chưa có doanh thu trong năm.": "No revenue this year.",
+  "Chưa có dòng hạch toán trong kỳ hoặc chưa gắn hạng mục": "No settlement lines in this period or no category assigned",
+  "Chưa có dòng hạch toán.": "No settlement lines yet.",
   "Chưa có dịch vụ": "No services yet",
   "Chưa có dịch vụ tính giờ. Tạo một dịch vụ (vd «Quá giờ») với cách tính Theo giờ / Theo block rồi chọn lại.": "No timed service yet. Create a service (e.g. «Overtime») billed Per hour / Per block, then select again.",
   "Chưa có dữ liệu trong kỳ": "No data in this period",
@@ -988,6 +990,7 @@
   "Chưa có hóa đơn trong kỳ": "No invoices in the period",
   "Chưa có hóa đơn áp khuyến mãi trong khoảng này": "No invoices with promotions in this period",
   "Chưa có hạng": "No tier",
+  "Chưa có hạng mục": "No category yet",
   "Chưa có hạng. Ví dụ: Bạc từ 2.000.000đ, Vàng từ 10.000.000đ, Kim cương từ 50.000.000đ.": "No tiers yet. Example: Silver from 2.000.000đ, Gold from 10.000.000đ, Diamond from 50.000.000đ.",
   "Chưa có hội viên": "No members yet",
   "Chưa có hội viên nào trên máy": "No members on the device",
@@ -1058,6 +1061,7 @@
   "Chưa có phiếu trả hàng nhập": "No purchase return vouchers",
   "Chưa có phiếu đánh giá. PT đo lần đầu khi khách bắt đầu tập, sau đó đo lại định kỳ để theo dõi tiến bộ.": "No assessment sheets yet. The trainer takes a first measurement when the client starts training, then re-measures periodically to track progress.",
   "Chưa có phiếu để sửa": "No slips to edit yet",
+  "Chưa có phiếu ứng. Có thể tạo ứng trước, hoặc bỏ qua và hạch toán trực tiếp.": "No advance yet. You can request an advance first, or skip it and settle expenses directly.",
   "Chưa có phác đồ. PT giao bài tập / lịch tuần / dinh dưỡng — khách xem qua «Link cho khách».": "No programs yet. The trainer assigns exercises / weekly schedule / nutrition — clients view them via the «Client link».",
   "Chưa có phòng ban nào": "No departments yet",
   "Chưa có phụ cấp": "No allowances",
@@ -1390,6 +1394,7 @@
   "Chọn hãng báo giá thành công": "Carrier quote selected",
   "Chọn hóa đơn bên trái": "Select an invoice on the left",
   "Chọn hạn": "Select deadline",
+  "Chọn hạng mục chi phí": "Choose an expense category",
   "Chọn hồ sơ bên trái": "Select a case on the left",
   "Chọn hội viên": "Select member",
   "Chọn kho": "Select warehouse",
@@ -2064,6 +2069,7 @@
   "Duyệt CC": "Approve attendance",
   "Duyệt hoàn thành": "Approve completion",
   "Duyệt hoàn thành thì cộng vào lương người làm": "Approving completion adds the amount to the worker's pay",
+  "Duyệt hạch toán": "Approve settlement",
   "Duyệt luôn": "Approve right away",
   "Duyệt lịch": "Approve schedule",
   "Duyệt lịch nhiều cấp": "Multi-level schedule approval",
@@ -2769,6 +2775,7 @@
   "Hãy là người đầu tiên bình luận": "Be the first to comment",
   "Hãy mở ứng dụng SBOX HRM trên điện thoại, đăng nhập tài khoản này rồi vào «Đăng ký chấm công Mobile».": "Open the SBOX HRM app on your phone, sign in with this account, then go to \"Mobile attendance registration\".",
   "Hãy nối WiFi vào sóng SBOX-Gateway-XXXX (mật khẩu sbox12345), ": "Connect WiFi to SBOX-Gateway-XXXX (password sbox12345), then ",
+  "Hãy sửa khoản chi / đính kèm rồi bấm Gửi hạch toán lại.": "Please fix the expenses / attachments, then tap Resubmit settlement.",
   "Hãy «Ngừng dùng» để ẩn ca khỏi xếp ca mới mà vẫn giữ lịch sử.": "Tap \"Deactivate\" to hide the shift from new scheduling while keeping its history.",
   "Hình thức phát hành": "Issuing method",
   "Hình thức quyết toán": "Settlement method",
@@ -2837,6 +2844,9 @@
   "Hướng dẫn nhanh\n": "Quick guide\n",
   "Hướng dẫn — máy in nội bộ\n": "Guide — internal printer\n",
   "Hưởng BHXH": "Social insurance benefits",
+  "Hạch toán chi phí": "Expense settlement",
+  "Hạch toán dư ": "Settlement surplus ",
+  "Hạch toán đã duyệt": "Settlement approved",
   "Hạn": "Due",
   "Hạn bàn giao, nghiệm thu": "Handover & acceptance deadline",
   "Hạn báo giá": "Quote validity",
@@ -3173,6 +3183,7 @@
   "Khách phải bật vị trí — có thể giả GPS trên máy root.": "The customer must turn on location — GPS can be spoofed on rooted devices.",
   "Khách quen": "Regular customers",
   "Khách quen: chọn khách trước khi thanh toán để tích điểm / ghi công nợ": "Regular customers: pick the customer before payment to earn points / record receivables",
+  "Khách quét QR đang thấy toàn bộ hàng bán trực tiếp. Muốn chỉ hiện một số món: bật «Dùng menu riêng» hoặc bấm «Thêm món».": "Customers scanning the QR code currently see every item sold directly. To show only some items, turn on «Use custom menu» or tap «Add dishes».",
   "Khách quét mã QR bằng camera điện thoại, hoặc gửi link qua Zalo / SMS.": "Customers scan the QR with their phone camera, or you send the link via Zalo / SMS.",
   "Khách quét mã trên màn phụ. Bạn có thể thu gọn để tiếp tục thao tác.": "The guest scans the code on the 2nd screen. You can collapse this to keep working.",
   "Khách sạn": "Hotel",
@@ -3388,6 +3399,7 @@
   "Không gỡ được thiết bị. Thử lại.": "Cannot remove the device. Try again.",
   "Không gửi bếp được: kiểm tra ngành hàng F&B + máy in bếp + mẫu phiếu bếp là mặc định": "Cannot send to kitchen: check the F&B category + kitchen printer + kitchen ticket template is the default",
   "Không gửi được hóa đơn": "Cannot send the invoice",
+  "Không gửi được hạch toán": "Could not submit settlement",
   "Không gửi được lệnh": "Cannot send the command",
   "Không gửi được tới máy tem. Kiểm tra máy tem trong Máy in nội bộ, hoặc bật in qua Agent trên máy có cắm máy tem.": "Unable to send to the label printer. Check the label printer in Internal printers, or enable printing via Agent on the device with the label printer attached.",
   "Không hiện": "Hidden",
@@ -5137,6 +5149,7 @@
   "Phiếu giao hàng": "Delivery slip",
   "Phiếu gần đây": "Recent slips",
   "Phiếu hoàn thành": "Completed slips",
+  "Phiếu hạch toán sẽ trả về nhân viên để bổ sung/sửa khoản chi và đính kèm. Nhập nội dung cần bổ sung:": "The settlement will be returned to the employee to add/fix expenses and attachments. Enter what needs to be added:",
   "Phiếu hủy món": "Dish cancel slip",
   "Phiếu in": "Print slip",
   "Phiếu in lấy TK từ Hồ sơ thương mại — chưa cấu hình": "Printed slips take the bank account from the business profile — not configured yet",
@@ -7090,6 +7103,7 @@
   "Từ Google Sheet": "From Google Sheet",
   "Từ chối / hủy": "Reject / cancel",
   "Từ chối bảo hành": "Reject warranty",
+  "Từ chối hạch toán": "Reject settlement",
   "Từ chối đổi ca": "Reject shift swap",
   "Từ doanh thu đến lợi nhuận ròng": "From revenue to net profit",
   "Từ file Excel": "From Excel file",
@@ -7690,6 +7704,7 @@
   "hôm qua": "yesterday",
   "hôm sau": "next day",
   "hđđt": "e-invoice",
+  "hạch toán công tác": "business trip settlement",
   "hẹn khách": "customer appointment",
   "hệ số": "multiplier",
   "hệ thống": "system",
@@ -8326,6 +8341,7 @@
   "Đã gửi email HĐĐT": "E-invoice email sent",
   "Đã gửi gắn STK": "Account-number link request sent",
   "Đã gửi hàng": "Shipped",
+  "Đã gửi hạch toán công tác": "Business trip settlement submitted",
   "Đã gửi in hóa đơn tạm tính": "Provisional bill sent to print",
   "Đã gửi in lại": "Reprint sent",
   "Đã gửi in lại phiếu bếp": "Kitchen ticket reprint sent",
@@ -8555,6 +8571,7 @@
   "Đã xếp ca cho một thợ thì thợ chưa xếp ca ngày đó coi như không làm.": "If a technician is assigned a shift, technicians not assigned that day are treated as not working.",
   "Đã xếp ngày nghỉ": "Day off assigned",
   "Đã xử lý hết": "All handled",
+  "Đã yêu cầu NV bổ sung giấy tờ / sửa hạch toán": "Asked the employee to add documents / fix the settlement",
   "Đã áp dụng mẫu phân quyền": "Permission template applied",
   "Đã điền tên và địa chỉ. TK ngân hàng / người đại diện nhập tay.": "Name and address filled in. Bank account / representative must be entered manually.",
   "Đã điều chỉnh công nợ": "Balance adjusted",
@@ -10212,6 +10229,10 @@
   [
    "Chi tiết hạn mục không còn trên hồ sơ (dữ liệu hoạch toán bị mất).\nTổng đã quyết toán: {0}.",
    "Item details are no longer on the profile (accounting data lost).\nTotal settled: {0}."
+  ],
+  [
+   "Chi tiết hạng mục không còn trên hồ sơ (dữ liệu hạch toán bị mất).\nTổng đã quyết toán: {0}.",
+   "Category details are no longer on the record (settlement data was lost).\nTotal settled: {0}."
   ],
   [
    "Chi tiết phiếu ({0})",
@@ -13068,6 +13089,10 @@
   [
    "Không tính {0} nhập hàng / hoàn trả",
    "Excludes {0} of purchases / returns"
+  ],
+  [
+   "Không tính {0} đơn từ chối / hủy",
+   "{0} rejected / cancelled requests not counted"
   ],
   [
    "Không tạo được PDF ({0})",
@@ -18312,6 +18337,10 @@
   [
    "{0} cửa hàng · trang {1}/{2}",
    "{0} stores · page {1}/{2}"
+  ],
+  [
+   "{0} doanh thu đã có HĐĐT · ",
+   "{0} revenue already has e-invoices · "
   ],
   [
    "{0} duyệt",

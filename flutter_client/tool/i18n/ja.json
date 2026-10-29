@@ -2160,6 +2160,8 @@
   "Chưa có doanh thu trong năm.": "今年の売上がありません。",
   "Chưa có dòng hoạch toán trong kỳ hoặc chưa gắn hạng mục": "期間内に会計仕訳がないか、科目が紐付けられていません",
   "Chưa có dòng hoạch toán.": "会計仕訳がありません。",
+  "Chưa có dòng hạch toán trong kỳ hoặc chưa gắn hạng mục": "この期間に精算明細がないか、費目が未設定です",
+  "Chưa có dòng hạch toán.": "精算明細はまだありません。",
   "Chưa có dịch vụ": "サービスはまだありません",
   "Chưa có dịch vụ tính giờ trên đơn — thêm SP theo giờ hoặc cấu hình SP mặc định khi mở bàn.": "注文に時間課金サービスがありません — 時間制の商品を追加するか、テーブルを開く際の既定商品を設定してください。",
   "Chưa có dịch vụ tính giờ. Tạo một dịch vụ (vd «Quá giờ») với cách tính Theo giờ / Theo block rồi chọn lại.": "時間課金サービスがありません。サービス(例:「超過時間」)を「時間単位 / ブロック単位」の計算方式で作成してから、もう一度選択してください。",
@@ -2232,6 +2234,7 @@
   "Chưa có hóa đơn áp khuyến mãi trong khoảng này": "この期間に販促が適用された伝票はありません",
   "Chưa có hạn mục": "項目なし",
   "Chưa có hạng": "ランクなし",
+  "Chưa có hạng mục": "費目がありません",
   "Chưa có hạng. Ví dụ: Bạc từ 2.000.000đ, Vàng từ 10.000.000đ, Kim cương từ 50.000.000đ.": "ランクがありません。例: シルバーは 2.000.000đ から、ゴールドは 10.000.000đ から、ダイヤモンドは 50.000.000đ から。",
   "Chưa có hồ sơ công tác": "勤務履歴がありません",
   "Chưa có hồ sơ lương": "給与記録なし",
@@ -2397,6 +2400,7 @@
   "Chưa có phiếu đánh giá. PT đo lần đầu khi khách bắt đầu tập, sau đó đo lại định kỳ để theo dõi tiến bộ.": "評価シートがありません。トレーナーは顧客のトレーニング開始時に初回測定を行い、その後定期的に再測定して進捗を確認します。",
   "Chưa có phiếu để sửa": "編集できる伝票がありません",
   "Chưa có phiếu ứng. Có thể tạo ứng trước, hoặc bỏ qua và hoạch toán trực tiếp.": "前払い伝票がありません。前払いを作成するか、スキップして直接処理できます。",
+  "Chưa có phiếu ứng. Có thể tạo ứng trước, hoặc bỏ qua và hạch toán trực tiếp.": "前払い伝票はありません。先に前払いを申請するか、省略して直接精算できます。",
   "Chưa có phác đồ. PT giao bài tập / lịch tuần / dinh dưỡng — khách xem qua «Link cho khách».": "プログラムがありません。トレーナーが運動 / 週間スケジュール / 栄養を割り当て、顧客は«顧客用リンク»から確認します。",
   "Chưa có phòng ban": "部署がありません",
   "Chưa có phòng ban nào": "部署がありません",
@@ -3170,6 +3174,7 @@
   "Chọn hóa đơn đã hoàn thành để trả một phần hoặc toàn bộ hàng.": "一部または全部の商品を返品するには、完了した伝票を選択してください。",
   "Chọn hạn": "期限を選択",
   "Chọn hạn mục chi phí": "費用項目を選択",
+  "Chọn hạng mục chi phí": "費目を選択してください",
   "Chọn hết": "すべて選択",
   "Chọn hết trang": "ページ全体を選択",
   "Chọn hồ sơ bên trái": "左側から案件を選択してください",
@@ -4571,6 +4576,7 @@
   "Duyệt hoạch toán": "会計処理の承認",
   "Duyệt hàng loạt": "一括承認",
   "Duyệt hàng loạt thất bại": "一括承認に失敗しました",
+  "Duyệt hạch toán": "精算を承認",
   "Duyệt luôn": "すぐに承認",
   "Duyệt luôn khi tạo": "作成時にすぐ承認",
   "Duyệt lương": "給与の承認",
@@ -5992,6 +5998,7 @@
   "Hãy nối WiFi vào sóng SBOX-Gateway-XXXX (mật khẩu sbox12345),": "WiFiをSBOX-Gateway-XXXX（パスワード sbox12345）に接続してください。",
   "Hãy nối WiFi vào sóng SBOX-Gateway-XXXX (mật khẩu sbox12345), ": "WiFiをSBOX-Gateway-XXXX(パスワード sbox12345)に接続してから、 ",
   "Hãy sửa khoản chi / đính kèm rồi bấm Gửi hoạch toán lại.": "支出項目／添付を修正してから「計上を再送信」を押してください。",
+  "Hãy sửa khoản chi / đính kèm rồi bấm Gửi hạch toán lại.": "経費・添付を修正してから「精算を再提出」を押してください。",
   "Hãy thiết lập lương trước — sau đó báo cáo mới tính được lương và xuất Excel.": "先に給与を設定してください。その後、レポートで給与を計算しExcel出力できます。",
   "Hãy thêm chi nhánh để xem thống kê.": "統計を表示するには支店を追加してください。",
   "Hãy thêm các chi nhánh để hiển thị cây.": "ツリーを表示するには支店を追加してください。",
@@ -6114,6 +6121,9 @@
   "Hướng mặt vào camera": "カメラに顔を向けてください",
   "Hưởng BHXH": "社会保険適用",
   "Hưởng đủ lương ngày lễ": "祝日も全額給与支給",
+  "Hạch toán chi phí": "経費精算",
+  "Hạch toán dư ": "精算の余剰 ",
+  "Hạch toán đã duyệt": "精算承認済み",
   "Hạn": "期限",
   "Hạn bàn giao, nghiệm thu": "引渡し・検収の期限",
   "Hạn báo giá": "見積有効期限",
@@ -6759,6 +6769,7 @@
   "Khách phải bật vị trí — có thể giả GPS trên máy root.": "お客様が位置情報をオンにする必要があります — rootedの端末ではGPSを偽装される可能性があります。",
   "Khách quen": "常連のお客様",
   "Khách quen: chọn khách trước khi thanh toán để tích điểm / ghi công nợ": "常連のお客様：会計前にお客様を選択するとポイント付与 / 売掛記録ができます",
+  "Khách quét QR đang thấy toàn bộ hàng bán trực tiếp. Muốn chỉ hiện một số món: bật «Dùng menu riêng» hoặc bấm «Thêm món».": "QRを読み取ったお客様には現在、直接販売の商品がすべて表示されています。一部のメニューだけを表示するには「専用メニューを使用」をオンにするか「メニューを追加」を押してください。",
   "Khách quét mã QR bằng camera điện thoại, hoặc gửi link qua Zalo / SMS.": "お客様がスマホのカメラでQRコードをスキャンするか、Zalo／SMSでリンクを送信します。",
   "Khách quét mã trên màn phụ. Bạn có thể thu gọn để tiếp tục thao tác.": "お客様がサブ画面のコードをスキャンします。折りたたんで操作を続けられます。",
   "Khách sạn": "ホテル",
@@ -7209,6 +7220,7 @@
   "Không gửi được dữ liệu tới máy in": "プリンターにデータを送信できません",
   "Không gửi được hoạch toán": "会計処理を送信できません",
   "Không gửi được hóa đơn": "伝票を送信できません",
+  "Không gửi được hạch toán": "精算を提出できませんでした",
   "Không gửi được lệnh": "コマンドを送信できません",
   "Không gửi được máy in / Print Agent offline — phiếu treo, không mở mẫu.": "プリンターに送信できません / Print Agentがオフライン — 伝票は保留され、テンプレートは開きません。",
   "Không gửi được phiếu thử. Kiểm tra kết nối máy in.": "テスト伝票を送信できません。プリンターの接続を確認してください。",
@@ -11519,6 +11531,7 @@
   "Phiếu hoàn thành": "完了した伝票",
   "Phiếu hoạch toán sẽ trả về nhân viên để bổ sung/sửa khoản chi và đính kèm. Nhập nội dung cần bổ sung:": "会計伝票を従業員に差し戻し、支出項目の追加・修正と添付をしてもらいます。追加が必要な内容を入力してください：",
   "Phiếu hoạch toán đã được xử lý": "会計伝票は処理済みです",
+  "Phiếu hạch toán sẽ trả về nhân viên để bổ sung/sửa khoản chi và đính kèm. Nhập nội dung cần bổ sung:": "精算は従業員に差し戻され、経費と添付を追加・修正します。補足が必要な内容を入力してください:",
   "Phiếu hủy bếp": "厨房キャンセル伝票",
   "Phiếu hủy hoặc từ chối không tính vào báo cáo": "キャンセルまたは却下された伝票はレポートに含まれません",
   "Phiếu hủy món": "メニュー取消伝票",
@@ -16212,6 +16225,7 @@
   "Từ chối hoạch toán": "会計計上を却下",
   "Từ chối hàng loạt": "一括却下",
   "Từ chối hàng loạt thất bại": "一括却下に失敗しました",
+  "Từ chối hạch toán": "精算を却下",
   "Từ chối một phần": "一部却下",
   "Từ chối nhận việc": "タスクの受諾を拒否",
   "Từ chối thất bại": "却下に失敗しました",
@@ -17761,6 +17775,7 @@
   "hôm sau": "翌日",
   "hđđt": "電子請求書",
   "hướng dẫn nhanh": "クイックガイド",
+  "hạch toán công tác": "出張精算",
   "hẹn khách": "顧客予約",
   "hết hàng": "品切れ",
   "hết hạn sử dụng": "消費期限切れ",
@@ -19261,6 +19276,7 @@
   "Đã gửi gắn STK": "口座番号の紐づけを送信しました",
   "Đã gửi hoạch toán công tác": "出張の精算を送信しました",
   "Đã gửi hàng": "発送済み",
+  "Đã gửi hạch toán công tác": "出張精算を提出しました",
   "Đã gửi in hóa đơn tạm tính": "仮計算書の印刷を送信しました",
   "Đã gửi in lại": "再印刷を依頼しました",
   "Đã gửi in lại phiếu bếp": "キッチン伝票の再印刷を依頼しました",
@@ -19880,6 +19896,7 @@
   "Đã xử lý": "処理済み",
   "Đã xử lý hết": "すべて処理済み",
   "Đã yêu cầu NV bổ sung giấy tờ / sửa hoạch toán": "従業員に書類の補完 / 会計処理の修正を依頼しました",
+  "Đã yêu cầu NV bổ sung giấy tờ / sửa hạch toán": "従業員に書類の補足・精算の修正を依頼しました",
   "Đã áp dụng (tự động duyệt). Mở Duyệt chấm công → Tất cả hoặc Đã duyệt → lọc hành động Xóa.": "適用しました (自動承認)。勤怠承認 → すべて または 承認済みで「削除」操作に絞り込んでください。",
   "Đã áp dụng JSON V2 vào mẫu in.": "JSON V2を印刷テンプレートに適用しました。",
   "Đã áp dụng mẫu phân quyền": "権限テンプレートを適用しました",
@@ -22373,6 +22390,10 @@
   [
    "Chi tiết hạn mục không còn trên hồ sơ (dữ liệu hoạch toán bị mất).\nTổng đã quyết toán: {0}.",
    "項目の詳細がプロフィールにありません（会計データが失われました）。\n精算済み合計：{0}。"
+  ],
+  [
+   "Chi tiết hạng mục không còn trên hồ sơ (dữ liệu hạch toán bị mất).\nTổng đã quyết toán: {0}.",
+   "費目の詳細が記録から失われました（精算データ消失）。\n精算合計: {0}。"
   ],
   [
    "Chi tiết phiếu ({0})",
@@ -25229,6 +25250,10 @@
   [
    "Không tính {0} nhập hàng / hoàn trả",
    "仕入・返品の{0}を除外"
+  ],
+  [
+   "Không tính {0} đơn từ chối / hủy",
+   "却下・取消の申請 {0} 件は含まない"
   ],
   [
    "Không tạo được PDF ({0})",
@@ -30473,6 +30498,10 @@
   [
    "{0} cửa hàng · trang {1}/{2}",
    "{0}店舗 · ページ {1}/{2}"
+  ],
+  [
+   "{0} doanh thu đã có HĐĐT · ",
+   "{0} の売上は電子インボイス発行済み · "
   ],
   [
    "{0} duyệt",

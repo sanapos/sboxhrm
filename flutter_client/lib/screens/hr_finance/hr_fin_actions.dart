@@ -369,8 +369,8 @@ class HrFinActions {
             ),
             const SizedBox(height: SboxSpace.md),
             Autocomplete<HrFinPerson>(
-              initialValue: TextEditingValue(text: person?.name ?? ''),
-              displayStringForOption: (p) => p.name,
+              initialValue: TextEditingValue(text: person == null ? '' : _personLabel(person!)),
+              displayStringForOption: _personLabel,
               optionsBuilder: (v) {
                 final q = v.text.trim().toLowerCase();
                 return people.where((p) => q.isEmpty || p.name.toLowerCase().contains(q) || (p.code ?? '').toLowerCase().contains(q)).take(30);
@@ -499,7 +499,7 @@ class HrFinActions {
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             if (people != null) ...[
               Autocomplete<HrFinPerson>(
-                displayStringForOption: (p) => p.name,
+                displayStringForOption: _personLabel,
                 optionsBuilder: (t) {
                   final q = t.text.trim().toLowerCase();
                   return people.where((p) => q.isEmpty || p.name.toLowerCase().contains(q) || (p.code ?? '').toLowerCase().contains(q)).take(30);
@@ -730,4 +730,10 @@ class _LimitCard extends StatelessWidget {
                 ]),
     );
   }
+}
+
+/// «Tên · Mã NV» — nhân viên trùng tên (vd 4 «Ngân QA Thu») trước đây hiện y hệt nhau trong gợi ý.
+String _personLabel(HrFinPerson p) {
+  final code = (p.code ?? '').trim();
+  return code.isEmpty ? p.name : '${p.name} · $code';
 }

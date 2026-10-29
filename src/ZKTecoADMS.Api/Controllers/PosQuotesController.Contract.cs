@@ -215,7 +215,8 @@ public partial class PosQuotesController
             PaymentMethod = Trim(dto.PaymentMethod, 50) ?? "Tiền mặt",
             BankAccountId = ParseGuid(dto.BankAccountId),
             Note = Trim(dto.Note, 500),
-            CollectedBy = await EmployeeNameAsync(EmployeeId) ?? CurrentUserEmail,
+            // Chủ cửa hàng không gắn nhân viên: họ tên tài khoản (trước ghi email vào «Các lần thu»).
+            CollectedBy = await EmployeeNameAsync(EmployeeId) ?? await UserDisplayNameAsync(CurrentUserEmail) ?? CurrentUserEmail,
             CreatedBy = CurrentUserEmail,
             IsActive = true,
         };
@@ -358,6 +359,10 @@ public partial class PosQuotesController
                 .Where(c => cashIds.Contains(c.Id))
                 .ToDictionaryAsync(c => c.Id, c => c.TransactionCode);
 
+        // Lần thu cũ đã ghi email người thu → hiện họ tên tài khoản.
+        var collectorNames = await UserNamesByEmailAsync(
+            payments.Select(p => p.CollectedBy).Where(c => c != null && c.Contains('@')).Distinct().ToList());
+
         var collected = payments.Sum(p => p.Amount);
         var views = AllocateStages(stages, collected, quote.Total, PosQuoteStageMath.PreVat(quote));
         var next = views.FirstOrDefault(v => v.Remaining > 0);
@@ -375,7 +380,8 @@ public partial class PosQuotesController
             payments.Select(p => new ContractPaymentView(
                 p.Id, p.StageId,
                 p.StageId is Guid sid ? titles.GetValueOrDefault(sid) : null,
-                p.Amount, p.PaidAt, p.PaymentMethod, p.Note, p.CollectedBy,
+                p.Amount, p.PaidAt, p.PaymentMethod, p.Note,
+                collectorNames.GetValueOrDefault(p.CollectedBy ?? "") ?? p.CollectedBy,
                 p.CashTransactionId,
                 p.CashTransactionId is Guid cid ? codes.GetValueOrDefault(cid) : null)).ToList(),
             PosQuoteStageMath.PreVat(quote), quote.DepositPercent);

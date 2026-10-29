@@ -2160,6 +2160,8 @@
   "Chưa có doanh thu trong năm.": "올해 매출이 없습니다.",
   "Chưa có dòng hoạch toán trong kỳ hoặc chưa gắn hạng mục": "해당 기간에 회계 항목이 없거나 계정 과목이 지정되지 않았습니다",
   "Chưa có dòng hoạch toán.": "회계 항목이 없습니다.",
+  "Chưa có dòng hạch toán trong kỳ hoặc chưa gắn hạng mục": "이 기간에 정산 내역이 없거나 항목이 지정되지 않았습니다",
+  "Chưa có dòng hạch toán.": "정산 내역이 아직 없습니다.",
   "Chưa có dịch vụ": "서비스가 없습니다",
   "Chưa có dịch vụ tính giờ trên đơn — thêm SP theo giờ hoặc cấu hình SP mặc định khi mở bàn.": "주문에 시간제 서비스가 없습니다 — 시간제 상품을 추가하거나 테이블 오픈 시 기본 상품을 설정하세요.",
   "Chưa có dịch vụ tính giờ. Tạo một dịch vụ (vd «Quá giờ») với cách tính Theo giờ / Theo block rồi chọn lại.": "시간제 서비스가 없습니다. 서비스(예: «초과 시간»)를 시간당 / 블록당 방식으로 만든 뒤 다시 선택하세요.",
@@ -2232,6 +2234,7 @@
   "Chưa có hóa đơn áp khuyến mãi trong khoảng này": "이 기간에 프로모션이 적용된 영수증이 없습니다",
   "Chưa có hạn mục": "항목 없음",
   "Chưa có hạng": "등급 없음",
+  "Chưa có hạng mục": "항목 없음",
   "Chưa có hạng. Ví dụ: Bạc từ 2.000.000đ, Vàng từ 10.000.000đ, Kim cương từ 50.000.000đ.": "등급이 없습니다. 예: 실버 2.000.000đ 부터, 골드 10.000.000đ 부터, 다이아몬드 50.000.000đ 부터.",
   "Chưa có hồ sơ công tác": "업무 이력 없음",
   "Chưa có hồ sơ lương": "급여 기록 없음",
@@ -2397,6 +2400,7 @@
   "Chưa có phiếu đánh giá. PT đo lần đầu khi khách bắt đầu tập, sau đó đo lại định kỳ để theo dõi tiến bộ.": "평가 기록이 없습니다. 트레이너는 고객이 운동을 시작할 때 처음 측정하고, 이후 주기적으로 다시 측정하여 향상도를 확인합니다.",
   "Chưa có phiếu để sửa": "수정할 전표가 없습니다",
   "Chưa có phiếu ứng. Có thể tạo ứng trước, hoặc bỏ qua và hoạch toán trực tiếp.": "가불 전표가 없습니다. 선지급을 만들거나 건너뛰고 바로 처리할 수 있습니다.",
+  "Chưa có phiếu ứng. Có thể tạo ứng trước, hoặc bỏ qua và hạch toán trực tiếp.": "가불 전표가 없습니다. 먼저 가불을 신청하거나 건너뛰고 바로 정산할 수 있습니다.",
   "Chưa có phác đồ. PT giao bài tập / lịch tuần / dinh dưỡng — khách xem qua «Link cho khách».": "프로그램이 없습니다. 트레이너가 운동 / 주간 일정 / 영양을 배정하면 고객은 «고객용 링크»로 확인합니다.",
   "Chưa có phòng ban": "부서가 없습니다",
   "Chưa có phòng ban nào": "부서가 없습니다",
@@ -3170,6 +3174,7 @@
   "Chọn hóa đơn đã hoàn thành để trả một phần hoặc toàn bộ hàng.": "일부 또는 전체 상품을 반품하려면 완료된 영수증을 선택하세요.",
   "Chọn hạn": "기한 선택",
   "Chọn hạn mục chi phí": "비용 항목 선택",
+  "Chọn hạng mục chi phí": "비용 항목을 선택하세요",
   "Chọn hết": "전체 선택",
   "Chọn hết trang": "페이지 전체 선택",
   "Chọn hồ sơ bên trái": "왼쪽에서 건을 선택하세요",
@@ -4571,6 +4576,7 @@
   "Duyệt hoạch toán": "회계 처리 승인",
   "Duyệt hàng loạt": "일괄 승인",
   "Duyệt hàng loạt thất bại": "일괄 승인 실패",
+  "Duyệt hạch toán": "정산 승인",
   "Duyệt luôn": "바로 승인",
   "Duyệt luôn khi tạo": "생성 시 바로 승인",
   "Duyệt lương": "급여 승인",
@@ -5992,6 +5998,7 @@
   "Hãy nối WiFi vào sóng SBOX-Gateway-XXXX (mật khẩu sbox12345),": "WiFi를 SBOX-Gateway-XXXX 네트워크(비밀번호 sbox12345)에 연결하세요,",
   "Hãy nối WiFi vào sóng SBOX-Gateway-XXXX (mật khẩu sbox12345), ": "WiFi를 SBOX-Gateway-XXXX(비밀번호 sbox12345)에 연결한 후, ",
   "Hãy sửa khoản chi / đính kèm rồi bấm Gửi hoạch toán lại.": "지출 항목/첨부 파일을 수정한 후 '회계 처리 재요청'을 누르세요.",
+  "Hãy sửa khoản chi / đính kèm rồi bấm Gửi hạch toán lại.": "비용 / 첨부를 수정한 후 정산 다시 제출을 누르세요.",
   "Hãy thiết lập lương trước — sau đó báo cáo mới tính được lương và xuất Excel.": "먼저 급여를 설정하세요 — 그러면 리포트에서 급여를 계산하고 엑셀로 내보낼 수 있습니다.",
   "Hãy thêm chi nhánh để xem thống kê.": "통계를 보려면 지점을 추가하세요.",
   "Hãy thêm các chi nhánh để hiển thị cây.": "트리를 표시하려면 지점을 추가하세요.",
@@ -6114,6 +6121,9 @@
   "Hướng mặt vào camera": "카메라를 정면으로 바라보세요",
   "Hưởng BHXH": "사회보험 적용",
   "Hưởng đủ lương ngày lễ": "공휴일 급여 전액 지급",
+  "Hạch toán chi phí": "비용 정산",
+  "Hạch toán dư ": "정산 잉여 ",
+  "Hạch toán đã duyệt": "정산 승인됨",
   "Hạn": "기한",
   "Hạn bàn giao, nghiệm thu": "인도 및 검수 기한",
   "Hạn báo giá": "견적 유효기한",
@@ -6759,6 +6769,7 @@
   "Khách phải bật vị trí — có thể giả GPS trên máy root.": "고객이 위치를 켜야 합니다 — 루팅된 기기에서는 GPS 위조가 가능할 수 있습니다.",
   "Khách quen": "단골 고객",
   "Khách quen: chọn khách trước khi thanh toán để tích điểm / ghi công nợ": "단골 고객: 결제 전에 고객을 선택하면 포인트 적립 / 미수금 기록이 가능합니다",
+  "Khách quét QR đang thấy toàn bộ hàng bán trực tiếp. Muốn chỉ hiện một số món: bật «Dùng menu riêng» hoặc bấm «Thêm món».": "QR을 스캔한 고객에게 현재 직접 판매 상품이 모두 표시됩니다. 일부 메뉴만 보이려면 «전용 메뉴 사용»을 켜거나 «메뉴 추가»를 누르세요.",
   "Khách quét mã QR bằng camera điện thoại, hoặc gửi link qua Zalo / SMS.": "고객이 휴대폰 카메라로 QR 코드를 스캔하거나 Zalo / SMS로 링크를 보냅니다.",
   "Khách quét mã trên màn phụ. Bạn có thể thu gọn để tiếp tục thao tác.": "손님이 보조 화면의 코드를 스캔합니다. 접어서 계속 작업할 수 있습니다.",
   "Khách sạn": "호텔",
@@ -7209,6 +7220,7 @@
   "Không gửi được dữ liệu tới máy in": "프린터로 데이터를 전송할 수 없습니다",
   "Không gửi được hoạch toán": "회계 처리를 전송할 수 없습니다",
   "Không gửi được hóa đơn": "영수증을 전송할 수 없습니다",
+  "Không gửi được hạch toán": "정산을 제출하지 못했습니다",
   "Không gửi được lệnh": "명령을 전송할 수 없습니다",
   "Không gửi được máy in / Print Agent offline — phiếu treo, không mở mẫu.": "프린터로 전송할 수 없습니다 / Print Agent 오프라인 — 전표가 보류되었으며 서식을 열지 않습니다.",
   "Không gửi được phiếu thử. Kiểm tra kết nối máy in.": "테스트 전표를 전송할 수 없습니다. 프린터 연결을 확인하세요.",
@@ -11519,6 +11531,7 @@
   "Phiếu hoàn thành": "완료 전표",
   "Phiếu hoạch toán sẽ trả về nhân viên để bổ sung/sửa khoản chi và đính kèm. Nhập nội dung cần bổ sung:": "회계 전표를 직원에게 반려하여 지출 항목을 보완/수정하고 증빙을 첨부하게 합니다. 보완할 내용을 입력하세요:",
   "Phiếu hoạch toán đã được xử lý": "회계 전표가 처리되었습니다",
+  "Phiếu hạch toán sẽ trả về nhân viên để bổ sung/sửa khoản chi và đính kèm. Nhập nội dung cần bổ sung:": "정산이 직원에게 반송되어 비용과 첨부를 추가/수정합니다. 보완할 내용을 입력하세요:",
   "Phiếu hủy bếp": "주방 취소 전표",
   "Phiếu hủy hoặc từ chối không tính vào báo cáo": "취소 또는 거절된 전표는 보고서에 포함되지 않습니다",
   "Phiếu hủy món": "메뉴 취소 전표",
@@ -16212,6 +16225,7 @@
   "Từ chối hoạch toán": "회계 반영 거절",
   "Từ chối hàng loạt": "일괄 거절",
   "Từ chối hàng loạt thất bại": "일괄 거절 실패",
+  "Từ chối hạch toán": "정산 반려",
   "Từ chối một phần": "부분 거절",
   "Từ chối nhận việc": "업무 수락 거절",
   "Từ chối thất bại": "거절 실패",
@@ -17761,6 +17775,7 @@
   "hôm sau": "다음 날",
   "hđđt": "전자세금계산서",
   "hướng dẫn nhanh": "빠른 안내",
+  "hạch toán công tác": "출장 정산",
   "hẹn khách": "고객 예약",
   "hết hàng": "품절",
   "hết hạn sử dụng": "유통기한 만료",
@@ -19261,6 +19276,7 @@
   "Đã gửi gắn STK": "계좌번호 연결 요청 전송됨",
   "Đã gửi hoạch toán công tác": "출장 정산을 제출했습니다",
   "Đã gửi hàng": "발송됨",
+  "Đã gửi hạch toán công tác": "출장 정산이 제출되었습니다",
   "Đã gửi in hóa đơn tạm tính": "가계산서 인쇄를 전송했습니다",
   "Đã gửi in lại": "재인쇄 요청됨",
   "Đã gửi in lại phiếu bếp": "주방 전표 재인쇄 요청됨",
@@ -19880,6 +19896,7 @@
   "Đã xử lý": "처리 완료",
   "Đã xử lý hết": "모두 처리됨",
   "Đã yêu cầu NV bổ sung giấy tờ / sửa hoạch toán": "직원에게 서류 보완 / 회계 처리 수정을 요청했습니다",
+  "Đã yêu cầu NV bổ sung giấy tờ / sửa hạch toán": "직원에게 서류 보완 / 정산 수정을 요청했습니다",
   "Đã áp dụng (tự động duyệt). Mở Duyệt chấm công → Tất cả hoặc Đã duyệt → lọc hành động Xóa.": "적용되었습니다 (자동 승인). 근태 승인 → 전체 또는 승인됨에서 '삭제' 작업으로 필터링하세요.",
   "Đã áp dụng JSON V2 vào mẫu in.": "JSON V2를 인쇄 양식에 적용했습니다.",
   "Đã áp dụng mẫu phân quyền": "권한 템플릿 적용됨",
@@ -22373,6 +22390,10 @@
   [
    "Chi tiết hạn mục không còn trên hồ sơ (dữ liệu hoạch toán bị mất).\nTổng đã quyết toán: {0}.",
    "항목 상세가 프로필에 더 이상 없습니다(회계 데이터 유실).\n정산 합계: {0}."
+  ],
+  [
+   "Chi tiết hạng mục không còn trên hồ sơ (dữ liệu hạch toán bị mất).\nTổng đã quyết toán: {0}.",
+   "항목 상세가 더 이상 기록에 없습니다 (정산 데이터 손실).\n정산 합계: {0}."
   ],
   [
    "Chi tiết phiếu ({0})",
@@ -25229,6 +25250,10 @@
   [
    "Không tính {0} nhập hàng / hoàn trả",
    "입고 / 반품의 {0} 제외"
+  ],
+  [
+   "Không tính {0} đơn từ chối / hủy",
+   "반려/취소된 신청 {0}건 제외"
   ],
   [
    "Không tạo được PDF ({0})",
@@ -30473,6 +30498,10 @@
   [
    "{0} cửa hàng · trang {1}/{2}",
    "매장 {0}곳 · {1}/{2}페이지"
+  ],
+  [
+   "{0} doanh thu đã có HĐĐT · ",
+   "{0} 매출에 전자세금계산서 발행됨 · "
   ],
   [
    "{0} duyệt",

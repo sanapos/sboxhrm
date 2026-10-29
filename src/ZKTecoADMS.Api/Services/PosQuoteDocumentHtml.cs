@@ -14,7 +14,8 @@ public static class PosQuoteDocumentHtml
     public static string TitleOf(PosQuoteDocumentKind kind) => kind switch
     {
         PosQuoteDocumentKind.Quote => "BÁO GIÁ",
-        PosQuoteDocumentKind.Contract => "HỢP ĐỒNG THI CÔNG",
+        // Cùng tên với mẫu in A4 (Contract.html) và tiền tố HDKT — trước «THI CÔNG» lệch tờ in, sai cho bán lẻ.
+        PosQuoteDocumentKind.Contract => "HỢP ĐỒNG KINH TẾ",
         PosQuoteDocumentKind.Handover => "BIÊN BẢN BÀN GIAO",
         PosQuoteDocumentKind.Acceptance => "BIÊN BẢN NGHIỆM THU HOÀN THÀNH",
         PosQuoteDocumentKind.PaymentRequest => "ĐỀ NGHỊ THANH TOÁN",
