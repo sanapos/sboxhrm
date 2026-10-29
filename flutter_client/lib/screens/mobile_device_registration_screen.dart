@@ -325,7 +325,7 @@ class _MobileDeviceRegistrationScreenState
               ],
             )
           else if (_registrationLocations.isEmpty)
-            Text(tr('Chưa có vị trí chấm công active. Liên hệ quản trị thiết lập tab Vị trí.'),
+            Text(tr('Chưa có vị trí chấm công nào đang hoạt động. Liên hệ quản trị thiết lập tab Vị trí.'),
               style: TextStyle(color: SboxColors.warning, fontSize: 13),
             )
           else
