@@ -96,7 +96,23 @@ public class SampleDataController(
                 new() { Id = Guid.NewGuid(), Code = "NS", Name = "Phòng Nhân Sự", Description = "Quản lý nhân sự và tuyển dụng", Level = 1, SortOrder = 4, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
                 new() { Id = Guid.NewGuid(), Code = "SX", Name = "Phòng Sản Xuất", Description = "Sản xuất và gia công", Level = 1, SortOrder = 5, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
             };
-            db.Departments.AddRange(departments);
+            // Đăng ký cửa hàng đã tạo sẵn phòng ban mặc định (KT, NS, SX…) — dùng lại phòng ban trùng mã,
+            // trước đây thêm trùng → vi phạm IX_Department_Store_Code, cả lượt cài mẫu bị hủy (500).
+            var existingDepts = await db.Departments.IgnoreQueryFilters()
+                .Where(d => d.StoreId == storeId)
+                .ToListAsync(ct);
+            var deptsCreated = 0;
+            for (var i = 0; i < departments.Count; i++)
+            {
+                var same = existingDepts.FirstOrDefault(d => string.Equals(d.Code, departments[i].Code, StringComparison.OrdinalIgnoreCase));
+                if (same != null)
+                {
+                    departments[i] = same;
+                    continue;
+                }
+                db.Departments.Add(departments[i]);
+                deptsCreated++;
+            }
 
             // ══════════════════════════════════════════════
             // 3. TẠO TÀI KHOẢN NHÂN VIÊN (10 người)
@@ -125,7 +141,9 @@ public class SampleDataController(
                 userIds.Add(userId);
 
                 var email = $"{emailBase}-{store.Code}@demo.local";
-                var empCode = $"{code}-{store.Code}";
+                // Mã NV chỉ cần duy nhất trong cửa hàng (cột 20 ký tự) — trước ghép thêm mã cửa hàng (tới 20 ký tự)
+                // → «NV001-<mã>» quá 20 ký tự, cài mẫu lỗi 500 với mọi mã cửa hàng dài hơn 14 ký tự.
+                var empCode = code;
                 // Tạo user account
                 var user = new ApplicationUser
                 {
@@ -680,7 +698,7 @@ public class SampleDataController(
             var result = new SampleDataResult
             {
                 EmployeesCreated = employees.Count,
-                DepartmentsCreated = departments.Count,
+                DepartmentsCreated = deptsCreated,
                 ShiftsCreated = allShifts.Count,
                 AttendanceRecords = allAttendances.Count,
                 LeavesCreated = leaves.Count,
@@ -737,11 +755,15 @@ public class SampleDataController(
                 .IgnoreQueryFilters()
                 .AnyAsync(e => e.StoreId == storeId && e.CreatedBy == marker, ct);
             var hasPos = await db.PosProducts.IgnoreQueryFilters()
-                .AnyAsync(p => p.StoreId == storeId && p.CreatedBy == marker, ct)
+                .AnyAsync(p => p.StoreId == storeId && p.CreatedBy == marker && p.Deleted == null, ct)
                 || await db.PosServiceAreas.IgnoreQueryFilters()
-                    .AnyAsync(a => a.StoreId == storeId && a.CreatedBy == marker, ct);
+                    .AnyAsync(a => a.StoreId == storeId && a.CreatedBy == marker && a.Deleted == null, ct);
             if (!hasHrm && !hasPos)
                 return BadRequest(AppResponse<SampleDataDeleteResult>.Error("Cửa hàng không có dữ liệu mẫu."));
+
+            // Một transaction cho cả HRM + POS — trước đây phần nhân sự lưu xong rồi phần POS lỗi
+            // → xóa dở (mất nhân viên mẫu, còn nguyên hàng mẫu).
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
             // Xóa theo thứ tự FK (con trước, cha sau)
             var taskAssignees = await db.TaskAssignees
@@ -900,6 +922,14 @@ public class SampleDataController(
 
             await db.SaveChangesAsync(ct);
 
+            // Thông báo gửi tới / từ tài khoản mẫu (vd «Bán hàng POS» khi chủ bán thử gửi cho cả quản lý mẫu)
+            // giữ FK tới AspNetUsers → xóa tài khoản mẫu lỗi, cả lượt xóa mẫu hỏng sau khi đã bán thử.
+            if (userIdsToDelete.Count > 0)
+                await db.Notifications.IgnoreQueryFilters()
+                    .Where(n => (n.TargetUserId != null && userIdsToDelete.Contains(n.TargetUserId.Value))
+                        || (n.FromUserId != null && userIdsToDelete.Contains(n.FromUserId.Value)))
+                    .ExecuteDeleteAsync(ct);
+
             // Xóa user accounts (sau khi đã xóa employee FK)
             var deletedUsers = 0;
             foreach (var userId in userIdsToDelete)
@@ -912,8 +942,12 @@ public class SampleDataController(
                 }
             }
 
+            // Đơn bán thử (có dòng hàng mẫu) — trước khi xóa hàng mẫu, vì hoàn kho chỉ tìm hàng còn hiệu lực.
+            var ordersDeleted = await DeleteTrialOrdersAsync(storeId, marker, ct);
+
             var posDeleted = await PosSampleStoreSeeder.DeleteAsync(db, storeId, ct);
             await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
 
             var result = new SampleDataDeleteResult
             {
@@ -925,7 +959,9 @@ public class SampleDataController(
                 PosProductsDeleted = posDeleted.Products,
                 PosAreasDeleted = posDeleted.Areas,
                 PosResourcesDeleted = posDeleted.Resources,
-                Message = $"Đã xóa dữ liệu mẫu ({sampleEmployees.Count} NV, {posDeleted.Products} hàng POS, {posDeleted.Resources} bàn/ghế/phòng).",
+                PosOrdersDeleted = ordersDeleted,
+                Message = $"Đã xóa dữ liệu mẫu ({sampleEmployees.Count} NV, {posDeleted.Products} hàng POS, {posDeleted.Resources} bàn/ghế/phòng"
+                    + (ordersDeleted > 0 ? $", {ordersDeleted} đơn bán thử" : "") + ").",
             };
 
             logger.LogInformation("Sample data deleted for store {StoreCode}: {Msg}", storeCode, result.Message);
@@ -936,6 +972,99 @@ public class SampleDataController(
             logger.LogError(ex, "Error deleting sample data for store {StoreCode}", storeCode);
             return StatusCode(500, AppResponse<SampleDataDeleteResult>.Error($"Lỗi xóa dữ liệu mẫu: {ex.Message}"));
         }
+    }
+
+    /// <summary>
+    /// Xóa đơn bán thử bằng hàng mẫu (cả đơn có lẫn hàng thật): hoàn như «Hủy đơn» (kho, công nợ / điểm khách,
+    /// voucher, bảo hành, gói buổi) rồi xóa mềm đơn, phiếu thu tự sinh, hoa hồng, phiên bàn — để báo cáo,
+    /// sổ quỹ bắt đầu sạch khi vào bán thật.
+    /// </summary>
+    async Task<int> DeleteTrialOrdersAsync(Guid storeId, string marker, CancellationToken ct)
+    {
+        const string actor = "SampleData.Delete";
+        var sampleProductIds = db.PosProducts.IgnoreQueryFilters()
+            .Where(p => p.StoreId == storeId && p.CreatedBy == marker)
+            .Select(p => p.Id);
+        var orderIds = await db.PosSaleOrderLines.IgnoreQueryFilters()
+            .Where(l => l.StoreId == storeId && l.Deleted == null && sampleProductIds.Contains(l.ProductId))
+            .Select(l => l.SaleOrderId)
+            .Distinct()
+            .ToListAsync(ct);
+        if (orderIds.Count == 0) return 0;
+
+        var orders = await db.PosSaleOrders.IgnoreQueryFilters()
+            .Include(o => o.Lines)
+            .Where(o => o.StoreId == storeId && o.Deleted == null && orderIds.Contains(o.Id))
+            .ToListAsync(ct);
+        foreach (var order in orders)
+        {
+            if (order.Status == PosSaleOrderStatus.Completed)
+            {
+                if (!await PosSaleStockHelper.IsSaleStockFullyReversedAsync(db, storeId, order))
+                    await PosSaleStockHelper.ReverseSaleOrderAsync(db, storeId, order, actor);
+                await PosSaleStockHelper.ReverseCustomerOnSaleCancelAsync(db, storeId, order);
+                await PosCustomerFinanceHelper.ReversePointsOnSaleCancelAsync(db, storeId, order, actor);
+                if (order.VoucherId.HasValue)
+                {
+                    var vch = await db.PosVouchers.IgnoreQueryFilters().AsTracking()
+                        .FirstOrDefaultAsync(v => v.Id == order.VoucherId && v.StoreId == storeId, ct);
+                    if (vch != null && vch.UsedCount > 0)
+                    {
+                        vch.UsedCount -= 1;
+                        vch.UpdatedAt = DateTime.UtcNow;
+                    }
+                }
+                await PosSaleWarrantyHelper.VoidOrderAsync(db, storeId, order.Id, actor);
+                await PosSellIndustryController.RevokeSessionPacksOnSaleCancelAsync(db, storeId, order.Id, actor);
+            }
+            else if (order.Status == PosSaleOrderStatus.Draft)
+            {
+                // Nhả tồn giữ chỗ của đơn tạm (bàn đang mở).
+                var priorLines = (order.Lines ?? [])
+                    .Where(l => l.Deleted == null)
+                    .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
+                    .ToList();
+                if (priorLines.Count > 0)
+                    await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                        db, storeId, priorLines, [], allowNegativeStock: true);
+            }
+        }
+        await db.SaveChangesAsync(ct);
+
+        var now = DateTime.UtcNow;
+        var ids = orders.Select(o => o.Id).ToList();
+        // Phiếu thu bán hàng tự sinh ghi InternalNote = «pos bán hàng #{orderId}…».
+        foreach (var id in ids)
+        {
+            var prefix = $"{ZKTecoADMS.Infrastructure.Services.PosFinanceSyncHelper.SaleMarker}{id}";
+            await db.CashTransactions.IgnoreQueryFilters()
+                .Where(c => c.StoreId == storeId && c.Deleted == null
+                    && c.InternalNote != null && c.InternalNote.StartsWith(prefix))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(c => c.IsActive, false)
+                    .SetProperty(c => c.Deleted, now)
+                    .SetProperty(c => c.DeletedBy, actor), ct);
+        }
+        await db.PosSaleCommissionLines.IgnoreQueryFilters()
+            .Where(c => c.StoreId == storeId && c.Deleted == null && ids.Contains(c.SaleOrderId))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.IsActive, false)
+                .SetProperty(c => c.Deleted, now)
+                .SetProperty(c => c.DeletedBy, actor), ct);
+        await db.PosResourceSessions.IgnoreQueryFilters()
+            .Where(r => r.StoreId == storeId && r.Deleted == null
+                && r.SaleOrderId != null && ids.Contains(r.SaleOrderId.Value))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.EndedAt, r => r.EndedAt ?? now)
+                .SetProperty(r => r.Deleted, now)
+                .SetProperty(r => r.DeletedBy, actor), ct);
+        return await db.PosSaleOrders.IgnoreQueryFilters()
+            .Where(o => o.StoreId == storeId && o.Deleted == null && ids.Contains(o.Id))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(o => o.Deleted, now)
+                .SetProperty(o => o.DeletedBy, actor)
+                .SetProperty(o => o.UpdatedAt, now)
+                .SetProperty(o => o.UpdatedBy, actor), ct);
     }
 
     async Task<Store?> FindStoreAsync(string storeCode, CancellationToken ct)
@@ -997,5 +1126,6 @@ public class SampleDataDeleteResult
     public int PosProductsDeleted { get; set; }
     public int PosAreasDeleted { get; set; }
     public int PosResourcesDeleted { get; set; }
+    public int PosOrdersDeleted { get; set; }
     public string Message { get; set; } = string.Empty;
 }

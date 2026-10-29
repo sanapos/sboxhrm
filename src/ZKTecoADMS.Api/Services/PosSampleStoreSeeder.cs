@@ -11,6 +11,9 @@ public static class PosSampleStoreSeeder
 {
     public const string Marker = "SampleData";
 
+    /// <summary>Tồn ban đầu của hàng mẫu có quản lý kho.</summary>
+    const decimal SampleStockQty = 50;
+
     public sealed record Result(int Products, int Areas, int Resources);
 
     public static async Task<Result> SeedAsync(ZKTecoDbContext db, Guid storeId, CancellationToken ct)
@@ -87,8 +90,15 @@ public static class PosSampleStoreSeeder
             };
             if (entity.SessionPackCount > 0 && entity.SessionPackValidDays <= 0)
                 entity.SessionPackValidDays = 90;
+            // Hàng có quản lý tồn: cho sẵn tồn mẫu để bán thử được ngay — trước đây tồn 0, bán thử báo
+            // «Không đủ tồn kho». Ghi thẻ kho như tạo hàng có tồn đầu kỳ.
+            if (PosProductTypeRules.TracksInventory(type))
+                entity.OnHandQty = SampleStockQty;
 
             db.PosProducts.Add(entity);
+            if (entity.OnHandQty != 0)
+                ZKTecoADMS.Api.Controllers.PosStockRecording.RecordAdjustIfChanged(
+                    db, storeId, entity.Id, null, 0, entity.OnHandQty, Marker, "Tồn mẫu ban đầu");
             db.PosProductUnits.Add(new PosProductUnit
             {
                 Id = Guid.NewGuid(),
@@ -112,35 +122,57 @@ public static class PosSampleStoreSeeder
         return new Result(products, areas, resources);
     }
 
+    /// <summary>
+    /// Xóa mềm hàng / khu / bàn mẫu — như nút Xóa hàng hóa: đơn đã bán thử bằng hàng mẫu vẫn mở được.
+    /// Trước đây xóa cứng: vướng xmin của PosProducts (lỗi «expected to affect 1 row») và FK Restrict
+    /// từ dòng đơn khi đã bán thử → không xóa được mẫu.
+    /// </summary>
     public static async Task<(int Products, int Areas, int Resources)> DeleteAsync(
         ZKTecoDbContext db, Guid storeId, CancellationToken ct)
     {
-        var productIds = await db.PosProducts.IgnoreQueryFilters()
-            .Where(p => p.StoreId == storeId && p.CreatedBy == Marker)
-            .Select(p => p.Id)
-            .ToListAsync(ct);
+        var now = DateTime.UtcNow;
+        const string by = "SampleData.Delete";
+        var productIds = db.PosProducts.IgnoreQueryFilters()
+            .Where(p => p.StoreId == storeId && p.CreatedBy == Marker && p.Deleted == null)
+            .Select(p => p.Id);
 
-        var units = await db.PosProductUnits.IgnoreQueryFilters()
-            .Where(u => u.StoreId == storeId && productIds.Contains(u.ProductId))
-            .ToListAsync(ct);
-        db.PosProductUnits.RemoveRange(units);
+        await db.PosProductUnits.IgnoreQueryFilters()
+            .Where(u => u.StoreId == storeId && u.Deleted == null && productIds.Contains(u.ProductId))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(u => u.IsActive, false)
+                .SetProperty(u => u.Deleted, now)
+                .SetProperty(u => u.DeletedBy, by), ct);
+
+        await db.PosProductVariants.IgnoreQueryFilters()
+            .Where(v => v.StoreId == storeId && v.Deleted == null && productIds.Contains(v.ProductId))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(v => v.IsActive, false)
+                .SetProperty(v => v.Deleted, now)
+                .SetProperty(v => v.DeletedBy, by), ct);
 
         var products = await db.PosProducts.IgnoreQueryFilters()
-            .Where(p => p.StoreId == storeId && p.CreatedBy == Marker)
-            .ToListAsync(ct);
-        db.PosProducts.RemoveRange(products);
+            .Where(p => p.StoreId == storeId && p.CreatedBy == Marker && p.Deleted == null)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.Deleted, now)
+                .SetProperty(p => p.DeletedBy, by)
+                .SetProperty(p => p.UpdatedAt, now), ct);
 
         var resources = await db.PosServiceResources.IgnoreQueryFilters()
-            .Where(r => r.StoreId == storeId && r.CreatedBy == Marker)
-            .ToListAsync(ct);
-        db.PosServiceResources.RemoveRange(resources);
+            .Where(r => r.StoreId == storeId && r.CreatedBy == Marker && r.Deleted == null)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.IsActive, false)
+                .SetProperty(r => r.Deleted, now)
+                .SetProperty(r => r.DeletedBy, by), ct);
 
         var areas = await db.PosServiceAreas.IgnoreQueryFilters()
-            .Where(a => a.StoreId == storeId && a.CreatedBy == Marker)
-            .ToListAsync(ct);
-        db.PosServiceAreas.RemoveRange(areas);
+            .Where(a => a.StoreId == storeId && a.CreatedBy == Marker && a.Deleted == null)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.IsActive, false)
+                .SetProperty(a => a.Deleted, now)
+                .SetProperty(a => a.DeletedBy, by), ct);
 
-        return (products.Count, areas.Count, resources.Count);
+        return (products, areas, resources);
     }
 
     static string NextCode(
