@@ -284,7 +284,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         ReportKpiItem(
             label: 'Chờ duyệt',
             value: pending.toString(),
-            note: pending == 0 ? null : '${reportMoneyFmt.format(pendingAmt)}đ',
+            note: pending == 0 ? null : '${reportMoneyFmt.format(pendingAmt)} đ',
             icon: Icons.hourglass_empty,
             color: Colors.orange),
         ReportKpiItem(
@@ -294,9 +294,9 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
             color: SboxColors.success),
         ReportKpiItem(
             label: 'Đã nhận',
-            value: '${reportMoneyFmt.format(paidAmt)}đ',
+            value: '${reportMoneyFmt.format(paidAmt)} đ',
             note: unpaidAmt > 0
-                ? 'Chờ chi ${reportMoneyFmt.format(unpaidAmt)}đ'
+                ? 'Chờ chi ${reportMoneyFmt.format(unpaidAmt)} đ'
                 : (paidAmt > 0 ? 'Trừ vào lương khi chốt' : null),
             icon: Icons.payments_outlined,
             color: _theme),
@@ -306,27 +306,27 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
       ReportKpiItem(
           label: 'Tổng yêu cầu',
           value: '${f.length}',
-          note: '${reportMoneyFmt.format(totalAmt)}đ',
+          note: '${reportMoneyFmt.format(totalAmt)} đ',
           icon: Icons.list_alt,
           color: Colors.blueGrey),
       ReportKpiItem(
           label: 'Chờ duyệt',
           value: pending.toString(),
-          note: pending == 0 ? 'Đã xử lý hết' : '${reportMoneyFmt.format(pendingAmt)}đ đang chờ',
+          note: pending == 0 ? 'Đã xử lý hết' : '${reportMoneyFmt.format(pendingAmt)} đ đang chờ',
           icon: Icons.hourglass_empty,
           color: Colors.orange),
       ReportKpiItem(
           label: 'Đã duyệt chi',
-          value: '${reportMoneyFmt.format(approvedAmt)}đ',
+          value: '${reportMoneyFmt.format(approvedAmt)} đ',
           note: unpaidAmt > 0
-              ? 'Đã chi ${reportMoneyFmt.format(paidAmt)}đ · Chờ chi ${reportMoneyFmt.format(unpaidAmt)}đ'
+              ? 'Đã chi ${reportMoneyFmt.format(paidAmt)} đ · Chờ chi ${reportMoneyFmt.format(unpaidAmt)} đ'
               : '$approved yêu cầu · đã chi hết',
           icon: Icons.account_balance,
           color: SboxColors.success),
       ReportKpiItem(
           label: 'Nhân viên đã ứng',
           value: '$empCount',
-          note: empCount == 0 ? null : 'TB ${reportMoneyFmt.format(approvedAmt / empCount)}đ/NV',
+          note: empCount == 0 ? null : 'TB ${reportMoneyFmt.format(approvedAmt / empCount)} đ/NV',
           icon: Icons.people_outline,
           color: _theme),
     ];
@@ -593,13 +593,13 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     return ReportTimelineCard(
       title: _teamView ? r.employeeName : (monthYear ?? 'Ứng lương'),
       trailing: reportDateFmt.format(r.requestDate),
-      amount: '${reportMoneyFmt.format(r.payoutAmount)}đ',
+      amount: '${reportMoneyFmt.format(r.payoutAmount)} đ',
       subtitle: [
         if (_teamView && monthYear != null) monthYear,
         if (_teamView) r.employeeCode,
         r.reason ?? '',
         if (r.isPartiallyApproved)
-          'YC ban đầu: ${reportMoneyFmt.format(r.amount)}đ',
+          'YC ban đầu: ${reportMoneyFmt.format(r.amount)} đ',
         if (r.approvedByName != null && r.approvedByName!.isNotEmpty)
           'Duyệt: ${r.approvedByName}',
       ].where((s) => s != null && s.toString().isNotEmpty).join(' · '),
@@ -636,9 +636,9 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         return ReportEmployeeSummaryCard(
           name: name,
           meta: dept.isNotEmpty ? dept : null,
-          primaryValue: '${reportMoneyFmt.format(amt)}đ',
+          primaryValue: '${reportMoneyFmt.format(amt)} đ',
           secondaryValue: unpaid > 0
-              ? '$count lần ứng · chờ chi ${reportMoneyFmt.format(unpaid)}đ'
+              ? '$count lần ứng · chờ chi ${reportMoneyFmt.format(unpaid)} đ'
               : '$count lần ứng',
           accentColor: _theme,
           onTap: () => setState(() {

@@ -800,7 +800,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                   tr([
                     if (r.productCode.isNotEmpty) r.productCode,
                     r.unitLabel,
-                    'Gốc ${_moneyFmt.format(r.basePrice)}đ',
+                    'Gốc ${_moneyFmt.format(r.basePrice)} đ',
                   ].join(' · ')),
                   style: const TextStyle(
                     fontSize: 11,
@@ -968,7 +968,7 @@ class _BulkProductPickerSheetState extends State<_BulkProductPickerSheet> {
                         value: on,
                         activeColor: PosTheme.kiotBlue,
                         title: Text(tr(p.name), maxLines: 2),
-                        subtitle: Text(tr('${p.productCode} · ${_moneyFmt(p.basePrice)}đ'),
+                        subtitle: Text(tr('${p.productCode} · ${_moneyFmt(p.basePrice)} đ'),
                           style: const TextStyle(fontSize: 12),
                         ),
                         onChanged: (v) {

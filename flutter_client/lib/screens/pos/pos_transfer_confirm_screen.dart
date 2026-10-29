@@ -140,7 +140,7 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
                   style: const TextStyle(fontWeight: FontWeight.w700)),
               subtitle: Text(tr([
                 if (table.isNotEmpty) table,
-                '${_money.format(amount)}đ',
+                '${_money.format(amount)} đ',
                 if (confirmedAt != null && confirmedAt.isNotEmpty)
                   confirmedAt.substring(0, 16),
               ].join(' · '))),

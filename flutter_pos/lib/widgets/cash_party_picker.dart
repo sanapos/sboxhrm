@@ -258,7 +258,7 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
             if (c.customerCode.isNotEmpty) c.customerCode,
             if ((c.phone ?? '').isNotEmpty) c.phone!,
             if (c.currentDebt > 0)
-              'Nợ ${_moneyFmt.format(c.currentDebt)}đ',
+              'Nợ ${_moneyFmt.format(c.currentDebt)} đ',
           ];
           return parts.join(' · ');
         },
@@ -476,7 +476,7 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
                           tr([
                             if ((c.phone ?? '').isNotEmpty) c.phone!,
                             if (c.currentDebt > 0)
-                              'Nợ ${_moneyFmt.format(c.currentDebt)}đ',
+                              'Nợ ${_moneyFmt.format(c.currentDebt)} đ',
                           ].join(' · ')),
                           style: TextStyle(
                             fontSize: 11,

@@ -378,8 +378,8 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
             SettingsNote(
               !rates.enabled
                   ? 'Chương trình đang tắt.'
-                  : 'Ví dụ đơn ${_money.format(sample)}đ: tích ${earnPts.toStringAsFixed(0)} điểm'
-                      '${rates.canRedeem && earnPts > 0 ? ' · đổi lại giảm ${_money.format(redeemDong)}đ (~${pctBack.toStringAsFixed(1)}%)' : ''}.',
+                  : 'Ví dụ đơn ${_money.format(sample)} đ: tích ${earnPts.toStringAsFixed(0)} điểm'
+                      '${rates.canRedeem && earnPts > 0 ? ' · đổi lại giảm ${_money.format(redeemDong)} đ (~${pctBack.toStringAsFixed(1)}%)' : ''}.',
               icon: Icons.calculate_outlined,
             ),
           ],

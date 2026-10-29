@@ -233,10 +233,10 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
               SboxSlice('Không hóa đơn', withoutInv, color: SboxColors.warning),
             ]),
             const SizedBox(height: 10),
-            Text('${tr('Có hóa đơn')}: ${reportMoneyFmt.format(withInv)}đ',
+            Text('${tr('Có hóa đơn')}: ${reportMoneyFmt.format(withInv)} đ',
                 style: const TextStyle(fontSize: 12.5, color: SboxColors.successText)),
             const SizedBox(height: 2),
-            Text('${tr('Không hóa đơn')}: ${reportMoneyFmt.format(withoutInv)}đ',
+            Text('${tr('Không hóa đơn')}: ${reportMoneyFmt.format(withoutInv)} đ',
                 style: const TextStyle(fontSize: 12.5, color: SboxColors.warningText)),
           ]),
         ),
@@ -304,21 +304,21 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
           color: _theme),
       ReportKpiItem(
           label: 'Tổng tạm ứng',
-          value: '${reportMoneyFmt.format(totalAdv)}đ',
+          value: '${reportMoneyFmt.format(totalAdv)} đ',
           note: waitingAdv > 0.5
-              ? 'Đã chi ${reportMoneyFmt.format(paidAdv)}đ · Chờ chi ${reportMoneyFmt.format(waitingAdv)}đ'
+              ? 'Đã chi ${reportMoneyFmt.format(paidAdv)} đ · Chờ chi ${reportMoneyFmt.format(waitingAdv)} đ'
               : (totalAdv > 0 ? 'Đã chi đủ' : null),
           icon: Icons.payments_outlined,
           color: SboxColors.warning),
       ReportKpiItem(
           label: 'Tổng chi phí',
-          value: '${reportMoneyFmt.format(totalSet)}đ',
+          value: '${reportMoneyFmt.format(totalSet)} đ',
           note: _expenseLineCount > 0 ? '$_expenseLineCount khoản chi' : null,
           icon: Icons.receipt_long,
           color: SboxColors.success),
       ReportKpiItem(
           label: 'Chênh lệch',
-          value: '${reportMoneyFmt.format(totalBal.abs())}đ',
+          value: '${reportMoneyFmt.format(totalBal.abs())} đ',
           note: balNote,
           icon: Icons.balance_outlined,
           color: _theme,
@@ -375,8 +375,8 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     ];
     final periodLabel = reportPeriodSubtitle(_from, _to, team: _teamView);
     final summaryLines = [
-      'Tổng chi phí: ${reportMoneyFmt.format(_summarySettled)}đ',
-      'Có hóa đơn: ${reportMoneyFmt.format(_summaryWithInvoice)}đ · Không HĐ: ${reportMoneyFmt.format(_summaryWithoutInvoice)}đ',
+      'Tổng chi phí: ${reportMoneyFmt.format(_summarySettled)} đ',
+      'Có hóa đơn: ${reportMoneyFmt.format(_summaryWithInvoice)} đ · Không HĐ: ${reportMoneyFmt.format(_summaryWithoutInvoice)} đ',
       if (_expenseLineCount > 0) 'Số dòng chi: $_expenseLineCount',
     ];
     if (png) {
@@ -414,8 +414,8 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
       rows: rows,
       periodLabel: reportPeriodSubtitle(_from, _to, team: _teamView),
       summaryLines: [
-        'Tổng chi phí: ${reportMoneyFmt.format(_summarySettled)}đ',
-        'Có hóa đơn: ${reportMoneyFmt.format(_summaryWithInvoice)}đ · Không HĐ: ${reportMoneyFmt.format(_summaryWithoutInvoice)}đ',
+        'Tổng chi phí: ${reportMoneyFmt.format(_summarySettled)} đ',
+        'Có hóa đơn: ${reportMoneyFmt.format(_summaryWithInvoice)} đ · Không HĐ: ${reportMoneyFmt.format(_summaryWithoutInvoice)} đ',
         if (_expenseLineCount > 0) 'Số dòng chi: $_expenseLineCount',
       ],
     );
@@ -457,7 +457,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
         rows: rows,
         periodLabel: reportPeriodSubtitle(_from, _to, team: true),
         summaryLines: [
-          'Tổng chi phí: ${reportMoneyFmt.format(_summarySettled)}đ',
+          'Tổng chi phí: ${reportMoneyFmt.format(_summarySettled)} đ',
         ],
       );
       return;
@@ -481,7 +481,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
       rows: rows,
       periodLabel: reportPeriodSubtitle(_from, _to, team: true),
       summaryLines: [
-        'Tổng chi phí: ${reportMoneyFmt.format(_summarySettled)}đ',
+        'Tổng chi phí: ${reportMoneyFmt.format(_summarySettled)} đ',
       ],
     );
   }
@@ -778,14 +778,14 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
           : (c['title']?.toString() ?? c['caseCode']?.toString() ?? '—'),
       trailing: createdDt != null ? reportDateFmt.format(createdDt) : '',
       amount:
-          '${reportMoneyFmt.format(reportSafeDouble(c['settledAmount']))}đ',
+          '${reportMoneyFmt.format(reportSafeDouble(c['settledAmount']))} đ',
       subtitle: [
         if (!_teamView) c['caseCode'],
         c['title'],
         c['destination'],
-        'Ứng: ${reportMoneyFmt.format(reportSafeDouble(c['advanceAmount']))}đ',
+        'Ứng: ${reportMoneyFmt.format(reportSafeDouble(c['advanceAmount']))} đ',
         if (reportSafeDouble(c['balanceAmount']) != 0)
-          'CL: ${reportMoneyFmt.format(reportSafeDouble(c['balanceAmount']))}đ',
+          'CL: ${reportMoneyFmt.format(reportSafeDouble(c['balanceAmount']))} đ',
         if (lineCount is num && lineCount > 0) '$lineCount dòng CP',
       ].where((s) => s != null && s.toString().isNotEmpty).join(' · '),
       accentColor: _theme,
@@ -848,7 +848,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                           ),
                         ),
                       ),
-                      Text(tr('${reportMoneyFmt.format(total)}đ'),
+                      Text(tr('${reportMoneyFmt.format(total)} đ'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           color: SboxColors.success,
@@ -860,7 +860,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                   const SizedBox(height: 6),
                   Text(
                     tr('$lines dòng · $cases HS · $pct%'
-                    '${withInv > 0 ? ' · HĐ ${reportMoneyFmt.format(withInv)}đ' : ''}'),
+                    '${withInv > 0 ? ' · HĐ ${reportMoneyFmt.format(withInv)} đ' : ''}'),
                     style: const TextStyle(
                         fontSize: 12, color: SboxColors.slate500),
                   ),
@@ -911,8 +911,8 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
         return ReportEmployeeSummaryCard(
           name: name,
           meta: dept.isNotEmpty ? dept : null,
-          primaryValue: '${reportMoneyFmt.format(settled)}đ chi phí',
-          secondaryValue: '$count HS · ứng ${reportMoneyFmt.format(advance)}đ',
+          primaryValue: '${reportMoneyFmt.format(settled)} đ chi phí',
+          secondaryValue: '$count HS · ứng ${reportMoneyFmt.format(advance)} đ',
           accentColor: _theme,
           onTap: () => setState(() {
             _viewTab = 0;

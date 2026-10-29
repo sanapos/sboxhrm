@@ -75,7 +75,7 @@ class _PosRiskReportScreenState extends State<PosRiskReportScreen> {
   static List<Map<String, dynamic>> _maps(dynamic v) =>
       (v as List? ?? const []).whereType<Map>().map(Map<String, dynamic>.from).toList();
 
-  String _m(dynamic v) => '${_money.format(_n(v))}đ';
+  String _m(dynamic v) => '${_money.format(_n(v))} đ';
 
   String _fmt(dynamic v) {
     final d = parseApiUtcDateTime(v);

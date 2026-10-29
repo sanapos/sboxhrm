@@ -83,7 +83,7 @@ class _DebtAdjustDialogState extends State<_DebtAdjustDialog> {
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
-          title: 'Đã điều chỉnh công nợ', message: tr('${widget.partyName}: ${_money.format(v)}đ'));
+          title: 'Đã điều chỉnh công nợ', message: tr('${widget.partyName}: ${_money.format(v)} đ'));
       Navigator.pop(context, true);
     } else {
       setState(() => _error = res['message']?.toString() ?? 'Không lưu được');
@@ -103,7 +103,7 @@ class _DebtAdjustDialogState extends State<_DebtAdjustDialog> {
       content: SizedBox(
         width: 440,
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(tr('Công nợ hiện tại: ${_money.format(widget.currentDebt)}đ'),
+          Text(tr('Công nợ hiện tại: ${_money.format(widget.currentDebt)} đ'),
               style: const TextStyle(color: SboxColors.slate600)),
           const SizedBox(height: 10),
           PosNoSoftKeyboardField(
@@ -118,7 +118,7 @@ class _DebtAdjustDialogState extends State<_DebtAdjustDialog> {
               border: const OutlineInputBorder(),
               helperText: delta == null || delta == 0
                   ? null
-                  : tr(delta > 0 ? 'Tăng ${_money.format(delta)}đ' : 'Giảm ${_money.format(-delta)}đ'),
+                  : tr(delta > 0 ? 'Tăng ${_money.format(delta)} đ' : 'Giảm ${_money.format(-delta)} đ'),
             ),
             onChanged: (_) => setState(() {}),
           ),

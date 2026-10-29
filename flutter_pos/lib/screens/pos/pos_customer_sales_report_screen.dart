@@ -173,7 +173,10 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
                   ),
                 ),
                 PosReportCard(
-                  title: '${_data?['customerCount'] ?? items.length} khách',
+                  // Dòng «Bán cho người tiêu dùng» (không mã khách) không tính vào số khách.
+                  title: items.any((r) => '${r['customerId'] ?? ''}'.isEmpty)
+                      ? '${_data?['customerCount'] ?? items.length} khách + khách lẻ'
+                      : '${_data?['customerCount'] ?? items.length} khách',
                   child: items.isEmpty
                       ? const PosReportEmpty()
                       : Column(
@@ -224,7 +227,12 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
           ],
         ),
         Text(
-          tr('${r['phone'] ?? r['customerCode'] ?? ''} · ${r['orderCount'] ?? 0} đơn · DT ${_moneyFmt.format(_n(r['revenue']))} · LN ${_moneyFmt.format(_n(r['profit']))}'),
+          tr([
+            if ('${r['phone'] ?? r['customerCode'] ?? ''}'.trim().isNotEmpty) '${r['phone'] ?? r['customerCode']}',
+            '${r['orderCount'] ?? 0} đơn',
+            'DT ${_moneyFmt.format(_n(r['revenue']))}',
+            'LN ${_moneyFmt.format(_n(r['profit']))}',
+          ].join(' · ')),
           style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
         ),
         Text(

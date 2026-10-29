@@ -224,10 +224,16 @@ public partial class PosReportsController
         }
         else if (dim is "staff" or "employee")
         {
+            var sellerNames = await SellerDisplayNamesAsync(
+                orders.Select(o => o.SoldByEmployeeId), orders.Select(o => o.SoldBy));
             items = orders
                 .GroupBy(o => string.IsNullOrWhiteSpace(o.SoldBy) ? "Không gán NV" : o.SoldBy!)
                 .Select(g => MakeDimRow(g.Key, g.Count(), g.Sum(x => x.Total),
-                    g.Sum(x => cogsByOrder.GetValueOrDefault(x.Id))))
+                    g.Sum(x => cogsByOrder.GetValueOrDefault(x.Id))) with
+                {
+                    displayName = SellerDisplayName(sellerNames,
+                        g.Select(x => x.SoldByEmployeeId).FirstOrDefault(x => x.HasValue), g.Key),
+                })
                 .OrderByDescending(x => x.profit)
                 .ToList();
         }
@@ -583,9 +589,10 @@ public partial class PosReportsController
         }));
     }
 
+    /// <summary>displayName: chỉ có khi theo nhân viên (họ tên thay email); label vẫn là khóa lọc.</summary>
     sealed record DimRow(
         string label, int orderCount, decimal revenue, decimal cogs,
-        decimal profit, decimal marginPct, decimal avgOrder);
+        decimal profit, decimal marginPct, decimal avgOrder, string? displayName = null);
 
     static DimRow MakeDimRow(string label, int orderCount, decimal revenue, decimal cogs)
     {

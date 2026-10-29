@@ -48,7 +48,7 @@ Widget posSaleOrderStatusChip(String status, {String? returnStatus, double? retu
   final amountSuffix = (returnedAmount ?? 0) > 0
       ? ' · ${NumberFormat('#,##0', 'vi_VN').format(returnedAmount)} đ'
       : '';
-  // Wrap: ô trạng thái hẹp (bảng hoá đơn 90dp) → «Trả 1 phần» xuống dòng dưới
+  // Wrap: ô trạng thái hẹp (bảng hóa đơn 90dp) → «Trả 1 phần» xuống dòng dưới
   // «Hoàn thành» thay vì tràn đè cột HĐĐT.
   return Wrap(
     alignment: WrapAlignment.center,

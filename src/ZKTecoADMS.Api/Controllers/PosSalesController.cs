@@ -358,6 +358,10 @@ public partial class PosSalesController(
 
         /// <summary>Số nhóm món server đã gộp từ máy khác vào giỏ gửi lên — máy bán tải lại giỏ theo đơn trả về.</summary>
         public int MergedRemoteLines { get; init; }
+
+        /// <summary>Họ tên người bán / người tạo (chi tiết đơn) — SoldBy/CreatedBy có thể là email tài khoản.</summary>
+        public string? SoldByName { get; init; }
+        public string? CreatedByName { get; init; }
     }
 
     public record SaleOrderSummaryDto(
@@ -1775,6 +1779,11 @@ public partial class PosSalesController(
 
         var lines = order.Lines?.ToList() ?? [];
         var dtoOut = await MapOrderAsync(storeId, order, lines, deviceId, deviceName);
+        dtoOut = dtoOut with
+        {
+            SoldByName = await PersonDisplayNameAsync(order.SoldByEmployeeId, order.SoldBy),
+            CreatedByName = await PersonDisplayNameAsync(null, order.CreatedBy),
+        };
         var grants = await dbContext.PosCustomerSessionTransactions.AsNoTracking()
             .Where(t => t.StoreId == storeId && t.SaleOrderId == id && t.TransactionType == PosSessionTxnType.Purchase
                 && t.Deleted == null && t.Balance != null)
@@ -1791,6 +1800,26 @@ public partial class PosSalesController(
                     + (g.Revoked ? " · đã thu hồi (hủy đơn)" : "")).ToList(),
             };
         return Ok(AppResponse<SaleOrderDto>.Success(dtoOut));
+    }
+
+    /// <summary>Họ tên hiển thị: nhân viên theo Id, hoặc tài khoản khi chuỗi là email; không thấy thì trả nguyên chuỗi.</summary>
+    private async Task<string?> PersonDisplayNameAsync(Guid? employeeId, string? who)
+    {
+        if (employeeId is Guid eid)
+        {
+            var en = await dbContext.Employees.AsNoTracking()
+                .Where(e => e.Id == eid)
+                .Select(e => ((e.LastName ?? "") + " " + (e.FirstName ?? "")).Trim())
+                .FirstOrDefaultAsync();
+            if (!string.IsNullOrEmpty(en)) return en;
+        }
+        var s = who?.Trim();
+        if (string.IsNullOrEmpty(s) || !s.Contains('@')) return s;
+        var un = await dbContext.Users.AsNoTracking()
+            .Where(u => u.Email == s)
+            .Select(u => ((u.LastName ?? "") + " " + (u.FirstName ?? "")).Trim())
+            .FirstOrDefaultAsync();
+        return string.IsNullOrEmpty(un) ? s : un;
     }
 
     /// <summary>Ghi nhận lần in hóa đơn — tăng PrintCount và trả context in (in lại, tổng ngày).</summary>

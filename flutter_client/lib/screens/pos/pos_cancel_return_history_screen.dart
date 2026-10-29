@@ -171,7 +171,7 @@ class _PosCancelReturnHistoryScreenState
 
   List<ReportKpiItem> _kpis() {
     ({int count, double amount}) of(String t) => _byType[t] ?? (count: 0, amount: 0);
-    String money(double v) => '${_money.format(v)}đ';
+    String money(double v) => '${_money.format(v)} đ';
     ReportKpiItem kpi(String label, String code, IconData icon, Color color, _ActionFilter f) {
       final v = of(code);
       return ReportKpiItem(
@@ -527,7 +527,7 @@ class _PosCancelReturnHistoryScreenState
                 const Spacer(),
                 if (amount > 0)
                   Text(
-                    tr('${_money.format(amount)}đ'),
+                    tr('${_money.format(amount)} đ'),
                     style: const TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 14),
                   ),

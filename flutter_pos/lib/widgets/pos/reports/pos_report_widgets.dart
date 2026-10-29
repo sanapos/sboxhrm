@@ -276,7 +276,9 @@ class PosReportMobileScaffold extends StatelessWidget {
     );
     return MediaQuery.withClampedTextScaling(
       maxScaleFactor: 1.05,
-      child: ColoredBox(
+      // Material (không phải ColoredBox): ListTile / InkWell trong thân báo cáo cần Material phía trên —
+      // bản release không có assert nên sập «Null check operator used on a null value» (báo cáo Hoa hồng).
+      child: Material(
         color: _pageBg,
         child: Column(
           children: [
@@ -1076,7 +1078,7 @@ class PosReportInvoiceList extends StatelessWidget {
     final no = (e['orderNo'] ?? e['OrderNo'] ?? '').toString();
     final name = (e['customerName'] ?? e['CustomerName'] ?? '').toString();
     final pay = (e['paymentMethod'] ?? e['PaymentMethod'] ?? '').toString();
-    final sold = (e['soldBy'] ?? e['SoldBy'] ?? e['createdBy'] ?? '').toString();
+    final sold = (e['soldByName'] ?? e['soldBy'] ?? e['SoldBy'] ?? e['createdBy'] ?? '').toString();
     final totalAmt = _num(e['total'] ?? e['Total']);
     final paid = _num(e['paidAmount'] ?? e['PaidAmount']);
     final dt = parseApiUtcDateTime(e['saleDate'] ?? e['SaleDate'] ?? e['createdAt'] ?? e['CreatedAt']);

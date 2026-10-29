@@ -68,6 +68,7 @@ class _PosStaffCommissionReportScreenState
     final staff = _maps(_data?['byStaff']);
     final products = _maps(_data?['byProduct']);
     final lines = _maps(_data?['lines']);
+    final byRevenue = _n(_data?['totalCommission']) == 0 && _n(_data?['totalRevenue']) > 0;
     return PosReportMobileScaffold(
       title: 'Hoa hồng nhân viên',
       exportModule: 'PosReportStaffCommission',
@@ -126,20 +127,29 @@ class _PosStaffCommissionReportScreenState
                         icon: Icons.percent_rounded,
                         tone: SboxTone.neutral),
                   ],
+                  // Chưa cài mức hoa hồng (tổng = 0) nhưng đã có NV làm → vẽ theo doanh thu, khỏi hai khung trống.
                   charts: [
                     SboxChartCard(
-                      title: 'Hoa hồng theo nhân viên',
+                      title: byRevenue ? 'Doanh thu theo nhân viên làm' : 'Hoa hồng theo nhân viên',
+                      subtitle: byRevenue ? 'Chưa cài mức hoa hồng — đang xem theo doanh thu' : null,
                       child: SboxRankList(color: SboxColors.success, maxItems: 8, items: [
                         for (final e in staff)
-                          SboxSlice('${e['employeeName'] ?? e['EmployeeName'] ?? '—'}', _n(e['commission']).toDouble(), caption: '${_n(e['orderCount']).toInt()} HĐ'),
+                          SboxSlice('${e['employeeName'] ?? e['EmployeeName'] ?? '—'}',
+                              _n(byRevenue ? e['revenue'] : e['commission']).toDouble(),
+                              caption: '${_n(e['orderCount']).toInt()} HĐ'),
                       ]),
                     ),
                     SboxChartCard(
-                      title: 'Hoa hồng theo hàng / dịch vụ',
+                      title: byRevenue ? 'Doanh thu theo hàng / dịch vụ' : 'Hoa hồng theo hàng / dịch vụ',
+                      subtitle: byRevenue ? 'Chưa cài mức hoa hồng — đang xem theo doanh thu' : null,
                       child: SboxDonutChart(
-                        centerValue: SboxFmt.compact(_n(_data?['totalCommission'])),
-                        centerLabel: 'Hoa hồng',
-                        slices: [for (final e in products) SboxSlice('${e['productName'] ?? e['ProductName'] ?? '—'}', _n(e['commission']).toDouble())],
+                        centerValue: SboxFmt.compact(_n(_data?[byRevenue ? 'totalRevenue' : 'totalCommission'])),
+                        centerLabel: byRevenue ? 'Doanh thu' : 'Hoa hồng',
+                        slices: [
+                          for (final e in products)
+                            SboxSlice('${e['productName'] ?? e['ProductName'] ?? '—'}',
+                                _n(byRevenue ? e['revenue'] : e['commission']).toDouble()),
+                        ],
                       ),
                     ),
                   ],
@@ -169,8 +179,8 @@ class _PosStaffCommissionReportScreenState
                 ...products.map((e) => ListTile(
                       dense: true,
                       title: Text(tr('${e['productName'] ?? e['ProductName'] ?? '—'}')),
-                      subtitle: Text(tr('SL ${_n(e['qty'])}')),
-                      trailing: Text(_money.format(_n(e['commission']))),
+                      subtitle: Text(tr('SL ${SboxFmt.qty(_n(e['qty']))}')),
+                      trailing: Text(SboxFmt.money(_n(e['commission']))),
                     )),
                 const SizedBox(height: 12),
                 Text(tr('Chi tiết phiếu'),
@@ -182,7 +192,7 @@ class _PosStaffCommissionReportScreenState
                       subtitle: Text(tr(
                           '${e['orderNo'] ?? ''} ${e['comboName'] != null ? '· ${e['comboName']}' : ''}')),
                       trailing: Text(
-                        _money.format(_n(e['commissionAmount'] ?? e['CommissionAmount'])),
+                        SboxFmt.money(_n(e['commissionAmount'] ?? e['CommissionAmount'])),
                       ),
                       onTap: () => unawaited(PosReportOpen.sale(
                           context, '${e['saleOrderId'] ?? e['SaleOrderId'] ?? ''}')),

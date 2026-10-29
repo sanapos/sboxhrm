@@ -2782,7 +2782,9 @@ class _LeaveScreenState extends State<LeaveScreen>
               Text(tr('Xác nhận duyệt đơn này?')),
               if (willDeductAnnual && balanceRemaining != null) ...[
                 const SizedBox(height: 10),
-                Text(tr('Sẽ trừ $daysNeeded ngày phép năm. Còn lại: $balanceRemaining ngày.'),
+                // «Còn lại» = sau khi trừ đơn này (trước ghi số dư hiện tại → «trừ 1.0 … còn lại 2.0» khó hiểu).
+                Text(tr('Sẽ trừ ${_fmtDays(daysNeeded)} ngày phép năm. Còn lại: '
+                    '${_fmtDays(balanceRemaining - daysNeeded)} ngày.'),
                   style: TextStyle(
                     fontSize: 13,
                     color: daysNeeded > balanceRemaining
@@ -2951,6 +2953,10 @@ class _LeaveScreenState extends State<LeaveScreen>
         return 'Chờ duyệt';
     }
   }
+
+  /// 1 / 1,5 ngày — bỏ «.0» thừa.
+  static String _fmtDays(double d) =>
+      d == d.roundToDouble() ? d.toStringAsFixed(0) : d.toStringAsFixed(1).replaceAll('.', ',');
 
   static _StatusInfo _getStatusInfo(int status) {
     switch (status) {

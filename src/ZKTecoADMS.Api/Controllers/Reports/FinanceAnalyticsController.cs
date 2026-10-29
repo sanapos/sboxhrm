@@ -709,7 +709,8 @@ public class FinanceAnalyticsController(
         PaymentMethod = (int)x.PaymentMethod,
         Status = x.IsPaid ? (int)CashTransactionStatus.Completed : (int)x.Status,
         IsPaid = x.IsPaid,
-        CreatedByUserName = x.CreatedByUser != null ? (x.CreatedByUser.UserName ?? "") : ""
+        CreatedByUserName = x.CreatedByUser != null ? (x.CreatedByUser.UserName ?? "") : "",
+        CreatedAt = x.CreatedAt
     };
 
     private static CashReportSummaryDto BuildCashReportSummary(List<CashTransaction> rows)
@@ -939,5 +940,8 @@ public class CashReportItemDto
     public int Status { get; set; }
     public bool IsPaid { get; set; }
     public string CreatedByUserName { get; set; } = string.Empty;
+
+    /// <summary>Giờ tạo phiếu (UTC) — thứ tự trong cùng ngày cho số dư lũy kế.</summary>
+    public DateTime CreatedAt { get; set; }
 }
 

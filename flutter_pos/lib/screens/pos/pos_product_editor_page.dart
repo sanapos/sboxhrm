@@ -1089,7 +1089,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 pct == null
                     ? tr('Khách mua món này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).')
                     : price > 0
-                        ? tr('Bán ${_fmtInputMoney(price)}đ → khách tích ${_fmtInputMoney(earn)}đ vào ví điểm, lần sau trừ vào đơn mới.')
+                        ? tr('Bán ${_fmtInputMoney(price)} đ → khách tích ${_fmtInputMoney(earn)} đ vào ví điểm, lần sau trừ vào đơn mới.')
                         : tr('Khách được tích ${_fmtPercent(pct)}% tiền thực trả của món này vào ví điểm.'),
                 style: TextStyle(fontSize: 12, color: pct == null ? Colors.black54 : Colors.green.shade700),
               ),

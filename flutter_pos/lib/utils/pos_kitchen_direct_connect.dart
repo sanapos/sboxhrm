@@ -330,7 +330,7 @@ class PosKitchenDirectConnect {
     );
   }
 
-  /// Máy in nhiệt gắn liền của Sunmi (T1 / T2 / V2s / K2). Đã có hồ sơ Sunmi (vd. in hoá đơn)
+  /// Máy in nhiệt gắn liền của Sunmi (T1 / T2 / V2s / K2). Đã có hồ sơ Sunmi (vd. in hóa đơn)
   /// thì chỉ thêm vai trò phiếu bếp — không tạo máy trùng.
   static Future<PosLocalPrinterProfile?> connectSunmi(BuildContext context) async {
     if (kIsWeb || !await PosPrinterTransport.isSunmiDevice()) {

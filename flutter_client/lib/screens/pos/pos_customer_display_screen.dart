@@ -414,7 +414,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${_money.format(s.total)}đ',
+                  '${_money.format(s.total)} đ',
                   style: const TextStyle(color: SboxColors.danger, fontSize: 30, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 10),
@@ -686,7 +686,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(color: SboxColors.danger, borderRadius: BorderRadius.circular(8)),
                 child: Text(
-                  '${_money.format(price)}đ',
+                  '${_money.format(price)} đ',
                   style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
                 ),
               ),
@@ -833,19 +833,19 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
             ),
             Container(height: 1, color: _billLine),
             const SizedBox(height: 10),
-            _billRow('Tạm tính', '${_money.format(s.subtotal)}đ'),
+            _billRow('Tạm tính', '${_money.format(s.subtotal)} đ'),
             if (s.discount > 0) ...[
               const SizedBox(height: 4),
               _billRow(
                 'Giảm giá',
-                '-${_money.format(s.discount)}đ',
+                '-${_money.format(s.discount)} đ',
                 valueColor: SboxColors.danger,
               ),
             ],
             const SizedBox(height: 6),
             _billRow(
               'TỔNG CỘNG',
-              '${_money.format(s.total)}đ',
+              '${_money.format(s.total)} đ',
               emphasize: true,
             ),
             if (confirmed || hasQr) ...[
@@ -918,7 +918,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
               Text(
                 tr('SL $qty'
                     '${(l.unitLabel ?? '').isNotEmpty ? ' ${l.unitLabel}' : ''}'
-                    ' × ${_money.format(l.unitPrice)}đ'),
+                    ' × ${_money.format(l.unitPrice)} đ'),
                 style: const TextStyle(color: _billMuted, fontSize: 13),
               ),
             ],
@@ -926,7 +926,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
         ),
         const SizedBox(width: 8),
         Text(
-          tr('${_money.format(l.lineTotal)}đ'),
+          tr('${_money.format(l.lineTotal)} đ'),
           style: const TextStyle(
             color: _billFg,
             fontSize: 16,

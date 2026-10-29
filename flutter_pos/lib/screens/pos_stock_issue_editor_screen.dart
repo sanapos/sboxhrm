@@ -460,14 +460,6 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     }
   }
 
-  Future<void> _scanBarcode() async {
-    if (_readOnly) return;
-    final code = await scanBarcodeWithCamera(context);
-    if (code == null || !mounted) return;
-    final pick = await lookupOrPickPosProduct(context, _api, code);
-    if (pick != null && mounted) await _onPickProduct(pick);
-  }
-
   Future<void> _removeLine(_IssueLine line) async {
     if (_readOnly || _issueId == null) return;
     final res =
@@ -968,11 +960,6 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
                   style: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w600)),
             ),
-          IconButton(
-            tooltip: tr('Quét mã vạch'),
-            icon: const Icon(Icons.qr_code_scanner_outlined),
-            onPressed: _readOnly ? null : _scanBarcode,
-          ),
         ],
       ),
     );

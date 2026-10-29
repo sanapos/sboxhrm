@@ -316,7 +316,7 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
                 ),
                 SboxColumn(label: 'Điện thoại', minWidth: 130, text: (c) => c.phone ?? '—'),
                 SboxColumn(label: 'Sinh nhật', minWidth: 90, hideOnMobile: true, text: (c) => _dm(c.birthday)),
-                SboxColumn(label: 'Mua gần nhất', minWidth: 120, hideOnMobile: true, text: (c) => c.orderCount > 0 ? '${_ago(c.lastPurchaseAt)} · ${c.orderCount} đơn' : 'Chưa mua'),
+                SboxColumn(label: 'Mua gần nhất', flex: 2, minWidth: 170, hideOnMobile: true, text: (c) => c.orderCount > 0 ? '${_ago(c.lastPurchaseAt)} · ${c.orderCount} đơn' : 'Chưa mua'),
                 SboxColumn(label: 'Tổng mua', numeric: true, minWidth: 130, text: (c) => SboxFmt.money(c.totalPurchase)),
                 SboxColumn(
                   label: 'Công nợ',

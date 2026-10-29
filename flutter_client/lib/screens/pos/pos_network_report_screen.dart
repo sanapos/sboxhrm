@@ -91,6 +91,7 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
   static num _n(dynamic v) => v is num ? v : num.tryParse('$v') ?? 0;
 
   static String _sec(num ms) {
+    if (ms < 1000) return '${ms.round()} ms';
     final s = ms / 1000;
     return '${s.toStringAsFixed(s < 10 ? 1 : 0).replaceAll('.', ',')} giây';
   }

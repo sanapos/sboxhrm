@@ -370,7 +370,7 @@ class _PosCancelReturnHistoryScreenState
                 const Spacer(),
                 if (amount > 0)
                   Text(
-                    tr('${_money.format(amount)}đ'),
+                    tr('${_money.format(amount)} đ'),
                     style: const TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 14),
                   ),

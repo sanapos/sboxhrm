@@ -192,7 +192,7 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
     final msgs = <String>[
       if (_data?['truncated'] == true) 'Kỳ này có hơn 5.000 vận đơn — danh sách bị cắt, hãy thu hẹp khoảng ngày.',
       if (_n(_data?['codOverdueCount']) > 0)
-        'COD quá 7 ngày chưa đối soát: ${_n(_data?['codOverdueCount'])} đơn · ${_money.format(_n(_data?['codOverdueAmount']))}đ',
+        'COD quá 7 ngày chưa đối soát: ${_n(_data?['codOverdueCount'])} đơn · ${_money.format(_n(_data?['codOverdueAmount']))} đ',
       if (_maps(_data?['stale']).isNotEmpty)
         '${_maps(_data?['stale']).length} vận đơn quá 3 ngày không có cập nhật từ hãng',
       if (_maps(_data?['unshipped']).isNotEmpty)

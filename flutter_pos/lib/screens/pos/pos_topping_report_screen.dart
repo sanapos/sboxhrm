@@ -75,7 +75,7 @@ class _PosToppingReportScreenState extends State<PosToppingReportScreen> {
   static List<Map<String, dynamic>> _maps(dynamic v) =>
       (v as List? ?? const []).whereType<Map>().map(Map<String, dynamic>.from).toList();
 
-  String _m(dynamic v) => '${_money.format(_n(v))}đ';
+  String _m(dynamic v) => '${_money.format(_n(v))} đ';
   String _q(dynamic v) => _qty.format(_n(v));
   String _pct(dynamic v) => '${_q(v)}%';
 
@@ -179,7 +179,7 @@ class _PosToppingReportScreenState extends State<PosToppingReportScreen> {
             status: s['rateLevel']?.toString(),
             hint: '${_q(withT)} / ${_q(cups)} ly · tốt khi từ 30%', icon: Icons.local_drink_outlined),
         PosHealthKpi('Doanh thu topping', _m(s['toppingRevenue']),
-            hint: '${_q(s['portions'])} phần · ~${_m(s['revenuePerCup'])} / ly', icon: Icons.payments_outlined),
+            hint: '${_q(s['portions'])} phần · ≈${_m(s['revenuePerCup'])} / ly', icon: Icons.payments_outlined),
         PosHealthKpi('Lãi topping', _m(s['toppingProfit']),
             status: _n(s['toppingRevenue']) <= 0
                 ? 'none'

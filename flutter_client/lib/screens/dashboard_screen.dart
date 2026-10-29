@@ -3308,7 +3308,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                               e['amount'] ??
                                               0) as num)
                                           .toDouble());
-                              return '${advances.length} phiếu • ${_fmtMoney(total)}đ';
+                              return '${advances.length} phiếu • ${_fmtMoney(total)} đ';
                             }
                             return customContent != null
                                 ? c.value
@@ -3436,7 +3436,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     } else if (kind == 'advance_detail') {
       final amt = (item['requestedAmount'] ?? item['amount'] ?? 0) as num;
-      badge = '${_fmtMoney(amt.toDouble())}đ';
+      badge = '${_fmtMoney(amt.toDouble())} đ';
     }
 
     return InkWell(
@@ -4118,7 +4118,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               typeLabel: 'Ứng lương',
               color: HrmPageChrome.chipLight,
               title: name.isEmpty ? 'N/A' : name,
-              subtitle: [dept, '${_fmtMoney(amt.toDouble())}đ']
+              subtitle: [dept, '${_fmtMoney(amt.toDouble())} đ']
                   .where((s) => s.isNotEmpty)
                   .join(' • '),
               dateStr:
@@ -4229,7 +4229,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             fontWeight: FontWeight.w600,
                             color: HrmPageChrome.chipMid)),
                   ]),
-                  Text(tr('${_fmtMoney(totalAmount)}đ'),
+                  Text(tr('${_fmtMoney(totalAmount)} đ'),
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -4383,7 +4383,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     .withValues(alpha: .1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: Text(tr('${_fmtMoney(amt.toDouble())}đ'),
+                              child: Text(tr('${_fmtMoney(amt.toDouble())} đ'),
                                   style: const TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
@@ -5229,7 +5229,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SboxColors.danger, null),
       const SizedBox(height: 8),
       _detailStatRow(Icons.attach_money, 'Tổng tiền phạt',
-          '${_fmtMoney(totalFine)}đ', SboxColors.danger),
+          '${_fmtMoney(totalFine)} đ', SboxColors.danger),
       const SizedBox(height: 8),
       tappableRow(Icons.check_circle_outline, 'Đã duyệt', '$approved',
           SboxColors.success, '1'),
@@ -5264,16 +5264,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final txCount =
         _toInt(_cashSummary['totalTransactions'] ?? _cashSummary['count'] ?? 0);
     return Column(children: [
-      _detailStatRow(Icons.trending_up, 'Tổng thu', '${_fmtMoney(income)}đ',
+      _detailStatRow(Icons.trending_up, 'Tổng thu', '${_fmtMoney(income)} đ',
           SboxColors.success),
       const SizedBox(height: 8),
-      _detailStatRow(Icons.trending_down, 'Tổng chi', '${_fmtMoney(expense)}đ',
+      _detailStatRow(Icons.trending_down, 'Tổng chi', '${_fmtMoney(expense)} đ',
           SboxColors.danger),
       const SizedBox(height: 8),
       _detailStatRow(
           Icons.account_balance,
           'Tồn quỹ',
-          '${net >= 0 ? '+' : ''}${_fmtMoney(net)}đ',
+          '${net >= 0 ? '+' : ''}${_fmtMoney(net)} đ',
           net >= 0 ? SboxColors.success : SboxColors.danger),
       const SizedBox(height: 8),
       _detailStatRow(

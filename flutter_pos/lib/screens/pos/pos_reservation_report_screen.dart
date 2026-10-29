@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
+import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/pos/pos_theme.dart';
@@ -14,7 +15,13 @@ import '../../widgets/sbox/sbox_charts.dart';
 import '../../widgets/sbox/sbox_basics.dart' show SboxTone;
 /// Đặt chỗ / cọc theo kỳ.
 class PosReservationReportScreen extends StatefulWidget {
-  const PosReservationReportScreen({super.key});
+  const PosReservationReportScreen({super.key, this.title = 'Đặt chỗ / cọc', this.profile});
+
+  /// Tên theo ngành từ trang Báo cáo («Đặt lịch & cọc», «Đặt phòng & cọc»…).
+  final String title;
+
+  /// Ngành bán — chữ «bàn» trên báo cáo đổi thành «ghế» / «phòng»; null = «bàn» như cũ.
+  final PosSellProfile? profile;
 
   @override
   State<PosReservationReportScreen> createState() =>
@@ -57,6 +64,14 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
 
   double _n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 
+  /// «bàn» / «ghế» / «phòng»; rỗng với ngành không có chỗ ngồi (gym) → nói theo «khách đến».
+  String get _noun {
+    final p = widget.profile;
+    if (p == null) return 'bàn';
+    if (p == PosSellProfile.gym) return '';
+    return p.resourceNoun.isEmpty ? 'bàn' : p.resourceNoun;
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = ((_data?['items'] as List?) ?? [])
@@ -64,7 +79,7 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
     return PosReportMobileScaffold(
-      title: 'Đặt chỗ / cọc',
+      title: widget.title,
       exportModule: 'PosSalesReport',
       time: _time,
       onTimeChanged: (s) async {
@@ -84,7 +99,7 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
                   runSpacing: 6,
                   children: [
                     FilterChip(
-                      label: Text(tr('Theo ngày dùng bàn')),
+                      label: Text(tr(_noun.isEmpty ? 'Theo ngày đến' : 'Theo ngày dùng $_noun')),
                       selected: _dateBasis == 'usage',
                       onSelected: (_) {
                         setState(() => _dateBasis = 'usage');
@@ -146,7 +161,7 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
                         valueFormat: (v) => '${SboxFmt.number(v)} lịch',
                         slices: [
                           SboxSlice('Đã đặt', _n(_data?['bookedCount']).toDouble()),
-                          SboxSlice('Đã nhận bàn', _n(_data?['seatedCount']).toDouble(), color: SboxColors.success),
+                          SboxSlice(_noun.isEmpty ? 'Khách đã đến' : 'Đã nhận $_noun', _n(_data?['seatedCount']).toDouble(), color: SboxColors.success),
                           SboxSlice('Hủy', _n(_data?['cancelledCount']).toDouble(), color: SboxColors.slate400),
                           SboxSlice('Không đến', _n(_data?['noShowCount']).toDouble(), color: SboxColors.danger),
                         ],

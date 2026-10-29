@@ -222,7 +222,7 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
 
   void _switchTab(int index) {
     if (_tab == index) {
-      // Bấm lại tab Hoá đơn → đồng bộ danh sách.
+      // Bấm lại tab Hóa đơn → đồng bộ danh sách.
       if (index == 3) ScreenRefreshNotifier.refreshPosSaleOrders();
       if (index == 2) ScreenRefreshNotifier.refreshPosAfterStockChange();
       return;

@@ -360,7 +360,7 @@ class _PosTimedServiceSetupState extends State<PosTimedServiceSetup> {
   Widget _rateHint() {
     final price = _num(widget.priceCtrl.text);
     if (price <= 0) return const SizedBox(height: 4);
-    String m(num v) => '${_money.format(v.round())}đ';
+    String m(num v) => '${_money.format(v.round())} đ';
     final text = switch (widget.mode) {
       PosServiceBillingMode.perBlock => '1 block $_block phút = ${m(price)}, tức 1 giờ = ${m(price * 60 / _block)}',
       PosServiceBillingMode.perHour => '1 giờ = ${m(price)}, tức 1 block $_block phút = ${m(price * _block / 60)}',
@@ -651,7 +651,7 @@ class _PosTimedServiceSetupState extends State<PosTimedServiceSetup> {
                 ),
                 Expanded(
                   flex: 3,
-                  child: Text('${_money.format(r.total.round())}đ',
+                  child: Text('${_money.format(r.total.round())} đ',
                       textAlign: TextAlign.right,
                       style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
                 ),

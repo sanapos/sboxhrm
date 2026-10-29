@@ -145,7 +145,7 @@ class _PosContractPaymentPanelState extends State<PosContractPaymentPanel> {
       builder: (ctx) => AlertDialog(
         title: Text(tr('Hủy lần thu?')),
         content: Text(tr(
-            'Hủy lần thu ${_money.format(p.amount)}đ ngày ${_d(p.paidAt)}. Phiếu thu ${p.cashCode ?? ''} trong sổ quỹ chuyển «Đã hủy».')),
+            'Hủy lần thu ${_money.format(p.amount)} đ ngày ${_d(p.paidAt)}. Phiếu thu ${p.cashCode ?? ''} trong sổ quỹ chuyển «Đã hủy».')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(
@@ -267,7 +267,7 @@ class _PosContractPaymentPanelState extends State<PosContractPaymentPanel> {
             if (c.overdueAmount > 0) ...[
               const SizedBox(height: 8),
               Text(
-                tr('Quá hạn: ${_money.format(c.overdueAmount)}đ'),
+                tr('Quá hạn: ${_money.format(c.overdueAmount)} đ'),
                 style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
               ),
             ] else if (c.nextDueTitle != null) ...[
@@ -379,7 +379,7 @@ class _PosContractPaymentPanelState extends State<PosContractPaymentPanel> {
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 title: Text(
-                  '${_money.format(p.amount)}đ · ${p.paymentMethod ?? ''}',
+                  '${_money.format(p.amount)} đ · ${p.paymentMethod ?? ''}',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 subtitle: Text([
@@ -659,8 +659,8 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
               const SizedBox(height: 6),
               Text(
                 tr(diff.abs() < 1
-                    ? 'Tổng các đợt = giá trị hợp đồng ${_money.format(total)}đ'
-                    : 'Tổng các đợt ${_money.format(_sum)}đ — ${diff > 0 ? 'còn thiếu' : 'vượt'} ${_money.format(diff.abs())}đ so với giá trị HĐ ${_money.format(total)}đ'),
+                    ? 'Tổng các đợt = giá trị hợp đồng ${_money.format(total)} đ'
+                    : 'Tổng các đợt ${_money.format(_sum)} đ — ${diff > 0 ? 'còn thiếu' : 'vượt'} ${_money.format(diff.abs())} đ so với giá trị HĐ ${_money.format(total)} đ'),
                 style: TextStyle(
                   fontSize: 12,
                   color: diff.abs() < 1 ? Colors.green.shade700 : Colors.orange.shade800,
@@ -727,7 +727,7 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
                     // Đợt cuối nhận phần còn lại (cọc tính trên trước VAT) → số tiền ≠ đúng % ghi;
                     // ghi rõ như màn chi tiết, khỏi tưởng tính sai (vd 10% mà = 28.860đ).
                     helperText: r.isPercent
-                        ? '= ${_money.format(_amountOf(r))}đ${_isRemainderRow(r) ? tr(' (phần còn lại)') : ''}'
+                        ? '= ${_money.format(_amountOf(r))} đ${_isRemainderRow(r) ? tr(' (phần còn lại)') : ''}'
                         : null,
                     helperMaxLines: 2,
                     isDense: true,
@@ -832,7 +832,7 @@ class _CollectDialogState extends State<_CollectDialog> {
     }
     if (v > widget.contract.remaining + 0.5) {
       setState(() => _error =
-          'Vượt số còn phải thu ${_money.format(widget.contract.remaining)}đ');
+          'Vượt số còn phải thu ${_money.format(widget.contract.remaining)} đ');
       return;
     }
     _done = true;
@@ -859,7 +859,7 @@ class _CollectDialogState extends State<_CollectDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                tr('Còn phải thu: ${_money.format(c.remaining)}đ'),
+                tr('Còn phải thu: ${_money.format(c.remaining)} đ'),
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 10),

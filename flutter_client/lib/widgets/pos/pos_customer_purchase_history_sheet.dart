@@ -97,7 +97,7 @@ class _HistorySheetState extends State<_HistorySheet> {
   }
 
   double _n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
-  String _m(dynamic v) => '${_money.format(_n(v))}đ';
+  String _m(dynamic v) => '${_money.format(_n(v))} đ';
   String _date(dynamic v, {bool time = true}) {
     final d = v == null ? null : parseApiUtcDateTime(v.toString());
     if (d == null) return '—';

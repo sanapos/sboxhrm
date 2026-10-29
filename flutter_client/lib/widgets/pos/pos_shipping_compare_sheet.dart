@@ -652,7 +652,7 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
                     q.success
                         ? (q.fee <= 0
                             ? tr('Miễn phí')
-                            : '${_money.format(q.fee)}đ')
+                            : '${_money.format(q.fee)} đ')
                         : '—',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,

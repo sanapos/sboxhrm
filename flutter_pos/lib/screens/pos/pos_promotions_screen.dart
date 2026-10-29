@@ -904,7 +904,7 @@ class _ProductSearchDialogState extends State<_ProductSearchDialog> {
                 ListTile(
                   dense: true,
                   title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text(tr('${p.productCode} · ${_money.format(p.basePrice.round())}đ')),
+                  subtitle: Text(tr('${p.productCode} · ${_money.format(p.basePrice.round())} đ')),
                   onTap: () => Navigator.pop(context, p),
                 ),
             ]),
@@ -982,7 +982,7 @@ class _PosPromotionReportScreenState extends State<PosPromotionReportScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(children: [
               Expanded(child: _stat('Hóa đơn có KM', '${_data!['orders'] ?? 0}')),
-              Expanded(child: _stat('Tổng tiền giảm', '${_money.format(n(_data!['totalDiscount']))}đ')),
+              Expanded(child: _stat('Tổng tiền giảm', '${_money.format(n(_data!['totalDiscount']))} đ')),
             ]),
           ),
         const Divider(),
@@ -996,8 +996,8 @@ class _PosPromotionReportScreenState extends State<PosPromotionReportScreen> {
                         for (final i in items)
                           ListTile(
                             title: Text('${i['name']}'),
-                            subtitle: Text(tr('${i['orders']} hóa đơn · doanh thu ${_money.format(n(i['revenue']))}đ')),
-                            trailing: Text(tr('−${_money.format(n(i['discount']))}đ'),
+                            subtitle: Text(tr('${i['orders']} hóa đơn · doanh thu ${_money.format(n(i['revenue']))} đ')),
+                            trailing: Text(tr('−${_money.format(n(i['discount']))} đ'),
                                 style: TextStyle(fontWeight: FontWeight.w700, color: Colors.red.shade700)),
                           ),
                       ],

@@ -1100,7 +1100,7 @@ class PosReportInvoiceList extends StatelessWidget {
     final no = (e['orderNo'] ?? e['OrderNo'] ?? '').toString();
     final name = (e['customerName'] ?? e['CustomerName'] ?? '').toString();
     final pay = posPaymentLabelOf(e);
-    final sold = (e['soldBy'] ?? e['SoldBy'] ?? e['createdBy'] ?? '').toString();
+    final sold = (e['soldByName'] ?? e['soldBy'] ?? e['SoldBy'] ?? e['createdBy'] ?? '').toString();
     final totalAmt = _num(e['total'] ?? e['Total']);
     final paid = _num(e['paidAmount'] ?? e['PaidAmount']);
     final dt = parseApiUtcDateTime(e['saleDate'] ?? e['SaleDate'] ?? e['createdAt'] ?? e['CreatedAt']);

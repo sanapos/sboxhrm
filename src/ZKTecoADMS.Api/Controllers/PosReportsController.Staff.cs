@@ -33,6 +33,41 @@ public partial class PosReportsController
         return q;
     }
 
+    /// <summary>Tên hiển thị người bán: nhân viên (theo Id) và tài khoản (SoldBy là email → họ tên).</summary>
+    private async Task<(Dictionary<Guid, string> Employees, Dictionary<string, string> Users)> SellerDisplayNamesAsync(
+        IEnumerable<Guid?> employeeIds, IEnumerable<string?> soldBys)
+    {
+        var ids = employeeIds.Where(x => x.HasValue).Select(x => x!.Value).Distinct().ToList();
+        var emps = ids.Count == 0
+            ? new Dictionary<Guid, string>()
+            : (await dbContext.Employees.AsNoTracking()
+                    .Where(e => ids.Contains(e.Id))
+                    .Select(e => new { e.Id, Name = ((e.LastName ?? "") + " " + (e.FirstName ?? "")).Trim() })
+                    .ToListAsync())
+                .Where(e => e.Name.Length > 0)
+                .ToDictionary(e => e.Id, e => e.Name);
+        var emails = soldBys.Where(s => (s ?? "").Contains('@')).Select(s => s!.Trim()).Distinct().ToList();
+        var users = emails.Count == 0
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            : (await dbContext.Users.AsNoTracking()
+                    .Where(u => u.Email != null && emails.Contains(u.Email))
+                    .Select(u => new { u.Email, Name = ((u.LastName ?? "") + " " + (u.FirstName ?? "")).Trim() })
+                    .ToListAsync())
+                .Where(u => u.Name.Length > 0)
+                .GroupBy(u => u.Email!, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Name, StringComparer.OrdinalIgnoreCase);
+        return (emps, users);
+    }
+
+    private static string? SellerDisplayName(
+        (Dictionary<Guid, string> Employees, Dictionary<string, string> Users) names, Guid? employeeId, string? soldBy)
+    {
+        if (employeeId is Guid id && names.Employees.TryGetValue(id, out var en)) return en;
+        var s = soldBy?.Trim();
+        if (string.IsNullOrEmpty(s)) return null;
+        return names.Users.TryGetValue(s, out var un) ? un : s;
+    }
+
     [HttpGet("staff/summary")]
     [RequireModulePermission("PosReportStaffRevenue", ModulePermissionAction.View)]
     [MaskCostData("cogs", "profit", "profitMarginPct", "totalCogs", "totalProfit")]
@@ -61,6 +96,9 @@ public partial class PosReportsController
             .Where(e => empIds.Contains(e.Id))
             .Select(e => new { e.Id, Name = (e.LastName + " " + e.FirstName).Trim(), e.CompanyEmail })
             .ToDictionaryAsync(e => e.Id, e => string.IsNullOrWhiteSpace(e.Name) ? e.CompanyEmail ?? "" : e.Name);
+        // Đơn của tài khoản không gắn nhân viên (chủ cửa hàng…) ghi SoldBy = email → displayName là họ tên tài khoản;
+        // soldBy giữ nguyên để lọc hóa đơn (lọc «chứa» theo SoldBy).
+        var sellerNames = await SellerDisplayNamesAsync(Array.Empty<Guid?>(), orders.Select(o => o.SoldBy));
 
         var totalRevenue = orders.Sum(o => o.Total);
         var staff = orders
@@ -71,6 +109,9 @@ public partial class PosReportsController
                 var name = first.SoldByEmployeeId is Guid eid
                     ? empNames.GetValueOrDefault(eid) is { Length: > 0 } n ? n : g.OrderByDescending(x => x.SaleAt).First().SoldBy ?? "—"
                     : string.IsNullOrWhiteSpace(first.SoldBy) ? "Chưa ghi người bán" : first.SoldBy!.Trim();
+                var displayName = first.SoldByEmployeeId is Guid
+                    ? name
+                    : SellerDisplayName(sellerNames, null, first.SoldBy) ?? name;
                 var revenue = g.Sum(x => x.Total);
                 var c = g.Sum(x => cogs.GetValueOrDefault(x.Id));
                 var count = g.Count();
@@ -79,6 +120,7 @@ public partial class PosReportsController
                     staffKey = g.Key,
                     employeeId = first.SoldByEmployeeId,
                     soldBy = name,
+                    displayName,
                     orderCount = count,
                     revenue,
                     vat = g.Sum(x => x.VatAmount),

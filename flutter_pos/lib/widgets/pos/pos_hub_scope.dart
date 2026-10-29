@@ -9,7 +9,7 @@ class PosHubScope extends InheritedWidget {
     required super.child,
   });
 
-  /// Tab Tổng quan / Hàng hoá / Bán / Hoá đơn / Nhiều hơn.
+  /// Tab Tổng quan / Hàng hóa / Bán / Hóa đơn / Nhiều hơn.
   final bool embeddedInHub;
 
   /// Mở từ menu «Nhiều hơn» (cần nút quay lại, không hiện toolbar ngang).
@@ -63,7 +63,7 @@ abstract final class PosHubModules {
     'Tổng quan',
     'Hàng hóa',
     'Bán hàng',
-    'Hoá đơn',
+    'Hóa đơn',
     'Nhiều hơn',
   ];
 }

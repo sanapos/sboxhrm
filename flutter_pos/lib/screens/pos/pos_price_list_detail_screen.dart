@@ -596,7 +596,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                     key: _searchKey,
                     api: _api,
                     onPick: _onPickProduct,
-                    hintText: tr('Tìm & thêm hàng hoá vào bảng giá…'),
+                    hintText: tr('Tìm & thêm hàng hóa vào bảng giá…'),
                   ),
                 ),
                 Padding(
@@ -792,7 +792,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                   tr([
                     if (r.productCode.isNotEmpty) r.productCode,
                     r.unitLabel,
-                    'Gốc ${_moneyFmt.format(r.basePrice)}đ',
+                    'Gốc ${_moneyFmt.format(r.basePrice)} đ',
                   ].join(' · ')),
                   style: const TextStyle(
                     fontSize: 11,
@@ -908,7 +908,7 @@ class _BulkProductPickerSheetState extends State<_BulkProductPickerSheet> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(tr('Thêm nhiều hàng hoá'),
+                  child: Text(tr('Thêm nhiều hàng hóa'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -960,7 +960,7 @@ class _BulkProductPickerSheetState extends State<_BulkProductPickerSheet> {
                         value: on,
                         activeColor: PosTheme.kiotBlue,
                         title: Text(tr(p.name), maxLines: 2),
-                        subtitle: Text(tr('${p.productCode} · ${_moneyFmt(p.basePrice)}đ'),
+                        subtitle: Text(tr('${p.productCode} · ${_moneyFmt(p.basePrice)} đ'),
                           style: const TextStyle(fontSize: 12),
                         ),
                         onChanged: (v) {

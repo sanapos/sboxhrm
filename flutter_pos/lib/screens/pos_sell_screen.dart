@@ -3294,10 +3294,10 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
     }
     if (_useFloorAsPrimary) {
-      actions.add(const _SellMoreAction(
+      actions.add(_SellMoreAction(
         id: 'booking',
         icon: Icons.calendar_month_outlined,
-        label: 'Đặt lịch',
+        label: _bookingLabel,
       ));
     }
     if (_pendingPrintCount == 0) {
@@ -7060,6 +7060,50 @@ class _PosSellScreenState extends State<PosSellScreen>
     _scheduleDraftAutosave();
   }
 
+  /// NV làm đã lưu trên đơn tạm → dòng giỏ. Trước đây mở lại ghế / bàn (hoặc khởi động lại máy)
+  /// thì dòng quay về «Chọn NV làm» dù server vẫn giữ — thanh toán ra hóa đơn mất hoa hồng.
+  void _restoreLineStaff(_SellCartLine cartLine, PosSaleOrderLine line) {
+    final staff = <_CartStaffAssign>[];
+    final raw = line.staffAssignmentsJson;
+    if (raw != null && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          for (final e in decoded.whereType<Map>()) {
+            final id = (e['assignedEmployeeId'] ?? e['AssignedEmployeeId'])?.toString() ?? '';
+            if (id.isEmpty) continue;
+            staff.add(_CartStaffAssign(
+              componentProductId:
+                  (e['componentProductId'] ?? e['ComponentProductId'])?.toString(),
+              assignedEmployeeId: id,
+              assignedEmployeeName: (e['assignedEmployeeName'] ?? e['AssignedEmployeeName'])
+                      ?.toString() ??
+                  _sellerNameById(id),
+            ));
+          }
+        }
+      } catch (_) {}
+    }
+    if (staff.isNotEmpty) {
+      cartLine.staffAssignments = staff;
+      cartLine.assignedEmployeeId = staff.first.assignedEmployeeId;
+      cartLine.assignedEmployeeName = staff.first.assignedEmployeeName;
+      return;
+    }
+    final id = line.assignedEmployeeId;
+    if (id != null && id.isNotEmpty) {
+      cartLine.assignedEmployeeId = id;
+      cartLine.assignedEmployeeName = _sellerNameById(id);
+    }
+  }
+
+  String _sellerNameById(String id) =>
+      _sellSellers
+          .where((s) => s['employeeId']?.toString() == id)
+          .map((s) => s['displayName']?.toString() ?? '')
+          .firstOrNull ??
+      '';
+
   String? _staffLabelForLine(_SellCartLine line) {
     if (line.staffAssignments.isNotEmpty) {
       final names = line.staffAssignments
@@ -9320,6 +9364,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       cartLine.toppings = line.toppings
           .map((t) => _CartTopping(id: t.id, name: t.name, price: t.price, qty: t.qty))
           .toList();
+      _restoreLineStaff(cartLine, line);
       final split = splitPosLineNote(line.lineNote, p.saleQuickNotes);
       cartLine.selectedQuickNotes
         ..clear()
@@ -11844,6 +11889,16 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
   }
 
+  /// Danh từ chỗ ngồi theo ngành (salon «ghế», karaoke / khách sạn «phòng») — mặc định «bàn».
+  String get _resNoun => _sellProfile.resourceNoun.isEmpty ? 'bàn' : _sellProfile.resourceNoun;
+
+  /// Nút lịch đặt theo ngành — trước luôn «Đặt lịch» dù màn mở ra là «Lịch đặt bàn».
+  String get _bookingLabel => switch (_sellProfile) {
+        PosSellProfile.salon || PosSellProfile.gym => 'Đặt lịch',
+        PosSellProfile.roomHourly || PosSellProfile.hotel => 'Đặt phòng',
+        _ => 'Đặt bàn',
+      };
+
   Future<void> _onReturnTablesMenu() async {
     if (!await confirmPosOwnerPassword(context)) return;
     if (!mounted) return;
@@ -11858,8 +11913,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       final pick = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Text(tr('Trả về bàn trống')),
-          content: Text(tr('Chọn bàn hiện tại hoặc tất cả bàn đang mở.')),
+          title: Text(tr('Trả về $_resNoun trống')),
+          content: Text(tr('Chọn $_resNoun hiện tại hoặc tất cả $_resNoun đang mở.')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -11872,7 +11927,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Colors.red),
               onPressed: () => Navigator.pop(ctx, 'current'),
-              child: Text(tr('Bàn hiện tại')),
+              child: Text(tr('${_resNoun[0].toUpperCase()}${_resNoun.substring(1)} hiện tại')),
             ),
           ],
         ),
@@ -12002,7 +12057,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           title: Text(tr('Trả $name về trống?')),
           content: Text(tr(
             'Bàn còn $lineCount món'
-            '${total > 0 ? ' · ${_moneyFmt.format(total)}đ' : ''}.\n'
+            '${total > 0 ? ' · ${_moneyFmt.format(total)} đ' : ''}.\n'
             'Xóa đơn tạm, không thu tiền, đóng phiên.',
           )),
           actions: [
@@ -12643,7 +12698,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         message: [
           if (orderNo.isNotEmpty) orderNo,
           if ((_tab.serviceResourceName ?? '').isNotEmpty) _tab.serviceResourceName!,
-          '${_moneyFmt.format(_grandTotal)}đ',
+          '${_moneyFmt.format(_grandTotal)} đ',
         ].join(' · '),
       );
       if (!alreadyPaid) _notifyEInvoiceAfterCheckout(data, orderNo);
@@ -14170,8 +14225,8 @@ class _PosSellScreenState extends State<PosSellScreen>
             ),
           ),
         ),
-        // Nhóm 1 — thao tác trên bàn / hoá đơn đang mở (dùng nhiều nhất khi bán).
-        ...section('Bàn / hoá đơn đang mở', [
+        // Nhóm 1 — thao tác trên bàn (ghế / phòng) / hóa đơn đang mở (dùng nhiều nhất khi bán).
+        ...section('$_resNoun / hóa đơn đang mở', [
           if (_isTableOrderMode)
             item(
                 'guests',
@@ -14210,7 +14265,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               (_isTableOrderMode ||
                   (_useFloorAsPrimary &&
                       (_floorPaneKey.currentState?.busyTableCount ?? 0) > 0)))
-            item('return_table', Icons.event_seat_outlined, 'Trả về bàn trống',
+            item('return_table', Icons.event_seat_outlined, 'Trả về $_resNoun trống',
                 color: Colors.red.shade700,
                 enabled: !_checkingOut && !_parking && !_splitBillBusy),
         ]),
@@ -14219,7 +14274,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           if (canMod('PosSaleOrders'))
             item('sale_orders', Icons.receipt_long_outlined, 'Đơn hàng'),
           if (_useFloorAsPrimary && canMod('PosBooking'))
-            item('booking', Icons.calendar_month_outlined, 'Đặt lịch'),
+            item('booking', Icons.calendar_month_outlined, _bookingLabel),
           if (_qrOnlineFeatureEnabled && canMod('PosQrOrder'))
             item(
                 'qr_online_orders',
@@ -14887,7 +14942,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!labeled) {
       return IconButton(
         constraints: _KiotLayout.topBarActionTap,
-        tooltip: tr('Đặt lịch'),
+        tooltip: tr(_bookingLabel),
         onPressed: () => unawaited(_openBookingCalendar()),
         icon: Icon(Icons.calendar_month_outlined, size: 22, color: iconColor),
       );
@@ -14898,7 +14953,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         onPressed: () => unawaited(_openBookingCalendar()),
         icon: Icon(Icons.calendar_month_outlined, size: 18, color: iconColor),
         label: Text(
-          tr('Đặt lịch'),
+          tr(_bookingLabel),
           style: TextStyle(
             color: iconColor,
             fontWeight: FontWeight.w700,
@@ -16648,7 +16703,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   keypadTitle: 'Đổi điểm',
                   decoration: InputDecoration(
                     hintText: tr(
-                        'Đổi điểm (có ${_moneyFmt.format(_tab.customer!.pointBalance)} · 1đ = ${_moneyFmt.format(_loyaltyRates.redeemValue)}đ)'),
+                        'Đổi điểm (có ${_moneyFmt.format(_tab.customer!.pointBalance)} · 1đ = ${_moneyFmt.format(_loyaltyRates.redeemValue)} đ)'),
                     isDense: true,
                     prefixIcon: const Icon(Icons.stars_outlined, size: 18),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
@@ -16685,8 +16740,8 @@ class _PosSellScreenState extends State<PosSellScreen>
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 hasPct
-                    ? tr('Sẽ tích ${pts.toStringAsFixed(0)} điểm ≈ ${_moneyFmt.format(pts * _loyaltyRates.redeemValue)}đ cho lần mua sau')
-                    : tr('Sẽ tích ${pts.toStringAsFixed(0)} điểm (mỗi ${_moneyFmt.format(_loyaltyRates.earnPerAmount)}đ → 1 điểm)'),
+                    ? tr('Sẽ tích ${pts.toStringAsFixed(0)} điểm ≈ ${_moneyFmt.format(pts * _loyaltyRates.redeemValue)} đ cho lần mua sau')
+                    : tr('Sẽ tích ${pts.toStringAsFixed(0)} điểm (mỗi ${_moneyFmt.format(_loyaltyRates.earnPerAmount)} đ → 1 điểm)'),
                 style: const TextStyle(fontSize: 11, color: SboxColors.success),
               ),
             );
@@ -16862,8 +16917,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     final c = _tab.customer;
     final paid = _effectivePaidAmount;
     final how = paid <= 0.5
-        ? 'Khách chưa trả — ghi công nợ toàn bộ ${_moneyFmt.format(_dueAmount)}đ'
-        : 'Khách trả ${_moneyFmt.format(paid)}đ (${_paymentLinesLabel()}), ghi công nợ ${_moneyFmt.format(_dueAmount)}đ';
+        ? 'Khách chưa trả — ghi công nợ toàn bộ ${_moneyFmt.format(_dueAmount)} đ'
+        : 'Khách trả ${_moneyFmt.format(paid)} đ (${_paymentLinesLabel()}), ghi công nợ ${_moneyFmt.format(_dueAmount)} đ';
     final warn = c == null;
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -16879,7 +16934,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         Expanded(
           child: Text(
             tr(warn
-                ? 'Đơn còn thiếu ${_moneyFmt.format(_dueAmount)}đ — chọn khách hàng để ghi công nợ (khách lẻ không ghi nợ được).'
+                ? 'Đơn còn thiếu ${_moneyFmt.format(_dueAmount)} đ — chọn khách hàng để ghi công nợ (khách lẻ không ghi nợ được).'
                 : '$how cho «${c.name}». Hóa đơn ghi «Công nợ» và số còn nợ.'),
             style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: warn ? SboxColors.dangerText : SboxColors.warningText),
           ),
@@ -18532,7 +18587,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     return ValueListenableBuilder<(double, int)>(
       valueListenable: _floorActiveTotals,
       builder: (_, v, __) {
-        final totalLabel = 'Tổng ${_moneyFmt.format(v.$1)}đ';
+        final totalLabel = 'Tổng ${_moneyFmt.format(v.$1)} đ';
         final openLabel = v.$2 > 0
             ? '${v.$2} ${_sellProfile.resourceNounPlural}'
             : '0 ${_sellProfile.resourceNounPlural}';
@@ -19043,7 +19098,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                         BorderSide(color: PosTheme.border)),
                               ),
                               child: Text(
-                                tr('${_paymentOrderTitle()} · ${_lineCountText()} · ${_moneyFmt.format(_grandTotal)}đ'),
+                                tr('${_paymentOrderTitle()} · ${_lineCountText()} · ${_moneyFmt.format(_grandTotal)} đ'),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,

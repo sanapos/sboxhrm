@@ -30,8 +30,8 @@ class MadeToOrderPricing {
 
   /// Ghi chú giá: `DT 3,96 m²/bộ · 450.000đ/m² (tối thiểu 1.500.000đ/bộ)`.
   static String priceNote(double areaM2, double pricePerM2, double? minPerSet) {
-    final min = (minPerSet ?? 0) > 0 ? ' (tối thiểu ${_money.format(minPerSet)}đ/bộ)' : '';
-    return 'DT ${_m2.format(areaM2)} m²/bộ · ${_money.format(pricePerM2)}đ/m²$min';
+    final min = (minPerSet ?? 0) > 0 ? ' (tối thiểu ${_money.format(minPerSet)} đ/bộ)' : '';
+    return 'DT ${_m2.format(areaM2)} m²/bộ · ${_money.format(pricePerM2)} đ/m²$min';
   }
 
   static final _priceNotePattern = RegExp(r'^DT\s+\d', caseSensitive: false);
@@ -285,7 +285,7 @@ class _MadeToOrderLineDialogState extends State<_MadeToOrderLineDialog> {
                     if (setPrice != null) ...[
                       const SizedBox(height: 4),
                       Text(
-                        tr('Giá 1 bộ: ${_money.format(setPrice)}đ${minApplied ? ' (áp giá tối thiểu)' : ''}'),
+                        tr('Giá 1 bộ: ${_money.format(setPrice)} đ${minApplied ? ' (áp giá tối thiểu)' : ''}'),
                         style: TextStyle(
                           fontSize: 13,
                           color: minApplied ? Colors.orange.shade800 : null,
@@ -293,7 +293,7 @@ class _MadeToOrderLineDialogState extends State<_MadeToOrderLineDialog> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        tr('Thành tiền: ${_money.format(setPrice * sets)}đ'),
+                        tr('Thành tiền: ${_money.format(setPrice * sets)} đ'),
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ],

@@ -1289,7 +1289,7 @@ class PosMobileKiotHeader extends StatelessWidget {
   }
 }
 
-/// Dòng hàng hoá mobile: ảnh | tên+mã | giá+tồn.
+/// Dòng hàng hóa mobile: ảnh | tên+mã | giá+tồn.
 class PosMobileProductRow extends StatelessWidget {
   const PosMobileProductRow({
     super.key,

@@ -574,12 +574,12 @@ class _PosReportsScreenState extends State<PosReportsScreen>
             for (final e in (s['topEmployees'] as List).take(10))
               if (e is Map)
                 _row(
-                  (e['soldBy']?.toString().trim().isNotEmpty == true)
-                      ? e['soldBy'].toString()
+                  ((e['displayName'] ?? e['soldBy'])?.toString().trim().isNotEmpty == true)
+                      ? (e['displayName'] ?? e['soldBy']).toString()
                       : '—',
                   '${_moneyFmt.format(_num(e['revenue']))} (${e['orderCount'] ?? 0})',
                   onTap: () => PosReportOpen.sales(context,
-                      from: _salesTime.from, to: _salesTime.to, soldBy: e['soldBy']?.toString()),
+                      from: _salesTime.from, to: _salesTime.to, soldBy: e['soldBy']?.toString(), soldByLabel: e['displayName']?.toString()),
                 ),
           ]),
         if (((s['topEmployees'] as List?) ?? []).isNotEmpty) const SizedBox(height: 12),

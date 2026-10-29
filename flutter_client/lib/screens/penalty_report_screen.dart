@@ -254,7 +254,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         .fold(0.0, (s, t) => s + reportSafeDouble(t['amount']));
     final salaryAmt = approvedAmt - cashAmt;
     final approvedNote = cashAmt > 0
-        ? 'Trừ lương ${reportMoneyFmt.format(salaryAmt)}đ · Thu tiền mặt ${reportMoneyFmt.format(cashAmt)}đ'
+        ? 'Trừ lương ${reportMoneyFmt.format(salaryAmt)} đ · Thu tiền mặt ${reportMoneyFmt.format(cashAmt)} đ'
         : (approvedAmt > 0 ? 'Trừ vào lương · $approvedPct% tổng tiền phạt' : '$approvedPct% tổng tiền phạt');
     final avg = total == 0 ? 0.0 : totalAmt / total;
 
@@ -273,13 +273,13 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
             color: SboxColors.success),
         ReportKpiItem(
             label: 'Tổng tiền',
-            value: '${reportMoneyFmt.format(totalAmt)}đ',
-            note: total == 0 ? null : 'TB ${reportMoneyFmt.format(avg)}đ/phiếu',
+            value: '${reportMoneyFmt.format(totalAmt)} đ',
+            note: total == 0 ? null : 'TB ${reportMoneyFmt.format(avg)} đ/phiếu',
             icon: Icons.money_off_outlined,
             color: SboxColors.danger),
         ReportKpiItem(
             label: 'Tiền đã duyệt',
-            value: '${reportMoneyFmt.format(approvedAmt)}đ',
+            value: '${reportMoneyFmt.format(approvedAmt)} đ',
             note: approvedNote,
             icon: Icons.payments_outlined,
             color: _accentDark),
@@ -305,13 +305,13 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
           color: SboxColors.warning),
       ReportKpiItem(
           label: 'Tổng tiền phạt',
-          value: '${reportMoneyFmt.format(totalAmt)}đ',
-          note: total == 0 ? null : 'TB ${reportMoneyFmt.format(avg)}đ/phiếu',
+          value: '${reportMoneyFmt.format(totalAmt)} đ',
+          note: total == 0 ? null : 'TB ${reportMoneyFmt.format(avg)} đ/phiếu',
           icon: Icons.money_off_outlined,
           color: SboxColors.danger),
       ReportKpiItem(
           label: 'Tiền đã duyệt',
-          value: '${reportMoneyFmt.format(approvedAmt)}đ',
+          value: '${reportMoneyFmt.format(approvedAmt)} đ',
           note: approvedNote,
           icon: Icons.payments_outlined,
           color: SboxColors.success),
@@ -545,7 +545,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
           items: [
             DropdownMenuItem(
                 value: null,
-                child: Text(tr('Tất cả'), style: vietnameseTextStyle())),
+                child: Text(tr('Mọi trạng thái'), style: vietnameseTextStyle())),
             DropdownMenuItem(
                 value: '0',
                 child: Text(tr('Chờ duyệt'), style: vietnameseTextStyle())),
@@ -591,7 +591,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
       title: t['penaltyTypeLabel']?.toString() ??
           penaltyTypeDisplayLabel(t['type']),
       trailing: date != null ? reportDateFmt.format(date) : null,
-      amount: '${reportMoneyFmt.format(amt)}đ',
+      amount: '${reportMoneyFmt.format(amt)} đ',
       subtitle: t['note']?.toString() ?? t['reason']?.toString() ?? '',
       accentColor: _theme,
       statusLabel: t['statusLabel']?.toString() ??
@@ -610,7 +610,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
       title: name,
       trailing: date != null ? reportDateFmt.format(date) : null,
       amount:
-          '${reportMoneyFmt.format(reportSafeDouble(t['amount']))}đ | ${t['penaltyTypeLabel'] ?? penaltyTypeDisplayLabel(t['type'])}',
+          '${reportMoneyFmt.format(reportSafeDouble(t['amount']))} đ | ${t['penaltyTypeLabel'] ?? penaltyTypeDisplayLabel(t['type'])}',
       subtitle: [
         if (dept.isNotEmpty) dept,
         t['note']?.toString() ?? t['reason']?.toString() ?? '',
@@ -648,7 +648,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         return ReportEmployeeSummaryCard(
           name: name,
           meta: dept.isNotEmpty ? dept : null,
-          primaryValue: '${reportMoneyFmt.format(amt)}đ',
+          primaryValue: '${reportMoneyFmt.format(amt)} đ',
           secondaryValue: '$count phiếu',
           accentColor: _theme,
           onTap: () => setState(() {

@@ -94,6 +94,12 @@ class PosSaleOrderLine {
   final int kitchenRound;
   final List<PosSaleLineTopping> toppings;
 
+  /// NV làm / NV hoa hồng của dòng (dòng 1 người) — server lưu theo đơn tạm.
+  final String? assignedEmployeeId;
+
+  /// Combo nhiều bước: mỗi bước một NV (JSON `[{componentProductId, assignedEmployeeId, assignedEmployeeName}]`).
+  final String? staffAssignmentsJson;
+
   PosSaleOrderLine({
     this.id,
     required this.productId,
@@ -118,6 +124,8 @@ class PosSaleOrderLine {
     this.kitchenSentAt,
     this.kitchenRound = 0,
     this.toppings = const [],
+    this.assignedEmployeeId,
+    this.staffAssignmentsJson,
   });
 
   factory PosSaleOrderLine.fromJson(Map<String, dynamic> json) {
@@ -155,6 +163,10 @@ class PosSaleOrderLine {
       kitchenRound: i(json['kitchenRound'] ?? json['KitchenRound']) ?? 0,
       toppings: parsePosSaleLineToppings(
           json['toppingsJson'] ?? json['ToppingsJson']),
+      assignedEmployeeId:
+          (json['assignedEmployeeId'] ?? json['AssignedEmployeeId'])?.toString(),
+      staffAssignmentsJson:
+          (json['staffAssignmentsJson'] ?? json['StaffAssignmentsJson'])?.toString(),
     );
   }
 
@@ -212,6 +224,10 @@ class PosSaleOrder {
   final String? note;
   final DateTime? saleDate;
   final String? soldBy;
+
+  /// Họ tên người bán / người tạo (API chi tiết đơn) — [soldBy]/[createdBy] có thể là email.
+  final String? soldByName;
+  final String? createdByName;
   final String? soldByEmployeeId;
   final String? salesChannel;
   final String? priceListId;
@@ -297,6 +313,8 @@ class PosSaleOrder {
     this.note,
     this.saleDate,
     this.soldBy,
+    this.soldByName,
+    this.createdByName,
     this.soldByEmployeeId,
     this.salesChannel,
     this.priceListId,
@@ -543,6 +561,8 @@ class PosSaleOrder {
       note: json['note'] ?? json['Note'] as String?,
       saleDate: parseApiDateTime(json['saleDate'] ?? json['SaleDate']),
       soldBy: json['soldBy'] ?? json['SoldBy'] as String?,
+      soldByName: (json['soldByName'] ?? json['SoldByName']) as String?,
+      createdByName: (json['createdByName'] ?? json['CreatedByName']) as String?,
       soldByEmployeeId:
           (json['soldByEmployeeId'] ?? json['SoldByEmployeeId'])?.toString(),
       salesChannel: json['salesChannel'] ?? json['SalesChannel'] as String?,

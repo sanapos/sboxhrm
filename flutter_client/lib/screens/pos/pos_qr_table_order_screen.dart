@@ -1344,9 +1344,9 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                 leading: const Icon(Icons.rule_rounded),
                 title: Text(tr('Quy tắc đơn online')),
                 subtitle: Text(tr(
-                    'Tối thiểu ${_onlineMinOrder > 0 ? '${_money(_onlineMinOrder)}đ' : 'không'} · '
-                    'Phí giao ${_onlineShipFee > 0 ? '${_money(_onlineShipFee)}đ' : 'miễn phí'}'
-                    '${_onlineFreeShipFrom > 0 ? ' · miễn từ ${_money(_onlineFreeShipFrom)}đ' : ''}')),
+                    'Tối thiểu ${_onlineMinOrder > 0 ? '${_money(_onlineMinOrder)} đ' : 'không'} · '
+                    'Phí giao ${_onlineShipFee > 0 ? '${_money(_onlineShipFee)} đ' : 'miễn phí'}'
+                    '${_onlineFreeShipFrom > 0 ? ' · miễn từ ${_money(_onlineFreeShipFrom)} đ' : ''}')),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: _busy ? null : _editOnlineRules,
               ),

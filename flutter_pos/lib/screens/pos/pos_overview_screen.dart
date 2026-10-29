@@ -331,7 +331,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
                 label: 'Giá trị tồn',
                 icon: Icons.inventory_outlined,
                 value: '${_moneyFmt.format(stockValue)} đ',
-                subtitle: '$productCount hàng hoá',
+                subtitle: '$productCount hàng hóa',
               ),
               PosMobileMetricTile(
                 label: 'Giảm giá',
@@ -388,19 +388,19 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
         children: [
           if (out > 0)
             Text(
-              tr('• $out hàng hoá đã hết hàng'),
+              tr('• $out hàng hóa đã hết hàng'),
               style: const TextStyle(fontSize: 13),
             ),
           if (below > 0)
             Text(
-              tr('• $below hàng hoá dưới mức tồn tối thiểu'),
+              tr('• $below hàng hóa dưới mức tồn tối thiểu'),
               style: const TextStyle(fontSize: 13),
             ),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: () => _goHubTab(1),
-              child: Text(tr('Xem hàng hoá')),
+              child: Text(tr('Xem hàng hóa')),
             ),
           ),
         ],

@@ -18,7 +18,6 @@ import '../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../widgets/pos/pos_stock_count_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos/pos_unsaved_changes.dart';
-import '../widgets/pos_barcode_scanner.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
 
@@ -254,14 +253,6 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
       NotificationOverlayManager().showError(
           title: 'Lỗi', message: res['message']?.toString() ?? 'Không thêm được hàng');
     }
-  }
-
-  Future<void> _scanBarcode() async {
-    if (_readOnly) return;
-    final code = await scanBarcodeWithCamera(context);
-    if (code == null || !mounted) return;
-    final pick = await lookupOrPickPosProduct(context, _api, code);
-    if (pick != null && mounted) await _onPickProduct(pick);
   }
 
   Future<void> _removeLine(_CountLine line) async {
@@ -765,11 +756,6 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
                                         style: TextStyle(
                                             fontSize: 16, fontWeight: FontWeight.w600)),
                                   ),
-                                IconButton(
-                                  tooltip: tr('Quét mã vạch'),
-                                  icon: const Icon(Icons.qr_code_scanner_outlined),
-                                  onPressed: _readOnly ? null : _scanBarcode,
-                                ),
                               ],
                             ),
                           ),

@@ -179,13 +179,13 @@ internal static class PosToppingReport
                 "yellow" => $"{rate:0.#}% ly có thêm topping — còn có thể mời khách nhiều hơn",
                 _ => $"Chỉ {rate:0.#}% ly có thêm topping — đang bỏ lỡ doanh thu",
             };
-            verdictDetail = $"Topping mang về {revenueTotal:#,##0}đ, lãi {revenueTotal - costTotal:#,##0}đ.";
+            verdictDetail = $"Topping mang về {revenueTotal:#,##0} đ, lãi {revenueTotal - costTotal:#,##0} đ.";
         }
 
         var recs = new List<Recommendation>();
         foreach (var t in losing.Take(3))
             recs.Add(new("red", $"Chỉnh giá «{t.Name}»",
-                $"Bán {t.Revenue:#,##0}đ nhưng giá vốn {t.Cost:#,##0}đ (lỗ {-t.Profit:#,##0}đ). Tăng giá thêm hoặc giảm định lượng."));
+                $"Bán {t.Revenue:#,##0} đ nhưng giá vốn {t.Cost:#,##0} đ (lỗ {-t.Profit:#,##0} đ). Tăng giá thêm hoặc giảm định lượng."));
         foreach (var t in outOfStock.Take(3))
             recs.Add(new("red", $"Nhập thêm «{t.Name}»", "Topping hết hàng trong kho — thu ngân bán sẽ bị báo hết."));
         if (cupsTotal > 0 && rate < 30)

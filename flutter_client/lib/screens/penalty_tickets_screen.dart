@@ -1157,7 +1157,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                             fontWeight: FontWeight.w600)),
                   ),
                   const SizedBox(width: 10),
-                  Text(tr('${_currencyFormat.format(amount)}đ'),
+                  Text(tr('${_currencyFormat.format(amount)} đ'),
                       style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -1608,7 +1608,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
             if (amount != null && amount > 0)
-              Text(tr('${_currencyFormat.format(amount)}đ'),
+              Text(tr('${_currencyFormat.format(amount)} đ'),
                   style: TextStyle(
                       fontSize: 10, color: color, fontWeight: FontWeight.w500),
                   maxLines: 1,

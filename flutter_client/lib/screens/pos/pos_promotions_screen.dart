@@ -968,7 +968,7 @@ class _ProductSearchDialogState extends State<_ProductSearchDialog> {
                 ListTile(
                   dense: true,
                   title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text(tr('${p.productCode} · ${_money.format(p.basePrice.round())}đ')),
+                  subtitle: Text(tr('${p.productCode} · ${_money.format(p.basePrice.round())} đ')),
                   onTap: () => Navigator.pop(context, p),
                 ),
             ]),
@@ -1064,14 +1064,14 @@ class _PosPromotionReportScreenState extends State<PosPromotionReportScreen> {
                       Wrap(spacing: 12, runSpacing: 12, children: [
                         _kpi('Hóa đơn có KM', '${d['orders'] ?? 0} / ${d['allOrders'] ?? 0}',
                             '${n(d['promoOrderRate']).toStringAsFixed(1)}% tổng hóa đơn · ${_delta(n(d['orders']), n(prev['orders']))}'),
-                        _kpi('Tổng tiền giảm', '${_money.format(n(d['totalDiscount']))}đ',
+                        _kpi('Tổng tiền giảm', '${_money.format(n(d['totalDiscount']))} đ',
                             '${n(d['discountRate']).toStringAsFixed(1)}% giá trị hàng · ${_delta(n(d['totalDiscount']), n(prev['totalDiscount']))}'),
-                        _kpi('HĐ bình quân có KM', '${_money.format(n(d['avgBillPromo']))}đ',
-                            'không KM: ${_money.format(n(d['avgBillNormal']))}đ'),
-                        _kpi('Doanh thu HĐ có KM', '${_money.format(n(d['promoRevenue']))}đ',
-                            'trên tổng ${_money.format(n(d['allRevenue']))}đ'),
+                        _kpi('HĐ bình quân có KM', '${_money.format(n(d['avgBillPromo']))} đ',
+                            'không KM: ${_money.format(n(d['avgBillNormal']))} đ'),
+                        _kpi('Doanh thu HĐ có KM', '${_money.format(n(d['promoRevenue']))} đ',
+                            'trên tổng ${_money.format(n(d['allRevenue']))} đ'),
                         if (d['promoMarginPct'] != null)
-                          _kpi('Lãi gộp HĐ có KM', '${_money.format(n(d['promoProfit']))}đ',
+                          _kpi('Lãi gộp HĐ có KM', '${_money.format(n(d['promoProfit']))} đ',
                               'biên ${n(d['promoMarginPct']).toStringAsFixed(1)}% (đã trừ khuyến mãi) · HĐ không KM: ${n(d['normalMarginPct']).toStringAsFixed(1)}%'),
                       ]),
                       if (daily.any((e) => n(e['discount']) > 0)) ...[
@@ -1084,7 +1084,7 @@ class _PosPromotionReportScreenState extends State<PosPromotionReportScreen> {
                             for (final e in daily)
                               Expanded(
                                 child: Tooltip(
-                                  message: '${e['date'].toString().substring(0, 10)}: ${e['orders']} HĐ · −${_money.format(n(e['discount']))}đ',
+                                  message: '${e['date'].toString().substring(0, 10)}: ${e['orders']} HĐ · −${_money.format(n(e['discount']))} đ',
                                   child: Container(
                                     margin: const EdgeInsets.symmetric(horizontal: 1),
                                     height: maxDay <= 0 ? 0 : 4 + 82 * n(e['discount']) / maxDay,
@@ -1111,12 +1111,12 @@ class _PosPromotionReportScreenState extends State<PosPromotionReportScreen> {
                           )),
                           title: Text('${i['name']}'),
                           subtitle: Text(tr(
-                              '${i['orders']} hóa đơn · doanh thu ${_money.format(n(i['revenue']))}đ · bình quân ${_money.format(n(i['avgBill']))}đ/HĐ · giảm ${n(i['discountRate']).toStringAsFixed(1)}% giá trị hàng'
-                              '${i['marginPct'] != null ? ' · lãi gộp ${_money.format(n(i['profit']))}đ (${n(i['marginPct']).toStringAsFixed(1)}%)' : ''}'
+                              '${i['orders']} hóa đơn · doanh thu ${_money.format(n(i['revenue']))} đ · bình quân ${_money.format(n(i['avgBill']))} đ/HĐ · giảm ${n(i['discountRate']).toStringAsFixed(1)}% giá trị hàng'
+                              '${i['marginPct'] != null ? ' · lãi gộp ${_money.format(n(i['profit']))} đ (${n(i['marginPct']).toStringAsFixed(1)}%)' : ''}'
                               '\nBấm để xem từng hóa đơn')),
                           isThreeLine: true,
                           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Text(tr('−${_money.format(n(i['discount']))}đ'),
+                            Text(tr('−${_money.format(n(i['discount']))} đ'),
                                 style: TextStyle(fontWeight: FontWeight.w700, color: Colors.red.shade700)),
                             const Icon(Icons.chevron_right),
                           ]),
@@ -1226,7 +1226,7 @@ class _PosPromotionOrdersPageState extends State<PosPromotionOrdersPage> {
               ? Center(child: Text(tr(_error!)))
               : Column(children: [
                   ListTile(
-                    title: Text(tr('${_items.length} hóa đơn · tổng giảm ${_money.format(_total)}đ')),
+                    title: Text(tr('${_items.length} hóa đơn · tổng giảm ${_money.format(_total)} đ')),
                     subtitle: Text(tr('Bấm một hóa đơn để xem chi tiết')),
                   ),
                   const Divider(height: 1),
@@ -1244,8 +1244,8 @@ class _PosPromotionOrdersPageState extends State<PosPromotionOrdersPage> {
                                 title: Text('${o['orderNo']}${(o['customerName'] ?? '').toString().isEmpty ? '' : ' · ${o['customerName']}'}'),
                                 subtitle: Text(tr('${at == null ? '' : _fmt.format(at)} · ${o['paymentMethod'] ?? ''}')),
                                 trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                                  Text('${_money.format(n(o['total']))}đ', style: const TextStyle(fontWeight: FontWeight.w700)),
-                                  Text(tr('giảm ${_money.format(n(o['discount']))}đ'),
+                                  Text('${_money.format(n(o['total']))} đ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  Text(tr('giảm ${_money.format(n(o['discount']))} đ'),
                                       style: TextStyle(fontSize: 12, color: Colors.red.shade700)),
                                 ]),
                               );

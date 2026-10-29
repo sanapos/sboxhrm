@@ -238,7 +238,7 @@ class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
       PosHealthKpiGrid(items: [
         PosHealthKpi('Đơn bán offline', '${_n(s['offlineSales'])} đơn',
             hint: 'Trong $_days ngày · đã về máy chủ', icon: Icons.receipt_long),
-        PosHealthKpi('Tiền bán offline', '${_money.format(_n(s['offlineTotal']))}đ',
+        PosHealthKpi('Tiền bán offline', '${_money.format(_n(s['offlineTotal']))} đ',
             hint: 'Đối chiếu với tiền mặt két ca', icon: Icons.payments_outlined),
         PosHealthKpi('Số HĐ nhảy cóc', '$gaps số',
             status: gaps == 0 ? 'green' : 'red', hint: 'Đã in cho khách mà đơn không về', icon: Icons.report_gmailerrorred),
@@ -337,7 +337,7 @@ class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
                 s['status'] == 'Cancelled' ? Icons.block : Icons.receipt_long,
                 color: _n(s['delayMinutes']) >= 24 * 60 ? PosHealth.yellow : SboxColors.slate500,
               ),
-              title: Text(tr('${s['offlineNo']} > ${s['orderNo']} · ${_money.format(_n(s['total']))}đ')),
+              title: Text(tr('${s['offlineNo']} > ${s['orderNo']} · ${_money.format(_n(s['total']))} đ')),
               subtitle: Text(tr(
                 'Bán ${_fmt(s['offlineAt'])} · về máy chủ ${_fmt(s['syncedAt'])} (sau ${_minutes(_n(s['delayMinutes']))}) · '
                 '${s['device'] ?? ''} · ${s['createdBy'] ?? ''}',
@@ -573,7 +573,7 @@ class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
                       ? PosHealth.red
                       : PosHealth.yellow,
             ),
-            title: Text(tr('${r.offlineNo} · ${_money.format(r.total)}đ${r.tableLabel == null ? '' : ' · ${r.tableLabel}'}')),
+            title: Text(tr('${r.offlineNo} · ${_money.format(r.total)} đ${r.tableLabel == null ? '' : ' · ${r.tableLabel}'}')),
             subtitle: Text(tr(
               '${_dt.format(r.createdAt.toLocal())}${r.cashier == null ? '' : ' · ${r.cashier}'} · '
               '${r.status == 'synced' ? 'đã gửi > ${r.serverOrderNo ?? ''}' : r.status == 'error' ? 'LỖI: ${r.error}' : 'chờ gửi'}',

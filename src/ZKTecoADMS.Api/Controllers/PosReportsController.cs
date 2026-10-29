@@ -151,7 +151,7 @@ public partial class PosReportsController(
             .OrderBy(x => x.date)
             .ToList();
 
-        var topEmployees = await orders
+        var topEmployeesRaw = await orders
             .GroupBy(o => new { o.SoldBy, o.SoldByEmployeeId })
             .Select(g => new
             {
@@ -163,6 +163,17 @@ public partial class PosReportsController(
             .OrderByDescending(x => x.revenue)
             .Take(200)
             .ToListAsync();
+        var sellerNames = await SellerDisplayNamesAsync(
+            topEmployeesRaw.Select(x => x.employeeId), topEmployeesRaw.Select(x => x.soldBy));
+        // displayName: tên nhân viên / họ tên tài khoản cho đơn ghi SoldBy = email (chủ cửa hàng…).
+        var topEmployees = topEmployeesRaw.Select(x => new
+        {
+            x.soldBy,
+            x.employeeId,
+            displayName = SellerDisplayName(sellerNames, x.employeeId, x.soldBy),
+            x.revenue,
+            x.orderCount,
+        }).ToList();
 
         var storeName = await dbContext.Stores.AsNoTracking()
             .Where(s => s.Id == storeId)
@@ -331,10 +342,14 @@ public partial class PosReportsController(
                 o.SaleDate,
                 o.CreatedBy,
                 o.SoldBy,
+                o.SoldByEmployeeId,
                 o.VoucherCode,
                 LineCount = o.Lines.Count,
             })
             .ToListAsync();
+        // soldByName: tên hiển thị (họ tên tài khoản thay email); soldBy giữ nguyên.
+        var sellerNames = await SellerDisplayNamesAsync(
+            rawItems.Select(o => o.SoldByEmployeeId), rawItems.Select(o => o.SoldBy));
 
         var items = rawItems.Select(o =>
         {
@@ -357,6 +372,7 @@ public partial class PosReportsController(
                 o.SaleDate,
                 o.CreatedBy,
                 o.SoldBy,
+                soldByName = SellerDisplayName(sellerNames, o.SoldByEmployeeId, o.SoldBy),
                 o.VoucherCode,
                 o.LineCount,
                 closedOffDay = closedOff,

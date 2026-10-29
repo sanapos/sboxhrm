@@ -819,8 +819,8 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                 ),
               ],
               const SizedBox(height: 16),
-              _kv('Tiền mặt đầu ca', '${_money.format(opening)}đ'),
-              _kv('Tiền mặt kỳ vọng', '${_money.format(expected)}đ'),
+              _kv('Tiền mặt đầu ca', '${_money.format(opening)} đ'),
+              _kv('Tiền mặt kỳ vọng', '${_money.format(expected)} đ'),
               Text(
                 tr(
                   'Kỳ vọng = đầu ca + đơn hoàn thành thanh toán tiền mặt trong ca này.',
@@ -866,8 +866,8 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                           diff == 0
                               ? 'Khớp két'
                               : (diff > 0
-                                  ? 'Thừa ${_money.format(diff)}đ'
-                                  : 'Thiếu ${_money.format(-diff)}đ'),
+                                  ? 'Thừa ${_money.format(diff)} đ'
+                                  : 'Thiếu ${_money.format(-diff)} đ'),
                         ),
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
@@ -878,7 +878,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                       const SizedBox(height: 2),
                       Text(
                         tr(
-                          'Đếm ${_money.format(counted)}đ − kỳ vọng ${_money.format(expected)}đ',
+                          'Đếm ${_money.format(counted)} đ − kỳ vọng ${_money.format(expected)} đ',
                         ),
                         style: TextStyle(
                           fontSize: 12,

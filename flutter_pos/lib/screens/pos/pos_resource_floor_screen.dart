@@ -962,7 +962,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 ),
                 title: Text(tr(b.orderNo.isEmpty ? 'Hóa đơn' : b.orderNo)),
                 subtitle: Text(tr(
-                    '${b.lineCount} món · ${_moneyFmt.format(b.subtotal)}đ'
+                    '${b.lineCount} món · ${_moneyFmt.format(b.subtotal)} đ'
                     '${b.isSplit ? ' · Tách bill' : ''}')),
                 onTap: () => Navigator.pop(ctx, b.id),
               ),
@@ -1263,7 +1263,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       if (r.reservationPreOrderCount > 0)
         '${r.reservationPreOrderCount} món đặt trước',
       if (r.reservationDepositPaid > 0)
-        'Cọc ${_moneyFmt.format(r.reservationDepositPaid)}đ'
+        'Cọc ${_moneyFmt.format(r.reservationDepositPaid)} đ'
             '${r.reservationDepositStatus != null ? ' (${_depositStatusVi(r.reservationDepositStatus!)})' : ''}',
     ].join(' · ');
     final action = await showDialog<String>(
@@ -1311,7 +1311,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           builder: (ctx) => AlertDialog(
             title: Text(tr('Hủy đặt — xử lý cọc')),
             content: Text(tr(
-                'Đã thu cọc ${_moneyFmt.format(r.reservationDepositPaid)}đ. '
+                'Đã thu cọc ${_moneyFmt.format(r.reservationDepositPaid)} đ. '
                 'Hoàn lại cho khách hay giữ (mất cọc)?')),
             actions: [
               TextButton(
@@ -1424,7 +1424,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã thu cọc',
-        message: tr('${_moneyFmt.format(amount)}đ · ${picked.pay.methodLabel} · ${r.name}'),
+        message: tr('${_moneyFmt.format(amount)} đ · ${picked.pay.methodLabel} · ${r.name}'),
       );
       await _reload();
     } else {
@@ -1541,7 +1541,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                             if (b.preOrderCount > 0)
                               '${b.preOrderCount} món',
                             if (b.depositPaid > 0)
-                              'Cọc ${_moneyFmt.format(b.depositPaid)}đ',
+                              'Cọc ${_moneyFmt.format(b.depositPaid)} đ',
                           ].join(' · '))),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
@@ -2232,7 +2232,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                         return ListTile(
                                           title: Text(tr(name)),
                                           subtitle: Text(
-                                              tr('${_moneyFmt.format(price)}đ'
+                                              tr('${_moneyFmt.format(price)} đ'
                                               '${unit.isEmpty ? '' : ' / $unit'}')),
                                           onTap: () {
                                             if (id.isEmpty) return;
@@ -2310,7 +2310,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                         if (r.guestCount > 0) '${r.guestCount} khách',
                         if (r.elapsedLabel.isNotEmpty) r.elapsedLabel,
                         if (r.subtotal > 0)
-                          '${_moneyFmt.format(r.subtotal)}đ',
+                          '${_moneyFmt.format(r.subtotal)} đ',
                         if (r.lineCount > 0) '${r.lineCount} món',
                         if (r.draftBillCount > 1)
                           '${r.draftBillCount} hóa đơn',
@@ -2411,12 +2411,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     ListTile(
                       leading: Icon(Icons.event_seat_outlined,
                           color: Colors.red.shade700),
-                      title: Text(tr('Trả về bàn trống')),
+                      title: Text(tr('Trả về $_resNoun trống')),
                       subtitle: Text(tr(_isWaitingTable(r)
-                          ? 'Đóng phiên — bàn chưa gọi món'
+                          ? 'Đóng phiên — $_resNoun chưa gọi món'
                           : r.lineCount > 0
                               ? 'Xóa ${r.lineCount} món trên đơn tạm và đóng phiên'
-                              : 'Đóng phiên — trả bàn về trống')),
+                              : 'Đóng phiên — trả $_resNoun về trống')),
                       onTap: () => Navigator.pop(ctx, 'free'),
                     ),
                     if (widget.manageMode)
@@ -3167,7 +3167,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     children: others
                         .map((t) => ListTile(
                               title: Text(tr(t.name)),
-                              subtitle: Text(tr('${_moneyFmt.format(t.subtotal)}đ · ${t.lineCount} món')),
+                              subtitle: Text(tr('${_moneyFmt.format(t.subtotal)} đ · ${t.lineCount} món')),
                               onTap: () => Navigator.pop(ctx, t),
                             ))
                         .toList(),
@@ -3450,7 +3450,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           title: Text(tr('Trả ${r.name} về trống?')),
           content: Text(tr(
             'Bàn còn ${r.lineCount} món'
-            '${r.subtotal > 0 ? ' · ${_moneyFmt.format(r.subtotal)}đ' : ''}'
+            '${r.subtotal > 0 ? ' · ${_moneyFmt.format(r.subtotal)} đ' : ''}'
             '${r.draftBillCount > 1 ? ' trên ${r.draftBillCount} hóa đơn' : ''}.\n'
             'Xóa đơn tạm, không thu tiền, đóng phiên.',
           )),
@@ -5161,7 +5161,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               ),
             ),
           ),
-          Text(tr('${_moneyFmt.format(money)}đ · $open/$total ${_resNoun}'),
+          Text(tr('${_moneyFmt.format(money)} đ · $open/$total ${_resNoun}'),
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -5470,7 +5470,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
     final activeTotal = _activeTablesSubtotal;
     final totalLabel = _resources.isNotEmpty
-        ? 'Tổng: ${_moneyFmt.format(activeTotal)}đ'
+        ? 'Tổng: ${_moneyFmt.format(activeTotal)} đ'
         : null;
 
     return Scaffold(
@@ -5831,8 +5831,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             _tileMiniRow(
               icon: Icons.payments_outlined,
               text: tr(r.draftBillCount > 1
-                  ? '${_moneyFmt.format(r.subtotal)}đ · ${r.draftBillCount} HĐ'
-                  : '${_moneyFmt.format(r.subtotal)}đ'),
+                  ? '${_moneyFmt.format(r.subtotal)} đ · ${r.draftBillCount} HĐ'
+                  : '${_moneyFmt.format(r.subtotal)} đ'),
               color: accent,
               iconSize: 13,
               fontSize: 11,

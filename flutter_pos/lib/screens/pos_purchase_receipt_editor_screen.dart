@@ -26,7 +26,6 @@ import '../utils/pos_mutation_result.dart';
 import '../utils/pos_purchase_product_lookup.dart';
 import '../utils/pos_purchase_receipt_print.dart';
 import '../widgets/pos/pos_barcode_keyboard_scope.dart';
-import '../widgets/pos_barcode_scanner.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'pos/pos_product_editor_page.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
@@ -533,13 +532,6 @@ class _PosPurchaseReceiptEditorScreenState
     if (pick != null && mounted) {
       await _onPickProduct(pick, mergeIfSame: true);
     }
-  }
-
-  Future<void> _scanBarcode() async {
-    if (_readOnly) return;
-    final code = await scanBarcodeWithCamera(context);
-    if (code == null || !mounted) return;
-    await _onBarcodeScanned(code);
   }
 
   Future<void> _openNewProduct() async {
@@ -1211,11 +1203,6 @@ class _PosPurchaseReceiptEditorScreenState
               child: Text(tr('Chi tiết phiếu nhập hàng'),
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
-          IconButton(
-            tooltip: tr('Quét mã vạch'),
-            icon: const Icon(Icons.qr_code_scanner_outlined),
-            onPressed: _readOnly ? null : _scanBarcode,
-          ),
           if (!posUseMobileList(context)) ...[
             IconButton(
               tooltip: tr('Tùy chọn hiển thị'),
@@ -1579,12 +1566,6 @@ class _PosPurchaseReceiptEditorScreenState
                                           style: TextStyle(
                                               fontSize: 16, fontWeight: FontWeight.w600)),
                                     ),
-                                  const SizedBox(width: 4),
-                                  IconButton(
-                                    tooltip: tr('Quét mã vạch'),
-                                    icon: const Icon(Icons.qr_code_scanner_outlined),
-                                    onPressed: _readOnly ? null : _scanBarcode,
-                                  ),
                                   IconButton(
                                     tooltip: tr('Tùy chọn hiển thị'),
                                     icon: const Icon(Icons.visibility_outlined),

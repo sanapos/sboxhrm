@@ -80,6 +80,7 @@ class PosSaleOrderListScreen extends StatefulWidget {
     this.initialTo,
     this.initialSearch,
     this.initialSoldBy,
+    this.initialSoldByLabel,
     this.initialPaymentMethod,
     this.initialCustomerId,
     this.initialProductId,
@@ -91,6 +92,9 @@ class PosSaleOrderListScreen extends StatefulWidget {
   final DateTime? initialTo;
   final String? initialSearch;
   final String? initialSoldBy;
+
+  /// Tên hiển thị người bán (họ tên thay email) cho ô lọc; null = hiện [initialSoldBy].
+  final String? initialSoldByLabel;
   final String? initialPaymentMethod;
   final String? initialCustomerId;
   final String? initialProductId;
@@ -126,6 +130,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   Set<_ListColumn> _visibleColumns = _defaultListColumns();
   bool _exporting = false;
   double? _periodRevenue;
+  double? _filteredCompletedTotal;
+  String? _soldByLabel;
 
   String? _expandedId;
   PosSaleOrder? _expandedDetail;
@@ -154,6 +160,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     }
     if (w.initialSoldBy != null && w.initialSoldBy!.trim().isNotEmpty) {
       _soldBy = w.initialSoldBy!.trim();
+      final label = w.initialSoldByLabel?.trim();
+      _soldByLabel = label == null || label.isEmpty ? null : label;
     }
     if (w.initialCustomerId != null && w.initialCustomerId!.trim().isNotEmpty) {
       _customerId = w.initialCustomerId!.trim();
@@ -235,6 +243,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         _loading = false;
         _page = page;
         _total = (data['total'] as num?)?.toInt() ?? 0;
+        _filteredCompletedTotal = (data['completedTotal'] as num?)?.toDouble();
         _items = ((data['items'] as List?) ?? [])
             .map((e) => PosSaleOrder.fromJson(e as Map<String, dynamic>))
             // Slot bán hàng (TMP…) không hiện trong DS đơn — chỉ dùng tab Bán hàng.
@@ -1191,6 +1200,28 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     await _load();
   }
 
+  bool get _hasReportFilter =>
+      _soldBy != null || _customerId != null || _productId != null || _voucherCode != null || _hasVoucher;
+
+  String _reportFilterLabel() => [
+        if (_soldBy != null) '${tr('Nhân viên')} ${_soldByLabel ?? _soldBy}',
+        if (_customerId != null) tr('Khách hàng'),
+        if (_productId != null) tr('Hàng hóa'),
+        if (_voucherCode != null) 'Voucher $_voucherCode' else if (_hasVoucher) tr('Có voucher'),
+      ].join(', ');
+
+  void _clearReportFilter() {
+    setState(() {
+      _soldBy = null;
+      _soldByLabel = null;
+      _customerId = null;
+      _productId = null;
+      _voucherCode = null;
+      _hasVoucher = false;
+    });
+    _load();
+  }
+
   void _openFilters() {
     showPosMobileFilterSheet(
       context,
@@ -1205,7 +1236,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final perm = Provider.of<PermissionProvider>(context);
     if (!perm.canView('PosSaleOrders') && !perm.canView('PosProducts')) {
       return Scaffold(
-          appBar: AppBar(title: Text(tr('Hoá đơn'))),
+          appBar: AppBar(title: Text(tr('Hóa đơn'))),
           body: Center(child: Text(tr('Không có quyền xem đơn hàng'))));
     }
     final canEdit =
@@ -1221,7 +1252,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           if (!inHub) const PosModuleToolbar(activeModule: 'PosSaleOrders'),
           if (mobile)
             PosMobileKiotHeader(
-              title: 'Hoá đơn',
+              title: 'Hóa đơn',
               onFilter: _openFilters,
               onRefresh: () => _load(page: _page),
               activeFilterCount: _activeFilterCount,
@@ -1782,8 +1813,40 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   }
 
   Widget _buildMobileSummaryCard() {
+    final card = _buildMobileSummaryTotals();
+    if (!_hasReportFilter) return card;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: InputChip(
+              visualDensity: VisualDensity.compact,
+              avatar: const Icon(Icons.filter_alt_outlined, size: 18),
+              label: Text('${tr('Từ báo cáo')}: ${_reportFilterLabel()}'),
+              onDeleted: _clearReportFilter,
+              deleteButtonTooltipMessage: tr('Bỏ lọc'),
+            ),
+          ),
+        ),
+        card,
+      ],
+    );
+  }
+
+  Widget _buildMobileSummaryTotals() {
     final completed = _items.where((o) => o.status == 'Completed');
-    final totalAmount = _periodRevenue ??
+    // Chỉ lọc thời gian → doanh thu kỳ (báo cáo); có lọc khác / tìm kiếm → tổng HĐ hoàn thành theo bộ lọc.
+    final statusIsDefault = _statusFilter.length == 2 && _statusFilter.containsAll({'Completed', 'Cancelled'});
+    final onlyTime = statusIsDefault &&
+        _isDeliveryFilter == null &&
+        _paymentMethod == null &&
+        !_hasReportFilter &&
+        _searchCtrl.text.trim().isEmpty;
+    final totalAmount = (onlyTime ? _periodRevenue : _filteredCompletedTotal) ??
         completed.fold<double>(0, (s, o) => s + o.total);
     final returnedTotal =
         completed.fold<double>(0, (s, o) => s + o.returnedAmount);
@@ -2680,7 +2743,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             children: [
               _detailTabBtn(0, 'Thông tin'),
               _detailTabBtn(1, 'Lịch sử thanh toán'),
-              // Trạng thái đã có ở dòng bảng và đầu tờ hoá đơn — không lặp lần 3.
+              // Trạng thái đã có ở dòng bảng và đầu tờ hóa đơn — không lặp lần 3.
             ],
           ),
           const SizedBox(height: 8),

@@ -174,7 +174,7 @@ abstract final class MobileBottomNavCatalog {
     ),
     MobileBottomNavItemDef(
       id: 'PosSaleOrders',
-      label: 'Hoá đơn',
+      label: 'Hóa đơn',
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long,
       moduleCode: 'PosSaleOrders',

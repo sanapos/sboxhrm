@@ -280,7 +280,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
     return parts.length == 2 ? 'T${parts[1]}/${parts[0]}' : key;
   }
 
-  String _moneyShort(num v) => '${NumberFormat('#,##0', 'vi_VN').format(v)}đ';
+  String _moneyShort(num v) => '${NumberFormat('#,##0', 'vi_VN').format(v)} đ';
 
   List<ReportKpiItem> _dashboardKpis(List<Map<String, dynamic>> list) {
     final net = list.fold<double>(0, (s, p) => s + _num(p['netSalary']));
@@ -1277,9 +1277,9 @@ class _PayslipScreenState extends State<PayslipScreen> {
   String _formatCurrency(dynamic amount) {
     try {
       final n = amount is num ? amount : num.tryParse(amount.toString()) ?? 0;
-      return '${NumberFormat('#,###', 'vi_VN').format(n)}đ';
+      return '${NumberFormat('#,###', 'vi_VN').format(n)} đ';
     } catch (_) {
-      return '0đ';
+      return '0 đ';
     }
   }
 }

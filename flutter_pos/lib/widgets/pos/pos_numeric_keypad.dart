@@ -285,6 +285,47 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
         _value = '';
       });
 
+  /// Bàn phím cứng (USB / bàn phím số gắn máy POS): gõ số, «.», Backspace, Delete xóa hết,
+  /// Enter = Xong, Esc = đóng. Trước đây bàn phím chỉ bấm được bằng tay — gõ phím bị bỏ qua.
+  KeyEventResult _onKey(FocusNode node, KeyEvent e) {
+    if (e is! KeyDownEvent && e is! KeyRepeatEvent) return KeyEventResult.ignored;
+    final k = e.logicalKey;
+    if (k == LogicalKeyboardKey.enter || k == LogicalKeyboardKey.numpadEnter) {
+      Navigator.pop(context, _value);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.escape) {
+      Navigator.pop(context);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.backspace) {
+      _backspace();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.delete) {
+      _clear();
+      return KeyEventResult.handled;
+    }
+    final ch = e.character;
+    if (ch == null || ch.isEmpty) return KeyEventResult.ignored;
+    if (RegExp(r'^[0-9]$').hasMatch(ch)) {
+      _append(ch);
+      return KeyEventResult.handled;
+    }
+    if (ch == '.' || ch == ',' || ch == '-') {
+      _append(ch);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// Đơn vị hiện cạnh số: giảm theo % → «%», ô tiền (có nút mệnh giá) → «đ».
+  String? get _unit => widget.quickPercents != null && widget.quickPercents!.isNotEmpty
+      ? '%'
+      : widget.offerCashNotes
+          ? 'đ'
+          : null;
+
   Widget _key(
     String label, {
     VoidCallback? onTap,
@@ -324,7 +365,11 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
-    return Padding(
+    final unit = _unit;
+    return Focus(
+      autofocus: true,
+      onKeyEvent: _onKey,
+      child: Padding(
       padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -357,16 +402,36 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: _fresh ? SboxColors.brand600 : PosTheme.border),
             ),
-            child: Text(
-              _shownValue,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                color: _value.isEmpty
-                    ? PosTheme.textSecondary
-                    : PosTheme.textPrimary,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Flexible(
+                  child: Text(
+                    _shownValue,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: _value.isEmpty
+                          ? PosTheme.textSecondary
+                          : PosTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                if (unit != null) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    unit,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: PosTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           if (widget.offerDecimalToggle)
@@ -451,6 +516,7 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
             ],
           ),
         ],
+      ),
       ),
     );
   }

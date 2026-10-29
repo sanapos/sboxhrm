@@ -991,7 +991,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
         children: [
           Text(tr(o.soldBy ?? o.createdBy ?? '—'),
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-          // Giờ bán (không phải giờ mở bàn/tạo đơn tạm) — khớp danh sách hoá đơn.
+          // Giờ bán (không phải giờ mở bàn/tạo đơn tạm) — khớp danh sách hóa đơn.
           if ((o.saleDate ?? o.createdAt) != null)
             Text(tr(_dateFmt.format((o.saleDate ?? o.createdAt)!.toLocal())),
                 style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
@@ -1006,7 +1006,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                tr('Đã trừ phần giảm giá / voucher của hoá đơn theo tỉ lệ.'),
+                tr('Đã trừ phần giảm giá / voucher của hóa đơn theo tỉ lệ.'),
                 style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
               ),
             ),

@@ -383,11 +383,11 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
           if (order.createdBy != null && order.createdBy!.trim().isNotEmpty)
 
-            _infoLine('Người tạo', order.createdBy!.trim()),
+            _infoLine('Người tạo', (order.createdByName ?? order.createdBy)!.trim()),
 
           if (order.soldBy != null && order.soldBy!.trim().isNotEmpty)
 
-            _infoLine('Người bán', order.soldBy!.trim()),
+            _infoLine('Người bán', (order.soldByName ?? order.soldBy)!.trim()),
 
           _infoLine('Khách hàng', customerLabel),
 

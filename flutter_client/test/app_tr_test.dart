@@ -46,6 +46,16 @@ void main() {
       expect(out, isNot(contains(vn)));
     });
 
+    test('money templates match «1.000đ» and «1.000 đ» alike', () async {
+      await trUseLanguage('ko');
+      // Mẫu «Khách còn nợ {0}đ»; chữ hiển thị nay có dấu cách trước đ.
+      for (final s in const ['Khách còn nợ 30.000đ', 'Khách còn nợ 30.000 đ']) {
+        final out = tr(s);
+        expect(out, contains('30.000 đ'), reason: '"$s" -> "$out"');
+        expect(out, isNot(contains('Khách')), reason: '"$s" -> "$out"');
+      }
+    });
+
     test('ALL-CAPS labels reuse the sentence-case translation', () async {
       await trUseLanguage('ko');
       expect(tr('MÃ CỬA HÀNG'), tr('Mã cửa hàng'));

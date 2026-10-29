@@ -176,7 +176,7 @@ class _PosSellMobilePrintSettingsScreenState
     await PosPrintOrchestrator.instance.refreshConfig();
     if (!mounted) return;
     final orch = PosPrintOrchestrator.instance;
-    // Máy khác gửi hoá đơn qua cloud → chỉ máy cloud (Agent) nhận được. Máy nội bộ
+    // Máy khác gửi hóa đơn qua cloud → chỉ máy cloud (Agent) nhận được. Máy nội bộ
     // (của máy này hay máy khác) không nhận lệnh cloud — trước đây hiện cả 17 máy mọi thiết bị.
     final printers = orch.printers
         .where((p) => p.isActive && !p.isLabelPrinter && !p.isDeviceLocal)

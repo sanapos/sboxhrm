@@ -84,7 +84,7 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
       rows: [
         for (final r in items)
           [
-            r['productName'] ?? r['label'] ?? '',
+            r['productName'] ?? r['displayName'] ?? r['label'] ?? '',
             r['productCode'] ?? '',
             _n(r['qty']),
             _n(r['revenue']),
@@ -111,6 +111,7 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
       to: _time.to,
       productId: _dim == 'product' && pid.isNotEmpty ? pid : null,
       soldBy: (soldBy ?? '').trim().isEmpty ? null : soldBy,
+      soldByLabel: _dim == 'staff' ? r['displayName']?.toString() : null,
       search: _dim == 'product' || _dim == 'staff'
           ? null
           : '${r['label'] ?? r['productName'] ?? ''}',
@@ -120,7 +121,8 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
   @override
   Widget build(BuildContext context) {
     final items = _items();
-    String nameOf(Map<String, dynamic> r) => r['productName']?.toString() ?? r['label']?.toString() ?? '—';
+    String nameOf(Map<String, dynamic> r) =>
+        r['productName']?.toString() ?? r['displayName']?.toString() ?? r['label']?.toString() ?? '—';
     final byRev = [...items]..sort((a, b) => _n(b['revenue']).compareTo(_n(a['revenue'])));
     final top = byRev.take(10).toList();
     final rev = _n(_data?['totalRevenue']);
@@ -257,7 +259,7 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
   }
 
   Widget _row(Map<String, dynamic> r) {
-    final name = r['productName']?.toString() ?? r['label']?.toString() ?? '—';
+    final name = r['productName']?.toString() ?? r['displayName']?.toString() ?? r['label']?.toString() ?? '—';
     final sub = r['productCode']?.toString() ??
         '${r['orderCount'] ?? ''} đơn · biên ${_n(r['marginPct']).toStringAsFixed(1)}%';
     final profit = _n(r['profit']);

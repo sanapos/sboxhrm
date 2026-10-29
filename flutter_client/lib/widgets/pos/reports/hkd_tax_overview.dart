@@ -8,14 +8,14 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../../../theme/sbox_tokens.dart';
 import 'pos_health_widgets.dart';
 
-/// Số tiền dễ đọc cho người không chuyên: «1,5 tỷ», «640 triệu», «850.000đ».
+/// Số tiền dễ đọc cho người không chuyên: «1,5 tỷ», «640 triệu», «850.000 đ» (cách «đ» như các báo cáo khác).
 String hkdMoneyShort(num? v) {
   final x = (v ?? 0).toDouble();
   final a = x.abs();
   final sign = x < 0 ? '-' : '';
   if (a >= 1e9) return '$sign${NumberFormat('#,##0.##', 'vi_VN').format(a / 1e9)} tỷ';
   if (a >= 1e6) return '$sign${NumberFormat('#,##0.#', 'vi_VN').format(a / 1e6)} triệu';
-  return '$sign${NumberFormat('#,##0', 'vi_VN').format(a)}đ';
+  return '$sign${NumberFormat('#,##0', 'vi_VN').format(a)} đ';
 }
 
 String _groupLabel(int g) => switch (g) {
@@ -112,7 +112,7 @@ class HkdTaxOverview extends StatelessWidget {
               hint: suggested == configured ? 'Khớp hồ sơ' : 'Hồ sơ đang khai: ${_groupLabel(configured)}',
               icon: Icons.fact_check_outlined),
           PosHealthKpi(isCurrent ? 'Thuế ước tính từ đầu năm' : 'Thuế ước tính cả năm',
-              suggested == 1 ? '0đ' : hkdMoneyShort(tax['total'] as num?),
+              suggested == 1 ? '0 đ' : hkdMoneyShort(tax['total'] as num?),
               status: suggested >= 2 && vatPct <= 0 && pitPct <= 0 ? 'red' : null,
               hint: suggested == 1
                   ? 'Dưới ngưỡng — chưa phải nộp'
@@ -121,7 +121,7 @@ class HkdTaxOverview extends StatelessWidget {
                       : 'GTGT $vatPct% + TNCN $pitPct% doanh thu',
               icon: Icons.request_quote_outlined),
           PosHealthKpi('Quý ${_n(quarter['number'])}: doanh thu / thuế',
-              '${hkdMoneyShort(quarter['revenue'] as num?)} / ${suggested == 1 ? '0đ' : hkdMoneyShort(quarter['total'] as num?)}',
+              '${hkdMoneyShort(quarter['revenue'] as num?)} / ${suggested == 1 ? '0 đ' : hkdMoneyShort(quarter['total'] as num?)}',
               hint: 'Hộ nộp theo quý: tờ khai hạn ngày cuối tháng đầu quý sau', icon: Icons.event_note_outlined),
           PosHealthKpi('Doanh thu đã xuất hóa đơn', coverage == null ? '—' : '${NumberFormat('#,##0.#', 'vi_VN').format(coverage)}%',
               status: coverage == null || suggested == 1 ? null : PosHealth.level(100 - coverage, 5, 20),

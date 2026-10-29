@@ -850,24 +850,6 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
                         onToggle: () => setState(
                             () => _showOverviewPanel = !_showOverviewPanel),
                         betweenKpiAndFilter: [
-                          // Điện thoại đã có nút nổi «Thêm đi đường» — không lặp nút đầu trang.
-                          if (canSupplement && !Responsive.isMobile(context))
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: FilledButton.icon(
-                                  onPressed: _showSupplementDialog,
-                                  icon: const Icon(Icons.add_road, size: 18),
-                                  label: Text(tr('Thêm đi đường')),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: _theme,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 12),
-                                  ),
-                                ),
-                              ),
-                            ),
                         ],
                         filter: ReportFilterSection(
                           embedded: true,

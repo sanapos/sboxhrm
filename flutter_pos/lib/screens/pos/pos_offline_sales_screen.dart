@@ -150,7 +150,7 @@ class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
                               ? const Color(0xFFD32F2F)
                               : const Color(0xFFE6A100),
                     ),
-                    title: Text(tr('${r.offlineNo} · ${_money.format(r.total)}đ${r.tableLabel == null ? '' : ' · ${r.tableLabel}'}')),
+                    title: Text(tr('${r.offlineNo} · ${_money.format(r.total)} đ${r.tableLabel == null ? '' : ' · ${r.tableLabel}'}')),
                     subtitle: Text(tr(
                       '${_dt.format(r.createdAt.toLocal())}${r.cashier == null ? '' : ' · ${r.cashier}'} · '
                       '${r.status == 'synced' ? 'đã gửi → ${r.serverOrderNo ?? ''}' : r.status == 'error' ? 'LỖI: ${r.error}' : 'chờ gửi'}',
@@ -185,7 +185,7 @@ class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
       children: [
         _card('Kiểm soát cửa hàng (30 ngày)', [
           _row('Đơn bán offline đã đồng bộ',
-              '${summary['offlineSales'] ?? 0} đơn · ${_money.format((summary['offlineTotal'] as num?) ?? 0)}đ'),
+              '${summary['offlineSales'] ?? 0} đơn · ${_money.format((summary['offlineTotal'] as num?) ?? 0)} đ'),
           _row('Thiết bị / lần cài lại app', '${summary['devices'] ?? 0} / ${summary['reinstalls'] ?? 0}'),
           _row('Cảnh báo nghiêm trọng', '${summary['alerts'] ?? 0}'),
           const SizedBox(height: 6),
@@ -244,7 +244,7 @@ class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
             ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              title: Text(tr('${s['offlineNo']} → ${s['orderNo']} · ${_money.format((s['total'] as num?) ?? 0)}đ')),
+              title: Text(tr('${s['offlineNo']} → ${s['orderNo']} · ${_money.format((s['total'] as num?) ?? 0)} đ')),
               subtitle: Text(tr(
                 'Bán ${_fmt(s['offlineAt'])} · gửi ${_fmt(s['syncedAt'])} (trễ ${s['delayMinutes']} phút) · '
                 '${s['device'] ?? ''} · ${s['createdBy'] ?? ''}',

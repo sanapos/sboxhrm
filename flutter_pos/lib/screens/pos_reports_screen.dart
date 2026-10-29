@@ -9,6 +9,7 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/pos_kiot_time_range.dart';
+import '../utils/media_query_safe_padding.dart';
 import '../utils/pos_report_export.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
@@ -271,7 +272,9 @@ class _PosReportsScreenState extends State<PosReportsScreen>
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (showHeader)
+          if (widget.lockTab && widget.initialTab != 0)
+            _reportHeader(canExport)
+          else if (showHeader)
             PosMobileKiotHeader(
               title: switch (widget.initialTab) {
                 1 => 'Tồn kho',
@@ -465,8 +468,8 @@ class _PosReportsScreenState extends State<PosReportsScreen>
             for (final e in (s['topEmployees'] as List).take(10))
               if (e is Map)
                 _row(
-                  (e['soldBy']?.toString().trim().isNotEmpty == true)
-                      ? e['soldBy'].toString()
+                  ((e['displayName'] ?? e['soldBy'])?.toString().trim().isNotEmpty == true)
+                      ? (e['displayName'] ?? e['soldBy']).toString()
                       : '—',
                   '${_moneyFmt.format(_num(e['revenue']))} (${e['orderCount'] ?? 0})',
                 ),
@@ -492,6 +495,59 @@ class _PosReportsScreenState extends State<PosReportsScreen>
   void _onStockSearch(String _, VoidCallback reload) {
     _stockDebounce?.cancel();
     _stockDebounce = Timer(const Duration(milliseconds: 400), reload);
+  }
+
+  /// Tồn kho / Lô HSD mở riêng: nút xuất nằm trên thanh tiêu đề, không lặp ở hàng lọc.
+  bool get _exportInHeader => widget.lockTab && widget.initialTab != 0;
+
+  Widget _reportHeader(bool canExport) {
+    final stock = widget.initialTab == 1;
+    Widget action(String tip, IconData icon, VoidCallback? onTap) => IconButton(
+          tooltip: tr(tip),
+          icon: Icon(icon, color: SboxColors.slate600, size: 22),
+          onPressed: onTap,
+        );
+    final bar = Material(
+      color: Colors.white,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        SizedBox(
+          height: 56,
+          child: Row(children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF2B3437)),
+              onPressed: () => Navigator.maybePop(context),
+            ),
+            Expanded(
+              child: Text(
+                tr(stock ? 'Tồn kho' : 'Hàng sắp hết hạn'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF2B3437),
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ),
+            if (canExport || !stock) ...[
+              action('Xuất PNG', Icons.image_outlined, () => PosReportExport.png(
+                    context: context,
+                    key: stock ? _stockPngKey : _lotPngKey,
+                    filePrefix: stock ? 'POS_TonKho' : 'POS_LoHSD',
+                  )),
+              action('Xuất Excel', Icons.file_download_outlined,
+                  stock ? (_exporting ? null : _exportStock) : _exportLots),
+            ],
+            const SizedBox(width: 8),
+          ]),
+        ),
+        const Divider(height: 1, color: SboxColors.slate200),
+      ]),
+    );
+    return posNeedsTopSafeArea(context)
+        ? withFallbackTopInset(context, SafeArea(bottom: false, child: bar))
+        : withFallbackTopInset(context, bar);
   }
 
   Widget _exportButtons({required VoidCallback? onExcel, required VoidCallback onPng}) => Row(
@@ -535,7 +591,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
               ),
             ],
             actions: [
-              if (canExport)
+              if (canExport && !_exportInHeader)
                 _exportButtons(
                   onExcel: _exporting ? null : _exportStock,
                   onPng: () => PosReportExport.png(context: context, key: _stockPngKey, filePrefix: 'POS_TonKho'),
@@ -632,7 +688,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
               color: SboxColors.violet,
               items: [
                 for (final p in _stockProducts)
-                  SboxSlice(p['name']?.toString() ?? '—', _num(p['stockValue']), caption: 'Tồn ${p['onHandQty'] ?? 0}'),
+                  SboxSlice(p['name']?.toString() ?? '—', _num(p['stockValue']), caption: 'Tồn ${SboxFmt.qty(_num(p['onHandQty']))}'),
               ],
             ),
           ),
@@ -727,6 +783,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
               ),
             ],
             actions: [
+              if (!_exportInHeader)
               _exportButtons(
                 onExcel: _exportLots,
                 onPng: () => PosReportExport.png(context: context, key: _lotPngKey, filePrefix: 'POS_LoHSD'),

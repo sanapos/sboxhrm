@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -151,8 +152,25 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     ScreenRefreshNotifier.posProducts.removeListener(_onExternalRefresh);
     NavigationNotifier.currentModuleCode.removeListener(_onModuleVisible);
     _listScroll.dispose();
+    _searchDebounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  /// Gõ tới đâu lọc tới đó (chờ 400ms) — trước đây phải bấm Enter mới tìm.
+  Timer? _searchDebounce;
+
+  void _onSearchChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) _reloadProducts();
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _searchCtrl.clear();
+    _reloadProducts();
   }
 
   PosProductType? get _typeFilterParam => _typeFilter;
@@ -2216,6 +2234,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                         borderSide: BorderSide.none,
                       ),
                     ),
+                    onChanged: _onSearchChanged,
                     onSubmitted: (_) => _reloadProducts(),
                   ),
                   if (perm.canCreate('PosProducts')) ...[
@@ -2260,6 +2279,17 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                     hintText: tr('Theo mã, tên hàng'),
                     isDense: true,
                     prefixIcon: const Icon(Icons.search, size: 20),
+                    // Nút xóa nhanh khi đã gõ.
+                    suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _searchCtrl,
+                      builder: (_, v, __) => v.text.isEmpty
+                          ? const SizedBox.shrink()
+                          : IconButton(
+                              tooltip: tr('Xóa'),
+                              icon: const Icon(Icons.close, size: 18),
+                              onPressed: _clearSearch,
+                            ),
+                    ),
                     filled: true,
                     fillColor: const Color(0xFFF5F7FA),
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
@@ -2276,6 +2306,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                       borderSide: const BorderSide(color: PosTheme.kiotBlue),
                     ),
                   ),
+                  onChanged: _onSearchChanged,
                   onSubmitted: (_) => _reloadProducts(),
                 ),
               ),
@@ -2442,7 +2473,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('Tìm hàng hoá')),
+        title: Text(tr('Tìm hàng hóa')),
         content: TextField(
           controller: _searchCtrl,
           autofocus: true,

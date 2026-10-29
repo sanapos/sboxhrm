@@ -611,7 +611,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
             guid: guid,
             code: code,
             name: name,
-            status: status,
+            // Hôm nay chưa có giờ chấm: ngày chưa hết (ca có thể chưa bắt đầu) — chưa tính vắng.
+            status: status == _DayStatus.unpaidAbsent && d == today ? _DayStatus.future : status,
           );
         }
       }
@@ -1628,7 +1629,9 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
       'pendingLeave' => 'Chờ duyệt phép',
       'weeklyOff' => 'Nghỉ tuần',
       'holiday' => 'Ngày lễ',
-      'future' => 'Chưa tới ngày',
+      'future' => cell['date'] is DateTime && DateUtils.isSameDay(cell['date'] as DateTime, DateTime.now())
+          ? 'Hôm nay — chưa có giờ chấm'
+          : 'Chưa tới ngày',
       _ => '',
     };
     if (statusLine.isNotEmpty) lines.add(statusLine);

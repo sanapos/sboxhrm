@@ -71,7 +71,7 @@ class _PosMaterialReportScreenState extends State<PosMaterialReportScreen> {
   static List<Map<String, dynamic>> _maps(dynamic v) =>
       (v as List? ?? const []).whereType<Map>().map(Map<String, dynamic>.from).toList();
 
-  String _m(dynamic v) => '${_money.format(_n(v))}đ';
+  String _m(dynamic v) => '${_money.format(_n(v))} đ';
   String _q(dynamic v, [String unit = '']) => '${_qty.format(_n(v))}${unit.isEmpty ? '' : ' $unit'}';
 
   static String _actionLevel(String? l) => switch (l) { 'red' => 'high', 'yellow' => 'medium', _ => 'info' };

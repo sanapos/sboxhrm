@@ -23,7 +23,6 @@ import '../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../widgets/pos/pos_supplier_form_dialog.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
-import '../widgets/pos_barcode_scanner.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
 import '../widgets/pos/pos_serial_list_dialog.dart';
@@ -359,14 +358,6 @@ class _PosPurchaseReturnEditorScreenState
     );
     await _loadVariantsForLine(line);
     setState(() => _lines.add(line));
-  }
-
-  Future<void> _scanBarcode() async {
-    if (_readOnly) return;
-    final code = await scanBarcodeWithCamera(context);
-    if (code == null || !mounted) return;
-    final pick = await lookupOrPickPosProduct(context, _api, code);
-    if (pick != null && mounted) await _onPickProduct(pick);
   }
 
   Future<void> _editLineNote(_ReturnLine line) async {
@@ -1023,11 +1014,6 @@ class _PosPurchaseReturnEditorScreenState
                                         style: TextStyle(
                                             fontSize: 16, fontWeight: FontWeight.w600)),
                                   ),
-                                IconButton(
-                                  tooltip: tr('Quét mã vạch'),
-                                  icon: const Icon(Icons.qr_code_scanner_outlined),
-                                  onPressed: _readOnly ? null : _scanBarcode,
-                                ),
                               ],
                             ),
                           ),

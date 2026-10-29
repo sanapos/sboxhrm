@@ -178,7 +178,7 @@ class _PosReorderSuggestionsScreenState extends State<PosReorderSuggestionsScree
                   children: [
                     Expanded(
                       child: Text(
-                        tr('${selected.length} mặt hàng · ~${_money.format(total)}đ'),
+                        tr('${selected.length} mặt hàng · ~${_money.format(total)} đ'),
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),

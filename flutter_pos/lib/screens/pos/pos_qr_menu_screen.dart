@@ -511,7 +511,7 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: Text(tr('${_money.format(sell)}đ'),
+                  child: Text(tr('${_money.format(sell)} đ'),
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 13,

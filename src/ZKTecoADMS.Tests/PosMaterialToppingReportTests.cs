@@ -316,7 +316,7 @@ public class PosMaterialToppingReportTests
         Assert.Equal("green", r.Verdict);
         Assert.StartsWith("75% ly có thêm topping", r.VerdictText);
         // Số trong câu kết luận ghi kiểu Việt (máy thật trước đây hiện «15,000đ»).
-        Assert.Equal("Topping mang về 15.000đ, lãi 12.000đ.", r.VerdictDetail);
+        Assert.Equal("Topping mang về 15.000 đ, lãi 12.000 đ.", r.VerdictDetail);
     }
 
     [Fact]

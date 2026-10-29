@@ -15,7 +15,7 @@ class AppPermissionService {
         Permission.camera,
         Permission.bluetoothScan,
         Permission.bluetoothConnect,
-        // Sunmi T1 (Android 6): màn hình phụ ghi ảnh trình chiếu / hoá đơn vào /sdcard/sbox_cd
+        // Sunmi T1 (Android 6): màn hình phụ ghi ảnh trình chiếu / hóa đơn vào /sdcard/sbox_cd
         // để dịch vụ màn phụ đọc — thiếu quyền là EACCES, màn phụ chỉ hiện chữ.
         if (PosLiteMode.enabled) Permission.storage,
       ];

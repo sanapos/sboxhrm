@@ -23,6 +23,8 @@ import '../widgets/sbox/sbox_charts.dart';
 const _cRowH = 54.0;
 const _cHdrH = 44.0;
 const _cStickyW = 168.0;
+// Đủ mã phiếu «TH-20261027-0016» (trước 108 → «TH-202610…»).
+const _cCodeW = 150.0;
 const _cTheme = HrmPageChrome.chip;
 
 class CashReportScreen extends StatefulWidget {
@@ -828,7 +830,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
       ReportKpiItem(
         icon: Icons.arrow_circle_down,
         label: 'Đã thu',
-        value: '${_fmtMoney.format(s.paidIncome)}đ',
+        value: '${_fmtMoney.format(s.paidIncome)} đ',
         note: '${s.paidIncomeCount} phiếu thu',
         color: SboxColors.success,
         onTap: () => toggle('paid_income'),
@@ -836,7 +838,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
       ReportKpiItem(
         icon: Icons.arrow_circle_up,
         label: 'Đã chi',
-        value: '${_fmtMoney.format(s.paidExpense)}đ',
+        value: '${_fmtMoney.format(s.paidExpense)} đ',
         note: '${s.paidExpenseCount} phiếu chi',
         color: SboxColors.danger,
         onTap: () => toggle('paid_expense'),
@@ -844,8 +846,8 @@ class _CashReportScreenState extends State<CashReportScreen> {
       ReportKpiItem(
         icon: Icons.savings_outlined,
         label: 'Số dư quỹ',
-        value: '${_fmtMoney.format(s.fundBalance)}đ',
-        note: 'Tồn đầu ${_fmtMoney.format(s.openingBalance)}đ + thu − chi',
+        value: '${_fmtMoney.format(s.fundBalance)} đ',
+        note: 'Tồn đầu ${_fmtMoney.format(s.openingBalance)} đ + thu − chi',
         color: HrmPageChrome.primaryNavy,
         tone: s.fundBalance < 0 ? SboxTone.danger : SboxTone.brand,
         onTap: () => toggle('completed'),
@@ -854,7 +856,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
         ReportKpiItem(
           icon: Icons.hourglass_top,
           label: 'Chờ thu',
-          value: '${_fmtMoney.format(s.pendingIncome)}đ',
+          value: '${_fmtMoney.format(s.pendingIncome)} đ',
           note: '${s.pendingIncomeCount} phiếu',
           color: SboxColors.warning,
           onTap: () => toggle('pending_income'),
@@ -863,7 +865,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
         ReportKpiItem(
           icon: Icons.payments_outlined,
           label: 'Chờ chi',
-          value: '${_fmtMoney.format(s.pendingExpense)}đ',
+          value: '${_fmtMoney.format(s.pendingExpense)} đ',
           note: '${s.pendingExpenseCount} phiếu',
           color: SboxColors.warning,
           onTap: () => toggle('pending_expense'),
@@ -937,11 +939,11 @@ class _CashReportScreenState extends State<CashReportScreen> {
               style: const TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w600)),
           subtitle: Text(
-            tr('${date != null ? _fmtDate.format(date) : '—'} · ${t['transactionCode'] ?? ''}\n${st.label}${bal != null ? ' · SD: ${_fmtMoney.format(bal)}đ' : ''}'),
+            tr('${date != null ? _fmtDate.format(date) : '—'} · ${t['transactionCode'] ?? ''}\n${st.label}${bal != null ? ' · SD: ${_fmtMoney.format(bal)} đ' : ''}'),
             style: const TextStyle(fontSize: 11, height: 1.35),
           ),
           trailing: Text(
-            tr('${type == CashTransactionType.income ? '+' : '-'}${_fmtMoney.format(amt)}đ'),
+            tr('${type == CashTransactionType.income ? '+' : '-'}${_fmtMoney.format(amt)} đ'),
             style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -1004,7 +1006,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
         );
 
     Widget dCell(String t, double w, int i,
-            {Color? textColor, bool ellipsis = true}) =>
+            {Color? textColor, bool ellipsis = true, int maxLines = 1}) =>
         Container(
           width: w,
           height: _cRowH,
@@ -1014,6 +1016,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
           child: Text(tr(t),
               style: TextStyle(
                   fontSize: 12, color: textColor ?? SboxColors.slate700),
+              maxLines: maxLines,
               overflow: ellipsis ? TextOverflow.ellipsis : null),
         );
 
@@ -1082,19 +1085,24 @@ class _CashReportScreenState extends State<CashReportScreen> {
             ),
             // ═══ SCROLLABLE COLUMNS ═══
             Expanded(
-              child: SingleChildScrollView(
+              child: LayoutBuilder(builder: (context, box) {
+                // Mô tả (cột cuối) lấy phần còn trống — trước đây cố định 180 nên «Bán hàng POS — HD2710…» bị cắt.
+                // Màn hẹp: Mô tả giữ tối thiểu 240 và cuộn ngang, các cột số liệu vẫn nằm trong màn.
+                const fixedW = _cCodeW + 104 + 120 + 112 + 120 + 100;
+                final descW = box.maxWidth - fixedW < 240 ? 240.0 : box.maxWidth - fixedW;
+                return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        hCell('Mã GD', 108),
+                        hCell('Mã GD', _cCodeW),
                         hCell('Ngày', 104),
                         hCell('Số tiền', 120),
                         hCell('Trạng thái', 112),
                         hCell('Số dư quỹ', 120),
-                        hCell('Mô tả', 180),
                         hCell('PTTT', 100),
+                        hCell('Mô tả', descW),
                       ]),
                       ...List.generate(rows.length, (i) {
                         final t = rows[i];
@@ -1105,25 +1113,27 @@ class _CashReportScreenState extends State<CashReportScreen> {
                         final bal =
                             _runningBalances[t['id']?.toString() ?? ''];
                         final balText = bal != null
-                            ? '${_fmtMoney.format(bal)}đ'
+                            ? '${_fmtMoney.format(bal)} đ'
                             : '—';
                         return Row(children: [
                           dCell(
-                              t['transactionCode']?.toString() ?? '—', 108, i),
+                              t['transactionCode']?.toString() ?? '—', _cCodeW, i),
                           dCell(date != null ? _fmtDate.format(date) : '—', 104,
                               i),
-                          dCell('${_fmtMoney.format(amt)}đ', 120, i,
+                          dCell('${_fmtMoney.format(amt)} đ', 120, i,
                               textColor: _typeColor(type)),
                           dCell(st.label, 112, i,
                               textColor: _statusColor(t)),
                           dCell(balText, 120, i,
                               textColor: const Color(0xFF0284C7)),
-                          dCell(t['description']?.toString() ?? '', 180, i),
                           dCell(_paymentLabel(t['paymentMethod']), 100, i),
+                          dCell(t['description']?.toString() ?? '', descW, i,
+                              maxLines: 2),
                         ]);
                       }),
                     ]),
-              ),
+              );
+              }),
             ),
           ],
         ),

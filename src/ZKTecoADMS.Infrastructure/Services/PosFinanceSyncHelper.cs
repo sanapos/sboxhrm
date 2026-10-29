@@ -67,7 +67,7 @@ public static class PosFinanceSyncHelper
                 TransactionDate = VnTimeHelper.UtcToVn(order.SaleDate ?? order.CreatedAt), // ngày phiếu thu chi = giờ VN
                 Description = $"Bán hàng POS — {order.OrderNo}" +
                               (string.IsNullOrWhiteSpace(order.CustomerName) ? "" : $" — {order.CustomerName}") +
-                              (payList.Count > 1 ? $" ({pay.PaymentMethod})" : ""),
+                              (payList.Count > 1 ? $" ({PaymentMethodVi(pay.PaymentMethod)})" : ""),
                 PaymentMethod = ParsePaymentMethod(pay.PaymentMethod, pay.BankAccountId),
                 BankAccountId = pay.BankAccountId,
                 Status = CashTransactionStatus.Completed,
@@ -564,6 +564,32 @@ public static class PosFinanceSyncHelper
     /// chuyển khoản (Tingee, tên ngân hàng «Ngân hàng … 99…», «CK», «Bank») phải nhận diện ở đây — trước đây
     /// rơi vào Tiền mặt làm quỹ tiền mặt cao hơn thực tế. COD: shipper thu tiền mặt → Tiền mặt.
     /// </summary>
+    /// <summary>
+    /// Hình thức thanh toán của đơn («Cash», «Cash + BankTransfer», «Debt»…) → tiếng Việt cho chứng từ / sổ sách
+    /// («Tiền mặt + Chuyển khoản»). Từ không nhận ra giữ nguyên.
+    /// </summary>
+    public static string PaymentMethodVi(string? method)
+    {
+        if (string.IsNullOrWhiteSpace(method)) return "";
+        var parts = method.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return string.Join(" + ", parts.Select(p =>
+        {
+            var m = p.ToLowerInvariant();
+            if (m is "cash" or "tiền mặt" or "tien mat") return "Tiền mặt";
+            if (m.Contains("debt") || m.Contains("nợ") || m.Contains("credit")) return "Ghi nợ";
+            if (m.Contains("point") || m.Contains("điểm")) return "Điểm";
+            if (m.Contains("voucher")) return "Voucher";
+            return ParsePaymentMethod(p) switch
+            {
+                PaymentMethodType.BankTransfer => "Chuyển khoản",
+                PaymentMethodType.Card => "Thẻ",
+                PaymentMethodType.VietQR => "VietQR",
+                PaymentMethodType.EWallet => "Ví điện tử",
+                _ => p,
+            };
+        }));
+    }
+
     public static PaymentMethodType ParsePaymentMethod(string? method)
     {
         if (string.IsNullOrWhiteSpace(method)) return PaymentMethodType.Cash;

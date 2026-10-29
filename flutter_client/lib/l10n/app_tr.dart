@@ -30,16 +30,19 @@ final RegExp _hole = RegExp(r'\{(\d+)\}');
 /// A source sentence built by interpolation, e.g. 'Đã xóa {0} nhân viên'.
 /// Matched against the runtime string so the target can reorder the values.
 class _Template {
-  _Template(String vi, this.target)
+  _Template(String vi, String target)
       : anchor = vi
             .split(_hole)
             .fold('', (a, b) => b.length > a.length ? b : a),
         staticLength = vi.replaceAll(_hole, '').length,
+        // «{0}đ» khớp cả «1.000đ» lẫn «1.000 đ» — chữ hiển thị đã thống nhất có dấu cách trước đ.
         re = RegExp(
-          '^${vi.split(_hole).map(RegExp.escape).join('(.+?)')}\$',
+          '^${vi.split(_hole).map(RegExp.escape).join('(.+?)').replaceAll('(.+?)đ', '(.+?) ?đ')}\$',
           dotAll: true,
         ),
-        _order = _hole.allMatches(vi).map((m) => int.parse(m[1]!)).toList();
+        _order = _hole.allMatches(vi).map((m) => int.parse(m[1]!)).toList(),
+        // Bản dịch cũng ghi «1.000 đ» như tiếng Việt.
+        target = target.replaceAll('}đ', '} đ');
 
   final String anchor;
   final int staticLength;

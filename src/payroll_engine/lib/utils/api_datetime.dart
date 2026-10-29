@@ -76,7 +76,11 @@ String formatApiDateTime(
   String pattern = 'dd/MM/yyyy HH:mm',
   String empty = '--',
 }) {
-  final local = parseApiUtcDateTime(value);
+  // DateTime truyền vào thường đã qua parseApiUtcDateTime (giờ máy) — đổi múi lần nữa thì +7h
+  // (Ngày tạo đơn nghỉ / sửa công hiện 17:39 cho đơn tạo lúc 10:39). Chỉ chuỗi từ API mới quy đổi.
+  final local = value is DateTime
+      ? (value.isUtc ? value.toLocal() : value)
+      : parseApiUtcDateTime(value);
   if (local == null) return empty;
   return DateFormat(pattern).format(local);
 }

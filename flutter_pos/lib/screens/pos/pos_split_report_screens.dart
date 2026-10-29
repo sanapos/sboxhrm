@@ -8,6 +8,7 @@ import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/pos_sell_industry.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
@@ -18,6 +19,7 @@ import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../utils/pos_report_export.dart';
 import '../../utils/pos_report_open.dart';
+import '../../utils/pos_sell_settings_helper.dart';
 import '../../widgets/pos/reports/pos_goods_filter_sheet.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import '../pos_reports_screen.dart';
@@ -36,7 +38,7 @@ import 'pos_shipping_report_screen.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import '../../models/cash_transaction.dart' show PaymentMethodType;
 /// Hub 14 báo cáo — cùng token trang chủ A7 (nền xám, thẻ nổi, chữ #2B3437).
-class PosReportsHubScreen extends StatelessWidget {
+class PosReportsHubScreen extends StatefulWidget {
   const PosReportsHubScreen({super.key});
 
   static const _pageBg = Color(0xFFF1F4F6);
@@ -45,9 +47,39 @@ class PosReportsHubScreen extends StatelessWidget {
   static const _hint = Color(0xFF8A9199);
 
   @override
+  State<PosReportsHubScreen> createState() => _PosReportsHubScreenState();
+}
+
+class _PosReportsHubScreenState extends State<PosReportsHubScreen> {
+  static const _pageBg = PosReportsHubScreen._pageBg;
+  static const _ink = PosReportsHubScreen._ink;
+
+  /// Ngành bán của cửa hàng — đặt tên / ẩn báo cáo không hợp ngành. null = chưa tải (hiện đủ như cũ).
+  PosSellProfile? _profile;
+
+  @override
+  void initState() {
+    super.initState();
+    PosSellSettingsHelper(ApiService()).load().then((r) {
+      final p = r.settings?.sellProfile;
+      if (mounted && p != null) setState(() => _profile = p);
+    }).catchError((_) {});
+  }
+
+  @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final perm = Provider.of<PermissionProvider>(context);
+    final profile = _profile;
+    // Salon / gym gọi là «đặt lịch», karaoke / khách sạn «đặt phòng», còn lại «đặt bàn».
+    final bookingLabel = switch (profile) {
+      PosSellProfile.salon || PosSellProfile.gym => 'Đặt lịch & cọc',
+      PosSellProfile.roomHourly || PosSellProfile.hotel => 'Đặt phòng & cọc',
+      _ => 'Đặt bàn & cọc',
+    };
+    // Topping là món kèm đồ uống (F&B) — salon / gym / khách sạn không bán topping.
+    final showTopping = profile == null ||
+        !{PosSellProfile.salon, PosSellProfile.gym, PosSellProfile.hotel}.contains(profile);
     final items = <({
       String label,
       String subtitle,
@@ -72,9 +104,10 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Kết quả kinh doanh', subtitle: 'P&L', icon: Icons.account_balance, module: 'PosReportPnl', screen: const PosPnlReportScreen()),
       (label: 'Voucher', subtitle: 'Sử dụng', icon: Icons.confirmation_number_outlined, module: 'PosReportVoucher', screen: const PosVoucherUsageReportScreen()),
       (label: 'Bán theo khách', subtitle: 'Doanh thu / nợ KH', icon: Icons.people_outline, module: 'PosReportRevenue', screen: const PosCustomerSalesReportScreen()),
-      (label: 'Đặt bàn & cọc', subtitle: 'Lịch đặt, cọc, không đến theo kỳ', icon: Icons.event_seat_outlined, module: 'PosBooking', screen: const PosReservationReportScreen()),
+      (label: bookingLabel, subtitle: 'Lịch đặt, cọc, không đến theo kỳ', icon: Icons.event_seat_outlined, module: 'PosBooking', screen: PosReservationReportScreen(title: bookingLabel, profile: profile)),
       (label: 'Sức khỏe kho', subtitle: 'Cháy / chậm / chết tồn', icon: Icons.inventory_2_outlined, module: 'PosReportStock', screen: const PosStockHealthReportScreen()),
       (label: 'Nguyên vật liệu', subtitle: 'Dùng theo định lượng · còn đủ mấy ngày · món tốn NVL', icon: Icons.blender_outlined, module: 'PosReportStock', screen: const PosMaterialReportScreen()),
+      if (showTopping)
       (label: 'Topping', subtitle: '% ly có topping · topping bán chạy · lãi topping', icon: Icons.bubble_chart_outlined, module: 'PosReportSoldGoods', screen: const PosToppingReportScreen()),
       (label: 'Hóa đơn điện tử', subtitle: 'Xuất, xem lại PDF, gửi, thay thế, hủy, đồng bộ, tải từ hãng', icon: Icons.request_quote_outlined, module: 'PosEInvoice', screen: const PosEInvoiceReportScreen()),
       (label: 'Thuế hộ kinh doanh', subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ', icon: Icons.request_quote_outlined, module: 'HkdBooks', screen: const PosHkdBooksScreen()),
@@ -146,7 +179,7 @@ class PosReportsHubScreen extends StatelessWidget {
 const _hubGroups = <(String, IconData, List<String>)>[
   ('Bán hàng', Icons.point_of_sale_outlined, [
     'Doanh thu', 'Hàng hóa bán ra', 'Topping', 'Bán theo khách', 'Phương thức thanh toán', 'Tổng kết cuối ngày',
-    'Voucher', 'Đặt bàn & cọc', 'Vận chuyển', 'Hóa đơn điện tử',
+    'Voucher', 'Đặt bàn & cọc', 'Đặt lịch & cọc', 'Đặt phòng & cọc', 'Vận chuyển', 'Hóa đơn điện tử',
   ]),
   ('Tài chính', Icons.account_balance_wallet_outlined, [
     'Kết quả kinh doanh', 'Lợi nhuận', 'Chi phí', 'Sổ quỹ', 'Công nợ', 'Thuế hộ kinh doanh',
@@ -460,7 +493,7 @@ List<List<dynamic>> _invoiceExcelRows(List<Map<String, dynamic>> orders) => [
           _fmtDt(e['saleDate'] ?? e['createdAt']),
           e['customerName'] ?? '',
           e['paymentMethod'] ?? '',
-          e['soldBy'] ?? e['createdBy'] ?? '',
+          e['soldByName'] ?? e['soldBy'] ?? e['createdBy'] ?? '',
           e['voucherCode'] ?? '',
           _n(e['subTotal']),
           _n(e['discount']),
@@ -628,12 +661,13 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
     unawaited(PosReportOpen.sale(context, id));
   }
 
-  void _openAllSales({String? soldBy, String? paymentMethod}) {
+  void _openAllSales({String? soldBy, String? soldByLabel, String? paymentMethod}) {
     unawaited(PosReportOpen.sales(
       context,
       from: _time.from,
       to: _time.to,
       soldBy: soldBy,
+      soldByLabel: soldByLabel,
       paymentMethod: paymentMethod,
     ));
   }
@@ -767,11 +801,12 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
                     child: PosReportRankList(
                       items: staff,
                       labelOf: (p) =>
-                          '${p['soldBy'] ?? '—'} · ${_n(p['orderCount']).toInt()} HĐ',
+                          '${p['displayName'] ?? p['soldBy'] ?? '—'} · ${_n(p['orderCount']).toInt()} HĐ',
                       valueOf: (p) => _n(p['revenue']),
                       moneyFmt: _moneyFmt,
                       onItemTap: (p) => _openAllSales(
                         soldBy: '${p['soldBy'] ?? ''}',
+                        soldByLabel: p['displayName']?.toString(),
                       ),
                     ),
                   ),
@@ -889,7 +924,7 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
     final insight = SboxInsightPanel(
       kpis: [
         SboxKpi(label: 'Doanh thu hàng bán', value: SboxFmt.money(totalRev), icon: Icons.payments_outlined, note: _time.displayLabel),
-        SboxKpi(label: 'Số lượng bán', value: SboxFmt.number(totalQty), icon: Icons.shopping_cart_outlined, tone: SboxTone.violet, note: 'Tổng các mặt hàng'),
+        SboxKpi(label: 'Số lượng bán', value: SboxFmt.qty(totalQty), icon: Icons.shopping_cart_outlined, tone: SboxTone.violet, note: 'Tổng các mặt hàng'),
         SboxKpi(label: 'Mặt hàng có bán', value: SboxFmt.number(items.where((e) => _n(e['qty']) > 0).length), icon: Icons.category_outlined, tone: SboxTone.neutral),
         SboxKpi(
             label: 'Bán chạy nhất',
@@ -2185,13 +2220,26 @@ class _PosStaffRevenueReportScreenState
       from: _time.from,
       to: _time.to,
       soldBy: _staff,
+      soldByLabel: _staff == null
+          ? null
+          : _maps(_data?['topEmployees'])
+              .where((e) => e['soldBy']?.toString() == _staff)
+              .map((e) => e['displayName']?.toString())
+              .firstOrNull,
     ));
   }
 
   @override
   Widget build(BuildContext context) {
     final staff = _maps(_data?['topEmployees']);
-    String who(Map<String, dynamic> e) => e['soldBy']?.toString().trim().isNotEmpty == true ? e['soldBy'].toString() : '—';
+    // displayName: tên nhân viên / họ tên tài khoản (API mới); soldBy (email) chỉ để lọc hóa đơn.
+    String who(Map<String, dynamic> e) {
+      final n = (e['displayName'] ?? e['soldBy'])?.toString().trim() ?? '';
+      return n.isEmpty ? '—' : n;
+    }
+    final staffLabel = _staff == null
+        ? null
+        : staff.where((e) => e['soldBy']?.toString() == _staff).map(who).firstOrNull ?? _staff;
     final staffRev = staff.fold<double>(0, (a, e) => a + _n(e['revenue']));
     final prevStaff = <String, double>{for (final e in _maps(_prev?['topEmployees'])) who(e): _n(e['revenue'])};
     final sortedStaff = [...staff]..sort((a, b) => _n(b['revenue']).compareTo(_n(a['revenue'])));
@@ -2236,18 +2284,32 @@ class _PosStaffRevenueReportScreenState
       exportModule: 'PosReportStaffRevenue',
       time: _time,
       pngKey: _pngKey,
+      filterBar: _staff == null
+          ? null
+          : Align(
+              alignment: Alignment.centerLeft,
+              child: InputChip(
+                avatar: const Icon(Icons.badge_outlined, size: 18),
+                label: Text('${tr('Đang xem')}: $staffLabel'),
+                onDeleted: () {
+                  setState(() => _staff = null);
+                  unawaited(_load());
+                },
+                deleteButtonTooltipMessage: tr('Bỏ lọc'),
+              ),
+            ),
       onExportExcel: () => unawaited(PosReportExport.excel(
         context: context,
         title: 'Doanh thu theo nhân viên',
         sheetName: 'Hoa don',
         filePrefix: 'POS_DTNhanVien',
         periodLabel: _time.displayLabel,
-        filterLabel: _staff,
+        filterLabel: staffLabel,
         headers: _invoiceExcelHeaders,
         rows: _invoiceExcelRows(_orders),
         summaryLines: [
           for (final e in staff)
-            '${e['soldBy'] ?? '—'}: ${_n(e['orderCount']).toInt()} HĐ · ${_moneyFmt.format(_n(e['revenue']))}',
+            '${who(e)}: ${_n(e['orderCount']).toInt()} HĐ · ${_moneyFmt.format(_n(e['revenue']))}',
         ],
       )),
       onExportPng: () => unawaited(PosReportExport.png(
@@ -2272,9 +2334,7 @@ class _PosStaffRevenueReportScreenState
                   child: PosReportRankList(
                     items: staff,
                     labelOf: (e) {
-                      final name = e['soldBy']?.toString().trim().isNotEmpty == true
-                          ? e['soldBy'].toString()
-                          : '—';
+                      final name = who(e);
                       final c = _n(e['orderCount']).toInt();
                       return c > 0 ? '$name · $c HĐ' : name;
                     },
@@ -2287,7 +2347,7 @@ class _PosStaffRevenueReportScreenState
                   ),
                 ),
                 PosReportCard(
-                  title: _staff == null ? 'Hóa đơn gốc' : 'Hóa đơn · $_staff',
+                  title: _staff == null ? 'Hóa đơn gốc' : 'Hóa đơn · $staffLabel',
                   subtitle: '$_orderTotal hóa đơn · bấm để mở phiếu',
                   trailing: TextButton(
                     onPressed: _openAll,
@@ -2565,6 +2625,8 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
           _n(m['total']),
           prefix: income ? '+' : '-',
           color: income ? SboxColors.successText : const Color(0xFFB42318),
+          format: _moneyFmt,
+          full: true,
         ),
       ],
     );
@@ -2803,7 +2865,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                                   ),
                                 ),
                                 Text(
-                                  posReportMoney(_n(l['amount'])),
+                                  _moneyFmt.format(_n(l['amount'])),
                                   style: TextStyle(
                                     fontWeight: FontWeight.w700,
                                     color: _n(l['amount']) < 0

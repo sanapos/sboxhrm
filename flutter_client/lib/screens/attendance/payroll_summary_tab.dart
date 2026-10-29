@@ -3964,7 +3964,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final end = math.min(start + _rowsPerPage, data.length);
     final paged = data.sublist(start, end);
 
-    String money(dynamic v) => _fmtCurrency(v);
+    // Thẻ điện thoại: luôn kèm «đ» — _fmtCurrency trả «0» trơn (dùng cho ô bảng), thực nhận 0 trông như lỗi.
+    String money(dynamic v) => '${_currencyFmt.format(PayrollEngine.toDouble(v).round())} đ';
     double d(String k, Map<String, dynamic> r) => PayrollEngine.toDouble(r[k]);
     String num1(double v) => v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
 

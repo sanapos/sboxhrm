@@ -177,6 +177,13 @@ Map<String, double> cashReportRunningBalances(
   List<Map<String, dynamic>> rows, {
   double openingBalance = 0,
 }) {
+  // Ngày phiếu chỉ là ngày lịch → trước đây phiếu cùng ngày xếp theo mã (GUID ngẫu nhiên),
+  // số dư nhảy lên xuống so với thứ tự hiển thị. Cùng ngày: giờ tạo, rồi thứ tự API (mới → cũ).
+  final index = <Map<String, dynamic>, int>{
+    for (var i = 0; i < rows.length; i++) rows[i]: i,
+  };
+  DateTime? createdAt(Map<String, dynamic> r) =>
+      DateTime.tryParse('${r['createdAt'] ?? r['CreatedAt'] ?? ''}');
   final sorted = List<Map<String, dynamic>>.from(rows);
   sorted.sort((a, b) {
     final da = cashReportRowDate(a) ??
@@ -185,7 +192,9 @@ Map<String, double> cashReportRunningBalances(
         DateTime.fromMillisecondsSinceEpoch(0);
     final c = da.compareTo(db);
     if (c != 0) return c;
-    return (a['id']?.toString() ?? '').compareTo(b['id']?.toString() ?? '');
+    final ca = createdAt(a), cb = createdAt(b);
+    if (ca != null && cb != null && ca != cb) return ca.compareTo(cb);
+    return index[b]!.compareTo(index[a]!);
   });
 
   var balance = openingBalance;

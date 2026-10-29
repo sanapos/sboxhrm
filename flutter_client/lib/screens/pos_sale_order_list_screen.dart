@@ -95,6 +95,7 @@ class PosSaleOrderListScreen extends StatefulWidget {
     this.initialTo,
     this.initialSearch,
     this.initialSoldBy,
+    this.initialSoldByLabel,
     this.initialPaymentMethod,
     this.initialCustomerId,
     this.initialProductId,
@@ -106,6 +107,9 @@ class PosSaleOrderListScreen extends StatefulWidget {
   final DateTime? initialTo;
   final String? initialSearch;
   final String? initialSoldBy;
+
+  /// Tên hiển thị người bán (họ tên thay email) cho chip lọc; null = hiện [initialSoldBy].
+  final String? initialSoldByLabel;
   final String? initialPaymentMethod;
   final String? initialCustomerId;
   final String? initialProductId;
@@ -148,6 +152,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   bool _exporting = false;
   double? _periodRevenue;
   double? _filteredCompletedTotal;
+  String? _soldByLabel;
 
   String? _expandedId;
   PosSaleOrder? _expandedDetail;
@@ -177,6 +182,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     }
     if (w.initialSoldBy != null && w.initialSoldBy!.trim().isNotEmpty) {
       _soldBy = w.initialSoldBy!.trim();
+      final label = w.initialSoldByLabel?.trim();
+      _soldByLabel = label == null || label.isEmpty ? null : label;
     }
     if (w.initialCustomerId != null && w.initialCustomerId!.trim().isNotEmpty) {
       _customerId = w.initialCustomerId!.trim();
@@ -1312,7 +1319,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       _soldBy != null || _customerId != null || _productId != null || _voucherCode != null || _hasVoucher;
 
   String _reportFilterLabel() => [
-        if (_soldBy != null) 'NV $_soldBy',
+        if (_soldBy != null) 'NV ${_soldByLabel ?? _soldBy}',
         if (_customerId != null) 'khách hàng',
         if (_productId != null) 'hàng hóa',
         if (_voucherCode != null) 'voucher $_voucherCode' else if (_hasVoucher) 'có voucher',
@@ -1321,6 +1328,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   void _clearReportFilter() {
     setState(() {
       _soldBy = null;
+      _soldByLabel = null;
       _customerId = null;
       _productId = null;
       _voucherCode = null;
@@ -1351,6 +1359,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       _isDeliveryFilter = null;
       _paymentMethod = null;
       _soldBy = null;
+      _soldByLabel = null;
       _customerId = null;
       _productId = null;
       _voucherCode = null;

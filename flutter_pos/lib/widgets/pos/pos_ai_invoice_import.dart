@@ -193,7 +193,7 @@ class _InvRow {
         if (needsFactor && unitStatus == 'unknown' && factorV <= 0)
           tr('ĐVT «${unit.text.trim()}» chưa khai báo — nhập hệ số quy đổi hoặc sửa SL theo ĐVT gốc'),
         if (printedTotal > 0 && (gross - printedTotal).abs() > math.max(5, printedTotal * 0.002))
-          tr('Thành tiền ${_money(gross)}đ khác hóa đơn ${_money(printedTotal)}đ'),
+          tr('Thành tiền ${_money(gross)} đ khác hóa đơn ${_money(printedTotal)} đ'),
       ];
 
   Map<String, dynamic> toJson() => {
@@ -500,7 +500,7 @@ class _PosAiInvoicePageState extends State<_PosAiInvoicePage> {
     ];
     final t = _totals();
     if (_printedTotal != null && (t.total - _printedTotal!).abs() > math.max(5, _printedTotal! * 0.002)) {
-      flagged.add(tr('Tổng phiếu ${_money(t.total)}đ khác tổng hóa đơn ${_money(_printedTotal!)}đ'));
+      flagged.add(tr('Tổng phiếu ${_money(t.total)} đ khác tổng hóa đơn ${_money(_printedTotal!)} đ'));
     }
     if (flagged.isNotEmpty) {
       final go = await showDialog<bool>(
@@ -1066,11 +1066,11 @@ class _PosAiInvoicePageState extends State<_PosAiInvoicePage> {
                 children: [
                   Expanded(
                     child: Text(
-                      r.printedTotal > 0 ? '${tr('Hóa đơn')}: ${_money(r.printedTotal)}đ' : '',
+                      r.printedTotal > 0 ? '${tr('Hóa đơn')}: ${_money(r.printedTotal)} đ' : '',
                       style: const TextStyle(fontSize: 12, color: SboxColors.textMuted),
                     ),
                   ),
-                  Text('${tr('Thành tiền')}: ${_money(r.gross)}đ', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text('${tr('Thành tiền')}: ${_money(r.gross)} đ', style: const TextStyle(fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -1205,7 +1205,7 @@ class _PosAiInvoicePageState extends State<_PosAiInvoicePage> {
                   style: TextStyle(fontSize: 12, color: off ? SboxColors.dangerText : SboxColors.successText),
                 ),
               ),
-            Text('${_money(v)}đ', style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w600)),
+            Text('${_money(v)} đ', style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w600)),
           ],
         ),
       );
@@ -1289,7 +1289,7 @@ class _PosAiInvoicePageState extends State<_PosAiInvoicePage> {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                tr('Còn nợ NCC: ${_money(math.max(0, total - parseMenuPrice(_paid.text)))}đ'),
+                tr('Còn nợ NCC: ${_money(math.max(0, total - parseMenuPrice(_paid.text)))} đ'),
                 style: const TextStyle(fontSize: 13, color: SboxColors.textMuted),
               ),
             ),
@@ -1316,7 +1316,7 @@ class _PosAiInvoicePageState extends State<_PosAiInvoicePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(tr('${_rows.length} dòng'), style: const TextStyle(fontSize: 12, color: SboxColors.textMuted)),
-                  Text('${_money(t.total)}đ', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                  Text('${_money(t.total)} đ', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                 ],
               ),
             ),

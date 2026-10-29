@@ -99,7 +99,7 @@ class _PosStockHealthReportScreenState extends State<PosStockHealthReportScreen>
           title: 'Tồn giá trị lớn nhất',
           child: SboxRankList(
             color: SboxColors.violet,
-            items: [for (final r in items) SboxSlice(r['name']?.toString() ?? '—', _n(r['stockValue']), caption: 'Tồn ${r['onHandQty'] ?? 0}')],
+            items: [for (final r in items) SboxSlice(r['name']?.toString() ?? '—', _n(r['stockValue']), caption: 'Tồn ${SboxFmt.qty(_n(r['onHandQty']))}')],
           ),
         ),
       ],
@@ -182,11 +182,11 @@ class _PosStockHealthReportScreenState extends State<PosStockHealthReportScreen>
           ],
         ),
         Text(
-          tr('${r['productCode']} · Tồn ${r['onHandQty']} · GT ${_moneyFmt.format(_n(r['stockValue']))}'),
+          tr('${r['productCode']} · Tồn ${SboxFmt.qty(_n(r['onHandQty']))} · GT ${_moneyFmt.format(_n(r['stockValue']))}'),
           style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
         ),
         Text(
-          tr('Bán kỳ: ${r['qtySold'] ?? 0} · DT ${_moneyFmt.format(_n(r['revenue']))} · ${lastSold == null ? 'chưa bán' : 'bán ${_dateFmt.format(lastSold)}'} · ${lastIn == null ? 'chưa nhập' : 'nhập ${_dateFmt.format(lastIn)}'}'),
+          tr('Bán kỳ: ${SboxFmt.qty(_n(r['qtySold']))} · DT ${_moneyFmt.format(_n(r['revenue']))} · ${lastSold == null ? 'chưa bán' : 'bán ${_dateFmt.format(lastSold)}'} · ${lastIn == null ? 'chưa nhập' : 'nhập ${_dateFmt.format(lastIn)}'}'),
           style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
         ),
       ],

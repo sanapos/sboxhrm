@@ -11,6 +11,7 @@ using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -806,9 +807,7 @@ public partial class HkdBooksController(ZKTecoDbContext dbContext) : Authenticat
             ws.Cell(row, 1).Value = idx++;
             ws.Cell(row, 2).Value = t.TransactionCode;
             ws.Cell(row, 3).Value = t.TransactionDate.ToString("dd/MM/yyyy");
-            ws.Cell(row, 4).Value = string.IsNullOrWhiteSpace(t.ContactName)
-                ? t.Description
-                : $"{t.Description} — {t.ContactName}";
+            ws.Cell(row, 4).Value = CashDescription(t.Description, t.ContactName);
             if (isIn)
             {
                 ws.Cell(row, 5).Value = t.Amount;
@@ -1366,9 +1365,7 @@ public partial class HkdBooksController(ZKTecoDbContext dbContext) : Authenticat
                 ["stt"] = idx++,
                 ["code"] = t.TransactionCode,
                 ["date"] = t.TransactionDate.ToString("dd/MM/yyyy"),
-                ["description"] = string.IsNullOrWhiteSpace(t.ContactName)
-                    ? t.Description
-                    : $"{t.Description} — {t.ContactName}",
+                ["description"] = CashDescription(t.Description, t.ContactName),
                 ["income"] = isIn ? t.Amount : null,
                 ["expense"] = isIn ? null : t.Amount,
                 ["method"] = PaymentMethodLabel(t.PaymentMethod),
@@ -1581,17 +1578,42 @@ public partial class HkdBooksController(ZKTecoDbContext dbContext) : Authenticat
             ? "Hàng bán bị trả lại" + (string.IsNullOrWhiteSpace(o.Note) ? "" : " — " + o.Note!.Trim())
             : BuildRevenueDescription(o.CustomerName, o.PaymentMethod, industry);
 
+    /// <summary>Tên khách mặc định của đơn không chọn khách.</summary>
+    private const string WalkInCustomer = "Bán cho người tiêu dùng";
+
+    /// <summary>
+    /// Diễn giải sổ doanh thu: «Bán hàng cho người tiêu dùng — Tiền mặt» / «Bán hàng — Khách A — Chuyển khoản».
+    /// Trước đây «Bán hàng — Bán cho người tiêu dùng — Cash»: lặp chữ «Bán» và để mã thanh toán tiếng Anh.
+    /// </summary>
     private static string BuildRevenueDescription(
         string? customerName, string? paymentMethod, string industry)
     {
-        var parts = new List<string> { "Bán hàng" };
+        var name = customerName?.Trim() ?? "";
+        var walkIn = name.Length == 0 || name.Equals(WalkInCustomer, StringComparison.OrdinalIgnoreCase);
+        var parts = new List<string> { walkIn && name.Length > 0 ? "Bán hàng cho người tiêu dùng" : "Bán hàng" };
         if (!string.IsNullOrWhiteSpace(industry))
             parts.Add(industry.Trim());
-        if (!string.IsNullOrWhiteSpace(customerName))
-            parts.Add(customerName.Trim());
-        if (!string.IsNullOrWhiteSpace(paymentMethod))
-            parts.Add(paymentMethod.Trim());
+        if (!walkIn)
+            parts.Add(name);
+        var pay = PosFinanceSyncHelper.PaymentMethodVi(paymentMethod);
+        if (pay.Length > 0)
+            parts.Add(pay);
         return string.Join(" — ", parts);
+    }
+
+    /// <summary>
+    /// Diễn giải sổ tiền (S2e): phiếu thu bán hàng đã ghi «— tên khách» trong mô tả → không nối thêm lần nữa
+    /// (trước đây «… — Bán cho người tiêu dùng — Bán cho người tiêu dùng»); «(Cash)» cũ → «(Tiền mặt)».
+    /// </summary>
+    private static string CashDescription(string? description, string? contactName)
+    {
+        var desc = (description ?? "").Trim();
+        desc = System.Text.RegularExpressions.Regex.Replace(desc, @"\(([A-Za-z]+(?:\s*\+\s*[A-Za-z]+)*)\)",
+            m => $"({PosFinanceSyncHelper.PaymentMethodVi(m.Groups[1].Value)})");
+        var contact = contactName?.Trim();
+        if (string.IsNullOrEmpty(contact) || desc.Contains(contact, StringComparison.OrdinalIgnoreCase))
+            return desc;
+        return desc.Length == 0 ? contact : $"{desc} — {contact}";
     }
 
     private static string BuildFilterLabel(HkdProfile profile, string note) =>

@@ -138,7 +138,7 @@ class _PosSellIndustrySettingsHubScreenState
               ? 'Tỷ lệ theo cửa hàng · bật/tắt · trần % đổi điểm'
               : (!_settings!.loyaltyEnabled
                   ? 'Đang tắt'
-                  : 'Mỗi ${_settings!.loyaltyEarnPerAmount.toStringAsFixed(0)}đ → 1 điểm · 1 điểm = ${_settings!.loyaltyRedeemValue.toStringAsFixed(0)}đ'),
+                  : 'Mỗi ${_settings!.loyaltyEarnPerAmount.toStringAsFixed(0)} đ → 1 điểm · 1 điểm = ${_settings!.loyaltyRedeemValue.toStringAsFixed(0)} đ'),
           onTap: () => _open(
             context,
             const PosLoyaltySettingsScreen(),

@@ -734,7 +734,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã thu cọc',
-        message: tr('${_moneyFmt.format(amount)}đ · ${picked.pay.methodLabel} · ${b.customerName}'),
+        message: tr('${_moneyFmt.format(amount)} đ · ${picked.pay.methodLabel} · ${b.customerName}'),
       );
       await _reload();
     } else {
@@ -819,7 +819,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
           builder: (ctx) => AlertDialog(
             title: Text(tr('Hủy lịch — xử lý cọc')),
             content: Text(tr(
-                'Đã thu cọc ${_moneyFmt.format(b.depositPaid)}đ. Hoàn hay mất cọc?')),
+                'Đã thu cọc ${_moneyFmt.format(b.depositPaid)} đ. Hoàn hay mất cọc?')),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(ctx),
@@ -1254,16 +1254,16 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                         ),
                         Text(
-                          tr('Cọc đang giữ ${_moneyFmt.format(_depositHeldSum)}đ'),
+                          tr('Cọc đang giữ ${_moneyFmt.format(_depositHeldSum)} đ'),
                           style: const TextStyle(fontSize: 12.5),
                         ),
                         if (_depositForfeitedSum > 0)
                           Text(
-                            tr('Cọc mất (không đến) ${_moneyFmt.format(_depositForfeitedSum)}đ'),
+                            tr('Cọc mất (không đến) ${_moneyFmt.format(_depositForfeitedSum)} đ'),
                             style: const TextStyle(fontSize: 12.5, color: Color(0xFFC2410C), fontWeight: FontWeight.w600),
                           ),
                         Text(
-                          tr('Tạm tính ${_moneyFmt.format(_expectedRevenueSum)}đ'),
+                          tr('Tạm tính ${_moneyFmt.format(_expectedRevenueSum)} đ'),
                           style: const TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
@@ -1402,15 +1402,15 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
         ]);
     final occasion = PosReservationOccasion.label(b.occasion);
     final money = <String>[
-      if (b.depositPaid > 0) 'Cọc ${_moneyFmt.format(b.depositPaid)}đ (${reservationDepositLabel(b.depositStatus)})',
+      if (b.depositPaid > 0) 'Cọc ${_moneyFmt.format(b.depositPaid)} đ (${reservationDepositLabel(b.depositStatus)})',
       // Theo ngành: Món (nhà hàng) / Dịch vụ (salon, phòng giờ, khách sạn).
       if (b.preOrderValue > 0)
-        '${_profile.lineUnit[0].toUpperCase()}${_profile.lineUnit.substring(1)} ${_moneyFmt.format(b.preOrderValue)}đ',
+        '${_profile.lineUnit[0].toUpperCase()}${_profile.lineUnit.substring(1)} ${_moneyFmt.format(b.preOrderValue)} đ',
     ];
     final order = <String>[
       if ((b.orderNo ?? '').isNotEmpty) 'HĐ ${b.orderNo}',
-      if (b.orderTotal > 0) '${_moneyFmt.format(b.orderTotal)}đ',
-      if (b.orderPaid > 0) 'Đã trả ${_moneyFmt.format(b.orderPaid)}đ',
+      if (b.orderTotal > 0) '${_moneyFmt.format(b.orderTotal)} đ',
+      if (b.orderPaid > 0) 'Đã trả ${_moneyFmt.format(b.orderPaid)} đ',
     ];
     return Material(
       color: Colors.white,
@@ -1663,7 +1663,7 @@ class _BookingDetailDialog extends StatelessWidget {
                         'Cọc',
                         [
                           if (b.depositPaid > 0)
-                            '${moneyFmt.format(b.depositPaid)}đ',
+                            '${moneyFmt.format(b.depositPaid)} đ',
                           reservationDepositLabel(b.depositStatus),
                           if ((b.depositPaymentMethod ?? '').isNotEmpty)
                             b.depositPaymentMethod!,
@@ -1675,7 +1675,7 @@ class _BookingDetailDialog extends StatelessWidget {
                         [
                           if (b.preOrderCount > 0) '${b.preOrderCount} món',
                           if (b.preOrderValue > 0)
-                            '${moneyFmt.format(b.preOrderValue)}đ',
+                            '${moneyFmt.format(b.preOrderValue)} đ',
                         ].join(' · '),
                       ),
                     if (b.isSeated ||
@@ -1714,12 +1714,12 @@ class _BookingDetailDialog extends StatelessWidget {
                         ),
                       row(
                         'Giá trị đơn',
-                        '${moneyFmt.format(b.orderTotal)}đ',
+                        '${moneyFmt.format(b.orderTotal)} đ',
                         emphasize: true,
                       ),
                       row(
                         'Đã thanh toán',
-                        '${moneyFmt.format(b.orderPaid)}đ',
+                        '${moneyFmt.format(b.orderPaid)} đ',
                       ),
                       if (b.orderLineCount > 0)
                         row('Số món', '${b.orderLineCount}'),
