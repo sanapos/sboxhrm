@@ -72,7 +72,8 @@ class _EditorLine {
     this.variants = const [],
     double qty = 1,
     double price = 0,
-  })  : qtyCtrl = TextEditingController(text: tr(qty.toStringAsFixed(0))),
+  })  : qtyCtrl = TextEditingController(
+            text: qty == qty.roundToDouble() ? qty.toStringAsFixed(0) : '$qty'),
         priceCtrl = TextEditingController(text: tr(price.toStringAsFixed(0)));
 
   double get lineTotal {

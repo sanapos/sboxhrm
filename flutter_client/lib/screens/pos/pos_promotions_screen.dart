@@ -1063,16 +1063,16 @@ class _PosPromotionReportScreenState extends State<PosPromotionReportScreen> {
                   : ListView(padding: const EdgeInsets.all(16), children: [
                       Wrap(spacing: 12, runSpacing: 12, children: [
                         _kpi('Hóa đơn có KM', '${d['orders'] ?? 0} / ${d['allOrders'] ?? 0}',
-                            '${n(d['promoOrderRate']).toStringAsFixed(1)}% tổng hóa đơn · ${_delta(n(d['orders']), n(prev['orders']))}'),
+                            '${n(d['promoOrderRate']).toStringAsFixed(1).replaceAll('.', ',')}% tổng hóa đơn · ${_delta(n(d['orders']), n(prev['orders']))}'),
                         _kpi('Tổng tiền giảm', '${_money.format(n(d['totalDiscount']))} đ',
-                            '${n(d['discountRate']).toStringAsFixed(1)}% giá trị hàng · ${_delta(n(d['totalDiscount']), n(prev['totalDiscount']))}'),
+                            '${n(d['discountRate']).toStringAsFixed(1).replaceAll('.', ',')}% giá trị hàng · ${_delta(n(d['totalDiscount']), n(prev['totalDiscount']))}'),
                         _kpi('HĐ bình quân có KM', '${_money.format(n(d['avgBillPromo']))} đ',
                             'không KM: ${_money.format(n(d['avgBillNormal']))} đ'),
                         _kpi('Doanh thu HĐ có KM', '${_money.format(n(d['promoRevenue']))} đ',
                             'trên tổng ${_money.format(n(d['allRevenue']))} đ'),
                         if (d['promoMarginPct'] != null)
                           _kpi('Lãi gộp HĐ có KM', '${_money.format(n(d['promoProfit']))} đ',
-                              'biên ${n(d['promoMarginPct']).toStringAsFixed(1)}% (đã trừ khuyến mãi) · HĐ không KM: ${n(d['normalMarginPct']).toStringAsFixed(1)}%'),
+                              'biên ${n(d['promoMarginPct']).toStringAsFixed(1).replaceAll('.', ',')}% (đã trừ khuyến mãi) · HĐ không KM: ${n(d['normalMarginPct']).toStringAsFixed(1).replaceAll('.', ',')}%'),
                       ]),
                       if (daily.any((e) => n(e['discount']) > 0)) ...[
                         const SizedBox(height: 20),
@@ -1111,8 +1111,8 @@ class _PosPromotionReportScreenState extends State<PosPromotionReportScreen> {
                           )),
                           title: Text('${i['name']}'),
                           subtitle: Text(tr(
-                              '${i['orders']} hóa đơn · doanh thu ${_money.format(n(i['revenue']))} đ · bình quân ${_money.format(n(i['avgBill']))} đ/HĐ · giảm ${n(i['discountRate']).toStringAsFixed(1)}% giá trị hàng'
-                              '${i['marginPct'] != null ? ' · lãi gộp ${_money.format(n(i['profit']))} đ (${n(i['marginPct']).toStringAsFixed(1)}%)' : ''}'
+                              '${i['orders']} hóa đơn · doanh thu ${_money.format(n(i['revenue']))} đ · bình quân ${_money.format(n(i['avgBill']))} đ/HĐ · giảm ${n(i['discountRate']).toStringAsFixed(1).replaceAll('.', ',')}% giá trị hàng'
+                              '${i['marginPct'] != null ? ' · lãi gộp ${_money.format(n(i['profit']))} đ (${n(i['marginPct']).toStringAsFixed(1).replaceAll('.', ',')}%)' : ''}'
                               '\nBấm để xem từng hóa đơn')),
                           isThreeLine: true,
                           trailing: Row(mainAxisSize: MainAxisSize.min, children: [

@@ -321,7 +321,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
                 icon: Icons.trending_up,
                 value: cur != null ? '${_moneyFmt.format(profit)} đ' : '—',
                 subtitle: cur != null
-                    ? 'Biên ${margin.toStringAsFixed(1)}%'
+                    ? 'Biên ${margin.toStringAsFixed(1).replaceAll('.', ',')}%'
                     : 'Chưa có dữ liệu',
                 valueColor: cur != null && profit >= 0
                     ? SboxColors.success

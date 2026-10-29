@@ -776,7 +776,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              tr('${_num(r['coveragePct']).toStringAsFixed(1)}% doanh thu đã có HĐĐT · '
+              tr('${SboxFmt.pct(_num(r['coveragePct']))} doanh thu đã có HĐĐT · '
                   '${_num(r['replacementCount']).toInt()} HĐ thay thế · '
                   'chưa xuất ${_moneyFmt.format(_num(_summary?['noneAmount']))}'),
               style: TextStyle(fontSize: 12, color: SboxColors.slate700),

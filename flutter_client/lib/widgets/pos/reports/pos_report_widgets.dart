@@ -1140,7 +1140,7 @@ class PosReportInvoiceList extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                PosReportMoneyLabel(totalAmt, format: moneyFmt, maxWidth: 110),
+                PosReportMoneyLabel(totalAmt, format: moneyFmt, maxWidth: 110, full: true),
                 if (paid > 0 && paid != totalAmt)
                   Text(
                     'thu ${posReportMoneyOf(paid, moneyFmt)}',

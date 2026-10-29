@@ -2471,7 +2471,7 @@ class _PosStaffRevenueReportScreenState
             note: 'TB ${SboxFmt.money(staff.isEmpty ? 0 : total / staff.length)} / người'),
         if (showProfit)
           SboxKpi(label: 'Lợi nhuận gộp', value: SboxFmt.money(_n(_data?['totalProfit'])), icon: Icons.trending_up, tone: SboxTone.success,
-              note: total > 0 ? 'Biên ${(_n(_data?['totalProfit']) / total * 100).toStringAsFixed(1)}%' : null)
+              note: total > 0 ? 'Biên ${SboxFmt.pct(_n(_data?['totalProfit']) / total * 100)}' : null)
         else
           SboxKpi(label: 'TB / hóa đơn', value: SboxFmt.money(_n(_data?['orderCount']) > 0 ? total / _n(_data?['orderCount']) : 0),
               icon: Icons.receipt_long_outlined, tone: SboxTone.neutral),
@@ -2480,7 +2480,7 @@ class _PosStaffRevenueReportScreenState
             value: best == null ? '—' : _who(best),
             icon: Icons.emoji_events_outlined,
             tone: SboxTone.success,
-            note: best == null ? null : '${SboxFmt.money(_n(best['revenue']))} · ${_n(best['sharePct'])}%'),
+            note: best == null ? null : '${SboxFmt.money(_n(best['revenue']))} · ${SboxFmt.pct(_n(best['sharePct']))}'),
       ],
       charts: [
         SboxChartCard(
@@ -2564,7 +2564,7 @@ class _PosStaffRevenueReportScreenState
                         SboxColumn(label: 'Lợi nhuận', numeric: true, minWidth: 120, hideOnMobile: true,
                             text: (e) => SboxFmt.money(_n(e['profit'])), sortValue: (e) => _n(e['profit'])),
                       SboxColumn(label: 'Tỷ trọng', numeric: true, minWidth: 80, hideOnMobile: true,
-                          text: (e) => '${_n(e['sharePct'])}%'),
+                          text: (e) => SboxFmt.pct(_n(e['sharePct']))),
                     ],
                   ),
                 ),

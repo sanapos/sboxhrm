@@ -5,6 +5,7 @@ import '../../../providers/permission_provider.dart';
 import 'package:intl/intl.dart';
 
 import '../../../utils/api_datetime.dart';
+import '../../../utils/pos_payment_label.dart';
 import '../../../utils/media_query_safe_padding.dart';
 import '../../../utils/pos_kiot_time_range.dart';
 import '../pos_list_filters.dart';
@@ -1077,7 +1078,7 @@ class PosReportInvoiceList extends StatelessWidget {
   Widget _row(BuildContext context, Map<String, dynamic> e) {
     final no = (e['orderNo'] ?? e['OrderNo'] ?? '').toString();
     final name = (e['customerName'] ?? e['CustomerName'] ?? '').toString();
-    final pay = (e['paymentMethod'] ?? e['PaymentMethod'] ?? '').toString();
+    final pay = posPaymentLabelOf(e);
     final sold = (e['soldByName'] ?? e['soldBy'] ?? e['SoldBy'] ?? e['createdBy'] ?? '').toString();
     final totalAmt = _num(e['total'] ?? e['Total']);
     final paid = _num(e['paidAmount'] ?? e['PaidAmount']);
@@ -1118,7 +1119,7 @@ class PosReportInvoiceList extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                PosReportMoneyLabel(totalAmt, format: moneyFmt, maxWidth: 110),
+                PosReportMoneyLabel(totalAmt, format: moneyFmt, maxWidth: 110, full: true),
                 if (paid > 0 && paid != totalAmt)
                   Text(
                     'thu ${posReportMoneyOf(paid, moneyFmt)}',

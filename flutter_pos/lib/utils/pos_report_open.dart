@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../l10n/app_tr.dart';
 import '../models/pos_product.dart';
+import '../models/pos_sale_order.dart';
 import '../screens/pos/pos_product_editor_page.dart';
 import '../screens/pos_purchase_receipt_editor_screen.dart';
 import '../screens/pos_purchase_receipt_list_screen.dart';
@@ -11,6 +12,7 @@ import '../screens/pos_sale_order_editor_screen.dart';
 import '../screens/pos_sale_order_list_screen.dart';
 import '../services/api_service.dart';
 import '../widgets/pos/pos_hub_scope.dart';
+import '../widgets/pos/pos_sale_order_receipt_view.dart';
 import '../widgets/pos/pos_theme.dart';
 
 import '../theme/sbox_tokens.dart';
@@ -19,11 +21,58 @@ class PosReportOpen {
   static final _api = ApiService();
   static final _hdRe = RegExp(r'HD\d{6,}', caseSensitive: false);
 
+  /// Hóa đơn đã chốt → phiếu chỉ xem; chỉ phiếu tạm mới mở màn sửa (như C20).
   static Future<void> sale(BuildContext context, String id) async {
     if (id.isEmpty) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PosSaleOrderEditorScreen(orderId: id),
+    final res = await _api.getPosSale(id);
+    if (!context.mounted) return;
+    final order = res['isSuccess'] == true && res['data'] is Map
+        ? PosSaleOrder.fromJson(Map<String, dynamic>.from(res['data'] as Map))
+        : null;
+    if (order == null || order.status == 'Draft') {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => PosSaleOrderEditorScreen(orderId: id),
+        ),
+      );
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 4, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        tr('Hóa đơn ${order.orderNo}'),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(12),
+                  child: PosSaleOrderReceiptView(order: order),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
