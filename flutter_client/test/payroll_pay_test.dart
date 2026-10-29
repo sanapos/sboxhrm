@@ -183,5 +183,10 @@ void main() {
     expect(find.textContaining('Trả tiền mặt: 2.500.000đ'), findsOneWidget);
     expect(find.text('LUONG T09 2026 NV001'), findsOneWidget);
     expect(find.text('Đã chuyển xong'), findsOneWidget);
+    // Ảnh QR không tải được (test không có mạng) → không lưu ảnh lỗi, báo dùng thông tin bên dưới.
+    await t.ensureVisible(find.text('Lưu ảnh QR'));
+    await t.tap(find.text('Lưu ảnh QR'));
+    await t.pump();
+    expect(find.textContaining('Ảnh QR chưa hiển thị'), findsOneWidget);
   });
 }

@@ -1,5 +1,8 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -7,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../utils/excel_download_helper.dart';
+import '../../utils/file_saver.dart' as file_saver;
 import '../../widgets/sbox/sbox_ui.dart';
 
 /// Cách trả lương.
@@ -564,6 +568,10 @@ class PayrollTransferStepper extends StatefulWidget {
 class _PayrollTransferStepperState extends State<PayrollTransferStepper> {
   int _i = 0;
   bool _busy = false;
+  bool _savingQr = false;
+  final _qrKey = GlobalKey();
+  /// URL QR đã hiện xong trên màn hình — chỉ lưu được khi ảnh đang hiển thị đúng người hiện tại.
+  String? _qrShown;
 
   PayLine get _l => widget.lines[_i];
   bool get _mobile => !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
@@ -593,6 +601,37 @@ class _PayrollTransferStepperState extends State<PayrollTransferStepper> {
         '&am=$amt&tn=${Uri.encodeComponent(l.content)}&bn=${Uri.encodeComponent(l.accountName)}');
     await Clipboard.setData(ClipboardData(text: l.accountNumber ?? ''));
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  /// Lưu ảnh QR (đã kèm STK, số tiền, nội dung) — app ngân hàng «Quét QR → chọn ảnh» là tự điền đủ,
+  /// chắc hơn deeplink. Android: vào Thư viện ảnh; iOS: bảng chia sẻ «Lưu hình ảnh»; web: tải về.
+  /// Chụp lại ảnh đang hiển thị thành PNG (img.vietqr.io trả SVG cho một số trình duyệt — app ngân hàng không đọc được).
+  Future<void> _saveQr() async {
+    final l = _l;
+    final boundary = _qrKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null || _qrShown != l.qrUrl(l.bankPart(widget.method))) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Ảnh QR chưa hiển thị — đợi tải xong hoặc dùng thông tin bên dưới'))));
+      return;
+    }
+    setState(() => _savingQr = true);
+    String msg;
+    try {
+      final image = await boundary.toImage(pixelRatio: 3);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      if (data == null) throw Exception('toByteData null');
+      final name = 'QR_luong_${l.employeeCode.isEmpty ? l.payslipId : l.employeeCode}_T${l.month}_${l.year}.png';
+      final saved = await file_saver.saveFileBytes(data.buffer.asUint8List(), name, 'image/png', sourceModule: 'payroll');
+      msg = saved == null && !kIsWeb
+          ? 'Không lưu được ảnh QR'
+          : 'Đã lưu ảnh QR. Mở app ngân hàng → Quét QR → chọn ảnh này.';
+    } catch (e) {
+      debugPrint('save payroll QR: $e');
+      msg = 'Không lưu được ảnh QR';
+    }
+    if (!mounted) return;
+    setState(() => _savingQr = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr(msg))));
   }
 
   Future<void> _done() async {
@@ -638,6 +677,11 @@ class _PayrollTransferStepperState extends State<PayrollTransferStepper> {
                     child: ClipRRect(
                       borderRadius: SboxRadius.mdAll,
                       child: Image.network(l.qrUrl(bank), width: 260, height: 300, fit: BoxFit.contain,
+                          frameBuilder: (_, child, frame, __) {
+                            if (frame != null) _qrShown = l.qrUrl(bank);
+                            // Nền trắng: ảnh lưu ra không bị trong suốt (app ngân hàng quét ảnh đen trên đen).
+                            return RepaintBoundary(key: _qrKey, child: ColoredBox(color: Colors.white, child: child));
+                          },
                           errorBuilder: (_, __, ___) => Container(
                                 width: 260,
                                 height: 120,
@@ -650,6 +694,14 @@ class _PayrollTransferStepperState extends State<PayrollTransferStepper> {
                   const SizedBox(height: 4),
                   Text(tr('Quét bằng app ngân hàng của tài khoản ${widget.source?.bankName ?? ''} ${widget.source?.accountNumber ?? ''}'),
                       textAlign: TextAlign.center, style: SboxType.captionStyle()),
+                  const SizedBox(height: 8),
+                  SboxButton(
+                    label: 'Lưu ảnh QR',
+                    icon: Icons.download_rounded,
+                    expand: true,
+                    loading: _savingQr,
+                    onPressed: _savingQr ? null : _saveQr,
+                  ),
                   const SizedBox(height: 12),
                   field('Ngân hàng', l.bankLabel),
                   field('Số TK', l.accountNumber ?? ''),
@@ -660,7 +712,7 @@ class _PayrollTransferStepperState extends State<PayrollTransferStepper> {
                     const SizedBox(height: 6),
                     SboxButton.secondary(label: 'Mở app ${widget.source!.bankName}', icon: Icons.open_in_new_rounded, expand: true, onPressed: _openApp),
                     const SizedBox(height: 4),
-                    Text(tr('Số tài khoản đã được sao chép sẵn. Nhiều app ngân hàng chỉ mở lên, chưa tự điền — dán / sao chép từng mục ở trên.'),
+                    Text(tr('Số tài khoản đã được sao chép sẵn. Nhiều app ngân hàng chỉ mở lên, chưa tự điền — bấm «Lưu ảnh QR» rồi trong app chọn Quét QR → chọn ảnh.'),
                         style: SboxType.captionStyle()),
                   ],
                 ] else if (bank > 0)
