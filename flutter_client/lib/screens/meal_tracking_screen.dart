@@ -351,7 +351,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   String _formatCurrency(double amount) {
     final fmt = NumberFormat('#,###', 'vi');
-    return '${fmt.format(amount)}đ';
+    return '${fmt.format(amount)} đ';
   }
 
   // ==================== SESSION MANAGEMENT ====================

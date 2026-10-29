@@ -33,4 +33,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(opened, 'nhap');
   });
+
+  testWidgets('Khớp đầu chữ xếp trước khớp giữa chữ', (tester) async {
+    final items = [
+      SboxCommandItem(
+          label: 'Ngành hàng & cách bán',
+          group: 'Thiết lập SBOX',
+          subtitle: 'Ngành, chế độ bán, khóa đơn tạm',
+          onSelect: () {}),
+      SboxCommandItem(label: 'Đơn hàng', group: 'POS / Bán hàng', subtitle: 'Hóa đơn', onSelect: () {}),
+    ];
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (ctx) => TextButton(onPressed: () => SboxCommandPalette.show(ctx, items), child: const Text('open')),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'hoa don ban');
+    await tester.pump();
+    final first = tester.getTopLeft(find.text('Đơn hàng')).dy;
+    final second = tester.getTopLeft(find.text('Ngành hàng & cách bán')).dy;
+    expect(first, lessThan(second));
+  });
 }

@@ -89,6 +89,7 @@ class _PaletteState extends State<_Palette> {
         // «doanh thu» trước đây ra «Báo cáo thu chi» đầu tiên (chữ «doanh» lấy từ nhóm «Báo cáo kinh doanh»).
         final own = SboxCommandPalette.fold(
             '${tr(it.label)} ${it.subtitle == null ? '' : tr(it.subtitle!)} ${it.keywords.join(' ')}');
+        final starts = ' ${hay.replaceAll(RegExp(r'[^a-z0-9]+'), ' ')}';
         // Khớp đầu một từ của tên trước khớp giữa chữ — «huy» ra «Xuất hủy» trước «Khuyến mãi» (k-huy-ến).
         final score = label.startsWith(f)
             ? 0
@@ -100,9 +101,13 @@ class _PaletteState extends State<_Palette> {
                         ? 3
                         : words.every(label.contains)
                             ? 4
-                            : words.every(own.contains)
+                            // Mọi từ khớp ở đầu một chữ trước khớp giữa chữ — «hoa don ban» ra «Đơn hàng»
+                            // (Hóa đơn · Bán hàng) trước «Ngành hàng & cách bán» (k-hóa đơn tạm).
+                            : words.every((w) => starts.contains(' $w'))
                                 ? 5
-                                : 6;
+                                : words.every(own.contains)
+                                    ? 6
+                                    : 7;
         scored.add((score, it));
       }
       scored.sort((a, b) => a.$1.compareTo(b.$1));

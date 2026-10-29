@@ -13,7 +13,7 @@ class MealUi {
 
   static String weekday(DateTime d) => _weekdays[d.weekday - 1];
   static String dateLong(DateTime d) => '${weekday(d)}, ${DateFormat('dd/MM/yyyy').format(d)}';
-  static String money(num? v) => '${_money.format(v ?? 0)}đ';
+  static String money(num? v) => '${_money.format(v ?? 0)} đ';
   static String time(DateTime d) => DateFormat('HH:mm').format(d);
   static String ymd(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
   static bool sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;

@@ -785,7 +785,9 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                             minWidth: 120,
                             hideOnMobile: true,
                             text: (p) {
-                              final mn = _num(p['minStockQty']), mx = _num(p['maxStockQty']);
+                              final mn = _num(p['minStockQty']);
+                              // 999.999.999 = không đặt mức tối đa (giá trị mặc định khi tạo hàng).
+                              final mx0 = _num(p['maxStockQty']), mx = mx0 >= 999999999 ? 0 : mx0;
                               if (mn <= 0 && mx <= 0) return '—';
                               return '${mn > 0 ? qty(mn) : '—'} / ${mx > 0 ? qty(mx) : '—'}';
                             },

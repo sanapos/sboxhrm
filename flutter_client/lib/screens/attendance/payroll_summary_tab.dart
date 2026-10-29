@@ -2912,7 +2912,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               items: [
                 for (final r in data)
                   SboxSlice('${r['employeeName'] ?? r['fullName'] ?? r['name'] ?? '—'}', ((r['netSalary'] as num?) ?? 0).toDouble(),
-                      caption: '${((r['workDays'] as num?) ?? 0)} công'),
+                      caption: '${'${r['code'] ?? ''}'.isEmpty ? '' : '${r['code']} · '}${SboxFmt.qty((r['workDays'] as num?) ?? 0)} công'),
               ],
             ),
           ),

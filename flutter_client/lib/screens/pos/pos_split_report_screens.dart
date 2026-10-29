@@ -456,6 +456,42 @@ List<Map<String, dynamic>> _maps(dynamic raw) => ((raw as List?) ?? [])
     .map((e) => Map<String, dynamic>.from(e))
     .toList();
 
+/// Lỗi tải (mất mạng / máy chủ lỗi) — trước đây báo cáo vẫn vẽ toàn số 0 như kỳ không bán gì.
+String? _loadErrorOf(Map<String, dynamic> res) {
+  if (res['isSuccess'] == true) return null;
+  final m = '${res['message'] ?? ''}'.trim();
+  return m.isEmpty ? 'Không tải được báo cáo' : m;
+}
+
+Widget _errorBody(String message, Future<void> Function() onRetry) => ListView(
+      children: [
+        SizedBox(
+          height: 240,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    tr(message),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Color(0xFFB42318)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: Text(tr('Thử lại')),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+
 Widget _loadingBody() => ListView(
       children: const [
         SizedBox(
@@ -585,6 +621,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
   bool _loading = true;
   bool _exporting = false;
   Map<String, dynamic>? _data;
+  String? _error;
   Map<String, dynamic>? _prev;
   List<Map<String, dynamic>> _orders = [];
   int _orderTotal = 0;
@@ -610,6 +647,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
     setState(() {
       _loading = false;
       _prev = prev;
+      _error = _loadErrorOf(res);
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
@@ -735,7 +773,9 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
       onRefresh: _load,
       body: _loading
           ? _loadingBody()
-          : ListView(
+          : _error != null
+              ? _errorBody(_error!, _load)
+              : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 insight,
@@ -853,6 +893,7 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
   PosGoodsReportFilter _filter = const PosGoodsReportFilter();
   bool _loading = true;
   Map<String, dynamic>? _data;
+  String? _error;
 
   @override
   void initState() {
@@ -878,6 +919,7 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _error = _loadErrorOf(res);
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
@@ -975,7 +1017,9 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
       onRefresh: _load,
       body: _loading
           ? _loadingBody()
-          : ListView(
+          : _error != null
+              ? _errorBody(_error!, _load)
+              : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 insight,
@@ -1029,6 +1073,7 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
   int _docKind = 0;
   bool _loading = true;
   Map<String, dynamic>? _data;
+  String? _error;
   /// Lọc NCC (máy chủ tính lại toàn bộ số liệu); danh sách NCC lấy từ lần tải không lọc của kỳ.
   String? _supplierId;
   Map<String, String> _supplierOptions = const {};
@@ -1049,6 +1094,7 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
       _loading = false;
       _showReceipts = 40;
       _showReturns = 40;
+      _error = _loadErrorOf(res);
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
@@ -1207,7 +1253,9 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
       onRefresh: _load,
       body: _loading
           ? _loadingBody()
-          : ListView(
+          : _error != null
+              ? _errorBody(_error!, _load)
+              : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 insight,
@@ -1366,6 +1414,7 @@ class _PosPaymentMethodReportScreenState
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   bool _loading = true;
   Map<String, dynamic>? _data;
+  String? _error;
   String? _pay;
   List<Map<String, dynamic>> _orders = [];
   int _orderTotal = 0;
@@ -1388,6 +1437,7 @@ class _PosPaymentMethodReportScreenState
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _error = _loadErrorOf(res);
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
@@ -1504,7 +1554,9 @@ class _PosPaymentMethodReportScreenState
       onRefresh: _load,
       body: _loading
           ? _loadingBody()
-          : ListView(
+          : _error != null
+              ? _errorBody(_error!, _load)
+              : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 insight,
@@ -1957,6 +2009,7 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   bool _loading = true;
   Map<String, dynamic>? _data;
+  String? _error;
   Map<String, dynamic>? _prev;
 
   @override
@@ -1974,6 +2027,7 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
     setState(() {
       _loading = false;
       _prev = prev;
+      _error = _loadErrorOf(res);
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
@@ -2047,7 +2101,9 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
       onRefresh: _load,
       body: _loading
           ? _loadingBody()
-          : ListView(
+          : _error != null
+              ? _errorBody(_error!, _load)
+              : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 insight,
@@ -2104,6 +2160,7 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
   String? _category;
   bool _loading = true;
   Map<String, dynamic>? _data;
+  String? _error;
 
   @override
   void initState() {
@@ -2117,6 +2174,7 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _error = _loadErrorOf(res);
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
@@ -2224,7 +2282,9 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
       onRefresh: _load,
       body: _loading
           ? _loadingBody()
-          : ListView(
+          : _error != null
+              ? _errorBody(_error!, _load)
+              : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 insight,
@@ -2341,6 +2401,7 @@ class _PosStaffRevenueReportScreenState
   bool _loading = true;
   bool _exporting = false;
   Map<String, dynamic>? _data;
+  String? _error;
   Map<String, dynamic>? _prev;
   /// Người bán đang chọn (khóa ổn định «e:<id hồ sơ>» / «n:<tên>») — lọc hóa đơn và hàng đã bán.
   String? _staffKey;
@@ -2376,6 +2437,7 @@ class _PosStaffRevenueReportScreenState
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _error = cur == null ? 'Không tải được báo cáo — kiểm tra mạng rồi thử lại' : null;
       _data = cur;
       _prev = prev;
       _orderTotal = orders.$1;
@@ -2535,7 +2597,9 @@ class _PosStaffRevenueReportScreenState
       onRefresh: _load,
       body: _loading
           ? _loadingBody()
-          : ListView(
+          : _error != null
+              ? _errorBody(_error!, _load)
+              : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 insight,
@@ -2640,6 +2704,7 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
   int _cashKind = 0;
   bool _loading = true;
   Map<String, dynamic>? _data;
+  String? _error;
 
   @override
   void initState() {
@@ -2653,6 +2718,7 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _error = _loadErrorOf(res);
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
@@ -2761,7 +2827,9 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
       onRefresh: _load,
       body: _loading
           ? _loadingBody()
-          : ListView(
+          : _error != null
+              ? _errorBody(_error!, _load)
+              : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 insight,
@@ -2942,6 +3010,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisMonth);
   bool _loading = true;
   Map<String, dynamic>? _data;
+  String? _error;
   List<Map<String, dynamic>> _orders = [];
   int _orderTotal = 0;
   List<Map<String, dynamic>> _expenses = [];
@@ -2966,6 +3035,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _error = _loadErrorOf(res);
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
@@ -3084,7 +3154,9 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
       onRefresh: _load,
       body: _loading
           ? _loadingBody()
-          : ListView(
+          : _error != null
+              ? _errorBody(_error!, _load)
+              : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 insight,
@@ -3311,6 +3383,7 @@ class _PosVoucherUsageReportScreenState
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisMonth);
   bool _loading = true;
   Map<String, dynamic>? _data;
+  String? _error;
   String? _code;
   List<Map<String, dynamic>> _orders = [];
   int _orderTotal = 0;
@@ -3334,6 +3407,7 @@ class _PosVoucherUsageReportScreenState
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _error = _loadErrorOf(res);
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
@@ -3422,7 +3496,9 @@ class _PosVoucherUsageReportScreenState
       onRefresh: _load,
       body: _loading
           ? _loadingBody()
-          : ListView(
+          : _error != null
+              ? _errorBody(_error!, _load)
+              : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 insight,
