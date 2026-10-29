@@ -28,6 +28,7 @@ import '../widgets/mobile_attendance_record_detail_sheet.dart';
 import '../widgets/notification_overlay.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'mobile_attendance_history_screen.dart';
+import 'mobile_device_registration_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_locale.dart';
 
@@ -2031,8 +2032,12 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     final barColor = isEnabled
         ? (needsFaceScan ? HrmPageChrome.chipLight : SboxColors.success)
         : HrmPageChrome.chipLight;
+    // Chưa đăng ký / đăng ký máy khác: bấm thanh này mở thẳng màn đăng ký máy — trước chỉ có
+    // dòng chữ, nhân viên phải tự tìm «Đăng ký chấm công Mobile» trong menu.
+    final needsRegistration =
+        !isEnabled && (_registeredOnOtherDevice || !_isDeviceRegistered);
 
-    return Container(
+    final bar = Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -2059,8 +2064,20 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   fontSize: 12, fontWeight: FontWeight.w600, color: barColor),
             ),
           ),
+          if (needsRegistration)
+            Icon(Icons.chevron_right_rounded, size: 20, color: barColor),
         ],
       ),
+    );
+    if (!needsRegistration) return bar;
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () async {
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => const MobileDeviceRegistrationScreen()));
+        if (mounted) _loadDeviceStatus();
+      },
+      child: bar,
     );
   }
 

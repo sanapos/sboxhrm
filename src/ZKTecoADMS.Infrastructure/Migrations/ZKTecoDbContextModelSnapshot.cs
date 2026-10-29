@@ -5590,8 +5590,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.HasIndex("ReplacementEmployeeId");
 
-                    b.HasIndex("ShiftId")
-                        .IsUnique();
+                    b.HasIndex("ShiftId");
 
                     b.HasIndex("StoreId", "StartDate", "EndDate")
                         .HasDatabaseName("IX_Leaves_Store_Dates");
@@ -11974,12 +11973,6 @@ namespace ZKTecoADMS.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("ReplacementEmployeeId");
 
-                    b.HasOne("ZKTecoADMS.Domain.Entities.Shift", null)
-                        .WithOne("Leave")
-                        .HasForeignKey("ZKTecoADMS.Domain.Entities.Leave", "ShiftId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("ZKTecoADMS.Domain.Entities.Store", "Store")
                         .WithMany()
                         .HasForeignKey("StoreId");
@@ -13328,11 +13321,6 @@ namespace ZKTecoADMS.Infrastructure.Migrations
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.ServicePackage", b =>
                 {
                     b.Navigation("Stores");
-                });
-
-            modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Shift", b =>
-                {
-                    b.Navigation("Leave");
                 });
 
             modelBuilder.Entity("ZKTecoADMS.Domain.Entities.Store", b =>

@@ -369,8 +369,13 @@ class _LeaveScreenState extends State<LeaveScreen>
     return leaves.where((leave) {
       if (_filterBranchId != null) {
         final empId = leave['employeeId']?.toString();
+        final userId = leave['employeeUserId']?.toString();
+        // Đơn nhân viên tự gửi (bản cũ) không có employeeId → tra theo tài khoản; trước bị loại
+        // khỏi «Đơn của tôi» dù thẻ đếm vẫn ghi 1 đơn chờ duyệt.
         final emp = _employees.firstWhere(
-          (e) => e['id']?.toString() == empId,
+          (e) => empId != null
+              ? e['id']?.toString() == empId
+              : userId != null && e['applicationUserId']?.toString() == userId,
           orElse: () => <String, dynamic>{},
         );
         // NV chưa gắn chi nhánh = trụ sở (BranchFilterHelper.branchMatches).

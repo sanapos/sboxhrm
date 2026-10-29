@@ -7,7 +7,8 @@ public class GetMonthlyAttendanceSummaryHandler(
     IRepository<Employee> employeeRepository,
     IRepository<DeviceUser> deviceUserRepository,
     IRepository<Attendance> attendanceRepository,
-    IRepository<Shift> shiftRepository
+    IRepository<Shift> shiftRepository,
+    IRepository<Leave> leaveRepository
 ) : IQueryHandler<GetMonthlyAttendanceSummaryQuery, AppResponse<List<MonthlyAttendanceSummaryDto>>>
 {
     public async Task<AppResponse<List<MonthlyAttendanceSummaryDto>>> Handle(
@@ -73,7 +74,6 @@ public class GetMonthlyAttendanceSummaryHandler(
                              s.StartTime >= startDate &&
                              s.StartTime <= endDate.AddDays(1) &&
                              s.Status == ShiftStatus.Approved,
-                includeProperties: new[] { "Leave" },
                 cancellationToken: cancellationToken)
             : new List<Shift>();
 
@@ -82,6 +82,17 @@ public class GetMonthlyAttendanceSummaryHandler(
             .Where(s => empIdByAppUserId.ContainsKey(s.EmployeeUserId))
             .GroupBy(s => (empIdByAppUserId[s.EmployeeUserId], s.StartTime.Date))
             .ToDictionary(g => g.Key, g => g.First());
+
+        // ── Bulk query 5: đơn nghỉ (không hủy / từ chối) chạm tháng ─────────────
+        // Trước đọc qua Shift.Leave — đơn lưu id ca mẫu nên quan hệ đó luôn rỗng, và chính điều hướng ấy
+        // làm EF sinh khóa ngoại Leaves→Shifts khiến mọi đơn nghỉ mới lỗi 500.
+        var allLeaves = appUserIds.Any()
+            ? await leaveRepository.GetAllAsync(
+                filter: l => appUserIds.Contains(l.EmployeeUserId) &&
+                             l.StartDate <= endDate && l.EndDate >= startDate &&
+                             l.Status != LeaveStatus.Rejected && l.Status != LeaveStatus.Cancelled,
+                cancellationToken: cancellationToken)
+            : new List<Leave>();
 
         // ── Process each employee in memory (no DB calls in loop) ───────────
         var results = new List<MonthlyAttendanceSummaryDto>();
@@ -110,6 +121,10 @@ public class GetMonthlyAttendanceSummaryHandler(
                     .ToList();
 
                 shiftsByEmpDate.TryGetValue((empId, date.Date), out var dayShift);
+                var dayLeave = employee.ApplicationUserId is { } uid
+                    ? allLeaves.FirstOrDefault(l => l.EmployeeUserId == uid &&
+                                                    l.StartDate.Date <= date.Date && l.EndDate.Date >= date.Date)
+                    : null;
 
                 var attendanceRecords = new List<AttendanceRecordDto>();
                 for (int i = 0; i < dayAttendances.Count; i++)
@@ -141,7 +156,7 @@ public class GetMonthlyAttendanceSummaryHandler(
                     Date = date,
                     Attendances = attendanceRecords,
                     HasShift = dayShift != null,
-                    IsLeave = dayShift?.Leave != null,
+                    IsLeave = dayLeave != null,
                     Shift = dayShift != null ? new ShiftInfoDto
                     {
                         Id = dayShift.Id,
@@ -150,13 +165,13 @@ public class GetMonthlyAttendanceSummaryHandler(
                         Description = dayShift.Description,
                         Status = dayShift.Status
                     } : null,
-                    Leave = dayShift?.Leave != null ? new LeaveInfoDto
+                    Leave = dayLeave != null ? new LeaveInfoDto
                     {
-                        Id = dayShift.Leave.Id,
-                        Type = dayShift.Leave.Type,
-                        Reason = dayShift.Leave.Reason,
-                        Status = dayShift.Leave.Status,
-                        IsHalfShift = dayShift.Leave.IsHalfShift
+                        Id = dayLeave.Id,
+                        Type = dayLeave.Type,
+                        Reason = dayLeave.Reason,
+                        Status = dayLeave.Status,
+                        IsHalfShift = dayLeave.IsHalfShift
                     } : null
                 });
             }

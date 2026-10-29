@@ -815,17 +815,20 @@ class _MobileDeviceRegistrationScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: SboxColors.slate50,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: Text(tr('Đăng ký chấm công Mobile'),
-          style: TextStyle(
-            color: SboxColors.slate900,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
+      // Trong khung MainLayout đã có thanh tiêu đề — trước lặp «Đăng ký chấm công Mobile» 2 lần.
+      // Mở riêng (từ màn chấm công) thì hiện AppBar có nút quay lại.
+      appBar: HrmPageChrome.showInPageAppBar(context)
+          ? AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              title: Text(tr('Đăng ký chấm công Mobile'),
+                style: TextStyle(
+                  color: SboxColors.slate900,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            )
+          : null,
       body: _buildBody(),
     );
   }

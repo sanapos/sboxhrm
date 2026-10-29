@@ -367,12 +367,14 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
           profile != null ? Map<String, dynamic>.from(profile) : null,
           widget.shifts,
         );
+        // Hồ sơ lương không gắn ca = «làm mọi ca theo lịch phân ca» (Thiết lập lương) → cho chọn
+        // mọi ca của cửa hàng. Trước để trống thì không chọn được ca nào, nhân viên không gửi được đơn.
         _filteredShifts = ids.isEmpty
-            ? []
+            ? List<dynamic>.from(widget.shifts)
             : widget.shifts
                 .where((s) => ids.contains(s['id']?.toString()))
                 .toList();
-        _hasSalaryShifts = ids.isNotEmpty;
+        _hasSalaryShifts = _filteredShifts.isNotEmpty;
       } else {
         _filteredShifts = [];
         _hasSalaryShifts = false;
@@ -529,28 +531,30 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       child: Row(
         children: List.generate(labels.length, (i) {
           final active = i <= _step;
+          final dot = CircleAvatar(
+            radius: 14,
+            backgroundColor: active ? _primary : _border,
+            child: Text(
+              tr('${i + 1}'),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: active ? Colors.white : _muted,
+              ),
+            ),
+          );
+          // Bước đầu chỉ là chấm (không Expanded) — trước chiếm 1/3 hàng nên đường nối 1→2 bị hở.
+          if (i == 0) return dot;
           return Expanded(
             child: Row(
               children: [
-                if (i > 0)
-                  Expanded(
-                    child: Container(
-                      height: 2,
-                      color: active ? _primary : _border,
-                    ),
-                  ),
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: active ? _primary : _border,
-                  child: Text(
-                    tr('${i + 1}'),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: active ? Colors.white : _muted,
-                    ),
+                Expanded(
+                  child: Container(
+                    height: 2,
+                    color: active ? _primary : _border,
                   ),
                 ),
+                dot,
               ],
             ),
           );
@@ -743,7 +747,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
                   border: OutlineInputBorder(),
                 ),
                 validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Bắt buộc với chế độ BHXH' : null,
+                    (v == null || v.trim().isEmpty) ? tr('Bắt buộc với chế độ BHXH') : null,
               ),
             ),
           ],
@@ -755,7 +759,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
               controller: _reasonController,
               maxLines: 3,
               validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Vui lòng nhập lý do' : null,
+                  (v == null || v.trim().isEmpty) ? tr('Vui lòng nhập lý do') : null,
               decoration: InputDecoration(
                 hintText: tr('Mô tả ngắn gọn lý do nghỉ…'),
                 filled: true,
@@ -1169,7 +1173,11 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       _toast('Chọn nhân viên', error: true);
       return;
     }
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      // Ô lý do nằm cuối form, thường khuất dưới nút «Gửi đơn» — trước bấm gửi không thấy gì xảy ra.
+      _toast(_reasonController.text.trim().isEmpty ? 'Vui lòng nhập lý do' : 'Bắt buộc với chế độ BHXH', error: true);
+      return;
+    }
     if (entry.usesAnnualBalance &&
         !_countAsWork &&
         _annualBalanceRemaining != null &&

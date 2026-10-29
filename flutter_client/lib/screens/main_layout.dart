@@ -2980,7 +2980,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       case 'Employee':
         return l.employeeRecords;
       case 'Payroll':
-        return l.payrollSummary;
+        // Ngắn như danh mục thanh dưới — «Tổng hợp lương» bị cắt «Tổng hợp lư…» trên V2s.
+        return 'Bảng lương';
       case 'Leave':
         return l.leave;
       case 'Communication':
@@ -2994,7 +2995,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       case 'Notification':
         return l.notifications;
       case 'Payslip':
-        return l.payrollSummary;
+        // Trước dùng nhãn «Tổng hợp lương» — sai màn, lại bị cắt «Tổng hợp lư…».
+        return 'Phiếu lương';
       default:
         return moduleCode;
     }

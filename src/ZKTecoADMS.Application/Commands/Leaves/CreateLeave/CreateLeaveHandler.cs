@@ -91,6 +91,17 @@ public class CreateLeaveHandler(
                 request.ShiftIds != null ? string.Join(",", request.ShiftIds) : "null",
                 string.Join(",", shiftIds));
 
+            // Nhân viên tự gửi đơn: app chỉ gửi EmployeeId khi quản lý tạo hộ → đơn thiếu EmployeeId,
+            // màn Nghỉ phép (lọc theo chi nhánh qua EmployeeId) không hiện đơn của chính họ.
+            var employeeId = request.EmployeeId;
+            if (employeeId == null)
+            {
+                var self = await employeeRepository.GetSingleAsync(
+                    e => e.ApplicationUserId == request.EmployeeUserId && e.StoreId == request.StoreId,
+                    cancellationToken: cancellationToken);
+                employeeId = self?.Id;
+            }
+
             var leave = new Leave
             {
                 EmployeeUserId = request.EmployeeUserId,
@@ -105,7 +116,7 @@ public class CreateLeaveHandler(
                 Status = LeaveStatus.Pending,
                 StoreId = request.StoreId,
                 ReplacementEmployeeId = request.ReplacementEmployeeId,
-                EmployeeId = request.EmployeeId,
+                EmployeeId = employeeId,
                 TotalApprovalLevels = totalLevels,
                 CurrentApprovalStep = 0,
                 CountAsWork = request.CountAsWork,

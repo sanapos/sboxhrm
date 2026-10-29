@@ -28,5 +28,10 @@ public class ShiftConfiguration : IEntityTypeConfiguration<Shift>
             .WithMany()
             .HasForeignKey(s => s.CheckOutAttendanceId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // Leave.ShiftId lưu id CA MẪU (ShiftTemplate), không phải Shift — xem LeaveConfiguration.
+        // Để điều hướng này thì EF tự suy ra quan hệ 1-1 Shift↔Leave và sinh FK Leaves→Shifts
+        // (migration AddPenaltyTickets), làm mọi đơn nghỉ mới lỗi 23503 khi lưu.
+        builder.Ignore(s => s.Leave);
     }
 }
