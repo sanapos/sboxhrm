@@ -336,7 +336,7 @@ const _codeKeys = {'employeeCode', 'productCode', 'assetCode', 'categoryCode', '
 
 /// Số liệu chính để xếp hạng, theo thứ tự ưu tiên (số giống nhau cho mọi dòng như «ngày công chuẩn» không xếp hạng).
 const _rankKeys = [
-  'complianceRate', 'outstandingDebt', 'totalOutstanding', 'paidRemaining', 'usagePercent', 'totalScore',
+  'complianceRate', 'absentDays', 'outstandingDebt', 'totalOutstanding', 'paidRemaining', 'usagePercent', 'totalScore',
   'avgCompletion', 'avgScore', 'totalQuantity', 'totalAmount', 'totalVisits', 'totalPunches', 'totalRequested',
   'avgResponseHours', 'ticketCount', 'totalCases', 'balanceAmount', 'currentValue', 'gap', 'count', 'total',
 ];
@@ -634,7 +634,9 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
       ];
     }
     if (nameKey == null || !widget.spec.rankChart) return const [];
-    final candidates = nums.where(varies).toList();
+    // Không xếp hạng theo mốc chuẩn (vd «ngày công chuẩn» từng người theo lịch) — chuyên cần cả tháng 0%
+    // trước đây rơi về cột này thành «Xếp hạng ngày công chuẩn» vô nghĩa.
+    final candidates = nums.where(varies).where((k) => !k.toLowerCase().startsWith('standard')).toList();
     if (candidates.isEmpty) return const [];
     final valueKey = _rankKeys.firstWhere(candidates.contains, orElse: () => candidates.first);
     final percent = _isPercentKey(valueKey);
