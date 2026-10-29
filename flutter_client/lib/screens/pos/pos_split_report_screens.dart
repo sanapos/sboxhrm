@@ -2071,7 +2071,7 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        tr('Biên LN: ${margin.toStringAsFixed(1)}%'),
+                        tr('Biên LN: ${SboxFmt.pct(margin)}'),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,

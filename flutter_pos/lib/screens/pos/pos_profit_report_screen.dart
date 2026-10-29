@@ -96,7 +96,7 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
       ],
       summaryLines: [
         'DT ${_n(_data?['totalRevenue'])}',
-        'COGS ${_n(_data?['totalCogs'])}',
+        'Giá vốn ${_n(_data?['totalCogs'])}',
         'LN ${_n(_data?['totalProfit'])}',
       ],
     );
@@ -223,7 +223,7 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
                         color: PosTheme.kiotBlue
                       ),
                       (
-                        label: 'COGS',
+                        label: 'Giá vốn',
                         value: _n(_data?['totalCogs']),
                         color: Colors.amber.shade700
                       ),
@@ -261,7 +261,7 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
   Widget _row(Map<String, dynamic> r) {
     final name = r['productName']?.toString() ?? r['displayName']?.toString() ?? r['label']?.toString() ?? '—';
     final sub = r['productCode']?.toString() ??
-        '${r['orderCount'] ?? ''} đơn · biên ${_n(r['marginPct']).toStringAsFixed(1)}%';
+        '${r['orderCount'] ?? ''} đơn · biên ${SboxFmt.pct(_n(r['marginPct']))}';
     final profit = _n(r['profit']);
     return Row(
       children: [
@@ -274,7 +274,7 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
               const SizedBox(height: 2),
               Text(
                 tr(_dim == 'product'
-                    ? '${r['productCode'] ?? ''} · SL ${r['qty'] ?? 0} · DT ${_moneyFmt.format(_n(r['revenue']))} · biên ${_n(r['marginPct']).toStringAsFixed(1)}%'
+                    ? '${r['productCode'] ?? ''} · SL ${SboxFmt.qty(_n(r['qty']))} · DT ${_moneyFmt.format(_n(r['revenue']))} · biên ${SboxFmt.pct(_n(r['marginPct']))}'
                     : sub.toString()),
                 style: const TextStyle(
                     fontSize: 12, color: PosTheme.textSecondary),

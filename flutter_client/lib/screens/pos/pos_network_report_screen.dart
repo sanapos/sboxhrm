@@ -516,7 +516,7 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
           const SizedBox(height: 6),
           Text(
             tr('${_n(h['orders'])} đơn mới · ${_n(h['printJobs'])} phiếu in · ${_n(h['devices'])} máy đo\n'
-                'Lỗi gọi máy chủ ${_n(h['failPct'])}% · phản hồi ${p95 == null ? '—' : _sec(p95)}\n'
+                'Lỗi gọi máy chủ ${_n(h['failPct']).toString().replaceAll('.', ',')}% · phản hồi ${p95 == null ? '—' : _sec(p95)}\n'
                 'Mất mạng lâu nhất ${_dur(h['maxDeviceOfflineSec'])} · rớt cập nhật tức thời ${_n(h['disconnects'])} lần'
                 '${h['printP95Sec'] == null ? '' : '\nIn phiếu xong trong ${h['printP95Sec']} giây (95%)'}'),
             style: const TextStyle(fontSize: 12.5, height: 1.45, color: SboxColors.slate700),
@@ -646,7 +646,7 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
     };
     final health = d['health']?.toString();
     final problems = <String>[
-      if (_n(d['failPct']) >= 1) 'Lỗi gọi máy chủ ${_n(d['failPct'])}%',
+      if (_n(d['failPct']) >= 1) 'Lỗi gọi máy chủ ${_n(d['failPct']).toString().replaceAll('.', ',')}%',
       if (_n(d['latencyP95Ms']) > _goodP95Ms) 'Phản hồi chậm (${_sec(_n(d['latencyP95Ms']))})',
       if (_n(d['outages']) > 0) 'Mất mạng ${d['outages']} lần (tổng ${_dur(d['offlineSec'])})',
       if (_n(d['disconnects']) > 0) 'Rớt cập nhật tức thời ${d['disconnects']} lần',

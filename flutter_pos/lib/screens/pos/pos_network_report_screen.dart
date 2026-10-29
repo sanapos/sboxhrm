@@ -200,7 +200,7 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
         runSpacing: 8,
         children: [
           _kpi('Thiết bị', '${r['deviceCount'] ?? 0}'),
-          _kpi('Lỗi gọi máy chủ', '${r['failPct'] ?? 0}%'),
+          _kpi('Lỗi gọi máy chủ', '${'${r['failPct'] ?? 0}'.replaceAll('.', ',')}%'),
           _kpi('Độ trễ (95%)', p95 == null ? '—' : '$p95 ms'),
           _kpi('Mất kết nối', '${r['outageCount'] ?? 0} lần · ${((r['outageSeconds'] ?? 0) as num) ~/ 60} phút'),
           _kpi('Rớt realtime', '${r['disconnects'] ?? 0} lần'),
@@ -311,7 +311,7 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
               message: tr(
                 '${_dt(h['hourVn']) == null ? '' : (multiDay ? _dhm : _hm).format(_dt(h['hourVn'])!)}\n'
                 'Đơn: ${h['orders']} · thiết bị: ${h['devices']}\n'
-                'Lỗi: ${h['failPct']}% · trễ 95%: ${h['latencyP95Ms'] ?? '—'} ms\n'
+                'Lỗi: ${'${h['failPct']}'.replaceAll('.', ',')}% · trễ 95%: ${h['latencyP95Ms'] ?? '—'} ms\n'
                 'Mất mạng lâu nhất: ${_dur(h['maxDeviceOfflineSec'])} · rớt realtime: ${h['disconnects']}\n'
                 'Lệnh in: ${h['printJobs']} · in xong 95%: ${h['printP95Sec'] ?? '—'}s',
               ),
@@ -364,7 +364,7 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
       title: Text(tr('${d['deviceName'] ?? d['deviceId']}${d['isAgent'] == true ? ' · Agent' : ''}'),
           style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(tr(
-        '$conn · lỗi ${d['failPct']}% · trễ 95% ${d['latencyP95Ms'] ?? '—'} ms · mất mạng ${_dur(d['offlineSec'])} '
+        '$conn · lỗi ${'${d['failPct']}'.replaceAll('.', ',')}% · trễ 95% ${d['latencyP95Ms'] ?? '—'} ms · mất mạng ${_dur(d['offlineSec'])} '
         '(${d['outages']} lần) · rớt realtime ${d['disconnects']}'
         '${((d['printerChecks'] as num?) ?? 0) > 0 ? ' · máy in LAN lỗi ${d['printerFailed']}/${d['printerChecks']}' : ''}'
         '${last == null ? '' : ' · gửi lúc ${_dhm.format(last)}'}',

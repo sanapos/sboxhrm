@@ -1915,7 +1915,7 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        tr('Biên LN: ${margin.toStringAsFixed(1)}%'),
+                        tr('Biên LN: ${SboxFmt.pct(margin)}'),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -2828,7 +2828,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        tr('LN ròng: ${posReportMoney(net)}  ·  biên ${_n(_data?['marginPct']).toStringAsFixed(1)}%  ·  ${_n(_data?['orderCount']).toInt()} HĐ'),
+                        tr('LN ròng: ${posReportMoney(net)}  ·  biên ${SboxFmt.pct(_n(_data?['marginPct']))}  ·  ${_n(_data?['orderCount']).toInt()} HĐ'),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
