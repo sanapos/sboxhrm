@@ -180,18 +180,6 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
                   ],
                 ),
                 PosReportCard(
-                  title: 'Cọc',
-                  child: PosReportMetricTiles(
-                    moneyFmt: _moneyFmt,
-                    tiles: [
-                      (label: 'Đang giữ', value: _n(_data?['depositHeld']), color: const Color(0xFF0F766E)),
-                      (label: 'Đã trừ HĐ', value: _n(_data?['depositApplied']), color: PosTheme.kiotBlue),
-                      (label: 'Hoàn cọc', value: _n(_data?['depositRefunded']), color: SboxColors.violet),
-                      (label: 'Phạt / mất', value: _n(_data?['depositForfeited']), color: Colors.red.shade700),
-                    ],
-                  ),
-                ),
-                PosReportCard(
                   title: 'Lịch (${items.length})',
                   child: items.isEmpty
                       ? Text(tr('Chưa có đặt chỗ'),

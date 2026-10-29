@@ -3102,12 +3102,8 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
         SboxChartCard(
           title: 'Từ doanh thu đến lợi nhuận ròng',
           subtitle: _time.displayLabel,
-          child: SboxBarChart(
-            labels: [for (final s in steps) s.$1],
-            series: [
-              SboxSeries(name: 'Số tiền', values: [for (final s in steps) s.$2]),
-            ],
-          ),
+          // Thanh ngang: biểu đồ cột trên màn hẹp chỉ đủ ~5 nhãn → ẩn mất Giá vốn / Thu khác…
+          child: _PnlStepBars(steps: steps),
         ),
         SboxChartCard(
           title: 'Cơ cấu chi phí',
@@ -3575,5 +3571,57 @@ class _PosVoucherUsageReportScreenState
               ],
             ),
     );
+  }
+}
+
+/// Các bước doanh thu → lãi ròng, mỗi dòng đủ tên + số tiền; khoản trừ màu đỏ, khoản cộng xanh.
+class _PnlStepBars extends StatelessWidget {
+  const _PnlStepBars({required this.steps});
+
+  final List<(String, double)> steps;
+
+  static const _totals = {'Doanh thu', 'LN gộp', 'LN ròng'};
+  static const _incomes = {'Phụ thu, phí GH', 'Cọc khách bỏ', 'Thu khác'};
+
+  @override
+  Widget build(BuildContext context) {
+    final peak = steps.fold<double>(0, (a, e) => e.$2.abs() > a ? e.$2.abs() : a);
+    final top = peak <= 0 ? 1.0 : peak;
+    return Column(children: [
+      for (final s in steps)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Builder(builder: (_) {
+            final total = _totals.contains(s.$1);
+            final color = total
+                ? (s.$2 < 0 ? SboxColors.danger : SboxColors.brand500)
+                : (_incomes.contains(s.$1) ? SboxColors.success : SboxColors.danger);
+            final sign = total ? '' : (_incomes.contains(s.$1) ? '+ ' : '− ');
+            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                Expanded(
+                  child: Text(tr(s.$1),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: total
+                          ? SboxType.smallStyle(SboxColors.text).copyWith(fontWeight: FontWeight.w700)
+                          : SboxType.smallStyle(SboxColors.text)),
+                ),
+                Text('$sign${SboxFmt.money(s.$2)}', style: SboxType.moneyStyle(size: SboxType.small)),
+              ]),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: SboxRadius.pillAll,
+                child: LinearProgressIndicator(
+                  value: (s.$2.abs() / top).clamp(0.0, 1.0),
+                  minHeight: 6,
+                  backgroundColor: SboxColors.slate100,
+                  valueColor: AlwaysStoppedAnimation(color),
+                ),
+              ),
+            ]);
+          }),
+        ),
+    ]);
   }
 }
