@@ -1,6 +1,5 @@
 import '../../widgets/hrm_page_chrome.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import 'dart:convert';
@@ -140,15 +139,11 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
     });
   }
 
-  String _fmtNum(double v) {
-    if (v == v.roundToDouble()) return v.toStringAsFixed(0);
-    return v.toString();
-  }
+  // Có dấu nghìn («10.000»), cùng kiểu ô tiền khác — trước «10000».
+  String _fmtNum(double v) => NumberFormat('#,##0', 'vi_VN').format(v.round());
 
-  double _parseMoney(String raw) {
-    final t = raw.replaceAll(RegExp(r'[^0-9.]'), '');
-    return double.tryParse(t) ?? 0;
-  }
+  /// Chỉ lấy chữ số — giữ «.» thì «10.000» đọc thành 10.
+  double _parseMoney(String raw) => PosVndThousandsFormatter.parse(raw);
 
   PosLoyaltyRates get _previewRates => PosLoyaltyRates(
         enabled: _enabled,
@@ -296,7 +291,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
           enabled: _enabled && !_saving,
           textAlign: TextAlign.right,
           keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          inputFormatters: [PosVndThousandsFormatter()],
           decoration: InputDecoration(
             hintText: hint,
             suffixText: tr(suffix),

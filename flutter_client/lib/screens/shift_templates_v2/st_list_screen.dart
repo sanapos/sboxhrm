@@ -419,7 +419,9 @@ class _ShiftTemplatesV2ScreenState extends State<ShiftTemplatesV2Screen> {
               ]),
               const SizedBox(height: 2),
               Text(
-                '${StTime.hm(s.start)} – ${StTime.hm(s.end)}${s.overnight ? ' (hôm sau)' : ''}  ·  ${StTime.duration(s.workMinutes)} làm',
+                // Khoảng trắng không ngắt trong «8 giờ làm» — trước xuống dòng giữa «8» và «giờ làm».
+                '${StTime.hm(s.start)} – ${StTime.hm(s.end)}${s.overnight ? ' (hôm sau)' : ''}  ·  '
+                '${'${StTime.duration(s.workMinutes)} làm'.replaceAll(' ', ' ')}',
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SboxColors.slate700),
               ),
             ]),
