@@ -4186,6 +4186,7 @@ public class ZKTecoDbInitializer(
         ["PosSellPriceEdit"] = Guid.Parse("11111111-1111-1111-1111-111111111126"),
         ["PosSellDiscount"] = Guid.Parse("11111111-1111-1111-1111-111111111127"),
         ["PosSellCancelPaid"] = Guid.Parse("11111111-1111-1111-1111-111111111128"),
+        ["PosSellVoidSent"] = Guid.Parse("11111111-1111-1111-1111-111111111150"),
         ["PosViewCost"] = Guid.Parse("11111111-1111-1111-1111-111111111129"),
         ["PosPromotions"] = Guid.Parse("11111111-1111-1111-1111-111111111141"),
     };
@@ -4274,6 +4275,9 @@ public class ZKTecoDbInitializer(
         ("PosSellDiscount", "PosSell", (v, c, e, d, x, a) => (v && a, false, a, false, false, false)),
         // Hủy hóa đơn đã thu trước đây cũng là PosSell · Duyệt.
         ("PosSellCancelPaid", "PosSell", (v, c, e, d, x, a) => (v && a, false, false, false, false, a)),
+        // Hủy món đã gửi bếp (2026-10) trước đây ai gọi món được cũng làm được — nay chỉ chủ / quản lý giữ nguyên;
+        // thu ngân / order cần quản lý duyệt (hoặc chủ tick riêng) — xem RoleScopedSub.
+        ("PosSellVoidSent", "PosSell", (v, c, e, d, x, a) => (v && a, false, false, false, false, a)),
         // Ai xem được Hàng hóa đều đang thấy giá vốn.
         ("PosViewCost", "PosProducts", (v, c, e, d, x, a) => (v, false, false, false, false, false)),
         // Hợp đồng & thu tiền theo đợt tách khỏi Báo giá — ai đang dùng Báo giá giữ nguyên quyền.
@@ -4303,10 +4307,11 @@ public class ZKTecoDbInitializer(
         "PosGymCheckIn" => role is "Admin" or "Director" or "Manager" ? f : (f.v, f.c, false, false, f.x, false),
         "PosDebtAdjust" => role is "Admin" or "Director" or "Manager" or "Accountant" ? f : null,
         "PosGymTrainer" => role is "Admin" or "Director" or "Manager" ? f : null,
+        "PosSellVoidSent" => role is "Admin" or "Director" or "Manager" ? f : null,
         _ => f,
     };
 
-    static readonly HashSet<string> RoleOnlySubs = ["PosGymCheckIn", "PosDebtAdjust", "PosGymTrainer"];
+    static readonly HashSet<string> RoleOnlySubs = ["PosGymCheckIn", "PosDebtAdjust", "PosGymTrainer", "PosSellVoidSent"];
 
     /// <summary>Chức năng có nút / API xuất mới được kiểm quyền Xuất — cấp Xuất cho ai đang Xem (một lần).</summary>
     static readonly string[] ExportGateModules =

@@ -1309,7 +1309,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           }
         }
         await PosPrintAgentService.instance.ensureRunning(storeId);
-        unawaited(PosQrOrderVoiceAlert.instance.start());
+        unawaited(PosQrOrderVoiceAlert.instance.start(
+            canTakePayment: () => context.mounted && context.read<PermissionProvider>().canPosPay()));
         PosPaymentGatewayListener.instance.start();
       }
       // Join user group for user-specific notifications

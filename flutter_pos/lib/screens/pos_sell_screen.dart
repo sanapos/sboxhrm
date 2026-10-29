@@ -1510,7 +1510,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     NavigationNotifier.pendingOpenQrOnlineDraftId
         .addListener(_onPendingQrOnlineDraftChanged);
     _startSellBadgePolling();
-    unawaited(PosQrOrderVoiceAlert.instance.start());
+    unawaited(PosQrOrderVoiceAlert.instance.start(
+            canTakePayment: () => context.mounted && context.read<PermissionProvider>().canPosPay()));
     // Đo mạng cửa hàng (ping / lỗi gọi server / realtime / máy in LAN) → báo cáo «Mạng cửa hàng».
     unawaited(PosNetworkMonitor.instance.start());
     // Bán offline / giữ giỏ khi mất mạng.
@@ -4900,6 +4901,15 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// Trả về false nếu user hủy dialog lý do (chưa ghi log / chưa in).
   /// Sau tạm tính + cửa hàng bật «cần quản lý duyệt»: hỏi duyệt TRƯỚC khi bỏ món (máy chủ cũng chặn —
   /// đây chỉ để không bỏ món trên máy rồi mới bị từ chối).
+  /// Bớt / hủy món đã gửi bếp: tài khoản không có quyền «Hủy món đã gửi bếp» (order / thu ngân) → chủ / quản lý
+  /// nhập mật khẩu duyệt. Hỏi TRƯỚC khi bỏ món trên máy — máy chủ cũng chặn khi lưu đơn.
+  Future<bool> _ensureVoidSentPermission() async {
+    if (context.read<PermissionProvider>().canPosVoidSent()) return true;
+    if (ApiService.hasPosApprovalToken) return true;
+    return confirmPosManagerApproval(
+        context, 'Cần quản lý duyệt: hủy món đã gửi bếp — tài khoản chưa có quyền «Hủy món đã gửi bếp».');
+  }
+
   Future<bool> _ensureAfterBillApproval(String action) async {
     final s = _industrySettings;
     if (s == null || !PosAfterBillApprovalConfig.isActive(s)) return true;
@@ -10712,6 +10722,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (ticket != null) {
       voidReason = await _promptKitchenVoidReason();
       if (voidReason == null || !mounted) return;
+      if (!await _ensureVoidSentPermission() || !mounted) return;
       if (!await _ensureAfterBillApproval('hủy món') || !mounted) return;
     }
 
@@ -10788,6 +10799,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
       final voidReason = await _promptKitchenVoidReason();
       if (voidReason == null || !mounted) return;
+      if (!await _ensureVoidSentPermission() || !mounted) return;
       if (!await _ensureAfterBillApproval('hủy món') || !mounted) return;
       final ticket = KitchenTicketLine(
         productName: line.product.name,
@@ -10858,6 +10870,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         }
         final voidReason = await _promptKitchenVoidReason();
         if (voidReason == null || !mounted) return;
+        if (!await _ensureVoidSentPermission() || !mounted) return;
         if (!await _ensureAfterBillApproval('hủy món') || !mounted) return;
         final ticket = KitchenTicketLine(
           productName: line.product.name,
@@ -10918,6 +10931,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         }
         final voidReason = await _promptKitchenVoidReason();
         if (voidReason == null || !mounted) return;
+        if (!await _ensureVoidSentPermission() || !mounted) return;
         if (!await _ensureAfterBillApproval('hủy món') || !mounted) return;
         final ticket = KitchenTicketLine(
           productName: line.product.name,
@@ -12191,6 +12205,36 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   /// Dialog trên root navigator — toast overlay nằm dưới màn Thanh toán iPhone.
+  /// Tài khoản Order (không có quyền thanh toán): lưu đơn rồi báo máy thu ngân tính tiền.
+  Future<void> _sendToCashier() async {
+    if (_tab.cart.isEmpty || !mounted) return;
+    _tab.localDirty = true;
+    await _awaitDraftAutosaveIdle(notifyBusy: false);
+    await _persistDraftAutosave(showLockError: true);
+    if (!mounted) return;
+    final id = _tab.draftOrderId;
+    if (id == null || id.isEmpty) {
+      NotificationOverlayManager().showWarning(
+        title: 'Chưa gửi được',
+        message: tr('Chưa lưu được đơn lên máy chủ — kiểm tra kết nối rồi thử lại.'),
+      );
+      return;
+    }
+    final res = await ApiService().requestPosSalePayment(id);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã gửi thu ngân',
+        message: tr('Máy thu ngân đã nhận yêu cầu tính tiền.'),
+      );
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Chưa gửi được',
+        message: res['message']?.toString() ?? tr('Vui lòng thử lại'),
+      );
+    }
+  }
+
   Future<void> _showBlockingPayDialog({
     required String title,
     required String message,
@@ -12554,11 +12598,12 @@ class _PosSellScreenState extends State<PosSellScreen>
     try {
       final perm = Provider.of<PermissionProvider>(context, listen: false);
       if (!perm.canPosPay()) {
-        NotificationOverlayManager().showWarning(
+        unawaited(_showBlockingPayDialog(
           title: 'Không có quyền thanh toán',
-          message: tr(
-              'Tài khoản Order chỉ tạm tính — cần tài khoản Thu ngân để thanh toán'),
-        );
+          message: tr('Tài khoản Order chỉ tạm tính — bấm «Gửi thu ngân» để thu ngân tính tiền.'),
+          actionLabel: 'Gửi thu ngân',
+          onAction: _sendToCashier,
+        ));
         return;
       }
 
@@ -18929,7 +18974,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         if (!canPay) {
           unawaited(_showBlockingPayDialog(
             title: 'Không có quyền thanh toán',
-            message: tr('Tài khoản Order chỉ tạm tính — cần tài khoản Thu ngân để thanh toán'),
+            message: tr('Tài khoản Order chỉ tạm tính — bấm «Gửi thu ngân» để thu ngân tính tiền.'),
+            actionLabel: 'Gửi thu ngân',
+            onAction: _sendToCashier,
           ));
           return;
         }
@@ -20363,7 +20410,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!perm.canPosPay()) {
       await _showBlockingPayDialog(
         title: 'Không có quyền thanh toán',
-        message: tr('Tài khoản Order chỉ tạm tính — cần tài khoản Thu ngân để thanh toán'),
+        message: tr('Tài khoản Order chỉ tạm tính — bấm «Gửi thu ngân» để thu ngân tính tiền.'),
+        actionLabel: 'Gửi thu ngân',
+        onAction: _sendToCashier,
       );
       return;
     }

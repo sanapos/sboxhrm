@@ -133,7 +133,8 @@ class _PosStandaloneShellState extends State<PosStandaloneShell>
           storeId,
           forceReregister: forceAgent,
         );
-        unawaited(PosQrOrderVoiceAlert.instance.start());
+        unawaited(PosQrOrderVoiceAlert.instance.start(
+            canTakePayment: () => context.mounted && context.read<PermissionProvider>().canPosPay()));
         PosPaymentGatewayListener.instance.start();
       }
       final userId = auth.user?.id;

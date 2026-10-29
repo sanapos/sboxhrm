@@ -94,7 +94,7 @@ public static class PermissionPresetCatalog
 
     static readonly string[] PosSell =
     [
-        "PosSell", "PosSellPriceEdit", "PosSellDiscount", "PosSellCancelPaid", "PosSaleOrders", "PosSaleReturns",
+        "PosSell", "PosSellPriceEdit", "PosSellDiscount", "PosSellCancelPaid", "PosSellVoidSent", "PosSaleOrders", "PosSaleReturns",
         "PosCustomers", "PosWarranty", "PosBooking", "PosKds", "PosQrOrder", "PosCashierShift", "PosQuotes", "PosContracts",
         "PosGymCheckIn", "PosDebtAdjust", "PosGymTrainer",
     ];
@@ -210,7 +210,7 @@ public static class PermissionPresetCatalog
 
     static IReadOnlyDictionary<string, Flags> PosManager() => new Builder()
         .Set(V, "Home", "Notification", "Dashboard")
-        .Set(Mg, PosSell).Set(F, "PosSellPriceEdit", "PosSellDiscount", "PosSellCancelPaid", "PosSaleOrders")
+        .Set(Mg, PosSell).Set(F, "PosSellPriceEdit", "PosSellDiscount", "PosSellCancelPaid", "PosSellVoidSent", "PosSaleOrders")
         .Set(VE, "PosDebtAdjust")
         .Set(Mg, PosStock).Set(V, "PosViewCost")
         .Set(VX, PosReports).Set(Op, PosSettings)
@@ -383,7 +383,7 @@ public static class PermissionPresetCatalog
     /// <summary>Quyền con không chọn theo gói — đi theo chức năng cha.</summary>
     static bool IsSubModuleAllowed(string module, ISet<string> allowed) => module switch
     {
-        "PosSellPriceEdit" or "PosSellDiscount" or "PosSellCancelPaid" => allowed.Contains("PosSell"),
+        "PosSellPriceEdit" or "PosSellDiscount" or "PosSellCancelPaid" or "PosSellVoidSent" => allowed.Contains("PosSell"),
         "PosViewCost" => allowed.Contains("PosProducts"),
         "PosDebtAdjust" => allowed.Contains("PosCustomers") || allowed.Contains("PosPurchaseReceipts"),
         "PosGymTrainer" => allowed.Contains("PosGymCheckIn"),

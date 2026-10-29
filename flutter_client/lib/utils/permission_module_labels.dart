@@ -47,6 +47,7 @@ class PermissionModuleLabels {
     'PosSellPriceEdit': '↳ Sửa giá khi bán',
     'PosSellDiscount': '↳ Giảm giá / chiết khấu khi bán',
     'PosSellCancelPaid': '↳ Hủy hóa đơn đã thu',
+    'PosSellVoidSent': '↳ Hủy món đã gửi bếp',
     'PosViewCost': '↳ Xem giá vốn & lợi nhuận',
     'PosDebtAdjust': '↳ Điều chỉnh công nợ & hạn mức',
     'PosGymCheckIn': 'Check-in hội viên (gym)',

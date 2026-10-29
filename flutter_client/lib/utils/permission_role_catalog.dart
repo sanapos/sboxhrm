@@ -156,6 +156,7 @@ class PermissionRoleCatalog {
         'PosSellPriceEdit',
         'PosSellDiscount',
         'PosSellCancelPaid',
+        'PosSellVoidSent',
         'PosQuotes',
         'PosContracts',
         'PosProducts',

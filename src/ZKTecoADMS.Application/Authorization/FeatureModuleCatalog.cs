@@ -154,6 +154,7 @@ public static class FeatureModuleCatalog
         new("PosSellPriceEdit", "Sửa giá khi bán", "Đổi đơn giá tay trên màn bán", CatSell, 120, false),
         new("PosSellDiscount", "Giảm giá khi bán", "Chiết khấu dòng / cả đơn", CatSell, 121, false),
         new("PosSellCancelPaid", "Hủy hóa đơn đã thu", "Hủy đơn đã thanh toán", CatSell, 122, false),
+        new("PosSellVoidSent", "Hủy món đã gửi bếp", "Bớt / xóa món đã báo bếp, hủy đơn tạm còn món đã báo bếp — không có quyền thì cần quản lý nhập mật khẩu duyệt", CatSell, 126, false),
         new("PosViewCost", "Xem giá vốn & lợi nhuận", "Thấy giá vốn, lãi trên hàng hóa / kho", CatSell, 123, false),
         new("PosDebtAdjust", "Điều chỉnh công nợ & hạn mức", "Nhập nợ đầu kỳ, sửa công nợ khách / NCC, đặt hạn mức nợ và hạn thanh toán của khách", CatSell, 124, false),
         new("PosGymTrainer", "PT · Khách của tôi & lịch tập", "Tài khoản PT: xem hội viên mình phụ trách, đặt lịch tập, đo thể trạng, đánh giá buổi, giao phác đồ", CatSell, 125, false),

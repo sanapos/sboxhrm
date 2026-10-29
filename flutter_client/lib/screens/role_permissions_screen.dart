@@ -514,6 +514,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'PosSellPriceEdit': {'canView', 'canEdit'},
     'PosSellDiscount': {'canView', 'canEdit'},
     'PosSellCancelPaid': {'canView', 'canApprove'},
+    // Hủy món đã gửi bếp: không tick → order / thu ngân cần quản lý nhập mật khẩu duyệt.
+    'PosSellVoidSent': {'canView', 'canApprove'},
     'PosViewCost': {'canView'},
     // Điều chỉnh công nợ & hạn mức: Sửa = nhập nợ đầu kỳ / sửa nợ / đặt hạn mức.
     'PosDebtAdjust': {'canView', 'canEdit'},
@@ -2753,6 +2755,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
   /// Nhãn quyền POS: Order / Thanh toán / Trả hàng thay vì Thêm / Duyệt chung.
   static String _posActionLabel(Object? module, String action) {
+    if (module == 'PosSellVoidSent' && action == 'canApprove') return 'Được hủy';
     if (module == 'PosSell') {
       switch (action) {
         case 'canView':

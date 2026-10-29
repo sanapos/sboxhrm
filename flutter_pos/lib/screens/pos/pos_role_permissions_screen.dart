@@ -25,6 +25,7 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
 
   static const _posModules = <({String code, String label, String group})>[
     (code: 'PosSell', label: 'Bán hàng (màn bán)', group: 'Menu bán hàng'),
+    (code: 'PosSellVoidSent', label: '↳ Hủy món đã gửi bếp', group: 'Menu bán hàng'),
     (code: 'PosSaleOrders', label: 'Đơn hàng', group: 'Menu bán hàng'),
     (code: 'PosProducts', label: 'Thêm hàng hóa / catalog mẫu', group: 'Menu bán hàng'),
     (code: 'PosSaleReturns', label: 'Trả hàng', group: 'Menu bán hàng'),
@@ -143,6 +144,8 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
 
   static const _caps = <String, Set<String>>{
     'PosSell': {'canView', 'canCreate', 'canEdit', 'canApprove'},
+    // Không tick → order / thu ngân bớt món đã báo bếp phải có quản lý nhập mật khẩu duyệt.
+    'PosSellVoidSent': {'canApprove'},
     'PosSaleOrders': {'canView', 'canEdit', 'canDelete'},
     'PosProducts': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'PosSaleReturns': {'canView', 'canApprove'},
@@ -170,6 +173,12 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
     'Role': {'canView', 'canCreate', 'canEdit', 'canDelete'},
   };
 
+  /// Nghĩa riêng của ô trên một dòng (cột «Duyệt» ở Bán hàng là thanh toán — dễ tick nhầm cho tài khoản Order).
+  static const _cellCaptions = <String, Map<String, String>>{
+    'PosSell': {'canCreate': 'Gọi món', 'canApprove': 'Thanh toán'},
+    'PosSellVoidSent': {'canApprove': 'Được hủy'},
+  };
+
   static const _colActions = <(String key, String label)>[
     ('canView', 'Xem'),
     ('canCreate', 'Order'),
@@ -177,6 +186,32 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
     ('canDelete', 'Xóa'),
     ('canApprove', 'Duyệt'),
   ];
+
+  Widget _cell(String code, String action) {
+    final box = Checkbox(
+      value: _flag(code, action),
+      onChanged: _roleLocked ? null : (v) => _setFlag(code, action, v ?? false),
+    );
+    final caption = _cellCaptions[code]?[action];
+    if (caption == null) return box;
+    return Tooltip(
+      message: tr(caption),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          box,
+          Text(
+            tr(caption),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.visible,
+            softWrap: false,
+            style: const TextStyle(fontSize: 8.5, color: PosTheme.textSecondary, height: 1),
+          ),
+        ],
+      ),
+    );
+  }
 
   bool _supports(String code, String action) {
     if (code.startsWith('PosReport') ||
@@ -390,7 +425,7 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: Text(
-                                  tr('Xem = mở menu. Order = gọi món / mở ca / bump bếp. Sửa = sửa đơn / cấu hình. Xóa = xóa đơn / phiếu. Duyệt = thanh toán / trả hàng / HĐĐT / đơn online. Thu ngân: Xem + Order + Duyệt bán hàng — không tick Sửa thiết lập POS.'),
+                                  tr('Xem = mở menu. Order = gọi món / mở ca / bump bếp. Sửa = sửa đơn / cấu hình. Xóa = xóa đơn / phiếu. Duyệt = thanh toán / trả hàng / HĐĐT / đơn online. Thu ngân: Xem + Order + Thanh toán — không tick Sửa thiết lập POS. Phục vụ / Order: Xem + Order, KHÔNG tick Thanh toán.'),
                                   style: const TextStyle(
                                     color: PosTheme.textSecondary,
                                     fontSize: 12,
@@ -444,16 +479,7 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
                                         SizedBox(
                                           width: 44,
                                           child: _supports(m.code, col.$1)
-                                              ? Checkbox(
-                                                  value: _flag(m.code, col.$1),
-                                                  onChanged: _roleLocked
-                                                      ? null
-                                                      : (v) => _setFlag(
-                                                            m.code,
-                                                            col.$1,
-                                                            v ?? false,
-                                                          ),
-                                                )
+                                              ? _cell(m.code, col.$1)
                                               : const SizedBox.shrink(),
                                         ),
                                     ],

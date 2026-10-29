@@ -368,7 +368,8 @@ class _PosAuthShellState extends State<_PosAuthShell>
             forceReregister: forceAgent,
           );
         }
-        unawaited(PosQrOrderVoiceAlert.instance.start());
+        unawaited(PosQrOrderVoiceAlert.instance.start(
+            canTakePayment: () => context.mounted && context.read<PermissionProvider>().canPosPay()));
         if (!kSboxKdsApp) PosPaymentGatewayListener.instance.start();
       }
       final userId = auth.user?.id;

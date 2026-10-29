@@ -19841,6 +19841,21 @@ class ApiService implements PayrollApi {
   }
 
   /// Ghi nhận lần in — tăng PrintCount, trả daily context cho mẫu in.
+  /// «Gửi thu ngân»: tài khoản Order báo đơn cần tính tiền (máy thu ngân nhận realtime + chuông).
+  Future<Map<String, dynamic>> requestPosSalePayment(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/sales/$id/request-payment'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> recordPosSalePrint(String id) async {
     try {
       final response = await http

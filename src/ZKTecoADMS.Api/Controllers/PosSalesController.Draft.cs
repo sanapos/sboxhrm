@@ -99,6 +99,11 @@ public partial class PosSalesController
             }
         }
 
+        // Bớt / xóa món đã báo bếp (kể cả xóa sạch giỏ, thanh toán giỏ đã bớt) — đơn offline đã bán thật, không chặn.
+        if (offlineNo == null
+            && await DenyVoidKitchenSentAsync(storeId, order.Lines ?? [], dto.Lines ?? []) is { } voidDenied)
+            return BadRequest(AppResponse<SaleOrderDto>.Fail(voidDenied));
+
         // Draft clear: cho phép lines rỗng — xóa hàng + nhả khóa (đồng bộ đa máy).
         if (!dto.Complete && (dto.Lines == null || dto.Lines.Count == 0))
         {

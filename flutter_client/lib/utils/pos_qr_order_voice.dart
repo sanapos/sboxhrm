@@ -65,7 +65,11 @@ class PosQrOrderVoiceAlert {
 
   bool get _onKds => _kdsForeground > 0;
 
-  Future<void> start() async {
+  /// Máy này có nhận «Gửi thu ngân» không (tài khoản có quyền thanh toán). Null = nhận.
+  bool Function()? canTakePayment;
+
+  Future<void> start({bool Function()? canTakePayment}) async {
+    if (canTakePayment != null) this.canTakePayment = canTakePayment;
     if (_sub != null) return;
     // Không init TTS lúc login — V2s/A7 3GB + engine Google TTS dễ OOM / crash.
     _sub = SignalRService().onPosFloorChanged.listen(_onFloor);
@@ -467,6 +471,15 @@ class PosQrOrderVoiceAlert {
                 ? 'Khách xác nhận đã thanh toán QR. Thu ngân kiểm tra giao dịch.'
                 : '$table xác nhận đã thanh toán QR. Thu ngân kiểm tra giao dịch.');
         break;
+      case 'paymentrequested':
+        // Tài khoản Order «Gửi thu ngân» — chỉ máy có quyền thanh toán báo (máy order khác không bị làm phiền).
+        if (canTakePayment?.call() == false) return;
+        playAlertSound = true;
+        title = 'Gửi thu ngân';
+        spoken = extra.isNotEmpty
+            ? extra
+            : (table.isEmpty ? 'Có đơn cần thanh toán' : '$table cần thanh toán');
+        break;
       case 'tingeepaymentconfirmed':
         playAlertSound = true;
         // Server báo CK thiếu / chưa hoàn tất được đơn → cảnh báo, không báo «Đã thanh toán».
@@ -506,7 +519,7 @@ class PosQrOrderVoiceAlert {
               : NotificationType.info),
       duration: const Duration(seconds: 5),
       playSound: playAlertSound,
-      onTap: isOnlineOrder || reason == 'tingeepaymentconfirmed'
+      onTap: isOnlineOrder || reason == 'tingeepaymentconfirmed' || reason == 'paymentrequested'
           ? () {
               if (isOnlineOrder) {
                 NavigationNotifier.pendingOpenQrOnlineOrders.value = true;

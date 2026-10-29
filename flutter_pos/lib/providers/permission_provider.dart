@@ -522,6 +522,9 @@ class PermissionProvider extends ChangeNotifier {
     return _knows('PosSellDiscount') ? _flag('PosSellDiscount', 'canEdit') : canPosPay();
   }
 
+  /// Bớt / xóa món đã gửi bếp. Không có quyền → quản lý nhập mật khẩu duyệt (máy chủ chặn tương tự).
+  bool canPosVoidSent() => _isSuperUser || _flag('PosSellVoidSent', 'canApprove');
+
   /// Module thiết lập POS — tick trên ma trận, không alias từ PosSell.
   static const List<String> posSetupModuleCodes = [
     'SettingsHub',

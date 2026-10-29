@@ -117,6 +117,41 @@ public partial class PosSalesController(
     Task<bool> CanGiveSellDiscountAsync(CancellationToken ct = default) =>
         HasPosSellSubAsync("PosSellDiscount", ModulePermissionAction.Edit, ct);
 
+    /// <summary>
+    /// Bớt / xóa món đã báo bếp (bếp đã làm) cần quyền con «Hủy món đã gửi bếp» (PosSellVoidSent · Duyệt) hoặc mã
+    /// quản lý duyệt (<see cref="PosAfterBillApproval.Header"/>). Câu lỗi mở đầu «Cần quản lý duyệt» → app mở hộp để
+    /// chủ / quản lý nhập mật khẩu rồi gửi lại. So theo món + biến thể (đổi ghi chú / topping không tính là hủy).
+    /// </summary>
+    /// <summary>Giỏ mới có ít hơn số đã báo bếp của một món (theo món + biến thể) — tức là hủy món bếp đã làm.</summary>
+    public static bool CutsKitchenSent(IEnumerable<PosSaleOrderLine> prior, IEnumerable<SaleLineDto> next)
+    {
+        var sent = prior
+            .Where(l => l.Deleted == null && l.KitchenSentQty > 0)
+            .GroupBy(l => (l.ProductId, l.VariantId))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.KitchenSentQty));
+        if (sent.Count == 0) return false;
+        var qty = next
+            .GroupBy(l => (l.ProductId, l.VariantId))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
+        return sent.Any(kv => qty.GetValueOrDefault(kv.Key) < kv.Value - 0.0001m);
+    }
+
+    async Task<string?> DenyVoidKitchenSentAsync(
+        Guid storeId, IEnumerable<PosSaleOrderLine> prior, IEnumerable<SaleLineDto> next)
+    {
+        if (!CutsKitchenSent(prior, next)) return null;
+        if (IsManager || await HasPosSellSubAsync("PosSellVoidSent", ModulePermissionAction.Approve)) return null;
+        var approver = PosAfterBillApproval.Validate(
+            HttpContext.RequestServices, storeId, Request.Headers[PosAfterBillApproval.Header].ToString());
+        if (approver != null)
+        {
+            HttpContext.Items[PosAfterBillApproval.ApproverItemKey] = approver;
+            return null;
+        }
+        return $"{PosAfterBillApproval.DeniedPrefix}: hủy món đã gửi bếp — tài khoản chưa có quyền «Hủy món đã gửi bếp». "
+            + "Gọi chủ / quản lý nhập mật khẩu để duyệt.";
+    }
+
     /// <summary>Lỗi dựng đơn do thiếu quyền đổi giá / chiết khấu → 403 kèm tên quyền cần tick.</summary>
     ActionResult? PricingDenied(string? err) => err switch
     {
@@ -2219,6 +2254,13 @@ public partial class PosSalesController(
             && await PosAfterBillApproval.DenyAsync(dbContext, HttpContext, storeId, order.ResourceSessionId,
                 CurrentUserRole, "hủy đơn") is { } needApproval)
             return BadRequest(AppResponse<object>.Fail(needApproval));
+
+        // Đơn còn món đã báo bếp: hủy đơn = hủy món bếp đã làm.
+        var sentRows = await dbContext.PosSaleOrderLines.AsNoTracking()
+            .Where(l => l.SaleOrderId == id && l.Deleted == null && l.KitchenSentQty > 0)
+            .ToListAsync();
+        if (await DenyVoidKitchenSentAsync(storeId, sentRows, []) is { } voidDenied)
+            return BadRequest(AppResponse<object>.Fail(voidDenied));
 
         var priorLines = await dbContext.PosSaleOrderLines.AsNoTracking()
             .Where(l => l.SaleOrderId == id && l.Deleted == null)

@@ -15,7 +15,7 @@ public static class StorePermissionSyncHelper
     /// <summary>Quyền con không chọn theo gói — đi cùng chức năng cha.</summary>
     static readonly (string Parent, string[] Subs)[] SubModules =
     [
-        ("PosSell", ["PosSellPriceEdit", "PosSellDiscount", "PosSellCancelPaid"]),
+        ("PosSell", ["PosSellPriceEdit", "PosSellDiscount", "PosSellCancelPaid", "PosSellVoidSent"]),
         ("PosProducts", ["PosViewCost"]),
     ];
 

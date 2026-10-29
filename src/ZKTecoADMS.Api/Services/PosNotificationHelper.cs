@@ -275,6 +275,50 @@ internal static class PosNotificationHelper
         }
     }
 
+    /// <summary>«Gửi thu ngân» từ tài khoản Order → người có quyền thanh toán (PosSell · Duyệt), chủ / quản lý.</summary>
+    public static async Task NotifyPaymentRequestedAsync(
+        ISystemNotificationService notifications,
+        ZKTecoDbContext db,
+        Guid storeId,
+        Guid orderId,
+        string message,
+        Guid? fromUserId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var payRoles = await (
+                from rp in db.RolePermissions.AsNoTracking()
+                join p in db.Permissions.AsNoTracking() on rp.PermissionId equals p.Id
+                where rp.IsActive && rp.CanApprove && p.Module == "PosSell"
+                    && (rp.StoreId == storeId || rp.StoreId == null)
+                select rp.RoleName
+            ).Distinct().ToListAsync(cancellationToken);
+            payRoles.AddRange([nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.Manager)]);
+            var userIds = await db.Users.AsNoTracking()
+                .Where(u => u.IsActive && u.StoreId == storeId && payRoles.Contains(u.Role)
+                    && (fromUserId == null || u.Id != fromUserId))
+                .Select(u => u.Id)
+                .ToListAsync(cancellationToken);
+            if (userIds.Count == 0) return;
+
+            await notifications.CreateAndSendToUsersAsync(
+                userIds,
+                NotificationType.Info,
+                "Gửi thu ngân",
+                message,
+                relatedEntityId: orderId,
+                relatedEntityType: "PosSaleOrder",
+                fromUserId: fromUserId,
+                categoryCode: "pos",
+                storeId: storeId);
+        }
+        catch
+        {
+            // Lỗi gửi thông báo không làm hỏng thao tác gửi thu ngân (sơ đồ bàn đã báo realtime).
+        }
+    }
+
     private static async Task<List<Guid>> GetPosOpsUserIdsAsync(
         ZKTecoDbContext db,
         Guid storeId,
