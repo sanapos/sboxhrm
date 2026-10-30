@@ -43,7 +43,7 @@ class LandingGuideUrl {
     var frag = uri.fragment.trim();
     if (frag.startsWith('/')) frag = frag.substring(1);
     final hashMatch =
-        RegExp(r'^guide/(basic|advanced|pos)/([a-z0-9_]+)$').firstMatch(frag);
+        RegExp(r'^guide/(basic|advanced|pos|industry)/([a-z0-9_]+)$').firstMatch(frag);
     if (hashMatch != null) {
       return GuideDeepLink(
         section: hashMatch.group(1)!,

@@ -23,7 +23,7 @@
     "headline": "Hướng dẫn sử dụng SBOX HRM và POS",
     "description": "Quy trình triển khai chấm công, lương, báo cáo HRM và bán hàng POS trên SBOX.",
     "inLanguage": "vi",
-    "dateModified": "2026-08-20",
+    "dateModified": "2026-10-30",
     "publisher": { "@type": "Organization", "name": "SBOX HRM", "url": "https://sboxhrm.com/" },
     "mainEntityOfPage": "https://sboxhrm.com/guide.html"
   }
@@ -46,6 +46,10 @@
     article p, article li { font-size: 15px; line-height: 1.7; }
     article p { margin-bottom: 10px; }
     article ol, article ul { margin: 8px 0 12px 22px; }
+    .shot { margin: 12px 0 18px; }
+    .shot img { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(15,40,100,.08); background: #fff; }
+    .shot figcaption { margin-top: 6px; font-size: 13px; line-height: 1.5; color: #64748b; }
+    @media (max-width: 600px) { .shot img { max-width: 300px; } }
     .tip { background: #E8F5FB; color: #084B67; border-radius: 8px; padding: 10px 14px; font-size: 14px; margin-top: 8px; }
     footer { text-align: center; padding: 24px; color: #64748b; font-size: 13px; }
     footer a { color: #0F7BA8; }
@@ -55,7 +59,7 @@
 <header>
   <a class="back" href="/">← Trang chủ SBOX HRM</a>
   <h1>Hướng dẫn sử dụng HRM &amp; POS</h1>
-  <p>Quy trình từng bước, cách xem báo cáo và thiết lập các tình huống phổ biến. Cập nhật 27/09/2026. Hotline: 0973 024 042.</p>
+  <p>Quy trình từng bước, cách xem báo cáo và thiết lập các tình huống phổ biến. Cập nhật 30/10/2026, có ảnh màn hình từng bước. Hotline: 0973 024 042.</p>
 </header>
 <div class="wrap">
   <nav class="toc" aria-label="Mục lục">
@@ -64,28 +68,133 @@
     <a href="#hrm-reports">2. Cách xem báo cáo HRM</a>
     <a href="#hrm-daily">3. Quy trình hàng ngày &amp; cuối tháng</a>
     <a href="#hrm-cases">4. Tình huống HRM thường gặp</a>
-    <a href="#pos-start">5. POS: máy A6 / A7 &amp; thiết lập</a>
-    <a href="#pos-sell">6. Bán hàng, in, bếp</a>
-    <a href="#pos-stock">7. Kho hàng &amp; nguyên tắc tồn kho</a>
-    <a href="#pos-einvoice">8. Hóa đơn điện tử</a>
-    <a href="#pos-reports">9. Báo cáo POS, ca thu ngân &amp; cuối ngày</a>
-    <a href="#pos-cases">10. Tình huống POS thường gặp</a>
-    <a href="#rules">11. Nguyên tắc chung của phần mềm</a>
-    <a href="#industry">12. Hướng dẫn theo ngành hàng</a>
+    <a href="#hrm-advanced">5. Vận hành nâng cao HRM</a>
+    <a href="#pos-start">6. POS: máy A6 / A7 &amp; thiết lập</a>
+    <a href="#pos-sell">7. Bán hàng, in, bếp</a>
+    <a href="#pos-stock">8. Kho hàng &amp; nguyên tắc tồn kho</a>
+    <a href="#pos-einvoice">9. Hóa đơn điện tử</a>
+    <a href="#pos-reports">10. Báo cáo POS, ca thu ngân &amp; cuối ngày</a>
+    <a href="#pos-cases">11. Tình huống POS thường gặp</a>
+    <a href="#rules">12. Nguyên tắc chung của phần mềm</a>
+    <a href="#industry">13. Hướng dẫn theo ngành hàng</a>
   </nav>
 
   <article id="hrm-start">
     <h2>1. Triển khai HRM (tuần đầu)</h2>
     <p>Làm theo thứ tự: đăng ký cửa hàng → cơ cấu → nhân viên → ca → lương → lịch → máy chấm công → tài khoản → chốt lương tháng đầu.</p>
     <ol>
-      <li>Vào <strong>sboxhrm.com → Đăng ký</strong>. Mã cửa hàng: chữ thường a–z và số, không dấu, tối đa 20 ký tự. Đăng nhập bằng mã cửa hàng + tài khoản admin.</li>
-      <li><strong>Cài đặt → Phòng ban / Chức vụ</strong> (và chi nhánh nếu có nhiều điểm bán).</li>
-      <li><strong>Hồ sơ nhân sự</strong>: thêm từng người hoặc Import Excel. Mã nhân viên (PIN) phải trùng mã trên máy ZKTeco.</li>
-      <li><strong>Cài đặt → Thiết lập ca</strong>: giờ vào/ra, ân hạn đi trễ/về sớm, ca qua đêm nếu cần.</li>
-      <li><strong>Thiết lập lương</strong>: mức lương, phụ cấp, <em>kiểu chấm công</em> (vào–ra hoặc chỉ chấm vào đủ ca).</li>
-      <li><strong>Lịch làm việc</strong>: phân ca theo tuần/tháng.</li>
-      <li><strong>Cài đặt → Máy chấm công</strong>: máy trỏ ADMS host <code>103.133.224.176</code> port <code>7070</code>; thêm serial trên SBOX; đồng bộ NV và đăng ký vân tay/face.</li>
-      <li>Hoặc bật <strong>Chấm công mobile</strong> (GPS/WiFi). Tạo tài khoản app và phân quyền.</li>
+      <li>Vào <strong>sboxhrm.com → Đăng ký</strong>. Mã cửa hàng: chữ thường a–z và số, không dấu, tối đa 20 ký tự. Đăng nhập bằng mã cửa hàng + tài khoản admin.
+        <!-- guide-shot:register-1 -->
+<figure class="shot"><a href="/images/guide/register-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/register-1-mobile.webp" width="390" height="844"><img src="/images/guide/register-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Đăng ký phần mềm: Điền tên cửa hàng, mã đăng nhập cửa hàng, email, SĐT, mật khẩu admin"></picture></a><figcaption>① Nhập tên doanh nghiệp / cửa hàng. ② Mã đăng nhập cửa hàng tự tạo theo tên (sửa được); dòng xanh báo mã còn trống.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:register-2 -->
+<figure class="shot"><a href="/images/guide/register-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/register-2-mobile.webp" width="390" height="844"><img src="/images/guide/register-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Đăng ký phần mềm: Điền tên cửa hàng, mã đăng nhập cửa hàng, email, SĐT, mật khẩu admin"></picture></a><figcaption>① Email đăng nhập (dòng xanh báo email dùng được). ② Số điện thoại liên hệ.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:register-3 -->
+<figure class="shot"><a href="/images/guide/register-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/register-3-mobile.webp" width="390" height="844"><img src="/images/guide/register-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Đăng ký phần mềm: Chọn gói dịch vụ phù hợp → hoàn tất đăng ký để kích hoạt"></picture></a><figcaption>① Chọn gói dịch vụ / gói dùng thử. ② Đặt mật khẩu và nhập lại. ③ Bấm «Đăng ký doanh nghiệp» để hoàn tất.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Cài đặt → Phòng ban / Chức vụ</strong> (và chi nhánh nếu có nhiều điểm bán).
+        <!-- guide-shot:org-structure-1 -->
+<figure class="shot"><a href="/images/guide/org-structure-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/org-structure-1-mobile.webp" width="390" height="844"><img src="/images/guide/org-structure-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Phòng ban, chức vụ &amp; chi nhánh: Cài đặt → Phòng ban: tạo các bộ phận (Kế toán, Bếp, Thu ngân…)"></picture></a><figcaption>① Bấm «Thêm phòng ban». ② Chọn một phòng ban để xem người quản lý, chức vụ và nhân viên trong phòng.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:org-structure-2 -->
+<figure class="shot"><a href="/images/guide/org-structure-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/org-structure-2-mobile.webp" width="390" height="844"><img src="/images/guide/org-structure-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Phòng ban, chức vụ &amp; chi nhánh: Cài đặt → Chức vụ: tạo chức danh (Quản lý, Nhân viên, Thu ngân…)"></picture></a><figcaption>① Nhập tên phòng ban, mã tự gợi ý theo tên. ② Thêm các chức vụ của phòng (gõ tên rồi Enter). ③ Bấm «Lưu phòng ban».</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Hồ sơ nhân sự</strong>: thêm từng người hoặc Import Excel. Mã nhân viên (PIN) phải trùng mã trên máy ZKTeco.
+        <!-- guide-shot:employees-1 -->
+<figure class="shot"><a href="/images/guide/employees-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/employees-1-mobile.webp" width="390" height="844"><img src="/images/guide/employees-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thêm nhân viên: Vào menu Hồ sơ nhân sự → Thêm nhân viên (hoặc Import Excel nếu thêm hàng loạt)"></picture></a><figcaption>① Bấm «Thêm nhân viên»; thêm hàng loạt thì dùng nút tải lên Excel bên cạnh.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:employees-2 -->
+<figure class="shot"><a href="/images/guide/employees-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/employees-2-mobile.webp" width="390" height="844"><img src="/images/guide/employees-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thêm nhân viên: Nhập bắt buộc: họ tên, mã nhân viên (PIN), phòng ban, chức vụ"></picture></a><figcaption>① Mã nhân viên (PIN), phải trùng mã trên máy chấm công. ② Họ tên nhân viên.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:employees-3 -->
+<figure class="shot"><a href="/images/guide/employees-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/employees-3-mobile.webp" width="390" height="844"><img src="/images/guide/employees-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thêm nhân viên: Bổ sung nên có: SĐT, ngày vào làm, trạng thái Đang làm việc"></picture></a><figcaption>① Chọn phòng ban rồi đến chức vụ. ② Ngày vào làm. ③ Trạng thái làm việc.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Cài đặt → Thiết lập ca</strong>: giờ vào/ra, ân hạn đi trễ/về sớm, ca qua đêm nếu cần.
+        <!-- guide-shot:shifts-1 -->
+<figure class="shot"><a href="/images/guide/shifts-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/shifts-1-mobile.webp" width="390" height="844"><img src="/images/guide/shifts-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Cấu hình ca làm việc: Vào Cài đặt → Thiết lập ca → Thêm ca"></picture></a><figcaption>① Bấm «Thêm ca» để tạo ca mới. ② Nút ba chấm trên từng ca: sửa, nhân bản, ngừng dùng.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:shifts-2 -->
+<figure class="shot"><a href="/images/guide/shifts-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/shifts-2-mobile.webp" width="390" height="844"><img src="/images/guide/shifts-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Cấu hình ca làm việc: Nhập tên ca, giờ bắt đầu / kết thúc (hỗ trợ ca qua đêm, vd 21:30–06:00)"></picture></a><figcaption>① Nhập tên ca. ② Chọn giờ vào – giờ ra (giờ ra nhỏ hơn giờ vào là ca qua đêm). ③ Hoặc bấm một mẫu ca có sẵn.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:shifts-3 -->
+<figure class="shot"><a href="/images/guide/shifts-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/shifts-3-mobile.webp" width="390" height="844"><img src="/images/guide/shifts-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Cấu hình ca làm việc: Cấu hình phút ân hạn đi trễ, ân hạn về sớm, ngưỡng tính tăng ca"></picture></a><figcaption>① Miễn trễ và giới hạn đi trễ. ② Miễn về sớm và giới hạn về sớm. ③ Số phút ra sớm / về muộn mới tính tăng ca.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Thiết lập lương</strong>: mức lương, phụ cấp, <em>kiểu chấm công</em> (vào–ra hoặc chỉ chấm vào đủ ca).
+        <!-- guide-shot:salary-1 -->
+<figure class="shot"><a href="/images/guide/salary-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/salary-1-mobile.webp" width="390" height="844"><img src="/images/guide/salary-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thiết lập lương &amp; kiểu chấm công: Hồ sơ nhân sự → chọn NV → Thiết lập lương (hoặc màn Thiết lập lương)"></picture></a><figcaption>① Chọn nhân viên cần thiết lập; người chưa có lương hiện nhãn «Chưa thiết lập».</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:salary-2 -->
+<figure class="shot"><a href="/images/guide/salary-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/salary-2-mobile.webp" width="390" height="844"><img src="/images/guide/salary-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thiết lập lương &amp; kiểu chấm công: Chọn loại lương: theo tháng / theo ngày / theo giờ / sản phẩm (nếu dùng)"></picture></a><figcaption>① Loại lương: tháng, ngày, ca hoặc giờ. ② Lương cơ bản và lương hoàn thành.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:salary-3 -->
+<figure class="shot"><a href="/images/guide/salary-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/salary-3-mobile.webp" width="390" height="844"><img src="/images/guide/salary-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thiết lập lương &amp; kiểu chấm công: Chọn «Chấm công»: Chấm vào &amp; ra · Chỉ chấm vào (đủ ca) · Chỉ chấm ra · 2 lần bất kỳ trong ngày · Ca nguyên ngày…"></picture></a><figcaption>① Chọn cách chấm công (chấm vào và ra, chỉ chấm vào…). ② Các ca được áp dụng; để trống là theo lịch phân ca.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Lịch làm việc</strong>: phân ca theo tuần/tháng.
+        <!-- guide-shot:work-schedule-1 -->
+<figure class="shot"><a href="/images/guide/work-schedule-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/work-schedule-1-mobile.webp" width="390" height="844"><img src="/images/guide/work-schedule-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Phân lịch làm việc lần đầu: Chọn tuần/tháng → chọn nhân viên hoặc phòng ban"></picture></a><figcaption>① Chọn tuần cần xếp lịch. ② Nhân viên chưa có lịch: chạm vào ô ngày để xếp ca.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:work-schedule-2 -->
+<figure class="shot"><a href="/images/guide/work-schedule-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/work-schedule-2-mobile.webp" width="390" height="844"><img src="/images/guide/work-schedule-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Phân lịch làm việc lần đầu: Gán ca theo ngày; dùng sao chép tuần / nhân bản lịch nếu làm việc cố định"></picture></a><figcaption>① Chọn ca cho ngày đó (Ca sáng, Ca chiều, Hành chính…). ② Hoặc đánh dấu Ngày nghỉ.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:work-schedule-3 -->
+<figure class="shot"><a href="/images/guide/work-schedule-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/work-schedule-3-mobile.webp" width="390" height="844"><img src="/images/guide/work-schedule-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Phân lịch làm việc lần đầu: Gán ca theo ngày; dùng sao chép tuần / nhân bản lịch nếu làm việc cố định"></picture></a><figcaption>① «Thao tác nhanh» → Sao chép lịch tuần trước khi lịch lặp lại hằng tuần.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:schedule-hub-1 -->
+<figure class="shot"><a href="/images/guide/schedule-hub-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/schedule-hub-1-mobile.webp" width="390" height="844"><img src="/images/guide/schedule-hub-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Ca làm việc: lịch, đăng ký, nghỉ, đổi ca, định mức: Lịch của tôi: xem ca tuần, bấm ⋮ trên từng ngày để Đăng ký ca (thấy số chỗ còn trống), Xin nghỉ phép, Đổi ca với đồng nghiệp"></picture></a><figcaption>① Nút ba chấm trên từng ngày: đăng ký ca, xin nghỉ phép, đổi ca với đồng nghiệp. ② Đồng nghiệp xin đổi ca: bấm «Đồng ý» hoặc «Từ chối».</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:schedule-hub-2 -->
+<figure class="shot"><a href="/images/guide/schedule-hub-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/schedule-hub-2-mobile.webp" width="390" height="844"><img src="/images/guide/schedule-hub-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Ca làm việc: lịch, đăng ký, nghỉ, đổi ca, định mức: Hàng «Định mức theo ca»: người có mặt (đã trừ nghỉ phép) / tối thiểu–tối đa; đỏ = thiếu, bấm để kêu gọi bổ sung"></picture></a><figcaption>① Định mức theo ca: số người có mặt / tối thiểu–tối đa, ô đỏ là thiếu người. ② «Thao tác nhanh»: sao chép lịch tuần trước, nhắc nhân viên đăng ký lịch.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:schedule-hub-3 -->
+<figure class="shot"><a href="/images/guide/schedule-hub-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/schedule-hub-3-mobile.webp" width="390" height="844"><img src="/images/guide/schedule-hub-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Ca làm việc: lịch, đăng ký, nghỉ, đổi ca, định mức: Cần duyệt: gom đăng ký ca, đơn nghỉ, đổi ca, ca theo giờ — chọn nhiều để duyệt / từ chối một lần"></picture></a><figcaption>① Lọc theo loại: đăng ký ca, đơn nghỉ, đổi ca, ca theo giờ. ② Tích chọn nhiều yêu cầu. ③ Bấm «Duyệt N» (hoặc «Từ chối») một lần cho tất cả.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Cài đặt → Máy chấm công</strong>: máy trỏ ADMS host <code>103.133.224.176</code> port <code>7070</code>; thêm serial trên SBOX; đồng bộ NV và đăng ký vân tay/face.
+        <!-- guide-shot:device-connect-1 -->
+<figure class="shot"><a href="/images/guide/device-connect-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/device-connect-1-mobile.webp" width="390" height="844"><img src="/images/guide/device-connect-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Kết nối máy chấm công ZKTeco: Nhập Địa chỉ máy chủ: 103.133.224.176 · Port: 7070"></picture></a><figcaption>① Trên máy chấm công: vào menu Máy chủ đám mây, nhập địa chỉ máy chủ và port như hướng dẫn.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:device-connect-2 -->
+<figure class="shot"><a href="/images/guide/device-connect-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/device-connect-2-mobile.webp" width="390" height="844"><img src="/images/guide/device-connect-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Kết nối máy chấm công ZKTeco: Trên SBOX: Cài đặt → Máy chấm công → Thêm máy (nhập SN hoặc quét mã)"></picture></a><figcaption>① Nhập số serial (SN) hoặc quét mã. ② Đặt tên máy. ③ Bấm Thêm.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:device-connect-3 -->
+<figure class="shot"><a href="/images/guide/device-connect-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/device-connect-3-mobile.webp" width="390" height="844"><img src="/images/guide/device-connect-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Kết nối máy chấm công ZKTeco: Kiểm tra trạng thái Online trên danh sách máy (có thể mất 1–2 phút)"></picture></a><figcaption>① Máy đang kết nối hiện Online. ② Máy mất kết nối hiện Offline, cần kiểm tra mạng của máy.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:device-users-1 -->
+<figure class="shot"><a href="/images/guide/device-users-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/device-users-1-mobile.webp" width="390" height="844"><img src="/images/guide/device-users-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Đồng bộ NV &amp; đăng ký vân tay / face: Chọn máy → Đồng bộ / đẩy nhân viên từ Hồ sơ nhân sự xuống thiết bị"></picture></a><figcaption>① Nút «Tải hồ sơ NS» (điện thoại: trong nút «…» góc dưới) đẩy nhân viên xuống máy. ② Thẻ «NV chưa có trên máy»: số nhân viên chưa đồng bộ. ③ Cột vân tay / khuôn mặt bằng 0 là chưa đăng ký, chưa chấm công được.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:device-users-2 -->
+<figure class="shot"><a href="/images/guide/device-users-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/device-users-2-mobile.webp" width="390" height="844"><img src="/images/guide/device-users-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Đồng bộ NV &amp; đăng ký vân tay / face: Chọn máy → Đồng bộ / đẩy nhân viên từ Hồ sơ nhân sự xuống thiết bị"></picture></a><figcaption>① Chọn máy chấm công. ② Tích chọn nhân viên cần tải xuống (hoặc «Chọn tất cả»). ③ Bấm «Tải N nhân viên».</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:device-users-3 -->
+<figure class="shot"><a href="/images/guide/device-users-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/device-users-3-mobile.webp" width="390" height="844"><img src="/images/guide/device-users-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Đồng bộ NV &amp; đăng ký vân tay / face: Trên máy: đăng ký vân tay hoặc khuôn mặt cho từng mã NV"></picture></a><figcaption>① Số vân tay nhân viên đã đăng ký. ② Chọn ngón tay rồi bấm Đăng ký / Xóa. ③ Ngón màu xanh là đã có vân tay.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Hoặc bật <strong>Chấm công mobile</strong> (GPS/WiFi). Tạo tài khoản app và phân quyền.
+        <!-- guide-shot:mobile-attendance-1 -->
+<figure class="shot"><a href="/images/guide/mobile-attendance-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/mobile-attendance-1-mobile.webp" width="390" height="844"><img src="/images/guide/mobile-attendance-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Chấm công Mobile &amp; duyệt: Cài đặt → Chấm công mobile: bật GPS / WiFi / Face theo nhu cầu"></picture></a><figcaption>① Bật cách xác thực: khuôn mặt, GPS, Wi-Fi công ty. ② Khi bật nhiều cách: chỉ cần đạt 1 hay phải đạt tất cả.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:mobile-attendance-2 -->
+<figure class="shot"><a href="/images/guide/mobile-attendance-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/mobile-attendance-2-mobile.webp" width="390" height="844"><img src="/images/guide/mobile-attendance-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Chấm công Mobile &amp; duyệt: Thiết lập vùng chấm (tọa độ cửa hàng) hoặc SSID WiFi hợp lệ"></picture></a><figcaption>① Thêm vị trí chấm công. ② Mỗi vị trí có địa chỉ, bán kính, Wi-Fi và số nhân viên được chấm.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:mobile-attendance-3 -->
+<figure class="shot"><a href="/images/guide/mobile-attendance-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/mobile-attendance-3-mobile.webp" width="390" height="844"><img src="/images/guide/mobile-attendance-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Chấm công Mobile &amp; duyệt: Menu Đăng ký chấm công Mobile: NV đăng ký thiết bị; quản lý duyệt thiết bị"></picture></a><figcaption>① Cấp quyền cho điện thoại nhân viên. ② Máy mới đăng ký hiện «Chờ duyệt». ③ Bấm dấu xanh để duyệt, dấu đỏ để từ chối.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:employee-account-1 -->
+<figure class="shot"><a href="/images/guide/employee-account-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/employee-account-1-mobile.webp" width="390" height="844"><img src="/images/guide/employee-account-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Tạo tài khoản &amp; phân quyền: Cài đặt → Tài khoản → Thêm tài khoản"></picture></a><figcaption>① Bấm «Thêm tài khoản».</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:employee-account-2 -->
+<figure class="shot"><a href="/images/guide/employee-account-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/employee-account-2-mobile.webp" width="390" height="844"><img src="/images/guide/employee-account-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Tạo tài khoản &amp; phân quyền: Liên kết tài khoản với hồ sơ nhân sự tương ứng"></picture></a><figcaption>① Liên kết hồ sơ nhân viên, form tự điền tên và SĐT. ② Thông tin đăng nhập: họ tên, email, mật khẩu.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:employee-account-3 -->
+<figure class="shot"><a href="/images/guide/employee-account-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/employee-account-3-mobile.webp" width="390" height="844"><img src="/images/guide/employee-account-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Tạo tài khoản &amp; phân quyền: Cài đặt → Phân quyền: gán vai trò (Admin cửa hàng, Kế toán, NV…)"></picture></a><figcaption>① Chọn vai trò (Quản lý, Kế toán, Thu ngân…). ② Với thu ngân / order: chọn khu vực bán hàng được xem.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
     </ol>
     <p class="tip">Tuần đầu ưu tiên nhân sự → ca → chấm công → lương. POS và KPI làm sau khi chấm đã ổn.</p>
   </article>
@@ -93,6 +202,12 @@
   <article id="hrm-reports">
     <h2>2. Cách xem báo cáo HRM</h2>
     <p>Trên web: nhóm menu <strong>Báo cáo</strong> (cột trái). Trên app: tìm tên báo cáo. Chọn khoảng ngày → lọc phòng ban/nhân viên → xem bảng → <strong>Xuất Excel</strong>.</p>
+        <!-- guide-shot:reports-1 -->
+<figure class="shot"><a href="/images/guide/reports-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/reports-1-mobile.webp" width="390" height="844"><img src="/images/guide/reports-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Cách xem báo cáo HRM: Lọc phòng ban hoặc nhân viên nếu chỉ cần một bộ phận"></picture></a><figcaption>① Chọn kỳ: hôm nay, tuần, tháng hoặc tự chọn. ② Lọc trạng thái, tìm nhân viên. ③ Bấm «Áp dụng».</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:reports-2 -->
+<figure class="shot"><a href="/images/guide/reports-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/reports-2-mobile.webp" width="390" height="844"><img src="/images/guide/reports-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Cách xem báo cáo HRM: Bước cuối — nút Xuất Excel trên từng màn; phiếu hủy/từ chối không tính vào số liệu"></picture></a><figcaption>① Xuất Excel (điện thoại: trong nút thao tác góc dưới). ② Chuyển xem «Chi tiết» hoặc «Theo NV». ③ Từng phiếu: nhân viên, ngày, loại, trạng thái.</figcaption></figure>
+<!-- /guide-shot -->
     <ul>
       <li><strong>Tổng hợp chấm công</strong> — công theo nhân viên.</li>
       <li><strong>Tổng hợp chấm công theo ca</strong> — công, đi trễ, về sớm, thiếu chấm.</li>
@@ -106,17 +221,67 @@
   <article id="hrm-daily">
     <h2>3. Quy trình hàng ngày &amp; cuối tháng</h2>
     <ol>
-      <li>Sáng: Dashboard / chuông thông báo — duyệt phép, đổi ca, chấm mobile.</li>
-      <li>Trong ngày: <strong>Chấm công thô</strong> nếu thiếu log; tạo thưởng / phạt / ứng khi phát sinh.</li>
-      <li>Trước chốt 2–3 ngày: duyệt hết phép, tăng ca, thưởng, phạt, ứng trong kỳ.</li>
-      <li>Ngày chốt: Tổng hợp theo ca → Tính lương → gửi phiếu lương trên app cho nhân viên kiểm tra.</li>
+      <li>Sáng: Dashboard / chuông thông báo — duyệt phép, đổi ca, chấm mobile.
+        <!-- guide-shot:notifications-2 -->
+<figure class="shot"><a href="/images/guide/notifications-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/notifications-2-mobile.webp" width="390" height="844"><img src="/images/guide/notifications-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thông báo &amp; nhắc việc: Theo dõi chuông thông báo trên web/app: duyệt phép, đổi ca, phiếu chờ"></picture></a><figcaption>① Lọc tất cả / chưa đọc / đã đọc, hoặc theo loại. ② Thông báo chưa đọc có chấm đỏ; bấm «Xem chi tiết» để mở và duyệt.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Trong ngày: <strong>Chấm công thô</strong> nếu thiếu log; tạo thưởng / phạt / ứng khi phát sinh.
+        <!-- guide-shot:bonus-ticket-1 -->
+<figure class="shot"><a href="/images/guide/bonus-ticket-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/bonus-ticket-1-mobile.webp" width="390" height="844"><img src="/images/guide/bonus-ticket-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thưởng phạt: Tài chính nhân sự → tab Thưởng &amp; phạt → Thưởng / phạt"></picture></a><figcaption>① Bấm «Thưởng / phạt» để tạo phiếu. ② Lọc danh sách thưởng / phạt.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:bonus-ticket-2 -->
+<figure class="shot"><a href="/images/guide/bonus-ticket-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/bonus-ticket-2-mobile.webp" width="390" height="844"><img src="/images/guide/bonus-ticket-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thưởng phạt: Chọn nhân viên, số tiền, kỳ áp dụng, lý do"></picture></a><figcaption>① Chọn nhân viên. ② Số tiền. ③ Nội dung (hoặc chạm gợi ý nhanh bên dưới).</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:advance-1 -->
+<figure class="shot"><a href="/images/guide/advance-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/advance-1-mobile.webp" width="390" height="844"><img src="/images/guide/advance-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Ứng lương: Tài chính nhân sự → tab Ứng lương → tạo phiếu (hoặc NV gửi từ app)"></picture></a><figcaption>① Chọn nhân viên (hiện hạn mức còn được ứng). ② Số tiền xin ứng. ③ Trừ 1 lần hoặc trả góp nhiều kỳ.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:cash-1 -->
+<figure class="shot"><a href="/images/guide/cash-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/cash-1-mobile.webp" width="390" height="844"><img src="/images/guide/cash-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thu chi quỹ: Tài chính nhân sự → tab Sổ quỹ → ghi Thu hoặc Chi"></picture></a><figcaption>① Bấm Thu/Chi (biểu tượng +) để ghi phiếu. ② Phiếu chi ứng lương / thu phạt có liên kết phiếu gốc.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:cash-2 -->
+<figure class="shot"><a href="/images/guide/cash-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/cash-2-mobile.webp" width="390" height="844"><img src="/images/guide/cash-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thu chi quỹ: Chọn ngày, số tiền, danh mục, diễn giải"></picture></a><figcaption>① Chọn Thu hoặc Chi. ② Danh mục. ③ Số tiền và mô tả.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Trước chốt 2–3 ngày: duyệt hết phép, tăng ca, thưởng, phạt, ứng trong kỳ.
+        <!-- guide-shot:penalty-ticket-2 -->
+<figure class="shot"><a href="/images/guide/penalty-ticket-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/penalty-ticket-2-mobile.webp" width="390" height="844"><img src="/images/guide/penalty-ticket-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Phiếu phạt đi trễ / về sớm: Khi NV chấm trễ vượt ân hạn ca: hệ thống tạo Phiếu phạt (Loại đi trễ)"></picture></a><figcaption>① Lọc «Phiếu phạt tự động»: phiếu sinh ra từ chấm công. ② Phiếu đi trễ đang chờ duyệt.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:penalty-ticket-3 -->
+<figure class="shot"><a href="/images/guide/penalty-ticket-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/penalty-ticket-3-mobile.webp" width="390" height="844"><img src="/images/guide/penalty-ticket-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Phiếu phạt đi trễ / về sớm: Tài chính nhân sự → tab Cần xử lý / Thưởng &amp; phạt: xem, duyệt, hủy, từ chối phiếu phạt"></picture></a><figcaption>① «Hủy phiếu» nếu phạt sai (ghi lý do). ② «Duyệt» để trừ lương / thu tiền.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:bonus-ticket-3 -->
+<figure class="shot"><a href="/images/guide/bonus-ticket-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/bonus-ticket-3-mobile.webp" width="390" height="844"><img src="/images/guide/bonus-ticket-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thưởng phạt: Duyệt phiếu trước khi chốt Tổng hợp lương"></picture></a><figcaption>① Chọn cách xử lý tiền: cộng vào lương hoặc chi tiền mặt. ② Bấm «Duyệt».</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:advance-2 -->
+<figure class="shot"><a href="/images/guide/advance-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/advance-2-mobile.webp" width="390" height="844"><img src="/images/guide/advance-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Ứng lương: Duyệt phiếu trước khi chi tiền"></picture></a><figcaption>① «Duyệt» phiếu ứng đang chờ. ② Phiếu đã duyệt: bấm «Chi / thu» khi chi tiền.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:advance-3 -->
+<figure class="shot"><a href="/images/guide/advance-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/advance-3-mobile.webp" width="390" height="844"><img src="/images/guide/advance-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Ứng lương: Theo dõi đã ứng / còn nợ trên danh sách phiếu"></picture></a><figcaption>① Tổng đã chi trong tháng và số sẽ trừ lương kỳ này. ② Lọc phiếu theo trạng thái: chờ duyệt, chờ chi, đã chi.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Ngày chốt: Tổng hợp theo ca → Tính lương → gửi phiếu lương trên app cho nhân viên kiểm tra.
+        <!-- guide-shot:first-payroll-1 -->
+<figure class="shot"><a href="/images/guide/first-payroll-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/first-payroll-1-mobile.webp" width="390" height="844"><img src="/images/guide/first-payroll-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Chốt công &amp; bảng lương tháng đầu: Vào Tính lương / Tổng hợp lương → chọn kỳ → tải lại dữ liệu"></picture></a><figcaption>① Chọn kỳ lương (từ ngày đến ngày). ② Lọc theo phòng ban hoặc nhân viên.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:first-payroll-2 -->
+<figure class="shot"><a href="/images/guide/first-payroll-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/first-payroll-2-mobile.webp" width="390" height="844"><img src="/images/guide/first-payroll-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Chốt công &amp; bảng lương tháng đầu: Rà từng NV: công, phụ cấp, BHXH, thuế, ứng, thưởng, phạt"></picture></a><figcaption>① Rà từng nhân viên: công, giờ, tăng ca, thu nhập, khấu trừ. ② Số thực nhận cuối cùng.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:first-payroll-3 -->
+<figure class="shot"><a href="/images/guide/first-payroll-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/first-payroll-3-mobile.webp" width="390" height="844"><img src="/images/guide/first-payroll-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Chốt công &amp; bảng lương tháng đầu: Chỉ chỉnh sửa lịch/ca trước khi chốt — sau chốt nên khóa kỳ nếu có"></picture></a><figcaption>① Kiểm tra xong thì bấm «Chốt lương» để khóa kỳ.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
     </ol>
   </article>
 
   <article id="hrm-cases">
     <h2>4. Tình huống HRM thường gặp</h2>
     <ul>
-      <li><strong>Phạt dù vào sớm vài phút</strong> — tăng phút ân hạn trên Thiết lập ca.</li>
+      <li><strong>Phạt dù vào sớm vài phút</strong> — tăng phút ân hạn trên Thiết lập ca.
+        <!-- guide-shot:penalty-ticket-1 -->
+<figure class="shot"><a href="/images/guide/penalty-ticket-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/penalty-ticket-1-mobile.webp" width="390" height="844"><img src="/images/guide/penalty-ticket-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Phiếu phạt đi trễ / về sớm: Cài đặt → Phạt: bậc phút đi trễ / về sớm và số tiền từng bậc; phạt tái phạm"></picture></a><figcaption>① Bậc phạt đi trễ: số phút và số tiền từng bậc. ② Bậc phạt về sớm. Kéo xuống để đặt phạt tái phạm, quên chấm công và cách thu tiền.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
       <li><strong>Thiếu chấm / không tính công</strong> — cửa hàng chỉ chấm 1 lần/ngày: chọn «Chấm vào (đủ ca)» trong Thiết lập lương.</li>
       <li><strong>Quên chấm</strong> — phiếu Sửa giờ / Báo quên; quản lý duyệt, không xóa log máy.</li>
       <li><strong>Máy ZK Offline</strong> — mạng máy + serial trên SBOX; hotline 0973 024 042.</li>
@@ -124,49 +289,272 @@
     </ul>
   </article>
 
+  <article id="hrm-advanced">
+    <h2>5. Vận hành nâng cao HRM</h2>
+    <p>Các chức năng dùng sau khi chấm công và lương đã chạy ổn. Mỗi mục có ảnh màn hình kèm số thứ tự chỗ cần bấm.</p>
+    <ul>
+       <li><strong>Kiểu chấm công</strong> (Thiết lập lương → chọn NV → «Cách chấm công»): chấm vào và ra, chỉ chấm vào, chỉ chấm ra, chấm bất kỳ trong ca, 2 lần trong ngày, ca nguyên ngày, không chấm công.
+        <!-- guide-shot:attendance-modes-2 -->
+<figure class="shot"><a href="/images/guide/attendance-modes-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/attendance-modes-2-mobile.webp" width="390" height="844"><img src="/images/guide/attendance-modes-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Kiểu chấm công (quan trọng): Chấm vào đủ ca (checkin/once): 1 lần chấm = đủ ca; tính đi trễ; giờ ra = hết ca; không phạt quên chấm ra"></picture></a><figcaption>① Cửa hàng chỉ chấm 1 lần trên máy: chọn «Chỉ chấm vào» (giờ ra lấy hết ca, không phạt quên chấm ra). ② Ca áp dụng cho nhân viên.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:attendance-modes-1 -->
+<figure class="shot"><a href="/images/guide/attendance-modes-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/attendance-modes-1-mobile.webp" width="390" height="844"><img src="/images/guide/attendance-modes-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Kiểu chấm công (quan trọng): Cấu hình tại: Thiết lập lương → chọn NV → mục «Cách chấm công»"></picture></a><figcaption>① Chấm vào và ra: cần đủ cặp vào – ra, tính trễ / sớm / tăng ca. ② Chỉ chấm vào hoặc chỉ chấm ra: 1 lần chấm là đủ ca. ③ Chấm 2 lần trong ngày hoặc ca nguyên ngày: không theo giờ ca. ④ Không chấm công: đủ công theo lịch.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Bảo hiểm & thuế TNCN</strong>: tỷ lệ đóng BHXH / BHYT / BHTN, giảm trừ gia cảnh, biểu thuế lũy tiến, người phụ thuộc của nhân viên.
+        <!-- guide-shot:insurance-tax-1 -->
+<figure class="shot"><a href="/images/guide/insurance-tax-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/insurance-tax-1-mobile.webp" width="390" height="844"><img src="/images/guide/insurance-tax-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Bảo hiểm &amp; thuế TNCN: Cài đặt → Bảo hiểm: mức đóng, tỷ lệ công ty / người lao động"></picture></a><figcaption>① Tỷ lệ đóng BHXH, BHYT, BHTN: cột trái người lao động, cột phải doanh nghiệp. ② Tổng tỷ lệ bắt buộc của hai bên.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:insurance-tax-2 -->
+<figure class="shot"><a href="/images/guide/insurance-tax-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/insurance-tax-2-mobile.webp" width="390" height="844"><img src="/images/guide/insurance-tax-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Bảo hiểm &amp; thuế TNCN: Cài đặt → Thuế TNCN: biểu thuế / giảm trừ (theo cấu hình cửa hàng)"></picture></a><figcaption>① Giảm trừ gia cảnh cho bản thân và mỗi người phụ thuộc. ② Biểu thuế lũy tiến từng bậc theo tháng.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:insurance-tax-3 -->
+<figure class="shot"><a href="/images/guide/insurance-tax-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/insurance-tax-3-mobile.webp" width="390" height="844"><img src="/images/guide/insurance-tax-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Bảo hiểm &amp; thuế TNCN: Người phụ thuộc: Cài đặt → Thuế TNCN → mục «Người phụ thuộc của nhân viên»; tham gia BH bật trên Thiết lập lương từng NV"></picture></a><figcaption>① Mục người phụ thuộc của nhân viên. ② Chạm vào nhân viên để khai số người phụ thuộc và đính kèm hồ sơ.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Chính sách thưởng</strong>: tạo phiếu thưởng có lý do rõ, duyệt trước khi tính lương.
+        <!-- guide-shot:bonus-1 -->
+<figure class="shot"><a href="/images/guide/bonus-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/bonus-1-mobile.webp" width="390" height="844"><img src="/images/guide/bonus-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thưởng (chính sách): Phân loại thưởng rõ ràng (nóng / tháng / KPI) trong lý do phiếu"></picture></a><figcaption>① Lọc «Thưởng». ② Mỗi phiếu ghi rõ lý do để phân biệt thưởng nóng, thưởng tháng, thưởng KPI.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:bonus-2 -->
+<figure class="shot"><a href="/images/guide/bonus-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/bonus-2-mobile.webp" width="390" height="844"><img src="/images/guide/bonus-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thưởng (chính sách): Duyệt trước khi chạy Tổng hợp lương"></picture></a><figcaption>① Tổng thưởng đã duyệt trong tháng. ② Phiếu còn «Chờ duyệt» chưa được cộng vào lương: duyệt trước khi tính lương.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Chính sách phạt</strong>: phạt quên chấm công, nghỉ không phép, cách thu tiền phạt; xem báo cáo phạt.
+        <!-- guide-shot:penalty-1 -->
+<figure class="shot"><a href="/images/guide/penalty-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/penalty-1-mobile.webp" width="390" height="844"><img src="/images/guide/penalty-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Chính sách phạt: Cài đặt → Phạt: các bậc phút và số tiền; phạt quên chấm / nghỉ không phép"></picture></a><figcaption>① Phạt quên chấm công và nghỉ không phép (0 = không phạt). ② Cách thu tiền phạt (trừ lương / tiền mặt) và số giờ tự duyệt phạt sau kết ca.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:penalty-2 -->
+<figure class="shot"><a href="/images/guide/penalty-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/penalty-2-mobile.webp" width="390" height="844"><img src="/images/guide/penalty-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Chính sách phạt: Thu phạt: khi duyệt chọn trừ lương hoặc tiền mặt (tự ghi Sổ quỹ); theo dõi Báo cáo phạt"></picture></a><figcaption>① Tổng tiền phạt và số đã duyệt (trừ lương / thu tiền mặt). ② Tiền phạt theo loại vi phạm. ③ Xuất Excel.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Lương sản phẩm</strong>: khai đơn giá theo bậc số lượng, nhập sản lượng hằng ngày, đối soát tổng hợp trước khi chốt kỳ.
+        <!-- guide-shot:production-1 -->
+<figure class="shot"><a href="/images/guide/production-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/production-1-mobile.webp" width="390" height="844"><img src="/images/guide/production-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Sản lượng / lương sản phẩm: Cài đặt → Lương sản phẩm: nhóm SP, đơn giá, bậc thang"></picture></a><figcaption>① Nhóm sản phẩm (lọc / sửa nhóm). ② Mỗi sản phẩm có bảng đơn giá theo bậc số lượng.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:production-2 -->
+<figure class="shot"><a href="/images/guide/production-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/production-2-mobile.webp" width="390" height="844"><img src="/images/guide/production-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Sản lượng / lương sản phẩm: Menu: Sản lượng → nhập theo ngày/ca/NV"></picture></a><figcaption>① Bấm «Nhập sản lượng». ② Mỗi dòng: ngày, nhân viên, sản phẩm, số lượng, đơn giá, thành tiền. ③ Tab «Tổng hợp» để đối soát theo nhân viên trước khi chốt kỳ.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+     <li><strong>Nghỉ phép</strong>: nhân viên vào <strong>Nghỉ phép → Tạo đơn</strong>, chọn chế độ, ngày nghỉ, ca nghỉ rồi gửi; quản lý duyệt ở tab <em>Chờ duyệt</em>.
+        <!-- guide-shot:leave-1 -->
+<figure class="shot"><a href="/images/guide/leave-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/leave-1-mobile.webp" width="390" height="844"><img src="/images/guide/leave-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Nghỉ phép: NV vào menu Nghỉ phép → tạo đơn (loại phép, từ ngày–đến ngày, lý do)"></picture></a><figcaption>① Bấm «Tạo đơn» rồi chọn nhóm chế độ: DN trả lương, không hưởng lương, hoặc BHXH.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:leave-2 -->
+<figure class="shot"><a href="/images/guide/leave-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/leave-2-mobile.webp" width="390" height="844"><img src="/images/guide/leave-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Nghỉ phép: NV vào menu Nghỉ phép → tạo đơn (loại phép, từ ngày–đến ngày, lý do)"></picture></a><figcaption>① Phép năm còn lại và số ngày đơn này cần. ② Từ ngày – đến ngày. ③ Chọn ca nghỉ. ④ Bấm «Gửi đơn».</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:leave-3 -->
+<figure class="shot"><a href="/images/guide/leave-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/leave-3-mobile.webp" width="390" height="844"><img src="/images/guide/leave-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Nghỉ phép: Quản lý duyệt / từ chối / hủy đơn"></picture></a><figcaption>① Tab «Chờ duyệt». ② Bấm «Duyệt» hoặc «Từ chối» (điện thoại: chạm vào đơn để mở rồi bấm).</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Đổi ca làm việc</strong>: nhân viên chọn ca của mình, đồng nghiệp và ca muốn nhận rồi gửi yêu cầu; quản lý duyệt ở tab <em>Chờ QL duyệt</em>.
+        <!-- guide-shot:shift-swap-1 -->
+<figure class="shot"><a href="/images/guide/shift-swap-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/shift-swap-1-mobile.webp" width="390" height="844"><img src="/images/guide/shift-swap-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Đổi ca làm việc: NV: menu Đổi ca làm việc → tạo yêu cầu (ngày, ca cũ, ca mới / người nhận)"></picture></a><figcaption>① Ca và ngày của bạn. ② Đồng nghiệp muốn đổi. ③ Ca và ngày muốn nhận. ④ Bấm «Gửi yêu cầu».</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:shift-swap-2 -->
+<figure class="shot"><a href="/images/guide/shift-swap-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/shift-swap-2-mobile.webp" width="390" height="844"><img src="/images/guide/shift-swap-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Đổi ca làm việc: Quản lý duyệt / từ chối yêu cầu"></picture></a><figcaption>① Tab «Chờ QL duyệt». ② Quản lý bấm «Duyệt» hoặc «Từ chối».</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Cài đặt → Ngày lễ</strong>: thêm nhanh các ngày lễ theo quy định (kể cả Tết âm lịch), đặt hệ số lương khi đi làm ngày lễ.
+        <!-- guide-shot:holidays-1 -->
+<figure class="shot"><a href="/images/guide/holidays-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/holidays-1-mobile.webp" width="390" height="844"><img src="/images/guide/holidays-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Ngày lễ &amp; ngày nghỉ đặc biệt: Thêm ngày lễ cố định / lễ phát sinh trong năm"></picture></a><figcaption>① Thêm một ngày lễ riêng. ② Thêm nhanh các ngày lễ theo quy định còn thiếu trong năm (Tết âm lịch, Giỗ Tổ…).</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:holidays-2 -->
+<figure class="shot"><a href="/images/guide/holidays-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/holidays-2-mobile.webp" width="390" height="844"><img src="/images/guide/holidays-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Ngày lễ &amp; ngày nghỉ đặc biệt: Kiểm tra hệ số OT ngày lễ trong thiết lập lương / chính sách OT"></picture></a><figcaption>① Tên và ngày (có ngày âm lịch). ② Lặp lại hằng năm (chỉ ngày dương lịch cố định). ③ Hệ số lương khi đi làm ngày lễ.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>KPI</strong>: giao chỉ tiêu cho nhân viên, nhập doanh số thực đạt, duyệt lương KPI để cộng vào bảng lương.
+        <!-- guide-shot:kpi-1 -->
+<figure class="shot"><a href="/images/guide/kpi-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/kpi-1-mobile.webp" width="390" height="844"><img src="/images/guide/kpi-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="KPI: Giao KPI theo nhân viên hoặc phòng ban / kỳ đánh giá"></picture></a><figcaption>① Tab «Chỉ tiêu». ② Bấm «Giao chỉ tiêu» cho nhân viên. ③ Mỗi người: chỉ tiêu, thực đạt và % hoàn thành.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:kpi-2 -->
+<figure class="shot"><a href="/images/guide/kpi-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/kpi-2-mobile.webp" width="390" height="844"><img src="/images/guide/kpi-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="KPI: Nhập kết quả thực tế định kỳ"></picture></a><figcaption>① Nhập doanh số thực tế cho từng người. ② Bấm «Lưu tất cả».</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:kpi-3 -->
+<figure class="shot"><a href="/images/guide/kpi-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/kpi-3-mobile.webp" width="390" height="844"><img src="/images/guide/kpi-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="KPI: Dùng kết quả để tạo thưởng hoặc đánh giá"></picture></a><figcaption>① Tab «Lương KPI». ② % KPI và tiền thưởng KPI của từng người. ③ Bấm «Duyệt» để chốt lương KPI.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Tài sản</strong>: thêm tài sản (mã tự sinh, giá mua, bảo hành), cấp phát / thu hồi / chuyển giao cho nhân viên.
+        <!-- guide-shot:asset-1 -->
+<figure class="shot"><a href="/images/guide/asset-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/asset-1-mobile.webp" width="390" height="844"><img src="/images/guide/asset-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Tài sản: Menu: Tài sản"></picture></a><figcaption>① Bấm «Thêm tài sản». ② Mỗi tài sản hiện trạng thái (đang dùng, trong kho, bảo trì) và người đang giữ.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:asset-2 -->
+<figure class="shot"><a href="/images/guide/asset-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/asset-2-mobile.webp" width="390" height="844"><img src="/images/guide/asset-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Tài sản: Thêm tài sản: mã, tên, ngày mua, hạn bảo hành"></picture></a><figcaption>① Tên tài sản (mã TS tự sinh). ② Chọn loại và danh mục. ③ Giá mua; bên dưới có ngày mua và số tháng bảo hành.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:asset-3 -->
+<figure class="shot"><a href="/images/guide/asset-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/asset-3-mobile.webp" width="390" height="844"><img src="/images/guide/asset-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Tài sản: Cấp phát / thu hồi cho nhân viên hoặc phòng ban"></picture></a><figcaption>① Nút «…» trên tài sản → Cấp phát: chọn nhân viên nhận. ② Ghi lý do. ③ Bấm «Cấp phát»; thu hồi / chuyển giao cũng ở nút «…».</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Công việc</strong>: tạo việc, giao người làm, đặt hạn và mức ưu tiên; theo dõi trên bảng Kanban.
+        <!-- guide-shot:tasks-1 -->
+<figure class="shot"><a href="/images/guide/tasks-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/tasks-1-mobile.webp" width="390" height="844"><img src="/images/guide/tasks-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Công việc (Tasks): Menu: Công việc"></picture></a><figcaption>① Bấm «Tạo công việc». ② Lọc nhanh: Của tôi, Quá hạn, Trạng thái, Ưu tiên, Người thực hiện.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:tasks-2 -->
+<figure class="shot"><a href="/images/guide/tasks-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/tasks-2-mobile.webp" width="390" height="844"><img src="/images/guide/tasks-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Công việc (Tasks): Tạo việc: tiêu đề, người nhận, hạn, mức ưu tiên"></picture></a><figcaption>① Tiêu đề công việc. ② Loại và mức ưu tiên. ③ Giao cho một hoặc nhiều người. ④ Thời gian bắt đầu và hạn hoàn thành.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:tasks-3 -->
+<figure class="shot"><a href="/images/guide/tasks-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/tasks-3-mobile.webp" width="390" height="844"><img src="/images/guide/tasks-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Công việc (Tasks): Cập nhật trạng thái: chờ / đang làm / hoàn thành"></picture></a><figcaption>① Tab Kanban: mỗi cột là một trạng thái (Chờ làm, Đang làm, Đang xem xét, Hoàn thành). ② Kéo thẻ sang cột khác để đổi trạng thái, chạm thẻ để xem chi tiết.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Công tác phí</strong>: tạo hồ sơ công tác, nhập chi phí, tạo phiếu ứng; quản lý duyệt và chi ứng.
+        <!-- guide-shot:business-trip-1 -->
+<figure class="shot"><a href="/images/guide/business-trip-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/business-trip-1-mobile.webp" width="390" height="844"><img src="/images/guide/business-trip-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Công tác &amp; tạm ứng công tác phí: Menu: Công tác phí / Công tác (Quản lý vận hành hoặc Tài chính — tùy cấu hình)"></picture></a><figcaption>① Bấm «Hồ sơ mới». ② Mỗi hồ sơ hiện người đi, trạng thái, số tiền đã ứng và đã hạch toán.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:business-trip-2 -->
+<figure class="shot"><a href="/images/guide/business-trip-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/business-trip-2-mobile.webp" width="390" height="844"><img src="/images/guide/business-trip-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Công tác &amp; tạm ứng công tác phí: Tạo đề xuất công tác: thời gian, địa điểm, tạm ứng"></picture></a><figcaption>① Tiêu đề và điểm đến. ② Chọn từ ngày – đến ngày. ③ Bấm «Tạo &amp; nhập chi phí» rồi tạo phiếu ứng nếu cần.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:business-trip-3 -->
+<figure class="shot"><a href="/images/guide/business-trip-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/business-trip-3-mobile.webp" width="390" height="844"><img src="/images/guide/business-trip-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Công tác &amp; tạm ứng công tác phí: Duyệt đề xuất → chi tạm ứng (có thể qua Thu chi)"></picture></a><figcaption>① Phiếu ứng công tác: số tiền đề nghị, trạng thái duyệt, đã chi hay chưa. ② Quản lý bấm «Duyệt ứng» hoặc «Từ chối ứng».</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Chấm cơm</strong>: đặt buổi ăn và giá suất, theo dõi suất ăn tại căn tin, tính tiền cơm tháng.
+        <!-- guide-shot:meal-1 -->
+<figure class="shot"><a href="/images/guide/meal-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/meal-1-mobile.webp" width="390" height="844"><img src="/images/guide/meal-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Chấm cơm: Quản lý buổi ăn: đặt giờ Sáng / Trưa / Tối và giá suất; chấm sớm / trễ tối đa 30 phút vẫn nhận, ngoài khung giờ không tính"></picture></a><figcaption>① Tên buổi ăn (Sáng / Trưa / Tối). ② Giá mỗi suất. ③ Giờ bắt đầu – kết thúc của buổi.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:meal-2 -->
+<figure class="shot"><a href="/images/guide/meal-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/meal-2-mobile.webp" width="390" height="844"><img src="/images/guide/meal-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Chấm cơm: Tab Căn tin: số suất theo buổi, ai đăng ký mà chưa ăn; tab Báo cáo: suất và tiền ăn từng người, xuất Excel"></picture></a><figcaption>① Tab Căn tin: suất đã phục vụ, đã đăng ký, ăn không đăng ký, đăng ký chưa ăn. ② Từng buổi: số suất, món, danh sách người đăng ký mà chưa ăn.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:meal-3 -->
+<figure class="shot"><a href="/images/guide/meal-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/meal-3-mobile.webp" width="390" height="844"><img src="/images/guide/meal-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Chấm cơm: Tab Công nợ: «Tính tiền cơm» cho tháng, ghi nhận khi nhân viên trả tiền"></picture></a><figcaption>① Bấm «Tính tiền cơm tháng». ② Mỗi nhân viên: số suất, đã trả, còn nợ; nút thẻ để ghi nhận trả tiền.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Bản đồ nhân sự</strong>: xem vị trí nhân viên đang trong ca, lọc theo tình trạng, xem lộ trình trong ngày.
+        <!-- guide-shot:field-checkin-1 -->
+<figure class="shot"><a href="/images/guide/field-checkin-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/field-checkin-1-mobile.webp" width="390" height="844"><img src="/images/guide/field-checkin-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Bản đồ nhân sự / chấm ngoài hiện trường: Lọc nhanh: đang trong ca, mất tín hiệu trong ca, chưa có vị trí; lọc theo bộ phận, tìm tên"></picture></a><figcaption>① Số nhân viên theo tình trạng: trực tuyến, trong ca, mất tín hiệu, ngoại tuyến — chạm để lọc. ② Tìm tên / mã và lọc theo bộ phận. ③ Nút xem lộ trình của nhân viên.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:field-checkin-2 -->
+<figure class="shot"><a href="/images/guide/field-checkin-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/field-checkin-2-mobile.webp" width="390" height="844"><img src="/images/guide/field-checkin-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Bản đồ nhân sự / chấm ngoài hiện trường: Bấm «Lộ trình»: đường đi trong ca / cả ngày, điểm dừng ≥5 phút, mất tín hiệu, chấm công vào/ra, check-in điểm; tua lại hành trình"></picture></a><figcaption>① Xem lộ trình trong ca hoặc cả ngày. ② Quãng đường, thời gian di chuyển, số lần dừng, mất tín hiệu. ③ Dòng thời gian: chấm công, điểm dừng, check-in khách hàng.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Truyền thông nội bộ</strong>: đăng bài lên bảng tin, chọn người nhận, bật «Bắt buộc đọc và xác nhận» để biết ai chưa đọc, ghim bài quan trọng.
+        <!-- guide-shot:communication-1 -->
+<figure class="shot"><a href="/images/guide/communication-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/communication-1-mobile.webp" width="390" height="844"><img src="/images/guide/communication-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Truyền thông nội bộ: Menu: Truyền thông → tạo bài viết"></picture></a><figcaption>① Ô «Chia sẻ điều gì đó…» (điện thoại: nút bút góc dưới) để viết bài. ② Chọn kênh: Bảng tin, Thông báo, Nội quy &amp; chính sách…</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:communication-2 -->
+<figure class="shot"><a href="/images/guide/communication-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/communication-2-mobile.webp" width="390" height="844"><img src="/images/guide/communication-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Truyền thông nội bộ: Ghim tin quan trọng; chọn đối tượng (toàn cửa hàng / nhóm)"></picture></a><figcaption>① Người nhận: toàn công ty hoặc chọn nhóm / từng người. ② Bắt buộc đọc và xác nhận: xem được ai chưa đọc. ③ Ghim bài lên đầu bảng tin.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:communication-3 -->
+<figure class="shot"><a href="/images/guide/communication-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/communication-3-mobile.webp" width="390" height="844"><img src="/images/guide/communication-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Truyền thông nội bộ: NV xem tại Tổng quan hoặc mục Truyền thông"></picture></a><figcaption>① Nhân viên bấm «Tôi đã đọc và cam kết»; thanh bên dưới cho biết bao nhiêu người đã xác nhận. ② Khung «Cần bạn xử lý»: các bài bắt buộc đọc còn chờ.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Kiến nghị / Khiếu nại</strong>: nhân viên gửi phiếu (có thể ẩn danh); quản lý tiếp nhận, giao người xử lý, theo dõi đúng hạn và mức hài lòng.
+        <!-- guide-shot:feedback-1 -->
+<figure class="shot"><a href="/images/guide/feedback-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/feedback-1-mobile.webp" width="390" height="844"><img src="/images/guide/feedback-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Kiến nghị / Khiếu nại: Gửi: chọn loại (Khiếu nại / Kiến nghị / Góp ý), chủ đề, mức độ, ảnh; gửi hòm thư chung hoặc 1 quản lý"></picture></a><figcaption>① Chọn loại: khiếu nại, kiến nghị hoặc góp ý chung. ② Chọn chủ đề. ③ Nhập tiêu đề và nội dung; kéo xuống để chọn mức độ, người nhận, gửi ẩn danh.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:feedback-2 -->
+<figure class="shot"><a href="/images/guide/feedback-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/feedback-2-mobile.webp" width="390" height="844"><img src="/images/guide/feedback-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Kiến nghị / Khiếu nại: Người xử lý: Tiếp nhận → giao người xử lý → trao đổi (ghi chú nội bộ người gửi không thấy) → Đã giải quyết"></picture></a><figcaption>① Lọc nhanh: đang mở, chờ tiếp nhận, quá hạn, giao cho tôi. ② Phiếu quá hạn có nhãn đỏ «Quá hạn …»; bấm vào phiếu để tiếp nhận, giao người xử lý, trao đổi.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:feedback-3 -->
+<figure class="shot"><a href="/images/guide/feedback-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/feedback-3-mobile.webp" width="390" height="844"><img src="/images/guide/feedback-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Kiến nghị / Khiếu nại: Tab Báo cáo: đúng hạn, thời gian phản hồi / giải quyết, hài lòng, chủ đề nóng, hiệu quả người xử lý"></picture></a><figcaption>① Tỷ lệ đúng hạn, thời gian phản hồi và giải quyết trung bình. ② Mức hài lòng và số lần mở lại.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li><strong>Cài đặt → Thông báo</strong>: bật / tắt từng loại thông báo hoặc cả nhóm; xem và lọc thông báo ở chuông.
+        <!-- guide-shot:notifications-1 -->
+<figure class="shot"><a href="/images/guide/notifications-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/notifications-1-mobile.webp" width="390" height="844"><img src="/images/guide/notifications-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thông báo &amp; nhắc việc: Cài đặt → Thông báo: bật / tắt từng loại hoặc cả nhóm (tự lưu)"></picture></a><figcaption>① Bật / tắt cả một nhóm thông báo. ② Hoặc tắt từng loại (vd máy chấm công mất kết nối); tự lưu khi bật / tắt.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+    </ul>
+  </article>
+
   <article id="pos-start">
-    <h2>5. POS: máy A6 / A7 &amp; thiết lập</h2>
+    <h2>6. POS: máy A6 / A7 &amp; thiết lập</h2>
     <p><strong>A6 Sunmi T1</strong> chạy app POS. <strong>A7 / web / iOS</strong> bán hàng trong app HRM → menu <strong>Bán hàng</strong>. Cùng mã cửa hàng; thu ngân cần quyền <strong>Duyệt PosSell</strong> để thanh toán.</p>
     <ol>
-      <li>Cài đặt → <strong>Ngành hàng &amp; bán hàng</strong>: chọn ngành, bật/tắt <em>Cho phép bán khi hết hàng / tồn âm</em>, <em>Ca thu ngân (mở ca / đóng két)</em>.</li>
-      <li>Cài đặt → <strong>Thiết lập cửa hàng</strong>: tên, địa chỉ, MST, VAT, tài khoản VietQR.</li>
-      <li>Menu <strong>Hàng hóa</strong>: danh mục, món/SP, giá, ĐVT quy đổi, combo, định lượng nguyên liệu, tồn đầu kỳ.</li>
-      <li>F&amp;B: <strong>Quản lý bàn / phòng</strong>.</li>
-      <li>Cài đặt → <strong>Máy in</strong> và <strong>Mẫu in</strong> (hóa đơn K80, phiếu bếp, tem) — mặc định theo cửa hàng.</li>
-      <li>Cài đặt → <strong>Hóa đơn điện tử</strong> nếu cần xuất HĐĐT (mục 8).</li>
+      <li>Cài đặt → <strong>Ngành hàng &amp; bán hàng</strong>: chọn ngành, bật/tắt <em>Cho phép bán khi hết hàng / tồn âm</em>, <em>Ca thu ngân (mở ca / đóng két)</em>.
+        <!-- guide-shot:pos-setup-1 -->
+<figure class="shot"><a href="/images/guide/pos-setup-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-setup-1-mobile.webp" width="390" height="844"><img src="/images/guide/pos-setup-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thiết lập SBOX lần đầu cho POS: Thiết lập SBOX → Ngành hàng &amp; cách bán: chọn retail / nhà hàng / salon / phòng…"></picture></a><figcaption>① Chọn ngành hàng (vd Nhà hàng / Cafe) — đổi ngành lưu ngay và bật sẵn cấu hình của ngành. ② Chế độ bán mặc định: bán nhanh, bán thường hoặc giao hàng.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Cài đặt → <strong>Thiết lập cửa hàng</strong>: tên, địa chỉ, MST, VAT, tài khoản VietQR.
+        <!-- guide-shot:pos-setup-2 -->
+<figure class="shot"><a href="/images/guide/pos-setup-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-setup-2-mobile.webp" width="390" height="844"><img src="/images/guide/pos-setup-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thiết lập SBOX lần đầu cho POS: Thiết lập SBOX → Thông tin cửa hàng: tên, địa chỉ, VAT, tài khoản VietQR (nếu thanh toán QR)"></picture></a><figcaption>① Tên cửa hàng, địa chỉ, SĐT in trên hóa đơn. ② Thuế VAT khi bán: giá đã gồm thuế hoặc thuế theo từng mặt hàng.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Menu <strong>Hàng hóa</strong>: danh mục, món/SP, giá, ĐVT quy đổi, combo, định lượng nguyên liệu, tồn đầu kỳ.
+        <!-- guide-shot:pos-products-1 -->
+<figure class="shot"><a href="/images/guide/pos-products-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-products-1-mobile.webp" width="390" height="844"><img src="/images/guide/pos-products-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Hàng hóa, giá &amp; combo: Menu: Hàng hóa → Thêm sản phẩm / món: mã, tên, giá bán, đơn vị, nhóm"></picture></a><figcaption>① Bấm «Tạo mới» (điện thoại: nút + góc dưới) để thêm hàng. ② Tìm theo mã / tên hàng. ③ Mỗi dòng: mã, tên, giá bán, tồn.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:pos-products-2 -->
+<figure class="shot"><a href="/images/guide/pos-products-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-products-2-mobile.webp" width="390" height="844"><img src="/images/guide/pos-products-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Hàng hóa, giá &amp; combo: Menu: Hàng hóa → Thêm sản phẩm / món: mã, tên, giá bán, đơn vị, nhóm"></picture></a><figcaption>① Chạm khung ảnh để chụp / chọn ảnh món. ② Nhập mã hàng và tên. ③ Chọn nhóm hàng. ④ Giá vốn, giá bán.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>F&amp;B: <strong>Quản lý bàn / phòng</strong>.
+        <!-- guide-shot:pos-tables-1 -->
+<figure class="shot"><a href="/images/guide/pos-tables-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-tables-1-mobile.webp" width="390" height="844"><img src="/images/guide/pos-tables-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Bàn / phòng &amp; đặt lịch: Cài đặt → Quản lý bàn / phòng: tạo khu (tầng 1, sân vườn…) rồi thêm bàn"></picture></a><figcaption>① Quản lý nhóm (khu: Tầng 1, Sân vườn…), tạo bàn nhanh, thêm bàn. ② Bàn đang dùng hiện số phút, tiền tạm tính, số khách.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Cài đặt → <strong>Máy in</strong> và <strong>Mẫu in</strong> (hóa đơn K80, phiếu bếp, tem) — mặc định theo cửa hàng.
+        <!-- guide-shot:pos-printers-1 -->
+<figure class="shot"><a href="/images/guide/pos-printers-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-printers-1-mobile.webp" width="390" height="844"><img src="/images/guide/pos-printers-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Máy in &amp; mẫu in (K80 / tem): Cài đặt → Máy in (thiết bị): thêm máy USB (A6/Agent), Bluetooth, LAN, hoặc in cloud"></picture></a><figcaption>① Tab «Trên máy này» (máy USB / Bluetooth / LAN tại quầy) hoặc «Máy in cloud» (dùng chung cả cửa hàng). ② Bật «In hóa đơn khi thanh toán». ③ Chọn máy in hóa đơn. ④ Chọn mẫu in hóa đơn.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:pos-printers-2 -->
+<figure class="shot"><a href="/images/guide/pos-printers-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-printers-2-mobile.webp" width="390" height="844"><img src="/images/guide/pos-printers-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Máy in &amp; mẫu in (K80 / tem): Cài đặt → Mẫu in: hóa đơn, phiếu bếp, tem — bấm mặc định cho đúng loại"></picture></a><figcaption>① Chọn loại mẫu: hóa đơn, phiếu bếp («Báo chế biến»), tem. ② «Dùng mẫu này» để đặt làm mẫu mặc định. ③ In thử.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Cài đặt → <strong>Hóa đơn điện tử</strong> nếu cần xuất HĐĐT (mục 9).</li>
       <li>Phân quyền thu ngân / quản kho / quản lý → bán thử 1 đơn, in thử.</li>
     </ol>
     <p class="tip">Sau khi cài POS trên A6, rút USB/ADB trước khi kiểm tra màn hình phụ khách.</p>
   </article>
 
   <article id="pos-sell">
-    <h2>6. Bán hàng, in, bếp</h2>
+    <h2>7. Bán hàng, in, bếp</h2>
     <h3>Bán hàng</h3>
     <ol>
       <li>Mở Bán hàng (HRM / web) hoặc app POS (A6). Cửa hàng bật ca thu ngân: <strong>Menu ⋮ → Ca thu ngân → Mở ca</strong> trước.</li>
-      <li>Bán lẻ: quét / chọn hàng. F&amp;B: chọn bàn → gọi món → <strong>Gửi bếp</strong>.</li>
+      <li>Bán lẻ: quét / chọn hàng. F&amp;B: chọn bàn → gọi món → <strong>Gửi bếp</strong>.
+        <!-- guide-shot:pos-sales-1 -->
+<figure class="shot"><a href="/images/guide/pos-sales-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-sales-1-mobile.webp" width="390" height="844"><img src="/images/guide/pos-sales-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Quy trình bán hàng: Bán lẻ: quét mã / chọn hàng. Nhà hàng: chọn bàn → gọi món → Gửi bếp"></picture></a><figcaption>① Tìm / quét mã hàng. ② Chạm món để thêm vào hóa đơn (điện thoại: «Chọn hàng»). ③ Sửa số lượng bằng − / +. ④ Thanh toán (F9).</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
       <li>Sửa SL, ghi chú, topping; chiết khấu / đổi giá cần quyền duyệt.</li>
-      <li>Chọn khách nếu cần tích điểm, ghi công nợ hoặc xuất HĐĐT có MST.</li>
-      <li>Thanh toán tiền mặt / chuyển khoản / VietQR / nhiều hình thức; chọn chip <em>In hóa đơn</em>, <em>Xuất HĐĐT</em>.</li>
+      <li>Chọn khách nếu cần tích điểm, ghi công nợ hoặc xuất HĐĐT có MST.
+        <!-- guide-shot:pos-customers-1 -->
+<figure class="shot"><a href="/images/guide/pos-customers-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-customers-1-mobile.webp" width="390" height="844"><img src="/images/guide/pos-customers-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Khách hàng, điểm &amp; công nợ: Menu: Khách hàng POS → Thêm khách (SĐT làm mã nhanh)"></picture></a><figcaption>① Bấm «Thêm khách» (SĐT làm mã nhanh). ② Mỗi khách: mã, SĐT, tổng mua, công nợ.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:pos-customers-2 -->
+<figure class="shot"><a href="/images/guide/pos-customers-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-customers-2-mobile.webp" width="390" height="844"><img src="/images/guide/pos-customers-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Khách hàng, điểm &amp; công nợ: Công nợ: thanh toán một phần, thu nợ sau tại khách hoặc báo cáo Công nợ"></picture></a><figcaption>① Công nợ hiện tại của khách. ② «Thu nợ» khi khách trả tiền nợ.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Thanh toán tiền mặt / chuyển khoản / VietQR / nhiều hình thức; chọn chip <em>In hóa đơn</em>, <em>Xuất HĐĐT</em>.
+        <!-- guide-shot:pos-sales-2 -->
+<figure class="shot"><a href="/images/guide/pos-sales-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-sales-2-mobile.webp" width="390" height="844"><img src="/images/guide/pos-sales-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Quy trình bán hàng: Thanh toán: tiền mặt / chuyển khoản / VietQR / nhiều hình thức. Chip «In hóa đơn», «Xuất HĐĐT» chọn ngay trên màn thanh toán"></picture></a><figcaption>① Chọn hình thức: tiền mặt, chuyển khoản, tiền mặt + CK hoặc ghi nợ. ② Chip «In hóa đơn» để in khi thanh toán. ③ Hoàn tất thanh toán (F9).</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
       <li>Màn hình báo kết quả HĐĐT: <em>Đã xuất</em> (chạm để gửi cho khách), <em>Chưa xuất được</em> (kèm lý do), <em>Chờ ký</em>.</li>
     </ol>
     <p class="tip">Mất mạng lúc bấm Thanh toán: cứ bấm lại — hệ thống nhận ra cùng đơn, không tạo đơn / trừ kho / thu tiền hai lần.</p>
     <h3>Bếp &amp; in</h3>
     <ul>
-      <li>Gán máy + mẫu phiếu bếp riêng với máy hóa đơn; gửi bếp trước khi thanh toán.</li>
+      <li>Gán máy + mẫu phiếu bếp riêng với máy hóa đơn; gửi bếp trước khi thanh toán.
+        <!-- guide-shot:pos-kitchen-1 -->
+<figure class="shot"><a href="/images/guide/pos-kitchen-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-kitchen-1-mobile.webp" width="390" height="844"><img src="/images/guide/pos-kitchen-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Gửi bếp &amp; phiếu chế biến: Trên Bán hàng (bàn đang mở): thêm món → Gửi bếp / In bếp"></picture></a><figcaption>① Chạm giữ bàn đang mở: xem số khách, tiền, số món. ② «Báo chế biến» gửi các món chưa báo xuống bếp / bar.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:pos-kitchen-2 -->
+<figure class="shot"><a href="/images/guide/pos-kitchen-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-kitchen-2-mobile.webp" width="390" height="844"><img src="/images/guide/pos-kitchen-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Gửi bếp &amp; phiếu chế biến: Món đã gửi sẽ đánh dấu; thêm món sau thì gửi tiếp phần mới"></picture></a><figcaption>① Bàn còn món chưa báo bếp hiện số «bếp» ngay trên ô bàn.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
       <li>Đơn đã xuất HĐĐT: hóa đơn in tự thêm <strong>ký hiệu, số HĐ, mã CQT, mã tra cứu và mã QR tra cứu</strong>. Mẫu tự thiết kế dùng biến <code>{HDDT_So}</code> <code>{HDDT_Ky_Hieu}</code> <code>{HDDT_Ma_CQT}</code> <code>{HDDT_Ma_Tra_Cuu}</code> <code>{HDDT_Link_Tra_Cuu}</code>.</li>
       <li>Đơn hàng: tra cứu, in lại, hủy (đúng quyền). Trả hàng: menu <strong>Trả hàng bán</strong>, chọn đơn gốc.</li>
     </ul>
   </article>
 
   <article id="pos-stock">
-    <h2>7. Kho hàng &amp; nguyên tắc tồn kho</h2>
+    <h2>8. Kho hàng &amp; nguyên tắc tồn kho</h2>
     <h3>Chứng từ kho</h3>
     <ul>
-      <li><strong>Nhập hàng NCC</strong>: thêm hàng, SL, giá nhập (hàng có lô: số lô + HSD) → <em>Hoàn thành</em> mới cộng tồn. Giá vốn bình quân gia quyền. Hủy phiếu nhập: trừ lại tồn và trả giá vốn về như trước.</li>
+      <li><strong>Nhập hàng NCC</strong>: thêm hàng, SL, giá nhập (hàng có lô: số lô + HSD) → <em>Hoàn thành</em> mới cộng tồn. Giá vốn bình quân gia quyền. Hủy phiếu nhập: trừ lại tồn và trả giá vốn về như trước.
+        <!-- guide-shot:pos-inventory-1 -->
+<figure class="shot"><a href="/images/guide/pos-inventory-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-inventory-1-mobile.webp" width="390" height="844"><img src="/images/guide/pos-inventory-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Kho: nhập, xuất, kiểm kê: Nhập hàng: menu «Nhập hàng NCC» → thêm hàng, SL, giá nhập (hàng có lô: nhập số lô + HSD) → Hoàn thành. Phiếu tạm chưa cộng tồn"></picture></a><figcaption>① Tạo phiếu nhập. ② Phiếu tạm: chưa cộng tồn. ③ «Nhập hàng vào kho» (điện thoại: «Hoàn thành nhập») mới cộng tồn và công nợ NCC.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
       <li><strong>Trả hàng nhập</strong>: trả NCC, giảm tồn và công nợ NCC.</li>
       <li><strong>Xuất hủy</strong> / <strong>Xuất dùng nội bộ</strong>: <em>Hoàn thành</em> mới trừ tồn; Hủy phiếu thì cộng lại.</li>
-      <li><strong>Kiểm kho</strong>: thêm hàng → <em>nhập số đếm ngay khi đếm</em> (hệ thống chốt tồn sổ lúc nhập) → Hoàn thành. Khi cân bằng chỉ cộng / trừ phần chênh lệch, nên hàng bán sau lúc đếm vẫn đúng.</li>
+      <li><strong>Kiểm kho</strong>: thêm hàng → <em>nhập số đếm ngay khi đếm</em> (hệ thống chốt tồn sổ lúc nhập) → Hoàn thành. Khi cân bằng chỉ cộng / trừ phần chênh lệch, nên hàng bán sau lúc đếm vẫn đúng.
+        <!-- guide-shot:pos-inventory-2 -->
+<figure class="shot"><a href="/images/guide/pos-inventory-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-inventory-2-mobile.webp" width="390" height="844"><img src="/images/guide/pos-inventory-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Kho: nhập, xuất, kiểm kê: Kiểm kho: tạo phiếu → thêm hàng → NHẬP SỐ ĐẾM NGAY KHI ĐẾM (hệ thống chốt tồn sổ lúc nhập) → Hoàn thành để cân bằng"></picture></a><figcaption>① Tồn sổ, số thực tế đếm được, số lệch và giá trị lệch từng mặt hàng. ② «Cân bằng kho» để cộng / trừ phần chênh lệch.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
       <li><strong>Thẻ kho</strong>: Hàng hóa → chọn hàng → Thẻ kho — mọi biến động, chứng từ, người thao tác, tồn sau giao dịch.</li>
     </ul>
     <h3>Nguyên tắc</h3>
@@ -185,20 +573,31 @@
   </article>
 
   <article id="pos-einvoice">
-    <h2>8. Hóa đơn điện tử</h2>
+    <h2>9. Hóa đơn điện tử</h2>
     <h3>Kết nối</h3>
     <ul>
       <li>Cài đặt → <strong>Hóa đơn điện tử</strong> → chọn nhà cung cấp:
         <ul>
-          <li><strong>Viettel SInvoice</strong>: tài khoản API, MST, mẫu (1/001), ký hiệu (C25TAA).</li>
-          <li><strong>Easy Invoice</strong>: tài khoản API, MST, Pattern đúng như portal (vd. 1C25MAA), Serial thường để trống.</li>
-          <li><strong>MISA meInvoice</strong>: AppID (MISA cấp khi đăng ký tích hợp), tài khoản meInvoice, MST, ký hiệu đầy đủ (1C25TAA); ký HSM hoặc HĐ máy tính tiền.</li>
+          <li><strong>Viettel SInvoice</strong>: tài khoản API, MST, mẫu (1/001), ký hiệu (C26TAA).</li>
+          <li><strong>Easy Invoice</strong>: tài khoản API, MST, Pattern đúng như portal (vd. 1C26MAA), Serial thường để trống.</li>
+          <li><strong>MISA meInvoice</strong>: AppID (MISA cấp khi đăng ký tích hợp), tài khoản meInvoice, MST, ký hiệu đầy đủ (1C26TAA); ký HSM hoặc HĐ máy tính tiền.</li>
           <li><strong>VNPT Invoice</strong>: địa chỉ web service riêng (https://&lt;MST&gt;-tt78admin.vnpt-invoice.com.vn), Account/ACpass web service, tài khoản phát hành, mẫu số, ký hiệu.</li>
         </ul>
       </li>
-      <li>Lưu → <em>Kiểm tra kết nối</em> (chỉ xác thực, không tạo hóa đơn).</li>
+      <li>Lưu → <em>Kiểm tra kết nối</em> (chỉ xác thực, không tạo hóa đơn).
+        <!-- guide-shot:pos-einvoice-1 -->
+<figure class="shot"><a href="/images/guide/pos-einvoice-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-einvoice-1-mobile.webp" width="390" height="844"><img src="/images/guide/pos-einvoice-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Hóa đơn điện tử: kết nối &amp; xuất: Thiết lập SBOX → Hóa đơn điện tử → chọn Nhà cung cấp, nhập thông tin do hãng cấp:"></picture></a><figcaption>① Chọn nhà cung cấp (Viettel, Easy, MISA, VNPT). ② Nhập tài khoản do hãng cấp: MST, ký hiệu mẫu (1/001), ký hiệu hóa đơn (C26TAA).</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:pos-einvoice-2 -->
+<figure class="shot"><a href="/images/guide/pos-einvoice-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-einvoice-2-mobile.webp" width="390" height="844"><img src="/images/guide/pos-einvoice-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Hóa đơn điện tử: kết nối &amp; xuất: Lưu → «Kiểm tra kết nối» (chỉ xác thực, không tạo hóa đơn)"></picture></a><figcaption>① Lưu rồi bấm «Kiểm tra» — chỉ xác thực tài khoản, không tạo hóa đơn. ② Kết quả hiện ngay bên dưới.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
       <li><em>Mặc định xuất hóa đơn</em> + tắt hỏi thu ngân: mọi đơn tự xuất, kể cả đơn online / Tingee.</li>
-      <li><em>In mã HĐĐT + QR tra cứu trên hóa đơn bán hàng</em>: bật / tắt khối HĐĐT trên bill.</li>
+      <li><em>In mã tra cứu + QR trên hóa đơn bán hàng</em>: bật / tắt khối HĐĐT trên bill.
+        <!-- guide-shot:pos-einvoice-3 -->
+<figure class="shot"><a href="/images/guide/pos-einvoice-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-einvoice-3-mobile.webp" width="390" height="844"><img src="/images/guide/pos-einvoice-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Hóa đơn điện tử: kết nối &amp; xuất: Khi thanh toán: bật chip «Xuất HĐĐT». «Mặc định xuất hóa đơn» + tắt hỏi thu ngân = mọi đơn tự xuất (kể cả đơn online / Tingee)"></picture></a><figcaption>① Bật xuất hóa đơn điện tử. ② «Hỏi thu ngân lúc thanh toán» / «Mặc định xuất hóa đơn». ③ In mã tra cứu + QR trên hóa đơn bán hàng.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
     </ul>
     <h3>Quản lý</h3>
     <p>Mở từ <strong>Báo cáo POS → Hóa đơn điện tử</strong>, Cài đặt → Hóa đơn điện tử → Quản lý, hoặc menu HĐĐT của từng đơn.</p>
@@ -208,14 +607,30 @@
       <li><strong>Thay thế</strong>: lập HĐ mới thay HĐ gốc, sửa được thông tin người mua; lỗi thì HĐ gốc giữ nguyên.</li>
       <li><strong>Hủy</strong>: theo NĐ 70/2025, HĐ đã gửi CQT thường phải thay thế / điều chỉnh thay vì hủy — hãng có thể từ chối.</li>
       <li><strong>Đồng bộ</strong> từng đơn hoặc hàng loạt (tối đa 100 đơn); <strong>Tải danh sách từ hãng</strong> (Viettel, Easy) để đối chiếu HĐ lập ngoài POS.</li>
-      <li>Nút mở <strong>trang quản lý của hãng</strong>; báo cáo tỷ lệ doanh thu đã xuất HĐĐT, thuế GTGT, HĐ thay thế.</li>
+      <li>Nút mở <strong>trang quản lý của hãng</strong>; báo cáo tỷ lệ doanh thu đã xuất HĐĐT, thuế GTGT, HĐ thay thế.
+        <!-- guide-shot:pos-einvoice-manage-1 -->
+<figure class="shot"><a href="/images/guide/pos-einvoice-manage-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-einvoice-manage-1-mobile.webp" width="390" height="844"><img src="/images/guide/pos-einvoice-manage-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Quản lý HĐĐT: xem, gửi, thay thế, hủy, đồng bộ: Xem lại hóa đơn (PDF lấy trực tiếp từ hãng) → in / tải về"></picture></a><figcaption>① Lọc theo trạng thái: tất cả, cần xử lý, đã xuất, lỗi… ② Chạm một hóa đơn để mở thao tác.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:pos-einvoice-manage-2 -->
+<figure class="shot"><a href="/images/guide/pos-einvoice-manage-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-einvoice-manage-2-mobile.webp" width="390" height="844"><img src="/images/guide/pos-einvoice-manage-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Quản lý HĐĐT: xem, gửi, thay thế, hủy, đồng bộ: Gửi HĐĐT qua ứng dụng khác (Zalo, Messenger, Gmail…): đính kèm PDF + ký hiệu, số, mã tra cứu, link tra cứu"></picture></a><figcaption>① Xem lại hóa đơn (PDF). ② Gửi HĐĐT qua Zalo, email… ③ Thay thế hóa đơn. ④ Hủy hóa đơn.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:pos-einvoice-manage-3 -->
+<figure class="shot"><a href="/images/guide/pos-einvoice-manage-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-einvoice-manage-3-mobile.webp" width="390" height="844"><img src="/images/guide/pos-einvoice-manage-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Quản lý HĐĐT: xem, gửi, thay thế, hủy, đồng bộ: Trang quản lý của hãng: nút mở portal Viettel / Easy / MISA / VNPT (có thể nhập link riêng trong cấu hình)"></picture></a><figcaption>① Đồng bộ hàng loạt từ hãng. ② Tải danh sách từ hãng để đối chiếu. ③ Mở trang quản lý của hãng.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
     </ul>
     <p class="tip">HĐĐT lỗi không làm hỏng đơn đã thanh toán. Lỗi thường gặp: sai MST / mẫu / ký hiệu, MISA sai AppID, VNPT «ERR:20», Easy «117» (mẫu máy tính tiền chưa mở API).</p>
   </article>
 
   <article id="pos-reports">
-    <h2>9. Báo cáo POS, ca thu ngân &amp; cuối ngày</h2>
+    <h2>10. Báo cáo POS, ca thu ngân &amp; cuối ngày</h2>
     <p>Menu <strong>Báo cáo → Báo cáo POS</strong> (A7: Tổng quan POS hoặc Nhiều hơn). Chọn từ ngày–đến ngày rồi mở từng loại:</p>
+    <!-- guide-shot:pos-reports-1 -->
+<figure class="shot"><a href="/images/guide/pos-reports-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-reports-1-mobile.webp" width="390" height="844"><img src="/images/guide/pos-reports-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Cách xem báo cáo POS: Vào Báo cáo POS (sidebar «Báo cáo», hoặc POS → Nhiều hơn)"></picture></a><figcaption>① Tìm nhanh báo cáo. ② Doanh thu theo ngày. ③ Kết quả kinh doanh (lãi / lỗ) trong nhóm Tài chính.</figcaption></figure>
+<!-- /guide-shot -->
+    <!-- guide-shot:pos-reports-2 -->
+<figure class="shot"><a href="/images/guide/pos-reports-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-reports-2-mobile.webp" width="390" height="844"><img src="/images/guide/pos-reports-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Cách xem báo cáo POS: Chọn từ ngày–đến ngày (hôm nay / ca / tháng)"></picture></a><figcaption>① Chọn kỳ báo cáo (hôm nay, tuần, tháng…). ② Xuất Excel gửi kế toán.</figcaption></figure>
+<!-- /guide-shot -->
     <ul>
       <li>Doanh thu · Hàng hóa bán ra · Doanh thu theo thu ngân</li>
       <li>Tồn kho · Nhập hàng · Hàng sắp hết hạn</li>
@@ -225,15 +640,26 @@
     </ul>
     <h3>Ca thu ngân &amp; tổng kết cuối ngày</h3>
     <ol>
-      <li>Đầu ca: Menu ⋮ → Ca thu ngân → Mở ca (nếu cửa hàng bật ca).</li>
-      <li>Cuối ca: thanh toán / trả hết bàn đang mở, đóng ca và đếm két.</li>
+      <li>Đầu ca: Menu ⋮ → Ca thu ngân → Mở ca (nếu cửa hàng bật ca).
+        <!-- guide-shot:pos-eod-1 -->
+<figure class="shot"><a href="/images/guide/pos-eod-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-eod-1-mobile.webp" width="390" height="844"><img src="/images/guide/pos-eod-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Ca thu ngân &amp; tổng kết cuối ngày: Bật ca: Thiết lập SBOX → Ngành hàng &amp; cách bán → «Ca thu ngân (mở ca / đóng két)»"></picture></a><figcaption>① Bật «Ca thu ngân (mở ca / đóng két)» trong Ngành hàng &amp; cách bán.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:pos-eod-2 -->
+<figure class="shot"><a href="/images/guide/pos-eod-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-eod-2-mobile.webp" width="390" height="844"><img src="/images/guide/pos-eod-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Ca thu ngân &amp; tổng kết cuối ngày: Đầu ca: màn bán hàng → Menu ⋮ → Ca thu ngân → Mở ca (nhập tiền đầu ca)"></picture></a><figcaption>① Nhập tiền mặt đầu ca trong két. ② Bấm «Mở ca» — mở ca rồi mới thanh toán được.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Cuối ca: thanh toán / trả hết bàn đang mở, đóng ca và đếm két.
+        <!-- guide-shot:pos-eod-3 -->
+<figure class="shot"><a href="/images/guide/pos-eod-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-eod-3-mobile.webp" width="390" height="844"><img src="/images/guide/pos-eod-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Ca thu ngân &amp; tổng kết cuối ngày: Cuối ca: thanh toán / trả hết bàn đang mở (F&amp;B), rồi đóng ca và đếm két"></picture></a><figcaption>① Tiền mặt kỳ vọng = đầu ca + tiền mặt thu trong ca. ② Nhập tiền mặt đếm được. ③ Bấm «Đóng ca».</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
       <li>Mở <strong>Tổng kết cuối ngày</strong>, chọn khoảng ca; đối chiếu tiền mặt ngăn kéo, QR với sao kê.</li>
       <li>Nếu lệch: xem Đơn hàng trong ca + hủy/trả + PTTT trước khi bù tay vào quỹ.</li>
     </ol>
   </article>
 
   <article id="pos-cases">
-    <h2>10. Tình huống POS thường gặp</h2>
+    <h2>11. Tình huống POS thường gặp</h2>
     <ul>
       <li><strong>Không in hóa đơn</strong> — máy Online? Mẫu hóa đơn đã đặt mặc định cửa hàng?</li>
       <li><strong>In HĐ nhưng không in bếp</strong> — gán máy + mẫu phiếu bếp riêng; gửi bếp trước khi thanh toán.</li>
@@ -250,7 +676,7 @@
   </article>
 
   <article id="rules">
-    <h2>11. Nguyên tắc chung của phần mềm</h2>
+    <h2>12. Nguyên tắc chung của phần mềm</h2>
     <ul>
       <li>Chứng từ <strong>Tạm</strong> sửa / xóa được và chưa ảnh hưởng kho / quỹ; <strong>Hoàn thành</strong> mới ghi sổ. Muốn đảo ngược thì <strong>Hủy</strong> — không sửa chứng từ đã hoàn thành.</li>
       <li>Không xóa dữ liệu đã phát sinh: hàng ngừng bán thì tắt bán; đơn sai thì hủy / trả hàng — lịch sử luôn được giữ.</li>
@@ -265,48 +691,133 @@
   </article>
 
   <article id="industry">
-    <h2>12. Hướng dẫn theo ngành hàng</h2>
+    <h2>13. Hướng dẫn theo ngành hàng</h2>
     <p>Chọn ngành: <strong>Cài đặt → Ngành hàng &amp; chế độ bán → Chọn ngành hàng → Đổi ngành</strong>. Ngành quyết định màn bán có sơ đồ bàn, tính giờ, gửi bếp, gói buổi hay hoa hồng.</p>
+        <!-- guide-shot:ind-choose-1 -->
+<figure class="shot"><a href="/images/guide/ind-choose-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-choose-1-mobile.webp" width="390" height="844"><img src="/images/guide/ind-choose-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Chọn ngành hàng &amp; ý nghĩa từng ngành: Mở: Thiết lập SBOX → Ngành hàng &amp; cách bán → Chọn ngành hàng → Đổi ngành (lưu ngay, bật sẵn cấu hình mặc định của ngành)"></picture></a><figcaption>① Ngành đang dùng (có dấu tích). ② Chạm ngành khác để đổi.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:ind-choose-2 -->
+<figure class="shot"><a href="/images/guide/ind-choose-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-choose-2-mobile.webp" width="390" height="844"><img src="/images/guide/ind-choose-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Chọn ngành hàng &amp; ý nghĩa từng ngành: Mở: Thiết lập SBOX → Ngành hàng &amp; cách bán → Chọn ngành hàng → Đổi ngành (lưu ngay, bật sẵn cấu hình mặc định của ngành)"></picture></a><figcaption>① Bấm «Đổi ngành» — lưu ngay và bật sẵn cấu hình mặc định của ngành.</figcaption></figure>
+<!-- /guide-shot -->
     <h3>Bán lẻ / Siêu thị</h3>
     <ul>
       <li>Bán nhanh: quét mã → Thanh toán (F9) → in. Nhiều khách cùng lúc: mở HĐ1, HĐ2…</li>
-      <li>Cân điện tử: bật «Đọc mã vạch cân điện tử», nhập đầu mã cân và số chữ số PLU.</li>
+      <li>Cân điện tử: bật «Đọc mã vạch cân điện tử», nhập đầu mã cân và số chữ số PLU.
+        <!-- guide-shot:ind-retail-1 -->
+<figure class="shot"><a href="/images/guide/ind-retail-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-retail-1-mobile.webp" width="390" height="844"><img src="/images/guide/ind-retail-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Bán lẻ / Siêu thị / Tạp hóa: Thiết lập: Chế độ bán mặc định «Bán nhanh — quét mã, thanh toán ngay» (hoặc «Bán thường» khi cần nhập khách, ghi chú)"></picture></a><figcaption>① Chế độ bán mặc định: «Bán nhanh — quét mã, thanh toán ngay».</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:ind-retail-2 -->
+<figure class="shot"><a href="/images/guide/ind-retail-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-retail-2-mobile.webp" width="390" height="844"><img src="/images/guide/ind-retail-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Bán lẻ / Siêu thị / Tạp hóa: Cân điện tử: bật «Đọc mã vạch cân điện tử», nhập Đầu mã của cân (vd 20, 21) và Số chữ số mã hàng (PLU) — quét tem cân ra đúng hàng + trọng lượng / thành tiền"></picture></a><figcaption>① Bật «Đọc mã vạch cân điện tử». ② Số chữ số mã hàng (PLU). ③ Đầu mã của cân (vd 20, 21).</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
       <li>Bán khi hết hàng: bật «Cho phép bán khi hết hàng / tồn âm».</li>
     </ul>
     <h3>Nhà hàng / Cafe</h3>
     <ul>
-      <li>Mở bàn → nhập số khách → gọi món → Gửi bếp → Tạm tính → Thanh toán.</li>
-      <li>Chạm giữ bàn: Chuyển bàn, Gộp bàn, Tách bàn / Tách hóa đơn, Trả về bàn trống.</li>
+      <li>Mở bàn → nhập số khách → gọi món → Gửi bếp → Tạm tính → Thanh toán.
+        <!-- guide-shot:ind-restaurant-1 -->
+<figure class="shot"><a href="/images/guide/ind-restaurant-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-restaurant-1-mobile.webp" width="390" height="844"><img src="/images/guide/ind-restaurant-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Nhà hàng / Cafe / Trà sữa: Tạo bàn: trên Sơ đồ bàn bấm Tạo bàn nhanh / Sửa bàn / phòng; chia khu vực (Tầng 1, Sân vườn…)"></picture></a><figcaption>① Đặt tên nhóm / khu (vd Tầng 2). ② Chọn số bàn trong nhóm và số bắt đầu. ③ Bấm «Tạo» — hệ thống tạo sẵn cả dãy bàn.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:ind-restaurant-2 -->
+<figure class="shot"><a href="/images/guide/ind-restaurant-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-restaurant-2-mobile.webp" width="390" height="844"><img src="/images/guide/ind-restaurant-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Nhà hàng / Cafe / Trà sữa: Mở bàn: chạm bàn trống → nhập Số khách (nếu bật hỏi số khách) → Vào chọn món / dịch vụ"></picture></a><figcaption>① Chạm bàn trống → chọn số khách. ② Bấm «Mở bàn» rồi vào chọn món.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Chạm giữ bàn: Chuyển bàn, Gộp bàn, Tách bàn / Tách hóa đơn, Trả về bàn trống.
+        <!-- guide-shot:pos-tables-2 -->
+<figure class="shot"><a href="/images/guide/pos-tables-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/pos-tables-2-mobile.webp" width="390" height="844"><img src="/images/guide/pos-tables-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Bàn / phòng &amp; đặt lịch: Ghép / tách / chuyển bàn theo nút trên sơ đồ (đúng quyền)"></picture></a><figcaption>① Chạm giữ bàn đang dùng: Chuyển bàn, Tách bàn, Gộp bàn vào đây.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
       <li>QR order tại bàn, Màn hình bếp (KDS), topping và định lượng nguyên liệu.</li>
     </ul>
     <h3>Karaoke / Bi-a / Phòng giờ</h3>
     <ul>
-      <li>Dịch vụ tính giờ: Theo giờ / phút / block, phí mở phòng, làm tròn block, ân hạn.</li>
-      <li>Chạm giữ phòng: <strong>Tạm dừng tính giờ</strong>, <strong>Chốt tiền giờ</strong> (đồng hồ dừng, tiền không tăng), Mở chốt giờ.</li>
+      <li>Dịch vụ tính giờ: Theo giờ / phút / block, phí mở phòng, làm tròn block, ân hạn.
+        <!-- guide-shot:ind-room-hourly-3 -->
+<figure class="shot"><a href="/images/guide/ind-room-hourly-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-room-hourly-3-mobile.webp" width="390" height="844"><img src="/images/guide/ind-room-hourly-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Karaoke / Bi-a / Phòng giờ: Tạo dịch vụ tính giờ: Hàng hóa → Thêm dịch vụ → mục «Tính tiền theo thời gian (phòng / bàn)» → bật «Số lượng tính theo thời gian sử dụng?», chọn «Giá tính theo» Giờ / Phút; tính theo block thì bật «Giá bán được thiết lập cho từng block?» (karaoke / bi-a)"></picture></a><figcaption>① Bật «Số lượng tính theo thời gian sử dụng?». ② Giá bán 1 giờ, tính theo giờ hoặc phút. ③ Block làm tròn (vd 15 phút) và số phút tính tối thiểu.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Chạm giữ phòng: <strong>Tạm dừng tính giờ</strong>, <strong>Chốt tiền giờ</strong> (đồng hồ dừng, tiền không tăng), Mở chốt giờ.
+        <!-- guide-shot:ind-room-hourly-1 -->
+<figure class="shot"><a href="/images/guide/ind-room-hourly-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-room-hourly-1-mobile.webp" width="390" height="844"><img src="/images/guide/ind-room-hourly-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Karaoke / Bi-a / Phòng giờ: Mở phòng: chạm phòng trống → đồng hồ bắt đầu chạy, ô phòng hiện thời gian đã dùng; tiền giờ tự cập nhật trên hóa đơn"></picture></a><figcaption>① Phòng đang hát: đồng hồ chạy, tiền giờ tự cộng. ② Phòng đã chốt tiền giờ (tím): đồng hồ dừng ở giờ chốt. ③ Phòng tạm dừng tính giờ (vàng).</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:ind-room-hourly-2 -->
+<figure class="shot"><a href="/images/guide/ind-room-hourly-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-room-hourly-2-mobile.webp" width="390" height="844"><img src="/images/guide/ind-room-hourly-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Karaoke / Bi-a / Phòng giờ: Tạm dừng tính giờ / Tiếp tục tính giờ: khách ra ngoài, mất điện… khoảng dừng không tính tiền"></picture></a><figcaption>① Chạm giữ phòng → «Tạm dừng tính giờ» khi khách ra ngoài. ② «Chốt tiền giờ» khi khách xin tính tiền nhưng còn ngồi.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
       <li>Gói giờ đếm ngược (vd 1 giờ): bấm ▶ Bắt đầu, sắp hết và hết giờ máy báo, tự thêm dòng quá giờ.</li>
       <li>Đồng hồ riêng từng dòng: Bắt đầu / Dừng / Kết thúc / Tính tiếp.</li>
     </ul>
     <h3>Salon / Spa / Nail</h3>
     <ul>
-      <li>Sơ đồ ghế, lịch hẹn, dịch vụ lẻ hoặc gói liệu trình nhiều buổi (combo nhiều dịch vụ).</li>
+      <li>Sơ đồ ghế, lịch hẹn, dịch vụ lẻ hoặc gói liệu trình nhiều buổi (combo nhiều dịch vụ).
+        <!-- guide-shot:ind-salon-1 -->
+<figure class="shot"><a href="/images/guide/ind-salon-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-salon-1-mobile.webp" width="390" height="844"><img src="/images/guide/ind-salon-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Salon / Spa / Nail / Barber: Ghế / giường: tạo trên Sơ đồ ghế (loại Ghế); Lịch hẹn: đặt theo ngày – giờ – dịch vụ – khách"></picture></a><figcaption>① Tạo ghế / giường nhanh theo khu. ② Ghế đang phục vụ hiện thời gian làm và tiền tạm tính.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:ind-salon-2 -->
+<figure class="shot"><a href="/images/guide/ind-salon-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-salon-2-mobile.webp" width="390" height="844"><img src="/images/guide/ind-salon-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Salon / Spa / Nail / Barber: Gói liệu trình: dịch vụ chọn «Cách tính giá dịch vụ: Theo buổi / liệu trình», nhập «Số buổi trong gói» (vd 10) và «Hạn gói (ngày)». Bán gói có gắn khách → khách được cộng buổi"></picture></a><figcaption>① Cách tính giá: «Theo buổi / liệu trình», nhập số buổi trong gói (vd 10). ② Hạn dùng gói (ngày).</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
       <li>Bán gói phải chọn khách; mỗi lần làm bấm «Trừ buổi» và chọn nhân viên làm.</li>
-      <li>Hoa hồng: tính <strong>1 lần khi bán</strong> hoặc <strong>mỗi buổi làm</strong> (tiền 1 buổi = tiền gói ÷ số buổi). Combo chọn NV cho từng dịch vụ.</li>
+      <li>Hoa hồng: tính <strong>1 lần khi bán</strong> hoặc <strong>mỗi buổi làm</strong> (tiền 1 buổi = tiền gói ÷ số buổi). Combo chọn NV cho từng dịch vụ.
+        <!-- guide-shot:ind-commission-2 -->
+<figure class="shot"><a href="/images/guide/ind-commission-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-commission-2-mobile.webp" width="390" height="844"><img src="/images/guide/ind-commission-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Hoa hồng nhân viên: tính 1 lần hay mỗi buổi: Bật: Thiết lập SBOX → Ngành hàng &amp; cách bán → Hoa hồng nhân viên"></picture></a><figcaption>① Bật «Hoa hồng nhân viên» trong Ngành hàng &amp; cách bán.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:ind-commission-1 -->
+<figure class="shot"><a href="/images/guide/ind-commission-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-commission-1-mobile.webp" width="390" height="844"><img src="/images/guide/ind-commission-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Hoa hồng nhân viên: tính 1 lần hay mỗi buổi: Sản phẩm → mục «Hoa hồng nhân viên»: % trên doanh thu dòng / phần combo, Số tiền cố định / 1 lần, hoặc % trên giá niêm yết"></picture></a><figcaption>① Cách tính hoa hồng (vd % trên doanh thu dòng) và mức %. ② Gói nhiều buổi: tính «1 lần khi bán» hoặc «Mỗi buổi làm».</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
       <li>Báo cáo POS → Hoa hồng nhân viên (lọc theo ngày làm buổi, xuất Excel).</li>
     </ul>
     <h3>Gym / Yoga</h3>
     <ul>
-      <li>Thẻ tập theo thời gian (không giới hạn buổi) hoặc gói buổi; mua thêm tự gia hạn nối tiếp.</li>
-      <li>Check-in hội viên bằng vân tay / khuôn mặt trên máy chấm công (PIN riêng từ 90000001, tách chấm công nhân viên) hoặc check-in tại quầy.</li>
+      <li>Thẻ tập theo thời gian (không giới hạn buổi) hoặc gói buổi; mua thêm tự gia hạn nối tiếp.
+        <!-- guide-shot:ind-gym-1 -->
+<figure class="shot"><a href="/images/guide/ind-gym-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-gym-1-mobile.webp" width="390" height="844"><img src="/images/guide/ind-gym-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Gym / Yoga / Fitness: Thẻ tháng / quý / năm: dịch vụ bật «Thẻ tập theo thời gian (không giới hạn buổi)» và nhập hạn dùng (30 / 90 / 365 ngày). Mua thêm tự gia hạn nối tiếp"></picture></a><figcaption>① Bật «Thẻ tập theo thời gian (không giới hạn buổi)». ② Hạn thẻ (ngày): 30 / 90 / 365.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Check-in hội viên bằng vân tay / khuôn mặt trên máy chấm công (PIN riêng từ 90000001, tách chấm công nhân viên) hoặc check-in tại quầy.
+        <!-- guide-shot:ind-gym-3 -->
+<figure class="shot"><a href="/images/guide/ind-gym-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-gym-3-mobile.webp" width="390" height="844"><img src="/images/guide/ind-gym-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Gym / Yoga / Fitness: Check-in hội viên: menu Check-in hội viên → tab «Hội viên trên máy» → đẩy hội viên lên máy chấm công (mã PIN = số điện thoại bỏ số 0 đầu; không có số di động → mã từ 90000001, không lẫn với nhân viên) → đăng ký vân tay / khuôn mặt"></picture></a><figcaption>① Hội viên trên máy: thẻ / gói còn hạn, số vân tay / khuôn mặt, nút lấy vân tay, lấy khuôn mặt, gỡ khỏi máy. ② «Cần nhắc gia hạn»: hội viên sắp hết thẻ. ③ Thêm hội viên lên máy chấm công.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:ind-gym-2 -->
+<figure class="shot"><a href="/images/guide/ind-gym-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-gym-2-mobile.webp" width="390" height="844"><img src="/images/guide/ind-gym-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Gym / Yoga / Fitness: Check-in tại quầy: tìm hội viên và bấm Check-in khi khách quên thẻ / máy lỗi"></picture></a><figcaption>① Hôm nay: đang tập, lượt tập, hội viên, cần kiểm tra — chạm để lọc. ② Lượt bị từ chối (thẻ hết hạn) hiện đỏ kèm lý do. ③ «Check-in tại quầy» khi khách quên thẻ / máy lỗi.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
     </ul>
     <h3>Khách sạn / Lưu trú</h3>
     <ul>
-      <li>Tiền phòng theo ngày (qua đêm) hoặc theo giờ; bật «Tính tiền phòng theo đêm», giờ nhận / trả phòng, ân hạn.</li>
-      <li>Nhận phòng → khai báo khách lưu trú → thêm minibar, giặt ủi → tạm tính → trả phòng.</li>
+      <li>Tiền phòng theo ngày (qua đêm) hoặc theo giờ; bật «Tính tiền phòng theo đêm», giờ nhận / trả phòng, ân hạn.
+        <!-- guide-shot:ind-hotel-3 -->
+<figure class="shot"><a href="/images/guide/ind-hotel-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-hotel-3-mobile.webp" width="390" height="844"><img src="/images/guide/ind-hotel-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Khách sạn / Nhà nghỉ / Homestay: Dịch vụ tiền phòng: bật «Số lượng tính theo thời gian sử dụng?», «Giá tính theo» chọn «Ngày / đêm» cho qua đêm, «Giờ» cho nghỉ giờ — mỗi hạng phòng một dịch vụ giá riêng"></picture></a><figcaption>① Dịch vụ tiền phòng: bật «Số lượng tính theo thời gian sử dụng?». ② Giá 1 đêm và «Giá tính theo: Ngày / đêm» — bảng xem trước cho biết ở bao lâu tính mấy đêm.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:ind-hotel-4 -->
+<figure class="shot"><a href="/images/guide/ind-hotel-4.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-hotel-4-mobile.webp" width="390" height="844"><img src="/images/guide/ind-hotel-4.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Khách sạn / Nhà nghỉ / Homestay: Tính theo đêm: bật «Tính tiền phòng theo đêm», đặt Giờ nhận phòng / Giờ trả phòng và «Ân hạn (phút)» để trả trễ ít phút không tính thêm đêm. Tắt = tính theo khối 24 giờ kể từ lúc nhận"></picture></a><figcaption>① Bật «Tính tiền phòng theo đêm». ② Giờ nhận phòng, giờ trả phòng, trả muộn tính ½ đêm, ân hạn (phút).</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Nhận phòng → khai báo khách lưu trú → thêm minibar, giặt ủi → tạm tính → trả phòng.
+        <!-- guide-shot:ind-hotel-1 -->
+<figure class="shot"><a href="/images/guide/ind-hotel-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-hotel-1-mobile.webp" width="390" height="844"><img src="/images/guide/ind-hotel-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Khách sạn / Nhà nghỉ / Homestay: Nhận phòng: chạm phòng trống → nhập số khách → thêm tiền phòng; «Khách lưu trú (tạm trú)» để lưu thông tin giấy tờ khách"></picture></a><figcaption>① Phòng trống — chạm để nhận phòng. ② Phòng đang có khách: thời gian ở, tiền phòng + dịch vụ, số khách.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:ind-hotel-2 -->
+<figure class="shot"><a href="/images/guide/ind-hotel-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-hotel-2-mobile.webp" width="390" height="844"><img src="/images/guide/ind-hotel-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Khách sạn / Nhà nghỉ / Homestay: Nhận phòng: chạm phòng trống → nhập số khách → thêm tiền phòng; «Khách lưu trú (tạm trú)» để lưu thông tin giấy tờ khách"></picture></a><figcaption>① Chạm giữ phòng đang ở → «Khách lưu trú (tạm trú)» để lưu thông tin giấy tờ khách.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
     </ul>
     <h3>Dùng chung mọi ngành</h3>
     <ul>
-      <li>Mẫu Word / hợp đồng: Cài đặt → Mẫu in → «Tải file Word của bạn» — giữ mẫu gốc, gắn trường dữ liệu trên bản xem.</li>
-      <li>Lịch sử thao tác: ai bán, thêm, sửa, xóa gì — lưu 30 ngày, lọc theo nhân viên / chức năng, xuất Excel.</li>
+      <li>Mẫu Word / hợp đồng: Thiết lập SBOX → Mẫu in → Thêm mẫu → «Tải file Word của bạn» — giữ mẫu gốc, gắn trường dữ liệu trên bản xem.
+        <!-- guide-shot:ind-docs-log-1 -->
+<figure class="shot"><a href="/images/guide/ind-docs-log-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-docs-log-1-mobile.webp" width="390" height="844"><img src="/images/guide/ind-docs-log-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Mẫu hợp đồng / Word &amp; Lịch sử thao tác: Mẫu Word: Thiết lập SBOX → Mẫu in → Thêm mẫu → «Tải file Word của bạn» (.docx; file PDF hãy mở bằng Word rồi Lưu thành .docx). Hệ thống giữ nguyên bố cục gốc và AI tự gợi ý chỗ gắn trường dữ liệu (tên khách, SĐT, ngày, tổng tiền, bảng hàng…)"></picture></a><figcaption>① Mẫu in → «Thêm mẫu» → «Tải file Word của bạn» (.docx).</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
+      <li>Lịch sử thao tác: ai bán, thêm, sửa, xóa gì — lưu 30 ngày, lọc theo nhân viên / chức năng, xuất Excel.
+        <!-- guide-shot:ind-docs-log-2 -->
+<figure class="shot"><a href="/images/guide/ind-docs-log-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-docs-log-2-mobile.webp" width="390" height="844"><img src="/images/guide/ind-docs-log-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Mẫu hợp đồng / Word &amp; Lịch sử thao tác: Lịch sử thao tác: menu Lịch sử thao tác — lọc theo ngày, nhân viên, chức năng, loại thao tác (thêm / sửa / xóa), xem giá trị trước và sau, xuất Excel"></picture></a><figcaption>① Lọc theo người thao tác và chức năng. ② Mỗi dòng: thêm / sửa / xóa gì, ai làm, lúc nào. ③ Xuất Excel.</figcaption></figure>
+<!-- /guide-shot -->
+        <!-- guide-shot:ind-docs-log-3 -->
+<figure class="shot"><a href="/images/guide/ind-docs-log-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ind-docs-log-3-mobile.webp" width="390" height="844"><img src="/images/guide/ind-docs-log-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Mẫu hợp đồng / Word &amp; Lịch sử thao tác: Lịch sử thao tác: menu Lịch sử thao tác — lọc theo ngày, nhân viên, chức năng, loại thao tác (thêm / sửa / xóa), xem giá trị trước và sau, xuất Excel"></picture></a><figcaption>① Ai thao tác, vai trò, thiết bị. ② Giá trị trước → sau của từng trường.</figcaption></figure>
+<!-- /guide-shot -->
+      </li>
     </ul>
   </article>
 </div>

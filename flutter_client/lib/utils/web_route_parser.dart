@@ -92,7 +92,7 @@ bool get isGuideDeepLink {
   if (segs.isNotEmpty && segs.first == 'guide') return true;
   final params = parseWebRouteQueryParams();
   final section = params['guide'];
-  return (section == 'basic' || section == 'advanced' || section == 'pos') &&
+  return (section == 'basic' || section == 'advanced' || section == 'pos' || section == 'industry') &&
       (params['step']?.trim().isNotEmpty ?? false);
 }
 

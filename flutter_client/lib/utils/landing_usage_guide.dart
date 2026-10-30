@@ -27,6 +27,27 @@ class LandingGuideSearchHit {
   String get sectionLabel => LandingGuideData.labelForIndex(sectionIndex);
 }
 
+/// Ảnh minh họa dựng từ màn hình thật (test/guide_shots, scripts/render-guide-shots.ps1),
+/// hiện ngay dưới dòng «Bước [afterBullet]». Mỗi ảnh có bản máy tính `<name>.webp`
+/// và bản điện thoại `<name>-mobile.webp` trong web/images/guide.
+class GuideShot {
+  const GuideShot(this.name, {required this.afterBullet, required this.caption});
+
+  final String name;
+
+  /// Số thứ tự dòng bước (1 = dòng đầu) mà ảnh đứng ngay dưới.
+  final int afterBullet;
+
+  /// Giải thích các số ①②③ trên ảnh.
+  final String caption;
+
+  static const _origin = 'https://sboxhrm.com';
+
+  /// Đường dẫn ảnh; app cài trên máy lấy từ sboxhrm.com, bản web lấy cùng tên miền.
+  String url({required bool mobile, required bool web}) =>
+      '${web ? '' : _origin}/images/guide/$name${mobile ? '-mobile' : ''}.webp';
+}
+
 /// Một bước hướng dẫn trên landing (có metadata hiển thị + nội dung chỉnh từ CMS).
 class LandingUsageGuideStep {
   const LandingUsageGuideStep({
@@ -40,6 +61,7 @@ class LandingUsageGuideStep {
     this.imageUrls = const [],
     this.videoUrl = '',
     this.keywords = const [],
+    this.shots = const [],
   });
 
   final String id;
@@ -54,6 +76,9 @@ class LandingUsageGuideStep {
 
   /// Từ khóa giúp khách tìm nhanh (CMS có thể bổ sung).
   final List<String> keywords;
+
+  /// Ảnh minh họa theo từng dòng bước (không chỉnh từ CMS — đi kèm giao diện app).
+  final List<GuideShot> shots;
 
   LandingUsageGuideStep copyWith({
     String? title,
@@ -75,6 +100,7 @@ class LandingUsageGuideStep {
       imageUrls: imageUrls ?? this.imageUrls,
       videoUrl: videoUrl ?? this.videoUrl,
       keywords: keywords ?? this.keywords,
+      shots: shots,
     );
   }
 
@@ -681,6 +707,11 @@ class LandingUsageGuide {
       tip:
           'Dùng email và SĐT thật để nhận hỗ trợ kích hoạt và khôi phục tài khoản nhanh. Hotline: 0973 024 042.',
       accent: SboxColors.brand600,
+      shots: [
+        GuideShot('register-1', afterBullet: 2, caption: '① Nhập tên doanh nghiệp / cửa hàng. ② Mã đăng nhập cửa hàng tự tạo theo tên (sửa được); dòng xanh báo mã còn trống.'),
+        GuideShot('register-2', afterBullet: 2, caption: '① Email đăng nhập (dòng xanh báo email dùng được). ② Số điện thoại liên hệ.'),
+        GuideShot('register-3', afterBullet: 4, caption: '① Chọn gói dịch vụ / gói dùng thử. ② Đặt mật khẩu và nhập lại. ③ Bấm «Đăng ký doanh nghiệp» để hoàn tất.'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'org_structure',
@@ -698,6 +729,10 @@ class LandingUsageGuide {
       tip:
           'Tạo phòng ban trước, rồi mới import Excel nhân viên — tránh phải sửa hàng loạt sau.',
       accent: Color(0xFF455A64),
+      shots: [
+        GuideShot('org-structure-1', afterBullet: 1, caption: '① Bấm «Thêm phòng ban». ② Chọn một phòng ban để xem người quản lý, chức vụ và nhân viên trong phòng.'),
+        GuideShot('org-structure-2', afterBullet: 2, caption: '① Nhập tên phòng ban, mã tự gợi ý theo tên. ② Thêm các chức vụ của phòng (gõ tên rồi Enter). ③ Bấm «Lưu phòng ban».'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'employees',
@@ -717,6 +752,11 @@ class LandingUsageGuide {
       tip:
           'Mã nhân viên trên máy ZKTeco phải trùng mã trong hồ sơ thì log chấm công mới khớp tên.',
       accent: Color(0xFF00897B),
+      shots: [
+        GuideShot('employees-1', afterBullet: 1, caption: '① Bấm «Thêm nhân viên»; thêm hàng loạt thì dùng nút tải lên Excel bên cạnh.'),
+        GuideShot('employees-2', afterBullet: 2, caption: '① Mã nhân viên (PIN), phải trùng mã trên máy chấm công. ② Họ tên nhân viên.'),
+        GuideShot('employees-3', afterBullet: 3, caption: '① Chọn phòng ban rồi đến chức vụ. ② Ngày vào làm. ③ Trạng thái làm việc.'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'shifts',
@@ -736,6 +776,19 @@ class LandingUsageGuide {
       tip:
           'Dùng «Nhân bản ca» để clone ca tương tự. Ân hạn đi trễ (vd 10 phút) tránh phạt oan khi vào sớm vài phút sau giờ.',
       accent: Color(0xFF6A1B9A),
+      shots: [
+        GuideShot('shifts-1',
+            afterBullet: 1,
+            caption: '① Bấm «Thêm ca» để tạo ca mới. ② Nút ba chấm trên từng ca: sửa, nhân bản, ngừng dùng.'),
+        GuideShot('shifts-2',
+            afterBullet: 2,
+            caption:
+                '① Nhập tên ca. ② Chọn giờ vào – giờ ra (giờ ra nhỏ hơn giờ vào là ca qua đêm). ③ Hoặc bấm một mẫu ca có sẵn.'),
+        GuideShot('shifts-3',
+            afterBullet: 3,
+            caption:
+                '① Miễn trễ và giới hạn đi trễ. ② Miễn về sớm và giới hạn về sớm. ③ Số phút ra sớm / về muộn mới tính tăng ca.'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'salary',
@@ -756,6 +809,11 @@ class LandingUsageGuide {
       tip:
           'Cửa hàng chỉ chấm 1 lần/ngày trên máy: chọn «Chấm vào (đủ ca…)». Chi tiết các mode xem tab Nâng cao → Kiểu chấm công.',
       accent: SboxColors.brand600,
+      shots: [
+        GuideShot('salary-1', afterBullet: 1, caption: '① Chọn nhân viên cần thiết lập; người chưa có lương hiện nhãn «Chưa thiết lập».'),
+        GuideShot('salary-2', afterBullet: 2, caption: '① Loại lương: tháng, ngày, ca hoặc giờ. ② Lương cơ bản và lương hoàn thành.'),
+        GuideShot('salary-3', afterBullet: 4, caption: '① Chọn cách chấm công (chấm vào và ra, chỉ chấm vào…). ② Các ca được áp dụng; để trống là theo lịch phân ca.'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'work_schedule_basic',
@@ -774,6 +832,11 @@ class LandingUsageGuide {
       tip:
           'Lịch trống + máy có log vẫn có thể khớp ca từ Thiết lập lương, nhưng phân lịch rõ ràng giúp báo cáo và phép chính xác hơn.',
       accent: Color(0xFF7B1FA2),
+      shots: [
+        GuideShot('work-schedule-1', afterBullet: 2, caption: '① Chọn tuần cần xếp lịch. ② Nhân viên chưa có lịch: chạm vào ô ngày để xếp ca.'),
+        GuideShot('work-schedule-2', afterBullet: 3, caption: '① Chọn ca cho ngày đó (Ca sáng, Ca chiều, Hành chính…). ② Hoặc đánh dấu Ngày nghỉ.'),
+        GuideShot('work-schedule-3', afterBullet: 3, caption: '① «Thao tác nhanh» → Sao chép lịch tuần trước khi lịch lặp lại hằng tuần.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'device_connect',
@@ -793,6 +856,11 @@ class LandingUsageGuide {
       tip:
           'Chưa kết nối được? Gọi hotline 0973 024 042 — hỗ trợ từ xa qua Zalo.',
       accent: const Color(0xFF0277BD),
+      shots: [
+        GuideShot('device-connect-1', afterBullet: 2, caption: '① Trên máy chấm công: vào menu Máy chủ đám mây, nhập địa chỉ máy chủ và port như hướng dẫn.'),
+        GuideShot('device-connect-2', afterBullet: 4, caption: '① Nhập số serial (SN) hoặc quét mã. ② Đặt tên máy. ③ Bấm Thêm.'),
+        GuideShot('device-connect-3', afterBullet: 5, caption: '① Máy đang kết nối hiện Online. ② Máy mất kết nối hiện Offline, cần kiểm tra mạng của máy.'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'device_users',
@@ -811,6 +879,11 @@ class LandingUsageGuide {
       tip:
           'Nếu log hiện PIN lạ: kiểm tra mã trên máy và mã trong hồ sơ có trùng không.',
       accent: SboxColors.successText,
+      shots: [
+        GuideShot('device-users-1', afterBullet: 2, caption: '① Nút «Tải hồ sơ NS» (điện thoại: trong nút «…» góc dưới) đẩy nhân viên xuống máy. ② Thẻ «NV chưa có trên máy»: số nhân viên chưa đồng bộ. ③ Cột vân tay / khuôn mặt bằng 0 là chưa đăng ký, chưa chấm công được.'),
+        GuideShot('device-users-2', afterBullet: 2, caption: '① Chọn máy chấm công. ② Tích chọn nhân viên cần tải xuống (hoặc «Chọn tất cả»). ③ Bấm «Tải N nhân viên».'),
+        GuideShot('device-users-3', afterBullet: 3, caption: '① Số vân tay nhân viên đã đăng ký. ② Chọn ngón tay rồi bấm Đăng ký / Xóa. ③ Ngón màu xanh là đã có vân tay.'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'mobile_attendance',
@@ -829,6 +902,11 @@ class LandingUsageGuide {
       tip:
           'Bật WiFi hoặc GPS cửa hàng để hạn chế chấm ngoài vùng. Xem thêm Nâng cao → Bản đồ / chấm ngoài hiện trường.',
       accent: Color(0xFF00838F),
+      shots: [
+        GuideShot('mobile-attendance-1', afterBullet: 1, caption: '① Bật cách xác thực: khuôn mặt, GPS, Wi-Fi công ty. ② Khi bật nhiều cách: chỉ cần đạt 1 hay phải đạt tất cả.'),
+        GuideShot('mobile-attendance-2', afterBullet: 2, caption: '① Thêm vị trí chấm công. ② Mỗi vị trí có địa chỉ, bán kính, Wi-Fi và số nhân viên được chấm.'),
+        GuideShot('mobile-attendance-3', afterBullet: 3, caption: '① Cấp quyền cho điện thoại nhân viên. ② Máy mới đăng ký hiện «Chờ duyệt». ③ Bấm dấu xanh để duyệt, dấu đỏ để từ chối.'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'employee_account',
@@ -847,6 +925,11 @@ class LandingUsageGuide {
       tip:
           'Admin cửa hàng giữ quyền đầy đủ; kế toán cần xem lương/báo cáo; NV thường chỉ cần chấm công, phép, phiếu lương.',
       accent: SboxColors.brand600,
+      shots: [
+        GuideShot('employee-account-1', afterBullet: 1, caption: '① Bấm «Thêm tài khoản».'),
+        GuideShot('employee-account-2', afterBullet: 2, caption: '① Liên kết hồ sơ nhân viên, form tự điền tên và SĐT. ② Thông tin đăng nhập: họ tên, email, mật khẩu.'),
+        GuideShot('employee-account-3', afterBullet: 3, caption: '① Chọn vai trò (Quản lý, Kế toán, Thu ngân…). ② Với thu ngân / order: chọn khu vực bán hàng được xem.'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'penalty_ticket',
@@ -858,14 +941,19 @@ class LandingUsageGuide {
         'Cài đặt → Phạt: bậc phút đi trễ / về sớm và số tiền từng bậc; phạt tái phạm',
         'Khi NV chấm trễ vượt ân hạn ca: hệ thống tạo Phiếu phạt (Loại đi trễ)',
         'Mode chỉ chấm vào: vẫn phạt trễ; không phạt «quên chấm ra»',
-        'Tài chính → Phiếu phạt: xem, duyệt, hủy, từ chối',
-        'Thu tiền phạt thực tế: Tài chính → Thu chi (liên kết phiếu)',
+        'Tài chính nhân sự → tab Cần xử lý / Thưởng & phạt: xem, duyệt, hủy, từ chối phiếu phạt',
+        'Thu tiền phạt: khi duyệt chọn trừ lương hoặc thu tiền mặt — phiếu thu tự ghi vào Sổ quỹ (nhãn «Phiếu phạt»)',
         'Bảng lương có thể trừ theo phút trễ đã tổng hợp (tùy cấu hình kỳ)',
         'Báo cáo → Báo cáo phạt',
       ],
       tip:
           'Thiết lập mức phạt và ân hạn ca trước ngày vận hành thật — tránh sửa quy tắc giữa kỳ.',
       accent: Color(0xFFE65100),
+      shots: [
+        GuideShot('penalty-ticket-1', afterBullet: 1, caption: '① Bậc phạt đi trễ: số phút và số tiền từng bậc. ② Bậc phạt về sớm. Kéo xuống để đặt phạt tái phạm, quên chấm công và cách thu tiền.'),
+        GuideShot('penalty-ticket-2', afterBullet: 2, caption: '① Lọc «Phiếu phạt tự động»: phiếu sinh ra từ chấm công. ② Phiếu đi trễ đang chờ duyệt.'),
+        GuideShot('penalty-ticket-3', afterBullet: 4, caption: '① «Hủy phiếu» nếu phạt sai (ghi lý do). ② «Duyệt» để trừ lương / thu tiền.'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'advance',
@@ -874,15 +962,20 @@ class LandingUsageGuide {
       desc:
           'Ghi nhận và duyệt tạm ứng; theo dõi còn nợ và trừ khi tính lương hoặc thu qua quỹ.',
       bullets: [
-        'Tài chính → Ứng lương → tạo phiếu (hoặc NV gửi từ app)',
+        'Tài chính nhân sự → tab Ứng lương → tạo phiếu (hoặc NV gửi từ app)',
         'Duyệt phiếu trước khi chi tiền',
-        'Chi ứng qua Thu chi (liên kết phiếu) để cập nhật trạng thái',
+        'Phiếu đã duyệt: bấm «Chi / thu» khi chi tiền — phiếu chi tự ghi vào Sổ quỹ',
         'Theo dõi đã ứng / còn nợ trên danh sách phiếu',
         'Báo cáo → Báo cáo ứng lương',
         'Phiếu hủy hoặc từ chối không tính vào báo cáo',
       ],
       tip: 'Chi ứng đúng ngày thực tế giúp đối soát quỹ và bảng lương khớp nhau.',
       accent: Color(0xFFAD1457),
+      shots: [
+        GuideShot('advance-1', afterBullet: 1, caption: '① Chọn nhân viên (hiện hạn mức còn được ứng). ② Số tiền xin ứng. ③ Trừ 1 lần hoặc trả góp nhiều kỳ.'),
+        GuideShot('advance-2', afterBullet: 2, caption: '① «Duyệt» phiếu ứng đang chờ. ② Phiếu đã duyệt: bấm «Chi / thu» khi chi tiền.'),
+        GuideShot('advance-3', afterBullet: 4, caption: '① Tổng đã chi trong tháng và số sẽ trừ lương kỳ này. ② Lọc phiếu theo trạng thái: chờ duyệt, chờ chi, đã chi.'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'bonus_ticket',
@@ -891,7 +984,7 @@ class LandingUsageGuide {
       desc:
           'Ghi nhận thưởng nóng, thưởng định kỳ hoặc thưởng theo thành tích để cộng vào bảng lương kỳ tương ứng.',
       bullets: [
-        'Tài chính → Thưởng phạt → Tạo thưởng / phạt',
+        'Tài chính nhân sự → tab Thưởng & phạt → Thưởng / phạt',
         'Chọn nhân viên, số tiền, kỳ áp dụng, lý do',
         'Duyệt phiếu trước khi chốt Tổng hợp lương',
         'Kiểm tra dòng thưởng trên bảng lương / phiếu lương NV',
@@ -899,6 +992,11 @@ class LandingUsageGuide {
       ],
       tip: 'Tạo và duyệt thưởng trước ngày chốt bảng lương tháng.',
       accent: Color(0xFF7B1FA2),
+      shots: [
+        GuideShot('bonus-ticket-1', afterBullet: 1, caption: '① Bấm «Thưởng / phạt» để tạo phiếu. ② Lọc danh sách thưởng / phạt.'),
+        GuideShot('bonus-ticket-2', afterBullet: 2, caption: '① Chọn nhân viên. ② Số tiền. ③ Nội dung (hoặc chạm gợi ý nhanh bên dưới).'),
+        GuideShot('bonus-ticket-3', afterBullet: 3, caption: '① Chọn cách xử lý tiền: cộng vào lương hoặc chi tiền mặt. ② Bấm «Duyệt».'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'cash',
@@ -907,15 +1005,19 @@ class LandingUsageGuide {
       desc:
           'Sổ quỹ tiền mặt: ghi thu/chi hàng ngày, liên kết ứng lương và thu phạt để đối soát.',
       bullets: [
-        'Tài chính → Thu chi → ghi Thu hoặc Chi',
+        'Tài chính nhân sự → tab Sổ quỹ → ghi Thu hoặc Chi',
         'Chọn ngày, số tiền, danh mục, diễn giải',
-        'Khi chi ứng lương: chọn liên kết phiếu ứng',
-        'Khi thu phạt: chọn liên kết phiếu phạt',
+        'Chi ứng lương: bấm «Chi / thu» trên phiếu ứng — phiếu chi tự liên kết phiếu ứng',
+        'Thu phạt: duyệt phiếu phạt và chọn thu tiền mặt — phiếu thu tự liên kết phiếu phạt',
         'Xem tồn quỹ theo ngày; đối soát cuối ngày/tháng',
         'Báo cáo → Báo cáo thu chi',
       ],
       tip: 'Ghi đúng ngày phát sinh — không dồn nhiều ngày vào một phiếu nếu cần đối soát chi tiết.',
       accent: Color(0xFF558B2F),
+      shots: [
+        GuideShot('cash-1', afterBullet: 1, caption: '① Bấm Thu/Chi (biểu tượng +) để ghi phiếu. ② Phiếu chi ứng lương / thu phạt có liên kết phiếu gốc.'),
+        GuideShot('cash-2', afterBullet: 2, caption: '① Chọn Thu hoặc Chi. ② Danh mục. ③ Số tiền và mô tả.'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'first_payroll',
@@ -935,6 +1037,11 @@ class LandingUsageGuide {
       tip:
           'Tháng đầu nên chấm thử 3–5 ngày rồi xem Tổng hợp theo ca trước khi tin tưởng tự động hoàn toàn.',
       accent: Color(0xFFC62828),
+      shots: [
+        GuideShot('first-payroll-1', afterBullet: 4, caption: '① Chọn kỳ lương (từ ngày đến ngày). ② Lọc theo phòng ban hoặc nhân viên.'),
+        GuideShot('first-payroll-2', afterBullet: 5, caption: '① Rà từng nhân viên: công, giờ, tăng ca, thu nhập, khấu trừ. ② Số thực nhận cuối cùng.'),
+        GuideShot('first-payroll-3', afterBullet: 7, caption: '① Kiểm tra xong thì bấm «Chốt lương» để khóa kỳ.'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'reports',
@@ -957,6 +1064,10 @@ class LandingUsageGuide {
       tip:
           'Số liệu lệch: kiểm tra kiểu chấm công + lịch ca + ân hạn trước khi sửa tay. Báo cáo bán hàng nằm ở tab POS.',
       accent: SboxColors.brand600,
+      shots: [
+        GuideShot('reports-1', afterBullet: 3, caption: '① Chọn kỳ: hôm nay, tuần, tháng hoặc tự chọn. ② Lọc trạng thái, tìm nhân viên. ③ Bấm «Áp dụng».'),
+        GuideShot('reports-2', afterBullet: 10, caption: '① Xuất Excel (điện thoại: trong nút thao tác góc dưới). ② Chuyển xem «Chi tiết» hoặc «Theo NV». ③ Từng phiếu: nhân viên, ngày, loại, trạng thái.'),
+      ],
     ),
     const LandingUsageGuideStep(
       id: 'daily_ops',
@@ -1015,12 +1126,16 @@ class LandingUsageGuide {
         'Chấm 2 lần bất kỳ trong ngày (free2): ≥2 lần chấm/ngày = 1 công; không tính trễ/sớm/OT theo ca',
         'Ca nguyên ngày (fullday): vào ngày N → ra trước mốc sáng ngày N+1 = 1 công (ca ~24h)',
         'Không chấm công (none): không bắt buộc chấm — tránh dùng nếu vẫn muốn phạt quên chấm',
-        'Cấu hình tại: Thiết lập lương → ô Chấm công',
+        'Cấu hình tại: Thiết lập lương → chọn NV → mục «Cách chấm công»',
         'Sau khi đổi mode: mở lại Tổng hợp theo ca để xem công/trễ cập nhật',
       ],
       tip:
           'Quán/cửa hàng chỉ chấm 1 lần trên máy (toàn bộ log là CheckIn): chọn «Chấm vào (đủ ca…)».',
       accent: SboxColors.brand600,
+      shots: [
+        GuideShot('attendance-modes-2', afterBullet: 2, caption: '① Cửa hàng chỉ chấm 1 lần trên máy: chọn «Chỉ chấm vào» (giờ ra lấy hết ca, không phạt quên chấm ra). ② Ca áp dụng cho nhân viên.'),
+        GuideShot('attendance-modes-1', afterBullet: 7, caption: '① Chấm vào và ra: cần đủ cặp vào – ra, tính trễ / sớm / tăng ca. ② Chỉ chấm vào hoặc chỉ chấm ra: 1 lần chấm là đủ ca. ③ Chấm 2 lần trong ngày hoặc ca nguyên ngày: không theo giờ ca. ④ Không chấm công: đủ công theo lịch.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'work_schedule',
@@ -1039,6 +1154,11 @@ class LandingUsageGuide {
       ],
       tip: 'Phân ca trước đầu kỳ; hạn chế sửa lịch sau khi đã có nhiều phiếu phạt tự động.',
       accent: Color(0xFF6A1B9A),
+      shots: [
+        GuideShot('schedule-hub-1', afterBullet: 1, caption: '① Nút ba chấm trên từng ngày: đăng ký ca, xin nghỉ phép, đổi ca với đồng nghiệp. ② Đồng nghiệp xin đổi ca: bấm «Đồng ý» hoặc «Từ chối».'),
+        GuideShot('schedule-hub-2', afterBullet: 4, caption: '① Định mức theo ca: số người có mặt / tối thiểu–tối đa, ô đỏ là thiếu người. ② «Thao tác nhanh»: sao chép lịch tuần trước, nhắc nhân viên đăng ký lịch.'),
+        GuideShot('schedule-hub-3', afterBullet: 6, caption: '① Lọc theo loại: đăng ký ca, đơn nghỉ, đổi ca, ca theo giờ. ② Tích chọn nhiều yêu cầu. ③ Bấm «Duyệt N» (hoặc «Từ chối») một lần cho tất cả.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'shift_swap',
@@ -1055,6 +1175,10 @@ class LandingUsageGuide {
       ],
       tip: 'Duyệt đổi ca trước ngày làm việc để tránh lệch công và phạt trễ oan.',
       accent: Color(0xFF5E35B1),
+      shots: [
+        GuideShot('shift-swap-1', afterBullet: 1, caption: '① Ca và ngày của bạn. ② Đồng nghiệp muốn đổi. ③ Ca và ngày muốn nhận. ④ Bấm «Gửi yêu cầu».'),
+        GuideShot('shift-swap-2', afterBullet: 3, caption: '① Tab «Chờ QL duyệt». ② Quản lý bấm «Duyệt» hoặc «Từ chối».'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'holidays',
@@ -1070,6 +1194,10 @@ class LandingUsageGuide {
       ],
       tip: 'Cập nhật lịch lễ đầu năm hoặc trước tháng có nghỉ dài để bảng lương không lệch.',
       accent: Color(0xFFD84315),
+      shots: [
+        GuideShot('holidays-1', afterBullet: 2, caption: '① Thêm một ngày lễ riêng. ② Thêm nhanh các ngày lễ theo quy định còn thiếu trong năm (Tết âm lịch, Giỗ Tổ…).'),
+        GuideShot('holidays-2', afterBullet: 3, caption: '① Tên và ngày (có ngày âm lịch). ② Lặp lại hằng năm (chỉ ngày dương lịch cố định). ③ Hệ số lương khi đi làm ngày lễ.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'leave',
@@ -1087,6 +1215,11 @@ class LandingUsageGuide {
       ],
       tip: 'Phiếu từ chối hoặc hủy không tính vào báo cáo nghỉ phép.',
       accent: Color(0xFF0284C7),
+      shots: [
+        GuideShot('leave-1', afterBullet: 1, caption: '① Bấm «Tạo đơn» rồi chọn nhóm chế độ: DN trả lương, không hưởng lương, hoặc BHXH.'),
+        GuideShot('leave-2', afterBullet: 1, caption: '① Phép năm còn lại và số ngày đơn này cần. ② Từ ngày – đến ngày. ③ Chọn ca nghỉ. ④ Bấm «Gửi đơn».'),
+        GuideShot('leave-3', afterBullet: 3, caption: '① Tab «Chờ duyệt». ② Bấm «Duyệt» hoặc «Từ chối» (điện thoại: chạm vào đơn để mở rồi bấm).'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'insurance_tax',
@@ -1097,11 +1230,16 @@ class LandingUsageGuide {
       bullets: [
         'Cài đặt → Bảo hiểm: mức đóng, tỷ lệ công ty / người lao động',
         'Cài đặt → Thuế TNCN: biểu thuế / giảm trừ (theo cấu hình cửa hàng)',
-        'Trên Thiết lập lương từng NV: bật/tắt tham gia BH, phụ thuộc giảm trừ',
+        'Người phụ thuộc: Cài đặt → Thuế TNCN → mục «Người phụ thuộc của nhân viên»; tham gia BH bật trên Thiết lập lương từng NV',
         'Kiểm tra cột BH và thuế trên Tổng hợp lương sau khi cấu hình',
       ],
       tip: 'Đối chiếu với kế toán cửa hàng trước kỳ lương đầu tiên có trừ BH/thuế.',
       accent: Color(0xFF00695C),
+      shots: [
+        GuideShot('insurance-tax-1', afterBullet: 1, caption: '① Tỷ lệ đóng BHXH, BHYT, BHTN: cột trái người lao động, cột phải doanh nghiệp. ② Tổng tỷ lệ bắt buộc của hai bên.'),
+        GuideShot('insurance-tax-2', afterBullet: 2, caption: '① Giảm trừ gia cảnh cho bản thân và mỗi người phụ thuộc. ② Biểu thuế lũy tiến từng bậc theo tháng.'),
+        GuideShot('insurance-tax-3', afterBullet: 3, caption: '① Mục người phụ thuộc của nhân viên. ② Chạm vào nhân viên để khai số người phụ thuộc và đính kèm hồ sơ.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'kpi',
@@ -1118,6 +1256,11 @@ class LandingUsageGuide {
       ],
       tip: 'Gắn KPI rõ ràng với phiếu thưởng để tránh thưởng tay trùng với KPI.',
       accent: SboxColors.success,
+      shots: [
+        GuideShot('kpi-1', afterBullet: 3, caption: '① Tab «Chỉ tiêu». ② Bấm «Giao chỉ tiêu» cho nhân viên. ③ Mỗi người: chỉ tiêu, thực đạt và % hoàn thành.'),
+        GuideShot('kpi-2', afterBullet: 4, caption: '① Nhập doanh số thực tế cho từng người. ② Bấm «Lưu tất cả».'),
+        GuideShot('kpi-3', afterBullet: 5, caption: '① Tab «Lương KPI». ② % KPI và tiền thưởng KPI của từng người. ③ Bấm «Duyệt» để chốt lương KPI.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'bonus',
@@ -1126,13 +1269,17 @@ class LandingUsageGuide {
       desc:
           'Quản lý các loại thưởng định kỳ, thưởng nóng và thưởng theo KPI — luôn duyệt trước khi chốt lương.',
       bullets: [
-        'Tài chính → Thưởng phạt',
+        'Tài chính nhân sự → tab Thưởng & phạt',
         'Phân loại thưởng rõ ràng (nóng / tháng / KPI) trong lý do phiếu',
         'Duyệt trước khi chạy Tổng hợp lương',
         'Đối chiếu trên phiếu lương nhân viên',
       ],
       tip: 'Thưởng đã duyệt mới được cộng vào phiếu lương.',
       accent: Color(0xFF7B1FA2),
+      shots: [
+        GuideShot('bonus-1', afterBullet: 2, caption: '① Lọc «Thưởng». ② Mỗi phiếu ghi rõ lý do để phân biệt thưởng nóng, thưởng tháng, thưởng KPI.'),
+        GuideShot('bonus-2', afterBullet: 3, caption: '① Tổng thưởng đã duyệt trong tháng. ② Phiếu còn «Chờ duyệt» chưa được cộng vào lương: duyệt trước khi tính lương.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'penalty',
@@ -1143,12 +1290,16 @@ class LandingUsageGuide {
       bullets: [
         'Cài đặt → Phạt: các bậc phút và số tiền; phạt quên chấm / nghỉ không phép',
         'Ân hạn phút nằm trên từng ca (Thiết lập ca), không chỉ ở màn Phạt',
-        'Phiếu tự động sinh khi có log vi phạm (xem Tài chính → Phiếu phạt)',
+        'Phiếu tự động sinh khi có log vi phạm (xem Tài chính nhân sự → tab Thưởng & phạt, lọc «Phiếu phạt tự động»)',
         'Mode chỉ chấm vào/ra: hệ thống bỏ ForgotCheck một phía — tránh phạt oan',
-        'Thu phạt qua Thu chi; theo dõi Báo cáo phạt',
+        'Thu phạt: khi duyệt chọn trừ lương hoặc tiền mặt (tự ghi Sổ quỹ); theo dõi Báo cáo phạt',
       ],
       tip: 'Nhầm lẫn hay gặp: quên cấu hình ân hạn ca → phạt dù vào trễ 2–3 phút.',
       accent: Color(0xFFE65100),
+      shots: [
+        GuideShot('penalty-1', afterBullet: 1, caption: '① Phạt quên chấm công và nghỉ không phép (0 = không phạt). ② Cách thu tiền phạt (trừ lương / tiền mặt) và số giờ tự duyệt phạt sau kết ca.'),
+        GuideShot('penalty-2', afterBullet: 5, caption: '① Tổng tiền phạt và số đã duyệt (trừ lương / thu tiền mặt). ② Tiền phạt theo loại vi phạm. ③ Xuất Excel.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'production',
@@ -1164,6 +1315,10 @@ class LandingUsageGuide {
       ],
       tip: 'Khai báo đơn giá trước khi nhập sản lượng hàng loạt.',
       accent: SboxColors.success,
+      shots: [
+        GuideShot('production-1', afterBullet: 1, caption: '① Nhóm sản phẩm (lọc / sửa nhóm). ② Mỗi sản phẩm có bảng đơn giá theo bậc số lượng.'),
+        GuideShot('production-2', afterBullet: 2, caption: '① Bấm «Nhập sản lượng». ② Mỗi dòng: ngày, nhân viên, sản phẩm, số lượng, đơn giá, thành tiền. ③ Tab «Tổng hợp» để đối soát theo nhân viên trước khi chốt kỳ.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'asset',
@@ -1180,6 +1335,11 @@ class LandingUsageGuide {
       ],
       tip: 'Ghi hạn bảo hành để nhận nhắc trước khi hết hạn.',
       accent: SboxColors.slate700,
+      shots: [
+        GuideShot('asset-1', afterBullet: 1, caption: '① Bấm «Thêm tài sản». ② Mỗi tài sản hiện trạng thái (đang dùng, trong kho, bảo trì) và người đang giữ.'),
+        GuideShot('asset-2', afterBullet: 2, caption: '① Tên tài sản (mã TS tự sinh). ② Chọn loại và danh mục. ③ Giá mua; bên dưới có ngày mua và số tháng bảo hành.'),
+        GuideShot('asset-3', afterBullet: 3, caption: '① Nút «…» trên tài sản → Cấp phát: chọn nhân viên nhận. ② Ghi lý do. ③ Bấm «Cấp phát»; thu hồi / chuyển giao cũng ở nút «…».'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'field_checkin',
@@ -1196,6 +1356,10 @@ class LandingUsageGuide {
       ],
       tip: 'Cần có ca làm được duyệt và nhân viên cho phép định vị; nhắc nhân viên giữ app mở trong ca để lộ trình liền mạch.',
       accent: Color(0xFF0277BD),
+      shots: [
+        GuideShot('field-checkin-1', afterBullet: 3, caption: '① Số nhân viên theo tình trạng: trực tuyến, trong ca, mất tín hiệu, ngoại tuyến — chạm để lọc. ② Tìm tên / mã và lọc theo bộ phận. ③ Nút xem lộ trình của nhân viên.'),
+        GuideShot('field-checkin-2', afterBullet: 4, caption: '① Xem lộ trình trong ca hoặc cả ngày. ② Quãng đường, thời gian di chuyển, số lần dừng, mất tín hiệu. ③ Dòng thời gian: chấm công, điểm dừng, check-in khách hàng.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'tasks',
@@ -1211,6 +1375,11 @@ class LandingUsageGuide {
       ],
       tip: 'Dùng Task cho việc nội bộ ngắn; quy trình phép/đổi ca vẫn dùng module chuyên biệt.',
       accent: Color(0xFF3949AB),
+      shots: [
+        GuideShot('tasks-1', afterBullet: 1, caption: '① Bấm «Tạo công việc». ② Lọc nhanh: Của tôi, Quá hạn, Trạng thái, Ưu tiên, Người thực hiện.'),
+        GuideShot('tasks-2', afterBullet: 2, caption: '① Tiêu đề công việc. ② Loại và mức ưu tiên. ③ Giao cho một hoặc nhiều người. ④ Thời gian bắt đầu và hạn hoàn thành.'),
+        GuideShot('tasks-3', afterBullet: 3, caption: '① Tab Kanban: mỗi cột là một trạng thái (Chờ làm, Đang làm, Đang xem xét, Hoàn thành). ② Kéo thẻ sang cột khác để đổi trạng thái, chạm thẻ để xem chi tiết.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'business_trip',
@@ -1227,6 +1396,11 @@ class LandingUsageGuide {
       ],
       tip: 'Tách tạm ứng công tác khỏi ứng lương tháng để đối soát quỹ rõ ràng.',
       accent: Color(0xFF00838F),
+      shots: [
+        GuideShot('business-trip-1', afterBullet: 1, caption: '① Bấm «Hồ sơ mới». ② Mỗi hồ sơ hiện người đi, trạng thái, số tiền đã ứng và đã hạch toán.'),
+        GuideShot('business-trip-2', afterBullet: 2, caption: '① Tiêu đề và điểm đến. ② Chọn từ ngày – đến ngày. ③ Bấm «Tạo & nhập chi phí» rồi tạo phiếu ứng nếu cần.'),
+        GuideShot('business-trip-3', afterBullet: 3, caption: '① Phiếu ứng công tác: số tiền đề nghị, trạng thái duyệt, đã chi hay chưa. ② Quản lý bấm «Duyệt ứng» hoặc «Từ chối ứng».'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'meal',
@@ -1244,6 +1418,11 @@ class LandingUsageGuide {
       ],
       tip: 'Giá suất được chốt tại lúc chấm — đổi giá buổi ăn không làm thay đổi tiền của các ngày đã ăn.',
       accent: Color(0xFFF97316),
+      shots: [
+        GuideShot('meal-1', afterBullet: 1, caption: '① Tên buổi ăn (Sáng / Trưa / Tối). ② Giá mỗi suất. ③ Giờ bắt đầu – kết thúc của buổi.'),
+        GuideShot('meal-2', afterBullet: 5, caption: '① Tab Căn tin: suất đã phục vụ, đã đăng ký, ăn không đăng ký, đăng ký chưa ăn. ② Từng buổi: số suất, món, danh sách người đăng ký mà chưa ăn.'),
+        GuideShot('meal-3', afterBullet: 6, caption: '① Bấm «Tính tiền cơm tháng». ② Mỗi nhân viên: số suất, đã trả, còn nợ; nút thẻ để ghi nhận trả tiền.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'communication',
@@ -1254,11 +1433,16 @@ class LandingUsageGuide {
       bullets: [
         'Menu: Truyền thông → tạo bài viết',
         'Ghim tin quan trọng; chọn đối tượng (toàn cửa hàng / nhóm)',
-        'Gửi push thông báo tới app khi cần đọc ngay',
+        'Bật «Bắt buộc đọc và xác nhận» khi cần mọi người đọc ngay — xem được ai chưa đọc',
         'NV xem tại Tổng quan hoặc mục Truyền thông',
       ],
       tip: 'Thông báo đổi ca, chính sách phạt, lịch lễ qua Truyền thông để có dấu vết.',
       accent: SboxColors.success,
+      shots: [
+        GuideShot('communication-1', afterBullet: 1, caption: '① Ô «Chia sẻ điều gì đó…» (điện thoại: nút bút góc dưới) để viết bài. ② Chọn kênh: Bảng tin, Thông báo, Nội quy & chính sách…'),
+        GuideShot('communication-2', afterBullet: 2, caption: '① Người nhận: toàn công ty hoặc chọn nhóm / từng người. ② Bắt buộc đọc và xác nhận: xem được ai chưa đọc. ③ Ghim bài lên đầu bảng tin.'),
+        GuideShot('communication-3', afterBullet: 4, caption: '① Nhân viên bấm «Tôi đã đọc và cam kết»; thanh bên dưới cho biết bao nhiêu người đã xác nhận. ② Khung «Cần bạn xử lý»: các bài bắt buộc đọc còn chờ.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'feedback',
@@ -1276,6 +1460,11 @@ class LandingUsageGuide {
       ],
       tip: 'Nhân viên chỉ thấy phiếu của mình; quản lý thấy hòm thư chung và phiếu gửi / giao cho mình; Admin / Giám đốc thấy tất cả.',
       accent: SboxColors.brand600,
+      shots: [
+        GuideShot('feedback-1', afterBullet: 1, caption: '① Chọn loại: khiếu nại, kiến nghị hoặc góp ý chung. ② Chọn chủ đề. ③ Nhập tiêu đề và nội dung; kéo xuống để chọn mức độ, người nhận, gửi ẩn danh.'),
+        GuideShot('feedback-2', afterBullet: 4, caption: '① Lọc nhanh: đang mở, chờ tiếp nhận, quá hạn, giao cho tôi. ② Phiếu quá hạn có nhãn đỏ «Quá hạn …»; bấm vào phiếu để tiếp nhận, giao người xử lý, trao đổi.'),
+        GuideShot('feedback-3', afterBullet: 6, caption: '① Tỷ lệ đúng hạn, thời gian phản hồi và giải quyết trung bình. ② Mức hài lòng và số lần mở lại.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'notifications',
@@ -1284,13 +1473,17 @@ class LandingUsageGuide {
       desc:
           'Cấu hình thông báo đẩy và kênh nhắc (duyệt đơn, chấm công, truyền thông) để quản lý không bỏ sót.',
       bullets: [
-        'Cài đặt → Thiết lập thông báo (nếu có trên hub Cài đặt)',
+        'Cài đặt → Thông báo: bật / tắt từng loại hoặc cả nhóm (tự lưu)',
         'NV bật thông báo trên điện thoại cho app SBOX',
         'Theo dõi chuông thông báo trên web/app: duyệt phép, đổi ca, phiếu chờ',
         'Dùng Truyền thông khi cần broadcast toàn cửa hàng',
       ],
       tip: 'Trên iOS/Android: cho phép thông báo app ngay sau khi cài để nhận duyệt đơn kịp thời.',
       accent: Color(0xFF6D4C41),
+      shots: [
+        GuideShot('notifications-1', afterBullet: 1, caption: '① Bật / tắt cả một nhóm thông báo. ② Hoặc tắt từng loại (vd máy chấm công mất kết nối); tự lưu khi bật / tắt.'),
+        GuideShot('notifications-2', afterBullet: 3, caption: '① Lọc tất cả / chưa đọc / đã đọc, hoặc theo loại. ② Thông báo chưa đọc có chấm đỏ; bấm «Xem chi tiết» để mở và duyệt.'),
+      ],
     ),
   ];
 
@@ -1332,6 +1525,10 @@ class LandingUsageGuide {
       tip:
           'Sai ngành hàng thì không thấy sơ đồ bàn / gửi bếp. Đổi ngành xong mở lại Bán hàng.',
       accent: Color(0xFFEF6C00),
+      shots: [
+        GuideShot('pos-setup-1', afterBullet: 1, caption: '① Chọn ngành hàng (vd Nhà hàng / Cafe) — đổi ngành lưu ngay và bật sẵn cấu hình của ngành. ② Chế độ bán mặc định: bán nhanh, bán thường hoặc giao hàng.'),
+        GuideShot('pos-setup-2', afterBullet: 2, caption: '① Tên cửa hàng, địa chỉ, SĐT in trên hóa đơn. ② Thuế VAT khi bán: giá đã gồm thuế hoặc thuế theo từng mặt hàng.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'pos_products',
@@ -1353,6 +1550,10 @@ class LandingUsageGuide {
       ],
       tip: 'Mã hàng nên ngắn, không dấu — dễ gõ và in tem.',
       accent: Color(0xFF00897B),
+      shots: [
+        GuideShot('pos-products-1', afterBullet: 1, caption: '① Bấm «Tạo mới» (điện thoại: nút + góc dưới) để thêm hàng. ② Tìm theo mã / tên hàng. ③ Mỗi dòng: mã, tên, giá bán, tồn.'),
+        GuideShot('pos-products-2', afterBullet: 1, caption: '① Chạm khung ảnh để chụp / chọn ảnh món. ② Nhập mã hàng và tên. ③ Chọn nhóm hàng. ④ Giá vốn, giá bán.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'pos_tables',
@@ -1370,6 +1571,10 @@ class LandingUsageGuide {
       ],
       tip: 'Bàn «đang dùng» phải thanh toán hoặc trả bàn trước khi gán khách mới.',
       accent: Color(0xFF6A1B9A),
+      shots: [
+        GuideShot('pos-tables-1', afterBullet: 1, caption: '① Quản lý nhóm (khu: Tầng 1, Sân vườn…), tạo bàn nhanh, thêm bàn. ② Bàn đang dùng hiện số phút, tiền tạm tính, số khách.'),
+        GuideShot('pos-tables-2', afterBullet: 3, caption: '① Chạm giữ bàn đang dùng: Chuyển bàn, Tách bàn, Gộp bàn vào đây.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'pos_printers',
@@ -1390,6 +1595,10 @@ class LandingUsageGuide {
       tip:
           'A6 và A7 cùng cửa hàng phải thấy cùng mẫu mặc định. Nếu lệch: vào Mẫu in, chọn lại mặc định của store — không copy tay từ máy khác.',
       accent: Color(0xFF0277BD),
+      shots: [
+        GuideShot('pos-printers-1', afterBullet: 1, caption: '① Tab «Trên máy này» (máy USB / Bluetooth / LAN tại quầy) hoặc «Máy in cloud» (dùng chung cả cửa hàng). ② Bật «In hóa đơn khi thanh toán». ③ Chọn máy in hóa đơn. ④ Chọn mẫu in hóa đơn.'),
+        GuideShot('pos-printers-2', afterBullet: 3, caption: '① Chọn loại mẫu: hóa đơn, phiếu bếp («Báo chế biến»), tem. ② «Dùng mẫu này» để đặt làm mẫu mặc định. ③ In thử.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'pos_kitchen',
@@ -1407,6 +1616,10 @@ class LandingUsageGuide {
       tip:
           'In hóa đơn lúc thanh toán; in bếp lúc gọi món — đừng gán nhầm một mẫu cho cả hai.',
       accent: Color(0xFFC62828),
+      shots: [
+        GuideShot('pos-kitchen-1', afterBullet: 1, caption: '① Chạm giữ bàn đang mở: xem số khách, tiền, số món. ② «Báo chế biến» gửi các món chưa báo xuống bếp / bar.'),
+        GuideShot('pos-kitchen-2', afterBullet: 2, caption: '① Bàn còn món chưa báo bếp hiện số «bếp» ngay trên ô bàn.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'pos_sales',
@@ -1427,6 +1640,10 @@ class LandingUsageGuide {
       tip:
           'Thanh toán cần quyền Duyệt (Approve) module PosSell. Tài khoản phục vụ chỉ có quyền tạo đơn thì order / gửi bếp được nhưng không thu tiền.',
       accent: Color(0xFFE65100),
+      shots: [
+        GuideShot('pos-sales-1', afterBullet: 2, caption: '① Tìm / quét mã hàng. ② Chạm món để thêm vào hóa đơn (điện thoại: «Chọn hàng»). ③ Sửa số lượng bằng − / +. ④ Thanh toán (F9).'),
+        GuideShot('pos-sales-2', afterBullet: 5, caption: '① Chọn hình thức: tiền mặt, chuyển khoản, tiền mặt + CK hoặc ghi nợ. ② Chip «In hóa đơn» để in khi thanh toán. ③ Hoàn tất thanh toán (F9).'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'pos_customers',
@@ -1442,6 +1659,10 @@ class LandingUsageGuide {
       ],
       tip: 'Không gắn khách thì đơn vẫn bán được — nhưng không tích điểm / không lên công nợ.',
       accent: SboxColors.brand600,
+      shots: [
+        GuideShot('pos-customers-1', afterBullet: 1, caption: '① Bấm «Thêm khách» (SĐT làm mã nhanh). ② Mỗi khách: mã, SĐT, tổng mua, công nợ.'),
+        GuideShot('pos-customers-2', afterBullet: 3, caption: '① Công nợ hiện tại của khách. ② «Thu nợ» khi khách trả tiền nợ.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'pos_inventory',
@@ -1462,6 +1683,10 @@ class LandingUsageGuide {
       tip:
           'Muốn chỉnh tồn cho đúng thực tế: dùng Kiểm kho (có chứng từ, có chênh lệch). Sửa ô tồn trong form Hàng hóa chỉ nên dùng lúc khai báo ban đầu.',
       accent: Color(0xFF5D4037),
+      shots: [
+        GuideShot('pos-inventory-1', afterBullet: 1, caption: '① Tạo phiếu nhập. ② Phiếu tạm: chưa cộng tồn. ③ «Nhập hàng vào kho» (điện thoại: «Hoàn thành nhập») mới cộng tồn và công nợ NCC.'),
+        GuideShot('pos-inventory-2', afterBullet: 5, caption: '① Tồn sổ, số thực tế đếm được, số lệch và giá trị lệch từng mặt hàng. ② «Cân bằng kho» để cộng / trừ phần chênh lệch.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'pos_stock_rules',
@@ -1493,19 +1718,24 @@ class LandingUsageGuide {
       desc:
           'Kết nối Viettel SInvoice, Easy Invoice, MISA meInvoice hoặc VNPT Invoice. Xuất ngay khi thanh toán hoặc xuất sau từ danh sách đơn.',
       bullets: [
-        'Cài đặt → Hóa đơn điện tử → chọn Nhà cung cấp, nhập thông tin do hãng cấp:',
-        '• Viettel: tài khoản API, MST, mẫu (1/001), ký hiệu (C25TAA)',
-        '• Easy Invoice: tài khoản API, MST, Pattern đúng như portal (vd. 1C25MAA), Serial thường để trống',
-        '• MISA: AppID (MISA cấp khi đăng ký tích hợp), tài khoản meInvoice, MST, ký hiệu đầy đủ (1C25TAA); chọn ký HSM hoặc HĐ máy tính tiền',
+        'Thiết lập SBOX → Hóa đơn điện tử → chọn Nhà cung cấp, nhập thông tin do hãng cấp:',
+        '• Viettel: tài khoản API, MST, mẫu (1/001), ký hiệu (C26TAA)',
+        '• Easy Invoice: tài khoản API, MST, Pattern đúng như portal (vd. 1C26MAA), Serial thường để trống',
+        '• MISA: AppID (MISA cấp khi đăng ký tích hợp), tài khoản meInvoice, MST, ký hiệu đầy đủ (1C26TAA); chọn ký HSM hoặc HĐ máy tính tiền',
         '• VNPT: địa chỉ web service riêng (https://<MST>-tt78admin.vnpt-invoice.com.vn), Account/ACpass web service, tài khoản phát hành, mẫu số, ký hiệu',
         'Lưu → «Kiểm tra kết nối» (chỉ xác thực, không tạo hóa đơn)',
         'Khi thanh toán: bật chip «Xuất HĐĐT». «Mặc định xuất hóa đơn» + tắt hỏi thu ngân = mọi đơn tự xuất (kể cả đơn online / Tingee)',
         'Khách cần HĐ công ty: chọn khách có tên công ty, MST, địa chỉ, email trước khi thanh toán',
-        'Bill in ra có thêm khối HĐĐT: ký hiệu, số HĐ, mã CQT, mã tra cứu và mã QR để khách quét tra cứu (tắt được bằng «In mã HĐĐT + QR tra cứu trên hóa đơn bán hàng»)',
+        'Bill in ra có thêm khối HĐĐT: ký hiệu, số HĐ, mã CQT, mã tra cứu và mã QR để khách quét tra cứu (tắt được bằng «In mã tra cứu + QR trên hóa đơn bán hàng»)',
       ],
       tip:
           'Đơn vẫn thanh toán thành công dù HĐĐT lỗi — màn bán báo lỗi, vào Quản lý HĐĐT để xuất lại. MISA / VNPT chưa có lưu nháp qua API.',
       accent: Color(0xFF00695C),
+      shots: [
+        GuideShot('pos-einvoice-1', afterBullet: 1, caption: '① Chọn nhà cung cấp (Viettel, Easy, MISA, VNPT). ② Nhập tài khoản do hãng cấp: MST, ký hiệu mẫu (1/001), ký hiệu hóa đơn (C26TAA).'),
+        GuideShot('pos-einvoice-2', afterBullet: 6, caption: '① Lưu rồi bấm «Kiểm tra» — chỉ xác thực tài khoản, không tạo hóa đơn. ② Kết quả hiện ngay bên dưới.'),
+        GuideShot('pos-einvoice-3', afterBullet: 7, caption: '① Bật xuất hóa đơn điện tử. ② «Hỏi thu ngân lúc thanh toán» / «Mặc định xuất hóa đơn». ③ In mã tra cứu + QR trên hóa đơn bán hàng.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'pos_einvoice_manage',
@@ -1528,6 +1758,11 @@ class LandingUsageGuide {
       tip:
           'Lỗi thường gặp: thiếu cấu hình, sai MST / mẫu / ký hiệu, MISA sai AppID, VNPT «ERR:20» (mẫu/ký hiệu), Easy «117» (mẫu máy tính tiền chưa mở API).',
       accent: Color(0xFF00796B),
+      shots: [
+        GuideShot('pos-einvoice-manage-1', afterBullet: 1, caption: '① Lọc theo trạng thái: tất cả, cần xử lý, đã xuất, lỗi… ② Chạm một hóa đơn để mở thao tác.'),
+        GuideShot('pos-einvoice-manage-2', afterBullet: 2, caption: '① Xem lại hóa đơn (PDF). ② Gửi HĐĐT qua Zalo, email… ③ Thay thế hóa đơn. ④ Hủy hóa đơn.'),
+        GuideShot('pos-einvoice-manage-3', afterBullet: 9, caption: '① Đồng bộ hàng loạt từ hãng. ② Tải danh sách từ hãng để đối chiếu. ③ Mở trang quản lý của hãng.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'pos_reports',
@@ -1549,6 +1784,10 @@ class LandingUsageGuide {
       tip:
           'Không thấy một thẻ báo cáo: thiếu quyền module PosReport… — tick trong Phân quyền / gói dịch vụ.',
       accent: SboxColors.brand600,
+      shots: [
+        GuideShot('pos-reports-1', afterBullet: 1, caption: '① Tìm nhanh báo cáo. ② Doanh thu theo ngày. ③ Kết quả kinh doanh (lãi / lỗ) trong nhóm Tài chính.'),
+        GuideShot('pos-reports-2', afterBullet: 2, caption: '① Chọn kỳ báo cáo (hôm nay, tuần, tháng…). ② Xuất Excel gửi kế toán.'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'pos_eod',
@@ -1567,6 +1806,11 @@ class LandingUsageGuide {
       tip:
           'Lệch tiền: xem Đơn hàng trong ca + Báo cáo hủy / trả + Phương thức thanh toán trước khi «bù» tay vào quỹ.',
       accent: Color(0xFF37474F),
+      shots: [
+        GuideShot('pos-eod-1', afterBullet: 1, caption: '① Bật «Ca thu ngân (mở ca / đóng két)» trong Ngành hàng & cách bán.'),
+        GuideShot('pos-eod-2', afterBullet: 2, caption: '① Nhập tiền mặt đầu ca trong két. ② Bấm «Mở ca» — mở ca rồi mới thanh toán được.'),
+        GuideShot('pos-eod-3', afterBullet: 3, caption: '① Tiền mặt kỳ vọng = đầu ca + tiền mặt thu trong ca. ② Nhập tiền mặt đếm được. ③ Bấm «Đóng ca».'),
+      ],
     ),
     LandingUsageGuideStep(
       id: 'pos_common',

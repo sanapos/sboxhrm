@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -1033,7 +1034,7 @@ class _GuideStepDetail extends StatelessWidget {
         ...step.bullets.asMap().entries.map((e) {
           final i = e.key;
           final b = e.value;
-          return Padding(
+          final row = Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1069,6 +1070,15 @@ class _GuideStepDetail extends StatelessWidget {
                 ),
               ],
             ),
+          );
+          final shots = step.shots.where((s) => s.afterBullet == i + 1);
+          if (shots.isEmpty) return row;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              row,
+              for (final s in shots) _GuideShotFigure(shot: s, mobile: mobile),
+            ],
           );
         }),
         if (step.tip.isNotEmpty) ...[
@@ -1125,6 +1135,100 @@ class _GuideStepDetail extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Ảnh minh họa một dòng bước: màn hình thật có đánh số ①②③ + chú thích; bấm để xem lớn.
+class _GuideShotFigure extends StatelessWidget {
+  const _GuideShotFigure({required this.shot, required this.mobile});
+
+  final GuideShot shot;
+  final bool mobile;
+
+  /// Ảnh cùng tên miền → Image.network vẽ được cả trên web (không cần thẻ <img> HTML,
+  /// thẻ đó chặn cú bấm mở ảnh lớn).
+  static Widget _img(String url) => Image.network(
+        url,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const ColoredBox(
+          color: _GuideUi.soft,
+          child: Center(child: Icon(Icons.image_not_supported_outlined, color: _GuideUi.muted, size: 40)),
+        ),
+      );
+
+  void _open(BuildContext context) {
+    final url = shot.url(mobile: mobile, web: kIsWeb);
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                maxScale: 4,
+                child: Center(child: _img(url)),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                tooltip: tr('Đóng'),
+                onPressed: () => Navigator.pop(ctx),
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final image = AspectRatio(
+      aspectRatio: mobile ? 390 / 844 : 1280 / 800,
+      child: _img(shot.url(mobile: mobile, web: kIsWeb)),
+    );
+    return Padding(
+      // Thẳng hàng với chữ của dòng bước (vòng số 26 + khoảng 10).
+      padding: const EdgeInsets.only(left: 36, bottom: 18),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: mobile ? 280 : 760),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Tooltip(
+                message: tr('Bấm để xem lớn'),
+                child: InkWell(
+                  onTap: () => _open(context),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: _GuideUi.card,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _GuideUi.line),
+                      boxShadow: _GuideUi.cardShadow,
+                    ),
+                    child: image,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                tr(shot.caption),
+                style: const TextStyle(color: _GuideUi.muted, fontSize: 12.5, height: 1.5),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
