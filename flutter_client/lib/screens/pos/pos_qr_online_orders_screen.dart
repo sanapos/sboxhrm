@@ -1501,16 +1501,11 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Ô tìm và 2 nút ngày cùng cao 44, ngày có icon lịch + chữ 13 — trước đây nút ngày cao 36,
-                  // chữ 11, giãn ~370px mỗi nút chỉ để ghi «20/10».
-                  SizedBox(
-                    height: 44,
-                    child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: TextField(
+                  // Nút ngày có icon lịch + chữ 13 — trước đây nút ngày cao 36, chữ 11, giãn ~370px mỗi nút chỉ để ghi «20/10».
+                  // Ô tìm và 2 nút ngày cùng cao 44. Điện thoại hẹp (<480) thì ô tìm một hàng, ngày xuống hàng dưới
+                  // — trước 2 nút ngày (tối thiểu 96px) ép ô tìm chỉ còn «Tìm đơ…».
+                  LayoutBuilder(builder: (context, box) {
+                    final search = TextField(
                           textAlignVertical: TextAlignVertical.center,
                           decoration: InputDecoration(
                             hintText: tr('Tìm đơn, SĐT…'),
@@ -1525,9 +1520,8 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                             ),
                           ),
                           onChanged: _busy ? null : _onSearchChanged,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
+                        );
+                    final dates = <Widget>[
                       ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 150),
                           child: OutlinedButton.icon(
@@ -1560,9 +1554,25 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                           ),
                       ),
-                    ],
-                  ),
-                  ),
+                    ];
+                    if (box.maxWidth < 480) {
+                      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        SizedBox(height: 44, child: search),
+                        const SizedBox(height: 6),
+                        SizedBox(height: 44, child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                          for (final w in dates) w is ConstrainedBox ? Expanded(child: w) : w,
+                        ])),
+                      ]);
+                    }
+                    return SizedBox(
+                      height: 44,
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        Expanded(flex: 3, child: search),
+                        const SizedBox(width: 6),
+                        ...dates,
+                      ]),
+                    );
+                  }),
                   if (_productFilters.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     DropdownButtonFormField<String?>(

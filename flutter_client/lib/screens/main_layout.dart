@@ -533,6 +533,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   Widget? _homeScreenCache;
   List<String>? _homeAllowedModulesCached;
   bool? _homeBypassPackageFilterCached;
+  PosSellProfile? _homeSellProfileCached;
   final Map<int, Widget> _mobileBottomScreenCache = {};
   /// Last visible bottom-nav stack index — used while Home stays Offstage under drawer/POS.
   int? _lastMobileBottomStackIdx;
@@ -2690,11 +2691,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final bypass = _homeBypassPackageFilter();
     if (_homeScreenCache != null &&
         _homeAllowedModulesCached == allowed &&
-        _homeBypassPackageFilterCached == bypass) {
+        _homeBypassPackageFilterCached == bypass &&
+        _homeSellProfileCached == _posSellProfile) {
       return _homeScreenCache!;
     }
     _homeAllowedModulesCached = allowed;
     _homeBypassPackageFilterCached = bypass;
+    _homeSellProfileCached = _posSellProfile;
     _homeScreenCache = _HomeMenuScreen(
       key: const ValueKey('main_home_menu'),
       navItems: _navItems,
@@ -2705,6 +2708,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       },
       allowedModules: allowed,
       bypassPackageFilter: bypass,
+      sellProfile: _posSellProfile,
     );
     return _homeScreenCache!;
   }
@@ -4268,6 +4272,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final groupedItems = <String, List<MapEntry<int, NavItem>>>{};
     for (int i = 0; i < _navItems.length; i++) {
       final item = _navItems[i];
+      if (_HomeMenuScreen.hiddenForIndustry(item.moduleCode, _posSellProfile)) continue;
       if (item.adminOnly && !isSuperAdmin) continue;
       if (item.requiredRole != null && item.requiredRole != userRole) continue;
       if (isAgent && item.requiredRole != 'Agent') continue;
@@ -4591,6 +4596,9 @@ class _HomeMenuScreen extends StatefulWidget {
   final List<String>? allowedModules;
   final bool bypassPackageFilter;
 
+  /// Ngành bán — ẩn ô không đúng ngành như menu trái (null = chưa tải, hiện đủ).
+  final PosSellProfile? sellProfile;
+
   const _HomeMenuScreen({
     super.key,
     required this.navItems,
@@ -4598,7 +4606,18 @@ class _HomeMenuScreen extends StatefulWidget {
     this.onModuleTap,
     this.allowedModules,
     this.bypassPackageFilter = false,
+    this.sellProfile,
   });
+
+  /// Cùng luật menu trái: Check-in / PT chỉ ở gym, màn bếp chỉ ngành có món, Menu QR không ở gym.
+  /// Trước Trang chủ của cửa hàng bán lẻ vẫn hiện «PT · Khách của tôi» và «Màn hình bếp».
+  static bool hiddenForIndustry(String? code, PosSellProfile? p) {
+    if (p == null) return false;
+    if ((code == 'PosGymCheckIn' || code == 'PosGymTrainer') && p != PosSellProfile.gym) return true;
+    if (code == 'PosKds' && !p.usesFnbItemTypes) return true;
+    if (code == 'PosQrOrder' && p == PosSellProfile.gym) return true;
+    return false;
+  }
 
   static const _groupOrder = [
     'Hồ sơ nhân sự',
@@ -4776,6 +4795,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     for (final def in MobileQuickActionsCatalog.items) {
       // Ô «Mẫu in báo giá» chỉ khi gói có Báo giá, không theo mẫu in hóa đơn.
       if (def.moduleCode == 'PosPrintTemplates' && !quotesAllowed) continue;
+      if (_HomeMenuScreen.hiddenForIndustry(def.moduleCode, widget.sellProfile)) continue;
       if (PermissionNavigation.canAccessModule(
         def.moduleCode,
         allowedModules: allowedModules,
@@ -5017,6 +5037,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       if (item.group == 'Tổng quan') continue;
       if (item.adminOnly) continue;
       if (item.requiredRole != null) continue;
+      if (_HomeMenuScreen.hiddenForIndustry(item.moduleCode, widget.sellProfile)) continue;
       if (!PermissionNavigation.isAllowedByPackageOrRole(
             item.moduleCode,
             allowedModules: widget.allowedModules,
