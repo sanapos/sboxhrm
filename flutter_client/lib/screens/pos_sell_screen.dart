@@ -1030,6 +1030,9 @@ class _PosSellScreenState extends State<PosSellScreen>
   final Map<String, double> _pickerDraftQty = {};
   final Map<String, PosPurchaseLookupPick> _pickerDraftPicks = {};
   final Map<String, String> _pickerDraftAreaNotes = {};
+  /// Món có topping chọn trong màn Chọn món: vào đơn ngay (mỗi ly một dòng) để popup topping hiện
+  /// liền lúc bấm — không đợi «Thêm vào bàn». Đóng (X) thì gỡ lại các dòng này.
+  final Set<int> _pickerDirectRowIds = {};
   List<PosCustomer> _customerSuggestions = [];
   List<_PosPaymentSource> _paymentSources = const [_PosPaymentSource.cash];
   List<BankAccount> _bankAccounts = [];
@@ -7250,6 +7253,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         line.timerStartedAt = DateTime.now().toUtc();
       }
       _tab.cart.add(line);
+      if (_mobileProductPickerOpen) _pickerDirectRowIds.add(line.rowId);
       focusLine = line;
       _syncPaidAmount();
     });
@@ -14609,6 +14613,10 @@ class _PosSellScreenState extends State<PosSellScreen>
             ],
           ),
         ),
+        // Về trang chủ dùng nhiều (đổi sang chấm công, báo cáo…) → đầu menu, không giấu trong «Khác…».
+        item('go_home',
+            NavigationNotifier.mainLayoutReady.value ? Icons.apps_outlined : Icons.home_outlined,
+            'Trở về trang chủ'),
         // Nhóm 1 — thao tác trên bàn (ghế / phòng) / hóa đơn đang mở (dùng nhiều nhất khi bán).
         ...section('$_resNoun / hóa đơn đang mở', [
           // Đang xem sơ đồ (đã «Thoát bàn»): tab vẫn gắn bàn cũ — trước menu vẫn hiện «Số khách (2)» /
@@ -14729,9 +14737,6 @@ class _PosSellScreenState extends State<PosSellScreen>
               _isPosFullscreen ? 'Thoát toàn màn hình' : 'Phóng toàn màn hình'),
           item('pos_settings_hub', Icons.settings_outlined, 'Thiết lập SBOX',
               subtitle: 'Cửa hàng, in, QR, KDS…'),
-          item('go_home',
-              NavigationNotifier.mainLayoutReady.value ? Icons.apps_outlined : Icons.home_outlined,
-              'Trở về trang chủ'),
         ],
       );
       if (!mounted || action == null) return;
@@ -18663,8 +18668,9 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Widget _buildMobileProductPickerOverlay() {
-    final draftCount = _pickerDraftQty.values.fold<double>(0, (a, b) => a + b);
-    final draftLines = _pickerDraftQty.length;
+    final pickerQty = _pickerShownQty();
+    final draftCount = pickerQty.values.fold<double>(0, (a, b) => a + b);
+    final draftLines = pickerQty.length;
     return Material(
       color: SboxColors.slate100,
       child: SafeArea(
@@ -18700,7 +18706,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 priceOverrides: _currentPriceOverrides,
                 allowNegativeStock: _allowNegativeStock,
                 // Chỉ hiện SL đang chọn nháp — không lấy từ đơn (không sync list).
-                cartQtyByProductId: Map<String, double>.from(_pickerDraftQty),
+                cartQtyByProductId: pickerQty,
                 onPick: (pick) async {
                   await _pickerDraftIncrement(pick);
                 },
@@ -18798,6 +18804,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     _pickerDraftQty.clear();
     _pickerDraftPicks.clear();
     _pickerDraftAreaNotes.clear();
+    _pickerDirectRowIds.clear();
     setState(() => _mobileProductPickerOpen = true);
   }
 
@@ -18805,13 +18812,54 @@ class _PosSellScreenState extends State<PosSellScreen>
     _pickerDraftQty.clear();
     _pickerDraftPicks.clear();
     _pickerDraftAreaNotes.clear();
-    setState(() => _mobileProductPickerOpen = false);
+    setState(() {
+      // Hủy chọn món → gỡ cả các ly topping đã đưa vào đơn trong lượt chọn này.
+      for (var i = _tab.cart.length - 1; i >= 0; i--) {
+        final l = _tab.cart[i];
+        if (!_pickerDirectRowIds.contains(l.rowId) || l.kitchenSentQty > 0) continue;
+        l.dispose();
+        _tab.cart.removeAt(i);
+      }
+      _pickerDirectRowIds.clear();
+      _syncPaidAmount();
+      _mobileProductPickerOpen = false;
+    });
+  }
+
+  /// SL hiện trên màn Chọn món: bản nháp + các ly topping đã vào đơn trong lượt chọn này.
+  Map<String, double> _pickerShownQty() {
+    final map = Map<String, double>.from(_pickerDraftQty);
+    for (final l in _tab.cart) {
+      if (!_pickerDirectRowIds.contains(l.rowId)) continue;
+      map[l.product.id] = (map[l.product.id] ?? 0) + l.qty;
+    }
+    return map;
+  }
+
+  List<PosProductUnitView>? _cachedSellViews(PosProduct p) {
+    final cached = _sellUnitViewsCache[p.id];
+    if (cached == null) return null;
+    return applyPosPriceListToViews(cached, p, _currentPriceOverrides);
+  }
+
+  Future<List<PosProductUnitView>> _loadSellViewsCached(PosProduct p) async {
+    final cached = _cachedSellViews(p);
+    if (cached != null) return cached;
+    final views = await loadPosSellUnitViews(_api, p);
+    if (views.isNotEmpty) _sellUnitViewsCache[p.id] = views;
+    return applyPosPriceListToViews(views, p, _currentPriceOverrides);
   }
 
   Future<void> _pickerDraftIncrement(PosPurchaseLookupPick pick) async {
     final id = pick.product.id;
-    var views = await loadPosSellUnitViews(_api, pick.product);
-    views = applyPosPriceListToViews(views, pick.product, _currentPriceOverrides);
+    if (_autoOpensToppingPopup(pick.product)) {
+      // Món có topping: mỗi lần bấm là một ly riêng, mở popup topping ngay.
+      await _addPick(pick, autosave: false);
+      if (mounted) setState(() {});
+      return;
+    }
+    // Đơn vị lấy từ bộ nhớ đệm (trước: mỗi lần bấm gọi API → số lượng nhảy chậm).
+    final views = await _loadSellViewsCached(pick.product);
     if (!mounted || views.isEmpty) return;
     final view = pickUnitView(
           views,
@@ -18833,7 +18881,19 @@ class _PosSellScreenState extends State<PosSellScreen>
   void _pickerDraftDecrement(PosProduct product) {
     final id = product.id;
     final cur = _pickerDraftQty[id] ?? 0;
-    if (cur <= 0) return;
+    if (cur <= 0) {
+      // Ly topping đã vào đơn trong lượt chọn này → bớt ly mới nhất.
+      final idx = _tab.cart.lastIndexWhere((l) =>
+          l.product.id == id && _pickerDirectRowIds.contains(l.rowId) && l.kitchenSentQty <= 0);
+      if (idx < 0) return;
+      setState(() {
+        final l = _tab.cart.removeAt(idx);
+        _pickerDirectRowIds.remove(l.rowId);
+        l.dispose();
+        _syncPaidAmount();
+      });
+      return;
+    }
     setState(() {
       final next = cur - 1;
       if (next <= 0) {
@@ -18878,9 +18938,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       NotificationOverlayManager().showError(title: 'Số lượng', message: tr(err));
       return;
     }
-    var views = await loadPosSellUnitViews(_api, pick.product);
-    views = applyPosPriceListToViews(
-        views, pick.product, _currentPriceOverrides);
+    final views = await _loadSellViewsCached(pick.product);
     if (!mounted || views.isEmpty) return;
     final view = pickUnitView(
           views,
@@ -18903,7 +18961,7 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   /// Đưa bản nháp vào đơn → mới autosave/đồng bộ.
   Future<void> _confirmPickerDraftToCart() async {
-    if (_pickerDraftQty.isEmpty) {
+    if (_pickerDraftQty.isEmpty && _pickerDirectRowIds.isEmpty) {
       _closeMobileProductPicker();
       return;
     }
@@ -18933,6 +18991,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     _pickerDraftQty.clear();
     _pickerDraftPicks.clear();
     _pickerDraftAreaNotes.clear();
+    _pickerDirectRowIds.clear();
     if (!mounted) return;
     // Giữ chế độ bàn + đánh dấu dirty trước khi đóng picker / autosave.
     _markTabDirty(_tab);
@@ -20920,6 +20979,19 @@ class _PosSellScreenState extends State<PosSellScreen>
         ..clear()
         ..addAll(line.selectedQuickNotes);
       cloned.noteCtrl.text = line.noteCtrl.text;
+      // Chia phần đã báo bếp / in tem / in kho theo SL mỗi dòng. Trước đây dòng gốc giữ nguyên
+      // «đã báo 2» với SL 1, dòng tách «chưa báo» → server thấy tổng đã báo đủ, Báo bếp báo lỗi.
+      double moveOver(double done) => (done - line.qty).clamp(0.0, cloned.qty).toDouble();
+      cloned.kitchenSentQty = moveOver(line.kitchenSentQty);
+      line.kitchenSentQty -= cloned.kitchenSentQty;
+      cloned.cupLabelPrintedQty = moveOver(line.cupLabelPrintedQty);
+      line.cupLabelPrintedQty -= cloned.cupLabelPrintedQty;
+      cloned.warehouseSlipPrintedQty = moveOver(line.warehouseSlipPrintedQty);
+      line.warehouseSlipPrintedQty -= cloned.warehouseSlipPrintedQty;
+      if (cloned.kitchenSentQty > 0) {
+        cloned.kitchenRound = line.kitchenRound;
+        cloned.kitchenSentAt = line.kitchenSentAt;
+      }
       _tab.cart.insert(cartIndex + 1, cloned);
       _syncPaidAmount();
     });
@@ -20954,7 +21026,16 @@ class _PosSellScreenState extends State<PosSellScreen>
     setState(() {
       var qtyToAdd = 0.0;
       for (final i in matches) {
-        qtyToAdd += _tab.cart[i].qty;
+        final other = _tab.cart[i];
+        qtyToAdd += other.qty;
+        // Cộng cả phần đã báo bếp / in tem / in kho — không thì phần đó bị báo lại lần nữa.
+        line.kitchenSentQty += other.kitchenSentQty;
+        line.cupLabelPrintedQty += other.cupLabelPrintedQty;
+        line.warehouseSlipPrintedQty += other.warehouseSlipPrintedQty;
+        if (line.kitchenRound == 0 && other.kitchenRound > 0) {
+          line.kitchenRound = other.kitchenRound;
+          line.kitchenSentAt = other.kitchenSentAt;
+        }
       }
       line.qty += qtyToAdd;
       for (final i in matches.reversed) {
@@ -21432,6 +21513,21 @@ class _PosSellScreenState extends State<PosSellScreen>
                       ],
                     ),
                   ),
+                  // Món có topping: nút topping ngay trên dòng — khỏi mở «…» rồi mới chọn.
+                  if (line.product.allowToppings ||
+                      line.product.hasToppingGroups ||
+                      line.product.toppingOptions.isNotEmpty)
+                    IconButton(
+                      tooltip: tr(line.product.hasToppingGroups ? 'Chọn topping' : 'Tùy chọn thêm'),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => unawaited(_openCartLineToppings(line)),
+                      icon: Badge(
+                        isLabelVisible: line.toppings.isNotEmpty,
+                        label: Text('${line.toppings.fold<int>(0, (a, t) => a + t.safeQty)}'),
+                        backgroundColor: SboxColors.violet,
+                        child: const Icon(Icons.add_circle_outline, size: 24, color: SboxColors.violet),
+                      ),
+                    ),
                   IconButton(
                     tooltip: tr('Thêm chức năng'),
                     visualDensity: VisualDensity.compact,
