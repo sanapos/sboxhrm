@@ -2564,7 +2564,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             ),
           ),
           const SizedBox(width: 6),
-          Text(tr(emp.fullName),
+          // Kèm mã — nhiều NV trùng tên trước hiện 2 chip «Ngân QA Thu» giống hệt.
+          Text(emp.employeeCode.isEmpty ? tr(emp.fullName) : '${tr(emp.fullName)} · ${emp.employeeCode}',
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -2709,7 +2710,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                        Text(tr('📊 Trung bình: ${avgScheduled.toStringAsFixed(1)} ca/nhân viên'),
+                        Text(tr('📊 Trung bình: ${avgScheduled.toStringAsFixed(1).replaceAll('.', ',')} ca/nhân viên'),
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -2744,7 +2745,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 : Row(children: [
                     Expanded(
                         child: Text(
-                            tr('📊 TB: ${avgScheduled.toStringAsFixed(1)} ca/NV'),
+                            tr('📊 TB: ${avgScheduled.toStringAsFixed(1).replaceAll('.', ',')} ca/NV'),
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
