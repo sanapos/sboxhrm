@@ -84,6 +84,7 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
         .toList();
     return PosReportMobileScaffold(
       pngKey: _pngKey,
+      onExportExcel: _data == null ? null : () => unawaited(_exportExcel(items)),
       onExportPng: () => unawaited(PosReportExport.png(
         context: context,
         key: _pngKey,
@@ -195,6 +196,74 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
                 ),
               ],
             ),
+    );
+  }
+
+  static const _statusFilterLabels = {
+    'Booked': 'Đã đặt',
+    'Seated': 'Đã nhận',
+    'Cancelled': 'Hủy',
+    'NoShow': 'Không đến',
+  };
+
+  /// Xuất đúng danh sách lịch đang hiển thị (theo kỳ, mốc ngày và trạng thái đang lọc).
+  Future<void> _exportExcel(List<Map<String, dynamic>> items) async {
+    final fmt = DateFormat('dd/MM/yyyy HH:mm');
+    String dt(dynamic v) {
+      final d = parseApiUtcDateTime(v);
+      return d == null ? '' : fmt.format(d.toLocal());
+    }
+
+    final resourceHeader = _noun.isEmpty
+        ? 'Bàn / phòng'
+        : '${_noun[0].toUpperCase()}${_noun.substring(1)}';
+    await PosReportExport.excel(
+      context: context,
+      title: widget.title,
+      sheetName: 'Đặt chỗ',
+      filePrefix: 'POS_DatCho',
+      periodLabel: _time.exportLabel,
+      filterLabel: [
+        _dateBasis == 'created'
+            ? 'Theo ngày nhận lịch'
+            : (_noun.isEmpty ? 'Theo ngày đến' : 'Theo ngày dùng $_noun'),
+        'Trạng thái: ${_status == null ? 'Tất cả' : (_statusFilterLabels[_status] ?? _status)}',
+      ].join(' · '),
+      headers: [
+        'STT', 'Ngày giờ dùng', 'Đến', 'Ngày nhận lịch', 'Khách hàng', 'SĐT', resourceHeader, 'Số khách',
+        'Trạng thái', 'Tiền cọc yêu cầu', 'Đã cọc', 'Hình thức cọc', 'Tình trạng cọc', 'Dịp', 'Yêu cầu đặc biệt', 'Ghi chú',
+      ],
+      rows: [
+        for (var i = 0; i < items.length; i++)
+          () {
+            final r = items[i];
+            return <dynamic>[
+              i + 1,
+              dt(r['reservedAt']),
+              dt(r['reservedUntil']),
+              dt(r['createdAt']),
+              '${r['customerName'] ?? ''}',
+              '${r['phone'] ?? ''}',
+              '${r['resourceName'] ?? r['resourceCode'] ?? ''}',
+              _n(r['guestCount']).toInt(),
+              '${r['statusLabel'] ?? r['status'] ?? ''}',
+              _n(r['depositAmount']),
+              _n(r['depositPaid']),
+              '${r['depositPaymentMethod'] ?? ''}',
+              '${r['depositStatusLabel'] ?? r['depositStatus'] ?? ''}',
+              '${r['occasionLabel'] ?? ''}',
+              '${r['specialRequest'] ?? ''}',
+              '${r['note'] ?? ''}',
+            ];
+          }(),
+      ],
+      summaryLines: [
+        'Tổng lịch: ${items.length}',
+        'Cọc đang giữ: ${_moneyFmt.format(_n(_data?['depositHeld']))}',
+        'Đã trừ vào HĐ: ${_moneyFmt.format(_n(_data?['depositApplied']))}',
+        'Hoàn cọc: ${_moneyFmt.format(_n(_data?['depositRefunded']))}',
+        'Phạt / mất cọc: ${_moneyFmt.format(_n(_data?['depositForfeited']))}',
+      ],
     );
   }
 

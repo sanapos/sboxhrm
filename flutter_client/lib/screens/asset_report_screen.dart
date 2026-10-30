@@ -304,7 +304,14 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     );
   }
 
-  Future<void> _exportPng() async {
+  /// Dữ liệu xuất (PNG / Excel) theo tab đang chọn. Số tiền/số lượng giữ dạng num.
+  ({
+    String title,
+    String filePrefix,
+    List<String> headers,
+    List<List<dynamic>> rows,
+    List<String> summaryLines,
+  }) _exportData() {
     final tab = _tabs.index;
     late final String title;
     late final String filePrefix;
@@ -448,13 +455,42 @@ class _AssetReportScreenState extends State<AssetReportScreen>
             ],
         ];
     }
-    await ClientPngExport.table(
-      context: context,
+    return (
       title: title,
       filePrefix: filePrefix,
       headers: headers,
       rows: rows,
       summaryLines: summaryLines,
+    );
+  }
+
+  Future<void> _exportPng() async {
+    final d = _exportData();
+    await ClientPngExport.table(
+      context: context,
+      title: d.title,
+      filePrefix: d.filePrefix,
+      headers: d.headers,
+      rows: d.rows,
+      summaryLines: d.summaryLines,
+    );
+  }
+
+  /// Tab Danh mục dùng [_exportRegister] (đủ cột); các tab khác xuất cùng dữ liệu với PNG.
+  Future<void> _exportExcel() async {
+    if (_tabs.index == 1) {
+      await _exportRegister();
+      return;
+    }
+    final d = _exportData();
+    await ClientExcelExport.export(
+      context: context,
+      title: d.title.toUpperCase(),
+      sheetName: d.filePrefix,
+      filePrefix: d.filePrefix,
+      headers: d.headers,
+      rows: d.rows,
+      summaryLines: d.summaryLines,
     );
   }
 
@@ -467,11 +503,11 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     // Trước đây nút «Xuất» nằm lẻ trên một thanh riêng (tab Tổng quan chỉ có mỗi nút này).
     return RegisterPageTopActions(
       actions: [
-        if (canExport && _tabs.index == 1)
+        if (canExport)
           HrmTopBarAction(
             icon: Icons.file_download_outlined,
-            label: 'Xuất Excel danh mục',
-            onPressed: _exportRegister,
+            label: _tabs.index == 1 ? 'Xuất Excel danh mục' : 'Xuất Excel',
+            onPressed: _exportExcel,
           ),
         if (canExport)
           HrmTopBarAction(

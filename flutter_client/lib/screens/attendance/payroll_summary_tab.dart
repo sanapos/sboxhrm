@@ -24,6 +24,7 @@ import '../../utils/responsive_helper.dart';
 import '../../l10n/app_localizations.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/hrm_collapsible_overview.dart';
+import '../../widgets/hrm_responsive_list_layout.dart';
 import '../../widgets/report_salary_setup_hint.dart';
 import '../../utils/excel_report_builder.dart';
 import '../../widgets/synced_scroll_list_view.dart'
@@ -39,6 +40,7 @@ import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_table.dart';
 import '../../widgets/sbox/sbox_report.dart';
 import '../../widgets/sbox/sbox_charts.dart';
+import '../../widgets/report_column_picker.dart';
 // ═══════════════════════════════════════════════════════════════
 //  PayrollColumn – định nghĩa 1 cột bảng lương
 // ═══════════════════════════════════════════════════════════════
@@ -337,15 +339,21 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     return false;
   }
 
-  /// Hiện cột lõi + cột có dữ liệu trong kỳ. Ẩn cột store không dùng (toàn 0/rỗng)
-  /// để dành chỗ các cột có số liệu — kể cả khi prefs còn bật cột trống.
+  /// Cột người dùng đã tích (STT, Tên luôn có) — trong đó cột lõi luôn hiện, cột khác chỉ hiện khi
+  /// có dữ liệu trong kỳ (ẩn cột store không dùng, toàn 0/rỗng, để dành chỗ cột có số liệu).
+  /// Bỏ tích là ẩn hẳn, kể cả cột đang có số liệu. [columns] mặc định là bố cục trên màn hình.
   List<PayrollColumn> _visiblePayrollColumns(
-      [List<Map<String, dynamic>>? data]) {
+      [List<Map<String, dynamic>>? data, List<PayrollColumn>? columns]) {
     final scan = data ?? _cachedPayrollData;
     final visible = <PayrollColumn>[];
-    for (final c in _columns) {
+    for (final c in columns ?? _columns) {
+      if (_frozenKeys.contains(c.key)) {
+        visible.add(c);
+        continue;
+      }
+      if (!c.visible) continue;
       if (c.key == _employeeSignColumnKey) {
-        if (c.visible) visible.add(c);
+        visible.add(c);
         continue;
       }
       if (_payrollCoreColumnKeys.contains(c.key)) {
@@ -358,7 +366,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
       if (scan == null) {
         // Chưa có dữ liệu: theo prefs/defaultVisible.
-        if (c.visible) visible.add(c);
+        visible.add(c);
         continue;
       }
       if (_columnHasDisplayData(c.key, scan)) {
@@ -1095,6 +1103,51 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     }
   }
 
+  static const _excelColPrefKey = 'payroll_excel_cols_v1';
+
+  /// Hộp chọn cột trước khi xuất Excel — mặc định theo bảng trên màn hình (hoặc lựa chọn đã nhớ).
+  Future<List<PayrollColumn>?> _pickExcelColumns() async {
+    final defs = [
+      for (final c in _columns)
+        if (_engine.showTravelPayrollColumns || (c.key != 'travelHours' && c.key != 'travelSalary'))
+          ReportColumnDef(c.key, c.label,
+              locked: _frozenKeys.contains(c.key), defaultVisible: c.defaultVisible),
+    ];
+    final screen = ReportColumnLayout(
+      [for (final c in _columns) c.key],
+      {for (final c in _columns) if (!c.visible) c.key},
+    ).normalized(defs);
+    var initial = screen;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_excelColPrefKey);
+      final parsed = raw == null ? null : ReportColumnLayout.fromJson(jsonDecode(raw));
+      if (parsed != null) initial = parsed.normalized(defs);
+    } catch (_) {}
+    if (!mounted) return null;
+    final pick = await showReportColumnPicker(
+      context,
+      title: 'Xuất Excel — chọn cột',
+      defs: defs,
+      initial: initial,
+      confirmLabel: 'Xuất Excel',
+      showRemember: true,
+    );
+    if (pick == null) return null;
+    if (pick.remember) await ReportColumnPrefs.save(_excelColPrefKey, pick.layout);
+    final byKey = {for (final c in _columns) c.key: c};
+    return [
+      for (final k in pick.layout.order)
+        if (byKey[k] case final c?)
+          PayrollColumn(
+            key: c.key,
+            label: c.label,
+            defaultVisible: c.defaultVisible,
+            visible: !pick.layout.hidden.contains(k),
+          ),
+    ];
+  }
+
   void exportToExcel() async {
     try {
       final data = _buildPayrollData();
@@ -1104,7 +1157,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         return;
       }
 
-      final visibleCols = _visiblePayrollColumns(data);
+      final picked = await _pickExcelColumns();
+      if (picked == null || !mounted) return;
+      final visibleCols = _visiblePayrollColumns(data, picked);
       final colCount = visibleCols.length;
       final fit = _excelPayrollFit(visibleCols, data);
       final bodyFont = fit.font;
@@ -2142,11 +2197,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           children: [
             _buildPayrollInsight(payrollData),
             _buildSummaryCards(payrollData),
-            const SizedBox(height: 12),
-            _buildToolbar(),
           ],
         ),
       ),
+      // Bộ lọc + nút Chốt lương đứng ngoài khung Tổng quan: thu gọn khung để xem bảng
+      // không làm mất bộ lọc và nút chốt.
+      const SizedBox(height: 12),
+      _buildToolbar(),
       if (_engine.notConfiguredSalaryCount > 0 && !_isEmployeeRole(context))
         ReportSalarySetupBanner(
           notConfiguredCount: _engine.notConfiguredSalaryCount,
@@ -2210,11 +2267,16 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(
+      child: LayoutBuilder(
+        builder: (context, box) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ...toolbarBlock,
-          ...summaryBlock,
+          // Phần đầu (biểu đồ + thẻ số + bộ lọc) cao ~1.200px: không giới hạn thì tràn và đè mất
+          // bảng lương trên màn máy tính thường (cao ~800px). Giới hạn 55% chiều cao, cuộn bên trong.
+          HrmResponsiveListLayout.shrinkWrapHeader(
+            maxHeight: (box.maxHeight * 0.55).clamp(160.0, 900.0),
+            children: [...toolbarBlock, ...summaryBlock],
+          ),
           const SizedBox(height: 12),
           Expanded(
             child: payrollData.isEmpty
@@ -2226,6 +2288,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -2801,7 +2864,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: Theme(
+      // Material trong suốt: ExpansionTile vẽ hiệu ứng chạm lên Material gần nhất, không bị nền thẻ che.
+      child: Material(
+        type: MaterialType.transparency,
+        child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           initiallyExpanded: _payrollFiltersExpanded,
@@ -2821,6 +2887,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             mainAxisSize: MainAxisSize.min,
             children: [
               recordCount,
+              // Nút chốt nằm trên thanh tiêu đề — vẫn thấy khi thu gọn bộ lọc.
+              if (_canFinalizePayroll()) ...[
+                const SizedBox(width: 8),
+                _buildFinalizeButton(),
+              ],
               const SizedBox(width: 4),
               Icon(
                 _payrollFiltersExpanded
@@ -2840,12 +2911,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   onPressed: _resetPayrollFilters,
                   child: Text(tr('Xóa lọc')),
                 ),
-                const Spacer(),
-                if (_canFinalizePayroll()) _buildFinalizeButton(),
               ],
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -4088,7 +4158,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: net < 0 ? SboxColors.danger.withValues(alpha: 0.5) : SboxColors.slate200),
           ),
-          child: ExpansionTile(
+          child: Material(
+            type: MaterialType.transparency,
+            child: ExpansionTile(
             tilePadding: const EdgeInsets.fromLTRB(12, 6, 10, 6),
             childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             shape: const RoundedRectangleBorder(side: BorderSide.none),
@@ -4167,6 +4239,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 ),
               ),
             ],
+          ),
           ),
         ),
       );
@@ -4370,7 +4443,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     Widget headerBlock(List<PayrollColumn> cols) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
-          children: [_payrollGroupHeader(cols, groupH), tableFor(cols, [headerFor(cols)])],
+          children: [
+            _payrollGroupHeader(cols, groupH,
+                continuesGroup: identical(cols, midCols) && leftCols.isNotEmpty
+                    ? _payrollGroupOf(leftCols.last.key)
+                    : null),
+            tableFor(cols, [headerFor(cols)]),
+          ],
         );
 
     const frozenShadowR = [BoxShadow(color: Color(0x14000000), blurRadius: 6, offset: Offset(3, 0))];
@@ -4466,7 +4545,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       };
 
   /// Tiêu đề tầng trên: gộp các cột liền nhau cùng nhóm thành 1 khối màu.
-  Widget _payrollGroupHeader(List<PayrollColumn> cols, double height) {
+  /// [continuesGroup] = nhóm của cột cố định bên trái — khối đầu cùng nhóm thì không ghi lại tên.
+  Widget _payrollGroupHeader(List<PayrollColumn> cols, double height, {String? continuesGroup}) {
     final blocks = <(String, double)>[];
     for (final c in cols) {
       final g = _payrollGroupOf(c.key);
@@ -4480,7 +4560,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     return SizedBox(
       height: height,
       child: Row(children: [
-        for (final (g, w) in blocks)
+        for (final (i, (g, w)) in blocks.indexed)
           Container(
             width: w,
             alignment: Alignment.center,
@@ -4488,7 +4568,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               color: _payrollGroupColors(g).$1,
               border: const Border(right: BorderSide(color: Colors.white, width: 2)),
             ),
-            child: Text(tr(g.toUpperCase()),
+            child: Text(i == 0 && g == continuesGroup ? '' : tr(g.toUpperCase()),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(

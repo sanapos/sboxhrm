@@ -1,10 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../widgets/hrm_page_chrome.dart';
 
 import '../../l10n/app_tr.dart';
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/report_screen_helpers.dart' show ClientExcelExport, ClientPngExport;
+import '../../widgets/page_top_actions.dart' show HrmTopBarAction, RegisterPageTopActions;
 import '../../widgets/notification_overlay.dart';
 
 import '../../theme/sbox_tokens.dart';
@@ -86,8 +91,103 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
 
   Timer? _debounce;
 
+  // ── Xuất Excel / PNG: đúng bảng khách hàng đang hiển thị (sau lọc) ──
+
+  static const _exportHeaders = [
+    'STT',
+    'Khách hàng',
+    'Điện thoại',
+    'Nợ hiện tại (đ)',
+    '0–30 ngày',
+    '31–60 ngày',
+    '61–90 ngày',
+    '> 90 ngày',
+    'Đầu kỳ / ĐC',
+  ];
+
+  List<List<dynamic>> _exportRows() => [
+        for (var i = 0; i < _items.length; i++)
+          [
+            i + 1,
+            '${_items[i]['name'] ?? ''}',
+            '${_items[i]['phone'] ?? ''}',
+            _n(_items[i]['currentDebt']),
+            _n(_items[i]['debt0To30']),
+            _n(_items[i]['debt31To60']),
+            _n(_items[i]['debt61To90']),
+            _n(_items[i]['debtOver90']),
+            _n(_items[i]['debtOther']),
+          ],
+      ];
+
+  String get _exportPeriod => 'Đến ngày ${DateFormat('dd/MM/yyyy').format(DateTime.now())}';
+
+  String get _exportFilter => [
+        _includeZero ? 'Gồm khách nợ 0' : 'Khách còn nợ',
+        if (_searchCtrl.text.trim().isNotEmpty) 'Tìm: ${_searchCtrl.text.trim()}',
+      ].join(' · ');
+
+  List<String> _exportSummary() => [
+        'Tổng nợ phải thu: ${SboxFmt.money(_sumDebt)}',
+        'Khách còn nợ: ${SboxFmt.number(_totalCustomers)}',
+        'Nợ 0–30 ngày: ${SboxFmt.money(_sum0)}',
+        'Nợ 31–60 ngày: ${SboxFmt.money(_sum31)}',
+        'Nợ 61–90 ngày: ${SboxFmt.money(_sum61)}',
+        'Quá 90 ngày: ${SboxFmt.money(_sum90)}',
+        'Đầu kỳ / ĐC: ${SboxFmt.money(_sumOther)}',
+      ];
+
+  Future<void> _export({bool png = false}) async {
+    const title = 'Công nợ khách hàng';
+    const prefix = 'CongNoKhachHang';
+    final rows = _exportRows();
+    if (png) {
+      await ClientPngExport.table(
+        context: context,
+        title: title,
+        filePrefix: prefix,
+        headers: _exportHeaders,
+        rows: rows,
+        periodLabel: _exportPeriod,
+        summaryLines: _exportSummary(),
+      );
+      return;
+    }
+    await ClientExcelExport.export(
+      context: context,
+      title: title,
+      sheetName: 'Cong no KH',
+      filePrefix: prefix,
+      headers: _exportHeaders,
+      rows: rows,
+      periodLabel: _exportPeriod,
+      filterLabel: _exportFilter,
+      summaryLines: _exportSummary(),
+    );
+  }
+
+  List<Widget> _exportActions() {
+    if (!Provider.of<PermissionProvider>(context, listen: false).canExport('PosSalesReport')) return const [];
+    final canRun = !_loading && _items.isNotEmpty;
+    return [
+      HrmTopBarAction(
+        icon: Icons.image_outlined,
+        label: 'Xuất ảnh PNG',
+        onPressed: canRun ? () => _export(png: true) : null,
+        pinOnMobile: false,
+      ),
+      HrmTopBarAction(
+        icon: Icons.table_chart_outlined,
+        label: 'Xuất Excel',
+        onPressed: canRun ? _export : null,
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
+    final pushed = HrmPageChrome.isPushedOverShell(context);
+    final exportActions = _exportActions();
     Widget money(double v, {bool strong = false, Color? color}) => Text(
           v > 0 ? SboxFmt.money(v) : '—',
           textAlign: TextAlign.right,
@@ -96,10 +196,14 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                   : (color != null ? SboxType.bodyStyle(color) : SboxType.bodyStyle()))
               .copyWith(fontWeight: strong ? SboxType.semibold : null),
         );
-    return Scaffold(
+    // Trong khung chính: nút đẩy lên thanh trên qua RegisterPageTopActions.
+    // Mở route riêng: nút nằm trong AppBar (shellAwareAppBar tự đẩy lên khung nếu có).
+    return RegisterPageTopActions(
+      actions: pushed ? const [] : exportActions,
+      child: Scaffold(
       backgroundColor: SboxColors.page,
       // Mở từ «Nhiều hơn» / Báo cáo (route riêng): cần tiêu đề + nút quay lại.
-      appBar: HrmPageChrome.isPushedOverShell(context)
+      appBar: pushed
           ? shellAwareAppBar(
               context,
               AppBar(
@@ -108,6 +212,7 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                 foregroundColor: SboxColors.text,
                 surfaceTintColor: Colors.white,
                 elevation: 0.5,
+                actions: exportActions,
               ),
             )
           : null,
@@ -193,6 +298,7 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
           ),
         ),
       ),
+    ),
     );
   }
 }

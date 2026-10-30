@@ -261,8 +261,11 @@
   "AppID (MISA cấp khi đăng ký tích hợp)": "AppID (issued by MISA when you register the integration)",
   "BC phạt": "Penalty report",
   "BG lập": "Quote prepared by",
+  "BHTN": "Unemployment insurance",
+  "BHXH": "Social insurance",
   "BHXH tháng nghỉ dài": "Social insurance for long-leave months",
   "BHXH, BHYT, BHTN, lương cơ sở, vùng": "Social, health and unemployment insurance, base salary, region",
+  "BHYT": "Health insurance",
   "BIÊN BẢN BÀN GIAO": "HANDOVER RECORD",
   "BIÊN BẢN NGHIỆM THU": "ACCEPTANCE RECORD",
   "BLE không hỗ trợ trên nền tảng này": "BLE is not supported on this platform",
@@ -304,6 +307,7 @@
   "Bài được chuyển vào lưu trữ, lịch sử xác nhận đọc vẫn giữ.": "The post moves to the archive; read-receipt history is kept.",
   "Bài được ghim": "Pinned posts",
   "Bàn / phiếu trên máy khác cập nhật chậm": "Tables / tickets on other devices update slowly",
+  "Bàn / phòng": "Table / room",
   "Bàn / phòng & đặt lịch": "Tables / rooms & bookings",
   "Bàn chưa có món": "Table with no items yet",
   "Bàn giao": "Handover",
@@ -1320,6 +1324,7 @@
   "Chỉ hàng loại Topping": "Topping-type items only",
   "Chỉ khách thành viên": "Members only",
   "Chỉ làm tròn block khi dùng quá (phút)": "Round blocks only when overused (minutes)",
+  "Chỉ lượt của bạn": "Only your entries",
   "Chỉ lỗi": "Errors only",
   "Chỉ món trong danh sách · tự lưu": "Listed items only · auto-saved",
   "Chỉ nghỉ nửa ca": "Half-shift leave only",
@@ -1833,6 +1838,7 @@
   "Công tác / check-in điểm": "Business trip / site check-in",
   "Công tác phí — ứng & hoạch toán": "Business trip expenses — advances & accounting",
   "Công tác phí — ứng & hạch toán": "Business trip expenses — advance & settlement",
+  "Công tăng ca": "Overtime units",
   "Công việc & nội bộ": "Tasks & internal",
   "Công việc, KPI, bản tin nội bộ, nhân sự, suất ăn": "Tasks, KPI, internal news, HR, staff meals",
   "Cùng bộ phận": "Same department",
@@ -2029,6 +2035,7 @@
   "Cửa hàng, ngành hàng, máy in…": "Store, business type, printers…",
   "Cửa hàng: ": "Store: ",
   "Cửa ra vào": "Entrance door",
+  "DANH SÁCH PHIẾU LƯƠNG": "PAYSLIP LIST",
   "DT TB / khách": "Avg. revenue / customer",
   "DT kèm VC": "Revenue incl. shipping",
   "DT thuần": "Net revenue",
@@ -2053,6 +2060,7 @@
   "Doanh số vượt chỉ tiêu": "Sales above target",
   "Doanh thu & chi phí": "Revenue & expenses",
   "Doanh thu & lợi nhuận": "Revenue & profit",
+  "Doanh thu (đ)": "Revenue (VND)",
   "Doanh thu / NV có mặt": "Revenue / employees present",
   "Doanh thu / nợ KH": "Revenue / customer debt",
   "Doanh thu HĐ có KM": "Revenue of bills with promotions",
@@ -2808,6 +2816,7 @@
   "Hãy nối WiFi vào sóng SBOX-Gateway-XXXX (mật khẩu sbox12345), ": "Connect WiFi to SBOX-Gateway-XXXX (password sbox12345), then ",
   "Hãy sửa khoản chi / đính kèm rồi bấm Gửi hạch toán lại.": "Please fix the expenses / attachments, then tap Resubmit settlement.",
   "Hãy «Ngừng dùng» để ẩn ca khỏi xếp ca mới mà vẫn giữ lịch sử.": "Tap \"Deactivate\" to hide the shift from new scheduling while keeping its history.",
+  "Hình thức cọc": "Deposit method",
   "Hình thức phát hành": "Issuing method",
   "Hình thức quyết toán": "Settlement method",
   "Hình thức thu": "Collection method",
@@ -3364,6 +3373,7 @@
   "Không có nhân viên đi trễ / về sớm": "No employees late / leaving early",
   "Không có nhật ký nào khớp bộ lọc": "No logs match the filter",
   "Không có phiên": "No sessions",
+  "Không có phiếu lương để xuất": "No payslips to export",
   "Không có phiếu nhập (nhập tay / dữ liệu cũ)": "No receipt (manual entry / old data)",
   "Không có phiếu nào": "No vouchers",
   "Không có phiếu phù hợp": "No matching vouchers",
@@ -4009,11 +4019,13 @@
   "Lương TC": "OT pay",
   "Lương ca theo bậc": "Tiered shift pay",
   "Lương ca theo bậc: số tiền phụ thuộc ca thực tế — xem ở Bảng lương.": "Tiered shift pay: the amount depends on the actual shift — see Payroll.",
+  "Lương ca đêm": "Night shift pay",
   "Lương chính": "Base salary",
   "Lương công": "Work-day pay",
   "Lương mỗi ca": "Pay per shift",
   "Lương một giờ": "Pay per hour",
   "Lương một ngày công": "Pay per work day",
+  "Lương ngày lễ": "Holiday pay",
   "Lương sản phẩm theo ngày": "Daily piece-rate pay",
   "Lương thưởng": "Salary & bonus",
   "Lương tối thiểu vùng đang thấp hơn mức áp dụng từ 01/01/2026 ": "Regional minimum wage is lower than the rate applied from 01/01/2026 ",
@@ -4342,6 +4354,7 @@
   "Mã kiểm kê": "Stock count code",
   "Mã lô (tùy chọn)": "Lot code (optional)",
   "Mã lạ": "Unknown code",
+  "Mã phiếu chi": "Payment voucher no.",
   "Mã phòng": "Room code",
   "Mã phường GHN": "GHN ward code",
   "Mã quận GHN": "GHN district code",
@@ -4364,6 +4377,7 @@
   "Mã đại lý: ": "Agent code: ",
   "Mã: ": "Code: ",
   "Móc đùi sau 3×15": "Hamstring hook 3×15",
+  "Món / hàng": "Item",
   "Món bán nhiều mà ít ai thêm topping = cơ hội mời khách. Màu theo tỷ lệ: xanh ≥ 30%, vàng 15–30%, đỏ < 15%.": "Items that sell a lot but rarely get toppings = chance to upsell. Color by ratio: green ≥ 30%, yellow 15–30%, red < 15%.",
   "Món bán ra mà chưa khai định lượng": "Items sold without a recipe quantity set",
   "Món bị hủy ở bếp nhiều nhất": "Most cancelled in the kitchen",
@@ -4778,6 +4792,7 @@
   "Ngày dùng": "Date used",
   "Ngày dự kiến nhận": "Expected receive date",
   "Ngày giao": "Delivery date",
+  "Ngày giờ dùng": "Usage date & time",
   "Ngày giờ in": "Print date & time",
   "Ngày hóa đơn": "Invoice date",
   "Ngày hẹn giao": "Scheduled delivery date",
@@ -4798,6 +4813,7 @@
   "Ngày nghỉ theo lịch": "Scheduled days off",
   "Ngày nguồn:": "Source date:",
   "Ngày nhận": "Receive date",
+  "Ngày nhận lịch": "Booking received",
   "Ngày nào hay vi phạm": "Days with frequent violations",
   "Ngày nào trong tuần bán được nhiều nhất?": "Which weekday sells the most?",
   "Ngày này chưa xếp ca — coi mọi thợ đang làm đều có ca.": "No shifts are scheduled for this day — all working staff are treated as having a shift.",
@@ -5141,6 +5157,7 @@
   "Nợ 0–30 ngày": "Owed 0–30 days",
   "Nợ NCC": "Owed to suppliers",
   "Nợ NCC lớn nhất": "Largest owed to supplier",
+  "Nợ hiện tại (đ)": "Current debt (VND)",
   "Nợ khách quá 90 ngày": "Customer debt over 90 days",
   "Nợ nhiều nhất": "Most owed",
   "Nợ tiền cơm": "Unpaid meal money",
@@ -6356,6 +6373,7 @@
   "Tiền cọc": "Deposit",
   "Tiền cọc thực hiện HĐ": "Contract performance deposit",
   "Tiền cọc thực hiện hợp đồng": "Contract performance deposit",
+  "Tiền cọc yêu cầu": "Required deposit",
   "Tiền cố định khi chọn «Mỗi buổi làm» là số tiền cho mỗi buổi": "With “Per work session” selected, the fixed amount is the amount per session",
   "Tiền của tôi: ứng lương, thưởng, phạt": "My money: salary advances, bonuses, penalties",
   "Tiền giảm bằng voucher": "Voucher discount amount",
@@ -6795,6 +6813,7 @@
   "Tình trạng / chấn thương / nhận xét của PT": "Condition / injuries / PT notes",
   "Tình trạng bán offline trên chính máy đang cầm.": "Offline selling status on this device.",
   "Tình trạng chấm đi đường": "On-the-road punch status",
+  "Tình trạng cọc": "Deposit status",
   "Tình trạng hạn dùng": "Expiry status",
   "Tình trạng hệ thống": "System status",
   "Tình trạng lịch đặt": "Booking status",
@@ -7172,6 +7191,7 @@
   "Từ lúc bán tới lúc về máy chủ": "From sale to reaching the server",
   "Từ lúc tạo đến lúc xong": "From creation to completion",
   "Từ ngày đóng gói": "From packaging date",
+  "Từ ngày – đến ngày": "From – to",
   "Từ số giờ làm thực tế so với giờ chuẩn 1 công của nhân viên (mặc định 8 giờ)": "Based on actual hours worked versus the employee's standard hours for 1 work day (default 8 hours)",
   "Từ sổ quỹ — không gồm nhập hàng, tiền bán hàng, cọc, trả hàng, mua tài sản (đã tính khấu hao)": "From the cash book — excludes purchases, sales proceeds, deposits, returns, asset purchases (depreciation already counted)",
   "Từ tài liệu": "From document",
@@ -7614,6 +7634,7 @@
   "Yêu cầu thêm (không bắt buộc): tóm tắt cho nhân viên bán hàng, nhấn mạnh mức phạt…": "Additional requests (optional): summary for sales staff, highlight the penalty level…",
   "Yêu cầu và đã duyệt chi": "Requested and approved spending",
   "Yêu cầu và ảnh khuôn mặt vừa gửi sẽ bị hủy. Bạn có thể đăng ký lại ngay.": "The request and face photo you just submitted will be cancelled. You can register again right away.",
+  "Yêu cầu đặc biệt": "Special requests",
   "Yêu cầu đổi sang \"": "Request to change to \"",
   "Yêu cầu ứng lương, phiếu thưởng/phạt, công tác phí chờ duyệt sẽ hiện ở đây": "Pending salary advance requests, bonus/penalty tickets and business trip expenses appear here",
   "Yếu": "Weak",
@@ -8387,6 +8408,7 @@
   "Đã cập nhật phòng ban, chức vụ trên hồ sơ": "Department and position updated on the profile",
   "Đã cập nhật thông tin tài khoản": "Account information updated",
   "Đã cập nhật tiến độ": "Progress updated",
+  "Đã cọc": "Deposit paid",
   "Đã cộng token": "Tokens added",
   "Đã duyệt chi": "Approved & paid",
   "Đã duyệt chưa chi": "Approved, not yet paid",
@@ -9378,6 +9400,10 @@
    " · skipped {0} items"
   ],
   [
+   " · cước hãng {0} · khấu hao {1}",
+   " · carrier fees {0} · depreciation {1}"
+  ],
+  [
    " · gần nhất {0}",
    " · latest {0}"
   ],
@@ -10316,6 +10342,10 @@
   [
    "Chi phí: {0}",
    "Cost: {0}"
+  ],
+  [
+   "Chi phí: {0} · lương {1}",
+   "Expenses: {0} · salaries {1}"
   ],
   [
    "Chi tiết ({0})",
@@ -11422,6 +11452,10 @@
    "Deposit held {0}đ"
   ],
   [
+   "Cọc đang giữ: {0}",
+   "Deposits held: {0}"
+  ],
+  [
    "Cọc: {0} đ",
    "Deposit: {0} đ"
   ],
@@ -11574,6 +11608,10 @@
    "Registrations not yet eaten ({0})"
   ],
   [
+   "Danh sách: {0}/{1} lượt gần nhất",
+   "List: {0}/{1} most recent"
+  ],
+  [
    "Diện tích: {0} m²/bộ · tổng {1} m²",
    "Area: {0} m²/set · total {1} m²"
   ],
@@ -11588,6 +11626,10 @@
   [
    "Doanh thu và lợi nhuận theo {0}",
    "Revenue and profit by {0}"
+  ],
+  [
+   "Doanh thu: {0} · {1} đơn · TB {2}",
+   "Revenue: {0} · {1} orders · avg {2}"
   ],
   [
    "Duyệt ({0})",
@@ -11884,6 +11926,10 @@
   [
    "Giá trị nếu trả tiền ({0}/ngày)",
    "Value if paid ({0}/day)"
+  ],
+  [
+   "Giá trị tồn kho: {0}",
+   "Inventory value: {0}"
   ],
   [
    "Giá trị {0}",
@@ -12248,6 +12294,10 @@
   [
    "Hiệu lực đến {0}",
    "Valid until {0}"
+  ],
+  [
+   "Hoàn cọc: {0}",
+   "Deposits refunded: {0}"
   ],
   [
    "Hoàn thành phiếu {0} và cập nhật tồn kho?",
@@ -12836,6 +12886,10 @@
   [
    "Khách còn nợ {0}đ",
    "Customer owes {0}đ"
+  ],
+  [
+   "Khách còn nợ: {0}",
+   "Customers in debt: {0}"
   ],
   [
    "Khách còn {0} báo giá khác",
@@ -13636,6 +13690,14 @@
   [
    "Làm {0}/12 tháng (làm tròn)",
    "Worked {0}/12 months (rounded)"
+  ],
+  [
+   "Lãi gộp: {0} · biên {1}%",
+   "Gross profit: {0} · margin {1}%"
+  ],
+  [
+   "Lãi ròng: {0}",
+   "Net profit: {0}"
   ],
   [
    "Lãi/lỗ ship: {0} · COD chưa đối soát: {1}",
@@ -14626,6 +14688,10 @@
    "Users ({0})"
   ],
   [
+   "Người hủy / trả: {0}",
+   "Cancelled / returned by: {0}"
+  ],
+  [
    "Người lao động đóng ({0}%)",
    "Employee contribution ({0}%)"
   ],
@@ -14660,6 +14726,10 @@
   [
    "Nhà cung cấp: {0}",
    "Supplier: {0}"
+  ],
+  [
+   "Nhân sự: {0} · {1} chi nhánh",
+   "Staff: {0} · {1} branches"
   ],
   [
    "Nhân viên ({0})",
@@ -14824,6 +14894,18 @@
   [
    "Nội dung: {0}",
    "Content: {0}"
+  ],
+  [
+   "Nợ 0–30 ngày: {0}",
+   "Debt 0–30 days: {0}"
+  ],
+  [
+   "Nợ 31–60 ngày: {0}",
+   "Debt 31–60 days: {0}"
+  ],
+  [
+   "Nợ 61–90 ngày: {0}",
+   "Debt 61–90 days: {0}"
   ],
   [
    "Nợ hiện tại: {0} đ",
@@ -15058,6 +15140,10 @@
    "Zoom: {0}"
   ],
   [
+   "Phạt / mất cọc: {0}",
+   "Forfeited deposits: {0}"
+  ],
+  [
    "Phản hồi chậm ({0})",
    "Slow response ({0})"
   ],
@@ -15128,6 +15214,10 @@
   [
    "Quyền hiện có của {0} sẽ được thay bằng mẫu đã chọn. ",
    "{0}'s current permissions will be replaced by the selected template. "
+  ],
+  [
+   "Quá 90 ngày: {0}",
+   "Over 90 days: {0}"
   ],
   [
    "Quá giờ {0}",
@@ -15288,6 +15378,10 @@
   [
    "Sau kết ca {0} giờ, nếu NV chưa khiếu nại → tự duyệt phạt",
    "{0} hours after shift close, if the employee has not appealed → penalty auto-approved"
+  ],
+  [
+   "Sau tạm tính: {0} · {1}",
+   "After pre-bill: {0} · {1}"
   ],
   [
    "Seri máy — {0}",
@@ -15710,6 +15804,10 @@
    "Pay this part — remaining items stay {0}"
   ],
   [
+   "Thao tác: {0}",
+   "Action: {0}"
+  ],
+  [
    "Thay thế hóa đơn {0}",
    "Replace invoice {0}"
   ],
@@ -16104,6 +16202,10 @@
   [
    "Thực hiện: {0}?",
    "Perform: {0}?"
+  ],
+  [
+   "Thực lĩnh {0} đ · Còn phải trả {1} đ",
+   "Net pay {0} VND · Still to pay {1} VND"
   ],
   [
    "Thực thu: {0}",
@@ -16910,8 +17012,16 @@
    "Total increase variance ({0}): {1}"
   ],
   [
+   "Tổng lịch: {0}",
+   "Total bookings: {0}"
+  ],
+  [
    "Tổng mua {0}",
    "Total purchases {0}"
+  ],
+  [
+   "Tổng nợ phải thu: {0}",
+   "Total receivables: {0}"
   ],
   [
    "Tổng nợ: {0}",
@@ -17412,6 +17522,10 @@
   [
    "Xuất lúc: {0}  |  {1} nhân viên",
    "Exported at: {0}  |  {1} employees"
+  ],
+  [
+   "Xuất lúc: {0}  |  {1} phiếu",
+   "Exported at: {0}  |  {1} payslips"
   ],
   [
    "Xác nhận ({0})",
@@ -19360,6 +19474,10 @@
   [
    "{0} phiếu thu",
    "{0} receipt vouchers"
+  ],
+  [
+   "{0} phiếu · Tổng lương {1} đ · Khấu trừ {2} đ",
+   "{0} payslips · Gross {1} VND · Deductions {2} VND"
   ],
   [
    "{0} phiếu · VAT {1}",
@@ -21806,6 +21924,10 @@
    "Saved {0} employees to Pictures/SBOX HRM: {1}"
   ],
   [
+   "Đã lưu {0} phiếu lương vào Tải về/SBOX HRM: {1}",
+   "Saved {0} payslips to Downloads/SBOX HRM: {1}"
+  ],
+  [
    "Đã lưu {0}. Mở Báo cáo → Quản lý tài liệu tải xuống",
    "Saved {0}. Open Reports → Downloaded documents manager"
   ],
@@ -22040,6 +22162,10 @@
   [
    "Đã trừ 1 buổi «{0}»",
    "Deducted 1 session of «{0}»"
+  ],
+  [
+   "Đã trừ vào HĐ: {0}",
+   "Applied to invoices: {0}"
   ],
   [
    "Đã tính tiền cơm tháng {0} thành công",
@@ -22626,6 +22752,10 @@
    "Agent: {0}"
   ],
   [
+   "Đầu kỳ / ĐC: {0}",
+   "Opening / adjustments: {0}"
+  ],
+  [
    "Đầu {0}",
    "Opening {0}"
   ],
@@ -22672,6 +22802,10 @@
   [
    "Đếm {0}đ − kỳ vọng {1}đ",
    "Counted {0}đ − expected {1}đ"
+  ],
+  [
+   "Đến ngày {0}",
+   "As of {0}"
   ],
   [
    "Đến trước {0} tính đêm hôm trước; ",

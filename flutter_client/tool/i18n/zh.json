@@ -572,11 +572,14 @@
   "BH bắt buộc": "强制保险",
   "BH sắp hết": "保修即将到期",
   "BH tính từ ngày bán. Bật theo dõi HSD để nhập lô khi nhập hàng.": "保修自销售日起计算。开启保质期（HSD）跟踪后，进货时可录入批次。",
+  "BHTN": "失业保险",
+  "BHXH": "社会保险",
   "BHXH & chế độ đặc biệt": "社保及特殊待遇",
   "BHXH tháng nghỉ dài": "长假月份的社保",
   "BHXH, BHYT, BHTN, lương cơ sở": "社保、医保、失业保险、基本工资",
   "BHXH, BHYT, BHTN, lương cơ sở, vùng": "社保、医保、失业保险、基本工资、地区",
   "BHXH: ốm hưởng BHXH, thai sản": "社保：病假享受社保待遇、产假",
+  "BHYT": "医疗保险",
   "BIDV - NH TMCP Đầu tư và Phát triển Việt Nam": "BIDV - NH TMCP Đầu tư và Phát triển Việt Nam",
   "BIÊN BẢN BÀN GIAO": "交接单",
   "BIÊN BẢN NGHIỆM THU": "验收单",
@@ -658,6 +661,7 @@
   "Bàn": "桌台",
   "Bàn / khu": "桌台 / 区域",
   "Bàn / phiếu trên máy khác cập nhật chậm": "其他设备上的桌台 / 单据更新较慢",
+  "Bàn / phòng": "桌 / 房间",
   "Bàn / phòng & đặt lịch": "桌台 / 包间与预约",
   "Bàn 05": "桌台 05",
   "Bàn chưa có món": "未点餐的桌台",
@@ -2974,6 +2978,7 @@
   "Chỉ khóa được đơn tạm": "仅暂存订单可锁定",
   "Chỉ kích hoạt tối đa 4 key": "最多只能激活4个密钥",
   "Chỉ làm tròn block khi dùng quá (phút)": "仅超出使用时按时段取整（分钟）",
+  "Chỉ lượt của bạn": "仅我的记录",
   "Chỉ lỗi": "仅错误",
   "Chỉ máy có 2 màn (display phụ). Ảnh/video | hóa đơn. Không media → SBOX HRM.": "仅限带双屏（副屏）的设备。图片/视频 | 账单。无媒体 → SBOX HRM。",
   "Chỉ món trong danh sách · tự lưu": "仅列表中的菜品 · 自动保存",
@@ -4021,6 +4026,7 @@
   "Công tác phí — ứng & hoạch toán": "差旅费 — 预支与记账",
   "Công tác phí — ứng & hạch toán": "出差费 — 预支与核算",
   "Công tính lương có thể khác công thực tế khi chọn cố định.": "选择固定时，计薪天数可能与实际出勤天数不同。",
+  "Công tăng ca": "加班工时",
   "Công việc": "任务",
   "Công việc & nội bộ": "任务与内部",
   "Công việc (Tasks)": "任务（Tasks）",
@@ -4437,6 +4443,7 @@
   "D.thử": "试用",
   "DANH MỤC TÀI SẢN": "资产清单",
   "DANH SÁCH NHÂN VIÊN": "DANH SÁCH NHÂN VIÊN",
+  "DANH SÁCH PHIẾU LƯƠNG": "工资单列表",
   "DANH SÁCH PHIẾU THU CHI": "收支单列表",
   "DANH SÁCH ỨNG LƯƠNG": "预支工资列表",
   "DN + trợ cấp BHXH": "企业 + 社保补助",
@@ -4542,6 +4549,7 @@
   "Doanh thu & chi phí": "营收与费用",
   "Doanh thu & lợi nhuận": "营收与利润",
   "Doanh thu (chưa VAT)": "营业额（不含增值税）",
+  "Doanh thu (đ)": "营业额 (VND)",
   "Doanh thu / NV có mặt": "营收 / 在岗员工",
   "Doanh thu / nợ KH": "营收 / 客户欠款",
   "Doanh thu HĐ có KM": "含促销账单营收",
@@ -6039,6 +6047,7 @@
   "Hãy đưa điện thoại về lại WiFi nhà, app sẽ tự tìm thiết bị.": "请让手机重新连接家里的WiFi，App将自动查找设备。",
   "Hình thức": "方式",
   "Hình thức chi thưởng": "奖金发放方式",
+  "Hình thức cọc": "定金方式",
   "Hình thức kỷ luật *": "处分形式 *",
   "Hình thức phát hành": "发行方式",
   "Hình thức quyết toán": "结算方式",
@@ -7085,6 +7094,7 @@
   "Không có nợ NCC": "没有供应商欠款",
   "Không có phiên": "没有会话",
   "Không có phiếu chờ duyệt": "没有待审批的单据",
+  "Không có phiếu lương để xuất": "没有可导出的工资单",
   "Không có phiếu nhập": "没有入库单",
   "Không có phiếu nhập (nhập tay / dữ liệu cũ)": "无进货单（手工录入 / 旧数据）",
   "Không có phiếu nào": "没有单据",
@@ -8882,6 +8892,7 @@
   "Lương ca cố định": "固定班次工资",
   "Lương ca theo bậc": "按档次计算的班次工资",
   "Lương ca theo bậc: số tiền phụ thuộc ca thực tế — xem ở Bảng lương.": "分级班次工资：金额取决于实际班次 — 请在工资表中查看。",
+  "Lương ca đêm": "夜班工资",
   "Lương chính": "基本工资",
   "Lương công": "出勤工资",
   "Lương cơ bản": "基本工资",
@@ -8906,6 +8917,7 @@
   "Lương một ngày công": "每出勤日工资",
   "Lương ngày": "日薪",
   "Lương ngày hôm nay": "今日日薪",
+  "Lương ngày lễ": "节假日工资",
   "Lương sản phẩm": "计件工资",
   "Lương sản phẩm theo ngày": "按日计件工资",
   "Lương theo ca": "按班次计薪",
@@ -9749,6 +9761,7 @@
   "Mã nhân viên:": "员工编号：",
   "Mã phiếu": "单号",
   "Mã phiếu (tuỳ chọn)": "单号（可选）",
+  "Mã phiếu chi": "付款单号",
   "Mã phiếu nhập": "进货单号",
   "Mã phiếu tự động": "单号自动生成",
   "Mã phòng": "房间编号",
@@ -9814,6 +9827,7 @@
   "Mã: ": "编码： ",
   "Móc đùi sau 3×15": "腿后侧勾腿 3×15",
   "Món": "菜品",
+  "Món / hàng": "商品",
   "Món bán nhiều mà ít ai thêm topping = cơ hội mời khách. Màu theo tỷ lệ: xanh ≥ 30%, vàng 15–30%, đỏ < 15%.": "卖得多但很少有人加配料的菜品 = 向客人推荐的机会。按比例着色：绿 ≥ 30%，黄 15–30%，红 < 15%。",
   "Món bán ra mà chưa khai định lượng": "已售出但未设置用料定量的菜品",
   "Món bị hủy ở bếp nhiều nhất": "后厨取消最多的菜品",
@@ -10606,6 +10620,7 @@
   "Ngày dự kiến nhận": "预计收货日期",
   "Ngày giao": "发货日",
   "Ngày giao dịch": "交易日期",
+  "Ngày giờ dùng": "使用时间",
   "Ngày giờ in": "打印日期时间",
   "Ngày hiệu lực": "生效日期",
   "Ngày hoàn thành": "完成日期",
@@ -10654,6 +10669,7 @@
   "Ngày nguồn không có lịch để sao chép": "来源日期没有可复制的排班",
   "Ngày nguồn:": "来源日期：",
   "Ngày nhận": "收货日期",
+  "Ngày nhận lịch": "接单日期",
   "Ngày nhập": "录入日期",
   "Ngày nào hay vi phạm": "经常违规的日子",
   "Ngày nào trong tuần bán được nhiều nhất?": "一周中哪天卖得最多？",
@@ -11452,6 +11468,7 @@
   "Nợ NCC lớn nhất": "欠供应商款最多",
   "Nợ cũ KH": "客户旧欠款",
   "Nợ hiện tại": "当前欠款",
+  "Nợ hiện tại (đ)": "当前欠款 (VND)",
   "Nợ khách quá 90 ngày": "客户欠款超 90 天",
   "Nợ nhiều nhất": "欠款最多",
   "Nợ tiền cơm": "欠餐费",
@@ -14430,6 +14447,7 @@
   "Tiền cọc": "押金",
   "Tiền cọc thực hiện HĐ": "合同履约保证金",
   "Tiền cọc thực hiện hợp đồng": "合同履约保证金",
+  "Tiền cọc yêu cầu": "应付定金",
   "Tiền cố định khi chọn «Mỗi buổi làm» là số tiền cho mỗi buổi": "选择「每次上班」时，固定金额即每次的金额",
   "Tiền của tôi: ứng lương, thưởng, phạt": "我的款项：预支工资、奖金、罚款",
   "Tiền giảm bằng voucher": "代金券抵扣金额",
@@ -15355,6 +15373,7 @@
   "Tình trạng SD": "使用状态",
   "Tình trạng bán offline trên chính máy đang cầm.": "当前设备的离线销售状态。",
   "Tình trạng chấm đi đường": "路途打卡状态",
+  "Tình trạng cọc": "定金状态",
   "Tình trạng hôn nhân": "婚姻状况",
   "Tình trạng hạn dùng": "保质期状态",
   "Tình trạng hệ thống": "系统状态",
@@ -16305,6 +16324,7 @@
   "Từ lúc tạo đến lúc xong": "从创建到完成",
   "Từ ngày": "开始日期",
   "Từ ngày đóng gói": "自包装日起",
+  "Từ ngày – đến ngày": "起止日期",
   "Từ số giờ làm thực tế so với giờ chuẩn 1 công của nhân viên (mặc định 8 giờ)": "按实际工作时长与员工1个工作日的标准工时（默认8小时）比较得出",
   "Từ sổ quỹ — không gồm nhập hàng, tiền bán hàng, cọc, trả hàng, mua tài sản (đã tính khấu hao)": "来自现金账 — 不含进货、销售收款、定金、退货、购置资产（已计折旧）",
   "Từ tài liệu": "从文档导入",
@@ -17451,6 +17471,7 @@
   "Yêu cầu đã được gửi!": "申请已发送！",
   "Yêu cầu đã được lưu vào hệ thống. Zalo hoặc email hỗ trợ sẽ được mở để tư vấn viên hỗ trợ bạn ngay.": "申请已保存到系统。将打开Zalo或支持邮箱，以便顾问立即为您提供帮助。",
   "Yêu cầu đăng nhập theo cửa hàng": "需按门店登录",
+  "Yêu cầu đặc biệt": "特殊要求",
   "Yêu cầu đổi ca": "换班申请",
   "Yêu cầu đổi ca chưa được đồng nghiệp chấp nhận": "同事尚未接受换班申请",
   "Yêu cầu đổi ca không tồn tại": "换班申请不存在",
@@ -19267,6 +19288,7 @@
   "Đã cập nhật đơn": "已更新申请",
   "Đã cập nhật đại lý": "已更新代理商",
   "Đã cập nhật đại lý cho cửa hàng": "已更新门店的代理商",
+  "Đã cọc": "已付定金",
   "Đã cộng token": "已增加 Token",
   "Đã duyệt": "已批准",
   "Đã duyệt bước": "已批准该步骤",
@@ -21534,6 +21556,10 @@
    " · 跳过{0}个菜品"
   ],
   [
+   " · cước hãng {0} · khấu hao {1}",
+   " · 物流费 {0} · 折旧 {1}"
+  ],
+  [
    " · gần nhất {0}",
    " · 最近 {0}"
   ],
@@ -22472,6 +22498,10 @@
   [
    "Chi phí: {0}",
    "费用：{0}"
+  ],
+  [
+   "Chi phí: {0} · lương {1}",
+   "费用: {0} · 工资 {1}"
   ],
   [
    "Chi tiết ({0})",
@@ -23578,6 +23608,10 @@
    "代收定金{0}đ"
   ],
   [
+   "Cọc đang giữ: {0}",
+   "持有定金: {0}"
+  ],
+  [
    "Cọc: {0} đ",
    "定金：{0} đ"
   ],
@@ -23730,6 +23764,10 @@
    "未用餐登记列表 ({0})"
   ],
   [
+   "Danh sách: {0}/{1} lượt gần nhất",
+   "列表: 最近 {0}/{1} 次"
+  ],
+  [
    "Diện tích: {0} m²/bộ · tổng {1} m²",
    "面积：{0} m²/套 · 共 {1} m²"
   ],
@@ -23744,6 +23782,10 @@
   [
    "Doanh thu và lợi nhuận theo {0}",
    "按{0}统计的销售额和利润"
+  ],
+  [
+   "Doanh thu: {0} · {1} đơn · TB {2}",
+   "营业额: {0} · {1} 单 · 平均 {2}"
   ],
   [
    "Duyệt ({0})",
@@ -24040,6 +24082,10 @@
   [
    "Giá trị nếu trả tiền ({0}/ngày)",
    "折算付费价值（{0}/天）"
+  ],
+  [
+   "Giá trị tồn kho: {0}",
+   "库存价值: {0}"
   ],
   [
    "Giá trị {0}",
@@ -24404,6 +24450,10 @@
   [
    "Hiệu lực đến {0}",
    "有效期至{0}"
+  ],
+  [
+   "Hoàn cọc: {0}",
+   "退还定金: {0}"
   ],
   [
    "Hoàn thành phiếu {0} và cập nhật tồn kho?",
@@ -24992,6 +25042,10 @@
   [
    "Khách còn nợ {0}đ",
    "客户欠款{0}đ"
+  ],
+  [
+   "Khách còn nợ: {0}",
+   "欠款客户: {0}"
   ],
   [
    "Khách còn {0} báo giá khác",
@@ -25792,6 +25846,14 @@
   [
    "Làm {0}/12 tháng (làm tròn)",
    "工作{0}/12个月（四舍五入）"
+  ],
+  [
+   "Lãi gộp: {0} · biên {1}%",
+   "毛利: {0} · 毛利率 {1}%"
+  ],
+  [
+   "Lãi ròng: {0}",
+   "净利润: {0}"
   ],
   [
    "Lãi/lỗ ship: {0} · COD chưa đối soát: {1}",
@@ -26782,6 +26844,10 @@
    "用户 ({0})"
   ],
   [
+   "Người hủy / trả: {0}",
+   "取消 / 退货人: {0}"
+  ],
+  [
    "Người lao động đóng ({0}%)",
    "员工缴纳（{0}%）"
   ],
@@ -26816,6 +26882,10 @@
   [
    "Nhà cung cấp: {0}",
    "供应商：{0}"
+  ],
+  [
+   "Nhân sự: {0} · {1} chi nhánh",
+   "员工: {0} · {1} 家分店"
   ],
   [
    "Nhân viên ({0})",
@@ -26980,6 +27050,18 @@
   [
    "Nội dung: {0}",
    "内容：{0}"
+  ],
+  [
+   "Nợ 0–30 ngày: {0}",
+   "0–30天欠款: {0}"
+  ],
+  [
+   "Nợ 31–60 ngày: {0}",
+   "31–60天欠款: {0}"
+  ],
+  [
+   "Nợ 61–90 ngày: {0}",
+   "61–90天欠款: {0}"
   ],
   [
    "Nợ hiện tại: {0} đ",
@@ -27214,6 +27296,10 @@
    "缩放：{0}"
   ],
   [
+   "Phạt / mất cọc: {0}",
+   "没收定金: {0}"
+  ],
+  [
    "Phản hồi chậm ({0})",
    "响应缓慢（{0}）"
   ],
@@ -27284,6 +27370,10 @@
   [
    "Quyền hiện có của {0} sẽ được thay bằng mẫu đã chọn. ",
    "{0} 现有的权限将被所选模板替换。 "
+  ],
+  [
+   "Quá 90 ngày: {0}",
+   "超过90天: {0}"
   ],
   [
    "Quá giờ {0}",
@@ -27444,6 +27534,10 @@
   [
    "Sau kết ca {0} giờ, nếu NV chưa khiếu nại → tự duyệt phạt",
    "结班 {0} 小时后，若员工未申诉 → 自动批准罚款"
+  ],
+  [
+   "Sau tạm tính: {0} · {1}",
+   "预结后: {0} · {1}"
   ],
   [
    "Seri máy — {0}",
@@ -27866,6 +27960,10 @@
    "结算这部分 — 其余菜品保留 {0}"
   ],
   [
+   "Thao tác: {0}",
+   "操作: {0}"
+  ],
+  [
    "Thay thế hóa đơn {0}",
    "替换账单 {0}"
   ],
@@ -28260,6 +28358,10 @@
   [
    "Thực hiện: {0}?",
    "执行：{0}？"
+  ],
+  [
+   "Thực lĩnh {0} đ · Còn phải trả {1} đ",
+   "实发 {0} VND · 待付 {1} VND"
   ],
   [
    "Thực thu: {0}",
@@ -29066,8 +29168,16 @@
    "增加差异合计 ({0})：{1}"
   ],
   [
+   "Tổng lịch: {0}",
+   "预订总数: {0}"
+  ],
+  [
    "Tổng mua {0}",
    "购买合计 {0}"
+  ],
+  [
+   "Tổng nợ phải thu: {0}",
+   "应收总额: {0}"
   ],
   [
    "Tổng nợ: {0}",
@@ -29568,6 +29678,10 @@
   [
    "Xuất lúc: {0}  |  {1} nhân viên",
    "导出时间：{0}  |  {1} 名员工"
+  ],
+  [
+   "Xuất lúc: {0}  |  {1} phiếu",
+   "导出时间: {0}  |  {1} 张"
   ],
   [
    "Xác nhận ({0})",
@@ -31516,6 +31630,10 @@
   [
    "{0} phiếu thu",
    "{0} 张收款单"
+  ],
+  [
+   "{0} phiếu · Tổng lương {1} đ · Khấu trừ {2} đ",
+   "{0} 张 · 应发 {1} VND · 扣款 {2} VND"
   ],
   [
    "{0} phiếu · VAT {1}",
@@ -33962,6 +34080,10 @@
    "已将 {0} 名员工保存到 图片/SBOX HRM：{1}"
   ],
   [
+   "Đã lưu {0} phiếu lương vào Tải về/SBOX HRM: {1}",
+   "已将 {0} 张工资单保存到 下载/SBOX HRM: {1}"
+  ],
+  [
    "Đã lưu {0}. Mở Báo cáo → Quản lý tài liệu tải xuống",
    "已保存 {0}。请前往 报表 → 下载文档管理 查看"
   ],
@@ -34196,6 +34318,10 @@
   [
    "Đã trừ 1 buổi «{0}»",
    "已扣除「{0}」1 次"
+  ],
+  [
+   "Đã trừ vào HĐ: {0}",
+   "已抵扣账单: {0}"
   ],
   [
    "Đã tính tiền cơm tháng {0} thành công",
@@ -34782,6 +34908,10 @@
    "代理商：{0}"
   ],
   [
+   "Đầu kỳ / ĐC: {0}",
+   "期初 / 调整: {0}"
+  ],
+  [
    "Đầu {0}",
    "期初 {0}"
   ],
@@ -34828,6 +34958,10 @@
   [
    "Đếm {0}đ − kỳ vọng {1}đ",
    "清点 {0}đ − 应有 {1}đ"
+  ],
+  [
+   "Đến ngày {0}",
+   "截至 {0}"
   ],
   [
    "Đến trước {0} tính đêm hôm trước; ",

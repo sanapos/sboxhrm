@@ -1,4 +1,6 @@
 import 'payroll_pay/payroll_pay_page.dart';
+import 'payslip_excel_export.dart';
+import '../utils/export_permission_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -211,6 +213,16 @@ class _PayslipScreenState extends State<PayslipScreen> {
         : const <String>[];
     return RegisterPageTopActions(
       actions: [
+        HrmTopBarAction(
+          icon: Icons.image_outlined,
+          label: 'Xuất ảnh PNG',
+          onPressed: _isLoading || list.isEmpty ? null : () => _exportExcel(list, png: true),
+        ),
+        HrmTopBarAction(
+          icon: Icons.table_chart_outlined,
+          label: 'Xuất Excel',
+          onPressed: _isLoading || list.isEmpty ? null : () => _exportExcel(list),
+        ),
         if (unpaidIds.isNotEmpty)
           HrmTopBarAction(
             icon: Icons.payments_outlined,
@@ -253,6 +265,28 @@ class _PayslipScreenState extends State<PayslipScreen> {
         ],
       ),
     ),
+    );
+  }
+
+  /// Xuất danh sách phiếu đang lọc ra Excel (chọn cột + thứ tự trước khi xuất) hoặc ảnh PNG.
+  Future<void> _exportExcel(List<Map<String, dynamic>> list, {bool png = false}) async {
+    if (_isManager && !ensureCanExport(context, 'Payslip')) return;
+    final parts = <String>[
+      if (_filterMonth != null || _filterYear != null)
+        'Kỳ ${_filterMonth != null ? 'T${_filterMonth.toString().padLeft(2, '0')}' : 'mọi tháng'}'
+            '/${_filterYear ?? 'mọi năm'}',
+      if (_filterEmployeeUserId != null)
+        'NV: ${list.first['employeeName'] ?? ''}',
+      if (_filterDepartment != null) 'Phòng ban: $_filterDepartment',
+      if (_filterFromDate != null) 'Từ ${DateFormat('dd/MM/yyyy').format(_filterFromDate!)}',
+      if (_filterToDate != null) 'Đến ${DateFormat('dd/MM/yyyy').format(_filterToDate!)}',
+    ];
+    await (png ? exportPayslipsToPng : exportPayslipsToExcel)(
+      context,
+      list,
+      statusLabel: (p) => _isPaidSlip(p) ? 'Đã thanh toán' : _statusLabel(p['status']?.toString() ?? 'Draft'),
+      isPaid: _isPaidSlip,
+      filterDescription: parts.join(' · '),
     );
   }
 

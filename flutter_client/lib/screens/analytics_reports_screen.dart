@@ -7,6 +7,7 @@ import '../l10n/app_tr.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/file_saver.dart';
+import '../utils/report_screen_helpers.dart' show ClientPngExport;
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 
@@ -451,6 +452,66 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
     );
   }
 
+  /// Ảnh PNG: số liệu tổng (thẻ KPI) làm dòng tóm tắt + bảng danh sách chính (cùng cột với bảng trên màn).
+  Future<void> _png() async {
+    if (!ensureCanExport(context, widget.spec.modules.first)) return;
+    final kpis = <(String, String)>[
+      for (final e in _data.entries)
+        if (_isScalar(e.value) && e.key != 'from' && e.key != 'to' && !_hiddenScalars.contains(e.key) && e.value != null)
+          (tr(_label(e.key)), _fmt(e.key, e.value)),
+      for (final b in _data.entries.where((e) => e.value is Map))
+        for (final e in (b.value as Map).entries)
+          if (_isScalar(e.value) && e.value != null) (tr(_label('${e.key}')), _fmt('${e.key}', e.value)),
+    ];
+    final summary = [for (final k in kpis) '${k.$1}: ${k.$2}'];
+    final lists = _data.entries.where((e) => e.value is List && (e.value as List).isNotEmpty).toList();
+    // Danh sách chính: «items» nếu có, không thì danh sách dài nhất.
+    final main = lists.where((e) => e.key == 'items').firstOrNull ??
+        (lists.isEmpty ? null : (lists.toList()..sort((a, b) => (b.value as List).length - (a.value as List).length)).first);
+    var headers = <String>[];
+    var rows = <List<dynamic>>[];
+    if (main != null) {
+      final all = (main.value as List).whereType<Map>().toList();
+      final src = _search.isEmpty
+          ? all
+          : all.where((r) => r.values.any((v) => '$v'.toLowerCase().contains(_search))).toList();
+      final nameKey = _nameKey(all);
+      final codeKey = _codeKey(all);
+      final hasDept = _hasDept(all, nameKey);
+      final cols = _tableCols(all, nameKey, codeKey, hasDept);
+      final withCode = codeKey != null && nameKey != null;
+      headers = [
+        if (withCode) tr(_label(codeKey)),
+        if (nameKey != null || codeKey != null) tr(_label(nameKey ?? codeKey!)),
+        if (hasDept) tr(_label('department')),
+        for (final c in cols) tr(_label(c)),
+      ];
+      rows = [
+        for (final r in src)
+          [
+            if (withCode) '${r[codeKey] ?? ''}'.trim(),
+            if (nameKey != null || codeKey != null) tr(_rowName(r, nameKey, codeKey)),
+            if (hasDept) '${r['department'] ?? ''}'.trim(),
+            for (final c in cols)
+              r[c] is num && r[c] is! bool && !_isPercentKey(c) ? r[c] : tr(_fmt(c, r[c])),
+          ],
+      ];
+    } else if (kpis.isNotEmpty) {
+      // Báo cáo chỉ có số tổng — xuất thành bảng 2 cột.
+      headers = [tr('Chỉ tiêu'), tr('Giá trị')];
+      rows = [for (final k in kpis) [k.$1, k.$2]];
+    }
+    await ClientPngExport.table(
+      context: context,
+      title: tr(widget.spec.title),
+      filePrefix: widget.spec.title.replaceAll(' ', '_'),
+      headers: headers,
+      rows: rows,
+      periodLabel: widget.spec.period == _PeriodKind.none ? null : tr(_periodLabel),
+      summaryLines: main != null ? summary : const [],
+    );
+  }
+
   String _fmt(String key, dynamic v) {
     if (v == null) return '';
     if (v is bool) return v ? tr('Có') : tr('Không');
@@ -485,6 +546,11 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
             tooltip: tr('Xuất Excel'),
             onPressed: _loading || _error != null ? null : _excel,
             icon: const ExportFileIcon(ExportFileKind.excel),
+          ),
+          IconButton(
+            tooltip: tr('Xuất ảnh PNG'),
+            onPressed: _loading || _error != null ? null : _png,
+            icon: const ExportFileIcon(ExportFileKind.png),
           ),
         ],
       ),
@@ -671,10 +737,8 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
     ];
   }
 
-  Widget _table(String key, List<Map> rows) {
-    final nameKey = _nameKey(rows);
-    final codeKey = _codeKey(rows);
-    final hasDept = nameKey != 'department' && rows.take(20).any((r) => '${r['department'] ?? ''}'.trim().isNotEmpty);
+  /// Cột số liệu của bảng (trừ tên / mã / phòng ban) — dùng chung cho bảng trên màn và ảnh PNG.
+  List<String> _tableCols(List<Map> rows, String? nameKey, String? codeKey, bool hasDept) {
     final cols = <String>[];
     for (final r in rows.take(20)) {
       for (final e in r.entries) {
@@ -694,6 +758,17 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
         ..remove(rank)
         ..insert(0, rank);
     }
+    return cols;
+  }
+
+  bool _hasDept(List<Map> rows, String? nameKey) =>
+      nameKey != 'department' && rows.take(20).any((r) => '${r['department'] ?? ''}'.trim().isNotEmpty);
+
+  Widget _table(String key, List<Map> rows) {
+    final nameKey = _nameKey(rows);
+    final codeKey = _codeKey(rows);
+    final hasDept = _hasDept(rows, nameKey);
+    final cols = _tableCols(rows, nameKey, codeKey, hasDept);
     final visible = _search.isEmpty
         ? rows
         : rows.where((r) => r.values.any((v) => '$v'.toLowerCase().contains(_search))).toList();

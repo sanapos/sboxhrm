@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/report_screen_helpers.dart' show ClientExcelExport, ClientPngExport;
+import '../../widgets/page_top_actions.dart' show HrmTopBarAction, RegisterPageTopActions;
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_basics.dart' show SboxTone;
 import '../../widgets/sbox/sbox_charts.dart';
@@ -52,9 +56,115 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
 
   Map<String, dynamic> get _totals => Map<String, dynamic>.from((_data['totals'] as Map?) ?? const {});
 
+  // ── Xuất Excel / PNG: bảng «So sánh chi nhánh» (dữ liệu chính của báo cáo) ──
+
+  static const _exportHeaders = [
+    'STT',
+    'Chi nhánh',
+    'Doanh thu (đ)',
+    'Đơn',
+    'TB / đơn',
+    'Lãi gộp',
+    '% LG',
+    'Chi phí',
+    'Lương',
+    'Phụ thu + phí GH',
+    'Cước hãng',
+    'Khấu hao',
+    'Cọc khách bỏ',
+    'Lãi ròng',
+    'Tồn kho',
+    'NV',
+  ];
+
+  List<List<dynamic>> _exportRows() {
+    final rows = _rows;
+    return [
+      for (var i = 0; i < rows.length; i++)
+        [
+          i + 1,
+          '${rows[i]['name'] ?? ''}${rows[i]['isHeadquarter'] == true ? ' (Trụ sở)' : ''}',
+          bNum(rows[i]['revenue']),
+          bNum(rows[i]['orders']),
+          bNum(rows[i]['avgOrder']),
+          bNum(rows[i]['grossProfit']),
+          double.parse(bNum(rows[i]['grossMarginPct']).toStringAsFixed(1)),
+          bNum(rows[i]['expenses']),
+          bNum(rows[i]['payroll']),
+          bNum(rows[i]['surchargeIncome']) + bNum(rows[i]['deliveryFeeIncome']),
+          bNum(rows[i]['carrierCost']),
+          bNum(rows[i]['depreciation']),
+          bNum(rows[i]['forfeitedDeposits']),
+          bNum(rows[i]['netProfit']),
+          bNum(rows[i]['stockValue']),
+          bNum(rows[i]['employees']),
+        ],
+    ];
+  }
+
+  List<String> _exportSummary() {
+    final t = _totals;
+    return [
+      'Doanh thu: ${bMoney(bNum(t['revenue']))} · ${bQty(t['orders'])} đơn · TB ${bMoney(bNum(t['avgOrder']))}',
+      'Lãi gộp: ${bMoney(bNum(t['grossProfit']))} · biên ${bNum(t['grossMarginPct']).toStringAsFixed(1).replaceAll('.', ',')}%',
+      'Chi phí: ${bMoney(bNum(t['expenses']))} · lương ${bMoney(bNum(t['payroll']))}'
+          ' · cước hãng ${bMoney(bNum(t['carrierCost']))} · khấu hao ${bMoney(bNum(t['depreciation']))}',
+      'Lãi ròng: ${bMoney(bNum(t['netProfit']))}',
+      'Giá trị tồn kho: ${bMoney(bNum(t['stockValue']))}',
+      'Nhân sự: ${bQty(t['employees'])} · ${_rows.length} chi nhánh',
+    ];
+  }
+
+  Future<void> _export({bool png = false}) async {
+    const title = 'Báo cáo chi nhánh';
+    const prefix = 'BaoCaoChiNhanh';
+    final period = '${_period.label} (${_period.rangeText})';
+    final rows = _exportRows();
+    if (png) {
+      await ClientPngExport.table(
+        context: context,
+        title: title,
+        filePrefix: prefix,
+        headers: _exportHeaders,
+        rows: rows,
+        periodLabel: period,
+        summaryLines: _exportSummary(),
+      );
+      return;
+    }
+    await ClientExcelExport.export(
+      context: context,
+      title: title,
+      sheetName: 'Chi nhanh',
+      filePrefix: prefix,
+      headers: _exportHeaders,
+      rows: rows,
+      periodLabel: period,
+      summaryLines: _exportSummary(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final canExport = Provider.of<PermissionProvider>(context, listen: false).canExport('PosReportPnl');
+    final canRun = !_loading && _error == null && _rows.isNotEmpty;
+    return RegisterPageTopActions(
+      actions: [
+        if (canExport)
+          HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất ảnh PNG',
+            onPressed: canRun ? () => _export(png: true) : null,
+            pinOnMobile: false,
+          ),
+        if (canExport)
+          HrmTopBarAction(
+            icon: Icons.table_chart_outlined,
+            label: 'Xuất Excel',
+            onPressed: canRun ? _export : null,
+          ),
+      ],
+      child: Scaffold(
       backgroundColor: SboxColors.slate50,
       body: RefreshIndicator(
         onRefresh: _load,
@@ -113,6 +223,7 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 

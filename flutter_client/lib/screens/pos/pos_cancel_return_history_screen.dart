@@ -6,8 +6,12 @@ import 'package:flutter/material.dart';
 import '../../widgets/pos/pos_list_filters.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/report_screen_helpers.dart' show ClientExcelExport, ClientPngExport;
+import '../../widgets/page_top_actions.dart' show HrmTopBarAction;
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -407,8 +411,111 @@ class _PosCancelReturnHistoryScreenState
 
   Timer? _debounce;
 
+  // ── Xuất Excel / PNG: đúng danh sách «Chi tiết» đang hiển thị (sau lọc) ──
+
+  static const _exportHeaders = [
+    'STT',
+    'Thời gian',
+    'Thao tác',
+    'Tạm tính',
+    'Mã đơn',
+    'Bàn / khu',
+    'Món / hàng',
+    'SL',
+    'Số tiền (đ)',
+    'Lý do',
+    'Ghi chú',
+    'Người hủy / trả',
+    'Thiết bị',
+  ];
+
+  List<List<dynamic>> _exportRows() {
+    final rows = <List<dynamic>>[];
+    for (var i = 0; i < _items.length; i++) {
+      final m = _items[i];
+      final occurred = parseApiUtcDateTime(m['occurredAt']?.toString() ?? '');
+      final qty = (m['qty'] as num?)?.toDouble() ?? 0;
+      rows.add([
+        i + 1,
+        occurred != null ? _fmt.format(occurred.toLocal()) : '',
+        _actionLabel(m['actionType']?.toString()),
+        m['afterProvisionalBill'] == true ? 'Sau tạm tính' : 'Trước tạm tính',
+        (m['orderNo'] ?? '').toString(),
+        (m['resourceName'] ?? '').toString(),
+        (m['productName'] ?? '').toString(),
+        qty > 0 ? qty : null,
+        (m['amount'] as num?)?.toDouble() ?? 0,
+        (m['reason'] ?? '').toString(),
+        (m['detailNote'] ?? '').toString(),
+        _actorOf(m),
+        (m['deviceName'] ?? '').toString(),
+      ]);
+    }
+    return rows;
+  }
+
+  String get _exportPeriod => '${_dayFmt.format(_from)} – ${_dayFmt.format(_to)}';
+
+  String? get _exportFilter {
+    final parts = <String>[
+      if (_action != _ActionFilter.all) 'Thao tác: ${_actionLabel(_codes[_action])}',
+      if (_phase == _BillPhaseFilter.after) 'Chỉ sau tạm tính',
+      if (_phase == _BillPhaseFilter.before) 'Chỉ trước tạm tính',
+      if (_actorCtrl.text.trim().isNotEmpty) 'Người hủy / trả: ${_actorCtrl.text.trim()}',
+      if (_searchCtrl.text.trim().isNotEmpty) 'Tìm: ${_searchCtrl.text.trim()}',
+      if (_mineOnly) 'Chỉ lượt của bạn',
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
+  List<String> _exportSummary() {
+    String money(double v) => '${_money.format(v)} đ';
+    final lines = <String>[
+      '${_mineOnly ? 'Lượt hủy / trả của tôi' : 'Tổng lượt hủy / trả'}: $_total · ${money(_totalAmount)}',
+    ];
+    for (final code in const ['KitchenVoid', 'SaleCancel', 'SaleReturn', 'DraftCancel', 'OrderDelete', 'ReturnCancel']) {
+      final v = _byType[code];
+      if (v == null || v.count == 0) continue;
+      lines.add('${_actionLabel(code)}: ${v.count} · ${money(v.amount)}');
+    }
+    lines.add('Sau tạm tính: $_afterCount · ${money(_afterAmount)}');
+    if (_items.length < _total) lines.add('Danh sách: ${_items.length}/$_total lượt gần nhất');
+    return lines;
+  }
+
+  Future<void> _export({bool png = false}) async {
+    const title = 'Báo cáo hủy / trả';
+    const prefix = 'BaoCaoHuyTra';
+    final rows = _exportRows();
+    if (png) {
+      await ClientPngExport.table(
+        context: context,
+        title: title,
+        filePrefix: prefix,
+        headers: _exportHeaders,
+        rows: rows,
+        periodLabel: _exportPeriod,
+        summaryLines: _exportSummary(),
+      );
+      return;
+    }
+    await ClientExcelExport.export(
+      context: context,
+      title: title,
+      sheetName: 'Huy tra',
+      filePrefix: prefix,
+      headers: _exportHeaders,
+      rows: rows,
+      periodLabel: _exportPeriod,
+      filterLabel: _exportFilter,
+      summaryLines: _exportSummary(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canExport = Provider.of<PermissionProvider>(context, listen: false).canExport('PosSaleReturns');
+    final canRun = !_loading && _items.isNotEmpty;
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: shellAwareAppBar(context, AppBar(
@@ -417,6 +524,19 @@ class _PosCancelReturnHistoryScreenState
         foregroundColor: SboxColors.text,
         elevation: 0.5,
         actions: [
+          if (canExport)
+            HrmTopBarAction(
+              icon: Icons.image_outlined,
+              label: 'Xuất ảnh PNG',
+              onPressed: canRun ? () => _export(png: true) : null,
+              pinOnMobile: false,
+            ),
+          if (canExport)
+            HrmTopBarAction(
+              icon: Icons.table_chart_outlined,
+              label: 'Xuất Excel',
+              onPressed: canRun ? _export : null,
+            ),
         ],
       )),
       body: RefreshIndicator(

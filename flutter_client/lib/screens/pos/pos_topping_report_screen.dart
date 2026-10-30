@@ -10,6 +10,7 @@ import '../../theme/sbox_tokens.dart';
 import '../../utils/pos_report_export.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_health_widgets.dart';
+import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// «Topping»: bao nhiêu % ly có thêm topping, topping bán chạy, doanh thu / lãi topping, món khách hay thêm —
@@ -23,6 +24,7 @@ class PosToppingReportScreen extends StatefulWidget {
 
 class _PosToppingReportScreenState extends State<PosToppingReportScreen> {
   final _api = ApiService();
+  final _pngKey = GlobalKey();
   final _money = NumberFormat('#,##0', 'vi_VN');
   final _qty = NumberFormat('#,##0.##', 'vi_VN');
   static final _df = DateFormat('yyyy-MM-dd');
@@ -90,6 +92,13 @@ class _PosToppingReportScreenState extends State<PosToppingReportScreen> {
         title: Text(tr('Topping')),
         actions: [
           IconButton(
+            tooltip: tr('Xuất PNG'),
+            onPressed: _r == null
+                ? null
+                : () => unawaited(PosReportExport.png(context: context, key: _pngKey, filePrefix: 'POS_Topping')),
+            icon: const ExportFileIcon(ExportFileKind.png),
+          ),
+          IconButton(
             tooltip: tr('Xuất Excel'),
             onPressed: _r == null ? null : () => unawaited(_exportExcel()),
             icon: const ExportFileIcon(ExportFileKind.excel),
@@ -101,7 +110,11 @@ class _PosToppingReportScreenState extends State<PosToppingReportScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
+      body: PosReportPngCapture(
+        pngKey: _pngKey,
+        title: 'Topping',
+        periodLabel: _periodLabel,
+        child: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
@@ -132,6 +145,7 @@ class _PosToppingReportScreenState extends State<PosToppingReportScreen> {
               ..._content(_r!),
           ],
         ),
+      ),
       ),
     );
   }
