@@ -70,6 +70,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera dùng để chấm công bằng khuôn mặt và đăng ký khuôn mặt nhân viên (khi bạn bấm Chấm công / Đăng ký), quét mã vạch sản phẩm, chụp ảnh hàng hóa và ảnh hiện trường. Ứng dụng không quay video nền.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID dùng để đăng nhập nhanh vào SBOX thay cho mật khẩu, chỉ khi bạn bật «Đăng nhập bằng Face ID» trong Cài đặt.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Micro chỉ dùng khi bạn bấm nút micro trong Trợ lý AI để hỏi bằng giọng nói. Ứng dụng không ghi âm nền.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

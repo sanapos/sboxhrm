@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_tr.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../services/biometric_login_service.dart';
 
 /// Người dùng tự xóa tài khoản (App Store 5.1.1(v)): xác nhận mật khẩu → xóa → đăng xuất.
 Future<void> showDeleteAccountDialog(BuildContext context) async {
@@ -73,5 +74,7 @@ Future<void> showDeleteAccountDialog(BuildContext context) async {
   );
   if (ok != true || !context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Tài khoản đã được xóa'))));
+  await BiometricLoginService.instance.disable();
+  if (!context.mounted) return;
   await Provider.of<AuthProvider>(context, listen: false).logout();
 }

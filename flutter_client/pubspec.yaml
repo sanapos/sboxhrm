@@ -123,6 +123,9 @@ dependencies:
   flutter_tts: ^4.2.0
   record: ^7.1.1
   audioplayers: ^6.8.1
+  local_auth: ^3.0.2
+  flutter_secure_storage: ^10.3.4
+  local_auth_android: ^2.3.0
 
 dependency_overrides:
   path_provider_foundation: 2.4.4

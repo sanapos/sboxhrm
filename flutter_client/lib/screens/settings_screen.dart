@@ -13,6 +13,7 @@ import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../config/sbox_app_variant.dart';
 import '../services/api_service.dart';
+import '../services/biometric_login_service.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/server_url_dialog.dart';
 import 'app_info_screen.dart';
@@ -37,11 +38,102 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _serverUrl = ApiService.baseUrl;
   String _appVersionLabel = '…';
 
+  /// Đăng nhập bằng Face ID / vân tay: chỉ hiện khi máy có cảm biến đã cài.
+  bool _bioAvailable = false;
+  bool _bioEnabled = false;
+  bool _bioBusy = false;
+  String _bioLabel = '';
+
   @override
   void initState() {
     super.initState();
     _loadPreferences();
     _loadAppVersion();
+    _loadBiometric();
+  }
+
+  Future<void> _loadBiometric() async {
+    final bio = BiometricLoginService.instance;
+    if (!await bio.isAvailable()) return;
+    final label = await bio.loginLabel();
+    final me = await bio.lastLoginIdentity();
+    final acc = await bio.savedAccount();
+    if (!mounted) return;
+    setState(() {
+      _bioAvailable = true;
+      _bioLabel = label;
+      _bioEnabled =
+          acc != null && acc.sameAs(ApiService.baseUrl, me.storeCode, me.email);
+    });
+  }
+
+  Future<void> _toggleBiometric(bool on) async {
+    final bio = BiometricLoginService.instance;
+    if (!on) {
+      await bio.disable();
+      if (mounted) setState(() => _bioEnabled = false);
+      return;
+    }
+    final me = await bio.lastLoginIdentity();
+    if (!mounted || me.email.isEmpty) return;
+    final password = await _askPasswordForBiometric();
+    if (password == null || !mounted) return;
+    setState(() => _bioBusy = true);
+    try {
+      // Kiểm tra mật khẩu bằng API đăng nhập (không đổi phiên đang dùng).
+      final api = ApiService();
+      final res = me.storeCode.isEmpty
+          ? await api.adminLogin(me.email, password)
+          : await api.login(me.storeCode, me.email, password);
+      if (res['isSuccess'] != true) {
+        appNotification.showError(
+          title: _bioLabel,
+          message: res['message']?.toString() ?? tr('Mật khẩu không đúng'),
+        );
+        return;
+      }
+      final ok = await bio.enable(
+          storeCode: me.storeCode, email: me.email, password: password);
+      if (mounted) setState(() => _bioEnabled = ok);
+    } finally {
+      if (mounted) setState(() => _bioBusy = false);
+    }
+  }
+
+  Future<String?> _askPasswordForBiometric() {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(_bioLabel),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tr('Nhập mật khẩu hiện tại để bật đăng nhập nhanh trên điện thoại này.')),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              obscureText: true,
+              autofocus: true,
+              decoration: InputDecoration(labelText: tr('Mật khẩu')),
+              onSubmitted: (v) => Navigator.pop(ctx, v.isEmpty ? null : v),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr('Hủy')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(
+                ctx, controller.text.isEmpty ? null : controller.text),
+            child: Text(tr('Tiếp tục')),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadPreferences() async {
@@ -102,6 +194,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: 'Cập nhật mật khẩu đăng nhập của bạn',
                   onTap: () => _showChangePasswordDialog(context),
                 ),
+                if (_bioAvailable &&
+                    !Provider.of<AuthProvider>(context).isImpersonating)
+                  _buildSettingTile(
+                    context,
+                    icon: Theme.of(context).platform == TargetPlatform.iOS
+                        ? Icons.face_outlined
+                        : Icons.fingerprint,
+                    title: _bioLabel,
+                    subtitle: _bioEnabled
+                        ? 'Đang bật trên điện thoại này'
+                        : 'Mở app không cần nhập mật khẩu',
+                    trailing: _bioBusy
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Switch(
+                            value: _bioEnabled,
+                            onChanged: _toggleBiometric,
+                          ),
+                  ),
               ],
             ),
             const SizedBox(height: 24),
@@ -639,6 +753,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
               if (!ctx.mounted) return;
               if (response['isSuccess'] == true) {
+                final bio = BiometricLoginService.instance;
+                final me = await bio.lastLoginIdentity();
+                await bio.updatePasswordIfEnabled(
+                    storeCode: me.storeCode,
+                    email: me.email,
+                    password: newPassword);
+                if (!ctx.mounted) return;
                 Navigator.pop(ctx);
                 appNotification.showSuccess(
                   title: 'Thành công',

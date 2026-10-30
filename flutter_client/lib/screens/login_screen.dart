@@ -13,6 +13,7 @@ import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../services/app_permission_service.dart';
+import '../services/biometric_login_service.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/sbox_hrm_brand.dart';
 import '../widgets/sbox_pos_hero_panel.dart';
@@ -55,6 +56,13 @@ class _LoginScreenState extends State<LoginScreen>
   /// Tài khoản đăng nhập gần đây trên máy này (mã cửa hàng + tên đăng nhập, không lưu mật khẩu).
   List<Map<String, String>> _recentLogins = [];
   static const String _prefRecentLogins = 'recent_logins_v1';
+
+  /// Tài khoản đã bật đăng nhập bằng Face ID / vân tay trên máy này (null = ẩn nút).
+  BiometricAccount? _bioAccount;
+  String _bioLabel = '';
+
+  /// Tự hỏi Face ID một lần mỗi lần mở app — đăng xuất xong không tự bật lên nữa.
+  static bool _bioAutoPrompted = false;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -199,7 +207,92 @@ class _LoginScreenState extends State<LoginScreen>
       if (authError != null && authError.isNotEmpty) {
         setState(() => _errorMessage = authError);
       }
+      _loadBiometricLogin(autoPrompt: authError == null || authError.isEmpty);
     });
+  }
+
+  Future<void> _loadBiometricLogin({bool autoPrompt = false}) async {
+    final bio = BiometricLoginService.instance;
+    final acc = await bio.accountForCurrentServer();
+    if (acc == null || !await bio.isAvailable()) {
+      if (mounted && _bioAccount != null) setState(() => _bioAccount = null);
+      return;
+    }
+    final label = await bio.loginLabel();
+    if (!mounted) return;
+    setState(() {
+      _bioAccount = acc;
+      _bioLabel = label;
+    });
+    if (autoPrompt && !_bioAutoPrompted) {
+      _bioAutoPrompted = true;
+      await _handleBiometricLogin();
+    }
+  }
+
+  Future<void> _handleBiometricLogin() async {
+    final acc = _bioAccount;
+    if (acc == null || _isLoading) return;
+    final password = await BiometricLoginService.instance
+        .unlockPassword(acc, tr('Đăng nhập SBOX bằng tài khoản ${acc.email}'));
+    if (!mounted) return;
+    if (password == null) {
+      // Hủy hoặc dữ liệu đã mất → nút tự ẩn nếu không còn tài khoản.
+      await _loadBiometricLogin();
+      return;
+    }
+    setState(() {
+      _storeCodeController.text = acc.storeCode;
+      _emailController.text = acc.email;
+    });
+    await _submitLogin(password: password, viaBiometric: true);
+  }
+
+  /// Sau lần đăng nhập bằng mật khẩu: hỏi bật Face ID (một lần cho mỗi tài khoản).
+  Future<void> _offerBiometricLogin(
+      String storeCode, String email, String password) async {
+    final bio = BiometricLoginService.instance;
+    if (!await bio.isAvailable()) return;
+    final acc = await bio.savedAccount();
+    if (acc != null && acc.sameAs(ApiService.baseUrl, storeCode, email)) {
+      // Đã bật cho tài khoản này — giữ mật khẩu mới nhất (vừa đổi trên máy khác).
+      await bio.updatePasswordIfEnabled(
+          storeCode: storeCode, email: email, password: password);
+      return;
+    }
+    if (await bio.wasDeclined(storeCode, email)) return;
+    final label = await bio.loginLabel();
+    if (!mounted) return;
+    final enable = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(label),
+        content: Text(tr(
+            'Lần sau mở app chỉ cần xác thực khuôn mặt hoặc vân tay, không phải nhập mật khẩu. Mật khẩu được giữ trong kho bảo mật của điện thoại này.')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Để sau')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Bật')),
+          ),
+        ],
+      ),
+    );
+    if (enable == true) {
+      final ok = await bio.enable(
+          storeCode: storeCode, email: email, password: password);
+      if (ok) {
+        NotificationOverlayManager().showSuccess(
+          title: label,
+          message: tr('Đã bật. Có thể tắt trong Cài đặt.'),
+        );
+      }
+    } else if (enable == false) {
+      await bio.markDeclined(storeCode, email);
+    }
   }
 
   void _onStoreCodeChanged() {
@@ -463,7 +556,14 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
+    await _submitLogin(password: _passwordController.text);
+  }
 
+  /// [viaBiometric]: mật khẩu lấy từ kho bảo mật sau Face ID, không phải ô nhập.
+  Future<void> _submitLogin({
+    required String password,
+    bool viaBiometric = false,
+  }) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -482,15 +582,23 @@ class _LoginScreenState extends State<LoginScreen>
       final success = await authProvider.login(
         storeCode,
         email,
-        _passwordController.text,
+        password,
       );
 
       if (success && mounted) {
-        TextInput.finishAutofillContext(); // để trình duyệt / điện thoại đề nghị lưu mật khẩu
+        if (!viaBiometric) {
+          TextInput.finishAutofillContext(); // để trình duyệt / điện thoại đề nghị lưu mật khẩu
+        }
         await _saveCredentials();
         await _rememberRecentLogin();
         final role = authProvider.userRole;
         if (!mounted) return;
+        final adminBlockedInPos = (role == 'SuperAdmin' || role == 'Agent') &&
+            SboxAppVariant.standalonePos;
+        if (!viaBiometric && !adminBlockedInPos) {
+          await _offerBiometricLogin(storeCode, email, password);
+          if (!mounted) return;
+        }
         if (role == 'SuperAdmin' || role == 'Agent') {
           if (SboxAppVariant.standalonePos) {
             await authProvider.logout();
@@ -506,7 +614,15 @@ class _LoginScreenState extends State<LoginScreen>
           Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
         }
       } else if (!success && mounted) {
-        final errMsg = authProvider.error ?? 'Đăng nhập thất bại';
+        var errMsg = authProvider.error ?? 'Đăng nhập thất bại';
+        if (viaBiometric && errMsg.contains('mật khẩu không đúng')) {
+          // Mật khẩu đã đổi ở nơi khác → bỏ bản lưu cũ, đăng nhập lại bằng mật khẩu để bật lại.
+          await BiometricLoginService.instance.disable();
+          if (!mounted) return;
+          setState(() => _bioAccount = null);
+          errMsg = tr(
+              'Mật khẩu đã thay đổi. Nhập mật khẩu mới để đăng nhập và bật lại đăng nhập nhanh.');
+        }
         setState(() => _errorMessage = errMsg);
         NotificationOverlayManager()
             .showError(title: 'Đăng nhập thất bại', message: errMsg);
@@ -1042,6 +1158,33 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                           ),
                         ),
+                        if (_bioAccount != null) ...[
+                          SizedBox(height: tight ? 10 : 12),
+                          SizedBox(
+                            height: 50,
+                            child: OutlinedButton.icon(
+                              onPressed:
+                                  _isLoading ? null : _handleBiometricLogin,
+                              icon: Icon(
+                                defaultTargetPlatform == TargetPlatform.iOS
+                                    ? Icons.face_outlined
+                                    : Icons.fingerprint,
+                                size: 22,
+                              ),
+                              label: Text(_bioLabel,
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: _brand,
+                                side: BorderSide(
+                                    color: _brand.withValues(alpha: 0.45)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14)),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     ),
