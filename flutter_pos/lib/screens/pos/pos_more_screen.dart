@@ -299,7 +299,10 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                       ListTile(
                         leading: const Icon(Icons.tune_rounded, color: PosTheme.kiotBlue),
                         title: Text(tr('Thiết lập SBOX'), style: const TextStyle(fontWeight: FontWeight.w700)),
-                        subtitle: Text(tr('Cửa hàng, bán hàng, thanh toán, máy in, người dùng')),
+                        // Máy Android 6 (chế độ gọn) không có tài khoản / phân quyền — làm trên web / SBOX HRM.
+                        subtitle: Text(tr(PosLiteMode.enabled
+                            ? 'Cửa hàng, bán hàng, thanh toán, máy in'
+                            : 'Cửa hàng, bán hàng, thanh toán, máy in, người dùng')),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(builder: (_) => const SettingsHubScreen()),
