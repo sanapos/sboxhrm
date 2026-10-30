@@ -244,7 +244,7 @@ class _DepartmentsV2ScreenState extends State<DepartmentsV2Screen> {
       stat('Nhân viên', '$_totalEmployees', Icons.groups_rounded, SboxTone.success),
       stat('Chưa có phòng ban', '$_unassigned', Icons.person_search_rounded, _unassigned > 0 ? SboxTone.warning : SboxTone.neutral,
           onTap: _unassigned > 0 ? () => _open(_kNone, wide) : null),
-      stat('Phòng chưa có quản lý', '$noManager', Icons.manage_accounts_outlined, noManager > 0 ? SboxTone.danger : SboxTone.neutral),
+      stat('Chưa có quản lý', '$noManager', Icons.manage_accounts_outlined, noManager > 0 ? SboxTone.danger : SboxTone.neutral),
     ];
     if (wide) {
       return Row(children: [

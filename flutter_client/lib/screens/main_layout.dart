@@ -427,6 +427,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     'Đặt lịch': ['lịch hẹn', 'hẹn khách', 'đặt bàn', 'đặt chỗ', 'booking'],
     // Công nợ phải trả NCC xem / trả ở màn Nhà cung cấp — gõ «nợ ncc» trước đây không ra gì.
     'Nhà cung cấp': ['công nợ ncc', 'nợ nhà cung cấp', 'phải trả', 'trả nợ ncc'],
+    // Gõ «bảng công» trước đây không ra gì (C20, 30/10).
+    'Tổng hợp chấm công': ['bảng công', 'bảng chấm công', 'công tháng', 'timesheet'],
   };
 
   Future<void> _openCommandPalette() async {
@@ -521,6 +523,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             keywords: [...d.$4, d.$3],
             onSelect: () => _openShellExtra(d.$1, d.$5),
           ),
+      // Chỉ có trong Báo cáo POS / tab của Tài chính nhân sự — gõ «sổ quỹ» trước đây «Không tìm thấy».
+      // Báo cáo có thanh tiêu đề + nút quay lại riêng → mở toàn trang như từ Báo cáo POS (nhúng vào khung
+      // có tiêu đề của app thì thành 2 tầng tiêu đề, 2 nút ←).
+      if (!known.contains('sổ quỹ') && PermissionNavigation.canNavigate(perm, 'PosReportCashbook'))
+        SboxCommandItem(
+          label: 'Sổ quỹ',
+          icon: Icons.menu_book_outlined,
+          group: 'POS / Bán hàng',
+          keywords: const ['thu chi', 'tồn quỹ', 'quỹ tiền mặt', 'phiếu thu', 'phiếu chi', 'PosReportCashbook'],
+          onSelect: () => Navigator.of(context)
+              .push(MaterialPageRoute(builder: (_) => const PosCashbookReportScreen())),
+        ),
     ];
   }
 

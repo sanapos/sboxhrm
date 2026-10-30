@@ -110,7 +110,7 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
             const SizedBox(height: 12),
             ShiftUi.statGrid([
               ShiftUi.stat('Nhân viên', '${ShiftUi.n(sm['employees'])}', Icons.people_alt_rounded, SboxColors.brand600),
-              ShiftUi.stat('Chưa xếp ca tuần này', '${ShiftUi.n(sm['unscheduled'])}', Icons.person_off_rounded,
+              ShiftUi.stat('Chưa xếp ca', '${ShiftUi.n(sm['unscheduled'])}', Icons.person_off_rounded,
                   ShiftUi.n(sm['unscheduled']) > 0 ? SboxColors.warning : SboxColors.slate400),
               ShiftUi.stat('Giờ công dự kiến', '${ShiftUi.n(sm['plannedHours'])}', Icons.timelapse_rounded, SboxColors.violet),
               ShiftUi.stat('Ca thiếu người', '${ShiftUi.n(sm['shortSlots'])}', Icons.warning_amber_rounded,

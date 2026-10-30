@@ -109,7 +109,7 @@ class HrmTopBarAction extends StatelessWidget {
     required this.label,
     this.onPressed,
     this.primary = false,
-    this.iconOnly = true,
+    this.iconOnly = false,
     this.showLabel = false,
     this.pinOnMobile,
   });
@@ -119,7 +119,9 @@ class HrmTopBarAction extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool primary;
 
-  /// Giữ tương thích call-site cũ; mặc định true.
+  /// true = luôn chỉ biểu tượng. Mặc định false: [primary] + [showLabel] hiện chữ trên màn rộng
+  /// (trước đây mặc định true nên showLabel không bao giờ có tác dụng — «Thêm phòng ban», «Yêu cầu
+  /// đổi ca»… chỉ là «+» dù màn trống bảo «Bấm «Yêu cầu đổi ca»»).
   final bool iconOnly;
 
   /// Chỉ dùng với [primary] khi muốn chữ (vd. "Tạo đơn").

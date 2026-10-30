@@ -40,6 +40,7 @@ class _ShiftSwapScreenState extends State<ShiftSwapScreen> {
             icon: Icons.add,
             label: 'Yêu cầu đổi ca',
             primary: true,
+            showLabel: true,
             onPressed: () => _panelKey.currentState?.showCreateDialog(),
           ),
         HrmTopBarAction(
