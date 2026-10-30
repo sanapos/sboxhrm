@@ -242,7 +242,10 @@ class _MealCanteenLiveViewState extends State<MealCanteenLiveView> {
         if (noShow.isNotEmpty)
           Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
+            // Material trong suốt: ExpansionTile vẽ hiệu ứng chạm lên Material gần nhất, nền thẻ che mất.
+            child: Material(
+              type: MaterialType.transparency,
+              child: ExpansionTile(
               tilePadding: EdgeInsets.zero,
               childrenPadding: const EdgeInsets.only(bottom: 4),
               title: Text(tr('Danh sách đăng ký chưa ăn (${noShow.length})'),
@@ -255,6 +258,7 @@ class _MealCanteenLiveViewState extends State<MealCanteenLiveView> {
                   ]),
                 ),
               ],
+            ),
             ),
           ),
       ]),

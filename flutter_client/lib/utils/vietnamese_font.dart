@@ -5,8 +5,11 @@ import '../theme/sbox_tokens.dart';
 /// Font chính (pubspec assets). Không fallback Arial/sans — Android 6 (T1)
 /// hay nhảy sang font CJK hệ thống, dấu tiếng Việt bị lỗi cả app.
 const String kVietnameseFontFamily = 'BeVietnamPro';
+/// SboxSymbols: mũi tên, ①–⑩, ⋮, ✓ — BeVietnamPro thiếu, web/app vẽ ô trống hoặc bỏ mất.
+/// Chỉ chứa ký hiệu nên không kéo font CJK hệ thống như Arial.
 const List<String> kVietnameseFontFallback = [
   'Be Vietnam Pro',
+  'SboxSymbols',
 ];
 
 bool _mobileFontsLoaded = false;

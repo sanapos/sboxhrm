@@ -3006,10 +3006,10 @@ class _LeaveScreenState extends State<LeaveScreen>
             'Nghỉ lễ, Tết', HrmPageChrome.chipMid, Icons.celebration_rounded);
       case 2:
         return const _LeaveTypeInfo(
-            'VR có luong', HrmPageChrome.chipLight, Icons.paid_rounded);
+            'VR có lương', HrmPageChrome.chipLight, Icons.paid_rounded);
       case 3:
         return const _LeaveTypeInfo(
-            'VR không luong', HrmPageChrome.chipDark, Icons.money_off_rounded);
+            'VR không lương', HrmPageChrome.chipDark, Icons.money_off_rounded);
       case 4:
         return const _LeaveTypeInfo(
             'Nghỉ ốm', HrmPageChrome.chipDark, Icons.local_hospital_rounded);

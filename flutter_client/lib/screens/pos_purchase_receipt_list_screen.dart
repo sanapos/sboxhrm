@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/vietnamese_font.dart';
 import '../utils/api_datetime.dart';
 
 import 'package:flutter/material.dart';
@@ -939,6 +940,8 @@ class _PosPurchaseReceiptListScreenState
       style: TextButton.styleFrom(
         foregroundColor: active ? _blue : PosTheme.textSecondary,
         textStyle: TextStyle(
+            fontFamily: kVietnameseFontFamily,
+            fontFamilyFallback: kVietnameseFontFallback,
             fontWeight: active ? FontWeight.w600 : FontWeight.normal,
             fontSize: 13),
       ),
@@ -1032,8 +1035,9 @@ class _PosPurchaseReceiptListScreenState
     );
   }
 
-  Widget _meta(String label, String value) => RichText(
-        text: TextSpan(
+  // Text.rich (không phải RichText): kế thừa font của theme, RichText thì không.
+  Widget _meta(String label, String value) => Text.rich(
+        TextSpan(
           style: const TextStyle(fontSize: 12, color: SboxColors.text),
           children: [
             TextSpan(

@@ -27,6 +27,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../theme/sbox_tokens.dart';
 import 'kpi/kpi_report_view.dart';
 import '../utils/api_datetime.dart';
+import '../utils/vietnamese_font.dart';
 class KpiScreen extends StatefulWidget {
   const KpiScreen({super.key});
 
@@ -500,7 +501,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         value: _selPeriodId,
         isDense: true,
         isExpanded: true,
+        // Ô chọn không kế thừa font theme → ghi rõ, thiếu là web vẽ ô vuông.
         style: TextStyle(
+          fontFamily: kVietnameseFontFamily,
+          fontFamilyFallback: kVietnameseFontFallback,
           fontSize: isMobile ? 12 : 13,
           fontWeight: FontWeight.w600,
           color: HrmPageChrome.textDark,
@@ -2981,7 +2985,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                       fontWeight: FontWeight.w700,
                                       fontSize: 14)),
                               const SizedBox(height: 3),
-                              Row(children: [
+                              // Wrap: điện thoại hẹp — phòng ban + «Lương HT» xuống dòng thay vì tràn 160px.
+                              Wrap(
+                                  spacing: 6,
+                                  runSpacing: 2,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 6, vertical: 1),
@@ -3002,11 +3011,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                           fontSize: 10,
                                           fontWeight: FontWeight.w600)),
                                 ),
-                                const SizedBox(width: 6),
                                 Text(tr(t['department'] ?? ''),
                                     style: TextStyle(
                                         color: SboxColors.slate500, fontSize: 12)),
-                                const SizedBox(width: 6),
                                 Text(tr('${tr('Lương HT: ')}${_cur.format(t['completionSalary'] ?? 0)}'),
                                     style: TextStyle(
                                         color: SboxColors.slate400, fontSize: 11)),
@@ -3905,6 +3912,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       return ListView.builder(
         shrinkWrap: !isMobile,
         physics: isMobile ? null : const NeverScrollableScrollPhysics(),
+        padding: isMobile ? const EdgeInsets.all(16) : null,
         itemCount: _targets.length,
         itemBuilder: (_, i) {
           final t = _targets[i];
@@ -3983,10 +3991,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   ),
                 ],
               ),
-              body: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: buildList(),
-              ),
+              // Danh sách tự cuộn — trước bọc thêm SingleChildScrollView: ListView không
+              // shrinkWrap trong vùng cuộn → cao vô hạn, hộp thoại trống trên điện thoại.
+              body: buildList(),
             ),
           );
         }

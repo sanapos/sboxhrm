@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../utils/vietnamese_font.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
@@ -750,7 +751,8 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
           isExpanded: true,
           hint: Text(tr('Trạng thái'),
               style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
-          style: const TextStyle(fontSize: 12, color: SboxColors.slate900),
+          // Ô chọn không kế thừa font theme → phải ghi rõ, thiếu là web vẽ ô vuông / máy cũ lỗi dấu.
+          style: const TextStyle(fontFamily: kVietnameseFontFamily, fontFamilyFallback: kVietnameseFontFallback, fontSize: 12, color: SboxColors.slate900),
           items: [
             DropdownMenuItem(value: null, child: Text(tr('Mọi trạng thái'))),
             for (int i = 0; i <= 9; i++)

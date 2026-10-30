@@ -3591,13 +3591,16 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     const SizedBox(height: 12),
                     Row(children: [
                       Expanded(
+                          // isExpanded: nút rộng theo nhãn dài nhất (14 loại) → tràn ô nửa màn điện thoại.
                           child: DropdownButtonFormField<TaskType>(
                         initialValue: type,
+                        isExpanded: true,
                         decoration: _dropDecor('Loại'),
                         items: TaskType.values
                             .map((t) => DropdownMenuItem(
                                 value: t,
                                 child: Text(tr(getTaskTypeLabel(t)),
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(fontSize: 13))))
                             .toList(),
                         onChanged: (v) => ss(() => type = v!),
@@ -3606,6 +3609,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       Expanded(
                           child: DropdownButtonFormField<TaskPriority>(
                         initialValue: priority,
+                        isExpanded: true,
                         decoration: _dropDecor('Ưu tiên'),
                         items: TaskPriority.values
                             .map((p) => DropdownMenuItem(
@@ -3614,8 +3618,11 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                                   Icon(Icons.flag,
                                       size: 14, color: _priorityColor(p)),
                                   const SizedBox(width: 4),
-                                  Text(tr(getPriorityLabel(p)),
-                                      style: const TextStyle(fontSize: 13))
+                                  Flexible(
+                                    child: Text(tr(getPriorityLabel(p)),
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 13)),
+                                  )
                                 ])))
                             .toList(),
                         onChanged: (v) => ss(() => priority = v!),

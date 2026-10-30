@@ -1,4 +1,5 @@
 ﻿import 'dart:math' as math;
+import '../utils/vietnamese_font.dart';
 import '../utils/file_saver.dart' as file_saver;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -478,7 +479,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               children: [
                 Icon(Icons.upload, color: Colors.teal),
                 SizedBox(width: 8),
-                Text(tr('Tải hồ sơ nhân sự xuống máy')),
+                Expanded(child: Text(tr('Tải hồ sơ nhân sự xuống máy'))),
               ],
             ),
             content: SizedBox(
@@ -491,6 +492,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 children: [
                   // Device selector
                   DropdownButtonFormField<Device>(
+                    // Tên + serial dài: không có isExpanded thì tràn ngang trên điện thoại.
+                    isExpanded: true,
                     decoration: InputDecoration(
                       labelText: tr('Chọn thiết bị *'),
                       prefixIcon: Icon(Icons.devices),
@@ -506,7 +509,10 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 size: 10,
                                 color: online ? Colors.green : SboxColors.slate500),
                             const SizedBox(width: 8),
-                            Text(tr('${d.deviceName} (${d.serialNumber})')),
+                            Expanded(
+                              child: Text(tr('${d.deviceName} (${d.serialNumber})'),
+                                  overflow: TextOverflow.ellipsis),
+                            ),
                           ],
                         ),
                       );
@@ -1173,6 +1179,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           isDense: true,
           icon: const Icon(Icons.keyboard_arrow_down, size: 18),
           style: TextStyle(
+              fontFamily: kVietnameseFontFamily,
+              fontFamilyFallback: kVietnameseFontFallback,
               fontSize: 13,
               color: Theme.of(context).textTheme.bodyMedium?.color),
           items: [
@@ -1279,6 +1287,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           isDense: true,
           icon: const Icon(Icons.keyboard_arrow_down, size: 18),
           style: TextStyle(
+              fontFamily: kVietnameseFontFamily,
+              fontFamilyFallback: kVietnameseFontFallback,
               fontSize: 13,
               color: Theme.of(context).textTheme.bodyMedium?.color),
           items: [
@@ -2233,7 +2243,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 child: DropdownButton<int>(
                   value: _pageSize,
                   isDense: true,
-                  style: TextStyle(fontSize: 13, color: SboxColors.slate800),
+                  style: TextStyle(fontFamily: kVietnameseFontFamily, fontFamilyFallback: kVietnameseFontFallback, fontSize: 13, color: SboxColors.slate800),
                   items: _pageSizeOptions
                       .map((s) => DropdownMenuItem(value: s, child: Text(tr('$s'))))
                       .toList(),

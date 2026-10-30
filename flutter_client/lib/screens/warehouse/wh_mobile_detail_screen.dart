@@ -577,16 +577,24 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        // «Tồn HT · Lệch» xuống dòng dưới số lượng: chung một hàng thì chữ dính vào
+                        // nhau và vào số tiền trên điện thoại hẹp.
                         Flexible(
-                          child: Text(
-                            _lines[i]['qty'] == null
-                                ? tr('Chưa kiểm')
-                                : tr('${_lines[i]['qtyPrefix'] ?? 'SL'}: ${_qtyLabel(_lines[i])}'),
-                            style: WhMobileTheme.body.copyWith(fontWeight: FontWeight.w600),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _lines[i]['qty'] == null
+                                    ? tr('Chưa kiểm')
+                                    : tr('${_lines[i]['qtyPrefix'] ?? 'SL'}: ${_qtyLabel(_lines[i])}'),
+                                style: WhMobileTheme.body.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              if (_lines[i]['extra'] != null)
+                                Text(tr(_lines[i]['extra'].toString()), style: WhMobileTheme.caption),
+                            ],
                           ),
                         ),
-                        if (_lines[i]['extra'] != null)
-                          Text(tr(_lines[i]['extra'].toString()), style: WhMobileTheme.caption),
+                        const SizedBox(width: 8),
                         Text(
                           tr(_svc.formatMoney((_lines[i]['total'] as num?)?.toDouble() ?? 0)),
                           style: WhMobileTheme.money.copyWith(fontSize: 16),

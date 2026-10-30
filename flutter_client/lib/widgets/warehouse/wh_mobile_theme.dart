@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
 import '../../theme/sbox_tokens.dart';
+import '../../utils/vietnamese_font.dart';
 
 /// Design tokens — Material 3 + iOS (glass nhẹ, bo góc lớn, nhiều khoảng trắng).
 abstract final class WhMobileTheme {
@@ -148,7 +149,10 @@ abstract final class WhMobileTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusMd),
         ),
+        // textStyle của nút thay hẳn kiểu chữ theme → tự giữ font chính (thiếu là máy cũ lỗi dấu).
         textStyle: const TextStyle(
+          fontFamily: kVietnameseFontFamily,
+          fontFamilyFallback: kVietnameseFontFallback,
           fontSize: 16,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.2,
@@ -167,7 +171,10 @@ abstract final class WhMobileTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusMd),
         ),
+        // textStyle của nút thay hẳn kiểu chữ theme → tự giữ font chính (thiếu là máy cũ lỗi dấu).
         textStyle: const TextStyle(
+          fontFamily: kVietnameseFontFamily,
+          fontFamilyFallback: kVietnameseFontFallback,
           fontSize: 16,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.2,

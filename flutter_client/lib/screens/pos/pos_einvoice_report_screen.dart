@@ -411,8 +411,10 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
           );
         }
 
+        // Hóa đơn đã xuất có tới ~9 thao tác — màn thấp (máy tính 800px, điện thoại) tràn nếu không cuộn.
         return SafeArea(
-          child: Column(
+          child: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
@@ -479,6 +481,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                     () => PosEInvoiceActions.openPortal(_portal)),
               const SizedBox(height: 8),
             ],
+          ),
           ),
         );
       },

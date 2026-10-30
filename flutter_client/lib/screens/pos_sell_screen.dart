@@ -1,4 +1,5 @@
 import '../widgets/pos/pos_customer_purchase_history_sheet.dart';
+import '../utils/vietnamese_font.dart';
 import '../widgets/pos/pos_keyboard_builder.dart';
 import 'dart:async';
 import '../utils/api_datetime.dart';
@@ -17879,7 +17880,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                               : _PosPaymentSource.cashKey,
                           isExpanded: true,
                           isDense: true,
-                          style: const TextStyle(fontSize: 14, color: PosTheme.textPrimary),
+                          style: const TextStyle(fontFamily: kVietnameseFontFamily, fontFamilyFallback: kVietnameseFontFallback, fontSize: 14, color: PosTheme.textPrimary),
                           items: _paymentSources
                               .map((s) => DropdownMenuItem(
                                     value: s.key,
@@ -17941,7 +17942,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                 : _PosPaymentSource.cashKey,
                             isExpanded: true,
                             isDense: true,
-                            style: const TextStyle(fontSize: 12, color: PosTheme.textPrimary),
+                            style: const TextStyle(fontFamily: kVietnameseFontFamily, fontFamilyFallback: kVietnameseFontFallback, fontSize: 12, color: PosTheme.textPrimary),
                             items: _paymentSources
                                 .map((s) => DropdownMenuItem(
                                       value: s.key,

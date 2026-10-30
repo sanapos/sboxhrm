@@ -1465,7 +1465,11 @@ class _BusinessTripCaseDetailScreenState
               ],
             ),
             const SizedBox(height: 8),
-            Text(tr('Đã ứng: ${_currency.format(_advanceAmount)}'),
+            // Phiếu ứng chưa chi: số tiền mới là đề nghị — trước ghi «Đã ứng» khi quản lý còn đang duyệt.
+            Text(
+                advance != null && advance['isPaid'] != true
+                    ? tr('Đề nghị ứng: ${_currency.format(_advanceAmount)}')
+                    : tr('Đã ứng: ${_currency.format(_advanceAmount)}'),
                 style: const TextStyle(fontSize: 16)),
             if (advance != null) ...[
               Text(tr('${tr('Trạng thái: ')}${advanceStatusLabel(advance['status'])}')),

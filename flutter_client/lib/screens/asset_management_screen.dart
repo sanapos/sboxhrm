@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../utils/vietnamese_font.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
@@ -4378,7 +4379,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       decoration: _dialogDecoration(label),
       items: items,
       onChanged: onChanged,
-      style: const TextStyle(fontSize: 14, color: SboxColors.slate900),
+      // style của DropdownButton thay hẳn kiểu chữ theme → phải tự giữ font chính,
+      // thiếu là ô chọn hiện font hệ thống (Android 6 nhảy font CJK, lỗi dấu).
+      style: const TextStyle(
+          fontFamily: kVietnameseFontFamily, fontFamilyFallback: kVietnameseFontFallback, fontSize: 14, color: SboxColors.slate900),
     );
   }
 }

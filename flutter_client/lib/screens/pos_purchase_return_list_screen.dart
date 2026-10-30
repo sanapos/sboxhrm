@@ -860,8 +860,9 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
     );
   }
 
-  Widget _meta(String label, String value) => RichText(
-        text: TextSpan(
+  // Text.rich (không phải RichText): kế thừa font của theme, RichText thì không.
+  Widget _meta(String label, String value) => Text.rich(
+        TextSpan(
           style: const TextStyle(fontSize: 12, color: SboxColors.text),
           children: [
             TextSpan(

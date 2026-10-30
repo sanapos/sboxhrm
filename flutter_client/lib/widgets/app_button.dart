@@ -3,6 +3,7 @@ import '../l10n/app_tr.dart';
 
 import './pos/pos_theme.dart';
 import '../theme/sbox_tokens.dart';
+import '../utils/vietnamese_font.dart';
 /// Semantic button variants for consistent UI
 enum AppButtonVariant { primary, danger, success, warning, cancel, outlined }
 
@@ -175,6 +176,8 @@ class AppButton extends StatelessWidget {
       child = Text(tr(label));
     }
 
+    // textStyle của nút thay hẳn kiểu chữ theme → phải tự giữ font chính, thiếu là máy cũ
+    // (Android 6) nhảy font hệ thống, lỗi dấu tiếng Việt.
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(10),
     );
@@ -188,7 +191,7 @@ class AppButton extends StatelessWidget {
             foregroundColor: _cancelTextColor,
             padding: btnPadding,
             shape: shape,
-            textStyle: const TextStyle(fontWeight: FontWeight.w500),
+            textStyle: const TextStyle(fontFamily: kVietnameseFontFamily, fontFamilyFallback: kVietnameseFontFallback, fontWeight: FontWeight.w500),
           ),
           child: child,
         );
@@ -201,7 +204,7 @@ class AppButton extends StatelessWidget {
             side: BorderSide(color: _primaryColor.withValues(alpha: 0.5)),
             padding: btnPadding,
             shape: shape,
-            textStyle: const TextStyle(fontWeight: FontWeight.w600),
+            textStyle: const TextStyle(fontFamily: kVietnameseFontFamily, fontFamilyFallback: kVietnameseFontFallback, fontWeight: FontWeight.w600),
           ),
           child: child,
         );
@@ -215,7 +218,7 @@ class AppButton extends StatelessWidget {
             padding: btnPadding,
             shape: shape,
             elevation: 0,
-            textStyle: const TextStyle(fontWeight: FontWeight.w600),
+            textStyle: const TextStyle(fontFamily: kVietnameseFontFamily, fontFamilyFallback: kVietnameseFontFallback, fontWeight: FontWeight.w600),
           ),
           child: child,
         );

@@ -601,6 +601,8 @@ class _PosSellIndustrySettingsScreenState
                   const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
+            // Chữ dài («Bán thường — hóa đơn đủ thông tin») tràn ô trên điện thoại nếu không giãn hết bề ngang.
+            isExpanded: true,
             value:
                 const {'quick', 'normal', 'delivery'}.contains(s.defaultSellMode)
                     ? s.defaultSellMode

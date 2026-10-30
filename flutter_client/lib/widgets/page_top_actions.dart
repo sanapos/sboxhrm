@@ -21,7 +21,8 @@ class PageTopActions extends ChangeNotifier {
   void setActions(List<Widget> actions, {Object? owner}) {
     final key = owner ?? _defaultOwner;
     if (actions.isEmpty) {
-      if (_byOwner.remove(key) != null) notifyListeners();
+      // Gỡ nút cũng có thể xảy ra trong lúc dựng (đổi tab ẩn nút) → báo sau khung hình như khi thêm.
+      if (_byOwner.remove(key) != null) WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
       return;
     }
     _byOwner[key] = List<Widget>.unmodifiable(actions);

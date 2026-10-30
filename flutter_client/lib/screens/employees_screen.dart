@@ -2554,6 +2554,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 const SizedBox(height: 16),
                 if (isMobileForm) ...[
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: _genders.contains(selectedGender)
                         ? selectedGender
                         : null,
@@ -2595,6 +2596,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue:
                         _maritalStatuses.contains(selectedMaritalStatus)
                             ? selectedMaritalStatus
@@ -2614,6 +2616,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
+                          isExpanded: true,
                           initialValue: _genders.contains(selectedGender)
                               ? selectedGender
                               : null,
@@ -2661,6 +2664,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: DropdownButtonFormField<String>(
+                          isExpanded: true,
                           initialValue:
                               _maritalStatuses.contains(selectedMaritalStatus)
                                   ? selectedMaritalStatus
@@ -2755,6 +2759,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 const SizedBox(height: 12),
                 // Trình độ học vấn
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: const [
                     'Trung học',
                     'Trung cấp',
@@ -2904,6 +2909,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
+                          isExpanded: true,
                           initialValue: _departments
                                   .where((d) => d != 'Tất cả')
                                   .contains(departmentController.text)
@@ -2946,6 +2952,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           ? _departmentPositions[deptName]!
                           : _positions;
                       return DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue:
                             availablePositions.contains(positionController.text)
                                 ? positionController.text
@@ -2977,6 +2984,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       // Department dropdown from API
                       Expanded(
                         child: DropdownButtonFormField<String>(
+                          isExpanded: true,
                           initialValue: _departments
                                   .where((d) => d != 'Tất cả')
                                   .contains(departmentController.text)
@@ -3021,6 +3029,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                 ? _departmentPositions[deptName]!
                                 : _positions;
                             return DropdownButtonFormField<String>(
+                              isExpanded: true,
                               initialValue: availablePositions
                                       .contains(positionController.text)
                                   ? positionController.text
@@ -3209,6 +3218,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: _statuses
                                 .where((s) => s != 'Tất cả')
                                 .contains(selectedWorkStatus)

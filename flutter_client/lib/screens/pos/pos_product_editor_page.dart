@@ -242,7 +242,8 @@ class _VariantAttrRow {
 }
 
 class _PosProductEditorPageState extends State<PosProductEditorPage>
-    with SingleTickerProviderStateMixin {
+    // Nhiều ticker: đổi số tab (hiện / ẩn tab Mô tả) tạo controller mới trước khi hủy cái cũ.
+    with TickerProviderStateMixin {
   /// Quyền «Xem giá vốn & lợi nhuận» — không có thì ô giá vốn khóa, máy chủ giữ giá vốn cũ.
   bool get _canViewCost => context.read<PermissionProvider>().canViewCost();
 
@@ -543,8 +544,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final labels = _tabLabels;
     final idx = _tabs.index.clamp(0, labels.length - 1);
     if (_tabs.length != labels.length) {
-      _tabs.dispose();
+      // Thanh tab khung hình hiện tại còn giữ controller cũ — hủy sau khung hình,
+      // hủy ngay thì báo «TabController was used after being disposed» (vd ngành khách sạn có tab Mô tả).
+      final old = _tabs;
       _tabs = TabController(length: labels.length, vsync: this, initialIndex: idx);
+      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
     }
   }
 
@@ -3279,6 +3283,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       children: [
         DropdownButtonFormField<String>(
           value: _commissionMode,
+          // Điện thoại: «% trên doanh thu dòng / phần combo» dài hơn ô — thiếu isExpanded thì tràn ~15px.
+          isExpanded: true,
           decoration: PosTheme.inputDecoration(label: 'Cách tính hoa hồng'),
           items: [
             DropdownMenuItem(value: 'None', child: Text(tr('Không tính'))),

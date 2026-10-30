@@ -1,4 +1,5 @@
 import '../widgets/export_file_icon.dart';
+import '../utils/vietnamese_font.dart';
 import 'dart:async';
 import '../utils/pos_list_prefs.dart';
 import '../widgets/pos/pos_master_detail_layout.dart';
@@ -2653,6 +2654,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       style: TextButton.styleFrom(
         foregroundColor: active ? PosTheme.kiotBlue : PosTheme.textSecondary,
         textStyle: TextStyle(
+            fontFamily: kVietnameseFontFamily,
+            fontFamilyFallback: kVietnameseFontFallback,
             fontWeight: active ? FontWeight.w600 : FontWeight.normal,
             fontSize: 13),
       ),
@@ -2667,8 +2670,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     );
   }
 
-  Widget _meta(String label, String value) => RichText(
-        text: TextSpan(
+  // Text.rich (không phải RichText): kế thừa font của theme, RichText thì không.
+  Widget _meta(String label, String value) => Text.rich(
+        TextSpan(
           style: const TextStyle(fontSize: 12, color: SboxColors.text),
           children: [
             TextSpan(

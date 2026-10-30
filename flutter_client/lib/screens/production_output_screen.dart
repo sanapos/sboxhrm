@@ -8,6 +8,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 
+import '../utils/vietnamese_font.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/branch_filter_helper.dart';
@@ -636,7 +637,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     );
   }
 
+  // Ô chọn kỳ dùng style riêng → không kế thừa font theme, phải tự đặt (thiếu là ô vuông trên web).
   static const _toolbarFieldText = TextStyle(
+    fontFamily: kVietnameseFontFamily,
+    fontFamilyFallback: kVietnameseFontFallback,
     fontSize: 12,
     color: SboxColors.slate900,
   );

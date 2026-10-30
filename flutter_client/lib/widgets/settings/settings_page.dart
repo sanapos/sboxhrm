@@ -453,8 +453,11 @@ class SettingsHelp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(color: SboxColors.brand50, borderRadius: BorderRadius.circular(12)),
+    // Material (không phải Container tô màu): ExpansionTile vẽ nền / hiệu ứng chạm lên Material gần nhất.
+    return Material(
+      color: SboxColors.brand50,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
