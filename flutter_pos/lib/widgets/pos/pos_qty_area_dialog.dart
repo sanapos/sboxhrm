@@ -118,6 +118,8 @@ class _PosLineQtyDialog extends StatefulWidget {
   State<_PosLineQtyDialog> createState() => _PosLineQtyDialogState();
 }
 
+const _kQuickQtys = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 24];
+
 class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
   late bool _decimal;
   late bool _area;
@@ -351,7 +353,7 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
                     : 'Diện tích: ${formatPosDim(area)}${_unit == 'm' ? ' m²' : (unitLabel.isEmpty ? '' : ' $unitLabel')}'),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
-            ] else
+            ] else ...[
               PosNoSoftKeyboardField(
                 controller: _qtyCtrl,
                 allowDecimal: _decimal,
@@ -363,6 +365,29 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
                   isDense: true,
                 ),
               ),
+              const SizedBox(height: 10),
+              // SL hay dùng (1–10, 24 = thùng / két): bấm là áp dụng luôn — khỏi mở bàn phím số.
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final n in _kQuickQtys)
+                    ChoiceChip(
+                      label: SizedBox(
+                        width: 28,
+                        child: Text('$n', textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      ),
+                      selected: parsePosDim(_qtyCtrl.text) == n,
+                      showCheckmark: false,
+                      onSelected: (_) => Navigator.pop(
+                        context,
+                        PosLineQtyResult(qty: n.toDouble(), decimal: _decimal),
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

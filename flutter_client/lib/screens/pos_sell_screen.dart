@@ -16458,6 +16458,29 @@ class _PosSellScreenState extends State<PosSellScreen>
                         ),
                       ),
                     ),
+                    // Món có topping: nút topping ngay trên dòng (C20 / tablet) — khỏi mở ghi chú / popup.
+                    if (line.product.allowToppings ||
+                        line.product.hasToppingGroups ||
+                        line.product.toppingOptions.isNotEmpty)
+                      Tooltip(
+                        message: tr(line.product.hasToppingGroups ? 'Chọn topping' : 'Tùy chọn thêm'),
+                        child: InkWell(
+                          onTap: () => unawaited(_openCartLineToppings(line)),
+                          borderRadius: BorderRadius.circular(10),
+                          child: SizedBox(
+                            width: 40,
+                            height: _KiotLayout.qtyHit,
+                            child: Center(
+                              child: Badge(
+                                isLabelVisible: line.toppings.isNotEmpty,
+                                label: Text('${line.toppings.fold<int>(0, (a, t) => a + t.safeQty)}'),
+                                backgroundColor: SboxColors.violet,
+                                child: const Icon(Icons.add_circle_outline, size: 24, color: SboxColors.violet),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     const SizedBox(width: 4),
                     // Cột SL cố định — không lệch theo độ dài tên / tiền.
                     SizedBox(
