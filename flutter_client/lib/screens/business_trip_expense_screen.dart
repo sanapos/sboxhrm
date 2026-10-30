@@ -699,6 +699,13 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
       );
       return;
     }
+    if (_fromDate != null && _toDate != null && _toDate!.isBefore(_fromDate!)) {
+      appNotification.showError(
+        title: 'Thiếu thông tin',
+        message: tr('Đến ngày phải sau hoặc bằng Từ ngày'),
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
       final res = await _api.createBusinessTripCase({

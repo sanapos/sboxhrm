@@ -437,7 +437,7 @@ class PosProductDataTable extends StatelessWidget {
           constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
         ),
       PosProductTableColumn.image =>
-        Center(child: PosProductImage(productId: p.id, imageUrl: p.imageUrl, size: 32)),
+        Center(child: PosProductImage(productId: p.id, imageUrl: p.imageUrl, size: 32, idFallback: false)),
       PosProductTableColumn.code => _cellText(
           showVariantCount && displayCount > 0
               ? '($displayCount) ${activeView.displayCode}'

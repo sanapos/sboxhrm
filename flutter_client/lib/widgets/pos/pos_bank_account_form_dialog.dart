@@ -159,8 +159,8 @@ class _PosBankAccountFormDialogState extends State<_PosBankAccountFormDialog> {
                             width: 56,
                             height: 24,
                             fit: BoxFit.contain,
-                            errorWidget: (_, __, ___) =>
-                                const Icon(Icons.account_balance, size: 18),
+                            // Ô đã có biểu tượng ngân hàng ở đầu — logo lỗi thì để trống, tránh 2 biểu tượng.
+                            errorWidget: (_, __, ___) => const SizedBox.shrink(),
                           ),
                         const SizedBox(width: 8),
                         Expanded(

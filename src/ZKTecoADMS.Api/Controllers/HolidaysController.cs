@@ -13,9 +13,10 @@ namespace ZKTecoADMS.Api.Controllers;
 [Route("api/settings/[controller]")]
 public class HolidaysController(IRepository<Holiday> repository) : AuthenticatedControllerBase
 {
+    // Mọi nhân viên được xem ngày lễ: màn chấm công / tổng hợp công của chính NV phải tính ngày lễ
+    // giống quản lý. Thêm / sửa / xóa vẫn cần quyền module Holiday.
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("Holiday", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<HolidayDto>>>> GetHolidays([FromQuery] int? year = null)
     {
         var targetYear = year ?? DateTime.Now.Year;

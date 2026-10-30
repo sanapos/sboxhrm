@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -47,6 +48,8 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameCtrl;
   late final TextEditingController _phoneCtrl;
+  /// Số đã lưu — không kiểm lại (dữ liệu cũ có thể ghi 2 số / số nội bộ), tránh chặn sửa các ô khác.
+  late final String _savedPhone;
   late final TextEditingController _emailCtrl;
   late final TextEditingController _addressCtrl;
   late final TextEditingController _provinceCtrl;
@@ -91,6 +94,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
     final c = widget.customer;
     _nameCtrl = TextEditingController(text: c?.name ?? '');
     _phoneCtrl = TextEditingController(text: c?.phone ?? '');
+    _savedPhone = (c?.phone ?? '').trim();
     _emailCtrl = TextEditingController(text: c?.email ?? '');
     _addressCtrl = TextEditingController(text: c?.address ?? '');
     _provinceCtrl = TextEditingController(text: c?.province ?? '');
@@ -627,6 +631,14 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                                     label: 'Số điện thoại'),
                                 keyboardType: TextInputType.phone,
                                 onChanged: (_) => _scheduleDupCheck(),
+                                validator: (v) {
+                                  final t = (v ?? '').trim();
+                                  if (t.isEmpty || t == _savedPhone) return null;
+                                  final digits = t.replaceAll(RegExp(r'[\s.\-+()]'), '');
+                                  return RegExp(r'^\d{8,15}$').hasMatch(digits)
+                                      ? null
+                                      : 'Số điện thoại không hợp lệ';
+                                },
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -636,6 +648,15 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                                 decoration:
                                     PosTheme.inputDecoration(label: _showInvoice ? 'Email HĐĐT' : 'Email'),
                                 keyboardType: TextInputType.emailAddress,
+                                // Email HĐĐT sai thì hãng không gửi được hóa đơn cho khách.
+                                validator: (v) {
+                                  final t = (v ?? '').trim();
+                                  if (t.isEmpty) return null;
+                                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t)) {
+                                    return 'Email không hợp lệ';
+                                  }
+                                  return null;
+                                },
                               ),
                             ),
                           ],
@@ -681,6 +702,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                             child: TextFormField(
                               controller: _limitCtrl,
                               keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                               decoration: PosTheme.inputDecoration(
                                   label: 'Hạn mức nợ (đ)', hint: 'Trống = theo cửa hàng'),
                             ),
@@ -690,6 +712,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                             child: TextFormField(
                               controller: _termCtrl,
                               keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                               decoration: PosTheme.inputDecoration(
                                   label: 'Hạn thanh toán (ngày)', hint: 'Trống = theo cửa hàng'),
                             ),

@@ -19,19 +19,19 @@ public class CancelLeaveHandler(
 
             if (leave == null)
             {
-                return AppResponse<bool>.Error("Leave not found");
+                return AppResponse<bool>.Error("Không tìm thấy đơn nghỉ phép");
             }
 
             // Verify ownership (managers can cancel any)
             if (!request.IsManager && leave.EmployeeUserId != request.ApplicationUserId)
             {
-                return AppResponse<bool>.Error("You are not authorized to cancel this leave request");
+                return AppResponse<bool>.Error("Bạn chỉ được hủy đơn nghỉ của chính mình");
             }
 
             // Only pending leaves can be cancelled
             if (leave.Status != LeaveStatus.Pending)
             {
-                return AppResponse<bool>.Error($"Cannot cancel leave with status: {leave.Status}");
+                return AppResponse<bool>.Error("Chỉ hủy được đơn đang chờ duyệt");
             }
 
             leave.Status = LeaveStatus.Cancelled;

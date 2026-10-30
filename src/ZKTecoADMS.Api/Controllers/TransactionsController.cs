@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
@@ -51,6 +51,7 @@ public class TransactionsController(
     [RequireAnyModulePermission(ModulePermissionAction.View, "Transaction", "CashTransaction", "BonusPenalty", "Benefit")]
     public async Task<ActionResult<AppResponse<PaymentTransactionDto>>> GetTransactionById(Guid id)
     {
+        if (!await InStoreAsync(id)) return Ok(AppResponse<PaymentTransactionDto>.Error("Không tìm thấy giao dịch"));
         var query = new GetTransactionByIdQuery(id);
         var result = await mediator.Send(query);
         if (!result.IsSuccess || result.Data == null)
@@ -80,6 +81,8 @@ public class TransactionsController(
     [RequireAnyModulePermission(ModulePermissionAction.Create, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<PaymentTransactionDto>>> CreateTransaction([FromBody] CreatePaymentTransactionDto request)
     {
+        if (request.Amount <= 0)
+            return Ok(AppResponse<PaymentTransactionDto>.Error("Số tiền phải lớn hơn 0"));
         var command = new CreatePaymentTransactionCommand(
             request.EmployeeUserId,
             request.EmployeeId,
@@ -123,6 +126,9 @@ public class TransactionsController(
         Guid id,
         [FromBody] UpdateTransactionStatusDto request)
     {
+        if (!await InStoreAsync(id)) return Ok(AppResponse<PaymentTransactionDto>.Error("Không tìm thấy giao dịch"));
+        if (!IsAdmin && await context.PaymentTransactions.AnyAsync(t => t.Id == id && t.EmployeeUserId == CurrentUserId))
+            return Ok(AppResponse<PaymentTransactionDto>.Error("Không thể tự duyệt khoản thưởng/phạt của chính mình"));
         var storeId = RequiredStoreId;
         var command = new UpdateTransactionStatusCommand(id, request.Status, CurrentUserId);
         var result = await mediator.Send(command);
@@ -179,6 +185,7 @@ public class TransactionsController(
         Guid id,
         [FromBody] UpdatePaymentTransactionDto request)
     {
+        if (!await InStoreAsync(id)) return Ok(AppResponse<PaymentTransactionDto>.Error("Không tìm thấy giao dịch"));
         var command = new UpdatePaymentTransactionCommand(
             id,
             request.Type,
@@ -197,6 +204,7 @@ public class TransactionsController(
     [RequireAnyModulePermission(ModulePermissionAction.Delete, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<bool>>> DeleteTransaction(Guid id)
     {
+        if (!await InStoreAsync(id)) return Ok(AppResponse<bool>.Error("Không tìm thấy giao dịch"));
         var storeId = RequiredStoreId;
         var txInfo = await context.PaymentTransactions.AsNoTracking()
             .Where(t => t.Id == id)
@@ -389,5 +397,15 @@ public class TransactionsController(
         catch { /* notification is best-effort */ }
 
         return Ok(AppResponse<BulkTransactionResultDto>.Success(new BulkTransactionResultDto(success, failed)));
+    }
+
+    /// <summary>PaymentTransaction không có StoreId — thuộc cửa hàng qua nhân viên (giống danh sách). Chặn thao tác theo id
+    /// lên bản ghi của cửa hàng khác.</summary>
+    private Task<bool> InStoreAsync(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        return context.PaymentTransactions.AsNoTracking().AnyAsync(t => t.Id == id
+            && ((t.Employee != null && t.Employee.StoreId == storeId)
+                || (t.EmployeeUser != null && t.EmployeeUser.StoreId == storeId)));
     }
 }

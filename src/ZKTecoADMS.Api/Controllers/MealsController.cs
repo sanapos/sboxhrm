@@ -220,9 +220,20 @@ public class MealsController(
         [FromQuery] Guid? branchId = null)
     {
         var hq = branchId.HasValue ? HttpContext.BranchContext()?.HeadquarterBranchId : null;
+        // Tiền ăn / nợ ăn trừ lương của người khác là riêng tư: nhân viên chỉ xem của mình.
+        if (!await SeesAllMealMoneyAsync()) employeeUserId = CurrentUserId;
         var query = new GetEmployeeMealSummaryQuery(RequiredStoreId, from, to, employeeUserId, branchId, hq);
         var result = await mediator.Send(query);
         return Ok(result);
+    }
+
+    /// <summary>Quản lý / kế toán / người phụ trách bếp (quyền Sửa suất ăn) xem tiền ăn của mọi người.</summary>
+    private async Task<bool> SeesAllMealMoneyAsync()
+    {
+        if (IsManager || IsAccountant) return true;
+        var svc = HttpContext.RequestServices.GetRequiredService<IModulePermissionService>();
+        Guid? sid = Guid.TryParse(User.FindFirst("storeId")?.Value, out var g) ? g : null;
+        return await svc.HasPermissionAsync(CurrentUserId, CurrentUserRole, sid, "Meal", ModulePermissionAction.Edit);
     }
 
     // ══════════ MEAL MENU ══════════
@@ -678,6 +689,8 @@ public class MealsController(
         {
             var storeId = RequiredStoreId;
             var targetUserId = employeeUserId ?? CurrentUserId;
+            if (targetUserId != CurrentUserId && !await SeesAllMealMoneyAsync())
+                targetUserId = CurrentUserId;
             var targetPeriod = period ?? DateTime.UtcNow.ToString("yyyy-MM");
 
             var debts = await mealDebtRepository.GetAllAsync(

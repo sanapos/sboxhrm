@@ -424,6 +424,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         icon: Icons.swap_horiz,
         label: 'Chuyển giao',
         onPressed: () {
+          // Bảng chỉ vẽ trong tab «Tài sản» — đang ở tab khác thì chuyển sang trước.
+          if (_currentTab != 1) _switchTab(1);
           setState(() {
             _showTransfers = !_showTransfers;
             _showCategories = false;
@@ -436,6 +438,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         icon: Icons.category,
         label: 'Danh mục',
         onPressed: () {
+          if (_currentTab != 1) _switchTab(1);
           setState(() {
             _showCategories = !_showCategories;
             _showTransfers = false;

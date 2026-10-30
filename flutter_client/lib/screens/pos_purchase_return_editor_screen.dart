@@ -248,7 +248,9 @@ class _PosPurchaseReturnEditorScreenState
       _loadVariantsForLine(line);
       _lines.add(line);
     }
-    _returnId = r.id.isEmpty ? null : r.id;
+    // «Tải PN» nhận mẫu phiếu với id GUID rỗng (chưa lưu) — coi là phiếu mới, không thì Hoàn thành
+    // gửi PUT /returns/0000… → «Không tìm thấy phiếu».
+    _returnId = r.id.isEmpty || RegExp(r'^[0-]+$').hasMatch(r.id) ? null : r.id;
     _returnNo = r.returnNo;
     _returnNoCtrl.text = r.returnNo;
     _status = r.status;

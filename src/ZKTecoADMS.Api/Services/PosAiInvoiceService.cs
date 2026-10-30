@@ -604,7 +604,7 @@ public sealed class PosAiInvoiceService(ZKTecoDbContext db, IGeminiAiService gem
             var p = known[pid];
             var qty = l.Qty;
             var price = l.UnitPrice;
-            var discount = l.Discount;
+            var discount = Math.Max(0, l.Discount); // AI đọc nhầm dấu «-» → không để giảm giá âm đội giá vốn
             string? note = null;
             var u = PosAiInvoiceMatching.ResolveUnit(p, l.UnitName);
             string unitName;

@@ -2137,7 +2137,7 @@ class _BookingDetailDialog extends StatelessWidget {
                         for (final (value, icon, label, danger) in [
                           ('deposit', Icons.payments_outlined, 'Thu cọc', false),
                           ('edit', Icons.edit_outlined, 'Sửa', false),
-                          ('cancel', Icons.delete_outline, 'Xóa lịch', true),
+                          ('cancel', Icons.event_busy_outlined, 'Hủy lịch', true),
                         ]) ...[
                           if (value != 'deposit') const SizedBox(width: 8),
                           Expanded(
@@ -2196,6 +2196,8 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
   final _api = ApiService();
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  /// Số lấy từ lịch cũ / CRM — không kiểm lại định dạng (dữ liệu cũ có thể không theo chuẩn mới).
+  String _trustedPhone = '';
   final _noteCtrl = TextEditingController();
   final _depositPaidCtrl = TextEditingController();
   var _depositPay = const PosDepositPayChoice();
@@ -2247,6 +2249,7 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
     if (existing != null) {
       _nameCtrl.text = existing.customerName;
       _phoneCtrl.text = existing.phone ?? '';
+      _trustedPhone = _phoneCtrl.text.trim();
       _noteCtrl.text = existing.note ?? '';
       _customerId = existing.customerId;
       _serviceProductId = existing.serviceProductId;
@@ -2526,6 +2529,7 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
       _nameCtrl.text = picked.name;
       if ((picked.phone ?? '').isNotEmpty) {
         _phoneCtrl.text = picked.phone!;
+        _trustedPhone = picked.phone!.trim();
       }
     });
   }
@@ -2539,6 +2543,13 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
     if (_nameCtrl.text.trim().isEmpty && _customerId == null) {
       NotificationOverlayManager()
           .showError(title: 'Thiếu khách', message: tr('Nhập tên hoặc chọn CRM'));
+      return;
+    }
+    final phone = _phoneCtrl.text.trim();
+    final phoneDigits = phone.replaceAll(RegExp(r'[\s.\-+()]'), '');
+    if (phone.isNotEmpty && phone != _trustedPhone && !RegExp(r'^\d{8,15}$').hasMatch(phoneDigits)) {
+      NotificationOverlayManager()
+          .showError(title: tr('Kiểm tra lại'), message: tr('Số điện thoại không hợp lệ'));
       return;
     }
     if (_requireService && _serviceProductId == null) {

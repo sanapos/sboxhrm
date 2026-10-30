@@ -308,12 +308,12 @@ public class ApproveAdvanceRequestHandler(
 
             if (advanceRequest == null)
             {
-                return AppResponse<AdvanceRequestDto>.Error("Advance request not found");
+                return AppResponse<AdvanceRequestDto>.Error("Không tìm thấy phiếu ứng lương");
             }
 
             if (advanceRequest.Status != AdvanceRequestStatus.Pending)
             {
-                return AppResponse<AdvanceRequestDto>.Error("This request has already been processed");
+                return AppResponse<AdvanceRequestDto>.Error("Phiếu ứng lương đã được xử lý");
             }
 
             var approver = await userManager.FindByIdAsync(request.ApprovedById.ToString());
@@ -511,7 +511,7 @@ public class DeleteAdvanceRequestHandler(
                 cancellationToken: cancellationToken);
             if (advanceRequest == null)
             {
-                return AppResponse<bool>.Error("Advance request not found");
+                return AppResponse<bool>.Error("Không tìm thấy phiếu ứng lương");
             }
 
             var advanceMarker = advanceRequest.Id.ToString();
@@ -560,7 +560,7 @@ public class UndoApproveAdvanceRequestHandler(
 
             if (advanceRequest == null)
             {
-                return AppResponse<AdvanceRequestDto>.Error("Advance request not found");
+                return AppResponse<AdvanceRequestDto>.Error("Không tìm thấy phiếu ứng lương");
             }
 
             if (advanceRequest.Status != AdvanceRequestStatus.Approved && advanceRequest.Status != AdvanceRequestStatus.Rejected)
@@ -570,7 +570,7 @@ public class UndoApproveAdvanceRequestHandler(
 
             if (advanceRequest.IsPaid)
             {
-                return AppResponse<AdvanceRequestDto>.Error("Cannot undo approval for paid requests");
+                return AppResponse<AdvanceRequestDto>.Error("Phiếu ứng đã chi tiền — không hoàn tác duyệt được. Chi nhầm thì xóa phiếu ứng (khi kỳ lương trừ khoản này chưa chốt).");
             }
 
             advanceRequest.Status = AdvanceRequestStatus.Pending;
@@ -641,10 +641,10 @@ public class CancelAdvanceRequestHandler(
                 cancellationToken: cancellationToken);
 
             if (advanceRequest == null)
-                return AppResponse<bool>.Error("Advance request not found");
+                return AppResponse<bool>.Error("Không tìm thấy phiếu ứng lương");
 
             if (!request.IsManager && advanceRequest.EmployeeUserId != request.ApplicationUserId)
-                return AppResponse<bool>.Error("You are not authorized to cancel this request");
+                return AppResponse<bool>.Error("Bạn không có quyền hủy phiếu ứng lương này");
 
             if (advanceRequest.Status != AdvanceRequestStatus.Pending)
                 return AppResponse<bool>.Error($"Cannot cancel request with status: {advanceRequest.Status}");
@@ -722,12 +722,12 @@ public class PayAdvanceRequestHandler(
 
             if (advanceRequest == null)
             {
-                return AppResponse<AdvanceRequestDto>.Error("Advance request not found");
+                return AppResponse<AdvanceRequestDto>.Error("Không tìm thấy phiếu ứng lương");
             }
 
             if (advanceRequest.Status != AdvanceRequestStatus.Approved)
             {
-                return AppResponse<AdvanceRequestDto>.Error("Only approved requests can be paid");
+                return AppResponse<AdvanceRequestDto>.Error("Chỉ chi được phiếu ứng đã duyệt");
             }
 
             var paymentMethodEnum = ParsePaymentMethod(request.PaymentMethod);
@@ -753,7 +753,9 @@ public class PayAdvanceRequestHandler(
             {
                 var paymentTransaction = new PaymentTransaction
                 {
-                    EmployeeUserId = advanceRequest.EmployeeUserId ?? Guid.Empty,
+                    // NV chưa có tài khoản app: để null (Guid.Empty vỡ FK AspNetUsers).
+                    EmployeeUserId = advanceRequest.EmployeeUserId,
+                    EmployeeId = advanceRequest.EmployeeId,
                     Type = "AdvancePayment",
                     ForMonth = advanceRequest.ForMonth,
                     ForYear = advanceRequest.ForYear,

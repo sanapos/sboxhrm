@@ -264,7 +264,8 @@ public class AnnualLeaveController(ZKTecoDbContext db) : AuthenticatedController
         var (_, rows) = await ComputeAsync(req.Year, null, ct);
         var month = new DateTime(req.PayrollMonth.Year, req.PayrollMonth.Month, 1);
         var created = new List<AnnualLeaveEntry>();
-        foreach (var it in req.Items)
+        // Một nhân viên chỉ một dòng — gửi trùng thì mỗi dòng đều được trần «còn lại» → trả gấp đôi, phép âm.
+        foreach (var it in req.Items.GroupBy(i => i.EmployeeId).Select(g => g.First()))
         {
             var r = rows.FirstOrDefault(x => x.Emp.Id == it.EmployeeId);
             if (r.Emp == null) continue;

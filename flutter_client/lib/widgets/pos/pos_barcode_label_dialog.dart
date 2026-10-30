@@ -706,6 +706,10 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
             final n = int.tryParse(v);
             if (n != null && n >= 1 && n <= 5000) setState(() => _copies = n);
           },
+          // Nhập 0 / quá 5000 không được nhận → trả ô về số tem thật sẽ in.
+          onTapOutside: (_) {
+            if (_copiesCtrl.text != '$_copies') _copiesCtrl.text = '$_copies';
+          },
         ),
         if (!_isScale) ...[
           const SizedBox(height: 10),
@@ -1008,7 +1012,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       items: items
           .map((e) => DropdownMenuItem(
                 value: e,
-                child: Text(tr(label(e)), style: const TextStyle(fontSize: 12)),
+                child: Text(tr(label(e)), style: const TextStyle(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
               ))
           .toList(),
       onChanged: onChanged,

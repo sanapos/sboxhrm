@@ -1,6 +1,20 @@
 import 'dart:js_interop';
 
+import 'package:flutter/widgets.dart';
 import 'package:web/web.dart' as web;
+
+/// Đổi hash `#/m/<Mã>` → engine báo route mới, MaterialApp gọi pushNamed('/m/…') không có
+/// route → ném lỗi (Null check trong _onUnknownRoute). Đăng ký trước runApp để chặn trước
+/// WidgetsApp; [listenModuleDeepLink] lo việc mở chức năng.
+void installModuleDeepLinkRouteGuard() {
+  WidgetsBinding.instance.addObserver(_ModuleDeepLinkRouteGuard());
+}
+
+class _ModuleDeepLinkRouteGuard with WidgetsBindingObserver {
+  @override
+  Future<bool> didPushRouteInformation(RouteInformation routeInformation) async =>
+      routeInformation.uri.path.startsWith('/m/');
+}
 
 /// Mã chức năng trong link `/#/m/<Mã>` (vd `#/m/PosProducts`) — null nếu không có.
 String? currentModuleDeepLink() {

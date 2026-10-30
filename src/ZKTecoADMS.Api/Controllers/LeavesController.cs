@@ -56,10 +56,19 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
     [RequireModulePermission("Leave", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<LeaveDto>>> CreateLeave([FromBody] CreateLeaveRequest request)
     {
+        if (!IsManager && !IsAccountant
+            && ((request.EmployeeUserId.HasValue && request.EmployeeUserId != CurrentUserId) || request.EmployeeId.HasValue))
+        {
+            // Nhân viên chỉ xin nghỉ cho chính mình — không tự đứng tên «quản lý» đơn của đồng nghiệp.
+            request.EmployeeUserId = null;
+            request.EmployeeId = null;
+        }
         var managerId = request.EmployeeUserId.HasValue ? CurrentUserId : (ManagerId ?? CurrentUserId);
         var employeeUserId = request.EmployeeUserId ?? CurrentUserId;
 
         var managerCanSetFlags = IsManager;
+        // Quản lý không tự duyệt đơn của chính mình qua «duyệt luôn» (chủ / giám đốc thì được).
+        if (employeeUserId == CurrentUserId && !IsAdmin) request.AutoApprove = false;
         var command = new CreateLeaveCommand(
             RequiredStoreId,
             employeeUserId,
@@ -84,7 +93,9 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
 
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("Leave", ModulePermissionAction.Delete)]
+    // Hủy (không xóa): handler chỉ cho chủ đơn / quản lý và chỉ đơn đang chờ → ai tạo được đơn thì hủy được đơn của mình;
+    // quản lý chỉ có quyền Xóa (không có Tạo) vẫn hủy được đơn của nhân viên như trước.
+    [RequireAnyActionOnModule("Leave", ModulePermissionAction.Create, ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> CancelLeave(Guid id)
     {
         var command = new CancelLeaveCommand(RequiredStoreId, id, CurrentUserId, IsManager);
@@ -107,6 +118,11 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
     [RequireModulePermission("Leave", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<LeaveDto>>> UpdateLeave(Guid id, [FromBody] UpdateLeaveRequest request)
     {
+        // Đổi trạng thái qua «Sửa» phải qua cùng kiểm tra như nút Duyệt (không tự duyệt, đúng phạm vi quản lý);
+        // không được thì giữ nguyên trạng thái, vẫn cho sửa nội dung.
+        var status = request.Status;
+        if (status.HasValue && IsManager && await DenyApprovalAsync(ApprovalScopeGuard.Kind.Leave, id) is not null)
+            status = null;
         var command = new UpdateLeaveCommand(
             RequiredStoreId,
             id,
@@ -119,7 +135,7 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
             request.Type,
             request.IsHalfShift,
             request.Reason,
-            request.Status,
+            status,
             request.ReplacementEmployeeId,
             request.EmployeeId,
             CountAsWork: IsManager ? request.CountAsWork : null,

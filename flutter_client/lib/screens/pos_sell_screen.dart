@@ -21395,6 +21395,8 @@ class _PosSellScreenState extends State<PosSellScreen>
                   PosProductImage(
                     productId: line.product.id,
                     imageUrl: line.product.imageUrl,
+
+                    idFallback: false,
                     updatedAt: line.product.updatedAt,
                     size: 42,
                     borderRadius: 8,

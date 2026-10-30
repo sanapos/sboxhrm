@@ -240,6 +240,7 @@ public static class DependencyInjectionExtensions
                     options.Lockout.AllowedForNewUsers = true;
                 })
                 .AddEntityFrameworkStores<ZKTecoDbContext>()
+                .AddErrorDescriber<VietnameseIdentityErrorDescriber>()
                 .AddDefaultTokenProviders()
                 .AddRoles<IdentityRole<Guid>>()
                 .AddSignInManager<SignInManager<ApplicationUser>>()

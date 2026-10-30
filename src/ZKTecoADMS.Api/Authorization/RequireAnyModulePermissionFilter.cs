@@ -34,7 +34,7 @@ public sealed class RequireAnyModulePermissionFilter(
                 return;
         }
 
-        var moduleList = string.Join(" hoặc ", modules);
+        var moduleList = string.Join(" hoặc ", modules.Select(m => $"«{ModuleDisplayName.Of(m)}»"));
         var actionLabel = action switch
         {
             ModulePermissionAction.View => "xem",
@@ -47,7 +47,7 @@ public sealed class RequireAnyModulePermissionFilter(
         };
 
         context.Result = new ObjectResult(
-            AppResponse<object>.Fail($"Tài khoản không có quyền {actionLabel} module {moduleList}."))
+            AppResponse<object>.Fail($"Tài khoản không có quyền {actionLabel} {moduleList}."))
         {
             StatusCode = StatusCodes.Status403Forbidden
         };

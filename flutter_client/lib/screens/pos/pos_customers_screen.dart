@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/pos_customer.dart';
@@ -218,13 +219,16 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
     return Scaffold(
       backgroundColor: SboxColors.page,
       // Mở từ «Nhiều hơn» (route riêng): cần tiêu đề + nút quay lại như Voucher.
-      appBar: Navigator.of(context).canPop()
-          ? AppBar(
-              title: Text(tr('Khách hàng')),
-              backgroundColor: Colors.white,
-              foregroundColor: SboxColors.text,
-              surfaceTintColor: Colors.white,
-              elevation: 0.5,
+      appBar: HrmPageChrome.isPushedOverShell(context)
+          ? shellAwareAppBar(
+              context,
+              AppBar(
+                title: Text(tr('Khách hàng')),
+                backgroundColor: Colors.white,
+                foregroundColor: SboxColors.text,
+                surfaceTintColor: Colors.white,
+                elevation: 0.5,
+              ),
             )
           : null,
       body: _wrapMd(SboxReportLayout(

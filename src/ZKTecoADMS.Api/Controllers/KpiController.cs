@@ -216,6 +216,8 @@ public partial class KpiController(
     public async Task<ActionResult<AppResponse<KpiPeriodDto>>> CreatePeriod([FromBody] CreateKpiPeriodRequest request)
     {
         var storeId = RequiredStoreId;
+        if (PeriodInputError(request) is { } invalid)
+            return Ok(AppResponse<KpiPeriodDto>.Fail(invalid));
 
         var period = new KpiPeriod
         {
@@ -240,6 +242,15 @@ public partial class KpiController(
         return Ok(AppResponse<KpiPeriodDto>.Success(MapPeriodToDto(period)));
     }
 
+    internal static string? PeriodInputError(CreateKpiPeriodRequest r)
+    {
+        if (r.Year < 2000 || r.Year > 2100) return "Năm không hợp lệ";
+        if (r.Month is < 1 or > 12) return "Tháng phải từ 1 đến 12";
+        if (r.Quarter is < 1 or > 4) return "Quý phải từ 1 đến 4";
+        if (r.PeriodEnd.Date < r.PeriodStart.Date) return "Đến ngày phải sau hoặc bằng Từ ngày";
+        return null;
+    }
+
     /// <summary>
     /// Cập nhật kỳ đánh giá
     /// </summary>
@@ -249,6 +260,8 @@ public partial class KpiController(
     {
         var period = await dbContext.KpiPeriods.FindAsync(id);
         if (period == null) return NotFound(AppResponse<KpiPeriodDto>.Fail("Không tìm thấy kỳ đánh giá"));
+        if (PeriodInputError(request) is { } invalid)
+            return Ok(AppResponse<KpiPeriodDto>.Fail(invalid));
 
         period.Name = request.Name;
         period.Year = request.Year;

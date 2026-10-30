@@ -173,7 +173,7 @@ public static class AssetDashboardBuilder
                 .Select(g => new { type = (int)g.Key, name = TypeName(g.Key), count = g.Count(), bookValue = g.Sum(a => AssetValuation.BookValue(a, now)) })
                 .OrderByDescending(x => x.bookValue),
             byDepartment = inUse.Where(a => a.CurrentAssignee != null)
-                .GroupBy(a => string.IsNullOrWhiteSpace(a.CurrentAssignee!.Department) ? "Chưa phân phòng" : a.CurrentAssignee.Department!)
+                .GroupBy(a => string.IsNullOrWhiteSpace(a.CurrentAssignee!.Department) ? "Chưa có phòng ban" : a.CurrentAssignee.Department!)
                 .Select(g => new
                 {
                     name = g.Key,

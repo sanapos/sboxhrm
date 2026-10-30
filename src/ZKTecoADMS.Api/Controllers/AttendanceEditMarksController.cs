@@ -21,11 +21,14 @@ public class AttendanceEditMarksController(ZKTecoDbContext db) : AuthenticatedCo
 {
     [HttpGet]
     [RequireAnyModulePermission(ModulePermissionAction.View, "Attendance", "AttendanceSummary", "AttendanceByShift", "AttendanceCorrection")]
-    public async Task<IActionResult> Get([FromQuery] DateTime fromDate, [FromQuery] DateTime toDate, CancellationToken ct)
+    public async Task<IActionResult> Get([FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate, CancellationToken ct)
     {
+        // Thiếu ngày: DateTime mặc định (0001-01-01).AddDays(-1) ném ArgumentOutOfRange → báo rõ thay vì lỗi 500/400 thô.
+        if (fromDate is null || toDate is null)
+            return BadRequest(AppResponse<object>.Fail("Thiếu fromDate / toDate"));
         var storeId = RequiredStoreId;
-        var from = fromDate.Date.AddDays(-1);
-        var to = toDate.Date.AddDays(2);
+        var from = fromDate.Value.Date.AddDays(-1);
+        var to = toDate.Value.Date.AddDays(2);
 
         var q = db.AttendanceCorrectionRequests.AsNoTracking()
             .Where(c => c.StoreId == storeId && c.Status == CorrectionStatus.Approved && c.AttendanceId != null

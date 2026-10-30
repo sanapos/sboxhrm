@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
@@ -728,7 +728,7 @@ public class ReportsController(
                     EmployeeId = employee.Id,
                     EmployeeCode = employee.EmployeeCode,
                     EmployeeName = $"{employee.LastName} {employee.FirstName}".Trim(),
-                    DepartmentName = employee.Department ?? "N/A",
+                    DepartmentName = employee.Department ?? "Chưa có phòng ban",
                     CheckInTime = checkIn?.AttendanceTime,
                     CheckOutTime = checkOut?.AttendanceTime,
                     LateMinutes = lateMinutes,
@@ -953,7 +953,7 @@ public class ReportsController(
                     EmployeeId = employee.Id,
                     EmployeeCode = employee.EmployeeCode,
                     EmployeeName = $"{employee.LastName} {employee.FirstName}".Trim(),
-                    DepartmentName = employee.Department ?? "N/A",
+                    DepartmentName = employee.Department ?? "Chưa có phòng ban",
                     HasSalaryProfile = hasSalaryProfile,
                     Note = hasSalaryProfile ? null : ReportLabels.SalarySetupReminder,
                     TotalDaysWorked = daysPresent,
@@ -1006,8 +1006,12 @@ public class ReportsController(
             var start = startDate ?? DateTime.Today.AddMonths(-1);
             var end = endDate ?? DateTime.Today;
 
-            var employee = await dbContext.Employees
-                .FirstOrDefaultAsync(e => e.Id == employeeId && e.StoreId == storeId);
+            // Cùng phạm vi như các báo cáo khác: nhân viên chỉ xem mình, quản lý xem cấp dưới / chi nhánh.
+            var scoped = employeeId == EmployeeId
+                ? dbContext.Employees.Where(e => e.StoreId == storeId)
+                : await FilterEmployeesQueryAsync(
+                    dbContext.Employees.Where(e => e.StoreId == storeId), storeId, null, null, true, null);
+            var employee = await scoped.FirstOrDefaultAsync(e => e.Id == employeeId);
 
             if (employee == null)
             {
@@ -1149,7 +1153,7 @@ public class ReportsController(
                 EmployeeId = employee.Id,
                 EmployeeCode = employee.EmployeeCode,
                 EmployeeName = $"{employee.LastName} {employee.FirstName}".Trim(),
-                DepartmentName = employee.Department ?? "N/A",
+                DepartmentName = employee.Department ?? "Chưa có phòng ban",
                 Position = employee.Position ?? "N/A",
                 StartDate = start,
                 EndDate = end,
@@ -1423,7 +1427,7 @@ public class ReportsController(
                         EmployeeId = employee.Id,
                         EmployeeCode = employee.EmployeeCode,
                         EmployeeName = $"{employee.LastName} {employee.FirstName}".Trim(),
-                        DepartmentName = employee.Department ?? "N/A",
+                        DepartmentName = employee.Department ?? "Chưa có phòng ban",
                         LateCount = lateCount,
                         TotalLateMinutes = lateMins,
                         EarlyLeaveCount = earlyCount,
@@ -1802,7 +1806,7 @@ public class ReportsController(
                     EmployeeId = employee.Id,
                     EmployeeCode = employee.EmployeeCode,
                     EmployeeName = $"{employee.LastName} {employee.FirstName}".Trim(),
-                    DepartmentName = employee.Department ?? "N/A",
+                    DepartmentName = employee.Department ?? "Chưa có phòng ban",
                     TotalOvertimeMinutes = ot.TotalMinutes,
                     TotalOvertimeHours = ot.TotalHours,
                     OvertimeDays = ot.OvertimeDays,
@@ -1954,7 +1958,7 @@ public class ReportsController(
                     EmployeeId = employee.Id,
                     EmployeeCode = employee.EmployeeCode,
                     EmployeeName = $"{employee.LastName} {employee.FirstName}".Trim(),
-                    DepartmentName = employee.Department ?? "N/A",
+                    DepartmentName = employee.Department ?? "Chưa có phòng ban",
                     LeaveType = leaveType,
                     TotalRequests = activeLeaves.Count,
                     TotalDays = usedDays,

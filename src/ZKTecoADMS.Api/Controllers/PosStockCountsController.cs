@@ -270,6 +270,8 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
             return NotFound(AppResponse<StockCountDto>.Fail("Không tìm thấy phiếu kiểm kê"));
         if (count.Status != PosStockCountStatus.InProgress)
             return BadRequest(AppResponse<StockCountDto>.Fail("Phiếu đã hoàn thành hoặc hủy"));
+        if ((dto.Lines ?? []).Any(u => u.CountedQty < 0))
+            return BadRequest(AppResponse<StockCountDto>.Fail("Số lượng thực tế không được âm"));
 
         // Tồn sổ «lúc đếm»: chốt lại mỗi khi nhập / đổi số đếm. Khi cân bằng chỉ cộng/trừ chênh lệch
         // (đếm − tồn lúc đếm) vào tồn hiện tại → hàng bán sau lúc đếm không bị cộng bù.
@@ -537,6 +539,12 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
 
         foreach (var line in count.Lines.Where(l => l.IsChecked && !l.CountedQty.HasValue))
             line.CountedQty = line.SystemQty;
+
+        // Phiếu tạm lưu trước khi có kiểm tra: số âm sẽ đẩy tồn kho xuống âm khi cân bằng.
+        var negative = count.Lines.FirstOrDefault(l => l.CountedQty < 0);
+        if (negative != null)
+            return BadRequest(AppResponse<StockCountDto>.Fail(
+                $"«{negative.ProductName}»: số lượng thực tế không được âm"));
 
         var uncheckedLines = count.Lines.Count(l => !l.CountedQty.HasValue);
         if (uncheckedLines > 0)

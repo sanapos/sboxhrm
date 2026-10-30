@@ -49,6 +49,9 @@ public class UpdateLeaveHandler(
             if (legalError != null)
                 return AppResponse<LeaveDto>.Error(legalError);
 
+            if (request.StartDate > request.EndDate)
+                return AppResponse<LeaveDto>.Error("Ngày bắt đầu phải trước ngày kết thúc");
+
             if (request.ShiftId == Guid.Empty)
             {
                 return AppResponse<LeaveDto>.Error("Vui lòng chọn ca làm việc");
@@ -72,13 +75,16 @@ public class UpdateLeaveHandler(
                 ? new List<Guid>(request.ShiftIds)
                 : new List<Guid> { shiftTemplate.Id };
 
+            var dayFrom = request.StartDate.Date;
+            var dayTo = request.EndDate.Date.AddDays(1);
             var overlapping = await leaveRepository.GetAllAsync(
                 filter: l => l.Id != leave.Id &&
                              l.EmployeeUserId == leave.EmployeeUserId &&
                              l.StoreId == request.StoreId &&
                              l.Status != LeaveStatus.Rejected && l.Status != LeaveStatus.Cancelled && // đơn đã huỷ không chặn đơn mới
-                             l.StartDate <= request.EndDate &&
-                             l.EndDate >= request.StartDate,
+                             // So theo NGÀY: đơn lưu kèm giờ lúc tạo (vd 19:31 và 22:04 cùng ngày) vẫn là trùng.
+                             l.StartDate < dayTo &&
+                             l.EndDate >= dayFrom,
                 cancellationToken: cancellationToken);
 
             if (overlapping != null && overlapping.Any(l =>
@@ -133,7 +139,13 @@ public class UpdateLeaveHandler(
                 var deduct = await annualLeaveBalance.TryApplyDeductionAsync(
                     leave, cancellationToken);
                 if (!deduct.IsSuccess)
-                    return AppResponse<LeaveDto>.Error(deduct.Message ?? "Không thể trừ phép năm.");
+                {
+                    // Đơn đã lưu ngày mới + phép cũ đã hoàn lại: không để «Đã duyệt» mà không trừ phép → về chờ duyệt.
+                    leave.Status = LeaveStatus.Pending;
+                    await leaveRepository.UpdateAsync(leave, cancellationToken);
+                    return AppResponse<LeaveDto>.Error(
+                        (deduct.Message ?? "Không thể trừ phép năm.") + " Đơn đã chuyển về chờ duyệt.");
+                }
                 await leaveRepository.UpdateAsync(leave, cancellationToken);
             }
 

@@ -2196,8 +2196,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        _buildMiniChip('1. Thiết bị', deviceReady,
-                            pending: !deviceReady),
+                        _buildMiniChip(
+                            _isDeviceRegistered ? '1. Thiết bị' : '1. Thiết bị chưa đăng ký',
+                            deviceReady,
+                            // «đang chờ» chỉ khi đã gửi đăng ký mà chưa được duyệt.
+                            pending: _isDeviceRegistered && !_isDeviceApproved),
                         if (faceRequired)
                           _buildMiniChip(
                             _faceChipPendingScan

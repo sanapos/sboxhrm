@@ -50,7 +50,7 @@ public sealed class RequireModulePermissionFilter(
         };
 
         context.Result = new ObjectResult(
-            AppResponse<object>.Fail($"Tài khoản không có quyền {actionLabel} module {module}."))
+            AppResponse<object>.Fail($"Tài khoản không có quyền {actionLabel} «{ModuleDisplayName.Of(module)}»."))
         {
             StatusCode = StatusCodes.Status403Forbidden
         };

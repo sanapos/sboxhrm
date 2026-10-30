@@ -57,6 +57,9 @@ public class AttendanceCorrectionsController(IMediator mediator) : Authenticated
     {
         var query = new GetAttendanceCorrectionByIdQuery(RequiredStoreId, id);
         var result = await mediator.Send(query);
+        // Nhân viên chỉ xem đơn của mình.
+        if (!IsManager && !IsAccountant && result.Data is { } d && d.EmployeeUserId != CurrentUserId)
+            return NotFound(AppResponse<AttendanceCorrectionRequestDto>.Fail("Không tìm thấy đơn sửa công"));
         return Ok(result);
     }
 
@@ -110,6 +113,13 @@ public class AttendanceCorrectionsController(IMediator mediator) : Authenticated
     [RequireModulePermission("AttendanceCorrection", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteAttendanceCorrection(Guid id)
     {
+        if (!IsManager)
+        {
+            // Nhân viên (kể cả được cấp quyền Xóa) chỉ xóa đơn của chính mình.
+            var own = await mediator.Send(new GetAttendanceCorrectionByIdQuery(RequiredStoreId, id));
+            if (own.Data is { } d && d.EmployeeUserId != CurrentUserId)
+                return Ok(AppResponse<bool>.Error("Chỉ xóa được đơn sửa công của chính mình"));
+        }
         var command = new DeleteAttendanceCorrectionCommand(RequiredStoreId, id);
         var result = await mediator.Send(command);
         return Ok(result);

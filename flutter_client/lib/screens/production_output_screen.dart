@@ -1974,10 +1974,21 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     }
 
     Future<void> onSubmit() async {
-      if (selEmployeeId == null) return;
+      if (selEmployeeId == null) {
+        appNotification.showError(title: 'Thiếu thông tin', message: tr('Vui lòng chọn nhân viên'));
+        return;
+      }
       final validLines = lines.where(
           (l) => l.productItemId != null && l.qtyCtl.text.trim().isNotEmpty);
-      if (validLines.isEmpty) return;
+      if (validLines.isEmpty) {
+        appNotification.showError(title: 'Thiếu thông tin', message: tr('Chọn sản phẩm và nhập số lượng'));
+        return;
+      }
+      // Kiểm tra trước khi đóng form để không mất dữ liệu đã nhập.
+      if (validLines.any((l) => (double.tryParse(l.qtyCtl.text.trim()) ?? 0) <= 0)) {
+        appNotification.showError(title: 'Lỗi', message: tr('Số lượng phải lớn hơn 0'));
+        return;
+      }
       Navigator.pop(context);
 
       if (validLines.length == 1) {

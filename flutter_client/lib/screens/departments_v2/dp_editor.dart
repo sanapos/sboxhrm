@@ -16,7 +16,8 @@ Future<bool?> openDeptEditor(BuildContext context, DeptTree tree, {Dept? dept, S
       context: context,
       builder: (_) => Dialog(
         insetPadding: const EdgeInsets.all(24),
-        child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 620, maxHeight: 760), child: page),
+        // Messenger riêng: lỗi chỉ hiện trong hộp thoại, không lặp ở Scaffold trang dưới.
+        child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 620, maxHeight: 760), child: ScaffoldMessenger(child: page)),
       ),
     );
   }
@@ -123,6 +124,10 @@ class _DeptEditorState extends State<DeptEditor> {
       dpToast(context, 'Nhập tên phòng ban', error: true);
       return;
     }
+    if (widget.tree.kids(_parentId).any((d) => d.id != widget.dept?.id && d.name.trim().toLowerCase() == name.toLowerCase())) {
+      dpToast(context, 'Phòng ban "$name" đã có ở cấp này', error: true);
+      return;
+    }
     if (code.isEmpty) code = suggestDeptCode(name, _otherCodes);
     if (_otherCodes.any((c) => c.toUpperCase() == code.toUpperCase())) {
       dpToast(context, 'Mã "$code" đã dùng cho phòng ban khác', error: true);
@@ -158,8 +163,9 @@ class _DeptEditorState extends State<DeptEditor> {
     if (!mounted) return;
     setState(() => _saving = false);
     if (r['isSuccess'] == true) {
-      dpToast(context, _isNew ? 'Đã tạo phòng ban $name' : 'Đã lưu phòng ban $name');
-      Navigator.of(context).pop(true);
+      final nav = Navigator.of(context);
+      dpToast(nav.context, _isNew ? 'Đã tạo phòng ban $name' : 'Đã lưu phòng ban $name');
+      nav.pop(true);
     } else {
       dpToast(context, r['message']?.toString() ?? 'Không lưu được', error: true);
     }

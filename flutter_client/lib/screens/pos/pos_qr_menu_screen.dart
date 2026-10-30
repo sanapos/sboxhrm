@@ -652,7 +652,16 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
                     // Menu riêng đang tắt → khách thấy toàn bộ hàng bán trực tiếp (dòng phụ của công tắc
                     // đã nói); «Chưa có món» lúc đó dễ hiểu nhầm là menu QR đang trống.
                     if (_items.isEmpty && !_useCustomMenu)
-                      const SizedBox.shrink()
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 12),
+                        child: Center(
+                          child: Text(
+                            tr('Khách quét QR đang thấy toàn bộ hàng bán trực tiếp. Muốn chỉ hiện một số món: bật «Dùng menu riêng» hoặc bấm «Thêm món».'),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: SboxColors.slate600),
+                          ),
+                        ),
+                      )
                     else if (_items.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 28),

@@ -28,6 +28,9 @@ public class CreateBusinessTripCaseHandler(
     {
         if (string.IsNullOrWhiteSpace(request.Title))
             return AppResponse<BusinessTripCaseDto>.Error("Vui lòng nhập tiêu đề chuyến công tác");
+        if (request.TripFromDate.HasValue && request.TripToDate.HasValue
+            && request.TripToDate.Value.Date < request.TripFromDate.Value.Date)
+            return AppResponse<BusinessTripCaseDto>.Error("Đến ngày phải sau hoặc bằng Từ ngày");
 
         // Nhân viên thường chỉ được tạo hồ sơ cho chính mình.
         var requestedUserId = request.IsPrivileged ? request.EmployeeUserId : request.CurrentUserId;
@@ -79,6 +82,9 @@ public class UpdateBusinessTripCaseHandler(IRepository<BusinessTripCase> caseRep
     {
         if (string.IsNullOrWhiteSpace(request.Title))
             return AppResponse<BusinessTripCaseDto>.Error("Vui lòng nhập tiêu đề chuyến công tác");
+        if (request.TripFromDate.HasValue && request.TripToDate.HasValue
+            && request.TripToDate.Value.Date < request.TripFromDate.Value.Date)
+            return AppResponse<BusinessTripCaseDto>.Error("Đến ngày phải sau hoặc bằng Từ ngày");
 
         var tripCase = await caseRepository.GetSingleAsync(
             c => c.Id == request.CaseId && c.StoreId == request.StoreId, cancellationToken: ct);

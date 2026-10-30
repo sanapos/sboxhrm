@@ -135,6 +135,9 @@ public class EmployeesController(
     [RequireModulePermission("Dashboard", ModulePermissionAction.View)]
     public async Task<IActionResult> GetExpiringContracts([FromQuery] int daysAhead = 30)
     {
+        // Hạn hợp đồng là thông tin nhân sự — nhân viên thường không xem của người khác.
+        if (!IsManager && !IsAccountant)
+            return Ok(AppResponse<object>.Success(new { expiring = Array.Empty<object>(), expired = Array.Empty<object>() }));
         var today = DateTime.UtcNow.Date;
         var futureDate = today.AddDays(daysAhead);
         var items = await dbContext.Employees

@@ -118,7 +118,9 @@ public static class ModulePermissionImplicitGrants
                 return true;
         }
 
-        if (FinancialTransactionModules.Contains(module))
+        // Sổ quỹ (thu chi cả cửa hàng) KHÔNG suy ra từ quyền xem thưởng/phạt — nhân viên xem thưởng/phạt
+        // của mình không được thấy sổ quỹ. Chiều ngược lại (có sổ quỹ → xem thưởng/phạt) vẫn giữ.
+        if (FinancialTransactionModules.Contains(module) && !module.Equals("CashTransaction", StringComparison.Ordinal))
         {
             foreach (var alt in FinancialTransactionModules)
             {
@@ -266,14 +268,20 @@ public static class ModulePermissionImplicitGrants
 
         // POS: có quyền trên PosProducts (kho/SP) → submodule cùng action (QL hàng được bán/nhập…).
         // Không ngược lại: PosSell Create không còn cấp PosProducts Create.
-        if (PosSubmoduleCodes.Contains(module) && HasAction(map, "PosProducts", action))
+        // Xem/xuất: chỉ khi là người QUẢN LÝ hàng (có Tạo/Sửa) — Xem hàng hóa là quyền mọi người bán đều có,
+        // không được kéo theo phiếu nhập (giá vốn), kiểm kho, ca thu ngân… của cả cửa hàng.
+        if (PosSubmoduleCodes.Contains(module) && HasAction(map, "PosProducts", action)
+            && (action is not (ModulePermissionAction.View or ModulePermissionAction.Export) || ManagesPosProducts(map)))
             return true;
 
         // Báo cáo POS: hub cũ, hoặc từng báo cáo tách, hoặc PosProducts (kho).
         if (module.Equals("PosSalesReport", StringComparison.Ordinal) &&
             action is ModulePermissionAction.View or ModulePermissionAction.Export)
         {
-            if (HasAction(map, "PosSalesReport", action) || HasAction(map, "PosProducts", action))
+            if (HasAction(map, "PosSalesReport", action))
+                return true;
+            // Báo cáo doanh thu: chỉ người quản lý hàng (Tạo/Sửa), không phải mọi người bán có Xem hàng hóa.
+            if (HasAction(map, "PosProducts", action) && ManagesPosProducts(map))
                 return true;
             if (HasAction(map, "PosReportRevenue", action)
                 || HasAction(map, "PosReportPayment", action)
@@ -285,6 +293,10 @@ public static class ModulePermissionImplicitGrants
 
         return false;
     }
+
+    private static bool ManagesPosProducts(IReadOnlyDictionary<string, ModulePermissionDto> map) =>
+        HasAction(map, "PosProducts", ModulePermissionAction.Create)
+        || HasAction(map, "PosProducts", ModulePermissionAction.Edit);
 
     private static bool HasAction(
         IReadOnlyDictionary<string, ModulePermissionDto> map,

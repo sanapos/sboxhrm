@@ -3501,6 +3501,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               _showError('Vui lòng điền đầy đủ thông tin bắt buộc (Mã NV, Họ tên)');
               return;
             }
+            final emailRe = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+            for (final c in [emailController, companyEmailController]) {
+              final v = c.text.trim();
+              if (v.isNotEmpty && !emailRe.hasMatch(v)) {
+                _showError('Email không hợp lệ');
+                return;
+              }
+            }
 
             setDialogState(() => isSaving = true);
 

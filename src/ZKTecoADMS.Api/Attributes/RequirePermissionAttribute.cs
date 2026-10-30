@@ -127,7 +127,7 @@ public class RequirePermissionAttribute : Attribute, IAsyncAuthorizationFilter
         if (!hasRolePermission && !hasDeptPermission)
         {
             context.Result = new ObjectResult(
-                AppResponse<object>.Error($"Bạn không có quyền {GetActionDisplayName(Action)} trong module {Module}"))
+                AppResponse<object>.Error($"Bạn không có quyền {GetActionDisplayName(Action)} «{ZKTecoADMS.Api.Authorization.ModuleDisplayName.Of(Module)}»"))
             {
                 StatusCode = StatusCodes.Status403Forbidden
             };

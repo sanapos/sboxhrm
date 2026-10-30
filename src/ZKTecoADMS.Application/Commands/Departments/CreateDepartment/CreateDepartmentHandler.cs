@@ -26,6 +26,17 @@ public class CreateDepartmentHandler(
                 return AppResponse<DepartmentDto>.Error($"Mã phòng ban '{request.Code}' đã tồn tại");
             }
 
+            // Cùng cấp không được trùng tên (mã tự sinh khác nhau nên chặn riêng theo tên).
+            var name = request.Name.Trim().ToLower();
+            var sameName = await departmentRepository.GetSingleAsync(
+                filter: d => d.StoreId == request.StoreId && d.ParentDepartmentId == request.ParentDepartmentId
+                    && d.Name.Trim().ToLower() == name,
+                cancellationToken: cancellationToken);
+            if (sameName != null)
+            {
+                return AppResponse<DepartmentDto>.Error($"Phòng ban '{request.Name.Trim()}' đã có ở cấp này");
+            }
+
             // Calculate level and hierarchy path
             int level = 0;
             string hierarchyPath = "/";

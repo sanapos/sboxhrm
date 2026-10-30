@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/hrm.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../utils/store_role_helper.dart';
 import '../widgets/notification_overlay.dart';
 import 'hrm_page_chrome.dart';
 import 'shift_swap_ui.dart';
@@ -56,7 +57,12 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
     try {
       final swapAll = await _api.getShiftSwaps();
       final swapForMe = await _api.getShiftSwapsPendingForMe();
-      final swapPending = await _api.getShiftSwapsPendingApproval();
+      // «Chờ duyệt» là API của quản lý (AtLeastManager) — nhân viên gọi chỉ nhận 403.
+      final canApprove = StoreRoleHelper.isManagerOrAbove(
+          Provider.of<AuthProvider>(context, listen: false).userRole);
+      final swapPending = canApprove
+          ? await _api.getShiftSwapsPendingApproval()
+          : const <String, dynamic>{};
       final shiftsRaw = await _api.getShifts();
       final colleaguesResp = await _api.getShiftSwapColleagues();
 

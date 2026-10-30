@@ -94,7 +94,17 @@ public class ApproveLeaveHandler(
                     var finalize = await FinalizeApprovalAsync(
                         leave, request, cancellationToken);
                     if (!finalize.IsSuccess)
+                    {
+                        // Bước cuối đã lưu «Đã duyệt» trước khi trừ phép: trả lại «Chờ» để duyệt lại được
+                        // sau khi bổ sung phép — nếu không đơn kẹt ở chờ duyệt mà không còn bước nào để duyệt.
+                        currentStep.Status = ApprovalStatus.Pending;
+                        currentStep.ActualUserId = null;
+                        currentStep.ActualUserName = null;
+                        currentStep.ActionDate = null;
+                        currentStep.Note = null;
+                        await approvalRecordRepository.UpdateAsync(currentStep, cancellationToken);
                         return finalize;
+                    }
                 }
                 else
                 {

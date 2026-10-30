@@ -6,6 +6,7 @@ using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -418,8 +419,9 @@ public partial class PosReportsController
             .ToListAsync();
 
         // Mua tài sản: không tính chi phí trong kỳ — đã vào khấu hao từng tháng.
+        // Ứng lương: khoản trả trước, trừ vào lương sau — không phải chi phí lúc chi (xem «Lương — phần đã ứng» bên dưới).
         static bool IsNonPnlExpense(string? c) =>
-            c is "Nhập hàng" or "Trả hàng khách" or "Hoàn cọc đặt chỗ" or PosPnlExtras.AssetPurchaseCategory;
+            c is "Nhập hàng" or "Trả hàng khách" or "Hoàn cọc đặt chỗ" or "Ứng lương" or PosPnlExtras.AssetPurchaseCategory;
         static bool IsNonPnlIncome(string? c) =>
             c is "Bán hàng" or "Thu nợ khách" or "Cọc đặt chỗ" or "Thu trả hàng NCC" or "Thu hộ COD";
         const string tripRefund = "Thu hoàn ứng công tác";
@@ -429,6 +431,17 @@ public partial class PosReportsController
             .Select(r => new { category = r.Category ?? "Khác", amount = r.Amount, count = r.Count })
             .OrderByDescending(r => r.amount)
             .ToList();
+        // Phiếu chi lương chỉ ghi số thực nhận (đã trừ ứng) → khi kỳ lương được chi lần đầu trong kỳ báo cáo, cộng phần
+        // ứng đã trừ vào kỳ đó để chi phí lương đủ (ứng không tính lúc chi, mà tính khi thành lương).
+        if (IsManager)
+        {
+            var advancePart = await AdvancePartOfSalaryPaidAsync(storeId, fromDt.AddHours(7), toDt.AddHours(7));
+            if (advancePart > 0)
+                expenseByCategory = expenseByCategory
+                    .Append(new { category = "Lương — phần đã ứng trước", amount = advancePart, count = 0 })
+                    .OrderByDescending(r => r.amount)
+                    .ToList();
+        }
         var tripRefundAmount = cashRows
             .Where(r => r.Type == CashTransactionType.Income && r.Category == tripRefund)
             .Sum(r => r.Amount);
@@ -506,5 +519,40 @@ public partial class PosReportsController
                 new { code = "50", label = "Lợi nhuận thuần", amount = net },
             },
         }));
+    }
+
+    /// <summary>
+    /// Tiền ứng đã trừ vào các kỳ lương có lần chi lương đầu tiên nằm trong [fromVn, toVn) (giờ VN như phiếu quỹ).
+    /// Cùng công thức trừ ứng của bảng lương (<see cref="HrFinanceSettingsHelper.AdvanceDeductionForPeriod"/>).
+    /// </summary>
+    private async Task<decimal> AdvancePartOfSalaryPaidAsync(Guid storeId, DateTime fromVn, DateTime toVn)
+    {
+        var firstPaid = await dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
+                        && c.Status == CashTransactionStatus.Completed
+                        && c.SourceType == PayslipPayments.SourceType && c.SourceId != null)
+            .GroupBy(c => c.SourceId!.Value)
+            .Select(g => new { PayslipId = g.Key, First = g.Min(c => c.TransactionDate) })
+            .Where(x => x.First >= fromVn && x.First < toVn)
+            .Select(x => x.PayslipId)
+            .ToListAsync();
+        if (firstPaid.Count == 0) return 0;
+        var slips = await dbContext.Payslips.AsNoTracking()
+            .Where(p => firstPaid.Contains(p.Id) && p.StoreId == storeId)
+            .Select(p => new { p.EmployeeId, p.EmployeeUserId, p.Year, p.Month })
+            .ToListAsync();
+        var empIds = slips.Select(p => p.EmployeeId).Distinct().ToList();
+        var userIds = slips.Where(p => p.EmployeeUserId.HasValue).Select(p => p.EmployeeUserId!.Value).Distinct().ToList();
+        var advances = await dbContext.AdvanceRequests.AsNoTracking()
+            .Where(a => a.StoreId == storeId && a.IsPaid
+                        && ((a.EmployeeId.HasValue && empIds.Contains(a.EmployeeId.Value))
+                            || (a.EmployeeUserId.HasValue && userIds.Contains(a.EmployeeUserId.Value))))
+            .ToListAsync();
+        decimal total = 0;
+        foreach (var p in slips)
+            total += advances
+                .Where(a => a.EmployeeId == p.EmployeeId || (p.EmployeeUserId.HasValue && a.EmployeeUserId == p.EmployeeUserId))
+                .Sum(a => HrFinanceSettingsHelper.AdvanceDeductionForPeriod(a, p.Year, p.Month));
+        return total;
     }
 }

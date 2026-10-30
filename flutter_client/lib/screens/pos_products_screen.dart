@@ -2192,6 +2192,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                       child: PosProductImage(
                         productId: p.id,
                         imageUrl: p.imageUrl,
+                        idFallback: false,
                         updatedAt: p.updatedAt,
                         size: 44,
                         borderRadius: 8,
@@ -2354,6 +2355,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               child: PosProductImage(
                 productId: p.id,
                 imageUrl: p.imageUrl,
+                idFallback: false,
                 updatedAt: p.updatedAt,
                 size: side,
                 borderRadius: 0,
@@ -2597,6 +2599,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         child: PosProductImage(
           productId: p.id,
           imageUrl: p.imageUrl,
+          idFallback: false,
           updatedAt: p.updatedAt,
           size: 48,
           borderRadius: 8,

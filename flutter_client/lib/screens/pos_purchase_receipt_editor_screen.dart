@@ -1019,6 +1019,24 @@ class _PosPurchaseReceiptEditorScreenState
           .showWarning(title: 'Phiếu trống', message: tr('Thêm ít nhất một dòng hàng'));
       return;
     }
+    for (final l in _lines) {
+      final qty = double.tryParse(l.qtyCtrl.text.replaceAll(',', '')) ?? 0;
+      final disc = double.tryParse(l.discountCtrl.text.replaceAll(',', '')) ?? 0;
+      if (disc < 0 || disc > qty * l.grossCost) {
+        NotificationOverlayManager().showWarning(
+          title: tr('Giảm giá chưa đúng'),
+          message: tr('Giảm giá dòng «${l.productName}» không được lớn hơn thành tiền'),
+        );
+        return;
+      }
+    }
+    if (_computedReceiptDiscount > _linesTotal + _linesVatTotal) {
+      NotificationOverlayManager().showWarning(
+        title: tr('Giảm giá chưa đúng'),
+        message: tr('Giảm giá phiếu không được lớn hơn tổng tiền hàng'),
+      );
+      return;
+    }
     if (_supplierId == null || _supplierId!.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Thiếu nhà cung cấp',

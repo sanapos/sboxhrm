@@ -3795,6 +3795,7 @@
   "Cách tính tăng ca giờ đã đổi": "変更された時間外勤務の計算方法",
   "Cách vị trí": "位置からの距離",
   "Cách vị trí tối đa": "位置からの最大距離",
+  "Cách vị trí tối đa phải từ 50 đến 5000 m": "位置からの最大距離は50〜5000 mにしてください",
   "Cách xem báo cáo HRM": "HRMレポートの見方",
   "Cách xem báo cáo POS": "POSレポートの見方",
   "Cách xử lý": "対処方法",
@@ -3853,6 +3854,7 @@
   "Còn hạn (>30 ngày)": "期限内（30日超）",
   "Còn hạn nhưng chưa đến tập": "有効だがまだ利用していない",
   "Còn lại": "残り",
+  "Còn lại sau trả hàng": "返品後の残額",
   "Còn lại sau tạm ứng": "前払い後の残額",
   "Còn lại: 0": "残り: 0",
   "Còn nợ": "未払い残",
@@ -4008,6 +4010,7 @@
   "Công tác phí — theo loại chi phí": "出張費 — 費用の種類別",
   "Công tác phí — theo nhân viên": "出張費 — 従業員別",
   "Công tác phí — ứng & hoạch toán": "出張費 — 前払いと会計処理",
+  "Công tác phí — ứng & hạch toán": "出張費 — 前払いと精算",
   "Công tính lương có thể khác công thực tế khi chọn cố định.": "固定を選択すると、給与計算上の出勤日数が実際と異なる場合があります。",
   "Công việc": "タスク",
   "Công việc & nội bộ": "タスクと社内",
@@ -4384,6 +4387,7 @@
   "Cửa hàng chưa bật «Cho bán offline» (Thiết lập → Ngành hàng & cách bán)": "店舗で「オフライン販売を許可」がオンになっていません (設定 → 業種と販売方法)",
   "Cửa hàng chưa có Print Agent.": "店舗にPrint Agentがありません。",
   "Cửa hàng chưa có báo giá nào để in thử": "店舗にテスト印刷できる見積書がありません",
+  "Cửa hàng chưa có máy chấm công nên chưa nhập tay được. Thêm máy ở Thiết lập SBOX › Máy chấm công trước.": "店舗に勤怠端末がないため手入力できません。先に SBOX 設定 › 勤怠端末 で追加してください。",
   "Cửa hàng chưa có máy chấm công. Thêm máy ở Thiết lập → Máy chấm công rồi quay lại.": "店舗に勤怠端末がありません。設定 → 勤怠端末で追加してから戻ってください。",
   "Cửa hàng chưa có máy in tem nào khác": "店舗に他のラベルプリンターがありません",
   "Cửa hàng chưa có mẫu hóa đơn nào khác": "店舗に他の伝票テンプレートがありません",
@@ -4746,6 +4750,7 @@
   "Dùng điểm": "ポイントを利用",
   "Dùng để tính mức trần đóng bảo hiểm": "保険料の上限額の計算に使用",
   "Dư": "残",
+  "Dư (chờ thu hoàn)": "余剰 (返金待ち)",
   "Dư (ghi nợ ứng)": "残高（前払い借方）",
   "Dư ứng công tác": "出張前払いの残高",
   "Dương": "陽",
@@ -5251,7 +5256,9 @@
   "Giảm cân": "減量",
   "Giảm giá": "割引",
   "Giảm giá (VNĐ)": "割引（VNĐ）",
+  "Giảm giá chưa đúng": "割引が正しくありません",
   "Giảm giá phiếu": "伝票割引",
+  "Giảm giá phiếu không được lớn hơn tổng tiền hàng": "伝票割引は商品合計を超えられません",
   "Giảm giá theo giờ / mặt hàng": "時間帯 / 商品別割引",
   "Giảm giá đơn": "注文割引",
   "Giảm hàng tặng": "プレゼント品の差し引き",
@@ -5410,6 +5417,7 @@
   "Giữ đúng tư thế và ổn định trước khi chụp": "撮影前に正しい姿勢を保ち、安定させてください",
   "Giữ đơn": "注文を保留",
   "Giữ ảnh bằng chứng": "証拠写真を保持",
+  "Giữ ảnh bằng chứng phải từ 1 đến 365 ngày": "証拠写真の保存期間は1〜365日にしてください",
   "Giữa": "間",
   "Giữa chi nhánh": "支店間",
   "Gom nhiều việc để xem tiến độ chung (không bắt buộc)": "複数のタスクをまとめて全体の進捗を確認（任意）",
@@ -8208,6 +8216,7 @@
   "Khớp khuôn mặt": "顔が一致",
   "Khớp két": "ドロワーの現金が一致",
   "Khớp mặt tối thiểu": "顔の最低一致度",
+  "Khớp mặt tối thiểu phải từ 50 đến 100%": "顔一致の最低値は50〜100%にしてください",
   "Khớp tồn": "在庫一致",
   "Khớp đơn POS": "POS注文と一致",
   "Khớp ✓": "一致 ✓",
@@ -10967,6 +10976,7 @@
   "Nhóm thuế": "税グループ",
   "Nhóm thông báo, bật/tắt nhận thông báo": "通知グループ、通知受信のオン／オフ",
   "Nhóm topping": "トッピンググループ",
+  "Nhóm: ": "グループ: ",
   "Nhóm: Chỉ xem": "グループ：閲覧のみ",
   "Nhóm: Toàn quyền": "グループ：フル権限",
   "Nhóm: Tắt hết": "グループ：すべてオフ",
@@ -11165,6 +11175,7 @@
   "Nhập số Serial (SN) trên máy chấm công để kết nối": "接続するには勤怠端末のシリアル番号（SN）を入力してください",
   "Nhập số công nợ đúng (≥ 0)": "正しい債権額を入力してください（0以上）",
   "Nhập số giờ tối thiểu từ 0,5 đến 24": "最低時間を0.5〜24で入力してください",
+  "Nhập số hợp lệ cho khoảng cách, khớp mặt và số ngày": "距離・顔一致・日数に有効な数値を入力してください",
   "Nhập số lượng": "数量を入力",
   "Nhập số lượng mua và số lượng tặng": "購入数量とプレゼント数量を入力してください",
   "Nhập số lượng theo Dài, Rộng, Cao": "長さ・幅・高さごとの数量を入力してください",
@@ -19085,6 +19096,7 @@
   "Đã check-in — cần kiểm tra thẻ / gói": "チェックイン済み — カード / パッケージの確認が必要",
   "Đã check-out": "チェックアウト済み",
   "Đã chi": "支出済",
+  "Đã chi bù": "不足分支払済み",
   "Đã chi trong tháng": "当月の支出",
   "Đã chi tạm ứng": "仮払い支出済み",
   "Đã chi đủ": "全額支払済み",
@@ -19254,6 +19266,7 @@
   "Đã ghi nhận trả hàng": "返品を記録しました",
   "Đã ghi nhận từ chối": "却下を記録しました",
   "Đã ghi nhận. Giờ trong khung nghỉ ca (theo ca làm việc) sẽ tính tăng ca khi có đủ cặp Ra/Vào.": "記録しました。シフトの休憩時間帯(シフト基準)内の時間は、入り/出のペアが揃うと残業として計算されます。",
+  "Đã ghi nợ ứng": "前払い債務として記録済み",
   "Đã ghi nợ ứng lương": "給与前払いを債務計上しました",
   "Đã ghi nợ ứng lương (trừ kỳ lương)": "給与前払いを債務計上しました(給与期間で控除)",
   "Đã ghim lên đầu bảng tin": "掲示板の先頭にピン留めしました",
@@ -19626,6 +19639,7 @@
   "Đã sửa mẫu theo yêu cầu.": "ご要望どおりテンプレートを修正しました。",
   "Đã thanh lý": "処分済",
   "Đã thanh toán": "支払済",
+  "Đã thanh toán (sau hoàn tiền trả hàng)": "支払済み（返品返金後）",
   "Đã thanh toán NCC": "仕入先へ支払済",
   "Đã thanh toán chuyển khoản thành công": "振込での支払いが完了しました",
   "Đã thanh toán và tạo phiếu chi": "支払いを完了し、出金伝票を作成しました",
@@ -19636,6 +19650,7 @@
   "Đã thu": "入金済",
   "Đã thu / trả hàng": "回収 / 返品済み",
   "Đã thu cọc": "手付金を受領済",
+  "Đã thu hoàn": "返金済み",
   "Đã thu hồi": "回収済",
   "Đã thu hồi license": "ライセンスを回収しました",
   "Đã thu hồi phiếu": "伝票を回収しました",
@@ -23924,6 +23939,10 @@
    "販売価格（1 {0}）"
   ],
   [
+   "Giá bán thấp hơn giá vốn — mỗi đơn vị lỗ {0} đ",
+   "販売価格が原価を下回っています — 1単位あたり {0} đ の損失"
+  ],
+  [
    "Giá bán: {0}",
    "販売価格: {0}"
   ],
@@ -23998,6 +24017,10 @@
   [
    "Giả lập giờ đông ({0} yêu cầu cùng lúc)",
    "ピーク時間のシミュレーション（同時リクエスト{0}件）"
+  ],
+  [
+   "Giảm giá dòng «{0}» không được lớn hơn thành tiền",
+   "«{0}» の行割引は金額を超えられません"
   ],
   [
    "Giảm giá đơn: −{0}",
@@ -28444,6 +28467,14 @@
    "給与控除 {0}đ · 現金回収 {1}đ"
   ],
   [
+   "Trừ nợ {0}",
+   "債務から差引 {0}"
+  ],
+  [
+   "Trừ nợ đơn {0}, hoàn {1}",
+   "注文 {0} の債務から差引、返金 {1}"
+  ],
+  [
    "Trừ vào lương · {0}% tổng tiền phạt",
    "給与から控除 · 罰金総額の{0}%"
   ],
@@ -30802,6 +30833,10 @@
   [
    "{0} loại đã bán",
    "販売済み{0}種"
+  ],
+  [
+   "{0} làm",
+   "{0} 勤務"
   ],
   [
    "{0} làm lại",

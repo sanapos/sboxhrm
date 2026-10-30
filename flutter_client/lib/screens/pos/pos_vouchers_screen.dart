@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -273,13 +274,16 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
     String day(DateTime? d) => d == null ? '—' : DateFormat('dd/MM/yyyy').format(d.toLocal());
     return Scaffold(
       backgroundColor: SboxColors.page,
-      appBar: Navigator.of(context).canPop()
-          ? AppBar(
-              title: Text(tr('Voucher')),
-              backgroundColor: Colors.white,
-              foregroundColor: SboxColors.text,
-              surfaceTintColor: Colors.white,
-              elevation: 0.5,
+      appBar: HrmPageChrome.isPushedOverShell(context)
+          ? shellAwareAppBar(
+              context,
+              AppBar(
+                title: Text(tr('Voucher')),
+                backgroundColor: Colors.white,
+                foregroundColor: SboxColors.text,
+                surfaceTintColor: Colors.white,
+                elevation: 0.5,
+              ),
             )
           : null,
       body: SboxReportLayout(

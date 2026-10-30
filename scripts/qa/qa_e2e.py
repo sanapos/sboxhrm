@@ -358,9 +358,27 @@ def step_floor(base, tokens, ctx):
                     res.append(d)
             if not res:
                 continue
-        r = res[0]
-        st, js, ms = api.call('POST', '/api/pos/resource-sessions/open',
-                              {'resourceId': r['id'], 'guestCount': 2, 'deviceId': 'qa-script', 'deviceName': 'QA'})
+        # --reuse: bàn của lần chạy trước có thể còn khách → thử bàn kế tiếp.
+        for r in res:
+            st, js, ms = api.call('POST', '/api/pos/resource-sessions/open',
+                                  {'resourceId': r['id'], 'guestCount': 2, 'deviceId': 'qa-script', 'deviceName': 'QA'})
+            if not (st == 400 and 'đang được sử dụng' in msg(js)):
+                break
+        else:
+            # Mọi bàn đều có khách (đơn dở từ máy test) → thêm bàn mới, không đụng đơn đang mở.
+            area_id = res[0].get('areaId')
+            n = len(res) + 1
+            st2, js2, _ = api.call('POST', '/api/pos/service-resources',
+                                   {'areaId': area_id, 'code': f'P{n:02d}', 'name': f'Phòng QA {n}',
+                                    'capacity': 4, 'defaultHourlyRate': 120000,
+                                    'defaultServiceProductId': c['products'][3]['id']})
+            d = data(js2) if ok_resp(st2, js2) else None
+            if isinstance(d, dict) and 'resource' in d:
+                d = d['resource']
+            if d:
+                r = d
+                st, js, ms = api.call('POST', '/api/pos/resource-sessions/open',
+                                      {'resourceId': r['id'], 'guestCount': 2, 'deviceId': 'qa-script', 'deviceName': 'QA'})
         good = ok_resp(st, js)
         sess = data(js) or {}
         if isinstance(sess, dict) and 'session' in sess:

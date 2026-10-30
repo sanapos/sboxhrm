@@ -18,10 +18,14 @@ class PosProductImage extends StatelessWidget {
     this.fill = false,
     this.borderRadius = 4,
     this.fit = BoxFit.cover,
+    this.idFallback = true,
   });
 
   final String? productId;
   final String? imageUrl;
+  /// false khi [imageUrl] lấy từ hàng hóa đầy đủ (danh sách / lưới bán): rỗng là chắc chắn
+  /// không có ảnh — hiện ô trống, không gọi API ảnh theo id (server trả 404).
+  final bool idFallback;
   final DateTime? updatedAt;
   final double size;
   /// Ô lưới: chiếm hết chỗ, decode theo [size] (A6 không LayoutBuilder).
@@ -33,9 +37,9 @@ class PosProductImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasId = productId != null && productId!.isNotEmpty;
     final url = imageUrl?.trim();
     final hasUrl = url != null && url.isNotEmpty;
+    final hasId = productId != null && productId!.isNotEmpty && (hasUrl || idFallback);
 
     if (!hasId && !hasUrl) {
       return _placeholder(size, borderRadius, fill: fill);

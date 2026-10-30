@@ -317,6 +317,9 @@ class PermissionProvider extends ChangeNotifier {
     return _resolveAction(moduleCode, action);
   }
 
+  bool get _managesPosProducts =>
+      _flag('PosProducts', 'canCreate') || _flag('PosProducts', 'canEdit');
+
   bool _flag(String moduleCode, String action) {
     final perm = _permissions[moduleCode];
     if (perm == null) return false;
@@ -409,7 +412,8 @@ class PermissionProvider extends ChangeNotifier {
     if (moduleCode == 'CashTransaction' && _flag('BankAccount', action)) {
       return true;
     }
-    if (PermissionModules.financialTransactions.contains(moduleCode)) {
+    // Sổ quỹ không suy ra từ quyền thưởng/phạt (khớp server ModulePermissionImplicitGrants).
+    if (PermissionModules.financialTransactions.contains(moduleCode) && moduleCode != 'CashTransaction') {
       if (_anyHas(action, PermissionModules.financialTransactions)) return true;
     }
     if (moduleCode == 'Benefit' && _flag('BonusPenalty', action)) return true;
@@ -434,7 +438,9 @@ class PermissionProvider extends ChangeNotifier {
         moduleCode == 'PosStockCounts' ||
         moduleCode == 'PosDamageIssues' ||
         moduleCode == 'PosInternalUseIssues') {
-      if (_flag('PosProducts', action)) return true;
+      // Xem/xuất chỉ khi quản lý hàng (Tạo/Sửa) — khớp server ModulePermissionImplicitGrants.
+      final viewLike = action == 'canView' || action == 'canExport';
+      if (_flag('PosProducts', action) && (!viewLike || _managesPosProducts)) return true;
     }
     // Trả hàng trên phiếu bán: thu ngân PosSell cùng action vẫn được.
     if (moduleCode == 'PosSaleReturns' && _flag('PosSell', action)) {
@@ -460,7 +466,8 @@ class PermissionProvider extends ChangeNotifier {
     }
     if (moduleCode == 'PosSalesReport' &&
         (action == 'canView' || action == 'canExport')) {
-      if (_flag('PosProducts', action) || _flag('PosSalesReport', action)) {
+      if (_flag('PosSalesReport', action) ||
+          (_flag('PosProducts', action) && _managesPosProducts)) {
         return true;
       }
     }

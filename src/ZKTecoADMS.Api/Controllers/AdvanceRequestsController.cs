@@ -63,14 +63,38 @@ public class AdvanceRequestsController(
     {
         var query = new GetAdvanceRequestByIdQuery(RequiredStoreId, id);
         var result = await mediator.Send(query);
+        // Nhân viên chỉ xem phiếu của mình (số tiền ứng là riêng tư).
+        if (!SeesAllAdvances && result.Data is { } dto && !await IsOwnAdvanceAsync(dto.EmployeeUserId, dto.EmployeeId))
+            return NotFound(AppResponse<AdvanceRequestDto>.Fail("Không tìm thấy phiếu ứng lương"));
         return Ok(result);
     }
+
+    /// <summary>Quản lý / kế toán lập, xem phiếu cho mọi nhân viên; còn lại chỉ của chính mình.</summary>
+    private bool SeesAllAdvances => IsManager || IsAccountant;
+
+    private async Task<Guid?> OwnEmployeeIdAsync() =>
+        await context.Employees.AsNoTracking()
+            .Where(e => e.ApplicationUserId == CurrentUserId && e.StoreId == RequiredStoreId)
+            .Select(e => (Guid?)e.Id).FirstOrDefaultAsync();
+
+    private async Task<bool> IsOwnAdvanceAsync(Guid? employeeUserId, Guid? employeeId) =>
+        employeeUserId == CurrentUserId
+        || (employeeId.HasValue && employeeId == await OwnEmployeeIdAsync());
 
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<AdvanceRequestDto>>> CreateAdvanceRequest([FromBody] CreateAdvanceRequestDto request)
     {
+        if (!SeesAllAdvances)
+        {
+            // Nhân viên chỉ xin ứng cho chính mình — id nhân viên khác trong body bị bỏ qua.
+            request.EmployeeUserId = CurrentUserId;
+            request.EmployeeId = null;
+        }
+        else if (request.EmployeeId.HasValue && !await context.Employees.AsNoTracking()
+                     .AnyAsync(e => e.Id == request.EmployeeId && e.StoreId == RequiredStoreId))
+            return Ok(AppResponse<AdvanceRequestDto>.Error("Nhân viên không thuộc cửa hàng"));
         Guid? employeeUserId = request.EmployeeUserId
             ?? (request.EmployeeId == null ? CurrentUserId : (Guid?)null);
 
@@ -122,9 +146,12 @@ public class AdvanceRequestsController(
         var now = DateTime.Now;
         var y = year ?? now.Year;
         var m = month ?? now.Month;
-        var empId = employeeId ?? await context.Employees.AsNoTracking()
-            .Where(e => e.ApplicationUserId == CurrentUserId)
-            .Select(e => (Guid?)e.Id).FirstOrDefaultAsync();
+        // Lương tháng là riêng tư: nhân viên chỉ xem hạn mức của mình; quản lý chỉ xem nhân viên trong cửa hàng.
+        var empId = !SeesAllAdvances || employeeId == null
+            ? await OwnEmployeeIdAsync()
+            : await context.Employees.AsNoTracking()
+                .Where(e => e.Id == employeeId && e.StoreId == RequiredStoreId)
+                .Select(e => (Guid?)e.Id).FirstOrDefaultAsync();
         var settings = await HrFinanceSettingsHelper.GetAsync(context, RequiredStoreId);
         decimal? monthly = empId.HasValue
             ? await HrFinanceSettingsHelper.EstimateMonthlySalaryAsync(context, empId.Value, new DateTime(y, m, 1).AddMonths(1).AddDays(-1))
@@ -237,6 +264,28 @@ public class AdvanceRequestsController(
     [RequireModulePermission("AdvanceRequests", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteAdvanceRequest(Guid id)
     {
+        var adv = await context.AdvanceRequests.AsNoTracking()
+            .Where(a => a.Id == id && a.StoreId == RequiredStoreId)
+            .Select(a => new { a.IsPaid, a.EmployeeUserId, a.EmployeeId, a.ForYear, a.ForMonth, a.InstallmentCount })
+            .FirstOrDefaultAsync();
+        if (adv == null)
+            return Ok(AppResponse<bool>.Error("Không tìm thấy phiếu ứng lương"));
+        // Xóa phiếu đã chi = hủy luôn phiếu chi (sửa chi nhầm). Nhưng nếu kỳ lương trừ khoản này đã chốt thì
+        // xóa làm mất khoản trừ đã tính vào bảng lương → chặn.
+        if (adv.IsPaid && adv.ForYear is int fy && adv.ForMonth is int fm)
+        {
+            var from = fy * 12 + fm - 1;
+            var to = from + Math.Max(1, adv.InstallmentCount) - 1;
+            var locked = await context.Payslips.AsNoTracking().AnyAsync(p =>
+                p.StoreId == RequiredStoreId && p.Status != PayslipStatus.Draft
+                && ((adv.EmployeeId.HasValue && p.EmployeeId == adv.EmployeeId)
+                    || (adv.EmployeeUserId.HasValue && p.EmployeeUserId == adv.EmployeeUserId))
+                && p.Year * 12 + p.Month - 1 >= from && p.Year * 12 + p.Month - 1 <= to);
+            if (locked)
+                return Ok(AppResponse<bool>.Error("Khoản ứng đã được trừ vào bảng lương đã chốt — không xóa được"));
+        }
+        if (!SeesAllAdvances && !await IsOwnAdvanceAsync(adv.EmployeeUserId, adv.EmployeeId))
+            return Ok(AppResponse<bool>.Error("Chỉ xóa được phiếu ứng của chính mình"));
         var command = new DeleteAdvanceRequestCommand(RequiredStoreId, id);
         var result = await mediator.Send(command);
         return Ok(result);

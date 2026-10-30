@@ -50,6 +50,7 @@ class PosSellProductGrid extends StatefulWidget {
     this.priceOverrides = const {},
     this.allowNegativeStock = false,
     this.stockWarnOnly = false,
+    this.showSearchBar = false,
   });
 
   final ApiService api;
@@ -73,6 +74,10 @@ class PosSellProductGrid extends StatefulWidget {
 
   /// Báo giá: hàng hết / tạm khóa chỉ cảnh báo, vẫn cho thêm (không trừ kho).
   final bool stockWarnOnly;
+
+  /// Dạng lưới (desktop) mặc định không có ô tìm — màn Bán hàng tìm ở thanh trên. Màn không có
+  /// ô tìm riêng (Báo giá) bật lên, không thì cửa hàng nhiều hàng chỉ còn cách cuộn lưới.
+  final bool showSearchBar;
 
   @override
   State<PosSellProductGrid> createState() => PosSellProductGridState();
@@ -219,6 +224,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             api: widget.api,
             productId: p.id,
             imageUrl: p.imageUrl,
+            idFallback: false,
             updatedAt: p.updatedAt,
           ));
         }
@@ -774,6 +780,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               api: widget.api,
               productId: p.id,
               imageUrl: p.imageUrl,
+              idFallback: false,
               updatedAt: p.updatedAt,
             ),
         ]);
@@ -1637,6 +1644,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                               child: PosProductImage(
                                 productId: p.id,
                                 imageUrl: p.imageUrl,
+                                idFallback: false,
                                 updatedAt: p.updatedAt,
                                 size: 96,
                                 fill: true,
@@ -1865,6 +1873,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       image: PosProductImage(
         productId: p.id,
         imageUrl: p.imageUrl,
+        idFallback: false,
         updatedAt: p.updatedAt,
         size: 48,
         borderRadius: 8,
@@ -2088,7 +2097,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 6),
+                if (widget.showSearchBar) _buildSearchBar() else const SizedBox(height: 6),
                 _horizontalCategoryStrip(),
                 if (_lockMode) const _LockModeBanner(),
                 const Divider(height: 1, color: PosTheme.border),
@@ -2156,7 +2165,15 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                 ),
               ),
               Expanded(
-                child: _buildGrid(constraints.maxWidth - 108),
+                child: widget.showSearchBar
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildSearchBar(),
+                          Expanded(child: _buildGrid(constraints.maxWidth - 108)),
+                        ],
+                      )
+                    : _buildGrid(constraints.maxWidth - 108),
               ),
             ],
           ),

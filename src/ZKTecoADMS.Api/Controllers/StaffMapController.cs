@@ -199,7 +199,7 @@ public class StaffMapController(ZKTecoDbContext db, IMemoryCache cache) : Authen
                 employeeId = e.Id,
                 employeeCode = e.Code,
                 employeeName = e.Name,
-                department = string.IsNullOrWhiteSpace(e.Department) ? "Chưa phân phòng" : e.Department,
+                department = string.IsNullOrWhiteSpace(e.Department) ? "Chưa có phòng ban" : e.Department,
                 position = e.Position,
                 photoUrl = e.PhotoUrl,
                 hasAccount = e.UserId.HasValue,

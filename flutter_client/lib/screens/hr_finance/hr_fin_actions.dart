@@ -191,6 +191,14 @@ class HrFinActions {
       return false;
     }
     final v = hrFinParseMoney(amount.text);
+    if (res == 'approve' && (v == null || v <= 0)) {
+      hrFinToast(context, 'Số tiền duyệt phải lớn hơn 0', error: true);
+      return false;
+    }
+    if (res == 'approve' && v! > it.amount) {
+      hrFinToast(context, 'Số tiền duyệt không được vượt số tiền xin ứng', error: true);
+      return false;
+    }
     final r = await api.approveAdvanceRequest(
       requestId: it.id,
       isApproved: res == 'approve',
@@ -361,7 +369,7 @@ class HrFinActions {
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             HrFinSegment<String>(
               value: t,
-              options: const {'Bonus': '🎁 Thưởng', 'Penalty': '⚠️ Phạt'},
+              options: const {'Bonus': 'Thưởng', 'Penalty': 'Phạt'},
               onChanged: (v) => setS(() {
                 t = v;
                 settlement = v == 'Penalty' ? settings.penaltyDefaultSettlement : settings.bonusDefaultSettlement;
@@ -375,7 +383,11 @@ class HrFinActions {
                 final q = v.text.trim().toLowerCase();
                 return people.where((p) => q.isEmpty || p.name.toLowerCase().contains(q) || (p.code ?? '').toLowerCase().contains(q)).take(30);
               },
-              onSelected: (p) => setS(() => person = p),
+              onSelected: (p) {
+                // Bỏ focus để đóng danh sách gợi ý (nếu không nó che ô Số tiền).
+                FocusManager.instance.primaryFocus?.unfocus();
+                setS(() => person = p);
+              },
               fieldViewBuilder: (c, ctrl, focus, submit) =>
                   TextField(controller: ctrl, focusNode: focus, decoration: hrFinInput('Nhân viên', hint: 'Gõ tên hoặc mã')),
             ),
@@ -505,6 +517,7 @@ class HrFinActions {
                   return people.where((p) => q.isEmpty || p.name.toLowerCase().contains(q) || (p.code ?? '').toLowerCase().contains(q)).take(30);
                 },
                 onSelected: (p) {
+                  FocusManager.instance.primaryFocus?.unfocus();
                   person = p;
                   loadLimit(setS);
                 },

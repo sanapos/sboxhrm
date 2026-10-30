@@ -398,12 +398,16 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     }).length;
     final approvalRate = decided == 0 ? null : (approved / decided * 100).round();
     final empCount = approvedRows.map((l) => l['employeeName']?.toString() ?? '').toSet().length;
+    // Thẻ đếm bỏ đơn từ chối / hủy, còn biểu đồ «Trạng thái đơn» vẫn có → ghi rõ để hai số không vênh.
+    final voided = _statsFiltered.length - f.length;
+    final voidedNote = voided > 0 ? 'Không tính $voided đơn từ chối / hủy' : null;
 
     if (!_teamView) {
       return [
         ReportKpiItem(
             label: 'Đơn nghỉ',
             value: f.length.toString(),
+            note: voidedNote,
             icon: Icons.description_outlined,
             color: Colors.blueGrey),
         ReportKpiItem(
@@ -428,7 +432,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
       ReportKpiItem(
           label: 'Tổng đơn',
           value: '${f.length}',
-          note: pending > 0 ? '$pending đơn chờ duyệt' : 'Đã xử lý hết',
+          note: pending > 0 ? '$pending đơn chờ duyệt' : (voidedNote ?? 'Đã xử lý hết'),
           icon: Icons.description_outlined,
           color: Colors.blueGrey),
       ReportKpiItem(

@@ -39,9 +39,11 @@ internal static class PosNotificationHelper
     {
         try
         {
-            // Báo cho cả thu ngân / phục vụ / quản lý (+ chủ nếu đúng cửa hàng). Trước đây chỉ
-            // ManagerRoles nên thu ngân — người hay cần theo dõi doanh số — không nhận được.
-            var userIds = await GetPosOpsUserIdsAsync(db, storeId, cancellationToken);
+            // Chỉ quản lý (+ chủ nếu đúng cửa hàng): số tiền từng đơn là doanh số cửa hàng, thu ngân /
+            // phục vụ không cần thấy đơn của người khác (họ xem đơn mình trên màn bán hàng).
+            var userIds = await GetPosManagerUserIdsAsync(db, storeId, cancellationToken);
+            if (await OwnerAtStoreAsync(db, storeId, cancellationToken) is Guid owner && !userIds.Contains(owner))
+                userIds.Add(owner);
             // Người vừa bán đã thấy kết quả ngay trên màn hình — không đẩy lại popup cho chính họ.
             if (fromUserId.HasValue) userIds = userIds.Where(u => u != fromUserId.Value).ToList();
             if (userIds.Count == 0) return;
@@ -334,19 +336,8 @@ internal static class PosNotificationHelper
         foreach (var id in roleUsers)
             ids.Add(id);
 
-        var ownerId = await db.Stores.AsNoTracking()
-            .Where(s => s.Id == storeId)
-            .Select(s => s.OwnerId)
-            .FirstOrDefaultAsync(cancellationToken);
-        // Chỉ thêm chủ khi chủ đang trực thuộc đúng cửa hàng này. Chủ sở hữu nhiều cửa hàng
-        // có StoreId trỏ 1 cửa hàng — tránh điện thoại chủ bị dội QR/đặt lịch/bán hàng của
-        // mọi cửa hàng mình sở hữu (nhận "lung tung từ các shop khác").
-        if (ownerId is Guid oid && oid != Guid.Empty)
-        {
-            var ownerAtStore = await db.Users.AsNoTracking()
-                .AnyAsync(u => u.Id == oid && u.StoreId == storeId, cancellationToken);
-            if (ownerAtStore) ids.Add(oid);
-        }
+        if (await OwnerAtStoreAsync(db, storeId, cancellationToken) is Guid oid)
+            ids.Add(oid);
 
         if (extraModules.Length > 0)
         {
@@ -372,13 +363,33 @@ internal static class PosNotificationHelper
         return ids.ToList();
     }
 
+    /// <summary>
+    /// Chủ cửa hàng, chỉ khi chủ đang trực thuộc đúng cửa hàng này. Chủ sở hữu nhiều cửa hàng
+    /// có StoreId trỏ 1 cửa hàng — tránh điện thoại chủ bị dội QR/đặt lịch/bán hàng của
+    /// mọi cửa hàng mình sở hữu (nhận "lung tung từ các shop khác").
+    /// </summary>
+    private static async Task<Guid?> OwnerAtStoreAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        CancellationToken cancellationToken)
+    {
+        var ownerId = await db.Stores.AsNoTracking()
+            .Where(s => s.Id == storeId)
+            .Select(s => s.OwnerId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (ownerId is not Guid oid || oid == Guid.Empty) return null;
+        var atStore = await db.Users.AsNoTracking()
+            .AnyAsync(u => u.Id == oid && u.StoreId == storeId, cancellationToken);
+        return atStore ? oid : null;
+    }
+
     internal static async Task<List<Guid>> GetPosManagerUserIdsAsync(
         ZKTecoDbContext db,
         Guid storeId,
         CancellationToken cancellationToken)
     {
         return await db.Users.AsNoTracking()
-            .Where(u => u.StoreId == storeId &&
+            .Where(u => u.IsActive && u.StoreId == storeId &&
                         ManagerRoles.Contains(u.Role))
             .Select(u => u.Id)
             .Distinct()

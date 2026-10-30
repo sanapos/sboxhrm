@@ -44,21 +44,48 @@ public partial class PosCustomersController
         Guid id, [FromBody] CreateCustomerPaymentDto dto)
     {
         var storeId = RequiredStoreId;
-        var customer = await dbContext.PosCustomers.AsTracking()
-            .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == storeId && c.Deleted == null);
-        if (customer == null)
-            return NotFound(AppResponse<CustomerPaymentDto>.Fail("Không tìm thấy khách hàng"));
+        // Bấm «Thu nợ» 2 lần / 2 máy cùng lúc: cả hai đọc cùng số nợ → 2 phiếu thu cho 1 khoản nợ.
+        // RepeatableRead: giao dịch sau đụng hàng khách vừa đổi → lỗi tuần tự → đọc lại nợ mới và bị chặn «vượt nợ».
+        for (var attempt = 0; ; attempt++)
+        {
+            await using var tx = await dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead);
+            try
+            {
+                var customer = await dbContext.PosCustomers.AsTracking()
+                    .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == storeId && c.Deleted == null);
+                if (customer == null)
+                    return NotFound(AppResponse<CustomerPaymentDto>.Fail("Không tìm thấy khách hàng"));
 
-        var (pay, err) = await PosCustomerFinanceHelper.CollectDebtAsync(
-            dbContext, storeId, customer, dto.Amount,
-            dto.PaymentMethod ?? "Tiền mặt", dto.PaidAt, dto.Note, dto.SaleOrderId, CurrentUserEmail);
-        if (err != null) return BadRequest(AppResponse<CustomerPaymentDto>.Fail(err));
-        await PosFinanceSyncHelper.SyncCustomerPaymentAsync(
-            dbContext, pay!, customer, CurrentUserId, dto.BankAccountId);
-        await dbContext.SaveChangesAsync();
-        return Ok(AppResponse<CustomerPaymentDto>.Success(new CustomerPaymentDto(
-            pay!.Id, pay.PaymentNo, pay.Amount, pay.PaymentMethod, pay.PaidAt, pay.Note,
-            pay.SaleOrderId, pay.CreatedBy)));
+                var (pay, err) = await PosCustomerFinanceHelper.CollectDebtAsync(
+                    dbContext, storeId, customer, dto.Amount,
+                    dto.PaymentMethod ?? "Tiền mặt", dto.PaidAt, dto.Note, dto.SaleOrderId, CurrentUserEmail);
+                if (err != null)
+                {
+                    await tx.RollbackAsync();
+                    return BadRequest(AppResponse<CustomerPaymentDto>.Fail(err));
+                }
+                await PosFinanceSyncHelper.SyncCustomerPaymentAsync(
+                    dbContext, pay!, customer, CurrentUserId, dto.BankAccountId);
+                await dbContext.SaveChangesAsync();
+                await tx.CommitAsync();
+                return Ok(AppResponse<CustomerPaymentDto>.Success(new CustomerPaymentDto(
+                    pay!.Id, pay.PaymentNo, pay.Amount, pay.PaymentMethod, pay.PaidAt, pay.Note,
+                    pay.SaleOrderId, pay.CreatedBy)));
+            }
+            catch (Exception ex) when (attempt < 3 && IsDebtWriteConflict(ex))
+            {
+                await tx.RollbackAsync();
+                dbContext.ChangeTracker.Clear();
+            }
+        }
+    }
+
+    private static bool IsDebtWriteConflict(Exception ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException)
+            if (e is Npgsql.PostgresException { SqlState: "40001" or "40P01" or "23505" } or DbUpdateConcurrencyException)
+                return true;
+        return false;
     }
 
     /// <summary>

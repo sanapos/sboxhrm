@@ -297,7 +297,15 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
     }
 
     if (matchType == 'product' && data['product'] is Map) {
-      final p = PosProduct.fromJson(data['product'] as Map<String, dynamic>);
+      var p = PosProduct.fromJson(data['product'] as Map<String, dynamic>);
+      // API tra cứu của màn bán không trả giá vốn → nhập hàng / kiểm kho gõ đúng mã (quét mã vạch)
+      // thấy «Giá vốn 0» trong gợi ý. Lấy bản đầy đủ của hàng.
+      if (!widget.sellMode && p.costPrice <= 0 && p.id.isNotEmpty) {
+        final full = await widget.api.getPosProduct(p.id);
+        if (full['isSuccess'] == true && full['data'] is Map) {
+          p = PosProduct.fromJson(Map<String, dynamic>.from(full['data'] as Map));
+        }
+      }
       return _expandSuggestions([p]);
     }
     return [];
@@ -650,6 +658,8 @@ class _SuggestionTile extends StatelessWidget {
             PosProductImage(
               productId: p.id,
               imageUrl: p.imageUrl,
+
+              idFallback: false,
               updatedAt: p.updatedAt,
               size: img,
               borderRadius: 6,

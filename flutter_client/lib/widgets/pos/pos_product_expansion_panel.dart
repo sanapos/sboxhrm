@@ -244,6 +244,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
             child: PosProductImage(
               productId: _p.id,
               imageUrl: _p.imageUrl,
+              idFallback: false,
               size: 100,
               borderRadius: 6,
             ),

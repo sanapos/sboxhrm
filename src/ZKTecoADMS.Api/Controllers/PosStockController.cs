@@ -28,6 +28,8 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 
 [Route("api/pos/stock")]
+// Giá vốn / giá nhập chỉ cho người có quyền «Xem giá vốn» — thu ngân, phục vụ không thấy.
+[MaskCostData("lineAmount")]
 
 [Authorize]
 
@@ -125,7 +127,10 @@ public class PosStockController(ZKTecoDbContext dbContext) : AuthenticatedContro
 
         var query = dbContext.PosStockTransactions
             .AsNoTracking()
-            .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive);
+            .Where(t => t.StoreId == storeId && t.Deleted == null
+                        // Dòng trả hàng của phiếu trả đã hủy bị tắt nhưng dòng bù «Hủy trả hàng» (xuất) vẫn hiện →
+                        // thẻ kho phải giữ cả dòng trả gốc, nếu không cộng dồn bị trừ 2 lần, lệch tồn thật.
+                        && (t.IsActive || t.TransactionType == PosStockTransactionType.Return));
 
         if (productId.HasValue)
             query = query.Where(t => t.ProductId == productId);
@@ -204,7 +209,10 @@ public class PosStockController(ZKTecoDbContext dbContext) : AuthenticatedContro
             .Include(t => t.Variant)
             .Include(t => t.StockReceipt).ThenInclude(r => r!.Supplier)
             .Include(t => t.SaleOrder)
-            .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive);
+            .Where(t => t.StoreId == storeId && t.Deleted == null
+                        // Dòng trả hàng của phiếu trả đã hủy bị tắt nhưng dòng bù «Hủy trả hàng» (xuất) vẫn hiện →
+                        // thẻ kho phải giữ cả dòng trả gốc, nếu không cộng dồn bị trừ 2 lần, lệch tồn thật.
+                        && (t.IsActive || t.TransactionType == PosStockTransactionType.Return));
         if (productId.HasValue) query = query.Where(t => t.ProductId == productId);
         if (variantId.HasValue) query = query.Where(t => t.VariantId == variantId);
         if (from.HasValue) query = query.Where(t => t.CreatedAt >= from.Value.Date);

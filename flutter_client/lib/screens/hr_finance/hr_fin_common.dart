@@ -182,7 +182,7 @@ class HrFinMonthBar extends StatelessWidget {
           icon: const Icon(Icons.chevron_left_rounded, size: 20),
           onPressed: () => onChanged(DateTime(month.year, month.month - 1)),
         ),
-        Text(hrFinMonthLabel(month), style: SboxType.bodyStrong()),
+        Text(tr(hrFinMonthLabel(month)), style: SboxType.bodyStrong()),
         IconButton(
           tooltip: tr('Tháng sau'),
           visualDensity: VisualDensity.compact,

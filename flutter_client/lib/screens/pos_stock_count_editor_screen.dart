@@ -533,6 +533,8 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
           child: TextField(
             controller: l.countedCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            // Số đếm không âm — dấu «-» làm tồn kho âm khi cân bằng.
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
             textAlign: TextAlign.center,
             decoration: InputDecoration(
               isDense: true,

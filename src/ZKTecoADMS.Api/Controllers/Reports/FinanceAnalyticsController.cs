@@ -88,7 +88,7 @@ public class FinanceAnalyticsController(
                 {
                     EmployeeCode = g.Key.EmployeeCode,
                     EmployeeName = ReportHelpers.FullName(g.Key.LastName, g.Key.FirstName),
-                    Department = g.Key.Department ?? "N/A",
+                    Department = g.Key.Department ?? "Chưa có phòng ban",
                     TicketCount = g.Count(),
                     TotalAmount = g.Sum(x => x.Amount),
                     LateCount = g.Count(x => x.Type == PenaltyTicketType.Late),
@@ -274,7 +274,7 @@ public class FinanceAnalyticsController(
                 {
                     EmployeeCode = g.Key.EmployeeCode,
                     EmployeeName = ReportHelpers.FullName(g.Key.LastName, g.Key.FirstName),
-                    Department = g.Key.Department ?? "N/A",
+                    Department = g.Key.Department ?? "Chưa có phòng ban",
                     TotalRequests = g.Count(),
                     TotalApproved = g.Where(x => x.Status == AdvanceRequestStatus.Approved)
                         .Sum(x => Payout(x.Amount, x.ApprovedAmount)),
@@ -399,7 +399,7 @@ public class FinanceAnalyticsController(
                     EmployeeUserId = c.EmployeeUserId,
                     EmployeeCode = emp?.EmployeeCode ?? "—",
                     EmployeeName = empName,
-                    Department = emp?.Department ?? "N/A",
+                    Department = emp?.Department ?? "Chưa có phòng ban",
                     Status = c.Status,
                     StatusLabel = BusinessTripStatusLabel(c.Status),
                     AdvanceAmount = c.AdvanceAmount,
@@ -436,7 +436,7 @@ public class FinanceAnalyticsController(
                         : c.EmployeeUser != null
                             ? ReportHelpers.FullName(c.EmployeeUser.LastName, c.EmployeeUser.FirstName)
                             : "—";
-                    return new { code, name, dept = emp?.Department ?? "N/A" };
+                    return new { code, name, dept = emp?.Department ?? "Chưa có phòng ban" };
                 })
                 .Select(g => new BusinessTripReportEmployeeDto
                 {
@@ -585,6 +585,13 @@ public class FinanceAnalyticsController(
 
             IQueryable<Domain.Entities.MealDebt> q = db.MealDebts.IgnoreQueryFilters()
                 .Where(m => m.StoreId == storeId && m.Deleted == null);
+            // Nợ suất ăn trừ lương của cả cửa hàng — nhân viên thường chỉ thấy phần của mình.
+            if (!IsManager && !IsAccountant)
+            {
+                var svc = HttpContext.RequestServices.GetRequiredService<ZKTecoADMS.Application.Interfaces.IModulePermissionService>();
+                if (!await svc.HasPermissionAsync(CurrentUserId, CurrentUserRole, storeId, "Meal", ModulePermissionAction.Edit, ct))
+                    q = q.Where(m => m.EmployeeUserId == CurrentUserId);
+            }
 
             if (!string.IsNullOrWhiteSpace(period))
             {
@@ -613,7 +620,7 @@ public class FinanceAnalyticsController(
                 {
                     EmployeeCode = g.Key.EmployeeCode,
                     EmployeeName = g.Key.EmployeeName,
-                    Department = g.Key.Department ?? "N/A",
+                    Department = g.Key.Department ?? "Chưa có phòng ban",
                     TotalCharge = g.Where(x => x.Type == 0).Sum(x => x.Amount),
                     TotalPayment = g.Where(x => x.Type == 1).Sum(x => x.Amount),
                     OutstandingDebt = g.Where(x => x.Type == 0).Sum(x => x.Amount) - g.Where(x => x.Type == 1).Sum(x => x.Amount),

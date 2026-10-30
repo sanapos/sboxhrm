@@ -35,7 +35,7 @@ public sealed class RequireAnyActionOnModuleFilter(
             return;
 
         context.Result = new ObjectResult(
-            AppResponse<object>.Fail($"Tài khoản không có quyền thao tác module {module}."))
+            AppResponse<object>.Fail($"Tài khoản không có quyền thao tác «{ModuleDisplayName.Of(module)}»."))
         {
             StatusCode = StatusCodes.Status403Forbidden
         };

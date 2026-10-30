@@ -207,10 +207,17 @@ internal static class PosSaleStockHelper
          (!t.Note.StartsWith("Hủy đơn") && !t.Note.StartsWith("Hủy trả hàng")));
 
     /// <summary>Tiền hoàn một dòng bán (có chiết khấu dòng).</summary>
-    public static decimal LineUnitRefund(PosSaleOrderLine line) =>
-        line.Qty > 0
-            ? (line.LineTotal > 0 ? line.LineTotal / line.Qty : line.UnitPrice)
-            : line.UnitPrice;
+    /// <summary>
+    /// Tiền hoàn cho 1 đơn vị. Dòng tặng / giảm 100% (thành tiền 0 vì có giảm giá) hoàn 0 — trước đây rơi về đơn giá
+    /// gốc nên khách trả món được tặng lại nhận tiền. Thành tiền 0 mà không có giảm giá = dữ liệu cũ chưa lưu
+    /// thành tiền → vẫn lấy đơn giá.
+    /// </summary>
+    public static decimal LineUnitRefund(PosSaleOrderLine line)
+    {
+        if (line.Qty > 0 && line.LineTotal > 0) return line.LineTotal / line.Qty;
+        if (line.DiscountAmount > 0) return 0;
+        return Math.Max(0, line.UnitPrice);
+    }
 
     public static Task<bool> HasBeenCancelledInStockAsync(
         ZKTecoDbContext db, Guid storeId, PosSaleOrder order) =>
@@ -340,6 +347,8 @@ internal static class PosSaleStockHelper
                 TransactionType = PosStockTransactionType.Return,
                 QtyChange = restore,
                 QtyAfter = qtyAfter,
+                // Giá vốn lúc bán (dòng bán gốc) — báo cáo không phải tự suy giá vốn hàng nhập lại khi hủy đơn.
+                UnitCost = tx.UnitCost,
                 ReferenceNo = order.OrderNo,
                 SaleOrderId = order.Id,
                 Note = CancelReturnNotePrefix(order.OrderNo),
@@ -1283,6 +1292,12 @@ internal static class PosSaleStockHelper
         var warrantyLines = new List<(Guid ProductId, Guid? VariantId, decimal Qty)>();
         var voidNote = VoidReturnNotePrefix(returnNo);
 
+        // Cửa hàng cho bán âm: tồn đang âm vẫn hủy được phiếu trả (như lúc bán) — trước đây luôn chặn nên đơn kẹt,
+        // không hủy được phiếu trả cũng không hủy được đơn.
+        var allowNegativeStock = await db.PosStoreSellSettings.AsNoTracking()
+            .Where(s => s.StoreId == storeId)
+            .Select(s => s.AllowNegativeStock)
+            .FirstOrDefaultAsync();
         foreach (var tx in txs)
         {
             if (!products.TryGetValue(tx.ProductId, out var product)) continue;
@@ -1316,7 +1331,7 @@ internal static class PosSaleStockHelper
             }
             else
             {
-                if (product.OnHandQty < deduct)
+                if (!allowNegativeStock && product.OnHandQty < deduct)
                     return (0, [], $"Không đủ tồn để hủy trả: {product.Name}");
                 product.OnHandQty -= deduct;
                 product.UpdatedAt = DateTime.UtcNow;
@@ -1344,6 +1359,7 @@ internal static class PosSaleStockHelper
                 TransactionType = PosStockTransactionType.StockOut,
                 QtyChange = -deduct,
                 QtyAfter = qtyAfter,
+                UnitCost = tx.UnitCost,
                 ReferenceNo = returnNo,
                 SaleOrderId = order.Id,
                 Note = voidNote,
@@ -1367,7 +1383,8 @@ internal static class PosSaleStockHelper
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive && c.InternalNote == cashMarker)
             .SumAsync(c => (decimal?)c.Amount) ?? 0m;
         order.Total += refundTotal;
-        order.PaidAmount += Math.Min(refundTotal, cashRefunded);
+        // Phiếu chi của đúng phiếu trả này = số tiền mặt đã hoàn (có thể gồm phần VAT trả lại) → cộng lại đủ số đó.
+        order.PaidAmount += cashRefunded;
         order.SubTotal += refundTotal;
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = createdBy;
@@ -1375,8 +1392,9 @@ internal static class PosSaleStockHelper
         return (refundTotal, warrantyLines, null);
     }
 
+    /// <param name="debtCap">Trần tiền nợ cộng lại (tiền hàng + VAT đã trả lại); null = tiền hàng.</param>
     public static async Task ReverseCustomerOnReturnVoidAsync(
-        ZKTecoDbContext db, Guid storeId, PosSaleOrder order, decimal refundTotal)
+        ZKTecoDbContext db, Guid storeId, PosSaleOrder order, decimal refundTotal, decimal? debtCap = null)
     {
         if (!order.CustomerId.HasValue || refundTotal <= 0) return;
         var customer = await db.PosCustomers.AsTracking()
@@ -1385,7 +1403,7 @@ internal static class PosSaleStockHelper
         customer.TotalPurchase += refundTotal;
         // Phải thu gồm VAT / phụ thu / phí giao như lúc bán (trước đây chỉ tiền hàng).
         var balanceAfterVoid = order.PayableTotal - order.PaidAmount;
-        var debtIncrease = Math.Min(refundTotal, Math.Max(0, balanceAfterVoid));
+        var debtIncrease = Math.Min(debtCap ?? refundTotal, Math.Max(0, balanceAfterVoid));
         var before = customer.CurrentDebt;
         if (debtIncrease > 0)
             customer.CurrentDebt += debtIncrease;

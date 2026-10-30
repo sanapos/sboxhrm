@@ -9,6 +9,7 @@ import '../../models/hr_finance.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/store_role_helper.dart';
+import '../../widgets/page_top_actions.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import '../business_trip_expense_screen.dart';
 import '../cash_transaction_screen.dart';
@@ -179,7 +180,21 @@ class _HrFinanceHubScreenState extends State<HrFinanceHubScreen> {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => Scaffold(
         backgroundColor: SboxColors.page,
-        appBar: AppBar(title: Text(tr(title)), backgroundColor: SboxColors.white, surfaceTintColor: SboxColors.white),
+        // Màn cũ đẩy nút (Thu/Chi, Danh mục, Đối soát…) lên thanh trên của khung chính qua
+        // PageTopActions — trang mở riêng phải tự vẽ, không thì mất nút tạo phiếu.
+        appBar: AppBar(
+          title: Text(tr(title)),
+          backgroundColor: SboxColors.white,
+          surfaceTintColor: SboxColors.white,
+          actions: [
+            ListenableBuilder(
+              listenable: PageTopActions.instance,
+              builder: (_, __) => PageTopActionsBar(actions: PageTopActions.instance.actions),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        floatingActionButton: const PageTopActionsFab(),
         body: screen,
       ),
     ));

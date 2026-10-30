@@ -227,7 +227,7 @@ public class MealCanteenController(ZKTecoDbContext db) : AuthenticatedController
             .Select(g => new { time = g.Key.ToString("HH:mm"), count = g.Count() });
 
         var byDepartment = records
-            .GroupBy(r => info.TryGetValue(r.EmployeeUserId, out var e) && !string.IsNullOrWhiteSpace(e.Department) ? e.Department! : "Chưa phân phòng")
+            .GroupBy(r => info.TryGetValue(r.EmployeeUserId, out var e) && !string.IsNullOrWhiteSpace(e.Department) ? e.Department! : "Chưa có phòng ban")
             .Select(g => new { name = g.Key, count = g.Count() })
             .OrderByDescending(x => x.count);
 

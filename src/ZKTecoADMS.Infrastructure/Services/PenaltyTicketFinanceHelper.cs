@@ -104,7 +104,7 @@ public static class PenaltyTicketFinanceHelper
             dbContext.TransactionCategories.Add(category);
         }
 
-        var dateStr = DateTime.UtcNow.ToString("yyyyMMdd");
+        var dateStr = DateTime.UtcNow.AddHours(7).ToString("yyyyMMdd") /* ngày VN */;
         var txPrefix = $"TC-{dateStr}-";
         var txCode = await NextTransactionCodeAsync(dbContext, ticket.StoreId, txPrefix, cancellationToken);
 

@@ -12,6 +12,7 @@ namespace ZKTecoADMS.Api.Controllers;
 
 [ApiController]
 [Route("api/pos/stock/lots")]
+[MaskCostData]
 [Authorize]
 public class PosStockLotsController(ZKTecoDbContext dbContext) : AuthenticatedControllerBase
 {

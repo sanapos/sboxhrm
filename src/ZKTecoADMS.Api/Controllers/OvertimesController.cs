@@ -83,6 +83,12 @@ public class OvertimesController(
         {
             var storeId = RequiredStoreId;
             var userId = CurrentUserId;
+            // Nhân viên chỉ đăng ký tăng ca cho chính mình (không tự đứng «quản lý» đơn của đồng nghiệp).
+            if (!IsManager && !IsAccountant && request.EmployeeUserId.HasValue && request.EmployeeUserId != userId)
+                request.EmployeeUserId = null;
+            if (request.EmployeeUserId.HasValue && !await dbContext.Users.AsNoTracking()
+                    .AnyAsync(u => u.Id == request.EmployeeUserId && u.StoreId == storeId))
+                return BadRequest(AppResponse<OvertimeDto>.Fail("Nhân viên không thuộc cửa hàng"));
             var managerId = request.EmployeeUserId.HasValue ? userId : ManagerId ?? userId;
             var employeeUserId = request.EmployeeUserId ?? userId;
 
@@ -92,6 +98,9 @@ public class OvertimesController(
             {
                 return BadRequest(AppResponse<OvertimeDto>.Fail("Thời gian kết thúc phải sau thời gian bắt đầu"));
             }
+
+            if (await OverlapMessageAsync(storeId, employeeUserId, request.Date, request.StartTime, request.EndTime, null) is { } overlap)
+                return BadRequest(AppResponse<OvertimeDto>.Fail(overlap));
 
             var multiplier = await ResolveMultiplierAsync(storeId, request.Type);
 
@@ -232,6 +241,10 @@ public class OvertimesController(
 
             // Recalculate planned hours
             overtime.PlannedHours = (decimal)(overtime.EndTime - overtime.StartTime).TotalHours;
+            if (overtime.PlannedHours <= 0)
+                return BadRequest(AppResponse<OvertimeDto>.Fail("Giờ kết thúc phải sau giờ bắt đầu"));
+            if (await OverlapMessageAsync(storeId, overtime.EmployeeUserId, overtime.Date, overtime.StartTime, overtime.EndTime, overtime.Id) is { } overlap)
+                return BadRequest(AppResponse<OvertimeDto>.Fail(overlap));
 
             overtime.UpdatedAt = DateTime.UtcNow;
             overtime.UpdatedBy = userId.ToString();
@@ -544,6 +557,9 @@ public class OvertimesController(
                 return BadRequest(AppResponse<bool>.Fail("Can only complete approved overtime"));
             }
 
+            if (request.ActualHours is < 0 or > 24)
+                return BadRequest(AppResponse<bool>.Fail("Số giờ thực tế phải từ 0 đến 24"));
+
             overtime.Status = OvertimeStatus.Completed;
             overtime.ActualHours = request.ActualHours;
             overtime.Note = request.Note;
@@ -701,6 +717,23 @@ public class OvertimesController(
     };
 
     /// <summary>Hệ số OT từ AppSettings cửa hàng (overtime/weekend/holiday_rate); night mặc định 1.3.</summary>
+
+    /// <summary>Trùng giờ với đơn tăng ca khác (chưa từ chối / hủy) cùng nhân viên cùng ngày → câu báo lỗi; null = không trùng.</summary>
+    private async Task<string?> OverlapMessageAsync(
+        Guid storeId, Guid employeeUserId, DateTime date, TimeSpan start, TimeSpan end, Guid? excludeId)
+    {
+        var day = date.Date;
+        var clash = await dbContext.Overtimes.AsNoTracking()
+            .Where(o => o.StoreId == storeId && o.EmployeeUserId == employeeUserId
+                        && o.Date.Date == day && o.Id != excludeId
+                        && o.Status != OvertimeStatus.Rejected && o.Status != OvertimeStatus.Cancelled
+                        && o.StartTime < end && o.EndTime > start)
+            .Select(o => new { o.StartTime, o.EndTime })
+            .FirstOrDefaultAsync();
+        return clash == null ? null
+            : $"Trùng giờ với đơn tăng ca {clash.StartTime:hh\\:mm}–{clash.EndTime:hh\\:mm} cùng ngày";
+    }
+
     private async Task<decimal> ResolveMultiplierAsync(Guid storeId, OvertimeType type)
     {
         if (type == OvertimeType.Night) return 1.3m;

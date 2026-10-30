@@ -92,9 +92,11 @@ internal static class PosDebtStatement
                 increase = r.Delta > 0 ? r.Delta : 0,
                 decrease = r.Delta < 0 ? -r.Delta : 0,
                 balance = balances[r.Id],
-                note = pays.TryGetValue(r.DocId ?? Guid.Empty, out var pn) && !string.IsNullOrWhiteSpace(pn.Note)
-                    ? $"{r.Note} · {pn.Note}"
-                    : r.Note,
+                // Ghi chú cũ ghép tiền kiểu invariant («30,000đ») → hiển thị «30.000đ».
+                note = Services.VnMoneyText.Normalize(
+                    pays.TryGetValue(r.DocId ?? Guid.Empty, out var pn) && !string.IsNullOrWhiteSpace(pn.Note)
+                        ? $"{r.Note} · {pn.Note}"
+                        : r.Note),
                 orderId = pays.TryGetValue(r.DocId ?? Guid.Empty, out var po) ? po.OrderId : null,
             }).ToList(),
         };

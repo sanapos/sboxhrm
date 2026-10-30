@@ -123,6 +123,9 @@ public class HrFinanceController(
     IModulePermissionService modulePermissionService,
     ILogger<HrFinanceController> logger) : AuthenticatedControllerBase
 {
+    /// <summary>Quản lý và kế toán (chi ứng lương, tính thưởng/phạt) xem tiền của cả cửa hàng.</summary>
+    private bool SeesStoreMoney => IsManager || IsAccountant;
+
     private const long MaxFileBytes = 15 * 1024 * 1024;
 
     private sealed record Emp(Guid Id, Guid? UserId, string Name, string Code, string? Dept, string? Photo);
@@ -138,7 +141,10 @@ public class HrFinanceController(
         // Chỉ nhân viên thuộc chi nhánh đang xem (bộ chọn chi nhánh trên đầu app).
         var view = await BranchViewHelper.ViewBranchIdsAsync(HttpContext, db, storeId);
         var hq = HttpContext.BranchContext()?.HeadquarterBranchId;
-        return rows.Where(r => BranchViewHelper.InView(view, r.BranchId, hq)).Select(r => r.Emp).ToList();
+        var visible = rows.Where(r => BranchViewHelper.InView(view, r.BranchId, hq)).Select(r => r.Emp);
+        // Nhân viên (không phải quản lý / kế toán) chỉ thấy tiền của chính mình — ứng lương, thưởng/phạt là riêng tư.
+        if (!SeesStoreMoney) visible = visible.Where(e => e.UserId == CurrentUserId);
+        return visible.ToList();
     }
 
     private static (DateTime from, DateTime to) MonthRange(int? year, int? month)
@@ -348,6 +354,7 @@ public class HrFinanceController(
     [RequireAnyModulePermission(ModulePermissionAction.View, "AdvanceRequests", "BonusPenalty", "PenaltyTickets", "CashTransaction", "Transaction")]
     public async Task<ActionResult<AppResponse<object>>> Summary([FromQuery] int? year, [FromQuery] int? month)
     {
+        if (!SeesStoreMoney) return Ok(AppResponse<object>.Fail("Chỉ quản lý / kế toán xem được tổng quan tài chính nhân sự"));
         var (from, to) = MonthRange(year, month);
         var storeId = RequiredStoreId;
         var lk = await LookupAsync();
@@ -453,6 +460,7 @@ public class HrFinanceController(
     [RequireAnyModulePermission(ModulePermissionAction.View, "AdvanceRequests", "BonusPenalty", "PenaltyTickets", "CashTransaction", "Transaction")]
     public async Task<ActionResult<AppResponse<List<HrFinItemDto>>>> Inbox()
     {
+        if (!SeesStoreMoney) return Ok(AppResponse<List<HrFinItemDto>>.Success([]));
         var lk = await LookupAsync();
         return Ok(AppResponse<List<HrFinItemDto>>.Success(await BuildInboxAsync(lk)));
     }
@@ -615,6 +623,9 @@ public class HrFinanceController(
                     || a.Status == AdvanceRequestStatus.Pending
                     || (a.Status == AdvanceRequestStatus.Approved && !a.IsPaid)))
             .OrderByDescending(a => a.RequestDate).Take(1000).ToListAsync();
+        if (!SeesStoreMoney)
+            list = list.Where(a => (a.EmployeeId.HasValue && lk.ById.ContainsKey(a.EmployeeId.Value))
+                || (a.EmployeeUserId.HasValue && lk.ByUser.ContainsKey(a.EmployeeUserId.Value))).ToList();
         var items = list.Select(a =>
         {
             var it = AdvanceItem(a, Find(lk.ById, lk.ByUser, a.EmployeeId, a.EmployeeUserId));
@@ -653,6 +664,11 @@ public class HrFinanceController(
             var q = db.PenaltyTickets.AsNoTracking()
                 .Where(t => t.StoreId == storeId && t.ViolationDate >= from && t.ViolationDate < to);
             if (employeeId.HasValue) q = q.Where(t => t.EmployeeId == employeeId.Value);
+            if (!SeesStoreMoney)
+            {
+                var mine = lk.Ids;
+                q = q.Where(t => mine.Contains(t.EmployeeId));
+            }
             foreach (var t in await q.ToListAsync())
                 items.Add(TicketItem(t, lk.ById.GetValueOrDefault(t.EmployeeId)));
         }

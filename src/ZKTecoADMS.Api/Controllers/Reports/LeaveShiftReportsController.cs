@@ -131,7 +131,7 @@ public class LeaveShiftReportsController(
                     EmployeeId = e.Id,
                     EmployeeCode = e.EmployeeCode,
                     EmployeeName = ReportHelpers.FullName(e.LastName, e.FirstName),
-                    Department = e.Department ?? "N/A",
+                    Department = e.Department ?? "Chưa có phòng ban",
                     PaidEntitlement = entitlement,
                     PaidUsed = (decimal)paidUsed,
                     PaidRemaining = balanceRemaining,
@@ -433,7 +433,7 @@ public class LeaveShiftReportsController(
                     {
                         EmployeeCode = emp?.EmployeeCode ?? "-",
                         EmployeeName = emp == null ? "-" : ReportHelpers.FullName(emp.LastName, emp.FirstName),
-                        Department = emp?.Department ?? "N/A",
+                        Department = emp?.Department ?? "Chưa có phòng ban",
                         TotalRequested = g.Count(),
                         Approved = g.Count(x => x.Status == ShiftSwapStatus.Approved),
                         Rejected = g.Count(x => x.Status == ShiftSwapStatus.RejectedByTarget || x.Status == ShiftSwapStatus.RejectedByManager),

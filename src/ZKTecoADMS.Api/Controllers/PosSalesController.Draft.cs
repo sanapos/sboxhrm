@@ -1051,6 +1051,13 @@ public partial class PosSalesController
                     await tx.RollbackAsync();
                     return BadRequest(AppResponse<SaleOrderDto>.Fail(creditErr));
                 }
+                // Voucher / điểm áp lúc lưu nháp — kiểm lại lúc chốt: 2 đơn nháp cùng dùng voucher 1 lượt
+                // hoặc cùng đổi hết điểm của khách thì đơn chốt sau phải bị chặn, không vượt lượt / tiêu điểm 2 lần.
+                if (await RecheckDraftRedemptionsAsync(storeId, order) is { } redeemErr)
+                {
+                    await tx.RollbackAsync();
+                    return BadRequest(AppResponse<SaleOrderDto>.Fail(redeemErr));
+                }
                 await PosSaleStockHelper.ApplySaleStockAsync(
                     dbContext, storeId, order, order.Lines.ToList(), plan!, CurrentUserEmail);
                 await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(dbContext, storeId, order);
@@ -1087,7 +1094,18 @@ public partial class PosSalesController
                     dbContext, storeId, order, order.Lines.ToList(), dtoLines, products, CurrentUserEmail);
                 order.UpdatedAt = DateTime.UtcNow;
                 order.UpdatedBy = CurrentUserEmail;
-                await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(dbContext, order, CurrentUserId);
+                // Đơn nhận bàn từ lịch đặt có cọc: PaidAmount đã gồm cọc (phiếu thu cọc ghi lúc đặt) → chỉ ghi phần
+                // còn lại, nếu không sổ quỹ thu cọc 2 lần. Danh sách rỗng = cọc đã đủ, không thêm phiếu.
+                var appliedDeposit = await dbContext.PosResourceReservations.AsNoTracking()
+                    .Where(x => x.DepositAppliedOrderId == order.Id
+                        && x.DepositStatus == PosReservationDepositStatus.Applied)
+                    .SumAsync(x => (decimal?)x.DepositPaid) ?? 0;
+                await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(dbContext, order, CurrentUserId,
+                    appliedDeposit > 0
+                        ? PosFinanceSyncHelper.SubtractAlreadyCashed(
+                            [new PosFinanceSyncHelper.SalePaymentSync(order.PaidAmount, order.PaymentMethod, null)],
+                            appliedDeposit)
+                        : null);
                 PosKitchenKdsHelper.CloseOpenOnPaid(order.Lines);
                 await SaveSaleChangesWithUniqueRetriesAsync(order, storeId);
                 // Dọn bàn cùng transaction (xem UpdateSale).
@@ -1239,6 +1257,33 @@ public partial class PosSalesController
             order.UpdatedBy = CurrentUserEmail;
         }
         return changed;
+    }
+
+    /// <summary>Lỗi nếu voucher / điểm đã áp trên đơn nháp không còn dùng được lúc chốt; null = hợp lệ.</summary>
+    private async Task<string?> RecheckDraftRedemptionsAsync(Guid storeId, PosSaleOrder order)
+    {
+        if (order.VoucherId.HasValue && order.VoucherDiscount > 0)
+        {
+            var v = await dbContext.PosVouchers.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == order.VoucherId && x.StoreId == storeId);
+            var code = v?.Code ?? order.VoucherCode ?? "";
+            if (v == null || v.Deleted != null || !v.IsActive)
+                return $"Voucher «{code}» không còn hiệu lực — bỏ voucher rồi thanh toán lại";
+            if (v.ValidTo.HasValue && DateTime.UtcNow > v.ValidTo.Value)
+                return $"Voucher «{code}» đã hết hạn — bỏ voucher rồi thanh toán lại";
+            if (v.MaxUses.HasValue && v.UsedCount >= v.MaxUses.Value)
+                return $"Voucher «{code}» đã hết lượt dùng — bỏ voucher rồi thanh toán lại";
+        }
+        if (order.PointsRedeemed > 0 && order.CustomerId.HasValue)
+        {
+            var balance = await dbContext.PosCustomers.AsNoTracking()
+                .Where(c => c.Id == order.CustomerId && c.StoreId == storeId)
+                .Select(c => (decimal?)c.PointBalance)
+                .FirstOrDefaultAsync() ?? 0;
+            if (balance < order.PointsRedeemed)
+                return $"Khách chỉ còn {balance:0} điểm, đơn đang đổi {order.PointsRedeemed:0} điểm — sửa lại số điểm đổi";
+        }
+        return null;
     }
 
     private static List<SaleLineDto> BuildCompleteSaleLineDtos(
@@ -1755,12 +1800,16 @@ public partial class PosSalesController
 
             // Dịch vụ tính giờ không bán theo ĐVT quy đổi: dòng ĐVT cũ («Giờ» giá 5.000 trên dịch vụ tính block)
             // làm hóa đơn ghi «17 Giờ × 5.000» trong khi 17 là số block — luôn lấy giá + ĐVT theo cách tính.
+            // Chỉ giữ ĐVT thuộc đúng hàng này: id ĐVT của hàng / cửa hàng khác bị bỏ, nếu không hệ số quy đổi
+            // của nó sẽ trừ kho sai (bán 100 trừ 1, hoặc trừ 10.000).
+            Guid? resolvedUnitId = null;
             if (line.UnitId.HasValue && !PosServiceBillingHelper.IsTimed(p.ServiceBillingMode))
             {
                 var unit = await dbContext.PosProductUnits.AsNoTracking()
                     .FirstOrDefaultAsync(u => u.Id == line.UnitId && u.ProductId == p.Id && u.Deleted == null);
                 if (unit != null)
                 {
+                    resolvedUnitId = unit.Id;
                     unitName = unit.UnitName;
                     catalogPrice = unit.BasePrice;
                 }
@@ -1792,6 +1841,9 @@ public partial class PosSalesController
                 return (null, null, PriceOverrideDeniedMessage);
             }
             var unitPrice = listPrice ?? line.UnitPrice ?? catalogPrice;
+            // Giá âm hạ tổng đơn mà không qua quyền giảm giá; trả hàng dòng đó lại làm tăng tổng đơn.
+            if (unitPrice < 0)
+                return (null, null, $"Đơn giá «{p.Name}» không được âm");
 
             var grossLine = unitPrice * line.Qty;
             var discAmt = Math.Max(0, Math.Min(line.DiscountAmount, grossLine));
@@ -1820,6 +1872,8 @@ public partial class PosSalesController
                                   el.TryGetProperty("Price", out pEl)))
                                 continue;
                             var unit = pEl.GetDecimal();
+                            if (unit < 0)
+                                return (null, null, $"Giá topping của «{p.Name}» không được âm");
                             var qty = 1m;
                             if ((el.TryGetProperty("qty", out var qEl) ||
                                  el.TryGetProperty("Qty", out qEl)) &&
@@ -1910,7 +1964,7 @@ public partial class PosSalesController
                 VariantId = soldVariant?.Id,
                 ProductName = lineName,
                 UnitName = unitName,
-                UnitId = PosServiceBillingHelper.IsTimed(p.ServiceBillingMode) ? null : line.UnitId,
+                UnitId = resolvedUnitId,
                 Qty = lineQty,
                 UnitPrice = unitPrice,
                 DiscountAmount = discAmt,
@@ -2068,13 +2122,29 @@ public partial class PosSalesController
                 var last = paymentInputs[^1];
                 oldDebtPay = (over, last.PaymentMethod, last.BankAccountId);
             }
-            for (var i = paymentInputs.Count - 1; i >= 0 && over > 0.005m; i--)
+            CutOverpay(paymentInputs, over);
+        }
+        else if (seatedDeposit > 0 && paymentInputs.Count > 0)
+        {
+            // Đơn có cọc: app mới gửi phần còn lại, app cũ gửi cả hóa đơn (gồm cọc) — đưa thừa theo kiểu nào thì
+            // cắt về đúng kiểu đó; trước đây không cắt → PaidAmount = đưa thừa + cọc, nợ âm, quỹ thu dư.
+            var sum0 = paymentInputs.Sum(p => p.Amount);
+            var includesDeposit = sum0 >= order.PayableTotal - 0.05m;
+            var target = includesDeposit
+                ? Math.Max(0m, order.PayableTotal)
+                : Math.Max(0m, order.PayableTotal - seatedDeposit);
+            CutOverpay(paymentInputs, sum0 - target);
+        }
+
+        static void CutOverpay(List<SalePaymentInputDto> inputs, decimal over)
+        {
+            for (var i = inputs.Count - 1; i >= 0 && over > 0.005m; i--)
             {
-                var cut = Math.Min(over, paymentInputs[i].Amount);
-                paymentInputs[i] = paymentInputs[i] with { Amount = paymentInputs[i].Amount - cut };
+                var cut = Math.Min(over, inputs[i].Amount);
+                inputs[i] = inputs[i] with { Amount = inputs[i].Amount - cut };
                 over -= cut;
             }
-            paymentInputs.RemoveAll(p => p.Amount <= 0.005m);
+            inputs.RemoveAll(p => p.Amount <= 0.005m);
         }
 
         var paySum = paymentInputs.Sum(p => p.Amount);
@@ -2088,7 +2158,7 @@ public partial class PosSalesController
         else
         {
             order.PaidAmount = seatedDeposit > 0
-                ? Math.Max(dto.PaidAmount, seatedDeposit)
+                ? Math.Max(Math.Min(dto.PaidAmount, Math.Max(0m, order.PayableTotal)), seatedDeposit)
                 : Math.Min(Math.Max(0m, dto.PaidAmount), Math.Max(0m, order.PayableTotal));
         }
 

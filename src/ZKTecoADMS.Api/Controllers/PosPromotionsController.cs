@@ -139,11 +139,26 @@ public class PosPromotionsController(ZKTecoDbContext dbContext) : AuthenticatedC
         if (dto.TimeFromMinutes is < 0 or > 1440 || dto.TimeToMinutes is < 0 or > 1440) return "Khung giờ không hợp lệ";
         try
         {
-            if (JsonNode.Parse(string.IsNullOrWhiteSpace(dto.ConfigJson) ? "{}" : dto.ConfigJson) is not JsonObject)
+            if (JsonNode.Parse(string.IsNullOrWhiteSpace(dto.ConfigJson) ? "{}" : dto.ConfigJson) is not JsonObject cfg)
                 return "Cấu hình khuyến mãi không hợp lệ";
+            if (PercentOutOfRange(cfg)) return "Mức giảm % không được quá 100%";
         }
         catch (JsonException) { return "Cấu hình khuyến mãi không hợp lệ"; }
         return null;
+    }
+
+    /// <summary>
+    /// % giảm &gt; 100 (gõ nhầm 150) — bộ máy khuyến mãi cắt còn 100% = cho không mọi mặt hàng khớp.
+    /// Xét các khóa % ở cấp gốc và trong bậc «tiers».
+    /// </summary>
+    internal static bool PercentOutOfRange(JsonObject cfg)
+    {
+        static bool Bad(JsonNode? n) =>
+            n is JsonValue v && v.TryGetValue<decimal>(out var d) && (d < 0 || d > 100);
+        foreach (var k in new[] { "percent", "giftPercent", "billPercent" })
+            if (Bad(cfg[k])) return true;
+        return cfg["tiers"] is JsonArray tiers
+               && tiers.Any(t => t is JsonObject o && Bad(o["percent"]));
     }
 
     static void Apply(PosPromotion p, PromotionSaveDto dto)

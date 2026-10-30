@@ -30,6 +30,9 @@ public class PosSaleReturnLine : AuditableEntity<Guid>
     /// <summary>Tiền hoàn (đã phân bổ giảm giá / voucher / điểm của đơn, chưa gồm VAT).</summary>
     public decimal RefundAmount { get; set; }
 
+    /// <summary>Phần VAT của đơn hoàn lại / trừ nợ theo dòng này (ngoài <see cref="RefundAmount"/>) — hủy phiếu trả cộng lại đúng số này.</summary>
+    public decimal VatRefund { get; set; }
+
     /// <summary>Giá vốn hàng trả (cộng lại kho) — trừ khỏi giá vốn hàng bán. Gồm cả topping gắn dòng.</summary>
     public decimal CostAmount { get; set; }
 

@@ -945,7 +945,7 @@ public class FeedbackController(
             // Bộ phận người gửi — phiếu ẩn danh gom riêng, không suy ra bộ phận
             byDepartment = list.GroupBy(f => f.IsAnonymous ? "Ẩn danh"
                     : f.SenderEmployeeId.HasValue && emps.TryGetValue(f.SenderEmployeeId.Value, out var e) && !string.IsNullOrWhiteSpace(e.Department)
-                        ? e.Department! : "Chưa phân phòng")
+                        ? e.Department! : "Chưa có phòng ban")
                 .Select(g => new { name = g.Key, count = g.Count(), complaints = g.Count(f => f.Category == "Complaint") })
                 .OrderByDescending(x => x.count),
             byMonth = months.Select(m => new

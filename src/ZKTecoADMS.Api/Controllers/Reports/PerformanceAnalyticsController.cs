@@ -81,7 +81,7 @@ public class PerformanceAnalyticsController(
                 {
                     EmployeeCode = g.Key.EmployeeCode,
                     EmployeeName = ReportHelpers.FullName(g.Key.LastName, g.Key.FirstName),
-                    Department = g.Key.Department ?? "N/A",
+                    Department = g.Key.Department ?? "Chưa có phòng ban",
                     KpiCount = g.Count(),
                     AvgCompletion = Math.Round(g.Average(x => (double)x.CompletionRate), 2),
                     TotalScore = Math.Round(g.Sum(x => x.WeightedScore), 2),
@@ -195,7 +195,7 @@ public class PerformanceAnalyticsController(
                 {
                     EmployeeCode = g.Key.EmployeeCode,
                     EmployeeName = ReportHelpers.FullName(g.Key.LastName, g.Key.FirstName),
-                    Department = g.Key.Department ?? "N/A",
+                    Department = g.Key.Department ?? "Chưa có phòng ban",
                     TotalQuantity = g.Sum(x => x.Quantity),
                     TotalAmount = g.Sum(x => x.Amount ?? 0),
                     DaysWorked = g.Select(x => x.WorkDate.Date).Distinct().Count(),
@@ -314,7 +314,7 @@ public class PerformanceAnalyticsController(
                 Status = r.Status.ToString(),
                 EmployeeCode = r.EmployeeCode!,
                 EmployeeName = ReportHelpers.FullName(r.LastName, r.FirstName),
-                Department = r.Department ?? "N/A",
+                Department = r.Department ?? "Chưa có phòng ban",
                 AssignedDate = r.AssignedDate.HasValue ? ReportHelpers.ToVn(r.AssignedDate.Value) : (DateTime?)null,
                 CurrentValue = r.CurrentValue ?? r.PurchasePrice
             })

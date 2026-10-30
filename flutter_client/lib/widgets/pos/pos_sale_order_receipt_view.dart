@@ -107,6 +107,8 @@ class PosSaleOrderReceiptView extends StatelessWidget {
     final lineDiscountTotal =
         order.lines.fold<double>(0, (s, l) => s + (l.discountAmount > 0 ? l.discountAmount : 0));
 
+    final returned = order.returnedAmount > 0 ? order.returnedAmount : 0.0;
+
     final balance =
 
         order.balanceDue != 0 ? order.balanceDue : order.total - order.paidAmount;
@@ -227,7 +229,9 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                 ],
 
-                _sumRow('Tạm tính', money.format(order.subTotal)),
+                // Máy chủ trừ tiền hàng trả vào Tạm tính / Tổng cộng của đơn — hiện số gốc rồi trừ «Đã trả hàng»
+                // để khớp «Lịch sử thanh toán» (trước đây 110.000 − 30.000 = 80.000 đã trừ sẵn, đọc như trừ 2 lần).
+                _sumRow('Tạm tính', money.format(order.subTotal + returned)),
 
                 if (lineDiscountTotal > 0.5)
                   _sumRow('Chiết khấu SP', '-${money.format(lineDiscountTotal)}', negative: true),
@@ -265,15 +269,20 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                   ),
 
-                _sumRow('Tổng cộng', money.format(order.total), bold: true, accent: true),
+                _sumRow('Tổng cộng', money.format(order.total + returned), bold: true, accent: returned <= 0),
 
-                _sumRow('Đã thanh toán (${order.paidAmount > 0.5 ? posPaymentMethodVi(order.paymentMethod) : 'chưa trả'})', money.format(order.paidAmount)),
+                if (returned > 0) ...[
+                  _sumRow('Đã trả hàng', '-${money.format(returned)}', negative: true),
+                  _sumRow('Còn lại sau trả hàng', money.format(order.total), bold: true, accent: true),
+                ],
+
+                _sumRow(
+                    returned > 0
+                        ? 'Đã thanh toán (sau hoàn tiền trả hàng)'
+                        : 'Đã thanh toán (${order.paidAmount > 0.5 ? posPaymentMethodVi(order.paymentMethod) : 'chưa trả'})',
+                    money.format(order.paidAmount)),
 
                 if (balance > 0) _sumRow('Còn nợ (ghi công nợ)', money.format(balance), bold: true),
-
-                if (order.returnedAmount > 0)
-
-                  _sumRow('Đã trả hàng', money.format(order.returnedAmount), negative: true),
 
                 for (final g in order.sessionGrants)
                   Padding(

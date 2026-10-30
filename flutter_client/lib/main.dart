@@ -8,6 +8,8 @@ import 'utils/web_route_parser.dart';
 import 'utils/vietnamese_font.dart';
 import 'utils/low_ram_tuning.dart';
 import 'utils/app_error_utils.dart';
+import 'utils/module_deep_link_stub.dart'
+    if (dart.library.html) 'utils/module_deep_link_web.dart' as module_deep_link;
 import 'config/sbox_app_variant.dart';
 import 'widgets/app_fatal_error_screen.dart';
 import 'app/app.dart';
@@ -65,6 +67,8 @@ void main() async {
   await preloadVietnameseFonts();
 
   InitialWebRoute.capture();
+  // Trước runApp: chặn route `/m/<Mã>` trước WidgetsApp (xem module_deep_link_web.dart).
+  module_deep_link.installModuleDeepLinkRouteGuard();
 
   runApp(
     MultiProvider(

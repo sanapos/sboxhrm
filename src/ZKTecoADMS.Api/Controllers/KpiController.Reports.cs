@@ -157,7 +157,7 @@ public partial class KpiController
                 count = current.Count(r => r.CompletionPct >= b.Item2 && r.CompletionPct < b.Item3),
             }),
             byDepartment = current
-                .GroupBy(r => string.IsNullOrWhiteSpace(r.Department) ? "Chưa phân phòng" : r.Department!)
+                .GroupBy(r => string.IsNullOrWhiteSpace(r.Department) ? "Chưa có phòng ban" : r.Department!)
                 .Select(g => new
                 {
                     department = g.Key,

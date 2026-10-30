@@ -138,7 +138,7 @@ internal static class BusinessTripCodeGenerator
     public static async Task<string> NextCaseCodeAsync(
         IRepository<BusinessTripCase> repo, Guid storeId, CancellationToken ct)
     {
-        var dateStr = DateTime.UtcNow.ToString("yyyyMMdd");
+        var dateStr = DateTime.UtcNow.AddHours(7).ToString("yyyyMMdd") /* ngày VN */;
         var prefix = $"CT-{dateStr}-";
         var count = await repo.CountAsync(c => c.StoreId == storeId && c.CaseCode.StartsWith(prefix), ct) + 1;
         return $"{prefix}{count:D4}";

@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.ShiftSalaryLevels;
@@ -7,12 +9,13 @@ using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.ShiftSalaryLevels;
 using ZKTecoADMS.Application.DTOs.Commons;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Infrastructure;
 
 namespace ZKTecoADMS.Api.Controllers;
 
 [ApiController]
 [Route("api/shift-salary-levels")]
-public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedControllerBase
+public class ShiftSalaryLevelsController(IMediator mediator, ZKTecoDbContext db) : AuthenticatedControllerBase
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
@@ -25,6 +28,12 @@ public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedCont
     {
         var query = new GetShiftSalaryLevelsQuery(RequiredStoreId, shiftTemplateId, isActive, page, pageSize);
         var result = await mediator.Send(query);
+        if (!SeesAllLevels && result.IsSuccess && result.Data is { } paged)
+        {
+            var own = await OwnEmployeeIdAsync();
+            var items = paged.Items.Where(l => AppliesTo(l, own)).ToList();
+            result.Data = new PagedResult<ShiftSalaryLevelDto>(items, items.Count, paged.PageNumber, paged.PageSize);
+        }
         return Ok(result);
     }
 
@@ -35,7 +44,31 @@ public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedCont
     {
         var query = new GetShiftSalaryLevelByIdQuery(RequiredStoreId, id);
         var result = await mediator.Send(query);
+        if (!SeesAllLevels && result.IsSuccess && result.Data is { } level && !AppliesTo(level, await OwnEmployeeIdAsync()))
+            return Ok(AppResponse<ShiftSalaryLevelDto>.Fail("Không tìm thấy bậc lương"));
         return Ok(result);
+    }
+
+    /// <summary>Quản lý / kế toán xem mọi bậc lương; nhân viên chỉ thấy bậc áp cho mình (để tự tính công),
+    /// không thấy mức lương của người khác.</summary>
+    private bool SeesAllLevels => IsManager || IsAccountant;
+
+    private Task<Guid?> OwnEmployeeIdAsync() =>
+        db.Employees.AsNoTracking()
+            .Where(e => e.ApplicationUserId == CurrentUserId && e.StoreId == RequiredStoreId)
+            .Select(e => (Guid?)e.Id)
+            .FirstOrDefaultAsync();
+
+    /// <summary>EmployeeIds rỗng = áp cho mọi nhân viên; ngược lại là mảng JSON Id nhân viên.</summary>
+    internal static bool AppliesTo(ShiftSalaryLevelDto level, Guid? employeeId)
+    {
+        if (string.IsNullOrWhiteSpace(level.EmployeeIds)) return true;
+        List<string>? ids;
+        try { ids = JsonSerializer.Deserialize<List<string>>(level.EmployeeIds); }
+        catch (JsonException) { return false; }
+        if (ids is null || ids.Count == 0) return true;
+        return employeeId is Guid me
+            && ids.Any(x => Guid.TryParse(x, out var g) && g == me);
     }
 
     [HttpPost]

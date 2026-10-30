@@ -173,15 +173,19 @@ class PosProductImageCacheManager {
   }
 
   /// Prefetch không chặn UI — dùng cho lưới thực đơn.
+  /// [idFallback] false: [imageUrl] lấy từ hàng hóa đầy đủ — rỗng là chắc chắn không có ảnh,
+  /// không gọi API ảnh theo id (server trả 404).
   Future<void> prefetchProduct({
     required ApiService api,
     required String productId,
     String? imageUrl,
     DateTime? updatedAt,
+    bool idFallback = true,
   }) async {
+    final hasUrl = (imageUrl ?? '').trim().isNotEmpty;
     final paths = <String>[
-      if ((imageUrl ?? '').trim().isNotEmpty) imageUrl!.trim(),
-      ApiService.posProductImagePath(productId),
+      if (hasUrl) imageUrl!.trim(),
+      if (hasUrl || idFallback) ApiService.posProductImagePath(productId),
     ];
     final epoch = imageEpoch(imageUrl: imageUrl, updatedAt: updatedAt);
     final headers = <String, String>{...?api.imageAuthHeaders};

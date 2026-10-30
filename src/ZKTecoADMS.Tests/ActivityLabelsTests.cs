@@ -15,6 +15,7 @@ public class ActivityLabelsTests
     [InlineData("MaxLateMinutes", "Phút trễ tối đa")]
     [InlineData("EmployeeId", "Nhân viên")]
     [InlineData("ScheduleRegistrationId", "Đăng ký lịch làm việc")]
+    [InlineData("LastPrintedAt", "Lúc in gần nhất")]
     public void Field_is_translated(string field, string expected) => Assert.Equal(expected, ActivityLabels.Field(field));
 
     [Fact]

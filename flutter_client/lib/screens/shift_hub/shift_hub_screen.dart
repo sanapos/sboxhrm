@@ -153,7 +153,19 @@ class _ShiftHubScreenState extends State<ShiftHubScreen> with SingleTickerProvid
             subtitle: Text(tr(sub)),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: Text(tr(title))), body: page())))
+                .push(MaterialPageRoute(
+                    builder: (_) => Scaffold(
+                          // Trang con đăng ký nút (Thêm ca…) qua PageTopActions — route đẩy đè shell nên phải tự vẽ.
+                          appBar: AppBar(title: Text(tr(title)), actions: [
+                            ListenableBuilder(
+                              listenable: PageTopActions.instance,
+                              builder: (_, __) => PageTopActionsBar(actions: PageTopActions.instance.actions),
+                            ),
+                            const SizedBox(width: 8),
+                          ]),
+                          floatingActionButton: const PageTopActionsFab(),
+                          body: page(),
+                        )))
                 .then((_) => _changed()),
           ),
         );

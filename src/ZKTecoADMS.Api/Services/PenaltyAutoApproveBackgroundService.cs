@@ -117,7 +117,7 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
             dbContext.TransactionCategories.Add(category);
         }
 
-        var dateStr = DateTime.UtcNow.ToString("yyyyMMdd");
+        var dateStr = DateTime.UtcNow.AddHours(7).ToString("yyyyMMdd") /* ngày VN */;
         var txPrefix = $"TC-{dateStr}-";
         var txCode = await PenaltyTicketFinanceHelper.NextTransactionCodeAsync(
             dbContext, penaltyStoreId, txPrefix, stoppingToken);

@@ -37,6 +37,8 @@ public static class DependencyInjectionExtensions
                 o.Filters.Add<Controllers.Filters.PosCatalogChangedFilter>();
                 // Lịch sử thao tác của cửa hàng (ai thêm / sửa / xóa gì, lúc nào).
                 o.Filters.Add<Controllers.Filters.ActivityAuditFilter>();
+                // Số tiền trong thông điệp lỗi: «4,000,000đ» → «4.000.000đ».
+                o.Filters.Add<Controllers.Filters.VnMoneyErrorFilter>();
             })
             .AddJsonOptions(options =>
             {

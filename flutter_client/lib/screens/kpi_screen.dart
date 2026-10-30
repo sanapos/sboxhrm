@@ -2619,24 +2619,57 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     DateTime endDate =
         DateTime(DateTime.now().year, DateTime.now().month + 1, 0);
     final isMobile = Responsive.isMobile(context);
+    // Đổi năm/tháng → tự đặt Từ/Đến về đầu–cuối tháng đó.
+    StateSetter? setDialog;
+    void syncDates() {
+      final y = int.tryParse(yearCtrl.text.trim());
+      final m = int.tryParse(monthCtrl.text.trim());
+      if (y == null || m == null || m < 1 || m > 12 || y < 2000 || y > 2100) return;
+      setDialog?.call(() {
+        startDate = DateTime(y, m, 1);
+        endDate = DateTime(y, m + 1, 0);
+      });
+    }
+    yearCtrl.addListener(syncDates);
+    monthCtrl.addListener(syncDates);
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, ss) {
+        setDialog = ss;
         Future<void> onSave() async {
+          final y = int.tryParse(yearCtrl.text.trim());
+          final m = int.tryParse(monthCtrl.text.trim());
+          String? err;
+          if (y == null || y < 2000 || y > 2100) {
+            err = 'Năm không hợp lệ';
+          } else if (m == null || m < 1 || m > 12) {
+            err = 'Tháng phải từ 1 đến 12';
+          } else if (endDate.isBefore(startDate)) {
+            err = 'Đến ngày phải sau hoặc bằng Từ ngày';
+          }
+          if (err != null) {
+            NotificationOverlayManager().showError(title: 'Thiếu thông tin', message: tr(err));
+            return;
+          }
           final data = {
             'name': nameCtrl.text.isNotEmpty
                 ? nameCtrl.text
                 : 'Tháng ${monthCtrl.text}/${yearCtrl.text}',
-            'year': int.tryParse(yearCtrl.text) ?? DateTime.now().year,
-            'month': int.tryParse(monthCtrl.text) ?? DateTime.now().month,
+            'year': y,
+            'month': m,
             'periodStart': startDate.toIso8601String(),
             'periodEnd': endDate.toIso8601String(),
             'frequency': 0,
           };
           final res = await _api.createKpiPeriod(data);
+          if (res['isSuccess'] != true) {
+            NotificationOverlayManager().showError(
+                title: 'Lỗi', message: res['message']?.toString() ?? 'Không tạo được chu kỳ');
+            return;
+          }
           if (ctx.mounted) Navigator.pop(ctx);
-          if (res['isSuccess'] == true) await _loadData(showLoading: false);
+          await _loadData(showLoading: false);
         }
 
         final formBody = Column(
@@ -2646,7 +2679,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               _field(nameCtrl, 'Tên chu kỳ (VD: Tháng 03/2026)'),
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: _field(yearCtrl, 'Nam', number: true)),
+                Expanded(child: _field(yearCtrl, 'Năm', number: true)),
                 const SizedBox(width: 12),
                 Expanded(child: _field(monthCtrl, 'Tháng', number: true)),
               ]),

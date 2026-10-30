@@ -20,6 +20,8 @@ internal static class PosDebtLedger
         var delta = after - before;
         // keepZero: chứng từ cần biết «đã giảm bao nhiêu» khi hủy (vd trả hàng NCC lúc đã hết nợ → 0).
         if (delta == 0 && !keepZero) return;
+        // Ghi chú ghép tiền bằng {x:N0} (invariant → «30,000đ») → lưu «30.000đ» như app hiển thị.
+        if (note != null) note = Services.VnMoneyText.Normalize(note);
         db.PosDebtLedgerEntries.Add(new PosDebtLedgerEntry
         {
             Id = Guid.NewGuid(),

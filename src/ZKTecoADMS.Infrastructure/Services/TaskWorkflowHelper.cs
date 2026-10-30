@@ -138,7 +138,7 @@ public static class TaskWorkflowHelper
     /// </summary>
     public static async Task<string> GenerateTaskCodeAsync(ZKTecoDbContext db, Guid storeId, int offset = 0)
     {
-        var today = DateTime.UtcNow.ToString("yyyyMMdd");
+        var today = DateTime.UtcNow.AddHours(7).ToString("yyyyMMdd") /* ngày VN */;
         var prefix = $"TASK-{today}-";
         var codes = await db.WorkTasks.IgnoreQueryFilters()
             .Where(t => t.TaskCode.StartsWith(prefix))

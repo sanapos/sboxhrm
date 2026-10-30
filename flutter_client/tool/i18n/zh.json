@@ -3795,6 +3795,7 @@
   "Cách tính tăng ca giờ đã đổi": "已更改的加班工时计算方式",
   "Cách vị trí": "距离位置",
   "Cách vị trí tối đa": "距位置最大距离",
+  "Cách vị trí tối đa phải từ 50 đến 5000 m": "距位置最大距离须为 50 至 5000 米",
   "Cách xem báo cáo HRM": "查看 HRM 报表的方法",
   "Cách xem báo cáo POS": "查看 POS 报表的方法",
   "Cách xử lý": "处理方法",
@@ -3853,6 +3854,7 @@
   "Còn hạn (>30 ngày)": "未过期（>30天）",
   "Còn hạn nhưng chưa đến tập": "未过期但尚未使用",
   "Còn lại": "剩余",
+  "Còn lại sau trả hàng": "退货后余额",
   "Còn lại sau tạm ứng": "预支后剩余",
   "Còn lại: 0": "剩余：0",
   "Còn nợ": "尚欠",
@@ -4008,6 +4010,7 @@
   "Công tác phí — theo loại chi phí": "差旅费 — 按费用类型",
   "Công tác phí — theo nhân viên": "差旅费 — 按员工",
   "Công tác phí — ứng & hoạch toán": "差旅费 — 预支与记账",
+  "Công tác phí — ứng & hạch toán": "出差费 — 预支与核算",
   "Công tính lương có thể khác công thực tế khi chọn cố định.": "选择固定时，计薪天数可能与实际出勤天数不同。",
   "Công việc": "任务",
   "Công việc & nội bộ": "任务与内部",
@@ -4384,6 +4387,7 @@
   "Cửa hàng chưa bật «Cho bán offline» (Thiết lập → Ngành hàng & cách bán)": "门店未开启「允许离线销售」（设置 → 行业与销售方式）",
   "Cửa hàng chưa có Print Agent.": "门店尚无 Print Agent。",
   "Cửa hàng chưa có báo giá nào để in thử": "门店没有可试打印的报价单",
+  "Cửa hàng chưa có máy chấm công nên chưa nhập tay được. Thêm máy ở Thiết lập SBOX › Máy chấm công trước.": "门店尚无考勤机，无法手动录入。请先在 SBOX 设置 › 考勤机 中添加。",
   "Cửa hàng chưa có máy chấm công. Thêm máy ở Thiết lập → Máy chấm công rồi quay lại.": "门店还没有考勤机。请先在设置 → 考勤机中添加，再回来。",
   "Cửa hàng chưa có máy in tem nào khác": "门店没有其他标签打印机",
   "Cửa hàng chưa có mẫu hóa đơn nào khác": "门店没有其他账单模板",
@@ -4746,6 +4750,7 @@
   "Dùng điểm": "使用积分",
   "Dùng để tính mức trần đóng bảo hiểm": "用于计算保险缴费上限",
   "Dư": "余额",
+  "Dư (chờ thu hoàn)": "结余（待退回）",
   "Dư (ghi nợ ứng)": "余额（预支借方）",
   "Dư ứng công tác": "差旅预支余额",
   "Dương": "阳",
@@ -5251,7 +5256,9 @@
   "Giảm cân": "减重",
   "Giảm giá": "折扣",
   "Giảm giá (VNĐ)": "折扣（VNĐ）",
+  "Giảm giá chưa đúng": "折扣不正确",
   "Giảm giá phiếu": "单据折扣",
+  "Giảm giá phiếu không được lớn hơn tổng tiền hàng": "单据折扣不能大于商品总额",
   "Giảm giá theo giờ / mặt hàng": "按时段 / 商品折扣",
   "Giảm giá đơn": "订单折扣",
   "Giảm hàng tặng": "扣减赠品",
@@ -5410,6 +5417,7 @@
   "Giữ đúng tư thế và ổn định trước khi chụp": "拍摄前请保持正确姿势并保持稳定",
   "Giữ đơn": "挂单",
   "Giữ ảnh bằng chứng": "保留凭证照片",
+  "Giữ ảnh bằng chứng phải từ 1 đến 365 ngày": "证据照片保留期须为 1 至 365 天",
   "Giữa": "之间",
   "Giữa chi nhánh": "分店之间",
   "Gom nhiều việc để xem tiến độ chung (không bắt buộc)": "将多项任务归组以查看整体进度（非必填）",
@@ -8208,6 +8216,7 @@
   "Khớp khuôn mặt": "人脸匹配",
   "Khớp két": "钱箱对账一致",
   "Khớp mặt tối thiểu": "最低人脸匹配度",
+  "Khớp mặt tối thiểu phải từ 50 đến 100%": "最低人脸匹配须为 50% 至 100%",
   "Khớp tồn": "库存一致",
   "Khớp đơn POS": "匹配POS订单",
   "Khớp ✓": "一致 ✓",
@@ -10967,6 +10976,7 @@
   "Nhóm thuế": "税务分组",
   "Nhóm thông báo, bật/tắt nhận thông báo": "通知分组、开启/关闭接收通知",
   "Nhóm topping": "配料分组",
+  "Nhóm: ": "分组: ",
   "Nhóm: Chỉ xem": "分组：仅查看",
   "Nhóm: Toàn quyền": "分组：全部权限",
   "Nhóm: Tắt hết": "分组：全部关闭",
@@ -11165,6 +11175,7 @@
   "Nhập số Serial (SN) trên máy chấm công để kết nối": "请输入考勤机上的序列号（SN）以连接",
   "Nhập số công nợ đúng (≥ 0)": "请输入正确的欠款金额（≥ 0）",
   "Nhập số giờ tối thiểu từ 0,5 đến 24": "请输入 0.5 到 24 之间的最少小时数",
+  "Nhập số hợp lệ cho khoảng cách, khớp mặt và số ngày": "请为距离、人脸匹配和天数输入有效数字",
   "Nhập số lượng": "输入数量",
   "Nhập số lượng mua và số lượng tặng": "请输入购买数量和赠送数量",
   "Nhập số lượng theo Dài, Rộng, Cao": "请按长、宽、高输入数量",
@@ -19085,6 +19096,7 @@
   "Đã check-in — cần kiểm tra thẻ / gói": "已签到——需检查会员卡 / 套餐",
   "Đã check-out": "已签退",
   "Đã chi": "已支出",
+  "Đã chi bù": "已补付",
   "Đã chi trong tháng": "本月已支出",
   "Đã chi tạm ứng": "已支付预支款",
   "Đã chi đủ": "已全额支付",
@@ -19254,6 +19266,7 @@
   "Đã ghi nhận trả hàng": "已记录退货",
   "Đã ghi nhận từ chối": "已记录拒绝",
   "Đã ghi nhận. Giờ trong khung nghỉ ca (theo ca làm việc) sẽ tính tăng ca khi có đủ cặp Ra/Vào.": "已记录。班次休息时段内的时间（按班次），在上下班打卡成对时将计为加班。",
+  "Đã ghi nợ ứng": "已记为预支欠款",
   "Đã ghi nợ ứng lương": "已记录预支工资欠款",
   "Đã ghi nợ ứng lương (trừ kỳ lương)": "已记录预支工资欠款（从工资周期中扣除）",
   "Đã ghim lên đầu bảng tin": "已置顶到公告栏",
@@ -19626,6 +19639,7 @@
   "Đã sửa mẫu theo yêu cầu.": "已按要求修改模板。",
   "Đã thanh lý": "已处置",
   "Đã thanh toán": "已付款",
+  "Đã thanh toán (sau hoàn tiền trả hàng)": "已付款（退货退款后）",
   "Đã thanh toán NCC": "已付供应商款",
   "Đã thanh toán chuyển khoản thành công": "转账付款成功",
   "Đã thanh toán và tạo phiếu chi": "已付款并生成付款单",
@@ -19636,6 +19650,7 @@
   "Đã thu": "已收款",
   "Đã thu / trả hàng": "已收款 / 退货",
   "Đã thu cọc": "已收定金",
+  "Đã thu hoàn": "已退回",
   "Đã thu hồi": "已收回",
   "Đã thu hồi license": "已收回授权",
   "Đã thu hồi phiếu": "已收回单据",
@@ -23924,6 +23939,10 @@
    "售价（1 {0}）"
   ],
   [
+   "Giá bán thấp hơn giá vốn — mỗi đơn vị lỗ {0} đ",
+   "售价低于成本 — 每单位亏损 {0} đ"
+  ],
+  [
    "Giá bán: {0}",
    "售价：{0}"
   ],
@@ -23998,6 +24017,10 @@
   [
    "Giả lập giờ đông ({0} yêu cầu cùng lúc)",
    "模拟高峰时段（同时{0}个请求）"
+  ],
+  [
+   "Giảm giá dòng «{0}» không được lớn hơn thành tiền",
+   "«{0}» 行折扣不能大于金额"
   ],
   [
    "Giảm giá đơn: −{0}",
@@ -28444,6 +28467,14 @@
    "扣工资 {0}đ · 收现金 {1}đ"
   ],
   [
+   "Trừ nợ {0}",
+   "抵扣欠款 {0}"
+  ],
+  [
+   "Trừ nợ đơn {0}, hoàn {1}",
+   "抵扣订单 {0} 欠款，退款 {1}"
+  ],
+  [
    "Trừ vào lương · {0}% tổng tiền phạt",
    "从工资扣除 · 罚款总额的 {0}%"
   ],
@@ -30802,6 +30833,10 @@
   [
    "{0} loại đã bán",
    "已售 {0} 种"
+  ],
+  [
+   "{0} làm",
+   "工作 {0}"
   ],
   [
    "{0} làm lại",

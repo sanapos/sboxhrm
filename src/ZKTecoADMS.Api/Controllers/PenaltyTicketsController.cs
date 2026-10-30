@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
@@ -610,6 +610,9 @@ public class PenaltyTicketsController(
     public async Task<ActionResult<AppResponse<PenaltyTicketDto>>> CreatePenaltyTicket([FromBody] CreatePenaltyTicketRequest request)
     {
         var storeId = RequiredStoreId;
+        // Phạt âm khi duyệt thành phiếu thu âm / trừ lương âm = thưởng trá hình.
+        if (request.Amount < 0)
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Số tiền phạt không được âm"));
 
         var employee = await dbContext.Employees
             .FirstOrDefaultAsync(e => e.Id == request.EmployeeId && e.StoreId == storeId);
@@ -698,6 +701,8 @@ public class PenaltyTicketsController(
 
         if (request.Type != null && Enum.TryParse<PenaltyTicketType>(request.Type, out var newType))
             ticket.Type = newType;
+        if (request.Amount is < 0)
+            return BadRequest(AppResponse<PenaltyTicketDto>.Fail("Số tiền phạt không được âm"));
         if (request.Amount.HasValue)
             ticket.Amount = request.Amount.Value;
         if (request.Description != null)

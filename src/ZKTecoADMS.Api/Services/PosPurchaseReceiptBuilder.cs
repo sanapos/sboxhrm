@@ -44,6 +44,11 @@ internal static class PosPurchaseReceiptBuilder
             if (line.Qty <= 0) return (null, null, "Số lượng phải > 0");
             var qtyRuleErr = PosQtyRules.ValidateLineQty(products[line.ProductId], line.Qty, "Nhập hàng");
             if (qtyRuleErr != null) return (null, null, qtyRuleErr);
+            // Giảm giá dòng vượt thành tiền: dòng về 0đ (giá vốn bình quân tụt) nhưng phiếu vẫn ghi số giảm ảo.
+            if (line.CostPrice < 0) return (null, null, $"Đơn giá «{products[line.ProductId].Name}» không được âm");
+            if (line.DiscountAmount < 0) return (null, null, $"Giảm giá dòng «{products[line.ProductId].Name}» không được âm");
+            if (line.DiscountAmount > line.Qty * line.CostPrice)
+                return (null, null, $"Giảm giá dòng «{products[line.ProductId].Name}» không được lớn hơn thành tiền");
             if (line.VariantId.HasValue)
             {
                 if (!variants.TryGetValue(line.VariantId.Value, out var v) || v.ProductId != line.ProductId)
@@ -177,6 +182,9 @@ internal static class PosPurchaseReceiptBuilder
         receipt.TotalQty = totalQty;
         receipt.TotalCost = totalCost;
         receipt.TotalVat = totalVat;
+        if (receipt.DiscountAmount < 0) return (null, null, "Giảm giá phiếu không được âm");
+        if (receipt.DiscountAmount > totalCost + totalVat)
+            return (null, null, "Giảm giá phiếu không được lớn hơn tổng tiền hàng");
         // Không cho PaidAmount > GrandTotal → BalanceDue âm làm lệch CurrentDebt NCC.
         if (receipt.PaidAmount > receipt.GrandTotal)
             receipt.PaidAmount = receipt.GrandTotal;

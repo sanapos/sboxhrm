@@ -247,7 +247,7 @@ Map<String, String> posPrintSampleData({
     'Khach_Hang': 'Anh Hòa Q.1',
     'SDT': '0909123456',
     'Dia_Chi_Khach_Hang': 'Q.1, TP.HCM',
-    'Tong_Tien_Hang': money.format(28200000),
+    'Tong_Tien_Hang': money.format(posPrintSampleSubtotal),
     'Chiet_Khau_Hoa_Don': money.format(500000),
     'Tien_Thue': money.format(2770000),
     'Thue': money.format(2770000),
@@ -606,6 +606,11 @@ Map<String, String> posPrintCommercialProfileData(
   };
 }
 
+/// Tổng tiền hàng mẫu (trước CK hóa đơn 500k, thuế 2.770k, phụ thu 20k, ship 15k → 30.505.000).
+const int posPrintSampleSubtotal = 28200000;
+
+int _posSampleLineTotal(int i) => i == 1 ? 17500000 : (25000 + i * 150000) * (1 + (i % 3));
+
 List<Map<String, String>> posPrintSampleLines({int count = 2}) {
   final money = NumberFormat('#,##0', 'vi_VN');
   const names = <(String, String, String)>[
@@ -619,17 +624,26 @@ List<Map<String, String>> posPrintSampleLines({int count = 2}) {
     ('MAYIN01', 'Máy in laser A4', 'Cái'),
   ];
   final n = count.clamp(1, names.length);
+  // Dòng cuối (SL 1) bù phần chênh để cộng các dòng luôn khớp «Tổng tiền hàng» mẫu.
+  var others = 0;
+  for (var i = 0; i < n - 1; i++) {
+    others += _posSampleLineTotal(i);
+  }
+  final lastTotal = posPrintSampleSubtotal - others;
+  int lineTotal(int i) => i == n - 1 ? lastTotal : _posSampleLineTotal(i);
+  int qty(int i) => i == n - 1 ? 1 : 1 + (i % 3);
+  int lineDisc(int i) => i == 1 ? 500000 : 0;
   return [
     for (var i = 0; i < n; i++)
       {
         'STT': '${i + 1}',
         'Ma_Hang': names[i].$1,
         'Ten_Hang_Hoa': names[i].$2,
-        'Don_Gia': money.format(i == 1 ? 28000000 : 25000 + i * 150000),
-        'So_Luong': '${1 + (i % 3)}',
+        'Don_Gia': money.format((lineTotal(i) + lineDisc(i)) ~/ qty(i)),
+        'So_Luong': '${qty(i)}',
         'Don_Vi_Tinh': names[i].$3,
-        'Chiet_Khau': i == 1 ? money.format(500000) : '0',
-        'Thanh_Tien': money.format(i == 1 ? 27500000 : (25000 + i * 150000) * (1 + (i % 3))),
+        'Chiet_Khau': lineDisc(i) > 0 ? money.format(lineDisc(i)) : '0',
+        'Thanh_Tien': money.format(lineTotal(i)),
         'Bao_Hanh': i % 2 == 1 ? '12 tháng' : '',
         'Chieu_Dai': i == 0 ? '2,4' : '',
         'Chieu_Rong': i == 0 ? '1,2' : '0,8',

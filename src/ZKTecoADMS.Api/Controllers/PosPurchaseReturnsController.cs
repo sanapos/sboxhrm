@@ -424,6 +424,10 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
             if (!await dbContext.PosProducts.AnyAsync(p => p.Id == line.ProductId && p.StoreId == storeId && p.Deleted == null))
                 return (null, null, "Hàng hóa không hợp lệ");
             if (line.Qty <= 0) return (null, null, "Số lượng phải > 0");
+            if (line.CostPrice < 0) return (null, null, "Đơn giá không được âm");
+            if (line.DiscountAmount < 0) return (null, null, "Giảm giá dòng không được âm");
+            if (line.DiscountAmount > line.Qty * line.CostPrice)
+                return (null, null, "Giảm giá dòng không được lớn hơn thành tiền");
         }
 
         Guid? supplierId = dto.SupplierId;
@@ -502,6 +506,13 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
         }
         ret.TotalQty = totalQty;
         ret.TotalAmount = totalAmount;
+        // RefundDue âm = NCC «nợ ngược» cửa hàng một khoản không có thật.
+        if (ret.DiscountAmount < 0) return (null, null, "Giảm giá phiếu không được âm");
+        if (ret.DiscountAmount > totalAmount)
+            return (null, null, "Giảm giá phiếu không được lớn hơn tổng tiền hàng");
+        if (ret.RefundReceived < 0) return (null, null, "Tiền NCC hoàn không được âm");
+        if (ret.RefundReceived > totalAmount - ret.DiscountAmount)
+            return (null, null, "Tiền NCC hoàn không được lớn hơn số cần hoàn");
         ret.RefundDue = totalAmount - ret.DiscountAmount - ret.RefundReceived;
         if (existing != null)
         {

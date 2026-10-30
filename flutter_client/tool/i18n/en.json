@@ -1699,6 +1699,7 @@
   "Cách tính tăng ca giờ đã đổi": "Changed overtime-hours calculation",
   "Cách vị trí": "Distance from location",
   "Cách vị trí tối đa": "Max distance from location",
+  "Cách vị trí tối đa phải từ 50 đến 5000 m": "Max distance from location must be 50 to 5000 m",
   "Cách xem báo cáo HRM": "How to view HRM reports",
   "Cách xem báo cáo POS": "How to view POS reports",
   "Cách xử lý": "How to resolve",
@@ -1738,6 +1739,7 @@
   "Còn hàng nhưng dưới mức tối thiểu": "In stock but below minimum",
   "Còn hạn": "Not expired",
   "Còn hạn nhưng chưa đến tập": "Valid but not yet used",
+  "Còn lại sau trả hàng": "Remaining after return",
   "Còn lại sau tạm ứng": "Remaining after advance",
   "Còn lại: 0": "Remaining: 0",
   "Còn nợ (ghi công nợ)": "Owing (recorded as debt)",
@@ -1821,6 +1823,7 @@
   "Công ty cần trả thêm cho NV": "Company owes the employee more",
   "Công tác / check-in điểm": "Business trip / site check-in",
   "Công tác phí — ứng & hoạch toán": "Business trip expenses — advances & accounting",
+  "Công tác phí — ứng & hạch toán": "Business trip expenses — advance & settlement",
   "Công việc & nội bộ": "Tasks & internal",
   "Công việc, KPI, bản tin nội bộ, nhân sự, suất ăn": "Tasks, KPI, internal news, HR, staff meals",
   "Cùng bộ phận": "Same department",
@@ -1993,6 +1996,7 @@
   "Cửa hàng chưa bật «Cho bán offline» (Thiết lập → Ngành hàng & cách bán)": "The store has not turned on «Allow offline selling» (Setup → Industry & selling method)",
   "Cửa hàng chưa có Print Agent.": "The store has no Print Agent.",
   "Cửa hàng chưa có báo giá nào để in thử": "The store has no quotation to test print",
+  "Cửa hàng chưa có máy chấm công nên chưa nhập tay được. Thêm máy ở Thiết lập SBOX › Máy chấm công trước.": "This store has no attendance device yet, so manual entry isn't possible. Add one in SBOX Setup › Attendance devices first.",
   "Cửa hàng chưa có máy chấm công. Thêm máy ở Thiết lập → Máy chấm công rồi quay lại.": "The store has no attendance device yet. Add one in Setup → Attendance device, then come back.",
   "Cửa hàng chưa có máy in tem nào khác": "The store has no other label printer",
   "Cửa hàng chưa có mẫu hóa đơn nào khác": "The store has no other invoice template",
@@ -2163,6 +2167,7 @@
   "Dùng vùng chấm công (geofence) của cửa hàng. Khách phải bật vị trí.": "Uses the store's attendance zone (geofence). The customer must turn on location.",
   "Dùng điểm": "Use points",
   "Dùng để tính mức trần đóng bảo hiểm": "Used to calculate the insurance contribution ceiling",
+  "Dư (chờ thu hoàn)": "Surplus (awaiting refund)",
   "Dưới 0,8 giây là nhanh": "Under 0.8 second is fast",
   "Dưới 1 năm": "Under 1 year",
   "Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ": "Under 1 billion / 1–3 billion / over 3 billion",
@@ -2401,6 +2406,8 @@
   "Giảm / hủy sau tạm tính · đá bill · đá món · không in hóa đơn": "Discount / cancel after provisional bill · dumping bills · dumping items · not printing the bill",
   "Giảm TB / lượt": "Avg. discount / time",
   "Giảm cân": "Weight loss",
+  "Giảm giá chưa đúng": "Invalid discount",
+  "Giảm giá phiếu không được lớn hơn tổng tiền hàng": "Receipt discount cannot exceed the goods total",
   "Giảm giá theo giờ / mặt hàng": "Discount by time / item",
   "Giảm hàng tặng": "Deduct free gifts",
   "Giảm mỗi đơn vị": "Discount per unit",
@@ -2482,6 +2489,7 @@
   "Giữ điện thoại trên WiFi nhà (vẫn có Internet / app HRM).": "Keep the phone on your home WiFi (still has Internet / the HRM app).",
   "Giữ điện thoại trên WiFi nhà. Cấp nguồn mạch — tên BLE giống ": "Keep the phone on home WiFi. Power the board — the BLE name matches ",
   "Giữ ảnh bằng chứng": "Keep evidence photo",
+  "Giữ ảnh bằng chứng phải từ 1 đến 365 ngày": "Evidence photo retention must be 1 to 365 days",
   "Giữa chi nhánh": "Between branches",
   "Gom nhiều việc để xem tiến độ chung (không bắt buộc)": "Group several tasks to see overall progress (optional)",
   "Google Drive của cửa hàng": "Store Google Drive",
@@ -3710,6 +3718,7 @@
   "Khớp khuôn mặt": "Face match",
   "Khớp két": "Cash drawer matches",
   "Khớp mặt tối thiểu": "Minimum face match",
+  "Khớp mặt tối thiểu phải từ 50 đến 100%": "Minimum face match must be 50 to 100%",
   "Khớp tồn": "Stock matches",
   "Khớp đơn POS": "Match POS order",
   "Khởi động 10 phút": "10-minute warm-up",
@@ -3729,6 +3738,7 @@
   "Kiểm tra / nghiệm thu": "Inspection / acceptance",
   "Kiểm tra Viettel Post — tắt Sandbox nếu dùng token production": "Check Viettel Post — turn off Sandbox if using a production token",
   "Kiểm tra kỹ thuật": "Technical check",
+  "Kiểm tra lại": "Please check",
   "Kiểm tra lại các ô báo đỏ": "Re-check the fields flagged in red",
   "Kiểm tra lại cấu hình IP máy.": "Re-check the device IP configuration.",
   "Kiểm tra lại trước khi tạo: loại hàng, đơn vị, giá. Size ghi dạng «M 30.000; L 38k». ": "Double-check before creating: item type, unit, price. Write sizes as \"M 30.000; L 38k\". ",
@@ -4916,6 +4926,7 @@
   "Nhóm nên khai": "Groups to declare",
   "Nhóm sản phẩm, đơn giá theo bậc": "Product groups, tiered unit prices",
   "Nhóm theo doanh thu năm": "Group by annual revenue",
+  "Nhóm: ": "Group: ",
   "Nhả slot": "Release slot",
   "Nhả thiết bị?": "Release device?",
   "Nhảy cóc": "Skipped",
@@ -4986,6 +4997,7 @@
   "Nhập rộng × cao để tính diện tích": "Enter width × height to calculate area",
   "Nhập số công nợ đúng (≥ 0)": "Enter a valid debt amount (≥ 0)",
   "Nhập số giờ tối thiểu từ 0,5 đến 24": "Enter a minimum of 0.5 to 24 hours",
+  "Nhập số hợp lệ cho khoảng cách, khớp mặt và số ngày": "Enter valid numbers for distance, face match and days",
   "Nhập số lượng mua và số lượng tặng": "Enter the quantity bought and the quantity given free",
   "Nhập số lượng theo Dài, Rộng, Cao": "Enter quantity by Length, Width, Height",
   "Nhập số món (≥ 2) và giá đồng giá": "Enter the number of items (≥ 2) and the flat price",
@@ -8285,6 +8297,7 @@
   "Đã check-in — cần kiểm tra thẻ / gói": "Checked in — card / package needs checking",
   "Đã check-out": "Checked out",
   "Đã chi": "Paid",
+  "Đã chi bù": "Shortfall paid",
   "Đã chi trong tháng": "Spent this month",
   "Đã chi tạm ứng": "Advance paid out",
   "Đã chi đủ": "Paid in full",
@@ -8343,6 +8356,7 @@
   "Đã ghi nhận thanh toán": "Payment recorded",
   "Đã ghi nhận trả": "Return recorded",
   "Đã ghi nhận từ chối": "Rejection recorded",
+  "Đã ghi nợ ứng": "Recorded as advance debt",
   "Đã ghim lên đầu bảng tin": "Pinned to the top of the feed",
   "Đã giao hàng. Lập biên bản nghiệm thu khi khách kiểm tra xong.": "Delivered. Create the acceptance record once the customer has inspected.",
   "Đã giao người xử lý": "Assigned to a handler",
@@ -8516,12 +8530,14 @@
   "Đã sửa giờ": "Time edited",
   "Đã sửa lời riêng": "Custom wording edited",
   "Đã sửa mẫu theo yêu cầu.": "Template edited as requested.",
+  "Đã thanh toán (sau hoàn tiền trả hàng)": "Paid (after return refund)",
   "Đã thanh toán chuyển khoản thành công": "Bank transfer payment successful",
   "Đã thanh toán và tạo phiếu chi": "Paid and payment voucher created",
   "Đã thanh toán — không thu tiền": "Paid — no money collected",
   "Đã thay mẫu Word": "Word template replaced",
   "Đã thay thế HĐĐT": "E-invoice replaced",
   "Đã thu / trả hàng": "Collected / returned",
+  "Đã thu hoàn": "Surplus refunded",
   "Đã thu hồi phiếu": "Slip retrieved",
   "Đã thu nợ cũ": "Old debt collected",
   "Đã thu tiền — tạo phiếu thu": "Money collected — receipt voucher created",
@@ -11766,6 +11782,10 @@
    "Selling price (1 {0})"
   ],
   [
+   "Giá bán thấp hơn giá vốn — mỗi đơn vị lỗ {0} đ",
+   "Selling price is below cost — loss of {0} đ per unit"
+  ],
+  [
    "Giá bán: {0}",
    "Selling price: {0}"
   ],
@@ -11840,6 +11860,10 @@
   [
    "Giả lập giờ đông ({0} yêu cầu cùng lúc)",
    "Simulate peak hours ({0} concurrent requests)"
+  ],
+  [
+   "Giảm giá dòng «{0}» không được lớn hơn thành tiền",
+   "Line discount for «{0}» cannot exceed the line amount"
   ],
   [
    "Giảm giá đơn: −{0}",
@@ -16286,6 +16310,14 @@
    "Salary deduction {0}đ · Cash collected {1}đ"
   ],
   [
+   "Trừ nợ {0}",
+   "Deduct from debt {0}"
+  ],
+  [
+   "Trừ nợ đơn {0}, hoàn {1}",
+   "Deducted from order {0} debt, refunded {1}"
+  ],
+  [
    "Trừ vào lương · {0}% tổng tiền phạt",
    "Deduct from salary · {0}% of total penalty"
   ],
@@ -18644,6 +18676,10 @@
   [
    "{0} loại đã bán",
    "{0} types sold"
+  ],
+  [
+   "{0} làm",
+   "{0} worked"
   ],
   [
    "{0} làm lại",

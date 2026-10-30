@@ -98,6 +98,10 @@ class _LeaveScreenState extends State<LeaveScreen>
         length: _isManager ? 3 : 1,
         vsync: this,
       );
+      // «Số đơn» ở phần đầu trang đếm theo tab đang xem — vẽ lại khi đổi tab.
+      _tabController!.addListener(() {
+        if (!_tabController!.indexIsChanging && mounted) setState(() {});
+      });
       _applyNavigationExtras();
       // Listen for leave-related SignalR notifications to auto-refresh
       _notificationSub = SignalRService().onNewNotification.listen((data) {
@@ -437,7 +441,8 @@ class _LeaveScreenState extends State<LeaveScreen>
       onRefresh: _loadData,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        // Đáy chừa chỗ cho nút nổi «Tạo đơn» / «⋯» để thẻ cuối cuộn lên được, không bị che.
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
         children: children,
       ),
     );
@@ -1073,7 +1078,16 @@ class _LeaveScreenState extends State<LeaveScreen>
         _filterBranchId != BranchFilterHelper.viewBranchId ||
         _filterTimePreset != 'all';
 
-    final orderCount = (_isManager ? _allLeaves : _myLeaves).length;
+    // Khớp danh sách bên dưới (tab đang xem + bộ lọc) — trước đây quản lý luôn thấy tổng cả cửa hàng
+    // dù tab «Đơn của tôi» / «Chờ duyệt» chỉ có vài đơn.
+    final tabLeaves = !_isManager
+        ? _myLeaves
+        : switch (_tabController?.index ?? 0) {
+            0 => _myLeaves,
+            1 => _pendingLeaves,
+            _ => _allLeaves,
+          };
+    final orderCount = _applyFilters(tabLeaves).length;
     final pad = Responsive.isMobile(context) ? 10.0 : 14.0;
 
     final chipType = _buildFilterChip(

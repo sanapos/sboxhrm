@@ -27,3 +27,5 @@ CREATE INDEX IF NOT EXISTS "IX_PosSaleReturnLines_Store_Created" ON "PosSaleRetu
 CREATE INDEX IF NOT EXISTS "IX_PosSaleReturnLines_ReturnNo" ON "PosSaleReturnLines" ("StoreId", "ReturnNo");
 -- Giá vốn topping hoàn theo từng topping ({toppingProductId: tiền}) — báo cáo lãi theo hàng trừ đúng topping, không dồn vào món.
 ALTER TABLE "PosSaleReturnLines" ADD COLUMN IF NOT EXISTS "ToppingCostJson" text NULL;
+-- VAT hoàn theo dòng trả (ngoài RefundAmount) — hủy phiếu trả khôi phục đúng VAT kể cả khi đã trả hết đơn.
+ALTER TABLE "PosSaleReturnLines" ADD COLUMN IF NOT EXISTS "VatRefund" numeric(18,2) NOT NULL DEFAULT 0;

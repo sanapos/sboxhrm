@@ -11,7 +11,8 @@ public static class LeaveShiftOverlap
     public static bool ConflictsWith(Leave existing, DateTime startDate, DateTime endDate, IReadOnlyList<Guid> newShiftIds)
     {
         if (existing.Status == LeaveStatus.Rejected) return false;
-        if (existing.StartDate > endDate || existing.EndDate < startDate) return false;
+        // So theo ngày (đơn có thể lưu kèm giờ lúc tạo).
+        if (existing.StartDate.Date > endDate.Date || existing.EndDate.Date < startDate.Date) return false;
 
         var existingIds = existing.ShiftIds ?? new List<Guid>();
         if (existingIds.Count == 0 || newShiftIds.Count == 0) return true;

@@ -32,7 +32,9 @@ class LunarConverter {
   ];
 
   static const int _baseYear = 1900;
-  static final DateTime _baseDate = DateTime(1900, 1, 31);
+  // UTC: mốc 1900 theo giờ địa phương có độ lệch múi giờ lẻ phút (giờ LMT) → trừ/cộng ngày
+  // bằng giờ địa phương bị hụt 1 ngày trên một số trình duyệt.
+  static final DateTime _baseDate = DateTime.utc(1900, 1, 31);
 
   static int _leapMonth(int year) {
     if (year - _baseYear < 0 || year - _baseYear >= _lunarMonthDays.length) return 0;
@@ -63,7 +65,7 @@ class LunarConverter {
   }
 
   static LunarDate solarToLunar(DateTime solar) {
-    int offset = solar.difference(_baseDate).inDays;
+    int offset = DateTime.utc(solar.year, solar.month, solar.day).difference(_baseDate).inDays;
     if (offset < 0) return LunarDate(solar.day, solar.month, solar.year);
 
     int lunarYear = _baseYear;
@@ -137,6 +139,7 @@ class LunarConverter {
     }
 
     offset += lunarDay - 1;
-    return _baseDate.add(Duration(days: offset));
+    final d = _baseDate.add(Duration(days: offset));
+    return DateTime(d.year, d.month, d.day);
   }
 }

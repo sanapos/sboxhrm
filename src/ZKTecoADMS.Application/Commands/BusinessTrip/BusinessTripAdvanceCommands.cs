@@ -230,7 +230,7 @@ public class PayBusinessTripAdvanceHandler(
         await paymentTransactionRepository.AddAsync(new PaymentTransaction
         {
             Id = Guid.NewGuid(),
-            EmployeeUserId = tripCase.EmployeeUserId ?? Guid.Empty,
+            EmployeeUserId = tripCase.EmployeeUserId,
             EmployeeId = tripCase.EmployeeId,
             Type = "TravelAdvancePayment",
             TransactionDate = VnTimeHelper.NowVn(),

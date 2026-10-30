@@ -204,7 +204,7 @@ public static partial class ActivityLabels
         ["approver"] = "người duyệt", ["reject"] = "từ chối", ["rejected"] = "đã từ chối", ["status"] = "trạng thái", ["type"] = "loại",
         ["note"] = "ghi chú", ["reason"] = "lý do", ["description"] = "mô tả", ["title"] = "tiêu đề", ["content"] = "nội dung",
         ["active"] = "đang dùng", ["default"] = "mặc định", ["visible"] = "hiển thị", ["hidden"] = "ẩn", ["show"] = "hiện",
-        ["print"] = "in", ["printer"] = "máy in", ["template"] = "mẫu", ["notification"] = "thông báo", ["notify"] = "thông báo",
+        ["print"] = "in", ["printed"] = "in", ["printer"] = "máy in", ["install"] = "cài đặt", ["template"] = "mẫu", ["notification"] = "thông báo", ["notify"] = "thông báo",
         ["branch"] = "chi nhánh", ["department"] = "phòng ban", ["store"] = "cửa hàng", ["device"] = "thiết bị", ["role"] = "vai trò",
         ["permission"] = "quyền", ["manager"] = "quản lý", ["parent"] = "cấp trên", ["level"] = "cấp", ["rate"] = "tỷ lệ",
         ["percent"] = "(%)", ["value"] = "giá trị", ["sort"] = "sắp xếp", ["order2"] = "thứ tự", ["color"] = "màu", ["phone"] = "điện thoại",

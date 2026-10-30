@@ -8,6 +8,7 @@ using ZKTecoADMS.Application.Queries.Settings;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Settings;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Infrastructure;
@@ -448,12 +449,42 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         return Ok(result);
     }
 
+    /// <summary>
+    /// Cài đặt mọi nhân viên của cửa hàng được đọc: cách tính công (màn chấm công / tổng hợp của chính NV
+    /// phải tính giống quản lý) và cấu hình thanh menu / thao tác nhanh mobile do cửa hàng đặt chung.
+    /// Lương, phạt, thuế, bảo hiểm KHÔNG nằm ở đây.
+    /// </summary>
+    public static readonly HashSet<string> StaffReadableAppSettingKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "day_end_time", "min_hours_for_work_day", "min_half_day_hours", "min_work_day_percent",
+        "standard_work_hours", "decimal_work_day_enabled", "allow_manual_correction",
+        "mobile_bottom_nav_main_v3", "mobile_bottom_nav_pos_v3", "mobile_quick_actions_v3",
+        "settings_hub_sidebar_layout",
+    };
+
     // App Settings (Thiết lập hệ thống)
     [HttpGet("app/{key}")]
     [Authorize]
-    [RequireAnyModulePermission(ModulePermissionAction.View, "SystemSettings", "SalarySettings")]
-    public async Task<ActionResult<AppResponse<AppSettingsDto>>> GetAppSetting(string key)
+    public async Task<ActionResult<AppResponse<AppSettingsDto>>> GetAppSetting(
+        string key, [FromServices] IModulePermissionService permissionService)
     {
+        if (!StaffReadableAppSettingKeys.Contains(key))
+        {
+            var allowed = false;
+            foreach (var module in new[] { "SystemSettings", "SalarySettings" })
+            {
+                if (await permissionService.HasPermissionAsync(CurrentUserId, CurrentUserRole, CurrentStoreId,
+                        module, ModulePermissionAction.View, HttpContext.RequestAborted))
+                {
+                    allowed = true;
+                    break;
+                }
+            }
+            if (!allowed)
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    AppResponse<AppSettingsDto>.Fail("Tài khoản không có quyền xem module SystemSettings hoặc SalarySettings."));
+        }
+
         var storeId = CurrentStoreId;
         AppSettings? setting;
         if (storeId.HasValue)

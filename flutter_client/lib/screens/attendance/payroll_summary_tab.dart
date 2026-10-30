@@ -2891,6 +2891,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               SboxSlice('Phụ cấp', sum('totalAllowance'), color: SboxColors.success),
               SboxSlice('Thưởng', sum('bonus'), color: SboxColors.violet),
               SboxSlice('Lương KPI', sum('kpiSalary'), color: SboxColors.warning),
+              // Thiếu 2 khoản này thì cơ cấu thu nhập không khớp cột «Tổng lương» của bảng.
+              SboxSlice('Sản lượng', sum('productionAmount'), color: SboxColors.brand700),
+              SboxSlice('Tiền phép năm', sum('leavePayout'), color: SboxColors.slate500),
             ],
           ),
         ),

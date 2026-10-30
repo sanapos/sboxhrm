@@ -127,6 +127,7 @@ public class BusinessTripCasesController(
     public async Task<ActionResult<AppResponse<BusinessTripCaseDto>>> ApproveAdvance(
         Guid id, [FromBody] ApproveBusinessTripDto dto)
     {
+        if (await OwnCaseDeniedAsync(id) is { } own) return Ok(AppResponse<BusinessTripCaseDto>.Error(own));
         var storeId = RequiredStoreId;
         var result = await mediator.Send(new ApproveBusinessTripAdvanceCommand(
             storeId, id, CurrentUserId, dto.IsApproved, dto.RejectionReason));
@@ -161,6 +162,7 @@ public class BusinessTripCasesController(
     public async Task<ActionResult<AppResponse<BusinessTripCaseDto>>> PayAdvance(
         Guid id, [FromBody] PayBusinessTripDto? dto)
     {
+        if (await OwnCaseDeniedAsync(id) is { } own) return Ok(AppResponse<BusinessTripCaseDto>.Error(own));
         var result = await mediator.Send(new PayBusinessTripAdvanceCommand(
             RequiredStoreId, id, CurrentUserId, dto?.PaymentMethod));
         return Ok(result);
@@ -193,6 +195,7 @@ public class BusinessTripCasesController(
     public async Task<ActionResult<AppResponse<BusinessTripCaseDto>>> ApproveSettlement(
         Guid id, [FromBody] ApproveBusinessTripDto dto)
     {
+        if (await OwnCaseDeniedAsync(id) is { } own) return Ok(AppResponse<BusinessTripCaseDto>.Error(own));
         var storeId = RequiredStoreId;
         var result = await mediator.Send(new ApproveBusinessTripSettlementCommand(
             storeId, id, CurrentUserId, dto.IsApproved, dto.RejectionReason));
@@ -303,6 +306,7 @@ public class BusinessTripCasesController(
     public async Task<ActionResult<AppResponse<BusinessTripCaseDto>>> PaySettlementExtra(
         Guid id, [FromBody] PayBusinessTripDto? dto)
     {
+        if (await OwnCaseDeniedAsync(id) is { } own) return Ok(AppResponse<BusinessTripCaseDto>.Error(own));
         var result = await mediator.Send(new PayBusinessTripSettlementExtraCommand(
             RequiredStoreId, id, CurrentUserId, dto?.PaymentMethod));
         return Ok(result);
@@ -343,5 +347,15 @@ public class BusinessTripCasesController(
     {
         var result = await mediator.Send(new SeedBusinessTripExpenseCategoriesCommand(RequiredStoreId));
         return Ok(result);
+    }
+
+    /// <summary>Không tự duyệt / tự chi tạm ứng, quyết toán công tác của chính mình (chủ / giám đốc thì được).</summary>
+    private async Task<string?> OwnCaseDeniedAsync(Guid id)
+    {
+        if (IsAdmin) return null;
+        var owner = await context.BusinessTripCases.AsNoTracking()
+            .Where(c => c.Id == id && c.StoreId == RequiredStoreId)
+            .Select(c => c.EmployeeUserId).FirstOrDefaultAsync();
+        return owner.HasValue && owner == CurrentUserId ? "Không thể tự duyệt / chi khoản công tác của chính mình" : null;
     }
 }

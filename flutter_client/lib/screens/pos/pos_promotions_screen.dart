@@ -453,6 +453,12 @@ class _PosPromotionEditorPageState extends State<PosPromotionEditorPage> {
     if (_name.text.trim().isEmpty) return 'Nhập tên chương trình';
     if (_scope == 'products' && cfg['target'] != null && _products.isEmpty) return 'Chọn ít nhất 1 mặt hàng';
     if (_scope == 'categories' && cfg['target'] != null && _categoryIds.isEmpty) return 'Chọn ít nhất 1 nhóm hàng';
+    // Gõ nhầm 150% vẫn lưu được → máy chủ cắt còn 100% = cho không cả cửa hàng.
+    final tierPcts = (cfg['tiers'] as List?)?.map((t) => (t as Map)['percent']) ?? const [];
+    if (['percent', 'giftPercent', 'billPercent'].any((k) => _n(k) > 100) ||
+        tierPcts.any((p) => p is num && p > 100)) {
+      return 'Mức giảm % không được quá 100%';
+    }
     switch (_type) {
       case PosPromotionTypes.timeDiscount:
         if (_n('percent') <= 0 && _n('amountPerUnit') <= 0 && _n('salePrice') <= 0) {

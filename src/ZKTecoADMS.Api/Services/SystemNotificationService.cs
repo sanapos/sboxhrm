@@ -261,6 +261,8 @@ public class SystemNotificationService : ISystemNotificationService
         string? categoryCode = null,
         Guid? storeId = null)
     {
+        title = VnMoneyText.Normalize(title);
+        message = VnMoneyText.Normalize(message);
         try
         {
             // Check user notification preference if categoryCode is provided.
@@ -335,6 +337,8 @@ public class SystemNotificationService : ISystemNotificationService
         Guid? storeId = null,
         Guid? batchId = null)
     {
+        title = VnMoneyText.Normalize(title);
+        message = VnMoneyText.Normalize(message);
         try
         {
             var userIdList = targetUserIds.ToList();
@@ -518,4 +522,18 @@ public class SystemNotificationService : ISystemNotificationService
             u => NotificationPushFormatter.FormatUserDisplayName(
                 u.LastName, u.FirstName, u.UserName, u.Email));
     }
+}
+
+/// <summary>
+/// Số tiền trong thông báo được ghép bằng {x:N0} (văn hoá invariant → «6,000,000đ»);
+/// đổi sang kiểu Việt «6.000.000đ» cho khớp app. Chỉ đụng số có đ/₫/VND đi sau.
+/// </summary>
+public static class VnMoneyText
+{
+    private static readonly System.Text.RegularExpressions.Regex Money = new(
+        @"(?<![\d.,])(\d{1,3}(?:,\d{3})+)(?=\s?(?:đ|₫|VNĐ|VND|vnđ))",
+        System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    public static string Normalize(string? text) =>
+        string.IsNullOrEmpty(text) ? text ?? string.Empty : Money.Replace(text, m => m.Value.Replace(',', '.'));
 }

@@ -72,6 +72,8 @@ public class AttendanceAnalyticsController(
             var dayEnd = await AppSettingsOperationalHelper.ResolveDayEndTimeAsync(db, storeId) ?? TimeSpan.Zero;
 
             var empQ = db.Employees.Where(e => e.StoreId == storeId && e.Deleted == null);
+            // Nhân viên thường chỉ xem chuyên cần của chính mình (giống /api/Reports/attendance/*).
+            if (!IsManager && !IsAccountant) empQ = empQ.Where(e => e.ApplicationUserId == CurrentUserId);
             if (!string.IsNullOrWhiteSpace(department))
                 empQ = empQ.Where(e => e.Department != null && e.Department.Contains(department));
             if (!string.IsNullOrWhiteSpace(employeeCode))
@@ -189,7 +191,7 @@ public class AttendanceAnalyticsController(
                     EmployeeId = e.Id,
                     EmployeeCode = e.EmployeeCode,
                     EmployeeName = ReportHelpers.FullName(e.LastName, e.FirstName),
-                    Department = e.Department ?? "N/A",
+                    Department = e.Department ?? "Chưa có phòng ban",
                     StandardDays = personalStd,
                     PresentDays = presentCount,
                     LateDays = lateDays,
@@ -269,6 +271,8 @@ public class AttendanceAnalyticsController(
 
             var empQ = db.Employees.Where(e => e.StoreId == storeId && e.Deleted == null
                 && e.WorkStatus == EmployeeWorkStatus.Active);
+            // Nhân viên thường chỉ xem chuyên cần của chính mình (giống /api/Reports/attendance/*).
+            if (!IsManager && !IsAccountant) empQ = empQ.Where(e => e.ApplicationUserId == CurrentUserId);
             if (!string.IsNullOrWhiteSpace(department))
                 empQ = empQ.Where(e => e.Department != null && e.Department.Contains(department));
 
@@ -345,7 +349,7 @@ public class AttendanceAnalyticsController(
                         EmployeeId = e.Id,
                         EmployeeCode = e.EmployeeCode,
                         EmployeeName = ReportHelpers.FullName(e.LastName, e.FirstName),
-                        Department = e.Department ?? "N/A",
+                        Department = e.Department ?? "Chưa có phòng ban",
                         AbsenceDate = d,
                         DayOfWeek = GetDowVn(d.DayOfWeek)
                     });
@@ -411,6 +415,8 @@ public class AttendanceAnalyticsController(
             var dayEnd = await AppSettingsOperationalHelper.ResolveDayEndTimeAsync(db, storeId) ?? TimeSpan.Zero;
 
             var empQ = db.Employees.Where(e => e.StoreId == storeId && e.Deleted == null);
+            // Nhân viên thường chỉ xem chuyên cần của chính mình (giống /api/Reports/attendance/*).
+            if (!IsManager && !IsAccountant) empQ = empQ.Where(e => e.ApplicationUserId == CurrentUserId);
             if (!string.IsNullOrWhiteSpace(department))
                 empQ = empQ.Where(e => e.Department != null && e.Department.Contains(department));
 
@@ -488,7 +494,7 @@ public class AttendanceAnalyticsController(
                     EmployeeId = emp.Id,
                     EmployeeCode = code,
                     EmployeeName = ReportHelpers.FullName(emp.LastName, emp.FirstName),
-                    Department = emp.Department ?? "N/A",
+                    Department = emp.Department ?? "Chưa có phòng ban",
                     ScheduledDate = date,
                     DayOfWeek = GetDowVn(date.DayOfWeek)
                 });
@@ -554,6 +560,8 @@ public class AttendanceAnalyticsController(
             var dayEnd = await AppSettingsOperationalHelper.ResolveDayEndTimeAsync(db, storeId) ?? TimeSpan.Zero;
 
             var empQ = db.Employees.Where(e => e.StoreId == storeId && e.Deleted == null);
+            // Nhân viên thường chỉ xem chuyên cần của chính mình (giống /api/Reports/attendance/*).
+            if (!IsManager && !IsAccountant) empQ = empQ.Where(e => e.ApplicationUserId == CurrentUserId);
             if (!string.IsNullOrWhiteSpace(department))
                 empQ = empQ.Where(e => e.Department != null && e.Department.Contains(department));
 
@@ -619,7 +627,7 @@ public class AttendanceAnalyticsController(
                     EmployeeId = emp.Id,
                     EmployeeCode = emp.EmployeeCode,
                     EmployeeName = ReportHelpers.FullName(emp.LastName, emp.FirstName),
-                    Department = emp.Department ?? "N/A",
+                    Department = emp.Department ?? "Chưa có phòng ban",
                     Date = g.Key.Date,
                     FirstPunch = first,
                     LastPunch = last,

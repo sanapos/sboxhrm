@@ -680,7 +680,7 @@ public static class PosFinanceSyncHelper
         ZKTecoDbContext db, Guid storeId, CashTransactionType type, CancellationToken ct)
     {
         var prefix = type == CashTransactionType.Income ? "TH" : "CH";
-        var dateStr = DateTime.UtcNow.ToString("yyyyMMdd");
+        var dateStr = DateTime.UtcNow.AddHours(7).ToString("yyyyMMdd") /* ngày VN */;
         var fullPrefix = $"{prefix}-{dateStr}";
         var dbCount = await db.CashTransactions
             .CountAsync(x => x.StoreId == storeId && x.TransactionCode.StartsWith(fullPrefix), ct);
@@ -711,7 +711,7 @@ public static class PosFinanceSyncHelper
             .ToList();
         if (pending.Count == 0) return;
 
-        var dateStr = DateTime.UtcNow.ToString("yyyyMMdd");
+        var dateStr = DateTime.UtcNow.AddHours(7).ToString("yyyyMMdd") /* ngày VN */;
         foreach (var group in pending.GroupBy(c => c.Type))
         {
             var prefix = group.Key == CashTransactionType.Income ? "TH" : "CH";

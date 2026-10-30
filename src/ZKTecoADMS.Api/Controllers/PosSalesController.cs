@@ -2021,6 +2021,21 @@ public partial class PosSalesController(
                 "Muốn hoàn phần chưa dùng: điều chỉnh gói ở hồ sơ khách rồi lập phiếu chi trả khách."));
         }
 
+        // Khách đã trả nợ cho đơn qua «Thu nợ»: hủy chỉ trừ phần còn nợ, khoản đã thu vẫn ghi thu và không hoàn
+        // → lệch công nợ / quỹ. «Trả hàng» toàn bộ đơn thì trừ nợ còn lại trước rồi hoàn tiền phần đã trả → đúng sổ.
+        if (order.CustomerId.HasValue && !string.IsNullOrEmpty(order.OrderNo))
+        {
+            var debtPayNo = await dbContext.PosCustomerPayments.AsNoTracking()
+                .Where(p => p.StoreId == storeId && p.Deleted == null && p.CustomerId == order.CustomerId
+                            && (p.SaleOrderId == order.Id
+                                || (p.Note != null && p.Note.Contains("Trừ nợ đơn:") && p.Note.Contains(order.OrderNo))))
+                .Select(p => p.PaymentNo)
+                .FirstOrDefaultAsync();
+            if (debtPayNo != null)
+                return BadRequest(AppResponse<SaleOrderDto>.Fail(
+                    $"Khách đã trả nợ cho đơn này (phiếu thu {debtPayNo}) — dùng «Trả hàng» toàn bộ đơn để hoàn tiền đúng sổ, không hủy đơn"));
+        }
+
         await using var tx = await dbContext.Database.BeginTransactionAsync();
         try
         {
@@ -2632,12 +2647,25 @@ public partial class PosSalesController(
             : dto.RefundPaymentMethod.Trim();
         decimal refundTotal = 0;
         decimal debtOffset = 0, cashRefund = 0;
+        var newReturnLines = new List<PosSaleReturnLine>();
         var touchedProducts = new HashSet<Guid>();
         var warrantyReturns = new List<(Guid ProductId, Guid? VariantId, decimal Qty)>();
 
         await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
         try
         {
+        // Số đã trả đọc lại TRONG transaction: lệnh trả khác vừa xong (bấm 2 lần) sau lần đọc phía trên → dòng dịch vụ
+        // (không đụng tồn kho nên không vướng xmin) bị trả 2 lần, ghi 2 phiếu chi.
+        var returnedNow = await PosSaleReturnLedger.ReturnedQtyByLineAsync(dbContext, storeId, [id]);
+        foreach (var (saleLine, qty) in allocations.GroupBy(a => a.Line).Select(g => (g.Key, g.Sum(x => x.Qty))))
+        {
+            if (returnedNow.GetValueOrDefault(saleLine.Id) + qty > saleLine.Qty + 0.0001m)
+            {
+                await tx.RollbackAsync();
+                return BadRequest(AppResponse<object>.Fail(
+                    $"«{saleLine.ProductName}» vừa được trả ở lệnh khác — tải lại đơn rồi thử lại"));
+            }
+        }
         // Giá vốn dịch vụ đã ghi lúc bán (đơn cũ chưa ghi → giá vốn hiện tại, cùng cách báo cáo ước tính).
         var serviceUnitCost = await dbContext.PosStockTransactions.AsNoTracking()
             .Where(t => t.SaleOrderId == order.Id && t.StoreId == storeId && t.Deleted == null &&
@@ -2733,7 +2761,7 @@ public partial class PosSalesController(
             cost += await PosSaleStockHelper.ApplyToppingReturnAsync(
                 dbContext, storeId, order, saleLine, qty, returnNo, baseNote, CurrentUserEmail, toppingCost);
 
-            dbContext.PosSaleReturnLines.Add(new PosSaleReturnLine
+            var returnLine = new PosSaleReturnLine
             {
                 Id = Guid.NewGuid(),
                 StoreId = storeId,
@@ -2748,7 +2776,9 @@ public partial class PosSalesController(
                 ToppingCostJson = PosSaleReturnLedger.SerializeToppingCost(toppingCost),
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
-            });
+            };
+            dbContext.PosSaleReturnLines.Add(returnLine);
+            newReturnLines.Add(returnLine);
             refundTotal += lineRefund;
         }
 
@@ -2756,18 +2786,37 @@ public partial class PosSalesController(
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(dbContext, products[pid]);
 
         var totalBeforeRefund = order.Total;
-        // Đơn còn nợ: tiền hàng trả trừ vào phần còn nợ của chính đơn trước, phần dư mới hoàn tiền.
-        // Trước đây vừa ghi phiếu chi đủ số hoàn vừa trừ nợ khách (kể cả đơn đã trả đủ) → khách lợi gấp đôi.
-        debtOffset = Math.Min(refundTotal, Math.Max(0, order.PayableTotal - order.PaidAmount));
-        cashRefund = refundTotal - debtOffset;
-        order.Total = Math.Max(0, order.Total - refundTotal);
-        order.PaidAmount = Math.Max(0, order.PaidAmount - cashRefund);
-        order.SubTotal = Math.Max(0, order.SubTotal - refundTotal);
+        var balanceBefore = Math.Max(0, order.PayableTotal - order.PaidAmount);
+        // VAT cộng thêm vào phải trả (PayableTotal) → trả hàng bỏ phần VAT tương ứng thì khách cũng được hoàn /
+        // trừ nợ phần đó; trước đây chỉ tính tiền hàng nên đơn về 0 mà khách còn nợ VAT (hoặc mất VAT đã trả).
+        decimal vatReturned = 0;
         if (order.VatAmount > 0 && totalBeforeRefund > 0)
         {
             var vatRatio = Math.Min(1m, refundTotal / totalBeforeRefund);
-            order.VatAmount = Math.Max(0, Math.Round(order.VatAmount * (1m - vatRatio), 0, MidpointRounding.AwayFromZero));
+            var vatAfter = Math.Max(0, Math.Round(order.VatAmount * (1m - vatRatio), 0, MidpointRounding.AwayFromZero));
+            vatReturned = order.VatAmount - vatAfter;
+            order.VatAmount = vatAfter;
+            // Ghi VAT hoàn theo dòng (chia theo tiền hoàn, dòng cuối nhận phần lẻ) để hủy phiếu trả cộng lại đúng.
+            var left = vatReturned;
+            for (var k = 0; k < newReturnLines.Count; k++)
+            {
+                var rl = newReturnLines[k];
+                var share = k == newReturnLines.Count - 1 || refundTotal <= 0
+                    ? left
+                    : Math.Round(vatReturned * rl.RefundAmount / refundTotal, 0, MidpointRounding.AwayFromZero);
+                share = Math.Min(share, left);
+                rl.VatRefund = share;
+                left -= share;
+            }
         }
+        var refundGross = refundTotal + vatReturned;
+        // Đơn còn nợ: tiền hàng trả trừ vào phần còn nợ của chính đơn trước, phần dư mới hoàn tiền.
+        // Trước đây vừa ghi phiếu chi đủ số hoàn vừa trừ nợ khách (kể cả đơn đã trả đủ) → khách lợi gấp đôi.
+        debtOffset = Math.Min(refundGross, balanceBefore);
+        cashRefund = refundGross - debtOffset;
+        order.Total = Math.Max(0, order.Total - refundTotal);
+        order.PaidAmount = Math.Max(0, order.PaidAmount - cashRefund);
+        order.SubTotal = Math.Max(0, order.SubTotal - refundTotal);
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = CurrentUserEmail;
 
@@ -2878,6 +2927,11 @@ public partial class PosSalesController(
         await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
         try
         {
+        // VAT đã hoàn ghi theo dòng trả (phiếu mới) — đọc trước khi dòng bị đánh dấu hủy.
+        var vatRefunded = await dbContext.PosSaleReturnLines.AsNoTracking()
+            .Where(r => r.SaleOrderId == order.Id && r.StoreId == storeId && r.Deleted == null
+                        && r.ReturnNo == returnNo && !r.IsVoided)
+            .SumAsync(r => (decimal?)r.VatRefund) ?? 0m;
         var (refundReversed, warrantyLines, err) =
             await PosSaleStockHelper.ReverseCustomerSaleReturnAsync(
                 dbContext, storeId, order, returnNo, CurrentUserEmail);
@@ -2887,7 +2941,10 @@ public partial class PosSalesController(
             return BadRequest(AppResponse<SaleOrderDto>.Fail(err));
         }
 
-        if (refundReversed > 0 && order.VatAmount > 0)
+        var vatBeforeVoid = order.VatAmount;
+        if (vatRefunded > 0)
+            order.VatAmount += vatRefunded;   // đúng số đã hoàn, kể cả khi trả hết đơn (VAT đơn đã về 0)
+        else if (refundReversed > 0 && order.VatAmount > 0)
         {
             var totalNow = order.Total;
             var totalBeforeVoid = totalNow - refundReversed;
@@ -2898,7 +2955,9 @@ public partial class PosSalesController(
             }
         }
 
-        await PosSaleStockHelper.ReverseCustomerOnReturnVoidAsync(dbContext, storeId, order, refundReversed);
+        // Nợ cộng lại gồm cả VAT khôi phục (lúc trả, phần VAT cũng đã trừ vào nợ).
+        await PosSaleStockHelper.ReverseCustomerOnReturnVoidAsync(
+            dbContext, storeId, order, refundReversed, refundReversed + (order.VatAmount - vatBeforeVoid));
         await PosCustomerFinanceHelper.RestorePointsOnReturnVoidAsync(
             dbContext, storeId, order, refundReversed, order.Total, CurrentUserEmail, returnNo);
         await PosFinanceSyncHelper.ReverseCustomerReturnAsync(dbContext, order, returnNo);

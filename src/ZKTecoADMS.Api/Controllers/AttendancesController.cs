@@ -980,7 +980,9 @@ public class AttendancesController(
         try
         {
             var attendance = await attendanceRepository.GetByIdAsync(id);
-            if (attendance == null)
+            // Attendance không có StoreId — thuộc cửa hàng qua máy chấm công; id của cửa hàng khác coi như không có.
+            if (attendance == null || !await dbContext.Devices.AsNoTracking()
+                    .AnyAsync(d => d.Id == attendance.DeviceId && d.StoreId == RequiredStoreId))
             {
                 return Ok(AppResponse<bool>.Fail("Không tìm thấy bản ghi chấm công"));
             }
@@ -1028,7 +1030,9 @@ public class AttendancesController(
         try
         {
             var attendance = await attendanceRepository.GetByIdAsync(id);
-            if (attendance == null)
+            // Attendance không có StoreId — thuộc cửa hàng qua máy chấm công; id của cửa hàng khác coi như không có.
+            if (attendance == null || !await dbContext.Devices.AsNoTracking()
+                    .AnyAsync(d => d.Id == attendance.DeviceId && d.StoreId == RequiredStoreId))
             {
                 return Ok(AppResponse<bool>.Fail("Không tìm thấy bản ghi chấm công"));
             }

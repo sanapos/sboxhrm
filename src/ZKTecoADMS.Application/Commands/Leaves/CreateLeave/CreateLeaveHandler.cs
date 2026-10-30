@@ -59,12 +59,15 @@ public class CreateLeaveHandler(
                 ? new List<Guid>(request.ShiftIds)
                 : new List<Guid> { shiftTemplate.Id };
 
+            var dayFrom = request.StartDate.Date;
+            var dayTo = request.EndDate.Date.AddDays(1);
             var overlapping = await leaveRepository.GetAllAsync(
                 filter: l => l.EmployeeUserId == request.EmployeeUserId &&
                              l.StoreId == request.StoreId &&
                              l.Status != LeaveStatus.Rejected && l.Status != LeaveStatus.Cancelled && // đơn đã huỷ không chặn đơn mới
-                             l.StartDate <= request.EndDate &&
-                             l.EndDate >= request.StartDate,
+                             // So theo NGÀY: đơn lưu kèm giờ lúc tạo (vd 19:31 và 22:04 cùng ngày) vẫn là trùng.
+                             l.StartDate < dayTo &&
+                             l.EndDate >= dayFrom,
                 cancellationToken: cancellationToken);
 
             if (overlapping != null && overlapping.Any(l =>

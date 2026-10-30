@@ -453,6 +453,11 @@ class _BusinessTripCaseDetailScreenState
           title: 'Thiếu thông tin', message: tr('Nhập tiêu đề'));
       return;
     }
+    if (from != null && to != null && to!.isBefore(from!)) {
+      appNotification.showError(
+          title: 'Thiếu thông tin', message: tr('Đến ngày phải sau hoặc bằng Từ ngày'));
+      return;
+    }
     final res = await _api.updateBusinessTripCase(widget.caseId, {
       'title': title,
       if (dest.isNotEmpty) 'destination': dest,

@@ -6960,6 +6960,15 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
     public async Task<ActionResult> GetRecord(Guid recordId)
     {
         var storeId = RequiredStoreId;
+        // GPS, ảnh khuôn mặt của người khác là dữ liệu riêng tư — nhân viên chỉ xem bản ghi của mình.
+        if (!IsPrivilegedMobileUser && !await CanApproveMobileAsync(storeId))
+        {
+            var owner = await _dbContext.MobileAttendanceRecords.AsNoTracking()
+                .Where(x => x.Id == recordId && x.StoreId == storeId && x.Deleted == null)
+                .Select(x => x.OdooEmployeeId).FirstOrDefaultAsync();
+            if (owner == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy bản ghi"));
+            if (!await EmployeeIdBelongsToCurrentUserAsync(storeId, owner)) return Forbid();
+        }
         var r = await _dbContext.MobileAttendanceRecords
             .AsNoTracking()
             .Where(x => x.Id == recordId && x.StoreId == storeId && x.Deleted == null)
@@ -8682,6 +8691,16 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
     private bool IsPrivilegedMobileUser =>
         IsAdmin || IsManager;
+
+    /// <summary>Vai trò tùy chỉnh được giao duyệt chấm công mobile (không phải quản lý) vẫn xem được bản ghi cần duyệt.</summary>
+    private async Task<bool> CanApproveMobileAsync(Guid storeId)
+    {
+        var svc = HttpContext.RequestServices.GetRequiredService<ZKTecoADMS.Application.Interfaces.IModulePermissionService>();
+        foreach (var module in new[] { "MobileAttendanceApproval", "AttendanceApproval" })
+            if (await svc.HasPermissionAsync(CurrentUserId, CurrentUserRole, storeId, module, ModulePermissionAction.Approve))
+                return true;
+        return false;
+    }
 
 
     private bool EmployeeIdMatchesCurrentUser(string employeeId)

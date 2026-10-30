@@ -91,8 +91,10 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
   static Map<String, dynamic>? _data(Map<String, dynamic> r) =>
       r['isSuccess'] == true && r['data'] is Map ? Map<String, dynamic>.from(r['data'] as Map) : null;
 
+  // Không trả `const []`: bảng «Nhân viên hôm nay» sort tại chỗ — vai trò không xem được
+  // Dashboard/manager (403) làm màn Tổng quan văng «Cannot modify a constant list».
   static List<Map<String, dynamic>> _list(dynamic v) =>
-      v is List ? v.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : const [];
+      v is List ? v.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : <Map<String, dynamic>>[];
 
   static double _n(dynamic v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
 
@@ -480,7 +482,7 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       pageSize: 10,
       emptyTitle: 'Chưa có đơn bán trong kỳ',
       columns: [
-        SboxColumn(label: 'Nhân viên', primary: true, flex: 3, text: (r) => '${r['soldBy'] ?? '—'}', sortValue: (r) => '${r['soldBy'] ?? ''}'),
+        SboxColumn(label: 'Nhân viên', primary: true, flex: 3, text: (r) => '${r['displayName'] ?? r['soldBy'] ?? '—'}', sortValue: (r) => '${r['displayName'] ?? r['soldBy'] ?? ''}'),
         SboxColumn(label: 'Số đơn', numeric: true, flex: 1, text: (r) => SboxFmt.number(_n(r['orderCount'])), sortValue: (r) => _n(r['orderCount'])),
         SboxColumn(label: 'Doanh thu', numeric: true, flex: 2, text: (r) => SboxFmt.money(_n(r['revenue'])), sortValue: (r) => _n(r['revenue'])),
         SboxColumn(
