@@ -12,7 +12,8 @@ public class PenaltyTicketConfiguration : IEntityTypeConfiguration<PenaltyTicket
 
         builder.Property(pt => pt.Amount).HasPrecision(18, 2);
 
-        builder.HasIndex(pt => pt.TicketCode).IsUnique();
+        // Mã đánh số theo từng cửa hàng → duy nhất trong cửa hàng (SchemaPatches/PenaltyTicketCodePerStore.sql).
+        builder.HasIndex(pt => new { pt.StoreId, pt.TicketCode }).IsUnique().HasFilter("\"Deleted\" IS NULL");
         builder.HasIndex(pt => new { pt.StoreId, pt.Status, pt.ViolationDate });
         builder.HasIndex(pt => new { pt.EmployeeId, pt.ViolationDate });
 

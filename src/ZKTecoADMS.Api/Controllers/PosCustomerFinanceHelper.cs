@@ -68,7 +68,7 @@ public static class PosCustomerFinanceHelper
             return new VoucherApplyResult(voucher, 0, "Voucher không áp dụng cho khách này");
         if (orderAmountBeforeVoucher < voucher.MinOrderAmount)
             return new VoucherApplyResult(voucher, 0,
-                $"Đơn tối thiểu {_fmt(voucher.MinOrderAmount)} để dùng voucher");
+                $"Đơn tối thiểu {_fmt(voucher.MinOrderAmount)} đ để dùng voucher");
 
         decimal discount = voucher.DiscountType == PosVoucherDiscountType.Percent
             // Chặn % > 100 (dữ liệu cũ lưu nhầm kiểu giảm) — không bao giờ giảm quá giá trị đơn theo %.
@@ -534,5 +534,6 @@ public static class PosCustomerFinanceHelper
         return applied;
     }
 
-    private static string _fmt(decimal v) => v.ToString("0.##");
+    // Tiền trong thông báo: 50.000 (trước đây 50000).
+    private static string _fmt(decimal v) => v.ToString("#,##0.##", System.Globalization.CultureInfo.GetCultureInfo("vi-VN"));
 }

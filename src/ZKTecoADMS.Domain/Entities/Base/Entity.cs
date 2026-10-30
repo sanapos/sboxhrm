@@ -17,8 +17,10 @@ public class Entity<T> : IEntity<T>
         if (obj is not IEntity<T> other)
             return false;
 
+        // Cùng một object phải bằng nhau — trước đây trả false nên List.Remove / Contains / Dictionary
+        // không tìm lại được chính entity đó (tách bàn / gộp bàn giữ tổng cũ, báo cáo hủy món bếp ra 0đ).
         if (ReferenceEquals(this, other))
-            return false;
+            return true;
 
         if (Id.Equals(default) || other.Id.Equals(default))
             return false;
