@@ -252,17 +252,21 @@ public static class PosStaffCommissionHelper
                 .Where(e => employeeIds.Contains(e.Id) && e.Deleted == null)
                 .ToDictionaryAsync(e => e.Id, e => (e.LastName + " " + e.FirstName).Trim());
 
+        // Doanh thu tính hoa hồng = tiền dòng sau phần giảm giá cả đơn (giảm tay / voucher / đổi điểm) chia theo tỷ lệ dòng,
+        // giống cách hoàn tiền khi trả hàng — trước đây cắt 100.000, giảm đơn 20.000 vẫn tính hoa hồng trên 100.000.
+        var netFactor = PosSaleReturnLedger.RefundFactor(order, lines);
         foreach (var line in lines)
         {
             if (!products.TryGetValue(line.ProductId, out var p)) continue;
             var assigns = ParseAssignments(line.StaffAssignmentsJson);
+            var netLine = Math.Round(line.LineTotal * netFactor, 0, MidpointRounding.AwayFromZero);
 
             if (p.ProductType == PosProductType.Combo &&
                 comboMap.TryGetValue(p.Id, out var comps) &&
                 comps.Count > 0)
             {
                 var shares = PosStaffCommissionMath.AllocateComboRevenue(
-                    line.LineTotal, line.Qty,
+                    netLine, line.Qty,
                     comps.Select(c => (
                         c.ComponentProductId,
                         c.Qty,
@@ -329,11 +333,11 @@ public static class PosStaffCommissionHelper
                         EmployeeId = sid,
                         EmployeeName = sellerName ?? assigns.FirstOrDefault()?.AssignedEmployeeName?.Trim() ?? "",
                         Qty = line.Qty,
-                        RevenueAmount = line.LineTotal,
+                        RevenueAmount = netLine,
                         CommissionMode = PosCommissionMode.PercentOfLine,
                         CommissionPercent = p.SellerCommissionPercent,
                         CommissionFixed = 0,
-                        CommissionAmount = Math.Round(line.LineTotal * p.SellerCommissionPercent / 100m, 0,
+                        CommissionAmount = Math.Round(netLine * p.SellerCommissionPercent / 100m, 0,
                             MidpointRounding.AwayFromZero),
                         IsActive = true,
                         CreatedBy = createdBy,
@@ -358,13 +362,13 @@ public static class PosStaffCommissionHelper
                 EmployeeId = lineEmp.Value,
                 EmployeeName = name ?? assigns.FirstOrDefault()?.AssignedEmployeeName?.Trim() ?? "",
                 Qty = line.Qty,
-                RevenueAmount = line.LineTotal,
+                RevenueAmount = netLine,
                 CommissionMode = p.CommissionMode,
                 CommissionPercent = p.CommissionPercent,
                 CommissionFixed = p.CommissionFixed,
                 CommissionAmount = PosStaffCommissionMath.CalcCommission(
                     p.CommissionMode, p.CommissionPercent, p.CommissionFixed,
-                    line.LineTotal, line.Qty, p.BasePrice),
+                    netLine, line.Qty, p.BasePrice),
                 IsActive = true,
                 CreatedBy = createdBy,
             });

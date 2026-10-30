@@ -22,12 +22,21 @@ public class PosPriceListResolverTests
     }
 
     [Fact]
-    public void Bang_mac_dinh_het_han_thi_ve_bang_khong_gioi_han_ngay()
+    public void Bang_mac_dinh_het_han_thi_ban_gia_hang()
     {
         var day = new DateTime(2026, 10, 4);
         var chung = L("Chung");
         var km = L("Khuyến mãi", isDefault: true, from: day.AddDays(-10), to: day.AddDays(-1));
-        Assert.Same(chung, PosPriceListResolver.PickDefault([km, chung], day));
+        Assert.Null(PosPriceListResolver.PickDefault([km, chung], day));
+    }
+
+    [Fact]
+    public void Bang_gia_khong_mac_dinh_chi_ap_khi_chon_tay()
+    {
+        var day = new DateTime(2026, 10, 4);
+        var si = L("Giá sỉ");
+        var dl = L("Đại lý", from: day.AddDays(-1), to: day.AddDays(1));
+        Assert.Null(PosPriceListResolver.PickDefault([si, dl], day));
     }
 
     [Fact]

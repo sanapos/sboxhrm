@@ -217,23 +217,8 @@ public static class PosCustomerFinanceHelper
             .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
         if (customer == null) return;
 
-        if (order.PointsEarned > 0)
-        {
-            customer.PointBalance = Math.Max(0, customer.PointBalance - order.PointsEarned);
-            db.PosCustomerPointTransactions.Add(new PosCustomerPointTransaction
-            {
-                Id = Guid.NewGuid(),
-                StoreId = storeId,
-                CustomerId = customer.Id,
-                SaleOrderId = order.Id,
-                TransactionType = PosCustomerPointType.Adjust,
-                Points = -order.PointsEarned,
-                BalanceAfter = customer.PointBalance,
-                Note = $"Hủy tích điểm đơn {order.OrderNo}",
-                IsActive = true,
-                CreatedBy = updatedBy,
-            });
-        }
+        // Hoàn điểm đã đổi TRƯỚC rồi mới thu điểm đã tích: thu trước khi số dư còn ít thì bị chặn ở 0
+        // → mất phần thu, khách được hoàn dư (vd đổi 20 / tích 4, số dư 0 → được +20 thay vì +16).
         // Phần điểm đã hoàn khi trả hàng trước đó thì không hoàn lần nữa.
         var redeemLeft = order.PointsRedeemed > 0
             ? Math.Max(0, order.PointsRedeemed - await RedeemRefundedAsync(db, storeId, order.Id))
@@ -251,6 +236,23 @@ public static class PosCustomerFinanceHelper
                 Points = redeemLeft,
                 BalanceAfter = customer.PointBalance,
                 Note = $"Hoàn điểm đổi đơn {order.OrderNo}",
+                IsActive = true,
+                CreatedBy = updatedBy,
+            });
+        }
+        if (order.PointsEarned > 0)
+        {
+            customer.PointBalance = Math.Max(0, customer.PointBalance - order.PointsEarned);
+            db.PosCustomerPointTransactions.Add(new PosCustomerPointTransaction
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                CustomerId = customer.Id,
+                SaleOrderId = order.Id,
+                TransactionType = PosCustomerPointType.Adjust,
+                Points = -order.PointsEarned,
+                BalanceAfter = customer.PointBalance,
+                Note = $"Hủy tích điểm đơn {order.OrderNo}",
                 IsActive = true,
                 CreatedBy = updatedBy,
             });

@@ -314,6 +314,8 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
         'productId': rl.line.productId,
         'qty': qty,
         if (rl.line.variantId != null) 'variantId': rl.line.variantId,
+        // Trả đúng dòng đang chọn (đơn 1 thùng + 2 chai: trả «2» ở dòng chai không rơi vào dòng thùng).
+        if ((rl.line.id ?? '').isNotEmpty) 'saleOrderLineId': rl.line.id,
         if (pickedSerials != null) 'serialNumbers': pickedSerials,
       });
     }

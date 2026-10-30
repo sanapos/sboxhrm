@@ -67,13 +67,27 @@ internal static class PosStockLotHelper
         // thay vì chặn giao dịch (trước đây bán âm hàng có HSD bị lỗi hệ thống).
         if (qtyNeeded <= 0) return ([], null);
 
+        // Phần không theo lô: giá vốn của BIẾN THỂ (size / màu) nếu có — trước đây luôn lấy giá vốn hàng cha
+        // nên bán M (60k) + L (70k) mà giá vốn hàng cha 60k thì báo cáo ghi thiếu. Biến thể chỉ là ĐVT quy đổi
+        // thì SL đã theo đơn vị gốc → giữ giá vốn hàng cha.
+        var noLotCost = product.CostPrice;
+        if (variantId.HasValue)
+        {
+            var v = await db.PosProductVariants.AsNoTracking()
+                .Where(x => x.Id == variantId && x.StoreId == storeId)
+                .Select(x => new { x.CostPrice, x.AttributeJson })
+                .FirstOrDefaultAsync();
+            if (v is { CostPrice: > 0 } && !PosVariantStockHelper.IsUnitOnlyVariant(v.AttributeJson))
+                noLotCost = v.CostPrice;
+        }
+
         var hasActiveLots = await db.PosStockLots.AsNoTracking().AnyAsync(l =>
             l.StoreId == storeId && l.ProductId == productId && l.Deleted == null &&
             l.IsActive && l.Status == PosStockLotStatus.Active && l.QtyOnHand > 0 &&
             (variantId.HasValue ? l.VariantId == variantId : l.VariantId == null));
 
         if (!product.TrackExpiry && !hasActiveLots)
-            return ([new LotAllocation(null, qtyNeeded, product.CostPrice)], null);
+            return ([new LotAllocation(null, qtyNeeded, noLotCost)], null);
 
         // Bán hàng: bỏ qua lô đã quá HSD (trước đây FEFO lấy lô hết hạn ra bán đầu tiên).
         var todayVn = ExpiryCutoffUtc();
@@ -152,7 +166,7 @@ WHERE ""Id"" = {lotId}
         }
 
         if (remaining > 0)
-            allocations.Add(new LotAllocation(null, remaining, product.CostPrice));
+            allocations.Add(new LotAllocation(null, remaining, noLotCost));
 
         return (allocations, null);
     }

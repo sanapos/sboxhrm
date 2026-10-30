@@ -627,6 +627,10 @@ internal static class PosSaleStockHelper
         var (nextNeeds, err2) = await ComputeDraftReserveNeedsAsync(db, storeId, nextExpanded);
         if (err2 != null && nextExpanded.Count > 0) return err2;
 
+        if (!allowNegativeStock
+            && await CheckDraftVariantHoldAsync(db, storeId, priorExpanded, nextExpanded) is { } variantErr)
+            return variantErr;
+
         var allIds = priorNeeds.Keys.Union(nextNeeds.Keys).ToList();
         if (allIds.Count == 0) return null;
 
@@ -652,6 +656,60 @@ internal static class PosSaleStockHelper
             p.UpdatedAt = DateTime.UtcNow;
         }
 
+        return null;
+    }
+
+    /// <summary>
+    /// Giữ chỗ theo từng biến thể có tồn riêng (size / màu): biến thể không có cột «đang giữ» nên cộng SL các đơn tạm
+    /// khác đang giữ đúng biến thể đó từ dòng đơn tạm trong DB. Trước đây chỉ giữ trên hàng cha → 10 áo M, đơn tạm 1 giữ 3
+    /// mà đơn tạm 2 vẫn giữ được 8, tới lúc chốt đơn 1 mới báo thiếu.
+    /// <paramref name="priorLines"/> = dòng đơn này đang lưu trong DB (trừ ra khỏi phần «đơn khác giữ»).
+    /// </summary>
+    static async Task<string?> CheckDraftVariantHoldAsync(
+        ZKTecoDbContext db, Guid storeId,
+        IReadOnlyCollection<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId)> priorLines,
+        IReadOnlyCollection<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId)> nextLines)
+    {
+        static Dictionary<Guid, decimal> ByVariant(
+            IEnumerable<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId)> lines) => lines
+            .Where(l => l.VariantId.HasValue && l.Qty > 0)
+            .GroupBy(l => l.VariantId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
+        var prior = ByVariant(priorLines);
+        var next = ByVariant(nextLines);
+        var grown = next.Where(kv => kv.Value > prior.GetValueOrDefault(kv.Key) + 0.0001m).Select(kv => kv.Key).ToList();
+        if (grown.Count == 0) return null;
+
+        var variants = await db.PosProductVariants.AsNoTracking()
+            .Where(v => grown.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null)
+            .ToListAsync();
+        var productIds = variants.Select(v => v.ProductId).Distinct().ToList();
+        // Món có định lượng (theo size hoặc chung) trừ nguyên liệu, không trừ tồn biến thể.
+        var recipeProducts = (await db.PosProductRecipeLines.AsNoTracking()
+            .Where(r => productIds.Contains(r.ParentProductId) && r.StoreId == storeId && r.Deleted == null)
+            .Select(r => r.ParentProductId).Distinct().ToListAsync()).ToHashSet();
+        var tracked = variants
+            .Where(v => !PosVariantStockHelper.IsUnitOnlyVariant(v.AttributeJson) && !recipeProducts.Contains(v.ProductId))
+            .ToList();
+        if (tracked.Count == 0) return null;
+
+        var ids = tracked.Select(v => v.Id).ToList();
+        var heldInDrafts = await db.PosSaleOrderLines.AsNoTracking()
+            .Where(l => l.StoreId == storeId && l.Deleted == null && l.VariantId != null && ids.Contains(l.VariantId.Value)
+                && db.PosSaleOrders.Any(o => o.Id == l.SaleOrderId && o.Deleted == null && o.Status == PosSaleOrderStatus.Draft))
+            .GroupBy(l => l.VariantId!.Value)
+            .Select(g => new { g.Key, Qty = g.Sum(x => x.Qty) })
+            .ToDictionaryAsync(x => x.Key, x => x.Qty);
+        foreach (var v in tracked)
+        {
+            var others = Math.Max(0m, heldInDrafts.GetValueOrDefault(v.Id) - prior.GetValueOrDefault(v.Id));
+            var free = v.OnHandQty - others;
+            var need = next[v.Id];
+            if (free < need)
+                return others > 0
+                    ? $"Không đủ tồn kho: {v.Name} (cần {need:0.##}, còn {Math.Max(0, free):0.##} — đơn tạm khác đang giữ {others:0.##})"
+                    : $"Không đủ tồn kho: {v.Name} (cần {need:0.##}, còn {v.OnHandQty:0.##})";
+        }
         return null;
     }
 

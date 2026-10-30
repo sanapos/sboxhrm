@@ -1720,7 +1720,10 @@ public class PosQrTableOrderController(
             address = o.DeliveryAddress,
             note = o.Note,
             subTotal = o.SubTotal,
-            total = o.Total,
+            // Khách phải trả = hàng + phí ship (+ VAT / phụ thu). App dùng «total» để hiển thị và làm tiền thu hộ COD
+            // — trước đây trả o.Total (chưa gồm phí ship) → shipper thu thiếu đúng phần phí ship.
+            total = o.PayableTotal,
+            deliveryFee = o.DeliveryFee,
             paidAmount = o.PaidAmount,
             isPaid,
             canPay = !isPaid && o.Status == PosSaleOrderStatus.Draft,

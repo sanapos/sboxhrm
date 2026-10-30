@@ -154,20 +154,24 @@ internal static class PosVariantStockHelper
             .FirstOrDefaultAsync(p => p.Id == product.Id && p.Deleted == null);
         if (tracked == null) return;
 
-        var sum = await db.PosProductVariants
-            .Where(v => v.ProductId == product.Id && v.Deleted == null && v.IsActive)
-            .SumAsync(v => v.OnHandQty);
-        var hasVariants = await db.PosProductVariants
-            .AnyAsync(v => v.ProductId == product.Id && v.Deleted == null && v.IsActive);
-        if (!hasVariants) return;
+        // Cộng theo giá trị ĐANG GIỮ trong DbContext (biến thể vừa trừ / cộng chưa lưu) — trước đây SumAsync đọc DB
+        // nên tồn hàng cha luôn chậm một bước (bán 2M + 1L mà cha vẫn 20).
+        var fromDb = await db.PosProductVariants.AsTracking()
+            .Where(v => v.ProductId == product.Id)
+            .ToListAsync();
+        var variants = fromDb
+            .Concat(db.PosProductVariants.Local.Where(v => v.ProductId == product.Id))
+            .DistinctBy(v => v.Id)
+            .Where(v => v.Deleted == null && v.IsActive)
+            .ToList();
+        if (variants.Count == 0) return;
 
-        tracked.OnHandQty = sum;
-        var minPrice = await db.PosProductVariants
-            .Where(v => v.ProductId == product.Id && v.Deleted == null && v.IsActive)
-            .MinAsync(v => (decimal?)v.BasePrice);
-        if (minPrice.HasValue)
-            tracked.BasePrice = minPrice.Value;
+        tracked.OnHandQty = variants.Sum(v => v.OnHandQty);
+        tracked.BasePrice = variants.Min(v => v.BasePrice);
         tracked.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync();
+        // Trong transaction (bán / trả / nhập / kiểm kho) nơi gọi tự lưu trước khi commit — lưu giữa chừng ở đây
+        // làm vỡ khóa ngoại khi đơn bán mới chưa được thêm (bán thẳng hàng có size / màu lỗi 500).
+        if (db.Database.CurrentTransaction == null)
+            await db.SaveChangesAsync();
     }
 }

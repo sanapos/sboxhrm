@@ -51,18 +51,16 @@ public static class PosPriceListResolver
     }
 
     /// <summary>
-    /// Bảng giá tự áp khi hóa đơn không chọn bảng: «Mặc định» còn hiệu lực → bảng không giới hạn ngày →
-    /// bảng bất kỳ còn hiệu lực. Dùng chung cho thu ngân và QR bàn / online để cùng một giá.
+    /// Bảng giá tự áp khi hóa đơn không chọn bảng: CHỈ bảng chủ cửa hàng đánh dấu «Mặc định» và còn hiệu lực;
+    /// không có thì bán theo giá hàng. Bảng giá khác (sỉ, đại lý…) chỉ áp khi thu ngân chọn tay — trước đây
+    /// thiếu bảng mặc định thì tự lấy bảng không giới hạn ngày / bảng bất kỳ → tạo «Giá sỉ» là mọi đơn lẻ
+    /// tự bán giá sỉ. Dùng chung cho thu ngân và QR bàn / online để cùng một giá.
     /// </summary>
-    public static PosPriceList? PickDefault(IEnumerable<PosPriceList> activeLists, DateTime day)
-    {
-        var candidates = activeLists
-            .OrderByDescending(x => x.IsDefault).ThenBy(x => x.SortOrder)
-            .ToList();
-        return candidates.FirstOrDefault(x => x.IsDefault && IsApplicableOn(x, day))
-            ?? candidates.FirstOrDefault(x => !x.ValidFrom.HasValue && !x.ValidTo.HasValue)
-            ?? candidates.FirstOrDefault(x => IsApplicableOn(x, day));
-    }
+    public static PosPriceList? PickDefault(IEnumerable<PosPriceList> activeLists, DateTime day) =>
+        activeLists
+            .Where(x => x.IsDefault && IsApplicableOn(x, day))
+            .OrderBy(x => x.SortOrder)
+            .FirstOrDefault();
 
     /// <summary>Bảng giá mặc định hôm nay (giờ VN) + bảng giá đã nạp — null nếu cửa hàng chưa có bảng giá.</summary>
     public static async Task<(PosPriceList? List, Dictionary<string, decimal> Overrides)> LoadDefaultForTodayAsync(

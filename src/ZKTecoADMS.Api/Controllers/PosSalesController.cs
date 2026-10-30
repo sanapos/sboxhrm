@@ -2487,7 +2487,10 @@ public partial class PosSalesController(
         return Ok(AppResponse<List<SaleReturnSummaryDto>>.Success(items));
     }
 
-    public record ReturnLineDto(Guid ProductId, decimal Qty, Guid? VariantId, List<string>? SerialNumbers = null);
+    /// <param name="SaleOrderLineId">Dòng hóa đơn đang trả (SL theo ĐVT của dòng đó). Bỏ trống = chia vào các dòng cùng
+    /// hàng theo thứ tự (app cũ) — đơn có 1 thùng + 2 chai mà trả «2 chai» sẽ rơi vào dòng thùng.</param>
+    public record ReturnLineDto(Guid ProductId, decimal Qty, Guid? VariantId, List<string>? SerialNumbers = null,
+        Guid? SaleOrderLineId = null);
 
     public record ReturnSaleDto(
         List<ReturnLineDto> Lines,
@@ -2586,6 +2589,13 @@ public partial class PosSalesController(
                 return BadRequest(AppResponse<object>.Fail("Biến thể không hợp lệ"));
 
             var candidates = orderLines.Where(l => l.ProductId == line.ProductId && l.VariantId == line.VariantId).ToList();
+            if (line.SaleOrderLineId.HasValue)
+            {
+                // Trả đúng dòng app chọn (đúng ĐVT / giá của dòng) — không chia sang dòng khác cùng hàng.
+                candidates = candidates.Where(l => l.Id == line.SaleOrderLineId.Value).ToList();
+                if (candidates.Count == 0)
+                    return BadRequest(AppResponse<object>.Fail($"Dòng hàng không thuộc đơn: {p.Name}"));
+            }
             if (candidates.Count == 0)
                 return BadRequest(AppResponse<object>.Fail($"Hàng không có trong đơn: {p.Name}"));
 

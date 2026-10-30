@@ -1713,6 +1713,21 @@ public partial class PosSalesController
                 sessionPausedAt = billingSession.PausedAt;
         }
 
+        // Dịch vụ tính giờ (karaoke / bi-a / phòng giờ): phút tính tiền do MÁY CHỦ tính từ mốc giờ — trước đây nhận thẳng
+        // durationMinutes máy bán gửi (hát 95 phút, gửi 30 → tính 60.000 thay vì 105.000). Chỉ người có quyền sửa giá
+        // (quản lý chỉnh giờ khách) và đơn offline đồng bộ sau (máy chủ không biết giờ thật) mới dùng số phút gửi lên.
+        var trustClientMinutes = allowManualPriceOverride || PosOfflineSaleRules.NormalizeNo(dto.OfflineNo) != null;
+        var storedTimed = new Dictionary<(Guid ProductId, Guid? VariantId), (DateTime? Start, DateTime? End)>();
+        if (!trustClientMinutes && existing != null)
+        {
+            var rows = await dbContext.PosSaleOrderLines.AsNoTracking()
+                .Where(l => l.SaleOrderId == existing.Id && l.Deleted == null && l.ServiceStartedAt != null)
+                .Select(l => new { l.ProductId, l.VariantId, l.ServiceStartedAt, l.ServiceEndedAt })
+                .ToListAsync();
+            foreach (var g in rows.GroupBy(r => (r.ProductId, r.VariantId)))
+                storedTimed[g.Key] = (g.Min(r => r.ServiceStartedAt), g.Max(r => r.ServiceEndedAt));
+        }
+
         // Đơn offline đồng bộ sau: giá topping theo bản lưu trên máy lúc bán — không chặn.
         if (!allowManualPriceOverride
             && !(complete && PosOfflineSaleRules.NormalizeNo(dto.OfflineNo) != null)
@@ -1823,6 +1838,22 @@ public partial class PosSalesController
             if (p.ProductType == PosProductType.Service
                 && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode))
             {
+                if (!trustClientMinutes)
+                {
+                    durationMinutes = null;
+                    var nowUtc = DateTime.UtcNow;
+                    if (storedTimed.TryGetValue((line.ProductId, line.VariantId), out var st))
+                    {
+                        // Mốc bắt đầu đã lưu không cho máy bán dời muộn đi; đã dừng giờ thì giữ mốc dừng đã lưu.
+                        if (st.Start.HasValue) lineStarted = st.Start;
+                        if (st.End.HasValue) lineEnded = st.End;
+                    }
+                    if (lineStarted > nowUtc) lineStarted = nowUtc;
+                    // Bấm «dừng giờ» gửi mốc vừa xong; mốc dừng lùi xa về trước thì bỏ (tính tới lúc chốt).
+                    if (lineEnded.HasValue && (!storedTimed.TryGetValue((line.ProductId, line.VariantId), out var st2) || st2.End == null)
+                        && (lineEnded < nowUtc.AddMinutes(-5) || lineEnded > nowUtc))
+                        lineEnded = null;
+                }
                 var started = lineStarted ?? order.ServiceStartedAt ?? DateTime.UtcNow;
                 var ended = lineEnded ?? (complete ? DateTime.UtcNow : (DateTime?)null);
                 // Tạm dừng riêng của dòng cộng với tạm dừng cả bàn; đang dừng lấy mốc sớm hơn.

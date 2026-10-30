@@ -73,7 +73,7 @@ internal static class PosMaterialReport
         var rows = await tx.AsNoTracking()
             .Where(t => t.StoreId == storeId && t.Deleted == null && ids.Contains(t.ProductId)
                         && t.CreatedAt >= fromUtc && t.CreatedAt < toUtc)
-            .Select(t => new { t.ProductId, t.TransactionType, t.QtyChange, t.LineAmount, t.UnitCost, t.Note, t.SaleOrderId, t.CreatedAt })
+            .Select(t => new { t.ProductId, t.TransactionType, t.QtyChange, t.LineAmount, t.UnitCost, t.Note, t.SaleOrderId, t.CreatedAt, t.IsActive })
             .ToListAsync(ct);
 
         // Dùng theo định lượng: phiếu bán (−) trừ phần hoàn khi hủy đơn / trả hàng (+).
@@ -85,6 +85,21 @@ internal static class PosMaterialReport
             type == PosStockTransactionType.Return && orderId != null
             && (materialIds.Contains(pid)
                 || (note != null && (note.Contains(PosSaleReturnLedger.RecipeReturnMarker) || note.Contains(PosSaleReturnLedger.ComboReturnMarker))));
+
+        var saleDishPids = rows.Where(t => IsUse(t.ProductId, t.TransactionType, t.Note)).Select(t => t.ProductId).ToHashSet();
+        // Hủy phiếu trả hàng: dòng «Trả» gốc bị tắt + thêm dòng xuất «Hủy trả hàng: …» cùng đơn → đó là dùng lại
+        // nguyên liệu, không phải hao hụt (trước đây tính hao hụt → báo «Hao hụt 66,7%» sau trả / hủy trả / hủy đơn).
+        bool IsVoidReturnReuse(Guid pid, PosStockTransactionType type, string? note, Guid? orderId) =>
+            type == PosStockTransactionType.StockOut && orderId != null
+            && note != null && note.StartsWith("Hủy trả hàng")
+            && (materialIds.Contains(pid) || saleDishPids.Contains(pid));
+        // Giá vốn lúc bán theo (đơn, nguyên liệu): dòng hoàn khi hủy đơn không ghi giá vốn → trước đây hoàn 0đ.
+        var saleUnitCost = rows.Where(t => t.SaleOrderId != null && IsUse(t.ProductId, t.TransactionType, t.Note) && t.QtyChange < 0)
+            .GroupBy(t => (t.SaleOrderId!.Value, t.ProductId))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.LineAmount ?? 0) / g.Sum(x => -x.QtyChange));
+        decimal UnitCostOf(Guid? orderId, Guid pid, decimal? recorded) =>
+            recorded is > 0 ? recorded.Value
+            : orderId != null && saleUnitCost.TryGetValue((orderId.Value, pid), out var c) ? c : 0;
 
         // Hủy đơn ghi «Hủy đơn: HD…» (không có tên món) → lấy món của phiếu bán cùng đơn.
         var saleDish = rows.Where(t => t.SaleOrderId != null && IsUse(t.ProductId, t.TransactionType, t.Note))
@@ -99,7 +114,13 @@ internal static class PosMaterialReport
             {
                 var dish = DishOf(t.Note);
                 if (dish == "Khác" && saleDish.TryGetValue((t.SaleOrderId!.Value, t.ProductId), out var d)) dish = d;
-                uses.Add((t.ProductId, dish, -t.QtyChange, -(t.QtyChange * (t.UnitCost ?? 0)), t.CreatedAt));
+                uses.Add((t.ProductId, dish, -t.QtyChange, -(t.QtyChange * UnitCostOf(t.SaleOrderId, t.ProductId, t.UnitCost)), t.CreatedAt));
+            }
+            else if (IsVoidReturnReuse(t.ProductId, t.TransactionType, t.Note, t.SaleOrderId))
+            {
+                var dish = saleDish.TryGetValue((t.SaleOrderId!.Value, t.ProductId), out var d) ? d : DishOf(t.Note);
+                uses.Add((t.ProductId, dish, -t.QtyChange,
+                    t.LineAmount ?? -t.QtyChange * UnitCostOf(t.SaleOrderId, t.ProductId, t.UnitCost), t.CreatedAt));
             }
         }
 
@@ -113,7 +134,8 @@ internal static class PosMaterialReport
             var received = mineTx.Where(r => r.TransactionType is PosStockTransactionType.Purchase or PosStockTransactionType.StockIn
                                              && r.QtyChange > 0).Sum(r => r.QtyChange);
             var wasted = mineTx.Where(r => r.TransactionType is PosStockTransactionType.StockOut or PosStockTransactionType.Adjust
-                                           && r.QtyChange < 0).ToList();
+                                           && r.QtyChange < 0 && r.IsActive
+                                           && !IsVoidReturnReuse(r.ProductId, r.TransactionType, r.Note, r.SaleOrderId)).ToList();
             var wastedQty = wasted.Sum(r => -r.QtyChange);
             var wastedValue = wasted.Sum(r => r.LineAmount ?? -r.QtyChange * (r.UnitCost ?? p.CostPrice));
             var avg = usedQty > 0 ? usedQty / days : 0;
