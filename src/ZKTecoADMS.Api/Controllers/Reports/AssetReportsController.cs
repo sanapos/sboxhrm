@@ -411,8 +411,11 @@ public class AssetReportsController(
 
             if (onlyVariance)
             {
+                // QuantityMismatch là thuộc tính tính toán (không có cột) → viết lại cho SQL dịch được;
+                // dùng thẳng thì EF ném lỗi dịch LINQ → báo cáo luôn 500 ở chế độ mặc định.
                 itemQ = itemQ.Where(x =>
-                    x.QuantityMismatch ||
+                    (x.ActualQuantity != null && x.ActualQuantity !=
+                        (x.StoredExpectedQuantity > 0 ? x.StoredExpectedQuantity : x.Asset!.Quantity)) ||
                     x.HasIssue ||
                     x.Condition == InventoryCondition.NotFound);
             }

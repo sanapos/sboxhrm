@@ -1103,10 +1103,24 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     [RequireModulePermission("Asset", ModulePermissionAction.Create)]
     public async Task<IActionResult> CreateInventory([FromBody] CreateAssetInventoryDto request)
     {
-        var responsibleId = !string.IsNullOrEmpty(request.ResponsibleUserId) && Guid.TryParse(request.ResponsibleUserId, out var rGuid) 
-            ? (Guid?)rGuid 
-            : CurrentUserId;
-        
+        // Người phụ trách là NHÂN VIÊN (FK Employees). Không chọn → hồ sơ NV của người tạo (nếu có);
+        // trước đây gán thẳng Id tài khoản → vi phạm FK, tạo đợt kiểm kê lỗi 500.
+        Guid? responsibleId;
+        if (!string.IsNullOrEmpty(request.ResponsibleUserId) && Guid.TryParse(request.ResponsibleUserId, out var rGuid))
+        {
+            if (!await _context.Employees.AnyAsync(e => e.Id == rGuid && e.StoreId == RequiredStoreId))
+                return BadRequest(AppResponse<object>.Error("Người phụ trách không phải nhân viên của cửa hàng"));
+            responsibleId = rGuid;
+        }
+        else
+        {
+            var userId = CurrentUserId;
+            responsibleId = await _context.Employees
+                .Where(e => e.StoreId == RequiredStoreId && e.ApplicationUserId == userId)
+                .Select(e => (Guid?)e.Id)
+                .FirstOrDefaultAsync();
+        }
+
         var inventory = new AssetInventory
         {
             Id = Guid.NewGuid(),
