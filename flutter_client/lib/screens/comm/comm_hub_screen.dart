@@ -37,7 +37,7 @@ const _filters = <(String, String, IconData)>[
   ('mine', 'Bài của tôi', Icons.person_outline),
 ];
 
-class _CommHubScreenState extends State<CommHubScreen> {
+class _CommHubScreenState extends State<CommHubScreen> with WidgetsBindingObserver {
   final _api = ApiService();
   final _search = TextEditingController();
   final _scroll = ScrollController();
@@ -60,10 +60,13 @@ class _CommHubScreenState extends State<CommHubScreen> {
   final Set<String> _incoming = {};
   final Map<String, Timer> _refreshTimers = {};
   StreamSubscription<Map<String, dynamic>>? _rt;
+  // Bàn phím đang mở — đọc từ View vì Scaffold cha đã bỏ viewInsets khỏi MediaQuery của trang.
+  bool _keyboard = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scroll.addListener(_onScroll);
     NavigationNotifier.notificationHighlightId.addListener(_consumeHighlight);
     _rt = SignalRService().onCommFeedEvent.listen(_onRealtime);
@@ -71,7 +74,15 @@ class _CommHubScreenState extends State<CommHubScreen> {
   }
 
   @override
+  void didChangeMetrics() {
+    if (!mounted) return;
+    final kb = View.of(context).viewInsets.bottom > 0;
+    if (kb != _keyboard) setState(() => _keyboard = kb);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _rt?.cancel();
     for (final t in _refreshTimers.values) {
       t.cancel();
@@ -627,7 +638,8 @@ class _CommHubScreenState extends State<CommHubScreen> {
             ),
           ),
         ),
-      if (compact && canPost)
+      // Ẩn khi bàn phím mở — trước nút đè lên ô «Viết bình luận», che nút Gửi.
+      if (compact && canPost && !_keyboard)
         Positioned(
           right: 16,
           bottom: 16,
