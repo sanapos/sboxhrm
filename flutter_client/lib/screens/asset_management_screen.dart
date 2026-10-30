@@ -52,6 +52,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   List<AssetTransfer> _transfers = [];
   List<AssetInventory> _inventories = [];
   List<Employee> _employees = [];
+
+  /// Tên kèm mã — trước chỉ có tên, 4 NV cùng tên «Ngân QA Thu» không phân biệt được khi cấp phát.
+  String _empLabel(Employee e) => e.employeeCode.isEmpty ? tr(e.fullName) : '${tr(e.fullName)} · ${e.employeeCode}';
   AssetStatistics? _statistics;
   List<StockTransaction> _stockTransactions = [];
   StockSummary? _stockSummary;
@@ -3418,7 +3421,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   const SizedBox(height: 12),
                   _dialogDropdown<String?>('Người phụ trách', responsibleUserId,
                     [DropdownMenuItem(value: null, child: Text(tr('Chọn người phụ trách'))),
-                     ..._employees.map((e) => DropdownMenuItem(value: e.id, child: Text(tr(e.fullName))))],
+                     ..._employees.map((e) => DropdownMenuItem(value: e.id, child: Text(_empLabel(e))))],
                     (v) => setDialogState(() => responsibleUserId = v),
                   ),
                   const SizedBox(height: 12),
@@ -3944,7 +3947,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 Text(tr('Tài sản: ${asset.name}'), style: const TextStyle(color: SboxColors.slate500)),
                 const SizedBox(height: 20),
                 _dialogDropdown<String?>('Cấp cho *', selectedUserId,
-                  _employees.map((e) => DropdownMenuItem(value: e.id, child: Text(tr(e.fullName)))).toList(),
+                  _employees.map((e) => DropdownMenuItem(value: e.id, child: Text(_empLabel(e)))).toList(),
                   (v) => setDialogState(() => selectedUserId = v),
                 ),
                 const SizedBox(height: 12),
@@ -4045,7 +4048,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 Text(tr('Đang sử dụng: ${asset.currentAssigneeName}'), style: const TextStyle(color: SboxColors.slate400, fontSize: 13)),
                 const SizedBox(height: 20),
                 _dialogDropdown<String?>('Chuyển cho *', selectedUserId,
-                  _employees.where((e) => e.id != asset.currentAssigneeId).map((e) => DropdownMenuItem(value: e.id, child: Text(tr(e.fullName)))).toList(),
+                  _employees.where((e) => e.id != asset.currentAssigneeId).map((e) => DropdownMenuItem(value: e.id, child: Text(_empLabel(e)))).toList(),
                   (v) => setDialogState(() => selectedUserId = v),
                 ),
                 const SizedBox(height: 12),

@@ -38,6 +38,8 @@ class WorkOverviewView extends StatelessWidget {
     final urgent = tasks.where((t) => t.isOpen && (t.overdueNow || workDueLabel(t).tone == SboxTone.warning)).toList()
       ..sort((a, b) => (a.dueDate ?? DateTime(2100)).compareTo(b.dueDate ?? DateTime(2100)));
     final pending = tasks.where((t) => t.status == WorkTaskStatus.assigned || t.status == WorkTaskStatus.inReview).toList();
+    // Chưa có việc xong trong kỳ → «—», không phải «0%» / «0 giờ» (đọc như làm trễ hết).
+    final noDone = (i?.completedInRange ?? 0) == 0;
     final kpis = <SboxKpi>[
       SboxKpi(label: 'Việc đang mở', value: SboxFmt.number(i?.open ?? 0), icon: Icons.assignment_outlined,
           note: '${SboxFmt.number(i?.inProgress ?? 0)} đang làm'),
@@ -45,14 +47,16 @@ class WorkOverviewView extends StatelessWidget {
           note: '${SboxFmt.number(i?.dueToday ?? 0)} việc đến hạn hôm nay'),
       SboxKpi(label: 'Xong 14 ngày', value: SboxFmt.number(i?.completedInRange ?? 0), icon: Icons.task_alt_rounded,
           tone: SboxTone.success, current: i?.completedInRange, previous: i?.completedPrevRange, compareLabel: 'kỳ trước'),
-      SboxKpi(label: 'Đúng hạn', value: SboxFmt.pct(i?.onTimeRate ?? 0), icon: Icons.verified_outlined, tone: SboxTone.violet,
+      SboxKpi(label: 'Đúng hạn', value: noDone ? '—' : SboxFmt.pct(i?.onTimeRate ?? 0), icon: Icons.verified_outlined, tone: SboxTone.violet,
           note: '${SboxFmt.number(i?.completedOnTime ?? 0)}/${SboxFmt.number(i?.completedInRange ?? 0)} việc xong'),
       if (isManager)
         SboxKpi(label: 'Chờ nhận, duyệt', value: SboxFmt.number((i?.pendingAcceptance ?? 0) + (i?.inReview ?? 0)),
             icon: Icons.pending_actions_rounded, tone: SboxTone.warning),
       SboxKpi(
           label: 'Thời gian xong TB',
-          value: (i?.avgCycleHours ?? 0) >= 48 ? '${SboxFmt.number((i!.avgCycleHours / 24))} ngày' : '${SboxFmt.number(i?.avgCycleHours ?? 0)} giờ',
+          value: noDone
+              ? '—'
+              : (i?.avgCycleHours ?? 0) >= 48 ? '${SboxFmt.number((i!.avgCycleHours / 24))} ngày' : '${SboxFmt.number(i?.avgCycleHours ?? 0)} giờ',
           icon: Icons.timer_outlined,
           tone: SboxTone.neutral,
           note: 'Từ lúc tạo đến lúc xong'),

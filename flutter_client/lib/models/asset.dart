@@ -83,29 +83,39 @@ String getConditionLabel(InventoryCondition condition) {
   }
 }
 
-AssetStatus parseAssetStatus(dynamic value) {
-  if (value == null) return AssetStatus.inStock;
-  final index = value is int ? value : int.tryParse(value.toString()) ?? 5;
-  return AssetStatus.values[index.clamp(0, AssetStatus.values.length - 1)];
+/// API bật JsonStringEnumConverter → trạng thái về dạng chữ («Active», «InStock»…). Trước chỉ đọc số:
+/// «Active» không đọc được → mặc định «Trong kho», tài sản đã cấp phát vẫn hiện «Trong kho».
+T _parseEnum<T extends Enum>(List<T> values, dynamic value, T fallback, {Map<String, T> alias = const {}}) {
+  if (value == null) return fallback;
+  if (value is int) return values[value.clamp(0, values.length - 1)];
+  final raw = value.toString().trim();
+  final index = int.tryParse(raw);
+  if (index != null) return values[index.clamp(0, values.length - 1)];
+  final key = raw.toLowerCase();
+  if (alias.containsKey(key)) return alias[key]!;
+  for (final v in values) {
+    if (v.name.toLowerCase() == key) return v;
+  }
+  return fallback;
 }
 
-AssetType parseAssetType(dynamic value) {
-  if (value == null) return AssetType.other;
-  final index = value is int ? value : int.tryParse(value.toString()) ?? 6;
-  return AssetType.values[index.clamp(0, AssetType.values.length - 1)];
-}
+AssetStatus parseAssetStatus(dynamic value) =>
+    _parseEnum(AssetStatus.values, value, AssetStatus.inStock);
 
-AssetTransferType parseTransferType(dynamic value) {
-  if (value == null) return AssetTransferType.assignment;
-  final index = value is int ? value : int.tryParse(value.toString()) ?? 0;
-  return AssetTransferType.values[index.clamp(0, AssetTransferType.values.length - 1)];
-}
+AssetType parseAssetType(dynamic value) =>
+    _parseEnum(AssetType.values, value, AssetType.other);
+
+AssetTransferType parseTransferType(dynamic value) => _parseEnum(
+    AssetTransferType.values, value, AssetTransferType.assignment,
+    alias: const {'return': AssetTransferType.returnAsset});
 
 InventoryCondition? parseCondition(dynamic value) {
   if (value == null) return null;
-  final index = value is int ? value : int.tryParse(value.toString());
-  if (index == null) return null;
-  return InventoryCondition.values[index.clamp(0, InventoryCondition.values.length - 1)];
+  if (value is! int && int.tryParse(value.toString()) == null &&
+      !InventoryCondition.values.any((v) => v.name.toLowerCase() == value.toString().trim().toLowerCase())) {
+    return null;
+  }
+  return _parseEnum(InventoryCondition.values, value, InventoryCondition.good);
 }
 
 // ==================== MODELS ====================
