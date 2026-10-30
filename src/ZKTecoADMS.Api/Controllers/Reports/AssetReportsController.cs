@@ -159,7 +159,7 @@ public class AssetReportsController(
                     SerialNumber = r.Asset.SerialNumber,
                     StatusName = AssetReportLabels.Status(r.Asset.Status),
                     EmployeeCode = r.Emp!.EmployeeCode,
-                    EmployeeName = $"{r.Emp.FirstName} {r.Emp.LastName}".Trim(),
+                    EmployeeName = $"{r.Emp.LastName} {r.Emp.FirstName}".Trim(),
                     Department = r.Dept,
                     AssignedDate = r.Asset.AssignedDate,
                     Value = AssetValuation.BookValue(r.Asset, DateTime.UtcNow)
@@ -645,7 +645,7 @@ public class AssetReportsController(
                 .Select(g => new AssetByAssigneeDto
                 {
                     AssigneeId = g.Key.CurrentAssigneeId?.ToString(),
-                    AssigneeName = $"{g.Key.FirstName} {g.Key.LastName}".Trim(),
+                    AssigneeName = $"{g.Key.LastName} {g.Key.FirstName}".Trim(),
                     Count = g.Count(),
                     TotalValue = g.Sum(HeldPurchaseValue)
                 }).OrderByDescending(x => x.Count).ToList(),

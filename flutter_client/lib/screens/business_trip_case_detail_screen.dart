@@ -199,11 +199,16 @@ class _BusinessTripCaseDetailScreenState
 
   int get _status => parseTripStatus(_case?['status']) ?? 0;
 
-  /// Chênh lệch hạch toán đã xử lý: chi bù xong hoặc đã ghi nợ ứng lương.
-  bool get _balanceDone {
+  /// Nhãn dòng chênh lệch theo cách xử lý (settlementType: 1 chi bù · 2 ghi nợ ứng · 3 thu hoàn).
+  /// Trước chỉ xét chiều tiền → hồ sơ đã thu hoàn dư ứng ghi nhầm «Đã ghi nợ ứng».
+  ({String label, bool done}) get _balanceStatus {
     final st = _case?['settlement'];
-    if (st is! Map) return false;
-    return st['isExtraPaid'] == true || st['surplusAdvanceRequestId'] != null;
+    final type = st is Map ? st['settlementType'] : null;
+    final paid = st is Map && st['isExtraPaid'] == true;
+    if (_balance >= 0) return (label: paid ? 'Đã chi bù' : 'Thiếu (chi bù)', done: paid);
+    if (type == 3) return (label: paid ? 'Đã thu hoàn' : 'Dư (chờ thu hoàn)', done: paid);
+    final debt = st is Map && st['surplusAdvanceRequestId'] != null;
+    return (label: debt ? 'Đã ghi nợ ứng' : 'Dư (ghi nợ ứng)', done: debt);
   }
 
   double get _linesTotal {
@@ -1669,13 +1674,11 @@ class _BusinessTripCaseDetailScreenState
             const Divider(height: 24),
             _totalRow('Tổng chi', _linesTotal, bold: true),
             _totalRow('Đã ứng', _advanceAmount),
-            // Đã chi bù / đã ghi nợ ứng — trước hồ sơ «Đóng» vẫn ghi đỏ «Thiếu (chi bù)» như chưa trả.
+            // Đã chi bù / thu hoàn / ghi nợ ứng — trước hồ sơ «Đóng» vẫn ghi đỏ «Thiếu (chi bù)» như chưa trả.
             _totalRow(
-              _balanceDone
-                  ? (_balance >= 0 ? 'Đã chi bù' : 'Đã ghi nợ ứng')
-                  : (_balance >= 0 ? 'Thiếu (chi bù)' : 'Dư (ghi nợ ứng)'),
+              _balanceStatus.label,
               _balance.abs(),
-              color: _balanceDone
+              color: _balanceStatus.done
                   ? SboxColors.slate700
                   : _balance >= 0
                       ? SboxColors.danger

@@ -555,9 +555,14 @@ class _AaSettingsViewState extends State<_AaSettingsView> {
   }
 
   Future<void> _save() async {
-    final dist = int.tryParse(_dist.text.trim()) ?? 300;
-    final face = double.tryParse(_face.text.trim()) ?? 85;
-    final days = int.tryParse(_days.text.trim()) ?? 30;
+    // Gõ sai (chữ, «300.5 m») thì báo lỗi — trước âm thầm lưu giá trị mặc định. Nhận «85,5» như «85.5».
+    final dist = int.tryParse(_dist.text.trim());
+    final face = double.tryParse(_face.text.trim().replaceAll(',', '.'));
+    final days = int.tryParse(_days.text.trim());
+    if (dist == null || face == null || days == null) {
+      aaToast(context, 'Nhập số hợp lệ cho khoảng cách, khớp mặt và số ngày', error: true);
+      return;
+    }
     // Cùng giới hạn với máy chủ — trước gõ «150%» vẫn báo đã lưu, máy chủ lặng lẽ kẹp về 100, ô vẫn hiện 150.
     final err = face < 50 || face > 100
         ? 'Khớp mặt tối thiểu phải từ 50 đến 100%'

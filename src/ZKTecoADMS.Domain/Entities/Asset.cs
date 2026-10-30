@@ -131,7 +131,7 @@ public class Asset : AuditableEntity<Guid>
     public ICollection<StockTransaction> StockTransactions { get; set; } = new List<StockTransaction>();
     
     // Computed properties
-    public string? CurrentAssigneeName => CurrentAssignee != null ? $"{CurrentAssignee.FirstName} {CurrentAssignee.LastName}" : null;
+    public string? CurrentAssigneeName => CurrentAssignee != null ? $"{CurrentAssignee.LastName} {CurrentAssignee.FirstName}" : null;
     public string? CategoryName => Category?.Name;
     public bool IsWarrantyExpired => WarrantyExpiry.HasValue && WarrantyExpiry.Value < DateTime.UtcNow;
     public int DaysUntilWarrantyExpiry => WarrantyExpiry.HasValue ? (int)(WarrantyExpiry.Value - DateTime.UtcNow).TotalDays : 0;
@@ -203,8 +203,8 @@ public class AssetTransfer : Entity<Guid>
     public DateTime? ConfirmedAt { get; set; }
     
     // Computed
-    public string? FromUserName => FromUser != null ? $"{FromUser.FirstName} {FromUser.LastName}" : null;
-    public string? ToUserName => ToUser != null ? $"{ToUser.FirstName} {ToUser.LastName}" : null;
+    public string? FromUserName => FromUser != null ? $"{FromUser.LastName} {FromUser.FirstName}" : null;
+    public string? ToUserName => ToUser != null ? $"{ToUser.LastName} {ToUser.FirstName}" : null;
     public string? PerformedByName => PerformedBy?.FullName;
     public string? AssetName => Asset?.Name;
     public string? AssetCode => Asset?.AssetCode;

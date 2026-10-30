@@ -3421,7 +3421,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   const SizedBox(height: 12),
                   _dialogDropdown<String?>('Người phụ trách', responsibleUserId,
                     [DropdownMenuItem(value: null, child: Text(tr('Chọn người phụ trách'))),
-                     ..._employees.map((e) => DropdownMenuItem(value: e.id, child: Text(_empLabel(e))))],
+                     ..._employees.map((e) => DropdownMenuItem(value: e.id, child: Text(_empLabel(e), overflow: TextOverflow.ellipsis)))],
                     (v) => setDialogState(() => responsibleUserId = v),
                   ),
                   const SizedBox(height: 12),
@@ -3947,7 +3947,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 Text(tr('Tài sản: ${asset.name}'), style: const TextStyle(color: SboxColors.slate500)),
                 const SizedBox(height: 20),
                 _dialogDropdown<String?>('Cấp cho *', selectedUserId,
-                  _employees.map((e) => DropdownMenuItem(value: e.id, child: Text(_empLabel(e)))).toList(),
+                  _employees.map((e) => DropdownMenuItem(value: e.id, child: Text(_empLabel(e), overflow: TextOverflow.ellipsis))).toList(),
                   (v) => setDialogState(() => selectedUserId = v),
                 ),
                 const SizedBox(height: 12),
@@ -4048,7 +4048,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 Text(tr('Đang sử dụng: ${asset.currentAssigneeName}'), style: const TextStyle(color: SboxColors.slate400, fontSize: 13)),
                 const SizedBox(height: 20),
                 _dialogDropdown<String?>('Chuyển cho *', selectedUserId,
-                  _employees.where((e) => e.id != asset.currentAssigneeId).map((e) => DropdownMenuItem(value: e.id, child: Text(_empLabel(e)))).toList(),
+                  _employees.where((e) => e.id != asset.currentAssigneeId).map((e) => DropdownMenuItem(value: e.id, child: Text(_empLabel(e), overflow: TextOverflow.ellipsis))).toList(),
                   (v) => setDialogState(() => selectedUserId = v),
                 ),
                 const SizedBox(height: 12),
@@ -4368,8 +4368,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   }
 
   Widget _dialogDropdown<T>(String label, T? value, List<DropdownMenuItem<T>> items, ValueChanged<T?> onChanged) {
+    // isExpanded: nhãn «Tên · Mã NV» dài không tràn ô trên điện thoại hẹp.
     return DropdownButtonFormField<T>(
       initialValue: value,
+      isExpanded: true,
       decoration: _dialogDecoration(label),
       items: items,
       onChanged: onChanged,

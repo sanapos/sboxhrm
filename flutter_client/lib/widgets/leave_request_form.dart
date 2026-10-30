@@ -159,11 +159,19 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
     final employeeId = _selectedEmployeeId;
     if (employeeId == null) return;
 
-    setState(() => _loadingAnnualBalance = true);
+    // Xóa quỹ của NV trước rồi mới tải — đổi NV mà lỗi mạng thì không còn kiểm theo quỹ người cũ.
+    setState(() {
+      _loadingAnnualBalance = true;
+      _annualBalanceRemaining = null;
+      _annualBalanceEntitlement = null;
+      _annualAvailable = null;
+      _annualPending = 0;
+    });
     try {
       final result =
           await widget.apiService.getAnnualLeaveBalance(employeeId);
-      if (!mounted) return;
+      // Đã chọn NV khác trong lúc chờ → bỏ kết quả cũ, không ghi đè quỹ của người mới.
+      if (!mounted || employeeId != _selectedEmployeeId) return;
       if (result['isSuccess'] == true && result['data'] != null) {
         final raw = result['data'];
         if (raw is! Map) return;
@@ -184,7 +192,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
         });
       }
     } finally {
-      if (mounted) setState(() => _loadingAnnualBalance = false);
+      if (mounted && employeeId == _selectedEmployeeId) setState(() => _loadingAnnualBalance = false);
     }
   }
 
