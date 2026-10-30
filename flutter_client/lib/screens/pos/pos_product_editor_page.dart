@@ -1153,14 +1153,24 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: AnimatedBuilder(
-        animation: Listenable.merge([_loyaltyPercentCtrl, _priceCtrl]),
+        animation: Listenable.merge([_loyaltyPercentCtrl, _priceCtrl, _costCtrl]),
         builder: (context, _) {
           final pct = _loyaltyPercentValue;
           final price = _parseNum(_priceCtrl.text);
+          final cost = _parseNum(_costCtrl.text);
           final earn = pct == null ? 0.0 : (price * pct / 100).roundToDouble();
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Cảnh báo, không chặn lưu (xả hàng / khuyến mãi vẫn được) — trước gõ nhầm giá lỗ không ai biết.
+              if (price > 0 && cost > price)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    tr('Giá bán thấp hơn giá vốn — mỗi đơn vị lỗ ${_fmtInputMoney(cost - price)} đ'),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SboxColors.dangerText),
+                  ),
+                ),
               TextField(
                 controller: _loyaltyPercentCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),

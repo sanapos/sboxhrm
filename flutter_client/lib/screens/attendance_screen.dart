@@ -928,6 +928,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       .toList(),
                   onChanged: (v) => setDialogState(() => selectedDevice = v),
                 ),
+                // Máy chủ cần một máy chấm công để gắn bản ghi — trước nút «Xác nhận» xám mà không nói lý do.
+                if (_devices.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      tr('Cửa hàng chưa có máy chấm công nên chưa nhập tay được. Thêm máy ở Thiết lập SBOX › Máy chấm công trước.'),
+                      style: const TextStyle(fontSize: 12.5, color: SboxColors.warningText),
+                    ),
+                  ),
                 const SizedBox(height: 16),
 
                 // Date picker
