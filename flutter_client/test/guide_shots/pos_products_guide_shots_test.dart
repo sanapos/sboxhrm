@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zkteco_flutter_client/models/pos_product.dart';
 import 'package:zkteco_flutter_client/models/pos_sell_industry.dart';
+import 'package:zkteco_flutter_client/screens/pos/pos_product_detail_screen.dart';
 import 'package:zkteco_flutter_client/screens/pos/pos_product_editor_page.dart';
 import 'package:zkteco_flutter_client/screens/pos_products_screen.dart';
 import 'package:zkteco_flutter_client/utils/pos_sell_settings_helper.dart';
 
 import 'guide_shot_kit.dart';
+import 'pos_goods_guide_common.dart';
 import 'pos_guide_common.dart';
 
-/// Ảnh cho bước hướng dẫn «Hàng hóa, giá & combo» (id: pos_products) — quán cà phê.
+/// Ảnh cho bước hướng dẫn «Thêm hàng hóa» (id: pos_products) — quán cà phê (1–2), tạp hóa (3–5).
 
 final _categories = [
   {'id': 'c1', 'name': 'Cà phê', 'productCount': 4},
@@ -103,6 +105,63 @@ void main() {
           GuideMark(2, [find.widgetWithText(TextField, 'Mã hàng'), find.widgetWithText(TextField, 'Tên hàng *')]),
           GuideMark(3, [GuideMark.within(find.text('Nhóm hàng').first, 'Row')]),
           GuideMark(4, [find.widgetWithText(TextField, 'Giá vốn'), find.widgetWithText(TextField, 'Giá bán')]),
+        ],
+      );
+    });
+
+    testWidgets('pos-products-3$suffix: mã vạch, nhà cung cấp', (t) async {
+      await guideShot(
+        t,
+        name: 'pos-products-3$suffix',
+        screen: withPosPackage(PosProductEditorPage(productType: PosProductType.goods, product: PosProduct.fromJson(beerProduct))),
+        api: goodsApi(),
+        crumbs: const ['POS', 'Hàng hóa', 'Bia Tiger lon 330ml'],
+        size: size,
+        act: (t) async {
+          await pumpFrames(t);
+          if (mobile) await scrollFormTo(t, find.widgetWithText(TextField, 'Mã hàng'), alignment: 0.15);
+        },
+        marks: [
+          GuideMark(1, [find.widgetWithText(TextField, 'Mã hàng'), find.widgetWithText(TextField, 'Mã vạch')]),
+          GuideMark(2, [GuideMark.within(find.text('Nhà cung cấp').first, 'Row')]),
+        ],
+      );
+    });
+
+    testWidgets('pos-products-4$suffix: tồn đầu kỳ, định mức tồn', (t) async {
+      await guideShot(
+        t,
+        name: 'pos-products-4$suffix',
+        screen: withPosPackage(PosProductEditorPage(productType: PosProductType.goods, product: PosProduct.fromJson(beerProduct))),
+        api: goodsApi(),
+        crumbs: const ['POS', 'Hàng hóa', 'Bia Tiger lon 330ml'],
+        size: size,
+        act: (t) async {
+          await pumpFrames(t);
+          await scrollFormTo(t, find.text('Tồn kho').first, alignment: 0.3);
+        },
+        marks: [
+          GuideMark(1, [find.widgetWithText(TextField, 'Tồn kho')]),
+          GuideMark(2, [find.widgetWithText(TextField, 'Định mức tồn thấp nhất'), find.widgetWithText(TextField, 'Định mức tồn cao nhất')]),
+        ],
+      );
+    });
+
+    testWidgets('pos-products-5$suffix: ngừng kinh doanh', (t) async {
+      await guideShot(
+        t,
+        name: 'pos-products-5$suffix',
+        screen: withPosPackage(PosProductDetailScreen(product: PosProduct.fromJson(beerProduct))),
+        api: goodsApi(),
+        crumbs: const ['POS', 'Hàng hóa', 'Bia Tiger lon 330ml'],
+        size: size,
+        act: (t) async {
+          await pumpFrames(t);
+          await scrollFormTo(t, find.text('Ngừng kinh doanh'), alignment: 0.4);
+        },
+        marks: [
+          GuideMark(1, [GuideMark.within(find.text('Ngừng kinh doanh'), 'SwitchListTile')]),
+          GuideMark(2, [GuideMark.within(find.text('Ẩn POS'), 'SwitchListTile')]),
         ],
       );
     });
