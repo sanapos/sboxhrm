@@ -555,12 +555,27 @@ class _AaSettingsViewState extends State<_AaSettingsView> {
   }
 
   Future<void> _save() async {
+    final dist = int.tryParse(_dist.text.trim()) ?? 300;
+    final face = double.tryParse(_face.text.trim()) ?? 85;
+    final days = int.tryParse(_days.text.trim()) ?? 30;
+    // Cùng giới hạn với máy chủ — trước gõ «150%» vẫn báo đã lưu, máy chủ lặng lẽ kẹp về 100, ô vẫn hiện 150.
+    final err = face < 50 || face > 100
+        ? 'Khớp mặt tối thiểu phải từ 50 đến 100%'
+        : dist < 50 || dist > 5000
+            ? 'Cách vị trí tối đa phải từ 50 đến 5000 m'
+            : days < 1 || days > 365
+                ? 'Giữ ảnh bằng chứng phải từ 1 đến 365 ngày'
+                : null;
+    if (err != null) {
+      aaToast(context, err, error: true);
+      return;
+    }
     setState(() => _saving = true);
     final r = await widget.api.saveMobileApprovalSettings({
       'autoApproveTrusted': _auto,
-      'trustedMaxDistanceMeters': int.tryParse(_dist.text.trim()) ?? 300,
-      'trustedMinFaceScore': double.tryParse(_face.text.trim()) ?? 85,
-      'evidenceRetentionDays': int.tryParse(_days.text.trim()) ?? 30,
+      'trustedMaxDistanceMeters': dist,
+      'trustedMinFaceScore': face,
+      'evidenceRetentionDays': days,
     });
     if (!mounted) return;
     setState(() => _saving = false);

@@ -176,20 +176,24 @@ class _DepartmentsV2ScreenState extends State<DepartmentsV2Screen> {
       builder: (_) => Scaffold(
         backgroundColor: HrmPageChrome.background,
         appBar: AppBar(title: Text(tr(id == _kNone ? 'Chưa có phòng ban' : (_tree.byId[id]?.name ?? '')))),
-        body: _DeptDetail(
-          key: ValueKey('m$id$_detailVersion'),
-          id: id,
-          tree: _tree,
-          canEdit: _can('edit'),
-          canMove: _can('move'),
-          canDelete: _can('delete'),
-          canCreate: _can('create'),
-          onEdit: _edit,
-          onAddChild: _add,
-          onShift: _shift,
-          onMoveUnder: _moveUnder,
-          onDelete: _delete,
-          onChanged: _load,
+        // Điện thoại mở trang riêng: thêm lề — trước thẻ dính sát mép màn.
+        body: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          child: _DeptDetail(
+            key: ValueKey('m$id$_detailVersion'),
+            id: id,
+            tree: _tree,
+            canEdit: _can('edit'),
+            canMove: _can('move'),
+            canDelete: _can('delete'),
+            canCreate: _can('create'),
+            onEdit: _edit,
+            onAddChild: _add,
+            onShift: _shift,
+            onMoveUnder: _moveUnder,
+            onDelete: _delete,
+            onChanged: _load,
+          ),
         ),
       ),
     ));

@@ -146,14 +146,15 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     }
   }
 
+  // Dấu phẩy thập phân như mọi báo cáo khác — trước «Thu 1.9 tr» đọc như 1.900 triệu.
   String _compactMoney(num v) {
     final sign = v < 0 ? '-' : '';
     final abs = v.abs();
     if (abs >= 1000000000) {
-      return '$sign${(abs / 1000000000).toStringAsFixed(abs >= 10000000000 ? 0 : 1)} tỷ';
+      return '$sign${(abs / 1000000000).toStringAsFixed(abs >= 10000000000 ? 0 : 1).replaceAll('.', ',')} tỷ';
     }
     if (abs >= 1000000) {
-      return '$sign${(abs / 1000000).toStringAsFixed(abs >= 100000000 ? 0 : 1)} tr';
+      return '$sign${(abs / 1000000).toStringAsFixed(abs >= 100000000 ? 0 : 1).replaceAll('.', ',')} tr';
     }
     return '$sign${_currencyFormat.format(abs)}';
   }
