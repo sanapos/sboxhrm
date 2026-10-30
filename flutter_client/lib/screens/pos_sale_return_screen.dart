@@ -350,6 +350,12 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
           ? (res['data'] as Map)['refundTotal']
           : null;
       final refundAmt = _num(refund);
+      // Đơn còn nợ: server trừ vào nợ của đơn trước, phần dư mới hoàn tiền.
+      final resData = res['data'] is Map ? res['data'] as Map : const {};
+      final debtOffset = _num(resData['debtOffset']);
+      final cashRefund = resData.containsKey('cashRefund')
+          ? _num(resData['cashRefund'])
+          : refundAmt;
       final stockLines = bodyLines
           .map(
             (line) => PosSellStockLineDelta(
@@ -364,7 +370,11 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
       NotificationOverlayManager().showSuccess(
         title: 'Trả hàng thành công',
         message: refund != null
-            ? 'Hoàn ${_moneyFmt.format(refundAmt)} · $_refundPaymentMethod'
+            ? [
+                if (debtOffset > 0) 'Trừ nợ ${_moneyFmt.format(debtOffset)}',
+                if (cashRefund > 0 || debtOffset <= 0)
+                  'Hoàn ${_moneyFmt.format(cashRefund)} · $_refundPaymentMethod',
+              ].join(' · ')
             : 'Đã ghi nhận trả hàng · ${order.orderNo}',
       );
       ScreenRefreshNotifier.refreshPosAfterStockChange(sellStockLines: stockLines);
@@ -395,6 +405,8 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
           refundTotal: refundAmt > 0 ? refundAmt : _returnTotal,
           note: [
             if (note.isNotEmpty) note,
+            if (debtOffset > 0)
+              'Trừ nợ đơn ${_moneyFmt.format(debtOffset)}, hoàn ${_moneyFmt.format(cashRefund)}',
             if (reasonResult.reason.isNotEmpty) 'Lý do: ${reasonResult.reason}',
           ].join(' · '),
           refundPaymentMethod: _refundPaymentMethod,

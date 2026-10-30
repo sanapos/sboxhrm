@@ -389,21 +389,21 @@ internal static class PosSaleStockHelper
         customer.UpdatedAt = DateTime.UtcNow;
     }
 
+    /// <param name="debtReduction">Phần tiền trả trừ vào nợ còn lại của đơn (tính trước khi giảm tiền đã trả của đơn).</param>
     public static async Task UpdateCustomerOnReturnAsync(
-        ZKTecoDbContext db, Guid storeId, PosSaleOrder order, decimal refundTotal)
+        ZKTecoDbContext db, Guid storeId, PosSaleOrder order, decimal refundTotal, decimal debtReduction)
     {
         if (!order.CustomerId.HasValue || refundTotal <= 0) return;
         var customer = await db.PosCustomers.AsTracking()
             .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
         if (customer == null) return;
         customer.TotalPurchase = Math.Max(0, customer.TotalPurchase - refundTotal);
-        var balanceBeforeReturn = order.PayableTotal + refundTotal - order.PaidAmount;
-        var debtReduction = Math.Min(refundTotal, Math.Max(0, balanceBeforeReturn));
         var before = customer.CurrentDebt;
         if (debtReduction > 0)
             customer.CurrentDebt = Math.Max(0, customer.CurrentDebt - debtReduction);
         PosDebtLedger.Add(db, storeId, PosDebtLedger.Customer, customer.Id, before, customer.CurrentDebt,
-            "Return", order.Id, order.OrderNo, $"Khách trả hàng {refundTotal:N0}đ — trừ vào nợ", branchId: order.BranchId);
+            "Return", order.Id, order.OrderNo, $"Khách trả hàng {refundTotal:N0}đ — trừ vào nợ {debtReduction:N0}đ",
+            branchId: order.BranchId);
         customer.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -1302,8 +1302,14 @@ internal static class PosSaleStockHelper
         foreach (var pid in touchedProducts)
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, products[pid]);
 
+        // Lúc trả chỉ phần hoàn tiền mặt (phiếu chi) làm giảm tiền đã trả; phần trừ nợ thì không
+        // → hủy phiếu chỉ cộng lại đúng phần đó (phần trừ nợ cộng lại vào nợ ở ReverseCustomerOnReturnVoidAsync).
+        var cashMarker = $"{ZKTecoADMS.Infrastructure.Services.PosFinanceSyncHelper.CustomerReturnMarker}{order.Id}|{returnNo}";
+        var cashRefunded = await db.CashTransactions.AsNoTracking()
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive && c.InternalNote == cashMarker)
+            .SumAsync(c => (decimal?)c.Amount) ?? 0m;
         order.Total += refundTotal;
-        order.PaidAmount += refundTotal;
+        order.PaidAmount += Math.Min(refundTotal, cashRefunded);
         order.SubTotal += refundTotal;
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = createdBy;

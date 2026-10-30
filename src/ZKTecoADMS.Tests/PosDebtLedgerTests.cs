@@ -124,7 +124,7 @@ public class PosDebtLedgerTests
 
         // Trả hàng 100.000 trên đơn 2 (còn nợ) → giảm nợ, ghi sổ «Return».
         var o2t = await _db.PosSaleOrders.FirstAsync(x => x.Id == o2.Id);
-        await PosSaleStockHelper.UpdateCustomerOnReturnAsync(_db, _store, o2t, 100_000);
+        await PosSaleStockHelper.UpdateCustomerOnReturnAsync(_db, _store, o2t, 100_000, 100_000);
         await _db.SaveChangesAsync();
         var all = await _db.PosDebtLedgerEntries.Where(e => e.PartyId == c.Id).ToListAsync();
         Assert.Contains(all, e => e.DocType == "Return" && e.Delta == -100_000 && e.BalanceAfter == 200_000);

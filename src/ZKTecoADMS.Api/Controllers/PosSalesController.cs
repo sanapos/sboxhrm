@@ -2621,6 +2621,7 @@ public partial class PosSalesController(
             ? order.PaymentMethod
             : dto.RefundPaymentMethod.Trim();
         decimal refundTotal = 0;
+        decimal debtOffset = 0, cashRefund = 0;
         var touchedProducts = new HashSet<Guid>();
         var warrantyReturns = new List<(Guid ProductId, Guid? VariantId, decimal Qty)>();
 
@@ -2745,8 +2746,12 @@ public partial class PosSalesController(
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(dbContext, products[pid]);
 
         var totalBeforeRefund = order.Total;
+        // Đơn còn nợ: tiền hàng trả trừ vào phần còn nợ của chính đơn trước, phần dư mới hoàn tiền.
+        // Trước đây vừa ghi phiếu chi đủ số hoàn vừa trừ nợ khách (kể cả đơn đã trả đủ) → khách lợi gấp đôi.
+        debtOffset = Math.Min(refundTotal, Math.Max(0, order.PayableTotal - order.PaidAmount));
+        cashRefund = refundTotal - debtOffset;
         order.Total = Math.Max(0, order.Total - refundTotal);
-        order.PaidAmount = Math.Max(0, order.PaidAmount - refundTotal);
+        order.PaidAmount = Math.Max(0, order.PaidAmount - cashRefund);
         order.SubTotal = Math.Max(0, order.SubTotal - refundTotal);
         if (order.VatAmount > 0 && totalBeforeRefund > 0)
         {
@@ -2756,11 +2761,11 @@ public partial class PosSalesController(
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = CurrentUserEmail;
 
-        await PosSaleStockHelper.UpdateCustomerOnReturnAsync(dbContext, storeId, order, refundTotal);
+        await PosSaleStockHelper.UpdateCustomerOnReturnAsync(dbContext, storeId, order, refundTotal, debtOffset);
         await PosCustomerFinanceHelper.AdjustPointsOnReturnAsync(
             dbContext, storeId, order, refundTotal, totalBeforeRefund, CurrentUserEmail, returnNo);
         await PosFinanceSyncHelper.SyncCustomerReturnAsync(
-            dbContext, order, returnNo, refundTotal, refundMethod, CurrentUserId);
+            dbContext, order, returnNo, cashRefund, refundMethod, CurrentUserId);
         var serialsByKey = new Dictionary<(Guid ProductId, Guid? VariantId), List<string>>();
         foreach (var rl in dto.Lines.Where(l => l.SerialNumbers is { Count: > 0 }))
         {
@@ -2828,6 +2833,8 @@ public partial class PosSalesController(
         {
             returnNo,
             refundTotal,
+            debtOffset,
+            cashRefund,
             refundPaymentMethod = refundMethod,
             orderId = order.Id,
             orderNo = order.OrderNo,

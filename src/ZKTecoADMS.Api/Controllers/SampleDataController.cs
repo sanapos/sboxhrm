@@ -1000,6 +1000,31 @@ public class SampleDataController(
         {
             if (order.Status == PosSaleOrderStatus.Completed)
             {
+                // Hủy các phiếu trả còn hiệu lực trước (như «Hủy trả hàng»): hoàn kho khi hủy đơn chỉ trừ phần
+                // đã hoàn do hủy đơn → còn phiếu trả thì hàng trả bị cộng kho hai lần, công nợ / điểm hoàn hai lần.
+                var returnNos = await db.PosSaleReturnLines.IgnoreQueryFilters()
+                    .Where(r => r.SaleOrderId == order.Id && r.StoreId == storeId && r.Deleted == null && !r.IsVoided)
+                    .Select(r => r.ReturnNo)
+                    .Union(db.PosStockTransactions.IgnoreQueryFilters()
+                        .Where(t => t.SaleOrderId == order.Id && t.StoreId == storeId && t.Deleted == null && t.IsActive
+                            && t.TransactionType == PosStockTransactionType.Return && t.ReferenceNo != null
+                            && (t.Note == null || (!t.Note.StartsWith("Hủy đơn") && !t.Note.StartsWith("Hủy trả hàng"))))
+                        .Select(t => t.ReferenceNo!))
+                    .Distinct()
+                    .ToListAsync(ct);
+                foreach (var returnNo in returnNos)
+                {
+                    var (refundReversed, warrantyLines, err) =
+                        await PosSaleStockHelper.ReverseCustomerSaleReturnAsync(db, storeId, order, returnNo, actor);
+                    if (err != null) continue;
+                    await PosSaleStockHelper.ReverseCustomerOnReturnVoidAsync(db, storeId, order, refundReversed);
+                    await PosCustomerFinanceHelper.RestorePointsOnReturnVoidAsync(
+                        db, storeId, order, refundReversed, order.Total, actor, returnNo);
+                    await PosSaleWarrantyHelper.UnmarkReturnedAsync(db, storeId, order.Id, warrantyLines, actor);
+                }
+                if (returnNos.Count > 0)
+                    await db.SaveChangesAsync(ct);
+
                 if (!await PosSaleStockHelper.IsSaleStockFullyReversedAsync(db, storeId, order))
                     await PosSaleStockHelper.ReverseSaleOrderAsync(db, storeId, order, actor);
                 await PosSaleStockHelper.ReverseCustomerOnSaleCancelAsync(db, storeId, order);
@@ -1033,13 +1058,15 @@ public class SampleDataController(
 
         var now = DateTime.UtcNow;
         var ids = orders.Select(o => o.Id).ToList();
-        // Phiếu thu bán hàng tự sinh ghi InternalNote = «pos bán hàng #{orderId}…».
+        // Phiếu thu bán hàng / phiếu chi hoàn tiền trả hàng tự sinh: InternalNote = «pos bán hàng #{orderId}…»
+        // / «pos trả khách #{orderId}|{phiếu trả}».
         foreach (var id in ids)
         {
-            var prefix = $"{ZKTecoADMS.Infrastructure.Services.PosFinanceSyncHelper.SaleMarker}{id}";
+            var salePrefix = $"{ZKTecoADMS.Infrastructure.Services.PosFinanceSyncHelper.SaleMarker}{id}";
+            var returnPrefix = $"{ZKTecoADMS.Infrastructure.Services.PosFinanceSyncHelper.CustomerReturnMarker}{id}|";
             await db.CashTransactions.IgnoreQueryFilters()
-                .Where(c => c.StoreId == storeId && c.Deleted == null
-                    && c.InternalNote != null && c.InternalNote.StartsWith(prefix))
+                .Where(c => c.StoreId == storeId && c.Deleted == null && c.InternalNote != null
+                    && (c.InternalNote.StartsWith(salePrefix) || c.InternalNote.StartsWith(returnPrefix)))
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(c => c.IsActive, false)
                     .SetProperty(c => c.Deleted, now)
