@@ -1230,7 +1230,12 @@ class _PosPurchaseReceiptListScreenState
             _meta('NCC', r.supplierName ?? '—'),
             _meta('Ngày nhập',
                 dt != null ? _dateFmt.format(dt.toLocal()) : '—'),
-            _meta('Số HĐ đầu vào', r.inputInvoiceNo ?? '—'),
+            _meta('Số HĐ đầu vào', [
+              if ((r.inputInvoiceSerial ?? '').isNotEmpty) r.inputInvoiceSerial!,
+              r.inputInvoiceNo ?? '—',
+            ].join(' · ')),
+            if (r.inputInvoiceDate != null)
+              _meta('Ngày HĐ', DateFormat('dd/MM/yyyy').format(r.inputInvoiceDate!)),
           ],
         ),
         if (r.note != null && r.note!.isNotEmpty) ...[

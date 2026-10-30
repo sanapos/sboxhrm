@@ -65,6 +65,13 @@ public class PosStockReceipt : AuditableEntity<Guid>, IBranchScoped
 
     public string? InputInvoiceNo { get; set; }
 
+    /// <summary>Ngày hóa đơn đầu vào (bảng kê VAT mua vào).</summary>
+    public DateTime? InputInvoiceDate { get; set; }
+
+    /// <summary>Ký hiệu hóa đơn đầu vào (vd 1C26TAA).</summary>
+    [MaxLength(20)]
+    public string? InputInvoiceSerial { get; set; }
+
 
 
     [MaxLength(50)]

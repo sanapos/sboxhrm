@@ -16552,6 +16552,27 @@ class ApiService {
     }
   }
 
+  /// Bảng kê VAT đầu vào (hóa đơn mua vào) theo kỳ — phiếu nhập tách theo thuế suất, trả NCC ghi âm.
+  Future<Map<String, dynamic>> getPosInputVatReport({
+    DateTime? from,
+    DateTime? to,
+    String? supplierId,
+  }) async {
+    try {
+      final q = <String, String>{};
+      if (supplierId != null && supplierId.isNotEmpty) q['supplierId'] = supplierId;
+      if (from != null) q['from'] = from.toIso8601String();
+      if (to != null) q['to'] = to.toIso8601String();
+      final uri = Uri.parse('$baseUrl/api/pos/reports/purchases/input-vat')
+          .replace(queryParameters: q.isEmpty ? null : q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosPurchasesReport({
     DateTime? from,
     DateTime? to,

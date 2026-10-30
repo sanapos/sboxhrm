@@ -653,7 +653,8 @@ public sealed class PosAiInvoiceService(ZKTecoDbContext db, IGeminiAiService gem
             supplierId, Cap(string.Join(" — ", noteParts), 1000), Cap(req.InvoiceNo, 50), null,
             Math.Max(0, req.DiscountAmount), false, Math.Max(0, req.DiscountAmount),
             req.Complete ? Math.Max(0, req.PaidAmount) : 0, null, null,
-            req.Complete, null, req.PaymentMethod, receiptLines);
+            req.Complete, null, req.PaymentMethod, receiptLines,
+            InputInvoiceDate: req.InvoiceDate);
         var (receipt, lines, err) = await PosPurchaseReceiptBuilder.BuildAsync(db, storeId, branchId, actor, null, dto, draft: !req.Complete);
         if (err != null) return (null, err);
         await PosPurchaseReceiptBuilder.StageNewAsync(db, storeId, receipt!, lines!, dto, actor, userId);

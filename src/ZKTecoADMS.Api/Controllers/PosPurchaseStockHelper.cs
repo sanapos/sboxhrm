@@ -805,7 +805,8 @@ internal static class PosPurchaseStockHelper
         var supplier = await db.PosSuppliers.AsTracking()
             .FirstOrDefaultAsync(s => s.Id == ret.SupplierId && s.Deleted == null);
         if (supplier == null) return;
-        var net = ret.TotalAmount - ret.DiscountAmount;
+        // Gồm VAT đầu vào trả lại — phiếu nhập cộng nợ theo tổng gồm VAT nên trả hàng cũng giảm cả phần VAT.
+        var net = ret.TotalAmount + ret.TotalVat - ret.DiscountAmount;
         supplier.TotalPurchase = Math.Max(0, supplier.TotalPurchase - net);
         var before = supplier.CurrentDebt;
         supplier.CurrentDebt = Math.Max(0, supplier.CurrentDebt - (net - ret.RefundReceived));
@@ -822,7 +823,7 @@ internal static class PosPurchaseStockHelper
         var supplier = await db.PosSuppliers.AsTracking()
             .FirstOrDefaultAsync(s => s.Id == ret.SupplierId && s.Deleted == null);
         if (supplier == null) return;
-        var net = ret.TotalAmount - ret.DiscountAmount;
+        var net = ret.TotalAmount + ret.TotalVat - ret.DiscountAmount;
         supplier.TotalPurchase += net;
         var before = supplier.CurrentDebt;
         // Cộng lại đúng số đã thực giảm lúc hoàn thành (sổ công nợ ghi Delta). Lúc hoàn thành công nợ bị

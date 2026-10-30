@@ -27,6 +27,8 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
   double _sum31 = 0;
   double _sum61 = 0;
   double _sum90 = 0;
+  /// Nợ đầu kỳ / điều chỉnh không gắn đơn — không có tuổi nợ.
+  double _sumOther = 0;
   int _totalCustomers = 0;
   bool _includeZero = false;
   List<Map<String, dynamic>> _items = [];
@@ -61,6 +63,7 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
         _sum31 = _n(data['sumDebt31To60']);
         _sum61 = _n(data['sumDebt61To90']);
         _sum90 = _n(data['sumDebtOver90']);
+        _sumOther = _n(data['sumDebtOther']);
         _totalCustomers = (data['totalCustomers'] is num)
             ? (data['totalCustomers'] as num).toInt()
             : int.tryParse('${data['totalCustomers']}') ?? 0;
@@ -139,9 +142,9 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
           SboxChartCard(
             title: 'Tuổi nợ khách hàng',
             child: SboxBarChart(
-              labels: const ['0–30 ngày', '31–60 ngày', '61–90 ngày', '> 90 ngày'],
+              labels: const ['0–30 ngày', '31–60 ngày', '61–90 ngày', '> 90 ngày', 'Đầu kỳ / ĐC'],
               series: [
-                SboxSeries(name: 'Khách nợ', color: SboxColors.danger, values: [_sum0, _sum31, _sum61, _sum90]),
+                SboxSeries(name: 'Khách nợ', color: SboxColors.danger, values: [_sum0, _sum31, _sum61, _sum90, _sumOther]),
               ],
             ),
           ),
@@ -185,6 +188,7 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
               SboxColumn(label: '61–90 ngày', numeric: true, minWidth: 110, hideOnMobile: true, cell: (r) => money(_n(r['debt61To90']))),
               SboxColumn(label: '> 90 ngày', numeric: true, minWidth: 110,
                   cell: (r) => money(_n(r['debtOver90']), color: SboxColors.dangerText), sortValue: (r) => _n(r['debtOver90'])),
+              SboxColumn(label: 'Đầu kỳ / ĐC', numeric: true, minWidth: 110, hideOnMobile: true, cell: (r) => money(_n(r['debtOther']))),
             ],
           ),
         ),

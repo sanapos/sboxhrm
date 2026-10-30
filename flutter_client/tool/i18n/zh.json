@@ -1211,6 +1211,8 @@
   "Bảng giá dự phòng": "备用价目表",
   "Bảng giá mới": "新价目表",
   "Bảng giá trang chủ tự lấy từ «Gói dịch vụ» có đặt giá (đang bán, hiện trên đăng ký) — sboxpos.com hiện gói Bán hàng, ": "首页价格表自动取自已设价的「服务套餐」（在售、显示在注册页）— sboxpos.com 显示销售套餐， ",
+  "Bảng kê VAT đầu vào": "进项增值税明细表",
+  "Bảng kê hóa đơn mua vào": "进货发票明细表",
   "Bảng lương": "工资表",
   "Bảng lương chi tiết nhân viên": "员工详细工资表",
   "Bảng lương có thể trừ theo phút trễ đã tổng hợp (tùy cấu hình kỳ)": "工资表可按已汇总的迟到分钟数扣款（视周期配置而定）",
@@ -1315,6 +1317,7 @@
   "Bấm để tìm và chọn...": "点击搜索并选择...",
   "Bấm để xem chi tiết": "点击查看详情",
   "Bấm để xem giỏ hàng": "点击查看购物车",
+  "Bấm để xem lớn": "点击查看大图",
   "Bấm để xem từng đơn: giờ bán, giờ gửi, máy, người bán": "点击查看每笔订单：销售时间、上传时间、设备、销售员",
   "Bấm để đồng bộ lên máy": "点击同步到设备",
   "Bấm: sửa / xoá · Bấm đúp: chọn nhanh giờ theo ca": "单击：修改 / 删除 · 双击：按班次快速选择时间",
@@ -2066,6 +2069,7 @@
   "Chưa chọn sheet nào": "未选择工作表",
   "Chưa chọn sản phẩm": "未选择商品",
   "Chưa chọn ảnh": "未选择图片",
+  "Chưa chọn — bảng kê VAT lấy theo ngày nhập": "未选择 — 增值税明细按进货日期计",
   "Chưa chọn — bấm để chọn": "未选择 — 点击选择",
   "Chưa chọn — bấm để liệt kê cổng USB đang cắm": "未选择 — 点击列出已插入的USB端口",
   "Chưa chọn — bấm để liệt kê cổng đang cắm": "未选择 — 点击列出已插入的端口",
@@ -5189,6 +5193,7 @@
   "Giá trị VNĐ": "VNĐ 值",
   "Giá trị báo giá": "报价金额",
   "Giá trị cao → thấp": "金额从高到低",
+  "Giá trị chưa thuế": "不含税金额",
   "Giá trị còn lại": "剩余价值",
   "Giá trị còn lại của tài sản": "资产剩余价值",
   "Giá trị còn lại · số tài sản": "剩余价值 · 资产数",
@@ -5601,6 +5606,7 @@
   "Gọn (tem nhỏ)": "精简（小标签）",
   "Gọn lại, tiết kiệm giấy": "更紧凑，节省纸张",
   "Gốc": "原始",
+  "Gồm VAT": "含税",
   "Gồm các lần đổi lương theo ngày, các lần đính chính và bản bị thay. Không có lần nào bị mất khi sửa.": "包含按日期的工资变更、更正记录及被替换的版本。修改时不会丢失任何记录。",
   "Gồm các món": "包含菜品",
   "Gồm cả đơn online máy chủ tự tạo vận đơn (máy này đang mở màn Đơn online).": "包含由服务器自动生成运单的线上订单（本机正打开线上订单页面）。",
@@ -7005,6 +7011,7 @@
   "Không có hàng trong bộ lọc": "筛选条件下没有商品",
   "Không có hàng trong nhóm này": "该分类下没有商品",
   "Không có hàng để in tem": "没有可打印标签的商品",
+  "Không có hóa đơn mua vào trong kỳ": "本期没有进货发票",
   "Không có hóa đơn nào trong kỳ": "本周期没有账单",
   "Không có hóa đơn phù hợp": "没有匹配的账单",
   "Không có hóa đơn trong khoảng thời gian này": "此时间段没有账单",
@@ -8378,6 +8385,7 @@
   "Ký hiệu": "符号",
   "Ký hiệu (Serial) — thường để trống": "符号 (Serial) — 通常留空",
   "Ký hiệu (serial)": "符号 (serial)",
+  "Ký hiệu HĐ": "发票代码",
   "Ký hiệu hóa đơn (InvSeries)": "发票符号 (InvSeries)",
   "Ký hiệu hóa đơn (Pattern)": "发票符号（Pattern）",
   "Ký hiệu hóa đơn (invoiceSeries)": "发票符号（invoiceSeries）",
@@ -8451,6 +8459,7 @@
   "Kỳ này chưa có chỉ tiêu / kết quả KPI": "本周期暂无 KPI 指标/结果",
   "Kỳ này chưa có lịch làm việc nào — không có gì để đối chiếu.": "本周期暂无排班 — 没有可核对的内容。",
   "Kỳ này có hơn 5.000 vận đơn — danh sách bị cắt, hãy thu hẹp khoảng ngày.": "本期运单超过5,000条 — 列表已被截断，请缩小日期范围。",
+  "Kỳ theo ngày hóa đơn; phiếu chưa ghi ngày HĐ lấy ngày nhập": "按发票日期统计；未填发票日期的进货单按进货日期",
   "Kỳ trước": "上期",
   "Kỳ trước chưa có dữ liệu": "上期暂无数据",
   "Kỳ vọng": "预期",
@@ -10557,6 +10566,8 @@
   "Ngày Dương lịch": "阳历日",
   "Ngày GD": "交易日",
   "Ngày Giải phóng miền Nam": "南方解放日",
+  "Ngày HĐ": "发票日期",
+  "Ngày HĐ đầu vào": "进项发票日期",
   "Ngày Quốc khánh": "国庆日",
   "Ngày Quốc tế Lao động": "国际劳动节",
   "Ngày TT": "付款日",
@@ -11561,6 +11572,7 @@
   "Phiếu chưa được tiếp nhận sẽ bị xoá và không thể khôi phục.": "尚未受理的单据将被删除且无法恢复。",
   "Phiếu chế biến": "加工单",
   "Phiếu chờ thanh toán": "待付款单据",
+  "Phiếu có VAT chưa ghi số HĐ": "有增值税但未填发票号码的进货单",
   "Phiếu có thể đã in": "单据可能已打印",
   "Phiếu dịch vụ": "服务单",
   "Phiếu giao hàng": "配送单",
@@ -13386,6 +13398,7 @@
   "Theo sự kiện": "按活动",
   "Theo thanh toán": "按付款",
   "Theo thiết lập máy in (bỏ mẫu nhớ riêng)": "按打印机设置（取消单独保存的模板）",
+  "Theo thuế suất": "按税率",
   "Theo thuế suất hàng hóa": "按商品税率",
   "Theo tháng": "按月",
   "Theo thời gian, nhân viên, hạn mục, trạng thái": "按时间、员工、项目、状态",
@@ -13595,6 +13608,7 @@
   "Thiếu ra": "缺少下班",
   "Thiếu ra ca lúc 13:15": "缺少13:15下班打卡",
   "Thiếu seri": "缺序列号",
+  "Thiếu số hóa đơn": "缺少发票号码",
   "Thiếu số tiền": "缺少金额",
   "Thiếu số tài khoản / ngân hàng — không chuyển được. Bỏ qua hoặc trả tiền mặt.": "缺少账号 / 银行信息 — 无法转账。请跳过或改用现金支付。",
   "Thiếu thiết lập POS": "缺少POS设置",
@@ -16449,6 +16463,9 @@
   "VAT cộng thêm trên tổng tiền hàng sau chiết khấu": "在折后商品总额上加收增值税",
   "VAT theo mặt hàng": "按商品设置增值税",
   "VAT theo từng mặt hàng": "按每个商品设置增值税",
+  "VAT đầu vào": "进项增值税",
+  "VAT đầu vào (hàng thêm tay tính khi lưu)": "进项增值税（手动添加的商品在保存时计算）",
+  "VAT đầu vào trả lại": "退回进项增值税",
   "VD 30 — trống = không": "例如：30 — 留空 = 无",
   "VD 4 (= 1 giờ)": "例如：4（= 1小时）",
   "VD tháng 30 ngày, nghỉ CN → công chuẩn ≈ 26 (tùy tháng)": "例：30 天的月份，周日休息 → 标准工作日 ≈ 26（因月份而异）",
@@ -17525,6 +17542,8 @@
   "bản in vẫn giữ nội dung đã sửa. Vào «Lịch sử / Khôi phục theo mẫu» để cập nhật.": "打印件仍保留已修改的内容。请在「历史 / 按模板恢复」中更新。",
   "bản sao": "副本",
   "bản đồ": "地图",
+  "bảng chấm công": "考勤表",
+  "bảng công": "考勤汇总",
   "bảng lương": "工资表",
   "bảo hiểm": "保险",
   "bảo hiểm xã hội": "社会保险",
@@ -17661,6 +17680,7 @@
   "công nợ khách": "客户欠款",
   "công nợ khách kèm 1–2 gợi ý của AI": "客户欠款，并附 1–2 条 AI 建议",
   "công nợ ncc": "供应商欠款",
+  "công tháng": "月考勤",
   "công tác": "出差",
   "công tác phí": "差旅费",
   "công việc": "任务",
@@ -18173,6 +18193,7 @@
   "phiếu": "单据",
   "phiếu bếp": "厨房单",
   "phiếu bếp in qua Agent, thanh toán vẫn tại quầy.": "后厨单通过Agent打印，付款仍在收银台。",
+  "phiếu chi": "付款单",
   "phiếu chi danh mục «Mua tài sản» không tính chi phí. Cọc khách bỏ = cọc khách hủy / không đến. ": "“购置资产”类别的付款单不计入费用。客户弃付定金 = 客户取消 / 未到店的定金。 ",
   "phiếu chờ duyệt": "待审批单据",
   "phiếu lương": "工资条",
@@ -18180,6 +18201,7 @@
   "phiếu nhập kho": "入库单",
   "phiếu phạt": "罚款单",
   "phiếu phạt đã chọn? Hệ thống sẽ tạo phiếu thu tương ứng cho từng phiếu": "已选罚款单？系统将为每张单据创建相应的收款单",
+  "phiếu thu": "收款单",
   "phiếu thưởng": "奖金单",
   "phiếu trả hàng": "退货单",
   "phiếu tới": "单据发送至",
@@ -18232,6 +18254,7 @@
   "quên mật khẩu": "忘记密码",
   "quỹ": "资金",
   "quỹ phép": "假期额度",
+  "quỹ tiền mặt": "现金资金",
   "ra món": "出餐",
   "riêng": "独立",
   "riêng chi nhánh": "分店专属",
@@ -18440,6 +18463,7 @@
   "tối đa": "最高",
   "tồn kho": "库存",
   "tồn kho thấp": "库存偏低",
+  "tồn quỹ": "资金余额",
   "tồn âm": "负库存",
   "tổ chức": "组织",
   "tổng": "合计",
@@ -18513,7 +18537,9 @@
   "vừa xong": "刚刚",
   "xem báo cáo": "查看报表",
   "xung đột": "冲突",
+  "xuất": "导出",
   "xuất excel": "导出Excel",
+  "xuất ảnh": "导出图片",
   "xác nhận lệnh cửa": "确认开门指令",
   "xác nhận địa điểm chấm công": "确认打卡地点",
   "xóa lịch làm": "删除排班",
@@ -19737,6 +19763,7 @@
   "Đã trừ 1 buổi": "已扣1次",
   "Đã trừ HĐ": "已从账单扣除",
   "Đã trừ HĐ hôm nay": "已从今日账单扣除",
+  "Đã trừ VAT hàng trả NCC": "已扣除退给供应商商品的增值税",
   "Đã trừ buổi": "已扣除次数",
   "Đã trừ phép năm": "已扣除年假",
   "Đã trừ phần giảm giá / voucher của hoá đơn theo tỉ lệ.": "已按比例扣除账单的折扣 / 优惠券。",
@@ -20203,6 +20230,7 @@
   "Đơn giá ngày = lương tháng ÷ số công cố định": "日工资 = 月工资 ÷ 固定出勤天数",
   "Đơn giá ngày ổn định theo N công (mặc định 26)": "日薪单价按N天固定（默认26）",
   "Đơn giá theo giờ (VNĐ/giờ)": "时薪单价（VNĐ/小时）",
+  "Đơn giá đã bao gồm thuế": "单价已含税",
   "Đơn giá đã gồm thuế GTGT": "单价已含增值税",
   "Đơn hiện tại": "当前订单",
   "Đơn hoàn thành": "已完成订单",
@@ -20343,6 +20371,7 @@
   "Đầu ca: màn bán hàng → Menu ⋮ → Ca thu ngân → Mở ca (nhập tiền đầu ca)": "班初：销售界面 → 菜单 ⋮ → 收银班次 → 开班（录入备用金）",
   "Đầu kỳ": "期初",
   "Đầu kỳ + thu − chi": "期初 + 收入 − 支出",
+  "Đầu kỳ / ĐC": "期初 / 调整",
   "Đầu mã của cân": "电子秤条码前缀",
   "Đầu mã không hợp lệ": "编码前缀无效",
   "Đầu tháng": "月初",
@@ -20766,6 +20795,7 @@
   "Đủ dưới 5 ngày / dưới tồn tối thiểu": "不足5天 / 低于最低库存",
   "Đủ hàng": "货源充足",
   "Đủ người": "人员充足",
+  "Đủ số hóa đơn": "发票号码齐全",
   "Đủ điều kiện phụ cấp": "符合补贴条件",
   "Đứng nơi đủ sáng, nhìn thẳng vào camera": "请站在光线充足处，正对摄像头",
   "đ": "đ",
@@ -21257,7 +21287,10 @@
   "① Bạn gửi yêu cầu đổi ca với đồng nghiệp": "① 您向同事发送换班请求",
   "① Bạn gửi yêu cầu đổi ca với đồng nghiệp.": "① 您向同事发送换班请求。",
   "① Bạn gửi yêu cầu đổi ca với đồng nghiệp.\n": "① 您向同事发起换班请求。\n",
+  "① Bấm «Thêm ca» để tạo ca mới. ② Nút ba chấm trên từng ca: sửa, nhân bản, ngừng dùng.": "① 点击「添加班次」创建新班次。② 每个班次的三点按钮：编辑、复制、停用。",
   "① Gửi YC → ② Đồng nghiệp đồng ý → ③ QL duyệt. Bấm vào từng dòng để xem chi tiết.": "① 发送请求 → ② 同事同意 → ③ 经理审批。点击每一行可查看详情。",
+  "① Miễn trễ và giới hạn đi trễ. ② Miễn về sớm và giới hạn về sớm. ③ Số phút ra sớm / về muộn mới tính tăng ca.": "① 迟到宽限与迟到上限。② 早退宽限与早退上限。③ 提前上班 / 推迟下班多少分钟才算加班。",
+  "① Nhập tên ca. ② Chọn giờ vào – giờ ra (giờ ra nhỏ hơn giờ vào là ca qua đêm). ③ Hoặc bấm một mẫu ca có sẵn.": "① 输入班次名称。② 选择上班 – 下班时间（下班早于上班即为跨夜班）。③ 或点击现成的班次模板。",
   "① Đăng ký hội viên lên máy chấm công (tab «Hội viên trên máy»), lấy vân tay / khuôn mặt / thẻ.\n": "① 将会员登记到考勤机（«设备上的会员»标签），采集指纹 / 人脸 / 卡。\n",
   "② Hội viên quét trên máy khi vào và khi ra — lượt tập tự hiện ở đây.\n": "② 会员进出时在设备上刷卡，训练记录会自动显示在此处。\n",
   "② Đồng nghiệp chấp nhận hoặc từ chối trên tab「Cần phản hồi」": "② 同事在「待回复」标签页接受或拒绝",
@@ -22375,6 +22408,10 @@
   [
    "COD quá 7 ngày chưa đối soát: {0} đơn · {1}đ",
    "超过7天未对账的COD：{0}单 · {1}đ"
+  ],
+  [
+   "COUNTIF({0}:{1},\"<>\")&\" ngày\"",
+   "COUNTIF({0}:{1},\"<>\")&\" 天\""
   ],
   [
    "Ca chỉ có {0} làm việc.",
@@ -24463,6 +24500,10 @@
   [
    "Hình thức: {0}",
    "方式：{0}"
+  ],
+  [
+   "Hóa đơn mua vào ({0})",
+   "进货发票 ({0})"
   ],
   [
    "Hóa đơn trên {0}",
@@ -29281,6 +29322,10 @@
    "USB：{0} 更换端口 → {1}"
   ],
   [
+   "VAT đầu vào trả lại: {0} đ",
+   "退回进项增值税: {0} đ"
+  ],
+  [
    "Vai trò {0}",
    "角色 {0}"
   ],
@@ -29455,6 +29500,10 @@
   [
    "Xem thêm ({0}/{1})",
    "查看更多 ({0}/{1})"
+  ],
+  [
+   "Xem thêm {0} dòng",
+   "再显示 {0} 行"
   ],
   [
    "Xem thêm {0} phiếu",
@@ -29867,6 +29916,10 @@
   [
    "bảo lưu đến {0}",
    "保留至 {0}"
+  ],
+  [
+   "cells/cellKeys lệch: {0} vs {1}",
+   "cells/cellKeys 不一致: {0} vs {1}"
   ],
   [
    "cho tối đa 100 đơn trong khoảng «{0}».",
@@ -30547,6 +30600,10 @@
   [
    "{0} chứng từ gần nhất",
    "最近 {0} 张凭证"
+  ],
+  [
+   "{0} chứng từ · chưa thuế {1}",
+   "{0} 张单据 · 不含税 {1}"
   ],
   [
    "{0} có app",
@@ -31445,6 +31502,14 @@
    "{0} 张工资条"
   ],
   [
+   "{0} phiếu nhập có VAT nhưng chưa ghi số hóa đơn đầu vào — bổ sung trong phiếu nhập để đủ chứng từ khấu trừ: ",
+   "{0} 张进货单有增值税但未填进项发票号码 — 请在进货单中补充以便抵扣: "
+  ],
+  [
+   "{0} phiếu nhập · {1} trả NCC",
+   "进货 {0} 张 · 退供应商 {1} 张"
+  ],
+  [
    "{0} phiếu phạt",
    "{0} 张罚款单"
   ],
@@ -31771,6 +31836,10 @@
   [
    "{0} {1} yêu cầu",
    "{0} {1} 条申请"
+  ],
+  [
+   "{0} {1} · {2} · chưa thuế {3}",
+   "{0} {1} · {2} · 不含税 {3}"
   ],
   [
    "{0} {1} × {2} đ",

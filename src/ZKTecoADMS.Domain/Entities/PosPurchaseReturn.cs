@@ -32,6 +32,8 @@ public class PosPurchaseReturn : AuditableEntity<Guid>, IBranchScoped
     public decimal TotalQty { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal DiscountAmount { get; set; }
+    /// <summary>Tổng VAT đầu vào trả lại (giảm VAT mua vào, cộng vào số NCC phải hoàn).</summary>
+    public decimal TotalVat { get; set; }
     /// <summary>NCC cần trả lại (số tiền NCC nợ shop sau trả hàng).</summary>
     public decimal RefundDue { get; set; }
     /// <summary>NCC đã trả lại tiền.</summary>

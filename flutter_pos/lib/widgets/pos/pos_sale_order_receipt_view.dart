@@ -94,6 +94,8 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
     final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
 
+    final returned = order.returnedAmount > 0 ? order.returnedAmount : 0.0;
+
     final balance =
 
         order.balanceDue != 0 ? order.balanceDue : order.total - order.paidAmount;
@@ -214,7 +216,9 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                 ],
 
-                _sumRow('Tạm tính', money.format(order.subTotal)),
+                // Máy chủ trừ tiền hàng trả vào Tạm tính / Tổng cộng của đơn — hiện số gốc rồi trừ «Đã trả hàng»
+                // (như C20; trước đây Tạm tính đã giảm mà dòng hàng vẫn ghi đủ số lượng, không thấy món đã trả).
+                _sumRow('Tạm tính', money.format(order.subTotal + returned)),
 
                 // Khuyến mãi tự áp (lưu trong promotionsJson) — trước đây không hiện,
                 // Tạm tính − Voucher ≠ Tổng cộng làm thu ngân tưởng sai tiền.
@@ -249,15 +253,18 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                   ),
 
-                _sumRow('Tổng cộng', money.format(order.total), bold: true, accent: true),
+                _sumRow('Tổng cộng', money.format(order.total + returned), bold: true, accent: returned <= 0),
 
-                _sumRow('Đã thanh toán (${order.paymentMethod})', money.format(order.paidAmount)),
+                if (returned > 0) ...[
+                  _sumRow('Đã trả hàng', '-${money.format(returned)}', negative: true),
+                  _sumRow('Còn lại sau trả hàng', money.format(order.total), bold: true, accent: true),
+                ],
+
+                _sumRow(
+                    returned > 0 ? 'Đã thanh toán (sau hoàn tiền trả hàng)' : 'Đã thanh toán (${order.paymentMethod})',
+                    money.format(order.paidAmount)),
 
                 if (balance > 0) _sumRow('Còn lại', money.format(balance)),
-
-                if (order.returnedAmount > 0)
-
-                  _sumRow('Đã trả hàng', money.format(order.returnedAmount), negative: true),
 
                 if (order.pointsEarned > 0)
 
@@ -594,6 +601,9 @@ class PosSaleOrderReceiptView extends StatelessWidget {
                 if (line.discountAmount > 0)
                   Text(tr('CK: -${money.format(line.discountAmount)}'),
                       style: TextStyle(fontSize: 11, color: Colors.red.shade700)),
+                if (line.returnedQty > 0)
+                  Text(tr('Đã trả ${qtyFmt.format(line.returnedQty)}${unit.isEmpty ? '' : ' $unit'}'),
+                      style: const TextStyle(fontSize: 11, color: SboxColors.warningText)),
                 if (line.serialNumbers.isNotEmpty)
                   Text(tr('Seri: ${line.serialNumbers.join(', ')}'),
                       maxLines: 2,
@@ -724,6 +734,12 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                       style: TextStyle(fontSize: 10, color: Colors.red.shade700),
 
+                    ),
+
+                  if (line.returnedQty > 0)
+                    Text(
+                      tr('Đã trả ${qtyFmt.format(line.returnedQty)}'),
+                      style: const TextStyle(fontSize: 10, color: SboxColors.warningText),
                     ),
 
                   if (line.serialNumbers.isNotEmpty)

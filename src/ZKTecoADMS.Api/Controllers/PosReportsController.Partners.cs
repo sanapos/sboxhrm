@@ -128,6 +128,7 @@ public partial class PosReportsController
             sumDebt31To60 = items.Sum(x => x.debt31To60),
             sumDebt61To90 = items.Sum(x => x.debt61To90),
             sumDebtOver90 = items.Sum(x => x.debtOver90),
+            sumDebtOther = items.Sum(x => x.debtOther),
             items,
         }));
     }
@@ -200,7 +201,8 @@ public partial class PosReportsController
                 r.TotalQty,
                 r.TotalAmount,
                 r.DiscountAmount,
-                netAmount = r.TotalAmount - r.DiscountAmount,
+                r.TotalVat,
+                netAmount = r.TotalAmount + r.TotalVat - r.DiscountAmount,
                 r.RefundDue,
                 r.RefundReceived,
                 status = r.Status.ToString(),
@@ -279,6 +281,7 @@ public partial class PosReportsController
             returnAmount = returns.Sum(x => x.netAmount),
             returnGrossAmount = returns.Sum(x => x.TotalAmount),
             returnRefundReceived = returns.Sum(x => x.RefundReceived),
+            returnVat = returns.Sum(x => x.TotalVat),
             netAmount = receipts.Sum(x => x.grandTotal) - returns.Sum(x => x.netAmount),
             topProducts,
             bySupplier,

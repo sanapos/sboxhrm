@@ -1211,6 +1211,8 @@
   "Bảng giá dự phòng": "예비 가격표",
   "Bảng giá mới": "새 가격표",
   "Bảng giá trang chủ tự lấy từ «Gói dịch vụ» có đặt giá (đang bán, hiện trên đăng ký) — sboxpos.com hiện gói Bán hàng, ": "홈페이지 가격표는 가격이 설정된 «서비스 패키지»(판매 중, 가입 화면에 표시)에서 자동으로 가져옵니다 — sboxpos.com에는 판매 패키지가 표시됩니다, ",
+  "Bảng kê VAT đầu vào": "매입 부가세 명세",
+  "Bảng kê hóa đơn mua vào": "매입 계산서 명세",
   "Bảng lương": "급여 대장",
   "Bảng lương chi tiết nhân viên": "직원별 상세 급여 대장",
   "Bảng lương có thể trừ theo phút trễ đã tổng hợp (tùy cấu hình kỳ)": "급여 대장에서 집계된 지각 시간(분)만큼 공제할 수 있습니다 (기간 설정에 따라 다름)",
@@ -1315,6 +1317,7 @@
   "Bấm để tìm và chọn...": "눌러서 검색 및 선택...",
   "Bấm để xem chi tiết": "눌러서 상세 보기",
   "Bấm để xem giỏ hàng": "눌러서 장바구니 보기",
+  "Bấm để xem lớn": "눌러서 크게 보기",
   "Bấm để xem từng đơn: giờ bán, giờ gửi, máy, người bán": "눌러서 주문별 보기: 판매 시각, 전송 시각, 단말, 판매자",
   "Bấm để đồng bộ lên máy": "눌러서 단말에 동기화",
   "Bấm: sửa / xoá · Bấm đúp: chọn nhanh giờ theo ca": "탭: 수정 / 삭제 · 더블탭: 근무조별 시간 빠르게 선택",
@@ -2066,6 +2069,7 @@
   "Chưa chọn sheet nào": "선택된 시트 없음",
   "Chưa chọn sản phẩm": "상품 미선택",
   "Chưa chọn ảnh": "사진 미선택",
+  "Chưa chọn — bảng kê VAT lấy theo ngày nhập": "미선택 — 부가세 명세는 입고일 기준",
   "Chưa chọn — bấm để chọn": "선택 안 함 — 눌러서 선택",
   "Chưa chọn — bấm để liệt kê cổng USB đang cắm": "선택 안 함 — 눌러서 연결된 USB 포트 목록 보기",
   "Chưa chọn — bấm để liệt kê cổng đang cắm": "선택 안 함 — 눌러서 연결된 포트 목록 보기",
@@ -5189,6 +5193,7 @@
   "Giá trị VNĐ": "VNĐ 값",
   "Giá trị báo giá": "견적 금액",
   "Giá trị cao → thấp": "금액 높은 순",
+  "Giá trị chưa thuế": "공급가액",
   "Giá trị còn lại": "잔존 가치",
   "Giá trị còn lại của tài sản": "자산 잔존 가치",
   "Giá trị còn lại · số tài sản": "잔존 가치 · 자산 수",
@@ -5601,6 +5606,7 @@
   "Gọn (tem nhỏ)": "간략 (소형 라벨)",
   "Gọn lại, tiết kiệm giấy": "간결하게, 용지 절약",
   "Gốc": "원본",
+  "Gồm VAT": "부가세 포함",
   "Gồm các lần đổi lương theo ngày, các lần đính chính và bản bị thay. Không có lần nào bị mất khi sửa.": "일자별 급여 변경, 정정 내역 및 대체된 버전이 포함됩니다. 수정해도 누락되는 항목은 없습니다.",
   "Gồm các món": "다음 메뉴 포함",
   "Gồm cả đơn online máy chủ tự tạo vận đơn (máy này đang mở màn Đơn online).": "서버가 자동으로 운송장을 생성한 온라인 주문 포함 (이 기기에서 온라인 주문 화면이 열려 있음).",
@@ -7005,6 +7011,7 @@
   "Không có hàng trong bộ lọc": "필터에 해당하는 상품이 없습니다",
   "Không có hàng trong nhóm này": "이 분류에 상품이 없습니다",
   "Không có hàng để in tem": "라벨을 인쇄할 상품이 없습니다",
+  "Không có hóa đơn mua vào trong kỳ": "이 기간에 매입 계산서가 없습니다",
   "Không có hóa đơn nào trong kỳ": "이 기간에 영수증이 없습니다",
   "Không có hóa đơn phù hợp": "일치하는 영수증이 없습니다",
   "Không có hóa đơn trong khoảng thời gian này": "이 기간에 영수증이 없습니다",
@@ -8378,6 +8385,7 @@
   "Ký hiệu": "기호",
   "Ký hiệu (Serial) — thường để trống": "기호 (Serial) — 보통 비워 둠",
   "Ký hiệu (serial)": "기호 (serial)",
+  "Ký hiệu HĐ": "계산서 기호",
   "Ký hiệu hóa đơn (InvSeries)": "세금계산서 기호 (InvSeries)",
   "Ký hiệu hóa đơn (Pattern)": "영수증 기호 (Pattern)",
   "Ký hiệu hóa đơn (invoiceSeries)": "영수증 기호 (invoiceSeries)",
@@ -8451,6 +8459,7 @@
   "Kỳ này chưa có chỉ tiêu / kết quả KPI": "이번 기간에 KPI 목표/결과가 없습니다",
   "Kỳ này chưa có lịch làm việc nào — không có gì để đối chiếu.": "이번 기간에 근무 일정이 없습니다 — 대조할 내용이 없습니다.",
   "Kỳ này có hơn 5.000 vận đơn — danh sách bị cắt, hãy thu hẹp khoảng ngày.": "이번 기간에 운송장이 5,000건을 초과합니다 — 목록이 잘렸으니 날짜 범위를 좁히세요.",
+  "Kỳ theo ngày hóa đơn; phiếu chưa ghi ngày HĐ lấy ngày nhập": "기간은 계산서 일자 기준이며, 계산서 일자가 없는 입고는 입고일을 사용합니다",
   "Kỳ trước": "이전 기간",
   "Kỳ trước chưa có dữ liệu": "이전 기간 데이터가 없습니다",
   "Kỳ vọng": "기대치",
@@ -10557,6 +10566,8 @@
   "Ngày Dương lịch": "양력일",
   "Ngày GD": "거래일",
   "Ngày Giải phóng miền Nam": "남부 해방 기념일",
+  "Ngày HĐ": "계산서 일자",
+  "Ngày HĐ đầu vào": "매입 계산서 일자",
   "Ngày Quốc khánh": "국경일",
   "Ngày Quốc tế Lao động": "국제 노동절",
   "Ngày TT": "결제일",
@@ -11561,6 +11572,7 @@
   "Phiếu chưa được tiếp nhận sẽ bị xoá và không thể khôi phục.": "접수되지 않은 전표는 삭제되며 복구할 수 없습니다.",
   "Phiếu chế biến": "조리 전표",
   "Phiếu chờ thanh toán": "결제 대기 전표",
+  "Phiếu có VAT chưa ghi số HĐ": "부가세가 있으나 계산서 번호 미입력 입고",
   "Phiếu có thể đã in": "주문서가 이미 인쇄되었을 수 있음",
   "Phiếu dịch vụ": "서비스 전표",
   "Phiếu giao hàng": "배송 전표",
@@ -13386,6 +13398,7 @@
   "Theo sự kiện": "이벤트별",
   "Theo thanh toán": "결제 기준",
   "Theo thiết lập máy in (bỏ mẫu nhớ riêng)": "프린터 설정 기준 (개별 저장된 템플릿 해제)",
+  "Theo thuế suất": "세율별",
   "Theo thuế suất hàng hóa": "상품 세율별",
   "Theo tháng": "월별",
   "Theo thời gian, nhân viên, hạn mục, trạng thái": "기간, 직원, 항목, 상태별",
@@ -13595,6 +13608,7 @@
   "Thiếu ra": "퇴근 누락",
   "Thiếu ra ca lúc 13:15": "13:15 근무조 퇴근 누락",
   "Thiếu seri": "시리얼 누락",
+  "Thiếu số hóa đơn": "계산서 번호 누락",
   "Thiếu số tiền": "금액 없음",
   "Thiếu số tài khoản / ngân hàng — không chuyển được. Bỏ qua hoặc trả tiền mặt.": "계좌번호 / 은행 정보가 없어 이체할 수 없습니다. 건너뛰거나 현금으로 지급하세요.",
   "Thiếu thiết lập POS": "POS 설정 없음",
@@ -16449,6 +16463,9 @@
   "VAT cộng thêm trên tổng tiền hàng sau chiết khấu": "할인 후 상품 합계에 부가세 추가",
   "VAT theo mặt hàng": "상품별 VAT",
   "VAT theo từng mặt hàng": "상품별 VAT",
+  "VAT đầu vào": "매입 부가세",
+  "VAT đầu vào (hàng thêm tay tính khi lưu)": "매입 부가세 (직접 추가한 품목은 저장 시 계산)",
+  "VAT đầu vào trả lại": "반품 매입 부가세",
   "VD 30 — trống = không": "예: 30 — 비워두면 없음",
   "VD 4 (= 1 giờ)": "예: 4 (= 1시간)",
   "VD tháng 30 ngày, nghỉ CN → công chuẩn ≈ 26 (tùy tháng)": "예: 30일인 달, 일요일 휴무 → 기준 근무일 ≈ 26 (달에 따라 다름)",
@@ -17525,6 +17542,8 @@
   "bản in vẫn giữ nội dung đã sửa. Vào «Lịch sử / Khôi phục theo mẫu» để cập nhật.": "인쇄본은 수정된 내용을 그대로 유지합니다. «이력 / 템플릿으로 복원»에서 업데이트하세요.",
   "bản sao": "사본",
   "bản đồ": "지도",
+  "bảng chấm công": "출근부",
+  "bảng công": "근태 집계",
   "bảng lương": "급여 대장",
   "bảo hiểm": "보험",
   "bảo hiểm xã hội": "사회보험",
@@ -17661,6 +17680,7 @@
   "công nợ khách": "고객 미수금",
   "công nợ khách kèm 1–2 gợi ý của AI": "고객 미수금과 AI 제안 1–2개",
   "công nợ ncc": "공급업체 채무",
+  "công tháng": "월 근태",
   "công tác": "출장",
   "công tác phí": "출장비",
   "công việc": "업무",
@@ -18173,6 +18193,7 @@
   "phiếu": "전표",
   "phiếu bếp": "주방 전표",
   "phiếu bếp in qua Agent, thanh toán vẫn tại quầy.": "주방 전표는 Agent를 통해 인쇄되며, 결제는 카운터에서 진행합니다.",
+  "phiếu chi": "출금 전표",
   "phiếu chi danh mục «Mua tài sản» không tính chi phí. Cọc khách bỏ = cọc khách hủy / không đến. ": "«자산 구매» 분류의 출금 전표는 비용에 포함되지 않습니다. 고객 포기 보증금 = 고객이 취소했거나 오지 않은 보증금. ",
   "phiếu chờ duyệt": "승인 대기 전표",
   "phiếu lương": "급여 명세서",
@@ -18180,6 +18201,7 @@
   "phiếu nhập kho": "입고 전표",
   "phiếu phạt": "벌금 전표",
   "phiếu phạt đã chọn? Hệ thống sẽ tạo phiếu thu tương ứng cho từng phiếu": "선택한 벌금 전표? 시스템이 각 전표에 해당하는 입금 전표를 생성합니다",
+  "phiếu thu": "입금 전표",
   "phiếu thưởng": "상여 전표",
   "phiếu trả hàng": "반품 전표",
   "phiếu tới": "전표 전송 대상",
@@ -18232,6 +18254,7 @@
   "quên mật khẩu": "비밀번호 찾기",
   "quỹ": "자금",
   "quỹ phép": "휴가 한도",
+  "quỹ tiền mặt": "현금 시재",
   "ra món": "음식 나옴",
   "riêng": "개별",
   "riêng chi nhánh": "지점별",
@@ -18440,6 +18463,7 @@
   "tối đa": "최대",
   "tồn kho": "재고",
   "tồn kho thấp": "재고 부족",
+  "tồn quỹ": "시재 잔액",
   "tồn âm": "마이너스 재고",
   "tổ chức": "조직",
   "tổng": "합계",
@@ -18513,7 +18537,9 @@
   "vừa xong": "방금",
   "xem báo cáo": "보고서 보기",
   "xung đột": "충돌",
+  "xuất": "내보내기",
   "xuất excel": "엑셀 내보내기",
+  "xuất ảnh": "이미지 내보내기",
   "xác nhận lệnh cửa": "출입문 명령 확인",
   "xác nhận địa điểm chấm công": "출퇴근 기록 장소 확인",
   "xóa lịch làm": "근무 일정 삭제",
@@ -19737,6 +19763,7 @@
   "Đã trừ 1 buổi": "1회 차감됨",
   "Đã trừ HĐ": "계산서에서 차감됨",
   "Đã trừ HĐ hôm nay": "오늘 전표에서 차감됨",
+  "Đã trừ VAT hàng trả NCC": "공급업체 반품 부가세 차감 후",
   "Đã trừ buổi": "횟수 차감됨",
   "Đã trừ phép năm": "연차 차감됨",
   "Đã trừ phần giảm giá / voucher của hoá đơn theo tỉ lệ.": "영수증의 할인 / 바우처를 비율에 따라 차감했습니다.",
@@ -20203,6 +20230,7 @@
   "Đơn giá ngày = lương tháng ÷ số công cố định": "일급 = 월급 ÷ 고정 근무일수",
   "Đơn giá ngày ổn định theo N công (mặc định 26)": "일급 단가는 N일 기준으로 고정 (기본 26)",
   "Đơn giá theo giờ (VNĐ/giờ)": "시급 단가 (VNĐ/시간)",
+  "Đơn giá đã bao gồm thuế": "단가에 세금 포함",
   "Đơn giá đã gồm thuế GTGT": "단가에 VAT 포함",
   "Đơn hiện tại": "현재 주문",
   "Đơn hoàn thành": "완료된 주문",
@@ -20343,6 +20371,7 @@
   "Đầu ca: màn bán hàng → Menu ⋮ → Ca thu ngân → Mở ca (nhập tiền đầu ca)": "근무 시작: 판매 화면 → 메뉴 ⋮ → 캐셔 근무 → 근무 시작(시재 입력)",
   "Đầu kỳ": "기초",
   "Đầu kỳ + thu − chi": "기초 + 수입 − 지출",
+  "Đầu kỳ / ĐC": "기초 / 조정",
   "Đầu mã của cân": "저울 코드 접두",
   "Đầu mã không hợp lệ": "코드 접두사가 올바르지 않습니다",
   "Đầu tháng": "월초",
@@ -20766,6 +20795,7 @@
   "Đủ dưới 5 ngày / dưới tồn tối thiểu": "5일 미만 / 최소 재고 미만",
   "Đủ hàng": "재고 충분",
   "Đủ người": "인원 충분",
+  "Đủ số hóa đơn": "계산서 번호 모두 입력됨",
   "Đủ điều kiện phụ cấp": "수당 지급 조건 충족",
   "Đứng nơi đủ sáng, nhìn thẳng vào camera": "밝은 곳에 서서 카메라를 정면으로 바라보세요",
   "đ": "đ",
@@ -21257,7 +21287,10 @@
   "① Bạn gửi yêu cầu đổi ca với đồng nghiệp": "① 동료에게 근무조 교대 요청을 보냅니다",
   "① Bạn gửi yêu cầu đổi ca với đồng nghiệp.": "① 동료에게 근무조 교대 요청을 보냅니다.",
   "① Bạn gửi yêu cầu đổi ca với đồng nghiệp.\n": "① 동료에게 근무조 교대를 요청합니다.\n",
+  "① Bấm «Thêm ca» để tạo ca mới. ② Nút ba chấm trên từng ca: sửa, nhân bản, ngừng dùng.": "① «근무조 추가»를 눌러 새 근무조를 만듭니다. ② 각 근무조의 점 세 개 버튼: 수정, 복제, 사용 중지.",
   "① Gửi YC → ② Đồng nghiệp đồng ý → ③ QL duyệt. Bấm vào từng dòng để xem chi tiết.": "① 요청 전송 → ② 동료 동의 → ③ 관리자 승인. 각 줄을 누르면 자세히 볼 수 있습니다.",
+  "① Miễn trễ và giới hạn đi trễ. ② Miễn về sớm và giới hạn về sớm. ③ Số phút ra sớm / về muộn mới tính tăng ca.": "① 지각 유예 및 지각 한도. ② 조퇴 유예 및 조퇴 한도. ③ 초과근무로 계산되는 조기 출근 / 늦은 퇴근 분.",
+  "① Nhập tên ca. ② Chọn giờ vào – giờ ra (giờ ra nhỏ hơn giờ vào là ca qua đêm). ③ Hoặc bấm một mẫu ca có sẵn.": "① 근무조 이름을 입력합니다. ② 출근 – 퇴근 시간을 선택합니다 (퇴근이 출근보다 이르면 야간 근무조). ③ 또는 기본 근무조 템플릿을 누릅니다.",
   "① Đăng ký hội viên lên máy chấm công (tab «Hội viên trên máy»), lấy vân tay / khuôn mặt / thẻ.\n": "① 회원을 근태 단말기에 등록하고(«단말기의 회원» 탭) 지문 / 얼굴 / 카드를 등록합니다.\n",
   "② Hội viên quét trên máy khi vào và khi ra — lượt tập tự hiện ở đây.\n": "② 회원이 입장과 퇴장 시 단말기에서 스캔하면 이용 기록이 여기에 자동으로 표시됩니다.\n",
   "② Đồng nghiệp chấp nhận hoặc từ chối trên tab「Cần phản hồi」": "② 동료가 「회신 필요」 탭에서 수락 또는 거절합니다",
@@ -22375,6 +22408,10 @@
   [
    "COD quá 7 ngày chưa đối soát: {0} đơn · {1}đ",
    "7일 넘게 대금 정산 안 된 COD: {0}건 · {1}đ"
+  ],
+  [
+   "COUNTIF({0}:{1},\"<>\")&\" ngày\"",
+   "COUNTIF({0}:{1},\"<>\")&\" 일\""
   ],
   [
    "Ca chỉ có {0} làm việc.",
@@ -24463,6 +24500,10 @@
   [
    "Hình thức: {0}",
    "방식: {0}"
+  ],
+  [
+   "Hóa đơn mua vào ({0})",
+   "매입 계산서 ({0})"
   ],
   [
    "Hóa đơn trên {0}",
@@ -29281,6 +29322,10 @@
    "USB: {0} 포트 변경 → {1}"
   ],
   [
+   "VAT đầu vào trả lại: {0} đ",
+   "반품 매입 부가세: {0} đ"
+  ],
+  [
    "Vai trò {0}",
    "역할 {0}"
   ],
@@ -29455,6 +29500,10 @@
   [
    "Xem thêm ({0}/{1})",
    "더 보기 ({0}/{1})"
+  ],
+  [
+   "Xem thêm {0} dòng",
+   "{0}행 더 보기"
   ],
   [
    "Xem thêm {0} phiếu",
@@ -29867,6 +29916,10 @@
   [
    "bảo lưu đến {0}",
    "{0}까지 보류"
+  ],
+  [
+   "cells/cellKeys lệch: {0} vs {1}",
+   "cells/cellKeys 불일치: {0} vs {1}"
   ],
   [
    "cho tối đa 100 đơn trong khoảng «{0}».",
@@ -30547,6 +30600,10 @@
   [
    "{0} chứng từ gần nhất",
    "최근 증빙 {0}건"
+  ],
+  [
+   "{0} chứng từ · chưa thuế {1}",
+   "증빙 {0}건 · 공급가액 {1}"
   ],
   [
    "{0} có app",
@@ -31445,6 +31502,14 @@
    "급여 명세서 {0}건"
   ],
   [
+   "{0} phiếu nhập có VAT nhưng chưa ghi số hóa đơn đầu vào — bổ sung trong phiếu nhập để đủ chứng từ khấu trừ: ",
+   "입고 {0}건에 부가세가 있으나 매입 계산서 번호가 없습니다 — 공제 증빙을 위해 입고 전표에 입력하세요: "
+  ],
+  [
+   "{0} phiếu nhập · {1} trả NCC",
+   "입고 {0}건 · 공급업체 반품 {1}건"
+  ],
+  [
    "{0} phiếu phạt",
    "벌금 전표 {0}건"
   ],
@@ -31771,6 +31836,10 @@
   [
    "{0} {1} yêu cầu",
    "{0} 요청 {1}건"
+  ],
+  [
+   "{0} {1} · {2} · chưa thuế {3}",
+   "{0} {1} · {2} · 공급가액 {3}"
   ],
   [
    "{0} {1} × {2} đ",

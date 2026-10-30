@@ -195,6 +195,9 @@ class PosPurchaseReceipt {
   final String status;
   final String? note;
   final String? inputInvoiceNo;
+  /// Ký hiệu / ngày hóa đơn đầu vào (bảng kê VAT mua vào).
+  final String? inputInvoiceSerial;
+  final DateTime? inputInvoiceDate;
   final String? purchaseOrderNo;
   final double totalQty;
   final double totalCost;
@@ -222,6 +225,8 @@ class PosPurchaseReceipt {
     this.status = 'Draft',
     this.note,
     this.inputInvoiceNo,
+    this.inputInvoiceSerial,
+    this.inputInvoiceDate,
     this.purchaseOrderNo,
     this.totalQty = 0,
     this.totalCost = 0,
@@ -251,6 +256,9 @@ class PosPurchaseReceipt {
       status: normalizePosDocStatus(json['status'] ?? json['Status']),
       note: json['note'] ?? json['Note'] as String?,
       inputInvoiceNo: json['inputInvoiceNo'] ?? json['InputInvoiceNo'] as String?,
+      inputInvoiceSerial: json['inputInvoiceSerial'] ?? json['InputInvoiceSerial'] as String?,
+      inputInvoiceDate: DateTime.tryParse(
+          '${json['inputInvoiceDate'] ?? json['InputInvoiceDate'] ?? ''}'),
       purchaseOrderNo: json['purchaseOrderNo'] ?? json['PurchaseOrderNo'] as String?,
       totalQty: n(json['totalQty'] ?? json['TotalQty']),
       totalCost: n(json['totalCost'] ?? json['TotalCost']),
@@ -292,6 +300,8 @@ class PosPurchaseReturn {
   final String? note;
   final double totalAmount;
   final double discountAmount;
+  /// VAT đầu vào trả lại (theo thuế suất dòng phiếu nhập gốc).
+  final double totalVat;
   final double refundDue;
   final double refundReceived;
   final DateTime? returnDate;
@@ -312,6 +322,7 @@ class PosPurchaseReturn {
     this.note,
     this.totalAmount = 0,
     this.discountAmount = 0,
+    this.totalVat = 0,
     this.refundDue = 0,
     this.refundReceived = 0,
     this.returnDate,
@@ -334,6 +345,7 @@ class PosPurchaseReturn {
       note: json['note'] ?? json['Note'] as String?,
       totalAmount: n(json['totalAmount'] ?? json['TotalAmount']),
       discountAmount: n(json['discountAmount'] ?? json['DiscountAmount']),
+      totalVat: n(json['totalVat'] ?? json['TotalVat']),
       refundDue: n(json['refundDue'] ?? json['RefundDue']),
       refundReceived: n(json['refundReceived'] ?? json['RefundReceived']),
       returnDate: parseApiUtcDateTime(json['returnDate'] ?? json['ReturnDate']),
@@ -348,7 +360,7 @@ class PosPurchaseReturn {
     );
   }
 
-  double get supplierRefundAmount => totalAmount - discountAmount;
+  double get supplierRefundAmount => totalAmount + totalVat - discountAmount;
 
   String get statusLabel => switch (status) {
         'Completed' => 'Đã trả hàng',

@@ -223,6 +223,8 @@ class _PosPurchaseReceiptEditorScreenState
   final _receiptNoCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   final _invoiceCtrl = TextEditingController();
+  final _invoiceSerialCtrl = TextEditingController();
+  DateTime? _invoiceDate;
   final _discountCtrl = TextEditingController(text: tr('0'));
   final _paidCtrl = TextEditingController(text: tr('0'));
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
@@ -261,6 +263,7 @@ class _PosPurchaseReceiptEditorScreenState
     _receiptNoCtrl.dispose();
     _noteCtrl.dispose();
     _invoiceCtrl.dispose();
+    _invoiceSerialCtrl.dispose();
     _discountCtrl.dispose();
     _paidCtrl.dispose();
     for (final l in _lines) {
@@ -351,6 +354,8 @@ class _PosPurchaseReceiptEditorScreenState
       _importDate = r.importDate?.toLocal() ?? DateTime.now();
       _noteCtrl.text = r.note ?? '';
       _invoiceCtrl.text = r.inputInvoiceNo ?? '';
+      _invoiceSerialCtrl.text = r.inputInvoiceSerial ?? '';
+      _invoiceDate = r.inputInvoiceDate;
       _discountIsPercent = r.discountIsPercent;
       _discountCtrl.text = r.discountIsPercent
           ? r.discountInput.toStringAsFixed(r.discountInput % 1 == 0 ? 0 : 1)
@@ -746,14 +751,32 @@ class _PosPurchaseReceiptEditorScreenState
           ),
         ),
         if (!l.vatExempt && l.vatRate > 0)
-          CheckboxListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
-            title: Text(tr('Đã bao gồm thuế'), style: TextStyle(fontSize: 11)),
-            value: l.costIncludesVat,
-            activeColor: _blue,
-            onChanged: (v) => setState(() => l.costIncludesVat = v == true),
+          // Cột VAT hẹp (T1 / màn ngang nhỏ): CheckboxListTile ép nhãn xuống từng chữ — dùng hàng gọn một dòng.
+          InkWell(
+            onTap: () => setState(() => l.costIncludesVat = !l.costIncludesVat),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Checkbox(
+                    value: l.costIncludesVat,
+                    activeColor: _blue,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                    onChanged: (v) => setState(() => l.costIncludesVat = v == true),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Expanded(
+                  child: Tooltip(
+                    message: tr('Đơn giá đã bao gồm thuế'),
+                    child: Text(tr('Gồm VAT'),
+                        maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: const TextStyle(fontSize: 11)),
+                  ),
+                ),
+              ],
+            ),
           ),
       ],
     );
@@ -842,6 +865,10 @@ class _PosPurchaseReceiptEditorScreenState
         'supplierId': _supplierId,
         'note': _noteCtrl.text.trim(),
         'inputInvoiceNo': _invoiceCtrl.text.trim(),
+        'inputInvoiceSerial': _invoiceSerialCtrl.text.trim(),
+        // Ngày theo lịch (không đổi múi giờ) — bảng kê VAT đầu vào lọc theo ngày này.
+        if (_invoiceDate != null)
+          'inputInvoiceDate': DateFormat('yyyy-MM-dd').format(_invoiceDate!),
         if (manualNo.isNotEmpty) 'receiptNo': manualNo,
         'discountAmount': _computedReceiptDiscount,
         'discountIsPercent': _discountIsPercent,
@@ -1289,10 +1316,56 @@ class _PosPurchaseReceiptEditorScreenState
           child: purchaseStatusChip(_status),
         ),
         const SizedBox(height: 12),
-        TextField(
-          controller: _invoiceCtrl,
-          readOnly: _readOnly,
-          decoration: PosTheme.inputDecoration(label: 'Hóa đơn đầu vào'),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: TextField(
+                controller: _invoiceSerialCtrl,
+                readOnly: _readOnly,
+                maxLength: 20,
+                decoration: PosTheme.inputDecoration(label: 'Ký hiệu HĐ', hint: 'VD 1C26TAA')
+                    .copyWith(counterText: ''),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: TextField(
+                controller: _invoiceCtrl,
+                readOnly: _readOnly,
+                decoration: PosTheme.inputDecoration(label: 'Số HĐ đầu vào'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: _readOnly
+              ? null
+              : () async {
+                  final d = await showDatePicker(
+                    context: context,
+                    initialDate: _invoiceDate ?? _importDate,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                  );
+                  if (d != null) setState(() => _invoiceDate = d);
+                },
+          child: InputDecorator(
+            decoration: PosTheme.inputDecoration(label: 'Ngày HĐ đầu vào').copyWith(
+              suffixIcon: _invoiceDate != null && !_readOnly
+                  ? IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      tooltip: tr('Xóa ngày'),
+                      onPressed: () => setState(() => _invoiceDate = null),
+                    )
+                  : const Icon(Icons.calendar_today, size: 18),
+            ),
+            child: Text(_invoiceDate == null
+                ? tr('Chưa chọn — bảng kê VAT lấy theo ngày nhập')
+                : DateFormat('dd/MM/yyyy').format(_invoiceDate!)),
+          ),
         ),
         const SizedBox(height: 12),
         _buildDiscountField(),

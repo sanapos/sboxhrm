@@ -228,6 +228,14 @@ class PosSaleOrder {
   /// Họ tên người bán / người tạo (API chi tiết đơn) — [soldBy]/[createdBy] có thể là email.
   final String? soldByName;
   final String? createdByName;
+  /// Tên hiển thị người bán: ưu tiên họ tên, không có mới dùng tài khoản (email).
+  String? get sellerLabel {
+    for (final v in [soldByName, soldBy, createdByName, createdBy]) {
+      final t = v?.trim();
+      if (t != null && t.isNotEmpty) return t;
+    }
+    return null;
+  }
   final String? soldByEmployeeId;
   final String? salesChannel;
   final String? priceListId;

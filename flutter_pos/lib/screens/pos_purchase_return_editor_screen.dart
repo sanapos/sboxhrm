@@ -45,6 +45,8 @@ class _ReturnLine {
   final TextEditingController lineNoteCtrl;
   bool requiresSerial;
   List<String> serials;
+  /// Thuế suất VAT đầu vào (theo dòng phiếu nhập gốc). null = hàng thêm tay — máy chủ lấy theo lần nhập gần nhất.
+  double? vatRate;
 
   _ReturnLine({
     required this.productId,
@@ -60,6 +62,7 @@ class _ReturnLine {
     String? lineNote,
     this.requiresSerial = false,
     List<String>? serials,
+    this.vatRate,
   })  : serials = serials ?? <String>[],
         qtyCtrl = TextEditingController(text: tr(qty.toStringAsFixed(0))),
         returnPriceCtrl = TextEditingController(text: tr(returnPrice.toStringAsFixed(0))),
@@ -90,6 +93,9 @@ class _ReturnLine {
     return (qty * price - disc).clamp(0, double.infinity);
   }
 
+  double get vatAmount =>
+      vatRate == null || vatRate! <= 0 ? 0 : (lineTotal * vatRate! / 100).roundToDouble();
+
   Map<String, dynamic> toInputJson() => {
         'productId': productId,
         if (variantId != null) 'variantId': variantId,
@@ -99,6 +105,7 @@ class _ReturnLine {
         'unitName': unitName,
         if (lineNoteCtrl.text.trim().isNotEmpty) 'lineNote': lineNoteCtrl.text.trim(),
         if (requiresSerial && serials.isNotEmpty) 'serialNumbers': serials,
+        if (vatRate != null) 'vatRate': vatRate,
       };
 
   void dispose() {
@@ -243,11 +250,14 @@ class _PosPurchaseReturnEditorScreenState
         lineNote: ln.lineNote,
         requiresSerial: ln.requiresSerial,
         serials: List<String>.from(ln.serialNumbers),
+        vatRate: ln.vatRate,
       );
       _loadVariantsForLine(line);
       _lines.add(line);
     }
-    _returnId = r.id.isEmpty ? null : r.id;
+    // Tải từ phiếu nhập: máy chủ trả Id = Guid rỗng (00000000-…) — vẫn là phiếu mới, không phải sửa phiếu có sẵn
+    // (trước đây lưu / hoàn thành gọi cập nhật vào id rỗng → «Không tìm thấy phiếu»).
+    _returnId = r.id.isEmpty || RegExp(r'^[0-]+$').hasMatch(r.id) ? null : r.id;
     _returnNo = r.returnNo;
     _returnNoCtrl.text = r.returnNo;
     _status = r.status;
@@ -315,7 +325,13 @@ class _PosPurchaseReturnEditorScreenState
   double get _refundReceived =>
       double.tryParse(_refundReceivedCtrl.text.replaceAll(',', '')) ?? 0;
 
-  double get _supplierOwed => (_linesTotal - _discountAmount).clamp(0, double.infinity);
+  /// VAT đầu vào trả lại — NCC hoàn cả phần thuế đã thu khi bán cho cửa hàng.
+  double get _linesVat => _lines.fold(0.0, (a, l) => a + l.vatAmount);
+
+  bool get _hasUnknownVat => _lines.any((l) => l.vatRate == null);
+
+  double get _supplierOwed =>
+      (_linesTotal + _linesVat - _discountAmount).clamp(0, double.infinity);
 
   double get _debtBalance => _supplierOwed - _refundReceived;
 
@@ -1133,6 +1149,12 @@ class _PosPurchaseReturnEditorScreenState
                             const Divider(height: 24),
                             _totalRow('Tổng tiền hàng (${_lines.length})',
                                 '${_moneyFmt.format(_linesTotal)} đ'),
+                            const SizedBox(height: 4),
+                            _totalRow(
+                                _hasUnknownVat
+                                    ? 'VAT đầu vào (hàng thêm tay tính khi lưu)'
+                                    : 'VAT đầu vào trả lại',
+                                '${_moneyFmt.format(_linesVat)} đ'),
                             const SizedBox(height: 8),
                             TextField(
                               controller: _discountCtrl,

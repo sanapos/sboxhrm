@@ -795,6 +795,9 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
               children: [
                 Text(tr('Tổng tiền hàng: ${_moneyFmt.format(r.totalAmount)} đ'),
                     style: const TextStyle(fontSize: 12)),
+                if (r.totalVat > 0)
+                  Text(tr('VAT đầu vào trả lại: ${_moneyFmt.format(r.totalVat)} đ'),
+                      style: const TextStyle(fontSize: 12)),
                 Text(tr('Giảm giá: ${_moneyFmt.format(r.discountAmount)} đ'),
                     style: const TextStyle(fontSize: 12)),
                 Text(tr('NCC cần trả: ${_moneyFmt.format(_supplierOwed(r))} đ'),

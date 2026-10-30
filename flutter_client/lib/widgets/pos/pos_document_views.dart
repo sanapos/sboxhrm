@@ -442,7 +442,9 @@ class PosPurchaseDocumentPaper extends StatelessWidget {
       meta: [
         ('Ngày nhập', PosDocumentViews.fmtDate(r.importDate ?? r.createdAt)),
         ('Nhà cung cấp', _supplier(r.supplierCode, r.supplierName)),
-        if ((r.inputInvoiceNo ?? '').isNotEmpty) ('Số HĐ đầu vào', r.inputInvoiceNo!),
+        if ((r.inputInvoiceNo ?? '').isNotEmpty)
+          ('Số HĐ đầu vào', [if ((r.inputInvoiceSerial ?? '').isNotEmpty) r.inputInvoiceSerial!, r.inputInvoiceNo!].join(' · ')),
+        if (r.inputInvoiceDate != null) ('Ngày HĐ', DateFormat('dd/MM/yyyy').format(r.inputInvoiceDate!)),
         if ((r.purchaseOrderNo ?? '').isNotEmpty) ('Đơn đặt hàng', r.purchaseOrderNo!),
         ('Người nhập', (r.importedBy ?? r.createdBy ?? '').isEmpty ? '—' : (r.importedBy ?? r.createdBy)!),
       ],

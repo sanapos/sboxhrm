@@ -20,7 +20,8 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
 {
     public record ReturnLineInput(
         Guid ProductId, Guid? VariantId, decimal Qty, decimal CostPrice,
-        decimal DiscountAmount, string? UnitName, string? LineNote, List<string>? SerialNumbers = null);
+        decimal DiscountAmount, string? UnitName, string? LineNote, List<string>? SerialNumbers = null,
+        decimal? VatRate = null);
 
     public record SaveReturnDto(
         Guid? SupplierId, Guid? SourceReceiptId, string? Note,
@@ -30,20 +31,22 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
     public record ReturnLineDto(
         Guid Id, Guid ProductId, Guid? VariantId, string ProductCode, string ProductName,
         string? UnitName, decimal Qty, decimal CostPrice, decimal DiscountAmount,
-        decimal LineTotal, string? LineNote, bool RequiresSerial = false, List<string>? SerialNumbers = null);
+        decimal LineTotal, string? LineNote, bool RequiresSerial = false, List<string>? SerialNumbers = null,
+        decimal VatRate = 0, decimal VatAmount = 0);
 
     public record ReturnDto(
         Guid Id, string ReturnNo, Guid? SupplierId, string? SupplierCode, string? SupplierName,
         Guid? SourceReceiptId, string? SourceReceiptNo, string Status, string? Note,
         decimal TotalQty, decimal TotalAmount, decimal DiscountAmount, decimal RefundDue, decimal RefundReceived,
         DateTime? ReturnDate, string? ReturnedBy, DateTime CreatedAt, string? CreatedBy,
-        List<ReturnLineDto> Lines);
+        List<ReturnLineDto> Lines, decimal TotalVat = 0);
 
     public record ReturnSummaryDto(
         Guid Id, string ReturnNo, Guid? SupplierId, string? SupplierCode, string? SupplierName,
         string Status, decimal TotalAmount, decimal DiscountAmount,
         decimal RefundDue, decimal RefundReceived,
-        DateTime? ReturnDate, DateTime CreatedAt, string? CreatedBy, string? ReturnedBy, int LineCount);
+        DateTime? ReturnDate, DateTime CreatedAt, string? CreatedBy, string? ReturnedBy, int LineCount,
+        decimal TotalVat = 0);
 
     [HttpGet]
     [RequireModulePermission("PosPurchaseReturns", ModulePermissionAction.View)]
@@ -112,9 +115,9 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
                 r.Supplier != null ? r.Supplier.SupplierCode : null,
                 r.Supplier != null ? r.Supplier.Name : null,
                 r.Status.ToString(), r.TotalAmount, r.DiscountAmount,
-                r.TotalAmount - r.DiscountAmount,
+                r.TotalAmount + r.TotalVat - r.DiscountAmount,
                 r.RefundReceived,
-                r.ReturnDate, r.CreatedAt, r.CreatedBy, r.ReturnedBy, r.Lines.Count))
+                r.ReturnDate, r.CreatedAt, r.CreatedBy, r.ReturnedBy, r.Lines.Count, r.TotalVat))
             .ToListAsync();
 
         return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
@@ -152,13 +155,14 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
         var lines = receipt.Lines.Select(l => new ReturnLineDto(
             Guid.Empty, l.ProductId, l.VariantId, l.ProductCode ?? "", l.ProductName, l.UnitName,
             l.Qty, l.CostPrice, l.DiscountAmount, l.LineTotal, l.LineNote, false,
-            inStock.Where(x => x.ProductId == l.ProductId).Select(x => x.SerialNumber).ToList())).ToList();
+            inStock.Where(x => x.ProductId == l.ProductId).Select(x => x.SerialNumber).ToList(),
+            l.VatRate, l.VatAmount)).ToList();
 
         var dto = new ReturnDto(
             Guid.Empty, "", receipt.SupplierId, receipt.Supplier?.SupplierCode, receipt.Supplier?.Name,
             receipt.Id, receipt.ReceiptNo, PosPurchaseReturnStatus.Draft.ToString(), null,
-            receipt.TotalQty, receipt.TotalCost, 0, receipt.TotalCost, 0,
-            DateTime.UtcNow, CurrentUserEmail, receipt.CreatedAt, receipt.CreatedBy, lines);
+            receipt.TotalQty, receipt.TotalCost, 0, receipt.TotalCost + receipt.TotalVat, 0,
+            DateTime.UtcNow, CurrentUserEmail, receipt.CreatedAt, receipt.CreatedBy, lines, receipt.TotalVat);
         return Ok(AppResponse<ReturnDto>.Success(await WithSerialFlagsAsync(dto)));
     }
 
@@ -280,7 +284,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
             src.DiscountAmount, 0, DateTime.UtcNow, CurrentUserEmail, false,
             src.Lines.Select(l => new ReturnLineInput(
                 l.ProductId, l.VariantId, l.Qty, l.CostPrice, l.DiscountAmount,
-                l.UnitName, l.LineNote, PosSerialRegistry.Parse(l.SerialNumbersText))).ToList());
+                l.UnitName, l.LineNote, PosSerialRegistry.Parse(l.SerialNumbersText), l.VatRate)).ToList());
         return await Create(dto);
     }
 
@@ -428,6 +432,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
             if (line.DiscountAmount < 0) return (null, null, "Giảm giá dòng không được âm");
             if (line.DiscountAmount > line.Qty * line.CostPrice)
                 return (null, null, "Giảm giá dòng không được lớn hơn thành tiền");
+            if (line.VatRate is < 0 or > 100) return (null, null, "Thuế suất VAT phải từ 0 đến 100%");
         }
 
         Guid? supplierId = dto.SupplierId;
@@ -473,16 +478,49 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
             : await dbContext.PosProductVariants.AsNoTracking()
                 .Where(v => variantIds.Contains(v.Id)).ToDictionaryAsync(v => v.Id);
 
+        // VAT đầu vào trả lại: thuế suất theo dòng phiếu nhập gốc (cùng hàng / biến thể); không có phiếu gốc thì theo
+        // lần nhập gần nhất của hàng đó. App gửi VatRate thì dùng số đó.
+        var srcRates = new Dictionary<(Guid ProductId, Guid? VariantId), decimal>();
+        if (dto.SourceReceiptId.HasValue)
+            foreach (var g in (await dbContext.PosStockReceiptLines.AsNoTracking()
+                         .Where(l => l.ReceiptId == dto.SourceReceiptId && l.StoreId == storeId && l.Deleted == null)
+                         .Select(l => new { l.ProductId, l.VariantId, l.VatRate, l.VatExempt })
+                         .ToListAsync()).GroupBy(l => (l.ProductId, l.VariantId)))
+                srcRates[g.Key] = g.First().VatExempt ? 0 : g.First().VatRate;
+        var missing = productIds.Where(pid => !srcRates.Keys.Any(k => k.ProductId == pid)).ToList();
+        var lastRates = new Dictionary<Guid, decimal>();
+        if (missing.Count > 0)
+            foreach (var x in await dbContext.PosStockReceiptLines.AsNoTracking()
+                         .Where(l => l.StoreId == storeId && l.Deleted == null && missing.Contains(l.ProductId)
+                             && dbContext.PosStockReceipts.Any(r => r.Id == l.ReceiptId && r.Deleted == null
+                                 && r.Status == PosPurchaseReceiptStatus.Completed))
+                         .OrderByDescending(l => l.CreatedAt)
+                         .Select(l => new { l.ProductId, Rate = l.VatExempt ? 0 : l.VatRate })
+                         .Take(500)
+                         .ToListAsync())
+                lastRates.TryAdd(x.ProductId, x.Rate);
+        decimal RateFor(ReturnLineInput l)
+        {
+            if (l.VatRate.HasValue) return l.VatRate.Value;
+            if (srcRates.TryGetValue((l.ProductId, l.VariantId), out var exact)) return exact;
+            foreach (var kv in srcRates)
+                if (kv.Key.ProductId == l.ProductId) return kv.Value;
+            return lastRates.GetValueOrDefault(l.ProductId);
+        }
+
         var lines = new List<PosPurchaseReturnLine>();
-        decimal totalQty = 0, totalAmount = 0;
+        decimal totalQty = 0, totalAmount = 0, totalVat = 0;
         foreach (var line in dto.Lines)
         {
             if (!products.TryGetValue(line.ProductId, out var p)) continue;
             PosProductVariant? variant = null;
             if (line.VariantId.HasValue) variants.TryGetValue(line.VariantId.Value, out variant);
             var lineTotal = PosPurchaseStockHelper.CalcLineTotal(line.Qty, line.CostPrice, line.DiscountAmount);
+            var vatRate = Math.Max(0, RateFor(line));
+            var vatAmount = Math.Round(lineTotal * vatRate / 100m, 0, MidpointRounding.AwayFromZero);
             totalQty += line.Qty;
             totalAmount += lineTotal;
+            totalVat += vatAmount;
             lines.Add(new PosPurchaseReturnLine
             {
                 Id = Guid.NewGuid(),
@@ -497,6 +535,8 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
                 CostPrice = line.CostPrice,
                 DiscountAmount = line.DiscountAmount,
                 LineTotal = lineTotal,
+                VatRate = vatRate,
+                VatAmount = vatAmount,
                 LineNote = line.LineNote?.Trim(),
                 SerialNumbersText = p.RequiresSerial && line.SerialNumbers is { Count: > 0 }
                     ? PosSerialRegistry.Join(line.SerialNumbers) : null,
@@ -506,14 +546,15 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
         }
         ret.TotalQty = totalQty;
         ret.TotalAmount = totalAmount;
+        ret.TotalVat = totalVat;
         // RefundDue âm = NCC «nợ ngược» cửa hàng một khoản không có thật.
         if (ret.DiscountAmount < 0) return (null, null, "Giảm giá phiếu không được âm");
         if (ret.DiscountAmount > totalAmount)
             return (null, null, "Giảm giá phiếu không được lớn hơn tổng tiền hàng");
         if (ret.RefundReceived < 0) return (null, null, "Tiền NCC hoàn không được âm");
-        if (ret.RefundReceived > totalAmount - ret.DiscountAmount)
+        if (ret.RefundReceived > totalAmount + totalVat - ret.DiscountAmount)
             return (null, null, "Tiền NCC hoàn không được lớn hơn số cần hoàn");
-        ret.RefundDue = totalAmount - ret.DiscountAmount - ret.RefundReceived;
+        ret.RefundDue = totalAmount + totalVat - ret.DiscountAmount - ret.RefundReceived;
         if (existing != null)
         {
             existing.UpdatedAt = DateTime.UtcNow;
@@ -542,6 +583,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
             lines.Select(l => new ReturnLineDto(
                 l.Id, l.ProductId, l.VariantId, l.ProductCode ?? "", l.ProductName, l.UnitName,
                 l.Qty, l.CostPrice, l.DiscountAmount, l.LineTotal, l.LineNote,
-                false, PosSerialRegistry.Parse(l.SerialNumbersText))).ToList());
+                false, PosSerialRegistry.Parse(l.SerialNumbersText), l.VatRate, l.VatAmount)).ToList(),
+            r.TotalVat);
     }
 }

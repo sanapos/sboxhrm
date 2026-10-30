@@ -508,6 +508,8 @@
   "Bảng giá = giá bán riêng cho một nhóm khách hoặc một khoảng thời gian (giá sỉ, giá VIP, ": "A price list = separate selling prices for a customer group or a period (wholesale, VIP, ",
   "Bảng giá dự phòng": "Fallback price list",
   "Bảng giá trang chủ tự lấy từ «Gói dịch vụ» có đặt giá (đang bán, hiện trên đăng ký) — sboxpos.com hiện gói Bán hàng, ": "The homepage pricing is taken from “Service packages” that have a price (on sale, shown on sign-up) — sboxpos.com shows the Sales package, ",
+  "Bảng kê VAT đầu vào": "Input VAT listing",
+  "Bảng kê hóa đơn mua vào": "Purchase invoice listing",
   "Bảng lương lệch: chưa duyệt phép/thưởng/ứng, hoặc đổi ca sau khi đã có phiếu phạt": "Payroll mismatch: leave/bonus/advance not approved, or the shift changed after a penalty ticket was issued",
   "Bảng lương đã chốt giữ nguyên. Muốn ngừng áp dụng mà giữ lịch sử, hãy tắt phụ cấp thay vì xóa.": "Finalized payrolls remain unchanged. To stop applying an allowance while keeping history, turn it off instead of deleting it.",
   "Bảng phím tắt này": "This shortcut list",
@@ -565,6 +567,7 @@
   "Bấm để sửa / xoá": "Tap to edit / delete",
   "Bấm để thêm giờ bị thiếu": "Tap to add the missing time",
   "Bấm để xem giỏ hàng": "Tap to view the cart",
+  "Bấm để xem lớn": "Tap to enlarge",
   "Bấm để xem từng đơn: giờ bán, giờ gửi, máy, người bán": "Tap to view each order: sale time, sent time, device, seller",
   "Bấm để đồng bộ lên máy": "Tap to sync to the device",
   "Bấm: sửa / xoá · Bấm đúp: chọn nhanh giờ theo ca": "Click: edit / delete · Double-click: quick-pick times by shift",
@@ -938,6 +941,7 @@
   "Chưa chọn nhân viên nào": "No employees selected",
   "Chưa chọn nhân viên nào để trả": "No employees selected to pay",
   "Chưa chọn phiếu hủy": "No cancellation voucher selected",
+  "Chưa chọn — bảng kê VAT lấy theo ngày nhập": "Not set — the VAT listing uses the receipt date",
   "Chưa chọn — bấm để liệt kê cổng đang cắm": "Not selected — tap to list connected ports",
   "Chưa chọn — bấm để liệt kê máy in đã cài trong Windows": "Not selected — tap to list printers installed in Windows",
   "Chưa chọn — hết giờ chỉ báo, không tự tính tiền quá giờ": "Not selected — only alerts when time is up, no automatic overtime charge",
@@ -2364,6 +2368,7 @@
   "Giá trị TB/đơn": "Avg. value / order",
   "Giá trị báo giá": "Quotation value",
   "Giá trị cao → thấp": "Value high → low",
+  "Giá trị chưa thuế": "Value before tax",
   "Giá trị còn lại": "Remaining value",
   "Giá trị còn lại của tài sản": "Remaining value of the asset",
   "Giá trị còn lại · số tài sản": "Remaining value · number of assets",
@@ -2593,6 +2598,7 @@
   "Gọi thanh toán": "Call for payment",
   "Gọn (tem nhỏ)": "Compact (small label)",
   "Gọn lại, tiết kiệm giấy": "Compact, saves paper",
+  "Gồm VAT": "Incl. VAT",
   "Gồm các lần đổi lương theo ngày, các lần đính chính và bản bị thay. Không có lần nào bị mất khi sửa.": "Includes salary changes by date, corrections and superseded versions. Nothing is lost when editing.",
   "Gồm các món": "Includes items",
   "Gồm cả đơn online máy chủ tự tạo vận đơn (máy này đang mở màn Đơn online).": "Including online orders for which the server auto-creates a waybill (this device has the Online orders screen open).",
@@ -3314,6 +3320,7 @@
   "Không có hàng dưới tồn tối thiểu.\nĐặt «Tồn tối thiểu» trong thông tin hàng hóa để hệ thống nhắc nhập.": "No items below minimum stock.\nSet \"Minimum stock\" in the product info so the system reminds you to restock.",
   "Không có hàng phù hợp": "No matching items",
   "Không có hàng trong nhóm này": "No goods in this group",
+  "Không có hóa đơn mua vào trong kỳ": "No purchase invoices in this period",
   "Không có hóa đơn nào trong kỳ": "No invoices in this period",
   "Không có hóa đơn trong khoảng thời gian này": "No invoices in this time range",
   "Không có hội viên cần nhắc": "No members to remind",
@@ -3786,6 +3793,7 @@
   "Ký hiệu": "Series",
   "Ký hiệu (Serial) — thường để trống": "Series (Serial) — usually left blank",
   "Ký hiệu (serial)": "Series (serial)",
+  "Ký hiệu HĐ": "Invoice series",
   "Ký hiệu hóa đơn (InvSeries)": "Invoice series (InvSeries)",
   "Ký hiệu đầy đủ như trên meInvoice, vd. 1C25TAA (HĐ có mã) hoặc 1C25MAA (máy tính tiền). ": "Enter the full series as in meInvoice, e.g. 1C25TAA (coded invoice) or 1C25MAA (cash register). ",
   "Ký lại": "Re-sign",
@@ -3819,6 +3827,7 @@
   "Kỳ này chưa có chỉ tiêu / kết quả KPI": "No KPI targets / results for this period",
   "Kỳ này chưa có lịch làm việc nào — không có gì để đối chiếu.": "No work schedule for this period — nothing to reconcile.",
   "Kỳ này có hơn 5.000 vận đơn — danh sách bị cắt, hãy thu hẹp khoảng ngày.": "This period has over 5,000 waybills — the list is truncated, narrow the date range.",
+  "Kỳ theo ngày hóa đơn; phiếu chưa ghi ngày HĐ lấy ngày nhập": "Period by invoice date; receipts without an invoice date use the receipt date",
   "Kỳ trước": "Previous period",
   "Kỳ trước chưa có dữ liệu": "No data for the previous period",
   "Kỳ vọng (× điểm/10)": "Expected (× score/10)",
@@ -4754,6 +4763,8 @@
   "Ngày 10": "Day 10",
   "Ngày 15": "Day 15",
   "Ngày 20": "Day 20",
+  "Ngày HĐ": "Invoice date",
+  "Ngày HĐ đầu vào": "Input invoice date",
   "Ngày bắt đầu, giờ ước tính, địa điểm, khách hàng, tiền khoán, check-in GPS": "Start date, estimated time, location, customer, contract fee, GPS check-in",
   "Ngày chốt: Tổng hợp theo ca → Tính lương → gửi phiếu lương trên app cho NV kiểm tra": "Closing day: Summary by shift → Calculate payroll → send payslips in the app for employees to check",
   "Ngày có cột cao = nhiều đơn bất thường — đối chiếu lịch ca xem ai làm hôm đó.": "A tall bar = many unusual orders that day — check the schedule to see who worked.",
@@ -5185,6 +5196,7 @@
   "Phiếu chi được ghi vào Thu chi, nhân viên nhận thông báo.": "The payment voucher is recorded in Income & expense and the employee gets a notification.",
   "Phiếu chi: ": "Payment voucher: ",
   "Phiếu chưa được tiếp nhận sẽ bị xoá và không thể khôi phục.": "Slips that have not been accepted will be deleted and cannot be restored.",
+  "Phiếu có VAT chưa ghi số HĐ": "Receipts with VAT but no invoice number",
   "Phiếu có thể đã in": "Ticket may have printed",
   "Phiếu giao hàng": "Delivery slip",
   "Phiếu gần đây": "Recent slips",
@@ -5967,6 +5979,7 @@
   "Theo số lượng": "By quantity",
   "Theo số tiền": "By amount",
   "Theo thiết lập máy in (bỏ mẫu nhớ riêng)": "Follow printer settings (drop the individually saved template)",
+  "Theo thuế suất": "By tax rate",
   "Theo thuế suất hàng hóa": "By product tax rate",
   "Theo thợ": "By technician",
   "Theo thứ trong tuần": "By weekday",
@@ -6019,6 +6032,7 @@
   "Thiếu nhân viên": "Short of staff",
   "Thiếu nhóm hàng": "Missing product category",
   "Thiếu seri": "Missing serial",
+  "Thiếu số hóa đơn": "Missing invoice numbers",
   "Thiếu số tài khoản / ngân hàng — không chuyển được. Bỏ qua hoặc trả tiền mặt.": "Missing account number / bank — cannot transfer. Skip or pay in cash.",
   "Thiếu tài khoản nhận tiền": "Missing receiving account",
   "Thiếu ĐVT": "Missing unit",
@@ -7232,6 +7246,9 @@
   "VA mặc định (mua gói credit)": "Default VA (buy credit package)",
   "VAT theo mặt hàng": "VAT by item",
   "VAT theo từng mặt hàng": "VAT per item",
+  "VAT đầu vào": "Input VAT",
+  "VAT đầu vào (hàng thêm tay tính khi lưu)": "Input VAT (manually added items calculated on save)",
+  "VAT đầu vào trả lại": "Input VAT returned",
   "VD 30 — trống = không": "E.g. 30 — empty = none",
   "VD 4 (= 1 giờ)": "E.g. 4 (= 1 hour)",
   "VD: 1.500.000 — để trống nếu không áp": "E.g. 1.500.000 — leave empty if not applied",
@@ -7629,6 +7646,8 @@
   "bây giờ": "now",
   "bạn": "you",
   "bản in vẫn giữ nội dung đã sửa. Vào «Lịch sử / Khôi phục theo mẫu» để cập nhật.": "The printout keeps the edited content. Go to «History / Restore from template» to update.",
+  "bảng chấm công": "timesheet",
+  "bảng công": "attendance summary",
   "bảo hiểm xã hội": "social insurance",
   "bảo hiểm y tế": "health insurance",
   "bắt buộc ảnh": "Photo required",
@@ -7681,6 +7700,7 @@
   "công nợ khách": "customer debt",
   "công nợ khách kèm 1–2 gợi ý của AI": "customer debts, plus 1–2 AI tips",
   "công nợ ncc": "supplier debt",
+  "công tháng": "monthly attendance",
   "công. Nó đọc dữ liệu chấm công qua cổng 4370 rồi đẩy lên máy chủ, ": "work day. It reads attendance data through port 4370 and pushes it to the server, ",
   "cùng kỳ tháng trước": "same period last month",
   "cơ sở": "base",
@@ -7891,8 +7911,10 @@
   "order chậm. Xem «Việc nên làm» bên dưới.": "slow orders. See “To-do” below.",
   "order tại bàn": "table ordering",
   "phiếu bếp": "kitchen ticket",
+  "phiếu chi": "payment voucher",
   "phiếu chi danh mục «Mua tài sản» không tính chi phí. Cọc khách bỏ = cọc khách hủy / không đến. ": "payment vouchers in the “Asset purchase” category are not counted as expense. Forfeited customer deposit = deposit of a customer who cancelled / did not show up. ",
   "phiếu nhập": "purchase receipt",
+  "phiếu thu": "receipt voucher",
   "phiếu đang chờ trong Hàng đợi in. Kiểm tra nguồn / mạng máy in.": "tickets are waiting in the Print queue. Check the printer power / network.",
   "phát sinh": "incurred",
   "phép tồn": "leave balance",
@@ -7913,6 +7935,7 @@
   "quá giờ": "overtime",
   "quán": "shop",
   "quên chấm công": "forgot to punch",
+  "quỹ tiền mặt": "cash fund",
   "ra món": "item served",
   "riêng": "separate",
   "riêng chi nhánh": "branch-specific",
@@ -8005,6 +8028,7 @@
   "tối thiểu": "minimum",
   "tối đa": "maximum",
   "tồn kho thấp": "low stock",
+  "tồn quỹ": "fund balance",
   "tồn âm": "negative stock",
   "tổng giá trị": "total value",
   "tổng kết": "summary",
@@ -8032,6 +8056,8 @@
   "vừa thay đổi ở máy khác": "just changed on another device",
   "vừa xong": "just now",
   "xem báo cáo": "view report",
+  "xuất": "export",
+  "xuất ảnh": "export image",
   "xăng xe": "fuel & transport",
   "xếp ca": "scheduling",
   "xếp thiếu": "Understaffed",
@@ -8579,6 +8605,7 @@
   "Đã trả nợ NCC": "Supplier debt repaid",
   "Đã trừ 1 buổi": "1 session deducted",
   "Đã trừ HĐ hôm nay": "Deducted from today's invoice",
+  "Đã trừ VAT hàng trả NCC": "Net of VAT on supplier returns",
   "Đã trừ phần giảm giá / voucher của hoá đơn theo tỉ lệ.": "The invoice discount / voucher has been deducted proportionally.",
   "Đã trừ vào HĐ": "Deducted from invoice",
   "Đã trừ vào đơn": "Deducted from order",
@@ -8734,6 +8761,7 @@
   "Đơn giá giờ tính theo": "Hourly rate based on",
   "Đơn giá một giờ đi đường": "Rate per hour of travel",
   "Đơn giá ngày = lương tháng ÷ số công cố định": "Daily rate = monthly salary ÷ fixed number of work days",
+  "Đơn giá đã bao gồm thuế": "Unit price includes tax",
   "Đơn giá đã gồm thuế GTGT": "Unit price includes VAT",
   "Đơn hàng, nhập hàng, tồn kho thấp, đơn QR": "Orders, purchases, low stock, QR orders",
   "Đơn hàng: tra cứu, in lại, hủy (đúng quyền). Trả hàng: menu «Trả hàng bán», chọn đơn gốc và số lượng trả": "Orders: look up, reprint, cancel (with permission). Returns: “Sales return” menu, pick the original order and quantity returned",
@@ -8802,6 +8830,7 @@
   "Đầu ca: màn bán hàng → Menu ⋮ → Ca thu ngân → Mở ca (nhập tiền đầu ca)": "Start of shift: sales screen → Menu ⋮ → Cashier shift → Open shift (enter opening cash)",
   "Đầu kỳ": "Opening",
   "Đầu kỳ + thu − chi": "Opening + income − expense",
+  "Đầu kỳ / ĐC": "Opening / adj.",
   "Đầu mã của cân": "Scale code prefix",
   "Đầu mã không hợp lệ": "Invalid code prefix",
   "Đầu tháng": "Start of month",
@@ -9013,6 +9042,7 @@
   "Đủ dưới 5 ngày / dưới tồn tối thiểu": "Under 5 days of stock / below minimum stock",
   "Đủ hàng": "Fully stocked",
   "Đủ người": "Fully staffed",
+  "Đủ số hóa đơn": "All invoice numbers entered",
   "Đủ điều kiện phụ cấp": "Eligible for allowance",
   "Đứng nơi đủ sáng, nhìn thẳng vào camera": "Stand in a well-lit place and look straight at the camera",
   "đ": "đ",
@@ -9215,6 +9245,9 @@
   "− Hoàn tiền trả hàng": "− Return refund",
   "⏱ Chưa tính giờ": "⏱ Time not counted",
   "① Bạn gửi yêu cầu đổi ca với đồng nghiệp.\n": "① You send a shift swap request to a coworker.\n",
+  "① Bấm «Thêm ca» để tạo ca mới. ② Nút ba chấm trên từng ca: sửa, nhân bản, ngừng dùng.": "① Tap «Add shift» to create a new shift. ② The three-dot button on each shift: edit, duplicate, deactivate.",
+  "① Miễn trễ và giới hạn đi trễ. ② Miễn về sớm và giới hạn về sớm. ③ Số phút ra sớm / về muộn mới tính tăng ca.": "① Late grace and late limit. ② Early-leave grace and early-leave limit. ③ Minutes of early arrival / late leave before overtime counts.",
+  "① Nhập tên ca. ② Chọn giờ vào – giờ ra (giờ ra nhỏ hơn giờ vào là ca qua đêm). ③ Hoặc bấm một mẫu ca có sẵn.": "① Enter the shift name. ② Choose clock-in – clock-out times (clock-out earlier than clock-in means an overnight shift). ③ Or tap a ready-made shift template.",
   "① Đăng ký hội viên lên máy chấm công (tab «Hội viên trên máy»), lấy vân tay / khuôn mặt / thẻ.\n": "① Enroll the member on the attendance device (“Members on device” tab) and capture fingerprint / face / card.\n",
   "② Hội viên quét trên máy khi vào và khi ra — lượt tập tự hiện ở đây.\n": "② Members scan on the device when entering and leaving — the visit shows up here automatically.\n",
   "② Đồng nghiệp chấp nhận hoặc từ chối trên tab「Cần phản hồi」.\n": "② The coworker accepts or declines in the “Needs reply” tab.\n",
@@ -10219,6 +10252,10 @@
   [
    "COD quá 7 ngày chưa đối soát: {0} đơn · {1}đ",
    "COD unreconciled for over 7 days: {0} orders · {1}đ"
+  ],
+  [
+   "COUNTIF({0}:{1},\"<>\")&\" ngày\"",
+   "COUNTIF({0}:{1},\"<>\")&\" days\""
   ],
   [
    "Ca chỉ có {0} làm việc.",
@@ -12307,6 +12344,10 @@
   [
    "Hình thức: {0}",
    "Method: {0}"
+  ],
+  [
+   "Hóa đơn mua vào ({0})",
+   "Purchase invoices ({0})"
   ],
   [
    "Hóa đơn trên {0}",
@@ -17125,6 +17166,10 @@
    "USB: {0} changed port → {1}"
   ],
   [
+   "VAT đầu vào trả lại: {0} đ",
+   "Input VAT returned: {0} đ"
+  ],
+  [
    "Vai trò {0}",
    "Role {0}"
   ],
@@ -17299,6 +17344,10 @@
   [
    "Xem thêm ({0}/{1})",
    "See more ({0}/{1})"
+  ],
+  [
+   "Xem thêm {0} dòng",
+   "Show {0} more rows"
   ],
   [
    "Xem thêm {0} phiếu",
@@ -17711,6 +17760,10 @@
   [
    "bảo lưu đến {0}",
    "reserved until {0}"
+  ],
+  [
+   "cells/cellKeys lệch: {0} vs {1}",
+   "cells/cellKeys mismatch: {0} vs {1}"
   ],
   [
    "cho tối đa 100 đơn trong khoảng «{0}».",
@@ -18391,6 +18444,10 @@
   [
    "{0} chứng từ gần nhất",
    "{0} most recent vouchers"
+  ],
+  [
+   "{0} chứng từ · chưa thuế {1}",
+   "{0} documents · before tax {1}"
   ],
   [
    "{0} có app",
@@ -19289,6 +19346,14 @@
    "{0} payslips"
   ],
   [
+   "{0} phiếu nhập có VAT nhưng chưa ghi số hóa đơn đầu vào — bổ sung trong phiếu nhập để đủ chứng từ khấu trừ: ",
+   "{0} receipts have VAT but no input invoice number — add it on the receipt so it can be deducted: "
+  ],
+  [
+   "{0} phiếu nhập · {1} trả NCC",
+   "{0} receipts · {1} supplier returns"
+  ],
+  [
    "{0} phiếu phạt",
    "{0} penalty tickets"
   ],
@@ -19615,6 +19680,10 @@
   [
    "{0} {1} yêu cầu",
    "{0} {1} requests"
+  ],
+  [
+   "{0} {1} · {2} · chưa thuế {3}",
+   "{0} {1} · {2} · before tax {3}"
   ],
   [
    "{0} {1} × {2} đ",

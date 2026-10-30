@@ -120,6 +120,9 @@ internal static class PosPurchaseReceiptBuilder
         receipt.SupplierId = dto.SupplierId;
         receipt.Note = dto.Note?.Trim();
         receipt.InputInvoiceNo = dto.InputInvoiceNo?.Trim();
+        receipt.InputInvoiceDate = dto.InputInvoiceDate?.Date;
+        var serial = dto.InputInvoiceSerial?.Trim();
+        receipt.InputInvoiceSerial = string.IsNullOrEmpty(serial) ? null : serial.Length > 20 ? serial[..20] : serial;
         receipt.PurchaseOrderNo = dto.PurchaseOrderNo?.Trim();
         receipt.DiscountAmount = dto.DiscountAmount;
         receipt.DiscountIsPercent = dto.DiscountIsPercent;

@@ -37,6 +37,10 @@ public class PosPurchaseReturnLine : AuditableEntity<Guid>
     public decimal CostPrice { get; set; }
     public decimal DiscountAmount { get; set; }
     public decimal LineTotal { get; set; }
+    /// <summary>Thuế suất VAT đầu vào của hàng trả (theo dòng phiếu nhập gốc).</summary>
+    public decimal VatRate { get; set; }
+    /// <summary>Tiền VAT đầu vào trả lại (= LineTotal × VatRate / 100).</summary>
+    public decimal VatAmount { get; set; }
 
     [MaxLength(500)]
     public string? LineNote { get; set; }

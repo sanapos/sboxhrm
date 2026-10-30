@@ -1671,6 +1671,8 @@ public partial class PosReportsController(
             sumDebt31To60 = items.Sum(x => x.debt31To60),
             sumDebt61To90 = items.Sum(x => x.debt61To90),
             sumDebtOver90 = items.Sum(x => x.debtOver90),
+            // Nợ không gắn đơn (nhập nợ đầu kỳ / điều chỉnh) — không có tuổi nợ; trước đây biểu đồ tuổi nợ bỏ sót phần này.
+            sumDebtOther = items.Sum(x => x.debtOther),
             page = paged ? pageNo : (int?)null,
             pageSize = paged ? size : (int?)null,
             items = paged ? items.Skip((pageNo - 1) * size).Take(size).ToList() : items,

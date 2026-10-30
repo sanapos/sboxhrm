@@ -34,7 +34,8 @@ public class PosPurchaseReceiptsController(
         Guid? SupplierId, string? Note, string? InputInvoiceNo, string? PurchaseOrderNo,
         decimal DiscountAmount, bool DiscountIsPercent, decimal DiscountInput,
         decimal PaidAmount, DateTime? ImportDate, string? ImportedBy,
-        bool Complete, string? ReceiptNo, string? PaymentMethod, List<ReceiptLineInput> Lines);
+        bool Complete, string? ReceiptNo, string? PaymentMethod, List<ReceiptLineInput> Lines,
+        DateTime? InputInvoiceDate = null, string? InputInvoiceSerial = null);
 
     public record ReceiptLineDto(
         Guid Id, Guid ProductId, Guid? VariantId, string ProductCode, string ProductName,
@@ -51,14 +52,16 @@ public class PosPurchaseReceiptsController(
         bool DiscountIsPercent, decimal DiscountInput,
         decimal PaidAmount, decimal GrandTotal, decimal BalanceDue,
         DateTime? ImportDate, string? ImportedBy, DateTime CreatedAt, string? CreatedBy,
-        List<ReceiptLineDto> Lines);
+        List<ReceiptLineDto> Lines,
+        DateTime? InputInvoiceDate = null, string? InputInvoiceSerial = null);
 
     public record ReceiptSummaryDto(
         Guid Id, string ReceiptNo, Guid? SupplierId, string? SupplierCode, string? SupplierName,
         string Status, decimal TotalCost, decimal TotalVat, decimal DiscountAmount,
         decimal GrandTotal, decimal PaidAmount, decimal BalanceDue,
         string? InputInvoiceNo, string? ImportedBy,
-        DateTime? ImportDate, DateTime CreatedAt, string? CreatedBy, int LineCount);
+        DateTime? ImportDate, DateTime CreatedAt, string? CreatedBy, int LineCount,
+        DateTime? InputInvoiceDate = null, string? InputInvoiceSerial = null);
 
     public record PaymentDto(Guid Id, string PaymentNo, decimal Amount, string PaymentMethod,
         DateTime PaidAt, string? Note, string? CreatedBy);
@@ -140,7 +143,8 @@ public class PosPurchaseReceiptsController(
                 r.PaidAmount,
                 r.TotalCost + r.TotalVat - r.DiscountAmount - r.PaidAmount,
                 r.InputInvoiceNo, r.ImportedBy,
-                r.ImportDate, r.CreatedAt, r.CreatedBy, r.Lines.Count))
+                r.ImportDate, r.CreatedAt, r.CreatedBy, r.Lines.Count,
+                r.InputInvoiceDate, r.InputInvoiceSerial))
             .ToListAsync();
 
         return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
@@ -527,6 +531,7 @@ public class PosPurchaseReceiptsController(
                     l.LotNo, l.ManufactureDate, l.ExpiryDate,
                     flags.TrackExpiry, flags.AllowDecimalQty, flags.RequiresSerial,
                     PosSerialRegistry.Parse(l.SerialNumbersText));
-            }).ToList());
+            }).ToList(),
+            r.InputInvoiceDate, r.InputInvoiceSerial);
     }
 }

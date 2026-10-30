@@ -148,7 +148,7 @@ public class PosPurchaseSuppliersController(ZKTecoDbContext dbContext) : Authent
             .Take(100)
             .Select(r => new SupplierHistoryItemDto(
                 "Return", r.Id, r.ReturnNo, r.ReturnDate ?? r.CreatedAt,
-                r.TotalAmount - r.DiscountAmount, r.Status.ToString()))
+                r.TotalAmount + r.TotalVat - r.DiscountAmount, r.Status.ToString()))
             .ToListAsync();
 
         // Các lần trả tiền nhà cung cấp (trước đây lịch sử không có → không đối chiếu được công nợ).

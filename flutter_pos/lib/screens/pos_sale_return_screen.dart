@@ -527,8 +527,8 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
           ),
           const SizedBox(height: 6),
           Text(tr('${tr('Khách: ')}${o.customerName ?? 'Khách lẻ'}')),
-          if ((o.soldBy ?? o.createdBy)?.isNotEmpty == true)
-            Text(tr('NV: ${o.soldBy ?? o.createdBy}'),
+          if (o.sellerLabel != null)
+            Text(tr('NV: ${o.sellerLabel}'),
                 style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
           const SizedBox(height: 8),
           Row(
@@ -845,7 +845,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                       const Icon(Icons.search, size: 18, color: PosTheme.textSecondary),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(tr('${tr('Trả hàng / ')}${o.orderNo} — ${o.soldBy ?? o.createdBy ?? ''}'),
+                        child: Text(tr('${tr('Trả hàng / ')}${o.orderNo} — ${o.sellerLabel ?? ''}'),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -1003,7 +1003,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(tr(o.soldBy ?? o.createdBy ?? '—'),
+          Text(tr(o.sellerLabel ?? '—'),
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
           // Giờ bán (không phải giờ mở bàn/tạo đơn tạm) — khớp danh sách hóa đơn.
           if ((o.saleDate ?? o.createdAt) != null)

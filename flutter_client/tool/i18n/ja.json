@@ -1211,6 +1211,8 @@
   "Bảng giá dự phòng": "予備の価格表",
   "Bảng giá mới": "新しい価格表",
   "Bảng giá trang chủ tự lấy từ «Gói dịch vụ» có đặt giá (đang bán, hiện trên đăng ký) — sboxpos.com hiện gói Bán hàng, ": "トップページの料金表は、価格が設定された「サービスパッケージ」(販売中、登録画面に表示)から自動取得されます — sboxpos.comには販売パッケージが表示されます、 ",
+  "Bảng kê VAT đầu vào": "仕入消費税明細",
+  "Bảng kê hóa đơn mua vào": "仕入請求書明細",
   "Bảng lương": "給与明細一覧",
   "Bảng lương chi tiết nhân viên": "従業員別の詳細給与明細一覧",
   "Bảng lương có thể trừ theo phút trễ đã tổng hợp (tùy cấu hình kỳ)": "給与明細一覧では集計済みの遅刻分数を控除できます(期間設定による)",
@@ -1315,6 +1317,7 @@
   "Bấm để tìm và chọn...": "押して検索・選択...",
   "Bấm để xem chi tiết": "押して詳細を表示",
   "Bấm để xem giỏ hàng": "押してカートを表示",
+  "Bấm để xem lớn": "タップして拡大",
   "Bấm để xem từng đơn: giờ bán, giờ gửi, máy, người bán": "タップして注文ごとに表示: 販売時刻、送信時刻、端末、販売者",
   "Bấm để đồng bộ lên máy": "タップして端末に同期",
   "Bấm: sửa / xoá · Bấm đúp: chọn nhanh giờ theo ca": "タップ: 編集 / 削除 · ダブルタップ: シフトごとに時間をすばやく選択",
@@ -2066,6 +2069,7 @@
   "Chưa chọn sheet nào": "シートが選択されていません",
   "Chưa chọn sản phẩm": "商品未選択",
   "Chưa chọn ảnh": "画像未選択",
+  "Chưa chọn — bảng kê VAT lấy theo ngày nhập": "未選択 — 消費税明細は仕入日を使用",
   "Chưa chọn — bấm để chọn": "未選択 — 押して選択",
   "Chưa chọn — bấm để liệt kê cổng USB đang cắm": "未選択 — 押して接続中のUSBポートを一覧表示",
   "Chưa chọn — bấm để liệt kê cổng đang cắm": "未選択 — タップして接続中のポート一覧を表示",
@@ -5189,6 +5193,7 @@
   "Giá trị VNĐ": "VNĐ値",
   "Giá trị báo giá": "見積金額",
   "Giá trị cao → thấp": "金額の高い順",
+  "Giá trị chưa thuế": "税抜金額",
   "Giá trị còn lại": "残存価値",
   "Giá trị còn lại của tài sản": "資産の残存価値",
   "Giá trị còn lại · số tài sản": "残存価値 · 資産数",
@@ -5601,6 +5606,7 @@
   "Gọn (tem nhỏ)": "コンパクト (小型ラベル)",
   "Gọn lại, tiết kiệm giấy": "コンパクトにして用紙を節約",
   "Gốc": "元",
+  "Gồm VAT": "税込",
   "Gồm các lần đổi lương theo ngày, các lần đính chính và bản bị thay. Không có lần nào bị mất khi sửa.": "日付ごとの給与変更、訂正、置き換えられた版を含みます。修正しても失われるものはありません。",
   "Gồm các món": "含まれるメニュー",
   "Gồm cả đơn online máy chủ tự tạo vận đơn (máy này đang mở màn Đơn online).": "サーバーが自動で送り状を作成したオンライン注文を含みます（この端末でオンライン注文画面を開いている場合）。",
@@ -7005,6 +7011,7 @@
   "Không có hàng trong bộ lọc": "フィルターに該当する商品がありません",
   "Không có hàng trong nhóm này": "このカテゴリに商品がありません",
   "Không có hàng để in tem": "ラベルを印刷する商品がありません",
+  "Không có hóa đơn mua vào trong kỳ": "この期間の仕入請求書はありません",
   "Không có hóa đơn nào trong kỳ": "この期間に伝票がありません",
   "Không có hóa đơn phù hợp": "一致する伝票がありません",
   "Không có hóa đơn trong khoảng thời gian này": "この期間に伝票がありません",
@@ -8378,6 +8385,7 @@
   "Ký hiệu": "記号",
   "Ký hiệu (Serial) — thường để trống": "記号 (Serial) — 通常は空欄",
   "Ký hiệu (serial)": "記号 (serial)",
+  "Ký hiệu HĐ": "請求書記号",
   "Ký hiệu hóa đơn (InvSeries)": "請求書の記号 (InvSeries)",
   "Ký hiệu hóa đơn (Pattern)": "請求書記号（Pattern）",
   "Ký hiệu hóa đơn (invoiceSeries)": "請求書記号（invoiceSeries）",
@@ -8451,6 +8459,7 @@
   "Kỳ này chưa có chỉ tiêu / kết quả KPI": "この期間にKPI目標/結果はありません",
   "Kỳ này chưa có lịch làm việc nào — không có gì để đối chiếu.": "この期間に勤務スケジュールがありません — 照合する内容がありません。",
   "Kỳ này có hơn 5.000 vận đơn — danh sách bị cắt, hãy thu hẹp khoảng ngày.": "今期は送り状が5,000件を超えています — 一覧が切り詰められています。日付範囲を絞ってください。",
+  "Kỳ theo ngày hóa đơn; phiếu chưa ghi ngày HĐ lấy ngày nhập": "期間は請求書日付基準。請求書日付のない仕入は仕入日を使用",
   "Kỳ trước": "前期",
   "Kỳ trước chưa có dữ liệu": "前期のデータはありません",
   "Kỳ vọng": "期待値",
@@ -10557,6 +10566,8 @@
   "Ngày Dương lịch": "太陽暦の日",
   "Ngày GD": "取引日",
   "Ngày Giải phóng miền Nam": "南部解放記念日",
+  "Ngày HĐ": "請求書日付",
+  "Ngày HĐ đầu vào": "仕入請求書日付",
   "Ngày Quốc khánh": "建国記念日（ナショナルデー）",
   "Ngày Quốc tế Lao động": "国際労働者の日（メーデー）",
   "Ngày TT": "支払日",
@@ -11561,6 +11572,7 @@
   "Phiếu chưa được tiếp nhận sẽ bị xoá và không thể khôi phục.": "受付されていない伝票は削除され、復元できません。",
   "Phiếu chế biến": "調理伝票",
   "Phiếu chờ thanh toán": "会計待ちの伝票",
+  "Phiếu có VAT chưa ghi số HĐ": "消費税ありで請求書番号未入力の仕入",
   "Phiếu có thể đã in": "伝票が既に印刷された可能性あり",
   "Phiếu dịch vụ": "サービス伝票",
   "Phiếu giao hàng": "配送伝票",
@@ -13386,6 +13398,7 @@
   "Theo sự kiện": "イベント別",
   "Theo thanh toán": "支払い別",
   "Theo thiết lập máy in (bỏ mẫu nhớ riêng)": "プリンター設定に従う (個別保存のテンプレートを解除)",
+  "Theo thuế suất": "税率別",
   "Theo thuế suất hàng hóa": "商品の税率別",
   "Theo tháng": "月別",
   "Theo thời gian, nhân viên, hạn mục, trạng thái": "期間、従業員、項目、ステータス別",
@@ -13595,6 +13608,7 @@
   "Thiếu ra": "退勤がありません",
   "Thiếu ra ca lúc 13:15": "13:15のシフトの退勤がありません",
   "Thiếu seri": "シリアルなし",
+  "Thiếu số hóa đơn": "請求書番号の未入力",
   "Thiếu số tiền": "金額がありません",
   "Thiếu số tài khoản / ngân hàng — không chuyển được. Bỏ qua hoặc trả tiền mặt.": "口座番号 / 銀行情報がないため振込できません。スキップするか、現金で支払ってください。",
   "Thiếu thiết lập POS": "POS設定がありません",
@@ -16449,6 +16463,9 @@
   "VAT cộng thêm trên tổng tiền hàng sau chiết khấu": "割引後の商品合計にVATを加算",
   "VAT theo mặt hàng": "商品別VAT",
   "VAT theo từng mặt hàng": "商品ごとのVAT",
+  "VAT đầu vào": "仕入消費税",
+  "VAT đầu vào (hàng thêm tay tính khi lưu)": "仕入消費税（手動追加の商品は保存時に計算）",
+  "VAT đầu vào trả lại": "返品分の仕入消費税",
   "VD 30 — trống = không": "例：30 — 空欄 = なし",
   "VD 4 (= 1 giờ)": "例：4（= 1時間）",
   "VD tháng 30 ngày, nghỉ CN → công chuẩn ≈ 26 (tùy tháng)": "例：30日の月で日曜休み → 基準出勤日数 ≈ 26（月による）",
@@ -17525,6 +17542,8 @@
   "bản in vẫn giữ nội dung đã sửa. Vào «Lịch sử / Khôi phục theo mẫu» để cập nhật.": "印刷物は編集した内容のまま保持されます。「履歴 / テンプレートから復元」で更新してください。",
   "bản sao": "コピー",
   "bản đồ": "地図",
+  "bảng chấm công": "勤務表",
+  "bảng công": "勤怠集計",
   "bảng lương": "給与明細一覧",
   "bảo hiểm": "保険",
   "bảo hiểm xã hội": "社会保険",
@@ -17661,6 +17680,7 @@
   "công nợ khách": "顧客の未収金",
   "công nợ khách kèm 1–2 gợi ý của AI": "顧客売掛金とAIの提案1〜2件",
   "công nợ ncc": "仕入先買掛金",
+  "công tháng": "月次勤怠",
   "công tác": "出張",
   "công tác phí": "出張費",
   "công việc": "タスク",
@@ -18173,6 +18193,7 @@
   "phiếu": "伝票",
   "phiếu bếp": "キッチン伝票",
   "phiếu bếp in qua Agent, thanh toán vẫn tại quầy.": "厨房伝票はAgent経由で印刷され、会計はレジで行います。",
+  "phiếu chi": "出金伝票",
   "phiếu chi danh mục «Mua tài sản» không tính chi phí. Cọc khách bỏ = cọc khách hủy / không đến. ": "「資産購入」カテゴリの出金伝票は費用に含まれません。お客様放棄の保証金＝お客様がキャンセルまたは来店されなかった保証金。 ",
   "phiếu chờ duyệt": "承認待ち伝票",
   "phiếu lương": "給与明細",
@@ -18180,6 +18201,7 @@
   "phiếu nhập kho": "入庫伝票",
   "phiếu phạt": "罰金伝票",
   "phiếu phạt đã chọn? Hệ thống sẽ tạo phiếu thu tương ứng cho từng phiếu": "選択した罰金伝票？各伝票に対応する入金伝票をシステムが作成します",
+  "phiếu thu": "入金伝票",
   "phiếu thưởng": "賞与伝票",
   "phiếu trả hàng": "返品伝票",
   "phiếu tới": "伝票の宛先",
@@ -18232,6 +18254,7 @@
   "quên mật khẩu": "パスワードを忘れた場合",
   "quỹ": "資金",
   "quỹ phép": "休暇枠",
+  "quỹ tiền mặt": "現金出納",
   "ra món": "料理提供",
   "riêng": "個別",
   "riêng chi nhánh": "支店別",
@@ -18440,6 +18463,7 @@
   "tối đa": "最大",
   "tồn kho": "在庫",
   "tồn kho thấp": "在庫少",
+  "tồn quỹ": "資金残高",
   "tồn âm": "マイナス在庫",
   "tổ chức": "組織",
   "tổng": "合計",
@@ -18513,7 +18537,9 @@
   "vừa xong": "たった今",
   "xem báo cáo": "レポートを見る",
   "xung đột": "競合",
+  "xuất": "エクスポート",
   "xuất excel": "Excel出力",
+  "xuất ảnh": "画像エクスポート",
   "xác nhận lệnh cửa": "ドアコマンドの確認",
   "xác nhận địa điểm chấm công": "打刻場所の確認",
   "xóa lịch làm": "勤務スケジュールを削除",
@@ -19737,6 +19763,7 @@
   "Đã trừ 1 buổi": "1回分差し引きました",
   "Đã trừ HĐ": "伝票から差引済み",
   "Đã trừ HĐ hôm nay": "本日の伝票から差し引きました",
+  "Đã trừ VAT hàng trả NCC": "仕入先返品分の消費税を差引済み",
   "Đã trừ buổi": "回数を差引済み",
   "Đã trừ phép năm": "年次有給から差引済み",
   "Đã trừ phần giảm giá / voucher của hoá đơn theo tỉ lệ.": "伝票の割引 / バウチャーを按分して差し引きました。",
@@ -20203,6 +20230,7 @@
   "Đơn giá ngày = lương tháng ÷ số công cố định": "日額＝月給÷固定出勤日数",
   "Đơn giá ngày ổn định theo N công (mặc định 26)": "日額単価はN日換算で固定 (既定26)",
   "Đơn giá theo giờ (VNĐ/giờ)": "時間単価 (VNĐ/時間)",
+  "Đơn giá đã bao gồm thuế": "単価は税込",
   "Đơn giá đã gồm thuế GTGT": "単価はVAT込み",
   "Đơn hiện tại": "現在の注文",
   "Đơn hoàn thành": "完了した注文",
@@ -20343,6 +20371,7 @@
   "Đầu ca: màn bán hàng → Menu ⋮ → Ca thu ngân → Mở ca (nhập tiền đầu ca)": "シフト開始：販売画面 → メニュー ⋮ → レジ担当シフト → シフト開始（開始時の釣銭を入力）",
   "Đầu kỳ": "期首",
   "Đầu kỳ + thu − chi": "期首＋入金−出金",
+  "Đầu kỳ / ĐC": "期首 / 調整",
   "Đầu mã của cân": "はかりコードの先頭",
   "Đầu mã không hợp lệ": "コードの先頭部分が正しくありません",
   "Đầu tháng": "月初",
@@ -20766,6 +20795,7 @@
   "Đủ dưới 5 ngày / dưới tồn tối thiểu": "5日未満 / 最低在庫未満",
   "Đủ hàng": "在庫十分",
   "Đủ người": "人員充足",
+  "Đủ số hóa đơn": "請求書番号はすべて入力済み",
   "Đủ điều kiện phụ cấp": "手当の支給条件を満たす",
   "Đứng nơi đủ sáng, nhìn thẳng vào camera": "明るい場所に立ち、カメラをまっすぐ見てください",
   "đ": "đ",
@@ -21257,7 +21287,10 @@
   "① Bạn gửi yêu cầu đổi ca với đồng nghiệp": "① 同僚にシフト交代の依頼を送ります",
   "① Bạn gửi yêu cầu đổi ca với đồng nghiệp.": "① 同僚にシフト交代の依頼を送ります。",
   "① Bạn gửi yêu cầu đổi ca với đồng nghiệp.\n": "① 同僚にシフト交代をリクエストします。\n",
+  "① Bấm «Thêm ca» để tạo ca mới. ② Nút ba chấm trên từng ca: sửa, nhân bản, ngừng dùng.": "①「シフト追加」をタップして新しいシフトを作成。② 各シフトの三点ボタン：編集、複製、使用停止。",
   "① Gửi YC → ② Đồng nghiệp đồng ý → ③ QL duyệt. Bấm vào từng dòng để xem chi tiết.": "① 依頼を送信 → ② 同僚が同意 → ③ 上長が承認。各行をタップすると詳細を確認できます。",
+  "① Miễn trễ và giới hạn đi trễ. ② Miễn về sớm và giới hạn về sớm. ③ Số phút ra sớm / về muộn mới tính tăng ca.": "① 遅刻の猶予と上限。② 早退の猶予と上限。③ 残業として数える早出 / 遅帰りの分数。",
+  "① Nhập tên ca. ② Chọn giờ vào – giờ ra (giờ ra nhỏ hơn giờ vào là ca qua đêm). ③ Hoặc bấm một mẫu ca có sẵn.": "① シフト名を入力。② 出勤 – 退勤時刻を選択（退勤が出勤より早い場合は夜勤）。③ または既存のシフトテンプレートをタップ。",
   "① Đăng ký hội viên lên máy chấm công (tab «Hội viên trên máy»), lấy vân tay / khuôn mặt / thẻ.\n": "① 会員を勤怠端末に登録し（«端末の会員»タブ）、指紋 / 顔 / カードを取得します。\n",
   "② Hội viên quét trên máy khi vào và khi ra — lượt tập tự hiện ở đây.\n": "② 会員が入退場時に端末でスキャンすると、利用記録がここに自動表示されます。\n",
   "② Đồng nghiệp chấp nhận hoặc từ chối trên tab「Cần phản hồi」": "② 同僚が「要返信」タブで承諾または拒否します",
@@ -22375,6 +22408,10 @@
   [
    "COD quá 7 ngày chưa đối soát: {0} đơn · {1}đ",
    "7日以上未精算のCOD：{0}件 · {1}đ"
+  ],
+  [
+   "COUNTIF({0}:{1},\"<>\")&\" ngày\"",
+   "COUNTIF({0}:{1},\"<>\")&\" 日\""
   ],
   [
    "Ca chỉ có {0} làm việc.",
@@ -24463,6 +24500,10 @@
   [
    "Hình thức: {0}",
    "方式: {0}"
+  ],
+  [
+   "Hóa đơn mua vào ({0})",
+   "仕入請求書 ({0})"
   ],
   [
    "Hóa đơn trên {0}",
@@ -29281,6 +29322,10 @@
    "USB: {0} のポート変更 → {1}"
   ],
   [
+   "VAT đầu vào trả lại: {0} đ",
+   "返品分の仕入消費税: {0} đ"
+  ],
+  [
    "Vai trò {0}",
    "ロール {0}"
   ],
@@ -29455,6 +29500,10 @@
   [
    "Xem thêm ({0}/{1})",
    "もっと見る ({0}/{1})"
+  ],
+  [
+   "Xem thêm {0} dòng",
+   "さらに{0}行を表示"
   ],
   [
    "Xem thêm {0} phiếu",
@@ -29867,6 +29916,10 @@
   [
    "bảo lưu đến {0}",
    "{0}まで保留"
+  ],
+  [
+   "cells/cellKeys lệch: {0} vs {1}",
+   "cells/cellKeys 不一致: {0} vs {1}"
   ],
   [
    "cho tối đa 100 đơn trong khoảng «{0}».",
@@ -30547,6 +30600,10 @@
   [
    "{0} chứng từ gần nhất",
    "直近の証憑 {0}件"
+  ],
+  [
+   "{0} chứng từ · chưa thuế {1}",
+   "{0}件の証憑 · 税抜 {1}"
   ],
   [
    "{0} có app",
@@ -31445,6 +31502,14 @@
    "給与明細{0}件"
   ],
   [
+   "{0} phiếu nhập có VAT nhưng chưa ghi số hóa đơn đầu vào — bổ sung trong phiếu nhập để đủ chứng từ khấu trừ: ",
+   "{0}件の仕入に消費税がありますが仕入請求書番号が未入力です — 控除のため仕入伝票に入力してください: "
+  ],
+  [
+   "{0} phiếu nhập · {1} trả NCC",
+   "仕入 {0}件 · 仕入先返品 {1}件"
+  ],
+  [
    "{0} phiếu phạt",
    "罰金伝票 {0}件"
   ],
@@ -31771,6 +31836,10 @@
   [
    "{0} {1} yêu cầu",
    "{0} 申請 {1} 件"
+  ],
+  [
+   "{0} {1} · {2} · chưa thuế {3}",
+   "{0} {1} · {2} · 税抜 {3}"
   ],
   [
    "{0} {1} × {2} đ",

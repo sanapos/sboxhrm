@@ -93,6 +93,7 @@ class _PosReportsHubScreenState extends State<PosReportsHubScreen> {
       (label: 'Hàng hóa bán ra', subtitle: 'Mặt hàng', icon: Icons.shopping_cart_outlined, module: 'PosReportSoldGoods', screen: const PosSoldGoodsReportScreen()),
       (label: 'Tồn kho', subtitle: 'Kho hàng', icon: Icons.warehouse_outlined, module: 'PosReportStock', screen: const PosReportsScreen(initialTab: 1, lockTab: true)),
       (label: 'Báo cáo nhập hàng', subtitle: 'Phiếu nhập', icon: Icons.move_to_inbox_outlined, module: 'PosReportPurchases', screen: const PosPurchaseReportScreen()),
+      (label: 'VAT đầu vào', subtitle: 'Bảng kê hóa đơn mua vào', icon: Icons.percent, module: 'PosReportPurchases', screen: const PosInputVatReportScreen()),
       (label: 'Phương thức thanh toán', subtitle: 'PTTT', icon: Icons.payments_outlined, module: 'PosReportPayment', screen: const PosPaymentMethodReportScreen()),
       (label: 'Công nợ', subtitle: 'Phải thu / trả', icon: Icons.account_balance_outlined, module: 'PosReportDebt', screen: const PosDebtCombinedReportScreen()),
       (label: 'Hàng sắp hết hạn', subtitle: 'Lô / HSD', icon: Icons.event_busy_outlined, module: 'PosReportExpiry', screen: const PosReportsScreen(initialTab: 2, lockTab: true)),
@@ -194,7 +195,7 @@ const _hubGroups = <(String, IconData, List<String>)>[
     'Voucher', 'Đặt bàn & cọc', 'Đặt lịch & cọc', 'Đặt phòng & cọc', 'Vận chuyển', 'Hóa đơn điện tử',
   ]),
   ('Tài chính', Icons.account_balance_wallet_outlined, [
-    'Kết quả kinh doanh', 'Lợi nhuận', 'Chi phí', 'Sổ quỹ', 'Công nợ', 'Thuế hộ kinh doanh',
+    'Kết quả kinh doanh', 'Lợi nhuận', 'Chi phí', 'Sổ quỹ', 'Công nợ', 'Thuế hộ kinh doanh', 'VAT đầu vào',
   ]),
   ('Hàng hóa & kho', Icons.inventory_2_outlined, [
     'Tồn kho', 'Sức khỏe kho', 'Nguyên vật liệu', 'Hàng sắp hết hạn', 'Báo cáo nhập hàng',
@@ -1066,6 +1067,225 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
   }
 }
 
+/// Bảng kê VAT đầu vào — hóa đơn mua vào theo thuế suất (kê khai / khấu trừ thuế GTGT).
+class PosInputVatReportScreen extends StatefulWidget {
+  const PosInputVatReportScreen({super.key});
+
+  @override
+  State<PosInputVatReportScreen> createState() => _PosInputVatReportScreenState();
+}
+
+class _PosInputVatReportScreenState extends State<PosInputVatReportScreen> {
+  final _api = ApiService();
+  final _pngKey = GlobalKey();
+  PosKiotTimeFilterState _time =
+      const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisMonth);
+  bool _loading = true;
+  Map<String, dynamic>? _data;
+  String? _error;
+  int _show = 50;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final res = await _api.getPosInputVatReport(from: _time.from, to: _time.to);
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _show = 50;
+      _error = _loadErrorOf(res);
+      _data = res['isSuccess'] == true && res['data'] is Map
+          ? Map<String, dynamic>.from(res['data'] as Map)
+          : null;
+    });
+  }
+
+  /// Ngày hóa đơn là ngày theo lịch (máy chủ không gắn múi giờ) — không đổi giờ.
+  static String _fmtDay(dynamic v) {
+    final d = DateTime.tryParse('${v ?? ''}');
+    return d == null ? '' : DateFormat('dd/MM/yyyy').format(d);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = _data ?? const <String, dynamic>{};
+    final byRate = _maps(d['byRate']);
+    final rows = _maps(d['rows']);
+    final missing = _n(d['missingInvoiceCount']).toInt();
+    final missingDocs = ((d['missingInvoiceDocs'] as List?) ?? const []).map((e) => '$e').toList();
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Giá trị chưa thuế', value: SboxFmt.money(_n(d['totalAmount'])), icon: Icons.receipt_long_outlined,
+            note: '${_n(d['receiptCount']).toInt()} phiếu nhập · ${_n(d['returnCount']).toInt()} trả NCC'),
+        SboxKpi(label: 'VAT đầu vào', value: SboxFmt.money(_n(d['totalVat'])), icon: Icons.percent, tone: SboxTone.violet,
+            note: 'Đã trừ VAT hàng trả NCC'),
+        SboxKpi(
+            label: 'Thiếu số hóa đơn',
+            value: '$missing',
+            icon: Icons.report_gmailerrorred_outlined,
+            tone: missing > 0 ? SboxTone.danger : SboxTone.success,
+            note: missing > 0 ? 'Phiếu có VAT chưa ghi số HĐ' : 'Đủ số hóa đơn'),
+      ],
+    );
+
+    Widget rateTable() => PosReportCard(
+          title: 'Theo thuế suất',
+          child: Column(
+            children: [
+              for (var i = 0; i < byRate.length; i++) ...[
+                if (i > 0) const Divider(height: 14),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 56,
+                      child: Text('${byRate[i]['rate'] ?? ''}',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                    ),
+                    Expanded(
+                      child: Text(
+                        tr('${_n(byRate[i]['docCount']).toInt()} chứng từ · chưa thuế ${SboxFmt.money(_n(byRate[i]['amount']))}'),
+                        style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                      ),
+                    ),
+                    PosReportMoneyLabel(_n(byRate[i]['vat']), color: const Color(0xFF2B3437)),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        );
+
+    Widget rowTile(Map<String, dynamic> e) {
+      final isReturn = e['kind'] == 'Return';
+      final no = [
+        if ('${e['invoiceSerial'] ?? ''}'.isNotEmpty) '${e['invoiceSerial']}',
+        if ('${e['invoiceNo'] ?? ''}'.isNotEmpty) '${e['invoiceNo']}',
+      ].join(' · ');
+      final tax = '${e['supplierTaxCode'] ?? ''}';
+      // Chỉ nhắc đỏ khi có VAT cần khấu trừ (khớp ô «Thiếu số hóa đơn»); hàng 0% / KCT thiếu số HĐ không ảnh hưởng.
+      final missingNo = no.isEmpty && !isReturn && _n(e['vat']) > 0;
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  no.isEmpty ? tr('${missingNo ? 'Chưa có số HĐ' : 'Không có số HĐ'} — ${e['docNo'] ?? ''}') : no,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: missingNo ? const Color(0xFFB42318) : null),
+                ),
+                Text(
+                  tr('${_fmtDay(e['invoiceDate'])}${e['invoiceDateFromImport'] == true ? ' (ngày nhập)' : ''} · '
+                      '${e['supplierName'] ?? 'Không có NCC'}${tax.isEmpty ? '' : ' · MST $tax'}'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                ),
+                Text(
+                  tr('${isReturn ? 'Trả NCC' : 'Nhập'} ${e['docNo'] ?? ''} · ${e['rate'] ?? ''} · chưa thuế ${SboxFmt.money(_n(e['amount']))}'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          PosReportMoneyLabel(_n(e['vat']),
+              color: isReturn ? const Color(0xFFB42318) : const Color(0xFF2B3437)),
+        ],
+      );
+    }
+
+    return PosReportMobileScaffold(
+      title: 'Bảng kê VAT đầu vào',
+      exportModule: 'PosReportPurchases',
+      time: _time,
+      pngKey: _pngKey,
+      onExportExcel: () => unawaited(PosReportExport.serverExcel(
+        context: context,
+        fetch: () => _api.downloadAnalyticsReportExcel('/api/pos/reports/purchases/input-vat', {
+          if (_time.from != null) 'from': _time.from!.toIso8601String(),
+          if (_time.to != null) 'to': _time.to!.toIso8601String(),
+        }),
+        filePrefix: 'POS_BangKeVatDauVao',
+      )),
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_BangKeVatDauVao',
+      )),
+      onTimeChanged: (s) async {
+        setState(() => _time = s);
+        await _load();
+      },
+      onRefresh: _load,
+      body: _loading
+          ? _loadingBody()
+          : _error != null
+              ? _errorBody(_error!, _load)
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+                  children: [
+                    insight,
+                    if (missing > 0)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3F2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFFECDCA)),
+                        ),
+                        child: Text(
+                          tr('$missing phiếu nhập có VAT nhưng chưa ghi số hóa đơn đầu vào — bổ sung trong phiếu nhập để đủ chứng từ khấu trừ: '
+                              '${missingDocs.join(', ')}${missing > missingDocs.length ? '…' : ''}'),
+                          style: const TextStyle(fontSize: 12.5, color: Color(0xFFB42318)),
+                        ),
+                      ),
+                    if (byRate.isNotEmpty) rateTable(),
+                    PosReportCard(
+                      title: 'Hóa đơn mua vào (${rows.length})',
+                      subtitle: 'Kỳ theo ngày hóa đơn; phiếu chưa ghi ngày HĐ lấy ngày nhập',
+                      child: rows.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Text(tr('Không có hóa đơn mua vào trong kỳ'),
+                                  style: const TextStyle(color: PosTheme.textSecondary)),
+                            )
+                          : Column(
+                              children: [
+                                for (var i = 0; i < rows.length && i < _show; i++) ...[
+                                  if (i > 0) const Divider(height: 14),
+                                  rowTile(rows[i]),
+                                ],
+                                if (rows.length > _show)
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: TextButton(
+                                      onPressed: () => setState(() => _show += 50),
+                                      child: Text(tr('Xem thêm ${rows.length - _show} dòng')),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ),
+    );
+  }
+}
+
 /// Nhập hàng — phiếu nhập / trả NCC trong kỳ.
 class PosPurchaseReportScreen extends StatefulWidget {
   const PosPurchaseReportScreen({super.key});
@@ -1611,6 +1831,8 @@ class _PosDebtCombinedReportScreenState
         _n(d?['sumDebt31To60']) != 0 ? _n(d?['sumDebt31To60']) : sumOf('debt31To60'),
         _n(d?['sumDebt61To90']) != 0 ? _n(d?['sumDebt61To90']) : sumOf('debt61To90'),
         _n(d?['sumDebtOver90']) != 0 ? _n(d?['sumDebtOver90']) : sumOf('debtOver90'),
+        // Nợ đầu kỳ / điều chỉnh không gắn chứng từ — không có tuổi nợ nhưng vẫn là nợ (để các cột cộng lại = tổng nợ).
+        _n(d?['sumDebtOther']) != 0 ? _n(d?['sumDebtOther']) : sumOf('debtOther'),
       ];
     }
     final insight = SboxInsightPanel(
@@ -1632,7 +1854,7 @@ class _PosDebtCombinedReportScreenState
           title: 'Tuổi nợ',
           subtitle: 'Khách hàng và nhà cung cấp theo số ngày',
           child: SboxBarChart(
-            labels: const ['0–30 ngày', '31–60 ngày', '61–90 ngày', '> 90 ngày'],
+            labels: const ['0–30 ngày', '31–60 ngày', '61–90 ngày', '> 90 ngày', 'Đầu kỳ / ĐC'],
             series: [
               if (_party != 2) SboxSeries(name: 'Khách nợ', values: aging(_customers, kh), color: SboxColors.danger),
               if (_party != 1) SboxSeries(name: 'Nợ NCC', values: aging(_suppliers, ncc), color: SboxColors.violet),
@@ -1683,6 +1905,7 @@ class _PosDebtCombinedReportScreenState
           '31–60',
           '61–90',
           '>90',
+          'Nợ đầu kỳ / điều chỉnh',
         ],
         rows: [
           if (_party != 2)
@@ -1698,6 +1921,7 @@ class _PosDebtCombinedReportScreenState
                 _n(e['debt31To60']),
                 _n(e['debt61To90']),
                 _n(e['debtOver90']),
+                _n(e['debtOther']),
               ],
           if (_party != 1)
             for (final e in ncc)
@@ -1707,11 +1931,12 @@ class _PosDebtCombinedReportScreenState
                 e['name'] ?? '',
                 e['phone'] ?? '',
                 _n(e['currentDebt']),
-                _n(e['openOrderCount']).toInt(),
+                _n(e['openReceiptCount']).toInt(),
                 _n(e['debt0To30']),
                 _n(e['debt31To60']),
                 _n(e['debt61To90']),
                 _n(e['debtOver90']),
+                _n(e['debtOther']),
               ],
         ],
       )),
