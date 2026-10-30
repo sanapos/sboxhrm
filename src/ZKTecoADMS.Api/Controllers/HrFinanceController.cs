@@ -544,7 +544,7 @@ public class HrFinanceController(
                 Code = x.CaseCode,
                 CaseId = x.c.CaseId,
                 Title = "Quyết toán công tác — " + x.Title,
-                Subtitle = $"Tổng chi {x.c.TotalAmount:N0}đ, đã ứng {x.c.AdvanceAmount:N0}đ",
+                Subtitle = Services.VnMoneyText.Normalize($"Tổng chi {x.c.TotalAmount:N0}đ, đã ứng {x.c.AdvanceAmount:N0}đ"),
                 Amount = pending ? x.c.TotalAmount : Math.Abs(x.c.BalanceAmount),
                 Direction = "in",
                 Status = x.c.Status.ToString(),
@@ -633,7 +633,8 @@ public class HrFinanceController(
             it.Action = a.Status == AdvanceRequestStatus.Pending ? "approve"
                 : a.Status == AdvanceRequestStatus.Approved && !a.IsPaid ? "pay" : null;
             if (a.ApprovedAmount.HasValue && a.ApprovedAmount != a.Amount)
-                it.Subtitle = $"Xin {a.Amount:N0}đ · duyệt {a.ApprovedAmount:N0}đ" + (it.Subtitle == null ? "" : $" · {it.Subtitle}");
+                // :N0 ra «300,000đ» (invariant) — đổi sang «300.000đ» như số tiền app hiện.
+                it.Subtitle = Services.VnMoneyText.Normalize($"Xin {a.Amount:N0}đ · duyệt {a.ApprovedAmount:N0}đ") + (it.Subtitle == null ? "" : $" · {it.Subtitle}");
             return it;
         }).ToList();
         return Ok(AppResponse<List<HrFinItemDto>>.Success(items));
@@ -868,7 +869,7 @@ public class HrFinanceController(
             {
                 Kind = "trip_settlement", Id = c.Id, Code = k.CaseCode, CaseId = k.Id,
                 Title = "Quyết toán công tác — " + k.Title,
-                Subtitle = $"Tổng chi {c.TotalAmount:N0}đ, đã ứng {c.AdvanceAmount:N0}đ",
+                Subtitle = Services.VnMoneyText.Normalize($"Tổng chi {c.TotalAmount:N0}đ, đã ứng {c.AdvanceAmount:N0}đ"),
                 Amount = c.TotalAmount, Direction = "in",
                 Status = c.Status.ToString(), Date = c.ApprovedDate ?? c.SubmittedAt ?? c.CreatedAt,
             }, emp));
