@@ -40,7 +40,7 @@ PosPrintTemplateV2 _template(String paper) => PosPrintTemplateV2(
         PosPrintBlock(type: PosPrintBlockType.totals, fields: ['Tong_Tien_Hang', 'Tong_Cong']),
         PosPrintBlock(type: PosPrintBlockType.vietQr, qrSize: 260),
         PosPrintBlock(type: PosPrintBlockType.barcode, field: 'Ma_Don_Hang', barcodeHeight: 60),
-        PosPrintBlock(type: PosPrintBlockType.barcode, barcodeQr: true, codeContent: 'https://sbox.sana.vn', barcodeHeight: 80, barcodeShowText: false),
+        PosPrintBlock(type: PosPrintBlockType.barcode, barcodeQr: true, codeContent: 'https://sboxhrm.com', barcodeHeight: 80, barcodeShowText: false),
         PosPrintBlock(type: PosPrintBlockType.text, text: 'Cảm ơn quý khách!', style: PosPrintTextStyle(align: PosPrintTextAlign.center)),
       ],
     );

@@ -1,5 +1,5 @@
 #!/bin/bash
-API="https://sbox.sana.vn"
+API="https://sboxhrm.com"
 PASS="123456aA@"
 TOKEN=$(curl -sk -X POST "$API/api/auth/login" -H "Content-Type: application/json" \
   -d "{\"storeCode\":\"truongphat\",\"userName\":\"ngthihanh2011@gmail.com\",\"password\":\"$PASS\"}" \

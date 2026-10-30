@@ -35,7 +35,7 @@ echo '--- deploy API ---' && \
 /root/deploy_api.sh && \
 sleep 8 && \
 docker ps --filter name=zkteco_api --format '{{.Names}} {{.Status}}' && \
-curl -sk -o /dev/null -w 'health HTTP %{http_code}\n' https://sbox.sana.vn/health
+curl -sk -o /dev/null -w 'health HTTP %{http_code}\n' https://sboxhrm.com/health
 '@
 
 Write-Host "==> Remote SQL reset + API deploy..."

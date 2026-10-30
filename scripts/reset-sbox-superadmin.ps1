@@ -1,4 +1,4 @@
-# Reset SuperAdmin password on sbox.sana.vn (production PostgreSQL)
+# Reset SuperAdmin password on sboxhrm.com (production PostgreSQL)
 param(
     [string]$Email = "sanapos.vn@gmail.com",
     [string]$NewPassword = "123456aA@",
@@ -59,11 +59,11 @@ docker exec zkteco_postgres psql -U postgres -d ZKTecoADMS -t -c "SELECT \"Email
 '@
 & $plink -batch -ssh "${User}@${Server}" -pw $Password $remote
 
-Write-Host "==> Verifying AdminLogin on https://sbox.sana.vn ..."
+Write-Host "==> Verifying AdminLogin on https://sboxhrm.com ..."
 $loginJson = "{`"userName`":`"$Email`",`"password`":`"$NewPassword`"}"
 $loginFile = Join-Path $env:TEMP "admin_login_verify.json"
 $loginJson | Out-File $loginFile -Encoding ascii
-$resp = curl.exe -sk -X POST "https://sbox.sana.vn/api/auth/AdminLogin" -H "Content-Type: application/json" -d "@$loginFile"
+$resp = curl.exe -sk -X POST "https://sboxhrm.com/api/auth/AdminLogin" -H "Content-Type: application/json" -d "@$loginFile"
 if ($resp -match '"isSuccess":true') {
     Write-Host "OK: Admin login verified." -ForegroundColor Green
 } else {
@@ -72,6 +72,6 @@ if ($resp -match '"isSuccess":true') {
 
 Write-Host ""
 Write-Host "SuperAdmin reset complete:" -ForegroundColor Cyan
-Write-Host "  URL:      https://sbox.sana.vn/admin"
+Write-Host "  URL:      https://sboxhrm.com/admin"
 Write-Host "  Email:    $Email"
 Write-Host "  Password: $NewPassword"

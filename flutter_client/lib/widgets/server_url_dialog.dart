@@ -26,7 +26,7 @@ Future<void> showServerUrlDialog(BuildContext context) async {
                 enabled: !busy,
                 decoration: InputDecoration(
                   labelText: tr('URL Server API'),
-                  hintText: 'https://sbox.sana.vn',
+                  hintText: 'https://sboxhrm.com',
                   errorText: error,
                 ),
                 keyboardType: TextInputType.url,

@@ -30,7 +30,7 @@ Portal: https://developer.grab.com/
 | Category | **Food** — POS / SaaS partner |
 | Integration type | GrabFood Partner API (order + menu + store) |
 | Website | https://sboxhrm.com |
-| Product URL | https://sbox.sana.vn |
+| Product URL | https://sboxhrm.com |
 | Play Store (HRM) | `sbox.sana.vn` |
 | Play Store (POS APK) | `sbox.sana.vn.pos.flutter` |
 | Office address | 184 Nam Cao, Hòa Khánh, Đà Nẵng, Việt Nam |
@@ -65,7 +65,7 @@ We request to become a **GrabFood POS Partner** so merchants using SBOX POS can:
 - Pause / unpause store and mark orders ready from POS
 - Reconcile GrabFood sales in SBOX reports
 
-We will implement the **essential Partner endpoints and GrabFood endpoints** in [GrabFood API v1.1.3](https://developer.grab.com/docs/grabfood/api/v1-1-3), with HTTPS webhooks on our production API (`sbox.sana.vn` / dedicated partner host), OAuth, and a low-traffic **pilot store in Vietnam** before phased rollout.
+We will implement the **essential Partner endpoints and GrabFood endpoints** in [GrabFood API v1.1.3](https://developer.grab.com/docs/grabfood/api/v1-1-3), with HTTPS webhooks on our production API (`sboxhrm.com` / dedicated partner host), OAuth, and a low-traffic **pilot store in Vietnam** before phased rollout.
 
 ---
 

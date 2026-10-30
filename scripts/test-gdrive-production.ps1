@@ -1,6 +1,6 @@
 # Test Google Drive on production via API (run from repo)
 $ErrorActionPreference = 'Stop'
-$BaseUrl = 'https://sbox.sana.vn'
+$BaseUrl = 'https://sboxhrm.com'
 $loginFile = Join-Path $env:TEMP 'gdrive_test_login.json'
 @'
 {"userName":"sanapos.vn@gmail.com","password":"123456aA@"}

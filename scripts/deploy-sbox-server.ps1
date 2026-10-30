@@ -1,4 +1,4 @@
-# Deploy ZKTeco ADMS to sbox.sana.vn (run from repo root)
+# Deploy ZKTeco ADMS to sboxhrm.com (run from repo root)
 param(
     [string]$Server = "103.133.224.176",
     [string]$User = "root",

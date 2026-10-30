@@ -115,7 +115,7 @@ services:
       - DatabaseTools__PgRestorePath=pg_restore
       - Fcm__CredentialPath=/app/secrets/fcm-service-account.json
       - Storage__ForceLocal=true
-      - PublicWebBaseUrl=${PUBLIC_WEB_BASE_URL:-https://sbox.sana.vn}
+      - PublicWebBaseUrl=${PUBLIC_WEB_BASE_URL:-https://sboxhrm.com}
       - Kestrel__Limits__MaxRequestBodySize=314572800
     depends_on:
       postgres:

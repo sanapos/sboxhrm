@@ -13,10 +13,10 @@ on:
       api_base_url:
         description: 'API Base URL'
         required: false
-        default: 'https://sbox.sana.vn'
+        default: 'https://sboxhrm.com'
 
 env:
-  API_BASE_URL: ${{ github.event.inputs.api_base_url || 'https://sbox.sana.vn' }}
+  API_BASE_URL: ${{ github.event.inputs.api_base_url || 'https://sboxhrm.com' }}
 
 jobs:
   build-ios:

@@ -22,7 +22,7 @@ workflows:
       vars:
         APP_STORE_APP_ID: "6762365741"
         BUNDLE_ID: "vn.sana.sbox"
-        API_BASE_URL: "https://sbox.sana.vn"
+        API_BASE_URL: "https://sboxhrm.com"
 
     scripts:
       - name: Disable Shorebird (plain Flutter IPA only)
@@ -558,7 +558,7 @@ workflows:
         - appstore_credentials
       vars:
         BUNDLE_ID: "vn.sana.sbox"
-        API_BASE_URL: "https://sbox.sana.vn"
+        API_BASE_URL: "https://sboxhrm.com"
 
     scripts:
       - name: Disable Shorebird (plain Flutter IPA only)
@@ -671,7 +671,7 @@ workflows:
       vars:
         PACKAGE_NAME: "sbox.sana.vn"
         GOOGLE_PLAY_TRACK: internal
-        API_BASE_URL: "https://sbox.sana.vn"
+        API_BASE_URL: "https://sboxhrm.com"
 
     scripts:
       - name: Set up Android keystore

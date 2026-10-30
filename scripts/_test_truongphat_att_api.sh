@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 # Test attendance API pagination for Trường Phát June 2026
-API="https://sbox.sana.vn"
+API="https://sboxhrm.com"
 # Try common passwords
 for PASS in "SboxAdmin@2026" "Admin123@" "123456aA@" "Truongphat@2026"; do
   TOKEN=$(curl -sk -X POST "$API/api/auth/login" \

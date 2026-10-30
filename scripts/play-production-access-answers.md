@@ -54,7 +54,7 @@ Trong 14 ngày kiểm thử, tester dùng app trên điện thoại Android th�
 
 **English (copy):**
 ```
-SBOX HRM targets small and medium businesses in Vietnam that need an integrated HR system: employees who clock in/out via mobile or face recognition, and managers/HR staff who manage schedules, attendance, payroll, leave, and field staff. Primary users are retail, distribution, and service companies with multiple stores or field sales teams. The app is not intended for the general public; access is limited to employees provisioned by their employer on the SBOX platform (https://sbox.sana.vn).
+SBOX HRM targets small and medium businesses in Vietnam that need an integrated HR system: employees who clock in/out via mobile or face recognition, and managers/HR staff who manage schedules, attendance, payroll, leave, and field staff. Primary users are retail, distribution, and service companies with multiple stores or field sales teams. The app is not intended for the general public; access is limited to employees provisioned by their employer on the SBOX platform (https://sboxhrm.com).
 ```
 
 **Tiếng Việt:**
@@ -173,7 +173,7 @@ Nếu có số liệu crash: mô tả thiết bị/OS, sửa ở phiên bản n�
 
 **English (copy):**
 ```
-We completed closed testing on the Alpha track with 18 invited testers and at least 12 continuously opted-in for 14 consecutive days. Testers are real employees and managers using SBOX HRM for attendance, scheduling, payroll visibility, and field-staff map monitoring. We collected actionable feedback via email and direct support, pushed an update (v1.0.13) addressing GPS, map accuracy, and UX improvements, and re-tested on multiple Android devices. The app connects only to employer-provisioned accounts on our secure server (https://sbox.sana.vn); privacy policy and data safety declarations are complete. We believe SBOX HRM is stable and ready for production release to our business customers on Google Play.
+We completed closed testing on the Alpha track with 18 invited testers and at least 12 continuously opted-in for 14 consecutive days. Testers are real employees and managers using SBOX HRM for attendance, scheduling, payroll visibility, and field-staff map monitoring. We collected actionable feedback via email and direct support, pushed an update (v1.0.13) addressing GPS, map accuracy, and UX improvements, and re-tested on multiple Android devices. The app connects only to employer-provisioned accounts on our secure server (https://sboxhrm.com); privacy policy and data safety declarations are complete. We believe SBOX HRM is stable and ready for production release to our business customers on Google Play.
 ```
 
 **Tiếng Việt:**
