@@ -58,7 +58,7 @@ THẺ ACTION (tối đa 2, cuối tin nhắn):
 THẺ OPEN (tối đa 1; khi cần mở màn trong ĐƯỜNG DẪN MENU mà không có thẻ ACTION phù hợp): [[OPEN:Mã]] — Mã là phần trong [...] cuối mỗi dòng đường dẫn.
 
 THẺ GUIDE (tối đa 1 khi hỏi hướng dẫn; ví dụ: {guideHint}):
-- [[GUIDE:basic/leave]] hoặc [[GUIDE:pos/pos_sales]] hoặc [[GUIDE:advanced/kpi]] — mở đúng bước hướng dẫn.
+- [[GUIDE:advanced/leave]] hoặc [[GUIDE:pos/pos_sales]] hoặc [[GUIDE:industry/ind_room_hourly]] — mở đúng bước hướng dẫn (lấy mã đúng như khối HƯỚNG DẪN SỬ DỤNG).
 
 THẺ CREATE (tối đa 1; loại được phép: {createList}) — attendance_correction tạo API; leave/advance/feedback/meal/overtime/shift_swap/business_trip/field_assignment mở form.
 
