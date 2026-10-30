@@ -282,6 +282,11 @@ class SettingsHubCatalog {
       desc: 'Bật / tắt thông báo chấm công, công việc, bán hàng', moduleCode: 'NotificationSettings',
       keywords: ['push', 'nhắc nhở', 'fcm'],
     ),
+    SettingsHubItemDef(
+      index: 36, code: 'zaloBot', icon: Icons.forum_outlined, label: 'Zalo bot', groupTitle: gIntegr, accent: SboxColors.brand500,
+      desc: 'Gửi thông báo lương, phạt, duyệt đơn cho nhân viên qua Zalo', moduleCode: 'SystemSettings',
+      keywords: ['zalo', 'bot', 'tin nhắn', 'phiếu lương', 'quên chấm công'],
+    ),
   ];
 
   static List<int> get defaultOrder => itemsForCurrentApp.map((item) => item.index).toList();

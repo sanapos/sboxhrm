@@ -51,6 +51,7 @@ import 'staffing_quota_settings_screen.dart';
 import 'store_access_devices_screen.dart';
 import 'system_settings_screen.dart';
 import 'tax_settings_screen.dart';
+import 'zalo_bot_settings_screen.dart';
 
 /// Thiết lập SBOX: tìm kiếm, tình trạng từng mục (chưa cấu hình / cần chú ý), mở gần đây,
 /// nhóm theo nghiệp vụ. Máy tính: menu nhóm bên trái + nội dung bên phải. Điện thoại: danh sách.
@@ -408,6 +409,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const PosCancelReturnSettingsScreen();
       case 35:
         return const PosBidaLightSettingsScreen();
+      case 36:
+        return const ZaloBotSettingsScreen();
       default:
         return const SizedBox();
     }

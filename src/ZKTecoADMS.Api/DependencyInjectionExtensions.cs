@@ -290,6 +290,14 @@ public static class DependencyInjectionExtensions
         services.AddScoped<AiMorningBriefService>();
         services.AddHostedService<AiMorningBriefBackgroundService>();
 
+        // Zalo bot của cửa hàng: thông báo gửi thêm qua Zalo (hàng đợi + job nền)
+        services.AddHttpClient(ZaloBotClient.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(15));
+        services.AddSingleton<IZaloBotClient, ZaloBotClient>();
+        services.AddSingleton<ZaloBotSecrets>();
+        services.AddSingleton<IZaloBotOutbox, ZaloBotOutbox>();
+        services.AddScoped<ZaloBotService>();
+        services.AddHostedService<ZaloBotSendBackgroundService>();
+
         services.AddSwaggerGen(config =>
         {
             config.CustomSchemaIds(x => x.FullName);

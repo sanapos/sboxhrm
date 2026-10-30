@@ -14,6 +14,8 @@ import '../providers/theme_provider.dart';
 import '../config/sbox_app_variant.dart';
 import '../services/api_service.dart';
 import '../services/biometric_login_service.dart';
+import '../services/zalo_bot_api.dart';
+import '../widgets/zalo_link_sheet.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/server_url_dialog.dart';
 import 'app_info_screen.dart';
@@ -44,12 +46,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _bioBusy = false;
   String _bioLabel = '';
 
+  /// Zalo bot của cửa hàng (/api/zalo-bot/me) — dòng «Liên kết Zalo» chỉ hiện khi cửa hàng đã bật bot.
+  Map<String, dynamic>? _zalo;
+
   @override
   void initState() {
     super.initState();
     _loadPreferences();
     _loadAppVersion();
     _loadBiometric();
+    _loadZalo();
+  }
+
+  Future<void> _loadZalo() async {
+    if (SboxAppVariant.standalonePos) return;
+    final r = await ZaloBotApi().getMyLink();
+    if (!mounted || r['isSuccess'] != true || r['data'] is! Map) return;
+    setState(() => _zalo = Map<String, dynamic>.from(r['data'] as Map));
+  }
+
+  Future<void> _openZaloLink() async {
+    final z = _zalo;
+    if (z == null) return;
+    final next = await ZaloLinkSheet.show(context, z);
+    if (!mounted) return;
+    if (next != null) setState(() => _zalo = next);
+    await _loadZalo();
   }
 
   Future<void> _loadBiometric() async {
@@ -194,6 +216,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: 'Cập nhật mật khẩu đăng nhập của bạn',
                   onTap: () => _showChangePasswordDialog(context),
                 ),
+                if (_zalo != null && (_zalo!['available'] == true || _zalo!['linked'] == true))
+                  _buildSettingTile(
+                    context,
+                    icon: Icons.forum_outlined,
+                    title: 'Liên kết Zalo',
+                    subtitle: _zalo!['linked'] == true
+                        ? 'Đang nhận thông báo qua Zalo'
+                        : 'Nhận thông báo lương, chấm công qua Zalo',
+                    onTap: _openZaloLink,
+                  ),
                 if (_bioAvailable &&
                     !Provider.of<AuthProvider>(context).isImpersonating)
                   _buildSettingTile(

@@ -24,6 +24,7 @@ public class SystemNotificationService : ISystemNotificationService
     private readonly IRepository<NotificationPreference> _preferenceRepository;
     private readonly ZKTecoDbContext _dbContext;
     private readonly IPushNotificationService _push;
+    private readonly IZaloBotOutbox? _zalo;
 
     public SystemNotificationService(
         IHubContext<AttendanceHub> hubContext,
@@ -31,7 +32,8 @@ public class SystemNotificationService : ISystemNotificationService
         IRepository<Notification> notificationRepository,
         IRepository<NotificationPreference> preferenceRepository,
         ZKTecoDbContext dbContext,
-        IPushNotificationService push)
+        IPushNotificationService push,
+        IZaloBotOutbox? zalo = null)
     {
         _hubContext = hubContext;
         _logger = logger;
@@ -39,6 +41,7 @@ public class SystemNotificationService : ISystemNotificationService
         _preferenceRepository = preferenceRepository;
         _dbContext = dbContext;
         _push = push;
+        _zalo = zalo;
     }
 
     public async Task SendToUserAsync(Guid userId, Notification notification)
@@ -309,6 +312,8 @@ public class SystemNotificationService : ISystemNotificationService
             if (targetUserId.HasValue)
             {
                 await SendToUserAsync(targetUserId.Value, notification);
+                // Zalo bot của cửa hàng (người nhận đã liên kết, nhóm thông báo được bật gửi Zalo).
+                if (_zalo != null) await _zalo.EnqueueAsync([notification]);
             }
             else
             {
@@ -442,6 +447,8 @@ public class SystemNotificationService : ISystemNotificationService
                         notification.Id, notification.TargetUserId.Value);
                 }
             }
+
+            if (_zalo != null) await _zalo.EnqueueAsync(notifications);
 
             _logger.LogInformation("📢 Batch created and sent {Count} notifications: {Title}", notifications.Count, title);
         }
