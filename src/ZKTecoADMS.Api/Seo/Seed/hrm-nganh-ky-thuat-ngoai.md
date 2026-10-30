@@ -7,7 +7,7 @@ metaDescription: Chấm công nhân viên kỹ thuật lắp đặt, bảo trì 
 keywords: chấm công nhân viên kỹ thuật, chấm công làm việc ngoài công ty, chấm công công trình, chấm công nhân viên lắp đặt bảo trì, chấm công gps ngoài văn phòng, quản lý nhân viên kỹ thuật đi công tác
 summary: Kỹ thuật viên đi lắp đặt, bảo trì tại nhiều địa điểm trong ngày. Bài viết hướng dẫn chấm công tại nơi làm việc của khách, ảnh minh chứng, quản lý công tác phí và đưa dữ liệu vào bảng lương.
 category: Theo ngành
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-nhan-vien-ky-thuat-lam-ngoai-cong-ty.jpg
 sortOrder: 72
 ---
 Nhân viên kỹ thuật lắp đặt, bảo trì, sửa chữa thường **đi thẳng từ nhà tới công trình**, nơi làm việc thay đổi mỗi ngày. Họ không ghé công ty để chấm công, nên cần cách chấm công **tại chỗ**, đủ bằng chứng để tính lương và tính chi phí công tác.

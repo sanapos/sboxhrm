@@ -7,7 +7,7 @@ metaDescription: Chấm công, tính lương quán bi-a mở qua đêm: ca đêm
 keywords: chấm công quán bida, phần mềm chấm công bi-a, tính lương nhân viên quán bida, chấm công ca đêm, quản lý nhân viên quán billiards qua đêm, lương làm đêm
 summary: Quán bi-a mở qua đêm có nhân viên ít nhưng giao ca vào lúc vắng người quản lý. Bài viết hướng dẫn chấm công ca đêm bằng điện thoại, giao ca minh bạch, tính phụ cấp làm đêm đúng luật và chống chấm công hộ khi không có chủ quán.
 category: Theo ngành
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-tinh-luong-quan-bida-qua-dem.jpg
 sortOrder: 69
 ---
 Quán bi-a mở **qua đêm hoặc 24/7** thường chỉ có vài nhân viên mỗi ca (thu ngân, phục vụ, trọng tài), giao ca lúc rạng sáng khi **chủ quán không có mặt**. Ba bài toán chính: biết ai làm đến mấy giờ, tính đúng tiền làm đêm và chống nhờ người chấm hộ.

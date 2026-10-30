@@ -7,7 +7,7 @@ metaDescription: Các khoản khi lắp máy chấm công: giá máy, công lắ
 keywords: chi phí lắp đặt máy chấm công, giá lắp đặt máy chấm công, lắp đặt máy chấm công, miễn phí lắp đặt máy chấm công, báo giá máy chấm công, lắp máy chấm công trọn gói
 summary: Ngoài giá máy, lắp đặt máy chấm công còn có công lắp, vật tư, phần mềm và chi phí duy trì. Bài viết liệt kê từng khoản để bạn so sánh báo giá và gợi ý cách tiết kiệm.
 category: Máy chấm công
-cover: /images/landing/screenshot-04.jpg
+cover: /images/blog/chi-phi-lap-dat-may-cham-cong.jpg
 sortOrder: 42
 ---
 Khi nhận báo giá lắp máy chấm công, nhiều doanh nghiệp chỉ nhìn giá máy. Thực tế tổng chi phí còn gồm công lắp, vật tư, phần mềm và cả thời gian tổng hợp công hằng tháng. Hiểu rõ từng khoản giúp bạn so sánh báo giá chính xác.

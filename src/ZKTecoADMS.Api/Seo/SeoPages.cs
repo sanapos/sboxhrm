@@ -264,6 +264,33 @@ nav.menu a{flex:0 0 auto;font-size:14px;padding:6px 12px;border:1px solid var(--
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Mô tả riêng cho từng chuyên mục (meta description + đoạn giới thiệu) — tránh mọi trang
+    /// /bai-viet?chuyen-muc=… dùng chung một mô tả. Khóa «site|Chuyên mục»; chuyên mục mới chưa khai báo dùng mô tả blog.
+    /// </summary>
+    static readonly Dictionary<string, string> CategoryDescriptions = new()
+    {
+        ["hrm|Máy chấm công"] = "Chọn mua, lắp đặt và kết nối máy chấm công vân tay, khuôn mặt ZKTeco qua Internet; phần mềm quản lý máy chấm công trên điện thoại, MacBook và cloud.",
+        ["hrm|Chấm công"] = "Kiến thức chấm công cho doanh nghiệp: chọn phần mềm chấm công, chấm công cloud, chấm công trên MacBook, chống chấm công hộ và mẫu bảng chấm công.",
+        ["hrm|Chấm công điện thoại"] = "Chấm công qua điện thoại bằng khuôn mặt, GPS, WiFi, mã QR: cách hoạt động, độ chính xác, cách cài đặt và chống gian lận cho cửa hàng, nhân viên thị trường.",
+        ["hrm|Tính lương"] = "Cách tính lương theo ngày công, tăng ca, BHXH, thuế TNCN, lương tối thiểu vùng 2026 và mẫu bảng lương Excel cho doanh nghiệp Việt Nam.",
+        ["hrm|Theo ngành"] = "Giải pháp chấm công và tính lương theo ngành: quán cà phê, nhà hàng, spa, xưởng sản xuất, văn phòng, nhân viên sale thị trường và kỹ thuật làm ngoài.",
+        ["hrm|Ca làm việc"] = "Cách xếp ca xoay, ca gãy, ca đêm công bằng cho nhân viên; quản lý lịch làm việc theo ca cho chuỗi cửa hàng, nhà hàng và nhà máy.",
+        ["hrm|Nghỉ phép"] = "Quy định nghỉ phép năm theo Bộ luật Lao động, cách tính ngày phép, phép thâm niên và quản lý đơn nghỉ phép online.",
+        ["hrm|Quản lý nhân sự"] = "Kinh nghiệm quản lý nhân sự cho doanh nghiệp vừa và nhỏ: onboarding nhân viên mới, nội quy đi muộn về sớm, hồ sơ và quy trình nhân sự.",
+        ["pos|Kinh nghiệm kinh doanh"] = "Kinh nghiệm mở và vận hành quán cà phê, nhà hàng, cửa hàng bán lẻ: vốn, mặt bằng, giá bán, khuyến mãi và tăng doanh thu.",
+        ["pos|Quản lý cửa hàng"] = "Cách quản lý cửa hàng hiệu quả: thu ngân, chốt ca, chống thất thoát, báo cáo doanh thu và quản lý nhiều chi nhánh bằng phần mềm bán hàng.",
+        ["pos|Thiết bị bán hàng"] = "Chọn máy POS, máy in hóa đơn nhiệt, máy quét mã vạch, cân điện tử phù hợp cho quán cà phê, nhà hàng và cửa hàng bán lẻ.",
+        ["pos|Nhà hàng & quán ăn"] = "Quản lý nhà hàng, quán ăn: sơ đồ bàn, gọi món tại bàn, phiếu bếp, định lượng món và kiểm soát giá vốn.",
+        ["pos|Cà phê & đồ uống"] = "Quản lý quán cà phê, trà sữa: order nhanh, size – topping, định lượng nguyên liệu và tính lãi từng ly.",
+        ["pos|Bán lẻ"] = "Quản lý cửa hàng bán lẻ, tạp hóa, siêu thị mini: mã vạch, tồn kho, giá vốn, nhà cung cấp và khuyến mãi.",
+        ["pos|Kho hàng"] = "Quản lý kho hàng nhập – xuất – tồn, kiểm kê, giá vốn bình quân, hạn sử dụng và cảnh báo tồn kho thấp.",
+        ["pos|Thuế & hóa đơn"] = "Thuế và hóa đơn điện tử cho hộ kinh doanh, cửa hàng: quy định mới, cách xuất hóa đơn từ máy tính tiền.",
+        ["pos|Spa, salon & gym"] = "Quản lý spa, salon, phòng gym: lịch hẹn theo kỹ thuật viên, gói liệu trình, thẻ thành viên và hoa hồng nhân viên.",
+        ["pos|Bi-a & karaoke"] = "Quản lý quán bi-a, karaoke: tính tiền giờ theo bàn, phòng, gọi đồ uống và báo cáo doanh thu theo ca.",
+        ["pos|Lưu trú"] = "Quản lý nhà nghỉ, homestay, khách sạn nhỏ: đặt phòng, tính tiền phòng theo giờ, ngày và dịch vụ đi kèm.",
+    };
+
     public static string ListPage(SiteInfo s, IReadOnlyList<SeoArticle> items, int page, int totalPages,
         string? category, IReadOnlyList<string> categories)
     {
@@ -280,7 +307,8 @@ nav.menu a{flex:0 0 auto;font-size:14px;padding:6px 12px;border:1px solid var(--
         var title = category == null
             ? (page > 1 ? $"{s.BlogTitle} – Trang {page} | {s.Brand}" : $"{s.BlogTitle} | {s.Brand}")
             : $"{category} – Bài viết{(page > 1 ? $" – Trang {page}" : "")} | {s.Brand}";
-        var desc = s.BlogDescription;
+        var desc = category != null && CategoryDescriptions.TryGetValue($"{s.Code}|{category}", out var cd)
+            ? cd : s.BlogDescription;
         var ld = new Dictionary<string, object>
         {
             ["@context"] = "https://schema.org",

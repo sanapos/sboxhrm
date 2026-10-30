@@ -7,7 +7,7 @@ metaDescription: Quy định tạm ứng lương: có được ứng không, ứ
 keywords: tạm ứng lương, quy định tạm ứng lương, đơn xin tạm ứng lương, quy trình tạm ứng, trừ tạm ứng vào lương, ứng lương nhân viên
 summary: Tạm ứng lương giúp người lao động xoay xở khi cần, nhưng dễ thành mớ hỗn độn nếu ghi sổ tay. Bài viết tổng hợp quy định, quy trình 4 bước và cách để mỗi khoản ứng tự trừ đúng kỳ lương.
 category: Tính lương
-cover: /images/landing/mobile/mobile-06-hr-profile.png
+cover: /images/blog/tam-ung-luong-quy-dinh-quy-trinh.jpg
 sortOrder: 44
 ---
 Tạm ứng lương là khoản tiền doanh nghiệp trả trước cho người lao động, sau đó khấu trừ vào kỳ lương. Với cửa hàng, nhà hàng có nhiều nhân viên trẻ, nhu cầu ứng lương giữa tháng rất phổ biến — và cũng là nguồn sai sót khi ghi tay.

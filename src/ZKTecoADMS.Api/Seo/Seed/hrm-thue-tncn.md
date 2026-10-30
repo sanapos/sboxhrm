@@ -7,7 +7,7 @@ metaDescription: Hướng dẫn tính thuế thu nhập cá nhân từ tiền l�
 keywords: cách tính thuế tncn, thuế thu nhập cá nhân 2026, giảm trừ gia cảnh 2026, biểu thuế lũy tiến, tính thuế tncn từ tiền lương, thuế tncn 15,5 triệu
 summary: Từ kỳ tính thuế 2026, mức giảm trừ gia cảnh tăng lên 15,5 triệu đồng/tháng cho bản thân và 6,2 triệu đồng cho mỗi người phụ thuộc, biểu thuế lũy tiến rút gọn còn 5 bậc. Bài viết hướng dẫn tính từng bước kèm ví dụ.
 category: Tính lương
-cover: /images/landing/screenshot-01.jpg
+cover: /images/blog/cach-tinh-thue-tncn-tu-tien-luong.jpg
 sortOrder: 54
 ---
 Thuế thu nhập cá nhân (TNCN) từ tiền lương, tiền công được doanh nghiệp khấu trừ hằng tháng trước khi trả lương. Năm 2026 có hai thay đổi lớn ảnh hưởng trực tiếp đến số thuế của người lao động: **mức giảm trừ gia cảnh tăng** và **biểu thuế lũy tiến rút gọn còn 5 bậc**.

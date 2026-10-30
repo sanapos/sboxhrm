@@ -8,7 +8,7 @@ metaDescription: Nhân viên gửi đơn nghỉ phép, tăng ca, bổ sung công
 keywords: phần mềm quản lý nghỉ phép, đơn xin nghỉ phép online, quản lý tăng ca, phê duyệt đơn từ, quản lý phép năm, đơn bổ sung công
 summary: Bỏ đơn giấy và tin nhắn Zalo: mọi đơn nghỉ phép, tăng ca, bổ sung công, đổi ca, tạm ứng được gửi và duyệt trên app, tự cập nhật số ngày phép còn lại, bảng công và bảng lương.
 category: Đơn từ & phê duyệt
-cover: /images/landing/mobile/mobile-04-attendance-log.png
+cover: /images/blog/quan-ly-nghi-phep-tang-ca.jpg
 sortOrder: 80
 ---
 Đơn xin nghỉ viết tay, tin nhắn "anh ơi mai em xin nghỉ", tăng ca báo miệng — đến cuối tháng không ai nhớ ai đã được duyệt gì, và bảng lương sai là chuyện thường. **SBOX HRM** đưa toàn bộ đơn từ lên app: gửi có mẫu, duyệt có lịch sử, kết quả tự chảy vào bảng công và bảng lương.

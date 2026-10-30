@@ -7,7 +7,7 @@ metaDescription: Quy trình tiếp nhận nhân viên mới 5 giai đoạn: trư
 keywords: quy trình onboarding, onboarding nhân viên mới, quy trình tiếp nhận nhân viên mới, checklist onboarding, hội nhập nhân viên mới, đào tạo hội nhập
 summary: Nhân viên mới quyết định ở lại hay ra đi ngay trong vài tuần đầu. Quy trình onboarding 5 giai đoạn giúp nhân viên làm được việc nhanh hơn, bộ phận nhân sự không bỏ sót thủ tục — kèm checklist Excel.
 category: Quản lý nhân sự
-cover: /images/landing/screenshot-06.jpg
+cover: /images/blog/quy-trinh-onboarding-nhan-vien-moi.jpg
 sortOrder: 50
 ---
 Tuyển được người đã khó, giữ được người còn khó hơn. Rất nhiều nhân viên nghỉ việc ngay trong 1–3 tháng đầu vì không được hướng dẫn, không biết mình cần làm gì, hay đơn giản là ngày đầu tiên chẳng ai chuẩn bị bàn làm việc. **Onboarding** — quy trình tiếp nhận và hội nhập nhân viên mới — giải quyết đúng vấn đề này.

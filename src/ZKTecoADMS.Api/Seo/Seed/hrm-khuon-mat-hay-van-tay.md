@@ -7,7 +7,7 @@ metaDescription: So sánh máy chấm công vân tay, máy nhận diện khuôn 
 keywords: máy chấm công khuôn mặt, máy chấm công vân tay, nên mua máy chấm công nào, chấm công khuôn mặt hay vân tay, so sánh máy chấm công, chấm công bằng điện thoại
 summary: Mỗi cách chấm công có ưu nhược điểm riêng. Bảng so sánh chi phí, độ chính xác, khả năng chống chấm hộ và gợi ý lựa chọn theo từng mô hình: văn phòng, nhà xưởng, cửa hàng, chuỗi, nhân viên thị trường.
 category: Chấm công
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-khuon-mat-hay-van-tay.jpg
 sortOrder: 49
 ---
 Chọn sai cách chấm công dẫn tới hai kiểu lãng phí: mua máy đắt mà không dùng hết, hoặc mua máy rẻ rồi nhân viên chấm hộ, máy hỏng, xếp hàng chờ chấm. Dưới đây là so sánh bốn cách phổ biến nhất.

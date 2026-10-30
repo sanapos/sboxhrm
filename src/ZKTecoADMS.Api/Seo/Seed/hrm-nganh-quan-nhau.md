@@ -7,7 +7,7 @@ metaDescription: Chấm công, tính lương quán nhậu, quán bia: ca tối q
 keywords: chấm công quán nhậu, phần mềm chấm công quán bia, tính lương nhân viên quán nhậu, lương làm đêm quán nhậu, quản lý nhân viên quán nhậu, chấm công ca đêm
 summary: Quán nhậu làm từ chiều tới khuya, đông nhân viên thời vụ và hay tạm ứng. Bài viết hướng dẫn chấm công ca tối qua nửa đêm, tính phụ cấp làm đêm đúng luật, quản lý tạm ứng và hạn chế chấm công hộ.
 category: Theo ngành
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-tinh-luong-quan-nhau.jpg
 sortOrder: 68
 ---
 Quán nhậu, quán bia, quán lẩu nướng hoạt động mạnh từ **chiều tối đến khuya**, ca làm thường **kéo qua nửa đêm**, nhân viên thời vụ nhiều, hay tạm ứng giữa tháng. Đây là loại hình dễ phát sinh tranh cãi tiền công nhất nếu ghi chép bằng tay.

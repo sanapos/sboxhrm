@@ -7,7 +7,7 @@ metaDescription: Người lao động được nghỉ phép năm bao nhiêu ngà
 keywords: cách tính ngày phép năm, phép năm, ngày nghỉ phép năm, nghỉ phép năm bao nhiêu ngày, thanh toán phép năm, phép năm thâm niên
 summary: Đủ 12 tháng làm việc được nghỉ 12 ngày phép có lương; cứ 5 năm thâm niên được thêm 1 ngày. Bài viết hướng dẫn tính phép theo tỷ lệ, thâm niên và thanh toán phép chưa nghỉ khi thôi việc.
 category: Nghỉ phép
-cover: /images/landing/mobile/mobile-07-work-schedule.png
+cover: /images/blog/cach-tinh-ngay-phep-nam.jpg
 sortOrder: 51
 ---
 Nghỉ phép năm (nghỉ hằng năm) là quyền của người lao động được nghỉ mà **vẫn hưởng nguyên lương**. Cách tính số ngày phép phụ thuộc vào thời gian làm việc, điều kiện công việc và thâm niên.

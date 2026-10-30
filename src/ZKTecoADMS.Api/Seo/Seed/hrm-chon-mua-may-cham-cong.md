@@ -7,7 +7,7 @@ metaDescription: 7 tiêu chí chọn máy chấm công ZKTeco vân tay, khuôn m
 keywords: mua máy chấm công, máy chấm công zkteco, máy chấm công giá tốt, máy chấm công vân tay giá rẻ, máy chấm công khuôn mặt, chọn máy chấm công, máy chấm công tặng phần mềm
 summary: Máy chấm công rẻ chưa chắc đã tiết kiệm. Bảy tiêu chí giúp bạn chọn đúng máy ZKTeco vân tay hoặc khuôn mặt, tránh mua thừa tính năng hoặc mua máy không kết nối được phần mềm.
 category: Máy chấm công
-cover: /images/landing/screenshot-03.jpg
+cover: /images/blog/kinh-nghiem-chon-mua-may-cham-cong-zkteco.jpg
 sortOrder: 43
 ---
 ZKTeco là thương hiệu máy chấm công phổ biến ở Việt Nam với rất nhiều dòng máy từ vài trăm nghìn đến hàng chục triệu đồng. Chọn đúng máy giúp doanh nghiệp dùng ổn định nhiều năm; chọn sai thì vừa tốn tiền vừa phải tổng hợp công bằng tay. Dưới đây là 7 tiêu chí quan trọng nhất.

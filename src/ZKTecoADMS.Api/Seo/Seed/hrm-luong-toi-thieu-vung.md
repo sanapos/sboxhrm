@@ -7,7 +7,7 @@ metaDescription: Lương tối thiểu vùng từ 01/01/2026 theo tháng, theo g
 keywords: lương tối thiểu vùng 2026, mức lương tối thiểu vùng, lương tối thiểu vùng 1, lương tối thiểu theo giờ, tăng lương tối thiểu vùng
 summary: Từ 01/01/2026, lương tối thiểu vùng tăng khoảng 7,2% so với năm 2025. Bài viết tổng hợp mức lương theo tháng, theo giờ của 4 vùng và danh sách việc doanh nghiệp cần rà soát: hợp đồng, lương đóng bảo hiểm, thang lương.
 category: Tính lương
-cover: /images/landing/screenshot-01.jpg
+cover: /images/blog/luong-toi-thieu-vung.jpg
 sortOrder: 52
 ---
 Lương tối thiểu vùng là mức lương thấp nhất doanh nghiệp được trả cho người lao động làm công việc giản đơn nhất trong điều kiện lao động bình thường, đủ thời giờ làm việc. Mức này cũng là **mức sàn của lương đóng bảo hiểm xã hội**. Khi lương tối thiểu vùng tăng, doanh nghiệp phải rà soát lại bảng lương.

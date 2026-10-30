@@ -7,7 +7,7 @@ metaDescription: Xác thực điện thoại khi chấm công: mỗi nhân viên
 keywords: xác thực điện thoại chấm công, khóa thiết bị chấm công, đăng ký thiết bị chấm công, chống chấm công hộ, duyệt điện thoại chấm công, device binding chấm công
 summary: Mỗi nhân viên chỉ chấm công trên điện thoại đã đăng ký và được quản lý duyệt. Bài viết hướng dẫn quy trình đăng ký, duyệt, đổi máy, xử lý khi mất điện thoại và cách phối hợp với khuôn mặt, GPS, WiFi.
 category: Chấm công điện thoại
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/xac-thuc-dien-thoai-khi-cham-cong.jpg
 sortOrder: 65
 ---
 Chấm công bằng điện thoại chỉ thật sự đáng tin khi bạn biết **ai đang cầm chiếc điện thoại đó**. **Xác thực điện thoại** (khóa thiết bị) giải quyết việc này: mỗi tài khoản nhân viên chỉ chấm công được trên **một điện thoại đã đăng ký và được quản lý duyệt**.

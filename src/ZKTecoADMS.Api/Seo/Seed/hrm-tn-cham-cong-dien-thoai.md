@@ -8,7 +8,7 @@ metaDescription: Chấm công bằng điện thoại: nhận diện khuôn mặt
 keywords: app chấm công điện thoại, chấm công khuôn mặt, chấm công gps, chấm công bằng điện thoại, phần mềm chấm công online, chống chấm công hộ, chấm công nhân viên thị trường
 summary: Biến điện thoại của nhân viên thành máy chấm công: chụp khuôn mặt, kiểm tra đúng vị trí, đúng thiết bị đã đăng ký. Phù hợp cửa hàng nhỏ, chuỗi nhiều điểm bán và nhân viên đi thị trường.
 category: Chấm công
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-khuon-mat-dien-thoai.jpg
 sortOrder: 95
 ---
 Không phải doanh nghiệp nào cũng cần máy chấm công. Với cửa hàng nhỏ, chuỗi nhiều điểm bán hay đội ngũ đi thị trường, **chấm công bằng điện thoại** rẻ hơn và linh hoạt hơn — miễn là chống được chấm hộ. SBOX HRM kết hợp ba lớp xác minh: **khuôn mặt**, **vị trí** và **thiết bị**.

@@ -8,7 +8,7 @@ metaDescription: Quản lý hồ sơ nhân viên, phòng ban, sơ đồ tổ ch�
 keywords: phần mềm quản lý nhân sự, phần mềm hrm, phần mềm nhân sự cho doanh nghiệp nhỏ, quản lý hồ sơ nhân viên, sơ đồ tổ chức, phần mềm nhân sự online
 summary: Một nơi cho toàn bộ thông tin nhân sự: hồ sơ, phòng ban, chi nhánh, tài liệu, tài sản cấp phát — kết nối thẳng với chấm công, xếp ca và tính lương.
 category: Nhân sự
-cover: /images/landing/screenshot-06.jpg
+cover: /images/blog/phan-mem-quan-ly-nhan-su.jpg
 sortOrder: 75
 ---
 Doanh nghiệp vừa và nhỏ thường quản lý nhân sự bằng nhiều file Excel rời rạc: một file hồ sơ, một file chấm công, một file lương, một file tài sản. Thông tin lệch nhau, nhân viên nghỉ việc vẫn còn trong bảng lương, máy tính cấp phát không biết đang ở ai. **SBOX HRM** gom tất cả về một hệ thống, cập nhật một nơi — dùng mọi nơi.

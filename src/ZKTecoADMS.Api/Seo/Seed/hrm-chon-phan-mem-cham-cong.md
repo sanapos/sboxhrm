@@ -7,7 +7,7 @@ metaDescription: Chọn phần mềm chấm công thế nào cho đúng? 8 tiêu
 keywords: phần mềm chấm công, chọn phần mềm chấm công, chấm công khuôn mặt, máy chấm công ZKTeco, phần mềm tính lương
 summary: Bảng chấm công sai lệch vài giờ mỗi tháng có thể khiến doanh nghiệp trả thừa (hoặc thiếu) hàng chục triệu đồng tiền lương. Đây là 8 tiêu chí giúp bạn chọn đúng phần mềm chấm công ngay từ đầu.
 category: Chấm công
-cover: /images/landing/screenshot-01.jpg
+cover: /images/blog/tieu-chi-chon-phan-mem-cham-cong.jpg
 sortOrder: 30
 ---
 Với doanh nghiệp từ 10 đến vài trăm nhân viên, chấm công thủ công bằng sổ hoặc file Excel thường sai ở ba chỗ: quên chấm, chấm hộ và tổng hợp nhầm khi cuối tháng tính lương. Một phần mềm chấm công tốt không chỉ ghi giờ vào – ra, mà phải biến dữ liệu đó thành **ngày công, giờ tăng ca, đi muộn – về sớm và bảng lương** mà không cần làm tay.

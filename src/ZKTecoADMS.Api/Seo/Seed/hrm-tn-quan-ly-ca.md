@@ -8,7 +8,7 @@ metaDescription: Xếp lịch làm việc theo tuần, ca xoay, ca gãy cho nhà
 keywords: phần mềm xếp ca, quản lý ca làm việc, xếp lịch làm việc nhân viên, phần mềm chia ca, lịch làm việc theo ca, đổi ca, ca xoay
 summary: Tạo mẫu ca một lần, xếp lịch cả tuần trong vài phút, nhân viên đăng ký lịch rảnh và đổi ca trên điện thoại. Chấm công và bảng lương tự tính đúng theo ca đã xếp.
 category: Ca làm việc
-cover: /images/landing/screenshot-07.jpg
+cover: /images/blog/quan-ly-ca-lam-viec.jpg
 sortOrder: 85
 ---
 Với nhà hàng, quán cà phê, siêu thị mini hay xưởng sản xuất, nhân viên không làm cùng một giờ. Có ca sáng, ca chiều, ca gãy, ca đêm; có người part-time đăng ký theo tuần. Xếp lịch bằng giấy hoặc nhóm Zalo khiến quản lý mất cả buổi mỗi tuần — và cuối tháng tính công lại phải đối chiếu từng ca. **SBOX HRM** quản lý ca, lịch và chấm công trên cùng một hệ thống.

@@ -7,7 +7,7 @@ metaDescription: Hướng dẫn xếp ca xoay cho nhà hàng, cửa hàng, nhà 
 keywords: cách xếp ca làm việc, xếp ca xoay, lịch làm việc theo ca, chia ca nhân viên, xếp lịch nhân viên part time, ca gãy nhà hàng
 summary: Xếp ca tốt giúp đủ người lúc đông khách, không thừa người lúc vắng và nhân viên thấy công bằng. Bài viết hướng dẫn 5 bước xếp ca xoay, các mô hình ca phổ biến và lưu ý pháp luật về thời giờ nghỉ.
 category: Ca làm việc
-cover: /images/landing/screenshot-07.jpg
+cover: /images/blog/cach-xep-ca-xoay-cho-nhan-vien.jpg
 sortOrder: 47
 ---
 Với nhà hàng, quán cà phê, siêu thị mini hay nhà xưởng, chi phí nhân sự thường là khoản lớn thứ hai sau nguyên liệu. Xếp ca không khéo thì vừa thiếu người giờ cao điểm, vừa thừa người giờ vắng — và nhân viên bất mãn vì người toàn được ca đẹp, người toàn bị ca khuya.

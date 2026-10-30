@@ -5,7 +5,9 @@ home.html dùng chung cho sboxhrm.com (HRM) và sboxpos.com (POS); trước đâ
 JavaScript mới đổi sang HRM → Google coi sboxhrm.com là bản trùng của sboxpos.com. Script này:
   - đặt <html data-site>, meta / canonical / Open Graph / Twitter / JSON-LD đúng site (giá trị khớp site-seo.js);
   - bỏ khối của site kia (mỗi trang chỉ còn một H1);
-  - thêm liên kết «Bài viết» + khối «Bài viết mới» (/bai-viet, dựng phía server);
+  - thêm liên kết «Bài viết» + khối bài viết nổi bật ghi sẵn vào HTML từ Seo/Seed/*.md (bot không chạy JS vẫn
+    thấy liên kết /bai-viet/…);
+  - HRM: khối «Quản lý máy chấm công trên điện thoại, MacBook và Cloud» trỏ các trang tính năng nền tảng;
   - menu «Tính năng» / «Gói dịch vụ» trỏ /tinh-nang, /bang-gia; khối «Giải pháp» liên kết các trang tính năng
     và khối «Tài liệu miễn phí» (/tai-lieu) — liên kết nội bộ bot đọc được;
   - FAQ hiển thị tĩnh + JSON-LD FAQPage khớp đúng nội dung hiển thị;
@@ -44,6 +46,20 @@ SITES = {
             ("quan-ly-ca-lam-viec", "Xếp ca, quản lý ca làm việc", "Ca xoay, ca gãy, ca đêm; nhân viên đăng ký và đổi ca trên điện thoại."),
             ("quan-ly-nghi-phep-tang-ca", "Nghỉ phép, tăng ca online", "Đơn từ trên app, duyệt nhanh, tự trừ phép năm, tự vào bảng lương."),
             ("phan-mem-quan-ly-nhan-su", "Quản lý nhân sự", "Hồ sơ, phòng ban, sơ đồ tổ chức, tài liệu, tài sản cấp phát."),
+        ],
+        # Bài ghi sẵn lên trang chủ theo thứ tự này (slug chưa có trong Seed bị bỏ qua), thiếu thì lấy theo sortOrder.
+        "featured_articles": [
+            "phan-mem-quan-ly-may-cham-cong-la-gi", "cach-xem-du-lieu-may-cham-cong-tren-dien-thoai",
+            "xem-cham-cong-tren-macbook", "cham-cong-cloud-co-an-toan-khong",
+            "quan-ly-may-cham-cong-nhieu-chi-nhanh", "may-cham-cong-khong-can-may-tinh",
+        ],
+        # Khối nền tảng — khớp các trang type: feature hrm-tn-quan-ly-may-cham-cong / -may-cham-cong-dien-thoai /
+        # -cham-cong-macbook / -cham-cong-cloud.
+        "platform": [
+            ("phan-mem-quan-ly-may-cham-cong", "Phần mềm quản lý máy chấm công", "Quản lý mọi máy vân tay, khuôn mặt ZKTeco ở nhiều chi nhánh: trạng thái máy, đồng bộ nhân viên, dữ liệu công tức thì."),
+            ("quan-ly-may-cham-cong-tren-dien-thoai", "Quản lý máy chấm công trên điện thoại", "Xem ai đã chấm, ai đi trễ, duyệt đơn và xem bảng công ngay trên app Android, iOS — không cần IP tĩnh."),
+            ("phan-mem-cham-cong-macbook", "Phần mềm chấm công cho MacBook", "Mở Safari, Chrome trên MacBook là dùng — không cần máy Windows, không cài đặt, không máy ảo."),
+            ("phan-mem-cham-cong-cloud", "Phần mềm chấm công cloud", "Dữ liệu lưu trên máy chủ, truy cập mọi nơi qua HTTPS; đổi máy tính, hỏng ổ cứng không mất dữ liệu."),
         ],
         "resources_title": "Tài liệu nhân sự miễn phí",
         "resources": ["Mẫu bảng lương Excel 2026 tự tính BHXH, thuế TNCN", "Mẫu bảng chấm công theo tháng", "Checklist tiếp nhận nhân viên mới"],
@@ -143,12 +159,15 @@ ARTICLES_SECTION = """
   <div style="max-width:1120px;margin:0 auto">
     <h2 class="section-title">{title}</h2>
     <p style="color:#475569;margin:6px 0 24px">{sub}</p>
-    <div id="articles-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px"></div>
+    <div id="articles-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px">{cards}</div>
     <p style="margin-top:22px"><a href="/bai-viet" style="font-weight:700">Xem tất cả bài viết →</a></p>
   </div>
 </section>
 <script>
 (function () {{
+  // Bài nổi bật đã ghi sẵn lúc deploy — chỉ tải từ API khi lưới trống.
+  var pre = document.getElementById('articles-grid');
+  if (pre && pre.children.length) return;
   fetch('/api/public/articles?take=6').then(function (r) {{ return r.json(); }}).then(function (res) {{
     var grid = document.getElementById('articles-grid');
     if (!grid || !res || !res.data || !res.data.length) {{ var s = document.getElementById('articles'); if (s && grid && !grid.children.length) s.style.display = res && res.data && res.data.length ? '' : 'none'; return; }}
@@ -202,6 +221,26 @@ INSTALL_PHOTOS = [
     (9, "Máy chấm công vân tay gắn cột cạnh cửa phòng làm việc"),
 ]
 
+ARTICLE_CARD = (
+    '<a href="/bai-viet/{slug}" style="display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:14px;'
+    'overflow:hidden;text-decoration:none;color:#0f172a;background:#fff">'
+    '<img src="{cover}" alt="{title}" loading="lazy" decoding="async" width="1200" height="630" '
+    'style="width:100%;height:auto;aspect-ratio:1200/630;object-fit:cover;background:#f1f5f9">'
+    '<span style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:6px">{cat}'
+    '<strong style="font-size:17px;line-height:1.35">{title}</strong>'
+    '<span style="font-size:14px;color:#475569;line-height:1.5">{desc}</span></span></a>'
+)
+
+PLATFORM_SECTION = """
+<section id="nen-tang" class="site-platform" style="padding:64px 20px;background:#fff">
+  <div style="max-width:1120px;margin:0 auto">
+    <h2 class="section-title">Phần mềm quản lý máy chấm công trên điện thoại, MacBook và Cloud</h2>
+    <p style="color:#475569;margin:6px 0 24px;line-height:1.6">Không cần để một máy tính Windows bật ở văn phòng: máy chấm công ZKTeco tự gửi dữ liệu lên <strong>phần mềm chấm công cloud</strong> SBOX HRM qua Internet. Chủ doanh nghiệp, quản lý và kế toán xem bảng công, bảng lương <strong>trên điện thoại</strong> (Android, iOS), <strong>trên MacBook</strong> hay bất kỳ trình duyệt nào.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px">{cards}</div>
+  </div>
+</section>
+"""
+
 SOLUTION_CARD = (
     '<a href="/tinh-nang/{slug}" style="display:block;border:1px solid #e2e8f0;border-radius:14px;padding:18px 20px;'
     'background:#fff;text-decoration:none;color:#0f172a"><h3 style="margin:0 0 6px;font-size:18px;color:{color}">{title}</h3>'
@@ -243,7 +282,7 @@ Sitemap: {origin}/sitemap.xml
 def sitemap(site, cfg):
     o = cfg["origin"]
     urls = [(o + "/", "weekly", "1.0"), (o + "/bai-viet", "daily", "0.9"), (o + "/tinh-nang", "weekly", "0.9")]
-    urls += [(o + "/tinh-nang/" + slug, "monthly", "0.9") for slug, _, _ in cfg["solutions"]]
+    urls += [(o + "/tinh-nang/" + slug, "monthly", "0.9") for slug, _, _ in cfg["solutions"] + cfg.get("platform", [])]
     urls += [(o + "/bang-gia", "monthly", "0.8"), (o + "/tai-lieu", "monthly", "0.7")]
     if site == "hrm":
         urls += [(o + "/lap-dat-may-cham-cong", "monthly", "0.8")]
@@ -262,6 +301,44 @@ def provinces():
     if not cs.exists():
         return []
     return re.findall(r'new\("([a-z0-9-]+)", "([^"]+)", "([^"]+)", \[', cs.read_text(encoding="utf-8"))
+
+
+def seed_articles(site):
+    """Bài viết (không gồm trang tính năng) trong Seo/Seed/{site}-*.md — cùng nguồn API nạp vào CSDL."""
+    seed_dir = pathlib.Path(__file__).resolve().parent.parent / "src" / "ZKTecoADMS.Api" / "Seo" / "Seed"
+    items = []
+    for f in sorted(seed_dir.glob(f"{site}-*.md")):
+        t = f.read_text(encoding="utf-8").replace("\r\n", "\n").lstrip("\ufeff")
+        m = re.match(r"---\n(.*?)\n---\n", t, re.S)
+        if not m:
+            continue
+        meta = {}
+        for line in m.group(1).split("\n"):
+            k, sep, v = line.partition(":")
+            if sep:
+                meta[k.strip()] = v.strip()
+        if meta.get("type") == "feature" or not meta.get("slug") or not meta.get("title"):
+            continue
+        meta["sortOrder"] = int(meta.get("sortOrder") or 0)
+        items.append(meta)
+    return items
+
+
+def featured_articles(site, cfg, take=6):
+    """Bài trong cfg["featured_articles"] trước (đúng thứ tự), còn thiếu lấy theo sortOrder giảm dần."""
+    arts = seed_articles(site)
+    by_slug = {a["slug"]: a for a in arts}
+    picked = [by_slug[s] for s in cfg.get("featured_articles", []) if s in by_slug][:take]
+    for a in sorted(arts, key=lambda a: -a["sortOrder"]):
+        if len(picked) >= take:
+            break
+        if a not in picked:
+            picked.append(a)
+    return picked
+
+
+def shorten(t, n=150):
+    return t if len(t) <= n else t[:n].rsplit(" ", 1)[0] + "…"
 
 
 def esc(t):
@@ -396,8 +473,14 @@ def render(site, web_dir):
             a.string = text
             actions.insert_before(a)
     faq = soup.find(id="faq")
+    art_cards = "".join(ARTICLE_CARD.format(
+        slug=esc(a["slug"]), title=esc(a["title"]), cover=esc(a.get("cover") or cfg["og_image"]),
+        desc=esc(shorten(a.get("summary") or a.get("metaDescription") or "")),
+        cat=(f'<span style="font-size:12px;font-weight:700;color:{cfg["theme"]}">{esc(a["category"])}</span>'
+             if a.get("category") else ""))
+        for a in featured_articles(site, cfg))
     section = BeautifulSoup(ARTICLES_SECTION.format(
-        title=cfg["articles_title"], sub=cfg["articles_sub"], color=cfg["theme"]), "html.parser")
+        title=cfg["articles_title"], sub=cfg["articles_sub"], color=cfg["theme"], cards=art_cards), "html.parser")
     if faq is not None:
         faq.insert_before(section)
 
@@ -410,6 +493,14 @@ def render(site, web_dir):
         features.insert_after(solutions)
     elif faq is not None:
         faq.insert_before(solutions)
+
+    # HRM: khối nền tảng (điện thoại · MacBook · Cloud) ngay sau «Giải pháp».
+    if cfg.get("platform"):
+        pcards = "".join(SOLUTION_CARD.format(slug=sl, title=esc(t), desc=esc(d), color=cfg["theme"])
+                         for sl, t, d in cfg["platform"])
+        anchor = soup.find(id="giai-phap")
+        if anchor is not None:
+            anchor.insert_after(BeautifulSoup(PLATFORM_SECTION.format(cards=pcards), "html.parser"))
 
     # HRM: liên kết tới 34 trang lắp đặt máy chấm công theo tỉnh (bot đọc được).
     prov = provinces() if site == "hrm" else []
@@ -430,7 +521,7 @@ def render(site, web_dir):
             f'loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;display:block"></a>'
             for n, alt in INSTALL_PHOTOS)
         local = BeautifulSoup(LOCAL_SECTION.format(groups=groups, photos=photos), "html.parser")
-        anchor = soup.find(id="giai-phap")
+        anchor = soup.find(id="nen-tang") or soup.find(id="giai-phap")
         if anchor is not None:
             anchor.insert_after(local)
 

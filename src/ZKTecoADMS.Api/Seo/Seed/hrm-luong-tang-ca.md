@@ -7,7 +7,7 @@ metaDescription: Hướng dẫn tính tiền lương làm thêm giờ ngày thư
 keywords: cách tính lương tăng ca, lương làm thêm giờ, tăng ca ngày lễ, tăng ca chủ nhật, tính tiền tăng ca, giới hạn giờ làm thêm, lương làm đêm
 summary: Tăng ca ngày thường ít nhất 150%, ngày nghỉ hằng tuần 200%, ngày lễ 300% chưa kể lương ngày lễ; làm đêm cộng thêm 30%. Bài viết tổng hợp công thức, giới hạn giờ làm thêm và ví dụ.
 category: Tính lương
-cover: /images/landing/screenshot-07.jpg
+cover: /images/blog/cach-tinh-luong-tang-ca.jpg
 sortOrder: 53
 ---
 Làm thêm giờ là thời gian làm việc ngoài giờ làm việc bình thường theo quy định của pháp luật, hợp đồng hoặc nội quy. Bộ luật Lao động 2019 quy định mức trả **tối thiểu** cho giờ làm thêm — doanh nghiệp có thể trả cao hơn nhưng không được thấp hơn.

@@ -7,7 +7,7 @@ metaDescription: Tỷ lệ đóng BHXH, BHYT, BHTN 2026 của người lao độ
 keywords: mức đóng bhxh 2026, cách tính bảo hiểm xã hội, tỷ lệ đóng bhxh, bhxh bhyt bhtn, lương đóng bảo hiểm, cách tính bhxh cho người lao động
 summary: Tổng hợp tỷ lệ đóng bảo hiểm bắt buộc của người lao động và doanh nghiệp, mức lương làm căn cứ đóng tối thiểu – tối đa và cách tính từng khoản, kèm ví dụ dễ hiểu.
 category: Tính lương
-cover: /images/landing/screenshot-03.jpg
+cover: /images/blog/muc-dong-bhxh-cach-tinh-bao-hiem-xa-hoi.jpg
 sortOrder: 55
 ---
 Bảo hiểm xã hội (BHXH), bảo hiểm y tế (BHYT) và bảo hiểm thất nghiệp (BHTN) là khoản trích bắt buộc trên tiền lương của người lao động làm việc theo hợp đồng từ đủ 1 tháng trở lên. Tính sai bảo hiểm vừa ảnh hưởng quyền lợi người lao động, vừa khiến doanh nghiệp bị truy thu và xử phạt.

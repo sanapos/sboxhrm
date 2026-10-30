@@ -7,7 +7,7 @@ metaDescription: Phần mềm chấm công cài máy chỉ chạy trên Windows,
 keywords: phần mềm chấm công online, quản lý chấm công trên điện thoại, phần mềm chấm công trên macbook, chấm công trên trình duyệt web, thay phần mềm chấm công cài máy tính, thay thế phần mềm chấm công mita, thay thế wise eye, phần mềm chấm công không cần cài đặt, chấm công qua điện thoại, máy chấm công kết nối internet
 summary: Nhiều doanh nghiệp vẫn dùng phần mềm chấm công cài trên một máy tính Windows ở văn phòng. Bài viết so sánh với chấm công online và hướng dẫn chuyển đổi mà vẫn giữ nguyên máy chấm công đang có.
 category: Máy chấm công
-cover: /images/landing/screenshot-01.jpg
+cover: /images/blog/chuyen-phan-mem-cham-cong-cai-may-sang-online.jpg
 sortOrder: 50
 ---
 Khi mua máy chấm công, nhiều doanh nghiệp được tặng kèm một **phần mềm chấm công cài trên máy tính Windows** (các tên quen thuộc như Wise Eye, Mita hay phần mềm đi kèm của hãng). Cách làm này từng là tiêu chuẩn: một máy tính đặt ở văn phòng, nối với máy chấm công qua mạng LAN hoặc USB, cuối tháng kế toán tải dữ liệu về và xuất Excel.

@@ -7,7 +7,7 @@ metaDescription: Tải miễn phí mẫu bảng chấm công Excel theo tháng: 
 keywords: mẫu bảng chấm công, mẫu bảng chấm công excel, bảng chấm công theo tháng, file chấm công excel, cách làm bảng chấm công, ký hiệu chấm công
 summary: Mẫu bảng chấm công Excel 31 ngày tự hiện thứ trong tuần khi đổi tháng, có danh sách ký hiệu chọn sẵn và công thức cộng tổng công hưởng lương — kèm hướng dẫn và các lưu ý khi chấm công thủ công.
 category: Chấm công
-cover: /images/landing/screenshot-04.jpg
+cover: /images/blog/mau-bang-cham-cong-excel.jpg
 sortOrder: 58
 ---
 Bảng chấm công là căn cứ để tính lương, đóng bảo hiểm và giải quyết tranh chấp với người lao động. Một bảng chấm công tốt cần rõ ràng ký hiệu, cộng đúng tổng công và lưu được lâu dài. Dưới đây là mẫu bảng chấm công Excel theo tháng bạn có thể dùng ngay.

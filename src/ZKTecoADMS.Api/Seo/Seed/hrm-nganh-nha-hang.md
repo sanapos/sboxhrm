@@ -7,7 +7,7 @@ metaDescription: Chấm công, tính lương nhà hàng: xếp ca theo bộ ph�
 keywords: chấm công nhà hàng, phần mềm chấm công nhà hàng, tính lương nhân viên nhà hàng, ca gãy nhà hàng, xếp ca nhà hàng, quản lý nhân sự nhà hàng, chấm công bếp
 summary: Nhà hàng có nhiều bộ phận, ca gãy và đỉnh điểm cuối tuần. Bài viết hướng dẫn tổ chức ca theo bộ phận, chọn cách chấm công (điện thoại hay máy), tính lương tăng ca và quản lý tạm ứng, thưởng phạt rõ ràng.
 category: Theo ngành
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-tinh-luong-nha-hang.jpg
 sortOrder: 67
 ---
 Nhà hàng thường có **nhiều bộ phận** (bếp, phục vụ bàn, quầy bar, thu ngân, tạp vụ), mỗi bộ phận một lịch ca, thêm **ca gãy** (làm sáng nghỉ chiều rồi làm tối) và giờ cao điểm cuối tuần, lễ Tết. Tính công thủ công rất dễ nhầm.

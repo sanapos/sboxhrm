@@ -7,7 +7,7 @@ metaDescription: Chấm công, tính lương xưởng sản xuất, nhà máy: m
 keywords: chấm công nhà máy, phần mềm chấm công xưởng sản xuất, tính lương công nhân, chấm công ca kíp, máy chấm công khuôn mặt nhà xưởng, bảng lương công nhân, quản lý nhân sự nhà máy
 summary: Xưởng và nhà máy đông công nhân, chia ca kíp, hay tăng ca. Bài viết hướng dẫn chọn thiết bị chấm công (khuôn mặt thay vân tay), tổ chức ca kíp, tính lương tăng ca, làm đêm, phụ cấp và bảo hiểm trên cùng một hệ thống.
 category: Theo ngành
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-tinh-luong-xuong-san-xuat-nha-may.jpg
 sortOrder: 73
 ---
 Xưởng sản xuất, nhà máy thường có **vài chục đến hàng trăm công nhân**, chia nhiều **ca kíp** (ca 1, ca 2, ca 3), hay **tăng ca** để kịp đơn hàng. Giờ cao điểm đầu ca và cuối ca, hàng trăm người chấm công cùng lúc nên thiết bị và phần mềm phải nhanh, chính xác.

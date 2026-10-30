@@ -7,7 +7,7 @@ metaDescription: Chấm công khuôn mặt bằng điện thoại: cách nhận 
 keywords: chấm công khuôn mặt bằng điện thoại, app chấm công khuôn mặt, chấm công face id, nhận diện khuôn mặt chấm công, chống chấm công hộ bằng ảnh, chấm công không cần máy
 summary: Nhân viên chụp khuôn mặt ngay lúc chấm công, phần mềm đối chiếu với ảnh đã đăng ký. Bài viết giải thích cách hoạt động, cách chống ảnh in hoặc ảnh chụp màn hình, quy trình đăng ký và lưu ý về dữ liệu cá nhân.
 category: Chấm công điện thoại
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-khuon-mat-bang-dien-thoai.jpg
 sortOrder: 63
 ---
 **Chấm công khuôn mặt bằng điện thoại** biến chiếc điện thoại của nhân viên thành máy chấm công: chụp một tấm ảnh khi vào ca và ra ca, hệ thống đối chiếu với khuôn mặt đã đăng ký. Không cần mua máy, không phải xếp hàng chờ chấm.

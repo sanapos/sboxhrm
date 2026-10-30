@@ -7,7 +7,7 @@ metaDescription: Giải pháp chấm công, tính lương theo ngành: cafe, nh�
 keywords: giải pháp chấm công theo ngành, phần mềm chấm công cho quán cafe, chấm công nhà hàng, chấm công nhà máy, chấm công văn phòng, chấm công nhân viên thị trường, phần mềm chấm công tính lương
 summary: Mỗi ngành có cách chấm công và tính lương khác nhau. Bảng tổng hợp nhanh cho 9 mô hình: cách chấm công nên dùng, điểm cần lưu ý và bài hướng dẫn chi tiết cho từng ngành.
 category: Theo ngành
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/giai-phap-cham-cong-tinh-luong-theo-nganh.jpg
 sortOrder: 75
 ---
 Không có cách chấm công “tốt nhất cho mọi doanh nghiệp”. Quán cà phê nhỏ, xưởng 300 công nhân và nhân viên đi thị trường cần ba giải pháp khác nhau. Dưới đây là bảng tổng hợp, kèm bài hướng dẫn chi tiết từng ngành.

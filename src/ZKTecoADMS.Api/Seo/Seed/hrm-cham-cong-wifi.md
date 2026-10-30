@@ -7,7 +7,7 @@ metaDescription: Chấm công bằng WiFi yêu cầu nhân viên kết nối đ�
 keywords: chấm công bằng wifi, chấm công wifi, phần mềm chấm công qua wifi, app chấm công wifi, chấm công theo mạng wifi cửa hàng, chống chấm công hộ
 summary: Chấm công WiFi bắt nhân viên phải kết nối đúng mạng của cửa hàng mới chấm được, rất hữu ích khi GPS trong nhà yếu. Bài viết nêu ưu nhược điểm, cách kết hợp với GPS và khuôn mặt, và lưu ý khi triển khai.
 category: Chấm công điện thoại
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-wifi-tren-dien-thoai.jpg
 sortOrder: 62
 ---
 **Chấm công bằng WiFi** nghĩa là điện thoại phải kết nối vào đúng mạng WiFi của cửa hàng hoặc văn phòng thì mới được chấm công. Nhân viên ngồi quán cà phê bên cạnh hay đang ở nhà sẽ không thể chấm.

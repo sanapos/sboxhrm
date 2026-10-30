@@ -31,6 +31,8 @@ public static class SeoArticleSeeder
                 var seed = Parse(await reader.ReadToEndAsync(ct));
                 if (seed == null) { logger.LogWarning("SEO seed {Name}: thiếu front matter", name); continue; }
 
+                await RefreshCoverAsync(db, seed, logger, ct);
+
                 var marker = $"seo-seed-{seed.Site}-{seed.Slug}";
                 if (marker.Length > 100) marker = marker[..100];
                 var done = await db.Database
@@ -74,6 +76,31 @@ public static class SeoArticleSeeder
             // Bảng chưa có (CSDL mới) hoặc lỗi khác — không chặn khởi động API.
             logger.LogWarning(ex, "SEO article seed skipped");
         }
+    }
+
+    /// <summary>
+    /// Ảnh bìa riêng /images/blog/{slug}.jpg (scripts/gen-blog-covers.py) cho bài đã nạp trước đó: chỉ thay một lần
+    /// (seo-cover-{site}-{slug}) và chỉ khi bài vẫn dùng ảnh chụp màn hình chung /images/landing/… — ảnh Super Admin
+    /// đã tự đổi được giữ nguyên.
+    /// </summary>
+    static async Task RefreshCoverAsync(ZKTecoDbContext db, SeedArticle seed, ILogger logger, CancellationToken ct)
+    {
+        if (seed.Cover == null || !seed.Cover.StartsWith("/images/blog/", StringComparison.Ordinal)) return;
+        // v2: bản đầu gán thuộc tính + SaveChanges — DbContext production mặc định NoTracking nên không ghi gì.
+        var marker = $"seo-cover-v2-{seed.Site}-{seed.Slug}";
+        if (marker.Length > 100) marker = marker[..100];
+        var done = await db.Database
+            .SqlQuery<int>($"SELECT 1 AS \"Value\" FROM \"SboxDataMigrations\" WHERE \"Id\" = {marker}")
+            .AnyAsync(ct);
+        if (done) return;
+        var cover = seed.Cover;
+        var n = await db.Set<SeoArticle>()
+            .Where(a => a.Site == seed.Site && a.Slug == seed.Slug
+                && (a.CoverImageUrl == null || a.CoverImageUrl == "" || a.CoverImageUrl.StartsWith("/images/landing/")))
+            .ExecuteUpdateAsync(u => u.SetProperty(a => a.CoverImageUrl, cover), ct);
+        if (n > 0) logger.LogInformation("SEO seed: ảnh bìa mới {Site}/{Slug}", seed.Site, seed.Slug);
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"INSERT INTO \"SboxDataMigrations\" (\"Id\") VALUES ({marker}) ON CONFLICT DO NOTHING", ct);
     }
 
     /// <summary>Front matter dạng «key: value» giữa hai dòng ---, phần còn lại là nội dung Markdown.</summary>

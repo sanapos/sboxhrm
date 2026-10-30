@@ -7,7 +7,7 @@ metaDescription: Hướng dẫn chấm công GPS trên điện thoại: cách ho
 keywords: chấm công gps, phần mềm chấm công gps, chấm công bằng gps trên điện thoại, app chấm công định vị, chấm công theo vị trí, chống giả gps chấm công
 summary: Chấm công GPS cho phép nhân viên chỉ chấm được khi điện thoại nằm trong vùng làm việc. Bài viết giải thích cách hoạt động, cách đặt bán kính theo từng loại địa điểm, xử lý GPS yếu trong tòa nhà và các cách hạn chế giả vị trí.
 category: Chấm công điện thoại
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-gps-tren-dien-thoai.jpg
 sortOrder: 61
 ---
 **Chấm công GPS** là hình thức nhân viên bấm chấm công trên điện thoại, còn phần mềm kiểm tra điện thoại có đang ở trong khu vực làm việc đã khai báo hay không. Đây là cách phổ biến nhất để thay máy chấm công ở cửa hàng nhỏ, chuỗi nhiều điểm bán hoặc đội ngũ đi làm ngoài.

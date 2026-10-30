@@ -7,7 +7,7 @@ metaDescription: Hướng dẫn kết nối máy chấm công ZKTeco lên phần
 keywords: máy chấm công ZKTeco, kết nối máy chấm công, ADMS, chấm công qua Internet, máy chấm công khuôn mặt
 summary: Không cần máy tính bật suốt ngày để tải dữ liệu chấm công. Với ADMS, máy chấm công ZKTeco tự gửi lượt chấm lên phần mềm qua Internet ngay khi nhân viên chấm. Bài viết hướng dẫn cài đặt và xử lý lỗi thường gặp.
 category: Máy chấm công
-cover: /images/landing/screenshot-05.jpg
+cover: /images/blog/ket-noi-may-cham-cong-zkteco-qua-internet.jpg
 sortOrder: 10
 ---
 Trước đây, muốn lấy dữ liệu từ máy chấm công, doanh nghiệp phải cắm USB hoặc để một máy tính trong văn phòng chạy phần mềm "kéo" dữ liệu qua mạng nội bộ. Nhiều chi nhánh thì nhiều máy tính, nhiều file — và mỗi lần mất điện, mất mạng lại thiếu dữ liệu.

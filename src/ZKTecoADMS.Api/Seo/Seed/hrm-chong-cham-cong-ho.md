@@ -7,7 +7,7 @@ metaDescription: 7 cách chống chấm công hộ, chấm từ xa, mượn th�
 keywords: chống chấm công hộ, chấm công hộ, gian lận chấm công, chấm công gps, chấm công khuôn mặt chống gian lận, quản lý chấm công nhân viên
 summary: Chấm công hộ khiến doanh nghiệp trả lương cho giờ không làm và làm mất công bằng với người đi làm đúng giờ. Bảy cách chống chấm hộ từ thiết bị, phần mềm đến nội quy.
 category: Chấm công
-cover: /images/landing/mobile/mobile-02-face-checkin.png
+cover: /images/blog/cach-chong-cham-cong-ho.jpg
 sortOrder: 48
 ---
 "Em đến trễ, bạn chấm giúp em với" — câu nói tưởng vô hại nhưng mỗi tháng có thể khiến doanh nghiệp trả lương cho hàng chục giờ không làm việc, và khiến những người đi làm đúng giờ cảm thấy bất công. Dưới đây là 7 cách chống chấm công hộ, từ dễ đến chặt chẽ.

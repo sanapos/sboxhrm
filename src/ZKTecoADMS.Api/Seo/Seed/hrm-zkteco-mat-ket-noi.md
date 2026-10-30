@@ -7,7 +7,7 @@ metaDescription: Máy chấm công ZKTeco không gửi dữ liệu lên phần m
 keywords: máy chấm công mất kết nối, máy chấm công zkteco không kết nối, máy chấm công không đẩy dữ liệu, lỗi máy chấm công, máy chấm công sai giờ, cài đặt adms zkteco
 summary: Tổng hợp các lỗi hay gặp khi máy chấm công ZKTeco kết nối phần mềm qua Internet (ADMS): mất mạng, sai địa chỉ máy chủ, sai giờ, sai múi giờ, trùng mã nhân viên, bộ nhớ đầy — và cách tự kiểm tra.
 category: Máy chấm công
-cover: /images/landing/screenshot-03.jpg
+cover: /images/blog/may-cham-cong-zkteco-mat-ket-noi.jpg
 sortOrder: 45
 ---
 Máy chấm công ZKTeco kết nối phần mềm qua **ADMS (Push / Cloud Server)** rất ổn định khi cài đúng. Khi máy báo mất kết nối hoặc bảng công không thấy dữ liệu mới, phần lớn nguyên nhân nằm ở vài điểm dưới đây — bạn có thể tự kiểm tra trước khi gọi kỹ thuật.

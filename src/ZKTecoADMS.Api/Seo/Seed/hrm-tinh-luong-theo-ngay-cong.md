@@ -7,7 +7,7 @@ metaDescription: Hướng dẫn tính lương theo ngày công thực tế: côn
 keywords: cách tính lương theo ngày công, công thức tính lương, ngày công chuẩn, tính lương tăng ca, bảng lương
 summary: Lương theo ngày công là cách trả lương phổ biến nhất ở doanh nghiệp Việt Nam, nhưng cũng dễ sai nhất vì cách chọn ngày công chuẩn, tăng ca và phụ cấp. Bài viết tổng hợp công thức, ví dụ và các lỗi thường gặp.
 category: Tính lương
-cover: /images/landing/screenshot-03.jpg
+cover: /images/blog/cach-tinh-luong-theo-ngay-cong.jpg
 sortOrder: 20
 ---
 Trả lương theo ngày công nghĩa là lương tháng của nhân viên phụ thuộc vào số ngày họ thực sự đi làm. Cách làm này công bằng và dễ hiểu, nhưng khi số nhân viên tăng lên, việc tổng hợp công, tính tăng ca và phụ cấp bằng tay rất dễ sai.

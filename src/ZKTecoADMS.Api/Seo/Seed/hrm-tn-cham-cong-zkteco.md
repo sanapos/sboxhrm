@@ -8,7 +8,7 @@ metaDescription: Kết nối máy chấm công ZKTeco qua Internet bằng ADMS, 
 keywords: phần mềm chấm công zkteco, chấm công zkteco online, máy chấm công adms, phần mềm máy chấm công vân tay, chấm công khuôn mặt zkteco, kết nối máy chấm công qua internet
 summary: Không cần cài phần mềm trên máy tính, không cần mở port hay IP tĩnh. Máy chấm công ZKTeco tự đẩy dữ liệu lên SBOX HRM qua Internet; quản lý xem bảng công, đi trễ, về sớm và bảng lương ở bất kỳ đâu.
 category: Chấm công
-cover: /images/landing/screenshot-03.jpg
+cover: /images/blog/phan-mem-cham-cong-zkteco.jpg
 sortOrder: 100
 ---
 Phần lớn doanh nghiệp đang dùng máy chấm công ZKTeco gặp cùng một vấn đề: dữ liệu nằm trong máy, phải cắm USB hoặc dùng phần mềm cài trên một máy tính cố định để tải về, rồi mới tổng hợp bằng Excel. Có nhiều chi nhánh thì càng mất thời gian. **SBOX HRM** kết nối máy ZKTeco qua giao thức **ADMS (Push)** — máy tự gửi dữ liệu lên máy chủ đám mây, bạn xem công ở mọi nơi trên web và điện thoại.

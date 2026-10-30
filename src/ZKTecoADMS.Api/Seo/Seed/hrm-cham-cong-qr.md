@@ -7,7 +7,7 @@ metaDescription: Chấm công QR code là gì, rủi ro chấm hộ bằng ảnh
 keywords: chấm công qr code, chấm công bằng mã qr, phần mềm chấm công quét mã qr, app chấm công qr, chấm công quét qr, so sánh chấm công qr và khuôn mặt
 summary: Chấm công QR đơn giản và rẻ nhưng có điểm yếu lớn: ai có ảnh mã QR cũng quét được. Bài viết phân tích ưu nhược điểm, tình huống nên dùng và cách kết hợp với khuôn mặt, GPS, WiFi để an toàn hơn.
 category: Chấm công điện thoại
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-qr-code-co-nen-dung.jpg
 sortOrder: 64
 ---
 **Chấm công bằng mã QR** là hình thức nhân viên dùng điện thoại quét một mã QR dán tại cửa hàng hoặc hiển thị trên màn hình để ghi nhận giờ vào – ra. Ý tưởng đơn giản, chi phí gần như bằng không, nên nhiều chủ doanh nghiệp nhỏ quan tâm.

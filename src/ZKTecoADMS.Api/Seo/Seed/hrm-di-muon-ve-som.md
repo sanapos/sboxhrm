@@ -7,7 +7,7 @@ metaDescription: Nhân viên đi muộn, về sớm xử lý sao cho đúng lu�
 keywords: quy định đi muộn về sớm, phạt đi muộn, đi làm muộn bị trừ lương, xử lý nhân viên đi muộn, nội quy đi muộn, phạt tiền nhân viên
 summary: Nhiều doanh nghiệp vẫn phạt 50.000 đ mỗi lần đi muộn — đây là hành vi pháp luật cấm. Bài viết giải thích doanh nghiệp được làm gì: trả lương theo giờ làm thực tế, xử lý kỷ luật theo nội quy và khuyến khích bằng thưởng chuyên cần.
 category: Quản lý nhân sự
-cover: /images/landing/screenshot-04.jpg
+cover: /images/blog/quy-dinh-di-muon-ve-som.jpg
 sortOrder: 46
 ---
 Đi muộn, về sớm là vi phạm phổ biến nhất ở mọi doanh nghiệp. Cách xử lý quen thuộc là "phạt 20.000 – 50.000 đ mỗi lần" hoặc "đi muộn 3 lần trừ một ngày công". Tuy nhiên, cách làm này **trái quy định** của Bộ luật Lao động.

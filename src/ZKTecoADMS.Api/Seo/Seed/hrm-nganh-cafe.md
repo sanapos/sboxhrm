@@ -7,7 +7,7 @@ metaDescription: Chấm công, tính lương quán cà phê: xếp ca xoay, nhâ
 keywords: chấm công quán cà phê, phần mềm chấm công quán cafe, tính lương nhân viên quán cà phê, quản lý ca làm quán cafe, lương part-time quán cafe, app chấm công cho quán cà phê
 summary: Quán cà phê nhiều ca, nhiều nhân viên part-time và biến động nhân sự liên tục. Bài viết hướng dẫn xếp ca, chấm công bằng điện thoại và WiFi quán, cách tính lương theo giờ hoặc theo ca để cuối tháng không còn tranh cãi.
 category: Theo ngành
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-tinh-luong-quan-cafe.jpg
 sortOrder: 66
 ---
 Quản lý nhân sự quán cà phê khó ở chỗ: **nhiều ca trong ngày**, nhân viên **part-time** đổi lịch liên tục, người nghỉ việc nhiều và thường làm việc cả cuối tuần, ngày lễ. Ghi sổ tay hay nhóm Zalo thì cuối tháng rất dễ sai sót và phát sinh tranh cãi tiền công.

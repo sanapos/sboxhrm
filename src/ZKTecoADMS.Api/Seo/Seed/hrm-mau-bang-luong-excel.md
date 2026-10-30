@@ -7,7 +7,7 @@ metaDescription: Tải miễn phí mẫu bảng lương Excel 2026 có công th�
 keywords: mẫu bảng lương excel, mẫu bảng lương 2026, bảng lương excel có công thức, file tính lương excel, mẫu bảng thanh toán tiền lương, bảng lương nhân viên
 summary: Mẫu bảng lương Excel 2026 có sẵn công thức tính lương theo ngày công, tăng ca, bảo hiểm và thuế TNCN theo biểu 5 bậc. Bài viết giải thích từng cột để bạn sửa theo quy chế lương của doanh nghiệp.
 category: Tính lương
-cover: /images/landing/screenshot-05.jpg
+cover: /images/blog/mau-bang-luong-excel.jpg
 sortOrder: 60
 ---
 Bảng lương là tài liệu doanh nghiệp nào cũng phải làm hằng tháng, và cũng là nơi dễ sai nhất: sai ngày công, quên trừ tạm ứng, tính thuế TNCN nhầm bậc. Mẫu bảng lương Excel 2026 dưới đây đã có sẵn công thức theo quy định mới nhất về giảm trừ gia cảnh và biểu thuế — bạn chỉ cần nhập số liệu.

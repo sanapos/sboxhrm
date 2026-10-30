@@ -7,7 +7,7 @@ metaDescription: Chấm công, nghỉ phép, tăng ca và tính lương cho văn
 keywords: chấm công văn phòng, phần mềm chấm công tính lương công ty, phần mềm nhân sự cho doanh nghiệp nhỏ, chấm công nhân viên văn phòng, quản lý nghỉ phép tăng ca, tính lương tự động
 summary: Văn phòng cần chấm công chính xác, quản lý nghỉ phép, tăng ca và tính lương đúng luật. Bài viết hướng dẫn chọn hình thức chấm công, tổ chức ca và đơn từ, tính lương kèm bảo hiểm và thuế, phù hợp công ty 10–300 nhân viên.
 category: Theo ngành
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-tinh-luong-van-phong-cong-ty.jpg
 sortOrder: 74
 ---
 Văn phòng công ty thường có giờ giấc cố định hơn các ngành dịch vụ, nhưng lại phát sinh nhiều **đơn từ**: nghỉ phép, làm việc từ xa, đi công tác, tăng ca, bổ sung công; cộng với **bảo hiểm và thuế** khi tính lương. Excel dễ làm nhưng khó kiểm soát khi công ty vượt quá 20–30 người.

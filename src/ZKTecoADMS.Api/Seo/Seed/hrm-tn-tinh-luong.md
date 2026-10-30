@@ -8,7 +8,7 @@ metaDescription: Tính lương tự động từ bảng công: ngày công, tăn
 keywords: phần mềm tính lương, phần mềm bảng lương, tính lương tự động, phần mềm tính lương nhân viên, phiếu lương điện tử, tính lương theo ca, tính bhxh thuế tncn
 summary: Bảng công chốt xong là có bảng lương: SBOX HRM tự tính lương theo ngày công hoặc theo giờ, tăng ca, ngày lễ, phụ cấp, khấu trừ bảo hiểm, thuế TNCN và tạm ứng — nhân viên xem phiếu lương ngay trên app.
 category: Tính lương
-cover: /images/landing/screenshot-05.jpg
+cover: /images/blog/phan-mem-tinh-luong.jpg
 sortOrder: 90
 ---
 Tính lương bằng Excel đúng được khi có 10 nhân viên. Khi có 50, 100 người với nhiều ca, nhiều mức phụ cấp, người đi trễ, người tăng ca, người tạm ứng — mỗi tháng mất vài ngày đối chiếu và vẫn dễ sai. **SBOX HRM** lấy dữ liệu từ [chấm công](/tinh-nang/phan-mem-cham-cong-zkteco) và các đơn đã duyệt để tính lương tự động theo đúng quy chế của bạn.

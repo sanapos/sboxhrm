@@ -7,7 +7,7 @@ metaDescription: Chấm công, tính lương spa, salon, thẩm mỹ viện: x�
 keywords: chấm công spa, phần mềm chấm công spa, tính lương nhân viên spa, quản lý nhân sự spa salon, lương kỹ thuật viên spa, chấm công thẩm mỹ viện
 summary: Spa và salon có kỹ thuật viên làm theo lịch hẹn, ca không đều và nhiều chi nhánh. Bài viết hướng dẫn xếp ca linh hoạt, chấm công bằng điện thoại, cách kết hợp lương cơ bản với thưởng/phụ cấp theo dịch vụ và quản lý nhiều cơ sở.
 category: Theo ngành
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-tinh-luong-spa.jpg
 sortOrder: 70
 ---
 Spa, salon, thẩm mỹ viện có đặc điểm riêng: **kỹ thuật viên làm theo lịch hẹn**, ca hôm nay khác ca ngày mai, nhiều chi nhánh, và thu nhập thường gồm **lương cơ bản cộng thưởng/phụ cấp theo dịch vụ**. Công thức này khó quản lý bằng bảng tính thủ công.

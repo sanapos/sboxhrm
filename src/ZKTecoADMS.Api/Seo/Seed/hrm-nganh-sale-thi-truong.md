@@ -7,7 +7,7 @@ metaDescription: Chấm công nhân viên sale thị trường: giao tuyến đi
 keywords: chấm công nhân viên thị trường, phần mềm quản lý nhân viên sale thị trường, check-in điểm bán, theo dõi hành trình nhân viên sale, chấm công gps sale, quản lý tuyến bán hàng, báo cáo viếng thăm
 summary: Nhân viên sale thị trường làm việc ngoài, khó kiểm soát. Bài viết hướng dẫn giao tuyến điểm bán, check-in/check-out tại cửa hàng khách với ảnh và vị trí, theo dõi hành trình, báo cáo viếng thăm và cách đưa dữ liệu vào bảng lương, công tác phí.
 category: Theo ngành
-cover: /images/landing/screenshot-02.jpg
+cover: /images/blog/cham-cong-nhan-vien-sale-thi-truong.jpg
 sortOrder: 71
 ---
 Nhân viên sale thị trường (NVTT), trình dược viên, giao hàng, tiếp thị tại điểm bán **gần như không ngồi văn phòng**. Máy chấm công cố định không dùng được, còn nếu chỉ tin báo cáo miệng thì không thể kiểm chứng họ đã đi bao nhiêu điểm, ở lại bao lâu.
