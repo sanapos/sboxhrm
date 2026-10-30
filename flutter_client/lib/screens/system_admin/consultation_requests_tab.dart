@@ -1,3 +1,4 @@
+import '../../widgets/export_file_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
@@ -97,7 +98,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
               const SizedBox(width: 8),
               FilledButton.icon(
                 onPressed: (_loading || _items.isEmpty) ? null : _exportExcel,
-                icon: const Icon(Icons.download_rounded),
+                icon: const ExportFileIcon(ExportFileKind.excel, size: 20),
                 label: Text(tr('Xuất Excel')),
               ),
             ],

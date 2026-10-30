@@ -1,3 +1,4 @@
+import '../export_file_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -258,7 +259,7 @@ class ReportScreenShell extends StatelessWidget {
               tooltip: tr('Xuất Excel'),
               onPressed: onExport,
             ),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: onRefresh),
+          IconButton(icon: const ExportFileIcon(ExportFileKind.excel), onPressed: onRefresh),
         ],
       ),
       body: child,

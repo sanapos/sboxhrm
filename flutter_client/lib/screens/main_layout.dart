@@ -4708,20 +4708,9 @@ class _HomeMenuScreen extends StatefulWidget {
     'Cài đặt': HrmPageChrome.primaryNavy,
   };
 
-  /// Tông nhẹ theo khu vực (màu icon, nền icon) — nhận ra vùng Bán hàng / Nhân sự / Kho… khi cuộn.
-  static const _groupTints = <String, (Color, Color)>{
-    'Hồ sơ nhân sự': (SboxColors.violet, SboxColors.violetSoft),
-    'Chấm công': (SboxColors.violet, SboxColors.violetSoft),
-    'Tài chính': (SboxColors.successText, SboxColors.successSoft),
-    'Quản lý Vận hành': (SboxColors.warningText, SboxColors.warningSoft),
-    'Bán hàng': (SboxColors.brand700, SboxColors.brand50),
-    'Thương mại': (SboxColors.brand700, SboxColors.brand50),
-    'Khách hàng & khuyến mãi': (SboxColors.brand700, SboxColors.brand50),
-    'Hàng hóa & kho': (SboxColors.teal, SboxColors.tealSoft),
-  };
-
-  static (Color, Color) tintOf(String group) =>
-      _groupTints[group] ?? (SboxColors.slate600, SboxColors.slate100);
+  /// Mọi nhóm trên Trang chủ dùng chung một tông xanh thương hiệu — mỗi nhóm một màu (tím, xanh lá, vàng…)
+  /// nhìn rối, khó tập trung tìm chức năng.
+  static (Color, Color) tintOf(String group) => (SboxColors.brand700, SboxColors.brand50);
 
   static const _groupDescriptions = {
     'Hồ sơ nhân sự': 'Nhân viên, phòng ban',

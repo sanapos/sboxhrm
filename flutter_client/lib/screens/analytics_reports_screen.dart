@@ -1,3 +1,4 @@
+import '../widgets/export_file_icon.dart';
 import 'package:flutter/material.dart';
 import '../utils/export_permission_guard.dart';
 import 'package:intl/intl.dart';
@@ -483,7 +484,7 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
           IconButton(
             tooltip: tr('Xuất Excel'),
             onPressed: _loading || _error != null ? null : _excel,
-            icon: const Icon(Icons.table_view_outlined),
+            icon: const ExportFileIcon(ExportFileKind.excel),
           ),
         ],
       ),

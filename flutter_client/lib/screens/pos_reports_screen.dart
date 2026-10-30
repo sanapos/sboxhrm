@@ -1,3 +1,4 @@
+import '../widgets/export_file_icon.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -451,7 +452,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                               style: FilledButton.styleFrom(
                                   backgroundColor: _kiotBlue),
                               onPressed: _exporting ? null : _exportSales,
-                              icon: const Icon(Icons.download, size: 18),
+                              icon: const ExportFileIcon(ExportFileKind.excel, size: 20),
                               label: Text(tr('Xuất Excel')),
                             ),
                           ),

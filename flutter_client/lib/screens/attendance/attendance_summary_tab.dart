@@ -41,6 +41,7 @@ import '../../utils/punch_location_utils.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/report_column_picker.dart';
 import '../../widgets/sbox/sbox_table.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import '../../widgets/sbox/sbox_charts.dart';
@@ -200,6 +201,33 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   String _sortColumn = 'name';
   bool _sortAscending = true;
 
+  /// Cột bảng trên màn hình / file Excel (ẩn hiện + thứ tự, nhớ theo máy).
+  static const _colPrefKey = 'attendance_summary_cols_v1';
+  static const _excelColPrefKey = 'attendance_summary_excel_cols_v1';
+  static const _columnDefs = <ReportColumnDef>[
+    ReportColumnDef('stt', 'STT', locked: true),
+    ReportColumnDef('name', 'Tên nhân viên'),
+    ReportColumnDef('code', 'Mã nhân viên'),
+    ReportColumnDef('dept', 'Phòng ban', defaultVisible: false),
+    ReportColumnDef('weekday', 'Thứ'),
+    ReportColumnDef('date', 'Ngày', locked: true),
+    ReportColumnDef('branch', 'Chi nhánh chấm', hint: '(khi có nhiều chi nhánh)'),
+    ReportColumnDef('punch', 'Giờ chấm', hint: '(Lần 1, Lần 2…)'),
+    ReportColumnDef('shift', 'Giờ theo ca', hint: '(Giờ ca 1, 2…)'),
+    ReportColumnDef('total', 'Tổng giờ'),
+    ReportColumnDef('travel', 'Đi đường', hint: '(khi bật lương đi đường)'),
+    ReportColumnDef('work', 'Số công'),
+    ReportColumnDef('decimal', 'Giờ thập phân'),
+  ];
+  ReportColumnLayout _colLayout = ReportColumnLayout.defaults(_columnDefs);
+  static final _excelColumnDefs = <ReportColumnDef>[
+    for (final d in _columnDefs)
+      ReportColumnDef(d.key, d.label,
+          locked: d.locked,
+          hint: d.hint,
+          defaultVisible: !const {'name', 'code', 'dept'}.contains(d.key) && d.defaultVisible),
+  ];
+
   // Cache dòng tổng hợp thô (tính nền); sort/lọc áp dụng sync khi hiển thị.
   List<_DailySummary>? _cachedSummaryRows;
   int? _cachedSummaryRowsFp;
@@ -276,6 +304,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     super.initState();
     _selectedPreset = widget.dateRangePreset ?? 'month';
     _buildLookupMaps();
+    ReportColumnPrefs.load(_colPrefKey, _columnDefs).then((l) {
+      if (!mounted) return;
+      setState(() {
+        _colLayout = l;
+        _invalidateDisplayDerivedCache();
+      });
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduleSummaryBuild();
       _loadEditMarks();
@@ -1653,12 +1688,44 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
   int get _excelPunchStartCol => _showPunchBranchColumn ? 4 : 3;
 
+  /// Khóa cột của từng ô theo thứ tự gốc của bảng (trước khi sắp theo [_colLayout]).
+  List<String> _summaryCellKeys(int maxPunches, int maxShifts) => [
+        'stt', 'name', 'code', 'dept', 'weekday', 'date',
+        if (_showPunchBranchColumn) 'branch',
+        for (var i = 0; i < maxPunches; i++) 'punch',
+        for (var i = 0; i < maxShifts; i++) 'shift',
+        'total',
+        if (_showTravelColumns) 'travel',
+        'work', 'decimal',
+      ];
+
+  /// Ô của một dòng (thứ tự gốc) → đúng cột đang hiện, đúng thứ tự người dùng chọn.
+  List<T> _projectCells<T>(List<T> cells, int maxPunches, int maxShifts) =>
+      projectReportColumns(cells, _summaryCellKeys(maxPunches, maxShifts), _colLayout.visibleOrder);
+
   int _summaryColumnCount(int maxPunches, int maxShifts) =>
-      5 +
-      (_showPunchBranchColumn ? 1 : 0) +
-      maxPunches +
-      maxShifts +
-      (_showTravelColumns ? 4 : 3);
+      _projectCells(_summaryCellKeys(maxPunches, maxShifts), maxPunches, maxShifts).length;
+
+  String _departmentOf(Map<String, Map<String, dynamic>> lookup, String employeeId, String code, String? pin) {
+    final info = lookup[employeeId] ?? lookup[code] ?? (pin != null ? lookup[pin] : null);
+    return info?['department']?.toString() ?? info?['departmentName']?.toString() ?? '';
+  }
+
+  /// Nút «Chọn cột» — áp cho bảng trên màn hình.
+  Future<void> showColumnPicker() async {
+    final r = await showReportColumnPicker(
+      context,
+      title: 'Chọn cột hiển thị',
+      defs: _columnDefs,
+      initial: _colLayout,
+    );
+    if (r == null || !mounted) return;
+    setState(() {
+      _colLayout = r.layout;
+      _invalidateDisplayDerivedCache();
+    });
+    await ReportColumnPrefs.save(_colPrefKey, r.layout);
+  }
 
   Widget _punchLocationCell(String location, {String assignedBranch = ''}) {
     if (location.isEmpty) {
@@ -1687,10 +1754,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       0: const FixedColumnWidth(52),
       1: const FixedColumnWidth(172),
       2: const FixedColumnWidth(104),
-      3: const FixedColumnWidth(60),
-      4: const FixedColumnWidth(108),
+      3: const FixedColumnWidth(150),
+      4: const FixedColumnWidth(60),
+      5: const FixedColumnWidth(108),
     };
-    var idx = 5;
+    var idx = 6;
     if (_showPunchBranchColumn) {
       widths[idx++] = const FixedColumnWidth(132);
     }
@@ -1706,7 +1774,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     }
     widths[idx++] = const FixedColumnWidth(96);
     widths[idx] = const FixedColumnWidth(88);
-    return widths;
+    final keys = widths.keys.toList()..sort();
+    final projected = _projectCells([for (final k in keys) widths[k]!], maxPunches, maxShifts);
+    return {for (var i = 0; i < projected.length; i++) i: projected[i]};
   }
 
   double _summaryDesktopTableMinWidth(int maxPunches, int maxShifts) {
@@ -1819,6 +1889,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         ),
       ),
       _summaryTableCell(
+        Text(
+          tr(_departmentOf(_employeeInfoLookup(), totals.employeeId, totals.employeeCode, null)),
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 11, color: SboxColors.slate500),
+        ),
+      ),
+      _summaryTableCell(
         Text(tr('Tổng'),
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -1915,7 +1992,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           bottom: BorderSide(color: SboxColors.brand200, width: 2),
         ),
       ),
-      children: cells,
+      children: _projectCells(cells, maxPunches, maxShifts),
     );
   }
 
@@ -1956,6 +2033,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       _summaryTableCell(_summaryHeaderText('STT')),
       _summaryTableCell(_summarySortableHeader('Tên nhân viên', 'name')),
       _summaryTableCell(_summarySortableHeader('Mã nhân viên', 'code')),
+      _summaryTableCell(_summaryHeaderText('Phòng ban')),
       _summaryTableCell(_summaryHeaderText('Thứ')),
       _summaryTableCell(_summarySortableHeader('Ngày', 'date')),
       if (_showPunchBranchColumn)
@@ -1976,7 +2054,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     ]);
     return TableRow(
       decoration: const BoxDecoration(color: SboxColors.slate50),
-      children: cells,
+      children: _projectCells(cells, maxPunches, maxShifts),
     );
   }
 
@@ -2395,6 +2473,58 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     if (style != null) cell.cellStyle = style;
   }
 
+  /// Cột Excel cụ thể theo lựa chọn: (khóa, chỉ số) — nhóm «punch» / «shift» trải thành Lần 1…N / Giờ ca 1…M.
+  List<(String, int)> _excelColumnsFor(ReportColumnLayout layout, int maxPunches, int maxShifts) {
+    final cols = <(String, int)>[];
+    for (final k in layout.visibleOrder) {
+      switch (k) {
+        case 'punch':
+          for (var i = 1; i <= maxPunches; i++) {
+            cols.add(('punch', i));
+          }
+        case 'shift':
+          for (var i = 1; i <= maxShifts; i++) {
+            cols.add(('shift', i));
+          }
+        case 'branch':
+          if (_showPunchBranchColumn) cols.add(('branch', 0));
+        case 'travel':
+          if (_showTravelColumns) cols.add(('travel', 0));
+        default:
+          cols.add((k, 0));
+      }
+    }
+    return cols;
+  }
+
+  String _excelColumnHeader((String, int) c) => switch (c.$1) {
+        'stt' => 'STT',
+        'name' => 'Tên nhân viên',
+        'code' => 'Mã nhân viên',
+        'dept' => 'Phòng ban',
+        'weekday' => 'Thứ',
+        'date' => 'Ngày',
+        'branch' => _punchBranchHeader,
+        'punch' => 'Lần ${c.$2}',
+        'shift' => 'Giờ ca ${c.$2}',
+        'total' => 'Tổng giờ',
+        'travel' => 'Đi đường',
+        'work' => 'Số công',
+        _ => 'Giờ thập phân',
+      };
+
+  double _excelColumnWidth(String key) => switch (key) {
+        'stt' => 12,
+        'name' => 22,
+        'code' => 12,
+        'dept' => 18,
+        'weekday' => 10,
+        'date' => 12,
+        'branch' => 22,
+        'punch' => 9,
+        _ => 11,
+      };
+
   List<String> _excelDetailHeaders(int maxPunches, int maxShifts) {
     final headers = <String>[
       'STT',
@@ -2510,10 +2640,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     required List<_DailySummary> empRows,
     required _EmployeePeriodTotals totals,
     required Map<String, dynamic>? empInfo,
-    required int maxPunches,
-    required int maxShifts,
+    required List<(String, int)> columns,
     required DateTimeRange range,
-    required int colCount,
     required bool isLastEmployee,
   }) {
     final titleStyle = ExcelReportBuilder.titleStyle();
@@ -2529,13 +2657,16 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     final sigTitleStyle = _excelCenterStyle(bold: true);
     final sigHintStyle = _excelCenterStyle(fontSize: 10, italic: true);
 
+    final colCount = columns.length;
     final lastCol = colCount - 1;
-    final punchStartCol = _excelPunchStartCol;
-    final shiftStartCol = punchStartCol + maxPunches;
-    final totalHoursCol = shiftStartCol + maxShifts;
-    final travelCol = _showTravelColumns ? totalHoursCol + 1 : -1;
-    final workCountCol = totalHoursCol + (_showTravelColumns ? 2 : 1);
-    final decimalHoursCol = workCountCol + 1;
+    int colOf(String key, [int idx = 0]) =>
+        columns.indexWhere((c) => c.$1 == key && (idx == 0 || c.$2 == idx));
+    final shiftCols = [
+      for (var c = 0; c < colCount; c++)
+        if (columns[c].$1 == 'shift') c
+    ];
+    final totalHoursCol = colOf('total');
+    final firstPunchCol = colOf('punch');
 
     var row = startRow;
 
@@ -2574,192 +2705,117 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     row++;
 
     final headerRow = row;
-    final headers = _excelDetailHeaders(maxPunches, maxShifts);
-    ExcelReportBuilder.applyHeaderRow(sheet, headerRow, headers,
+    ExcelReportBuilder.applyHeaderRow(
+        sheet, headerRow, [for (final c in columns) _excelColumnHeader(c)],
         style: headerStyle);
     row++;
 
+    final displayName = _employeeDisplayName(empInfo, empRows.first);
+    final department = empInfo?['department']?.toString() ??
+        empInfo?['departmentName']?.toString() ??
+        '';
     final firstDataRow = row;
     for (var i = 0; i < empRows.length; i++) {
       final s = empRows[i];
-      var col = 0;
-      _excelSetCell(
-        sheet,
-        row,
-        col++,
-        excel_lib.IntCellValue(i + 1),
-        style: dataStyle,
-      );
-      _excelSetCell(
-        sheet,
-        row,
-        col++,
-        excel_lib.TextCellValue(_getDayOfWeekVN(s.date.weekday)),
-        style: dataStyle,
-      );
-      _excelSetCell(
-        sheet,
-        row,
-        col++,
-        excel_lib.TextCellValue(DateFormat('dd/MM/yyyy').format(s.date)),
-        style: dataStyle,
-      );
-      if (_showPunchBranchColumn) {
-        _excelSetCell(
-          sheet,
-          row,
-          col++,
-          excel_lib.TextCellValue(s.punchLocation),
-          style: _excelLeftStyle(),
-        );
+      for (var c = 0; c < colCount; c++) {
+        final (key, idx) = columns[c];
+        switch (key) {
+          case 'stt':
+            _excelSetCell(sheet, row, c, excel_lib.IntCellValue(i + 1), style: dataStyle);
+          case 'name':
+            _excelSetCell(sheet, row, c, excel_lib.TextCellValue(displayName), style: _excelLeftStyle());
+          case 'code':
+            _excelSetCell(sheet, row, c, excel_lib.TextCellValue(s.employeeCode), style: dataStyle);
+          case 'dept':
+            _excelSetCell(sheet, row, c, excel_lib.TextCellValue(department), style: _excelLeftStyle());
+          case 'weekday':
+            _excelSetCell(sheet, row, c, excel_lib.TextCellValue(_getDayOfWeekVN(s.date.weekday)), style: dataStyle);
+          case 'date':
+            _excelSetCell(sheet, row, c,
+                excel_lib.TextCellValue(DateFormat('dd/MM/yyyy').format(s.date)), style: dataStyle);
+          case 'branch':
+            _excelSetCell(sheet, row, c, excel_lib.TextCellValue(s.punchLocation), style: _excelLeftStyle());
+          case 'punch':
+            final punch = s.getPunch(idx);
+            _excelSetCell(sheet, row, c,
+                excel_lib.TextCellValue(punch != null ? DateFormat('HH:mm').format(punch) : ''),
+                style: dataStyle);
+          case 'shift':
+            _excelSetCell(sheet, row, c,
+                excel_lib.DoubleCellValue(double.parse(s.getShiftHours(idx).toStringAsFixed(2))),
+                style: numStyle);
+          case 'total':
+            // Có cột giờ ca → công thức cộng các ca (sửa giờ ca trong file thì tổng tự đổi); ẩn giờ ca → ghi số.
+            _excelSetCell(
+              sheet,
+              row,
+              c,
+              shiftCols.isNotEmpty
+                  ? excel_lib.FormulaCellValue(
+                      'SUM(${_excelRef(shiftCols.first, row)}:${_excelRef(shiftCols.last, row)})')
+                  : excel_lib.DoubleCellValue(double.parse(s.totalHours.toStringAsFixed(2))),
+              style: numStyle,
+            );
+          case 'travel':
+            final travelH = _travelHoursForSummary(s);
+            _excelSetCell(
+              sheet,
+              row,
+              c,
+              travelH > 0
+                  ? excel_lib.DoubleCellValue(double.parse(travelH.toStringAsFixed(2)))
+                  : excel_lib.TextCellValue(''),
+              style: numStyle,
+            );
+          case 'work':
+            _excelSetCell(sheet, row, c,
+                excel_lib.DoubleCellValue(double.parse(s.workCount.toStringAsFixed(2))), style: numStyle);
+          case 'decimal':
+            _excelSetCell(
+              sheet,
+              row,
+              c,
+              totalHoursCol >= 0
+                  ? excel_lib.FormulaCellValue('${_excelRef(totalHoursCol, row)}')
+                  : excel_lib.DoubleCellValue(double.parse(s.totalHours.toStringAsFixed(2))),
+              style: numStyle,
+            );
+        }
       }
-
-      for (var p = 1; p <= maxPunches; p++) {
-        final punch = s.getPunch(p);
-        _excelSetCell(
-          sheet,
-          row,
-          col++,
-          excel_lib.TextCellValue(
-              punch != null ? DateFormat('HH:mm').format(punch) : ''),
-          style: dataStyle,
-        );
-      }
-
-      for (var sh = 1; sh <= maxShifts; sh++) {
-        final h = s.getShiftHours(sh);
-        _excelSetCell(
-          sheet,
-          row,
-          col++,
-          excel_lib.DoubleCellValue(double.parse(h.toStringAsFixed(2))),
-          style: numStyle,
-        );
-      }
-
-      final shiftRange =
-          '${_excelRef(shiftStartCol, row)}:${_excelRef(shiftStartCol + maxShifts - 1, row)}';
-      _excelSetCell(
-        sheet,
-        row,
-        totalHoursCol,
-        excel_lib.FormulaCellValue('=SUM($shiftRange)'),
-        style: numStyle,
-      );
-      final travelH = _travelHoursForSummary(s);
-      if (_showTravelColumns) {
-        _excelSetCell(
-          sheet,
-          row,
-          travelCol,
-          travelH > 0
-              ? excel_lib.DoubleCellValue(
-                  double.parse(travelH.toStringAsFixed(2)))
-              : excel_lib.TextCellValue(''),
-          style: numStyle,
-        );
-      }
-      _excelSetCell(
-        sheet,
-        row,
-        workCountCol,
-        excel_lib.DoubleCellValue(
-            double.parse(s.workCount.toStringAsFixed(2))),
-        style: numStyle,
-      );
-      _excelSetCell(
-        sheet,
-        row,
-        decimalHoursCol,
-        excel_lib.FormulaCellValue('=${_excelRef(totalHoursCol, row)}'),
-        style: numStyle,
-      );
       row++;
     }
 
     final lastDataRow = row - 1;
     final totalRow = row;
 
-    _excelSetCell(sheet, totalRow, 0, excel_lib.TextCellValue(''),
-        style: totalStyle);
-    _excelSetCell(sheet, totalRow, 1, excel_lib.TextCellValue('TỔNG CỘNG'),
-        style: totalStyle);
-
-    if (empRows.isNotEmpty) {
-      final punchCol = _excelRef(punchStartCol, firstDataRow);
-      final punchEnd = _excelRef(punchStartCol, lastDataRow);
-      _excelSetCell(
-        sheet,
-        totalRow,
-        2,
-        excel_lib.FormulaCellValue(
-            '=COUNTIF($punchCol:$punchEnd,"<>")&" ngày"'),
-        style: totalStyle,
-      );
-
-      for (var sh = 0; sh < maxShifts; sh++) {
-        final c = shiftStartCol + sh;
-        final refStart = _excelRef(c, firstDataRow);
-        final refEnd = _excelRef(c, lastDataRow);
+    for (var c = 0; c < colCount; c++) {
+      final key = columns[c].$1;
+      final numeric = const {'shift', 'total', 'travel', 'work', 'decimal'}.contains(key);
+      if (numeric && empRows.isNotEmpty) {
         _excelSetCell(
           sheet,
           totalRow,
           c,
-          excel_lib.FormulaCellValue('=SUM($refStart:$refEnd)'),
+          excel_lib.FormulaCellValue(
+              'SUM(${_excelRef(c, firstDataRow)}:${_excelRef(c, lastDataRow)})'),
           style: totalStyle,
         );
-      }
-
-      final thStart = _excelRef(totalHoursCol, firstDataRow);
-      final thEnd = _excelRef(totalHoursCol, lastDataRow);
-      _excelSetCell(
-        sheet,
-        totalRow,
-        totalHoursCol,
-        excel_lib.FormulaCellValue('=SUM($thStart:$thEnd)'),
-        style: totalStyle,
-      );
-
-      if (_showTravelColumns) {
-        final travelStart = _excelRef(travelCol, firstDataRow);
-        final travelEnd = _excelRef(travelCol, lastDataRow);
+      } else if (key == 'date') {
+        // Số ngày có chấm (đếm ô «Lần 1» khác trống) — ẩn cột giờ chấm thì ghi số ngày có mặt.
         _excelSetCell(
           sheet,
           totalRow,
-          travelCol,
-          excel_lib.FormulaCellValue('=SUM($travelStart:$travelEnd)'),
+          c,
+          firstPunchCol >= 0 && empRows.isNotEmpty
+              ? excel_lib.FormulaCellValue(
+                  'COUNTIF(${_excelRef(firstPunchCol, firstDataRow)}:${_excelRef(firstPunchCol, lastDataRow)},"<>")&" ngày"')
+              : excel_lib.TextCellValue('${totals.presentDays} ngày'),
           style: totalStyle,
         );
+      } else {
+        _excelSetCell(sheet, totalRow, c,
+            excel_lib.TextCellValue(key == 'stt' ? 'TỔNG CỘNG' : ''), style: totalStyle);
       }
-
-      final wcStart = _excelRef(workCountCol, firstDataRow);
-      final wcEnd = _excelRef(workCountCol, lastDataRow);
-      _excelSetCell(
-        sheet,
-        totalRow,
-        workCountCol,
-        excel_lib.FormulaCellValue('=SUM($wcStart:$wcEnd)'),
-        style: totalStyle,
-      );
-
-      final decStart = _excelRef(decimalHoursCol, firstDataRow);
-      final decEnd = _excelRef(decimalHoursCol, lastDataRow);
-      _excelSetCell(
-        sheet,
-        totalRow,
-        decimalHoursCol,
-        excel_lib.FormulaCellValue('=SUM($decStart:$decEnd)'),
-        style: totalStyle,
-      );
-    } else {
-      _excelSetCell(sheet, totalRow, 2,
-          excel_lib.TextCellValue('${totals.presentDays} ngày'),
-          style: totalStyle);
-    }
-
-    for (var p = 0; p < maxPunches; p++) {
-      _excelSetCell(sheet, totalRow, punchStartCol + p,
-          excel_lib.TextCellValue(''), style: totalStyle);
     }
 
     row = totalRow + 2;
@@ -2831,28 +2887,36 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     if (!ensureCanExport(context, 'AttendanceSummary')) return;
     final summaries = _dailySummaryData;
     if (summaries.isEmpty || _isExporting) return;
+
+    // Chọn cột + thứ tự trước khi xuất (nhớ theo máy nếu tích «Nhớ lựa chọn»).
+    final saved = await ReportColumnPrefs.load(_excelColPrefKey, _excelColumnDefs);
+    if (!mounted) return;
+    final pick = await showReportColumnPicker(
+      context,
+      title: 'Xuất Excel — chọn cột',
+      defs: _excelColumnDefs,
+      initial: saved,
+      confirmLabel: 'Xuất Excel',
+      showRemember: true,
+    );
+    if (pick == null || !mounted) return;
+    if (pick.remember) await ReportColumnPrefs.save(_excelColPrefKey, pick.layout);
     setState(() => _isExporting = true);
 
     try {
       final cols = _tableColumnLimits(summaries);
       final maxPunches = cols.maxPunches;
       final maxShifts = cols.maxShifts;
-      final colCount = _excelDetailHeaders(maxPunches, maxShifts).length;
+      final columns = _excelColumnsFor(pick.layout, maxPunches, maxShifts);
+      final colCount = columns.length;
       final range = _selectedDateRange;
 
       final excelFile =
           ExcelReportBuilder.createWorkbook(sheetName: 'Chấm công');
       final sheet = excelFile['Chấm công'];
 
-      sheet.setColumnWidth(0, 5);
-      sheet.setColumnWidth(1, 10);
-      sheet.setColumnWidth(2, 12);
-      final punchStart = _excelPunchStartCol;
-      if (_showPunchBranchColumn) {
-        sheet.setColumnWidth(3, 22);
-      }
-      for (var i = punchStart; i < colCount; i++) {
-        sheet.setColumnWidth(i, i < punchStart + maxPunches ? 9 : 11);
+      for (var c = 0; c < colCount; c++) {
+        sheet.setColumnWidth(c, _excelColumnWidth(columns[c].$1));
       }
 
       final empTotals = _employeeTotalsFrom(summaries);
@@ -2888,10 +2952,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           empRows: empRows,
           totals: totals,
           empInfo: _employeeInfoFor(empRows.first),
-          maxPunches: maxPunches,
-          maxShifts: maxShifts,
+          columns: columns,
           range: range,
-          colCount: colCount,
           isLastEmployee: i == orderedIds.length - 1,
         );
       }
@@ -4831,6 +4893,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         _codeTobranchName.isNotEmpty;
     final primaryColor = Theme.of(context).primaryColor;
     final colCount = _summaryColumnCount(maxPunches, maxShifts);
+    final infoLookup = _employeeInfoLookup();
     final List<TableRow> rows = [];
     String? currentBranch;
     int dataRowIndex = 0;
@@ -4945,6 +5008,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             tr(summary.employeeCode),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 12),
+          ),
+        ),
+        _summaryTableCell(
+          Text(
+            tr(_departmentOf(infoLookup, summary.employeeId, summary.employeeCode, summary.pin)),
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
         ),
         _summaryTableCell(
@@ -5068,7 +5138,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           border: const Border(bottom: BorderSide(color: Color(0xFFEFF3F7))),
         ),
         children: [
-          for (final c in cells) HoverRowCell(rowKey: rowKey, hovered: _hoveredRow, child: c),
+          for (final c in _projectCells(cells, maxPunches, maxShifts))
+            HoverRowCell(rowKey: rowKey, hovered: _hoveredRow, child: c),
         ],
       ));
 

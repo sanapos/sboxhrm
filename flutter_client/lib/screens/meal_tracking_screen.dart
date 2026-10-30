@@ -1,3 +1,4 @@
+import '../widgets/export_file_icon.dart';
 import 'dart:io';
 import '../utils/export_permission_guard.dart';
 import 'package:flutter/material.dart';
@@ -2121,7 +2122,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       OutlinedButton.icon(
-                        icon: const Icon(Icons.image, size: 16),
+                        icon: const ExportFileIcon(ExportFileKind.png, size: 20),
                         label: Text(tr('Xuất ảnh')),
                         style: OutlinedButton.styleFrom(
                             visualDensity: VisualDensity.compact),
@@ -2129,7 +2130,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       ),
                       const SizedBox(width: 8),
                       OutlinedButton.icon(
-                        icon: const Icon(Icons.table_chart, size: 16),
+                        icon: const ExportFileIcon(ExportFileKind.excel, size: 20),
                         label: Text(tr('Xuất Excel')),
                         style: OutlinedButton.styleFrom(
                             visualDensity: VisualDensity.compact),

@@ -1,3 +1,4 @@
+import '../../widgets/export_file_icon.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -457,7 +458,7 @@ class AuditTabState extends State<AuditTab> {
               visualDensity: VisualDensity.compact,
             ),
             const SizedBox(width: 4),
-            IconButton(tooltip: tr('Xuất Excel'), onPressed: _loading ? null : _export, icon: const Icon(Icons.table_view_outlined)),
+            IconButton(tooltip: tr('Xuất Excel'), onPressed: _loading ? null : _export, icon: const ExportFileIcon(ExportFileKind.excel)),
           ]),
           const SizedBox(height: 8),
           SingleChildScrollView(

@@ -1,3 +1,4 @@
+import '../../widgets/export_file_icon.dart';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -850,7 +851,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
               ),
               OutlinedButton.icon(
                 onPressed: () => _exportExcel(),
-                icon: const Icon(Icons.download_outlined, size: 18),
+                icon: const ExportFileIcon(ExportFileKind.excel, size: 20),
                 label: Text(tr('Xuất Excel')),
               ),
               OutlinedButton.icon(

@@ -1,3 +1,4 @@
+import 'export_file_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -177,7 +178,7 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
               FilledButton.icon(
                 onPressed: widget.exporting ? null : widget.onExport,
                 style: FilledButton.styleFrom(backgroundColor: widget.accent),
-                icon: const Icon(Icons.download, size: 16),
+                icon: const ExportFileIcon(ExportFileKind.excel, size: 20),
                 label: Text(tr('Xuất Excel')),
               ),
           ],

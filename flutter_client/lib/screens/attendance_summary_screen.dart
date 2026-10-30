@@ -488,6 +488,11 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
 
     final topActions = <Widget>[
       HrmTopBarAction(
+        icon: Icons.view_column_outlined,
+        label: 'Chọn cột',
+        onPressed: () => (_tabKey.currentState as dynamic)?.showColumnPicker(),
+      ),
+      HrmTopBarAction(
         icon: Icons.image_outlined,
         label: 'Xuất PNG',
         onPressed: () => (_tabKey.currentState as dynamic)?.exportToPng(),

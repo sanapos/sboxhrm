@@ -1,3 +1,4 @@
+import '../../widgets/export_file_icon.dart';
 import 'dart:async';
 import '../../utils/export_permission_guard.dart';
 
@@ -176,7 +177,7 @@ class _MealReportViewState extends State<MealReportView> {
                       ),
                     OutlinedButton.icon(
                       onPressed: rows.isEmpty ? null : () => _exportExcel(sessions, rows),
-                      icon: const Icon(Icons.file_download_outlined, size: 18),
+                      icon: const ExportFileIcon(ExportFileKind.excel, size: 20),
                       label: Text(tr('Xuất Excel')),
                     ),
                   ])),

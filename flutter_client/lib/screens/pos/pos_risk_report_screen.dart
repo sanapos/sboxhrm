@@ -1,3 +1,4 @@
+import '../../widgets/export_file_icon.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -110,12 +111,12 @@ class _PosRiskReportScreenState extends State<PosRiskReportScreen> {
             onPressed: _r == null
                 ? null
                 : () => unawaited(PosReportExport.png(context: context, key: _pngKey, filePrefix: 'POS_NguyCoGianLan')),
-            icon: const Icon(Icons.image_outlined),
+            icon: const ExportFileIcon(ExportFileKind.png),
           ),
           IconButton(
             tooltip: tr('Xuất Excel'),
             onPressed: _r == null ? null : () => unawaited(_exportExcel()),
-            icon: const Icon(Icons.file_download_outlined),
+            icon: const ExportFileIcon(ExportFileKind.excel),
           ),
           IconButton(
             tooltip: tr('Tải lại'),

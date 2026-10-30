@@ -1,3 +1,4 @@
+import '../../widgets/export_file_icon.dart';
 import 'dart:async';
 import '../../utils/export_permission_guard.dart';
 
@@ -466,12 +467,12 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
               onPressed: _report == null
                   ? null
                   : () => PosReportExport.png(context: context, key: _pngKey, filePrefix: 'POS_CuoiNgay'),
-              icon: const Icon(Icons.image_outlined, color: SboxColors.slate600),
+              icon: const ExportFileIcon(ExportFileKind.png),
             ),
             IconButton(
               tooltip: tr('Xuất Excel'),
               onPressed: _report == null ? null : _exportExcel,
-              icon: const Icon(Icons.file_download_outlined, color: SboxColors.slate600),
+              icon: const ExportFileIcon(ExportFileKind.excel),
             ),
           ],
     );

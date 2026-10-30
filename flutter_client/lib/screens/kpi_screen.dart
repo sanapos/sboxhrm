@@ -1,3 +1,4 @@
+import '../widgets/export_file_icon.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -882,7 +883,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         if (canExport && onPng != null)
           OutlinedButton.icon(
             onPressed: _isExporting ? null : onPng,
-            icon: const Icon(Icons.image_outlined, size: 18),
+            icon: const ExportFileIcon(ExportFileKind.png, size: 20),
             label: Text(tr(_isExporting ? 'Đang xuất...' : 'Xuất PNG')),
             style: OutlinedButton.styleFrom(
               visualDensity: VisualDensity.compact,

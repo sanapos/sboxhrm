@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_tr.dart';
+import '../export_file_icon.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../utils/vietnamese_font.dart';
 import '../pos/pos_web_ime.dart' show posWebHasTouchPoints;
@@ -124,7 +125,11 @@ class SboxButton extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2, color: fg),
           )
         else if (icon != null)
-          Icon(icon, size: fs + 4),
+          // Nút «Xuất Excel / PNG» → icon tệp dễ nhận biết thay cho mũi tên tải.
+          if (exportFileKindForLabel(label) case final k?)
+            ExportFileIcon(k, size: fs + 6, enabled: onPressed != null)
+          else
+            Icon(icon, size: fs + 4),
         if (loading || icon != null) const SizedBox(width: SboxSpace.sm),
         Flexible(child: Text(tr(label), maxLines: 1, overflow: TextOverflow.ellipsis)),
       ],

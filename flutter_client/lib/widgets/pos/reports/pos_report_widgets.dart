@@ -1,3 +1,4 @@
+import '../../export_file_icon.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../../utils/pos_payment_label.dart';
@@ -230,6 +231,13 @@ class PosReportMobileScaffold extends StatelessWidget {
           icon: Icon(icon, color: _muted, size: 22),
           onPressed: onTap,
         );
+    // Xuất: icon tệp Excel / PNG (màn hẹp chỉ icon, màn rộng kèm chữ ngắn).
+    Widget exportAction(ExportFileKind kind, String tip, VoidCallback? onTap) => narrow
+        ? IconButton(tooltip: tr(tip), icon: ExportFileIcon(kind, size: 24), onPressed: onTap)
+        : Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: ExportFileButton(kind: kind, tooltip: tr(tip), onPressed: onTap),
+          );
     // Một hàng (desktop): ← Tiêu đề · Thời gian ▾ · PNG · Excel · Lọc — thay khối chọn kỳ 3 dòng cũ.
     final header = Material(
       color: Colors.white,
@@ -258,8 +266,8 @@ class PosReportMobileScaffold extends StatelessWidget {
                   ),
                 ),
                 if (showTimeFilter && !narrow) ...[timeChip, const SizedBox(width: 8)],
-                if (onExportPng != null && canExport) action('Xuất PNG', Icons.image_outlined, onExportPng),
-                if (onExportExcel != null && canExport) action('Xuất Excel', Icons.file_download_outlined, onExportExcel),
+                if (onExportPng != null && canExport) exportAction(ExportFileKind.png, 'Xuất PNG', onExportPng),
+                if (onExportExcel != null && canExport) exportAction(ExportFileKind.excel, 'Xuất Excel', onExportExcel),
                 if (onFilterTap != null) action('Bộ lọc', Icons.filter_alt_outlined, onFilterTap),
                 const SizedBox(width: 8),
               ],

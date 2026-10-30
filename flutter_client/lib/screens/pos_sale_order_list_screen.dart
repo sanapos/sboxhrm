@@ -1,3 +1,4 @@
+import '../widgets/export_file_icon.dart';
 import 'dart:async';
 import '../utils/pos_list_prefs.dart';
 import '../widgets/pos/pos_master_detail_layout.dart';
@@ -1397,7 +1398,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             onPressed: _exporting ? null : () => _exportExcel(perm),
             icon: _exporting
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.download_outlined),
+                : const ExportFileIcon(ExportFileKind.excel),
           )
         : null;
     final summary = <Widget>[

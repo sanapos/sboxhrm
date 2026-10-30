@@ -1,3 +1,4 @@
+import 'export_file_icon.dart';
 import 'package:flutter/material.dart';
 
 import 'pos/pos_theme.dart';
@@ -157,12 +158,37 @@ class HrmTopBarAction extends StatelessWidget {
     return false;
   }
 
+  /// Nút xuất Excel / PNG (đoán theo nhãn) → vẽ icon tệp thay cho [icon].
+  ExportFileKind? get exportKind => exportFileKindForLabel(label);
+
+  /// Icon cho menu / FAB: icon tệp với nút xuất, còn lại [icon].
+  Widget leadingIcon({double size = 22, Color? color}) {
+    final k = exportKind;
+    if (k != null) return ExportFileIcon(k, size: size + 2, enabled: onPressed != null);
+    return Icon(icon, size: size, color: color);
+  }
+
   @override
   Widget build(BuildContext context) {
     final tip = tr(label);
     final wideEnough = MediaQuery.sizeOf(context).width >= 1100;
     final compact = Responsive.isMobile(context);
     final minTap = compact ? 44.0 : 36.0;
+    final export = exportKind;
+    if (export != null) {
+      // Xuất Excel / PNG: màn rộng có chữ ngắn, màn hẹp chỉ icon tệp (vẫn có tooltip).
+      if (wideEnough && !compact) {
+        return ExportFileButton(kind: export, tooltip: tip, onPressed: onPressed);
+      }
+      return IconButton(
+        onPressed: onPressed,
+        tooltip: tip,
+        icon: ExportFileIcon(export, size: compact ? 24 : 22, enabled: onPressed != null),
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.all(compact ? 10 : 8),
+        constraints: BoxConstraints(minWidth: minTap, minHeight: minTap),
+      );
+    }
     final asIcon = iconOnly || !showLabel || !primary || !wideEnough;
 
     if (asIcon) {
@@ -271,14 +297,13 @@ Future<void> showPageTopActionsSheet(
                     backgroundColor: a.primary
                         ? PosTheme.kiotBlue.withValues(alpha: 0.12)
                         : SboxColors.slate100,
-                    child: Icon(
-                      a.icon,
+                    child: a.leadingIcon(
+                      size: 22,
                       color: enabled
                           ? (a.primary
                               ? PosTheme.kiotBlue
                               : PosTheme.textPrimary)
                           : SboxColors.slate400,
-                      size: 22,
                     ),
                   ),
                   title: Text(
@@ -358,7 +383,7 @@ class PageTopActionsFab extends StatelessWidget {
             backgroundColor: PosTheme.kiotBlue,
             foregroundColor: Colors.white,
             onPressed: only.onPressed,
-            child: Icon(only.icon, size: 26),
+            child: only.leadingIcon(size: 26),
           );
         }
 
