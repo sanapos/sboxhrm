@@ -26572,6 +26572,10 @@
    "단말기에 {0}건 저장, 서버에 {1}건 (약 {2}건 부족). "
   ],
   [
+   "Máy này chưa có máy in Báo bếp. Phiếu chế biến của cửa hàng đang gửi tới:\n{0}\nMáy in này thuộc thiết bị khác, chỉ in được khi thiết bị đó bật Agent. Muốn in thẳng từ máy này: thêm máy in nhiệt và bật vai trò Báo bếp.",
+   "이 기기에는 주방 주문서 프린터가 없습니다. 매장 주방 주문서는 다음으로 전송됩니다:\n{0}\n이 프린터는 다른 기기 소속이며 그 기기에서 Agent를 켜야 인쇄됩니다. 이 기기에서 바로 인쇄하려면 감열 프린터를 추가하고 주방 주문서 역할을 켜세요."
+  ],
+  [
    "Máy này từng cài {0} máy in nội bộ (còn lưu trên máy chủ):\n",
    "이 기기에는 내부 프린터 {0}대가 설치된 적이 있습니다 (서버에 저장됨):\n"
   ],
@@ -33334,6 +33338,10 @@
   [
    "«{0}» cần «{1}»",
    "«{0}»에는 «{1}»이(가) 필요합니다"
+  ],
+  [
+   "«{0}» của thiết bị khác, chưa Agent nào nhận — phiếu chờ in. Bật Agent ở máy đó hoặc thêm máy in tại Máy in nội bộ.",
+   "«{0}»은(는) 다른 기기의 프린터이며 수신 중인 에이전트가 없습니다 — 전표 대기 중. 해당 기기에서 에이전트를 켜거나 로컬 프린터에서 추가하세요."
   ],
   [
    "«{0}» gắn vào {1} món",

@@ -26572,6 +26572,10 @@
    "设备存有 {0} 条记录，服务器有 {1} 条（约缺 {2} 条）。 "
   ],
   [
+   "Máy này chưa có máy in Báo bếp. Phiếu chế biến của cửa hàng đang gửi tới:\n{0}\nMáy in này thuộc thiết bị khác, chỉ in được khi thiết bị đó bật Agent. Muốn in thẳng từ máy này: thêm máy in nhiệt và bật vai trò Báo bếp.",
+   "本设备没有厨房单打印机。门店的厨房单正发送到：\n{0}\n该打印机属于其他设备，只有那台设备开启 Agent 才会打印。要从本设备直接打印：添加热敏打印机并开启厨房单角色。"
+  ],
+  [
    "Máy này từng cài {0} máy in nội bộ (còn lưu trên máy chủ):\n",
    "此设备曾安装 {0} 台内部打印机（仍保存在服务器上）：\n"
   ],
@@ -33334,6 +33338,10 @@
   [
    "«{0}» cần «{1}»",
    "«{0}» 需要 «{1}»"
+  ],
+  [
+   "«{0}» của thiết bị khác, chưa Agent nào nhận — phiếu chờ in. Bật Agent ở máy đó hoặc thêm máy in tại Máy in nội bộ.",
+   "«{0}» 属于其他设备，没有代理在接收 — 单据等待打印。请在该设备上开启代理，或在本地打印机中添加打印机。"
   ],
   [
    "«{0}» gắn vào {1} món",

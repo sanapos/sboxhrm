@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../models/pos_store_printer.dart';
 import '../../services/api_service.dart';
 import '../../services/pos_product_printer_service.dart';
 import '../../utils/pos_printer_transport.dart';
@@ -42,6 +43,8 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
   final _store = PosLocalPrintersStore.instance;
   final _api = ApiService();
   List<PosLocalPrinterProfile> _items = [];
+  /// Máy cửa hàng nhận Phiếu chế biến nhưng không cài trên máy này (in qua Agent máy khác).
+  List<PosStorePrinter> _kitchenElsewhere = const [];
   bool _loading = true;
   bool _syncing = false;
   final Map<String, PosPrinterLinkStatus> _linkStatus = {};
@@ -88,6 +91,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
       _loading = false;
     });
     unawaited(_refreshLinkStatus());
+    unawaited(_loadKitchenElsewhere(list));
     if (list.isEmpty && !_restoreOffered) {
       _restoreOffered = true;
       unawaited(_offerRestoreFromServer());
@@ -95,6 +99,35 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
   }
 
   bool _restoreOffered = false;
+
+  /// Máy này chưa có máy nhận Báo bếp → liệt kê máy cửa hàng đang nhận Phiếu chế biến.
+  /// Trước danh sách trống mà phiếu vẫn ra máy LAN của thiết bị khác — không biết máy nào đang nhận.
+  Future<void> _loadKitchenElsewhere(List<PosLocalPrinterProfile> list) async {
+    final hasLocalKitchen = list.any((p) =>
+        p.enabled &&
+        !p.isLabel &&
+        (p.roles.contains(PosLocalPrinterRoles.kitchenSlip) ||
+            p.roles.contains(PosLocalPrinterRoles.kitchenVoid)));
+    if (hasLocalKitchen) {
+      if (mounted && _kitchenElsewhere.isNotEmpty) setState(() => _kitchenElsewhere = const []);
+      return;
+    }
+    try {
+      await PosPrintOrchestrator.instance.refreshConfig();
+    } catch (_) {
+      return;
+    }
+    final installed = list.map((p) => p.storePrinterId).whereType<String>().toSet();
+    final found = PosPrintOrchestrator.instance.printers
+        .where((p) =>
+            p.isActive &&
+            !p.isLabelPrinter &&
+            !installed.contains(p.id) &&
+            (p.documentTypes.contains(PosCloudDocumentTypes.kitchenSlip) ||
+                p.documentTypes.contains(PosCloudDocumentTypes.kitchenVoid)))
+        .toList();
+    if (mounted) setState(() => _kitchenElsewhere = found);
+  }
 
   /// App cài lại / xóa dữ liệu: danh sách trống nhưng server còn máy in nội bộ của máy này
   /// → hỏi khôi phục (giữ đúng máy trên server, không thêm máy trùng).
@@ -479,6 +512,28 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                                 height: 1.35,
                                 color: Color(0xFF9A3412),
                               ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                if (_kitchenElsewhere.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Card(
+                    color: SboxColors.warningSoft,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.soup_kitchen_outlined, color: Color(0xFFC2410C), size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              tr('Máy này chưa có máy in Báo bếp. Phiếu chế biến của cửa hàng đang gửi tới:\n${_kitchenElsewhere.map((p) => '• ${p.name}${p.isLan && (p.lanHost ?? '').trim().isNotEmpty ? ' (LAN ${p.lanHost!.trim()})' : ''}${p.isOnline ? ' — Agent đang nhận' : ' — chưa có Agent nhận'}').join('\n')}\nMáy in này thuộc thiết bị khác, chỉ in được khi thiết bị đó bật Agent. Muốn in thẳng từ máy này: thêm máy in nhiệt và bật vai trò Báo bếp.'),
+                              style: const TextStyle(fontSize: 13, height: 1.35, color: Color(0xFF9A3412)),
                             ),
                           ),
                         ],

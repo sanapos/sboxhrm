@@ -14416,6 +14416,10 @@
    "Device stores {0} records, server has {1} (~{2} missing). "
   ],
   [
+   "Máy này chưa có máy in Báo bếp. Phiếu chế biến của cửa hàng đang gửi tới:\n{0}\nMáy in này thuộc thiết bị khác, chỉ in được khi thiết bị đó bật Agent. Muốn in thẳng từ máy này: thêm máy in nhiệt và bật vai trò Báo bếp.",
+   "This device has no Kitchen ticket printer. The store's kitchen tickets are sent to:\n{0}\nThat printer belongs to another device and only prints when that device runs the Agent. To print directly from this device: add a thermal printer and turn on the Kitchen ticket role."
+  ],
+  [
    "Máy này từng cài {0} máy in nội bộ (còn lưu trên máy chủ):\n",
    "This device once had {0} internal printers installed (still stored on the server):\n"
   ],
@@ -21178,6 +21182,10 @@
   [
    "«{0}» cần «{1}»",
    "«{0}» needs «{1}»"
+  ],
+  [
+   "«{0}» của thiết bị khác, chưa Agent nào nhận — phiếu chờ in. Bật Agent ở máy đó hoặc thêm máy in tại Máy in nội bộ.",
+   "«{0}» belongs to another device and no Agent is receiving — the ticket is waiting. Turn on the Agent on that device or add a printer in Local printers."
   ],
   [
    "«{0}» gắn vào {1} món",
