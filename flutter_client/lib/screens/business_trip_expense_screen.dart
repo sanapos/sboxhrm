@@ -616,7 +616,8 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                                         ].join(' · '),
                                       '${c['caseCode'] ?? ''} · ${tripStatusLabel(status)}',
                                       'Ứng: ${_currency.format(advance)} · HT: ${_currency.format(settled)}',
-                                      if (!isCancelled)
+                                      // Chỉ khi còn nhập được (Nháp → Nháp HT) — trước hồ sơ «Đóng» / «Quyết toán» vẫn mời nhập chi phí.
+                                      if ((status ?? 0) <= 4)
                                         'Chạm để nhập chi phí / hóa đơn',
                                     ].where((e) => e.toString().trim().isNotEmpty).join('\n')),
                                   ),

@@ -199,6 +199,13 @@ class _BusinessTripCaseDetailScreenState
 
   int get _status => parseTripStatus(_case?['status']) ?? 0;
 
+  /// Chênh lệch hạch toán đã xử lý: chi bù xong hoặc đã ghi nợ ứng lương.
+  bool get _balanceDone {
+    final st = _case?['settlement'];
+    if (st is! Map) return false;
+    return st['isExtraPaid'] == true || st['surplusAdvanceRequestId'] != null;
+  }
+
   double get _linesTotal {
     if (_lines.isNotEmpty) {
       return _lines.fold(0.0, (s, l) => s + l.amount);
@@ -1662,12 +1669,17 @@ class _BusinessTripCaseDetailScreenState
             const Divider(height: 24),
             _totalRow('Tổng chi', _linesTotal, bold: true),
             _totalRow('Đã ứng', _advanceAmount),
+            // Đã chi bù / đã ghi nợ ứng — trước hồ sơ «Đóng» vẫn ghi đỏ «Thiếu (chi bù)» như chưa trả.
             _totalRow(
-              _balance >= 0 ? 'Thiếu (chi bù)' : 'Dư (ghi nợ ứng)',
+              _balanceDone
+                  ? (_balance >= 0 ? 'Đã chi bù' : 'Đã ghi nợ ứng')
+                  : (_balance >= 0 ? 'Thiếu (chi bù)' : 'Dư (ghi nợ ứng)'),
               _balance.abs(),
-              color: _balance >= 0
-                  ? SboxColors.danger
-                  : SboxColors.success,
+              color: _balanceDone
+                  ? SboxColors.slate700
+                  : _balance >= 0
+                      ? SboxColors.danger
+                      : SboxColors.success,
             ),
             if (settlement != null) ...[
               const SizedBox(height: 8),
@@ -1760,137 +1772,140 @@ class _BusinessTripCaseDetailScreenState
 
   Widget _approvalActions(
       Map<String, dynamic>? advance, Map<String, dynamic>? settlement) {
+    final items = <Widget>[
+      if (advance != null && advance['status'] == 0) ...[
+        Row(children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () async {
+                await _api.approveBusinessTripAdvance(
+                  widget.caseId,
+                  false,
+                  rejectionReason: 'Từ chối',
+                );
+                await _reload();
+              },
+              child: Text(tr('Từ chối ứng')),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: FilledButton(
+              onPressed: () async {
+                await _api.approveBusinessTripAdvance(
+                    widget.caseId, true);
+                await _reload();
+              },
+              child: Text(tr('Duyệt ứng')),
+            ),
+          ),
+        ]),
+      ],
+      if (advance != null &&
+          advance['status'] == 1 &&
+          advance['isPaid'] != true) ...[
+        const SizedBox(height: 8),
+        if (advance['cashTransactionId'] != null)
+          OutlinedButton.icon(
+            onPressed: () =>
+                _openCashVoucher(advance['cashTransactionId']?.toString()),
+            icon: const Icon(Icons.open_in_new, size: 18),
+            label: Text(tr('Mở phiếu chi ứng (Thu chi)')),
+          ),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: () async {
+            final method = await _pickPaymentMethod();
+            if (method == null) return;
+            await _api.payBusinessTripAdvance(widget.caseId,
+                paymentMethod: method);
+            await _reload();
+          },
+          child: Text(tr('Chi ứng ngay')),
+        ),
+      ],
+      if (settlement != null && settlement['status'] == 0) ...[
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: _rejectSettlementDialog,
+              child: Text(tr('Từ chối')),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () => _requestSettlementSupplement(),
+              child: Text(tr('Bổ sung GT')),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: _approveSettlementWithSurplusCheck,
+          child: Text(tr('Duyệt hạch toán')),
+        ),
+      ],
+      if (settlement != null &&
+          settlement['settlementType'] == 1 &&
+          settlement['isExtraPaid'] != true) ...[
+        const SizedBox(height: 8),
+        if (settlement['extraCashTransactionId'] != null)
+          OutlinedButton.icon(
+            onPressed: () => _openCashVoucher(
+                settlement['extraCashTransactionId']?.toString()),
+            icon: const Icon(Icons.open_in_new, size: 18),
+            label: Text(tr('Mở phiếu chi bù (Thu chi)')),
+          ),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: () async {
+            final method = await _pickPaymentMethod();
+            if (method == null) return;
+            await _api.payBusinessTripSettlementExtra(widget.caseId,
+                paymentMethod: method);
+            await _reload();
+          },
+          child: Text(tr('Chi bù ngay')),
+        ),
+      ],
+      if (settlement != null &&
+          settlement['settlementType'] == 3 &&
+          settlement['isExtraPaid'] != true) ...[
+        const SizedBox(height: 8),
+        Text(tr('Đang chờ thu hoàn dư ứng ${_currency.format((_balance).abs())}'),
+          style: const TextStyle(
+              color: SboxColors.success, fontWeight: FontWeight.w600),
+        ),
+        if (settlement['extraCashTransactionId'] != null) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _openCashVoucher(
+                settlement['extraCashTransactionId']?.toString()),
+            icon: const Icon(Icons.open_in_new, size: 18),
+            label: Text(tr('Mở phiếu thu hoàn (Thu chi)')),
+          ),
+        ],
+      ],
+      if (settlement != null &&
+          settlement['settlementType'] == 2 &&
+          settlement['surplusAdvanceRequestId'] != null) ...[
+        const SizedBox(height: 8),
+        Text(tr('Đã ghi nợ ứng lương ${_currency.format((_balance).abs())} — sẽ trừ kỳ lương'),
+          style: TextStyle(color: SboxColors.slate700, height: 1.35),
+        ),
+      ],
+    ];
+    // Hồ sơ đã đóng / không còn việc cần duyệt → không vẽ thẻ trống ở cuối trang.
+    if (items.isEmpty) return const SizedBox.shrink();
     return Card(
       elevation: 0,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (advance != null && advance['status'] == 0) ...[
-              Row(children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () async {
-                      await _api.approveBusinessTripAdvance(
-                        widget.caseId,
-                        false,
-                        rejectionReason: 'Từ chối',
-                      );
-                      await _reload();
-                    },
-                    child: Text(tr('Từ chối ứng')),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () async {
-                      await _api.approveBusinessTripAdvance(
-                          widget.caseId, true);
-                      await _reload();
-                    },
-                    child: Text(tr('Duyệt ứng')),
-                  ),
-                ),
-              ]),
-            ],
-            if (advance != null &&
-                advance['status'] == 1 &&
-                advance['isPaid'] != true) ...[
-              const SizedBox(height: 8),
-              if (advance['cashTransactionId'] != null)
-                OutlinedButton.icon(
-                  onPressed: () =>
-                      _openCashVoucher(advance['cashTransactionId']?.toString()),
-                  icon: const Icon(Icons.open_in_new, size: 18),
-                  label: Text(tr('Mở phiếu chi ứng (Thu chi)')),
-                ),
-              const SizedBox(height: 8),
-              FilledButton(
-                onPressed: () async {
-                  final method = await _pickPaymentMethod();
-                  if (method == null) return;
-                  await _api.payBusinessTripAdvance(widget.caseId,
-                      paymentMethod: method);
-                  await _reload();
-                },
-                child: Text(tr('Chi ứng ngay')),
-              ),
-            ],
-            if (settlement != null && settlement['status'] == 0) ...[
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _rejectSettlementDialog,
-                    child: Text(tr('Từ chối')),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _requestSettlementSupplement(),
-                    child: Text(tr('Bổ sung GT')),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 8),
-              FilledButton(
-                onPressed: _approveSettlementWithSurplusCheck,
-                child: Text(tr('Duyệt hạch toán')),
-              ),
-            ],
-            if (settlement != null &&
-                settlement['settlementType'] == 1 &&
-                settlement['isExtraPaid'] != true) ...[
-              const SizedBox(height: 8),
-              if (settlement['extraCashTransactionId'] != null)
-                OutlinedButton.icon(
-                  onPressed: () => _openCashVoucher(
-                      settlement['extraCashTransactionId']?.toString()),
-                  icon: const Icon(Icons.open_in_new, size: 18),
-                  label: Text(tr('Mở phiếu chi bù (Thu chi)')),
-                ),
-              const SizedBox(height: 8),
-              FilledButton(
-                onPressed: () async {
-                  final method = await _pickPaymentMethod();
-                  if (method == null) return;
-                  await _api.payBusinessTripSettlementExtra(widget.caseId,
-                      paymentMethod: method);
-                  await _reload();
-                },
-                child: Text(tr('Chi bù ngay')),
-              ),
-            ],
-            if (settlement != null &&
-                settlement['settlementType'] == 3 &&
-                settlement['isExtraPaid'] != true) ...[
-              const SizedBox(height: 8),
-              Text(tr('Đang chờ thu hoàn dư ứng ${_currency.format((_balance).abs())}'),
-                style: const TextStyle(
-                    color: SboxColors.success, fontWeight: FontWeight.w600),
-              ),
-              if (settlement['extraCashTransactionId'] != null) ...[
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _openCashVoucher(
-                      settlement['extraCashTransactionId']?.toString()),
-                  icon: const Icon(Icons.open_in_new, size: 18),
-                  label: Text(tr('Mở phiếu thu hoàn (Thu chi)')),
-                ),
-              ],
-            ],
-            if (settlement != null &&
-                settlement['settlementType'] == 2 &&
-                settlement['surplusAdvanceRequestId'] != null) ...[
-              const SizedBox(height: 8),
-              Text(tr('Đã ghi nợ ứng lương ${_currency.format((_balance).abs())} — sẽ trừ kỳ lương'),
-                style: TextStyle(color: SboxColors.slate700, height: 1.35),
-              ),
-            ],
-          ],
+          children: items,
         ),
       ),
     );
