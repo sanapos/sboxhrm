@@ -77,6 +77,8 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
   List<Map<String, dynamic>> _dupTax = const [];
   /// Lỗi lưu hiện ngay trong hộp (thông báo nổi dễ bị bàn phím / hộp thoại che trên máy POS).
   String? _saveError;
+  /// Đã bấm Lưu ít nhất một lần → các ô tự kiểm lại khi gõ.
+  bool _triedSave = false;
 
   bool get _isEdit => widget.customer != null;
 
@@ -189,6 +191,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
   Future<void> _save() async {
     // Đóng bàn phím trước: trên máy POS bàn phím che nút Lưu / dòng báo lỗi.
     hidePosSoftKeyboard(alsoAfterMs: 0);
+    if (!_triedSave) setState(() => _triedSave = true);
     final valid = _formKey.currentState!.validate();
     final missing = _missing();
     if (!valid || missing.isNotEmpty) {
@@ -425,6 +428,14 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                   padding: const EdgeInsets.all(20),
                   child: Form(
                     key: _formKey,
+                    // Sau lần bấm Lưu đầu: gõ đến đâu kiểm lại đến đó, xóa «Cần nhập: …» khi đã đủ —
+                    // trước gõ tên rồi vẫn còn «Nhập tên khách hàng» đỏ.
+                    autovalidateMode: _triedSave ? AutovalidateMode.onUserInteraction : AutovalidateMode.disabled,
+                    onChanged: () {
+                      if (_saveError != null && _saveError!.startsWith('Cần nhập') && _missing().isEmpty) {
+                        setState(() => _saveError = null);
+                      }
+                    },
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
