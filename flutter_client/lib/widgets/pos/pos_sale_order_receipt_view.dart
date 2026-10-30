@@ -483,13 +483,15 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
 
 
+  // Text.rich (không phải RichText): kế thừa font của theme, RichText thì không.
+
   Widget _infoLine(String label, String value) => Padding(
 
         padding: const EdgeInsets.only(bottom: 3),
 
-        child: RichText(
+        child: Text.rich(
 
-          text: TextSpan(
+          TextSpan(
 
             style: const TextStyle(fontSize: 12, color: SboxColors.text, height: 1.35),
 

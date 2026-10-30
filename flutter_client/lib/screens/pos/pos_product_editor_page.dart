@@ -40,6 +40,9 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/pos/pos_unsaved_changes.dart';
+
+/// Số lượng quy đổi ĐVT: «6» thay vì «6.0», «0,5» giữ phần lẻ.
+String _qtyText(num v) => NumberFormat('#,##0.###', 'vi_VN').format(v);
 class PosProductEditorPage extends StatefulWidget {
   const PosProductEditorPage({
     super.key,
@@ -2922,11 +2925,6 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       ),
                     ),
                   ],
-                  // Gói giờ đếm ngược (karaoke / phòng giờ / spa theo giờ) — gym không dùng.
-                  if (_sellProfile != PosSellProfile.gym) ...[
-                  const SizedBox(height: 16),
-                  _buildTimePackageSection(),
-                  ],
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
@@ -2934,6 +2932,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                     ),
                   ),
+                  ],
+                  // Gói giờ đếm ngược (karaoke / phòng giờ / spa theo giờ) — gym không dùng.
+                  // Ngoài khối «không phải ngành giờ»: trước đây karaoke / bi-a không thấy mục này.
+                  if (_sellProfile != PosSellProfile.gym) ...[
+                  const SizedBox(height: 16),
+                  _buildTimePackageSection(),
                   ],
                 ],
               ),
@@ -4416,7 +4420,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                               const SizedBox(height: 2),
                               if (!sizeMode)
                                 Text(
-                                  tr('1 ${u.unitName} = ${u.conversionRate} $baseName'),
+                                  tr('1 ${u.unitName} = ${_qtyText(u.conversionRate)} $baseName'),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: SboxColors.slate700,
@@ -5107,7 +5111,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   child: ListTile(
                     dense: true,
                     title: Text(tr(u.unitName +
-                        (u.isBaseUnit ? ' (cơ bản)' : ' = ${u.conversionRate}'))),
+                        (u.isBaseUnit ? ' (cơ bản)' : ' = ${_qtyText(u.conversionRate)}'))),
                     subtitle: Text(tr('Giá: ${_moneyFmt.format(u.basePrice)}'
                         '${(u.barcode ?? '').isEmpty ? '' : ' · Mã vạch: ${u.barcode}'}')),
                     onTap: u.isBaseUnit || !_isEditing ? null : () => _editExtraUnit(u),
@@ -5724,22 +5728,26 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
         color: SboxColors.slate50,
       ),
-      child: Row(
-        children: [
-          btn(Icons.format_bold, 'In đậm'),
-          btn(Icons.format_italic, 'In nghiêng'),
-          btn(Icons.format_underlined, 'Gạch chân'),
-          const VerticalDivider(width: 16),
-          btn(Icons.format_align_left, 'Căn trái'),
-          btn(Icons.format_align_center, 'Căn giữa'),
-          btn(Icons.format_align_right, 'Căn phải'),
-          const VerticalDivider(width: 16),
-          btn(Icons.format_list_bulleted, 'Danh sách'),
-          btn(Icons.format_list_numbered, 'Danh sách số'),
-          const Spacer(),
-          btn(Icons.link, 'Liên kết'),
-          btn(Icons.image_outlined, 'Ảnh'),
-        ],
+      // Cuộn ngang: 11 nút (~362 px) tràn 8 px trên điện thoại 390 px.
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            btn(Icons.format_bold, 'In đậm'),
+            btn(Icons.format_italic, 'In nghiêng'),
+            btn(Icons.format_underlined, 'Gạch chân'),
+            const VerticalDivider(width: 16),
+            btn(Icons.format_align_left, 'Căn trái'),
+            btn(Icons.format_align_center, 'Căn giữa'),
+            btn(Icons.format_align_right, 'Căn phải'),
+            const VerticalDivider(width: 16),
+            btn(Icons.format_list_bulleted, 'Danh sách'),
+            btn(Icons.format_list_numbered, 'Danh sách số'),
+            const VerticalDivider(width: 16),
+            btn(Icons.link, 'Liên kết'),
+            btn(Icons.image_outlined, 'Ảnh'),
+          ],
+        ),
       ),
     );
   }
@@ -5760,10 +5768,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           Expanded(
             child: DropdownButtonFormField<String>(
               value: items.any((c) => c.id == value) ? value : null,
+              // Tên NCC / vị trí dài («Đại lý bia Sài Gòn – Phú Nhuận») tràn trên điện thoại.
+              isExpanded: true,
               decoration: PosTheme.inputDecoration(label: label),
               items: items
-                  .map((c) =>
-                      DropdownMenuItem(value: c.id, child: Text(tr(c.name))))
+                  .map((c) => DropdownMenuItem(
+                      value: c.id, child: Text(tr(c.name), overflow: TextOverflow.ellipsis)))
                   .toList(),
               onChanged: onChanged,
             ),
@@ -5935,9 +5945,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   Text(tr('SL / 1 món'),
                       style: const TextStyle(
                           fontSize: 11, fontWeight: FontWeight.w600)),
-                  Text(tr('ĐVT'),
-                      style: const TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w600)),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Text(tr('ĐVT'),
+                        style: const TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w600)),
+                  ),
                   const SizedBox(),
                 ],
               ),
@@ -5983,7 +5996,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      // Lề trái: ĐVT dính sát ô số lượng trông như bị ô che («ml» thành «m|»).
+                      padding: const EdgeInsets.fromLTRB(8, 6, 0, 6),
                       child: Text(
                         c.componentUnitName.isNotEmpty
                             ? c.componentUnitName

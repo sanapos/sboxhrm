@@ -1250,15 +1250,15 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
             if (!ok && note.isNotEmpty && note != label)
               Text(tr(note),
                   style: const TextStyle(fontSize: 12.5, color: SboxColors.dangerText, fontWeight: FontWeight.w600)),
-            Row(children: [
-              Expanded(
-                child: Text(
-                  tr([if (source.isNotEmpty) source, if (phone.isNotEmpty) phone].join(' · ')),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
-                ),
-              ),
+            // Nguồn · SĐT một dòng, nút thao tác xuống dòng riêng: điện thoại 390px không đủ chỗ
+            // cho cả 3 nút (Đổi gói, Đánh giá, Cho ra) cạnh chữ.
+            Text(
+              tr([if (source.isNotEmpty) source, if (phone.isNotEmpty) phone].join(' · ')),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
+            ),
+            Wrap(alignment: WrapAlignment.end, children: [
               if (ok && v['denied'] != true) ...[
                 TextButton.icon(
                   onPressed: () => _switchBalance(v),
