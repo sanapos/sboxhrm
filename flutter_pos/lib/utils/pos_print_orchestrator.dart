@@ -1676,21 +1676,20 @@ class PosPrintOrchestrator {
         if (facing != null) printer = facing;
       }
     }
-    // Máy bếp LAN đẩy cloud mà không Agent nào nhận (vd «LAN zywell» khai báo trên máy khác, Agent tắt):
-    // trước đây phiếu nằm hàng đợi rồi hết hạn sau 5 phút — bếp không có món, thu ngân vẫn thấy «Đã gửi».
-    // Cùng mạng quán → in thẳng IP từ máy này; không được mới đẩy hàng đợi + cảnh báo.
-    // forceCloud ở đây chỉ là «để điều phối tự quyết» (báo bếp luôn truyền true) — không chặn in thẳng.
-    final lanDirect = effectiveForceCloud &&
-        !kIsWeb &&
-        printer.isLan &&
-        (printer.lanHost ?? '').trim().isNotEmpty &&
-        !_agentSeenRecently(printer.id);
-    var lanDirectFailed = false;
+    // Máy cửa hàng chưa cài trên thiết bị này → chỉ Agent (máy giữ máy in) được in.
+    // Không in thẳng IP LAN đọc từ máy chủ: trước đây «Máy in nội bộ» trống mà phiếu vẫn ra máy LAN
+    // của thiết bị khác khi cùng WiFi, sang 3G thì treo — người dùng không biết máy nào đang nhận.
+    // Không Agent nào nhận gần đây → vẫn đưa hàng đợi nhưng báo rõ máy + việc cần làm.
+    // Nhịp SignalR chỉ có sau 2–4 phút từ lúc mở app → xét thêm lastSeenAt máy chủ, tránh báo nhầm.
+    final seenAt = printer.lastSeenAt;
+    final serverSeen = seenAt != null &&
+        DateTime.now().toUtc().difference(seenAt.toUtc()) < const Duration(minutes: 5);
+    final noAgent = effectiveForceCloud && !kIsWeb && !serverSeen && !_agentSeenRecently(printer.id);
     debugPrint(
       'Kitchen DBG dispatchKitchenSlip: printer=${printer.name} isSunmi=${printer.isSunmi} '
       'isAgent=$isAgent onSunmiHw=$onSunmiHw canLocal=$canLocal '
       'forceCloud=$effectiveForceCloud preferDirect=$effectivePreferDirect '
-      'isDeviceLocal=${printer.isDeviceLocal} lanDirect=$lanDirect host=${printer.lanHost}',
+      'isDeviceLocal=${printer.isDeviceLocal} noAgent=$noAgent host=${printer.lanHost}',
     );
 
     // Máy in trong Sunmi: chỉ khi đã cài máy nội bộ Sunmi trên thiết bị này.
@@ -1734,7 +1733,7 @@ class PosPrintOrchestrator {
     // Cloud/Agent: luôn KitchenSlipJson — payload nhỏ; Agent tự dựng ESC/POS.
     // Trước đây A7 compile EscPos bitmap VN rồi gửi base64: 2+ món rất nặng →
     // Agent USB chậm/timeout → phiếu treo; hủy từng món (payload nhỏ) lại in được.
-    if ((!effectiveForceCloud || lanDirect) && !kIsWeb) {
+    if (!effectiveForceCloud && !kIsWeb) {
       final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
       final table = tableName.trim().isEmpty ? 'Bàn' : tableName.trim();
       final sender = senderName.trim().isEmpty ? 'admin' : senderName.trim();
@@ -1832,30 +1831,16 @@ class PosPrintOrchestrator {
         debugPrint(
           'Kitchen DBG: on-device local fail ${printer.name} — fallback cloud JSON',
         );
-      } else if (lanDirect) {
-        final lanOk = await dispatchLocalEscPos(
-          bytes: bytes,
-          showFeedback: showFeedback,
-          successTitle: successTitle,
-          settingsOverride: toThermalSettings(printer).copyWith(openCashDrawer: false),
-          skipDedup: true,
-          documentType: kitchenDoc,
-          waitForCompletion: true,
-        );
-        if (lanOk) {
-          debugPrint('Kitchen DBG: in thẳng LAN ${printer.lanHost} (không Agent nhận ${printer.name})');
-          return true;
-        }
-        lanDirectFailed = true;
       }
     }
 
-    if (lanDirectFailed) {
-      // Luôn báo (kể cả showFeedback=false): thu ngân phải biết bếp chưa có phiếu.
+    if (noAgent) {
+      // Luôn báo (kể cả showFeedback=false): thu ngân phải biết bếp chưa có phiếu và máy nào đang nhận.
+      // Toast cảnh báo tối đa 4 dòng → câu ngắn; IP LAN xem ở thẻ Máy in nội bộ.
       NotificationOverlayManager().showWarning(
         title: 'Máy bếp chưa in',
-        message: tr('${printer.name} (${printer.lanHost}) không kết nối được và chưa có máy Agent nào nhận — '
-            'phiếu đang chờ trong Hàng đợi in. Kiểm tra nguồn / mạng máy in.'),
+        message: tr('«${printer.name}» của thiết bị khác, chưa Agent nào nhận — phiếu chờ in. Bật Agent ở máy đó hoặc thêm máy in tại Máy in nội bộ.'),
+        duration: const Duration(seconds: 8),
       );
     }
 

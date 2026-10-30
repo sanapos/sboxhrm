@@ -137,6 +137,7 @@ class PosProductEditorPage extends StatefulWidget {
         attributeRows: attrRows,
         variants: variants,
         productId: full.id,
+        sizeMode: posProductEditorProfile == PosSellProfile.restaurant,
         productPatch: {
           'name': full.name,
           'categoryId': full.categoryId,
@@ -3942,6 +3943,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         productPatch: _isEditing ? _productPatchForSetup() : null,
         startInAddMoreMode: addMore,
         focusVariantId: widget.unitSetupFocusVariantId,
+        sizeMode: _sellProfile == PosSellProfile.restaurant,
       ),
     );
     if (result == null || !mounted) return;
@@ -4067,6 +4069,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         _unitCtrl.text.trim().isEmpty ? 'Cái' : _unitCtrl.text.trim();
     final extraUnits = _units.where((u) => !u.isBaseUnit).toList();
     final narrow = MediaQuery.sizeOf(context).width < 520;
+    final sizeMode = _sellProfile == PosSellProfile.restaurant;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4120,16 +4123,20 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ),
         // —— Đơn vị quy đổi (tách riêng) ——
         _kvSection(
-          title: 'Đơn vị quy đổi',
-          subtitle:
-              'Đơn vị bán lớn hơn, có hệ số quy đổi về đơn vị cơ bản (vd: Thùng = 24 Cái).',
+          // F&B: đơn vị phụ là size (M, L) — không nói chuyện quy đổi thùng / lốc.
+          title: sizeMode ? 'Size' : 'Đơn vị quy đổi',
+          subtitle: sizeMode
+              ? 'Mỗi size một giá bán (vd M, L).'
+              : 'Đơn vị bán lớn hơn, có hệ số quy đổi về đơn vị cơ bản (vd: Thùng = 24 Cái).',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (extraUnits.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(tr('Chưa có đơn vị quy đổi. Thêm nếu bán theo lốc/thùng/hộp…'),
+                  child: Text(tr(sizeMode
+                      ? 'Chưa có size. Thêm nếu món bán nhiều size (M, L…).'
+                      : 'Chưa có đơn vị quy đổi. Thêm nếu bán theo lốc/thùng/hộp…'),
                     style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                   ),
                 )
@@ -4157,13 +4164,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                                 ),
                               ),
                               const SizedBox(height: 2),
-                              Text(
-                                tr('1 ${u.unitName} = ${u.conversionRate} $baseName'),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: SboxColors.slate700,
+                              if (!sizeMode)
+                                Text(
+                                  tr('1 ${u.unitName} = ${u.conversionRate} $baseName'),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: SboxColors.slate700,
+                                  ),
                                 ),
-                              ),
                               Text(tr('Giá: ${_moneyFmt.format(u.basePrice)}'),
                                 style: const TextStyle(
                                   fontSize: 12,
@@ -4188,7 +4196,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 child: TextButton.icon(
                   onPressed: _openUnitAttributeSetup,
                   icon: const Icon(Icons.add, size: 18),
-                  label: Text(tr('Thêm đơn vị quy đổi')),
+                  label: Text(tr(sizeMode ? 'Thêm size' : 'Thêm đơn vị quy đổi')),
                   style: TextButton.styleFrom(foregroundColor: PosTheme.kiotBlue),
                 ),
               ),

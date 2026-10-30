@@ -31,6 +31,7 @@ class UnitAttributeSetupInput {
     this.productPatch,
     this.startInAddMoreMode = false,
     this.focusVariantId,
+    this.sizeMode = false,
   });
 
   final String baseUnitName;
@@ -48,6 +49,8 @@ class UnitAttributeSetupInput {
   final bool startInAddMoreMode;
   /// Bôi đậm / cuộn tới hàng cùng loại cần sửa (từ danh sách hàng).
   final String? focusVariantId;
+  /// F&B: đơn vị là size (M, L…) — chỉ tên + giá; ẩn hệ số quy đổi, bán trực tiếp, mã vạch, tồn kho.
+  final bool sizeMode;
 }
 
 class UnitAttributeRowInput {
@@ -243,6 +246,7 @@ class _UnitAttributeSetupDialog extends StatefulWidget {
 }
 
 class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
+  bool get _sizeMode => widget.input.sizeMode;
   final _api = ApiService();
   static final _moneyFmt = NumberFormat('#,###', 'vi_VN');
 
@@ -1477,7 +1481,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
       child: Row(
         children: [
           Expanded(
-            child: Text(tr('Thiết lập đơn vị tính và thuộc tính'),
+            child: Text(tr(_sizeMode ? 'Thiết lập size và thuộc tính' : 'Thiết lập đơn vị tính và thuộc tính'),
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
           ),
@@ -1494,10 +1498,16 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(tr('Đơn vị tính'),
+        Text(tr(_sizeMode ? 'Size' : 'Đơn vị tính'),
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        if (_sizeMode)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(tr('Mỗi size một giá bán (vd M, L). Định lượng NVL riêng từng size khai ở phần Định lượng.'),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
+          ),
         const SizedBox(height: 8),
-        _unitHeaderRow(),
+        if (!_sizeMode) _unitHeaderRow(),
         const SizedBox(height: 4),
         _unitRow(_baseUnit, onDelete: null),
         ..._extraUnits.asMap().entries.map(
@@ -1509,7 +1519,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
           child: TextButton.icon(
             onPressed: _addUnit,
             icon: const Icon(Icons.add, size: 18, color: PosTheme.kiotBlue),
-            label: Text(tr('Thêm đơn vị'),
+            label: Text(tr(_sizeMode ? 'Thêm size' : 'Thêm đơn vị'),
                 style: TextStyle(color: PosTheme.kiotBlue)),
           ),
         ),
@@ -1553,8 +1563,10 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
     final nameField = TextField(
       controller: u.nameCtrl,
       decoration: PosTheme.inputDecoration(
-        label: u.isBase ? 'Tên đơn vị cơ bản' : 'Tên đơn vị',
-        hint: u.isBase ? 'gói' : '1 lốc',
+        label: _sizeMode
+            ? (u.isBase ? 'Size mặc định' : 'Tên size')
+            : (u.isBase ? 'Tên đơn vị cơ bản' : 'Tên đơn vị'),
+        hint: _sizeMode ? (u.isBase ? 'M' : 'L') : (u.isBase ? 'gói' : '1 lốc'),
       ),
       onChanged: (_) =>
           setState(() => _scheduleRebuild(preserveMeta: true)),
@@ -1606,6 +1618,29 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
         }
       },
     );
+
+    if (_sizeMode) {
+      // Size F&B: tên + giá trên một hàng; hệ số giữ 1, luôn bán trực tiếp.
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 10, child: nameField),
+            const SizedBox(width: 8),
+            Expanded(flex: 12, child: priceField),
+            if (onDelete != null)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 20),
+                color: Colors.red.shade400,
+                onPressed: onDelete,
+              )
+            else
+              const SizedBox(width: 48),
+          ],
+        ),
+      );
+    }
 
     if (narrow) {
       return Container(
@@ -1818,6 +1853,10 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
   }
 
   Widget _relatedTableSection() {
+    // Size F&B chưa có thuộc tính: bảng chỉ lặp lại các size ở trên → khỏi hiện.
+    if (_sizeMode && _relatedRows.every((r) => r.attrLabel.trim().isEmpty)) {
+      return const SizedBox.shrink();
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1891,12 +1930,12 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
         children: [
           Expanded(flex: 24, child: Text(tr('Giá trị thuộc tính'), style: _th)),
           Expanded(flex: 14, child: Text(tr('Đơn vị'), style: _th)),
-          Expanded(flex: 10, child: Text(tr('Quy đổi'), style: _th)),
+          if (!_sizeMode) Expanded(flex: 10, child: Text(tr('Quy đổi'), style: _th)),
           Expanded(flex: 16, child: Text(tr('Mã hàng'), style: _th)),
-          Expanded(flex: 16, child: Text(tr('Mã vạch'), style: _th)),
+          if (!_sizeMode) Expanded(flex: 16, child: Text(tr('Mã vạch'), style: _th)),
           Expanded(flex: 14, child: Text(tr('Giá vốn'), style: _th)),
           Expanded(flex: 14, child: Text(tr('Giá bán'), style: _th)),
-          Expanded(flex: 10, child: Text(tr('Tồn kho'), style: _th)),
+          if (!_sizeMode) Expanded(flex: 10, child: Text(tr('Tồn kho'), style: _th)),
           SizedBox(width: 40),
         ],
       ),
@@ -1941,6 +1980,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
             flex: 14,
             child: Text(tr(r.unitName), style: const TextStyle(fontSize: 12)),
           ),
+          if (!_sizeMode)
           Expanded(
             flex: 10,
             child: Container(
@@ -1977,6 +2017,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
               ),
             ),
           ),
+          if (!_sizeMode)
           Expanded(
             flex: 16,
             child: Padding(
@@ -2040,6 +2081,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
               ),
             ),
           ),
+          if (!_sizeMode)
           Expanded(
             flex: 10,
             child: Padding(
