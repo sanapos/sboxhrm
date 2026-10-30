@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_tr.dart';
@@ -168,10 +170,23 @@ class _ShiftSalaryLevelsPanelState extends State<ShiftSalaryLevelsPanel> {
   }
 
   String _who(Map<String, dynamic> l) {
-    final ids = l['employeeIds'];
-    final n = ids is List ? ids.length : 0;
+    final n = _levelEmployeeIds(l['employeeIds']).length;
     return n == 0 ? 'Tất cả nhân viên' : '$n nhân viên';
   }
+}
+
+/// API trả employeeIds là chuỗi JSON («["id"]») — trước chỉ đọc List nên mức lương riêng hiện «Tất cả nhân viên»
+/// và mở sửa rồi lưu thì thành áp dụng cho tất cả.
+List<String> _levelEmployeeIds(dynamic raw) {
+  dynamic v = raw;
+  if (v is String && v.trim().isNotEmpty) {
+    try {
+      v = jsonDecode(v);
+    } catch (_) {
+      return const [];
+    }
+  }
+  return v is List ? [for (final x in v) '$x'] : const [];
 }
 
 class _Emp {
@@ -221,8 +236,7 @@ class _LevelSheetState extends State<_LevelSheet> {
     _name = TextEditingController(text: l?['levelName']?.toString() ?? '');
     _amount = TextEditingController(text: _amountText(l));
     _desc = TextEditingController(text: l?['description']?.toString() ?? '');
-    final ids = l?['employeeIds'];
-    _selected = {if (ids is List) for (final x in ids) '$x'};
+    _selected = _levelEmployeeIds(l?['employeeIds']).toSet();
     _allEmployees = _selected.isEmpty;
     _active = l?['isActive'] != false;
   }

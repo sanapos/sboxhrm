@@ -493,14 +493,6 @@ class _AiStoreProfileSectionState extends State<_AiStoreProfileSection> {
       subtitle: 'Viết điều trợ lý cần biết về cửa hàng: giờ giấc, chính sách, nội quy, tên gọi tắt món / hàng. '
           'Trợ lý trả lời và lập phiếu theo đúng các quy định này',
       icon: Icons.storefront_outlined,
-      trailing: _canEdit
-          ? SboxButton.secondary(
-              label: 'Lưu hồ sơ',
-              icon: Icons.save_outlined,
-              loading: _saving,
-              onPressed: _saving || !dirty ? null : _save,
-            )
-          : null,
       children: [
         if (_loading)
           const Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator())
@@ -515,6 +507,17 @@ class _AiStoreProfileSectionState extends State<_AiStoreProfileSection> {
             decoration: InputDecoration(
               hintText: tr(_example),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        // Nút dưới ô nhập — đặt ở trailing thì trên điện thoại mô tả bị ép còn nửa bề ngang (6 dòng).
+        if (_canEdit && !_loading)
+          Align(
+            alignment: Alignment.centerRight,
+            child: SboxButton.secondary(
+              label: 'Lưu hồ sơ',
+              icon: Icons.save_outlined,
+              loading: _saving,
+              onPressed: _saving || !dirty ? null : _save,
             ),
           ),
       ],

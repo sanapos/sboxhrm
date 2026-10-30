@@ -119,7 +119,8 @@ class ShiftTpl {
     if (hasLunchWindow && !StTime.insideShift(start, end, lunchStart!, lunchEnd!)) {
       return 'Khung nghỉ giữa ca phải nằm trọn trong giờ ca.';
     }
-    if (otBefore > 0 && earlyCheckIn <= otBefore) {
+    // Ca tăng ca ẩn ô «Tăng ca trước ca» và nút sửa nhanh — chặn ở đây thì không còn cách lưu.
+    if (type != ShiftKind.overtime && otBefore > 0 && earlyCheckIn <= otBefore) {
       return 'Tăng ca trước ca ($otBefore phút) cần «Nhận chấm sớm» ít nhất ${otBefore + 1} phút để khớp ca và tính được tăng ca.';
     }
     return null;

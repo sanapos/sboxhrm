@@ -920,7 +920,7 @@ class AppLocalizations {
 
       // POS / reports / extras
       'businessTripExpense': 'Công tác phí',
-      'businessTripExpenseSubtitle': 'Công tác phí — ứng & hoạch toán',
+      'businessTripExpenseSubtitle': 'Công tác phí — ứng & hạch toán',
       'penaltyTickets': 'Phiếu phạt',
       'feedback': 'Phản ánh / Ý kiến',
       'posProducts': 'Hàng hóa',

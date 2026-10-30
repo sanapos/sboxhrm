@@ -269,7 +269,8 @@ class _EmployeeCareerV2ScreenState extends State<EmployeeCareerV2Screen> {
     // Đếm theo nhóm như bộ lọc — thưởng/phạt tiền từ Tài chính cũng tính, khớp số tiền bên dưới.
     int g(String group) => _events.where((e) => EcKind.of('${e['kind']}').group == group).length;
     final cards = [
-      SboxMetricCard(label: 'Điều chuyển / bổ nhiệm', value: '${n('moves')}', icon: Icons.swap_horiz_rounded),
+      // Thẻ hẹp 200px trên điện thoại: nhãn đầy đủ bị cắt thành «Điều chuyển / bổ n…».
+      SboxMetricCard(label: wide ? 'Điều chuyển / bổ nhiệm' : 'Điều chuyển', value: '${n('moves')}', icon: Icons.swap_horiz_rounded),
       SboxMetricCard(
         label: 'Khen thưởng',
         value: '${g('reward')}',

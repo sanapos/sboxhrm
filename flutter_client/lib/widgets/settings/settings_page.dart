@@ -267,6 +267,10 @@ class SettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Điện thoại: nút rộng (Lưu bản tin, Kiểm tra…) xuống dưới mô tả — để cùng hàng thì mô tả bị ép còn nửa bề ngang.
+    final below = trailing != null &&
+        MediaQuery.of(context).size.width < 640 &&
+        !SettingsTile.isCompact(trailing!);
     return SboxCard(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -283,9 +287,10 @@ class SettingsSection extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(tr(subtitle!), style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500)),
                 ),
+              if (below) Padding(padding: const EdgeInsets.only(top: 8), child: trailing!),
             ]),
           ),
-          if (trailing != null) trailing!,
+          if (trailing != null && !below) trailing!,
         ]),
         const SizedBox(height: 6),
         ...children,
