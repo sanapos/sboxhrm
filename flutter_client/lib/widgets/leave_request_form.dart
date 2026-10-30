@@ -190,7 +190,8 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
 
   Widget _buildAnnualBalanceCard() {
     final entry = _entry;
-    if (entry == null || !entry.usesAnnualBalance || _countAsWork) {
+    // Chưa chọn nhân viên thì chưa tải quỹ — trước báo «Chưa có quỹ phép năm» ngay khi mở form.
+    if (entry == null || !entry.usesAnnualBalance || _countAsWork || _selectedEmployeeId == null) {
       return const SizedBox.shrink();
     }
 
@@ -956,28 +957,35 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
   }
 
   Widget _buildEmployeePicker() {
-    return ListTile(
-      tileColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: _border),
+    // Material riêng: ListTile vẽ nền/viền lên Material cha — khối cảnh báo chèn phía trên làm viền nằm lệch chỗ cũ.
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        tileColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: _border),
+        ),
+        title: Text(tr(_employeeName() ?? 'Chọn nhân viên')),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: _pickEmployee,
       ),
-      title: Text(tr(_employeeName() ?? 'Chọn nhân viên')),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: _pickEmployee,
     );
   }
 
   Widget _buildReplacementPicker() {
-    return ListTile(
-      tileColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: _border),
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        tileColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: _border),
+        ),
+        title: Text(tr(_replacementName() ?? 'Không chọn')),
+        trailing: const Icon(Icons.person_search),
+        onTap: _pickReplacement,
       ),
-      title: Text(tr(_replacementName() ?? 'Không chọn')),
-      trailing: const Icon(Icons.person_search),
-      onTap: _pickReplacement,
     );
   }
 
@@ -1052,6 +1060,8 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
         }
       });
       _loadShiftsForDate();
+      // Trước không tải lại → quản lý chọn NV nào cũng báo «Chưa có quỹ phép năm», không kiểm số ngày còn lại.
+      _loadAnnualBalance();
     }
   }
 

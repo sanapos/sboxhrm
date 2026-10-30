@@ -322,6 +322,8 @@ class HrFinItemTile extends StatelessWidget {
           Text(item.subtitle!, style: SboxType.captionStyle(), maxLines: 1, overflow: TextOverflow.ellipsis),
         const SizedBox(height: 2),
         Text(meta, style: SboxType.captionStyle(), maxLines: 1, overflow: TextOverflow.ellipsis),
+        // Điện thoại: chip dưới thông tin — để cột phải thì «Đã duyệt · chờ chi» ép cột trái còn «Trừ lương kỳ 10/2…».
+        if (mobile) Padding(padding: const EdgeInsets.only(top: 4), child: SboxStatusChip(label: statusLabel, tone: statusTone, dot: true)),
         if (item.isDisputeOpen && item.disputeReason != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -335,8 +337,10 @@ class HrFinItemTile extends StatelessWidget {
       Text('$sign${hrFinMoney(item.amount)}',
           style: SboxType.moneyStyle(c: amountColor).copyWith(
               decoration: item.isCancelled ? TextDecoration.lineThrough : null, fontWeight: FontWeight.w700)),
-      const SizedBox(height: 4),
-      SboxStatusChip(label: statusLabel, tone: statusTone, dot: true),
+      if (!mobile) ...[
+        const SizedBox(height: 4),
+        SboxStatusChip(label: statusLabel, tone: statusTone, dot: true),
+      ],
       if (onAction != null && item.action != null && !mobile) ...[
         const SizedBox(height: 6),
         SboxButton(
