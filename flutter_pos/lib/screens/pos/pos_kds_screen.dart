@@ -2347,16 +2347,16 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   /// Ghi chú hiển thị: bỏ dòng món con combo («- 1 Trà sữa») — đã có danh sách món con riêng
   /// (trước hiện «• 15 Trà sữa · 15 Nem rán» rồi lại «- 1 Trà sữa» ngay dưới, bếp tưởng 2 món).
-  /// Thẻ bàn: món giống nhau CHƯA LÀM, không ghi chú riêng (topping, «ít đá»…) → một dòng cộng SL.
-  /// Bàn gọi thêm nhiều lượt trước hiện 4 dòng «Combo ăn vặt» 2 · 1 · 1 · 2, bếp phải tự cộng.
-  /// Món đang làm / xong / hủy / có ghi chú vẫn tách riêng (bấm từng dòng đổi trạng thái riêng).
+  /// Thẻ bàn: món giống nhau cùng trạng thái chờ làm / đang làm, không ghi chú riêng (topping, «ít đá»…)
+  /// → một dòng cộng SL. Bàn gọi thêm nhiều lượt trước hiện 4 dòng «Combo ăn vặt» 2 · 1 · 1 · 2, bếp phải tự
+  /// cộng. Món xong / hủy / có ghi chú vẫn tách riêng.
   /// Trả về (dòng hiển thị, id các món gốc) — bấm dòng gộp là đổi cả nhóm.
   List<(_KdsItem, List<String>)> _mergedRows(_KdsTicket t) {
     final out = <(_KdsItem, List<String>)>[];
     final at = <String, int>{};
     for (final i in t.items) {
-      final key = i.status == 'queued' && _displayNote(i).isEmpty
-          ? i.productName.trim().toLowerCase()
+      final key = (i.status == 'queued' || i.status == 'cooking') && _displayNote(i).isEmpty
+          ? '${i.status}|${i.productName.trim().toLowerCase()}'
           : null;
       final k = key == null ? null : at[key];
       if (k != null) {
