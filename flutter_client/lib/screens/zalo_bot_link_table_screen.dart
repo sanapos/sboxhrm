@@ -99,7 +99,12 @@ class _ZaloBotLinkTableScreenState extends State<ZaloBotLinkTableScreen> {
     final ok = await SboxDialogs.confirm(
       context,
       title: 'Hủy liên kết Zalo?',
-      message: tr('{name} sẽ không nhận thông báo qua Zalo nữa.').replaceAll('{name}', row.name),
+      // Kèm mã NV + tên Zalo: cửa hàng hay có người trùng tên, chỉ tên thì dễ hủy nhầm người.
+      message: tr('{name} sẽ không nhận thông báo qua Zalo nữa.').replaceAll('{name}', [
+        row.name,
+        if ((row.employeeCode ?? '').isNotEmpty) '(${row.employeeCode})',
+        if ((row.zaloName ?? '').isNotEmpty) '· Zalo «${row.zaloName}»',
+      ].join(' ')),
       confirmLabel: 'Hủy liên kết',
       danger: true,
     );
