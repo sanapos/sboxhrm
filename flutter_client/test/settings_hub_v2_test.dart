@@ -120,7 +120,8 @@ void main() {
       expect(SettingsHubCatalog.groups.map((g) => g.title), contains(i.groupTitle));
     }
     expect(SettingsHubCatalog.search(SettingsHubCatalog.allItems, 'bhxh').map((e) => e.label), ['Bảo hiểm']);
-    expect(SettingsHubCatalog.search(SettingsHubCatalog.allItems, 'vat').map((e) => e.label), ['Thông tin cửa hàng']);
+    // Thiết lập % VAT đã chuyển từ Thông tin cửa hàng sang Hóa đơn điện tử.
+    expect(SettingsHubCatalog.search(SettingsHubCatalog.allItems, 'vat').map((e) => e.label), ['Hóa đơn điện tử']);
     expect(SettingsHubCatalog.search(SettingsHubCatalog.allItems, 'ca đêm').first.label, 'Ca làm việc');
     expect(SettingsHubCatalog.byIndex(28)!.moduleCode, 'BankAccount');
   });

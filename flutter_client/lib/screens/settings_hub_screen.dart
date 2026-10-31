@@ -11,6 +11,8 @@ import '../services/api_service.dart';
 import '../services/branch_session.dart';
 import '../services/settings_hub_sidebar_prefs.dart';
 import '../utils/permission_navigation.dart';
+import '../utils/pos_local_printers_store.dart';
+import '../utils/pos_print_orchestrator.dart';
 import '../utils/settings_hub_catalog.dart';
 import '../utils/store_role_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -192,6 +194,32 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       if (!mounted || r['isSuccess'] != true || r['data'] is! List) return;
       setState(() => _health = {
             for (final x in (r['data'] as List).whereType<Map>()) '${x['key']}': Map<String, dynamic>.from(x),
+          });
+    } catch (_) {}
+    await _loadPrinterHealth();
+  }
+
+  /// Nhãn ô «Máy in» tính ngay trên thiết bị: máy chủ không biết đang mở ở máy nào nên trước cộng
+  /// máy nội bộ của MỌI thiết bị (C20 chỉ cắm 1 máy USB mà ghi «4 máy in»). Giờ = máy cài trên chính
+  /// máy này + máy đang chia sẻ dùng chung (cloud); máy nội bộ của thiết bị khác không tính.
+  Future<void> _loadPrinterHealth() async {
+    try {
+      final local = (await PosLocalPrintersStore.instance.loadAll()).where((p) => p.enabled).length;
+      final orch = PosPrintOrchestrator.instance;
+      await orch.refreshConfig(force: true);
+      final shared = orch.printers.where((p) => !p.isDeviceLocal).length;
+      final parts = [
+        if (local > 0) tr('$local máy in trên máy này'),
+        if (shared > 0) tr('$shared máy in đang chia sẻ'),
+      ];
+      if (!mounted) return;
+      setState(() => _health = {
+            ..._health,
+            'cloudPrinter': {
+              'key': 'cloudPrinter',
+              'status': parts.isEmpty ? 'info' : 'ok',
+              'text': parts.isEmpty ? tr('Chưa có máy in') : parts.join(' · '),
+            },
           });
     } catch (_) {}
   }
