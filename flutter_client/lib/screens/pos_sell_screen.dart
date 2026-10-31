@@ -14635,7 +14635,16 @@ class _PosSellScreenState extends State<PosSellScreen>
         (_isTableOrderMode ||
             (_useFloorAsPrimary && (_floorPaneKey.currentState?.busyTableCount ?? 0) > 0));
     // Báo giá / mẫu in báo giá bỏ khỏi menu bán hàng (vào từ Thương mại); còn lại mục ít dùng.
+    final grid = _productGridKey.currentState;
     final moreItems = <PopupMenuEntry<String>>[
+      // Trước là 2 nút cuối thanh danh mục (mobile) — chiếm chỗ, ít danh mục hiện được.
+      if (grid != null) ...[
+        item('lock_mode', grid.lockMode ? Icons.lock : Icons.lock_open_outlined,
+            grid.lockMode ? 'Tắt chế độ khóa món' : 'Chế độ khóa món',
+            subtitle: grid.lockMode ? null : 'Báo hết / bán lại món trong ngày',
+            iconColor: grid.lockMode ? SboxColors.warning : null),
+        item('catalog_sort', Icons.swap_vert, 'Sắp xếp menu', subtitle: 'Thứ tự danh mục và món'),
+      ],
       if (_industrySettings?.enableSessionPacks == true &&
           Provider.of<PermissionProvider>(context, listen: false).canView('PosGymCheckIn'))
         item('gym_checkin', Icons.fingerprint, 'Check-in hội viên', subtitle: 'Qua máy chấm công'),
@@ -14742,7 +14751,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         const PopupMenuDivider(),
         // Ít dùng → gom vào «Khác…» (menu phụ) cho gọn, khỏi phải cuộn trên máy ngang.
         if (moreItems.isNotEmpty)
-          item('more', Icons.more_horiz, 'Khác…', subtitle: 'Phím tắt, cân, check-in hội viên'),
+          item('more', Icons.more_horiz, 'Khác…', subtitle: 'Khóa món, sắp xếp menu, cân…'),
         // Màn hình khách / toàn màn hình / thiết lập / trả bàn: hay dùng — ra ngoài «Khác…», cuối menu.
         if (canReturnTable)
           item('return_table', Icons.event_seat_outlined, 'Trả về $_resNoun trống',
@@ -14808,6 +14817,10 @@ class _PosSellScreenState extends State<PosSellScreen>
         await _renameTab(_activeTab);
       case 'go_home':
         _goMobileSellHome();
+      case 'lock_mode':
+        await _productGridKey.currentState?.toggleLockMode();
+      case 'catalog_sort':
+        await _productGridKey.currentState?.openCatalogSort();
       case 'kitchen':
         await _kitchenSendCurrentTable();
       case 'price_list':

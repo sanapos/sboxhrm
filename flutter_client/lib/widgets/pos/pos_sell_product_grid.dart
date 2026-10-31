@@ -388,6 +388,11 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     }
   }
 
+  /// Menu ☰ màn bán: thanh danh mục ngang (mobile) không còn nút khóa món / sắp xếp — mở từ «Khác…».
+  bool get lockMode => _lockMode;
+  Future<void> toggleLockMode() => _setLockMode(!_lockMode);
+  Future<void> openCatalogSort() => _openCatalogSort();
+
   Future<void> _openCatalogSort() async {
     final ok = await showPosCatalogSortSheet(
       context: context,
@@ -1996,33 +2001,8 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           )
         : PosHScrollChipRow(
             height: posWebHasTouchPoints() ? 62 : 48,
-            padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: tr(_lockMode
-                      ? 'Tắt chế độ khóa món'
-                      : 'Chế độ khóa món — cần mật khẩu chủ cửa hàng'),
-                  visualDensity: posWebHasTouchPoints() ? VisualDensity.standard : VisualDensity.compact,
-                  icon: Icon(
-                    _lockMode ? Icons.lock : Icons.lock_open_outlined,
-                    size: 22,
-                    color: _lockMode
-                        ? SboxColors.warning
-                        : PosTheme.textSecondary,
-                  ),
-                  onPressed: () => unawaited(_setLockMode(!_lockMode)),
-                ),
-                IconButton(
-                  tooltip: tr('Sắp xếp menu'),
-                  visualDensity: posWebHasTouchPoints() ? VisualDensity.standard : VisualDensity.compact,
-                  icon: const Icon(Icons.swap_vert,
-                      size: 22, color: PosTheme.textSecondary),
-                  onPressed: _openCatalogSort,
-                ),
-              ],
-            ),
+            // Khóa món / sắp xếp menu ở ☰ → «Khác…» (trước 2 nút chiếm chỗ cuối thanh, ít danh mục hiện được).
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
             children: [
               _horizontalCategoryChip('Tất cả', null),
               for (final node in buildPosCategoryTree(_categories))
@@ -2081,7 +2061,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           children: [
             _buildSearchBar(),
             _horizontalCategoryStrip(),
-            if (_lockMode) const _LockModeBanner(),
+            if (_lockMode) _LockModeBanner(onTurnOff: () => unawaited(_setLockMode(false))),
             const Divider(height: 1, color: PosTheme.border),
             Expanded(child: _buildSellList()),
           ],
@@ -2099,7 +2079,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               children: [
                 if (widget.showSearchBar) _buildSearchBar() else const SizedBox(height: 6),
                 _horizontalCategoryStrip(),
-                if (_lockMode) const _LockModeBanner(),
+                if (_lockMode) _LockModeBanner(onTurnOff: () => unawaited(_setLockMode(false))),
                 const Divider(height: 1, color: PosTheme.border),
                 Expanded(child: _buildGrid(constraints.maxWidth)),
               ],
@@ -2208,22 +2188,38 @@ class _DailySoldOutBadge extends StatelessWidget {
 }
 
 class _LockModeBanner extends StatelessWidget {
-  const _LockModeBanner();
+  const _LockModeBanner({required this.onTurnOff});
+
+  /// Nút bật / tắt đã rời thanh danh mục (vào ☰ → «Khác…») → tắt ngay trên dải báo.
+  final VoidCallback onTurnOff;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       color: SboxColors.warningSoft,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      child: Text(
-        tr('Chế độ khóa món — chạm để báo hết / bán lại. Ngày mai tự mở bán.'),
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: SboxColors.warningText,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
+      padding: const EdgeInsets.fromLTRB(12, 2, 4, 2),
+      child: Row(
+        children: [
+          const Icon(Icons.lock, size: 16, color: SboxColors.warningText),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              tr('Chế độ khóa món — chạm để báo hết / bán lại. Ngày mai tự mở bán.'),
+              style: const TextStyle(
+                color: SboxColors.warningText,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onTurnOff,
+            child: Text(tr('Tắt'),
+                style: const TextStyle(
+                    color: SboxColors.warningText, fontWeight: FontWeight.w700)),
+          ),
+        ],
       ),
     );
   }
