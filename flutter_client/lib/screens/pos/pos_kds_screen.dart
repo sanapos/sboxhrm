@@ -87,7 +87,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   String? _ticketsReloadVoidMessage;
   DateTime? _lastSpeakTap;
   String? _error;
-  String? _stationId;
   _KdsView _view = _KdsView.dish;
   bool _newestFirst = false;
   bool _onlyUnfinished = false;
@@ -113,7 +112,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   final _boardRev = ValueNotifier<int>(0);
   String? _kdsPrinterId;
   List<PosStorePrinter> _kdsPrinters = [];
-  List<_KdsStation> _stations = [];
   List<_KdsTicket> _tickets = [];
   String? _lastBumpedOrderId;
   int _lastOpenCount = 0;
@@ -211,21 +209,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   }
 
   Future<void> _bootstrap() async {
-    final st = await _api.getPosKdsStations();
-    if (!mounted) return;
-    if (st['isSuccess'] == true && st['data'] is Map) {
-      final raw =
-          (st['data'] as Map)['stations'] ?? (st['data'] as Map)['Stations'];
-      final list = <_KdsStation>[];
-      if (raw is List) {
-        for (final e in raw) {
-          if (e is Map) {
-            list.add(_KdsStation.fromJson(Map<String, dynamic>.from(e)));
-          }
-        }
-      }
-      _stations = _dedupeStations(list);
-    }
     await _loadKdsPrintPrefs();
     await _loadTickets();
   }
@@ -240,22 +223,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       '',
     );
     return s.trim();
-  }
-
-  List<_KdsStation> _dedupeStations(List<_KdsStation> raw) {
-    final byId = <String, _KdsStation>{};
-    for (final s in raw) {
-      if (s.id.isEmpty) continue;
-      byId.putIfAbsent(s.id, () => s);
-    }
-    final byName = <String, _KdsStation>{};
-    for (final s in byId.values) {
-      final key = _stationKey(s.name);
-      if (key.isEmpty) continue;
-      final prev = byName[key];
-      byName[key] = prev == null ? s : prev.merge(s);
-    }
-    return byName.values.toList();
   }
 
   List<PosStorePrinter> _dedupePrinters(List<PosStorePrinter> raw) {
@@ -326,7 +293,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final printer = await PosKitchenDirectConnect.resolvePrintTarget(
       deviceId: deviceId,
       preferredId: _kdsPrinterId,
-      stationId: _stationId,
     );
     if (printer == null) {
       NotificationOverlayManager().showError(
@@ -951,7 +917,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       });
     }
     try {
-    final res = await _api.getPosKdsTickets(printerId: _stationId);
+    final res = await _api.getPosKdsTickets();
     if (!mounted) return;
     if (res['isSuccess'] != true) {
       setState(() {
@@ -1707,13 +1673,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     _toneChip(tr('Đang làm'), 'cooking', _blue, _blueSoft),
                     _toneChip(tr('Chờ làm'), 'queued', _orange, _orangeSoft),
                     _toneChip(tr('Làm xong'), 'ready', _green, _greenSoft),
-                    // Một trạm thì lọc vô nghĩa — ẩn cho gọn.
-                    if (_stations.length > 1) ...[
-                      const SizedBox(width: 16),
-                      label('${tr('Máy in')}:'),
-                      _stationChip(null, tr('Tất cả')),
-                      for (final s in _stations) _stationChip(s.id, s.label),
-                    ],
           ];
           final rightChips = <Widget>[
                     _filterChip(
@@ -1777,41 +1736,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                 color: on ? Colors.white : accent,
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _stationChip(String? id, String label) {
-    final on = _stationId == id;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: Material(
-        color: on ? _chipOn : _chipIdle,
-        shape: StadiumBorder(
-          side: BorderSide(color: on ? _chipOn : _line),
-        ),
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: () {
-            setState(() {
-              _stationId = id;
-              _voiceSeeded = false;
-              _announcedMaxQty.clear();
-            });
-            unawaited(_loadTickets());
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: on ? Colors.white : _ink,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
               ),
             ),
           ),
@@ -3119,47 +3043,6 @@ class _KdsAgg {
     if (ready > 0) parts.add('$ready ${t('xong')}');
     if (voids > 0) parts.add('$voids ${t('hủy')}');
     return parts.join(' · ');
-  }
-}
-
-class _KdsStation {
-  const _KdsStation({
-    required this.id,
-    required this.name,
-    this.place,
-    this.printerIds = const [],
-  });
-  final String id;
-  final String name;
-  /// Máy in nằm ở đâu: tên thiết bị POS giữ máy in nội bộ / «dùng chung» (cloud) / «thiết bị khác».
-  final String? place;
-  final List<String> printerIds;
-
-  String get label => (place ?? '').isEmpty ? name : '$name · $place';
-
-  _KdsStation merge(_KdsStation other) {
-    final ids = {...printerIds, other.id, ...other.printerIds}.toList();
-    return _KdsStation(id: id, name: name, place: place ?? other.place, printerIds: ids);
-  }
-
-  factory _KdsStation.fromJson(Map<String, dynamic> j) {
-    final ids = <String>[];
-    final raw = j['printerIds'] ?? j['PrinterIds'];
-    if (raw is List) {
-      for (final e in raw) {
-        final s = e.toString();
-        if (s.isNotEmpty) ids.add(s);
-      }
-    }
-    final id = (j['id'] ?? j['Id'] ?? '').toString();
-    if (id.isNotEmpty && !ids.contains(id)) ids.insert(0, id);
-    final place = (j['place'] ?? j['Place'])?.toString().trim();
-    return _KdsStation(
-      id: id,
-      name: (j['name'] ?? j['Name'] ?? '').toString(),
-      place: place == null || place.isEmpty ? null : place,
-      printerIds: ids,
-    );
   }
 }
 

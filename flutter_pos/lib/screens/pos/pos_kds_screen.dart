@@ -92,7 +92,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   String? _ticketsReloadVoidMessage;
   DateTime? _lastSpeakTap;
   String? _error;
-  String? _stationId;
   _KdsView _view = _KdsView.dish;
   bool _newestFirst = false;
   bool _onlyUnfinished = false;
@@ -118,7 +117,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   final _boardRev = ValueNotifier<int>(0);
   String? _kdsPrinterId;
   List<PosStorePrinter> _kdsPrinters = [];
-  List<_KdsStation> _stations = [];
   List<_KdsTicket> _tickets = [];
   String? _lastBumpedOrderId;
   int _lastOpenCount = 0;
@@ -217,21 +215,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   }
 
   Future<void> _bootstrap() async {
-    final st = await _api.getPosKdsStations();
-    if (!mounted) return;
-    if (st['isSuccess'] == true && st['data'] is Map) {
-      final raw =
-          (st['data'] as Map)['stations'] ?? (st['data'] as Map)['Stations'];
-      final list = <_KdsStation>[];
-      if (raw is List) {
-        for (final e in raw) {
-          if (e is Map) {
-            list.add(_KdsStation.fromJson(Map<String, dynamic>.from(e)));
-          }
-        }
-      }
-      _stations = _dedupeStations(list);
-    }
     await _loadKdsPrintPrefs();
     await _loadTickets();
   }
@@ -246,22 +229,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       '',
     );
     return s.trim();
-  }
-
-  List<_KdsStation> _dedupeStations(List<_KdsStation> raw) {
-    final byId = <String, _KdsStation>{};
-    for (final s in raw) {
-      if (s.id.isEmpty) continue;
-      byId.putIfAbsent(s.id, () => s);
-    }
-    final byName = <String, _KdsStation>{};
-    for (final s in byId.values) {
-      final key = _stationKey(s.name);
-      if (key.isEmpty) continue;
-      final prev = byName[key];
-      byName[key] = prev == null ? s : prev.merge(s);
-    }
-    return byName.values.toList();
   }
 
   List<PosStorePrinter> _dedupePrinters(List<PosStorePrinter> raw) {
@@ -381,7 +348,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final printer = await PosKitchenDirectConnect.resolvePrintTarget(
       deviceId: deviceId,
       preferredId: _kdsPrinterId,
-      stationId: _stationId,
     );
     if (printer == null) {
       NotificationOverlayManager().showError(
@@ -1005,7 +971,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       });
     }
     try {
-    final res = await _api.getPosKdsTickets(printerId: _stationId);
+    final res = await _api.getPosKdsTickets();
     if (!mounted) return;
     if (res['isSuccess'] != true) {
       setState(() {
@@ -1419,8 +1385,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                 const SizedBox(width: 10),
                 _viewToggle(compact: narrow),
                 const SizedBox(width: 8),
-                _stationPicker(compact: narrow),
-                const SizedBox(width: 8),
                 Expanded(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -1535,62 +1499,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     );
   }
 
-  /// Chọn trạm bếp (theo máy in bếp của món) — dropdown thay hàng chip dài bị cắt chữ.
-  Widget _stationPicker({bool compact = false}) {
-    if (_stations.isEmpty) return const SizedBox.shrink();
-    final current = _stations.where((s) => s.id == _stationId).firstOrNull;
-    return PopupMenuButton<String>(
-      tooltip: tr('Trạm bếp'),
-      color: _sheet,
-      onSelected: (v) {
-        setState(() {
-          _stationId = v.isEmpty ? null : v;
-          _voiceSeeded = false;
-          _announcedMaxQty.clear();
-        });
-        unawaited(_loadTickets());
-      },
-      itemBuilder: (_) => [
-        CheckedPopupMenuItem(
-          value: '',
-          checked: _stationId == null,
-          child: Text(tr('Tất cả trạm'), style: TextStyle(color: _ink)),
-        ),
-        for (final s in _stations)
-          CheckedPopupMenuItem(
-            value: s.id,
-            checked: _stationId == s.id,
-            child: Text(s.name, style: TextStyle(color: _ink)),
-          ),
-      ],
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: current == null ? _chipIdle : _blueSoft,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: current == null ? _line : _blue),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.outdoor_grill_outlined, size: 18, color: current == null ? _muted : _blue),
-            const SizedBox(width: 6),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: compact ? 90 : 170),
-              child: Text(
-                current?.name ?? tr('Tất cả trạm'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: _ink, fontWeight: FontWeight.w700, fontSize: 13),
-              ),
-            ),
-            Icon(Icons.arrow_drop_down, color: _muted),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _headerMenu({required bool narrow}) {
     return PopupMenuButton<String>(
       tooltip: tr('Thêm'),
@@ -1669,7 +1577,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   /// Vé đã ra món trong 6 giờ — bấm «Gọi lại» đưa cả vé về bảng bếp (bấm nhầm Ra món).
   Future<void> _openRecentDone() async {
-    var res = await _api.getPosKdsRecentDone(printerId: _stationId);
+    var res = await _api.getPosKdsRecentDone();
     if (!mounted) return;
     var orders = (res['data'] is Map ? (res['data']['orders'] as List?) : null) ?? const [];
     final timeFmt = DateFormat('HH:mm');
@@ -1696,7 +1604,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             return;
           }
           await _loadTickets(silent: true);
-          res = await _api.getPosKdsRecentDone(printerId: _stationId);
+          res = await _api.getPosKdsRecentDone();
           orders = (res['data'] is Map ? (res['data']['orders'] as List?) : null) ?? const [];
           if (ctx.mounted) setLocal(() {});
         }
@@ -3411,40 +3319,6 @@ class _KdsAgg {
     if (ready > 0) parts.add('$ready ${t('xong')}');
     if (voids > 0) parts.add('$voids ${t('hủy')}');
     return parts.join(' · ');
-  }
-}
-
-class _KdsStation {
-  const _KdsStation({
-    required this.id,
-    required this.name,
-    this.printerIds = const [],
-  });
-  final String id;
-  final String name;
-  final List<String> printerIds;
-
-  _KdsStation merge(_KdsStation other) {
-    final ids = {...printerIds, other.id, ...other.printerIds}.toList();
-    return _KdsStation(id: id, name: name, printerIds: ids);
-  }
-
-  factory _KdsStation.fromJson(Map<String, dynamic> j) {
-    final ids = <String>[];
-    final raw = j['printerIds'] ?? j['PrinterIds'];
-    if (raw is List) {
-      for (final e in raw) {
-        final s = e.toString();
-        if (s.isNotEmpty) ids.add(s);
-      }
-    }
-    final id = (j['id'] ?? j['Id'] ?? '').toString();
-    if (id.isNotEmpty && !ids.contains(id)) ids.insert(0, id);
-    return _KdsStation(
-      id: id,
-      name: (j['name'] ?? j['Name'] ?? '').toString(),
-      printerIds: ids,
-    );
   }
 }
 
