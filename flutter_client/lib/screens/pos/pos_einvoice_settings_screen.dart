@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/permission_provider.dart';
 import '../../utils/pos_sell_store_settings.dart';
 import '../../widgets/sbox/sbox_ui.dart';
+import '../../widgets/settings/pos_sell_tax_fee_sections.dart';
 import '../../widgets/settings/settings_page.dart';
 
 import '../../models/pos_einvoice.dart';
@@ -11,6 +14,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
 /// Cấu hình hóa đơn điện tử — Viettel SInvoice, Easy Invoice, MISA meInvoice, VNPT Invoice.
+/// Kèm «Thuế VAT khi bán» của cửa hàng (chuyển từ «Thông tin cửa hàng») — cạnh thuế khi xuất hóa đơn để chỉnh khớp.
 class PosEInvoiceSettingsScreen extends StatefulWidget {
   const PosEInvoiceSettingsScreen({super.key});
 
@@ -31,6 +35,8 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
   final _svcAccountCtrl = TextEditingController();
   final _svcPassCtrl = TextEditingController();
   final _portalCtrl = TextEditingController();
+  /// Thuế VAT khi bán (PosSellStoreSettings — mọi máy bán hàng), lưu cùng nút Lưu của trang.
+  final _vat = PosSellTaxFeeDraft();
 
   bool _loading = true;
   bool _saving = false;
@@ -54,6 +60,7 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
   String? _testBanner;
   /// Ảnh chụp lúc tải / lưu xong (null = chụp ở lần vẽ kế tiếp).
   String? _saved;
+  String? _savedEinv;
   bool _testBannerOk = false;
 
   static const _defaultUrls = <String, String>{
@@ -86,13 +93,16 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
     _svcAccountCtrl.dispose();
     _svcPassCtrl.dispose();
     _portalCtrl.dispose();
+    _vat.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
     final res = await _api.getPosEInvoiceSettings();
+    final store = await PosSellStoreSettings.load();
     if (!mounted) return;
+    _vat.loadFrom(store);
     if (res['isSuccess'] == true && res['data'] is Map) {
       final s = PosEInvoiceSettings.fromJson(
           Map<String, dynamic>.from(res['data'] as Map));
@@ -122,8 +132,30 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
     setState(() => _loading = false);
   }
 
+  bool get _canEditVat {
+    try {
+      return Provider.of<PermissionProvider>(context, listen: false).canEditPosSetup();
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
+    if (_canEditVat) {
+      // Đọc lại cấu hình mới nhất rồi chỉ ghi thuế — tên, địa chỉ, phụ thu… sửa ở trang khác giữ nguyên.
+      final existing = await PosSellStoreSettings.load();
+      await _vat.applyTo(existing, tax: true).save();
+      if (!mounted) return;
+    }
+    if (_einvSnapshot == _savedEinv) {
+      setState(() {
+        _saving = false;
+        _saved = null;
+      });
+      NotificationOverlayManager().showSuccess(title: 'Đã lưu', message: tr('Đã cập nhật thuế VAT khi bán'));
+      return;
+    }
     final body = PosEInvoiceSettings(
       enabled: _enabled,
       provider: _provider,
@@ -457,7 +489,11 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
       );
 
   /// Ảnh chụp các giá trị để biết có thay đổi chưa lưu.
-  String get _snapshot => [
+  String get _snapshot => '$_einvSnapshot|${_vat.taxSnapshot}';
+
+  /// Riêng phần cấu hình hóa đơn điện tử — chỉ đổi «Thuế VAT khi bán» thì không gửi cấu hình HĐĐT
+  /// (cửa hàng chưa dùng HĐĐT khỏi bị tạo bản cấu hình mặc định trên máy chủ).
+  String get _einvSnapshot => [
         _enabled, _provider, _invoiceType, _askAtCheckout, _defaultIssue, _taxMode, _taxPercent, _signType, _printQr,
         _surchargeTax, _deliveryTax,
         for (final c in _ctrls) c.text,
@@ -467,24 +503,25 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
         _userCtrl, _passCtrl, _taxCtrl, _templateCtrl, _seriesCtrl, _urlCtrl, _appIdCtrl, _svcAccountCtrl, _svcPassCtrl, _portalCtrl,
       ];
 
-  /// Lấy cách tính thuế theo «Thông tin cửa hàng» để hóa đơn điện tử khớp hóa đơn bán hàng.
-  Future<void> _syncTaxFromStore() async {
-    final s = await PosSellStoreSettings.load();
-    if (!mounted) return;
+  /// Lấy cách tính thuế theo «Thuế VAT khi bán» (nhóm phía trên) để hóa đơn điện tử khớp hóa đơn bán hàng.
+  void _syncTaxFromStore() {
     setState(() {
-      _taxMode = s.taxMode == PosSellTaxMode.includedInPrice ? 'included' : 'added';
-      _taxPercent = s.defaultVatRate;
+      _taxMode = _vat.taxMode == PosSellTaxMode.includedInPrice ? 'included' : 'added';
+      _taxPercent = _vat.vatRate;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_saved == null && !_loading) _saved = _snapshot;
+    if (_saved == null && !_loading) {
+      _saved = _snapshot;
+      _savedEinv = _einvSnapshot;
+    }
     final providerName = posEInvoiceProviderName(_provider);
     final dirty = !_loading && _saved != null && _snapshot != _saved;
     return SettingsPage(
       title: 'Hóa đơn điện tử',
-      subtitle: 'Kết nối Viettel, Easy, MISA, VNPT — xuất hóa đơn khi bán hàng',
+      subtitle: 'Thuế VAT khi bán; kết nối Viettel, Easy, MISA, VNPT — xuất hóa đơn khi bán hàng',
       icon: Icons.request_quote_outlined,
       loading: _loading,
       dirty: dirty,
@@ -502,6 +539,13 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
         ),
       ],
       children: [
+        // Áp cho mọi đơn bán (kể cả khi chưa bật hóa đơn điện tử) — để trên cùng.
+        PosSellVatSection(
+          draft: _vat,
+          edit: _canEditVat,
+          onChanged: () => setState(() {}),
+          subtitle: 'Hóa đơn bán hàng và mã QR trên mọi máy bán hàng',
+        ),
         SettingsSection(
           title: 'Xuất hóa đơn điện tử',
           subtitle: 'Khi bật, thu ngân chọn xuất hoặc hệ thống tự xuất lúc thanh toán',
@@ -557,9 +601,9 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
         ),
         SettingsSection(
           title: 'Thuế khi xuất hóa đơn',
-          subtitle: 'Nên khớp cách tính VAT ở «Thông tin cửa hàng» để hóa đơn điện tử giống hóa đơn bán hàng',
+          subtitle: 'Nên khớp «Thuế VAT khi bán» phía trên để hóa đơn điện tử giống hóa đơn bán hàng',
           icon: Icons.percent_rounded,
-          trailing: TextButton(onPressed: _syncTaxFromStore, child: Text(tr('Lấy theo cửa hàng'))),
+          trailing: TextButton(onPressed: _syncTaxFromStore, child: Text(tr('Lấy theo thuế khi bán'))),
           children: [
             SettingsTile(
               divider: false,

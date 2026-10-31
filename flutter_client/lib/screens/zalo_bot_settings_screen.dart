@@ -251,17 +251,27 @@ class _ZaloBotSettingsScreenState extends State<ZaloBotSettingsScreen> {
                 onChanged: hasToken || _token.text.trim().isNotEmpty ? (v) => _mark(() => _enabled = v) : null,
               ),
             ),
-            SettingsTile(
-              label: 'Nhóm thông báo',
-              help: 'Chọn loại thông báo được gửi qua Zalo',
-              inline: false,
-              control: Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final (code, label) in all)
-                  FilterChip(
-                    label: Text(tr(label)),
-                    selected: _cats.contains(code),
-                    onSelected: (v) => _mark(() => v ? _cats.add(code) : _cats.remove(code)),
-                  ),
+            // Nhãn trên, chip xuống dưới dùng hết bề ngang thẻ. Trước đây là SettingsTile: trên màn ≥640 dp
+            // dãy chip nằm cùng hàng và chiếm hết chỗ → nhãn «Nhóm thông báo» bị ép rộng 1 chữ, rơi từng
+            // ký tự xuống dòng (C20).
+            const Divider(height: 1, color: SboxColors.divider),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr('Nhóm thông báo'), style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.slate800)),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, bottom: 10),
+                  child: Text(tr('Chọn loại thông báo được gửi qua Zalo'),
+                      style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500)),
+                ),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  for (final (code, label) in all)
+                    FilterChip(
+                      label: Text(tr(label)),
+                      selected: _cats.contains(code),
+                      onSelected: (v) => _mark(() => v ? _cats.add(code) : _cats.remove(code)),
+                    ),
+                ]),
               ]),
             ),
             SettingsTile(

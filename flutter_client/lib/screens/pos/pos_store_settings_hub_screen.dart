@@ -11,13 +11,16 @@ import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_commercial_profile_local.dart';
 import '../../utils/pos_sell_store_settings.dart';
+import '../../utils/settings_hub_catalog.dart';
 import '../../widgets/pos/pos_commercial_company_fields.dart';
-import '../../widgets/pos/pos_sell_fee_defaults_fields.dart';
 import '../../widgets/sbox/sbox_ui.dart';
+import '../../widgets/settings/pos_sell_tax_fee_sections.dart';
 import '../../widgets/settings/settings_page.dart';
+import '../settings_hub_screen.dart';
 
-/// Thông tin cửa hàng: tên in hóa đơn, thông tin công ty (báo giá / hợp đồng), logo & con dấu,
-/// cách tính VAT, phụ thu & phí giao hàng, điều khoản. Thuế / phụ thu lưu trên server (đồng bộ mọi máy).
+/// Thông tin cửa hàng: tên in hóa đơn, thông tin công ty (báo giá / hợp đồng), logo & con dấu, điều khoản.
+/// Thuế VAT khi bán nằm ở «Hóa đơn điện tử», phụ thu & phí giao hàng ở «Tham số hệ thống» — chỉ hiện lại ở
+/// đây khi người dùng không thấy trang đó (gói / quyền), để luôn có chỗ chỉnh.
 class PosStoreSettingsHubScreen extends StatefulWidget {
   const PosStoreSettingsHubScreen({super.key, this.canEditOverride});
 
@@ -43,21 +46,14 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
   final _titleCtrl = TextEditingController(text: 'Giám đốc');
   final _termsCtrl = TextEditingController();
   final _warrantyCtrl = TextEditingController();
-  final _surchargeNameCtrl = TextEditingController();
-  final _surchargeDefaultCtrl = TextEditingController();
-  final _deliveryDefaultCtrl = TextEditingController();
+  final _fees = PosSellTaxFeeDraft();
 
   List<TextEditingController> get _ctrls => [
         _nameCtrl, _addressCtrl, _phoneCtrl, _companyCtrl, _taxCtrl, _companyAddressCtrl, _companyPhoneCtrl,
         _companyEmailCtrl, _bankNoCtrl, _bankNameCtrl, _bankHolderCtrl, _repCtrl, _titleCtrl, _termsCtrl,
-        _warrantyCtrl, _surchargeNameCtrl, _surchargeDefaultCtrl, _deliveryDefaultCtrl,
+        _warrantyCtrl, ..._fees.controllers,
       ];
 
-  PosSellTaxMode _taxMode = PosSellTaxMode.includedInPrice;
-  double _vatRate = 8;
-  bool _enableSurcharge = false;
-  bool _enableDeliveryFee = false;
-  bool _surchargeIsPercent = false;
   bool _loading = true;
   bool _saving = false;
   String _stampB64 = '';
@@ -75,13 +71,22 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     }
   }
 
+  /// Trang «Hóa đơn điện tử» / «Tham số hệ thống» có hiện với người dùng này không (gói + quyền).
+  bool _hubShows(String code) {
+    try {
+      return SettingsHubScreen.visibleItems(context, SettingsHubCatalog.itemsForCurrentApp).any((i) => i.code == code);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool get _showVat => !_hubShows('einvoice');
+  bool get _showFees => !_hubShows('system');
+
   String get _snapshot => [
         ..._ctrls.map((c) => c.text),
-        _taxMode.key,
-        _vatRate,
-        _enableSurcharge,
-        _enableDeliveryFee,
-        _surchargeIsPercent,
+        _fees.taxSnapshot,
+        _fees.feeSnapshot,
         _stampB64.length,
         _stampB64.hashCode,
         _logoB64.length,
@@ -178,14 +183,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       _nameCtrl.text = s.storeName.trim().isNotEmpty ? s.storeName : regName;
       _addressCtrl.text = s.address.trim().isNotEmpty ? s.address : regAddress;
       _phoneCtrl.text = s.phone.trim().isNotEmpty ? s.phone : regPhone;
-      _taxMode = s.taxMode;
-      _vatRate = s.defaultVatRate;
-      _enableSurcharge = s.enableSurcharge;
-      _enableDeliveryFee = s.enableDeliveryFee;
-      _surchargeIsPercent = s.surchargeIsPercent;
-      _surchargeNameCtrl.text = s.surchargeLabel;
-      _surchargeDefaultCtrl.text = s.surchargeDefault > 0 ? PosSellStoreSettings.formatAmount(s.surchargeDefault) : '';
-      _deliveryDefaultCtrl.text = s.deliveryFeeDefault > 0 ? PosSellStoreSettings.formatAmount(s.deliveryFeeDefault) : '';
+      _fees.loadFrom(s);
       _companyCtrl.text = t('companyName');
       _taxCtrl.text = t('taxCode');
       _companyAddressCtrl.text = t('address');
@@ -218,20 +216,15 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     }
     setState(() => _saving = true);
     final existing = await PosSellStoreSettings.load();
-    final next = PosSellStoreSettings(
-      storeName: _nameCtrl.text.trim(),
-      address: _addressCtrl.text.trim(),
-      phone: _phoneCtrl.text.trim(),
-      taxMode: _taxMode,
-      defaultVatRate: _vatRate,
-      vietQrBankAccountId: existing.vietQrBankAccountId,
-      showVietQrAtPayment: existing.showVietQrAtPayment,
-      enableSurcharge: _enableSurcharge,
-      enableDeliveryFee: _enableDeliveryFee,
-      surchargeLabel: _surchargeNameCtrl.text.trim(),
-      surchargeIsPercent: _surchargeIsPercent,
-      surchargeDefault: PosSellStoreSettings.parseAmount(_surchargeDefaultCtrl.text),
-      deliveryFeeDefault: PosSellStoreSettings.parseAmount(_deliveryDefaultCtrl.text),
+    // Chỉ ghi phần thuế / phí đang hiện ở trang này — phần chỉnh ở «Hóa đơn điện tử» / «Tham số hệ thống» giữ nguyên.
+    final next = _fees.applyTo(
+      existing.copyWith(
+        storeName: _nameCtrl.text.trim(),
+        address: _addressCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
+      ),
+      tax: _showVat,
+      fees: _showFees,
     );
     await next.save();
     final profileBody = <String, dynamic>{
@@ -281,7 +274,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     final edit = _canEdit;
     return SettingsPage(
       title: 'Thông tin cửa hàng',
-      subtitle: 'Tên in hóa đơn, thông tin công ty, logo, thuế VAT, phụ thu — đồng bộ mọi máy bán hàng',
+      subtitle: 'Tên in hóa đơn, logo & con dấu, thông tin công ty, điều khoản — đồng bộ mọi máy bán hàng',
       icon: Icons.store_outlined,
       loading: _loading,
       dirty: _dirty,
@@ -322,58 +315,32 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
             const SizedBox(height: 12),
           ],
         ),
-        SettingsSection(
-          title: 'Thuế VAT khi bán',
-          subtitle: 'Áp dụng cho mọi máy bán hàng và mã QR trên hóa đơn',
-          icon: Icons.percent_rounded,
-          children: [
-            for (final m in PosSellTaxMode.values)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                enabled: edit,
-                onTap: () => setState(() => _taxMode = m),
-                leading: Icon(_taxMode == m ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                    color: _taxMode == m ? SboxColors.brand600 : SboxColors.slate400),
-                title: Text(tr(m.label), style: const TextStyle(fontWeight: FontWeight.w600)),
-              ),
-            SettingsTile(
-              label: 'Thuế suất mặc định',
-              help: _taxMode == PosSellTaxMode.includedInPrice ? 'Giá bán đã gồm thuế — dùng để tách thuế trên hóa đơn' : 'Cộng thêm vào giá khi bán',
-              control: SettingsSegment<double>(
-                value: [0.0, 5.0, 8.0, 10.0].contains(_vatRate) ? _vatRate : 8.0,
-                options: const [(0.0, '0%'), (5.0, '5%'), (8.0, '8%'), (10.0, '10%')],
-                onChanged: edit ? (v) => setState(() => _vatRate = v) : (_) {},
-              ),
-            ),
-          ],
-        ),
-        SettingsSection(
-          title: 'Phụ thu & phí giao hàng',
-          subtitle: 'Bật thì ô nhập hiện trên màn thanh toán, có số gợi ý tự điền',
-          icon: Icons.add_card_outlined,
-          children: [
-            SettingsTile(
-              divider: false,
-              label: 'Phụ thu',
-              help: 'VD: phụ thu ngày lễ, phí dịch vụ — theo % hoặc số tiền',
-              control: Switch(value: _enableSurcharge, onChanged: edit ? (v) => setState(() => _enableSurcharge = v) : null),
-            ),
-            SettingsTile(
-              label: 'Phí giao hàng',
-              control: Switch(value: _enableDeliveryFee, onChanged: edit ? (v) => setState(() => _enableDeliveryFee = v) : null),
-            ),
-            PosSellFeeDefaultsFields(
-              enableSurcharge: _enableSurcharge,
-              enableDeliveryFee: _enableDeliveryFee,
-              surchargeNameCtrl: _surchargeNameCtrl,
-              surchargeDefaultCtrl: _surchargeDefaultCtrl,
-              deliveryDefaultCtrl: _deliveryDefaultCtrl,
-              surchargeIsPercent: _surchargeIsPercent,
-              onSurchargeMode: (v) => setState(() => _surchargeIsPercent = v),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
+        if (_showVat) PosSellVatSection(draft: _fees, edit: edit, onChanged: _rebuild),
+        if (_showFees) PosSellFeesSection(draft: _fees, edit: edit, onChanged: _rebuild),
+        // Chỗ mới của 2 nhóm đã chuyển — người quen tìm ở đây bấm sang thẳng.
+        if (!_showVat || !_showFees)
+          SettingsSection(
+            title: 'Thuế & phụ thu đã chuyển chỗ',
+            icon: Icons.drive_file_move_outline,
+            children: [
+              if (!_showVat)
+                SettingsLinkTile(
+                  icon: Icons.request_quote_outlined,
+                  label: 'Thuế VAT khi bán',
+                  help: 'Ở «Hóa đơn điện tử», cạnh thuế khi xuất hóa đơn',
+                  divider: false,
+                  onTap: () => SettingsHubScreen.openCode('einvoice'),
+                ),
+              if (!_showFees)
+                SettingsLinkTile(
+                  icon: Icons.settings_suggest_outlined,
+                  label: 'Phụ thu & phí giao hàng',
+                  help: 'Ở «Tham số hệ thống»',
+                  divider: !_showVat,
+                  onTap: () => SettingsHubScreen.openCode('system'),
+                ),
+            ],
+          ),
         SettingsSection(
           title: 'Thông tin công ty',
           subtitle: 'In trên báo giá, hợp đồng, hóa đơn điện tử. Tài khoản nhận tiền tại quầy (QR) đặt ở «Tài khoản nhận tiền»',

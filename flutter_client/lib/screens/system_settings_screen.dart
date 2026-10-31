@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 import '../l10n/app_tr.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/pos_sell_store_settings.dart';
 import '../utils/shift_records_calculator.dart';
 import '../widgets/sbox/sbox_ui.dart';
+import '../widgets/settings/pos_sell_tax_fee_sections.dart';
 import '../widgets/settings/sample_data_section.dart';
 import '../widgets/settings/settings_page.dart';
 
@@ -96,7 +98,8 @@ class SystemParams {
   int get hashCode => toSettings().toString().hashCode;
 }
 
-/// Tham số hệ thống: ranh giới ngày làm việc, cách tính công, chấm công bù, số cấp duyệt.
+/// Tham số hệ thống: ranh giới ngày làm việc, cách tính công, chấm công bù, số cấp duyệt; cửa hàng có bán hàng
+/// thêm phụ thu & phí giao hàng (chuyển từ «Thông tin cửa hàng», lưu trong PosSellStoreSettings).
 class SystemSettingsScreen extends StatefulWidget {
   const SystemSettingsScreen({super.key, this.canEditOverride});
 
@@ -128,6 +131,22 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   late final TextEditingController _percent = TextEditingController();
   late final TextEditingController _half = TextEditingController();
 
+  /// Phụ thu & phí giao hàng — chỉ tài khoản có Bán hàng.
+  final _fees = PosSellTaxFeeDraft();
+  PosSellStoreSettings? _feesBase;
+  String _savedFees = '';
+  bool _showFees = false;
+
+  bool get _canEditFees {
+    try {
+      return Provider.of<PermissionProvider>(context, listen: false).canEditPosSetup();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool get _feesDirty => _showFees && _fees.feeSnapshot != _savedFees;
+
   bool get _canEdit {
     if (widget.canEditOverride != null) return widget.canEditOverride!;
     try {
@@ -140,6 +159,16 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   @override
   void initState() {
     super.initState();
+    for (final c in _fees.controllers) {
+      c.addListener(() {
+        if (mounted) setState(() {});
+      });
+    }
+    try {
+      _showFees = Provider.of<PermissionProvider>(context, listen: false).canView('PosSell');
+    } catch (_) {
+      _showFees = false;
+    }
     _load();
   }
 
@@ -147,6 +176,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   void dispose() {
     _percent.dispose();
     _half.dispose();
+    _fees.dispose();
     super.dispose();
   }
 
@@ -163,7 +193,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       _error = null;
     });
     final res = await Future.wait(_keys.map(_api.getAppSetting));
+    final store = _showFees ? await PosSellStoreSettings.load() : null;
     if (!mounted) return;
+    if (store != null) {
+      _feesBase = store;
+      _fees.loadFrom(store);
+      _savedFees = _fees.feeSnapshot;
+    }
     final values = <String, String?>{};
     for (var i = 0; i < _keys.length; i++) {
       final r = res[i];
@@ -189,6 +225,14 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       return;
     }
     setState(() => _saving = true);
+    if (_feesDirty && _canEditFees) {
+      // Đọc lại cấu hình mới nhất rồi chỉ ghi phụ thu / phí giao hàng — tên, VAT… sửa ở trang khác giữ nguyên.
+      final next = _fees.applyTo(await PosSellStoreSettings.load(), fees: true);
+      await next.save();
+      if (!mounted) return;
+      _feesBase = next;
+      _savedFees = _fees.feeSnapshot;
+    }
     final changed = _p.toSettings().entries.where((e) => _saved.toSettings()[e.key] != e.value).toList();
     final results = await Future.wait(changed.map((e) => _api.upsertAppSetting(
           key: e.key,
@@ -217,17 +261,19 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     final edit = _canEdit;
     return SettingsPage(
       title: 'Tham số hệ thống',
-      subtitle: 'Ranh giới ngày làm việc, cách tính công, chấm công bù và quy trình duyệt',
+      subtitle: 'Ranh giới ngày làm việc, cách tính công, chấm công bù, quy trình duyệt, phụ thu & phí giao hàng',
       icon: Icons.settings_suggest_outlined,
       loading: _loading,
       error: _error,
       onRetry: _load,
-      dirty: _p != _saved,
+      dirty: _p != _saved || _feesDirty,
       saving: _saving,
       onSave: _save,
       onDiscard: () => _set(() {
         _p = _saved.copy();
         _fillControllers();
+        final base = _feesBase;
+        if (base != null) _fees.loadFrom(base);
       }),
       onResetDefaults: edit
           ? () => _set(() {
@@ -240,6 +286,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         _dayEndSection(edit),
         _creditSection(edit),
         _approvalSection(edit),
+        if (_showFees) PosSellFeesSection(draft: _fees, edit: _canEditFees, onChanged: () => setState(() {})),
         // Dữ liệu mẫu (trước nằm ở «Cài đặt» cá nhân) — thao tác trên dữ liệu cả cửa hàng.
         if (edit) const SampleDataSection(),
       ],

@@ -332,334 +332,298 @@ class _PosCustomerDisplaySettingsScreenState
     );
   }
 
+  /// Chia nhóm (trước đây 1 cột dài nhãn / công tắc / chữ hướng dẫn xen kẽ, khó tìm):
+  /// 1 Bật & loại màn · 2 Mở trên máy / TV khác · 3 Khi chờ khách · 4 Ảnh · 5 Video.
   Widget _buildBody() {
     final cd = _cfg;
     final busy = _saving || _uploading;
-    // Màn rộng (tablet ngang / desktop): giữ cột cài đặt ≤ 960px ở giữa — trước đây ô chọn kéo dài
-    // cả màn, công tắc nằm tít mép phải cách nhãn ~1.700px.
+    final off = busy || !cd.enabled;
+    const gap = SizedBox(height: 12);
+    // Màn rộng (tablet ngang / desktop): giữ cột cài đặt ≤ 960px ở giữa.
     return LayoutBuilder(builder: (context, c) {
-    final side = c.maxWidth > 992 ? (c.maxWidth - 960) / 2 : 16.0;
-    return ListView(
-      padding: EdgeInsets.fromLTRB(side, 16, side, 16),
-      children: [
-        Text(
-          tr('Chờ khách: ảnh / video chiếu toàn màn · Có đơn: media | hóa đơn (màn dọc: media trên, hóa đơn dưới). '
-              'Không có media → màn chào của cửa hàng.'),
-          style: TextStyle(fontSize: 13, color: SboxColors.slate700),
-        ),
-        const SizedBox(height: 12),
-        SettingsHelp(
-          summary: 'Kích thước ảnh / video chuẩn',
-          steps: [
-            'Ảnh: ${CustomerDisplayMediaSpec.recommendedImage}',
-            'Video: ${CustomerDisplayMediaSpec.recommendedVideo}',
-            CustomerDisplayMediaSpec.layoutNote,
-          ],
-        ),
-        const SizedBox(height: 12),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.link, color: PosTheme.kiotBlue),
-          title: Text(tr('Link mở trên máy / TV khác')),
-          subtitle: Text(
-            tr(_viewerLink.isEmpty
-                ? 'Bật màn phụ để tạo mã'
-                : _viewerLink),
-            style: TextStyle(fontSize: 11, color: SboxColors.slate600),
-          ),
-          trailing: IconButton(
-            tooltip: tr('Copy link'),
-            onPressed: _viewerLink.isEmpty ? null : _copyViewerLink,
-            icon: const Icon(Icons.copy, size: 20),
-          ),
-        ),
-        Text(
-          tr('Máy thu ngân phải đang mở bán hàng (để đẩy hóa đơn). '
-              'Máy phụ chỉ cần mở link — không đăng nhập.'),
-          style: TextStyle(fontSize: 11, color: SboxColors.slate600),
-        ),
-        const SizedBox(height: 8),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Bật màn hình phụ')),
-          value: cd.enabled,
-          onChanged:
-              busy ? null : (v) => _patchCd((c) => c.copyWith(enabled: v)),
-        ),
-        Text(
-          tr('Loại màn hình phụ'),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          tr(cd.target.hintVi),
-          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<CustomerDisplayTarget>(
-          isExpanded: true,
-          value: cd.target,
-          decoration: const InputDecoration(
-            isDense: true,
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          ),
-          items: [
-            for (final t in CustomerDisplayTarget.values)
-              DropdownMenuItem(
-                value: t,
-                child: Text(tr(t.labelVi), style: const TextStyle(fontSize: 13)),
-              ),
-          ],
-          onChanged: busy || !cd.enabled
-              ? null
-              : (v) {
-                  if (v == null) return;
-                  _patchCd((c) => c.copyWith(target: v));
-                },
-        ),
-        if (cd.target == CustomerDisplayTarget.t1Native)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              tr('T1: dùng ảnh trình chiếu bên dưới khi chờ khách. '
-                  'Video không chạy trên DSKernel — chọn «Android Flutter» '
-                  'hoặc «Window» nếu cần video.'),
-              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
+      final side = c.maxWidth > 992 ? (c.maxWidth - 960) / 2 : 16.0;
+      return ListView(
+        padding: EdgeInsets.fromLTRB(side, 16, side, 24),
+        children: [
+          // ── 1. Bật & loại màn hình
+          SettingsSection(
+            title: 'Màn hình phụ cho khách',
+            subtitle: 'Chờ khách: chiếu ảnh / video toàn màn · Có đơn: media kèm hóa đơn. Không có media → màn chào của cửa hàng',
+            icon: Icons.monitor_outlined,
+            trailing: Switch(
+              value: cd.enabled,
+              onChanged: busy ? null : (v) => _patchCd((c) => c.copyWith(enabled: v)),
             ),
-          ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Tự mở khi vào bán hàng')),
-          subtitle: Text(tr(cd.target == CustomerDisplayTarget.window
-              ? 'Window: chỉ đẩy state — mở link trên máy/TV khác'
-              : 'Android: display phụ · iOS/Web: mở link trình duyệt')),
-          value: cd.autoOpenOnPos,
-          onChanged: busy || !cd.enabled
-              ? null
-              : (v) => _patchCd((c) => c.copyWith(autoOpenOnPos: v)),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Chiếu thêm ảnh sản phẩm khi chờ')),
-          subtitle: Text(tr(cd.target == CustomerDisplayTarget.t1Native
-              ? 'T1: lấy ảnh promo / sản phẩm đầu tiên làm welcome'
-              : 'Lấy ảnh từ danh mục hàng hóa')),
-          value: cd.useProductImages,
-          onChanged: busy || !cd.enabled
-              ? null
-              : (v) => _patchCd((c) => c.copyWith(useProductImages: v)),
-        ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Thời gian đổi ảnh/video')),
-          trailing: DropdownButton<int>(
-            value: const {3, 5, 8, 10, 15, 20, 30}.contains(cd.idleSeconds)
-                ? cd.idleSeconds
-                : 8,
-            items: [
-              for (final s in [3, 5, 8, 10, 15, 20, 30])
-                DropdownMenuItem(value: s, child: Text(tr('$s giây'))),
-            ],
-            onChanged: busy || !cd.enabled
-                ? null
-                : (v) {
-                    if (v == null) return;
-                    _patchCd((c) => c.copyWith(idleSeconds: v));
-                  },
-          ),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Bật tiếng video')),
-          subtitle: Text(tr(cd.target == CustomerDisplayTarget.t1Native
-              ? 'Không áp dụng cho Sunmi T1 (DSKernel không phát video)'
-              : 'Mặc định tắt. Trên trình duyệt / TV: nếu bị chặn tự phát có tiếng, màn phụ hiện nút «Chạm để bật tiếng»')),
-          value: cd.videoSound,
-          onChanged: busy || !cd.enabled
-              ? null
-              : (v) => _patchCd((c) => c.copyWith(videoSound: v)),
-        ),
-        const Divider(height: 28),
-        Text(tr('Ảnh trình chiếu'),
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-        const SizedBox(height: 4),
-        Text(
-          tr('Đây là chỗ nhập ảnh chiếu trên màn phụ. Upload từ máy hoặc dán URL.'),
-          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilledButton.icon(
-              onPressed: busy || !cd.enabled ? null : _pickAndUploadImages,
-              icon: _uploading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.upload_file, size: 18),
-              label: Text(tr('Upload ảnh')),
-            ),
-            OutlinedButton.icon(
-              onPressed: busy || !cd.enabled ? null : _editImageUrls,
-              icon: const Icon(Icons.link, size: 18),
-              label: Text(tr('Sửa danh sách URL')),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (cd.promoImageUrls.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: SboxColors.slate100,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: SboxColors.slate300),
-            ),
-            child: Text(
-              tr('Chưa có ảnh trình chiếu — nhấn «Upload ảnh» hoặc dán URL.'),
-              style: TextStyle(color: SboxColors.slate700, fontSize: 13),
-            ),
-          )
-        else
-          SizedBox(
-            height: 108,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: cd.promoImageUrls.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, i) {
-                final raw = cd.promoImageUrls[i];
-                final url = _api.getPublicFileUrl(raw);
-                return Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: SizedBox(
-                        width: 140,
-                        height: 108,
-                        child: url.isEmpty
-                            ? Container(
-                                color: SboxColors.slate200,
-                                child: const Icon(Icons.broken_image),
-                              )
-                            : CachedNetworkImage(
-                                imageUrl: url,
-                                fit: BoxFit.cover,
-                                errorWidget: (_, __, ___) => Container(
-                                  color: SboxColors.slate200,
-                                  alignment: Alignment.center,
-                                  child: Text(tr('Lỗi ảnh'),
-                                      style: const TextStyle(fontSize: 11)),
-                                ),
-                              ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: Material(
-                        color: SboxColors.textSecondary,
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: busy ? null : () => _removeImageAt(i),
-                          child: const Padding(
-                            padding: EdgeInsets.all(4),
-                            child: Icon(Icons.close,
-                                size: 16, color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        const Divider(height: 28),
-        Text(tr('Video trình chiếu (Google Drive)'),
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-        const SizedBox(height: 4),
-        Text(
-          tr('Không upload video lên server SBOX (nặng máy chủ). '
-              'Upload lên Google Drive rồi dán link vào đây.'),
-          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: SboxColors.slate50,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: SboxColors.slate300),
-          ),
-          child: Text(
-            tr('Hướng dẫn Drive:\n'
-                '1. Upload file .mp4 (khuyến nghị 1280×720 H.264) lên Google Drive\n'
-                '2. Chuột phải → Chia sẻ → «Bất kỳ ai có đường liên kết»\n'
-                '3. Copy link (dạng /file/d/…/view) → dán vào «Thêm link video»\n'
-                '4. Phần mềm tự đổi sang link phát trực tiếp\n'
-                'Lưu ý: Web có thể bị CORS Drive — ưu tiên TV/Android hoặc CDN .mp4'),
-            style: TextStyle(
-                fontSize: 12, color: SboxColors.slate800, height: 1.4),
-          ),
-        ),
-        const SizedBox(height: 10),
-        OutlinedButton.icon(
-          onPressed: busy || !cd.enabled ? null : _editVideoUrls,
-          icon: const Icon(Icons.link, size: 18),
-          label: Text(tr('Thêm / sửa link video')),
-        ),
-        const SizedBox(height: 12),
-        if (cd.promoVideoUrls.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: SboxColors.slate100,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: SboxColors.slate300),
-            ),
-            child: Text(
-              tr('Chưa có video — dùng hướng dẫn Drive phía trên.'),
-              style: TextStyle(color: SboxColors.slate700, fontSize: 13),
-            ),
-          )
-        else
-          Column(
             children: [
-              for (var i = 0; i < cd.promoVideoUrls.length; i++)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.movie_outlined,
-                      color: PosTheme.kiotBlue),
-                  title: Text(
-                    tr(cd.promoVideoUrls[i].split('/').last),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  subtitle: Text(
-                    tr(cd.promoVideoUrls[i]),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style:
-                        TextStyle(fontSize: 11, color: SboxColors.slate600),
-                  ),
-                  trailing: IconButton(
-                    tooltip: tr('Xóa'),
-                    onPressed: busy ? null : () => _removeVideoAt(i),
-                    icon: const Icon(Icons.delete_outline, size: 20),
+              SettingsTile(
+                label: 'Loại màn hình phụ',
+                help: cd.target.hintVi,
+                inline: false,
+                control: SizedBox(
+                  width: 360,
+                  child: DropdownButtonFormField<CustomerDisplayTarget>(
+                    isExpanded: true,
+                    value: cd.target,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: [
+                      for (final t in CustomerDisplayTarget.values)
+                        DropdownMenuItem(
+                          value: t,
+                          child: Text(tr(t.labelVi), style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                    onChanged: off
+                        ? null
+                        : (v) {
+                            if (v == null) return;
+                            _patchCd((c) => c.copyWith(target: v));
+                          },
                   ),
                 ),
+              ),
+              if (cd.target == CustomerDisplayTarget.t1Native)
+                const SettingsNote(
+                  'T1 dùng ảnh trình chiếu khi chờ khách. Video không chạy trên DSKernel — chọn «Android Flutter» '
+                  'hoặc «Window» nếu cần video.',
+                  icon: Icons.info_outline_rounded,
+                  tone: SboxTone.neutral,
+                ),
+              SettingsTile(
+                label: 'Tự mở khi vào bán hàng',
+                help: cd.target == CustomerDisplayTarget.window
+                    ? 'Window: chỉ đẩy state — mở link trên máy/TV khác'
+                    : 'Android: display phụ · iOS/Web: mở link trình duyệt',
+                control: Switch(
+                  value: cd.autoOpenOnPos,
+                  onChanged: off ? null : (v) => _patchCd((c) => c.copyWith(autoOpenOnPos: v)),
+                ),
+              ),
             ],
           ),
-      ],
-    );
+          gap,
+          // ── 2. Mở trên máy / TV khác
+          SettingsSection(
+            title: 'Mở trên máy / TV khác',
+            subtitle: 'Máy phụ chỉ cần mở link, không đăng nhập. Máy thu ngân phải đang mở bán hàng để đẩy hóa đơn',
+            icon: Icons.cast_outlined,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+                decoration: BoxDecoration(
+                  color: SboxColors.slate50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: SboxColors.border),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.link, size: 18, color: PosTheme.kiotBlue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SelectableText(
+                      _viewerLink.isEmpty ? tr('Bật màn phụ để tạo mã') : _viewerLink,
+                      maxLines: 1,
+                      style: const TextStyle(fontSize: 12.5, color: SboxColors.slate700),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: tr('Copy link'),
+                    onPressed: _viewerLink.isEmpty ? null : _copyViewerLink,
+                    icon: const Icon(Icons.copy, size: 20),
+                  ),
+                ]),
+              ),
+            ],
+          ),
+          gap,
+          // ── 3. Khi chờ khách
+          SettingsSection(
+            title: 'Khi chờ khách',
+            subtitle: 'Cách chiếu ảnh / video lúc chưa có đơn',
+            icon: Icons.slideshow_outlined,
+            children: [
+              SettingsTile(
+                divider: false,
+                label: 'Chiếu thêm ảnh sản phẩm',
+                help: cd.target == CustomerDisplayTarget.t1Native
+                    ? 'T1: lấy ảnh promo / sản phẩm đầu tiên làm welcome'
+                    : 'Lấy ảnh từ danh mục hàng hóa',
+                control: Switch(
+                  value: cd.useProductImages,
+                  onChanged: off ? null : (v) => _patchCd((c) => c.copyWith(useProductImages: v)),
+                ),
+              ),
+              SettingsTile(
+                label: 'Thời gian đổi ảnh / video',
+                control: DropdownButton<int>(
+                  value: const {3, 5, 8, 10, 15, 20, 30}.contains(cd.idleSeconds) ? cd.idleSeconds : 8,
+                  items: [
+                    for (final s in [3, 5, 8, 10, 15, 20, 30])
+                      DropdownMenuItem(value: s, child: Text(tr('$s giây'))),
+                  ],
+                  onChanged: off
+                      ? null
+                      : (v) {
+                          if (v == null) return;
+                          _patchCd((c) => c.copyWith(idleSeconds: v));
+                        },
+                ),
+              ),
+              SettingsTile(
+                label: 'Bật tiếng video',
+                help: cd.target == CustomerDisplayTarget.t1Native
+                    ? 'Không áp dụng cho Sunmi T1 (DSKernel không phát video)'
+                    : 'Mặc định tắt. Trình duyệt / TV chặn tự phát có tiếng thì màn phụ hiện nút «Chạm để bật tiếng»',
+                control: Switch(
+                  value: cd.videoSound,
+                  onChanged: off ? null : (v) => _patchCd((c) => c.copyWith(videoSound: v)),
+                ),
+              ),
+            ],
+          ),
+          gap,
+          // ── 4. Ảnh trình chiếu
+          SettingsSection(
+            title: 'Ảnh trình chiếu',
+            subtitle: 'Upload từ máy hoặc dán URL',
+            icon: Icons.photo_library_outlined,
+            trailing: Wrap(spacing: 8, runSpacing: 8, children: [
+              OutlinedButton.icon(
+                onPressed: off ? null : _editImageUrls,
+                icon: const Icon(Icons.link, size: 18),
+                label: Text(tr('Sửa URL')),
+              ),
+              FilledButton.icon(
+                onPressed: off ? null : _pickAndUploadImages,
+                icon: _uploading
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.upload_file, size: 18),
+                label: Text(tr('Upload ảnh')),
+              ),
+            ]),
+            children: [
+              const SizedBox(height: 4),
+              if (cd.promoImageUrls.isEmpty)
+                const SettingsNote('Chưa có ảnh — bấm «Upload ảnh» hoặc dán URL.',
+                    icon: Icons.image_not_supported_outlined, tone: SboxTone.neutral)
+              else
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: SizedBox(height: 108, child: _imageStrip(cd, busy)),
+                ),
+              SettingsHelp(
+                summary: 'Kích thước ảnh / video chuẩn',
+                steps: [
+                  'Ảnh: ${CustomerDisplayMediaSpec.recommendedImage}',
+                  'Video: ${CustomerDisplayMediaSpec.recommendedVideo}',
+                  CustomerDisplayMediaSpec.layoutNote,
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+          gap,
+          // ── 5. Video trình chiếu
+          SettingsSection(
+            title: 'Video trình chiếu',
+            subtitle: 'Không upload video lên server SBOX — để trên Google Drive / CDN rồi dán link',
+            icon: Icons.smart_display_outlined,
+            trailing: OutlinedButton.icon(
+              onPressed: off ? null : _editVideoUrls,
+              icon: const Icon(Icons.link, size: 18),
+              label: Text(tr('Thêm / sửa link')),
+            ),
+            children: [
+              const SizedBox(height: 4),
+              if (cd.promoVideoUrls.isEmpty)
+                const SettingsNote('Chưa có video.', icon: Icons.videocam_off_outlined, tone: SboxTone.neutral)
+              else
+                for (var i = 0; i < cd.promoVideoUrls.length; i++)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.movie_outlined, color: PosTheme.kiotBlue),
+                    title: Text(
+                      tr(cd.promoVideoUrls[i].split('/').last),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    subtitle: Text(
+                      tr(cd.promoVideoUrls[i]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: SboxColors.slate600),
+                    ),
+                    trailing: IconButton(
+                      tooltip: tr('Xóa'),
+                      onPressed: busy ? null : () => _removeVideoAt(i),
+                      icon: const Icon(Icons.delete_outline, size: 20),
+                    ),
+                  ),
+              const SettingsHelp(
+                summary: 'Cách lấy link video từ Google Drive',
+                steps: [
+                  'Upload file .mp4 (khuyến nghị 1280×720 H.264) lên Google Drive',
+                  'Chuột phải → Chia sẻ → «Bất kỳ ai có đường liên kết»',
+                  'Copy link (dạng /file/d/…/view) → dán vào «Thêm / sửa link» — phần mềm tự đổi sang link phát trực tiếp',
+                  'Web có thể bị Drive chặn (CORS) — ưu tiên TV / Android hoặc link CDN .mp4',
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ],
+      );
     });
   }
+
+  Widget _imageStrip(CustomerDisplayConfig cd, bool busy) => ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: cd.promoImageUrls.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final url = _api.getPublicFileUrl(cd.promoImageUrls[i]);
+          return Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: 140,
+                  height: 108,
+                  child: url.isEmpty
+                      ? Container(color: SboxColors.slate200, child: const Icon(Icons.broken_image))
+                      : CachedNetworkImage(
+                          imageUrl: url,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                            color: SboxColors.slate200,
+                            alignment: Alignment.center,
+                            child: Text(tr('Lỗi ảnh'), style: const TextStyle(fontSize: 11)),
+                          ),
+                        ),
+                ),
+              ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Material(
+                  color: SboxColors.textSecondary,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: busy ? null : () => _removeImageAt(i),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.close, size: 16, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
 }

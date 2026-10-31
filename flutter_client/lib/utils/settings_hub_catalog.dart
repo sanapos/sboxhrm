@@ -116,8 +116,8 @@ class SettingsHubCatalog {
     // ── Cửa hàng & chi nhánh
     SettingsHubItemDef(
       index: 17, code: 'store', icon: Icons.store_outlined, label: 'Thông tin cửa hàng', groupTitle: gStore, accent: SboxColors.brand600,
-      desc: 'Tên, địa chỉ, logo, VAT, phụ thu, phí giao hàng', moduleCode: 'SettingsHub',
-      keywords: ['vat', 'thuế giá trị gia tăng', 'phụ thu', 'logo', 'địa chỉ', 'cửa hàng'],
+      desc: 'Tên, địa chỉ, logo & con dấu, thông tin công ty, điều khoản', moduleCode: 'SettingsHub',
+      keywords: ['logo', 'con dấu', 'địa chỉ', 'cửa hàng', 'mã số thuế', 'điều khoản'],
     ),
     SettingsHubItemDef(
       index: 13, code: 'branch', icon: Icons.account_tree_outlined, label: 'Chi nhánh', groupTitle: gStore, accent: SboxColors.brand600,
@@ -126,8 +126,8 @@ class SettingsHubCatalog {
     ),
     SettingsHubItemDef(
       index: 9, code: 'system', icon: Icons.settings_suggest_outlined, label: 'Tham số hệ thống', groupTitle: gStore, accent: SboxColors.brand600,
-      desc: 'Giờ kết thúc ngày, tham số vận hành chung', moduleCode: 'SystemSettings',
-      keywords: ['giờ chốt ngày', 'ngày làm việc', 'hệ thống'],
+      desc: 'Giờ kết thúc ngày, cách tính công, phụ thu & phí giao hàng', moduleCode: 'SystemSettings',
+      keywords: ['giờ chốt ngày', 'ngày làm việc', 'hệ thống', 'phụ thu', 'phí giao hàng', 'phí dịch vụ'],
     ),
     // ── Nhân sự & chấm công
     SettingsHubItemDef(
@@ -235,8 +235,8 @@ class SettingsHubCatalog {
     ),
     SettingsHubItemDef(
       index: 26, code: 'einvoice', icon: Icons.request_quote_outlined, label: 'Hóa đơn điện tử', groupTitle: gMoney, accent: SboxColors.warning,
-      desc: 'Viettel, Easy, MISA, VNPT — xuất, hủy, thay thế, gửi email', moduleCode: 'PosEInvoice', healthKey: 'einvoice',
-      keywords: ['hđđt', 'viettel', 'misa', 'vnpt', 'easyinvoice'],
+      desc: 'Thuế VAT khi bán; Viettel, Easy, MISA, VNPT — xuất, hủy, thay thế', moduleCode: 'PosEInvoice', healthKey: 'einvoice',
+      keywords: ['hđđt', 'viettel', 'misa', 'vnpt', 'easyinvoice', 'vat', 'thuế giá trị gia tăng', 'thuế suất'],
     ),
     SettingsHubItemDef(
       index: 27, code: 'shipping', icon: Icons.local_shipping_outlined, label: 'Đơn vị giao hàng', groupTitle: gMoney, accent: SboxColors.warning,
