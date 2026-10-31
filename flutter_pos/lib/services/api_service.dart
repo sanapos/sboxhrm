@@ -21340,6 +21340,25 @@ class ApiService {
     }
   }
 
+  /// Form thêm/sửa hàng của cả cửa hàng (ngành chi tiết + mục bật). Quyền sửa hàng hóa là đủ.
+  Future<Map<String, dynamic>> savePosProductFormLayout({
+    String? preset,
+    required List<String> sections,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/product-form-layout'),
+            headers: _headers,
+            body: jsonEncode({'preset': preset, 'sections': sections}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> updatePosSellSettings(Map<String, dynamic> body) async {
     try {
       final response = await http

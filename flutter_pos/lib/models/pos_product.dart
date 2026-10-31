@@ -467,6 +467,9 @@ class PosProduct {
   final double? sellableQty;
   final int? warrantyMonths;
   final bool requiresSerial;
+  /// Máy in phiếu bếp gán riêng cho món (null = theo thiết lập máy in chung).
+  final String? defaultPrinterId;
+  final String? defaultPrinterName;
   /// % giá trị dòng (sau giảm giá) tích vào điểm cho khách — VD 20% hộp thịt 100k = 20.000đ. null = theo mức chung cửa hàng.
   final double? loyaltyPercent;
   final bool allowDecimalQty;
@@ -574,6 +577,8 @@ class PosProduct {
     this.sellableQty,
     this.warrantyMonths,
     this.requiresSerial = false,
+    this.defaultPrinterId,
+    this.defaultPrinterName,
     this.loyaltyPercent,
     this.allowDecimalQty = false,
     this.allowAreaQty = false,
@@ -786,6 +791,8 @@ class PosProduct {
           : null,
       requiresSerial:
           json['requiresSerial'] == true || json['RequiresSerial'] == true,
+      defaultPrinterId: (json['defaultPrinterId'] ?? json['DefaultPrinterId'])?.toString(),
+      defaultPrinterName: (json['defaultPrinterName'] ?? json['DefaultPrinterName'])?.toString(),
       loyaltyPercent: (json['loyaltyPercent'] ?? json['LoyaltyPercent']) is num
           ? ((json['loyaltyPercent'] ?? json['LoyaltyPercent']) as num).toDouble()
           : null,
@@ -1064,6 +1071,8 @@ class PosProduct {
       scalePlu: scalePlu ?? this.scalePlu,
       packShelfLifeDays: this.packShelfLifeDays,
       warrantyMonths: this.warrantyMonths,
+      defaultPrinterId: defaultPrinterId,
+      defaultPrinterName: defaultPrinterName,
       units: units ?? this.units,
       variants: variants ?? this.variants,
       comboLines: comboLines ?? this.comboLines,

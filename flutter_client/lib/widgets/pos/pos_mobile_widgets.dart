@@ -1098,6 +1098,7 @@ class PosMobileKiotHeader extends StatelessWidget {
     this.activeFilterCount = 0,
     this.filterChips,
     this.trailing,
+    this.moreOpensMenu = false,
   });
 
   final String title;
@@ -1110,6 +1111,9 @@ class PosMobileKiotHeader extends StatelessWidget {
   final int activeFilterCount;
   final Widget? filterChips;
   final List<Widget>? trailing;
+  /// ⋯ mở thẳng [onMore] (màn tự liệt kê lọc / sắp xếp / mọi chức năng) — không qua popup
+  /// «Bộ lọc · Sắp xếp · Đồng bộ · Thêm chức năng» hai tầng.
+  final bool moreOpensMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -1255,6 +1259,18 @@ class PosMobileKiotHeader extends StatelessWidget {
             icon: const Icon(Icons.search),
             tooltip: tr('Tìm kiếm'),
           ),
+        if (moreOpensMenu && onMore != null)
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: onMore,
+            tooltip: tr('Chức năng'),
+            icon: Badge(
+              isLabelVisible: activeFilterCount > 0,
+              label: Text(tr('$activeFilterCount')),
+              child: const Icon(Icons.more_horiz),
+            ),
+          )
+        else
         PopupMenuButton<String>(
           icon: Badge(
             isLabelVisible: activeFilterCount > 0,

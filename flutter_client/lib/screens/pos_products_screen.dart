@@ -1258,6 +1258,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               onFilter: inHub ? null : () => _openMobileFilters(perm),
               onSort: inHub ? null : _showSortSheet,
               onMore: () => _showMobileMoreMenu(perm),
+              moreOpensMenu: true,
               onRefresh: inHub ? null : () => _reloadProducts(forceNetwork: true),
               activeFilterCount: _activeMobileFilterCount,
               filterChips: null,
@@ -1524,7 +1525,6 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   /// Desktop: một hàng như HRM — tìm kiếm · bộ lọc chính · nút thao tác (không còn cột lọc trái).
   Widget _buildDesktopFilterBar(PermissionProvider perm) {
     final canCreate = perm.canCreate('PosProducts');
-    final canManage = perm.canEdit('PosProducts') || perm.canDelete('PosProducts');
     final advanced = _activeMobileFilterCount -
         [_categoryFilter, _brandFilter, _supplierFilter].where((x) => x != null).length -
         (_stockFilter != PosStockFilter.all ? 1 : 0);
@@ -1591,75 +1591,122 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           ),
         PopupMenuButton<String>(
           tooltip: tr('Thêm thao tác'),
-          onSelected: (v) async {
-            switch (v) {
-              case 'sample_menu':
-                final created = await showPosSampleCatalogPicker(context, _api, categories: _categories);
-                if (created != null && mounted) await _reloadProducts(forceNetwork: true);
-              case 'import_typed':
-                _openTypeHub(perm, title: 'Nhập Excel theo loại', showCreate: false);
-              case 'import':
-                _importExcel(perm);
-              case 'ai_menu':
-                _openAiMenuImport();
-              case 'topping_groups':
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PosToppingGroupsScreen()));
-              case 'price_lists':
-                await Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => PosHubScope.pushed(child: const PosPriceListsScreen())));
-              case 'columns':
-                _showColumnPicker();
-              case 'scan':
-                _scanSearch();
-              case 'promotions':
-                await Navigator.of(context)
-                    .push(MaterialPageRoute(builder: (_) => const PosPromotionsScreen()));
-              case 'scale_label':
-                await showPosScaleLabelDialog(context);
-              case 'reorder':
-                await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const PosReorderSuggestionsScreen()));
-              case 'm_category':
-                _manageCatalog(PosCatalogKind.category);
-              case 'm_supplier':
-                _manageCatalog(PosCatalogKind.supplier);
-              case 'm_brand':
-                _manageCatalog(PosCatalogKind.brand);
-              case 'm_location':
-                _manageCatalog(PosCatalogKind.location);
-            }
-          },
+          onSelected: (v) => _runMoreAction(v, perm),
           itemBuilder: (_) => [
-            if (canCreate) ...[
-              _menuItem('sample_menu', Icons.restaurant_menu, 'Thêm từ catalog mẫu'),
-              _menuItem('import_typed', Icons.upload_file, 'Nhập Excel theo loại'),
-              _menuItem('import', Icons.table_view_outlined, 'Import hỗn hợp (cột Loại hàng)'),
-              _menuItem('ai_menu', Icons.auto_awesome_outlined, 'Quét ảnh menu bằng AI'),
-              const PopupMenuDivider(),
+            for (final (gi, g) in _moreActionGroups(perm, mobile: false).indexed) ...[
+              if (gi > 0) const PopupMenuDivider(),
+              for (final (value, icon, text) in g.$2) _menuItem(value, icon, text),
             ],
-            _menuItem('price_lists', Icons.price_change_outlined, 'Bảng giá (giá sỉ / VIP / theo kỳ)'),
-            if (perm.canView('PosPromotions'))
-              _menuItem('promotions', Icons.local_offer_outlined, 'Khuyến mãi (giờ vàng, mua X tặng Y…)'),
-            if (perm.canEdit('PosProducts'))
-              _menuItem('scale_label', Icons.scale_outlined, 'Cân & in tem hàng cân'),
-            if (perm.canView('PosReportStock'))
-              _menuItem('reorder', Icons.production_quantity_limits, 'Hàng cần nhập thêm'),
-            if (_fnbTypes)
-              _menuItem('topping_groups', Icons.local_cafe_outlined, 'Nhóm topping'),
-            if (canManage) ...[
-              _menuItem('m_category', Icons.folder_outlined, 'Quản lý nhóm hàng'),
-              _menuItem('m_supplier', Icons.local_shipping_outlined, 'Quản lý nhà cung cấp'),
-              _menuItem('m_brand', Icons.sell_outlined, 'Quản lý thương hiệu'),
-              _menuItem('m_location', Icons.place_outlined, 'Quản lý vị trí'),
-            ],
-            const PopupMenuDivider(),
-            _menuItem('columns', Icons.view_column_outlined, 'Hiển thị cột'),
-            _menuItem('scan', Icons.qr_code_scanner, 'Quét mã vạch'),
           ],
           child: const PosChipFrame(label: '', value: 'Thêm', icon: Icons.more_horiz),
         ),
       ],
     );
+  }
+
+  /// Mọi chức năng phụ của màn Hàng hóa — dùng chung menu «Thêm» máy lớn và bảng ⋯ điện thoại.
+  /// Trước điện thoại phải bấm ⋯ → «Thêm chức năng» mới tới bảng, mà bảng chỉ có 4 mục
+  /// (thiếu nhập Excel, bảng giá, khuyến mãi, quản lý nhóm hàng / NCC…).
+  List<(String, List<(String, IconData, String)>)> _moreActionGroups(
+    PermissionProvider perm, {
+    required bool mobile,
+  }) {
+    final canCreate = perm.canCreate('PosProducts');
+    final canManage = perm.canEdit('PosProducts') || perm.canDelete('PosProducts');
+    final inHub = PosHubScope.of(context);
+    final filterLabel = _activeMobileFilterCount > 0 ? 'Bộ lọc ($_activeMobileFilterCount)' : 'Bộ lọc';
+    return [
+      if (mobile)
+        ('Xem', [
+          ('filter', Icons.filter_list, filterLabel),
+          ('sort', Icons.import_export, 'Sắp xếp'),
+          ('refresh', Icons.sync, inHub ? 'Làm mới' : 'Đồng bộ'),
+        ]),
+      if (canCreate)
+        ('Thêm / nhập hàng', [
+          if (mobile) ('create', Icons.add_box_outlined, 'Tạo / nhập theo loại'),
+          ('sample_menu', Icons.restaurant_menu, 'Thêm từ catalog mẫu'),
+          ('import_typed', Icons.upload_file, 'Nhập Excel theo loại'),
+          ('import', Icons.table_view_outlined, 'Import hỗn hợp (cột Loại hàng)'),
+          ('ai_menu', Icons.auto_awesome_outlined, 'Quét ảnh menu bằng AI'),
+        ]),
+      ('Giá & kho', [
+        ('price_lists', Icons.price_change_outlined, 'Bảng giá (giá sỉ / VIP / theo kỳ)'),
+        if (perm.canView('PosPromotions'))
+          ('promotions', Icons.local_offer_outlined, 'Khuyến mãi (giờ vàng, mua X tặng Y…)'),
+        if (perm.canEdit('PosProducts'))
+          ('scale_label', Icons.scale_outlined, 'Cân & in tem hàng cân'),
+        if (perm.canView('PosReportStock'))
+          ('reorder', Icons.production_quantity_limits, 'Hàng cần nhập thêm'),
+        if (_fnbTypes) ('topping_groups', Icons.local_cafe_outlined, 'Nhóm topping'),
+      ]),
+      if (canManage)
+        ('Danh mục', [
+          ('m_category', Icons.folder_outlined, 'Quản lý nhóm hàng'),
+          ('m_supplier', Icons.local_shipping_outlined, 'Quản lý nhà cung cấp'),
+          ('m_brand', Icons.sell_outlined, 'Quản lý thương hiệu'),
+          ('m_location', Icons.place_outlined, 'Quản lý vị trí'),
+        ]),
+      ('Công cụ', [
+        if (!mobile) ('columns', Icons.view_column_outlined, 'Hiển thị cột'),
+        ('scan', Icons.qr_code_scanner, 'Quét mã vạch'),
+        if (mobile && perm.canExport('PosProducts'))
+          ('export', Icons.download_outlined, 'Xuất file Excel'),
+      ]),
+    ];
+  }
+
+  Future<void> _runMoreAction(String v, PermissionProvider perm) async {
+    switch (v) {
+      case 'filter':
+        _openMobileFilters(perm);
+      case 'sort':
+        _showSortSheet();
+      case 'refresh':
+        if (PosHubScope.of(context)) {
+          await _reloadProducts();
+        } else {
+          await _loadAll();
+        }
+      case 'create':
+        _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại');
+      case 'export':
+        if (!_isExporting) _exportExcel(perm);
+      case 'sample_menu':
+        final created = await showPosSampleCatalogPicker(context, _api, categories: _categories);
+        if (created != null && mounted) await _reloadProducts(forceNetwork: true);
+      case 'import_typed':
+        _openTypeHub(perm, title: 'Nhập Excel theo loại', showCreate: false);
+      case 'import':
+        _importExcel(perm);
+      case 'ai_menu':
+        _openAiMenuImport();
+      case 'topping_groups':
+        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PosToppingGroupsScreen()));
+      case 'price_lists':
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => PosHubScope.pushed(child: const PosPriceListsScreen())));
+      case 'columns':
+        _showColumnPicker();
+      case 'scan':
+        _scanSearch();
+      case 'promotions':
+        await Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const PosPromotionsScreen()));
+      case 'scale_label':
+        await showPosScaleLabelDialog(context);
+      case 'reorder':
+        await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PosReorderSuggestionsScreen()));
+      case 'm_category':
+        _manageCatalog(PosCatalogKind.category);
+      case 'm_supplier':
+        _manageCatalog(PosCatalogKind.supplier);
+      case 'm_brand':
+        _manageCatalog(PosCatalogKind.brand);
+      case 'm_location':
+        _manageCatalog(PosCatalogKind.location);
+    }
   }
 
   PopupMenuItem<String> _menuItem(String value, IconData icon, String text) => PopupMenuItem(
@@ -1790,91 +1837,46 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   }
 
   void _showMobileMoreMenu(PermissionProvider perm) {
-    final inHub = PosHubScope.of(context);
+    final groups = _moreActionGroups(perm, mobile: true);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => SafeArea(
         // Cuộn được: trên V2s đủ mục thì mục cuối bị cắt ở đáy màn hình.
-        child: SingleChildScrollView(
-         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (inHub) ...[
-              ListTile(
-                leading: const Icon(Icons.filter_list),
-                title: Text(tr('${tr('Bộ lọc')}${_activeMobileFilterCount > 0 ? ' ($_activeMobileFilterCount)' : ''}')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _openMobileFilters(perm);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.import_export),
-                title: Text(tr('Sắp xếp')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showSortSheet();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.refresh),
-                title: Text(tr('Làm mới')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _reloadProducts();
-                },
-              ),
-              const Divider(height: 1),
-            ],
-            if (perm.canCreate('PosProducts')) ...[
-              ListTile(
-                leading: const Icon(Icons.restaurant_menu),
-                title: Text(tr('Thêm từ menu / catalog mẫu')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  // ignore: discarded_futures
-                  () async {
-                    final created = await showPosSampleCatalogPicker(
-                      context,
-                      _api,
-                      categories: _categories,
-                    );
-                    if (created != null && mounted) {
-                      await _reloadProducts(forceNetwork: true);
-                    }
-                  }();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.inventory_2_outlined),
-                title: Text(tr('Tạo / nhập theo loại')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại');
-                },
-              ),
-            ],
-            ListTile(
-              leading: const Icon(Icons.qr_code_scanner),
-              title: Text(tr('Quét mã vạch')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _scanSearch();
-              },
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.85),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (gi, g) in groups.indexed) ...[
+                  if (gi > 0) const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
+                    child: Text(
+                      tr(g.$1),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: SboxColors.slate500,
+                      ),
+                    ),
+                  ),
+                  for (final (value, icon, text) in g.$2)
+                    ListTile(
+                      dense: true,
+                      leading: Icon(icon),
+                      title: Text(tr(text)),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        unawaited(_runMoreAction(value, perm));
+                      },
+                    ),
+                ],
+              ],
             ),
-            // Trong hub đã có «Làm mới» ở nhóm đầu — trước đây menu hiện 2 mục «Làm mới».
-            if (!inHub)
-              ListTile(
-                leading: const Icon(Icons.refresh),
-                title: Text(tr('Làm mới')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _loadAll();
-                },
-              ),
-          ],
-         ),
+          ),
         ),
       ),
     );

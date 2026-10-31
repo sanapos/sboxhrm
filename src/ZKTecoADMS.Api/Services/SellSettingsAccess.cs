@@ -29,12 +29,16 @@ public static class SellSettingsAccess
     public static readonly Section EndOfDay = new("endOfDay", "giờ chốt ngày",
         [ModulePermissionAction.Edit], ["SettingsHub", "PosReportEndOfDay"]);
 
+    public static readonly Section ProductForm = new("productForm", "form hàng hóa",
+        [ModulePermissionAction.Edit], ["SettingsHub", "PosProducts"]);
+
     /// <summary>Khóa trong ExtraJson thuộc nhóm riêng; khóa khác (sellTax, receiptStore, fees, vietQr…) thuộc «cửa hàng».</summary>
     static readonly Dictionary<string, Section> ExtraKeySections = new(StringComparer.OrdinalIgnoreCase)
     {
         ["qrOrder"] = QrOrder,
         ["customerDisplay"] = CustomerDisplay,
         ["scale"] = Stock,
+        ["productForm"] = ProductForm,
     };
 
     /// <summary>Bản sao các trường so sánh — chụp trước khi áp thay đổi.</summary>

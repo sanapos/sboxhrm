@@ -235,7 +235,10 @@ public partial class PosProductsController(
         decimal? LoyaltyPercent = null,
         string? AreaQuickSizes = null,
         string? GymAccessHours = null,
-        string? TimeSurchargesJson = null);
+        string? TimeSurchargesJson = null,
+        // Client có ô «Máy in bếp» gửi true kèm DefaultPrinterId. Không gửi (bản app cũ, sửa nhanh giá/tồn…)
+        // → giữ máy in đang gán; trước mỗi lần Lưu form là món bị gỡ khỏi máy in bếp.
+        bool DefaultPrinterSet = false);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -924,7 +927,8 @@ public partial class PosProductsController(
         entity.IsDirectSale = dto.IsDirectSale;
         entity.IsFavorite = dto.IsFavorite;
         entity.SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(dto.SaleQuickNotes);
-        entity.DefaultPrinterId = await ResolvePrinterIdAsync(storeId, dto.DefaultPrinterId);
+        if (dto.DefaultPrinterSet)
+            entity.DefaultPrinterId = await ResolvePrinterIdAsync(storeId, dto.DefaultPrinterId);
         entity.WarrantyMonths = dto.WarrantyMonths > 0 ? dto.WarrantyMonths : null;
         ApplyQtyMode(entity, dto);
         entity.TrackExpiry = dto.TrackExpiry;

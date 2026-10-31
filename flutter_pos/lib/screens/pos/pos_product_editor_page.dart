@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/pos_product.dart';
 import '../../models/pos_sell_industry.dart';
+import '../../models/pos_store_printer.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/pos_product_image_cache.dart';
@@ -357,7 +358,15 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   final List<_VariantAttrRow> _variantAttrs = [];
   bool _generatingVariants = false;
   Set<PosProductEditorSection> _editorSections = defaultPosProductEditorSections();
+  /// Ngành chi tiết cửa hàng chọn cho form (null = chưa chọn, theo ngành bán).
+  PosProductIndustryPreset? _formPreset;
+  /// Bấm «Thêm mục» — hiện riêng lần nhập này, không đổi form của cửa hàng.
+  final Set<PosProductEditorSection> _sessionSections = {};
   bool _editorPrefsLoaded = false;
+  List<PosStorePrinter> _printers = [];
+  String? _defaultPrinterId;
+  String? _defaultPrinterName;
+  bool _defaultPrinterTouched = false;
   /// Ngành bán của cửa hàng — ẩn ô không hợp ngành (gym: không thời lượng / gói giờ / NVL).
   PosSellProfile _sellProfile = PosSellProfile.retail;
 
@@ -426,7 +435,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       : const ['Thông tin'];
 
   bool _showSection(PosProductEditorSection section) {
-    if (_editorSections.contains(section)) return true;
+    if (_editorSections.contains(section) || _sessionSections.contains(section)) return true;
     return _sectionForcedByProduct(section);
   }
 
@@ -443,10 +452,25 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       case PosProductEditorSection.vat:
         return _vatExempt || (_vatRate > 0 && _vatRate != 8);
       case PosProductEditorSection.warranty:
-        return _requiresSerial ||
-            _allowDecimalQty ||
-            _trackExpiry ||
-            _warrantyMonthsCtrl.text.trim().isNotEmpty;
+        return _warrantyMonthsCtrl.text.trim().isNotEmpty;
+      case PosProductEditorSection.serial:
+        return _requiresSerial;
+      case PosProductEditorSection.expiry:
+        return _trackExpiry;
+      case PosProductEditorSection.decimalQty:
+        return _allowDecimalQty || _scalePluCtrl.text.trim().isNotEmpty;
+      case PosProductEditorSection.sizeMadeToOrder:
+        return _allowAreaQty;
+      case PosProductEditorSection.packageSize:
+        return _lengthCtrl.text.trim().isNotEmpty ||
+            _widthCtrl.text.trim().isNotEmpty ||
+            _heightCtrl.text.trim().isNotEmpty;
+      case PosProductEditorSection.recipe:
+        return _recipeLines.isNotEmpty;
+      case PosProductEditorSection.kitchenPrinter:
+        return (_defaultPrinterId ?? '').isNotEmpty;
+      case PosProductEditorSection.loyalty:
+        return _loyaltyPercentValue != null;
       case PosProductEditorSection.stockLimits:
         final min = double.tryParse(_minStockCtrl.text.trim()) ?? 0;
         final max = double.tryParse(_maxStockCtrl.text.trim()) ?? 0;
@@ -474,6 +498,28 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     }
   }
 
+  /// Mục có nghĩa với loại hàng đang mở — «Thêm mục» chỉ liệt kê các mục này.
+  bool _sectionApplies(PosProductEditorSection s) => switch (s) {
+        PosProductEditorSection.codes ||
+        PosProductEditorSection.vat ||
+        PosProductEditorSection.description => true,
+        PosProductEditorSection.brand => !_isCombo,
+        PosProductEditorSection.supplier ||
+        PosProductEditorSection.warranty ||
+        PosProductEditorSection.serial ||
+        PosProductEditorSection.expiry ||
+        PosProductEditorSection.decimalQty => _isGoods,
+        PosProductEditorSection.sizeMadeToOrder => _isGoods && _sellProfile != PosSellProfile.gym,
+        PosProductEditorSection.stockLimits || PosProductEditorSection.packageSize => _tracksStock,
+        PosProductEditorSection.locationWeight => _tracksStock || _isCombo,
+        PosProductEditorSection.unitsVariants ||
+        PosProductEditorSection.staffCommission => _isGoods || _isService || _isCombo,
+        PosProductEditorSection.recipe => _canHaveRecipe,
+        PosProductEditorSection.kitchenPrinter => !_isMaterial,
+        PosProductEditorSection.serviceBilling => _isService,
+        PosProductEditorSection.loyalty => !_isMaterial && !_isToppingType,
+      };
+
   /// Hàng gym tạo trước khi có ĐVT mặc định «Thẻ» / «Gói» còn «Cái» → đề xuất lại, Lưu là cập nhật.
   /// Gọi cả lúc biết ngành và lúc nạp xong dữ liệu hàng (hai việc chạy song song, không biết cái nào xong trước).
   void _suggestGymUnit() {
@@ -485,19 +531,24 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   Future<void> _loadEditorSectionPrefs() async {
     // Chưa tùy chỉnh → bộ mục gợi ý theo ngành của cửa hàng (bán lẻ: mã vạch, ĐVT, NCC…; spa: gói buổi, hoa hồng…).
     var profile = PosSellProfile.retail;
+    PosProductFormLayout? storeLayout;
     try {
       final res = await _api.getPosSellSettings();
       if (res['isSuccess'] == true && res['data'] is Map) {
-        profile = PosStoreSellSettingsDto.fromJson(Map<String, dynamic>.from(res['data'] as Map)).sellProfile;
+        final dto = PosStoreSellSettingsDto.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+        profile = dto.sellProfile;
+        storeLayout = PosProductFormLayout.fromExtraJson(dto.extraJson);
       }
     } catch (_) {}
     // Tùy chọn mục lưu riêng theo ngành (trước lưu chung cả máy).
     posProductEditorProfile = profile;
-    var sections = await loadSavedPosProductEditorSections();
+    // Ưu tiên form cửa hàng đã chỉnh (chung mọi máy) → tùy chọn cũ trên máy → bộ mục theo ngành.
+    var sections = storeLayout?.sections ?? await loadSavedPosProductEditorSections();
     sections ??= {...PosProductIndustryPreset.forProfile(profile).sections};
     if (!mounted) return;
     final resolved = sections;
     setState(() {
+      _formPreset = storeLayout?.preset;
       _editorSections = resolved;
       _editorPrefsLoaded = true;
       _sellProfile = profile;
@@ -518,11 +569,152 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   Future<void> _openEditorSectionsSettings() async {
     final result = await showPosProductEditorSectionsDialog(
       context,
-      initial: _editorSections,
+      initial: {..._editorSections, ..._sessionSections},
+      preset: _formPreset ?? PosProductIndustryPreset.forProfile(_sellProfile),
     );
     if (result == null || !mounted) return;
     setState(() {
-      _editorSections = result;
+      _editorSections = result.sections;
+      _formPreset = result.preset;
+      _sessionSections.clear();
+      _syncTabController();
+    });
+    await savePosProductEditorSections(result.sections);
+    final res = await _api.savePosProductFormLayout(
+      preset: result.preset?.name,
+      sections: [for (final x in result.sections) x.name],
+    );
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã lưu form hàng hóa',
+        message: tr('Áp dụng cho mọi máy của cửa hàng.'),
+      );
+    } else {
+      NotificationOverlayManager().showWarning(
+        title: 'Chỉ lưu trên máy này',
+        message: tr('Chưa lưu được cho cả cửa hàng: ${res['message'] ?? 'mất kết nối'}'),
+      );
+    }
+  }
+
+  Future<void> _loadPrinters() async {
+    try {
+      final res = await _api.getPosStorePrinters();
+      if (!mounted || res['isSuccess'] != true) return;
+      final raw = res['data'];
+      final list = raw is List
+          ? raw
+          : (raw is Map && raw['items'] is List ? raw['items'] as List : const []);
+      setState(() {
+        _printers = list
+            .whereType<Map>()
+            .map((e) => PosStorePrinter.fromJson(Map<String, dynamic>.from(e)))
+            .where((p) => p.id.isNotEmpty && p.isActive && !p.isLabelPrinter)
+            .toList();
+      });
+    } catch (_) {}
+  }
+
+  /// Món in phiếu bếp ở máy nào — trước chỉ gán được ở màn «Gán món cho máy in».
+  Widget _kitchenPrinterSection() {
+    if (!_sectionApplies(PosProductEditorSection.kitchenPrinter) ||
+        !_showSection(PosProductEditorSection.kitchenPrinter)) {
+      return const SizedBox.shrink();
+    }
+    final cur = _defaultPrinterId;
+    final known = cur == null || _printers.any((p) => p.id == cur);
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: DropdownButtonFormField<String?>(
+        value: cur,
+        isExpanded: true,
+        decoration: PosTheme.inputDecoration(label: 'Máy in bếp của món'),
+        items: [
+          DropdownMenuItem<String?>(
+            value: null,
+            child: Text(tr('Không gán — theo thiết lập máy in chung'), overflow: TextOverflow.ellipsis),
+          ),
+          for (final p in _printers)
+            DropdownMenuItem<String?>(value: p.id, child: Text(p.name, overflow: TextOverflow.ellipsis)),
+          if (!known)
+            DropdownMenuItem<String?>(
+              value: cur,
+              child: Text(_defaultPrinterName ?? tr('Máy in đã gỡ'), overflow: TextOverflow.ellipsis),
+            ),
+        ],
+        onChanged: (v) => setState(() {
+          _defaultPrinterId = v;
+          _defaultPrinterTouched = true;
+        }),
+      ),
+    );
+  }
+
+  /// Cuối form: «Thêm mục» liệt kê mục đang ẩn mà loại hàng này dùng được — bấm là hiện ngay
+  /// cho lần nhập này. Muốn luôn hiện cho cả cửa hàng: «Tùy chỉnh form».
+  Widget _addSectionButton() {
+    if (!_editorPrefsLoaded) return const SizedBox.shrink();
+    final hidden = [
+      for (final x in PosProductEditorSection.values)
+        if (_sectionApplies(x) && !_showSection(x)) x,
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          if (hidden.isNotEmpty)
+            OutlinedButton.icon(
+              onPressed: () => _pickHiddenSection(hidden),
+              icon: const Icon(Icons.add, size: 18),
+              label: Text('${tr('Thêm mục')} (${hidden.length})'),
+            ),
+          TextButton.icon(
+            onPressed: _saving ? null : _openEditorSectionsSettings,
+            icon: const Icon(Icons.tune, size: 18),
+            label: Text(tr('Tùy chỉnh form')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickHiddenSection(List<PosProductEditorSection> hidden) async {
+    final picked = await showModalBottomSheet<PosProductEditorSection>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                child: Text(tr('Thêm mục vào form'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(tr('Chỉ hiện cho lần nhập này. Muốn luôn hiện: «Tùy chỉnh form».'),
+                    style: const TextStyle(fontSize: 12, color: Colors.black54)),
+              ),
+              for (final x in hidden)
+                ListTile(
+                  leading: const Icon(Icons.add_circle_outline, color: PosTheme.kiotBlue),
+                  title: Text(tr(x.label)),
+                  onTap: () => Navigator.pop(ctx, x),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _sessionSections.add(picked);
       _syncTabController();
     });
   }
@@ -550,6 +742,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _showComboComponentsOnSell = p?.showComboComponentsOnSell ?? false;
     _comboTrackStock = p?.comboTrackStock ?? false;
     _commissionMode = p?.commissionMode ?? 'None';
+    _defaultPrinterId = p?.defaultPrinterId;
+    _defaultPrinterName = p?.defaultPrinterName;
     _commissionPerSession = p?.commissionPerSession ?? false;
     _sellerCommissionCtrl.text =
         (p?.sellerCommissionPercent ?? 0) > 0 ? _fmtSellerPct(p!.sellerCommissionPercent) : '';
@@ -665,6 +859,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     if (p?.units != null) _units = List.from(p!.units!);
     if (p?.attributes != null) _attributeValues.addAll(p!.attributes!);
     unawaited(_loadEditorSectionPrefs());
+    unawaited(_loadPrinters());
     hidePosSoftKeyboard();
     _initData();
   }
@@ -781,6 +976,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       }
       _isTopping = data.isTopping;
       _allowToppings = data.allowToppings;
+      if (!_defaultPrinterTouched) {
+        _defaultPrinterId = data.defaultPrinterId;
+        _defaultPrinterName = data.defaultPrinterName;
+      }
       _autoOpenToppingPopup = data.autoOpenToppingPopup;
       _showComboComponentsOnSell = data.showComboComponentsOnSell;
       _comboTrackStock = data.comboTrackStock;
@@ -1073,6 +1272,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (_showSection(PosProductEditorSection.loyalty)) ...[
               TextField(
                 controller: _loyaltyPercentCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -1094,6 +1294,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                         : tr('Khách được tích ${_fmtPercent(pct)}% tiền thực trả của món này vào ví điểm.'),
                 style: TextStyle(fontSize: 12, color: pct == null ? Colors.black54 : Colors.green.shade700),
               ),
+              ],
             ],
           );
         },
@@ -1196,6 +1397,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'commissionPerSession': _commissionPerSession,
       'sellerCommissionPercent': _commissionPerSession ? _parseNum(_sellerCommissionCtrl.text) : 0,
       'loyaltyPercent': _loyaltyPercentValue,
+      if (_defaultPrinterTouched || !_isEditing) ...{
+        'defaultPrinterSet': true,
+        'defaultPrinterId': _guidOrNull(_defaultPrinterId),
+      },
       'toppings': (_allowToppings && !_isTopping)
           ? _toppingOptions
               .map((t) => {
@@ -1835,7 +2040,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         _supplierId, _imageBase64?.length, _pendingImageName, _directSale,
         _allowDecimalQty, _allowAreaQty, _areaLength, _areaWidth, _areaHeight,
         _requiresSerial, _areaSizesCtrl.text, _units.length, _variantAttrs.length,
-        _comboLines.length, _recipeLines.length,
+        _comboLines.length, _recipeLines.length, _defaultPrinterId,
       ].join('|');
 
   bool get _isDirty => !_loading && _cleanSig != null && _formSig() != _cleanSig;
@@ -1971,10 +2176,15 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     color: PosTheme.textPrimary,
                   ),
                 ),
-                if (_editorPrefsLoaded && !advancedOn)
+                if (_editorPrefsLoaded)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text(tr('Form gọn — bật thêm mục trong ⚙ nếu cần'),
+                    child: Text(
+                      _formPreset != null
+                          ? '${tr('Form ngành')}: ${tr(_formPreset!.label)} — ${tr('⚙ để đổi')}'
+                          : advancedOn
+                              ? tr('Bấm ⚙ để chọn ngành hàng cho form')
+                              : tr('Form gọn — bật thêm mục trong ⚙ nếu cần'),
                       style: TextStyle(
                         fontSize: 12,
                         color: SboxColors.slate600,
@@ -2220,16 +2430,23 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               ],
             ),
           ),
-          if (_isGoods) _retailQtyModeButtons(),
+          if (_isGoods &&
+              (_showSection(PosProductEditorSection.decimalQty) ||
+                  _showSection(PosProductEditorSection.sizeMadeToOrder)))
+            _retailQtyModeButtons(),
           if (_isGoods && _allowAreaQty) _buildAreaAxesSection(),
           _buildProductVatSection(),
+          _kitchenPrinterSection(),
           if (_showSection(PosProductEditorSection.staffCommission))
             _kvExpansion(
               title: 'Hoa hồng nhân viên',
               subtitle: 'Cách tính khi gán NV lúc bán (bán kèm, salon)',
               child: _buildCommissionSection(),
             ),
-          if (_isGoods && _showSection(PosProductEditorSection.warranty))
+          if (_isGoods &&
+              (_showSection(PosProductEditorSection.warranty) ||
+                  _showSection(PosProductEditorSection.serial) ||
+                  _showSection(PosProductEditorSection.expiry)))
             _buildProductWarrantySection(),
           _kvSection(
             title: 'Tồn kho',
@@ -2333,53 +2550,25 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     ],
                   ),
 
-                  const SizedBox(height: 8),
-                  Text(tr('Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển'),
-                    style: TextStyle(fontSize: 12, color: SboxColors.textSecondary),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _lengthCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration:
-                              PosTheme.inputDecoration(label: 'Dài (cm)'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _widthCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration:
-                              PosTheme.inputDecoration(label: 'Rộng (cm)'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _heightCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration:
-                              PosTheme.inputDecoration(label: 'Cao (cm)'),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
+          if (_tracksStock && _showSection(PosProductEditorSection.packageSize))
+            _kvSection(
+              title: 'Kích thước đóng gói',
+              subtitle: 'Dài × rộng × cao (cm) — ước tính cước vận chuyển',
+              child: _packageSizeFields(),
+            ),
           if (_isGoods && _showSection(PosProductEditorSection.unitsVariants))
             _buildUnitsAttributesExpansion(),
-          if (_canHaveRecipe)
+          if (_canHaveRecipe && _showSection(PosProductEditorSection.recipe))
             _kvSection(
               title: 'Định lượng nguyên vật liệu',
               subtitle:
                   'Chọn NVL (loại Nguyên vật liệu). Khi bán món, kho trừ đúng SL từng NVL — không in lên hóa đơn.',
               child: _buildRecipeSection(),
             ),
+          _addSectionButton(),
         ],
       ),
     );
@@ -2633,6 +2822,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 ),
                 _buildLoyaltyPercentField(),
                 _buildProductVatSection(),
+                _kitchenPrinterSection(),
               ],
             ),
           ),
@@ -2756,13 +2946,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             _buildUnitsAttributesExpansion(),
           // Món pha chế / chế biến khai là dịch vụ (trà sữa, cà phê…) vẫn cần định lượng để trừ nguyên liệu —
           // trước đây form dịch vụ dạng một trang thiếu mục này (chỉ form nhiều tab có).
-          if (_sellProfile != PosSellProfile.gym)
+          if (_canHaveRecipe && _showSection(PosProductEditorSection.recipe))
           _kvSection(
             title: 'Định lượng nguyên vật liệu',
             subtitle:
                 'Chọn NVL (loại Nguyên vật liệu). Khi bán, kho trừ đúng SL từng NVL — không in lên hóa đơn.',
             child: _buildRecipeSection(),
           ),
+          _addSectionButton(),
         ],
       ),
     );
@@ -2894,6 +3085,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ),
           _buildProductVatSection(),
+          _kitchenPrinterSection(),
           if (_showSection(PosProductEditorSection.staffCommission))
             _kvExpansion(
               title: 'Hoa hồng nhân viên',
@@ -2949,46 +3141,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     ],
                   ),
 
-                  const SizedBox(height: 8),
-                  Text(tr('Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển'),
-                    style: TextStyle(fontSize: 12, color: SboxColors.textSecondary),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _lengthCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration:
-                              PosTheme.inputDecoration(label: 'Dài (cm)'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _widthCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration:
-                              PosTheme.inputDecoration(label: 'Rộng (cm)'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _heightCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration:
-                              PosTheme.inputDecoration(label: 'Cao (cm)'),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
           if (_showSection(PosProductEditorSection.unitsVariants))
             _buildUnitsAttributesExpansion(),
+          _addSectionButton(),
         ],
       ),
     );
@@ -3331,129 +3489,136 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
+  Widget _packageSizeFields() {
+    Widget f(TextEditingController c, String label) => Expanded(
+          child: TextField(
+            controller: c,
+            keyboardType: TextInputType.number,
+            decoration: PosTheme.inputDecoration(label: label),
+          ),
+        );
+    return Row(
+      children: [
+        f(_lengthCtrl, 'Dài (cm)'),
+        const SizedBox(width: 8),
+        f(_widthCtrl, 'Rộng (cm)'),
+        const SizedBox(width: 8),
+        f(_heightCtrl, 'Cao (cm)'),
+      ],
+    );
+  }
+
   Widget _buildProductWarrantySection() {
+    final warranty = _showSection(PosProductEditorSection.warranty);
+    final serial = _showSection(PosProductEditorSection.serial);
+    final expiry = _showSection(PosProductEditorSection.expiry);
     return _kvSection(
-      title: 'Bảo hành, seri & lô/HSD',
-      subtitle: 'BH tính từ ngày bán. Bật theo dõi HSD để nhập lô khi nhập hàng.',
+      title: [
+        if (warranty) 'Bảo hành',
+        if (serial) 'Seri / IMEI',
+        if (expiry) 'Lô / HSD',
+      ].join(' · '),
+      subtitle: warranty ? 'BH tính từ ngày bán.' : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
-            controller: _warrantyMonthsCtrl,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: PosTheme.inputDecoration(
-              label: 'Thời hạn bảo hành (tháng)',
-              hint: 'VD: 12 — để trống nếu không BH',
-            ),
-          ),
-          const SizedBox(height: 8),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(tr('Bắt buộc nhập seri máy khi bán')),
-            subtitle: Text(tr('Mỗi đơn vị bán phải có seri riêng (máy điện tử, thiết bị...)'),
-              style: TextStyle(fontSize: 12),
-            ),
-            value: _requiresSerial,
-            onChanged: (v) => setState(() {
-              _requiresSerial = v;
-              if (v) {
-                _allowDecimalQty = false;
-                _allowAreaQty = false;
-                _areaLength = false;
-                _areaWidth = false;
-                _areaHeight = false;
-              }
-            }),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(tr('Bán số lẻ')),
-            subtitle: Text(
-              tr('Cho phép bán 1,5 · 1,45. Tắt = chỉ số nguyên.'),
-              style: TextStyle(fontSize: 12),
-            ),
-            value: _allowDecimalQty,
-            onChanged: _requiresSerial
-                ? null
-                : (v) {
-                    if (v) {
-                      setState(() => _allowDecimalQty = true);
-                    } else {
-                      _setAreaMaster(false);
-                      setState(() => _allowDecimalQty = false);
-                    }
-                  },
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(tr('Nhập theo Dài, Rộng, Cao')),
-            subtitle: Text(
-              tr('Bật cả 3 chiều. Bỏ bớt từng chiều ở mục ngay dưới giá bán.'),
-              style: TextStyle(fontSize: 12),
-            ),
-            value: _allowAreaQty,
-            onChanged: _requiresSerial ? null : _setAreaMaster,
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(tr('Theo dõi lô / HSD')),
-            subtitle: Text(tr('Bắt buộc nhập HSD trên phiếu nhập hàng'),
-              style: TextStyle(fontSize: 12),
-            ),
-            value: _trackExpiry,
-            onChanged: (v) => setState(() => _trackExpiry = v),
-          ),
-          if (_trackExpiry) ...[
-            const SizedBox(height: 4),
+          if (warranty)
             TextField(
-              controller: _expiryWarningDaysCtrl,
+              controller: _warrantyMonthsCtrl,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: PosTheme.inputDecoration(
-                label: 'Cảnh báo trước HSD (ngày)',
-                hint: 'Mặc định 30',
+                label: 'Thời hạn bảo hành (tháng)',
+                hint: 'VD: 12 — để trống nếu không BH',
               ),
             ),
-          ],
-          if (_allowDecimalQty) ...[
-            const SizedBox(height: 12),
-            Text(tr('Tem cân tại quầy (rau, thịt, cá… bán theo kg / mét)'),
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _scalePluCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(6),
-                    ],
-                    decoration: PosTheme.inputDecoration(
-                      label: 'Mã PLU',
-                      hint: 'Trống = tự gán khi in tem',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: _packShelfLifeCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: PosTheme.inputDecoration(
-                      label: 'Dùng trong (ngày)',
-                      hint: 'Từ ngày đóng gói',
-                    ),
-                  ),
-                ),
-              ],
+          if (serial)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(tr('Bắt buộc nhập seri máy khi bán')),
+              subtitle: Text(tr('Mỗi đơn vị bán phải có seri riêng (máy điện tử, thiết bị...)'),
+                style: TextStyle(fontSize: 12),
+              ),
+              value: _requiresSerial,
+              onChanged: (v) => setState(() {
+                _requiresSerial = v;
+                if (v) {
+                  _allowDecimalQty = false;
+                  _allowAreaQty = false;
+                  _areaLength = false;
+                  _areaWidth = false;
+                  _areaHeight = false;
+                }
+              }),
             ),
+          if (expiry) ...[
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(tr('Theo dõi lô / HSD')),
+              subtitle: Text(tr('Bắt buộc nhập HSD trên phiếu nhập hàng'),
+                style: TextStyle(fontSize: 12),
+              ),
+              value: _trackExpiry,
+              onChanged: (v) => setState(() => _trackExpiry = v),
+            ),
+            if (_trackExpiry) ...[
+              const SizedBox(height: 4),
+              TextField(
+                controller: _expiryWarningDaysCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: PosTheme.inputDecoration(
+                  label: 'Cảnh báo trước HSD (ngày)',
+                  hint: 'Mặc định 30',
+                ),
+              ),
+            ],
           ],
         ],
       ),
+    );
+  }
+
+  /// Tem cân tại quầy — hiện khi bật «Bán số lẻ».
+  Widget _scaleLabelFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 12),
+        Text(tr('Tem cân tại quầy (rau, thịt, cá… bán theo kg / mét)'),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _scalePluCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
+                decoration: PosTheme.inputDecoration(
+                  label: 'Mã PLU',
+                  hint: 'Trống = tự gán khi in tem',
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _packShelfLifeCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: PosTheme.inputDecoration(
+                  label: 'Dùng trong (ngày)',
+                  hint: 'Từ ngày đóng gói',
+                ),
+              ),
+            ),
+          ],
+        ),
+],
     );
   }
 
@@ -3668,14 +3833,19 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   Widget _retailQtyModeButtons() {
     final locked = _requiresSerial;
+    final decimal = _showSection(PosProductEditorSection.decimalQty);
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: Align(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+      Align(
         alignment: Alignment.centerLeft,
         child: Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
+            if (decimal)
             FilterChip(
               avatar: Icon(
                 _allowDecimalQty ? Icons.check : Icons.pin_outlined,
@@ -3703,7 +3873,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     },
             ),
             // Bán theo kích thước (kính, vải, gỗ…) — gym không dùng.
-            if (_sellProfile != PosSellProfile.gym)
+            if (_sectionApplies(PosProductEditorSection.sizeMadeToOrder) &&
+                _showSection(PosProductEditorSection.sizeMadeToOrder))
             FilterChip(
               avatar: Icon(
                 _allowAreaQty ? Icons.straighten : Icons.straighten_outlined,
@@ -3722,6 +3893,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ],
         ),
+      ),
+          if (decimal && _allowDecimalQty) _scaleLabelFields(),
+        ],
       ),
     );
   }
