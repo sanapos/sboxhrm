@@ -4562,8 +4562,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               lines: lines,
               printerId: printerId,
               printerName: printerName,
-              errorMessage:
-                  'Chưa in sau 60s ($printerName) — chọn máy khác hoặc in lại',
+              errorMessage: PosPrintOrchestrator.instance.hangReason(jobId, printerName),
             ),
           );
           NotificationOverlayManager().showWarning(

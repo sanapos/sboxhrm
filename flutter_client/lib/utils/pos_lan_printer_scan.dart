@@ -152,7 +152,8 @@ class PosLanPrinterScan {
       return null;
     } finally {
       try {
-        await socket?.close();
+        // close() có thể chờ máy in đóng chiều kia mãi — quét IP không được đứng.
+        await socket?.close().timeout(const Duration(seconds: 1));
       } catch (_) {}
       socket?.destroy();
     }

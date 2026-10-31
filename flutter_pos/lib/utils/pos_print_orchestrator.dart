@@ -1499,6 +1499,12 @@ class PosPrintOrchestrator {
     return false;
   }
 
+  /// Lý do ghi trên phiếu treo: không ai nhận (đã treo sau 12 s) khác máy in chậm / không phản hồi.
+  /// Trước luôn «Chưa in sau 60s» — sai thời gian và không nói phải làm gì.
+  String hangReason(String jobId, String printerName) => _noReceiverJobs.contains(jobId)
+      ? 'Không thiết bị nào nhận máy $printerName — bật «Chia sẻ máy in» ở thiết bị cắm máy, hoặc bấm «Máy khác»'
+      : 'Chưa in sau 60s ($printerName) — chọn máy khác hoặc in lại';
+
   /// Toast «Đã gửi lệnh in» chỉ khi có máy nhận — không thì đã có cảnh báo của [_failFastNoAgent].
   bool _shouldToastSent(String jobId, bool showFeedback) =>
       showFeedback && !_noReceiverJobs.contains(jobId);

@@ -159,7 +159,11 @@ class PosPrinterReadiness {
             lanPort <= 0 ? 9100 : lanPort,
             timeout: const Duration(milliseconds: 800),
           );
-          await socket.close();
+          // close() có thể chờ máy in đóng chiều kia mãi — không để dò «Sẵn sàng» treo luồng in.
+          try {
+            await socket.close().timeout(const Duration(seconds: 1));
+          } catch (_) {}
+          socket.destroy();
           return true;
         } catch (_) {
           return false;

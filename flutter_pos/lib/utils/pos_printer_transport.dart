@@ -272,7 +272,10 @@ class PosPrinterTransport {
         await Future<void>.delayed(const Duration(seconds: 10));
         try {
           final s = await Socket.connect(host, port, timeout: _lanConnectTimeout);
-          await s.close();
+          try {
+            await s.close().timeout(const Duration(seconds: 2));
+          } catch (_) {}
+          s.destroy();
           _lanDownSince.remove(key);
           debugPrint('LAN printer $key kết nối lại');
           break;
@@ -291,12 +294,13 @@ class PosPrinterTransport {
       debugPrint('LAN print skipped: $h:$port đang mất kết nối');
       return false;
     }
+    Socket? socket;
     try {
-      final socket = await Socket.connect(h, port, timeout: _lanConnectTimeout);
+      socket = await Socket.connect(h, port, timeout: _lanConnectTimeout);
       socket.add(bytes);
-      await socket.flush();
+      // Máy in bận / không đọc → flush chờ mãi: giới hạn để báo lỗi, chuyển hàng chờ.
+      await socket.flush().timeout(_lanSendTimeout);
       await Future<void>.delayed(const Duration(milliseconds: 200));
-      await socket.close();
       _lanDownSince.remove('$h:$port');
       return true;
     } on SocketException catch (e) {
@@ -306,8 +310,16 @@ class PosPrinterTransport {
     } catch (e) {
       debugPrint('LAN print failed: $e');
       return false;
+    } finally {
+      // close() có thể chờ máy in đóng chiều kia mãi — phiếu bếp «đứng», lần in sau xếp hàng sau nó.
+      try {
+        await socket?.close().timeout(const Duration(seconds: 2));
+      } catch (_) {}
+      socket?.destroy();
     }
   }
+
+  static const _lanSendTimeout = Duration(seconds: 10);
 
   /// Bỏ lệnh cắt GS V + feed thừa cuối payload — tránh giấy trắng dài khi
   /// Sunmi còn lineWrap/cutPaper sau printEscPos.

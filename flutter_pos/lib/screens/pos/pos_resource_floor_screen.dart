@@ -21,6 +21,7 @@ import '../../services/pos_network_monitor.dart';
 import '../../services/pos_offline_service.dart';
 import '../../services/signalr_service.dart';
 import '../../utils/permission_navigation.dart';
+import '../../utils/pos_print_orchestrator.dart';
 import '../../utils/pos_owner_password_gate.dart';
 import '../../utils/pos_device_identity.dart';
 import '../../utils/pos_floor_realtime.dart';
@@ -2681,7 +2682,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           required List<KitchenTicketLine> lines,
           String? referenceNo,
         }) =>
-            fail(lines, 'Chưa in sau 60s ($printerName) — chọn máy khác hoặc in lại',
+            fail(lines, PosPrintOrchestrator.instance.hangReason(jobId, printerName),
                 id: 'kitchen_hang_$jobId', printerId: printerId, printerName: printerName),
         onPrinterFailed: ({
           required String printerId,

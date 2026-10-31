@@ -416,7 +416,10 @@ class PosPrinterTransport {
         await Future<void>.delayed(const Duration(seconds: 10));
         try {
           final s = await Socket.connect(host, port, timeout: _lanConnectTimeout);
-          await s.close();
+          try {
+            await s.close().timeout(const Duration(seconds: 2));
+          } catch (_) {}
+          s.destroy();
           _lanDownSince.remove(key);
           debugPrint('LAN printer $key kết nối lại');
           break;
@@ -435,8 +438,9 @@ class PosPrinterTransport {
       debugPrint('LAN print skipped: $h:$port đang mất kết nối');
       return false;
     }
+    Socket? socket;
+    StreamSubscription<List<int>>? sub;
     try {
-      final Socket socket;
       try {
         socket = await Socket.connect(h, port, timeout: _lanConnectTimeout);
       } on SocketException {
@@ -445,25 +449,33 @@ class PosPrinterTransport {
       }
       _lanDownSince.remove('$h:$port');
       final status = await _lanPaperStatus(socket);
+      sub = status.sub;
       if (status.paperOut) {
         debugPrint('LAN print blocked: máy in $h báo HẾT GIẤY');
         lastLanError = 'Máy in $h hết giấy';
-        await status.sub?.cancel();
-        socket.destroy();
         return false;
       }
       socket.add(bytes);
-      await socket.flush();
+      // Máy in bận / không đọc → flush chờ mãi: giới hạn để báo lỗi, chuyển hàng chờ.
+      await socket.flush().timeout(_lanSendTimeout);
       await Future<void>.delayed(const Duration(milliseconds: 200));
-      await socket.close();
-      await status.sub?.cancel();
       lastLanError = null;
       return true;
     } catch (e) {
       debugPrint('LAN print failed: $e');
       return false;
+    } finally {
+      // Trước: `await socket.close()` khi còn nghe trạng thái giấy — nhiều máy LAN giữ kết nối nên close
+      // chờ mãi; phiếu bếp «đứng» không báo gì và mọi lần in sau xếp hàng sau nó (C20 → LAN .89).
+      await sub?.cancel();
+      try {
+        await socket?.close().timeout(const Duration(seconds: 2));
+      } catch (_) {}
+      socket?.destroy();
     }
   }
+
+  static const _lanSendTimeout = Duration(seconds: 10);
 
   /// Bỏ lệnh cắt GS V + feed thừa cuối payload — tránh giấy trắng dài khi
   /// Sunmi còn lineWrap/cutPaper sau printEscPos.
