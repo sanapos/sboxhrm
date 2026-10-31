@@ -249,6 +249,39 @@ public partial class PosQuotesController
         return Ok(AppResponse<QuoteDocumentDto>.Success(MapDoc(doc)));
     }
 
+    public record UpdateQuoteDocumentNoteDto(string? Note);
+
+    /// <summary>
+    /// Ghi chú in trên một chứng từ (dòng «Ghi chú:» cuối bản in, sau ghi chú báo giá). Trước đây chỉ nhập được
+    /// lúc lập chứng từ và không sửa lại được.
+    /// </summary>
+    [HttpPut("{id:guid}/documents/{docId:guid}/note")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<QuoteDocumentDto>>> UpdateDocumentNote(
+        Guid id, Guid docId, [FromBody] UpdateQuoteDocumentNoteDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var quote = await LoadQuote(storeId, id, track: false);
+        if (quote == null || !OwnsOrManages(quote))
+            return NotFound(AppResponse<QuoteDocumentDto>.Fail("Không tìm thấy báo giá"));
+        if (!CanMutateOwn(quote))
+            return StatusCode(403, AppResponse<QuoteDocumentDto>.Fail(
+                "Không có quyền sửa chứng từ trên báo giá của nhân viên khác"));
+        var note = (dto.Note ?? "").Trim();
+        if (note.Length > 2000)
+            return BadRequest(AppResponse<QuoteDocumentDto>.Fail("Ghi chú quá dài (tối đa 2000 ký tự)"));
+        var doc = await dbContext.PosQuoteDocuments.AsTracking()
+            .FirstOrDefaultAsync(d =>
+                d.Id == docId && d.QuoteId == id && d.StoreId == storeId && d.Deleted == null);
+        if (doc == null)
+            return NotFound(AppResponse<QuoteDocumentDto>.Fail("Không tìm thấy chứng từ"));
+        doc.Note = note.Length == 0 ? null : note;
+        doc.UpdatedAt = DateTime.UtcNow;
+        doc.UpdatedBy = CurrentUserEmail;
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<QuoteDocumentDto>.Success(MapDoc(doc)));
+    }
+
     /// <summary>Dòng báo giá cần chọn seri máy khi lập bàn giao / nghiệm thu (hàng bắt buộc seri đã có trong sổ, chưa gán đủ).</summary>
     [HttpGet("{id:guid}/handover/serial-needs")]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]

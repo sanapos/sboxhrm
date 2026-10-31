@@ -281,33 +281,6 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
     await _load();
   }
 
-  Future<String?> _askNote(String title) async {
-    final c = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: c,
-          maxLines: 3,
-          decoration: PosTheme.inputDecoration(label: 'Ghi chú chứng từ (tuỳ chọn)'),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(tr('Hủy'))),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(tr('Tạo'))),
-        ],
-      ),
-    );
-    final note = c.text.trim();
-    c.dispose();
-    if (ok != true) return null;
-    return note;
-  }
-
   Future<void> _reloadDocuments() async {
     if (widget.quoteId == null) return;
     final res = await _api.getPosQuote(widget.quoteId!);
@@ -449,8 +422,8 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
 
   Future<void> _createKind(String kind) async {
     if (widget.quoteId == null) return;
-    final note = await _askNote(PosQuoteDocument.kindLabel(kind));
-    if (note == null || !mounted) return;
+    // Không hỏi ghi chú khi lập chứng từ (sửa sau ở hồ sơ hợp đồng → menu chứng từ → «Ghi chú in trên chứng từ»).
+    const String? note = null;
     Map<String, List<String>>? serials;
     if (kind == 'Handover' || kind == 'Acceptance') {
       serials = await _pickQuoteSerials();

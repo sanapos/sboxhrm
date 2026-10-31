@@ -24,6 +24,7 @@ import '../../widgets/pos/pos_theme.dart';
 import 'pos_contract_detail_screen.dart';
 import 'pos_contract_receivables_screen.dart';
 import 'pos_quote_care_board_screen.dart';
+import 'pos_quote_care_report_screen.dart';
 import 'pos_quote_composer_screen.dart';
 import 'pos_quote_detail_screen.dart';
 
@@ -593,7 +594,11 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
 
   Future<void> _openSide(String which) async {
     await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => which == 'care' ? const PosQuoteCareBoardScreen() : const PosContractReceivablesScreen()));
+        builder: (_) => switch (which) {
+              'care' => const PosQuoteCareBoardScreen(),
+              'report' => const PosQuoteCareReportScreen(),
+              _ => const PosContractReceivablesScreen(),
+            }));
     if (mounted) await _reloadAll();
   }
 
@@ -629,8 +634,9 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                     child: Row(
                       children: [
                         Expanded(child: _tabsBar()),
-                        // Điện thoại: 2 nút biểu tượng không nhãn → gom vào «⋯» có chữ, nhường chỗ cho 4 tab.
-                        if (MediaQuery.sizeOf(context).width < 600)
+                        // Màn hẹp: gom vào «⋯» có chữ, nhường chỗ cho 4 tab; màn rộng: nút có chữ (trước: 2 biểu tượng
+                        // không nhãn — người dùng không biết có bảng theo dõi / báo cáo chăm sóc khách).
+                        if (MediaQuery.sizeOf(context).width < 1000)
                           PopupMenuButton<String>(
                             tooltip: tr('Thêm'),
                             icon: const Icon(Icons.more_vert),
@@ -641,6 +647,11 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                                 child: ListTile(dense: true, leading: const Icon(Icons.insights_outlined),
                                     title: Text(tr('Theo dõi chăm sóc khách'))),
                               ),
+                              PopupMenuItem(
+                                value: 'report',
+                                child: ListTile(dense: true, leading: const Icon(Icons.bar_chart_outlined),
+                                    title: Text(tr('Báo cáo chăm sóc khách'))),
+                              ),
                               if (canUsePosContracts(context))
                                 PopupMenuItem(
                                   value: 'debt',
@@ -650,16 +661,21 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                             ],
                           )
                         else ...[
-                          IconButton(
-                            tooltip: tr('Theo dõi chăm sóc khách'),
+                          TextButton.icon(
                             onPressed: () => unawaited(_openSide('care')),
-                            icon: const Icon(Icons.insights_outlined),
+                            icon: const Icon(Icons.insights_outlined, size: 18),
+                            label: Text(tr('Chăm sóc khách')),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => unawaited(_openSide('report')),
+                            icon: const Icon(Icons.bar_chart_outlined, size: 18),
+                            label: Text(tr('Báo cáo CSKH')),
                           ),
                           if (canUsePosContracts(context))
-                            IconButton(
-                              tooltip: tr('Công nợ hợp đồng'),
+                            TextButton.icon(
                               onPressed: () => unawaited(_openSide('debt')),
-                              icon: const Icon(Icons.account_balance_wallet_outlined),
+                              icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
+                              label: Text(tr('Công nợ HĐ')),
                             ),
                         ],
                       ],

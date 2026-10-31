@@ -22,6 +22,7 @@ import '../../utils/pos_print_template_renderer.dart';
 import '../../utils/pos_print_template_v2_codec.dart';
 import '../../utils/pos_vietnamese_money_words.dart';
 import '../../widgets/notification_overlay.dart';
+import 'pos_quote_care_card.dart';
 import 'pos_theme.dart';
 
 import '../../theme/sbox_tokens.dart';
@@ -542,11 +543,11 @@ Map<String, String> _quoteHeaderData(
   final vat = t.vat;
   final total = t.total;
   final rateText = rate == rate.roundToDouble() ? rate.toStringAsFixed(0) : rate.toStringAsFixed(1);
-  String prof(String a, String b) =>
   // Có VAT → mẫu in kiểu riêng (cột thuế suất, trước thuế · tiền thuế · tổng sau thuế) — khớp máy chủ.
   final hasVat = _quoteHasVat(q, vat);
   final netSum = use.fold<double>(0, (a, l) => a + _quoteLineAmount(l));
   final lineRates = {for (final l in use) l.vatRate};
+  String prof(String a, String b) =>
       (profile?[a] ?? profile?[b] ?? '').toString().trim();
   final quoteTerms = (q.terms ?? '').trim();
   final storeTerms = prof('defaultTerms', 'DefaultTerms');
@@ -644,7 +645,6 @@ Map<String, String> _quoteHeaderData(
   };
 }
 
-/// Cột Hình ảnh / Bảo hành chỉ hiện khi có dòng dùng tới (khối IF trong mẫu).
 bool _quoteHasVat(PosQuote q, double vat) => q.vatMode != PosQuoteVat.none && vat > 0;
 
 String _rateText(double r) => r == r.roundToDouble() ? r.toStringAsFixed(0) : r.toStringAsFixed(1);
@@ -666,6 +666,7 @@ List<Map<String, String>> _withLineVatRates(
   return items;
 }
 
+/// Cột Hình ảnh / Bảo hành chỉ hiện khi có dòng dùng tới (khối IF trong mẫu).
 Map<String, String> _lineFlags(List<Map<String, String>> items) => {
       'Co_Anh':
           items.any((l) => (l['Hinh_Anh'] ?? '').trim().isNotEmpty) ? '1' : '',
@@ -761,6 +762,7 @@ Future<void> showPosQuoteCareSheet(
   required String quoteNo,
   String? customerName,
   String? customerPhone,
+  bool openForm = false,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -771,6 +773,7 @@ Future<void> showPosQuoteCareSheet(
       quoteNo: quoteNo,
       customerName: customerName,
       customerPhone: customerPhone,
+      openForm: openForm,
     ),
   );
 }
@@ -781,12 +784,16 @@ class _PosQuoteCareSheet extends StatefulWidget {
     required this.quoteNo,
     this.customerName,
     this.customerPhone,
+    this.openForm = false,
   });
 
   final String quoteId;
   final String quoteNo;
   final String? customerName;
   final String? customerPhone;
+
+  /// Mở sẵn ô ghi lần chăm sóc mới (bấm «Ghi lần chăm sóc»); mặc định chỉ xem dòng thời gian.
+  final bool openForm;
 
   @override
   State<_PosQuoteCareSheet> createState() => _PosQuoteCareSheetState();
@@ -801,6 +808,13 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
   bool _loading = true;
   bool _saving = false;
   List<PosQuoteActivity> _items = [];
+
+  /// Ô ghi lần chăm sóc mới đang mở (đóng → dòng thời gian chiếm cả sheet).
+  late bool _formOpen = widget.openForm;
+  bool _formAutoOpened = false;
+
+  /// Hiện cả ghi chép tự động (tạo báo giá, đổi trạng thái, thu tiền…) xen giữa các lần chăm sóc.
+  bool _showSystem = false;
 
   /// Cả khách hàng: báo giá khác + chăm sóc trên các báo giá đó.
   bool _wholeCustomer = false;
@@ -965,45 +979,47 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
     await _load();
   }
 
-  Widget _activityTile(PosQuoteActivity a, {String? quoteNo}) {
-    final when = a.createdAt == null ? '' : DateFormat('dd/MM HH:mm').format(a.createdAt!.toLocal());
-    final who = (a.employeeName ?? a.createdBy ?? '').trim();
+  Widget _activityTile(PosQuoteActivity a, {String? quoteNo, bool isLast = false}) {
     final editable = quoteNo == null && !_systemKinds.contains(a.kind);
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(_iconOf(a.kind), size: 20),
+    return PosCareTimelineTile(
+      activity: a,
+      quoteNo: quoteNo,
+      isLast: isLast,
       trailing: editable
-          ? PopupMenuButton<String>(
-              tooltip: tr('Sửa / xoá'),
-              icon: const Icon(Icons.more_vert, size: 18),
-              onSelected: (v) => v == 'edit' ? _editActivity(a) : _deleteActivity(a),
-              itemBuilder: (_) => [
-                PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
-                PopupMenuItem(value: 'delete', child: Text(tr('Xoá'))),
-              ],
+          ? SizedBox(
+              width: 28,
+              height: 22,
+              child: PopupMenuButton<String>(
+                tooltip: tr('Sửa / xoá'),
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.more_vert, size: 18),
+                onSelected: (v) => v == 'edit' ? _editActivity(a) : _deleteActivity(a),
+                itemBuilder: (_) => [
+                  PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
+                  PopupMenuItem(value: 'delete', child: Text(tr('Xoá'))),
+                ],
+              ),
             )
           : null,
-      title: Text(
-        [if ((quoteNo ?? '').isNotEmpty) quoteNo!, PosQuoteActivity.kindLabel(a.kind), when].join(' · '),
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-      ),
-      subtitle: Text([
-        if (a.score != null) 'Tiềm năng ${a.score}/10',
-        a.displayContent,
-        if (who.isNotEmpty) who,
-        if (a.nextFollowUpAt != null) 'Hẹn ${DateFormat('dd/MM HH:mm').format(a.nextFollowUpAt!.toLocal())}',
-      ].join('\n')),
     );
   }
 
-  Widget _customerHistory() {
-    if (!_histLoaded) return const Center(child: CircularProgressIndicator());
+  List<Widget> _customerHistory() {
+    if (!_histLoaded) {
+      return const [Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))];
+    }
     if (_otherQuotes.isEmpty) {
-      return Center(child: Text(tr('Khách chưa có báo giá nào khác')));
+      return [Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(tr('Khách chưa có báo giá nào khác'))))];
     }
     final money = NumberFormat('#,##0', 'vi_VN');
-    return ListView(children: [
+    return [
+      if (_histItems.isNotEmpty) ...[
+        Text(tr('Lần chăm sóc trước'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+        const SizedBox(height: 8),
+        for (var i = 0; i < _histItems.length; i++)
+          _activityTile(_histItems[i].a, quoteNo: _histItems[i].quoteNo, isLast: i == _histItems.length - 1),
+        const Divider(height: 20),
+      ],
       Text(tr('Báo giá khác của khách'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
       const SizedBox(height: 4),
       for (final q in _otherQuotes)
@@ -1021,12 +1037,7 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
             if (((q['revision'] as num?) ?? 1) > 1) 'bản sửa ${q['revision']}',
           ].join(' · ')),
         ),
-      if (_histItems.isNotEmpty) ...[
-        const Divider(height: 16),
-        Text(tr('Lần chăm sóc trước'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-        for (final h in _histItems) _activityTile(h.a, quoteNo: h.quoteNo),
-      ],
-    ]);
+    ];
   }
 
   @override
@@ -1049,6 +1060,9 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
           .toList();
       // Điền sẵn điểm tiềm năng lần chấm gần nhất — chỉ chỉnh khi khách đổi ý.
       _score ??= _items.where((a) => a.score != null).map((a) => a.score).firstOrNull;
+      // Chưa chăm sóc lần nào → mở sẵn ô ghi (không có gì để xem).
+      if (!_formAutoOpened && !_items.any(isPosCareActivity)) _formOpen = true;
+      _formAutoOpened = true;
     });
   }
 
@@ -1095,6 +1109,7 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
     _note.clear();
     _followUp = null;
     _kind = 'Note';
+    _formOpen = false;
     NotificationOverlayManager().showSuccess(
       title: 'Đã ghi',
       message: tr('Đã thêm vào lịch chăm sóc khách'),
@@ -1102,159 +1117,198 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
     await _load();
   }
 
+  Widget _form() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: SboxColors.slate200),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _kind,
+                isDense: true,
+                decoration: PosTheme.inputDecoration(label: 'Loại'),
+                items: const [
+                  DropdownMenuItem(value: 'Note', child: Text('Ghi chú')),
+                  DropdownMenuItem(value: 'Call', child: Text('Gọi điện')),
+                  DropdownMenuItem(value: 'Meeting', child: Text('Gặp khách')),
+                  DropdownMenuItem(value: 'FollowUp', child: Text('Hẹn chăm sóc')),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _kind = v);
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton.icon(
+              onPressed: () async {
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: _followUp ?? DateTime.now(),
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (d == null || !context.mounted) return;
+                final t = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.fromDateTime(_followUp ?? DateTime.now()),
+                );
+                setState(() {
+                  _followUp = DateTime(d.year, d.month, d.day, t?.hour ?? 9, t?.minute ?? 0);
+                });
+              },
+              icon: const Icon(Icons.event, size: 18),
+              label: Text(_followUp == null
+                  ? tr(_kind == 'FollowUp' ? 'Chọn hạn' : 'Hẹn lần sau')
+                  : DateFormat('dd/MM HH:mm').format(_followUp!)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          tr('Độ tiềm năng khách (0–10)'),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (var n = 0; n <= 10; n++)
+              ChoiceChip(
+                label: Text('$n'),
+                selected: _score == n,
+                selectedColor: PosQuoteActivity.scoreColor(n).withValues(alpha: 0.22),
+                labelStyle: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: _score == n ? PosQuoteActivity.scoreColor(n) : SboxColors.slate700,
+                ),
+                onSelected: (_) => setState(() => _score = n),
+              ),
+          ],
+        ),
+        if (_items.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            _potentialSummary(_items),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate700),
+          ),
+        ],
+        const SizedBox(height: 8),
+        TextField(
+          controller: _note,
+          maxLines: 3,
+          decoration: PosTheme.inputDecoration(
+            label: 'Nội dung làm việc với khách',
+          ),
+        ),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: _saving ? null : _add,
+          icon: const Icon(Icons.check),
+          label: Text(_saving ? tr('Đang lưu…') : tr('Lưu lần chăm sóc')),
+        ),
+      ]),
+    );
+  }
+
+  List<Widget> _timeline() {
+    if (_loading) {
+      return const [Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))];
+    }
+    final list = _showSystem ? _items : _items.where(isPosCareActivity).toList();
+    if (list.isEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(child: Text(tr('Chưa có lần chăm sóc nào'), style: const TextStyle(color: SboxColors.slate500))),
+        ),
+      ];
+    }
+    return [
+      for (var i = 0; i < list.length; i++) _activityTile(list[i], isLast: i == list.length - 1),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final phone = (widget.customerPhone ?? '').trim();
+    final systemCount = _items.where((a) => !isPosCareActivity(a)).length;
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottom),
       child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.72,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        height: MediaQuery.sizeOf(context).height * 0.85,
+        // Một danh sách cuộn chung: ô ghi mở ra không bóp dòng thời gian còn vài dòng (C20 ngang thấp).
+        child: ListView(
           children: [
             Text(
-              '${tr('Lịch CSKH')} · ${widget.quoteNo}',
+              '${tr('Chăm sóc khách')} · ${widget.quoteNo}',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
-            if ((widget.customerName ?? '').isNotEmpty)
+            if ((widget.customerName ?? '').isNotEmpty || phone.isNotEmpty)
               Text(
-                widget.customerName!,
+                [if ((widget.customerName ?? '').isNotEmpty) widget.customerName!, if (phone.isNotEmpty) phone]
+                    .join(' · '),
                 style: TextStyle(color: SboxColors.slate700),
               ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                FilledButton.tonalIcon(
+            if (!_loading) ...[
+              const SizedBox(height: 4),
+              Text(posCareSummary(_items), style: const TextStyle(fontSize: 12.5, color: SboxColors.slate600)),
+            ],
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              _formOpen
+                  ? OutlinedButton.icon(
+                      onPressed: () => setState(() => _formOpen = false),
+                      icon: const Icon(Icons.expand_less, size: 18),
+                      label: Text(tr('Ẩn ô ghi')),
+                    )
+                  : FilledButton.icon(
+                      onPressed: () => setState(() => _formOpen = true),
+                      icon: const Icon(Icons.add_comment_outlined, size: 18),
+                      label: Text(tr('Ghi lần chăm sóc')),
+                    ),
+              if (phone.isNotEmpty)
+                OutlinedButton.icon(
                   onPressed: () {
                     // Gọi xong ghi kết quả cuộc gọi luôn.
-                    setState(() => _kind = 'Call');
+                    setState(() {
+                      _kind = 'Call';
+                      _formOpen = true;
+                    });
                     callPosQuoteCustomer(widget.customerPhone);
                   },
                   icon: const Icon(Icons.call, size: 18),
                   label: Text(tr('Gọi khách')),
                 ),
-                if ((widget.customerPhone ?? '').isNotEmpty)
-                  Text(widget.customerPhone!,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _kind,
-                    isDense: true,
-                    decoration: PosTheme.inputDecoration(label: 'Loại'),
-                    items: const [
-                      DropdownMenuItem(value: 'Note', child: Text('Ghi chú')),
-                      DropdownMenuItem(value: 'Call', child: Text('Gọi điện')),
-                      DropdownMenuItem(value: 'Meeting', child: Text('Gặp khách')),
-                      DropdownMenuItem(
-                          value: 'FollowUp', child: Text('Hẹn chăm sóc')),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) setState(() => _kind = v);
-                    },
+            ]),
+            if (_formOpen) ...[
+              const SizedBox(height: 10),
+              _form(),
+            ],
+            const Divider(height: 24),
+            _scopeToggle(),
+            if (!_wholeCustomer && systemCount > 0)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: FilterChip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(tr('Hiện thao tác hệ thống ($systemCount)')),
+                    selected: _showSystem,
+                    onSelected: (v) => setState(() => _showSystem = v),
                   ),
                 ),
-                ...[
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    onPressed: () async {
-                      final d = await showDatePicker(
-                        context: context,
-                        initialDate: _followUp ?? DateTime.now(),
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                      );
-                      if (d == null || !context.mounted) return;
-                      final t = await showTimePicker(
-                        context: context,
-                        initialTime: TimeOfDay.fromDateTime(
-                            _followUp ?? DateTime.now()),
-                      );
-                      setState(() {
-                        _followUp = DateTime(
-                          d.year,
-                          d.month,
-                          d.day,
-                          t?.hour ?? 9,
-                          t?.minute ?? 0,
-                        );
-                      });
-                    },
-                    icon: const Icon(Icons.event, size: 18),
-                    label: Text(_followUp == null
-                        ? tr(_kind == 'FollowUp' ? 'Chọn hạn' : 'Hẹn lần sau')
-                        : DateFormat('dd/MM HH:mm').format(_followUp!)),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              tr('Độ tiềm năng khách (0–10)'),
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (var n = 0; n <= 10; n++)
-                  ChoiceChip(
-                    label: Text('$n'),
-                    selected: _score == n,
-                    selectedColor: PosQuoteActivity.scoreColor(n).withValues(alpha: 0.22),
-                    labelStyle: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: _score == n
-                          ? PosQuoteActivity.scoreColor(n)
-                          : SboxColors.slate700,
-                    ),
-                    onSelected: (_) => setState(() => _score = n),
-                  ),
-              ],
-            ),
-            if (_items.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                _potentialSummary(_items),
-                style: TextStyle(fontSize: 12, color: SboxColors.slate700),
               ),
-            ],
-            const SizedBox(height: 8),
-            TextField(
-              controller: _note,
-              maxLines: 3,
-              decoration: PosTheme.inputDecoration(
-                label: 'Nội dung làm việc với khách',
-              ),
-            ),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: _saving ? null : _add,
-              icon: const Icon(Icons.add_comment_outlined),
-              label: Text(_saving ? tr('Đang lưu…') : tr('Ghi lịch')),
-            ),
-            const Divider(height: 20),
-            _scopeToggle(),
-            const SizedBox(height: 6),
-            Expanded(
-              child: _wholeCustomer
-                  ? _customerHistory()
-                  : _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _items.isEmpty
-                      ? Center(child: Text(tr('Chưa có lịch làm việc với khách')))
-                      : ListView.separated(
-                          itemCount: _items.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (_, i) => _activityTile(_items[i]),
-                        ),
-            ),
+            const SizedBox(height: 10),
+            ...(_wholeCustomer ? _customerHistory() : _timeline()),
           ],
         ),
       ),
@@ -1270,14 +1324,4 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
         avg == avg.roundToDouble() ? avg.toInt().toString() : avg.toStringAsFixed(1);
     return tr('Lần gần nhất $latest/10 · trung bình $avgText/10 (${scores.length} lần)');
   }
-
-  IconData _iconOf(String kind) => switch (kind) {
-        'Call' => Icons.call,
-        'Meeting' => Icons.groups_outlined,
-        'FollowUp' => Icons.event_available_outlined,
-        'Created' => Icons.request_quote_outlined,
-        'Edit' => Icons.edit_outlined,
-        'Status' => Icons.flag_outlined,
-        _ => Icons.sticky_note_2_outlined,
-      };
 }

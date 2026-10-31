@@ -807,6 +807,7 @@
   "Báo cáo & lương": "보고서 및 급여",
   "Báo cáo & phân tích dữ liệu": "보고서 및 데이터 분석",
   "Báo cáo (cũ)": "보고서 (이전)",
+  "Báo cáo CSKH": "고객 관리 보고서",
   "Báo cáo POS": "POS 보고서",
   "Báo cáo POS (tổng hợp)": "POS 보고서 (종합)",
   "Báo cáo POS → Tồn kho / Nhập hàng / Hàng sắp hết hạn để theo dõi tổng": "POS 보고서 → 재고 / 입고 / 유통기한 임박 상품에서 전체를 확인하세요",
@@ -816,6 +817,7 @@
   "Báo cáo chi nhánh": "지점 보고서",
   "Báo cáo chi phí": "비용 보고서",
   "Báo cáo chi tiết": "상세 보고서",
+  "Báo cáo chăm sóc khách": "고객 관리 보고서",
   "Báo cáo chấm công": "근태 보고서",
   "Báo cáo cuối ngày": "일일 마감 보고서",
   "Báo cáo công nợ": "미수금 보고서",
@@ -887,6 +889,7 @@
   "Báo giá này đã có hợp đồng, đề nghị TT, bàn giao và nghiệm thu.": "이 견적서에는 이미 계약, 결제 요청, 인도 및 검수가 있습니다.",
   "Báo giá thật": "실제 견적서",
   "Báo giá đang là bản nháp. Gửi cho khách (in / PDF / Zalo) rồi bấm «Phát hành» để ghi nhận đã gửi.": "견적서가 초안 상태입니다. 고객에게 보내고(인쇄 / PDF / Zalo) «발행»을 눌러 발송을 기록하세요.",
+  "Báo giá đang là bản nháp. Gửi cho khách (nút «Gửi / In» phía trên) rồi bấm «Phát hành» để ghi nhận đã gửi.": "견적서가 임시 저장 상태입니다. 고객에게 보낸 뒤(위의 «보내기 / 인쇄» 버튼) «발행»을 눌러 발송을 기록하세요.",
   "Báo giá đã hết hạn.": "견적서가 만료되었습니다.",
   "Báo giá đã hủy.": "견적서가 취소되었습니다.",
   "Báo giá đã khóa": "견적서 잠김",
@@ -1599,6 +1602,7 @@
   "Bỏ": "해제",
   "Bỏ Chủ nhật / ngày nghỉ hằng tuần theo hồ sơ lương và ngày lễ trong khoảng nghỉ": "급여 프로필의 일요일 / 주간 휴일과 휴가 기간 내 공휴일 제외",
   "Bỏ PT phụ trách": "담당 트레이너 해제",
+  "Bỏ bản đã chốt, dựng lại theo mẫu và số liệu mới nhất.": "확정본을 버리고 최신 수치로 템플릿에서 다시 만듭니다.",
   "Bỏ bộ lọc": "필터 해제",
   "Bỏ chọn": "선택 해제",
   "Bỏ chọn hết": "모두 선택 해제",
@@ -2141,6 +2145,8 @@
   "Chưa chia đợt thanh toán — bấm «Sửa» để chia (cọc, lắp đặt, nghiệm thu…).": "결제 단계가 나뉘어 있지 않습니다 — «수정»을 눌러 나누세요(보증금, 설치, 검수 등).",
   "Chưa chia đợt thanh toán.": "결제 단계가 나뉘어 있지 않습니다.",
   "Chưa chép được lời — bạn bấm micro nói lại sau vài giây.": "음성을 받아 적지 못했습니다 — 잠시 후 마이크를 눌러 다시 말해 주세요.",
+  "Chưa chăm sóc lần nào": "아직 관리 기록이 없습니다",
+  "Chưa chăm sóc lần nào. Sau mỗi lần gọi / gặp khách, bấm «Ghi lần chăm sóc» để lưu lại đã trao đổi gì.": "아직 관리 기록이 없습니다. 고객과 통화하거나 만난 뒤 «관리 기록 추가»를 눌러 어떤 이야기를 했는지 남기세요.",
   "Chưa chấm": "미기록",
   "Chưa chấm Ra: hệ thống báo thiếu chấm, không tính OT.": "퇴근 기록 없음: 시스템이 타각 누락으로 표시하며 초과근무는 계산되지 않습니다.",
   "Chưa chấm công": "아직 출퇴근 기록 없음",
@@ -2391,6 +2397,8 @@
   "Chưa có lượt tập": "운동 기록이 없습니다",
   "Chưa có lượt tập trong kỳ.": "기간 내 운동 기록이 없습니다.",
   "Chưa có lần bảo hành nào": "보증 처리 내역 없음",
+  "Chưa có lần chăm sóc nào": "아직 관리 기록이 없습니다",
+  "Chưa có lần chăm sóc nào trong khoảng này": "이 기간에 관리 기록이 없습니다",
   "Chưa có lần chấm nào khác": "다른 출퇴근 기록 없음",
   "Chưa có lần kiểm kê nào": "재고 실사 내역 없음",
   "Chưa có lần sử dụng": "사용 내역 없음",
@@ -2798,6 +2806,7 @@
   "Chưa quay lại được": "되돌아가지 못했습니다",
   "Chưa quét khuôn mặt. Vui lòng bấm lại và hoàn tất bước quét mặt.": "얼굴 스캔이 되지 않았습니다. 다시 누르고 얼굴 스캔 단계를 완료하세요.",
   "Chưa ra": "미퇴근",
+  "Chưa rõ người ghi": "작성자 미상",
   "Chưa rõ người lập": "작성자 불명",
   "Chưa rõ tài khoản": "계정 불명",
   "Chưa seed được danh mục chi phí. Thử tải lại.": "비용 항목을 초기화하지 못했습니다. 다시 불러오세요.",
@@ -3076,6 +3085,7 @@
   "Chỉ gộp được dòng cùng sản phẩm, ghi chú, topping và chiết khấu.": "상품, 메모, 토핑, 할인이 같은 항목만 합칠 수 있습니다.",
   "Chỉ gửi cho người đã liên kết Zalo": "Zalo를 연결한 사람에게만 발송",
   "Chỉ gửi một số loại thông báo": "일부 알림 유형만 전송",
+  "Chỉ hiện 500 lần mới nhất — thu hẹp khoảng ngày để xem hết.": "최근 500건만 표시합니다 — 전체를 보려면 기간을 좁히세요.",
   "Chỉ hiện cho lần nhập này. Muốn luôn hiện: «Tùy chỉnh form».": "이번 입력에만 표시됩니다. 항상 표시하려면 «양식 사용자 지정».",
   "Chỉ hiện món đã gán máy tem khác khi lọc «Tem máy khác».": "«다른 라벨 프린터» 필터를 적용할 때만 다른 라벨 프린터에 배정된 메뉴가 표시됩니다.",
   "Chỉ hiện một lần. Gửi cho người dùng qua kênh an toàn và yêu cầu đổi ngay.": "한 번만 표시됩니다. 안전한 경로로 사용자에게 전달하고 즉시 변경하도록 요청하세요.",
@@ -4132,6 +4142,7 @@
   "Công khai (đăng ký)": "공개 (등록)",
   "Công khai đăng ký": "공개 등록",
   "Công nợ": "채권·채무",
+  "Công nợ HĐ": "계약 미수금",
   "Công nợ KH": "고객 채권",
   "Công nợ NCC / khách (nếu module được bật)": "공급업체 / 고객 채권·채무 (모듈이 켜진 경우)",
   "Công nợ hiện tại": "현재 채권·채무",
@@ -4881,6 +4892,7 @@
   "Dùng máy in tem": "라벨 프린터 사용",
   "Dùng máy in tem (cục bộ)": "라벨 프린터 사용 (로컬)",
   "Dùng mẫu": "템플릿 사용",
+  "Dùng mẫu in khác cho riêng chứng từ này.": "이 서류에만 다른 인쇄 템플릿을 사용합니다.",
   "Dùng mẫu nhanh": "빠른 템플릿 사용",
   "Dùng mẫu này": "이 템플릿 사용",
   "Dùng mẫu này khi in": "인쇄 시 이 템플릿 사용",
@@ -5169,7 +5181,9 @@
   "Ghi chú dòng hàng": "상품 행 메모",
   "Ghi chú hệ thống (liên kết chứng từ)": "시스템 메모 (전표 연결)",
   "Ghi chú hợp đồng": "계약 메모",
+  "Ghi chú in": "인쇄 메모",
   "Ghi chú in riêng…": "별도 인쇄 메모…",
+  "Ghi chú in trên chứng từ": "서류에 인쇄되는 메모",
   "Ghi chú khác (tùy chọn)": "기타 메모 (선택)",
   "Ghi chú khách": "고객 메모",
   "Ghi chú khách để lại": "고객이 남긴 메모",
@@ -5199,6 +5213,7 @@
   "Ghi chỉ tiêu": "목표 입력",
   "Ghi chỉ tiêu lên Sheet": "목표를 시트에 기록",
   "Ghi hạn bảo hành để nhận nhắc trước khi hết hạn.": "보증 기간을 입력하면 만료 전에 알림을 받을 수 있습니다.",
+  "Ghi lần chăm sóc": "관리 기록 추가",
   "Ghi lịch": "일정 기록",
   "Ghi lịch thất bại": "일정 기록 실패",
   "Ghi nhận": "기록",
@@ -5579,6 +5594,7 @@
   "Giữ app mở — nhận lệnh in cloud (LAN/BT/USB)": "앱을 열어 두세요 — 클라우드 인쇄 명령 수신 (LAN/BT/USB)",
   "Giữ chỗ": "재고 확보",
   "Giữ chỗ tồn tự đối soát lại với các đơn đang mở mỗi đêm (3 giờ sáng)": "재고 확보분은 매일 밤(새벽 3시) 열려 있는 주문과 자동 대조됩니다",
+  "Giữ cố định bản in hiện tại rồi sửa từng chữ; số liệu không tự cập nhật nữa.": "현재 인쇄본을 고정한 뒤 문구를 수정합니다. 수치는 더 이상 자동 갱신되지 않습니다.",
   "Giữ giá cũ": "기존 가격 유지",
   "Giữ lại": "유지",
   "Giữ lại dòng bảng này": "이 표 행 유지",
@@ -5811,6 +5827,9 @@
   "Gợi ý:": "제안:",
   "Gợi ý: ": "힌트: ",
   "Gửi": "보내기",
+  "Gửi / In": "보내기 / 인쇄",
+  "Gửi / in báo giá": "견적서 보내기 / 인쇄",
+  "Gửi / in chứng từ": "서류 보내기 / 인쇄",
   "Gửi / phát hành": "보내기 / 발행",
   "Gửi ENQ (0x05) — DIGI, một số cân Nhật": "ENQ (0x05) 전송 — DIGI, 일부 일본 저울",
   "Gửi Email": "이메일 보내기",
@@ -5840,6 +5859,7 @@
   "Gửi hủy": "취소 요청 보내기",
   "Gửi khiếu nại": "불만 접수",
   "Gửi khách": "고객에게 전송",
+  "Gửi khách / In…": "고객에게 보내기 / 인쇄…",
   "Gửi kiến nghị": "건의 접수",
   "Gửi kiến nghị / khiếu nại": "건의 / 불만 보내기",
   "Gửi link": "링크 보내기",
@@ -6639,6 +6659,7 @@
   "In": "인쇄",
   "In / bật QR": "인쇄 / QR 켜기",
   "In / giao hàng": "인쇄 / 배송",
+  "In / tải file": "인쇄 / 파일 다운로드",
   "In 2 liên": "2부 인쇄",
   "In QR dán bàn: khách tự gọi món trên điện thoại, máy POS đọc loa khi có đơn, thanh toán tại quầy.": "테이블 부착용 QR 인쇄: 고객이 휴대폰으로 직접 주문하고, 주문이 들어오면 POS가 소리로 알리며, 계산은 카운터에서 합니다.",
   "In QR tổng tiền đơn (cần thiết lập tài khoản NH)": "주문 총액 QR 인쇄 (은행 계좌 설정 필요)",
@@ -7018,6 +7039,7 @@
   "Khách đã từ chối báo giá này.": "고객이 이 견적을 거절했습니다.",
   "Khách đã đến": "고객 도착",
   "Khách đăng ký qua link này, cửa hàng sẽ tự gán cho đại lý.": "고객이 이 링크로 등록하면 매장이 자동으로 대리점에 배정합니다.",
+  "Khách được chăm sóc": "관리한 고객",
   "Khách được lưu vào danh sách khách hàng POS — bán thẻ / gói tập cho khách ở màn Bán hàng.": "고객은 POS 고객 목록에 저장됩니다 — 판매 화면에서 고객에게 카드/이용권을 판매하세요.",
   "Khách đặt": "고객 예약",
   "Khách đặt: 0": "고객 예약: 0",
@@ -9000,6 +9022,7 @@
   "Lưu hàng hóa trước khi thêm hàng cùng loại lên server.": "같은 유형의 상품을 서버에 추가하기 전에 먼저 상품을 저장하세요.",
   "Lưu hướng dẫn": "안내 저장",
   "Lưu hồ sơ": "프로필 저장",
+  "Lưu lần chăm sóc": "관리 기록 저장",
   "Lưu mẫu": "양식 저장",
   "Lưu mức lương": "급여 수준 저장",
   "Lưu nháp": "임시 저장",
@@ -9192,6 +9215,7 @@
   "Lần 4": "4회",
   "Lần 5": "5회",
   "Lần 6": "6회",
+  "Lần chăm sóc": "관리 횟수",
   "Lần chăm sóc trước": "이전 관리 일자",
   "Lần chấm": "체크 횟수",
   "Lần chấm ngoài vị trí trước đây": "이전 위치 외 출퇴근 기록",
@@ -9216,6 +9240,7 @@
   "Lần đi trễ": "지각 횟수",
   "Lần đầu": "처음",
   "Lần đồng bộ cuối": "마지막 동기화 시각",
+  "Lập chứng từ": "서류 작성",
   "Lập chứng từ thất bại": "증빙 작성 실패",
   "Lập chứng từ trước rồi mới sửa riêng nội dung": "먼저 증빙을 작성한 뒤 내용만 따로 수정하세요",
   "Lập hóa đơn thay thế": "대체 전자세금계산서 발행",
@@ -9223,6 +9248,7 @@
   "Lập hợp đồng cần ghi nhận khách đã chốt báo giá — nhờ quản lý thao tác.": "계약서를 작성하려면 고객이 견적을 확정한 사실을 기록해야 합니다 — 관리자에게 요청하세요.",
   "Lập ngoài POS": "POS 외 작성",
   "Lập ngoài POS (không có đơn tương ứng)": "POS 외부에서 작성 (해당 주문 없음)",
+  "Lập nốt hồ sơ còn thiếu": "누락된 서류 작성",
   "Lập phiếu chi": "지출 전표 작성",
   "Lập phiếu thu": "입금 전표 작성",
   "Lắp tủ bếp nhà chị Lan": "란 씨 댁 주방 수납장 설치",
@@ -11185,6 +11211,7 @@
   "Nhân viên — xem thông tin cá nhân": "직원 — 개인 정보 보기",
   "Nhân viên, phòng ban": "직원, 부서",
   "Nhân viên, phòng ban, thiết lập lương, tài liệu": "직원, 부서, 급여 설정, 문서",
+  "Nhân viên: Tất cả": "직원: 전체",
   "Nhân viên: Vào/Ra ca hành chính → rồi Vào/Ra ca tăng ca riêng.": "직원: 일반 근무 출근/퇴근 → 이어서 별도 초과근무 출근/퇴근.",
   "Nhãn": "라벨",
   "Nhãn (badge)": "배지",
@@ -11556,6 +11583,7 @@
   "Nhập/xuất kho để thấy lịch sử": "입고/출고하면 이력을 볼 수 있습니다",
   "Nhật Bản": "일본",
   "Nhật ký": "로그",
+  "Nhật ký chăm sóc": "관리 기록",
   "Nhật ký hệ thống": "시스템 로그",
   "Nhật ký kho Sbox": "Sbox 재고 로그",
   "Nhật ký thao tác AI": "AI 작업 기록",
@@ -13027,6 +13055,7 @@
   "Số lượt tối đa": "최대 횟수",
   "Số lượt vi phạm": "위반 횟수",
   "Số lần": "횟수",
+  "Số lần chăm sóc theo ngày": "일별 관리 횟수",
   "Số lần chấm": "출퇴근 횟수",
   "Số lần gia hạn": "연장 횟수",
   "Số lần trễ": "지각 횟수",
@@ -13291,6 +13320,8 @@
   "Sửa nhóm hàng": "상품 분류 수정",
   "Sửa nhóm sản phẩm": "상품 그룹 수정",
   "Sửa nhóm topping": "토핑 그룹 수정",
+  "Sửa nội dung chứng từ": "서류 내용 수정",
+  "Sửa nội dung…": "내용 수정…",
   "Sửa phiếu": "전표 수정",
   "Sửa phiếu phạt": "벌금 전표 수정",
   "Sửa phòng ban": "부서 수정",
@@ -13646,6 +13677,7 @@
   "Theo ngày xếp lịch": "일정 등록일 기준",
   "Theo ngày đến": "도착일별",
   "Theo người bán · bấm một dòng để xem hóa đơn và hàng đã bán của người đó": "판매자별 · 행을 누르면 해당 판매자의 영수증과 판매 상품을 볼 수 있습니다",
+  "Theo người chăm sóc": "담당자별",
   "Theo người duyệt": "승인자별",
   "Theo ngưỡng (1 / 0,5)": "기준치에 따라 (1 / 0.5)",
   "Theo nhà cung cấp": "공급업체별",
@@ -16929,6 +16961,7 @@
   "Việc cần xử lý": "처리할 업무",
   "Việc của tôi": "내 업무",
   "Việc hằng ngày không cần tạo.": "매일 하는 업무는 생성할 필요 없습니다.",
+  "Việc khác": "기타 작업",
   "Việc khác — tự nhập tên": "기타 업무 — 이름 직접 입력",
   "Việc lẻ": "단발 업무",
   "Việc lẻ (không thuộc nhóm)": "단발 업무 (그룹 없음)",
@@ -17294,6 +17327,7 @@
   "Xem / Sửa": "보기 / 수정",
   "Xem / Trả lời": "보기 / 답변",
   "Xem / in hợp đồng": "계약서 보기 / 인쇄",
+  "Xem / khôi phục các lần sửa trước.": "이전 수정 내역 보기 / 복원",
   "Xem = mở menu. Sửa = đổi cấu hình / gán món / tách bill. Thu ngân chỉ cần Xem bán hàng — không tick Sửa thiết lập POS.": "보기 = 메뉴 열기. 수정 = 설정 변경 / 메뉴 배정 / 영수증 분할. 계산원은 판매 보기 권한만 필요합니다 — POS 설정 수정은 체크하지 마세요.",
   "Xem HĐĐT": "전자세금계산서 보기",
   "Xem QR": "QR 보기",
@@ -19425,6 +19459,7 @@
   "Điểm lấy hàng": "픽업 지점",
   "Điểm nổi bật (mỗi dòng một ý)": "주요 특징 (한 줄에 하나)",
   "Điểm số": "점수",
+  "Điểm tiềm năng TB": "평균 잠재 점수",
   "Điểm tích luỹ": "적립 포인트",
   "Điểm tích lũy": "적립 포인트",
   "Điểm đang có": "보유 포인트",
@@ -21112,6 +21147,7 @@
   "Đổi loại": "유형 변경",
   "Đổi lương từ ngày": "급여 변경 적용일",
   "Đổi lấy ca ngày": "주간 근무조와 교환",
+  "Đổi lời văn / bố cục riêng chứng từ này; số tiền, hàng hóa vẫn theo báo giá.": "이 서류의 문구 / 레이아웃만 바꿉니다. 금액과 품목은 견적서를 따릅니다.",
   "Đổi màu": "색상 변경",
   "Đổi máy": "단말기 변경",
   "Đổi máy bảo hành": "보증 교환 기기",
@@ -21468,6 +21504,7 @@
   "Ẩn mật khẩu": "비밀번호 숨기기",
   "Ẩn sản phẩm khỏi mọi kênh bán": "모든 판매 채널에서 상품 숨기기",
   "Ẩn số tiền": "금액 숨기기",
+  "Ẩn ô ghi": "입력란 숨기기",
   "Ẩn đăng ký": "신청 숨기기",
   "Ẩn đơn ": "주문 숨기기 ",
   "ẩn POS": "POS 숨김",
@@ -23059,6 +23096,10 @@
    "근무조에 이미 데이터가 발생했습니다: {0}. 삭제하면 근태 및 급여 이력이 틀어집니다.\n\n"
   ],
   [
+   "Cao nhất {0} lần/ngày",
+   "최고 하루 {0}회"
+  ],
+  [
    "Chi nhánh \"{0}\" đã được xóa.",
    "지점 \"{0}\"이(가) 삭제되었습니다."
   ],
@@ -23257,6 +23298,10 @@
   [
    "Chính sách lương: {0} · TC ×{1} · ×{2} · ×{3}",
    "급여 정책: {0} · 초과근무 ×{1} · ×{2} · ×{3}"
+  ],
+  [
+   "Chăm sóc khách ({0})",
+   "고객 관리 ({0})"
   ],
   [
    "Chưa chọn NV cho «{0}»",
@@ -24535,6 +24580,10 @@
    "별도 인쇄 메모 — {0}"
   ],
   [
+   "Ghi chú in: {0}",
+   "인쇄 메모: {0}"
+  ],
+  [
    "Ghi chú nhanh ({0})",
    "빠른 메모 ({0})"
   ],
@@ -24883,6 +24932,10 @@
    "주문 {0} · 서빙 {1}"
   ],
   [
+   "Gọi {0} · gặp {1} · ghi chú {2} · hẹn {3}",
+   "전화 {0} · 면담 {1} · 메모 {2} · 예약 {3}"
+  ],
+  [
    "Gọi điện cho {0}",
    "{0}에게 전화"
   ],
@@ -25025,6 +25078,10 @@
   [
    "Hiện nút Tạm tính lúc thanh toán — đánh dấu {0} và in hóa đơn tạm",
    "결제 시 가계산 버튼 표시 — {0}에 표시하고 임시 영수증 출력"
+  ],
+  [
+   "Hiện thao tác hệ thống ({0})",
+   "시스템 작업 표시 ({0})"
   ],
   [
    "Hiện tại: {0} · {1}",
@@ -25533,6 +25590,10 @@
   [
    "In {0} phiếu bếp trên «{1}»?",
    "«{1}»에서 주방 전표 {0}건을 출력하시겠습니까?"
+  ],
+  [
+   "In ở dòng «Ghi chú:» cuối chứng từ {0}, sau ghi chú đơn của báo giá. Chỉ chứng từ này có. Để trống nếu không cần.",
+   "서류 {0} 끝의 «메모:» 줄에 견적서 메모 다음으로 인쇄됩니다. 이 서류에만 적용됩니다. 필요 없으면 비워 두세요."
   ],
   [
    "KH Kích key ({0})",
@@ -30743,6 +30804,10 @@
    "기한 {0}/{1}"
   ],
   [
+   "hẹn {0}",
+   "예약 {0}"
+  ],
+  [
    "khoán {0} đ",
    "정액 {0} đ"
   ],
@@ -31189,6 +31254,10 @@
   [
    "{0} bài mới",
    "새 게시물 {0}건"
+  ],
+  [
+   "{0} báo giá",
+   "견적서 {0}건"
   ],
   [
    "{0} bình chọn chưa trả lời",
@@ -31679,6 +31748,10 @@
    "{0}회 ({1}분)"
   ],
   [
+   "{0} lần chăm sóc",
+   "관리 {0}회"
+  ],
+  [
    "{0} lần liên hệ",
    "연락 {0}회"
   ],
@@ -31689,6 +31762,10 @@
   [
    "{0} lần {1}",
    "{0}회 {1}"
+  ],
+  [
+   "{0} lần · gọi {1} · gặp {2} · {3} BG",
+   "{0}회 · 전화 {1} · 면담 {2} · 견적 {3}건"
   ],
   [
    "{0} lần · {1}",
@@ -34367,6 +34444,10 @@
    "\"{2}\"의 기기 {0}대를 해제하고 계정 {1}개를 로그아웃했습니다"
   ],
   [
+   "Đã giữ {0} · quá hạn {1} · sắp tới {2}",
+   "지킴 {0} · 기한 초과 {1} · 예정 {2}"
+  ],
+  [
    "Đã gán {0} bàn — đơn QR sẽ ghi về chi nhánh này",
    "테이블 {0}개를 배정했습니다 — QR 주문이 이 지점에 기록됩니다"
   ],
@@ -34533,6 +34614,10 @@
   [
    "Đã hẹn giờ đăng {0}",
    "{0}에 게시 예약했습니다"
+  ],
+  [
+   "Đã hẹn {0}",
+   "예약했던 {0}"
   ],
   [
    "Đã hủy ({0})",

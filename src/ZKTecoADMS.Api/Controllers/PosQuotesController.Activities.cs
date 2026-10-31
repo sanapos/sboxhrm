@@ -291,6 +291,81 @@ public partial class PosQuotesController
         }));
     }
 
+    /// <summary>
+    /// Báo cáo + nhật ký chăm sóc khách của cửa hàng trong khoảng ngày (giờ VN): tổng số lần, theo loại, theo ngày,
+    /// theo người ghi, hẹn đã giữ / quá hạn, và danh sách các lần chăm sóc mới nhất. Nhân viên chỉ thấy báo giá của mình.
+    /// Không có <paramref name="from"/> / <paramref name="to"/> → <paramref name="days"/> ngày gần nhất tính tới hôm nay.
+    /// </summary>
+    [HttpGet("care-log")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> CareLog(
+        [FromQuery] int days = 30, [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null,
+        [FromQuery] Guid? employeeId = null, [FromQuery] string? kind = null)
+    {
+        var storeId = RequiredStoreId;
+        var now = DateTime.UtcNow;
+        var toDay = to ?? PosQuoteCareLog.LocalDay(now);
+        var fromDay = from ?? toDay.AddDays(-(Math.Clamp(days, 1, 366) - 1));
+        if (fromDay > toDay) (fromDay, toDay) = (toDay, fromDay);
+        if (toDay.DayNumber - fromDay.DayNumber > 366) fromDay = toDay.AddDays(-366);
+        var fromUtc = PosQuoteCareLog.LocalDayStartUtc(fromDay);
+        var toUtc = PosQuoteCareLog.LocalDayStartUtc(toDay.AddDays(1));
+        string[] system = [.. PosQuoteCareBoard.SystemKinds];
+        var scopedIds = ApplyOwnScope(dbContext.PosQuotes.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.Deleted == null)).Select(x => x.Id);
+        var since = await dbContext.PosQuoteActivities.AsNoTracking()
+            .Where(a => a.StoreId == storeId && a.Deleted == null && a.CreatedAt >= fromUtc
+                        && !system.Contains(a.Kind) && scopedIds.Contains(a.QuoteId))
+            .ToListAsync();
+        var k = string.IsNullOrWhiteSpace(kind) ? null : NormalizeActivityKind(kind);
+        var inRange = since.Where(a => a.CreatedAt < toUtc
+                                       && (employeeId == null || a.EmployeeId == employeeId)
+                                       && (k == null || a.Kind == k))
+            .OrderByDescending(a => a.CreatedAt).ToList();
+        var qIds = since.Select(a => a.QuoteId).Distinct().ToList();
+        var quotes = await dbContext.PosQuotes.AsNoTracking()
+            .Where(x => qIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id);
+        var (summary, byDay) = PosQuoteCareLog.Build(inRange, since, quotes, fromDay, toDay, now);
+
+        var mapped = await MapActivitiesAsync(inRange);
+        var byStaff = inRange.Zip(mapped)
+            .GroupBy(p => p.First.EmployeeId is Guid e ? e.ToString() : "u:" + (p.First.CreatedBy ?? ""))
+            .Select(g => new
+            {
+                employeeId = g.First().First.EmployeeId,
+                name = g.First().Second.EmployeeName ?? g.First().First.CreatedBy,
+                count = g.Count(),
+                calls = g.Count(p => p.First.Kind == "Call"),
+                meetings = g.Count(p => p.First.Kind == "Meeting"),
+                quotes = g.Select(p => p.First.QuoteId).Distinct().Count(),
+            })
+            .OrderByDescending(r => r.count).ToList();
+        var items = inRange.Zip(mapped).Take(500).Select(p =>
+        {
+            var q = quotes.GetValueOrDefault(p.First.QuoteId);
+            return new
+            {
+                activity = p.Second,
+                quoteId = p.First.QuoteId,
+                quoteNo = q?.QuoteNo,
+                customerName = q?.CustomerName,
+                customerPhone = q?.CustomerPhone,
+                quoteStatus = q?.Status.ToString(),
+            };
+        });
+        return Ok(AppResponse<object>.Success(new
+        {
+            from = fromDay.ToString("yyyy-MM-dd"),
+            to = toDay.ToString("yyyy-MM-dd"),
+            summary,
+            byDay,
+            byStaff,
+            items,
+            truncated = inRange.Count > 500,
+        }));
+    }
+
     /// <summary>Báo giá + lịch chăm sóc của MỘT khách (hồ sơ khách hàng POS): theo mã khách và SĐT của khách.</summary>
     [HttpGet("customer-care")]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]

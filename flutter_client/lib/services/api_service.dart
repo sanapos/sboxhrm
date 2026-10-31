@@ -21332,6 +21332,19 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Ghi chú in trên một chứng từ (dòng «Ghi chú:» cuối bản in). Rỗng = bỏ ghi chú.
+  Future<Map<String, dynamic>> updatePosQuoteDocumentNote(String quoteId, String documentId, String note) async {
+    try {
+      final response = await http
+          .put(Uri.parse('$baseUrl/api/pos/quotes/$quoteId/documents/$documentId/note'),
+              headers: _headers, body: jsonEncode({'note': note}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Dòng báo giá cần chọn seri trước khi xuất kho.
   Future<Map<String, dynamic>> getPosQuoteStockIssueSerialNeeds(String id) async {
     // Dòng cần chọn seri khi lập bàn giao / nghiệm thu.
@@ -21455,6 +21468,26 @@ class ApiService implements PayrollApi {
       final response = await http
           .get(Uri.parse('$baseUrl/api/pos/quotes/care-staff?days=$days'), headers: _headers)
           .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Báo cáo + nhật ký chăm sóc khách trong [days] ngày gần nhất (hoặc [from]–[to]).
+  Future<Map<String, dynamic>> getPosQuoteCareLog(
+      {int days = 30, DateTime? from, DateTime? to, String? employeeId, String? kind}) async {
+    String d(DateTime x) =>
+        '${x.year}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/quotes/care-log').replace(queryParameters: {
+        'days': '$days',
+        if (from != null) 'from': d(from),
+        if (to != null) 'to': d(to),
+        if (employeeId != null && employeeId.isNotEmpty) 'employeeId': employeeId,
+        if (kind != null && kind.isNotEmpty) 'kind': kind,
+      });
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -22086,6 +22119,23 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// PDF xem trước chứng từ khổ trang — cùng Chromium với «Xuất PDF», để xem trước khớp bản in.
+  Future<Uint8List?> renderPosPrintPreviewPdf(String html) async {
+    try {
+      final response = await _retryOnUnauthorized(
+        () => http
+            .post(Uri.parse('$baseUrl/api/pos/print-preview/pdf'),
+                headers: _headers, body: json.encode({'html': html}))
+            .timeout(const Duration(seconds: 90)),
+      );
+      final bytes = response.bodyBytes;
+      if (response.statusCode >= 200 && response.statusCode < 300 && bytes.length > 4 && bytes[0] == 0x25) {
+        return bytes;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<Map<String, dynamic>> _getBinary(Uri uri,
       {Duration timeout = const Duration(seconds: 120)}) async {
     try {
@@ -22119,23 +22169,6 @@ class ApiService implements PayrollApi {
       request.files.add(http.MultipartFile.fromBytes('file', bytes,
           filename: fileName,
           contentType: MediaType('application',
-  /// PDF xem trước chứng từ khổ trang — cùng Chromium với «Xuất PDF», để xem trước khớp bản in.
-  Future<Uint8List?> renderPosPrintPreviewPdf(String html) async {
-    try {
-      final response = await _retryOnUnauthorized(
-        () => http
-            .post(Uri.parse('$baseUrl/api/pos/print-preview/pdf'),
-                headers: _headers, body: json.encode({'html': html}))
-            .timeout(const Duration(seconds: 90)),
-      );
-      final bytes = response.bodyBytes;
-      if (response.statusCode >= 200 && response.statusCode < 300 && bytes.length > 4 && bytes[0] == 0x25) {
-        return bytes;
-      }
-    } catch (_) {}
-    return null;
-  }
-
               'vnd.openxmlformats-officedocument.wordprocessingml.document')));
       final streamed = await request.send().timeout(const Duration(seconds: 200));
       return _handleResponse(await http.Response.fromStream(streamed));

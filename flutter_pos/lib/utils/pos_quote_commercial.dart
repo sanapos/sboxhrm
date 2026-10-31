@@ -4,7 +4,6 @@ import '../l10n/app_tr.dart';
 import '../models/pos_quote.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
-import '../widgets/pos/pos_theme.dart';
 
 const posQuotePackageKinds = [
   'Contract',
@@ -20,18 +19,13 @@ Future<PosQuoteDocument?> createPosQuoteCommercialDoc(
   required String kind,
   bool includeImages = false,
   String? note,
-  bool skipNoteDialog = false,
 }) async {
   final api = ApiService();
   final current = quote;
+  // Không hỏi ghi chú khi lập chứng từ (người dùng không biết ghi chú dùng vào đâu).
+  final resolvedNote = note;
 
   if (!context.mounted) return null;
-  var resolvedNote = note;
-  if (!skipNoteDialog && note == null) {
-    resolvedNote = await _askCommercialNote(
-        context, PosQuoteDocument.kindLabel(kind));
-    if (resolvedNote == null) return null;
-  }
 
   final res = kind == 'StockIssue'
       ? await api.createPosQuoteStockIssue(
@@ -67,14 +61,19 @@ Future<bool> createPosQuoteCommercialPackage(
   required PosQuote quote,
   bool includeImages = false,
 }) async {
-  // Một hộp: giải thích + ghi chú (trước đây 2 hộp liên tiếp: «Tạo trọn bộ hồ sơ?» rồi «Trọn bộ hồ sơ»).
-  final note = await _askCommercialNote(
-    context,
-    'Tạo trọn bộ hồ sơ?',
-    message: 'Sẽ lập (nếu chưa có): hợp đồng, đề nghị tạm ứng, biên bản bàn giao, biên bản nghiệm thu.',
-    confirmLabel: 'Tạo hồ sơ',
+  // Chỉ xác nhận — không hỏi ghi chú.
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(tr('Tạo trọn bộ hồ sơ?')),
+      content: Text(tr('Sẽ lập (nếu chưa có): hợp đồng, đề nghị tạm ứng, biên bản bàn giao, biên bản nghiệm thu.')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Tạo hồ sơ'))),
+      ],
+    ),
   );
-  if (note == null || !context.mounted) return false;
+  if (ok != true || !context.mounted) return false;
 
   final api = ApiService();
   var current = quote;
@@ -95,8 +94,6 @@ Future<bool> createPosQuoteCommercialPackage(
       quote: current,
       kind: kind,
       includeImages: includeImages,
-      note: note,
-      skipNoteDialog: true,
     );
     if (doc != null) {
       created++;
@@ -115,46 +112,4 @@ Future<bool> createPosQuoteCommercialPackage(
     message: tr('Đã tạo $created chứng từ'),
   );
   return true;
-}
-
-/// [message]: câu giải thích phía trên ô ghi chú (vd. trọn bộ hồ sơ sẽ lập những gì).
-Future<String?> _askCommercialNote(
-  BuildContext context,
-  String title, {
-  String? message,
-  String confirmLabel = 'OK',
-}) async {
-  final c = TextEditingController();
-  final field = TextField(
-    controller: c,
-    maxLines: 3,
-    decoration: PosTheme.inputDecoration(label: 'Ghi chú chứng từ (tuỳ chọn)'),
-  );
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(tr(title)),
-      content: message == null
-          ? field
-          : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr(message)),
-              const SizedBox(height: 14),
-              field,
-            ]),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: Text(tr('Hủy')),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: Text(tr(confirmLabel)),
-        ),
-      ],
-    ),
-  );
-  final note = c.text.trim();
-  c.dispose();
-  if (ok != true) return null;
-  return note;
 }

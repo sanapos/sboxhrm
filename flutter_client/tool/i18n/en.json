@@ -10908,6 +10908,10 @@
    "The shift already has data: {0}. Deleting it would corrupt attendance and payroll history.\n\n"
   ],
   [
+   "Cao nhất {0} lần/ngày",
+   "Peak {0} per day"
+  ],
+  [
    "Chi nhánh \"{0}\" đã được xóa.",
    "Branch \"{0}\" has been deleted."
   ],
@@ -11106,6 +11110,10 @@
   [
    "Chính sách lương: {0} · TC ×{1} · ×{2} · ×{3}",
    "Pay policy: {0} · OT ×{1} · ×{2} · ×{3}"
+  ],
+  [
+   "Chăm sóc khách ({0})",
+   "Customer care ({0})"
   ],
   [
    "Chưa chọn NV cho «{0}»",
@@ -12384,6 +12392,10 @@
    "Separate print note — {0}"
   ],
   [
+   "Ghi chú in: {0}",
+   "Printed note: {0}"
+  ],
+  [
    "Ghi chú nhanh ({0})",
    "Quick notes ({0})"
   ],
@@ -12732,6 +12744,10 @@
    "Ordered {0} · Out {1}"
   ],
   [
+   "Gọi {0} · gặp {1} · ghi chú {2} · hẹn {3}",
+   "Calls {0} · meetings {1} · notes {2} · follow-ups {3}"
+  ],
+  [
    "Gọi điện cho {0}",
    "Call {0}"
   ],
@@ -12874,6 +12890,10 @@
   [
    "Hiện nút Tạm tính lúc thanh toán — đánh dấu {0} và in hóa đơn tạm",
    "Show the Pre-bill button at payment — marks {0} and prints a temporary invoice"
+  ],
+  [
+   "Hiện thao tác hệ thống ({0})",
+   "Show system events ({0})"
   ],
   [
    "Hiện tại: {0} · {1}",
@@ -13382,6 +13402,10 @@
   [
    "In {0} phiếu bếp trên «{1}»?",
    "Print {0} kitchen slips on “{1}”?"
+  ],
+  [
+   "In ở dòng «Ghi chú:» cuối chứng từ {0}, sau ghi chú đơn của báo giá. Chỉ chứng từ này có. Để trống nếu không cần.",
+   "Printed on the «Note:» line at the end of document {0}, after the quote's note. Applies to this document only. Leave blank if not needed."
   ],
   [
    "KH Kích key ({0})",
@@ -18592,6 +18616,10 @@
    "due {0}/{1}"
   ],
   [
+   "hẹn {0}",
+   "follow-up {0}"
+  ],
+  [
    "khoán {0} đ",
    "flat {0} đ"
   ],
@@ -19038,6 +19066,10 @@
   [
    "{0} bài mới",
    "{0} new posts"
+  ],
+  [
+   "{0} báo giá",
+   "{0} quotes"
   ],
   [
    "{0} bình chọn chưa trả lời",
@@ -19528,6 +19560,10 @@
    "{0} times ({1}m)"
   ],
   [
+   "{0} lần chăm sóc",
+   "{0} care activities"
+  ],
+  [
    "{0} lần liên hệ",
    "{0} contacts"
   ],
@@ -19538,6 +19574,10 @@
   [
    "{0} lần {1}",
    "{0} times {1}"
+  ],
+  [
+   "{0} lần · gọi {1} · gặp {2} · {3} BG",
+   "{0} times · calls {1} · meetings {2} · {3} quotes"
   ],
   [
    "{0} lần · {1}",
@@ -22216,6 +22256,10 @@
    "Released {0} devices and logged out {1} accounts of \"{2}\""
   ],
   [
+   "Đã giữ {0} · quá hạn {1} · sắp tới {2}",
+   "Kept {0} · overdue {1} · upcoming {2}"
+  ],
+  [
    "Đã gán {0} bàn — đơn QR sẽ ghi về chi nhánh này",
    "Assigned {0} tables — QR orders will be recorded to this branch"
   ],
@@ -22382,6 +22426,10 @@
   [
    "Đã hẹn giờ đăng {0}",
    "Scheduled to post at {0}"
+  ],
+  [
+   "Đã hẹn {0}",
+   "Was due {0}"
   ],
   [
    "Đã hủy ({0})",

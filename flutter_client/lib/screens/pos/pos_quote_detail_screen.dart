@@ -12,12 +12,13 @@ import '../../utils/pos_quote_commercial.dart';
 import '../../utils/pos_quote_export.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_contract_payment_panel.dart' show canUsePosContracts;
+import '../../widgets/pos/pos_quote_care_card.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
+import '../../widgets/pos/pos_quote_quick_actions.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_contract_detail_screen.dart';
 import 'pos_quote_composer_screen.dart';
 import 'pos_quote_document_template_screen.dart';
-import 'pos_quote_editor_screen.dart';
 import '../../utils/pos_busy.dart';
 
 /// Các bước của một hồ sơ báo giá → hợp đồng (dùng chung danh sách + màn chi tiết).
@@ -137,6 +138,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
   bool _loading = true;
   bool _busy = false;
   bool _changed = false;
+  final _careKey = GlobalKey<PosQuoteCareCardState>();
 
   void _markChanged() {
     _changed = true;
@@ -279,6 +281,20 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
     );
   }
 
+  Future<void> _sendSheet(PosQuote q) async {
+    final action = await showPosDocSendSheet(context, title: 'Gửi / in báo giá', subtitle: q.quoteNo);
+    if (action == null || !mounted) return;
+    if (action == 'print') {
+      await PosBusy.run(
+        context,
+        () => printPosQuoteSlip(context, quoteId: q.id, quote: q, includeImages: q.includeImages),
+        label: 'Đang dựng bản in báo giá…',
+      );
+      return;
+    }
+    await _share(action);
+  }
+
   Future<void> _delete() async {
     final q = _q;
     if (q == null) return;
@@ -342,33 +358,21 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
           toolbarHeight: widget.onClose != null ? 48 : null,
           actions: [
             if (q != null) ...[
-              IconButton(
-                tooltip: tr('In báo giá'),
-                onPressed: () => PosBusy.run(
-                  context,
-                  () => printPosQuoteSlip(context, quoteId: q.id, quote: q, includeImages: q.includeImages),
-                  label: 'Đang dựng bản in báo giá…',
-                ),
-                icon: const Icon(Icons.print_outlined),
+              // In + xuất file + gửi khách gom vào một nút có chữ (trước: biểu tượng máy in + 6 mục xuất trong «⋮»).
+              TextButton.icon(
+                onPressed: () => _sendSheet(q),
+                icon: const Icon(Icons.send_outlined, size: 18),
+                label: Text(tr('Gửi / In')),
               ),
               PopupMenuButton<String>(
                 tooltip: tr('Thêm'),
                 onSelected: (v) => switch (v) {
                   'content' => PosBusy.run(context, () => _editQuoteContent(q), label: 'Đang mở nội dung báo giá…'),
-                  'wording' => _push(PosQuoteEditorScreen(quoteId: q.id)),
                   'delete' => _delete(),
-                  _ => _share(v),
+                  _ => null,
                 },
                 itemBuilder: (_) => [
-                  _menu('pdf', Icons.picture_as_pdf_outlined, 'Xuất PDF'),
-                  _menu('word', Icons.description_outlined, 'Xuất Word'),
-                  _menu('excel', Icons.table_chart_outlined, 'Xuất Excel'),
-                  _menu('png', Icons.image_outlined, 'Xuất ảnh PNG'),
-                  _menu('email', Icons.email_outlined, 'Gửi Email'),
-                  _menu('facebook', Icons.facebook, 'Chia sẻ Facebook'),
-                  const PopupMenuDivider(),
                   _menu('content', Icons.edit_note_outlined, 'Sửa riêng nội dung báo giá'),
-                  _menu('wording', Icons.folder_open_outlined, 'Hồ sơ thương mại (giao diện cũ)'),
                   if (perm.canDelete('PosQuotes') && q.canDelete) ...[
                     const PopupMenuDivider(),
                     _menu('delete', Icons.delete_outline, 'Xóa báo giá', color: SboxColors.danger),
@@ -397,9 +401,20 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
                             const SizedBox(height: 12),
                             _progressCard(q, perm),
                             const SizedBox(height: 12),
-                            _contactRow(q),
+                            PosQuoteContactRow(
+                              phone: q.customerPhone,
+                              onCare: () => _careKey.currentState?.open(),
+                            ),
                             const SizedBox(height: 12),
                             _linesCard(q, perm),
+                            const SizedBox(height: 12),
+                            PosQuoteCareCard(
+                              key: _careKey,
+                              quoteId: q.id,
+                              quoteNo: q.quoteNo,
+                              customerName: q.customerName,
+                              customerPhone: q.customerPhone,
+                            ),
                             if (q.documents.any((d) => d.kind != 'Quote')) ...[
                               const SizedBox(height: 12),
                               _docsCard(q),
@@ -543,7 +558,10 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
     final contracts = canUsePosContracts(context);
 
     String hint;
-    final actions = <Widget>[];
+    // Một nút chính (bước tiếp theo) + thao tác phụ: 1 thao tác → nút viền, nhiều hơn → gom vào «Việc khác ▾»
+    // (trước đây 3–5 nút ngang nhau, khó biết bấm nút nào).
+    Widget? main;
+    final more = <(String, IconData, VoidCallback, Color?)>[];
     Widget primary(String label, IconData icon, VoidCallback? onTap) => FilledButton.icon(
           onPressed: _busy ? null : onTap,
           icon: Icon(icon, size: 18),
@@ -556,6 +574,13 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
           label: Text(tr(label), style: TextStyle(color: color)),
           style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
         );
+    void add(String label, IconData icon, VoidCallback onTap, {Color? color}) =>
+        more.add((label, icon, onTap, color));
+    Future<void> reject() async {
+      if (await _confirm('Khách từ chối?', 'Đánh dấu ${q.quoteNo} bị từ chối.', ok: 'Từ chối', danger: true)) {
+        await _run(() => _api.rejectPosQuote(q.id), 'Đã ghi nhận từ chối');
+      }
+    }
 
     if (stopped) {
       hint = switch (q.status) {
@@ -564,44 +589,35 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
         _ => 'Báo giá đã hủy.',
       };
       if (perm.canCreate('PosQuotes') || canEdit) {
-        actions.add(secondary('Tạo báo giá mới', Icons.add, () => _push(const PosQuoteComposerScreen())));
+        add('Tạo báo giá mới', Icons.add, () => _push(const PosQuoteComposerScreen()));
       }
     } else if (q.status == 'Draft' || q.status == 'Revised') {
       hint = q.status == 'Draft'
-          ? 'Báo giá đang là bản nháp. Gửi cho khách (in / PDF / Zalo) rồi bấm «Phát hành» để ghi nhận đã gửi.'
+          ? 'Báo giá đang là bản nháp. Gửi cho khách (nút «Gửi / In» phía trên) rồi bấm «Phát hành» để ghi nhận đã gửi.'
           : 'Báo giá đã sửa — phát hành lại để khách xem bản mới.';
       if (canEdit) {
-        actions.add(primary('Phát hành (đã gửi khách)', Icons.send_outlined, () async {
+        main = primary('Phát hành (đã gửi khách)', Icons.send_outlined, () async {
           if (await _confirm('Phát hành báo giá?', 'Ghi nhận đã gửi ${q.quoteNo} cho khách. Sau đó chờ khách chốt.',
               ok: 'Phát hành')) {
             await _run(() => _api.sendPosQuote(q.id), 'Đã phát hành');
           }
-        }));
-        actions.add(secondary('Sửa hàng hóa / giá', Icons.edit_outlined, _editItems));
-        if (canApprove) actions.add(secondary('Khách chốt & lập HĐ', Icons.handshake_outlined, _acceptAndContract));
+        });
+        if (canApprove) add('Khách chốt & lập HĐ', Icons.handshake_outlined, _acceptAndContract);
       }
       if (q.status == 'Revised' && canApprove) {
-        actions.add(secondary('Khách chốt', Icons.verified_outlined, () => _accept(q)));
-        actions.add(secondary('Khách từ chối', Icons.close, () async {
-          if (await _confirm('Khách từ chối?', 'Đánh dấu ${q.quoteNo} bị từ chối.', ok: 'Từ chối', danger: true)) {
-            await _run(() => _api.rejectPosQuote(q.id), 'Đã ghi nhận từ chối');
-          }
-        }, color: SboxColors.danger));
+        add('Khách chốt', Icons.verified_outlined, () => _accept(q));
+        add('Khách từ chối', Icons.close, reject, color: SboxColors.danger);
       }
     } else if (q.status == 'Sent') {
       hint = 'Đã gửi khách — chờ khách phản hồi. Khi khách đồng ý, bấm «Khách chốt» để lập hợp đồng.';
       if (canApprove) {
-        actions.add(primary('Khách chốt báo giá', Icons.verified_outlined, () => _accept(q)));
-        actions.add(secondary('Khách từ chối', Icons.close, () async {
-          if (await _confirm('Khách từ chối?', 'Đánh dấu ${q.quoteNo} bị từ chối.', ok: 'Từ chối', danger: true)) {
-            await _run(() => _api.rejectPosQuote(q.id), 'Đã ghi nhận từ chối');
-          }
-        }, color: SboxColors.danger));
+        main = primary('Khách chốt báo giá', Icons.verified_outlined, () => _accept(q));
+        if (canEdit) add('Khách chốt & lập HĐ', Icons.handshake_outlined, _acceptAndContract);
+        add('Khách từ chối', Icons.close, reject, color: SboxColors.danger);
       } else {
         hint += ' (Cần quyền duyệt báo giá để chốt.)';
       }
-      if (canEdit && canApprove) actions.add(secondary('Khách chốt & lập HĐ', Icons.handshake_outlined, _acceptAndContract));
-      if (canEdit) actions.add(secondary('Sửa (tạo bản sửa)', Icons.edit_outlined, _editItems));
+      if (canEdit) add('Sửa (tạo bản sửa)', Icons.edit_outlined, _editItems);
     } else {
       // Đã chốt — hồ sơ thương mại.
       switch (q.commercialStage) {
@@ -609,40 +625,62 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
         case 'Accepted':
           hint = 'Khách đã chốt. Lập hợp đồng (hoặc trọn bộ hồ sơ: hợp đồng + đề nghị TT + bàn giao + nghiệm thu).';
           if (canEdit) {
-            actions.add(primary('Lập hợp đồng', Icons.handshake_outlined, () => _createDoc('Contract')));
-            actions.add(secondary('Trọn bộ hồ sơ', Icons.folder_copy_outlined, _createPackage));
+            main = primary('Lập hợp đồng', Icons.handshake_outlined, () => _createDoc('Contract'));
+            add('Trọn bộ hồ sơ', Icons.folder_copy_outlined, _createPackage);
           }
         case 'Contracted':
           hint = contracts
               ? 'Đã có hợp đồng. Thu cọc / các đợt thanh toán trong hợp đồng, rồi xuất kho hoặc bàn giao.'
               : 'Đã có hợp đồng. Xuất kho hoặc bàn giao khi giao hàng.';
-          actions.add(primary(contracts ? 'Hợp đồng & thu tiền' : 'Mở hồ sơ hợp đồng', Icons.handshake_outlined,
-              _openContract));
+          main = primary(contracts ? 'Hợp đồng & thu tiền' : 'Mở hồ sơ hợp đồng', Icons.handshake_outlined,
+              _openContract);
           if (canEdit) {
-            actions.add(secondary('Xuất kho', Icons.outbox_outlined, () => _createDoc('StockIssue')));
-            actions.add(secondary('Bàn giao', Icons.local_shipping_outlined, () => _createDoc('Handover')));
-            actions.add(secondary('Giao việc thi công', Icons.engineering_outlined, _createWorkFromQuote));
+            add('Xuất kho', Icons.outbox_outlined, () => _createDoc('StockIssue'));
+            add('Bàn giao', Icons.local_shipping_outlined, () => _createDoc('Handover'));
+            add('Giao việc thi công', Icons.engineering_outlined, _createWorkFromQuote);
           }
         case 'Issued':
         case 'HandedOver':
           hint = 'Đã giao hàng. Lập biên bản nghiệm thu khi khách kiểm tra xong.';
-          if (canEdit) actions.add(primary('Nghiệm thu', Icons.fact_check_outlined, () => _createDoc('Acceptance')));
-          actions.add(secondary('Hồ sơ hợp đồng', Icons.folder_open_outlined, _openContract));
+          if (canEdit) main = primary('Nghiệm thu', Icons.fact_check_outlined, () => _createDoc('Acceptance'));
+          add('Hồ sơ hợp đồng', Icons.folder_open_outlined, _openContract);
         case 'Inspected':
           hint = 'Đã nghiệm thu. Đóng hồ sơ khi đã thu đủ tiền.';
           if (canApprove) {
-            actions.add(primary('Đóng hồ sơ', Icons.task_alt, () async {
+            main = primary('Đóng hồ sơ', Icons.task_alt, () async {
               if (await _confirm('Đóng hồ sơ?', 'Kết thúc hồ sơ ${q.quoteNo}.', ok: 'Đóng hồ sơ')) {
                 await _run(() => _api.closePosQuote(q.id), 'Đã đóng hồ sơ');
               }
-            }));
+            });
           }
-          actions.add(secondary('Hồ sơ hợp đồng', Icons.folder_open_outlined, _openContract));
+          add('Hồ sơ hợp đồng', Icons.folder_open_outlined, _openContract);
         default:
           hint = 'Hồ sơ đã hoàn tất.';
-          actions.add(secondary('Hồ sơ hợp đồng', Icons.folder_open_outlined, _openContract));
+          add('Hồ sơ hợp đồng', Icons.folder_open_outlined, _openContract);
       }
     }
+
+    final actions = <Widget>[
+      if (main != null) main,
+      if (more.length == 1)
+        secondary(more.first.$1, more.first.$2, more.first.$3, color: more.first.$4)
+      else if (more.length > 1)
+        MenuAnchor(
+          menuChildren: [
+            for (final m in more)
+              MenuItemButton(
+                leadingIcon: Icon(m.$2, size: 18, color: m.$4 ?? SboxColors.slate600),
+                onPressed: _busy ? null : m.$3,
+                child: Text(tr(m.$1), style: TextStyle(color: m.$4)),
+              ),
+          ],
+          builder: (context, controller, _) => secondary(
+            'Việc khác',
+            Icons.expand_more,
+            () => controller.isOpen ? controller.close() : controller.open(),
+          ),
+        ),
+    ];
 
     return _card(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -723,48 +761,6 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
         'Báo giá ${q.quoteNo} sẽ khóa sửa và chuyển sang bước lập hợp đồng.', ok: 'Khách chốt')) {
       await _run(() => _api.acceptPosQuote(q.id), 'Khách đã chốt');
     }
-  }
-
-  Widget _contactRow(PosQuote q) {
-    final phone = (q.customerPhone ?? '').trim();
-    Widget tile(IconData icon, String label, VoidCallback? onTap) => Expanded(
-          child: Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: onTap,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: SboxColors.slate200),
-                ),
-                child: Column(children: [
-                  Icon(icon, size: 22, color: onTap == null ? SboxColors.slate300 : PosTheme.kiotBlue),
-                  const SizedBox(height: 4),
-                  Text(tr(label),
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: onTap == null ? SboxColors.slate400 : SboxColors.slate700)),
-                ]),
-              ),
-            ),
-          ),
-        );
-    return Row(children: [
-      tile(Icons.call_outlined, 'Gọi', phone.isEmpty ? null : () => callPosQuoteCustomer(phone)),
-      const SizedBox(width: 8),
-      tile(Icons.chat_outlined, 'Zalo', phone.isEmpty ? null : () => _share('zalo')),
-      const SizedBox(width: 8),
-      tile(Icons.picture_as_pdf_outlined, 'Gửi PDF', () => _share('share')),
-      const SizedBox(width: 8),
-      tile(Icons.event_note_outlined, 'Chăm sóc', () {
-        showPosQuoteCareSheet(context,
-            quoteId: q.id, quoteNo: q.quoteNo, customerName: q.customerName, customerPhone: q.customerPhone);
-      }),
-    ]);
   }
 
   Widget _linesCard(PosQuote q, PermissionProvider perm) {

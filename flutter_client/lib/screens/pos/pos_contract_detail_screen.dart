@@ -12,7 +12,9 @@ import '../../widgets/notification_overlay.dart';
 import 'pos_quote_document_template_screen.dart';
 import 'pos_quote_document_wording_screen.dart';
 import '../../widgets/pos/pos_quote_document_tools.dart';
+import '../../widgets/pos/pos_quote_care_card.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
+import '../../widgets/pos/pos_quote_quick_actions.dart';
 import '../../widgets/pos/pos_contract_payment_panel.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_quote_detail_screen.dart' show PosQuoteFlow, PosQuoteProgress;
@@ -46,6 +48,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
   bool _loading = true;
   bool _loadedOnce = false;
   bool _busy = false;
+  final _careKey = GlobalKey<PosQuoteCareCardState>();
 
   List<PosQuoteDocument> get _docs => _quote?.documents ?? const [];
 
@@ -263,10 +266,10 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
           context,
           title: doc.title,
           htmlDocument: doc.htmlContent,
+          a4Paper: true,
         );
       }
     }
-          a4Paper: true,
   }
 
   @override
@@ -383,18 +386,31 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                                   label: Text(tr('Xem / in hợp đồng')),
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton.icon(
-                                  onPressed: _busy ? null : _createPackage,
-                                  icon: const Icon(Icons.folder_copy_outlined),
-                                  label: Text(tr('Tạo trọn bộ hồ sơ')),
+                              // Trọn bộ chỉ khi còn thiếu chứng từ (trước: nút đặc to nhất kể cả khi đã đủ 4 loại).
+                              if (_missingKinds.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton.icon(
+                                    onPressed: _busy ? null : _createPackage,
+                                    icon: const Icon(Icons.folder_copy_outlined),
+                                    label: Text(tr('Lập nốt hồ sơ còn thiếu')),
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  tr('Còn thiếu: ${_missingKinds.map((k) => PosQuoteDocument.kindLabel(k).toLowerCase()).join(', ')}'),
+                                  style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
+                                ),
+                              ],
                             ],
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      PosQuoteContactRow(
+                        phone: q.customerPhone,
+                        onCare: () => _careKey.currentState?.open(),
                       ),
                       const SizedBox(height: 14),
                       // Tiến độ HĐ, đợt thanh toán, thu cọc / thu các đợt → phiếu thu quỹ (gói có «Hợp đồng»).
@@ -405,16 +421,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                         ),
                         const SizedBox(height: 14),
                       ],
-                      _sectionHead(
-                        'Hồ sơ liên quan',
-                        Icons.folder_open_outlined,
-                        'Báo giá',
-                        () => printPosQuoteSlip(
-                          context,
-                          quoteId: q.id,
-                          quote: q,
-                        ),
-                      ),
+                      _sectionHead('Hồ sơ liên quan', Icons.folder_open_outlined, _createMenu()),
                       _docTile(
                         PosQuoteDocument(
                           id: q.id,
@@ -428,31 +435,13 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                       for (final d in _advances) _docTile(d),
                       for (final d in _handovers) _docTile(d),
                       for (final d in _acceptances) _docTile(d),
-                      const SizedBox(height: 8),
-                      // 3 nút chia đều một hàng (trước: Wrap rớt «Nghiệm thu» xuống hàng riêng, rộng lệch nhau).
-                      Row(
-                        children: [
-                          for (final (i, kind, label) in const [
-                            (0, 'PaymentRequest', 'Đề nghị TT'),
-                            (1, 'Handover', 'Bàn giao'),
-                            (2, 'Acceptance', 'Nghiệm thu'),
-                          ]) ...[
-                            if (i > 0) const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-                                ),
-                                onPressed: _busy ? null : () => _create(kind),
-                                icon: const Icon(Icons.add, size: 16),
-                                label: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(tr(label), maxLines: 1),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+                      const SizedBox(height: 14),
+                      PosQuoteCareCard(
+                        key: _careKey,
+                        quoteId: q.id,
+                        quoteNo: q.quoteNo,
+                        customerName: q.customerName,
+                        customerPhone: q.customerPhone,
                       ),
                     ],
                   ),
@@ -460,12 +449,13 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
     );
   }
 
-  Widget _sectionHead(
-    String title,
-    IconData icon,
-    String action,
-    VoidCallback onAdd,
-  ) {
+  /// Loại chứng từ của trọn bộ hồ sơ chưa lập.
+  List<String> get _missingKinds {
+    final have = _docs.map((d) => d.kind).toSet();
+    return [for (final k in posQuotePackageKinds) if (!have.contains(k)) k];
+  }
+
+  Widget _sectionHead(String title, IconData icon, Widget trailing) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -478,12 +468,39 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
             ),
           ),
-          TextButton.icon(
-            onPressed: _busy ? null : onAdd,
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(tr(action)),
-          ),
+          trailing,
         ],
+      ),
+    );
+  }
+
+  /// «+ Lập chứng từ ▾» — một nút thay 3 nút «+ Đề nghị TT / + Bàn giao / + Nghiệm thu»; loại đã có đánh dấu ✓
+  /// (lập thêm vẫn được, vd đề nghị thanh toán đợt 2).
+  Widget _createMenu() {
+    final have = <String, int>{};
+    for (final d in _docs) {
+      have[d.kind] = (have[d.kind] ?? 0) + 1;
+    }
+    return MenuAnchor(
+      menuChildren: [
+        for (final (kind, icon) in const [
+          ('PaymentRequest', Icons.payments_outlined),
+          ('Handover', Icons.local_shipping_outlined),
+          ('Acceptance', Icons.fact_check_outlined),
+        ])
+          MenuItemButton(
+            leadingIcon: Icon(icon, size: 18),
+            trailingIcon: (have[kind] ?? 0) > 0
+                ? const Icon(Icons.check_circle, size: 16, color: SboxColors.success)
+                : null,
+            onPressed: _busy ? null : () => _create(kind),
+            child: Text(tr(PosQuoteDocument.kindLabel(kind))),
+          ),
+      ],
+      builder: (context, controller, _) => TextButton.icon(
+        onPressed: _busy ? null : () => controller.isOpen ? controller.close() : controller.open(),
+        icon: const Icon(Icons.add, size: 18),
+        label: Text(tr('Lập chứng từ')),
       ),
     );
   }
@@ -557,7 +574,73 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
         child: Text(text, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
       );
 
+  /// «⋮» của một chứng từ: 3 mục có chữ (trước ~20 mục không tên nhóm, lặp cả gọi khách / CSKH ở mọi chứng từ —
+  /// liên hệ khách giờ ở hàng Gọi / Zalo / Chăm sóc đầu trang).
+  Future<void> _docAction(PosQuoteDocument d, String v) async {
+    final q = _quote;
+    if (q == null) return;
+    final label = d.title.isEmpty ? PosQuoteDocument.kindLabel(d.kind) : d.title;
+    if (v == 'send') {
+      final action = await showPosDocSendSheet(context, title: 'Gửi / in chứng từ', subtitle: '${d.docNo} · $label');
+      if (action == null || !mounted) return;
+      await PosBusy.run(
+        context,
+        () => PosQuoteExport.run(context, quote: q, action: action, documentType: d.kind, docId: d.id),
+        label: 'Đang xử lý chứng từ…',
+      );
+      return;
+    }
+    if (v == 'note') {
+      if (await editPosQuoteDocumentNote(context, quoteId: q.id, doc: d)) await _load();
+      return;
+    }
+    final pick = await showPosQuoteActionSheet(
+      context,
+      title: 'Sửa nội dung chứng từ',
+      subtitle: '${d.docNo} · $label',
+      sections: [
+        (
+          'Nội dung',
+          [
+            const PosSheetAction('content', Icons.edit_note_outlined, 'Sửa riêng nội dung (số liệu tự cập nhật)',
+                hint: 'Đổi lời văn / bố cục riêng chứng từ này; số tiền, hàng hóa vẫn theo báo giá.'),
+            const PosSheetAction('wording', Icons.lock_outline, 'Chốt bản in & sửa chữ',
+                hint: 'Giữ cố định bản in hiện tại rồi sửa từng chữ; số liệu không tự cập nhật nữa.'),
+            const PosSheetAction('template', Icons.view_quilt_outlined, 'Chọn mẫu cho chứng từ này',
+                hint: 'Dùng mẫu in khác cho riêng chứng từ này.'),
+          ]
+        ),
+        (
+          'Phiên bản',
+          [
+            const PosSheetAction('history', Icons.history, 'Lịch sử nội dung', hint: 'Xem / khôi phục các lần sửa trước.'),
+            if (d.isCustomWording)
+              const PosSheetAction('restore', Icons.restart_alt, 'Khôi phục theo mẫu',
+                  hint: 'Bỏ bản đã chốt, dựng lại theo mẫu và số liệu mới nhất.'),
+          ]
+        ),
+      ],
+    );
+    if (pick == null || !mounted) return;
+    await PosBusy.run(context, () async {
+      switch (pick) {
+        case 'content':
+          await _editContent(d);
+        case 'wording':
+          await _editWording(d);
+        case 'template':
+          if (await pickPosQuoteDocumentTemplate(context, quoteId: q.id, doc: d, api: _api)) await _load();
+        case 'history':
+          if (await showPosQuoteDocumentHistory(context, quoteId: q.id, doc: d, api: _api)) await _load();
+        case 'restore':
+          if (await restorePosQuoteDocumentToTemplate(context, quoteId: q.id, doc: d, api: _api)) await _load();
+      }
+    }, label: 'Đang xử lý chứng từ…');
+  }
+
   Widget _docTile(PosQuoteDocument d) {
+    final note = (d.note ?? '').trim();
+    final isQuote = d.kind == 'Quote';
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -576,6 +659,15 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                 if (d.issuedAt != null)
                   DateFormat('dd/MM/yyyy HH:mm').format(d.issuedAt!.toLocal()),
               ].join(' · ')),
+              // Ghi chú in trên chứng từ — trước đây chỉ thấy khi in ra.
+              if (note.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(tr('Ghi chú in: $note'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: SboxColors.slate600, fontStyle: FontStyle.italic)),
+                ),
               if (d.isCustomWording || d.printTemplateId != null || d.hasCustomTemplate)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
@@ -594,67 +686,24 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
               label: 'Đang mở ${PosQuoteDocument.kindLabel(d.kind).toLowerCase()}…'),
           trailing: PopupMenuButton<String>(
             tooltip: tr('Thao tác'),
-            onSelected: (v) => PosBusy.run(context, () async {
-              final q = _quote;
-              if (q == null) return;
-              if (v == 'content') {
-                await _editContent(d);
-                return;
-              }
-              if (v == 'wording') {
-                await _editWording(d);
-                return;
-              }
-              if (v == 'template') {
-                if (await pickPosQuoteDocumentTemplate(context, quoteId: q.id, doc: d, api: _api)) await _load();
-                return;
-              }
-              if (v == 'history') {
-                if (await showPosQuoteDocumentHistory(context, quoteId: q.id, doc: d, api: _api)) await _load();
-                return;
-              }
-              if (v == 'restore') {
-                if (await restorePosQuoteDocumentToTemplate(context, quoteId: q.id, doc: d, api: _api)) await _load();
-                return;
-              }
-              if (v == 'open') {
-                await _openDoc(d);
-                return;
-              }
-              await PosQuoteExport.run(
-                context,
-                quote: q,
-                action: v,
-                documentType: d.kind,
-                docId: d.id,
-              );
-            }, label: 'Đang xử lý chứng từ…'),
+            onSelected: (v) => _docAction(d, v),
             itemBuilder: (_) => [
-              PopupMenuItem(value: 'content', child: Text(tr('Sửa riêng nội dung (số liệu tự cập nhật)'))),
-              PopupMenuItem(value: 'wording', child: Text(tr('Chốt bản in & sửa chữ'))),
-              PopupMenuItem(value: 'template', child: Text(tr('Chọn mẫu cho chứng từ này'))),
-              if (d.isCustomWording)
-                PopupMenuItem(value: 'restore', child: Text(tr('Khôi phục theo mẫu'))),
-              PopupMenuItem(value: 'history', child: Text(tr('Lịch sử nội dung'))),
-              PopupMenuItem(value: 'open', child: Text(tr('Xem / in'))),
-              const PopupMenuDivider(),
-              PopupMenuItem(value: 'print', child: Text(tr('In'))),
-              PopupMenuItem(value: 'excel', child: Text(tr('Xuất Excel'))),
-              PopupMenuItem(value: 'word', child: Text(tr('Xuất Word'))),
-              PopupMenuItem(value: 'pdf', child: Text(tr('Xuất PDF'))),
-              PopupMenuItem(value: 'png', child: Text(tr('Xuất ảnh PNG'))),
-              PopupMenuItem(value: 'email', child: Text(tr('Gửi Email'))),
-              const PopupMenuDivider(),
-              PopupMenuItem(value: 'call', child: Text(tr('Gọi khách'))),
-              PopupMenuItem(value: 'zaloCall', child: Text(tr('Gọi Zalo'))),
-              PopupMenuItem(value: 'facebookLink', child: Text(tr('Link Facebook'))),
-              PopupMenuItem(value: 'zalo', child: Text(tr('Chia sẻ Zalo'))),
-              PopupMenuItem(value: 'facebook', child: Text(tr('Chia sẻ Facebook'))),
-              PopupMenuItem(value: 'care', child: Text(tr('Lịch CSKH'))),
+              _docMenu('send', Icons.send_outlined, 'Gửi khách / In…'),
+              _docMenu('edit', Icons.edit_note_outlined, 'Sửa nội dung…'),
+              if (!isQuote) _docMenu('note', Icons.sticky_note_2_outlined, 'Ghi chú in trên chứng từ'),
             ],
           ),
         ),
       ),
     );
   }
+
+  PopupMenuItem<String> _docMenu(String v, IconData icon, String label) => PopupMenuItem(
+        value: v,
+        child: Row(children: [
+          Icon(icon, size: 18, color: SboxColors.slate600),
+          const SizedBox(width: 10),
+          Text(tr(label)),
+        ]),
+      );
 }

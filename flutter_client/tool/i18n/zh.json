@@ -807,6 +807,7 @@
   "Báo cáo & lương": "报表与工资",
   "Báo cáo & phân tích dữ liệu": "报表与数据分析",
   "Báo cáo (cũ)": "报表（旧版）",
+  "Báo cáo CSKH": "维护报表",
   "Báo cáo POS": "POS 报表",
   "Báo cáo POS (tổng hợp)": "POS 报表（汇总）",
   "Báo cáo POS → Tồn kho / Nhập hàng / Hàng sắp hết hạn để theo dõi tổng": "在 POS 报表 → 库存 / 进货 / 临期商品 中查看汇总",
@@ -816,6 +817,7 @@
   "Báo cáo chi nhánh": "分店报表",
   "Báo cáo chi phí": "费用报表",
   "Báo cáo chi tiết": "详细报表",
+  "Báo cáo chăm sóc khách": "客户维护报表",
   "Báo cáo chấm công": "考勤报表",
   "Báo cáo cuối ngày": "日结报表",
   "Báo cáo công nợ": "欠款报表",
@@ -887,6 +889,7 @@
   "Báo giá này đã có hợp đồng, đề nghị TT, bàn giao và nghiệm thu.": "此报价单已有合同、付款申请、交接和验收。",
   "Báo giá thật": "正式报价单",
   "Báo giá đang là bản nháp. Gửi cho khách (in / PDF / Zalo) rồi bấm «Phát hành» để ghi nhận đã gửi.": "报价单目前为草稿。发给客户（打印 / PDF / Zalo）后点击「发布」以记录已发送。",
+  "Báo giá đang là bản nháp. Gửi cho khách (nút «Gửi / In» phía trên) rồi bấm «Phát hành» để ghi nhận đã gửi.": "报价单为草稿。发给客户（上方 «发送 / 打印» 按钮）后点 «开具» 记录已发送。",
   "Báo giá đã hết hạn.": "报价单已过期。",
   "Báo giá đã hủy.": "报价单已取消。",
   "Báo giá đã khóa": "报价单已锁定",
@@ -1599,6 +1602,7 @@
   "Bỏ": "移除",
   "Bỏ Chủ nhật / ngày nghỉ hằng tuần theo hồ sơ lương và ngày lễ trong khoảng nghỉ": "按工资档案扣除周日 / 每周休息日及休假期间的节假日",
   "Bỏ PT phụ trách": "取消负责教练",
+  "Bỏ bản đã chốt, dựng lại theo mẫu và số liệu mới nhất.": "放弃已确认稿，按模板和最新数据重新生成。",
   "Bỏ bộ lọc": "清除筛选",
   "Bỏ chọn": "取消选择",
   "Bỏ chọn hết": "全部取消选择",
@@ -2141,6 +2145,8 @@
   "Chưa chia đợt thanh toán — bấm «Sửa» để chia (cọc, lắp đặt, nghiệm thu…).": "尚未分期付款 — 点击「修改」进行分期（定金、安装、验收等）。",
   "Chưa chia đợt thanh toán.": "尚未分期付款。",
   "Chưa chép được lời — bạn bấm micro nói lại sau vài giây.": "未能转写语音 — 请几秒后点击麦克风重新说。",
+  "Chưa chăm sóc lần nào": "尚无维护记录",
+  "Chưa chăm sóc lần nào. Sau mỗi lần gọi / gặp khách, bấm «Ghi lần chăm sóc» để lưu lại đã trao đổi gì.": "尚无维护记录。每次与客户通话或见面后，点 «记录维护» 记下沟通内容。",
   "Chưa chấm": "未打卡",
   "Chưa chấm Ra: hệ thống báo thiếu chấm, không tính OT.": "未打下班卡：系统提示缺卡，不计加班。",
   "Chưa chấm công": "尚未打卡",
@@ -2391,6 +2397,8 @@
   "Chưa có lượt tập": "暂无训练记录",
   "Chưa có lượt tập trong kỳ.": "期内没有训练记录。",
   "Chưa có lần bảo hành nào": "暂无保修记录",
+  "Chưa có lần chăm sóc nào": "尚无维护记录",
+  "Chưa có lần chăm sóc nào trong khoảng này": "该时段内没有维护记录",
   "Chưa có lần chấm nào khác": "暂无其他打卡记录",
   "Chưa có lần kiểm kê nào": "暂无盘点记录",
   "Chưa có lần sử dụng": "暂无使用记录",
@@ -2798,6 +2806,7 @@
   "Chưa quay lại được": "无法返回",
   "Chưa quét khuôn mặt. Vui lòng bấm lại và hoàn tất bước quét mặt.": "尚未扫描人脸。请再次点击并完成人脸扫描步骤。",
   "Chưa ra": "未下班",
+  "Chưa rõ người ghi": "记录人不明",
   "Chưa rõ người lập": "制单人不详",
   "Chưa rõ tài khoản": "账号不明",
   "Chưa seed được danh mục chi phí. Thử tải lại.": "费用分类初始化失败。请重新加载。",
@@ -3076,6 +3085,7 @@
   "Chỉ gộp được dòng cùng sản phẩm, ghi chú, topping và chiết khấu.": "仅可合并商品、备注、配料和折扣均相同的行。",
   "Chỉ gửi cho người đã liên kết Zalo": "仅发送给已绑定 Zalo 的人员",
   "Chỉ gửi một số loại thông báo": "仅发送部分类型的通知",
+  "Chỉ hiện 500 lần mới nhất — thu hẹp khoảng ngày để xem hết.": "仅显示最新 500 条 — 缩小日期范围可查看全部。",
   "Chỉ hiện cho lần nhập này. Muốn luôn hiện: «Tùy chỉnh form».": "仅本次录入显示。如需始终显示：“自定义表单”。",
   "Chỉ hiện món đã gán máy tem khác khi lọc «Tem máy khác».": "仅在筛选«其他标签机»时才显示已分配给其他标签机的菜品。",
   "Chỉ hiện một lần. Gửi cho người dùng qua kênh an toàn và yêu cầu đổi ngay.": "仅显示一次。请通过安全渠道发送给用户，并要求其立即修改。",
@@ -4132,6 +4142,7 @@
   "Công khai (đăng ký)": "公开(注册)",
   "Công khai đăng ký": "公开注册",
   "Công nợ": "往来账款",
+  "Công nợ HĐ": "合同应收",
   "Công nợ KH": "客户欠款",
   "Công nợ NCC / khách (nếu module được bật)": "供应商/客户往来账款（如启用该模块）",
   "Công nợ hiện tại": "当前往来账款",
@@ -4881,6 +4892,7 @@
   "Dùng máy in tem": "使用标签打印机",
   "Dùng máy in tem (cục bộ)": "使用标签打印机（本地）",
   "Dùng mẫu": "使用模板",
+  "Dùng mẫu in khác cho riêng chứng từ này.": "仅此单据使用其他打印模板。",
   "Dùng mẫu nhanh": "使用快速模板",
   "Dùng mẫu này": "使用此模板",
   "Dùng mẫu này khi in": "打印时使用此模板",
@@ -5169,7 +5181,9 @@
   "Ghi chú dòng hàng": "商品行备注",
   "Ghi chú hệ thống (liên kết chứng từ)": "系统备注（关联单据）",
   "Ghi chú hợp đồng": "合同备注",
+  "Ghi chú in": "打印备注",
   "Ghi chú in riêng…": "单独打印备注…",
+  "Ghi chú in trên chứng từ": "单据上打印的备注",
   "Ghi chú khác (tùy chọn)": "其他备注（可选）",
   "Ghi chú khách": "客人备注",
   "Ghi chú khách để lại": "客人留言",
@@ -5199,6 +5213,7 @@
   "Ghi chỉ tiêu": "录入指标",
   "Ghi chỉ tiêu lên Sheet": "将指标写入表格",
   "Ghi hạn bảo hành để nhận nhắc trước khi hết hạn.": "填写保修期限，到期前即可收到提醒。",
+  "Ghi lần chăm sóc": "记录维护",
   "Ghi lịch": "写入日程",
   "Ghi lịch thất bại": "写入日程失败",
   "Ghi nhận": "记录",
@@ -5579,6 +5594,7 @@
   "Giữ app mở — nhận lệnh in cloud (LAN/BT/USB)": "保持应用开启 — 接收云打印指令（LAN/BT/USB）",
   "Giữ chỗ": "占用库存",
   "Giữ chỗ tồn tự đối soát lại với các đơn đang mở mỗi đêm (3 giờ sáng)": "占用库存每晚（凌晨3点）自动与未结订单核对",
+  "Giữ cố định bản in hiện tại rồi sửa từng chữ; số liệu không tự cập nhật nữa.": "固定当前打印稿后逐字修改；数据将不再自动更新。",
   "Giữ giá cũ": "保持原价",
   "Giữ lại": "保留",
   "Giữ lại dòng bảng này": "保留此表格行",
@@ -5811,6 +5827,9 @@
   "Gợi ý:": "建议：",
   "Gợi ý: ": "提示： ",
   "Gửi": "发送",
+  "Gửi / In": "发送 / 打印",
+  "Gửi / in báo giá": "发送 / 打印报价单",
+  "Gửi / in chứng từ": "发送 / 打印单据",
   "Gửi / phát hành": "发送 / 发布",
   "Gửi ENQ (0x05) — DIGI, một số cân Nhật": "发送 ENQ (0x05)——DIGI、部分日本电子秤",
   "Gửi Email": "发送邮件",
@@ -5840,6 +5859,7 @@
   "Gửi hủy": "提交取消",
   "Gửi khiếu nại": "提交投诉",
   "Gửi khách": "发送给客户",
+  "Gửi khách / In…": "发给客户 / 打印…",
   "Gửi kiến nghị": "提交建议",
   "Gửi kiến nghị / khiếu nại": "提交建议 / 投诉",
   "Gửi link": "发送链接",
@@ -6639,6 +6659,7 @@
   "In": "打印",
   "In / bật QR": "打印 / 启用QR",
   "In / giao hàng": "打印 / 配送",
+  "In / tải file": "打印 / 下载文件",
   "In 2 liên": "打印两联",
   "In QR dán bàn: khách tự gọi món trên điện thoại, máy POS đọc loa khi có đơn, thanh toán tại quầy.": "打印贴桌二维码：顾客用手机自助点餐，有新订单时POS语音播报，在收银台结账。",
   "In QR tổng tiền đơn (cần thiết lập tài khoản NH)": "打印订单总额二维码（需设置银行账户）",
@@ -7018,6 +7039,7 @@
   "Khách đã từ chối báo giá này.": "客户已拒绝此报价。",
   "Khách đã đến": "客人已到",
   "Khách đăng ký qua link này, cửa hàng sẽ tự gán cho đại lý.": "客户通过此链接注册后，门店将自动分配给代理商。",
+  "Khách được chăm sóc": "已维护客户",
   "Khách được lưu vào danh sách khách hàng POS — bán thẻ / gói tập cho khách ở màn Bán hàng.": "顾客将保存到POS客户列表 — 请在销售界面向顾客销售卡/套餐。",
   "Khách đặt": "顾客预订",
   "Khách đặt: 0": "顾客预订：0",
@@ -9000,6 +9022,7 @@
   "Lưu hàng hóa trước khi thêm hàng cùng loại lên server.": "请先保存商品，再向服务器添加同类商品。",
   "Lưu hướng dẫn": "保存指引",
   "Lưu hồ sơ": "保存档案",
+  "Lưu lần chăm sóc": "保存维护记录",
   "Lưu mẫu": "保存模板",
   "Lưu mức lương": "保存工资标准",
   "Lưu nháp": "保存草稿",
@@ -9192,6 +9215,7 @@
   "Lần 4": "第 4 次",
   "Lần 5": "第 5 次",
   "Lần 6": "第 6 次",
+  "Lần chăm sóc": "维护次数",
   "Lần chăm sóc trước": "上次跟进",
   "Lần chấm": "打卡次数",
   "Lần chấm ngoài vị trí trước đây": "以往超出位置范围的打卡",
@@ -9216,6 +9240,7 @@
   "Lần đi trễ": "迟到次数",
   "Lần đầu": "首次",
   "Lần đồng bộ cuối": "上次同步时间",
+  "Lập chứng từ": "创建单据",
   "Lập chứng từ thất bại": "创建单据失败",
   "Lập chứng từ trước rồi mới sửa riêng nội dung": "请先创建单据，再单独修改内容",
   "Lập hóa đơn thay thế": "开具替换发票",
@@ -9223,6 +9248,7 @@
   "Lập hợp đồng cần ghi nhận khách đã chốt báo giá — nhờ quản lý thao tác.": "拟定合同需要先记录客户已确认报价 — 请联系经理操作。",
   "Lập ngoài POS": "POS 外创建",
   "Lập ngoài POS (không có đơn tương ứng)": "在 POS 外创建（无对应订单）",
+  "Lập nốt hồ sơ còn thiếu": "补齐缺少的单据",
   "Lập phiếu chi": "开付款单",
   "Lập phiếu thu": "开收款单",
   "Lắp tủ bếp nhà chị Lan": "安装兰姐家的橱柜",
@@ -11185,6 +11211,7 @@
   "Nhân viên — xem thông tin cá nhân": "员工 — 查看个人信息",
   "Nhân viên, phòng ban": "员工、部门",
   "Nhân viên, phòng ban, thiết lập lương, tài liệu": "员工、部门、工资设置、文档",
+  "Nhân viên: Tất cả": "员工：全部",
   "Nhân viên: Vào/Ra ca hành chính → rồi Vào/Ra ca tăng ca riêng.": "员工：先打行政班上/下班卡 → 再打单独加班班次上/下班卡。",
   "Nhãn": "标签",
   "Nhãn (badge)": "徽章",
@@ -11556,6 +11583,7 @@
   "Nhập/xuất kho để thấy lịch sử": "入库/出库后可查看历史记录",
   "Nhật Bản": "日本",
   "Nhật ký": "日志",
+  "Nhật ký chăm sóc": "维护日志",
   "Nhật ký hệ thống": "系统日志",
   "Nhật ký kho Sbox": "Sbox 库存日志",
   "Nhật ký thao tác AI": "AI 操作日志",
@@ -13027,6 +13055,7 @@
   "Số lượt tối đa": "最大次数",
   "Số lượt vi phạm": "违规次数",
   "Số lần": "次数",
+  "Số lần chăm sóc theo ngày": "每日维护次数",
   "Số lần chấm": "打卡次数",
   "Số lần gia hạn": "续期次数",
   "Số lần trễ": "迟到次数",
@@ -13291,6 +13320,8 @@
   "Sửa nhóm hàng": "修改商品分类",
   "Sửa nhóm sản phẩm": "编辑商品组",
   "Sửa nhóm topping": "编辑配料组",
+  "Sửa nội dung chứng từ": "编辑单据内容",
+  "Sửa nội dung…": "编辑内容…",
   "Sửa phiếu": "修改单据",
   "Sửa phiếu phạt": "编辑罚款单",
   "Sửa phòng ban": "修改部门",
@@ -13646,6 +13677,7 @@
   "Theo ngày xếp lịch": "按排班日期",
   "Theo ngày đến": "按到店日期",
   "Theo người bán · bấm một dòng để xem hóa đơn và hàng đã bán của người đó": "按销售人员 · 点击一行查看其账单和已售商品",
+  "Theo người chăm sóc": "按负责人",
   "Theo người duyệt": "按审批人",
   "Theo ngưỡng (1 / 0,5)": "按阈值（1 / 0.5）",
   "Theo nhà cung cấp": "按供应商",
@@ -16929,6 +16961,7 @@
   "Việc cần xử lý": "待处理事项",
   "Việc của tôi": "我的任务",
   "Việc hằng ngày không cần tạo.": "日常工作无需创建。",
+  "Việc khác": "其他操作",
   "Việc khác — tự nhập tên": "其他任务 — 手动输入名称",
   "Việc lẻ": "零散任务",
   "Việc lẻ (không thuộc nhóm)": "零散任务（无分组）",
@@ -17294,6 +17327,7 @@
   "Xem / Sửa": "查看 / 编辑",
   "Xem / Trả lời": "查看 / 回复",
   "Xem / in hợp đồng": "查看 / 打印合同",
+  "Xem / khôi phục các lần sửa trước.": "查看 / 恢复以前的修改。",
   "Xem = mở menu. Sửa = đổi cấu hình / gán món / tách bill. Thu ngân chỉ cần Xem bán hàng — không tick Sửa thiết lập POS.": "查看 = 打开菜单。修改 = 更改配置 / 分配菜品 / 拆分账单。收银员只需“查看销售”— 不要勾选“修改 POS 设置”。",
   "Xem HĐĐT": "查看电子发票",
   "Xem QR": "查看二维码",
@@ -19425,6 +19459,7 @@
   "Điểm lấy hàng": "取货点",
   "Điểm nổi bật (mỗi dòng một ý)": "亮点（每行一条）",
   "Điểm số": "分数",
+  "Điểm tiềm năng TB": "平均潜力分",
   "Điểm tích luỹ": "累计积分",
   "Điểm tích lũy": "累计积分",
   "Điểm đang có": "当前积分",
@@ -21112,6 +21147,7 @@
   "Đổi loại": "更换类型",
   "Đổi lương từ ngày": "调薪生效日期",
   "Đổi lấy ca ngày": "换成白班",
+  "Đổi lời văn / bố cục riêng chứng từ này; số tiền, hàng hóa vẫn theo báo giá.": "仅修改此单据的文字 / 版式；金额和商品仍按报价单。",
   "Đổi màu": "更换颜色",
   "Đổi máy": "更换设备",
   "Đổi máy bảo hành": "保修换机",
@@ -21468,6 +21504,7 @@
   "Ẩn mật khẩu": "隐藏密码",
   "Ẩn sản phẩm khỏi mọi kênh bán": "在所有销售渠道隐藏商品",
   "Ẩn số tiền": "隐藏金额",
+  "Ẩn ô ghi": "隐藏输入框",
   "Ẩn đăng ký": "隐藏登记",
   "Ẩn đơn ": "隐藏订单 ",
   "ẩn POS": "POS隐藏",
@@ -23059,6 +23096,10 @@
    "该班次已产生数据：{0}。删除会导致考勤和工资历史出错。\n\n"
   ],
   [
+   "Cao nhất {0} lần/ngày",
+   "最高 每天{0}次"
+  ],
+  [
    "Chi nhánh \"{0}\" đã được xóa.",
    "分店“{0}”已删除。"
   ],
@@ -23257,6 +23298,10 @@
   [
    "Chính sách lương: {0} · TC ×{1} · ×{2} · ×{3}",
    "工资政策：{0} · 加班 ×{1} · ×{2} · ×{3}"
+  ],
+  [
+   "Chăm sóc khách ({0})",
+   "客户维护（{0}）"
   ],
   [
    "Chưa chọn NV cho «{0}»",
@@ -24535,6 +24580,10 @@
    "单独打印备注——{0}"
   ],
   [
+   "Ghi chú in: {0}",
+   "打印备注：{0}"
+  ],
+  [
    "Ghi chú nhanh ({0})",
    "快捷备注（{0}）"
   ],
@@ -24883,6 +24932,10 @@
    "点单 {0} · 出餐 {1}"
   ],
   [
+   "Gọi {0} · gặp {1} · ghi chú {2} · hẹn {3}",
+   "电话 {0} · 拜访 {1} · 备注 {2} · 预约 {3}"
+  ],
+  [
    "Gọi điện cho {0}",
    "致电{0}"
   ],
@@ -25025,6 +25078,10 @@
   [
    "Hiện nút Tạm tính lúc thanh toán — đánh dấu {0} và in hóa đơn tạm",
    "结账时显示预结按钮 — 标记{0}并打印临时账单"
+  ],
+  [
+   "Hiện thao tác hệ thống ({0})",
+   "显示系统操作（{0}）"
   ],
   [
    "Hiện tại: {0} · {1}",
@@ -25533,6 +25590,10 @@
   [
    "In {0} phiếu bếp trên «{1}»?",
    "在«{1}»上打印{0}张厨房单吗？"
+  ],
+  [
+   "In ở dòng «Ghi chú:» cuối chứng từ {0}, sau ghi chú đơn của báo giá. Chỉ chứng từ này có. Để trống nếu không cần.",
+   "打印在单据 {0} 末尾的 «备注:» 行，位于报价单备注之后。仅此单据有效。不需要请留空。"
   ],
   [
    "KH Kích key ({0})",
@@ -30743,6 +30804,10 @@
    "截止 {0}/{1}"
   ],
   [
+   "hẹn {0}",
+   "预约 {0}"
+  ],
+  [
    "khoán {0} đ",
    "包干 {0} đ"
   ],
@@ -31189,6 +31254,10 @@
   [
    "{0} bài mới",
    "{0} 篇新帖子"
+  ],
+  [
+   "{0} báo giá",
+   "{0} 份报价单"
   ],
   [
    "{0} bình chọn chưa trả lời",
@@ -31679,6 +31748,10 @@
    "{0} 次（{1} 分）"
   ],
   [
+   "{0} lần chăm sóc",
+   "维护 {0} 次"
+  ],
+  [
    "{0} lần liên hệ",
    "联系 {0} 次"
   ],
@@ -31689,6 +31762,10 @@
   [
    "{0} lần {1}",
    "{0} 次 {1}"
+  ],
+  [
+   "{0} lần · gọi {1} · gặp {2} · {3} BG",
+   "{0} 次 · 电话 {1} · 拜访 {2} · 报价 {3} 份"
   ],
   [
    "{0} lần · {1}",
@@ -34367,6 +34444,10 @@
    "已释放「{2}」的 {0} 台设备并退出 {1} 个账号"
   ],
   [
+   "Đã giữ {0} · quá hạn {1} · sắp tới {2}",
+   "已跟进 {0} · 逾期 {1} · 即将 {2}"
+  ],
+  [
    "Đã gán {0} bàn — đơn QR sẽ ghi về chi nhánh này",
    "已分配 {0} 个桌台 — 扫码订单将记入此分店"
   ],
@@ -34533,6 +34614,10 @@
   [
    "Đã hẹn giờ đăng {0}",
    "已预约 {0} 发布"
+  ],
+  [
+   "Đã hẹn {0}",
+   "已约 {0}"
   ],
   [
    "Đã hủy ({0})",

@@ -15,26 +15,20 @@ const posQuotePackageKinds = [
 ];
 
 /// Lập chứng từ thương mại. Báo giá chưa gửi vẫn lập được — máy chủ tự nhận.
+/// Không hỏi ghi chú nữa (người dùng không biết ghi chú để làm gì): cần thì sửa sau ở menu chứng từ
+/// → «Ghi chú in trên chứng từ».
 Future<PosQuoteDocument?> createPosQuoteCommercialDoc(
   BuildContext context, {
   required PosQuote quote,
   required String kind,
   bool includeImages = false,
   String? note,
-  bool skipNoteDialog = false,
 }) async {
   final api = ApiService();
   final current = quote;
+  final resolvedNote = note;
 
   if (!context.mounted || PosBusy.isBusy('create-doc')) return null;
-  var resolvedNote = note;
-  if (!skipNoteDialog && note == null) {
-    resolvedNote = await _askCommercialNote(
-        context, PosQuoteDocument.kindLabel(kind));
-    if (resolvedNote == null) return null;
-  }
-
-  if (!context.mounted) return null;
   // Khung «Đang lập …» + chặn bấm lặp (bấm 2 lần từng tạo 2 hợp đồng).
   final res = await PosBusy.run(
     context,
@@ -76,14 +70,19 @@ Future<bool> createPosQuoteCommercialPackage(
   required PosQuote quote,
   bool includeImages = false,
 }) async {
-  // Một hộp: giải thích + ghi chú (trước đây 2 hộp liên tiếp: «Tạo trọn bộ hồ sơ?» rồi «Trọn bộ hồ sơ»).
-  final note = await _askCommercialNote(
-    context,
-    'Tạo trọn bộ hồ sơ?',
-    message: 'Sẽ lập (nếu chưa có): hợp đồng, đề nghị tạm ứng, biên bản bàn giao, biên bản nghiệm thu.',
-    confirmLabel: 'Tạo hồ sơ',
+  // Chỉ xác nhận — không hỏi ghi chú (sửa sau ở từng chứng từ).
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(tr('Tạo trọn bộ hồ sơ?')),
+      content: Text(tr('Sẽ lập (nếu chưa có): hợp đồng, đề nghị tạm ứng, biên bản bàn giao, biên bản nghiệm thu.')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Tạo hồ sơ'))),
+      ],
+    ),
   );
-  if (note == null || !context.mounted) return false;
+  if (ok != true || !context.mounted) return false;
 
   final api = ApiService();
   var current = quote;
@@ -104,8 +103,6 @@ Future<bool> createPosQuoteCommercialPackage(
       quote: current,
       kind: kind,
       includeImages: includeImages,
-      note: note,
-      skipNoteDialog: true,
     );
     if (doc != null) {
       created++;
@@ -126,44 +123,52 @@ Future<bool> createPosQuoteCommercialPackage(
   return true;
 }
 
-/// [message]: câu giải thích phía trên ô ghi chú (vd. trọn bộ hồ sơ sẽ lập những gì).
-Future<String?> _askCommercialNote(
-  BuildContext context,
-  String title, {
-  String? message,
-  String confirmLabel = 'Tạo',
+/// Sửa «Ghi chú in trên chứng từ» — dòng «Ghi chú:» cuối bản in của riêng chứng từ này
+/// (in sau ghi chú đơn của báo giá). Trả true khi đã lưu.
+Future<bool> editPosQuoteDocumentNote(
+  BuildContext context, {
+  required String quoteId,
+  required PosQuoteDocument doc,
 }) async {
-  final c = TextEditingController();
-  final field = TextField(
-    controller: c,
-    maxLines: 3,
-    decoration: PosTheme.inputDecoration(label: 'Ghi chú chứng từ (tuỳ chọn)'),
-  );
+  final c = TextEditingController(text: (doc.note ?? '').trim());
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(tr(title)),
-      content: message == null
-          ? field
-          : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr(message)),
-              const SizedBox(height: 14),
-              field,
-            ]),
+      title: Text(tr('Ghi chú in trên chứng từ')),
+      content: SizedBox(
+        width: 440,
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+            tr('In ở dòng «Ghi chú:» cuối chứng từ ${doc.docNo}, sau ghi chú đơn của báo giá. Chỉ chứng từ này có. Để trống nếu không cần.'),
+            style: const TextStyle(fontSize: 13, height: 1.35),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: c,
+            autofocus: true,
+            maxLines: 4,
+            maxLength: 2000,
+            decoration: PosTheme.inputDecoration(label: 'Ghi chú in'),
+          ),
+        ]),
+      ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: Text(tr('Hủy')),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx, true),
-          child: Text(tr(confirmLabel)),
-        ),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu'))),
       ],
     ),
   );
   final note = c.text.trim();
   c.dispose();
-  if (ok != true) return null;
-  return note;
+  if (ok != true || !context.mounted) return false;
+  final res = await ApiService().updatePosQuoteDocumentNote(quoteId, doc.id, note);
+  if (res['isSuccess'] != true) {
+    NotificationOverlayManager().showError(
+      title: 'Chưa lưu được ghi chú',
+      message: res['message']?.toString() ?? doc.docNo,
+    );
+    return false;
+  }
+  NotificationOverlayManager().showSuccess(title: 'Đã lưu ghi chú in', message: doc.docNo);
+  return true;
 }

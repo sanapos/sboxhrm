@@ -807,6 +807,7 @@
   "Báo cáo & lương": "レポートと給与",
   "Báo cáo & phân tích dữ liệu": "レポートとデータ分析",
   "Báo cáo (cũ)": "レポート (旧)",
+  "Báo cáo CSKH": "フォロー報告",
   "Báo cáo POS": "POSレポート",
   "Báo cáo POS (tổng hợp)": "POSレポート (総合)",
   "Báo cáo POS → Tồn kho / Nhập hàng / Hàng sắp hết hạn để theo dõi tổng": "POSレポート → 在庫 / 仕入 / 賞味期限間近の商品で全体を確認します",
@@ -816,6 +817,7 @@
   "Báo cáo chi nhánh": "支店レポート",
   "Báo cáo chi phí": "費用レポート",
   "Báo cáo chi tiết": "詳細レポート",
+  "Báo cáo chăm sóc khách": "顧客フォロー報告",
   "Báo cáo chấm công": "勤怠レポート",
   "Báo cáo cuối ngày": "日次締めレポート",
   "Báo cáo công nợ": "売掛・買掛レポート",
@@ -887,6 +889,7 @@
   "Báo giá này đã có hợp đồng, đề nghị TT, bàn giao và nghiệm thu.": "この見積書にはすでに契約、支払依頼、引渡し、検収があります。",
   "Báo giá thật": "正式な見積書",
   "Báo giá đang là bản nháp. Gửi cho khách (in / PDF / Zalo) rồi bấm «Phát hành» để ghi nhận đã gửi.": "見積は下書きです。お客様に送付(印刷 / PDF / Zalo)し、「発行」を押して送付済みとして記録してください。",
+  "Báo giá đang là bản nháp. Gửi cho khách (nút «Gửi / In» phía trên) rồi bấm «Phát hành» để ghi nhận đã gửi.": "見積書は下書きです。顧客に送付し（上の «送信 / 印刷» ボタン）、«発行» を押して送付済みとして記録してください。",
   "Báo giá đã hết hạn.": "見積は期限切れです。",
   "Báo giá đã hủy.": "見積は取り消されました。",
   "Báo giá đã khóa": "見積ロック済み",
@@ -1599,6 +1602,7 @@
   "Bỏ": "解除",
   "Bỏ Chủ nhật / ngày nghỉ hằng tuần theo hồ sơ lương và ngày lễ trong khoảng nghỉ": "給与プロフィールの日曜 / 週休日と、休暇期間内の祝日を除外",
   "Bỏ PT phụ trách": "担当トレーナーを解除",
+  "Bỏ bản đã chốt, dựng lại theo mẫu và số liệu mới nhất.": "確定版を破棄し、最新の数値でテンプレートから作り直します。",
   "Bỏ bộ lọc": "フィルターを解除",
   "Bỏ chọn": "選択解除",
   "Bỏ chọn hết": "すべて選択解除",
@@ -2141,6 +2145,8 @@
   "Chưa chia đợt thanh toán — bấm «Sửa» để chia (cọc, lắp đặt, nghiệm thu…).": "支払いが分割されていません — 「編集」を押して分割してください(手付金、設置、検収など)。",
   "Chưa chia đợt thanh toán.": "支払いが分割されていません。",
   "Chưa chép được lời — bạn bấm micro nói lại sau vài giây.": "文字起こしできませんでした — 数秒後にマイクを押してもう一度話してください。",
+  "Chưa chăm sóc lần nào": "まだフォロー記録がありません",
+  "Chưa chăm sóc lần nào. Sau mỗi lần gọi / gặp khách, bấm «Ghi lần chăm sóc» để lưu lại đã trao đổi gì.": "まだフォロー記録がありません。顧客との電話・面会のたびに «フォローを記録» を押して、話した内容を残してください。",
   "Chưa chấm": "未打刻",
   "Chưa chấm Ra: hệ thống báo thiếu chấm, không tính OT.": "退勤の打刻なし:システムは打刻漏れと表示し、残業は計算されません。",
   "Chưa chấm công": "まだ打刻していません",
@@ -2391,6 +2397,8 @@
   "Chưa có lượt tập": "利用履歴がありません",
   "Chưa có lượt tập trong kỳ.": "期間内の利用履歴がありません。",
   "Chưa có lần bảo hành nào": "保証対応の履歴なし",
+  "Chưa có lần chăm sóc nào": "まだフォロー記録がありません",
+  "Chưa có lần chăm sóc nào trong khoảng này": "この期間のフォロー記録はありません",
   "Chưa có lần chấm nào khác": "他の打刻はありません",
   "Chưa có lần kiểm kê nào": "棚卸の履歴なし",
   "Chưa có lần sử dụng": "利用履歴なし",
@@ -2798,6 +2806,7 @@
   "Chưa quay lại được": "戻れませんでした",
   "Chưa quét khuôn mặt. Vui lòng bấm lại và hoàn tất bước quét mặt.": "顔スキャンが行われていません。もう一度タップして顔スキャンの手順を完了してください。",
   "Chưa ra": "未退勤",
+  "Chưa rõ người ghi": "記録者不明",
   "Chưa rõ người lập": "作成者不明",
   "Chưa rõ tài khoản": "アカウント不明",
   "Chưa seed được danh mục chi phí. Thử tải lại.": "費用カテゴリを初期登録できませんでした。再読み込みしてください。",
@@ -3076,6 +3085,7 @@
   "Chỉ gộp được dòng cùng sản phẩm, ghi chú, topping và chiết khấu.": "商品、メモ、トッピング、割引が同じ行のみ統合できます。",
   "Chỉ gửi cho người đã liên kết Zalo": "Zaloを連携した人にのみ送信",
   "Chỉ gửi một số loại thông báo": "一部の通知タイプのみ送信",
+  "Chỉ hiện 500 lần mới nhất — thu hẹp khoảng ngày để xem hết.": "最新の500件のみ表示 — すべて見るには期間を絞ってください。",
   "Chỉ hiện cho lần nhập này. Muốn luôn hiện: «Tùy chỉnh form».": "今回の入力のみ表示。常に表示するには「フォームをカスタマイズ」。",
   "Chỉ hiện món đã gán máy tem khác khi lọc «Tem máy khác».": "«他のラベルプリンター»で絞り込んだ場合のみ、別のラベルプリンターに割り当てられたメニューが表示されます。",
   "Chỉ hiện một lần. Gửi cho người dùng qua kênh an toàn và yêu cầu đổi ngay.": "一度だけ表示されます。安全な経路でユーザーに送り、すぐに変更するよう依頼してください。",
@@ -4132,6 +4142,7 @@
   "Công khai (đăng ký)": "公開(登録)",
   "Công khai đăng ký": "公開登録",
   "Công nợ": "債権債務",
+  "Công nợ HĐ": "契約の未収金",
   "Công nợ KH": "顧客売掛",
   "Công nợ NCC / khách (nếu module được bật)": "仕入先／顧客の債権債務（モジュールが有効な場合）",
   "Công nợ hiện tại": "現在の債権債務",
@@ -4881,6 +4892,7 @@
   "Dùng máy in tem": "ラベルプリンターを使用",
   "Dùng máy in tem (cục bộ)": "ラベルプリンターを使用（ローカル）",
   "Dùng mẫu": "テンプレートを使用",
+  "Dùng mẫu in khác cho riêng chứng từ này.": "この伝票だけ別の印刷テンプレートを使います。",
   "Dùng mẫu nhanh": "クイックテンプレートを使用",
   "Dùng mẫu này": "このテンプレートを使用",
   "Dùng mẫu này khi in": "印刷時にこのテンプレートを使用",
@@ -5169,7 +5181,9 @@
   "Ghi chú dòng hàng": "商品行メモ",
   "Ghi chú hệ thống (liên kết chứng từ)": "システムメモ (伝票リンク)",
   "Ghi chú hợp đồng": "契約メモ",
+  "Ghi chú in": "印刷メモ",
   "Ghi chú in riêng…": "別途印刷メモ…",
+  "Ghi chú in trên chứng từ": "伝票に印刷するメモ",
   "Ghi chú khác (tùy chọn)": "その他のメモ（任意）",
   "Ghi chú khách": "お客様メモ",
   "Ghi chú khách để lại": "お客様が残したメモ",
@@ -5199,6 +5213,7 @@
   "Ghi chỉ tiêu": "目標を記録",
   "Ghi chỉ tiêu lên Sheet": "目標をシートに記録",
   "Ghi hạn bảo hành để nhận nhắc trước khi hết hạn.": "保証期間を入力すると、期限前に通知を受け取れます。",
+  "Ghi lần chăm sóc": "フォローを記録",
   "Ghi lịch": "スケジュールを記録",
   "Ghi lịch thất bại": "スケジュールの記録に失敗しました",
   "Ghi nhận": "記録",
@@ -5579,6 +5594,7 @@
   "Giữ app mở — nhận lệnh in cloud (LAN/BT/USB)": "アプリを開いたままにしてください — クラウド印刷コマンドを受信（LAN/BT/USB）",
   "Giữ chỗ": "在庫引当",
   "Giữ chỗ tồn tự đối soát lại với các đơn đang mở mỗi đêm (3 giờ sáng)": "在庫引当は毎晩(午前3時)、開いている注文と自動で照合されます",
+  "Giữ cố định bản in hiện tại rồi sửa từng chữ; số liệu không tự cập nhật nữa.": "現在の印刷内容を固定して文言を修正します。数値は自動更新されなくなります。",
   "Giữ giá cũ": "旧価格を維持",
   "Giữ lại": "保持する",
   "Giữ lại dòng bảng này": "この表の行を保持",
@@ -5811,6 +5827,9 @@
   "Gợi ý:": "ヒント：",
   "Gợi ý: ": "ヒント: ",
   "Gửi": "送信",
+  "Gửi / In": "送信 / 印刷",
+  "Gửi / in báo giá": "見積書の送信 / 印刷",
+  "Gửi / in chứng từ": "伝票の送信 / 印刷",
   "Gửi / phát hành": "送信／発行",
   "Gửi ENQ (0x05) — DIGI, một số cân Nhật": "ENQ (0x05) を送信 — DIGI、一部の日本製秤",
   "Gửi Email": "メールを送信",
@@ -5840,6 +5859,7 @@
   "Gửi hủy": "キャンセルを申請",
   "Gửi khiếu nại": "苦情を送信",
   "Gửi khách": "お客様へ送信",
+  "Gửi khách / In…": "顧客へ送信 / 印刷…",
   "Gửi kiến nghị": "要望を送信",
   "Gửi kiến nghị / khiếu nại": "要望／苦情を送信",
   "Gửi link": "リンクを送信",
@@ -6639,6 +6659,7 @@
   "In": "印刷",
   "In / bật QR": "印刷／QRを有効化",
   "In / giao hàng": "印刷 / 配送",
+  "In / tải file": "印刷 / ファイル保存",
   "In 2 liên": "2部印刷",
   "In QR dán bàn: khách tự gọi món trên điện thoại, máy POS đọc loa khi có đơn, thanh toán tại quầy.": "テーブル貼付用QRを印刷：お客様がスマホで自分で注文し、注文が入るとPOSが音声で通知、会計はカウンターで行います。",
   "In QR tổng tiền đơn (cần thiết lập tài khoản NH)": "注文合計のQRを印刷（銀行口座の設定が必要）",
@@ -7018,6 +7039,7 @@
   "Khách đã từ chối báo giá này.": "お客様はこの見積を辞退しました。",
   "Khách đã đến": "来店済み",
   "Khách đăng ký qua link này, cửa hàng sẽ tự gán cho đại lý.": "お客様がこのリンクから登録すると、店舗が自動で代理店に割り当てます。",
+  "Khách được chăm sóc": "フォローした顧客",
   "Khách được lưu vào danh sách khách hàng POS — bán thẻ / gói tập cho khách ở màn Bán hàng.": "お客様はPOS顧客リストに保存されます — 販売画面でお客様にカード／回数券を販売してください。",
   "Khách đặt": "お客様予約",
   "Khách đặt: 0": "お客様予約：0",
@@ -9000,6 +9022,7 @@
   "Lưu hàng hóa trước khi thêm hàng cùng loại lên server.": "同種の商品をサーバーに追加する前に、先に商品を保存してください。",
   "Lưu hướng dẫn": "ガイドを保存",
   "Lưu hồ sơ": "プロフィールを保存",
+  "Lưu lần chăm sóc": "フォローを保存",
   "Lưu mẫu": "テンプレートを保存",
   "Lưu mức lương": "給与水準を保存",
   "Lưu nháp": "下書き保存",
@@ -9192,6 +9215,7 @@
   "Lần 4": "4回目",
   "Lần 5": "5回目",
   "Lần 6": "6回目",
+  "Lần chăm sóc": "フォロー回数",
   "Lần chăm sóc trước": "前回のフォロー日",
   "Lần chấm": "打刻回数",
   "Lần chấm ngoài vị trí trước đây": "過去の範囲外打刻",
@@ -9216,6 +9240,7 @@
   "Lần đi trễ": "遅刻回数",
   "Lần đầu": "初回",
   "Lần đồng bộ cuối": "最終同期日時",
+  "Lập chứng từ": "伝票を作成",
   "Lập chứng từ thất bại": "伝票の作成に失敗しました",
   "Lập chứng từ trước rồi mới sửa riêng nội dung": "先に伝票を作成してから、内容だけ個別に修正してください",
   "Lập hóa đơn thay thế": "代替請求書を発行",
@@ -9223,6 +9248,7 @@
   "Lập hợp đồng cần ghi nhận khách đã chốt báo giá — nhờ quản lý thao tác.": "契約書を作成するには、お客様が見積りを確定したことの記録が必要です — マネージャーに依頼してください。",
   "Lập ngoài POS": "POS外で作成",
   "Lập ngoài POS (không có đơn tương ứng)": "POS外で作成（対応する注文なし）",
+  "Lập nốt hồ sơ còn thiếu": "不足している書類を作成",
   "Lập phiếu chi": "出金伝票を作成",
   "Lập phiếu thu": "入金伝票を作成",
   "Lắp tủ bếp nhà chị Lan": "ランさん宅のキッチン収納の取り付け",
@@ -11185,6 +11211,7 @@
   "Nhân viên — xem thông tin cá nhân": "従業員 — 個人情報の表示",
   "Nhân viên, phòng ban": "従業員、部署",
   "Nhân viên, phòng ban, thiết lập lương, tài liệu": "従業員、部署、給与設定、書類",
+  "Nhân viên: Tất cả": "スタッフ：すべて",
   "Nhân viên: Vào/Ra ca hành chính → rồi Vào/Ra ca tăng ca riêng.": "従業員：通常シフトの出勤／退勤 → 続けて別枠の残業シフトの出勤／退勤。",
   "Nhãn": "ラベル",
   "Nhãn (badge)": "バッジ",
@@ -11556,6 +11583,7 @@
   "Nhập/xuất kho để thấy lịch sử": "入庫／出庫すると履歴が表示されます",
   "Nhật Bản": "日本",
   "Nhật ký": "ログ",
+  "Nhật ký chăm sóc": "フォロー履歴",
   "Nhật ký hệ thống": "システムログ",
   "Nhật ký kho Sbox": "Sbox在庫ログ",
   "Nhật ký thao tác AI": "AI操作履歴",
@@ -13027,6 +13055,7 @@
   "Số lượt tối đa": "最大回数",
   "Số lượt vi phạm": "違反回数",
   "Số lần": "回数",
+  "Số lần chăm sóc theo ngày": "日別フォロー回数",
   "Số lần chấm": "打刻回数",
   "Số lần gia hạn": "延長回数",
   "Số lần trễ": "遅刻回数",
@@ -13291,6 +13320,8 @@
   "Sửa nhóm hàng": "商品カテゴリを編集",
   "Sửa nhóm sản phẩm": "商品グループを編集",
   "Sửa nhóm topping": "トッピンググループを編集",
+  "Sửa nội dung chứng từ": "伝票内容の編集",
+  "Sửa nội dung…": "内容を編集…",
   "Sửa phiếu": "伝票を編集",
   "Sửa phiếu phạt": "罰金伝票を編集",
   "Sửa phòng ban": "部署を編集",
@@ -13646,6 +13677,7 @@
   "Theo ngày xếp lịch": "シフト登録日ベース",
   "Theo ngày đến": "到着日順",
   "Theo người bán · bấm một dòng để xem hóa đơn và hàng đã bán của người đó": "販売者別 · 行をタップすると、その販売者の伝票と販売商品を表示します",
+  "Theo người chăm sóc": "担当者別",
   "Theo người duyệt": "承認者別",
   "Theo ngưỡng (1 / 0,5)": "しきい値に従う（1 / 0.5）",
   "Theo nhà cung cấp": "仕入先別",
@@ -16929,6 +16961,7 @@
   "Việc cần xử lý": "対応が必要なタスク",
   "Việc của tôi": "自分のタスク",
   "Việc hằng ngày không cần tạo.": "毎日の業務は作成不要です。",
+  "Việc khác": "その他の操作",
   "Việc khác — tự nhập tên": "その他のタスク — 名前を直接入力",
   "Việc lẻ": "単発タスク",
   "Việc lẻ (không thuộc nhóm)": "単発タスク（グループなし）",
@@ -17294,6 +17327,7 @@
   "Xem / Sửa": "表示／編集",
   "Xem / Trả lời": "表示／返信",
   "Xem / in hợp đồng": "契約書の表示／印刷",
+  "Xem / khôi phục các lần sửa trước.": "過去の修正を表示 / 復元します。",
   "Xem = mở menu. Sửa = đổi cấu hình / gán món / tách bill. Thu ngân chỉ cần Xem bán hàng — không tick Sửa thiết lập POS.": "閲覧 = メニューを開く。編集 = 設定変更 / メニュー割当 / 伝票分割。レジ担当は販売の閲覧権限のみで十分です — POS設定の編集にはチェックを入れないでください。",
   "Xem HĐĐT": "電子インボイスを表示",
   "Xem QR": "QRを表示",
@@ -19425,6 +19459,7 @@
   "Điểm lấy hàng": "集荷地点",
   "Điểm nổi bật (mỗi dòng một ý)": "ハイライト（1行に1項目）",
   "Điểm số": "スコア",
+  "Điểm tiềm năng TB": "平均見込みスコア",
   "Điểm tích luỹ": "累計ポイント",
   "Điểm tích lũy": "累計ポイント",
   "Điểm đang có": "保有ポイント",
@@ -21112,6 +21147,7 @@
   "Đổi loại": "種類を変更",
   "Đổi lương từ ngày": "給与変更の適用日",
   "Đổi lấy ca ngày": "日勤シフトと交換",
+  "Đổi lời văn / bố cục riêng chứng từ này; số tiền, hàng hóa vẫn theo báo giá.": "この伝票の文言 / レイアウトだけを変更します。金額・品目は見積書に従います。",
   "Đổi màu": "色を変更",
   "Đổi máy": "端末を変更",
   "Đổi máy bảo hành": "保証交換端末",
@@ -21468,6 +21504,7 @@
   "Ẩn mật khẩu": "パスワードを非表示",
   "Ẩn sản phẩm khỏi mọi kênh bán": "すべての販売チャネルで商品を非表示",
   "Ẩn số tiền": "金額を非表示",
+  "Ẩn ô ghi": "入力欄を隠す",
   "Ẩn đăng ký": "申請を非表示",
   "Ẩn đơn ": "注文を非表示 ",
   "ẩn POS": "POS非表示",
@@ -23059,6 +23096,10 @@
    "このシフトにはすでにデータが発生しています：{0}。削除すると勤怠と給与の履歴が不整合になります。\n\n"
   ],
   [
+   "Cao nhất {0} lần/ngày",
+   "最多 1日{0}回"
+  ],
+  [
    "Chi nhánh \"{0}\" đã được xóa.",
    "支店「{0}」を削除しました。"
   ],
@@ -23257,6 +23298,10 @@
   [
    "Chính sách lương: {0} · TC ×{1} · ×{2} · ×{3}",
    "給与ポリシー：{0} · 残業 ×{1} · ×{2} · ×{3}"
+  ],
+  [
+   "Chăm sóc khách ({0})",
+   "顧客フォロー（{0}）"
   ],
   [
    "Chưa chọn NV cho «{0}»",
@@ -24535,6 +24580,10 @@
    "別印刷用メモ — {0}"
   ],
   [
+   "Ghi chú in: {0}",
+   "印刷メモ：{0}"
+  ],
+  [
    "Ghi chú nhanh ({0})",
    "クイックメモ（{0}）"
   ],
@@ -24883,6 +24932,10 @@
    "注文 {0} · 提供 {1}"
   ],
   [
+   "Gọi {0} · gặp {1} · ghi chú {2} · hẹn {3}",
+   "電話 {0} · 面会 {1} · メモ {2} · 予約 {3}"
+  ],
+  [
    "Gọi điện cho {0}",
    "{0}に電話"
   ],
@@ -25025,6 +25078,10 @@
   [
    "Hiện nút Tạm tính lúc thanh toán — đánh dấu {0} và in hóa đơn tạm",
    "会計時に仮会計ボタンを表示 — {0}にマークし、仮伝票を印刷"
+  ],
+  [
+   "Hiện thao tác hệ thống ({0})",
+   "システム操作を表示（{0}）"
   ],
   [
    "Hiện tại: {0} · {1}",
@@ -25533,6 +25590,10 @@
   [
    "In {0} phiếu bếp trên «{1}»?",
    "«{1}»で厨房伝票{0}件を印刷しますか？"
+  ],
+  [
+   "In ở dòng «Ghi chú:» cuối chứng từ {0}, sau ghi chú đơn của báo giá. Chỉ chứng từ này có. Để trống nếu không cần.",
+   "伝票 {0} の末尾の «メモ:» 行に、見積書のメモの後に印刷されます。この伝票だけに適用されます。不要なら空欄のままにしてください。"
   ],
   [
    "KH Kích key ({0})",
@@ -30743,6 +30804,10 @@
    "期限 {0}/{1}"
   ],
   [
+   "hẹn {0}",
+   "予約 {0}"
+  ],
+  [
    "khoán {0} đ",
    "請負 {0} đ"
   ],
@@ -31189,6 +31254,10 @@
   [
    "{0} bài mới",
    "新しい投稿 {0} 件"
+  ],
+  [
+   "{0} báo giá",
+   "見積書 {0}件"
   ],
   [
    "{0} bình chọn chưa trả lời",
@@ -31679,6 +31748,10 @@
    "{0}回（{1}分）"
   ],
   [
+   "{0} lần chăm sóc",
+   "フォロー {0}回"
+  ],
+  [
    "{0} lần liên hệ",
    "連絡 {0}回"
   ],
@@ -31689,6 +31762,10 @@
   [
    "{0} lần {1}",
    "{0}回 {1}"
+  ],
+  [
+   "{0} lần · gọi {1} · gặp {2} · {3} BG",
+   "{0}回 · 電話 {1} · 面会 {2} · 見積 {3}件"
   ],
   [
    "{0} lần · {1}",
@@ -34367,6 +34444,10 @@
    "「{2}」の端末 {0} 台を解放し、アカウント {1} 件をログアウトしました"
   ],
   [
+   "Đã giữ {0} · quá hạn {1} · sắp tới {2}",
+   "対応済み {0} · 期限超過 {1} · 予定 {2}"
+  ],
+  [
    "Đã gán {0} bàn — đơn QR sẽ ghi về chi nhánh này",
    "テーブル {0} を割り当てました — QR注文はこの支店に記録されます"
   ],
@@ -34533,6 +34614,10 @@
   [
    "Đã hẹn giờ đăng {0}",
    "{0} に投稿を予約しました"
+  ],
+  [
+   "Đã hẹn {0}",
+   "予約済み {0}"
   ],
   [
    "Đã hủy ({0})",

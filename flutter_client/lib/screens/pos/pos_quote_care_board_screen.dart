@@ -6,6 +6,7 @@ import '../../models/pos_quote.dart';
 import '../../services/api_service.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'pos_quote_care_report_screen.dart';
 
 import '../../theme/sbox_tokens.dart';
 /// Theo dõi chăm sóc khách tiềm năng theo báo giá: điểm thang 10 (nóng 8–10, ấm 5–7, lạnh 0–4),
@@ -166,9 +167,16 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
       appBar: AppBar(
         title: Text(tr('Theo dõi chăm sóc khách')),
         actions: [
-          IconButton(
-            tooltip: tr('Theo nhân viên'),
-            icon: const Icon(Icons.groups_outlined),
+          // Nút có chữ (trước: biểu tượng nhóm người không nhãn — không ai biết có báo cáo).
+          TextButton.icon(
+            icon: const Icon(Icons.bar_chart_outlined, size: 18),
+            label: Text(tr('Báo cáo')),
+            onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PosQuoteCareReportScreen())),
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.groups_outlined, size: 18),
+            label: Text(tr('Theo nhân viên')),
             onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const PosQuoteCareStaffScreen())),
           ),
