@@ -67,10 +67,6 @@ class _PosSellMobilePrintSettingsScreenState
   bool _testing = false;
   bool _testingLabel = false;
   bool _isSunmi = false;
-  PosStorePrinter? _invoiceCloud;
-  bool _invoiceCloudOnKitchen = false;
-  /// Hóa đơn đang trỏ máy in nội bộ của một thiết bị (chưa chia sẻ lên cloud) — máy khác không in vào được.
-  bool _invoiceCloudNotShared = false;
 
   final _lanHostCtrl = TextEditingController();
   final _lanPortCtrl = TextEditingController(text: tr('9100'));
@@ -94,7 +90,6 @@ class _PosSellMobilePrintSettingsScreenState
       });
     });
     _loadTemplates();
-    _loadInvoiceCloud();
     _loadBluetoothInBackground();
     PosThermalPrinterService.isSunmiDevice().then((v) async {
       if (!mounted) return;
@@ -159,154 +154,7 @@ class _PosSellMobilePrintSettingsScreenState
 
   Future<void> _load() async {
     await _loadTemplates();
-    await _loadInvoiceCloud();
     await _loadBluetoothInBackground();
-  }
-
-  Future<void> _loadInvoiceCloud() async {
-    await PosPrintOrchestrator.instance.refreshConfig(force: true);
-    if (!mounted) return;
-    final list = PosPrintOrchestrator.instance
-        .resolvePrinters(PosCloudDocumentTypes.saleInvoice);
-    final p = list.isEmpty ? null : list.first;
-    setState(() {
-      _invoiceCloud = p;
-      _invoiceCloudOnKitchen = p?.hasKitchenDocumentRole == true &&
-          !p!.looksLikeReceiptPrinter;
-      _invoiceCloudNotShared = p?.isDeviceLocal == true;
-    });
-  }
-
-  Future<void> _pickInvoiceCloud() async {
-    await PosPrintOrchestrator.instance.refreshConfig();
-    if (!mounted) return;
-    final orch = PosPrintOrchestrator.instance;
-    // Chỉ máy đã chia sẻ lên cloud — máy nội bộ của một thiết bị khác chưa chia sẻ thì không ai gửi in tới được.
-    final printers = orch.printers
-        .where((p) => p.isActive && !p.isLabelPrinter && !p.isDeviceLocal)
-        .toList();
-    if (printers.isEmpty) {
-      NotificationOverlayManager().showWarning(
-        title: 'Chưa có máy in nào được chia sẻ',
-        message: tr(
-            'Trên thiết bị đang cắm máy in hóa đơn: mở Máy in cloud → bật «Chia sẻ máy in của thiết bị này» và chọn máy đó.'),
-      );
-      await _openOverlay<void>(const PosStorePrintersScreen());
-      await _loadInvoiceCloud();
-      return;
-    }
-    final chosen = await showModalBottomSheet<PosStorePrinter>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                tr('Máy in hóa đơn cloud'),
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w600),
-              ),
-            ),
-            Text(
-              tr('Máy khác (A7/web) gửi hóa đơn và tạm tính về máy này.'),
-              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
-            ),
-            const SizedBox(height: 8),
-            ...printers.map((p) {
-              final kitchen = p.hasKitchenDocumentRole &&
-                  !p.looksLikeReceiptPrinter;
-              final selected = _invoiceCloud?.id == p.id;
-              return ListTile(
-                leading: Icon(
-                  kitchen
-                      ? Icons.kitchen_outlined
-                      : Icons.receipt_long_outlined,
-                  color: kitchen ? Colors.orange : _blue,
-                ),
-                title: Text(tr(p.name)),
-                subtitle: Text(
-                  tr(kitchen
-                      ? 'Máy bếp — không nên nhận hóa đơn'
-                      : '${p.connectionType}${p.isSunmi ? ' · Sunmi' : ''}'),
-                ),
-                trailing: selected
-                    ? const Icon(Icons.check, color: _blue)
-                    : null,
-                onTap: () => Navigator.pop(ctx, p),
-              );
-            }),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (chosen == null || !mounted) return;
-    if (chosen.hasKitchenDocumentRole && !chosen.looksLikeReceiptPrinter) {
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(tr('Máy này đang là máy bếp')),
-          content: Text(tr(
-              'Hóa đơn và phiếu tạm tính sẽ in ra máy bếp. Vẫn chọn?')),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(tr('Hủy')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(tr('Vẫn chọn')),
-            ),
-          ],
-        ),
-      );
-      if (ok != true) return;
-    }
-    await _assignInvoiceCloud(chosen);
-  }
-
-  Future<void> _assignInvoiceCloud(PosStorePrinter printer) async {
-    final orch = PosPrintOrchestrator.instance;
-    await orch.refreshConfig(force: true);
-    if (orch.printers.isEmpty) {
-      NotificationOverlayManager().showError(
-        title: 'Không lưu máy hóa đơn',
-        message: tr('Chưa tải được danh sách máy in'),
-      );
-      return;
-    }
-    final next = [
-      for (final r in orch.routes)
-        if (r.documentType != PosCloudDocumentTypes.saleInvoice) r.toJson(),
-      PosPrinterRoute(
-        documentType: PosCloudDocumentTypes.saleInvoice,
-        printerId: printer.id,
-      ).toJson(),
-    ];
-    try {
-      final res = await _api.savePosPrinterRoutes(next);
-      if (res['isSuccess'] != true) {
-        NotificationOverlayManager().showError(
-          title: 'Không lưu máy hóa đơn',
-          message: res['message']?.toString() ?? 'Thử lại',
-        );
-        return;
-      }
-      await orch.invalidateCache();
-      await _loadInvoiceCloud();
-      if (!mounted) return;
-      NotificationOverlayManager().showSuccess(
-        title: 'Máy in hóa đơn cloud',
-        message: tr(printer.name),
-      );
-    } catch (e) {
-      NotificationOverlayManager().showError(
-        title: 'Không lưu máy hóa đơn',
-        message: e.toString(),
-      );
-    }
   }
 
   String? _resolveTemplateId() {
@@ -651,33 +499,6 @@ class _PosSellMobilePrintSettingsScreenState
                         setState(() => _print = _print.copyWith(autoPrint: v)),
                   ),
                 ]),
-                _sectionTitle('Máy in hóa đơn cloud'),
-                _card([
-                  ListTile(
-                    leading: Icon(
-                      _invoiceCloudOnKitchen || _invoiceCloudNotShared
-                          ? Icons.warning_amber_outlined
-                          : Icons.cloud_outlined,
-                      color: _invoiceCloudOnKitchen || _invoiceCloudNotShared
-                          ? Colors.orange
-                          : _blue,
-                    ),
-                    title: Text(tr(_invoiceCloud?.name ??
-                        'Chưa chọn máy in hóa đơn cloud')),
-                    subtitle: Text(
-                      tr(_invoiceCloudNotShared
-                          ? 'Máy này chưa được chia sẻ lên cloud — máy khác không in vào được. Chạm để chọn máy đã chia sẻ.'
-                          : _invoiceCloudOnKitchen
-                          ? 'Đang trỏ máy bếp — máy khác in HĐ/tạm tính sẽ ra bếp. Chạm để đổi.'
-                          : (_invoiceCloud == null
-                              ? 'A6 in HĐ tại quầy (Sunmi). Máy khác gửi cloud cần chọn máy hóa đơn, không phải máy bếp.'
-                              : 'Máy khác (A7/web) in hóa đơn và tạm tính về đây')),
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: _pickInvoiceCloud,
-                  ),
-                ]),
                 _sectionTitle('Hóa đơn'),
                 _card([
                   SwitchListTile(
@@ -888,14 +709,6 @@ class _PosSellMobilePrintSettingsScreenState
                       documentType: PosPrintDocumentTypes.kitchenSlip,
                     ),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.phone_android, color: _blue),
-                    title: Text(tr('Máy in nội bộ (gán Báo bếp)')),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      _openOverlay<void>(const PosLocalPrintersScreen());
-                    },
-                  ),
                 ]),
                 ],
                 const SizedBox(height: 16),
@@ -959,40 +772,6 @@ class _PosSellMobilePrintSettingsScreenState
                     ),
                   ),
                 ]),
-                const SizedBox(height: 16),
-                _sectionTitle('Máy in trên thiết bị này'),
-                _card([
-                  ListTile(
-                    leading: const Icon(Icons.phone_android, color: _blue),
-                    title: Text(tr('Máy in nội bộ')),
-                    subtitle: Text(
-                      tr('Thêm máy → In thử. Gán món và vai trò Hóa đơn / Báo bếp — bán trên máy này in ngay, không cần Agent.'),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      _openOverlay<void>(const PosLocalPrintersScreen());
-                    },
-                  ),
-                ]),
-                if (canStore) ...[
-                  const SizedBox(height: 16),
-                  _sectionTitle('Máy in cloud'),
-                  _card([
-                    ListTile(
-                      leading: const Icon(Icons.cloud_outlined, color: _blue),
-                      title: Text(tr('Máy in cloud')),
-                      subtitle: Text(
-                        tr('Máy dùng chung cửa hàng. A7/web in được khi máy cắm cổng bật Agent.'),
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        _openOverlay<void>(const PosStorePrintersScreen());
-                      },
-                    ),
-                  ]),
-                ],
               ],
             )),
     );
