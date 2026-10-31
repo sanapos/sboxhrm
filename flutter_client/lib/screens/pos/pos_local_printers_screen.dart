@@ -27,6 +27,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'pos_product_printer_assignment_screen.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_action_fab.dart';
 import '../../utils/pos_printer_auto_detect.dart';
 /// Quản lý nhiều máy in nội bộ (nhiệt + tem) trên thiết bị này.
 /// Windows: máy in USB là máy in đã cài trong Windows (in RAW qua spooler).
@@ -428,48 +429,36 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
           tooltip: tr('Quay lại'),
           onPressed: () => Navigator.maybePop(context),
         ),
-        actions: [
-          IconButton(
-            tooltip: tr('Thêm máy'),
-            onPressed: () => _edit(),
-            icon: const Icon(Icons.add),
-          ),
-          IconButton(
-            tooltip: tr('Kiểm tra kết nối'),
-            onPressed: _loading ? null : () => unawaited(_refreshLinkStatus()),
-            icon: const Icon(Icons.wifi_tethering),
-          ),
-          if (canAssign)
-          IconButton(
-            tooltip: tr('Gán sản phẩm (mọi máy)'),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const PosProductPrinterAssignmentScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.link),
-          ),
-          IconButton(
-            tooltip: tr('Đồng bộ lên server'),
-            onPressed: _syncing ? null : _syncAll,
-            icon: _syncing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: SboxColors.primary),
-                  )
-                : const Icon(Icons.cloud_upload_outlined),
-          ),
-        ],
       ),
-      // Không dùng nút nổi: danh sách ngắn không cuộn → nút nổi che «Gán sản phẩm» / ⋮ của thẻ cuối.
+      // Thao tác phụ gom vào nút nổi có chữ (trước là 4 biểu tượng không chữ trên thanh tiêu đề).
+      floatingActionButton: SboxActionFab(actions: [
+        SboxFabAction(icon: Icons.add, label: 'Thêm máy in', onTap: () => _edit()),
+        SboxFabAction(
+          icon: Icons.wifi_tethering,
+          label: 'Kiểm tra kết nối',
+          onTap: _loading ? null : () => unawaited(_refreshLinkStatus()),
+        ),
+        if (canAssign)
+          SboxFabAction(
+            icon: Icons.link,
+            label: 'Gán sản phẩm (mọi máy)',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PosProductPrinterAssignmentScreen()),
+            ),
+          ),
+        SboxFabAction(
+          icon: Icons.cloud_upload_outlined,
+          label: 'Đồng bộ lên server',
+          busy: _syncing,
+          onTap: _syncAll,
+        ),
+      ]),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+              // Đáy chừa chỗ nút nổi — thẻ máy cuối (⋮, Gán sản phẩm) không bị che.
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
               children: [
                 Card(
                   color: SboxColors.brand50,

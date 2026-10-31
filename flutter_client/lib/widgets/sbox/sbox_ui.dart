@@ -8,3 +8,4 @@ export 'sbox_table.dart';
 export 'sbox_command_palette.dart';
 export 'sbox_charts.dart';
 export 'sbox_report.dart';
+export 'sbox_action_fab.dart';

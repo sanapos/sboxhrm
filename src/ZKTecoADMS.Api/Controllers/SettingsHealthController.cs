@@ -104,8 +104,21 @@ public class SettingsHealthController(ZKTecoDbContext db) : AuthenticatedControl
         items.Add(einvoice ? new("einvoice", "ok", "Đã kết nối") : new("einvoice", "info", "Chưa kết nối"));
         var carriers = await db.PosShippingCarrierSettings.CountAsync(s => s.StoreId == storeId && s.Enabled);
         items.Add(carriers == 0 ? new("shipping", "info", "Chưa bật đơn vị giao hàng") : new("shipping", "ok", $"{carriers} đơn vị đang bật"));
-        var printers = await db.PosStorePrinters.CountAsync(p => p.StoreId == storeId);
-        items.Add(printers == 0 ? new("cloudPrinter", "info", "Chưa có máy in cloud") : new("cloudPrinter", "ok", $"{printers} máy in"));
+        // Xóa máy in chỉ đánh dấu Deleted → phải lọc, trước đếm cả máy đã xóa / đã tắt (nhãn 22 mà vào trống).
+        // Tách máy cloud (Agent) và máy nội bộ của các thiết bị — khớp hai tab trong mục Máy in.
+        var printerKinds = await db.PosStorePrinters.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive)
+            .Select(p => p.IsDeviceLocal)
+            .ToListAsync();
+        var localPrinters = printerKinds.Count(x => x);
+        var cloudPrinters = printerKinds.Count - localPrinters;
+        items.Add(printerKinds.Count == 0
+            ? new("cloudPrinter", "info", "Chưa có máy in")
+            : new("cloudPrinter", "ok", string.Join(" · ", new[]
+            {
+                cloudPrinters > 0 ? $"{cloudPrinters} máy in cloud" : null,
+                localPrinters > 0 ? $"{localPrinters} máy in nội bộ (mọi thiết bị)" : null,
+            }.Where(x => x != null))));
 
         return Ok(AppResponse<List<HealthItem>>.Success(items));
     }

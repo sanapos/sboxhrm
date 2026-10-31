@@ -34,6 +34,7 @@ import 'pos_product_printer_assignment_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_action_fab.dart';
 /// Quản lý máy in cloud + vai trò từng máy + Print Agent.
 class PosStorePrintersScreen extends StatefulWidget {
   const PosStorePrintersScreen({
@@ -801,40 +802,33 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     if (saved != null) await _load();
   }
 
-  List<Widget> _cloudPrinterActions() => [
+  /// Thao tác phụ của màn — gom vào nút nổi có chữ (trước là 5 biểu tượng không chữ trên đầu tab).
+  Widget _cloudPrinterFab() => SboxActionFab(actions: [
         if (_canManageCloudPrinters)
-          IconButton(
-            tooltip: tr('Thêm máy in'),
-            onPressed: () => _openEditor(),
-            icon: const Icon(Icons.add),
-          ),
-        IconButton(
-          tooltip: tr('Máy in nội bộ'),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const PosLocalPrintersScreen(),
-              ),
-            ).then((_) => _load());
-          },
-          icon: const Icon(Icons.phone_android),
+          SboxFabAction(icon: Icons.add, label: 'Thêm máy in', onTap: () => _openEditor()),
+        SboxFabAction(
+          icon: Icons.phone_android,
+          label: 'Máy in nội bộ',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PosLocalPrintersScreen()),
+          ).then((_) => _load()),
         ),
-        IconButton(
-          tooltip: tr('Mạng cửa hàng'),
-          onPressed: () => Navigator.push(
+        SboxFabAction(
+          icon: Icons.wifi_tethering,
+          label: 'Mạng cửa hàng',
+          onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const PosNetworkReportScreen()),
           ),
-          icon: const Icon(Icons.wifi_tethering),
         ),
-        IconButton(
-          tooltip: tr('Dọn máy in cũ'),
-          onPressed: _cleanupStalePrinters,
-          icon: const Icon(Icons.cleaning_services_outlined),
+        SboxFabAction(
+          icon: Icons.cleaning_services_outlined,
+          label: 'Dọn máy in cũ',
+          onTap: _cleanupStalePrinters,
         ),
-        IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
-      ];
+        SboxFabAction(icon: Icons.refresh, label: 'Tải lại', onTap: _load),
+      ]);
 
   /// Máy in lâu không hoạt động (cài lại app / đổi máy để lại bản ghi) → tắt, không xóa.
   Future<void> _cleanupStalePrinters() async {
@@ -960,23 +954,6 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         tooltip: tr('Quay lại'),
         onPressed: () => Navigator.maybePop(context),
       ),
-      actions: denyAccess ? null : _cloudPrinterActions(),
-    );
-  }
-
-  Widget _embeddedToolbar() {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final w in _cloudPrinterActions())
-            IconTheme(
-              data: const IconThemeData(color: PosTheme.kiotBlue),
-              child: w,
-            ),
-        ],
-      ),
     );
   }
 
@@ -1000,7 +977,6 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
-    final hideOuter = _hideCloudChrome;
     if (!PermissionNavigation.canAccessModule(
       'PosStorePrinters',
       allowedModules: auth.user?.allowedModules,
@@ -1028,18 +1004,15 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
       Scaffold(
       backgroundColor: PosTheme.background,
       appBar: _cloudPrinterAppBar(denyAccess: false),
+      floatingActionButton: _loading ? null : _cloudPrinterFab(),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
-                // Chừa chỗ FAB «Thêm máy in».
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+                // Đáy chừa chỗ nút nổi «Thao tác».
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
                 children: [
-                  if (hideOuter) ...[
-                    _embeddedToolbar(),
-                    const SizedBox(height: 8),
-                  ],
                   Card(
                     color: SboxColors.warningSoft,
                     child: Padding(
