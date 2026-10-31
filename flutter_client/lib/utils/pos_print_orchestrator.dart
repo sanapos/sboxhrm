@@ -196,7 +196,10 @@ class PosPrintOrchestrator {
     );
     _armHangTimer(
       jobId: jobId,
-      hangAfter: hangAfter,
+      // Không ai nhận → vào «In treo» sớm, không bắt chờ 60 s.
+      hangAfter: _noReceiverJobs.contains(jobId) && hangAfter > noReceiverHangAfter
+          ? noReceiverHangAfter
+          : hangAfter,
       acceptClaimedAsSuccess: acceptClaimedAsSuccess,
       deadline: DateTime.now().add(hangWatchMaxWait),
     );
@@ -944,7 +947,7 @@ class PosPrintOrchestrator {
         printerName: printer.name,
       );
 
-      if (showFeedback) {
+      if (_shouldToastSent(jobId, showFeedback)) {
         final ref = referenceNo?.trim() ?? '';
         NotificationOverlayManager().show(
           title: 'Đã gửi lệnh in',
@@ -1402,7 +1405,7 @@ class PosPrintOrchestrator {
     }
 
     await _registerCloudJobForAgent(jobId: jobId, printerId: printer.id);
-    if (showFeedback) {
+    if (_shouldToastSent(jobId, showFeedback)) {
       final ref = referenceNo?.trim() ?? '';
       NotificationOverlayManager().show(
         title: 'Đã gửi lệnh in',
@@ -1444,9 +1447,17 @@ class PosPrintOrchestrator {
     return outcome.ok;
   }
 
-  /// Không hủy job khi heartbeat Agent «lệch» — demopos tái hiện:
-  /// `agentOnlineForPrinter=0` nhưng Agent vẫn Claim + in trong vài giây.
-  /// Fail-fast cũ → UI «Đã báo bếp — chưa in phiếu» dù giấy đã ra.
+  /// Lệnh vừa xếp mà không thiết bị nào đang nhận máy in đó — không báo «Đã gửi», treo sớm.
+  final Set<String> _noReceiverJobs = {};
+
+  /// Không ai nhận: chuyển «In treo» sau chừng này (trước chờ đủ 60 s sau toast «Đã gửi lệnh in»).
+  /// Vẫn chừa vài giây vì heartbeat có thể lệch — Agent thật vẫn Claim được thì không treo.
+  static const noReceiverHangAfter = Duration(seconds: 12);
+
+  /// Lệnh [jobId] có ai nhận không: máy chủ báo 0 Agent nhận máy in này **và** 5 phút qua không
+  /// thấy Agent nào (lastSeenAt máy chủ + nhịp SignalR) → không ai in. Trước đây vẫn báo «Đã gửi lệnh
+  /// in» rồi 60 s sau phiếu mới rơi vào «In treo» — người dùng tưởng đã in, không biết xử lý thế nào.
+  /// Không hủy job (Agent vừa mở lại vẫn in được); trả false để luồng gửi chạy tiếp.
   bool _failFastNoAgent(
     PosStorePrinter printer,
     Map<String, dynamic>? data,
@@ -1454,23 +1465,27 @@ class PosPrintOrchestrator {
     bool showFeedback = true,
   }) {
     final agentsOnline = data?['agentOnlineForPrinter'];
-    if (!printer.requiresAgent ||
-        agentsOnline is! num ||
-        agentsOnline.toInt() > 0) {
-      return false;
-    }
-    // Chỉ cảnh báo mềm — vẫn chờ Claimed/Printing/Completed.
-    if (showFeedback) {
-      NotificationOverlayManager().show(
-        title: 'Đang chờ Print Agent…',
-        message: tr(
-            '${printer.name}: chưa thấy heartbeat tươi — vẫn gửi lệnh, mở app Agent nếu lâu không in.'),
-        duration: const Duration(seconds: 4),
-        relatedEntityType: kPosPrintNotifyKind,
-      );
-    }
+    if (agentsOnline is! num || agentsOnline.toInt() > 0) return false;
+    final seen = printer.lastSeenAt;
+    final serverSeen = seen != null &&
+        DateTime.now().toUtc().difference(seen.toUtc()) < const Duration(minutes: 5);
+    if (serverSeen || _agentSeenRecently(printer.id)) return false;
+    if (_noReceiverJobs.length > 300) _noReceiverJobs.clear();
+    _noReceiverJobs.add(jobId);
+    // Luôn báo (kể cả in tự động sau thanh toán, showFeedback=false): giấy sẽ không ra.
+    NotificationOverlayManager().showWarning(
+      title: 'Chưa có máy nhận lệnh in',
+      message: tr('«${printer.name}»: không thiết bị nào đang chia sẻ máy in này nên chưa in. '
+          'Phiếu vào «In treo» — bật «Chia sẻ máy in» ở thiết bị cắm máy in rồi bấm In lại.'),
+      duration: const Duration(seconds: 8),
+      relatedEntityType: kPosPrintNotifyKind,
+    );
     return false;
   }
+
+  /// Toast «Đã gửi lệnh in» chỉ khi có máy nhận — không thì đã có cảnh báo của [_failFastNoAgent].
+  bool _shouldToastSent(String jobId, bool showFeedback) =>
+      showFeedback && !_noReceiverJobs.contains(jobId);
 
   /// Phiếu xuất kho / báo chế biến kho → Agent Sunmi native (không ESC/POS).
   Future<bool> enqueueWarehouseSlipJson({
@@ -1818,15 +1833,8 @@ class PosPrintOrchestrator {
       }
     }
 
-    if (noAgent) {
-      // Luôn báo (kể cả showFeedback=false): thu ngân phải biết bếp chưa có phiếu và máy nào đang nhận.
-      // Toast cảnh báo tối đa 4 dòng → câu ngắn; IP LAN xem ở thẻ Máy in nội bộ.
-      NotificationOverlayManager().showWarning(
-        title: 'Máy bếp chưa in',
-        message: tr('«${printer.name}» của thiết bị khác, chưa Agent nào nhận — phiếu chờ in. Bật Agent ở máy đó hoặc thêm máy in tại Máy in nội bộ.'),
-        duration: const Duration(seconds: 8),
-      );
-    }
+    // Không ai nhận: cảnh báo + treo sớm nằm ở [_failFastNoAgent] (sau khi máy chủ xác nhận 0 Agent),
+    // trước đây báo ở đây rồi vẫn toast «Báo bếp» thành công và 60 s sau mới vào «In treo».
 
     debugPrint(
       'Kitchen DBG: cloud KitchenSlipJson → ${printer.name} '
@@ -2018,7 +2026,7 @@ class PosPrintOrchestrator {
     }
 
     await _registerCloudJobForAgent(jobId: jobId, printerId: printer.id);
-    if (showFeedback) {
+    if (_shouldToastSent(jobId, showFeedback)) {
       final ref = referenceNo?.trim() ?? '';
       NotificationOverlayManager().show(
         title: isCancel ? 'Hủy bếp' : 'Báo bếp',
@@ -2566,7 +2574,9 @@ class PosPrintOrchestrator {
     _acceptClaimedByJob[jobId] = acceptClaimedAsSuccess;
     _showFeedbackByJob[jobId] = showFeedback;
 
-    Timer(_jobTimeout, () {
+    // Không thiết bị nào nhận máy in này: không bắt chờ đủ 120 s mới báo lỗi.
+    final noReceiver = _noReceiverJobs.contains(jobId);
+    Timer(noReceiver ? noReceiverHangAfter : _jobTimeout, () {
       if (!completer.isCompleted) {
         // Soft-timeout: nếu Agent đã nhận (Claimed/Printing) thì coi OK —
         // tránh báo lỗi sau khi giấy đã ra mà Complete chậm.
@@ -2590,10 +2600,13 @@ class PosPrintOrchestrator {
           if (!completer.isCompleted) {
             _finishJob(
               jobId,
-              const _JobOutcome(
+              _JobOutcome(
                 false,
-                'Print Agent không nhận lệnh trong 120 giây. '
-                'Kiểm tra Sunmi: Agent BẬT + đã chọn chip máy in + app đang mở.',
+                noReceiver
+                    ? 'Không thiết bị nào đang chia sẻ máy in này nên chưa in. '
+                        'Bật «Chia sẻ máy in» ở thiết bị cắm máy in rồi in lại.'
+                    : 'Print Agent không nhận lệnh trong 120 giây. '
+                        'Kiểm tra Sunmi: Agent BẬT + đã chọn chip máy in + app đang mở.',
               ),
               showFeedback: showFeedback,
             );
@@ -2826,7 +2839,7 @@ class PosPrintOrchestrator {
       referenceNo: 'TPL',
       acceptClaimedAsSuccess: false,
     );
-    if (showFeedback) {
+    if (_shouldToastSent(jobId, showFeedback)) {
       NotificationOverlayManager().show(
         title: successTitle ?? 'In thử',
         message: tr('Đã gửi mẫu → Agent (${printer.name})'),
@@ -3030,7 +3043,7 @@ class PosPrintOrchestrator {
       printerName: printer.name,
     );
 
-    if (showFeedback) {
+    if (_shouldToastSent(jobId, showFeedback)) {
       NotificationOverlayManager().show(
         title: 'Đã gửi lệnh in',
         message: 'Test → Print Agent (${printer.name})',
