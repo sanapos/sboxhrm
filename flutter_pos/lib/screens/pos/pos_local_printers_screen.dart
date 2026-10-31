@@ -27,6 +27,7 @@ import 'pos_product_printer_assignment_screen.dart';
 
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_action_fab.dart';
+import '../../widgets/sbox/sbox_basics.dart';
 import '../../utils/pos_printer_auto_detect.dart';
 import '../../utils/pos_printer_transport.dart';
 /// Quản lý nhiều máy in nội bộ (nhiệt + tem) trên thiết bị này.
@@ -43,6 +44,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
   List<PosLocalPrinterProfile> _items = [];
   /// Máy cửa hàng nhận Phiếu chế biến nhưng không cài trên máy này (in qua Agent máy khác).
   List<PosStorePrinter> _kitchenElsewhere = const [];
+  List<PosStorePrinter> _otherDevices = const [];
   bool _loading = true;
   bool _syncing = false;
   final Map<String, PosPrinterLinkStatus> _linkStatus = {};
@@ -98,6 +100,33 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
 
   bool _restoreOffered = false;
 
+  Widget _otherDeviceTile(PosStorePrinter p) {
+    final host = (p.lanHost ?? '').trim();
+    final conn = p.isLan
+        ? (host.isEmpty ? 'LAN' : 'LAN $host')
+        : p.isUsb
+            ? 'USB'
+            : p.isBluetooth
+                ? 'Bluetooth'
+                : p.isSunmi
+                    ? 'Sunmi'
+                    : p.connectionType;
+    final roles = p.documentTypes.map((d) => tr(PosCloudDocumentTypes.labels[d] ?? d)).join(' · ');
+    return Card(
+      child: ListTile(
+        dense: true,
+        leading: const Icon(Icons.print_outlined, color: SboxColors.slate500),
+        title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text([conn, if (roles.isNotEmpty) roles].join(' · '), maxLines: 2, overflow: TextOverflow.ellipsis),
+        trailing: SboxStatusChip(
+          label: p.isOnline ? 'Agent đang nhận' : 'Chưa có Agent nhận',
+          tone: p.isOnline ? SboxTone.success : SboxTone.neutral,
+          dot: true,
+        ),
+      ),
+    );
+  }
+
   /// Máy này chưa có máy nhận Báo bếp → liệt kê máy cửa hàng đang nhận Phiếu chế biến.
   /// Trước danh sách trống mà phiếu vẫn ra máy LAN của thiết bị khác — không biết máy nào đang nhận.
   Future<void> _loadKitchenElsewhere(List<PosLocalPrinterProfile> list) async {
@@ -106,25 +135,32 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
         !p.isLabel &&
         (p.roles.contains(PosLocalPrinterRoles.kitchenSlip) ||
             p.roles.contains(PosLocalPrinterRoles.kitchenVoid)));
-    if (hasLocalKitchen) {
-      if (mounted && _kitchenElsewhere.isNotEmpty) setState(() => _kitchenElsewhere = const []);
-      return;
-    }
     try {
       await PosPrintOrchestrator.instance.refreshConfig();
     } catch (_) {
       return;
     }
     final installed = list.map((p) => p.storePrinterId).whereType<String>().toSet();
-    final found = PosPrintOrchestrator.instance.printers
-        .where((p) =>
-            p.isActive &&
-            !p.isLabelPrinter &&
-            !installed.contains(p.id) &&
-            (p.documentTypes.contains(PosCloudDocumentTypes.kitchenSlip) ||
-                p.documentTypes.contains(PosCloudDocumentTypes.kitchenVoid)))
-        .toList();
-    if (mounted) setState(() => _kitchenElsewhere = found);
+    final printers = PosPrintOrchestrator.instance.printers;
+    final found = hasLocalKitchen
+        ? const <PosStorePrinter>[]
+        : printers
+            .where((p) =>
+                p.isActive &&
+                !p.isLabelPrinter &&
+                !installed.contains(p.id) &&
+                (p.documentTypes.contains(PosCloudDocumentTypes.kitchenSlip) ||
+                    p.documentTypes.contains(PosCloudDocumentTypes.kitchenVoid)))
+            .toList();
+    // Thiết lập SBOX ghi «N máy in nội bộ (mọi thiết bị)» mà màn này chỉ liệt kê máy của thiết bị
+    // đang cầm (C20: nhãn 4, vào thấy 1) → hiện riêng máy của thiết bị khác (chỉ xem) cho khớp số.
+    final others = printers.where((p) => p.isActive && p.isDeviceLocal && !installed.contains(p.id)).toList();
+    if (mounted) {
+      setState(() {
+        _kitchenElsewhere = found;
+        _otherDevices = others;
+      });
+    }
   }
 
   /// App cài lại / xóa dữ liệu: danh sách trống nhưng server còn máy in nội bộ của máy này
@@ -670,6 +706,16 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                       ),
                     );
                   }),
+                if (_otherDevices.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(tr('Máy in nội bộ trên thiết bị khác (${_otherDevices.length})'),
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.slate800)),
+                  const SizedBox(height: 2),
+                  Text(tr('Chỉ xem — sửa / xóa trên đúng thiết bị đã cài máy. Máy này in qua được khi thiết bị đó bật Agent.'),
+                      style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500)),
+                  const SizedBox(height: 6),
+                  ..._otherDevices.map(_otherDeviceTile),
+                ],
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
