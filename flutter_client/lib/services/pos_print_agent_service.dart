@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
@@ -61,6 +62,11 @@ class PosPrintAgentService {
   final Map<String, DateTime> _pendingCompletes = {};
   static const _pendingCompletesKey = 'pos_print_agent_pending_completes';
   DateTime? _lastTimerClaimAt;
+  /// Số lần hỏi lệnh / heartbeat lỗi liên tiếp (máy chủ sập, mất mạng) → giãn nhịp, có lệch ngẫu nhiên
+  /// theo máy. Trước đây mất realtime là mọi Agent hỏi 2s/lần, máy chủ vừa lên lại bị dồn cùng lúc.
+  int _claimFailStreak = 0;
+  int _registerFailStreak = 0;
+  final _jitter = math.Random();
   List<PosStorePrinter> _printers = [];
   final _activeJobIds = <String>{};
   final _notifiedReceiveJobIds = <String>{};
@@ -148,11 +154,8 @@ class PosPrintAgentService {
       // máy Agent ⇒ server bị hỏi liên tục cả khi cửa hàng không in gì.
       _claimTimer = Timer.periodic(const Duration(seconds: 2), (_) {
         final now = DateTime.now();
-        final every = _signalR.isConnected
-            ? const Duration(seconds: 10)
-            : const Duration(seconds: 2);
         final last = _lastTimerClaimAt;
-        if (last != null && now.difference(last) < every) return;
+        if (last != null && now.difference(last) < _claimPollEvery()) return;
         _lastTimerClaimAt = now;
         _scheduleClaim();
       });
@@ -163,14 +166,28 @@ class PosPrintAgentService {
       await _connSub?.cancel();
       _connSub = _signalR.onConnectionStateChanged.listen((connected) {
         if (!connected || !_running || _storeId == null) return;
-        // Debounce reconnect → tránh bão ensureRunning khi hub dao động.
-        unawaited(ensureRunning(_storeId!));
+        // Máy chủ vừa khởi động lại (deploy): mọi Agent nối lại cùng lúc → lệch 0–4s mỗi máy
+        // để đăng ký / hỏi lệnh không dồn một nhịp.
+        final sid = _storeId!;
+        Future<void>.delayed(Duration(milliseconds: _jitter.nextInt(4000)), () {
+          if (_running && _storeId == sid) unawaited(ensureRunning(sid));
+        });
       });
 
       debugPrint('??? Print Agent started for store $storeId');
     } finally {
       _ensureRunningInFlight = false;
     }
+  }
+
+  /// Nhịp hỏi lệnh dự phòng: realtime nối → 10s (lệnh mới đến qua PrintJobNew); mất realtime → 3s;
+  /// hỏi lỗi liên tiếp → 6, 12, 24… tối đa 30s. Cộng lệch ngẫu nhiên tới 20% để các máy không trùng nhịp.
+  Duration _claimPollEvery() {
+    final baseSec = _claimFailStreak > 0
+        ? math.min(30, 3 << math.min(_claimFailStreak, 4))
+        : (_signalR.isConnected ? 10 : 3);
+    final ms = baseSec * 1000;
+    return Duration(milliseconds: ms + _jitter.nextInt(ms ~/ 5 + 1));
   }
 
   Future<void> _waitForSignalR({int maxAttempts = 8}) async {
@@ -248,9 +265,13 @@ class PosPrintAgentService {
     unawaited(_flushPendingCompletes());
     // Chống bão register (UI/heartbeat) — tối thiểu 8s giữa 2 lần trừ khi refresh máy in.
     final now = DateTime.now();
+    // Heartbeat lỗi liên tiếp → giãn 24, 48, 60s (máy chủ sập không bị mọi Agent gọi 12s/lần).
+    final minGap = _registerFailStreak > 0
+        ? Duration(seconds: math.min(60, 12 << math.min(_registerFailStreak, 3)))
+        : const Duration(seconds: 8);
     if (!refreshPrinters &&
         _lastRegisterAt != null &&
-        now.difference(_lastRegisterAt!) < const Duration(seconds: 8)) {
+        now.difference(_lastRegisterAt!) < minGap) {
       return;
     }
     _lastRegisterAt = now;
@@ -370,6 +391,7 @@ class PosPrintAgentService {
         _registeredPrinterIds = List<String>.from(printerIds);
         _lastRegisterError = null;
         _lastOfflineMarkAt = null;
+        _registerFailStreak = 0;
         _scheduleClaim();
         debugPrint(
           '??? Print Agent registered id=$_agentId printers=${printerIds.length}',
@@ -378,9 +400,11 @@ class PosPrintAgentService {
         // Giữ agentId cũ nếu heartbeat lỗi tạm thời → tránh Oppo mất Agent giữa chừng.
         _lastRegisterError =
             res['message']?.toString() ?? 'Đăng ký Agent thất bại';
+        _registerFailStreak++;
         debugPrint('Print Agent register soft-fail: $_lastRegisterError');
       }
     } catch (e) {
+      _registerFailStreak++;
       _lastRegisterError = e.toString();
       debugPrint('Print Agent register failed: $e');
     }
@@ -436,7 +460,11 @@ class PosPrintAgentService {
         _agentId!,
         excludePrinterIds: _busyPrinterIds.toList(),
       );
-      if (res['isSuccess'] != true) return;
+      if (res['isSuccess'] != true) {
+        _claimFailStreak++;
+        return;
+      }
+      _claimFailStreak = 0;
       final raw = res['data'];
       if (raw == null) return;
       if (raw is! Map) return;
@@ -594,6 +622,7 @@ class PosPrintAgentService {
       }
     } catch (e) {
       debugPrint('Print Agent claim error: $e');
+      if (claimedJobId == null && !gotJob) _claimFailStreak++;
       await _failAbandonedJob(claimedJobId, e);
     } finally {
       if (workerStarted) {

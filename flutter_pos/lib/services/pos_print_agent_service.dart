@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
@@ -52,6 +53,12 @@ class PosPrintAgentService {
   bool _running = false;
   bool _claimInFlight = false;
   List<PosStorePrinter> _printers = [];
+  DateTime? _lastTimerClaimAt;
+  /// Số lần hỏi lệnh / heartbeat lỗi liên tiếp (máy chủ sập, mất mạng) → giãn nhịp, có lệch ngẫu nhiên
+  /// theo máy. Trước đây Agent hỏi 2s/lần (và hỏi lại ngay sau mỗi lần), máy chủ vừa lên lại bị dồn.
+  int _claimFailStreak = 0;
+  int _registerFailStreak = 0;
+  final _jitter = math.Random();
   final _activeJobIds = <String>{};
   final _notifiedReceiveJobIds = <String>{};
   /// Job đã complete/fail → timeout không được ghi đè thành Failed sau khi giấy đã in.
@@ -132,8 +139,14 @@ class PosPrintAgentService {
       // Heartbeat 12s ← server stale 90s; Oppo thấy Agent online ổn định hơn.
       _heartbeatTimer =
           Timer.periodic(const Duration(seconds: 12), (_) => _register());
-      _claimTimer =
-          Timer.periodic(const Duration(seconds: 2), (_) => _scheduleClaim());
+      // Lệnh mới đến qua SignalR (PrintJobNew) ⇒ claim ngay. Timer chỉ là dự phòng (xem _claimPollEvery).
+      _claimTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        final now = DateTime.now();
+        final last = _lastTimerClaimAt;
+        if (last != null && now.difference(last) < _claimPollEvery()) return;
+        _lastTimerClaimAt = now;
+        _scheduleClaim();
+      });
       await _jobNewSub?.cancel();
       _jobNewSub = _signalR.onPrintJobNew.listen((_) => _scheduleClaim());
       await _forceStopSub?.cancel();
@@ -141,14 +154,28 @@ class PosPrintAgentService {
       await _connSub?.cancel();
       _connSub = _signalR.onConnectionStateChanged.listen((connected) {
         if (!connected || !_running || _storeId == null) return;
-        // Debounce reconnect → tránh bão ensureRunning khi hub dao động.
-        unawaited(ensureRunning(_storeId!));
+        // Máy chủ vừa khởi động lại (deploy): mọi Agent nối lại cùng lúc → lệch 0–4s mỗi máy
+        // để đăng ký / hỏi lệnh không dồn một nhịp.
+        final sid = _storeId!;
+        Future<void>.delayed(Duration(milliseconds: _jitter.nextInt(4000)), () {
+          if (_running && _storeId == sid) unawaited(ensureRunning(sid));
+        });
       });
 
       debugPrint('??? Print Agent started for store $storeId');
     } finally {
       _ensureRunningInFlight = false;
     }
+  }
+
+  /// Nhịp hỏi lệnh dự phòng: realtime nối → 10s (lệnh mới đến qua PrintJobNew); mất realtime → 3s;
+  /// hỏi lỗi liên tiếp → 6, 12, 24… tối đa 30s. Cộng lệch ngẫu nhiên tới 20% để các máy không trùng nhịp.
+  Duration _claimPollEvery() {
+    final baseSec = _claimFailStreak > 0
+        ? math.min(30, 3 << math.min(_claimFailStreak, 4))
+        : (_signalR.isConnected ? 10 : 3);
+    final ms = baseSec * 1000;
+    return Duration(milliseconds: ms + _jitter.nextInt(ms ~/ 5 + 1));
   }
 
   Future<void> _waitForSignalR({int maxAttempts = 8}) async {
@@ -225,9 +252,13 @@ class PosPrintAgentService {
     if (!_running || _storeId == null) return;
     // Chống bão register (UI/heartbeat) — tối thiểu 8s giữa 2 lần trừ khi refresh máy in.
     final now = DateTime.now();
+    // Heartbeat lỗi liên tiếp → giãn 24, 48, 60s (máy chủ sập không bị mọi Agent gọi 12s/lần).
+    final minGap = _registerFailStreak > 0
+        ? Duration(seconds: math.min(60, 12 << math.min(_registerFailStreak, 3)))
+        : const Duration(seconds: 8);
     if (!refreshPrinters &&
         _lastRegisterAt != null &&
-        now.difference(_lastRegisterAt!) < const Duration(seconds: 8)) {
+        now.difference(_lastRegisterAt!) < minGap) {
       return;
     }
     _lastRegisterAt = now;
@@ -347,6 +378,7 @@ class PosPrintAgentService {
         _registeredPrinterIds = List<String>.from(printerIds);
         _lastRegisterError = null;
         _lastOfflineMarkAt = null;
+        _registerFailStreak = 0;
         _scheduleClaim();
         debugPrint(
           '??? Print Agent registered id=$_agentId printers=${printerIds.length}',
@@ -355,9 +387,11 @@ class PosPrintAgentService {
         // Giữ agentId cũ nếu heartbeat lỗi tạm thời → tránh Oppo mất Agent giữa chừng.
         _lastRegisterError =
             res['message']?.toString() ?? 'Đăng ký Agent thất bại';
+        _registerFailStreak++;
         debugPrint('Print Agent register soft-fail: $_lastRegisterError');
       }
     } catch (e) {
+      _registerFailStreak++;
       _lastRegisterError = e.toString();
       debugPrint('Print Agent register failed: $e');
     }
@@ -388,16 +422,30 @@ class PosPrintAgentService {
     _claimDebounce = Timer(const Duration(milliseconds: 80), _tryClaim);
   }
 
+  /// PrintJobNew đến lúc đang hỏi dở → nhớ lại, hỏi tiếp khi xong (không thì phải đợi timer 10s).
+  bool _claimRequested = false;
+
   Future<void> _tryClaim() async {
-    if (!_running || _claimsPaused || _claimInFlight || _agentId == null) return;
+    if (!_running || _claimsPaused || _agentId == null) return;
+    if (_claimInFlight) {
+      _claimRequested = true;
+      return;
+    }
+    _claimRequested = false;
     _claimInFlight = true;
     // Job đã nhận nhưng chưa chốt. Lỗi bất ngờ (mất mạng lúc markPrinting, lỗi
     // cổng in…) mà bỏ qua thì job nằm Claimed tới khi server hủy STUCK — phiếu
     // bếp mất mà thu ngân không hề biết.
     String? claimedJobId;
+    /// Server vừa giao job → có thể còn job khác: claim tiếp ngay.
+    var gotJob = false;
     try {
       final res = await _api.claimPosPrintJob(_agentId!);
-      if (res['isSuccess'] != true) return;
+      if (res['isSuccess'] != true) {
+        _claimFailStreak++;
+        return;
+      }
+      _claimFailStreak = 0;
       final raw = res['data'];
       if (raw == null) return;
       if (raw is! Map) return;
@@ -405,6 +453,7 @@ class PosPrintAgentService {
 
       final jobId = data['jobId']?.toString() ?? data['JobId']?.toString() ?? '';
       if (jobId.isEmpty) return;
+      gotJob = true;
 
       // Đã/đang xử lý job này → KHÔNG fail (tránh báo «không in được»
       // trong khi lần claim đầu đã in ra giấy, rồi reclaim/claim lại).
@@ -549,11 +598,13 @@ class PosPrintAgentService {
       }
     } catch (e) {
       debugPrint('Print Agent claim error: $e');
+      if (claimedJobId == null && !gotJob) _claimFailStreak++;
       await _failAbandonedJob(claimedJobId, e);
     } finally {
       _claimInFlight = false;
-      // Xử hàng đợi ngay — không chờ timer 3s.
-      if (_running && !_claimsPaused) _scheduleClaim();
+      // Vừa có job → xả tiếp hàng đợi ngay. Hàng đợi trống / lỗi mạng → KHÔNG hỏi lại liền (trước đây
+      // hỏi máy chủ liên tục ~80ms/lần kể cả lúc không có gì in); chờ PrintJobNew hoặc timer dự phòng.
+      if (_running && !_claimsPaused && (gotJob || _claimRequested)) _scheduleClaim();
     }
   }
 

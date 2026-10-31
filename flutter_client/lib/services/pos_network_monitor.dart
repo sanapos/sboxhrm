@@ -16,21 +16,36 @@ import 'signalr_service.dart';
 
 /// Đo mạng cửa hàng trên thiết bị POS → báo cáo «Mạng cửa hàng».
 ///
-/// Mỗi 30s ping server (rất nhẹ); đếm lệnh gọi server lỗi / hết giờ; số lần rớt realtime; mỗi 2 phút thử
-/// cổng máy in LAN nội bộ (mạng trong quán); mỗi phút đọc sóng Wi-Fi (Android). Gom theo khung 5 phút,
-/// gửi 5 phút / lần. Mất mạng thì giữ trong máy (tối đa 3 ngày) — có mạng lại mới gửi, nhờ vậy báo cáo
-/// vẫn thấy được lúc mất mạng.
+/// Hai phần tách riêng:
+/// • Nhận biết mất mạng (thanh báo, bán offline) — luôn chạy nhưng KHÔNG tự hỏi máy chủ: dựa vào lệnh app
+///   đang gọi sẵn và kết nối tức thời (realtime). Chỉ ping khi cả hai im lặng / realtime rớt, hoặc khi đang
+///   mất mạng (để biết lúc có lại: 10s, sau 1 phút giãn 30s).
+/// • Ghi theo dõi mạng cho báo cáo — mặc định TẮT; chỉ chạy khi bấm «Theo dõi mạng» (30 phút – 8 giờ, tự
+///   tắt): ping 30s, đếm lệnh gọi lỗi, rớt realtime, thử cổng máy in LAN 2 phút / lần, sóng Wi-Fi. Gom khung
+///   5 phút, gửi 5 phút / lần. Trước đây mọi máy mở màn bán hàng đều chạy cả ngày → hàng trăm máy hỏi máy chủ
+///   liên tục dù không ai xem báo cáo.
 class PosNetworkMonitor {
   PosNetworkMonitor._();
   static final PosNetworkMonitor instance = PosNetworkMonitor._();
 
   static const _pendingKey = 'pos_net_pending_v1';
+  static const _recordKey = 'pos_net_record_until_v1';
   static const _maxPending = 864; // 3 ngày × 288 khung
   static const _pingEvery = Duration(seconds: 30);
   static const _printerEvery = Duration(minutes: 2);
   static const _wifiEvery = Duration(minutes: 1);
   static const _flushEvery = Duration(minutes: 5);
+  /// Nhịp tự kiểm «còn nối máy chủ không» khi không ghi theo dõi (không gửi gì nếu app vẫn đang gọi được).
+  static const _idleCheckEvery = Duration(seconds: 30);
+  static const _idleQuietFor = Duration(seconds: 60);
   static const _probe = MethodChannel('sbox/network_probe');
+
+  /// Ghi theo dõi mạng tới lúc này (null = tắt). Giữ qua lần mở lại app, tự hết hạn.
+  final ValueNotifier<DateTime?> recordUntil = ValueNotifier<DateTime?>(null);
+  bool get recording {
+    final u = recordUntil.value;
+    return u != null && DateTime.now().isBefore(u);
+  }
 
   final _api = ApiService();
   final Map<int, _Bucket> _open = {};
@@ -42,6 +57,7 @@ class PosNetworkMonitor {
   DateTime? offlineSince;
   int _connFails = 0;
   Timer? _fastPing;
+  bool _fastPingSlow = false;
 
   /// Giả lập mất mạng (chủ quán thử quy trình bán offline) — tự tắt sau 30 phút.
   DateTime? _simulateUntil;
@@ -70,6 +86,7 @@ class PosNetworkMonitor {
       offlineSince = null;
       _fastPing?.cancel();
       _fastPing = null;
+      _fastPingSlow = false;
     }
   }
 
@@ -81,7 +98,81 @@ class PosNetworkMonitor {
       offlineSince ??= DateTime.now();
       // Mất mạng: ping dày hơn để biết có mạng lại sớm.
       _fastPing ??= Timer.periodic(const Duration(seconds: 10), (_) => unawaited(_pingOnce()));
+    } else if (!_fastPingSlow &&
+        offlineSince != null &&
+        DateTime.now().difference(offlineSince!) > const Duration(minutes: 1)) {
+      // Mất lâu (máy chủ bảo trì / đứt mạng): giãn 30s — hàng trăm máy ping 10s/lần dồn vào lúc máy chủ
+      // vừa lên lại.
+      _fastPingSlow = true;
+      _fastPing?.cancel();
+      _fastPing = Timer.periodic(const Duration(seconds: 30), (_) => unawaited(_pingOnce()));
     }
+  }
+
+  /// Bật ghi theo dõi mạng trên máy này trong [d] (bấm «Theo dõi mạng»).
+  Future<void> startRecording(Duration d) async {
+    recordUntil.value = DateTime.now().add(d);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_recordKey, recordUntil.value!.toIso8601String());
+    } catch (_) {}
+    // Mở báo cáo từ Thiết lập mà chưa vào màn bán hàng → chưa start.
+    if (_started) {
+      _startRecordTimers();
+    } else {
+      await start();
+    }
+  }
+
+  /// Dừng ghi (bấm «Dừng» hoặc hết giờ) — gửi nốt số liệu đã đo.
+  Future<void> stopRecording() async {
+    recordUntil.value = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_recordKey);
+    } catch (_) {}
+    _stopRecordTimers();
+    await flush();
+  }
+
+  void _startRecordTimers() {
+    if (_pingTimer != null) return;
+    _rtEverConnected = SignalRService().isConnected;
+    _pingTimer = Timer.periodic(_pingEvery, (_) {
+      if (!recording) {
+        unawaited(stopRecording());
+        return;
+      }
+      unawaited(_pingOnce());
+    });
+    unawaited(_pingOnce());
+    if (!kIsWeb) {
+      _printerTimer = Timer.periodic(_printerEvery, (_) => unawaited(_checkPrinters()));
+      _wifiTimer = Timer.periodic(_wifiEvery, (_) => unawaited(_readWifi()));
+      unawaited(_readWifi());
+    }
+    _flushTimer = Timer.periodic(_flushEvery, (_) => unawaited(flush()));
+  }
+
+  void _stopRecordTimers() {
+    for (final t in [_pingTimer, _printerTimer, _wifiTimer, _flushTimer]) {
+      t?.cancel();
+    }
+    _pingTimer = _printerTimer = _wifiTimer = _flushTimer = null;
+    _rtDownSince = null;
+  }
+
+  /// Không ghi theo dõi: chỉ hỏi máy chủ khi app im lặng quá lâu mà realtime cũng không nối.
+  void _idleCheck() {
+    if (recording || simulateOffline || !reachable.value) return;
+    final ok = lastOkAt;
+    if (ok != null && DateTime.now().difference(ok) < _idleQuietFor) return;
+    if (SignalRService().isConnected) {
+      // Realtime đang nối = máy chủ còn trả lời — không cần gửi thêm yêu cầu.
+      _markOk();
+      return;
+    }
+    unawaited(_pingOnce());
   }
 
   static bool _isConnError(Object e) {
@@ -100,6 +191,7 @@ class PosNetworkMonitor {
   Timer? _printerTimer;
   Timer? _wifiTimer;
   Timer? _flushTimer;
+  Timer? _idleTimer;
   StreamSubscription<bool>? _rtSub;
   DateTime? _rtDownSince;
   bool _rtEverConnected = false;
@@ -132,47 +224,56 @@ class PosNetworkMonitor {
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
       }
+      final rec = DateTime.tryParse(prefs.getString(_recordKey) ?? '');
+      if (rec != null && DateTime.now().isBefore(rec)) {
+        recordUntil.value = rec;
+      } else if (rec != null) {
+        await prefs.remove(_recordKey);
+      }
     } catch (_) {}
     try {
       _appVersion = (await PackageInfo.fromPlatform()).version;
     } catch (_) {}
 
     ApiService.onApiResponse = (status) {
-      final b = _cur;
-      b.apiCalls++;
-      if (status >= 500 || status == 0) b.apiErrors++;
+      if (recording) {
+        final b = _cur;
+        b.apiCalls++;
+        if (status >= 500 || status == 0) b.apiErrors++;
+      }
       if (status > 0 && status < 500) _markOk();
     };
     ApiService.onApiFailure = (e) {
-      final b = _cur;
-      b.apiCalls++;
-      b.apiErrors++;
-      if (e is TimeoutException) b.apiTimeouts++;
+      if (recording) {
+        final b = _cur;
+        b.apiCalls++;
+        b.apiErrors++;
+        if (e is TimeoutException) b.apiTimeouts++;
+      }
       if (_isConnError(e)) _markFail();
     };
     _rtSub = SignalRService().onConnectionStateChanged.listen(_onRealtime);
     // Mới mở app chưa kịp nối realtime không tính là rớt — chỉ đếm sau khi đã nối được.
     _rtEverConnected = SignalRService().isConnected;
 
-    _pingTimer = Timer.periodic(_pingEvery, (_) => unawaited(_pingOnce()));
+    _idleTimer = Timer.periodic(_idleCheckEvery, (_) => _idleCheck());
+    // Mở app: biết ngay còn nối máy chủ không (1 lần).
     unawaited(_pingOnce());
-    if (!kIsWeb) {
-      _printerTimer = Timer.periodic(_printerEvery, (_) => unawaited(_checkPrinters()));
-      _wifiTimer = Timer.periodic(_wifiEvery, (_) => unawaited(_readWifi()));
-      unawaited(_readWifi());
-    }
-    _flushTimer = Timer.periodic(_flushEvery, (_) => unawaited(flush()));
+    if (recording) _startRecordTimers();
+    // Số liệu ghi dở lần trước (tắt app giữa chừng) — gửi nốt.
+    if (_pending.isNotEmpty) unawaited(flush());
   }
 
   /// Dừng đo (đăng xuất). Khung chưa gửi giữ trong máy, lần sau gửi tiếp.
   Future<void> stop() async {
     if (!_started) return;
     _started = false;
-    for (final t in [_pingTimer, _printerTimer, _wifiTimer, _flushTimer, _fastPing]) {
-      t?.cancel();
-    }
+    _stopRecordTimers();
+    _idleTimer?.cancel();
+    _fastPing?.cancel();
+    _idleTimer = null;
     _fastPing = null;
-    _pingTimer = _printerTimer = _wifiTimer = _flushTimer = null;
+    _fastPingSlow = false;
     await _rtSub?.cancel();
     _rtSub = null;
     ApiService.onApiResponse = null;
@@ -183,7 +284,14 @@ class PosNetworkMonitor {
 
   void _onRealtime(bool connected) {
     final now = DateTime.now();
-    if (connected) _rtEverConnected = true;
+    if (connected) {
+      _rtEverConnected = true;
+      _markOk();
+    } else if (_rtEverConnected && reachable.value && !recording) {
+      // Realtime vừa rớt: hỏi máy chủ 1 lần để thanh báo / bán offline biết sớm.
+      unawaited(_pingOnce());
+    }
+    if (!recording) return;
     if (!connected && !_rtEverConnected) return;
     if (!connected) {
       _cur.rtDisconnects++;
@@ -201,6 +309,14 @@ class PosNetworkMonitor {
       return;
     }
     final ms = await _api.pingNetwork();
+    if (!recording) {
+      if (ms == null) {
+        _markFail(force: true);
+      } else {
+        _markOk();
+      }
+      return;
+    }
     final b = _cur;
     b.pingSent++;
     if (ms == null) {

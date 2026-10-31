@@ -208,6 +208,7 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
                 icon: const Icon(Icons.network_check),
                 label: Text(tr('Kiểm tra mạng ngay')),
               ),
+              _recordButton(),
             ],
           ),
           const SizedBox(height: 12),
@@ -222,9 +223,10 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
             ..._content(_r!),
           const SizedBox(height: 4),
           Text(
-            tr('Cách đo: mỗi máy đang mở màn bán hàng tự ping máy chủ 30 giây / lần, đếm lệnh gọi lỗi, số lần '
-                'rớt kết nối tức thời, thử cổng máy in LAN 2 phút / lần và sóng Wi-Fi. Gom 5 phút gửi lên; '
-                'mất mạng thì lưu lại gửi sau. Giữ 35 ngày.'),
+            tr('Cách đo: mặc định máy bán hàng không tự đo. Bấm «Theo dõi mạng» trên máy cần xem — trong thời gian '
+                'đã chọn máy đó ping máy chủ 30 giây / lần, đếm lệnh gọi lỗi, số lần rớt kết nối tức thời, thử cổng '
+                'máy in LAN 2 phút / lần và sóng Wi-Fi, rồi tự tắt. Gom 5 phút gửi lên; mất mạng thì lưu lại gửi sau. '
+                'Giữ 35 ngày.'),
             style: const TextStyle(fontSize: 12, color: SboxColors.slate500, height: 1.4),
           ),
         ],
@@ -238,8 +240,67 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
             'order chậm. Xem «Việc nên làm» bên dưới.',
         'red' => 'Mạng hay rớt hoặc rất chậm — order qua mạng / in phiếu có thể treo. Nên bật «Bán offline» '
             'và làm ngay các việc bên dưới.',
-        _ => 'Mở màn bán hàng trên các máy ít nhất 1 giờ để hệ thống tự đo, hoặc bấm «Kiểm tra mạng ngay».',
+        _ => 'Chưa có số liệu. Bấm «Theo dõi mạng» trên các máy bán hàng (nên chọn qua giờ đông), '
+            'hoặc bấm «Kiểm tra mạng ngay».',
       };
+
+  // ── Theo dõi mạng (bật tay, có hạn) ────────────────────────────────────────
+
+  Widget _recordButton() {
+    final mon = PosNetworkMonitor.instance;
+    return ValueListenableBuilder<DateTime?>(
+      valueListenable: mon.recordUntil,
+      builder: (context, until, _) {
+        if (!mon.recording) {
+          return OutlinedButton.icon(
+            onPressed: _pickRecordDuration,
+            icon: const Icon(Icons.timer_outlined, size: 18),
+            label: Text(tr('Theo dõi mạng')),
+          );
+        }
+        return InputChip(
+          avatar: const Icon(Icons.fiber_manual_record, size: 14, color: PosHealth.green),
+          label: Text(tr('Đang theo dõi tới ${_hm.format(until!)}')),
+          deleteIcon: const Icon(Icons.stop_circle_outlined, size: 18),
+          deleteButtonTooltipMessage: tr('Dừng theo dõi'),
+          onDeleted: () async {
+            await mon.stopRecording();
+            if (mounted) unawaited(_load());
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _pickRecordDuration() async {
+    final d = await showDialog<Duration>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(tr('Theo dõi mạng trên máy này')),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text(
+              tr('Máy này đo mạng trong thời gian chọn rồi tự tắt. Mỗi máy cần xem bấm riêng.'),
+              style: const TextStyle(fontSize: 13, color: SboxColors.slate500),
+            ),
+          ),
+          for (final (dur, label) in const [
+            (Duration(minutes: 30), '30 phút'),
+            (Duration(hours: 2), '2 giờ'),
+            (Duration(hours: 8), '8 giờ (cả ca)'),
+          ])
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, dur),
+              child: Text(tr(label)),
+            ),
+        ],
+      ),
+    );
+    if (d == null) return;
+    await PosNetworkMonitor.instance.startRecording(d);
+    if (mounted) setState(() {});
+  }
 
   List<Widget> _content(Map<String, dynamic> r) {
     final verdict = r['verdict']?.toString();

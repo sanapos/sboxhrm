@@ -1105,15 +1105,27 @@ public class PosPrintDispatchService(
         var onlineSet = healthKnown
             ? onlinePrinterIds!.Distinct().ToHashSet()
             : new HashSet<Guid>();
+        // Đọc 1 lần rồi chỉ ghi máy in nào ĐỔI trạng thái (hoặc LastSeenAt cũ quá 60s). Trước đây mỗi nhịp
+        // tim (12s / Agent) ghi lại mọi máy in dù không đổi gì — nhiều cửa hàng là hàng trăm lệnh ghi / giây.
+        var rows = await db.PosStorePrinters.AsNoTracking()
+            .Where(p => requested.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+            .Select(p => new { p.Id, p.HealthStatus, p.LastSeenAt, p.LastErrorMessage, p.RequiresAgent })
+            .ToListAsync(ct);
+        var rowById = rows.ToDictionary(r => r.Id);
+        var seenRefreshBefore = now.Subtract(PrinterSeenRefresh);
         var aliveIds = new List<Guid>();
         foreach (var pid in requested)
         {
+            if (!rowById.TryGetValue(pid, out var row)) continue;
+            aliveIds.Add(pid);
             var isOnline = healthKnown && onlineSet.Contains(pid);
-            int updated;
             if (isOnline)
             {
-                updated = await db.PosStorePrinters
-                    .Where(p => p.Id == pid && p.StoreId == storeId && p.Deleted == null)
+                if (row.HealthStatus == PosPrinterHealthStatus.Online && row.LastErrorMessage == null
+                    && row.RequiresAgent && row.LastSeenAt != null && row.LastSeenAt >= seenRefreshBefore)
+                    continue;
+                await db.PosStorePrinters
+                    .Where(p => p.Id == pid)
                     .ExecuteUpdateAsync(s => s
                         .SetProperty(p => p.HealthStatus, PosPrinterHealthStatus.Online)
                         .SetProperty(p => p.LastSeenAt, now)
@@ -1121,15 +1133,14 @@ public class PosPrintDispatchService(
                         .SetProperty(p => p.RequiresAgent, true)
                         .SetProperty(p => p.UpdatedAt, now), ct);
             }
-            else
+            else if (!row.RequiresAgent)
             {
-                updated = await db.PosStorePrinters
-                    .Where(p => p.Id == pid && p.StoreId == storeId && p.Deleted == null)
+                await db.PosStorePrinters
+                    .Where(p => p.Id == pid)
                     .ExecuteUpdateAsync(s => s
                         .SetProperty(p => p.RequiresAgent, true)
                         .SetProperty(p => p.UpdatedAt, now), ct);
             }
-            if (updated > 0) aliveIds.Add(pid);
         }
         if (aliveIds.Count == 0)
             throw new InvalidOperationException(
@@ -1153,6 +1164,7 @@ public class PosPrintDispatchService(
         var agent = await db.PosPrintAgents
             .FirstOrDefaultAsync(a => a.StoreId == storeId && a.DeviceId == deviceId && a.Deleted == null, ct);
 
+        var agentWritten = true;
         if (agent == null)
         {
             agent = new PosPrintAgent
@@ -1174,6 +1186,13 @@ public class PosPrintDispatchService(
             };
             db.PosPrintAgents.Add(agent);
             await db.SaveChangesAsync(ct);
+        }
+        else if (!HeartbeatChanged(agent, safeDeviceName, safeEmployeeName, safeUserId, printersJson,
+                     safeAppVersion, now))
+        {
+            // Không đổi gì và vừa ghi < 30s: bỏ qua ghi DB + phát SignalR (ngưỡng coi là mất Agent là 90s).
+            // Máy in đổi trạng thái vẫn được ghi (trên / dưới).
+            agentWritten = false;
         }
         else
         {
@@ -1203,8 +1222,13 @@ public class PosPrintDispatchService(
         // Chỉ demote khi Agent đã gửi onlinePrinterIds (probe). Null = Agent cũ → bỏ qua.
         if (healthKnown)
         {
-            foreach (var pid in requested.Where(id => !onlineSet.Contains(id)))
+            foreach (var pid in aliveIds.Where(id => !onlineSet.Contains(id)))
             {
+                var row = rowById[pid];
+                if (row.HealthStatus == PosPrinterHealthStatus.Offline
+                    && row.LastErrorMessage == AgentPortLostMessage
+                    && row.LastSeenAt != null && row.LastSeenAt >= seenRefreshBefore)
+                    continue;
                 var coveredElsewhere = await HasOtherLiveAgentForPrinterAsync(
                     storeId, pid, agent.Id, now, ct);
                 if (coveredElsewhere) continue;
@@ -1213,11 +1237,13 @@ public class PosPrintDispatchService(
                     .ExecuteUpdateAsync(s => s
                         .SetProperty(p => p.HealthStatus, PosPrinterHealthStatus.Offline)
                         .SetProperty(p => p.LastSeenAt, now)
-                        .SetProperty(p => p.LastErrorMessage, "Mất kết nối trên máy Agent")
+                        .SetProperty(p => p.LastErrorMessage, AgentPortLostMessage)
                         .SetProperty(p => p.RequiresAgent, true)
                         .SetProperty(p => p.UpdatedAt, now), ct);
             }
         }
+
+        if (!agentWritten) return;
 
         // Mark stale agents offline
         var staleBefore = now.Subtract(AgentOfflineThreshold);
@@ -1240,6 +1266,27 @@ public class PosPrintDispatchService(
             printerIds = aliveIds,
             at = now,
         }, ct);
+    }
+
+    const string AgentPortLostMessage = "Mất kết nối trên máy Agent";
+
+    /// <summary>Ghi máy in lại dù không đổi trạng thái sau chừng này (LastSeenAt — dọn máy in cũ dựa vào).</summary>
+    static readonly TimeSpan PrinterSeenRefresh = TimeSpan.FromSeconds(60);
+
+    /// <summary>Heartbeat chỉ ghi Agent khi đổi thông tin hoặc lần ghi trước đã quá chừng này.</summary>
+    static readonly TimeSpan AgentHeartbeatWriteEvery = TimeSpan.FromSeconds(30);
+
+    internal static bool HeartbeatChanged(PosPrintAgent agent, string? deviceName, string? employeeName,
+        string? userId, string printersJson, string? appVersion, DateTime utcNow)
+    {
+        if (!agent.IsOnline || agent.LastHeartbeatAt is not { } hb) return true;
+        if (agent.DeviceName != deviceName || agent.EmployeeName != employeeName || agent.UserId != userId
+            || agent.AssignedPrinterIdsJson != printersJson || agent.AppVersion != appVersion)
+            return true;
+        // Cột timestamp không múi giờ: giá trị đọc ra có thể mang Kind sai — lấy tuổi nhỏ nhất như chỗ khác.
+        var age = Math.Min(Math.Abs((utcNow - DateTime.SpecifyKind(hb, DateTimeKind.Utc)).TotalSeconds),
+            Math.Abs((utcNow - hb).TotalSeconds));
+        return age >= AgentHeartbeatWriteEvery.TotalSeconds;
     }
 
     public async Task MarkAgentOfflineAsync(

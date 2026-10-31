@@ -255,7 +255,7 @@ public static class PosNetworkReportBuilder
                 ? "Mạng chập chờn lúc cao điểm — dùng được nhưng nên khắc phục"
                 : "Mạng có lúc chậm / rớt — dùng được nhưng nên khắc phục",
             "red" => "Mạng không ổn định — order / in qua mạng dễ chậm, treo phiếu",
-            _ => "Chưa đủ số liệu — mở app bán hàng trên các máy ít nhất 1 giờ",
+            _ => "Chưa đủ số liệu — bấm «Theo dõi mạng» trên các máy bán hàng (ít nhất 1 giờ)",
         };
 
         // ── Gợi ý ────────────────────────────────────────────────────────────────
