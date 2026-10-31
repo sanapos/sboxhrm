@@ -1331,6 +1331,7 @@ Future<bool> _printKitchenCompactSlipDefault({
   KitchenPrinterFailedCallback? onPrinterFailed,
 }) async {
   if (lines.isEmpty) return false;
+  debugPrint('Kitchen DBG default: ${lines.length} món — lọc món đã gán máy');
   // Máy bếp vừa thêm (chưa gán món) là catch-all — không in món đã gán máy khác.
   final work = await _kitchenOnlyUnassignedLines(lines);
   if (work.isEmpty) {
@@ -1395,6 +1396,7 @@ Future<bool> _printKitchenCompactSlipDefault({
           .forRoleOnDevice(PosLocalPrinterRoles.kitchenSlip);
     }
     kitchenLocals = _preferKitchenDefaultLocals(kitchenLocals, cloudDoc);
+    debugPrint('Kitchen DBG default: máy nội bộ bếp=${kitchenLocals.map((p) => p.name).join(', ')}');
     if (kitchenLocals.isNotEmpty) {
       final usbList = await PosPrinterReadiness.listUsbDevices();
       final usbProfiles = kitchenLocals
@@ -1551,6 +1553,7 @@ Future<bool> _printKitchenCompactSlipDefault({
   // Phiếu bếp mặc định: chỉ 1 máy (isDefault hoặc máy đầu) — tránh in hết
   // USB + WiFi khi món chưa gán / fallback.
   await PosPrintOrchestrator.instance.refreshConfig();
+  debugPrint('Kitchen DBG default: đã tải cấu hình máy in, tìm máy cloud cho $cloudDoc');
   var cloudPrinters = await PosPrintDeviceScope.excludeSenderLocals(
     PosPrintOrchestrator.instance.resolvePrinters(cloudDoc),
   );

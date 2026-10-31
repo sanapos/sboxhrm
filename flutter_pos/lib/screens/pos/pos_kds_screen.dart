@@ -2493,6 +2493,14 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final sub = tables.length > 1
         ? '${tables.length} ${tr('bàn')}'
         : '${_qtyFmt.format(a.qty)} ${tr('phần')}';
+    // Combo gộp nhiều bàn: cộng món con (5 combo → «5 Trà sữa · 5 Nem rán») — bếp làm theo món con.
+    final parts = <String, double>{};
+    for (final h in a.hits) {
+      for (final c in h.item.components) {
+        parts[c.name] = (parts[c.name] ?? 0) + c.qty;
+      }
+    }
+    final partsText = parts.entries.map((e) => '${_qtyFmt.format(e.value)} ${e.key}').join(' · ');
     final late =
         a.hits.any((h) => _itemIsLate(h.item, h.ticket, DateTime.now()));
     final stripe = _waitStripe(a.oldest, allDone: status == 'ready', voided: voided);
@@ -2565,6 +2573,17 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
+                        if (partsText.isNotEmpty)
+                          Text(
+                            '• $partsText',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: _ink,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         if (noteSample.isNotEmpty)
                           Text(
                             noteSample,
