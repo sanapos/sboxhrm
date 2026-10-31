@@ -14615,6 +14615,18 @@ class _PosSellScreenState extends State<PosSellScreen>
     final menuMaxH = MediaQuery.sizeOf(context).height - topRight.dy - 16;
     final menuPos = RelativeRect.fromLTRB(
         topRight.dx - 260, topRight.dy, topRight.dx, topRight.dy + 8);
+    final canReturnTable = !_isSplitBill &&
+        (_isTableOrderMode ||
+            (_useFloorAsPrimary && (_floorPaneKey.currentState?.busyTableCount ?? 0) > 0));
+    // Báo giá / mẫu in báo giá bỏ khỏi menu bán hàng (vào từ Thương mại); còn lại mục ít dùng.
+    final moreItems = <PopupMenuEntry<String>>[
+      if (_industrySettings?.enableSessionPacks == true &&
+          Provider.of<PermissionProvider>(context, listen: false).canView('PosGymCheckIn'))
+        item('gym_checkin', Icons.fingerprint, 'Check-in hội viên', subtitle: 'Qua máy chấm công'),
+      if (!Responsive.isMobile(context)) item('shortcuts', Icons.keyboard_outlined, 'Phím tắt (F1)'),
+      if (PosScaleReader.instance.supported)
+        item('scale_device', Icons.scale_outlined, 'Cân điện tử nối máy'),
+    ];
     // Gom nhóm như bản Sunmi T1: mục hay dùng khi bán lên trước, mục ít dùng vào «Khác…».
     var action = await showMenu<String>(
       context: context,
@@ -14686,13 +14698,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 enabled: !_checkingOut && !_parking && !_splitBillBusy),
           if (_showRetailInvoiceTabs)
             item('rename_tab', Icons.drive_file_rename_outline, 'Đổi tên hóa đơn'),
-          item('price_list', Icons.sell_outlined, 'Bảng giá: ${_tab.priceListLabel}'),
-          if (!_isSplitBill &&
-              (_isTableOrderMode ||
-                  (_useFloorAsPrimary && (_floorPaneKey.currentState?.busyTableCount ?? 0) > 0)))
-            item('return_table', Icons.event_seat_outlined, 'Trả về $_resNoun trống',
-                color: Colors.red.shade700,
-                enabled: !_checkingOut && !_parking && !_splitBillBusy),
+          // «Bảng giá» bỏ khỏi menu (chọn bảng giá ở thanh trên giỏ); «Trả về bàn trống» xuống cuối menu.
         ]),
         // Nhóm 2 — tra cứu đơn / lịch / trả hàng.
         ...section('Đơn & khách', [
@@ -14719,8 +14725,20 @@ class _PosSellScreenState extends State<PosSellScreen>
         ]),
         const PopupMenuDivider(),
         // Ít dùng → gom vào «Khác…» (menu phụ) cho gọn, khỏi phải cuộn trên máy ngang.
-        item('more', Icons.more_horiz, 'Khác…',
-            subtitle: 'Báo giá, màn hình khách, toàn màn hình, thiết lập'),
+        if (moreItems.isNotEmpty)
+          item('more', Icons.more_horiz, 'Khác…', subtitle: 'Phím tắt, cân, check-in hội viên'),
+        // Màn hình khách / toàn màn hình / thiết lập / trả bàn: hay dùng — ra ngoài «Khác…», cuối menu.
+        if (canReturnTable)
+          item('return_table', Icons.event_seat_outlined, 'Trả về $_resNoun trống',
+              color: Colors.red.shade700,
+              enabled: !_checkingOut && !_parking && !_splitBillBusy),
+        if (canMod('PosCustomerDisplay'))
+          item('customer_display', Icons.cast_connected_outlined, 'Màn hình khách'),
+        item('fullscreen', _isPosFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+            _isPosFullscreen ? 'Thoát toàn màn hình' : 'Phóng toàn màn hình'),
+        item('pos_settings_hub', Icons.settings_outlined, 'Thiết lập SBOX',
+            subtitle: 'Cửa hàng, in, QR, KDS…'),
+        const PopupMenuDivider(),
         PopupMenuItem<String>(
           enabled: false,
           child: ListTile(
@@ -14764,23 +14782,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         context: context,
         position: menuPos,
         constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
-        items: [
-          if (canMod('PosQuotes')) item('quotes', Icons.request_quote_outlined, 'Báo giá'),
-          if (canMod('PosQuotes') && canMod('PosPrintTemplates'))
-            item('quote_templates', Icons.article_outlined, 'Mẫu in báo giá'),
-          if (canMod('PosCustomerDisplay'))
-            item('customer_display', Icons.cast_connected_outlined, 'Màn hình khách'),
-          if (_industrySettings?.enableSessionPacks == true &&
-              Provider.of<PermissionProvider>(context, listen: false).canView('PosGymCheckIn'))
-            item('gym_checkin', Icons.fingerprint, 'Check-in hội viên', subtitle: 'Qua máy chấm công'),
-          if (!Responsive.isMobile(context)) item('shortcuts', Icons.keyboard_outlined, 'Phím tắt (F1)'),
-          if (PosScaleReader.instance.supported)
-            item('scale_device', Icons.scale_outlined, 'Cân điện tử nối máy'),
-          item('fullscreen', _isPosFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-              _isPosFullscreen ? 'Thoát toàn màn hình' : 'Phóng toàn màn hình'),
-          item('pos_settings_hub', Icons.settings_outlined, 'Thiết lập SBOX',
-              subtitle: 'Cửa hàng, in, QR, KDS…'),
-        ],
+        items: moreItems,
       );
       if (!mounted || action == null) return;
     }

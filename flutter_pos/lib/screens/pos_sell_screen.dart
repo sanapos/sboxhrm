@@ -14282,6 +14282,14 @@ class _PosSellScreenState extends State<PosSellScreen>
                 ...items,
               ];
 
+    final canReturnTable = !_isSplitBill &&
+        (_isTableOrderMode ||
+            (_useFloorAsPrimary && (_floorPaneKey.currentState?.busyTableCount ?? 0) > 0));
+    // Báo giá / mẫu in báo giá bỏ khỏi menu bán hàng; còn lại mục ít dùng.
+    final moreItems = <PopupMenuEntry<String>>[
+      if (_industrySettings?.enableSessionPacks == true)
+        item('gym_checkin', Icons.fingerprint, 'Check-in hội viên', subtitle: 'Qua máy chấm công'),
+    ];
     var action = await showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -14354,14 +14362,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 enabled: !_checkingOut && !_parking && !_splitBillBusy),
           if (_showRetailInvoiceTabs)
             item('rename_tab', Icons.drive_file_rename_outline, 'Đổi tên hóa đơn'),
-          item('price_list', Icons.sell_outlined, 'Bảng giá: ${_tab.priceListLabel}'),
-          if (!_isSplitBill &&
-              (_isTableOrderMode ||
-                  (_useFloorAsPrimary &&
-                      (_floorPaneKey.currentState?.busyTableCount ?? 0) > 0)))
-            item('return_table', Icons.event_seat_outlined, 'Trả về $_resNoun trống',
-                color: Colors.red.shade700,
-                enabled: !_checkingOut && !_parking && !_splitBillBusy),
+          // «Bảng giá» bỏ khỏi menu (chọn bảng giá ở thanh trên giỏ); «Trả về bàn trống» xuống cuối menu.
         ]),
         // Nhóm 2 — tra cứu đơn / lịch / trả hàng.
         ...section('Đơn & khách', [
@@ -14396,8 +14397,20 @@ class _PosSellScreenState extends State<PosSellScreen>
         ]),
         const PopupMenuDivider(),
         // Ít dùng → gom vào «Khác…» (menu phụ) cho gọn, khỏi phải cuộn trên máy POS ngang.
-        item('more', Icons.more_horiz, 'Khác…',
-            subtitle: 'Báo giá, màn hình khách, toàn màn hình, thiết lập'),
+        if (moreItems.isNotEmpty)
+          item('more', Icons.more_horiz, 'Khác…', subtitle: 'Check-in hội viên'),
+        // Màn hình khách / toàn màn hình / thiết lập / trả bàn: hay dùng — ra ngoài «Khác…», cuối menu.
+        if (canReturnTable)
+          item('return_table', Icons.event_seat_outlined, 'Trả về $_resNoun trống',
+              color: Colors.red.shade700,
+              enabled: !_checkingOut && !_parking && !_splitBillBusy),
+        if (canMod('PosCustomerDisplay'))
+          item('customer_display', Icons.cast_connected_outlined, 'Màn hình khách'),
+        item('fullscreen', _isPosFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+            _isPosFullscreen ? 'Thoát toàn màn hình' : 'Phóng toàn màn hình'),
+        item('pos_settings_hub', Icons.settings_outlined, 'Thiết lập SBOX',
+            subtitle: 'Cửa hàng, in, QR, KDS…'),
+        const PopupMenuDivider(),
         PopupMenuItem<String>(
           enabled: false,
           child: ListTile(
@@ -14441,23 +14454,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         context: context,
         position: RelativeRect.fromLTRB(topRight.dx - 260, menuTop, 8, menuTop + 8),
         constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
-        items: [
-          if (!PosLiteMode.enabled && canMod('PosQuotes'))
-            item('quotes', Icons.request_quote_outlined, 'Báo giá'),
-          if (!PosLiteMode.enabled && canMod('PosQuotes') && canMod('PosPrintTemplates'))
-            item('quote_templates', Icons.article_outlined, 'Mẫu in báo giá'),
-          if (canMod('PosCustomerDisplay'))
-            item('customer_display', Icons.cast_connected_outlined, 'Màn hình khách'),
-          if (_industrySettings?.enableSessionPacks == true)
-            item('gym_checkin', Icons.fingerprint, 'Check-in hội viên',
-                subtitle: 'Qua máy chấm công'),
-          item(
-              'fullscreen',
-              _isPosFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-              _isPosFullscreen ? 'Thoát toàn màn hình' : 'Phóng toàn màn hình'),
-          item('pos_settings_hub', Icons.settings_outlined, 'Thiết lập SBOX',
-              subtitle: 'Cửa hàng, in, QR, KDS…'),
-        ],
+        items: moreItems,
       );
       if (!mounted || action == null) return;
     }
