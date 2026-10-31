@@ -53,6 +53,7 @@ import '../utils/pos_pending_print_store.dart';
 import '../utils/pos_table_label.dart';
 import '../utils/pos_topping_format.dart';
 import '../utils/pos_print_config_session.dart';
+import '../utils/pos_local_printers_store.dart';
 import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_printer_peripheral.dart';
 import '../utils/pos_sale_order_print.dart';
@@ -13478,6 +13479,13 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   /// Lệnh in trên máy chủ đã ra giấy (Completed).
+  /// Máy cửa hàng [p] có cổng in ngay trên thiết bị này (đã cài ở Máy in nội bộ) — in thẳng được.
+  Future<bool> _printsOnThisDevice(PosStorePrinter p) async {
+    if (kIsWeb) return false;
+    final local = await PosLocalPrintersStore.instance.resolveForStorePrinter(p, exactPort: true);
+    return local != null && PosLocalPrintersStore.profileAllowsDirectLocal(local);
+  }
+
   Future<bool> _serverJobPrinted(String jobId) async {
     try {
       final res = await _api.getPosPrintJob(jobId);
@@ -13664,23 +13672,28 @@ class _PosSellScreenState extends State<PosSellScreen>
             );
             return true;
           }
-          // Xếp lại đúng lệnh cũ (đổi máy nếu chọn) — không tạo lệnh mới → không in trùng, hàng đợi không thêm lệnh.
-          final r = await PosPrintOrchestrator.instance.requeueServerJob(
-            jobId: src,
-            documentType: PosCloudDocumentTypes.saleInvoice,
-            printerId: pickId,
-            referenceNo: job.order.orderNo,
-            onHang: _saleRetryHang(job),
-          );
-          if (r.ok) {
-            _requeuedPrintJobIds.add(src);
-            if (mounted) _startStorePrintPollOnce();
-            return true;
+          // Chọn máy cắm trên thiết bị này: hủy lệnh cloud cũ rồi in thẳng (xếp lại không ai nhận lại treo).
+          if (overridePrinter != null && await _printsOnThisDevice(overridePrinter)) {
+            await _api.cancelPosPrintJob(src);
+          } else {
+            // Xếp lại đúng lệnh cũ (đổi máy nếu chọn) — không tạo lệnh mới → không in trùng, hàng đợi không thêm lệnh.
+            final r = await PosPrintOrchestrator.instance.requeueServerJob(
+              jobId: src,
+              documentType: PosCloudDocumentTypes.saleInvoice,
+              printerId: pickId,
+              referenceNo: job.order.orderNo,
+              onHang: _saleRetryHang(job),
+            );
+            if (r.ok) {
+              _requeuedPrintJobIds.add(src);
+              if (mounted) _startStorePrintPollOnce();
+              return true;
+            }
+            // Máy in đang in đúng lệnh này → chờ, KHÔNG hủy + gửi lệnh mới (ra 2 hóa đơn).
+            if (_printJobBusy(r.error)) return false;
+            // Không xếp lại được (lệnh đã dọn…): hủy lệnh cũ cho chắc rồi in lệnh mới.
+            await _api.cancelPosPrintJob(src);
           }
-          // Máy in đang in đúng lệnh này → chờ, KHÔNG hủy + gửi lệnh mới (ra 2 hóa đơn).
-          if (_printJobBusy(r.error)) return false;
-          // Không xếp lại được (lệnh đã dọn…): hủy lệnh cũ cho chắc rồi in lệnh mới.
-          await _api.cancelPosPrintJob(src);
         }
         if (!mounted) return false;
         return printPosSaleOrder(
@@ -13738,7 +13751,11 @@ class _PosSellScreenState extends State<PosSellScreen>
                 ? job.printerId
                 : null;
         final src = _pendingKitchenSourceJobId(job.id);
-        if (src != null) {
+        // Chọn máy cắm ngay trên thiết bị này: hủy lệnh cloud cũ, in thẳng tại máy. Trước đây vẫn xếp lại lệnh
+        // lên máy chủ — không Agent nào nhận nên phiếu quay lại «In treo» (C20 chọn Xprinter USB của chính nó).
+        final onThisDevice = userPicked && overridePrinter != null && await _printsOnThisDevice(overridePrinter);
+        if (src != null && onThisDevice) await _api.cancelPosPrintJob(src);
+        if (src != null && !onThisDevice) {
           // Phiếu treo có lệnh gốc: xếp lại đúng lệnh đó (đổi máy nếu chọn). Trước đây gửi lệnh MỚI trong khi lệnh
           // cũ vẫn chờ → hàng đợi thêm 1 lệnh treo, Agent sống lại in cả 2 → bếp làm trùng món.
           final r = await PosPrintOrchestrator.instance.requeueServerJob(
