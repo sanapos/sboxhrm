@@ -60,8 +60,39 @@ public class PosKdsController(
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive
                 && printerIds.Contains(p.Id))
             .OrderBy(p => p.SortOrder).ThenBy(p => p.Name)
-            .Select(p => new { p.Id, p.Name, p.IsDeviceLocal, p.SortOrder })
+            .Select(p => new { p.Id, p.Name, p.IsDeviceLocal, p.SortOrder, p.OwnerDeviceId })
             .ToListAsync();
+        // Máy in nội bộ thuộc thiết bị nào (tên máy POS) — trước chip chỉ ghi «LAN 192.168.1.230», người dùng
+        // không biết máy in đó nằm ở đâu (thường là máy in cài trên thiết bị khác / thiết bị cũ).
+        var ownerIds = printers
+            .Where(p => p.IsDeviceLocal && !string.IsNullOrWhiteSpace(p.OwnerDeviceId))
+            .Select(p => p.OwnerDeviceId!)
+            .Distinct()
+            .ToList();
+        var ownerNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (ownerIds.Count > 0)
+        {
+            var fromAgents = await db.PosPrintAgents.AsNoTracking()
+                .Where(a => a.StoreId == storeId && ownerIds.Contains(a.DeviceId) && a.DeviceName != null)
+                .Select(a => new { a.DeviceId, a.DeviceName })
+                .ToListAsync();
+            foreach (var a in fromAgents) ownerNames.TryAdd(a.DeviceId, a.DeviceName!);
+            var missing = ownerIds.Where(id => !ownerNames.ContainsKey(id)).ToList();
+            if (missing.Count > 0)
+            {
+                var fromSamples = await db.PosNetworkSamples.AsNoTracking()
+                    .Where(s => s.StoreId == storeId && missing.Contains(s.DeviceId) && s.DeviceName != null)
+                    .OrderByDescending(s => s.BucketStart)
+                    .Select(s => new { s.DeviceId, s.DeviceName })
+                    .Take(200)
+                    .ToListAsync();
+                foreach (var s in fromSamples) ownerNames.TryAdd(s.DeviceId, s.DeviceName!);
+            }
+        }
+        string Place(bool isLocal, string? owner) =>
+            !isLocal ? "dùng chung"
+            : owner != null && ownerNames.TryGetValue(owner, out var n) ? n
+            : "thiết bị khác";
         // Cloud + deviceLocal cùng tên (USB/WiFi) — 1 chip trạm bếp.
         var stations = printers
             .GroupBy(p => (p.Name ?? "").Trim(), StringComparer.OrdinalIgnoreCase)
@@ -73,6 +104,7 @@ public class PosKdsController(
                 {
                     id = primary.Id,
                     name = primary.Name,
+                    place = Place(primary.IsDeviceLocal, primary.OwnerDeviceId),
                     printerIds = g.Select(x => x.Id).ToList(),
                 };
             })

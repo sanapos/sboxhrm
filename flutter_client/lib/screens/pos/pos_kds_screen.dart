@@ -1707,10 +1707,13 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     _toneChip(tr('Đang làm'), 'cooking', _blue, _blueSoft),
                     _toneChip(tr('Chờ làm'), 'queued', _orange, _orangeSoft),
                     _toneChip(tr('Làm xong'), 'ready', _green, _greenSoft),
-                    const SizedBox(width: 16),
-                    label('${tr('Máy in')}:'),
-                    _stationChip(null, tr('Tất cả')),
-                    for (final s in _stations) _stationChip(s.id, s.name),
+                    // Một trạm thì lọc vô nghĩa — ẩn cho gọn.
+                    if (_stations.length > 1) ...[
+                      const SizedBox(width: 16),
+                      label('${tr('Máy in')}:'),
+                      _stationChip(null, tr('Tất cả')),
+                      for (final s in _stations) _stationChip(s.id, s.label),
+                    ],
           ];
           final rightChips = <Widget>[
                     _filterChip(
@@ -2346,7 +2349,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         parts[c.name] = (parts[c.name] ?? 0) + c.qty;
       }
     }
-    final partsText = parts.entries.map((e) => '${_qtyFmt.format(e.value)} ${e.key}').join(' · ');
     final late =
         a.hits.any((h) => _itemIsLate(h.item, h.ticket, DateTime.now()));
     return ConstrainedBox(
@@ -2418,17 +2420,16 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        if (partsText.isNotEmpty)
+                        // Mỗi món con một dòng (như thẻ bàn) — trước gộp «10 Trà sữa · 10 Nem rán» rồi tự xuống dòng giữa tên.
+                        for (final e in parts.entries)
                           Text(
-                            '• $partsText',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: _ink,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                            '• ${_qtyFmt.format(e.value)} ${e.key}',
+                              style: const TextStyle(
+                                color: _ink,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
                         if (noteSample.isNotEmpty)
                           Text(
                             noteSample,
@@ -3125,15 +3126,20 @@ class _KdsStation {
   const _KdsStation({
     required this.id,
     required this.name,
+    this.place,
     this.printerIds = const [],
   });
   final String id;
   final String name;
+  /// Máy in nằm ở đâu: tên thiết bị POS giữ máy in nội bộ / «dùng chung» (cloud) / «thiết bị khác».
+  final String? place;
   final List<String> printerIds;
+
+  String get label => (place ?? '').isEmpty ? name : '$name · $place';
 
   _KdsStation merge(_KdsStation other) {
     final ids = {...printerIds, other.id, ...other.printerIds}.toList();
-    return _KdsStation(id: id, name: name, printerIds: ids);
+    return _KdsStation(id: id, name: name, place: place ?? other.place, printerIds: ids);
   }
 
   factory _KdsStation.fromJson(Map<String, dynamic> j) {
@@ -3147,9 +3153,11 @@ class _KdsStation {
     }
     final id = (j['id'] ?? j['Id'] ?? '').toString();
     if (id.isNotEmpty && !ids.contains(id)) ids.insert(0, id);
+    final place = (j['place'] ?? j['Place'])?.toString().trim();
     return _KdsStation(
       id: id,
       name: (j['name'] ?? j['Name'] ?? '').toString(),
+      place: place == null || place.isEmpty ? null : place,
       printerIds: ids,
     );
   }

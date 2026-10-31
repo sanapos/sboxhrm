@@ -2609,7 +2609,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         parts[c.name] = (parts[c.name] ?? 0) + c.qty;
       }
     }
-    final partsText = parts.entries.map((e) => '${_qtyFmt.format(e.value)} ${e.key}').join(' · ');
     final late =
         a.hits.any((h) => _itemIsLate(h.item, h.ticket, DateTime.now()));
     final stripe = _waitStripe(a.oldest, allDone: status == 'ready', voided: voided);
@@ -2682,17 +2681,16 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        if (partsText.isNotEmpty)
+                        // Mỗi món con một dòng (như thẻ bàn) — trước gộp «10 Trà sữa · 10 Nem rán» rồi tự xuống dòng giữa tên.
+                        for (final e in parts.entries)
                           Text(
-                            '• $partsText',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: _ink,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                            '• ${_qtyFmt.format(e.value)} ${e.key}',
+                              style: TextStyle(
+                                color: _ink,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
                         if (noteSample.isNotEmpty)
                           Text(
                             noteSample,
