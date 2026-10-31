@@ -10964,6 +10964,32 @@ class _PosSellScreenState extends State<PosSellScreen>
     return true;
   }
 
+  Widget _returnQtyChip(int n, {required bool selected, required VoidCallback onTap}) {
+    return Material(
+      color: selected ? _kiotBlue : Colors.white,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: selected ? _kiotBlue : PosTheme.border),
+          ),
+          child: Text(
+            '$n',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: selected ? Colors.white : PosTheme.textPrimary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _showReturnGoodsDialog(_SellCartLine line) async {
     if (!await _ensureCanEditActiveDraft()) return;
     if (!mounted) return;
@@ -10980,9 +11006,13 @@ class _PosSellScreenState extends State<PosSellScreen>
             final valid = returnQty > 0 && returnQty <= current;
             String fmt(double v) =>
                 v % 1 == 0 ? v.toInt().toString() : _qtyFmt.format(v);
+            // Số gợi ý 1…24 (không quá SL hiện có) — bấm 1 lần thay vì mở bàn phím số.
+            final quickMax = math.min(24, current.floor());
             return AlertDialog(
               title: Text(tr('Trả hàng')),
-              content: Column(
+              content: SizedBox(
+                width: 400,
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -11003,6 +11033,25 @@ class _PosSellScreenState extends State<PosSellScreen>
                     ),
                     onChanged: (_) => setLocal(() {}),
                   ),
+                  if (quickMax >= 1) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (var n = 1; n <= quickMax; n++)
+                          SizedBox(
+                            width: 42,
+                            height: 38,
+                            child: _returnQtyChip(
+                              n,
+                              selected: returnQty == n,
+                              onTap: () => setLocal(() => returnCtrl.text = '$n'),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   Text(tr('Số lượng khách dùng: ${fmt(usedQty)}'),
                     style: TextStyle(
@@ -11019,6 +11068,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     ),
                   ],
                 ],
+                ),
               ),
               actions: [
                 TextButton(
