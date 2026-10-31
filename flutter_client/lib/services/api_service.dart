@@ -22893,7 +22893,9 @@ class ApiService implements PayrollApi {
   Future<int?> pingNetwork({Duration timeout = const Duration(seconds: 8)}) async {
     final sw = Stopwatch()..start();
     try {
-      final r = await http
+      // Client giữ kết nối như mọi lệnh gọi API — trước dùng http.get tạo kết nối mới mỗi lần, đo cả bắt tay
+      // TCP + TLS nên trễ cao hơn thực tế app gặp (báo cáo «chậm» dù bán hàng vẫn nhanh).
+      final r = await sharedHttpClient
           .get(Uri.parse('$baseUrl/api/pos/network/ping'), headers: _headers)
           .timeout(timeout);
       return r.statusCode > 0 ? sw.elapsedMilliseconds : null;

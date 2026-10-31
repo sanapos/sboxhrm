@@ -119,7 +119,8 @@ public class PosNetworkReportTests
         Assert.True(red.Score <= 59);
 
         var s = Healthy("t1", 4);
-        s[20] = S("t1", s[20].BucketStart, disc: 1);
+        // Rớt realtime ≥ 3 lần / giờ mới chập chờn (1 lần lẻ không đổi màu).
+        s[20] = S("t1", s[20].BucketStart, disc: 3);
         var yellow = Build(s, [Day.AddMinutes(100)]);
         Assert.Equal("yellow", yellow.Verdict);
         Assert.InRange(yellow.Score, 0, 84);

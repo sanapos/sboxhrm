@@ -189,7 +189,7 @@ public class PosNetworkController(ZKTecoDbContext db, ILogger<PosNetworkControll
             .ToListAsync(ct);
         var jobs = await db.PosPrintJobs.AsNoTracking()
             .Where(j => j.StoreId == storeId && j.Deleted == null && j.CreatedAt >= fromUtc && j.CreatedAt < toUtc)
-            .Select(j => new PosNetworkReportBuilder.JobRow(j.CreatedAt, j.CompletedAt, j.Status, j.ErrorCode))
+            .Select(j => new PosNetworkReportBuilder.JobRow(j.CreatedAt, j.CompletedAt, j.Status, j.ErrorCode, j.ExpiresAt))
             .ToListAsync(ct);
 
         var report = PosNetworkReportBuilder.Build(samples, orderTimes, jobs, fromUtc, toUtc);

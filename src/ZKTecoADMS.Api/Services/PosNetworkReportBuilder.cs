@@ -19,8 +19,20 @@ public static class PosNetworkReportBuilder
     public const int BadOutageSec = 120;
     public const int WeakWifiDbm = -70;
     public const double SlowPrintSec = 8;
+    /// <summary>Ít ping hơn chừng này (≈ 5 phút của 1 máy) thì không kết luận trễ / lỗi theo % — 1 lần lỗi trên
+    /// 3 lần ping là 33% «kém» dù mạng tốt.</summary>
+    public const int MinPingsForPct = 10;
+    /// <summary>Lần rớt realtime trong 1 giờ từ mức này mới tính là chập chờn (1 lần rớt do đổi Wi-Fi / khóa máy
+    /// trước đây đủ làm cả giờ vàng).</summary>
+    public const int WarnDisconnectsPerHour = 3;
+    /// <summary>Phiếu «in xong» sau chừng này giây không còn là thời gian in qua mạng (in lại tay sau đó, báo xong
+    /// muộn) — bỏ khỏi thống kê. Trước đây ra «95% phiếu in xong trong 7290 giây».</summary>
+    public const double MaxPrintSec = 600;
+    /// <summary>Hạn lệnh in = lúc vào hàng đợi + 24h (PosPrintDispatchService.JobTtl) — suy ra lần «In lại» gần nhất.</summary>
+    static readonly TimeSpan JobTtl = TimeSpan.FromHours(24);
 
-    public record JobRow(DateTime CreatedAt, DateTime? CompletedAt, PosPrintJobStatus Status, string? ErrorCode);
+    public record JobRow(DateTime CreatedAt, DateTime? CompletedAt, PosPrintJobStatus Status, string? ErrorCode,
+        DateTime? ExpiresAt = null);
 
     public record HourRow(
         DateTime HourVn, int Devices, int PingSent, int PingFailed, double FailPct, int? LatencyP95Ms,
@@ -64,10 +76,66 @@ public static class PosNetworkReportBuilder
 
     static double FailPctOf(int sent, int failed) => sent <= 0 ? 0 : Math.Round(100.0 * failed / sent, 1);
 
-    static string HealthOf(double failPct, int? p95, int maxOffline, int disconnects)
+    /// <summary>
+    /// p95 độ trễ của MỌI lần ping, ước lượng từ khung 5 phút (mỗi khung chỉ gửi p50 / p95 / max). Khung ~10 ping
+    /// thì «p95 của khung» chính là lần chậm nhất — trước đây lấy p95 của các p95 khung = gần như lần chậm nhất cả
+    /// giờ / cả ngày, 1 lần ping lúc mở app (bắt tay mạng) đủ làm cả báo cáo «chậm». Dựng lại phân bố: nửa số ping
+    /// ≈ p50, 1 ping = max, còn lại ≈ giữa p50 và p95. Ít hơn [minPings] ping → không kết luận (null).
+    /// </summary>
+    internal static int? LatencyP95(IEnumerable<PosNetworkSample> samples, int minPings = MinPingsForPct)
     {
-        if (failPct > BadFailPct || maxOffline >= BadOutageSec) return "red";
-        if (failPct >= WarnFailPct || (p95 ?? 0) > GoodP95Ms || maxOffline >= WarnOutageSec || disconnects > 0)
+        var pts = new List<(int Ms, double W)>();
+        foreach (var x in samples)
+        {
+            var ok = x.PingSent - x.PingFailed;
+            if (ok <= 0 || x.PingP95Ms == null) continue;
+            var p95 = x.PingP95Ms.Value;
+            var p50 = x.PingP50Ms ?? p95;
+            var max = Math.Max(x.PingMaxMs ?? p95, p95);
+            if (ok == 1)
+            {
+                pts.Add((max, 1));
+                continue;
+            }
+            var half = ok / 2;
+            pts.Add((p50, half));
+            if (ok - half - 1 > 0) pts.Add(((p50 + p95) / 2, ok - half - 1));
+            pts.Add((max, 1));
+        }
+        var total = pts.Sum(p => p.W);
+        if (total < minPings) return null;
+        var target = total * 0.95;
+        double acc = 0;
+        foreach (var p in pts.OrderBy(p => p.Ms))
+        {
+            acc += p.W;
+            if (acc >= target) return p.Ms;
+        }
+        return pts.Max(p => p.Ms);
+    }
+
+    /// <summary>Thời gian từ lúc vào hàng đợi (lần gửi / «In lại» gần nhất) tới lúc in xong; null nếu không tính.</summary>
+    internal static double? PrintSec(JobRow j)
+    {
+        if (j.CompletedAt is not { } done) return null;
+        var queuedAt = j.CreatedAt;
+        if (j.ExpiresAt is { } exp)
+        {
+            var requeued = exp - JobTtl;
+            if (requeued > queuedAt && requeued <= done) queuedAt = requeued;
+        }
+        var sec = (done - queuedAt).TotalSeconds;
+        return sec < 0 || sec > MaxPrintSec ? null : sec;
+    }
+
+    static string HealthOf(int sent, int failed, int? p95, int maxOffline, int disconnects)
+    {
+        var failPct = FailPctOf(sent, failed);
+        // Ít ping: xét số lần lỗi thay vì %.
+        var bad = sent >= MinPingsForPct ? failPct > BadFailPct : failed >= 3;
+        var warn = sent >= MinPingsForPct ? failPct >= WarnFailPct : failed >= 1;
+        if (bad || maxOffline >= BadOutageSec) return "red";
+        if (warn || (p95 ?? 0) > GoodP95Ms || maxOffline >= WarnOutageSec || disconnects >= WarnDisconnectsPerHour)
             return "yellow";
         return "green";
     }
@@ -101,15 +169,14 @@ public static class PosNetworkReportBuilder
             if (hs.Count == 0 && orders == 0 && hj.Count == 0) continue;
             var sent = hs.Sum(s => s.PingSent);
             var failed = hs.Sum(s => s.PingFailed);
-            var p95 = Pct(hs.Where(s => s.PingP95Ms != null).Select(s => s.PingP95Ms!.Value), 0.95);
+            var p95 = LatencyP95(hs);
             var maxOff = hs.GroupBy(s => s.DeviceId).Select(g => g.Sum(x => x.OfflineSec)).DefaultIfEmpty(0).Max();
             var disc = hs.Sum(s => s.RealtimeDisconnects);
             var failPct = FailPctOf(sent, failed);
-            var printP95 = PctD(hj.Where(j => j.CompletedAt != null)
-                .Select(j => (j.CompletedAt!.Value - j.CreatedAt).TotalSeconds), 0.95);
+            var printP95 = PctD(hj.Select(PrintSec).Where(x => x != null).Select(x => x!.Value), 0.95);
             hours.Add(new HourRow(h + Vn, hs.Select(s => s.DeviceId).Distinct().Count(), sent, failed, failPct, p95,
                 maxOff, disc, orders, hj.Count, printP95,
-                hs.Count == 0 ? "none" : HealthOf(failPct, p95, maxOff, disc)));
+                hs.Count == 0 ? "none" : HealthOf(sent, failed, p95, maxOff, disc)));
         }
 
         // ── Mất kết nối (gộp các khung 5 phút liền nhau) ─────────────────────────
@@ -158,7 +225,7 @@ public static class PosNetworkReportBuilder
             var list = g.ToList();
             var sent = list.Sum(s => s.PingSent);
             var failed = list.Sum(s => s.PingFailed);
-            var p95 = Pct(list.Where(s => s.PingP95Ms != null).Select(s => s.PingP95Ms!.Value), 0.95);
+            var p95 = LatencyP95(list);
             var off = list.Sum(s => s.OfflineSec);
             var disc = list.Sum(s => s.RealtimeDisconnects);
             var rssi = list.Where(s => s.WifiRssi != null).Select(s => s.WifiRssi!.Value).ToList();
@@ -176,12 +243,13 @@ public static class PosNetworkReportBuilder
                 rssi.Count == 0 ? null : (int)Math.Round(rssi.Average()),
                 list.Where(s => s.ConnType != null).GroupBy(s => s.ConnType).MaxBy(x => x.Count())?.Key,
                 list.Sum(s => s.PrinterChecks), list.Sum(s => s.PrinterFailed),
-                HealthOf(failPct, p95, maxOff, disc));
+                // Rớt realtime xét theo giờ đo (12 khung = 1 giờ), không phải tổng cả ngày.
+                HealthOf(sent, failed, p95, maxOff, (int)Math.Ceiling(disc / Math.Max(1.0, list.Count / 12.0))));
         }).OrderByDescending(d => d.IsAgent).ThenBy(d => d.DeviceName).ToList();
 
         // ── Lệnh in ──────────────────────────────────────────────────────────────
-        var done = jobs.Where(j => j.Status == PosPrintJobStatus.Completed && j.CompletedAt != null)
-            .Select(j => (j.CompletedAt!.Value - j.CreatedAt).TotalSeconds).ToList();
+        var done = jobs.Where(j => j.Status == PosPrintJobStatus.Completed)
+            .Select(PrintSec).Where(x => x != null).Select(x => x!.Value).ToList();
         var print = new PrintStats(
             jobs.Count,
             jobs.Count(j => j.Status == PosPrintJobStatus.Completed),
@@ -195,7 +263,7 @@ public static class PosNetworkReportBuilder
         var totalSent = samples.Sum(s => s.PingSent);
         var totalFailed = samples.Sum(s => s.PingFailed);
         var failAll = FailPctOf(totalSent, totalFailed);
-        var p95All = Pct(samples.Where(s => s.PingP95Ms != null).Select(s => s.PingP95Ms!.Value), 0.95);
+        var p95All = LatencyP95(samples);
         var netOutages = outages.Where(o => o.Kind.StartsWith("Mất kết nối máy")).ToList();
         var outageSec = netOutages.Sum(o => o.Seconds);
         var discAll = samples.Sum(s => s.RealtimeDisconnects);
@@ -203,7 +271,8 @@ public static class PosNetworkReportBuilder
         // Giờ đông (25% giờ nhiều đơn nhất) so với giờ còn lại.
         // Độ bận = đơn mới + lệnh in (đơn QR gọi thêm vào đơn đang mở không tạo đơn mới nhưng có phiếu in).
         static int Busy(HourRow h) => h.Orders + h.PrintJobs;
-        var busy = hours.Where(h => Busy(h) > 0 && h.PingSent > 0).OrderByDescending(Busy).ToList();
+        // Giờ có ít ping (máy vừa mở / vừa bật theo dõi) không đủ để so giờ đông với giờ vắng.
+        var busy = hours.Where(h => Busy(h) > 0 && h.PingSent >= MinPingsForPct).OrderByDescending(Busy).ToList();
         var degrades = false;
         string? peakNote = null;
         if (busy.Count >= 4)
@@ -227,13 +296,13 @@ public static class PosNetworkReportBuilder
         string verdict;
         if (samples.Count < 12)
             verdict = "insufficient";
-        else if (failAll > BadFailPct
+        else if ((totalSent >= MinPingsForPct && failAll > BadFailPct)
                  || netOutages.Any(o => o.Seconds >= BadOutageSec && (businessHours.Count == 0 || InBusiness(o)))
                  || printIssuePct > 5)
             verdict = "red";
         else if (hours.Any(h => Busy(h) > 0 && h.Health is "yellow" or "red")
                  || netOutages.Count > 0 || degrades || (print.P95Sec ?? 0) > SlowPrintSec
-                 || failAll >= WarnFailPct || (p95All ?? 0) > GoodP95Ms)
+                 || (totalSent >= MinPingsForPct && failAll >= WarnFailPct) || (p95All ?? 0) > GoodP95Ms)
             verdict = "yellow";
         else
             verdict = "green";

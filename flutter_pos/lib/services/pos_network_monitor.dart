@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Socket;
+import 'dart:io' show InternetAddress, InternetAddressType, NetworkInterface, Socket;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,6 +39,8 @@ class PosNetworkMonitor {
   /// Nhịp tự kiểm «còn nối máy chủ không» khi không ghi theo dõi (không gửi gì nếu app vẫn đang gọi được).
   static const _idleCheckEvery = Duration(seconds: 30);
   static const _idleQuietFor = Duration(seconds: 60);
+  /// Realtime rớt rồi nối lại trong chừng này giây (đổi sóng, máy chủ cân bằng) người dùng không thấy — không tính.
+  static const _rtMinDownSec = 10;
   static const _probe = MethodChannel('sbox/network_probe');
 
   /// Ghi theo dõi mạng tới lúc này (null = tắt). Giữ qua lần mở lại app, tự hết hạn.
@@ -58,6 +61,14 @@ class PosNetworkMonitor {
   int _connFails = 0;
   Timer? _fastPing;
   bool _fastPingSlow = false;
+  AppLifecycleListener? _lifecycle;
+
+  /// App đang mở trên màn hình. Khóa máy / chuyển app khác thì hệ điều hành ngắt mạng nền, treo timer —
+  /// đo lúc đó ra «mất mạng / chậm / rớt realtime» giả (iPhone trước đây rớt 28 lần / buổi).
+  static bool get _foreground {
+    final st = WidgetsBinding.instance.lifecycleState;
+    return st == null || st == AppLifecycleState.resumed;
+  }
 
   /// Giả lập mất mạng (chủ quán thử quy trình bán offline) — tự tắt sau 30 phút.
   DateTime? _simulateUntil;
@@ -147,10 +158,18 @@ class PosNetworkMonitor {
     });
     unawaited(_pingOnce());
     if (!kIsWeb) {
-      _printerTimer = Timer.periodic(_printerEvery, (_) => unawaited(_checkPrinters()));
-      _wifiTimer = Timer.periodic(_wifiEvery, (_) => unawaited(_readWifi()));
+      _printerTimer = Timer.periodic(_printerEvery, (_) {
+        if (_foreground) unawaited(_checkPrinters());
+      });
+      _wifiTimer = Timer.periodic(_wifiEvery, (_) {
+        if (_foreground) unawaited(_readWifi());
+      });
       unawaited(_readWifi());
     }
+    _lifecycle ??= AppLifecycleListener(onStateChange: (st) {
+      // Rời màn hình lúc realtime đang rớt: không tính lần rớt đó (hệ điều hành tự ngắt khi chạy nền).
+      if (st != AppLifecycleState.resumed) _rtDownSince = null;
+    });
     _flushTimer = Timer.periodic(_flushEvery, (_) => unawaited(flush()));
   }
 
@@ -160,6 +179,8 @@ class PosNetworkMonitor {
     }
     _pingTimer = _printerTimer = _wifiTimer = _flushTimer = null;
     _rtDownSince = null;
+    _lifecycle?.dispose();
+    _lifecycle = null;
   }
 
   /// Không ghi theo dõi: chỉ hỏi máy chủ khi app im lặng quá lâu mà realtime cũng không nối.
@@ -292,14 +313,16 @@ class PosNetworkMonitor {
       unawaited(_pingOnce());
     }
     if (!recording) return;
-    if (!connected && !_rtEverConnected) return;
     if (!connected) {
-      _cur.rtDisconnects++;
-      _rtDownSince ??= now;
+      if (_rtEverConnected && _foreground) _rtDownSince ??= now;
     } else if (_rtDownSince != null) {
       final sec = now.difference(_rtDownSince!).inSeconds;
-      _cur.rtDownSec = (_cur.rtDownSec + sec).clamp(0, 300);
       _rtDownSince = null;
+      if (sec >= _rtMinDownSec) {
+        final b = _cur;
+        b.rtDisconnects++;
+        b.rtDownSec = (b.rtDownSec + sec).clamp(0, 300);
+      }
     }
   }
 
@@ -317,6 +340,15 @@ class PosNetworkMonitor {
       }
       return;
     }
+    if (!_foreground) {
+      // Đang chạy nền: vẫn cập nhật còn / mất mạng nhưng không ghi vào số liệu đo.
+      if (ms == null) {
+        _markFail(force: true);
+      } else {
+        _markOk();
+      }
+      return;
+    }
     final b = _cur;
     b.pingSent++;
     if (ms == null) {
@@ -327,11 +359,22 @@ class PosNetworkMonitor {
       b.pings.add(ms);
       _markOk();
     }
-    // Realtime đang rớt: cộng dồn mỗi lượt (cả khi chưa nối lại).
-    if (_rtDownSince != null) {
-      b.rtDownSec = (b.rtDownSec + _pingEvery.inSeconds).clamp(0, 300);
-    }
     _closeOldBuckets();
+  }
+
+  /// Máy này có đang ở cùng mạng trong quán với máy in không (cùng dải IP x.y.z.*). Mang máy ra ngoài / dùng
+  /// 4G thì không thử — trước đây iPhone ngoài quán báo «máy in LAN không kết nối được 14/18 lần».
+  static Future<bool> _onSameLan(String host) async {
+    final ip = InternetAddress.tryParse(host);
+    // Tên máy (không phải IP) — không biết dải, vẫn thử.
+    if (ip == null || ip.type != InternetAddressType.IPv4) return true;
+    try {
+      final prefix = host.substring(0, host.lastIndexOf('.') + 1);
+      final ifs = await NetworkInterface.list(type: InternetAddressType.IPv4);
+      return ifs.any((i) => i.addresses.any((a) => a.address.startsWith(prefix)));
+    } catch (_) {
+      return true;
+    }
   }
 
   Future<void> _checkPrinters() async {
@@ -347,6 +390,7 @@ class PosNetworkMonitor {
       return;
     }
     for (final p in list) {
+      if (!await _onSameLan(p.lanHost!.trim())) continue;
       final sw = Stopwatch()..start();
       final b = _cur;
       b.printerChecks++;
@@ -454,6 +498,7 @@ class PosNetworkMonitor {
             p.enabled &&
             p.connectionType == PosThermalConnectionType.lan &&
             (p.lanHost ?? '').trim().isNotEmpty)) {
+          if (!await _onSameLan(p.lanHost!.trim())) continue;
           final sw = Stopwatch()..start();
           int? ms;
           try {

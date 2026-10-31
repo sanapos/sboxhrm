@@ -20308,10 +20308,14 @@ class ApiService {
 
   /// Ping nhẹ tới server (không truy vấn CSDL). Trả số ms nếu server trả lời (kể cả 401 — mạng vẫn tốt);
   /// null nếu không kết nối được / hết thời gian.
+  /// Client giữ kết nối riêng cho ping — http.get tạo kết nối mới mỗi lần, đo cả bắt tay TCP + TLS nên trễ
+  /// cao hơn thực tế (báo cáo «chậm» dù mạng tốt).
+  static final http.Client _pingClient = http.Client();
+
   Future<int?> pingNetwork({Duration timeout = const Duration(seconds: 8)}) async {
     final sw = Stopwatch()..start();
     try {
-      final r = await http
+      final r = await _pingClient
           .get(Uri.parse('$baseUrl/api/pos/network/ping'), headers: _headers)
           .timeout(timeout);
       return r.statusCode > 0 ? sw.elapsedMilliseconds : null;
