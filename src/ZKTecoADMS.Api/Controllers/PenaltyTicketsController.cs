@@ -385,17 +385,10 @@ public class PenaltyTicketsController(
         await dbContext.SaveChangesAsync();
 
         // Notify employee
-        try
-        {
-            var uid = ticket.Employee?.ApplicationUserId;
-            if (uid != null && uid != CurrentUserId)
-                await notificationService.CreateAndSendAsync(uid, NotificationType.Warning,
-                    "Phiếu phạt đã bị hủy",
-                    $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã bị hủy.",
-                    relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
-                    fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
-        }
-        catch { /* Notification failure should not affect main operation */ }
+        await NotifyTicketEmployeeAsync(ticket.EmployeeId, ticket.Employee?.ApplicationUserId, NotificationType.Warning,
+            "Phiếu phạt đã bị hủy",
+            $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã bị hủy.",
+            ticket.Id);
 
         return Ok(AppResponse<PenaltyTicketDto>.Success(new PenaltyTicketDto
         {
@@ -440,17 +433,10 @@ public class PenaltyTicketsController(
         await dbContext.SaveChangesAsync();
 
         // Notify employee
-        try
-        {
-            var uid = ticket.Employee?.ApplicationUserId;
-            if (uid != null && uid != CurrentUserId)
-                await notificationService.CreateAndSendAsync(uid, NotificationType.Info,
-                    "Phiếu phạt đã được duyệt",
-                    $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã được duyệt.",
-                    relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
-                    fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
-        }
-        catch { /* Notification failure should not affect main operation */ }
+        await NotifyTicketEmployeeAsync(ticket.EmployeeId, ticket.Employee?.ApplicationUserId, NotificationType.Info,
+            "Phiếu phạt đã được duyệt",
+            $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã được duyệt.",
+            ticket.Id);
 
         return Ok(AppResponse<PenaltyTicketDto>.Success(new PenaltyTicketDto
         {
@@ -648,17 +634,11 @@ public class PenaltyTicketsController(
         await dbContext.SaveChangesAsync();
 
         // Notify employee
-        try
-        {
-            var uid = employee.ApplicationUserId;
-            if (uid != null && uid != CurrentUserId)
-                await notificationService.CreateAndSendAsync(uid, NotificationType.Warning,
-                    "Bạn có phiếu phạt mới",
-                    $"Phiếu phạt {ticket.TicketCode} - {ticket.Amount:N0}đ ({ticket.Type}).",
-                    relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
-                    fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
-        }
-        catch { /* Notification failure should not affect main operation */ }
+        await NotifyTicketEmployeeAsync(employee.Id, employee.ApplicationUserId, NotificationType.Warning,
+            "Bạn có phiếu phạt mới",
+            $"Phiếu phạt {ticket.TicketCode}: {ticket.Amount:N0}đ - {TicketTypeText(ticket.Type)}, ngày {ticket.ViolationDate:dd/MM/yyyy}."
+                + (string.IsNullOrWhiteSpace(ticket.Description) ? "" : $" Lý do: {ticket.Description.Trim()}."),
+            ticket.Id);
 
         var dto = new PenaltyTicketDto
         {
@@ -713,17 +693,10 @@ public class PenaltyTicketsController(
         await dbContext.SaveChangesAsync();
 
         // Notify employee
-        try
-        {
-            var uid = ticket.Employee?.ApplicationUserId;
-            if (uid != null && uid != CurrentUserId)
-                await notificationService.CreateAndSendAsync(uid, NotificationType.Info,
-                    "Phiếu phạt đã được cập nhật",
-                    $"Phiếu phạt {ticket.TicketCode} đã được cập nhật ({ticket.Amount:N0}đ).",
-                    relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
-                    fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
-        }
-        catch { /* Notification failure should not affect main operation */ }
+        await NotifyTicketEmployeeAsync(ticket.EmployeeId, ticket.Employee?.ApplicationUserId, NotificationType.Info,
+            "Phiếu phạt đã được cập nhật",
+            $"Phiếu phạt {ticket.TicketCode} đã được cập nhật ({ticket.Amount:N0}đ).",
+            ticket.Id);
 
         return Ok(AppResponse<PenaltyTicketDto>.Success(new PenaltyTicketDto
         {
@@ -779,16 +752,10 @@ public class PenaltyTicketsController(
         await dbContext.SaveChangesAsync();
 
         // Notify employee
-        try
-        {
-            if (employeeUserId != null && employeeUserId != CurrentUserId)
-                await notificationService.CreateAndSendAsync(employeeUserId, NotificationType.Warning,
-                    "Phiếu phạt đã bị xóa",
-                    $"Phiếu phạt {ticketCode} đã bị xóa.",
-                    relatedEntityType: "PenaltyTicket", relatedEntityId: id,
-                    fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
-        }
-        catch { /* Notification failure should not affect main operation */ }
+        await NotifyTicketEmployeeAsync(ticket.EmployeeId, employeeUserId, NotificationType.Warning,
+            "Phiếu phạt đã bị xóa",
+            $"Phiếu phạt {ticketCode} đã bị xóa.",
+            id);
 
         return Ok(AppResponse<string>.Success("Đã xóa phiếu phạt"));
     }
@@ -829,17 +796,10 @@ public class PenaltyTicketsController(
         await dbContext.SaveChangesAsync();
 
         // Notify employee
-        try
-        {
-            var uid = ticket.Employee?.ApplicationUserId;
-            if (uid != null && uid != CurrentUserId)
-                await notificationService.CreateAndSendAsync(uid, NotificationType.Info,
-                    "Phiếu phạt đã hoàn duyệt",
-                    $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã được hoàn duyệt về trạng thái chờ.",
-                    relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
-                    fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
-        }
-        catch { /* Notification failure should not affect main operation */ }
+        await NotifyTicketEmployeeAsync(ticket.EmployeeId, ticket.Employee?.ApplicationUserId, NotificationType.Info,
+            "Phiếu phạt đã hoàn duyệt",
+            $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã được hoàn duyệt về trạng thái chờ.",
+            ticket.Id);
 
         return Ok(AppResponse<PenaltyTicketDto>.Success(new PenaltyTicketDto
         {
@@ -914,5 +874,40 @@ public class PenaltyTicketsController(
     }
 
     #endregion
+
+    private static string TicketTypeText(PenaltyTicketType t) => t switch
+    {
+        PenaltyTicketType.Late => "Đi trễ",
+        PenaltyTicketType.EarlyLeave => "Về sớm",
+        PenaltyTicketType.ForgotCheck => "Quên chấm công",
+        PenaltyTicketType.UnauthorizedLeave => "Nghỉ không phép",
+        PenaltyTicketType.Violation => "Vi phạm nội quy",
+        PenaltyTicketType.Repeat => "Tái phạm",
+        _ => "Vi phạm",
+    };
+
+    /// <summary>
+    /// Báo nhân viên của phiếu phạt: có tài khoản → thông báo trong app (kèm Zalo nếu đã liên kết), trừ khi chính họ thao tác;
+    /// chưa có tài khoản → chỉ gửi Zalo (nếu đã liên kết bằng bảng mã). Lỗi gửi không chặn thao tác chính.
+    /// </summary>
+    private async Task NotifyTicketEmployeeAsync(Guid employeeId, Guid? employeeUserId, NotificationType type,
+        string title, string message, Guid ticketId)
+    {
+        try
+        {
+            if (employeeUserId != null)
+            {
+                if (employeeUserId != CurrentUserId)
+                    await notificationService.CreateAndSendAsync(employeeUserId, type, title, message,
+                        relatedEntityType: "PenaltyTicket", relatedEntityId: ticketId,
+                        fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
+            }
+            else
+            {
+                await notificationService.NotifyEmployeesWithoutAccountAsync(RequiredStoreId, [employeeId], title, message, "penalty");
+            }
+        }
+        catch { /* Notification failure should not affect main operation */ }
+    }
 }
 

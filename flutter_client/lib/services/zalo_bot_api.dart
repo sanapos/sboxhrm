@@ -96,6 +96,20 @@ class ZaloBotApi {
 
   Future<Map<String, dynamic>> unlinkUser(String userId) => _send('DELETE', '/links/$userId');
 
+  /// Bảng liên kết cả cửa hàng (kể cả nhân viên không có tài khoản app):
+  /// [{ employeeId, userId, name, employeeCode, department, phone, hasAccount, linked, zaloName, linkedAt, code, codeExpiresAt }]
+  Future<Map<String, dynamic>> getEmployeeLinks() => _send('GET', '/employee-links');
+
+  /// Cấp mã liên kết (hạn 7 ngày). [employeeIds] null = mọi nhân viên chưa liên kết; [renew] = đổi cả mã còn hạn.
+  /// Trả lại bảng mới.
+  Future<Map<String, dynamic>> createEmployeeCodes({List<String>? employeeIds, bool renew = false}) =>
+      _send('POST', '/employee-links/codes', body: {
+        if (employeeIds != null) 'employeeIds': employeeIds,
+        'renew': renew,
+      });
+
+  Future<Map<String, dynamic>> unlinkEmployee(String employeeId) => _send('DELETE', '/employee-links/$employeeId');
+
   /// { available, linked, zaloName, linkedAt, botName, botLink }
   Future<Map<String, dynamic>> getMyLink() => _send('GET', '/me');
 

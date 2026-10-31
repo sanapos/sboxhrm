@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Domain.Entities;
+using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
 
 namespace ZKTecoADMS.Api.Services;
@@ -19,6 +20,9 @@ public sealed class ZaloBotService(
     ILogger<ZaloBotService> logger)
 {
     public static readonly TimeSpan LinkCodeLifetime = TimeSpan.FromMinutes(15);
+
+    /// <summary>Mã in trên bảng liên kết cả cửa hàng — phát cho nhân viên dần trong tuần nên sống lâu hơn.</summary>
+    public static readonly TimeSpan TableCodeLifetime = TimeSpan.FromDays(7);
     public const int MaxAttempts = 5;
 
     public const int Pending = 0, Sending = 1, Sent = 2, Failed = 3;
@@ -66,34 +70,165 @@ public sealed class ZaloBotService(
     /// <summary>Cấp mã 6 số mới (hết hạn sau 15 phút) — không trùng mã đang chờ khác trong cửa hàng.</summary>
     public async Task<ZaloBotLink> CreateLinkCodeAsync(Guid storeId, Guid userId, DateTime now, CancellationToken ct)
     {
-        var link = await db.ZaloBotLinks.AsTracking().FirstOrDefaultAsync(l => l.StoreId == storeId && l.UserId == userId, ct);
+        var employeeId = await db.Employees
+            .Where(e => e.StoreId == storeId && e.ApplicationUserId == userId)
+            .Select(e => (Guid?)e.Id).FirstOrDefaultAsync(ct);
+        var link = await FindLinkAsync(storeId, userId, employeeId, ct);
         if (link == null)
         {
-            link = new ZaloBotLink { Id = Guid.NewGuid(), StoreId = storeId, UserId = userId, CreatedBy = userId.ToString() };
+            link = new ZaloBotLink { Id = Guid.NewGuid(), StoreId = storeId, CreatedBy = userId.ToString() };
             db.ZaloBotLinks.Add(link);
         }
         else
         {
             link.UpdatedAt = now;
         }
+        link.UserId = userId;
+        link.EmployeeId ??= employeeId;
 
-        string code;
-        var tries = 0;
-        do
-        {
-            code = ZaloBotText.NewLinkCode();
-        } while (++tries < 10 && await db.ZaloBotLinks.AnyAsync(l => l.StoreId == storeId && l.UserId != userId
-                     && l.PendingCode == code && l.PendingCodeExpiresAt > now, ct));
-
-        link.PendingCode = code;
+        link.PendingCode = await NewUniqueCodeAsync(storeId, link.Id, now, ct);
         link.PendingCodeExpiresAt = now.Add(LinkCodeLifetime);
         await db.SaveChangesAsync(ct);
         return link;
     }
 
+    /// <summary>Dòng liên kết của một người: theo tài khoản, hoặc theo hồ sơ nhân viên (bảng mã tạo trước khi có tài khoản).</summary>
+    async Task<ZaloBotLink?> FindLinkAsync(Guid storeId, Guid? userId, Guid? employeeId, CancellationToken ct)
+    {
+        ZaloBotLink? link = null;
+        if (userId != null)
+            link = await db.ZaloBotLinks.AsTracking().FirstOrDefaultAsync(l => l.StoreId == storeId && l.UserId == userId, ct);
+        if (link == null && employeeId != null)
+            link = await db.ZaloBotLinks.AsTracking().FirstOrDefaultAsync(l => l.StoreId == storeId && l.EmployeeId == employeeId, ct);
+        return link;
+    }
+
+    /// <summary>Mã 6 số không trùng mã đang chờ của người khác trong cửa hàng.</summary>
+    async Task<string> NewUniqueCodeAsync(Guid storeId, Guid linkId, DateTime now, CancellationToken ct, ISet<string>? taken = null)
+    {
+        string code;
+        var tries = 0;
+        do
+        {
+            code = ZaloBotText.NewLinkCode();
+        } while (++tries < 20 && ((taken?.Contains(code) ?? false)
+                     || await db.ZaloBotLinks.AnyAsync(l => l.StoreId == storeId && l.Id != linkId
+                         && l.PendingCode == code && l.PendingCodeExpiresAt > now, ct)));
+        taken?.Add(code);
+        return code;
+    }
+
+    public sealed record EmployeeLinkRow(
+        Guid? EmployeeId, Guid? UserId, string Name, string? EmployeeCode, string? Department, string? Phone,
+        bool HasAccount, bool Linked, string? ZaloName, DateTime? LinkedAt, string? Code, DateTime? CodeExpiresAt);
+
+    /// <summary>
+    /// Bảng liên kết cả cửa hàng: mọi nhân viên đang làm (kể cả không có tài khoản) + tài khoản đã liên kết không gắn hồ sơ.
+    /// Mã chỉ hiện khi còn hạn.
+    /// </summary>
+    public async Task<List<EmployeeLinkRow>> EmployeeLinksAsync(Guid storeId, DateTime now, CancellationToken ct)
+    {
+        var employees = await db.Employees
+            .Where(e => e.StoreId == storeId && e.WorkStatus != EmployeeWorkStatus.Resigned)
+            .Select(e => new { e.Id, e.FirstName, e.LastName, e.EmployeeCode, e.Department, e.PhoneNumber, e.ApplicationUserId })
+            .ToListAsync(ct);
+        var links = await db.ZaloBotLinks.Where(l => l.StoreId == storeId).ToListAsync(ct);
+        var byEmployee = links.Where(l => l.EmployeeId != null).GroupBy(l => l.EmployeeId!.Value).ToDictionary(g => g.Key, g => g.First());
+        var byUser = links.Where(l => l.UserId != null).GroupBy(l => l.UserId!.Value).ToDictionary(g => g.Key, g => g.First());
+
+        var rows = new List<EmployeeLinkRow>();
+        var used = new HashSet<Guid>();
+        foreach (var e in employees)
+        {
+            ZaloBotLink? l = null;
+            if (!byEmployee.TryGetValue(e.Id, out l) && e.ApplicationUserId != null) byUser.TryGetValue(e.ApplicationUserId.Value, out l);
+            if (l != null) used.Add(l.Id);
+            rows.Add(Row(e.Id, e.ApplicationUserId, $"{e.FirstName} {e.LastName}".Trim(), e.EmployeeCode, e.Department, e.PhoneNumber, l, now));
+        }
+
+        // Tài khoản đã liên kết mà không có hồ sơ nhân viên (chủ cửa hàng…).
+        var orphanUserIds = links.Where(l => !used.Contains(l.Id) && l.ChatId != null && l.UserId != null).Select(l => l.UserId!.Value).ToList();
+        if (orphanUserIds.Count > 0)
+        {
+            var users = await db.Users.Where(u => orphanUserIds.Contains(u.Id))
+                .Select(u => new { u.Id, u.FirstName, u.LastName, u.UserName, u.PhoneNumber }).ToListAsync(ct);
+            foreach (var u in users)
+            {
+                var name = $"{u.FirstName} {u.LastName}".Trim();
+                rows.Add(Row(null, u.Id, name.Length > 0 ? name : u.UserName ?? "", null, null, u.PhoneNumber, byUser[u.Id], now));
+            }
+        }
+        return rows.OrderBy(r => r.Linked).ThenBy(r => r.Department ?? "\uffff").ThenBy(r => r.Name).ToList();
+    }
+
+    static EmployeeLinkRow Row(Guid? employeeId, Guid? userId, string name, string? code, string? dept, string? phone,
+        ZaloBotLink? l, DateTime now)
+    {
+        var linked = l?.ChatId != null;
+        var codeValid = !linked && l?.PendingCode != null && l.PendingCodeExpiresAt > now;
+        return new EmployeeLinkRow(employeeId, userId, name, string.IsNullOrWhiteSpace(code) ? null : code, dept, phone,
+            userId != null, linked, linked ? l!.ZaloName : null, linked ? l!.LinkedAt : null,
+            codeValid ? l!.PendingCode : null, codeValid ? l!.PendingCodeExpiresAt : null);
+    }
+
+    /// <summary>
+    /// Cấp mã liên kết (hạn 7 ngày) cho nhân viên chưa liên kết. <paramref name="employeeIds"/> null = mọi nhân viên đang làm.
+    /// Mã còn hạn giữ nguyên (in lại bảng không làm hỏng mã đã phát), trừ khi <paramref name="renew"/>.
+    /// Trả số mã mới cấp.
+    /// </summary>
+    public async Task<int> CreateEmployeeLinkCodesAsync(Guid storeId, IReadOnlyCollection<Guid>? employeeIds, bool renew,
+        Guid byUserId, DateTime now, CancellationToken ct)
+    {
+        var q = db.Employees.Where(e => e.StoreId == storeId && e.WorkStatus != EmployeeWorkStatus.Resigned);
+        if (employeeIds != null) q = q.Where(e => employeeIds.Contains(e.Id));
+        var employees = await q.Select(e => new { e.Id, e.ApplicationUserId }).ToListAsync(ct);
+        if (employees.Count == 0) return 0;
+
+        var links = await db.ZaloBotLinks.AsTracking().Where(l => l.StoreId == storeId).ToListAsync(ct);
+        var taken = links.Where(l => l.PendingCode != null && l.PendingCodeExpiresAt > now).Select(l => l.PendingCode!).ToHashSet();
+        var created = 0;
+        foreach (var e in employees)
+        {
+            var link = links.FirstOrDefault(l => l.EmployeeId == e.Id)
+                       ?? (e.ApplicationUserId == null ? null : links.FirstOrDefault(l => l.UserId == e.ApplicationUserId));
+            if (link?.ChatId != null) continue;
+            if (link == null)
+            {
+                link = new ZaloBotLink { Id = Guid.NewGuid(), StoreId = storeId, CreatedBy = byUserId.ToString() };
+                db.ZaloBotLinks.Add(link);
+                links.Add(link);
+            }
+            else
+            {
+                link.UpdatedAt = now;
+            }
+            link.EmployeeId = e.Id;
+            link.UserId ??= e.ApplicationUserId;
+            if (!renew && link.PendingCode != null && link.PendingCodeExpiresAt > now) continue;
+            if (link.PendingCode != null) taken.Remove(link.PendingCode);
+            link.PendingCode = await NewUniqueCodeAsync(storeId, link.Id, now, ct, taken);
+            link.PendingCodeExpiresAt = now.Add(TableCodeLifetime);
+            created++;
+        }
+        await db.SaveChangesAsync(ct);
+        return created;
+    }
+
     public async Task<bool> UnlinkAsync(Guid storeId, Guid userId, CancellationToken ct)
     {
         var link = await db.ZaloBotLinks.AsTracking().FirstOrDefaultAsync(l => l.StoreId == storeId && l.UserId == userId, ct);
+        return await ClearAsync(link, ct);
+    }
+
+    public async Task<bool> UnlinkEmployeeAsync(Guid storeId, Guid employeeId, CancellationToken ct)
+    {
+        var userId = await db.Employees.Where(e => e.Id == employeeId && e.StoreId == storeId)
+            .Select(e => e.ApplicationUserId).FirstOrDefaultAsync(ct);
+        return await ClearAsync(await FindLinkAsync(storeId, userId, employeeId, ct), ct);
+    }
+
+    async Task<bool> ClearAsync(ZaloBotLink? link, CancellationToken ct)
+    {
         if (link?.ChatId == null) return false;
         link.ChatId = null;
         link.ZaloName = null;
@@ -150,7 +285,11 @@ public sealed class ZaloBotService(
             var link = await db.ZaloBotLinks.AsTracking().FirstOrDefaultAsync(l => l.StoreId == s.StoreId
                 && l.PendingCode == code && l.PendingCodeExpiresAt > now, ct);
             if (link == null)
-                return "Mã không đúng hoặc đã hết hạn. Mở app SBOX › Cài đặt › Liên kết Zalo để lấy mã mới.";
+                return "❌ MÃ KHÔNG HỢP LỆ\n" + ZaloBotText.Divider + "\n" +
+                       "Mã không đúng hoặc đã hết hạn.\n\n" +
+                       "Lấy mã mới:\n" +
+                       "• Có tài khoản app: Cài đặt › Liên kết Zalo\n" +
+                       "• Không có tài khoản: xin quản lý phiếu mã mới";
 
             link.ChatId = chatId;
             link.ZaloName = zaloName == null ? null : ZaloBotText.Truncate(zaloName, 200);
@@ -159,9 +298,18 @@ public sealed class ZaloBotService(
             link.PendingCodeExpiresAt = null;
             link.UpdatedAt = now;
             await db.SaveChangesAsync(ct);
-            var name = await UserNameAsync(link.UserId, ct);
-            return $"✅ Đã liên kết Zalo với tài khoản {name} tại {storeName}.\n" +
-                   "Từ giờ thông báo lương, phạt, duyệt đơn… sẽ gửi về đây.\nGửi «HUY» để hủy liên kết.";
+            var name = await PersonNameAsync(link, ct);
+            var cats = ZaloBotText.ParseCategories(s.Categories)
+                .Select(c => ZaloBotText.AllCategories.First(x => x.Code == c).Label).ToList();
+            // «Đã liên kết» khớp câu hướng dẫn ở app / phiếu in («Bot trả lời «Đã liên kết» là xong»).
+            return "✅ ĐÃ LIÊN KẾT THÀNH CÔNG\n" + ZaloBotText.Divider + "\n" +
+                   $"👤 {ZaloBotText.Capitalize(name)}\n" +
+                   $"🏪 {storeName}\n\n" +
+                   (cats.Count > 0
+                       ? "Từ giờ bạn nhận qua Zalo:\n" + string.Join("\n", cats.Select(c => "• " + c)) + "\n"
+                       : "Từ giờ thông báo của cửa hàng sẽ gửi về đây.\n") +
+                   ZaloBotText.Divider + "\n" +
+                   "Gửi «HUY» để hủy liên kết.";
         }
 
         var linked = await db.ZaloBotLinks.AsTracking()
@@ -169,7 +317,7 @@ public sealed class ZaloBotService(
 
         if (ZaloBotText.IsUnlinkCommand(text))
         {
-            if (linked.Count == 0) return "Zalo này chưa liên kết tài khoản nào.";
+            if (linked.Count == 0) return "Zalo này chưa liên kết với ai — không có gì để hủy.";
             foreach (var l in linked)
             {
                 l.ChatId = null;
@@ -178,27 +326,49 @@ public sealed class ZaloBotService(
                 l.UpdatedAt = now;
             }
             await db.SaveChangesAsync(ct);
-            return $"Đã hủy liên kết. Bạn sẽ không nhận thông báo của {storeName} qua Zalo nữa.";
+            return "🔕 ĐÃ HỦY LIÊN KẾT\n" + ZaloBotText.Divider + "\n" +
+                   $"Bạn đã hủy liên kết — sẽ không nhận thông báo của {storeName} qua Zalo nữa.\n" +
+                   "Muốn nhận lại: lấy mã mới rồi gửi vào đây.";
         }
 
         if (linked.Count > 0)
         {
             var names = new List<string>();
-            foreach (var l in linked) names.Add(await UserNameAsync(l.UserId, ct));
-            return $"Bạn đang nhận thông báo của {storeName} cho tài khoản {string.Join(", ", names)}.\n" +
-                   "Xem chi tiết trong app SBOX. Gửi «HUY» để hủy liên kết.";
+            foreach (var l in linked) names.Add(await PersonNameAsync(l, ct));
+            return "ℹ️ ĐANG NHẬN THÔNG BÁO\n" + ZaloBotText.Divider + "\n" +
+                   string.Join("\n", names.Select(n => "👤 " + ZaloBotText.Capitalize(n))) + "\n" +
+                   $"🏪 {storeName}\n" +
+                   ZaloBotText.Divider + "\n" +
+                   "Bot chỉ gửi thông báo, không trả lời tin nhắn. Gửi «HUY» để hủy liên kết.";
         }
 
-        return $"Xin chào! Đây là bot thông báo của {storeName}.\n" +
-               "Để nhận thông báo lương, chấm công…: mở app SBOX › Cài đặt › Liên kết Zalo, lấy mã 6 số rồi gửi mã đó vào đây.";
+        return $"👋 Xin chào! Đây là bot thông báo của {storeName}.\n" + ZaloBotText.Divider + "\n" +
+               "Để nhận lương, phiếu phạt, lịch làm… qua Zalo, gửi MÃ 6 SỐ vào đây:\n" +
+               "• Có tài khoản app: Cài đặt › Liên kết Zalo › Lấy mã\n" +
+               "• Không có tài khoản: xin quản lý phiếu mã";
     }
 
-    async Task<string> UserNameAsync(Guid userId, CancellationToken ct)
+    /// <summary>«tài khoản Nguyễn A» / «nhân viên Nguyễn A (NV001)».</summary>
+    async Task<string> PersonNameAsync(ZaloBotLink link, CancellationToken ct)
     {
-        var u = await db.Users.Where(x => x.Id == userId)
-            .Select(x => new { x.FirstName, x.LastName, x.UserName }).FirstOrDefaultAsync(ct);
-        var full = $"{u?.FirstName} {u?.LastName}".Trim();
-        return full.Length > 0 ? full : u?.UserName ?? "của bạn";
+        if (link.UserId is Guid userId)
+        {
+            var u = await db.Users.Where(x => x.Id == userId)
+                .Select(x => new { x.FirstName, x.LastName, x.UserName }).FirstOrDefaultAsync(ct);
+            var full = $"{u?.FirstName} {u?.LastName}".Trim();
+            if (full.Length > 0 || u?.UserName != null) return $"tài khoản {(full.Length > 0 ? full : u!.UserName)}";
+        }
+        if (link.EmployeeId is Guid employeeId)
+        {
+            var e = await db.Employees.Where(x => x.Id == employeeId)
+                .Select(x => new { x.FirstName, x.LastName, x.EmployeeCode }).FirstOrDefaultAsync(ct);
+            if (e != null)
+            {
+                var full = $"{e.FirstName} {e.LastName}".Trim();
+                return string.IsNullOrWhiteSpace(e.EmployeeCode) ? $"nhân viên {full}" : $"nhân viên {full} ({e.EmployeeCode})";
+            }
+        }
+        return "tài khoản của bạn";
     }
 
     static bool SecretEquals(string expected, string? actual) =>
@@ -234,20 +404,39 @@ public sealed class ZaloBotService(
 
             var userIds = items.Select(n => n.TargetUserId!.Value).Distinct().ToList();
             var chats = await db.ZaloBotLinks
-                .Where(l => l.StoreId == group.Key && userIds.Contains(l.UserId) && l.ChatId != null)
-                .ToDictionaryAsync(l => l.UserId, l => l.ChatId!, ct);
+                .Where(l => l.StoreId == group.Key && l.UserId != null && userIds.Contains(l.UserId.Value) && l.ChatId != null)
+                .ToDictionaryAsync(l => l.UserId!.Value, l => l.ChatId!, ct);
+            if (chats.Count < userIds.Count)
+            {
+                // Liên kết từ bảng mã trước khi nhân viên có tài khoản: dòng chỉ có EmployeeId.
+                var missing = userIds.Where(u => !chats.ContainsKey(u)).ToList();
+                var storeId = group.Key;
+                var byEmployee = await (from l in db.ZaloBotLinks
+                                        join e in db.Employees on l.EmployeeId equals e.Id
+                                        where l.StoreId == storeId && l.ChatId != null && e.ApplicationUserId != null
+                                              && missing.Contains(e.ApplicationUserId.Value)
+                                        select new { UserId = e.ApplicationUserId!.Value, l.ChatId }).ToListAsync(ct);
+                foreach (var x in byEmployee) chats.TryAdd(x.UserId, x.ChatId!);
+            }
+            if (chats.Count == 0) continue;
+            var storeName = await StoreNameAsync(db, group.Key, ct);
+            var linkedUsers = chats.Keys.ToList();
+            var people = await PeopleByUserAsync(db, group.Key, linkedUsers, ct);
             foreach (var n in items)
             {
                 if (!chats.TryGetValue(n.TargetUserId!.Value, out var chatId)) continue;
                 var link = n.RelatedUrl != null && n.RelatedUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)
                     ? n.RelatedUrl : appLink;
+                var cat = NotificationCategoryCodes.Normalize(n.CategoryCode);
                 db.ZaloBotMessages.Add(new ZaloBotMessage
                 {
                     Id = Guid.NewGuid(),
                     StoreId = group.Key,
                     UserId = n.TargetUserId,
                     ChatId = chatId,
-                    Text = ZaloBotText.FormatNotification(n.Title ?? "", n.Message ?? "", s.HideMoney, link),
+                    Text = ZaloBotText.FormatNotification(n.Title ?? "", n.Message ?? "", s.HideMoney,
+                        new ZaloBotText.MessageContext(storeName, people.GetValueOrDefault(n.TargetUserId!.Value), cat,
+                            n.Timestamp == default ? DateTime.UtcNow : n.Timestamp, link)),
                     NotificationId = n.Id,
                     CategoryCode = NotificationCategoryCodes.Normalize(n.CategoryCode),
                     Status = Pending,
@@ -258,6 +447,81 @@ public sealed class ZaloBotService(
         }
         if (count > 0) await db.SaveChangesAsync(ct);
         return count;
+    }
+
+    /// <summary>
+    /// Tin cho nhân viên chưa có tài khoản app (không có Notification): gửi thẳng Zalo nếu nhân viên đã liên kết theo
+    /// hồ sơ, cửa hàng bật bot và nhóm thông báo được gửi Zalo. Nhân viên đã có tài khoản bị bỏ qua — họ nhận qua
+    /// <see cref="EnqueueAsync(ZKTecoDbContext, IReadOnlyCollection{Notification}, string?, CancellationToken)"/>.
+    /// </summary>
+    public static async Task<int> EnqueueEmployeesAsync(ZKTecoDbContext db, Guid storeId, IReadOnlyCollection<Guid> employeeIds,
+        string? categoryCode, string title, string message, string? appLink, CancellationToken ct = default)
+    {
+        if (employeeIds.Count == 0) return 0;
+        var s = await db.ZaloBotSettings.FirstOrDefaultAsync(x => x.StoreId == storeId, ct);
+        if (s is not { Enabled: true } || string.IsNullOrEmpty(s.BotTokenEnc)) return 0;
+        var cat = NotificationCategoryCodes.Normalize(categoryCode);
+        if (cat == null || !ZaloBotText.ParseCategories(s.Categories).Contains(cat)) return 0;
+
+        var ids = employeeIds.Distinct().ToList();
+        var targets = await (from l in db.ZaloBotLinks
+                             join e in db.Employees on l.EmployeeId equals e.Id
+                             where l.StoreId == storeId && l.ChatId != null && ids.Contains(e.Id)
+                                   && e.StoreId == storeId && e.ApplicationUserId == null
+                             select new { EmployeeId = e.Id, l.ChatId, e.FirstName, e.LastName, e.EmployeeCode }).ToListAsync(ct);
+        if (targets.Count == 0) return 0;
+        var storeName = await StoreNameAsync(db, storeId, ct);
+        var now = DateTime.UtcNow;
+        foreach (var t in targets)
+        {
+            var text = ZaloBotText.FormatNotification(title, message, s.HideMoney,
+                new ZaloBotText.MessageContext(storeName, PersonLabel(t.FirstName, t.LastName, t.EmployeeCode), cat, now, appLink,
+                    HasAppAccount: false));
+            db.ZaloBotMessages.Add(new ZaloBotMessage
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                EmployeeId = t.EmployeeId,
+                ChatId = t.ChatId!,
+                Text = text,
+                CategoryCode = cat,
+                Status = Pending,
+                NextAttemptAt = DateTime.UtcNow,
+            });
+        }
+        if (targets.Count > 0) await db.SaveChangesAsync(ct);
+        return targets.Count;
+    }
+
+    static Task<string?> StoreNameAsync(ZKTecoDbContext db, Guid storeId, CancellationToken ct) =>
+        db.Stores.Where(x => x.Id == storeId).Select(x => x.Name).FirstOrDefaultAsync(ct);
+
+    /// <summary>«Lê Cường (NV01)» — tên hồ sơ nhân viên kèm mã; không có hồ sơ thì tên tài khoản.</summary>
+    static string PersonLabel(string? first, string? last, string? code)
+    {
+        var name = $"{first} {last}".Trim();
+        return string.IsNullOrWhiteSpace(code) ? name : $"{name} ({code.Trim()})";
+    }
+
+    static async Task<Dictionary<Guid, string>> PeopleByUserAsync(ZKTecoDbContext db, Guid storeId, List<Guid> userIds, CancellationToken ct)
+    {
+        var result = new Dictionary<Guid, string>();
+        var emps = await db.Employees
+            .Where(e => e.StoreId == storeId && e.ApplicationUserId != null && userIds.Contains(e.ApplicationUserId.Value))
+            .Select(e => new { UserId = e.ApplicationUserId!.Value, e.FirstName, e.LastName, e.EmployeeCode }).ToListAsync(ct);
+        foreach (var e in emps) result.TryAdd(e.UserId, PersonLabel(e.FirstName, e.LastName, e.EmployeeCode));
+        var rest = userIds.Where(u => !result.ContainsKey(u)).ToList();
+        if (rest.Count > 0)
+        {
+            var users = await db.Users.Where(u => rest.Contains(u.Id))
+                .Select(u => new { u.Id, u.FirstName, u.LastName, u.UserName }).ToListAsync(ct);
+            foreach (var u in users)
+            {
+                var name = $"{u.FirstName} {u.LastName}".Trim();
+                result[u.Id] = name.Length > 0 ? name : u.UserName ?? "";
+            }
+        }
+        return result;
     }
 
     /// <summary>Thử lại sau 1, 5, 15, 60 phút.</summary>
@@ -366,6 +630,9 @@ public sealed class ZaloBotService(
 public interface IZaloBotOutbox
 {
     Task EnqueueAsync(IReadOnlyCollection<Notification> notifications);
+
+    /// <summary>Tin Zalo cho nhân viên chưa có tài khoản app (xem <see cref="ZaloBotService.EnqueueEmployeesAsync"/>).</summary>
+    Task EnqueueEmployeesAsync(Guid storeId, IReadOnlyCollection<Guid> employeeIds, string? categoryCode, string title, string message);
 }
 
 public sealed class ZaloBotOutbox(IServiceScopeFactory scopes, IConfiguration config, ILogger<ZaloBotOutbox> logger) : IZaloBotOutbox
@@ -382,6 +649,21 @@ public sealed class ZaloBotOutbox(IServiceScopeFactory scopes, IConfiguration co
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Zalo bot enqueue failed");
+        }
+    }
+
+    public async Task EnqueueEmployeesAsync(Guid storeId, IReadOnlyCollection<Guid> employeeIds, string? categoryCode, string title, string message)
+    {
+        if (employeeIds.Count == 0) return;
+        try
+        {
+            await using var scope = scopes.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<ZKTecoDbContext>();
+            await ZaloBotService.EnqueueEmployeesAsync(db, storeId, employeeIds, categoryCode, title, message, AppLink(config));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Zalo bot employee enqueue failed");
         }
     }
 

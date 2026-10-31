@@ -733,12 +733,15 @@ public class HrFinanceController(
 
         try
         {
+            var rewardTitle = type == "Bonus" ? "Bạn có phiếu thưởng mới" : "Bạn có phiếu phạt mới";
+            var rewardText = $"{tx.Description}: {tx.Amount:N0}đ" + (tx.Status == "Completed" ? " (đã duyệt)" : " (chờ duyệt)");
             if (emp.ApplicationUserId.HasValue && emp.ApplicationUserId != CurrentUserId)
                 await notifications.CreateAndSendAsync(emp.ApplicationUserId, type == "Bonus" ? NotificationType.Success : NotificationType.Warning,
-                    type == "Bonus" ? "Bạn có phiếu thưởng mới" : "Bạn có phiếu phạt mới",
-                    $"{tx.Description}: {tx.Amount:N0}đ" + (tx.Status == "Completed" ? " (đã duyệt)" : " (chờ duyệt)"),
+                    rewardTitle, rewardText,
                     relatedEntityType: "PaymentTransaction", relatedEntityId: tx.Id,
                     fromUserId: CurrentUserId, categoryCode: "payroll", storeId: storeId);
+            else if (!emp.ApplicationUserId.HasValue)
+                await notifications.NotifyEmployeesWithoutAccountAsync(storeId, [emp.Id], rewardTitle, rewardText, "payroll");
         }
         catch (Exception ex) { logger.LogWarning(ex, "HrFinance: notify reward failed"); }
 

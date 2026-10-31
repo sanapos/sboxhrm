@@ -115,7 +115,8 @@ public class ZaloBotTests
     {
         var text = ZaloBotText.FormatNotification("Tiêu đề", new string('a', 3000), false, "https://sboxhrm.com");
         Assert.Equal(ZaloBotClient.MaxTextLength, text.Length);
-        Assert.StartsWith("🔔 Tiêu đề\n", text);
+        Assert.StartsWith("🔔 THÔNG BÁO\n" + ZaloBotText.Divider + "\n📌 Tiêu đề\n", text);
+        Assert.EndsWith("👉 Xem chi tiết: https://sboxhrm.com", text); // cắt nội dung, không cắt link
     }
 
     [Fact]
@@ -318,5 +319,212 @@ public class ZaloBotTests
 
         Assert.Empty(client.Sent);
         Assert.Equal(ZaloBotService.Failed, (await db.ZaloBotMessages.SingleAsync()).Status);
+    }
+
+    // ─── Liên kết theo nhân viên (bảng mã cả cửa hàng, nhân viên không có tài khoản) ─────
+
+    static readonly Guid EmpNoAcc = Guid.NewGuid();   // công nhân không có tài khoản
+    static readonly Guid EmpWithAcc = Guid.NewGuid(); // nhân viên có tài khoản UserA
+    static readonly Guid EmpResigned = Guid.NewGuid();
+
+    static async Task SeedEmployeesAsync(ZKTecoDbContext db)
+    {
+        db.Employees.Add(new Employee { Id = EmpNoAcc, StoreId = StoreId, EmployeeCode = "NV01", FirstName = "Lê", LastName = "Cường", Department = "Xưởng" });
+        db.Employees.Add(new Employee { Id = EmpWithAcc, StoreId = StoreId, EmployeeCode = "NV02", FirstName = "Nguyễn", LastName = "An", ApplicationUserId = UserA });
+        db.Employees.Add(new Employee { Id = EmpResigned, StoreId = StoreId, EmployeeCode = "NV03", FirstName = "Võ", LastName = "Dũng", WorkStatus = ZKTecoADMS.Domain.Enums.EmployeeWorkStatus.Resigned });
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Table_codes_cover_active_employees_and_stay_stable_until_renew()
+    {
+        using var db = NewDb(nameof(Table_codes_cover_active_employees_and_stay_stable_until_renew));
+        await SeedAsync(db);
+        await SeedEmployeesAsync(db);
+        var svc = Svc(db, new FakeClient());
+
+        Assert.Equal(2, await svc.CreateEmployeeLinkCodesAsync(StoreId, null, false, UserB, Now, default));
+        var rows = await svc.EmployeeLinksAsync(StoreId, Now, default);
+        Assert.Equal(2, rows.Count); // nghỉ việc không có trong bảng
+        var noAcc = rows.Single(r => r.EmployeeId == EmpNoAcc);
+        Assert.False(noAcc.HasAccount);
+        Assert.Matches("^[0-9]{6}$", noAcc.Code!);
+        Assert.Equal(Now.Add(ZaloBotService.TableCodeLifetime), noAcc.CodeExpiresAt);
+        Assert.NotEqual(noAcc.Code, rows.Single(r => r.EmployeeId == EmpWithAcc).Code);
+        // Nhân viên có tài khoản: dòng liên kết gắn cả UserId (dùng chung với Cài đặt › Liên kết Zalo).
+        Assert.Equal(UserA, (await db.ZaloBotLinks.SingleAsync(l => l.EmployeeId == EmpWithAcc)).UserId);
+
+        // In lại bảng: mã còn hạn giữ nguyên; «Đổi mã» thì cấp mã mới.
+        Assert.Equal(0, await svc.CreateEmployeeLinkCodesAsync(StoreId, null, false, UserB, Now.AddDays(1), default));
+        Assert.Equal(noAcc.Code, (await svc.EmployeeLinksAsync(StoreId, Now.AddDays(1), default)).Single(r => r.EmployeeId == EmpNoAcc).Code);
+        Assert.Equal(1, await svc.CreateEmployeeLinkCodesAsync(StoreId, [EmpNoAcc], true, UserB, Now.AddDays(1), default));
+        Assert.NotEqual(noAcc.Code, (await db.ZaloBotLinks.SingleAsync(l => l.EmployeeId == EmpNoAcc)).PendingCode);
+        // Hết 7 ngày: mã không còn hiện.
+        Assert.Null((await svc.EmployeeLinksAsync(StoreId, Now.AddDays(9), default)).Single(r => r.EmployeeId == EmpWithAcc).Code);
+    }
+
+    [Fact]
+    public async Task Employee_without_account_links_by_table_code_and_unlinks()
+    {
+        using var db = NewDb(nameof(Employee_without_account_links_by_table_code_and_unlinks));
+        var s = await SeedAsync(db);
+        await SeedEmployeesAsync(db);
+        var client = new FakeClient();
+        var svc = Svc(db, client);
+        await svc.CreateEmployeeLinkCodesAsync(StoreId, [EmpNoAcc], false, UserB, Now, default);
+        var code = (await db.ZaloBotLinks.SingleAsync()).PendingCode!;
+
+        // Mã bảng sống 7 ngày — gửi sau 3 ngày vẫn được.
+        Assert.Equal(200, await svc.HandleWebhookAsync(s.Id, "s3cret-value", Msg(code, "chat-c", "Cường Zalo"), Now.AddDays(3), default));
+        var link = await db.ZaloBotLinks.SingleAsync();
+        Assert.Equal("chat-c", link.ChatId);
+        Assert.Null(link.UserId);
+        Assert.Contains("Nhân viên Lê Cường (NV01)", client.Sent[^1].Text);
+        Assert.Contains("ĐÃ LIÊN KẾT THÀNH CÔNG", client.Sent[^1].Text);
+
+        var row = (await svc.EmployeeLinksAsync(StoreId, Now.AddDays(3), default)).Single(r => r.EmployeeId == EmpNoAcc);
+        Assert.True(row.Linked);
+        Assert.Equal("Cường Zalo", row.ZaloName);
+        Assert.Null(row.Code);
+
+        Assert.True(await svc.UnlinkEmployeeAsync(StoreId, EmpNoAcc, default));
+        Assert.Null((await db.ZaloBotLinks.SingleAsync()).ChatId);
+    }
+
+    [Fact]
+    public async Task Enqueue_employees_without_account_only_linked_and_enabled_category()
+    {
+        using var db = NewDb(nameof(Enqueue_employees_without_account_only_linked_and_enabled_category));
+        await SeedAsync(db, categories: "payroll,penalty", hideMoney: true);
+        await SeedEmployeesAsync(db);
+        db.ZaloBotLinks.Add(new ZaloBotLink { Id = Guid.NewGuid(), StoreId = StoreId, EmployeeId = EmpNoAcc, ChatId = "chat-c", LinkedAt = Now });
+        db.ZaloBotLinks.Add(new ZaloBotLink { Id = Guid.NewGuid(), StoreId = StoreId, EmployeeId = EmpWithAcc, UserId = UserA, ChatId = "chat-a", LinkedAt = Now });
+        await db.SaveChangesAsync();
+
+        // Nhóm không bật Zalo → không gửi.
+        Assert.Equal(0, await ZaloBotService.EnqueueEmployeesAsync(db, StoreId, [EmpNoAcc], "kpi", "Lương KPI", "x", null));
+        // Có tài khoản → bỏ qua (đã nhận qua thông báo trong app); không có tài khoản → gửi.
+        Assert.Equal(1, await ZaloBotService.EnqueueEmployeesAsync(db, StoreId, [EmpNoAcc, EmpWithAcc, EmpResigned],
+            "salary", "Phiếu lương đã chốt", "Thực lĩnh: 6.000.000 VND.", "https://sboxhrm.com"));
+        var m = await db.ZaloBotMessages.SingleAsync();
+        Assert.Equal("chat-c", m.ChatId);
+        Assert.Equal(EmpNoAcc, m.EmployeeId);
+        Assert.Null(m.UserId);
+        Assert.Equal("payroll", m.CategoryCode);
+        Assert.DoesNotContain("6.000.000", m.Text);
+        // Không có tài khoản: không nhắc mở app / link app.
+        Assert.DoesNotContain("sboxhrm.com", m.Text);
+        Assert.Contains("liên hệ quản lý", m.Text);
+
+        // Cửa hàng tắt bot → không gửi.
+        var setting = await db.ZaloBotSettings.AsTracking().SingleAsync();
+        setting.Enabled = false;
+        await db.SaveChangesAsync();
+        Assert.Equal(0, await ZaloBotService.EnqueueEmployeesAsync(db, StoreId, [EmpNoAcc], "penalty", "Phạt", "x", null));
+    }
+
+    [Fact]
+    public async Task Account_created_after_table_link_still_receives_app_notifications()
+    {
+        using var db = NewDb(nameof(Account_created_after_table_link_still_receives_app_notifications));
+        await SeedAsync(db, categories: "payroll");
+        await SeedEmployeesAsync(db);
+        // Liên kết lúc chưa có tài khoản (chỉ EmployeeId), sau đó nhân viên được cấp tài khoản UserB.
+        db.ZaloBotLinks.Add(new ZaloBotLink { Id = Guid.NewGuid(), StoreId = StoreId, EmployeeId = EmpNoAcc, ChatId = "chat-c", LinkedAt = Now });
+        var e = await db.Employees.AsTracking().SingleAsync(x => x.Id == EmpNoAcc);
+        e.ApplicationUserId = UserB;
+        await db.SaveChangesAsync();
+
+        Assert.Equal(1, await ZaloBotService.EnqueueAsync(db, [Notif(UserB, "payroll")], null));
+        Assert.Equal("chat-c", (await db.ZaloBotMessages.SingleAsync()).ChatId);
+    }
+
+    [Fact]
+    public async Task Self_link_code_reuses_table_row_of_same_employee()
+    {
+        using var db = NewDb(nameof(Self_link_code_reuses_table_row_of_same_employee));
+        await SeedAsync(db);
+        await SeedEmployeesAsync(db);
+        var svc = Svc(db, new FakeClient());
+        // Bảng mã tạo khi nhân viên chưa có tài khoản → dòng chỉ có EmployeeId.
+        db.ZaloBotLinks.Add(new ZaloBotLink { Id = Guid.NewGuid(), StoreId = StoreId, EmployeeId = EmpNoAcc, PendingCode = "111111", PendingCodeExpiresAt = Now.AddDays(7) });
+        var e = await db.Employees.AsTracking().SingleAsync(x => x.Id == EmpNoAcc);
+        e.ApplicationUserId = UserB;
+        await db.SaveChangesAsync();
+
+        var link = await svc.CreateLinkCodeAsync(StoreId, UserB, Now, default);
+
+        Assert.Single(await db.ZaloBotLinks.ToListAsync());
+        Assert.Equal(UserB, link.UserId);
+        Assert.Equal(EmpNoAcc, link.EmployeeId);
+        Assert.Equal(Now.Add(ZaloBotService.LinkCodeLifetime), link.PendingCodeExpiresAt);
+    }
+
+    [Fact]
+    public async Task Table_lists_linked_owner_account_without_employee_profile()
+    {
+        using var db = NewDb(nameof(Table_lists_linked_owner_account_without_employee_profile));
+        await SeedAsync(db);
+        await SeedEmployeesAsync(db);
+        await LinkAsync(db, UserB, "chat-owner"); // UserB không có hồ sơ nhân viên
+
+        var rows = await Svc(db, new FakeClient()).EmployeeLinksAsync(StoreId, Now, default);
+
+        var owner = rows.Single(r => r.UserId == UserB);
+        Assert.Null(owner.EmployeeId);
+        Assert.True(owner.Linked);
+        Assert.Equal("Trần Bình", owner.Name);
+        Assert.Equal(3, rows.Count);
+    }
+
+    // ─── Mẫu tin ─────────────────────────────────────────────────
+
+    [Fact]
+    public void Template_has_header_bullets_info_and_footer()
+    {
+        var text = ZaloBotText.FormatNotification("Phiếu lương đã chốt",
+            "Phiếu lương tháng 10/2026 đã được chốt. Thực lĩnh: 6.000.000 VND. Mở menu Phiếu lương để xem chi tiết và bảng chấm công kỳ.",
+            false, new ZaloBotText.MessageContext("Cafe An", "Lê Cường (NV01)", "payroll",
+                new DateTime(2026, 10, 31, 1, 15, 0, DateTimeKind.Utc), "https://sboxhrm.com"));
+
+        var lines = text.Split('\n');
+        Assert.Equal("💰 LƯƠNG", lines[0]);
+        Assert.Equal(ZaloBotText.Divider, lines[1]);
+        Assert.Equal("📌 Phiếu lương đã chốt", lines[2]);
+        Assert.Equal("• Phiếu lương tháng 10/2026 đã được chốt.", lines[3]);
+        Assert.Equal("• Thực lĩnh: 6.000.000 VND.", lines[4]); // số tiền không bị cắt giữa dấu chấm
+        Assert.DoesNotContain("Mở menu", text);             // câu chỉ đường trong app bị bỏ
+        Assert.Contains("👤 Lê Cường (NV01)", text);
+        Assert.Contains("🏪 Cafe An", text);
+        Assert.Contains("🕒 08:15 · 31/10/2026", text);      // giờ Việt Nam
+        Assert.EndsWith("👉 Xem chi tiết: https://sboxhrm.com", text);
+    }
+
+    [Fact]
+    public void Template_for_employee_without_account_masks_money_and_points_to_manager()
+    {
+        var text = ZaloBotText.FormatNotification("Bạn có phiếu phạt mới",
+            "Phiếu phạt PP-1: 50.000đ - Đi trễ, ngày 31/10/2026.", true,
+            new ZaloBotText.MessageContext("Cafe An", "Lê Cường (NV01)", "penalty", Now, "https://sboxhrm.com", HasAppAccount: false));
+
+        Assert.StartsWith("⚠️ PHIẾU PHẠT", text);
+        Assert.Contains("Phiếu phạt PP-1: ***đ - Đi trễ", text);
+        Assert.DoesNotContain("sboxhrm.com", text);
+        Assert.EndsWith("liên hệ quản lý cửa hàng để xem chi tiết.", text);
+    }
+
+    [Fact]
+    public async Task Queued_message_carries_recipient_and_store()
+    {
+        using var db = NewDb(nameof(Queued_message_carries_recipient_and_store));
+        await SeedAsync(db, categories: "payroll");
+        await SeedEmployeesAsync(db);
+        await LinkAsync(db, UserA, "chat-a");
+
+        await ZaloBotService.EnqueueAsync(db, [Notif(UserA, "payroll")], "https://sboxhrm.com");
+
+        var m = await db.ZaloBotMessages.SingleAsync();
+        Assert.Contains("👤 Nguyễn An (NV02)", m.Text);
+        Assert.Contains("🏪 Cafe An", m.Text);
     }
 }

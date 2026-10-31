@@ -364,15 +364,19 @@ public partial class ProductionController(
         // Notification
         try
         {
-            await notificationService.CreateAndSendAsync(
-                targetUserId: entry.Employee.ApplicationUserId,
-                type: NotificationType.Info,
-                title: "Sản lượng mới",
-                message: $"Đã ghi nhận {entry.Quantity} {entry.ProductItem.Unit ?? "SP"} - {entry.ProductItem.Name} ngày {entry.WorkDate:dd/MM/yyyy}",
-                relatedEntityId: entry.Id,
-                relatedEntityType: "ProductionEntry",
-                categoryCode: "production",
-                storeId: storeId);
+            var text = $"Đã ghi nhận {entry.Quantity} {entry.ProductItem.Unit ?? "SP"} - {entry.ProductItem.Name} ngày {entry.WorkDate:dd/MM/yyyy}";
+            if (entry.Employee.ApplicationUserId == null)
+                await notificationService.NotifyEmployeesWithoutAccountAsync(storeId, [entry.EmployeeId], "Sản lượng mới", text, "production");
+            else
+                await notificationService.CreateAndSendAsync(
+                    targetUserId: entry.Employee.ApplicationUserId,
+                    type: NotificationType.Info,
+                    title: "Sản lượng mới",
+                    message: text,
+                    relatedEntityId: entry.Id,
+                    relatedEntityType: "ProductionEntry",
+                    categoryCode: "production",
+                    storeId: storeId);
         }
         catch { }
 
@@ -441,6 +445,14 @@ public partial class ProductionController(
                 .Where(e => empIds.Contains(e.Id) && e.ApplicationUserId.HasValue)
                 .Select(e => e.ApplicationUserId!.Value)
                 .ToListAsync();
+            // Nhân viên không có tài khoản: tin Zalo riêng từng người (số bản ghi của chính họ).
+            var noAccount = await dbContext.Employees
+                .Where(e => empIds.Contains(e.Id) && !e.ApplicationUserId.HasValue)
+                .Select(e => e.Id)
+                .ToListAsync();
+            foreach (var g in entries.Where(x => noAccount.Contains(x.EmployeeId)).GroupBy(x => x.EmployeeId))
+                await notificationService.NotifyEmployeesWithoutAccountAsync(storeId, [g.Key], "Nhập sản lượng",
+                    $"Đã ghi nhận {g.Count()} bản ghi sản lượng ngày {DateTime.Now:dd/MM/yyyy}", "production");
             if (empUserIds.Count > 0)
             {
                 await notificationService.CreateAndSendToUsersAsync(
@@ -491,15 +503,19 @@ public partial class ProductionController(
         // Notification
         try
         {
-            await notificationService.CreateAndSendAsync(
-                targetUserId: entry.Employee.ApplicationUserId,
-                type: NotificationType.Info,
-                title: "Cập nhật sản lượng",
-                message: $"Sản lượng {entry.ProductItem.Name} ngày {entry.WorkDate:dd/MM/yyyy} đã cập nhật: {entry.Quantity} {entry.ProductItem.Unit ?? "SP"}",
-                relatedEntityId: entry.Id,
-                relatedEntityType: "ProductionEntry",
-                categoryCode: "production",
-                storeId: storeId);
+            var text = $"Sản lượng {entry.ProductItem.Name} ngày {entry.WorkDate:dd/MM/yyyy} đã cập nhật: {entry.Quantity} {entry.ProductItem.Unit ?? "SP"}";
+            if (entry.Employee.ApplicationUserId == null)
+                await notificationService.NotifyEmployeesWithoutAccountAsync(storeId, [entry.EmployeeId], "Cập nhật sản lượng", text, "production");
+            else
+                await notificationService.CreateAndSendAsync(
+                    targetUserId: entry.Employee.ApplicationUserId,
+                    type: NotificationType.Info,
+                    title: "Cập nhật sản lượng",
+                    message: text,
+                    relatedEntityId: entry.Id,
+                    relatedEntityType: "ProductionEntry",
+                    categoryCode: "production",
+                    storeId: storeId);
         }
         catch { }
 

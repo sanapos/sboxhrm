@@ -1015,6 +1015,11 @@ public partial class KpiController(
                             relatedEntityType: "KpiSalary",
                             fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
                     }
+                    else if (!empUserId.HasValue)
+                    {
+                        await notificationService.NotifyEmployeesWithoutAccountAsync(RequiredStoreId, [result.EmployeeId],
+                            "Lương KPI đã tính", "Lương KPI của bạn đã được tính.", "kpi");
+                    }
                 }
             }
             catch { /* Notification failure should not affect main operation */ }
@@ -1103,6 +1108,11 @@ public partial class KpiController(
                         $"Lương KPI của bạn đã được duyệt",
                         relatedEntityId: salary.Id, relatedEntityType: "KpiSalary",
                         fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
+                }
+                else if (salary.Employee != null)
+                {
+                    await notificationService.NotifyEmployeesWithoutAccountAsync(RequiredStoreId, [salary.Employee.Id],
+                        "Lương KPI đã duyệt", "Lương KPI của bạn đã được duyệt.", "kpi");
                 }
             }
         }

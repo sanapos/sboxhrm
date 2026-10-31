@@ -6,6 +6,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import '../widgets/settings/settings_page.dart';
+import 'zalo_bot_link_table_screen.dart';
 
 /// Thiết lập SBOX › Zalo bot: token bot của cửa hàng, nhóm thông báo gửi qua Zalo, ai đã liên kết.
 class ZaloBotSettingsScreen extends StatefulWidget {
@@ -63,7 +64,8 @@ class _ZaloBotSettingsScreenState extends State<ZaloBotSettingsScreen> {
       _error = null;
     });
     final r = await _api.getSettings();
-    final l = await _api.getLinks();
+    // Cả nhân viên không có tài khoản app (liên kết bằng bảng mã).
+    final l = await _api.getEmployeeLinks();
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -133,7 +135,10 @@ class _ZaloBotSettingsScreenState extends State<ZaloBotSettingsScreen> {
       ),
     );
     if (ok != true) return;
-    await _run(() => _api.unlinkUser(row['userId'].toString()), 'Đã hủy liên kết');
+    final employeeId = row['employeeId']?.toString();
+    await _run(
+        () => employeeId != null ? _api.unlinkEmployee(employeeId) : _api.unlinkUser(row['userId'].toString()),
+        'Đã hủy liên kết');
     await _load();
   }
 
@@ -283,7 +288,7 @@ class _ZaloBotSettingsScreenState extends State<ZaloBotSettingsScreen> {
         ),
         SettingsSection(
           title: 'Nhân viên đã liên kết',
-          subtitle: '{n}/{total} tài khoản'
+          subtitle: '{n}/{total} người'
               .replaceAll('{n}', '${linked.length}')
               .replaceAll('{total}', '${_links.length}'),
           icon: Icons.people_alt_outlined,
@@ -297,11 +302,32 @@ class _ZaloBotSettingsScreenState extends State<ZaloBotSettingsScreen> {
                 )
               : null,
           children: [
+            // Liên kết hàng loạt: nhân viên không cần tài khoản app — quản lý in phiếu mã phát từng người.
+            SettingsLinkTile(
+              icon: Icons.qr_code_2_rounded,
+              label: 'Bảng liên kết cả cửa hàng',
+              help: hasToken
+                  ? 'Tạo mã cho mọi nhân viên (kể cả không có tài khoản app), in phiếu phát từng người, xuất Excel'
+                  : 'Nhập token bot trước',
+              divider: false,
+              onTap: hasToken
+                  ? () async {
+                      await Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => ZaloBotLinkTableScreen(
+                          api: _api,
+                          botName: s?['botName']?.toString(),
+                          botLink: _botLink.text.trim().isEmpty ? null : _botLink.text.trim(),
+                        ),
+                      ));
+                      if (mounted) _load();
+                    }
+                  : () => NotificationOverlayManager().showWarning(title: 'Chưa có bot', message: 'Nhập token bot và bấm Lưu trước.'),
+            ),
             if (linked.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Text(
-                  tr('Chưa ai liên kết. Nhân viên vào Cài đặt › Liên kết Zalo để lấy mã.'),
+                  tr('Chưa ai liên kết. Người có tài khoản tự liên kết ở Cài đặt › Liên kết Zalo; người không có tài khoản dùng bảng liên kết ở trên.'),
                   style: const TextStyle(color: SboxColors.slate500),
                 ),
               ),

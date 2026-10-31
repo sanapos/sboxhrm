@@ -15,7 +15,9 @@ import 'package:zkteco_flutter_client/providers/auth_provider.dart';
 import 'package:zkteco_flutter_client/providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/providers/theme_provider.dart';
 import 'package:zkteco_flutter_client/screens/settings_screen.dart';
+import 'package:zkteco_flutter_client/screens/zalo_bot_link_table_screen.dart';
 import 'package:zkteco_flutter_client/screens/zalo_bot_settings_screen.dart';
+import 'package:zkteco_flutter_client/utils/zalo_link_print.dart';
 import 'package:zkteco_flutter_client/widgets/zalo_link_sheet.dart';
 
 /// Zalo bot: thiết lập cửa hàng (token, nhóm thông báo, người đã liên kết), dòng «Liên kết Zalo» ở Cài đặt,
@@ -53,10 +55,22 @@ const _settings = {
   ],
 };
 
+/// GET /api/zalo-bot/employee-links — gồm cả nhân viên không có tài khoản app.
 const _links = [
-  {'userId': 'u1', 'name': 'Nguyễn An', 'userName': 'an', 'role': 'Employee', 'linked': true, 'zaloName': 'An Zalo', 'linkedAt': '2026-10-30T03:00:00'},
-  {'userId': 'u2', 'name': 'Trần Bình', 'userName': 'binh', 'role': 'Employee', 'linked': false, 'zaloName': null, 'linkedAt': null},
+  {'employeeId': 'e1', 'userId': 'u1', 'name': 'Nguyễn An', 'employeeCode': 'NV01', 'department': 'Quầy', 'hasAccount': true,
+   'linked': true, 'zaloName': 'An Zalo', 'linkedAt': '2026-10-30T03:00:00', 'code': null, 'codeExpiresAt': null},
+  {'employeeId': 'e2', 'userId': null, 'name': 'Trần Bình', 'employeeCode': 'NV02', 'department': 'Xưởng', 'hasAccount': false,
+   'linked': false, 'zaloName': null, 'linkedAt': null, 'code': null, 'codeExpiresAt': null},
 ];
+
+const _linksWithCode = [
+  {..._linkA},
+  {'employeeId': 'e2', 'userId': null, 'name': 'Trần Bình', 'employeeCode': 'NV02', 'department': 'Xưởng', 'hasAccount': false,
+   'linked': false, 'zaloName': null, 'linkedAt': null, 'code': '482915', 'codeExpiresAt': '2026-11-06T03:00:00'},
+];
+
+const _linkA = {'employeeId': 'e1', 'userId': 'u1', 'name': 'Nguyễn An', 'employeeCode': 'NV01', 'department': 'Quầy',
+  'hasAccount': true, 'linked': true, 'zaloName': 'An Zalo', 'linkedAt': '2026-10-30T03:00:00', 'code': null, 'codeExpiresAt': null};
 
 /// Máy chủ giả: ghi lại các yêu cầu gửi đi; [me] = trả lời /me.
 class _Server {
@@ -75,7 +89,8 @@ class _Server {
       if (req.method == 'PUT') return _ok({..._settings, ...jsonDecode(req.body) as Map<String, dynamic>, 'hasToken': true});
       return _ok(_settings);
     }
-    if (p.endsWith('/api/zalo-bot/links')) return _ok(_links);
+    if (p.endsWith('/api/zalo-bot/employee-links/codes')) return _ok(_linksWithCode);
+    if (p.endsWith('/api/zalo-bot/employee-links')) return _ok(_links);
     if (p.endsWith('/api/zalo-bot/me/code')) {
       return _ok({'code': '123456', 'expiresAt': '2026-10-30T03:15:00', 'botName': 'Bot Cafe An', 'botLink': 'https://zalo.me/s/botcafe'});
     }
@@ -149,7 +164,8 @@ void main() {
     expect(find.text('Hoạt động'), findsOneWidget);
     expect(find.text('Nguyễn An'), findsOneWidget);
     expect(find.text('Trần Bình'), findsNothing); // chỉ liệt kê người đã liên kết
-    expect(find.text('1/2 tài khoản'), findsOneWidget);
+    expect(find.text('1/2 người'), findsOneWidget);
+    expect(find.text('Bảng liên kết cả cửa hàng'), findsOneWidget);
 
     await http.runWithClient(() async {
       final save = find.text('Lưu');
@@ -164,6 +180,30 @@ void main() {
     final body = jsonDecode(put.body) as Map<String, dynamic>;
     expect(body['categories'], containsAll(['payroll', 'penalty', 'leave']));
     expect(body.containsKey('botToken'), isFalse); // ô token trống = giữ token cũ
+    await t.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('Bảng liên kết cả cửa hàng: nhân viên không tài khoản, tạo mã, lọc', (t) async {
+    final server = _Server();
+    await _pump(t, server, const ZaloBotLinkTableScreen(botName: 'Bot Cafe An', botLink: 'https://zalo.me/s/botcafe'),
+        const Size(1100, 1000), 'zalo_link_table', before: () async {
+      // Mặc định lọc «Chưa liên kết».
+      expect(find.text('Trần Bình'), findsOneWidget);
+      expect(find.text('Nguyễn An'), findsNothing);
+      expect(find.text('Không có tài khoản app'), findsWidgets);
+      await t.tap(find.text('Tạo mã cho người chưa liên kết'));
+    });
+    final post = server.requests.lastWhere((r) => r.method == 'POST');
+    expect(post.url.path, endsWith('/api/zalo-bot/employee-links/codes'));
+    expect(jsonDecode(post.body)['renew'], isFalse);
+    expect(find.text('482 915'), findsOneWidget);
+
+    await http.runWithClient(() async {
+      await t.tap(find.descendant(of: find.byWidgetPredicate((w) => w is SegmentedButton), matching: find.text('Đã liên kết')));
+      await t.pump();
+    }, () => server.client);
+    expect(find.text('Nguyễn An'), findsOneWidget);
+    expect(find.text('Zalo: An Zalo'), findsOneWidget);
     await t.pump(const Duration(seconds: 3));
   });
 
@@ -200,5 +240,23 @@ void main() {
     await _pump(t, server, Scaffold(body: ZaloLinkSheet(initial: server.me)), const Size(390, 500), 'zalo_link_linked');
     expect(find.textContaining('An Zalo'), findsOneWidget);
     expect(find.text('Hủy liên kết'), findsOneWidget);
+  });
+
+  test('Phiếu mã in: chỉ người có mã, 10 phiếu / trang A4', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    ZaloLinkRow row(int i, {bool code = true}) => ZaloLinkRow({
+          'employeeId': 'e$i',
+          'name': 'Nhân viên $i',
+          'employeeCode': 'NV$i',
+          'department': 'Bếp',
+          'code': code ? '${100000 + i}' : null,
+          'codeExpiresAt': '2026-11-07T00:00:00Z',
+        });
+    final rows = [for (var i = 1; i <= 12; i++) row(i), row(99, code: false)];
+    final bytes = await buildZaloLinkSlipsPdf(rows: rows, storeName: 'Cafe An', botName: 'Bot Cafe An', botLink: 'https://zalo.me/s/abc');
+    final pdf = latin1.decode(bytes);
+    expect(RegExp(r'/Type\s*/Page\b').allMatches(pdf).length, 2); // 12 phiếu → 2 trang, người chưa có mã bỏ qua
+    final dir = Platform.environment['SBOX_SHOT_DIR'];
+    if (dir != null) File('$dir/zalo_link_slips.pdf').writeAsBytesSync(bytes);
   });
 }

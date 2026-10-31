@@ -252,6 +252,27 @@ public class SystemNotificationService : ISystemNotificationService
             storeId);
     }
 
+    public async Task NotifyEmployeesWithoutAccountAsync(
+        Guid storeId,
+        IEnumerable<Guid> employeeIds,
+        string title,
+        string message,
+        string? categoryCode)
+    {
+        if (_zalo == null) return;
+        var ids = employeeIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (ids.Count == 0) return;
+        try
+        {
+            await _zalo.EnqueueEmployeesAsync(storeId, ids, categoryCode,
+                VnMoneyText.Normalize(title), VnMoneyText.Normalize(message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Zalo notify (no account) failed for store {StoreId}", storeId);
+        }
+    }
+
     public async Task CreateAndSendAsync(
         Guid? targetUserId,
         NotificationType type,

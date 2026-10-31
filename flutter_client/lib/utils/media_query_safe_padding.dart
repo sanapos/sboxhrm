@@ -118,25 +118,23 @@ Widget padAwaySystemBars(BuildContext context, Widget child, {bool? immersive}) 
       bottom = kFallbackBottomClearance + kSystemBarClearance;
     }
   }
-  if (top <= 0 && bottom <= 0) return child;
+  // Điện thoại nằm ngang (V2s): thanh điều hướng nằm mép phải — edge-to-edge vẽ thân trang
+  // xuống dưới nó (chỉ AppBar tự né) → mọi thẻ / ô nhập bị cắt mép phải. Chừa luôn 2 bên.
+  final left = inherited.padding.left;
+  final right = inherited.padding.right;
+  if (top <= 0 && bottom <= 0 && left <= 0 && right <= 0) return child;
   final newSize = Size(
-    inherited.size.width,
+    (inherited.size.width - left - right).clamp(0.0, inherited.size.width),
     (inherited.size.height - top - bottom).clamp(0.0, inherited.size.height),
   );
   return Padding(
-    padding: EdgeInsets.only(top: top, bottom: bottom),
+    padding: EdgeInsets.only(left: left, top: top, right: right, bottom: bottom),
     child: ClipRect(
       child: MediaQuery(
         data: inherited.copyWith(
           size: newSize,
-          padding: EdgeInsets.only(
-            left: inherited.padding.left,
-            right: inherited.padding.right,
-          ),
-          viewPadding: EdgeInsets.only(
-            left: inherited.viewPadding.left,
-            right: inherited.viewPadding.right,
-          ),
+          padding: EdgeInsets.zero,
+          viewPadding: EdgeInsets.zero,
         ),
         child: child,
       ),

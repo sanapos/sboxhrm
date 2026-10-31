@@ -86,6 +86,11 @@ public class CreateWorkScheduleHandler(
                         relatedEntityId: created.Id, relatedEntityType: "WorkSchedule",
                         categoryCode: "attendance", storeId: request.StoreId);
                 }
+                else
+                {
+                    await notificationService.NotifyEmployeesWithoutAccountAsync(request.StoreId, [employee.Id],
+                        "Lịch làm việc mới", $"Bạn được xếp lịch làm việc ngày {request.Date:dd/MM/yyyy}", "attendance");
+                }
             }
             catch { /* Notification failure should not affect main operation */ }
 
@@ -188,6 +193,7 @@ public class BulkCreateWorkSchedulesHandler(
             {
                 var affectedEmployeeIds = request.EmployeeUserIds.Distinct();
                 var targetUserIds = new List<Guid>();
+                var noAccountIds = new List<Guid>();
                 foreach (var empId in affectedEmployeeIds)
                 {
                     var emp = await employeeRepository.GetSingleAsync(
@@ -195,7 +201,11 @@ public class BulkCreateWorkSchedulesHandler(
                         cancellationToken: cancellationToken);
                     if (emp?.ApplicationUserId.HasValue == true)
                         targetUserIds.Add(emp.ApplicationUserId.Value);
+                    else if (emp != null)
+                        noAccountIds.Add(emp.Id);
                 }
+                await notificationService.NotifyEmployeesWithoutAccountAsync(request.StoreId, noAccountIds, "Lịch làm việc mới",
+                    $"Bạn được xếp lịch làm việc từ {request.StartDate:dd/MM/yyyy} đến {request.EndDate:dd/MM/yyyy}", "attendance");
                 if (targetUserIds.Count > 0)
                 {
                     await notificationService.CreateAndSendToUsersAsync(
@@ -272,6 +282,11 @@ public class UpdateWorkScheduleHandler(
                         $"Lịch làm việc ngày {workSchedule.Date:dd/MM/yyyy} đã được cập nhật",
                         relatedEntityId: workSchedule.Id, relatedEntityType: "WorkSchedule",
                         categoryCode: "attendance", storeId: request.StoreId);
+                }
+                else if (workSchedule.Employee != null)
+                {
+                    await notificationService.NotifyEmployeesWithoutAccountAsync(request.StoreId, [workSchedule.Employee.Id],
+                        "Cập nhật lịch làm việc", $"Lịch làm việc ngày {workSchedule.Date:dd/MM/yyyy} đã được cập nhật", "attendance");
                 }
             }
             catch { /* Notification failure should not affect main operation */ }

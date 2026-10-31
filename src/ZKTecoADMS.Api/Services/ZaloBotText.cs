@@ -21,6 +21,8 @@ public static partial class ZaloBotText
         ("task", "Công việc"),
         ("business_trip", "Công tác"),
         ("kpi", "KPI"),
+        // Công nhân sản xuất hay không có tài khoản app — sản lượng ghi nhận gửi qua Zalo.
+        ("production", "Sản lượng"),
         ("hr", "Nhân sự"),
         ("internal_comm", "Truyền thông nội bộ"),
         ("system", "Hệ thống"),
@@ -53,20 +55,113 @@ public static partial class ZaloBotText
     /// <summary>«Thực lĩnh 6.000.000đ» → «Thực lĩnh ***đ».</summary>
     public static string MaskMoney(string text) => MoneyRegex().Replace(text, "***đ");
 
-    /// <summary>Tin Zalo từ một thông báo của app: tiêu đề, nội dung, lời nhắc mở app.</summary>
-    public static string FormatNotification(string title, string message, bool hideMoney, string? link)
+    /// <summary>Biểu tượng + tên nhóm ở đầu tin (theo mã nhóm thông báo đã chuẩn hóa).</summary>
+    public static (string Icon, string Label) CategoryHeader(string? code) => code switch
     {
+        "payroll" => ("💰", "LƯƠNG"),
+        "penalty" => ("⚠️", "PHIẾU PHẠT"),
+        "attendance" => ("🗓️", "CHẤM CÔNG & LỊCH LÀM"),
+        "leave" => ("🌴", "NGHỈ PHÉP"),
+        "overtime" => ("⏱️", "TĂNG CA"),
+        "shift" => ("🗓️", "CA LÀM"),
+        "approval" => ("✅", "PHÊ DUYỆT"),
+        "task" => ("📋", "CÔNG VIỆC"),
+        "business_trip" => ("✈️", "CÔNG TÁC"),
+        "kpi" => ("📈", "KPI"),
+        "production" => ("🏭", "SẢN LƯỢNG"),
+        "hr" => ("👥", "NHÂN SỰ"),
+        "internal_comm" => ("📢", "TRUYỀN THÔNG NỘI BỘ"),
+        _ => ("🔔", "THÔNG BÁO"),
+    };
+
+    public const string Divider = "━━━━━━━━━━━━━━";
+
+    /// <summary>«nhân viên Lê Cường» → «Nhân viên Lê Cường» (đầu dòng).</summary>
+    public static string Capitalize(string s) => string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..];
+
+    /// <summary>Giờ Việt Nam (UTC+7, không đổi giờ mùa hè).</summary>
+    public static DateTime ToVietnamTime(DateTime utc) =>
+        DateTime.SpecifyKind(utc.Kind == DateTimeKind.Local ? utc.ToUniversalTime() : utc, DateTimeKind.Utc).AddHours(7);
+
+    /// <summary>Thông tin kèm theo tin Zalo: người nhận, cửa hàng, thời điểm, nhóm, link app.</summary>
+    public sealed record MessageContext(
+        string? StoreName = null,
+        string? RecipientName = null,
+        string? CategoryCode = null,
+        DateTime? AtUtc = null,
+        string? Link = null,
+        bool HasAppAccount = true);
+
+    /// <summary>
+    /// Tin Zalo từ một thông báo của app — mẫu cố định:
+    /// <code>
+    /// 💰 LƯƠNG
+    /// ━━━━━━━━━━━━━━
+    /// 📌 Phiếu lương đã chốt
+    /// • Phiếu lương tháng 10/2026 đã được chốt.
+    /// • Thực lĩnh: 6.000.000 VND.
+    ///
+    /// 👤 Lê Cường (NV01)
+    /// 🏪 Cafe An
+    /// 🕒 08:15 · 31/10/2026
+    /// ━━━━━━━━━━━━━━
+    /// 👉 Xem chi tiết: https://sboxhrm.com
+    /// </code>
+    /// Nhiều câu → mỗi câu một dòng «•»; câu nhắc «Mở menu … trong app» bị bỏ (tin Zalo đã có lời nhắc cuối).
+    /// </summary>
+    public static string FormatNotification(string title, string message, bool hideMoney, MessageContext ctx)
+    {
+        var (icon, label) = CategoryHeader(ctx.CategoryCode);
         var sb = new StringBuilder();
-        sb.Append("🔔 ").Append(title.Trim());
-        if (!string.IsNullOrWhiteSpace(message) && !string.Equals(message.Trim(), title.Trim(), StringComparison.Ordinal))
-            sb.Append('\n').Append(message.Trim());
+        sb.Append(icon).Append(' ').Append(label).Append('\n').Append(Divider).Append('\n');
+        var t = title.Trim();
+        sb.Append("📌 ").Append(t);
+        var lines = SplitSentences(message)
+            .Where(s => !string.Equals(s, t, StringComparison.Ordinal) && !IsAppHint(s))
+            .ToList();
+        if (lines.Count == 1) sb.Append('\n').Append(lines[0]);
+        else foreach (var l in lines) sb.Append("\n• ").Append(l);
+
+        var info = new List<string>();
+        if (!string.IsNullOrWhiteSpace(ctx.RecipientName)) info.Add("👤 " + ctx.RecipientName.Trim());
+        if (!string.IsNullOrWhiteSpace(ctx.StoreName)) info.Add("🏪 " + ctx.StoreName.Trim());
+        if (ctx.AtUtc is DateTime at) info.Add($"🕒 {ToVietnamTime(at):HH:mm · dd/MM/yyyy}");
+        if (info.Count > 0) sb.Append("\n\n").Append(string.Join('\n', info));
+
         var text = sb.ToString();
         if (hideMoney) text = MaskMoney(text);
-        text += string.IsNullOrWhiteSpace(link)
-            ? "\n\nMở app SBOX để xem chi tiết."
-            : $"\n\nXem chi tiết: {link}";
-        return Truncate(text, ZaloBotClient.MaxTextLength);
+        var footer = "\n" + Divider + "\n" + (!ctx.HasAppAccount
+            ? (hideMoney ? "💬 Số tiền đã ẩn — liên hệ quản lý cửa hàng để xem chi tiết." : "💬 Cần xem chi tiết, liên hệ quản lý cửa hàng.")
+            : string.IsNullOrWhiteSpace(ctx.Link)
+                ? "👉 Mở app SBOX để xem chi tiết."
+                : $"👉 Xem chi tiết: {ctx.Link}");
+        // Tin dài: cắt phần nội dung, giữ nguyên phần cuối (link / lời nhắc).
+        return Truncate(text, ZaloBotClient.MaxTextLength - footer.Length) + footer;
     }
+
+    /// <summary>Bản rút gọn (tin thử, test cũ): không có người nhận / cửa hàng / thời điểm.</summary>
+    public static string FormatNotification(string title, string message, bool hideMoney, string? link, bool hasAppAccount = true) =>
+        FormatNotification(title, message, hideMoney, new MessageContext(Link: link, HasAppAccount: hasAppAccount));
+
+    /// <summary>Tách câu theo «. » / «! » / «? » / xuống dòng — không cắt số tiền «6.000.000».</summary>
+    public static List<string> SplitSentences(string? message)
+    {
+        var result = new List<string>();
+        if (string.IsNullOrWhiteSpace(message)) return result;
+        foreach (var para in message.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            foreach (var s in SentenceSplit().Split(para))
+                if (!string.IsNullOrWhiteSpace(s)) result.Add(s.Trim());
+        return result;
+    }
+
+    [GeneratedRegex(@"(?<=[.!?])\s+(?=\p{Lu}|\d)")]
+    private static partial Regex SentenceSplit();
+
+    /// <summary>Câu chỉ đường trong app («Mở menu Phiếu lương để xem…», «Vui lòng kiểm tra.») — thừa trong tin Zalo.</summary>
+    static bool IsAppHint(string s) =>
+        s.StartsWith("Mở menu", StringComparison.OrdinalIgnoreCase)
+        || s.StartsWith("Vui lòng kiểm tra", StringComparison.OrdinalIgnoreCase)
+        || s.StartsWith("Xem chi tiết trong app", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Mã liên kết 6 số.</summary>
     public static string NewLinkCode() => RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");

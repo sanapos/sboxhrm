@@ -244,12 +244,18 @@ public class FinalizePayrollHandler(
         Guid fromUserId,
         Guid storeId)
     {
-        if (!employee.ApplicationUserId.HasValue)
-            return;
-
         try
         {
             var net = payslip.NetSalary.ToString("N0");
+            if (!employee.ApplicationUserId.HasValue)
+            {
+                // Không có tài khoản app → chỉ Zalo (nếu đã liên kết bằng bảng mã).
+                await notificationService.NotifyEmployeesWithoutAccountAsync(storeId, [employee.Id],
+                    "Phiếu lương đã chốt",
+                    $"Phiếu lương tháng {req.Month}/{req.Year} đã được chốt. Thực lĩnh: {net} VND.",
+                    "payroll");
+                return;
+            }
             await notificationService.CreateAndSendAsync(
                 employee.ApplicationUserId.Value,
                 NotificationType.Success,

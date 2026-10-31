@@ -49,14 +49,20 @@ public class ZaloBotSetting : Entity<Guid>
 }
 
 /// <summary>
-/// Liên kết tài khoản app với chat Zalo của chính người đó: app cấp mã 6 số, người dùng gửi mã cho bot → webhook ghi
-/// ChatId. Mỗi tài khoản một dòng trong mỗi cửa hàng; ChatId null = đang chờ gửi mã.
+/// Liên kết một người với chat Zalo của chính người đó: app (hoặc bảng mã quản lý in ra) cấp mã 6 số, người đó gửi mã
+/// cho bot → webhook ghi ChatId. Mỗi người một dòng trong mỗi cửa hàng; ChatId null = đang chờ gửi mã.
+/// Gắn với tài khoản (UserId), hồ sơ nhân viên (EmployeeId) hoặc cả hai — nhân viên không có tài khoản vẫn nhận
+/// được lương / phạt / lịch làm qua Zalo.
 /// </summary>
 public class ZaloBotLink : Entity<Guid>
 {
     public Guid StoreId { get; set; }
 
-    public Guid UserId { get; set; }
+    /// <summary>Tài khoản app. Null = nhân viên chưa có tài khoản (liên kết từ bảng mã).</summary>
+    public Guid? UserId { get; set; }
+
+    /// <summary>Hồ sơ nhân viên. Null = tài khoản không gắn hồ sơ (vd chủ cửa hàng).</summary>
+    public Guid? EmployeeId { get; set; }
 
     [MaxLength(100)]
     public string? ChatId { get; set; }
@@ -82,6 +88,9 @@ public class ZaloBotMessage : Entity<Guid>
     public Guid StoreId { get; set; }
 
     public Guid? UserId { get; set; }
+
+    /// <summary>Tin gửi thẳng cho nhân viên chưa có tài khoản (không có Notification trong app).</summary>
+    public Guid? EmployeeId { get; set; }
 
     [MaxLength(100)]
     public string ChatId { get; set; } = string.Empty;

@@ -167,9 +167,19 @@ public class ZaloBotController(
         var userId = CurrentUserId;
         var link = await db.ZaloBotLinks.FirstOrDefaultAsync(l => l.StoreId == storeId && l.UserId == userId && l.ChatId != null, ct);
         if (link == null)
+        {
+            var employeeId = await db.Employees.Where(e => e.StoreId == storeId && e.ApplicationUserId == userId)
+                .Select(e => (Guid?)e.Id).FirstOrDefaultAsync(ct);
+            if (employeeId != null)
+                link = await db.ZaloBotLinks.FirstOrDefaultAsync(l => l.StoreId == storeId && l.EmployeeId == employeeId && l.ChatId != null, ct);
+        }
+        if (link == null)
             return BadRequest(AppResponse<bool>.Fail("Tài khoản của bạn chưa liên kết Zalo — vào Cài đặt › Liên kết Zalo trước."));
+        var storeName = await db.Stores.Where(x => x.Id == storeId).Select(x => x.Name).FirstOrDefaultAsync(ct);
         var r = await client.SendMessageAsync(token, link.ChatId!,
-            ZaloBotText.FormatNotification("Tin thử từ SBOX", "Zalo bot của cửa hàng đã hoạt động.", false, null), ct);
+            ZaloBotText.FormatNotification("Tin thử từ SBOX",
+                "Zalo bot của cửa hàng đã hoạt động. Thông báo lương, phiếu phạt, lịch làm… sẽ gửi về đây theo mẫu này.", false,
+                new ZaloBotText.MessageContext(storeName, null, "system", DateTime.UtcNow, ZaloBotOutbox.AppLink(config))), ct);
         return r.Ok
             ? Ok(AppResponse<bool>.Success(true))
             : BadRequest(AppResponse<bool>.Fail($"Gửi không được: {r.Error}"));
@@ -185,9 +195,11 @@ public class ZaloBotController(
             .Where(u => u.StoreId == storeId && u.IsActive)
             .Select(u => new { u.Id, u.FirstName, u.LastName, u.UserName, u.Role })
             .ToListAsync(ct);
-        var links = await db.ZaloBotLinks
-            .Where(l => l.StoreId == storeId && l.ChatId != null)
-            .ToDictionaryAsync(l => l.UserId, ct);
+        var links = (await db.ZaloBotLinks
+                .Where(l => l.StoreId == storeId && l.ChatId != null && l.UserId != null)
+                .ToListAsync(ct))
+            .GroupBy(l => l.UserId!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
         var rows = users
             .Select(u =>
             {
@@ -206,6 +218,44 @@ public class ZaloBotController(
     public async Task<IActionResult> Unlink(Guid userId, CancellationToken ct) =>
         Ok(AppResponse<bool>.Success(await zalo.UnlinkAsync(RequiredStoreId, userId, ct)));
 
+    // ─── Bảng liên kết cả cửa hàng (nhân viên không cần tài khoản) ───────
+
+    public sealed class EmployeeCodesRequest
+    {
+        /// <summary>Null / rỗng = mọi nhân viên đang làm chưa liên kết.</summary>
+        public List<Guid>? EmployeeIds { get; set; }
+
+        /// <summary>Đổi cả mã còn hạn (mã đã phát trước đó hết dùng được).</summary>
+        public bool Renew { get; set; }
+    }
+
+    /// <summary>Mọi nhân viên đang làm + trạng thái liên kết Zalo + mã liên kết còn hạn (để in / gửi cho nhân viên).</summary>
+    [HttpGet("employee-links")]
+    [RequireModulePermission("SystemSettings", ModulePermissionAction.View)]
+    public async Task<IActionResult> EmployeeLinks(CancellationToken ct) =>
+        Ok(AppResponse<List<ZaloBotService.EmployeeLinkRow>>.Success(
+            await zalo.EmployeeLinksAsync(RequiredStoreId, DateTime.UtcNow, ct)));
+
+    /// <summary>Cấp mã liên kết (hạn 7 ngày) cho nhân viên chưa liên kết — trả lại bảng mới.</summary>
+    [HttpPost("employee-links/codes")]
+    [RequireModulePermission("SystemSettings", ModulePermissionAction.Edit)]
+    public async Task<IActionResult> CreateEmployeeCodes([FromBody] EmployeeCodesRequest? req, CancellationToken ct)
+    {
+        var storeId = RequiredStoreId;
+        var s = await db.ZaloBotSettings.FirstOrDefaultAsync(x => x.StoreId == storeId, ct);
+        if (s == null || string.IsNullOrEmpty(s.BotTokenEnc))
+            return BadRequest(AppResponse<List<ZaloBotService.EmployeeLinkRow>>.Fail("Nhập token bot trước khi tạo mã liên kết."));
+        var ids = req?.EmployeeIds is { Count: > 0 } list ? list : null;
+        await zalo.CreateEmployeeLinkCodesAsync(storeId, ids, req?.Renew ?? false, CurrentUserId, DateTime.UtcNow, ct);
+        return Ok(AppResponse<List<ZaloBotService.EmployeeLinkRow>>.Success(
+            await zalo.EmployeeLinksAsync(storeId, DateTime.UtcNow, ct)));
+    }
+
+    [HttpDelete("employee-links/{employeeId:guid}")]
+    [RequireModulePermission("SystemSettings", ModulePermissionAction.Edit)]
+    public async Task<IActionResult> UnlinkEmployee(Guid employeeId, CancellationToken ct) =>
+        Ok(AppResponse<bool>.Success(await zalo.UnlinkEmployeeAsync(RequiredStoreId, employeeId, ct)));
+
     // ─── Của chính mình (Cài đặt) ────────────────────────────────
 
     [HttpGet("me")]
@@ -215,6 +265,14 @@ public class ZaloBotController(
         var userId = CurrentUserId;
         var s = await db.ZaloBotSettings.FirstOrDefaultAsync(x => x.StoreId == storeId, ct);
         var link = await db.ZaloBotLinks.FirstOrDefaultAsync(l => l.StoreId == storeId && l.UserId == userId, ct);
+        if (link?.ChatId == null)
+        {
+            // Đã liên kết bằng bảng mã (theo hồ sơ nhân viên) trước khi có tài khoản.
+            var employeeId = await db.Employees.Where(e => e.StoreId == storeId && e.ApplicationUserId == userId)
+                .Select(e => (Guid?)e.Id).FirstOrDefaultAsync(ct);
+            if (employeeId != null)
+                link = await db.ZaloBotLinks.FirstOrDefaultAsync(l => l.StoreId == storeId && l.EmployeeId == employeeId && l.ChatId != null, ct) ?? link;
+        }
         var available = s is { Enabled: true } && !string.IsNullOrEmpty(s.BotTokenEnc);
         return Ok(AppResponse<MyLinkDto>.Success(new MyLinkDto(
             available, link?.ChatId != null, link?.ZaloName, link?.LinkedAt, s?.BotName, s?.BotLink)));
@@ -232,8 +290,14 @@ public class ZaloBotController(
     }
 
     [HttpDelete("me")]
-    public async Task<IActionResult> UnlinkMe(CancellationToken ct) =>
-        Ok(AppResponse<bool>.Success(await zalo.UnlinkAsync(RequiredStoreId, CurrentUserId, ct)));
+    public async Task<IActionResult> UnlinkMe(CancellationToken ct)
+    {
+        var storeId = RequiredStoreId;
+        if (await zalo.UnlinkAsync(storeId, CurrentUserId, ct)) return Ok(AppResponse<bool>.Success(true));
+        var employeeId = await db.Employees.Where(e => e.StoreId == storeId && e.ApplicationUserId == CurrentUserId)
+            .Select(e => (Guid?)e.Id).FirstOrDefaultAsync(ct);
+        return Ok(AppResponse<bool>.Success(employeeId != null && await zalo.UnlinkEmployeeAsync(storeId, employeeId.Value, ct)));
+    }
 
     // ─── Webhook (Zalo gọi) ──────────────────────────────────────
 

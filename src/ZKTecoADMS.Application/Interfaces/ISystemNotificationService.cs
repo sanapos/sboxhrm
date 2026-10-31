@@ -68,4 +68,15 @@ public interface ISystemNotificationService
         string? relatedEntityType = null,
         Guid? fromUserId = null,
         string? categoryCode = null);
+
+    /// <summary>
+    /// Nhân viên chưa có tài khoản app (không nhận được thông báo trong app): gửi qua Zalo bot của cửa hàng nếu nhân viên
+    /// đã liên kết Zalo theo hồ sơ (bảng mã liên kết). Nhân viên có tài khoản bị bỏ qua — gửi họ bằng CreateAndSend*.
+    /// </summary>
+    Task NotifyEmployeesWithoutAccountAsync(
+        Guid storeId,
+        IEnumerable<Guid> employeeIds,
+        string title,
+        string message,
+        string? categoryCode) => Task.CompletedTask;
 }
