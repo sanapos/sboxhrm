@@ -12,6 +12,7 @@ import 'pos_print_template_compiler.dart';
 import 'pos_receipt_layout.dart';
 import 'pos_thermal_bitmap.dart';
 import 'vietnamese_font.dart';
+import 'pos_topping_format.dart';
 
 /// Dữ liệu một nhãn cần render.
 class PosLabelRenderItem {
@@ -927,7 +928,7 @@ class PosLabelRenderer {
           .split(RegExp(r'[\n,;]+'))
           .map((e) => e.trim())
           .where((e) => e.isNotEmpty)
-          .map((e) => e.startsWith('+') ? e : '+ $e')
+          .map((e) => posNoteIsSubLine(e) ? e : '+ $e')
           .toList();
       for (final part in parts) {
         if (y >= maxY - 12) break;

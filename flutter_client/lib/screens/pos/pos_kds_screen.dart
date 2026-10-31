@@ -2596,6 +2596,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                           builder: (now) => [
                             if (!voided) _waitShortAt(sent, now),
                             _statusLabel(h.item.status),
+                            if (h.item.components.isNotEmpty)
+                              h.item.components.map((c) => '${_qtyFmt.format(c.qty)} ${c.name}').join(', '),
                             if ((h.item.note ?? '').isNotEmpty) h.item.note!,
                           ].join(' · '),
                         ),
@@ -2865,6 +2867,22 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                                 decorationThickness: 2.2,
                               ),
                             ),
+                            for (final c in item.components)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 1),
+                                child: Text(
+                                  '• ${_qtyFmt.format(c.qty)} ${c.name}',
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    color: voided ? _voided : _ink,
+                                    fontSize: 12.5,
+                                    height: 1.25,
+                                    fontWeight: FontWeight.w600,
+                                    decoration: voided ? TextDecoration.lineThrough : null,
+                                    decorationColor: _voided,
+                                  ),
+                                ),
+                              ),
                             if (note.isNotEmpty) ...[
                               const SizedBox(height: 2),
                               Text(
@@ -3097,6 +3115,7 @@ class _KdsItem {
     this.sentQty = 0,
     this.note,
     this.sentAt,
+    this.components = const [],
   });
   final String id;
   final String productId;
@@ -3107,11 +3126,23 @@ class _KdsItem {
   final String? note;
   final DateTime? sentAt;
 
+  /// Món bên trong combo (SL đã nhân số combo) — trước vé chỉ ghi tên combo, bếp không biết làm gì.
+  final List<({String name, double qty})> components;
+
   factory _KdsItem.fromJson(Map<String, dynamic> j) {
     final q = j['qty'] ?? j['Qty'] ?? 0;
     final sentQ = j['sentQty'] ?? j['SentQty'] ?? q;
     final sentRaw = j['sentAt'] ?? j['SentAt'];
+    final comps = <({String name, double qty})>[];
+    for (final c in (j['components'] ?? j['Components'] ?? const []) as List) {
+      if (c is! Map) continue;
+      final cq = c['qty'] ?? c['Qty'] ?? 0;
+      final name = (c['name'] ?? c['Name'] ?? '').toString().trim();
+      if (name.isEmpty) continue;
+      comps.add((name: name, qty: cq is num ? cq.toDouble() : double.tryParse('$cq') ?? 0));
+    }
     return _KdsItem(
+      components: comps,
       id: (j['id'] ?? j['Id'] ?? '').toString(),
       productId: (j['productId'] ?? j['ProductId'] ?? '').toString(),
       productName: (j['productName'] ?? j['ProductName'] ?? '').toString(),

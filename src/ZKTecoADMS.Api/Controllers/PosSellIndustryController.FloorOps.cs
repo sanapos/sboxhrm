@@ -1195,6 +1195,8 @@ public partial class PosSellIndustryController
         // Trả đúng phần vừa báo để client in — trước đây server đánh dấu đã gửi
         // mà không phiếu nào ra giấy, và vì đã gửi nên mở bàn ra cũng không in lại.
         var sentItems = new List<object>();
+        // Combo: phiếu in phải có món con — trước chỉ tên combo.
+        var comboParts = await PosKdsController.ComboPartsAsync(db, storeId, lines.Select(l => (Guid?)l.ProductId));
         foreach (var line in lines)
         {
             if (dto?.LineIds is { Count: > 0 } && !dto.LineIds.Contains(line.Id))
@@ -1216,7 +1218,9 @@ public partial class PosSellIndustryController
                 productName = line.ProductName,
                 qty = pending,
                 unitName = line.UnitName,
-                note = KitchenNoteText(line.ToppingsJson, line.LineNote),
+                note = PosKdsController.KitchenNoteWithCombo(
+                    PosKdsController.ComboComponents(comboParts, line.ProductId, pending),
+                    KitchenNoteText(line.ToppingsJson, line.LineNote)),
                 // Mốc phần đã báo trước đó + id dòng — client ghép vào mã chống
                 // trùng. Thêm phần mới sinh dòng mới nên hai lần báo cùng «1
                 // phần»; thiếu hai khóa này thì phiếu sau bị nuốt.

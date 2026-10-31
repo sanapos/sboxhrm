@@ -244,6 +244,10 @@ public class PosKdsController(
                 .Where(r => resourceIds.Contains(r.Id))
                 .ToDictionaryAsync(r => r.Id, r => (Name: r.Name, Area: r.Area != null ? r.Area.Name : (string?)null));
 
+        // Combo: bếp phải thấy món bên trong — trước vé chỉ ghi tên combo, bếp không biết làm gì.
+        var comboParts = await ComboPartsAsync(db, storeId,
+            rows.Select(r => (Guid?)r.ProductId).Concat(voidRows.Select(v => v.ProductId)));
+
         var acc = new Dictionary<Guid, KdsTicketAcc>();
         foreach (var g in rows.GroupBy(r => r.SaleOrderId))
         {
@@ -273,12 +277,14 @@ public class PosKdsController(
                 else if (status is PosKitchenKdsHelper.None or PosKitchenKdsHelper.Done)
                     status = PosKitchenKdsHelper.Queued;
                 if (!includeDone && status == PosKitchenKdsHelper.Done) continue;
+                var shownQty = open > 0 ? open : r.KitchenSentQty;
                 t.Items.Add(new KdsItemAcc
                 {
                     Id = r.Id,
                     ProductId = r.ProductId,
                     ProductName = r.ProductName,
-                    Qty = open > 0 ? open : r.KitchenSentQty,
+                    Components = ComboComponents(comboParts, r.ProductId, shownQty),
+                    Qty = shownQty,
                     SentQty = r.KitchenSentQty,
                     DoneQty = r.KitchenDoneQty,
                     UnitName = r.UnitName,
@@ -328,6 +334,7 @@ public class PosKdsController(
                 Id = v.Id,
                 ProductId = v.ProductId,
                 ProductName = v.ProductName,
+                Components = ComboComponents(comboParts, v.ProductId, v.Qty),
                 Qty = v.Qty,
                 SentQty = v.Qty,
                 DoneQty = 0,
@@ -359,6 +366,7 @@ public class PosKdsController(
                     doneQty = i.DoneQty,
                     unitName = i.UnitName,
                     note = i.Note,
+                    components = i.Components,
                     status = i.Status,
                     sentAt = i.SentAt,
                     printerId = i.PrinterId,
@@ -405,11 +413,52 @@ public class PosKdsController(
         public List<KdsItemAcc> Items { get; } = [];
     }
 
+    /// <summary>Thành phần các combo trong [productIds] (sản phẩm không phải combo thì không có khóa).</summary>
+    internal static async Task<Dictionary<Guid, List<(string Name, decimal Qty)>>> ComboPartsAsync(
+        ZKTecoDbContext db, Guid storeId, IEnumerable<Guid?> productIds)
+    {
+        var ids = productIds.Where(x => x != null).Select(x => x!.Value).Distinct().ToList();
+        if (ids.Count == 0) return [];
+        var parts = await db.PosProductComboLines.AsNoTracking()
+            .Where(c => ids.Contains(c.ComboProductId) && c.StoreId == storeId && c.Deleted == null
+                && c.ComponentProduct != null && c.ComponentProduct.Deleted == null)
+            .OrderBy(c => c.CreatedAt)
+            .Select(c => new { c.ComboProductId, Name = c.ComponentProduct!.Name, c.Qty })
+            .ToListAsync();
+        return parts.GroupBy(c => c.ComboProductId)
+            .ToDictionary(g => g.Key, g => g.Select(c => (c.Name, c.Qty)).ToList());
+    }
+
+    /// <summary>Món con của combo cho [comboQty] phần (SL món con × số combo đang làm) — null nếu không phải combo.</summary>
+    internal static List<KdsComponent>? ComboComponents(
+        Dictionary<Guid, List<(string Name, decimal Qty)>> parts, Guid? productId, decimal comboQty)
+    {
+        if (productId is not Guid id || !parts.TryGetValue(id, out var list) || list.Count == 0) return null;
+        return list.Select(p => new KdsComponent(p.Name, p.Qty * comboQty)).ToList();
+    }
+
+    internal sealed record KdsComponent(string Name, decimal Qty);
+
+    /// <summary>
+    /// Ghi chú phiếu bếp in: món con combo «- 2 Cà phê» (giống app — «-» in được ở chế độ chữ máy nhiệt)
+    /// rồi topping / ghi chú món.
+    /// </summary>
+    internal static string? KitchenNoteWithCombo(List<KdsComponent>? parts, string? note)
+    {
+        var lines = (parts ?? [])
+            .Where(p => !string.IsNullOrWhiteSpace(p.Name))
+            .Select(p => $"- {p.Qty.ToString("0.###", System.Globalization.CultureInfo.GetCultureInfo("vi-VN"))} {p.Name.Trim()}")
+            .ToList();
+        if (!string.IsNullOrWhiteSpace(note)) lines.Add(note.Trim());
+        return lines.Count == 0 ? null : string.Join("\n", lines);
+    }
+
     sealed class KdsItemAcc
     {
         public Guid Id { get; set; }
         public Guid? ProductId { get; set; }
         public string ProductName { get; set; } = "";
+        public List<KdsComponent>? Components { get; set; }
         public decimal Qty { get; set; }
         public decimal SentQty { get; set; }
         public decimal DoneQty { get; set; }

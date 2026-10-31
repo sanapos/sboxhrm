@@ -854,7 +854,7 @@ class PosThermalPrinterService {
         for (final part in note.split('\n')) {
           final t = part.trim();
           if (t.isEmpty) continue;
-          await b.line(t.startsWith('+') ? '  $t' : ' * $t');
+          await b.line(posNoteIsSubLine(t) ? '  $t' : ' * $t');
         }
       }
     }

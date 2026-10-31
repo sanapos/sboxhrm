@@ -126,4 +126,54 @@ public class PosKdsBoardTests
         Assert.Equal("Bún chả", item.GetProperty("productName").GetString());
         Assert.Equal(2m, item.GetProperty("qty").GetDecimal());
     }
+
+    [Fact]
+    public async Task Tickets_list_combo_components_times_open_qty()
+    {
+        var coffee = new PosProduct { Id = Guid.NewGuid(), StoreId = _store, Name = "Cà phê sữa", IsActive = true };
+        var bread = new PosProduct { Id = Guid.NewGuid(), StoreId = _store, Name = "Bánh mì", IsActive = true };
+        var combo = new PosProduct
+        {
+            Id = Guid.NewGuid(), StoreId = _store, Name = "Combo sáng", ProductType = PosProductType.Combo,
+            CategoryId = _product.CategoryId, IsActive = true,
+        };
+        _db.PosProducts.AddRange(coffee, bread, combo);
+        _db.PosProductComboLines.AddRange(
+            new PosProductComboLine { Id = Guid.NewGuid(), StoreId = _store, ComboProductId = combo.Id, ComponentProductId = coffee.Id, Qty = 1, CreatedAt = DateTime.UtcNow.AddMinutes(-2) },
+            new PosProductComboLine { Id = Guid.NewGuid(), StoreId = _store, ComboProductId = combo.Id, ComponentProductId = bread.Id, Qty = 2, CreatedAt = DateTime.UtcNow.AddMinutes(-1) });
+        var order = new PosSaleOrder { Id = Guid.NewGuid(), StoreId = _store, OrderNo = "COMBO", Status = PosSaleOrderStatus.Draft, IsActive = true };
+        _db.PosSaleOrders.Add(order);
+        _db.PosSaleOrderLines.AddRange(
+            new PosSaleOrderLine
+            {
+                Id = Guid.NewGuid(), StoreId = _store, SaleOrderId = order.Id, ProductId = combo.Id, ProductName = combo.Name,
+                Qty = 3, KitchenSentQty = 3, KitchenDoneQty = 1, KitchenPrepStatus = "queued",
+                KitchenSentAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow, IsActive = true,
+            },
+            new PosSaleOrderLine
+            {
+                Id = Guid.NewGuid(), StoreId = _store, SaleOrderId = order.Id, ProductId = _product.Id, ProductName = _product.Name,
+                Qty = 1, KitchenSentQty = 1, KitchenPrepStatus = "queued",
+                KitchenSentAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow, IsActive = true,
+            });
+        _db.SaveChanges();
+
+        var items = Data((await Ctl().Tickets()).Result).GetProperty("tickets")[0].GetProperty("items").EnumerateArray().ToList();
+        var comboItem = items.Single(i => i.GetProperty("productName").GetString() == "Combo sáng");
+        // Còn 2 phần chưa ra (3 gửi − 1 xong): 2 cà phê + 4 bánh mì.
+        var parts = comboItem.GetProperty("components").EnumerateArray()
+            .Select(c => (c.GetProperty("name").GetString(), c.GetProperty("qty").GetDecimal())).ToList();
+        Assert.Equal([("Cà phê sữa", 2m), ("Bánh mì", 4m)], parts);
+        var plain = items.Single(i => i.GetProperty("productName").GetString() == "Bún chả");
+        Assert.Equal(JsonValueKind.Null, plain.GetProperty("components").ValueKind);
+    }
+
+    [Fact]
+    public void Kitchen_note_lists_combo_parts_before_toppings()
+    {
+        var note = PosKdsController.KitchenNoteWithCombo(
+            [new("Cà phê sữa", 2m), new("Bánh mì", 1.5m)], "+ Trân châu\nÍt đá");
+        Assert.Equal("- 2 Cà phê sữa\n- 1,5 Bánh mì\n+ Trân châu\nÍt đá", note);
+        Assert.Null(PosKdsController.KitchenNoteWithCombo(null, "  "));
+    }
 }

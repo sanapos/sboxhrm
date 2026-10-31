@@ -53,6 +53,32 @@ String posToppingNoteBlock({
   return lines.join('\n');
 }
 
+/// Đầu dòng món con của combo trên phiếu bếp: `- 1 Cà phê sữa` (ASCII — «•» không có trong
+/// bảng mã chế độ chữ của nhiều máy nhiệt).
+const posComboPartPrefix = '- ';
+
+final _comboQty = NumberFormat('#,##0.###', 'vi_VN');
+
+/// Dòng phụ dưới món — topping «+…», món con combo «•…» — in thụt, không gắn «*» như ghi chú.
+bool posNoteIsSubLine(String text) {
+  final t = text.trimLeft();
+  return t.startsWith('+') || t.startsWith('(+') || t.startsWith(posComboPartPrefix);
+}
+
+/// Ghi chú phiếu bếp: món con combo (SL đã nhân số phần) trước, rồi topping / ghi chú món.
+/// Trước phiếu combo chỉ có tên combo — bếp không biết phải làm những món gì.
+String? posKitchenNoteWithComboParts(
+  Iterable<({String name, double qty})> parts,
+  String? note,
+) {
+  final lines = [
+    for (final p in parts)
+      if (p.name.trim().isNotEmpty) '$posComboPartPrefix${_comboQty.format(p.qty)} ${p.name.trim()}',
+    if ((note ?? '').trim().isNotEmpty) note!.trim(),
+  ];
+  return lines.isEmpty ? null : lines.join('\n');
+}
+
 String posToppingNoteFromSaleLine(
   PosSaleOrderLine line, {
   bool withPrice = false,
@@ -76,7 +102,7 @@ String posToppingLabelText(String? toppings) {
       .split(RegExp(r'[\n,;]+'))
       .map((e) => e.trim())
       .where((e) => e.isNotEmpty)
-      .map((e) => e.startsWith('+') ? e : '+ $e')
+      .map((e) => posNoteIsSubLine(e) ? e : '+ $e')
       .toList();
   return parts.join('\n');
 }

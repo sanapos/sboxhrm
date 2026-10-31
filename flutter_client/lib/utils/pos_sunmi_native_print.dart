@@ -242,7 +242,7 @@ class PosSunmiNativePrint {
           for (final raw in note.split(RegExp(r'[\r\n]+'))) {
             final part = raw.trim();
             if (part.isEmpty) continue;
-            final topping = part.startsWith('+');
+            final topping = posNoteIsSubLine(part);
             img.add(PosReceiptImageLine(
               text: topping ? '  $part' : '  * $part',
               fontSize: 14,
@@ -676,7 +676,7 @@ class PosSunmiNativePrint {
         for (final part in note.split('\n')) {
           final t = part.trim();
           if (t.isEmpty) continue;
-          await _left(t.startsWith('+') ? '  $t' : ' * $t', size: layout.smallSize);
+          await _left(posNoteIsSubLine(t) ? '  $t' : ' * $t', size: layout.smallSize);
         }
       }
     }

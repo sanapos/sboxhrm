@@ -8,6 +8,7 @@ import 'pos_print_template_renderer.dart';
 import 'pos_receipt_layout.dart';
 import 'pos_table_label.dart';
 import 'pos_thermal_bitmap.dart';
+import 'pos_topping_format.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Khoảng trống / thụt lề của một bước in (điểm in), lấy từ kiểu khối.
@@ -1098,12 +1099,16 @@ abstract final class PosPrintTemplateCompiler {
             for (final raw in note.split(RegExp(r'[\r\n]+'))) {
               final part = raw.trim();
               if (part.isEmpty) continue;
-              final topping = part.startsWith('+');
+              // Món con combo «- 2 Cà phê» là việc bếp phải làm → chữ to hơn topping / ghi chú.
+              final comboPart = part.startsWith(posComboPartPrefix);
+              final sub = posNoteIsSubLine(part);
               steps.add(PosPrintCompiledLine(
-                text: tr(topping ? '  $part' : '  * $part'),
-                fontSize: topping
-                    ? (kSize - 8).clamp(12.0, 36.0)
-                    : (kSize - 6).clamp(12.0, 36.0),
+                text: tr(sub ? '  $part' : '  * $part'),
+                fontSize: comboPart
+                    ? (kSize - 4).clamp(12.0, 40.0)
+                    : sub
+                        ? (kSize - 8).clamp(12.0, 36.0)
+                        : (kSize - 6).clamp(12.0, 36.0),
                 bold: false,
                 sourceBlockIndex: bi,
               ));

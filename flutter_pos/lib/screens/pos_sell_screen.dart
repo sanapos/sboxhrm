@@ -422,6 +422,19 @@ class _SellCartLine {
     return block.isEmpty ? null : block;
   }
 
+  /// Ghi chú phiếu báo / hủy bếp: combo kèm món con (× [comboQty] phần), rồi topping / ghi chú.
+  /// Thành phần chỉ có khi sản phẩm đã tải chi tiết — xem `_ensureComboPartsForKitchen`.
+  String? kitchenNoteFor(double comboQty) {
+    if (product.productType != PosProductType.combo) return noteWithToppings;
+    return posKitchenNoteWithComboParts(
+      [
+        for (final c in product.comboLines ?? const <PosComboLine>[])
+          (name: c.componentProductName, qty: c.qty * comboQty),
+      ],
+      noteWithToppings,
+    );
+  }
+
   /// SL còn chưa báo bếp (chỉ phần mới).
   double get kitchenPendingQty =>
       (qty - kitchenSentQty).clamp(0.0, double.infinity);
@@ -4360,7 +4373,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               productName: l.product.name,
               qty: l.kitchenPendingQty,
               unitName: l.unitLabel,
-              note: l.noteWithToppings,
+              note: l.kitchenNoteFor(l.kitchenPendingQty),
               productId: l.product.id,
               sentBefore: l.kitchenSentQty,
               lineKey: '${l.rowId}',
@@ -4636,7 +4649,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           productName: l.product.name,
           qty: l.kitchenCancelPendingQty,
           unitName: l.unitLabel,
-          note: l.noteWithToppings,
+          note: l.kitchenNoteFor(l.kitchenCancelPendingQty),
           productId: l.product.id,
           sentBefore: l.kitchenSentQty,
           lineKey: '${l.rowId}',
@@ -6867,7 +6880,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     perf.mark('canEdit');
     // Đánh dirty sớm — chặn sync/pull đè giỏ về 0 trong lúc load đơn vị.
     _markTabDirty(_tab);
-    final p = pick.product;
+    // Combo: tải món con ngay khi vào giỏ — phiếu báo / hủy bếp cần ghi món bên trong.
+    final p = await _withComboLines(pick.product);
+    if (!mounted) return;
     // Phòng / bàn đã có dòng tiền giờ: bấm thêm lần nữa (thường bấm nhầm) không thêm dòng thứ hai —
     // trước đây ra 2 dòng tiền giờ, phòng bị tính gấp đôi.
     if (p.isTimedService && _tab.cart.any((l) => l.product.id == p.id)) {
@@ -8625,7 +8640,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               productName: l.product.name,
               qty: l.kitchenPendingQty,
               unitName: l.unitLabel,
-              note: l.noteWithToppings,
+              note: l.kitchenNoteFor(l.kitchenPendingQty),
               productId: l.product.id,
               sentBefore: l.kitchenSentQty,
               lineKey: '${l.rowId}',
@@ -8794,7 +8809,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   productName: l.product.name,
                   qty: l.kitchenPendingQty,
                   unitName: l.unitLabel,
-                  note: l.noteWithToppings,
+                  note: l.kitchenNoteFor(l.kitchenPendingQty),
                   productId: l.product.id,
                   sentBefore: l.kitchenSentQty,
                   lineKey: '${l.rowId}',
@@ -10170,7 +10185,35 @@ class _PosSellScreenState extends State<PosSellScreen>
         }
       }
     }
+    // Danh mục / bộ đệm bán hàng không kèm món con combo — mở lại đơn rồi báo / hủy bếp vẫn phải ghi đủ.
+    final combos = resolved.values
+        .where((p) => p.productType == PosProductType.combo && !(p.comboLines?.isNotEmpty ?? false))
+        .toList();
+    if (combos.isNotEmpty) {
+      for (final p in await Future.wait(combos.map(_withComboLines))) {
+        resolved[p.id] = p;
+      }
+    }
     return resolved;
+  }
+
+  /// Món con combo đã tải theo id combo (danh sách hàng lúc bán không kèm, phải lấy chi tiết).
+  final Map<String, List<PosComboLine>> _comboLinesCache = {};
+
+  Future<PosProduct> _withComboLines(PosProduct p) async {
+    if (p.productType != PosProductType.combo || (p.comboLines?.isNotEmpty ?? false)) return p;
+    var lines = _comboLinesCache[p.id];
+    // Mất mạng: không chờ — thêm món vẫn nhanh, phiếu bếp chỉ thiếu món con.
+    if (lines == null && PosNetworkMonitor.instance.reachable.value) {
+      try {
+        final res = await _api.getPosProduct(p.id).timeout(const Duration(seconds: 4));
+        if (res['isSuccess'] == true && res['data'] is Map) {
+          lines = PosProduct.fromJson(Map<String, dynamic>.from(res['data'] as Map)).comboLines ?? const [];
+          _comboLinesCache[p.id] = lines;
+        }
+      } catch (_) {}
+    }
+    return (lines == null || lines.isEmpty) ? p : p.copyWith(comboLines: lines);
   }
 
   Future<Map<String, PosProductVariant>> _resolveDraftVariants(
@@ -10715,7 +10758,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             productName: productName,
             qty: kitchenVoid,
             unitName: line.unitLabel,
-            note: line.noteWithToppings,
+            note: line.kitchenNoteFor(kitchenVoid),
             productId: line.product.id,
             sentBefore: line.kitchenSentQty,
             lineKey: '${line.rowId}',
@@ -10809,7 +10852,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         productName: line.product.name,
         qty: cancelQty,
         unitName: line.unitLabel,
-        note: line.noteWithToppings,
+        note: line.kitchenNoteFor(cancelQty),
         productId: line.product.id,
         sentBefore: line.kitchenSentQty,
         lineKey: '${line.rowId}',
@@ -10880,7 +10923,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           productName: line.product.name,
           qty: cancelQty,
           unitName: line.unitLabel,
-          note: line.noteWithToppings,
+          note: line.kitchenNoteFor(cancelQty),
           productId: line.product.id,
           sentBefore: line.kitchenSentQty,
           lineKey: '${line.rowId}',
@@ -10941,7 +10984,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           productName: line.product.name,
           qty: cut,
           unitName: line.unitLabel,
-          note: line.noteWithToppings,
+          note: line.kitchenNoteFor(cut),
           productId: line.product.id,
           sentBefore: line.kitchenSentQty,
           lineKey: '${line.rowId}',
@@ -12793,7 +12836,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     productName: l.product.name,
                     qty: l.kitchenPendingQty,
                     unitName: l.unitLabel,
-                    note: l.noteWithToppings,
+                    note: l.kitchenNoteFor(l.kitchenPendingQty),
                     productId: l.product.id,
                     sentBefore: l.kitchenSentQty,
                     lineKey: '${l.rowId}',

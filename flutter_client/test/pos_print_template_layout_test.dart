@@ -5,6 +5,7 @@ import 'package:image/image.dart' as img;
 import 'package:zkteco_flutter_client/models/pos_print_template.dart';
 import 'package:zkteco_flutter_client/models/pos_print_template_v2.dart';
 import 'package:zkteco_flutter_client/utils/pos_print_template_compiler.dart';
+import 'package:zkteco_flutter_client/utils/pos_topping_format.dart';
 
 PosPrintTemplateV2 _tpl(List<PosPrintBlock> blocks, {double? side}) => PosPrintTemplateV2(
       paperSize: PosPrintPaperSizes.k80,
@@ -96,5 +97,30 @@ void main() {
     final texts = out.printImageLines.map((l) => l.text.trim()).toList();
     expect(texts.where((t) => t.startsWith('Giảm giá')), ['Giảm giá: 500.000']);
     expect(out.html, contains('Giảm giá: 500.000'));
+  });
+
+  test('Phiếu bếp combo: món con «- SL tên» in thụt, không gắn «*» như ghi chú', () {
+    final note = posKitchenNoteWithComboParts(
+      [(name: 'Cà phê sữa', qty: 2), (name: 'Bánh mì', qty: 4)],
+      '+ Trân châu\nÍt đá',
+    );
+    expect(note, '- 2 Cà phê sữa\n- 4 Bánh mì\n+ Trân châu\nÍt đá');
+    expect(posKitchenNoteWithComboParts(const [], null), isNull);
+
+    final out = PosPrintTemplateCompiler.compile(
+      template: PosPrintTemplateV2(
+        paperSize: PosPrintPaperSizes.k80,
+        printerProfile: 'generic_k80',
+        documentType: PosPrintDocumentTypes.kitchenSlip,
+        blocks: const [PosPrintBlock(type: PosPrintBlockType.lineItemsKitchen)],
+      ),
+      data: const {},
+      lineItems: const [],
+      kitchenLines: [
+        {'Ten_Hang_Hoa': 'Combo sáng', 'So_Luong': '2', 'Ghi_Chu': note!},
+      ],
+    );
+    final texts = out.printImageLines.map((l) => l.text).toList();
+    expect(texts, containsAll(['  - 2 Cà phê sữa', '  - 4 Bánh mì', '  + Trân châu', '  * Ít đá']));
   });
 }

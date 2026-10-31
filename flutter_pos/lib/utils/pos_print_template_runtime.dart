@@ -13,6 +13,7 @@ import 'pos_print_template_v2_presets.dart';
 import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_thermal_printer_settings.dart';
+import 'pos_topping_format.dart';
 
 /// Runtime — tải, biên dịch và in mẫu V2.
 abstract final class PosPrintTemplateRuntime {
@@ -229,7 +230,7 @@ abstract final class PosPrintTemplateRuntime {
           final t = part.trim();
           if (t.isEmpty) continue;
           steps.add(PosPrintCompiledLine(
-            text: t.startsWith('+') ? '  $t' : '  * $t',
+            text: posNoteIsSubLine(t) ? '  $t' : '  * $t',
             fontSize: bodySize - 4,
             bold: false,
           ));
