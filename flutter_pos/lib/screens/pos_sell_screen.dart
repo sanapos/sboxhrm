@@ -2,6 +2,7 @@ import '../widgets/pos/pos_customer_purchase_history_sheet.dart';
 import '../widgets/pos/pos_keyboard_builder.dart';
 import 'dart:async';
 import '../widgets/pos/pos_package_timer.dart';
+import '../widgets/pos/pos_quick_number_chips.dart';
 import '../widgets/pos/pos_ticking_text.dart';
 import '../utils/pos_scale_barcode.dart';
 import '../utils/pos_promotion_engine.dart';
@@ -3919,22 +3920,38 @@ class _PosSellScreenState extends State<PosSellScreen>
     );
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Số khách')),
-        content: PosNoSoftKeyboardField(
-          controller: ctrl,
-          autofocus: true,
-          allowDecimal: false,
-          keypadTitle: 'Số khách',
-          decoration: InputDecoration(
-            border: OutlineInputBorder(),
-            labelText: tr('Số khách đang dùng bàn'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(tr('Số khách')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Bấm số gợi ý là xong — trước chỉ một ô phải mở bàn phím số.
+              PosQuickNumberChips(
+                max: 20,
+                selected: int.tryParse(ctrl.text.trim()),
+                onPick: (n) => setLocal(() => ctrl.text = '$n'),
+              ),
+              const SizedBox(height: 10),
+              PosNoSoftKeyboardField(
+                controller: ctrl,
+                allowDecimal: false,
+                keypadTitle: 'Số khách',
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  labelText: tr('Số khách đang dùng bàn'),
+                  isDense: true,
+                ),
+                onChanged: (_) => setLocal(() {}),
+              ),
+            ],
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu'))),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu'))),
-        ],
       ),
     );
     if (ok != true || !mounted) return;
@@ -10683,32 +10700,6 @@ class _PosSellScreenState extends State<PosSellScreen>
     return true;
   }
 
-  Widget _returnQtyChip(int n, {required bool selected, required VoidCallback onTap}) {
-    return Material(
-      color: selected ? _kiotBlue : Colors.white,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: selected ? _kiotBlue : PosTheme.border),
-          ),
-          child: Text(
-            '$n',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: selected ? Colors.white : PosTheme.textPrimary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _showReturnGoodsDialog(_SellCartLine line) async {
     if (!await _ensureCanEditActiveDraft()) return;
     if (!mounted) return;
@@ -10754,21 +10745,10 @@ class _PosSellScreenState extends State<PosSellScreen>
                   ),
                   if (quickMax >= 1) ...[
                     const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (var n = 1; n <= quickMax; n++)
-                          SizedBox(
-                            width: 42,
-                            height: 38,
-                            child: _returnQtyChip(
-                              n,
-                              selected: returnQty == n,
-                              onTap: () => setLocal(() => returnCtrl.text = '$n'),
-                            ),
-                          ),
-                      ],
+                    PosQuickNumberChips(
+                      max: quickMax,
+                      selected: returnQty,
+                      onPick: (n) => setLocal(() => returnCtrl.text = '$n'),
                     ),
                   ],
                   const SizedBox(height: 10),

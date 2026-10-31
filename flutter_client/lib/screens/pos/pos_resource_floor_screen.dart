@@ -4,6 +4,7 @@ import '../../utils/api_datetime.dart';
 
 import '../../utils/notification_sound.dart';
 import '../../widgets/pos/pos_package_timer.dart';
+import '../../widgets/pos/pos_quick_number_chips.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -1145,24 +1146,14 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     fontSize: 13, color: PosTheme.textSecondary),
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  // Bàn nhỏ (≤ 6 chỗ): đủ từng số — bàn 4 chỗ trước đây chỉ có 1 · 2 · 4, thiếu 3.
-                  for (final n in maxGuests <= 6
-                      ? [for (var i = 1; i <= maxGuests; i++) i]
-                      : const [1, 2, 4, 6, 8])
-                    if (n <= maxGuests)
-                      ChoiceChip(
-                        label: Text('$n'),
-                        selected: guests == n,
-                        onSelected: (_) => setLocal(() {
-                          guests = n;
-                          ctrl.text = '$n';
-                        }),
-                      ),
-                ],
+              // Đủ từng số 1…20 (không quá sức chứa) — trước bàn lớn chỉ có 1 · 2 · 4 · 6 · 8.
+              PosQuickNumberChips(
+                max: maxGuests < 20 ? maxGuests : 20,
+                selected: guests,
+                onPick: (n) => setLocal(() {
+                  guests = n;
+                  ctrl.text = '$n';
+                }),
               ),
               const SizedBox(height: 8),
               PosNoSoftKeyboardField(
@@ -3328,7 +3319,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     final maxGuests = r.capacity > 0 ? r.capacity : 99;
     var guests = r.guestCount > 0 ? r.guestCount : 1;
     final ctrl = TextEditingController(text: '$guests');
-    // Cùng kiểu hộp «Mở bàn»: chip 1/2/4/6/8 + ô số — trước đây chỉ một ô trơn phải gõ.
+    // Cùng kiểu hộp «Mở bàn»: số gợi ý + ô số — trước đây chỉ một ô trơn phải gõ.
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -3338,23 +3329,13 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final n in maxGuests <= 6
-                    ? [for (var i = 1; i <= maxGuests; i++) i]
-                    : const [1, 2, 4, 6, 8])
-                  if (n <= maxGuests)
-                    ChoiceChip(
-                      label: Text('$n'),
-                      selected: guests == n,
-                      onSelected: (_) => setLocal(() {
-                        guests = n;
-                        ctrl.text = '$n';
-                      }),
-                    ),
-              ],
+            PosQuickNumberChips(
+              max: maxGuests < 20 ? maxGuests : 20,
+              selected: guests,
+              onPick: (n) => setLocal(() {
+                guests = n;
+                ctrl.text = '$n';
+              }),
             ),
             const SizedBox(height: 8),
             PosNoSoftKeyboardField(
