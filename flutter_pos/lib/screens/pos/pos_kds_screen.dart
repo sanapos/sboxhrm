@@ -2347,6 +2347,50 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   /// Ghi chú hiển thị: bỏ dòng món con combo («- 1 Trà sữa») — đã có danh sách món con riêng
   /// (trước hiện «• 15 Trà sữa · 15 Nem rán» rồi lại «- 1 Trà sữa» ngay dưới, bếp tưởng 2 món).
+  /// Thẻ bàn: món giống nhau CHƯA LÀM, không ghi chú riêng (topping, «ít đá»…) → một dòng cộng SL.
+  /// Bàn gọi thêm nhiều lượt trước hiện 4 dòng «Combo ăn vặt» 2 · 1 · 1 · 2, bếp phải tự cộng.
+  /// Món đang làm / xong / hủy / có ghi chú vẫn tách riêng (bấm từng dòng đổi trạng thái riêng).
+  /// Trả về (dòng hiển thị, id các món gốc) — bấm dòng gộp là đổi cả nhóm.
+  List<(_KdsItem, List<String>)> _mergedRows(_KdsTicket t) {
+    final out = <(_KdsItem, List<String>)>[];
+    final at = <String, int>{};
+    for (final i in t.items) {
+      final key = i.status == 'queued' && _displayNote(i).isEmpty
+          ? i.productName.trim().toLowerCase()
+          : null;
+      final k = key == null ? null : at[key];
+      if (k != null) {
+        final (m, ids) = out[k];
+        out[k] = (_mergeItems(m, i), [...ids, i.id]);
+        continue;
+      }
+      if (key != null) at[key] = out.length;
+      out.add((i, [i.id]));
+    }
+    return out;
+  }
+
+  static _KdsItem _mergeItems(_KdsItem a, _KdsItem b) {
+    final comps = <String, double>{for (final c in a.components) c.name: c.qty};
+    for (final c in b.components) {
+      comps[c.name] = (comps[c.name] ?? 0) + c.qty;
+    }
+    final sa = a.sentAt;
+    final sb = b.sentAt;
+    return _KdsItem(
+      id: a.id,
+      productId: a.productId,
+      productName: a.productName,
+      qty: a.qty + b.qty,
+      sentQty: a.sentQty + b.sentQty,
+      status: a.status,
+      note: a.note,
+      // Chờ lâu nhất của nhóm — món gọi trước quyết định trễ.
+      sentAt: sa == null ? sb : (sb == null || sa.isBefore(sb) ? sa : sb),
+      components: [for (final e in comps.entries) (name: e.key, qty: e.value)],
+    );
+  }
+
   static String _displayNote(_KdsItem i) {
     final n = (i.note ?? '').trim();
     if (n.isEmpty || i.components.isEmpty) return n;
@@ -3104,7 +3148,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               ],
             ),
             // Đủ mọi món (trước chỉ 4 món + «+ N» nằm trong vùng cuộn ngầm, bếp không thấy).
-            for (final item in t.items) _itemRow(item, t),
+            for (final (item, ids) in _mergedRows(t)) _itemRow(item, t, ids: ids),
             SizedBox(height: 8),
             if (allVoided)
               _primaryCta(
@@ -3134,7 +3178,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     );
   }
 
-  Widget _itemRow(_KdsItem item, _KdsTicket ticket) {
+  Widget _itemRow(_KdsItem item, _KdsTicket ticket, {List<String>? ids}) {
     final sent = item.sentAt ?? ticket.sentAt;
     final voided = _isVoided(item);
     final tone = _toneFor(item.status, sent);
@@ -3150,7 +3194,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                 'ready' => 'done',
                 _ => 'cooking',
               };
-              unawaited(_setLine(item, next));
+              unawaited(_setLines(ids ?? [item.id], next));
             },
       child: Container(
         margin: EdgeInsets.symmetric(vertical: 3),
