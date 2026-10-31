@@ -2363,27 +2363,29 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     required int count,
     required int columns,
     required Widget Function(int i) build,
+    bool stretch = true,
   }) {
     final rows = (count / columns).ceil();
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
       itemCount: rows,
-      itemBuilder: (_, r) => Padding(
-        padding: EdgeInsets.only(top: r == 0 ? 0 : 12),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var c = 0; c < columns; c++) ...[
-                if (c > 0) const SizedBox(width: 12),
-                Expanded(
-                  child: r * columns + c < count ? build(r * columns + c) : const SizedBox(),
-                ),
-              ],
+      itemBuilder: (_, r) {
+        final row = Row(
+          crossAxisAlignment: stretch ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
+          children: [
+            for (var c = 0; c < columns; c++) ...[
+              if (c > 0) const SizedBox(width: 12),
+              Expanded(
+                child: r * columns + c < count ? build(r * columns + c) : const SizedBox(),
+              ),
             ],
-          ),
-        ),
-      ),
+          ],
+        );
+        return Padding(
+          padding: EdgeInsets.only(top: r == 0 ? 0 : 12),
+          child: stretch ? IntrinsicHeight(child: row) : row,
+        );
+      },
     );
   }
 
@@ -2979,7 +2981,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     return LayoutBuilder(builder: (context, c) {
       final n = (c.maxWidth / (290 * _textScale)).floor().clamp(1, 7);
       final list = _visibleTickets;
-      return _cardRows(count: list.length, columns: n, build: (i) => _ticketCard(list[i]));
+      // Thẻ bàn cao theo món của chính nó: bàn dài không đẩy nút «Đang làm / Ra món» của bàn ngắn xuống đáy.
+      return _cardRows(count: list.length, columns: n, stretch: false, build: (i) => _ticketCard(list[i]));
     });
   }
 
@@ -3014,6 +3017,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Đầu thẻ đổi màu theo thời gian chờ: bàn · khu · số phút — nhìn từ xa biết bàn nào gấp.
@@ -3030,7 +3034,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               Expanded(
                 child: Text(
                   [t.title, if (area.isNotEmpty && !t.title.contains(area)) area].join(' · '),
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: _ink, fontWeight: FontWeight.w800, fontSize: 16),
                 ),
@@ -3055,10 +3059,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               ),
             ]),
           ),
-          Expanded(
-            child: Padding(
+          Padding(
         padding: EdgeInsets.fromLTRB(12, 6, 12, 10),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -3101,7 +3105,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             ),
             // Đủ mọi món (trước chỉ 4 món + «+ N» nằm trong vùng cuộn ngầm, bếp không thấy).
             for (final item in t.items) _itemRow(item, t),
-            Spacer(),
             SizedBox(height: 8),
             if (allVoided)
               _primaryCta(
@@ -3126,7 +3129,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           ],
         ),
       ),
-          ),
         ],
       ),
     );
