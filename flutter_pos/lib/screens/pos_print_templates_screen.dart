@@ -1266,7 +1266,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       if (t.isDocx) return false;
       final raw = t.htmlContent.trim();
       if (!raw.startsWith('<') || PosPrintTemplateV2Codec.isV2Content(raw)) return false;
-      return posCommercialBaseRev(raw) < kPosCommercialBaseRev;
+      return posCommercialBaseRev(raw) < posCommercialRevNeeded(t.documentType);
     }).toList();
   }
 

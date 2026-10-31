@@ -8,7 +8,7 @@ import 'package:zkteco_flutter_client/models/pos_sale_order.dart';
 import 'package:zkteco_flutter_client/utils/pos_quote_document_wording.dart';
 import 'package:zkteco_flutter_client/widgets/pos/pos_quote_care_sheet.dart';
 
-PosQuote _quote({double deposit = 0, double? pct}) => PosQuote(
+PosQuote _quote({double deposit = 0, double? pct, String vatMode = PosQuoteVat.none}) => PosQuote(
       id: 'q1',
       quoteNo: 'BG0007',
       status: 'Draft',
@@ -16,7 +16,8 @@ PosQuote _quote({double deposit = 0, double? pct}) => PosQuote(
       customerAddress: '12 Lê Duẩn, Đà Nẵng',
       depositAmount: deposit,
       depositPercent: pct,
-      vatMode: PosQuoteVat.none,
+      vatMode: vatMode,
+      vatPercent: vatMode == PosQuoteVat.none ? null : 8,
       lines: [
         PosQuoteLine(
           productName: 'Tủ bếp',
@@ -90,6 +91,25 @@ void main() {
     expect(html, contains('Trần Thị Bình'));
     expect(html, contains('HD0001'));
     expect(html, isNot(contains('1.000.000 đ</b> (')), reason: 'không có cọc');
+  });
+
+  test('Báo giá không VAT: không cột thuế suất, không dòng thuế', () {
+    final html = bindPosQuotePrintHtmlLocal(_quote(), _quote().lines);
+    expect(html, isNot(contains('Thuế suất')));
+    expect(html, isNot(contains('Tiền thuế')));
+    expect(html, isNot(contains('SAU THUẾ')));
+    expect(html, contains('TỔNG CỘNG'));
+  });
+
+  test('Báo giá cộng VAT: cột thuế suất, tiền thuế, tổng sau thuế', () {
+    final q = _quote(vatMode: PosQuoteVat.added);
+    final html = bindPosQuotePrintHtmlLocal(q, q.lines);
+    expect(html, contains('Thuế suất'));
+    expect(html, contains('(chưa VAT)'));
+    expect(html, contains('Tiền thuế GTGT 8%'));
+    expect(html, contains('160.000'));
+    expect(html, contains('TỔNG CỘNG SAU THUẾ'));
+    expect(html, contains('2.160.000'));
   });
 
   test('Báo giá có cọc 30% in đúng số tiền cọc', () {

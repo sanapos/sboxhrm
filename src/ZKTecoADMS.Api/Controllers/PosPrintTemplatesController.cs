@@ -303,6 +303,32 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         return Ok(AppResponse<object>.Success(null));
     }
 
+    public record HtmlPdfPreviewDto(string Html);
+
+    /// <summary>
+    /// Xem trước chứng từ khổ trang (A4/A5) = đúng file PDF sẽ in / xuất: cùng HTML, cùng Chromium với
+    /// «Xuất PDF» (trước đây xem trước dựng bằng trình hiển thị của app — chữ, giãn dòng, ngắt trang lệch bản in).
+    /// Không cần quyền / gói «Mẫu in»: ai mở được chứng từ trong cửa hàng đều xem trước được — đường dẫn nằm
+    /// ngoài /api/pos/print-templates để gói không có module mẫu in (chỉ Báo giá) vẫn gọi được.
+    /// </summary>
+    [HttpPost("/api/pos/print-preview/pdf")]
+    [RequestSizeLimit(30_000_000)]
+    public async Task<IActionResult> PdfPreview([FromBody] HtmlPdfPreviewDto body, CancellationToken ct)
+    {
+        _ = RequiredStoreId;
+        if (string.IsNullOrWhiteSpace(body?.Html))
+            return BadRequest(new { message = "Thiếu nội dung in" });
+        try
+        {
+            var converter = HttpContext.RequestServices.GetRequiredService<OfficePdfConverter>();
+            return File(await converter.HtmlToPdfAsync(body.Html, ct), "application/pdf", "preview.pdf");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpPost("seed")]
     [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> Seed(

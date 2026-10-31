@@ -19,6 +19,11 @@ void main() {
       expect(posCommercialBaseRev(old) < kPosCommercialBaseRev, isTrue);
     });
 
+    test('rev 3 chỉ buộc nâng mẫu báo giá, mẫu hợp đồng rev 2 giữ nguyên', () {
+      expect(posCommercialRevNeeded(PosPrintDocumentTypes.quote), 3);
+      expect(posCommercialRevNeeded(PosPrintDocumentTypes.contract), 2);
+    });
+
     test('đổi lề / lưu lại không làm mất số phiên bản', () {
       final html = posPrintDefaultHtml(
         documentType: PosPrintDocumentTypes.contract,

@@ -352,7 +352,7 @@ String bindPosQuotePrintHtmlLocal(
     storePhone: storePhone,
     fillSamples: false,
   );
-  final items = renderedLines ?? _quoteLineItems(lineItems);
+  final items = _withLineVatRates(q, lineItems, renderedLines ?? _quoteLineItems(lineItems));
   data.addAll(_quoteHeaderData(q, lineItems, profile: commercialProfile));
   data.addAll(_lineFlags(items));
   if (!includeStamp) {
@@ -400,7 +400,7 @@ String bindPosCommercialPrintHtmlLocal(
     storePhone: storePhone,
     fillSamples: false,
   );
-  final items = _quoteLineItems(lines);
+  final items = _withLineVatRates(q, lines, _quoteLineItems(lines));
   data.addAll(_quoteHeaderData(q, lines, profile: commercialProfile));
   data.addAll(_lineFlags(items));
   final no = (docNo == null || docNo.isEmpty) ? q.quoteNo : docNo;
@@ -450,7 +450,7 @@ Future<String> bindPosQuotePrintHtml(
     }
   } catch (_) {}
 
-  final lines = await _quoteLineItemsWithImages(api, lineItems);
+  final lines = _withLineVatRates(q, lineItems, await _quoteLineItemsWithImages(api, lineItems));
   String render(String templateHtml) => renderPosPrintTemplateHtml(
         templateHtml,
         data: () {
@@ -543,6 +543,10 @@ Map<String, String> _quoteHeaderData(
   final total = t.total;
   final rateText = rate == rate.roundToDouble() ? rate.toStringAsFixed(0) : rate.toStringAsFixed(1);
   String prof(String a, String b) =>
+  // Có VAT → mẫu in kiểu riêng (cột thuế suất, trước thuế · tiền thuế · tổng sau thuế) — khớp máy chủ.
+  final hasVat = _quoteHasVat(q, vat);
+  final netSum = use.fold<double>(0, (a, l) => a + _quoteLineAmount(l));
+  final lineRates = {for (final l in use) l.vatRate};
       (profile?[a] ?? profile?[b] ?? '').toString().trim();
   final quoteTerms = (q.terms ?? '').trim();
   final storeTerms = prof('defaultTerms', 'DefaultTerms');
@@ -579,7 +583,7 @@ Map<String, String> _quoteHeaderData(
     'Tam_Ung': deposit > 0 ? money.format(deposit) : '',
     'Tien_Coc': deposit > 0 ? money.format(deposit) : '',
     'Phan_Tram_Coc': pctText,
-    'Coc_Tinh_Tren': pctText.isEmpty ? '' : 'giá trị trước VAT',
+    'Coc_Tinh_Tren': pctText.isEmpty ? '' : (hasVat ? 'giá trị trước VAT' : 'giá trị báo giá'),
     'Tien_Coc_Bang_Chu':
         deposit > 0 ? vietnameseMoneyInWords(deposit.round()) : '',
     'Con_Lai_Hop_Dong': money.format(remain),
@@ -602,21 +606,26 @@ Map<String, String> _quoteHeaderData(
     'SDT': q.customerPhone ?? '',
     'Dia_Chi_Khach_Hang': q.customerAddress ?? '',
     'Han_Bao_Gia': q.validUntil == null ? '' : day.format(q.validUntil!.toLocal()),
-    'Tong_Tien_Hang': money.format(use.fold<double>(0, (a, l) => a + _quoteLineAmount(l))),
+    'Tong_Tien_Hang': money.format(netSum),
     'Chiet_Khau_Hoa_Don': money.format(q.discount),
     'Tien_Thue': q.vatMode == PosQuoteVat.included
         ? (vat > 0 ? '(đã gồm ${money.format(vat)})' : '')
         : money.format(vat),
     'Thue': money.format(vat),
     'VAT': money.format(vat),
-    'Thue_Suat': q.vatMode == PosQuoteVat.included || q.vatMode == PosQuoteVat.added ? '$rateText%' : '',
+    'Thue_Suat': q.vatMode == PosQuoteVat.included || q.vatMode == PosQuoteVat.added
+        ? '$rateText%'
+        : (hasVat && lineRates.length == 1 ? '${_rateText(lineRates.first)}%' : ''),
+    'Co_VAT': hasVat ? '1' : '',
+    'Ghi_Chu_Gia': !hasVat ? '' : (q.vatMode == PosQuoteVat.included ? 'đã gồm VAT' : 'chưa VAT'),
+    'Hien_Truoc_Thue': hasVat && (t.preVat - netSum).abs() >= 0.5 ? '1' : '',
     'Cach_Tinh_VAT': q.vatMode == PosQuoteVat.included
         ? 'Giá đã bao gồm VAT $rateText%'
         : q.vatMode == PosQuoteVat.added
             ? 'Giá chưa bao gồm VAT, cộng VAT $rateText%'
             : q.vatMode == PosQuoteVat.none
                 ? 'Không tính VAT'
-                : 'VAT theo từng mặt hàng',
+                : (hasVat ? 'VAT theo từng mặt hàng' : ''),
     'Gia_Tri_Truoc_VAT': money.format(t.preVat),
     'Tong_Cong': money.format(total),
     'Khach_Can_Tra': money.format(total),
@@ -636,6 +645,27 @@ Map<String, String> _quoteHeaderData(
 }
 
 /// Cột Hình ảnh / Bảo hành chỉ hiện khi có dòng dùng tới (khối IF trong mẫu).
+bool _quoteHasVat(PosQuote q, double vat) => q.vatMode != PosQuoteVat.none && vat > 0;
+
+String _rateText(double r) => r == r.roundToDouble() ? r.toStringAsFixed(0) : r.toStringAsFixed(1);
+
+/// Cột «Thuế suất» từng dòng (mẫu báo giá có VAT): % chung của báo giá hoặc % của mặt hàng.
+List<Map<String, String>> _withLineVatRates(
+  PosQuote q,
+  List<PosQuoteLine> lines,
+  List<Map<String, String>> items,
+) {
+  final use = lines.isNotEmpty ? lines : q.lines;
+  final t = PosQuoteVat.compute(use, mode: q.vatMode, rate: q.vatPercent ?? 8, discount: q.discount);
+  final hasVat = _quoteHasVat(q, t.vat);
+  final common = q.vatMode == PosQuoteVat.included || q.vatMode == PosQuoteVat.added;
+  for (var i = 0; i < items.length; i++) {
+    final r = common ? (q.vatPercent ?? 8) : (i < use.length ? use[i].vatRate : 0.0);
+    items[i]['Thue_Suat_Dong'] = hasVat ? '${_rateText(r)}%' : '';
+  }
+  return items;
+}
+
 Map<String, String> _lineFlags(List<Map<String, String>> items) => {
       'Co_Anh':
           items.any((l) => (l['Hinh_Anh'] ?? '').trim().isNotEmpty) ? '1' : '',

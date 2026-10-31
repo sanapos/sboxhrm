@@ -41,7 +41,7 @@ class PosCommercialTemplateAutoUpgrade {
         NotificationOverlayManager().showSuccess(
           title: 'Đã cập nhật mẫu chứng từ',
           message:
-              '$done mẫu dùng bố cục chuẩn mới (bảng tổng khớp số, bỏ dòng trống). Bản cũ vẫn giữ để quay lại.',
+              '$done mẫu dùng bố cục chuẩn mới (báo giá tách kiểu có / không VAT). Bản cũ vẫn giữ để quay lại.',
         );
       }
     } catch (_) {
@@ -57,7 +57,7 @@ class PosCommercialTemplateAutoUpgrade {
     if (!raw.startsWith('<') || PosPrintTemplateV2Codec.isV2Content(raw)) {
       return false;
     }
-    return posCommercialBaseRev(raw) < kPosCommercialBaseRev;
+    return posCommercialBaseRev(raw) < posCommercialRevNeeded(t.documentType);
   }
 
   /// Thay nội dung [t] bằng mẫu chuẩn mới nhất (giữ khổ giấy + lề); bản cũ lưu

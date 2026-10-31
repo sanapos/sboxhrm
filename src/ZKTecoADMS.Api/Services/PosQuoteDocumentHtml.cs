@@ -177,6 +177,24 @@ public static class PosQuoteDocumentHtml
     /// </summary>
     static decimal LineNet(PosQuoteLine l) => Math.Round(Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount), 0);
 
+    /// <summary>Báo giá có thuế GTGT trên phiếu (không VAT / VAT theo mặt hàng mà tiền thuế 0 → không).</summary>
+    public static bool HasVat(PosQuote quote) => quote.VatMode != "none" && quote.VatAmount > 0;
+
+    /// <summary>Thuế suất in ở cột «Thuế suất» của một dòng: % chung của báo giá, hoặc % của mặt hàng.</summary>
+    static string LineRateText(PosQuote quote, PosQuoteLine l)
+    {
+        if (!HasVat(quote)) return "";
+        var rate = quote.VatMode is "included" or "added" ? quote.VatPercent ?? 8m : l.VatRate;
+        return rate.ToString("0.##", CultureInfo.GetCultureInfo("vi-VN")) + "%";
+    }
+
+    /// <summary>VAT theo mặt hàng: mọi dòng cùng một % → in «Thuế GTGT 8%», khác nhau → bỏ %.</summary>
+    static string CommonLineRate(IEnumerable<PosQuoteLine> lines)
+    {
+        var rates = lines.Select(l => l.VatRate).Distinct().ToList();
+        return rates.Count == 1 ? rates[0].ToString("0.##", CultureInfo.GetCultureInfo("vi-VN")) + "%" : "";
+    }
+
     static List<Dictionary<string, string>> activeLinesSync(PosQuote quote)
     {
         var vn = CultureInfo.GetCultureInfo("vi-VN");
@@ -193,6 +211,7 @@ public static class PosQuoteDocumentHtml
                 ["Don_Gia"] = l.UnitPrice.ToString("#,##0", vn),
                 ["Thanh_Tien"] = LineNet(l).ToString("#,##0", vn),
                 ["Chiet_Khau"] = l.DiscountAmount.ToString("#,##0", vn),
+                ["Thue_Suat_Dong"] = LineRateText(quote, l),
                 ["Ghi_Chu"] = l.LineNote ?? "",
                 ["Chieu_Dai"] = DimCell(l.Length, l.LineNote, "Dài"),
                 ["Chieu_Rong"] = DimCell(l.Width, l.LineNote, "Rộng"),
@@ -393,6 +412,10 @@ public static class PosQuoteDocumentHtml
             : Math.Max(0, lines.Sum(l => Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount)) - quote.Discount);
         var vatRateText = (quote.VatPercent ?? 8m).ToString("0.##", vn);
         var total = quote.Total;
+        // Báo giá có thuế (cộng thêm / đã gồm / theo mặt hàng có tiền thuế) in kiểu riêng: cột thuế suất,
+        // dòng tiền trước thuế · tiền thuế · tổng sau thuế. Không VAT → không cột / dòng thuế nào.
+        var hasVat = HasVat(quote);
+        var preVatWord = hasVat ? "trước VAT" : "";
 
         // ── Đợt thanh toán (đợt nhập % tính lại trên giá trị hợp đồng hiện tại) — chia số đã thu theo thứ tự ──
         var stageRows = new List<Dictionary<string, string>>();
@@ -409,7 +432,7 @@ public static class PosQuoteDocumentHtml
             var amount = stageAmounts[idx];
             var pctText = st.Percent is > 0
                 ? idx == depositIdx
-                    ? st.Percent.Value.ToString("0.##", vn) + "% trước VAT"
+                    ? (st.Percent.Value.ToString("0.##", vn) + "% " + preVatWord).TrimEnd()
                     : Math.Abs(amount - Math.Round(total * st.Percent.Value / 100m, 0, MidpointRounding.AwayFromZero)) > 1
                         ? "Phần còn lại"
                         : st.Percent.Value.ToString("0.##", vn) + "%"
@@ -441,7 +464,7 @@ public static class PosQuoteDocumentHtml
             depositPct = stageList[0].Percent is > 0
                 ? stageList[0].Percent!.Value.ToString("0.##", vn)
                 : (total > 0 ? Math.Round(deposit / total * 100m, 1).ToString("0.#", vn) : "");
-            depositBase = depositIdx == 0 ? "giá trị trước VAT" : "giá trị hợp đồng";
+            depositBase = depositIdx == 0 && hasVat ? "giá trị trước VAT" : "giá trị hợp đồng";
         }
         else
         {
@@ -454,7 +477,7 @@ public static class PosQuoteDocumentHtml
             depositPct = quote.DepositPercent is > 0
                 ? quote.DepositPercent.Value.ToString("0.##", vn)
                 : (preVat > 0 && deposit > 0 ? Math.Round(deposit / preVat * 100m, 1).ToString("0.#", vn) : "");
-            depositBase = "giá trị trước VAT";
+            depositBase = hasVat ? "giá trị trước VAT" : "giá trị báo giá";
         }
         var remainAfterDeposit = Math.Max(0, total - deposit);
         var stillDue = Math.Max(0, total - collected);
@@ -482,8 +505,9 @@ public static class PosQuoteDocumentHtml
             "included" => $"Giá đã bao gồm thuế GTGT {vatRateText}%",
             "added" => $"Giá đã cộng thuế GTGT {vatRateText}%",
             "none" => "Giá không bao gồm thuế GTGT",
-            _ => "Thuế GTGT tính theo từng mặt hàng",
+            _ => hasVat ? "Thuế GTGT tính theo từng mặt hàng" : "",
         };
+        var lineNetSum = lines.Sum(LineNet);
 
         var data = new Dictionary<string, string>
         {
@@ -537,7 +561,7 @@ public static class PosQuoteDocumentHtml
             ["Han_Bao_Gia"] = Day(quote.ValidUntil),
             // Bảng tổng cộng khớp cột «Thành tiền»: tổng tiền hàng = Σ thành tiền dòng (đã trừ CK dòng, chưa VAT);
             // giá đã gồm VAT → không chen dòng thuế vào giữa (đã ghi «Giá đã bao gồm thuế…» bên dưới).
-            ["Tong_Tien_Hang"] = Money(lines.Sum(LineNet)),
+            ["Tong_Tien_Hang"] = Money(lineNetSum),
             ["Chiet_Khau_Hoa_Don"] = Money(quote.Discount),
             // Giá đã gồm VAT: vẫn tách số thuế ra (trước để trống → dòng «Thuế GTGT» rỗng trên phiếu).
             ["Tien_Thue"] = quote.VatMode == "included"
@@ -545,8 +569,13 @@ public static class PosQuoteDocumentHtml
                 : Money(quote.VatAmount),
             ["Thue"] = Money(quote.VatAmount),
             ["VAT"] = Money(quote.VatAmount),
-            ["Thue_Suat"] = quote.VatMode is "included" or "added" ? vatRateText + "%" : "",
+            ["Thue_Suat"] = quote.VatMode is "included" or "added" ? vatRateText + "%" : (hasVat ? CommonLineRate(lines) : ""),
             ["Cach_Tinh_VAT"] = vatText,
+            ["Co_VAT"] = hasVat ? "1" : "",
+            // Đơn giá / thành tiền in trên phiếu đã gồm thuế hay chưa — ghi dưới tiêu đề cột khi có VAT.
+            ["Ghi_Chu_Gia"] = !hasVat ? "" : quote.VatMode == "included" ? "đã gồm VAT" : "chưa VAT",
+            // Dòng «Cộng tiền trước thuế» chỉ in khi khác «Tổng tiền hàng» (có chiết khấu / giá đã gồm VAT).
+            ["Hien_Truoc_Thue"] = hasVat && preVat != lineNetSum ? "1" : "",
             ["Tong_Cong"] = Money(total),
             ["Khach_Can_Tra"] = Money(total),
             ["Tong_Cong_Bang_Chu"] = PosVietnameseMoney.InWords(total),
@@ -631,6 +660,7 @@ public static class PosQuoteDocumentHtml
                 ["Don_Gia"] = l.UnitPrice.ToString("#,##0", vn),
                 ["Thanh_Tien"] = LineNet(l).ToString("#,##0", vn),
                 ["Chiet_Khau"] = l.DiscountAmount.ToString("#,##0", vn),
+                ["Thue_Suat_Dong"] = LineRateText(quote, l),
                 ["Ghi_Chu"] = l.LineNote ?? "",
                 ["Chieu_Dai"] = DimCell(l.Length, l.LineNote, "Dài"),
                 ["Chieu_Rong"] = DimCell(l.Width, l.LineNote, "Rộng"),
@@ -647,8 +677,9 @@ public static class PosQuoteDocumentHtml
     /// <summary>
     /// Phiên bản mẫu chuẩn A4 — khớp `kPosCommercialBaseRev` (flutter_client/lib/utils/pos_print_template_defaults.dart).
     /// Tăng khi sửa PrintTemplates/A4/*.html: app mời cửa hàng đang dùng mẫu lưu từ bản cũ cập nhật.
+    /// 3: báo giá tách kiểu có VAT (cột thuế suất, tiền thuế, tổng sau thuế) / không VAT.
     /// </summary>
-    public const int CommercialBaseRev = 2;
+    public const int CommercialBaseRev = 3;
 
     /// <summary>Mẫu chuẩn cho catalog «Mẫu có sẵn» — kèm khổ, lề mặc định và phiên bản (app đọc cùng comment).</summary>
     public static string DefaultA4Html(string title) =>

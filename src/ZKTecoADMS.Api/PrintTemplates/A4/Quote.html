@@ -27,8 +27,9 @@
       <th style="border:1px solid #000;padding:5px 4px;text-align:left">Tên hàng hóa / dịch vụ</th>
       <th style="border:1px solid #000;padding:5px 3px;width:7%;text-align:center">ĐVT</th>
       <th style="border:1px solid #000;padding:5px 3px;width:7%;text-align:center">SL</th>
-      <th style="border:1px solid #000;padding:5px 4px;width:13%;text-align:right">Đơn giá</th>
-      <th style="border:1px solid #000;padding:5px 4px;width:14%;text-align:right">Thành tiền</th>
+      <th style="border:1px solid #000;padding:5px 4px;width:13%;text-align:right">Đơn giá<!--IF:Ghi_Chu_Gia--><div style="font-weight:normal;font-size:11px">({Ghi_Chu_Gia})</div><!--ENDIF:Ghi_Chu_Gia--></th>
+      <th style="border:1px solid #000;padding:5px 4px;width:14%;text-align:right">Thành tiền<!--IF:Ghi_Chu_Gia--><div style="font-weight:normal;font-size:11px">({Ghi_Chu_Gia})</div><!--ENDIF:Ghi_Chu_Gia--></th>
+      <!--IF:Co_VAT--><th style="border:1px solid #000;padding:5px 3px;width:8%;text-align:center;white-space:nowrap">Thuế suất</th><!--ENDIF:Co_VAT-->
       <!--IF:Co_Bao_Hanh_Dong--><th style="border:1px solid #000;padding:5px 3px;width:10%;text-align:center;white-space:nowrap">Bảo hành</th><!--ENDIF:Co_Bao_Hanh_Dong-->
       <!--IF:Co_Anh--><th style="border:1px solid #000;padding:5px 3px;width:14%;text-align:center">Hình ảnh</th><!--ENDIF:Co_Anh-->
     </tr></thead>
@@ -39,6 +40,7 @@
       <td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:top">{So_Luong}</td>
       <td style="border:1px solid #000;padding:4px 4px;text-align:right;vertical-align:top">{Don_Gia}</td>
       <td style="border:1px solid #000;padding:4px 4px;text-align:right;vertical-align:top">{Thanh_Tien}</td>
+      <!--IF:Co_VAT--><td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:top">{Thue_Suat_Dong}</td><!--ENDIF:Co_VAT-->
       <!--IF:Co_Bao_Hanh_Dong--><td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:top;white-space:nowrap">{Bao_Hanh}</td><!--ENDIF:Co_Bao_Hanh_Dong-->
       <!--IF:Co_Anh--><td style="border:1px solid #000;padding:3px;text-align:center;vertical-align:middle">{Hinh_Anh}</td><!--ENDIF:Co_Anh-->
     </tr><!--END_ITEMS--></tbody>
@@ -46,8 +48,10 @@
   <table style="width:52%;margin:2px 0 0 auto;border-collapse:collapse;font-size:12.5px">
     <tr><td style="padding:3px 6px">Tổng tiền hàng</td><td style="padding:3px 6px;text-align:right">{Tong_Tien_Hang}</td></tr>
     <!--IF:Chiet_Khau_Hoa_Don--><tr><td style="padding:3px 6px">Chiết khấu</td><td style="padding:3px 6px;text-align:right">- {Chiet_Khau_Hoa_Don}</td></tr><!--ENDIF:Chiet_Khau_Hoa_Don-->
-    <!--IF:Tien_Thue--><tr><td style="padding:3px 6px">Thuế GTGT {Thue_Suat}</td><td style="padding:3px 6px;text-align:right">{Tien_Thue}</td></tr><!--ENDIF:Tien_Thue-->
-    <tr><td style="padding:5px 6px;border-top:1.5px solid #000"><b>TỔNG CỘNG</b></td><td style="padding:5px 6px;border-top:1.5px solid #000;text-align:right"><b>{Tong_Cong} đ</b></td></tr>
+    <!--IF:Co_VAT--><!--IF:Hien_Truoc_Thue--><tr><td style="padding:3px 6px">Cộng tiền trước thuế</td><td style="padding:3px 6px;text-align:right">{Gia_Tri_Truoc_VAT}</td></tr><!--ENDIF:Hien_Truoc_Thue-->
+    <tr><td style="padding:3px 6px">Tiền thuế GTGT {Thue_Suat}</td><td style="padding:3px 6px;text-align:right">{Thue}</td></tr>
+    <tr><td style="padding:5px 6px;border-top:1.5px solid #000"><b>TỔNG CỘNG SAU THUẾ</b></td><td style="padding:5px 6px;border-top:1.5px solid #000;text-align:right"><b>{Tong_Cong} đ</b></td></tr><!--ENDIF:Co_VAT-->
+    <!--IFNOT:Co_VAT--><tr><td style="padding:5px 6px;border-top:1.5px solid #000"><b>TỔNG CỘNG</b></td><td style="padding:5px 6px;border-top:1.5px solid #000;text-align:right"><b>{Tong_Cong} đ</b></td></tr><!--ENDIFNOT:Co_VAT-->
   </table>
   <p style="margin:6px 0 2px"><b>Bằng chữ:</b> <i>{Tong_Cong_Bang_Chu}</i></p>
   <!--IF:Cach_Tinh_VAT--><p style="margin:2px 0 4px"><i>{Cach_Tinh_VAT}.</i></p><!--ENDIF:Cach_Tinh_VAT-->

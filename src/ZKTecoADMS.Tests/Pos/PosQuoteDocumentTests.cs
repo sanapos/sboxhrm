@@ -211,9 +211,51 @@ public class PosQuoteDocumentTests(PosPgFixture fx) : PosFlowTestBase(fx)
             await db.SaveChangesAsync();
         }
         var html = await HtmlAsync(q, PosQuoteDocumentKind.Quote);
-        // Từ 18/10: dòng Thuế GTGT ghi «(đã gồm …)» thay vì để trống, số thuế không cộng vào tổng.
-        Assert.Contains("(đã gồm 7.111.111)", html);
+        // Mẫu rev 3: giá đã gồm VAT vẫn in kiểu có thuế — tách trước thuế · tiền thuế · tổng sau thuế (= tổng cũ).
+        Assert.Contains("(đã gồm VAT)", html);
+        Assert.Contains("Cộng tiền trước thuế", html);
+        Assert.Contains("7.111.111", html);
+        Assert.Contains("TỔNG CỘNG SAU THUẾ", html);
         Assert.Contains("Giá đã bao gồm thuế GTGT 8%", html);
+    }
+
+    [Fact]
+    public async Task Bao_gia_co_VAT_in_cot_thue_suat_tien_thue_tong_sau_thue()
+    {
+        if (NoDb) return;
+        var (_, q) = await SeedAsync(withStages: false);
+        var html = await HtmlAsync(q, PosQuoteDocumentKind.Quote);
+        Assert.Contains("Thuế suất", html);
+        Assert.Contains("(chưa VAT)", html);
+        Assert.Contains("Tiền thuế GTGT 8%", html);
+        Assert.Contains("7.680.000", html);
+        Assert.Contains("TỔNG CỘNG SAU THUẾ", html);
+        Assert.Contains("Cộng tiền trước thuế", html);   // có chiết khấu 2.000.000 → khác tổng tiền hàng
+        Assert.Contains("96.000.000", html);
+    }
+
+    [Fact]
+    public async Task Bao_gia_khong_VAT_khong_co_cot_dong_thue()
+    {
+        if (NoDb) return;
+        var (_, q) = await SeedAsync(withStages: false);
+        await using (var db = Fx.NewDb())
+        {
+            var quote = await db.PosQuotes.AsTracking().FirstAsync(x => x.Id == q);
+            quote.VatMode = "none";
+            quote.VatPercent = null;
+            quote.VatAmount = 0;
+            quote.Total = 96_000_000;
+            await db.SaveChangesAsync();
+        }
+        var html = await HtmlAsync(q, PosQuoteDocumentKind.Quote);
+        Assert.DoesNotContain("Thuế suất", html);
+        Assert.DoesNotContain("Tiền thuế", html);
+        Assert.DoesNotContain("Thuế GTGT 8", html);
+        Assert.DoesNotContain("SAU THUẾ", html);
+        Assert.DoesNotContain("trước VAT", html);
+        Assert.Contains("TỔNG CỘNG", html);
+        Assert.Contains("96.000.000", html);
     }
 
     [Fact]

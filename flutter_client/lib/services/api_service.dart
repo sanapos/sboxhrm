@@ -22119,6 +22119,23 @@ class ApiService implements PayrollApi {
       request.files.add(http.MultipartFile.fromBytes('file', bytes,
           filename: fileName,
           contentType: MediaType('application',
+  /// PDF xem trước chứng từ khổ trang — cùng Chromium với «Xuất PDF», để xem trước khớp bản in.
+  Future<Uint8List?> renderPosPrintPreviewPdf(String html) async {
+    try {
+      final response = await _retryOnUnauthorized(
+        () => http
+            .post(Uri.parse('$baseUrl/api/pos/print-preview/pdf'),
+                headers: _headers, body: json.encode({'html': html}))
+            .timeout(const Duration(seconds: 90)),
+      );
+      final bytes = response.bodyBytes;
+      if (response.statusCode >= 200 && response.statusCode < 300 && bytes.length > 4 && bytes[0] == 0x25) {
+        return bytes;
+      }
+    } catch (_) {}
+    return null;
+  }
+
               'vnd.openxmlformats-officedocument.wordprocessingml.document')));
       final streamed = await request.send().timeout(const Duration(seconds: 200));
       return _handleResponse(await http.Response.fromStream(streamed));

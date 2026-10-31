@@ -1,4 +1,9 @@
 {
+ "Cả trang": "Whole page",
+ "trang": "pages",
+ "đúng bản in": "exactly as printed",
+ "Đang dựng bản in…": "Rendering the print copy…",
+ "Không tải được bản in từ máy chủ — đang xem bản tạm trên máy, lề và ngắt trang có thể khác bản in.": "Could not load the print copy from the server — showing a local draft; margins and page breaks may differ from the printout.",
  "Lỗi": "Error",
  "Hủy": "Cancel",
  "Thành công": "Success",

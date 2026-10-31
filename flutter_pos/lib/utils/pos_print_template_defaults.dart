@@ -4,10 +4,16 @@ import 'pos_commercial_templates.g.dart';
 /// Phiên bản mẫu chuẩn A4 (báo giá, hợp đồng, bàn giao, nghiệm thu, đề nghị TT) — tăng mỗi khi sửa
 /// `src/ZKTecoADMS.Api/PrintTemplates/A4/*.html`. Mẫu cửa hàng lưu từ bản cũ hơn → màn Mẫu in mời cập nhật.
 /// 2: 10/10/2026 — bảng tổng khớp cột Thành tiền, ký tên thẳng hàng, bỏ dòng trống.
-const kPosCommercialBaseRev = 2;
+/// 3: 01/11/2026 — báo giá tách kiểu có VAT (cột thuế suất, tiền thuế, tổng sau thuế) / không VAT.
+const kPosCommercialBaseRev = 3;
 
 /// Phiên bản mẫu chuẩn mà mẫu [html] được tạo từ (thiếu = 1: trước khi có đánh số).
 int posCommercialBaseRev(String html) => PosCommercialPageSetup.parse(html).baseRev;
+
+/// Mẫu đã lưu của [documentType] cần nâng khi cũ hơn bản này — rev 3 chỉ đổi mẫu báo giá, mẫu hợp đồng /
+/// biên bản rev 2 (có thể đã sửa câu chữ) không bị thay.
+int posCommercialRevNeeded(String documentType) =>
+    documentType == PosPrintDocumentTypes.quote ? kPosCommercialBaseRev : 2;
 
 /// Khổ + lề (mm) mẫu báo giá / hợp đồng — lưu trong `<!--POS_A4_V6 …-->`.
 class PosCommercialPageSetup {
@@ -170,7 +176,7 @@ String wrapPosCommercialPrintHtml(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  @page { size: $page $orient; margin: 0; }
+  @page { size: $page $orient; margin: ${setup.paddingCss}; }
   html,body{margin:0;background:#fff;}
 $posCommercialContentCss
   body{
@@ -180,7 +186,9 @@ $posCommercialContentCss
     margin:0 auto;
     overflow-x:hidden;
   }
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  /* In / PDF: lề nằm ở @page → trang 2, 3… cũng có lề trên (trước đây @page margin 0 + đệm body chỉ
+     cho trang đầu lề trên, trang sau chữ sát mép giấy). Màn hình vẫn đệm body như tờ giấy. */
+  @media print { body { padding:0; max-width:none; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style>
 </head><body>$inner</body></html>
 ''';

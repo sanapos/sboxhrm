@@ -567,6 +567,9 @@ class PosQuoteExport {
     // Xuất file / gửi file cho khách cần quyền «Xuất» của Báo giá (in trực tiếp chỉ cần Xem).
     const exportActions = {'excel', 'word', 'pdf', 'png', 'email', 'zalo', 'facebook', 'share'};
     if (exportActions.contains(action) && !ensureCanExport(context, 'PosQuotes')) return;
+    // Dòng «Bảng báo giá» trong hồ sơ hợp đồng dựng tạm, mang mã báo giá chứ không phải mã chứng từ — gửi kèm
+    // thì máy chủ 404 và app xuất bằng bản dựng trên máy (lệch bản in thật).
+    if (docId == quote.id) docId = null;
     // Có mẫu Word giữ bố cục → Word / PDF lấy từ mẫu đó (không hỏi con dấu HTML).
     if ((action == 'word' || action == 'pdf') &&
         await _usesWordTemplate(quote, documentType, docId)) {

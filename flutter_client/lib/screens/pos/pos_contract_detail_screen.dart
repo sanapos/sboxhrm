@@ -232,7 +232,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
       );
       return;
     }
-    await showPosHtmlPrintDialog(context, title: d.title, htmlDocument: html);
+    await showPosHtmlPrintDialog(context, title: d.title, htmlDocument: html, a4Paper: true);
   }
 
   Future<void> _createPackage() async {
@@ -266,6 +266,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
         );
       }
     }
+          a4Paper: true,
   }
 
   @override

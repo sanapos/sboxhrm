@@ -7,6 +7,7 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../widgets/pos/pos_html_preview_stub.dart'
     if (dart.library.js_interop) '../widgets/pos/pos_html_preview_web.dart';
+import '../widgets/pos/pos_server_pdf_preview.dart';
 import 'pos_html_agent_print.dart';
 import 'pos_print_template_defaults.dart';
 
@@ -96,6 +97,21 @@ Future<bool> printOrSharePosHtml({
   return false;
 }
 
+/// In đúng file PDF đang xem trước (hộp in hệ thống).
+Future<bool> _printPdfCopies(Uint8List pdf, String title, int copies) async {
+  try {
+    var printed = false;
+    for (var i = 0; i < copies.clamp(1, 10); i++) {
+      final ok = await Printing.layoutPdf(name: title, onLayout: (_) async => pdf);
+      if (!ok) break;
+      printed = true;
+    }
+    return printed;
+  } catch (_) {
+    return false;
+  }
+}
+
 /// Dialog xem trước + in HTML mẫu (K58/K80/A4/A5).
 Future<void> showPosHtmlPrintDialog(
   BuildContext context, {
@@ -118,6 +134,9 @@ Future<void> showPosHtmlPrintDialog(
     await onPrinted();
   }
   var copies = initialCopies.clamp(1, 10);
+  // Chứng từ khổ trang: xem trước = file PDF máy chủ dựng; In dùng đúng file đó (khớp «Xuất PDF»).
+  final pagePdf = a4Paper == true;
+  Uint8List? pdfBytes;
   final screenW = MediaQuery.sizeOf(context).width;
   final isMobile = !kIsWeb && screenW < 600;
   await showDialog<void>(
@@ -179,7 +198,7 @@ Future<void> showPosHtmlPrintDialog(
                         ),
                       ),
                     ),
-                  if (kIsWeb)
+                  if (kIsWeb && !pagePdf)
                     FilledButton.icon(
                       style: FilledButton.styleFrom(backgroundColor: _blue),
                       onPressed: () async {
@@ -195,11 +214,14 @@ Future<void> showPosHtmlPrintDialog(
                     FilledButton.icon(
                       style: FilledButton.styleFrom(backgroundColor: _blue),
                       onPressed: () async {
-                        final ok = await printOrSharePosHtml(
-                          htmlDocument: htmlDocument,
-                          title: title,
-                          copies: copies,
-                        );
+                        final pdf = pdfBytes;
+                        final ok = pdf != null
+                            ? await _printPdfCopies(pdf, title, copies)
+                            : await printOrSharePosHtml(
+                                htmlDocument: htmlDocument,
+                                title: title,
+                                copies: copies,
+                              );
                         if (ok) await markPrinted();
                       },
                       icon: const Icon(Icons.print, size: 18),
@@ -217,7 +239,9 @@ Future<void> showPosHtmlPrintDialog(
                     border: Border.all(color: SboxColors.slate300),
                     color: SboxColors.slate100,
                   ),
-                  child: buildPosHtmlPreview(htmlDocument, a4Paper: a4Paper),
+                  child: pagePdf
+                      ? PosServerPdfPreview(htmlDocument: htmlDocument, onPdf: (b) => pdfBytes = b)
+                      : buildPosHtmlPreview(htmlDocument, a4Paper: a4Paper),
                 ),
               ),
             ),
