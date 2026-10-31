@@ -14301,12 +14301,12 @@ class _PosSellScreenState extends State<PosSellScreen>
     final canReturnTable = !_isSplitBill &&
         (_isTableOrderMode ||
             (_useFloorAsPrimary && (_floorPaneKey.currentState?.busyTableCount ?? 0) > 0));
-    // Báo giá / mẫu in báo giá bỏ khỏi menu bán hàng; còn lại mục ít dùng.
-    final moreItems = <PopupMenuEntry<String>>[
+    // Báo giá / mẫu in báo giá bỏ khỏi menu bán hàng.
+    final toolItems = <PopupMenuEntry<String>>[
       if (_industrySettings?.enableSessionPacks == true)
         item('gym_checkin', Icons.fingerprint, 'Check-in hội viên', subtitle: 'Qua máy chấm công'),
     ];
-    var action = await showMenu<String>(
+    final action = await showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
         topRight.dx - 260,
@@ -14411,11 +14411,10 @@ class _PosSellScreenState extends State<PosSellScreen>
             item('cashier_shift', Icons.account_balance_wallet_outlined, 'Ca thu ngân'),
           if (canEod) item('eod', Icons.summarize_outlined, 'Cuối ngày'),
         ]),
+        // Trước gom trong menu phụ «Khác…» — phải bấm 2 lần, khó tìm. Nay hiện thẳng thành nhóm.
+        ...section('Công cụ', toolItems),
         const PopupMenuDivider(),
-        // Ít dùng → gom vào «Khác…» (menu phụ) cho gọn, khỏi phải cuộn trên máy POS ngang.
-        if (moreItems.isNotEmpty)
-          item('more', Icons.more_horiz, 'Khác…', subtitle: 'Check-in hội viên'),
-        // Màn hình khách / toàn màn hình / thiết lập / trả bàn: hay dùng — ra ngoài «Khác…», cuối menu.
+        // Màn hình khách / toàn màn hình / thiết lập / trả bàn: hay dùng — cuối menu.
         if (canReturnTable)
           item('return_table', Icons.event_seat_outlined, 'Trả về $_resNoun trống',
               color: Colors.red.shade700,
@@ -14465,15 +14464,6 @@ class _PosSellScreenState extends State<PosSellScreen>
       ],
     );
     if (!mounted || action == null) return;
-    if (action == 'more') {
-      action = await showMenu<String>(
-        context: context,
-        position: RelativeRect.fromLTRB(topRight.dx - 260, menuTop, 8, menuTop + 8),
-        constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
-        items: moreItems,
-      );
-      if (!mounted || action == null) return;
-    }
 
     switch (action) {
       case 'rename_tab':

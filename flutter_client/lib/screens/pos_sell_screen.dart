@@ -4418,10 +4418,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final pendingLines =
         _tab.cart.where((l) => l.kitchenPendingQty > 0).toList();
     if (cancelLines.isEmpty && pendingLines.isEmpty) {
-      NotificationOverlayManager().showWarning(
-        title: 'Không có thay đổi',
-        message: tr('Chưa có món mới hoặc hủy chờ báo bếp'),
-      );
+      _showNothingToNotify();
       return;
     }
 
@@ -4645,10 +4642,11 @@ class _PosSellScreenState extends State<PosSellScreen>
         });
       }
       NotificationOverlayManager().showSuccess(
-        title: 'Đã gửi báo bếp',
-        message: tr(
-          '${sendTicketLines.length} món · ${_tab.serviceResourceName ?? ''}',
-        ),
+        title: tr('Đã báo chế biến ${sendTicketLines.length} món'),
+        message: tr(formatPosTableLabel(
+          areaName: _tab.serviceAreaName,
+          tableName: _tab.serviceResourceName,
+        )),
         relatedEntityType: kPosPrintNotifyKind,
       );
       unawaited(_dispatchKitchenNotifyPrint(
@@ -4689,15 +4687,22 @@ class _PosSellScreenState extends State<PosSellScreen>
         };
       });
     }
-    NotificationOverlayManager().showSuccess(
-      title: 'Không có món mới',
-      message: _tab.serviceResourceName ?? 'Các món đã báo bếp rồi',
-    );
+    _showNothingToNotify();
     } finally {
       if (mounted && _kitchenSending) {
         setState(() => _kitchenSending = false);
       }
     }
+  }
+
+  void _showNothingToNotify() {
+    final n = _tab.cart.length;
+    NotificationOverlayManager().showInfo(
+      title: tr(n == 0 ? 'Chưa có món để báo' : 'Không còn món nào để báo'),
+      message: tr(n == 0
+          ? 'Thêm món vào bàn rồi bấm Thông báo'
+          : 'Cả $n món đã báo chế biến — gọi thêm món mới thì báo tiếp'),
+    );
   }
 
   /// In phiếu bếp / tem ly sau khi server đã nhận món — không chặn nút Thông báo.
@@ -14634,9 +14639,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     final canReturnTable = !_isSplitBill &&
         (_isTableOrderMode ||
             (_useFloorAsPrimary && (_floorPaneKey.currentState?.busyTableCount ?? 0) > 0));
-    // Báo giá / mẫu in báo giá bỏ khỏi menu bán hàng (vào từ Thương mại); còn lại mục ít dùng.
+    // Báo giá / mẫu in báo giá bỏ khỏi menu bán hàng (vào từ Thương mại).
     final grid = _productGridKey.currentState;
-    final moreItems = <PopupMenuEntry<String>>[
+    final toolItems = <PopupMenuEntry<String>>[
       // Trước là 2 nút cuối thanh danh mục (mobile) — chiếm chỗ, ít danh mục hiện được.
       if (grid != null) ...[
         item('lock_mode', grid.lockMode ? Icons.lock : Icons.lock_open_outlined,
@@ -14652,8 +14657,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (PosScaleReader.instance.supported)
         item('scale_device', Icons.scale_outlined, 'Cân điện tử nối máy'),
     ];
-    // Gom nhóm như bản Sunmi T1: mục hay dùng khi bán lên trước, mục ít dùng vào «Khác…».
-    var action = await showMenu<String>(
+    // Gom nhóm như bản Sunmi T1: mục hay dùng khi bán lên trước.
+    final action = await showMenu<String>(
       context: context,
       position: menuPos,
       constraints: BoxConstraints(
@@ -14748,11 +14753,10 @@ class _PosSellScreenState extends State<PosSellScreen>
             item('cashier_shift', Icons.account_balance_wallet_outlined, 'Ca thu ngân'),
           if (canEod) item('eod', Icons.summarize_outlined, 'Cuối ngày'),
         ]),
+        // Trước gom trong menu phụ «Khác…» — phải bấm 2 lần, khó tìm. Nay hiện thẳng thành nhóm.
+        ...section('Công cụ', toolItems),
         const PopupMenuDivider(),
-        // Ít dùng → gom vào «Khác…» (menu phụ) cho gọn, khỏi phải cuộn trên máy ngang.
-        if (moreItems.isNotEmpty)
-          item('more', Icons.more_horiz, 'Khác…', subtitle: 'Khóa món, sắp xếp menu, cân…'),
-        // Màn hình khách / toàn màn hình / thiết lập / trả bàn: hay dùng — ra ngoài «Khác…», cuối menu.
+        // Màn hình khách / toàn màn hình / thiết lập / trả bàn: hay dùng — cuối menu.
         if (canReturnTable)
           item('return_table', Icons.event_seat_outlined, 'Trả về $_resNoun trống',
               color: Colors.red.shade700,
@@ -14802,15 +14806,6 @@ class _PosSellScreenState extends State<PosSellScreen>
       ],
     );
     if (!mounted || action == null) return;
-    if (action == 'more') {
-      action = await showMenu<String>(
-        context: context,
-        position: menuPos,
-        constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
-        items: moreItems,
-      );
-      if (!mounted || action == null) return;
-    }
 
     switch (action) {
       case 'rename_tab':
@@ -19881,7 +19876,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     final showWh = _showWarehouseAction;
     final showKitchen = _showKitchenAction;
     final notifyBusy = _kitchenSending || busy;
-    final canNotify = showKitchen && _kitchenActionCount > 0 && !notifyBusy && canOrder;
+    // Bấm được cả khi không còn món chờ — báo «không còn món để báo» (trước nút khóa, bấm không có phản hồi).
+    final canNotify = showKitchen && !notifyBusy && canOrder;
 
     final secondaries = <Widget>[
       if (showWh)
