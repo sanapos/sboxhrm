@@ -2612,8 +2612,19 @@ class _PosSellScreenState extends State<PosSellScreen>
   PosSellProfile get _sellProfile =>
       _industrySettings?.sellProfile ?? PosSellProfile.retail;
 
+  /// Tổng số phần trong giỏ (cộng số lượng từng món) — trước đếm số dòng: 2 Bún chả + 3 Combo hiện «2 món».
+  /// Món bán số lẻ (cân ký 0,35 kg) tính là 1.
+  int get _cartItemCount {
+    var n = 0;
+    for (final l in _tab.cart) {
+      if (l.qty <= 0) continue;
+      n += l.qty == l.qty.roundToDouble() ? l.qty.round() : 1;
+    }
+    return n;
+  }
+
   String _lineCountText([int? n]) {
-    final c = n ?? _tab.cart.length;
+    final c = n ?? _cartItemCount;
     // Ngành dịch vụ (spa, karaoke, KS) mà giỏ có cả hàng hóa (nước, đồ ăn) → «mục», không gọi tất cả là «dịch vụ».
     final unit = _sellProfile.lineUnit == 'dịch vụ' &&
             _tab.cart.any((l) => l.product.productType != PosProductType.service)
