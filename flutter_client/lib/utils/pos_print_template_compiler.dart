@@ -1416,6 +1416,15 @@ abstract final class PosPrintTemplateCompiler {
       showTotal: showTotal,
       sourceBlockIndex: sourceBlockIndex,
     ));
+    final disc = _lineDiscountText(item, showPrice: showPrice, showTotal: showTotal);
+    if (disc != null) {
+      steps.add(PosPrintCompiledLine(
+        text: '  $disc',
+        fontSize: smallSize,
+        bold: false,
+        sourceBlockIndex: sourceBlockIndex,
+      ));
+    }
     if (!showNote) return;
     for (final raw in note.split(RegExp(r'[\r\n]+'))) {
       var part = raw.trim();
@@ -1428,6 +1437,15 @@ abstract final class PosPrintTemplateCompiler {
         sourceBlockIndex: sourceBlockIndex,
       ));
     }
+  }
+
+  /// «Giảm giá: 500.000» dưới món có giảm giá — trước không in nên khách thấy
+  /// Đ.giá × SL ≠ T.T (iPhone 28.675.000 × 1 = 28.175.000) mà không biết vì sao.
+  static String? _lineDiscountText(Map<String, String> item, {required bool showPrice, required bool showTotal}) {
+    if (!showPrice && !showTotal) return null;
+    final raw = (item['Chiet_Khau'] ?? '').trim();
+    if (raw.replaceAll(RegExp(r'[^1-9]'), '').isEmpty) return null;
+    return '${tr('Giảm giá')}: ${raw.startsWith('-') ? raw.substring(1) : raw}';
   }
 
   static String _htmlText(String t, PosPrintTextStyle style) {
@@ -1470,8 +1488,12 @@ abstract final class PosPrintTemplateCompiler {
       if (showPrice) item['Don_Gia'] ?? '',
       if (showTotal) item['Thanh_Tien'] ?? '',
     ].where((e) => e.trim().isNotEmpty).join(' · ');
+    final disc = _lineDiscountText(item, showPrice: showPrice, showTotal: showTotal);
+    final discHtml = disc == null
+        ? ''
+        : '<div style="font-weight:500;font-size:${(size - 4).clamp(11, 36)}px;color:#444">$disc</div>';
     return '<div style="padding:3px 0;${style.bold ? 'font-weight:bold;' : ''}">'
-        '<div>$name${extras.isEmpty ? '' : '  $extras'}</div>$noteHtml</div>';
+        '<div>$name${extras.isEmpty ? '' : '  $extras'}</div>$discHtml$noteHtml</div>';
   }
 
   static String renderSamplePreview(PosPrintTemplateV2 template) {

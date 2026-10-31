@@ -83,4 +83,18 @@ void main() {
     expect((b.style.uppercase, b.style.spaceAfter, b.style.indentLeft), (true, 6.0, 12.0));
     expect(back.sidePaddingMm, 2.5);
   });
+
+  test('Món có giảm giá in thêm dòng «Giảm giá» (Đ.giá × SL ≠ T.T không còn khó hiểu)', () {
+    final out = PosPrintTemplateCompiler.compile(
+      template: _tpl([const PosPrintBlock(type: PosPrintBlockType.lineItems)]),
+      data: const {},
+      lineItems: const [
+        {'Ten_Hang_Hoa': 'iPhone 15', 'So_Luong': '1', 'Don_Gia': '28.675.000', 'Thanh_Tien': '28.175.000', 'Chiet_Khau': '500.000'},
+        {'Ten_Hang_Hoa': 'Trà sữa', 'So_Luong': '1', 'Don_Gia': '25.000', 'Thanh_Tien': '25.000', 'Chiet_Khau': '0'},
+      ],
+    );
+    final texts = out.printImageLines.map((l) => l.text.trim()).toList();
+    expect(texts.where((t) => t.startsWith('Giảm giá')), ['Giảm giá: 500.000']);
+    expect(out.html, contains('Giảm giá: 500.000'));
+  });
 }

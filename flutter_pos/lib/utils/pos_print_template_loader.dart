@@ -31,6 +31,14 @@ List<PosPrintTemplate> parsePosPrintTemplatesResponse(Map<String, dynamic> res) 
   return [];
 }
 
+/// Mẫu khổ [templatePaper] in được trên máy khổ [printerPaper] không (mẫu hẹp hơn vẫn in được).
+bool posPrintTemplateFitsPaper(String templatePaper, String printerPaper) {
+  final t = templatePaper.trim().toUpperCase();
+  final p = printerPaper.trim().toUpperCase();
+  if (t == p) return true;
+  return p == PosPrintPaperSizes.k80.toUpperCase() && t == PosPrintPaperSizes.k58.toUpperCase();
+}
+
 /// Chọn mẫu đúng khổ máy (K58/K80). Mặc định store K80 không dùng cho máy 58mm.
 PosPrintTemplate? pickPosPrintTemplateForPaper(
   List<PosPrintTemplate> list, {
@@ -41,6 +49,13 @@ PosPrintTemplate? pickPosPrintTemplateForPaper(
   DateTime stamp(PosPrintTemplate t) =>
       t.updatedAt ?? t.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
   final want = (paperSize ?? '').trim().toUpperCase();
+  // Mẫu người dùng đã chọn được ưu tiên khi in vừa khổ máy (K58 in được trên máy 80 mm, K80 thì
+  // không in trên máy 58 mm). Trước đây biết khổ máy là bỏ qua mẫu đã chọn: C20 chọn «HĐ K58» mà
+  // máy 80 mm vẫn in mẫu K80 — chọn mẫu như không có tác dụng.
+  if (templateId != null && templateId.isNotEmpty) {
+    final hit = list.where((t) => t.id == templateId).firstOrNull;
+    if (hit != null && (want.isEmpty || posPrintTemplateFitsPaper(hit.paperSize, want))) return hit;
+  }
   if (want.isNotEmpty) {
     final sized = list
         .where((t) => t.paperSize.trim().toUpperCase() == want)

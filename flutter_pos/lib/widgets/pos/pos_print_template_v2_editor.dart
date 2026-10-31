@@ -890,8 +890,8 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
         isDense: true,
         border: const OutlineInputBorder(),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        helperText: tr('Viền in quanh bill — chỉnh lề bên dưới'),
-        helperMaxLines: 2,
+        // Bỏ dòng gợi ý «chỉnh lề bên dưới»: «Không khung» thì không có lề khung bên dưới, và dòng
+        // này làm ô cao hơn hai ô cạnh bên (bản rộng) / thụt lệch nhãn thanh trượt (bản hẹp).
       ),
       items: [
         DropdownMenuItem(
@@ -1012,11 +1012,14 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Nhãn nổi «Khổ giấy phiếu» nằm trên viền ô — sát mép trên thì bị cắt nửa chữ.
+                  const SizedBox(height: 8),
                   paperField,
                   const SizedBox(height: 8),
                   printerField,
                   const SizedBox(height: 8),
                   frameField,
+                  const SizedBox(height: 8),
                   frameGaps,
                   sidePad,
                   if (restoreBtn != null) ...[

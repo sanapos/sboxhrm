@@ -432,12 +432,13 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     return _templates.any((t) => t.id == id) ? id : null;
   }
 
-  Future<void> _save() async {
-    if (_selected == null) return;
+  /// true = đã lưu xong (để «Lưu & dùng mẫu này» đặt dùng tiếp).
+  Future<bool> _save() async {
+    if (_selected == null) return false;
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
       NotificationOverlayManager().showError(title: 'Lỗi', message: tr('Nhập tên mẫu in'));
-      return;
+      return false;
     }
     setState(() => _saving = true);
     if (_isPageDoc) {
@@ -465,7 +466,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           )
           .toSaveJson();
       final res = await _api.updatePosPrintTemplate(_selected!.id, body);
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _saving = false);
       if (res['isSuccess'] == true) {
         _dirty = false;
@@ -477,13 +478,13 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         );
         PosPrintConfigSession.instance.invalidate();
         await _load(keepId: _selected!.id);
-      } else {
-        NotificationOverlayManager().showError(
-          title: 'Lỗi',
-          message: res['message']?.toString() ?? 'Không lưu được',
-        );
+        return true;
       }
-      return;
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: res['message']?.toString() ?? 'Không lưu được',
+      );
+      return false;
     }
     final v2 = _v2Template!.copyWith(
       name: name,
@@ -502,7 +503,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       isDefault: _selected!.isDefault,
     ).toSaveJson();
     final res = await _api.updatePosPrintTemplate(_selected!.id, body);
-    if (!mounted) return;
+    if (!mounted) return false;
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {
       _dirty = false;
@@ -517,12 +518,19 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         PosPrintConfigSession.instance.invalidate();
       } catch (_) {}
       await _load(keepId: _selected!.id);
-    } else {
-      NotificationOverlayManager().showError(
-        title: 'Lỗi',
-        message: res['message']?.toString() ?? 'Không lưu được',
-      );
+      return true;
     }
+    NotificationOverlayManager().showError(
+      title: 'Lỗi',
+      message: res['message']?.toString() ?? 'Không lưu được',
+    );
+    return false;
+  }
+
+  /// Có thay đổi chưa lưu: lưu trước rồi mới dùng — trước nút «Dùng mẫu này» bị khóa mà không nói vì sao.
+  Future<void> _saveAndUse() async {
+    if (_dirty && !await _save()) return;
+    await _setStoreDefault();
   }
 
   List<(String key, String label)> _paperOptionsForDoc() {
@@ -1646,26 +1654,35 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                   Text(tr(posPrintDocLabel(_docType)),
                       style: TextStyle(color: SboxColors.slate600, fontWeight: FontWeight.w600)),
                   const SizedBox(width: 12),
-                  SizedBox(
-                    width: 320,
-                    child: TextField(
-                      controller: _nameCtrl,
-                      decoration: InputDecoration(
-                        labelText: tr('Tên mẫu'),
-                        isDense: true,
-                        border: const OutlineInputBorder(),
+                  // Ô tên co theo chỗ trống (tối đa 320): trước cố định 320 → C20 (khung cài đặt ~960)
+                  // đẩy nút «Lưu» ra ngoài mép phải.
+                  Expanded(
+                    child: Row(children: [
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 320),
+                          child: TextField(
+                            controller: _nameCtrl,
+                            decoration: InputDecoration(
+                              labelText: tr('Tên mẫu'),
+                              isDense: true,
+                              border: const OutlineInputBorder(),
+                            ),
+                            onChanged: (_) => setState(() => _dirty = true),
+                          ),
+                        ),
                       ),
-                      onChanged: (_) => setState(() => _dirty = true),
-                    ),
+                      if (isDefault) ...[
+                        const SizedBox(width: 8),
+                        Chip(
+                          avatar: const Icon(Icons.check_circle, size: 16, color: SboxColors.success),
+                          label: Text(tr('Đang dùng')),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
+                    ]),
                   ),
                   const SizedBox(width: 8),
-                  if (isDefault)
-                    Chip(
-                      avatar: const Icon(Icons.check_circle, size: 16, color: SboxColors.success),
-                      label: Text(tr('Đang dùng')),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  const Spacer(),
                   OutlinedButton.icon(
                     onPressed: _testingPrint ? null : _testPrintTemplate,
                     icon: const Icon(Icons.print_outlined, size: 18),
@@ -1674,8 +1691,8 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                   if (!isDefault && _canEditTpl) ...[
                     const SizedBox(width: 8),
                     OutlinedButton(
-                      onPressed: _dirty ? null : _setStoreDefault,
-                      child: Text(tr('Dùng mẫu này')),
+                      onPressed: _saving || !_canEditTpl ? null : _saveAndUse,
+                      child: Text(tr(_dirty ? 'Lưu & dùng mẫu này' : 'Dùng mẫu này'), maxLines: 1, softWrap: false),
                     ),
                   ],
                   const SizedBox(width: 8),
@@ -1714,6 +1731,13 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                   icon: const Icon(Icons.print_outlined),
                   tooltip: tr('In thử'),
                 ),
+                // Điện thoại trước không có «Dùng mẫu này» trong trình sửa — phải thoát ra lưới mẫu.
+                if (!isDefault && _canEditTpl)
+                  IconButton(
+                    onPressed: _saving ? null : _saveAndUse,
+                    icon: const Icon(Icons.check_circle_outline, color: SboxColors.success),
+                    tooltip: tr(_dirty ? 'Lưu & dùng mẫu này' : 'Dùng mẫu này'),
+                  ),
                 FilledButton(
                   onPressed: _saving || _selected == null || !_canEditTpl ? null : _save,
                   child: Text(_dirty ? tr('Lưu*') : tr('Lưu')),

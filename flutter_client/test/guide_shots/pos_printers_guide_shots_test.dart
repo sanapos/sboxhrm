@@ -64,7 +64,8 @@ void main() {
         marks: [
           GuideMark(1, [find.text('Trên máy này').first, find.text('Máy in cloud').first], pad: 8),
           GuideMark(2, [find.text('In hóa đơn khi thanh toán'), find.byType(Switch).first], pad: 10),
-          GuideMark(3, [find.text('Chưa chọn máy in hóa đơn cloud'), find.textContaining('A6 in HĐ')], pad: 10),
+          // ③ Máy in hóa đơn của thiết bị: «Máy nội bộ» → bật vai trò Hóa đơn (mục «Máy in hóa đơn cloud» đã bỏ).
+          GuideMark(3, [GuideMark.button(find.byTooltip('Máy in nội bộ'))]),
           GuideMark(4, [find.text('Mẫu in hóa đơn'), find.textContaining('Cà phê Mộc')], pad: 10),
         ],
       );

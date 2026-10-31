@@ -196,19 +196,16 @@ class _PosSellMobilePrintSettingsScreenState
             ...templates.map(
               (t) => ListTile(
                 title: Text(tr(t.shortLabel)),
-                subtitle: t.isDefault
-                    ? Text(tr('Mặc định cửa hàng'))
-                    : Text(tr(PosPrintPaperSizes.shortLabel(t.paperSize))),
+                subtitle: Text([
+                  tr(PosPrintPaperSizes.displayLabel(t.paperSize)),
+                  if (t.isDefault) tr('Đang dùng cho cả cửa hàng'),
+                ].join(' · ')),
                 trailing: selectedId == t.id
                     ? const Icon(Icons.check, color: _blue)
                     : null,
                 onTap: () async {
-                  onPick(t.id);
-                  try {
-                    await _api.setDefaultPosPrintTemplate(t.id);
-                    PosPrintConfigSession.instance.invalidate();
-                  } catch (_) {}
-                  if (ctx.mounted) Navigator.pop(ctx);
+                  Navigator.pop(ctx);
+                  await _applyPickedTemplate(t, onPick);
                 },
               ),
             ),
@@ -216,6 +213,36 @@ class _PosSellMobilePrintSettingsScreenState
         ),
       ),
     );
+  }
+
+  /// Chọn mẫu: máy này dùng ngay (không chờ bấm «Lưu» — trước chọn xong rời màn là mất) và đặt
+  /// làm mẫu của cả cửa hàng; báo rõ kết quả (trước lỗi máy chủ bị nuốt, tưởng đã chọn).
+  Future<void> _applyPickedTemplate(PosPrintTemplate t, ValueChanged<String> onPick) async {
+    onPick(t.id);
+    await _print.save();
+    var ok = false;
+    String? msg;
+    try {
+      final res = await _api.setDefaultPosPrintTemplate(t.id);
+      ok = res['isSuccess'] == true;
+      msg = res['message']?.toString();
+    } catch (e) {
+      msg = '$e';
+    }
+    PosPrintConfigSession.instance.invalidate();
+    if (!mounted) return;
+    if (ok) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã chọn mẫu',
+        message: tr('Máy này và cả cửa hàng in theo «${t.name}»'),
+      );
+    } else {
+      NotificationOverlayManager().showWarning(
+        title: 'Đã chọn cho máy này',
+        message: tr('Chưa đặt được cho cả cửa hàng: ${msg ?? 'thử lại'}'),
+      );
+    }
+    await _loadTemplates();
   }
 
   Future<void> _save() async {
@@ -548,49 +575,12 @@ class _PosSellMobilePrintSettingsScreenState
                     trailing: const Icon(Icons.chevron_right),
                     onTap: _templates.isEmpty
                         ? null
-                        : () {
-                            final id = _resolveTemplateId();
-                            if (id == null) return;
-                            setState(() => _print = _print.copyWith(templateId: id));
-                            showModalBottomSheet<void>(
-                              context: context,
-                              builder: (ctx) => SafeArea(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsets.all(16),
-                                      child: Text(tr('Chọn mẫu in'),
-                                          style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w600)),
-                                    ),
-                                    ..._templates.map(
-                                      (t) => ListTile(
-                                        title: Text(tr(t.name)),
-                                        subtitle: Text(
-                                          tr(PosPrintPaperSizes.displayLabel(
-                                              t.paperSize)),
-                                        ),
-                                        trailing: _resolveTemplateId() == t.id
-                                            ? const Icon(Icons.check, color: _blue)
-                                            : null,
-                                        onTap: () async {
-                                          setState(() =>
-                                              _print = _print.copyWith(templateId: t.id));
-                                          try {
-                                            await _api.setDefaultPosPrintTemplate(t.id);
-                                            PosPrintConfigSession.instance.invalidate();
-                                          } catch (_) {}
-                                          if (ctx.mounted) Navigator.pop(ctx);
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
+                        : () => _pickTemplate(
+                              title: 'Chọn mẫu in hóa đơn',
+                              templates: _templates,
+                              selectedId: _resolveTemplateId(),
+                              onPick: (id) => setState(() => _print = _print.copyWith(templateId: id)),
+                            ),
                   ),
                   ListTile(
                     leading: const Icon(Icons.design_services_outlined, color: _blue),
