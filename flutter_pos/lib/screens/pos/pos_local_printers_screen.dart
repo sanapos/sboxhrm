@@ -45,6 +45,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
   /// Máy cửa hàng nhận Phiếu chế biến nhưng không cài trên máy này (in qua Agent máy khác).
   List<PosStorePrinter> _kitchenElsewhere = const [];
   List<PosStorePrinter> _otherDevices = const [];
+  Set<String>? _serverActiveIds;
   bool _loading = true;
   bool _syncing = false;
   final Map<String, PosPrinterLinkStatus> _linkStatus = {};
@@ -135,11 +136,8 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
         !p.isLabel &&
         (p.roles.contains(PosLocalPrinterRoles.kitchenSlip) ||
             p.roles.contains(PosLocalPrinterRoles.kitchenVoid)));
-    try {
-      await PosPrintOrchestrator.instance.refreshConfig();
-    } catch (_) {
-      return;
-    }
+    // force: vừa «Đồng bộ lên server» thì bản cache cũ vẫn thiếu máy này → cảnh báo không tắt.
+    final loaded = await PosPrintOrchestrator.instance.refreshConfig(force: true);
     final installed = list.map((p) => p.storePrinterId).whereType<String>().toSet();
     final printers = PosPrintOrchestrator.instance.printers;
     final found = hasLocalKitchen
@@ -159,8 +157,20 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
       setState(() {
         _kitchenElsewhere = found;
         _otherDevices = others;
+        // false = lỗi mạng hoặc cửa hàng chưa có máy nào trên server → không kết luận «chưa có trên máy chủ».
+        _serverActiveIds = loaded ? printers.map((p) => p.id).toSet() : null;
       });
     }
+  }
+
+  /// Máy bật trên thiết bị này nhưng bản ghi server mất / tắt (vd. bị «Dọn máy in cũ» ở máy khác):
+  /// vẫn in được tại chỗ nhưng máy khác không gửi tới, nhãn số máy in ở Thiết lập SBOX không tính.
+  /// Chỉ báo khi đã tải được danh sách server — lỗi mạng không báo nhầm.
+  bool _notOnServer(PosLocalPrinterProfile p) {
+    final ids = _serverActiveIds;
+    if (ids == null || !p.enabled) return false;
+    final id = (p.storePrinterId ?? '').trim();
+    return id.isEmpty || !ids.contains(id);
   }
 
   /// App cài lại / xóa dữ liệu: danh sách trống nhưng server còn máy in nội bộ của máy này
@@ -633,9 +643,24 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                                   ),
                                 ],
                               ),
-                              subtitle: Text(
-                                tr('${p.kind.labelVi} · ${p.enabled ? 'Bật' : 'Tắt'} · ${p.connectionType.label}\n$roles'),
-                                style: const TextStyle(fontSize: 12),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    tr('${p.kind.labelVi} · ${p.enabled ? 'Bật' : 'Tắt'} · ${p.connectionType.label}\n$roles'),
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  if (_notOnServer(p))
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Text(
+                                        tr('Chưa có trên máy chủ — máy khác không gửi in tới được, không tính vào số máy in. Thao tác › Đồng bộ lên server.'),
+                                        style: const TextStyle(
+                                            fontSize: 12, color: SboxColors.warningText, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                ],
                               ),
                               isThreeLine: true,
                               trailing: PopupMenuButton<String>(
