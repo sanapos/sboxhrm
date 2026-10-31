@@ -16370,6 +16370,36 @@ class _PosSellScreenState extends State<PosSellScreen>
     );
   }
 
+  /// Nhãn «Đã báo bếp» (xanh) / «Chưa báo bếp» hoặc «Mới +N» khi gọi thêm sau lần báo (cam).
+  Widget? _kitchenStatusChip(_SellCartLine line) {
+    final String label;
+    final Color bg;
+    final Color fg;
+    final IconData icon;
+    if (line.kitchenFullySent) {
+      label = 'Đã báo bếp';
+      bg = SboxColors.successSoft;
+      fg = SboxColors.successText;
+      icon = Icons.check_circle_outline;
+    } else if (line.kitchenPendingQty > 0) {
+      label = line.kitchenSentQty > 0 ? 'Mới +${_qtyFmt.format(line.kitchenPendingQty)}' : 'Chưa báo bếp';
+      bg = SboxColors.warningSoft;
+      fg = SboxColors.warningText;
+      icon = Icons.schedule_outlined;
+    } else {
+      return null;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 12, color: fg),
+        const SizedBox(width: 3),
+        Text(tr(label), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
+      ]),
+    );
+  }
+
   Widget _buildKiotCartRow(_SellCartLine line, int cartIndex) {
     final isExpanded = _expandedCartRowId == line.rowId;
     final noteExpanded = isExpanded && _expandedCartMode == _CartRowExpand.note;
@@ -16527,6 +16557,11 @@ class _PosSellScreenState extends State<PosSellScreen>
                                     ),
                                   ),
                                 ),
+                              // Trạng thái báo chế biến từng món (trước chỉ có trên thẻ giỏ điện thoại — C20 /
+                              // tablet không biết món nào bếp đã nhận).
+                              if (_isTableOrderMode && _kitchenNotifyOn)
+                                if (_kitchenStatusChip(line) case final chip?)
+                                  Padding(padding: const EdgeInsets.only(top: 3), child: chip),
                             ],
                           ),
                         ),
