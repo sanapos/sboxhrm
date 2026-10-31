@@ -1246,17 +1246,18 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         if (key.isEmpty) continue;
         final sent = i.sentAt ?? t.sentAt;
         final hit = _KdsHit(ticket: t, item: i);
+        final liveQty = _isVoided(i) ? 0.0 : i.qty;
         final cur = map[key];
         if (cur == null) {
           map[key] = _KdsAgg(
             name: i.productName,
-            qty: i.qty,
+            qty: liveQty,
             oldest: sent,
             hottest: i.status,
             hits: [hit],
           );
         } else {
-          cur.qty += i.qty;
+          cur.qty += liveQty;
           cur.hits.add(hit);
           if (sent.isBefore(cur.oldest)) cur.oldest = sent;
           cur.hottest = _hotter(cur.hottest, i.status);
@@ -1265,6 +1266,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     }
     final list = map.values.toList()
       ..sort((a, b) => a.oldest.compareTo(b.oldest));
+    // Cả nhóm đã hủy: hiện SL hủy (gạch ngang) để bếp bấm «Đồng ý».
+    for (final a in list) {
+      if (a.qty <= 0) a.qty = a.hits.fold(0.0, (s, h) => s + h.item.qty);
+    }
     return list;
   }
 
@@ -1437,7 +1442,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                           Padding(
                             padding: const EdgeInsets.only(left: 4, right: 8),
                             child: _statIcon(Icons.table_restaurant_outlined,
-                                '${_tickets.length} ${tr('bàn')} · ${aggs.length} ${tr('món')}'),
+                                '$_activeTicketCount ${tr('bàn')} · ${aggs.length} ${tr('loại')}'),
                           ),
                       ],
                     ),
@@ -1905,7 +1910,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               accent: _late,
             ),
             _filterChip(
-              noDishN > 0 ? '${tr('Bàn chưa có món')} ($noDishN)' : tr('Bàn chưa có món'),
+              noDishN > 0 ? '${tr('Bàn chưa làm món nào')} ($noDishN)' : tr('Bàn chưa làm món nào'),
               _noDishTables,
               () => setState(() {
                 _noDishTables = !_noDishTables;
@@ -2304,11 +2309,11 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         : _visibleTickets.isEmpty;
     if (scopedEmpty) {
       final msg = _lateOnly && _noDishTables
-          ? tr('Không có bàn chưa có món bị trễ')
+          ? tr('Không có bàn chưa làm món nào bị trễ')
           : _lateOnly
               ? tr('Không có món trễ')
               : _noDishTables
-                  ? tr('Không có bàn chưa có món')
+                  ? tr('Không có bàn chưa làm món nào')
                   : tr('Không có món khớp bộ lọc');
       return Center(
         child: Text(msg, style: TextStyle(color: _muted, fontSize: 16)),
@@ -2332,20 +2337,67 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     );
   }
 
+  /// Món còn phải làm (chưa ra, chưa hủy) — cùng cách đếm với thẻ món / thẻ bàn.
+  static bool _isActive(_KdsItem i) => i.status != 'done' && i.status != 'voided';
+
+  static double _activeQty(Iterable<_KdsItem> items) =>
+      items.where(_isActive).fold(0.0, (a, i) => a + i.qty);
+
+  int get _activeTicketCount => _tickets.where((t) => t.items.any(_isActive)).length;
+
+  /// Ghi chú hiển thị: bỏ dòng món con combo («- 1 Trà sữa») — đã có danh sách món con riêng
+  /// (trước hiện «• 15 Trà sữa · 15 Nem rán» rồi lại «- 1 Trà sữa» ngay dưới, bếp tưởng 2 món).
+  static String _displayNote(_KdsItem i) {
+    final n = (i.note ?? '').trim();
+    if (n.isEmpty || i.components.isEmpty) return n;
+    return n
+        .split('\n')
+        .where((l) => !l.trimLeft().startsWith('- '))
+        .join('\n')
+        .trim();
+  }
+
+  /// Lưới thẻ cao theo nội dung: mỗi hàng cao bằng thẻ cao nhất hàng đó. Trước cố định chiều cao —
+  /// thẻ nhiều món bị cắt mất nút / che món (phải cuộn trong thẻ mới thấy), thẻ ít món thừa nửa trống.
+  Widget _cardRows({
+    required int count,
+    required int columns,
+    required Widget Function(int i) build,
+  }) {
+    final rows = (count / columns).ceil();
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      itemCount: rows,
+      itemBuilder: (_, r) => Padding(
+        padding: EdgeInsets.only(top: r == 0 ? 0 : 12),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var c = 0; c < columns; c++) ...[
+                if (c > 0) const SizedBox(width: 12),
+                Expanded(
+                  child: r * columns + c < count ? build(r * columns + c) : const SizedBox(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDishGrid(List<_KdsAgg> aggs) {
     return LayoutBuilder(builder: (context, c) {
       // Chữ lớn → thẻ to hơn, ít cột hơn (không tràn chữ).
       final n = (c.maxWidth / (260 * _textScale)).floor().clamp(1, 7);
-      return GridView.builder(
-        padding: EdgeInsets.fromLTRB(16, 8, 16, 20),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: n,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          mainAxisExtent: 206 * _textScale,
+      return _cardRows(
+        count: aggs.length,
+        columns: n,
+        build: (i) => ConstrainedBox(
+          constraints: BoxConstraints(minHeight: 196 * _textScale),
+          child: _dishCard(aggs[i]),
         ),
-        itemCount: aggs.length,
-        itemBuilder: (_, i) => _dishCard(aggs[i]),
       );
     });
   }
@@ -2483,9 +2535,19 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final voided = a.hits.every((h) => _isVoided(h.item));
     final status = _aggVisualStatus(a);
     final fresh = _aggIsFresh(a);
+    // Bàn kèm SL («Bàn 02 ×2») — trước chỉ tên bàn, 1 dòng cắt «Bàn …».
+    final perTable = <String, double>{};
+    for (final h in a.hits) {
+      if (_isVoided(h.item)) continue;
+      final k = h.ticket.shortTable;
+      perTable[k] = (perTable[k] ?? 0) + h.item.qty;
+    }
     final tables = a.tableLabels;
+    final tablesText = perTable.isEmpty
+        ? tables.join(' · ')
+        : perTable.entries.map((e) => '${e.key} ×${_qtyFmt.format(e.value)}').join(' · ');
     final noteSample = a.hits
-        .map((h) => (h.item.note ?? '').trim())
+        .map((h) => _displayNote(h.item))
         .where((n) => n.isNotEmpty)
         .toSet()
         .take(2)
@@ -2496,6 +2558,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     // Combo gộp nhiều bàn: cộng món con (5 combo → «5 Trà sữa · 5 Nem rán») — bếp làm theo món con.
     final parts = <String, double>{};
     for (final h in a.hits) {
+      if (_isVoided(h.item)) continue;
       for (final c in h.item.components) {
         parts[c.name] = (parts[c.name] ?? 0) + c.qty;
       }
@@ -2608,8 +2671,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      tables.isEmpty ? '—' : tables.join(' · '),
-                      maxLines: 1,
+                      tablesText.isEmpty ? '—' : tablesText,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: _muted, fontSize: 12),
                     ),
@@ -2862,7 +2925,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             _statusLabel(h.item.status),
                             if (h.item.components.isNotEmpty)
                               h.item.components.map((c) => '${_qtyFmt.format(c.qty)} ${c.name}').join(', '),
-                            if ((h.item.note ?? '').isNotEmpty) h.item.note!,
+                            if (_displayNote(h.item).isNotEmpty) _displayNote(h.item),
                           ].join(' · '),
                         ),
                         trailing: voided
@@ -2915,17 +2978,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   Widget _buildTableGrid() {
     return LayoutBuilder(builder: (context, c) {
       final n = (c.maxWidth / (290 * _textScale)).floor().clamp(1, 7);
-      return GridView.builder(
-        padding: EdgeInsets.fromLTRB(16, 8, 16, 20),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: n,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          mainAxisExtent: 290 * _textScale,
-        ),
-        itemCount: _visibleTickets.length,
-        itemBuilder: (_, i) => _ticketCard(_visibleTickets[i]),
-      );
+      final list = _visibleTickets;
+      return _cardRows(count: list.length, columns: n, build: (i) => _ticketCard(list[i]));
     });
   }
 
@@ -2943,8 +2997,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final oldest = t.oldest;
     final allVoided = t.items.isNotEmpty && t.items.every(_isVoided);
     final status = _ticketVisualStatus(t);
-    final extra = t.items.length > 4 ? t.items.length - 4 : 0;
-    final shown = extra > 0 ? t.items.take(4).toList() : t.items;
+    final activeQty = _activeQty(t.items);
     final fresh = t.items.any((i) => _itemIsFresh(i, t));
     final late = t.items.any((i) => _itemIsLate(i, t, DateTime.now()));
     final stripe = _waitStripe(oldest, allDone: status == 'ready', voided: allVoided);
@@ -3022,23 +3075,33 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     ),
                   ),
                 ),
+                // Số món còn phải làm của bàn — trước thẻ bàn không có.
+                if (activeQty > 0)
+                  Container(
+                    margin: const EdgeInsets.only(left: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _statusAccent(status).withOpacity(0.14),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${_qtyFmt.format(activeQty)} ${tr('món')}',
+                      style: TextStyle(
+                        color: _statusAccent(status),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
                 _speakIconBtn(
                   tooltip: tr('Đọc bàn này'),
                   onTap: () => _speakTicket(t),
                 ),
               ],
             ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  for (final item in shown) _itemRow(item, t),
-                  if (extra > 0)
-                    Text('+ $extra',
-                        style: TextStyle(color: _muted, fontSize: 12)),
-                ],
-              ),
-            ),
+            // Đủ mọi món (trước chỉ 4 món + «+ N» nằm trong vùng cuộn ngầm, bếp không thấy).
+            for (final item in t.items) _itemRow(item, t),
+            Spacer(),
             SizedBox(height: 8),
             if (allVoided)
               _primaryCta(
@@ -3073,7 +3136,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final sent = item.sentAt ?? ticket.sentAt;
     final voided = _isVoided(item);
     final tone = _toneFor(item.status, sent);
-    final note = (item.note ?? '').trim();
+    final note = _displayNote(item);
     final fresh = _itemIsFresh(item, ticket);
     return InkWell(
       onTap: voided
