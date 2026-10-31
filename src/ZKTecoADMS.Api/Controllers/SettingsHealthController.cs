@@ -105,20 +105,14 @@ public class SettingsHealthController(ZKTecoDbContext db) : AuthenticatedControl
         var carriers = await db.PosShippingCarrierSettings.CountAsync(s => s.StoreId == storeId && s.Enabled);
         items.Add(carriers == 0 ? new("shipping", "info", "Chưa bật đơn vị giao hàng") : new("shipping", "ok", $"{carriers} đơn vị đang bật"));
         // Xóa máy in chỉ đánh dấu Deleted → phải lọc, trước đếm cả máy đã xóa / đã tắt (nhãn 22 mà vào trống).
-        // Tách máy cloud (Agent) và máy nội bộ của các thiết bị — khớp hai tab trong mục Máy in.
-        var printerKinds = await db.PosStorePrinters.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive)
-            .Select(p => p.IsDeviceLocal)
-            .ToListAsync();
-        var localPrinters = printerKinds.Count(x => x);
-        var cloudPrinters = printerKinds.Count - localPrinters;
-        items.Add(printerKinds.Count == 0
-            ? new("cloudPrinter", "info", "Chưa có máy in")
-            : new("cloudPrinter", "ok", string.Join(" · ", new[]
-            {
-                cloudPrinters > 0 ? $"{cloudPrinters} máy in cloud" : null,
-                localPrinters > 0 ? $"{localPrinters} máy in nội bộ (mọi thiết bị)" : null,
-            }.Where(x => x != null))));
+        // Chỉ đếm máy đã chia sẻ lên cloud (khớp tab «Máy in cloud»). Máy nội bộ của từng thiết bị cũng có
+        // bản ghi (IsDeviceLocal, để gán món) nhưng không ai khác in vào được — đếm vào làm nhãn «4 máy in»
+        // mà vào tab cloud trống trơn.
+        var cloudPrinters = await db.PosStorePrinters.AsNoTracking()
+            .CountAsync(p => p.StoreId == storeId && p.Deleted == null && p.IsActive && !p.IsDeviceLocal);
+        items.Add(cloudPrinters == 0
+            ? new("cloudPrinter", "info", "Chưa chia sẻ máy in nào")
+            : new("cloudPrinter", "ok", $"{cloudPrinters} máy in đang chia sẻ"));
 
         return Ok(AppResponse<List<HealthItem>>.Success(items));
     }

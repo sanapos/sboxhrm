@@ -1017,24 +1017,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               child: ListView(
                 // Đáy chừa chỗ nút nổi «Thao tác».
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+                // Khách hay rối «Agent / chip / nội bộ»: trang này chỉ nói về máy in DÙNG CHUNG —
+                // xem máy nào đang chia sẻ trước, phần bật chia sẻ cho thiết bị này để sau.
                 children: [
-                  Card(
-                    color: SboxColors.warningSoft,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(
-                                                tr('Hướng dẫn nhanh\n'
-                            '• Máy cục bộ: cắm vào máy POS này — bán trên máy này in ngay, không cần bật Agent.\n'
-                            '• Agent: máy khác (A7/web) in sang máy đang cắm tại đây — chọn chip ở thẻ trên.\n'
-                            '• Vai trò từng máy cloud: chọn chip bên dưới tên máy (tự lưu). Hóa đơn chỉ 1 máy.\n'
-                            '• Gán món chỉ hiện với máy báo bếp / báo kho / in tem.\n'
-                            '• Chữ tiếng Việt lỗi trên XP-80C, Zywell…: sửa máy → Hãng = Xprinter/Zywell + Chế độ chữ «In ảnh» hoặc «Tự động».'),
-                        style: const TextStyle(fontSize: 13, height: 1.35),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _agentCard(),
+                  _introCard(),
                   const SizedBox(height: 12),
                   _printersSection(),
                   _orphanPrintersSection(),
@@ -1042,14 +1028,15 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                     const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: FilledButton.icon(
+                      child: OutlinedButton.icon(
                         onPressed: () => _openEditor(),
-                        style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
                         icon: const Icon(Icons.add),
-                        label: Text(tr('Thêm máy in')),
+                        label: Text(tr('Thêm máy in dùng chung (LAN / Bluetooth)')),
                       ),
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  _agentCard(),
                 ],
               ),
             ),
@@ -1237,6 +1224,44 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     }
   }
 
+  Widget _introCard() => Card(
+        color: SboxColors.brand50,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.cloud_outlined, color: PosTheme.kiotBlue),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tr('Máy in cloud là máy in dùng chung'),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: SboxColors.brand800)),
+                    const SizedBox(height: 4),
+                    Text(
+                      tr('Thiết bị đang cắm máy in bật chia sẻ → điện thoại, máy thu ngân, web khác in nhờ qua thiết bị đó.\n'
+                          'Máy in chỉ dùng trên một thiết bị thì không cần chia sẻ — xem ở tab «Trên máy này».'),
+                      style: const TextStyle(fontSize: 13, height: 1.4, color: SboxColors.brand800),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  /// Thiết bị đang chia sẻ máy [p] (Agent nhận máy đó) — để thẻ máy ghi «Chia sẻ từ …».
+  String? _sharedFrom(PosStorePrinter p) {
+    if (_agent.enabled && _agent.assignedPrinterIds.contains(p.id)) return tr('thiết bị này');
+    for (final a in _onlineAgents) {
+      if (a.coversPrinter(p.id)) return a.displayTitle;
+    }
+    return null;
+  }
+
   Widget _agentCard() {
     // Chỉ hiện máy đã gán cho Agent này — không liệt kê cả cửa hàng.
     final agentPrinters = _printers
@@ -1253,8 +1278,19 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 const Icon(Icons.hub_outlined, color: PosTheme.kiotBlue),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(tr('Máy nhận lệnh in (Agent)'),
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(tr('Chia sẻ máy in của thiết bị này'),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 2),
+                      Text(
+                        tr(_agent.enabled
+                            ? 'Đang bật — máy khác in nhờ được qua thiết bị này (giữ app mở)'
+                            : 'Đang tắt — chỉ bật trên đúng 1 thiết bị đang cắm máy in'),
+                        style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                      ),
+                    ],
                   ),
                 ),
                 Switch(
@@ -1263,35 +1299,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F7FF),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: SboxColors.brand100),
-              ),
-              child: Text(
-                tr('Cách dùng đơn giản (1 máy in + nhiều điện thoại):\n'
-                '1) Thêm máy in trên thiết bị (Máy in nội bộ) hoặc «Thêm máy in» LAN/BT.\n'
-                '2) Ở đây chọn chip máy in (có icon mây) — không cần nhập lại IP/MAC.\n'
-                '3) Chỉ 1 máy gần máy in: bật công tắc Agent + giữ app mở.\n'
-                '4) Máy thu ngân khác: tắt Agent — in qua máy chủ.'),
-                style: TextStyle(fontSize: 12, height: 1.35, color: PosTheme.kiotBlue),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              tr(_agent.enabled
-                  ? 'Máy này đang nhận lệnh in cho chip đã chọn'
-                  : 'Tắt trên máy thu ngân — chỉ bật trên 1 máy gần máy in'),
-              style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
-            ),
             if (_localPrinters.where((p) => p.enabled).isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(
-                tr('Chọn nhanh từ máy in trên thiết bị này'),
+                tr('Chọn máy in muốn chia sẻ'),
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
               ),
               const SizedBox(height: 6),
@@ -1333,7 +1344,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  tr('Chưa có máy in trên thiết bị — mở «Máy in nội bộ» để thêm, rồi chọn chip bên trên'),
+                  tr('Thiết bị này chưa có máy in — thêm ở tab «Trên máy này» › Máy in nội bộ, rồi chọn ở đây để chia sẻ'),
                   style: const TextStyle(fontSize: 11, color: Colors.orange),
                 ),
               ),
@@ -1341,14 +1352,14 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  tr('Đang nhận ${agentPrinters.length} máy in — xem chi tiết ở bảng bên dưới'),
+                  tr('Đang chia sẻ ${agentPrinters.length} máy in — xem ở danh sách phía trên'),
                   style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7)),
                 ),
               ),
             if (_agent.enabled && _agent.assignedPrinterIds.isEmpty)
               Padding(
                 padding: EdgeInsets.only(top: 6),
-                child: Text(tr('⚠ Chưa chọn chip máy in — Agent không nhận được lệnh từ máy khác'),
+                child: Text(tr('⚠ Chưa chọn máy in nào để chia sẻ — máy khác chưa in nhờ được'),
                   style: TextStyle(color: Colors.orange, fontSize: 12),
                 ),
               ),
@@ -1359,7 +1370,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  tr('⚠ Agent chưa đăng ký server'
+                  tr('⚠ Chưa kết nối được máy chủ'
                   '${PosPrintAgentService.instance.lastRegisterError != null ? ': ${PosPrintAgentService.instance.lastRegisterError}' : ''}'),
                   style: const TextStyle(color: Colors.red, fontSize: 12),
                 ),
@@ -1370,7 +1381,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 PosPrintAgentService.instance.isRegistered)
               Padding(
                 padding: EdgeInsets.only(top: 6),
-                child: Text(tr('● Agent đang chạy — sẵn sàng nhận lệnh in'),
+                child: Text(tr('● Đang chia sẻ — sẵn sàng nhận lệnh in của máy khác'),
                   style: TextStyle(color: Colors.green, fontSize: 12),
                 ),
               ),
@@ -1378,7 +1389,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
             Row(
               children: [
                 Expanded(
-                  child: Text(tr('Agent đang online trên cửa hàng'),
+                  child: Text(tr('Thiết bị đang chia sẻ máy in'),
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                   ),
                 ),
@@ -1399,8 +1410,8 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                   children: [
                     Text(
                       tr(_hasPrinterConflict
-                          ? 'Cảnh báo: cùng máy in đang được ≥2 máy Agent nhận — dễ tranh lệnh / in trùng. Chỉ giữ 1 máy Agent.'
-                          : 'Cảnh báo: đang có ${_onlineAgents.length} máy bật Agent. Nên chỉ bật trên máy gần máy in (Sunmi).'),
+                          ? 'Cảnh báo: cùng một máy in đang được từ 2 thiết bị trở lên chia sẻ — dễ in trùng. Chỉ giữ 1 thiết bị.'
+                          : 'Cảnh báo: đang có ${_onlineAgents.length} thiết bị bật chia sẻ. Chỉ nên bật trên thiết bị đang cắm máy in.'),
                       style: const TextStyle(
                         fontSize: 12,
                         height: 1.35,
@@ -1429,7 +1440,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                             await _loadOnlineAgents(silent: true);
                           },
                           icon: const Icon(Icons.power_settings_new, size: 16),
-                          label: Text(tr('Tắt Agent các máy khác')),
+                          label: Text(tr('Tắt chia sẻ ở các thiết bị khác')),
                           style: TextButton.styleFrom(
                             foregroundColor: const Color(0xFF9A3412),
                           ),
@@ -1440,7 +1451,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 ),
               ),
             if (_onlineAgents.isEmpty)
-              Text(tr('Chưa có máy nào đang nhận lệnh in (Agent offline).'),
+              Text(tr('Chưa có thiết bị nào đang chia sẻ (đều tắt hoặc đã đóng app).'),
                 style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
               )
             else
@@ -1539,13 +1550,12 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(tr('Danh sách máy in cloud / Agent'),
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(tr('Máy in đang chia sẻ (${cloud.length})'),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 4),
             Text(
-              tr('Máy thu ngân (A7): xem Online khi Agent (A6) đang nhận chip đó. '
-                  'In thử dùng «Test qua cloud».'),
-              style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
+              tr('Mọi thiết bị của cửa hàng in được vào các máy này. Chọn vai trò in (hóa đơn, phiếu bếp…) ngay dưới tên máy.'),
+              style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
             ),
             const SizedBox(height: 8),
             if (cloud.isEmpty)
@@ -1553,8 +1563,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    tr('Chưa có máy in cloud. Trên máy Agent: chọn chip từ Máy in nội bộ, hoặc Thêm máy in LAN/BT.'),
-                    style: TextStyle(color: PosTheme.textSecondary),
+                    tr('Chưa có máy in nào được chia sẻ.\n'
+                        'Trên thiết bị đang cắm máy in: bật «Chia sẻ máy in của thiết bị này» ở khung cuối trang rồi chọn máy.'),
+                    style: const TextStyle(color: PosTheme.textSecondary, height: 1.4),
                   ),
                   TextButton.icon(
                     onPressed: () => unawaited(_load()),
@@ -1585,7 +1596,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  tr('Máy in chưa có Agent (${orphans.length})'),
+                  tr('Đã chia sẻ nhưng thiết bị chia sẻ đang tắt (${orphans.length})'),
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -1595,9 +1606,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
             ]),
             const SizedBox(height: 4),
             Text(
-              tr('Máy in đã đăng ký nhưng không Agent nào đang nhận. '
-                  'Gán Agent hoặc xóa để tránh nhầm lẫn.'),
-              style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
+              tr('Máy khác gửi in vào đây sẽ chờ trong hàng đợi. Mở app trên thiết bị cắm máy in và bật chia sẻ, '
+                  'hoặc xóa nếu không dùng nữa.'),
+              style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
             ),
             const SizedBox(height: 8),
             ...orphans.map((p) => ListTile(
@@ -1628,7 +1639,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
       context: context,
       builder: (c) => AlertDialog(
         title: Text(tr('Xóa máy in?')),
-        content: Text(tr('${p.name}\n\nMáy in này chưa có Agent nhận, xóa sẽ không ảnh hưởng hoạt động in.')),
+        content: Text(tr('${p.name}\n\nKhông thiết bị nào đang chia sẻ máy này — xóa không ảnh hưởng việc in hiện tại.')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false),
@@ -1679,7 +1690,8 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 ? 'Online'
                 : (p.healthStatus == 'Offline'
                     ? 'Mất kết nối'
-                    : 'Chưa có Agent');
+                    : 'Thiết bị chia sẻ đang tắt');
+    final from = _sharedFrom(p);
     final isAgentCloud = !p.isDeviceLocal;
     final displayName = p.name;
     final kind = p.isLabelPrinter ? 'Tem nhãn' : p.connectionType;
@@ -1724,7 +1736,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
             ),
           ),
           subtitle: Text(
-            tr('$kind · $statusText'),
+            [tr(kind), tr(statusText), if (from != null) '${tr('Chia sẻ từ')} $from'].join(' · '),
             style: TextStyle(
               fontSize: 11,
               color: ready

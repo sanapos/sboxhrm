@@ -69,6 +69,8 @@ class _PosSellMobilePrintSettingsScreenState
   bool _isSunmi = false;
   PosStorePrinter? _invoiceCloud;
   bool _invoiceCloudOnKitchen = false;
+  /// Hóa đơn đang trỏ máy in nội bộ của một thiết bị (chưa chia sẻ lên cloud) — máy khác không in vào được.
+  bool _invoiceCloudNotShared = false;
 
   final _lanHostCtrl = TextEditingController();
   final _lanPortCtrl = TextEditingController(text: tr('9100'));
@@ -171,6 +173,7 @@ class _PosSellMobilePrintSettingsScreenState
       _invoiceCloud = p;
       _invoiceCloudOnKitchen = p?.hasKitchenDocumentRole == true &&
           !p!.looksLikeReceiptPrinter;
+      _invoiceCloudNotShared = p?.isDeviceLocal == true;
     });
   }
 
@@ -178,14 +181,15 @@ class _PosSellMobilePrintSettingsScreenState
     await PosPrintOrchestrator.instance.refreshConfig();
     if (!mounted) return;
     final orch = PosPrintOrchestrator.instance;
+    // Chỉ máy đã chia sẻ lên cloud — máy nội bộ của một thiết bị khác chưa chia sẻ thì không ai gửi in tới được.
     final printers = orch.printers
-        .where((p) => p.isActive && !p.isLabelPrinter)
+        .where((p) => p.isActive && !p.isLabelPrinter && !p.isDeviceLocal)
         .toList();
     if (printers.isEmpty) {
       NotificationOverlayManager().showWarning(
-        title: 'Chưa có máy in cloud',
+        title: 'Chưa có máy in nào được chia sẻ',
         message: tr(
-            'Mở Máy in cloud → bật Agent và chip máy hóa đơn (Sunmi), không gán Hóa đơn cho máy bếp.'),
+            'Trên thiết bị đang cắm máy in hóa đơn: mở Máy in cloud → bật «Chia sẻ máy in của thiết bị này» và chọn máy đó.'),
       );
       await _openOverlay<void>(const PosStorePrintersScreen());
       await _loadInvoiceCloud();
@@ -651,17 +655,19 @@ class _PosSellMobilePrintSettingsScreenState
                 _card([
                   ListTile(
                     leading: Icon(
-                      _invoiceCloudOnKitchen
+                      _invoiceCloudOnKitchen || _invoiceCloudNotShared
                           ? Icons.warning_amber_outlined
                           : Icons.cloud_outlined,
-                      color: _invoiceCloudOnKitchen
+                      color: _invoiceCloudOnKitchen || _invoiceCloudNotShared
                           ? Colors.orange
                           : _blue,
                     ),
                     title: Text(tr(_invoiceCloud?.name ??
                         'Chưa chọn máy in hóa đơn cloud')),
                     subtitle: Text(
-                      tr(_invoiceCloudOnKitchen
+                      tr(_invoiceCloudNotShared
+                          ? 'Máy này chưa được chia sẻ lên cloud — máy khác không in vào được. Chạm để chọn máy đã chia sẻ.'
+                          : _invoiceCloudOnKitchen
                           ? 'Đang trỏ máy bếp — máy khác in HĐ/tạm tính sẽ ra bếp. Chạm để đổi.'
                           : (_invoiceCloud == null
                               ? 'A6 in HĐ tại quầy (Sunmi). Máy khác gửi cloud cần chọn máy hóa đơn, không phải máy bếp.'
