@@ -1658,20 +1658,23 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                             ),
                             if (trackStock)
                               Positioned(
-                                top: 4,
+                                // Dưới-phải: nhường góc trên cho giá (thẻ hẹp 2 nhãn trên cùng hàng dễ đè nhau).
+                                bottom: 4,
                                 right: 4,
                                 child: _stockBadge(qty: qty),
                               ),
+                            // Giá ở góc trên-trái: cùng một chỗ trên mọi thẻ. Trước nằm sát đáy ảnh — thẻ có
+                            // thanh chọn size (M | L) / tên 2 dòng thì ảnh thấp hơn, giá lệch lên giữa thẻ.
                             Positioned(
                               left: 0,
-                              bottom: 0,
+                              top: 0,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 6, vertical: 3),
                                 decoration: const BoxDecoration(
                                   color: PosTheme.kiotBlue,
                                   borderRadius: BorderRadius.only(
-                                    topRight: Radius.circular(6),
+                                    bottomRight: Radius.circular(6),
                                   ),
                                 ),
                                 child: Text.rich(
