@@ -941,11 +941,11 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
       '<colgroup><col width="46"/><col width="216"/><col width="62"/><col width="62"/><col width="108"/><col width="108"/><col width="62"/><col width="108"/></colgroup>'
       '<thead><tr style="background:#f3f4f6">'
       '<th style="width:6%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">STT</th>'
-      '<th style="width:28%;border:1px solid #111;padding:4px 4px;text-align:left">Tên hàng</th>'
+      '<th style="width:28%;border:1px solid #111;padding:4px 4px;text-align:center">Tên hàng</th>'
       '<th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">ĐVT</th>'
       '<th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">SL</th>'
-      '<th style="width:14%;border:1px solid #111;padding:4px 3px;text-align:right">Đơn giá</th>'
-      '<th style="width:14%;border:1px solid #111;padding:4px 3px;text-align:right">Thành tiền</th>'
+      '<th style="width:14%;border:1px solid #111;padding:4px 3px;text-align:center">Đơn giá</th>'
+      '<th style="width:14%;border:1px solid #111;padding:4px 3px;text-align:center">Thành tiền</th>'
       '<th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">BH</th>'
       '<th style="width:14%;border:1px solid #111;padding:4px 2px;text-align:center">Ảnh</th>'
       '</tr></thead>'
@@ -963,17 +963,21 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     );
   }
 
+  /// Ô ký là hàng riêng, chiều cao đặt trên ô bảng — Word / LibreOffice bỏ chiều cao <div> trống
+  /// nên tên người ký dính sát «(Ký, ghi rõ họ tên)» (giống mẫu chuẩn A4).
   void _insertSignatureBlock() {
     _insert(
-      '<table style="width:100%;margin-top:24px"><tr>'
-      '<td style="width:50%;text-align:center;vertical-align:top">'
-      '<b>ĐẠI DIỆN BÊN A</b><br/><i>(Ký, ghi rõ họ tên)</i>'
-      '<div style="height:60px"></div>'
-      '{Khach_Hang}</td>'
-      '<td style="width:50%;text-align:center;vertical-align:top">'
-      '<b>ĐẠI DIỆN BÊN B</b><br/><i>(Ký, ghi rõ họ tên)</i>'
-      '<div style="height:60px"></div>'
-      '{Ten_Cua_Hang}</td>'
+      '<table style="width:100%;margin-top:24px;border-collapse:collapse;page-break-inside:avoid"><tr>'
+      '<td valign="top" style="width:50%;text-align:center;vertical-align:top;padding:0">'
+      '<b>ĐẠI DIỆN BÊN A</b><br/><i>(Ký, ghi rõ họ tên)</i></td>'
+      '<td valign="top" style="width:50%;text-align:center;vertical-align:top;padding:0">'
+      '<b>ĐẠI DIỆN BÊN B</b><br/><i>(Ký, ghi rõ họ tên)</i></td>'
+      '</tr><tr style="height:96px">'
+      '<td height="96" style="height:96px;padding:0">&nbsp;</td>'
+      '<td height="96" style="height:96px;padding:0">&nbsp;</td>'
+      '</tr><tr>'
+      '<td valign="top" style="text-align:center;vertical-align:top;padding:0">{Khach_Hang}</td>'
+      '<td valign="top" style="text-align:center;vertical-align:top;padding:0">{Ten_Cua_Hang}</td>'
       '</tr></table>',
     );
   }

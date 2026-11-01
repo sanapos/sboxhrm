@@ -679,8 +679,9 @@ public static class PosQuoteDocumentHtml
     /// Tăng khi sửa PrintTemplates/A4/*.html: app mời cửa hàng đang dùng mẫu lưu từ bản cũ cập nhật.
     /// 3: báo giá tách kiểu có VAT (cột thuế suất, tiền thuế, tổng sau thuế) / không VAT.
     /// 4: ô ký thành hàng riêng cao 116px (Word bỏ qua chiều cao div), tiêu đề cột căn giữa, bảng tổng bên phải.
+    /// 5: hợp đồng / biên bản / đề nghị TT cùng căn cột như báo giá; bảng tổng hợp đồng bên phải cả trong Word.
     /// </summary>
-    public const int CommercialBaseRev = 4;
+    public const int CommercialBaseRev = 5;
 
     /// <summary>Mẫu chuẩn cho catalog «Mẫu có sẵn» — kèm khổ, lề mặc định và phiên bản (app đọc cùng comment).</summary>
     public static string DefaultA4Html(string title) =>

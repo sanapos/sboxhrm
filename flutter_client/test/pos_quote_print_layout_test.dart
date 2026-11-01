@@ -46,6 +46,23 @@ void main() {
     expect(html, contains('<td width="48%" style="width:48%;padding:0"></td><td style="padding:3px 6px">Tổng tiền hàng'));
   });
 
+  test('Hợp đồng / biên bản / đề nghị TT: mọi tiêu đề cột căn giữa, bảng tổng không dùng margin-left:auto', () {
+    for (final type in [
+      PosPrintDocumentTypes.contract,
+      PosPrintDocumentTypes.handover,
+      PosPrintDocumentTypes.acceptance,
+      PosPrintDocumentTypes.paymentRequest,
+    ]) {
+      final html = posPrintDefaultHtml(documentType: type, paperSize: PosPrintPaperSizes.a4);
+      final th = RegExp(r'<th style="border:1px solid #000;[^"]*"').allMatches(html).map((m) => m.group(0)!).toList();
+      expect(th, isNotEmpty, reason: type);
+      for (final h in th) {
+        expect(h, endsWith('text-align:center;vertical-align:middle"'), reason: '$type: $h');
+      }
+      expect(html, isNot(contains('margin-left:auto')), reason: type);
+    }
+  });
+
   test('File .doc: khổ A4 và lề của mẫu theo kiểu Word, bỏ @page của bản in', () {
     final html = bindPosQuotePrintHtmlLocal(quote, quote.lines);
     final doc = posWordHtmlDocument(html);

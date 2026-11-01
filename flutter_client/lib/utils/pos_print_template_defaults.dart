@@ -7,12 +7,14 @@ import 'pos_commercial_templates.g.dart';
 /// 3: 01/11/2026 — báo giá tách kiểu có VAT (cột thuế suất, tiền thuế, tổng sau thuế) / không VAT.
 /// 4: 01/11/2026 — ô ký thành hàng riêng cao 116px (Word / xem trước app trước đây mất chỗ ký), tiêu đề
 ///    cột căn giữa, bảng tổng báo giá nằm bên phải cả khi mở bằng Word. Đổi cả 5 mẫu.
-const kPosCommercialBaseRev = 4;
+/// 5: 01/11/2026 — hợp đồng / biên bản / đề nghị TT: tiêu đề cột căn giữa, ô căn giữa dọc, bảng tổng hợp đồng
+///    bên phải cả khi mở bằng Word.
+const kPosCommercialBaseRev = 5;
 
 /// Phiên bản mẫu chuẩn mà mẫu [html] được tạo từ (thiếu = 1: trước khi có đánh số).
 int posCommercialBaseRev(String html) => PosCommercialPageSetup.parse(html).baseRev;
 
-/// Mẫu đã lưu của [documentType] cần nâng khi cũ hơn bản này — rev 4 sửa khung ký của cả 5 mẫu
+/// Mẫu đã lưu của [documentType] cần nâng khi cũ hơn bản này — rev 4–5 sửa khung ký, căn cột của cả 5 mẫu
 /// (bản cũ, kể cả câu chữ đã sửa, vẫn giữ thành mẫu «bản cũ» để quay lại).
 int posCommercialRevNeeded(String documentType) => kPosCommercialBaseRev;
 

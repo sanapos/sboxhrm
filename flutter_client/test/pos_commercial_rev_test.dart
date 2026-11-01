@@ -19,9 +19,9 @@ void main() {
       expect(posCommercialBaseRev(old) < kPosCommercialBaseRev, isTrue);
     });
 
-    test('rev 4 nâng cả mẫu báo giá lẫn hợp đồng / biên bản (khung ký mới)', () {
-      expect(posCommercialRevNeeded(PosPrintDocumentTypes.quote), 4);
-      expect(posCommercialRevNeeded(PosPrintDocumentTypes.contract), 4);
+    test('nâng cả mẫu báo giá lẫn hợp đồng / biên bản (khung ký, căn cột mới)', () {
+      expect(posCommercialRevNeeded(PosPrintDocumentTypes.quote), kPosCommercialBaseRev);
+      expect(posCommercialRevNeeded(PosPrintDocumentTypes.contract), kPosCommercialBaseRev);
     });
 
     test('đổi lề / lưu lại không làm mất số phiên bản', () {
