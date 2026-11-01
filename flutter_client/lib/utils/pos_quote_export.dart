@@ -15,11 +15,34 @@ import '../utils/file_saver.dart';
 import 'export_permission_guard.dart';
 import '../models/pos_print_template.dart';
 import '../utils/pos_html_print.dart';
+import '../utils/pos_print_template_defaults.dart';
 import '../utils/pos_print_template_loader.dart';
 import '../utils/pos_quote_document_wording.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_quote_care_sheet.dart';
 import 'pos_busy.dart';
+
+/// Tệp .doc (HTML mở bằng Word) từ bản in A4/A5. Word bỏ qua `@page { size: A4 }` của bản in — mở khổ
+/// Letter, lề 2,54 cm nên khung ký tràn sang trang 2 → khai báo trang kiểu Word (WordSection, đo bằng pt)
+/// theo khổ / lề của mẫu, giữ nguyên CSS nội dung.
+String posWordHtmlDocument(String html) {
+  final setup = PosCommercialPageSetup.parse(html);
+  final body = RegExp(r'<body[^>]*>([\s\S]*)</body>', caseSensitive: false).firstMatch(html)?.group(1) ?? html;
+  final css = RegExp(r'<style[^>]*>([\s\S]*?)</style>', caseSensitive: false)
+      .allMatches(html)
+      .map((m) => m.group(1)!.replaceAll(RegExp(r'@page\s*\{[^}]*\}'), ''))
+      .join('\n');
+  String pt(double v) => (v * 72 / 25.4).toStringAsFixed(1);
+  final w = setup.isA5 ? '419.5pt' : '595.3pt';
+  final h = setup.isA5 ? '595.3pt' : '841.9pt';
+  final size = setup.landscape ? '$h $w' : '$w $h';
+  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" '
+      'xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
+      '<head><meta charset="utf-8"><style>'
+      '@page WordSection1{size:$size;margin:${pt(setup.topMm)}pt ${pt(setup.rightMm)}pt '
+      '${pt(setup.bottomMm)}pt ${pt(setup.leftMm)}pt;}div.WordSection1{page:WordSection1;}\n$css'
+      '</style></head><body><div class="WordSection1">$body</div></body></html>';
+}
 
 /// Hỏi chèn dấu treo trước khi in / xuất / gửi. Null = hủy.
 Future<bool?> askPosQuoteStamp(BuildContext context) async {
@@ -216,9 +239,7 @@ class PosQuoteExport {
           return (bytes: png, name: '$fileBase.png', mime: 'image/png');
         }
       } catch (_) {}
-      final doc = html.toLowerCase().contains('<html')
-          ? html
-          : '<html><head><meta charset="utf-8"></head><body>$html</body></html>';
+      final doc = posWordHtmlDocument(html);
       return (bytes: Uint8List.fromList(utf8.encode(doc)), name: '$fileBase.doc', mime: 'application/msword');
     }
     return null;
@@ -674,9 +695,7 @@ class PosQuoteExport {
           // Mất mạng / máy chủ lỗi: bản .doc dựng trên máy như trước.
           final body = await html();
           if (!context.mounted) return;
-          final doc = body.toLowerCase().contains('<html')
-              ? body
-              : '<html><head><meta charset="utf-8"></head><body>$body</body></html>';
+          final doc = posWordHtmlDocument(body);
           await saveAndOpenFileBytes(
             utf8.encode(doc),
             '${documentType}_$no.doc',
@@ -751,10 +770,7 @@ class PosQuoteExport {
     if (quote == null) return null;
     final saved = posQuoteSavedWordingHtml(quote.documents, 'Quote');
     if (saved != null && saved.trim().isNotEmpty) {
-      final doc = saved.toLowerCase().contains('<html')
-          ? saved
-          : '<html><head><meta charset="utf-8"></head><body>$saved</body></html>';
-      return Uint8List.fromList(utf8.encode(doc));
+      return Uint8List.fromList(utf8.encode(posWordHtmlDocument(saved)));
     }
     if (quote.lines.isEmpty) return null;
     final html = bindPosQuotePrintHtmlLocal(
@@ -764,7 +780,6 @@ class PosQuoteExport {
       includeStamp: includeStamp,
     );
     if (html.trim().isEmpty) return null;
-    final doc = '<html><head><meta charset="utf-8"></head><body>$html</body></html>';
-    return Uint8List.fromList(utf8.encode(doc));
+    return Uint8List.fromList(utf8.encode(posWordHtmlDocument(html)));
   }
 }

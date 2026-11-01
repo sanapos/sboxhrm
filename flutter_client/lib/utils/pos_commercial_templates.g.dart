@@ -27,35 +27,35 @@ const posA4QuoteHtml = r'''<div style="font-family:'Times New Roman',Times,serif
   <p style="margin:6px 0">{Ten_Cong_Ty} trân trọng gửi Quý khách bảng báo giá hàng hóa / dịch vụ như sau:</p>
   <table style="width:100%;border-collapse:collapse;margin:6px 0;font-size:12.5px">
     <thead><tr style="background:#f1f5f9">
-      <th style="border:1px solid #000;padding:5px 3px;width:5%;text-align:center">STT</th>
-      <th style="border:1px solid #000;padding:5px 4px;text-align:left">Tên hàng hóa / dịch vụ</th>
-      <th style="border:1px solid #000;padding:5px 3px;width:7%;text-align:center">ĐVT</th>
-      <th style="border:1px solid #000;padding:5px 3px;width:7%;text-align:center">SL</th>
-      <th style="border:1px solid #000;padding:5px 4px;width:13%;text-align:right">Đơn giá<!--IF:Ghi_Chu_Gia--><div style="font-weight:normal;font-size:11px">({Ghi_Chu_Gia})</div><!--ENDIF:Ghi_Chu_Gia--></th>
-      <th style="border:1px solid #000;padding:5px 4px;width:14%;text-align:right">Thành tiền<!--IF:Ghi_Chu_Gia--><div style="font-weight:normal;font-size:11px">({Ghi_Chu_Gia})</div><!--ENDIF:Ghi_Chu_Gia--></th>
-      <!--IF:Co_VAT--><th style="border:1px solid #000;padding:5px 3px;width:8%;text-align:center;white-space:nowrap">Thuế suất</th><!--ENDIF:Co_VAT-->
-      <!--IF:Co_Bao_Hanh_Dong--><th style="border:1px solid #000;padding:5px 3px;width:10%;text-align:center;white-space:nowrap">Bảo hành</th><!--ENDIF:Co_Bao_Hanh_Dong-->
-      <!--IF:Co_Anh--><th style="border:1px solid #000;padding:5px 3px;width:14%;text-align:center">Hình ảnh</th><!--ENDIF:Co_Anh-->
+      <th style="border:1px solid #000;padding:5px 3px;width:5%;text-align:center;vertical-align:middle">STT</th>
+      <th style="border:1px solid #000;padding:5px 4px;text-align:center;vertical-align:middle">Tên hàng hóa / dịch vụ</th>
+      <th style="border:1px solid #000;padding:5px 3px;width:7%;text-align:center;vertical-align:middle">ĐVT</th>
+      <th style="border:1px solid #000;padding:5px 3px;width:7%;text-align:center;vertical-align:middle">SL</th>
+      <th style="border:1px solid #000;padding:5px 4px;width:13%;text-align:center;vertical-align:middle">Đơn giá<!--IF:Ghi_Chu_Gia--><div style="font-weight:normal;font-size:11px">({Ghi_Chu_Gia})</div><!--ENDIF:Ghi_Chu_Gia--></th>
+      <th style="border:1px solid #000;padding:5px 4px;width:14%;text-align:center;vertical-align:middle">Thành tiền<!--IF:Ghi_Chu_Gia--><div style="font-weight:normal;font-size:11px">({Ghi_Chu_Gia})</div><!--ENDIF:Ghi_Chu_Gia--></th>
+      <!--IF:Co_VAT--><th style="border:1px solid #000;padding:5px 3px;width:8%;text-align:center;vertical-align:middle;white-space:nowrap">Thuế suất</th><!--ENDIF:Co_VAT-->
+      <!--IF:Co_Bao_Hanh_Dong--><th style="border:1px solid #000;padding:5px 3px;width:10%;text-align:center;vertical-align:middle;white-space:nowrap">Bảo hành</th><!--ENDIF:Co_Bao_Hanh_Dong-->
+      <!--IF:Co_Anh--><th style="border:1px solid #000;padding:5px 3px;width:14%;text-align:center;vertical-align:middle">Hình ảnh</th><!--ENDIF:Co_Anh-->
     </tr></thead>
     <tbody><!--BEGIN_ITEMS--><tr>
-      <td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:top">{STT}</td>
-      <td style="border:1px solid #000;padding:4px 4px;vertical-align:top">{Ten_Hang_Hoa}</td>
-      <td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:top">{Don_Vi_Tinh}</td>
-      <td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:top">{So_Luong}</td>
-      <td style="border:1px solid #000;padding:4px 4px;text-align:right;vertical-align:top">{Don_Gia}</td>
-      <td style="border:1px solid #000;padding:4px 4px;text-align:right;vertical-align:top">{Thanh_Tien}</td>
-      <!--IF:Co_VAT--><td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:top">{Thue_Suat_Dong}</td><!--ENDIF:Co_VAT-->
-      <!--IF:Co_Bao_Hanh_Dong--><td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:top;white-space:nowrap">{Bao_Hanh}</td><!--ENDIF:Co_Bao_Hanh_Dong-->
+      <td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:middle">{STT}</td>
+      <td style="border:1px solid #000;padding:4px 4px;vertical-align:middle">{Ten_Hang_Hoa}</td>
+      <td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:middle">{Don_Vi_Tinh}</td>
+      <td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:middle">{So_Luong}</td>
+      <td style="border:1px solid #000;padding:4px 4px;text-align:right;vertical-align:middle">{Don_Gia}</td>
+      <td style="border:1px solid #000;padding:4px 4px;text-align:right;vertical-align:middle">{Thanh_Tien}</td>
+      <!--IF:Co_VAT--><td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:middle">{Thue_Suat_Dong}</td><!--ENDIF:Co_VAT-->
+      <!--IF:Co_Bao_Hanh_Dong--><td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:middle;white-space:nowrap">{Bao_Hanh}</td><!--ENDIF:Co_Bao_Hanh_Dong-->
       <!--IF:Co_Anh--><td style="border:1px solid #000;padding:3px;text-align:center;vertical-align:middle">{Hinh_Anh}</td><!--ENDIF:Co_Anh-->
     </tr><!--END_ITEMS--></tbody>
   </table>
-  <table style="width:52%;margin:2px 0 0 auto;border-collapse:collapse;font-size:12.5px">
-    <tr><td style="padding:3px 6px">Tổng tiền hàng</td><td style="padding:3px 6px;text-align:right">{Tong_Tien_Hang}</td></tr>
-    <!--IF:Chiet_Khau_Hoa_Don--><tr><td style="padding:3px 6px">Chiết khấu</td><td style="padding:3px 6px;text-align:right">- {Chiet_Khau_Hoa_Don}</td></tr><!--ENDIF:Chiet_Khau_Hoa_Don-->
-    <!--IF:Co_VAT--><!--IF:Hien_Truoc_Thue--><tr><td style="padding:3px 6px">Cộng tiền trước thuế</td><td style="padding:3px 6px;text-align:right">{Gia_Tri_Truoc_VAT}</td></tr><!--ENDIF:Hien_Truoc_Thue-->
-    <tr><td style="padding:3px 6px">Tiền thuế GTGT {Thue_Suat}</td><td style="padding:3px 6px;text-align:right">{Thue}</td></tr>
-    <tr><td style="padding:5px 6px;border-top:1.5px solid #000"><b>TỔNG CỘNG SAU THUẾ</b></td><td style="padding:5px 6px;border-top:1.5px solid #000;text-align:right"><b>{Tong_Cong} đ</b></td></tr><!--ENDIF:Co_VAT-->
-    <!--IFNOT:Co_VAT--><tr><td style="padding:5px 6px;border-top:1.5px solid #000"><b>TỔNG CỘNG</b></td><td style="padding:5px 6px;border-top:1.5px solid #000;text-align:right"><b>{Tong_Cong} đ</b></td></tr><!--ENDIFNOT:Co_VAT-->
+  <table style="width:100%;margin:2px 0 0;border-collapse:collapse;font-size:12.5px">
+    <tr><td width="48%" style="width:48%;padding:0"></td><td style="padding:3px 6px">Tổng tiền hàng</td><td style="padding:3px 6px;text-align:right">{Tong_Tien_Hang}</td></tr>
+    <!--IF:Chiet_Khau_Hoa_Don--><tr><td style="padding:0"></td><td style="padding:3px 6px">Chiết khấu</td><td style="padding:3px 6px;text-align:right">- {Chiet_Khau_Hoa_Don}</td></tr><!--ENDIF:Chiet_Khau_Hoa_Don-->
+    <!--IF:Co_VAT--><!--IF:Hien_Truoc_Thue--><tr><td style="padding:0"></td><td style="padding:3px 6px">Cộng tiền trước thuế</td><td style="padding:3px 6px;text-align:right">{Gia_Tri_Truoc_VAT}</td></tr><!--ENDIF:Hien_Truoc_Thue-->
+    <tr><td style="padding:0"></td><td style="padding:3px 6px">Tiền thuế GTGT {Thue_Suat}</td><td style="padding:3px 6px;text-align:right">{Thue}</td></tr>
+    <tr><td style="padding:0"></td><td style="padding:5px 6px;border-top:1.5px solid #000"><b>TỔNG CỘNG SAU THUẾ</b></td><td style="padding:5px 6px;border-top:1.5px solid #000;text-align:right"><b>{Tong_Cong} đ</b></td></tr><!--ENDIF:Co_VAT-->
+    <!--IFNOT:Co_VAT--><tr><td style="padding:0"></td><td style="padding:5px 6px;border-top:1.5px solid #000"><b>TỔNG CỘNG</b></td><td style="padding:5px 6px;border-top:1.5px solid #000;text-align:right"><b>{Tong_Cong} đ</b></td></tr><!--ENDIFNOT:Co_VAT-->
   </table>
   <p style="margin:6px 0 2px"><b>Bằng chữ:</b> <i>{Tong_Cong_Bang_Chu}</i></p>
   <!--IF:Cach_Tinh_VAT--><p style="margin:2px 0 4px"><i>{Cach_Tinh_VAT}.</i></p><!--ENDIF:Cach_Tinh_VAT-->
@@ -88,9 +88,18 @@ const posA4QuoteHtml = r'''<div style="font-family:'Times New Roman',Times,serif
   <!--IF:Dieu_Khoan--><p style="margin:4px 0;white-space:pre-line"><b>Điều khoản:</b> {Dieu_Khoan}</p><!--ENDIF:Dieu_Khoan-->
   <!--IF:Ghi_Chu--><p style="margin:4px 0;white-space:pre-line"><b>Ghi chú:</b> {Ghi_Chu}</p><!--ENDIF:Ghi_Chu-->
   <p style="margin:8px 0">Rất mong nhận được sự hợp tác của Quý khách. Trân trọng!</p>
-  <table style="width:100%;margin-top:14px;border-collapse:collapse;page-break-inside:avoid"><tr>
-    <td style="width:50%;text-align:center;vertical-align:top"><b>XÁC NHẬN CỦA KHÁCH HÀNG</b><br/><i>(Ký, ghi rõ họ tên)</i><div style="height:116px"></div><b>{Nguoi_Dai_Dien_Khach}</b></td>
-    <td style="width:50%;text-align:center;vertical-align:top"><b style="text-transform:uppercase">ĐẠI DIỆN {Ten_Cong_Ty}</b><br/><i>{Chuc_Vu_Cua_Hang}</i><div style="height:116px;overflow:hidden">{Con_Dau}</div><b>{Nguoi_Dai_Dien_Cua_Hang}</b><!--IF:Nguoi_Bao_Gia--><div style="margin-top:6px;font-size:12px">Người lập: {Nguoi_Bao_Gia}</div><!--ENDIF:Nguoi_Bao_Gia--></td>
+  <table style="width:100%;margin-top:14px;border-collapse:collapse;page-break-inside:avoid">
+  <tr>
+    <td valign="top" style="width:50%;text-align:center;vertical-align:top;padding:0"><b>XÁC NHẬN CỦA KHÁCH HÀNG</b><br/><i>(Ký, ghi rõ họ tên)</i></td>
+    <td valign="top" style="width:50%;text-align:center;vertical-align:top;padding:0"><b style="text-transform:uppercase">ĐẠI DIỆN {Ten_Cong_Ty}</b><br/><i>{Chuc_Vu_Cua_Hang}</i></td>
+  </tr>
+  <tr style="height:116px">
+    <td height="116" style="height:116px;padding:0;text-align:center;vertical-align:middle">&nbsp;</td>
+    <td height="116" style="height:116px;padding:0;text-align:center;vertical-align:middle"><div style="height:116px;overflow:hidden">{Con_Dau}</div></td>
+  </tr>
+  <tr>
+    <td valign="top" style="text-align:center;vertical-align:top;padding:0"><div><b>{Nguoi_Dai_Dien_Khach}</b></div></td>
+    <td valign="top" style="text-align:center;vertical-align:top;padding:0"><div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></div><!--IF:Nguoi_Bao_Gia--><div style="margin-top:6px;font-size:12px">Người lập: {Nguoi_Bao_Gia}</div><!--ENDIF:Nguoi_Bao_Gia--></td>
   </tr></table>
 </div>''';
 
@@ -206,9 +215,18 @@ const posA4ContractHtml = r'''<div style="font-family:'Times New Roman',Times,se
   <div>Hợp đồng có hiệu lực kể từ ngày ký, được lập thành 02 bản có giá trị pháp lý như nhau, mỗi bên giữ 01 bản.</div>
   <!--IF:Ghi_Chu--><div style="white-space:pre-line">Ghi chú: {Ghi_Chu}</div><!--ENDIF:Ghi_Chu-->
 
-  <table style="width:100%;margin-top:18px;border-collapse:collapse;page-break-inside:avoid"><tr>
-    <td style="width:50%;text-align:center;vertical-align:top"><b>ĐẠI DIỆN BÊN A</b><br/><i>{Chuc_Vu_Khach}</i><br/><i>(Ký, ghi rõ họ tên, đóng dấu)</i><div style="height:116px"></div><b>{Nguoi_Dai_Dien_Khach}</b></td>
-    <td style="width:50%;text-align:center;vertical-align:top"><b>ĐẠI DIỆN BÊN B</b><br/><i>{Chuc_Vu_Cua_Hang}</i><br/><i>(Ký, ghi rõ họ tên, đóng dấu)</i><div style="height:116px;overflow:hidden">{Con_Dau}</div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
+  <table style="width:100%;margin-top:18px;border-collapse:collapse;page-break-inside:avoid">
+  <tr>
+    <td valign="top" style="width:50%;text-align:center;vertical-align:top;padding:0"><b>ĐẠI DIỆN BÊN A</b><br/><i>{Chuc_Vu_Khach}</i><br/><i>(Ký, ghi rõ họ tên, đóng dấu)</i></td>
+    <td valign="top" style="width:50%;text-align:center;vertical-align:top;padding:0"><b>ĐẠI DIỆN BÊN B</b><br/><i>{Chuc_Vu_Cua_Hang}</i><br/><i>(Ký, ghi rõ họ tên, đóng dấu)</i></td>
+  </tr>
+  <tr style="height:116px">
+    <td height="116" style="height:116px;padding:0;text-align:center;vertical-align:middle">&nbsp;</td>
+    <td height="116" style="height:116px;padding:0;text-align:center;vertical-align:middle"><div style="height:116px;overflow:hidden">{Con_Dau}</div></td>
+  </tr>
+  <tr>
+    <td valign="top" style="text-align:center;vertical-align:top;padding:0"><div><b>{Nguoi_Dai_Dien_Khach}</b></div></td>
+    <td valign="top" style="text-align:center;vertical-align:top;padding:0"><div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></div></td>
   </tr></table>
 </div>''';
 
@@ -271,9 +289,18 @@ const posA4AcceptanceHtml = r'''<div style="font-family:'Times New Roman',Times,
   <!--IF:Ghi_Chu--><div style="white-space:pre-line">Ý kiến khác: {Ghi_Chu}</div><!--ENDIF:Ghi_Chu-->
   <div>Biên bản lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản.</div>
 
-  <table style="width:100%;margin-top:18px;border-collapse:collapse;page-break-inside:avoid"><tr>
-    <td style="width:50%;text-align:center;vertical-align:top"><b>ĐẠI DIỆN BÊN A</b><br/><i>(Ký, ghi rõ họ tên)</i><div style="height:116px"></div><b>{Nguoi_Dai_Dien_Khach}</b></td>
-    <td style="width:50%;text-align:center;vertical-align:top"><b>ĐẠI DIỆN BÊN B</b><br/><i>(Ký, ghi rõ họ tên, đóng dấu)</i><div style="height:116px;overflow:hidden">{Con_Dau}</div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
+  <table style="width:100%;margin-top:18px;border-collapse:collapse;page-break-inside:avoid">
+  <tr>
+    <td valign="top" style="width:50%;text-align:center;vertical-align:top;padding:0"><b>ĐẠI DIỆN BÊN A</b><br/><i>(Ký, ghi rõ họ tên)</i></td>
+    <td valign="top" style="width:50%;text-align:center;vertical-align:top;padding:0"><b>ĐẠI DIỆN BÊN B</b><br/><i>(Ký, ghi rõ họ tên, đóng dấu)</i></td>
+  </tr>
+  <tr style="height:116px">
+    <td height="116" style="height:116px;padding:0;text-align:center;vertical-align:middle">&nbsp;</td>
+    <td height="116" style="height:116px;padding:0;text-align:center;vertical-align:middle"><div style="height:116px;overflow:hidden">{Con_Dau}</div></td>
+  </tr>
+  <tr>
+    <td valign="top" style="text-align:center;vertical-align:top;padding:0"><div><b>{Nguoi_Dai_Dien_Khach}</b></div></td>
+    <td valign="top" style="text-align:center;vertical-align:top;padding:0"><div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></div></td>
   </tr></table>
 </div>''';
 
@@ -320,9 +347,18 @@ const posA4HandoverHtml = r'''<div style="font-family:'Times New Roman',Times,se
   <div>Bên nhận đã kiểm tra, đồng ý nhận bàn giao. Kể từ thời điểm ký biên bản, bên nhận chịu trách nhiệm quản lý, sử dụng.</div>
   <!--IF:Ghi_Chu--><div style="white-space:pre-line">Ghi chú: {Ghi_Chu}</div><!--ENDIF:Ghi_Chu-->
   <div>Biên bản lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản.</div>
-  <table style="width:100%;margin-top:18px;border-collapse:collapse;page-break-inside:avoid"><tr>
-    <td style="width:50%;text-align:center;vertical-align:top"><b>BÊN NHẬN</b><br/><i>(Ký, ghi rõ họ tên)</i><div style="height:116px"></div><b>{Nguoi_Dai_Dien_Khach}</b></td>
-    <td style="width:50%;text-align:center;vertical-align:top"><b>BÊN GIAO</b><br/><i>(Ký, ghi rõ họ tên, đóng dấu)</i><div style="height:116px;overflow:hidden">{Con_Dau}</div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
+  <table style="width:100%;margin-top:18px;border-collapse:collapse;page-break-inside:avoid">
+  <tr>
+    <td valign="top" style="width:50%;text-align:center;vertical-align:top;padding:0"><b>BÊN NHẬN</b><br/><i>(Ký, ghi rõ họ tên)</i></td>
+    <td valign="top" style="width:50%;text-align:center;vertical-align:top;padding:0"><b>BÊN GIAO</b><br/><i>(Ký, ghi rõ họ tên, đóng dấu)</i></td>
+  </tr>
+  <tr style="height:116px">
+    <td height="116" style="height:116px;padding:0;text-align:center;vertical-align:middle">&nbsp;</td>
+    <td height="116" style="height:116px;padding:0;text-align:center;vertical-align:middle"><div style="height:116px;overflow:hidden">{Con_Dau}</div></td>
+  </tr>
+  <tr>
+    <td valign="top" style="text-align:center;vertical-align:top;padding:0"><div><b>{Nguoi_Dai_Dien_Khach}</b></div></td>
+    <td valign="top" style="text-align:center;vertical-align:top;padding:0"><div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></div></td>
   </tr></table>
 </div>''';
 
@@ -376,9 +412,18 @@ const posA4PaymentRequestHtml = r'''<!--NO_ITEMS--><div style="font-family:'Time
   <div>- Nội dung chuyển khoản: Thanh toán {So_Chung_Tu}</div>
   <!--IF:Ghi_Chu--><div style="white-space:pre-line">Ghi chú: {Ghi_Chu}</div><!--ENDIF:Ghi_Chu-->
   <p style="margin:8px 0">Rất mong Quý khách xem xét và thanh toán đúng tiến độ đã thỏa thuận. Trân trọng!</p>
-  <table style="width:100%;margin-top:14px;border-collapse:collapse;page-break-inside:avoid"><tr>
-    <td style="width:50%;text-align:center;vertical-align:top"><b>XÁC NHẬN CỦA BÊN A</b><br/><i>(Ký, ghi rõ họ tên)</i><div style="height:116px"></div></td>
-    <td style="width:50%;text-align:center;vertical-align:top"><b style="text-transform:uppercase">ĐẠI DIỆN {Ten_Cong_Ty}</b><br/><i>{Chuc_Vu_Cua_Hang}</i><div style="height:116px;overflow:hidden">{Con_Dau}</div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
+  <table style="width:100%;margin-top:14px;border-collapse:collapse;page-break-inside:avoid">
+  <tr>
+    <td valign="top" style="width:50%;text-align:center;vertical-align:top;padding:0"><b>XÁC NHẬN CỦA BÊN A</b><br/><i>(Ký, ghi rõ họ tên)</i></td>
+    <td valign="top" style="width:50%;text-align:center;vertical-align:top;padding:0"><b style="text-transform:uppercase">ĐẠI DIỆN {Ten_Cong_Ty}</b><br/><i>{Chuc_Vu_Cua_Hang}</i></td>
+  </tr>
+  <tr style="height:116px">
+    <td height="116" style="height:116px;padding:0;text-align:center;vertical-align:middle">&nbsp;</td>
+    <td height="116" style="height:116px;padding:0;text-align:center;vertical-align:middle"><div style="height:116px;overflow:hidden">{Con_Dau}</div></td>
+  </tr>
+  <tr>
+    <td valign="top" style="text-align:center;vertical-align:top;padding:0">&nbsp;</td>
+    <td valign="top" style="text-align:center;vertical-align:top;padding:0"><div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></div></td>
   </tr></table>
 </div>''';
 

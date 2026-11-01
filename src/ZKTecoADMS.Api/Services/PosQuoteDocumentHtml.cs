@@ -678,8 +678,9 @@ public static class PosQuoteDocumentHtml
     /// Phiên bản mẫu chuẩn A4 — khớp `kPosCommercialBaseRev` (flutter_client/lib/utils/pos_print_template_defaults.dart).
     /// Tăng khi sửa PrintTemplates/A4/*.html: app mời cửa hàng đang dùng mẫu lưu từ bản cũ cập nhật.
     /// 3: báo giá tách kiểu có VAT (cột thuế suất, tiền thuế, tổng sau thuế) / không VAT.
+    /// 4: ô ký thành hàng riêng cao 116px (Word bỏ qua chiều cao div), tiêu đề cột căn giữa, bảng tổng bên phải.
     /// </summary>
-    public const int CommercialBaseRev = 3;
+    public const int CommercialBaseRev = 4;
 
     /// <summary>Mẫu chuẩn cho catalog «Mẫu có sẵn» — kèm khổ, lề mặc định và phiên bản (app đọc cùng comment).</summary>
     public static string DefaultA4Html(string title) =>

@@ -161,11 +161,26 @@ public sealed class OfficePdfConverter(ILogger<OfficePdfConverter> logger)
     /// </summary>
     public Task<byte[]> HtmlToDocxAsync(string html, CancellationToken ct)
     {
-        var page = EnsureA4(WidthAttributesForWriter(FirstFontFamily(SanitizeHtml(html))));
+        var page = NumericPageSize(EnsureA4(WidthAttributesForWriter(FirstFontFamily(SanitizeHtml(html)))));
         byte[] bytes = [.. System.Text.Encoding.UTF8.GetPreamble(), .. System.Text.Encoding.UTF8.GetBytes(page)];
         // Mở bằng Writer (không phải Writer/Web) để giữ khổ A4, bảng, căn lề khi lưu .docx.
         return ConvertAsync(bytes, ".html", "docx:MS Word 2007 XML", "doc.docx", "HTML (StarWriter)", ct);
     }
+
+    static readonly Regex PageSizeKeyword = new(@"(@page\b[^{]*\{[^}]*?\bsize\s*:\s*)(A4|A5)(?:\s+(portrait|landscape))?",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Writer chỉ hiểu khổ giấy ghi bằng số đo — «size: A4 portrait» bị bỏ qua, file Word ra khổ Letter (ngắn hơn
+    /// A4) và khung ký tràn sang trang 2 → đổi từ khóa khổ thành cm.
+    /// </summary>
+    internal static string NumericPageSize(string html) =>
+        PageSizeKeyword.Replace(html, m =>
+        {
+            var (w, h) = m.Groups[2].Value.Equals("A5", StringComparison.OrdinalIgnoreCase) ? ("14.8cm", "21cm") : ("21cm", "29.7cm");
+            var landscape = m.Groups[3].Value.Equals("landscape", StringComparison.OrdinalIgnoreCase);
+            return m.Groups[1].Value + (landscape ? $"{h} {w}" : $"{w} {h}");
+        });
 
     static readonly Regex FontFamilyDecl = new(@"font-family\s*:\s*(""[^""<>;]*""[^;""}>]*|[^;""}>]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 

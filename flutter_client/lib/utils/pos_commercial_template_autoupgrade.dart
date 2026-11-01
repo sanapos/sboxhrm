@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 
+import '../l10n/app_tr.dart';
 import '../models/pos_print_template.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
@@ -38,10 +39,10 @@ class PosCommercialTemplateAutoUpgrade {
     try {
       final done = await _upgradeAll(api);
       if (done > 0) {
+        final stamp = DateFormat('dd/MM').format(DateTime.now());
         NotificationOverlayManager().showSuccess(
           title: 'Đã cập nhật mẫu chứng từ',
-          message:
-              '$done mẫu dùng bố cục chuẩn mới (báo giá tách kiểu có / không VAT). Bản cũ vẫn giữ để quay lại.',
+          message: tr('$done mẫu dùng bố cục chuẩn mới — bản cũ giữ ở mẫu «bản cũ $stamp»'),
         );
       }
     } catch (_) {

@@ -7,6 +7,19 @@ namespace ZKTecoADMS.Tests.Pos;
 public class OfficeDocxWidthTests
 {
     [Fact]
+    public void Kho_giay_tu_khoa_doi_sang_so_do_cho_Writer()
+    {
+        // Writer bỏ qua «size: A4 portrait» → file Word khổ Letter, khung ký tràn trang 2.
+        Assert.Contains("@page { size: 21cm 29.7cm; margin: 12mm; }",
+            OfficePdfConverter.NumericPageSize("<style>@page { size: A4 portrait; margin: 12mm; }</style>"));
+        Assert.Contains("@page{size:21cm 14.8cm;margin:8mm}",
+            OfficePdfConverter.NumericPageSize("<style>@page{size:A5 landscape;margin:8mm}</style>"));
+        Assert.Contains("@page{size:21cm 29.7cm;margin:10mm 8mm}",
+            OfficePdfConverter.NumericPageSize("<style>@page{size:A4;margin:10mm 8mm}</style>"));
+        Assert.Equal("<p>size: A4</p>", OfficePdfConverter.NumericPageSize("<p>size: A4</p>")); // chỉ trong @page
+    }
+
+    [Fact]
     public void Do_rong_trong_style_thanh_thuoc_tinh_va_cot_thieu_nhan_phan_con_lai()
     {
         const string html = """

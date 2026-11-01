@@ -759,7 +759,11 @@ class _PosHtmlTableView extends StatelessWidget {
     for (final cell in row.children) {
       if (cell.localName != 'td' && cell.localName != 'th') continue;
       final span = int.tryParse(cell.attributes['colspan'] ?? '1') ?? 1;
-      out.add(_cell(cell, isHead: cell.localName == 'th', bordered: bordered));
+      final c = _cell(cell, isHead: cell.localName == 'th', bordered: bordered);
+      // Ô ghi vertical-align:top (khung ký: tên một bên có thêm «Người lập») — giữ như bản in, không căn giữa dọc.
+      final top = '${cell.attributes['valign'] ?? ''}'.toLowerCase() == 'top' ||
+          '${cell.attributes['style'] ?? ''}'.replaceAll(' ', '').contains('vertical-align:top');
+      out.add(top ? TableCell(verticalAlignment: TableCellVerticalAlignment.top, child: c) : c);
       for (var i = 1; i < span; i++) {
         out.add(const SizedBox.shrink());
       }
@@ -834,7 +838,19 @@ class _PosHtmlTableView extends StatelessWidget {
     return n ?? (bordered ? 12.0 : 13.0);
   }
 
+  static final _heightRe = RegExp(r'(?:^|;)\s*height\s*:\s*([\d.]+)\s*px');
+
+  /// Ô khai báo chiều cao (ô ký 116px của mẫu A4) — Table của Flutter co hàng theo nội dung,
+  /// ô chỉ có «&nbsp;» thì mất chỗ ký, tên người ký dính sát tiêu đề.
   Widget _cell(dynamic cell, {required bool isHead, required bool bordered}) {
+    final style = '${cell.attributes['style'] ?? ''}';
+    final h = double.tryParse(
+        _heightRe.firstMatch(style)?.group(1) ?? '${cell.attributes['height'] ?? ''}');
+    final child = _cellContent(cell, isHead: isHead, bordered: bordered);
+    return h == null || h <= 0 ? child : ConstrainedBox(constraints: BoxConstraints(minHeight: h), child: child);
+  }
+
+  Widget _cellContent(dynamic cell, {required bool isHead, required bool bordered}) {
     final style = cell.attributes['style'] ?? '';
     final inner = '${cell.innerHtml}';
     final align = style.contains('text-align:right')
@@ -860,46 +876,58 @@ class _PosHtmlTableView extends StatelessWidget {
         inner.contains('<img') ||
         inner.contains('<br');
     if (rich) {
+      // Html shrinkWrap co về dòng dài nhất rồi nằm sát trái ô (tiêu đề ký «XÁC NHẬN…» lệch trái) → đặt theo
+      // text-align của ô.
+      final box = align == TextAlign.right
+          ? Alignment.topRight
+          : align == TextAlign.center
+              ? Alignment.topCenter
+              : Alignment.topLeft;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-        child: ClipRect(
-          child: Html(
-          data: inner,
-          shrinkWrap: true,
-          extensions: const [PosPrintTableExtension(), PosPrintImageExtension()],
-          style: {
-            'body': Style(
-              margin: Margins.zero,
-              padding: HtmlPaddings.zero,
-              fontSize: FontSize(fs),
-              fontFamily: '"Times New Roman", Times, serif',
-              color: Colors.black,
-              textAlign: align,
-              lineHeight: LineHeight.number(1.35),
-            ),
-            'h2': Style(
-              fontSize: FontSize(18),
-              fontWeight: FontWeight.w700,
-              textAlign: TextAlign.center,
-              margin: Margins.symmetric(vertical: 4),
-            ),
-            'h3': Style(
-              fontSize: FontSize(14),
-              fontWeight: FontWeight.w700,
-              textAlign: TextAlign.left,
-              margin: Margins.only(bottom: 2),
-            ),
-            'div': Style(
-              margin: Margins.zero,
-              padding: HtmlPaddings.zero,
-              fontSize: FontSize(13),
-            ),
-            'b': Style(fontWeight: FontWeight.w700),
-            'strong': Style(fontWeight: FontWeight.w700),
-            'i': Style(fontStyle: FontStyle.italic),
-            'p': Style(margin: Margins.zero),
-          },
-        ),
+        child: Align(
+          alignment: box,
+          child: ClipRect(
+            child: Html(
+            data: inner,
+            shrinkWrap: true,
+            extensions: const [PosPrintTableExtension(), PosPrintImageExtension()],
+            style: {
+              'body': Style(
+                margin: Margins.zero,
+                padding: HtmlPaddings.zero,
+                fontSize: FontSize(fs),
+                fontFamily: '"Times New Roman", Times, serif',
+                color: Colors.black,
+                textAlign: align,
+                // Tiêu đề cột có dòng phụ («Đơn giá» + «(đã gồm VAT)») đi nhánh này — giữ đậm như cột khác.
+                fontWeight: isHead || cell.localName == 'th' ? FontWeight.w700 : null,
+                lineHeight: LineHeight.number(1.35),
+              ),
+              'h2': Style(
+                fontSize: FontSize(18),
+                fontWeight: FontWeight.w700,
+                textAlign: TextAlign.center,
+                margin: Margins.symmetric(vertical: 4),
+              ),
+              'h3': Style(
+                fontSize: FontSize(14),
+                fontWeight: FontWeight.w700,
+                textAlign: TextAlign.left,
+                margin: Margins.only(bottom: 2),
+              ),
+              'div': Style(
+                margin: Margins.zero,
+                padding: HtmlPaddings.zero,
+                fontSize: FontSize(13),
+              ),
+              'b': Style(fontWeight: FontWeight.w700),
+              'strong': Style(fontWeight: FontWeight.w700),
+              'i': Style(fontStyle: FontStyle.italic),
+              'p': Style(margin: Margins.zero),
+            },
+          ),
+          ),
         ),
       );
     }

@@ -5,15 +5,16 @@ import 'pos_commercial_templates.g.dart';
 /// `src/ZKTecoADMS.Api/PrintTemplates/A4/*.html`. Mẫu cửa hàng lưu từ bản cũ hơn → màn Mẫu in mời cập nhật.
 /// 2: 10/10/2026 — bảng tổng khớp cột Thành tiền, ký tên thẳng hàng, bỏ dòng trống.
 /// 3: 01/11/2026 — báo giá tách kiểu có VAT (cột thuế suất, tiền thuế, tổng sau thuế) / không VAT.
-const kPosCommercialBaseRev = 3;
+/// 4: 01/11/2026 — ô ký thành hàng riêng cao 116px (Word / xem trước app trước đây mất chỗ ký), tiêu đề
+///    cột căn giữa, bảng tổng báo giá nằm bên phải cả khi mở bằng Word. Đổi cả 5 mẫu.
+const kPosCommercialBaseRev = 4;
 
 /// Phiên bản mẫu chuẩn mà mẫu [html] được tạo từ (thiếu = 1: trước khi có đánh số).
 int posCommercialBaseRev(String html) => PosCommercialPageSetup.parse(html).baseRev;
 
-/// Mẫu đã lưu của [documentType] cần nâng khi cũ hơn bản này — rev 3 chỉ đổi mẫu báo giá, mẫu hợp đồng /
-/// biên bản rev 2 (có thể đã sửa câu chữ) không bị thay.
-int posCommercialRevNeeded(String documentType) =>
-    documentType == PosPrintDocumentTypes.quote ? kPosCommercialBaseRev : 2;
+/// Mẫu đã lưu của [documentType] cần nâng khi cũ hơn bản này — rev 4 sửa khung ký của cả 5 mẫu
+/// (bản cũ, kể cả câu chữ đã sửa, vẫn giữ thành mẫu «bản cũ» để quay lại).
+int posCommercialRevNeeded(String documentType) => kPosCommercialBaseRev;
 
 /// Khổ + lề (mm) mẫu báo giá / hợp đồng — lưu trong `<!--POS_A4_V6 …-->`.
 class PosCommercialPageSetup {

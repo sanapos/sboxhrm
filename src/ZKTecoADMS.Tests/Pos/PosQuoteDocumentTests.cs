@@ -275,8 +275,8 @@ public class PosQuoteDocumentTests(PosPgFixture fx) : PosFlowTestBase(fx)
         html = await HtmlAsync(q, PosQuoteDocumentKind.Quote);
         Assert.Contains("Thời hạn", html);
         Assert.Contains("21/10/2026", html);                // 20/10 17:00 UTC = 21/10 giờ VN
-        // Hai bên khung ký cùng cao (con dấu 112px) → tên ký thẳng hàng.
-        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(html, "height:116px").Count);
+        // Hàng ô ký riêng, hai ô cùng cao 116px (đặt trên ô bảng: Word bỏ qua chiều cao <div> trống) → tên ký thẳng hàng.
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(html, "<td height=\"116\" style=\"height:116px").Count);
     }
 
     [Fact]
