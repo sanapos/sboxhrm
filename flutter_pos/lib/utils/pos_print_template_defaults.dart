@@ -155,7 +155,8 @@ const posCommercialContentCss = r'''
   h3{font-size:13px;font-weight:700;text-align:left;margin:6px 0 1px;text-transform:none;}
   p{margin:2px 0;text-indent:0;}
   b,strong{font-weight:700;}
-  table{border-collapse:collapse;width:100%;max-width:100% !important;table-layout:auto !important;margin:8px 0;}
+  /* Hụt 1px: bảng rộng đúng 100% thì nửa ngoài viền phải rơi ra lề trang, bản in mất viền cột cuối. */
+  table{border-collapse:collapse;width:100%;max-width:calc(100% - 1px) !important;table-layout:auto !important;margin:8px 0;}
   col{max-width:100%;}
   th,td{padding:4px 5px;vertical-align:top;word-wrap:break-word;overflow-wrap:anywhere;min-width:0;}
   img{max-width:100%;height:auto;}
