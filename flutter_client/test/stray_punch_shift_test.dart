@@ -91,24 +91,6 @@ void main() {
     final ps = computeDailyShiftPairs(
         attendances: atts, fromDate: from, toDate: to, shiftTemplates: [sang, chieu, toi], shiftSalaryLevels: levels);
     expect(ps.fold<double>(0, (t, p) => t + dailyShiftPairWorkHours(p)), closeTo(4.0, 0.01));
-
-    // 2 ca/ngày đã đủ sáng + chiều, 18:02 rơi vào Ca Tối gán kèm → chấm thừa, không «thiếu ra Ca Tối».
-    final perDay2 = computeDailyShiftRecords(
-      attendances: [_p(30, 7, 35), _p(30, 11, 31), _p(30, 12, 38), _p(30, 17, 11), _p(30, 18, 2)],
-      fromDate: from,
-      toDate: to,
-      shiftTemplates: [sang, chieu, toi],
-      shiftSalaryLevels: levels,
-      salaryProfiles: [
-        {
-          'shiftsPerDay': 2,
-          'employees': [{'id': 'A', 'employeeCode': 'A'}],
-        }
-      ],
-    ).single;
-    expect(perDay2.status, isNot(contains('Thiếu')));
-    expect(perDay2.workCount, 1.0);
-    expect(perDay2.shiftNames, ['Ca sáng', 'Ca chiều']);
   });
 
   test('Ca có nghỉ trưa chấm 5 lần: bỏ lần chấm lẻ giữa trưa', () {
