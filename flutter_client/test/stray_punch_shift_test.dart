@@ -54,6 +54,25 @@ void main() {
     expect(withNight[19]!.status, isNot(contains('Thiếu')));
   });
 
+  test('Ca sáng + ca chiều thiếu lần ra sáng: không tính 07:26–12:59 là tăng ca đủ công', () {
+    final sang = <String, dynamic>{'id': 's', 'name': 'Ca sáng', 'startTime': '07:30:00', 'endTime': '11:30:00'};
+    final chieu = <String, dynamic>{'id': 'c', 'name': 'Ca chiều', 'startTime': '13:00:00', 'endTime': '17:00:00'};
+    final levels = [
+      <String, dynamic>{'shiftTemplateId': 's', 'employeeIds': ['A']},
+      <String, dynamic>{'shiftTemplateId': 'c', 'employeeIds': ['A']},
+    ];
+    final r = computeDailyShiftRecords(
+            attendances: [_p(28, 7, 26), _p(28, 12, 59), _p(28, 17, 4)],
+            fromDate: from,
+            toDate: to,
+            shiftTemplates: [sang, chieu],
+            shiftSalaryLevels: levels)
+        .single;
+    expect((r.overtimeMinutes, r.workCount), (0, 0.5));
+    expect(r.workHours, closeTo(4.0, 0.01));
+    expect(r.status, contains('Thiếu ra'));
+  });
+
   test('Ca có nghỉ trưa chấm 5 lần: bỏ lần chấm lẻ giữa trưa', () {
     final hc = <String, dynamic>{
       'id': 'hc', 'name': 'HC', 'startTime': '08:00:00', 'endTime': '17:00:00',

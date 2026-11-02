@@ -795,6 +795,7 @@ List<DayAttendancePair> alignStrayPunchToShifts(
   ]..sort();
   if (punches.length < 3 || punches.length.isEven) return pairs;
   final slots = <({int start, int end})>[];
+  var anyLunchSplit = false;
   for (final st in shifts) {
     if (isOvertimeShiftTemplate(st)) continue;
     final s = _parseTimeSpanToMinutes(st['startTime']?.toString());
@@ -805,6 +806,7 @@ List<DayAttendancePair> alignStrayPunchToShifts(
     final le = _parseTimeSpanToMinutes(st['lunchBreakEndTime']?.toString());
     if (s < ls && ls < le && le < e) {
       // Ca có nghỉ trưa: 2 nửa (sáng / chiều) — [mergeLunchSplitPairs] gộp lại sau.
+      anyLunchSplit = true;
       slots.add((start: s, end: ls));
       slots.add((start: le, end: e));
     } else {
@@ -830,9 +832,25 @@ List<DayAttendancePair> alignStrayPunchToShifts(
     punchToBound[pi] = bi;
     used.add(bi);
   }
-  if (punchToBound.length != punches.length - 1) return pairs;
+  final allAssigned = punchToBound.length == punches.length;
+  if (!allAssigned && punchToBound.length != punches.length - 1) return pairs;
   final ins = <int, DateTime>{}, outs = <int, DateTime>{};
   punchToBound.forEach((pi, bi) => (bi.isEven ? ins : outs)[bi ~/ 2] = punches[pi]);
+  if (allAssigned) {
+    // Mọi lần chấm đều khớp mốc ca nhưng một ca THIẾU GIỜ RA (vd. ca sáng + ca chiều chấm 07:26 · 12:59 · 17:04):
+    // ghép lẻ/chẵn sẽ coi 07:26–12:59 là ca sáng làm thêm giờ → tăng ca + đủ công. Ghép theo ca: ca thiếu ra
+    // vẫn báo thiếu chấm và không tính công. Thiếu giờ VÀO hoặc ca có nghỉ trưa → giữ cách cũ.
+    if (anyLunchSplit) return pairs;
+    final half = [
+      for (var k = 0; k < slots.length; k++)
+        if (ins.containsKey(k) != outs.containsKey(k)) k,
+    ];
+    if (half.length != 1 || !ins.containsKey(half.single)) return pairs;
+    return [
+      for (var k = 0; k < slots.length; k++)
+        if (ins.containsKey(k)) DayAttendancePair(checkIn: ins[k], checkOut: outs[k]),
+    ];
+  }
   for (var k = 0; k < slots.length; k++) {
     if (ins.containsKey(k) != outs.containsKey(k)) return pairs; // có ca thiếu nửa → giữ cách cũ (báo thiếu chấm)
   }
