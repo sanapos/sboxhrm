@@ -779,6 +779,8 @@ public class PayAdvanceRequestHandler(
 
             if (pendingCashTx != null)
             {
+                // Phiếu chờ lập lúc duyệt có thể theo số cũ (duyệt lại với số khác) — chi đúng số đã duyệt, khớp số trừ lương.
+                pendingCashTx.Amount = payoutAmount;
                 pendingCashTx.PaymentMethod = paymentMethodEnum;
                 pendingCashTx.Status = Domain.Enums.CashTransactionStatus.Completed;
                 pendingCashTx.IsPaid = true;

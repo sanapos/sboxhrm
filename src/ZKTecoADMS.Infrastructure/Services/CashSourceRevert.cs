@@ -74,8 +74,11 @@ public static class CashSourceRevert
             }
             case CashSources.Reward:
             {
+                // PaymentMethod null = cộng vào bảng lương. Chỉ chuyển sang lương khi phiếu chi không còn chi được
+                // (xóa / hủy); bỏ «đã chi» mà phiếu vẫn chờ thì giữ tiền mặt — nếu không vừa cộng lương vừa chi phiếu chờ.
+                var voucherGone = deleting || !cash.IsActive || cash.Status == CashTransactionStatus.Cancelled;
                 var tx = await db.PaymentTransactions.AsTracking().FirstOrDefaultAsync(t => t.Id == id);
-                if (tx != null && !string.IsNullOrEmpty(tx.PaymentMethod) && !PaymentFinanceHelper.IsSalaryDisbursement(tx))
+                if (voucherGone && tx != null && !string.IsNullOrEmpty(tx.PaymentMethod) && !PaymentFinanceHelper.IsSalaryDisbursement(tx))
                 {
                     tx.PaymentMethod = null;
                     tx.UpdatedAt = now;

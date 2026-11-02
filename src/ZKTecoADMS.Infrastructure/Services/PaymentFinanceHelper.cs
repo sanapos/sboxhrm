@@ -148,7 +148,9 @@ public static class PaymentFinanceHelper
         if (src != null)
         {
             var (type, id) = src.Value;
-            var bySource = await db.CashTransactions
+            // AsTracking: nơi gọi hủy / xóa / chi phiếu trả về rồi chỉ SaveChanges — DbContext mặc định NoTracking
+            // thì thay đổi bị bỏ (hoàn duyệt ứng lương, hủy thưởng phạt… để lại phiếu chờ vẫn chi được).
+            var bySource = await db.CashTransactions.AsTracking()
                 .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                     && c.SourceType == type && c.SourceId == id)
                 .OrderByDescending(c => c.CreatedAt)
@@ -157,7 +159,7 @@ public static class PaymentFinanceHelper
         }
 
         // Dữ liệu cũ chưa có SourceId → tìm theo chuỗi đánh dấu trong ghi chú
-        return await db.CashTransactions
+        return await db.CashTransactions.AsTracking()
             .Where(c => c.StoreId == storeId
                 && c.Deleted == null
                 && c.IsActive

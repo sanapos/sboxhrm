@@ -146,6 +146,57 @@ public class HrFinanceTests
     }
 
     [Fact]
+    public async Task Cancel_linked_voucher_after_resolve_is_saved_under_no_tracking()
+    {
+        var (provider, db) = NewDb();
+        using var _ = provider;
+        var (storeId, emp) = await SeedAsync(db);
+        var bonus = new PaymentTransaction { Id = Guid.NewGuid(), EmployeeId = emp.Id, Type = "Bonus", Amount = 1_000_000, Status = "Completed", TransactionDate = DateTime.Now };
+        db.Add(bonus);
+        await db.SaveChangesAsync();
+        var cash = await PaymentFinanceHelper.ApplyBonusPenaltyDisbursementOnApproveAsync(db, bonus, storeId, Guid.NewGuid(), "Cash");
+        db.ChangeTracker.Clear();
+
+        // Hủy thưởng (TransactionsController /status, xóa, hoàn duyệt ứng lương): resolve → hủy → SaveChanges
+        var linked = await PaymentFinanceHelper.ResolveLinkedAsync(db, storeId, PaymentFinanceHelper.BonusPenaltyNote(bonus.Id));
+        Assert.True(PaymentFinanceHelper.CancelLinkedCashTransaction(linked, "Hủy theo phiếu thưởng/phạt"));
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var saved = await db.CashTransactions.FirstAsync(c => c.Id == cash!.Id);
+        Assert.Equal(CashTransactionStatus.Cancelled, saved.Status);
+        Assert.False(saved.IsActive);
+    }
+
+    [Fact]
+    public async Task Unpay_cash_bonus_keeps_it_out_of_payroll_until_voucher_is_gone()
+    {
+        var (provider, db) = NewDb();
+        using var _ = provider;
+        var (storeId, emp) = await SeedAsync(db);
+        var bonus = new PaymentTransaction { Id = Guid.NewGuid(), EmployeeId = emp.Id, Type = "Bonus", Amount = 1_000_000, Status = "Completed", TransactionDate = DateTime.Now };
+        db.Add(bonus);
+        await db.SaveChangesAsync();
+        var cash = (await PaymentFinanceHelper.ApplyBonusPenaltyDisbursementOnApproveAsync(db, bonus, storeId, Guid.NewGuid(), "Cash"))!;
+        db.ChangeTracker.Clear();
+
+        // Bỏ «đã chi»: phiếu chờ vẫn còn → thưởng vẫn trả tiền mặt, bảng lương không cộng (tránh trả 2 lần)
+        cash.IsPaid = false;
+        cash.Status = CashTransactionStatus.Pending;
+        await CashSourceRevert.RevertPaidAsync(db, cash, storeId, deleting: false);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        Assert.Equal("Cash", (await db.PaymentTransactions.FirstAsync(t => t.Id == bonus.Id)).PaymentMethod);
+
+        // Xóa phiếu chi → không còn đường chi tiền mặt → về bảng lương
+        cash.IsActive = false;
+        await CashSourceRevert.RevertPaidAsync(db, cash, storeId, deleting: true);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        Assert.Null((await db.PaymentTransactions.FirstAsync(t => t.Id == bonus.Id)).PaymentMethod);
+    }
+
+    [Fact]
     public async Task Payroll_adjustments_follow_settlement_and_advance_period_rules()
     {
         var (provider, db) = NewDb();
