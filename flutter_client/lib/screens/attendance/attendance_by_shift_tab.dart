@@ -6,6 +6,7 @@ import 'dart:math' as math;
 // ignore_for_file: unused_element
 import '../../utils/file_saver.dart' as file_saver;
 import '../../utils/web_canvas.dart' as web_canvas;
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import '../../widgets/app_scroll_safe.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
@@ -5129,7 +5130,64 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   Widget _buildShiftPunchCell(_DailyShiftRecord r, int punchIndex) {
+    final layout = _shiftSlotLayout(r);
+    if (layout != null) return Center(child: _buildSlotPunchCell(r, punchIndex, layout));
     return Center(child: _buildPunchTimeCell(r, punchIndex, inTable: true));
+  }
+
+  /// Ngày thiếu chấm: xếp giờ chấm theo ca (Lần 1–2 ca thứ nhất, Lần 3–4 ca thứ hai…) để ô thiếu nằm đúng
+  /// chỗ — vd. thiếu ra ca sáng thì Lần 2 báo thiếu, giờ vào chiều ở Lần 3 (không dồn lên Lần 2).
+  /// Trả về chỉ số giờ chấm cho từng ô; null = không xếp được (giờ ngoài ca, chưa gán ca…) → hiển thị theo thứ tự.
+  List<int?>? _shiftSlotLayout(_DailyShiftRecord r) {
+    if (!r.status.contains('Thiếu') || r.punchTimes.isEmpty) return null;
+    final templates = _dailyTemplatesFor(r.employeeId, r.employeeCode, r.shiftNames);
+    final slots = _dailySlotsOf(templates);
+    if (slots.isEmpty || r.punchTimes.length > slots.length * 2) return null;
+    final a = _dailyAssignPunches(r.punchTimes, r.date, slots);
+    if (a.extra.isNotEmpty) return null;
+    final layout = <int?>[
+      for (var k = 0; k < slots.length; k++) ...[
+        a.ins[k] == null ? null : r.punchTimes.indexOf(a.ins[k]!),
+        a.outs[k] == null ? null : r.punchTimes.indexOf(a.outs[k]!),
+      ],
+    ];
+    // Đã đúng thứ tự (vd. chỉ thiếu ra ca cuối) → giữ cách hiển thị cũ.
+    final positional = [for (var i = 0; i < layout.length; i++) i < r.punchTimes.length ? i : null];
+    if (listEquals(layout, positional)) return null;
+    return layout;
+  }
+
+  Widget _buildSlotPunchCell(_DailyShiftRecord record, int col, List<int?> layout) {
+    if (col >= layout.length) {
+      return const Text('—', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: SboxColors.slate300));
+    }
+    final pi = layout[col];
+    if (pi != null) return _buildPunchTimeCell(record, pi, inTable: true, slotCol: col);
+    final isIn = col.isEven;
+    final pairCol = isIn ? col + 1 : col - 1;
+    final now = DateTime.now();
+    final past = DateTime(record.date.year, record.date.month, record.date.day)
+        .isBefore(DateTime(now.year, now.month, now.day));
+    // Ca có một lần chấm → ô còn lại là thiếu chấm; ca trống cả hai → nghỉ ca đó, để trống.
+    final missing = past && pairCol >= 0 && pairCol < layout.length && layout[pairCol] != null;
+    final onTap = widget.allowCorrection ? () => _showManualPunchDialog(record) : null;
+    final canQuickAdd = widget.allowCorrection && widget.directApplyCorrections;
+    final sugg = canQuickAdd ? _shiftSuggestions(record, isIn) : const <TimeSuggestion>[];
+    Future<bool> Function(TimeSuggestion)? quickAdd =
+        canQuickAdd ? (sg) => _quickAddShiftPunch(record, isIn, sg) : null;
+    final rowKey = _shiftRecordRowKey(record);
+    return ValueListenableBuilder<String?>(
+      valueListenable: _hoveredRow,
+      builder: (_, hovered, __) => EmptyPunchCell(
+        isIn: isIn,
+        missing: missing,
+        hoverOnly: true,
+        rowHovered: hovered == rowKey,
+        onTap: onTap,
+        suggestions: sugg,
+        onQuickAdd: quickAdd,
+      ),
+    );
   }
 
   /// Ô giờ chấm — click để thêm (ô trống kế tiếp) hoặc sửa/xóa (đã có giờ).
@@ -5200,8 +5258,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   /// Ô giờ chấm — bấm để sửa / xoá, bấm đúp sửa nhanh; ô trống kế tiếp để thêm.
-  Widget _buildPunchTimeCell(_DailyShiftRecord record, int punchIndex, {bool inTable = false}) {
-    final isIn = punchIndex.isEven;
+  Widget _buildPunchTimeCell(_DailyShiftRecord record, int punchIndex, {bool inTable = false, int? slotCol}) {
+    // Xếp theo ca: vào / ra theo vị trí ô ([slotCol]), không theo thứ tự lần chấm.
+    final isIn = (slotCol ?? punchIndex).isEven;
 
     if (punchIndex < record.punchTimes.length) {
       final displayTime = punchIndex < record.displayPunchTimes.length
