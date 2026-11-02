@@ -91,6 +91,26 @@ void main() {
     final ps = computeDailyShiftPairs(
         attendances: atts, fromDate: from, toDate: to, shiftTemplates: [sang, chieu, toi], shiftSalaryLevels: levels);
     expect(ps.fold<double>(0, (t, p) => t + dailyShiftPairWorkHours(p)), closeTo(4.0, 0.01));
+
+    // Số lần chấm chẵn lệch ca: quên vào sáng (11:30 ra sáng · 12:58 vào chiều) → không phải cặp «hợp lệ».
+    final even = computeDailyShiftRecords(
+            attendances: [_p(26, 11, 30), _p(26, 12, 58)],
+            fromDate: from,
+            toDate: to,
+            shiftTemplates: [sang, chieu, toi],
+            shiftSalaryLevels: levels)
+        .single;
+    expect(even.status, allOf(contains('Thiếu vào Ca sáng'), contains('Thiếu ra Ca chiều')));
+    expect(even.workCount, 0);
+    // Ngày bình thường số lần chấm chẵn không đổi.
+    final normal = computeDailyShiftRecords(
+            attendances: [_p(26, 7, 28), _p(26, 11, 31), _p(26, 12, 58), _p(26, 17, 3)],
+            fromDate: from,
+            toDate: to,
+            shiftTemplates: [sang, chieu, toi],
+            shiftSalaryLevels: levels)
+        .single;
+    expect((normal.status, normal.workCount), ('Hợp lệ', 1.0));
   });
 
   test('Ca có nghỉ trưa chấm 5 lần: bỏ lần chấm lẻ giữa trưa', () {

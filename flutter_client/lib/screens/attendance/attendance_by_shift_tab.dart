@@ -341,12 +341,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       case 'ot':
         return r.overtimeMinutes > 0;
       case 'missing':
-        return r.status.contains('Thiếu chấm') ||
-            r.status == 'Vắng' ||
+        return _statusHasMissingPunch(r.status) ||
             r.punchTimes.isEmpty ||
             r.punchTimes.length % 2 != 0;
       case 'complete':
-        return !r.status.contains('Thiếu chấm') &&
+        return !_statusHasMissingPunch(r.status) &&
             r.punchTimes.length >= 2 &&
             r.punchTimes.length % 2 == 0;
       default:

@@ -793,7 +793,7 @@ List<DayAttendancePair> alignStrayPunchToShifts(
   final punches = <DateTime>[
     for (final p in pairs) ...[if (p.checkIn != null) p.checkIn!, if (p.checkOut != null) p.checkOut!],
   ]..sort();
-  if (punches.length < 3 || punches.length.isEven) return pairs;
+  if (punches.length < 2) return pairs;
   final slots = <({int start, int end})>[];
   final slotShift = <Map<String, dynamic>>[];
   var anyLunchSplit = false;
@@ -842,7 +842,8 @@ List<DayAttendancePair> alignStrayPunchToShifts(
     used.add(bi);
   }
   final allAssigned = punchToBound.length == punches.length;
-  if (!allAssigned && punchToBound.length != punches.length - 1) return pairs;
+  // Bỏ một lần chấm thừa chỉ áp dụng khi số lần chấm lẻ.
+  if (!allAssigned && (punches.length.isEven || punchToBound.length != punches.length - 1)) return pairs;
   final ins = <int, DateTime>{}, outs = <int, DateTime>{};
   punchToBound.forEach((pi, bi) => (bi.isEven ? ins : outs)[bi ~/ 2] = punches[pi]);
   if (allAssigned) {
@@ -851,12 +852,14 @@ List<DayAttendancePair> alignStrayPunchToShifts(
     //   làm thêm giờ → tăng ca + đủ công;
     // - thiếu VÀO (07:30 · 11:30 · 17:05): ghép lẻ/chẵn coi 17:05 là vào ca sau (Ca Tối) → sai ca, báo «thiếu ra».
     // Ghép theo ca: ca thiếu báo thiếu chấm, không tính công. Ca có nghỉ trưa trong ca → giữ cách cũ.
+    // Số lần chấm chẵn mà lệch ca (vd. quên vào sáng: 11:30 · 12:58) → ghép lẻ/chẵn thành một cặp 11:30–12:58
+    // «hợp lệ»; ghép theo ca: thiếu vào ca sáng, ca chiều thiếu ra.
     if (anyLunchSplit) return pairs;
     final half = [
       for (var k = 0; k < slots.length; k++)
         if (ins.containsKey(k) != outs.containsKey(k)) k,
     ];
-    if (half.length != 1) return pairs;
+    if (half.isEmpty) return pairs;
     return [
       for (var k = 0; k < slots.length; k++)
         if (ins.containsKey(k))
@@ -2745,7 +2748,12 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       String status;
       int statusColor;
       if (hasMissingPunch && totalWorkCount == 0 && !(restDayHoursOnly && baseWorkHours > 0)) {
-        status = 'Thiếu chấm';
+        // Ghép theo ca biết ca nào thiếu → ghi rõ («Thiếu vào Ca sáng • Thiếu ra Ca chiều»).
+        status = [
+          if (missingInShiftNames.isNotEmpty) 'Thiếu vào ${missingInShiftNames.join(", ")}',
+          if (missingOutShiftNames.isNotEmpty) 'Thiếu ra ${missingOutShiftNames.join(", ")}',
+        ].join(' • ');
+        if (status.isEmpty) status = 'Thiếu chấm';
         statusColor = 0xFF64748B;
       } else if (isHoliday && totalWorkCount > 0) {
         status = 'Tăng ca ngày lễ';
