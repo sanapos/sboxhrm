@@ -680,6 +680,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   bool _statusHasMissingPunch(String status) =>
       status.contains('Thiếu chấm') ||
       status.contains('Thiếu ra') ||
+      status.contains('Thiếu vào') ||
       status == 'Vắng';
 
   void _onMissingStatusTap(_DailyShiftRecord record) {
@@ -5239,7 +5240,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       final past = DateTime(record.date.year, record.date.month, record.date.day)
           .isBefore(DateTime(now.year, now.month, now.day));
       // Số lần chấm lẻ chưa chắc là thiếu (bấm trùng / chấm thêm đã được ghép theo ca) — theo kết quả tính công.
-      final missing = past && record.punchTimes.length.isOdd && _statusHasMissingPunch(record.status);
+      // Ô trống kế tiếp là ô «Ra» — chỉ báo khi thật sự thiếu giờ ra (thiếu vào đã báo ở cột trạng thái).
+      final missing = past &&
+          record.punchTimes.length.isOdd &&
+          (record.status.contains('Thiếu ra') || record.status.contains('Thiếu chấm'));
       final onTap = widget.allowCorrection ? () => _showManualPunchDialog(record) : null;
       final canQuickAdd = widget.allowCorrection && widget.directApplyCorrections;
       final sugg = canQuickAdd ? _shiftSuggestions(record, isIn) : const <TimeSuggestion>[];

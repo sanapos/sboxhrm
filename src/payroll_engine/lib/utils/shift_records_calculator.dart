@@ -795,6 +795,7 @@ List<DayAttendancePair> alignStrayPunchToShifts(
   ]..sort();
   if (punches.length < 3 || punches.length.isEven) return pairs;
   final slots = <({int start, int end})>[];
+  final slotShift = <Map<String, dynamic>>[];
   var anyLunchSplit = false;
   for (final st in shifts) {
     if (isOvertimeShiftTemplate(st)) continue;
@@ -809,12 +810,20 @@ List<DayAttendancePair> alignStrayPunchToShifts(
       anyLunchSplit = true;
       slots.add((start: s, end: ls));
       slots.add((start: le, end: e));
+      slotShift.addAll([st, st]);
     } else {
       slots.add((start: s, end: e));
+      slotShift.add(st);
     }
   }
   if (slots.isEmpty) return pairs;
-  slots.sort((a, b) => a.start.compareTo(b.start));
+  final order = List<int>.generate(slots.length, (i) => i)
+    ..sort((a, b) => slots[a].start.compareTo(slots[b].start));
+  final sortedSlots = [for (final i in order) slots[i]];
+  final sortedShift = [for (final i in order) slotShift[i]];
+  slots
+    ..clear()
+    ..addAll(sortedSlots);
   final day = DateTime(punches.first.year, punches.first.month, punches.first.day);
   final pm = [for (final p in punches) p.difference(day).inMinutes];
   final bounds = <int>[for (final sl in slots) ...[sl.start, sl.end]];
@@ -823,7 +832,7 @@ List<DayAttendancePair> alignStrayPunchToShifts(
     for (var pi = 0; pi < pm.length; pi++)
       for (var bi = 0; bi < bounds.length; bi++)
         if ((pm[pi] - bounds[bi]).abs() <= 240) (pi, bi, (pm[pi] - bounds[bi]).abs()),
-  ]..sort((a, b) => a.$3.compareTo(b.$3));
+  ]..sort((a, b) => a.$3 != b.$3 ? a.$3.compareTo(b.$3) : a.$2.compareTo(b.$2));
   final punchToBound = <int, int>{};
   final used = <int>{};
   for (final (pi, bi, _) in cands) {
@@ -837,18 +846,24 @@ List<DayAttendancePair> alignStrayPunchToShifts(
   final ins = <int, DateTime>{}, outs = <int, DateTime>{};
   punchToBound.forEach((pi, bi) => (bi.isEven ? ins : outs)[bi ~/ 2] = punches[pi]);
   if (allAssigned) {
-    // Mọi lần chấm đều khớp mốc ca nhưng một ca THIẾU GIỜ RA (vd. ca sáng + ca chiều chấm 07:26 · 12:59 · 17:04):
-    // ghép lẻ/chẵn sẽ coi 07:26–12:59 là ca sáng làm thêm giờ → tăng ca + đủ công. Ghép theo ca: ca thiếu ra
-    // vẫn báo thiếu chấm và không tính công. Thiếu giờ VÀO hoặc ca có nghỉ trưa → giữ cách cũ.
+    // Mọi lần chấm đều khớp mốc ca nhưng đúng một ca thiếu một lần chấm:
+    // - thiếu RA (vd. ca sáng + ca chiều chấm 07:26 · 12:59 · 17:04): ghép lẻ/chẵn coi 07:26–12:59 là ca sáng
+    //   làm thêm giờ → tăng ca + đủ công;
+    // - thiếu VÀO (07:30 · 11:30 · 17:05): ghép lẻ/chẵn coi 17:05 là vào ca sau (Ca Tối) → sai ca, báo «thiếu ra».
+    // Ghép theo ca: ca thiếu báo thiếu chấm, không tính công. Ca có nghỉ trưa trong ca → giữ cách cũ.
     if (anyLunchSplit) return pairs;
     final half = [
       for (var k = 0; k < slots.length; k++)
         if (ins.containsKey(k) != outs.containsKey(k)) k,
     ];
-    if (half.length != 1 || !ins.containsKey(half.single)) return pairs;
+    if (half.length != 1) return pairs;
     return [
       for (var k = 0; k < slots.length; k++)
-        if (ins.containsKey(k)) DayAttendancePair(checkIn: ins[k], checkOut: outs[k]),
+        if (ins.containsKey(k))
+          DayAttendancePair(checkIn: ins[k], checkOut: outs[k])
+        else if (outs.containsKey(k))
+          // Chỉ có giờ ra: gắn sẵn ca để không bị suy ra giờ vào (không tính công), báo «Thiếu vào».
+          DayAttendancePair(checkOut: outs[k], shift: sortedShift[k]),
     ];
   }
   for (var k = 0; k < slots.length; k++) {
@@ -2320,6 +2335,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       final shiftNames = <String>[];
       final hoursByShiftName = <String, double>{};
       final missingOutShiftNames = <String>[];
+      final missingInShiftNames = <String>[];
       final lateEarlyItems = <ShiftLateEarlyItem>[];
       final usedShiftIds = <String>{};
       final isAnyPunch = lookups.isAnyPunchInShiftMode(empGuid, employeeCode);
@@ -2386,7 +2402,14 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         }
 
         if (punchIn == null) {
-          if (pair.isOrphanOut) hasMissingPunch = true;
+          if (pair.isOrphanOut) {
+            hasMissingPunch = true;
+            final name = pair.shift?['name']?.toString() ?? '';
+            if (name.isNotEmpty) {
+              if (!shiftNames.contains(name)) shiftNames.add(name);
+              if (!missingInShiftNames.contains(name)) missingInShiftNames.add(name);
+            }
+          }
           continue;
         }
 
@@ -2761,8 +2784,11 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         statusColor = 0xFF64748B;
       }
       if (hasMissingPunch && totalWorkCount > 0) {
-        if (missingOutShiftNames.isNotEmpty) {
-          final extra = 'Thiếu ra ${missingOutShiftNames.join(", ")}';
+        if (missingOutShiftNames.isNotEmpty || missingInShiftNames.isNotEmpty) {
+          final extra = [
+            if (missingInShiftNames.isNotEmpty) 'Thiếu vào ${missingInShiftNames.join(", ")}',
+            if (missingOutShiftNames.isNotEmpty) 'Thiếu ra ${missingOutShiftNames.join(", ")}',
+          ].join(' • ');
           status = totalLate > 0 || totalEarly > 0 ? '$status • $extra' : extra;
         } else {
           status = totalLate > 0 || totalEarly > 0

@@ -73,6 +73,26 @@ void main() {
     expect(r.status, contains('Thiếu ra'));
   });
 
+  test('Gán 3 ca (sáng, chiều, tối) thiếu vào chiều: 17:05 là ra ca chiều, không phải vào Ca Tối', () {
+    final sang = <String, dynamic>{'id': 's', 'name': 'Ca sáng', 'startTime': '07:30:00', 'endTime': '11:30:00'};
+    final chieu = <String, dynamic>{'id': 'c', 'name': 'Ca chiều', 'startTime': '13:00:00', 'endTime': '17:00:00'};
+    final toi = <String, dynamic>{'id': 't', 'name': 'Ca Tối', 'startTime': '17:00:00', 'endTime': '22:00:00'};
+    final levels = [
+      for (final id in ['s', 'c', 't']) <String, dynamic>{'shiftTemplateId': id, 'employeeIds': ['A']},
+    ];
+    final atts = [_p(27, 7, 30), _p(27, 11, 30), _p(27, 17, 5)];
+    final r = computeDailyShiftRecords(
+            attendances: atts, fromDate: from, toDate: to, shiftTemplates: [sang, chieu, toi], shiftSalaryLevels: levels)
+        .single;
+    expect(r.shiftNames, ['Ca sáng', 'Ca chiều']);
+    expect(r.status, contains('Thiếu vào Ca chiều'));
+    expect((r.workCount, r.overtimeMinutes), (0.5, 0));
+    // Bảng lương theo ca: ca chiều chỉ có giờ ra → không tính giờ.
+    final ps = computeDailyShiftPairs(
+        attendances: atts, fromDate: from, toDate: to, shiftTemplates: [sang, chieu, toi], shiftSalaryLevels: levels);
+    expect(ps.fold<double>(0, (t, p) => t + dailyShiftPairWorkHours(p)), closeTo(4.0, 0.01));
+  });
+
   test('Ca có nghỉ trưa chấm 5 lần: bỏ lần chấm lẻ giữa trưa', () {
     final hc = <String, dynamic>{
       'id': 'hc', 'name': 'HC', 'startTime': '08:00:00', 'endTime': '17:00:00',
