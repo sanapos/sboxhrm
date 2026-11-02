@@ -1060,6 +1060,13 @@ List<Map<String, String>> buildSaleOrderPrintLines(
     final dims = parsePosAreaDims(l.lineNote);
     // Tiền giờ karaoke / bi-a: SL «1h55» thay «1,92»; giờ vào–ra in dưới dòng như hóa đơn Sunmi.
     final timed = l.timedNote(money.format);
+    // Hàng bảo hành: seri + hạn in dưới dòng — khách giữ hóa đơn làm phiếu bảo hành.
+    final serials = l.serialNumbers.where((s) => !s.startsWith('AUTO-')).join(', ');
+    final warranty = [
+      if (serials.isNotEmpty) 'Seri: $serials',
+      if (l.warrantyLabel.isNotEmpty) l.warrantyLabel,
+    ].join(' · ');
+    final expiry = l.warrantyExpiry?.toLocal();
     return {
       'STT': '${i + 1}',
       'Ma_Hang': (l.productCode ?? '').isNotEmpty
@@ -1072,7 +1079,13 @@ List<Map<String, String>> buildSaleOrderPrintLines(
       'Don_Vi_Tinh': l.unitName ?? '',
       'Chiet_Khau': l.discountAmount > 0 ? money.format(l.discountAmount) : '0',
       'Thanh_Tien': lineMoney(l.lineTotal),
-      'Ghi_Chu': [if (timed.isNotEmpty) timed, if (note.isNotEmpty) note].join('\n'),
+      'Ghi_Chu': [if (timed.isNotEmpty) timed, if (note.isNotEmpty) note, if (warranty.isNotEmpty) warranty]
+          .join('\n'),
+      'Bao_Hanh': (l.warrantyMonths ?? 0) > 0 ? '${l.warrantyMonths} tháng' : '',
+      'Han_Bao_Hanh': expiry == null || (l.warrantyMonths ?? 0) <= 0
+          ? ''
+          : DateFormat('dd/MM/yyyy').format(expiry),
+      'Seri': serials,
       'Chieu_Dai': formatPosDim(dims.length),
       'Chieu_Rong': formatPosDim(dims.width),
       'Chieu_Cao': formatPosDim(dims.height),

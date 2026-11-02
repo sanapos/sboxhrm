@@ -12,9 +12,14 @@ public static class PosSaleWarrantyHelper
     /// <summary>Chuẩn hóa seri: bỏ khoảng trắng đầu/cuối, viết hoa — để unique index và tra cứu hoạt động đúng.</summary>
     public static string NormalizeSerial(string? serial) => (serial ?? string.Empty).Trim().ToUpperInvariant();
 
-    public static bool NeedsRegistration(PosProduct product) =>
+    /// <param name="overrideMonths">Số tháng chỉnh lúc bán (null = theo hàng hóa).</param>
+    public static bool NeedsRegistration(PosProduct product, int? overrideMonths = null) =>
         product.ProductType == PosProductType.Goods &&
-        (product.RequiresSerial || (product.WarrantyMonths ?? 0) > 0);
+        (product.RequiresSerial || MonthsFor(product, overrideMonths) > 0);
+
+    /// <summary>Số tháng bảo hành của dòng bán: số chỉnh lúc bán (0–120) hoặc của hàng hóa.</summary>
+    public static int MonthsFor(PosProduct product, int? overrideMonths) =>
+        Math.Clamp(overrideMonths ?? product.WarrantyMonths ?? 0, 0, 120);
 
     public static async Task<string?> ValidateSerialsAsync(
         ZKTecoDbContext db,
@@ -27,7 +32,7 @@ public static class PosSaleWarrantyHelper
 
         foreach (var (dto, product) in lines)
         {
-            if (!NeedsRegistration(product)) continue;
+            if (!NeedsRegistration(product, dto.WarrantyMonths)) continue;
 
             var serials = NormalizeSerialInputs(dto.SerialNumbers, dto.SerialImeis);
             var unitCount = (int)Math.Ceiling(dto.Qty);
@@ -101,7 +106,7 @@ public static class PosSaleWarrantyHelper
         {
             var dto = dtoLines[i];
             var line = orderLines[i];
-            if (!products.TryGetValue(dto.ProductId, out var product) || !NeedsRegistration(product))
+            if (!products.TryGetValue(dto.ProductId, out var product) || !NeedsRegistration(product, dto.WarrantyMonths))
                 continue;
 
             var serials = NormalizeSerialInputs(dto.SerialNumbers, dto.SerialImeis);
@@ -121,7 +126,7 @@ public static class PosSaleWarrantyHelper
                 await PosSerialRegistry.MarkSoldAsync(db, storeId, order.Id, product.Id,
                     serials.Select(x => x.SerialNumber), saleDate);
 
-            var months = product.WarrantyMonths ?? 0;
+            var months = MonthsFor(product, dto.WarrantyMonths);
             foreach (var s in serials)
             {
                 var serial = NormalizeSerial(s.SerialNumber);
@@ -304,6 +309,21 @@ public static class PosSaleWarrantyHelper
                         label += $" [{x.Status}]";
                     return label;
                 }).ToList());
+    }
+
+    /// <summary>Bảo hành theo dòng đơn (để in «BH 12 tháng — đến dd/MM/yyyy» trên hóa đơn).</summary>
+    public static async Task<Dictionary<Guid, (int Months, DateTime Expiry)>> GetWarrantyByLineAsync(
+        ZKTecoDbContext db, Guid storeId, IEnumerable<Guid> lineIds)
+    {
+        var ids = lineIds.Distinct().ToList();
+        if (ids.Count == 0) return [];
+        var rows = await db.PosProductWarrantyRegistrations.AsNoTracking()
+            .Where(r => r.StoreId == storeId && ids.Contains(r.SaleOrderLineId) && r.Deleted == null &&
+                        r.WarrantyMonths > 0 && r.Status != PosWarrantyStatus.Voided)
+            .Select(r => new { r.SaleOrderLineId, r.WarrantyMonths, r.WarrantyExpiry })
+            .ToListAsync();
+        return rows.GroupBy(r => r.SaleOrderLineId)
+            .ToDictionary(g => g.Key, g => (g.Max(x => x.WarrantyMonths), g.Max(x => x.WarrantyExpiry)));
     }
 
     private static List<SerialInput> NormalizeSerialInputs(

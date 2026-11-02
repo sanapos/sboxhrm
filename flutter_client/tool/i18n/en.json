@@ -119,6 +119,7 @@
   "1) File Export từ SBOX (có dòng tiêu đề \"DANH SÁCH NHÂN VIÊN\", cột STT + Mã NV + Họ và tên…)\n": "1) Export file from SBOX (with title line \"DANH SÁCH NHÂN VIÊN\", columns No. + Employee code + Full name…)\n",
   "1) Thêm máy in trên thiết bị (Máy in nội bộ) hoặc «Thêm máy in» LAN/BT.\n": "1) Add a printer on the device (Internal printer) or use “Add printer” via LAN/BT.\n",
   "1-3 năm": "1-3 years",
+  "1. Bấm «Tạo mã» → 2. «In phiếu mã», cắt và phát riêng từng người (không dán công khai — ai cầm mã ": "1. Tap «Create code» → 2. «Print code slips», cut and hand each person their own (do not post publicly — whoever holds the code ",
   "1. Bấm «Tạo mã» → 2. «In phiếu mã», cắt và phát riêng từng người (không dán công khai — ai cầm mã là nhận được tin của người đó) → 3. Nhân viên quét QR mở bot, gửi mã 6 số. Không cần tài khoản app. Kiểm cột «Tên Zalo» để chắc đúng người.": "1. Tap «Create codes» → 2. «Print code slips», cut and hand each one out privately (do not post them — whoever holds a code receives that person's messages) → 3. Employees scan the QR to open the bot and send their 6-digit code. No app account needed. Check the «Zalo name» column to confirm the right person.",
   "1. Copy User ID + Secret Key tại spx.vn → Hồ sơ Shop.\n": "1. Copy the User ID + Secret Key at spx.vn → Shop profile.\n",
   "1. Doanh nghiệp trả lương\n": "1. The business pays salary\n",
@@ -206,7 +207,9 @@
   "9 bàn": "9 tables",
   "95% phiếu in xong trong · dưới 8 giây là tốt": "95% of tickets print within this time · under 8 seconds is good",
   "<b>ĐẠI DIỆN BÊN A</b><br/><i>(Ký, ghi rõ họ tên)</i>": "<b>REPRESENTATIVE OF PARTY A</b><br/><i>(Sign and print full name)</i>",
+  "<b>ĐẠI DIỆN BÊN A</b><br/><i>(Ký, ghi rõ họ tên)</i></td>": "<b>REPRESENTATIVE OF PARTY A</b><br/><i>(Sign, full name)</i></td>",
   "<b>ĐẠI DIỆN BÊN B</b><br/><i>(Ký, ghi rõ họ tên)</i>": "<b>REPRESENTATIVE OF PARTY B</b><br/><i>(Sign and print full name)</i>",
+  "<b>ĐẠI DIỆN BÊN B</b><br/><i>(Ký, ghi rõ họ tên)</i></td>": "<b>REPRESENTATIVE OF PARTY B</b><br/><i>(Sign, full name)</i></td>",
   "<p style=\"color:#64748b\">Đang dựng bản xem trước với số liệu báo giá…</p>": "<p style=\"color:#64748b\">Building a preview with the quote data…</p>",
   "<p style=\"color:#b91c1c\">Không xem trước được — kiểm tra kết nối.</p>": "<p style=\"color:#b91c1c\">Can't show the preview — check your connection.</p>",
   "<th style=\"border:1px solid #111;padding:4px 2px;text-align:center\">ĐVT</th>": "<th style=\"border:1px solid #111;padding:4px 2px;text-align:center\">Unit</th>",
@@ -214,8 +217,11 @@
   "<th style=\"border:1px solid #111;padding:4px 3px;text-align:right\">Đơn giá</th>": "<th style=\"border:1px solid #111;padding:4px 3px;text-align:right\">Unit price</th>",
   "<th style=\"border:1px solid #111;padding:4px 4px;text-align:left\">Tên hàng</th>": "<th style=\"border:1px solid #111;padding:4px 4px;text-align:left\">Item name</th>",
   "<th style=\"width:14%;border:1px solid #111;padding:4px 2px;text-align:center\">Ảnh</th>": "<th style=\"width:14%;border:1px solid #111;padding:4px 2px;text-align:center\">Image</th>",
+  "<th style=\"width:14%;border:1px solid #111;padding:4px 3px;text-align:center\">Thành tiền</th>": "<th style=\"width:14%;border:1px solid #111;padding:4px 3px;text-align:center\">Amount</th>",
+  "<th style=\"width:14%;border:1px solid #111;padding:4px 3px;text-align:center\">Đơn giá</th>": "<th style=\"width:14%;border:1px solid #111;padding:4px 3px;text-align:center\">Unit price</th>",
   "<th style=\"width:14%;border:1px solid #111;padding:4px 3px;text-align:right\">Thành tiền</th>": "<th style=\"width:14%;border:1px solid #111;padding:4px 3px;text-align:right\">Amount</th>",
   "<th style=\"width:14%;border:1px solid #111;padding:4px 3px;text-align:right\">Đơn giá</th>": "<th style=\"width:14%;border:1px solid #111;padding:4px 3px;text-align:right\">Unit price</th>",
+  "<th style=\"width:28%;border:1px solid #111;padding:4px 4px;text-align:center\">Tên hàng</th>": "<th style=\"width:28%;border:1px solid #111;padding:4px 4px;text-align:center\">Item</th>",
   "<th style=\"width:28%;border:1px solid #111;padding:4px 4px;text-align:left\">Tên hàng</th>": "<th style=\"width:28%;border:1px solid #111;padding:4px 4px;text-align:left\">Item name</th>",
   "<th style=\"width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap\">ĐVT</th>": "<th style=\"width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap\">Unit</th>",
   "= Kỳ vọng": "= Expected",
@@ -709,6 +715,7 @@
   "Bật xong hãy cho một khách còn hạn và một khách hết hạn quét thử.": "After turning it on, test-scan one customer with a valid card and one with an expired card.",
   "Bật xác nhận order (QR)": "Enable order confirmation (QR)",
   "Bật «Bắt buộc đọc và xác nhận» khi cần mọi người đọc ngay — xem được ai chưa đọc": "Turn on “Must read and confirm” when everyone needs to read it now — you can see who hasn't read it",
+  "Bật «Chia sẻ máy in» ở thiết bị cắm máy in rồi in lại.": "Turn on «Share printer» on the device the printer is plugged into, then print again.",
   "Bật «Cho phép tạm tính» trong Ngành hàng": "Turn on \"Allow provisional bill\" in Business type",
   "Bật «Máy chủ mở cửa» cho máy ở cửa: chỉ hội viên còn hạn mới được mở cửa.": "Turn on «Server opens door» for the door device: only members with a valid membership can open the door.",
   "Bật «ngày qua đêm» khi quán bán qua nửa đêm: ví dụ bắt đầu 06:00 → ": "Turn on “overnight day” when the shop sells past midnight: e.g. start 06:00 → ",
@@ -990,6 +997,7 @@
   "Chèn ảnh / logo": "Insert image / logo",
   "Chèo tạ đơn 3×12": "One-arm dumbbell row 3×12",
   "Chép link": "Copy link",
+  "Chép lời nhắn": "Copy message",
   "Chép phác đồ gần nhất": "Copy latest plan",
   "Chép thực đơn": "Copy menu",
   "Chép tin nhắc nợ": "Copy debt reminder message",
@@ -1147,10 +1155,13 @@
   "Chưa có máy in nhiệt nào trên máy này. Vào Cài đặt → Máy in để thêm máy in (LAN / USB / Bluetooth), ": "No thermal printer on this device. Go to Settings → Printers to add one (LAN / USB / Bluetooth), ",
   "Chưa có máy in nào trong Windows": "No printers in Windows",
   "Chưa có máy in nào được chia sẻ": "No shared printer yet",
+  "Chưa có máy in nào được chia sẻ.\n": "No printer is shared yet.\n",
   "Chưa có máy in nào được chia sẻ.\nTrên thiết bị đang cắm máy in: bật «Chia sẻ máy in của thiết bị này» ở khung cuối trang rồi chọn máy.": "No printer is shared yet.\nOn the device connected to the printer: turn on «Share this device's printers» at the bottom of the page, then pick the printer.",
   "Chưa có máy in phù hợp": "No suitable printer",
   "Chưa có máy in tem": "No label printer",
   "Chưa có máy nhiệt với vai trò «Báo kho / xuất kho».\n": "No thermal printer with the \"Stock alert / issue\" role.\n",
+  "Chưa có máy nhận lệnh in": "No device receives print jobs yet",
+  "Chưa có máy nào": "No devices yet",
   "Chưa có máy nào gửi số liệu.": "No device has sent data yet.",
   "Chưa có máy nội bộ cùng loại (bếp/tem) để copy. ": "No internal printer of the same type (kitchen/label) to copy from. ",
   "Chưa có máy tem": "No label printer",
@@ -1200,6 +1211,7 @@
   "Chưa có sản phẩm trên máy này.\n": "No products on this device.\n",
   "Chưa có số liệu": "No data yet",
   "Chưa có số liệu.": "No data yet.",
+  "Chưa có số liệu. Bấm «Theo dõi mạng» trên các máy bán hàng (nên chọn qua giờ đông), ": "No data yet. Tap «Monitor network» on the POS devices (preferably over peak hours), ",
   "Chưa có số liệu. Bấm «Theo dõi mạng» trên các máy bán hàng (nên chọn qua giờ đông), hoặc bấm «Kiểm tra mạng ngay».": "No data yet. Tap «Monitor network» on the sales devices (preferably across the busy hours), or tap «Check network now».",
   "Chưa có số tài khoản": "No account number",
   "Chưa có sự kiện": "No events yet",
@@ -1669,6 +1681,7 @@
   "Chờ hiệu lực": "Pending effect",
   "Chờ in": "Waiting to print",
   "Chờ khách chốt": "Waiting for customer to confirm",
+  "Chờ khách lấy": "Awaiting pickup",
   "Chờ khách: chiếu ảnh / video toàn màn · Có đơn: media kèm hóa đơn. Không có media → màn chào của cửa hàng": "Idle: full-screen photos / videos · With an order: media plus the bill. No media → store welcome screen",
   "Chờ khách: ảnh / video chiếu toàn màn · Có đơn: media | hóa đơn (màn dọc: media trên, hóa đơn dưới). ": "Waiting for customer: photo / video full screen · With an order: media | bill (portrait: media on top, bill below). ",
   "Chờ khách: ảnh / video chiếu toàn màn. Khi có đơn: màn ngang chia media | hóa đơn, màn dọc chia media trên | hóa đơn dưới. ": "Waiting for customer: photo / video full screen. With an order: landscape splits media | bill, portrait splits media on top | bill below. ",
@@ -1857,6 +1870,7 @@
   "Cách xử lý khi đã cài mà không thấy:\n": "What to do if it is installed but not showing:\n",
   "Cách xử lý tiền mặc định khi duyệt": "Default money handling on approval",
   "Cách xử lý:\n": "How to handle:\n",
+  "Cách đo: mặc định máy bán hàng không tự đo. Bấm «Theo dõi mạng» trên máy cần xem — trong thời gian ": "How it measures: POS devices do not measure by default. Tap «Monitor network» on the device to check — during the time ",
   "Cách đo: mặc định máy bán hàng không tự đo. Bấm «Theo dõi mạng» trên máy cần xem — trong thời gian đã chọn máy đó ping máy chủ 30 giây / lần, đếm lệnh gọi lỗi, số lần rớt kết nối tức thời, thử cổng máy in LAN 2 phút / lần và sóng Wi-Fi, rồi tự tắt. Gom 5 phút gửi lên; mất mạng thì lưu lại gửi sau. Giữ 35 ngày.": "How it is measured: sales devices do not measure by default. Tap «Monitor network» on the device to check — for the chosen time it pings the server every 30 seconds, counts failed calls and real-time disconnects, checks LAN printer ports every 2 minutes and Wi-Fi signal, then stops. Data is grouped every 5 minutes and uploaded; when offline it is kept and sent later. Kept for 35 days.",
   "Cách đo: mỗi máy đang mở màn bán hàng tự ping máy chủ 30 giây / lần, đếm lệnh gọi lỗi, số lần ": "How it is measured: each device with the sales screen open pings the server every 30 seconds and counts failed calls and the number of times ",
   "Cái, Lon, Ly…": "Piece, Can, Cup…",
@@ -1884,6 +1898,7 @@
   "Câu hỏi thường gặp": "FAQ",
   "Cây phòng ban": "Department tree",
   "Còn / Tổng": "Left / Total",
+  "Còn bảo hành": "In warranty",
   "Còn chỗ [ ... ] cần điền nội dung thật": "Placeholders [ ... ] still need real content",
   "Còn chỗ trống": "Spots available",
   "Còn hàng": "In stock",
@@ -2461,6 +2476,7 @@
   "Ghi nhận": "Record",
   "Ghi nhận đã trả": "Record as paid",
   "Ghi nợ chỉ dùng khi đã chọn khách — khách lẻ không theo dõi được công nợ.": "Putting on account (credit) works only when a customer is selected — walk-in customers' balances cannot be tracked.",
+  "Ghi phiếu thu «Phí sửa chữa bảo hành»": "Record a receipt «Warranty repair fee»",
   "Ghi vào sổ công nợ (lần đầu = «Số dư đầu»). Không đổi tiền đã thu của các đơn / phiếu; ": "Posted to the debt ledger (first time = «Opening balance»). Money already collected on orders / vouchers is not changed; ",
   "Ghim lên đầu": "Pin to top",
   "Ghim lên đầu bảng tin": "Pin to top of the feed",
@@ -2657,6 +2673,7 @@
   "Giờ đến": "Arrival time",
   "Giờ: ": "Time: ",
   "Giữ": "Keep",
+  "Giữ 35 ngày.": "Kept for 35 days.",
   "Giữ WiFi hiện tại, sang gán đèn": "Keep current WiFi, go to light assignment",
   "Giữ chỗ": "Reserve stock",
   "Giữ chỗ tồn tự đối soát lại với các đơn đang mở mỗi đêm (3 giờ sáng)": "Reserved stock is auto-reconciled against open orders every night (3 AM)",
@@ -2932,6 +2949,7 @@
   "Hàng bán theo kg / gram / lạng: đặt hàng lên cân rồi chọn hàng → SL = số trên cân. ": "Goods sold by kg / gram / tael: place the item on the scale, then select it → Qty = the scale reading. ",
   "Hàng bán trong kỳ": "Goods sold in period",
   "Hàng bắt buộc seri chỉ bán số nguyên.": "Serial-required goods can only be sold in whole numbers.",
+  "Hàng chưa khai bảo hành — nhập số tháng nếu có": "No warranty set for this item — enter months if any",
   "Hàng cân (thịt, rau, bánh…): quét mã in từ cân → tự thêm đúng trọng lượng / tiền.": "Weighed items (meat, vegetables, bread...): scan the code printed by the scale to automatically add the exact weight / amount.",
   "Hàng có mã vạch": "Barcoded goods",
   "Hàng có nhiều biến thể (size, màu…) được chuyển theo tổng số lượng của mặt hàng.": "Items with multiple variants (size, color...) are transferred by the item's total quantity.",
@@ -3062,6 +3080,7 @@
   "Hạn": "Due",
   "Hạn bàn giao, nghiệm thu": "Handover & acceptance deadline",
   "Hạn báo giá": "Quote validity",
+  "Hạn bảo hành dòng": "Line warranty expiry",
   "Hạn chót": "Deadline",
   "Hạn chót phải sau ngày bắt đầu": "The deadline must be after the start date",
   "Hạn chót sau (giờ)": "Deadline after (hours)",
@@ -3092,6 +3111,7 @@
   "Hằng năm": "Yearly",
   "HẸN GẶP LẠI": "SEE YOU AGAIN",
   "Hẹn": "Appointment",
+  "Hẹn / phụ trách": "Due date / assignee",
   "Hẹn chăm sóc": "Follow-up appointment",
   "Hẹn giờ": "Schedule",
   "Hẹn giờ gửi": "Scheduled send",
@@ -3103,8 +3123,10 @@
   "HẾT GIỜ": "TIME UP",
   "HẾT MÓN": "OUT OF ITEMS",
   "Hết / sắp hết": "Out / running low",
+  "Hết BH (tính phí)": "Out of warranty (paid)",
   "Hết buổi": "Sessions used up",
   "Hết bảo hành": "Warranty expired",
+  "Hết bảo hành — sửa có tính phí (nhập phí khi hoàn tất)": "Out of warranty — paid repair (enter the fee when completing)",
   "Hết giờ": "Time's up",
   "Hết hàng / dưới ĐM": "Out of stock / below minimum",
   "Hết hàng: mặc định chặn khi tồn khả dụng không đủ (tồn trừ phần đang nằm ở hóa đơn tạm HĐ1, HĐ2… chưa thanh toán); muốn bán trước nhập sau thì bật «Cho phép bán khi hết hàng / tồn âm»": "Out of stock: by default sales are blocked when available stock is insufficient (stock minus what is held on unpaid draft invoices HĐ1, HĐ2…); to sell first and receive later, turn on \"Allow selling when out of stock / negative stock\"",
@@ -3245,6 +3267,9 @@
   "In phiếu khi bấm Ra món": "Print slip when pressing Serve",
   "In phiếu mã": "Print code slips",
   "In phiếu qua mạng": "Print tickets over the network",
+  "In phiếu tiếp nhận?": "Print the intake slip?",
+  "In phiếu trả": "Print return slip",
+  "In phiếu trả máy?": "Print the device return slip?",
   "In phiếu ăn": "Print meal ticket",
   "In qua Agent vẫn theo gán máy Agent.": "Printing via Agent still follows the Agent device assignment.",
   "In ra máy tem": "Print to label printer",
@@ -3312,6 +3337,7 @@
   "Khi chờ khách": "While idle",
   "Khi cân bằng chỉ cộng / trừ phần chênh lệch (số đếm − tồn sổ lúc đếm), nên hàng bán sau lúc đếm vẫn được giữ đúng": "Balancing only adds / subtracts the difference (counted − book stock at count time), so sales made after the count are still kept correct",
   "Khi in sẽ thay bằng dữ liệu thật (tên khách, tổng tiền…)": "Replaced with real data (customer name, total...) when printed",
+  "Khi lập chứng từ, ô số điền sẵn số kế tiếp theo mẫu — sửa thành số của công ty, để trống thì máy tự nhảy. Số trùng sẽ bị báo.": "When creating a document, the number field is pre-filled with the next number from the pattern — change it to your company's number, or leave it blank to auto-number. Duplicates are reported.",
   "Khi mua hàng": "When buying",
   "Khi mất mạng, máy POS Android vẫn thu tiền mặt và in hóa đơn tạm; có mạng lại thì tự gửi đơn lên máy chủ.": "When the network drops, the Android POS device can still take cash and print a temporary invoice; once back online it sends the orders to the server automatically.",
   "Khi nào nhận chấm, tính trễ, về sớm, tăng ca": "When punches are accepted; how late, early leave and overtime are calculated",
@@ -3357,6 +3383,7 @@
   "Khuyến mãi tự động": "Automatic promotions",
   "Khuôn mặt / GPS": "Face / GPS",
   "Khách chuyển khoản thiếu": "Customer transferred too little",
+  "Khách chưa có SĐT": "Customer has no phone number",
   "Khách chưa có báo giá nào": "This customer has no quotes yet",
   "Khách chưa có báo giá nào khác": "This customer has no other quotes",
   "Khách chưa có thẻ / gói tập": "Customers without a pass / package",
@@ -3429,6 +3456,8 @@
   "Khách đã dùng · đã thanh toán": "Used by customer · paid",
   "Khách đã nhận phiếu tạm tính thì nhân viên không tự hủy món, hủy / xóa đơn hay thu ít hơn ": "Once the customer has the pre-bill, staff cannot cancel items, cancel / delete the order or collect less on their own ",
   "Khách đã nhận phiếu tạm tính — thay đổi làm giảm tiền phải có chủ / quản lý xác nhận. ": "After the customer has the pre-bill, any change that reduces the amount needs owner / manager confirmation. ",
+  "Khách đã trả": "Returned by customer",
+  "Khách đã trả hàng": "Returned by customer",
   "Khách đã từ chối báo giá này.": "The customer declined this quote.",
   "Khách đã đến": "Customer arrived",
   "Khách được lưu vào danh sách khách hàng POS — bán thẻ / gói tập cho khách ở màn Bán hàng.": "Customers are saved to the POS customer list — sell cards / packages to them on the Sales screen.",
@@ -3471,6 +3500,7 @@
   "Không chọn loại nào = nhận mọi loại": "None selected = receive all types",
   "Không chọn thứ = mọi ngày. Giờ kết thúc nhỏ hơn giờ bắt đầu = qua đêm.": "No weekday selected = every day. End time earlier than start time = overnight.",
   "Không chọn được mẫu": "Cannot select template",
+  "Không chọn: thu khi khách đến lấy máy": "Unchecked: collect when the customer picks up the device",
   "Không chốt được giờ": "Cannot lock the time",
   "Không chốt được.": "Cannot lock.",
   "Không copy được sinh trắc.": "Cannot copy biometrics.",
@@ -3541,6 +3571,8 @@
   "Không có máy cần dọn": "No devices to clean up",
   "Không có máy in cũ": "No old printers",
   "Không có máy nguồn": "No source device",
+  "Không có máy nào đang ở cửa hàng": "No devices are at the store",
+  "Không có máy sắp hết bảo hành": "No devices with warranty expiring soon",
   "Không có món khớp bộ lọc": "No items match the filter",
   "Không có món nào cần kiểm tra.": "No items need checking.",
   "Không có món phù hợp": "No matching items",
@@ -3556,6 +3588,7 @@
   "Không có nhân viên đi trễ / về sớm": "No employees late / leaving early",
   "Không có nhật ký nào khớp bộ lọc": "No logs match the filter",
   "Không có phiên": "No sessions",
+  "Không có phiếu": "No tickets",
   "Không có phiếu lương để xuất": "No payslips to export",
   "Không có phiếu nhập (nhập tay / dữ liệu cũ)": "No receipt (manual entry / old data)",
   "Không có phiếu nào": "No vouchers",
@@ -3722,7 +3755,9 @@
   "Không theo ca, không tính trễ/sớm/tăng ca": "No shifts; late / early / overtime not calculated",
   "Không theo mẫu, giao ngay": "No template, assign right away",
   "Không theo đợt": "Not per batch",
+  "Không thiết bị nào đang chia sẻ máy in này nên chưa in. ": "No device is sharing this printer, so it has not printed. ",
   "Không thu hồi được": "Cannot revoke",
+  "Không thu phí.": "No fee.",
   "Không thuế / HĐ bán hàng": "No tax / sales invoice",
   "Không thuộc diện": "Not applicable",
   "Không thuộc diện hưởng phép năm theo chính sách cửa hàng (chỉ áp dụng lương tháng).": "Not entitled to annual leave under the store policy (monthly salary only).",
@@ -3736,6 +3771,7 @@
   "Không thấy menu: tài khoản thiếu phân quyền — Admin vào Cài đặt → Phân quyền": "Menu not visible: the account lacks permissions — an Admin goes to Settings → Permissions",
   "Không thấy màn hình thứ 2. Cắm thêm màn rồi bấm lại, hoặc copy link sang máy/TV khác.": "2nd screen not found. Plug in another display and tap again, or copy the link to another device / TV.",
   "Không thấy máy in cổng 9100.\nKiểm tra máy in cùng Wi‑Fi/LAN, bật RAW 9100, rồi quét lại.": "No port-9100 printer found.\nCheck the printer is on the same Wi‑Fi/LAN, turn on RAW 9100, then scan again.",
+  "Không thấy máy in cổng 9100.\nKiểm tra máy in cùng Wi‑Fi/LAN, bật RAW 9100, rồi quét lại. Biết IP thì nhập thẳng vào ô IP LAN rồi In thử.": "No printer found on port 9100.\nCheck the printer is on the same Wi‑Fi/LAN with RAW 9100 enabled, then scan again. If you know the IP, type it into the LAN IP field and Print test.",
   "Không thấy một thẻ báo cáo: thiếu quyền module PosReport… — tick trong Phân quyền / gói dịch vụ.": "A report card is missing: no PosReport… module permission — tick it in Permissions / service plan.",
   "Không thấy rác app.": "No app junk found.",
   "Không thể kéo về «Chờ xác nhận»": "Cannot move back to \"Awaiting confirmation\"",
@@ -3746,6 +3782,7 @@
   "Không trả được tiền phép.": "Cannot pay out leave.",
   "Không trừ": "No deduction",
   "Không trừ BHXH tháng có từ 14 ngày không làm, không lương": "Do not deduct social insurance in months with 14 or more unpaid/absent days",
+  "Không trừ kho cửa hàng": "Does not deduct store stock",
   "Không trừ tồn thành phẩm": "Don't deduct finished-goods stock",
   "Không tìm thấy báo cáo": "Report not found",
   "Không tìm thấy báo giá": "Quotation not found",
@@ -3940,6 +3977,7 @@
   "Kiến nghị": "Suggestion",
   "Kiến nghị / Khiếu nại": "Suggestions / Complaints",
   "Kiến nghị / đề xuất": "Suggestions / proposals",
+  "Kiểm cột «Tên Zalo» để chắc đúng người.": "Check the «Zalo name» column to make sure it is the right person.",
   "Kiểm kho theo mã": "Stock count by code",
   "Kiểm kho: tạo phiếu → thêm hàng → NHẬP SỐ ĐẾM NGAY KHI ĐẾM (hệ thống chốt tồn sổ lúc nhập) → Hoàn thành để cân bằng": "Stock count: create a sheet → add goods → ENTER THE COUNT AS YOU COUNT (the system locks book stock at entry) → Complete to balance",
   "Kiểm kê tài sản": "Asset inventory check",
@@ -4019,6 +4057,7 @@
   "Kết quả giao theo hãng": "Delivery results by carrier",
   "Kết quả giải quyết": "Resolution result",
   "Kết quả giải quyết gửi tới người gửi (khuyến khích ghi rõ)": "Resolution sent to the submitter (please be specific)",
+  "Kết quả sửa (đã thay / sửa gì) *": "Repair result (what was replaced / fixed) *",
   "Kết quả xử lý": "Outcome",
   "Kết thúc kỳ": "End of period",
   "Kết thúc yên lặng": "Quiet finish",
@@ -4160,6 +4199,7 @@
   "Lý do xuất": "Issue reason",
   "Lý do đổi ca": "Reason for shift change",
   "Lý do đổi máy": "Reason for changing device",
+  "Lý do đổi máy *": "Reason for replacement *",
   "Lý do: ": "Reason: ",
   "Lưng": "Back",
   "Lưng – tay": "Back – arms",
@@ -4239,6 +4279,7 @@
   "Lượt CK Tingee": "Tingee transfer notification turns",
   "Lượt NV đã xếp": "Employee slots assigned",
   "Lượt NV đã xếp ca": "Employee shift slots assigned",
+  "Lượt bảo hành": "Warranty cases",
   "Lượt ca theo ngày": "Shifts per day",
   "Lượt check-in": "Check-ins",
   "Lượt chưa xác nhận": "Unconfirmed",
@@ -4260,6 +4301,7 @@
   "Lấy khuôn mặt": "Capture face",
   "Lấy khối lượng từ cân": "Get weight from scale",
   "Lấy khối lượng từ cân cho dòng vừa thêm": "Get scale weight for the line just added",
+  "Lấy máy trong kho cửa hàng": "Take a device from store stock",
   "Lấy mã liên kết": "Get link code",
   "Lấy mã mới": "Get new code",
   "Lấy seri đang trong kho": "Get serials currently in stock",
@@ -4281,6 +4323,7 @@
   "Lần tập cuối": "Last workout",
   "Lần xóa gần nhất: ": "Last cleared: ",
   "Lần đầu": "First time",
+  "Lập": "Created",
   "Lập chứng từ thất bại": "Failed to create document",
   "Lập chứng từ trước rồi mới sửa riêng nội dung": "Create the document first, then edit its content separately",
   "Lập hóa đơn thay thế": "Issue replacement invoice",
@@ -4453,12 +4496,15 @@
   "Máy chủ không trả về mã hồ sơ lương.": "The server did not return a payroll profile code.",
   "Máy chủ từ chối": "Server rejected",
   "Máy chủ từ chối khóa thiết bị — kiểm tra «Bật điều khiển đèn» trong Thiết lập → Đèn bàn bi-a": "Server rejected the device lock — check «Turn on light control» in Setup → Billiard table lights",
+  "Máy còn bảo hành": "Devices in warranty",
   "Máy có biểu tượng máy in là máy giữ máy in cho máy khác in qua (Agent) — cần mạng tốt nhất.": "A device with a printer icon holds the printer for other devices to print through (Agent) — it needs the best network.",
   "Máy của tôi": "My device",
   "Máy cửa hàng (Agent)": "Store device (Agent)",
   "Máy dùng chung cửa hàng. A7/web in được khi máy cắm cổng bật Agent.": "Shared store device. A7/web can print when the gate machine has Agent running.",
   "Máy giữ máy in (Agent)": "Printer-hosting device (Agent)",
   "Máy hiện Offline — chưa gửi tín hiệu trong 2 phút. Kéo xuống để tải lại hoặc kiểm tra ADMS/mạng.": "Device is Offline — no signal for 2 minutes. Pull down to reload or check ADMS/network.",
+  "Máy hãng gửi về": "Sent by manufacturer",
+  "Máy hết bảo hành lúc nhận — nhập phí sửa.": "Device was out of warranty at intake — enter the repair fee.",
   "Máy hỏi máy chủ mà không có trả lời. Nhiều lỗi = order / thanh toán phải bấm lại.": "The device asked the server but got no reply. Many errors mean you must press order / payment again.",
   "Máy hội viên sẽ quét (cửa ra vào / quầy lễ tân):": "Member device will scan (entrance / reception desk):",
   "Máy iMin: máy in trong nối qua USB nội bộ — chọn kết nối USB rồi chọn máy in trong danh sách. Dòng M2-202/203/Pro (SPI) chưa hỗ trợ.": "iMin device: the built-in printer connects over internal USB — choose a USB connection, then pick the printer from the list. M2-202/203/Pro (SPI) models are not supported yet.",
@@ -4472,6 +4518,7 @@
   "Máy in bếp của món": "Kitchen printer for this item",
   "Máy in chưa sẵn sàng": "Printer not ready",
   "Máy in chưa đồng bộ server (ID cũ/Agent). ": "Printer not synced with the server (old ID / Agent). ",
+  "Máy in chỉ dùng trên một thiết bị thì không cần chia sẻ — xem ở tab «Trên máy này».": "A printer used on only one device does not need sharing — see the «This device» tab.",
   "Máy in cloud": "Cloud printer",
   "Máy in cloud là máy in dùng chung": "Cloud printers are shared printers",
   "Máy in cắm dây mạng trong quán. Đo bằng cách thử kết nối mỗi 2 phút.": "A printer connected by network cable in the shop. Measured by testing the connection every 2 minutes.",
@@ -4501,12 +4548,14 @@
   "Máy in đã đăng ký nhưng không Agent nào đang nhận. ": "The printer is registered but no Agent is receiving. ",
   "Máy khác (A7/web) gửi hóa đơn và tạm tính về máy này.": "Other devices (A7/web) send invoices and pro-forma bills to this device.",
   "Máy khác (A7/web) in hóa đơn và tạm tính về đây": "Other devices (A7/web) print bills and pro-forma bills here",
+  "Máy khác gửi in vào đây sẽ chờ trong hàng đợi. Mở app trên thiết bị cắm máy in và bật chia sẻ, ": "Jobs sent here from other devices wait in the queue. Open the app on the device the printer is plugged into and turn on sharing, ",
   "Máy khác gửi in vào đây sẽ chờ trong hàng đợi. Mở app trên thiết bị cắm máy in và bật chia sẻ, hoặc xóa nếu không dùng nữa.": "Jobs sent here wait in the queue. Open the app on the device connected to the printer and turn on sharing, or delete it if no longer used.",
   "Máy khác hoặc bếp vừa thêm / sửa món trên bàn này. Giỏ đã được cập nhật — ": "Another device or the kitchen just added / edited items on this table. The cart has been updated — ",
   "Máy khác đang giữ quyền sửa bàn này. Món vừa thêm trên máy này chưa được lưu.": "Another device holds the edit lock on this table. Items just added on this device were not saved.",
   "Máy khác: nhập Intent action và tên extra chứa mã (xem trong app cài đặt ": "Other devices: enter the Intent action and the extra name that holds the code (see in the installed app) ",
   "Máy không có Bluetooth LE": "This device has no Bluetooth LE",
   "Máy không có dịch vụ in / chia sẻ": "This device has no print / share service",
+  "Máy mới giữ nguyên hạn bảo hành còn lại. Máy cũ ghi «thu hồi — chờ trả NCC / gửi hãng».": "The new device keeps the remaining warranty. The old device is marked «recalled — awaiting return to supplier / manufacturer».",
   "Máy mới sẽ không đăng nhập được. Gỡ máy không dùng hoặc nâng cấp gói.": "New devices won't be able to log in. Remove unused devices or upgrade your plan.",
   "Máy mở màn bán hàng mới được đo": "Only devices that opened the sales screen are measured",
   "Máy nguồn": "Source device",
@@ -4538,9 +4587,11 @@
   "Máy đang dùng 4G — nên dùng Wi-Fi / dây LAN của quán cho ổn định.": "The device is on 4G — use the shop's Wi-Fi / LAN cable for stability.",
   "Máy đang giữ bàn cần «Thoát bàn» hoặc về sơ đồ bàn trước.": "The device holding the table must first «Leave table» or return to the table map.",
   "Máy đang gửi số liệu": "Device is sending data",
+  "Máy đã bán": "Devices sold",
   "Máy đã nhận": "Device received",
   "Máy đích": "Target device",
   "Máy đích online sẽ nhận trong vài giây.": "An online target device will receive it within a few seconds.",
+  "Máy ở cửa hàng": "Devices at store",
   "Mã\nNV": "Emp.\\ncode",
   "Mã HĐ": "Invoice No.",
   "Mã HĐ: {Ma_Don_Hang}": "Bill no.: {Ma_Don_Hang}",
@@ -4627,6 +4678,7 @@
   "Mô tả Google": "Google description",
   "Mô tả hàng": "Product description",
   "Mô tả lỗi / yêu cầu của khách": "Customer's error description / request",
+  "Mô tả lỗi / yêu cầu của khách *": "Fault description / customer request *",
   "Mô tả, phạm vi công việc": "Description, scope of work",
   "Mô tả, yêu cầu": "Description, requirements",
   "Môi trường làm việc": "Work environment",
@@ -4687,6 +4739,7 @@
   "Mẫu giao diện SBOX": "SBOX interface template",
   "Mẫu gắn trường": "Field-bound template",
   "Mẫu gốc": "Original template",
+  "Mẫu gợi ý số kế tiếp": "Next-number pattern",
   "Mẫu hợp đồng / Word & Lịch sử thao tác": "Contract / Word templates & Activity log",
   "Mẫu in A4": "A4 print template",
   "Mẫu in báo giá": "Quotation print template",
@@ -4700,6 +4753,7 @@
   "Mẫu này đang ở dạng HTML thuần": "This template is plain HTML",
   "Mẫu phân quyền": "Permission template",
   "Mẫu phân quyền dựng sẵn": "Prebuilt permission templates",
+  "Mẫu số": "Pattern",
   "Mẫu số (pattern)": "Template number (pattern)",
   "Mẫu số SoftDreams (Pattern)": "SoftDreams template number (Pattern)",
   "Mẫu tem": "Label template",
@@ -4749,6 +4803,7 @@
   "Mặc định — không cần cấu hình.": "Default — no configuration needed.",
   "Mặt hàng có bán": "Items sold",
   "Mặt hàng cụ thể": "Specific item",
+  "Mặt hàng hay bảo hành": "Most-claimed items",
   "Mặt hàng nhập nhiều nhất": "Most purchased-in items",
   "Mệt / thiếu ngủ": "Tired / lack of sleep",
   "Mọi CN": "All branches",
@@ -4800,6 +4855,7 @@
   "Mỗi biến thể / đơn vị bán một tem": "One label per variant / sale unit",
   "Mỗi buổi làm": "Every work session",
   "Mỗi ca đóng là một lần đối chiếu két riêng.": "Each closed shift is a separate cash-drawer reconciliation.",
+  "Mỗi công ty một kiểu số: máy tự nhảy theo mẫu, hoặc người lập tự nhập số": "Each company numbers differently: auto-number by pattern, or let the creator type the number",
   "Mỗi cửa hàng chọn máy + mẫu mặc định riêng. Hóa đơn thường K80; tem ly/tem hàng khổ nhỏ; bếp dùng mẫu phiếu bếp.": "Each store picks its own device + default template. Bills normally use K80; cup / product labels use small sizes; the kitchen uses the kitchen slip template.",
   "Mỗi cửa hàng có dữ liệu riêng: hàng hóa, kho, mẫu in, máy in, cấu hình HĐĐT không dùng chung giữa cửa hàng": "Each store has its own data: products, stock, print templates, printers and e-invoice setup are not shared between stores",
   "Mỗi cửa hàng dùng bot Zalo riêng, miễn phí": "Each store uses its own Zalo bot, free of charge",
@@ -4848,6 +4904,8 @@
   "Mới tập lần đầu": "First workout",
   "Mới về": "New arrivals",
   "Mới về chưa bán": "Arrived, not yet sold",
+  "Mời anh/chị mang phiếu đến cửa hàng nhận máy. Cảm ơn!": "Please bring the slip to the store to pick up your device. Thank you!",
+  "Mời anh/chị đến cửa hàng nhận lại máy hoặc liên hệ để báo giá sửa.": "Please come to the store to collect your device, or contact us for a repair quote.",
   "Mời chấm vân tay / khuôn mặt tại máy căn tin": "Please scan your fingerprint / face at the canteen device",
   "Mở Cài đặt của máy → cấp quyền Micro cho ứng dụng.": "Open the device Settings → grant Microphone permission to the app.",
   "Mở Google Maps": "Open Google Maps",
@@ -5252,6 +5310,7 @@
   "Nhập họ và tên.": "Enter the full name.",
   "Nhập kho luôn": "Receive into stock now",
   "Nhập khóa AI trước khi bật trợ lý": "Enter the AI key before turning on the assistant",
+  "Nhập kết quả sửa": "Enter the repair result",
   "Nhập lý do": "Enter a reason",
   "Nhập lý do (ít nhất 3 ký tự)": "Enter a reason (at least 3 characters)",
   "Nhập lý do kỷ luật": "Enter the disciplinary reason",
@@ -5262,6 +5321,8 @@
   "Nhập lương theo giờ.": "Enter the hourly wage.",
   "Nhập lương đóng bảo hiểm của một nhân viên": "Enter the insured salary of one employee",
   "Nhập mã voucher": "Enter voucher code",
+  "Nhập mô tả lỗi": "Enter the fault description",
+  "Nhập mẫu số": "Enter a pattern",
   "Nhập mật khẩu hiện tại để bật đăng nhập nhanh trên điện thoại này.": "Enter your current password to turn on quick sign-in on this phone.",
   "Nhập mật khẩu tài khoản chủ cửa hàng hoặc quản lý để khóa / mở bán món.": "Enter the shop owner's or manager's account password to lock / unlock selling an item.",
   "Nhập mật khẩu tài khoản chủ cửa hàng hoặc quản lý để tiếp tục.": "Enter the shop owner's or manager's account password to continue.",
@@ -5277,6 +5338,7 @@
   "Nhập ròng": "Net purchases",
   "Nhập rộng × cao (mm) hoặc giá tối thiểu / bộ": "Enter width × height (mm) or minimum price per set",
   "Nhập rộng × cao để tính diện tích": "Enter width × height to calculate area",
+  "Nhập seri máy mới và lý do": "Enter the new serial and the reason",
   "Nhập số công nợ đúng (≥ 0)": "Enter a valid debt amount (≥ 0)",
   "Nhập số giờ tối thiểu từ 0,5 đến 24": "Enter a minimum of 0.5 to 24 hours",
   "Nhập số hợp lệ cho khoảng cách, khớp mặt và số ngày": "Enter valid numbers for distance, face match and days",
@@ -5395,6 +5457,7 @@
   "Nội dung 14 · 400": "Content 14 · 400",
   "Nội dung CK phải giữ mã đơn trên QR để tự khớp.": "The transfer note must keep the order code on the QR to match automatically.",
   "Nội dung buổi": "Session content",
+  "Nội dung ghi chú *": "Note *",
   "Nội dung khác": "Other content",
   "Nội dung làm việc với khách": "Work done with the customer",
   "Nội dung mã tự soạn (tuỳ chọn)": "Self-written code content (optional)",
@@ -5449,6 +5512,7 @@
   "Phiếu EOD = doanh thu theo ngày/NV (không nhân đôi khi mở 2 ca). ": "EOD slip = revenue by day/employee (not doubled when 2 shifts are opened). ",
   "Phiếu báo chế biến": "Preparation notice slip",
   "Phiếu báo tiền in cho khách xem trước khi thanh toán. Sau tạm tính mà số tiền giảm là điểm cần soát nhất.": "A slip printing the amount for the customer to check before paying. After a pro-forma, the discount amount is what needs the most checking.",
+  "Phiếu bảo hành": "Warranty tickets",
   "Phiếu bếp / hóa đơn gửi qua máy chủ tới máy giữ máy in.": "Kitchen slips / invoices are sent through the server to the printer-hosting device.",
   "Phiếu bếp chưa in": "Kitchen ticket not printed",
   "Phiếu bếp chờ": "Pending kitchen slips",
@@ -5494,6 +5558,7 @@
   "Phiếu tổng (nhận mọi món báo bếp)": "Master ticket (receives all kitchen-notified items)",
   "Phiếu tự động": "Auto slips",
   "Phiếu tự động sinh khi có log vi phạm (xem Tài chính nhân sự → tab Thưởng & phạt, lọc «Phiếu phạt tự động»)": "Tickets are created automatically from violation logs (see HR finance → Bonus & penalty tab, filter “Automatic penalty tickets”)",
+  "Phiếu vào «In treo» — bật «Chia sẻ máy in» ở thiết bị cắm máy in rồi bấm In lại.": "The job went to «Stuck prints» — turn on «Share printer» on the device the printer is plugged into, then tap Print again.",
   "Phiếu xuất hủy / nội bộ không được xuất quá tồn thực, và (khi tắt bán âm) không được lấy phần đang giữ chỗ cho bàn": "Write-off / internal issue slips can't issue more than real stock and (when negative selling is off) can't take the quantity held for tables",
   "Phiếu ăn mới nhất": "Latest meal ticket",
   "Phiếu ăn sẽ tự in sau mỗi lượt chấm": "Meal ticket prints automatically after each punch",
@@ -5539,6 +5604,8 @@
   "Phí ship": "Shipping fee",
   "Phí ship cố định (đ)": "Fixed shipping fee (đ)",
   "Phí ship:": "Shipping fee:",
+  "Phí sửa (đ) — 0 nếu miễn phí": "Repair fee (VND) — 0 if free",
+  "Phí sửa đã thu": "Repair fees collected",
   "Phí thu khách": "Fee charged to customer",
   "Phí thu khách − cước hãng": "Fee charged to customer − carrier freight",
   "Phí trả hàng": "Return fee",
@@ -5597,6 +5664,7 @@
   "Phụ cấp đi lại": "Travel allowance",
   "Phụ cấp điện thoại / ca": "Phone allowance / shift",
   "Phụ cấp đêm phải từ 0% đến 300%.": "Night allowance must be between 0% and 300%.",
+  "Phụ kiện gửi kèm (sạc, hộp, ốp…)": "Accessories left with device (charger, box, case…)",
   "Phụ phí khi thanh toán": "Surcharge at checkout",
   "Phụ thu": "Surcharge",
   "Phụ thu & phí giao hàng": "Surcharge & delivery fee",
@@ -5652,6 +5720,7 @@
   "Quá hạn chưa dùng thì hủy": "Cancel if unused after expiry",
   "Quá hạn hẹn": "Past appointment time",
   "Quá hẹn": "Past appointment time",
+  "Quá hẹn trả": "Overdue for return",
   "Quá sớm, quá muộn, chấm nhiều lần": "Too early, too late, multiple punches",
   "Quán ăn / cafe": "Eatery / cafe",
   "Quãng đường": "Distance",
@@ -5803,7 +5872,9 @@
   "Seed / bổ sung": "Seed / top-up",
   "Sen Garden: trên portal Pattern = «1C26MAA» (HĐ máy tính tiền), ": "Sen Garden: on the portal Pattern = \"1C26MAA\" (cash-register invoice), ",
   "Seri / IMEI": "Serial / IMEI",
+  "Seri / IMEI dòng": "Line serial / IMEI",
   "Seri máy mới": "New device serial",
+  "Seri máy mới *": "New device serial *",
   "Seri máy trả nhà cung cấp — mỗi seri một dòng": "Serials of devices returned to the supplier — one per line",
   "Ship cố định": "Flat shipping",
   "Shop trả": "Shop pays",
@@ -5843,6 +5914,7 @@
   "Săn chắc": "Firm",
   "SĐT / Zalo quán (hiển thị cho khách)": "Shop phone / Zalo (shown to guests)",
   "SĐT Zalo: ": "Zalo phone: ",
+  "SĐT liên hệ": "Contact phone",
   "SĐT lấy hàng": "Pickup phone",
   "SĐT ngân hàng": "Bank phone number",
   "SĐT người nộp / nhận": "Payer / payee phone",
@@ -6070,12 +6142,14 @@
   "Sửa topping bán lỗ / hết hàng trước, rồi tăng tỷ lệ ly có topping.": "Fix loss-making / out-of-stock toppings first, then raise the share of cups with toppings.",
   "Sửa trường": "Edit field",
   "Sửa xong bấm Lưu rồi xem lại tab «Mẫu gắn trường» / «Bản in thử».": "After editing, tap Save and review the “Field templates” / “Test print” tabs again.",
+  "Sửa xong — chờ trả": "Repaired — awaiting pickup",
   "Sửa đơn": "Edit order",
   "Sự kiện sắp tới": "Upcoming events",
   "Sự việc thế nào, xảy ra khi nào, ảnh hưởng ra sao, bạn đề xuất cách giải quyết gì?": "What happened, when did it happen, what was the impact, and how do you suggest resolving it?",
   "T.TIỀN": "TOTAL",
   "T.tiền": "Total",
   "T1 7″ DSKernel: ảnh trình chiếu khi chờ + bill/VietQR khi bán": "T1 7″ DSKernel: slideshow while idle + bill/VietQR during a sale",
+  "T1 dùng ảnh trình chiếu khi chờ khách. Video không chạy trên DSKernel — chọn «Android Flutter» ": "T1 shows a slideshow while waiting for customers. Video does not play on DSKernel — choose «Android Flutter» ",
   "T1 dùng ảnh trình chiếu khi chờ khách. Video không chạy trên DSKernel — chọn «Android Flutter» hoặc «Window» nếu cần video.": "T1 shows slideshow photos while idle. Video does not play on DSKernel — choose «Android Flutter» or «Window» if you need video.",
   "T1: dùng ảnh trình chiếu bên dưới khi chờ khách. ": "T1: use the slideshow images below while waiting for a guest. ",
   "T1: lấy ảnh promo / sản phẩm đầu tiên làm welcome": "T1: use the first promo / product image as the welcome screen",
@@ -6278,6 +6352,7 @@
   "Thiết bị này không hỗ trợ Bluetooth LE": "This device does not support Bluetooth LE",
   "Thiết bị này không phải bộ đèn bi-a SBOX": "This device is not an SBOX billiards light set",
   "Thiết bị đang chia sẻ máy in": "Devices sharing printers",
+  "Thiết bị đang cắm máy in bật chia sẻ → điện thoại, máy thu ngân, web khác in nhờ qua thiết bị đó.\n": "The device the printer is plugged into turns on sharing → phones, cashier devices and web print through that device.\n",
   "Thiết bị đang cắm máy in bật chia sẻ → điện thoại, máy thu ngân, web khác in nhờ qua thiết bị đó.\nMáy in chỉ dùng trên một thiết bị thì không cần chia sẻ — xem ở tab «Trên máy này».": "The device connected to the printer turns on sharing → other phones, cashier devices and the web print through it.\nA printer used on only one device does not need sharing — see the «On this device» tab.",
   "Thiết bị đăng nhập": "Logged-in devices",
   "Thiết kế hóa đơn K58 / K80, tem 50×30, phiếu bếp": "Design K58 / K80 receipts, 50×30 labels, kitchen tickets",
@@ -6347,6 +6422,7 @@
   "Thu nhỏ ảnh": "Shrink image",
   "Thu nợ hóa đơn HD000050": "Collect debt for invoice HD000050",
   "Thu nợ khách hàng": "Collect customer debt",
+  "Thu phí ngay (ghi phiếu thu)": "Collect fee now (record a receipt)",
   "Thu phóng": "Zoom",
   "Thu phạt: duyệt phiếu phạt và chọn thu tiền mặt — phiếu thu tự liên kết phiếu phạt": "Collect penalty: approve the penalty ticket and choose to collect cash — the receipt voucher is linked to it automatically",
   "Thu phạt: khi duyệt chọn trừ lương hoặc tiền mặt (tự ghi Sổ quỹ); theo dõi Báo cáo phạt": "Collecting penalties: when approving, choose salary deduction or cash (recorded in the cash book automatically); track them in the Penalty report",
@@ -6637,6 +6713,7 @@
   "Tiếp nhận": "Intake",
   "Tiếp nhận BH": "Warranty intake",
   "Tiếp nhận bảo hành": "Receive warranty claim",
+  "Tiếp nhận máy mới: tab «Máy đã bán» → tìm seri / SĐT → «Tiếp nhận BH».": "To take in a device: «Devices sold» tab → search serial / phone → «Take in».",
   "Tiếp nhận xử lý": "Accept for handling",
   "Tiếp tục in tự động": "Continue auto printing",
   "Tiếp tục soạn": "Keep editing",
@@ -6772,6 +6849,7 @@
   "Trên máy đó bấm «Thoát bàn» hoặc về sơ đồ bàn, rồi thanh toán lại ở đây.": "On that device tap “Leave table” or go back to the table map, then pay again here.",
   "Trên portal Pattern = «1C26MAA» (HĐ máy tính tiền), cột Ký hiệu trống. ": "On the portal Pattern = “1C26MAA” (cash-register invoice), the Series column is blank. ",
   "Trên thiết bị đang cắm máy in hóa đơn: mở Máy in cloud → bật «Chia sẻ máy in của thiết bị này» và chọn máy đó.": "On the device connected to the receipt printer: open Cloud printers → turn on «Share this device's printers» and pick that printer.",
+  "Trên thiết bị đang cắm máy in: bật «Chia sẻ máy in của thiết bị này» ở khung cuối trang rồi chọn máy.": "On the device the printer is plugged into: turn on «Share this device's printers» at the bottom of the page, then pick the printers.",
   "Trên trình duyệt: Ctrl+N / Ctrl+T / Ctrl+W là phím của trình duyệt, không dùng được cho bán hàng.": "In a browser: Ctrl+N / Ctrl+T / Ctrl+W are browser shortcuts and can't be used for sales.",
   "Trên điện thoại: bấm «Cài bộ đèn qua Bluetooth» — app tự gửi WiFi + khóa, rồi bạn bấm «Thử đèn» ": "On your phone: tap “Set up the light set via Bluetooth” — the app sends the WiFi + key automatically, then tap “Test lights” ",
   "Trên đơn: chọn khách trước khi thanh toán để cộng điểm / ghi nợ": "On the order: choose the customer before paying to earn points / record the debt",
@@ -6824,6 +6902,7 @@
   "Trả hàng (đã trừ DT)": "Returns (deducted from revenue)",
   "Trả hàng / ": "Return / ",
   "Trả hàng cho NCC: menu «Trả hàng nhập» — giảm tồn, giảm công nợ NCC": "Return goods to supplier: menu «Purchase return» — reduces stock and supplier payable",
+  "Trả khách": "Return to customer",
   "Trả lương": "Pay salary",
   "Trả lương ngay? Có thể trả tiền mặt, chuyển khoản, kết hợp hoặc xuất file chuyển lương cho ngân hàng.": "Pay salary now? You can pay by cash, bank transfer, a mix, or export a payroll transfer file for the bank.",
   "Trả lương ngày lễ": "Pay holiday wages",
@@ -7065,9 +7144,11 @@
   "Tìm nhân viên, mã NV, phòng ban": "Search employee, employee code, department",
   "Tìm nhân viên, tên máy": "Search employee, device name",
   "Tìm phòng ban": "Search departments",
+  "Tìm seri / IMEI, tên hoặc SĐT khách, mã đơn, sản phẩm": "Search serial / IMEI, customer name or phone, order no., product",
   "Tìm seri, mã thẻ, IMEI, tên hàng…": "Search serial, card code, IMEI, item name…",
   "Tìm số HĐ, báo giá, khách, SĐT": "Search invoice no., quotation, customer, phone",
   "Tìm số báo giá, tên, SĐT khách": "Search quotation no., name, customer phone",
+  "Tìm số phiếu, seri, tên / SĐT khách, sản phẩm": "Search ticket no., serial, customer name / phone, product",
   "Tìm số đơn, số HĐ, khách, email": "Search order no., invoice no., customer, email",
   "Tìm tham số để chèn…": "Search parameter to insert…",
   "Tìm theo tiêu đề, nội dung, mã phiếu": "Search by title, content, ticket code",
@@ -7118,6 +7199,7 @@
   "Tình trạng hạn dùng": "Expiry status",
   "Tình trạng hệ thống": "System status",
   "Tình trạng lịch đặt": "Booking status",
+  "Tình trạng máy lúc nhận (trầy, móp, màn hình…)": "Device condition at intake (scratches, dents, screen…)",
   "Tình trạng tài sản": "Asset condition",
   "Tình trạng tồn kho": "Stock status",
   "Tình trạng đi làm": "Attendance status",
@@ -7353,6 +7435,7 @@
   "Tệp sẽ mất hẳn khỏi máy.": "The file will be permanently removed from this device.",
   "Tệp vượt quá 15 MB": "File exceeds 15 MB",
   "Tỉ lệ 1200×630 cho Facebook / Zalo.": "1200×630 ratio for Facebook / Zalo.",
+  "Tỉ lệ = lượt bảo hành trong kỳ / số máy đã bán có bảo hành": "Rate = warranty cases in the period / devices sold with warranty",
   "Tỉ lệ CC": "Attendance rate",
   "Tỉ lệ chốt": "Close rate",
   "Tốc độ (baud)": "Speed (baud)",
@@ -7491,6 +7574,7 @@
   "Từ chối bảo hành": "Reject warranty",
   "Từ chối hạch toán": "Reject settlement",
   "Từ chối đổi ca": "Reject shift swap",
+  "Từ chối — chờ trả": "Rejected — awaiting pickup",
   "Từ doanh thu đến lợi nhuận ròng": "From revenue to net profit",
   "Từ file Excel": "From Excel file",
   "Từ hồ sơ NV": "From employee profile",
@@ -7523,7 +7607,10 @@
   "Tự in bếp khi đơn online được xác nhận": "Auto-print kitchen ticket when an online order is confirmed",
   "Tự in khi có người chấm cơm": "Auto-print when someone checks in for a meal",
   "Tự in tem khi tạo vận đơn": "Auto-print label when creating a waybill",
+  "Tự lập phiếu xuất kho 1 máy — tồn kho khớp sổ seri": "Creates a stock issue for 1 device — stock matches the serial ledger",
   "Tự mua từ POS": "Self-purchase from POS",
+  "Tự nhảy theo mẫu": "Auto-number by pattern",
+  "Tự nhập": "Type it in",
   "Tự thiết kế": "Custom design",
   "Tự thu nhỏ cho vừa": "Auto-shrink to fit",
   "Tự thêm": "Add manually",
@@ -7940,6 +8027,7 @@
   "Xử lý lại": "Reprocess",
   "Xử lý nhanh khi không in được, không thanh toán được, lệch tồn, HĐĐT lỗi.": "Quick fixes when printing fails, payment fails, stock mismatches or e-invoice errors.",
   "Xử lý tiền": "Handle money",
+  "Xử lý trung bình": "Average handling time",
   "Yêu cầu chớp mắt / quay đầu — chặn chấm bằng ảnh hoặc video": "Require blinking / turning the head — blocks punching with a photo or video",
   "Yêu cầu khác": "Other requests",
   "Yêu cầu khác (ghi chú)": "Other requests (note)",
@@ -8005,6 +8093,7 @@
   "chuyên cần": "attendance",
   "chuyển khoản": "bank transfer",
   "chuyển khoản thiếu": "transfer short",
+  "chưa VAT": "excl. VAT",
   "chưa chọn người nhận — chưa chạy": "no recipient chosen — not run",
   "chưa cấp quyền": "no permission granted",
   "chưa cộng": "not added",
@@ -8027,6 +8116,7 @@
   "chụp lại hoặc lưu ảnh dạng JPG / PNG rồi thử lại.": "retake the photo or save it as JPG / PNG and try again.",
   "chức năng ngoài gói sẽ không được cấp.": "features outside the plan will not be granted.",
   "chữ hoa + thường": "upper + lower case",
+  "con dấu": "seal",
   "cuối": "end",
   "cuối ngày": "end of day",
   "cáp OTG. Chọn cân trong danh sách, bấm «Lưu & nối cân» → máy hỏi quyền USB: bấm «Cho phép». ": "OTG cable. Pick the scale in the list, tap «Save & connect scale» → the device asks for USB permission: tap «Allow». ",
@@ -8076,6 +8166,7 @@
   "giá khuyến mãi theo ngày…). Hàng không có trong bảng vẫn bán giá gốc. Khi bán, chọn bảng ": "daily promotion prices…). Items not in the list are still sold at the base price. When selling, choose the price list ",
   "giá sỉ": "wholesale price",
   "giá trị": "value",
+  "giá trị báo giá": "quote value",
   "giá trị trước VAT": "value before VAT",
   "giá ở ô «Bảng giá» trên màn Bán hàng; bảng «Mặc định» tự áp khi mở hóa đơn mới.": "in the «Price list» box on the Sales screen; the «Default» list is applied automatically when a new invoice is opened.",
   "giường": "bed",
@@ -8110,9 +8201,11 @@
   "hoá đơn pos": "pos invoice",
   "hoặc Trang chủ → POS → Bảng giá.": "or Home → POS → Price lists.",
   "hoặc bấm Thêm gateway trong app.\n\n": "or tap Add gateway in the app.\n\n",
+  "hoặc bấm «Kiểm tra mạng ngay».": "or tap «Check network now».",
   "hoặc chọn «Giấy A4» để in bằng máy in văn phòng.": "or choose «A4 paper» to print on an office printer.",
   "hoặc dùng cách SoftAP bên dưới.": "or use the SoftAP method below.",
   "hoặc nhập Mật khẩu đúng, hoặc dán JWT (eyJ...).": "enter the correct password, or paste a JWT (eyJ...).",
+  "hoặc xóa nếu không dùng nữa.": "or delete it if no longer used.",
   "hoặc «Cân in» = «Trọng lượng» ở Thiết lập ngành hàng": "or «Scale print» = «Weight» in industry setup",
   "hoặc «Window» nếu cần video.": "or «Window» if you need video.",
   "hoặc áp dụng thẳng cho nhiều vai trò.": "or apply directly to several roles.",
@@ -8129,6 +8222,7 @@
   "hạch toán công tác": "business trip settlement",
   "hạn sử dụng": "expiry date",
   "hẹn khách": "customer appointment",
+  "hết BH — tính phí": "out of warranty — paid",
   "hệ số": "multiplier",
   "hệ thống": "system",
   "hội viên": "member",
@@ -8183,6 +8277,7 @@
   "lon lốc thùng": "can pack case",
   "loại": "type",
   "luôn có": "always shown",
+  "là nhận được tin của người đó) → 3. Nhân viên quét QR mở bot, gửi mã 6 số. Không cần tài khoản app. ": "receives that person's messages) → 3. The employee scans the QR to open the bot and sends the 6-digit code. No app account needed. ",
   "làm": "make",
   "lô": "lot",
   "lý do chấm công ngoài vị trí": "reason for punching outside location",
@@ -8212,6 +8307,7 @@
   "máy cc": "attendance device",
   "máy chủ SBOX": "SBOX server",
   "máy cũ": "old device",
+  "máy in LAN 2 phút / lần và sóng Wi-Fi, rồi tự tắt. Gom 5 phút gửi lên; mất mạng thì lưu lại gửi sau. ": "LAN printers every 2 minutes and Wi‑Fi signal, then turns itself off. Sent in 5-minute batches; stored and sent later when offline. ",
   "máy in bill": "receipt printer",
   "máy in cloud": "cloud printer",
   "máy nội bộ này": "this internal device",
@@ -8220,6 +8316,7 @@
   "máy · gói không giới hạn": "devices · unlimited plan",
   "mã": "code",
   "mã giảm giá": "discount code",
+  "mã số thuế": "tax code",
   "mã vạch": "barcode",
   "mã vạch thùng": "case barcode",
   "mét": "meter",
@@ -8284,6 +8381,8 @@
   "phiếu đang chờ trong Hàng đợi in. Kiểm tra nguồn / mạng máy in.": "tickets are waiting in the Print queue. Check the printer power / network.",
   "phát sinh": "incurred",
   "phép tồn": "leave balance",
+  "phí dịch vụ": "service fee",
+  "phí giao hàng": "delivery fee",
   "phí mở phòng": "room opening fee",
   "phòng giờ": "hourly room",
   "phòng hát": "karaoke room",
@@ -8310,6 +8409,7 @@
   "riêng chi nhánh": "branch-specific",
   "riêng phòng ban": "department-specific",
   "rồi bấm Thêm gateway để cấu hình lại. ": "then tap Add gateway to configure again. ",
+  "rồi bật / tắt thêm từng mục. Khi sửa hàng đã có dữ liệu, mục liên quan vẫn hiện.": "then turn individual sections on / off. When editing an item that already has data, related sections still show.",
   "rớt kết nối tức thời, thử cổng máy in LAN 2 phút / lần và sóng Wi-Fi. Gom 5 phút gửi lên; ": "instant disconnects: tries the LAN printer port every 2 minutes and checks Wi-Fi signal. Batched and sent every 5 minutes; ",
   "sang «Thành tiền» ở Thiết lập ngành hàng.": "moves to “Amount” in Industry setup.",
   "sau khi mở mới thanh toán được trên tài khoản này.": "only after opening can this account take payments.",
@@ -8342,6 +8442,7 @@
   "thiếu người": "understaffed",
   "thu nhập cá nhân": "personal income tax",
   "thuế giá trị gia tăng": "value-added tax",
+  "thuế suất": "tax rate",
   "thuế thu nhập": "income tax",
   "thành phố ": "city ",
   "thành tiền": "amount",
@@ -8376,6 +8477,7 @@
   "trùng tên": "same name",
   "trùng tên (khác dấu)": "same name (different accents)",
   "trưa": "noon",
+  "trước ngày này để được bảo hành miễn phí. Cảm ơn anh/chị!": "before this date to get free warranty service. Thank you!",
   "trước: trống": "before: empty",
   "trạng thái": "status",
   "trả hàng": "return",
@@ -8482,6 +8584,7 @@
   "Áp dụng cho hộ doanh thu 1–3 tỷ/năm": "applies to households with revenue of 1–3 billion/year",
   "Áp dụng cho mọi máy bán hàng và mã QR trên hóa đơn": "applies to all sales devices and the QR code on bills",
   "Áp dụng cho mọi máy của cửa hàng.": "Applies to every device in the store.",
+  "Áp dụng cho mọi máy của cửa hàng. Chọn ngành để có sẵn các mục ngành đó dùng, ": "Applies to all devices of the store. Choose an industry to get its sections ready, ",
   "Áp dụng cho mọi máy của cửa hàng. Chọn ngành để có sẵn các mục ngành đó dùng, rồi bật / tắt thêm từng mục. Khi sửa hàng đã có dữ liệu, mục liên quan vẫn hiện.": "Applies to every device in the store. Pick an industry to get the fields it uses, then turn individual fields on / off. Fields that already hold data still show when editing.",
   "Áp dụng cho mọi ngày": "Applies to every day",
   "Áp dụng cho tất cả nhân viên": "Apply to all employees",
@@ -8716,6 +8819,7 @@
   "Đánh giá kết quả": "Evaluate results",
   "Đánh giá: ": "Rating: ",
   "Đánh số": "Numbering",
+  "Đánh số báo giá & hợp đồng": "Quote & contract numbering",
   "Đây là DẤU HIỆU cần kiểm tra, không phải kết luận nhân viên gian lận — nhiều trường hợp có lý do chính đáng.": "This is a SIGN to check, not a conclusion that an employee is cheating — many cases have a legitimate reason.",
   "Đây là file OTA đang dùng. Xóa sẽ làm mất link cập nhật.": "This is the OTA file currently in use. Deleting it will break the update link.",
   "Đây là máy bạn đang dùng. Sau khi gỡ, bạn sẽ phải đăng nhập lại và máy chiếm lại 1 chỗ nếu gói còn chỗ.": "This is the device you are using. After removing it you must log in again and the device takes a slot again if the plan has room.",
@@ -8759,6 +8863,8 @@
   "Đã chuyển theo file": "Transferred per file",
   "Đã chuyển xong": "Transfer complete",
   "Đã chép link": "Link copied",
+  "Đã chép lời nhắn": "Message copied",
+  "Đã chép lời nhắn — dán vào khung chat Zalo": "Message copied — paste it into the Zalo chat",
   "Đã chép tin nhắc nợ": "Debt reminder copied",
   "Đã chép tin nhắn": "Message copied",
   "Đã chấp nhận khiếu nại": "Dispute accepted",
@@ -8790,6 +8896,7 @@
   "Đã cập nhật cổng chuyển khoản": "Bank transfer gateway updated",
   "Đã cập nhật mẫu": "Template updated",
   "Đã cập nhật mẫu chứng từ": "Document template updated",
+  "Đã cập nhật phiếu": "Ticket updated",
   "Đã cập nhật phiếu bảo hành": "Warranty slip updated",
   "Đã cập nhật phòng ban, chức vụ trên hồ sơ": "Department and position updated on the profile",
   "Đã cập nhật thuế VAT khi bán": "VAT on sales updated",
@@ -8806,6 +8913,7 @@
   "Đã dọn máy ngoài Agent": "Devices outside the Agent cleaned up",
   "Đã dời lịch": "Rescheduled",
   "Đã ghi": "Recorded",
+  "Đã ghi chú": "Note saved",
   "Đã ghi hủy": "Cancellation recorded",
   "Đã ghi nhận thanh toán": "Payment recorded",
   "Đã ghi nhận trả": "Return recorded",
@@ -8863,6 +8971,7 @@
   "Đã hoàn": "Refunded",
   "Đã hoàn thành phiếu kiểm": "Stock-count slip completed",
   "Đã hoàn tác": "Undone",
+  "Đã hoàn tất — chờ khách lấy máy": "Completed — awaiting customer pickup",
   "Đã huỷ đăng ký": "Registration cancelled",
   "Đã hẹn": "Scheduled",
   "Đã hẹn giờ": "Timed",
@@ -9016,7 +9125,10 @@
   "Đã trả / trả hàng": "Paid / returned",
   "Đã trả / đã hoàn": "Paid / refunded",
   "Đã trả hết": "Fully paid",
+  "Đã trả khách": "Returned to customer",
   "Đã trả lại": "Returned",
+  "Đã trả máy": "Device returned",
+  "Đã trả máy cho khách": "Device returned to customer",
   "Đã trả nợ NCC": "Supplier debt repaid",
   "Đã trừ 1 buổi": "1 session deducted",
   "Đã trừ HĐ hôm nay": "Deducted from today's invoice",
@@ -9044,6 +9156,7 @@
   "Đã tắt quét liên tục": "Continuous scan off",
   "Đã tắt tự động cập nhật": "Auto-update turned off",
   "Đã tắt — máy chỉ ghi lượt tập": "Off — the device only records training visits",
+  "Đã từ chối — chờ khách lấy máy": "Rejected — awaiting customer pickup",
   "Đã từ chối, nhân viên nhận được lý do": "Rejected; the employee received the reason",
   "Đã vô hiệu": "Disabled",
   "Đã về": "Went home",
@@ -9074,6 +9187,7 @@
   "Đã xử lý hết": "All handled",
   "Đã yêu cầu NV bổ sung giấy tờ / sửa hạch toán": "Asked the employee to add documents / fix the settlement",
   "Đã áp dụng mẫu phân quyền": "Permission template applied",
+  "Đã điền sẵn số kế tiếp theo mẫu — sửa thành số của công ty nếu cần. Để trống thì máy tự nhảy số.": "Pre-filled with the next number from the pattern — change it to your company's number if needed. Leave blank to auto-number.",
   "Đã điền tên và địa chỉ. TK ngân hàng / người đại diện nhập tay.": "Name and address filled in. Bank account / representative must be entered manually.",
   "Đã điều chỉnh công nợ": "Balance adjusted",
   "Đã đóng hồ sơ": "File closed",
@@ -9091,6 +9205,8 @@
   "Đã đồng ý — chờ quản lý duyệt": "Agreed — awaiting manager approval",
   "Đã đổi IP máy in": "Printer IP changed",
   "Đã đổi chủ đề": "Theme changed",
+  "Đã đổi máy": "Device replaced",
+  "Đã đổi máy — seri mới giữ hạn bảo hành còn lại": "Device replaced — the new serial keeps the remaining warranty",
   "Đã đổi máy — seri mới giữ nguyên hạn bảo hành còn lại": "Device swapped — the new serial keeps the remaining warranty",
   "Đã đổi mã liên kết": "Link code changed",
   "Đã đổi mẫu": "Template changed",
@@ -9218,6 +9334,7 @@
   "Đơn xác nhận → hoàn thành bán hàng COD (trừ tồn), thu tiền khi giao.": "Confirmed order → COD sale completed (stock deducted), cash collected on delivery.",
   "Đơn đã có trả hàng — cần điều chỉnh / thay thế hóa đơn": "Order has a return — invoice must be adjusted / replaced",
   "Đơn đã duyệt": "Approved orders",
+  "Đơn đã huỷ": "Order cancelled",
   "Đơn đã hủy — cần hủy hóa đơn": "Order cancelled — the invoice must be cancelled",
   "Đơn đã thanh toán hoặc đã đóng": "Order paid or closed",
   "Đơn đã thanh toán — xuất lại ở Danh sách đơn / Quản lý HĐĐT.": "Order paid — issue again from the Order list / E-invoice management.",
@@ -9317,6 +9434,7 @@
   "Để trống nếu portal để trống cột Ký hiệu": "Leave empty if the portal leaves the Symbol column empty",
   "Để trống sẽ tự tạo từ tiêu đề. Không nên đổi sau khi đã xuất bản.": "Empty = generated from the title. Better not to change it after publishing.",
   "Để trống ô nào thì giữ thông tin cũ.": "Fields left empty keep the old information.",
+  "Để trống: tự nhảy theo mẫu": "Leave blank: auto-number by pattern",
   "Để ý": "Watch",
   "ĐỊA CHỈ": "ADDRESS",
   "Địa chỉ (số nhà, đường)": "Address (house number, street)",
@@ -9479,8 +9597,11 @@
   "đang quản lý": "managing",
   "đang áp dụng": "in effect",
   "đi muộn": "late",
+  "điều khoản": "terms",
   "đã check-in": "checked in",
+  "đã chọn máy đó ping máy chủ 30 giây / lần, đếm lệnh gọi lỗi, số lần rớt kết nối tức thời, thử cổng ": "that device pings the server every 30 seconds, counts failed calls and momentary disconnects, checks the port of ",
   "đã cộng lương": "added to salary",
+  "đã gồm VAT": "incl. VAT",
   "đã hoàn": "refunded",
   "đã hết": "used up",
   "đã hết buổi": "no sessions left",
@@ -9860,6 +9981,10 @@
   "③ Khách quên thẻ: bấm «Check-in tại quầy».": "③ Customer forgot their card: tap “Check in at counter”.",
   "③ Quản lý duyệt trên tab「Chờ duyệt」— sau đó lịch làm việc được cập nhật tự động.\n": "③ A manager approves in the “Pending approval” tab — the work schedule then updates automatically.\n",
   "● Đang chia sẻ — sẵn sàng nhận lệnh in của máy khác": "● Sharing — ready to receive print jobs from other devices",
+  "● Đang ở cửa hàng — sửa xong, chờ khách lấy": "● At the store — repaired, awaiting pickup",
+  "● Đang ở cửa hàng — từ chối, chờ khách lấy": "● At the store — rejected, awaiting pickup",
+  "● Đang ở cửa hàng — đang sửa": "● At the store — being repaired",
+  "● Đang ở cửa hàng — đã tiếp nhận": "● At the store — received",
   "⚙ để đổi": "⚙ to change",
   "⚠ Chưa chọn máy in nào để chia sẻ — máy khác chưa in nhờ được": "⚠ No printer chosen to share — other devices cannot print through this one yet",
   "⚠ Chưa kết nối được máy chủ": "⚠ Cannot reach the server",
@@ -10262,6 +10387,10 @@
   [
    "BH {0} tháng",
    "Warranty {0} months"
+  ],
+  [
+   "BH {0} tháng — đến {1}/{2}/{3}",
+   "Warranty {0} months — until {1}/{2}/{3}"
   ],
   [
    "BH: {0} tháng",
@@ -10680,6 +10809,10 @@
    "Insurance: {0} → {1}"
   ],
   [
+   "Bảo hành {0}: nhập số tháng 0–120",
+   "Warranty {0}: enter 0–120 months"
+  ],
+  [
    "Bảo hành · {0}",
    "Warranty · {0}"
   ],
@@ -11088,6 +11221,22 @@
    "Hello {0}, the store would like to remind you of your current outstanding balance "
   ],
   [
+   "Chào {0}, cửa hàng đang xử lý máy {1} (phiếu {2}). Sẽ báo anh/chị ngay khi xong.",
+   "Hello {0}, the store is working on your {1} (ticket {2}). We will let you know as soon as it is done."
+  ],
+  [
+   "Chào {0}, máy {1}",
+   "Hello {0}, the {1}"
+  ],
+  [
+   "Chào {0}, máy {1} (phiếu {2}) không thuộc diện bảo hành: {3}. ",
+   "Hello {0}, your {1} (ticket {2}) is not covered by warranty: {3}. "
+  ],
+  [
+   "Chào {0}, máy {1} (phiếu {2}) đã sửa xong. ",
+   "Hello {0}, your {1} (ticket {2}) has been repaired. "
+  ],
+  [
    "Chào {0}, thẻ «{1}» của anh/chị {2}. ",
    "Hello {0}, regarding the card “{1}” of {2}. "
   ],
@@ -11204,8 +11353,20 @@
    "Not linked ({0})"
   ],
   [
+   "Chưa lưu được cho cả cửa hàng: {0}",
+   "Could not save for the whole store: {0}"
+  ],
+  [
+   "Chưa lưu được cách đánh số: {0}",
+   "Could not save the numbering: {0}"
+  ],
+  [
    "Chưa lấy vân tay / khuôn mặt ({0})",
    "No fingerprint / face captured ({0})"
+  ],
+  [
+   "Chưa thu {0} đ",
+   "Unpaid {0} VND"
   ],
   [
    "Chưa tới mốc bậc 1 ({0} phút) — không tạo phiếu phạt.",
@@ -11230,6 +11391,10 @@
   [
    "Chưa đạt: {0}",
    "Not met: {0}"
+  ],
+  [
+   "Chưa đặt được cho cả cửa hàng: {0}",
+   "Could not set for the whole store: {0}"
   ],
   [
    "Chưa đến ({0})",
@@ -11604,6 +11769,10 @@
    "Sample answer: {0}"
   ],
   [
+   "Còn bảo hành đến {0}",
+   "In warranty until {0}"
+  ],
+  [
    "Còn lại {0}",
    "{0} left"
   ],
@@ -11916,6 +12085,10 @@
    "Whole group: {0} ({1})"
   ],
   [
+   "Cả {0} món đã báo chế biến — gọi thêm món mới thì báo tiếp",
+   "All {0} items have been sent to the kitchen — add new items to send more"
+  ],
+  [
    "Cảnh báo ≥ {0}%",
    "Warning ≥ {0}%"
   ],
@@ -11978,6 +12151,10 @@
   [
    "Cần: {0}",
    "Needs: {0}"
+  ],
+  [
+   "Cập nhật phiếu {0}",
+   "Update ticket {0}"
   ],
   [
    "Cập nhật số hóa đơn / trạng thái (đã hủy, chờ ký, lỗi) từ {0} ",
@@ -12320,6 +12497,10 @@
    "Surplus {0}"
   ],
   [
+   "Dải quét: {0}",
+   "Scan range: {0}"
+  ],
+  [
    "Dải số hóa đơn offline đã cấp ({0})",
    "Offline invoice number range issued ({0})"
   ],
@@ -12382,6 +12563,10 @@
   [
    "Ghi 1 lượt dùng «{0}» ngày {1}/{2}/{3}.",
    "Record 1 use of “{0}” on {1}/{2}/{3}."
+  ],
+  [
+   "Ghi chú cho máy {0}",
+   "Note for device {0}"
   ],
   [
    "Ghi chú cho «{0}»",
@@ -12916,6 +13101,10 @@
    "Done ({0} logs)"
   ],
   [
+   "Hoàn tất sửa — {0}",
+   "Complete repair — {0}"
+  ],
+  [
    "Hoàn {0} · {1}",
    "Refund {0} · {1}"
   ],
@@ -13162,6 +13351,10 @@
   [
    "Hẹn giờ gửi cho {0} người",
    "Schedule sending to {0} people"
+  ],
+  [
+   "Hẹn trả: {0}",
+   "Return by: {0}"
   ],
   [
    "Hẹn {0}",
@@ -13704,6 +13897,10 @@
    "Stock of {0} is not tracked"
   ],
   [
+   "Không thiết bị nào nhận máy {0} — bật «Chia sẻ máy in» ở thiết bị cắm máy, hoặc bấm «Máy khác»",
+   "No device receives printer {0} — turn on «Share printer» on the device it is plugged into, or tap «Other printer»"
+  ],
+  [
    "Không thấy {0} — kiểm tra cáp cân / driver USB-Serial",
    "{0} not found — check the scale cable / USB-Serial driver"
   ],
@@ -14032,6 +14229,18 @@
    "Stock matches ({0})"
   ],
   [
+   "Kitchen DBG default: máy nội bộ bếp={0}",
+   "Kitchen DBG default: kitchen local printer={0}"
+  ],
+  [
+   "Kitchen DBG default: {0} món — lọc món đã gán máy",
+   "Kitchen DBG default: {0} items — filter items assigned to a printer"
+  ],
+  [
+   "Kitchen DBG default: đã tải cấu hình máy in, tìm máy cloud cho {0}",
+   "Kitchen DBG default: printer config loaded, finding a cloud printer for {0}"
+  ],
+  [
    "Kitchen DBG: Agent local fail {0} — không cloud (tránh trùng)",
    "Kitchen DBG: local Agent failed {0} — not sending to cloud (avoid duplicates)"
   ],
@@ -14162,6 +14371,10 @@
   [
    "Kết quả tra cứu ({0})",
    "Lookup results ({0})"
+  ],
+  [
+   "Kết quả: {0}",
+   "Result: {0}"
   ],
   [
    "Kết thúc hồ sơ {0}.",
@@ -14828,6 +15041,10 @@
    "This device once had {0} internal printers installed (still stored on the server):\n"
   ],
   [
+   "Máy này và cả cửa hàng in theo «{0}»",
+   "This device and the whole store print with «{0}»"
+  ],
+  [
    "Máy nội bộ · {0}",
    "Internal device · {0}"
   ],
@@ -15012,6 +15229,10 @@
    "Templates ({0})"
   ],
   [
+   "Mẫu dài quá {0} ký tự",
+   "Pattern longer than {0} characters"
+  ],
+  [
    "Mẫu dựng sẵn · {0}",
    "Built-in template · {0}"
   ],
@@ -15052,8 +15273,16 @@
    "Template {0}"
   ],
   [
+   "Mẫu đánh số: {0}",
+   "Numbering pattern: {0}"
+  ],
+  [
    "Mật khẩu chung: {0}",
    "Shared password: {0}"
+  ],
+  [
+   "Mặc định {0} tháng — sửa nếu bán kèm gia hạn",
+   "Default {0} months — change if sold with an extension"
   ],
   [
    "Mọi máy in đều hoạt động trong {0} ngày qua",
@@ -15696,6 +15925,10 @@
    "Voucher {0} has settled the orders' debt"
   ],
   [
+   "Phiếu {0} — đưa khách giữ để nhận lại máy.",
+   "Ticket {0} — give it to the customer to collect the device."
+  ],
+  [
    "Phiếu đã hủy · {0}",
    "Cancelled voucher · {0}"
   ],
@@ -15736,6 +15969,14 @@
    "Delivery fee {0}"
   ],
   [
+   "Phí sửa {0} đ — đã thu.",
+   "Repair fee {0} VND — collected."
+  ],
+  [
+   "Phí sửa: {0} đ{1}",
+   "Repair fee: {0} VND{1}"
+  ],
+  [
    "Phòng ban \"{0}\" đã có ở cấp này",
    "Department \"{0}\" already exists at this level"
   ],
@@ -15772,8 +16013,16 @@
    "Allowance {0}"
   ],
   [
+   "Phụ kiện: {0}",
+   "Accessories: {0}"
+  ],
+  [
    "Phụ thu, phí giao hàng thu khách: {0}",
    "Surcharge and delivery fee charged to the customer: {0}"
+  ],
+  [
+   "Phụ trách: {0}",
+   "Assignee: {0}"
   ],
   [
    "Print Agent: bỏ claim job outbound {0} (máy gửi)",
@@ -16208,6 +16457,10 @@
    "Voucher no.: {0}"
   ],
   [
+   "Số sinh ra dài quá {0} ký tự",
+   "Generated number longer than {0} characters"
+  ],
+  [
    "Số tiền / {0}",
    "Amount / {0}"
   ],
@@ -16230,6 +16483,10 @@
   [
    "Số điện thoại: {0}",
    "Phone number: {0}"
+  ],
+  [
+   "Số đầu tiên hôm nay: {0}",
+   "First number today: {0}"
   ],
   [
    "Số: {0}",
@@ -16574,6 +16831,10 @@
   [
    "Thu phiếu {0}",
    "Receipt voucher {0}"
+  ],
+  [
+   "Thu phí sửa {0} đ",
+   "Collect repair fee {0} VND"
   ],
   [
    "Thu tiền - {0}",
@@ -16944,6 +17205,10 @@
    "Within 30 days · {0} out of warranty"
   ],
   [
+   "Trong kỳ {0} – {1}",
+   "Period {0} – {1}"
+  ],
+  [
    "Trong {0} giờ",
    "Within {0} hours"
   ],
@@ -17010,6 +17275,10 @@
   [
    "Trả lần này ({0} người)",
    "Pay this time ({0} people)"
+  ],
+  [
+   "Trả máy cho khách — {0}",
+   "Return device to customer — {0}"
   ],
   [
    "Trả tiền mặt: {0}",
@@ -17382,6 +17651,10 @@
   [
    "Tải firmware thất bại ({0})",
    "Firmware download failed ({0})"
+  ],
+  [
+   "Tải thêm ({0}/{1})",
+   "Load more ({0}/{1})"
   ],
   [
    "Tải {0} nhân viên",
@@ -17774,6 +18047,10 @@
   [
    "Từ chối 2 lần chấm cách nhau dưới {0} phút",
    "Reject two punches less than {0} min apart"
+  ],
+  [
+   "Từ chối bảo hành — {0}",
+   "Reject warranty — {0}"
   ],
   [
    "Từ chối chấm công của {0}",
@@ -18584,6 +18861,10 @@
    "{0} o'clock"
   ],
   [
+   "giữ {0} ngày",
+   "kept {0} days"
+  ],
+  [
    "gói {0}",
    "{0} package"
   ],
@@ -18712,6 +18993,10 @@
    "printStockIssueDoc (print template) failed, using PDF: {0}"
   ],
   [
+   "sẽ hết bảo hành ngày {0}. Nếu máy có lỗi, mời anh/chị mang đến kiểm tra ",
+   "will go out of warranty on {0}. If it has any fault, please bring it in for a check "
+  ],
+  [
    "sẽ hết hạn ngày {0}",
    "expires on {0}"
   ],
@@ -18764,6 +19049,10 @@
    "before: {0}"
   ],
   [
+   "trả {0}",
+   "returned {0}"
+  ],
+  [
    "tìm PIN {0} → Đăng ký vân tay / khuôn mặt.",
    "find PIN {0} → Enroll fingerprint / face."
   ],
@@ -18810,6 +19099,10 @@
   [
    "{0}\n\nDanh sách chức năng hiện tại sẽ được thay bằng {1} chức năng của mẫu.",
    "{0}\n\nThe current feature list will be replaced by the template's {1} features."
+  ],
+  [
+   "{0}\n\nKhông thiết bị nào đang chia sẻ máy này — xóa không ảnh hưởng việc in hiện tại.",
+   "{0}\n\nNo device is sharing this printer — deleting it does not affect current printing."
   ],
   [
    "{0}\n\nMáy in này chưa có Agent nhận, xóa sẽ không ảnh hưởng hoạt động in.",
@@ -19046,6 +19339,10 @@
   [
    "{0} [Sửa: {1}]",
    "{0} [Edited: {1}]"
+  ],
+  [
+   "{0} anh/chị mua tại cửa hàng ",
+   "{0} you bought at our store "
   ],
   [
    "{0} buổi",
@@ -19400,6 +19697,10 @@
    "{0} expired"
   ],
   [
+   "{0} hết hạn trong 30 ngày",
+   "{0} expire within 30 days"
+  ],
+  [
    "{0} hỏng · {1} đang bảo trì",
    "{0} broken · {1} under maintenance"
   ],
@@ -19540,6 +19841,14 @@
    "{0} times · {1} đ · ~{2} đ/time"
   ],
   [
+   "{0} lượt · {1} đổi máy · đã bán {2}",
+   "{0} cases · {1} replaced · {2} sold"
+  ],
+  [
+   "{0} lượt · {1} đổi{2}",
+   "{0} cases · {1} replaced{2}"
+  ],
+  [
    "{0} lượt đánh giá · {1} mở lại",
    "{0} reviews · {1} reopened"
   ],
@@ -19658,6 +19967,10 @@
   [
    "{0} máy cửa hàng",
    "{0} store devices"
+  ],
+  [
+   "{0} máy hết bảo hành trong {1} ngày tới — nhắn khách mang máy đến kiểm tra trước khi hết hạn.",
+   "{0} devices go out of warranty in the next {1} days — message customers to bring them in for a check before then."
   ],
   [
    "{0} máy in nội bộ",
@@ -19894,6 +20207,10 @@
   [
    "{0} ngày trước",
    "{0} days ago"
+  ],
+  [
+   "{0} ngày tới",
+   "next {0} days"
   ],
   [
    "{0} ngày {1} giờ",
@@ -20222,6 +20539,10 @@
   [
    "{0} số lượng {1}",
    "{0} quantity {1}"
+  ],
+  [
+   "{0} sửa · {1} đổi máy",
+   "{0} repairs · {1} replaced"
   ],
   [
    "{0} tem · tổng {1}đ",
@@ -20606,6 +20927,10 @@
   [
    "{0} · ra nghỉ trưa",
    "{0} · out for lunch"
+  ],
+  [
+   "{0} · seri cũ {1}",
+   "{0} · old serial {1}"
   ],
   [
    "{0} · thẻ đến {1}",
@@ -21652,6 +21977,10 @@
    "«{0}» is already in the recipe"
   ],
   [
+   "«{0}»: không thiết bị nào đang chia sẻ máy in này nên chưa in. ",
+   "«{0}»: no device is sharing this printer, so it has not printed. "
+  ],
+  [
    "Ánh xạ vị trí ô ({0}/{1})",
    "Cell position mapping ({0}/{1})"
   ],
@@ -21848,6 +22177,10 @@
    "In use: {0}"
   ],
   [
+   "Đang theo dõi tới {0}",
+   "Monitoring until {0}"
+  ],
+  [
    "Đang theo gói: {0}",
    "On plan: {0}"
   ],
@@ -21954,6 +22287,10 @@
   [
    "Đánh giá «{0}»",
    "Review «{0}»"
+  ],
+  [
+   "Đã báo chế biến {0} món",
+   "Sent {0} items to the kitchen"
   ],
   [
    "Đã bật loa. Có {0} món cần chế biến",
@@ -22772,6 +23109,10 @@
    "Gateway found{0}"
   ],
   [
+   "Đã tiếp nhận — phiếu {0}",
+   "Taken in — ticket {0}"
+  ],
+  [
    "Đã trả NCC: {0} đ",
    "Paid to supplier: {0} đ"
   ],
@@ -23146,6 +23487,10 @@
   [
    "Đã đổi gói \"{0}\" cho cửa hàng \"{1}\"",
    "Changed plan \"{0}\" for store \"{1}\""
+  ],
+  [
+   "Đã đổi máy, xuất kho {0} — seri mới giữ hạn bảo hành còn lại",
+   "Device replaced, stock issue {0} — the new serial keeps the remaining warranty"
   ],
   [
    "Đã đổi quyền {0} thành {1}",

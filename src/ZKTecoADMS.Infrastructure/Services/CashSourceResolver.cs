@@ -69,6 +69,18 @@ public static class CashSourceResolver
             case CashSources.PosContract:
                 found = await db.PosQuotes.IgnoreQueryFilters().AnyAsync(x => x.Id == id, ct);
                 break;
+            case CashSources.PosWarranty:
+            {
+                var c = await db.PosWarrantyClaims.IgnoreQueryFilters().AsNoTracking()
+                    .Where(x => x.Id == id).Select(x => new { x.RegistrationId }).FirstOrDefaultAsync(ct);
+                found = c != null;
+                if (c != null)
+                    branch = await db.PosProductWarrantyRegistrations.IgnoreQueryFilters().AsNoTracking()
+                        .Where(r => r.Id == c.RegistrationId)
+                        .Join(db.PosSaleOrders.IgnoreQueryFilters(), r => r.SaleOrderId, o => o.Id, (r, o) => o.BranchId)
+                        .FirstOrDefaultAsync(ct);
+                break;
+            }
             case CashSources.Payslip:
                 emp = await db.Payslips.IgnoreQueryFilters().AsNoTracking()
                     .Where(x => x.Id == id).Select(x => (Guid?)x.EmployeeId).FirstOrDefaultAsync(ct);

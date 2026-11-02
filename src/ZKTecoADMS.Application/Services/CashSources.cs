@@ -31,6 +31,8 @@ public static class CashSources
     public const string PosCodReceipt = "pos_cod_receipt";
     /// <summary>Thu tiền hợp đồng (giữ tên cũ «PosQuote» đã lưu trong dữ liệu).</summary>
     public const string PosContract = "PosQuote";
+    /// <summary>Phí sửa máy bảo hành (hết hạn / lỗi do khách).</summary>
+    public const string PosWarranty = "pos_warranty";
 
     /// <summary>
     /// Chuỗi đánh dấu cũ trong InternalNote → nguồn. Thứ tự: cụ thể trước (vd «thu hoàn ứng công tác #» trước «ứng công tác #»).
@@ -48,6 +50,7 @@ public static class CashSources
         ("pos thu trả ncc #", PosPurchaseReturnRefund),
         ("pos cod #", PosCodReceipt),
         ("pos thu hđ #", PosContract),
+        ("pos phí bảo hành #", PosWarranty),
         ("phiếu lương #", Payslip),
         ("yêu cầu ứng lương #", Advance),
         ("thanh toán ứng lương #", Advance),
@@ -90,6 +93,7 @@ public static class CashSources
         PosPurchaseReturnRefund => "Nhà cung cấp hoàn tiền",
         PosCodReceipt => "Hãng vận chuyển chuyển COD",
         PosContract => "Thu tiền hợp đồng",
+        PosWarranty => "Phí sửa chữa bảo hành",
         _ => "",
     };
 

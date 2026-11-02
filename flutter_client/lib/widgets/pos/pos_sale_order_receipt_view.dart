@@ -634,6 +634,9 @@ class PosSaleOrderReceiptView extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 11, color: SboxColors.success)),
+                if (line.warrantyLabel.isNotEmpty)
+                  Text(line.warrantyLabel,
+                      style: const TextStyle(fontSize: 11, color: SboxColors.success)),
               ],
             ),
           ),

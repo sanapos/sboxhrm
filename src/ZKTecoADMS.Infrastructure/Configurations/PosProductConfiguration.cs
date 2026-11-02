@@ -904,6 +904,13 @@ public class PosWarrantyClaimConfiguration : IEntityTypeConfiguration<PosWarrant
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Description).HasMaxLength(1000);
         builder.Property(x => x.Resolution).HasMaxLength(1000);
+        builder.Property(x => x.ClaimNo).HasMaxLength(30);
+        builder.Property(x => x.ContactName).HasMaxLength(150);
+        builder.Property(x => x.ContactPhone).HasMaxLength(30);
+        builder.Property(x => x.DeviceCondition).HasMaxLength(500);
+        builder.Property(x => x.Accessories).HasMaxLength(500);
+        builder.Property(x => x.AssignedTo).HasMaxLength(150);
+        builder.Property(x => x.Fee).HasPrecision(18, 2);
         builder.HasIndex(x => new { x.StoreId, x.RegistrationId });
         builder.HasIndex(x => new { x.StoreId, x.Status });
         builder.HasOne(x => x.Registration).WithMany().HasForeignKey(x => x.RegistrationId).OnDelete(DeleteBehavior.Cascade);

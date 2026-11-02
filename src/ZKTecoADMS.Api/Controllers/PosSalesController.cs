@@ -174,7 +174,9 @@ public partial class PosSalesController(
         List<PosStaffCommissionHelper.StaffAssignDto>? StaffAssignments = null,
         DateTime? ServicePausedAt = null,
         int ServicePauseMinutes = 0,
-        int? KitchenRound = null);
+        int? KitchenRound = null,
+        // Số tháng bảo hành chỉnh lúc bán (gia hạn / khuyến mãi) — null = theo hàng hóa.
+        int? WarrantyMonths = null);
 
     public record SalePaymentInputDto(
         decimal Amount,
@@ -490,7 +492,9 @@ public partial class PosSalesController(
         DateTime? ServicePausedAt = null,
         int ServicePauseMinutes = 0,
         int KitchenRound = 0,
-        string? ProductCode = null);
+        string? ProductCode = null,
+        int? WarrantyMonths = null,
+        DateTime? WarrantyExpiry = null);
 
     [HttpGet("return-history")]
     [RequireModulePermission("PosSaleReturns", ModulePermissionAction.View)]
@@ -3127,6 +3131,8 @@ public partial class PosSalesController(
         }
         var serialMap = await PosSaleWarrantyHelper.GetSerialsByLineAsync(
             dbContext, storeId, lines.Select(l => l.Id));
+        var warrantyMap = await PosSaleWarrantyHelper.GetWarrantyByLineAsync(
+            dbContext, storeId, lines.Select(l => l.Id));
         string? customerCode = null;
         string? customerPhone = null;
         if (order.CustomerId.HasValue)
@@ -3168,7 +3174,8 @@ public partial class PosSalesController(
             resourceCode, resourceName, areaName, CurrentUserId,
             viewerDeviceId: viewerDeviceId,
             viewerDeviceName: viewerDeviceName,
-            productCodes: productCodes);
+            productCodes: productCodes,
+            warrantyByLine: warrantyMap);
         try
         {
             // In bill: link tra cứu + MST người bán cho khối mã QR HĐĐT.
@@ -3223,7 +3230,8 @@ public partial class PosSalesController(
         Guid? viewerUserId = null,
         string? viewerDeviceId = null,
         string? viewerDeviceName = null,
-        Dictionary<Guid, string>? productCodes = null)
+        Dictionary<Guid, string>? productCodes = null,
+        Dictionary<Guid, (int Months, DateTime Expiry)>? warrantyByLine = null)
     {
         returnedQtyByLine ??= new Dictionary<(Guid, Guid?), decimal>();
         serialsByLine ??= new Dictionary<Guid, List<string>>();
@@ -3263,7 +3271,9 @@ public partial class PosSalesController(
                 l.KitchenSentQty, l.KitchenSentAt, l.ToppingsJson,
                 l.AssignedEmployeeId, l.StaffAssignmentsJson,
                 l.ServicePausedAt, l.ServicePauseMinutes, l.KitchenRound,
-                productCodes?.GetValueOrDefault(l.ProductId))).ToList(),
+                productCodes?.GetValueOrDefault(l.ProductId),
+                warrantyByLine != null && warrantyByLine.TryGetValue(l.Id, out var wl) ? wl.Months : null,
+                warrantyByLine != null && warrantyByLine.TryGetValue(l.Id, out var we) ? we.Expiry : null)).ToList(),
             order.ServiceResourceId, order.ResourceSessionId,
             order.ServiceStartedAt, order.ServiceEndedAt,
             serviceResourceCode, serviceResourceName, serviceAreaName,

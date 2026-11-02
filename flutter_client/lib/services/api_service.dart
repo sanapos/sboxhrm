@@ -20435,13 +20435,115 @@ class ApiService implements PayrollApi {
   }
 
   Future<Map<String, dynamic>> replacePosWarrantySerial(
-      String registrationId, String newSerial, String? newImei, String description) async {
+      String registrationId, String newSerial, String? newImei, String description,
+      {bool fromStock = true}) async {
     try {
       final response = await http
           .post(Uri.parse('$baseUrl/api/pos/warranty/$registrationId/replace'),
               headers: _headers,
-              body: jsonEncode({'newSerial': newSerial, 'newImei': newImei, 'description': description}))
+              body: jsonEncode({
+                'newSerial': newSerial,
+                'newImei': newImei,
+                'description': description,
+                'fromStock': fromStock,
+              }))
           .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Tiếp nhận bảo hành đầy đủ: mô tả lỗi, liên hệ, tình trạng, phụ kiện, ngày hẹn trả, phụ trách.
+  Future<Map<String, dynamic>> createPosWarrantyClaimFull(
+      String registrationId, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/warranty/$registrationId/claims'),
+              headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Cập nhật phiếu: status, resolution, fee, collectFee, paymentMethod, assignedTo, expectedReturnDate, deliver.
+  Future<Map<String, dynamic>> updatePosWarrantyClaimFull(
+      String claimId, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/warranty/claims/$claimId'),
+              headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosWarrantyClaim(String claimId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/warranty/claims/$claimId'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Danh sách phiếu: status = InShop | Ready | Overdue | Delivered | All.
+  Future<Map<String, dynamic>> listPosWarrantyClaims({
+    String status = 'InShop',
+    String? search,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/warranty/claims').replace(queryParameters: {
+        'status': status,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        'page': '$page',
+        'pageSize': '$pageSize',
+      });
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Máy đã bán có bảo hành: status = '' | InWarranty | Expired | Replaced | Returned.
+  Future<Map<String, dynamic>> listPosWarranties({
+    String? status,
+    String? search,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/warranty').replace(queryParameters: {
+        if (status != null && status.isNotEmpty) 'status': status,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        'page': '$page',
+        'pageSize': '$pageSize',
+      });
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosWarrantyReport({DateTime? from, DateTime? to}) async {
+    String d(DateTime x) =>
+        '${x.year}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/warranty/report').replace(queryParameters: {
+        if (from != null) 'from': d(from),
+        if (to != null) 'to': d(to),
+      });
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

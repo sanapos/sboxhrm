@@ -371,6 +371,8 @@ class _SellCartLine {
   bool vatExempt;
   List<String> serialNumbers = [];
   List<String> serialImeis = [];
+  /// Số tháng bảo hành chỉnh lúc nhập seri (gia hạn / khuyến mãi). null = theo hàng hóa.
+  int? warrantyMonths;
   /// Topping đã chọn trên dòng (id SP topping, tên, giá thêm / 1 phần món).
   List<_CartTopping> toppings = [];
   String? assignedEmployeeId;
@@ -11869,6 +11871,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (data == null) continue;
       line.serialNumbers = List<String>.from(data.serials);
       line.serialImeis = List<String>.from(data.imeis);
+      line.warrantyMonths = data.warrantyMonths;
     }
     return true;
   }
@@ -11942,6 +11945,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           if (c.serialNumbers.isNotEmpty) 'serialNumbers': c.serialNumbers,
           if (c.serialImeis.any((e) => e.trim().isNotEmpty))
             'serialImeis': c.serialImeis,
+          if (c.warrantyMonths != null) 'warrantyMonths': c.warrantyMonths,
           if (c.assignedEmployeeId != null && c.assignedEmployeeId!.isNotEmpty)
             'assignedEmployeeId': c.assignedEmployeeId,
           if (c.staffAssignments.isNotEmpty)

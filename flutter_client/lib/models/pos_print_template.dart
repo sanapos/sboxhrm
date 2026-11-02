@@ -571,6 +571,8 @@ abstract final class PosPrintTokens {
     ('Chiet_Khau', 'Chiết khấu dòng'),
     ('Thanh_Tien', 'Thành tiền dòng'),
     ('Bao_Hanh', 'Bảo hành dòng'),
+    ('Han_Bao_Hanh', 'Hạn bảo hành dòng'),
+    ('Seri', 'Seri / IMEI dòng'),
     ('Chieu_Dai', 'Chiều dài'),
     ('Chieu_Rong', 'Chiều rộng'),
     ('Chieu_Cao', 'Chiều cao'),

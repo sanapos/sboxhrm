@@ -14,6 +14,8 @@ class PosSerialLineInput {
     required this.qty,
     required this.controllers,
     this.imeiControllers = const [],
+    required this.defaultWarrantyMonths,
+    required this.warrantyController,
   });
 
   final String productId;
@@ -23,7 +25,14 @@ class PosSerialLineInput {
   final List<TextEditingController> controllers;
   final List<TextEditingController> imeiControllers;
 
+  /// Số tháng bảo hành khai trong hàng hóa (0 = không bảo hành).
+  final int defaultWarrantyMonths;
+
+  /// Ô «Bảo hành (tháng)» — sửa khi bán kèm gói gia hạn / khuyến mãi.
+  final TextEditingController warrantyController;
+
   void dispose() {
+    warrantyController.dispose();
     for (final c in controllers) {
       c.dispose();
     }
@@ -33,8 +42,11 @@ class PosSerialLineInput {
   }
 }
 
-/// Dialog nhập seri/IMEI trước khi thanh toán.
-Future<Map<int, ({List<String> serials, List<String> imeis})>?> showPosSerialCaptureDialog(
+/// Kết quả nhập seri một dòng. [warrantyMonths] khác null khi người bán đổi số tháng bảo hành.
+typedef PosSerialCapture = ({List<String> serials, List<String> imeis, int? warrantyMonths});
+
+/// Dialog nhập seri/IMEI (và số tháng bảo hành) trước khi thanh toán.
+Future<Map<int, PosSerialCapture>?> showPosSerialCaptureDialog(
   BuildContext context, {
   required List<({int rowId, PosProduct product, String displayName, double qty})> lines,
 }) async {
@@ -50,12 +62,16 @@ Future<Map<int, ({List<String> serials, List<String> imeis})>?> showPosSerialCap
         qty: count,
         controllers: List.generate(count, (_) => TextEditingController()),
         imeiControllers: List.generate(count, (_) => TextEditingController()),
+        defaultWarrantyMonths: line.product.warrantyMonths ?? 0,
+        warrantyController: TextEditingController(
+          text: (line.product.warrantyMonths ?? 0) > 0 ? '${line.product.warrantyMonths}' : '',
+        ),
       ),
     );
   }
 
   try {
-    return await showDialog<Map<int, ({List<String> serials, List<String> imeis})>>(
+    return await showDialog<Map<int, PosSerialCapture>>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => _PosSerialCaptureDialog(inputs: inputs),
@@ -106,7 +122,7 @@ class _PosSerialCaptureDialogState extends State<_PosSerialCaptureDialog> {
   }
 
   void _submit() {
-    final result = <int, ({List<String> serials, List<String> imeis})>{};
+    final result = <int, PosSerialCapture>{};
     final seen = <String>{};
 
     for (final line in widget.inputs) {
@@ -128,7 +144,17 @@ class _PosSerialCaptureDialogState extends State<_PosSerialCaptureDialog> {
         final imei = line.imeiControllers[i].text.trim();
         imeis.add(imei);
       }
-      result[line.rowId] = (serials: serials, imeis: imeis);
+      final monthsText = line.warrantyController.text.trim();
+      final months = monthsText.isEmpty ? 0 : int.tryParse(monthsText);
+      if (months == null || months < 0 || months > 120) {
+        setState(() => _error = 'Bảo hành ${line.productName}: nhập số tháng 0–120');
+        return;
+      }
+      result[line.rowId] = (
+        serials: serials,
+        imeis: imeis,
+        warrantyMonths: months == line.defaultWarrantyMonths ? null : months,
+      );
     }
 
     Navigator.of(context).pop(result);
@@ -193,6 +219,28 @@ class _PosSerialCaptureDialogState extends State<_PosSerialCaptureDialog> {
                 ),
             ]),
           ],
+          const SizedBox(height: 8),
+          // Bán kèm gói gia hạn / khuyến mãi: sửa số tháng — in trên hóa đơn và tính hạn bảo hành.
+          Row(children: [
+            SizedBox(
+              width: 150,
+              child: TextField(
+                controller: line.warrantyController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: PosTheme.inputDecoration(label: 'Bảo hành (tháng)'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                tr(line.defaultWarrantyMonths > 0
+                    ? 'Mặc định ${line.defaultWarrantyMonths} tháng — sửa nếu bán kèm gia hạn'
+                    : 'Hàng chưa khai bảo hành — nhập số tháng nếu có'),
+                style: const TextStyle(fontSize: 11, color: Colors.black54),
+              ),
+            ),
+          ]),
           const SizedBox(height: 8),
           ...List.generate(line.qty, (i) {
             return Padding(

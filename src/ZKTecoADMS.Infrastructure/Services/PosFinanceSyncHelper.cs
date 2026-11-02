@@ -559,6 +559,57 @@ public static class PosFinanceSyncHelper
         return cash;
     }
 
+    public const string WarrantyFeeMarker = "pos phí bảo hành #";
+
+    /// <summary>Phiếu thu phí sửa máy bảo hành (khách trả khi nhận máy / lúc hoàn tất).</summary>
+    public static async Task<CashTransaction?> AddWarrantyFeeReceiptAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        Guid? branchId,
+        PosWarrantyClaim claim,
+        string productName,
+        string serial,
+        string? paymentMethod,
+        Guid? bankAccountId,
+        Guid createdByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        if (claim.Fee <= 0) return null;
+        var category = await EnsureCategoryAsync(
+            db, storeId, CashTransactionType.Income, "Phí sửa chữa bảo hành",
+            "build", "#7C3AED", cancellationToken);
+        if (category == null) return null;
+        var now = DateTime.UtcNow;
+        var cash = new CashTransaction
+        {
+            Id = Guid.NewGuid(),
+            TransactionCode = await GenerateCodeAsync(db, storeId, CashTransactionType.Income, cancellationToken),
+            Type = CashTransactionType.Income,
+            CategoryId = category.Id,
+            Amount = claim.Fee,
+            TransactionDate = VnTimeHelper.UtcToVn(now),
+            Description = $"Phí sửa {productName} · seri {serial}" +
+                          (string.IsNullOrWhiteSpace(claim.ClaimNo) ? "" : $" — phiếu {claim.ClaimNo}"),
+            PaymentMethod = ParsePaymentMethod(paymentMethod, bankAccountId),
+            BankAccountId = bankAccountId,
+            Status = CashTransactionStatus.Completed,
+            IsPaid = true,
+            PaidDate = now,
+            ContactName = claim.ContactName,
+            ContactPhone = claim.ContactPhone,
+            CreatedByUserId = createdByUserId,
+            StoreId = storeId,
+            BranchId = branchId,
+            InternalNote = $"{WarrantyFeeMarker}{claim.Id}",
+            SourceType = ZKTecoADMS.Application.Services.CashSources.PosWarranty,
+            SourceId = claim.Id,
+            IsActive = true,
+            CreatedAt = now,
+        };
+        db.CashTransactions.Add(cash);
+        return cash;
+    }
+
     /// <summary>
     /// Chuỗi phương thức trên chứng từ → phương thức phiếu quỹ. Chuỗi lạ mặc định Tiền mặt, nên mọi kênh
     /// chuyển khoản (Tingee, tên ngân hàng «Ngân hàng … 99…», «CK», «Bank») phải nhận diện ở đây — trước đây

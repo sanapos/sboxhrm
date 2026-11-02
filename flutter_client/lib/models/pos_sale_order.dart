@@ -101,6 +101,10 @@ class PosSaleOrderLine {
   /// Combo nhiều bước: mỗi bước một NV (JSON `[{componentProductId, assignedEmployeeId, assignedEmployeeName}]`).
   final String? staffAssignmentsJson;
 
+  /// Bảo hành của dòng (từ phiếu đăng ký bảo hành lúc bán) — in «BH 12 tháng — đến dd/MM/yyyy».
+  final int? warrantyMonths;
+  final DateTime? warrantyExpiry;
+
   PosSaleOrderLine({
     this.id,
     required this.productId,
@@ -127,6 +131,8 @@ class PosSaleOrderLine {
     this.toppings = const [],
     this.assignedEmployeeId,
     this.staffAssignmentsJson,
+    this.warrantyMonths,
+    this.warrantyExpiry,
   });
 
   factory PosSaleOrderLine.fromJson(Map<String, dynamic> json) {
@@ -168,7 +174,19 @@ class PosSaleOrderLine {
           (json['assignedEmployeeId'] ?? json['AssignedEmployeeId'])?.toString(),
       staffAssignmentsJson:
           (json['staffAssignmentsJson'] ?? json['StaffAssignmentsJson'])?.toString(),
+      warrantyMonths: i(json['warrantyMonths'] ?? json['WarrantyMonths']),
+      warrantyExpiry: parseApiDateTime(json['warrantyExpiry'] ?? json['WarrantyExpiry']),
     );
+  }
+
+  /// «BH 12 tháng — đến 02/11/2027» (trống nếu không bảo hành).
+  String get warrantyLabel {
+    final m = warrantyMonths ?? 0;
+    if (m <= 0) return '';
+    final e = warrantyExpiry?.toLocal();
+    if (e == null) return 'BH $m tháng';
+    String two(int v) => v.toString().padLeft(2, '0');
+    return 'BH $m tháng — đến ${two(e.day)}/${two(e.month)}/${e.year}';
   }
 
   /// Payload gọn cho Print Agent (Sunmi native) — tránh Agent phải gọi lại API.
@@ -186,6 +204,8 @@ class PosSaleOrderLine {
         'returnedQty': returnedQty,
         'serialNumbers': serialNumbers,
         'toppingsJson': toppings.map((t) => t.toJson()).toList(),
+        if (warrantyMonths != null) 'warrantyMonths': warrantyMonths,
+        if (warrantyExpiry != null) 'warrantyExpiry': warrantyExpiry!.toUtc().toIso8601String(),
       };
 }
 

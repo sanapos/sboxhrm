@@ -945,7 +945,7 @@ public partial class PosSalesController
         var dtoLines = BuildCompleteSaleLineDtos(order.Lines.ToList(), dto?.Lines);
         var warrantyLines = dtoLines
             .Where(l => productsPreview.TryGetValue(l.ProductId, out var wp) &&
-                        PosSaleWarrantyHelper.NeedsRegistration(wp))
+                        PosSaleWarrantyHelper.NeedsRegistration(wp, l.WarrantyMonths))
             .Select(l => (l, productsPreview[l.ProductId]))
             .ToList();
         if (warrantyLines.Count > 0)
@@ -2172,7 +2172,7 @@ public partial class PosSalesController
         {
             var warrantyLines = dto.Lines
                 .Where(l => products.TryGetValue(l.ProductId, out var wp) &&
-                            PosSaleWarrantyHelper.NeedsRegistration(wp))
+                            PosSaleWarrantyHelper.NeedsRegistration(wp, l.WarrantyMonths))
                 .Select(l => (l, products[l.ProductId]))
                 .ToList();
             if (warrantyLines.Count > 0)
