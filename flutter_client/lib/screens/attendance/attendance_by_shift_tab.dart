@@ -3850,13 +3850,6 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return '';
   }
 
-  /// Ngày nghỉ tuần: theo thiết lập của nhân viên; chưa thiết lập thì Chủ nhật.
-  bool _dailyIsWeeklyOff(DateTime day, String employeeCode) {
-    if (_isWeeklyOffDay(day, employeeCode)) return true;
-    final cfg = (_employeeCodeToWeeklyOffDays[employeeCode] ?? '').trim();
-    return cfg.isEmpty && day.weekday == DateTime.sunday;
-  }
-
   /// Phiếu bổ sung giờ chấm đang chờ duyệt trong kỳ: «mã NV|yyyy-MM-dd» → (phút trong ngày, lý do).
   Future<Map<String, List<({int minute, String reason})>>> _dailyPendingAdds(DateTimeRange range) async {
     final out = <String, List<({int minute, String reason})>>{};
@@ -4081,8 +4074,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       }
       final holiday = _getHolidayRate(x.day, x.code) != null;
       // Tính công theo lịch, ngày không xếp ca làm: như ngày nghỉ tuần.
+      // Nghỉ tuần chỉ theo thiết lập của NV (chưa thiết lập → Chủ nhật vẫn là ngày làm, không chấm là Vắng).
       final scheduleOff = r?.fillKind == AttendanceFillDayKind.scheduleOff;
-      final weeklyOff = !holiday && (scheduleOff || _dailyIsWeeklyOff(x.day, x.code));
+      final weeklyOff = !holiday && (scheduleOff || _isWeeklyOffDay(x.day, x.code));
       final leave = _dailyLeaveFor(x.empId, x.code, x.day);
       final future = x.day.isAfter(todayD);
       final hasAnyPunch = (r?.displayPunchTimes.isNotEmpty ?? false);
@@ -5218,7 +5212,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final fill = r.fillKind;
     if (fill != null && fill != AttendanceFillDayKind.absent) return fill.rowTint;
     final holiday = _getHolidayRate(r.date, r.employeeCode) != null;
-    final weeklyOff = !holiday && _dailyIsWeeklyOff(r.date, r.employeeCode);
+    final weeklyOff = !holiday && _isWeeklyOffDay(r.date, r.employeeCode);
     if (!holiday && !weeklyOff) return null;
     if (r.punchTimes.isNotEmpty) return const Color(0xFFCFFAFE);
     return holiday ? const Color(0xFFEDE9FE) : const Color(0xFFDCFCE7);

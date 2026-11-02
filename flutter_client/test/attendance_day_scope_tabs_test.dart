@@ -97,6 +97,8 @@ void main() {
     }
     expect(find.text('Nghỉ phép'), findsWidgets);
     expect(find.text('Vắng'), findsWidgets);
+    // NV chưa đặt ngày nghỉ tuần: Chủ nhật không chấm là Vắng, không phải Nghỉ tuần.
+    expect(find.text('Nghỉ tuần'), findsNothing);
 
     await _pickScope(tester, 'Chỉ ngày có chấm');
     expect(find.text(_label(0)), findsOneWidget);
@@ -151,6 +153,7 @@ void main() {
     // Ngày không chấm ghi rõ loại ở cột «Số công».
     expect(find.text('Nghỉ phép'), findsOneWidget);
     expect(find.text('Vắng'), findsWidgets);
+    expect(find.text('Nghỉ tuần'), findsNothing);
 
     await _pickScope(tester, 'Chỉ ngày có chấm');
     expect(find.text(_label(0)), findsOneWidget);
