@@ -138,6 +138,7 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
         printedAt: printedAt,
         showFeedback: showFeedback,
         templateOverride: templateOverride,
+        onCloudHang: onCloudHang,
       );
   // Món gán máy tem (lane tem) → in đúng máy đó; món chưa gán → máy tem mặc định như trước.
   // Trước: mọi tem dồn 1 máy tem, màn «Gán món in tem» không có tác dụng khi in.
@@ -204,6 +205,7 @@ Future<List<CupLabelTicket>> _printCupLabelsOn({
   DateTime? printedAt,
   bool showFeedback = false,
   PosPrintTemplateV2? templateOverride,
+  CupLabelCloudHangCallback? onCloudHang,
 }) async {
   if (tickets.isEmpty) return const [];
   if (targetPrinterId == null && !await hasReadyCupLabelPrinter()) {
