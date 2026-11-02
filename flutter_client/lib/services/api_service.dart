@@ -21287,6 +21287,7 @@ class ApiService implements PayrollApi {
     String? note,
     bool includeImages = false,
     Map<String, List<String>>? serials,
+    String? docNo,
   }) async {
     try {
       final response = await http
@@ -21298,9 +21299,23 @@ class ApiService implements PayrollApi {
               'note': note,
               'includeImages': includeImages,
               if (serials != null && serials.isNotEmpty) 'serials': serials,
+              if (docNo != null && docNo.trim().isNotEmpty) 'docNo': docNo.trim(),
             }),
           )
           .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Thiết lập đánh số + số kế tiếp của báo giá (`Quote`) / hợp đồng (`Contract`).
+  Future<Map<String, dynamic>> getPosQuoteNumbering(String kind) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/quotes/numbering?kind=${Uri.encodeQueryComponent(kind)}'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

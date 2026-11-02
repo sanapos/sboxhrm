@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_busy.dart';
+import 'pos_doc_numbering.dart';
 
 const posQuotePackageKinds = [
   'Contract',
@@ -29,6 +30,16 @@ Future<PosQuoteDocument?> createPosQuoteCommercialDoc(
   final resolvedNote = note;
 
   if (!context.mounted || PosBusy.isBusy('create-doc')) return null;
+  // Cửa hàng chọn «Tự nhập» số hợp đồng → hỏi số (gợi ý sẵn số kế tiếp theo mẫu).
+  String? docNo;
+  if (kind == 'Contract') {
+    final info = await PosDocNumberingInfo.fetch('Contract', api: api);
+    if (!context.mounted) return null;
+    if (info != null && info.manual) {
+      docNo = await askPosDocNo(context, title: 'Số hợp đồng', suggestion: info.next);
+      if (docNo == null || !context.mounted) return null;
+    }
+  }
   // Khung «Đang lập …» + chặn bấm lặp (bấm 2 lần từng tạo 2 hợp đồng).
   final res = await PosBusy.run(
     context,
@@ -43,6 +54,7 @@ Future<PosQuoteDocument?> createPosQuoteCommercialDoc(
             kind,
             note: resolvedNote,
             includeImages: includeImages,
+            docNo: docNo,
           ),
     label: 'Đang lập ${PosQuoteDocument.kindLabel(kind).toLowerCase()}…',
     key: 'create-doc',
@@ -171,4 +183,44 @@ Future<bool> editPosQuoteDocumentNote(
   }
   NotificationOverlayManager().showSuccess(title: 'Đã lưu ghi chú in', message: doc.docNo);
   return true;
+}
+
+/// Hỏi số chứng từ khi cửa hàng chọn «Tự nhập» (Thông tin cửa hàng › Đánh số báo giá & hợp đồng).
+/// Trả số đã nhập ('' = để máy tự nhảy theo mẫu), null = hủy.
+Future<String?> askPosDocNo(
+  BuildContext context, {
+  required String title,
+  required String suggestion,
+}) async {
+  final c = TextEditingController(text: suggestion);
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(tr(title)),
+      content: SizedBox(
+        width: 440,
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+            tr('Đã điền sẵn số kế tiếp theo mẫu — sửa thành số của công ty nếu cần. Để trống thì máy tự nhảy số.'),
+            style: const TextStyle(fontSize: 13, height: 1.35),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: c,
+            autofocus: true,
+            maxLength: PosDocNumbering.maxNoLength,
+            decoration: PosTheme.inputDecoration(label: title),
+            onSubmitted: (_) => Navigator.pop(ctx, true),
+          ),
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lập'))),
+      ],
+    ),
+  );
+  final no = c.text.trim();
+  c.dispose();
+  return ok == true ? no : null;
 }

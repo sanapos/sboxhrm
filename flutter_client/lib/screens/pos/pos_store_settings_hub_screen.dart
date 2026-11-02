@@ -10,6 +10,8 @@ import '../../l10n/app_tr.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_commercial_profile_local.dart';
+import '../../utils/pos_doc_numbering.dart';
+import '../../utils/pos_sell_settings_helper.dart';
 import '../../utils/pos_sell_store_settings.dart';
 import '../../utils/settings_hub_catalog.dart';
 import '../../widgets/pos/pos_commercial_company_fields.dart';
@@ -47,11 +49,16 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
   final _termsCtrl = TextEditingController();
   final _warrantyCtrl = TextEditingController();
   final _fees = PosSellTaxFeeDraft();
+  final _quotePatternCtrl = TextEditingController(text: PosDocNumbering.quoteDefault);
+  final _contractPatternCtrl = TextEditingController(text: PosDocNumbering.contractDefault);
+  PosDocNumbering _numbering = const PosDocNumbering();
+  bool _quoteManual = false;
+  bool _contractManual = false;
 
   List<TextEditingController> get _ctrls => [
         _nameCtrl, _addressCtrl, _phoneCtrl, _companyCtrl, _taxCtrl, _companyAddressCtrl, _companyPhoneCtrl,
         _companyEmailCtrl, _bankNoCtrl, _bankNameCtrl, _bankHolderCtrl, _repCtrl, _titleCtrl, _termsCtrl,
-        _warrantyCtrl, ..._fees.controllers,
+        _warrantyCtrl, _quotePatternCtrl, _contractPatternCtrl, ..._fees.controllers,
       ];
 
   bool _loading = true;
@@ -87,6 +94,8 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
         ..._ctrls.map((c) => c.text),
         _fees.taxSnapshot,
         _fees.feeSnapshot,
+        _quoteManual,
+        _contractManual,
         _stampB64.length,
         _stampB64.hashCode,
         _logoB64.length,
@@ -159,6 +168,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     final s = await PosSellStoreSettings.load();
     final profileRes = await ApiService().getPosCommercialProfile();
     final local = await loadLocalCommercialProfile();
+    final sell = await PosSellSettingsHelper(ApiService()).load();
     if (!mounted) return;
     Map<String, dynamic> m = const {};
     if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
@@ -200,6 +210,11 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       _logoBytes = _decodeB64(_logoB64);
       _termsCtrl.text = t('defaultTerms');
       _warrantyCtrl.text = t('warrantyPolicy');
+      _numbering = PosDocNumbering.parse(sell.settings?.extraJson);
+      _quoteManual = _numbering.quote.manual;
+      _contractManual = _numbering.contract.manual;
+      _quotePatternCtrl.text = _numbering.quote.pattern;
+      _contractPatternCtrl.text = _numbering.contract.pattern;
       _loading = false;
       _savedSnapshot = _snapshot;
     });
@@ -212,6 +227,12 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     }
     if (_nameCtrl.text.trim().isEmpty) {
       _toast('Nhập tên cửa hàng (in trên hóa đơn)', error: true);
+      return;
+    }
+    final patternErr =
+        PosDocNumbering.validate(_quotePatternCtrl.text) ?? PosDocNumbering.validate(_contractPatternCtrl.text);
+    if (patternErr != null) {
+      _toast('Mẫu đánh số: $patternErr', error: true);
       return;
     }
     setState(() => _saving = true);
@@ -227,6 +248,20 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       fees: _showFees,
     );
     await next.save();
+    final numbering = PosDocNumbering(
+      quote: PosDocNumberRule(manual: _quoteManual, pattern: _quotePatternCtrl.text.trim()),
+      contract: PosDocNumberRule(manual: _contractManual, pattern: _contractPatternCtrl.text.trim()),
+    );
+    if (numbering.mergeIntoExtraJson(null) != _numbering.mergeIntoExtraJson(null)) {
+      final err = await PosDocNumbering.save(numbering);
+      if (!mounted) return;
+      if (err != null) {
+        setState(() => _saving = false);
+        _toast('Chưa lưu được cách đánh số: $err', error: true);
+        return;
+      }
+      _numbering = numbering;
+    }
     final profileBody = <String, dynamic>{
       'clientSavedAt': DateTime.now().toUtc().toIso8601String(),
       'companyName': _companyCtrl.text.trim(),
@@ -364,6 +399,26 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
           ],
         ),
         SettingsSection(
+          title: 'Đánh số báo giá & hợp đồng',
+          subtitle: 'Mỗi công ty một kiểu số: máy tự nhảy theo mẫu, hoặc người lập tự nhập số',
+          icon: Icons.tag_outlined,
+          children: [
+            const SizedBox(height: 6),
+            _numberingBlock('Báo giá', _quoteManual, (v) => setState(() => _quoteManual = v), _quotePatternCtrl,
+                PosDocNumbering.quotePresets, edit),
+            const SizedBox(height: 16),
+            _numberingBlock('Hợp đồng', _contractManual, (v) => setState(() => _contractManual = v),
+                _contractPatternCtrl, PosDocNumbering.contractPresets, edit),
+            const SizedBox(height: 10),
+            Text(
+              // Một chuỗi liền — công cụ trích chuỗi dịch bỏ qua chuỗi ghép 'a' 'b'.
+              tr('Ký hiệu trong mẫu: {YYYY} năm · {YY} 2 số cuối năm · {MM} tháng · {DD} ngày · {SEQ:4} số thứ tự 4 chữ số. Mẫu có {DD} thì mỗi ngày đếm lại từ 1, chỉ có năm thì mỗi năm đếm lại, không có ngày tháng thì đếm nối tiếp mãi.'),
+              style: const TextStyle(fontSize: 12, height: 1.35, color: SboxColors.slate600),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+        SettingsSection(
           title: 'Điều khoản mặc định',
           icon: Icons.description_outlined,
           children: [
@@ -376,6 +431,55 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
         ),
       ],
     );
+  }
+
+  /// Một loại chứng từ: tự nhảy theo mẫu / tự nhập + ô mẫu (xem trước số) + mẫu hay dùng.
+  Widget _numberingBlock(String label, bool manual, ValueChanged<bool> onManual, TextEditingController ctrl,
+      List<String> presets, bool edit) {
+    final err = PosDocNumbering.validate(ctrl.text);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text(tr(label), style: const TextStyle(fontWeight: FontWeight.w700)),
+      const SizedBox(height: 6),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: SegmentedButton<bool>(
+          segments: [
+            ButtonSegment(value: false, icon: const Icon(Icons.auto_mode_outlined), label: Text(tr('Tự nhảy theo mẫu'))),
+            ButtonSegment(value: true, icon: const Icon(Icons.edit_outlined), label: Text(tr('Tự nhập'))),
+          ],
+          selected: {manual},
+          onSelectionChanged: edit ? (v) => onManual(v.first) : null,
+        ),
+      ),
+      const SizedBox(height: 10),
+      TextField(
+        controller: ctrl,
+        enabled: edit,
+        decoration: _dec(manual ? 'Mẫu gợi ý số kế tiếp' : 'Mẫu số').copyWith(
+          errorText: err == null ? null : tr(err),
+          helperText: err == null ? tr('Số đầu tiên hôm nay: ${PosDocNumbering.example(ctrl.text.trim())}') : null,
+        ),
+      ),
+      if (edit) ...[
+        const SizedBox(height: 6),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final p in presets)
+            ActionChip(
+              label: Text(PosDocNumbering.example(p), style: const TextStyle(fontSize: 12)),
+              tooltip: p,
+              onPressed: () => ctrl.text = p,
+            ),
+        ]),
+      ],
+      if (manual)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            tr('Khi lập chứng từ, ô số điền sẵn số kế tiếp theo mẫu — sửa thành số của công ty, để trống thì máy tự nhảy. Số trùng sẽ bị báo.'),
+            style: const TextStyle(fontSize: 12, height: 1.35, color: SboxColors.slate600),
+          ),
+        ),
+    ]);
   }
 
   Widget _imageBox(String label, Uint8List? bytes, bool edit, VoidCallback onPick, VoidCallback onRemove) {

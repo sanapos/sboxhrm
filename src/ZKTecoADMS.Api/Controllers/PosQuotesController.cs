@@ -120,7 +120,9 @@ public partial class PosQuotesController(
         string? VatMode = null,
         decimal? VatPercent = null,
         // null = giữ nguyên (app cũ không gửi); "" = giá bán chung; id = bảng giá của cửa hàng.
-        string? PriceListId = null);
+        string? PriceListId = null,
+        // Số báo giá nhập tay — chỉ nhận khi cửa hàng bật «Tự nhập»; trống = tự nhảy theo mẫu.
+        string? QuoteNo = null);
 
     [HttpGet]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
@@ -248,12 +250,15 @@ public partial class PosQuotesController(
         var storeId = RequiredStoreId;
         if (dto.Lines == null || dto.Lines.Count == 0)
             return BadRequest(AppResponse<QuoteDto>.Fail("Báo giá cần ít nhất một dòng"));
+        var (quoteNo, noErr) = await ResolveQuoteNoAsync(storeId, dto.QuoteNo, null);
+        if (noErr != null)
+            return BadRequest(AppResponse<QuoteDto>.Fail(noErr));
         var quotedName = await EmployeeNameAsync(EmployeeId) ?? await UserDisplayNameAsync(CurrentUserEmail) ?? CurrentUserEmail;
         var quote = new PosQuote
         {
             Id = Guid.NewGuid(),
             StoreId = storeId,
-            QuoteNo = await NextQuoteNoAsync(storeId),
+            QuoteNo = quoteNo!,
             Status = PosQuoteStatus.Draft,
             QuotedBy = quotedName,
             QuotedByEmployeeId = EmployeeId,
@@ -289,6 +294,15 @@ public partial class PosQuotesController(
             return BadRequest(AppResponse<QuoteDto>.Fail("Báo giá đã khóa — không sửa được"));
         if (dto.Lines == null || dto.Lines.Count == 0)
             return BadRequest(AppResponse<QuoteDto>.Fail("Báo giá cần ít nhất một dòng"));
+        var oldNo = quote.QuoteNo;
+        var newNo = oldNo;
+        if (!string.IsNullOrWhiteSpace(dto.QuoteNo) && dto.QuoteNo.Trim() != oldNo)
+        {
+            var (no, noErr) = await ResolveQuoteNoAsync(storeId, dto.QuoteNo, id);
+            if (noErr != null)
+                return BadRequest(AppResponse<QuoteDto>.Fail(noErr));
+            newNo = no ?? oldNo;
+        }
         var now = DateTime.UtcNow;
         var before = await dbContext.PosQuoteLines.AsNoTracking()
             .Where(l => l.QuoteId == id && l.Deleted == null)
@@ -302,6 +316,7 @@ public partial class PosQuotesController(
         dbContext.ChangeTracker.Clear();
         quote = await dbContext.PosQuotes.IgnoreQueryFilters()
             .FirstAsync(x => x.Id == id);
+        quote.QuoteNo = newNo;
         ApplyHeader(quote, dto);
         await ApplyPriceListAsync(quote, storeId, dto.PriceListId);
         InsertLines(quote, storeId, dto.Lines);
@@ -338,9 +353,23 @@ public partial class PosQuotesController(
                 ""CustomerId"" = {quote.CustomerId},
                 ""UpdatedAt"" = {now},
                 ""UpdatedBy"" = {CurrentUserEmail},
-                ""Revision"" = {quote.Revision}
+                ""Revision"" = {quote.Revision},
+                ""QuoteNo"" = {quote.QuoteNo}
               WHERE ""Id"" = {quote.Id}");
         dbContext.Entry(quote).State = EntityState.Unchanged;
+        if (newNo != oldNo)
+        {
+            // Phiếu báo giá mang số báo giá → đổi theo (chứng từ khác giữ số riêng).
+            if (!await PosDocNumbering.DocNoTakenAsync(dbContext, storeId, newNo))
+                await dbContext.PosQuoteDocuments.IgnoreQueryFilters()
+                    .Where(d => d.QuoteId == id && d.StoreId == storeId && d.Kind == PosQuoteDocumentKind.Quote
+                        && d.DocNo == oldNo)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(d => d.DocNo, newNo)
+                        .SetProperty(d => d.UpdatedAt, now)
+                        .SetProperty(d => d.UpdatedBy, CurrentUserEmail));
+            AddActivity(quote, "Edit", $"Đổi số báo giá {oldNo} → {newNo}");
+        }
         var after = quote.Lines.Where(l => l.Deleted == null).OrderBy(l => l.SortOrder)
             .Select(l => new QuoteLineSnap(l.ProductName, l.UnitName, l.Qty, l.UnitPrice)).ToList();
         var diff = DescribeRevision(before, after, totalBefore, quote.Total);
@@ -520,24 +549,24 @@ public partial class PosQuotesController(
         await dbContext.SaveChangesAsync();
     }
 
-    async Task<string> NextQuoteNoAsync(Guid storeId)
+    /// <summary>
+    /// Số báo giá theo thiết lập «Đánh số chứng từ»: «Tự nhập» + có số → kiểm rồi dùng số đó;
+    /// không thì tạo mới tự nhảy theo mẫu, sửa (exceptId ≠ null) thì giữ số cũ (No = null).
+    /// </summary>
+    async Task<(string? No, string? Error)> ResolveQuoteNoAsync(Guid storeId, string? requested, Guid? exceptId)
     {
-        var now = DateTime.UtcNow;
-        var prefix = $"BG{now:ddMMyyyy}";
-        var maxNo = await dbContext.PosQuotes.IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(o => o.StoreId == storeId
-                && o.QuoteNo.StartsWith(prefix)
-                && o.QuoteNo.Length > prefix.Length)
-            .OrderByDescending(o => o.QuoteNo.Length)
-            .ThenByDescending(o => o.QuoteNo)
-            .Select(o => o.QuoteNo)
-            .FirstOrDefaultAsync();
-        var max = 0;
-        if (maxNo != null && maxNo.Length > prefix.Length
-            && int.TryParse(maxNo.AsSpan(prefix.Length), out var n))
-            max = n;
-        return prefix + (max + 1).ToString("D4");
+        var rule = await PosDocNumbering.LoadAsync(dbContext, storeId, PosQuoteDocumentKind.Quote);
+        var no = requested?.Trim();
+        if (rule.Manual && !string.IsNullOrEmpty(no))
+        {
+            if (PosDocNumbering.ValidateNo(no) is { } err) return (null, err);
+            if (await PosDocNumbering.QuoteNoTakenAsync(dbContext, storeId, no, exceptId))
+                return (null, $"Số báo giá «{no}» đã có — nhập số khác");
+            return (no, null);
+        }
+        return exceptId != null
+            ? (null, null)
+            : (await PosDocNumbering.NextQuoteNoAsync(dbContext, storeId, rule.Pattern), null);
     }
 
     static Guid? ParseGuid(string? s) =>
@@ -937,9 +966,15 @@ public partial class PosQuotesController(
         dbContext.PosQuoteActivities.Add(act);
     }
 
+    /// <summary>Phiếu báo giá mang đúng số báo giá; số đó đã thuộc chứng từ khác thì lấy số mới.</summary>
+    async Task<string> QuoteSlipNoAsync(PosQuote quote) =>
+        await PosDocNumbering.DocNoTakenAsync(dbContext, quote.StoreId, quote.QuoteNo)
+            ? await NextDocNoAsync(quote.StoreId, PosQuoteDocumentKind.Quote)
+            : quote.QuoteNo;
+
     async Task AttachQuoteSlipAsync(PosQuote quote, bool includeImages = false)
     {
-        var docNo = await NextDocNoAsync(quote.StoreId, PosQuoteDocumentKind.Quote);
+        var docNo = await QuoteSlipNoAsync(quote);
         // Báo giá mới của khách có mẫu báo giá riêng → phiếu báo giá mang theo (khách khác không thấy).
         var customerHtml = (await PosQuoteDocumentHtml.CustomerTemplateAsync(
             dbContext, quote, PosQuoteDocumentKind.Quote))?.HtmlContent;

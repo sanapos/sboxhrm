@@ -33,6 +33,7 @@ import '../../widgets/pos/pos_form_keyboard.dart';
 import '../../widgets/pos/pos_theme.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/pos_doc_numbering.dart';
 enum _RowExpand { note, price }
 
 enum _ComposerStage { catalog, cart, checkout }
@@ -93,6 +94,9 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
   final _discount = TextEditingController(text: '0');
   final _deposit = TextEditingController(text: '50');
   final _note = TextEditingController();
+  /// Ô «Số báo giá» — chỉ hiện khi cửa hàng chọn «Tự nhập» (app chính › Thông tin cửa hàng › Đánh số).
+  final _quoteNoCtrl = TextEditingController();
+  bool _manualNo = false;
   final _money = NumberFormat('#,##0', 'vi_VN');
 
   PosCustomer? _customer;
@@ -161,10 +165,21 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     super.initState();
     _loadDefaultTemplate();
     _loadCommercialProfile();
+    unawaited(_loadNumbering());
     unawaited(_loadPriceLists(pickDefault: !_isEdit));
     if (_isEdit) {
       _loadQuote();
     }
+  }
+
+  /// Cửa hàng chọn «Tự nhập» số báo giá → hiện ô số, báo giá mới điền sẵn số kế tiếp theo mẫu.
+  Future<void> _loadNumbering() async {
+    final info = await PosDocNumberingInfo.fetch('Quote', api: _api);
+    if (!mounted || info == null) return;
+    setState(() {
+      _manualNo = info.manual;
+      if (_manualNo && !_isEdit && _quoteNo.isEmpty && _quoteNoCtrl.text.isEmpty) _quoteNoCtrl.text = info.next;
+    });
   }
 
   Future<void> _loadCommercialProfile() async {
@@ -345,6 +360,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         _stage = _ComposerStage.cart;
         _discountIsPercent = false;
         _quoteNo = q.quoteNo;
+        _quoteNoCtrl.text = q.quoteNo;
         _customerId = q.customerId;
         if ((q.customerName ?? '').isNotEmpty ||
             (q.customerPhone ?? '').isNotEmpty) {
@@ -420,6 +436,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     _discount.dispose();
     _deposit.dispose();
     _note.dispose();
+    _quoteNoCtrl.dispose();
     for (final r in _cart) {
       r.dispose();
     }
@@ -848,6 +865,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         'includeImages': _includeImages,
         'priceListId': _priceListId ?? '',
         'lines': _cart.map((r) => r.line.toInputJson()).toList(),
+        if (_manualNo) 'quoteNo': _quoteNoCtrl.text.trim(),
       };
       final quoteId = _activeQuoteId;
       final res = quoteId != null
@@ -888,6 +906,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       setState(() {
         _savedQuoteId = q.id;
         _quoteNo = q.quoteNo;
+        _quoteNoCtrl.text = q.quoteNo;
         _adoptSavedLineIds(q.lines);
         _printTemplateId = q.printTemplateId ?? _printTemplateId;
         if (q.depositPercent != null && q.depositPercent! > 0) {
@@ -1921,6 +1940,15 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
               ),
             ),
           const SizedBox(height: 12),
+          if (_manualNo) ...[
+            TextField(
+              controller: _quoteNoCtrl,
+              maxLength: PosDocNumberingInfo.maxNoLength,
+              decoration: PosTheme.inputDecoration(label: 'Số báo giá', hint: 'Để trống: tự nhảy theo mẫu')
+                  .copyWith(counterText: ''),
+            ),
+            const SizedBox(height: 12),
+          ],
           InkWell(
             onTap: () async {
               final now = DateTime.now();

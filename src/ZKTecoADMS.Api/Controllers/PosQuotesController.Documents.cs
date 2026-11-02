@@ -161,7 +161,10 @@ public partial class PosQuotesController
                 return BadRequest(AppResponse<QuoteDocumentDto>.Fail(serialErr));
         }
 
-        var docNo = await NextDocNoAsync(storeId, kind);
+        var (resolvedNo, noErr) = await ResolveDocNoAsync(storeId, quote, kind, dto.DocNo);
+        if (noErr != null)
+            return BadRequest(AppResponse<QuoteDocumentDto>.Fail(noErr));
+        var docNo = resolvedNo!;
         var templateId = await ValidTemplateIdAsync(storeId, kind, dto.TemplateId);
         // Khách có mẫu riêng cho loại chứng từ này (và không chọn mẫu khác lúc lập) → chứng từ mới mang theo.
         var customerHtml = templateId == null
@@ -498,18 +501,45 @@ public partial class PosQuotesController
 
     async Task<string> NextDocNoAsync(Guid storeId, PosQuoteDocumentKind kind)
     {
-        var prefix = $"{PosQuoteDocumentHtml.PrefixOf(kind)}{DateTime.UtcNow:ddMMyyyy}";
-        var maxNo = await dbContext.PosQuoteDocuments.IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(o => o.StoreId == storeId && o.DocNo.StartsWith(prefix))
-            .OrderByDescending(o => o.DocNo)
-            .Select(o => o.DocNo)
-            .FirstOrDefaultAsync();
-        var max = 0;
-        if (maxNo != null && maxNo.Length > prefix.Length
-            && int.TryParse(maxNo.AsSpan(prefix.Length), out var n))
-            max = n;
-        return prefix + (max + 1).ToString("D4");
+        var rule = await PosDocNumbering.LoadAsync(dbContext, storeId, kind);
+        return await PosDocNumbering.NextDocNoAsync(dbContext, storeId, rule.Pattern);
+    }
+
+    /// <summary>
+    /// Số chứng từ khi lập: hợp đồng và cửa hàng bật «Tự nhập» + có số → kiểm rồi dùng; phiếu báo giá mang số
+    /// báo giá; còn lại tự nhảy theo mẫu.
+    /// </summary>
+    async Task<(string? No, string? Error)> ResolveDocNoAsync(Guid storeId, PosQuote quote, PosQuoteDocumentKind kind,
+        string? requested)
+    {
+        if (kind == PosQuoteDocumentKind.Quote) return (await QuoteSlipNoAsync(quote), null);
+        var rule = await PosDocNumbering.LoadAsync(dbContext, storeId, kind);
+        var no = requested?.Trim();
+        if (rule.Manual && !string.IsNullOrEmpty(no))
+        {
+            if (PosDocNumbering.ValidateNo(no) is { } err) return (null, err);
+            if (await PosDocNumbering.DocNoTakenAsync(dbContext, storeId, no))
+                return (null, $"Số «{no}» đã có ở chứng từ khác — nhập số khác");
+            return (no, null);
+        }
+        return (await PosDocNumbering.NextDocNoAsync(dbContext, storeId, rule.Pattern), null);
+    }
+
+    public record DocNumberingDto(string Kind, bool Manual, string Pattern, string Next);
+
+    /// <summary>Thiết lập đánh số + số kế tiếp (gợi ý cho ô «Số báo giá» / «Số hợp đồng» khi «Tự nhập»).</summary>
+    [HttpGet("numbering")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<DocNumberingDto>>> Numbering([FromQuery] string? kind)
+    {
+        var storeId = RequiredStoreId;
+        if (!TryParseKind(string.IsNullOrWhiteSpace(kind) ? "Quote" : kind, out var k))
+            return BadRequest(AppResponse<DocNumberingDto>.Fail("Loại chứng từ không hợp lệ"));
+        var rule = await PosDocNumbering.LoadAsync(dbContext, storeId, k);
+        var next = k == PosQuoteDocumentKind.Quote
+            ? await PosDocNumbering.NextQuoteNoAsync(dbContext, storeId, rule.Pattern)
+            : await PosDocNumbering.NextDocNoAsync(dbContext, storeId, rule.Pattern);
+        return Ok(AppResponse<DocNumberingDto>.Success(new DocNumberingDto(k.ToString(), rule.Manual, rule.Pattern, next)));
     }
 
     static bool TryParseKind(string? raw, out PosQuoteDocumentKind kind) =>
