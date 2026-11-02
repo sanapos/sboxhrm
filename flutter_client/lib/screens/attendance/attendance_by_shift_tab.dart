@@ -4246,8 +4246,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               ? 0
               : double.parse((widget.standardWorkHours * (halfLeave ? 0.5 : 1)).toStringAsFixed(2))),
           fmt: hours);
-      // NV chưa gán ca, ngày làm không chấm: màn hình ghi Vắng (dòng lấp) → file cũng ghi Vắng.
-      final absentNoShift = x.noShift && r?.fillKind == AttendanceFillDayKind.absent;
+      // Ngày màn hình ghi Vắng (dòng lấp) → file cũng ghi Vắng, kể cả NV chưa gán ca / chấm một lần mỗi ngày
+      // (hai trường hợp này không kiểm thiếu cặp nên checkMissing = false).
+      final absentFill = r?.fillKind == AttendanceFillDayKind.absent;
       final status = <String>[
         if (holiday) restDayWork ? 'Đi làm ngày lễ' : 'Ngày lễ',
         if (weeklyOff) restDayWork ? 'Đi làm ngày nghỉ' : (scheduleOff ? r!.fillKind!.label : 'Nghỉ tuần'),
@@ -4257,12 +4258,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             if ('${leave['reason'] ?? ''}'.trim().isNotEmpty) '${leave['reason']}'.trim(),
           ].join(': '),
         if (x.noShift && hasAnyPunch) 'Chưa gán ca',
-        if ((checkMissing || absentNoShift) && !hasAnyPunch && x.day != todayD && pendingNotes.isEmpty) 'Vắng' else ...notes,
+        if ((checkMissing || absentFill) && !hasAnyPunch && x.day != todayD && pendingNotes.isEmpty) 'Vắng' else ...notes,
         ...editNotes,
         ...pendingNotes,
         if (x.a.extra.isNotEmpty) 'Ngoài ca: ${x.a.extra.map((d) => DateFormat('HH:mm').format(d)).join(', ')}',
       ];
-      final bad = notes.isNotEmpty || ((checkMissing || absentNoShift) && !hasAnyPunch && x.day != todayD);
+      final bad = notes.isNotEmpty || ((checkMissing || absentFill) && !hasAnyPunch && x.day != todayD);
       put(c, t(status.map(tr).join(' · ')),
           left: true, fg: bad ? _dailyMissingFg : null);
       row++;
