@@ -7969,7 +7969,8 @@ class ApiService implements PayrollApi {
       dynamic status,
       dynamic fromDate,
       dynamic toDate,
-      String? employeeUserId}) async {
+      String? employeeUserId,
+      bool filterByWorkDate = false}) async {
     try {
       final params = <String, String>{};
       if (page != null) {
@@ -7988,6 +7989,8 @@ class ApiService implements PayrollApi {
             toDate is DateTime ? toDate.toIso8601String() : toDate.toString();
       }
       if (employeeUserId != null) params['employeeUserId'] = employeeUserId;
+      // Lọc theo ngày công của giờ chấm (không theo ngày tạo phiếu).
+      if (filterByWorkDate) params['filterByWorkDate'] = 'true';
       final uri = Uri.parse('$baseUrl/api/AttendanceCorrections')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await sharedHttpClient.get(uri, headers: _headers);

@@ -751,15 +751,231 @@ class DayAttendancePair {
   /// Ca đã xác định sẵn (mode «chấm bất kỳ trong ca») — không dò ca theo giờ vào.
   final Map<String, dynamic>? shift;
 
+  /// Ra / vào lại giờ nghỉ trưa khi đã gộp 2 cặp sáng – chiều thành một ca ([mergeLunchSplitPairs]).
+  final DateTime? breakOut;
+  final DateTime? breakIn;
+
+  /// Giờ ra là lần ra nghỉ trưa (sau đó chỉ còn một lần chấm chiều, thiếu vào lại) —
+  /// về sớm tính tới đầu giờ nghỉ, không tới hết ca.
+  final bool outAtLunch;
+
+  /// Chỉ làm nửa chiều (vào sau giờ nghỉ trưa, ra cuối ca) — đi trễ tính từ hết giờ nghỉ, không từ đầu ca.
+  final bool inAtLunch;
+
   const DayAttendancePair({
     this.checkIn,
     this.checkOut,
     this.checkInInferred = false,
     this.shift,
+    this.breakOut,
+    this.breakIn,
+    this.outAtLunch = false,
+    this.inAtLunch = false,
   });
 
   bool get isOrphanOut => checkIn == null && checkOut != null;
   bool get isMissingOut => checkIn != null && checkOut == null;
+
+  /// Số phút ra ngoài giữa ca (nghỉ trưa thực tế).
+  int get breakMinutes => breakOut != null && breakIn != null && breakIn!.isAfter(breakOut!)
+      ? breakIn!.difference(breakOut!).inMinutes
+      : 0;
+}
+
+/// Số lần chấm lẻ (vd. 5 lần: bấm trùng 17:17 / 17:19, hay chấm thêm 12:17 giữa trưa): ghép lẻ/chẵn làm lệch
+/// mọi cặp sau đó → «về sớm», «thiếu ra». Nếu bỏ đúng MỘT lần chấm mà các lần còn lại khớp đủ Vào / Ra
+/// của các ca được gán (mỗi ca đủ cả hai hoặc trống cả hai) thì ghép theo ca, bỏ lần chấm lẻ đó.
+List<DayAttendancePair> alignStrayPunchToShifts(
+  List<DayAttendancePair> pairs,
+  List<Map<String, dynamic>> shifts,
+) {
+  if (pairs.any((p) => p.shift != null || p.checkInInferred)) return pairs;
+  final punches = <DateTime>[
+    for (final p in pairs) ...[if (p.checkIn != null) p.checkIn!, if (p.checkOut != null) p.checkOut!],
+  ]..sort();
+  if (punches.length < 3 || punches.length.isEven) return pairs;
+  final slots = <({int start, int end})>[];
+  for (final st in shifts) {
+    if (isOvertimeShiftTemplate(st)) continue;
+    final s = _parseTimeSpanToMinutes(st['startTime']?.toString());
+    final e = _parseTimeSpanToMinutes(st['endTime']?.toString());
+    if (e <= s) return pairs; // ca qua đêm: giữ cách ghép cũ
+    final ls = _parseTimeSpanToMinutes(st['lunchBreakStartTime']?.toString());
+    final le = _parseTimeSpanToMinutes(st['lunchBreakEndTime']?.toString());
+    if (s < ls && ls < le && le < e) {
+      // Ca có nghỉ trưa: 2 nửa (sáng / chiều) — [mergeLunchSplitPairs] gộp lại sau.
+      slots.add((start: s, end: ls));
+      slots.add((start: le, end: e));
+    } else {
+      slots.add((start: s, end: e));
+    }
+  }
+  if (slots.isEmpty) return pairs;
+  slots.sort((a, b) => a.start.compareTo(b.start));
+  final day = DateTime(punches.first.year, punches.first.month, punches.first.day);
+  final pm = [for (final p in punches) p.difference(day).inMinutes];
+  final bounds = <int>[for (final sl in slots) ...[sl.start, sl.end]];
+  // Ghép giờ chấm gần mốc nhất (≤ 4 tiếng), giữ thứ tự thời gian.
+  final cands = <(int, int, int)>[
+    for (var pi = 0; pi < pm.length; pi++)
+      for (var bi = 0; bi < bounds.length; bi++)
+        if ((pm[pi] - bounds[bi]).abs() <= 240) (pi, bi, (pm[pi] - bounds[bi]).abs()),
+  ]..sort((a, b) => a.$3.compareTo(b.$3));
+  final punchToBound = <int, int>{};
+  final used = <int>{};
+  for (final (pi, bi, _) in cands) {
+    if (punchToBound.containsKey(pi) || used.contains(bi)) continue;
+    if (!punchToBound.entries.every((e) => (e.key < pi) == (e.value < bi))) continue;
+    punchToBound[pi] = bi;
+    used.add(bi);
+  }
+  if (punchToBound.length != punches.length - 1) return pairs;
+  final ins = <int, DateTime>{}, outs = <int, DateTime>{};
+  punchToBound.forEach((pi, bi) => (bi.isEven ? ins : outs)[bi ~/ 2] = punches[pi]);
+  for (var k = 0; k < slots.length; k++) {
+    if (ins.containsKey(k) != outs.containsKey(k)) return pairs; // có ca thiếu nửa → giữ cách cũ (báo thiếu chấm)
+  }
+  return [
+    for (var k = 0; k < slots.length; k++)
+      if (ins.containsKey(k)) DayAttendancePair(checkIn: ins[k], checkOut: outs[k]),
+  ];
+}
+
+/// Ca có nghỉ trưa, NV chấm 4 lần (vào sáng – ra trưa – vào chiều – ra chiều): ghép lẻ/chẵn cho ra
+/// 2 cặp, cặp sáng bị coi là cả ca → «về sớm» từ trưa tới hết ca. Gộp lại thành một ca, giữ giờ ra / vào
+/// trưa trong [DayAttendancePair.breakOut] / [DayAttendancePair.breakIn] để tính trễ / sớm quanh giờ nghỉ.
+List<DayAttendancePair> mergeLunchSplitPairs(
+  List<DayAttendancePair> pairs,
+  List<Map<String, dynamic>> shifts,
+) {
+  if (pairs.isEmpty || shifts.isEmpty) return pairs;
+  Map<String, dynamic>? lunchShiftFor(int inMin, int outMin, int backMin, {bool backIsEnd = false}) {
+    for (final st in shifts) {
+      if (isOvertimeShiftTemplate(st)) continue;
+      final s = _parseTimeSpanToMinutes(st['startTime']?.toString());
+      final e = _parseTimeSpanToMinutes(st['endTime']?.toString());
+      final ls = _parseTimeSpanToMinutes(st['lunchBreakStartTime']?.toString());
+      final le = _parseTimeSpanToMinutes(st['lunchBreakEndTime']?.toString());
+      if (!(s < ls && ls < le && le < e)) continue;
+      // Vào trước giờ nghỉ, ra trong khoảng quanh giờ nghỉ, vào lại trước khi ca chiều trôi quá xa.
+      final outAtLunch = inMin < ls && outMin >= ls - 120 && outMin <= le + 30;
+      if (!outAtLunch) continue;
+      if (backIsEnd ? backMin >= e - 120 : backMin >= ls - 30 && backMin <= le + 120) return st;
+    }
+    return null;
+  }
+
+  final out = <DayAttendancePair>[];
+  for (var i = 0; i < pairs.length; i++) {
+    final p = pairs[i];
+    final q = i + 1 < pairs.length ? pairs[i + 1] : null;
+    if (q != null &&
+        p.shift == null &&
+        q.shift == null &&
+        p.checkIn != null &&
+        p.checkOut != null &&
+        q.checkIn != null &&
+        q.checkOut != null &&
+        !q.checkIn!.isBefore(p.checkOut!) &&
+        p.checkIn!.day == q.checkOut!.day) {
+      final st = lunchShiftFor(
+        _dateTimeToMinutes(p.checkIn!),
+        _dateTimeToMinutes(p.checkOut!),
+        _dateTimeToMinutes(q.checkIn!),
+      );
+      if (st != null) {
+        out.add(DayAttendancePair(
+          checkIn: p.checkIn,
+          checkOut: q.checkOut,
+          checkInInferred: p.checkInInferred,
+          breakOut: p.checkOut,
+          breakIn: q.checkIn,
+        ));
+        i++;
+        continue;
+      }
+    }
+    // Chấm 3 lần: vào sáng – ra trưa – một lần chiều (thiếu vào lại hoặc thiếu ra). Giữ nguyên cặp
+    // (vẫn báo thiếu chấm), chỉ không coi lần ra trưa là về sớm tới hết ca.
+    if (q != null &&
+        i + 2 == pairs.length &&
+        p.shift == null &&
+        p.checkIn != null &&
+        p.checkOut != null &&
+        q.checkIn != null &&
+        q.checkOut == null &&
+        lunchShiftFor(
+              _dateTimeToMinutes(p.checkIn!),
+              _dateTimeToMinutes(p.checkOut!),
+              _dateTimeToMinutes(q.checkIn!),
+              backIsEnd: true,
+            ) !=
+            null) {
+      out.add(DayAttendancePair(
+        checkIn: p.checkIn,
+        checkOut: p.checkOut,
+        checkInInferred: p.checkInInferred,
+        outAtLunch: true,
+      ));
+      continue;
+    }
+    // Chỉ một cặp chiều: vào quanh giờ nghỉ trưa, ra cuối ca → gán ca đó (khớp giờ vào theo đầu ca thì trượt).
+    // Chỉ khi là cặp đầu tiên trong ngày (buổi sáng không chấm) — tránh một ca bị khớp hai lần.
+    if (p.shift == null && p.checkIn != null && p.checkOut != null && out.every((x) => x.checkIn == null)) {
+      final inMin = _dateTimeToMinutes(p.checkIn!);
+      final outMin = _dateTimeToMinutes(p.checkOut!);
+      Map<String, dynamic>? afternoon;
+      for (final st in shifts) {
+        if (isOvertimeShiftTemplate(st)) continue;
+        final s = _parseTimeSpanToMinutes(st['startTime']?.toString());
+        final e = _parseTimeSpanToMinutes(st['endTime']?.toString());
+        final ls = _parseTimeSpanToMinutes(st['lunchBreakStartTime']?.toString());
+        final le = _parseTimeSpanToMinutes(st['lunchBreakEndTime']?.toString());
+        if (!(s < ls && ls < le && le < e)) continue;
+        if (inMin >= ls - 30 && inMin <= le + 120 && outMin >= e - 120 && outMin > inMin) {
+          afternoon = st;
+          break;
+        }
+      }
+      if (afternoon != null) {
+        out.add(DayAttendancePair(
+          checkIn: p.checkIn,
+          checkOut: p.checkOut,
+          checkInInferred: p.checkInInferred,
+          shift: afternoon,
+          inAtLunch: true,
+        ));
+        continue;
+      }
+    }
+    out.add(p);
+  }
+  return out;
+}
+
+/// Phút về sớm trước giờ nghỉ trưa + vào lại trễ sau giờ nghỉ (mỗi phần có ân hạn riêng).
+/// Với [DayAttendancePair.outAtLunch]: về sớm = trước đầu giờ nghỉ (thay cho về sớm tới hết ca).
+({int late, int early}) lunchBreakLateEarly(DayAttendancePair pair, Map<String, dynamic>? shift) {
+  if (shift == null) return (late: 0, early: 0);
+  final ls = _parseTimeSpanToMinutes(shift['lunchBreakStartTime']?.toString());
+  final le = _parseTimeSpanToMinutes(shift['lunchBreakEndTime']?.toString());
+  if (le <= ls) return (late: 0, early: 0);
+  final lateGrace = (shift['lateGraceMinutes'] as num?)?.toInt() ?? 5;
+  final earlyGrace = (shift['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
+  if (pair.inAtLunch && pair.checkIn != null) {
+    final late = math.max(0, _dateTimeToMinutes(pair.checkIn!) - le);
+    return (late: late <= lateGrace ? 0 : late, early: 0);
+  }
+  if (pair.outAtLunch && pair.checkOut != null) {
+    final early = math.max(0, ls - _dateTimeToMinutes(pair.checkOut!));
+    return (late: 0, early: early <= earlyGrace ? 0 : early);
+  }
+  if (pair.breakOut == null || pair.breakIn == null) return (late: 0, early: 0);
+  var early = math.max(0, ls - _dateTimeToMinutes(pair.breakOut!));
+  var late = math.max(0, _dateTimeToMinutes(pair.breakIn!) - le);
+  if (early <= earlyGrace) early = 0;
+  if (late <= lateGrace) late = 0;
+  return (late: late, early: early);
 }
 
 List<DayAttendancePair> _pairOddEvenByTime(List<Attendance> sorted) {
@@ -2099,10 +2315,22 @@ List<DailyShiftRecord> computeDailyShiftRecords({
               ? buildOncePerShiftCheckInPairs(workDayAttendances)
               : isCheckoutOnly
                   ? buildCheckoutOnlyPairs(workDayAttendances)
-                  : _logicalDayPairsFromAttendances(
-                      workDayAttendances,
-                      dayEndHour: dayEndHour,
-                      dayEndMinute: dayEndMinute,
+                  : mergeLunchSplitPairs(
+                      alignStrayPunchToShifts(
+                        _logicalDayPairsFromAttendances(
+                          workDayAttendances,
+                          dayEndHour: dayEndHour,
+                          dayEndMinute: dayEndMinute,
+                        ),
+                        [
+                          for (final id in assignedShiftIds)
+                            if (lookups.shiftTemplateMap[id] != null) lookups.shiftTemplateMap[id]!,
+                        ],
+                      ),
+                      [
+                        for (final id in assignedShiftIds)
+                          if (lookups.shiftTemplateMap[id] != null) lookups.shiftTemplateMap[id]!,
+                      ],
                     );
 
       for (var pairIndex = 0; pairIndex < dayPairs.length; pairIndex++) {
@@ -2215,6 +2443,8 @@ List<DailyShiftRecord> computeDailyShiftRecords({
               lateCalc = punchInMinutes - shiftStartMin;
             }
             if (lateCalc > 0 && lateCalc <= lateGrace) lateCalc = 0;
+            if (pair.inAtLunch) lateCalc = 0;
+            lateCalc += lunchBreakLateEarly(pair, matchedShift).late;
             if (lateCalc > 0) totalLate += lateCalc;
           }
         } else if (matchedShift != null && isOtShift) {
@@ -2342,12 +2572,18 @@ List<DailyShiftRecord> computeDailyShiftRecords({
             }
           }
 
+          if (pair.outAtLunch) earlyCalc = 0;
+          earlyCalc += lunchBreakLateEarly(pair, matchedShift).early;
           if (earlyCalc > 0) totalEarly += earlyCalc;
 
-          final netWorkedMin = _netWorkedMinutesAfterLunch(
-            punchIn: punchIn,
-            punchOut: effectiveOut,
-            shift: matchedShift,
+          // Đã gộp ca sáng – chiều: trừ giờ ra ngoài thực tế nếu dài hơn giờ nghỉ trưa của ca.
+          final netWorkedMin = math.min(
+            _netWorkedMinutesAfterLunch(
+              punchIn: punchIn,
+              punchOut: effectiveOut,
+              shift: matchedShift,
+            ),
+            actualWorkedMinutes - pair.breakMinutes,
           );
           final restDaySkipLateEarly = lookups.isWeeklyOffDay(date, employeeCode) &&
               !lookups.applyLateEarlyOnRestDayOt(employeeCode);
@@ -2369,8 +2605,8 @@ List<DailyShiftRecord> computeDailyShiftRecords({
               matchedShift['name']?.toString(),
               restHours,
             );
-          } else if (lateCalc <= 0 && earlyCalc <= 0 && extraMin <= 0) {
-            // Đủ ca hợp lệ → giờ công chuẩn (đã trừ nghỉ giữa ca).
+          } else if (lateCalc <= 0 && earlyCalc <= 0 && extraMin <= 0 && !pair.outAtLunch && !pair.inAtLunch) {
+            // Đủ ca hợp lệ → giờ công chuẩn (đã trừ nghỉ giữa ca). Ra trưa rồi thiếu vào lại: giờ thực tế.
             final hours = shiftDurationMin / 60.0;
             totalWorkHours += hours;
             _addHoursByShiftName(
@@ -2665,6 +2901,8 @@ class DailyShiftPair {
   final bool isOvernight;
   /// Id ca (ShiftTemplate) — dùng tra bậc lương ca theo từng ca.
   final String? shiftTemplateId;
+  /// Phút ra ngoài giữa ca khi cặp sáng – chiều đã gộp ([mergeLunchSplitPairs]) — không tính giờ làm.
+  final int breakMinutes;
 
   DailyShiftPair({
     required this.employeeId,
@@ -2679,6 +2917,7 @@ class DailyShiftPair {
     required this.hasMatchedShift,
     this.isOvernight = false,
     this.shiftTemplateId,
+    this.breakMinutes = 0,
   });
 }
 
@@ -2840,10 +3079,24 @@ List<DailyShiftPair> computeDailyShiftPairs({
               ? buildOncePerShiftCheckInPairs(workDayAttendances)
               : isCheckoutOnly
                   ? buildCheckoutOnlyPairs(workDayAttendances)
-                  : _logicalDayPairsFromAttendances(
-                      workDayAttendances,
-                      dayEndHour: dayEndHour,
-                      dayEndMinute: dayEndMinute,
+                  : mergeLunchSplitPairs(
+                      alignStrayPunchToShifts(
+                        _logicalDayPairsFromAttendances(
+                          workDayAttendances,
+                          dayEndHour: dayEndHour,
+                          dayEndMinute: dayEndMinute,
+                        ),
+                        [
+                          for (final id in assignedShiftIds)
+                            if (lookups.shiftTemplateMap[id] != null) lookups.shiftTemplateMap[id]!,
+                        ],
+                      ),
+                      [
+                        // Mode 2 lần tự do không dò ca → không gộp / gán ca nửa chiều.
+                        if (!isFree2)
+                          for (final id in assignedShiftIds)
+                            if (lookups.shiftTemplateMap[id] != null) lookups.shiftTemplateMap[id]!,
+                      ],
                     );
 
       for (var pairIndex = 0; pairIndex < dayPairs.length; pairIndex++) {
@@ -2942,6 +3195,9 @@ List<DailyShiftPair> computeDailyShiftPairs({
               }
               if (lateCalc > 0 && lateCalc <= lateGrace) lateCalc = 0;
             }
+            final lunchLE = lunchBreakLateEarly(pair, matchedShift);
+            if (pair.inAtLunch) lateCalc = 0;
+            lateCalc += lunchLE.late;
 
             if (!isOnceShift && punchOut != null) {
               final outMin = _dateTimeToMinutes(punchOut);
@@ -2956,6 +3212,8 @@ List<DailyShiftPair> computeDailyShiftPairs({
               }
               if (earlyCalc > 0 && earlyCalc <= earlyGrace) earlyCalc = 0;
             }
+            if (pair.outAtLunch) earlyCalc = 0;
+            earlyCalc += lunchLE.early;
           }
         } else {
           shiftName = 'Chưa xếp ca';
@@ -2978,6 +3236,7 @@ List<DailyShiftPair> computeDailyShiftPairs({
           hasMatchedShift: matchedShift != null,
           isOvernight: isOvernightShiftTemplate(matchedShift),
           shiftTemplateId: pairShiftTemplateId,
+          breakMinutes: pair.breakMinutes,
         ));
       }
     });
@@ -3178,7 +3437,7 @@ double dailyShiftPairWorkHours(DailyShiftPair pair) {
   if (out.isBefore(checkIn)) {
     out = out.add(const Duration(days: 1));
   }
-  final mins = out.difference(checkIn).inMinutes;
+  final mins = out.difference(checkIn).inMinutes - pair.breakMinutes;
   return mins > 0 ? mins / 60.0 : 0;
 }
 

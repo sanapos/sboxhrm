@@ -1261,6 +1261,7 @@
   "Bạn ở quá xa điểm bán": "판매 지점에서 너무 멀리 떨어져 있습니다",
   "BẢNG BÁO GIÁ": "견적서",
   "BẢNG CHẤM CÔNG CHI TIẾT": "상세 근태표",
+  "BẢNG CHẤM CÔNG HẰNG NGÀY": "일일 근태표",
   "BẢNG CHẤM CÔNG THEO CA": "근무조별 근태표",
   "BẢNG GIỜ LÀM": "근무 시간표",
   "BẢNG TỔNG HỢP LƯƠNG": "급여 집계표",
@@ -2727,6 +2728,7 @@
   "Chưa gán": "미배정",
   "Chưa gán NV": "직원 미배정",
   "Chưa gán bếp": "주방 미배정",
+  "Chưa gán ca": "근무조 미배정",
   "Chưa gán cửa hàng": "매장 미배정",
   "Chưa gán hồ sơ lương tháng": "월 급여 프로필이 배정되지 않았습니다",
   "Chưa gán máy": "단말 미지정",
@@ -2958,6 +2960,8 @@
   "Chấm công giữ": "근태 유지",
   "Chấm công hiện trường": "현장 출퇴근",
   "Chấm công hôm nay": "오늘 출퇴근",
+  "Chấm công hằng ngày": "일일 근태",
+  "Chấm công hằng ngày (bảng liền)": "일일 근태 (단일 표)",
   "Chấm công không cần xác thực": "인증 없는 출퇴근",
   "Chấm công kỳ lương ": "급여 기간 근태 ",
   "Chấm công mobile": "모바일 근태",
@@ -3413,6 +3417,7 @@
   "Chọn món — không tách hết bàn": "메뉴 선택 — 테이블 전체를 분리하지 마세요",
   "Chọn mạng có tên bắt đầu bằng SBOX-Gateway-": "이름이 SBOX-Gateway-로 시작하는 네트워크 선택",
   "Chọn mạng nhà và IP máy chấm công": "집 네트워크와 근태 단말기 IP 선택",
+  "Chọn mẫu Excel": "엑셀 양식 선택",
   "Chọn mẫu cho chứng từ này": "이 전표에 사용할 템플릿 선택",
   "Chọn mẫu giấy trước": "먼저 용지 템플릿 선택",
   "Chọn mẫu in": "인쇄 템플릿 선택",
@@ -3638,6 +3643,7 @@
   "Chờ duyệt": "승인 대기",
   "Chờ duyệt (đã gửi)": "승인 대기 (전송됨)",
   "Chờ duyệt HT": "HT 승인 대기",
+  "Chờ duyệt bổ sung": "보정 승인 대기",
   "Chờ duyệt phép": "휴가 승인 대기",
   "Chờ duyệt ứng": "가불 승인 대기",
   "Chờ giao": "배송 대기",
@@ -5521,6 +5527,7 @@
   "Giờ bắt đầu (HH:mm) *": "시작 시간 (HH:mm) *",
   "Giờ bắt đầu ngày kinh doanh": "영업일 시작 시간",
   "Giờ bắt đầu tính công.": "근무 계산을 시작하는 시각.",
+  "Giờ bổ sung / đã sửa": "추가 / 수정된 타각",
   "Giờ ca": "근무조 시간",
   "Giờ cao điểm tăng giá, giờ sáng giảm giá… Phần thời gian rơi vào khung nào thì cộng / trừ theo khung đó.": "피크 시간 가격 인상, 오전 시간 할인 등. 시간대에 해당하는 구간별로 가산 / 차감됩니다.",
   "Giờ chuẩn": "표준 시간",
@@ -5530,6 +5537,7 @@
   "Giờ chấm công": "출퇴근 시간",
   "Giờ chấm công đã được sửa": "출퇴근 시간이 수정되었습니다",
   "Giờ chấm gốc:": "원래 타각 시간:",
+  "Giờ chấm lẻ (thiếu cặp)": "짝 없는 타각",
   "Giờ chấm thực tế": "실제 타각 시간",
   "Giờ công": "근무 시간",
   "Giờ công dự kiến": "예상 근무 시간",
@@ -10477,6 +10485,7 @@
   "Mỗi mạch ESP chỉ nên gắn một máy chấm công (một IP máy / một SN). ": "ESP 보드 하나에는 근태 단말기 하나만 연결하세요(기기 IP 1개 / SN 1개). ",
   "Mỗi mặt hàng cộng thuế suất riêng đã khai báo ở hàng hóa.": "각 품목에 상품에 등록된 개별 세율이 합산됩니다.",
   "Mỗi ngày chỉ một chế độ": "하루에 한 가지 방식만 가능",
+  "Mỗi ngày một dòng · Vào/Ra theo ca sáng – chiều · tô màu thiếu chấm, ngày nghỉ": "하루 한 행 · 오전/오후 근무조별 출퇴근 · 누락 타각, 휴무일 색상 표시",
   "Mỗi ngày nghỉ chỉ một chế độ": "휴가 하루당 한 가지 방식만 가능",
   "Mỗi ngày nghỉ chỉ một chế độ — không vừa lương DN vừa trợ cấp BHXH.": "휴가 하루당 한 가지 방식만 가능 — 회사 급여와 사회보험 수당을 동시에 적용할 수 없습니다.",
   "Mỗi ngày nghỉ chỉ một chế độ — không vừa lương DN vừa trợ cấp BHXH.\n": "휴일마다 한 가지 제도만 적용됩니다 — 회사 급여와 사회보험 수당을 동시에 받을 수 없습니다.\\n\n",
@@ -10486,6 +10495,7 @@
   "Mỗi người chỉ thấy mục mình có quyền xem; đơn chờ duyệt và chấm công lọc theo phạm vi quản lý": "각자 볼 권한이 있는 항목만 보며, 대기 신청과 근태는 관리 범위로 필터링됩니다",
   "Mỗi người nhận một việc riêng — tự tick checklist, cập nhật tiến độ của mình.": "담당자마다 별도 업무를 받으며, 체크리스트를 직접 체크하고 진행 상황을 업데이트합니다.",
   "Mỗi người phụ thuộc": "부양가족 1인당",
+  "Mỗi nhân viên một khối · có thông tin và ô ký tên": "직원별 블록 · 정보 및 서명란 포함",
   "Mỗi nhân viên nên có một tài khoản riêng, không dùng chung mật khẩu.": "직원마다 별도 계정을 사용하고 비밀번호를 공유하지 않는 것이 좋습니다.",
   "Mỗi nhân viên/mẫu lương có một chế độ chấm công. Chọn sai mode sẽ thấy «Thiếu chấm», không tính trễ, hoặc phạt quên chấm không đúng.": "직원/급여 양식마다 근태 모드가 하나씩 있습니다. 모드를 잘못 선택하면 «타각 누락»이 표시되거나 지각이 계산되지 않거나 미기록 벌금이 잘못 부과됩니다.",
   "Mỗi size một giá bán (vd M, L).": "사이즈마다 판매가가 있습니다(예: M, L).",
@@ -10809,6 +10819,7 @@
   "Nghỉ phép hôm nay": "오늘 휴가",
   "Nghỉ phép không lương": "무급 휴가",
   "Nghỉ phép năm": "연차 휴가",
+  "Nghỉ phép nửa ca": "반차 휴가",
   "Nghỉ phép theo pháp luật": "법정 휴가",
   "Nghỉ phép, tăng ca, công tác, yêu cầu cần duyệt": "휴가, 초과근무, 출장, 승인이 필요한 요청",
   "Nghỉ phép, tăng ca, lương, KPI, phê duyệt, ...": "휴가, 초과근무, 급여, KPI, 승인, ...",
@@ -10982,6 +10993,7 @@
   "Ngày nghỉ phép": "휴가일",
   "Ngày nghỉ theo loại": "유형별 휴가일",
   "Ngày nghỉ theo lịch": "일정상 휴무일",
+  "Ngày nghỉ tuần": "주간 휴무일",
   "Ngày nguồn không có lịch để sao chép": "원본 날짜에 복사할 일정이 없습니다",
   "Ngày nguồn:": "원본 날짜:",
   "Ngày nhận": "입고일",
@@ -13069,6 +13081,7 @@
   "Số giấy tờ": "서류 번호",
   "Số giờ do đồng hồ tính — dùng Dừng / Kết thúc / Tính tiếp trên dòng": "타이머가 계산한 시간 — 줄에서 정지 / 종료 / 계속 계산 사용",
   "Số giờ một công": "1근무일당 시간",
+  "Số giờ nghỉ phép": "휴가 시간",
   "Số giờ tối thiểu": "최소 시간",
   "Số hàng dữ liệu:": "데이터 행 수:",
   "Số hóa đơn": "영수증 번호",
@@ -13790,6 +13803,7 @@
   "Theo tuần": "주별",
   "Theo tên hàng": "상품명별",
   "Theo tổng giờ làm trong ngày (không tính từng ca riêng)": "하루 총 근무 시간 기준 (근무조별 개별 계산 안 함)",
+  "Theo từng nhân viên": "직원별",
   "Theo vai trò": "역할별",
   "Theo yêu cầu điều chỉnh sau khi duyệt": "승인 후 조정 요청에 따름",
   "Theo đúng menu phần mềm SBOX HRM · Từ đăng ký đến báo cáo · Hỗ trợ cài đặt từ xa": "SBOX HRM 소프트웨어 메뉴 그대로 · 가입부터 보고서까지 · 원격 설치 지원",
@@ -13963,6 +13977,7 @@
   "Thiếu giấy tờ / ngày sinh": "서류 / 생년월일 누락",
   "Thiếu giấy tờ cho khoản": "해당 항목의 증빙 서류 없음",
   "Thiếu giờ": "시간 부족",
+  "Thiếu giờ chấm": "타각 누락",
   "Thiếu giờ ra": "퇴근 시간 누락",
   "Thiếu giờ vào": "출근 시간 누락",
   "Thiếu hoặc sai giờ (HH:mm)": "시간이 없거나 잘못됨 (HH:mm)",
@@ -15098,11 +15113,13 @@
   "Trạng thái HT: ": "완료 상태: ",
   "Trạng thái POS": "POS 상태",
   "Trạng thái Tingee": "Tingee 상태",
+  "Trạng thái giờ vào-ra": "출퇴근 상태",
   "Trạng thái hóa đơn điện tử": "전자세금계산서 상태",
   "Trạng thái hồ sơ": "서류 상태",
   "Trạng thái không hợp lệ": "유효하지 않은 상태",
   "Trạng thái làm việc": "근무 상태",
   "Trạng thái máy chấm công online/offline": "근태 단말기 온라인/오프라인 상태",
+  "Trạng thái nghỉ phép": "휴가 상태",
   "Trạng thái phiếu": "전표 상태",
   "Trạng thái quyết toán": "정산 상태",
   "Trạng thái rỗng": "빈 상태",
@@ -24992,6 +25009,10 @@
    "근무조 시간 {0}"
   ],
   [
+   "Giờ công {0}",
+   "근무 시간 {0}"
+  ],
+  [
    "Giờ khác · {0}",
    "다른 시간 · {0}"
   ],
@@ -27632,6 +27653,10 @@
    "현장 외 · 직원 {0}명"
   ],
   [
+   "Ngoài ca: {0}",
+   "근무조 외: {0}"
+  ],
+  [
    "Nguyên giá {0}",
    "취득가액 {0}"
   ],
@@ -28956,8 +28981,16 @@
    "항목 증빙 서류 누락: {0}"
   ],
   [
+   "Thiếu ra {0}",
+   "퇴근 누락 {0}"
+  ],
+  [
    "Thiếu số tài khoản / ngân hàng: {0}",
    "계좌번호 / 은행 누락: {0}"
+  ],
+  [
+   "Thiếu vào {0}",
+   "출근 누락 {0}"
   ],
   [
    "Thiếu {0}",
@@ -32522,6 +32555,10 @@
   [
    "{0} nhân viên · {1} có vị trí trên bản đồ",
    "직원 {0}명 · {1}명 지도에 위치 표시"
+  ],
+  [
+   "{0} nhân viên · {1} dòng",
+   "직원 {0}명 · {1}행"
   ],
   [
    "{0} nhân viên đang thuộc chi nhánh",

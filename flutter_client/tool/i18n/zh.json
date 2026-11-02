@@ -1261,6 +1261,7 @@
   "Bạn ở quá xa điểm bán": "您离销售点太远",
   "BẢNG BÁO GIÁ": "报价单",
   "BẢNG CHẤM CÔNG CHI TIẾT": "考勤明细表",
+  "BẢNG CHẤM CÔNG HẰNG NGÀY": "每日考勤表",
   "BẢNG CHẤM CÔNG THEO CA": "按班次考勤表",
   "BẢNG GIỜ LÀM": "工时表",
   "BẢNG TỔNG HỢP LƯƠNG": "工资汇总表",
@@ -2727,6 +2728,7 @@
   "Chưa gán": "未分配",
   "Chưa gán NV": "未分配员工",
   "Chưa gán bếp": "未分配厨房",
+  "Chưa gán ca": "未分配班次",
   "Chưa gán cửa hàng": "未分配门店",
   "Chưa gán hồ sơ lương tháng": "尚未分配月工资档案",
   "Chưa gán máy": "未分配设备",
@@ -2958,6 +2960,8 @@
   "Chấm công giữ": "保留打卡",
   "Chấm công hiện trường": "现场打卡",
   "Chấm công hôm nay": "今日打卡",
+  "Chấm công hằng ngày": "每日考勤",
+  "Chấm công hằng ngày (bảng liền)": "每日考勤 (单表)",
   "Chấm công không cần xác thực": "无需验证的打卡",
   "Chấm công kỳ lương ": "工资周期考勤 ",
   "Chấm công mobile": "移动考勤",
@@ -3413,6 +3417,7 @@
   "Chọn món — không tách hết bàn": "选择菜品 — 不要拆分整张桌台",
   "Chọn mạng có tên bắt đầu bằng SBOX-Gateway-": "选择名称以SBOX-Gateway-开头的网络",
   "Chọn mạng nhà và IP máy chấm công": "选择家庭网络和考勤机IP",
+  "Chọn mẫu Excel": "选择 Excel 模板",
   "Chọn mẫu cho chứng từ này": "为此单据选择模板",
   "Chọn mẫu giấy trước": "请先选择纸张模板",
   "Chọn mẫu in": "选择打印模板",
@@ -3638,6 +3643,7 @@
   "Chờ duyệt": "待审批",
   "Chờ duyệt (đã gửi)": "待审批（已发送）",
   "Chờ duyệt HT": "待HT审批",
+  "Chờ duyệt bổ sung": "补卡待审批",
   "Chờ duyệt phép": "待休假审批",
   "Chờ duyệt ứng": "待预支审批",
   "Chờ giao": "待配送",
@@ -5521,6 +5527,7 @@
   "Giờ bắt đầu (HH:mm) *": "开始时间（HH:mm）*",
   "Giờ bắt đầu ngày kinh doanh": "营业日开始时间",
   "Giờ bắt đầu tính công.": "开始计算出勤的时间。",
+  "Giờ bổ sung / đã sửa": "补卡 / 已修改打卡",
   "Giờ ca": "班次时间",
   "Giờ cao điểm tăng giá, giờ sáng giảm giá… Phần thời gian rơi vào khung nào thì cộng / trừ theo khung đó.": "高峰时段加价、上午时段折扣等。时间落在哪个时段，就按该时段加 / 减。",
   "Giờ chuẩn": "标准时间",
@@ -5530,6 +5537,7 @@
   "Giờ chấm công": "打卡时间",
   "Giờ chấm công đã được sửa": "打卡时间已修改",
   "Giờ chấm gốc:": "原打卡时间：",
+  "Giờ chấm lẻ (thiếu cặp)": "不成对打卡",
   "Giờ chấm thực tế": "实际打卡时间",
   "Giờ công": "工时",
   "Giờ công dự kiến": "预计工时",
@@ -10477,6 +10485,7 @@
   "Mỗi mạch ESP chỉ nên gắn một máy chấm công (một IP máy / một SN). ": "每块 ESP 电路板只应绑定一台考勤机(一个设备 IP / 一个 SN)。 ",
   "Mỗi mặt hàng cộng thuế suất riêng đã khai báo ở hàng hóa.": "每个商品加上其商品资料中设定的税率。",
   "Mỗi ngày chỉ một chế độ": "每天只能选一种方式",
+  "Mỗi ngày một dòng · Vào/Ra theo ca sáng – chiều · tô màu thiếu chấm, ngày nghỉ": "每天一行 · 按上午/下午班次的上下班 · 标色缺卡与休息日",
   "Mỗi ngày nghỉ chỉ một chế độ": "每个休假日只能选一种方式",
   "Mỗi ngày nghỉ chỉ một chế độ — không vừa lương DN vừa trợ cấp BHXH.": "每个休假日只能选一种方式 — 不能同时领取公司工资和社保津贴。",
   "Mỗi ngày nghỉ chỉ một chế độ — không vừa lương DN vừa trợ cấp BHXH.\n": "每个休息日只适用一种制度 — 不能既发公司工资又领社保津贴。\\n\n",
@@ -10486,6 +10495,7 @@
   "Mỗi người chỉ thấy mục mình có quyền xem; đơn chờ duyệt và chấm công lọc theo phạm vi quản lý": "每人只看到有权查看的项目；待审批申请和考勤按管理范围筛选",
   "Mỗi người nhận một việc riêng — tự tick checklist, cập nhật tiến độ của mình.": "每位接收人各得一项独立任务，自行勾选清单并更新进度。",
   "Mỗi người phụ thuộc": "每位被抚养人",
+  "Mỗi nhân viên một khối · có thông tin và ô ký tên": "每位员工一块 · 含信息和签名栏",
   "Mỗi nhân viên nên có một tài khoản riêng, không dùng chung mật khẩu.": "建议每位员工使用独立账号，不要共用密码。",
   "Mỗi nhân viên/mẫu lương có một chế độ chấm công. Chọn sai mode sẽ thấy «Thiếu chấm», không tính trễ, hoặc phạt quên chấm không đúng.": "每个员工/工资模板都有一个考勤模式。选错模式会出现「缺卡」、不计迟到或错误处罚漏打卡。",
   "Mỗi size một giá bán (vd M, L).": "每个尺寸一个售价（例如 M、L）。",
@@ -10809,6 +10819,7 @@
   "Nghỉ phép hôm nay": "今日请假",
   "Nghỉ phép không lương": "无薪休假",
   "Nghỉ phép năm": "年假",
+  "Nghỉ phép nửa ca": "半班请假",
   "Nghỉ phép theo pháp luật": "法定休假",
   "Nghỉ phép, tăng ca, công tác, yêu cầu cần duyệt": "请假、加班、出差、需审批的申请",
   "Nghỉ phép, tăng ca, lương, KPI, phê duyệt, ...": "请假、加班、工资、KPI、审批、...",
@@ -10982,6 +10993,7 @@
   "Ngày nghỉ phép": "休假日",
   "Ngày nghỉ theo loại": "按类型统计休假日",
   "Ngày nghỉ theo lịch": "排班休息日",
+  "Ngày nghỉ tuần": "每周休息日",
   "Ngày nguồn không có lịch để sao chép": "来源日期没有可复制的排班",
   "Ngày nguồn:": "来源日期：",
   "Ngày nhận": "收货日期",
@@ -13069,6 +13081,7 @@
   "Số giấy tờ": "证件号",
   "Số giờ do đồng hồ tính — dùng Dừng / Kết thúc / Tính tiếp trên dòng": "计时器计算的时长 — 在行上使用暂停 / 结束 / 继续计时",
   "Số giờ một công": "每个工的小时数",
+  "Số giờ nghỉ phép": "请假小时",
   "Số giờ tối thiểu": "最少小时数",
   "Số hàng dữ liệu:": "数据行数：",
   "Số hóa đơn": "账单号",
@@ -13790,6 +13803,7 @@
   "Theo tuần": "按周",
   "Theo tên hàng": "按商品名称",
   "Theo tổng giờ làm trong ngày (không tính từng ca riêng)": "按当天总工时计算（不按各班次分别计算）",
+  "Theo từng nhân viên": "按员工",
   "Theo vai trò": "按角色",
   "Theo yêu cầu điều chỉnh sau khi duyệt": "按审批后的调整请求",
   "Theo đúng menu phần mềm SBOX HRM · Từ đăng ký đến báo cáo · Hỗ trợ cài đặt từ xa": "完全按照SBOX HRM软件菜单 · 从注册到报表 · 支持远程安装",
@@ -13963,6 +13977,7 @@
   "Thiếu giấy tờ / ngày sinh": "缺证件 / 出生日期",
   "Thiếu giấy tờ cho khoản": "该项缺少证明材料",
   "Thiếu giờ": "工时不足",
+  "Thiếu giờ chấm": "缺卡",
   "Thiếu giờ ra": "缺下班时间",
   "Thiếu giờ vào": "缺上班时间",
   "Thiếu hoặc sai giờ (HH:mm)": "时间缺失或有误 (HH:mm)",
@@ -15098,11 +15113,13 @@
   "Trạng thái HT: ": "完成状态： ",
   "Trạng thái POS": "POS 状态",
   "Trạng thái Tingee": "Tingee 状态",
+  "Trạng thái giờ vào-ra": "上下班状态",
   "Trạng thái hóa đơn điện tử": "电子发票状态",
   "Trạng thái hồ sơ": "档案状态",
   "Trạng thái không hợp lệ": "状态无效",
   "Trạng thái làm việc": "工作状态",
   "Trạng thái máy chấm công online/offline": "考勤机在线/离线状态",
+  "Trạng thái nghỉ phép": "请假状态",
   "Trạng thái phiếu": "单据状态",
   "Trạng thái quyết toán": "结算状态",
   "Trạng thái rỗng": "空状态",
@@ -24992,6 +25009,10 @@
    "班次时间 {0}"
   ],
   [
+   "Giờ công {0}",
+   "工时 {0}"
+  ],
+  [
    "Giờ khác · {0}",
    "其他时间 · {0}"
   ],
@@ -27632,6 +27653,10 @@
    "工地外 · {0} 名员工"
   ],
   [
+   "Ngoài ca: {0}",
+   "班次外: {0}"
+  ],
+  [
    "Nguyên giá {0}",
    "原值 {0}"
   ],
@@ -28956,8 +28981,16 @@
    "该笔款项缺少凭证：{0}"
   ],
   [
+   "Thiếu ra {0}",
+   "缺下班卡 {0}"
+  ],
+  [
    "Thiếu số tài khoản / ngân hàng: {0}",
    "缺少账号 / 银行：{0}"
+  ],
+  [
+   "Thiếu vào {0}",
+   "缺上班卡 {0}"
   ],
   [
    "Thiếu {0}",
@@ -32522,6 +32555,10 @@
   [
    "{0} nhân viên · {1} có vị trí trên bản đồ",
    "{0} 名员工 · {1} 人在地图上有位置"
+  ],
+  [
+   "{0} nhân viên · {1} dòng",
+   "{0} 名员工 · {1} 行"
   ],
   [
    "{0} nhân viên đang thuộc chi nhánh",

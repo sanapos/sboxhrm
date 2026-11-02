@@ -252,6 +252,34 @@ class ReportBranchFilter {
   bool employeesLoaded = false;
   bool employeesLoading = false;
   String? _employeesLoadedForBranch;
+  List<Map<String, dynamic>> _catalogDepartments = [];
+
+  /// Cửa hàng chưa lập danh mục phòng ban (dưới 2 mục) nhưng hồ sơ NV có ghi tên phòng ban
+  /// → thêm các tên đó vào [departments] để ô lọc «Phòng ban» vẫn hiện; lọc khớp theo tên.
+  void _mergeEmployeeDepartmentNames() {
+    if (_catalogDepartments.length >= 2) {
+      departments = _catalogDepartments;
+      return;
+    }
+    final known = {
+      for (final d in _catalogDepartments) (d['name']?.toString() ?? '').trim().toLowerCase(),
+    };
+    final names = <String, String>{};
+    for (final e in employees) {
+      final nested = e['department'];
+      final raw = e['departmentName']?.toString() ??
+          (nested is Map ? nested['name']?.toString() : nested?.toString()) ??
+          '';
+      final name = raw.trim();
+      if (name.isEmpty || name == 'null' || known.contains(name.toLowerCase())) continue;
+      names.putIfAbsent(name.toLowerCase(), () => name);
+    }
+    final extra = names.values.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    departments = [
+      ..._catalogDepartments,
+      for (final n in extra) {'id': 'name:$n', 'name': n},
+    ];
+  }
 
   Future<void> loadOrgFilters(ApiService api) async {
     await Future.wait([loadBranches(api), loadDepartments(api)]);
@@ -275,11 +303,12 @@ class ReportBranchFilter {
       final res = await api.getDepartmentsForSelect();
       final data = res['data'];
       if (data is List) {
-        departments =
+        _catalogDepartments =
             data.map((d) => Map<String, dynamic>.from(d as Map)).toList();
       }
     } catch (_) {}
     departmentsLoaded = true;
+    _mergeEmployeeDepartmentNames();
   }
 
   /// Tải NV — khi [branchId] đổi sẽ tải lại theo chi nhánh (+ con) từ server.
@@ -307,6 +336,7 @@ class ReportBranchFilter {
       }
       employeesLoaded = true;
       _employeesLoadedForBranch = key;
+      _mergeEmployeeDepartmentNames();
     } catch (_) {}
     employeesLoading = false;
   }

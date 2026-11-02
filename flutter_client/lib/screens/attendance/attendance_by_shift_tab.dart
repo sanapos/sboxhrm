@@ -880,18 +880,44 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   /// Unique employees: punches + HR roster (để hiện NV chưa chấm).
+  /// Tên đầy đủ trên hồ sơ nhân viên (null nếu không có).
+  String? _rosterNameOf(Map<String, dynamic>? info) {
+    if (info == null) return null;
+    final full = info['fullName']?.toString().trim() ?? '';
+    if (full.isNotEmpty) return full;
+    final ln = info['lastName']?.toString().trim() ?? '';
+    final fn = info['firstName']?.toString().trim() ?? '';
+    final joined = '$ln $fn'.trim();
+    return joined.isNotEmpty ? joined : null;
+  }
+
+  /// So mã nhân viên: phần số so theo giá trị (NV2 < NV10), còn lại theo chữ.
+  static int _compareEmployeeCodes(String a, String b) {
+    final re = RegExp(r'(\d+)|(\D+)');
+    final pa = re.allMatches(a).map((m) => m.group(0)!).toList();
+    final pb = re.allMatches(b).map((m) => m.group(0)!).toList();
+    for (var i = 0; i < pa.length && i < pb.length; i++) {
+      final na = int.tryParse(pa[i]), nb = int.tryParse(pb[i]);
+      final c = na != null && nb != null ? na.compareTo(nb) : pa[i].toLowerCase().compareTo(pb[i].toLowerCase());
+      if (c != 0) return c;
+    }
+    return pa.length.compareTo(pb.length);
+  }
+
   List<_EmployeeOption> get _allEmployees {
     final Map<String, _EmployeeOption> map = {};
+    final infoLookup = _employeeInfoLookup();
     for (final att in widget.attendances) {
       final id = att.employeeId ?? att.enrollNumber ?? 'unknown';
       if (!map.containsKey(id)) {
         map[id] = _EmployeeOption(
           id: id,
-          name: att.employeeName?.isNotEmpty == true
-              ? att.employeeName!
-              : (att.deviceUserName?.isNotEmpty == true
-                  ? att.deviceUserName!
-                  : '-'),
+          name: _rosterNameOf(infoLookup[id]) ??
+              (att.employeeName?.isNotEmpty == true
+                  ? att.employeeName!
+                  : (att.deviceUserName?.isNotEmpty == true
+                      ? att.deviceUserName!
+                      : '-')),
           code: att.employeeId ?? att.enrollNumber ?? '-',
         );
       }
@@ -1004,11 +1030,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       for (final a in widget.attendances)
         if (a.id.isNotEmpty) a.id: a,
     };
+    final infoLookup = _employeeInfoLookup();
     final records = computed
         .map(
           (r) => _DailyShiftRecord(
             employeeId: r.employeeId,
-            employeeName: r.employeeName,
+            // Tên theo hồ sơ nhân viên — giờ chấm thêm tay / máy có thể mang tên khác («Thủ công»).
+            employeeName: _rosterNameOf(infoLookup[r.employeeCode] ?? infoLookup[r.employeeId]) ?? r.employeeName,
             employeeCode: r.employeeCode,
             date: r.date,
             dayOfWeek: r.dayOfWeek,
@@ -1038,10 +1066,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
     _appendUnpaidAbsentShiftPlaceholders(records);
 
-    // Sort by employee name, then date
+    // Gom theo mã nhân viên (40001, 40002… — so số khi mã là số), trong mỗi người theo ngày.
     records.sort((a, b) {
-      final nameComp = a.employeeName.compareTo(b.employeeName);
-      if (nameComp != 0) return nameComp;
+      final codeComp = _compareEmployeeCodes(a.employeeCode, b.employeeCode);
+      if (codeComp != 0) return codeComp;
+      final idComp = a.employeeId.compareTo(b.employeeId);
+      if (idComp != 0) return idComp;
       final cmp = a.date.compareTo(b.date);
       return _sortAscending ? cmp : -cmp;
     });
@@ -3589,6 +3619,652 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return row;
   }
 
+  // ───── Mẫu Excel «Chấm công hằng ngày»: bảng liền, Vào/Ra theo từng nửa ca ─────
+
+  static const _dailyMissingBg = '#FEE2E2';
+  static const _dailyMissingFg = '#B91C1C';
+  static const _dailyOddBg = '#FEF3C7';
+  static const _dailyOddFg = '#92400E';
+  static const _dailyWeeklyOffBg = '#DCFCE7';
+  static const _dailyHolidayBg = '#EDE9FE';
+  static const _dailyLeaveBg = '#DBEAFE';
+  static const _dailyLeaveFg = '#1D4ED8';
+  static const _dailyEditedBg = '#F3E8FF';
+  static const _dailyEditedFg = '#6D28D9';
+  static const _dailyPendingBg = '#FFEDD5';
+  static const _dailyPendingFg = '#C2410C';
+  static const _dailyZebraBg = '#F8FAFC';
+  static const _dailyTotalBg = '#E0E7FF';
+  static const _dailyBorder = '#CBD5E1';
+
+  /// Mẫu ca của nhân viên trong ngày: ca đã khớp giờ chấm, không có thì ca được gán.
+  List<Map<String, dynamic>> _dailyTemplatesFor(String employeeId, String employeeCode, List<String> shiftNames) {
+    final out = <Map<String, dynamic>>[];
+    for (final n in shiftNames) {
+      final st = _shiftTemplateForName(n);
+      if (st != null && !out.contains(st)) out.add(st);
+    }
+    if (out.isEmpty) {
+      final guid = _employeeCodeToGuid[employeeCode] ?? employeeId;
+      final ids = _employeeGuidToShiftTemplateIds[guid] ??
+          _employeeGuidToShiftTemplateIds[employeeId] ??
+          const <String>[];
+      final assigned = [
+        for (final id in ids)
+          if (_shiftTemplateMap[id] != null) _shiftTemplateMap[id]!,
+      ]..sort((a, b) => _parseTimeSpanToMinutes(a['startTime']?.toString())
+          .compareTo(_parseTimeSpanToMinutes(b['startTime']?.toString())));
+      final perDay = _employeeGuidToShiftsPerDay[guid] ?? assigned.length;
+      out.addAll(assigned.take(math.max(1, perDay)));
+    }
+    out.sort((a, b) => _parseTimeSpanToMinutes(a['startTime']?.toString())
+        .compareTo(_parseTimeSpanToMinutes(b['startTime']?.toString())));
+    return out;
+  }
+
+  /// Khung giờ (phút tính từ 0h ngày công) từng nửa ca: ca có nghỉ trưa tách thành 2 nửa (sáng / chiều).
+  List<({int start, int end})> _dailySlotsOf(List<Map<String, dynamic>> templates) {
+    final slots = <({int start, int end})>[];
+    for (final st in templates) {
+      final s = _parseTimeSpanToMinutes(st['startTime']?.toString());
+      var e = _parseTimeSpanToMinutes(st['endTime']?.toString());
+      if (e <= s) e += 1440;
+      var ls = _parseTimeSpanToMinutes(st['lunchBreakStartTime']?.toString());
+      var le = _parseTimeSpanToMinutes(st['lunchBreakEndTime']?.toString());
+      if (ls > 0 && ls < s) ls += 1440;
+      if (le > 0 && le < s) le += 1440;
+      if (ls > s && le > ls && le < e) {
+        slots.add((start: s, end: ls));
+        slots.add((start: le, end: e));
+      } else {
+        slots.add((start: s, end: e));
+      }
+    }
+    return slots;
+  }
+
+  String _dailyShiftLabel(List<Map<String, dynamic>> templates) => templates.map((st) {
+        String hm(String? t) {
+          final m = _parseTimeSpanToMinutes(t);
+          return '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';
+        }
+        return '${st['name'] ?? ''} [${hm(st['startTime']?.toString())} - ${hm(st['endTime']?.toString())}]';
+      }).join(' + ');
+
+  /// Ghép giờ chấm vào mốc Vào / Ra gần nhất của từng nửa ca (không theo thứ tự lần chấm) — nghỉ nửa nào
+  /// thì nửa đó trống, thiếu một lần chấm không làm các giờ sau dồn lên. Giờ cách mọi mốc quá 4 tiếng → ngoài ca.
+  ({List<DateTime?> ins, List<DateTime?> outs, List<DateTime> extra}) _dailyAssignPunches(
+      List<DateTime> punches, DateTime day, List<({int start, int end})> slots) {
+    final base = DateTime(day.year, day.month, day.day);
+    final ins = List<DateTime?>.filled(slots.length, null);
+    final outs = List<DateTime?>.filled(slots.length, null);
+    final bounds = <int>[for (final sl in slots) ...[sl.start, sl.end]];
+    final pm = [for (final p in punches) p.difference(base).inMinutes];
+    final cands = <(int, int, int)>[
+      for (var pi = 0; pi < pm.length; pi++)
+        for (var bi = 0; bi < bounds.length; bi++)
+          if ((pm[pi] - bounds[bi]).abs() <= 240) (pi, bi, (pm[pi] - bounds[bi]).abs()),
+    ]..sort((a, b) => a.$3.compareTo(b.$3));
+    final punchToBound = <int, int>{};
+    final usedBounds = <int>{};
+    for (final (pi, bi, _) in cands) {
+      if (punchToBound.containsKey(pi) || usedBounds.contains(bi)) continue;
+      // Giữ đúng thứ tự: giờ sớm hơn phải nằm ở mốc sớm hơn.
+      final ok = punchToBound.entries.every((e) => (e.key < pi) == (e.value < bi) && e.key != pi);
+      if (!ok) continue;
+      punchToBound[pi] = bi;
+      usedBounds.add(bi);
+    }
+    final extra = <DateTime>[];
+    for (var pi = 0; pi < punches.length; pi++) {
+      final bi = punchToBound[pi];
+      if (bi == null) {
+        extra.add(punches[pi]);
+      } else if (bi.isEven) {
+        ins[bi ~/ 2] = punches[pi];
+      } else {
+        outs[bi ~/ 2] = punches[pi];
+      }
+    }
+    return (ins: ins, outs: outs, extra: extra);
+  }
+
+  String _dailyLeaveTypeName(dynamic t) => switch (t?.toString().toLowerCase()) {
+        'annualleave' || '0' => 'Phép năm',
+        'holiday' || '1' => 'Nghỉ lễ',
+        'personalpaid' || '2' => 'Phép có lương',
+        'personalunpaid' || '3' => 'Phép không lương',
+        'sickleave' || '4' => 'Nghỉ ốm',
+        'maternityleave' || '5' => 'Thai sản',
+        'compensatoryleave' || '6' => 'Nghỉ bù',
+        'longtermleave' || '7' => 'Nghỉ dài hạn',
+        _ => t?.toString() ?? '',
+      };
+
+  /// Đơn nghỉ (đã duyệt / chờ duyệt) của nhân viên phủ ngày [day].
+  Map<String, dynamic>? _dailyLeaveFor(String employeeId, String employeeCode, DateTime day) {
+    final info = _employeeInfoLookup()[employeeCode] ?? _employeeInfoLookup()[employeeId];
+    final ids = <String>{
+      employeeCode,
+      employeeId,
+      if (info?['applicationUserId'] != null) info!['applicationUserId'].toString(),
+      if (info?['id'] != null) info!['id'].toString(),
+    }..removeWhere((e) => e.isEmpty);
+    final d = DateTime(day.year, day.month, day.day);
+    for (final lv in widget.approvedLeaves) {
+      if (lv is! Map) continue;
+      final st = lv['status'];
+      final approved = st == 1 || '$st'.toLowerCase() == 'approved';
+      final pending = st == 0 || '$st'.toLowerCase() == 'pending';
+      if (!approved && !pending) continue;
+      final lvIds = {
+        lv['employeeCode']?.toString(),
+        lv['employeeUserId']?.toString(),
+        lv['employeeId']?.toString(),
+      };
+      if (!lvIds.any(ids.contains)) continue;
+      final from = DateTime.tryParse('${lv['startDate'] ?? lv['fromDate'] ?? ''}');
+      final to = DateTime.tryParse('${lv['endDate'] ?? lv['toDate'] ?? ''}') ?? from;
+      if (from == null || to == null) continue;
+      if (d.isBefore(DateTime(from.year, from.month, from.day)) || d.isAfter(DateTime(to.year, to.month, to.day))) {
+        continue;
+      }
+      return Map<String, dynamic>.from(lv);
+    }
+    return null;
+  }
+
+  /// Ngày nghỉ tuần: theo thiết lập của nhân viên; chưa thiết lập thì Chủ nhật.
+  bool _dailyIsWeeklyOff(DateTime day, String employeeCode) {
+    if (_isWeeklyOffDay(day, employeeCode)) return true;
+    final cfg = (_employeeCodeToWeeklyOffDays[employeeCode] ?? '').trim();
+    return cfg.isEmpty && day.weekday == DateTime.sunday;
+  }
+
+  /// Phiếu bổ sung giờ chấm đang chờ duyệt trong kỳ: «mã NV|yyyy-MM-dd» → (phút trong ngày, lý do).
+  Future<Map<String, List<({int minute, String reason})>>> _dailyPendingAdds(DateTimeRange range) async {
+    final out = <String, List<({int minute, String reason})>>{};
+    try {
+      final r = await ApiService().getAttendanceCorrections(
+          page: 1,
+          pageSize: 1000,
+          status: 'Pending',
+          fromDate: DateTime(range.start.year, range.start.month, range.start.day),
+          toDate: DateTime(range.end.year, range.end.month, range.end.day, 23, 59, 59),
+          filterByWorkDate: true);
+      if (r['isSuccess'] != true) return out;
+      final data = r['data'];
+      final items = data is Map ? (data['items'] as List? ?? const []) : (data is List ? data : const []);
+      final seen = <String>{};
+      for (final it in items) {
+        if (it is! Map || '${it['action']}'.toLowerCase() != 'add') continue;
+        // Máy chủ có thể trả cả phiếu đã duyệt / từ chối — chỉ giữ phiếu chờ duyệt, bỏ trùng.
+        final st = '${it['status']}'.toLowerCase();
+        if (st != 'pending' && st != '0') continue;
+        if (!seen.add('${it['id']}')) continue;
+        final d = DateTime.tryParse('${it['newDate'] ?? ''}');
+        final tm = '${it['newTime'] ?? ''}'.split(':');
+        if (d == null || tm.length < 2) continue;
+        final minute = (int.tryParse(tm[0]) ?? 0) * 60 + (int.tryParse(tm[1]) ?? 0);
+        out
+            .putIfAbsent('${it['employeeCode']}|${_shiftDateKeyFmt.format(d)}', () => [])
+            .add((minute: minute, reason: '${it['reason'] ?? ''}'.trim()));
+      }
+    } catch (_) {}
+    return out;
+  }
+
+  Future<void> _exportDailySheetExcel(List<_DailyShiftRecord> records) async {
+    final range = _selectedDateRange;
+    final pendingAdds = await _dailyPendingAdds(range);
+    // Dấu «đã sửa tay» đúng kỳ xuất (kỳ trên màn hình có thể khác kỳ đã tải dấu).
+    var editMarks = _editMarks;
+    try {
+      final m = await ApiService().getAttendanceEditMarks(range.start, range.end);
+      if (m['isSuccess'] == true) {
+        editMarks = {
+          for (final x in (m['data'] as List? ?? const []))
+            if (x is Map && x['attendanceId'] != null)
+              x['attendanceId'].toString().toLowerCase(): Map<String, dynamic>.from(x),
+        };
+      }
+    } catch (_) {}
+    final byEmp = <String, Map<String, _DailyShiftRecord>>{};
+    for (final r in records) {
+      byEmp.putIfAbsent(r.employeeId, () => {})[_shiftDateKeyFmt.format(r.date)] = r;
+    }
+    final orderedIds = _orderedUniqueEmployeeIds(records);
+    final fullDays = _shiftFilter == 'all';
+    final today = DateTime.now();
+    final todayD = DateTime(today.year, today.month, today.day);
+
+    // Dựng từng dòng trước để biết số nửa ca nhiều nhất (số nhóm cột Vào / Ra).
+    final rows = <({
+      _DailyShiftRecord? r,
+      String empId,
+      String code,
+      String name,
+      String dept,
+      DateTime day,
+      String shiftLabel,
+      List<({int start, int end})> slots,
+      ({List<DateTime?> ins, List<DateTime?> outs, List<DateTime> extra}) a,
+      bool noShift,
+    })>[];
+    var maxSlots = 2;
+    var exportedEmployees = 0;
+    for (final empId in orderedIds) {
+      final days = byEmp[empId] ?? {};
+      final sample = days.values.first;
+      // Bỏ nhân viên trống: chưa gán ca, cả kỳ không có giờ chấm và không có đơn nghỉ (toàn dòng số 0).
+      // Nhân viên có ca mà vắng cả kỳ vẫn giữ để thấy vắng.
+      if (fullDays &&
+          !days.values.any((r) => r.displayPunchTimes.isNotEmpty) &&
+          _dailyTemplatesFor(empId, sample.employeeCode, const []).isEmpty) {
+        var hasLeave = false;
+        for (var d = DateTime(range.start.year, range.start.month, range.start.day);
+            !d.isAfter(range.end) && !hasLeave;
+            d = DateTime(d.year, d.month, d.day + 1)) {
+          hasLeave = _dailyLeaveFor(empId, sample.employeeCode, d) != null;
+        }
+        if (!hasLeave) continue;
+      }
+      exportedEmployees++;
+      final dept = _departmentOfInfo(_employeeInfoFor(sample));
+      final dates = <DateTime>[];
+      if (fullDays) {
+        for (var d = DateTime(range.start.year, range.start.month, range.start.day);
+            !d.isAfter(range.end);
+            d = DateTime(d.year, d.month, d.day + 1)) {
+          dates.add(d);
+        }
+      } else {
+        dates.addAll(days.values.map((r) => r.date));
+        dates.sort();
+      }
+      for (final day in dates) {
+        final r = days[_shiftDateKeyFmt.format(day)];
+        final templates = _dailyTemplatesFor(empId, sample.employeeCode, r?.shiftNames ?? const []);
+        var slots = _dailySlotsOf(templates);
+        final punches = r?.displayPunchTimes ?? const <DateTime>[];
+        final noShift = slots.isEmpty;
+        ({List<DateTime?> ins, List<DateTime?> outs, List<DateTime> extra}) a;
+        if (noShift) {
+          // Chưa gán ca: ghép theo thứ tự lần chấm (Vào 1, Ra 1, Vào 2…).
+          final n = math.max(1, (punches.length + 1) ~/ 2);
+          slots = [for (var i = 0; i < n; i++) (start: 0, end: 0)];
+          a = (
+            ins: [for (var i = 0; i < n; i++) 2 * i < punches.length ? punches[2 * i] : null],
+            outs: [for (var i = 0; i < n; i++) 2 * i + 1 < punches.length ? punches[2 * i + 1] : null],
+            extra: const <DateTime>[],
+          );
+        } else {
+          a = _dailyAssignPunches(punches, day, slots);
+        }
+        if (slots.length > maxSlots) maxSlots = slots.length;
+        rows.add((
+          r: r,
+          empId: empId,
+          code: sample.employeeCode,
+          name: sample.employeeName,
+          dept: dept,
+          day: day,
+          shiftLabel: _dailyShiftLabel(templates),
+          slots: slots,
+          a: a,
+          noShift: noShift,
+        ));
+      }
+    }
+
+    final headers = <String>[
+      'Mã NV', 'Tên nhân viên', 'Ngày', 'Thứ', 'Phòng ban', 'Ca làm việc',
+      for (var k = 1; k <= maxSlots; k++) ...['Vào $k', 'Ra $k', 'Giờ công $k'],
+      'Tổng giờ', 'Công', 'Đi trễ (phút)', 'Về sớm (phút)',
+      'Loại nghỉ phép', 'Trạng thái nghỉ phép', 'Số giờ nghỉ phép', 'Trạng thái giờ vào-ra',
+    ];
+    final slotCol0 = 6;
+    final afterSlots = slotCol0 + maxSlots * 3;
+    final lastCol = headers.length - 1;
+
+    final wb = ExcelReportBuilder.createWorkbook(sheetName: 'Chấm công hằng ngày');
+    final sheet = wb['Chấm công hằng ngày'];
+    final border = excel_lib.Border(
+        borderStyle: excel_lib.BorderStyle.Thin,
+        borderColorHex: excel_lib.ExcelColor.fromHexString(_dailyBorder));
+    excel_lib.CellStyle st({
+      String? bg,
+      String? fg,
+      bool bold = false,
+      bool left = false,
+      bool italic = false,
+      excel_lib.NumFormat? fmt,
+      bool boxed = true,
+    }) =>
+        excel_lib.CellStyle(
+          bold: bold,
+          italic: italic,
+          fontSize: 10,
+          fontColorHex: fg != null ? excel_lib.ExcelColor.fromHexString(fg) : excel_lib.ExcelColor.black,
+          backgroundColorHex: bg != null ? excel_lib.ExcelColor.fromHexString(bg) : excel_lib.ExcelColor.none,
+          horizontalAlign: left ? excel_lib.HorizontalAlign.Left : excel_lib.HorizontalAlign.Center,
+          verticalAlign: excel_lib.VerticalAlign.Center,
+          numberFormat: fmt ?? excel_lib.NumFormat.standard_0,
+          leftBorder: boxed ? border : null,
+          rightBorder: boxed ? border : null,
+          topBorder: boxed ? border : null,
+          bottomBorder: boxed ? border : null,
+        );
+    final hours = excel_lib.NumFormat.custom(formatCode: '#,##0.00');
+    final work = excel_lib.NumFormat.custom(formatCode: '#,##0.##');
+
+    var row = 0;
+    _excelMergedText(sheet,
+        row: row++,
+        colStart: 0,
+        colEnd: lastCol,
+        text: tr('BẢNG CHẤM CÔNG HẰNG NGÀY'),
+        style: ExcelReportBuilder.titleStyle());
+    _excelMergedText(sheet,
+        row: row++,
+        colStart: 0,
+        colEnd: lastCol,
+        text: tr('Từ ngày ${DateFormat('dd/MM/yyyy').format(range.start)} đến ngày ${DateFormat('dd/MM/yyyy').format(range.end)}'),
+        style: _excelCenterStyle(fontSize: 11));
+    // Chú thích màu.
+    final legend = <(String, String?, String?)>[
+      ('Chú thích:', null, null),
+      ('Thiếu giờ chấm', _dailyMissingBg, _dailyMissingFg),
+      ('Giờ chấm lẻ (thiếu cặp)', _dailyOddBg, _dailyOddFg),
+      ('Ngày nghỉ tuần', _dailyWeeklyOffBg, null),
+      ('Ngày lễ', _dailyHolidayBg, null),
+      ('Nghỉ phép', _dailyLeaveBg, null),
+      ('Giờ bổ sung / đã sửa', _dailyEditedBg, _dailyEditedFg),
+      ('Chờ duyệt bổ sung', _dailyPendingBg, _dailyPendingFg),
+    ];
+    row++;
+    var lc = 0;
+    for (final (label, bg, fg) in legend) {
+      // Nhãn dài (cột Vào/Ra hẹp) chiếm 3 ô cho khỏi cắt chữ.
+      final span = bg == null ? 1 : (tr(label).length > 16 && lc >= 6 ? 3 : 2);
+      _excelMergedText(sheet,
+          row: row,
+          colStart: lc,
+          colEnd: math.min(lastCol, lc + span - 1),
+          text: tr(label),
+          style: st(bg: bg, fg: fg, bold: bg == null, boxed: bg != null));
+      lc += span;
+    }
+    row += 2;
+
+    final headerRow = row;
+    for (var c = 0; c < headers.length; c++) {
+      _excelSetCell(sheet, headerRow, c, excel_lib.TextCellValue(tr(headers[c])),
+          style: ExcelReportBuilder.headerStyle());
+    }
+    sheet.setRowHeight(headerRow, 30);
+    row++;
+
+    final firstDataRow = row;
+    String? zebraEmp;
+    var zebra = false;
+    for (final x in rows) {
+      final r = x.r;
+      if (zebraEmp != x.empId) {
+        zebraEmp = x.empId;
+        zebra = !zebra;
+      }
+      final holiday = _getHolidayRate(x.day, x.code) != null;
+      final weeklyOff = !holiday && _dailyIsWeeklyOff(x.day, x.code);
+      final leave = _dailyLeaveFor(x.empId, x.code, x.day);
+      final future = x.day.isAfter(todayD);
+      final rowBg = holiday
+          ? _dailyHolidayBg
+          : weeklyOff
+              ? _dailyWeeklyOffBg
+              : leave != null
+                  ? _dailyLeaveBg
+                  : (zebra ? null : _dailyZebraBg);
+      final halfLeave = leave?['isHalfShift'] == true;
+      // Nghỉ nửa ca: nửa còn lại vẫn kiểm thiếu chấm.
+      final checkMissing = !holiday && !weeklyOff && (leave == null || halfLeave) && !future && !x.noShift;
+      final hasAnyPunch = (r?.displayPunchTimes.isNotEmpty ?? false);
+      final leaveLabel = leave == null ? '' : tr(_dailyLeaveTypeName(leave['type'] ?? leave['leaveType']));
+      // Nửa ca nghỉ phép: nửa không có giờ chấm nào (nghỉ cả ngày → mọi nửa).
+      var leaveSlots = <int>{};
+      if (leave != null && !x.noShift) {
+        final empty = [for (var k = 0; k < x.slots.length; k++) if (x.a.ins[k] == null && x.a.outs[k] == null) k];
+        leaveSlots = halfLeave ? empty.take(1).toSet() : empty.toSet();
+      }
+
+      void put(int c, excel_lib.CellValue v, {String? bg, String? fg, bool left = false, excel_lib.NumFormat? fmt}) =>
+          _excelSetCell(sheet, row, c, v, style: st(bg: bg ?? rowBg, fg: fg, left: left, fmt: fmt));
+      excel_lib.CellValue t(String v) => excel_lib.TextCellValue(v);
+      String fmtT(DateTime d) => DateFormat('HH:mm').format(d);
+
+      // Giờ chấm đã bổ sung / sửa tay (đã duyệt): giờ → lý do.
+      final edited = <DateTime, String>{};
+      if (r != null) {
+        for (var i = 0; i < r.punchTimes.length && i < r.attendanceIds.length; i++) {
+          final m = editMarks[r.attendanceIds[i].toLowerCase()];
+          if (m != null && '${m['action']}'.toLowerCase() != 'delete') {
+            edited[r.punchTimes[i]] = '${m['reason'] ?? ''}'.trim();
+          }
+        }
+      }
+      // Gom giờ cùng lý do: «Bổ sung 07:56, 12:02: mất điện».
+      final byReason = <String, List<String>>{};
+      for (final e in edited.entries) {
+        byReason.putIfAbsent(e.value, () => []).add(fmtT(e.key));
+      }
+      final editNotes = <String>[
+        for (final e in byReason.entries) 'Bổ sung ${e.value.join(', ')}${e.key.isEmpty ? '' : ': ${e.key}'}',
+      ];
+      // Phiếu chờ duyệt: gắn vào ô thiếu (mốc Vào / Ra) gần giờ xin bổ sung nhất.
+      final pendingAt = <int, String>{}; // mốc: 2k = Vào k+1, 2k+1 = Ra k+1
+      final pendingNotes = <String>[];
+      int boundMin(int bi) => bi.isEven ? x.slots[bi ~/ 2].start : x.slots[bi ~/ 2].end;
+      final dayBase = DateTime(x.day.year, x.day.month, x.day.day);
+      final punchMins = [for (final p in r?.displayPunchTimes ?? const <DateTime>[]) p.difference(dayBase).inMinutes];
+      final seenPending = <String>{};
+      for (final pa in pendingAdds['${x.code}|${_shiftDateKeyFmt.format(x.day)}'] ??
+          const <({int minute, String reason})>[]) {
+        // Bỏ phiếu xin bổ sung đúng giờ đã có trong máy, và phiếu trùng nhau.
+        if (punchMins.any((m) => (m - pa.minute).abs() <= 1)) continue;
+        if (!seenPending.add('${pa.minute}|${pa.reason}')) continue;
+        int? best;
+        for (var k = 0; k < x.slots.length && !x.noShift; k++) {
+          if (leaveSlots.contains(k)) continue;
+          for (final (bi, miss) in [(2 * k, x.a.ins[k] == null), (2 * k + 1, x.a.outs[k] == null)]) {
+            if (!miss || pendingAt.containsKey(bi)) continue;
+            if (best == null || (pa.minute - boundMin(bi)).abs() < (pa.minute - boundMin(best)).abs()) best = bi;
+          }
+        }
+        if (best != null) pendingAt[best] = pa.reason.isEmpty ? tr('Chờ duyệt') : pa.reason;
+        final hm = '${(pa.minute ~/ 60).toString().padLeft(2, '0')}:${(pa.minute % 60).toString().padLeft(2, '0')}';
+        pendingNotes.add('Chờ duyệt bổ sung $hm${pa.reason.isEmpty ? '' : ': ${pa.reason}'}');
+      }
+      void putPunch(int c, DateTime? v, int bi, bool odd, bool missing, String missText) {
+        if (v != null) {
+          final ed = edited.containsKey(v);
+          put(c, t(fmtT(v)),
+              bg: ed ? _dailyEditedBg : (odd ? _dailyOddBg : null),
+              fg: ed ? _dailyEditedFg : (odd ? _dailyOddFg : null));
+        } else if (pendingAt.containsKey(bi)) {
+          // Giống mẫu khách («mất điện»): ghi lý do xin bổ sung ngay ô thiếu.
+          put(c, t(pendingAt[bi]!), bg: _dailyPendingBg, fg: _dailyPendingFg);
+        } else if (missing) {
+          put(c, t(missText), bg: _dailyMissingBg, fg: _dailyMissingFg);
+        } else {
+          put(c, t(''));
+        }
+      }
+
+      put(0, t(x.code));
+      put(1, t(x.name), left: true);
+      put(2, t(DateFormat('dd/MM/yyyy').format(x.day)));
+      put(3, t(r?.dayOfWeek ?? _dailyWeekdayLabel(x.day)));
+      put(4, t(x.dept), left: true);
+      put(5, t(x.noShift ? '' : x.shiftLabel), left: true);
+
+      final notes = <String>[];
+      for (var k = 0; k < maxSlots; k++) {
+        final c = slotCol0 + k * 3;
+        if (k >= x.slots.length) {
+          put(c, t(''));
+          put(c + 1, t(''));
+          put(c + 2, t(''));
+          continue;
+        }
+        final inT = x.a.ins[k];
+        final outT = x.a.outs[k];
+        final odd = (inT == null) != (outT == null);
+        // Hôm nay: nửa ca chưa kết thúc thì chưa báo thiếu.
+        final slotOpen = x.day == todayD && today.hour * 60 + today.minute < x.slots[k].end;
+        final checkSlot = checkMissing && !slotOpen && !leaveSlots.contains(k);
+        if (leaveSlots.contains(k)) {
+          // Giống mẫu khách: ghi loại nghỉ ngay ô Vào / Ra của nửa ca nghỉ.
+          // Gộp ô Vào + Ra cho đủ chỗ tên loại nghỉ.
+          _excelMergedText(sheet,
+              row: row,
+              colStart: c,
+              colEnd: c + 1,
+              text: leaveLabel,
+              style: st(bg: _dailyLeaveBg, fg: _dailyLeaveFg));
+          put(c + 2, excel_lib.DoubleCellValue(0), fmt: hours);
+          continue;
+        }
+        final bothMissing = inT == null && outT == null && checkSlot;
+        // Vắng cả ngày: chỉ tô màu, không ghi «Thiếu» ở mọi ô cho đỡ rối.
+        final missText = hasAnyPunch ? tr('Thiếu') : '';
+        final missing = checkSlot && (odd || bothMissing);
+        putPunch(c, inT, 2 * k, odd, missing, missText);
+        if (inT == null && missing && !pendingAt.containsKey(2 * k)) notes.add('Thiếu vào ${k + 1}');
+        putPunch(c + 1, outT, 2 * k + 1, odd, missing, missText);
+        if (outT == null && missing && !pendingAt.containsKey(2 * k + 1)) notes.add('Thiếu ra ${k + 1}');
+        var h = 0.0;
+        if (inT != null && outT != null) {
+          final base = DateTime(x.day.year, x.day.month, x.day.day);
+          final sl = x.slots[k];
+          var a0 = inT.difference(base).inMinutes;
+          var b0 = outT.difference(base).inMinutes;
+          if (!x.noShift) {
+            a0 = math.max(a0, sl.start);
+            b0 = math.min(b0, sl.end);
+          }
+          h = math.max(0, b0 - a0) / 60.0;
+        }
+        put(c + 2, excel_lib.DoubleCellValue(double.parse(h.toStringAsFixed(2))), fmt: hours);
+      }
+
+      var c = afterSlots;
+      put(c++, excel_lib.DoubleCellValue(double.parse((r?.workHours ?? 0).toStringAsFixed(2))), fmt: hours);
+      put(c++, excel_lib.DoubleCellValue(double.parse((r?.workCount ?? 0).toStringAsFixed(2))), fmt: work);
+      put(c++, excel_lib.IntCellValue(r?.lateMinutes ?? 0));
+      put(c++, excel_lib.IntCellValue(r?.earlyMinutes ?? 0));
+      final st0 = leave?['status'];
+      final leaveApproved = st0 == 1 || '$st0'.toLowerCase() == 'approved';
+      put(c++, t(leaveLabel), left: true);
+      put(c++, t(leave == null ? '' : (leaveApproved ? 'Đã duyệt' : 'Chờ duyệt')));
+      put(c++,
+          excel_lib.DoubleCellValue(leave == null
+              ? 0
+              : double.parse((widget.standardWorkHours * (halfLeave ? 0.5 : 1)).toStringAsFixed(2))),
+          fmt: hours);
+      final status = <String>[
+        if (holiday) 'Ngày lễ',
+        if (weeklyOff) 'Nghỉ tuần',
+        if (leave != null)
+          [
+            halfLeave ? 'Nghỉ phép nửa ca' : 'Nghỉ phép',
+            if ('${leave['reason'] ?? ''}'.trim().isNotEmpty) '${leave['reason']}'.trim(),
+          ].join(': '),
+        if (x.noShift && hasAnyPunch) 'Chưa gán ca',
+        if (checkMissing && !hasAnyPunch && x.day != todayD && pendingNotes.isEmpty) 'Vắng' else ...notes,
+        ...editNotes,
+        ...pendingNotes,
+        if (x.a.extra.isNotEmpty) 'Ngoài ca: ${x.a.extra.map((d) => DateFormat('HH:mm').format(d)).join(', ')}',
+      ];
+      final bad = notes.isNotEmpty || (checkMissing && !hasAnyPunch && x.day != todayD);
+      put(c, t(status.map(tr).join(' · ')),
+          left: true, fg: bad ? _dailyMissingFg : null);
+      row++;
+    }
+    final lastDataRow = row - 1;
+
+    // Dòng tổng.
+    final sumCols = <int>[
+      for (var k = 0; k < maxSlots; k++) slotCol0 + k * 3 + 2,
+      afterSlots, afterSlots + 1, afterSlots + 2, afterSlots + 3, afterSlots + 6,
+    ];
+    for (var c = 0; c <= lastCol; c++) {
+      final excel_lib.CellValue v;
+      // Cột Mã NV hẹp → «TỔNG CỘNG» ở cột Tên, số NV / dòng ở cột Ca làm việc (rộng) cho khỏi đè chữ.
+      if (c == 1) {
+        v = excel_lib.TextCellValue(tr('TỔNG CỘNG'));
+      } else if (c == 5) {
+        v = excel_lib.TextCellValue(tr('$exportedEmployees nhân viên · ${rows.length} dòng'));
+      } else if (sumCols.contains(c) && lastDataRow >= firstDataRow) {
+        v = excel_lib.FormulaCellValue('SUM(${_excelRef(c, firstDataRow)}:${_excelRef(c, lastDataRow)})');
+      } else {
+        v = excel_lib.TextCellValue('');
+      }
+      final isInt = c == afterSlots + 2 || c == afterSlots + 3;
+      _excelSetCell(sheet, row, c, v,
+          style: st(
+              bg: _dailyTotalBg,
+              bold: true,
+              left: c == 1 || c == 5,
+              fmt: sumCols.contains(c) && !isInt ? hours : null));
+    }
+
+    final widths = <double>[
+      10, 22, 11, 7, 18, 26,
+      for (var k = 0; k < maxSlots; k++) ...[8, 8, 9],
+      9, 7, 9, 9, 15, 13, 10, 30,
+    ];
+    for (var i = 0; i < widths.length; i++) {
+      sheet.setColumnWidth(i, widths[i]);
+    }
+
+    final encoded = wb.encode();
+    if (encoded == null) return;
+    final bytes = ExcelReportBuilder.fitSheetToA4Landscape(encoded, pagesTall: math.max(1, (rows.length / 40).ceil()));
+    final fileName =
+        'Cham_cong_hang_ngay_${DateFormat('ddMMyyyy').format(range.start)}_${DateFormat('ddMMyyyy').format(range.end)}.xlsx';
+    await file_saver.saveAndOpenFileBytes(
+        bytes, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    if (mounted) {
+      NotificationOverlayManager().showSuccess(
+          title: 'Xuất Excel', message: tr('Đã lưu $exportedEmployees nhân viên vào Tải về/SBOX HRM: $fileName'));
+    }
+  }
+
+  String _dailyWeekdayLabel(DateTime d) =>
+      const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'][d.weekday - 1];
+
+  /// Chọn mẫu file Excel: theo từng nhân viên (cũ) hay bảng liền chấm công hằng ngày.
+  Future<String?> _pickShiftExcelTemplate() => showDialog<String>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: Text(tr('Chọn mẫu Excel')),
+          children: [
+            ListTile(
+              leading: const Icon(Icons.view_list_outlined),
+              title: Text(tr('Chấm công hằng ngày (bảng liền)')),
+              subtitle: Text(tr('Mỗi ngày một dòng · Vào/Ra theo ca sáng – chiều · tô màu thiếu chấm, ngày nghỉ')),
+              onTap: () => Navigator.pop(ctx, 'daily'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.people_outline),
+              title: Text(tr('Theo từng nhân viên')),
+              subtitle: Text(tr('Mỗi nhân viên một khối · có thông tin và ô ký tên')),
+              onTap: () => Navigator.pop(ctx, 'blocks'),
+            ),
+          ],
+        ),
+      );
+
   String? _excelFilterDescription() {
     final parts = <String>[];
     if (_selectedEmployeeIds.isNotEmpty) {
@@ -3960,6 +4636,23 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     if (!ensureCanExport(context, 'AttendanceByShift')) return;
     final records = _shiftData;
     if (records.isEmpty || _isExporting) return;
+
+    final template = await _pickShiftExcelTemplate();
+    if (template == null || !mounted) return;
+    if (template == 'daily') {
+      setState(() => _isExporting = true);
+      try {
+        await _exportDailySheetExcel(records);
+      } catch (e) {
+        debugPrint('Error exporting daily Excel: $e');
+        if (mounted) {
+          NotificationOverlayManager().showError(title: 'Lỗi', message: tr('Không thể xuất Excel: $e'));
+        }
+      } finally {
+        if (mounted) setState(() => _isExporting = false);
+      }
+      return;
+    }
 
     // Chọn cột + thứ tự trước khi xuất (nhớ theo máy nếu tích «Nhớ lựa chọn»).
     final saved = await ReportColumnPrefs.load(_excelColPrefKey, _excelColumnDefs);

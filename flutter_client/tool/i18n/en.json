@@ -583,6 +583,7 @@
   "Bạn đã đọc hết văn bản bắt buộc": "You've read all required documents",
   "Bạn đã đọc và xác nhận văn bản này": "You've read and confirmed this document",
   "BẢNG BÁO GIÁ": "QUOTATION",
+  "BẢNG CHẤM CÔNG HẰNG NGÀY": "DAILY ATTENDANCE SHEET",
   "Bản SBOX POS trên cửa hàng ứng dụng dùng máy chủ đã gắn khi build.": "The SBOX POS version in the app store uses the server fixed at build time.",
   "Bản chấm ngoài vị trí đạt đủ điều kiện được duyệt ngay, không cần chờ quản lý": "Out-of-location punches that meet the conditions are approved immediately, without waiting for a manager",
   "Bản chốt đã sửa chữ": "Edited closing copy",
@@ -1283,6 +1284,7 @@
   "Chưa dựng được từ mẫu Word": "Could not build from the Word template",
   "Chưa ghi nhận khách chốt": "Customer confirmation not recorded yet",
   "Chưa ghi nhận thiết bị đăng nhập.": "No login devices recorded.",
+  "Chưa gán ca": "No shift assigned",
   "Chưa gán máy": "No device assigned",
   "Chưa gán nhà cung cấp": "No supplier assigned",
   "Chưa gán thợ": "No technician assigned",
@@ -1403,6 +1405,8 @@
   "Chấm công bù & quy trình duyệt": "Make-up punches & approval flow",
   "Chấm công bất thường": "Abnormal punches",
   "Chấm công giữ": "Keep punch",
+  "Chấm công hằng ngày": "Daily attendance",
+  "Chấm công hằng ngày (bảng liền)": "Daily attendance (single table)",
   "Chấm công không cần xác thực": "Punch without verification",
   "Chấm công kỳ lương ": "Pay period attendance ",
   "Chấm công mobile gắn với chiếc điện thoại bạn dùng hằng ngày (mã máy, khuôn mặt, GPS). ": "Mobile attendance is tied to the phone you use every day (device code, face, GPS). ",
@@ -1578,6 +1582,7 @@
   "Chọn máy in muốn chia sẻ": "Choose printers to share",
   "Chọn máy in tem 60×40": "Choose a 60×40 label printer",
   "Chọn máy in tem · thiết kế mã QR bàn": "Choose label printer · design table QR code",
+  "Chọn mẫu Excel": "Choose Excel template",
   "Chọn mẫu cho chứng từ này": "Choose a template for this document",
   "Chọn mẫu in hóa đơn": "Choose receipt template",
   "Chọn mẫu khác": "Choose another template",
@@ -1678,6 +1683,7 @@
   "Chờ bạn nhận": "Waiting for you to accept",
   "Chờ chi": "Awaiting payment",
   "Chờ chi / thu": "Waiting to pay / collect",
+  "Chờ duyệt bổ sung": "Correction pending approval",
   "Chờ hiệu lực": "Pending effect",
   "Chờ in": "Waiting to print",
   "Chờ khách chốt": "Waiting for customer to confirm",
@@ -2632,9 +2638,11 @@
   "Giờ / ngày": "Hours / day",
   "Giờ TP": "Decimal hours",
   "Giờ bắt đầu tính công.": "The time work-day counting starts.",
+  "Giờ bổ sung / đã sửa": "Added / edited punch",
   "Giờ cao điểm tăng giá, giờ sáng giảm giá… Phần thời gian rơi vào khung nào thì cộng / trừ theo khung đó.": "Peak-hour surcharge, morning discount… The portion of time falling in each band is added / deducted by that band.",
   "Giờ chạy (0-23)": "Run hour (0-23)",
   "Giờ chạy dọn dữ liệu": "Data cleanup run hour",
+  "Giờ chấm lẻ (thiếu cặp)": "Unpaired punch",
   "Giờ công dự kiến": "Expected work hours",
   "Giờ công theo ca": "Work hours by shift",
   "Giờ công và số người đi làm theo ngày": "Work hours and headcount by day",
@@ -4872,10 +4880,12 @@
   "Mỗi máy chấm công chỉ nên gắn một mạch ESP.": "Attach only one ESP board per attendance device.",
   "Mỗi mạch ESP chỉ nên gắn một máy chấm công (một IP máy / một SN). ": "Attach only one attendance device per ESP board (one device IP / one SN). ",
   "Mỗi mặt hàng cộng thuế suất riêng đã khai báo ở hàng hóa.": "Each item adds the tax rate declared on the product.",
+  "Mỗi ngày một dòng · Vào/Ra theo ca sáng – chiều · tô màu thiếu chấm, ngày nghỉ": "One row per day · In/Out by morning – afternoon shift · highlights missing punches, days off",
   "Mỗi ngày nghỉ chỉ một chế độ — không vừa lương DN vừa trợ cấp BHXH.\n": "Each day off follows only one scheme — not both company pay and social-insurance allowance.\\n\n",
   "Mỗi người chỉ thấy mục mình có quyền xem; đơn chờ duyệt và chấm công lọc theo phạm vi quản lý": "Each person only sees sections they may view; pending requests and attendance are filtered by management scope",
   "Mỗi người nhận một việc riêng — tự tick checklist, cập nhật tiến độ của mình.": "Each assignee gets their own task — they tick the checklist and update their own progress.",
   "Mỗi người phụ thuộc": "Per dependant",
+  "Mỗi nhân viên một khối · có thông tin và ô ký tên": "One block per employee · with details and signature boxes",
   "Mỗi size một giá bán (vd M, L).": "Each size has its own price (e.g. M, L).",
   "Mỗi size một giá bán (vd M, L). Định lượng NVL riêng từng size khai ở phần Định lượng.": "Each size has its own price (e.g. M, L). Set per-size ingredient amounts in the Recipe section.",
   "Mỗi sáng gửi chủ / quản lý doanh thu hôm qua, hàng sắp hết, đơn chờ duyệt, ai đi trễ / vắng, ": "Every morning, send the owner / managers yesterday's revenue, low stock, pending requests, who was late / absent, ",
@@ -5023,6 +5033,7 @@
   "Nghỉ phép & ca": "Leave & shifts",
   "Nghỉ phép (đầy đủ)": "Leave (full)",
   "Nghỉ phép hôm nay": "On leave today",
+  "Nghỉ phép nửa ca": "Half-shift leave",
   "Nghỉ phép, tăng ca, công tác, yêu cầu cần duyệt": "Leave, overtime, business trips, requests needing approval",
   "Nghỉ trưa / OT ra": "Lunch break / OT out",
   "Nghỉ trưa / OT vào": "Lunch break / OT in",
@@ -5105,6 +5116,7 @@
   "Ngày nghỉ phép": "Leave days",
   "Ngày nghỉ theo loại": "Leave days by type",
   "Ngày nghỉ theo lịch": "Scheduled days off",
+  "Ngày nghỉ tuần": "Weekly day off",
   "Ngày nguồn:": "Source date:",
   "Ngày nhận": "Receive date",
   "Ngày nhận lịch": "Booking received",
@@ -5986,6 +5998,7 @@
   "Số giấy tờ": "Document no.",
   "Số giờ do đồng hồ tính — dùng Dừng / Kết thúc / Tính tiếp trên dòng": "Hours counted by the timer — use Stop / End / Resume on the line",
   "Số giờ một công": "Hours per work day",
+  "Số giờ nghỉ phép": "Leave hours",
   "Số giờ tối thiểu": "Minimum hours",
   "Số hồ sơ": "Record no.",
   "Số hợp đồng": "Contract no.",
@@ -6336,6 +6349,7 @@
   "Theo thứ trong tuần": "By weekday",
   "Theo tiêu chí": "By criteria",
   "Theo trạng thái và người giữ": "By status and holder",
+  "Theo từng nhân viên": "Per employee",
   "Theo đơn": "By order",
   "Theo đơn đặt": "By booking",
   "Thi công nhà chị Lan – Q7": "Construction at Ms. Lan's house – District 7",
@@ -6380,6 +6394,7 @@
   "Thiếu email": "Missing email",
   "Thiếu giấy tờ / ngày sinh": "Missing documents / date of birth",
   "Thiếu giờ": "Short hours",
+  "Thiếu giờ chấm": "Missing punch",
   "Thiếu giờ ra": "Missing out time",
   "Thiếu giờ vào": "Missing in time",
   "Thiếu hàng": "Short on goods",
@@ -6882,8 +6897,10 @@
   "Trạng thái HT: ": "Completion status: ",
   "Trạng thái POS": "POS status",
   "Trạng thái Tingee": "Tingee status",
+  "Trạng thái giờ vào-ra": "In/out status",
   "Trạng thái hóa đơn điện tử": "E-invoice status",
   "Trạng thái hồ sơ": "Record status",
+  "Trạng thái nghỉ phép": "Leave status",
   "Trạng thái phiếu": "Voucher status",
   "Trạng thái quyết toán": "Settlement status",
   "Trạng thái rỗng": "Empty state",
@@ -12801,6 +12818,10 @@
    "Shift hours {0}"
   ],
   [
+   "Giờ công {0}",
+   "Work hours {0}"
+  ],
+  [
    "Giờ khác · {0}",
    "Other time · {0}"
   ],
@@ -15441,6 +15462,10 @@
    "Off-site · {0} staff"
   ],
   [
+   "Ngoài ca: {0}",
+   "Outside shift: {0}"
+  ],
+  [
    "Nguyên giá {0}",
    "Original cost {0}"
   ],
@@ -16765,8 +16790,16 @@
    "Missing documents for item: {0}"
   ],
   [
+   "Thiếu ra {0}",
+   "Missing out {0}"
+  ],
+  [
    "Thiếu số tài khoản / ngân hàng: {0}",
    "Missing account number / bank: {0}"
+  ],
+  [
+   "Thiếu vào {0}",
+   "Missing in {0}"
   ],
   [
    "Thiếu {0}",
@@ -20331,6 +20364,10 @@
   [
    "{0} nhân viên · {1} có vị trí trên bản đồ",
    "{0} employees · {1} with a location on the map"
+  ],
+  [
+   "{0} nhân viên · {1} dòng",
+   "{0} employees · {1} rows"
   ],
   [
    "{0} nhân viên đang thuộc chi nhánh",

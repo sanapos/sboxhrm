@@ -1261,6 +1261,7 @@
   "Bạn ở quá xa điểm bán": "販売店舗から離れすぎています",
   "BẢNG BÁO GIÁ": "見積書",
   "BẢNG CHẤM CÔNG CHI TIẾT": "勤怠詳細表",
+  "BẢNG CHẤM CÔNG HẰNG NGÀY": "日次勤怠表",
   "BẢNG CHẤM CÔNG THEO CA": "シフト別勤怠表",
   "BẢNG GIỜ LÀM": "勤務時間表",
   "BẢNG TỔNG HỢP LƯƠNG": "給与集計表",
@@ -2727,6 +2728,7 @@
   "Chưa gán": "未割り当て",
   "Chưa gán NV": "従業員未割り当て",
   "Chưa gán bếp": "キッチン未割り当て",
+  "Chưa gán ca": "シフト未割当",
   "Chưa gán cửa hàng": "店舗未割り当て",
   "Chưa gán hồ sơ lương tháng": "月次給与プロファイルが割り当てられていません",
   "Chưa gán máy": "端末未割り当て",
@@ -2958,6 +2960,8 @@
   "Chấm công giữ": "打刻を保持",
   "Chấm công hiện trường": "現場打刻",
   "Chấm công hôm nay": "本日の打刻",
+  "Chấm công hằng ngày": "日次勤怠",
+  "Chấm công hằng ngày (bảng liền)": "日次勤怠 (一覧表)",
   "Chấm công không cần xác thực": "認証なしの打刻",
   "Chấm công kỳ lương ": "給与期間の勤怠 ",
   "Chấm công mobile": "モバイル勤怠",
@@ -3413,6 +3417,7 @@
   "Chọn món — không tách hết bàn": "メニューを選択 — テーブル全体は分けないでください",
   "Chọn mạng có tên bắt đầu bằng SBOX-Gateway-": "名前がSBOX-Gateway-で始まるネットワークを選択",
   "Chọn mạng nhà và IP máy chấm công": "自宅ネットワークと勤怠端末のIPを選択",
+  "Chọn mẫu Excel": "Excelテンプレートを選択",
   "Chọn mẫu cho chứng từ này": "この伝票に使うテンプレートを選択",
   "Chọn mẫu giấy trước": "先に用紙テンプレートを選択",
   "Chọn mẫu in": "印刷テンプレートを選択",
@@ -3638,6 +3643,7 @@
   "Chờ duyệt": "承認待ち",
   "Chờ duyệt (đã gửi)": "承認待ち（送信済み）",
   "Chờ duyệt HT": "HT承認待ち",
+  "Chờ duyệt bổ sung": "補正承認待ち",
   "Chờ duyệt phép": "休暇の承認待ち",
   "Chờ duyệt ứng": "前払いの承認待ち",
   "Chờ giao": "配送待ち",
@@ -5521,6 +5527,7 @@
   "Giờ bắt đầu (HH:mm) *": "開始時刻（HH:mm）*",
   "Giờ bắt đầu ngày kinh doanh": "営業日の開始時刻",
   "Giờ bắt đầu tính công.": "勤務の計算を開始する時刻。",
+  "Giờ bổ sung / đã sửa": "追加・修正した打刻",
   "Giờ ca": "シフト時間",
   "Giờ cao điểm tăng giá, giờ sáng giảm giá… Phần thời gian rơi vào khung nào thì cộng / trừ theo khung đó.": "ピーク時の値上げ、午前の割引など。時間が該当する時間帯ごとに加算／減算されます。",
   "Giờ chuẩn": "標準時間",
@@ -5530,6 +5537,7 @@
   "Giờ chấm công": "打刻時間",
   "Giờ chấm công đã được sửa": "打刻時間が修正されました",
   "Giờ chấm gốc:": "元の打刻時刻：",
+  "Giờ chấm lẻ (thiếu cặp)": "ペアのない打刻",
   "Giờ chấm thực tế": "実際の打刻時刻",
   "Giờ công": "勤務時間",
   "Giờ công dự kiến": "予定勤務時間",
@@ -10477,6 +10485,7 @@
   "Mỗi mạch ESP chỉ nên gắn một máy chấm công (một IP máy / một SN). ": "ESP基板1枚につき勤怠端末は1台のみ接続してください(端末IP1つ / SN1つ)。 ",
   "Mỗi mặt hàng cộng thuế suất riêng đã khai báo ở hàng hóa.": "各品目に、商品に登録された個別の税率が加算されます。",
   "Mỗi ngày chỉ một chế độ": "1日につき1つの方式のみ",
+  "Mỗi ngày một dòng · Vào/Ra theo ca sáng – chiều · tô màu thiếu chấm, ngày nghỉ": "1日1行 · 午前/午後シフト別の出退勤 · 打刻漏れ・休日を色分け",
   "Mỗi ngày nghỉ chỉ một chế độ": "休暇1日につき1つの方式のみ",
   "Mỗi ngày nghỉ chỉ một chế độ — không vừa lương DN vừa trợ cấp BHXH.": "休暇1日につき1つの方式のみ — 会社給与と社会保険給付の併用はできません。",
   "Mỗi ngày nghỉ chỉ một chế độ — không vừa lương DN vừa trợ cấp BHXH.\n": "休日ごとに適用される制度は1つだけです — 会社の給与と社会保険の手当を同時には受けられません。\\n\n",
@@ -10486,6 +10495,7 @@
   "Mỗi người chỉ thấy mục mình có quyền xem; đơn chờ duyệt và chấm công lọc theo phạm vi quản lý": "各自は閲覧権限のある項目のみ表示。承認待ち申請と勤怠は管理範囲で絞り込み",
   "Mỗi người nhận một việc riêng — tự tick checklist, cập nhật tiến độ của mình.": "担当者ごとに個別のタスクを受け取り、チェックリストを自分でチェックして進捗を更新します。",
   "Mỗi người phụ thuộc": "扶養家族1人あたり",
+  "Mỗi nhân viên một khối · có thông tin và ô ký tên": "社員ごとのブロック · 情報と署名欄付き",
   "Mỗi nhân viên nên có một tài khoản riêng, không dùng chung mật khẩu.": "従業員ごとに専用アカウントを持ち、パスワードを共有しないことをおすすめします。",
   "Mỗi nhân viên/mẫu lương có một chế độ chấm công. Chọn sai mode sẽ thấy «Thiếu chấm», không tính trễ, hoặc phạt quên chấm không đúng.": "従業員/給与テンプレートごとに勤怠モードがあります。モードを誤ると「打刻漏れ」と表示されたり、遅刻が計算されなかったり、打刻忘れの罰金が正しく適用されません。",
   "Mỗi size một giá bán (vd M, L).": "サイズごとに販売価格を設定します（例：M、L）。",
@@ -10809,6 +10819,7 @@
   "Nghỉ phép hôm nay": "本日の休暇",
   "Nghỉ phép không lương": "無給休暇",
   "Nghỉ phép năm": "年次有給休暇",
+  "Nghỉ phép nửa ca": "半シフト休暇",
   "Nghỉ phép theo pháp luật": "法定休暇",
   "Nghỉ phép, tăng ca, công tác, yêu cầu cần duyệt": "休暇、残業、出張、承認が必要な申請",
   "Nghỉ phép, tăng ca, lương, KPI, phê duyệt, ...": "休暇、残業、給与、KPI、承認、...",
@@ -10982,6 +10993,7 @@
   "Ngày nghỉ phép": "休暇日",
   "Ngày nghỉ theo loại": "種類別の休暇日",
   "Ngày nghỉ theo lịch": "スケジュール上の休み",
+  "Ngày nghỉ tuần": "週休日",
   "Ngày nguồn không có lịch để sao chép": "コピー元の日付にコピーできるスケジュールがありません",
   "Ngày nguồn:": "コピー元の日付：",
   "Ngày nhận": "受領日",
@@ -13069,6 +13081,7 @@
   "Số giấy tờ": "書類番号",
   "Số giờ do đồng hồ tính — dùng Dừng / Kết thúc / Tính tiếp trên dòng": "タイマーが計算した時間 — 行の停止 / 終了 / 計算再開を使用",
   "Số giờ một công": "1日の勤務時間",
+  "Số giờ nghỉ phép": "休暇時間",
   "Số giờ tối thiểu": "最小時間",
   "Số hàng dữ liệu:": "データ行数:",
   "Số hóa đơn": "伝票番号",
@@ -13790,6 +13803,7 @@
   "Theo tuần": "週別",
   "Theo tên hàng": "商品名別",
   "Theo tổng giờ làm trong ngày (không tính từng ca riêng)": "1日の総勤務時間で計算 (シフトごとには計算しません)",
+  "Theo từng nhân viên": "社員別",
   "Theo vai trò": "ロール別",
   "Theo yêu cầu điều chỉnh sau khi duyệt": "承認後の調整リクエストに従う",
   "Theo đúng menu phần mềm SBOX HRM · Từ đăng ký đến báo cáo · Hỗ trợ cài đặt từ xa": "SBOX HRMソフトウェアのメニュー構成どおり · 登録からレポートまで · リモート設定サポート",
@@ -13963,6 +13977,7 @@
   "Thiếu giấy tờ / ngày sinh": "書類 / 生年月日が未入力",
   "Thiếu giấy tờ cho khoản": "この項目の証憑書類が不足しています",
   "Thiếu giờ": "時間不足",
+  "Thiếu giờ chấm": "打刻漏れ",
   "Thiếu giờ ra": "退勤時刻なし",
   "Thiếu giờ vào": "出勤時刻なし",
   "Thiếu hoặc sai giờ (HH:mm)": "時刻が未入力または不正です (HH:mm)",
@@ -15098,11 +15113,13 @@
   "Trạng thái HT: ": "完了ステータス: ",
   "Trạng thái POS": "POSの状態",
   "Trạng thái Tingee": "Tingeeの状態",
+  "Trạng thái giờ vào-ra": "出退勤状況",
   "Trạng thái hóa đơn điện tử": "電子インボイスの状態",
   "Trạng thái hồ sơ": "書類の状態",
   "Trạng thái không hợp lệ": "無効なステータス",
   "Trạng thái làm việc": "勤務状況",
   "Trạng thái máy chấm công online/offline": "勤怠端末のオンライン/オフライン状態",
+  "Trạng thái nghỉ phép": "休暇状況",
   "Trạng thái phiếu": "伝票の状態",
   "Trạng thái quyết toán": "精算の状態",
   "Trạng thái rỗng": "空の状態",
@@ -24992,6 +25009,10 @@
    "シフト時間 {0}"
   ],
   [
+   "Giờ công {0}",
+   "勤務時間 {0}"
+  ],
+  [
    "Giờ khác · {0}",
    "別の時間 · {0}"
   ],
@@ -27632,6 +27653,10 @@
    "現場外 · スタッフ{0}人"
   ],
   [
+   "Ngoài ca: {0}",
+   "シフト外: {0}"
+  ],
+  [
    "Nguyên giá {0}",
    "取得価額 {0}"
   ],
@@ -28956,8 +28981,16 @@
    "項目の書類が不足: {0}"
   ],
   [
+   "Thiếu ra {0}",
+   "退勤漏れ {0}"
+  ],
+  [
    "Thiếu số tài khoản / ngân hàng: {0}",
    "口座番号 / 銀行が未入力: {0}"
+  ],
+  [
+   "Thiếu vào {0}",
+   "出勤漏れ {0}"
   ],
   [
    "Thiếu {0}",
@@ -32522,6 +32555,10 @@
   [
    "{0} nhân viên · {1} có vị trí trên bản đồ",
    "従業員 {0} 名 · {1} 名が地図上に表示"
+  ],
+  [
+   "{0} nhân viên · {1} dòng",
+   "社員 {0} 名 · {1} 行"
   ],
   [
    "{0} nhân viên đang thuộc chi nhánh",
