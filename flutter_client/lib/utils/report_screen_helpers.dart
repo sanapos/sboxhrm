@@ -496,6 +496,26 @@ class ReportBranchFilter {
             ))
         .toList();
   }
+
+  /// «Chi nhánh: … · Phòng ban: …» cho dòng «Bộ lọc» của file xuất; null = không lọc tổ chức.
+  String? filterLabel({String? branchId, String? departmentId}) {
+    String? nameOf(List<Map<String, dynamic>> list, String? id) {
+      if (id == null || id.isEmpty) return null;
+      for (final m in list) {
+        if (m['id']?.toString() == id) {
+          final n = m['name']?.toString().trim() ?? '';
+          if (n.isNotEmpty) return n;
+        }
+      }
+      return id.startsWith('name:') ? id.substring(5) : null;
+    }
+
+    final parts = <String>[
+      if (nameOf(branches, branchId) case final b?) 'Chi nhánh: $b',
+      if (nameOf(departments, departmentId) case final d?) 'Phòng ban: $d',
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
 }
 
 class ReportEmptyState extends StatelessWidget {

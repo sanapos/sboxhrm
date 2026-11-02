@@ -28,6 +28,7 @@ import '../../widgets/attendance_correction_reason_field.dart';
 import '../../widgets/attendance_delete_confirm_dialog.dart';
 import '../../utils/attendance_date_range_presets.dart';
 import '../../utils/attendance_leave_lookup.dart';
+import '../../utils/attendance_day_scope.dart';
 import '../../utils/absence_day_actions.dart';
 import '../../utils/attendance_correction_submit.dart';
 import '../../utils/attendance_record_resolver.dart';
@@ -89,6 +90,9 @@ class AttendanceByShiftTab extends StatefulWidget {
   /// Lịch làm việc (WorkSchedule) trong kỳ — dùng khi paidLeaveType=schedule.
   final List<Map<String, dynamic>> workSchedules;
 
+  /// Bộ lọc chi nhánh / phòng ban đang chọn ở màn ngoài (ghi vào dòng «Bộ lọc» của file xuất).
+  final String? orgFilterLabel;
+
   const AttendanceByShiftTab({
     super.key,
     required this.attendances,
@@ -118,6 +122,7 @@ class AttendanceByShiftTab extends StatefulWidget {
     this.travelHoursByEmployeeDateKey = const {},
     this.travelEligibleEmployeeKeys = const {},
     this.workSchedules = const [],
+    this.orgFilterLabel,
   });
 
   @override
@@ -129,6 +134,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   Set<String> _selectedEmployeeIds = {};
   // 'all' | 'valid' | 'late' | 'early' | 'late_early' | 'missing' | 'complete' | 'ot'
   String _shiftFilter = 'all';
+  AttendanceDayScope _dayScope = AttendanceDayScope.allDays;
+  static const _dayScopePrefKey = 'attendance_by_shift_day_scope_v1';
   bool _showOverviewPanel = true;
 
   // Sorting
@@ -312,6 +319,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     ReportColumnPrefs.load(_colPrefKey, _columnDefs).then((l) {
       if (mounted) setState(() => _colLayout = l);
     });
+    AttendanceDayScope.load(_dayScopePrefKey).then((v) {
+      if (mounted && v != _dayScope) setState(() => _dayScope = v);
+    });
   }
 
   void _notifyDataChanged() {
@@ -342,6 +352,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       case 'ot':
         return r.overtimeMinutes > 0;
       case 'missing':
+        if (!attendanceFillMatchesMissingFilter(r.fillKind)) return false;
         return _statusHasMissingPunch(r.status) ||
             r.punchTimes.isEmpty ||
             r.punchTimes.length % 2 != 0;
@@ -382,6 +393,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         widget.toDate.millisecondsSinceEpoch,
         Object.hashAll(_selectedEmployeeIds),
         _shiftFilter,
+        _dayScope,
         _sortAscending,
         identityHashCode(widget.attendances),
         widget.shiftTemplates.length,
@@ -1065,7 +1077,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         )
         .toList();
 
-    _appendUnpaidAbsentShiftPlaceholders(records);
+    _appendDayScopeShiftRows(records);
 
     // Gom theo mã nhân viên (40001, 40002… — so số khi mã là số), trong mỗi người theo ngày.
     records.sort((a, b) {
@@ -1085,7 +1097,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return result;
   }
 
-  void _appendUnpaidAbsentShiftPlaceholders(List<_DailyShiftRecord> records) {
+  /// Đủ ngày trong kỳ: thêm dòng cho NV × ngày không chấm (Vắng / Nghỉ phép / Nghỉ tuần / Ngày lễ…).
+  /// Chỉ ngày có chấm: không thêm gì.
+  void _appendDayScopeShiftRows(List<_DailyShiftRecord> records) {
     final roster = widget.employeesList;
     if (roster == null || roster.isEmpty) return;
 
@@ -1131,48 +1145,54 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           _employeesWithSchedule.contains(pin) ||
           (guid.isNotEmpty && _employeesWithSchedule.contains(guid));
 
-      for (final date in dates) {
-        final dateKey = DateFormat('yyyy-MM-dd').format(date);
-        if (existing.contains('$empId|$dateKey') ||
-            (code.isNotEmpty && existing.contains('$code|$dateKey')) ||
-            (pin.isNotEmpty && existing.contains('$pin|$dateKey'))) {
-          continue;
-        }
+      final ids = <String>[
+        hrCode,
+        empId,
+        if (pin.isNotEmpty) pin,
+        if (guid.isNotEmpty) guid,
+      ];
+      final fills = attendanceFillDays(
+        scope: _dayScope,
+        dates: dates,
+        hasRow: (date) {
+          final dateKey = DateFormat('yyyy-MM-dd').format(date);
+          return existing.contains('$empId|$dateKey') ||
+              (code.isNotEmpty && existing.contains('$code|$dateKey')) ||
+              (pin.isNotEmpty && existing.contains('$pin|$dateKey'));
+        },
+        classify: (date) {
+          final kind = leaveCtx.leaveLookup.classify(
+            day: date,
+            employeeCode: hrCode,
+            employeeUserId: leaveCtx.empUserIdMap[hrCode] ??
+                leaveCtx.empUserIdMap[empId],
+            hrEmployeeId:
+                leaveCtx.hrEmpIdMap[hrCode] ?? leaveCtx.hrEmpIdMap[empId],
+            displayEmployeeId: empId,
+            isHoliday: _getHolidayRate(date, hrCode) != null ||
+                _getHolidayRate(date, empId) != null,
+            isWeeklyOff: _isWeeklyOffDay(date, hrCode) ||
+                _isWeeklyOffDay(date, empId),
+          );
+          // Theo lịch: chỉ ngày xếp ca làm mới là Vắng; ngày không xếp lịch → «Không xếp lịch».
+          if (scheduleMode &&
+              kind == AbsenceCellKind.unpaidAbsent &&
+              (!hasAnySchedule ||
+                  scheduleKeyHit(_scheduleDayOffKeys, date, ids) ||
+                  !scheduleKeyHit(_scheduleWorkDayKeys, date, ids))) {
+            return AttendanceFillDayKind.scheduleOff;
+          }
+          return AttendanceFillDayKind.fromAbsence(kind);
+        },
+      );
 
-        final ids = <String>[
-          hrCode,
-          empId,
-          if (pin.isNotEmpty) pin,
-          if (guid.isNotEmpty) guid,
-        ];
-        // Theo lịch: chỉ tạo Vắng trên ngày xếp ca làm; không có lịch → bỏ qua.
-        if (scheduleMode) {
-          if (!hasAnySchedule) continue;
-          if (scheduleKeyHit(_scheduleDayOffKeys, date, ids)) continue;
-          if (!scheduleKeyHit(_scheduleWorkDayKeys, date, ids)) continue;
-        }
-
-        final kind = leaveCtx.leaveLookup.classify(
-          day: date,
-          employeeCode: hrCode,
-          employeeUserId: leaveCtx.empUserIdMap[hrCode] ??
-              leaveCtx.empUserIdMap[empId],
-          hrEmployeeId:
-              leaveCtx.hrEmpIdMap[hrCode] ?? leaveCtx.hrEmpIdMap[empId],
-          displayEmployeeId: empId,
-          isHoliday: _getHolidayRate(date, hrCode) != null ||
-              _getHolidayRate(date, empId) != null,
-          isWeeklyOff: _isWeeklyOffDay(date, hrCode) ||
-              _isWeeklyOffDay(date, empId),
-        );
-        if (kind != AbsenceCellKind.unpaidAbsent) continue;
-
+      for (final f in fills) {
         records.add(_DailyShiftRecord(
           employeeId: empId,
           employeeName: name,
           employeeCode: hrCode,
-          date: date,
-          dayOfWeek: _getDayOfWeekVN(date.weekday),
+          date: f.day,
+          dayOfWeek: _getDayOfWeekVN(f.day.weekday),
           punchTimes: const [],
           displayPunchTimes: const [],
           lateMinutes: 0,
@@ -1180,11 +1200,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           overtimeMinutes: 0,
           workHours: 0,
           decimalHours: 0,
-          status: 'Vắng',
-          statusColor: SboxColors.danger,
+          status: f.kind.label,
+          statusColor: f.kind.color,
           workCount: 0,
+          fillKind: f.kind,
         ));
-        existing.add('$empId|$dateKey');
       }
     }
   }
@@ -1382,6 +1402,23 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       width: isMobile ? 168 : null,
     );
 
+    final dayScopeFilter = _buildDropdown<AttendanceDayScope>(
+      value: _dayScope,
+      items: [
+        for (final v in AttendanceDayScope.values)
+          DropdownMenuItem(value: v, child: Text(tr(v.label))),
+      ],
+      onChanged: (v) {
+        if (v == null || v == _dayScope) return;
+        setState(() {
+          _dayScope = v;
+          _currentPage = 0;
+        });
+        AttendanceDayScope.save(_dayScopePrefKey, v);
+      },
+      icon: Icons.event_note_outlined,
+    );
+
     final summaryChip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -1439,6 +1476,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       Expanded(child: shiftFilter),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  Row(children: [Expanded(child: dayScopeFilter)]),
                 ],
               ],
             )
@@ -1451,6 +1490,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 Expanded(child: employeeFilter),
                 const SizedBox(width: 12),
                 Expanded(child: shiftFilter),
+                const SizedBox(width: 12),
+                Expanded(child: dayScopeFilter),
                 const SizedBox(width: 12),
                 summaryChip,
               ],
@@ -3869,7 +3910,6 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       byEmp.putIfAbsent(r.employeeId, () => {})[_shiftDateKeyFmt.format(r.date)] = r;
     }
     final orderedIds = _orderedUniqueEmployeeIds(records);
-    final fullDays = _shiftFilter == 'all';
     final today = DateTime.now();
     final todayD = DateTime(today.year, today.month, today.day);
 
@@ -3891,32 +3931,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     for (final empId in orderedIds) {
       final days = byEmp[empId] ?? {};
       final sample = days.values.first;
-      // Bỏ nhân viên trống: chưa gán ca, cả kỳ không có giờ chấm và không có đơn nghỉ (toàn dòng số 0).
-      // Nhân viên có ca mà vắng cả kỳ vẫn giữ để thấy vắng.
-      if (fullDays &&
-          !days.values.any((r) => r.displayPunchTimes.isNotEmpty) &&
-          _dailyTemplatesFor(empId, sample.employeeCode, const []).isEmpty) {
-        var hasLeave = false;
-        for (var d = DateTime(range.start.year, range.start.month, range.start.day);
-            !d.isAfter(range.end) && !hasLeave;
-            d = DateTime(d.year, d.month, d.day + 1)) {
-          hasLeave = _dailyLeaveFor(empId, sample.employeeCode, d) != null;
-        }
-        if (!hasLeave) continue;
-      }
       exportedEmployees++;
       final dept = _departmentOfInfo(_employeeInfoFor(sample));
-      final dates = <DateTime>[];
-      if (fullDays) {
-        for (var d = DateTime(range.start.year, range.start.month, range.start.day);
-            !d.isAfter(range.end);
-            d = DateTime(d.year, d.month, d.day + 1)) {
-          dates.add(d);
-        }
-      } else {
-        dates.addAll(days.values.map((r) => r.date));
-        dates.sort();
-      }
+      // Đúng các dòng trên màn hình: đủ ngày trong kỳ (dòng Vắng / Nghỉ / Lễ lấp sẵn) hoặc chỉ ngày có chấm,
+      // sau bộ lọc nhân viên / trạng thái.
+      final dates = days.values.map((r) => r.date).toList()..sort();
       for (final day in dates) {
         final r = days[_shiftDateKeyFmt.format(day)];
         final templates = _dailyTemplatesFor(empId, sample.employeeCode, r?.shiftNames ?? const []);
@@ -4007,6 +4026,15 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         colEnd: lastCol,
         text: tr('Từ ngày ${DateFormat('dd/MM/yyyy').format(range.start)} đến ngày ${DateFormat('dd/MM/yyyy').format(range.end)}'),
         style: _excelCenterStyle(fontSize: 11));
+    final filterDesc = _excelFilterDescription();
+    if (filterDesc != null) {
+      _excelMergedText(sheet,
+          row: row++,
+          colStart: 0,
+          colEnd: lastCol,
+          text: tr('Bộ lọc: $filterDesc'),
+          style: _excelCenterStyle(fontSize: 10, italic: true));
+    }
     // Chú thích màu.
     final legend = <(String, String?, String?)>[
       ('Chú thích:', null, null),
@@ -4052,7 +4080,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         zebra = !zebra;
       }
       final holiday = _getHolidayRate(x.day, x.code) != null;
-      final weeklyOff = !holiday && _dailyIsWeeklyOff(x.day, x.code);
+      // Tính công theo lịch, ngày không xếp ca làm: như ngày nghỉ tuần.
+      final scheduleOff = r?.fillKind == AttendanceFillDayKind.scheduleOff;
+      final weeklyOff = !holiday && (scheduleOff || _dailyIsWeeklyOff(x.day, x.code));
       final leave = _dailyLeaveFor(x.empId, x.code, x.day);
       final future = x.day.isAfter(todayD);
       final hasAnyPunch = (r?.displayPunchTimes.isNotEmpty ?? false);
@@ -4224,7 +4254,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           fmt: hours);
       final status = <String>[
         if (holiday) restDayWork ? 'Đi làm ngày lễ' : 'Ngày lễ',
-        if (weeklyOff) restDayWork ? 'Đi làm ngày nghỉ' : 'Nghỉ tuần',
+        if (weeklyOff) restDayWork ? 'Đi làm ngày nghỉ' : (scheduleOff ? r!.fillKind!.label : 'Nghỉ tuần'),
         if (leave != null)
           [
             halfLeave ? 'Nghỉ phép nửa ca' : 'Nghỉ phép',
@@ -4317,13 +4347,16 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       );
 
   String? _excelFilterDescription() {
-    final parts = <String>[];
+    final parts = <String>[
+      if ((widget.orgFilterLabel ?? '').isNotEmpty) widget.orgFilterLabel!,
+    ];
     if (_selectedEmployeeIds.isNotEmpty) {
       parts.add('${_selectedEmployeeIds.length} nhân viên được chọn');
     }
     if (_shiftFilter != 'all') {
       parts.add(_shiftStatusFilterLabel());
     }
+    if (_dayScope == AttendanceDayScope.punchedOnly) parts.add(_dayScope.label);
     return parts.isEmpty ? null : parts.join(' · ');
   }
 
@@ -5182,6 +5215,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   /// Màu nền dòng — cùng bảng màu mẫu Excel hằng ngày: đi làm ngày nghỉ / lễ (xanh ngọc), ngày lễ (tím nhạt),
   /// ngày nghỉ tuần không đi làm (xanh lá nhạt). Ngày thường: null (giữ màu xen kẽ).
   Color? _shiftRowTint(_DailyShiftRecord r) {
+    final fill = r.fillKind;
+    if (fill != null && fill != AttendanceFillDayKind.absent) return fill.rowTint;
     final holiday = _getHolidayRate(r.date, r.employeeCode) != null;
     final weeklyOff = !holiday && _dailyIsWeeklyOff(r.date, r.employeeCode);
     if (!holiday && !weeklyOff) return null;
@@ -5210,6 +5245,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         item(const Color(0xFFDCFCE7), 'Ngày nghỉ tuần'),
         item(const Color(0xFFCFFAFE), 'Đi làm ngày nghỉ / lễ'),
         item(const Color(0xFFEDE9FE), 'Ngày lễ'),
+        if (_dayScope == AttendanceDayScope.allDays) ...[
+          item(AttendanceFillDayKind.approvedLeave.rowTint!, 'Nghỉ phép'),
+          item(AttendanceFillDayKind.pendingLeave.rowTint!, 'Phép chờ duyệt'),
+        ],
       ]),
     );
   }
@@ -5986,13 +6025,18 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     required List<_DailyShiftRecord> records,
     String? title,
   }) {
-    final dates = attendanceDaysInRange(_selectedDateRange);
     final lookup = <String, _DailyShiftRecord>{};
     for (final r in records) {
       if (r.employeeId == empId) {
         lookup[DateFormat('yyyy-MM-dd').format(r.date)] = r;
       }
     }
+    // Chỉ ngày có chấm: bỏ ngày không có dòng (bảng dọc mặc định hiện đủ ngày trong kỳ).
+    final dates = attendanceDaysInRange(_selectedDateRange)
+        .where((d) =>
+            _dayScope == AttendanceDayScope.allDays ||
+            lookup.containsKey(DateFormat('yyyy-MM-dd').format(d)))
+        .toList();
     final empRecords = records.where((r) => r.employeeId == empId);
     final shiftLabels = _orderedShiftHourLabels(empRecords);
     final leaveCtx = _verticalShiftLeaveContext();
@@ -6006,7 +6050,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       return MobileAttendanceShiftVerticalRow(
         day: attendanceVerticalDateShort(date),
         weekday: attendanceVerticalWeekdayShort(date),
-        attendance: record == null
+        attendance: record == null || record.punchTimes.isEmpty
             ? _verticalShiftAbsenceCell(
                 date: date,
                 empId: empId,
@@ -7084,6 +7128,8 @@ class _DailyShiftRecord {
   final List<_MissingPunchHint> missingPunchHints;
   /// Chi nhánh / địa điểm thực tế chấm trong ngày (máy hoặc GPS).
   final String punchLocation;
+  /// Dòng lấp thêm cho ngày không chấm (Vắng / Nghỉ phép / Nghỉ tuần…); null = ngày có giờ chấm.
+  final AttendanceFillDayKind? fillKind;
 
   _DailyShiftRecord({
     required this.employeeId,
@@ -7106,6 +7152,7 @@ class _DailyShiftRecord {
     this.hoursByShiftName = const {},
     this.missingPunchHints = const [],
     this.punchLocation = '',
+    this.fillKind,
   });
 }
 

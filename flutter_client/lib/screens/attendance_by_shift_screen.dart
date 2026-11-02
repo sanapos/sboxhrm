@@ -476,6 +476,10 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                     travelHoursByEmployeeDateKey: _travelHoursByEmployeeDateKey,
                     travelEligibleEmployeeKeys: _travelEligibleEmployeeKeys,
                     workSchedules: _workSchedules,
+                    orgFilterLabel: _branchFilter.filterLabel(
+                      branchId: _selectedBranchId,
+                      departmentId: _selectedDepartmentId,
+                    ),
                   ),
                 ),
                 if (_isLoading)

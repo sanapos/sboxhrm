@@ -19,6 +19,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../utils/attendance_load_utils.dart';
 import '../../utils/attendance_date_range_presets.dart';
 import '../../utils/attendance_leave_lookup.dart';
+import '../../utils/attendance_day_scope.dart';
 import '../../utils/absence_day_actions.dart';
 import '../../utils/attendance_record_resolver.dart';
 import '../../utils/attendance_viewport_preserve.dart';
@@ -142,6 +143,9 @@ class AttendanceSummaryTab extends StatefulWidget {
   /// Lịch làm việc (WorkSchedule) — paidLeaveType=schedule.
   final List<Map<String, dynamic>> workSchedules;
 
+  /// Bộ lọc chi nhánh / phòng ban đang chọn ở màn ngoài (ghi vào dòng «Bộ lọc» của file xuất).
+  final String? orgFilterLabel;
+
   const AttendanceSummaryTab({
     super.key,
     required this.attendances,
@@ -172,6 +176,7 @@ class AttendanceSummaryTab extends StatefulWidget {
     this.travelHoursByEmployeeDateKey = const {},
     this.travelEligibleEmployeeKeys = const {},
     this.workSchedules = const [],
+    this.orgFilterLabel,
   });
 
   @override
@@ -188,6 +193,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   bool _showOverviewPanel = true;
   final GlobalKey _tableKey = GlobalKey();
   String _shiftFilter = 'all'; // 'all' | 'missing' | 'complete'
+  AttendanceDayScope _dayScope = AttendanceDayScope.allDays;
+  static const _dayScopePrefKey = 'attendance_summary_day_scope_v1';
 
   bool get _showTravelColumns => isTravelFeatureVisible(
         storeSalarySettings: widget.storeSalarySettings,
@@ -308,6 +315,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       if (!mounted) return;
       setState(() {
         _colLayout = l;
+        _invalidateDisplayDerivedCache();
+      });
+    });
+    AttendanceDayScope.load(_dayScopePrefKey).then((v) {
+      if (!mounted || v == _dayScope) return;
+      setState(() {
+        _dayScope = v;
         _invalidateDisplayDerivedCache();
       });
     });
@@ -558,6 +572,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         widget.approvedLeaves.length,
         widget.dayEndHour,
         widget.dayEndMinute,
+        _dayScope,
       );
 
   // _filteredAttendances là getter tạo list mới mỗi lần → không dùng identity của nó
@@ -1104,11 +1119,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       }
     }
 
-    return _appendUnpaidAbsentPlaceholders(summaries);
+    return _appendDayScopeRows(summaries);
   }
 
-  /// Thêm dòng trống (0 chấm) cho NV×ngày làm việc vắng — hiện nút + / Thêm công.
-  List<_DailySummary> _appendUnpaidAbsentPlaceholders(
+  /// Đủ ngày trong kỳ: thêm dòng trống (0 chấm) cho NV × ngày không chấm — Vắng (nút + / Thêm công),
+  /// Nghỉ phép, Nghỉ tuần, Ngày lễ… Chỉ ngày có chấm: không thêm gì.
+  List<_DailySummary> _appendDayScopeRows(
     List<_DailySummary> summaries,
   ) {
     final roster = widget.employeesList;
@@ -1167,45 +1183,52 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               applicationUserId.isNotEmpty &&
               _employeesWithSchedule.contains(applicationUserId));
 
-      for (final date in dates) {
-        final dateKey = _summaryDateKeyFmt.format(date);
-        if (existing.contains('$empId|$dateKey') ||
-            (code.isNotEmpty && existing.contains('$code|$dateKey')) ||
-            (pin.isNotEmpty && existing.contains('$pin|$dateKey'))) {
-          continue;
-        }
+      final ids = <String>[
+        hrCode,
+        empId,
+        if (pin.isNotEmpty) pin,
+        if (employeeGuid != null && employeeGuid.isNotEmpty) employeeGuid,
+        if (applicationUserId != null && applicationUserId.isNotEmpty)
+          applicationUserId,
+      ];
+      final fills = attendanceFillDays(
+        scope: _dayScope,
+        dates: dates,
+        hasRow: (date) {
+          final dateKey = _summaryDateKeyFmt.format(date);
+          return existing.contains('$empId|$dateKey') ||
+              (code.isNotEmpty && existing.contains('$code|$dateKey')) ||
+              (pin.isNotEmpty && existing.contains('$pin|$dateKey'));
+        },
+        classify: (date) {
+          final kind = leaveCtx.leaveLookup.classify(
+            day: date,
+            employeeCode: hrCode,
+            employeeUserId: leaveCtx.empUserIdMap[hrCode] ??
+                leaveCtx.empUserIdMap[empId] ??
+                applicationUserId,
+            hrEmployeeId: leaveCtx.hrEmpIdMap[hrCode] ??
+                leaveCtx.hrEmpIdMap[empId] ??
+                employeeGuid,
+            displayEmployeeId: empId,
+            isHoliday: _getHolidayRate(date, hrCode) != null ||
+                _getHolidayRate(date, empId) != null,
+            isWeeklyOff: _isWeeklyOffDay(date, hrCode) ||
+                _isWeeklyOffDay(date, empId),
+          );
+          // Theo lịch: chỉ ngày xếp ca làm mới là Vắng; ngày không xếp lịch → «Không xếp lịch».
+          if (scheduleMode &&
+              kind == AbsenceCellKind.unpaidAbsent &&
+              (!hasAnySchedule ||
+                  scheduleKeyHit(_scheduleDayOffKeys, date, ids) ||
+                  !scheduleKeyHit(_scheduleWorkDayKeys, date, ids))) {
+            return AttendanceFillDayKind.scheduleOff;
+          }
+          return AttendanceFillDayKind.fromAbsence(kind);
+        },
+      );
 
-        final ids = <String>[
-          hrCode,
-          empId,
-          if (pin.isNotEmpty) pin,
-          if (employeeGuid != null && employeeGuid.isNotEmpty) employeeGuid,
-          if (applicationUserId != null && applicationUserId.isNotEmpty)
-            applicationUserId,
-        ];
-        if (scheduleMode) {
-          if (!hasAnySchedule) continue;
-          if (scheduleKeyHit(_scheduleDayOffKeys, date, ids)) continue;
-          if (!scheduleKeyHit(_scheduleWorkDayKeys, date, ids)) continue;
-        }
-
-        final kind = leaveCtx.leaveLookup.classify(
-          day: date,
-          employeeCode: hrCode,
-          employeeUserId: leaveCtx.empUserIdMap[hrCode] ??
-              leaveCtx.empUserIdMap[empId] ??
-              applicationUserId,
-          hrEmployeeId: leaveCtx.hrEmpIdMap[hrCode] ??
-              leaveCtx.hrEmpIdMap[empId] ??
-              employeeGuid,
-          displayEmployeeId: empId,
-          isHoliday: _getHolidayRate(date, hrCode) != null ||
-              _getHolidayRate(date, empId) != null,
-          isWeeklyOff: _isWeeklyOffDay(date, hrCode) ||
-              _isWeeklyOffDay(date, empId),
-        );
-        if (kind != AbsenceCellKind.unpaidAbsent) continue;
-
+      for (final f in fills) {
         out.add(_DailySummary(
           employeeId: empId,
           employeeName: name,
@@ -1213,17 +1236,20 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           pin: pin.isNotEmpty ? pin : null,
           applicationUserId: applicationUserId,
           employeeGuid: employeeGuid,
-          date: date,
+          date: f.day,
           shift1Hours: 0,
           shift2Hours: 0,
           totalHours: 0,
           totalPunches: 0,
           workCount: 0,
+          isHoliday: f.kind == AttendanceFillDayKind.holiday,
+          isRestDay: f.kind == AttendanceFillDayKind.weeklyOff ||
+              f.kind == AttendanceFillDayKind.scheduleOff,
+          fillKind: f.kind,
           branchName: _codeTobranchName[empId] ??
               _codeTobranchName[hrCode] ??
               '',
         ));
-        existing.add('$empId|$dateKey');
       }
     }
     return out;
@@ -1291,7 +1317,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
     if (_shiftFilter == 'missing') {
       return sorted
-          .where((s) => s.totalPunches % 2 != 0 || s.totalPunches < 2)
+          .where((s) =>
+              attendanceFillMatchesMissingFilter(s.fillKind) &&
+              (s.totalPunches % 2 != 0 || s.totalPunches < 2))
           .toList();
     }
     if (_shiftFilter == 'complete') {
@@ -2768,8 +2796,15 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               style: numStyle,
             );
           case 'work':
-            _excelSetCell(sheet, row, c,
-                excel_lib.DoubleCellValue(double.parse(s.workCount.toStringAsFixed(2))), style: numStyle);
+            // Ngày không chấm: ghi Vắng / Nghỉ phép / Nghỉ tuần… như trên màn hình (SUM bỏ qua chữ).
+            _excelSetCell(
+                sheet,
+                row,
+                c,
+                s.fillLabel != null
+                    ? excel_lib.TextCellValue(tr(s.fillLabel!))
+                    : excel_lib.DoubleCellValue(double.parse(s.workCount.toStringAsFixed(2))),
+                style: numStyle);
           case 'decimal':
             _excelSetCell(
               sheet,
@@ -2870,7 +2905,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   }
 
   String? _excelFilterDescription() {
-    final parts = <String>[];
+    final parts = <String>[
+      if ((widget.orgFilterLabel ?? '').isNotEmpty) widget.orgFilterLabel!,
+    ];
     if (_selectedEmployeeIds.isNotEmpty) {
       parts.add('${_selectedEmployeeIds.length} nhân viên được chọn');
     }
@@ -2879,6 +2916,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     } else if (_shiftFilter == 'complete') {
       parts.add('Chấm công đủ cặp');
     }
+    if (_dayScope == AttendanceDayScope.punchedOnly) parts.add(_dayScope.label);
     return parts.isEmpty ? null : parts.join(' · ');
   }
 
@@ -3002,7 +3040,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           ? _travelHoursForSummary(s).toStringAsFixed(2)
           : '');
     }
-    cells.add(s.workCount > 0 ? s.workCount.toStringAsFixed(2) : '');
+    cells.add(s.fillLabel ?? (s.workCount > 0 ? s.workCount.toStringAsFixed(2) : ''));
     cells.add(
         s.totalHours > 0 ? s.totalHours.toStringAsFixed(2) : '');
     return cells;
@@ -3787,13 +3825,18 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     required int maxShifts,
     String? title,
   }) {
-    final dates = attendanceDaysInRange(_selectedDateRange);
     final lookup = <String, _DailySummary>{};
     for (final s in summaries) {
       if (s.employeeId == empId) {
         lookup[DateFormat('yyyy-MM-dd').format(s.date)] = s;
       }
     }
+    // Chỉ ngày có chấm: bỏ ngày không có dòng (bảng dọc mặc định hiện đủ ngày trong kỳ).
+    final dates = attendanceDaysInRange(_selectedDateRange)
+        .where((d) =>
+            _dayScope == AttendanceDayScope.allDays ||
+            lookup.containsKey(DateFormat('yyyy-MM-dd').format(d)))
+        .toList();
     final leaveCtx = _verticalSummaryLeaveContext();
     final today = DateTime.now();
 
@@ -3805,7 +3848,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       return MobileAttendanceVerticalRow(
         day: attendanceVerticalDateShort(date),
         weekday: attendanceVerticalWeekdayShort(date),
-        attendance: summary == null
+        attendance: summary == null || summary.totalPunches == 0
             ? _verticalSummaryAbsenceCell(
                 date: date,
                 empId: empId,
@@ -5079,8 +5122,19 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         ));
       }
 
+      final fillLabel = summary.fillLabel;
       cells.add(_summaryTableCell(
-        Container(
+        fillLabel != null
+            ? Text(
+                tr(fillLabel),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: summary.fillKind!.color,
+                ),
+              )
+            : Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: summary.isHoliday
@@ -5134,7 +5188,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       }
       rows.add(TableRow(
         decoration: BoxDecoration(
-          color: zebraOdd ? Colors.white : const Color(0xFFF7FAFC),
+          color: (summary.totalPunches == 0 ? summary.fillKind?.rowTint : null) ??
+              (zebraOdd ? Colors.white : const Color(0xFFF7FAFC)),
           border: const Border(bottom: BorderSide(color: Color(0xFFEFF3F7))),
         ),
         children: [
@@ -5210,6 +5265,24 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       },
     );
 
+    final dayScopeFilter = _buildDropdown<AttendanceDayScope>(
+      value: _dayScope,
+      icon: Icons.event_note_outlined,
+      items: [
+        for (final v in AttendanceDayScope.values)
+          DropdownMenuItem(value: v, child: Text(tr(v.label))),
+      ],
+      onChanged: (v) {
+        if (v == null || v == _dayScope) return;
+        setState(() {
+          _dayScope = v;
+          _invalidateDisplayDerivedCache();
+          _currentPage = 0;
+        });
+        AttendanceDayScope.save(_dayScopePrefKey, v);
+      },
+    );
+
     final recordCount = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -5253,6 +5326,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                   Expanded(child: shiftFilter),
                 ],
               ),
+              const SizedBox(height: 8),
+              Row(children: [Expanded(child: dayScopeFilter)]),
             ],
           )
         : Row(
@@ -5264,6 +5339,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               Expanded(child: employeeFilter),
               const SizedBox(width: 12),
               Expanded(child: shiftFilter),
+              const SizedBox(width: 12),
+              Expanded(child: dayScopeFilter),
               const SizedBox(width: 12),
               recordCount,
             ],
@@ -6250,6 +6327,8 @@ class _DailySummary {
   final String branchName; // Tên chi nhánh (lookup từ employeesList)
   /// Chi nhánh / địa điểm thực tế chấm trong ngày (máy hoặc GPS).
   final String punchLocation;
+  /// Dòng lấp thêm cho ngày không chấm (Vắng / Nghỉ phép / Nghỉ tuần…); null = ngày có giờ chấm.
+  final AttendanceFillDayKind? fillKind;
 
   _DailySummary({
     required this.employeeId,
@@ -6292,7 +6371,11 @@ class _DailySummary {
     this.isRestDay = false,
     this.branchName = '',
     this.punchLocation = '',
+    this.fillKind,
   });
+
+  /// Nhãn ngày không chấm cho ô «Số công» (bảng, Excel, PNG); null = dòng có giờ chấm.
+  String? get fillLabel => totalPunches == 0 ? fillKind?.label : null;
 
   // Lấy punch time theo index (1-10)
   DateTime? getPunch(int index) {

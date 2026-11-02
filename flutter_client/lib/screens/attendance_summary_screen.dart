@@ -562,6 +562,10 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     travelHoursByEmployeeDateKey: _travelHoursByEmployeeDateKey,
                     travelEligibleEmployeeKeys: _travelEligibleEmployeeKeys,
                     workSchedules: _workSchedules,
+                    orgFilterLabel: _branchFilter.filterLabel(
+                      branchId: _selectedBranchId,
+                      departmentId: _selectedDepartmentId,
+                    ),
                   ),
           ),
         ],
