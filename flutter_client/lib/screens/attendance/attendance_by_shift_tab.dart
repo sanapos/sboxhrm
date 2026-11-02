@@ -3644,18 +3644,21 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       final st = _shiftTemplateForName(n);
       if (st != null && !out.contains(st)) out.add(st);
     }
-    if (out.isEmpty) {
-      final guid = _employeeCodeToGuid[employeeCode] ?? employeeId;
-      final ids = _employeeGuidToShiftTemplateIds[guid] ??
-          _employeeGuidToShiftTemplateIds[employeeId] ??
-          const <String>[];
-      final assigned = [
-        for (final id in ids)
-          if (_shiftTemplateMap[id] != null) _shiftTemplateMap[id]!,
-      ]..sort((a, b) => _parseTimeSpanToMinutes(a['startTime']?.toString())
-          .compareTo(_parseTimeSpanToMinutes(b['startTime']?.toString())));
-      final perDay = _employeeGuidToShiftsPerDay[guid] ?? assigned.length;
-      out.addAll(assigned.take(math.max(1, perDay)));
+    // Bổ sung ca được gán cho đủ số ca/ngày — ca không khớp giờ chấm (vd. thiếu vào chiều) vẫn có cột
+    // Vào / Ra riêng để báo thiếu đúng ca, không đẩy giờ chấm ra «Ngoài ca».
+    final guid = _employeeCodeToGuid[employeeCode] ?? employeeId;
+    final ids = _employeeGuidToShiftTemplateIds[guid] ??
+        _employeeGuidToShiftTemplateIds[employeeId] ??
+        const <String>[];
+    final assigned = [
+      for (final id in ids)
+        if (_shiftTemplateMap[id] != null) _shiftTemplateMap[id]!,
+    ]..sort((a, b) => _parseTimeSpanToMinutes(a['startTime']?.toString())
+        .compareTo(_parseTimeSpanToMinutes(b['startTime']?.toString())));
+    final perDay = math.max(1, _employeeGuidToShiftsPerDay[guid] ?? assigned.length);
+    for (final st in assigned) {
+      if (out.length >= perDay) break;
+      if (!out.contains(st)) out.add(st);
     }
     out.sort((a, b) => _parseTimeSpanToMinutes(a['startTime']?.toString())
         .compareTo(_parseTimeSpanToMinutes(b['startTime']?.toString())));
@@ -4134,10 +4137,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           put(c + 2, excel_lib.DoubleCellValue(0), fmt: hours);
           continue;
         }
-        final bothMissing = inT == null && outT == null && checkSlot;
-        // Vắng cả ngày: chỉ tô màu, không ghi «Thiếu» ở mọi ô cho đỡ rối.
-        final missText = hasAnyPunch ? tr('Thiếu') : '';
-        final missing = checkSlot && (odd || bothMissing);
+        // Nghỉ cả ca (không chấm vào lẫn ra) → để trống ca đó, chỉ ghi chú; thiếu một lần chấm mới tô đỏ.
+        if (inT == null && outT == null && checkSlot && hasAnyPunch &&
+            !pendingAt.containsKey(2 * k) && !pendingAt.containsKey(2 * k + 1)) {
+          notes.add('Không chấm ca ${k + 1}');
+        }
+        final missText = tr('Thiếu');
+        final missing = checkSlot && odd;
         putPunch(c, inT, 2 * k, odd, missing, missText);
         if (inT == null && missing && !pendingAt.containsKey(2 * k)) notes.add('Thiếu vào ${k + 1}');
         putPunch(c + 1, outT, 2 * k + 1, odd, missing, missText);
