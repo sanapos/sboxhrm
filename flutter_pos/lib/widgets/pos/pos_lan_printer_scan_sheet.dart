@@ -31,6 +31,7 @@ class _LanScanSheetState extends State<_LanScanSheet> {
   var _done = 0;
   var _total = 1;
   String? _error;
+  String _ranges = '';
   final _hits = <PosLanPrinterHit>[];
 
   @override
@@ -52,6 +53,7 @@ class _LanScanSheetState extends State<_LanScanSheet> {
       _done = 0;
       _total = 1;
       _error = null;
+      _ranges = '';
       _hits.clear();
     });
     if (kIsWeb) {
@@ -71,6 +73,7 @@ class _LanScanSheetState extends State<_LanScanSheet> {
       });
       return;
     }
+    setState(() => _ranges = PosLanPrinterScan.rangesLabel(locals));
     final hits = await PosLanPrinterScan.scan(
       isCancelled: () => _cancelled || !mounted,
       onProgress: (done, total, hit) {
@@ -139,6 +142,19 @@ class _LanScanSheetState extends State<_LanScanSheet> {
                 style: TextStyle(fontSize: 13, color: PosTheme.textSecondary),
               ),
             ),
+            // Máy in khác dải này (vd máy in 192.168.1.x, điện thoại 192.168.0.x) sẽ không quét thấy —
+            // nhập thẳng IP rồi In thử.
+            if (_ranges.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    tr('Dải quét: $_ranges'),
+                    style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                  ),
+                ),
+              ),
             if (_running) ...[
               const SizedBox(height: 10),
               Padding(
@@ -176,7 +192,7 @@ class _LanScanSheetState extends State<_LanScanSheet> {
                         child: Text(
                           tr(
                             _error ??
-                                'Không thấy máy in cổng 9100.\nKiểm tra máy in cùng Wi‑Fi/LAN, bật RAW 9100, rồi quét lại.',
+                                'Không thấy máy in cổng 9100.\nKiểm tra máy in cùng Wi‑Fi/LAN, bật RAW 9100, rồi quét lại. Biết IP thì nhập thẳng vào ô IP LAN rồi In thử.',
                           ),
                           textAlign: TextAlign.center,
                         ),

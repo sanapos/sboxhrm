@@ -35,9 +35,15 @@ class PosLanPrinterScan {
   PosLanPrinterScan._();
 
   static const ports = [9100, 9101];
-  static const _connectTimeout = Duration(milliseconds: 280);
+  // Trước 280ms: iPhone (Wi‑Fi tiết kiệm pin, chưa có ARP máy in) thường >280ms mới nối được
+  // → quét bỏ sót máy tem 192.168.1.55 trong khi In thử (chờ 1,5s) vẫn in được.
+  static const _connectTimeout = Duration(milliseconds: 1000);
   static const _identifyTimeout = Duration(milliseconds: 350);
-  static const _parallel = 32;
+  static const _parallel = 48;
+
+  /// Giao diện không phải Wi‑Fi / LAN: di động (iPhone pdp_ip0 hay mang IP 10.x), VPN, chia sẻ mạng.
+  /// Quét các dải đó chỉ tốn thời gian — máy in không nằm ở đó.
+  static final _skipIface = RegExp(r'^(pdp_ip|rmnet|ccmni|utun|ipsec|tun|ppp|clat|v4-)', caseSensitive: false);
 
   /// GS I n — nhiều máy Zywell/Xprinter/HPRT trả model.
   static final _idCmd = Uint8List.fromList(const [0x1D, 0x49, 0x01]);
@@ -52,6 +58,7 @@ class PosLanPrinterScan {
       );
       final out = <InternetAddress>[];
       for (final iface in ifaces) {
+        if (_skipIface.hasMatch(iface.name)) continue;
         for (final a in iface.addresses) {
           if (_isPrivateLan(a)) out.add(a);
         }
@@ -72,6 +79,13 @@ class PosLanPrinterScan {
     if (p[0] == 172 && p[1] >= 16 && p[1] <= 31) return true;
     return false;
   }
+
+  /// Dải sẽ quét, vd «192.168.1.1–254» — hiện cho người dùng biết điện thoại đang ở mạng nào.
+  static String rangesLabel(List<InternetAddress> locals) => {
+        for (final a in locals)
+          if (a.rawAddress.length == 4)
+            '${a.rawAddress[0]}.${a.rawAddress[1]}.${a.rawAddress[2]}.1–254',
+      }.join(', ');
 
   /// [onProgress]: done/total + hit vừa thấy (nếu có).
   static Future<List<PosLanPrinterHit>> scan({
@@ -99,14 +113,11 @@ class PosLanPrinterScan {
     final hits = <PosLanPrinterHit>[];
     final seen = <String>{};
 
+    // Thử 9100 và 9101 cùng lúc (trước lần lượt → mỗi IP chờ gấp đôi); ưu tiên 9100.
     Future<PosLanPrinterHit?> probe(String host) async {
       if (isCancelled?.call() == true) return null;
-      for (final port in ports) {
-        if (isCancelled?.call() == true) return null;
-        final hit = await _probeHost(host, port);
-        if (hit != null) return hit;
-      }
-      return null;
+      final found = await Future.wait(ports.map((port) => _probeHost(host, port)));
+      return found.firstWhere((h) => h != null, orElse: () => null);
     }
 
     var i = 0;
@@ -180,7 +191,8 @@ class PosLanPrinterScan {
     if (raw.isEmpty) return null;
     final s = String.fromCharCodes(raw.where((b) => b >= 32 && b < 127))
         .trim();
-    return s.isEmpty ? null : s;
+    // Máy không hiểu GS I trả 1–2 byte rác (vd «c») — không phải tên model.
+    return s.length < 3 ? null : s;
   }
 
   static PosThermalPrinterBrand _guessBrand(String? model) {
