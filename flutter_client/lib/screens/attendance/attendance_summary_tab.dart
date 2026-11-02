@@ -1013,8 +1013,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
       final first = attendances.first;
       final date = _getLogicalDate(first.punchTime);
+      // Tổng hợp thô, không theo ca: Giờ ca n = giờ ra − giờ vào (không trừ nghỉ trưa),
+      // Tổng giờ = cộng các Giờ ca — luật ca (đầu/hết ca, nghỉ trưa, tăng ca) xem ở «theo ca».
       final layout = layoutSummaryDayPunches(
         attendances,
+        lunchBreakMinutes: 0,
         dayEndHour: widget.dayEndHour,
         dayEndMinute: widget.dayEndMinute,
       );
@@ -1026,7 +1029,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           ? first.employeeId!
           : (first.enrollNumber ?? '-');
 
-      var totalShiftHours = shiftHours.fold(0.0, (sum, h) => sum + h);
+      final totalShiftHours = shiftHours.fold(0.0, (sum, h) => sum + h);
 
       final dateKey = _summaryDateKeyFmt.format(date);
       final shiftRec = shiftLookup['$empCodeForLookup|$dateKey'];
@@ -1044,9 +1047,6 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         effectiveMultiplier = holidayMultiplier;
       }
       final workCount = shiftRec?.workCount ?? 0.0;
-      if (shiftRec != null && shiftRec.workHours > 0) {
-        totalShiftHours = shiftRec.workHours;
-      }
 
       final empName = first.employeeName?.isNotEmpty == true
           ? first.employeeName!

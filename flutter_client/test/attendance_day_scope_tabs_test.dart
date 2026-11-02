@@ -165,4 +165,39 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('attendance_summary_day_scope_v1'), 'punchedOnly');
   });
+
+  testWidgets('Tổng hợp chấm công: giờ = ra − vào, không trừ nghỉ trưa, Tổng giờ = cộng Giờ ca', variant: _desktop,
+      (tester) async {
+    final shifts = <Map<String, dynamic>>[
+      {'id': 'p9', 'name': 'P9', 'startTime': '09:00:00', 'endTime': '14:00:00'},
+      {'id': 'g9c', 'name': 'G9C', 'startTime': '17:00:00', 'endTime': '22:00:00'},
+    ];
+    await _pump(
+      tester,
+      AttendanceSummaryTab(
+        attendances: [
+          _punch('b1', 0, 16, 59), _punch('b2', 0, 22, 24), // 5h25 (trước: Giờ ca 4h25 · Tổng 5h01)
+          _punch('b3', 1, 8, 57), _punch('b4', 1, 14, 6), // 5h09
+          _punch('b5', 1, 16, 58), _punch('b6', 1, 21, 11), // 4h13
+        ],
+        devices: const [],
+        fromDate: _day(0),
+        toDate: _day(6),
+        dateRangePreset: 'lastWeek',
+        employeesList: _employees,
+        shiftTemplates: shifts,
+        shiftSalaryLevels: [
+          for (final s in shifts) <String, dynamic>{'shiftTemplateId': s['id'], 'employeeIds': ['e1']},
+        ],
+      ),
+    );
+    expect(find.text('5h25'), findsNWidgets(2)); // Giờ ca 1 + Tổng giờ
+    expect(find.text('5h09'), findsOneWidget);
+    expect(find.text('4h13'), findsNWidgets(2)); // Giờ ca 2 ngày 2 + dòng cộng NV
+    expect(find.text('9h22'), findsOneWidget);
+    expect(find.text('10h34'), findsOneWidget); // dòng cộng: Giờ ca 1
+    expect(find.text('14h47'), findsOneWidget); // dòng cộng: Tổng giờ = 10h34 + 4h13
+    expect(find.text('4h25'), findsNothing);
+    expect(find.text('4h09'), findsNothing);
+  });
 }
