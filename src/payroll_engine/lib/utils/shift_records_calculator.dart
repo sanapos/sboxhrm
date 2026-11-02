@@ -787,8 +787,9 @@ class DayAttendancePair {
 /// của các ca được gán (mỗi ca đủ cả hai hoặc trống cả hai) thì ghép theo ca, bỏ lần chấm lẻ đó.
 List<DayAttendancePair> alignStrayPunchToShifts(
   List<DayAttendancePair> pairs,
-  List<Map<String, dynamic>> shifts,
-) {
+  List<Map<String, dynamic>> shifts, {
+  int maxShifts = 0,
+}) {
   if (pairs.any((p) => p.shift != null || p.checkInInferred)) return pairs;
   final punches = <DateTime>[
     for (final p in pairs) ...[if (p.checkIn != null) p.checkIn!, if (p.checkOut != null) p.checkOut!],
@@ -857,6 +858,18 @@ List<DayAttendancePair> alignStrayPunchToShifts(
         if (ins.containsKey(k) != outs.containsKey(k)) k,
     ];
     if (half.length != 1) return pairs;
+    // Đã đủ số ca/ngày bằng các ca chấm đủ (vd. 2 ca/ngày: sáng + chiều) mà còn một lần chấm rơi vào ca thứ 3
+    // được gán kèm (Ca Tối) → đó là lần chấm thừa, không phải vào ca tối rồi quên ra.
+    final filled = <Map<String, dynamic>>{
+      for (var k = 0; k < slots.length; k++)
+        if (ins.containsKey(k) || outs.containsKey(k)) sortedShift[k],
+    };
+    if (maxShifts > 0 && filled.length > maxShifts) {
+      return [
+        for (var k = 0; k < slots.length; k++)
+          if (ins.containsKey(k) && outs.containsKey(k)) DayAttendancePair(checkIn: ins[k], checkOut: outs[k]),
+      ];
+    }
     return [
       for (var k = 0; k < slots.length; k++)
         if (ins.containsKey(k))
@@ -2361,6 +2374,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
                           for (final id in assignedShiftIds)
                             if (lookups.shiftTemplateMap[id] != null) lookups.shiftTemplateMap[id]!,
                         ],
+                        maxShifts: lookups.shiftsPerDayOf(empGuid, employeeCode),
                       ),
                       [
                         for (final id in assignedShiftIds)
@@ -3135,6 +3149,7 @@ List<DailyShiftPair> computeDailyShiftPairs({
                           for (final id in assignedShiftIds)
                             if (lookups.shiftTemplateMap[id] != null) lookups.shiftTemplateMap[id]!,
                         ],
+                        maxShifts: lookups.shiftsPerDayOf(empGuid, employeeCode),
                       ),
                       [
                         // Mode 2 lần tự do không dò ca → không gộp / gán ca nửa chiều.
