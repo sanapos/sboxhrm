@@ -18924,6 +18924,7 @@
   "máy khác": "其他设备",
   "máy khác cùng cửa hàng có thể mở lại từ": "同门店的其他设备可从以下位置重新打开：",
   "máy không có dao cắt chỉ đẩy giấy để xé tay.": "无切刀的机器仅送纸，需手动撕下。",
+  "máy nội bộ khác": "其他本机打印机",
   "máy nội bộ này": "本内部设备",
   "máy offline": "离线设备",
   "máy pos": "POS机",
@@ -21055,6 +21056,7 @@
   "Đã đổi quyền": "已修改权限",
   "Đã đổi tên": "已重命名",
   "Đã đổi tên nhóm": "已重命名分组",
+  "Đã đổi vai trò máy in": "已更改打印机角色",
   "Đã đủ": "已足够",
   "Đã đủ thông tin bắt buộc": "必填信息已填完",
   "Đã ẩn": "已隐藏",
@@ -24443,6 +24445,10 @@
    "Cup label：还有{0}/{1}张标签未打印"
   ],
   [
+   "Cup label: không tải gán máy tem — {0}",
+   "杯贴: 无法加载标签打印机分配 — {0}"
+  ],
+  [
    "Cài gói {0}",
    "安装{0}套餐"
   ],
@@ -24673,6 +24679,10 @@
   [
    "Có {0} món đang gán máy khác — xác nhận để chuyển",
    "有{0}个菜品已分配给其他设备 — 确认后转移"
+  ],
+  [
+   "Có {0} món đang gán máy nội bộ khác — xác nhận để chuyển",
+   "{0} 个菜品已分配给其他本机打印机 — 确认后转移"
   ],
   [
    "Có {0} nhân viên đang hoạt động nhưng chưa được gán bảng lương. ",
@@ -25905,6 +25915,10 @@
   [
    "Hình thức: {0}",
    "方式：{0}"
+  ],
+  [
+   "Hóa đơn chuyển từ «{0}» sang «{1}»",
+   "小票打印已从 «{0}» 转到 «{1}»"
   ],
   [
    "Hóa đơn mua vào ({0})",
@@ -28747,6 +28761,10 @@
    "负责人：{0}"
   ],
   [
+   "PosPrintOrchestrator: đồng bộ lại máy nội bộ lỗi — {0}",
+   "PosPrintOrchestrator: 本机打印机重新同步失败 — {0}"
+  ],
+  [
    "Print Agent: bỏ claim job outbound {0} (máy gửi)",
    "Print Agent：放弃认领出站任务 {0}（发送设备）"
   ],
@@ -30425,6 +30443,10 @@
   [
    "Tập gần nhất {0} · {1} buổi / 30 ngày",
    "最近训练 {0} · 30 天 {1} 次"
+  ],
+  [
+   "Tắt Hóa đơn ở «{0}» — hóa đơn đã in ở máy khác",
+   "已关闭 «{0}» 的小票打印 — 小票已由其他打印机打印"
   ],
   [
    "Tắt {0} máy in cũ?",

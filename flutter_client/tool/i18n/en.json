@@ -8711,6 +8711,7 @@
   "máy in LAN 2 phút / lần và sóng Wi-Fi, rồi tự tắt. Gom 5 phút gửi lên; mất mạng thì lưu lại gửi sau. ": "the LAN printer every 2 minutes and the Wi-Fi signal, then turns off by itself. Batched every 5 minutes; when offline it is stored and sent later. ",
   "máy in bill": "receipt printer",
   "máy in cloud": "cloud printer",
+  "máy nội bộ khác": "another on-device printer",
   "máy nội bộ này": "this internal device",
   "máy offline": "offline device",
   "máy quét / DataWedge).": "scanner / DataWedge).",
@@ -9662,6 +9663,7 @@
   "Đã đổi mã liên kết": "Link code changed",
   "Đã đổi mẫu": "Template changed",
   "Đã đổi mức độ": "Level changed",
+  "Đã đổi vai trò máy in": "Printer roles changed",
   "Đã đủ thông tin bắt buộc": "Required info complete",
   "Đã ẩn": "Hidden",
   "Đã ẩn gói khỏi màn đăng ký (nội bộ)": "Plan hidden from the sign-up screen (internal)",
@@ -12252,6 +12254,10 @@
    "Cup label: {0}/{1} labels not yet printed"
   ],
   [
+   "Cup label: không tải gán máy tem — {0}",
+   "Cup label: could not load label printer assignments — {0}"
+  ],
+  [
    "Cài gói {0}",
    "Install plan {0}"
   ],
@@ -12482,6 +12488,10 @@
   [
    "Có {0} món đang gán máy khác — xác nhận để chuyển",
    "{0} items are assigned to another device — confirm to move"
+  ],
+  [
+   "Có {0} món đang gán máy nội bộ khác — xác nhận để chuyển",
+   "{0} items are assigned to another on-device printer — confirm to move them"
   ],
   [
    "Có {0} nhân viên đang hoạt động nhưng chưa được gán bảng lương. ",
@@ -13714,6 +13724,10 @@
   [
    "Hình thức: {0}",
    "Method: {0}"
+  ],
+  [
+   "Hóa đơn chuyển từ «{0}» sang «{1}»",
+   "Receipt printing moved from «{0}» to «{1}»"
   ],
   [
    "Hóa đơn mua vào ({0})",
@@ -16556,6 +16570,10 @@
    "Assignee: {0}"
   ],
   [
+   "PosPrintOrchestrator: đồng bộ lại máy nội bộ lỗi — {0}",
+   "PosPrintOrchestrator: re-sync of on-device printers failed — {0}"
+  ],
+  [
    "Print Agent: bỏ claim job outbound {0} (máy gửi)",
    "Print Agent: dropped claim on outbound job {0} (sending device)"
   ],
@@ -18234,6 +18252,10 @@
   [
    "Tập gần nhất {0} · {1} buổi / 30 ngày",
    "Last workout {0} · {1} sessions / 30 days"
+  ],
+  [
+   "Tắt Hóa đơn ở «{0}» — hóa đơn đã in ở máy khác",
+   "Receipt printing turned off on «{0}» — receipts already print on another printer"
   ],
   [
    "Tắt {0} máy in cũ?",
