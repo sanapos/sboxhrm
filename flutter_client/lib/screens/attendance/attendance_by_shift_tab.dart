@@ -2719,9 +2719,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 Expanded(
                     child: _detailSummaryCard(
                         'Công',
-                        record.workCount == record.workCount.roundToDouble()
-                            ? '${record.workCount.toInt()}'
-                            : record.workCount.toStringAsFixed(2),
+                        _congLabel(record.workCount),
                         SboxColors.brand500)),
               ]),
             ],
@@ -3531,7 +3529,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               return (text(travelH > 0 ? _formatHoursMinutes(travelH) : ''), dataStyle);
             })(),
           'decimal' => (num2(r.decimalHours), numStyle),
-          'work' => (num2(r.workCount), numStyle),
+          'work' => (excel_lib.DoubleCellValue(_congRound(r.workCount)), numStyle),
           'shiftName' => (text(_shiftHoursDetailLabel(r)), _excelLeftStyle()),
           _ => (text(r.status), dataStyle),
         };
@@ -3993,7 +3991,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           bottomBorder: boxed ? border : null,
         );
     final hours = excel_lib.NumFormat.custom(formatCode: '#,##0.00');
-    final work = excel_lib.NumFormat.custom(formatCode: '#,##0.##');
+    // Công: kiểu «General» — 1 hiện «1», 0.5 hiện «0.5» ('#,##0.##' để lại dấu chấm «1.»).
+    final work = excel_lib.NumFormat.standard_0;
 
     var row = 0;
     _excelMergedText(sheet,
@@ -4211,7 +4210,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
       var c = afterSlots;
       put(c++, excel_lib.DoubleCellValue(double.parse((r?.workHours ?? 0).toStringAsFixed(2))), fmt: hours);
-      put(c++, excel_lib.DoubleCellValue(double.parse((r?.workCount ?? 0).toStringAsFixed(2))), fmt: work);
+      put(c++, excel_lib.DoubleCellValue(_congRound(r?.workCount ?? 0)), fmt: work);
       put(c++, excel_lib.IntCellValue(r?.lateMinutes ?? 0));
       put(c++, excel_lib.IntCellValue(r?.earlyMinutes ?? 0));
       final st0 = leave?['status'];
@@ -4267,7 +4266,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               bg: _dailyTotalBg,
               bold: true,
               left: c == 1 || c == 5,
-              fmt: sumCols.contains(c) && !isInt ? hours : null));
+              fmt: c == afterSlots + 1 ? work : (sumCols.contains(c) && !isInt ? hours : null)));
     }
 
     final widths = <double>[
@@ -4351,7 +4350,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             ? _formatHoursMinutes(_travelHoursForShiftRecord(r))
             : '',
       r.decimalHours > 0 ? r.decimalHours.toStringAsFixed(2) : '',
-      r.workCount > 0 ? r.workCount.toStringAsFixed(2) : '',
+      r.workCount > 0 ? _congLabel(r.workCount) : '',
       _shiftHoursDetailLabel(r),
       r.status,
     ]);
@@ -4383,7 +4382,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 employeeId: totals.employeeId, employeeCode: totals.employeeCode))
             : '',
       totals.decimalHours > 0 ? totals.decimalHours.toStringAsFixed(2) : '',
-      totals.totalWork > 0 ? totals.totalWork.toStringAsFixed(2) : '',
+      totals.totalWork > 0 ? _congLabel(totals.totalWork) : '',
       '',
       '',
     ]);
@@ -5180,6 +5179,41 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return Center(child: _buildPunchTimeCell(r, punchIndex, inTable: true));
   }
 
+  /// Màu nền dòng — cùng bảng màu mẫu Excel hằng ngày: đi làm ngày nghỉ / lễ (xanh ngọc), ngày lễ (tím nhạt),
+  /// ngày nghỉ tuần không đi làm (xanh lá nhạt). Ngày thường: null (giữ màu xen kẽ).
+  Color? _shiftRowTint(_DailyShiftRecord r) {
+    final holiday = _getHolidayRate(r.date, r.employeeCode) != null;
+    final weeklyOff = !holiday && _dailyIsWeeklyOff(r.date, r.employeeCode);
+    if (!holiday && !weeklyOff) return null;
+    if (r.punchTimes.isNotEmpty) return const Color(0xFFCFFAFE);
+    return holiday ? const Color(0xFFEDE9FE) : const Color(0xFFDCFCE7);
+  }
+
+  /// Chú thích màu nền dòng (cùng màu mẫu Excel hằng ngày).
+  Widget _shiftRowLegend() {
+    Widget item(Color c, String label) => Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: c,
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: SboxColors.slate200),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(tr(label), style: const TextStyle(fontSize: 11, color: SboxColors.slate600)),
+        ]);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Wrap(spacing: 16, runSpacing: 6, children: [
+        item(const Color(0xFFDCFCE7), 'Ngày nghỉ tuần'),
+        item(const Color(0xFFCFFAFE), 'Đi làm ngày nghỉ / lễ'),
+        item(const Color(0xFFEDE9FE), 'Ngày lễ'),
+      ]),
+    );
+  }
+
   /// Ngày thiếu chấm: xếp giờ chấm theo ca (Lần 1–2 ca thứ nhất, Lần 3–4 ca thứ hai…) để ô thiếu nằm đúng
   /// chỗ — vd. thiếu ra ca sáng thì Lần 2 báo thiếu, giờ vào chiều ở Lần 3 (không dồn lên Lần 2).
   /// Trả về chỉ số giờ chấm cho từng ô; null = không xếp được (giờ ngoài ca, chưa gán ca…) → hiển thị theo thứ tự.
@@ -5444,7 +5478,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   ? SboxColors.brand700
                   : SboxColors.slate400))),
       _shiftTableCell(Text(
-          tr(totals.totalWork > 0 ? totals.totalWork.toStringAsFixed(2) : '—'),
+          tr(totals.totalWork > 0 ? _congLabel(totals.totalWork) : '—'),
           textAlign: TextAlign.center,
           style: TextStyle(
               fontSize: 12,
@@ -5543,7 +5577,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     ? SboxColors.brand700
                     : SboxColors.slate500))),
         _shiftTableCell(Text(
-            tr(r.workCount > 0 ? r.workCount.toStringAsFixed(2) : '—'),
+            tr(r.workCount > 0 ? _congLabel(r.workCount) : '—'),
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 12,
@@ -5568,7 +5602,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       }
       rows.add(TableRow(
         decoration: BoxDecoration(
-          color: zebraOdd ? Colors.white : const Color(0xFFF7FAFC),
+          color: _shiftRowTint(r) ?? (zebraOdd ? Colors.white : const Color(0xFFF7FAFC)),
           border: const Border(bottom: BorderSide(color: Color(0xFFEFF3F7))),
         ),
         children: [
@@ -5803,6 +5837,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       );
                     },
                   ),
+                  _shiftRowLegend(),
                   _buildPaginationBar(
                     totalRows,
                     totalPages,
@@ -5875,9 +5910,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
   String _verticalShiftWorkCountLabel(double workCount) {
     if (workCount <= 0) return '—';
-    return workCount % 1 == 0
-        ? workCount.toInt().toString()
-        : workCount.toStringAsFixed(2);
+    return _congLabel(workCount);
+  }
+
+  /// Số công: làm tròn 1 chữ số thập phân, số tròn không có phần lẻ (1 · 0.5 · 4.5).
+  static double _congRound(double v) => (v * 10).round() / 10;
+  static String _congLabel(double v) {
+    final r = _congRound(v);
+    return r == r.roundToDouble() ? r.toInt().toString() : r.toStringAsFixed(1);
   }
 
   Widget _verticalShiftAbsenceCell({
