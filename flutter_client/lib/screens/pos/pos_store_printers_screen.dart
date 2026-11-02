@@ -657,8 +657,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
             if (isInvoice(r) && r.printerId != printerId) r.printerId,
         };
         _routes.removeWhere((r) => isInvoice(r) && r.printerId != printerId);
-        for (final id in from) {
-          notes.add('Hóa đơn chuyển từ «${nameOf(id)}» sang «${nameOf(printerId)}»');
+        if (from.isNotEmpty) {
+          final names = {for (final id in from) nameOf(id)}.join('», «');
+          notes.add('Hóa đơn chuyển từ «$names» sang «${nameOf(printerId)}»');
         }
       }
       if (selected &&
