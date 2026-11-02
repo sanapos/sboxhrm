@@ -799,7 +799,8 @@ List<DayAttendancePair> alignStrayPunchToShifts(
     if (isOvertimeShiftTemplate(st)) continue;
     final s = _parseTimeSpanToMinutes(st['startTime']?.toString());
     final e = _parseTimeSpanToMinutes(st['endTime']?.toString());
-    if (e <= s) return pairs; // ca qua đêm: giữ cách ghép cũ
+    // Ca qua đêm (vd. «Qua đêm» gán kèm trong bậc lương ca) không dùng để ghép giờ trong ngày.
+    if (e <= s) continue;
     final ls = _parseTimeSpanToMinutes(st['lunchBreakStartTime']?.toString());
     final le = _parseTimeSpanToMinutes(st['lunchBreakEndTime']?.toString());
     if (s < ls && ls < le && le < e) {

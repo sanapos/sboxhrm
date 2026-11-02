@@ -38,6 +38,20 @@ void main() {
     expect(rs[17]!.earlyMinutes, 29);
     expect(rs[20]!.lateMinutes, 8);
     expect(rs[9]!.status, contains('Thiếu'));
+
+    // Gán kèm ca qua đêm (bậc lương ca «Qua đêm» 22:00–03:00) — vẫn ghép theo ca sáng / chiều.
+    final qd = <String, dynamic>{'id': 'q', 'name': 'Qua đêm', 'startTime': '22:00:00', 'endTime': '03:00:00'};
+    final withNight = {
+      for (final r in computeDailyShiftRecords(
+          attendances: atts,
+          fromDate: from,
+          toDate: to,
+          shiftTemplates: [sang, chieu, qd],
+          shiftSalaryLevels: [...levels, <String, dynamic>{'shiftTemplateId': 'q', 'employeeIds': ['A']}]))
+        r.date.day: r,
+    };
+    expect((withNight[17]!.workCount, withNight[17]!.earlyMinutes), (1.0, 29));
+    expect(withNight[19]!.status, isNot(contains('Thiếu')));
   });
 
   test('Ca có nghỉ trưa chấm 5 lần: bỏ lần chấm lẻ giữa trưa', () {
