@@ -5232,7 +5232,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       final now = DateTime.now();
       final past = DateTime(record.date.year, record.date.month, record.date.day)
           .isBefore(DateTime(now.year, now.month, now.day));
-      final missing = past && record.punchTimes.length.isOdd;
+      // Số lần chấm lẻ chưa chắc là thiếu (bấm trùng / chấm thêm đã được ghép theo ca) — theo kết quả tính công.
+      final missing = past && record.punchTimes.length.isOdd && _statusHasMissingPunch(record.status);
       final onTap = widget.allowCorrection ? () => _showManualPunchDialog(record) : null;
       final canQuickAdd = widget.allowCorrection && widget.directApplyCorrections;
       final sugg = canQuickAdd ? _shiftSuggestions(record, isIn) : const <TimeSuggestion>[];

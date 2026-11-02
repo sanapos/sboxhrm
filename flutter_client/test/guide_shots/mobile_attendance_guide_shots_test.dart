@@ -40,7 +40,7 @@ final _api = guideApi({
   '/api/mobile-attendance/device-change-requests': [],
 });
 
-const _crumbs = ['Cài đặt', 'Chấm công Mobile'];
+const _crumbs = ['Thiết lập SBOX', 'Nhân sự & chấm công', 'Chấm công Mobile'];
 
 /// Ô phương thức: máy tính là thẻ bấm được (InkWell), điện thoại là một hàng có công tắc.
 Finder _method(String desc) {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:intl/intl.dart';
 import 'package:zkteco_flutter_client/features/leave/leave_catalog.dart';
 import 'package:zkteco_flutter_client/screens/leave_screen.dart';
 
@@ -147,7 +148,7 @@ void main() {
         },
         marks: [
           GuideMark(1, [find.textContaining('Phép năm còn'), find.textContaining('Đơn này cần')]),
-          GuideMark(2, [find.text('Từ ngày'), find.text('Đến ngày'), find.text('30/10/2026').last], pad: 10),
+          GuideMark(2, [find.text('Từ ngày'), find.text('Đến ngày'), find.text(DateFormat('dd/MM/yyyy').format(DateTime.now())).last], pad: 10),
           GuideMark(3, [GuideMark.button(find.text('Ca sáng').last), GuideMark.button(find.text('Ca chiều').last)]),
           GuideMark(4, [GuideMark.button(find.text('Gửi đơn'))]),
         ],

@@ -652,12 +652,16 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                 Icon(Icons.account_tree,
                     color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 8),
-                Text(tr('Cây Chi nhánh'),
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
-                const Spacer(),
+                // Expanded thay Spacer: điện thoại 390px không đủ chỗ cho tiêu đề + 2 nút.
+                Expanded(
+                  child: Text(tr('Cây Chi nhánh'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                ),
                 TextButton.icon(
                   onPressed: () {
                     for (var n in _branchTree) {
@@ -1521,6 +1525,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                   // Parent branch
                   DropdownButtonFormField<String>(
                     initialValue: parentBranchId,
+                    // Tên chi nhánh dài tràn trên điện thoại.
+                    isExpanded: true,
                     decoration:
                         _inputDecoration('Chi nhánh cha', Icons.account_tree),
                     items: [
@@ -1529,7 +1535,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                       ..._branchSelect.where((b) => b.id != branch?.id).map(
                           (b) => DropdownMenuItem(
                               value: b.id,
-                              child: Text(tr('${b.code} - ${b.name}')))),
+                              child: Text(tr('${b.code} - ${b.name}'), overflow: TextOverflow.ellipsis))),
                     ],
                     onChanged: (v) => setDialogState(() => parentBranchId = v),
                   ),

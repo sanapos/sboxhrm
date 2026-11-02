@@ -19,7 +19,7 @@ void main() {
         name: 'penalty-ticket-1$suffix',
         screen: const PenaltySettingsScreen(),
         api: hrFinGuideApi(),
-        crumbs: const ['Cài đặt', 'Phạt'],
+        crumbs: const ['Thiết lập SBOX', 'Lương & chính sách', 'Mức phạt'],
         size: size,
         act: (t) async {
           await guideScrollTo(t, find.text('Đi trễ'), alignment: 0.05);

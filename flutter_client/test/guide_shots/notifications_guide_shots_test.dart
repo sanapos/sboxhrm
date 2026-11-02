@@ -70,7 +70,7 @@ void main() {
         name: 'notifications-1$suffix',
         screen: const NotificationSettingsScreen(showPushCard: false),
         api: _api,
-        crumbs: const ['Cài đặt', 'Thông báo'],
+        crumbs: const ['Thiết lập SBOX', 'Tích hợp & thông báo', 'Thông báo'],
         size: size,
         act: (t) async => extrasSettle(t),
         marks: [

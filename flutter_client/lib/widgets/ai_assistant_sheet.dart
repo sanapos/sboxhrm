@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../utils/vi_speech_text.dart';
+import '../utils/ai_voice_commands.dart';
 import '../utils/permission_navigation.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -50,6 +51,8 @@ class _ChatMsg {
   final bool translate;
   /// Biểu đồ nhỏ minh họa số liệu (từ báo cáo thật).
   final List<_AiChart> charts;
+  /// Lệnh giọng nói xử lý ngay trên máy («xác nhận», «bỏ») và lời đáp của nó — không gửi lên AI trong lịch sử.
+  final bool local;
 
   _ChatMsg(this.role, this.content,
       {this.actions = const [],
@@ -59,7 +62,8 @@ class _ChatMsg {
       this.pending = const [],
       this.retryText,
       this.translate = false,
-      this.charts = const []});
+      this.charts = const [],
+      this.local = false});
 }
 
 /// Biểu đồ trong câu trả lời: bar (cột) / line (đường) / pie (tròn); [openModule] = màn báo cáo đầy đủ.
@@ -166,6 +170,13 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   bool _aiVoice = true;
   String _voiceName = 'Aoede';
 
+  /// Rảnh tay: đọc xong câu trả lời thì tự nghe tiếp — nói «xác nhận» để lưu thẻ, «dừng» để tắt.
+  static const _kHandsFreeKey = 'ai_assistant_hands_free_v1';
+  bool _handsFree = false;
+
+  /// Thế hệ lời đọc đang ở đoạn cuối (giọng máy) — đọc xong đoạn này mới nghe tiếp.
+  int _lastChunkGen = -1;
+
   static const _kAiConsentKey = 'ai_assistant_consent_v1';
   bool _consentChecked = false;
   bool _consentGiven = false;
@@ -192,6 +203,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     _loadVoicePrefs();
     _player.onPlayerComplete.listen((_) {
       if (mounted) setState(() => _ttsSpeaking = false);
+      _afterSpeech();
     });
     if (_messages.isEmpty) {
       _addWelcome();
@@ -264,6 +276,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       setState(() {
         _aiVoice = prefs.getBool(_kAiVoiceKey) ?? true;
         _voiceName = prefs.getString(_kVoiceNameKey) ?? 'Aoede';
+        _handsFree = prefs.getBool(_kHandsFreeKey) ?? false;
       });
     } catch (_) {}
   }
@@ -273,6 +286,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_kAiVoiceKey, _aiVoice);
       await prefs.setString(_kVoiceNameKey, _voiceName);
+      await prefs.setBool(_kHandsFreeKey, _handsFree);
     } catch (_) {}
   }
 
@@ -464,6 +478,10 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       });
       _tts.setCompletionHandler(() {
         if (mounted) setState(() => _ttsSpeaking = false);
+        if (_lastChunkGen == _speakGen) {
+          _lastChunkGen = -1;
+          _afterSpeech();
+        }
       });
       _tts.setErrorHandler((_) {
         if (mounted) setState(() => _ttsSpeaking = false);
@@ -591,9 +609,15 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   }
 
   Future<void> _speakReply(String raw) async {
-    if (!_ttsEnabled) return;
+    if (!_ttsEnabled) {
+      _afterSpeech();
+      return;
+    }
     final chunks = _splitForSpeech(raw);
-    if (chunks.isEmpty) return;
+    if (chunks.isEmpty) {
+      _afterSpeech();
+      return;
+    }
     final gen = ++_speakGen;
     if (_aiVoice && !_aiSpeakUnavailable) {
       // Giọng Gemini: đọc liền mạch, có ngữ điệu. Lỗi / hết lượt → giọng của máy bên dưới.
@@ -621,6 +645,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     } catch (_) {}
     for (var i = 0; i < chunks.length; i++) {
       if (!mounted || gen != _speakGen || !_ttsEnabled) return;
+      if (i == chunks.length - 1) _lastChunkGen = gen;
       try {
         await _tts.speak(chunks[i]);
       } catch (_) {
@@ -775,6 +800,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     }
     final text = _inputCtrl.text.trim();
     if (text.isEmpty || _isSending) return;
+    if (await _handleVoiceCommand(text)) return;
     setState(() {
       _messages.add(_ChatMsg('user', text));
       _inputCtrl.clear();
@@ -784,7 +810,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
 
     try {
       final history = _messages
-          .where((m) => m.content.trim().isNotEmpty)
+          .where((m) => !m.local && m.content.trim().isNotEmpty)
           .map((m) => {'role': m.role, 'content': m.content})
           .toList();
       final result = await _chatWithStream(history);
@@ -818,8 +844,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               actions: actions, creates: creates, guides: guides, reports: reports, pending: pending, charts: charts));
         });
         _scrollToBottom();
-        // Không chờ đọc xong — tắt «Đang suy nghĩ…» ngay, giọng đọc tải song song.
-        if (_ttsEnabled && reply.isNotEmpty) unawaited(_speakReply(reply));
+        // Không chờ đọc xong — tắt «Đang suy nghĩ…» ngay, giọng đọc tải song song (tắt đọc: rảnh tay nghe tiếp luôn).
+        unawaited(_speakReply(reply));
       } else {
         final msg = (result['message'] as String?) ?? 'Lỗi trợ lý ảo';
         setState(() {
@@ -1487,6 +1513,10 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                     .push(MaterialPageRoute<void>(builder: (_) => const AiActionLogScreen()));
                 return;
               }
+              if (v == 'handsfree') {
+                await _setHandsFree(!_handsFree);
+                return;
+              }
               if (v == 'ai') {
                 setState(() => _aiVoice = !_aiVoice);
               } else {
@@ -1510,6 +1540,11 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                 ),
               ),
               const PopupMenuDivider(),
+              CheckedPopupMenuItem(
+                value: 'handsfree',
+                checked: _handsFree,
+                child: Text(tr('Rảnh tay (tự nghe sau khi đọc)')),
+              ),
               CheckedPopupMenuItem(
                 value: 'ai',
                 checked: _aiVoice,
@@ -2015,9 +2050,10 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     );
   }
 
-  Future<void> _confirmAction(_PendingAction a) async {
+  /// [spokenSure] = người dùng đã nói «chắc chắn xác nhận» — thay cho hộp hỏi lại của thẻ rủi ro cao.
+  Future<void> _confirmAction(_PendingAction a, {bool spokenSure = false}) async {
     // Xóa / hủy / duyệt hàng loạt: hỏi lại một lần nữa — không hoàn tác được.
-    if (a.highRisk) {
+    if (a.highRisk && !spokenSure) {
       final sure = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -2051,7 +2087,129 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           ? DateTime.now().add(Duration(seconds: undoSecs))
           : null;
     });
-    if (ok && _ttsEnabled) unawaited(_speakReply(a.result!));
+    unawaited(_speakReply(ok ? a.result! : '${tr('Không lưu được')}: ${a.result}'));
+  }
+
+  // ── Lệnh giọng nói ngắn + rảnh tay ──
+
+  /// Thẻ còn chờ (hoặc lưu lỗi) của câu trả lời gần nhất có thẻ.
+  List<_PendingAction> _openCards() {
+    for (final m in _messages.reversed) {
+      if (m.role != 'assistant' || m.pending.isEmpty) continue;
+      return m.pending.where((a) => a.state == 'pending' || a.state == 'failed').toList();
+    }
+    return const [];
+  }
+
+  void _localReply(String said, String reply) {
+    setState(() {
+      _messages.add(_ChatMsg('user', said, local: true));
+      _messages.add(_ChatMsg('assistant', reply, local: true));
+      _inputCtrl.clear();
+    });
+    _scrollToBottom();
+  }
+
+  /// «Xác nhận» / «bỏ» / «hoàn tác» / «dừng» nói hoặc gõ khi có thẻ đang chờ → làm ngay, không gửi AI.
+  /// true = đã xử lý.
+  Future<bool> _handleVoiceCommand(String text) async {
+    final cmd = AiVoiceCommand.parse(text);
+    if (cmd == null) return false;
+    switch (cmd.kind) {
+      case AiVoiceCommandKind.confirm:
+      case AiVoiceCommandKind.discard:
+        final open = _openCards();
+        if (open.isEmpty) return false;
+        final i = cmd.index;
+        if (i != null && i > open.length) {
+          final msg = tr('Chỉ có ${open.length} phiếu đang chờ.');
+          _localReply(text, msg);
+          unawaited(_speakReply(msg));
+          return true;
+        }
+        final targets = i == null ? open : [open[i - 1]];
+        if (cmd.kind == AiVoiceCommandKind.discard) {
+          for (final a in targets) {
+            unawaited(_api.discardAiAction(a.id));
+            a.state = 'discarded';
+          }
+          final msg = targets.length == 1 ? tr('Đã bỏ phiếu.') : tr('Đã bỏ ${targets.length} phiếu.');
+          _localReply(text, msg);
+          unawaited(_speakReply(msg));
+          return true;
+        }
+        final risky = targets.where((a) => a.highRisk && !cmd.sure).toList();
+        if (risky.length == targets.length) {
+          final msg = tr('Phiếu xóa / hủy không hoàn tác được — nói «chắc chắn xác nhận» hoặc bấm nút trên thẻ.');
+          _localReply(text, msg);
+          unawaited(_speakReply(msg));
+          return true;
+        }
+        _localReply(
+            text,
+            risky.isEmpty
+                ? tr('Đang lưu…')
+                : tr('Phiếu xóa / hủy không hoàn tác được — nói «chắc chắn xác nhận» hoặc bấm nút trên thẻ.'));
+        for (final a in targets.where((a) => !risky.contains(a))) {
+          await _confirmAction(a, spokenSure: cmd.sure);
+          if (!mounted) return true;
+        }
+        return true;
+      case AiVoiceCommandKind.undo:
+        _PendingAction? last;
+        for (final m in _messages.reversed) {
+          last = m.pending.where((a) => a.canUndo).lastOrNull;
+          if (last != null) break;
+        }
+        if (last == null) return false;
+        _localReply(text, tr('Đang hoàn tác…'));
+        await _undoAction(last);
+        if (mounted && last.state == 'undone') unawaited(_speakReply(last.result ?? tr('Đã hoàn tác')));
+        return true;
+      case AiVoiceCommandKind.stop:
+        if (!_handsFree) return false;
+        await _setHandsFree(false);
+        _localReply(text, tr('Đã tắt chế độ rảnh tay.'));
+        return true;
+    }
+  }
+
+  Future<void> _setHandsFree(bool on) async {
+    setState(() {
+      _handsFree = on;
+      if (on) _ttsEnabled = true;
+    });
+    await _saveVoicePrefs();
+    if (on) {
+      unawaited(_speakReply(tr('Đã bật rảnh tay. Bạn cứ nói, tôi nghe.')));
+      return;
+    }
+    await _stopSpeaking();
+    if (_recording) {
+      _recording = false;
+      _recTimer?.cancel();
+      try {
+        await _recorder.stop();
+      } catch (_) {}
+      await _recSub?.cancel();
+      _recSub = null;
+      _recBuf.clear();
+      if (mounted) setState(() {});
+    }
+    if (_isListening) {
+      await _stt.cancel();
+      if (mounted) setState(() => _isListening = false);
+    }
+  }
+
+  /// Rảnh tay: đọc xong (hoặc không đọc) → tự bật micro nghe câu tiếp theo. Không nói gì → micro tự tắt, hết vòng.
+  void _afterSpeech() {
+    if (!_handsFree) return;
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (!mounted || !_handsFree || _isSending || _recording || _isListening || _transcribing || _ttsSpeaking) return;
+      if (!kIsWeb && !_consentGiven) return;
+      unawaited(_toggleListening());
+    });
   }
 
   Future<void> _undoAction(_PendingAction a) async {
@@ -2101,6 +2259,10 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       'task' => (PosTheme.kiotBlue, Icons.assignment_turned_in_outlined),
       'close_cashier_shift' => (const Color(0xFFB45309), Icons.point_of_sale_outlined),
       'penalty_batch' => (SboxColors.danger, Icons.gavel_rounded),
+      'leave' => (const Color(0xFF0369A1), Icons.beach_access_outlined),
+      'quote' => (PosTheme.kiotBlue, Icons.request_page_outlined),
+      'reservation' => (const Color(0xFF0F766E), Icons.event_seat_outlined),
+      'employee' => (SboxColors.violet, Icons.person_add_alt_1_outlined),
       _ => (SboxColors.violet, Icons.fact_check_outlined),
     };
     // Rủi ro cao (xóa / hủy / duyệt hàng loạt): thẻ đỏ.
@@ -2262,7 +2424,9 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                           ? 'Đang chép lời…'
                           : _isListening
                               ? 'Đang nghe...'
-                              : 'Hỏi hoặc ra lệnh (VD: "Phạt An 50k đi trễ")'),
+                              : _handsFree
+                                  ? 'Rảnh tay: nói lệnh — «xác nhận» để lưu, «dừng» để tắt'
+                                  : 'Hỏi hoặc ra lệnh (VD: "Phạt An 50k đi trễ")'),
                   filled: true,
                   fillColor: SboxColors.slate50,
                   border: OutlineInputBorder(

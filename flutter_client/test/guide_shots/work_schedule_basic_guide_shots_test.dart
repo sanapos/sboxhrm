@@ -81,7 +81,7 @@ final _api = guideApi({
   '/api/shift-hub/counts': {'total': 0, 'swapsForMe': 0},
 });
 
-const _crumbs = ['Ca làm việc', 'Xếp ca'];
+const _crumbs = ['Chấm công', 'Ca làm việc', 'Bảng xếp ca'];
 
 /// Ô lịch của nhân viên [name] ngày thứ [weekday] (1 = T2) trên lưới tuần.
 Finder _cellOf(String name, int weekday) => _Lazy(() {

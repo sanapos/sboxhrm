@@ -39,7 +39,7 @@ final _api = guideApi({
   '/employee-search': _members,
 });
 
-const _crumbs = ['Cài đặt', 'Phòng ban'];
+const _crumbs = ['Hồ sơ nhân sự', 'Phòng ban'];
 
 void main() {
   for (final (suffix, size) in [('', desktopSize), ('-mobile', mobileSize)]) {

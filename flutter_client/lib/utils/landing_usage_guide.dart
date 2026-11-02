@@ -436,6 +436,8 @@ class LandingGuideData {
       'nhân sự chấm công',
       'face',
     ],
+    'gateway_wifi': ['gateway', 'esp32', 'máy chấm công cũ', 'wifi', '4370'],
+    'attendance_correction': ['sửa công', 'bổ sung công', 'quên chấm công', 'chấm công bù', 'duyệt chấm công'],
     'mobile_attendance': [
       'chấm công mobile',
       'gps',
@@ -502,6 +504,7 @@ class LandingGuideData {
     ],
     'work_schedule': ['lịch làm việc', 'sao chép tuần', 'duyệt lịch'],
     'shift_swap': ['đổi ca', 'đổi lịch', 'swap'],
+    'overtime': ['tăng ca', 'ot', 'làm thêm giờ', 'đăng ký tăng ca'],
     'holidays': ['ngày lễ', 'nghỉ lễ', 'ot ngày lễ'],
     'leave': ['nghỉ phép', 'đơn nghỉ', 'quỹ phép', 'phép năm'],
     'insurance_tax': ['bảo hiểm', 'bhxh', 'thuế', 'tncn'],
@@ -522,9 +525,15 @@ class LandingGuideData {
     'communication': ['truyền thông', 'thông báo nội bộ', 'tin tức'],
     'feedback': ['góp ý', 'khiếu nại', 'phản ánh'],
     'notifications': ['thông báo', 'push', 'nhắc việc'],
+    'zalo_bot': ['zalo', 'bot', 'liên kết zalo', 'tin nhắn'],
+    'ai_assistant': ['trợ lý', 'AI', 'giọng nói', 'micro', 'rảnh tay', 'gemini', 'xác nhận'],
   };
 
   static const _posKeywords = <String, List<String>>{
+    'pos_quotes': ['báo giá', 'hợp đồng', 'nghiệm thu', 'cọc', 'VAT', 'gửi báo giá'],
+    'pos_booking': ['đặt bàn', 'đặt phòng', 'đặt lịch', 'lịch hẹn', 'cọc', 'không đến', 'tự xếp thợ'],
+    'pos_customer_display': ['màn hình phụ', 'màn hình khách', 'màn thứ 2', 'QR', 'quảng cáo'],
+    'pos_shipping': ['giao hàng', 'vận đơn', 'GHN', 'GHTK', 'Viettel Post', 'COD', 'in tem'],
     'pos_devices': [
       'a6',
       'a7',
@@ -678,10 +687,11 @@ class LandingUsageGuide {
         'Ngày 1–2: Tạo phòng ban / chức vụ → thêm nhân viên (hoặc import Excel)',
         'Ngày 2: Thiết lập ca làm việc + kiểu chấm công trong Thiết lập lương',
         'Ngày 3: Phân lịch làm việc tuần/tháng cho nhân viên',
-        'Ngày 3–4: Kết nối máy ZKTeco (hoặc bật chấm công Mobile) → đồng bộ NV → đăng ký vân tay/face',
+        'Ngày 3–4: Kết nối máy ZKTeco (máy đời cũ chỉ có LAN: dùng Gateway WiFi) hoặc bật chấm công Mobile → tải NV xuống máy → đăng ký vân tay/face',
         'Ngày 5: Tạo tài khoản app cho quản lý/NV cần đăng nhập; phân quyền theo vai trò',
         'Ngày 5–6: Cấu hình phạt đi trễ/về sớm (nếu dùng) → kiểm tra vài ngày chấm thử trên Chấm công thô',
-        'Cuối tháng: Duyệt phép / phiếu thưởng–phạt–ứng → xem Tổng hợp theo ca → chốt Tổng hợp lương',
+        'Cuối tháng: Duyệt sửa công, phép, phiếu thưởng–phạt–ứng → xem Tổng hợp theo ca → «Chốt lương» ở Tổng hợp lương',
+        'Tùy chọn: bật Zalo bot (Thiết lập SBOX › Zalo bot) để nhân viên nhận phiếu lương, phạt, kết quả duyệt đơn qua Zalo',
         'Nếu gói có POS: sang tab POS — ngành hàng → hàng hóa → máy in → bán thử → xem Báo cáo POS',
         'Hotline hỗ trợ: 0973 024 042 (Zalo hỗ trợ từ xa)',
       ],
@@ -720,9 +730,9 @@ class LandingUsageGuide {
       desc:
           'Tổ chức cơ cấu trước khi thêm nhân viên giúp phân ca, phân quyền và báo cáo theo bộ phận chính xác.',
       bullets: [
-        'Cài đặt → Phòng ban: tạo các bộ phận (Kế toán, Bếp, Thu ngân…)',
-        'Cài đặt → Chức vụ: tạo chức danh (Quản lý, Nhân viên, Thu ngân…)',
-        'Nếu có nhiều điểm bán: Cài đặt → Chi nhánh / cửa hàng con (khi gói hỗ trợ)',
+        'Hồ sơ nhân sự › Phòng ban: tạo các bộ phận (Kế toán, Bếp, Thu ngân…)',
+        'Chức vụ: thêm ngay trong form phòng ban (gõ tên chức vụ rồi Enter)',
+        'Nếu có nhiều điểm bán: Thiết lập SBOX › Cửa hàng › Chi nhánh (khi gói hỗ trợ)',
         'Gán phòng ban & chức vụ ngay khi thêm nhân viên',
         'Báo cáo và lọc danh sách NV theo phòng ban sau này sẽ dựa trên gán này',
       ],
@@ -734,6 +744,30 @@ class LandingUsageGuide {
         GuideShot('org-structure-2', afterBullet: 2, caption: '① Nhập tên phòng ban, mã tự gợi ý theo tên. ② Thêm các chức vụ của phòng (gõ tên rồi Enter). ③ Bấm «Lưu phòng ban».'),
       ],
     ),
+    LandingUsageGuideStep(
+      id: 'branches',
+      icon: Icons.store_mall_directory_rounded,
+      title: 'Chi nhánh / nhiều điểm bán',
+      desc:
+          'Cửa hàng có nhiều điểm bán: khai báo chi nhánh, chọn trụ sở chính và chi nhánh cha, gán quản lý; nhân viên, máy chấm công, kho và báo cáo lọc theo chi nhánh.',
+      bullets: [
+        'Bước 1 — Thiết lập SBOX › Chi nhánh → «Thêm mới». Tab Danh sách / Sơ đồ / Thống kê hiện khi có từ 2 chi nhánh',
+        'Bước 2 — Nhập «Mã chi nhánh *», «Tên chi nhánh *», số điện thoại, địa chỉ (Tỉnh/Thành phố, Quận/Huyện, Phường/Xã)',
+        'Bước 3 — Mục «Cấu hình»: chọn «Chi nhánh cha» (nếu có cấp quản lý), «Quản lý chi nhánh», bật «Trụ sở chính» cho cơ sở chính; giờ mở / đóng cửa, mã số thuế → «Tạo mới»',
+        'Bước 4 — Tab «Sơ đồ»: cây chi nhánh theo cấp, số nhân viên mỗi nơi; «Mở tất cả» / «Thu gọn»',
+        'Bước 5 — Gán chi nhánh cho nhân viên trong hồ sơ nhân sự, cho máy chấm công và kho; báo cáo, chấm công, bán hàng lọc theo chi nhánh đang chọn ở thanh trên cùng',
+        'Bước 6 — Số chi nhánh tối đa theo gói dịch vụ — hết hạn mức app báo khi thêm mới',
+      ],
+      tip:
+          'Tạo chi nhánh trước khi thêm nhân viên và máy chấm công của điểm bán mới để dữ liệu vào đúng nơi ngay từ đầu.',
+      accent: SboxColors.brand600,
+      keywords: ['chi nhánh', 'nhiều điểm bán', 'trụ sở chính', 'chi nhánh cha', 'quản lý chi nhánh', 'sơ đồ chi nhánh'],
+      shots: [
+        GuideShot('branches-1', afterBullet: 1, caption: '① Bấm «Thêm mới». ② Tab Danh sách / Sơ đồ / Thống kê. ③ Danh sách chi nhánh: mã, quản lý, số nhân viên, địa chỉ, trạng thái.'),
+        GuideShot('branches-2', afterBullet: 3, caption: '① Mã và tên chi nhánh. ② Chi nhánh cha và quản lý chi nhánh. ③ Bấm «Tạo mới» để lưu.'),
+        GuideShot('branches-3', afterBullet: 4, caption: '① Trụ sở chính ở gốc cây. ② Các chi nhánh trực thuộc kèm số nhân viên. ③ Mở tất cả / thu gọn cây.'),
+      ],
+    ),
     const LandingUsageGuideStep(
       id: 'employees',
       icon: Icons.group_add_rounded,
@@ -742,11 +776,11 @@ class LandingUsageGuide {
           'Tạo hồ sơ nhân sự làm nền cho chấm công, lương và tài khoản app. Mã nhân viên phải thống nhất giữa hồ sơ và máy chấm công.',
       bullets: [
         'Bước 1 — Vào menu Hồ sơ nhân sự → Thêm nhân viên (hoặc Import Excel nếu thêm hàng loạt)',
-        'Bước 2 — Nhập bắt buộc: họ tên, mã nhân viên (PIN), phòng ban, chức vụ',
+        'Bước 2 — Nhập bắt buộc: họ tên, mã nhân viên (PIN — nên dùng số, tối đa 8 chữ số vì máy chấm công chỉ nhận số), phòng ban, chức vụ',
         'Bước 3 — Bổ sung nên có: SĐT, ngày vào làm, trạng thái Đang làm việc',
         'Bước 4 — Nếu Import Excel: tải mẫu trong màn hình → điền đúng cột → tải lên → kiểm tra kết quả',
         'Bước 5 — Kiểm tra không trùng mã nhân viên trước khi đồng bộ xuống máy',
-        'Bước 6 — Gán Thiết lập lương và phân ca trên Lịch làm việc (các bước tiếp theo)',
+        'Bước 6 — Gán Thiết lập lương và xếp ca ở Chấm công › Ca làm việc (các bước tiếp theo)',
         'Bước 7 — NV nghỉ việc: cập nhật trạng thái nghỉ — không xóa nếu đã có dữ liệu chấm công',
       ],
       tip:
@@ -765,16 +799,16 @@ class LandingUsageGuide {
       desc:
           'Định nghĩa khung giờ làm (ca sáng, ca đêm, ca OT…). Ca quyết định tính đi trễ, về sớm, công và tăng ca.',
       bullets: [
-        'Bước 1 — Vào Cài đặt → Thiết lập ca → Thêm ca',
-        'Bước 2 — Nhập tên ca, giờ bắt đầu / kết thúc (hỗ trợ ca qua đêm, vd 21:30–06:00)',
-        'Bước 3 — Cấu hình phút ân hạn đi trễ, ân hạn về sớm, ngưỡng tính tăng ca',
-        'Bước 4 — Phân biệt ca hành chính và ca Tăng ca (OT) nếu cửa hàng dùng',
-        'Bước 5 — Gán ca vào mẫu lương / nhân viên tại Thiết lập lương (ô Ca làm việc)',
-        'Bước 6 — Phân lịch cụ thể theo ngày tại menu Lịch làm việc',
-        'Bước 7 — Mở nút hướng dẫn trong màn Thiết lập ca khi cần chi tiết OT / grace',
+        'Bước 1 — Vào Thiết lập SBOX › Nhân sự & chấm công › Ca làm việc (hoặc Chấm công › Ca làm việc › tab Thiết lập › Ca mẫu) → «Thêm ca»',
+        'Bước 2 — Chọn «Mẫu nhanh» hoặc nhập «Tên ca», «Giờ vào», «Giờ ra» (giờ ra nhỏ hơn giờ vào = ca qua đêm), «Loại ca» (Hành chính / Tăng ca / Qua đêm), «Nghỉ giữa ca»',
+        'Bước 3 — «Quy tắc chấm công»: Nhận chấm sớm, Miễn trễ, Giới hạn đi trễ, Miễn về sớm, Giới hạn về sớm, Tăng ca trước / sau ca («Nhận chấm sớm» phải lớn hơn «Tăng ca trước ca»)',
+        'Bước 4 — Bấm «Lưu ca». Trả lương theo ca: mở lại ca vừa lưu → «Lương ca» → «Thêm mức lương» (cố định / nhân hệ số / theo giờ)',
+        'Bước 5 — Gán ca cho nhân viên: xếp lịch ở Chấm công › Ca làm việc › Bảng xếp ca, hoặc giới hạn ca trong Thiết lập lương (ô Ca làm việc)',
+        'Bước 6 — Ca đã có dữ liệu không xóa được: dùng «Ngừng dùng» (lịch cũ giữ nguyên). Muốn đổi giờ ca đang dùng: «Nhân bản» rồi sửa bản mới',
+        'Bước 7 — Không đổi tên ca đang gắn trong Thiết lập lương: hồ sơ lương lưu ca theo tên, đổi tên sẽ hiện «(ca đã xóa / đổi tên)»',
       ],
       tip:
-          'Dùng «Nhân bản ca» để clone ca tương tự. Ân hạn đi trễ (vd 10 phút) tránh phạt oan khi vào sớm vài phút sau giờ.',
+          'Miễn trễ 5–10 phút giúp tránh phạt oan; số phút phạt đi trễ tính SAU khi trừ phút miễn trễ của ca. Tăng ca tính theo giờ chấm vượt ngưỡng «Tăng ca trước / sau ca».',
       accent: Color(0xFF6A1B9A),
       shots: [
         GuideShot('shifts-1',
@@ -797,22 +831,46 @@ class LandingUsageGuide {
       desc:
           'Gán mức lương, phụ cấp và cách tính công cho từng nhân viên. Kiểu chấm công quyết định cần chấm vào/ra hay chỉ một lần/ca.',
       bullets: [
-        'Hồ sơ nhân sự → chọn NV → Thiết lập lương (hoặc màn Thiết lập lương)',
-        'Chọn loại lương: theo tháng / theo ngày / theo giờ / sản phẩm (nếu dùng)',
-        'Nhập lương cơ bản, phụ cấp cố định; gán ca làm việc áp dụng',
-        'Chọn «Chấm công»: Chấm vào & ra · Chỉ chấm vào (đủ ca) · Chỉ chấm ra · 2 lần bất kỳ trong ngày · Ca nguyên ngày…',
-        'Chỉ chấm vào: mỗi lần chấm = đủ ca, tính đi trễ theo giờ bắt đầu, giờ ra = hết ca',
-        'Công chuẩn tháng / ngày nghỉ có lương: cấu hình trong cùng form (theo lịch phân ca hoặc cố định)',
-        'Cài đặt thêm: Phụ cấp, Bảo hiểm, Thuế TNCN, Phạt (menu Cài đặt)',
-        'Cuối kỳ: menu Tính lương / Tổng hợp lương để xem bảng lương',
+        'Mở Hồ sơ nhân sự › nút ⋮ trên nhân viên › «Salary Settings» (Thiết lập lương); thẻ «Chưa thiết lập» lọc người chưa có lương',
+        '«Lương chính» › Loại lương: Tháng (lương cơ bản + lương hoàn thành) / Ngày / Ca / Giờ',
+        '«Tăng ca»: Theo luật / Cố định / Không tính. «Bảo hiểm xã hội»: không đóng, theo lương cơ bản, lương tối thiểu vùng hoặc mức khác',
+        '«Ngày công và chấm công» › «Cách chấm công»: Chấm vào và ra · Chỉ chấm vào · Chỉ chấm ra · Chấm bất kỳ trong ca · Chấm 2 lần trong ngày · Ca nguyên ngày · Không chấm công; ô Ca làm việc để trống = theo lịch phân ca',
+        'Cùng khối: ngày nghỉ hưởng lương, số giờ một công, công chuẩn tháng (theo tháng hoặc cố định, vd 26 công)',
+        'Bấm «Lưu thiết lập». Khi tăng lương chọn «Đổi lương từ ngày» để giữ lịch sử; nhân rộng: ⋮ › «Sao chép cho nhân viên khác»',
+        'Hệ số tăng ca, trả lương ngày lễ, phụ cấp làm đêm: nút «Chính sách lương» trên đầu màn Thiết lập lương',
+        'Phụ cấp, Mức phạt, Bảo hiểm, Thuế TNCN (người phụ thuộc), Lương sản phẩm, Phép năm: Thiết lập SBOX › Lương & chính sách. Phụ cấp gán ở mục Phụ cấp, không gán trong trang lương',
       ],
       tip:
-          'Cửa hàng chỉ chấm 1 lần/ngày trên máy: chọn «Chấm vào (đủ ca…)». Chi tiết các mode xem tab Nâng cao → Kiểu chấm công.',
+          'Cửa hàng chỉ chấm 1 lần/ngày trên máy: chọn «Chỉ chấm vào». Nhân viên chưa có Thiết lập lương thì không có bảng lương và quỹ phép năm.',
       accent: SboxColors.brand600,
       shots: [
         GuideShot('salary-1', afterBullet: 1, caption: '① Chọn nhân viên cần thiết lập; người chưa có lương hiện nhãn «Chưa thiết lập».'),
         GuideShot('salary-2', afterBullet: 2, caption: '① Loại lương: tháng, ngày, ca hoặc giờ. ② Lương cơ bản và lương hoàn thành.'),
         GuideShot('salary-3', afterBullet: 4, caption: '① Chọn cách chấm công (chấm vào và ra, chỉ chấm vào…). ② Các ca được áp dụng; để trống là theo lịch phân ca.'),
+      ],
+    ),
+    LandingUsageGuideStep(
+      id: 'allowance',
+      icon: Icons.card_giftcard_rounded,
+      title: 'Phụ cấp',
+      desc:
+          'Khoản cộng thêm vào lương: cố định hàng tháng, theo ngày công, theo giờ, theo lần hoặc theo ca đủ công. Phụ cấp tự cộng vào bảng lương của nhân viên được áp dụng.',
+      bullets: [
+        'Bước 1 — Thiết lập SBOX › Phụ cấp → «Thêm phụ cấp». Danh sách lọc theo kiểu (Cố định hàng tháng, Theo ngày công, Theo ca đủ công…); bật / tắt nhanh bằng công tắc trên từng phụ cấp',
+        'Bước 2 — Chọn «Mẫu nhanh» (Ăn trưa, Xăng xe, Điện thoại, Chuyên cần, Ca đêm) hoặc nhập «Tên phụ cấp *», chọn «Cách tính» và «Số tiền»',
+        'Bước 3 — Phụ cấp theo ca: chọn «Ca được hưởng»; theo ngày / theo ca có thể đặt «Điều kiện nhận» (% thời lượng ca hoặc số giờ tối thiểu)',
+        'Bước 4 — Bật / tắt «Tính vào thu nhập chịu thuế TNCN» (tắt với khoản được miễn thuế) và «Tính vào lương đóng bảo hiểm»; đặt thời hạn Từ / Đến nếu chỉ áp dụng một thời gian',
+        'Bước 5 — «Áp dụng cho tất cả nhân viên» hoặc tắt để chọn riêng từng người → «Lưu»',
+        'Bước 6 — Cuối kỳ: phụ cấp hiện ở dòng «Phụ cấp» trên Tổng hợp lương và phiếu lương nhân viên. Muốn ngừng mà giữ lịch sử thì tắt phụ cấp thay vì xóa',
+      ],
+      tip:
+          'Bảng lương đã chốt giữ nguyên khi sửa / xóa phụ cấp — đổi mức phụ cấp chỉ áp dụng cho kỳ chưa chốt.',
+      accent: SboxColors.brand600,
+      keywords: ['phụ cấp', 'ăn trưa', 'xăng xe', 'chuyên cần', 'ca đêm', 'phụ cấp theo ca', 'phụ cấp ngày công', 'miễn thuế'],
+      shots: [
+        GuideShot('allowance-1', afterBullet: 1, caption: '① Bấm «Thêm phụ cấp». ② Lọc theo kiểu phụ cấp. ③ Mỗi phụ cấp: số tiền, cách tính, áp dụng cho ai, ca được hưởng, chịu thuế / đóng BH, công tắc bật / tắt.'),
+        GuideShot('allowance-2', afterBullet: 2, caption: '① Chọn mẫu nhanh. ② Tên, cách tính và số tiền. ③ Phụ cấp theo ca: chọn ca được hưởng.'),
+        GuideShot('allowance-3', afterBullet: 4, caption: '① Điều kiện nhận: không điều kiện, % thời lượng ca hoặc số giờ tối thiểu. ② Tính vào thu nhập chịu thuế TNCN / lương đóng bảo hiểm. ③ Áp dụng cho tất cả nhân viên hoặc chọn riêng.'),
       ],
     ),
     const LandingUsageGuideStep(
@@ -822,12 +880,12 @@ class LandingUsageGuide {
       desc:
           'Gán ca theo từng ngày cho nhân viên để hệ thống biết ngày nào phải đi làm, nghỉ và tính công đúng.',
       bullets: [
-        'Menu: Lịch làm việc',
-        'Chọn tuần/tháng → chọn nhân viên hoặc phòng ban',
-        'Gán ca theo ngày; dùng sao chép tuần / nhân bản lịch nếu làm việc cố định',
-        'Đánh dấu ngày nghỉ / ngày off theo quy định cửa hàng',
-        'Nếu bật duyệt lịch: NV đăng ký → quản lý duyệt tại Duyệt lịch làm việc',
-        'Nên phân ca trước đầu kỳ lương — tránh sửa lịch khi đã chốt công',
+        'Menu: Chấm công › Ca làm việc › tab «Bảng xếp ca» (máy tính: mở từ Trang chủ hoặc ô tìm chức năng)',
+        'Chọn tuần, xem «Cả tuần» hoặc «Từng ngày», lọc «Bộ phận»; chạm ô ngày của nhân viên chưa có lịch',
+        'Chọn ca mẫu hoặc «Ngày nghỉ» (lưu ngay); «Thao tác nhanh» › «Sao chép lịch tuần trước» chỉ điền ô còn trống',
+        'Ca xoay (sáng – chiều – nghỉ luân phiên): chưa có mẫu tự xoay — xếp tay 1–2 tuần rồi dùng «Sao chép tuần» trong «Lịch làm việc (đầy đủ)» (tối đa 12 tuần)',
+        'Xếp hàng loạt, sao chép tháng, xuất Excel: tab Thiết lập › «Lịch làm việc (đầy đủ)» — ở màn này lịch vào «Danh sách chờ gửi», phải bấm «Gửi đăng ký» rồi duyệt',
+        'Nên phân ca trước đầu kỳ lương — tránh sửa lịch khi đã có phiếu phạt tự động',
       ],
       tip:
           'Lịch trống + máy có log vẫn có thể khớp ca từ Thiết lập lương, nhưng phân lịch rõ ràng giúp báo cáo và phép chính xác hơn.',
@@ -847,14 +905,14 @@ class LandingUsageGuide {
       bullets: [
         'Bước 1 — Trên máy ZKTeco: vào ${DeviceSetupGuide.menuPath}',
         'Bước 2 — Nhập Địa chỉ máy chủ: ${DeviceSetupGuide.serverHost} · Port: ${DeviceSetupGuide.serverPort}',
-        'Bước 3 — Bật Cloud / ADMS theo hướng dẫn trên máy; lưu và khởi động lại nếu máy yêu cầu',
-        'Bước 4 — Trên SBOX: Cài đặt → Máy chấm công → Thêm máy (nhập SN hoặc quét mã)',
-        'Bước 5 — Kiểm tra trạng thái Online trên danh sách máy (có thể mất 1–2 phút)',
-        'Bước 6 — Cho NV chấm thử → mở Chấm công thô xác nhận có ATTLOG',
-        'Bước 7 — Nếu Offline: kiểm tra mạng cửa hàng cho máy ra internet (HTTPS/ADMS) hoặc gọi hotline',
+        'Bước 3 — Lưu, khởi động lại máy nếu máy yêu cầu. Máy phải gọi về máy chủ TRƯỚC thì SBOX mới nhận số serial',
+        'Bước 4 — Trên SBOX: Thiết lập SBOX › Nhân sự & chấm công › Máy chấm công › «Thêm thiết bị»: nhập Serial Number (hoặc quét mã), bấm «Kiểm tra Serial», đặt tên máy',
+        'Bước 5 — Kiểm tra trạng thái Online trên danh sách máy (Online = có tín hiệu trong 2 phút gần nhất)',
+        'Bước 6 — Cho NV chấm thử → mở Chấm công thô xác nhận có giờ chấm',
+        'Bước 7 — «Kiểm tra Serial» báo «chưa từng kết nối»: làm lại bước 1–3. Báo «đã được sử dụng bởi cửa hàng khác» hoặc vượt số máy của gói: gọi hotline',
       ],
       tip:
-          'Chưa kết nối được? Gọi hotline 0973 024 042 — hỗ trợ từ xa qua Zalo.',
+          'Máy đời cũ không có menu Máy chủ đám mây: dùng Gateway WiFi (mục kế tiếp). Chưa kết nối được? Gọi hotline 0973 024 042 — hỗ trợ từ xa qua Zalo.',
       accent: const Color(0xFF0277BD),
       shots: [
         GuideShot('device-connect-1', afterBullet: 2, caption: '① Trên máy chấm công: vào menu Máy chủ đám mây, nhập địa chỉ máy chủ và port như hướng dẫn.'),
@@ -869,20 +927,43 @@ class LandingUsageGuide {
       desc:
           'Đưa danh sách nhân viên xuống máy rồi đăng ký sinh trắc học. Chỉ khi mã NV khớp, log mới gắn đúng người.',
       bullets: [
-        'Menu: Nhân sự chấm công',
-        'Chọn máy → Đồng bộ / đẩy nhân viên từ Hồ sơ nhân sự xuống thiết bị',
-        'Trên máy: đăng ký vân tay hoặc khuôn mặt cho từng mã NV',
-        'Cho NV chấm thử → mở Chấm công thô xác nhận có giờ vào/ra và đúng tên',
-        'Thêm NV mới giữa kỳ: thêm hồ sơ → đồng bộ lại máy → đăng ký vân tay',
-        'Xóa/khóa user trên máy khi NV nghỉ (tránh chấm nhầm)',
+        'Menu: Chấm công › Nhân sự chấm công (máy tính: mở từ Trang chủ hoặc ô tìm chức năng)',
+        '«Tải hồ sơ NS» (điện thoại: trong nút «…») → chọn máy → tích nhân viên → «Tải N nhân viên»',
+        'Đăng ký từ xa: menu của nhân viên › «Quản lý vân tay» (chọn ngón → «Đăng ký», nhân viên đặt ngón lên máy 3 lần) hoặc «Quản lý khuôn mặt» (nhìn vào màn hình máy, cách 0,5–1 m); app chờ tối đa 2 phút',
+        'Máy báo «không hỗ trợ đăng ký từ xa» (máy đời cũ, LX35…): đăng ký ngay trên máy rồi bấm «Đồng bộ ngay» / «Tải từ máy»',
+        'PIN trên máy chỉ gồm số, tối đa 8 chữ số; tên xuống máy được bỏ dấu. Nhiều máy: «Copy sinh trắc» chép vân tay / khuôn mặt sang máy khác cùng cửa hàng',
+        'NV nghỉ việc: «Xóa người dùng» trên máy để tránh chấm nhầm',
       ],
       tip:
-          'Nếu log hiện PIN lạ: kiểm tra mã trên máy và mã trong hồ sơ có trùng không.',
+          'Kết quả «Đã tải X nhân viên… Y thất bại» kèm PIN đã cấp. Log hiện PIN lạ: mã trên máy và mã trong hồ sơ không khớp.',
       accent: SboxColors.successText,
       shots: [
         GuideShot('device-users-1', afterBullet: 2, caption: '① Nút «Tải hồ sơ NS» (điện thoại: trong nút «…» góc dưới) đẩy nhân viên xuống máy. ② Thẻ «NV chưa có trên máy»: số nhân viên chưa đồng bộ. ③ Cột vân tay / khuôn mặt bằng 0 là chưa đăng ký, chưa chấm công được.'),
         GuideShot('device-users-2', afterBullet: 2, caption: '① Chọn máy chấm công. ② Tích chọn nhân viên cần tải xuống (hoặc «Chọn tất cả»). ③ Bấm «Tải N nhân viên».'),
         GuideShot('device-users-3', afterBullet: 3, caption: '① Số vân tay nhân viên đã đăng ký. ② Chọn ngón tay rồi bấm Đăng ký / Xóa. ③ Ngón màu xanh là đã có vân tay.'),
+      ],
+    ),
+    const LandingUsageGuideStep(
+      id: 'gateway_wifi',
+      icon: Icons.wifi_tethering_rounded,
+      title: 'Gateway WiFi cho máy chấm công đời cũ',
+      desc:
+          'Máy ZKTeco cũ chỉ có cổng LAN (TCP 4370), không có menu Máy chủ đám mây: cắm mạch Gateway WiFi (ESP32) trong cùng mạng để đẩy chấm công lên SBOX.',
+      bullets: [
+        'Chuẩn bị: nguồn USB 5V cho mạch, IP của máy chấm công (menu Comm / Ethernet trên máy), mật khẩu WiFi 2.4GHz (gateway không bắt sóng 5GHz)',
+        'Dùng app SBOX trên điện thoại (bản web không cấu hình được): Thiết lập SBOX › Nhân sự & chấm công › Gateway WiFi › «Thêm gateway» → «Bắt đầu bằng Bluetooth»',
+        'Chọn đúng SBOX-Gateway-XXXX. Cách cũ: nối WiFi SBOX-Gateway-… (mật khẩu sbox12345) rồi bấm «Tôi đã kết nối, kiểm tra»',
+        'Chọn WiFi trong danh sách gateway quét được, nhập mật khẩu, tên gợi nhớ (Cửa trước / Kho…), «IP máy chấm công trong LAN» → «Lưu và kết nối»',
+        'Màn Hoàn tất hiện «Gateway đã lên mạng» và số seri máy chấm công',
+        'Thêm số seri đó ở Thiết lập SBOX › Máy chấm công như máy thường — chưa thêm thì chấm công chưa vào cửa hàng',
+        'Chi tiết gateway: Đẩy danh sách nhân viên, Chỉnh giờ máy chấm công, Đồng bộ lại chấm công, Xóa dữ liệu định kỳ, cập nhật firmware',
+      ],
+      tip:
+          'Lỗi «WiFi timeout»: sai mật khẩu hoặc mạng 5GHz. Mỗi máy chấm công chỉ gắn một mạch. Lần đầu gateway lấy chấm công 30 ngày gần nhất.',
+      accent: Color(0xFF0277BD),
+      shots: [
+        GuideShot('gateway-wifi-1', afterBullet: 2, caption: '① Cần chuẩn bị: nguồn USB, IP máy chấm công, WiFi 2.4GHz. ② Bấm «Bắt đầu bằng Bluetooth».'),
+        GuideShot('gateway-wifi-2', afterBullet: 4, caption: '① Chọn WiFi do gateway quét được. ② Mật khẩu WiFi. ③ Tên gợi nhớ và IP máy chấm công trong LAN, rồi bấm «Lưu và kết nối» bên dưới.'),
       ],
     ),
     const LandingUsageGuideStep(
@@ -892,20 +973,68 @@ class LandingUsageGuide {
       desc:
           'Cho phép chấm bằng điện thoại (GPS, WiFi cửa hàng, khuôn mặt). Phù hợp khi không có máy ZK hoặc nhân viên ngoài hiện trường.',
       bullets: [
-        'Cài đặt → Chấm công mobile: bật GPS / WiFi / Face theo nhu cầu',
-        'Thiết lập vùng chấm (tọa độ cửa hàng) hoặc SSID WiFi hợp lệ',
-        'Menu Đăng ký chấm công Mobile: NV đăng ký thiết bị; quản lý duyệt thiết bị',
-        'NV mở app → Chấm công Mobile để vào/ra',
-        'Quản lý duyệt log tại Duyệt chấm công (nếu bật quy trình duyệt)',
+        'Thiết lập SBOX › Nhân sự & chấm công › Chấm công Mobile › tab Cài đặt: bật Khuôn mặt / GPS / Wi-Fi công ty; bật nhiều cách thì chọn «Chỉ cần đạt 1» hoặc «Phải đạt tất cả»',
+        'Tab Vị trí: thêm vị trí (địa chỉ, bán kính, MAC router WiFi – BSSID). WiFi mesh nhiều cục phát dễ báo «không khớp» — nên dùng GPS',
+        'Nhân viên: Chấm công › Đăng ký chấm công Mobile → chọn vị trí → chụp 5 góc mặt → «Gửi đăng ký»; quản lý duyệt ở tab «Cần duyệt» (hoặc cấp quyền bằng QR)',
+        'NV mở app → Chấm công › Chấm công Mobile: QUÉT MẶT / CHẤM VÀO / CHẤM RA',
+        'Lượt chấm chờ duyệt: Chấm công › Duyệt chấm công › lọc «Chấm Mobile»; «Duyệt N bản tin cậy» để duyệt nhanh. Chỉ bản đã duyệt mới vào Chấm công thô',
         'Có thể dùng song song máy ZK + mobile cho cùng cửa hàng',
       ],
       tip:
-          'Bật WiFi hoặc GPS cửa hàng để hạn chế chấm ngoài vùng. Xem thêm Nâng cao → Bản đồ / chấm ngoài hiện trường.',
+          'Báo «Thiết bị chưa được duyệt hoặc đã bị thu hồi»: quản lý duyệt lại máy. Mỗi tài khoản dùng 1 điện thoại — đổi máy qua «Gửi yêu cầu đổi máy».',
       accent: Color(0xFF00838F),
       shots: [
         GuideShot('mobile-attendance-1', afterBullet: 1, caption: '① Bật cách xác thực: khuôn mặt, GPS, Wi-Fi công ty. ② Khi bật nhiều cách: chỉ cần đạt 1 hay phải đạt tất cả.'),
         GuideShot('mobile-attendance-2', afterBullet: 2, caption: '① Thêm vị trí chấm công. ② Mỗi vị trí có địa chỉ, bán kính, Wi-Fi và số nhân viên được chấm.'),
         GuideShot('mobile-attendance-3', afterBullet: 3, caption: '① Cấp quyền cho điện thoại nhân viên. ② Máy mới đăng ký hiện «Chờ duyệt». ③ Bấm dấu xanh để duyệt, dấu đỏ để từ chối.'),
+      ],
+    ),
+    const LandingUsageGuideStep(
+      id: 'attendance_correction',
+      icon: Icons.edit_calendar_rounded,
+      title: 'Sửa công, bổ sung công & quên chấm công',
+      desc:
+          'Nhân viên quên chấm hoặc chấm sai giờ: bổ sung qua phiếu có duyệt, không xóa log máy. Phiếu duyệt xong tự cập nhật giờ chấm và tính lại phạt.',
+      bullets: [
+        'Bật tính năng: Thiết lập SBOX › Cửa hàng › Tham số hệ thống › «Chấm công bù & quy trình duyệt» → «Cho phép xin sửa / bổ sung công», chọn 1 / 2 / 3 cấp duyệt',
+        'Quản lý bổ sung: Báo cáo nhân sự › Tổng hợp chấm công theo ca → bấm ô thiếu («Bấm để bổ sung chấm công thiếu») → «Xác nhận» hoặc «Thêm công và phạt». Tài khoản quản trị / có quyền duyệt được áp dụng ngay',
+        'Nhân viên gửi yêu cầu: trên Chấm công Mobile, lượt chấm bị từ chối → «Giải trình» → «Yêu cầu mới»: chọn ngày (trong 30 ngày gần nhất) và loại — «Thêm mới» (giờ vào, giờ ra hoặc cả hai), «Chỉnh sửa» (giờ đã chấm + giờ đúng), «Xóa» (giờ đã chấm) — rồi nhập lý do',
+        'Duyệt: Chấm công › Duyệt chấm công → lọc «Sửa / bổ sung công» → tích nhiều phiếu để Duyệt / Từ chối cùng lúc',
+        'Mở từng phiếu xem giờ Trước / Sau khi duyệt, lý do, số lần trong tháng, luồng duyệt; từ chối phải ghi lý do',
+        'Duyệt đủ cấp: giờ chấm được thêm / sửa, ô giờ có dấu «đã sửa», phiếu phạt tự động của ngày đó bị hủy và tính lại. Muốn vẫn phạt quên chấm: bấm «Duyệt + phạt»',
+        'Phạt quên chấm tự động: Thiết lập SBOX › Mức phạt › «Quên chấm công» (0 = không phạt). Ngày có lịch mà chỉ có giờ vào hoặc chỉ giờ ra sinh phiếu chờ duyệt, tự duyệt sau số giờ đã đặt',
+      ],
+      tip:
+          'Ô thiếu chấm hàng loạt thường do chọn sai «Cách chấm công» — sửa trong Thiết lập lương thay vì bổ sung từng ngày.',
+      accent: Color(0xFF5E35B1),
+      shots: [
+        GuideShot('attendance-correction-1', afterBullet: 1, caption: '① Cho phép nhân viên xin sửa / bổ sung công. ② Số cấp duyệt: 1 cấp (quản lý trực tiếp) đến 3 cấp.'),
+        GuideShot('attendance-correction-2', afterBullet: 4, caption: '① Lọc «Sửa / bổ sung công». ② «Chọn tất cả» hoặc tích từng phiếu để duyệt nhiều phiếu một lần. ③ Mỗi phiếu: nhân viên, giờ xin bổ sung, lý do.'),
+        GuideShot('attendance-correction-3', afterBullet: 6, caption: '① Giờ chấm trước và sau khi duyệt. ② Mức phạt áp dụng nếu chọn «Duyệt + phạt». ③ «Từ chối» (ghi lý do), «Duyệt + phạt» hoặc «Duyệt».'),
+      ],
+    ),
+    LandingUsageGuideStep(
+      id: 'raw_attendance',
+      icon: Icons.list_alt_rounded,
+      title: 'Chấm công thô & duyệt chấm công',
+      desc:
+          'Chấm công thô là toàn bộ lượt chấm từ máy chấm công và điện thoại, chưa ghép ca. Duyệt chấm công gom các lượt chấm Mobile ngoài vị trí và yêu cầu sửa / bổ sung công cần quản lý xem.',
+      bullets: [
+        'Bước 1 — Chấm công › Chấm công thô: chọn «Thời gian» (Tuần này, Tháng này…), lọc «Thiết bị», «Kiểu xác thực», «Nhân viên»',
+        'Bước 2 — Mỗi dòng: ngày giờ chấm, mã / tên nhân viên, tên trong máy, máy chấm, kiểu xác thực (vân tay, khuôn mặt, thẻ, thủ công)',
+        'Bước 3 — Thẻ «Chưa gắn nhân viên» lớn hơn 0: lượt chấm chưa vào bảng công — liên kết mã trên máy với hồ sơ ở Chấm công › Nhân sự chấm công',
+        'Bước 4 — «Chấm công thủ công» để nhập tay lượt chấm (máy hỏng, quên chấm); «Excel» để xuất danh sách',
+        'Bước 5 — Chấm công › Duyệt chấm công: tab «Cần duyệt» gom chấm Mobile ngoài vị trí và yêu cầu sửa / bổ sung công; lọc Tất cả / Chấm Mobile / Sửa – bổ sung công và theo mức rủi ro',
+        'Bước 6 — Chạm từng yêu cầu để xem lý do, ảnh hiện trường, khoảng cách, khớp khuôn mặt → Duyệt hoặc Từ chối; tích nhiều dòng để duyệt hàng loạt',
+        'Bước 7 — «Duyệt N bản tin cậy» duyệt nhanh các lượt chấm đạt ngưỡng tin cậy; «Cài đặt duyệt» đặt ngưỡng tự duyệt',
+      ],
+      tip:
+          'Không xóa log máy để sửa công — dùng phiếu sửa / bổ sung công cho quản lý duyệt, lịch sử chấm vẫn giữ nguyên.',
+      accent: SboxColors.brand600,
+      keywords: ['chấm công thô', 'log chấm công', 'duyệt chấm công', 'chấm ngoài vị trí', 'chấm công thủ công', 'chưa gắn nhân viên', 'kiểu xác thực'],
+      shots: [
+        GuideShot('raw-attendance-1', afterBullet: 1, caption: '① Bộ lọc: thời gian, thiết bị, kiểu xác thực, nhân viên. ② Kiểu xác thực của từng lượt chấm (vân tay, khuôn mặt…). ③ Chấm công thủ công khi máy hỏng / quên chấm.'),
+        GuideShot('raw-attendance-2', afterBullet: 5, caption: '① Lọc yêu cầu: tất cả, chấm Mobile, sửa / bổ sung công. ② Một yêu cầu bổ sung công kèm lý do — chạm để xem và duyệt. ③ Duyệt nhanh các bản tin cậy.'),
       ],
     ),
     const LandingUsageGuideStep(
@@ -915,9 +1044,9 @@ class LandingUsageGuide {
       desc:
           'Cấp đăng nhập app/web cho quản lý và nhân viên; gán vai trò để mỗi người chỉ thấy đúng chức năng.',
       bullets: [
-        'Cài đặt → Tài khoản → Thêm tài khoản',
+        'Thiết lập SBOX › Người dùng & bảo mật › Tài khoản nhân viên → «Thêm tài khoản»',
         'Liên kết tài khoản với hồ sơ nhân sự tương ứng',
-        'Cài đặt → Phân quyền: gán vai trò (Admin cửa hàng, Kế toán, NV…)',
+        'Chọn vai trò (Quản lý, Kế toán, Thu ngân…); chỉnh quyền chi tiết ở Thiết lập SBOX › Người dùng & bảo mật › Phân quyền',
         'NV đăng nhập: mã cửa hàng + tài khoản được cấp',
         'Không dùng chung một mật khẩu cho cả cửa hàng',
         'Thu hồi / khóa tài khoản khi NV nghỉ việc',
@@ -931,6 +1060,30 @@ class LandingUsageGuide {
         GuideShot('employee-account-3', afterBullet: 3, caption: '① Chọn vai trò (Quản lý, Kế toán, Thu ngân…). ② Với thu ngân / order: chọn khu vực bán hàng được xem.'),
       ],
     ),
+    LandingUsageGuideStep(
+      id: 'employee_self_service',
+      icon: Icons.phone_iphone_rounded,
+      title: 'Dành cho nhân viên: dùng app',
+      desc:
+          'Nhân viên đăng nhập app SBOX bằng mã cửa hàng + tài khoản được cấp: chấm công trên điện thoại, xem lịch ca, gửi đơn phép / tăng ca / sửa công / đổi ca, xem phiếu lương và nhận thông báo duyệt.',
+      bullets: [
+        'Bước 1 — Đăng nhập: mã cửa hàng + email / tên đăng nhập + mật khẩu do quản lý cấp (có thể bật đăng nhập bằng vân tay / Face ID của điện thoại)',
+        'Bước 2 — Chấm công trên app (nếu cửa hàng bật Chấm công Mobile): mở Chấm công, xác thực khuôn mặt / GPS / WiFi theo cài đặt; chấm ngoài vị trí thì nhập lý do để quản lý duyệt',
+        'Bước 3 — Ca làm việc › Lịch của tôi: ca hôm nay, ca cả tuần, tổng giờ; nút ba chấm trên từng ngày để đăng ký ca, xin nghỉ phép, đổi ca với đồng nghiệp',
+        'Bước 4 — Gửi đơn: Nghỉ phép, Tăng ca, Sửa / bổ sung công (quên chấm) — theo dõi trạng thái chờ duyệt / đã duyệt ngay trong app',
+        'Bước 5 — Phiếu lương: xem thực lĩnh kỳ gần nhất, kỳ chưa thanh toán; chạm một kỳ để xem chi tiết thu nhập (lương, phụ cấp, thưởng, tăng ca) và khấu trừ (BHXH, BHYT, BHTN, thuế, phạt); «Xem bảng chấm công kỳ lương» để đối chiếu công',
+        'Bước 6 — Thông báo: chuông báo khi đơn được duyệt / từ chối, có phiếu lương mới, đồng nghiệp xin đổi ca, bài truyền thông bắt buộc đọc',
+      ],
+      tip:
+          'Nhân viên chỉ thấy dữ liệu của chính mình. Sai công thì gửi phiếu sửa công trước ngày chốt lương để kịp vào bảng lương.',
+      accent: SboxColors.brand600,
+      keywords: ['nhân viên', 'app nhân viên', 'xem phiếu lương', 'lịch ca của tôi', 'gửi đơn', 'chấm công điện thoại', 'đăng nhập'],
+      shots: [
+        GuideShot('employee-self-service-3', afterBullet: 3, caption: '① Ca hôm nay. ② Tổng ca, giờ làm, ngày nghỉ trong tuần. ③ Nút ba chấm trên từng ngày: đăng ký ca, xin nghỉ, đổi ca.'),
+        GuideShot('employee-self-service-1', afterBullet: 5, caption: '① Thực lĩnh kỳ gần nhất. ② Số kỳ chưa thanh toán. ③ Phiếu lương từng kỳ: trạng thái đã chốt / thanh toán — chạm để xem chi tiết.'),
+        GuideShot('employee-self-service-2', afterBullet: 5, caption: '① Thu nhập: lương cơ bản, phụ cấp, thưởng, tăng ca. ② Khấu trừ: BHXH, BHYT, BHTN, thuế TNCN, khấu trừ khác. ③ Xem bảng chấm công của kỳ lương.'),
+      ],
+    ),
     const LandingUsageGuideStep(
       id: 'penalty_ticket',
       icon: Icons.receipt_long_rounded,
@@ -938,7 +1091,7 @@ class LandingUsageGuide {
       desc:
           'Hệ thống có thể tự tạo phiếu phạt từ chấm công theo quy tắc đã cấu hình, hoặc tạo thủ công. Phiếu dùng để theo dõi và thu phạt.',
       bullets: [
-        'Cài đặt → Phạt: bậc phút đi trễ / về sớm và số tiền từng bậc; phạt tái phạm',
+        'Thiết lập SBOX › Lương & chính sách › Mức phạt: bậc phút đi trễ / về sớm và số tiền từng bậc; phạt tái phạm',
         'Khi NV chấm trễ vượt ân hạn ca: hệ thống tạo Phiếu phạt (Loại đi trễ)',
         'Mode chỉ chấm vào: vẫn phạt trễ; không phạt «quên chấm ra»',
         'Tài chính nhân sự → tab Cần xử lý / Thưởng & phạt: xem, duyệt, hủy, từ chối phiếu phạt',
@@ -1027,20 +1180,20 @@ class LandingUsageGuide {
           'Quy trình cuối kỳ để kiểm tra chấm công rồi chốt lương lần đầu — làm đúng thứ tự để giảm sai sót khi mới triển khai.',
       bullets: [
         'Bước 1 — Kiểm tra Chấm công thô: đủ log, đúng NV, không trùng bất thường',
-        'Bước 2 — Mở Tổng hợp theo ca / Tổng hợp chấm công: kiểm tra công, phút trễ/sớm, thiếu chấm',
-        'Bước 3 — Duyệt xong nghỉ phép, đổi ca, phiếu thưởng / phạt / ứng trong kỳ',
-        'Bước 4 — Vào Tính lương / Tổng hợp lương → chọn kỳ → tải lại dữ liệu',
+        'Bước 2 — Báo cáo nhân sự › Tổng hợp chấm công theo ca: kiểm tra công, phút trễ / sớm, ô thiếu chấm (bấm ô thiếu để bổ sung)',
+        'Bước 3 — Duyệt hết sửa công, nghỉ phép, đổi ca, phiếu thưởng / phạt / ứng trong kỳ',
+        'Bước 4 — Báo cáo nhân sự › Tổng hợp lương → chọn tháng, chi nhánh (bảng lương tự tính khi mở)',
         'Bước 5 — Rà từng NV: công, phụ cấp, BHXH, thuế, ứng, thưởng, phạt',
-        'Bước 6 — Xuất Excel / in phiếu lương; gửi NV kiểm tra trên app',
-        'Bước 7 — Chỉ chỉnh sửa lịch/ca trước khi chốt — sau chốt nên khóa kỳ nếu có',
+        'Bước 6 — Xuất Excel nếu cần gửi kế toán',
+        'Bước 7 — Bấm «Chốt lương» → chốt NV đã chọn hoặc tất cả → xác nhận. Nhân viên tự nhận thông báo phiếu lương (app, Zalo nếu bật) và xem ở menu Phiếu lương',
       ],
       tip:
-          'Tháng đầu nên chấm thử 3–5 ngày rồi xem Tổng hợp theo ca trước khi tin tưởng tự động hoàn toàn.',
+          'Chốt lương không khóa chấm công, phép, lịch và chưa có nút mở chốt: sửa dữ liệu sau khi chốt thì bấm «Chốt lương» lại để cập nhật phiếu (phiếu đã trả sẽ báo chênh lệch).',
       accent: Color(0xFFC62828),
       shots: [
         GuideShot('first-payroll-1', afterBullet: 4, caption: '① Chọn kỳ lương (từ ngày đến ngày). ② Lọc theo phòng ban hoặc nhân viên.'),
         GuideShot('first-payroll-2', afterBullet: 5, caption: '① Rà từng nhân viên: công, giờ, tăng ca, thu nhập, khấu trừ. ② Số thực nhận cuối cùng.'),
-        GuideShot('first-payroll-3', afterBullet: 7, caption: '① Kiểm tra xong thì bấm «Chốt lương» để khóa kỳ.'),
+        GuideShot('first-payroll-3', afterBullet: 7, caption: '① Kiểm tra xong thì bấm «Chốt lương» để tạo phiếu lương cho nhân viên.'),
       ],
     ),
     const LandingUsageGuideStep(
@@ -1069,6 +1222,30 @@ class LandingUsageGuide {
         GuideShot('reports-2', afterBullet: 10, caption: '① Xuất Excel (điện thoại: trong nút thao tác góc dưới). ② Chuyển xem «Chi tiết» hoặc «Theo NV». ③ Từng phiếu: nhân viên, ngày, loại, trạng thái.'),
       ],
     ),
+    LandingUsageGuideStep(
+      id: 'hr_analytics',
+      icon: Icons.analytics_rounded,
+      title: 'Báo cáo phân tích & báo cáo đi đường',
+      desc:
+          'Báo cáo phân tích gom các báo cáo chuyên sâu: chuyên cần, vắng không phép, chấm bất thường, phép còn lại, độ phủ ca, KPI, điều hành tháng. Báo cáo đi đường tổng hợp giờ di chuyển của nhân viên chấm «bắt đầu đi / đến điểm».',
+      bullets: [
+        'Bước 1 — Báo cáo nhân sự › Báo cáo phân tích: tìm nhanh tên báo cáo hoặc chọn theo nhóm Chấm công, Nghỉ phép & ca, Hiệu suất, Tổng hợp, Tài chính nhân sự',
+        'Bước 2 — Mở một báo cáo (vd «Tỷ lệ chuyên cần»): chọn kỳ (tháng / khoảng ngày / năm) ở góc trên',
+        'Bước 3 — Xem thẻ tổng quan, biểu đồ xếp hạng theo nhân viên, bảng chi tiết (lọc theo tên, mã, phòng ban, sắp xếp từng cột); xuất Excel / ảnh PNG',
+        'Bước 4 — «Báo cáo điều hành tháng»: nhân sự, chấm công, chi phí trong tháng trên một trang cho chủ cửa hàng',
+        'Bước 5 — Báo cáo nhân sự › Báo cáo đi đường: chọn kỳ (Hôm nay … Tháng trước, Tùy chọn khác), lọc Đủ cặp / Thiếu chấm, tìm nhân viên',
+        'Bước 6 — Đọc thẻ: Chuyến đủ cặp, Tổng giờ (giờ tính lương chỉ gồm lượt đã duyệt), Thiếu chấm, Nhân viên; «Thêm đi đường» để nhập bù lượt đi đường',
+      ],
+      tip:
+          'Giờ đi đường chỉ tính lương khi cặp bắt đầu đi / đến điểm đã được duyệt — duyệt ở Chấm công › Duyệt chấm công.',
+      accent: SboxColors.brand600,
+      keywords: ['báo cáo phân tích', 'tỷ lệ chuyên cần', 'vắng không phép', 'báo cáo điều hành', 'báo cáo đi đường', 'giờ di chuyển'],
+      shots: [
+        GuideShot('hr-analytics-1', afterBullet: 1, caption: '① Tìm nhanh báo cáo. ② Nhóm Chấm công — mở «Tỷ lệ chuyên cần». ③ Báo cáo điều hành tháng.'),
+        GuideShot('hr-analytics-2', afterBullet: 3, caption: '① Chọn tháng báo cáo. ② Xếp hạng tỷ lệ chuyên cần theo nhân viên. ③ Bảng chi tiết: ngày có mặt, đi trễ, nghỉ phép, vắng.'),
+        GuideShot('hr-analytics-3', afterBullet: 5, caption: '① Chọn kỳ báo cáo. ② Tổng giờ di chuyển và giờ tính lương (đã duyệt). ③ Thêm lượt đi đường.'),
+      ],
+    ),
     const LandingUsageGuideStep(
       id: 'daily_ops',
       icon: Icons.today_rounded,
@@ -1081,8 +1258,8 @@ class LandingUsageGuide {
         'Cuối ca (nếu kiêm thu ngân): đối soát quỹ Thu chi với tiền mặt ngăn kéo — chi tiết POS ở tab POS',
         'Cuối tuần: rà Tổng hợp theo ca vài ngày; sửa lịch/đổi ca trước khi phát sinh phạt oan',
         'Trước chốt lương 2–3 ngày: duyệt hết phép, OT, thưởng, phạt, ứng trong kỳ',
-        'Ngày chốt: Tổng hợp theo ca → Tính lương → gửi phiếu lương trên app cho NV kiểm tra',
-        'Sau chốt: hạn chế sửa lịch/ca của kỳ đã khóa; phát sinh kỳ sau ghi vào tháng mới',
+        'Ngày chốt: Tổng hợp theo ca → Tổng hợp lương → «Chốt lương» (phiếu lương tự gửi cho NV)',
+        'Sau chốt: hạn chế sửa lịch / công của kỳ đã chốt (hệ thống không khóa); có sửa thì chốt lại',
       ],
       tip:
           'Một cửa hàng nên có 1 người «chốt kỳ» (kế toán/QL) và 1 người duyệt phép hàng ngày — tránh dồn cuối tháng.',
@@ -1097,13 +1274,14 @@ class LandingUsageGuide {
       bullets: [
         'Đi trễ bị phạt dù vào sớm vài phút: tăng ân hạn trên Thiết lập ca, không sửa từng phiếu',
         'Báo «Thiếu chấm» / không tính công: sai kiểu chấm công — cửa hàng chỉ chấm 1 lần chọn «Chấm vào (đủ ca»)',
-        'NV quên chấm: menu Sửa giờ / Báo quên chấm → quản lý duyệt; không xóa log máy',
-        'Máy ZK Offline: kiểm tra mạng máy + SN trên Cài đặt → Máy chấm công; gọi 0973 024 042 nếu vẫn lỗi',
+        'NV quên chấm: bổ sung ở Tổng hợp chấm công theo ca (bấm ô thiếu) hoặc duyệt yêu cầu ở Duyệt chấm công; không xóa log máy',
+        'Máy ZK Offline: kiểm tra mạng máy + SN ở Thiết lập SBOX › Máy chấm công; gọi 0973 024 042 nếu vẫn lỗi',
         'Log hiện PIN lạ: mã trên máy ≠ mã hồ sơ — đồng bộ lại Nhân sự chấm công',
         'Quên mật khẩu: màn đăng nhập → Quên mật khẩu (cần email đã đăng ký)',
         'NV nghỉ việc: đổi trạng thái nghỉ + khóa tài khoản app; không xóa hồ sơ nếu đã có công',
         'Bảng lương lệch: chưa duyệt phép/thưởng/ứng, hoặc đổi ca sau khi đã có phiếu phạt',
-        'Không thấy menu: tài khoản thiếu phân quyền — Admin vào Cài đặt → Phân quyền',
+        'Không thấy menu: tài khoản thiếu quyền hoặc gói chưa có chức năng — Admin vào Thiết lập SBOX › Phân quyền. Trên máy tính, Ca làm việc, Nghỉ phép, Nhân sự chấm công… mở từ Trang chủ hoặc ô tìm chức năng',
+        'Đã duyệt đơn tăng ca nhưng lương không có tiền tăng ca: tiền tăng ca tính theo giờ chấm vượt ngưỡng «Tăng ca trước / sau ca» của ca, không theo đơn',
       ],
       tip:
           'Sửa gốc (ca, mode chấm, ân hạn) trước khi xóa hàng loạt phiếu phạt — tránh phạt lại ngày hôm sau.',
@@ -1181,13 +1359,34 @@ class LandingUsageGuide {
       ],
     ),
     LandingUsageGuideStep(
+      id: 'overtime',
+      icon: Icons.more_time_rounded,
+      title: 'Tăng ca: đăng ký, duyệt và cách tính tiền',
+      desc:
+          'Nhân viên xin tăng ca, quản lý duyệt. Lưu ý: tiền tăng ca trên bảng lương tính theo giờ chấm công so với ngưỡng của ca, không theo đơn đã duyệt.',
+      bullets: [
+        'Mở: ô «Tăng ca» trên Trang chủ hoặc nút «Mở quản lý tăng ca» trên Dashboard (chưa có trong menu)',
+        'Nhân viên: «Đăng ký tăng ca» → chọn ngày (tối đa 90 ngày tới), giờ bắt đầu, giờ kết thúc (HH:mm), lý do → «Gửi yêu cầu»',
+        'Quản lý: tab «Chờ duyệt» → dấu ✓ để duyệt, ✗ để từ chối (ghi lý do)',
+        'Tiền tăng ca tính theo GIỜ CHẤM vượt ngưỡng «Tăng ca trước ca / Tăng ca sau ca» của ca, hoặc toàn bộ giờ của ca loại «Tăng ca» — đơn tăng ca chỉ để xin phép và theo dõi',
+        'Hệ số tăng ca (ngày thường / nghỉ tuần / lễ): Thiết lập lương › «Chính sách lương»; cách trả (theo luật / cố định / không tính): khối «Tăng ca» của từng nhân viên',
+        'Chỉ muốn trả tăng ca có kế hoạch: tạo ca loại «Tăng ca» và xếp ca đó cho người được duyệt; đặt ngưỡng «Tăng ca sau ca» của ca thường đủ lớn',
+      ],
+      tip: 'Nhân viên ra muộn quá ngưỡng «Tăng ca sau ca» vẫn được tính tăng ca dù không có đơn — tăng ngưỡng trên ca nếu không muốn trả.',
+      accent: Color(0xFFEF6C00),
+      shots: [
+        GuideShot('overtime-1', afterBullet: 2, caption: '① Chọn ngày tăng ca. ② Giờ bắt đầu và kết thúc (HH:mm). ③ Lý do. ④ Bấm «Gửi yêu cầu».'),
+        GuideShot('overtime-2', afterBullet: 3, caption: '① Tab «Chờ duyệt». ② Dấu xanh để duyệt, dấu đỏ để từ chối.'),
+      ],
+    ),
+    LandingUsageGuideStep(
       id: 'holidays',
       icon: Icons.celebration_rounded,
       title: 'Ngày lễ & ngày nghỉ đặc biệt',
       desc:
           'Khai báo ngày lễ để tính công/OT ngày lễ và loại trừ khỏi ngày công chuẩn khi cấu hình tương ứng.',
       bullets: [
-        'Cài đặt → Ngày lễ (hoặc mục lịch nghỉ lễ trên hệ thống)',
+        'Thiết lập SBOX › Nhân sự & chấm công › Ngày lễ',
         'Thêm ngày lễ cố định / lễ phát sinh trong năm',
         'Kiểm tra hệ số OT ngày lễ trong thiết lập lương / chính sách OT',
         'Đối chiếu Tổng hợp theo ca vào các ngày lễ đã làm việc',
@@ -1206,12 +1405,13 @@ class LandingUsageGuide {
       desc:
           'Nhân viên tạo đơn nghỉ; quản lý duyệt. Phép được trừ quỹ phép và phản ánh vào công tùy loại phép.',
       bullets: [
-        'Bước 1 — NV vào menu Nghỉ phép → tạo đơn (loại phép, từ ngày–đến ngày, lý do)',
+        'Bước 1 — NV vào Chấm công › Nghỉ phép → «Tạo đơn» (hoặc Ca làm việc › Lịch của tôi › ⋮ › Xin nghỉ phép): loại phép, từ ngày–đến ngày, lý do',
         'Bước 2 — Gửi đơn; quản lý nhận thông báo trên web/app',
         'Bước 3 — Quản lý duyệt / từ chối / hủy đơn',
         'Bước 4 — Kiểm tra số ngày phép còn lại (nếu cấu hình quỹ phép)',
         'Bước 5 — Đối chiếu Tổng hợp chấm công: phép đã duyệt không tính nghỉ không phép',
         'Bước 6 — Xem Báo cáo → Báo cáo nghỉ phép; mở hướng dẫn pháp lý trên màn Nghỉ phép khi cần',
+        'Thiết lập phép năm: Thiết lập SBOX › Lương & chính sách › Phép năm (số ngày, thâm niên, chuyển phép, tiền phép); cuối năm bấm «Chốt phép năm»',
       ],
       tip: 'Phiếu từ chối hoặc hủy không tính vào báo cáo nghỉ phép.',
       accent: Color(0xFF0284C7),
@@ -1228,9 +1428,9 @@ class LandingUsageGuide {
       desc:
           'Cấu hình tham gia BHXH/BHYT/BHTN và thuế thu nhập cá nhân để bảng lương trừ đúng phần bắt buộc.',
       bullets: [
-        'Cài đặt → Bảo hiểm: mức đóng, tỷ lệ công ty / người lao động',
-        'Cài đặt → Thuế TNCN: biểu thuế / giảm trừ (theo cấu hình cửa hàng)',
-        'Người phụ thuộc: Cài đặt → Thuế TNCN → mục «Người phụ thuộc của nhân viên»; tham gia BH bật trên Thiết lập lương từng NV',
+        'Thiết lập SBOX › Lương & chính sách › Bảo hiểm: tỷ lệ người lao động / doanh nghiệp, lương cơ sở, vùng',
+        'Thiết lập SBOX › Lương & chính sách › Thuế TNCN: biểu thuế lũy tiến, giảm trừ gia cảnh',
+        'Người phụ thuộc: Thuế TNCN › mục «Người phụ thuộc của nhân viên»; mức đóng BHXH chọn trên Thiết lập lương từng NV',
         'Kiểm tra cột BH và thuế trên Tổng hợp lương sau khi cấu hình',
       ],
       tip: 'Đối chiếu với kế toán cửa hàng trước kỳ lương đầu tiên có trừ BH/thuế.',
@@ -1288,8 +1488,8 @@ class LandingUsageGuide {
       desc:
           'Quy tắc phạt đi trễ, về sớm, quên chấm, nghỉ không phép — kết hợp ân hạn ca và bậc tiền phạt.',
       bullets: [
-        'Cài đặt → Phạt: các bậc phút và số tiền; phạt quên chấm / nghỉ không phép',
-        'Ân hạn phút nằm trên từng ca (Thiết lập ca), không chỉ ở màn Phạt',
+        'Thiết lập SBOX › Lương & chính sách › Mức phạt: các bậc phút và số tiền; phạt quên chấm / nghỉ không phép',
+        'Phút miễn trễ / miễn về sớm nằm trên từng ca (Ca làm việc), không ở màn Mức phạt',
         'Phiếu tự động sinh khi có log vi phạm (xem Tài chính nhân sự → tab Thưởng & phạt, lọc «Phiếu phạt tự động»)',
         'Mode chỉ chấm vào/ra: hệ thống bỏ ForgotCheck một phía — tránh phạt oan',
         'Thu phạt: khi duyệt chọn trừ lương hoặc tiền mặt (tự ghi Sổ quỹ); theo dõi Báo cáo phạt',
@@ -1308,7 +1508,7 @@ class LandingUsageGuide {
       desc:
           'Nhập sản lượng theo sản phẩm, ca hoặc nhân viên để tính lương khoán.',
       bullets: [
-        'Cài đặt → Lương sản phẩm: nhóm SP, đơn giá, bậc thang',
+        'Thiết lập SBOX › Lương & chính sách › Lương sản phẩm: nhóm SP, đơn giá, bậc thang',
         'Menu: Sản lượng → nhập theo ngày/ca/NV',
         'Tổng hợp lương tự cộng phần lương sản phẩm',
         'Đối soát sản lượng trước khi chốt kỳ',
@@ -1473,7 +1673,7 @@ class LandingUsageGuide {
       desc:
           'Cấu hình thông báo đẩy và kênh nhắc (duyệt đơn, chấm công, truyền thông) để quản lý không bỏ sót.',
       bullets: [
-        'Cài đặt → Thông báo: bật / tắt từng loại hoặc cả nhóm (tự lưu)',
+        'Thiết lập SBOX › Tích hợp & thông báo › Thông báo: bật / tắt từng loại hoặc cả nhóm (tự lưu)',
         'NV bật thông báo trên điện thoại cho app SBOX',
         'Theo dõi chuông thông báo trên web/app: duyệt phép, đổi ca, phiếu chờ',
         'Dùng Truyền thông khi cần broadcast toàn cửa hàng',
@@ -1484,6 +1684,51 @@ class LandingUsageGuide {
         GuideShot('notifications-1', afterBullet: 1, caption: '① Bật / tắt cả một nhóm thông báo. ② Hoặc tắt từng loại (vd máy chấm công mất kết nối); tự lưu khi bật / tắt.'),
         GuideShot('notifications-2', afterBullet: 3, caption: '① Lọc tất cả / chưa đọc / đã đọc, hoặc theo loại. ② Thông báo chưa đọc có chấm đỏ; bấm «Xem chi tiết» để mở và duyệt.'),
       ],
+    ),
+    LandingUsageGuideStep(
+      id: 'zalo_bot',
+      icon: Icons.forum_rounded,
+      title: 'Zalo bot: gửi thông báo cho nhân viên qua Zalo',
+      desc:
+          'Phiếu lương, phiếu phạt, kết quả duyệt đơn, lịch ca… gửi thêm qua Zalo cho nhân viên đã liên kết. Thông báo trong app vẫn gửi như cũ.',
+      bullets: [
+        'Quản trị: vào bot.zapps.me (Zalo Bot Platform), đăng nhập Zalo, tạo bot cho cửa hàng (miễn phí)',
+        'Thiết lập SBOX › Tích hợp & thông báo › Zalo bot: dán «Token bot» và «Link mở bot» (https://…) → Lưu',
+        'Kiểm tra «Nhận tin từ Zalo (webhook)» báo «Hoạt động»; báo lỗi thì bấm «Đăng ký lại»',
+        'Bật «Bật gửi qua Zalo», chọn «Nhóm thông báo» (lương, phạt, chấm công, phép, tăng ca, ca làm, phê duyệt…); bật «Ẩn số tiền» nếu không muốn hiện tiền trong tin',
+        'Nhân viên: Cài đặt › Liên kết Zalo → «Lấy mã liên kết» (mã 6 số, hết hạn sau 15 phút) → «Mở bot Zalo» → gửi mã cho bot',
+        'Bot trả lời «Đã liên kết» là xong; danh sách «Nhân viên đã liên kết» hiện trên màn Zalo bot, bấm «Gửi tin thử cho tôi» để kiểm tra',
+        'Hủy liên kết: nhân viên gửi «HUY» cho bot, hoặc quản trị bấm biểu tượng hủy liên kết cạnh tên',
+      ],
+      tip: 'Dòng «Liên kết Zalo» trong Cài đặt chỉ hiện khi cửa hàng đã bật bot. Token sai hoặc hết hạn: tạo lại token trên bot.zapps.me rồi dán lại.',
+      accent: Color(0xFF0068FF),
+      shots: [
+        GuideShot('zalo-bot-1', afterBullet: 2, caption: '① Làm theo 3 bước tạo bot trên bot.zapps.me. ② Dán token bot và link mở bot rồi bấm Lưu.'),
+        GuideShot('zalo-bot-2', afterBullet: 4, caption: '① Webhook «Hoạt động» là nhân viên liên kết được. ② Bật gửi qua Zalo và chọn nhóm thông báo.'),
+        GuideShot('zalo-bot-3', afterBullet: 5, caption: '① Mã liên kết 6 số (hết hạn sau 15 phút). ② Bấm «Mở bot Zalo» rồi gửi mã cho bot.'),
+      ],
+    ),
+    LandingUsageGuideStep(
+      id: 'ai_assistant',
+      icon: Icons.auto_awesome,
+      title: 'Trợ lý ảo AI: hỏi, ra lệnh bằng chữ hoặc giọng nói',
+      desc:
+          'Trợ lý đọc báo cáo bán hàng và nhân sự đúng quyền của bạn để trả lời, và làm thay việc hằng ngày: lập phiếu, xin nghỉ, báo giá, đặt bàn, duyệt đơn… Mọi thao tác chỉ ghi khi bạn xác nhận.',
+      bullets: [
+        'Mở: biểu tượng ✨ trên thanh trên cùng (điện thoại / máy tính) hoặc POS › Thêm › «Trợ lý ảo»',
+        'Hỏi số liệu: «Doanh thu tuần này so với tuần trước?», «Ai đi trễ nhiều nhất tháng này?», «Món nào bán chậm?»',
+        'Ra lệnh: «Phạt An 50k đi trễ hôm nay», «Mai tôi xin nghỉ ca tối», «Báo giá cho chị Lan 10 thùng Coca», «Đặt bàn 5 tối nay 7 giờ cho anh Nam, 6 người», «Thêm nhân viên mới Trần Thị Mai, bếp»',
+        'Trợ lý hiện THẺ chờ xác nhận: kiểm tra từng dòng rồi bấm «Xác nhận» (hoặc «Bỏ»); lưu xong có «Hoàn tác» trong ít phút',
+        'Thẻ xóa / hủy chứng từ màu đỏ: hỏi lại một lần nữa và không hoàn tác được',
+        'Nói thay gõ: bấm micro, nói xong im ~2 giây là tự gửi; câu trả lời được đọc to (bật / tắt bằng nút loa)',
+        'Rảnh tay: menu ⋮ › «Rảnh tay» — đọc xong tự nghe tiếp; nói «xác nhận», «bỏ», «hoàn tác», «xác nhận thẻ 2»; thẻ xóa / hủy phải nói «chắc chắn xác nhận»; nói «dừng» để tắt',
+        'Hỏi cách dùng: «Cách kết nối hóa đơn điện tử?», «Sao máy in bếp không in?» — trợ lý trả lời theo hướng dẫn này và mở đúng bước',
+        'Nhật ký: menu ⋮ › «Nhật ký thao tác AI» xem mọi phiếu trợ lý đã lưu (ai ra lệnh, lúc nào)',
+        'Quản trị: Thiết lập SBOX › Trợ lý AI — khóa Gemini riêng của cửa hàng, «Hồ sơ cửa hàng cho trợ lý», «Bản tin sáng tự động»',
+      ],
+      tip:
+          'Trợ lý chỉ thấy và làm những gì tài khoản bạn được phân quyền. Không có khóa AI: vẫn hỏi được dữ liệu cá nhân và hướng dẫn, nhưng không phân tích / thao tác.',
+      accent: Color(0xFF7C3AED),
     ),
   ];
 
@@ -1515,7 +1760,7 @@ class LandingUsageGuide {
           'Làm đúng thứ tự: ngành hàng → thông tin cửa hàng → hàng hóa → bàn (F&B) → máy in → bán thử.',
       bullets: [
         'Bước 1 — Thiết lập SBOX → Ngành hàng & cách bán: chọn retail / nhà hàng / salon / phòng…',
-        'Bước 2 — Thiết lập SBOX → Thông tin cửa hàng: tên, địa chỉ, VAT, tài khoản VietQR (nếu thanh toán QR)',
+        'Bước 2 — Thiết lập SBOX → Thông tin cửa hàng: tên, địa chỉ, SĐT in trên hóa đơn. Thuế VAT khi bán đặt ở «Hóa đơn điện tử»; tài khoản VietQR ở «Tài khoản nhận tiền»',
         'Bước 3 — Menu Hàng hóa: danh mục + món/SP (mã, giá, đơn vị, ảnh)',
         'Bước 4 — F&B: Cài đặt → Quản lý bàn / phòng: khu vực, bàn, sức chứa',
         'Bước 5 — Cài đặt → Máy in + Mẫu in (xem bước Máy in bên dưới)',
@@ -1527,7 +1772,7 @@ class LandingUsageGuide {
       accent: Color(0xFFEF6C00),
       shots: [
         GuideShot('pos-setup-1', afterBullet: 1, caption: '① Chọn ngành hàng (vd Nhà hàng / Cafe) — đổi ngành lưu ngay và bật sẵn cấu hình của ngành. ② Chế độ bán mặc định: bán nhanh, bán thường hoặc giao hàng.'),
-        GuideShot('pos-setup-2', afterBullet: 2, caption: '① Tên cửa hàng, địa chỉ, SĐT in trên hóa đơn. ② Thuế VAT khi bán: giá đã gồm thuế hoặc thuế theo từng mặt hàng.'),
+        GuideShot('pos-setup-2', afterBullet: 2, caption: '① Tên cửa hàng, địa chỉ, SĐT in trên hóa đơn. Thuế VAT khi bán nay đặt ở «Hóa đơn điện tử».'),
       ],
     ),
     LandingUsageGuideStep(
@@ -1591,7 +1836,7 @@ class LandingUsageGuide {
       desc:
           'Các mục nâng cao của form hàng hóa: theo dõi lô và hạn dùng (đồ ăn uống, thuốc), bảo hành và seri (điện máy), hàng gia công tính theo kích thước (nhôm kính, nội thất), vị trí kho và trọng lượng.',
       bullets: [
-        'Bước 1 — Form hàng hóa → nút Tùy chọn hiển thị form (góc trên): chọn bộ mục «Theo ngành hàng» hoặc tích từng mục («Bảo hành, seri & lô/HSD», «Vị trí & trọng lượng», «Đơn vị / hàng cùng loại»…) → «Lưu»',
+        'Bước 1 — Form hàng hóa → nút Tùy chọn hiển thị form (góc trên): chọn bộ mục «Theo ngành hàng» hoặc tích từng mục («Bảo hành», «Số seri / IMEI khi bán», «Lô / hạn sử dụng», «Vị trí & trọng lượng», «Đơn vị / hàng cùng loại»…) → «Lưu»',
         'Bước 2 — Bảo hành: nhập «Thời hạn bảo hành (tháng)» — tính từ ngày bán; bật «Bắt buộc nhập seri máy khi bán» với hàng điện máy để mỗi đơn vị bán có seri riêng',
         'Bước 3 — Hạn dùng: bật «Theo dõi lô / HSD» (bắt buộc nhập HSD trên phiếu nhập hàng) và đặt «Cảnh báo trước HSD (ngày)»',
         'Bước 4 — Nhập hàng NCC: mỗi dòng hàng có lô nhập «Mã lô», chọn NSX và HSD (HSD bắt buộc) → Hoàn thành mới cộng tồn theo lô',
@@ -1604,7 +1849,7 @@ class LandingUsageGuide {
       accent: Color(0xFF00897B),
       keywords: ['lô', 'hạn sử dụng', 'HSD', 'NSX', 'FEFO', 'bảo hành', 'seri', 'IMEI', 'hàng gia công', 'nhôm kính', 'tính giá theo m2', 'vị trí kho', 'trọng lượng', 'tùy chọn form'],
       shots: [
-        GuideShot('pos-lots-1', afterBullet: 1, caption: '① Bộ mục gợi ý theo ngành hàng. ② Tích từng mục cần dùng (vd «Bảo hành, seri & lô/HSD»). ③ «Lưu».'),
+        GuideShot('pos-lots-1', afterBullet: 1, caption: '① Tích các mục cần dùng: «Bảo hành», «Số seri / IMEI khi bán», «Lô / hạn sử dụng». ② «Lưu».'),
         GuideShot('pos-lots-2', afterBullet: 2, caption: '① Thời hạn bảo hành (tháng), tính từ ngày bán. ② Bắt buộc nhập seri máy khi bán.'),
         GuideShot('pos-lots-3', afterBullet: 3, caption: '① Bật «Theo dõi lô / HSD» — phiếu nhập bắt buộc nhập HSD. ② Số ngày cảnh báo trước khi hết hạn.'),
         GuideShot('pos-lots-5', afterBullet: 4, caption: '① Mã lô của dòng hàng trên phiếu nhập. ② Ngày sản xuất (NSX) và hạn sử dụng (HSD).'),
@@ -1900,25 +2145,121 @@ class LandingUsageGuide {
     LandingUsageGuideStep(
       id: 'pos_inventory',
       icon: Icons.warehouse_rounded,
-      title: 'Kho: nhập, xuất, kiểm kê',
+      title: 'Kho hàng: tổng quan',
       desc:
-          'Tồn tăng khi nhập NCC hoàn thành, trả hàng bán, hủy đơn; giảm khi thanh toán đơn, xuất hủy, xuất dùng nội bộ, trả hàng nhập. Mọi biến động ghi vào Thẻ kho.',
+          'Kho chạy theo chứng từ: phiếu nhập cộng tồn; bán, trả NCC, xuất hủy, xuất dùng trừ tồn; kiểm kho cân bằng chênh lệch. Phiếu tạm chưa ảnh hưởng kho — hoàn thành mới ghi sổ.',
       bullets: [
-        'Nhập hàng: menu «Nhập hàng NCC» → thêm hàng, SL, giá nhập (hàng có lô: nhập số lô + HSD) → Hoàn thành. Phiếu tạm chưa cộng tồn',
-        'Giá vốn tính bình quân gia quyền mỗi lần nhập. Hủy phiếu nhập: trừ lại tồn và trả giá vốn về như trước (cần còn đủ tồn để trừ)',
-        'Trả hàng cho NCC: menu «Trả hàng nhập» — giảm tồn, giảm công nợ NCC',
-        'Xuất hủy (hàng hỏng, hết hạn) / Xuất dùng nội bộ: tạo phiếu → Hoàn thành mới trừ tồn; Hủy phiếu thì cộng lại',
-        'Kiểm kho: tạo phiếu → thêm hàng → NHẬP SỐ ĐẾM NGAY KHI ĐẾM (hệ thống chốt tồn sổ lúc nhập) → Hoàn thành để cân bằng',
-        'Khi cân bằng chỉ cộng / trừ phần chênh lệch (số đếm − tồn sổ lúc đếm), nên hàng bán sau lúc đếm vẫn được giữ đúng',
-        'Xem lịch sử từng mặt hàng: Hàng hóa → chọn hàng → Thẻ kho (ai, lúc nào, chứng từ nào, tồn sau giao dịch)',
-        'Báo cáo POS → Tồn kho / Nhập hàng / Hàng sắp hết hạn để theo dõi tổng',
+        'Bước 1 — Nhập hàng từ nhà cung cấp: phiếu nhập → Hoàn thành mới cộng tồn và công nợ NCC (xem bước «Nhà cung cấp & nhập hàng»)',
+        'Bước 2 — Giảm tồn ngoài bán hàng: trả hàng nhập, xuất hủy, xuất dùng nội bộ (xem bước «Trả hàng nhập, xuất hủy, xuất dùng nội bộ»)',
+        'Bước 3 — Theo dõi tồn, cảnh báo dưới định mức và Thẻ kho từng mặt hàng (xem bước «Tồn kho & thẻ kho»)',
+        'Bước 4 — Đếm thực tế và cân bằng chênh lệch (xem bước «Kiểm kho»)',
+        'Bước 5 — Giá vốn bình quân gia quyền theo các lần nhập; hủy phiếu nhập thì giá vốn trả về như trước',
+        'Bước 6 — Giữ chỗ, bán âm, lô / HSD: xem bước «Nguyên tắc tồn kho» và «Lô / HSD, bảo hành, hàng gia công»',
       ],
       tip:
-          'Muốn chỉnh tồn cho đúng thực tế: dùng Kiểm kho (có chứng từ, có chênh lệch). Sửa ô tồn trong form Hàng hóa chỉ nên dùng lúc khai báo ban đầu.',
-      accent: Color(0xFF5D4037),
+          'Không sửa chứng từ đã hoàn thành — muốn đảo ngược thì Hủy phiếu; mọi thay đổi tồn đều có dòng trong Thẻ kho.',
+      accent: Color(0xFF00897B),
+      keywords: ['kho', 'kho hàng', 'nhập xuất tồn', 'chứng từ kho', 'giá vốn bình quân'],
       shots: [
         GuideShot('pos-inventory-1', afterBullet: 1, caption: '① Tạo phiếu nhập. ② Phiếu tạm: chưa cộng tồn. ③ «Nhập hàng vào kho» (điện thoại: «Hoàn thành nhập») mới cộng tồn và công nợ NCC.'),
-        GuideShot('pos-inventory-2', afterBullet: 5, caption: '① Tồn sổ, số thực tế đếm được, số lệch và giá trị lệch từng mặt hàng. ② «Cân bằng kho» để cộng / trừ phần chênh lệch.'),
+      ],
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_suppliers',
+      icon: Icons.local_shipping_rounded,
+      title: 'Nhà cung cấp & nhập hàng',
+      desc:
+          'Quản lý nhà cung cấp, phiếu nhập hàng và công nợ phải trả NCC. Phiếu nhập tạm chưa ảnh hưởng kho; hoàn thành mới cộng tồn, cập nhật giá vốn và ghi nợ NCC.',
+      bullets: [
+        'Bước 1 — Menu POS › Nhà cung cấp: danh sách NCC kèm Tổng mua, Công nợ; thẻ «Đang nợ NCC» là tổng tiền đang nợ. Bấm «Thêm NCC» để tạo (mã, tên, SĐT, MST, địa chỉ)',
+        'Bước 2 — Tạo phiếu nhập: menu Nhập hàng NCC → «Tạo phiếu nhập». Tìm / quét hàng (F3), nhập số lượng, đơn giá, giảm giá, VAT; hàng có lô nhập «Mã lô», NSX, HSD',
+        'Bước 3 — Cột phải phiếu: chọn «Nhà cung cấp», ngày nhập, ký hiệu / số HĐ đầu vào, «Tiền trả nhà cung cấp» và «Phương thức thanh toán» — trả một phần thì phần còn lại ghi nợ NCC',
+        'Bước 4 — «Lưu tạm»: phiếu tạm chưa ảnh hưởng tồn kho. «Hoàn thành»: cộng tồn, cập nhật giá vốn bình quân, ghi công nợ NCC',
+        'Bước 5 — Trả nợ NCC: ở danh sách NCC bấm nút thao tác của NCC → «Trả nợ» (tiền trừ vào các phiếu còn nợ, phiếu cũ trước)',
+        'Bước 6 — «Sổ đối chiếu công nợ»: nhập nợ, đã trả / trả hàng theo khoảng ngày để đối chiếu với NCC; «Nhập nợ đầu kỳ / điều chỉnh» cho nợ cũ trước khi dùng phần mềm',
+        'Bước 7 — Phiếu nhập đã hoàn thành bị sai: «Hủy phiếu» (trừ lại tồn, trả giá vốn về như trước) rồi tạo phiếu mới — không sửa phiếu đã hoàn thành',
+      ],
+      tip:
+          'Nhập hàng NCC trước khi bán để giá vốn, lợi nhuận và công nợ NCC đúng ngay từ đầu.',
+      accent: Color(0xFF00897B),
+      keywords: ['nhà cung cấp', 'NCC', 'nhập hàng', 'phiếu nhập', 'công nợ NCC', 'trả nợ NCC', 'đối chiếu công nợ', 'nợ đầu kỳ', 'giá vốn'],
+      shots: [
+        GuideShot('pos-suppliers-1', afterBullet: 1, caption: '① «Thêm NCC». ② Tổng đang nợ nhà cung cấp. ③ Mỗi NCC: tổng mua và công nợ (số đỏ là đang nợ).'),
+        GuideShot('pos-suppliers-2', afterBullet: 4, caption: '① Hàng nhập: số lượng, đơn giá, giảm giá, VAT; hàng có lô nhập mã lô và HSD. ② Nhà cung cấp, tiền trả và phương thức thanh toán (máy tính: cột phải; điện thoại: kéo xuống cuối phiếu). ③ «Lưu tạm» chưa cộng tồn — «Hoàn thành» mới cộng tồn và công nợ NCC.'),
+        GuideShot('pos-suppliers-3', afterBullet: 5, caption: '① «Sổ đối chiếu công nợ» theo khoảng ngày. ② «Trả nợ» — tiền trừ vào các phiếu còn nợ, phiếu cũ trước. ③ Nhập nợ đầu kỳ / điều chỉnh.'),
+      ],
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_stock_docs',
+      icon: Icons.outbox_rounded,
+      title: 'Trả hàng nhập, xuất hủy, xuất dùng nội bộ',
+      desc:
+          'Ba loại phiếu làm giảm tồn ngoài bán hàng: trả lại hàng cho NCC, hủy hàng hỏng / hết hạn, xuất nguyên liệu dùng nội bộ. Phiếu tạm chưa trừ kho; hoàn thành mới trừ.',
+      bullets: [
+        'Bước 1 — Trả hàng nhập: menu POS › Trả hàng nhập → «Tạo phiếu trả». Chọn NCC / phiếu nhập gốc, hàng, số lượng và giá trả lại',
+        'Bước 2 — Kiểm «NCC cần trả» (tiền NCC phải hoàn) rồi bấm «Hoàn thành trả hàng» (điện thoại: «Hoàn thành trả»): trừ tồn và giảm công nợ NCC',
+        'Bước 3 — Xuất hủy: menu POS › Xuất hủy → «Tạo phiếu hủy» cho hàng hỏng, hết hạn, đổ vỡ; nhập SL hủy, ghi chú lý do; «Hoàn thành xuất hủy» (điện thoại: «Hoàn thành hủy») mới trừ tồn',
+        'Bước 4 — Xuất dùng nội bộ: menu POS › Xuất dùng nội bộ → «Tạo phiếu xuất dùng» (pha chế thử, nhân viên dùng); ghi loại xuất và người nhận; «Hoàn thành xuất» mới trừ tồn',
+        'Bước 5 — Phiếu tạm sửa / xóa được và chưa ảnh hưởng kho; phiếu đã hoàn thành muốn đảo ngược thì «Hủy phiếu» — hàng được hoàn về kho',
+        'Bước 6 — «Sao chép» tạo phiếu mới giống phiếu cũ, «In phiếu» để ký nhận; mọi phiếu đều ghi vào Thẻ kho của từng mặt hàng',
+      ],
+      tip:
+          'Không xóa phiếu đã hoàn thành — hủy phiếu để giữ lịch sử và đúng tồn kho.',
+      accent: Color(0xFF00897B),
+      keywords: ['trả hàng nhập', 'trả NCC', 'xuất hủy', 'hàng hỏng', 'hết hạn', 'xuất dùng nội bộ', 'hủy phiếu', 'phiếu kho'],
+      shots: [
+        GuideShot('pos-stock-docs-1', afterBullet: 2, caption: '① Phiếu trả: NCC, phiếu nhập gốc, trạng thái phiếu tạm. ② Hàng trả và số tiền NCC cần trả lại. ③ «Hoàn thành trả hàng» mới trừ tồn và giảm công nợ NCC.'),
+        GuideShot('pos-stock-docs-2', afterBullet: 3, caption: '① Phiếu xuất hủy đang tạm (lý do: hết hạn / hư hỏng). ② Hàng hủy, số lượng, giá vốn, tổng giá trị. ③ «Hoàn thành xuất hủy» mới trừ tồn.'),
+        GuideShot('pos-stock-docs-3', afterBullet: 4, caption: '① Phiếu xuất dùng: người nhận (vd quầy bar). ② Nguyên liệu xuất, số lượng, giá vốn. ③ «Hoàn thành xuất» mới trừ tồn.'),
+      ],
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_stock_card',
+      icon: Icons.fact_check_rounded,
+      title: 'Tồn kho & thẻ kho',
+      desc:
+          'Xem tồn từng mặt hàng, phần đang giữ chỗ, cảnh báo dưới định mức / hết hàng, và Thẻ kho ghi mọi biến động kèm chứng từ, người thao tác.',
+      bullets: [
+        'Bước 1 — Menu POS › Hàng hóa: cột «Tồn» và «Đặt» (đang giữ chỗ cho bàn / đơn tạm); tồn chữ đỏ = hết hàng; «Dự kiến hết» là ngày hàng có thể hết theo tốc độ bán',
+        'Bước 2 — Bộ lọc «Tồn kho»: Dưới định mức (cần nhập thêm), Hết hàng, Vượt định mức',
+        'Bước 3 — Bấm vào mặt hàng → tab «Tồn kho»: Tồn kho, Khách đặt, Có thể bán (= tồn − khách đặt), Định mức tồn (điện thoại: trang chi tiết hàng, mục «Thông tin»)',
+        'Bước 4 — Định mức tồn đặt trên form hàng hóa (Định mức tồn thấp nhất / cao nhất) — xem bước «Thêm hàng hóa»',
+        'Bước 5 — Tab «Thẻ kho» (điện thoại: nút «Thẻ kho» cuối trang chi tiết): mọi biến động — chứng từ, thời gian, loại giao dịch (bán, mua, kiểm kê, trả, hủy…), số lượng, tồn cuối, đối tác',
+        'Bước 6 — Bấm mã chứng từ để mở phiếu gốc; «Xuất file» để gửi kế toán / đối chiếu',
+        'Bước 7 — Báo cáo POS → Tồn kho / Hàng sắp hết hạn để xem toàn bộ kho theo nhóm và giá trị tồn',
+      ],
+      tip:
+          'Tồn lệch hay âm: mở Thẻ kho của mặt hàng để biết chứng từ nào, ai làm, lúc nào.',
+      accent: Color(0xFF00897B),
+      keywords: ['tồn kho', 'thẻ kho', 'định mức tồn', 'dưới định mức', 'hết hàng', 'có thể bán', 'khách đặt', 'giữ chỗ', 'dự kiến hết'],
+      shots: [
+        GuideShot('pos-stock-card-1', afterBullet: 3, caption: '① Lọc «Tồn kho»: dưới định mức, hết hàng, vượt định mức. ② Tồn kho, khách đặt, có thể bán và định mức tồn của mặt hàng. ③ Tồn «0» chữ đỏ = hết hàng.'),
+        GuideShot('pos-stock-card-2', afterBullet: 5, caption: '① Tab «Thẻ kho» của mặt hàng. ② Mỗi dòng: chứng từ, thời gian, loại giao dịch, số lượng (+ nhập / − xuất), tồn cuối, đối tác. ③ «Xuất file».'),
+      ],
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_stock_count',
+      icon: Icons.checklist_rounded,
+      title: 'Kiểm kho',
+      desc:
+          'Đếm hàng thực tế, so với tồn hệ thống và cân bằng phần chênh lệch. Cân bằng chỉ cộng / trừ phần lệch nên hàng bán sau lúc đếm vẫn đúng.',
+      bullets: [
+        'Bước 1 — Menu POS › Kiểm kho → «Tạo phiếu kiểm kê» (điện thoại: nút «Tạo phiếu kiểm»)',
+        'Bước 2 — Tìm / quét hàng cần kiểm (F3) hoặc «Quét hàng loạt» bằng máy quét; mỗi dòng hiện tồn hệ thống',
+        'Bước 3 — Nhập số «Thực tế» ngay khi đếm (hệ thống chốt tồn sổ lúc nhập) — «SL lệch», «Giá trị lệch» tự tính; lọc Khớp / Lệch / Chưa kiểm',
+        'Bước 4 — «Lưu tạm» để đếm tiếp sau; dòng chưa nhập chọn «Khớp tồn» khi đã đếm đúng bằng tồn hệ thống',
+        'Bước 5 — «Hoàn thành» (điện thoại: «Cân bằng kho»): kho chỉ cộng / trừ phần chênh lệch',
+        'Bước 6 — Cân bằng sai: «Hủy phiếu» để hoàn tồn về trước khi cân bằng; lượt lệch nằm trong Thẻ kho (loại «Kiểm kê kho»)',
+        'Bước 7 — Nên kiểm hàng chính / nguyên vật liệu cuối mỗi tháng; lệch nhiều thì xem lại định lượng, xuất hủy, nhập hàng',
+      ],
+      tip:
+          'Nhập số đếm ngay lúc đếm từng mặt hàng — để cuối buổi mới nhập dễ lệch vì hàng đã bán thêm.',
+      accent: Color(0xFF00897B),
+      keywords: ['kiểm kho', 'kiểm kê', 'cân bằng kho', 'lệch kho', 'số thực tế', 'khớp tồn', 'quét hàng loạt'],
+      shots: [
+        GuideShot('pos-stock-count-1', afterBullet: 1, caption: '① «Tạo phiếu kiểm kê». ② Phiếu đang kiểm (phiếu tạm) và tổng chênh lệch.'),
+        GuideShot('pos-stock-count-2', afterBullet: 3, caption: '① Tìm / quét hàng cần kiểm. ② Nhập số thực tế — lệch và giá trị lệch tự tính. ③ «Hoàn thành» (điện thoại: «Cân bằng kho»).'),
+        GuideShot('pos-stock-count-3', afterBullet: 5, caption: '① Tồn kho, thực tế, SL lệch, giá trị lệch từng mặt hàng. ② «Cân bằng kho» để cộng / trừ phần chênh lệch.'),
       ],
     ),
     LandingUsageGuideStep(
@@ -1995,6 +2336,184 @@ class LandingUsageGuide {
         GuideShot('pos-einvoice-manage-1', afterBullet: 1, caption: '① Lọc theo trạng thái: tất cả, cần xử lý, đã xuất, lỗi… ② Chạm một hóa đơn để mở thao tác.'),
         GuideShot('pos-einvoice-manage-2', afterBullet: 2, caption: '① Xem lại hóa đơn (PDF). ② Gửi HĐĐT qua Zalo, email… ③ Thay thế hóa đơn. ④ Hủy hóa đơn.'),
         GuideShot('pos-einvoice-manage-3', afterBullet: 9, caption: '① Đồng bộ hàng loạt từ hãng. ② Tải danh sách từ hãng để đối chiếu. ③ Mở trang quản lý của hãng.'),
+      ],
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_quotes',
+      icon: Icons.request_page_outlined,
+      title: 'Báo giá & hợp đồng',
+      desc:
+          'Lập báo giá gửi khách (PDF, Word, Zalo…), theo dõi đến khi khách chốt, rồi lập hợp đồng, xuất kho, bàn giao và nghiệm thu.',
+      bullets: [
+        'Mở POS › Báo giá — tab «Báo giá», «Hợp đồng», «Đề nghị TT», «Nghiệm thu»; bấm «Thêm báo giá»',
+        'Chọn khách bằng «Tìm khách (tên / SĐT / MST)» (để trống = «Khách lẻ»), chọn «Bảng giá» nếu có, bấm «Thêm món»',
+        'Từng dòng sửa «Đơn giá», «Chiết khấu»; chiết khấu cả phiếu ở «Chiết khấu đơn»',
+        '«Thuế VAT»: «Giá đã gồm VAT», «Giá + VAT», «Không VAT» hoặc «VAT theo mặt hàng»; cọc ở «Tiền cọc thực hiện hợp đồng»',
+        'Chọn «Mẫu in A4», «Hạn báo giá» (mặc định 15 ngày), tích «Đưa hình ảnh sản phẩm vào phiếu in» nếu cần → «Lưu & in phiếu»',
+        'Gửi khách: nút «Gửi / In» → «In», «PDF», «Word», «Excel», «Ảnh PNG», «Email», «Gửi Zalo»',
+        'Theo trạng thái: «Phát hành (đã gửi khách)» → «Khách chốt báo giá» / «Khách chốt & lập HĐ» / «Khách từ chối»; khách đòi sửa → «Sửa (tạo bản sửa)»',
+        'Sau khi chốt: «Lập hợp đồng» → «Xuất kho», «Bàn giao», «Giao việc thi công» → «Nghiệm thu» → «Đóng hồ sơ»',
+        'Đánh số: Thông tin cửa hàng › «Đánh số báo giá & hợp đồng» — «Tự nhảy theo mẫu» ({YYYY}, {MM}, {SEQ:4}…) hoặc «Tự nhập»',
+      ],
+      tip:
+          'Trạng thái: Nháp → Đã gửi → Chấp nhận / Từ chối; quá «Hạn báo giá» tự thành «Hết hạn». Có thể nói với Trợ lý ảo: «Báo giá cho chị Lan 10 thùng Coca».',
+      accent: Color(0xFF1565C0),
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_booking',
+      icon: Icons.event_seat_outlined,
+      title: 'Đặt bàn, đặt phòng, đặt lịch hẹn',
+      desc:
+          'Giữ bàn / phòng / ghế cho khách theo giờ, thu cọc, nhận khách khi đến; salon tự xếp thợ rảnh.',
+      bullets: [
+        'Mở POS › Đặt lịch (màn «Đặt chỗ / lịch hẹn») → bấm «Thêm»; hoặc trên màn bán: Menu › «Đặt bàn» / «Đặt phòng» / «Đặt lịch» tùy ngành',
+        'Từ sơ đồ bàn: nhấn giữ (hoặc «⋯») bàn trống → «Đặt bàn — <bàn>» → «Ngày đến», «Giờ đến», «Số khách», «Tên khách *», «SĐT» → «Lưu Đặt bàn»',
+        'Có thể chọn «Món đặt trước» và nhập «Cọc yêu cầu» (tích «Đã thu ngay» nếu khách đã chuyển)',
+        'Salon / spa: chọn «Dịch vụ *» và «Thợ làm» — để «Tự xếp» thì hệ thống chọn thợ quen hoặc thợ ít việc nhất đang có ca',
+        'Khách sạn: nhập «Số đêm»; phòng giờ / salon: nhập «Thời lượng»',
+        'Khách đến: mở lịch → «Nhận bàn» (phòng / ghế) — đơn bán mở sẵn, cọc trừ vào đơn',
+        'Bàn đã đặt mà có khách vãng lai: «Khách vãng lai» (ngồi tạm, vẫn giữ lịch); thu cọc sau: «Thu cọc»',
+        'Hủy: «Hủy lịch» / «Hủy đặt» — đã thu cọc thì chọn «Hoàn cọc» hoặc «Mất cọc»',
+        'Khách không đến: tự chuyển «Không đến» sau giờ hẹn; hoặc bấm «Đánh dấu khách không đến (quá giờ)»',
+      ],
+      tip:
+          'Trạng thái lịch: Chưa đến → Đã nhận → Đang dùng → Đã thanh toán. Nói với Trợ lý ảo: «Đặt bàn 5 tối nay 7 giờ cho anh Nam, 6 người».',
+      accent: Color(0xFF00796B),
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_customer_display',
+      icon: Icons.connected_tv_outlined,
+      title: 'Màn hình phụ cho khách',
+      desc:
+          'Màn thứ hai quay về phía khách: hiện món, tổng tiền, mã QR chuyển khoản; lúc chờ thì chiếu ảnh / video quảng cáo.',
+      bullets: [
+        'Thiết lập SBOX › Màn hình phụ → bật «Màn hình phụ cho khách»',
+        '«Loại màn hình phụ»: «Sunmi T1 (ảnh welcome + bill)», «Android Flutter (đầy đủ — media/video)» hoặc «Window / trình duyệt (link máy khác)»',
+        'Bật «Tự mở khi vào bán hàng»: máy Android hai màn tự dùng màn thứ hai',
+        'Màn khác / TV: «Mở trên máy / TV khác» → sao chép link, mở trên máy đó (không cần đăng nhập, máy thu ngân phải đang ở màn bán)',
+        'Lúc chờ khách: «Ảnh trình chiếu» («Upload ảnh»), «Video trình chiếu» (link Google Drive hoặc .mp4 — không dùng YouTube), «Thời gian đổi ảnh / video», «Bật tiếng video»',
+        'Khách thấy: «Xin chào quý khách» → bill (Tạm tính, Giảm giá, TỔNG CỘNG) → «Quét mã để chuyển khoản» → «Đã nhận chuyển khoản»',
+        'Mở tay trên màn bán: Menu › «Màn hình khách»',
+      ],
+      tip: 'Ảnh nên 1920×1080 (ngang) hoặc 1080×1920 (dọc); video MP4 H.264 720p/1080p dưới 50MB. Màn phụ A6 trắng: rút cáp USB debug rồi mở lại POS.',
+      accent: Color(0xFF5E35B1),
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_shipping',
+      icon: Icons.local_shipping_outlined,
+      title: 'Giao hàng & vận đơn (GHN, GHTK, Viettel Post…)',
+      desc:
+          'Kết nối hãng giao hàng, so sánh cước, tạo vận đơn có thu hộ COD và in tem ngay trên đơn bán.',
+      bullets: [
+        'Thiết lập SBOX › Đơn vị giao hàng: hỗ trợ GHN, GHTK, SPX Express, Viettel Post, AhaMove',
+        'Bật hãng → dán «API Token» (GHN thêm «ShopId», GHTK thêm «Partner code»…) → điền «Điểm lấy hàng» → «Lưu» → «Thử kết nối»',
+        'Tem: bật «In tem vận đơn (máy này)», chọn «Khổ tem»; «Tự in tem khi tạo vận đơn» nếu muốn in luôn',
+        'Trên đơn bán, phần «Giao hàng»: «Địa chỉ giao hàng», «SĐT nhận hàng» → «So sánh cước & tạo vận đơn»',
+        'Nhập «KL (g)», kích thước → chọn hãng; người trả cước «Shop trả» / «Khách trả» → «Tạo vận đơn» (COD tự = số tiền khách còn nợ)',
+        'Sau khi tạo: «In tem vận đơn», «Đồng bộ hành trình», «Hủy vận đơn»; tự giao thì chọn «Giao hàng nội bộ» và «In tem giao hàng (tự giao)»',
+        'Đơn online / QR: nút «Tạo vận đơn» như trên; AhaMove có «Theo dõi đơn»',
+        'Báo cáo giao hàng: «Giao thất bại», «Hoàn hàng», «Đối soát COD» (ghi phiếu «Thu hộ COD» vào sổ quỹ), «Chưa tạo vận đơn»',
+      ],
+      tip: 'Dùng «Sandbox (môi trường test)» để thử trước khi chạy thật. Muốn trạng thái tự cập nhật: làm theo hướng dẫn webhook của từng hãng trên màn thiết lập.',
+      accent: Color(0xFFE65100),
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_qr_order',
+      icon: Icons.qr_code_2_rounded,
+      title: 'Menu QR / bán online',
+      desc:
+          'Khách quét QR tại bàn để tự gọi món, hoặc đặt hàng online qua link riêng của quán (nhập tên, SĐT, địa chỉ). Đơn về màn «Đơn online» và báo bếp; thu ngân xác nhận, in bếp, thanh toán, giao hàng.',
+      bullets: [
+        'Bước 1 — Mở POS → Menu QR / Online (QR order tại bàn): nhập «Thương hiệu trang đặt hàng» — tên quán, SĐT, địa chỉ, logo, ảnh quảng cáo hiện khi khách mở QR',
+        'Bước 2 — Chọn cách nhận order tại bàn: «Tự in phiếu bếp» (khách gửi món là in phiếu), «Chỉ gọi món khi đã mở bàn», «Chỉ gọi món trong phạm vi quán (GPS)», «Bật xác nhận order (QR)» để thu ngân duyệt trước khi báo bếp',
+        'Bước 3 — In QR dán bàn: «In tất cả QR (N bàn)» hoặc nút in / sao chép link trên từng bàn (in tem 60×40 hoặc xuất PDF). Bàn lấy từ sơ đồ bàn — thêm bàn trước nếu danh sách trống',
+        'Bước 4 — Bán online ngoài quán: bật «Đặt hàng online ngoài cửa hàng», đặt «Giờ nhận đơn online» và «Quy tắc đơn online» (đơn tối thiểu, phí giao, miễn phí giao từ)',
+        'Bước 5 — Tự động hóa (tùy chọn): «Tự xác nhận đơn online», «Tự in bếp khi đơn online được xác nhận», «Tự hoàn thành COD khi xác nhận», «Tự tạo vận đơn khi «Đang giao»»',
+        'Bước 6 — Xử lý đơn: mở «Đơn online», lọc Chờ xác nhận / Đang chuẩn bị / Đang giao… → chạm đơn để xem món, ghi chú, khách',
+        'Bước 7 — Trong chi tiết đơn: «In bếp», «In tạm tính», «Thanh toán»; «Bước tiếp theo»: «Xác nhận đơn» → «Đang giao hàng» → «Giao thành công», hoặc «Hủy đơn»',
+        'Bước 8 — Khách chuyển khoản qua QR Tingee (nếu bật ở Tài khoản nhận tiền) thì đơn tự đánh dấu đã thanh toán',
+      ],
+      tip:
+          'Bật «Bật xác nhận order (QR)» nếu sợ khách ngoài quán quét QR cũ đặt bừa — món chỉ xuống bếp khi thu ngân đồng ý.',
+      accent: Color(0xFF00897B),
+      keywords: ['QR order', 'menu QR', 'gọi món tại bàn', 'đặt hàng online', 'đơn online', 'link bán hàng', 'in QR bàn', 'giao hàng'],
+      shots: [
+        GuideShot('pos-qr-order-1', afterBullet: 2, caption: '① «Tự in phiếu bếp» khi khách gửi món. ② «Bật xác nhận order (QR)»: thu ngân duyệt trước khi báo bếp. ③ «In tất cả QR» để dán bàn. ④ Từng bàn: link QR, nút sao chép / in QR.'),
+        GuideShot('pos-qr-order-2', afterBullet: 4, caption: '① Bật «Đặt hàng online ngoài cửa hàng». ② «Quy tắc đơn online»: đơn tối thiểu, phí giao, miễn phí giao từ. ③ Tự xác nhận đơn / tự in bếp khi đơn được xác nhận.'),
+        GuideShot('pos-qr-order-3', afterBullet: 7, caption: '① Đơn online và trạng thái. ② Món khách đặt, tổng tiền, ghi chú. ③ «In bếp», «In tạm tính», «Thanh toán». ④ «Xác nhận đơn» hoặc «Hủy đơn».'),
+      ],
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_kds',
+      icon: Icons.soup_kitchen_rounded,
+      title: 'Màn hình bếp (KDS)',
+      desc:
+          'Màn hình cho bếp / bar thay phiếu in: món gửi bếp hiện ngay theo món hoặc theo bàn, có thời gian chờ, báo trễ, đọc tên món; bếp bấm «Đang làm» và «Ra món».',
+      bullets: [
+        'Bước 1 — Mở POS → Màn hình bếp (KDS) trên tablet / màn hình đặt ở bếp. Món thu ngân gửi bếp (hoặc khách gọi qua QR) hiện ngay',
+        'Bước 2 — Chọn cách xem: «Gộp món» (cùng món của nhiều bàn gom một thẻ — nấu một lần) hoặc «Theo bàn» (mỗi bàn một thẻ)',
+        'Bước 3 — Lọc «Trạng thái»: Tất cả / Đang làm / Chờ làm / Làm xong; thêm «Lâu nhất», «Trễ», «Bàn chưa làm món nào» để ưu tiên',
+        'Bước 4 — Bắt đầu nấu bấm «Đang làm»; nấu xong bấm «Ra món» — món chuyển «Làm xong», thu ngân / phục vụ thấy ngay',
+        'Bước 5 — Ghi chú món (Ít hành, Thêm rau…) hiện dưới tên món; số phút chờ chuyển đỏ khi quá ngưỡng «Báo trễ món»',
+        'Bước 6 — Nút loa: đọc món cần chế biến (chọn giọng, tốc độ, chuông trước khi đọc); nút màn hình to; menu «Thêm» → Máy in KDS để in phiếu khi bấm «Ra món»',
+        'Bước 7 — Món hủy hiện ở «Món hủy — Đồng ý từng dòng» để bếp xác nhận đã biết',
+      ],
+      tip:
+          'Bếp và bar dùng 2 máy: mỗi máy mở KDS riêng; món tự hiện theo phân trạm in bếp đã gán cho mặt hàng.',
+      accent: Color(0xFF00897B),
+      keywords: ['KDS', 'màn hình bếp', 'bếp', 'bar', 'ra món', 'đang làm', 'món trễ', 'đọc món'],
+      shots: [
+        GuideShot('pos-kds-1', afterBullet: 2, caption: '① «Gộp món» / «Theo bàn». ② Lọc trạng thái: tất cả, đang làm, chờ làm, làm xong. ③ «Ra món» khi nấu xong (bấm «Đang làm» lúc bắt đầu). ④ Món đã xong hiện «ĐÃ HOÀN THÀNH».'),
+        GuideShot('pos-kds-2', afterBullet: 4, caption: '① Thẻ theo bàn: khu · bàn, số món. ② Từng món: số lượng, ghi chú, phút chờ (đỏ = trễ). ③ «Đang làm» / «Ra món» cho cả bàn.'),
+      ],
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_warranty',
+      icon: Icons.build_circle_rounded,
+      title: 'Bảo hành',
+      desc:
+          'Quản lý máy đã bán theo seri: tiếp nhận bảo hành, in phiếu A5, theo dõi máy ở cửa hàng, trả khách và thu phí sửa, đổi máy trừ kho, nhắc khách sắp hết bảo hành, báo cáo.',
+      bullets: [
+        'Bước 1 — Khi bán: hàng có «Thời hạn bảo hành (tháng)» và bật «Bắt buộc nhập seri máy khi bán» → nhập seri (chỉnh được số tháng BH lúc nhập); hóa đơn in seri và hạn bảo hành',
+        'Bước 2 — Mở POS → Bảo hành, tab «Máy đã bán»: tìm seri / IMEI, tên hoặc SĐT khách, mã đơn; lọc Còn bảo hành / Hết bảo hành / Đã đổi máy / Khách đã trả hàng',
+        'Bước 3 — Khách mang máy tới: bấm «Tiếp nhận BH» → ghi lỗi, tình trạng máy, phụ kiện, ngày hẹn trả, người phụ trách → «Tiếp nhận» → in phiếu tiếp nhận (A5) đưa khách giữ',
+        'Bước 4 — Tab «Phiếu bảo hành»: lọc Máy ở cửa hàng / Chờ khách lấy / Quá hẹn / Đã trả khách. Đang sửa bấm «Đang xử lý»; xong bấm «Hoàn tất» (hoặc «Từ chối» kèm lý do), «Hẹn / phụ trách» để dời hẹn',
+        'Bước 5 — Máy hết bảo hành / lỗi khách: nhập phí sửa khi hoàn tất, chọn thu ngay hoặc thu khi trả máy (ghi phiếu thu «Phí sửa chữa bảo hành»)',
+        'Bước 6 — Khách đến lấy: «Trả khách» → thu phí nếu còn → «Đã trả máy» → in phiếu trả máy. Nút «Gọi» / «Zalo» chép sẵn lời nhắn mời lấy máy',
+        'Bước 7 — Đổi máy: «Đổi máy» trên máy đã bán → «Lấy máy trong kho cửa hàng» (tự xuất kho 1 máy) hoặc «Máy hãng gửi về» (không trừ kho); máy mới giữ hạn bảo hành còn lại',
+        'Bước 8 — Tab «Sắp hết hạn» (30/60/90 ngày): «Nhắn Zalo» / «Gọi» nhắc khách. Tab «Báo cáo»: máy ở cửa hàng, quá hẹn, lượt bảo hành, phí đã / chưa thu, mặt hàng hay bảo hành',
+      ],
+      tip:
+          'Luôn in phiếu tiếp nhận cho khách giữ — phiếu có số phiếu, seri, phụ kiện đã nhận để đối chiếu khi trả máy.',
+      accent: Color(0xFF00897B),
+      keywords: ['bảo hành', 'seri', 'IMEI', 'tiếp nhận bảo hành', 'phiếu bảo hành', 'đổi máy', 'trả khách', 'phí sửa', 'hết hạn bảo hành'],
+      shots: [
+        GuideShot('pos-warranty-2', afterBullet: 3, caption: '① Tìm theo seri / IMEI, khách, mã đơn và lọc tình trạng. ② Seri, sản phẩm, số tháng BH, ngày mua, hết hạn BH. ③ «Tiếp nhận BH» khi khách mang máy tới. ④ «Đổi máy».'),
+        GuideShot('pos-warranty-1', afterBullet: 4, caption: '① Lọc phiếu: máy ở cửa hàng, chờ khách lấy, quá hẹn, đã trả khách. ② Số phiếu, sản phẩm và trạng thái («Sửa xong — chờ trả»). ③ «Trả khách» / «In phiếu». ④ Máy đang sửa: «Hoàn tất» hoặc «Từ chối».'),
+        GuideShot('pos-warranty-3', afterBullet: 8, caption: '① Hiện tại: máy ở cửa hàng, chờ khách lấy, quá hẹn, máy còn bảo hành. ② Phí sửa đã thu / chưa thu trong kỳ. ③ Mặt hàng hay bảo hành (tỉ lệ lượt BH / máy đã bán).'),
+      ],
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_bank_account',
+      icon: Icons.account_balance_rounded,
+      title: 'Tài khoản nhận tiền & VietQR',
+      desc:
+          'Số tài khoản ngân hàng của cửa hàng để khách chuyển khoản: màn thanh toán hiện QR VietQR đúng số tiền; bật Tingee để tiền về là đơn tự báo đã thanh toán.',
+      bullets: [
+        'Bước 1 — Thiết lập SBOX → Tài khoản nhận tiền → mục «Tài khoản ngân hàng cửa hàng» → «Thêm STK»',
+        'Bước 2 — Chọn «Ngân hàng *», nhập «Tên chủ tài khoản *» (không dấu, đúng tên trên tài khoản) và «Số tài khoản *»; bật «Tài khoản mặc định VietQR» → Lưu',
+        'Bước 3 — Có nhiều tài khoản: chọn tài khoản dùng khi bán ở ô «STK nhận tiền»; «Sửa» để đổi thông tin',
+        'Bước 4 — Khi thanh toán chọn «Chuyển khoản»: màn bán hiện QR VietQR kèm số tiền và nội dung; khách quét bằng app ngân hàng',
+        'Bước 5 — VietQR thường không tự báo có tiền: thu ngân kiểm tra tiền về rồi bấm hoàn tất thanh toán',
+        'Bước 6 — Muốn tiền về là đơn tự xong: mục «Tự báo có tiền (Tingee)» → bật «Bật tự báo CK», gắn ngân hàng với Tingee, mua lượt thông báo; nội dung CK phải giữ mã đơn trên QR',
+      ],
+      tip:
+          'Chỉ người có quyền Sửa «Tài khoản ngân hàng» mới đổi được STK nhận tiền — tránh nhân viên đổi STK sang tài khoản khác.',
+      accent: Color(0xFF00897B),
+      keywords: ['tài khoản nhận tiền', 'VietQR', 'QR chuyển khoản', 'số tài khoản', 'ngân hàng', 'Tingee', 'tự báo có tiền'],
+      shots: [
+        GuideShot('pos-bank-account-2', afterBullet: 2, caption: '① Chọn ngân hàng. ② Tên chủ tài khoản và số tài khoản. ③ «Tài khoản mặc định VietQR».'),
+        GuideShot('pos-bank-account-1', afterBullet: 3, caption: '① «STK nhận tiền» dùng khi khách chuyển khoản. ② «Thêm STK» / «Sửa». ③ «Tự báo có tiền (Tingee)»: tiền về là đơn tự xong.'),
       ],
     ),
     LandingUsageGuideStep(

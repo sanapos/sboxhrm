@@ -68,7 +68,12 @@ class _PosBankAccountFormDialogState extends State<_PosBankAccountFormDialog> {
     if (a != null) {
       _accountNameCtrl.text = a.accountName;
       _accountNumberCtrl.text = a.accountNumber;
-      _selectedBankCode = a.bankCode;
+      // bankCode lưu BIN; tài khoản cũ có thể lưu mã («VCB») — quy về BIN, không thì để trống
+      // (giá trị không có trong danh sách làm ô chọn ngân hàng báo lỗi, không mở được form).
+      final banks = widget.vietQRBanks;
+      _selectedBankCode = banks.any((b) => b.bin == a.bankCode)
+          ? a.bankCode
+          : banks.where((b) => b.code == a.bankCode).map((b) => b.bin).firstOrNull;
       _noteCtrl.text = a.note ?? '';
       _isDefault = a.isDefault;
     } else if (widget.vietQRBanks.isNotEmpty) {

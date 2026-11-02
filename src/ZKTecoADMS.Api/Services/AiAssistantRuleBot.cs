@@ -16,7 +16,8 @@ public static class AiAssistantRuleBot
         IReadOnlyList<HelpChunk> helpHits,
         IReadOnlyList<string> allowedActions,
         IReadOnlyList<string> allowedCreates,
-        bool includeFallback)
+        bool includeFallback,
+        bool guideQuestion = false)
     {
         var q = (query ?? "").Trim().ToLowerInvariant();
         var ctx = contextText ?? "";
@@ -175,7 +176,8 @@ public static class AiAssistantRuleBot
             AddAction(sb, allowedActions, "nav_business_trip");
         }
 
-        if (AiAssistantReplyParser.LooksLikeHowTo(q) || LooksLikeSetup(q))
+        // guideQuestion: controller đã nhận là câu hỏi cách dùng / sự cố (xem AiAssistantIntent.IsGuideQuestion).
+        if (guideQuestion || AiAssistantReplyParser.LooksLikeHowTo(q) || LooksLikeSetup(q))
         {
             matched = true;
             if (helpHits.Count == 0)

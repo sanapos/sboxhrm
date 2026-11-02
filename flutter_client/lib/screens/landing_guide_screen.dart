@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/api_service.dart';
+import '../utils/landing_guide_groups.dart';
 import '../utils/landing_guide_url.dart';
 import '../utils/landing_public_url.dart';
 import '../utils/landing_usage_guide.dart';
@@ -182,17 +183,25 @@ class LandingGuidePanel extends StatefulWidget {
 }
 
 class _LandingGuidePanelState extends State<LandingGuidePanel> {
-  int _section = 0;
-  int _active = -1;
+  /// Khu đang xem (LandingGuideGroups.areas), nhóm lọc (null = mọi nhóm), bước đang mở.
+  int _area = 0;
+  String? _group;
+  String? _activeId;
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   String _query = '';
   bool _showSuggestions = false;
 
-  List<LandingUsageGuideStep> get _steps =>
-      widget.guideData.stepsAt(_section);
+  GuideArea get _areaDef => LandingGuideGroups.areas[_area];
 
-  String get _sectionKey => LandingGuideData.keyForIndex(_section);
+  List<GuideEntry> get _allEntries => LandingGuideGroups.entries(widget.guideData, _areaDef);
+
+  List<GuideEntry> get _entries {
+    final all = _allEntries;
+    return _group == null ? all : all.where((e) => e.group.id == _group).toList();
+  }
+
+  int get _active => _activeId == null ? -1 : _entries.indexWhere((e) => e.step.id == _activeId);
 
   List<LandingGuideSearchHit> get _searchHits =>
       widget.guideData.search(_query);
@@ -235,7 +244,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
   @override
   void didUpdateWidget(covariant LandingGuidePanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialLink != null && _active < 0) {
+    if (widget.initialLink != null && _activeId == null) {
       _applyDeepLink(widget.initialLink, notify: true);
     }
   }
@@ -243,33 +252,30 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
   bool _applyDeepLink(GuideDeepLink? link, {required bool notify}) {
     if (link == null) return false;
     final steps = widget.guideData.stepsAt(link.sectionIndex);
-    final idx = steps.indexWhere((s) => s.id == link.stepId);
-    if (idx < 0) return false;
-    if (_section == link.sectionIndex && _active == idx) return true;
-    if (notify) {
-      setState(() {
-        _section = link.sectionIndex;
-        _active = idx;
-      });
-    } else {
-      _section = link.sectionIndex;
-      _active = idx;
+    if (!steps.any((s) => s.id == link.stepId)) return false;
+    final area = LandingGuideGroups.areaIndexForSection(link.section);
+    if (_area == area && _activeId == link.stepId) return true;
+    void apply() {
+      _area = area;
+      _group = null;
+      _activeId = link.stepId;
     }
+
+    notify ? setState(apply) : apply();
     return true;
   }
 
   void _openStep(int index) {
-    setState(() => _active = index);
-    LandingGuideUrl.syncToBrowser(
-      section: _sectionKey,
-      stepId: _steps[index].id,
-    );
+    final e = _entries[index];
+    setState(() => _activeId = e.step.id);
+    LandingGuideUrl.syncToBrowser(section: e.section, stepId: e.step.id);
   }
 
   void _openHit(LandingGuideSearchHit hit) {
     setState(() {
-      _section = hit.sectionIndex;
-      _active = hit.stepIndex;
+      _area = LandingGuideGroups.areaIndexForSection(LandingGuideData.keyForIndex(hit.sectionIndex));
+      _group = null;
+      _activeId = hit.step.id;
       _showSuggestions = false;
       _searchCtrl.text = hit.step.title;
       _query = hit.step.title;
@@ -303,31 +309,29 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
     });
   }
 
-  void _closeStep() => setState(() => _active = -1);
+  void _closeStep() => setState(() => _activeId = null);
 
   void _goAdjacent(int delta) {
-    if (_active < 0) return;
-    final next = _active + delta;
-    if (next < 0 || next >= _steps.length) return;
+    final active = _active;
+    if (active < 0) return;
+    final next = active + delta;
+    if (next < 0 || next >= _entries.length) return;
     _openStep(next);
+  }
+
+  /// «POS › Kho hàng» cho bước (tìm kiếm, chi tiết).
+  String _trailOf(String stepId) {
+    final hit = LandingGuideGroups.locate(stepId);
+    if (hit == null) return '';
+    return '${tr(hit.$1.title)} › ${tr(hit.$2.title)}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final stepCount = _steps.length;
-    final title = switch (_section) {
-      1 => 'Hướng dẫn nâng cao\n$stepCount tính năng HRM',
-      2 => 'Hướng dẫn POS\n$stepCount bước bán hàng & in',
-      _ => 'Quy trình triển khai\n$stepCount bước thực tế',
-    };
-    final sub = switch (_section) {
-      1 =>
-        'Sau triển khai: lịch ca, KPI, phép, tài sản, hiện trường — POS xem tab POS',
-      2 =>
-        'A6 app POS · A7/web bán trong HRM · Máy in, bếp, kho, báo cáo doanh thu',
-      _ =>
-        'Làm theo từng bước · SBOX HRM - SBOX POS · Hỗ trợ cài đặt từ xa',
-    };
+    final area = _areaDef;
+    final title = '${tr('Hướng dẫn')} ${tr(area.title)}\n'
+        '${tr('${_allEntries.length} bước · ${area.groups.length} nhóm')}';
+    final sub = area.subtitle;
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: widget.isMobile ? 20 : 80,
@@ -481,7 +485,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                             ),
                           ),
                           subtitle: Text(
-                            tr('${hit.sectionLabel} · ${hit.matchedIn}'),
+                            '${_trailOf(hit.step.id)} · ${tr(hit.matchedIn)}',
                             style: const TextStyle(
                               color: _GuideUi.muted,
                               fontSize: 12,
@@ -504,17 +508,16 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
   }
 
   Widget _buildSectionTabs() {
-    final basicCount = widget.guideData.basicCount;
-    final advancedCount = widget.guideData.advancedCount;
-    final posCount = widget.guideData.posCount;
-    final industryCount = widget.guideData.industryCount;
-    Widget tab(String label, int index) {
-      final selected = _section == index;
+    Widget tab(int index) {
+      final a = LandingGuideGroups.areas[index];
+      final count = LandingGuideGroups.entries(widget.guideData, a).length;
+      final selected = _area == index;
       return Expanded(
         child: GestureDetector(
           onTap: () => setState(() {
-            _section = index;
-            _active = -1;
+            _area = index;
+            _group = null;
+            _activeId = null;
           }),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
@@ -530,13 +533,13 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                tr(label),
+                '${tr(a.title)} ($count)',
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 style: TextStyle(
                   color: selected ? Colors.white : _GuideUi.body,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                  fontSize: widget.isMobile ? 11 : 13,
+                  fontSize: widget.isMobile ? 12 : 14,
                 ),
               ),
             ),
@@ -545,18 +548,74 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
       );
     }
 
-    return Row(
+    Widget chip(String? id, String label) {
+      final selected = _group == id;
+      return ChoiceChip(
+        label: Text(label, style: const TextStyle(fontSize: 12.5)),
+        selected: selected,
+        onSelected: (_) => setState(() {
+          _group = id;
+          if (_active < 0) _activeId = null;
+        }),
+        selectedColor: _GuideUi.brand,
+        backgroundColor: _GuideUi.card,
+        side: BorderSide(color: selected ? _GuideUi.brand : _GuideUi.line),
+        labelStyle: TextStyle(
+          color: selected ? Colors.white : _GuideUi.body,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
+        showCheckmark: false,
+        visualDensity: VisualDensity.compact,
+      );
+    }
+
+    final groups = {for (final e in _allEntries) e.group.id: e.group}.values.toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        tab('Triển khai ($basicCount)', 0),
-        const SizedBox(width: 8),
-        tab('Nâng cao ($advancedCount)', 1),
-        const SizedBox(width: 8),
-        tab('POS ($posCount)', 2),
-        const SizedBox(width: 8),
-        tab('Ngành hàng ($industryCount)', 3),
+        Row(
+          children: [
+            for (var i = 0; i < LandingGuideGroups.areas.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              tab(i),
+            ],
+          ],
+        ),
+        const SizedBox(height: 14),
+        // Nhóm nhỏ trong khu: lọc danh sách bước.
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            chip(null, tr('Tất cả')),
+            for (final g in groups) chip(g.id, tr(g.title)),
+          ],
+        ),
       ],
     );
   }
+
+  /// Tiêu đề nhóm chen giữa danh sách bước.
+  Widget _groupHeader(GuideGroup g, {required bool first}) => Padding(
+        padding: EdgeInsets.only(top: first ? 0 : 14, bottom: 8, left: 4),
+        child: Row(
+          children: [
+            Icon(g.icon, size: 16, color: _GuideUi.brand),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                tr(g.title),
+                style: const TextStyle(
+                  color: _GuideUi.brandDeep,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 
   Widget _buildDesktop() {
     final bodyHeight = widget.desktopBodyHeight ?? 520;
@@ -568,11 +627,17 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
           height: bodyHeight,
           child: SingleChildScrollView(
               child: Column(
-                children: _steps.asMap().entries.map((e) {
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: _entries.asMap().entries.map((e) {
                   final i = e.key;
-                  final s = e.value;
+                  final s = e.value.step;
                   final active = i == _active;
-                  return GestureDetector(
+                  final header = i == 0 || _entries[i - 1].group.id != e.value.group.id;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                  if (header) _groupHeader(e.value.group, first: i == 0),
+                  GestureDetector(
                     onTap: () => _openStep(i),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
@@ -626,6 +691,8 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                               color: _GuideUi.brand, size: 12),
                       ]),
                     ),
+                  ),
+                    ],
                   );
                 }).toList(),
               ),
@@ -646,7 +713,8 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
   }
 
   Widget _buildDetailPanel(bool mobile) {
-    if (_active < 0) {
+    final active = _active;
+    if (active < 0) {
       return Container(
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
@@ -693,25 +761,33 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
               boxShadow: _GuideUi.cardShadow,
             ),
       child: _GuideStepDetail(
-      key: ValueKey('$_section-$_active'),
-      step: _steps[_active],
-      stepNumber: _active + 1,
-      stepTotal: _steps.length,
-      sectionKey: _sectionKey,
+      key: ValueKey('$_area-$_activeId'),
+      step: _entries[active].step,
+      stepNumber: active + 1,
+      stepTotal: _entries.length,
+      sectionKey: _entries[active].section,
+      trail: _trailOf(_entries[active].step.id),
       mobile: mobile,
-      onPrev: _active > 0 ? () => _goAdjacent(-1) : null,
-      onNext: _active < _steps.length - 1 ? () => _goAdjacent(1) : null,
+      onPrev: active > 0 ? () => _goAdjacent(-1) : null,
+      onNext: active < _entries.length - 1 ? () => _goAdjacent(1) : null,
     ),
     );
   }
 
   Widget _buildMobile() {
+    final active = _active;
     return Column(
-      children: _steps.asMap().entries.map((e) {
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: _entries.asMap().entries.map((e) {
         final i = e.key;
-        final s = e.value;
-        final open = i == _active;
-        return GestureDetector(
+        final s = e.value.step;
+        final open = i == active;
+        final header = i == 0 || _entries[i - 1].group.id != e.value.group.id;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+        if (header) _groupHeader(e.value.group, first: i == 0),
+        GestureDetector(
           onTap: () => open ? _closeStep() : _openStep(i),
           child: Container(
             margin: const EdgeInsets.only(bottom: 10),
@@ -764,21 +840,24 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
                     child: _GuideStepDetail(
-                      key: ValueKey('m-$_section-$i'),
+                      key: ValueKey('m-$_area-${s.id}'),
                       step: s,
                       stepNumber: i + 1,
-                      stepTotal: _steps.length,
-                      sectionKey: _sectionKey,
+                      stepTotal: _entries.length,
+                      sectionKey: e.value.section,
+                      trail: _trailOf(s.id),
                       mobile: true,
                       onPrev: i > 0 ? () => _goAdjacent(-1) : null,
                       onNext:
-                          i < _steps.length - 1 ? () => _goAdjacent(1) : null,
+                          i < _entries.length - 1 ? () => _goAdjacent(1) : null,
                     ),
                   ),
                 ],
               ],
             ),
           ),
+        ),
+          ],
         );
       }).toList(),
     );
@@ -795,6 +874,7 @@ class _GuideStepDetail extends StatelessWidget {
     required this.mobile,
     this.onPrev,
     this.onNext,
+    this.trail = '',
   });
 
   final LandingUsageGuideStep step;
@@ -804,6 +884,9 @@ class _GuideStepDetail extends StatelessWidget {
   final bool mobile;
   final VoidCallback? onPrev;
   final VoidCallback? onNext;
+
+  /// «POS › Kho hàng» — khu và nhóm của bước.
+  final String trail;
 
   Future<void> _copyShareLink(BuildContext context) async {
     final link = LandingGuideUrl.buildLink(
@@ -898,6 +981,13 @@ class _GuideStepDetail extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+        if (trail.isNotEmpty) ...[
+          Text(
+            trail,
+            style: const TextStyle(color: _GuideUi.muted, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+        ],
         Row(
           children: [
             Container(

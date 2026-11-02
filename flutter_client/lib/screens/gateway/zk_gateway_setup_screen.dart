@@ -1017,7 +1017,10 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
           const SizedBox(height: 8),
           Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
+            // Material riêng: thẻ nền trắng che hiệu ứng bấm của ListTile trong ExpansionTile.
+            child: Material(
+              type: MaterialType.transparency,
+              child: ExpansionTile(
               tilePadding: EdgeInsets.zero,
               childrenPadding: EdgeInsets.zero,
               title: Text(
@@ -1046,6 +1049,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                   ),
                 ),
               ],
+              ),
             ),
           ),
           const SizedBox(height: 12),

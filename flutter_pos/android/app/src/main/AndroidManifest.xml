@@ -3,6 +3,8 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <!-- Trợ lý ảo: nói lệnh bằng micro (ghi âm gửi máy chủ chép lời). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- Cài APK nội bộ (Android 8+) — máy Android 6 không có Play Store. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"

@@ -9994,21 +9994,105 @@ class ApiService {
   }
 
   /// AI Assistant chat - trợ lý ảo cá nhân với context người dùng.
+  /// [language] = ngôn ngữ giao diện (vi / en / ko / ja / zh) — trợ lý trả lời bằng ngôn ngữ này.
   Future<Map<String, dynamic>> aiAssistantChat({
     required List<Map<String, String>> messages,
     String? provider,
+    String? language,
   }) async {
     try {
-      final response =
-          await http.post(Uri.parse('$baseUrl/api/ai/assistant/chat'),
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/ai/assistant/chat'),
               headers: _headers,
               body: json.encode({
                 'messages': messages,
                 if (provider != null) 'provider': provider,
-              }));
+                if (language != null) 'language': language,
+              }))
+          // Agent gọi nhiều báo cáo / công cụ — có thể mất vài chục giây.
+          .timeout(const Duration(seconds: 120));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
+    }
+  }
+
+  /// Xác nhận phiếu Trợ lý ảo đề xuất → server gọi API thật bằng phiên của người dùng.
+  /// [acknowledged] = người dùng đã xác nhận lần hai (bắt buộc với thao tác rủi ro cao: xóa, hủy, duyệt hàng loạt).
+  Future<Map<String, dynamic>> confirmAiAction(String id, {bool acknowledged = false}) async {
+    try {
+      final r = await http
+          .post(Uri.parse('$baseUrl/api/ai/assistant/actions/$id/confirm'),
+              headers: _headers, body: json.encode({'acknowledged': acknowledged}))
+          .timeout(const Duration(seconds: 90));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Hoàn tác thao tác trợ lý vừa ghi (trong vài phút sau khi xác nhận).
+  Future<Map<String, dynamic>> undoAiAction(String id) async {
+    try {
+      final r = await http
+          .post(Uri.parse('$baseUrl/api/ai/assistant/actions/$id/undo'), headers: _headers)
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<void> discardAiAction(String id) async {
+    try {
+      await http.post(Uri.parse('$baseUrl/api/ai/assistant/actions/$id/discard'), headers: _headers);
+    } catch (_) {}
+  }
+
+  /// Ghi âm → chữ bằng Gemini (có từ vựng cửa hàng): 409 = cửa hàng chưa bật AI, 429 / 502 / 0 (mạng, quá giờ) = tạm thời.
+  Future<({String? text, int status})> aiTranscribeEx(List<int> audio, String mimeType, {String? language}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/ai/assistant/transcribe')
+          .replace(queryParameters: language == null ? null : {'language': language});
+      final request = http.MultipartRequest('POST', uri);
+      if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
+      final parts = mimeType.split(';').first.split('/');
+      request.files.add(http.MultipartFile.fromBytes(
+        'audio',
+        audio,
+        filename: 'voice.${parts.length > 1 ? parts[1] : 'wav'}',
+        contentType: MediaType(parts.first, parts.length > 1 ? parts[1] : 'wav'),
+      ));
+      final streamed = await request.send().timeout(const Duration(seconds: 40));
+      final r = await http.Response.fromStream(streamed);
+      if (r.statusCode != 200) return (text: null, status: r.statusCode);
+      final body = json.decode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+      return body['isSuccess'] == true
+          ? (text: body['data'] as String? ?? '', status: 200)
+          : (text: null, status: 502);
+    } catch (_) {
+      return (text: null, status: 0);
+    }
+  }
+
+  /// Đọc câu trả lời bằng giọng Gemini TTS → WAV (409 = cửa hàng chưa bật AI).
+  Future<({Uint8List? audio, int status})> aiSpeakEx(String text, {String? voice, String? language}) async {
+    try {
+      final r = await http
+          .post(Uri.parse('$baseUrl/api/ai/assistant/speak'),
+              headers: _headers,
+              body: json.encode({
+                'text': text,
+                if (voice != null) 'voice': voice,
+                if (language != null) 'language': language,
+              }))
+          .timeout(const Duration(seconds: 45));
+      final type = r.headers['content-type'] ?? '';
+      return r.statusCode == 200 && type.contains('audio')
+          ? (audio: r.bodyBytes, status: 200)
+          : (audio: null, status: r.statusCode);
+    } catch (_) {
+      return (audio: null, status: 0);
     }
   }
 

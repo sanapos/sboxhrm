@@ -41,7 +41,7 @@ void main() {
         name: 'insurance-tax-1$suffix',
         screen: const InsuranceSettingsScreen(canEditOverride: true),
         api: _api,
-        crumbs: const ['Cài đặt', 'Bảo hiểm'],
+        crumbs: const ['Thiết lập SBOX', 'Lương & chính sách', 'Bảo hiểm'],
         size: size,
         act: (t) async => guideScrollTo(t, find.text('Tỷ lệ đóng'), alignment: 0.05),
         marks: [
@@ -57,7 +57,7 @@ void main() {
         name: 'insurance-tax-2$suffix',
         screen: const TaxSettingsScreen(canEditOverride: true),
         api: _api,
-        crumbs: const ['Cài đặt', 'Thuế TNCN'],
+        crumbs: const ['Thiết lập SBOX', 'Lương & chính sách', 'Thuế TNCN'],
         size: size,
         act: (t) async => guideScrollTo(t, find.text('Giảm trừ gia cảnh (mỗi tháng)'), alignment: 0.05),
         marks: [
@@ -73,7 +73,7 @@ void main() {
         name: 'insurance-tax-3$suffix',
         screen: const TaxSettingsScreen(canEditOverride: true),
         api: _api,
-        crumbs: const ['Cài đặt', 'Thuế TNCN'],
+        crumbs: const ['Thiết lập SBOX', 'Lương & chính sách', 'Thuế TNCN'],
         size: size,
         act: (t) async => guideScrollTo(t, find.text('Người phụ thuộc của nhân viên'), alignment: mobile ? 0.08 : 0.2),
         marks: [

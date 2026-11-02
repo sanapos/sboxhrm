@@ -40,7 +40,7 @@ MockClient _api() => guideApi({
       '/api/settings/holidays': _holidays(),
     });
 
-const _crumbs = ['Cài đặt', 'Ngày lễ'];
+const _crumbs = ['Thiết lập SBOX', 'Nhân sự & chấm công', 'Ngày lễ'];
 
 void main() {
   for (final (suffix, size) in [('', desktopSize), ('-mobile', mobileSize)]) {

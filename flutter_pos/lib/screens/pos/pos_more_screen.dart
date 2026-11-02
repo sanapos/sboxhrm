@@ -12,6 +12,7 @@ import '../../utils/pos_lite_mode.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../utils/store_role_helper.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
+import '../../widgets/pos/pos_ai_assistant_sheet.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
@@ -341,6 +342,20 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                           ),
                         );
                       },
+                    ),
+                  ),
+                ],
+                if (canUsePosAiAssistant(context)) ...[
+                  const SizedBox(height: 12),
+                  Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    child: ListTile(
+                      leading: const Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
+                      title: Text(tr('Trợ lý ảo'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Text(tr('Hỏi số liệu, ra lệnh bằng chữ hoặc giọng nói')),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => showPosAiAssistant(context),
                     ),
                   ),
                 ],

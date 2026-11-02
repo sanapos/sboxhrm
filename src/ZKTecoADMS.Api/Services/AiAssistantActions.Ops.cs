@@ -163,7 +163,7 @@ public sealed partial class AiAssistantActions
         {
             case "find_shift_templates":
             {
-                if (!AllowedDefs(c).Any(d => d.Name is "propose_assign_shift" or "propose_shift_swap"))
+                if (!AllowedDefs(c).Any(d => d.Name is "propose_assign_shift" or "propose_shift_swap" or "propose_leave"))
                     return new { error = "Tài khoản không có quyền xếp ca." };
                 var rows = await db.ShiftTemplates.AsNoTracking().Where(s => s.StoreId == c.StoreId && s.IsActive)
                     .OrderBy(s => s.StartTime).Select(s => new { s.Id, s.Name, s.Code, s.StartTime, s.EndTime }).Take(60).ToListAsync(ct);
@@ -271,7 +271,7 @@ public sealed partial class AiAssistantActions
         "propose_task" => Wrap(TaskAsync(c, a, ct)),
         "propose_close_cashier_shift" => Wrap(CloseCashierShiftAsync(c, a, ct)),
         "propose_penalties_for_late" => Wrap(PenaltiesForLateAsync(c, a, ct)),
-        _ => Task.FromResult<Pending?>(null),
+        _ => MoreProposalAsync(tool, c, a, ct),
     };
 
     /// <summary>Hoàn tác các thẻ vận hành (null = không có / để phần chung xử lý).</summary>

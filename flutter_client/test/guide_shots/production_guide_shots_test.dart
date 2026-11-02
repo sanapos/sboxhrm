@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:zkteco_flutter_client/screens/product_salary_settings_screen.dart';
 import 'package:zkteco_flutter_client/screens/production_output_screen.dart';
 
@@ -42,7 +43,9 @@ final _items = [
 ];
 
 final _now = DateTime.now();
-String _day(int d) => DateTime(_now.year, _now.month, d.clamp(1, 28)).toIso8601String();
+/// Ngày 14 = hôm nay, 13 = hôm qua — dữ liệu luôn nằm trong kỳ «Tháng này» đang lọc, ảnh không lệch ngày.
+DateTime _date(int d) => DateTime(_now.year, _now.month, _now.day).subtract(Duration(days: 14 - d));
+String _day(int d) => _date(d).toIso8601String();
 
 Map<String, dynamic> _entry(String id, String emp, String code, String item, String group, num qty, num price, int day,
         [String note = '']) =>
@@ -102,7 +105,7 @@ void main() {
         name: 'production-1$suffix',
         screen: const ProductSalarySettingsScreen(),
         api: _api,
-        crumbs: const ['Cài đặt', 'Lương sản phẩm'],
+        crumbs: const ['Thiết lập SBOX', 'Lương & chính sách', 'Lương sản phẩm'],
         size: size,
         act: (t) async => _dump('product-salary'),
         marks: [
@@ -125,7 +128,7 @@ void main() {
           GuideMark(1, [GuideMark.button(find.text('Nhập sản lượng').last)], pad: 4),
           GuideMark(2, [
             if (size.width < 600) _card(find.text('Nguyễn Thị Hằng').first) else ...[
-              find.text('14/10/2026').first,
+              find.text(DateFormat('dd/MM/yyyy').format(_date(14))).first,
               find.text('Ca sáng').first,
             ],
           ], pad: 6),

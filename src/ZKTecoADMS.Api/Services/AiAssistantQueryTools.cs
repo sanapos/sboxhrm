@@ -1,4 +1,5 @@
 using System.Text;
+using ZKTecoADMS.Application.Helpers;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Permissions;
 using ZKTecoADMS.Domain.Enums;
@@ -28,12 +29,14 @@ public static class AiAssistantQueryTools
         var buf = new StringBuilder();
         try
         {
-            if (LooksLikeHowTo(q))
-            {
-                var chunks = AiAssistantHelpCorpus.Search(userQuery, topK: 4);
-                if (chunks.Count > 0)
-                    buf.AppendLine(AiAssistantHelpCorpus.FormatForPrompt(chunks));
-            }
+            // Hỏi cách làm / gặp lỗi → nạp các bước hướng dẫn khớp nhất; câu khác chỉ nạp khi khớp rất rõ một chức năng
+            // («máy in bếp không ra phiếu», «karaoke tính giờ») — AI trả lời theo đúng tài liệu thay vì tự đoán.
+            var help = AiAssistantHelpCorpus.SearchScored(userQuery ?? "", topK: 4);
+            var chunks = LooksLikeHowTo(q)
+                ? help.Select(h => h.Chunk).ToList()
+                : help.Where(h => h.Score >= AiAssistantHelpCorpus.ConfidentScore).Take(2).Select(h => h.Chunk).ToList();
+            if (chunks.Count > 0)
+                buf.AppendLine(AiAssistantHelpCorpus.FormatForPrompt(chunks));
 
             if (LooksLikePendingApprovals(q) && CanAnyApprove(perms, isSuperUser) && !scope.SelfOnly)
             {
@@ -86,11 +89,22 @@ public static class AiAssistantQueryTools
         return r is "owner" or "admin" or "director" or "manager" or "departmenthead";
     }
 
-    private static bool LooksLikeHowTo(string q) =>
-        q.Contains("cách") || q.Contains("hướng dẫn") || q.Contains("làm sao")
-        || q.Contains("thế nào") || q.Contains("ở đâu") || q.Contains("menu nào")
-        || q.Contains("mở đâu") || q.Contains("đăng ký") || q.Contains("thiết lập")
-        || q.Contains("cấu hình") || q.Contains("howto") || q.Contains("help");
+    static readonly string[] HowToKeys =
+    [
+        "cach", "huong dan", "lam sao", "the nao", "o dau", "cho nao", "menu nao", "mo dau", "dang ky", "thiet lap",
+        "cau hinh", "cai dat", "khai bao", "su dung", "dung nhu", "bat dau", "nut nao", "bam vao", "bam gi", "chuc nang",
+        "tai sao", "vi sao", "bi loi", "bao loi", "khong duoc", "khong in", "khong hien", "khong thay", "khong ket noi", "bi sai",
+        "howto", "help", "how to", "how do",
+    ];
+
+    /// <summary>Câu hỏi cách dùng / gặp sự cố — so không dấu (giọng nói, gõ không dấu vẫn nhận).</summary>
+    internal static bool LooksLikeHowTo(string q)
+    {
+        // So theo nguyên từ: «lỗi» không được trúng «lợi nhuận».
+        var f = " " + string.Join(' ', VnSearch.FoldText(q).Split([' ', ',', '.', '?', '!'], StringSplitOptions.RemoveEmptyEntries)) + " ";
+        // «loi» không dấu lẫn «lợi / lời» → chữ «lỗi» chỉ nhận khi có dấu (hoặc «bị loi», «báo loi»).
+        return q.Contains("lỗi") || HowToKeys.Any(k => f.Contains(" " + k + " "));
+    }
 
     private static bool LooksLikePendingApprovals(string q) =>
         q.Contains("chờ duyệt") || q.Contains("pending") || q.Contains("cần duyệt")

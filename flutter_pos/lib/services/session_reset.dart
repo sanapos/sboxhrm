@@ -5,6 +5,7 @@ import '../providers/permission_provider.dart';
 import '../services/mobile_bottom_nav_prefs.dart';
 import '../services/mobile_quick_actions_prefs.dart';
 import '../utils/navigation_notifier.dart';
+import '../widgets/pos/pos_ai_assistant_sheet.dart';
 
 /// Xóa cache in-memory khi đổi tài khoản / cửa hàng (logout → login).
 class SessionReset {
@@ -22,6 +23,8 @@ class SessionReset {
     MobileBottomNavPrefs.clearCache();
     MobileQuickActionsPrefs.clearCache();
     NavigationNotifier.resetForNewSession();
+    // Cuộc trò chuyện trợ lý không lộ sang tài khoản / cửa hàng khác.
+    PosAiAssistantSheet.resetSession();
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('main_layout_last_nav_index');

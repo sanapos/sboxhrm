@@ -389,12 +389,10 @@ class _OvertimeScreenState extends State<OvertimeScreen>
     if (nestedTab) {
       return RefreshIndicator(
         onRefresh: _loadData,
+        // HrmMobileNestedTabLayout không có SliverOverlapAbsorber → không chèn SliverOverlapInjector
+        // (trước đây gọi handle bằng context của State, ngoài NestedScrollView → lỗi màn hình khi có đơn).
         child: CustomScrollView(
           slivers: [
-            SliverOverlapInjector(
-              handle:
-                  NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-            ),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               sliver: SliverList(

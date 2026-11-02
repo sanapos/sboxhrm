@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using ZKTecoADMS.Application.Helpers;
 
 namespace ZKTecoADMS.Api.Services;
 
@@ -14,7 +15,10 @@ public sealed record HelpChunk(
     string Tip,
     string Keywords,
     string[] ActionTags,
-    string[] ScreenNotes);
+    string[] ScreenNotes,
+    string Area = "",
+    string Group = "",
+    string Trail = "");
 
 /// <summary>
 /// Kiến thức «làm thế nào» của trợ lý AI. Nội dung lấy từ HelpCorpus/landing-guide.json — file do
@@ -34,8 +38,22 @@ public static class AiAssistantHelpCorpus
     /// <summary>Từ khóa thêm (cách khách hay hỏi) + nút điều hướng cho từng bước.</summary>
     internal static readonly IReadOnlyDictionary<string, Overlay> Overlays = new Dictionary<string, Overlay>(StringComparer.Ordinal)
     {
+        ["hr_analytics"] = new("báo cáo phân tích tỷ lệ chuyên cần vắng không phép chấm công bất thường phép còn lại độ phủ ca báo cáo điều hành tháng báo cáo đi đường giờ di chuyển", ["nav_attendance_summary", "nav_dashboard"]),
+        ["employee_self_service"] = new("nhân viên dùng app xem phiếu lương của tôi lịch ca của tôi gửi đơn nghỉ phép tăng ca sửa công chấm công điện thoại đăng nhập app", ["nav_payslip", "nav_work_schedule", "nav_leave"]),
+        ["branches"] = new("chi nhánh nhiều điểm bán nhiều cửa hàng trụ sở chính chi nhánh cha quản lý chi nhánh sơ đồ chi nhánh", ["nav_departments"]),
+        ["raw_attendance"] = new("chấm công thô log máy chấm công duyệt chấm công chấm ngoài vị trí chấm mobile chấm công thủ công chưa gắn nhân viên vân tay khuôn mặt", ["nav_attendance", "nav_attendance_correction"]),
+        ["allowance"] = new("phụ cấp ăn trưa xăng xe điện thoại chuyên cần ca đêm phụ cấp theo ca theo ngày công miễn thuế đóng bảo hiểm", ["nav_payroll"]),
+        ["pos_stock_count"] = new("kiểm kho kiểm kê cân bằng kho lệch kho số thực tế khớp tồn quét hàng loạt đếm hàng", ["nav_pos_products"]),
+        ["pos_stock_card"] = new("tồn kho thẻ kho định mức tồn dưới định mức hết hàng sắp hết có thể bán khách đặt giữ chỗ dự kiến hết biến động kho ai trừ kho", ["nav_pos_products", "nav_pos_reports"]),
+        ["pos_stock_docs"] = new("trả hàng nhập trả ncc xuất hủy hàng hỏng hết hạn đổ vỡ xuất dùng nội bộ phiếu kho hủy phiếu hoàn kho", ["nav_pos_products"]),
+        ["pos_suppliers"] = new("nhà cung cấp ncc nhập hàng phiếu nhập công nợ ncc trả nợ ncc đối chiếu công nợ nợ đầu kỳ giá vốn hóa đơn đầu vào", ["nav_pos_products", "nav_pos_reports"]),
+        ["pos_bank_account"] = new("tài khoản nhận tiền số tài khoản stk ngân hàng vietqr qr chuyển khoản mã qr thanh toán tingee tự báo có tiền báo có", ["nav_pos_sell"]),
+        ["pos_warranty"] = new("bảo hành tiếp nhận bảo hành phiếu bảo hành seri imei đổi máy trả máy khách lấy máy phí sửa chữa hết hạn bảo hành nhắc bảo hành", ["nav_pos_sell", "nav_pos_reports"]),
+        ["pos_kds"] = new("kds màn hình bếp bếp bar ra món đang làm món trễ đọc món màn hình nhà bếp phiếu bếp điện tử", ["nav_pos_sell"]),
+        ["pos_qr_order"] = new("qr order menu qr gọi món tại bàn quét qr đặt hàng online link đặt hàng đơn online xác nhận đơn in qr bàn tem qr khách tự order", ["nav_pos_sell"]),
         ["advance"] = new("ứng lương phiếu ứng tạm ứng tài chính duyệt ứng lương báo cáo ứng lương", ["nav_advance", "nav_advance_create"]),
         ["asset"] = new("tài sản thiết bị cấp phát thu hồi bảo hành báo cáo tài sản quản lý vận hành", ["nav_assets"]),
+        ["attendance_correction"] = new("sửa công bổ sung công quên chấm công chấm công bù duyệt chấm công duyệt phạt quên chấm", ["nav_attendance_correction", "nav_attendance_correction_create"]),
         ["attendance_modes"] = new("kiểu chấm công checkin chỉ chấm vào thiếu chấm mode đủ ca", ["nav_attendance_summary"]),
         ["bonus"] = new("thưởng phiếu thưởng thưởng nóng thưởng kpi tổng hợp lương duyệt thưởng", ["nav_bonus_penalty"]),
         ["bonus_ticket"] = new("phiếu thưởng tạo thưởng tài chính duyệt thưởng bảng lương tổng hợp lương", ["nav_bonus_penalty"]),
@@ -45,6 +63,7 @@ public static class AiAssistantHelpCorpus
         ["communication"] = new("truyền thông thông báo nội bộ bản tin push tin tức nội quy", ["nav_communication"]),
         ["daily_ops"] = new("hàng ngày cuối tháng quy trình ngày duyệt đơn vận hành hrm chốt lương", ["nav_dashboard", "nav_attendance_summary"]),
         ["device_connect"] = new("kết nối máy chấm công zkteco adms cloud serial máy chủ đám mây online đồng bộ", ["nav_attendance"]),
+        ["gateway_wifi"] = new("gateway wifi esp32 máy chấm công cũ tcp 4370 không có máy chủ đám mây", []),
         ["device_users"] = new("nhân viên chấm công vân tay khuôn mặt đồng bộ máy zkteco nhân sự chấm công chấm công thô", ["nav_attendance", "nav_attendance_history"]),
         ["employee_account"] = new("tài khoản nhân viên đăng nhập phân quyền vai trò cài đặt tài khoản", ["nav_employees"]),
         ["employees"] = new("thêm nhân viên hồ sơ nhân sự import excel phòng ban chức vụ mã nhân viên hr", ["nav_employees"]),
@@ -66,9 +85,10 @@ public static class AiAssistantHelpCorpus
         ["kpi"] = new("kpi chỉ tiêu đánh giá hiệu suất trọng số quản lý vận hành thưởng", ["nav_kpi"]),
         ["leave"] = new("nghỉ phép đơn nghỉ phép năm duyệt nghỉ phép báo cáo nghỉ phép tạo đơn", ["nav_leave", "nav_leave_create"]),
         ["meal"] = new("chấm cơm suất ăn cơm trưa cơm ca phiếu ăn in phiếu căn tin thực đơn menu hôm nay tiền ăn công nợ", ["nav_meal", "nav_meal_register"]),
-        ["mobile_attendance"] = new("chấm công mobile gps wifi face id đăng ký thiết bị duyệt chấm công vùng chấm công", ["nav_attendance", "nav_attendance_correction"]),
+        ["mobile_attendance"] = new("chấm công mobile chấm công điện thoại chấm công trên app gps wifi face id đăng ký thiết bị duyệt chấm công vùng chấm công", ["nav_attendance", "nav_attendance_correction"]),
         ["notifications"] = new("thông báo nhắc việc chuông bật tắt thông báo", []),
         ["org_structure"] = new("phòng ban chức vụ chi nhánh cơ cấu tổ chức bộ phận", ["nav_departments"]),
+        ["overtime"] = new("tăng ca đăng ký tăng ca duyệt tăng ca làm thêm giờ ot tiền tăng ca", ["nav_overtime", "nav_overtime_create"]),
         ["penalty"] = new("phạt mức phạt đi trễ về sớm tái phạm phiếu phạt cài đặt phạt báo cáo phạt", ["nav_penalty"]),
         ["penalty_ticket"] = new("tạo phiếu phạt đi trễ về sớm tái phạm tài chính duyệt phạt báo cáo phạt", ["nav_penalty"]),
         ["pos_common"] = new("không in in sai lệch tiền hủy đơn trả hàng tình huống pos không đủ tồn tồn âm thao tác lại", ["nav_pos_sell", "nav_pos_printers", "nav_pos_reports"]),
@@ -76,8 +96,8 @@ public static class AiAssistantHelpCorpus
         ["pos_devices"] = new("a6 a7 sunmi flutter_pos hrm pos thiết bị thu ngân c20lite", ["nav_pos_sell"]),
         ["pos_einvoice"] = new("hóa đơn điện tử viettel easy misa vnpt einvoice kết nối cấu hình xuất hđđt qr tra cứu", ["nav_pos_sell"]),
         ["pos_einvoice_manage"] = new("quản lý hóa đơn điện tử thay thế hủy đồng bộ gửi zalo email bản nháp tải danh sách portal", ["nav_pos_reports"]),
-        ["pos_eod"] = new("cuối ngày chốt ca tổng kết end of day tiền mặt ca thu ngân mở ca đóng két", ["nav_pos_reports"]),
-        ["pos_inventory"] = new("kho nhập hàng tồn kho kiểm kho kiểm kê ncc xuất hủy xuất nội bộ thẻ kho giá vốn", ["nav_pos_products", "nav_pos_reports"]),
+        ["pos_eod"] = new("cuối ngày chốt ca đóng ca kết ca đếm két tổng kết end of day tiền mặt ca thu ngân mở ca đóng két", ["nav_pos_reports"]),
+        ["pos_inventory"] = new("kho kho hàng nhập xuất tồn chứng từ kho giá vốn bình quân phiếu tạm hoàn thành", ["nav_pos_products", "nav_pos_reports"]),
         ["pos_kitchen"] = new("bếp gửi bếp phiếu bếp tem ly kds", ["nav_pos_sell", "nav_pos_printers"]),
         ["pos_printers"] = new("máy in mẫu in k80 k58 print agent usb bluetooth", ["nav_pos_printers"]),
         ["pos_products"] = new("thêm hàng tạo hàng hóa sản phẩm giá bán danh mục món mã vạch barcode tồn đầu kỳ định mức tồn ngừng kinh doanh ẩn pos nhà cung cấp", ["nav_pos_products"]),
@@ -105,13 +125,29 @@ public static class AiAssistantHelpCorpus
         ["tasks"] = new("công việc giao việc kanban hạn hoàn thành ưu tiên", ["nav_tasks"]),
         ["work_schedule"] = new("lịch làm việc phân ca đổi ca duyệt lịch làm việc ca tuần tháng", ["nav_work_schedule", "nav_shift_change"]),
         ["work_schedule_basic"] = new("phân lịch xếp ca lịch làm việc tuần tháng sao chép lịch", ["nav_work_schedule"]),
+        ["pos_quotes"] = new("báo giá hợp đồng gửi báo giá pdf zalo khách chốt nghiệm thu đề nghị thanh toán cọc vat đánh số báo giá", []),
+        ["pos_booking"] = new("đặt bàn đặt phòng đặt lịch hẹn đặt chỗ giữ bàn cọc nhận bàn khách không đến tự xếp thợ salon", ["nav_pos_sell"]),
+        ["pos_customer_display"] = new("màn hình phụ màn hình khách màn thứ hai qr chuyển khoản cho khách quét quảng cáo video sunmi t1", ["nav_pos_sell"]),
+        ["pos_shipping"] = new("giao hàng vận đơn ghn ghtk viettel post ahamove spx cod thu hộ in tem cước giao hàng đối soát cod", ["nav_pos_sell"]),
+        ["ai_assistant"] =new("trợ lý ảo ai gemini giọng nói micro nói ra lệnh rảnh tay xác nhận thẻ hoàn tác đọc to nhật ký thao tác ai bản tin sáng khóa ai", []),
+        ["zalo_bot"] =new("zalo bot liên kết zalo tin nhắn zalo thông báo qua zalo token bot webhook", []),
     };
 
     private static readonly IReadOnlyList<HelpChunk> AllChunks = Load();
 
     public static IReadOnlyList<HelpChunk> All => AllChunks;
 
-    public static IReadOnlyList<HelpChunk> Search(string query, int topK = 4)
+    public static IReadOnlyList<HelpChunk> Search(string query, int topK = 4) =>
+        SearchScored(query, topK).Select(x => x.Chunk).ToList();
+
+    /// <summary>
+    /// Điểm khớp đủ chắc để nạp hướng dẫn kể cả khi câu không có chữ «cách / hướng dẫn» (vd «sao máy in không in»):
+    /// khoảng 3 từ khóa trúng tiêu đề / từ khóa của bước.
+    /// </summary>
+    public const int ConfidentScore = 45;
+
+    /// <summary>Tìm bước hướng dẫn kèm điểm — so không dấu (gõ / nói không dấu vẫn trúng).</summary>
+    public static IReadOnlyList<(HelpChunk Chunk, int Score)> SearchScored(string query, int topK = 4)
     {
         if (string.IsNullOrWhiteSpace(query))
             return [];
@@ -120,20 +156,14 @@ public static class AiAssistantHelpCorpus
         if (terms.Count == 0)
             return [];
 
-        var scored = new List<(HelpChunk Chunk, int Score)>();
-        foreach (var chunk in AllChunks)
-        {
-            var score = ScoreChunk(chunk, terms, query);
-            if (score > 0)
-                scored.Add((chunk, score));
-        }
-
-        return scored
+        var raw = VnSearch.FoldText(query);
+        return Folded
+            .Select(f => (f.Chunk, Score: ScoreChunk(f, terms, raw)))
+            .Where(x => x.Score > 0)
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Chunk.Mode, StringComparer.Ordinal)
             .ThenBy(x => x.Chunk.StepId, StringComparer.Ordinal)
             .Take(Math.Max(1, topK))
-            .Select(x => x.Chunk)
             .ToList();
     }
 
@@ -148,6 +178,9 @@ public static class AiAssistantHelpCorpus
         {
             sb.AppendLine("=== HƯỚNG DẪN SỬ DỤNG ===");
             sb.AppendLine($"[[GUIDE:{chunk.Mode}/{chunk.StepId}]]");
+            // Vị trí trong hướng dẫn (khu › nhóm) để AI chỉ đường: «Hướng dẫn POS › Kho hàng».
+            if (!string.IsNullOrWhiteSpace(chunk.Trail))
+                sb.AppendLine($"Mục hướng dẫn: {chunk.Trail} › {chunk.Title}");
             sb.AppendLine(chunk.Title);
             sb.AppendLine(chunk.Summary);
             foreach (var bullet in chunk.Bullets)
@@ -187,8 +220,16 @@ public static class AiAssistantHelpCorpus
         return true;
     }
 
+    private sealed record GuideDocJson(GuideAreaJson[] Areas, GuideStepJson[] Steps);
+
+    private sealed record GuideAreaJson(string Id, string Title, GuideGroupJson[] Groups);
+
+    private sealed record GuideGroupJson(string Id, string Title);
+
     private sealed record GuideStepJson(
         string Mode,
+        string Area,
+        string Group,
         string StepId,
         string Title,
         string Desc,
@@ -203,12 +244,19 @@ public static class AiAssistantHelpCorpus
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(ResourceName)
             ?? throw new InvalidOperationException($"Thiếu tài nguyên {ResourceName}");
-        var steps = JsonSerializer.Deserialize<GuideStepJson[]>(stream,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
-        return steps.Select(s =>
+        var doc = JsonSerializer.Deserialize<GuideDocJson>(stream,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var trails = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var a in doc?.Areas ?? [])
+            foreach (var g in a.Groups ?? [])
+                trails[$"{a.Id}/{g.Id}"] = $"Hướng dẫn {a.Title} › {g.Title}";
+        return (doc?.Steps ?? []).Select(s =>
         {
             var extra = Overlays.GetValueOrDefault(s.StepId);
-            var keywords = string.Join(' ', (s.Keywords ?? []).Append(extra?.Keywords ?? string.Empty)).Trim();
+            var trail = trails.GetValueOrDefault($"{s.Area}/{s.Group}") ?? string.Empty;
+            // Tên nhóm cũng là từ khóa: «kho hàng», «khởi tạo», «đơn từ»… trúng cả nhóm.
+            var groupTitle = trail.Split('›').LastOrDefault()?.Trim() ?? string.Empty;
+            var keywords = string.Join(' ', (s.Keywords ?? []).Append(extra?.Keywords ?? string.Empty).Append(groupTitle)).Trim();
             return new HelpChunk(
                 s.Mode,
                 s.StepId,
@@ -218,61 +266,56 @@ public static class AiAssistantHelpCorpus
                 s.Tip ?? string.Empty,
                 keywords,
                 extra?.ActionTags ?? [],
-                (s.Shots ?? []).Select(x => x.Caption).ToArray());
+                (s.Shots ?? []).Select(x => x.Caption).ToArray(),
+                s.Area ?? string.Empty,
+                s.Group ?? string.Empty,
+                trail);
         }).ToList();
     }
 
+    /// <summary>Từ hay gặp trong mọi câu (đại từ, hư từ) — không mang nghĩa chức năng, chỉ làm nhiễu điểm.</summary>
+    static readonly HashSet<string> StopWords =
+    [
+        "toi", "em", "anh", "chi", "ban", "minh", "co", "khong", "la", "va", "cua", "cho", "thi", "ma", "nay", "do", "di",
+        "nhe", "a", "oi", "the", "nao", "sao", "lam", "duoc", "can", "muon", "phai", "voi", "trong", "tren", "o", "de",
+        "cach", "huong", "dan", "giup", "hay", "roi", "chua", "bi", "mot", "nhung", "cac", "khi", "neu", "vay", "gi",
+    ];
+
     private static List<string> SplitTerms(string query)
     {
-        return query
-            .Split([' ', '\t', '\r', '\n', ',', ';', '.', '?', '!'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(t => t.Trim().ToLowerInvariant())
-            .Where(t => t.Length >= 2)
+        return VnSearch.FoldText(query)
+            .Split([' ', '\t', '\r', '\n', ',', ';', '.', '?', '!', '«', '»', '"', '(', ')'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(t => t.Length >= 2 && !StopWords.Contains(t))
             .Distinct()
             .ToList();
     }
 
-    private static int ScoreChunk(HelpChunk chunk, IReadOnlyList<string> terms, string rawQuery)
+    sealed record FoldedChunk(HelpChunk Chunk, string StepId, string Title, string Summary, string Keywords, string[] Bullets);
+
+    static readonly IReadOnlyList<FoldedChunk> Folded = AllChunks
+        .Select(c => new FoldedChunk(c, c.StepId.ToLowerInvariant().Replace('_', ' '), VnSearch.Fold(c.Title), VnSearch.Fold(c.Summary),
+            VnSearch.Fold(c.Keywords), c.Bullets.Select(VnSearch.Fold).ToArray()))
+        .ToList();
+
+    private static int ScoreChunk(FoldedChunk c, IReadOnlyList<string> terms, string raw)
     {
         var score = 0;
-        var title = chunk.Title.ToLowerInvariant();
-        var summary = chunk.Summary.ToLowerInvariant();
-        var keywords = chunk.Keywords.ToLowerInvariant();
-        var stepId = chunk.StepId.ToLowerInvariant();
-        var raw = rawQuery.Trim().ToLowerInvariant();
-
         if (raw.Length >= 2)
         {
-            if (stepId.Contains(raw))
-                score += 30;
-            if (title.Contains(raw))
-                score += 20;
-            if (keywords.Contains(raw))
-                score += 15;
-            if (summary.Contains(raw))
-                score += 8;
-            foreach (var bullet in chunk.Bullets)
-            {
-                if (bullet.ToLowerInvariant().Contains(raw))
-                    score += 4;
-            }
+            if (c.StepId.Contains(raw)) score += 30;
+            if (c.Title.Contains(raw)) score += 20;
+            if (c.Keywords.Contains(raw)) score += 15;
+            if (c.Summary.Contains(raw)) score += 8;
+            score += 4 * c.Bullets.Count(b => b.Contains(raw));
         }
 
         foreach (var term in terms)
         {
-            if (stepId.Contains(term))
-                score += 12;
-            if (title.Contains(term))
-                score += 10;
-            if (keywords.Contains(term))
-                score += 8;
-            if (summary.Contains(term))
-                score += 5;
-            foreach (var bullet in chunk.Bullets)
-            {
-                if (bullet.ToLowerInvariant().Contains(term))
-                    score += 3;
-            }
+            if (c.StepId.Contains(term)) score += 12;
+            if (c.Title.Contains(term)) score += 10;
+            if (c.Keywords.Contains(term)) score += 8;
+            if (c.Summary.Contains(term)) score += 5;
+            score += 3 * c.Bullets.Count(b => b.Contains(term));
         }
 
         return score;

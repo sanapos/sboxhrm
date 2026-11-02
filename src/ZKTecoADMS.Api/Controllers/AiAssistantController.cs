@@ -389,24 +389,28 @@ public class AiAssistantController(
             // Bộ dò từ khóa (ý định, bot rule) chỉ hiểu tiếng Việt — câu tiếng Anh / Hàn / Nhật / Trung để Gemini tự hiểu,
             // kèm đủ công cụ thao tác (tốn token hơn nhưng không bỏ sót lệnh).
             var vi = lang == AiLanguage.Vietnamese;
-            var withActions = !vi || AiAssistantIntent.LooksLikeAction(lastText)
-                              || (!AiAssistantAgent.LooksAnalytical(lastText) && recentUser.SkipLast(1).Any(AiAssistantIntent.LooksLikeAction));
+            // Hỏi cách dùng / báo sự cố («cách tạo phiếu phạt», «máy in bếp không in») → trả lời thẳng từ hướng dẫn sử dụng
+            // nhúng trong máy chủ, không gọi Gemini (không tốn lượt, chạy cả khi cửa hàng chưa có khóa AI).
+            var topHelp = AiAssistantHelpCorpus.SearchScored(lastText, topK: 1);
+            var guideOnly = vi && AiAssistantIntent.IsGuideQuestion(lastText, topHelp.Count > 0 ? topHelp[0].Score : 0);
+            var withActions = !guideOnly && (!vi || AiAssistantIntent.LooksLikeAction(lastText)
+                              || (!AiAssistantAgent.LooksAnalytical(lastText) && recentUser.SkipLast(1).Any(AiAssistantIntent.LooksLikeAction)));
             var toolGroups = withActions && vi ? AiAssistantIntent.Groups(recentUser) : null;
             // Câu hỏi phân tích / báo cáo → đi thẳng agent (gọi báo cáo thật); câu cá nhân đơn giản → bot rule (nhanh, không tốn lượt).
-            var analytical = geminiOk && (!vi || AiAssistantAgent.LooksAnalytical(lastText) || withActions);
+            var analytical = !guideOnly && geminiOk && (!vi || AiAssistantAgent.LooksAnalytical(lastText) || withActions);
             var rule = analytical
                 ? new AiAssistantRuleResult(false, "")
                 : AiAssistantRuleBot.Build(
                     lastUserMessage.Content, contextText, helpHits,
-                    allowedActions, allowedCreates, includeFallback: !geminiOk);
+                    allowedActions, allowedCreates, includeFallback: !geminiOk, guideQuestion: guideOnly);
             var reportsUsed = new List<string>();
             var proposed = new List<AiAssistantActions.Pending>();
-            logger.LogInformation("AI chat route: gemini={GeminiOk} analytical={Analytical} rule={Rule}",
-                geminiOk, analytical, rule.Matched);
+            logger.LogInformation("AI chat route: gemini={GeminiOk} analytical={Analytical} guide={Guide} rule={Rule}",
+                geminiOk, analytical, guideOnly, rule.Matched);
 
             string reply;
             string usedProvider;
-            if (!geminiOk && AiAssistantAgent.LooksAnalytical(lastUserMessage.Content)
+            if (!guideOnly && !geminiOk && AiAssistantAgent.LooksAnalytical(lastUserMessage.Content)
                 && geminiAiService is TenantScopedGeminiAiService { SharedBlocked: true })
             {
                 // Câu phân tích cần AI: cửa hàng chưa có khóa riêng, gói không cho dùng khóa chung.

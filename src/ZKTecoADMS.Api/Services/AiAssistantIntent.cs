@@ -1,3 +1,6 @@
+using System.Text.RegularExpressions;
+using ZKTecoADMS.Application.Helpers;
+
 namespace ZKTecoADMS.Api.Services;
 
 /// <summary>
@@ -16,9 +19,11 @@ public static class AiAssistantIntent
     public static string GroupOf(string tool) => tool switch
     {
         "propose_advance" or "propose_penalty" or "propose_update_penalty" or "propose_reward" or "propose_update_reward"
-            or "propose_overtime" or "propose_attendance_fix" or "propose_penalties_for_late" => Hr,
+            or "propose_overtime" or "propose_attendance_fix" or "propose_penalties_for_late" or "propose_leave"
+            or "propose_employee" => Hr,
         "propose_cash_voucher" or "propose_update_cash_voucher" or "propose_close_cashier_shift" => Cash,
-        "propose_sale_order" or "propose_customer_return" or "propose_collect_debt" => Sale,
+        "propose_sale_order" or "propose_customer_return" or "propose_collect_debt" or "propose_quote"
+            or "propose_reservation" => Sale,
         "propose_product" or "propose_purchase_receipt" or "propose_stock_count" or "propose_damage_issue"
             or "propose_internal_use" or "propose_purchase_return" or "propose_update_product" or "propose_stock_transfer" => Stock,
         "propose_assign_shift" or "propose_shift_swap" => Shift,
@@ -34,10 +39,12 @@ public static class AiAssistantIntent
         [
             "phạt", "thưởng", " ứng", "ứng lương", "tăng ca", "làm thêm", "chấm công", "quên chấm", "chấm bù", "bổ sung công",
             "đi trễ", "đi muộn", "về sớm", "lương", "nhân viên", "vắng", "nghỉ không phép", "nội quy",
+            "nghỉ phép", "xin nghỉ", "cho nghỉ", "nghỉ ốm", "nghỉ bù", "phép năm", "tuyển", "người mới",
         ],
         [Cash] = ["phiếu thu", "phiếu chi", "thu tiền", "chi tiền", "sổ quỹ", "quỹ", "tiền điện", "tiền nước", "chi phí", "thu chi", "tiền nhà",
             "chốt ca", "đóng ca", "kết ca", "đóng sổ", "chốt sổ", "két"],
-        [Sale] = ["bán", "hóa đơn", "hoá đơn", "đơn hàng", "lên đơn", "tạo đơn", "khách", "trả hàng", "ghi nợ", "trả lại", "thu nợ", "công nợ", "đòi nợ", "trả nợ"],
+        [Sale] = ["bán", "hóa đơn", "hoá đơn", "đơn hàng", "lên đơn", "tạo đơn", "khách", "trả hàng", "ghi nợ", "trả lại", "thu nợ", "công nợ", "đòi nợ", "trả nợ",
+            "báo giá", "bao gia", "đặt bàn", "đặt phòng", "đặt lịch", "đặt chỗ", "giữ bàn", "giữ phòng", "lịch hẹn", "hẹn khách"],
         [Stock] =
         [
             "hàng", "kho", "nhập", "kiểm kê", "xuất hủy", "hủy hàng", "nội bộ", "nhà cung cấp", "ncc", "giá bán", "giá vốn",
@@ -80,6 +87,10 @@ public static class AiAssistantIntent
         " xóa ", " xoá ", " hủy ", " huỷ ", "duyệt", "từ chối", "ngừng bán", "mở bán lại", "ngừng theo dõi", "hoàn tác",
         "xếp ca", "đổi ca", "xếp lịch", "chuyển kho", "thu nợ", "gửi thông báo", "thông báo cho", "nhắn cho", "giao việc",
         "chốt ca", "đóng ca", "kết ca", "đóng sổ", "đặt hàng", "nhập hàng theo",
+        // «Còn bao nhiêu ngày nghỉ phép?» là câu hỏi — chỉ bắt cách nói xin / cho nghỉ.
+        "xin nghỉ", "cho nghỉ", "xin phép nghỉ", "tôi nghỉ", "em nghỉ", "mai nghỉ", "muốn nghỉ", "báo giá", "bao gia",
+        "đặt bàn", "đặt phòng", "đặt lịch", "đặt chỗ", "giữ bàn", "giữ phòng", "hẹn lịch",
+        "nhân viên mới", "tuyển thêm", "nhận thêm",
     ];
 
     /// <summary>Câu muốn thêm / sửa / xóa / hủy / duyệt — cần công cụ đề xuất (bot rule chỉ mở form).</summary>
@@ -88,5 +99,35 @@ public static class AiAssistantIntent
         var q = " " + (query ?? "").ToLowerInvariant().Replace(',', ' ').Replace('.', ' ').Replace('?', ' ') + " ";
         // «Bán 2 Coca cho…», «Bán cho chị Lan…» — câu mở đầu bằng «bán» là lệnh lập hóa đơn.
         return ActionKeys.Any(q.Contains) || q.StartsWith(" bán ", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Dấu hiệu hỏi CÁCH DÙNG / gặp sự cố (so không dấu, nguyên từ). Không có «thế nào», «tại sao» — hay gặp trong câu hỏi
+    /// số liệu («doanh thu tháng này thế nào», «tại sao lãi giảm») cần đọc báo cáo thật.
+    /// </summary>
+    static readonly string[] GuideMarkers =
+    [
+        "cach", "huong dan", "lam sao", "lam the nao", "o dau", "cho nao", "menu nao", "mo dau", "nut nao", "bam vao dau",
+        "khong in", "khong in duoc", "khong duoc", "khong hien", "khong thay", "khong ket noi", "bi loi", "bao loi",
+    ];
+
+    /// <summary>Số tiền / số lượng («50k», «2 triệu», «10 thùng») — câu có số + động từ thao tác là lệnh cụ thể.</summary>
+    static readonly Regex Amount = new(@"\d", RegexOptions.Compiled);
+
+    /// <summary>«không … được» (đã bỏ dấu): «không chấm công được», «không in hóa đơn được».</summary>
+    static readonly Regex CannotDo = new(@" khong (\S+ ){1,4}duoc ", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Câu hỏi cách dùng trả lời được thẳng từ hướng dẫn sử dụng (không gọi AI): có dấu hiệu hỏi cách / sự cố, khớp rõ một
+    /// bước hướng dẫn ([topHelpScore] ≥ <see cref="AiAssistantHelpCorpus.ConfidentScore"/>), và không phải lệnh cụ thể
+    /// («hướng dẫn tạo phiếu phạt An 50k» → vẫn để agent dựng thẻ).
+    /// </summary>
+    public static bool IsGuideQuestion(string query, int topHelpScore)
+    {
+        if (topHelpScore < AiAssistantHelpCorpus.ConfidentScore) return false;
+        var raw = (query ?? "").ToLowerInvariant();
+        var f = " " + string.Join(' ', VnSearch.FoldText(raw).Split([' ', ',', '.', '?', '!', ':', ';'], StringSplitOptions.RemoveEmptyEntries)) + " ";
+        if (!raw.Contains("lỗi") && !CannotDo.IsMatch(f) && !GuideMarkers.Any(k => f.Contains(" " + k + " "))) return false;
+        return !(Amount.IsMatch(raw) && LooksLikeAction(raw));
     }
 }

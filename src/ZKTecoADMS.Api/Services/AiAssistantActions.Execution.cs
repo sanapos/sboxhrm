@@ -187,7 +187,7 @@ public sealed partial class AiAssistantActions
         if (!res.Ok) return (new(false, res.Message, null, null), null, null);
         var data = res.Data;
         string? docNo = null;
-        foreach (var k in new[] { "returnNo", "receiptNo", "ticketCode", "transactionCode", "requestCode", "orderNo", "code", "documentNo" })
+        foreach (var k in new[] { "returnNo", "receiptNo", "ticketCode", "transactionCode", "requestCode", "orderNo", "quoteNo", "code", "documentNo", "employeeCode" })
             if (data?[k] is JsonValue dv && dv.ToString() is { Length: > 0 } dn) { docNo = dn; break; }
         var docId = data is JsonObject o && o["id"] is JsonValue idv ? idv.ToString() : null;
         var done = p.Title switch

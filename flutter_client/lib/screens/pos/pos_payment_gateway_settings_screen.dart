@@ -718,6 +718,8 @@ class _PosPaymentGatewaySettingsScreenState
                         .map((a) => a.id)
                         .firstOrNull ??
                     _shopBankAccounts.first.id),
+            // Tên NH + STK dài tràn ~90 px trên điện thoại khi thiếu isExpanded.
+            isExpanded: true,
             decoration: InputDecoration(
               labelText: tr('STK nhận tiền'),
               border: const OutlineInputBorder(),

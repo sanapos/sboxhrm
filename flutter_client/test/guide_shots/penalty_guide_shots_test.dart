@@ -42,7 +42,7 @@ void main() {
         name: 'penalty-1$suffix',
         screen: const PenaltySettingsScreen(),
         api: hrFinGuideApi(),
-        crumbs: const ['Cài đặt', 'Phạt'],
+        crumbs: const ['Thiết lập SBOX', 'Lương & chính sách', 'Mức phạt'],
         size: size,
         act: (t) async => guideScrollTo(t, find.text('Vi phạm khác & cách thu'), alignment: 0.05),
         marks: [

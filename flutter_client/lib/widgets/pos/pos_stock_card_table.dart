@@ -96,10 +96,13 @@ class PosStockCardTable extends StatelessWidget {
       color: PosTheme.textSecondary,
     );
 
-    return SingleChildScrollView(
+    // Cuộn ngang không giới hạn bề rộng mà cột «Loại giao dịch» lại Expanded → vỡ bố cục
+    // («forces an infinite width»). Đặt bề rộng cố định = khung (tối thiểu 640).
+    return LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 640),
+      child: SizedBox(
+        width: box.maxWidth.isFinite && box.maxWidth > 640 ? box.maxWidth : 640,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -125,6 +128,8 @@ class PosStockCardTable extends StatelessWidget {
                   Expanded(flex: 2, child: Text(tr('Loại giao dịch'), style: headerStyle)),
                   SizedBox(width: 72, child: Text(tr('Số lượng'), style: headerStyle, textAlign: TextAlign.right)),
                   SizedBox(width: 72, child: Text(tr('Tồn cuối'), style: headerStyle, textAlign: TextAlign.right)),
+                  // Cột «Tồn cuối» căn phải sát cột «Đối tác» căn trái → chữ dính nhau («6Khách lẻ»).
+                  const SizedBox(width: 16),
                   SizedBox(width: 100, child: Text(tr('Đối tác'), style: headerStyle)),
                 ],
               ),
@@ -132,6 +137,7 @@ class PosStockCardTable extends StatelessWidget {
             ...items.map(_row),
           ],
         ),
+      ),
       ),
     );
   }
@@ -267,6 +273,7 @@ class PosStockCardTable extends StatelessWidget {
               style: const TextStyle(fontSize: 12),
             ),
           ),
+          const SizedBox(width: 16),
           SizedBox(
             width: 100,
             child: Text(

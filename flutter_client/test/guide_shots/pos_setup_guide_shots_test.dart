@@ -77,13 +77,14 @@ void main() {
         api: _api,
         crumbs: const ['Thiết lập SBOX', 'Thông tin cửa hàng'],
         size: size,
+        // Thông tin in hóa đơn ở đầu trang; dòng «Thuế VAT khi bán» (dẫn sang Hóa đơn điện tử) cách xa
+        // bên dưới, không chung một khung được → ảnh này đánh dấu ① thông tin cửa hàng ở đầu trang.
         act: (t) async => guideScrollTo(t, find.text('In trên hóa đơn bán hàng'), alignment: 0.05),
         marks: [
           GuideMark(1, [
             find.widgetWithText(TextField, 'Tên cửa hàng *'),
             find.widgetWithText(TextField, 'Số điện thoại').first,
           ]),
-          GuideMark(2, [find.text('Thuế VAT khi bán'), find.text('Giá bán đã bao gồm thuế')]),
         ],
       );
     });

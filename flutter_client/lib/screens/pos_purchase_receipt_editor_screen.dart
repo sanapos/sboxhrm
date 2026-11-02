@@ -1307,6 +1307,8 @@ class _PosPurchaseReceiptEditorScreenState
             Expanded(
               child: DropdownButtonFormField<String>(
                 value: _supplierId,
+                // Tên NCC dài («NCC01 · Đại lý cà phê Tây Nguyên») tràn cột phải phiếu nhập.
+                isExpanded: true,
                 decoration: PosTheme.inputDecoration(label: 'Nhà cung cấp'),
                 items: [
                   DropdownMenuItem(

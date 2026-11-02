@@ -44,7 +44,7 @@ final _api = guideApi({
   '/api/shift-salary-levels': {'items': []},
 });
 
-const _crumbs = ['Cài đặt', 'Thiết lập ca'];
+const _crumbs = ['Thiết lập SBOX', 'Nhân sự & chấm công', 'Ca làm việc'];
 
 Finder _step(String label) => GuideMark.within(find.text(label), '_MinuteStepper');
 

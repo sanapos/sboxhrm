@@ -21,7 +21,7 @@ List<Map<String, Object?>> _devices() => [
       },
     ];
 
-const _crumbs = ['Cài đặt', 'Máy chấm công'];
+const _crumbs = ['Thiết lập SBOX', 'Nhân sự & chấm công', 'Máy chấm công'];
 
 Finder _field(String label) => find.widgetWithText(TextField, label);
 

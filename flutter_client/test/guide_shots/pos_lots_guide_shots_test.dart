@@ -58,20 +58,19 @@ void main() {
           await pumpFrames(t);
           await t.tap(find.byTooltip('Tùy chọn hiển thị form'));
           await pumpFrames(t);
-          // Điện thoại: danh sách mục dài — cuộn trong hộp thoại tới mục cần bật.
-          if (mobile) {
-            await Scrollable.ensureVisible(t.element(find.text('Bảo hành, seri & lô/HSD').last), alignment: 0.5);
-            await t.pump();
-          }
+          // Danh sách mục dài — cuộn trong hộp thoại tới 3 mục Bảo hành / Seri / Lô (tách từ mục cũ
+          // «Bảo hành, seri & lô/HSD»); máy tính cũng phải cuộn, không thì nút Hủy / Lưu che mất.
+          await Scrollable.ensureVisible(t.element(find.text('Số seri / IMEI khi bán').last), alignment: mobile ? 0.5 : 0.6);
+          await t.pump();
         },
         marks: [
-          if (!mobile)
-            GuideMark(1, [
-              GuideMark.within(find.text('Tạp hóa / siêu thị'), 'ChoiceChip'),
-              GuideMark.within(find.text('Vật liệu / nội thất'), 'ChoiceChip'),
-            ], pad: 6),
-          GuideMark(2, [GuideMark.within(find.text('Bảo hành, seri & lô/HSD').last, 'CheckboxListTile')], pad: 4),
-          GuideMark(3, [GuideMark.button(find.text('Lưu').last)]),
+          // Dãy chip ngành ở đầu hộp thoại trôi khỏi khung khi cuộn tới 3 mục → chỉ đánh dấu mục + Lưu.
+          GuideMark(1, [
+            GuideMark.within(find.text('Bảo hành').last, 'CheckboxListTile'),
+            GuideMark.within(find.text('Số seri / IMEI khi bán').last, 'CheckboxListTile'),
+            GuideMark.within(find.text('Lô / hạn sử dụng').last, 'CheckboxListTile'),
+          ], pad: 4),
+          GuideMark(2, [GuideMark.button(find.text('Lưu').last)]),
         ],
       );
     });
@@ -86,7 +85,7 @@ void main() {
         size: size,
         act: (t) async {
           await pumpFrames(t);
-          await scrollFormTo(t, find.text('Bảo hành, seri & lô/HSD'));
+          await scrollFormTo(t, find.widgetWithText(TextField, 'Thời hạn bảo hành (tháng)'));
         },
         marks: [
           GuideMark(1, [find.widgetWithText(TextField, 'Thời hạn bảo hành (tháng)')]),

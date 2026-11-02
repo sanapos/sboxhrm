@@ -68,8 +68,9 @@ class _AttendanceCorrectionsScreenState
         setState(() {
           if (result['isSuccess'] == true && result['data'] != null) {
             final data = result['data'];
+            // API trả PagedResult {items: [...]}; bản cũ trả thẳng danh sách.
             final items = List<Map<String, dynamic>>.from(
-                data['items'] ?? data is List ? data : []);
+                data is List ? data : (data['items'] ?? const []));
             _requests = items
                 .map((e) => AttendanceCorrectionRequest.fromJson(e))
                 .toList();
@@ -116,11 +117,20 @@ class _AttendanceCorrectionsScreenState
     });
   }
 
+  static String _hm(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
   void _showCreateDialog() {
     DateTime selectedDate = DateTime.now();
-    CorrectionAction selectedAction = CorrectionAction.edit;
+    CorrectionAction selectedAction = CorrectionAction.add;
+    // Thêm: giờ vào và/hoặc giờ ra (mỗi giờ là một phiếu).
     TimeOfDay? newCheckIn;
     TimeOfDay? newCheckOut;
+    // Sửa/xóa: giờ đã chấm để backend tìm bản ghi gốc (oldDate + oldTime).
+    TimeOfDay? oldTime;
+    TimeOfDay? newTime;
+    bool editIsCheckIn = true;
+    bool submitting = false;
     final reasonController = TextEditingController();
 
     final isMobile = Responsive.isMobile(context);
@@ -128,6 +138,37 @@ class _AttendanceCorrectionsScreenState
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
+          Widget timeField(String label, TimeOfDay? value,
+                  void Function(TimeOfDay) onPicked) =>
+              InkWell(
+                onTap: () async {
+                  final time = await showTimePicker(
+                    context: context,
+                    initialTime: value ?? TimeOfDay.now(),
+                  );
+                  if (time != null) setDialogState(() => onPicked(time));
+                },
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: tr(label),
+                    border: OutlineInputBorder(),
+                  ),
+                  child: Text(value != null ? _hm(value) : '--:--'),
+                ),
+              );
+
+          final reasonTime = switch (selectedAction) {
+            CorrectionAction.add => newCheckIn ?? newCheckOut,
+            CorrectionAction.edit => newTime,
+            CorrectionAction.delete => null,
+          };
+          final reasonPunch = switch (selectedAction) {
+            CorrectionAction.add =>
+              newCheckIn != null ? 'Vào' : (newCheckOut != null ? 'Ra' : null),
+            CorrectionAction.edit => editIsCheckIn ? 'Vào' : 'Ra',
+            CorrectionAction.delete => null,
+          };
+
           final formContent = SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -172,56 +213,63 @@ class _AttendanceCorrectionsScreenState
                   ),
                 ),
                 const SizedBox(height: 16),
-                if (selectedAction != CorrectionAction.delete) ...[
+                if (selectedAction == CorrectionAction.add) ...[
                   Row(
                     children: [
                       Expanded(
-                        child: InkWell(
-                          onTap: () async {
-                            final time = await showTimePicker(
-                              context: context,
-                              initialTime: newCheckIn ?? TimeOfDay.now(),
-                            );
-                            if (time != null) {
-                              setDialogState(() => newCheckIn = time);
-                            }
-                          },
-                          child: InputDecorator(
-                            decoration: InputDecoration(
-                              labelText: tr('Giờ vào mới'),
-                              border: OutlineInputBorder(),
-                            ),
-                            child: Text(
-                              tr(newCheckIn != null
-                                  ? '${newCheckIn!.hour.toString().padLeft(2, '0')}:${newCheckIn!.minute.toString().padLeft(2, '0')}'
-                                  : '--:--'),
-                            ),
-                          ),
-                        ),
+                        child: timeField('Giờ vào', newCheckIn,
+                            (t) => newCheckIn = t),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: InkWell(
-                          onTap: () async {
-                            final time = await showTimePicker(
-                              context: context,
-                              initialTime: newCheckOut ?? TimeOfDay.now(),
-                            );
-                            if (time != null) {
-                              setDialogState(() => newCheckOut = time);
-                            }
-                          },
-                          child: InputDecorator(
-                            decoration: InputDecoration(
-                              labelText: tr('Giờ ra mới'),
-                              border: OutlineInputBorder(),
-                            ),
-                            child: Text(
-                              tr(newCheckOut != null
-                                  ? '${newCheckOut!.hour.toString().padLeft(2, '0')}:${newCheckOut!.minute.toString().padLeft(2, '0')}'
-                                  : '--:--'),
-                            ),
+                        child: timeField('Giờ ra', newCheckOut,
+                            (t) => newCheckOut = t),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      tr('Chọn giờ vào, giờ ra hoặc cả hai.'),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (selectedAction != CorrectionAction.add) ...[
+                  timeField(
+                    selectedAction == CorrectionAction.edit
+                        ? 'Giờ đã chấm cần sửa *'
+                        : 'Giờ đã chấm cần xóa *',
+                    oldTime,
+                    (t) => oldTime = t,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (selectedAction == CorrectionAction.edit) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: timeField(
+                            'Giờ đúng *', newTime, (t) => newTime = t),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: DropdownButtonFormField<bool>(
+                          initialValue: editIsCheckIn,
+                          decoration: InputDecoration(
+                            labelText: tr('Loại chấm'),
+                            border: OutlineInputBorder(),
                           ),
+                          items: [
+                            DropdownMenuItem(
+                                value: true, child: Text(tr('Vào'))),
+                            DropdownMenuItem(
+                                value: false, child: Text(tr('Ra'))),
+                          ],
+                          onChanged: (val) =>
+                              setDialogState(() => editIsCheckIn = val!),
                         ),
                       ),
                     ],
@@ -232,61 +280,129 @@ class _AttendanceCorrectionsScreenState
                   controller: reasonController,
                   kind: reasonKindFromCorrectionAction(selectedAction),
                   date: selectedDate,
-                  timeText: newCheckIn != null
-                      ? '${newCheckIn!.hour.toString().padLeft(2, '0')}:${newCheckIn!.minute.toString().padLeft(2, '0')}'
-                      : (newCheckOut != null
-                          ? '${newCheckOut!.hour.toString().padLeft(2, '0')}:${newCheckOut!.minute.toString().padLeft(2, '0')}'
-                          : null),
-                  punchLabel: newCheckIn != null
-                      ? 'Vào'
-                      : (newCheckOut != null ? 'Ra' : null),
+                  timeText: reasonTime != null ? _hm(reasonTime) : null,
+                  originalTimeText: selectedAction != CorrectionAction.add &&
+                          oldTime != null
+                      ? _hm(oldTime!)
+                      : null,
+                  punchLabel: reasonPunch,
                 ),
               ],
             ),
           );
-          Future<Null> onSubmit() async {
-            if (reasonController.text.trim().isEmpty) {
+          Future<void> onSubmit() async {
+            if (submitting) return;
+            final reason = reasonController.text.trim();
+            if (reason.isEmpty) {
               appNotification.showWarning(
                   title: 'Cảnh báo', message: tr('Vui lòng nhập lý do'));
               return;
             }
+            final missing = switch (selectedAction) {
+              CorrectionAction.add => newCheckIn == null && newCheckOut == null
+                  ? 'Chọn giờ vào hoặc giờ ra cần bổ sung'
+                  : null,
+              CorrectionAction.edit => oldTime == null || newTime == null
+                  ? 'Chọn giờ đã chấm cần sửa và giờ đúng'
+                  : null,
+              CorrectionAction.delete =>
+                oldTime == null ? 'Chọn giờ đã chấm cần xóa' : null,
+            };
+            if (missing != null) {
+              appNotification.showWarning(
+                  title: 'Cảnh báo', message: tr(missing));
+              return;
+            }
+
+            final date = DateTime(
+                selectedDate.year, selectedDate.month, selectedDate.day);
+            // Mỗi phiếu là một lần chấm; thêm cả vào lẫn ra → 2 phiếu.
+            final calls = <Future<Map<String, dynamic>> Function()>[
+              if (selectedAction == CorrectionAction.add) ...[
+                if (newCheckIn != null)
+                  () => _apiService.createAttendanceCorrection(
+                        action: CorrectionAction.add.index,
+                        newDate: date,
+                        newTime: '${_hm(newCheckIn!)}:00',
+                        newType: 'CheckIn',
+                        reason: reason,
+                      ),
+                if (newCheckOut != null)
+                  () => _apiService.createAttendanceCorrection(
+                        action: CorrectionAction.add.index,
+                        newDate: date,
+                        newTime: '${_hm(newCheckOut!)}:00',
+                        newType: 'CheckOut',
+                        reason: reason,
+                      ),
+              ],
+              if (selectedAction == CorrectionAction.edit)
+                () => _apiService.createAttendanceCorrection(
+                      action: CorrectionAction.edit.index,
+                      oldDate: date,
+                      oldTime: '${_hm(oldTime!)}:00',
+                      newDate: date,
+                      newTime: '${_hm(newTime!)}:00',
+                      newType: editIsCheckIn ? 'CheckIn' : 'CheckOut',
+                      reason: reason,
+                    ),
+              if (selectedAction == CorrectionAction.delete)
+                () => _apiService.createAttendanceCorrection(
+                      action: CorrectionAction.delete.index,
+                      oldDate: date,
+                      oldTime: '${_hm(oldTime!)}:00',
+                      reason: reason,
+                    ),
+            ];
+
+            setDialogState(() => submitting = true);
+            Map<String, dynamic>? lastOk;
+            Map<String, dynamic>? failed;
             try {
-              final result = await _apiService.createAttendanceCorrection(
-                action: selectedAction.index,
-                newDate: selectedDate,
-                newTime: newCheckIn != null
-                    ? '${newCheckIn!.hour.toString().padLeft(2, '0')}:${newCheckIn!.minute.toString().padLeft(2, '0')}'
-                    : null,
-                reason: reasonController.text.trim(),
-              );
-              if (result['isSuccess'] == true) {
-                if (!context.mounted) return;
-                final auth = context.read<AuthProvider>();
-                final perm = context.read<PermissionProvider>();
-                final expectedDirect = canDirectAttendanceCorrection(
-                  role: auth.user?.role,
-                  allowManualSetting: _allowManualCorrection,
-                  permissions: perm,
-                );
-                Navigator.pop(context);
-                appNotification.showSuccess(
-                    title: 'Thành công',
-                    message: attendanceCorrectionSuccessMessage(
-                      result,
-                      expectedDirect: expectedDirect,
-                    ));
-                _loadData();
-              } else {
-                appNotification.showError(
-                    title: 'Lỗi',
-                    message: result['message'] ?? 'Không thể gửi yêu cầu');
+              for (final call in calls) {
+                final result = await call();
+                if (result['isSuccess'] == true) {
+                  lastOk = result;
+                } else {
+                  failed = result;
+                  break;
+                }
               }
             } catch (e) {
-              appNotification.showError(
-                  title: 'Lỗi', message: tr('Lỗi kết nối: $e'));
-            } finally {
-              reasonController.dispose();
+              failed = {'message': tr('Lỗi kết nối: $e')};
             }
+            if (!context.mounted) return;
+            setDialogState(() => submitting = false);
+
+            if (lastOk == null) {
+              appNotification.showError(
+                  title: 'Lỗi',
+                  message: attendanceCorrectionErrorMessage(failed ?? {}));
+              return;
+            }
+            final auth = context.read<AuthProvider>();
+            final perm = context.read<PermissionProvider>();
+            final expectedDirect = canDirectAttendanceCorrection(
+              role: auth.user?.role,
+              allowManualSetting: _allowManualCorrection,
+              permissions: perm,
+            );
+            Navigator.pop(context);
+            if (failed != null) {
+              // Chỉ xảy ra khi thêm cả vào lẫn ra: phiếu vào đã gửi, phiếu ra lỗi.
+              appNotification.showError(
+                  title: 'Lỗi',
+                  message: tr('Đã gửi giờ vào, chưa gửi được giờ ra: ') +
+                      attendanceCorrectionErrorMessage(failed));
+            } else {
+              appNotification.showSuccess(
+                  title: 'Thành công',
+                  message: attendanceCorrectionSuccessMessage(
+                    lastOk,
+                    expectedDirect: expectedDirect,
+                  ));
+            }
+            _loadData();
           }
 
           if (isMobile) {
@@ -314,7 +430,7 @@ class _AttendanceCorrectionsScreenState
                             child: Text(tr('Hủy'))),
                         const SizedBox(width: 12),
                         ElevatedButton(
-                            onPressed: onSubmit,
+                            onPressed: submitting ? null : onSubmit,
                             child: Text(tr('Gửi yêu cầu'))),
                       ],
                     ),
@@ -331,7 +447,7 @@ class _AttendanceCorrectionsScreenState
                   onPressed: () => Navigator.pop(context),
                   child: Text(tr('Hủy'))),
               ElevatedButton(
-                  onPressed: onSubmit, child: Text(tr('Gửi yêu cầu'))),
+                  onPressed: submitting ? null : onSubmit, child: Text(tr('Gửi yêu cầu'))),
             ],
           );
         },

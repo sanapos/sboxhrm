@@ -47,7 +47,7 @@ SalaryEditor _editor(Map<String, dynamic> emp, Map<String, dynamic> benefit) => 
       employee: SlEmployee(emp, {'benefitId': benefit['id'], 'benefit': benefit}),
     );
 
-const _crumbs = ['Thiết lập lương'];
+const _crumbs = ['Hồ sơ nhân sự', 'Thiết lập lương'];
 
 /// Cả dòng lựa chọn (nút tròn + tên + mô tả).
 Finder _opt(String title) => GuideMark.within(find.text(title), '_Opt');

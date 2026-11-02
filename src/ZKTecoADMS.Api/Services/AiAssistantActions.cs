@@ -88,7 +88,7 @@ public sealed partial class AiAssistantActions(
     static Def[]? _defs;
 
     /// <summary>Thao tác gốc + duyệt đơn + sửa / xóa / hủy (khai báo ở các tệp partial).</summary>
-    static Def[] Defs => _defs ??= [.. CoreDefs, .. ReviewDefs, .. ManageDefs, .. OpsDefs];
+    static Def[] Defs => _defs ??= [.. CoreDefs, .. ReviewDefs, .. ManageDefs, .. OpsDefs, .. MoreDefs];
 
     static readonly Def[] CoreDefs =
     [
@@ -375,6 +375,7 @@ public sealed partial class AiAssistantActions(
                 }, ["kind"]));
         AddReviewFinders(c, allowed, decls);
         AddOpsFinders(c, allowed, decls);
+        AddMoreFinders(c, allowed, decls);
         foreach (var d in allowed)
             decls.Add(Fn(d.Name, d.Description + " CHỈ tạo bản nháp — người dùng bấm Xác nhận mới ghi.", KindParams(c, d), d.Required));
         return decls;
@@ -434,6 +435,9 @@ public sealed partial class AiAssistantActions(
         - «Phạt ai đi trễ / về sớm / vắng…» cả loạt: propose_penalties_for_late (MỘT thẻ, tự bỏ người đã có phiếu). Không có amount =
           theo Thiết lập phạt; mức ghi trong nội quy / hồ sơ cửa hàng thì PHẢI truyền amount.
         - Nhập hàng theo gợi ý: find_reorder_suggestions → người dùng chốt → propose_purchase_receipt mỗi NCC một lần.
+        - Xin nghỉ / cho nhân viên nghỉ: propose_leave (ca tự lấy theo lịch; báo lỗi thiếu ca → hỏi ca, find_shift_templates).
+        - Báo giá: find_products từng hàng (+ find_customers) → propose_quote. Đặt bàn / phòng / lịch hẹn: find_resources → propose_reservation.
+        - Thêm nhân viên mới: propose_employee (họ tên bắt buộc; mã tự sinh).
         - Quy đổi lời nói: "năm trăm nghìn / năm trăm k / 500k" = 500000; "1 triệu rưỡi" = 1500000; "chiều nay 5 giờ" = 17:00.
         """;
 
@@ -442,7 +446,7 @@ public sealed partial class AiAssistantActions(
     public bool Handles(string tool) => tool is "find_employees" or "find_products" or "find_customers"
         or "find_cash_categories" or "find_records" or "find_suppliers" or "find_orders" or "find_categories"
         or "find_pending_requests"
-        || OpsFinders.Contains(tool)
+        || OpsFinders.Contains(tool) || MoreFinders.Contains(tool)
         || tool.StartsWith("propose_", StringComparison.Ordinal);
 
     public async Task<object> HandleAsync(string tool, JsonElement args, Ctx c, List<Pending> proposed, CancellationToken ct)
@@ -459,6 +463,7 @@ public sealed partial class AiAssistantActions(
             case "find_orders": return await FindOrdersAsync(c, S(a, "query"), ct);
             case "find_pending_requests": return await FindPendingRequestsAsync(c, a, ct);
             case "find_shift_templates" or "find_branches" or "find_reorder_suggestions": return await OpsFindAsync(tool, a, c, ct);
+            case "find_resources": return await MoreFindAsync(tool, a, c, ct);
             case "find_categories":
                 return new
                 {

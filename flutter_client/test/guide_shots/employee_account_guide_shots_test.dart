@@ -50,7 +50,7 @@ final _api = guideApi({
   ],
 });
 
-const _crumbs = ['Cài đặt', 'Tài khoản'];
+const _crumbs = ['Thiết lập SBOX', 'Người dùng & bảo mật', 'Tài khoản nhân viên'];
 
 Finder _inDialog(Finder f) => find.descendant(of: find.byType(Dialog), matching: f);
 

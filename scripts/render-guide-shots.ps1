@@ -1,7 +1,6 @@
 ﻿# Ảnh minh họa trang Hướng dẫn — dựng màn hình thật của app với dữ liệu mẫu
 # (flutter_client/test/guide_shots), chuyển WebP vào flutter_client/web/images/guide,
-# rồi chèn hình vào web/guide.html tại các dấu <!-- guide-shot:tên --> (chú thích lấy từ app)
-# và xuất lại bản hướng dẫn cho trợ lý AI (API).
+# xuất lại hướng dẫn (khu → nhóm → bước) cho trợ lý AI và dựng lại web/guide.html từ cùng dữ liệu.
 # Ví dụ: .\scripts\render-guide-shots.ps1            (tất cả)
 #        .\scripts\render-guide-shots.ps1 -Only shifts (một file *_guide_shots_test.dart)
 
@@ -49,5 +48,6 @@ try {
     Pop-Location
 }
 
-python (Join-Path $PSScriptRoot "guide_html_shots.py") (Join-Path $TmpDir "manifest.json") (Join-Path $Client "web\guide.html")
-if ($LASTEXITCODE -ne 0) { throw "Chèn ảnh vào guide.html lỗi" }
+# guide.html dựng lại toàn bộ từ cùng dữ liệu (khu → nhóm → bước, ảnh dưới đúng dòng bước).
+python (Join-Path $PSScriptRoot "guide_html_build.py") (Join-Path $RepoRoot "src\ZKTecoADMS.Api\Services\HelpCorpus\landing-guide.json") (Join-Path $Client "web\guide.html")
+if ($LASTEXITCODE -ne 0) { throw "Dựng guide.html lỗi" }

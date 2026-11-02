@@ -72,6 +72,85 @@ public class AiAssistantHelpCorpusTests
         Assert.Contains(hits, h => h.StepId == stepId);
     }
 
+    [Theory]
+    // Gõ / nói không dấu vẫn trúng bước.
+    [InlineData("karaoke tinh tien gio", "ind_room_hourly")]
+    [InlineData("tao phieu ung luong", "advance")]
+    public void Tim_khong_dau(string query, string stepId) =>
+        Assert.Contains(AiAssistantHelpCorpus.Search(query, topK: 3), h => h.StepId == stepId);
+
+    [Theory]
+    [InlineData("máy in bếp không in được", true)]
+    [InlineData("tại sao nhân viên không chấm công được", true)]
+    [InlineData("cai dat hoa don dien tu o dau", true)]
+    [InlineData("sao in bị lỗi", true)]
+    [InlineData("lợi nhuận tháng này bao nhiêu", false)]
+    [InlineData("trả lời giúp tôi doanh thu hôm nay", false)]
+    public void Nhan_cau_hoi_cach_dung(string q, bool expected) =>
+        Assert.Equal(expected, AiAssistantQueryTools.LooksLikeHowTo(q.ToLowerInvariant()));
+
+    static bool Guide(string q)
+    {
+        var top = AiAssistantHelpCorpus.SearchScored(q, topK: 1);
+        return AiAssistantIntent.IsGuideQuestion(q, top.Count > 0 ? top[0].Score : 0);
+    }
+
+    [Theory]
+    // Hỏi cách dùng / sự cố → trả lời nội bộ từ hướng dẫn, không gọi Gemini (kể cả câu có «tạo», «báo cáo», «nhập hàng»).
+    [InlineData("Cách kết nối hóa đơn điện tử?")]
+    [InlineData("Sao máy in bếp không in?")]
+    [InlineData("Hướng dẫn chấm công mobile")]
+    [InlineData("Cách tạo phiếu phạt?")]
+    [InlineData("Cách xem báo cáo doanh thu?")]
+    [InlineData("Hướng dẫn nhập hàng")]
+    [InlineData("cach tao phieu ung luong")]
+    [InlineData("Đặt bàn trước cho khách ở đâu?")]
+    public void Cau_hoi_cach_dung_tra_loi_noi_bo(string q) => Assert.True(Guide(q), q);
+
+    [Theory]
+    // Lệnh cụ thể / câu hỏi số liệu → vẫn để agent (đọc báo cáo thật, dựng thẻ).
+    [InlineData("Tạo phiếu phạt An 50k đi trễ")]
+    [InlineData("Hướng dẫn giúp tôi tạo phiếu phạt An 50k")]
+    [InlineData("Doanh thu tháng này thế nào?")]
+    [InlineData("Tại sao lợi nhuận tháng này giảm?")]
+    [InlineData("Báo giá cho chị Lan 10 thùng Coca")]
+    [InlineData("Hôm nay ai đi trễ?")]
+    public void Lenh_va_cau_hoi_so_lieu_van_qua_agent(string q) => Assert.False(Guide(q), q);
+
+    [Fact]
+    public void Bot_noi_bo_tra_loi_bang_huong_dan()
+    {
+        const string q = "nhân viên không chấm công được trên điện thoại";
+        Assert.True(Guide(q), q);
+        var r = AiAssistantRuleBot.Build(q, "", AiAssistantHelpCorpus.Search(q, topK: 4), [], [], includeFallback: false,
+            guideQuestion: true);
+        Assert.True(r.Matched);
+        Assert.Contains("mobile", r.Reply, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Tu_vo_nghia_khong_keo_diem()
+    {
+        // «tôi có thể … không» không được làm bước bất kỳ vượt ngưỡng nạp tự động.
+        Assert.All(AiAssistantHelpCorpus.SearchScored("tôi có thể làm được không", topK: 3),
+            h => Assert.True(h.Score < AiAssistantHelpCorpus.ConfidentScore, $"{h.Chunk.StepId}: {h.Score}"));
+        Assert.True(AiAssistantHelpCorpus.SearchScored("kết nối hóa đơn điện tử viettel", topK: 1)[0].Score
+                    >= AiAssistantHelpCorpus.ConfidentScore);
+    }
+
+    [Fact]
+    public void Moi_buoc_biet_khu_va_nhom_de_chi_duong()
+    {
+        Assert.All(AiAssistantHelpCorpus.All, c =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(c.Area), c.StepId);
+            Assert.StartsWith("Hướng dẫn ", c.Trail);
+        });
+        var stock = AiAssistantHelpCorpus.All.Single(c => c.StepId == "pos_inventory");
+        Assert.Equal("Hướng dẫn POS › Kho hàng", stock.Trail);
+        Assert.Contains("Mục hướng dẫn: Hướng dẫn POS › Kho hàng ›", AiAssistantHelpCorpus.FormatForPrompt([stock]));
+    }
+
     [Fact]
     public void Noi_dung_gui_AI_theo_menu_hien_tai_va_kem_chu_thich_anh()
     {

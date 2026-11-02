@@ -57,7 +57,7 @@ final _api = guideApi({
   '/api/settings/salary': {'standardWorkDays': 26, 'overtimeRate': 1.5, 'weekendRate': 2, 'holidayRate': 3},
 });
 
-const _crumbs = ['Thiết lập lương'];
+const _crumbs = ['Hồ sơ nhân sự', 'Thiết lập lương'];
 
 SalaryEditor _editor() => SalaryEditor(
       ctx: SlContext(

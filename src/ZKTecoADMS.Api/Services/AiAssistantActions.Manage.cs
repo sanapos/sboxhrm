@@ -614,6 +614,7 @@ public sealed partial class AiAssistantActions
     {
         if (p.Undo != null) return p.Undo;
         if (OpsUndoSteps(p, docId, data) is { } ops) return ops;
+        if (MoreUndoSteps(p, docId, data) is { } more) return more;
         if (string.IsNullOrEmpty(docId)) return null;
         Step? s = p.Kind switch
         {
