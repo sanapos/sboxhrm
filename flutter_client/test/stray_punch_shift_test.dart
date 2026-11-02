@@ -124,6 +124,46 @@ void main() {
     expect(longDay.workCount, greaterThan(0));
   });
 
+  test('Gán nhiều ca chồng giờ (ca để chọn): vào trễ không bị tách thành hai ca thiếu vào', () {
+    Map<String, dynamic> st(String id, String s, String e) =>
+        <String, dynamic>{'id': id, 'name': id, 'startTime': '$s:00', 'endTime': '$e:00'};
+    final shifts = [
+      st('C2', '14:00', '22:30'), st('G9C', '17:00', '22:00'), st('G9S', '10:00', '14:00'),
+      st('P13', '13:00', '18:00'), st('P17', '17:00', '22:00'), st('S9', '09:00', '17:30'),
+      st('P9', '09:00', '14:00'),
+    ];
+    final levels = [
+      for (final s in shifts) <String, dynamic>{'shiftTemplateId': s['id'], 'employeeIds': ['A']},
+    ];
+    final rs = {
+      for (final r in computeDailyShiftRecords(
+          attendances: [
+            _p(23, 17, 56), _p(23, 22, 39), // vào trễ 56p ca 17:00
+            _p(19, 8, 59), _p(19, 14, 4), _p(19, 17, 58), _p(19, 22, 35), // ca 9h + ca tối vào trễ
+            _p(16, 10, 0), _p(16, 17, 53), _p(16, 22, 31),
+          ],
+          fromDate: from,
+          toDate: to,
+          shiftTemplates: shifts,
+          shiftSalaryLevels: levels))
+        r.date.day: r,
+    };
+    final late = rs[23]!;
+    expect(late.shiftNames, hasLength(1));
+    expect(late.shiftNames.single, anyOf('G9C', 'P17'));
+    expect(late.status, isNot(contains('Thiếu')));
+    expect((late.lateMinutes, late.workCount > 0), (56, true));
+
+    final two = rs[19]!;
+    expect(two.shiftNames, hasLength(2));
+    expect(two.shiftNames.first, 'P9');
+    expect(two.status, isNot(contains('Thiếu')));
+    expect(two.lateMinutes, 58);
+
+    expect(rs[16]!.status, isNot(contains('Thiếu vào')));
+    expect(rs[16]!.workCount, greaterThan(0));
+  });
+
   test('Ca có nghỉ trưa chấm 5 lần: bỏ lần chấm lẻ giữa trưa', () {
     final hc = <String, dynamic>{
       'id': 'hc', 'name': 'HC', 'startTime': '08:00:00', 'endTime': '17:00:00',

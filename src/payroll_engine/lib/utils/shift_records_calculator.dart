@@ -824,6 +824,12 @@ List<DayAttendancePair> alignStrayPunchToShifts(
   slots
     ..clear()
     ..addAll(sortedSlots);
+  // Ca gán chồng giờ nhau (P9 09–14 · S9 09–17:30 · P13 13–18 · P17 17–22…) là các ca để CHỌN, không phải
+  // chuỗi ca làm hết trong ngày: mốc dày đặc, vào trễ 17:56 gần mốc ra P13 (18:00) hơn mốc vào P17 → bị tách
+  // thành hai ca «Thiếu vào». Chỉ ghép theo mốc khi các ca nối tiếp nhau (sáng · chiều · tối).
+  for (var k = 1; k < slots.length; k++) {
+    if (slots[k].start < slots[k - 1].end) return pairs;
+  }
   final day = DateTime(punches.first.year, punches.first.month, punches.first.day);
   final pm = [for (final p in punches) p.difference(day).inMinutes];
   final bounds = <int>[for (final sl in slots) ...[sl.start, sl.end]];
