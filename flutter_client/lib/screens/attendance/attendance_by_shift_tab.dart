@@ -3627,6 +3627,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   static const _dailyOddBg = '#FEF3C7';
   static const _dailyOddFg = '#92400E';
   static const _dailyWeeklyOffBg = '#DCFCE7';
+  static const _dailyRestWorkBg = '#CFFAFE';
+  static const _dailyRestWorkFg = '#0E7490';
   static const _dailyHolidayBg = '#EDE9FE';
   static const _dailyLeaveBg = '#DBEAFE';
   static const _dailyLeaveFg = '#1D4ED8';
@@ -3719,6 +3721,21 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       punchToBound[pi] = bi;
       usedBounds.add(bi);
     }
+    // Lần chấm cuối muộn hơn hết ca cuối (làm liền 06:58 – 16:05 với ca sáng) / lần đầu sớm hơn đầu ca đầu:
+    // vẫn là ra / vào của ca đó nếu mốc còn trống, không đẩy ra «Ngoài ca».
+    if (pm.isNotEmpty && bounds.isNotEmpty) {
+      final last = pm.length - 1, lastB = bounds.length - 1;
+      if (!punchToBound.containsKey(last) && !usedBounds.contains(lastB) && pm[last] > bounds[lastB] &&
+          punchToBound.values.every((b) => b < lastB)) {
+        punchToBound[last] = lastB;
+        usedBounds.add(lastB);
+      }
+      if (!punchToBound.containsKey(0) && !usedBounds.contains(0) && pm[0] < bounds[0] &&
+          punchToBound.values.every((b) => b > 0)) {
+        punchToBound[0] = 0;
+        usedBounds.add(0);
+      }
+    }
     final extra = <DateTime>[];
     for (var pi = 0; pi < punches.length; pi++) {
       final bi = punchToBound[pi];
@@ -3776,6 +3793,22 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       return Map<String, dynamic>.from(lv);
     }
     return null;
+  }
+
+  /// Chế độ chấm công trong hồ sơ lương («both», «checkin», «checkout», «any»…) — '' nếu không rõ.
+  String _dailyAttendanceModeOf(String employeeCode) {
+    for (final p in widget.salaryProfiles) {
+      final emps = p['employees'];
+      if (emps is! List || !emps.any((e) => e is Map && e['employeeCode']?.toString() == employeeCode)) continue;
+      var mode = p['attendanceMode']?.toString() ?? '';
+      if (mode.isEmpty) {
+        for (final part in (p['description']?.toString() ?? '').split('|')) {
+          if (part.startsWith('attendanceType:')) mode = part.substring('attendanceType:'.length);
+        }
+      }
+      return mode.trim().toLowerCase();
+    }
+    return '';
   }
 
   /// Ngày nghỉ tuần: theo thiết lập của nhân viên; chưa thiết lập thì Chủ nhật.
@@ -3981,6 +4014,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       ('Thiếu giờ chấm', _dailyMissingBg, _dailyMissingFg),
       ('Giờ chấm lẻ (thiếu cặp)', _dailyOddBg, _dailyOddFg),
       ('Ngày nghỉ tuần', _dailyWeeklyOffBg, null),
+      ('Đi làm ngày nghỉ / lễ', _dailyRestWorkBg, _dailyRestWorkFg),
       ('Ngày lễ', _dailyHolidayBg, null),
       ('Nghỉ phép', _dailyLeaveBg, null),
       ('Giờ bổ sung / đã sửa', _dailyEditedBg, _dailyEditedFg),
@@ -4022,17 +4056,28 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       final weeklyOff = !holiday && _dailyIsWeeklyOff(x.day, x.code);
       final leave = _dailyLeaveFor(x.empId, x.code, x.day);
       final future = x.day.isAfter(todayD);
-      final rowBg = holiday
-          ? _dailyHolidayBg
-          : weeklyOff
-              ? _dailyWeeklyOffBg
-              : leave != null
-                  ? _dailyLeaveBg
-                  : (zebra ? null : _dailyZebraBg);
-      final halfLeave = leave?['isHalfShift'] == true;
-      // Nghỉ nửa ca: nửa còn lại vẫn kiểm thiếu chấm.
-      final checkMissing = !holiday && !weeklyOff && (leave == null || halfLeave) && !future && !x.noShift;
       final hasAnyPunch = (r?.displayPunchTimes.isNotEmpty ?? false);
+      // Đi làm ngày nghỉ tuần / ngày lễ: màu riêng và vẫn kiểm thiếu chấm như ngày thường.
+      final restDayWork = (holiday || weeklyOff) && hasAnyPunch;
+      final rowBg = restDayWork
+          ? _dailyRestWorkBg
+          : holiday
+              ? _dailyHolidayBg
+              : weeklyOff
+                  ? _dailyWeeklyOffBg
+                  : leave != null
+                      ? _dailyLeaveBg
+                      : (zebra ? null : _dailyZebraBg);
+      final halfLeave = leave?['isHalfShift'] == true;
+      // Chế độ chỉ chấm vào / chỉ chấm ra / chấm bất kỳ trong ca: một lần chấm là đủ → không báo thiếu cặp.
+      final mode = _dailyAttendanceModeOf(x.code);
+      final pairMode = mode.isEmpty || mode == 'both';
+      // Nghỉ nửa ca: nửa còn lại vẫn kiểm thiếu chấm.
+      final checkMissing = (!(holiday || weeklyOff) || restDayWork) &&
+          (leave == null || halfLeave) &&
+          !future &&
+          !x.noShift &&
+          pairMode;
       final leaveLabel = leave == null ? '' : tr(_dailyLeaveTypeName(leave['type'] ?? leave['leaveType']));
       // Nửa ca nghỉ phép: nửa không có giờ chấm nào (nghỉ cả ngày → mọi nửa).
       var leaveSlots = <int>{};
@@ -4179,8 +4224,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               : double.parse((widget.standardWorkHours * (halfLeave ? 0.5 : 1)).toStringAsFixed(2))),
           fmt: hours);
       final status = <String>[
-        if (holiday) 'Ngày lễ',
-        if (weeklyOff) 'Nghỉ tuần',
+        if (holiday) restDayWork ? 'Đi làm ngày lễ' : 'Ngày lễ',
+        if (weeklyOff) restDayWork ? 'Đi làm ngày nghỉ' : 'Nghỉ tuần',
         if (leave != null)
           [
             halfLeave ? 'Nghỉ phép nửa ca' : 'Nghỉ phép',
