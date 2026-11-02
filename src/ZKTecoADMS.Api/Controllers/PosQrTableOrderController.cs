@@ -1293,14 +1293,21 @@ public class PosQrTableOrderController(
             // Giao thành công mà đơn còn nháp (chưa bấm Thanh toán) → hoàn tất như COD: trừ kho, nhả giữ chỗ,
             // ghi doanh thu. Trước đây đơn treo nháp mãi: hàng đã giao nhưng không có doanh thu, kho bị giữ,
             // và không hủy được nữa vì «Giao thành công» là trạng thái cuối.
+            // Giao nội bộ / khách tới lấy: quán đã cầm tiền → ghi thu. Có vận đơn hãng: tiền còn ở hãng, ghi lúc đối soát COD.
             if (order.Status == PosSaleOrderStatus.Draft)
             {
                 var (done, doneErr) = await PosOnlineOrderHelper.TryCompleteAsCodAsync(
-                    db, storeId, order, CurrentUserEmail, HttpContext.RequestAborted);
+                    db, storeId, order, CurrentUserEmail,
+                    collected: !PosOnlineOrderHelper.CodHeldByCarrier(order), HttpContext.RequestAborted);
                 if (!done)
                     return BadRequest(AppResponse<object>.Fail(
                         $"Chưa hoàn tất được đơn: {doneErr ?? "lỗi không rõ"} — bấm «Thanh toán» để thu tiền trước"));
                 eInvoiceAuto.Enqueue(storeId, order.Id);
+            }
+            else
+            {
+                await PosOnlineOrderHelper.CollectCodOnDeliveredAsync(
+                    db, storeId, order, CurrentUserEmail, HttpContext.RequestAborted);
             }
         }
 
@@ -1449,16 +1456,20 @@ public class PosQrTableOrderController(
         if (order == null)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn online"));
 
-        var (ok, err) = await PosOnlineOrderHelper.TryCompleteAsCodAsync(
-            db, storeId, order, CurrentUserEmail, HttpContext.RequestAborted);
+        // Số đã thu đi vào phiếu thu ngay lúc hoàn tất — trước đây ghi phiếu đủ tiền mặt rồi mới ghi đè PaidAmount /
+        // phương thức trên đơn, sổ quỹ lệch với đơn. Không gửi số đã thu = COD chưa thu (đã giao nội bộ thì coi như đã thu).
+        var (ok, err) = dto?.PaidAmount is > 0
+            ? await PosOnlineOrderHelper.TryCompletePaidDraftAsync(
+                db, storeId, order, CurrentUserEmail,
+                string.IsNullOrWhiteSpace(dto.PaymentMethod) ? "Tiền mặt" : dto.PaymentMethod.Trim(),
+                dto.PaidAmount.Value, closeTableSession: false, HttpContext.RequestAborted)
+            : await PosOnlineOrderHelper.TryCompleteAsCodAsync(
+                db, storeId, order, CurrentUserEmail,
+                collected: QrOnlineOrderStatuses.Normalize(order.DeliveryStatus) == QrOnlineOrderStatuses.Delivered
+                    && !PosOnlineOrderHelper.CodHeldByCarrier(order),
+                HttpContext.RequestAborted);
         if (!ok)
             return BadRequest(AppResponse<object>.Fail(err ?? "Không hoàn thành được đơn"));
-
-        if (dto?.PaidAmount is > 0)
-            order.PaidAmount = dto.PaidAmount.Value;
-        if (!string.IsNullOrWhiteSpace(dto?.PaymentMethod))
-            order.PaymentMethod = dto.PaymentMethod!.Trim();
-        await db.SaveChangesAsync();
         eInvoiceAuto.Enqueue(storeId, order.Id);
 
         PosFloorRealtimeHelper.Notify(hub, storeId, "saleCompleted",
@@ -1748,8 +1759,9 @@ public class PosQrTableOrderController(
         string? msg = null;
         if (opt.OnlineAutoPay && order.Status == PosSaleOrderStatus.Draft)
         {
+            // Mới xác nhận, chưa giao → chưa thu đồng nào.
             var (ok, err) = await PosOnlineOrderHelper.TryCompleteAsCodAsync(
-                db, storeId, order, CurrentUserEmail, ct);
+                db, storeId, order, CurrentUserEmail, collected: false, ct);
             if (ok)
             {
                 msg = "Đã tự hoàn thành đơn (COD)";

@@ -1284,6 +1284,10 @@ public partial class PosSalesController(
         return qty.GetValueOrDefault((productId, variantId));
     }
 
+    /// <summary>Chuỗi phương thức gộp của thanh toán nhiều khoản (màn bán nối bằng « + »).</summary>
+    internal static bool IsSplitPaymentMethod(string? method) =>
+        !string.IsNullOrWhiteSpace(method) && method.Contains(" + ", StringComparison.Ordinal);
+
     /// <summary>Dò chuỗi InnerException tìm lỗi Postgres 40001/40P01 (serialization/deadlock) —
     /// Npgsql/EF có thể bọc lại thành InvalidOperationException khi có transaction tự mở.</summary>
     private static bool IsSerializationFailure(Exception ex)

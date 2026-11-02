@@ -924,6 +924,12 @@ public partial class PosSalesController
             return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
         if (order.Status != PosSaleOrderStatus.Draft)
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn không ở trạng thái tạm"));
+        // Đơn tạm chỉ giữ tổng đã thu + chuỗi gộp «Tiền mặt + Chuyển khoản», mất số từng khoản và tài khoản ngân hàng.
+        // Trước đây ghi MỘT phiếu thu theo chuỗi gộp → cả tiền mặt thành chuyển khoản, quỹ tiền mặt / tiền ca thiếu.
+        if (order.PaidAmount > 0 && IsSplitPaymentMethod(order.PaymentMethod))
+            return BadRequest(AppResponse<SaleOrderDto>.Fail(
+                $"Đơn tạm ghi nhiều hình thức thanh toán ({order.PaymentMethod}) — mở đơn ở màn bán hàng và thanh toán lại "
+                + "để sổ quỹ ghi đúng từng khoản"));
 
         var productIds = order.Lines.Select(l => l.ProductId).Distinct().ToList();
         var productsPreview = await dbContext.PosProducts.AsNoTracking()

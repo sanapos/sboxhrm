@@ -88,23 +88,57 @@ public static class PosOnlineOrderHelper
             order.DeliveryStatus = prev.DeliveryStatus;
     }
 
-    /// <summary>Hoàn thành đơn online (COD — thu khi giao, PaidAmount=0).</summary>
+    /// <summary>
+    /// Đơn có vận đơn hãng: tiền COD nằm ở hãng tới lúc đối soát (SettleCodAsync ghi phiếu «Thu hộ COD»).
+    /// Không vận đơn (giao nội bộ / khách tới lấy): người của quán cầm tiền mặt lúc giao.
+    /// </summary>
+    public static bool CodHeldByCarrier(PosSaleOrder order) =>
+        !string.IsNullOrWhiteSpace(order.DeliveryTrackingCode) && !IsInternalCarrier(order.DeliveryCarrierCode);
+
+    /// <summary>
+    /// Hoàn thành đơn online COD. <paramref name="collected"/> = quán đã cầm tiền (giao nội bộ thành công) → phiếu thu
+    /// tiền mặt đủ. Chưa thu → PaidAmount=0, không phiếu thu: tiền ghi lúc giao nội bộ (<see cref="CollectCodOnDeliveredAsync"/>)
+    /// hoặc lúc đối soát COD với hãng — trước đây luôn ghi thu tiền mặt đủ ngay khi hoàn tất (quỹ / ca thừa tiền chưa thu,
+    /// đối soát thấy đơn hết nợ nên không ghi tiền hãng chuyển về, vận đơn tạo sau thì COD = 0).
+    /// </summary>
     public static Task<(bool Ok, string? Error)> TryCompleteAsCodAsync(
         ZKTecoDbContext db,
         Guid storeId,
         PosSaleOrder order,
         string? userEmail,
+        bool collected,
         CancellationToken ct = default) =>
-        TryCompletePaidDraftAsync(db, storeId, order, userEmail, "COD", 0, closeTableSession: false, ct);
+        TryCompletePaidDraftAsync(db, storeId, order, userEmail, "COD", collected ? null : 0m, closeTableSession: false, ct);
+
+    /// <summary>
+    /// Giao nội bộ thành công cho đơn đã hoàn tất COD chưa thu (tự hoàn tất lúc xác nhận): người giao đã cầm tiền →
+    /// ghi phần còn thiếu vào quỹ tiền mặt. Đơn có khách (công nợ) thu qua «Thu nợ». Chưa SaveChanges.
+    /// </summary>
+    public static async Task CollectCodOnDeliveredAsync(
+        ZKTecoDbContext db, Guid storeId, PosSaleOrder order, string? userEmail, CancellationToken ct = default)
+    {
+        if (order.Status != PosSaleOrderStatus.Completed || CodHeldByCarrier(order)) return;
+        if (order.CustomerId.HasValue || order.PaidAmount > 0) return;
+        var due = order.PayableTotal > 0 ? order.PayableTotal : order.Total;
+        if (due <= 0) return;
+        var actorId = await ResolveActorIdAsync(db, storeId, userEmail, ct);
+        if (actorId == Guid.Empty) return;
+        order.PaidAmount = due;
+        order.UpdatedAt = DateTime.UtcNow;
+        order.UpdatedBy = userEmail;
+        await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(
+            db, order, actorId, [new PosFinanceSyncHelper.SalePaymentSync(due, order.PaymentMethod, null)], ct);
+    }
 
     /// <summary>Hoàn thành đơn tạm đã thu tiền (Tingee / CK) — trừ kho, đóng bàn nếu có.</summary>
+    /// <param name="paidAmount">Số đã thu; null = đủ số phải trả, 0 = chưa thu (COD).</param>
     public static async Task<(bool Ok, string? Error)> TryCompletePaidDraftAsync(
         ZKTecoDbContext db,
         Guid storeId,
         PosSaleOrder order,
         string? userEmail,
         string paymentMethod,
-        decimal paidAmount,
+        decimal? paidAmount,
         bool closeTableSession,
         CancellationToken ct = default)
     {
@@ -121,7 +155,7 @@ public static class PosOnlineOrderHelper
             .FirstOrDefaultAsync(ct);
 
         var due = order.PayableTotal > 0 ? order.PayableTotal : order.Total;
-        var paid = paidAmount > 0 ? paidAmount : due;
+        var paid = Math.Max(0m, paidAmount ?? due);
 
         PosDraftLockHelper.Release(order);
         order.Status = PosSaleOrderStatus.Completed;
@@ -356,8 +390,9 @@ public static class PosOnlineOrderHelper
 
         var code = ShippingCarrierCodes.Normalize(carrierCode);
         var payer = ShippingFeePayer.Normalize(shipFeePayer);
-        var cod = codAmount
-                  ?? (order.Status == PosSaleOrderStatus.Completed ? 0m : order.PayableTotal);
+        // COD = phần khách còn nợ. Trước đây đơn đã hoàn tất luôn COD = 0 — đơn tự hoàn tất COD lúc xác nhận
+        // (chưa thu đồng nào) giao hãng mà hãng không thu tiền khách.
+        var cod = codAmount ?? Math.Max(0m, order.PayableTotal - Math.Max(0m, order.PaidAmount));
 
         var package = await shipping.EstimatePackageForOrderAsync(
             storeId, order.Id, weightGrams, lengthCm, widthCm, heightCm, ct);
@@ -388,7 +423,8 @@ public static class PosOnlineOrderHelper
             order.Id,
             Note: note,
             WeightGrams: package.ChargeableWeightGrams,
-            CodAmount: cod,
+            // null → dịch vụ tự tính COD (trừ cước khi khách trả cước thẳng cho hãng).
+            CodAmount: codAmount,
             ServiceCode: resolvedService,
             ToProvince: order.DeliveryProvince,
             ToDistrict: order.DeliveryDistrict,
