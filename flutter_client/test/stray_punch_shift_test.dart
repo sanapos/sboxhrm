@@ -111,6 +111,17 @@ void main() {
             shiftSalaryLevels: levels)
         .single;
     expect((normal.status, normal.workCount), ('Hợp lệ', 1.0));
+
+    // Chấm 2 lần đúng vai vào – ra, làm liền qua trưa (06:58 · 16:05): giữ một cặp, không tách thành hai ca thiếu.
+    final longDay = computeDailyShiftRecords(
+            attendances: [_p(25, 6, 58), _p(25, 16, 5)],
+            fromDate: from,
+            toDate: to,
+            shiftTemplates: [sang, chieu, toi],
+            shiftSalaryLevels: levels)
+        .single;
+    expect(longDay.status, isNot(contains('Thiếu')));
+    expect(longDay.workCount, greaterThan(0));
   });
 
   test('Ca có nghỉ trưa chấm 5 lần: bỏ lần chấm lẻ giữa trưa', () {

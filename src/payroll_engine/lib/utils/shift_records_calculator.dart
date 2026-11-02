@@ -855,6 +855,12 @@ List<DayAttendancePair> alignStrayPunchToShifts(
     // Số lần chấm chẵn mà lệch ca (vd. quên vào sáng: 11:30 · 12:58) → ghép lẻ/chẵn thành một cặp 11:30–12:58
     // «hợp lệ»; ghép theo ca: thiếu vào ca sáng, ca chiều thiếu ra.
     if (anyLunchSplit) return pairs;
+    // Số lần chấm chẵn: chỉ ghép lại khi cặp cũ lệch vai (lần thứ 1, 3… là «vào» mà khớp mốc RA của ca,
+    // vd. 11:30 ra sáng). Cặp vào–ra đúng vai (06:58 · 16:05 làm liền, 1 ca/ngày) giữ nguyên.
+    if (punches.length.isEven &&
+        !punchToBound.entries.any((e) => e.key.isEven != e.value.isEven)) {
+      return pairs;
+    }
     final half = [
       for (var k = 0; k < slots.length; k++)
         if (ins.containsKey(k) != outs.containsKey(k)) k,
