@@ -5149,9 +5149,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
   String _employeeDisplayName(Map<String, dynamic>? info, _DailyShiftRecord r) {
     if (info == null) return r.employeeName;
+    // Họ trước tên sau (lastName = họ, firstName = tên); ưu tiên fullName trên hồ sơ.
+    final fullName = info['fullName']?.toString().trim() ?? '';
+    if (fullName.isNotEmpty) return fullName;
     final fn = info['firstName']?.toString() ?? '';
     final ln = info['lastName']?.toString() ?? '';
-    final full = '$fn $ln'.trim();
+    final full = '$ln $fn'.trim();
     return full.isNotEmpty ? full : r.employeeName;
   }
 
