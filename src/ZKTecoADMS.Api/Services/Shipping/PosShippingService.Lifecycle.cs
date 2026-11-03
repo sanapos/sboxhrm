@@ -78,6 +78,23 @@ public partial class PosShippingService
         return false;
     }
 
+    /// <summary>
+    /// AhaMove cài MỘT callback URL cho mỗi API key (gửi URL cho AhaMove cài) — nhiều cửa hàng dùng chung key
+    /// đối tác thì không gắn được <c>?hash=</c> riêng từng shop. Mọi callback đều kèm <c>api_key</c> trong body:
+    /// nhận khi khớp API key AhaMove đã lưu của cửa hàng sở hữu vận đơn.
+    /// </summary>
+    public async Task<bool> AuthorizeAhamoveApiKeyAsync(string? trackingCode, string? apiKey, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey)) return false;
+        var order = await FindOrderByTrackingAsync(trackingCode, null, ct);
+        if (order == null) return false;
+        var key = await db.PosShippingCarrierSettings.AsNoTracking()
+            .Where(x => x.StoreId == order.StoreId && x.CarrierCode == ShippingCarrierCodes.Ahamove && x.Deleted == null)
+            .Select(x => x.ApiToken)
+            .FirstOrDefaultAsync(ct);
+        return !string.IsNullOrWhiteSpace(key) && SecretEquals(key, apiKey);
+    }
+
     async Task<PosSaleOrder?> FindOrderByTrackingAsync(string? trackingCode, string? orderNo, CancellationToken ct)
     {
         var t = (trackingCode ?? "").Trim();

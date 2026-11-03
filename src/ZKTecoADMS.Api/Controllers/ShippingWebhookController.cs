@@ -265,8 +265,16 @@ public class ShippingWebhookController(
                 : root.TryGetProperty("reason", out var rs) && rs.ValueKind == JsonValueKind.String ? rs.GetString() : null;
 
             string? baseId = null;
+            string? ahaApiKey = null;
             if (string.Equals(carrier, ShippingCarrierCodes.Ahamove, StringComparison.OrdinalIgnoreCase))
             {
+                ahaApiKey = root.TryGetProperty("api_key", out var ak) && ak.ValueKind == JsonValueKind.String
+                    ? ak.GetString() : null;
+                // Mã đơn AhaMove là «_id»; đơn AhaMove còn có «tracking_code» = mã link theo dõi (261103HDQKB1),
+                // không phải mã vận đơn đã lưu → đọc nhầm là không tìm thấy đơn, 401.
+                if (root.TryGetProperty("_id", out var aid) && aid.ValueKind == JsonValueKind.String
+                    && !string.IsNullOrWhiteSpace(aid.GetString()))
+                    tracking = aid.GetString();
                 // Giao thất bại / hoàn hàng: status vẫn COMPLETED — đọc path[].status + sub_status.
                 status = AhamoveWebhookHelper.EffectiveStatus(root) ?? status;
                 // Đơn nhiều điểm giao: «24ABCD-1» → đơn gốc «24ABCD».
@@ -278,10 +286,15 @@ public class ShippingWebhookController(
             // AhaMove (docs webhook): xác thực qua header «apikey» hoặc Authorization Bearer/Basic.
             if (string.IsNullOrWhiteSpace(authHeader))
                 authHeader = Request.Headers["apikey"].FirstOrDefault() ?? "";
+            // AhaMove: api_key trong body (một URL chung cho cả key đối tác) trước, rồi ?hash= / header.
+            async Task<bool> AuthorizedAsync(string? id) =>
+                (ahaApiKey != null && await shipping.AuthorizeAhamoveApiKeyAsync(id, ahaApiKey, ct))
+                || await shipping.AuthorizeWebhookAsync(carrier, id, null, hash, authHeader, ct);
+
             var lookup = tracking;
-            if (!await shipping.AuthorizeWebhookAsync(carrier, tracking, null, hash, authHeader, ct))
+            if (!await AuthorizedAsync(tracking))
             {
-                if (baseId == null || !await shipping.AuthorizeWebhookAsync(carrier, baseId, null, hash, authHeader, ct))
+                if (baseId == null || !await AuthorizedAsync(baseId))
                     return Unauthorized(new { ok = false, message = "Unauthorized" });
                 lookup = baseId;
             }

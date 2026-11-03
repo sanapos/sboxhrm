@@ -1193,6 +1193,28 @@ public class ShippingCarrierContractTests
         }
     }
 
+    [Theory]
+    [InlineData("26ECGV3V", "aha-partner-key", true)]
+    [InlineData("26ECGV3V-1", "aha-partner-key", true)]
+    [InlineData("26ECGV3V", "key-cua-shop-khac", false)]
+    [InlineData("26ECGV3V", "", false)]
+    public async Task Ahamove_webhook_nhan_api_key_trong_body(string id, string apiKey, bool accepted)
+    {
+        var (db, ctl) = await WebhookSetupAsync(ShippingCarrierCodes.Ahamove, "26ECGV3V");
+        await using (db)
+        {
+            var row = db.PosShippingCarrierSettings.Single();
+            row.ApiToken = "aha-partner-key";
+            await db.SaveChangesAsync();
+            // Payload theo docs webhook AhaMove: không header, không ?hash=, api_key nằm trong body.
+            // tracking_code (mã link theo dõi) có trong đơn AhaMove thật — không được dùng thay «_id».
+            SetBody(ctl, $$"""{"_id":"{{id}}","tracking_code":"261103G5O0UM","status":"ASSIGNING","sub_status":"","path":[{},{}],"api_key":"{{apiKey}}"}""");
+            var res = await ctl.Generic("Ahamove", default);
+            if (accepted) Assert.IsNotType<UnauthorizedObjectResult>(res);
+            else Assert.IsType<UnauthorizedObjectResult>(res);
+        }
+    }
+
     [Fact]
     public async Task Ghn_webhook_nhan_header_tuy_chinh_Authorization()
     {
