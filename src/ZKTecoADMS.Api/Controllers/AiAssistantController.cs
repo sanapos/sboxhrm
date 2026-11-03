@@ -326,6 +326,7 @@ public class AiAssistantController(
             // Gợi ý GUIDE từ kết quả search (kể cả khi model quên tag)
             var helpHits = AiAssistantHelpCorpus.Search(lastUserMessage.Content, topK: 4);
             var suggestedGuides = helpHits
+                .Where(AiAssistantHelpCorpus.HasAppGuide)
                 .Select(h => $"{h.Mode}/{h.StepId}")
                 .Distinct()
                 .ToList();

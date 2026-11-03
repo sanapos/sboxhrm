@@ -28,7 +28,7 @@ public class AiAssistantHelpCorpusTests
     [Fact]
     public void Moi_buoc_co_lop_tu_khoa_rieng_va_khong_thua()
     {
-        var ids = AiAssistantHelpCorpus.All.Select(c => c.StepId).ToHashSet();
+        var ids = AiAssistantHelpCorpus.All.Where(AiAssistantHelpCorpus.HasAppGuide).Select(c => c.StepId).ToHashSet();
         Assert.Empty(ids.Except(AiAssistantHelpCorpus.Overlays.Keys));
         Assert.Empty(AiAssistantHelpCorpus.Overlays.Keys.Except(ids));
     }
@@ -141,7 +141,7 @@ public class AiAssistantHelpCorpusTests
     [Fact]
     public void Moi_buoc_biet_khu_va_nhom_de_chi_duong()
     {
-        Assert.All(AiAssistantHelpCorpus.All, c =>
+        Assert.All(AiAssistantHelpCorpus.All.Where(AiAssistantHelpCorpus.HasAppGuide), c =>
         {
             Assert.False(string.IsNullOrWhiteSpace(c.Area), c.StepId);
             Assert.StartsWith("Hướng dẫn ", c.Trail);
@@ -177,5 +177,26 @@ public class AiAssistantHelpCorpusTests
         var text = AiAssistantRuleBot.Build("cach xuat hoa don dien tu", "", [hit], [], [], includeFallback: false, guideQuestion: true).Reply;
         Assert.DoesNotContain("• •", text);
         Assert.Contains("   – Viettel", text);
+    }
+
+    [Theory]
+    // Rà soát 03/11/2026: các câu này từng ra bài karaoke, gym, «Đơn vị tính & bảng giá», kiểm tra tồn kho.
+    [InlineData("cách tạo khuyến mãi giờ vàng", "pos_promotions")]
+    [InlineData("cach tao ma giam gia voucher", "pos_vouchers")]
+    [InlineData("cach chuyen kho giua chi nhanh", "pos_stock_transfer")]
+    [InlineData("làm sao đặt hàng nhà cung cấp khi sắp hết hàng", "pos_reorder_purchase")]
+    [InlineData("gia hạn gói ở đâu", "sys_service_package")]
+    [InlineData("bảng giá phần mềm sbox", "sys_service_package")]
+    public void Chuc_nang_chua_co_trong_huong_dan_app_van_tra_dung_bai(string query, string stepId) =>
+        Assert.Equal(stepId, AiAssistantHelpCorpus.Search(query, topK: 4)[0].StepId);
+
+    [Fact]
+    public void Bai_chi_co_o_may_chu_khong_gan_the_GUIDE()
+    {
+        var hit = AiAssistantHelpCorpus.All.Single(c => c.StepId == "pos_promotions");
+        Assert.False(AiAssistantHelpCorpus.HasAppGuide(hit));
+        Assert.DoesNotContain("[[GUIDE:", AiAssistantHelpCorpus.FormatForPrompt([hit]));
+        Assert.DoesNotContain("[[GUIDE:",
+            AiAssistantRuleBot.Build("cach tao khuyen mai", "", [hit], [], [], includeFallback: false, guideQuestion: true).Reply);
     }
 }

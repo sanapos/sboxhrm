@@ -256,7 +256,8 @@ public static class AiAssistantRuleBot
         }
         if (!string.IsNullOrWhiteSpace(hit.Tip))
             sb.AppendLine("Mẹo: " + hit.Tip);
-        sb.AppendLine($"[[GUIDE:{hit.Mode}/{hit.StepId}]]");
+        if (AiAssistantHelpCorpus.HasAppGuide(hit))
+            sb.AppendLine($"[[GUIDE:{hit.Mode}/{hit.StepId}]]");
         foreach (var tag in hit.ActionTags)
             AddAction(sb, allowedActions, tag);
     }

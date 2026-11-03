@@ -134,9 +134,89 @@ public static class AiAssistantHelpCorpus
         ["zalo_bot"] =new("zalo bot liên kết zalo tin nhắn zalo thông báo qua zalo token bot webhook", []),
     };
 
-    private static readonly IReadOnlyList<HelpChunk> AllChunks = Load();
+    private static readonly IReadOnlyList<HelpChunk> AllChunks = [.. Load(), .. ServerChunks()];
 
     public static IReadOnlyList<HelpChunk> All => AllChunks;
+
+    /// <summary>Mode của bài chỉ có ở máy chủ (app không có bước tương ứng) — không gắn thẻ [[GUIDE:…]].</summary>
+    public const string ServerMode = "sbox";
+
+    /// <summary>Bài mở được trong màn Hướng dẫn của app.</summary>
+    public static bool HasAppGuide(HelpChunk c) => Modes.Contains(c.Mode, StringComparer.Ordinal);
+
+    /// <summary>
+    /// Chức năng chưa có bước trong hướng dẫn của app nhưng hay được hỏi (trước đây «tạo khuyến mãi giờ vàng» ra bài
+    /// karaoke, «gia hạn gói» ra bài gym). Tên nút / ô lấy đúng theo màn hình flutter_client (03/11/2026) — đổi màn thì sửa
+    /// ở đây; thêm bước vào hướng dẫn của app thì xóa bài tương ứng.
+    /// </summary>
+    static HelpChunk[] ServerChunks() =>
+    [
+        new(ServerMode, "pos_promotions", "Tạo chương trình khuyến mãi (giờ vàng, đồng giá, mua X tặng Y…)",
+            "Khuyến mãi tự áp vào hóa đơn ở màn bán khi đúng mặt hàng, khung giờ và điều kiện — thu ngân không phải nhập mã.",
+            [
+                "Mở POS › Khuyến mãi (hoặc Nhiều hơn › Khách hàng › Khuyến mãi; Hàng hóa › menu ⋮ › «Khuyến mãi (giờ vàng, mua X tặng Y…)»)",
+                "Bấm «Tạo chương trình», nhập «Tên chương trình», chọn «Loại khuyến mãi»: «Giảm giá theo giờ / mặt hàng», «Mua nhiều giảm giá», «Mua X tặng Y», «Đồng giá combo», «Giảm theo tổng hóa đơn», «Mua kèm giá ưu đãi», «Hàng cận hạn tự giảm»",
+                "Nhập mức giảm theo loại: «Giảm» % hoặc «Hoặc bán đồng giá»; «Mua» / «Tặng»; «Số món» + «Giá cả combo»; «Hóa đơn từ» + «Giảm tối đa»",
+                "«Áp dụng cho»: «Tất cả hàng», «Theo nhóm hàng», «Mặt hàng cụ thể» hoặc «Hàng có mã vạch»",
+                "«Thời gian áp dụng»: «Từ ngày» / «Đến ngày», giờ bắt đầu – kết thúc, chọn thứ trong tuần (không chọn = mọi ngày; giờ kết thúc nhỏ hơn giờ bắt đầu = chạy qua đêm)",
+                "«Tùy chọn»: «Đang bật», «Cộng dồn với khuyến mãi khác», «Chỉ khách thành viên», «Áp dụng tại chi nhánh», «Ưu tiên (khi giảm bằng nhau)» → «Lưu»",
+                "Danh sách có «Sửa», «Nhân bản», «Xoá»; nút «Hiệu quả» xem tiền đã giảm theo ngày / chương trình",
+            ],
+            "Tắt «Cộng dồn…» thì mỗi món chỉ lấy chương trình giảm nhiều nhất. Có thể nhờ Trợ lý ảo: «tạo giờ vàng 18h–21h giảm 30% trà sữa».",
+            "khuyến mãi giờ vàng happy hour đồng giá mua x tặng y mua 2 tặng 1 giảm giá theo giờ giảm theo hóa đơn mua nhiều giảm giá mua kèm hàng cận hạn chương trình giảm giá tự động giảm giá hiệu quả khuyến mãi sale",
+            ["nav_pos_sell"], [], "pos"),
+        new(ServerMode, "pos_vouchers", "Tạo và áp mã giảm giá (voucher)",
+            "Tạo mã voucher giảm tiền hoặc giảm %; khách đọc mã, thu ngân nhập vào ô «Mã voucher» lúc thanh toán.",
+            [
+                "Mở Nhiều hơn › Khách hàng › Voucher (hoặc gõ «voucher» vào ô Tìm chức năng)",
+                "Bấm «Thêm voucher», nhập «Mã voucher *» và «Tên chương trình»",
+                "Chọn «Giảm tiền» hoặc «Giảm %», nhập «Số tiền giảm *» / «Phần trăm giảm *» (giảm % có thêm «Giảm tối đa»)",
+                "Nhập «Đơn tối thiểu», «Số lượt tối đa», «Thời gian hiệu lực», bật «Đang hoạt động» → «Lưu»",
+                "Danh sách hiện trạng thái «Đang chạy», «Hết hạn», «Hết lượt», «Chưa tới ngày», «Đã tắt» và «Lượt đã dùng»",
+                "Khi thanh toán: nhập mã vào ô «Mã voucher» → «Áp dụng» (mã sai báo «Voucher không hợp lệ»)",
+            ],
+            "Màn Voucher không gửi mã cho khách — tự thông báo mã. Có thể nhờ Trợ lý ảo: «tạo voucher TET2027 giảm 10%».",
+            "voucher mã giảm giá coupon phiếu giảm giá tạo mã giảm giá nhập mã giảm giá áp voucher mã khuyến mãi giảm giá khi thanh toán lượt dùng voucher voucher hết hạn code giảm giá",
+            ["nav_pos_sell"], [], "pos"),
+        new(ServerMode, "pos_stock_transfer", "Chuyển kho giữa các chi nhánh",
+            "Lập phiếu chuyển hàng từ chi nhánh dư sang chi nhánh thiếu: kho đi bị trừ khi gửi, kho đến được cộng khi xác nhận nhận.",
+            [
+                "Gõ «Chuyển kho» vào ô Tìm chức năng (chỉ có khi cửa hàng có từ 2 chi nhánh), hoặc Kho chi nhánh › «Chuyển kho», hoặc tab «Chuyển kho» trong chi tiết chi nhánh",
+                "Bấm «Tạo phiếu chuyển», chọn «Kho đi» và «Kho đến»",
+                "«Thêm hàng từ kho đi»: tìm hoặc quét mã vạch; dòng «Kho đi còn …» giúp không chuyển quá tồn",
+                "Nhập «Ghi chú (tùy chọn)» → «Gửi hàng ngay» hoặc «Lưu nháp» (phiếu nháp mở lại bấm «Gửi hàng»)",
+                "Chi nhánh đến nhập «Thực nhận» → «Xác nhận đã nhận»; nhận thiếu thì phần thiếu tự trả về kho đi",
+                "Khác: «Hủy & trả hàng về kho đi», «In phiếu chuyển»",
+            ],
+            "Trong Kho chi nhánh bấm một mặt hàng → «Chuyển hàng về chi nhánh này» để điền sẵn phiếu. Trợ lý ảo cũng lập được phiếu chuyển.",
+            "chuyển kho chuyển hàng giữa chi nhánh điều chuyển hàng phiếu chuyển kho luân chuyển hàng kho đi kho đến gửi hàng chi nhánh nhận hàng chuyển kho xác nhận đã nhận chuyển tồn kho chi nhánh thiếu hàng",
+            [], [], "pos"),
+        new(ServerMode, "pos_reorder_purchase", "Gợi ý nhập hàng và lập phiếu nhập từ nhà cung cấp",
+            "SBOX liệt kê hàng có tồn dưới «Tồn tối thiểu», gợi ý số lượng cần nhập và tạo phiếu nhập nháp gom theo từng nhà cung cấp.",
+            [
+                "Đặt «Tồn tối thiểu» trong thông tin từng hàng hóa để hệ thống biết khi nào cần nhắc",
+                "Mở Hàng hóa › menu ⋮ › «Hàng cần nhập thêm» (cần quyền xem báo cáo kho), hoặc báo cáo «Sức khỏe kho» › «Gợi ý nhập hàng»",
+                "Mỗi dòng hiện «Tồn … / tối thiểu …»; sửa số ở ô «Nhập», tích chọn mặt hàng muốn nhập",
+                "Bấm «Tạo phiếu nhập nháp» — mỗi nhà cung cấp một phiếu",
+                "Vào Nhiều hơn › Nhập hàng kiểm tra rồi hoàn thành phiếu — chỉ khi hoàn thành tồn kho mới được cộng",
+                "SBOX không có chứng từ «đơn đặt hàng nhà cung cấp» riêng: gửi danh sách cho nhà cung cấp ngoài app, hoặc dùng phiếu nhập nháp",
+            ],
+            "Hỏi Trợ lý ảo «hàng nào sắp hết cần nhập?» — có thể lập luôn phiếu nhập theo từng nhà cung cấp.",
+            "gợi ý nhập hàng hàng cần nhập thêm đặt hàng nhà cung cấp đặt hàng ncc hàng sắp hết tồn tối thiểu phiếu nhập nháp sắp hết hàng cháy hàng reorder lên đơn nhập bổ sung hàng sức khỏe kho",
+            ["nav_pos_products"], [], "pos"),
+        new(ServerMode, "sys_service_package", "Gói dịch vụ SBOX, hạn sử dụng và gia hạn",
+            "Trong app của cửa hàng không có màn xem gói, hạn dùng hay tự gia hạn — gia hạn / đổi gói do SBOX hoặc đại lý thực hiện.",
+            [
+                "Không có màn «Gói», «Gia hạn» hay nhập mã kích hoạt trong app cửa hàng; gói và license do SBOX / đại lý quản lý",
+                "Hệ thống tự nhắc (banner / thông báo) trước hạn 30, 15, 7, 3, 1 và 0 ngày, kèm ngày hết hạn và lời nhắn liên hệ đại lý / nhà cung cấp để gia hạn",
+                "Hết hạn: app đăng xuất và báo «Cửa hàng đã hết hạn sử dụng. Vui lòng liên hệ quản trị viên để gia hạn.»",
+                "Gia hạn xong có thông báo «Gia hạn license thành công» kèm ngày hiệu lực mới",
+                "Chức năng chưa có trong gói: app báo «Gói dịch vụ chưa bao gồm…» — liên hệ SBOX / đại lý để nâng gói",
+            ],
+            "Trợ lý ảo không xem hay gia hạn gói được, cũng không báo giá phần mềm.",
+            "gói dịch vụ gia hạn hết hạn sử dụng license bản quyền nâng cấp gói đổi gói ngày hết hạn còn bao nhiêu ngày kích hoạt mã kích hoạt gói sbox phí sử dụng giá phần mềm bảng giá sbox chức năng chưa có trong gói cửa hàng bị khóa",
+            [], [], "sbox"),
+    ];
 
     public static IReadOnlyList<HelpChunk> Search(string query, int topK = 4) =>
         SearchScored(query, topK).Select(x => x.Chunk).ToList();
@@ -190,7 +270,8 @@ public static class AiAssistantHelpCorpus
         foreach (var chunk in list)
         {
             sb.AppendLine("=== HƯỚNG DẪN SỬ DỤNG ===");
-            sb.AppendLine($"[[GUIDE:{chunk.Mode}/{chunk.StepId}]]");
+            if (HasAppGuide(chunk))
+                sb.AppendLine($"[[GUIDE:{chunk.Mode}/{chunk.StepId}]]");
             // Vị trí trong hướng dẫn (khu › nhóm) để AI chỉ đường: «Hướng dẫn POS › Kho hàng».
             if (!string.IsNullOrWhiteSpace(chunk.Trail))
                 sb.AppendLine($"Mục hướng dẫn: {chunk.Trail} › {chunk.Title}");
