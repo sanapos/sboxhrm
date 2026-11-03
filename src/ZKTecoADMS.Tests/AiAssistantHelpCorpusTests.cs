@@ -187,6 +187,28 @@ public class AiAssistantHelpCorpusTests
     [InlineData("làm sao đặt hàng nhà cung cấp khi sắp hết hàng", "pos_reorder_purchase")]
     [InlineData("gia hạn gói ở đâu", "sys_service_package")]
     [InlineData("bảng giá phần mềm sbox", "sys_service_package")]
+    [InlineData("cách chuyển bàn cho khách", "pos_table_transfer_merge_split")]
+    [InlineData("tach hoa don cho khach tra rieng", "pos_table_transfer_merge_split")]
+    [InlineData("cài đặt thuế VAT khi bán", "pos_sell_vat")]
+    [InlineData("kết nối cân điện tử", "pos_scale")]
+    [InlineData("in tem mã vạch cho hàng hóa", "pos_barcode_labels")]
+    [InlineData("mất mạng có bán được không", "pos_offline_sale")]
+    [InlineData("xem báo cáo chi nhánh", "pos_branch_report")]
+    [InlineData("nhập hàng hóa từ file excel", "sys_excel_import_export")]
+    [InlineData("đổi mật khẩu", "sys_change_forgot_password")]
+    [InlineData("quên mật khẩu đăng nhập", "sys_change_forgot_password")]
+    [InlineData("đổi ngôn ngữ sang tiếng anh", "sys_change_language")]
+    [InlineData("phân quyền tài khoản thu ngân", "sys_roles_accounts")]
+    [InlineData("xóa dữ liệu bán thử", "sys_reset_trial_data")]
+    [InlineData("đăng nhập trên nhiều thiết bị", "sys_multi_device_login")]
+    [InlineData("tham số hệ thống giờ chốt ngày", "sys_system_params")]
+    [InlineData("đặt lịch tập cho hội viên pt", "pos_gym_trainer_checkin")]
+    // Câu thường gặp từng ra bài sai vì bài dài có nhiều dòng trùng chữ.
+    [InlineData("tạo phòng ban mới", "org_structure")]
+    [InlineData("lập phiếu chi", "pos_cash_book")]
+    [InlineData("hướng dẫn bán hàng", "pos_sales")]
+    [InlineData("cách tính tiền cho khách", "pos_sale_pay")]
+    [InlineData("thiết lập kpi", "kpi")]
     public void Chuc_nang_chua_co_trong_huong_dan_app_van_tra_dung_bai(string query, string stepId) =>
         Assert.Equal(stepId, AiAssistantHelpCorpus.Search(query, topK: 4)[0].StepId);
 
