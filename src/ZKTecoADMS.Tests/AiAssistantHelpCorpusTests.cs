@@ -191,6 +191,9 @@ public class AiAssistantHelpCorpusTests
     [InlineData("tach hoa don cho khach tra rieng", "pos_table_transfer_merge_split")]
     [InlineData("cài đặt thuế VAT khi bán", "pos_sell_vat")]
     [InlineData("kết nối cân điện tử", "pos_scale")]
+    // «can» (cân) / «ban» (bàn) trùng từ dừng «cần» / «bạn» — thử trên C20 ra bài hóa đơn điện tử.
+    [InlineData("lam sao ket noi can dien tu", "pos_scale")]
+    [InlineData("chuyen ban cho khach", "pos_table_transfer_merge_split")]
     [InlineData("in tem mã vạch cho hàng hóa", "pos_barcode_labels")]
     [InlineData("mất mạng có bán được không", "pos_offline_sale")]
     [InlineData("xem báo cáo chi nhánh", "pos_branch_report")]

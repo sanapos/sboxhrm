@@ -438,8 +438,9 @@ public static class AiAssistantHelpCorpus
             return [];
 
         var raw = VnSearch.FoldText(query);
+        var pairs = SplitPairs(query);
         var ranked = Folded
-            .Select(f => (f.Chunk, Score: ScoreChunk(f, terms, raw)))
+            .Select(f => (f.Chunk, Score: ScoreChunk(f, terms, pairs, raw)))
             .Where(x => x.Score > 0)
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Chunk.Mode, StringComparer.Ordinal)
@@ -575,11 +576,22 @@ public static class AiAssistantHelpCorpus
         "cach", "huong", "dan", "giup", "hay", "roi", "chua", "bi", "mot", "nhung", "cac", "khi", "neu", "vay", "gi",
     ];
 
-    private static List<string> SplitTerms(string query)
+    static string[] Words(string query) => VnSearch.FoldText(query)
+        .Split([' ', '\t', '\r', '\n', ',', ';', '.', '?', '!', '«', '»', '"', '(', ')'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private static List<string> SplitTerms(string query) =>
+        Words(query).Where(t => t.Length >= 2 && !StopWords.Contains(t)).Distinct().ToList();
+
+    /// <summary>
+    /// Cụm hai từ liền nhau trong câu gốc, kể cả từ dừng: bỏ dấu thì «cân» = «can» (cần), «bàn» = «ban» (bạn) — bỏ từ dừng
+    /// làm «kết nối cân điện tử» chỉ còn «kết nối … điện tử» và ra bài hóa đơn điện tử. Bỏ cặp mà cả hai đều là từ dừng.
+    /// </summary>
+    private static List<string> SplitPairs(string query)
     {
-        return VnSearch.FoldText(query)
-            .Split([' ', '\t', '\r', '\n', ',', ';', '.', '?', '!', '«', '»', '"', '(', ')'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(t => t.Length >= 2 && !StopWords.Contains(t))
+        var w = Words(query).Where(t => t.Length >= 2).ToArray();
+        return Enumerable.Range(0, Math.Max(0, w.Length - 1))
+            .Where(i => !(StopWords.Contains(w[i]) && StopWords.Contains(w[i + 1])))
+            .Select(i => w[i] + " " + w[i + 1])
             .Distinct()
             .ToList();
     }
@@ -601,7 +613,7 @@ public static class AiAssistantHelpCorpus
     static bool HasWord(string text, string term) =>
         text.Contains(term) && Regex.IsMatch(text, $@"(?<![\p{{L}}\p{{N}}]){Regex.Escape(term)}(?![\p{{L}}\p{{N}}])");
 
-    private static int ScoreChunk(FoldedChunk c, IReadOnlyList<string> terms, string raw)
+    private static int ScoreChunk(FoldedChunk c, IReadOnlyList<string> terms, IReadOnlyList<string> pairs, string raw)
     {
         var score = 0;
         if (raw.Length >= 2)
@@ -623,9 +635,8 @@ public static class AiAssistantHelpCorpus
         }
 
         // Cụm hai từ liền nhau («may in», «hoa don») — tách từng từ thì «máy in hóa đơn» ngang điểm với bài hóa đơn điện tử.
-        for (var i = 0; i + 1 < terms.Count; i++)
+        foreach (var pair in pairs)
         {
-            var pair = terms[i] + " " + terms[i + 1];
             if (HasWord(c.StepId, pair)) score += 15;
             if (HasWord(c.Title, pair)) score += 15;
             if (HasWord(c.Keywords, pair)) score += 10;
