@@ -4769,6 +4769,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       for (final r in records) {
         byEmployee.putIfAbsent(r.employeeId, () => []).add(r);
       }
+      // File xuất: mỗi nhân viên xếp ngày tăng dần (1 → 31), không theo chiều sắp của bảng trên màn hình.
+      for (final l in byEmployee.values) {
+        l.sort((a, b) => a.date.compareTo(b.date));
+      }
       final orderedIds = _orderedUniqueEmployeeIds(records);
 
       var row = 0;
@@ -4844,6 +4848,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       final byEmployee = <String, List<_DailyShiftRecord>>{};
       for (final r in records) {
         byEmployee.putIfAbsent(r.employeeId, () => []).add(r);
+      }
+      // File xuất: mỗi nhân viên xếp ngày tăng dần (1 → 31), không theo chiều sắp của bảng trên màn hình.
+      for (final l in byEmployee.values) {
+        l.sort((a, b) => a.date.compareTo(b.date));
       }
       final orderedIds = _orderedUniqueEmployeeIds(records);
       final filterDesc = _excelFilterDescription();

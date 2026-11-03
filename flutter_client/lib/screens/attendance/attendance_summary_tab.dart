@@ -2965,6 +2965,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       for (final s in summaries) {
         byEmployee.putIfAbsent(s.employeeId, () => []).add(s);
       }
+      // File xuất: mỗi nhân viên xếp ngày tăng dần (1 → 31), không theo chiều sắp của bảng trên màn hình.
+      for (final l in byEmployee.values) {
+        l.sort((a, b) => a.date.compareTo(b.date));
+      }
       final orderedIds = _orderedUniqueEmployeeIds(summaries);
 
       var row = 0;
@@ -3367,6 +3371,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       final byEmployee = <String, List<_DailySummary>>{};
       for (final s in summaries) {
         byEmployee.putIfAbsent(s.employeeId, () => []).add(s);
+      }
+      // File xuất: mỗi nhân viên xếp ngày tăng dần (1 → 31), không theo chiều sắp của bảng trên màn hình.
+      for (final l in byEmployee.values) {
+        l.sort((a, b) => a.date.compareTo(b.date));
       }
       final orderedIds = _orderedUniqueEmployeeIds(summaries);
       final filterDesc = _excelFilterDescription();
