@@ -104,9 +104,28 @@ public static class AiAssistantIntent
     public static bool LooksLikeAction(string query)
     {
         var q = " " + (query ?? "").ToLowerInvariant().Replace(',', ' ').Replace('.', ' ').Replace('?', ' ') + " ";
-        // «Bán 2 Coca cho…», «Bán cho chị Lan…» — câu mở đầu bằng «bán» là lệnh lập hóa đơn.
-        return ContainsAny(q, ActionKeys) || q.StartsWith(" bán ", StringComparison.Ordinal);
+        // «ứng dụng» không phải «ứng lương».
+        q = q.Replace(" ứng dụng", " ").Replace(" ung dung", " ");
+        if (VnSearch.Fold(q) != q)
+            // «Bán 2 Coca cho…», «Bán cho chị Lan…» — câu mở đầu bằng «bán» là lệnh lập hóa đơn.
+            return ContainsAny(q, ActionKeys) || q.StartsWith(" bán ", StringComparison.Ordinal);
+        return ContainsAny(q, ClearFoldedKeys) || (Amount.IsMatch(q) && ContainsAny(q, AmbiguousFoldedKeys)) || FoldedVerbObject.IsMatch(q);
     }
+
+    /// <summary>
+    /// Bỏ dấu thì vài động từ trùng chữ khác: «sua» sửa / sữa, «doi» đổi / đối / đợi, «phat» phạt / phát, «thuong» thưởng /
+    /// thường, «ung» ứng / ửng, «lap» lập / lặp, «tao» tạo / táo, «ghi» — câu không dấu chỉ coi là lệnh khi có số tiền /
+    /// số lượng hoặc động từ đứng ngay trước đối tượng thao tác («sua gia», «doi ca», «lap phieu»).
+    /// </summary>
+    static readonly HashSet<string> AmbiguousFolded = [" sua ", " doi ", "phat", "thuong", " ung ", " lap ", " tao ", " ghi "];
+
+    static readonly string[] AmbiguousFoldedKeys = ActionKeys.Where(k => AmbiguousFolded.Contains(VnSearch.Fold(k))).ToArray();
+
+    static readonly string[] ClearFoldedKeys = ActionKeys.Where(k => !AmbiguousFolded.Contains(VnSearch.Fold(k))).ToArray();
+
+    static readonly Regex FoldedVerbObject = new(
+        @" (sua|doi|lap|ghi|tao|them) (gia|ten|phieu|don|hoa don|bao gia|so|lai|thong tin|ca|lich|gio|cong|sdt|dia chi|nhom|mon|hang|no|combo|khach|nhan vien|ma|voucher|khuyen mai) ",
+        RegexOptions.Compiled);
 
     /// <summary>
     /// [lowerText] chứa một từ khóa. Câu gõ không dấu («tao phieu chi 50k») → so với từ khóa đã bỏ dấu; câu có dấu vẫn so
@@ -149,6 +168,42 @@ public static class AiAssistantIntent
         var raw = (query ?? "").ToLowerInvariant();
         var f = " " + string.Join(' ', VnSearch.FoldText(raw).Split([' ', ',', '.', '?', '!', ':', ';'], StringSplitOptions.RemoveEmptyEntries)) + " ";
         if (!raw.Contains("lỗi") && !CannotDo.IsMatch(f) && !GuideMarkers.Any(k => f.Contains(" " + k + " "))) return false;
+        // «Làm sao tăng doanh thu», «cách giảm hàng tồn» — xin lời khuyên trên số liệu thật, không phải hỏi chỗ bấm.
+        // «tăng ca», «giảm giá» là tên chức năng, không phải mục tiêu.
+        var goals = f.Replace(" tang ca ", " ").Replace(" giam gia ", " ");
+        if (AdviceGoals.Any(k => goals.Contains(" " + k + " "))) return false;
         return !(Amount.IsMatch(raw) && LooksLikeAction(raw));
     }
+
+    /// <summary>
+    /// Câu hỏi về người / đối tượng khác — bot rule chỉ có dữ liệu của chính người hỏi («Lan còn bao nhiêu ngày phép?» từng
+    /// trả số phép của người hỏi). Nhận: tên riêng viết hoa (giữa câu, hoặc đầu câu mà không phải chữ mở câu thường gặp),
+    /// hay khách / hội viên / phòng / nhân viên.
+    /// </summary>
+    public static bool MentionsOthers(string query)
+    {
+        var words = (query ?? "").Split([' ', ',', '.', '?', '!', ':', ';', '«', '»', '"'], StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0) return false;
+        var f = " " + string.Join(' ', words.Select(w => VnSearch.Fold(w))) + " ";
+        if (OtherSubjects.Any(k => f.Contains(" " + k + " "))) return true;
+        static bool Cap(string w) => char.IsUpper(w[0]) && w.Skip(1).Any(char.IsLower);
+        if (words.Skip(1).Any(Cap)) return true;
+        return Cap(words[0]) && !SentenceStarters.Contains(VnSearch.Fold(words[0]));
+    }
+
+    static readonly string[] OtherSubjects =
+        ["khach", "hoi vien", "thanh vien", "phong", "nhan vien", "anh ay", "chi ay", "ban ay", "moi nguoi", "ca team"];
+
+    static readonly HashSet<string> SentenceStarters =
+    [
+        "toi", "minh", "em", "anh", "chi", "hom", "ngay", "con", "ai", "bao", "co", "lich", "xem", "cho", "ca", "so", "phieu",
+        "luong", "don", "cham", "nghi", "thang", "tuan", "tong", "danh", "hien", "kiem", "tra", "cong", "ung", "di", "ve",
+        "gio", "lam", "sao", "cach", "nhung", "may", "tai", "vi", "khi", "neu", "tao", "them", "sua", "doi", "xoa", "huy",
+        "duyet", "ban", "mua", "nhap", "lap", "ghi", "phat", "thuong", "dang", "vao", "ra", "mo", "tim", "liet", "o", "hay",
+    ];
+
+    static readonly string[] AdviceGoals =
+    [
+        "tang", "giam", "cai thien", "nhieu hon", "it hon", "hieu qua", "giu chan", "toi uu", "thu hut", "day manh", "han che",
+    ];
 }

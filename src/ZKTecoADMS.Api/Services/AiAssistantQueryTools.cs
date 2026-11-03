@@ -1,7 +1,9 @@
 using System.Text;
 using ZKTecoADMS.Application.Helpers;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.DTOs.Permissions;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
 
@@ -22,7 +24,8 @@ public static class AiAssistantQueryTools
         bool isSuperUser,
         ILogger logger,
         CancellationToken ct,
-        AiAssistantScope? scope = null)
+        AiAssistantScope? scope = null,
+        IBranchContext? branch = null)
     {
         scope ??= AiAssistantScope.Whole();
         var q = (userQuery ?? "").ToLowerInvariant();
@@ -50,7 +53,7 @@ public static class AiAssistantQueryTools
 
             if (LooksLikeCash(q) && CanView(perms, "CashTransaction", isSuperUser))
             {
-                await AppendCashSummaryAsync(db, storeId, buf, ct);
+                await AppendCashSummaryAsync(db, storeId, branch, buf, ct);
             }
 
             if (LooksLikePenalty(q) && CanView(perms, "PenaltyTickets", isSuperUser))
@@ -60,7 +63,7 @@ public static class AiAssistantQueryTools
 
             if (LooksLikeSales(q) && (CanView(perms, "PosSalesReport", isSuperUser) || CanView(perms, "PosReportRevenue", isSuperUser)))
             {
-                await AppendPosSalesAsync(db, storeId, buf, ct);
+                await AppendPosSalesAsync(db, storeId, branch, buf, ct);
             }
 
             if (LooksLikeTeamToday(q) && CanTeamSnapshot(perms, isSuperUser, role))
@@ -106,28 +109,25 @@ public static class AiAssistantQueryTools
         return q.Contains("lỗi") || HowToKeys.Any(k => f.Contains(" " + k + " "));
     }
 
+    // So qua AiAssistantIntent.ContainsAny — câu gõ không dấu («xem phieu phat», «doanh thu hom nay») vẫn nạp đúng khối số liệu.
     private static bool LooksLikePendingApprovals(string q) =>
-        q.Contains("chờ duyệt") || q.Contains("pending") || q.Contains("cần duyệt")
-        || q.Contains("phê duyệt") || q.Contains("duyệt đơn");
+        AiAssistantIntent.ContainsAny(q, ["chờ duyệt", "pending", "cần duyệt", "phê duyệt", "duyệt đơn"]);
 
     private static bool LooksLikeBusinessTrip(string q) =>
-        q.Contains("công tác") || q.Contains("hạch toán") || q.Contains("hoạch toán") || q.Contains("ứng công tác")
-        || q.Contains("businesstrip") || q.Contains("quyết toán");
+        AiAssistantIntent.ContainsAny(q, ["công tác", "hạch toán", "hoạch toán", "ứng công tác", "businesstrip", "quyết toán"]);
 
     private static bool LooksLikeCash(string q) =>
-        q.Contains("thu chi") || q.Contains("quỹ") || q.Contains("phiếu chi")
-        || q.Contains("phiếu thu") || q.Contains("cash");
+        AiAssistantIntent.ContainsAny(q, ["thu chi", "quỹ", "phiếu chi", "phiếu thu", "cash"]);
 
     private static bool LooksLikePenalty(string q) =>
-        q.Contains("phiếu phạt") || q.Contains("phạt") || q.Contains("penalty");
+        AiAssistantIntent.ContainsAny(q, ["phiếu phạt", "phạt", "penalty"]);
 
     private static bool LooksLikeSales(string q) =>
-        q.Contains("doanh thu") || q.Contains("doanh số") || q.Contains("bán được") || q.Contains("bán hàng")
-        || q.Contains("đơn hàng") || q.Contains("hóa đơn") || q.Contains("bán chạy") || q.Contains("công nợ")
-        || q.Contains("khách nợ") || q.Contains("revenue") || q.Contains("bao nhiêu đơn");
+        AiAssistantIntent.ContainsAny(q, ["doanh thu", "doanh số", "bán được", "bán hàng", "đơn hàng", "hóa đơn", "bán chạy",
+            "công nợ", "khách nợ", "revenue", "bao nhiêu đơn"]);
 
     /// <summary>Bán hàng: hôm nay / hôm qua / tháng này, top món hôm nay, công nợ khách — đơn đã hoàn thành.</summary>
-    private static async Task AppendPosSalesAsync(ZKTecoDbContext db, Guid storeId, StringBuilder buf, CancellationToken ct)
+    private static async Task AppendPosSalesAsync(ZKTecoDbContext db, Guid storeId, IBranchContext? branch, StringBuilder buf, CancellationToken ct)
     {
         var nowVn = AiAssistantVnTime.NowVn();
         var todayVn = nowVn.Date;
@@ -137,6 +137,8 @@ public static class AiAssistantQueryTools
         var orders = await db.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive && o.Status == PosSaleOrderStatus.Completed
                         && (o.SaleDate ?? o.CreatedAt) >= fromUtc)
+            // Cùng phạm vi chi nhánh với run_report — quản lý một chi nhánh không thấy số cả cửa hàng.
+            .ApplyBranchScope(branch)
             .Select(o => new { o.Id, At = o.SaleDate ?? o.CreatedAt, o.Total, o.PaidAmount, o.CustomerName })
             .ToListAsync(ct);
         var withVn = orders.Select(o => new { o.Id, Day = o.At.AddHours(AiAssistantVnTime.OffsetHours).Date, o.Total, Debt = o.Total - o.PaidAmount, o.CustomerName }).ToList();
@@ -176,8 +178,7 @@ public static class AiAssistantQueryTools
     }
 
     private static bool LooksLikeTeamToday(string q) =>
-        q.Contains("ai vắng") || q.Contains("ai đi trễ") || q.Contains("nhân sự hôm nay")
-        || q.Contains("có mặt") || q.Contains("vắng mặt");
+        AiAssistantIntent.ContainsAny(q, ["ai vắng", "ai đi trễ", "nhân sự hôm nay", "có mặt", "vắng mặt"]);
 
     private static bool CanView(IReadOnlyDictionary<string, ModulePermissionDto> perms, string module, bool isSuper) =>
         isSuper || (perms.TryGetValue(module, out var p) && p.CanView);
@@ -259,13 +260,14 @@ public static class AiAssistantQueryTools
     }
 
     private static async Task AppendCashSummaryAsync(
-        ZKTecoDbContext db, Guid storeId, StringBuilder buf, CancellationToken ct)
+        ZKTecoDbContext db, Guid storeId, IBranchContext? branch, StringBuilder buf, CancellationToken ct)
     {
         var from = DateTime.UtcNow.AddDays(-30);
         var rows = await db.CashTransactions.AsNoTracking()
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                         && c.TransactionDate >= from
                         && c.Status != CashTransactionStatus.Cancelled)
+            .ApplyBranchScope(branch)
             .Select(c => new { c.Type, c.Amount, c.IsPaid })
             .ToListAsync(ct);
 

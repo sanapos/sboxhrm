@@ -134,7 +134,7 @@ public class AiAssistantScopeTests
     public void Ngon_ngu_tra_loi_theo_giao_dien(string? raw, string expected)
     {
         Assert.Equal(expected, AiLanguage.Normalize(raw));
-        if (expected == "vi") Assert.Equal("Trả lời bằng tiếng Việt.", AiLanguage.AnswerRule(raw));
+        if (expected == "vi") Assert.StartsWith("Trả lời bằng tiếng Việt;", AiLanguage.AnswerRule(raw));
         else Assert.Contains("LUÔN trả lời bằng", AiLanguage.AnswerRule(raw));
     }
 

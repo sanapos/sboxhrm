@@ -123,7 +123,8 @@ public static class AiAssistantRuleBot
             && !q.Contains("cua toi", StringComparison.Ordinal))
         {
             matched = true;
-            var store = ExtractSection(ctx, "ĐƠN CHỜ DUYỆT (toàn cửa hàng)", "CHỜ DUYỆT (theo quyền)");
+            // Quản lý theo phạm vi: tiêu đề là «ĐƠN CHỜ DUYỆT (trong phạm vi…)» / «CHỜ DUYỆT (theo quyền, trong phạm vi…)».
+            var store = ExtractSection(ctx, "ĐƠN CHỜ DUYỆT (", "CHỜ DUYỆT (theo quyền");
             AppendHeading(sb, "Chờ duyệt");
             sb.AppendLine(string.IsNullOrWhiteSpace(store)
                 ? "Không có bảng chờ duyệt (hoặc tài khoản không có quyền)."
@@ -322,8 +323,8 @@ public static class AiAssistantRuleBot
         return string.Join("\n", lines).Trim();
     }
 
-    static bool ContainsAny(string q, params string[] keys) =>
-        keys.Any(k => q.Contains(k, StringComparison.Ordinal));
+    // Câu gõ không dấu so với từ khóa đã bỏ dấu (xem AiAssistantIntent.ContainsAny).
+    static bool ContainsAny(string q, params string[] keys) => AiAssistantIntent.ContainsAny(q, keys);
 
     static bool LooksLikeProfile(string q) =>
         ContainsAny(q, "tôi là ai", "ho so cua toi", "hồ sơ của tôi", "hồ sơ tôi",
@@ -386,7 +387,7 @@ public static class AiAssistantRuleBot
 
     static bool LooksLikeSetup(string q) =>
         ContainsAny(q, "thiết lập", "thiet lap", "cấu hình", "cau hinh",
-            "máy chấm công", "may cham cong", "máy in", "mẫu in", "bán hàng", "pos");
+            "máy chấm công", "may cham cong", "máy in", "mẫu in");
 
     static bool LooksLikeCompose(string q) =>
         ContainsAny(q, "viết", "viet ", "soạn", "soan ", "draft", "diễn giải",
@@ -436,7 +437,7 @@ public static class AiAssistantRuleBot
         {
             if (!allowedCreates.Contains(row.Type, StringComparer.Ordinal))
                 continue;
-            if (!row.Keys.Any(k => q.Contains(k, StringComparison.Ordinal)))
+            if (!ContainsAny(q, row.Keys))
                 continue;
             type = row.Type;
             nav = row.Nav;

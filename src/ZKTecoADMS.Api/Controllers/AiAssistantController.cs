@@ -319,7 +319,7 @@ public class AiAssistantController(
 
             var extra = await AiAssistantQueryTools.BuildExtraContextAsync(
                 db, CurrentUserId, RequiredStoreId, role, lastUserMessage.Content,
-                permMap, isSuperUser, logger, ct, scope);
+                permMap, isSuperUser, logger, ct, scope, HttpContext.BranchContext());
             if (!string.IsNullOrWhiteSpace(extra))
                 contextText += "\n\n" + extra;
 
@@ -406,13 +406,20 @@ public class AiAssistantController(
             // Hỏi cách dùng / báo sự cố («cách tạo phiếu phạt», «máy in bếp không in») → trả lời thẳng từ hướng dẫn sử dụng
             // nhúng trong máy chủ, không gọi Gemini (không tốn lượt, chạy cả khi cửa hàng chưa có khóa AI).
             var topHelp = AiAssistantHelpCorpus.SearchScored(lastText, topK: 1);
-            var guideOnly = vi && AiAssistantIntent.IsGuideQuestion(lastText, topHelp.Count > 0 ? topHelp[0].Score : 0);
+            // Đang lập phiếu dở (agent vừa hỏi thêm) → câu trả lời «lý do: quên chấm công không được» vẫn thuộc lệnh đó.
+            var actionInProgress = recentUser.SkipLast(1).Any(AiAssistantIntent.LooksLikeAction);
+            var guideOnly = vi && !actionInProgress
+                            && AiAssistantIntent.IsGuideQuestion(lastText, topHelp.Count > 0 ? topHelp[0].Score : 0);
             var withActions = !guideOnly && (!vi || AiAssistantIntent.LooksLikeAction(lastText)
-                              || (!AiAssistantAgent.LooksAnalytical(lastText) && recentUser.SkipLast(1).Any(AiAssistantIntent.LooksLikeAction)));
+                              || (!AiAssistantAgent.LooksAnalytical(lastText) && actionInProgress));
             var toolGroups = withActions && vi ? AiAssistantIntent.Groups(recentUser) : null;
             // Câu hỏi phân tích / báo cáo → đi thẳng agent (gọi báo cáo thật); câu cá nhân đơn giản → bot rule (nhanh, không tốn lượt).
             var analytical = !guideOnly && geminiOk && (!vi || AiAssistantAgent.LooksAnalytical(lastText) || withActions);
-            var rule = analytical
+            // Bot rule chỉ có dữ liệu của chính người hỏi và không đọc lịch sử chat: có AI thì chỉ dùng cho câu đầu tiên hỏi
+            // về bản thân — câu nối tiếp («ai đi trễ?» sau câu về tháng) hay hỏi về người khác để agent trả lời.
+            var skipRule = analytical
+                           || (geminiOk && !guideOnly && (userTurns.Count > 1 || AiAssistantIntent.MentionsOthers(lastText)));
+            var rule = skipRule
                 ? new AiAssistantRuleResult(false, "")
                 : AiAssistantRuleBot.Build(
                     lastUserMessage.Content, contextText, guideOnly ? AiAssistantHelpCorpus.GuideAnswerHits(lastText) : helpHits,
@@ -430,6 +437,13 @@ public class AiAssistantController(
                 // Câu phân tích cần AI: cửa hàng chưa có khóa riêng, gói không cho dùng khóa chung.
                 reply = "Trợ lý ảo trả lời được dữ liệu cá nhân và hướng dẫn. Để phân tích báo cáo bán hàng / nhân sự: "
                         + TenantScopedGeminiAiService.NoOwnKeyMessage;
+                usedProvider = "sbox";
+            }
+            else if (!guideOnly && !geminiOk && vi && AiAssistantIntent.LooksLikeAction(lastText))
+            {
+                // Lập / sửa phiếu bằng lời cần AI — bot rule chỉ có bảng số liệu (trước đây «tạo phiếu chi 50k» trả bảng thu chi 30 ngày).
+                reply = "Lập / sửa phiếu bằng lời cần trợ lý AI (Gemini) — cửa hàng chưa bật hoặc chưa có khóa AI nên chưa lập gì cả. "
+                        + "Bạn mở màn tương ứng để thao tác, hoặc vào Thiết lập SBOX › Trợ lý AI để bật.";
                 usedProvider = "sbox";
             }
             else if (rule.Matched)
@@ -506,7 +520,14 @@ public class AiAssistantController(
 
     /// <summary>Khóa đệm câu trả lời: theo người hỏi (quyền + phạm vi riêng), ngôn ngữ trả lời và câu hỏi đã bỏ dấu.</summary>
     string AnswerKey(string question, string lang) =>
-        $"ai-answer:{RequiredStoreId}:{CurrentUserId}:{lang}:{VnSearch.FoldText(question)}";
+        $"ai-answer:{RequiredStoreId}:{CurrentUserId}:{BranchKey()}:{lang}:{VnSearch.FoldText(question)}";
+
+    /// <summary>Chi nhánh đang xem — đổi chi nhánh trên app thì không trả câu trả lời đệm của chi nhánh cũ.</summary>
+    string BranchKey()
+    {
+        var b = HttpContext.BranchContext();
+        return b is { StoreUsesBranches: true } ? (b.FilterBranchId ?? b.CurrentBranchId)?.ToString() ?? "all" : "-";
+    }
 
     private static bool IsBoilerplateAssistantMessage(ChatMessage m)
     {

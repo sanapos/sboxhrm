@@ -1015,8 +1015,7 @@ public sealed partial class AiAssistantActions(
         }
         if ((S(a, "mode") ?? "").ToLowerInvariant() is "draft" or "tạm" or "tam")
             return await DraftSaleAsync(c, a, body, lines, warnings, discount, total, customerId, customerName, ct);
-        var paidRaw = (S(a, "paid") ?? "full").Trim().ToLowerInvariant();
-        var paid = paidRaw is "full" or "đủ" or "" ? total : paidRaw is "none" or "nợ" or "0" ? 0m : ParseMoney(paidRaw) ?? total;
+        var paid = PaidAmount(S(a, "paid"), total);
         paid = Math.Min(paid, total);
         if (paid < total && customerId == null) throw new ActionError("Đơn ghi nợ cần khách có trong danh bạ (find_customers).");
         var method = Method(S(a, "method"));
@@ -1158,8 +1157,7 @@ public sealed partial class AiAssistantActions(
 
     (decimal paid, string label) PaidOf(Dictionary<string, object?> a, decimal total)
     {
-        var raw = (S(a, "paid") ?? "full").Trim().ToLowerInvariant();
-        var paid = raw is "full" or "đủ" or "" ? total : raw is "none" or "nợ" or "0" ? 0m : ParseMoney(raw) ?? total;
+        var paid = PaidAmount(S(a, "paid"), total);
         paid = Math.Min(paid, total);
         var m = Method(S(a, "method"));
         var ml = m == PaymentMethodType.BankTransfer ? "Chuyển khoản" : "Tiền mặt";
@@ -1514,6 +1512,19 @@ public sealed partial class AiAssistantActions(
     }
 
     /// <summary>"500000" / "500k" / "1,5 triệu" / "1tr2" → VNĐ.</summary>
+    /// <summary>
+    /// Số tiền khách / mình trả: «full / đủ» = trả đủ, «none / nợ / ghi nợ / chưa trả» = 0, còn lại là số tiền. Không đọc được
+    /// thì báo lỗi — trước đây rơi về «trả đủ», đơn ghi nợ thành đã thu đủ.
+    /// </summary>
+    internal static decimal PaidAmount(string? raw, decimal total)
+    {
+        var p = (raw ?? "full").Trim().ToLowerInvariant();
+        if (p is "" or "full" or "đủ" or "du" or "trả đủ" or "tra du" or "all" or "hết" or "het") return total;
+        if (p is "none" or "nợ" or "no" or "0" or "ghi nợ" or "ghi no" or "nợ hết" or "no het" or "chưa trả" or "chua tra")
+            return 0m;
+        return ParseMoney(p) ?? throw new ActionError($"Không hiểu số tiền trả «{raw}» — ghi số tiền, «full» (trả đủ) hoặc «none» (ghi nợ).");
+    }
+
     public static decimal? ParseMoney(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
@@ -1535,10 +1546,10 @@ public sealed partial class AiAssistantActions(
                 frac = t * (decimal)Math.Pow(10, 6 - tail.Length);
             return h * 1_000_000 + frac;
         }
-        if (s.EndsWith("k") || s.EndsWith("nghìn") || s.EndsWith("ngàn"))
+        if (s.EndsWith("k") || s.EndsWith("nghìn") || s.EndsWith("ngàn") || s.EndsWith("nghin") || s.EndsWith("ngan"))
         {
             mult = 1000;
-            s = s.TrimEnd('k').Replace("nghìn", "").Replace("ngàn", "");
+            s = s.TrimEnd('k').Replace("nghìn", "").Replace("ngàn", "").Replace("nghin", "").Replace("ngan", "");
         }
         s = s.Contains(',') && !s.Contains('.') && s.Split(',')[^1].Length == 3 ? s.Replace(",", "") : s.Replace(".", "").Replace(',', '.');
         return decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v * mult : null;

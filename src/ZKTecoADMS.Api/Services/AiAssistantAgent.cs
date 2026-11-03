@@ -72,6 +72,10 @@ public sealed class AiAssistantAgent(
             "30 ngày", "đi trễ nhiều", "đi muộn", "vắng nhiều", "bảng công", "ngày công", "tăng ca", "quỹ lương",
             "tổng lương", "chi lương", "nghỉ phép nhiều", "đánh giá", "đề xuất", "gợi ý", "cải thiện", "dự báo",
             "tình hình kinh doanh", "kinh doanh", "hiệu quả",
+            // «Hôm nay bán được bao nhiêu», xin lời khuyên («làm sao giảm đi trễ»), hỏi nguyên nhân — bot rule chỉ trả
+            // bảng dữ liệu hôm nay / bài hướng dẫn, lạc đề.
+            "bán được", "bao nhiêu đơn", "được bao nhiêu", "làm sao", "làm thế nào", "cách nào",
+            "tại sao", "vì sao", "nguyên nhân",
         ];
         return AiAssistantIntent.ContainsAny(q, keys);
     }

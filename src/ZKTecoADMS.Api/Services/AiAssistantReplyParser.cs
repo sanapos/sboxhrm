@@ -1,4 +1,5 @@
 using ZKTecoADMS.Application.DTOs.Permissions;
+using ZKTecoADMS.Application.Helpers;
 
 namespace ZKTecoADMS.Api.Services;
 
@@ -151,12 +152,13 @@ public static class AiAssistantReplyParser
         return new AiAssistantParsedReply(cleaned.Trim(), actions, creates, guides, charts);
     }
 
+    /// <summary>Hỏi cách dùng / chỗ bấm (hẹp hơn bộ dò nạp hướng dẫn — không có «tại sao», «chức năng»). So không dấu, nguyên từ.</summary>
     public static bool LooksLikeHowTo(string query)
     {
-        var q = (query ?? "").ToLowerInvariant();
-        return q.Contains("cách") || q.Contains("hướng dẫn") || q.Contains("làm sao")
-               || q.Contains("thế nào") || q.Contains("ở đâu") || q.Contains("menu nào")
-               || q.Contains("mở đâu") || q.Contains("howto") || q.Contains("help")
-               || q.Contains("hướng dan") || q.Contains("lam sao");
+        var f = " " + string.Join(' ', VnSearch.FoldText(query).Split([' ', ',', '.', '?', '!'], StringSplitOptions.RemoveEmptyEntries)) + " ";
+        return HowToKeys.Any(k => f.Contains(" " + k + " "));
     }
+
+    static readonly string[] HowToKeys =
+        ["cach", "huong dan", "lam sao", "the nao", "o dau", "menu nao", "mo dau", "howto", "help"];
 }

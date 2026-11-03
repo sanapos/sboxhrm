@@ -314,8 +314,11 @@ public static class AiAssistantHelpCorpus
     /// Từ ngắn («in», «lan», «don») phải trùng nguyên từ — so chuỗi con thì «in» khớp «invoice», «lan» khớp «lanh»… làm
     /// bài không liên quan lên đầu.
     /// </summary>
-    static bool Has(string text, string term) =>
-        term.Length > 3 ? text.Contains(term) : Regex.IsMatch(text, $@"(?<![\p{{L}}\p{{N}}]){Regex.Escape(term)}(?![\p{{L}}\p{{N}}])");
+    static bool Has(string text, string term) => term.Length > 3 ? text.Contains(term) : HasWord(text, term);
+
+    /// <summary>Trùng nguyên từ / nguyên cụm («chuyen kho» không khớp «chuyen khoan»).</summary>
+    static bool HasWord(string text, string term) =>
+        text.Contains(term) && Regex.IsMatch(text, $@"(?<![\p{{L}}\p{{N}}]){Regex.Escape(term)}(?![\p{{L}}\p{{N}}])");
 
     private static int ScoreChunk(FoldedChunk c, IReadOnlyList<string> terms, string raw)
     {
@@ -342,11 +345,11 @@ public static class AiAssistantHelpCorpus
         for (var i = 0; i + 1 < terms.Count; i++)
         {
             var pair = terms[i] + " " + terms[i + 1];
-            if (c.StepId.Contains(pair)) score += 15;
-            if (c.Title.Contains(pair)) score += 15;
-            if (c.Keywords.Contains(pair)) score += 10;
-            if (c.Summary.Contains(pair)) score += 5;
-            score += 3 * c.Bullets.Count(b => b.Contains(pair));
+            if (HasWord(c.StepId, pair)) score += 15;
+            if (HasWord(c.Title, pair)) score += 15;
+            if (HasWord(c.Keywords, pair)) score += 10;
+            if (HasWord(c.Summary, pair)) score += 5;
+            score += 3 * c.Bullets.Count(b => HasWord(b, pair));
         }
 
         return score;

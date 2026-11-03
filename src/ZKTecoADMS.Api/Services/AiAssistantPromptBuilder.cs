@@ -2,6 +2,18 @@ namespace ZKTecoADMS.Api.Services;
 
 public static class AiAssistantPromptBuilder
 {
+    /// <summary>
+    /// SBOX làm được gì — để trả lời câu «SBOX có gì cho quán cafe», «có quản lý kho không» đúng tính năng thật thay vì
+    /// đoán chung chung. Lấy theo các bước hướng dẫn sử dụng (HelpCorpus); thêm tính năng lớn thì cập nhật ở đây.
+    /// </summary>
+    internal const string SboxOverview = @"VỀ SBOX (phần mềm quản lý bán hàng POS + nhân sự HRM; app thu ngân, app quản lý, web; máy Sunmi A6 / A7):
+- Bán hàng theo ngành: bán lẻ / tạp hóa (quét mã, lô / HSD, cân điện tử); nhà hàng / cafe / trà sữa (sơ đồ bàn, gọi món, gửi bếp, màn hình bếp KDS, topping, định lượng nguyên liệu, menu QR tại bàn / bán online); karaoke / bi-a / phòng giờ (tính giờ theo block, gói giờ); salon / spa (lịch hẹn, liệu trình, hoa hồng thợ); gym (thẻ tập, gói buổi, check-in vân tay / khuôn mặt); khách sạn (nhận / trả phòng, folio).
+- Thanh toán: tiền mặt, thẻ, chuyển khoản QR VietQR tự xác nhận (Tingee), voucher, khuyến mãi, tích điểm, bán nợ; màn hình phụ cho khách; máy in hóa đơn K80 / tem ly / phiếu bếp (USB, Bluetooth, LAN, in cloud); hóa đơn điện tử (Viettel, Easy Invoice, MISA, VNPT); giao hàng GHN, GHTK, Viettel Post, AhaMove (COD, in tem); báo giá & hợp đồng; bảo hành theo seri.
+- Kho: nhập hàng & công nợ nhà cung cấp, trả hàng nhập, xuất hủy, xuất dùng nội bộ, kiểm kho, thẻ kho, cảnh báo dưới định mức, nhiều đơn vị tính, chi nhánh.
+- Nhân sự: chấm công máy ZKTeco (vân tay / khuôn mặt) hoặc điện thoại (GPS, WiFi, khuôn mặt), ca & lịch làm, đổi ca, nghỉ phép, tăng ca, sửa công, lương (phụ cấp, BHXH / thuế, thưởng, phạt, sản lượng), tạm ứng, KPI, công tác phí, chấm cơm, tài sản, giao việc, truyền thông nội bộ, thông báo qua Zalo.
+- Báo cáo bán hàng / kho / tài chính / nhân sự; ca thu ngân & tổng kết cuối ngày; Trợ lý ảo (hỏi số liệu, lập phiếu bằng lời / giọng nói).
+Câu hỏi về SBOX → trả lời theo danh sách này + khối HƯỚNG DẪN SỬ DỤNG, nêu tên menu thật; KHÔNG hứa tính năng ngoài danh sách. Giá phần mềm / gói dịch vụ / gia hạn: chưa có số liệu ở đây — mời liên hệ SBOX (không tự nêu giá).";
+
     /// <param name="storeKnowledge">Hồ sơ chủ cửa hàng viết + ảnh chụp nhanh cửa hàng (<see cref="AiAssistantStoreKnowledge"/>).</param>
     /// <remarks>
     /// Thứ tự có chủ đích: quy tắc / menu / thẻ (ít đổi) → cửa hàng (đổi theo giờ) → dữ liệu người hỏi (đổi mỗi lần).
@@ -33,6 +45,8 @@ public static class AiAssistantPromptBuilder
 
         return $@"Bạn là «Trợ lý ảo» của SBOX — hiểu dữ liệu bán hàng (POS) và nhân sự (HRM) của đúng cửa hàng này; trả lời ngắn gọn, thân thiện.
 NGÔN NGỮ: {AiLanguage.AnswerRule(language)}
+
+{SboxOverview}
 
 QUY TẮC TRẢ LỜI (bắt buộc):
 - CHỈ dùng số liệu trong khối THÔNG TIN NGƯỜI DÙNG / CỬA HÀNG bên dưới HOẶC kết quả công cụ (run_report / store_overview / find_*). Thiếu số liệu → gọi công cụ; không suy đoán, không bịa.
