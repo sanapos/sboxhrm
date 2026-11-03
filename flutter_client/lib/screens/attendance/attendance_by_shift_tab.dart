@@ -136,6 +136,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   String _shiftFilter = 'all';
   AttendanceDayScope _dayScope = AttendanceDayScope.allDays;
   static const _dayScopePrefKey = 'attendance_by_shift_day_scope_v1';
+  AttendancePunchLayout _punchLayout = AttendancePunchLayout.ordered;
+  static const _punchLayoutPrefKey = 'attendance_by_shift_punch_layout_v1';
+  /// Cách xếp giờ chấm từng dòng (theo đối tượng dòng — dữ liệu tải lại là dòng mới); làm mới khi đổi cách xếp.
+  Expando<(List<int?>?,)> _slotLayoutCache = Expando();
   bool _showOverviewPanel = true;
 
   // Sorting
@@ -321,6 +325,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     });
     AttendanceDayScope.load(_dayScopePrefKey).then((v) {
       if (mounted && v != _dayScope) setState(() => _dayScope = v);
+    });
+    AttendancePunchLayout.load(_punchLayoutPrefKey).then((v) {
+      if (mounted && v != _punchLayout) {
+        setState(() {
+          _punchLayout = v;
+          _slotLayoutCache = Expando();
+        });
+      }
     });
   }
 
@@ -1419,6 +1431,23 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       icon: Icons.event_note_outlined,
     );
 
+    final punchLayoutFilter = _buildDropdown<AttendancePunchLayout>(
+      value: _punchLayout,
+      items: [
+        for (final v in AttendancePunchLayout.values)
+          DropdownMenuItem(value: v, child: Text(tr(v.label))),
+      ],
+      onChanged: (v) {
+        if (v == null || v == _punchLayout) return;
+        setState(() {
+          _punchLayout = v;
+          _slotLayoutCache = Expando();
+        });
+        AttendancePunchLayout.save(_punchLayoutPrefKey, v);
+      },
+      icon: Icons.view_column_outlined,
+    );
+
     final summaryChip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -1477,7 +1506,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Row(children: [Expanded(child: dayScopeFilter)]),
+                  Row(
+                    children: [
+                      Expanded(child: dayScopeFilter),
+                      const SizedBox(width: 8),
+                      Expanded(child: punchLayoutFilter),
+                    ],
+                  ),
                 ],
               ],
             )
@@ -1492,6 +1527,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 Expanded(child: shiftFilter),
                 const SizedBox(width: 12),
                 Expanded(child: dayScopeFilter),
+                const SizedBox(width: 12),
+                Expanded(child: punchLayoutFilter),
                 const SizedBox(width: 12),
                 summaryChip,
               ],
@@ -3555,12 +3592,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           'weekday' => (text(r.dayOfWeek), dataStyle),
           'date' => (text(DateFormat('dd/MM/yyyy').format(r.date)), dataStyle),
           'branch' => (text(r.punchLocation), _excelLeftStyle()),
-          'punch' => (
-              text(idx - 1 < r.displayPunchTimes.length
-                  ? DateFormat('HH:mm').format(r.displayPunchTimes[idx - 1])
-                  : ''),
-              dataStyle
-            ),
+          'punch' => (text(_punchTextAtColumn(r, idx - 1)), dataStyle),
           'late' => (minutes(r.lateMinutes), dataStyle),
           'early' => (minutes(r.earlyMinutes), dataStyle),
           'overtime' => (minutes(r.overtimeMinutes), dataStyle),
@@ -4354,6 +4386,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       parts.add(_shiftStatusFilterLabel());
     }
     if (_dayScope == AttendanceDayScope.punchedOnly) parts.add(_dayScope.label);
+    if (_punchLayout == AttendancePunchLayout.byShift) parts.add(_punchLayout.label);
     return parts.isEmpty ? null : parts.join(' · ');
   }
 
@@ -4366,9 +4399,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       if (_showPunchBranchColumn) r.punchLocation,
     ];
     for (var p = 0; p < punchCols; p++) {
-      cells.add(p < r.displayPunchTimes.length
-          ? DateFormat('HH:mm').format(r.displayPunchTimes[p])
-          : '');
+      cells.add(_punchTextAtColumn(r, p));
     }
     cells.addAll([
       r.lateMinutes > 0 ? '${r.lateMinutes}P' : '',
@@ -4983,6 +5014,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   int _shiftPunchColCount(List<_DailyShiftRecord> records) {
     var maxPunches = records.fold(
         0, (m, r) => r.punchTimes.length > m ? r.punchTimes.length : m);
+    // Xếp theo ca: ô của ca trống vẫn chiếm cột (chỉ làm chiều → giờ ở Lần 3–4).
+    if (_punchLayout == AttendancePunchLayout.byShift) {
+      for (final r in records) {
+        final n = _shiftSlotLayout(r)?.length ?? 0;
+        if (n > maxPunches) maxPunches = n;
+      }
+    }
     if (maxPunches < 4) maxPunches = 4;
     return maxPunches.isEven ? maxPunches : maxPunches + 1;
   }
@@ -5261,11 +5299,29 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     );
   }
 
-  /// Ngày thiếu chấm: xếp giờ chấm theo ca (Lần 1–2 ca thứ nhất, Lần 3–4 ca thứ hai…) để ô thiếu nằm đúng
-  /// chỗ — vd. thiếu ra ca sáng thì Lần 2 báo thiếu, giờ vào chiều ở Lần 3 (không dồn lên Lần 2).
+  /// Xếp giờ chấm theo ca (Lần 1–2 ca thứ nhất, Lần 3–4 ca thứ hai…): mọi dòng khi chọn «Giờ chấm theo ca»
+  /// (chỉ làm chiều → Lần 3–4), còn không thì chỉ ngày thiếu chấm để ô thiếu nằm đúng chỗ — vd. thiếu ra ca
+  /// sáng thì Lần 2 báo thiếu, giờ vào chiều ở Lần 3 (không dồn lên Lần 2).
   /// Trả về chỉ số giờ chấm cho từng ô; null = không xếp được (giờ ngoài ca, chưa gán ca…) → hiển thị theo thứ tự.
   List<int?>? _shiftSlotLayout(_DailyShiftRecord r) {
-    if (!r.status.contains('Thiếu') || r.punchTimes.isEmpty) return null;
+    final cached = _slotLayoutCache[r];
+    if (cached != null) return cached.$1;
+    final layout = _computeShiftSlotLayout(r);
+    _slotLayoutCache[r] = (layout,);
+    return layout;
+  }
+
+  /// Giờ (HH:mm) ở cột Lần [col + 1] — cùng cách xếp với bảng trên màn hình (Excel / PNG).
+  String _punchTextAtColumn(_DailyShiftRecord r, int col) {
+    final layout = _shiftSlotLayout(r);
+    final pi = layout == null ? col : (col < layout.length ? layout[col] : null);
+    if (pi == null || pi >= r.displayPunchTimes.length) return '';
+    return DateFormat('HH:mm').format(r.displayPunchTimes[pi]);
+  }
+
+  List<int?>? _computeShiftSlotLayout(_DailyShiftRecord r) {
+    if (r.punchTimes.isEmpty) return null;
+    if (_punchLayout != AttendancePunchLayout.byShift && !r.status.contains('Thiếu')) return null;
     final templates = _dailyTemplatesFor(r.employeeId, r.employeeCode, r.shiftNames);
     final slots = _dailySlotsOf(templates);
     if (slots.isEmpty || r.punchTimes.length > slots.length * 2) return null;

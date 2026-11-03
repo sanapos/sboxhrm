@@ -2823,6 +2823,8 @@
   "Giờ chạy (0-23)": "Run hour (0-23)",
   "Giờ chạy dọn dữ liệu": "Data cleanup run hour",
   "Giờ chấm lẻ (thiếu cặp)": "Unpaired punch",
+  "Giờ chấm theo ca": "Punch times by shift",
+  "Giờ chấm theo thứ tự": "Punch times in order",
   "Giờ công dự kiến": "Expected work hours",
   "Giờ công theo ca": "Work hours by shift",
   "Giờ công và số người đi làm theo ngày": "Work hours and headcount by day",

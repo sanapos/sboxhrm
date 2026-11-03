@@ -37,6 +37,40 @@ enum AttendanceDayScope {
   }
 }
 
+/// Cách xếp giờ chấm vào cột Lần 1, Lần 2… trên bảng theo ca — áp dụng cả file Excel / PNG xuất ra.
+enum AttendancePunchLayout {
+  /// Theo thứ tự lần chấm trong ngày (giờ đầu tiên ở Lần 1).
+  ordered,
+
+  /// Theo ca: Lần 1–2 là vào / ra ca (nửa ca) thứ nhất, Lần 3–4 ca thứ hai… — chỉ làm buổi chiều thì
+  /// giờ nằm ở Lần 3–4, Lần 1–2 để trống.
+  byShift;
+
+  String get label => switch (this) {
+        AttendancePunchLayout.ordered => 'Giờ chấm theo thứ tự',
+        AttendancePunchLayout.byShift => 'Giờ chấm theo ca',
+      };
+
+  static AttendancePunchLayout parse(String? v) =>
+      v == 'byShift' ? AttendancePunchLayout.byShift : AttendancePunchLayout.ordered;
+
+  static Future<AttendancePunchLayout> load(String prefKey) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return parse(prefs.getString(prefKey));
+    } catch (_) {
+      return AttendancePunchLayout.ordered;
+    }
+  }
+
+  static Future<void> save(String prefKey, AttendancePunchLayout layout) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(prefKey, layout.name);
+    } catch (_) {}
+  }
+}
+
 /// Loại ngày không có giờ chấm (dòng lấp thêm trên bảng).
 enum AttendanceFillDayKind {
   absent,
