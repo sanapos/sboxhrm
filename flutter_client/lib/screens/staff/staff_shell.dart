@@ -174,8 +174,8 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
         _StaffTab.order => PosMobileHubScreen(
             initialTab: 2,
             restoreLastTab: false,
-            // Hub dùng đúng thanh dưới của app nhân viên thay cho bộ ô POS riêng.
-            bottomBarBuilder: (_, __, ___) => _bottomBar(),
+            // Thanh dưới do khung Staff vẽ (cả khi hub đang Bán hàng toàn màn) — hub không vẽ ô POS riêng.
+            bottomBarBuilder: (_, __, ___) => const SizedBox.shrink(),
           ),
         _StaffTab.schedule => Scaffold(
             backgroundColor: SboxColors.page,
@@ -268,8 +268,7 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
                 ),
             ],
           ),
-          // Tab Order: hub POS tự vẽ thanh dưới (bottomBarBuilder) — không vẽ 2 lần.
-          bottomNavigationBar: current == _StaffTab.order ? null : _bottomBar(),
+          bottomNavigationBar: _bottomBar(),
         ),
       ),
     );
