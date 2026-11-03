@@ -7,6 +7,7 @@ using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -20,7 +21,8 @@ namespace ZKTecoADMS.Api.Controllers;
 [Authorize]
 public class PosKdsController(
     ZKTecoDbContext db,
-    IHubContext<AttendanceHub> hub) : AuthenticatedControllerBase
+    IHubContext<AttendanceHub> hub,
+    ISystemNotificationService notifications) : AuthenticatedControllerBase
 {
     /// <summary>Vé không thao tác quá số giờ này tự rời bảng bếp.</summary>
     public const int DefaultIdleHours = 60;
@@ -525,6 +527,7 @@ public class PosKdsController(
         if (lines.Count == 0)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy món"));
 
+        var wasServed = lines.ToDictionary(l => l.Id, IsServed);
         foreach (var line in lines)
         {
             if (line.KitchenSentQty <= 0) continue;
@@ -534,6 +537,7 @@ public class PosKdsController(
         }
         await db.SaveChangesAsync();
         PosFloorRealtimeHelper.Notify(hub, storeId, "kds");
+        await NotifyServedAsync(storeId, lines.Where(l => !wasServed[l.Id] && IsServed(l)));
         return Ok(AppResponse<object>.Success(new { updated = lines.Count, status }));
     }
 
@@ -553,11 +557,13 @@ public class PosKdsController(
         if (line.KitchenSentQty <= 0)
             return BadRequest(AppResponse<object>.Fail("Món chưa báo bếp"));
 
+        var lineWasServed = IsServed(line);
         PosKitchenKdsHelper.ApplyStatus(line, status);
         line.UpdatedAt = DateTime.UtcNow;
         line.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
         PosFloorRealtimeHelper.Notify(hub, storeId, "kds", orderId: line.SaleOrderId);
+        if (!lineWasServed && IsServed(line)) await NotifyServedAsync(storeId, [line]);
         return Ok(AppResponse<object>.Success(new
         {
             id = line.Id,
@@ -578,6 +584,7 @@ public class PosKdsController(
             .ToListAsync();
         if (lines.Count == 0)
             return Ok(AppResponse<object>.Success(new { bumped = 0 }));
+        var bumpWasServed = lines.ToDictionary(l => l.Id, IsServed);
         foreach (var line in lines)
         {
             PosKitchenKdsHelper.Bump(line);
@@ -586,7 +593,26 @@ public class PosKdsController(
         }
         await db.SaveChangesAsync();
         PosFloorRealtimeHelper.Notify(hub, storeId, "kds", orderId: orderId);
+        await NotifyServedAsync(storeId, lines.Where(l => !bumpWasServed[l.Id]));
         return Ok(AppResponse<object>.Success(new { bumped = lines.Count }));
+    }
+
+    /// <summary>Món đã làm xong, chờ / đã mang ra (Ra món hoặc Xong).</summary>
+    private static bool IsServed(PosSaleOrderLine line)
+    {
+        var s = PosKitchenKdsHelper.Normalize(line.KitchenPrepStatus);
+        return s is PosKitchenKdsHelper.Ready or PosKitchenKdsHelper.Done;
+    }
+
+    /// <summary>Báo người gọi món (phục vụ) khi bếp làm xong — app nhân viên không phải mở màn bếp để canh.</summary>
+    private Task NotifyServedAsync(Guid storeId, IEnumerable<PosSaleOrderLine> served)
+    {
+        var rows = served
+            .Where(l => l.KitchenSentQty > 0)
+            .Select(l => (l.SaleOrderId, l.ProductName, l.KitchenSentQty, l.CreatedBy))
+            .ToList();
+        return PosNotificationHelper.NotifyKitchenReadyAsync(
+            notifications, db, storeId, rows, CurrentUserId);
     }
 
     /// <summary>Vé đã ra món trong [hours] giờ gần nhất (mới nhất trước) — ngăn «Đã xong» trên KDS.</summary>

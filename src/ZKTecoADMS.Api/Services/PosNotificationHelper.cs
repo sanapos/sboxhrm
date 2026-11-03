@@ -321,6 +321,78 @@ internal static class PosNotificationHelper
         }
     }
 
+    /// <summary>
+    /// Bếp bấm «Ra món» / «Xong»: báo người đã gọi món (người tạo dòng món) để mang ra bàn.
+    /// Mỗi đơn một thông báo; bỏ qua người vừa bấm ở bếp và tài khoản không thuộc cửa hàng.
+    /// </summary>
+    public static async Task NotifyKitchenReadyAsync(
+        ISystemNotificationService notifications,
+        ZKTecoDbContext db,
+        Guid storeId,
+        IReadOnlyCollection<(Guid OrderId, string ProductName, decimal Qty, string? OrderedBy)> lines,
+        Guid? fromUserId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (lines.Count == 0) return;
+            var emails = lines
+                .Select(l => l.OrderedBy?.Trim())
+                .Where(e => !string.IsNullOrEmpty(e))
+                .Select(e => e!.ToLowerInvariant())
+                .Distinct()
+                .ToList();
+            if (emails.Count == 0) return;
+            var users = await db.Users.AsNoTracking()
+                .Where(u => u.IsActive && u.StoreId == storeId && u.Email != null
+                    && emails.Contains(u.Email.ToLower())
+                    && (fromUserId == null || u.Id != fromUserId))
+                .Select(u => new { u.Id, Email = u.Email!.ToLower() })
+                .ToListAsync(cancellationToken);
+            if (users.Count == 0) return;
+
+            var orderIds = lines.Select(l => l.OrderId).Distinct().ToList();
+            var orders = await (
+                from o in db.PosSaleOrders.AsNoTracking()
+                where orderIds.Contains(o.Id)
+                join r in db.PosServiceResources.AsNoTracking() on o.ServiceResourceId equals r.Id into rj
+                from r in rj.DefaultIfEmpty()
+                select new { o.Id, o.OrderNo, Table = r != null ? r.Name : null }
+            ).ToListAsync(cancellationToken);
+
+            foreach (var group in lines.GroupBy(l => l.OrderId))
+            {
+                var order = orders.FirstOrDefault(o => o.Id == group.Key);
+                var place = !string.IsNullOrWhiteSpace(order?.Table)
+                    ? order!.Table!.Trim()
+                    : $"Đơn {order?.OrderNo}".Trim();
+                var items = string.Join(", ", group
+                    .GroupBy(l => l.ProductName.Trim())
+                    .Select(g => $"{g.Key} ×{g.Sum(x => x.Qty):0.##}"));
+                var to = users
+                    .Where(u => group.Any(l => string.Equals(l.OrderedBy?.Trim(), u.Email,
+                        StringComparison.OrdinalIgnoreCase)))
+                    .Select(u => u.Id)
+                    .ToList();
+                if (to.Count == 0) continue;
+                await notifications.CreateAndSendToUsersAsync(
+                    to,
+                    NotificationType.Success,
+                    "Món đã xong",
+                    $"{place}: {items} — mang ra cho khách",
+                    relatedEntityId: group.Key,
+                    relatedEntityType: "PosSaleOrder",
+                    fromUserId: fromUserId,
+                    categoryCode: "pos",
+                    storeId: storeId);
+            }
+        }
+        catch
+        {
+            // Lỗi gửi thông báo không làm hỏng thao tác ở bếp (màn bếp / sơ đồ bàn đã cập nhật realtime).
+        }
+    }
+
     private static async Task<List<Guid>> GetPosOpsUserIdsAsync(
         ZKTecoDbContext db,
         Guid storeId,

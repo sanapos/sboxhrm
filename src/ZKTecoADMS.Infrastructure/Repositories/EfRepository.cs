@@ -44,6 +44,13 @@ public class EfRepository<TEntity>(
                 query = includeProperties.Aggregate(query, (current, includeProperty) => current.Include(includeProperty));
             }
 
+            // Sắp xếp TRƯỚC khi cắt trang — trước Skip/Take chạy trước OrderBy nên trang 1 là N dòng bất kỳ
+            // (vd. thông báo mới nhất không nằm đầu danh sách).
+            if (orderBy != null)
+            {
+                query = orderBy(query);
+            }
+
             if (skip.HasValue)
             {
                 query = query.Skip(skip.Value);
@@ -54,15 +61,7 @@ public class EfRepository<TEntity>(
                 query = query.Take(take.Value);
             }
 
-            List<TEntity> result;
-            if (orderBy != null)
-            {
-                result = await orderBy(query).ToListAsync(cancellationToken);
-            }
-            else
-            {
-                result = await query.ToListAsync(cancellationToken);
-            }
+            var result = await query.ToListAsync(cancellationToken);
 
 
             return result;
@@ -99,6 +98,13 @@ public class EfRepository<TEntity>(
                 query = includes(query);
             }
             
+            // Sắp xếp TRƯỚC khi cắt trang — trước Skip/Take chạy trước OrderBy nên trang 1 là N dòng bất kỳ
+            // (vd. thông báo mới nhất không nằm đầu danh sách).
+            if (orderBy != null)
+            {
+                query = orderBy(query);
+            }
+
             if (skip.HasValue)
             {
                 query = query.Skip(skip.Value);
@@ -109,15 +115,7 @@ public class EfRepository<TEntity>(
                 query = query.Take(take.Value);
             }
 
-            List<TEntity> result;
-            if (orderBy != null)
-            {
-                result = await orderBy(query).ToListAsync(cancellationToken);
-            }
-            else
-            {
-                result = await query.ToListAsync(cancellationToken);
-            }
+            var result = await query.ToListAsync(cancellationToken);
 
 
             return result;

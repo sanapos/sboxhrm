@@ -37,7 +37,7 @@ public class PosKdsBoardTests
         _db.SaveChanges();
     }
 
-    PosKdsController Ctl() => new(_db, null!)
+    PosKdsController Ctl() => new(_db, null!, null!)
     {
         ControllerContext = new ControllerContext
         {
