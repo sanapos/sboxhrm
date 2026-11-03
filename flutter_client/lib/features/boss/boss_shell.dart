@@ -11,9 +11,12 @@ import '../../utils/store_role_helper.dart';
 import '../../widgets/branch_switcher.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import 'boss_dashboard_screen.dart';
-import 'boss_end_of_day_screen.dart';
+import 'boss_inbox_screen.dart';
+import 'boss_reports_screen.dart';
+import 'boss_vouchers_screen.dart';
 
-/// Shell app SBOX BOSS (flavor `boss`): chỉ chủ / quản lý — tab Tổng quan · Cuối ngày · Thêm.
+/// Shell app SBOX BOSS (flavor `boss`): chỉ chủ / quản lý — tab Tổng quan · Cần duyệt · Báo cáo · Phiếu · Thêm,
+/// nút ＋ tạo phiếu nhanh.
 /// Tài khoản khác thấy [BossRoleBlockedScreen].
 class BossShell extends StatefulWidget {
   const BossShell({super.key});
@@ -24,8 +27,13 @@ class BossShell extends StatefulWidget {
 
 class _BossShellState extends State<BossShell> {
   int _tab = 0;
+  int _voucherTick = 0;
 
-  static const _titles = ['Tổng quan hôm nay', 'Cuối ngày', 'Thêm'];
+  static const _titles = ['Tổng quan hôm nay', 'Cần duyệt', 'Báo cáo', 'Phiếu', 'Thêm'];
+
+  Future<void> _create() async {
+    if (await showBossCreateSheet(context) && mounted) setState(() => _voucherTick++);
+  }
 
   @override
   void initState() {
@@ -52,32 +60,64 @@ class _BossShellState extends State<BossShell> {
       ),
       body: IndexedStack(
         index: _tab,
-        children: const [
-          BossDashboardScreen(),
-          BossEndOfDayScreen(),
-          _BossMoreScreen(),
+        children: [
+          BossDashboardScreen(onOpenInbox: () => setState(() => _tab = 1)),
+          const BossInboxScreen(),
+          const BossReportsScreen(),
+          BossVouchersScreen(refreshTick: _voucherTick),
+          const _BossMoreScreen(),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.dashboard_outlined),
-            selectedIcon: const Icon(Icons.dashboard_rounded),
-            label: tr('Tổng quan'),
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.receipt_long_outlined),
-            selectedIcon: const Icon(Icons.receipt_long_rounded),
-            label: tr('Cuối ngày'),
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.more_horiz_rounded),
-            selectedIcon: const Icon(Icons.more_horiz_rounded),
-            label: tr('Thêm'),
-          ),
-        ],
+      floatingActionButton: _tab == 0 || _tab == 3
+          ? FloatingActionButton(
+              tooltip: tr('Tạo phiếu'),
+              backgroundColor: SboxColors.brand600,
+              foregroundColor: SboxColors.white,
+              onPressed: _create,
+              child: const Icon(Icons.add_rounded),
+            )
+          : null,
+      bottomNavigationBar: ValueListenableBuilder<int>(
+        valueListenable: bossInboxCount,
+        builder: (context, pending, _) => NavigationBar(
+          selectedIndex: _tab,
+          onDestinationSelected: (i) => setState(() => _tab = i),
+          destinations: [
+            NavigationDestination(
+              icon: const Icon(Icons.dashboard_outlined),
+              selectedIcon: const Icon(Icons.dashboard_rounded),
+              label: tr('Tổng quan'),
+            ),
+            NavigationDestination(
+              icon: Badge(
+                isLabelVisible: pending > 0,
+                label: Text(pending > 99 ? '99+' : '$pending'),
+                child: const Icon(Icons.fact_check_outlined),
+              ),
+              selectedIcon: Badge(
+                isLabelVisible: pending > 0,
+                label: Text(pending > 99 ? '99+' : '$pending'),
+                child: const Icon(Icons.fact_check_rounded),
+              ),
+              label: tr('Cần duyệt'),
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.bar_chart_outlined),
+              selectedIcon: const Icon(Icons.bar_chart_rounded),
+              label: tr('Báo cáo'),
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.receipt_long_outlined),
+              selectedIcon: const Icon(Icons.receipt_long_rounded),
+              label: tr('Phiếu'),
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.more_horiz_rounded),
+              selectedIcon: const Icon(Icons.more_horiz_rounded),
+              label: tr('Thêm'),
+            ),
+          ],
+        ),
       ),
     );
   }

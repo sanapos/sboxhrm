@@ -8,12 +8,16 @@ import '../../services/branch_session.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import '../../widgets/sbox/sbox_charts.dart';
+import 'boss_issues_card.dart';
 
 /// SBOX BOSS — «Tổng quan hôm nay»: doanh thu ngày kinh doanh hiện tại so với cùng giờ hôm qua /
 /// tuần trước, doanh thu theo giờ, phương thức thanh toán, bàn đang mở, nhân viên đã chấm công.
 /// Tự làm mới mỗi phút khi đang mở và khi đổi chi nhánh.
 class BossDashboardScreen extends StatefulWidget {
-  const BossDashboardScreen({super.key});
+  const BossDashboardScreen({super.key, this.onOpenInbox});
+
+  /// Chuyển sang tab «Cần duyệt» (khối «Cần xử lý»).
+  final VoidCallback? onOpenInbox;
 
   @override
   State<BossDashboardScreen> createState() => _BossDashboardScreenState();
@@ -27,6 +31,8 @@ class _BossDashboardScreenState extends State<BossDashboardScreen> with WidgetsB
   bool _loading = false;
   Timer? _timer;
   String? _branch;
+  /// Tăng khi người dùng làm mới / đổi chi nhánh → khối «Cần xử lý» tải lại (không theo nhịp 1 phút).
+  int _issuesTick = 0;
 
   @override
   void initState() {
@@ -61,7 +67,12 @@ class _BossDashboardScreenState extends State<BossDashboardScreen> with WidgetsB
   Future<void> _load({bool silent = false}) async {
     if (_loading) return;
     _loading = true;
-    if (!silent && mounted) setState(() => _error = null);
+    if (!silent && mounted) {
+      setState(() {
+        _error = null;
+        _issuesTick++;
+      });
+    }
     final r = await ApiService().getBossDashboard();
     _loading = false;
     if (!mounted) return;
@@ -95,6 +106,8 @@ class _BossDashboardScreenState extends State<BossDashboardScreen> with WidgetsB
         padding: const EdgeInsets.fromLTRB(SboxSpace.lg, SboxSpace.md, SboxSpace.lg, SboxSpace.xxl),
         children: [
           _RevenueHero(data: d),
+          const SizedBox(height: SboxSpace.md),
+          BossIssuesCard(refreshTick: _issuesTick, onOpenInbox: widget.onOpenInbox),
           const SizedBox(height: SboxSpace.md),
           _CompareRow(data: d),
           const SizedBox(height: SboxSpace.md),
