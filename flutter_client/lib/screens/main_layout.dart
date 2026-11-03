@@ -134,6 +134,7 @@ import 'pos/pos_vouchers_screen.dart';
 import 'pos/pos_promotions_screen.dart';
 import 'shift_swap_screen.dart';
 import '../utils/permission_navigation.dart';
+import '../utils/notification_open_screens.dart';
 import '../utils/permission_role_options.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/store_role_helper.dart';
@@ -838,6 +839,21 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           showAiAssistant(context);
         } else {
           NavigationNotifier.goToNotifications();
+        }
+      });
+      return;
+    }
+
+    // Bấm thông báo nhắc hẹn chăm sóc → chi tiết báo giá + sheet chăm sóc; «Cảnh báo hạn sử dụng» → báo cáo HSD.
+    if (code == 'PosQuoteDetail' || (code == 'PosReportExpiry' && idx == null)) {
+      final quoteId = NavigationNotifier.pendingOpenPosQuoteId;
+      NavigationNotifier.pendingOpenPosQuoteId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (code == 'PosReportExpiry') {
+          openPosExpiryReportFromNotification(context);
+        } else if (quoteId != null && quoteId.isNotEmpty) {
+          openPosQuoteCareFromNotification(context, quoteId);
         }
       });
       return;
@@ -1604,6 +1620,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             relatedEntityType: relatedEntityType,
             notificationId: notificationId,
             relatedEntityId: data['relatedEntityId']?.toString(),
+            categoryCode: data['categoryCode']?.toString(),
+            actionUrl: data['actionUrl']?.toString() ?? data['relatedUrl']?.toString(),
           );
         } else if (!isAttendanceOrDevice) {
           // Desktop: chỉ hiện popup cho các loại không phải attendance/device

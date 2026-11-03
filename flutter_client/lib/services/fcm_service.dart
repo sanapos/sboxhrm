@@ -290,6 +290,8 @@ class FcmService {
         relatedEntityType: data['relatedEntityType'],
         notificationId: notificationId,
         relatedEntityId: data['relatedEntityId'],
+        categoryCode: data['categoryCode'],
+        actionUrl: data['actionUrl'],
       );
       ScreenRefreshNotifier.refreshNotificationCount();
     }));

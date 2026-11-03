@@ -157,6 +157,14 @@ class NavigationNotifier {
   static final ValueNotifier<bool> pendingOpenQrOnlinePay =
       ValueNotifier<bool>(false);
 
+  /// Báo giá cần mở chi tiết + sheet chăm sóc (bấm thông báo nhắc hẹn) — [MainLayout] đọc khi nhận 'PosQuoteDetail'.
+  static String? pendingOpenPosQuoteId;
+
+  static void goToPosQuoteCare(String quoteId) {
+    pendingOpenPosQuoteId = quoteId;
+    goToModule('PosQuoteDetail');
+  }
+
   static void goTo(int screenIndex) {
     navigateTo.value = screenIndex;
     debugPrint('📍 Navigation requested to screen index: $screenIndex');

@@ -16,6 +16,8 @@ class NotificationNavigationTarget {
   final int? mobileAttendanceSettingsTab;
   /// Mở tab bình luận / báo cáo trong chi tiết công việc
   final bool taskOpenComments;
+  /// Mở thẳng chi tiết báo giá (id = relatedEntityId) + sheet chăm sóc khách.
+  final bool opensPosQuote;
 
   const NotificationNavigationTarget({
     required this.moduleCode,
@@ -25,8 +27,14 @@ class NotificationNavigationTarget {
     this.attendanceApprovalStatusFilter,
     this.mobileAttendanceSettingsTab,
     this.taskOpenComments = false,
+    this.opensPosQuote = false,
   });
 }
+
+/// App bán hàng riêng / SBOX Staff (không có [MainLayout]) đăng ký để tự mở màn khi bấm thông báo.
+/// [entityKey] đã chuẩn hóa (vd 'posquote'); trả false nếu shell không có màn tương ứng.
+typedef NotificationShellHandler = bool Function(String? entityKey, String? relatedEntityId);
+NotificationShellHandler? notificationShellHandler;
 
 /// Các giá trị `type` / `notificationType` từ server = mức độ thông báo, không phải màn hình.
 const _notificationSeverityKeys = {
@@ -205,6 +213,8 @@ String? _inferEntityTypeFromTitle(String? title) {
   if (t.contains('đơn qr') || t.contains('qr bàn') || t.contains('qr chờ xác nhận')) {
     return 'PosQrTableOrder';
   }
+  if (t.contains('hẹn chăm sóc')) return 'PosQuote';
+  if (t.contains('cảnh báo hạn sử dụng')) return 'PosReportExpiry';
   if (t.contains('đặt lịch') || t.contains('đặt bàn') || t.contains('lịch hẹn')) {
     return 'PosResourceReservation';
   }
@@ -311,7 +321,8 @@ String? _inferEntityTypeFromCategory(String? categoryCode, {String? title}) {
     case 'transaction':
       return 'CashTransaction';
     case 'pos':
-      return _inferEntityTypeFromTitle(title) ?? 'PosSaleOrder';
+      // Không đoán được thì về danh sách thông báo — trước đây rơi về «Hóa đơn bán hàng» (sai với báo giá, HSD…).
+      return _inferEntityTypeFromTitle(title);
     case 'internal_comm':
       return 'Communication';
     case 'device':
@@ -511,6 +522,12 @@ NotificationNavigationTarget? resolveNotificationNavigation(
     case 'posproduct':
       return const NotificationNavigationTarget(moduleCode: 'PosProducts');
 
+    case 'posquote':
+      return const NotificationNavigationTarget(moduleCode: 'PosQuotes', opensPosQuote: true);
+
+    case 'posreportexpiry':
+      return const NotificationNavigationTarget(moduleCode: 'PosReportExpiry');
+
     case 'feedback':
       if (title != null && title.toLowerCase().contains('phản ánh mới')) {
         NavigationNotifier.feedbackPreferInbox.value = true;
@@ -608,6 +625,19 @@ void navigateFromNotification({
     title: title,
   );
   final target = resolveNotificationNavigation(entity, title: title);
+  final hasId = relatedEntityId != null && relatedEntityId.isNotEmpty;
+
+  if (!NavigationNotifier.mainLayoutReady.value && notificationShellHandler != null) {
+    notificationShellHandler!(
+        target == null ? null : normalizeNotificationEntityType(entity), relatedEntityId);
+    return;
+  }
+
+  if (target != null && target.opensPosQuote && hasId) {
+    NavigationNotifier.goToPosQuoteCare(relatedEntityId);
+    return;
+  }
+
   if (target == null) {
     if (kDebugMode) {
       debugPrint(

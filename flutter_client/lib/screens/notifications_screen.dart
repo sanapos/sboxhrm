@@ -35,6 +35,9 @@ class NotificationsScreen extends StatefulWidget {
     this.agentMode = false,
   });
 
+  /// Số màn danh sách thông báo đang mở — app bán hàng riêng / Staff không mở chồng thêm khi bấm thông báo.
+  static int openCount = 0;
+
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
@@ -71,6 +74,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
+    NotificationsScreen.openCount++;
     timeago.setLocaleMessages('vi', timeago.ViMessages());
     if (widget.adminPortalMode) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -92,6 +96,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   void dispose() {
+    NotificationsScreen.openCount--;
     ScreenRefreshNotifier.notifications.removeListener(_onExternalRefresh);
     _notificationSubscription?.cancel();
     _notificationReadSubscription?.cancel();

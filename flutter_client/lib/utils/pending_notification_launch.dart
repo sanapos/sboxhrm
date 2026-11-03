@@ -54,7 +54,10 @@ class PendingNotificationLaunch {
   /// Trả về true nếu đã điều hướng.
   static bool tryConsume({bool adminPortalMode = false, bool agentMode = false}) {
     if (!hasPending) return false;
-    if (!adminPortalMode && !NavigationNotifier.mainLayoutReady.value) {
+    // App bán hàng riêng / Staff không có MainLayout — shell đã đăng ký [notificationShellHandler] thì tự mở.
+    if (!adminPortalMode &&
+        !NavigationNotifier.mainLayoutReady.value &&
+        notificationShellHandler == null) {
       return false;
     }
     if (adminPortalMode && !AdminNavigationNotifier.systemAdminReady.value) {

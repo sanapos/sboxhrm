@@ -92,15 +92,14 @@ class SystemNotificationService {
     }
     ScreenRefreshNotifier.refreshNotificationCount();
 
-    String? title;
-    if (parts.length > 3 && parts[3].isNotEmpty) {
-      title = Uri.decodeComponent(parts[3]);
-    }
+    String? part(int i) => parts.length > i && parts[i].isNotEmpty ? Uri.decodeComponent(parts[i]) : null;
 
     navigateFromNotification(
       relatedEntityType: entityType.isEmpty ? null : entityType,
       relatedEntityId: highlightId,
-      title: title,
+      title: part(3),
+      categoryCode: part(4),
+      actionUrl: part(5),
     );
   }
 
@@ -170,25 +169,22 @@ class SystemNotificationService {
   }
 
   /// payload: entityType|notificationRowId|highlightEntityId|title (phần 3–4 tùy chọn)
+  /// "loại|mã thông báo|mã bản ghi|tiêu đề|nhóm|đường dẫn" — đủ như bấm từ danh sách thông báo
+  /// (thiếu nhóm / đường dẫn thì cùng thông báo, bấm từ thanh thông báo đi chỗ khác).
   String _makePayload(
     String entityType, {
     String? notificationRowId,
     String? highlightEntityId,
     String? title,
+    String? categoryCode,
+    String? actionUrl,
   }) {
-    final parts = <String>[entityType];
-    if (notificationRowId != null && notificationRowId.isNotEmpty) {
-      parts.add(notificationRowId);
-      final highlight = highlightEntityId;
-      if (highlight != null &&
-          highlight.isNotEmpty &&
-          highlight != notificationRowId) {
-        parts.add(highlight);
-      }
-    }
-    if (title != null && title.trim().isNotEmpty) {
-      while (parts.length < 3) parts.add('');
-      parts.add(Uri.encodeComponent(title.trim()));
+    String enc(String? v) => v == null || v.trim().isEmpty ? '' : Uri.encodeComponent(v.trim());
+    final row = notificationRowId ?? '';
+    final highlight = highlightEntityId == null || highlightEntityId == row ? '' : highlightEntityId;
+    final parts = <String>[entityType, row, highlight, enc(title), enc(categoryCode), enc(actionUrl)];
+    while (parts.length > 1 && parts.last.isEmpty) {
+      parts.removeLast();
     }
     return parts.join('|');
   }
@@ -248,6 +244,8 @@ class SystemNotificationService {
     String? relatedEntityType,
     String? notificationId,
     String? relatedEntityId,
+    String? categoryCode,
+    String? actionUrl,
   }) async {
     await show(
       title: title,
@@ -260,6 +258,8 @@ class SystemNotificationService {
         notificationRowId: notificationId,
         highlightEntityId: relatedEntityId,
         title: title,
+        categoryCode: categoryCode,
+        actionUrl: actionUrl,
       ),
     );
   }

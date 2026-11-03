@@ -118,9 +118,13 @@ class PosQuoteFlow {
 
 /// Màn tổng quan một báo giá: tiến độ hồ sơ, bước tiếp theo, hàng hóa, hồ sơ, liên hệ / chia sẻ.
 class PosQuoteDetailScreen extends StatefulWidget {
-  const PosQuoteDetailScreen({super.key, required this.quoteId, this.onChanged, this.onClose});
+  const PosQuoteDetailScreen(
+      {super.key, required this.quoteId, this.onChanged, this.onClose, this.openCare = false});
 
   final String quoteId;
+
+  /// Mở từ thông báo nhắc hẹn chăm sóc: tải xong thì mở luôn sheet chăm sóc khách.
+  final bool openCare;
 
   /// Nhúng ở cột phải màn chia đôi (C20 ngang): có thay đổi → báo danh sách tải lại;
   /// đóng / xóa xong → [onClose] thay vì đóng trang.
@@ -160,6 +164,26 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
         _q = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map));
       }
     });
+    if (widget.openCare && !_careOpened && _q != null) {
+      _careOpened = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openCareSheet());
+    }
+  }
+
+  bool _careOpened = false;
+
+  /// Thẻ chăm sóc nằm cuối danh sách (có thể chưa dựng) — mở sheet trực tiếp rồi tải lại thẻ.
+  Future<void> _openCareSheet() async {
+    final q = _q;
+    if (!mounted || q == null) return;
+    await showPosQuoteCareSheet(
+      context,
+      quoteId: q.id,
+      quoteNo: q.quoteNo,
+      customerName: q.customerName,
+      customerPhone: q.customerPhone,
+    );
+    if (mounted) await _careKey.currentState?.reload();
   }
 
   Future<void> _run(Future<Map<String, dynamic>> Function() fn, String done) async {

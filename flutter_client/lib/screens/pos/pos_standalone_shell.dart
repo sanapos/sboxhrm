@@ -14,6 +14,10 @@ import '../../services/pos_print_agent_service.dart';
 import '../../services/signalr_service.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/notification_display_utils.dart';
+import '../../services/api_service.dart';
+import '../../utils/notification_navigation.dart';
+import '../../utils/notification_open_screens.dart';
+import '../../utils/pending_notification_launch.dart';
 import '../../utils/pos_payment_gateway_listener.dart';
 import '../../utils/pos_print_agent_settings.dart';
 import '../../utils/pos_print_orchestrator.dart';
@@ -46,11 +50,14 @@ class _PosStandaloneShellState extends State<PosStandaloneShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    notificationShellHandler = _openFromNotification;
+    PendingNotificationLaunch.scheduleConsume();
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
 
   @override
   void dispose() {
+    if (notificationShellHandler == _openFromNotification) notificationShellHandler = null;
     WidgetsBinding.instance.removeObserver(this);
     _notificationSub?.cancel();
     unawaited(_signalR.disconnect());
@@ -157,6 +164,26 @@ class _PosStandaloneShellState extends State<PosStandaloneShell>
     }
   }
 
+  /// Bấm thông báo (popup, thanh thông báo, đẩy điện thoại): không có MainLayout nên shell tự mở màn.
+  bool _openFromNotification(String? entityKey, String? relatedEntityId) =>
+      mounted && openNotificationInShell(context, entityKey, relatedEntityId);
+
+  void _openTapped(Map<String, dynamic> data, String title) {
+    final rowId = (data['notificationId'] ?? data['id'])?.toString();
+    if (rowId != null && rowId.isNotEmpty) {
+      unawaited(ApiService().markNotificationAsRead(rowId).then((_) {
+        ScreenRefreshNotifier.refreshNotificationCount();
+      }));
+    }
+    navigateFromNotification(
+      relatedEntityType: data['relatedEntityType']?.toString(),
+      relatedEntityId: data['relatedEntityId']?.toString(),
+      title: title,
+      categoryCode: data['categoryCode']?.toString(),
+      actionUrl: (data['actionUrl'] ?? data['relatedUrl'])?.toString(),
+    );
+  }
+
   void _handleNewNotification(Map<String, dynamic> data) {
     try {
       final display = resolveNotificationDisplay(data);
@@ -172,6 +199,7 @@ class _PosStandaloneShellState extends State<PosStandaloneShell>
         message: display.body.isEmpty ? 'Có thông báo mới' : display.body,
         type: type,
         relatedEntityType: data['relatedEntityType']?.toString(),
+        onTap: () => _openTapped(data, display.title),
       );
       ScreenRefreshNotifier.refreshNotificationCount();
     } catch (e) {
