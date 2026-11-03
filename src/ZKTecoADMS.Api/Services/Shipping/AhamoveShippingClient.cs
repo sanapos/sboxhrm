@@ -105,8 +105,43 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
         return null;
     }
 
+    /// <summary>
+    /// Mã lỗi máy đọc: AhaMove thật trả {"code":"PARTNER_NOT_FOUND","title":"Partner not found.",…} — mã ở
+    /// <c>code</c>, <c>title</c> là câu chữ; vài API cũ để mã ở <c>title</c>.
+    /// </summary>
+    public static string? ReadErrorCode(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object) return null;
+        if (root.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.String &&
+            !string.IsNullOrWhiteSpace(c.GetString()))
+            return c.GetString()!.Trim();
+        if (root.TryGetProperty("title", out var t) && t.ValueKind == JsonValueKind.String)
+        {
+            var s = (t.GetString() ?? "").Trim();
+            if (s.Length > 0 && s.All(ch => char.IsUpper(ch) || char.IsDigit(ch) || ch == '_')) return s;
+        }
+        return null;
+    }
+
+    static bool HasCode(JsonElement root, string code) =>
+        string.Equals(ReadErrorCode(root), code, StringComparison.OrdinalIgnoreCase);
+
+    static string? VietnameseError(string? code) => code?.ToUpperInvariant() switch
+    {
+        "PARTNER_NOT_FOUND" => "API Key AhaMove không đúng hoặc sai môi trường (Sandbox / Production)",
+        "USER_NOT_FOUND" => "SĐT chưa có tài khoản AhaMove",
+        "NOT_AUTHORIZED" => "Tài khoản AhaMove không thuộc API Key này",
+        "INVALID_PHONE_NUMBER" => "SĐT tài khoản AhaMove không hợp lệ (dạng 849…)",
+        "DEACTIVATED_ACCOUNT" => "Tài khoản AhaMove đã bị khóa",
+        "SERVICE_UNAVAILABLE" => "AhaMove đang bảo trì — thử lại sau",
+        _ => null,
+    };
+
     static string ReadError(JsonElement root, string fallback)
     {
+        var code = ReadErrorCode(root);
+        if (VietnameseError(code) is { } vi)
+            return $"{vi} ({code})";
         if (root.TryGetProperty("description", out var d) && d.ValueKind == JsonValueKind.String)
             return d.GetString() ?? fallback;
         if (root.TryGetProperty("title", out var t) && t.ValueKind == JsonValueKind.String)
@@ -135,8 +170,9 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
         var baseUrl = BaseUrl(settings);
         var apiKey = settings.ApiToken.Trim();
 
-        var (token, err, existed) = await PostAccountTokenAsync(http, baseUrl, apiKey, mobile!, ct);
-        if (string.IsNullOrWhiteSpace(token) && existed is false)
+        var (token, err, userMissing) = await PostAccountTokenAsync(http, baseUrl, apiKey, mobile!, ct);
+        // Chỉ đăng ký khi AhaMove báo SĐT chưa có tài khoản — sai key / sai môi trường thì báo lỗi luôn.
+        if (string.IsNullOrWhiteSpace(token) && userMissing is true)
         {
             var name = string.IsNullOrWhiteSpace(settings.PickupName)
                 ? "SBOX"
@@ -144,10 +180,10 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
             var address = ComposePickupAddress(settings);
             if (string.IsNullOrWhiteSpace(address))
                 address = "Việt Nam";
-            (token, err) = await PostRegisterAccountAsync(
+            bool accountExisted;
+            (token, err, accountExisted) = await PostRegisterAccountAsync(
                 http, baseUrl, apiKey, mobile!, name, address, ct);
-            if (string.IsNullOrWhiteSpace(token) &&
-                (err ?? "").Contains("ACCOUNT_EXISTED", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(token) && accountExisted)
             {
                 (token, err, _) = await PostAccountTokenAsync(http, baseUrl, apiKey, mobile!, ct);
             }
@@ -173,9 +209,7 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
             var root = doc.RootElement;
             var token = ReadToken(root);
             if (!string.IsNullOrWhiteSpace(token)) return (token, null, false);
-            var title = root.TryGetProperty("title", out var t) ? t.GetString() : null;
-            var missing = string.Equals(title, "USER_NOT_FOUND", StringComparison.OrdinalIgnoreCase);
-            return (null, ReadError(root, raw), missing);
+            return (null, ReadError(root, raw), HasCode(root, "USER_NOT_FOUND"));
         }
         catch
         {
@@ -183,7 +217,7 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
         }
     }
 
-    async Task<(string? Token, string? Error)> PostRegisterAccountAsync(
+    async Task<(string? Token, string? Error, bool AccountExisted)> PostRegisterAccountAsync(
         HttpClient http, string baseUrl, string apiKey, string mobile, string name, string address,
         CancellationToken ct)
     {
@@ -202,12 +236,12 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
             using var doc = JsonDocument.Parse(raw);
             var root = doc.RootElement;
             var token = ReadToken(root);
-            if (!string.IsNullOrWhiteSpace(token)) return (token, null);
-            return (null, ReadError(root, raw));
+            if (!string.IsNullOrWhiteSpace(token)) return (token, null, false);
+            return (null, ReadError(root, raw), HasCode(root, "ACCOUNT_EXISTED"));
         }
         catch
         {
-            return (null, raw);
+            return (null, raw, false);
         }
     }
 
@@ -256,8 +290,11 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
     static string ComposeDropoffAddress(
         string? address, string? ward, string? district, string? province)
     {
+        // Địa chỉ 2 cấp: ShippingAddressNormalizer dùng phường làm quận (cho GHN/GHTK) → bỏ phần trùng,
+        // tránh «Phường X, Phường X» gửi tài xế / geocode.
         var parts = new[] { address, ward, district, province }
-            .Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim());
+            .Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase);
         return string.Join(", ", parts);
     }
 
@@ -663,8 +700,7 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
                 string.Equals(status, "CANCELLED", StringComparison.OrdinalIgnoreCase))
                 return new(true, CarrierCode, Message: "Đã hủy vận đơn AhaMove");
 
-            var title = root.TryGetProperty("title", out var t) ? t.GetString() : null;
-            if (string.Equals(title, "ORDER_CANCELLED", StringComparison.OrdinalIgnoreCase) ||
+            if (HasCode(root, "ORDER_CANCELLED") ||
                 (ReadError(root, "").Contains("CANCEL", StringComparison.OrdinalIgnoreCase) &&
                  res.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.Conflict))
                 return new(true, CarrierCode, Message: "Đơn AhaMove đã hủy trước đó");

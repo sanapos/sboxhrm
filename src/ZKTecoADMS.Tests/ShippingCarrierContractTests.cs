@@ -974,6 +974,169 @@ public class ShippingCarrierContractTests
         Assert.Equal(ShipmentStatus.Delivering, ShipmentStatus.FromAhamove("IN PROCESS"));
     }
 
+    // Lỗi thật của AhaMove: mã ở «code», «title» là câu chữ (đo trên partner-apistg 03/11/2026).
+    const string AhaFresh = "eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjQxMDI0NDQ4MDAsInR5cCI6Im5ldyJ9.c2ln";
+
+    [Fact]
+    public async Task Ahamove_USER_NOT_FOUND_thi_dang_ky_tai_khoan()
+    {
+        var http = new FakeHttp()
+            .On("POST", "/v3/accounts/token",
+                """{"code":"USER_NOT_FOUND","http_code":404,"title":"User not found.","description":"Sorry, user not found."}""",
+                HttpStatusCode.NotFound)
+            .On("POST", "/v3/accounts", $$"""{"token":"{{AhaFresh}}","refresh_token":"r1"}""");
+        var client = new AhamoveShippingClient(new FakeFactory(http), NullLogger<AhamoveShippingClient>.Instance);
+        var s = AhaSettings("{}");
+        s.Password = null;
+
+        var (ok, err) = await client.EnsureUserTokenAsync(s);
+
+        Assert.True(ok, err);
+        Assert.Equal(AhaFresh, s.Password);
+        var reg = http.Single("/v3/accounts").Json;
+        Assert.Equal("84905123456", reg.GetProperty("mobile").GetString());
+        Assert.Equal("SBOX Hải Châu", reg.GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task Ahamove_ACCOUNT_EXISTED_lay_lai_token()
+    {
+        var http = new FakeHttp()
+            .On("POST", "/v3/accounts/token", """{"code":"USER_NOT_FOUND","title":"User not found."}""",
+                HttpStatusCode.NotFound, once: true)
+            .On("POST", "/v3/accounts", """{"code":"ACCOUNT_EXISTED","title":"Account existed."}""", HttpStatusCode.Conflict)
+            .On("POST", "/v3/accounts/token", $$"""{"token":"{{AhaFresh}}","refresh_token":"r1"}""");
+        var client = new AhamoveShippingClient(new FakeFactory(http), NullLogger<AhamoveShippingClient>.Instance);
+        var s = AhaSettings("{}");
+        s.Password = null;
+
+        var (ok, err) = await client.EnsureUserTokenAsync(s);
+
+        Assert.True(ok, err);
+        Assert.Equal(AhaFresh, s.Password);
+        Assert.Equal(2, http.Requests.Count(r => r.Uri.AbsolutePath.EndsWith("/v3/accounts/token")));
+    }
+
+    [Fact]
+    public async Task Ahamove_sai_key_khong_dang_ky_va_bao_tieng_viet()
+    {
+        var http = new FakeHttp().On("POST", "/v3/accounts/token",
+            """{"code":"PARTNER_NOT_FOUND","http_code":404,"title":"Partner not found.","description":"Sorry, your parner not found."}""",
+            HttpStatusCode.NotFound);
+        var client = new AhamoveShippingClient(new FakeFactory(http), NullLogger<AhamoveShippingClient>.Instance);
+        var s = AhaSettings("{}");
+        s.Password = null;
+
+        var (ok, err) = await client.EnsureUserTokenAsync(s);
+
+        Assert.False(ok);
+        Assert.Contains("API Key AhaMove không đúng", err);
+        Assert.Contains("PARTNER_NOT_FOUND", err);
+        Assert.DoesNotContain(http.Requests, r => r.Uri.AbsolutePath.EndsWith("/v3/accounts"));
+    }
+
+    [Fact]
+    public async Task Ahamove_huy_don_da_huy_doc_code()
+    {
+        var http = new FakeHttp().On("DELETE", "/v3/orders/24ABCD",
+            """{"code":"ORDER_CANCELLED","title":"Order was cancelled."}""", HttpStatusCode.NotAcceptable);
+        var client = new AhamoveShippingClient(new FakeFactory(http), NullLogger<AhamoveShippingClient>.Instance);
+
+        var r = await client.CancelOrderAsync(AhaSettings("{}"), "24ABCD", null);
+
+        Assert.True(r.Success, r.Message);
+    }
+
+    [Fact]
+    public async Task Ahamove_dia_chi_2_cap_khong_lap_phuong()
+    {
+        var http = new FakeHttp().On("POST", "/v3/orders", """{"order_id":"24ABCD","status":"ASSIGNING"}""");
+        var client = new AhamoveShippingClient(new FakeFactory(http), NullLogger<AhamoveShippingClient>.Instance);
+        var order = DaNangOrder();
+
+        // PosShippingService gửi quận «mượn» tên phường cho địa chỉ 2 cấp (ShippingAddressNormalizer).
+        await client.CreateAsync(AhaSettings("{" + AhaCoords + ",\"service_id\":\"DAD-BIKE\"}"), order,
+            new ShippingCreateRequest("Ahamove", order.Id, ToDistrict: "Phường Hải Châu", ToWard: "Phường Hải Châu"));
+
+        var addr = http.Single("/v3/orders").Json.GetProperty("path")[1].GetProperty("address").GetString();
+        Assert.Equal("45 Lê Duẩn, Phường Hải Châu, Thành phố Đà Nẵng", addr);
+    }
+
+    static ZKTecoDbContext NoTrackingDb() => new(new DbContextOptionsBuilder<ZKTecoDbContext>()
+        .UseInMemoryDatabase(Guid.NewGuid().ToString())
+        .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking).Options);
+
+    [Fact]
+    public async Task Ahamove_token_lam_moi_duoc_luu_khi_DbContext_NoTracking()
+    {
+        // DbContext production mặc định NoTracking — trước đây token mới chỉ nằm trong RAM, mỗi lần gọi đều 401 → lấy lại.
+        var db = NoTrackingDb();
+        var store = Guid.NewGuid();
+        var row = AhaSettings("{" + AhaCoords + ",\"group_service_id\":\"BIKE\"}");
+        row.Id = Guid.NewGuid();
+        row.StoreId = store;
+        row.Enabled = true;
+        row.Password = "eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjEwMDAwMDAwMDB9.c2ln"; // exp 2001 → hết hạn
+        db.PosShippingCarrierSettings.Add(row);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var http = new FakeHttp()
+            .On("POST", "/v3/accounts/token", $$"""{"token":"{{AhaFresh}}","refresh_token":"r1"}""")
+            .On("POST", "/v3/orders/estimates", """[{"service_id":"DAD-BIKE","data":{"total_price":33000}}]""");
+        var client = new AhamoveShippingClient(new FakeFactory(http), NullLogger<AhamoveShippingClient>.Instance);
+        var svc = new PosShippingService(db, [client], NullLogger<PosShippingService>.Instance);
+
+        var q = await svc.QuoteAsync(store, DaNangQuote("Ahamove"), default);
+        Assert.True(q.Success, q.Message);
+        db.ChangeTracker.Clear();
+
+        var saved = await db.PosShippingCarrierSettings.SingleAsync(x => x.StoreId == store);
+        Assert.Equal(AhaFresh, saved.Password);
+    }
+
+    [Theory]
+    [InlineData("new-api-key", false, null, true)]       // đổi API Key
+    [InlineData(null, true, null, true)]                 // Production → Sandbox
+    [InlineData(null, false, "0905999888", true)]        // đổi SĐT tài khoản
+    [InlineData(null, false, null, false)]               // chỉ lưu lại (sửa tên điểm lấy…) → giữ JWT
+    public async Task Ahamove_doi_key_moi_truong_SDT_thi_bo_JWT_cu(
+        string? newKey, bool sandbox, string? newShopId, bool expectCleared)
+    {
+        var db = NoTrackingDb();
+        var store = Guid.NewGuid();
+        var row = AhaSettings("{}");
+        row.Id = Guid.NewGuid();
+        row.StoreId = store;
+        row.Enabled = true;
+        db.PosShippingCarrierSettings.Add(row);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        // Lấy token mới luôn lỗi → JWT còn lại sau lưu chỉ có thể là JWT cũ được giữ.
+        var http = new FakeHttp().On("POST", "/v3/accounts/token",
+            """{"code":"PARTNER_NOT_FOUND","title":"Partner not found."}""", HttpStatusCode.NotFound);
+        var client = new AhamoveShippingClient(new FakeFactory(http), NullLogger<AhamoveShippingClient>.Instance);
+        var svc = new PosShippingService(db, [client], NullLogger<PosShippingService>.Instance);
+
+        var dto = await svc.UpsertAsync(store, new ShippingCarrierSettingUpsertRequest(
+            "Ahamove", true, sandbox, newKey, newShopId ?? "0905123456", null, null, null,
+            "SBOX Hải Châu 2", null, null, null, null, null, null, null, null, null), null, default);
+        db.ChangeTracker.Clear();
+
+        var saved = await db.PosShippingCarrierSettings.SingleAsync(x => x.StoreId == store);
+        if (expectCleared)
+        {
+            Assert.Null(saved.Password);
+            Assert.Contains("PARTNER_NOT_FOUND", dto.Notice);
+        }
+        else
+        {
+            Assert.Equal(AhaJwt, saved.Password);
+            Assert.StartsWith("Đã lấy token", dto.Notice);
+        }
+    }
+
     // ══ Webhook controller: xác thực header theo docs từng hãng ══════
 
     const string StoreSecret = "5f2c0d8e9a1b4c7d8e9f0a1b2c3d4e5f";

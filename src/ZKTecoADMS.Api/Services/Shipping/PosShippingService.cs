@@ -272,7 +272,8 @@ public partial class PosShippingService(
     async Task<PosShippingCarrierSetting?> LoadEnabledCarrierAsync(
         Guid storeId, string code, CancellationToken ct)
     {
-        var settings = await db.PosShippingCarrierSettings
+        // AsTracking: DbContext mặc định NoTracking — token AhaMove làm mới (Password) mới được SaveChanges lưu.
+        var settings = await db.PosShippingCarrierSettings.AsTracking()
             .FirstOrDefaultAsync(x => x.StoreId == storeId && x.CarrierCode == code
                                       && x.Deleted == null && x.Enabled, ct);
         if (settings == null) return null;
@@ -307,6 +308,7 @@ public partial class PosShippingService(
             db.PosShippingCarrierSettings.Add(row);
         }
 
+        var prevAha = (row.ApiToken, row.UseSandbox, row.ShopId, row.PickupPhone, row.ApiBaseUrl);
         row.Enabled = req.Enabled;
         row.UseSandbox = req.UseSandbox;
         if (!string.IsNullOrWhiteSpace(req.ApiToken))
@@ -326,6 +328,11 @@ public partial class PosShippingService(
         if (req.FromWardCode != null) row.FromWardCode = NullIfEmpty(req.FromWardCode);
         if (req.FromProvinceId != null) row.FromProvinceId = NullIfEmpty(req.FromProvinceId);
         if (req.ExtraJson != null) row.ExtraJson = NullIfEmpty(req.ExtraJson);
+        // AhaMove: Password là JWT user cache theo key + SĐT + môi trường — đổi một trong các thứ đó thì JWT cũ
+        // không còn đúng (JWT staging gửi lên production, key mới sai vẫn báo «đã lấy token»).
+        if (code == ShippingCarrierCodes.Ahamove && string.IsNullOrWhiteSpace(req.Password) &&
+            prevAha != (row.ApiToken, row.UseSandbox, row.ShopId, row.PickupPhone, row.ApiBaseUrl))
+            row.Password = null;
         row.UpdatedAt = DateTime.UtcNow;
         row.UpdatedBy = userEmail;
         await db.SaveChangesAsync(ct);
@@ -395,7 +402,7 @@ public partial class PosShippingService(
         var recv = ShippingAddressNormalizer.FromOrder(order);
 
         // Nạp cấu hình tuần tự (DbContext không chạy song song) rồi gọi hãng song song.
-        var settingsList = await db.PosShippingCarrierSettings
+        var settingsList = await db.PosShippingCarrierSettings.AsTracking()
             .Where(x => x.StoreId == storeId && x.Deleted == null && x.Enabled)
             .ToListAsync(ct);
         foreach (var st in settingsList)
@@ -576,8 +583,10 @@ public partial class PosShippingService(
         }
 
         var recv = ShippingAddressNormalizer.FromOrder(order);
-        // Backfill quận thiếu (đơn QR 2 cấp) để tạo vận đơn GHTK/GHN.
-        if (string.IsNullOrWhiteSpace(order.DeliveryDistrict) && !string.IsNullOrWhiteSpace(recv.District))
+        // Backfill quận thiếu (đơn QR 2 cấp) để tạo vận đơn GHTK/GHN — chỉ khi tách được quận thật; quận «mượn»
+        // tên phường (địa chỉ 2 cấp) vẫn được gửi hãng qua createReq bên dưới, không ghi vào đơn.
+        if (string.IsNullOrWhiteSpace(order.DeliveryDistrict) && !string.IsNullOrWhiteSpace(recv.District)
+            && !string.Equals(recv.District, recv.Ward, StringComparison.OrdinalIgnoreCase))
         {
             order.DeliveryDistrict = recv.District;
             await db.PosSaleOrders.Where(o => o.Id == order.Id)
