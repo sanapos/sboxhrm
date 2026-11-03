@@ -93,7 +93,7 @@ class AppPermissionService {
       builder: (ctx) => PopScope(
         canPop: false,
         child: AlertDialog(
-          title: Text(pos ? 'SBOX POS' : 'SBOX HRM'),
+          title: Text(SboxAppVariant.productLine),
           content: Text(
             tr(purpose),
             style: const TextStyle(height: 1.45),

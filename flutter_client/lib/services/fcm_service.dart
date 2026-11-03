@@ -58,14 +58,20 @@ class FcmService {
       _initialized = true;
       return;
     }
-    // SBOX KDS / SBOX Staff: mã ứng dụng chưa có trong Firebase; nhận thông báo qua SignalR khi mở app.
-    if (SboxAppVariant.kitchenApp || SboxAppVariant.staffApp) return;
+    // SBOX KDS: mã ứng dụng chưa có trong Firebase; nhận thông báo qua SignalR khi mở app.
+    // SBOX Nhân Viên: thử khởi tạo — chưa có cấu hình Firebase cho gói staff thì lỗi bị bắt dưới đây,
+    // _initialized = false, app vẫn nhận thông báo qua SignalR khi đang mở.
+    if (SboxAppVariant.kitchenApp) return;
     try {
       // Guard against duplicate init: on iOS, FirebaseApp.configure() is called
       // natively in AppDelegate.swift before Dart runs, so Firebase.apps is already
       // populated. On Android (or if not yet initialized), initialize now.
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+        // App Nhân Viên: lấy cấu hình native do google-services.json sinh ra (đúng mã app của gói staff);
+        // DefaultFirebaseOptions là mã app HRM — dùng cho gói khác sẽ khởi tạo nhầm app.
+        await (SboxAppVariant.staffApp && !kIsWeb
+            ? Firebase.initializeApp()
+            : Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform));
       }
       FirebaseMessaging.onBackgroundMessage(_firebaseBgHandler);
 
@@ -131,7 +137,7 @@ class FcmService {
   /// Call after successful login. Requests permission, gets token, posts to backend.
   /// Safe to call multiple times (backend upserts). Tolerant to Firebase being uninitialized.
   Future<void> registerForCurrentUser() async {
-    if (SboxAppVariant.kitchenApp || SboxAppVariant.staffApp) return;
+    if (SboxAppVariant.kitchenApp) return;
     if (!_initialized) await initialize();
     if (!_initialized) return;
     try {

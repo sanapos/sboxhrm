@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'pos_theme.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../config/sbox_app_variant.dart';
+
 /// Empty-state cột giỏ: logo SBox POS hơi mờ khi chưa chọn bàn / chưa có món.
 class PosEmptyCartBrand extends StatelessWidget {
   const PosEmptyCartBrand({
@@ -32,9 +34,10 @@ class PosEmptyCartBrand extends StatelessWidget {
               children: [
                 Opacity(
                   opacity: opacity,
+                  // App Nhân Viên: logo «S» như màn đăng nhập — không gắn chữ «SBOX POS».
                   child: Image.asset(
-                    assetPath,
-                    width: logoWidth,
+                    SboxAppVariant.staffApp ? 'assets/logo.png' : assetPath,
+                    width: SboxAppVariant.staffApp ? logoWidth * 0.5 : logoWidth,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,
                   ),

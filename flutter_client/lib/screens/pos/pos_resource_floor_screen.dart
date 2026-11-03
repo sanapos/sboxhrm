@@ -4856,8 +4856,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       );
     }
     final time = r.elapsedLabel.isNotEmpty ? r.elapsedLabel : '--';
+    // Thêm dòng «n bếp» thì phần giữa thấp lại — thu nhỏ đồng hồ thay vì đè lên dòng tiền.
     return Center(
-      child: Column(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.schedule_rounded, size: 22, color: accent),
@@ -4872,6 +4875,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -5069,7 +5073,21 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (_areaFilter == null && _areas.isNotEmpty) {
       return _buildGroupedFloorList();
     }
-    return _buildFlatFloorGrid(_resourcesByFloorOrder);
+    final list = _resourcesByFloorOrder;
+    // Lọc khu chưa có bàn (hoặc tìm không ra) — trước là màn trắng, tưởng app treo.
+    if (list.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            tr('Không có $_resNoun nào ở đây.\nChọn «Tất cả» hoặc khu khác.'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: PosTheme.textSecondary),
+          ),
+        ),
+      );
+    }
+    return _buildFlatFloorGrid(list);
   }
 
   Widget _buildGroupedFloorList() {

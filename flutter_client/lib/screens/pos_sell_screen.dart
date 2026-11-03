@@ -1,5 +1,7 @@
 import '../widgets/pos/pos_customer_purchase_history_sheet.dart';
 import '../utils/vietnamese_font.dart';
+import '../config/sbox_app_variant.dart';
+import 'notifications_screen.dart';
 import '../widgets/pos/pos_keyboard_builder.dart';
 import 'dart:async';
 import '../utils/api_datetime.dart';
@@ -3769,10 +3771,14 @@ class _PosSellScreenState extends State<PosSellScreen>
       });
       return;
     }
-    NavigationNotifier.goToModule('Notification');
-    Future<void>.delayed(const Duration(milliseconds: 800), () {
-      if (mounted) unawaited(_refreshSystemUnreadNotifications());
-    });
+    // App POS riêng / app Nhân Viên không có MainLayout nhận goToModule — trước bấm chuông không mở gì.
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: Text(tr('Thông báo'))),
+        body: const NotificationsScreen(),
+      ),
+    ));
+    if (mounted) unawaited(_refreshSystemUnreadNotifications());
   }
 
   Future<void> _openCustomerDisplay() async {
@@ -12681,8 +12687,19 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   /// Dialog trên root navigator — toast overlay nằm dưới màn Thanh toán iPhone.
   /// Tài khoản Order (không có quyền thanh toán): lưu đơn rồi báo máy thu ngân tính tiền.
+  bool _sendingToCashier = false;
+
   Future<void> _sendToCashier() async {
-    if (_tab.cart.isEmpty || !mounted) return;
+    if (_tab.cart.isEmpty || !mounted || _sendingToCashier) return;
+    setState(() => _sendingToCashier = true);
+    try {
+      await _sendToCashierCore();
+    } finally {
+      if (mounted) setState(() => _sendingToCashier = false);
+    }
+  }
+
+  Future<void> _sendToCashierCore() async {
     _tab.localDirty = true;
     await _awaitDraftAutosaveIdle(notifyBusy: false);
     await _persistDraftAutosave(showLockError: true);
@@ -14696,8 +14713,15 @@ class _PosSellScreenState extends State<PosSellScreen>
           perm: perm,
           role: auth.user?.role,
         );
-    final canReturn = PermissionNavigation.canNavigate(perm, 'PosSaleReturns');
+    // App Nhân Viên: menu theo đúng vai trò — phục vụ không thấy két / thiết lập cửa hàng / trả hàng;
+    // tài khoản & đăng xuất đã ở tab «Tôi».
+    final staffApp = SboxAppVariant.staffApp;
+    final canReturn = staffApp
+        ? perm.canView('PosSaleReturns')
+        : PermissionNavigation.canNavigate(perm, 'PosSaleReturns');
     final canEod = canMod('PosSalesReport') || canMod('PosReportEndOfDay');
+    final canDrawer = !staffApp || perm.canPosPay();
+    final canStoreSettings = !staffApp || canMod('SettingsHub');
     final accountName = user != null && user.fullName.trim().isNotEmpty
         ? user.fullName.trim()
         : (user?.email.isNotEmpty == true ? user!.email : 'Tài khoản');
@@ -14824,9 +14848,9 @@ class _PosSellScreenState extends State<PosSellScreen>
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'SBOX POS',
+                  staffApp ? SboxAppVariant.productLine : 'SBOX POS',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -14878,13 +14902,17 @@ class _PosSellScreenState extends State<PosSellScreen>
           if (_qrOnlineFeatureEnabled && canMod('PosQrOrder'))
             item('qr_online_orders', Icons.delivery_dining_outlined,
                 _qrOnlinePending.isEmpty ? 'Đơn online' : 'Đơn online (${_qrOnlinePending.length})'),
+          // App Nhân Viên không có menu POS bên ngoài — phục vụ xem món bếp đã làm xong ngay tại đây.
+          if (staffApp && _kitchenNotifyOn && canMod('PosKds'))
+            item('kds', Icons.soup_kitchen_outlined, 'Màn hình bếp',
+                subtitle: 'Món đang làm / đã xong'),
           if (canReturn) item('return', Icons.keyboard_return, 'Trả hàng'),
           if (_industrySettings?.enableSessionPacks == true)
             item('session_redeem', Icons.confirmation_number_outlined, 'Trừ buổi gói'),
         ]),
         // Nhóm 3 — tiền mặt / két / chốt ca.
         ...section('Tiền & ca', [
-          item('open_drawer', Icons.lock_open_outlined, 'Mở két'),
+          if (canDrawer) item('open_drawer', Icons.lock_open_outlined, 'Mở két'),
           if (canMod('CashTransaction')) ...[
             item('receipt', Icons.call_received_rounded, 'Lập phiếu thu', iconColor: Colors.green),
             item('payment', Icons.call_made_rounded, 'Lập phiếu chi', iconColor: Colors.red),
@@ -14905,8 +14933,10 @@ class _PosSellScreenState extends State<PosSellScreen>
           item('customer_display', Icons.cast_connected_outlined, 'Màn hình khách'),
         item('fullscreen', _isPosFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
             _isPosFullscreen ? 'Thoát toàn màn hình' : 'Phóng toàn màn hình'),
-        item('pos_settings_hub', Icons.settings_outlined, 'Thiết lập SBOX',
-            subtitle: 'Cửa hàng, in, QR, KDS…'),
+        if (canStoreSettings)
+          item('pos_settings_hub', Icons.settings_outlined, 'Thiết lập SBOX',
+              subtitle: 'Cửa hàng, in, QR, KDS…'),
+        if (!staffApp) ...[
         const PopupMenuDivider(),
         PopupMenuItem<String>(
           enabled: false,
@@ -14943,6 +14973,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           ),
         ),
         item('logout', Icons.logout, 'Đăng xuất', color: Colors.red.shade700, iconColor: Colors.red),
+        ],
       ],
     );
     if (!mounted || action == null) return;
@@ -18956,14 +18987,16 @@ class _PosSellScreenState extends State<PosSellScreen>
                 onPressed: _closeMobileProductPicker,
               ),
               actions: [
-                IconButton(
-                  tooltip: tr('Thêm hàng mới'),
-                  icon: const Icon(Icons.add),
-                  onPressed: () async {
-                    await _openNewProduct();
-                    if (mounted) setState(() {});
-                  },
-                ),
+                // Phục vụ / thu ngân chỉ xem hàng — không tạo món mới từ màn gọi món.
+                if (context.read<PermissionProvider>().canCreate('PosProducts'))
+                  IconButton(
+                    tooltip: tr('Thêm hàng mới'),
+                    icon: const Icon(Icons.add),
+                    onPressed: () async {
+                      await _openNewProduct();
+                      if (mounted) setState(() {});
+                    },
+                  ),
               ],
             ),
             Expanded(
@@ -20051,8 +20084,14 @@ class _PosSellScreenState extends State<PosSellScreen>
         ),
     ];
 
-    final payEnabled = cartOk && canPay && !busy && !_tab.draftReadOnly;
-    final payBg = payIsPrimaryFilled ? PosTheme.payGreen : _kiotBlue;
+    // Phục vụ (gọi món, không thu tiền): nút chính là «Gửi thu ngân» — trước là «Thanh toán» xám,
+    // phải bấm vào ô báo lỗi mới thấy lối gửi thu ngân.
+    final sendToCashier = !canPay && canOrder;
+    final payEnabled = cartOk && (canPay || sendToCashier) && !busy &&
+        !_tab.draftReadOnly && !_sendingToCashier;
+    final payBg = sendToCashier
+        ? _kiotBlue
+        : (payIsPrimaryFilled ? PosTheme.payGreen : _kiotBlue);
     final payBtn = FilledButton(
       onPressed: () {
         if (busy) return;
@@ -20061,6 +20100,10 @@ class _PosSellScreenState extends State<PosSellScreen>
             title: 'Chưa có hàng',
             message: tr('Thêm món vào đơn trước khi thanh toán.'),
           ));
+          return;
+        }
+        if (sendToCashier) {
+          if (!_sendingToCashier && !_tab.draftReadOnly) unawaited(_sendToCashier());
           return;
         }
         if (!canPay) {
@@ -20085,7 +20128,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         ),
       ),
       child: Text(
-        tr(payLabel),
+        tr(sendToCashier
+            ? (_sendingToCashier ? 'Đang gửi…' : 'Gửi thu ngân')
+            : payLabel),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
@@ -22028,6 +22073,8 @@ class _PosSellScreenState extends State<PosSellScreen>
         setState(() => line.unitViews = views);
       }
     }
+    if (!mounted) return;
+    final perm = context.read<PermissionProvider>();
     final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.white,
@@ -22105,11 +22152,13 @@ class _PosSellScreenState extends State<PosSellScreen>
                             : 'Tùy chọn (${line.toppings.length})'),
                     onTap: () => Navigator.pop(ctx, 'topping'),
                   ),
-                _mobileLineActionTile(
-                  icon: Icons.sell_outlined,
-                  label: 'Giá & chiết khấu',
-                  onTap: () => Navigator.pop(ctx, 'discount'),
-                ),
+                // Phục vụ không sửa giá / chiết khấu — ẩn hẳn thay vì bấm vào mới báo thiếu quyền.
+                if (perm.canPosPriceEdit() || perm.canPosDiscount())
+                  _mobileLineActionTile(
+                    icon: Icons.sell_outlined,
+                    label: 'Giá & chiết khấu',
+                    onTap: () => Navigator.pop(ctx, 'discount'),
+                  ),
                 _mobileLineActionTile(
                   icon: Icons.call_split_outlined,
                   label: 'Tách dòng',

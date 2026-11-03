@@ -10,7 +10,7 @@ import '../notifications_screen.dart';
 import 'staff_entries.dart';
 import 'staff_nav.dart';
 
-/// Trang chủ app SBOX Staff: ca hôm nay, giờ vào / ra, nút chấm công,
+/// Trang chủ app SBOX Nhân Viên: ca hôm nay, giờ vào / ra, nút chấm công,
 /// thống kê công tháng này và ô thao tác nhanh. Dữ liệu từ `/api/dashboard/employee`.
 class StaffHomeTab extends StatefulWidget {
   const StaffHomeTab({super.key, this.onOpenSchedule});

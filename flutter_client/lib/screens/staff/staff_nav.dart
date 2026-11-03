@@ -9,7 +9,7 @@ import '../../utils/permission_navigation.dart';
 import '../../utils/store_role_helper.dart';
 import '../../widgets/page_top_actions.dart';
 
-/// Quyền mở một module trong app SBOX Staff: có trong gói dịch vụ của cửa hàng
+/// Quyền mở một module trong app SBOX Nhân Viên: có trong gói dịch vụ của cửa hàng
 /// và vai trò được Xem hoặc Gửi đơn (bộ quyền nhân viên phần lớn là «Gửi đơn»).
 bool staffCanOpen(BuildContext context, String moduleCode, {bool listen = true}) {
   final auth = listen ? context.watch<AuthProvider>() : context.read<AuthProvider>();

@@ -31,7 +31,7 @@ class NotificationNavigationTarget {
   });
 }
 
-/// App bán hàng riêng / SBOX Staff (không có [MainLayout]) đăng ký để tự mở màn khi bấm thông báo.
+/// App bán hàng riêng / SBOX Nhân Viên (không có [MainLayout]) đăng ký để tự mở màn khi bấm thông báo.
 /// [entityKey] đã chuẩn hóa (vd 'posquote'); trả false nếu shell không có màn tương ứng.
 typedef NotificationShellHandler = bool Function(String? entityKey, String? relatedEntityId);
 NotificationShellHandler? notificationShellHandler;

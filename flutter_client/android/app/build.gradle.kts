@@ -62,7 +62,7 @@ android {
             dimension = "app"
             applicationId = "sbox.sana.vn.kitchen"
         }
-        // SBOX Staff: app nhân viên (chấm công, lịch, lương, đơn từ, gọi món) — cài song song HRM.
+        // SBOX Nhân Viên: app nhân viên (chấm công, lịch, lương, đơn từ, gọi món) — cài song song HRM.
         create("staff") {
             dimension = "app"
             applicationId = "sbox.sana.vn.staff"
@@ -93,11 +93,15 @@ flutter {
     source = "../.."
 }
 
-// SBOX KDS (sbox.sana.vn.kitchen) và SBOX Staff (sbox.sana.vn.staff) chưa đăng ký Firebase →
-// bỏ bước google-services của 2 flavor này (không khởi tạo FCM, xem FcmService).
+// SBOX KDS (sbox.sana.vn.kitchen) chưa đăng ký Firebase → bỏ bước google-services (không FCM, xem FcmService).
+// SBOX Nhân Viên (sbox.sana.vn.staff): tự bật khi google-services.json đã có gói này (thêm app trên
+// Firebase Console rồi tải lại file) — chưa có thì bỏ, app nhận thông báo qua SignalR khi đang mở.
+val staffInFirebase = file("google-services.json").let { f ->
+    f.exists() && f.readText().contains("\"sbox.sana.vn.staff\"")
+}
 tasks.configureEach {
-    if (name.startsWith("process") && (name.contains("Kds") || name.contains("Staff")) &&
-        name.endsWith("GoogleServices")) {
+    if (name.startsWith("process") && name.endsWith("GoogleServices") &&
+        (name.contains("Kds") || (name.contains("Staff") && !staffInFirebase))) {
         enabled = false
     }
 }

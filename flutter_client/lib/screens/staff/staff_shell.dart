@@ -12,6 +12,7 @@ import '../../theme/sbox_tokens.dart';
 import '../../utils/notification_display_utils.dart';
 import '../../services/api_service.dart';
 import '../../utils/notification_navigation.dart';
+import '../../utils/navigation_notifier.dart';
 import '../../utils/notification_open_screens.dart';
 import '../../utils/pending_notification_launch.dart';
 import '../../utils/store_role_helper.dart';
@@ -26,7 +27,7 @@ import 'staff_nav.dart';
 
 enum _StaffTab { home, order, schedule, pay, me }
 
-/// Khung app SBOX Staff (flavor `staff`): thanh dưới tối đa 5 tab cho nhân viên —
+/// Khung app SBOX Nhân Viên (flavor `staff`): thanh dưới tối đa 5 tab cho nhân viên —
 /// Trang chủ · Order · Lịch · Công & lương · Tôi. Không mở [MainLayout] quản trị;
 /// mục nào vai trò / gói dịch vụ không có thì tự ẩn.
 class StaffShell extends StatefulWidget {
@@ -52,6 +53,7 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     notificationShellHandler = _openFromNotification;
+    NavigationNotifier.staffLeavePosHub = _leaveOrderTab;
     PendingNotificationLaunch.scheduleConsume();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_loadPermissions());
@@ -62,10 +64,18 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     if (notificationShellHandler == _openFromNotification) notificationShellHandler = null;
+    if (NavigationNotifier.staffLeavePosHub == _leaveOrderTab) {
+      NavigationNotifier.staffLeavePosHub = null;
+    }
     WidgetsBinding.instance.removeObserver(this);
     _notificationSub?.cancel();
     unawaited(_signalR.disconnect());
     super.dispose();
+  }
+
+  /// Màn bán hàng xin «về trang chủ» (Back ở sơ đồ bàn) → tab Trang chủ của app nhân viên.
+  void _leaveOrderTab() {
+    if (mounted) _select(_StaffTab.home);
   }
 
   @override
@@ -232,7 +242,8 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
             active: Icons.calendar_month
           ),
         _StaffTab.pay => (
-            label: 'Công & lương',
+            // Nhãn ngắn — «Công & lương» xuống 2 dòng khi đủ 5 tab (máy 360dp).
+            label: 'Công lương',
             icon: Icons.account_balance_wallet_outlined,
             active: Icons.account_balance_wallet
           ),
@@ -269,13 +280,17 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
     return NotificationOverlay(
       child: PopScope(
         canPop: false,
-        onPopInvokedWithResult: (didPop, _) {
+        onPopInvokedWithResult: (didPop, _) async {
           if (didPop) return;
           final nav = Navigator.of(context);
           if (nav.canPop()) {
             nav.pop();
             return;
           }
+          // Đang trong bàn / chọn món: màn bán hàng tự lùi (đóng chọn món, thoát bàn) như app POS.
+          final posBack = NavigationNotifier.posHandleSystemBack;
+          if (current == _StaffTab.order && posBack != null && await posBack()) return;
+          if (!mounted) return;
           if (current != _StaffTab.home) {
             _select(_StaffTab.home);
             return;
@@ -320,7 +335,10 @@ class _StaffPayTab extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           StaffMenuSection(title: 'Chấm công', entries: StaffEntries.attendanceAndPay),
-          StaffMenuSection(title: 'Lương & thu nhập', entries: StaffEntries.pay),
+          StaffMenuSection(
+            title: 'Lương & thu nhập',
+            entries: StaffEntries.pay(staffCanOpen(context, 'BonusPenalty')),
+          ),
         ],
       ),
     );

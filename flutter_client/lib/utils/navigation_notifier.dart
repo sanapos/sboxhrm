@@ -170,11 +170,19 @@ class NavigationNotifier {
     debugPrint('📍 Navigation requested to screen index: $screenIndex');
   }
 
+  /// App SBOX Nhân Viên: khung nhân viên tự về tab Trang chủ (hub chỉ là tab Order).
+  static VoidCallback? staffLeavePosHub;
+
   /// Thoát shell POS (5-tab) → trang chủ HRM khi đang trong MainLayout;
-  /// app POS độc lập → tab Tổng quan hub.
+  /// app Staff → tab Trang chủ của khung nhân viên; app POS độc lập → tab Tổng quan hub.
   static void leavePosHubToAppHome() {
     if (mainLayoutReady.value) {
       goTo(home);
+      return;
+    }
+    final staff = staffLeavePosHub;
+    if (staff != null) {
+      staff();
       return;
     }
     posHubTab.value = 0;

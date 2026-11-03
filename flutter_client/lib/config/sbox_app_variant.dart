@@ -7,7 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 /// `--dart-define=SBOX_POS_STANDALONE=true`.
 /// SBOX KDS (chỉ màn hình bếp, Android 7+): `--flavor kds --dart-define=SBOX_APP=kds`
 /// (package `sbox.sana.vn.kitchen`) — là một dạng POS độc lập. Bản KDS Android 6 vẫn build từ flutter_pos.
-/// SBOX Staff (app nhân viên: chấm công, lịch, lương, đơn từ, gọi món):
+/// SBOX Nhân Viên (app nhân viên: chấm công, lịch, lương, đơn từ, gọi món):
 /// `--flavor staff --dart-define=SBOX_APP=staff` (package `sbox.sana.vn.staff`).
 /// Web: `sboxpos.com` chỉ branding POS; `sboxhrm.com` chỉ branding HRM.
 abstract final class SboxAppVariant {
@@ -35,7 +35,7 @@ abstract final class SboxAppVariant {
   /// App SBOX KDS: đăng nhập xong chỉ mở màn hình bếp.
   static bool get kitchenApp => _kdsFromDefine || _kdsFromPackage;
 
-  /// App SBOX Staff: khung tự phục vụ cho nhân viên ([StaffShell]), không mở menu quản trị HRM.
+  /// App SBOX Nhân Viên: khung tự phục vụ cho nhân viên ([StaffShell]), không mở menu quản trị HRM.
   static bool get staffApp => _staffFromDefine || _staffFromPackage;
 
   static bool get standalonePos => _fromDefine || _fromPackage || kitchenApp;
@@ -53,7 +53,7 @@ abstract final class SboxAppVariant {
 
   static String get productLine => kitchenApp
       ? 'SBOX KDS'
-      : (posBranding ? 'SBOX POS' : (staffApp ? 'SBOX Staff' : 'SBOX HRM'));
+      : (posBranding ? 'SBOX POS' : (staffApp ? 'SBOX Nhân Viên' : 'SBOX HRM'));
 
   static String get slogan => posBranding
       ? 'Giải pháp toàn diện giúp cửa hàng vận hành hiệu quả, tối ưu doanh thu'
