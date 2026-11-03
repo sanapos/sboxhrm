@@ -51,4 +51,49 @@ public class GeminiKeyPoolTests
         Assert.Equal([1, 0], GeminiKeyPool.OrderForUse([a + "#gemini-tts", b + "#gemini-tts"]));
         Assert.Equal([0, 1], GeminiKeyPool.OrderForUse([a, b]));
     }
+
+    [Fact]
+    public void Gioi_han_theo_phut_chi_nghi_dung_khoang_google_goi_y()
+    {
+        // Gói miễn phí: 429 kèm RetryInfo vài chục giây — trước đây nghỉ 15 phút nên mọi khóa nhanh chóng «nghỉ», trợ lý báo bận.
+        const string perMinute = """
+            {"error":{"code":429,"status":"RESOURCE_EXHAUSTED","details":[
+              {"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaId":"GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]},
+              {"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"17s"}]}}
+            """;
+        var ex = GeminiAiService.ApiError(System.Net.HttpStatusCode.TooManyRequests, perMinute);
+        Assert.True(ex.IsQuotaError);
+        Assert.False(ex.DailyQuota);
+        Assert.Equal(TimeSpan.FromSeconds(17), ex.RetryAfter);
+        Assert.Equal(TimeSpan.FromSeconds(17), TenantScopedGeminiAiService.QuotaCooldown(ex));
+
+        var daily = GeminiAiService.ApiError(System.Net.HttpStatusCode.TooManyRequests,
+            perMinute.Replace("PerMinute", "PerDay"));
+        Assert.True(daily.DailyQuota);
+        Assert.Equal(TimeSpan.FromMinutes(15), TenantScopedGeminiAiService.QuotaCooldown(daily));
+        Assert.Equal(TimeSpan.FromMinutes(1),
+            TenantScopedGeminiAiService.QuotaCooldown(new AiApiException(GeminiAiService.QuotaMessage, 429)));
+    }
+
+    [Fact]
+    public void Loi_tam_cua_google_chuyen_khoa_khong_phat()
+    {
+        Assert.True(TenantScopedGeminiAiService.IsTransient(new AiApiException("x", 503)));
+        Assert.True(TenantScopedGeminiAiService.IsTransient(new AiApiException("x", 500)));
+        Assert.True(TenantScopedGeminiAiService.IsTransient(new HttpRequestException("reset")));
+        Assert.True(TenantScopedGeminiAiService.IsTransient(new IOException("stream cut")));
+        Assert.True(TenantScopedGeminiAiService.IsTransient(new TaskCanceledException("t", new TimeoutException())));
+        Assert.False(TenantScopedGeminiAiService.IsTransient(new TaskCanceledException()));
+        Assert.False(TenantScopedGeminiAiService.IsTransient(new AiApiException("x", 400)));
+    }
+
+    [Fact]
+    public void Bao_loi_lenh_lap_phieu_khong_khuyen_xem_bao_cao()
+    {
+        var quota = new AiApiException(GeminiAiService.QuotaMessage, 429);
+        var action = ZKTecoADMS.Api.Controllers.AiAssistantController.AiFailureReply(quota, action: true);
+        Assert.Contains("Chưa lập / sửa gì cả", action);
+        Assert.DoesNotContain("Báo cáo", action);
+        Assert.Contains("Báo cáo", ZKTecoADMS.Api.Controllers.AiAssistantController.AiFailureReply(new IOException(), action: false));
+    }
 }

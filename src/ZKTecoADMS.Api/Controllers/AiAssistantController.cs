@@ -234,6 +234,20 @@ public class AiAssistantController(
     /// Chat với trợ lý ảo. Server nạp context cá nhân (profile, leave balance, attendance, payslip gần đây)
     /// rồi chuyển tới Gemini. AI có thể trả về text + tag ACTION gợi ý Flutter điều hướng.
     /// </summary>
+    /// <summary>
+    /// Câu báo khi đã thử hết khóa Gemini mà vẫn lỗi. Lệnh lập / sửa phiếu nói rõ chưa làm gì (không khuyên «xem báo cáo»);
+    /// giới hạn theo phút của gói miễn phí khác hết lượt trong ngày.
+    /// </summary>
+    internal static string AiFailureReply(Exception ex, bool action)
+    {
+        var why = ex is AiApiException { IsQuotaError: true } q
+            ? q.DailyQuota ? "Trợ lý ảo đã dùng hết lượt AI trong ngày." : "Trợ lý ảo đang nhận quá nhiều yêu cầu cùng lúc."
+            : "Máy chủ AI đang bận.";
+        return action
+            ? why + " Chưa lập / sửa gì cả — bạn gửi lại yêu cầu sau khoảng 1 phút, hoặc tự thao tác trên màn tương ứng."
+            : why + " Bạn thử lại sau khoảng 1 phút, hoặc mở trực tiếp màn Báo cáo để xem số liệu.";
+    }
+
     [HttpPost("chat")]
     public Task<IActionResult> Chat([FromBody] ChatRequest dto, CancellationToken ct) => ChatCoreAsync(dto, null, ct);
 
@@ -401,7 +415,7 @@ public class AiAssistantController(
             var rule = analytical
                 ? new AiAssistantRuleResult(false, "")
                 : AiAssistantRuleBot.Build(
-                    lastUserMessage.Content, contextText, helpHits,
+                    lastUserMessage.Content, contextText, guideOnly ? AiAssistantHelpCorpus.GuideAnswerHits(lastText) : helpHits,
                     allowedActions, allowedCreates, includeFallback: !geminiOk, guideQuestion: guideOnly);
             var reportsUsed = new List<string>();
             var proposed = new List<AiAssistantActions.Pending>();
@@ -442,18 +456,14 @@ public class AiAssistantController(
                     proposed = result.Proposed;
                     usedProvider = "gemini";
                 }
-                catch (Exception gemEx) when (gemEx is not OperationCanceledException)
+                catch (Exception gemEx) when (gemEx is not OperationCanceledException
+                                              || gemEx is TaskCanceledException { InnerException: TimeoutException })
                 {
                     logger.LogWarning(gemEx, "Gemini failed — falling back to rule bot");
                     usedProvider = "sbox";
                     if (analytical)
-                    {
-                        // Bot rule không phân tích được — báo rõ thay vì trả lời lạc đề.
-                        var why = gemEx is AiApiException { IsQuotaError: true }
-                            ? "Trợ lý ảo đang hết lượt phân tích (giới hạn của khóa AI)."
-                            : "Máy chủ AI đang bận.";
-                        reply = why + " Bạn thử lại sau khoảng 1 phút, hoặc mở trực tiếp màn Báo cáo để xem số liệu.";
-                    }
+                        // Bot rule không phân tích / lập phiếu được — báo rõ thay vì trả lời lạc đề.
+                        reply = AiFailureReply(gemEx, withActions);
                     else
                     {
                         rule = AiAssistantRuleBot.Build(

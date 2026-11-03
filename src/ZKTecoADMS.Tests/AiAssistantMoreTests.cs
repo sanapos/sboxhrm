@@ -118,7 +118,22 @@ public class AiAssistantMoreTests
     [InlineData("Đặt lịch cắt tóc 3 giờ chiều cho chị Hoa", true)]
     [InlineData("Thêm nhân viên mới Nguyễn Văn Bình", true)]
     [InlineData("Tôi còn bao nhiêu ngày nghỉ phép?", false)]
+    // Gõ không dấu (thử trên C20 03/11/2026: «Tao phieu chi 50k tien nuoc da» chỉ được chỉ đường, không lập phiếu).
+    [InlineData("Tao phieu chi 50k tien nuoc da", true)]
+    [InlineData("phat An 50k di tre", true)]
+    [InlineData("Doanh thu hom nay bao nhieu", false)]
+    // Có dấu vẫn so nguyên văn — «phát», «bình thường» không phải «phạt», «thưởng».
+    [InlineData("Bình thường mấy giờ phát loa mở cửa?", false)]
     public void Nhan_lenh(string q, bool expected) => Assert.Equal(expected, AiAssistantIntent.LooksLikeAction(q));
+
+    [Theory]
+    [InlineData("Top 5 mon ban chay nhat tuan nay", true)]
+    [InlineData("doanh thu thang nay so voi thang truoc", true)]
+    [InlineData("may in bi loi", false)]
+    public void Phan_tich_khong_dau(string q, bool expected) => Assert.Equal(expected, AiAssistantAgent.LooksAnalytical(q));
+
+    [Fact]
+    public void Nhom_cong_cu_khong_dau() => Assert.Contains("cash", AiAssistantIntent.Groups(["tao phieu chi 50k tien nuoc da"])!);
 
     [Fact]
     public void Huong_dan_nhac_cong_cu_moi_va_van_gon()

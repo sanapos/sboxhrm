@@ -161,10 +161,6 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         }
     }
 
-    /// <summary>
-    /// Gọi AI lần lượt qua các khóa: khóa hết lượt (429) nghỉ 15 phút, khóa sai / hết hạn nghỉ 6 giờ,
-    /// rồi thử khóa kế tiếp. Lỗi khác (nội dung, mạng, model) trả ngay.
-    /// </summary>
     /// <summary>Hết lượt: nghỉ khóa với model đang gọi. Khóa sai / hết hạn: nghỉ cho mọi model.</summary>
     private static void MarkCooling(string key, bool auth, Func<string, string> pk, TimeSpan duration)
     {
@@ -172,6 +168,33 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         if (auth) GeminiKeyPool.MarkExhausted(key, duration);
     }
 
+    /// <summary>
+    /// Khóa hết lượt nghỉ bao lâu. Gói miễn phí hay vướng giới hạn theo PHÚT (Google gợi ý chờ vài chục giây) — trước đây
+    /// cho nghỉ 15 phút nên vài câu hỏi liên tiếp là mọi khóa đều «nghỉ» và trợ lý báo bận. Hết lượt trong ngày vẫn 15 phút.
+    /// </summary>
+    internal static TimeSpan QuotaCooldown(AiApiException ex)
+    {
+        if (ex.DailyQuota) return TimeSpan.FromMinutes(15);
+        var d = ex.RetryAfter ?? TimeSpan.FromMinutes(1);
+        return d < TimeSpan.FromSeconds(5) ? TimeSpan.FromSeconds(5) : d > TimeSpan.FromMinutes(15) ? TimeSpan.FromMinutes(15) : d;
+    }
+
+    /// <summary>Máy chủ Google lỗi tạm / mạng chập chờn / quá thời gian chờ — thử khóa (tài khoản) kế tiếp, không phạt khóa.</summary>
+    internal static bool IsTransient(Exception ex) => ex switch
+    {
+        AiApiException a => a.StatusCode is 500 or 502 or 503 or 504,
+        HttpRequestException or IOException => true,
+        TaskCanceledException { InnerException: TimeoutException } => true,
+        _ => false,
+    };
+
+    /// <summary>Mọi khóa chỉ vướng giới hạn theo phút và sắp mở lại trong khoảng này → chờ rồi gọi lại thay vì báo bận.</summary>
+    internal static readonly TimeSpan MaxQuotaWait = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// Gọi AI lần lượt qua các khóa: khóa hết lượt nghỉ theo <see cref="QuotaCooldown"/>, khóa sai / hết hạn nghỉ 6 giờ,
+    /// lỗi tạm của Google / mạng chuyển khóa không phạt. Lỗi khác (nội dung, yêu cầu sai) trả ngay.
+    /// </summary>
     private async Task<T> WithFailoverAsync<T>(Func<Task<T>> call, string? poolTag = null)
     {
         string Pk(string key) => poolTag == null ? key : key + "#" + poolTag;
@@ -180,35 +203,46 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
             throw new InvalidOperationException(NoOwnKeyMessage);
         if (_manualOverride || _chain.Count == 0)
             return await call();
-        if (_chain.Count == 1)
+        List<int> Order() => GeminiKeyPool.OrderForUse(_chain.Select(c => Pk(c.Key)).ToList());
+
+        Exception? last = null;
+        TimeSpan? soonest = null;
+        // Lượt 2 chỉ chạy khi mọi khóa vướng giới hạn theo phút sắp mở lại (xem MaxQuotaWait).
+        for (var pass = 0; pass < 2; pass++)
         {
-            try { return await CallOnKeyAsync(_chain[0], call); }
-            catch (AiApiException ex) when (ex.IsQuotaError || ex.IsAuthError)
+            if (pass == 1)
             {
-                MarkCooling(_chain[0].Key, ex.IsAuthError, Pk,
-                    ex.IsQuotaError ? TimeSpan.FromMinutes(15) : TimeSpan.FromHours(6));
-                throw;
+                if (soonest is not TimeSpan wait || wait > MaxQuotaWait) break;
+                _logger.LogInformation("Gemini: mọi khóa đang vướng giới hạn theo phút — chờ {Seconds}s rồi gọi lại", wait.TotalSeconds);
+                await Task.Delay(wait);
+            }
+            soonest = null;
+            foreach (var i in pass == 0 ? Order() : Order().Take(1))
+            {
+                try
+                {
+                    return await CallOnKeyAsync(_chain[i], call);
+                }
+                catch (Exception ex) when (ex is AiApiException { IsQuotaError: true } or AiApiException { IsAuthError: true }
+                                           || ex is AiApiException m && IsModelUnavailable(m) || IsTransient(ex))
+                {
+                    var api = ex as AiApiException;
+                    if (api is { IsQuotaError: true } or { IsAuthError: true })
+                    {
+                        var cool = api.IsQuotaError ? QuotaCooldown(api) : TimeSpan.FromHours(6);
+                        MarkCooling(_chain[i].Key, api.IsAuthError, Pk, cool);
+                        if (api is { IsQuotaError: true, DailyQuota: false } && (soonest == null || cool < soonest)) soonest = cool;
+                    }
+                    _logger.LogWarning("Gemini key #{Index} ({Mask}) {Reason} — chuyển khóa kế tiếp",
+                        i + 1, GeminiKeyPool.Mask(_chain[i].Key),
+                        api?.IsQuotaError == true ? (api.DailyQuota ? "hết lượt ngày" : $"giới hạn theo phút ({QuotaCooldown(api).TotalSeconds:0}s)")
+                        : api?.IsAuthError == true ? "không hợp lệ"
+                        : $"model không dùng được / lỗi tạm ({api?.StatusCode.ToString() ?? ex.GetType().Name})");
+                    last = ex;
+                }
             }
         }
-        AiApiException? last = null;
-        foreach (var i in GeminiKeyPool.OrderForUse(_chain.Select(c => Pk(c.Key)).ToList()))
-        {
-            try
-            {
-                return await CallOnKeyAsync(_chain[i], call);
-            }
-            catch (AiApiException ex) when (ex.IsQuotaError || ex.IsAuthError || IsModelUnavailable(ex))
-            {
-                // Hết lượt / sai khóa: cho nghỉ. Model không dùng được (đã thử dự phòng) / quá tải: chuyển khóa, không phạt.
-                if (ex.IsQuotaError || ex.IsAuthError)
-                    MarkCooling(_chain[i].Key, ex.IsAuthError, Pk,
-                        ex.IsQuotaError ? TimeSpan.FromMinutes(15) : TimeSpan.FromHours(6));
-                _logger.LogWarning("Gemini key #{Index} ({Mask}) {Reason} — chuyển khóa kế tiếp",
-                    i + 1, GeminiKeyPool.Mask(_chain[i].Key),
-                    ex.IsQuotaError ? "hết lượt" : ex.IsAuthError ? "không hợp lệ" : $"model không dùng được ({ex.StatusCode})");
-                last = ex;
-            }
-        }
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(last!).Throw();
         throw last!;
     }
 

@@ -159,4 +159,23 @@ public class AiAssistantHelpCorpusTests
         Assert.Contains("Tài chính nhân sự", text);
         Assert.Contains("Trên màn hình:", text);
     }
+
+    [Theory]
+    // Thử trên C20 03/11/2026: bài hóa đơn điện tử đứng đầu vì «in» khớp chuỗi con, «hóa đơn» trùng tiêu đề.
+    [InlineData("Lam sao de ket noi may in hoa don qua LAN?")]
+    [InlineData("Cách kết nối máy in hóa đơn qua LAN")]
+    public void May_in_hoa_don_ra_bai_may_in_khong_ra_hddt(string query)
+    {
+        Assert.Equal("pos_printers", AiAssistantHelpCorpus.Search(query, topK: 4)[0].StepId);
+        Assert.Equal(["pos_printers"], AiAssistantHelpCorpus.GuideAnswerHits(query).Select(h => h.StepId));
+    }
+
+    [Fact]
+    public void Y_con_trong_huong_dan_thut_le_khong_lap_dau_cham()
+    {
+        var hit = AiAssistantHelpCorpus.All.Single(c => c.StepId == "pos_einvoice");
+        var text = AiAssistantRuleBot.Build("cach xuat hoa don dien tu", "", [hit], [], [], includeFallback: false, guideQuestion: true).Reply;
+        Assert.DoesNotContain("• •", text);
+        Assert.Contains("   – Viettel", text);
+    }
 }

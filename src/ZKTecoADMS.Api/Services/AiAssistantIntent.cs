@@ -73,7 +73,7 @@ public static class AiAssistantIntent
     public static IReadOnlySet<string>? Groups(IEnumerable<string> recentUserMessages)
     {
         var text = " " + string.Join(" ", recentUserMessages).ToLowerInvariant() + " ";
-        var hit = Keywords.Where(kv => kv.Value.Any(text.Contains)).Select(kv => kv.Key).ToHashSet();
+        var hit = Keywords.Where(kv => ContainsAny(text, kv.Value)).Select(kv => kv.Key).ToHashSet();
         if (hit.Count == 0) return null;
         // Xóa / hủy / sửa thông tin cần cả công cụ tìm của nhóm chứng từ đó — công cụ quản lý đã kèm sẵn find_*.
         // Duyệt đơn nhân sự hay đi kèm lập phiếu phạt / tăng ca → thêm nhóm nhân sự.
@@ -105,7 +105,21 @@ public static class AiAssistantIntent
     {
         var q = " " + (query ?? "").ToLowerInvariant().Replace(',', ' ').Replace('.', ' ').Replace('?', ' ') + " ";
         // «Bán 2 Coca cho…», «Bán cho chị Lan…» — câu mở đầu bằng «bán» là lệnh lập hóa đơn.
-        return ActionKeys.Any(q.Contains) || q.StartsWith(" bán ", StringComparison.Ordinal);
+        return ContainsAny(q, ActionKeys) || q.StartsWith(" bán ", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// [lowerText] chứa một từ khóa. Câu gõ không dấu («tao phieu chi 50k») → so với từ khóa đã bỏ dấu; câu có dấu vẫn so
+    /// nguyên văn — bỏ dấu cả hai phía làm «phạt» khớp «phát», «thưởng» khớp «bình thường».
+    /// </summary>
+    public static bool ContainsAny(string lowerText, IEnumerable<string> keys)
+    {
+        if (VnSearch.Fold(lowerText) != lowerText) return keys.Any(lowerText.Contains);
+        // Từ khóa ngắn bỏ dấu dễ khớp giữa từ («lỗ» → «lo» trong «loi») → chỉ nhận nguyên từ.
+        var padded = " " + lowerText + " ";
+        return keys.Select(k => VnSearch.Fold(k)).Any(k => k.Trim().Length <= 3
+            ? padded.Contains(" " + k.Trim() + " ")
+            : lowerText.Contains(k));
     }
 
     /// <summary>

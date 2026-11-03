@@ -248,8 +248,10 @@ public static class AiAssistantRuleBot
             sb.AppendLine(hit.Summary);
         foreach (var b in hit.Bullets)
         {
-            if (!string.IsNullOrWhiteSpace(b))
-                sb.AppendLine("• " + b.Trim());
+            if (string.IsNullOrWhiteSpace(b)) continue;
+            var t = b.Trim();
+            // Ý con trong hướng dẫn đã có «•» sẵn → thụt lề, không thành «• •».
+            sb.AppendLine(t.StartsWith('•') ? "   – " + t.TrimStart('•').TrimStart() : "• " + t);
         }
         if (!string.IsNullOrWhiteSpace(hit.Tip))
             sb.AppendLine("Mẹo: " + hit.Tip);

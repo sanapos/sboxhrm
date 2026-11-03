@@ -73,7 +73,7 @@ public sealed class AiAssistantAgent(
             "tổng lương", "chi lương", "nghỉ phép nhiều", "đánh giá", "đề xuất", "gợi ý", "cải thiện", "dự báo",
             "tình hình kinh doanh", "kinh doanh", "hiệu quả",
         ];
-        return keys.Any(q.Contains);
+        return AiAssistantIntent.ContainsAny(q, keys);
     }
 
     public async Task<Result> RunAsync(
@@ -148,9 +148,9 @@ public sealed class AiAssistantAgent(
                 await Reset();
                 content = await Generate(Body(), model);
             }
-            catch (AiApiException ex) when (ex.StatusCode == 503)
+            catch (Exception ex) when (ex is not AiApiException { IsQuotaError: true } && TenantScopedGeminiAiService.IsTransient(ex))
             {
-                // Google quá tải thường chỉ vài giây — thử lại một lần.
+                // Google quá tải / luồng trả lời đứt giữa chừng thường chỉ vài giây — thử lại một lần (lại qua vòng chọn khóa).
                 await Task.Delay(2000, ct);
                 await Reset();
                 content = await Generate(body, model);
@@ -367,7 +367,8 @@ public sealed class AiAssistantAgent(
               "tuần này" = thứ Hai tuần này → hôm nay; "quý này", "năm nay" tương tự. Báo cáo theo tháng dùng year + month.
             - Trả lời kiểu chuyên viên phân tích: con số chính trước (định dạng 1.234.567đ), so sánh % tăng/giảm, chỉ ra
               điểm bất thường (mặt hàng / nhân viên / ngày nổi bật), rồi 2–4 gợi ý hành động cụ thể. Dùng gạch đầu dòng "•", ngắn gọn.
-            - Khung chat là chữ thường: KHÔNG dùng Markdown (không **, #, bảng).
+            - Khung chat chỉ hiện văn bản thuần (plain text): KHÔNG dùng Markdown (không **, #, bảng). Viết hoa đúng chính tả
+              (đầu câu, đầu dòng gạch đầu dòng, tên riêng / tên món như trong dữ liệu).
             - Ghi rõ kỳ số liệu (từ … đến …). Báo cáo trả lỗi quyền → nói tài khoản không có quyền xem báo cáo đó.
             - Số liệu trống → nói rõ chưa có dữ liệu trong kỳ, gợi ý kỳ khác. Không bịa tên, không bịa số.
             - Không lộ mã báo cáo / tên API / JSON cho người dùng; có thể gợi ý mở màn báo cáo tương ứng bằng thẻ [[OPEN:Mã]].
@@ -434,7 +435,7 @@ public sealed class AiAssistantAgent(
     }
 
     /// <summary>
-    /// Khung chat hiện chữ thường — đổi Markdown của model thành văn bản: bỏ **đậm**, tiêu đề ### → dòng thường,
+    /// Khung chat chỉ hiện văn bản thuần — đổi Markdown của model thành văn bản: bỏ **đậm**, tiêu đề ### → dòng thường,
     /// gạch đầu dòng * / - → •, bỏ đường kẻ ---.
     /// </summary>
     public static string PlainText(string text)

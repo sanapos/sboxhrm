@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using ZKTecoADMS.Application.Helpers;
 
 namespace ZKTecoADMS.Api.Services;
@@ -99,7 +100,7 @@ public static class AiAssistantHelpCorpus
         ["pos_eod"] = new("cuối ngày chốt ca đóng ca kết ca đếm két tổng kết end of day tiền mặt ca thu ngân mở ca đóng két", ["nav_pos_reports"]),
         ["pos_inventory"] = new("kho kho hàng nhập xuất tồn chứng từ kho giá vốn bình quân phiếu tạm hoàn thành", ["nav_pos_products", "nav_pos_reports"]),
         ["pos_kitchen"] = new("bếp gửi bếp phiếu bếp tem ly kds", ["nav_pos_sell", "nav_pos_printers"]),
-        ["pos_printers"] = new("máy in mẫu in k80 k58 print agent usb bluetooth", ["nav_pos_printers"]),
+        ["pos_printers"] = new("máy in mẫu in k80 k58 print agent usb bluetooth lan wifi ip kết nối máy in máy in hóa đơn máy in bếp in thử",["nav_pos_printers"]),
         ["pos_products"] = new("thêm hàng tạo hàng hóa sản phẩm giá bán danh mục món mã vạch barcode tồn đầu kỳ định mức tồn ngừng kinh doanh ẩn pos nhà cung cấp", ["nav_pos_products"]),
         ["pos_units"] = new("đơn vị tính đvt quy đổi lon lốc thùng hộp mã vạch thùng bảng giá giá sỉ giá vip khuyến mãi chiết khấu", ["nav_pos_products", "nav_pos_sell"]),
         ["pos_lots"] = new("lô hạn sử dụng hsd nsx fefo bảo hành seri imei hàng gia công nhôm kính m2 vị trí kho trọng lượng tùy chọn form", ["nav_pos_products"]),
@@ -157,7 +158,7 @@ public static class AiAssistantHelpCorpus
             return [];
 
         var raw = VnSearch.FoldText(query);
-        return Folded
+        var ranked = Folded
             .Select(f => (f.Chunk, Score: ScoreChunk(f, terms, raw)))
             .Where(x => x.Score > 0)
             .OrderByDescending(x => x.Score)
@@ -165,6 +166,18 @@ public static class AiAssistantHelpCorpus
             .ThenBy(x => x.Chunk.StepId, StringComparer.Ordinal)
             .Take(Math.Max(1, topK))
             .ToList();
+        // Bài kém hơn một nửa bài đứng đầu chỉ trùng vài từ lẻ — bỏ, khỏi trả kèm bài lạc đề.
+        return ranked.Count == 0 ? ranked : ranked.Where(x => x.Score * 2 >= ranked[0].Score).ToList();
+    }
+
+    /// <summary>
+    /// Bài dùng cho câu trả lời hướng dẫn (không qua AI): bài đứng đầu, kèm bài thứ hai chỉ khi điểm gần bằng (≥ 90%) —
+    /// câu hỏi «kết nối máy in hóa đơn qua LAN» không cần kèm bài hóa đơn điện tử.
+    /// </summary>
+    public static IReadOnlyList<HelpChunk> GuideAnswerHits(string query)
+    {
+        var hits = SearchScored(query, topK: 2);
+        return hits.Where(x => x.Score * 10 >= hits[0].Score * 9).Select(x => x.Chunk).ToList();
     }
 
     public static string FormatForPrompt(IEnumerable<HelpChunk> chunks)
@@ -297,6 +310,13 @@ public static class AiAssistantHelpCorpus
             VnSearch.Fold(c.Keywords), c.Bullets.Select(VnSearch.Fold).ToArray()))
         .ToList();
 
+    /// <summary>
+    /// Từ ngắn («in», «lan», «don») phải trùng nguyên từ — so chuỗi con thì «in» khớp «invoice», «lan» khớp «lanh»… làm
+    /// bài không liên quan lên đầu.
+    /// </summary>
+    static bool Has(string text, string term) =>
+        term.Length > 3 ? text.Contains(term) : Regex.IsMatch(text, $@"(?<![\p{{L}}\p{{N}}]){Regex.Escape(term)}(?![\p{{L}}\p{{N}}])");
+
     private static int ScoreChunk(FoldedChunk c, IReadOnlyList<string> terms, string raw)
     {
         var score = 0;
@@ -311,11 +331,22 @@ public static class AiAssistantHelpCorpus
 
         foreach (var term in terms)
         {
-            if (c.StepId.Contains(term)) score += 12;
-            if (c.Title.Contains(term)) score += 10;
-            if (c.Keywords.Contains(term)) score += 8;
-            if (c.Summary.Contains(term)) score += 5;
-            score += 3 * c.Bullets.Count(b => b.Contains(term));
+            if (Has(c.StepId, term)) score += 12;
+            if (Has(c.Title, term)) score += 10;
+            if (Has(c.Keywords, term)) score += 8;
+            if (Has(c.Summary, term)) score += 5;
+            score += 3 * c.Bullets.Count(b => Has(b, term));
+        }
+
+        // Cụm hai từ liền nhau («may in», «hoa don») — tách từng từ thì «máy in hóa đơn» ngang điểm với bài hóa đơn điện tử.
+        for (var i = 0; i + 1 < terms.Count; i++)
+        {
+            var pair = terms[i] + " " + terms[i + 1];
+            if (c.StepId.Contains(pair)) score += 15;
+            if (c.Title.Contains(pair)) score += 15;
+            if (c.Keywords.Contains(pair)) score += 10;
+            if (c.Summary.Contains(pair)) score += 5;
+            score += 3 * c.Bullets.Count(b => b.Contains(pair));
         }
 
         return score;

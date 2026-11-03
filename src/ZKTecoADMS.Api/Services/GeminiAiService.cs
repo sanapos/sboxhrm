@@ -321,7 +321,7 @@ QUAN TRỌNG: Trả lời ĐÚNG theo format JSON sau (không markdown, không c
         {
             _logger.LogError("Gemini JSON API error {StatusCode}: {Body}", statusCode,
                 responseBody.Length > 500 ? responseBody[..500] : responseBody);
-            throw new AiApiException(ParseGeminiError(statusCode, responseBody), (int)statusCode);
+            throw ApiError(statusCode, responseBody);
         }
 
         using var doc = JsonDocument.Parse(responseBody);
@@ -449,7 +449,7 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogError("Gemini API error {StatusCode}: {Body}", response.StatusCode, responseBody);
-            throw new AiApiException(ParseGeminiError(response.StatusCode, responseBody), (int)response.StatusCode);
+            throw ApiError(response.StatusCode, responseBody);
         }
 
         using var doc = JsonDocument.Parse(responseBody);
@@ -522,7 +522,7 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogError("Gemini assistant chat error {StatusCode}: {Body}", response.StatusCode, responseBody);
-            throw new AiApiException(ParseGeminiError(response.StatusCode, responseBody), (int)response.StatusCode);
+            throw ApiError(response.StatusCode, responseBody);
         }
 
         using var doc = JsonDocument.Parse(responseBody);
@@ -559,7 +559,7 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogError("Gemini raw generate error {StatusCode}: {Body}", response.StatusCode, responseBody);
-            throw new AiApiException(ParseGeminiError(response.StatusCode, responseBody), (int)response.StatusCode);
+            throw ApiError(response.StatusCode, responseBody);
         }
 
         using var doc = JsonDocument.Parse(responseBody);
@@ -600,7 +600,7 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
         {
             var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
             _logger.LogError("Gemini raw stream error {StatusCode}: {Body}", response.StatusCode, errorBody);
-            throw new AiApiException(ParseGeminiError(response.StatusCode, errorBody), (int)response.StatusCode);
+            throw ApiError(response.StatusCode, errorBody);
         }
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -738,6 +738,21 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
     public const string QuotaMessage = "AI đang quá tải hoặc đã hết lượt sử dụng. Vui lòng thử lại sau ít phút.";
     public const string InvalidKeyMessage = "API Key không hợp lệ hoặc không có quyền truy cập. Vui lòng kiểm tra lại API Key.";
 
+    /// <summary>
+    /// Lỗi HTTP của Gemini kèm thời gian chờ Google gợi ý. Gói miễn phí giới hạn theo phút (429 kèm retryDelay vài chục
+    /// giây) khác với hết lượt trong ngày (quotaId …PerDay…) — lớp chọn khóa cho nghỉ khóa đúng khoảng đó.
+    /// </summary>
+    internal static AiApiException ApiError(System.Net.HttpStatusCode statusCode, string body)
+    {
+        var delay = System.Text.RegularExpressions.Regex.Match(body ?? "", "\"retryDelay\"\\s*:\\s*\"(\\d+(?:\\.\\d+)?)s\"");
+        return new AiApiException(ParseGeminiError(statusCode, body ?? ""), (int)statusCode)
+        {
+            RetryAfter = delay.Success && double.TryParse(delay.Groups[1].Value, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var s) ? TimeSpan.FromSeconds(s) : null,
+            DailyQuota = (body ?? "").Contains("PerDay", StringComparison.Ordinal),
+        };
+    }
+
     private static string ParseGeminiError(System.Net.HttpStatusCode statusCode, string responseBody)
     {
         try
@@ -778,7 +793,11 @@ public class AiApiException : Exception
     public int StatusCode { get; }
     public bool IsQuotaError => StatusCode == 429 || Message == GeminiAiService.QuotaMessage;
     public bool IsAuthError => StatusCode == 401 || StatusCode == 403 || Message == GeminiAiService.InvalidKeyMessage;
-    
+    /// <summary>Google gợi ý chờ bao lâu rồi gọi lại (RetryInfo.retryDelay).</summary>
+    public TimeSpan? RetryAfter { get; init; }
+    /// <summary>Hết lượt trong ngày (không phải giới hạn theo phút).</summary>
+    public bool DailyQuota { get; init; }
+
     public AiApiException(string message, int statusCode) : base(message)
     {
         StatusCode = statusCode;
