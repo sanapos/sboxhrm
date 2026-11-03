@@ -432,9 +432,15 @@ public sealed class PosPaymentGatewayService(
         PosTransferPaymentIntent? intent = null;
         if (!string.IsNullOrWhiteSpace(payload.ExternalOrderId))
         {
+            // Mã đơn nháp TMP{ô} dùng lại cho mọi đơn của cùng ô hóa đơn → nhiều lệnh cùng mã.
+            // Ưu tiên lệnh đang chờ, mới nhất; trước đây FirstOrDefault hay rơi vào lệnh cũ đã xong
+            // → báo «thiếu tiền» / «đã xử lý», đơn đang chờ không tự hoàn tất.
             intent = await db.PosTransferPaymentIntents.AsTracking()
-                .FirstOrDefaultAsync(x => x.StoreId == settings.StoreId
-                    && x.ExternalOrderId == payload.ExternalOrderId && x.Deleted == null, ct);
+                .Where(x => x.StoreId == settings.StoreId
+                    && x.ExternalOrderId == payload.ExternalOrderId && x.Deleted == null)
+                .OrderByDescending(x => x.Status == PosTransferPaymentIntentStatus.Waiting)
+                .ThenByDescending(x => x.CreatedAt)
+                .FirstOrDefaultAsync(ct);
         }
         if (intent == null && !string.IsNullOrWhiteSpace(payload.TransferContent))
         {

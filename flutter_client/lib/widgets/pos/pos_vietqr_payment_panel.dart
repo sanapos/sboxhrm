@@ -1,8 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/cash_transaction.dart';
+import '../../utils/pos_einvoice_qr.dart';
 import '../../utils/pos_vietqr_helper.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -72,6 +74,19 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
     );
   }
 
+  /// Chuỗi VietQR sinh tại máy (TK có BIN 6 số). img.vietqr.io trả SVG cho trình duyệt nên
+  /// bản web báo «Không tải được mã QR»; mã tự sinh cũng hiện ngay khi mạng chậm / mất mạng.
+  String? get _qrPayload {
+    final acc = _account;
+    if (acc == null || widget.amount <= 0) return null;
+    return PosVietQrHelper.emvPayload(
+      bankBin: acc.bankCode,
+      accountNumber: acc.accountNumber,
+      amount: widget.amount,
+      description: widget.description,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final acc = _account;
@@ -90,6 +105,7 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
     }
 
     final qrSize = widget.compact ? 160.0 : 220.0;
+    final payload = _qrPayload;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -176,7 +192,13 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: SboxColors.slate300),
                     ),
-                    child: CachedNetworkImage(
+                    child: payload != null
+                        ? SvgPicture.string(
+                            posQrSvg(payload, size: qrSize),
+                            width: qrSize,
+                            height: qrSize,
+                          )
+                        : CachedNetworkImage(
                       imageUrl: _qrUrl!,
                       width: qrSize,
                       height: qrSize,

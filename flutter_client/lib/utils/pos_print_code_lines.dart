@@ -7,6 +7,7 @@ import 'package:flutter/painting.dart';
 import 'pos_einvoice_qr.dart';
 import 'pos_print_template_compiler.dart';
 import 'pos_thermal_bitmap.dart';
+import 'pos_vietqr_helper.dart';
 
 /// Mã vạch / QR / VietQR của mẫu V2 → dòng ảnh của bộ vẽ hóa đơn.
 ///
@@ -74,6 +75,9 @@ Future<Uint8List?> _vietQrBytes(String url, int dots) async {
   final inline = posInlineQrData(url);
   if (inline != null) return posQrPngBytes(inline, size: dots);
   if (url == 'sample') return posQrPngBytes('SBOX VIETQR MAU 0123456789', size: dots);
+  // TK có BIN 6 số → sinh mã tại máy đúng cỡ (nét in rõ hơn ảnh có logo thu nhỏ).
+  final emv = PosVietQrHelper.emvPayloadFromImageUrl(url);
+  if (emv != null) return posQrPngBytes(emv, size: dots);
   return PosThermalBitmapEncoder.networkPngBytes(url, maxWidth: dots);
 }
 

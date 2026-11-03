@@ -1211,6 +1211,28 @@ abstract final class PosPrintTemplateCompiler {
       }
     }
 
+    // Bật «In mã VietQR» mà mẫu không có khối QR (mẫu mặc định không có) → trước đây
+    // bật cờ vẫn không in mã. Thêm QR cuối bill. Bỏ qua 'sample' để xem trước mẫu giữ nguyên.
+    if (working.documentType == PosPrintDocumentTypes.saleInvoice &&
+        vietQrImageUrl != null &&
+        vietQrImageUrl.isNotEmpty &&
+        vietQrImageUrl != 'sample' &&
+        !working.blocks.any((b) => b.type == PosPrintBlockType.vietQr)) {
+      final amount = (data['Tong_Cong'] ?? '').trim();
+      const caption = 'Quét VietQR thanh toán';
+      steps.add(PosPrintCompiledQr(
+        imageUrl: vietQrImageUrl,
+        size: 240,
+        caption: caption,
+        amountText: amount.isEmpty ? null : amount,
+      ));
+      htmlBuf.write(
+        '<div style="text-align:center;margin:8px 0">'
+        '<div style="border:1px dashed #999;padding:12px">[VietQR]</div>'
+        '<div>$caption</div></div>',
+      );
+    }
+
     if (isSaleDoc) {
       _appendEInvoiceBlock(steps, htmlBuf, working, data, k58: k58);
     }

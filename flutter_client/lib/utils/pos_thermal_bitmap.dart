@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'pos_einvoice_qr.dart';
+import 'pos_vietqr_helper.dart';
 
 import 'vietnamese_font.dart';
 import '../l10n/app_tr.dart';
@@ -657,6 +658,10 @@ class PosThermalBitmapEncoder {
   static Future<Uint8List?> _fetchImageBytes(String url) async {
     final inline = posInlineQrData(url);
     if (inline != null) return posQrPngBytes(inline, size: 420);
+    // VietQR TK có BIN: sinh mã tại máy. img.vietqr.io trả SVG cho trình duyệt (bản web không
+    // giải mã được → bill thiếu QR), và máy mất mạng cũng in được.
+    final emv = PosVietQrHelper.emvPayloadFromImageUrl(url);
+    if (emv != null) return posQrPngBytes(emv, size: 420);
     final res =
         await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
     if (res.statusCode != 200) return null;

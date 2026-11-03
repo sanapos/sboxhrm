@@ -1415,6 +1415,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         _paymentQrOverlayDismissed = true;
         _ensureTingeePaymentLine();
       });
+      _refreshMobilePay();
       _scheduleCustomerDisplayPublish(delayMs: 50);
     }
     NotificationOverlayManager().show(
@@ -1447,6 +1448,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       _forceInvoicePrintOnce = true;
       _paymentQrOverlayDismissed = true;
     }
+    _refreshMobilePay();
     _scheduleCustomerDisplayPublish(delayMs: 50);
     NotificationOverlayManager().show(
       title: tr('Đã nhận chuyển khoản'),
@@ -1454,7 +1456,9 @@ class _PosSellScreenState extends State<PosSellScreen>
       type: NotificationType.success,
       playSound: false,
     );
-    unawaited(_checkout());
+    unawaited(_checkout().whenComplete(() {
+      if (mounted) _closeMobilePayIfDone();
+    }));
   }
 
   @override
@@ -3459,10 +3463,10 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
 
     if (_tingeeIntentPoll == null) {
-      final seen =
-          await PosPaymentGatewayApi(_api).listIntents(status: 'Confirmed');
+      final seen = await PosPaymentGatewayApi(_api).listIntents();
       _tingeeSeenConfirmedIds = {
-        for (final r in seen) (r['id'] ?? '').toString(),
+        for (final r in seen)
+          if (_tingeeIntentPaid(r)) (r['id'] ?? '').toString(),
       };
     }
     await PosPaymentGatewayApi(_api).createIntent(
@@ -3487,13 +3491,22 @@ class _PosSellScreenState extends State<PosSellScreen>
     _tingeeIntentPoll = null;
   }
 
+  static bool _tingeeIntentPaid(Map<String, dynamic> r) {
+    final s = (r['status'] ?? '').toString().toLowerCase();
+    return s == 'confirmed' || s == 'completed';
+  }
+
   Future<void> _pollTingeeIntentConfirmed() async {
     if (!mounted || _checkingOut || _parking) return;
     if (!_isWaitingTingeePayment()) {
       _stopTingeeIntentPoll();
       return;
     }
-    final rows = await PosPaymentGatewayApi(_api).listIntents(status: 'Confirmed');
+    // Máy chủ nhận webhook thường tự chốt đơn luôn → lệnh nhảy thẳng «Completed», không dừng ở
+    // «Confirmed». Trước đây chỉ hỏi Confirmed → SignalR rớt là máy chờ mãi, không in hóa đơn.
+    final rows = (await PosPaymentGatewayApi(_api).listIntents())
+        .where(_tingeeIntentPaid)
+        .toList();
     if (!mounted || _checkingOut) return;
     final ext = _tingeeExternalIdOf(_tab);
     final expected = _resolveTransferPaymentQr()?.amount ?? _grandTotal;
@@ -3504,6 +3517,9 @@ class _PosSellScreenState extends State<PosSellScreen>
       final amount = (r['amountExpected'] as num?)?.toDouble();
       final draftId = (_tab.draftOrderId ?? '').toString().trim();
       final id = (r['id'] ?? '').toString();
+      // Mã TMP{ô} dùng lại cho mọi đơn của ô đó: lệnh đã trả của đơn TRƯỚC (có sẵn lúc bắt đầu
+      // chờ) cùng mã + cùng tiền sẽ chốt nhầm đơn mới chưa thu tiền. Danh sách này trước chỉ ghi, không lọc.
+      if (_tingeeSeenConfirmedIds.contains(id)) continue;
       final identityHit = (ext.isNotEmpty && (orderNo == ext || external == ext)) ||
           (draftId.isNotEmpty && saleOrderId.toLowerCase() == draftId.toLowerCase());
       // Chỉ khớp theo mã đơn / mã giao dịch của CHÍNH hóa đơn này. Trước đây còn khớp «cùng số tiền»:
@@ -3575,9 +3591,44 @@ class _PosSellScreenState extends State<PosSellScreen>
     return _resolveTransferPaymentQr() != null;
   }
 
-  Widget _buildPaymentQrWaitingOverlay() {
+  /// QR chờ CK: trượt lên khi chọn CK, trượt xuống khi thu gọn / Tingee báo đã nhận tiền.
+  /// Luôn nằm trong Stack (ẩn = rỗng) để bật/tắt QR không dựng lại màn thanh toán bên dưới.
+  /// [onChanged]: màn thanh toán mobile là route riêng — setState của màn bán không vẽ lại nó.
+  Widget _paymentQrOverlayLayer({VoidCallback? onChanged}) {
+    final show = _shouldShowPaymentQrOverlay();
+    return IgnorePointer(
+      ignoring: !show,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, anim) => FadeTransition(
+          opacity: anim,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.35),
+              end: Offset.zero,
+            ).animate(anim),
+            child: child,
+          ),
+        ),
+        child: show
+            ? KeyedSubtree(
+                key: const ValueKey('pay-qr'),
+                child: _buildPaymentQrWaitingOverlay(onChanged: onChanged),
+              )
+            : const SizedBox.shrink(key: ValueKey('pay-qr-none')),
+      ),
+    );
+  }
+
+  Widget _buildPaymentQrWaitingOverlay({VoidCallback? onChanged}) {
     final qr = _resolveTransferPaymentQr();
     if (qr == null) return const SizedBox.shrink();
+    void collapse() {
+      setState(() => _paymentQrOverlayDismissed = true);
+      onChanged?.call();
+    }
     final panelTitle =
         qr.isTingee ? 'Tingee QR thanh toán' : 'VietQR thanh toán';
     return Material(
@@ -3612,8 +3663,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                           ),
                           IconButton(
                             tooltip: tr('Thu gọn'),
-                            onPressed: () => setState(
-                                () => _paymentQrOverlayDismissed = true),
+                            onPressed: collapse,
                             icon: const Icon(Icons.close),
                           ),
                         ],
@@ -3626,6 +3676,30 @@ class _PosSellScreenState extends State<PosSellScreen>
                         title: panelTitle,
                         lockAccountSelection: qr.isTingee,
                       ),
+                      if (qr.isTingee) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                tr('Đang chờ ngân hàng báo — nhận đủ tiền sẽ tự hoàn tất và in hóa đơn'),
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: SboxColors.successText,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       Text(
                         tr(
@@ -3642,8 +3716,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                       ),
                       const SizedBox(height: 8),
                       OutlinedButton.icon(
-                        onPressed: () => setState(
-                            () => _paymentQrOverlayDismissed = true),
+                        onPressed: collapse,
                         icon: const Icon(Icons.keyboard_arrow_down),
                         label: Text(tr('Thu gọn — làm việc khác')),
                       ),
@@ -9931,6 +10004,11 @@ class _PosSellScreenState extends State<PosSellScreen>
     return parts.join('|');
   }
 
+  /// Đang chờ Tingee ở màn thanh toán: máy chủ tự chốt đơn ngay khi nhận tiền → vòng sync thấy ô
+  /// trống sẽ xóa giỏ trước khi poll Tingee (3s) kịp chốt + in hóa đơn (SignalR rớt là gặp).
+  bool get _holdSyncForTingee =>
+      (_tabletPaymentStage || _mobilePayRoute != null) && _isWaitingTingeePayment();
+
   Future<void> _syncHeldDraftTabs() async {
     // Tránh race: đang in tạm tính / báo bếp / checkout / autosave → bỏ qua vòng sync.
     if (_syncInFlight ||
@@ -9939,7 +10017,8 @@ class _PosSellScreenState extends State<PosSellScreen>
         _provisionalPrinting ||
         _kitchenSending ||
         _autosavingDraft ||
-        _suspendDraftAutosave) {
+        _suspendDraftAutosave ||
+        _holdSyncForTingee) {
       _syncPending = true;
       return;
     }
@@ -13124,11 +13203,23 @@ class _PosSellScreenState extends State<PosSellScreen>
       // Máy chủ: đơn đã hoàn tất TRƯỚC lần bấm này (máy khác / Tingee / lần gửi trước) → không phải vừa
       // thu tiền: không in, không HĐĐT, báo rõ để thu ngân không thu lần hai. Giỏ vẫn làm trống, trả bàn.
       final alreadyPaid = data?['alreadyCompleted'] == true;
+      // Tingee báo tiền về ngay trên máy này: máy chủ thường đã tự chốt đơn khi nhận webhook →
+      // «đã TT trước đó» là chính lần CK đang chờ, không phải máy khác. Vẫn in hóa đơn, không hiện
+      // hộp cảnh báo (trước đây QR đóng nhưng bill không in, thu ngân tưởng lỗi).
+      final paidByTingeeHere = alreadyPaid && _forceInvoicePrintOnce;
 
       // Viên gọn góc trái dưới, không kêu — trước đây thanh toán xong không có phản hồi nào
       // (in / kho vẫn báo riêng khi lỗi).
       debugPrint('POS checkout OK: $orderNo${alreadyPaid ? ' (đã TT trước đó)' : ''}');
-      if (alreadyPaid) {
+      if (paidByTingeeHere) {
+        NotificationOverlayManager().showSuccess(
+          title: 'Đã thanh toán chuyển khoản',
+          message: [
+            if (orderNo.isNotEmpty) orderNo,
+            '${_moneyFmt.format(_grandTotal)} đ',
+          ].join(' · '),
+        );
+      } else if (alreadyPaid) {
         unawaited(_showBlockingPayDialog(
           title: 'Đơn đã được thanh toán trước đó',
           message: '${orderNo.isEmpty ? 'Đơn này' : orderNo} đã được thanh toán (máy khác, chuyển khoản tự '
@@ -13188,7 +13279,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       final paidSlot = _tab.invoiceSlot;
       final paidResourceId = _tab.serviceResourceId?.toLowerCase();
       final useFloor = _useFloorAsPrimary;
-      final wantInvoicePrint = !alreadyPaid && (_quickPrintInvoice || _forceInvoicePrintOnce);
+      final wantInvoicePrint = paidByTingeeHere ||
+          (!alreadyPaid && (_quickPrintInvoice || _forceInvoicePrintOnce));
       final warehouseAuto = !alreadyPaid &&
           _printSettings.warehousePrintMode == PosWarehousePrintMode.auto;
       // Chip «In bếp» + chế độ in: giữ đúng thiết lập «tự in sau TT».
@@ -17855,6 +17947,8 @@ class _PosSellScreenState extends State<PosSellScreen>
         p.dispose();
       }
       _tab.paymentLines.clear();
+      // Chọn CK (kể cả sau khi đã thu gọn) → QR nổi lên lại cho khách quét.
+      if (mode == 'transfer' || mode == 'mixed') _paymentQrOverlayDismissed = false;
       if (mode == 'transfer' && bankKey != null) {
         _tab.paymentLines.add(_payLine(bankKey, due));
       } else if (mode == 'mixed' && bankKey != null) {
@@ -20202,12 +20296,11 @@ class _PosSellScreenState extends State<PosSellScreen>
         if (!widePay) actionBar(printChips: true),
       ],
     );
-    if (!_shouldShowPaymentQrOverlay()) return body;
     return Stack(
       fit: StackFit.expand,
       children: [
         body,
-        Positioned.fill(child: _buildPaymentQrWaitingOverlay()),
+        Positioned.fill(child: _paymentQrOverlayLayer()),
       ],
     );
   }
@@ -21511,8 +21604,15 @@ class _PosSellScreenState extends State<PosSellScreen>
     final canPay = perm.canPosPay();
     var paying = false;
     _orderDiscountPresetsVisible = false;
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
+    _paymentQrOverlayDismissed = false;
+    if (PosPaymentGatewayApi.isTingeeEnabled(_paymentGatewaySettings) &&
+        _bankAccounts.isEmpty) {
+      unawaited(_reloadPosBankAccounts().then((_) => _refreshMobilePay()));
+    }
+    if (_hasTingeePaymentSelected()) {
+      unawaited(_ensureTingeeTransferIntent());
+    }
+    final route = MaterialPageRoute<void>(
         fullscreenDialog: true,
         builder: (ctx) => Scaffold(
           backgroundColor: SboxColors.slate100,
@@ -21524,8 +21624,12 @@ class _PosSellScreenState extends State<PosSellScreen>
           ),
           body: StatefulBuilder(
             builder: (ctx, setPay) {
+              _mobilePaySetState = setPay;
                         final busy = paying || _checkingOut;
-              return Column(
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  Column(
                 children: [
                   Expanded(
                     child: ListView(
@@ -21598,13 +21702,49 @@ class _PosSellScreenState extends State<PosSellScreen>
                     ),
                   ),
                 ],
+                  ),
+                  Positioned.fill(
+                    child: _paymentQrOverlayLayer(onChanged: () => setPay(() {})),
+                  ),
+                ],
               );
             },
           ),
         ),
-      ),
     );
+    _mobilePayRoute = route;
+    try {
+      await Navigator.of(context).push<void>(route);
+    } finally {
+      if (identical(_mobilePayRoute, route)) {
+        _mobilePayRoute = null;
+        _mobilePaySetState = null;
+      }
+    }
     if (mounted) setState(() {});
+  }
+
+  /// Màn thanh toán mobile (route riêng) đang mở — Tingee báo tiền về thì vẽ lại / đóng nó.
+  Route<void>? _mobilePayRoute;
+  StateSetter? _mobilePaySetState;
+
+  void _refreshMobilePay() {
+    final route = _mobilePayRoute;
+    if (route == null || !route.isActive) return;
+    _mobilePaySetState?.call(() {});
+  }
+
+  /// Đơn đã hoàn tất (Tingee tự chốt) → hạ màn thanh toán mobile về màn bán.
+  void _closeMobilePayIfDone() {
+    final route = _mobilePayRoute;
+    if (route == null || !route.isActive || _tab.cart.isNotEmpty) return;
+    final nav = route.navigator;
+    if (nav == null) return;
+    if (route.isCurrent) {
+      nav.pop();
+    } else {
+      nav.removeRoute(route);
+    }
   }
 
   Widget _buildMobileModeBar() {
