@@ -711,19 +711,7 @@ class PosPrintOrchestrator {
       final bl = b.isDeviceLocal ? 1 : 0;
       return al.compareTo(bl);
     });
-    // Hóa đơn / tạm tính: đúng máy đã cài vai trò — không đổi sang máy mặc định / bếp.
-    if (documentType == PosCloudDocumentTypes.saleInvoice ||
-        documentType == PosCloudDocumentTypes.saleOrder ||
-        documentType == PosCloudDocumentTypes.saleReturn) {
-      if (unique.isEmpty) return const [];
-      if (unique.length > 1) {
-        debugPrint(
-          'SaleInvoice: ${unique.length} máy đã cài → chỉ in «${unique.first.name}» '
-          '(${unique.first.id})',
-        );
-      }
-      return [unique.first];
-    }
+    // Hóa đơn / tạm tính: in mọi máy đã cài vai trò (2 máy Hóa đơn → 2 bill, đúng cài đặt).
     return unique;
   }
 
@@ -1138,6 +1126,8 @@ class PosPrintOrchestrator {
     /// In lại chọn máy — chỉ gửi đúng máy này (bỏ route mặc định).
     String? overridePrinterId,
     PosStorePrinter? overridePrinter,
+    /// Máy (id chữ thường) đã in tại máy này qua cổng nội bộ — không gửi cloud lần nữa.
+    Set<String> excludePrinterIds = const {},
     PosPrintHangCallback? onHang,
     Duration hangAfter = hangAfterDefault,
     bool? vatIncludedInPrice,
@@ -1168,9 +1158,10 @@ class PosPrintOrchestrator {
           .firstOrNull;
       printers = hit != null ? [hit] : const [];
     } else {
-      printers = resolveCloudPrinters(PosCloudDocumentTypes.saleInvoice);
-      // Đúng máy đã cài Hóa đơn — không đổi sang máy IsDefault (thường là bếp).
-      if (printers.length > 1) printers = [printers.first];
+      // Mọi máy đã cài Hóa đơn — không đổi sang máy IsDefault (thường là bếp).
+      printers = resolveCloudPrinters(PosCloudDocumentTypes.saleInvoice)
+          .where((p) => !excludePrinterIds.contains(p.id.toLowerCase()))
+          .toList();
     }
     if (printers.isEmpty) return false;
 

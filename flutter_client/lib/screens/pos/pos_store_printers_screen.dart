@@ -638,51 +638,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     bool selected,
   ) async {
     if (!_canManageCloudPrinters) return;
-    String nameOf(String id) {
-      for (final p in _printers) {
-        if (p.id == id) return p.name;
-      }
-      return 'máy khác';
-    }
-    bool isInvoice(PosPrinterRoute r) =>
-        r.documentType == PosLocalPrinterRoles.saleInvoice;
-    // Vai trò bị tắt kèm theo — báo rõ. Trước đây tắt âm thầm, người dùng thấy «bật cái này
-    // tự tắt cái kia» mà không biết vì sao.
-    final notes = <String>[];
-    setState(() {
-      if (selected && docType == PosLocalPrinterRoles.saleInvoice) {
-        // Hóa đơn chỉ 1 máy → chuyển từ máy đang giữ sang máy này.
-        final from = {
-          for (final r in _routes)
-            if (isInvoice(r) && r.printerId != printerId) r.printerId,
-        };
-        _routes.removeWhere((r) => isInvoice(r) && r.printerId != printerId);
-        if (from.isNotEmpty) {
-          final names = {for (final id in from) nameOf(id)}.join('», «');
-          notes.add('Hóa đơn chuyển từ «$names» sang «${nameOf(printerId)}»');
-        }
-      }
-      if (selected &&
-          (docType == PosLocalPrinterRoles.kitchenSlip ||
-              docType == PosLocalPrinterRoles.kitchenVoid ||
-              docType == PosLocalPrinterRoles.kitchenLabel) &&
-          _routes.any((r) => isInvoice(r) && r.printerId != printerId) &&
-          _routes.any((r) => isInvoice(r) && r.printerId == printerId)) {
-        // Máy bếp chỉ bỏ Hóa đơn khi đã có máy KHÁC in hóa đơn (tránh HĐ/tạm tính ra bếp).
-        // Máy in hóa đơn duy nhất (quán 1 máy in cả bill lẫn bếp) giữ nguyên — trước đây
-        // cửa hàng có từ 2 máy là bật Báo bếp mất luôn Hóa đơn, thanh toán không in bill.
-        _routes.removeWhere((r) => isInvoice(r) && r.printerId == printerId);
-        notes.add('Tắt Hóa đơn ở «${nameOf(printerId)}» — hóa đơn đã in ở máy khác');
-      }
-      _toggleRoute(docType, printerId, selected);
-    });
-    if (notes.isNotEmpty) {
-      NotificationOverlayManager().show(
-        title: 'Đã đổi vai trò máy in',
-        message: notes.join('\n'),
-        type: NotificationType.info,
-      );
-    }
+    // Chỉ đổi đúng vai trò vừa bấm. Không tự tắt vai trò khác / máy khác: 2 máy cài
+    // Hóa đơn thì in cả 2 — đúng như người dùng đã tick.
+    _toggleRoute(docType, printerId, selected);
     await _saveRoutes(silent: true);
   }
 

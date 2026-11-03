@@ -594,13 +594,19 @@ Future<bool> printPosSaleOrder({
   var cloudPrinters = PosPrintOrchestrator.instance
       .resolveCloudPrinters(PosCloudDocumentTypes.saleInvoice);
 
+  // Máy cloud đã in qua cổng nội bộ ở máy này (id chữ thường) — không gửi Agent lần nữa.
+  final localCovered = <String>{};
+  var localOk = false;
+
   // App: in local khi máy này có cổng hóa đơn (không cần bật Agent).
   // A7/web không có profile → cloud.
   if (!kIsWeb) {
-    final saleLocals = await PosLocalPrintersStore.instance
-        .forRoleOnDevice(PosLocalPrinterRoles.saleInvoice);
+    final saleLocals = (await PosLocalPrintersStore.instance
+            .forRoleOnDevice(PosLocalPrinterRoles.saleInvoice))
+        .where((p) => !p.isLabel)
+        .toList();
     final thermalCandidates = <PosThermalPrinterSettings>[
-      for (final p in saleLocals.where((p) => !p.isLabel)) p.toThermalSettings(),
+      for (final p in saleLocals) p.toThermalSettings(),
     ];
     if (thermalCandidates.isEmpty &&
         thermal.enabled &&
@@ -629,7 +635,6 @@ Future<bool> printPosSaleOrder({
         ..addAll(indexed.map((e) => e.$2));
       final isProvisional =
           (documentTitle ?? '').toUpperCase().contains('TẠM');
-      var anyOk = false;
       for (var i = 0; i < thermalCandidates.length; i++) {
         final cand = thermalCandidates[i];
         final tpl = await _resolveSalePrintTemplate(
@@ -661,13 +666,24 @@ Future<bool> printPosSaleOrder({
           vatAmount: effectiveIncluded ? 0 : effectiveVat,
           vatIncludedInPrice: effectiveIncluded,
         );
-        if (printed) {
-          // Chỉ 1 máy nội bộ — tránh 2 bill khi Sunmi + USB cùng role Hóa đơn.
-          anyOk = true;
-          break;
+        // Mỗi máy cài vai trò Hóa đơn in 1 bill — 2 máy Hóa đơn thì 2 bill, đúng cài đặt.
+        if (printed) localOk = true;
+      }
+      // Máy cloud trùng máy vừa in (cùng cổng) hoặc do chính máy này làm Agent: đã in /
+      // đã thử ở trên — gửi Agent nữa là 2 bill trên một máy.
+      final localIds = {for (final p in saleLocals) p.id};
+      for (final p in cloudPrinters) {
+        final twin =
+            await PosLocalPrintersStore.instance.resolveForStorePrinter(p);
+        if ((twin != null && localIds.contains(twin.id)) ||
+            await PosPrintRole.isAgentForPrinter(p.id)) {
+          localCovered.add(p.id.toLowerCase());
         }
       }
-      if (anyOk) {
+      final cloudRest = cloudPrinters
+          .where((p) => !localCovered.contains(p.id.toLowerCase()))
+          .toList();
+      if (localOk && cloudRest.isEmpty) {
         if (showFeedback) {
           NotificationOverlayManager().showSuccess(
             title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
@@ -676,15 +692,7 @@ Future<bool> printPosSaleOrder({
         }
         return true;
       }
-      // Chính máy Agent vừa thử local: không cloud — tránh 2 bill.
-      var selfInvoiceAgent = false;
-      for (final p in cloudPrinters) {
-        if (await PosPrintRole.isAgentForPrinter(p.id)) {
-          selfInvoiceAgent = true;
-          break;
-        }
-      }
-      if (selfInvoiceAgent) {
+      if (!localOk && cloudRest.isEmpty && localCovered.isNotEmpty) {
         if (showFeedback) {
           NotificationOverlayManager().showError(
             title: 'Chưa in được',
@@ -695,7 +703,7 @@ Future<bool> printPosSaleOrder({
         return false;
       }
       // Chỉ bỏ cloud khi không còn máy Agent — Oppo vẫn phải gửi được sang Sunmi.
-      if (preferDevicePrintOnly && cloudPrinters.isEmpty) {
+      if (!localOk && preferDevicePrintOnly && cloudPrinters.isEmpty) {
         if (showFeedback) {
           NotificationOverlayManager().showError(
             title: 'Chưa in được',
@@ -717,7 +725,7 @@ Future<bool> printPosSaleOrder({
   }
 
   // Cloud → Print Agent (app + web). Web bán hàng dùng đường này để giống app.
-  if (cloudPrinters.isNotEmpty) {
+  if (cloudPrinters.any((p) => !localCovered.contains(p.id.toLowerCase()))) {
     // Không toast «Đang gửi…» — orchestrator đã báo 1 dòng «Đã gửi lệnh in».
     final printed = await PosPrintOrchestrator.instance.dispatchSaleOrder(
       order: printOrder,
@@ -726,7 +734,8 @@ Future<bool> printPosSaleOrder({
       referenceId: printOrder.id,
       showFeedback: showFeedback,
       successTitle: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
-      skipDedup: skipDedup,
+      // Bill nội bộ vừa in đã ghi khóa chống in đôi cho đơn này.
+      skipDedup: skipDedup || localOk,
       storeName: branchName,
       storeAddress: storeAddress,
       storePhone: storePhone,
@@ -735,6 +744,7 @@ Future<bool> printPosSaleOrder({
       vatIncludedInPrice: effectiveIncluded,
       overridePrinterId: overridePrinterId,
       overridePrinter: overridePrinter,
+      excludePrinterIds: localCovered,
       onHang: onCloudHang,
       shouldKickDrawer: kickDrawerFor,
       buildEscPos: (printer) async {
@@ -770,7 +780,8 @@ Future<bool> printPosSaleOrder({
         );
       },
     );
-    if (printed) {
+    // Bill nội bộ đã ra — máy Agent lỗi thì dispatchSaleOrder đã báo riêng.
+    if (printed || localOk) {
       return true;
     }
     if (preferDevicePrintOnly) {
