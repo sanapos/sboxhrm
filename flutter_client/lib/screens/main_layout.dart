@@ -649,7 +649,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       _maybeLandPosSell();
       // Cửa hàng tự nhận mẫu chứng từ A4 chuẩn mới nhất khi mở app (ngầm, giữ bản cũ để quay lại).
       final perm = Provider.of<PermissionProvider>(context, listen: false);
-      if (perm.isLoaded && perm.canEdit('PosPrintTemplates')) {
+      // Cần cả gói: chủ cửa hàng gói HRM đủ quyền vai trò nhưng gói không có mẫu in →
+      // 5 lệnh lấy mẫu bị chặn (403 PACKAGE_MODULE_DENIED) mỗi lần mở app.
+      final user = Provider.of<AuthProvider>(context, listen: false).user;
+      final inPackage = PermissionNavigation.isAllowedByPackageOrRole(
+        'PosPrintTemplates',
+        allowedModules: user?.allowedModules,
+        perm: perm,
+        bypassPackageFilter: StoreRoleHelper.bypassesPackageFilter(user?.role),
+      );
+      if (perm.isLoaded && inPackage && perm.canEdit('PosPrintTemplates')) {
         unawaited(PosCommercialTemplateAutoUpgrade.runOnce(ApiService(),
             canEdit: true, storeKey: authUser?.storeId));
       }
