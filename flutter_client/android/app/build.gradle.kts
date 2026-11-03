@@ -44,7 +44,7 @@ android {
         }
     }
 
-    // hrm = Play listing hiện tại (sbox.sana.vn). pos = listing SBOX POS mới.
+    // hrm = Play listing hiện tại (sbox.sana.vn). pos = listing SBOX POS mới. kds = SBOX KDS.
     flavorDimensions += "app"
     productFlavors {
         create("hrm") {
@@ -55,6 +55,17 @@ android {
         create("pos") {
             dimension = "app"
             applicationId = "sbox.sana.vn.pos"
+        }
+        // SBOX KDS (chỉ màn hình bếp) cho Android 7+. Bản Android 6 (Sunmi T1/V2s) vẫn là
+        // sbox.sana.vn.kds build từ flutter_pos — hai mã khác nhau, cài song song được.
+        create("kds") {
+            dimension = "app"
+            applicationId = "sbox.sana.vn.kitchen"
+        }
+        // SBOX Staff: app nhân viên (chấm công, lịch, lương, đơn từ, gọi món) — cài song song HRM.
+        create("staff") {
+            dimension = "app"
+            applicationId = "sbox.sana.vn.staff"
         }
     }
 
@@ -80,6 +91,15 @@ android {
 
 flutter {
     source = "../.."
+}
+
+// SBOX KDS (sbox.sana.vn.kitchen) và SBOX Staff (sbox.sana.vn.staff) chưa đăng ký Firebase →
+// bỏ bước google-services của 2 flavor này (không khởi tạo FCM, xem FcmService).
+tasks.configureEach {
+    if (name.startsWith("process") && (name.contains("Kds") || name.contains("Staff")) &&
+        name.endsWith("GoogleServices")) {
+        enabled = false
+    }
 }
 
 dependencies {

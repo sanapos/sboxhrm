@@ -10,6 +10,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/sbox_app_variant.dart';
 import '../firebase_options.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../utils/notification_display_utils.dart';
@@ -57,6 +58,8 @@ class FcmService {
       _initialized = true;
       return;
     }
+    // SBOX KDS / SBOX Staff: mã ứng dụng chưa có trong Firebase; nhận thông báo qua SignalR khi mở app.
+    if (SboxAppVariant.kitchenApp || SboxAppVariant.staffApp) return;
     try {
       // Guard against duplicate init: on iOS, FirebaseApp.configure() is called
       // natively in AppDelegate.swift before Dart runs, so Firebase.apps is already
@@ -128,6 +131,7 @@ class FcmService {
   /// Call after successful login. Requests permission, gets token, posts to backend.
   /// Safe to call multiple times (backend upserts). Tolerant to Firebase being uninitialized.
   Future<void> registerForCurrentUser() async {
+    if (SboxAppVariant.kitchenApp || SboxAppVariant.staffApp) return;
     if (!_initialized) await initialize();
     if (!_initialized) return;
     try {

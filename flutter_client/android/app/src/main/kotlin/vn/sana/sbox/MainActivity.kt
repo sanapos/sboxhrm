@@ -84,6 +84,8 @@ class MainActivity : FlutterFragmentActivity() {
                     else -> result.notImplemented()
                 }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, KdsDevice.CHANNEL)
+            .setMethodCallHandler { call, result -> KdsDevice.handle(this, call, result) }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NetworkProbe.CHANNEL)
             .setMethodCallHandler { call, result ->
                 if (call.method == "info") result.success(NetworkProbe.info(applicationContext))

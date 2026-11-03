@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -291,6 +292,36 @@ class PosQrOrderVoiceAlert {
     try {
       await _tts?.setSpeechRate(_rate);
     } catch (_) {}
+  }
+
+  static const _kdsDevice = MethodChannel('com.sboxhrm/kds_device');
+
+  /// Âm lượng loa ngoài: {music, musicMax, viAvailable}. null ngoài Android / lỗi kênh.
+  Future<Map<String, dynamic>?> audioState() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return null;
+    try {
+      final r = await _kdsDevice.invokeMethod<Map<dynamic, dynamic>>('audioState');
+      if (r == null) return null;
+      final out = Map<String, dynamic>.from(r);
+      try {
+        await _ensureTts();
+        final vi = await _tts?.isLanguageAvailable('vi-VN');
+        if (vi is bool) out['viAvailable'] = vi;
+      } catch (_) {}
+      return out;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Nâng loa ngoài lên tối thiểu [percent]% (không hạ nếu đang to hơn). Trả mức mới.
+  Future<int?> ensureVolume({int percent = 60}) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return null;
+    try {
+      return await _kdsDevice.invokeMethod<int>('ensureVolume', {'percent': percent});
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> preview() => speak(

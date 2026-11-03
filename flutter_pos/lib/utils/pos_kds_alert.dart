@@ -56,6 +56,14 @@ class PosKdsAlert {
     }
   }
 
+  /// Giữ màn hình sáng khi đang mở màn bếp — tắt màn là mất SignalR, vé mới không lên.
+  static Future<void> keepScreenOn(bool on) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _native.invokeMethod('keepScreenOn', {'on': on});
+    } catch (_) {}
+  }
+
   /// Chuông «ting ting» trước khi đọc món mới.
   static Future<void> playBell() async {
     final now = DateTime.now();

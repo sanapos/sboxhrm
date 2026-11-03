@@ -25200,6 +25200,19 @@ class ApiService implements PayrollApi {
     }
   }
 
+  Future<Map<String, dynamic>> getPosKdsRecentDone({String? printerId, int hours = 6}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/kds/recent-done').replace(queryParameters: {
+        'hours': '$hours',
+        if (printerId != null && printerId.isNotEmpty) 'printerId': printerId,
+      });
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> recallPosKdsTicket(String orderId) async {
     try {
       final response = await http

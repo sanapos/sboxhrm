@@ -131,6 +131,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     super.initState();
     PosQrOrderVoiceAlert.instance.enterKds();
     PosKdsAlert.enterUi();
+    unawaited(PosKdsAlert.keepScreenOn(true));
     NotificationOverlayManager().clear();
     unawaited(PosQrOrderVoiceAlert.instance.warmUp());
     unawaited(_ensureSpeakerAudible());
@@ -181,6 +182,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   void dispose() {
     PosQrOrderVoiceAlert.instance.leaveKds();
     PosKdsAlert.leaveUi();
+    unawaited(PosKdsAlert.keepScreenOn(false));
     unawaited(PosQrOrderVoiceAlert.instance.stopSpeaking());
     _floor.dispose();
     _poll?.cancel();

@@ -41,7 +41,30 @@ class PosKdsAlert {
     return p.getBool(printTingKey) ?? true;
   }
 
-  /// Chuông trước khi đọc món mới.
+  static const _native = MethodChannel('com.sboxhrm/kds_device');
+
+  /// Android: chuông native (SystemSoundType.alert của Flutter chỉ kêu trên iOS / macOS).
+  /// Chờ chuông kêu xong mới trả về. false = không phát được (web / lỗi kênh).
+  static Future<bool> _nativeChime(int count) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
+    try {
+      await _native.invokeMethod('chime', {'count': count})
+          .timeout(const Duration(seconds: 3));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Giữ màn hình sáng khi đang mở màn bếp — tắt màn là mất SignalR, vé mới không lên.
+  static Future<void> keepScreenOn(bool on) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _native.invokeMethod('keepScreenOn', {'on': on});
+    } catch (_) {}
+  }
+
+  /// Chuông «ting ting» trước khi đọc món mới.
   static Future<void> playBell() async {
     final now = DateTime.now();
     if (_lastBell != null &&
@@ -49,6 +72,7 @@ class PosKdsAlert {
       return;
     }
     _lastBell = now;
+    if (await _nativeChime(2)) return;
     try {
       await SystemSound.play(SystemSoundType.alert);
       await HapticFeedback.mediumImpact();
@@ -65,6 +89,7 @@ class PosKdsAlert {
       return;
     }
     _lastTing = now;
+    if (await _nativeChime(1)) return;
     try {
       await SystemSound.play(SystemSoundType.alert);
       await HapticFeedback.lightImpact();

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../config/sbox_app_variant.dart';
 import '../utils/mobile_device_id.dart';
 import '../utils/platform_geolocation.dart';
 import 'api_service.dart';
@@ -31,6 +32,8 @@ class GlobalLocationReporter {
   /// Server chỉ lưu vị trí trong thời gian ca làm việc đã duyệt — NV chưa cài ca
   /// thì server tự bỏ qua, nên client có thể báo định kỳ an toàn.
   Future<void> startIfEligible({String? employeeId}) async {
+    // SBOX KDS: máy bếp đặt cố định, không phải nhân viên — không xin quyền / báo vị trí.
+    if (SboxAppVariant.kitchenApp) return;
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
         final deviceId = kIsWeb ? null : await MobileDeviceId.resolve();

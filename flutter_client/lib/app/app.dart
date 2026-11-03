@@ -30,6 +30,7 @@ import '../screens/admin_login_screen.dart';
 import '../screens/landing_guide_screen.dart';
 import '../screens/pos/pos_customer_display_screen.dart';
 import '../screens/pos/pos_standalone_shell.dart';
+import '../screens/staff/staff_shell.dart';
 import '../config/sbox_app_variant.dart';
 import '../utils/media_query_safe_padding.dart';
 import '../utils/play_system_ui.dart';
@@ -291,6 +292,9 @@ class ZKTecoApp extends StatelessWidget {
               }
               if (SboxAppVariant.standalonePos) {
                 return const PosStandaloneShell();
+              }
+              if (SboxAppVariant.staffApp) {
+                return const StaffShell();
               }
               return const MainLayout();
             },

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/sbox_app_variant.dart';
 import '../../l10n/app_tr.dart';
 import '../../models/hrm.dart';
 import '../../providers/auth_provider.dart';
@@ -20,11 +21,13 @@ import '../../utils/pos_qr_order_voice.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
+import 'pos_kds_screen.dart';
 import 'pos_mobile_hub_screen.dart';
 import '../../utils/pos_printer_auto_detect.dart';
 
 /// Shell POS độc lập (Play / flavor `pos`): quyền fail-open, SignalR + in,
 /// hub 5 tab — cùng luồng A6, không mở [MainLayout] HRM.
+/// App SBOX KDS ([SboxAppVariant.kitchenApp]): chỉ màn hình bếp, không Agent in / cổng thanh toán.
 class PosStandaloneShell extends StatefulWidget {
   const PosStandaloneShell({super.key});
 
@@ -118,8 +121,9 @@ class _PosStandaloneShellState extends State<PosStandaloneShell>
         unawaited(PosPrinterAutoDetect.instance.start());
         await _signalR.joinStoreGroup(storeId);
         await PosPrintOrchestrator.instance.ensureListening();
-        final agentSettings = await PosPrintAgentSettings.load();
-        if (agentSettings.enabled) {
+        final kds = SboxAppVariant.kitchenApp;
+        final agentSettings = kds ? null : await PosPrintAgentSettings.load();
+        if (agentSettings != null && agentSettings.enabled) {
           final u = auth.user;
           final label = [
             if ((u?.fullName ?? '').trim().isNotEmpty) u!.fullName.trim(),
@@ -129,13 +133,15 @@ class _PosStandaloneShellState extends State<PosStandaloneShell>
             await agentSettings.copyWith(accountLabel: label).save();
           }
         }
-        await PosPrintAgentService.instance.ensureRunning(
-          storeId,
-          forceReregister: forceAgent,
-        );
+        if (!kds) {
+          await PosPrintAgentService.instance.ensureRunning(
+            storeId,
+            forceReregister: forceAgent,
+          );
+        }
         unawaited(PosQrOrderVoiceAlert.instance.start(
             canTakePayment: () => context.mounted && context.read<PermissionProvider>().canPosPay()));
-        PosPaymentGatewayListener.instance.start();
+        if (!kds) PosPaymentGatewayListener.instance.start();
       }
       final userId = auth.user?.id;
       if (userId != null && userId.isNotEmpty) {
@@ -185,7 +191,7 @@ class _PosStandaloneShellState extends State<PosStandaloneShell>
               const CircularProgressIndicator(color: PosTheme.kiotBlue),
               const SizedBox(height: 12),
               Text(
-                tr('Đang mở bán hàng…'),
+                tr(SboxAppVariant.kitchenApp ? 'Đang mở màn hình bếp…' : 'Đang mở bán hàng…'),
                 style: const TextStyle(
                   fontSize: 13,
                   color: PosTheme.textSecondary,
@@ -211,10 +217,12 @@ class _PosStandaloneShellState extends State<PosStandaloneShell>
           if (handler != null && await handler()) return;
           SystemNavigator.pop();
         },
-        child: const PosMobileHubScreen(
-          initialTab: 2,
-          restoreLastTab: false,
-        ),
+        child: SboxAppVariant.kitchenApp
+            ? const PosKdsScreen()
+            : const PosMobileHubScreen(
+                initialTab: 2,
+                restoreLastTab: false,
+              ),
       ),
     );
   }

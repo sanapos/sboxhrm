@@ -1,5 +1,6 @@
 package vn.sana.sbox.sbox_pos
 
+import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioFormat
@@ -12,6 +13,7 @@ import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.Voice
 import android.util.Log
+import android.view.WindowManager
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.util.Locale
@@ -68,6 +70,23 @@ object PosTts {
                     }
                 }
                 result.success(am.getStreamVolume(AudioManager.STREAM_MUSIC))
+            }
+            // Màn bếp KDS: giữ màn hình sáng (tắt màn là mất SignalR, vé mới không lên).
+            "keepScreenOn" -> {
+                val on = call.argument<Boolean>("on") ?: true
+                val act = context as? Activity
+                if (act == null) {
+                    result.success(false)
+                } else {
+                    act.runOnUiThread {
+                        if (on) {
+                            act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        } else {
+                            act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        }
+                        result.success(true)
+                    }
+                }
             }
             "beep" -> {
                 playTone()
