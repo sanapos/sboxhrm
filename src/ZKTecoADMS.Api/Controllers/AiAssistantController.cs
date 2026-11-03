@@ -325,8 +325,9 @@ public class AiAssistantController(
 
             // Gợi ý GUIDE từ kết quả search (kể cả khi model quên tag)
             var helpHits = AiAssistantHelpCorpus.Search(lastUserMessage.Content, topK: 4);
+            // Bài đứng đầu chỉ có ở máy chủ (không mở được trong app) → các bài app xếp sau thường lạc đề («gia hạn gói» → Gym).
             var suggestedGuides = helpHits
-                .Where(AiAssistantHelpCorpus.HasAppGuide)
+                .TakeWhile(AiAssistantHelpCorpus.HasAppGuide)
                 .Select(h => $"{h.Mode}/{h.StepId}")
                 .Distinct()
                 .ToList();

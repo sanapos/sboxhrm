@@ -37,7 +37,8 @@ public static class AiLanguage
     /// <summary>Quy tắc ngôn ngữ trả lời cho system prompt.</summary>
     public static string AnswerRule(string? code) => IsVietnamese(code)
         // Giao diện tiếng Việt mà người dùng gõ cả câu bằng tiếng Anh («What were the best selling items?») → trả lời tiếng Anh.
-        ? "Trả lời bằng tiếng Việt; riêng khi người dùng viết cả câu bằng ngôn ngữ khác (vd tiếng Anh) thì trả lời bằng đúng ngôn ngữ đó."
+        ? "Trả lời bằng tiếng Việt; riêng khi người dùng viết cả câu bằng ngôn ngữ khác (vd tiếng Anh) thì trả lời bằng đúng ngôn ngữ đó, "
+          + "nhưng giữ NGUYÊN tên hàng, tên người, tên menu tiếng Việt có dấu như trong dữ liệu."
         : $"Người dùng dùng giao diện {Describe(code)}: LUÔN trả lời bằng {Describe(code)} (kể cả khi dữ liệu / hướng dẫn bên dưới "
           + "viết tiếng Việt). Giữ NGUYÊN tên riêng, tên hàng, tên nhân viên, tên menu / màn hình như trong dữ liệu; số tiền ghi kèm «đ» (VND).";
 }
