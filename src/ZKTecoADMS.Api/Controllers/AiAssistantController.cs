@@ -498,7 +498,8 @@ public class AiAssistantController(
                 Reply = parsed.Text,
                 Provider = usedProvider,
                 Actions = parsed.Actions,
-                Guides = parsed.Guides,
+                // Chỉ chip của bài khớp câu hỏi: AI hay gắn nhầm bài kèm theo trong khối hướng dẫn («cân điện tử» → chip HĐĐT).
+                Guides = parsed.Guides.Where(suggestedGuides.Contains).ToList(),
                 Reports = reportsUsed.Distinct().Select(AiAssistantReportCatalog.TitleOf).ToList(),
                 // Chỉ vẽ khi số liệu lấy từ báo cáo thật (không vẽ số bot rule / AI tự nghĩ ra).
                 Charts = reportsUsed.Count > 0 ? parsed.Charts ?? [] : [],
