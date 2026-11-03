@@ -5,7 +5,8 @@ using ZKTecoADMS.Domain.Enums;
 namespace ZKTecoADMS.Api.Services;
 
 /// <summary>
-/// Duyệt / từ chối đơn thay quản lý: nghỉ phép, ứng lương, tăng ca, bổ sung chấm công, phiếu phạt.
+/// Duyệt / từ chối đơn thay quản lý: nghỉ phép, ứng lương, tăng ca, bổ sung chấm công, phiếu phạt, chấm công mobile,
+/// đổi ca, đăng ký lịch, công tác phí (tạm ứng / quyết toán).
 /// Chỉ đơn của nhân viên TRONG PHẠM VI quản lý (API duyệt của app không tự kiểm phạm vi — trợ lý chặn ở đây),
 /// không tự duyệt đơn của chính mình, mỗi loại cần quyền Duyệt của chức năng tương ứng.
 /// </summary>
@@ -23,6 +24,10 @@ public sealed partial class AiAssistantActions
         ["overtime"] = new("Tăng ca", "Overtime", 'A'),
         ["attendance_fix"] = new("Bổ sung chấm công", "AttendanceCorrection", 'A'),
         ["penalty"] = new("Phiếu phạt", "PenaltyTickets", 'A'),
+        ["mobile_attendance"] = new("Chấm công mobile", "MobileAttendanceApproval", 'A'),
+        ["shift_swap"] = new("Đổi ca", "ShiftSwap", 'A'),
+        ["schedule"] = new("Đăng ký lịch làm", "ScheduleApproval", 'A'),
+        ["business_trip"] = new("Công tác phí", "BusinessTripExpense", 'A'),
     };
 
     static readonly Def[] ReviewDefs =
@@ -88,7 +93,9 @@ public sealed partial class AiAssistantActions
     };
 
     /// <summary>Đơn chờ duyệt (đã lọc phạm vi, bỏ đơn của chính mình).</summary>
-    sealed record PendingReq(Guid Id, string Kind, Guid? EmployeeId, Guid? UserId, string Detail, decimal? Amount);
+    /// <param name="Stage">Công tác phí: "advance" (duyệt tạm ứng) | "settlement" (duyệt quyết toán).</param>
+    sealed record PendingReq(Guid Id, string Kind, Guid? EmployeeId, Guid? UserId, string Detail, decimal? Amount,
+        string? Stage = null);
 
     async Task<List<PendingReq>> PendingRequestsAsync(Ctx c, string kind, IReadOnlyCollection<Guid>? onlyIds, CancellationToken ct)
     {
@@ -153,6 +160,62 @@ public sealed partial class AiAssistantActions
                 .Select(t => new PendingReq(t.Id, kind, t.EmployeeId, null,
                     $"{t.TicketCode} · {(PenaltyLabels.TryGetValue(t.Type.ToString(), out var pl) ? pl : t.Type.ToString())} {Vnd(t.Amount)} ngày {t.ViolationDate:dd/MM}"
                     + (string.IsNullOrWhiteSpace(t.Description) ? "" : $" · {t.Description}"), t.Amount)).ToList(),
+            "mobile_attendance" => (await db.MobileAttendanceRecords.AsNoTracking()
+                    .Where(m => m.StoreId == c.StoreId && m.Status == "pending" && m.Deleted == null && m.CreatedAt >= since)
+                    .Where(m => ids == null || ids.Contains(m.Id))
+                    .OrderBy(m => m.PunchTime).Take(200)
+                    .Select(m => new { m.Id, m.OdooEmployeeId, m.EmployeeName, m.PunchTime, m.PunchType, m.LocationName, m.IsOutside, m.OutsideReason, m.RiskLevel })
+                    .ToListAsync(ct))
+                // Mã người chấm là id tài khoản (dạng chuỗi) — lọc phạm vi sau khi đọc.
+                .Select(m => (m, uid: Guid.TryParse(m.OdooEmployeeId, out var g) ? g : (Guid?)null))
+                .Where(x => users == null || (x.uid is Guid u && users.Contains(u)))
+                .Take(40)
+                .Select(x => new PendingReq(x.m.Id, kind, null, x.uid,
+                    $"{(x.m.PunchType == 0 ? "Vào" : "Ra")} {x.m.PunchTime.AddHours(7):HH:mm dd/MM}"
+                    + (x.m.LocationName is { Length: > 0 } loc ? $" · {loc}" : "")
+                    + (x.m.IsOutside ? " · NGOÀI vùng" + (string.IsNullOrWhiteSpace(x.m.OutsideReason) ? "" : $" ({x.m.OutsideReason})") : "")
+                    + (x.m.RiskLevel is "high" or "medium" ? $" · rủi ro {x.m.RiskLevel}" : ""), null)).ToList(),
+            // Đổi ca: tới lượt quản lý khi người được đổi đã đồng ý.
+            "shift_swap" => (await db.ShiftSwapRequests.AsNoTracking()
+                    .Where(w => w.StoreId == c.StoreId && w.Status == ShiftSwapStatus.TargetAccepted && w.Deleted == null)
+                    .Where(w => ids == null || ids.Contains(w.Id))
+                    .Where(w => users == null || users.Contains(w.RequesterUserId) || users.Contains(w.TargetUserId))
+                    .OrderBy(w => w.RequesterDate).Take(40)
+                    .Select(w => new { w.Id, w.RequesterUserId, w.TargetUserId, w.RequesterDate, w.TargetDate, w.Reason })
+                    .ToListAsync(ct))
+                .Select(w => new PendingReq(w.Id, kind, null, w.RequesterUserId,
+                    $"Ca {w.RequesterDate:dd/MM} ↔ ca {w.TargetDate:dd/MM}"
+                    + (string.IsNullOrWhiteSpace(w.Reason) ? "" : $" · {w.Reason}"), null)).ToList(),
+            "schedule" => (await db.ScheduleRegistrations.AsNoTracking()
+                    .Where(r => r.StoreId == c.StoreId && r.Status == ScheduleRegistrationStatus.Pending && r.Deleted == null && r.CreatedAt >= since)
+                    .Where(r => ids == null || ids.Contains(r.Id))
+                    .Where(r => users == null || users.Contains(r.EmployeeUserId))
+                    .OrderBy(r => r.Date).Take(80)
+                    .Select(r => new
+                    {
+                        r.Id, r.EmployeeUserId, r.Date, r.IsDayOff, r.Note,
+                        Shift = db.ShiftTemplates.Where(s => s.Id == r.ShiftId).Select(s => s.Name).FirstOrDefault(),
+                    })
+                    .ToListAsync(ct))
+                .Select(r => new PendingReq(r.Id, kind, null, r.EmployeeUserId,
+                    $"{r.Date:dd/MM} " + (r.IsDayOff ? "xin nghỉ" : r.Shift ?? "đăng ký ca")
+                    + (string.IsNullOrWhiteSpace(r.Note) ? "" : $" · {r.Note}"), null)).ToList(),
+            "business_trip" => (await db.BusinessTripCases.AsNoTracking()
+                    .Where(t => t.StoreId == c.StoreId && t.Deleted == null
+                                && (t.Status == BusinessTripCaseStatus.AdvancePending || t.Status == BusinessTripCaseStatus.SettlementPending))
+                    .Where(t => ids == null || ids.Contains(t.Id))
+                    .Where(t => (users == null || (t.EmployeeUserId != null && users.Contains(t.EmployeeUserId.Value)))
+                                || (emps != null && t.EmployeeId != null && emps.Contains(t.EmployeeId.Value)))
+                    .OrderBy(t => t.TripFromDate).Take(40)
+                    .Select(t => new { t.Id, t.EmployeeId, t.EmployeeUserId, t.CaseCode, t.Title, t.Status, t.AdvanceAmount, t.SettledAmount })
+                    .ToListAsync(ct))
+                .Select(t =>
+                {
+                    var adv = t.Status == BusinessTripCaseStatus.AdvancePending;
+                    return new PendingReq(t.Id, kind, t.EmployeeId, t.EmployeeUserId,
+                        $"{t.CaseCode} {t.Title} · " + (adv ? $"xin tạm ứng {Vnd(t.AdvanceAmount)}" : $"quyết toán {Vnd(t.SettledAmount)}"),
+                        adv ? t.AdvanceAmount : t.SettledAmount, adv ? "advance" : "settlement");
+                }).ToList(),
             _ => [],
         };
         // Không tự duyệt đơn của mình (trừ tài khoản toàn quyền — chủ cửa hàng).
@@ -235,7 +298,7 @@ public sealed partial class AiAssistantActions
         foreach (var r in reqs)
         {
             var who = NameOf(names, r);
-            var (step, back) = ReviewStep(kind, r.Id, approve, reason, approvedAmount);
+            var (step, back) = ReviewStep(kind, r.Id, approve, reason, approvedAmount, r.Stage);
             steps.Add(step with { Label = who });
             undo.Add(back);
             lines.Add(new(who, r.Detail + (approvedAmount is decimal x ? $" → duyệt {Vnd(x)}" : "")));
@@ -250,7 +313,9 @@ public sealed partial class AiAssistantActions
                 kind switch
                 {
                     "leave" => "Leave", "advance" => "AdvanceRequests", "overtime" => "Overtime",
-                    "attendance_fix" => "AttendanceCorrection", _ => "PenaltyTickets",
+                    "attendance_fix" => "AttendanceCorrection", "mobile_attendance" => "MobileAttendanceApproval",
+                    "shift_swap" => "ShiftSwap", "schedule" => "ScheduleApproval", "business_trip" => "BusinessTripExpense",
+                    _ => "PenaltyTickets",
                 }, warnings)
             with
             {
@@ -261,7 +326,8 @@ public sealed partial class AiAssistantActions
     }
 
     /// <summary>Lời gọi API duyệt / từ chối một đơn + cách hoàn tác (null = API không có).</summary>
-    static (Step Do, Step? Undo) ReviewStep(string kind, Guid id, bool approve, string? reason, decimal? approvedAmount)
+    static (Step Do, Step? Undo) ReviewStep(string kind, Guid id, bool approve, string? reason, decimal? approvedAmount,
+        string? stage = null)
     {
         string J(object o) => JsonSerializer.Serialize(o, Json);
         return kind switch
@@ -280,6 +346,17 @@ public sealed partial class AiAssistantActions
             "attendance_fix" => (new Step("POST", $"/api/AttendanceCorrections/{id}/approve",
                     J(new { requestId = id, isApproved = approve, approverNote = reason })),
                 approve ? new Step("POST", $"/api/AttendanceCorrections/{id}/undo-approve", null) : null),
+            "mobile_attendance" => (new Step("POST", $"/api/mobile-attendance/approve/{id}",
+                    J(new { approved = approve, rejectionReason = reason })), null),
+            "shift_swap" => (new Step("POST", $"/api/ShiftSwaps/{id}/approve",
+                    J(new { approve, rejectionReason = approve ? null : reason, note = approve ? reason : null })), null),
+            "schedule" => (new Step("POST", $"/api/WorkSchedules/registrations/{id}/approve",
+                    J(new { requestId = id, isApproved = approve, rejectionReason = approve ? null : reason })),
+                approve ? new Step("POST", $"/api/WorkSchedules/registrations/{id}/undo-approval", null) : null),
+            // Công tác phí: đơn đang chờ duyệt tạm ứng hoặc chờ duyệt quyết toán — gọi đúng bước.
+            "business_trip" => (new Step("POST", $"/api/BusinessTripCases/{id}/{(stage == "settlement" ? "settlement" : "advance")}/approve",
+                    J(new { isApproved = approve, rejectionReason = approve ? null : reason })),
+                approve && stage != "settlement" ? new Step("POST", $"/api/BusinessTripCases/{id}/advance/undo-approve", null) : null),
             _ => (approve
                     ? new Step("POST", $"/api/PenaltyTickets/{id}/approve", J(new { note = reason }))
                     : new Step("POST", $"/api/PenaltyTickets/{id}/cancel", J(new { reason })),

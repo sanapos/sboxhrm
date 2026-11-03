@@ -187,7 +187,7 @@ public sealed partial class AiAssistantActions
         if (!res.Ok) return (new(false, res.Message, null, null), null, null);
         var data = res.Data;
         string? docNo = null;
-        foreach (var k in new[] { "returnNo", "receiptNo", "ticketCode", "transactionCode", "requestCode", "orderNo", "quoteNo", "code", "documentNo", "employeeCode" })
+        foreach (var k in new[] { "returnNo", "receiptNo", "ticketCode", "transactionCode", "requestCode", "orderNo", "quoteNo", "caseCode", "claimNo", "code", "documentNo", "employeeCode" })
             if (data?[k] is JsonValue dv && dv.ToString() is { Length: > 0 } dn) { docNo = dn; break; }
         var docId = data is JsonObject o && o["id"] is JsonValue idv ? idv.ToString() : null;
         var done = p.Title switch
@@ -233,7 +233,7 @@ public sealed partial class AiAssistantActions
             }
             lastData = res.Data;
             docId ??= lastData?["id"]?.ToString();
-            foreach (var k in new[] { "issueNo", "countNo", "code", "documentNo" })
+            foreach (var k in new[] { "issueNo", "countNo", "caseCode", "code", "documentNo" })
                 if (lastData?[k] is JsonValue dv && dv.ToString() is { Length: > 0 } dn) { docNo = dn; break; }
         }
         return (new(true, $"Đã tạo và hoàn thành {p.Title.ToLower(Vi)}{(docNo != null ? " " + docNo : "")}.", docNo, p.OpenModule), docId);

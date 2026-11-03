@@ -88,7 +88,7 @@ public sealed partial class AiAssistantActions(
     static Def[]? _defs;
 
     /// <summary>Thao tác gốc + duyệt đơn + sửa / xóa / hủy (khai báo ở các tệp partial).</summary>
-    static Def[] Defs => _defs ??= [.. CoreDefs, .. ReviewDefs, .. ManageDefs, .. OpsDefs, .. MoreDefs];
+    static Def[] Defs => _defs ??= [.. CoreDefs, .. ReviewDefs, .. ManageDefs, .. OpsDefs, .. MoreDefs, .. WorkDefs];
 
     static readonly Def[] CoreDefs =
     [
@@ -185,9 +185,12 @@ public sealed partial class AiAssistantActions(
                 ["reason"] = ("STRING", "Lý do"),
             }, ["date", "time"]),
         new("propose_sale_order", "PosSell", 'C', false,
-            "Lập HÓA ĐƠN BÁN HÀNG (đơn hoàn thành, trừ kho, ghi sổ quỹ). Tìm hàng bằng find_products trước.",
+            "Lập HÓA ĐƠN BÁN HÀNG (đơn hoàn thành, trừ kho, ghi sổ quỹ) hoặc mở ĐƠN TẠM gọi món cho bàn / phòng (mode=draft, "
+            + "thanh toán sau ở màn bán hàng). Tìm hàng bằng find_products trước; bàn / phòng bằng find_resources.",
             new()
             {
+                ["mode"] = ("STRING", "complete (bán xong, mặc định) | draft (đơn tạm: khách đang ngồi, chưa thanh toán)"),
+                ["resource_id"] = ("STRING", "Bàn / phòng của đơn tạm (find_resources)"),
                 ["items"] = ("ARRAY", "Danh sách {product_id, qty, price (bỏ trống = giá bán)}"),
                 ["customer_id"] = ("STRING", "Id khách (từ find_customers) — bỏ trống = khách lẻ"),
                 ["customer_name"] = ("STRING", "Tên khách lẻ (khi không có trong danh bạ)"),
@@ -376,6 +379,7 @@ public sealed partial class AiAssistantActions(
         AddReviewFinders(c, allowed, decls);
         AddOpsFinders(c, allowed, decls);
         AddMoreFinders(c, allowed, decls);
+        AddWorkFinders(c, allowed, decls);
         foreach (var d in allowed)
             decls.Add(Fn(d.Name, d.Description + " CHỈ tạo bản nháp — người dùng bấm Xác nhận mới ghi.", KindParams(c, d), d.Required));
         return decls;
@@ -437,7 +441,14 @@ public sealed partial class AiAssistantActions(
         - Nhập hàng theo gợi ý: find_reorder_suggestions → người dùng chốt → propose_purchase_receipt mỗi NCC một lần.
         - Xin nghỉ / cho nhân viên nghỉ: propose_leave (ca tự lấy theo lịch; báo lỗi thiếu ca → hỏi ca, find_shift_templates).
         - Báo giá: find_products từng hàng (+ find_customers) → propose_quote. Đặt bàn / phòng / lịch hẹn: find_resources → propose_reservation.
-        - Thêm nhân viên mới: propose_employee (họ tên bắt buộc; mã tự sinh).
+        - Thêm nhân viên mới: propose_employee (họ tên bắt buộc; mã tự sinh). Sửa hồ sơ / chuyển phòng / cho nghỉ việc:
+          find_employees → propose_update_employee (chỉ trường cần đổi).
+        - Đi công tác (+ xin tạm ứng): propose_business_trip. Kiến nghị / góp ý: propose_feedback.
+          Đăng ký / hủy suất ăn: find_meal_sessions → propose_meal.
+        - Duyệt chấm công mobile, đổi ca, đăng ký lịch, công tác phí: find_pending_requests → propose_review_requests như đơn khác.
+        - Khách đang ngồi gọi món, chưa trả tiền: propose_sale_order mode=draft (+ resource_id từ find_resources).
+        - Trả nợ nhà cung cấp: find_suppliers (xem dang_no) → propose_supplier_payment. Xuất hóa đơn điện tử: find_orders → propose_einvoice.
+        - Khách mang máy tới bảo hành: find_warranty (seri / IMEI / SĐT) → propose_warranty_claim.
         - Quy đổi lời nói: "năm trăm nghìn / năm trăm k / 500k" = 500000; "1 triệu rưỡi" = 1500000; "chiều nay 5 giờ" = 17:00.
         """;
 
@@ -446,7 +457,7 @@ public sealed partial class AiAssistantActions(
     public bool Handles(string tool) => tool is "find_employees" or "find_products" or "find_customers"
         or "find_cash_categories" or "find_records" or "find_suppliers" or "find_orders" or "find_categories"
         or "find_pending_requests"
-        || OpsFinders.Contains(tool) || MoreFinders.Contains(tool)
+        || OpsFinders.Contains(tool) || MoreFinders.Contains(tool) || WorkFinders.Contains(tool)
         || tool.StartsWith("propose_", StringComparison.Ordinal);
 
     public async Task<object> HandleAsync(string tool, JsonElement args, Ctx c, List<Pending> proposed, CancellationToken ct)
@@ -464,6 +475,7 @@ public sealed partial class AiAssistantActions(
             case "find_pending_requests": return await FindPendingRequestsAsync(c, a, ct);
             case "find_shift_templates" or "find_branches" or "find_reorder_suggestions": return await OpsFindAsync(tool, a, c, ct);
             case "find_resources": return await MoreFindAsync(tool, a, c, ct);
+            case "find_meal_sessions" or "find_warranty": return await WorkFindAsync(tool, a, c, ct);
             case "find_categories":
                 return new
                 {
@@ -1001,6 +1013,8 @@ public sealed partial class AiAssistantActions(
             customerName = await db.PosCustomers.AsNoTracking().Where(x => x.Id == cid && x.StoreId == c.StoreId)
                 .Select(x => x.Name).FirstOrDefaultAsync(ct) ?? throw new ActionError("Không tìm thấy khách — dùng find_customers.");
         }
+        if ((S(a, "mode") ?? "").ToLowerInvariant() is "draft" or "tạm" or "tam")
+            return await DraftSaleAsync(c, a, body, lines, warnings, discount, total, customerId, customerName, ct);
         var paidRaw = (S(a, "paid") ?? "full").Trim().ToLowerInvariant();
         var paid = paidRaw is "full" or "đủ" or "" ? total : paidRaw is "none" or "nợ" or "0" ? 0m : ParseMoney(paidRaw) ?? total;
         paid = Math.Min(paid, total);
@@ -1020,6 +1034,37 @@ public sealed partial class AiAssistantActions(
         }, "PosSaleOrders", warnings);
     }
 
+    /// <summary>Đơn tạm theo bàn / phòng (chưa thu tiền, chưa trừ kho) — thu ngân thanh toán sau ở màn bán hàng.</summary>
+    async Task<Pending> DraftSaleAsync(Ctx c, Dictionary<string, object?> a, List<object> body, List<Line> lines,
+        List<string> warnings, decimal discount, decimal total, Guid? customerId, string? customerName, CancellationToken ct)
+    {
+        string? place = null;
+        var rid = G(a, "resource_id");
+        if (rid is Guid r)
+        {
+            place = await db.PosServiceResources.AsNoTracking()
+                        .Where(x => x.Id == r && x.StoreId == c.StoreId && x.Deleted == null && x.IsActive)
+                        .Select(x => x.Name).FirstOrDefaultAsync(ct)
+                    ?? throw new ActionError("Bàn / phòng không hợp lệ — dùng find_resources.");
+            var open = await db.PosSaleOrders.AsNoTracking()
+                .Where(o => o.StoreId == c.StoreId && o.Deleted == null && o.Status == PosSaleOrderStatus.Draft && o.ServiceResourceId == r)
+                .Select(o => o.OrderNo).FirstOrDefaultAsync(ct);
+            if (open != null) throw new ActionError($"{place} đang có đơn tạm {open} — thêm món ở màn bán hàng (bấm vào bàn).");
+        }
+        warnings.RemoveAll(w => w.Contains(": tồn ")); // đơn tạm chưa trừ kho
+        if (discount > 0) lines.Add(new("Giảm giá", "-" + Vnd(discount)));
+        lines.Add(new("Tạm tính", Vnd(total)));
+        lines.Add(new("Bàn / phòng", place ?? "Mang về / không chọn bàn"));
+        lines.Add(new("Khách", customerName ?? "Khách lẻ"));
+        lines.Add(new("Thanh toán", "Chưa — thu ở màn bán hàng"));
+        return New(c, "sale_draft", "Đơn tạm", lines, "POST", "/api/pos/sales", new
+        {
+            lines = body, discount, paidAmount = 0m, paymentMethod = "Tiền mặt",
+            customerName, customerId, note = S(a, "note") ?? "Tạo bằng Trợ lý ảo", complete = false,
+            serviceResourceId = rid, clientRequestId = "ai-" + Guid.NewGuid().ToString("N"),
+        }, "PosSaleOrders", warnings);
+    }
+
     // ─── Hàng hóa / kho / khuyến mãi ───────────────────────────────
 
     async Task<object> FindSuppliersAsync(Ctx c, string? query, CancellationToken ct)
@@ -1028,11 +1073,11 @@ public sealed partial class AiAssistantActions(
         if (q.Length == 0) return new { error = "Thiếu tên nhà cung cấp" };
         var rows = await db.PosSuppliers.AsNoTracking()
             .Where(x => x.StoreId == c.StoreId && x.Deleted == null)
-            .Select(x => new { x.Id, x.Name, x.Phone })
+            .Select(x => new { x.Id, x.Name, x.Phone, x.CurrentDebt })
             .ToListAsync(ct);
         var list = rows.Select(x => (x, s: Score(VnSearch.Fold(x.Name), q))).Where(t => t.s > 0)
             .OrderByDescending(t => t.s).Take(8)
-            .Select(t => new { id = t.x.Id, ten = t.x.Name, sdt = t.x.Phone }).ToList();
+            .Select(t => new { id = t.x.Id, ten = t.x.Name, sdt = t.x.Phone, dang_no = t.x.CurrentDebt }).ToList();
         return list.Count == 0 ? new { ket_qua = "Không có nhà cung cấp khớp — có thể bỏ trống supplier_id" } : new { ket_qua = list };
     }
 

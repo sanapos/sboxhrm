@@ -20,10 +20,11 @@ public static class AiAssistantIntent
     {
         "propose_advance" or "propose_penalty" or "propose_update_penalty" or "propose_reward" or "propose_update_reward"
             or "propose_overtime" or "propose_attendance_fix" or "propose_penalties_for_late" or "propose_leave"
-            or "propose_employee" => Hr,
-        "propose_cash_voucher" or "propose_update_cash_voucher" or "propose_close_cashier_shift" => Cash,
+            or "propose_employee" or "propose_update_employee" or "propose_business_trip" or "propose_feedback"
+            or "propose_meal" => Hr,
+        "propose_cash_voucher" or "propose_update_cash_voucher" or "propose_close_cashier_shift" or "propose_supplier_payment" => Cash,
         "propose_sale_order" or "propose_customer_return" or "propose_collect_debt" or "propose_quote"
-            or "propose_reservation" => Sale,
+            or "propose_reservation" or "propose_einvoice" or "propose_warranty_claim" => Sale,
         "propose_product" or "propose_purchase_receipt" or "propose_stock_count" or "propose_damage_issue"
             or "propose_internal_use" or "propose_purchase_return" or "propose_update_product" or "propose_stock_transfer" => Stock,
         "propose_assign_shift" or "propose_shift_swap" => Shift,
@@ -40,11 +41,14 @@ public static class AiAssistantIntent
             "phạt", "thưởng", " ứng", "ứng lương", "tăng ca", "làm thêm", "chấm công", "quên chấm", "chấm bù", "bổ sung công",
             "đi trễ", "đi muộn", "về sớm", "lương", "nhân viên", "vắng", "nghỉ không phép", "nội quy",
             "nghỉ phép", "xin nghỉ", "cho nghỉ", "nghỉ ốm", "nghỉ bù", "phép năm", "tuyển", "người mới",
+            "công tác", "tạm ứng", "kiến nghị", "góp ý", "khiếu nại", "suất ăn", "đăng ký ăn", "cơm trưa", "hồ sơ",
+            "phòng ban", "chức vụ", "nghỉ việc", "thôi việc", "chuyển phòng", "sang phòng", "số tài khoản",
         ],
         [Cash] = ["phiếu thu", "phiếu chi", "thu tiền", "chi tiền", "sổ quỹ", "quỹ", "tiền điện", "tiền nước", "chi phí", "thu chi", "tiền nhà",
-            "chốt ca", "đóng ca", "kết ca", "đóng sổ", "chốt sổ", "két"],
+            "chốt ca", "đóng ca", "kết ca", "đóng sổ", "chốt sổ", "két", "trả nợ ncc", "trả nợ nhà cung cấp", "trả tiền hàng"],
         [Sale] = ["bán", "hóa đơn", "hoá đơn", "đơn hàng", "lên đơn", "tạo đơn", "khách", "trả hàng", "ghi nợ", "trả lại", "thu nợ", "công nợ", "đòi nợ", "trả nợ",
-            "báo giá", "bao gia", "đặt bàn", "đặt phòng", "đặt lịch", "đặt chỗ", "giữ bàn", "giữ phòng", "lịch hẹn", "hẹn khách"],
+            "báo giá", "bao gia", "đặt bàn", "đặt phòng", "đặt lịch", "đặt chỗ", "giữ bàn", "giữ phòng", "lịch hẹn", "hẹn khách",
+            "đơn tạm", "gọi món", "mở bàn", "hóa đơn điện tử", "hđđt", "xuất vat", "mã số thuế", "bảo hành", "sửa máy", "seri", "imei"],
         [Stock] =
         [
             "hàng", "kho", "nhập", "kiểm kê", "xuất hủy", "hủy hàng", "nội bộ", "nhà cung cấp", "ncc", "giá bán", "giá vốn",
@@ -52,7 +56,7 @@ public static class AiAssistantIntent
             "chuyển kho", "chi nhánh", "đặt hàng", "gợi ý nhập", "sắp hết",
         ],
         [Promo] = ["voucher", "mã giảm", "khuyến mãi", "khuyến mại", "giảm giá", "combo", "tặng", "giờ vàng", "đồng giá"],
-        [Review] = ["duyệt", "từ chối", "phê duyệt", "đơn chờ", "đơn phép", "đơn nghỉ", "xin nghỉ"],
+        [Review] = ["duyệt", "từ chối", "phê duyệt", "đơn chờ", "đơn phép", "đơn nghỉ", "xin nghỉ", "chấm công mobile", "chấm ngoài"],
         [Manage] =
         [
             "xóa", "xoá", "hủy", "huỷ", "bỏ phiếu", "ngừng theo dõi", "sửa thông tin", "đổi số", "đổi sđt", "sửa sđt",
@@ -91,6 +95,9 @@ public static class AiAssistantIntent
         "xin nghỉ", "cho nghỉ", "xin phép nghỉ", "tôi nghỉ", "em nghỉ", "mai nghỉ", "muốn nghỉ", "báo giá", "bao gia",
         "đặt bàn", "đặt phòng", "đặt lịch", "đặt chỗ", "giữ bàn", "giữ phòng", "hẹn lịch",
         "nhân viên mới", "tuyển thêm", "nhận thêm",
+        "công tác", "tạm ứng", "kiến nghị", "góp ý", "khiếu nại", "đăng ký ăn", "đăng ký suất", "hủy suất", "báo cơm",
+        "chuyển phòng", "sang phòng", "lên chức", "cho nghỉ việc", "nghỉ việc từ", "thôi việc", "trả nợ", "xuất hđđt", "xuất vat",
+        "hóa đơn điện tử", "nhận bảo hành", "tiếp nhận", "mở bàn", "gọi món", "đơn tạm",
     ];
 
     /// <summary>Câu muốn thêm / sửa / xóa / hủy / duyệt — cần công cụ đề xuất (bot rule chỉ mở form).</summary>

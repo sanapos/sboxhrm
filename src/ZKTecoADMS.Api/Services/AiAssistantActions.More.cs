@@ -103,7 +103,7 @@ public sealed partial class AiAssistantActions
 
     async Task<object> MoreFindAsync(string tool, Dictionary<string, object?> a, Ctx c, CancellationToken ct)
     {
-        if (!AllowedDefs(c).Any(d => d.Name == "propose_reservation"))
+        if (!AllowedDefs(c).Any(d => d.Name is "propose_reservation" or "propose_sale_order"))
             return new { error = "Tài khoản không có quyền đặt bàn / đặt lịch." };
         var rows = await db.PosServiceResources.AsNoTracking()
             .Where(r => r.StoreId == c.StoreId && r.Deleted == null && r.IsActive)
@@ -134,7 +134,7 @@ public sealed partial class AiAssistantActions
         "propose_quote" => Wrap(QuoteAsync(c, a, ct)),
         "propose_reservation" => Wrap(ReservationAsync(c, a, ct)),
         "propose_employee" => Wrap(EmployeeAsync(c, a, ct)),
-        _ => Task.FromResult<Pending?>(null),
+        _ => WorkProposalAsync(tool, c, a, ct),
     };
 
     static List<Step>? MoreUndoSteps(Pending p, string? docId, JsonNode? data)
@@ -151,7 +151,7 @@ public sealed partial class AiAssistantActions
             "employee" => new("DELETE", $"/api/Employees/{docId}", null),
             _ => null,
         };
-        return s == null ? null : [s];
+        return s == null ? WorkUndoSteps(p, docId) : [s];
     }
 
     // ─── 1. Nghỉ phép ──────────────────────────────────────────────
