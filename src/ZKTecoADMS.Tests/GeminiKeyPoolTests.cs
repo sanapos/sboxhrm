@@ -88,6 +88,18 @@ public class GeminiKeyPoolTests
     }
 
     [Fact]
+    public void Model_qua_tai_xep_cuoi()
+    {
+        var a = "model-a-" + Guid.NewGuid().ToString("N")[..6];
+        var b = "model-b-" + Guid.NewGuid().ToString("N")[..6];
+        Assert.Equal([a, b], GeminiKeyPool.OrderModels([a, b, a]));
+        // Thử trên C20 03/11/2026: Google trả 503 «high demand» sau ~25s mỗi lần, thử lần lượt khóa × model → proxy 504.
+        GeminiKeyPool.MarkModelOverloaded(a, TimeSpan.FromMinutes(1));
+        Assert.True(GeminiKeyPool.IsModelOverloaded(a));
+        Assert.Equal([b, a], GeminiKeyPool.OrderModels([a, b]));
+    }
+
+    [Fact]
     public void Bao_loi_lenh_lap_phieu_khong_khuyen_xem_bao_cao()
     {
         var quota = new AiApiException(GeminiAiService.QuotaMessage, 429);

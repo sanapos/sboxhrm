@@ -69,6 +69,24 @@ public static class GeminiKeyPool
     public static bool IsCoolingDown(string key) =>
         CoolingUntil.TryGetValue(Fingerprint(key), out var until) && until > DateTime.UtcNow;
 
+    // ── Model quá tải (503 «high demand») ─────────────────────────────────
+    // Quá tải tính theo MODEL cho mọi khóa — Google mất ~20–25s mới trả 503, đổi khóa không giúp mà chỉ kéo dài tới khi
+    // proxy cắt (504). Ghi nhớ để các lời gọi sau dùng model khác ngay.
+    static readonly ConcurrentDictionary<string, DateTime> OverloadedUntil = new(StringComparer.OrdinalIgnoreCase);
+
+    public static void MarkModelOverloaded(string model, TimeSpan duration) =>
+        OverloadedUntil[model] = DateTime.UtcNow + duration;
+
+    public static bool IsModelOverloaded(string model) =>
+        OverloadedUntil.TryGetValue(model, out var until) && until > DateTime.UtcNow;
+
+    /// <summary>Model chưa quá tải trước (giữ thứ tự), model đang quá tải xếp cuối.</summary>
+    public static List<string> OrderModels(IEnumerable<string> models)
+    {
+        var list = models.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return [.. list.Where(m => !IsModelOverloaded(m)), .. list.Where(IsModelOverloaded)];
+    }
+
     /// <summary>Khóa sẵn sàng trước, khóa đang nghỉ xếp cuối (vẫn thử nếu mọi khóa đều nghỉ).</summary>
     public static List<int> OrderForUse(IReadOnlyList<string> keys)
     {

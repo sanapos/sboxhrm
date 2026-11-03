@@ -131,34 +131,52 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
 
     internal static bool IsModelUnavailable(AiApiException ex) => ex.StatusCode is 404 or 503;
 
-    /// <summary>Gọi trên 1 khóa: model đã chọn, lỗi model / quá tải thì thử các model dự phòng.</summary>
-    private async Task<T> CallOnKeyAsync<T>((string Key, GeminiConfig Config) entry, Func<Task<T>> call)
+    /// <summary>Model vừa trả 503 «high demand» được xếp cuối trong khoảng này.</summary>
+    internal static readonly TimeSpan OverloadWindow = TimeSpan.FromSeconds(90);
+
+    /// <summary>Mọi model dùng được đều đang quá tải — gọi lại ngay cũng chỉ chờ thêm 20–25s rồi lỗi.</summary>
+    public static bool AllModelsOverloaded() => FallbackModels.All(GeminiKeyPool.IsModelOverloaded);
+
+    /// <summary>
+    /// Gọi trên 1 khóa: model đã chọn, lỗi model / quá tải thì thử các model dự phòng. Model vừa quá tải (503) bỏ qua;
+    /// mọi model đều quá tải thì chỉ thử một — mỗi lần Google trả 503 mất 20–25s.
+    /// [fixedModel]: lời gọi chỉ định model (giọng đọc…) — không đổi model.
+    /// </summary>
+    private async Task<T> CallOnKeyAsync<T>((string Key, GeminiConfig Config) entry, Func<Task<T>> call, string? fixedModel = null)
     {
         UseKey(entry);
-        try
+        if (fixedModel != null)
         {
-            return await call();
-        }
-        catch (AiApiException ex) when (IsModelUnavailable(ex))
-        {
-            AiApiException last = ex;
-            foreach (var model in FallbackModels.Where(m => !string.Equals(m, entry.Config.Model, StringComparison.OrdinalIgnoreCase)))
+            try { return await call(); }
+            catch (AiApiException ex) when (ex.StatusCode == 503)
             {
-                UseKey(entry, model);
-                try
-                {
-                    var r = await call();
-                    _logger.LogInformation("Gemini key {Mask}: model {Model} không dùng được ({Status}) — đã chạy bằng {Fallback}",
-                        GeminiKeyPool.Mask(entry.Key), entry.Config.Model, ex.StatusCode, model);
-                    return r;
-                }
-                catch (AiApiException e2) when (IsModelUnavailable(e2))
-                {
-                    last = e2;
-                }
+                GeminiKeyPool.MarkModelOverloaded(fixedModel, OverloadWindow);
+                throw;
             }
-            throw last;
         }
+        var models = GeminiKeyPool.OrderModels(
+            string.IsNullOrWhiteSpace(entry.Config.Model) ? FallbackModels : [entry.Config.Model, .. FallbackModels]);
+        var tries = models.Where(m => !GeminiKeyPool.IsModelOverloaded(m)).ToList();
+        if (tries.Count == 0) tries = [models[0]];
+        AiApiException? last = null;
+        foreach (var model in tries)
+        {
+            UseKey(entry, model);
+            try
+            {
+                var r = await call();
+                if (last != null)
+                    _logger.LogInformation("Gemini key {Mask}: model {Model} không dùng được ({Status}) — đã chạy bằng {Fallback}",
+                        GeminiKeyPool.Mask(entry.Key), entry.Config.Model, last.StatusCode, model);
+                return r;
+            }
+            catch (AiApiException ex) when (IsModelUnavailable(ex))
+            {
+                if (ex.StatusCode == 503) GeminiKeyPool.MarkModelOverloaded(model, OverloadWindow);
+                last = ex;
+            }
+        }
+        throw last!;
     }
 
     /// <summary>Hết lượt: nghỉ khóa với model đang gọi. Khóa sai / hết hạn: nghỉ cho mọi model.</summary>
@@ -221,12 +239,14 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
             {
                 try
                 {
-                    return await CallOnKeyAsync(_chain[i], call);
+                    return await CallOnKeyAsync(_chain[i], call, poolTag);
                 }
                 catch (Exception ex) when (ex is AiApiException { IsQuotaError: true } or AiApiException { IsAuthError: true }
                                            || ex is AiApiException m && IsModelUnavailable(m) || IsTransient(ex))
                 {
                     var api = ex as AiApiException;
+                    // Model quá tải (đã thử các model dự phòng) là chung mọi khóa — đổi khóa chỉ chờ thêm, trả lỗi ngay.
+                    if (api?.StatusCode == 503) throw;
                     if (api is { IsQuotaError: true } or { IsAuthError: true })
                     {
                         var cool = api.IsQuotaError ? QuotaCooldown(api) : TimeSpan.FromHours(6);

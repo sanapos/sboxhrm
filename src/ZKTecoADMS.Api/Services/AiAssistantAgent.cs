@@ -148,7 +148,8 @@ public sealed class AiAssistantAgent(
                 await Reset();
                 content = await Generate(Body(), model);
             }
-            catch (Exception ex) when (ex is not AiApiException { IsQuotaError: true } && TenantScopedGeminiAiService.IsTransient(ex))
+            catch (Exception ex) when (ex is not AiApiException { IsQuotaError: true } && TenantScopedGeminiAiService.IsTransient(ex)
+                                       && !TenantScopedGeminiAiService.AllModelsOverloaded())
             {
                 // Google quá tải / luồng trả lời đứt giữa chừng thường chỉ vài giây — thử lại một lần (lại qua vòng chọn khóa).
                 await Task.Delay(2000, ct);

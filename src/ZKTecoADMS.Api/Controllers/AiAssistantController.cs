@@ -242,7 +242,7 @@ public class AiAssistantController(
     {
         var why = ex is AiApiException { IsQuotaError: true } q
             ? q.DailyQuota ? "Trợ lý ảo đã dùng hết lượt AI trong ngày." : "Trợ lý ảo đang nhận quá nhiều yêu cầu cùng lúc."
-            : "Máy chủ AI đang bận.";
+            : ex is AiApiException { StatusCode: 503 } ? "Máy chủ AI của Google đang quá tải." : "Máy chủ AI đang bận.";
         return action
             ? why + " Chưa lập / sửa gì cả — bạn gửi lại yêu cầu sau khoảng 1 phút, hoặc tự thao tác trên màn tương ứng."
             : why + " Bạn thử lại sau khoảng 1 phút, hoặc mở trực tiếp màn Báo cáo để xem số liệu.";
