@@ -46,8 +46,8 @@ class ApiService implements PayrollApi {
 
   static Future<void> loadSavedBaseUrl() async {
     // Public SBOX POS (App Store / Play) stays on the server baked in at build.
-    // Đánh giá lại mặc định: flavor `pos` không truyền API_BASE_URL → sboxpos.com.
-    if (SboxAppVariant.standalonePos) {
+    // Đánh giá lại mặc định: flavor `pos` / `boss` không truyền API_BASE_URL → sboxpos.com.
+    if (SboxAppVariant.standalonePos || SboxAppVariant.bossApp) {
       _baseUrl = getApiBaseUrl();
       return;
     }
@@ -60,8 +60,8 @@ class ApiService implements PayrollApi {
 
   /// Lưu máy chủ sau khi gọi thử /api/publicsettings. Trả về lỗi, hoặc null nếu được.
   static Future<String?> applyBaseUrl(String raw) async {
-    if (SboxAppVariant.standalonePos) {
-      return 'Bản SBOX POS trên cửa hàng ứng dụng dùng máy chủ đã gắn khi build.';
+    if (SboxAppVariant.standalonePos || SboxAppVariant.bossApp) {
+      return 'Bản ${SboxAppVariant.productLine} trên cửa hàng ứng dụng dùng máy chủ đã gắn khi build.';
     }
     final normalized = normalizeBaseUrl(raw);
     final uri = Uri.tryParse(normalized);
@@ -9870,6 +9870,19 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/Dashboard/full')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await sharedHttpClient.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// SBOX BOSS: tổng quan hôm nay (doanh thu so cùng giờ hôm qua / tuần trước, theo giờ, PTTT,
+  /// bàn đang mở, nhân viên đã chấm công) — lọc theo chi nhánh đang xem (header X-Branch-Id).
+  Future<Map<String, dynamic>> getBossDashboard() async {
+    try {
+      final response = await sharedHttpClient
+          .get(Uri.parse('$baseUrl/api/pos/reports/boss/dashboard'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

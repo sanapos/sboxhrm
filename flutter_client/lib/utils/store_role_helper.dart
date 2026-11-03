@@ -49,6 +49,20 @@ class StoreRoleHelper {
     }
   }
 
+  /// Được dùng app SBOX BOSS: chủ cửa hàng (Admin), giám đốc, quản lý (khớp IsManager phía máy chủ,
+  /// bỏ trưởng bộ phận — chỉ quản lý nhân sự bộ phận, không xem doanh thu cửa hàng).
+  static bool isBossRole(String? role) {
+    switch (_norm(role)) {
+      case 'admin':
+      case 'storeowner':
+      case 'director':
+      case 'manager':
+        return true;
+      default:
+        return false;
+    }
+  }
+
   /// Tài khoản thu ngân / phục vụ — ưu tiên vào màn Bán hàng sau đăng nhập.
   static bool isPosCashierRole(String? role) {
     final r = _norm(role);

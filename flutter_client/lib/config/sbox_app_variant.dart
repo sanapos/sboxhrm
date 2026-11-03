@@ -5,9 +5,12 @@ import 'package:package_info_plus/package_info_plus.dart';
 ///
 /// Bật POS bằng `--flavor pos` (package `sbox.sana.vn.pos`) và/hoặc
 /// `--dart-define=SBOX_POS_STANDALONE=true`.
+/// SBOX BOSS (app chủ cửa hàng): `--flavor boss` (package `sbox.sana.vn.boss`) và/hoặc
+/// `--dart-define=SBOX_APP=boss` — chỉ chủ / quản lý đăng nhập, mở thẳng màn tổng quan BOSS.
 /// Web: `sboxpos.com` chỉ branding POS; `sboxhrm.com` chỉ branding HRM.
 abstract final class SboxAppVariant {
   static const androidPosApplicationId = 'sbox.sana.vn.pos';
+  static const androidBossApplicationId = 'sbox.sana.vn.boss';
   static const posGreen = 0xFF2E7D32;
   static const hrmBlue = 0xFF0C56D0;
 
@@ -16,9 +19,16 @@ abstract final class SboxAppVariant {
     defaultValue: false,
   );
 
+  static const bool _bossFromDefine =
+      String.fromEnvironment('SBOX_APP') == 'boss';
+
   static bool _fromPackage = false;
+  static bool _bossFromPackage = false;
 
   static bool get standalonePos => _fromDefine || _fromPackage;
+
+  /// App SBOX BOSS: đăng nhập xong mở shell BOSS (tổng quan / cuối ngày), không vào HRM hay POS.
+  static bool get bossApp => _bossFromDefine || _bossFromPackage;
 
   /// Trang web sboxpos.com — chỉ đổi logo/chữ login & marketing, không đổi shell app.
   static bool get posWebHost {
@@ -31,17 +41,24 @@ abstract final class SboxAppVariant {
 
   static bool get posBranding => standalonePos || posWebHost;
 
-  static String get productLine => posBranding ? 'SBOX POS' : 'SBOX HRM';
+  static String get productLine =>
+      bossApp ? 'SBOX BOSS' : (posBranding ? 'SBOX POS' : 'SBOX HRM');
 
-  static String get slogan => posBranding
+  static String get slogan => bossApp
+      ? 'Nắm cửa hàng mọi lúc, mọi nơi'
+      : posBranding
       ? 'Giải pháp toàn diện giúp cửa hàng vận hành hiệu quả, tối ưu doanh thu'
       : 'Chấm công nhanh · Tính lương chuẩn';
 
-  static String get loginHeroTitle => posBranding
+  static String get loginHeroTitle => bossApp
+      ? 'Doanh thu, rủi ro, việc cần duyệt\nngay trên điện thoại'
+      : posBranding
       ? 'Bán hàng nhanh\nQuản lý cửa hàng chuẩn'
       : 'Chấm công & tính lương\nthời gian thực';
 
-  static String get loginSubtitle => posBranding
+  static String get loginSubtitle => bossApp
+      ? 'Đăng nhập bằng tài khoản chủ / quản lý cửa hàng.'
+      : posBranding
       ? 'Nhập thông tin để vào SBOX POS.'
       : 'Nhập thông tin để truy cập hệ thống quản trị.';
 
@@ -55,8 +72,7 @@ abstract final class SboxAppVariant {
   static String get registerButton =>
       posBranding ? 'Đăng ký cửa hàng' : 'Đăng ký doanh nghiệp';
 
-  static String get copyright =>
-      posBranding ? '© 2026 SBOX POS' : '© 2026 SBOX HRM';
+  static String get copyright => '© 2026 $productLine';
 
   static String get logoAsset =>
       posBranding ? 'assets/sbox_pos_logo.png' : 'assets/logo.png';
@@ -64,10 +80,11 @@ abstract final class SboxAppVariant {
   static String get materialAppTitle => productLine;
 
   static Future<void> bootstrap() async {
-    if (_fromDefine || kIsWeb) return;
+    if (_fromDefine || _bossFromDefine || kIsWeb) return;
     try {
       final info = await PackageInfo.fromPlatform();
       _fromPackage = info.packageName == androidPosApplicationId;
+      _bossFromPackage = info.packageName == androidBossApplicationId;
     } catch (_) {}
   }
 }

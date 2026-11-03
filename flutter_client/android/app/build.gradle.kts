@@ -44,7 +44,7 @@ android {
         }
     }
 
-    // hrm = Play listing hiện tại (sbox.sana.vn). pos = listing SBOX POS mới.
+    // hrm = Play listing hiện tại (sbox.sana.vn). pos = listing SBOX POS mới. boss = SBOX BOSS (app chủ cửa hàng).
     flavorDimensions += "app"
     productFlavors {
         create("hrm") {
@@ -55,6 +55,10 @@ android {
         create("pos") {
             dimension = "app"
             applicationId = "sbox.sana.vn.pos"
+        }
+        create("boss") {
+            dimension = "app"
+            applicationId = "sbox.sana.vn.boss"
         }
     }
 
@@ -80,6 +84,17 @@ android {
 
 flutter {
     source = "../.."
+}
+
+// SBOX BOSS chưa có app Android trên Firebase (google-services.json chưa có sbox.sana.vn.boss) → bỏ bước
+// google-services của flavor boss để build được; Dart vẫn khởi tạo Firebase qua firebase_options.dart.
+// Đăng ký app trên Firebase rồi tải lại google-services.json là bước này tự chạy lại.
+val bossInFirebase = listOf(file("google-services.json"), file("src/boss/google-services.json"))
+    .any { it.exists() && it.readText().contains("\"sbox.sana.vn.boss\"") }
+if (!bossInFirebase) {
+    tasks.configureEach {
+        if (name.startsWith("processBoss") && name.endsWith("GoogleServices")) enabled = false
+    }
 }
 
 dependencies {

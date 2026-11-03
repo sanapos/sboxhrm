@@ -30,6 +30,7 @@ import '../screens/admin_login_screen.dart';
 import '../screens/landing_guide_screen.dart';
 import '../screens/pos/pos_customer_display_screen.dart';
 import '../screens/pos/pos_standalone_shell.dart';
+import '../features/boss/boss_shell.dart';
 import '../config/sbox_app_variant.dart';
 import '../utils/media_query_safe_padding.dart';
 import '../utils/play_system_ui.dart';
@@ -203,7 +204,7 @@ class ZKTecoApp extends StatelessWidget {
               }
               return const ForgotPasswordScreen();
             },
-            '/admin': (context) => SboxAppVariant.standalonePos
+            '/admin': (context) => SboxAppVariant.standalonePos || SboxAppVariant.bossApp
                 ? const LoginScreen()
                 : const _AdminRouteGuard(),
             '/login-app': (context) => const LoginScreen(),
@@ -279,7 +280,7 @@ class ZKTecoApp extends StatelessWidget {
                     : const LoginScreen();
               }
               if (StoreRoleHelper.isSystemPortalRole(state.role)) {
-                if (SboxAppVariant.standalonePos) {
+                if (SboxAppVariant.standalonePos || SboxAppVariant.bossApp) {
                   return const _StandalonePosAdminBlocked();
                 }
                 final agentMode = state.role.toLowerCase() == 'agent';
@@ -288,6 +289,9 @@ class ZKTecoApp extends StatelessWidget {
                   builder: () =>
                       system_admin.SystemAdminScreen(agentMode: agentMode),
                 );
+              }
+              if (SboxAppVariant.bossApp) {
+                return const BossShell();
               }
               if (SboxAppVariant.standalonePos) {
                 return const PosStandaloneShell();
