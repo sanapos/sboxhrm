@@ -3684,6 +3684,9 @@ public class ZKTecoDbInitializer(
             // Một lần: phiếu thu / chi cũ → nguồn chuẩn + chi nhánh của chứng từ gốc.
             try { await ZKTecoADMS.Infrastructure.Services.CashSourceBackfill.RunAsync(context, logger); }
             catch (Exception ex) { logger.LogWarning(ex, "Cash source backfill failed — sẽ thử lại lần khởi động sau"); }
+            // Một lần: cửa hàng đang dùng Print Agent giữ được in từ máy nhân viên khi gói chưa tick «Máy in cloud».
+            try { await ZKTecoADMS.Infrastructure.Services.PrintAgentPackageBackfill.RunAsync(context, logger); }
+            catch (Exception ex) { logger.LogWarning(ex, "Print Agent package backfill failed — sẽ thử lại lần khởi động sau"); }
 
             try
             {

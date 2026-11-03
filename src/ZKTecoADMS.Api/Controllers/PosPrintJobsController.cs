@@ -5,6 +5,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -17,7 +18,8 @@ namespace ZKTecoADMS.Api.Controllers;
 [Authorize]
 public partial class PosPrintJobsController(
     ZKTecoDbContext db,
-    IPosPrintDispatchService dispatch) : AuthenticatedControllerBase
+    IPosPrintDispatchService dispatch,
+    IModulePermissionService permissions) : AuthenticatedControllerBase
 {
     public record CreateJobDto(
         string DocumentType,
@@ -103,6 +105,26 @@ public partial class PosPrintJobsController(
         return StatusCode(StatusCodes.Status403Forbidden,
             AppResponse<object>.Fail(
                 "Thiết bị đang là print agent của tài khoản khác. Đợi offline hoặc dùng tài khoản đó."));
+    }
+
+    /// <summary>
+    /// Biến một thiết bị MỚI thành Print Agent là thiết lập máy in — cần quyền Sửa «Máy in» (chủ / quản lý).
+    /// Agent đã có (máy quầy do quản lý bật) vẫn heartbeat bằng quyền bán hàng, để thu ngân / order
+    /// đăng nhập máy đó vẫn in được phiếu QR order, đơn Tingee.
+    /// </summary>
+    async Task<ActionResult?> DenyIfCannotCreateAgentAsync(string deviceId)
+    {
+        var exists = await db.PosPrintAgents.AsNoTracking()
+            .AnyAsync(a => a.StoreId == RequiredStoreId && a.DeviceId == deviceId && a.Deleted == null);
+        if (exists) return null;
+
+        if (await permissions.HasPermissionAsync(
+                CurrentUserId, CurrentUserRole, CurrentStoreId, "PosPrinters", ModulePermissionAction.Edit))
+            return null;
+
+        return StatusCode(StatusCodes.Status403Forbidden,
+            AppResponse<object>.Fail(
+                "Chỉ chủ cửa hàng / quản lý (quyền Sửa «Máy in») được bật Print Agent trên thiết bị mới."));
     }
 
     [HttpGet("agents")]
@@ -382,6 +404,9 @@ public partial class PosPrintJobsController(
 
         var hijack = await DenyIfAgentDeviceHijackAsync(dto.DeviceId.Trim());
         if (hijack != null) return hijack;
+
+        var notManager = await DenyIfCannotCreateAgentAsync(dto.DeviceId.Trim());
+        if (notManager != null) return notManager;
 
         var display = dto.EmployeeName?.Trim();
         if (string.IsNullOrWhiteSpace(display))

@@ -244,6 +244,7 @@ class _PosSellMobilePrintSettingsScreenState
   }
 
   Future<void> _save() async {
+    if (_readOnly) return;
     await _print.save();
     if (!mounted) return;
     NotificationOverlayManager()
@@ -440,7 +441,7 @@ class _PosSellMobilePrintSettingsScreenState
                 ),
                 IconButton(
                   tooltip: tr('Lưu'),
-                  onPressed: _loading ? null : _save,
+                  onPressed: _loading || _readOnly ? null : _save,
                   icon: const Icon(Icons.save_outlined),
                 ),
               ],
@@ -478,13 +479,14 @@ class _PosSellMobilePrintSettingsScreenState
                           label: Text(tr('Hàng đợi in')),
                         ),
                       FilledButton(
-                        onPressed: _loading ? null : _save,
+                        onPressed: _loading || _readOnly ? null : _save,
                         child: Text(tr('Lưu')),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
                 ],
+                if (_readOnly) _readOnlyNote(),
                 _sectionTitle('Khi thanh toán'),
                 _card([
                   SwitchListTile(
@@ -743,10 +745,39 @@ class _PosSellMobilePrintSettingsScreenState
         ),
       );
 
+  /// Thiết lập in của máy là cấu hình máy in — chỉ người có quyền Sửa «Máy in» (chủ / quản lý) đổi được.
+  /// Lưu trên máy nên server không chặn được, chặn ở đây.
+  bool get _readOnly =>
+      !Provider.of<PermissionProvider>(context, listen: false).canEdit('PosPrinters');
+
+  Widget _readOnlyNote() => Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Material(
+          color: SboxColors.warningSoft,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(children: [
+              const Icon(Icons.lock_outline, size: 20, color: Color(0xFF9A3412)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  tr('Chỉ xem — chỉ chủ cửa hàng / quản lý (quyền Sửa «Máy in») được đổi thiết lập in.'),
+                  style: const TextStyle(fontSize: 13, height: 1.35, color: Color(0xFF9A3412)),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      );
+
   Widget _card(List<Widget> children) => Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        child: Column(children: children),
+        child: IgnorePointer(
+          ignoring: _readOnly,
+          child: Opacity(opacity: _readOnly ? 0.6 : 1, child: Column(children: children)),
+        ),
       );
 }
 

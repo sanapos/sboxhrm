@@ -405,10 +405,19 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
     await PosProductPrinterService.instance.invalidate();
   }
 
+  void _showViewOnly() {
+    NotificationOverlayManager().show(
+      title: 'Chỉ xem',
+      message: tr('Chỉ chủ cửa hàng / quản lý (quyền Sửa «Máy in») được thêm, sửa, xóa máy in.'),
+      duration: const Duration(seconds: 3),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Gán sản phẩm cho máy in lưu trên server → cần quyền Sửa máy in.
-    final canAssign = context.watch<PermissionProvider>().canEdit('PosPrinters');
+    // Thêm / sửa / xóa / vai trò / gán món: quyền Sửa «Máy in» — nhân viên order chỉ in thử, tìm lại IP.
+    // Cấu hình lưu trên máy nên server không chặn được, phải chặn ở đây.
+    final canEditPrinters = context.watch<PermissionProvider>().canEdit('PosPrinters');
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
@@ -421,13 +430,14 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
       ),
       // Thao tác phụ gom vào nút nổi có chữ (trước là 4 biểu tượng không chữ trên thanh tiêu đề).
       floatingActionButton: SboxActionFab(actions: [
-        SboxFabAction(icon: Icons.add, label: 'Thêm máy in', onTap: () => _edit()),
+        if (canEditPrinters)
+          SboxFabAction(icon: Icons.add, label: 'Thêm máy in', onTap: () => _edit()),
         SboxFabAction(
           icon: Icons.wifi_tethering,
           label: 'Kiểm tra kết nối',
           onTap: _loading ? null : () => unawaited(_refreshLinkStatus()),
         ),
-        if (canAssign)
+        if (canEditPrinters)
           SboxFabAction(
             icon: Icons.link,
             label: 'Gán sản phẩm (mọi máy)',
@@ -436,12 +446,13 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
               MaterialPageRoute(builder: (_) => const PosProductPrinterAssignmentScreen()),
             ),
           ),
-        SboxFabAction(
-          icon: Icons.cloud_upload_outlined,
-          label: 'Đồng bộ lên server',
-          busy: _syncing,
-          onTap: _syncAll,
-        ),
+        if (canEditPrinters)
+          SboxFabAction(
+            icon: Icons.cloud_upload_outlined,
+            label: 'Đồng bộ lên server',
+            busy: _syncing,
+            onTap: _syncAll,
+          ),
       ]),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -532,7 +543,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                   ..._items.map((p) {
                     final roles =
                         p.roles.map(PosLocalPrinterRoles.label).join(' · ');
-                    final canAssign =
+                    final canAssign = canEditPrinters &&
                         PosLocalPrinterRoles.needsProductAssignment(p.roles);
                     final link = _linkStatus[p.id] ??
                         PosPrinterLinkStatus.unknown;
@@ -619,18 +630,20 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                                       value: 'relocate',
                                       child: Text(tr('Tìm lại IP (máy in đổi IP)')),
                                     ),
-                                  PopupMenuItem(
-                                      value: 'edit', child: Text(tr('Sửa'))),
+                                  if (canEditPrinters)
+                                    PopupMenuItem(
+                                        value: 'edit', child: Text(tr('Sửa'))),
                                   if (canAssign)
                                     PopupMenuItem(
                                       value: 'assign',
                                       child: Text(tr('Gán sản phẩm')),
                                     ),
-                                  PopupMenuItem(
-                                      value: 'delete', child: Text(tr('Xóa'))),
+                                  if (canEditPrinters)
+                                    PopupMenuItem(
+                                        value: 'delete', child: Text(tr('Xóa'))),
                                 ],
                               ),
-                              onTap: () => _edit(p),
+                              onTap: canEditPrinters ? () => _edit(p) : _showViewOnly,
                             ),
                             if (lost &&
                                 p.enabled &&
@@ -671,6 +684,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                     );
                   }),
                 const SizedBox(height: 8),
+                if (canEditPrinters)
                 Align(
                   alignment: Alignment.centerLeft,
                   child: FilledButton.icon(

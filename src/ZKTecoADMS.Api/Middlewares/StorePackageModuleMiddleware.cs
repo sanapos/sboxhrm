@@ -200,23 +200,46 @@ public class StorePackageModuleMiddleware
         if (!allowed.Contains(module, StringComparer.OrdinalIgnoreCase) &&
             !IsImplicitlyAllowed(path, context.Request.Method, module, allowed))
         {
-            _logger.LogWarning(
-                "Package block: store {StoreId} role {Role} path {Path} module {Module}",
-                storeId, role, path, module);
+            await DenyAsync(context, storeId, role, path, module,
+                $"Gói dịch vụ của cửa hàng không bao gồm chức năng \"{module}\". Vui lòng nâng cấp gói.");
+            return;
+        }
 
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            context.Response.Headers["X-SBOX-Error-Code"] = "PACKAGE_MODULE_DENIED";
-            await context.Response.WriteAsJsonAsync(new
-            {
-                isSuccess = false,
-                message = $"Gói dịch vụ của cửa hàng không bao gồm chức năng \"{module}\". Vui lòng nâng cấp gói.",
-                errors = new[] { "PACKAGE_MODULE_DENIED" }
-            });
+        if (IsStaffCloudPrintSubmit(path, context.Request.Method) &&
+            !PosPackageDefaults.AllowsStaffCloudPrint(allowed))
+        {
+            await DenyAsync(context, storeId, role, path, PosPackageDefaults.PrintAgentModule,
+                "Gói dịch vụ chưa có «Máy in cloud (Print Agent)» — máy này không gửi lệnh in qua máy in dùng chung được. " +
+                "In bằng máy in nối trực tiếp hoặc nâng cấp gói.");
             return;
         }
 
         await _next(context);
     }
+
+    async Task DenyAsync(HttpContext context, Guid storeId, string? role, string path, string module, string message)
+    {
+        _logger.LogWarning(
+            "Package block: store {StoreId} role {Role} path {Path} module {Module}",
+            storeId, role, path, module);
+
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        context.Response.Headers["X-SBOX-Error-Code"] = "PACKAGE_MODULE_DENIED";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            isSuccess = false,
+            message,
+            errors = new[] { "PACKAGE_MODULE_DENIED" }
+        });
+    }
+
+    /// <summary>
+    /// Máy nhân viên tạo lệnh in cloud (POST /api/pos/print-jobs) — cần gói Print Agent. In lại / hủy / Agent
+    /// nhận lệnh vẫn theo gói Bán hàng: phiếu QR order, Tingee do máy chủ tạo vẫn in qua Agent.
+    /// </summary>
+    public static bool IsStaffCloudPrintSubmit(string path, string method) =>
+        HttpMethods.IsPost(method) &&
+        path.TrimEnd('/').Equals("/api/pos/print-jobs", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Module theo đường dẫn API (dùng chung cho gói dịch vụ + Lịch sử thao tác).</summary>
     public static string? ResolveModule(string path)

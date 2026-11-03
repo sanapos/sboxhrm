@@ -17,13 +17,13 @@ namespace ZKTecoADMS.Tests.Pos;
 [Collection("pos-pg")]
 public class PosPrintDispatchTests(PosPgFixture fx)
 {
-    sealed class NullHub : IHubContext<AttendanceHub>
+    internal sealed class NullHub : IHubContext<AttendanceHub>
     {
         public IHubClients Clients { get; } = new NullClients();
         public IGroupManager Groups { get; } = new NullGroups();
     }
 
-    sealed class NullClients : IHubClients
+    internal sealed class NullClients : IHubClients
     {
         static readonly IClientProxy P = new NullProxy();
         public IClientProxy All => P;
@@ -37,12 +37,12 @@ public class PosPrintDispatchTests(PosPgFixture fx)
         public IClientProxy Users(IReadOnlyList<string> userIds) => P;
     }
 
-    sealed class NullProxy : IClientProxy
+    internal sealed class NullProxy : IClientProxy
     {
         public Task SendCoreAsync(string method, object?[] args, CancellationToken ct = default) => Task.CompletedTask;
     }
 
-    sealed class NullGroups : IGroupManager
+    internal sealed class NullGroups : IGroupManager
     {
         public Task AddToGroupAsync(string connectionId, string groupName, CancellationToken ct = default) => Task.CompletedTask;
         public Task RemoveFromGroupAsync(string connectionId, string groupName, CancellationToken ct = default) => Task.CompletedTask;

@@ -5,6 +5,16 @@ public static class PosPackageDefaults
 {
     public const string BasicPackageName = "POS Cơ bản";
 
+    /// <summary>
+    /// Gói «Máy in cloud (Print Agent)»: máy nhân viên (điện thoại order, máy quầy in sang máy bếp…) gửi lệnh in
+    /// qua Agent. Phải tick đúng mã này — không suy từ PosPrinters như màn thiết lập. Gói không có: Agent vẫn in
+    /// phiếu QR order / Tingee do máy chủ tạo, chỉ máy nhân viên không gửi lệnh in cloud.
+    /// </summary>
+    public const string PrintAgentModule = "PosStorePrinters";
+
+    public static bool AllowsStaffCloudPrint(IEnumerable<string> allowedModules) =>
+        allowedModules.Contains(PrintAgentModule, StringComparer.OrdinalIgnoreCase);
+
     /// <summary>14 báo cáo POS tách riêng — tick Super Admin / phân quyền.</summary>
     public static readonly string[] ReportModules =
     [

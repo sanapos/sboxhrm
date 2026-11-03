@@ -808,11 +808,12 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
             MaterialPageRoute(builder: (_) => const PosNetworkReportScreen()),
           ),
         ),
-        SboxFabAction(
-          icon: Icons.cleaning_services_outlined,
-          label: 'Dọn máy in cũ',
-          onTap: _cleanupStalePrinters,
-        ),
+        if (_canManageCloudPrinters)
+          SboxFabAction(
+            icon: Icons.cleaning_services_outlined,
+            label: 'Dọn máy in cũ',
+            onTap: _cleanupStalePrinters,
+          ),
         SboxFabAction(icon: Icons.refresh, label: 'Tải lại', onTap: _load),
       ]);
 
@@ -1265,7 +1266,8 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 ),
                 Switch(
                   value: _agent.enabled,
-                  onChanged: _toggleAgent,
+                  // Bật Agent / đổi máy chia sẻ là thiết lập máy in; người chỉ Xem vẫn tắt được Agent trên máy mình.
+                  onChanged: _canManageCloudPrinters || _agent.enabled ? _toggleAgent : null,
                 ),
               ],
             ),
@@ -1303,7 +1305,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                       checkmarkColor: Colors.white,
                       backgroundColor: const Color(0xFFE0F2FE),
                       side: const BorderSide(color: Color(0xFF7DD3FC)),
-                      onSelected: _agentAssignBusy
+                      onSelected: _agentAssignBusy || !_canManageCloudPrinters
                           ? null
                           : (v) => unawaited(_toggleLocalAsAgent(local, v)),
                     ),
@@ -1529,7 +1531,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                             )
                           else
                             TextButton(
-                              onPressed: () => unawaited(_forceOfflineAgent(a)),
+                              onPressed: _canManageCloudPrinters
+                                  ? () => unawaited(_forceOfflineAgent(a))
+                                  : null,
                               style: TextButton.styleFrom(
                                 foregroundColor: Colors.red.shade700,
                                 padding: EdgeInsets.zero,

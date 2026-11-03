@@ -191,7 +191,8 @@ public static class FeatureModuleCatalog
         new("SettingsHub", "Thiết lập SBOX", "Mở Thiết lập SBOX; thông tin cửa hàng, ngành hàng & cách bán, bàn / phòng, tích điểm, kiểm soát hủy / trả", CatSellSetup, 160),
         new("PosPrintTemplates", "Mẫu in", "Mẫu hóa đơn, phiếu bếp, tem", CatSellSetup, 161),
         new("PosPrinters", "Máy in thiết bị", "Bluetooth / LAN / USB trên máy này", CatSellSetup, 162),
-        new("PosStorePrinters", "Máy in cloud", "Print Agent dùng chung cửa hàng", CatSellSetup, 163),
+        // Gói không có: điện thoại / máy order không gửi lệnh in qua Agent (PosPackageDefaults.PrintAgentModule).
+        new("PosStorePrinters", "Máy in cloud", "Print Agent — điện thoại / máy order gửi lệnh in qua máy in dùng chung", CatSellSetup, 163),
         new("PosCustomerDisplay", "Màn hình phụ", "Màn hình khách, quảng cáo", CatSellSetup, 164),
         new("PosEInvoice", "Hóa đơn điện tử", "Viettel, Easy Invoice, MISA, VNPT", CatSellSetup, 165),
         new("PosShipping", "Đơn vị giao hàng", "GHN, GHTK, Viettel Post, J&T, VNPost, AhaMove", CatSellSetup, 166),
