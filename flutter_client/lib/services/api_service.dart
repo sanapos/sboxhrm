@@ -11661,6 +11661,45 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Các bảng số liệu của câu trả lời (app dựng PDF từ đây).
+  Future<Map<String, dynamic>> getAiExportData(String id) async {
+    try {
+      final response = await sharedHttpClient.get(
+          Uri.parse('$baseUrl/api/ai/assistant/exports/$id'), headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// File Excel của câu trả lời — trả về bytes như các màn xuất Excel khác.
+  Future<Map<String, dynamic>> exportAiAnswerExcel(String id) =>
+      _getExcelExport(Uri.parse('$baseUrl/api/ai/assistant/exports/$id/excel'));
+
+  /// Trợ lý đọc / dịch đơn hàng từ ảnh, PDF, Excel → phản hồi như [aiAssistantChat], kèm thẻ xác nhận lập phiếu.
+  Future<Map<String, dynamic>> aiReadOrder(
+      List<({List<int> bytes, String name})> files, {String? note}) async {
+    try {
+      final request = http.MultipartRequest(
+          'POST', Uri.parse('$baseUrl/api/ai/assistant/read-order'));
+      final authHeaders = _headers;
+      if (authHeaders.containsKey('Authorization')) {
+        request.headers['Authorization'] = authHeaders['Authorization']!;
+      }
+      final branch = currentBranchId;
+      if (branch != null && branch.isNotEmpty) request.headers['X-Branch-Id'] = branch;
+      if (note != null && note.trim().isNotEmpty) request.fields['note'] = note.trim();
+      for (final f in files) {
+        request.files.add(http.MultipartFile.fromBytes('files', f.bytes, filename: f.name));
+      }
+      final streamed = await request.send().timeout(const Duration(seconds: 200));
+      final response = await http.Response.fromStream(streamed);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Lịch sử mua của khách (đơn + từng món + tổng hợp theo mặt hàng) — màn bán hàng tra nhanh.
   Future<Map<String, dynamic>> getPosCustomerPurchaseHistory(String customerId, {String? search, int days = 365}) async {
     try {

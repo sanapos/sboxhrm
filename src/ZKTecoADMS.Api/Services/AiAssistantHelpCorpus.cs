@@ -151,6 +151,28 @@ public static class AiAssistantHelpCorpus
     /// </summary>
     static HelpChunk[] ServerChunks() =>
     [
+        new(ServerMode, "pos_ai_read_order", "Nhờ Trợ lý ảo đọc / dịch đơn hàng từ ảnh hoặc file",
+            "Chụp đơn viết tay, tin nhắn đặt hàng, hóa đơn nhà cung cấp (kể cả tiếng nước ngoài) hoặc gửi file PDF / Excel — trợ lý đọc, dịch sang tiếng Việt, khớp với hàng hóa và dựng thẻ để bạn xác nhận.",
+            [
+                "Mở Trợ lý ảo, bấm nút kẹp giấy cạnh ô nhập",
+                "Chọn «Chụp ảnh đơn hàng», «Chọn ảnh đơn hàng» hoặc «Chọn file PDF / Excel» (tối đa 8 ảnh / file, nhiều trang của một đơn gửi cùng lúc)",
+                "Có thể ghi thêm vào ô nhập, vd «nhập hàng» để lập phiếu nhập, «chỉ dịch» để chỉ đọc không lập phiếu, rồi bấm gửi",
+                "Đối chiếu danh sách với đơn gốc; dòng chưa khớp hàng hoặc chưa đọc rõ số lượng được liệt kê riêng và chưa đưa vào phiếu",
+                "Bấm «Xác nhận» trên thẻ: đơn khách đặt thành đơn tạm (chưa trừ kho, thu tiền ở màn bán hàng), ghi rõ đã trả đủ thì thành hóa đơn; hóa đơn nhà cung cấp thành phiếu nhập kho",
+            ],
+            "Cần cửa hàng đã có khóa AI và tài khoản có quyền lập phiếu tương ứng.",
+            "đọc đơn hàng dịch đơn hàng ảnh đơn hàng chụp đơn gửi ảnh gửi file đơn viết tay hóa đơn nhà cung cấp đọc pdf đọc excel nhận dạng ảnh ocr đính kèm kẹp giấy tạo đơn từ ảnh trợ lý đọc ảnh",
+            ["nav_pos_sell"], [], "pos"),
+        new(ServerMode, "sys_ai_export", "Xuất câu trả lời của Trợ lý ảo ra PNG, Excel, PDF",
+            "Câu trả lời có số liệu báo cáo có sẵn ba nút xuất ngay bên dưới; số liệu trong Excel và PDF lấy thẳng từ báo cáo, không phải số do AI viết.",
+            [
+                "Hỏi Trợ lý ảo một câu về số liệu, vd «doanh thu tháng này theo ngày», «top 10 hàng bán chạy»",
+                "Dưới câu trả lời bấm «PNG» để lưu ảnh câu trả lời kèm biểu đồ, «Excel» để tải file nhiều sheet, «PDF» để tải file in được",
+                "File Excel và PDF có các bảng số liệu của báo cáo, kèm phần nhận xét của trợ lý được ghi rõ là do AI viết",
+            ],
+            "Cần quyền «Xuất» của báo cáo đó trong Phân quyền; không có quyền thì không hiện nút. Nút dùng được trong 1 giờ, quá hạn thì hỏi lại để lấy số mới. Trợ lý không vẽ ảnh minh họa theo yêu cầu.",
+            "xuất file xuất excel xuất pdf xuất png xuất ảnh trợ lý tải file báo cáo tải excel lưu ảnh câu trả lời tạo ảnh png trợ lý có xuất file không",
+            [], [], "sbox"),
         new(ServerMode, "pos_promotions", "Tạo chương trình khuyến mãi (giờ vàng, đồng giá, mua X tặng Y…)",
             "Khuyến mãi tự áp vào hóa đơn ở màn bán khi đúng mặt hàng, khung giờ và điều kiện — thu ngân không phải nhập mã.",
             [

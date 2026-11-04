@@ -52,7 +52,9 @@ public sealed class AiAssistantAgent(
     })
     { Timeout = TimeSpan.FromSeconds(60) };
 
-    public sealed record Result(string Reply, List<string> ReportsUsed, List<AiAssistantActions.Pending> Proposed);
+    /// <param name="Runs">Dữ liệu gốc các báo cáo đã chạy thành công (để xuất Excel / PDF).</param>
+    public sealed record Result(string Reply, List<string> ReportsUsed, List<AiAssistantActions.Pending> Proposed,
+        List<AiReportRun>? Runs = null);
 
     /// <summary>Câu muốn thêm / sửa / xóa / duyệt — đi qua agent (có công cụ đề xuất phiếu).</summary>
     public static bool LooksLikeWrite(string query) => AiAssistantIntent.LooksLikeAction(query);
@@ -76,6 +78,8 @@ public sealed class AiAssistantAgent(
             // bảng dữ liệu hôm nay / bài hướng dẫn, lạc đề.
             "bán được", "bao nhiêu đơn", "được bao nhiêu", "làm sao", "làm thế nào", "cách nào",
             "tại sao", "vì sao", "nguyên nhân",
+            // Xuất file: phải chạy báo cáo thật thì mới có số liệu để xuất.
+            "xuất excel", "xuất pdf", "xuất png", "xuất file", "xuất ảnh", "xuất báo cáo", "xuất ra",
         ];
         return AiAssistantIntent.ContainsAny(q, keys);
     }
@@ -113,6 +117,7 @@ public sealed class AiAssistantAgent(
         }
 
         var used = new List<string>();
+        var runs = new List<AiReportRun>();
         var calls = 0;
         string? model = null;
         var nudged = false;
@@ -191,7 +196,7 @@ public sealed class AiAssistantAgent(
                     continue;
                 }
                 if (text.Length > 0 || fnCalls.Count == 0)
-                    return new Result(PlainText(text), used, proposed);
+                    return new Result(PlainText(text), used, proposed, runs);
                 // Hết lượt gọi công cụ mà model vẫn đòi gọi — yêu cầu trả lời bằng số liệu đã có.
                 await Reset();
                 contents.Add(content);
@@ -215,7 +220,7 @@ public sealed class AiAssistantAgent(
                 {
                     response = name switch
                     {
-                        "run_report" => await RunReportAsync(args, reports, used, ct),
+                        "run_report" => await RunReportAsync(args, reports, used, runs, ct),
                         "store_overview" => await StoreOverviewAsync(storeId, perms, isSuperUser, packageModules, scope, ct),
                         _ when actx != null && actions.Handles(name) => await actions.HandleAsync(name, args, actx, proposed, ct),
                         _ => new { error = $"Không có công cụ {name}" },
@@ -231,7 +236,7 @@ public sealed class AiAssistantAgent(
             contents.Add(new { role = "user", parts = responses });
         }
 
-        return new Result("Câu hỏi cần quá nhiều báo cáo — bạn hỏi cụ thể hơn (một chỉ số, một khoảng thời gian) nhé.", used, proposed);
+        return new Result("Câu hỏi cần quá nhiều báo cáo — bạn hỏi cụ thể hơn (một chỉ số, một khoảng thời gian) nhé.", used, proposed, runs);
     }
 
     /// <summary>
@@ -381,6 +386,8 @@ public sealed class AiAssistantAgent(
               TỐI ĐA 1 thẻ biểu đồ ở cuối: [[CHART:bar|Tiêu đề ngắn|Nhãn=số;Nhãn=số|Mã]] — line cho chuỗi theo thời gian, pie cho
               tỷ trọng; số nguyên thô (1250000, không dấu chấm); tối đa 12 điểm; Mã = mã màn báo cáo trong ĐƯỜNG DẪN MENU
               (bỏ trống nếu không có). Vẫn viết số chính trong câu trả lời (biểu đồ chỉ minh họa).
+            - Người dùng muốn xuất Excel / PDF / PNG / ảnh: GỌI run_report lấy đúng số liệu (kể cả vừa có ở câu trước), trả lời ngắn gọn
+              rồi nhắc bấm nút PNG, Excel, PDF ngay dưới câu trả lời. KHÔNG nói đã gửi file, không viết đường link, không viết bảng để sao chép.
             """);
         if (reports.Count == 0)
         {
@@ -400,6 +407,7 @@ public sealed class AiAssistantAgent(
         JsonElement args,
         IReadOnlyList<AiAssistantReportCatalog.Report> allowed,
         List<string> used,
+        List<AiReportRun> runs,
         CancellationToken ct)
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -436,6 +444,7 @@ public sealed class AiAssistantAgent(
         var data = node is JsonObject o && o.TryGetPropertyValue("data", out var d) ? d : node;
         if (node is JsonObject o2 && o2["isSuccess"] is JsonValue ok && ok.TryGetValue<bool>(out var success) && !success)
             return new { error = o2["message"]?.ToString() ?? "Báo cáo lỗi." };
+        runs.Add(new AiReportRun(report.Id, map, data?.DeepClone()));
         return new { report = report.Id, data = Compact(data) };
     }
 

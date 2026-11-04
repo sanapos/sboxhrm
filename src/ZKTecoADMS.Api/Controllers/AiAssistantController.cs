@@ -25,6 +25,7 @@ public class AiAssistantController(
     IGeminiAiService geminiAiService,
     AiAssistantAgent agent,
     AiAssistantActions actions,
+    AiAssistantOrderReader orderReader,
     AiVoiceService voice,
     IDataScopeService dataScope,
     IMemoryCache cache,
@@ -32,6 +33,8 @@ public class AiAssistantController(
 {
     /// <summary>Câu hỏi số liệu giống hệt hỏi lại trong khoảng này → trả câu đã có, không tốn lượt AI.</summary>
     static readonly TimeSpan AnswerCacheTtl = TimeSpan.FromMinutes(3);
+    /// <summary>Giữ số liệu để xuất file sau khi trả lời; hết hạn thì hỏi lại trợ lý (lấy số mới).</summary>
+    static readonly TimeSpan ExportTtl = TimeSpan.FromHours(1);
 
     public sealed record SpeakRequest(string Text, string? Voice, string? Language = null);
 
@@ -112,6 +115,8 @@ public class AiAssistantController(
         public List<PendingActionDto> PendingActions { get; set; } = new();
         /// <summary>Biểu đồ nhỏ minh họa số liệu trong câu trả lời (tối đa 2).</summary>
         public List<AiChart> Charts { get; set; } = new();
+        /// <summary>Có = hiện nút xuất PNG / Excel / PDF (đã chạy báo cáo thật, tài khoản có quyền Xuất) — xem exports/{id}.</summary>
+        public string? ExportId { get; set; }
     }
 
     /// <param name="Risk">normal | high — high: app hiện thẻ đỏ, hỏi lại trước khi gửi xác nhận (acknowledged).</param>
@@ -246,6 +251,87 @@ public class AiAssistantController(
         return action
             ? why + " Chưa lập / sửa gì cả — bạn gửi lại yêu cầu sau khoảng 1 phút, hoặc tự thao tác trên màn tương ứng."
             : why + " Bạn thử lại sau khoảng 1 phút, hoặc mở trực tiếp màn Báo cáo để xem số liệu.";
+    }
+
+    /// <summary>
+    /// Đọc / dịch đơn hàng từ ảnh chụp, PDF hoặc Excel / CSV → trả lời như /chat, kèm thẻ xác nhận lập đơn tạm / hóa đơn / phiếu nhập.
+    /// Lỗi AI vẫn trả 200 với câu báo trong khung chat (như /chat); file sai định dạng → 400.
+    /// </summary>
+    [HttpPost("read-order")]
+    [RequestSizeLimit(AiAssistantOrderReader.MaxTotalBytes + 1_000_000)]
+    public async Task<ActionResult<AppResponse<ChatResponse>>> ReadOrder(
+        [FromForm] List<IFormFile> files, [FromForm] string? note, CancellationToken ct)
+    {
+        if (files == null || files.Count == 0)
+            return BadRequest(AppResponse<ChatResponse>.Fail("Chọn ảnh hoặc file đơn hàng."));
+        if (files.Count > AiAssistantOrderReader.MaxFiles)
+            return BadRequest(AppResponse<ChatResponse>.Fail($"Tối đa {AiAssistantOrderReader.MaxFiles} ảnh / file mỗi lần."));
+        if (files.Sum(f => f.Length) > AiAssistantOrderReader.MaxTotalBytes)
+            return BadRequest(AppResponse<ChatResponse>.Fail(
+                $"Ảnh / file quá lớn (tối đa {AiAssistantOrderReader.MaxTotalBytes / 1024 / 1024} MB mỗi lần) — bớt trang hoặc chụp độ phân giải thấp hơn."));
+
+        var parts = new List<AiFilePart>();
+        var sheets = new System.Text.StringBuilder();
+        foreach (var f in files)
+        {
+            await using var ms = new MemoryStream();
+            await f.CopyToAsync(ms, ct);
+            var bytes = ms.ToArray();
+            var ext = Path.GetExtension(f.FileName ?? "").ToLowerInvariant();
+            if (PosAiMenuController.SniffImageMime(bytes) is { } image) parts.Add(new AiFilePart(image, bytes));
+            else if (bytes.Length > 4 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F')
+                parts.Add(new AiFilePart("application/pdf", bytes));
+            else if (ext == ".xls" || PosMenuSheetReader.SupportedExtensions.Contains(ext))
+            {
+                try
+                {
+                    foreach (var chunk in PosMenuSheetReader.Read(bytes, f.FileName).Chunks) sheets.Append(chunk.Text).Append('\n');
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return BadRequest(AppResponse<ChatResponse>.Fail($"«{f.FileName}»: {ex.Message}"));
+                }
+            }
+            else
+                return BadRequest(AppResponse<ChatResponse>.Fail(
+                    $"«{f.FileName}» chưa đọc được — gửi ảnh (JPG, PNG, WEBP, HEIC), PDF hoặc Excel / CSV. File Word thì lưu thành PDF rồi gửi lại."));
+        }
+
+        ChatResponse Say(string text, string provider = "sbox") => new() { Reply = text, Provider = provider };
+        if (!geminiAiService.IsConfigured || !geminiAiService.IsEnabled)
+            return Ok(AppResponse<ChatResponse>.Success(Say(geminiAiService is TenantScopedGeminiAiService { SharedBlocked: true }
+                ? "Đọc đơn từ ảnh / file cần trợ lý AI. " + TenantScopedGeminiAiService.NoOwnKeyMessage
+                : "Đọc đơn từ ảnh / file cần trợ lý AI (Gemini) — cửa hàng chưa bật hoặc chưa có khóa AI nên chưa đọc được. Bạn vào Thiết lập SBOX › Trợ lý AI để bật.")));
+
+        try
+        {
+            var role = CurrentUserRole;
+            var permMap = await modulePermissionService.GetEffectivePermissionsAsync(CurrentUserId, role, CurrentStoreId, ct);
+            var scope = await AiAssistantScope.ResolveAsync(db, dataScope, HttpContext, CurrentUserId, RequiredStoreId, role, ct);
+            var packageModules = await Infrastructure.Helpers.StorePackageHelper.ResolveAllowedModulesAsync(db, RequiredStoreId, ct);
+            var ctx = new AiAssistantActions.Ctx(RequiredStoreId, CurrentUserId, role, permMap, ModulePermissionDefaults.IsSuperRole(role),
+                packageModules, scope, ("Đọc đơn từ ảnh / file. " + note).Trim());
+            var result = await orderReader.ReadAsync(ctx, parts, sheets.Length > 0 ? sheets.ToString() : null, note, ct);
+            var response = Say(result.Reply, "gemini");
+            response.PendingActions = result.Proposed
+                .Select(p => new PendingActionDto(p.Id, p.Kind, p.Title, p.Lines, p.Warnings, p.OpenModule, p.Risk))
+                .ToList();
+            return Ok(AppResponse<ChatResponse>.Success(response));
+        }
+        catch (AiOutputTruncatedException)
+        {
+            return Ok(AppResponse<ChatResponse>.Success(Say("Đơn quá dài nên AI đọc chưa hết — bạn chia nhỏ ảnh / file rồi gửi lại. Chưa lập gì cả.")));
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            logger.LogWarning(ex, "AI read order returned invalid JSON");
+            return Ok(AppResponse<ChatResponse>.Success(Say("AI trả kết quả không đọc được — bạn gửi lại nhé. Chưa lập gì cả.")));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "AI read order failed");
+            return Ok(AppResponse<ChatResponse>.Success(Say(AiFailureReply(ex, true))));
+        }
     }
 
     [HttpPost("chat")]
@@ -427,6 +513,7 @@ public class AiAssistantController(
                     lastUserMessage.Content, contextText, guideOnly ? AiAssistantHelpCorpus.GuideAnswerHits(lastText) : helpHits,
                     allowedActions, allowedCreates, includeFallback: !geminiOk, guideQuestion: guideOnly);
             var reportsUsed = new List<string>();
+            var reportRuns = new List<AiReportRun>();
             var proposed = new List<AiAssistantActions.Pending>();
             logger.LogInformation("AI chat route: gemini={GeminiOk} analytical={Analytical} guide={Guide} rule={Rule}",
                 geminiOk, analytical, guideOnly, rule.Matched);
@@ -470,6 +557,7 @@ public class AiAssistantController(
                     reply = result.Reply;
                     reportsUsed = result.ReportsUsed;
                     proposed = result.Proposed;
+                    reportRuns = result.Runs ?? [];
                     usedProvider = "gemini";
                 }
                 catch (Exception gemEx) when (gemEx is not OperationCanceledException
@@ -509,6 +597,7 @@ public class AiAssistantController(
                 // Đã có thẻ xác nhận thì bỏ thẻ CREATE cũ (tránh hai nút cho cùng một phiếu).
                 Creates = proposed.Count > 0 ? new List<string>() : parsed.Creates,
             };
+            response.ExportId = RememberExport(AiAssistantExport.Exportable(reportRuns, permMap, isSuperUser), parsed.Text);
             if (usedProvider == "gemini" && !withActions && proposed.Count == 0 && userTurns.Count == 1 && reportsUsed.Count > 0)
                 cache.Set(AnswerKey(lastText, lang), response,
                     new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = AnswerCacheTtl, Size = 1 });
@@ -519,6 +608,37 @@ public class AiAssistantController(
             logger.LogError(ex, "AI Assistant chat failed");
             return StatusCode(500, AppResponse<ChatResponse>.Fail("Lỗi trợ lý ảo: " + ex.Message));
         }
+    }
+
+    string ExportKey(string id) => $"ai-export:{RequiredStoreId}:{CurrentUserId}:{id}";
+
+    /// <summary>Chỉ người vừa hỏi lấy lại được (khóa theo cửa hàng + người dùng); số liệu đúng phạm vi lúc trả lời.</summary>
+    string? RememberExport(List<AiReportRun> runs, string reply)
+    {
+        if (runs.Count == 0) return null;
+        var doc = AiAssistantExport.Build(runs, reply);
+        if (doc.Tables.Count == 0) return null;
+        var id = Guid.NewGuid().ToString("N");
+        cache.Set(ExportKey(id), doc, new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = ExportTtl, Size = 1 });
+        return id;
+    }
+
+    const string ExportExpired = "Số liệu để xuất đã hết hạn — bạn hỏi lại trợ lý để lấy số mới rồi xuất.";
+
+    /// <summary>Các bảng số liệu của câu trả lời — app dựng PDF từ đây.</summary>
+    [HttpGet("exports/{id}")]
+    public ActionResult<AppResponse<AiExportDoc>> ExportData(string id) =>
+        cache.TryGetValue(ExportKey(id), out AiExportDoc? doc) && doc != null
+            ? Ok(AppResponse<AiExportDoc>.Success(doc))
+            : NotFound(AppResponse<AiExportDoc>.Fail(ExportExpired));
+
+    [HttpGet("exports/{id}/excel")]
+    public IActionResult ExportExcel(string id)
+    {
+        if (!cache.TryGetValue(ExportKey(id), out AiExportDoc? doc) || doc == null)
+            return NotFound(AppResponse<string>.Fail(ExportExpired));
+        return File(AiAssistantExport.ToExcel(doc, User),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "TroLyAo_BaoCao.xlsx");
     }
 
     /// <summary>Khóa đệm câu trả lời: theo người hỏi (quyền + phạm vi riêng), ngôn ngữ trả lời và câu hỏi đã bỏ dấu.</summary>

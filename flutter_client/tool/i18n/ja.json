@@ -3462,6 +3462,7 @@
   "Chọn file": "ファイルを選択",
   "Chọn file Excel": "Excelファイルを選択",
   "Chọn file Excel (.xlsx)": "Excelファイルを選択（.xlsx）",
+  "Chọn file PDF / Excel": "PDF / Excel ファイルを選択",
   "Chọn file khác": "別のファイルを選択",
   "Chọn file và tải lên": "ファイルを選んでアップロード",
   "Chọn giọng và tốc độ": "音声と速度を選択",
@@ -3788,6 +3789,7 @@
   "Chọn ảnh bìa": "カバー写真を選択",
   "Chọn ảnh có sẵn trong máy": "端末内の写真を選択",
   "Chọn ảnh khác": "別の写真を選択",
+  "Chọn ảnh đơn hàng": "注文書の写真を選択",
   "Chống chấm trùng": "重複打刻防止",
   "Chống giả mạo bằng ảnh/video": "写真／動画による不正防止",
   "Chống ảnh giả (người thật)": "写真なりすまし防止(生体判定)",
@@ -3873,6 +3875,7 @@
   "Chụp ảnh hoàn tất!": "撮影が完了しました！",
   "Chụp ảnh hóa đơn": "請求書の写真を撮る",
   "Chụp ảnh thất bại": "撮影に失敗しました",
+  "Chụp ảnh đơn hàng": "注文書を撮影",
   "Chủ Nhật": "日曜日",
   "Chủ cửa hàng": "店舗オーナー",
   "Chủ cửa hàng / Admin": "店舗オーナー / 管理者",
@@ -5416,6 +5419,7 @@
   "Ghi chú phát hành": "リリースノート",
   "Ghi chú sản phẩm": "商品メモ",
   "Ghi chú thêm": "追加メモ",
+  "Ghi chú thêm (VD: \"nhập hàng\", \"chỉ dịch\") rồi bấm gửi": "メモを追加(例:「入荷」「翻訳のみ」)して送信",
   "Ghi chú thêm...": "追加メモ...",
   "Ghi chú tiến độ": "進捗メモ",
   "Ghi chú trả hàng": "返品メモ",
@@ -6176,6 +6180,7 @@
   "Gửi đến": "送信先",
   "Gửi đốc thúc": "催促を送信",
   "Gửi ảnh": "写真を送信",
+  "Gửi ảnh / file đơn hàng": "注文書の写真 / ファイルを送信",
   "Gửi ảnh QR": "QR画像を送信",
   "Gửi ẩn danh": "匿名で送信",
   "Gửi: chọn loại (Khiếu nại / Kiến nghị / Góp ý), chủ đề, mức độ, ảnh; gửi hòm thư chung hoặc 1 quản lý": "送信:種類(苦情 / 要望 / ご意見)、テーマ、重要度、写真を選択;共通ボックスまたはマネージャー1人に送信",
@@ -13434,6 +13439,7 @@
   "Số liệu chính thức từ hệ thống": "システムの公式データ",
   "Số liệu là của ngày hôm trước. Máy chủ khởi động lại muộn vẫn gửi bù trong 6 tiếng sau giờ hẹn": "数値は前日分です。サーバーの再起動が遅れても予定時刻から6時間以内なら追送します",
   "Số liệu lệch: kiểm tra kiểu chấm công + lịch ca + ân hạn trước khi sửa tay. Báo cáo bán hàng nằm ở tab POS.": "数値がずれている場合：手動で修正する前に、打刻方式 + シフト表 + 猶予時間を確認してください。販売レポートはPOSタブにあります。",
+  "Số liệu để xuất đã hết hạn — bạn hỏi lại trợ lý để lấy số mới rồi xuất.": "出力データの有効期限が切れました。アシスタントに再度質問して最新の数値を取得してから出力してください。",
   "Số ly (phần món) khách có thêm ít nhất 1 topping ÷ tổng số ly của các món cho chọn topping.": "トッピングを1つ以上追加した杯数 ÷ トッピング選択可能なメニューの総杯数。",
   "Số lượng": "数量",
   "Số lượng (SL)": "数量",
@@ -19972,6 +19978,7 @@
   "Đang đóng…": "閉じています…",
   "Đang đăng ký khuôn mặt...": "顔を登録中...",
   "Đang đăng ký lại khuôn mặt...": "顔を再登録中...",
+  "Đang đọc đơn hàng…": "注文書を読み取り中…",
   "Đang đồng bộ sinh trắc học...": "生体情報を同期中...",
   "Đang đồng bộ vân tay": "指紋を同期中",
   "Đang đồng bộ…": "同期中…",
@@ -26935,6 +26942,10 @@
    "印刷データを描画できません: {0}"
   ],
   [
+   "Không xuất được file: {0}",
+   "ファイルを出力できません: {0}"
+  ],
+  [
    "Không xóa được ca \"{0}\"",
    "シフト「{0}」を削除できません"
   ],
@@ -30535,6 +30546,7 @@
    "最小 {0} · "
   ],
   [
+   "Tối đa {0} ảnh / file mỗi lần",
    "一度に最大 {0} 件の写真 / ファイル"
   ],
   [
@@ -31220,6 +31232,10 @@
   [
    "Xuất HĐĐT cho đơn {0}?\nKhách: {1}",
    "注文 {0} の電子インボイスを発行しますか？\\nお客様: {1}"
+  ],
+  [
+   "Xuất câu trả lời ra {0}",
+   "回答を {0} に出力"
   ],
   [
    "Xuất hóa đơn điện tử cho đơn {0}?",
@@ -35150,6 +35166,7 @@
    "{0} 件のカードを破棄しました。"
   ],
   [
+   "Đã bỏ {0} ảnh / file — gửi phần này trước rồi gửi tiếp.",
    "写真 / ファイル {0} 件を除外しました。先にこれらを送信してから残りを送信してください。"
   ],
   [

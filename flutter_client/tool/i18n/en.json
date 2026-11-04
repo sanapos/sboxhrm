@@ -1699,6 +1699,7 @@
   "Chọn cột hiển thị": "Choose visible columns",
   "Chọn cửa hàng": "Select store",
   "Chọn cửa hàng để xem tổng quan POS của cửa hàng đó. Thẻ Thiết bị phía trên là máy chấm công ZKTeco.": "Select a store to see its POS overview. The Devices card above is for ZKTeco attendance devices.",
+  "Chọn file PDF / Excel": "Choose a PDF / Excel file",
   "Chọn file và tải lên": "Choose file and upload",
   "Chọn giọng và tốc độ": "Choose voice and speed",
   "Chọn giờ": "Select time",
@@ -1844,6 +1845,7 @@
   "Chọn đối tác": "Select partner",
   "Chọn độ tiềm năng khách từ 0 đến 10": "Select the customer's potential from 0 to 10",
   "Chọn ảnh (1920px)": "Choose image (1920px)",
+  "Chọn ảnh đơn hàng": "Choose an order photo",
   "Chống ảnh giả (người thật)": "Anti-spoofing (live person)",
   "Chốt 14:05": "Closed at 14:05",
   "Chốt bản in & sửa chữ": "Finalize print & edit text",
@@ -1882,6 +1884,7 @@
   "Chụp hóa đơn nhà cung cấp": "Snap supplier invoice",
   "Chụp thẳng, đủ sáng, lấy hết bảng hàng và dòng tổng cộng. Hóa đơn nhiều trang: mỗi trang một ảnh.": "Shoot straight on, with good light, capturing the whole item table and the total line. Multi-page invoices: one photo per page.",
   "Chụp ảnh hóa đơn": "Photograph the invoice",
+  "Chụp ảnh đơn hàng": "Take a photo of the order",
   "Chủ cửa hàng": "Store owner",
   "Chủ cửa hàng / Admin": "Store owner / Admin",
   "Chủ doanh nghiệp": "Business owner",
@@ -2669,6 +2672,7 @@
   "Ghi chú nội bộ (lý do đặt riêng…)": "Internal note (reason for the separate setting…)",
   "Ghi chú nội bộ · ": "Internal note · ",
   "Ghi chú phát hành": "Release notes",
+  "Ghi chú thêm (VD: \"nhập hàng\", \"chỉ dịch\") rồi bấm gửi": "Add a note (e.g. \"stock in\", \"translate only\"), then send",
   "Ghi chú đơn": "Order note",
   "Ghi chú: ": "Note: ",
   "Ghi chú: tập đúng kỹ thuật trước, tăng tạ từ tuần 3.": "Note: practice correct technique first, increase weight from week 3.",
@@ -3081,6 +3085,7 @@
   "Gửi đơn nghỉ": "Submit leave request",
   "Gửi đơn tới quản lý duyệt": "Send the request to the manager for approval",
   "Gửi ảnh": "Send photo",
+  "Gửi ảnh / file đơn hàng": "Send an order photo / file",
   "Gửi ảnh QR": "Send QR image",
   "Gửi: chọn loại (Khiếu nại / Kiến nghị / Góp ý), chủ đề, mức độ, ảnh; gửi hòm thư chung hoặc 1 quản lý": "Submit: choose type (Complaint / Suggestion / Feedback), topic, severity, photos; send to the shared inbox or 1 manager",
   "HIIT 15 phút": "15-minute HIIT",
@@ -6340,6 +6345,7 @@
   "Số liệu 28 · 700": "Numbers 28 · 700",
   "Số liệu là của ngày hôm trước. Máy chủ khởi động lại muộn vẫn gửi bù trong 6 tiếng sau giờ hẹn": "Figures are for the previous day. If the server restarts late, it still catches up within 6 hours after the scheduled time",
   "Số liệu lệch: kiểm tra kiểu chấm công + lịch ca + ân hạn trước khi sửa tay. Báo cáo bán hàng nằm ở tab POS.": "Numbers off: check the punch mode + schedule + grace period before editing by hand. Sales reports are in the POS tab.",
+  "Số liệu để xuất đã hết hạn — bạn hỏi lại trợ lý để lấy số mới rồi xuất.": "The export data has expired — ask the assistant again for fresh figures, then export.",
   "Số ly (phần món) khách có thêm ít nhất 1 topping ÷ tổng số ly của các món cho chọn topping.": "Cups where the customer added at least 1 topping ÷ total cups of items that allow toppings.",
   "Số lượng (tồn combo)": "Quantity (combo stock)",
   "Số lượng bán": "Quantity sold",
@@ -9229,6 +9235,7 @@
   "Đang xử lý chứng từ…": "Processing documents…",
   "Đang áp dụng": "Applying",
   "Đang điền mẫu Word…": "Filling in the Word template…",
+  "Đang đọc đơn hàng…": "Reading the order…",
   "Đang đồng bộ vân tay": "Syncing fingerprints",
   "Đang đồng bộ…": "Syncing…",
   "Đang ở hạng cao nhất": "At the highest tier",
@@ -9675,6 +9682,7 @@
   "Đã xoá lịch": "Schedule deleted",
   "Đã xuất Excel báo cáo vận chuyển": "Shipping report exported to Excel",
   "Đã xuất Excel từng hóa đơn": "Per-invoice Excel exported",
+  "Đã xuất PDF": "PDF exported",
   "Đã xuất PNG": "PNG exported",
   "Đã xuất Word": "Word exported",
   "Đã xuất catalog mẫu": "Sample catalog exported",
@@ -14744,6 +14752,10 @@
    "Cannot render print output: {0}"
   ],
   [
+   "Không xuất được file: {0}",
+   "Could not export the file: {0}"
+  ],
+  [
    "Không xóa được ca \"{0}\"",
    "Cannot delete shift \"{0}\""
   ],
@@ -18344,6 +18356,7 @@
    "Min {0} · "
   ],
   [
+   "Tối đa {0} ảnh / file mỗi lần",
    "Up to {0} photos / files at a time"
   ],
   [
@@ -19029,6 +19042,10 @@
   [
    "Xuất HĐĐT cho đơn {0}?\nKhách: {1}",
    "Issue an e-invoice for order {0}?\\nCustomer: {1}"
+  ],
+  [
+   "Xuất câu trả lời ra {0}",
+   "Export the answer to {0}"
   ],
   [
    "Xuất hóa đơn điện tử cho đơn {0}?",
@@ -22959,6 +22976,7 @@
    "Discarded {0} cards."
   ],
   [
+   "Đã bỏ {0} ảnh / file — gửi phần này trước rồi gửi tiếp.",
    "{0} photos / files were left out — send these first, then send the rest."
   ],
   [

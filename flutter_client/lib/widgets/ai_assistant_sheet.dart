@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:record/record.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:intl/intl.dart';
 import '../utils/vi_speech_text.dart';
 import '../utils/ai_voice_commands.dart';
 import '../utils/permission_navigation.dart';
@@ -22,6 +25,10 @@ import '../screens/landing_guide_screen.dart';
 import '../screens/settings_hub_screen.dart';
 import '../services/api_service.dart';
 import '../utils/ai_assistant_permissions.dart';
+import '../utils/ai_export_pdf.dart';
+import '../utils/file_saver.dart' as file_saver;
+import '../utils/image_compress.dart';
+import '../utils/pos_report_export.dart';
 import '../utils/landing_guide_url.dart';
 import '../utils/landing_usage_guide.dart';
 import '../utils/navigation_notifier.dart';
@@ -53,6 +60,10 @@ class _ChatMsg {
   final List<_AiChart> charts;
   /// Lệnh giọng nói xử lý ngay trên máy («xác nhận», «bỏ») và lời đáp của nó — không gửi lên AI trong lịch sử.
   final bool local;
+  /// Có = câu trả lời từ báo cáo thật và tài khoản có quyền Xuất → hiện nút PNG / Excel / PDF.
+  final String? exportId;
+  /// Vùng chụp PNG (chữ + biểu đồ, không gồm các nút).
+  final GlobalKey captureKey = GlobalKey();
 
   _ChatMsg(this.role, this.content,
       {this.actions = const [],
@@ -63,7 +74,8 @@ class _ChatMsg {
       this.retryText,
       this.translate = false,
       this.charts = const [],
-      this.local = false});
+      this.local = false,
+      this.exportId});
 }
 
 /// Biểu đồ trong câu trả lời: bar (cột) / line (đường) / pie (tròn); [openModule] = màn báo cáo đầy đủ.
@@ -799,6 +811,10 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       return;
     }
     final text = _inputCtrl.text.trim();
+    if (_attachments.isNotEmpty) {
+      if (!_isSending) await _sendOrderFiles(text);
+      return;
+    }
     if (text.isEmpty || _isSending) return;
     if (await _handleVoiceCommand(text)) return;
     setState(() {
@@ -815,43 +831,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           .toList();
       final result = await _chatWithStream(history);
       if (!mounted) return;
-      if (result['isSuccess'] == true) {
-        final data = result['data'] as Map<String, dynamic>?;
-        final reply = (data?['reply'] as String?)?.trim() ?? '';
-        final actions = ((data?['actions'] as List?) ?? [])
-            .map((e) => e.toString())
-            .toList();
-        final creates = ((data?['creates'] as List?) ?? [])
-            .map((e) => e.toString())
-            .toList();
-        final guides = ((data?['guides'] as List?) ?? [])
-            .map((e) => e.toString())
-            .toList();
-        final reports = ((data?['reports'] as List?) ?? [])
-            .map((e) => e.toString())
-            .toList();
-        final pending = ((data?['pendingActions'] as List?) ?? [])
-            .whereType<Map>()
-            .map((e) => _PendingAction.fromJson(Map<String, dynamic>.from(e)))
-            .toList();
-        final charts = ((data?['charts'] as List?) ?? [])
-            .whereType<Map>()
-            .map((e) => _AiChart.fromJson(Map<String, dynamic>.from(e)))
-            .where((c) => c.values.length >= 2)
-            .toList();
-        setState(() {
-          _messages.add(_ChatMsg('assistant', reply,
-              actions: actions, creates: creates, guides: guides, reports: reports, pending: pending, charts: charts));
-        });
-        _scrollToBottom();
-        // Không chờ đọc xong — tắt «Đang suy nghĩ…» ngay, giọng đọc tải song song (tắt đọc: rảnh tay nghe tiếp luôn).
-        unawaited(_speakReply(reply));
-      } else {
-        final msg = (result['message'] as String?) ?? 'Lỗi trợ lý ảo';
-        setState(() {
-          _messages.add(_ChatMsg('assistant', '⚠️ ${tr(msg)}', retryText: text));
-        });
-      }
+      _showChatResult(result, retryText: text);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -861,6 +841,242 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
+  }
+
+  /// Hiện phản hồi của trợ lý: câu trả lời, thẻ xác nhận, biểu đồ — hoặc thông báo lỗi.
+  void _showChatResult(Map<String, dynamic> result, {String? retryText}) {
+    if (result['isSuccess'] == true) {
+      final data = result['data'] as Map<String, dynamic>?;
+      final reply = (data?['reply'] as String?)?.trim() ?? '';
+      final actions = ((data?['actions'] as List?) ?? [])
+          .map((e) => e.toString())
+          .toList();
+      final creates = ((data?['creates'] as List?) ?? [])
+          .map((e) => e.toString())
+          .toList();
+      final guides = ((data?['guides'] as List?) ?? [])
+          .map((e) => e.toString())
+          .toList();
+      final reports = ((data?['reports'] as List?) ?? [])
+          .map((e) => e.toString())
+          .toList();
+      final pending = ((data?['pendingActions'] as List?) ?? [])
+          .whereType<Map>()
+          .map((e) => _PendingAction.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final charts = ((data?['charts'] as List?) ?? [])
+          .whereType<Map>()
+          .map((e) => _AiChart.fromJson(Map<String, dynamic>.from(e)))
+          .where((c) => c.values.length >= 2)
+          .toList();
+      setState(() {
+        _messages.add(_ChatMsg('assistant', reply,
+            actions: actions, creates: creates, guides: guides, reports: reports, pending: pending, charts: charts,
+            exportId: data?['exportId'] as String?));
+      });
+      _scrollToBottom();
+      // Không chờ đọc xong — tắt «Đang suy nghĩ…» ngay, giọng đọc tải song song (tắt đọc: rảnh tay nghe tiếp luôn).
+      unawaited(_speakReply(reply));
+    } else {
+      final msg = (result['message'] as String?) ?? 'Lỗi trợ lý ảo';
+      setState(() {
+        _messages.add(_ChatMsg('assistant', '⚠️ ${tr(msg)}', retryText: retryText));
+      });
+    }
+  }
+
+  // ── Đọc / dịch đơn hàng từ ảnh, PDF, Excel ──
+  static const _maxAttachments = 8;
+
+  /// Ảnh / file đang chờ gửi; giữ lại khi gửi lỗi để bấm gửi lại không phải chọn lại.
+  final List<({Uint8List bytes, String name})> _attachments = [];
+  bool _preparingAttachment = false;
+
+  Future<void> _pickAttachments() async {
+    _dismissKeyboard();
+    final source = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!kIsWeb)
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: Text(tr('Chụp ảnh đơn hàng')),
+                onTap: () => Navigator.pop(ctx, 'camera'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: Text(tr('Chọn ảnh đơn hàng')),
+              onTap: () => Navigator.pop(ctx, 'image'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: Text(tr('Chọn file PDF / Excel')),
+              onTap: () => Navigator.pop(ctx, 'file'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    var picked = <({Uint8List bytes, String name, bool image})>[];
+    if (source == 'camera') {
+      final photo = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 2200, maxHeight: 2200, imageQuality: 85);
+      if (photo != null) picked = [(bytes: await photo.readAsBytes(), name: photo.name, image: false)];
+    } else {
+      final result = await FilePicker.platform.pickFiles(
+        type: source == 'image' ? FileType.image : FileType.custom,
+        allowedExtensions: source == 'image' ? null : const ['pdf', 'xlsx', 'xlsm', 'csv', 'tsv', 'txt'],
+        allowMultiple: true,
+        withData: true,
+      );
+      picked = [
+        for (final f in result?.files ?? const <PlatformFile>[])
+          if (f.bytes != null) (bytes: f.bytes!, name: f.name, image: source == 'image'),
+      ];
+    }
+    if (picked.isEmpty || !mounted) return;
+    setState(() => _preparingAttachment = true);
+    final ready = <({Uint8List bytes, String name})>[];
+    for (final f in picked) {
+      // Chữ trên đơn cần độ phân giải cao hơn ảnh sản phẩm; HEIC không nén được thì gửi nguyên file.
+      if (f.image && !looksLikeHeic(f.bytes)) {
+        final out = await prepareImageForUpload(f.bytes, maxEdge: 2200, jpegQuality: 85);
+        ready.add((bytes: out.bytes, name: out.decoded ? jpegFileName(f.name) : f.name));
+      } else {
+        ready.add((bytes: f.bytes, name: f.name));
+      }
+    }
+    if (!mounted) return;
+    final room = _maxAttachments - _attachments.length;
+    setState(() {
+      _attachments.addAll(ready.take(room));
+      _preparingAttachment = false;
+    });
+    if (ready.length > room) {
+      NotificationOverlayManager().showWarning(
+        title: tr('Tối đa $_maxAttachments ảnh / file mỗi lần'),
+        message: tr('Đã bỏ ${ready.length - room} ảnh / file — gửi phần này trước rồi gửi tiếp.'),
+      );
+    }
+  }
+
+  Future<void> _sendOrderFiles(String note) async {
+    final names = _attachments.map((a) => a.name).join(', ');
+    setState(() {
+      _messages.add(_ChatMsg('user', note.isEmpty ? '📎 $names' : '📎 $names\n$note'));
+      _inputCtrl.clear();
+      _isSending = true;
+      _liveStatus = tr('Đang đọc đơn hàng…');
+    });
+    _scrollToBottom();
+    try {
+      final result = await _api.aiReadOrder(
+          _attachments.map((a) => (bytes: a.bytes as List<int>, name: a.name)).toList(), note: note);
+      if (!mounted) return;
+      if (result['isSuccess'] == true) _attachments.clear();
+      _showChatResult(result);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _messages.add(_ChatMsg('assistant', '⚠️ ${tr('Lỗi')}: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+          _liveStatus = null;
+        });
+      }
+    }
+  }
+
+  // ── Xuất câu trả lời ra PNG / Excel / PDF ──
+  /// Câu trả lời đang xuất — tránh bấm hai lần, hiện vòng chờ trên đúng nút.
+  String? _exporting;
+
+  Widget _exportButtons(_ChatMsg m) {
+    Widget button(String kind, IconData icon, Future<void> Function() run) {
+      final busy = _exporting == '${m.exportId}/$kind';
+      return ActionChip(
+        avatar: busy
+            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+            : Icon(icon, size: 16, color: SboxColors.violet),
+        label: Text(kind, style: const TextStyle(fontSize: 12, color: SboxColors.violet, fontWeight: FontWeight.w600)),
+        tooltip: tr('Xuất câu trả lời ra $kind'),
+        backgroundColor: Colors.white,
+        side: const BorderSide(color: Color(0xFFDDD6FE)),
+        onPressed: _exporting != null
+            ? null
+            : () async {
+                setState(() => _exporting = '${m.exportId}/$kind');
+                try {
+                  await run();
+                } catch (e) {
+                  NotificationOverlayManager().showError(title: tr('Xuất file'), message: tr('Không xuất được file: $e'));
+                } finally {
+                  if (mounted) setState(() => _exporting = null);
+                }
+              },
+      );
+    }
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        button('PNG', Icons.image_outlined, () async {
+          await PosReportExport.png(context: context, key: m.captureKey, filePrefix: 'TroLyAo');
+        }),
+        button('Excel', Icons.table_view_outlined, () async {
+          await PosReportExport.serverExcel(
+            context: context,
+            fetch: () => _api.exportAiAnswerExcel(m.exportId!),
+            filePrefix: 'TroLyAo',
+          );
+        }),
+        button('PDF', Icons.picture_as_pdf_outlined, () => _exportPdf(m)),
+      ],
+    );
+  }
+
+  Future<void> _exportPdf(_ChatMsg m) async {
+    final res = await _api.getAiExportData(m.exportId!);
+    if (!mounted) return;
+    if (res['isSuccess'] != true || res['data'] is! Map) {
+      NotificationOverlayManager().showError(
+        title: tr('Xuất file'),
+        message: tr('${res['message'] ?? 'Không xuất được file'}'),
+      );
+      return;
+    }
+    final bytes = await buildAiExportPdf(Map<String, dynamic>.from(res['data'] as Map));
+    final name = 'TroLyAo_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
+    await file_saver.saveAndOpenFileBytes(bytes, name, 'application/pdf');
+    NotificationOverlayManager().showSuccess(title: tr('Xuất file'), message: tr('Đã xuất PDF'));
+  }
+
+  Widget _buildAttachmentChips() {
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 2,
+        children: [
+          for (final a in _attachments)
+            InputChip(
+              avatar: Icon(a.name.toLowerCase().endsWith('.pdf') ? Icons.picture_as_pdf_outlined : Icons.attach_file, size: 16),
+              label: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 160),
+                child: Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+              visualDensity: VisualDensity.compact,
+              onDeleted: _isSending ? null : () => setState(() => _attachments.remove(a)),
+            ),
+        ],
+      ),
+    );
   }
 
   // ── Trả lời dần (stream) ──
@@ -1678,33 +1894,54 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          SelectableText(
-            m.translate ? tr(m.content) : m.content,
-            style: TextStyle(
-              color: isUser ? Colors.white : SboxColors.slate900,
-              fontSize: 14,
-              height: 1.45,
+          RepaintBoundary(
+            key: m.captureKey,
+            child: ColoredBox(
+              // Ảnh xuất không để nền trong suốt (chữ tối trên nền đen khi mở bằng trình xem ảnh).
+              color: isUser ? PosTheme.kiotBlue : SboxColors.slate100,
+              child: Padding(
+                // Ảnh xuất có viền nhỏ, chữ không sát mép.
+                padding: const EdgeInsets.all(2),
+                child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SelectableText(
+                    m.translate ? tr(m.content) : m.content,
+                    style: TextStyle(
+                      color: isUser ? Colors.white : SboxColors.slate900,
+                      fontSize: 14,
+                      height: 1.45,
+                    ),
+                  ),
+                  if (m.reports.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.bar_chart_rounded, size: 14, color: SboxColors.slate500),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            '${tr('Đã xem báo cáo')}: ${m.reports.map(tr).join(', ')}',
+                            style: const TextStyle(fontSize: 11, color: SboxColors.slate500),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  for (final c in m.charts) ...[
+                    const SizedBox(height: 10),
+                    _chartCard(c),
+                  ],
+                ],
+                ),
+              ),
             ),
           ),
-          if (m.reports.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.bar_chart_rounded, size: 14, color: SboxColors.slate500),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    '${tr('Đã xem báo cáo')}: ${m.reports.map(tr).join(', ')}',
-                    style: const TextStyle(fontSize: 11, color: SboxColors.slate500),
-                  ),
-                ),
-              ],
-            ),
-          ],
-          for (final c in m.charts) ...[
-            const SizedBox(height: 10),
-            _chartCard(c),
+          if (m.exportId != null) ...[
+            const SizedBox(height: 8),
+            _exportButtons(m),
           ],
           if (m.retryText != null) ...[
             const SizedBox(height: 6),
@@ -2395,63 +2632,78 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           color: Colors.white,
           border: Border(top: BorderSide(color: SboxColors.slate200)),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              tooltip: tr(_isListening || _recording ? 'Dừng & gửi' : 'Nói'),
-              onPressed: _transcribing ? null : _toggleListening,
-              icon: _transcribing
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Icon(
-                      _isListening || _recording ? Icons.stop_circle_rounded : Icons.mic_none_rounded,
-                      color: _isListening || _recording ? Colors.red : SboxColors.violet,
+            if (_attachments.isNotEmpty) _buildAttachmentChips(),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                IconButton(
+                  tooltip: tr('Gửi ảnh / file đơn hàng'),
+                  onPressed: _isSending || _preparingAttachment ? null : _pickAttachments,
+                  icon: _preparingAttachment
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.attach_file_rounded, color: SboxColors.violet),
+                ),
+                IconButton(
+                  tooltip: tr(_isListening || _recording ? 'Dừng & gửi' : 'Nói'),
+                  onPressed: _transcribing ? null : _toggleListening,
+                  icon: _transcribing
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(
+                          _isListening || _recording ? Icons.stop_circle_rounded : Icons.mic_none_rounded,
+                          color: _isListening || _recording ? Colors.red : SboxColors.violet,
+                        ),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _inputCtrl,
+                    focusNode: _inputFocus,
+                    minLines: 1,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _send(),
+                    onTapOutside: (_) => _dismissKeyboard(),
+                    decoration: InputDecoration(
+                      hintText: tr(_attachments.isNotEmpty
+                          ? 'Ghi chú thêm (VD: "nhập hàng", "chỉ dịch") rồi bấm gửi'
+                          : _recording
+                          ? 'Đang nghe ${_recSecs}s — nói xong bấm ■ để gửi'
+                          : _transcribing
+                              ? 'Đang chép lời…'
+                              : _isListening
+                                  ? 'Đang nghe...'
+                                  : _handsFree
+                                      ? 'Rảnh tay: nói lệnh — «xác nhận» để lưu, «dừng» để tắt'
+                                      : 'Hỏi hoặc ra lệnh (VD: "Phạt An 50k đi trễ")'),
+                      filled: true,
+                      fillColor: SboxColors.slate50,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     ),
-            ),
-            Expanded(
-              child: TextField(
-                controller: _inputCtrl,
-                focusNode: _inputFocus,
-                minLines: 1,
-                maxLines: 4,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _send(),
-                onTapOutside: (_) => _dismissKeyboard(),
-                decoration: InputDecoration(
-                  hintText: tr(_recording
-                      ? 'Đang nghe ${_recSecs}s — nói xong bấm ■ để gửi'
-                      : _transcribing
-                          ? 'Đang chép lời…'
-                          : _isListening
-                              ? 'Đang nghe...'
-                              : _handsFree
-                                  ? 'Rảnh tay: nói lệnh — «xác nhận» để lưu, «dừng» để tắt'
-                                  : 'Hỏi hoặc ra lệnh (VD: "Phạt An 50k đi trễ")'),
-                  filled: true,
-                  fillColor: SboxColors.slate50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: BorderSide.none,
                   ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            Material(
-              color:
-                  _isSending ? SboxColors.slate300 : SboxColors.violet,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: _isSending ? null : _send,
-                child: const Padding(
-                  padding: EdgeInsets.all(10),
-                  child:
-                      Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 4),
+                Material(
+                  color:
+                      _isSending ? SboxColors.slate300 : SboxColors.violet,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _isSending ? null : _send,
+                    child: const Padding(
+                      padding: EdgeInsets.all(10),
+                      child:
+                          Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ),

@@ -241,6 +241,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ApprovalScopeGuard>();
         services.AddScoped<AiVoiceService>();
         services.AddScoped<AiAssistantAgent>();
+        services.AddScoped<AiAssistantOrderReader>();
         services.AddScoped<PosAiMenuService>();
         services.AddScoped<PosAiInvoiceService>();
         services.AddScoped<PosDocxTemplateAiService>();

@@ -11,7 +11,7 @@ public static class AiAssistantPromptBuilder
 - Thanh toán: tiền mặt, thẻ, chuyển khoản QR VietQR tự xác nhận (Tingee), voucher, khuyến mãi, tích điểm, bán nợ; màn hình phụ cho khách; máy in hóa đơn K80 / tem ly / phiếu bếp (USB, Bluetooth, LAN, in cloud); hóa đơn điện tử (Viettel, Easy Invoice, MISA, VNPT); giao hàng GHN, GHTK, Viettel Post, AhaMove (COD, in tem); báo giá & hợp đồng; bảo hành theo seri.
 - Kho: nhập hàng & công nợ nhà cung cấp, trả hàng nhập, xuất hủy, xuất dùng nội bộ, kiểm kho, thẻ kho, cảnh báo dưới định mức, nhiều đơn vị tính, chi nhánh.
 - Nhân sự: chấm công máy ZKTeco (vân tay / khuôn mặt) hoặc điện thoại (GPS, WiFi, khuôn mặt), ca & lịch làm, đổi ca, nghỉ phép, tăng ca, sửa công, lương (phụ cấp, BHXH / thuế, thưởng, phạt, sản lượng), tạm ứng, KPI, công tác phí, chấm cơm, tài sản, giao việc, truyền thông nội bộ, thông báo qua Zalo.
-- Báo cáo bán hàng / kho / tài chính / nhân sự; ca thu ngân & tổng kết cuối ngày; Trợ lý ảo (hỏi số liệu, lập phiếu bằng lời / giọng nói).
+- Báo cáo bán hàng / kho / tài chính / nhân sự; ca thu ngân & tổng kết cuối ngày; Trợ lý ảo (hỏi số liệu, lập phiếu bằng lời / giọng nói; đọc và dịch đơn hàng từ ảnh chụp / PDF / Excel gửi bằng nút kẹp giấy rồi dựng thẻ xác nhận). Câu trả lời có số liệu báo cáo có nút xuất PNG, Excel, PDF ngay dưới câu trả lời (cần quyền Xuất). Trợ lý không vẽ / sinh ảnh minh họa theo yêu cầu.
 Câu hỏi về SBOX → trả lời theo danh sách này + khối HƯỚNG DẪN SỬ DỤNG, nêu tên menu thật; KHÔNG hứa tính năng ngoài danh sách. Giá phần mềm / gói dịch vụ / gia hạn: chưa có số liệu ở đây — mời liên hệ SBOX (không tự nêu giá).";
 
     /// <param name="storeKnowledge">Hồ sơ chủ cửa hàng viết + ảnh chụp nhanh cửa hàng (<see cref="AiAssistantStoreKnowledge"/>).</param>

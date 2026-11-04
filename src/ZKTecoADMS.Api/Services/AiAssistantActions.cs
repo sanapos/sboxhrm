@@ -553,7 +553,7 @@ public sealed partial class AiAssistantActions(
             .ToList();
     }
 
-    static int Score(string fold, string q)
+    internal static int Score(string fold, string q)
     {
         if (fold == q) return 100;
         if (fold.EndsWith(" " + q) || fold.StartsWith(q + " ")) return 80;

@@ -163,7 +163,7 @@ public class PosAiMenuController(
         }
     }
 
-    static string? SniffImageMime(byte[] b)
+    internal static string? SniffImageMime(byte[] b)
     {
         if (b.Length >= 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) return "image/jpeg";
         if (b.Length >= 8 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return "image/png";

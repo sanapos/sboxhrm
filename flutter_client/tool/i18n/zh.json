@@ -3462,6 +3462,7 @@
   "Chọn file": "选择文件",
   "Chọn file Excel": "选择Excel文件",
   "Chọn file Excel (.xlsx)": "选择Excel文件（.xlsx）",
+  "Chọn file PDF / Excel": "选择 PDF / Excel 文件",
   "Chọn file khác": "选择其他文件",
   "Chọn file và tải lên": "选择文件并上传",
   "Chọn giọng và tốc độ": "选择语音和语速",
@@ -3788,6 +3789,7 @@
   "Chọn ảnh bìa": "选择封面照片",
   "Chọn ảnh có sẵn trong máy": "选择设备中已有的照片",
   "Chọn ảnh khác": "选择其他照片",
+  "Chọn ảnh đơn hàng": "选择订单照片",
   "Chống chấm trùng": "防重复打卡",
   "Chống giả mạo bằng ảnh/video": "防止照片/视频冒用",
   "Chống ảnh giả (người thật)": "防照片伪造（真人检测）",
@@ -3873,6 +3875,7 @@
   "Chụp ảnh hoàn tất!": "拍摄完成！",
   "Chụp ảnh hóa đơn": "拍摄发票照片",
   "Chụp ảnh thất bại": "拍摄失败",
+  "Chụp ảnh đơn hàng": "拍摄订单照片",
   "Chủ Nhật": "星期日",
   "Chủ cửa hàng": "店主",
   "Chủ cửa hàng / Admin": "店主 / 管理员",
@@ -5416,6 +5419,7 @@
   "Ghi chú phát hành": "发布说明",
   "Ghi chú sản phẩm": "商品备注",
   "Ghi chú thêm": "补充备注",
+  "Ghi chú thêm (VD: \"nhập hàng\", \"chỉ dịch\") rồi bấm gửi": "添加备注(如\"入库\"、\"仅翻译\")后发送",
   "Ghi chú thêm...": "补充备注...",
   "Ghi chú tiến độ": "进度备注",
   "Ghi chú trả hàng": "退货备注",
@@ -6176,6 +6180,7 @@
   "Gửi đến": "发送至",
   "Gửi đốc thúc": "发送催办",
   "Gửi ảnh": "发送照片",
+  "Gửi ảnh / file đơn hàng": "发送订单照片 / 文件",
   "Gửi ảnh QR": "发送二维码图片",
   "Gửi ẩn danh": "匿名提交",
   "Gửi: chọn loại (Khiếu nại / Kiến nghị / Góp ý), chủ đề, mức độ, ảnh; gửi hòm thư chung hoặc 1 quản lý": "提交：选择类型（投诉 / 建议 / 意见）、主题、严重程度、照片；发送到公共信箱或指定一位经理",
@@ -13434,6 +13439,7 @@
   "Số liệu chính thức từ hệ thống": "系统官方数据",
   "Số liệu là của ngày hôm trước. Máy chủ khởi động lại muộn vẫn gửi bù trong 6 tiếng sau giờ hẹn": "数据为前一天的。服务器重启较晚时，仍会在预定时间后 6 小时内补发",
   "Số liệu lệch: kiểm tra kiểu chấm công + lịch ca + ân hạn trước khi sửa tay. Báo cáo bán hàng nằm ở tab POS.": "数据对不上：手动修改前请先检查考勤方式 + 排班 + 宽限时间。销售报表在 POS 标签页。",
+  "Số liệu để xuất đã hết hạn — bạn hỏi lại trợ lý để lấy số mới rồi xuất.": "导出数据已过期,请重新询问助手获取最新数据后再导出。",
   "Số ly (phần món) khách có thêm ít nhất 1 topping ÷ tổng số ly của các món cho chọn topping.": "至少加了 1 种配料的杯数 ÷ 可选配料饮品的总杯数。",
   "Số lượng": "数量",
   "Số lượng (SL)": "数量",
@@ -19972,6 +19978,7 @@
   "Đang đóng…": "正在关闭…",
   "Đang đăng ký khuôn mặt...": "正在注册人脸...",
   "Đang đăng ký lại khuôn mặt...": "正在重新注册人脸...",
+  "Đang đọc đơn hàng…": "正在读取订单…",
   "Đang đồng bộ sinh trắc học...": "正在同步生物特征...",
   "Đang đồng bộ vân tay": "正在同步指纹",
   "Đang đồng bộ…": "同步中…",
@@ -26935,6 +26942,10 @@
    "无法渲染打印内容：{0}"
   ],
   [
+   "Không xuất được file: {0}",
+   "无法导出文件:{0}"
+  ],
+  [
    "Không xóa được ca \"{0}\"",
    "无法删除班次“{0}”"
   ],
@@ -30535,6 +30546,7 @@
    "最少 {0} · "
   ],
   [
+   "Tối đa {0} ảnh / file mỗi lần",
    "每次最多 {0} 张照片 / 个文件"
   ],
   [
@@ -31220,6 +31232,10 @@
   [
    "Xuất HĐĐT cho đơn {0}?\nKhách: {1}",
    "为订单 {0} 开具电子发票？\\n客户：{1}"
+  ],
+  [
+   "Xuất câu trả lời ra {0}",
+   "将回答导出为 {0}"
   ],
   [
    "Xuất hóa đơn điện tử cho đơn {0}?",
@@ -35150,6 +35166,7 @@
    "已放弃 {0} 张卡片。"
   ],
   [
+   "Đã bỏ {0} ảnh / file — gửi phần này trước rồi gửi tiếp.",
    "已略去 {0} 张照片 / 个文件,请先发送这些,再发送其余部分。"
   ],
   [
