@@ -22770,7 +22770,26 @@
   "🟡 Chờ gửi: Đăng ký chưa gửi (có thể xóa/sửa).": "🟡 待发送：登记尚未发送（可删除/修改）。",
   "🟡 Ít ca": "🟡 班次较少",
   "🟢 Đã duyệt: Đăng ký được chấp nhận.": "🟢 已批准：登记已通过。",
-  "🤝 Đã xác nhận": "🤝 已确认"
+  "🤝 Đã xác nhận": "🤝 已确认",
+  "cùng giờ": "同一时间",
+  "Mã bảo mật": "安全码",
+  "Không tải được quyền": "无法加载权限",
+  "Đổi máy chủ": "更换服务器",
+  "Gói dịch vụ của cửa hàng chưa có chức năng này. Liên hệ đại lý để nâng cấp gói.": "门店的服务套餐不包含此功能。请联系代理商升级套餐。",
+  "Bảng công": "考勤表",
+  "Ý kiến nhân viên": "员工意见",
+  "Không tải được chấm công": "无法加载考勤",
+  "Mã bảo mật không đúng": "安全码不正确",
+  "Nhật ký chấm công": "考勤记录",
+  "Hồ sơ nhân viên": "员工档案",
+  "Chưa có trong gói dịch vụ": "服务套餐未包含",
+  "Tiền": "资金",
+  "Thông tin & tài khoản": "信息与账户",
+  "Ý kiến": "意见",
+  "Đã chấm công": "已打卡",
+  "Bàn đang mở": "使用中的餐桌",
+  "Kiểm tra kết nối rồi mở lại ứng dụng.": "请检查网络连接后重新打开应用。",
+  "Phiếu thu chi": "收支单"
  },
  "t": [
   [

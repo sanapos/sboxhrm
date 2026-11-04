@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../config/sbox_app_variant.dart';
 import '../content/app_legal_pages.dart';
 import '../services/api_service.dart';
 import '../theme/sbox_tokens.dart';
@@ -51,7 +52,9 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
     if (!mounted) return;
     final fallback = AppLegalPages.defaultFor(widget.type) ?? '';
     setState(() {
-      _content = AppLegalPages.isPlaceholder(server) ? fallback : server!;
+      // Nội dung do superadmin lưu trên máy chủ có thể còn email hỗ trợ cũ.
+      _content = SboxAppVariant.rebrandLegal(AppLegalPages.isPlaceholder(server) ? fallback : server!)
+          .replaceAll('support@sboxhrm.com', AppLegalPages.supportEmail);
       _loading = false;
     });
   }

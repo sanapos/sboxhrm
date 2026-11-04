@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'boss_load_error.dart';
+
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
@@ -132,12 +134,7 @@ class _BossEndOfDayScreenState extends State<BossEndOfDayScreen> {
       Expanded(
         child: d == null
             ? (_error != null
-                ? SboxEmptyState(
-                    icon: Icons.cloud_off_rounded,
-                    title: 'Không tải được báo cáo',
-                    message: _error,
-                    action: SboxButton(label: 'Thử lại', onPressed: _load),
-                  )
+                ? BossLoadError(title: 'Không tải được báo cáo', message: _error, onRetry: _load)
                 : const SboxLoading(message: 'Đang tải báo cáo cuối ngày…'))
             : Stack(children: [
                 RefreshIndicator(onRefresh: _load, child: _EndOfDayBody(data: d)),

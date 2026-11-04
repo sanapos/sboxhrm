@@ -28,6 +28,7 @@ import '../../models/hrm.dart' show NotificationType;
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../settings_hub_screen.dart';
+import '../../widgets/companion_account_links.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// KDS bếp: món mới = chờ làm. Đang làm → Ra món (in + rời bảng). Hủy: Đồng ý từng món.
@@ -1537,6 +1538,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             setState(() => _newestFirst = !_newestFirst);
             unawaited(_saveKdsPrintPrefs());
             unawaited(_loadTickets(silent: true));
+          case 'account':
+            await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CompanionAccountScreen()),
+            );
           case 'logout':
             await showPosLogoutDialog(context);
         }
@@ -1570,7 +1575,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           item('kds_print', Icons.print_outlined, tr('Máy in KDS · âm thanh')),
           const PopupMenuDivider(),
           item('pos_settings', Icons.tune, tr('Thiết lập SBOX')),
-          // App SBOX KDS không có hub «Nhiều hơn» → đăng xuất ở đây.
+          // App SBOX KDS không có hub «Nhiều hơn» → thông tin, đăng xuất ở đây.
+          if (SboxAppVariant.kitchenApp) item('account', Icons.info_outline, tr('Thông tin & tài khoản')),
           if (SboxAppVariant.kitchenApp) item('logout', Icons.logout, tr('Đăng xuất')),
         ];
       },

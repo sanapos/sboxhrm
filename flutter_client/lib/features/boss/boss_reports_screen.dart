@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'boss_load_error.dart';
+
 import '../../l10n/app_tr.dart';
 import '../../screens/pos/pos_risk_report_screen.dart';
 import '../../services/api_service.dart';
@@ -251,12 +253,7 @@ class _BossReportDetailScreenState extends State<BossReportDetailScreen> {
         if (_loading) const LinearProgressIndicator(minHeight: 2),
         Expanded(
           child: _error != null
-              ? SboxEmptyState(
-                  icon: Icons.cloud_off_rounded,
-                  title: 'Không tải được báo cáo',
-                  message: _error,
-                  action: SboxButton(label: 'Thử lại', onPressed: _load),
-                )
+              ? BossLoadError(title: 'Không tải được báo cáo', message: _error, onRetry: _load)
               : _data.isEmpty || _data.first == null
                   ? const SboxLoading()
                   : RefreshIndicator(

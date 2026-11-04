@@ -1,3 +1,4 @@
+import '../config/sbox_app_variant.dart';
 import 'dart:convert';
 
 import 'package:camera/camera.dart';
@@ -60,7 +61,7 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
       setState(() {
         _permissionPermanentlyDenied = camStatus.isPermanentlyDenied;
         _error = camStatus.isPermanentlyDenied
-            ? 'Cần bật Camera trong Cài đặt > SBOX HRM > Quyền.'
+            ? SboxAppVariant.rebrand('Cần bật Camera trong Cài đặt > SBOX HRM > Quyền.')
             : 'Cần quyền camera để chụp ảnh hiện trường.';
         _initializing = false;
       });

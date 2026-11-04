@@ -1,3 +1,4 @@
+import '../config/sbox_app_variant.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -166,8 +167,8 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
         final needsSettings =
             status.isPermanentlyDenied || status.isRestricted;
         setState(() => _cameraError = needsSettings
-            ? 'Cần bật quyền Camera cho SBOX HRM.\n'
-                'Vào Cài đặt > Ứng dụng > SBOX HRM > Quyền > Camera → Cho phép.'
+            ? SboxAppVariant.rebrand('Cần bật quyền Camera cho SBOX HRM.\n'
+                'Vào Cài đặt > Ứng dụng > SBOX HRM > Quyền > Camera → Cho phép.')
             : 'Cần cấp quyền camera để đăng ký khuôn mặt.\n'
                 'Nhấn «Thử lại» hoặc cấp quyền khi hệ thống hỏi.');
         return;

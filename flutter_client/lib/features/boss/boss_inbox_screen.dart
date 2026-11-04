@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'boss_load_error.dart';
+
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
@@ -223,12 +225,7 @@ class _BossInboxScreenState extends State<BossInboxScreen> with WidgetsBindingOb
   Widget build(BuildContext context) {
     if (!_loaded) {
       if (_error != null) {
-        return SboxEmptyState(
-          icon: Icons.cloud_off_rounded,
-          title: 'Không tải được việc chờ duyệt',
-          message: _error,
-          action: SboxButton(label: 'Thử lại', onPressed: _load),
-        );
+        return BossLoadError(title: 'Không tải được việc chờ duyệt', message: _error, onRetry: _load);
       }
       return const SboxLoading(message: 'Đang tải việc chờ duyệt…');
     }

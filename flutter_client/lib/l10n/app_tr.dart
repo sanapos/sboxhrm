@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
+import '../config/sbox_app_variant.dart';
 import 'app_locale.dart';
 import 'en_ui_map.g.dart';
 
@@ -278,7 +279,9 @@ Future<void> trUseLanguage(String code) async {
 ///
 /// Keep Vietnamese literals in source (primary UI language). Call [tr] only for
 /// **display** text — never for API/status comparisons or storage keys.
-String tr(String vietnamese) {
+String tr(String vietnamese) => SboxAppVariant.rebrand(_translate(vietnamese));
+
+String _translate(String vietnamese) {
   final pack = _active;
   if (pack == null || vietnamese.isEmpty) return vietnamese;
   final cached = _cache[vietnamese];

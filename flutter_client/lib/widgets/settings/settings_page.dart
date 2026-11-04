@@ -15,6 +15,10 @@ class SettingsLeaveGuard {
 
   static bool get active => _confirm != null;
 
+  /// Thiết lập SBOX mở thành trang riêng tự xử lý nút Back của máy (hỏi qua [canLeave] rồi về danh sách)
+  /// — trang con không hỏi lần nữa.
+  static bool hostHandlesBack = false;
+
   /// true = được rời trang.
   static Future<bool> canLeave() async {
     final f = _confirm;
@@ -192,9 +196,9 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     // inset bàn phím khỏi MediaQuery của thân trang nên viewInsetsOf ở đây luôn 0.
     final showBar = widget.dirty && View.of(context).viewInsets.bottom <= 0;
     return PopScope(
-      canPop: !widget.dirty,
+      canPop: !widget.dirty || SettingsLeaveGuard.hostHandlesBack,
       onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) return;
+        if (didPop || !widget.dirty || SettingsLeaveGuard.hostHandlesBack) return;
         if (await _confirmLeave() && context.mounted) {
           SettingsLeaveGuard.set(null);
           Navigator.of(context).maybePop();

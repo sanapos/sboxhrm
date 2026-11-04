@@ -14,6 +14,7 @@ import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../services/app_permission_service.dart';
 import '../services/biometric_login_service.dart';
+import '../widgets/login_server_picker.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/sbox_hrm_brand.dart';
 import '../widgets/sbox_pos_hero_panel.dart';
@@ -1262,6 +1263,8 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ),
                   _buildLoginFooter(isDesktop: isDesktop),
+                  if (!kIsWeb && SboxAppVariant.companionApp)
+                    LoginServerPicker(onChanged: _onServerChanged),
                 ],
               ),
             ),
@@ -1274,6 +1277,12 @@ class _LoginScreenState extends State<LoginScreen>
       color: _isPos ? Colors.white : const Color(0xFFF8F9FA),
       child: SafeArea(child: scrollContent),
     );
+  }
+
+  /// Mỗi máy chủ có danh sách cửa hàng riêng → tra lại mã đã nhập.
+  void _onServerChanged() {
+    setState(() => _errorMessage = null);
+    _onStoreCodeChanged();
   }
 
   /// Footer nằm trong panel đăng nhập (cuộn theo form), không cố định viewport.

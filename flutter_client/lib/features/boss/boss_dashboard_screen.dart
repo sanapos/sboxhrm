@@ -2,13 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'boss_load_error.dart';
+
 import '../../l10n/app_tr.dart';
+import '../../screens/staff/staff_nav.dart';
 import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import '../../widgets/sbox/sbox_charts.dart';
 import 'boss_issues_card.dart';
+import 'boss_staff_today_screen.dart';
 
 /// SBOX BOSS — «Tổng quan hôm nay»: doanh thu ngày kinh doanh hiện tại so với cùng giờ hôm qua /
 /// tuần trước, doanh thu theo giờ, phương thức thanh toán, bàn đang mở, nhân viên đã chấm công.
@@ -91,12 +95,7 @@ class _BossDashboardScreenState extends State<BossDashboardScreen> with WidgetsB
     final d = _data;
     if (d == null) {
       if (_error != null) {
-        return SboxEmptyState(
-          icon: Icons.cloud_off_rounded,
-          title: 'Không tải được số liệu',
-          message: _error,
-          action: SboxButton(label: 'Thử lại', onPressed: _load),
-        );
+        return BossLoadError(title: 'Không tải được số liệu', message: _error, onRetry: _load);
       }
       return const SboxLoading(message: 'Đang tải số liệu hôm nay…');
     }
@@ -241,10 +240,10 @@ class _CompareRow extends StatelessWidget {
     return Row(children: [
       Expanded(
         child: SboxMetricCard(
-          label: 'Cùng giờ tuần trước',
+          label: 'Tuần trước',
           value: SboxFmt.compact(week),
           tone: SboxTone.neutral,
-          delta: wDelta == null ? null : '${wDelta >= 0 ? '+' : ''}${SboxFmt.pct(wDelta)}',
+          delta: wDelta == null ? tr('cùng giờ') : '${wDelta >= 0 ? '+' : ''}${SboxFmt.pct(wDelta)} ${tr('cùng giờ')}',
           deltaUp: wDelta == null ? null : wDelta >= 0,
         ),
       ),
@@ -331,7 +330,7 @@ class _LiveRow extends StatelessWidget {
     return Row(children: [
       Expanded(
         child: SboxMetricCard(
-          label: 'Bàn đang phục vụ',
+          label: 'Bàn đang mở',
           value: SboxFmt.number(_num(tables['count'])),
           icon: Icons.table_restaurant_rounded,
           delta: '${tr('Tạm tính')} ${SboxFmt.compact(_num(tables['amount']))}',
@@ -340,11 +339,15 @@ class _LiveRow extends StatelessWidget {
       const SizedBox(width: SboxSpace.md),
       Expanded(
         child: SboxMetricCard(
-          label: 'Nhân viên đã chấm công',
+          label: 'Đã chấm công',
           value: active > 0
               ? '${SboxFmt.number(_num(staff['checkedIn']))}/${SboxFmt.number(active)}'
-              : '—',
-          icon: Icons.badge_rounded,
+              : '0',
+          delta: active > 0 ? tr('nhân viên') : tr('Chưa có nhân viên'),
+          onTap: staffCanOpen(context, 'Attendance')
+              ? () => Navigator.of(context)
+                  .push(MaterialPageRoute<void>(builder: (_) => const BossStaffTodayScreen()))
+              : null,
           tone: SboxTone.success,
         ),
       ),

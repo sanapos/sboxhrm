@@ -60,16 +60,16 @@ android {
         // sbox.sana.vn.kds build từ flutter_pos — hai mã khác nhau, cài song song được.
         create("kds") {
             dimension = "app"
-            applicationId = "sbox.sana.vn.kitchen"
+            applicationId = "kds.sboxpos.com"
         }
         create("boss") {
             dimension = "app"
-            applicationId = "sbox.sana.vn.boss"
+            applicationId = "boss.sboxpos.com"
         }
         // SBOX Nhân Viên: app nhân viên (chấm công, lịch, lương, đơn từ, gọi món) — cài song song HRM.
         create("staff") {
             dimension = "app"
-            applicationId = "sbox.sana.vn.staff"
+            applicationId = "staff.sboxpos.com"
         }
     }
 
@@ -97,17 +97,15 @@ flutter {
     source = "../.."
 }
 
-// SBOX KDS (sbox.sana.vn.kitchen) chưa đăng ký Firebase → bỏ bước google-services (không FCM, xem FcmService).
-// SBOX Nhân Viên (sbox.sana.vn.staff): tự bật khi google-services.json đã có gói này (thêm app trên
-// Firebase Console rồi tải lại file) — chưa có thì bỏ, app nhận thông báo qua SignalR khi đang mở.
+// SBOX KDS (kds.sboxpos.com) chưa đăng ký Firebase → bỏ bước google-services (không FCM, xem FcmService).
+// SBOX Nhân Viên (staff.sboxpos.com): bật khi google-services.json có gói này (app đã đăng ký trên
+// Firebase) — thiếu thì bỏ, app nhận thông báo qua SignalR khi đang mở.
 val staffInFirebase = file("google-services.json").let { f ->
-    f.exists() && f.readText().contains("\"sbox.sana.vn.staff\"")
+    f.exists() && f.readText().contains("\"staff.sboxpos.com\"")
 }
-// SBOX BOSS chưa có app Android trên Firebase (google-services.json chưa có sbox.sana.vn.boss) → bỏ bước
-// google-services của flavor boss để build được; Dart vẫn khởi tạo Firebase qua firebase_options.dart.
-// Đăng ký app trên Firebase rồi tải lại google-services.json là bước này tự chạy lại.
+// SBOX BOSS (boss.sboxpos.com): tương tự — google-services.json thiếu gói này thì bỏ bước google-services.
 val bossInFirebase = listOf(file("google-services.json"), file("src/boss/google-services.json"))
-    .any { it.exists() && it.readText().contains("\"sbox.sana.vn.boss\"") }
+    .any { it.exists() && it.readText().contains("\"boss.sboxpos.com\"") }
 tasks.configureEach {
     if (name.startsWith("process") && name.endsWith("GoogleServices") &&
         (name.contains("Kds") || (name.contains("Staff") && !staffInFirebase) ||

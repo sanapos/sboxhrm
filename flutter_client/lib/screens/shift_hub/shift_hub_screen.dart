@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../config/sbox_app_variant.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
@@ -43,8 +44,14 @@ class _ShiftHubScreenState extends State<ShiftHubScreen> with SingleTickerProvid
   void initState() {
     super.initState();
     final role = Provider.of<AuthProvider>(context, listen: false).userRole.toLowerCase();
-    _manager = const {'admin', 'superadmin', 'director', 'manager', 'departmenthead', 'agent'}.contains(role);
-    _tabs = ['my', if (_manager) 'board', if (_manager) 'inbox', if (_manager) 'setup'];
+    _manager = const {'admin', 'storeowner', 'superadmin', 'director', 'manager', 'departmenthead', 'agent'}.contains(role);
+    // App SBOX BOSS: chủ / quản lý xếp lịch cho người khác, không có «Lịch của tôi».
+    _tabs = [
+      if (!(SboxAppVariant.bossApp && _manager)) 'my',
+      if (_manager) 'board',
+      if (_manager) 'inbox',
+      if (_manager) 'setup',
+    ];
     final initial = _tabs.indexOf(widget.initialTab ?? (_manager ? 'board' : 'my'));
     _tabCtl = TabController(length: _tabs.length, vsync: this, initialIndex: initial < 0 ? 0 : initial);
     _loadCounts();

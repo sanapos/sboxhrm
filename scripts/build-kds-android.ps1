@@ -1,4 +1,4 @@
-# SBOX KDS cho Android 7+ (flutter_client, flavor kds, package sbox.sana.vn.kitchen).
+# SBOX KDS cho Android 7+ (flutter_client, flavor kds, package kds.sboxpos.com).
 # Bản Android 6 (Sunmi T1/V2s) vẫn là flutter_pos\scripts\build-apk.ps1 -Kds (package sbox.sana.vn.kds).
 # Output: dist\flutter_kds_android\<server>\sbox-kds.apk  (+ .aab khi -Aab)
 

@@ -5,7 +5,7 @@
 /// Giữ khớp với trang công khai: /privacy-policy.html (HRM), /privacy-policy-pos.html, /terms-pos.html.
 abstract final class AppLegalPages {
   static const updated = '05/10/2026';
-  static const supportEmail = 'support@sboxhrm.com';
+  static const supportEmail = 'sboxhrm@gmail.com';
   static const hotline = '0973 024 042';
 
   static String? defaultFor(String type) => switch (type) {

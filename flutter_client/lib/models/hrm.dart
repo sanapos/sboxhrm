@@ -2,6 +2,7 @@
 // lib/models/hrm.dart
 // ==========================================
 
+import '../config/sbox_app_variant.dart';
 import '../utils/api_datetime.dart';
 
 // ============ ENUMS ============
@@ -613,8 +614,8 @@ class AppNotification {
       id: json['id']?.toString() ?? '',
       userId:
           json['userId']?.toString() ?? json['targetUserId']?.toString() ?? '',
-      title: json['title'] ?? '',
-      message: json['message'] ?? '',
+      title: SboxAppVariant.rebrand(json['title'] ?? ''),
+      message: SboxAppVariant.rebrand(json['message'] ?? ''),
       type: _parseNotificationType(json['type']),
       isRead: json['isRead'] ?? false,
       readAt: parseApiUtcDateTime(json['readAt']),
@@ -624,8 +625,8 @@ class AppNotification {
       categoryCode: json['categoryCode']?.toString(),
       fromUserName: json['fromUserName']?.toString(),
       categoryLabel: json['categoryLabel']?.toString(),
-      displayTitle: json['displayTitle']?.toString(),
-      displayBody: json['displayBody']?.toString(),
+      displayTitle: json['displayTitle'] == null ? null : SboxAppVariant.rebrand(json['displayTitle'].toString()),
+      displayBody: json['displayBody'] == null ? null : SboxAppVariant.rebrand(json['displayBody'].toString()),
       createdAt: _parseDateTime(json['createdAt'] ?? json['timestamp']),
     );
   }

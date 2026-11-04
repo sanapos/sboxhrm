@@ -1,3 +1,4 @@
+import '../config/sbox_app_variant.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -148,7 +149,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
       if (!allowed) {
         if (!mounted) return;
         setState(() => _cameraError = permStatus.isPermanentlyDenied
-            ? 'Cần bật Camera trong Cài đặt > SBOX HRM > Quyền'
+            ? SboxAppVariant.rebrand('Cần bật Camera trong Cài đặt > SBOX HRM > Quyền')
             : 'Cần cấp quyền camera');
         return;
       }

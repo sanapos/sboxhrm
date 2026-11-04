@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
+import '../../config/sbox_app_variant.dart';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -727,7 +729,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
                   border: Border.all(color: Colors.white24, width: 2),
                 ),
                 child: Image.asset(
-                  'assets/logo.png',
+                  SboxAppVariant.markAsset,
                   fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) => Icon(
                     Icons.storefront_rounded,

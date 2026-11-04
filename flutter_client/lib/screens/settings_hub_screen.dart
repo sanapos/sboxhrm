@@ -161,6 +161,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   @override
   void dispose() {
     SettingsHubScreen.pendingSubIndex.removeListener(_onPendingSubIndex);
+    SettingsLeaveGuard.hostHandlesBack = false;
     SettingsHubScreen.internalBackCallback = null;
     SettingsHubScreen.activeSubPageTitle = null;
     _search.dispose();
@@ -467,18 +468,26 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     // Luôn cùng một cấu trúc (Scaffold), chỉ bật / tắt AppBar. Trước đây trả `content` trần khi
     // shell có thanh tiêu đề, bọc Scaffold khi không — trạng thái này đổi lúc mở menu / hộp
     // thoại → cả trang con bị dựng lại từ đầu (vd. Máy in cloud: chọn menu ⋮ không chạy).
-    return Scaffold(
-      backgroundColor: PosTheme.background,
-      appBar: !ownChrome
-          ? null
-          : AppBar(
-              title: Text(tr(sub == null ? 'Thiết lập SBOX' : (SettingsHubScreen.activeSubPageTitle ?? 'Thiết lập SBOX'))),
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: sub == null ? () => Navigator.maybePop(context) : _requestClose,
+    // Mở thành trang riêng (app đồng hành, POS): nút Back của máy cũng về danh sách và hỏi nếu chưa lưu.
+    SettingsLeaveGuard.hostHandlesBack = ownChrome && sub != null;
+    return PopScope(
+      canPop: !ownChrome || sub == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _requestClose();
+      },
+      child: Scaffold(
+        backgroundColor: PosTheme.background,
+        appBar: !ownChrome
+            ? null
+            : AppBar(
+                title: Text(tr(sub == null ? 'Thiết lập SBOX' : (SettingsHubScreen.activeSubPageTitle ?? 'Thiết lập SBOX'))),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: sub == null ? () => Navigator.maybePop(context) : _requestClose,
+                ),
               ),
-            ),
-      body: content,
+        body: content,
+      ),
     );
   }
 

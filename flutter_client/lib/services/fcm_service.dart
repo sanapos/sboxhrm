@@ -59,7 +59,7 @@ class FcmService {
       return;
     }
     // SBOX KDS: mã ứng dụng chưa có trong Firebase; nhận thông báo qua SignalR khi mở app.
-    // SBOX Nhân Viên: thử khởi tạo — chưa có cấu hình Firebase cho gói staff thì lỗi bị bắt dưới đây,
+    // SBOX BOSS / Nhân Viên: bản build thiếu cấu hình Firebase thì lỗi bị bắt dưới đây,
     // _initialized = false, app vẫn nhận thông báo qua SignalR khi đang mở.
     if (SboxAppVariant.kitchenApp) return;
     try {
@@ -67,16 +67,16 @@ class FcmService {
       // natively in AppDelegate.swift before Dart runs, so Firebase.apps is already
       // populated. On Android (or if not yet initialized), initialize now.
       if (Firebase.apps.isEmpty) {
-        // App Nhân Viên: lấy cấu hình native do google-services.json sinh ra (đúng mã app của gói staff);
+        // App BOSS / Nhân Viên: lấy cấu hình native do google-services.json sinh ra (đúng mã app của gói);
         // DefaultFirebaseOptions là mã app HRM — dùng cho gói khác sẽ khởi tạo nhầm app.
-        await (SboxAppVariant.staffApp && !kIsWeb
+        await ((SboxAppVariant.staffApp || SboxAppVariant.bossApp) && !kIsWeb
             ? Firebase.initializeApp()
             : Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform));
       }
       FirebaseMessaging.onBackgroundMessage(_firebaseBgHandler);
 
       // Local notification channel for foreground messages on Android.
-      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const androidInit = AndroidInitializationSettings('@drawable/ic_stat_sbox');
       const iosInit = DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,

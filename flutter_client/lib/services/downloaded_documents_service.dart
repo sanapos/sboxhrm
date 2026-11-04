@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+
+import '../config/sbox_app_variant.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/downloaded_document.dart';
@@ -329,8 +331,9 @@ class DownloadedDocumentsService {
   Future<int> importFromPublicFolders() => _run(() async {
         if (kIsWeb || !_android || _owner == null) return 0;
         if (!_loaded) await _loadLocked();
+        final folder = SboxAppVariant.exportFolderName;
         final dirs = publicDirsOverride ??
-            const ['/storage/emulated/0/Download/SBOX HRM', '/storage/emulated/0/Pictures/SBOX HRM'];
+            ['/storage/emulated/0/Download/$folder', '/storage/emulated/0/Pictures/$folder'];
         final cutoff = clock().subtract(const Duration(days: retentionDays));
         var added = 0;
         for (final dirPath in dirs) {

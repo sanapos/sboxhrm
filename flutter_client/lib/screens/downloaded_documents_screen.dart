@@ -1,3 +1,4 @@
+import '../config/sbox_app_variant.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
@@ -294,7 +295,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
               if (!kIsWeb && _svc.isImportSupported)
                 HrmTopBarAction(
                   icon: Icons.download_for_offline_outlined,
-                  label: 'Nhập từ thư mục SBOX HRM',
+                  label: SboxAppVariant.rebrand('Nhập từ thư mục SBOX HRM'),
                   onPressed: _importPublic,
                 ),
               HrmTopBarAction(icon: Icons.sync_rounded, label: 'Làm mới', onPressed: _reload),

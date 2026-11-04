@@ -51,7 +51,10 @@ import '../utils/vn_search.dart';
 import '../widgets/sbox/sbox_basics.dart' show SboxTone;
 import '../widgets/sbox/sbox_report.dart' show SboxKpi, SboxKpiStrip;
 class AttendanceScreen extends StatefulWidget {
-  const AttendanceScreen({super.key});
+  const AttendanceScreen({super.key, this.initialDatePreset});
+
+  /// Mở sẵn theo kỳ này (hiện chỉ dùng 'today'); null = tuần này.
+  final String? initialDatePreset;
 
   @override
   State<AttendanceScreen> createState() => _AttendanceScreenState();
@@ -111,6 +114,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialDatePreset == 'today') {
+      final now = DateTime.now();
+      _selectedDatePreset = 'today';
+      _fromDate = DateTime(now.year, now.month, now.day);
+      _toDate = now;
+    }
     _loadCorrectionRequestsFromStorage();
     _loadDevices();
     _loadEmployeesAndBranches();
@@ -1059,7 +1068,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         } else {
                           appNotification.showError(
                             title: _l10n.error,
-                            message: _l10n.cannotAddAttendance,
+                            message: result['message']?.toString().isNotEmpty == true
+                                ? tr(result['message'].toString())
+                                : _l10n.cannotAddAttendance,
                           );
                         }
                       }

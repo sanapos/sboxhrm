@@ -14852,7 +14852,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           child: Row(
             children: [
               Image.asset(
-                'assets/logo.png',
+                SboxAppVariant.markAsset,
                 height: 36,
                 width: 36,
                 fit: BoxFit.contain,

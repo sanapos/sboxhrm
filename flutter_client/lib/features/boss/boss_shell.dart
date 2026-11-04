@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -5,18 +7,31 @@ import 'package:provider/provider.dart';
 import '../../config/sbox_app_variant.dart';
 import '../../l10n/app_tr.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/permission_provider.dart';
+import '../../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../../screens/notifications_screen.dart';
+import '../../screens/staff/staff_nav.dart';
+import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
+import '../../services/signalr_service.dart';
 import '../../theme/sbox_tokens.dart';
+import '../../utils/notification_display_utils.dart';
+import '../../utils/notification_navigation.dart';
+import '../../utils/notification_open_screens.dart';
+import '../../utils/pending_notification_launch.dart';
 import '../../utils/store_role_helper.dart';
 import '../../widgets/branch_switcher.dart';
+import '../../widgets/companion_account_links.dart';
+import '../../widgets/notification_overlay.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import 'boss_dashboard_screen.dart';
 import 'boss_inbox_screen.dart';
+import 'boss_manage_screen.dart';
 import 'boss_reports_screen.dart';
 import 'boss_vouchers_screen.dart';
 
-/// Shell app SBOX BOSS (flavor `boss`): chỉ chủ / quản lý — tab Tổng quan · Cần duyệt · Báo cáo · Phiếu · Thêm,
-/// nút ＋ tạo phiếu nhanh.
+/// Shell app SBOX BOSS (flavor `boss`): chỉ chủ / quản lý — tab Tổng quan · Cần duyệt · Báo cáo · Quản lý · Thêm,
+/// chuông thông báo, nút ＋ tạo phiếu nhanh.
 /// Tài khoản khác thấy [BossRoleBlockedScreen].
 class BossShell extends StatefulWidget {
   const BossShell({super.key});
@@ -25,34 +40,179 @@ class BossShell extends StatefulWidget {
   State<BossShell> createState() => _BossShellState();
 }
 
-class _BossShellState extends State<BossShell> {
+class _BossShellState extends State<BossShell> with WidgetsBindingObserver {
   int _tab = 0;
-  int _voucherTick = 0;
+  int _unread = 0;
 
-  static const _titles = ['Tổng quan hôm nay', 'Cần duyệt', 'Báo cáo', 'Phiếu', 'Thêm'];
+  final _signalR = SignalRService();
+  StreamSubscription? _notificationSub;
+  bool _connectingSignalR = false;
 
-  Future<void> _create() async {
-    if (await showBossCreateSheet(context) && mounted) setState(() => _voucherTick++);
-  }
+  static const _titles = ['Tổng quan hôm nay', 'Cần duyệt', 'Báo cáo', 'Quản lý', 'Thêm'];
 
   @override
   void initState() {
     super.initState();
     if (!BranchSession.instance.loaded) BranchSession.instance.load();
+    WidgetsBinding.instance.addObserver(this);
+    notificationShellHandler = _openFromNotification;
+    PendingNotificationLaunch.scheduleConsume();
+    ScreenRefreshNotifier.notifications.addListener(_refreshUnread);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_loadPermissions());
+      unawaited(_refreshUnread());
+      unawaited(_connectSignalR());
+    });
+  }
+
+  @override
+  void dispose() {
+    if (notificationShellHandler == _openFromNotification) notificationShellHandler = null;
+    ScreenRefreshNotifier.notifications.removeListener(_refreshUnread);
+    WidgetsBinding.instance.removeObserver(this);
+    _notificationSub?.cancel();
+    unawaited(_signalR.disconnect());
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) return;
+    unawaited(_refreshUnread());
+    unawaited(_connectSignalR());
+  }
+
+  /// Kết nối realtime bằng token: màn Chấm công, Thông báo dùng chung kết nối này (không tự có token).
+  Future<void> _connectSignalR() async {
+    if (_connectingSignalR || !mounted) return;
+    _connectingSignalR = true;
+    try {
+      await _notificationSub?.cancel();
+      if (!mounted) return;
+      final auth = context.read<AuthProvider>();
+      final token = await auth.getValidToken();
+      if (!mounted) return;
+      if (!_signalR.isConnected) {
+        await _signalR.connect(null, token, () => auth.getValidToken());
+      }
+      final storeId = auth.user?.storeId;
+      if (storeId != null && storeId.isNotEmpty) {
+        await _signalR.joinStoreGroup(storeId);
+      }
+      final userId = auth.user?.id;
+      if (userId != null && userId.isNotEmpty) {
+        await _signalR.joinUserGroup(userId);
+      }
+      _notificationSub = _signalR.onNewNotification.listen(_handleNewNotification);
+    } catch (e) {
+      debugPrint('⚠️ BossShell SignalR: $e');
+    } finally {
+      _connectingSignalR = false;
+    }
+  }
+
+  void _openTapped(Map<String, dynamic> data, String title) {
+    final rowId = (data['notificationId'] ?? data['id'])?.toString();
+    if (rowId != null && rowId.isNotEmpty) {
+      unawaited(ApiService().markNotificationAsRead(rowId).then((_) {
+        ScreenRefreshNotifier.refreshNotificationCount();
+      }));
+    }
+    navigateFromNotification(
+      relatedEntityType: data['relatedEntityType']?.toString(),
+      relatedEntityId: data['relatedEntityId']?.toString(),
+      title: title,
+      categoryCode: data['categoryCode']?.toString(),
+      actionUrl: (data['actionUrl'] ?? data['relatedUrl'])?.toString(),
+    );
+  }
+
+  void _handleNewNotification(Map<String, dynamic> data) {
+    try {
+      final display = resolveNotificationDisplay(data);
+      final typeValue = data['type'] ?? 0;
+      var type = NotificationType.info;
+      if (typeValue is int && typeValue >= 0 && typeValue < NotificationType.values.length) {
+        type = NotificationType.values[typeValue];
+      }
+      NotificationOverlayManager().show(
+        title: display.title,
+        message: display.body.isEmpty ? 'Có thông báo mới' : display.body,
+        type: type,
+        relatedEntityType: data['relatedEntityType']?.toString(),
+        onTap: () => _openTapped(data, display.title),
+      );
+      ScreenRefreshNotifier.refreshNotificationCount();
+    } catch (e) {
+      debugPrint('⚠️ BossShell notification: $e');
+    }
+  }
+
+  /// Các màn kho, công việc… kiểm quyền qua [PermissionProvider] — shell phải tải trước khi mở.
+  Future<void> _loadPermissions() async {
+    final user = context.read<AuthProvider>().user;
+    try {
+      await context
+          .read<PermissionProvider>()
+          .loadPermissions(
+            role: user?.role,
+            freshSession: true,
+            cacheKey: user == null ? null : '${user.id}:${user.storeId ?? ''}',
+          )
+          .timeout(const Duration(seconds: 12));
+    } catch (e) {
+      debugPrint('⚠️ BossShell permissions: $e');
+    }
+  }
+
+  Future<void> _refreshUnread() async {
+    try {
+      final n = (await ApiService().getNotificationSummary())['unreadCount'];
+      if (mounted) setState(() => _unread = n is int ? n : int.tryParse('$n') ?? 0);
+    } catch (_) {}
+  }
+
+  /// Bấm thông báo (thanh thông báo, đẩy điện thoại): không có MainLayout nên shell tự mở màn.
+  bool _openFromNotification(String? entityKey, String? relatedEntityId) =>
+      mounted && openNotificationInShell(context, entityKey, relatedEntityId);
+
+  Future<void> _openNotifications() async {
+    await openStaffPage(context, title: 'Thông báo', child: const NotificationsScreen());
+    if (mounted) unawaited(_refreshUnread());
   }
 
   @override
   Widget build(BuildContext context) {
     final role = context.select<AuthProvider, String>((a) => a.userRole);
     if (!StoreRoleHelper.isBossRole(role)) return const BossRoleBlockedScreen();
+    // Nút Back của máy: tab khác về Tổng quan trước, ở Tổng quan mới thoát app.
+    return PopScope(
+      canPop: _tab == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _tab = 0);
+      },
+      child: _buildScaffold(),
+    );
+  }
+
+  Widget _buildScaffold() {
     return Scaffold(
       backgroundColor: SboxColors.page,
       appBar: AppBar(
         backgroundColor: SboxColors.brand700,
         foregroundColor: SboxColors.white,
         title: Text(tr(_titles[_tab])),
-        actions: const [
-          Padding(
+        actions: [
+          IconButton(
+            tooltip: tr('Thông báo'),
+            onPressed: _openNotifications,
+            icon: Badge(
+              isLabelVisible: _unread > 0,
+              label: Text(_unread > 99 ? '99+' : '$_unread'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+          ),
+          const Padding(
             padding: EdgeInsets.only(right: SboxSpace.sm),
             child: Center(child: BranchSwitcher(compact: true, onDark: true)),
           ),
@@ -64,16 +224,16 @@ class _BossShellState extends State<BossShell> {
           BossDashboardScreen(onOpenInbox: () => setState(() => _tab = 1)),
           const BossInboxScreen(),
           const BossReportsScreen(),
-          BossVouchersScreen(refreshTick: _voucherTick),
+          const BossManageScreen(),
           const _BossMoreScreen(),
         ],
       ),
-      floatingActionButton: _tab == 0 || _tab == 3
+      floatingActionButton: _tab == 0
           ? FloatingActionButton(
               tooltip: tr('Tạo phiếu'),
               backgroundColor: SboxColors.brand600,
               foregroundColor: SboxColors.white,
-              onPressed: _create,
+              onPressed: () => showBossCreateSheet(context),
               child: const Icon(Icons.add_rounded),
             )
           : null,
@@ -107,9 +267,9 @@ class _BossShellState extends State<BossShell> {
               label: tr('Báo cáo'),
             ),
             NavigationDestination(
-              icon: const Icon(Icons.receipt_long_outlined),
-              selectedIcon: const Icon(Icons.receipt_long_rounded),
-              label: tr('Phiếu'),
+              icon: const Icon(Icons.apps_outlined),
+              selectedIcon: const Icon(Icons.apps_rounded),
+              label: tr('Quản lý'),
             ),
             NavigationDestination(
               icon: const Icon(Icons.more_horiz_rounded),
@@ -211,6 +371,8 @@ class _BossMoreScreenState extends State<_BossMoreScreen> {
             ),
           ]),
         ),
+        const SizedBox(height: SboxSpace.md),
+        const SboxCard(padding: EdgeInsets.zero, child: CompanionAccountLinks()),
         const SizedBox(height: SboxSpace.lg),
         Center(
           child: Text('${SboxAppVariant.productLine} $_version'.trim(), style: SboxType.captionStyle()),
@@ -239,7 +401,7 @@ class BossRoleBlockedScreen extends StatelessWidget {
           icon: Icons.lock_outline_rounded,
           title: 'SBOX BOSS dành cho chủ cửa hàng',
           message: 'Tài khoản này không phải chủ / quản lý cửa hàng. '
-              'Nhân viên dùng app SBOX POS hoặc SBOX HRM.',
+              'Nhân viên dùng app SBOX POS hoặc SBOX Nhân Viên.',
           action: SboxButton(label: 'Đăng xuất', onPressed: () => context.read<AuthProvider>().logout()),
         ),
       ),

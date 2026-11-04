@@ -1,3 +1,4 @@
+import '../config/sbox_app_variant.dart';
 import '../utils/tray_notification_guard.dart';
 import '../utils/pos_sell_settings_helper.dart';
 import '../models/pos_sell_industry.dart';
@@ -3830,7 +3831,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(6),
-                            child: Image.asset('assets/logo.png',
+                            child: Image.asset(SboxAppVariant.markAsset,
                                 width: 26, height: 26),
                           ),
                           Icon(Icons.chevron_right_rounded,

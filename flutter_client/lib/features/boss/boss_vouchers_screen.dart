@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
+
+import 'boss_load_error.dart';
 import 'package:flutter/services.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../models/cash_transaction.dart';
-import '../../screens/pos_purchase_receipt_list_screen.dart';
-import '../../screens/pos_stock_issue_list_screen.dart';
+import '../../screens/staff/staff_nav.dart';
 import '../../screens/warehouse/editors/wh_mobile_purchase_receipt_editor.dart';
 import '../../screens/warehouse/editors/wh_mobile_stock_issue_editor.dart';
 import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/pos/pos_cash_voucher_dialog.dart';
-import '../../widgets/pos/pos_stock_issue_config.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import '../../widgets/sbox/sbox_charts.dart';
 import '../../widgets/warehouse/wh_doc_type.dart';
@@ -22,25 +22,39 @@ Future<bool> showBossCreateSheet(BuildContext context) async {
     context: context,
     showDragHandle: true,
     builder: (ctx) {
-      Widget tile(String key, IconData icon, Color color, String title, String sub) => ListTile(
-            leading: CircleAvatar(backgroundColor: color.withValues(alpha: 0.12), child: Icon(icon, color: color)),
-            title: Text(tr(title)),
-            subtitle: Text(tr(sub)),
-            onTap: () => Navigator.pop(ctx, key),
-          );
+      // Loại phiếu gói dịch vụ / quyền không có thì ẩn — tránh mở biểu mẫu rồi mới báo lỗi.
+      Widget? tile(String module, String key, IconData icon, Color color, String title, String sub) =>
+          !staffCanOpen(ctx, module, listen: false)
+              ? null
+              : ListTile(
+                  leading: CircleAvatar(backgroundColor: color.withValues(alpha: 0.12), child: Icon(icon, color: color)),
+                  title: Text(tr(title)),
+                  subtitle: Text(tr(sub)),
+                  onTap: () => Navigator.pop(ctx, key),
+                );
+      final tiles = [
+        tile('CashTransaction', 'income', Icons.south_west_rounded, SboxColors.success, 'Phiếu thu', 'Thu tiền khách, thu khác'),
+        tile('CashTransaction', 'expense', Icons.north_east_rounded, SboxColors.danger, 'Phiếu chi', 'Tiền điện, mua đồ, chi phí'),
+        tile('CashTransaction', 'transfer', Icons.swap_horiz_rounded, SboxColors.brand600, 'Chuyển quỹ', 'Tiền mặt ⇄ tài khoản ngân hàng'),
+        tile('PosPurchaseReceipts', 'purchase', Icons.inventory_2_rounded, SboxColors.violet, 'Phiếu nhập hàng', 'Nhập hàng từ nhà cung cấp'),
+        tile('PosDamageIssues', 'damage', Icons.delete_forever_rounded, SboxColors.warning, 'Phiếu xuất hủy', 'Hàng hỏng, hết hạn'),
+        tile('PenaltyTickets', 'penalty', Icons.gavel_rounded, SboxColors.danger, 'Phạt nhân viên', 'Vi phạm nội quy, đi trễ…'),
+        tile('AdvanceRequests', 'advance', Icons.payments_rounded, SboxColors.success, 'Ứng lương cho nhân viên', 'Ghi khoản ứng trước lương'),
+      ].whereType<Widget>().toList();
       return SafeArea(
         child: ListView(shrinkWrap: true, children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(SboxSpace.lg, 0, SboxSpace.lg, SboxSpace.sm),
             child: Text(tr('Tạo phiếu'), style: SboxType.titleSmStyle()),
           ),
-          tile('income', Icons.south_west_rounded, SboxColors.success, 'Phiếu thu', 'Thu tiền khách, thu khác'),
-          tile('expense', Icons.north_east_rounded, SboxColors.danger, 'Phiếu chi', 'Tiền điện, mua đồ, chi phí'),
-          tile('transfer', Icons.swap_horiz_rounded, SboxColors.brand600, 'Chuyển quỹ', 'Tiền mặt ⇄ tài khoản ngân hàng'),
-          tile('purchase', Icons.inventory_2_rounded, SboxColors.violet, 'Phiếu nhập hàng', 'Nhập hàng từ nhà cung cấp'),
-          tile('damage', Icons.delete_forever_rounded, SboxColors.warning, 'Phiếu xuất hủy', 'Hàng hỏng, hết hạn'),
-          tile('penalty', Icons.gavel_rounded, SboxColors.danger, 'Phạt nhân viên', 'Vi phạm nội quy, đi trễ…'),
-          tile('advance', Icons.payments_rounded, SboxColors.success, 'Ứng lương cho nhân viên', 'Ghi khoản ứng trước lương'),
+          if (tiles.isEmpty)
+            const SboxEmptyState(
+              icon: Icons.lock_outline_rounded,
+              title: 'Chưa có trong gói dịch vụ',
+              message: 'Gói dịch vụ của cửa hàng chưa có chức năng này. Liên hệ đại lý để nâng cấp gói.',
+            )
+          else
+            ...tiles,
           const SizedBox(height: SboxSpace.sm),
         ]),
       );
@@ -86,8 +100,7 @@ double _parseMoney(String s) => double.tryParse(s.replaceAll(RegExp(r'[^\d]'), '
 void _snack(BuildContext context, String msg) =>
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(tr(msg))));
 
-/// SBOX BOSS — tab «Phiếu»: phiếu thu chi gần đây (lọc Thu / Chi / Chờ duyệt) và lối vào danh sách
-/// phiếu nhập hàng, xuất hủy đầy đủ. Tạo phiếu bằng nút ＋.
+/// SBOX BOSS — phiếu thu chi gần đây (lọc Thu / Chi / Chờ duyệt), mở từ tab «Quản lý». Tạo phiếu bằng nút ＋.
 class BossVouchersScreen extends StatefulWidget {
   const BossVouchersScreen({super.key, required this.refreshTick});
 
@@ -171,26 +184,6 @@ class _BossVouchersScreenState extends State<BossVouchersScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(SboxSpace.lg, SboxSpace.md, SboxSpace.lg, 96),
         children: [
-          Row(children: [
-            Expanded(
-              child: _Shortcut(
-                icon: Icons.inventory_2_rounded,
-                label: 'Phiếu nhập hàng',
-                onTap: () => Navigator.of(context)
-                    .push(MaterialPageRoute(builder: (_) => const PosPurchaseReceiptListScreen())),
-              ),
-            ),
-            const SizedBox(width: SboxSpace.md),
-            Expanded(
-              child: _Shortcut(
-                icon: Icons.delete_forever_rounded,
-                label: 'Phiếu xuất hủy',
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const PosStockIssueListScreen(config: PosStockIssueConfig.damage))),
-              ),
-            ),
-          ]),
-          const SizedBox(height: SboxSpace.md),
           Wrap(spacing: SboxSpace.sm, children: [
             for (final f in const [('all', 'Tất cả'), ('income', 'Thu'), ('expense', 'Chi'), ('pending', 'Chờ duyệt')])
               ChoiceChip(
@@ -209,7 +202,7 @@ class _BossVouchersScreenState extends State<BossVouchersScreen> {
           if (_loading && _items.isEmpty)
             const SboxLoading()
           else if (_error != null)
-            SboxEmptyState(icon: Icons.cloud_off_rounded, title: 'Không tải được phiếu', message: _error)
+            BossLoadError(title: 'Không tải được phiếu', message: _error)
           else if (shown.isEmpty)
             const SboxEmptyState(icon: Icons.receipt_long_rounded, title: 'Chưa có phiếu thu chi')
           else
@@ -226,26 +219,6 @@ class _BossVouchersScreenState extends State<BossVouchersScreen> {
       ),
     );
   }
-}
-
-class _Shortcut extends StatelessWidget {
-  const _Shortcut({required this.icon, required this.label, required this.onTap});
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => SboxCard(
-        onTap: onTap,
-        padding: const EdgeInsets.all(SboxSpace.md),
-        child: Row(children: [
-          Icon(icon, color: SboxColors.brand600),
-          const SizedBox(width: SboxSpace.sm),
-          Expanded(child: Text(tr(label), style: SboxType.bodyStrong())),
-          const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
-        ]),
-      );
 }
 
 class _VoucherTile extends StatelessWidget {

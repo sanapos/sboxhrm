@@ -16,6 +16,11 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
     private val FILE_CHANNEL = "com.sboxhrm/file_saver"
+
+    // Thư mục tệp xuất: app BOSS / Nhân Viên / KDS dùng tên app (khớp SboxAppVariant.exportFolderName).
+    private val exportFolderName: String
+        get() = if (packageName.endsWith(".sboxpos.com")) getString(R.string.app_name) else "SBOX HRM"
+
     private val SCANNER_CHANNEL = "com.sboxhrm/sunmi_scanner"
 
     private val SCANNER_CONFIG_CHANNEL = "com.sboxhrm/scanner_config"
@@ -319,9 +324,9 @@ class MainActivity : FlutterFragmentActivity() {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
                 put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
                 if (isImage) {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/SBOX HRM")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/" + exportFolderName)
                 } else {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/SBOX HRM")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + exportFolderName)
                 }
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
@@ -350,7 +355,7 @@ class MainActivity : FlutterFragmentActivity() {
             } else {
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             }
-            val subDir = java.io.File(dir, "SBOX HRM")
+            val subDir = java.io.File(dir, exportFolderName)
             if (!subDir.exists()) subDir.mkdirs()
 
             val file = java.io.File(subDir, filename)

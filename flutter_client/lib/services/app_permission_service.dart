@@ -73,8 +73,8 @@ class AppPermissionService {
     BuildContext context,
   ) async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
-    // SBOX KDS chỉ hiện vé bếp — không quét mã / chụp ảnh / định vị.
-    if (SboxAppVariant.kitchenApp) return;
+    // SBOX KDS chỉ hiện vé bếp; SBOX BOSS không chấm công — không hỏi quyền chấm công lúc mở app.
+    if (SboxAppVariant.kitchenApp || SboxAppVariant.bossApp) return;
     if (await wasEssentialPermissionsPrompted()) return;
     if (!context.mounted) return;
 

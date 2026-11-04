@@ -6,17 +6,17 @@ import 'package:package_info_plus/package_info_plus.dart';
 /// Bật POS bằng `--flavor pos` (package `sbox.sana.vn.pos`) và/hoặc
 /// `--dart-define=SBOX_POS_STANDALONE=true`.
 /// SBOX KDS (chỉ màn hình bếp, Android 7+): `--flavor kds --dart-define=SBOX_APP=kds`
-/// (package `sbox.sana.vn.kitchen`) — là một dạng POS độc lập. Bản KDS Android 6 vẫn build từ flutter_pos.
+/// (package `kds.sboxpos.com`) — là một dạng POS độc lập. Bản KDS Android 6 vẫn build từ flutter_pos.
 /// SBOX Nhân Viên (app nhân viên: chấm công, lịch, lương, đơn từ, gọi món):
-/// `--flavor staff --dart-define=SBOX_APP=staff` (package `sbox.sana.vn.staff`).
-/// SBOX BOSS (app chủ cửa hàng): `--flavor boss` (package `sbox.sana.vn.boss`) và/hoặc
+/// `--flavor staff --dart-define=SBOX_APP=staff` (package `staff.sboxpos.com`).
+/// SBOX BOSS (app chủ cửa hàng): `--flavor boss` (package `boss.sboxpos.com`) và/hoặc
 /// `--dart-define=SBOX_APP=boss` — chỉ chủ / quản lý đăng nhập, mở thẳng màn tổng quan BOSS.
 /// Web: `sboxpos.com` chỉ branding POS; `sboxhrm.com` chỉ branding HRM.
 abstract final class SboxAppVariant {
   static const androidPosApplicationId = 'sbox.sana.vn.pos';
-  static const androidKdsApplicationId = 'sbox.sana.vn.kitchen';
-  static const androidStaffApplicationId = 'sbox.sana.vn.staff';
-  static const androidBossApplicationId = 'sbox.sana.vn.boss';
+  static const androidKdsApplicationId = 'kds.sboxpos.com';
+  static const androidStaffApplicationId = 'staff.sboxpos.com';
+  static const androidBossApplicationId = 'boss.sboxpos.com';
   static const posGreen = 0xFF2E7D32;
   static const hrmBlue = 0xFF0C56D0;
 
@@ -48,6 +48,60 @@ abstract final class SboxAppVariant {
 
   /// App SBOX BOSS: đăng nhập xong mở shell BOSS (tổng quan / cuối ngày), không vào HRM hay POS.
   static bool get bossApp => _bossFromDefine || _bossFromPackage;
+
+  /// BOSS / Nhân Viên / KDS: không hiện thương hiệu HRM, chọn máy chủ cuối màn đăng nhập.
+  static bool get companionApp => bossApp || staffApp || kitchenApp;
+
+  /// Mặc định nối sboxpos.com khi chưa chọn máy chủ khác.
+  static bool get defaultsToPosServer => standalonePos || bossApp || staffApp;
+
+  /// SBOX POS gắn cố định máy chủ lúc build, không đổi được trong app.
+  static bool get fixedServer => standalonePos && !kitchenApp;
+
+  /// Tên miền HRM trong chữ hiển thị — không đụng địa chỉ email (sboxhrm@gmail.com).
+  static final RegExp _hrmDomainWord = RegExp(r'(?<!@)sboxhrm(?!@)');
+  static final RegExp _hrmWord = RegExp(r'\bHRM\b');
+  static final RegExp _packageBlocked =
+      RegExp(r'Gói dịch vụ[^"]*không bao gồm chức năng "[^"]*"\.?( Vui lòng nâng cấp gói\.?)?');
+
+  /// Máy chủ từ chối vì gói của cửa hàng không có chức năng (câu gốc kèm mã module).
+  static bool isPackageBlocked(String? message) =>
+      message != null && _packageBlocked.hasMatch(message);
+
+  /// Tên hiển thị trong app đồng hành: «SBOX HRM» → tên app, «Thiết lập HRM» → «Thiết lập SBOX»,
+  /// tên miền HRM → sboxpos.com.
+  static String rebrand(String s) {
+    if (!companionApp) return s;
+    if (isPackageBlocked(s)) {
+      s = s.replaceAll(_packageBlocked, 'Gói dịch vụ của cửa hàng chưa có chức năng này. Liên hệ đại lý để nâng cấp gói.');
+    }
+    if (!s.contains(RegExp(r'sboxhrm|\bHRM\b'))) return s;
+    return s
+        .replaceAll('SBOX HRM · SBOX POS', productLine)
+        .replaceAll('SBOX HRM - SBOX POS', productLine)
+        .replaceAll('SBOX HRM', productLine)
+        .replaceAll(_hrmWord, 'SBOX')
+        .replaceAll(_hrmDomainWord, 'sboxpos');
+  }
+
+  /// Chính sách / điều khoản: pháp nhân sản phẩm ghi là SBOX POS. Email hỗ trợ giữ nguyên.
+  static String rebrandLegal(String s) {
+    if (!companionApp) return s;
+    return s
+        .replaceAll(
+          'phần mềm quản lý nhân sự **SBOX HRM** và phần mềm bán hàng **SBOX POS**',
+          'phần mềm quản lý bán hàng và nhân sự **SBOX POS**',
+        )
+        .replaceAll('ứng dụng SBOX (SBOX HRM, SBOX POS)', 'ứng dụng SBOX POS')
+        .replaceAll('- **SBOX HRM**:', '- **Nhân sự**:')
+        .replaceAll('- **SBOX POS**:', '- **Bán hàng**:')
+        .replaceAll(' (sboxhrm.com, sboxpos.com)', '')
+        .replaceAll('Website: sboxhrm.com · sboxpos.com', 'Website: sboxpos.com')
+        .replaceAll('SBOX HRM', 'SBOX POS');
+  }
+
+  /// Thư mục Tải về / Ảnh chứa tệp xuất (khớp MainActivity.exportFolderName).
+  static String get exportFolderName => companionApp ? productLine : 'SBOX HRM';
 
   /// Trang web sboxpos.com — chỉ đổi logo/chữ login & marketing, không đổi shell app.
   static bool get posWebHost {
@@ -100,8 +154,16 @@ abstract final class SboxAppVariant {
 
   static String get copyright => '© 2026 $productLine';
 
-  static String get logoAsset =>
-      posBranding ? 'assets/sbox_pos_logo.png' : 'assets/logo.png';
+  static String get logoAsset => bossApp
+      ? 'assets/sbox_boss_logo.png'
+      : staffApp
+      ? 'assets/sbox_staff_logo.png'
+      : kitchenApp
+      ? 'assets/sbox_kds_logo.png'
+      : (posBranding ? 'assets/sbox_pos_logo.png' : 'assets/logo.png');
+
+  /// Logo «S» trong app (menu, màn khách): HRM / POS giữ logo gốc, app đồng hành dùng logo riêng.
+  static String get markAsset => companionApp ? logoAsset : 'assets/logo.png';
 
   static String get materialAppTitle => productLine;
 

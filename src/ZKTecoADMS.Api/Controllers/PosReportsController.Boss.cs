@@ -150,10 +150,11 @@ public partial class PosReportsController
         var empIds = employees.Select(e => e.Id);
         var todayVn = VnTimeHelper.NowVn().Date;
         var staffActive = await employees.CountAsync(ct);
+        // Attendance.EmployeeId là khóa DeviceUser (không phải Employee) — qua DeviceUser mới ra nhân viên.
         var staffCheckedIn = await dbContext.AttendanceLogs.AsNoTracking()
-            .Where(a => a.AttendanceTime >= todayVn && a.AttendanceTime < todayVn.AddDays(1)
-                && a.EmployeeId != null && empIds.Contains(a.EmployeeId.Value))
-            .Select(a => a.EmployeeId)
+            .Where(a => a.AttendanceTime >= todayVn && a.AttendanceTime < todayVn.AddDays(1) && a.EmployeeId != null)
+            .Join(dbContext.DeviceUsers, a => a.EmployeeId, du => (Guid?)du.Id, (a, du) => du.EmployeeId)
+            .Where(id => id != null && empIds.Contains(id.Value))
             .Distinct()
             .CountAsync(ct);
 

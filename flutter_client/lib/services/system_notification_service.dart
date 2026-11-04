@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../config/sbox_app_variant.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../services/api_service.dart';
 import '../utils/notification_display_utils.dart';
@@ -26,7 +27,7 @@ class SystemNotificationService {
     if (_initialized) return;
 
     const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/ic_stat_sbox');
 
     // iOS: do NOT request permissions here — FcmService.registerForCurrentUser()
     // calls FirebaseMessaging.requestPermission() which is the single iOS prompt.
@@ -115,7 +116,8 @@ class SystemNotificationService {
     if (!_initialized) await initialize();
 
     // Nội dung dài (liệt kê nhiều mặt hàng, món…) làm thông báo bung che màn hình → rút gọn.
-    final clippedBody = PosNotifyFocus.clip(body, max: 120);
+    title = SboxAppVariant.rebrand(title);
+    final clippedBody = PosNotifyFocus.clip(SboxAppVariant.rebrand(body), max: 120);
 
     String? trayId;
     if (payload != null && payload.contains('|')) {
@@ -133,17 +135,17 @@ class SystemNotificationService {
     final androidDetails = AndroidNotificationDetails(
       channelId ?? 'sbox_hrm_default',
       channelName ?? 'Thông báo chung',
-      channelDescription: 'Thông báo từ SBOX HRM',
+      channelDescription: SboxAppVariant.rebrand('Thông báo từ SBOX HRM'),
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
-      icon: '@mipmap/ic_launcher',
+      icon: '@drawable/ic_stat_sbox',
       tag: trayId,
       styleInformation: BigTextStyleInformation(
         clippedBody,
         contentTitle: title,
-        summaryText: categoryLabel ?? 'SBOX HRM',
+        summaryText: categoryLabel ?? SboxAppVariant.rebrand('SBOX HRM'),
       ),
       autoCancel: true, // Chỉ dismiss khi user tap vào
     );

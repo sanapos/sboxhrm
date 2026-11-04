@@ -34,10 +34,10 @@ class PosEmptyCartBrand extends StatelessWidget {
               children: [
                 Opacity(
                   opacity: opacity,
-                  // App Nhân Viên: logo «S» như màn đăng nhập — không gắn chữ «SBOX POS».
+                  // App đồng hành: logo «S» như màn đăng nhập — không gắn chữ «SBOX POS».
                   child: Image.asset(
-                    SboxAppVariant.staffApp ? 'assets/logo.png' : assetPath,
-                    width: SboxAppVariant.staffApp ? logoWidth * 0.5 : logoWidth,
+                    SboxAppVariant.companionApp ? SboxAppVariant.markAsset : assetPath,
+                    width: SboxAppVariant.companionApp ? logoWidth * 0.5 : logoWidth,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,
                   ),

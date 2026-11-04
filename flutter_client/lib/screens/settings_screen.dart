@@ -303,8 +303,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         '5 vị trí cố định — đổi thứ tự và chức năng hiển thị',
                     onTap: () => MobileBottomNavConfigSheet.show(context),
                   ),
-                // Máy chủ kết nối là thiết lập của máy này; app POS phát hành cố định máy chủ.
-                if (!SboxAppVariant.standalonePos)
+                // Máy chủ kết nối là thiết lập của máy này; app POS phát hành cố định máy chủ,
+                // app BOSS / Nhân Viên / KDS đổi ở màn đăng nhập (có mã bảo mật).
+                if (!SboxAppVariant.standalonePos && !SboxAppVariant.companionApp)
                   _buildSettingTile(
                     context,
                     icon: Icons.dns,

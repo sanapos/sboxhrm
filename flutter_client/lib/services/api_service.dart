@@ -46,11 +46,9 @@ class ApiService implements PayrollApi {
 
   static Future<void> loadSavedBaseUrl() async {
     // Public SBOX POS (App Store / Play) stays on the server baked in at build.
-    // Đánh giá lại mặc định: flavor `pos` / `boss` không truyền API_BASE_URL → sboxpos.com.
-    if (SboxAppVariant.standalonePos || SboxAppVariant.bossApp) {
-      _baseUrl = getApiBaseUrl();
-      return;
-    }
+    // Đánh giá lại mặc định: flavor `pos` / `boss` / `staff` / `kds` không truyền API_BASE_URL → sboxpos.com.
+    if (SboxAppVariant.defaultsToPosServer) _baseUrl = getApiBaseUrl();
+    if (SboxAppVariant.fixedServer) return;
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_baseUrlPrefKey);
     if (saved != null && saved.trim().isNotEmpty) {
@@ -60,7 +58,7 @@ class ApiService implements PayrollApi {
 
   /// Lưu máy chủ sau khi gọi thử /api/publicsettings. Trả về lỗi, hoặc null nếu được.
   static Future<String?> applyBaseUrl(String raw) async {
-    if (SboxAppVariant.standalonePos || SboxAppVariant.bossApp) {
+    if (SboxAppVariant.fixedServer) {
       return 'Bản ${SboxAppVariant.productLine} trên cửa hàng ứng dụng dùng máy chủ đã gắn khi build.';
     }
     final normalized = normalizeBaseUrl(raw);
@@ -141,7 +139,9 @@ class ApiService implements PayrollApi {
     return {
       'clientPlatform': platform,
       'deviceKey': key,
-      'deviceName': posApp ? 'POS' : (kIsWeb ? 'Web' : 'HRM'),
+      'deviceName': SboxAppVariant.companionApp
+          ? SboxAppVariant.productLine
+          : (posApp ? 'POS' : (kIsWeb ? 'Web' : 'HRM')),
     };
   }
 

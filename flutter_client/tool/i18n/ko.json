@@ -22770,7 +22770,26 @@
   "🟡 Chờ gửi: Đăng ký chưa gửi (có thể xóa/sửa).": "🟡 전송 대기: 아직 전송하지 않은 등록입니다 (삭제/수정 가능).",
   "🟡 Ít ca": "🟡 근무조 적음",
   "🟢 Đã duyệt: Đăng ký được chấp nhận.": "🟢 승인됨: 등록이 승인되었습니다.",
-  "🤝 Đã xác nhận": "🤝 확인됨"
+  "🤝 Đã xác nhận": "🤝 확인됨",
+  "cùng giờ": "같은 시간",
+  "Mã bảo mật": "보안 코드",
+  "Không tải được quyền": "권한을 불러올 수 없습니다",
+  "Đổi máy chủ": "서버 변경",
+  "Gói dịch vụ của cửa hàng chưa có chức năng này. Liên hệ đại lý để nâng cấp gói.": "매장의 서비스 패키지에 이 기능이 없습니다. 대리점에 문의하여 업그레이드하세요.",
+  "Bảng công": "근무표",
+  "Ý kiến nhân viên": "직원 의견",
+  "Không tải được chấm công": "출퇴근 정보를 불러올 수 없습니다",
+  "Mã bảo mật không đúng": "보안 코드가 올바르지 않습니다",
+  "Nhật ký chấm công": "출퇴근 기록",
+  "Hồ sơ nhân viên": "직원 프로필",
+  "Chưa có trong gói dịch vụ": "서비스 패키지에 포함되어 있지 않음",
+  "Tiền": "자금",
+  "Thông tin & tài khoản": "정보 및 계정",
+  "Ý kiến": "의견",
+  "Đã chấm công": "출근 완료",
+  "Bàn đang mở": "사용 중인 테이블",
+  "Kiểm tra kết nối rồi mở lại ứng dụng.": "연결을 확인한 후 앱을 다시 여세요.",
+  "Phiếu thu chi": "입출금 전표"
  },
  "t": [
   [

@@ -1,3 +1,4 @@
+import '../config/sbox_app_variant.dart';
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
@@ -24,7 +25,7 @@ Uint8List applySitePhotoWatermark(
       : null;
 
   final lines = <String>[
-    'SBOX HRM · Ảnh hiện trường',
+    SboxAppVariant.rebrand('SBOX HRM · Ảnh hiện trường'),
     timeLine,
     if (locLine != null) locLine,
     coordLine,
