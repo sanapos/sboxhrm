@@ -35,6 +35,20 @@ class PosProductImage extends StatelessWidget {
 
   static final _api = ApiService();
 
+  /// Ảnh đang hiện gần đây theo productId — hiệu ứng món bay vào giỏ dùng lại đúng bản đã giải mã
+  /// trên ô món: hiện ngay, không tốn thêm CPU / RAM. Giới hạn số mục vì giữ bytes ảnh.
+  static final _shown = <String, ImageProvider>{};
+  static const int shownMax = 48;
+
+  static ImageProvider? shownImageOf(String productId) => _shown[productId];
+
+  static void rememberShown(String? productId, ImageProvider image) {
+    if (productId == null || productId.isEmpty) return;
+    _shown.remove(productId);
+    _shown[productId] = image;
+    if (_shown.length > shownMax) _shown.remove(_shown.keys.first);
+  }
+
   @override
   Widget build(BuildContext context) {
     final url = imageUrl?.trim();
@@ -211,16 +225,18 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
     final longest = boxW > boxH ? boxW : boxH;
     final factor = widget.fit == BoxFit.cover ? 1.5 : 1.0;
     final target = (longest * dpr * factor).round().clamp(96, 1024);
+    final image = ResizeImage(
+      MemoryImage(_bytes!),
+      width: target,
+      height: target,
+      policy: ResizeImagePolicy.fit,
+    );
+    PosProductImage.rememberShown(widget.productId, image);
     // PNG có thể có nền trong suốt — bọc nền trắng để ảnh không bị lẫn màu nền container.
     return ColoredBox(
       color: Colors.white,
       child: Image(
-        image: ResizeImage(
-          MemoryImage(_bytes!),
-          width: target,
-          height: target,
-          policy: ResizeImagePolicy.fit,
-        ),
+        image: image,
         width: widget.fill ? double.infinity : widget.size,
         height: widget.fill ? double.infinity : widget.size,
         fit: widget.fit,

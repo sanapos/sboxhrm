@@ -84,6 +84,11 @@ class PosSellProductGrid extends StatefulWidget {
 }
 
 class PosSellProductGridState extends State<PosSellProductGrid> {
+  /// Chỗ chạm gần nhất trên lưới / danh sách — điểm xuất phát hiệu ứng bay vào giỏ.
+  Offset? _lastPointer;
+  Offset? _flyOrigin;
+  DateTime? _flyOriginAt;
+
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   final _qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
   final _categoryScroll = ScrollController();
@@ -1166,11 +1171,23 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     );
   }
 
+  /// Lấy điểm xuất phát hiệu ứng bay vào giỏ (dùng một lần). Null khi món không vào giỏ do
+  /// vừa chạm trên lưới (quét mã, đơn đồng bộ về…) — không có gì để bay.
+  Offset? takeFlyOrigin() {
+    final origin = _flyOrigin;
+    final at = _flyOriginAt;
+    _flyOrigin = null;
+    if (origin == null || at == null) return null;
+    return DateTime.now().difference(at).inSeconds < 3 ? origin : null;
+  }
+
   Future<void> _onProductTap(PosProduct p, {PosProductUnitView? view}) async {
     if (_lockMode) {
       await _toggleDailySoldOut(p);
       return;
     }
+    _flyOrigin = _lastPointer;
+    _flyOriginAt = DateTime.now();
     if (p.isDailySoldOut) {
       NotificationOverlayManager().showToast(
         tr(
@@ -2055,6 +2072,13 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
 
   @override
   Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (e) => _lastPointer = e.position,
+      child: _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
     _autoResetSoldOutIfNewDay();
     if (widget.sellListLayout) {
       return Material(

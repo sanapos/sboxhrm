@@ -86,6 +86,7 @@ import '../widgets/pos/pos_sell_mobile_print_settings_screen.dart';
 import '../widgets/pos/pos_barcode_keyboard_scope.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import '../widgets/pos/pos_sell_product_grid.dart';
+import '../widgets/pos/pos_cart_fly_effect.dart';
 import '../widgets/pos/pos_sell_cart_chrome.dart';
 import '../utils/pos_qr_order_voice.dart';
 import '../widgets/notification_overlay.dart';
@@ -870,6 +871,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   Timer? _customerSearchDebounce;
   Timer? _draftSyncDebounce;
   final _productGridKey = GlobalKey<PosSellProductGridState>();
+  final _cartFlyTargetKey = GlobalKey<PosCartFlyTargetState>();
   final _floorPaneKey = GlobalKey<PosResourceFloorScreenState>();
   /// Chip ghi chú đã học theo productId (máy này) — gộp với catalog.
   final Map<String, List<String>> _learnedQuickNotes = {};
@@ -6890,6 +6892,18 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// Cache đơn vị SP trên màn bán — tránh N+1 API mỗi lần chạm cùng món.
   final Map<String, List<PosProductUnitView>> _sellUnitViewsCache = {};
 
+  /// Món vừa vào giỏ do chạm trên lưới / danh sách: bay từ chỗ chạm tới giỏ.
+  void _flyPickedToCart(PosProduct p) {
+    final from = _productGridKey.currentState?.takeFlyOrigin();
+    if (from == null) return;
+    posFlyToCart(
+      context: context,
+      from: from,
+      target: _cartFlyTargetKey,
+      chip: PosCartFlyChip(productId: p.id),
+    );
+  }
+
   Future<void> _addPick(
     PosPurchaseLookupPick pick, {
     bool mergeIfSame = false,
@@ -7041,6 +7055,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       focusLine = line;
       _syncPaidAmount();
     });
+    if (focusLine != null) _flyPickedToCart(p);
     if (focusLine?.timerStartedAt != null) _refreshTimedLineQtys();
     if (autosave) _scheduleDraftAutosave();
     _ensureTimedBillingTimer();
@@ -18105,6 +18120,15 @@ class _PosSellScreenState extends State<PosSellScreen>
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                   child: Row(
                     children: [
+                      PosCartFlyTarget(
+                        key: _cartFlyTargetKey,
+                        child: Icon(
+                          Icons.shopping_cart_outlined,
+                          size: 26,
+                          color: draftLines == 0 ? PosTheme.textSecondary : _kiotBlue,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: draftLines == 0
                             ? Text(
@@ -18252,6 +18276,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       _pickerDraftPicks[id] = pick;
     });
     _playSellPickClick();
+    _flyPickedToCart(pick.product);
   }
 
   void _pickerDraftDecrement(PosProduct product) {
@@ -18904,12 +18929,15 @@ class _PosSellScreenState extends State<PosSellScreen>
       ),
       child: Row(
         children: [
-          Icon(
-            _isTableOrderMode
-                ? Icons.table_restaurant_outlined
-                : Icons.receipt_long_outlined,
-            size: 17,
-            color: PosTheme.textSecondary,
+          PosCartFlyTarget(
+            key: _cartFlyTargetKey,
+            child: Icon(
+              _isTableOrderMode
+                  ? Icons.table_restaurant_outlined
+                  : Icons.receipt_long_outlined,
+              size: 17,
+              color: PosTheme.textSecondary,
+            ),
           ),
           const SizedBox(width: 6),
           Expanded(
