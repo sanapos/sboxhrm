@@ -21844,6 +21844,45 @@ class ApiService {
     }
   }
 
+  /// «Duyệt từ xa»: gửi yêu cầu cho chủ / quản lý (SBOX BOSS) thay vì nhập mật khẩu tại máy.
+  Future<Map<String, dynamic>> createPosRemoteApproval(String reason, {String? detail, double? amount}) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/remote-approvals'),
+            headers: _headers,
+            body: jsonEncode({'reason': reason, 'detail': detail, 'amount': amount}),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Kết quả yêu cầu duyệt từ xa (`status`: pending / approved / rejected / cancelled / expired; có `approvalToken` khi duyệt).
+  Future<Map<String, dynamic>> getPosRemoteApproval(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/remote-approvals/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPosRemoteApproval(String id) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/remote-approvals/$id/cancel'), headers: _headers, body: '{}')
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosCashierShiftCurrent() async {
     try {
       final response = await http

@@ -46,8 +46,8 @@ class ApiService implements PayrollApi {
 
   static Future<void> loadSavedBaseUrl() async {
     // Public SBOX POS (App Store / Play) stays on the server baked in at build.
-    // Đánh giá lại mặc định: flavor `pos` không truyền API_BASE_URL → sboxpos.com.
-    if (SboxAppVariant.standalonePos) {
+    // Đánh giá lại mặc định: flavor `pos` / `boss` không truyền API_BASE_URL → sboxpos.com.
+    if (SboxAppVariant.standalonePos || SboxAppVariant.bossApp) {
       _baseUrl = getApiBaseUrl();
       return;
     }
@@ -60,8 +60,8 @@ class ApiService implements PayrollApi {
 
   /// Lưu máy chủ sau khi gọi thử /api/publicsettings. Trả về lỗi, hoặc null nếu được.
   static Future<String?> applyBaseUrl(String raw) async {
-    if (SboxAppVariant.standalonePos) {
-      return 'Bản SBOX POS trên cửa hàng ứng dụng dùng máy chủ đã gắn khi build.';
+    if (SboxAppVariant.standalonePos || SboxAppVariant.bossApp) {
+      return 'Bản ${SboxAppVariant.productLine} trên cửa hàng ứng dụng dùng máy chủ đã gắn khi build.';
     }
     final normalized = normalizeBaseUrl(raw);
     final uri = Uri.tryParse(normalized);
@@ -9870,6 +9870,44 @@ class ApiService implements PayrollApi {
       final uri = Uri.parse('$baseUrl/api/Dashboard/full')
           .replace(queryParameters: params.isNotEmpty ? params : null);
       final response = await sharedHttpClient.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// SBOX BOSS: tổng quan hôm nay (doanh thu so cùng giờ hôm qua / tuần trước, theo giờ, PTTT,
+  /// bàn đang mở, nhân viên đã chấm công) — lọc theo chi nhánh đang xem (header X-Branch-Id).
+  Future<Map<String, dynamic>> getBossDashboard() async {
+    try {
+      final response = await sharedHttpClient
+          .get(Uri.parse('$baseUrl/api/pos/reports/boss/dashboard'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// SBOX BOSS: mọi việc chờ duyệt (nghỉ, tăng ca, sửa công, chấm công mobile, đổi ca, ca theo giờ, ứng lương,
+  /// công tác phí, phiếu phạt, phiếu thu chi chờ duyệt) — `items[].kind` quyết định endpoint duyệt.
+  Future<Map<String, dynamic>> getBossInbox() async {
+    try {
+      final response = await sharedHttpClient
+          .get(Uri.parse('$baseUrl/api/boss/inbox'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// SBOX BOSS: vấn đề vận hành ngoài «Tổng quan / việc cần xử lý» (ca thu ngân lệch quỹ, ca quên đóng).
+  Future<Map<String, dynamic>> getBossIssues() async {
+    try {
+      final response = await sharedHttpClient
+          .get(Uri.parse('$baseUrl/api/boss/issues'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -24705,6 +24743,61 @@ class ApiService implements PayrollApi {
             body: jsonEncode({'password': password, if (purpose != null) 'purpose': purpose}),
           )
           .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// «Duyệt từ xa»: gửi yêu cầu cho chủ / quản lý (SBOX BOSS) thay vì nhập mật khẩu tại máy.
+  Future<Map<String, dynamic>> createPosRemoteApproval(String reason, {String? detail, double? amount}) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/remote-approvals'),
+            headers: _headers,
+            body: jsonEncode({'reason': reason, 'detail': detail, 'amount': amount}),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Kết quả yêu cầu duyệt từ xa (`status`: pending / approved / rejected / cancelled / expired; có `approvalToken` khi duyệt).
+  Future<Map<String, dynamic>> getPosRemoteApproval(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/remote-approvals/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPosRemoteApproval(String id) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/remote-approvals/$id/cancel'), headers: _headers, body: '{}')
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// SBOX BOSS: chủ / quản lý duyệt hoặc từ chối yêu cầu từ máy bán hàng.
+  Future<Map<String, dynamic>> decidePosRemoteApproval(String id, {required bool approve, String? reason}) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/remote-approvals/$id/${approve ? 'approve' : 'reject'}'),
+            headers: _headers,
+            body: jsonEncode({'reason': reason}),
+          )
+          .timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

@@ -44,7 +44,7 @@ android {
         }
     }
 
-    // hrm = Play listing hiện tại (sbox.sana.vn). pos = listing SBOX POS mới. kds = SBOX KDS.
+    // hrm = Play listing hiện tại (sbox.sana.vn). pos = listing SBOX POS mới. kds = SBOX KDS. boss = SBOX BOSS (app chủ cửa hàng).
     flavorDimensions += "app"
     productFlavors {
         create("hrm") {
@@ -61,6 +61,10 @@ android {
         create("kds") {
             dimension = "app"
             applicationId = "sbox.sana.vn.kitchen"
+        }
+        create("boss") {
+            dimension = "app"
+            applicationId = "sbox.sana.vn.boss"
         }
         // SBOX Nhân Viên: app nhân viên (chấm công, lịch, lương, đơn từ, gọi món) — cài song song HRM.
         create("staff") {
@@ -99,9 +103,15 @@ flutter {
 val staffInFirebase = file("google-services.json").let { f ->
     f.exists() && f.readText().contains("\"sbox.sana.vn.staff\"")
 }
+// SBOX BOSS chưa có app Android trên Firebase (google-services.json chưa có sbox.sana.vn.boss) → bỏ bước
+// google-services của flavor boss để build được; Dart vẫn khởi tạo Firebase qua firebase_options.dart.
+// Đăng ký app trên Firebase rồi tải lại google-services.json là bước này tự chạy lại.
+val bossInFirebase = listOf(file("google-services.json"), file("src/boss/google-services.json"))
+    .any { it.exists() && it.readText().contains("\"sbox.sana.vn.boss\"") }
 tasks.configureEach {
     if (name.startsWith("process") && name.endsWith("GoogleServices") &&
-        (name.contains("Kds") || (name.contains("Staff") && !staffInFirebase))) {
+        (name.contains("Kds") || (name.contains("Staff") && !staffInFirebase) ||
+            (name.contains("Boss") && !bossInFirebase))) {
         enabled = false
     }
 }
