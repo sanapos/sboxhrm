@@ -98,6 +98,9 @@ class _AiChart {
 /// Xóa khi đăng xuất / đổi cửa hàng ([AiAssistantSheet.resetSession]) hoặc bấm «Cuộc trò chuyện mới».
 final List<_ChatMsg> _sessionMessages = [];
 
+/// Chip tạo phiếu đã gửi thành công — ẩn đi, bấm lại sẽ gửi thêm một phiếu trùng.
+final Set<String> _sessionDoneCreates = {};
+
 class _PendingAction {
   _PendingAction.fromJson(Map<String, dynamic> j)
       : id = (j['id'] ?? '').toString(),
@@ -135,7 +138,10 @@ class AiAssistantSheet extends StatefulWidget {
   const AiAssistantSheet({super.key});
 
   /// Xóa cuộc trò chuyện đang giữ (đăng xuất / đổi cửa hàng — không để lộ sang tài khoản khác).
-  static void resetSession() => _sessionMessages.clear();
+  static void resetSession() {
+    _sessionMessages.clear();
+    _sessionDoneCreates.clear();
+  }
 
   @override
   State<AiAssistantSheet> createState() => _AiAssistantSheetState();
@@ -346,6 +352,12 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   /// Im lặng bao lâu sau khi đã nói thì tự dừng & gửi.
   static const _silenceStop = Duration(milliseconds: 1800);
 
+  /// Micro mở mà không nghe thấy lời trong khoảng này → tự dừng.
+  static const _noSpeechStop = Duration(seconds: 8);
+
+  /// Đủ lớn để chắc là tiếng nói ngay trong 0,5 giây đầu (khi chưa đo được mức ồn).
+  static const _loudSpeech = 1500.0;
+
   /// Đo độ lớn từng đoạn PCM 16-bit: 0,5 giây đầu làm mức ồn nền; vượt ngưỡng = đang nói.
   /// Đã nói rồi im ~1,8 giây → tự dừng (trước đây phải bấm ■, quên bấm là ghi đủ 60 giây).
   void _onPcmChunk(Uint8List chunk) {
@@ -361,7 +373,12 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     final now = DateTime.now();
     final sinceStart = now.difference(_recStartedAt ?? now);
     if (sinceStart < const Duration(milliseconds: 500)) {
-      _noiseFloor = _noiseFloor == null ? rms : (_noiseFloor! * 0.7 + rms * 0.3);
+      // Lấy mức thấp nhất làm nền: nói ngay khi micro vừa mở (rảnh tay) không bị coi là tiếng ồn.
+      _noiseFloor = _noiseFloor == null ? rms : math.min(_noiseFloor!, rms);
+      if (rms >= _loudSpeech) {
+        _heardSpeech = true;
+        _lastLoudAt = now;
+      }
       return;
     }
     final threshold = math.max(450.0, (_noiseFloor ?? 0) * 2.5);
@@ -369,6 +386,9 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       _heardSpeech = true;
       _lastLoudAt = now;
     } else if (_heardSpeech && _lastLoudAt != null && now.difference(_lastLoudAt!) >= _silenceStop) {
+      _stopRecordingAndTranscribe();
+    } else if (!_heardSpeech && sinceStart >= _noSpeechStop) {
+      // Không ai nói → dừng sớm, không ghi đủ 60 giây rồi mới báo.
       _stopRecordingAndTranscribe();
     }
   }
@@ -415,6 +435,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       if (pcm.length >= 16000 * 2 * 0.4) {
         NotificationOverlayManager().showWarning(
             title: 'Chưa nghe rõ', message: tr('Bạn nói lại gần micro hơn nhé.'));
+        unawaited(_reportVoiceIssue(tr('Tôi chưa nghe rõ, bạn nói lại nhé.')));
       }
       return;
     }
@@ -432,20 +453,39 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         );
       } else {
         // Hết lượt tạm thời / mạng chậm — giữ chế độ AI, chỉ báo nói lại.
-        NotificationOverlayManager().showWarning(
-          title: 'AI đang bận',
-          message: tr('Chưa chép được lời — bạn bấm micro nói lại sau vài giây.'),
-        );
+        final (title, message) = switch (res.status) {
+          0 => ('Mất kết nối', tr('Chưa gửi được ghi âm — kiểm tra mạng rồi nói lại.')),
+          401 => ('Phiên đăng nhập hết hạn', tr('Bạn đăng nhập lại rồi nói lại nhé.')),
+          _ => ('AI đang bận', tr('Chưa chép được lời — bạn bấm micro nói lại sau vài giây.')),
+        };
+        NotificationOverlayManager().showWarning(title: title, message: message);
+        unawaited(_reportVoiceIssue(message));
       }
       return;
     }
     if (text.trim().isEmpty) {
       NotificationOverlayManager().showWarning(
           title: 'Chưa nghe rõ', message: tr('Bạn nói lại gần micro hơn nhé.'));
+      unawaited(_reportVoiceIssue(tr('Tôi chưa nghe rõ, bạn nói lại nhé.')));
       return;
     }
+    _voiceFails = 0;
     _inputCtrl.text = text.trim();
     _send();
+  }
+
+  int _voiceFails = 0;
+
+  /// Rảnh tay không nhìn màn hình → lỗi phải nói thành tiếng. Lỗi liền hai lần thì tắt rảnh tay, không lặp mic mãi.
+  Future<void> _reportVoiceIssue(String message) async {
+    if (!mounted) return;
+    if (_handsFree && ++_voiceFails >= 2) {
+      _voiceFails = 0;
+      await _setHandsFree(false);
+      if (mounted) unawaited(_speakReply('$message ${tr('Đã tắt rảnh tay, bấm micro khi cần.')}'));
+      return;
+    }
+    unawaited(_speakReply(message));
   }
 
   Future<void> _stopSpeaking() async {
@@ -478,8 +518,9 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       await _tts.setSpeechRate(kIsWeb ? 0.95 : 0.48);
       await _tts.setVolume(1.0);
       await _tts.setPitch(1.0);
+      // Web cũng chờ đọc xong từng đoạn: plugin bỏ qua lệnh đọc khi đang đọc — trước đây chỉ đọc được câu đầu.
+      await _tts.awaitSpeakCompletion(true);
       if (!kIsWeb) {
-        await _tts.awaitSpeakCompletion(true);
         try {
           await _tts.setSharedInstance(true);
         } catch (_) {}
@@ -564,7 +605,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
 
   String _plainForSpeech(String raw) {
     var t = raw
-        .replaceAll(RegExp(r'\[\[(?:ACTION|CREATE|GUIDE|OPEN):[^\]]*\]\]'), ' ')
+        .replaceAll(RegExp(r'\[\[[^\]]*\]\]'), ' ')
+        .replaceAll(RegExp(r'\[\[[^\]]*$'), ' ')
         .replaceAll(RegExp(r'[*#_`|>]'), ' ')
         .replaceAll(RegExp(r'(^|\n)\s*[-•·]\s+'), r'$1')
         // Emoji / ký hiệu (cả cặp surrogate, biến thể FE0F, nối 200D) — trước đây regex không unicode làm vỡ ký tự.
@@ -659,7 +701,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       if (!mounted || gen != _speakGen || !_ttsEnabled) return;
       if (i == chunks.length - 1) _lastChunkGen = gen;
       try {
-        await _tts.speak(chunks[i]);
+        // Chrome đôi khi không báo đọc xong — không để treo cả vòng rảnh tay.
+        await _tts.speak(chunks[i]).timeout(const Duration(seconds: 30));
       } catch (_) {
         break;
       }
@@ -670,6 +713,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   }
 
   bool _aiSpeakUnavailable = false;
+  bool _micDeniedShown = false;
 
   /// [ask] = người dùng vừa bấm micro → mới xin quyền (không bật hộp xin quyền ngay khi mở trợ lý).
   Future<void> _initStt({bool ask = false}) async {
@@ -677,9 +721,13 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       var mic = await Permission.microphone.status;
       if (!mic.isGranted && ask) mic = await Permission.microphone.request();
       if (mic.isPermanentlyDenied && ask) {
+        _micDeniedShown = true;
         NotificationOverlayManager().showWarning(
-            title: 'Chưa có quyền micro', message: tr('Mở Cài đặt của máy → cấp quyền Micro cho ứng dụng.'));
-        await openAppSettings();
+            title: 'Chưa có quyền micro',
+            message: kIsWeb
+                ? tr('Bấm biểu tượng ổ khóa trên thanh địa chỉ → cho phép Micro.')
+                : tr('Mở Cài đặt của máy → cấp quyền Micro cho ứng dụng.'));
+        if (!kIsWeb) await openAppSettings();
         return;
       }
       if (!mic.isGranted) return;
@@ -714,13 +762,15 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   }
 
   Future<void> _toggleListening() async {
-    if (_transcribing) return;
+    // Đang chờ trợ lý trả lời: lời chép xong sẽ nằm lại ô nhập, không gửi được.
+    if (_transcribing || (_isSending && !_recording && !_isListening)) return;
     // Giọng nói cũng gửi lên AI (ghi âm) — cần đồng ý quyền riêng tư như khi gõ.
     if (!kIsWeb && !_consentGiven) {
       _showConsentDialog();
       return;
     }
-    if (_ttsSpeaking) await _stopSpeaking();
+    // Luôn dừng, kể cả khi còn đang chờ tạo âm thanh: âm phát đè lên bản ghi sẽ lọt vào micro.
+    await _stopSpeaking();
     if (_recording) {
       await _stopRecordingAndTranscribe();
       return;
@@ -729,8 +779,11 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     if (!_sttReady) {
       await _initStt(ask: true);
       if (!_sttReady) {
-        NotificationOverlayManager().showWarning(
-            title: 'Micro chưa sẵn sàng', message: tr('Vui lòng cấp quyền micro và thử lại'));
+        if (!_micDeniedShown) {
+          NotificationOverlayManager().showWarning(
+              title: 'Micro chưa sẵn sàng', message: tr('Vui lòng cấp quyền micro và thử lại'));
+        }
+        _micDeniedShown = false;
         return;
       }
     }
@@ -795,7 +848,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
             _partialTranscript = '';
           });
           // Tự động gửi sau khi nói xong (nếu có nội dung)
-          if (spoken.length >= 2) {
+          if (spoken.isNotEmpty) {
             _send();
           }
         }
@@ -825,25 +878,68 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     _scrollToBottom();
 
     try {
-      final history = _messages
-          .where((m) => !m.local && m.content.trim().isNotEmpty)
-          .map((m) => {'role': m.role, 'content': m.content})
-          .toList();
-      final result = await _chatWithStream(history);
-      if (!mounted) return;
+      final result = await _chatWithStream(_historyForAi());
       _showChatResult(result, retryText: text);
     } catch (e) {
+      final msg = '${tr('Lỗi')}: $e';
+      _messages.add(_ChatMsg('assistant', '⚠️ $msg', retryText: text));
       if (mounted) {
-        setState(() {
-          _messages.add(_ChatMsg('assistant', '⚠️ ${tr('Lỗi')}: $e', retryText: text));
-        });
+        setState(() {});
+        unawaited(_reportVoiceIssue(msg));
       }
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
   }
 
+  /// Lịch sử gửi AI: bỏ câu hỏi đã lỗi (AI thấy hai lượt liền nhau có thể làm lại lệnh cũ), kèm trạng thái từng thẻ — bấm
+  /// Xác nhận / Bỏ không đi qua AI, thiếu ghi chú này AI tưởng thẻ còn chờ và lập lại phiếu đã lưu.
+  List<Map<String, String>> _historyForAi() {
+    final out = <Map<String, String>>[];
+    for (var i = 0; i < _messages.length; i++) {
+      final m = _messages[i];
+      if (m.local || m.retryText != null) continue;
+      if (m.role == 'user' && i + 1 < _messages.length && _messages[i + 1].retryText != null) continue;
+      var content = m.content.trim();
+      if (m.pending.isNotEmpty) {
+        final notes = m.pending.map((a) => '«${a.title}»: ${_cardStateNote(a.state)}').join('; ');
+        content = '$content\n(Ghi chú hệ thống về thẻ: $notes)'.trim();
+      }
+      if (content.isNotEmpty) out.add({'role': m.role, 'content': content});
+    }
+    return out;
+  }
+
+  static String _cardStateNote(String state) => switch (state) {
+        'done' => 'đã lưu',
+        'discarded' => 'đã bỏ',
+        'undone' => 'đã hoàn tác',
+        'failed' => 'lưu lỗi',
+        'running' || 'undoing' => 'đang xử lý',
+        _ => 'đang chờ xác nhận',
+      };
+
+  /// Câu đọc khi có thẻ: nghe đủ nội dung trước khi nói «xác nhận» — rảnh tay không nhìn màn hình.
+  String _speechWithCards(String reply, List<_PendingAction> cards) {
+    if (cards.isEmpty) return reply;
+    final b = StringBuffer(reply.length > 250 ? '${reply.substring(0, 250)}…' : reply);
+    for (final a in cards) {
+      b.write('\n${tr(a.title)}.');
+      for (final (label, value) in a.lines.take(5)) {
+        b.write(' $label: $value.');
+      }
+      for (final w in a.warnings.take(2)) {
+        b.write(' $w.');
+      }
+    }
+    b.write(cards.any((a) => a.highRisk)
+        ? '\n${tr('Nói chắc chắn xác nhận để lưu, hoặc nói bỏ.')}'
+        : '\n${tr('Nói xác nhận để lưu, hoặc nói bỏ.')}');
+    return b.toString();
+  }
+
   /// Hiện phản hồi của trợ lý: câu trả lời, thẻ xác nhận, biểu đồ — hoặc thông báo lỗi.
+  /// Đóng trợ lý giữa chừng vẫn lưu vào phiên: mở lại thấy câu trả lời và thẻ.
   void _showChatResult(Map<String, dynamic> result, {String? retryText}) {
     if (result['isSuccess'] == true) {
       final data = result['data'] as Map<String, dynamic>?;
@@ -869,19 +965,27 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           .map((e) => _AiChart.fromJson(Map<String, dynamic>.from(e)))
           .where((c) => c.values.length >= 2)
           .toList();
-      setState(() {
-        _messages.add(_ChatMsg('assistant', reply,
-            actions: actions, creates: creates, guides: guides, reports: reports, pending: pending, charts: charts,
-            exportId: data?['exportId'] as String?));
-      });
+      _messages.add(_ChatMsg('assistant', reply,
+          actions: actions, creates: creates, guides: guides, reports: reports, pending: pending, charts: charts,
+          exportId: data?['exportId'] as String?));
+      if (!mounted) return;
+      _voiceFails = 0;
+      setState(() {});
       _scrollToBottom();
+      // «Mở phiếu lương» → mở luôn, không cần bấm chip.
+      final autoOpen = data?['autoOpen'] as String?;
+      if (autoOpen != null && autoOpen.isNotEmpty) {
+        _handleAction('open:$autoOpen');
+        return;
+      }
       // Không chờ đọc xong — tắt «Đang suy nghĩ…» ngay, giọng đọc tải song song (tắt đọc: rảnh tay nghe tiếp luôn).
-      unawaited(_speakReply(reply));
+      unawaited(_speakReply(_speechWithCards(reply, pending)));
     } else {
       final msg = (result['message'] as String?) ?? 'Lỗi trợ lý ảo';
-      setState(() {
-        _messages.add(_ChatMsg('assistant', '⚠️ ${tr(msg)}', retryText: retryText));
-      });
+      _messages.add(_ChatMsg('assistant', '⚠️ ${tr(msg)}', retryText: retryText));
+      if (!mounted) return;
+      setState(() {});
+      unawaited(_reportVoiceIssue(tr(msg)));
     }
   }
 
@@ -1095,20 +1199,22 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       _liveText = '';
     });
     try {
+      // Đóng trợ lý giữa chừng vẫn đọc tiếp: hủy luồng sẽ mất câu trả lời đã tốn lượt AI và thẻ vừa lập.
       await for (final ev in aiChatStream(body)) {
-        if (!mounted) break;
         gotAny = true;
         switch (ev.type) {
           case 'status':
-            setState(() => _liveStatus = ev.text);
+            if (mounted) setState(() => _liveStatus = ev.text);
           case 'delta':
-            setState(() {
-              _liveText += ev.text;
-              _liveStatus = null;
-            });
-            _scrollToBottom();
+            if (mounted) {
+              setState(() {
+                _liveText += ev.text;
+                _liveStatus = null;
+              });
+              _scrollToBottom();
+            }
           case 'reset':
-            setState(() => _liveText = '');
+            if (mounted) setState(() => _liveText = '');
           case 'done':
             final res = ev.data['body'];
             if (res is Map) return Map<String, dynamic>.from(res);
@@ -1418,6 +1524,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         if (!mounted) return;
 
         if (result['isSuccess'] == true) {
+          _sessionDoneCreates.add(createTag);
           final reply = '✅ Đã tạo yêu cầu sửa giờ thành công!\n'
               '📅 Ngày: ${_formatDate(date)}\n'
               '🕐 Giờ: $time\n'
@@ -1994,7 +2101,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               final perm =
                   Provider.of<PermissionProvider>(ctx, listen: false);
               final allowed = m.creates
-                  .where((c) => AiAssistantPermissions.canCreate(c, perm))
+                  .where((c) => AiAssistantPermissions.canCreate(c, perm) && !_sessionDoneCreates.contains(c))
                   .toList();
               if (allowed.isEmpty) return const SizedBox.shrink();
               return Wrap(
@@ -2319,7 +2426,10 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       a.state = ok ? 'done' : 'failed';
       a.result = ok
           ? (data['message']?.toString() ?? 'Đã lưu')
-          : (res['message']?.toString() ?? 'Không thực hiện được');
+          // Mất kết nối: máy chủ có thể đã ghi xong. Bấm Thử lại không tạo trùng — máy chủ trả lại kết quả đã có.
+          : res.containsKey('errorKind')
+              ? tr('Mất kết nối, chưa rõ đã lưu chưa — bấm Thử lại để kiểm tra.')
+              : (res['message']?.toString() ?? 'Không thực hiện được');
       a.undoUntil = ok && data['canUndo'] == true && undoSecs > 0
           ? DateTime.now().add(Duration(seconds: undoSecs))
           : null;
@@ -2329,14 +2439,17 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
 
   // ── Lệnh giọng nói ngắn + rảnh tay ──
 
-  /// Thẻ còn chờ (hoặc lưu lỗi) của câu trả lời gần nhất có thẻ.
-  List<_PendingAction> _openCards() {
+  /// Thẻ của câu trả lời mới nhất. Tin mới nhất không có thẻ → không có gì để điều khiển: «có» khi AI vừa hỏi «xem chi
+  /// tiết không?» là trả lời AI, không được lưu thẻ cũ phía trên.
+  List<_PendingAction> _latestCards() {
     for (final m in _messages.reversed) {
-      if (m.role != 'assistant' || m.pending.isEmpty) continue;
-      return m.pending.where((a) => a.state == 'pending' || a.state == 'failed').toList();
+      if (m.role != 'assistant' || m.local || m.retryText != null) continue;
+      return m.pending;
     }
     return const [];
   }
+
+  static bool _isOpen(_PendingAction a) => a.state == 'pending' || a.state == 'failed';
 
   void _localReply(String said, String reply) {
     setState(() {
@@ -2355,16 +2468,18 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     switch (cmd.kind) {
       case AiVoiceCommandKind.confirm:
       case AiVoiceCommandKind.discard:
-        final open = _openCards();
+        final cards = _latestCards();
+        final open = cards.where(_isOpen).toList();
         if (open.isEmpty) return false;
+        // Số thẻ theo đúng thứ tự trên màn hình — thẻ 1 đã xong thì «thẻ hai» vẫn là thẻ thứ hai.
         final i = cmd.index;
-        if (i != null && i > open.length) {
-          final msg = tr('Chỉ có ${open.length} phiếu đang chờ.');
+        if (i != null && (i > cards.length || !_isOpen(cards[i - 1]))) {
+          final msg = i > cards.length ? tr('Chỉ có ${cards.length} phiếu.') : tr('Phiếu số $i đã xử lý rồi.');
           _localReply(text, msg);
           unawaited(_speakReply(msg));
           return true;
         }
-        final targets = i == null ? open : [open[i - 1]];
+        final targets = i == null ? open : [cards[i - 1]];
         if (cmd.kind == AiVoiceCommandKind.discard) {
           for (final a in targets) {
             unawaited(_api.discardAiAction(a.id));
@@ -2401,8 +2516,18 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         if (last == null) return false;
         _localReply(text, tr('Đang hoàn tác…'));
         await _undoAction(last);
-        if (mounted && last.state == 'undone') unawaited(_speakReply(last.result ?? tr('Đã hoàn tác')));
+        if (mounted) {
+          unawaited(_speakReply(last.state == 'undone' ? last.result ?? tr('Đã hoàn tác') : tr('Chưa hoàn tác được.')));
+        }
         return true;
+      case AiVoiceCommandKind.repeat:
+        for (final m in _messages.reversed) {
+          if (m.role != 'assistant' || m.local || m.retryText != null) continue;
+          _localReply(text, tr('Đọc lại câu trả lời vừa rồi.'));
+          unawaited(_speakReply(_speechWithCards(m.content, m.pending.where(_isOpen).toList())));
+          return true;
+        }
+        return false;
       case AiVoiceCommandKind.stop:
         if (!_handsFree) return false;
         await _setHandsFree(false);
@@ -2461,7 +2586,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         a.result = data['message']?.toString() ?? 'Đã hoàn tác';
       } else {
         a.state = 'done';
-        a.undoUntil = null;
+        // Lỗi mạng: máy chủ chưa từ chối, còn hạn thì giữ nút để bấm lại.
+        if (!res.containsKey('errorKind')) a.undoUntil = null;
         NotificationOverlayManager().showError(
             title: 'Không hoàn tác được', message: res['message']?.toString() ?? 'Thử lại trên màn chứng từ.');
       }
@@ -2648,7 +2774,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                 ),
                 IconButton(
                   tooltip: tr(_isListening || _recording ? 'Dừng & gửi' : 'Nói'),
-                  onPressed: _transcribing ? null : _toggleListening,
+                  onPressed: _transcribing || (_isSending && !_recording && !_isListening) ? null : _toggleListening,
                   icon: _transcribing
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : Icon(

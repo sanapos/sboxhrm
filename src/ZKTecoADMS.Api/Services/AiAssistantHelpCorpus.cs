@@ -19,7 +19,8 @@ public sealed record HelpChunk(
     string[] ScreenNotes,
     string Area = "",
     string Group = "",
-    string Trail = "");
+    string Trail = "",
+    string SourceUrl = "");
 
 /// <summary>
 /// Kiến thức «làm thế nào» của trợ lý AI. Nội dung lấy từ HelpCorpus/landing-guide.json — file do
@@ -134,7 +135,7 @@ public static class AiAssistantHelpCorpus
         ["zalo_bot"] =new("zalo bot liên kết zalo tin nhắn zalo thông báo qua zalo token bot webhook", []),
     };
 
-    private static readonly IReadOnlyList<HelpChunk> AllChunks = [.. Load(), .. ServerChunks()];
+    private static readonly IReadOnlyList<HelpChunk> AllChunks = [.. Load(), .. ServerChunks(), .. AiAssistantKnowledge.Load()];
 
     public static IReadOnlyList<HelpChunk> All => AllChunks;
 
@@ -151,6 +152,77 @@ public static class AiAssistantHelpCorpus
     /// </summary>
     static HelpChunk[] ServerChunks() =>
     [
+        new(ServerMode, "sys_schedule_approval", "Duyệt lịch làm việc",
+            "Duyệt đăng ký ca của nhân viên theo tuần, xem lưới ca, phân bổ và đổi ca.",
+            [
+                "Vào Chấm công › Duyệt lịch làm việc; chọn tuần bằng «Tuần trước» / «Tuần này» / «Tuần sau», lọc chi nhánh nếu có",
+                "Tab «Chờ duyệt»: đăng ký nhóm theo ngày; bấm Duyệt hoặc Từ chối từng dòng (từ chối thì nhập «Lý do từ chối»)",
+                "Duyệt nhanh: «Duyệt nhóm» theo ngày, «Duyệt tất cả» cả tuần",
+                "Tab «Lưới ca»: xem theo ca và định mức; có «Duyệt tất cả ca này», «Từ chối tất cả», «Hoàn duyệt tất cả», «Xóa tất cả đăng ký»",
+                "Tab «Phân bổ»: thống kê ca theo nhân viên. Tab «Đổi ca»: xử lý đổi ca, tạo «Yêu cầu đổi ca»",
+            ],
+            "Duyệt nhiều cấp sẽ báo «Đã duyệt bước x/y — chờ cấp tiếp theo». Không có quyền Duyệt thì không thấy nút duyệt.",
+            "duyệt lịch duyệt ca đăng ký ca lịch làm việc từ chối ca hoàn duyệt lưới ca định mức phân bổ đổi ca",
+            ["nav_schedule_approval"], [], "sbox"),
+        new(ServerMode, "sys_notification_settings", "Thiết lập thông báo",
+            "Mỗi người tự chọn loại thông báo muốn nhận; áp dụng cho tài khoản trên mọi thiết bị.",
+            [
+                "Vào Cài đặt › Thiết lập thông báo (màn «Thông báo»)",
+                "Bật / tắt từng loại hoặc cả nhóm: «Chấm công & ca», «Đơn từ & phê duyệt», «Lương & tài chính», «Công việc & nội bộ», «Bán hàng», «Hệ thống»",
+                "Menu ⋮ có «Bật tất cả» / «Tắt tất cả»; công tắc tự lưu, không có nút Lưu",
+                "Thẻ «Đẩy lên điện thoại»: đặt «Giờ yên lặng», «Thông báo khẩn vẫn đổ chuông», kiểm tra bằng «Gửi thử cho tôi»",
+            ],
+            "Loại đã tắt vẫn xem được trong mục Thông báo, chỉ không đẩy lên điện thoại.",
+            "tắt thông báo bật thông báo thiết lập thông báo không nhận thông báo giờ yên lặng thông báo đẩy điện thoại không đổ chuông gửi thử",
+            [], [], "sbox"),
+        new(ServerMode, "pos_print_templates", "Mẫu in báo giá",
+            "Tạo và chọn mẫu A4 dùng khi in báo giá.",
+            [
+                "Vào POS › Mẫu in báo giá",
+                "Bấm «Thêm mẫu»: chọn mẫu có sẵn, mẫu trống (nhập «Tên mẫu», «Khổ giấy», «Mẫu gợi ý» rồi «Tạo») hoặc tải file Word .docx",
+                "Sửa nội dung; mẫu Word thì chèn trường như {Khach_Hang}, {Tong_Cong}; rồi bấm «Lưu»",
+                "Bấm «In thử» để kiểm tra",
+                "Bấm «Dùng mẫu này» (đang sửa dở: «Lưu & dùng mẫu này»); mẫu đang áp dụng có nhãn «Đang dùng»",
+            ],
+            "File .doc cũ phải mở bằng Word, lưu thành .docx rồi tải lên. Mẫu Word không nhân bản được.",
+            "mẫu in báo giá sửa mẫu báo giá mẫu a4 tải mẫu word docx logo báo giá in thử dùng mẫu này",
+            [], [], "pos"),
+        new(ServerMode, "hr_attendance_reports", "Báo cáo chấm công và Đi trễ / Về sớm",
+            "Xem bảng công theo kỳ, lỗi đi trễ / về sớm, tạo phiếu phạt và xuất file.",
+            [
+                "Báo cáo nhân sự › Báo cáo chấm công: chỉ số «Tổng công», «Tỷ lệ chuyên cần», «Ngày vắng»…, biểu đồ và bảng lịch theo ký hiệu (xem «Chú thích»)",
+                "Lọc theo kỳ, chi nhánh, «Nhân viên»; «Xóa lọc» để về mặc định",
+                "Báo cáo nhân sự › Đi trễ / Về sớm: lọc «Tối thiểu» (≥ 1–30 phút), «Chỉ đi trễ», «Chỉ về sớm», «Đã phạt», «Chưa phạt»; xem tab «Chi tiết» hoặc «Theo nhân viên»",
+                "Tại dòng lỗi: nhập giải trình, bấm «Phạt» hoặc «Hủy phạt» (cần quyền tạo phiếu phạt)",
+                "Xuất file: «Xuất Excel» hoặc «Xuất PNG» — cần quyền Xuất; nút mờ khi không có dữ liệu",
+            ],
+            "Số phút trễ tính theo ca và đã trừ ân hạn.",
+            "báo cáo chấm công bảng công báo cáo đi trễ về sớm xuất excel xuất png tỷ lệ chuyên cần ngày vắng phạt đi trễ giải trình",
+            [], [], "sbox"),
+        new(ServerMode, "sys_employee_app", "App SBOX Nhân Viên",
+            "App riêng cho nhân viên tự phục vụ, không có menu quản trị như app chính.",
+            [
+                "Đăng nhập bằng tài khoản nhân viên; thanh dưới gồm «Trang chủ», «Order», «Lịch», «Công lương», «Tôi»",
+                "«Trang chủ»: ca hôm nay, nút chấm công, thống kê công tháng, «Thao tác nhanh»",
+                "«Order»: gọi món; phục vụ / thu ngân vào thẳng màn này. Tài khoản không thu tiền thấy nút «Gửi thu ngân»",
+                "«Công lương»: «Lịch sử chấm công», «Giải trình / bổ sung công», «Đăng ký thiết bị chấm công», «Phiếu lương», «Tạm ứng lương»",
+                "«Tôi»: «Xin nghỉ phép», «Đăng ký tăng ca», «Đổi ca», «Công tác phí», «Bản tin nội bộ», «Công việc», «Suất ăn», «Góp ý», «Cài đặt»",
+            ],
+            "Mục vai trò hoặc gói dịch vụ không có sẽ tự ẩn.",
+            "app nhân viên sbox nhân viên chức năng app nhân viên app staff chấm công trên điện thoại xem lịch xem lương gọi món phục vụ không thấy menu",
+            [], [], "sbox"),
+        new(ServerMode, "sys_boss_app", "App SBOX BOSS",
+            "App cho chủ / quản lý theo dõi cửa hàng trên điện thoại.",
+            [
+                "Đăng nhập bằng tài khoản chủ / quản lý; tài khoản khác bị chặn và chỉ có nút «Đăng xuất»",
+                "Năm tab: «Tổng quan», «Cần duyệt», «Báo cáo», «Quản lý», «Thêm»",
+                "«Báo cáo»: «Cuối ngày», «Nguy cơ gian lận» và các báo cáo khác",
+                "«Quản lý»: «Hàng hóa», «Nhập hàng», «Kiểm kho», «Xếp lịch», «Bảng công», «Hồ sơ», «Tài khoản», «Phân quyền», «Thiết lập», «Phiếu thu chi»",
+                "Tab «Thêm»: «Chi nhánh đang xem», «Đăng xuất»",
+            ],
+            "App không mở menu đầy đủ của HRM hay POS.",
+            "app boss sbox boss app chủ cửa hàng xem doanh thu trên điện thoại duyệt từ xa báo cáo cuối ngày gian lận",
+            [], [], "sbox"),
         new(ServerMode, "pos_ai_read_order", "Nhờ Trợ lý ảo đọc / dịch đơn hàng từ ảnh hoặc file",
             "Chụp đơn viết tay, tin nhắn đặt hàng, hóa đơn nhà cung cấp (kể cả tiếng nước ngoài) hoặc gửi file PDF / Excel — trợ lý đọc, dịch sang tiếng Việt, khớp với hàng hóa và dựng thẻ để bạn xác nhận.",
             [
@@ -455,22 +527,59 @@ public static class AiAssistantHelpCorpus
         if (string.IsNullOrWhiteSpace(query))
             return [];
 
-        var terms = SplitTerms(query);
-        if (terms.Count == 0)
+        var words = SplitTerms(query);
+        if (words.Count == 0)
             return [];
 
         var raw = VnSearch.FoldText(query);
-        var pairs = SplitPairs(query);
+        var terms = words.Select(t => (t, Rarity(t, whole: false))).ToList();
+        var pairs = SplitPairs(query).Select(p => (p, Rarity(p, whole: true))).ToList();
         var ranked = Folded
             .Select(f => (f.Chunk, Score: ScoreChunk(f, terms, pairs, raw)))
             .Where(x => x.Score > 0)
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Chunk.Mode, StringComparer.Ordinal)
             .ThenBy(x => x.Chunk.StepId, StringComparer.Ordinal)
-            .Take(Math.Max(1, topK))
             .ToList();
+        // Hướng dẫn sử dụng nói đủ các từ của câu hỏi thì đứng trước bài kiến thức gần điểm: «kết nối máy in qua LAN» cần màn
+        // hình cài đặt, không cần bài chọn mua máy in.
+        // Câu xin lời khuyên («cách chọn máy», «nên mua») thì giữ bài kiến thức, dù bài hướng dẫn có chữ «chọn đúng…».
+        if (ranked.Count > 1 && ranked[0].Chunk.Mode == AiAssistantKnowledge.Mode && !AdviceWords.Any(raw.Contains))
+        {
+            var guide = ranked.FindIndex(x => x.Chunk.Mode != AiAssistantKnowledge.Mode && x.Score >= ranked[0].Score * GuideOverKnowledge
+                && Coverage(Folded.First(f => ReferenceEquals(f.Chunk, x.Chunk)), words) >= MinCoverage);
+            if (guide > 0)
+            {
+                var g = ranked[guide];
+                ranked.RemoveAt(guide);
+                ranked.Insert(0, (g.Chunk, Math.Max(g.Score, ranked[0].Score)));
+            }
+        }
+        PreferSection(ranked, words);
+        ranked = ranked.Take(Math.Max(1, topK)).ToList();
         // Bài kém hơn một nửa bài đứng đầu chỉ trùng vài từ lẻ — bỏ, khỏi trả kèm bài lạc đề.
         return ranked.Count == 0 ? ranked : ranked.Where(x => x.Score * 2 >= ranked[0].Score).ToList();
+    }
+
+    /// <summary>
+    /// Bài tổng quan đứng đầu mà từ hiếm nhất của câu chỉ nằm ở tên một mục («… bị sai giờ» → mục «Sai giờ, sai múi giờ») → trả
+    /// đúng mục đó, không trả cả dàn ý. Từ đã có trong tên bài («mất kết nối») là câu hỏi chung: giữ tổng quan.
+    /// </summary>
+    static void PreferSection(List<(HelpChunk Chunk, int Score)> ranked, IReadOnlyList<string> words)
+    {
+        var top = ranked[0].Chunk;
+        if (top.Mode != AiAssistantKnowledge.Mode || top.StepId.Contains('#')) return;
+        var overview = Folded.First(f => ReferenceEquals(f.Chunk, top));
+        var rarest = words.Where(w => !Has(overview.Title, w)).OrderByDescending(w => Rarity(w, whole: false)).FirstOrDefault();
+        if (rarest == null) return;
+        var suffix = $" ({overview.Title})";
+        var i = ranked.FindIndex(x => x.Chunk.StepId.StartsWith(top.StepId + "#", StringComparison.Ordinal)
+            && Folded.First(f => ReferenceEquals(f.Chunk, x.Chunk)).Title is var t && t.EndsWith(suffix, StringComparison.Ordinal)
+            && Has(t[..^suffix.Length], rarest));
+        if (i <= 0) return;
+        var section = ranked[i];
+        ranked.RemoveAt(i);
+        ranked.Insert(0, (section.Chunk, Math.Max(section.Score, ranked[0].Score)));
     }
 
     /// <summary>
@@ -480,7 +589,10 @@ public static class AiAssistantHelpCorpus
     public static IReadOnlyList<HelpChunk> GuideAnswerHits(string query)
     {
         var hits = SearchScored(query, topK: 2);
-        return hits.Where(x => x.Score * 10 >= hits[0].Score * 9).Select(x => x.Chunk).ToList();
+        return hits.Where(x => x.Score * 10 >= hits[0].Score * 9)
+            // Đã có bài hướng dẫn thì không kèm bài viết kiến thức — câu trả lời thẳng chỉ cần chỗ bấm.
+            .Where(x => x.Chunk.Mode != AiAssistantKnowledge.Mode || hits[0].Chunk.Mode == AiAssistantKnowledge.Mode)
+            .Select(x => x.Chunk).ToList();
     }
 
     public static string FormatForPrompt(IEnumerable<HelpChunk> chunks)
@@ -509,6 +621,8 @@ public static class AiAssistantHelpCorpus
                 sb.AppendLine($"Trên màn hình: {note}");
             if (chunk.ActionTags.Length > 0)
                 sb.AppendLine("Gợi ý điều hướng: " + string.Join(", ", chunk.ActionTags.Select(t => $"[[ACTION:{t}]]")));
+            if (!string.IsNullOrWhiteSpace(chunk.SourceUrl))
+                sb.AppendLine($"Nguồn (bài viết SBOX): {chunk.SourceUrl}");
             sb.AppendLine();
         }
 
@@ -618,12 +732,66 @@ public static class AiAssistantHelpCorpus
             .ToList();
     }
 
-    sealed record FoldedChunk(HelpChunk Chunk, string StepId, string Title, string Summary, string Keywords, string[] Bullets);
+    sealed record FoldedChunk(HelpChunk Chunk, string StepId, string Title, string Summary, string Keywords, string[] Bullets)
+    {
+        public readonly string Text = string.Join(' ', new[] { StepId, Title, Summary, Keywords }.Concat(Bullets));
+    }
 
     static readonly IReadOnlyList<FoldedChunk> Folded = AllChunks
-        .Select(c => new FoldedChunk(c, c.StepId.ToLowerInvariant().Replace('_', ' '), VnSearch.Fold(c.Title), VnSearch.Fold(c.Summary),
-            VnSearch.Fold(c.Keywords), c.Bullets.Select(VnSearch.Fold).ToArray()))
+        .Select(c => new FoldedChunk(c,
+            c.Mode == AiAssistantKnowledge.Mode ? "" : c.StepId.ToLowerInvariant().Replace('_', ' '),
+            VnSearch.Fold(c.Title), VnSearch.Fold(c.Summary), VnSearch.Fold(c.Keywords), c.Bullets.Select(VnSearch.Fold).ToArray()))
         .ToList();
+
+    /// <summary>
+    /// Trọng số theo độ hiếm: từ có trong rất nhiều bài («máy», «chấm», «công») gần như không phân biệt được bài nào —
+    /// trước đây mọi câu có «máy chấm công» đều ra bài Gateway WiFi vì bài này nhắc cụm đó ở tiêu đề và nhiều dòng.
+    /// Từ hiếm («bhxh», «macbook») quyết định bài đứng đầu.
+    /// </summary>
+    static double Rarity(string term, bool whole)
+    {
+        var df = Folded.Count(f => whole ? HasWord(f.Text, term) : Has(f.Text, term));
+        var n = Folded.Count;
+        return 0.15 + 1.35 * Math.Log((n + 1d) / (df + 1d)) / Math.Log(n + 1d);
+    }
+
+    /// <summary>Một từ chỉ tính tối đa ngần này dòng — bài dài không được cộng điểm chỉ vì dài.</summary>
+    const int MaxBulletHits = 2;
+
+    /// <summary>Bài kiến thức xếp sau hướng dẫn sử dụng khi cùng khớp: hỏi chỗ bấm thì trả màn hình, không trả bài viết.</summary>
+    const double KnowledgeWeight = 0.8;
+
+    /// <summary>Hướng dẫn sử dụng đạt ngần này phần điểm của bài kiến thức đứng đầu thì được đưa lên trước (xem <see cref="SearchScored"/>).</summary>
+    const double GuideOverKnowledge = 0.85;
+
+    static readonly string[] AdviceWords = ["cach chon", "nen chon", "nen mua", "chon mua", "chi phi", "co nen"];
+
+    /// <summary>Phần «trọng lượng» từ trong câu có mặt ở bài — dưới mức này bài chỉ khớp từ chung, không trả thẳng được.</summary>
+    const double MinCoverage = 0.7;
+
+    /// <summary>
+    /// Điểm bài đứng đầu để quyết định trả lời thẳng không qua AI; 0 khi bài không chứa các từ đặc trưng của câu hỏi
+    /// («làm sao đóng bhxh cho nhân viên» khớp «nhân viên» ở bài phân quyền nhưng thiếu «bhxh» → để AI xử lý).
+    /// </summary>
+    public static int DirectAnswerScore(string query)
+    {
+        var top = SearchScored(query, topK: 1);
+        if (top.Count == 0) return 0;
+        var f = Folded.First(x => ReferenceEquals(x.Chunk, top[0].Chunk));
+        return Coverage(f, SplitTerms(query)) >= MinCoverage ? top[0].Score : 0;
+    }
+
+    static double Coverage(FoldedChunk f, IReadOnlyList<string> terms)
+    {
+        double all = 0, hit = 0;
+        foreach (var t in terms)
+        {
+            var w = Rarity(t, whole: false);
+            all += w;
+            if (Has(f.Text, t)) hit += w;
+        }
+        return all <= 0 ? 0 : hit / all;
+    }
 
     /// <summary>
     /// Từ ngắn («in», «lan», «don») phải trùng nguyên từ — so chuỗi con thì «in» khớp «invoice», «lan» khớp «lanh»… làm
@@ -635,37 +803,39 @@ public static class AiAssistantHelpCorpus
     static bool HasWord(string text, string term) =>
         text.Contains(term) && Regex.IsMatch(text, $@"(?<![\p{{L}}\p{{N}}]){Regex.Escape(term)}(?![\p{{L}}\p{{N}}])");
 
-    private static int ScoreChunk(FoldedChunk c, IReadOnlyList<string> terms, IReadOnlyList<string> pairs, string raw)
+    private static int ScoreChunk(FoldedChunk c, IReadOnlyList<(string Text, double Weight)> terms,
+        IReadOnlyList<(string Text, double Weight)> pairs, string raw)
     {
-        var score = 0;
+        double score = 0;
         if (raw.Length >= 2)
         {
             if (c.StepId.Contains(raw)) score += 30;
             if (c.Title.Contains(raw)) score += 20;
             if (c.Keywords.Contains(raw)) score += 15;
             if (c.Summary.Contains(raw)) score += 8;
-            score += 4 * c.Bullets.Count(b => b.Contains(raw));
+            score += 4 * Math.Min(MaxBulletHits, c.Bullets.Count(b => b.Contains(raw)));
         }
 
-        foreach (var term in terms)
+        foreach (var (term, w) in terms)
         {
-            if (Has(c.StepId, term)) score += 12;
-            if (Has(c.Title, term)) score += 10;
-            if (Has(c.Keywords, term)) score += 8;
-            if (Has(c.Summary, term)) score += 5;
-            score += 3 * c.Bullets.Count(b => Has(b, term));
+            if (Has(c.StepId, term)) score += 12 * w;
+            if (Has(c.Title, term)) score += 10 * w;
+            if (Has(c.Keywords, term)) score += 8 * w;
+            if (Has(c.Summary, term)) score += 5 * w;
+            score += 3 * w * Math.Min(MaxBulletHits, c.Bullets.Count(b => Has(b, term)));
         }
 
         // Cụm hai từ liền nhau («may in», «hoa don») — tách từng từ thì «máy in hóa đơn» ngang điểm với bài hóa đơn điện tử.
-        foreach (var pair in pairs)
+        foreach (var (pair, w) in pairs)
         {
-            if (HasWord(c.StepId, pair)) score += 15;
-            if (HasWord(c.Title, pair)) score += 15;
-            if (HasWord(c.Keywords, pair)) score += 10;
-            if (HasWord(c.Summary, pair)) score += 5;
-            score += 3 * c.Bullets.Count(b => HasWord(b, pair));
+            if (HasWord(c.StepId, pair)) score += 15 * w;
+            if (HasWord(c.Title, pair)) score += 15 * w;
+            if (HasWord(c.Keywords, pair)) score += 10 * w;
+            if (HasWord(c.Summary, pair)) score += 5 * w;
+            score += 3 * w * Math.Min(MaxBulletHits, c.Bullets.Count(b => HasWord(b, pair)));
         }
 
-        return score;
+        if (c.Chunk.Mode == AiAssistantKnowledge.Mode) score *= KnowledgeWeight;
+        return (int)Math.Round(score);
     }
 }

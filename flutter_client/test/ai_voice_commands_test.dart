@@ -25,6 +25,32 @@ void main() {
     expect(kind('đúng'), AiVoiceCommandKind.confirm);
   });
 
+  test('«đừng» không bị hiểu thành «đúng» — nói «đừng lưu» không được lưu thẻ', () {
+    for (final s in ['đừng', 'Đừng lưu', 'đừng xác nhận nhé', 'không xác nhận', 'không lưu', 'không đồng ý', 'hủy', 'Hủy đi']) {
+      expect(kind(s), AiVoiceCommandKind.discard, reason: s);
+    }
+    for (final s in ['đừng bỏ', 'đừng hủy', 'không bỏ', 'đừng làm vậy với An']) {
+      expect(AiVoiceCommand.parse(s), isNull, reason: s);
+    }
+    expect(AiVoiceCommand.parse('đừng xác nhận thẻ 2')?.index, 2);
+    expect(kind('không, bỏ'), AiVoiceCommandKind.discard);
+  });
+
+  test('đọc lại câu trả lời', () {
+    for (final s in ['đọc lại', 'Đọc lại đi em', 'nhắc lại giúp tôi', 'nói lại nhé']) {
+      expect(kind(s), AiVoiceCommandKind.repeat, reason: s);
+    }
+    expect(AiVoiceCommand.parse('đọc lại doanh thu tháng này cho tôi nghe'), isNull);
+  });
+
+  test('lệnh thẻ theo ngôn ngữ giao diện', () {
+    expect(kind('확인'), AiVoiceCommandKind.confirm);
+    expect(kind('キャンセル'), AiVoiceCommandKind.discard);
+    expect(kind('确认。'), AiVoiceCommandKind.confirm);
+    expect(kind('撤销'), AiVoiceCommandKind.undo);
+    expect(AiVoiceCommand.parse('取消昨天的订单'), isNull);
+  });
+
   test('chọn thẻ theo số', () {
     expect(AiVoiceCommand.parse('xác nhận thẻ 2')?.index, 2);
     expect(AiVoiceCommand.parse('xác nhận cái thứ hai')?.index, 2);

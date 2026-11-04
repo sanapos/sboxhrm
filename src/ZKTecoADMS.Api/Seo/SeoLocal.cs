@@ -105,7 +105,7 @@ public static partial class SeoPages
     const string OfficeAddress = "184 Nam Cao, Hòa Khánh, Đà Nẵng";
 
     /// <summary>Máy chấm công đang bán — Super Admin nhập ở Thiết lập › Landing «Sản phẩm thiết bị» (landing_products).</summary>
-    public record DeviceOffer(string Name, string? Sub, string? Price, string? OldPrice, string? Specs, string? Brand);
+    public record DeviceOffer(string Name, string? Sub, string? Price, string? OldPrice, string? Specs, string? Brand, string? ImageUrl = null);
 
     public static List<DeviceOffer> ParseDevices(string? json)
     {
@@ -120,7 +120,7 @@ public static partial class SeoPages
             foreach (var e in doc.RootElement.EnumerateArray())
             {
                 if (e.ValueKind != JsonValueKind.Object || Str(e, "name") is not { } name) continue;
-                list.Add(new DeviceOffer(name, Str(e, "sub"), Str(e, "price"), Str(e, "oldPrice"), Str(e, "specs"), Str(e, "brand")));
+                list.Add(new DeviceOffer(name, Str(e, "sub"), Str(e, "price"), Str(e, "oldPrice"), Str(e, "specs"), Str(e, "brand"), Str(e, "imageUrl")));
             }
         }
         catch (JsonException) { }

@@ -11,7 +11,7 @@ public static class AiAssistantPromptBuilder
 - Thanh toán: tiền mặt, thẻ, chuyển khoản QR VietQR tự xác nhận (Tingee), voucher, khuyến mãi, tích điểm, bán nợ; màn hình phụ cho khách; máy in hóa đơn K80 / tem ly / phiếu bếp (USB, Bluetooth, LAN, in cloud); hóa đơn điện tử (Viettel, Easy Invoice, MISA, VNPT); giao hàng GHN, GHTK, Viettel Post, AhaMove (COD, in tem); báo giá & hợp đồng; bảo hành theo seri.
 - Kho: nhập hàng & công nợ nhà cung cấp, trả hàng nhập, xuất hủy, xuất dùng nội bộ, kiểm kho, thẻ kho, cảnh báo dưới định mức, nhiều đơn vị tính, chi nhánh.
 - Nhân sự: chấm công máy ZKTeco (vân tay / khuôn mặt) hoặc điện thoại (GPS, WiFi, khuôn mặt), ca & lịch làm, đổi ca, nghỉ phép, tăng ca, sửa công, lương (phụ cấp, BHXH / thuế, thưởng, phạt, sản lượng), tạm ứng, KPI, công tác phí, chấm cơm, tài sản, giao việc, truyền thông nội bộ, thông báo qua Zalo.
-- Báo cáo bán hàng / kho / tài chính / nhân sự; ca thu ngân & tổng kết cuối ngày; Trợ lý ảo (hỏi số liệu, lập phiếu bằng lời / giọng nói; đọc và dịch đơn hàng từ ảnh chụp / PDF / Excel gửi bằng nút kẹp giấy rồi dựng thẻ xác nhận). Câu trả lời có số liệu báo cáo có nút xuất PNG, Excel, PDF ngay dưới câu trả lời (cần quyền Xuất). Trợ lý không vẽ / sinh ảnh minh họa theo yêu cầu.
+- Báo cáo bán hàng / kho / tài chính / nhân sự; ca thu ngân & tổng kết cuối ngày; Trợ lý ảo (hỏi số liệu, lập phiếu bằng lời / giọng nói; đọc và dịch đơn hàng từ ảnh chụp / PDF / Excel gửi bằng nút kẹp giấy rồi dựng thẻ xác nhận). Nói «mở phiếu lương», «vào bán hàng» là mở đúng màn. Câu trả lời có số liệu báo cáo có nút xuất PNG, Excel, PDF ngay dưới câu trả lời (cần quyền Xuất). Trợ lý không vẽ / sinh ảnh minh họa theo yêu cầu.
 Câu hỏi về SBOX → trả lời theo danh sách này + khối HƯỚNG DẪN SỬ DỤNG, nêu tên menu thật; KHÔNG hứa tính năng ngoài danh sách. Giá phần mềm / gói dịch vụ / gia hạn: chưa có số liệu ở đây — mời liên hệ SBOX (không tự nêu giá).";
 
     /// <param name="storeKnowledge">Hồ sơ chủ cửa hàng viết + ảnh chụp nhanh cửa hàng (<see cref="AiAssistantStoreKnowledge"/>).</param>
@@ -53,6 +53,7 @@ QUY TẮC TRẢ LỜI (bắt buộc):
 - CẤM nói ""Tôi không có dữ liệu này trong hệ thống"" nếu bên dưới đã có mục === ... === với số, tên, hoặc danh sách.
 - Chỉ nói không có dữ liệu khi mục liên quan ghi rõ ""- Chưa có..."" hoặc ""(Chưa liên kết hồ sơ nhân viên)"".
 - Câu hỏi ""cách / hướng dẫn / làm sao"" → ưu tiên khối === HƯỚNG DẪN SỬ DỤNG === (nếu có); trả lời theo tài liệu + gắn [[GUIDE:mode/stepId]] và [[ACTION:...]] phù hợp.
+- Khối có dòng ""Nguồn (bài viết SBOX): ..."" là kiến thức nghiệp vụ (luật lao động, sự cố máy chấm công, chọn thiết bị, giá vốn…): được dùng số liệu trong đó và cuối câu trả lời ghi đường link nguồn. Có ""Mẹo: Số liệu pháp luật..."" thì nhắc đối chiếu quy định hiện hành. Số luật không có trong khối → nói chưa có dữ liệu chắc chắn, không tự nhớ ra số.
 - Chấm công hôm nay → mục ""CHẤM CÔNG HÔM NAY""; có dòng HH:mm = đã chấm.
 - Ai đi trễ → ""AI ĐI TRỄ HÔM NAY""; không có tên = không ai trễ.
 - Số phép còn → ""Phép có lương còn lại"".

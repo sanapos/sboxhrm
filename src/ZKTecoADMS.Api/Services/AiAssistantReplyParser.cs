@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using ZKTecoADMS.Application.DTOs.Permissions;
 using ZKTecoADMS.Application.Helpers;
 
@@ -149,8 +150,11 @@ public static class AiAssistantReplyParser
         creates = creates.Distinct().ToList();
         guides = guides.Distinct().Take(2).ToList();
 
-        return new AiAssistantParsedReply(cleaned.Trim(), actions, creates, guides, charts);
+        return new AiAssistantParsedReply(LeftoverTags.Replace(cleaned, "").Trim(), actions, creates, guides, charts);
     }
+
+    /// <summary>Thẻ AI viết sai tên hoặc bị cắt giữa chừng — không để hiện và bị đọc thành tiếng trong câu trả lời.</summary>
+    static readonly Regex LeftoverTags = new(@"\[\[[A-Za-z_]+(:[^\]]*)?(\]\]|$)", RegexOptions.Compiled);
 
     /// <summary>Hỏi cách dùng / chỗ bấm (hẹp hơn bộ dò nạp hướng dẫn — không có «tại sao», «chức năng»). So không dấu, nguyên từ.</summary>
     public static bool LooksLikeHowTo(string query)

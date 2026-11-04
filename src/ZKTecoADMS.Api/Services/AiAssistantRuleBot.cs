@@ -28,6 +28,14 @@ public static class AiAssistantRuleBot
         if (!includeFallback && LooksLikeCompose(q))
             return new AiAssistantRuleResult(false, "");
 
+        // Hỏi cách dùng: chỉ trả bài hướng dẫn — «duyệt lịch làm việc ở đâu» không kèm mục «Lịch làm hôm nay» của người hỏi.
+        if (guideQuestion && helpHits.Count > 0)
+        {
+            foreach (var hit in helpHits.Take(2))
+                AppendHelp(sb, hit, allowedActions);
+            return new AiAssistantRuleResult(true, sb.ToString().Trim());
+        }
+
         if (LooksLikeProfile(q))
         {
             matched = true;
@@ -256,6 +264,8 @@ public static class AiAssistantRuleBot
         }
         if (!string.IsNullOrWhiteSpace(hit.Tip))
             sb.AppendLine("Mẹo: " + hit.Tip);
+        if (!string.IsNullOrWhiteSpace(hit.SourceUrl))
+            sb.AppendLine("Xem đầy đủ: " + hit.SourceUrl);
         if (AiAssistantHelpCorpus.HasAppGuide(hit))
             sb.AppendLine($"[[GUIDE:{hit.Mode}/{hit.StepId}]]");
         foreach (var tag in hit.ActionTags)

@@ -24,18 +24,35 @@ public class SeoDeviceTests
         Assert.Contains("https://sboxhrm.com/lap-dat-may-cham-cong/san-pham/zkteco-senseface-2a", html);
         Assert.Contains("\"@type\":\"Product\"", html);
         Assert.Contains("\"price\":\"3200000\"", html);
-        Assert.Contains("/images/devices/device-face.svg", html);
+        Assert.Contains("/images/devices/zkteco-senseface-2a.webp", html); // ảnh SBOX tự chụp đúng mẫu
+        Assert.Contains("id=\"hinh-anh\"", html);
         Assert.Contains("FAQPage", html);
         Assert.Contains("lap-dat-may-cham-cong/san-pham/ronald-jack-8300pro", html); // liên kết sang máy khác
         Assert.DoesNotContain("maychamcong24h", html);
         Assert.Contains("1.500 (bản Entry)", html); // thông số chính hãng của SenseFace 2A
     }
 
+    [Theory]
+    [InlineData("https://maychamcong24h.vn/a.jpg", "/images/devices/ronald-jack-8300pro.webp")] // ảnh website khác không dùng
+    [InlineData("/uploads/may.jpg", "/uploads/may.jpg")]
+    [InlineData("https://sboxhrm.com/uploads/may.jpg", "https://sboxhrm.com/uploads/may.jpg")]
+    public void Device_image_only_from_sbox(string url, string expected) =>
+        Assert.Equal(expected, SeoPages.DeviceImage(Finger with { ImageUrl = url }));
+
+    [Fact]
+    public void Model_without_own_photo_says_gallery_is_same_type_not_same_model()
+    {
+        var html = SeoPages.DevicePage(Finger with { Name = "Ronald Jack K99" }, [Face, Finger]);
+        Assert.Contains("/images/devices/device-fingerprint.svg", html);
+        Assert.Contains("id=\"hinh-anh\"", html);
+        Assert.Contains("mẫu máy trong ảnh có thể khác", html);
+    }
+
     [Fact]
     public void Unknown_model_shows_only_admin_entered_specs()
     {
         var html = SeoPages.DevicePage(Finger, [Face, Finger]);
-        Assert.Contains("/images/devices/device-fingerprint.svg", html);
+        Assert.Contains("/images/devices/ronald-jack-8300pro.webp", html);
         Assert.DoesNotContain("Bộ xử lý", html);
         Assert.Contains("Vân tay – Thẻ – TCP/IP – ADMS", html);
     }

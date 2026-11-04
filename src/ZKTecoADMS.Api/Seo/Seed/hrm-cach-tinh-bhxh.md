@@ -30,7 +30,7 @@ Ngoài ra doanh nghiệp đóng **kinh phí công đoàn 2%** quỹ lương đó
 Lương đóng bảo hiểm gồm **mức lương, phụ cấp lương và các khoản bổ sung** được thỏa thuận cố định trong hợp đồng. Một số khoản như tiền thưởng theo kết quả kinh doanh, tiền ăn giữa ca, hỗ trợ xăng xe, điện thoại, nhà ở… nếu ghi riêng thì không tính vào lương đóng bảo hiểm.
 
 - **Mức tối thiểu**: không thấp hơn lương tối thiểu vùng nơi người lao động làm việc. Xem [lương tối thiểu vùng 2026](/bai-viet/luong-toi-thieu-vung).
-- **Mức tối đa BHXH, BHYT**: 20 lần mức lương cơ sở (mức tham chiếu). Với lương cơ sở 2.340.000 đ, mức trần là **46.800.000 đ/tháng**. Khi Nhà nước điều chỉnh lương cơ sở, mức trần thay đổi theo.
+- **Mức tối đa BHXH, BHYT**: 20 lần mức lương cơ sở (mức tham chiếu). Từ 01/07/2026 lương cơ sở là 2.530.000 đ (Nghị định 161/2026/NĐ-CP), mức trần là **50.600.000 đ/tháng**. Khi Nhà nước điều chỉnh lương cơ sở, mức trần thay đổi theo.
 - **Mức tối đa BHTN**: 20 lần lương tối thiểu vùng.
 
 ## Cách tính
@@ -52,10 +52,10 @@ Nhân viên có lương đóng bảo hiểm 8.000.000 đ/tháng:
 
 ### Ví dụ 2 — lương cao hơn trần
 
-Trưởng phòng có lương 60.000.000 đ/tháng. BHXH, BHYT chỉ tính trên 46.800.000 đ:
+Trưởng phòng có lương 60.000.000 đ/tháng. BHXH, BHYT chỉ tính trên 50.600.000 đ:
 
-- BHXH người lao động: 46.800.000 × 8% = 3.744.000 đ
-- BHYT: 46.800.000 × 1,5% = 702.000 đ
+- BHXH người lao động: 50.600.000 × 8% = 4.048.000 đ
+- BHYT: 50.600.000 × 1,5% = 759.000 đ
 - BHTN: 1% × lương đóng (không vượt trần BHTN của vùng)
 
 ## Những trường hợp hay nhầm

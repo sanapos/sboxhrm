@@ -66,6 +66,8 @@ class AiAssistantPermissions {
   };
 
   static bool canAction(String action, PermissionProvider perm) {
+    // [[OPEN:Mã]] — mở màn bất kỳ trong menu mà người dùng được xem.
+    if (action.startsWith('open:')) return perm.canView(action.substring(5));
     final rule = _actionRules[action];
     if (rule == null) return false;
     return rule.allows(perm);

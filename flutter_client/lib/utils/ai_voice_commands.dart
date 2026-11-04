@@ -1,7 +1,7 @@
 /// Câu nói ngắn điều khiển thẻ chờ xác nhận của Trợ lý ảo — xử lý ngay trên máy, không gửi AI:
 /// «xác nhận» / «đồng ý» / «lưu đi» → bấm Xác nhận; «bỏ» / «không» → bỏ thẻ; «hoàn tác» → hoàn tác thẻ vừa lưu;
-/// «dừng» / «tạm biệt» → tắt chế độ rảnh tay. Câu dài hoặc có nội dung khác («ừ, 500k thôi») vẫn gửi AI như thường.
-enum AiVoiceCommandKind { confirm, discard, undo, stop }
+/// «đọc lại» → đọc lại câu trả lời vừa rồi; «dừng» / «tạm biệt» → tắt chế độ rảnh tay. Câu dài hoặc có nội dung khác («ừ, 500k thôi») vẫn gửi AI như thường.
+enum AiVoiceCommandKind { confirm, discard, undo, stop, repeat }
 
 class AiVoiceCommand {
   const AiVoiceCommand(this.kind, {this.index, this.sure = false});
@@ -16,6 +16,8 @@ class AiVoiceCommand {
 
   /// null = không phải lệnh điều khiển thẻ.
   static AiVoiceCommand? parse(String raw) {
+    final native = _nativeWords[raw.trim().replaceAll(RegExp(r'[。.!！?？、,，\s]+$'), '')];
+    if (native != null) return AiVoiceCommand(native);
     final t = _norm(raw);
     if (t.isEmpty) return null;
     final words = t.split(' ');
@@ -23,9 +25,22 @@ class AiVoiceCommand {
     if (words.length > 6) return null;
     final index = _index(words);
     final sure = t.contains('chac chan');
+
+    // «đừng lưu», «không xác nhận» = bỏ thẻ. «đừng bỏ», «không bỏ» = giữ thẻ → để AI hiểu, không bấm gì cả.
+    final first = words.first;
+    if (first == _dont || first == 'khong') {
+      final after = _strip(words.skip(1).join(' '));
+      if (first == _dont && after.isEmpty) return AiVoiceCommand(AiVoiceCommandKind.discard, index: index);
+      if (_any(after, _confirm)) return AiVoiceCommand(AiVoiceCommandKind.discard, index: index);
+      if (first == _dont && _any(after, _discard)) return null;
+      if (after == 'bo' && !raw.contains(',')) return null;
+    }
+    if (words.contains(_dont)) return null;
+
     final rest = _strip(t);
 
     if (_any(rest, _undo)) return const AiVoiceCommand(AiVoiceCommandKind.undo);
+    if (_any(rest, _repeat)) return const AiVoiceCommand(AiVoiceCommandKind.repeat);
     if (_any(rest, _confirm)) return AiVoiceCommand(AiVoiceCommandKind.confirm, index: index, sure: sure);
     if (_any(rest, _discard)) return AiVoiceCommand(AiVoiceCommandKind.discard, index: index);
     if (_any(rest, _stop)) return const AiVoiceCommand(AiVoiceCommandKind.stop);
@@ -37,8 +52,26 @@ class AiVoiceCommand {
     'luu', 'luu di', 'luu lai', 'lam di', 'tao di', 'gui di', 'chot', 'chot di', 'duyet di', 'tien hanh', 'thuc hien',
     'yes', 'confirm',
   ];
-  static const _discard = ['bo', 'bo di', 'bo qua', 'huy bo', 'khong', 'khong can', 'khong lam', 'khong lam nua', 'thoi khoi',
+  static const _discard = ['bo', 'bo di', 'bo qua', 'huy', 'huy bo', 'khong', 'khong can', 'khong lam', 'khong lam nua', 'thoi khoi',
     'no', 'cancel'];
+
+  static const _repeat = ['doc lai', 'nhac lai', 'noi lai', 'repeat'];
+
+  /// Giao diện tiếng Hàn / Nhật / Trung: [_norm] chỉ giữ chữ Latin nên so nguyên câu ngắn.
+  static const _nativeWords = <String, AiVoiceCommandKind>{
+    '확인': AiVoiceCommandKind.confirm, '네': AiVoiceCommandKind.confirm, '저장': AiVoiceCommandKind.confirm,
+    '취소': AiVoiceCommandKind.discard, '아니요': AiVoiceCommandKind.discard,
+    '되돌리기': AiVoiceCommandKind.undo, '다시 읽어줘': AiVoiceCommandKind.repeat, '중지': AiVoiceCommandKind.stop,
+    '確認': AiVoiceCommandKind.confirm, 'はい': AiVoiceCommandKind.confirm, '保存': AiVoiceCommandKind.confirm,
+    'キャンセル': AiVoiceCommandKind.discard, 'いいえ': AiVoiceCommandKind.discard,
+    '元に戻す': AiVoiceCommandKind.undo, 'もう一度': AiVoiceCommandKind.repeat, 'ストップ': AiVoiceCommandKind.stop,
+    '确认': AiVoiceCommandKind.confirm, '确定': AiVoiceCommandKind.confirm, '好的': AiVoiceCommandKind.confirm,
+    '取消': AiVoiceCommandKind.discard, '不要': AiVoiceCommandKind.discard,
+    '撤销': AiVoiceCommandKind.undo, '再读一遍': AiVoiceCommandKind.repeat, '停止': AiVoiceCommandKind.stop,
+  };
+
+  /// «đừng» bỏ dấu trùng «đúng» (nói «đừng lưu» từng lưu luôn thẻ) → đổi thành từ riêng trước khi bỏ dấu.
+  static const _dont = 'dungx';
   static const _undo = ['hoan tac', 'undo', 'lay lai', 'tra lai nhu cu'];
   // «dừng» bỏ dấu trùng «đúng» → đổi thành «ngừng» trước khi bỏ dấu (xem [_norm]).
   static const _stop = ['ngung', 'ngung lai', 'thoi', 'tam biet', 'ket thuc', 'tat mic', 'stop', 'bye'];
@@ -55,7 +88,7 @@ class AiVoiceCommand {
     };
     // Giữ nguyên các cụm có nghĩa trước khi lọc từ đệm.
     // Từ một chữ cùng nghĩa đi kèm («ừ xác nhận», «ok lưu đi») không làm hỏng lệnh.
-    for (final list in [_undo, _confirm, _discard, _stop]) {
+    for (final list in [_undo, _repeat, _confirm, _discard, _stop]) {
       for (final k in [...list]..sort((a, b) => b.length - a.length)) {
         if (k.contains(' ') && t.contains(k)) {
           final others = t.replaceFirst(k, ' ').split(' ')
@@ -88,7 +121,7 @@ class AiVoiceCommand {
   }
 
   static String _norm(String s) {
-    var t = s.toLowerCase().trim().replaceAll('dừng', 'ngừng');
+    var t = s.toLowerCase().trim().replaceAll('dừng', 'ngừng').replaceAll('đừng', _dont);
     const from = 'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ';
     const to = 'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
     final b = StringBuffer();

@@ -27,9 +27,31 @@ public static partial class SeoPages
     static bool HasWifi(DeviceOffer d) =>
         $"{d.Name} {d.Sub} {d.Specs}".Contains("wifi", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Ảnh minh họa của SBOX (flutter_client/web/images/devices) — thay bằng ảnh chụp thật khi có.</summary>
-    public static string DeviceImage(DeviceOffer d) =>
-        IsFaceDevice(d) ? "/images/devices/device-face.svg" : "/images/devices/device-fingerprint.svg";
+    /// <summary>
+    /// Ảnh thật đúng mẫu máy, lưu trên SBOX. Thêm mẫu ở đây và ở DEVICE_PHOTOS trong home.html.
+    /// Chưa có ảnh đúng mẫu thì giữ ảnh minh họa, không lấy ảnh máy khác thay vào (MB10-VL khác hẳn MB20).
+    /// </summary>
+    static readonly Dictionary<string, string> DevicePhotos = new()
+    {
+        ["zkteco-senseface-2a"] = "/images/devices/zkteco-senseface-2a.webp",
+        ["zkteco-lx35"] = "/images/devices/zkteco-lx35.webp",
+        ["ronald-jack-8300pro"] = "/images/devices/ronald-jack-8300pro.webp",
+    };
+
+    /// <summary>Ảnh quản trị tải lên SBOX → ảnh tự chụp đúng mẫu → ảnh minh họa theo loại máy.</summary>
+    public static string DeviceImage(DeviceOffer d)
+    {
+        if (d.ImageUrl is { } u && (u.StartsWith('/') || OwnImageHost.IsMatch(u))) return u;
+        if (DevicePhotos.TryGetValue(DeviceSlug(d.Name), out var photo)) return photo;
+        return IsFaceDevice(d) ? "/images/devices/device-face.svg" : "/images/devices/device-fingerprint.svg";
+    }
+
+    static readonly System.Text.RegularExpressions.Regex OwnImageHost =
+        new(@"^https://([a-z0-9-]+\.)*sbox(hrm|pos)\.com/", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    /// <summary>Ảnh lắp đặt thực tế cùng loại máy (số ảnh trong <see cref="InstallPhotos"/>) cho trang sản phẩm.</summary>
+    static IReadOnlyList<InstallPhoto> DeviceGallery(string kind) =>
+        (kind == "face" ? new[] { 10, 3, 1 } : [4, 5, 6, 8, 9]).Select(n => InstallPhotos[n - 1]).ToList();
 
     /// <summary>
     /// Thông số do hãng công bố, chỉ ghi các số đã đối chiếu tài liệu chính hãng (zkteco.com). Máy chưa có nguồn chính hãng
@@ -151,6 +173,12 @@ public static partial class SeoPages
         sb.Append(hasOfficial
             ? $"<p style=\"font-size:14px;color:var(--m)\">Thông số kỹ thuật theo công bố của hãng ({E(off.Source)}); dung lượng có thể khác nhau theo phiên bản và tùy chọn nâng cấp. SBOX báo đúng cấu hình khi báo giá.</p>\n"
             : "<p style=\"font-size:14px;color:var(--m)\">Cấu hình chi tiết (dung lượng, kết nối, phụ kiện) có thể khác nhau theo phiên bản; SBOX báo đúng cấu hình và bảo hành trong phiếu báo giá.</p>\n");
+
+        // ── Ảnh thực tế ──
+        sb.Append(GallerySection(DeviceGallery(kind), ""));
+        sb.Append(DevicePhotos.ContainsKey(slug)
+            ? ""
+            : $"<p style=\"font-size:14px;color:var(--m)\">Ảnh chụp máy cùng loại tại nơi lắp đặt; mẫu máy trong ảnh có thể khác {E(d.Name)}.</p>\n");
 
         // ── Phù hợp ──
         sb.Append($"<h2 id=\"phu-hop\">{E(d.Name)} phù hợp với ai?</h2>\n");

@@ -20,13 +20,13 @@ public static class AiAssistantIntent
     {
         "propose_advance" or "propose_penalty" or "propose_update_penalty" or "propose_reward" or "propose_update_reward"
             or "propose_overtime" or "propose_attendance_fix" or "propose_penalties_for_late" or "propose_leave"
-            or "propose_employee" or "propose_update_employee" or "propose_business_trip" or "propose_feedback"
+            or "propose_employee" or "propose_update_employee" or "propose_business_trip" or "propose_feedback" or "propose_department"
             or "propose_meal" => Hr,
-        "propose_cash_voucher" or "propose_update_cash_voucher" or "propose_close_cashier_shift" or "propose_supplier_payment" => Cash,
+        "propose_cash_voucher" or "propose_update_cash_voucher" or "propose_close_cashier_shift" or "propose_open_cashier_shift" or "propose_supplier_payment" => Cash,
         "propose_sale_order" or "propose_customer_return" or "propose_collect_debt" or "propose_quote"
-            or "propose_reservation" or "propose_einvoice" or "propose_warranty_claim" => Sale,
+            or "propose_reservation" or "propose_einvoice" or "propose_warranty_claim" or "propose_customer" => Sale,
         "propose_product" or "propose_purchase_receipt" or "propose_stock_count" or "propose_damage_issue"
-            or "propose_internal_use" or "propose_purchase_return" or "propose_update_product" or "propose_stock_transfer" => Stock,
+            or "propose_internal_use" or "propose_purchase_return" or "propose_update_product" or "propose_stock_transfer" or "propose_supplier" => Stock,
         "propose_assign_shift" or "propose_shift_swap" => Shift,
         "propose_announcement" or "propose_task" => Comms,
         "propose_voucher" or "propose_promotion" => Promo,
@@ -45,7 +45,7 @@ public static class AiAssistantIntent
             "phòng ban", "chức vụ", "nghỉ việc", "thôi việc", "chuyển phòng", "sang phòng", "số tài khoản",
         ],
         [Cash] = ["phiếu thu", "phiếu chi", "thu tiền", "chi tiền", "sổ quỹ", "quỹ", "tiền điện", "tiền nước", "chi phí", "thu chi", "tiền nhà",
-            "chốt ca", "đóng ca", "kết ca", "đóng sổ", "chốt sổ", "két", "trả nợ ncc", "trả nợ nhà cung cấp", "trả tiền hàng"],
+            "chốt ca", "đóng ca", "kết ca", "mở ca", "đóng sổ", "chốt sổ", "két", "trả nợ ncc", "trả nợ nhà cung cấp", "trả tiền hàng"],
         [Sale] = ["bán", "hóa đơn", "hoá đơn", "đơn hàng", "lên đơn", "tạo đơn", "khách", "trả hàng", "ghi nợ", "trả lại", "thu nợ", "công nợ", "đòi nợ", "trả nợ",
             "báo giá", "bao gia", "đặt bàn", "đặt phòng", "đặt lịch", "đặt chỗ", "giữ bàn", "giữ phòng", "lịch hẹn", "hẹn khách",
             "đơn tạm", "gọi món", "mở bàn", "hóa đơn điện tử", "hđđt", "xuất vat", "mã số thuế", "bảo hành", "sửa máy", "seri", "imei"],
@@ -63,7 +63,7 @@ public static class AiAssistantIntent
             "đổi tên", "sửa tên", "địa chỉ", "số điện thoại",
         ],
         [Shift] = ["xếp ca", "đổi ca", "xếp lịch", "đổi lịch", "lịch làm", "ca sáng", "ca chiều", "ca tối", "ca đêm", "ngày nghỉ"],
-        [Comms] = ["thông báo", "nhắn", "giao việc", "công việc", "nhiệm vụ", "hạn chót", "deadline"],
+        [Comms] = ["thông báo", "nhắn", "nhắc", "giao cho", "giao việc", "công việc", "nhiệm vụ", "hạn chót", "deadline"],
     };
 
     /// <summary>
@@ -90,7 +90,7 @@ public static class AiAssistantIntent
         "trả hàng", "trả lại", "voucher", "mã giảm", "khuyến mãi", "khuyến mại", "giảm giá", "mua 1 tặng", "tặng 1",
         " xóa ", " xoá ", " hủy ", " huỷ ", "duyệt", "từ chối", "ngừng bán", "mở bán lại", "ngừng theo dõi", "hoàn tác",
         "xếp ca", "đổi ca", "xếp lịch", "chuyển kho", "thu nợ", "gửi thông báo", "thông báo cho", "nhắn cho", "giao việc",
-        "chốt ca", "đóng ca", "kết ca", "đóng sổ", "đặt hàng", "nhập hàng theo",
+        "chốt ca", "đóng ca", "kết ca", "mở ca", "đóng sổ", "đặt hàng", "nhập hàng theo",
         // «Còn bao nhiêu ngày nghỉ phép?» là câu hỏi — chỉ bắt cách nói xin / cho nghỉ.
         "xin nghỉ", "cho nghỉ", "xin phép nghỉ", "tôi nghỉ", "em nghỉ", "mai nghỉ", "muốn nghỉ", "báo giá", "bao gia",
         "đặt bàn", "đặt phòng", "đặt lịch", "đặt chỗ", "giữ bàn", "giữ phòng", "hẹn lịch",
@@ -106,11 +106,40 @@ public static class AiAssistantIntent
         var q = " " + (query ?? "").ToLowerInvariant().Replace(',', ' ').Replace('.', ' ').Replace('?', ' ') + " ";
         // «ứng dụng» không phải «ứng lương».
         q = q.Replace(" ứng dụng", " ").Replace(" ung dung", " ");
+        if (SpokenCommand.IsMatch(VnSearch.Fold(q))) return true;
         if (VnSearch.Fold(q) != q)
             // «Bán 2 Coca cho…», «Bán cho chị Lan…» — câu mở đầu bằng «bán» là lệnh lập hóa đơn.
             return ContainsAny(q, ActionKeys) || q.StartsWith(" bán ", StringComparison.Ordinal);
         return ContainsAny(q, ClearFoldedKeys) || (Amount.IsMatch(q) && ContainsAny(q, AmbiguousFoldedKeys)) || FoldedVerbObject.IsMatch(q);
     }
+
+    /// <summary>
+    /// «Mở phiếu lương», «vào màn hình bán hàng» → mã màn cần mở (null = không phải lệnh mở màn). Khớp nguyên tên menu nên
+    /// «mở bàn 5», «mở ca» không bị nhận nhầm. Xử lý ngay không qua AI: không tốn lượt, chạy cả khi chưa có khóa AI.
+    /// </summary>
+    public static string? OpenScreenTarget(string query, Func<string, bool> canView)
+    {
+        var words = VnSearch.FoldText(query ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(w => w.Trim(',', '.', '?', '!', ':')).Where(w => w.Length > 0).ToList();
+        if (words.Count < 2 || words[0] is not ("mo" or "vao")) return null;
+        var rest = string.Join(' ', words.Skip(1).Where(w => !OpenFiller.Contains(w)));
+        if (rest.Length == 0) return null;
+        return AiAssistantMenuMap.Paths
+            .Where(kv => VnSearch.FoldText(kv.Value.Split(" › ")[^1]) == rest && canView(kv.Key))
+            .Select(kv => kv.Key)
+            .FirstOrDefault();
+    }
+
+    static readonly HashSet<string> OpenFiller = ["giup", "toi", "minh", "cho", "em", "anh", "man", "hinh", "trang", "muc", "di", "nhe", "len", "ra"];
+
+    /// <summary>
+    /// Cách nói giao việc ngắn không có động từ «tạo / lập» (so đã bỏ dấu): «chi 500k tiền điện», «nhập 10 thùng coca», «trả nhà
+    /// cung cấp 5 triệu», «giao cho An dọn kho», «mai cho An nghỉ». «chi / thu» phải kèm số tiền: «chi nhánh», «thứ hai» không phải lệnh.
+    /// </summary>
+    static readonly Regex SpokenCommand = new(
+        @"^ (?:(?:chi|thu) (?:\d|\S+ (?:tram|nghin|ngan|trieu)\b)|(?:nhap|chuyen) \d|tra (?:ncc|nha cung cap|no|tien)\b|giao (?:cho|viec)\b|nhac )"
+        + @"| cho (?:\S+ ){1,3}nghi(?: |$)",
+        RegexOptions.Compiled);
 
     /// <summary>
     /// Bỏ dấu thì vài động từ trùng chữ khác: «sua» sửa / sữa, «doi» đổi / đối / đợi, «phat» phạt / phát, «thuong» thưởng /
@@ -167,6 +196,8 @@ public static class AiAssistantIntent
         if (topHelpScore < AiAssistantHelpCorpus.ConfidentScore) return false;
         var raw = (query ?? "").ToLowerInvariant();
         var f = " " + string.Join(' ', VnSearch.FoldText(raw).Split([' ', ',', '.', '?', '!', ':', ';'], StringSplitOptions.RemoveEmptyEntries)) + " ";
+        // «cách đây 3 ngày» là mốc thời gian, không phải hỏi cách làm.
+        f = f.Replace(" cach day ", " ");
         if (!raw.Contains("lỗi") && !CannotDo.IsMatch(f) && !GuideMarkers.Any(k => f.Contains(" " + k + " "))) return false;
         // «Làm sao tăng doanh thu», «cách giảm hàng tồn» — xin lời khuyên trên số liệu thật, không phải hỏi chỗ bấm.
         // «tăng ca», «giảm giá» là tên chức năng, không phải mục tiêu.

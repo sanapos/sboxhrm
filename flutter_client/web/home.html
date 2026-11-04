@@ -3800,6 +3800,13 @@
       catch (e) { return false; }
     }
 
+    // Ảnh thật đúng mẫu máy — khớp DevicePhotos trong SeoDevices.cs.
+    var DEVICE_PHOTOS = {
+      'zkteco-senseface-2a': '/images/devices/zkteco-senseface-2a.webp',
+      'zkteco-lx35': '/images/devices/zkteco-lx35.webp',
+      'ronald-jack-8300pro': '/images/devices/ronald-jack-8300pro.webp'
+    };
+
     function renderDevices(products) {
       var grid = document.getElementById('devices-grid');
       if (!grid) return;
@@ -3808,7 +3815,7 @@
         // Liên kết và ảnh luôn nằm trên SBOX: link/ảnh trỏ sang website khác (dữ liệu cũ) bị thay bằng trang sản phẩm + ảnh minh họa của SBOX.
         var href = isOwnUrl(p.link) ? p.link : '/lap-dat-may-cham-cong/san-pham/' + deviceSlug(p.name);
         var face = /khuôn mặt|face/i.test((p.name || '') + ' ' + (p.sub || '') + ' ' + (p.specs || ''));
-        var imgSrc = isOwnUrl(p.imageUrl) ? p.imageUrl : (face ? '/images/devices/device-face.svg' : '/images/devices/device-fingerprint.svg');
+        var imgSrc = isOwnUrl(p.imageUrl) ? p.imageUrl : (DEVICE_PHOTOS[deviceSlug(p.name)] || (face ? '/images/devices/device-face.svg' : '/images/devices/device-fingerprint.svg'));
         var img = '<img src="' + esc(imgSrc) + '" alt="' + esc(p.name) + ' – ' + esc(p.sub || 'máy chấm công') + '" loading="lazy" width="240" height="180">';
         var badge = p.badge ? '<span class="dc-badge">' + esc(p.badge) + '</span>' : '';
         var oldP = p.oldPrice ? '<span class="dc-old">' + esc(p.oldPrice) + '</span>' : '';

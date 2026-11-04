@@ -122,8 +122,33 @@ public sealed partial class AiAssistantActions
     public sealed record ExecResult(bool Ok, string Message, string? DocNo, string? OpenModule,
         bool CanUndo = false, bool NeedsAcknowledge = false);
 
+    /// <summary>
+    /// Kết quả của lần xác nhận trước nếu đã ghi xong. Mất phản hồi giữa chừng rồi bấm Thử lại phải nhận «đã lưu» kèm nút hoàn
+    /// tác, không phải «đã xử lý» — người dùng tưởng chưa lưu và tự lập phiếu lần nữa.
+    /// </summary>
+    async Task<ExecResult?> PreviousResultAsync(string id, Guid userId, Guid storeId, CancellationToken ct)
+    {
+        if (!Guid.TryParseExact(id, "N", out var logId)) return null;
+        try
+        {
+            var log = await db.AiActionLogs.AsNoTracking()
+                .Where(l => l.Id == logId && l.UserId == userId && l.StoreId == storeId && l.Status == "done")
+                .Select(l => new { l.ResultMessage, l.DocNo, l.UndoJson, l.ExecutedAt })
+                .FirstOrDefaultAsync(ct);
+            if (log == null) return null;
+            var canUndo = !string.IsNullOrEmpty(log.UndoJson) && log.ExecutedAt is DateTime at && DateTime.UtcNow - at <= UndoWindow;
+            return new(true, log.ResultMessage ?? "Đã lưu", log.DocNo, null, canUndo);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "AI action log read failed");
+            return null;
+        }
+    }
+
     public async Task<ExecResult> ExecuteAsync(string id, Guid userId, Guid storeId, CancellationToken ct, bool acknowledged = false)
     {
+        if (await PreviousResultAsync(id, userId, storeId, ct) is { } previous) return previous;
         var p = await GetAsync(id, userId, storeId, ct);
         if (p == null) return new(false, "Phiếu đề xuất đã hết hạn hoặc đã xử lý — hỏi lại trợ lý.", null, null);
         if (p.Risk == "high" && !acknowledged)

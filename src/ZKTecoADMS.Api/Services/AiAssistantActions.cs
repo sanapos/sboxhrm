@@ -201,6 +201,26 @@ public sealed partial class AiAssistantActions(
             }, ["items"]),
 
         // ── Hàng hóa / kho / khuyến mãi ──
+        new("propose_customer", "PosCustomers", 'C', false,
+            "Thêm KHÁCH HÀNG mới. Tra find_customers trước để khỏi trùng; đã có thì dùng propose_update_contact.",
+            new()
+            {
+                ["name"] = ("STRING", "Tên khách"),
+                ["phone"] = ("STRING", "Số điện thoại"),
+                ["email"] = ("STRING", "Email"),
+                ["address"] = ("STRING", "Địa chỉ"),
+                ["note"] = ("STRING", "Ghi chú"),
+            }, ["name"]),
+        new("propose_supplier", "PosProducts", 'C', false,
+            "Thêm NHÀ CUNG CẤP mới. Tra find_suppliers trước để khỏi trùng; đã có thì dùng propose_update_contact.",
+            new()
+            {
+                ["name"] = ("STRING", "Tên nhà cung cấp"),
+                ["phone"] = ("STRING", "Số điện thoại"),
+                ["email"] = ("STRING", "Email"),
+                ["address"] = ("STRING", "Địa chỉ"),
+                ["note"] = ("STRING", "Ghi chú"),
+            }, ["name"]),
         new("propose_product", "PosProducts", 'C', false,
             "Thêm HÀNG HÓA / DỊCH VỤ mới vào danh mục.",
             new()
@@ -352,13 +372,13 @@ public sealed partial class AiAssistantActions(
                 or "propose_customer_return" or "propose_update_product" or "propose_delete"))
             decls.Add(Fn("find_products", "Tìm hàng hóa / dịch vụ theo tên / mã / mã vạch → id, giá bán, giá vốn, đơn vị, tồn.",
                 new() { ["query"] = ("STRING", "Tên / mã hàng") }, ["query"]));
-        if (allowed.Any(d => d.Name is "propose_sale_order" or "propose_update_contact" or "propose_delete"))
+        if (allowed.Any(d => d.Name is "propose_sale_order" or "propose_update_contact" or "propose_delete" or "propose_customer"))
             decls.Add(Fn("find_customers", "Tìm khách hàng theo tên / SĐT.",
                 new() { ["query"] = ("STRING", "Tên / SĐT") }, ["query"]));
         if (allowed.Any(d => d.Name is "propose_promotion" or "propose_product" or "propose_update_product"))
             decls.Add(Fn("find_categories", "Danh sách nhóm hàng của cửa hàng (tên chính xác để áp khuyến mãi / xếp hàng mới).",
                 new(), []));
-        if (allowed.Any(d => d.Name is "propose_purchase_receipt" or "propose_purchase_return" or "propose_update_contact" or "propose_delete"))
+        if (allowed.Any(d => d.Name is "propose_purchase_receipt" or "propose_purchase_return" or "propose_update_contact" or "propose_delete" or "propose_supplier"))
             decls.Add(Fn("find_suppliers", "Tìm nhà cung cấp theo tên / SĐT.",
                 new() { ["query"] = ("STRING", "Tên / SĐT nhà cung cấp") }, ["query"]));
         if (allowed.Any(d => d.Name is "propose_customer_return" or "propose_cancel_document"))
@@ -418,7 +438,10 @@ public sealed partial class AiAssistantActions(
         === THÊM / SỬA / XÓA / DUYỆT THAY NGƯỜI DÙNG ===
         - Người dùng muốn tạo / sửa / xóa / hủy phiếu hay duyệt đơn: dùng công cụ propose_* tương ứng
           (KHÔNG dùng thẻ [[CREATE:...]] cho các loại này). Chỉ có công cụ được khai báo = đúng quyền của tài khoản;
-          việc không có công cụ → nói tài khoản không có quyền, chỉ chỗ thao tác trên app.
+          việc không có công cụ → nói trợ lý chưa làm được việc này bằng lời (đừng nói «không có quyền» nếu mục QUYỀN TÀI KHOẢN
+          cho phép), rồi chỉ màn thao tác bằng thẻ [[OPEN:Mã]].
+        - Dòng «(Ghi chú hệ thống về thẻ: …)» trong lịch sử cho biết thẻ đã lưu / đã bỏ / đang chờ: thẻ đã lưu thì KHÔNG lập lại;
+          thẻ đang chờ mà người dùng đồng ý → nhắc nói «xác nhận» hoặc bấm nút trên thẻ, KHÔNG lập thẻ mới. Không viết lại dòng này.
         - Nhắc tên người / hàng / khách → gọi find_employees / find_products / find_customers trước để lấy id.
           Nhiều kết quả trùng tên → hỏi lại người dùng chọn ai, KHÔNG tự chọn. find_employees chỉ trả người trong
           phạm vi quản lý — không thấy ai thì nói người đó ngoài phạm vi / không tồn tại.
@@ -441,6 +464,8 @@ public sealed partial class AiAssistantActions(
         - Nhập hàng theo gợi ý: find_reorder_suggestions → người dùng chốt → propose_purchase_receipt mỗi NCC một lần.
         - Xin nghỉ / cho nhân viên nghỉ: propose_leave (ca tự lấy theo lịch; báo lỗi thiếu ca → hỏi ca, find_shift_templates).
         - Báo giá: find_products từng hàng (+ find_customers) → propose_quote. Đặt bàn / phòng / lịch hẹn: find_resources → propose_reservation.
+        - Mở ca thu ngân: hỏi tiền đầu ca → propose_open_cashier_shift. Thêm phòng ban: propose_department.
+        - Thêm khách hàng / nhà cung cấp mới: tra find_customers / find_suppliers cho khỏi trùng → propose_customer / propose_supplier.
         - Thêm nhân viên mới: propose_employee (họ tên bắt buộc; mã tự sinh). Sửa hồ sơ / chuyển phòng / cho nghỉ việc:
           find_employees → propose_update_employee (chỉ trường cần đổi).
         - Đi công tác (+ xin tạm ứng): propose_business_trip. Kiến nghị / góp ý: propose_feedback.
@@ -505,6 +530,8 @@ public sealed partial class AiAssistantActions(
                 "propose_attendance_fix" => await AttendanceFixAsync(c, a, ct),
                 "propose_sale_order" => await SaleAsync(c, a, ct),
                 "propose_product" => ProductProposal(c, a),
+                "propose_customer" => ContactProposal(c, a, "customer", "Khách hàng mới", "/api/pos/customers", "PosCustomers"),
+                "propose_supplier" => ContactProposal(c, a, "supplier", "Nhà cung cấp mới", "/api/pos/purchase/suppliers", "PosSuppliers"),
                 "propose_purchase_receipt" => await PurchaseReceiptAsync(c, a, ct),
                 "propose_stock_count" => await StockCountAsync(c, a, ct),
                 "propose_damage_issue" => await StockIssueAsync(c, a, "damage", ct),
@@ -1129,6 +1156,19 @@ public sealed partial class AiAssistantActions(
         if (list.Any(id => !map.ContainsKey(id)))
             throw new ActionError("Có mặt hàng không tìm thấy — dùng find_products lấy đúng id.");
         return map;
+    }
+
+    Pending ContactProposal(Ctx c, Dictionary<string, object?> a, string kind, string title, string path, string module)
+    {
+        var name = S(a, "name") ?? throw new ActionError("Thiếu tên.");
+        return New(c, kind, title,
+        [
+            new("Tên", name),
+            .. S(a, "phone") is { } phone ? new[] { new Line("SĐT", phone) } : [],
+            .. S(a, "email") is { } email ? new[] { new Line("Email", email) } : [],
+            .. S(a, "address") is { } address ? new[] { new Line("Địa chỉ", address) } : [],
+            .. S(a, "note") is { } note ? new[] { new Line("Ghi chú", note) } : [],
+        ], "POST", path, new { name, phone = S(a, "phone"), email = S(a, "email"), address = S(a, "address"), note = S(a, "note") }, module);
     }
 
     Pending ProductProposal(Ctx c, Dictionary<string, object?> a)

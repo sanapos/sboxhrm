@@ -216,6 +216,10 @@ LOCAL_SECTION = """
 
 INSTALL_PHOTOS = [
     (10, "Máy chấm công khuôn mặt, vân tay ZKTeco lắp trên cột gỗ"),
+    (1, "Máy chấm công vân tay, thẻ từ ZKTeco lắp trên cửa kính văn phòng"),
+    (3, "Máy chấm công khuôn mặt, vân tay ZKTeco mới nguyên hộp trước khi lắp đặt"),
+    (4, "Máy chấm công vân tay gắn tường đã cấp nguồn, sẵn sàng chấm công"),
+    (5, "Máy chấm công vân tay màn hình màu đặt trên bàn"),
     (2, "Kỹ thuật SBOX lắp máy chấm công vân tay tại cửa kính văn phòng"),
     (6, "Máy chấm công vân tay lắp tường cạnh ổ điện, đi dây gọn"),
     (9, "Máy chấm công vân tay gắn cột cạnh cửa phòng làm việc"),

@@ -97,6 +97,20 @@ public sealed partial class AiAssistantActions
                 ["due_time"] = ("STRING", "Giờ hạn HH:mm (mặc định 17:00)"),
                 ["priority"] = ("STRING", "low | medium | high | urgent"),
             }, ["title"]),
+        new("propose_open_cashier_shift", "PosCashierShift", 'C', false,
+            "MỞ CA THU NGÂN của chính người dùng, ghi tiền mặt đầu ca trong két.",
+            new()
+            {
+                ["opening_cash"] = ("NUMBER", "Tiền mặt đầu ca (không nói thì hỏi lại; két trống thì 0)"),
+                ["note"] = ("STRING", "Ghi chú"),
+            }, ["opening_cash"]),
+        new("propose_department", "Department", 'C', true,
+            "Thêm PHÒNG BAN mới (mã tự sinh).",
+            new()
+            {
+                ["name"] = ("STRING", "Tên phòng ban"),
+                ["description"] = ("STRING", "Mô tả"),
+            }, ["name"]),
         new("propose_close_cashier_shift", "PosCashierShift", 'C', false,
             "CHỐT CA THU NGÂN (đóng ca đang mở): so tiền mặt đếm thực tế trong két với số dự kiến.",
             new()
@@ -270,6 +284,8 @@ public sealed partial class AiAssistantActions
         "propose_announcement" => Wrap(AnnouncementAsync(c, a, ct)),
         "propose_task" => Wrap(TaskAsync(c, a, ct)),
         "propose_close_cashier_shift" => Wrap(CloseCashierShiftAsync(c, a, ct)),
+        "propose_open_cashier_shift" => Wrap(OpenCashierShiftAsync(c, a, ct)),
+        "propose_department" => Wrap(DepartmentAsync(c, a, ct)),
         "propose_penalties_for_late" => Wrap(PenaltiesForLateAsync(c, a, ct)),
         _ => MoreProposalAsync(tool, c, a, ct),
     };
@@ -286,6 +302,7 @@ public sealed partial class AiAssistantActions
         Step? s = p.Kind switch
         {
             "assign_shift" => new("DELETE", $"/api/WorkSchedules/{docId}", null),
+            "department" => new("DELETE", $"/api/Departments/{docId}", null),
             "shift_swap_request" => new("DELETE", $"/api/ShiftSwaps/{docId}", null),
             // Đã nhận ở kho đến thì API không cho hủy.
             "stock_transfer" when p.Steps is not { Count: > 1 } => new("POST", $"/api/branch-ops/transfers/{docId}/cancel", null),
@@ -696,6 +713,46 @@ public sealed partial class AiAssistantActions
     }
 
     // ─── 6. Chốt ca thu ngân ───────────────────────────────────────
+
+    async Task<Pending> OpenCashierShiftAsync(Ctx c, Dictionary<string, object?> a, CancellationToken ct)
+    {
+        var opening = ParseMoney(S(a, "opening_cash")) ?? throw new ActionError("Thiếu tiền mặt đầu ca — hỏi người dùng.");
+        if (opening < 0) throw new ActionError("Tiền đầu ca không hợp lệ.");
+        if (await db.PosCashierShifts.AsNoTracking().AnyAsync(s => s.StoreId == c.StoreId && s.Deleted == null && s.Status == "Open"
+                && s.OpenedByUserId == c.UserId, ct))
+            throw new ActionError("Bạn đang có ca mở — chốt ca đó trước khi mở ca mới.");
+        return New(c, "open_cashier_shift", "Mở ca thu ngân",
+        [
+            new("Tiền đầu ca", Vnd(opening)),
+            .. S(a, "note") is { } note ? new[] { new Line("Ghi chú", note) } : [],
+        ], "POST", "/api/pos/cashier-shifts/open", new { openingCash = Math.Round(opening, 0), note = S(a, "note") }, "PosCashierShift");
+    }
+
+    /// <summary>Mã phòng ban từ chữ cái đầu mỗi từ: «Kinh doanh» → KD; trùng thì thêm số.</summary>
+    internal static string DepartmentCode(string name, IReadOnlyCollection<string> taken)
+    {
+        var letters = string.Concat(VnSearch.FoldText(name).Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => char.IsLetterOrDigit(w[0])).Select(w => char.ToUpperInvariant(w[0])));
+        if (letters.Length == 0) letters = "PB";
+        var code = letters;
+        for (var i = 2; taken.Contains(code, StringComparer.OrdinalIgnoreCase); i++) code = letters + i;
+        return code;
+    }
+
+    async Task<Pending> DepartmentAsync(Ctx c, Dictionary<string, object?> a, CancellationToken ct)
+    {
+        var name = S(a, "name")?.Trim() ?? throw new ActionError("Thiếu tên phòng ban.");
+        var existing = await db.Departments.AsNoTracking().Where(d => d.StoreId == c.StoreId && d.Deleted == null)
+            .Select(d => new { d.Code, d.Name }).ToListAsync(ct);
+        if (existing.Any(d => VnSearch.FoldText(d.Name) == VnSearch.FoldText(name)))
+            throw new ActionError($"Đã có phòng ban «{name}».");
+        var code = DepartmentCode(name, existing.Select(d => d.Code).ToList());
+        return New(c, "department", "Phòng ban mới",
+        [
+            new("Tên", name), new("Mã", code),
+            .. S(a, "description") is { } desc ? new[] { new Line("Mô tả", desc) } : [],
+        ], "POST", "/api/Departments", new { code, name, description = S(a, "description") }, "Department");
+    }
 
     async Task<Pending> CloseCashierShiftAsync(Ctx c, Dictionary<string, object?> a, CancellationToken ct)
     {

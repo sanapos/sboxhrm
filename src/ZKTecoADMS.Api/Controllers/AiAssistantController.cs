@@ -117,6 +117,8 @@ public class AiAssistantController(
         public List<AiChart> Charts { get; set; } = new();
         /// <summary>Có = hiện nút xuất PNG / Excel / PDF (đã chạy báo cáo thật, tài khoản có quyền Xuất) — xem exports/{id}.</summary>
         public string? ExportId { get; set; }
+        /// <summary>Có = lệnh «mở màn …»: app tự mở màn này (mã menu), không cần bấm chip.</summary>
+        public string? AutoOpen { get; set; }
     }
 
     /// <param name="Risk">normal | high — high: app hiện thẻ đỏ, hỏi lại trước khi gửi xác nhận (acknowledged).</param>
@@ -493,11 +495,19 @@ public class AiAssistantController(
             var vi = lang == AiLanguage.Vietnamese;
             // Hỏi cách dùng / báo sự cố («cách tạo phiếu phạt», «máy in bếp không in») → trả lời thẳng từ hướng dẫn sử dụng
             // nhúng trong máy chủ, không gọi Gemini (không tốn lượt, chạy cả khi cửa hàng chưa có khóa AI).
-            var topHelp = AiAssistantHelpCorpus.SearchScored(lastText, topK: 1);
+            if (vi && !recentUser.SkipLast(1).Any(AiAssistantIntent.LooksLikeAction)
+                && AiAssistantIntent.OpenScreenTarget(lastText, CanView) is { } screen)
+                return Ok(AppResponse<ChatResponse>.Success(new ChatResponse
+                {
+                    Reply = $"Đang mở {AiAssistantMenuMap.Paths[screen]}.",
+                    Provider = "sbox",
+                    Actions = ["open:" + screen],
+                    AutoOpen = screen,
+                }));
+            var directScore = AiAssistantHelpCorpus.DirectAnswerScore(lastText);
             // Đang lập phiếu dở (agent vừa hỏi thêm) → câu trả lời «lý do: quên chấm công không được» vẫn thuộc lệnh đó.
             var actionInProgress = recentUser.SkipLast(1).Any(AiAssistantIntent.LooksLikeAction);
-            var guideOnly = vi && !actionInProgress
-                            && AiAssistantIntent.IsGuideQuestion(lastText, topHelp.Count > 0 ? topHelp[0].Score : 0);
+            var guideOnly = vi && !actionInProgress && AiAssistantIntent.IsGuideQuestion(lastText, directScore);
             var withActions = !guideOnly && (!vi || AiAssistantIntent.LooksLikeAction(lastText)
                               || (!AiAssistantAgent.LooksAnalytical(lastText) && actionInProgress));
             var toolGroups = withActions && vi ? AiAssistantIntent.Groups(recentUser) : null;
@@ -511,7 +521,16 @@ public class AiAssistantController(
                 ? new AiAssistantRuleResult(false, "")
                 : AiAssistantRuleBot.Build(
                     lastUserMessage.Content, contextText, guideOnly ? AiAssistantHelpCorpus.GuideAnswerHits(lastText) : helpHits,
-                    allowedActions, allowedCreates, includeFallback: !geminiOk, guideQuestion: guideOnly);
+                    allowedActions, allowedCreates, includeFallback: !geminiOk && directScore < AiAssistantHelpCorpus.ConfidentScore,
+                    guideQuestion: guideOnly);
+            // Chưa có AI, câu không phải dữ liệu cá nhân nhưng khớp rõ một bài («mức đóng bhxh bao nhiêu phần trăm») → trả bài đó.
+            if (!skipRule && !rule.Matched && !geminiOk && vi && directScore >= AiAssistantHelpCorpus.ConfidentScore
+                && !AiAssistantIntent.LooksLikeAction(lastText) && !AiAssistantAgent.LooksAnalytical(lastText))
+                rule = AiAssistantRuleBot.Build(lastUserMessage.Content, contextText, AiAssistantHelpCorpus.GuideAnswerHits(lastText),
+                    allowedActions, allowedCreates, includeFallback: false, guideQuestion: true);
+            if (!skipRule && !rule.Matched && !geminiOk)
+                rule = AiAssistantRuleBot.Build(lastUserMessage.Content, contextText, helpHits,
+                    allowedActions, allowedCreates, includeFallback: true);
             var reportsUsed = new List<string>();
             var reportRuns = new List<AiReportRun>();
             var proposed = new List<AiAssistantActions.Pending>();

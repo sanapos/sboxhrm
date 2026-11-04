@@ -627,6 +627,8 @@ public sealed partial class AiAssistantActions
             "attendance_fix" => new("DELETE", $"/api/AttendanceCorrections/{docId}", null),
             "sale" => new("POST", $"/api/pos/sales/{docId}/cancel", JsonSerializer.Serialize(new { reason = "Hoàn tác (Trợ lý ảo)" }, Json)),
             "product" => new("DELETE", $"/api/pos/products/{docId}", null),
+            "customer" => new("DELETE", $"/api/pos/customers/{docId}", null),
+            "supplier" => new("DELETE", $"/api/pos/purchase/suppliers/{docId}", null),
             "promotion" => new("DELETE", $"/api/pos/promotions/{docId}", null),
             "purchase_receipt" => new("POST", $"/api/pos/purchase/receipts/{docId}/cancel", null),
             "purchase_return" => new("POST", $"/api/pos/purchase/returns/{docId}/cancel", null),

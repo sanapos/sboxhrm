@@ -64,10 +64,10 @@ Cùng mức lương trên nhưng có 2 con nhỏ đã đăng ký người phụ 
 
 ### Thu nhập cao
 
-Lương 80 triệu, đóng bảo hiểm ở mức trần 46,8 triệu (BHXH + BHYT) và 1% BHTN, không người phụ thuộc. Giả sử tổng bảo hiểm khoảng 5 triệu:
+Lương 80 triệu, đóng bảo hiểm ở mức trần 50,6 triệu (BHXH + BHYT) và 1% BHTN, không người phụ thuộc. Tổng bảo hiểm khoảng 5,6 triệu:
 
-- Thu nhập tính thuế: 80 − 5 − 15,5 = 59,5 triệu → bậc 3
-- Thuế: 59,5 × 20% − 3,5 = **8,4 triệu đồng**
+- Thu nhập tính thuế: 80 − 5,6 − 15,5 = 58,9 triệu → bậc 3
+- Thuế: 58,9 × 20% − 3,5 = **8,28 triệu đồng**
 
 ## Tạm khấu trừ 10% với hợp đồng dưới 3 tháng
 

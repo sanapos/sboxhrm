@@ -89,10 +89,102 @@ public class AiAssistantHelpCorpusTests
     public void Nhan_cau_hoi_cach_dung(string q, bool expected) =>
         Assert.Equal(expected, AiAssistantQueryTools.LooksLikeHowTo(q.ToLowerInvariant()));
 
-    static bool Guide(string q)
+    static bool Guide(string q) => AiAssistantIntent.IsGuideQuestion(q, AiAssistantHelpCorpus.DirectAnswerScore(q));
+
+    [Theory]
+    // Rà soát 04/11/2026: mọi câu có «máy chấm công» ra bài Gateway WiFi, «đóng bhxh» ra bài phân quyền — và trả thẳng không qua AI.
+    [InlineData("cách kết nối máy chấm công", "device_connect")]
+    [InlineData("máy chấm công đời cũ không có máy chủ đám mây", "gateway_wifi")]
+    [InlineData("máy chấm công mất kết nối phải làm sao", "hrm-zkteco-mat-ket-noi")]
+    [InlineData("máy chấm công không đẩy dữ liệu được", "hrm-zkteco-mat-ket-noi")]
+    [InlineData("cách khắc phục máy chấm công bị sai giờ", "hrm-zkteco-mat-ket-noi")]
+    [InlineData("máy chấm công đầy bộ nhớ", "hrm-zkteco-mat-ket-noi")]
+    [InlineData("cách chọn máy chấm công", "hrm-chon-mua-may-cham-cong")]
+    [InlineData("nên mua máy khuôn mặt hay vân tay", "hrm-khuon-mat-hay-van-tay")]
+    [InlineData("chi phí lắp đặt máy chấm công bao nhiêu", "hrm-chi-phi-lap-dat-may-cham-cong")]
+    [InlineData("dữ liệu chấm công cloud có an toàn không", "hrm-cham-cong-cloud-an-toan")]
+    [InlineData("chấm công bằng mã qr được không", "hrm-cham-cong-qr")]
+    [InlineData("làm sao chống chấm công hộ", "hrm-chong-cham-cong-ho")]
+    [InlineData("mức đóng bhxh là bao nhiêu phần trăm", "hrm-cach-tinh-bhxh")]
+    [InlineData("cách tính bhxh", "hrm-cach-tinh-bhxh")]
+    [InlineData("lương tối thiểu vùng 2026 bao nhiêu", "hrm-luong-toi-thieu-vung")]
+    [InlineData("tăng ca ngày lễ tính bao nhiêu phần trăm", "hrm-luong-tang-ca")]
+    [InlineData("quy trình onboarding nhân viên mới", "hrm-onboarding")]
+    [InlineData("cách tính giá vốn món ăn", "pos-gia-von-mon-an")]
+    [InlineData("duyệt lịch làm việc ở đâu", "sys_schedule_approval")]
+    [InlineData("tắt thông báo đẩy trên điện thoại", "sys_notification_settings")]
+    [InlineData("sửa mẫu in báo giá ở đâu", "pos_print_templates")]
+    [InlineData("xem báo cáo đi trễ về sớm", "hr_attendance_reports")]
+    [InlineData("app nhân viên có những chức năng gì", "sys_employee_app")]
+    [InlineData("app boss xem doanh thu trên điện thoại", "sys_boss_app")]
+    [InlineData("chọn máy in 58 hay 80mm", "pos-may-in-hoa-don")]
+    public void Cau_hoi_kien_thuc_ra_dung_bai(string q, string expected)
     {
-        var top = AiAssistantHelpCorpus.SearchScored(q, topK: 1);
-        return AiAssistantIntent.IsGuideQuestion(q, top.Count > 0 ? top[0].Score : 0);
+        var top = AiAssistantHelpCorpus.Search(q, topK: 1)[0];
+        Assert.True(top.StepId == expected || top.StepId.StartsWith(expected + "#"), $"{q} → {top.StepId}");
+    }
+
+    [Theory]
+    [InlineData("làm sao đóng bhxh cho nhân viên", "bhxh")]
+    [InlineData("hướng dẫn chấm công trên macbook", "macbook")]
+    public void Bai_tra_thang_phai_chua_tu_dac_trung(string q, string word)
+    {
+        Assert.True(AiAssistantHelpCorpus.DirectAnswerScore(q) > 0, q);
+        var hit = AiAssistantHelpCorpus.GuideAnswerHits(q)[0];
+        Assert.Contains(word, AiAssistantHelpCorpus.FormatForPrompt([hit]), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("cách khắc phục máy chấm công bị sai giờ", "GMT+7")]
+    [InlineData("máy chấm công đầy bộ nhớ", "xóa bớt")]
+    public void Cau_hoi_cu_the_tra_dung_muc_trong_bai(string q, string expected)
+    {
+        var top = AiAssistantHelpCorpus.GuideAnswerHits(q)[0];
+        Assert.Contains("#", top.StepId);
+        Assert.Contains(expected, AiAssistantHelpCorpus.FormatForPrompt([top]));
+    }
+
+    [Fact]
+    public void Tra_thang_chi_hien_huong_dan_khong_kem_so_lieu()
+    {
+        var ctx = "=== LỊCH LÀM HÔM NAY ===\nChưa có ca";
+        const string q = "duyệt lịch làm việc ở đâu";
+        var r = AiAssistantRuleBot.Build(q, ctx, AiAssistantHelpCorpus.GuideAnswerHits(q), [], [], includeFallback: false, guideQuestion: true);
+        Assert.StartsWith("Duyệt lịch làm việc", r.Reply);
+    }
+
+    [Fact]
+    public void Tu_khong_co_trong_tai_lieu_thi_khong_tra_thang()
+    {
+        Assert.Equal(0, AiAssistantHelpCorpus.DirectAnswerScore("cách kết nối máy chấm công với blockchain xyzabc"));
+    }
+
+    [Fact]
+    public void Bai_kien_thuc_co_nguon_khong_gan_GUIDE_khong_con_markdown()
+    {
+        var kb = AiAssistantHelpCorpus.All.Where(c => c.Mode == AiAssistantKnowledge.Mode).ToList();
+        Assert.True(kb.Count > 100, $"chỉ có {kb.Count} đoạn");
+        Assert.All(AiAssistantKnowledge.Slugs, s => Assert.Contains(kb, c => c.StepId == s));
+        Assert.All(kb, c =>
+        {
+            Assert.StartsWith("https://", c.SourceUrl);
+            Assert.False(AiAssistantHelpCorpus.HasAppGuide(c), c.StepId);
+            var text = AiAssistantHelpCorpus.FormatForPrompt([c]);
+            Assert.DoesNotContain("[[GUIDE:", text);
+            Assert.DoesNotContain("**", text);
+            Assert.DoesNotContain("](/", text);
+            Assert.DoesNotContain("/register", text);
+        });
+    }
+
+    [Fact]
+    public void So_lieu_phap_luat_dung_muc_hien_hanh_va_co_loi_nhac()
+    {
+        var bhxh = AiAssistantHelpCorpus.All.Where(c => c.StepId.StartsWith("hrm-cach-tinh-bhxh", StringComparison.Ordinal)).ToList();
+        var text = AiAssistantHelpCorpus.FormatForPrompt(bhxh);
+        Assert.Contains("50.600.000", text);
+        Assert.DoesNotContain("46.800.000", text);
+        Assert.All(bhxh, c => Assert.Equal(AiAssistantKnowledge.LegalNote, c.Tip));
     }
 
     [Theory]
