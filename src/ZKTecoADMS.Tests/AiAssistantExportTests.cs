@@ -122,6 +122,22 @@ public class AiAssistantExportTests
         Assert.All(new[] { a, b, c }, n => Assert.True(n.Length <= 31));
     }
 
+    [Fact]
+    public void No_export_means_no_invitation_to_press_a_button()
+    {
+        const string reply = "Doanh thu: 0đ.\nBấm nút Excel ngay dưới câu trả lời để xuất.";
+        var none = AiAssistantExport.FixExportClaim(reply, "xuất excel doanh thu", false, false);
+        Assert.DoesNotContain("Bấm nút", none);
+        Assert.Contains("không lấy từ báo cáo", none);
+
+        var noPerm = AiAssistantExport.FixExportClaim(reply, "doanh thu", false, true);
+        Assert.Contains("quyền «Xuất»", noPerm);
+
+        Assert.Equal(reply, AiAssistantExport.FixExportClaim(reply, "doanh thu", true, true));
+        // Câu thường không nhắc gì đến xuất file thì giữ nguyên.
+        Assert.Equal("Có 12 nhân viên.", AiAssistantExport.FixExportClaim("Có 12 nhân viên.", "bao nhiêu nhân viên", false, false));
+    }
+
     [Theory]
     [InlineData("xuất excel doanh thu tháng này")]
     [InlineData("xuat file pdf ton kho")]

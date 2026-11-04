@@ -598,6 +598,7 @@ public class AiAssistantController(
                 Creates = proposed.Count > 0 ? new List<string>() : parsed.Creates,
             };
             response.ExportId = RememberExport(AiAssistantExport.Exportable(reportRuns, permMap, isSuperUser), parsed.Text);
+            response.Reply = AiAssistantExport.FixExportClaim(response.Reply, lastText, response.ExportId != null, reportRuns.Count > 0);
             if (usedProvider == "gemini" && !withActions && proposed.Count == 0 && userTurns.Count == 1 && reportsUsed.Count > 0)
                 cache.Set(AnswerKey(lastText, lang), response,
                     new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = AnswerCacheTtl, Size = 1 });

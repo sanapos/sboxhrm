@@ -388,6 +388,9 @@ public sealed class AiAssistantAgent(
               (bỏ trống nếu không có). Vẫn viết số chính trong câu trả lời (biểu đồ chỉ minh họa).
             - Người dùng muốn xuất Excel / PDF / PNG / ảnh: GỌI run_report lấy đúng số liệu (kể cả vừa có ở câu trước), trả lời ngắn gọn
               rồi nhắc bấm nút PNG, Excel, PDF ngay dưới câu trả lời. KHÔNG nói đã gửi file, không viết đường link, không viết bảng để sao chép.
+              Chưa gọi run_report thành công thì KHÔNG nhắc đến nút.
+            - Số liệu không có báo cáo nào trong danh sách ĐƯỢC PHÉP bên dưới (vd hỏi doanh thu khi gói chỉ có nhân sự) → nói gói dịch vụ /
+              tài khoản chưa có báo cáo đó. TUYỆT ĐỐI không trả lời 0đ hay «chưa có dữ liệu» khi chưa chạy báo cáo.
             """);
         if (reports.Count == 0)
         {

@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using ClosedXML.Excel;
 using ZKTecoADMS.Api.Controllers;
+using ZKTecoADMS.Application.Helpers;
 
 namespace ZKTecoADMS.Api.Services;
 
@@ -40,6 +41,31 @@ public static partial class AiAssistantExport
         return new AiExportDoc(titles.Count == 1 ? titles[0] : "Báo cáo của Trợ lý ảo", reply, DateTime.UtcNow, tables.Take(MaxTables).ToList());
     }
 
+    /// <summary>
+    /// AI hay viết «bấm nút Excel» cả khi không có nút (chưa chạy báo cáo, thiếu quyền Xuất) — người dùng tìm mãi không thấy.
+    /// Không có file để xuất thì bỏ dòng đó và nói rõ lý do. Chỉ báo khi AI nhắc đến nút hoặc người dùng xin xuất file.
+    /// </summary>
+    internal static string FixExportClaim(string reply, string question, bool hasExport, bool hadReports)
+    {
+        if (hasExport) return reply;
+        var lines = reply.Replace("\r", "").Split('\n');
+        var kept = lines.Where(l => !ClaimsExportButton(l)).ToList();
+        var asked = VnSearch.FoldText(question) is var q && ExportWords.Any(w => q.Contains(w));
+        if (kept.Count == lines.Length && !asked) return reply;
+        var why = hadReports
+            ? "Tài khoản chưa có quyền «Xuất» của báo cáo này nên chưa xuất được file."
+            : "Chưa xuất được file vì câu trả lời này không lấy từ báo cáo nào.";
+        return (string.Join("\n", kept).Trim() + "\n\n" + why).Trim();
+    }
+
+    static readonly string[] ExportWords = ["xuat excel", "xuat pdf", "xuat png", "xuat file", "xuat anh", "xuat bao cao", "xuat ra"];
+
+    static bool ClaimsExportButton(string line)
+    {
+        var f = VnSearch.FoldText(line);
+        return f.Contains("nut") && (f.Contains("excel") || f.Contains("pdf") || f.Contains("png"));
+    }
+
     /// <summary>JSON báo cáo → bảng: các số lẻ gộp thành bảng «Tổng quan» (Chỉ tiêu | Giá trị), mỗi danh sách một bảng.</summary>
     internal static List<AiExportTable> Flatten(AiReportRun run)
     {
@@ -64,7 +90,7 @@ public static partial class AiAssistantExport
                         if (ListTable($"{title} – {listPrefix}{ListLabelOf(key)}".TrimEnd(' ', '–'), arr, period, truncated) is { } t) lists.Add(t);
                         break;
                     default:
-                        if (prefix.Length == 0 && key is "from" or "to" or "fromDate" or "toDate") break;
+                        if (prefix.Length == 0 && key is "from" or "to" or "fromDate" or "toDate" or "startDate" or "endDate") break;
                         if (CellOf(key, value) is { } cell) overview.Add([prefix + label, cell]);
                         break;
                 }
@@ -236,7 +262,8 @@ public static partial class AiAssistantExport
         ["Accepted"] = "Đã nhận", ["Applied"] = "Đã áp dụng", ["Goods"] = "Hàng hóa", ["Service"] = "Dịch vụ", ["Combo"] = "Combo",
         ["Topping"] = "Topping", ["Material"] = "Nguyên liệu", ["Cash"] = "Tiền mặt", ["BankTransfer"] = "Chuyển khoản", ["Card"] = "Thẻ",
         ["AnnualLeave"] = "Nghỉ phép năm", ["SickLeave"] = "Nghỉ ốm", ["UnpaidLeave"] = "Nghỉ không lương", ["Manual"] = "Thủ công",
-        ["Damage"] = "Xuất hủy", ["InternalUse"] = "Xuất dùng nội bộ",
+        ["Damage"] = "Xuất hủy", ["InternalUse"] = "Xuất dùng nội bộ", ["Late"] = "Đi trễ", ["EarlyLeave"] = "Về sớm",
+        ["weekday"] = "Ngày thường", ["weekend"] = "Cuối tuần", ["holiday"] = "Ngày lễ", ["rest_day"] = "Ngày nghỉ",
     };
 
     static readonly Dictionary<string, string> Labels = new()
@@ -292,6 +319,10 @@ public static partial class AiAssistantExport
         ["advanceApproved"] = "Tạm ứng đã duyệt", ["advanceCount"] = "Số phiếu ứng", ["advanceOutstanding"] = "Tạm ứng còn nợ", ["penaltyApproved"] = "Phạt đã duyệt", ["mealCharge"] = "Tiền cơm", ["mealOutstanding"] = "Tiền cơm còn nợ", ["mealPayment"] = "Trả tiền cơm", ["tripAdvanceRefunds"] = "Hoàn ứng công tác",
         ["totalPunches"] = "Tổng lượt chấm", ["uniqueManDays"] = "Ngày công", ["avgPunchesPerDay"] = "Lượt chấm TB / ngày", ["lateCount"] = "Đi trễ", ["earlyCount"] = "Về sớm", ["forgotCount"] = "Quên chấm", ["closedOffDayCount"] = "Ngày đã chốt", ["approvedLeaves"] = "Nghỉ đã duyệt", ["pendingLeaves"] = "Nghỉ chờ duyệt", ["employeesWithLeave"] = "Số NV có nghỉ", ["leaveType"] = "Loại nghỉ", ["totalLeaveDays"] = "Tổng ngày nghỉ", ["totalLeaveRequests"] = "Tổng đơn nghỉ", ["totalDays"] = "Tổng số ngày", ["usedDays"] = "Đã dùng (ngày)", ["paidEntitlement"] = "Phép có lương", ["paidRemaining"] = "Phép còn lại", ["paidUsed"] = "Phép đã dùng", ["sickUsed"] = "Nghỉ ốm", ["unpaidUsed"] = "Nghỉ không lương", ["approvedUnpaid"] = "Không lương đã duyệt",
         ["approvedAmount"] = "Tiền đã duyệt", ["approvedCount"] = "Đã duyệt", ["pendingAmount"] = "Tiền chờ duyệt", ["pendingCount"] = "Chờ duyệt", ["rejectedAmount"] = "Tiền từ chối", ["rejectedCount"] = "Từ chối", ["totalApproved"] = "Tổng đã duyệt", ["totalRequests"] = "Tổng đề nghị",
+        ["present"] = "Có mặt", ["onTime"] = "Đúng giờ", ["late"] = "Đi trễ", ["earlyLeave"] = "Về sớm", ["absent"] = "Vắng", ["onLeave"] = "Nghỉ phép", ["noSalaryProfile"] = "Chưa có hồ sơ lương", ["hasSalaryProfile"] = "Có hồ sơ lương", ["attendanceRate"] = "Tỷ lệ đi làm %", ["checkInTime"] = "Giờ vào", ["checkOutTime"] = "Giờ ra", ["lateMinutes"] = "Phút trễ", ["earlyLeaveMinutes"] = "Phút về sớm", ["workedMinutes"] = "Phút làm", ["workingDays"] = "Ngày làm việc", ["totalDaysWorked"] = "Ngày đi làm", ["totalLateDays"] = "Ngày đi trễ", ["totalAbsentDays"] = "Ngày vắng", ["totalWorkedHours"] = "Tổng giờ làm",
+        ["employeesWithIssues"] = "Số NV có vi phạm", ["totalLateCount"] = "Tổng lượt trễ", ["totalLateMinutes"] = "Tổng phút trễ", ["totalEarlyLeaveCount"] = "Tổng lượt về sớm", ["totalEarlyMinutes"] = "Tổng phút về sớm", ["earlyLeaveCount"] = "Lượt về sớm", ["totalDepartments"] = "Số phòng ban", ["employeeCount"] = "Số nhân viên", ["totalAttendance"] = "Tổng lượt công", ["averageWorkedHoursPerDay"] = "Giờ làm TB / ngày",
+        ["employeesWithOvertime"] = "Số NV tăng ca", ["totalOvertimeMinutes"] = "Tổng phút tăng ca", ["totalOvertimeHours"] = "Tổng giờ tăng ca", ["totalEstimatedOvertimePay"] = "Tổng lương tăng ca dự tính", ["estimatedOvertimePay"] = "Lương tăng ca dự tính", ["overtimeDays"] = "Ngày tăng ca", ["overtimeMinutes"] = "Phút tăng ca", ["weekdayOvertimeHours"] = "Giờ tăng ca ngày thường", ["weekendOvertimeHours"] = "Giờ tăng ca cuối tuần", ["holidayOvertimeHours"] = "Giờ tăng ca ngày lễ", ["otRateWeekday"] = "Hệ số ngày thường", ["otRateWeekend"] = "Hệ số cuối tuần", ["otRateHoliday"] = "Hệ số ngày lễ", ["details"] = "Chi tiết", ["bucket"] = "Loại ngày", ["source"] = "Nguồn",
+        ["totalAbsenceRecords"] = "Tổng lượt vắng", ["affectedEmployees"] = "Số NV bị ảnh hưởng", ["absenceDate"] = "Ngày vắng", ["dayOfWeek"] = "Thứ", ["totalNoShows"] = "Tổng lượt không đến", ["scheduledDate"] = "Ngày có ca", ["standardDays"] = "Ngày chuẩn", ["avgComplianceRate"] = "Tuân thủ TB %", ["presentDays"] = "Ngày có mặt", ["lateDays"] = "Ngày trễ", ["leaveDays"] = "Ngày nghỉ", ["absentDays"] = "Ngày vắng", ["complianceRate"] = "Tuân thủ %",
         // Chung
         ["count"] = "Số lượng", ["percentage"] = "Tỷ lệ %", ["status"] = "Trạng thái", ["statusLabel"] = "Trạng thái", ["statusName"] = "Trạng thái", ["type"] = "Loại", ["description"] = "Mô tả", ["note"] = "Ghi chú", ["notes"] = "Ghi chú", ["groupName"] = "Nhóm", ["value"] = "Giá trị",
     };

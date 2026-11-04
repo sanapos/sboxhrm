@@ -23,8 +23,11 @@ public sealed class AiAssistantOrderReader(ZKTecoDbContext db, IGeminiAiService 
     /// <summary>Token suy nghĩ ăn vào maxOutputTokens — giữ thấp để đơn dài không bị cắt.</summary>
     const int ReadThinkingBudget = 1024;
 
-    /// <summary>Tổng thời gian chờ AI (dưới 200 s timeout của app).</summary>
-    public static readonly TimeSpan AiTimeBudget = TimeSpan.FromSeconds(150);
+    /// <summary>
+    /// Tổng thời gian chờ AI: dưới 60 s của nginx (location /api/) — quá hạn đó người dùng nhận trang 504 thay vì câu báo.
+    /// Google quá tải có thể treo 25 s mỗi khóa × model nên phải tự cắt.
+    /// </summary>
+    public static readonly TimeSpan AiTimeBudget = TimeSpan.FromSeconds(55);
 
     const string SystemPrompt = """
         Bạn đọc ĐƠN HÀNG từ ảnh chụp / PDF / bảng tính cho một cửa hàng tại Việt Nam: đơn viết tay, tin nhắn đặt hàng chụp màn hình,
@@ -321,7 +324,7 @@ public sealed class AiAssistantOrderReader(ZKTecoDbContext db, IGeminiAiService 
                         var name = Str(i, "name") ?? source;
                         if (name == null) continue;
                         items.Add(new RawItem(source ?? name, name, Str(i, "code"), Qty(i, "qty"), Str(i, "unit"), Money(i, "price"),
-                            i.TryGetProperty("productIndex", out var pi) && pi.TryGetInt32(out var idx) ? idx : null));
+                            i.TryGetProperty("productIndex", out var pi) && pi.ValueKind == JsonValueKind.Number && pi.TryGetInt32(out var idx) ? idx : null));
                     }
                 }
                 if (items.Count == 0) continue;

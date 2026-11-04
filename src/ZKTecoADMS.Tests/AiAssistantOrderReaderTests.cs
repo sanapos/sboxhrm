@@ -131,6 +131,20 @@ public class AiAssistantOrderReaderTests
     }
 
     [Fact]
+    public void Parse_accepts_nulls_in_every_field_as_gemini_returns_them()
+    {
+        // Đúng dạng Gemini trả trên production: mọi trường trống đều là null.
+        var r = ParseResult("""
+            {"readOnly":false,"warnings":[],"orders":[{"kind":"sale","language":"vi","party":{"name":null,"phone":null},"discount":null,"total":null,"paid":null,"note":null,
+             "items":[{"source":"Cà phê","name":"Cà phê","code":null,"qty":null,"unit":null,"price":null,"productIndex":null}]}]}
+            """);
+        var item = Assert.Single(Assert.Single(r.Orders).Items);
+        Assert.Null(item.ProductIndex);
+        Assert.Null(item.Qty);
+        Assert.Null(item.Price);
+    }
+
+    [Fact]
     public async Task Sale_order_becomes_a_draft_card_with_translation_and_unmatched_lines()
     {
         await using var db = Db();
