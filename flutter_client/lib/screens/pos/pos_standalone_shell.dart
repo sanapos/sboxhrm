@@ -11,6 +11,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/mobile_bottom_nav_prefs.dart';
 import '../../services/pos_print_agent_service.dart';
+import 'pos_store_printers_screen.dart';
 import '../../services/signalr_service.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/notification_display_utils.dart';
@@ -141,6 +142,12 @@ class _PosStandaloneShellState extends State<PosStandaloneShell>
           }
         }
         if (!kds) {
+          PosPrintAgentService.instance
+            ..canConfigurePrinters = (() => mounted && context.read<PermissionProvider>().canEdit('PosPrinters'))
+            ..openPrinterSettings = () {
+              if (!mounted) return;
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PosStorePrintersScreen()));
+            };
           await PosPrintAgentService.instance.ensureRunning(
             storeId,
             forceReregister: forceAgent,

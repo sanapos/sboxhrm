@@ -557,7 +557,9 @@
   "Agent đang online trên cửa hàng": "Agent 在门店在线",
   "Agent đã tắt từ máy khác": "Agent 已在其他设备上关闭",
   "Agent đã đạt giới hạn": "Agent 已达到上限",
+  "Agent: chưa cài máy in Sunmi": "Agent:未安装 Sunmi 打印机",
   "Agent: chưa thấy cổng in": "Agent：未找到打印端口",
+  "Agent: máy in đang tắt": "Agent:打印机已关闭",
   "Agribank - NH Nông nghiệp và Phát triển Nông thôn": "Agribank - NH Nông nghiệp và Phát triển Nông thôn",
   "Ai thêm / sửa / xóa gì, lúc nào": "谁在何时添加 / 修改 / 删除了什么",
   "Ai đang nhiều việc nhất": "谁的任务最多",
@@ -1549,6 +1551,7 @@
   "Bấm «Đăng ký» để chọn ca": "点击「登记」选择班次",
   "Bấm ô cân để nối cân điện tử (cổng COM / USB)": "点击秤重框连接电子秤（COM / USB 端口）",
   "Bấm để bổ sung chấm công thiếu": "点击补充缺失的考勤",
+  "Bấm để chọn máy in cho Agent": "点按为 Agent 选择打印机",
   "Bấm để chọn nhanh giờ theo ca": "点击按班次快速选择时间",
   "Bấm để chọn ảnh (tới 1920px)": "点击选择图片(最大 1920px)",
   "Bấm để lọc hóa đơn": "点击筛选账单",
@@ -2351,6 +2354,8 @@
   "Chưa chụp - Nhấn \"Bắt đầu chụp\" để bắt đầu": "未拍摄 - 点击“开始拍摄”开始",
   "Chưa chụp ảnh hiện trường": "尚未拍摄现场照片",
   "Chưa cài lại": "尚未重新安装",
+  "Chưa cài máy in Sunmi trên máy này": "此设备未安装 Sunmi 打印机",
+  "Chưa cài máy in Sunmi trên máy này. Bấm để mở thiết lập máy in": "此设备未安装 Sunmi 打印机。点按打开打印机设置",
   "Chưa cài máy in hóa đơn — két mở qua cổng RJ11 của máy in": "未安装小票打印机 — 钱箱通过打印机的RJ11接口打开",
   "Chưa cài máy in hóa đơn — vào Thiết lập SBOX › Máy in": "未安装小票打印机 — 请前往SBOX设置 › 打印机",
   "Chưa cân bằng tồn": "库存未调整",
@@ -10092,6 +10097,8 @@
   "Máy in cửa hàng (Cloud / Agent)": "门店打印机（云端 / Agent）",
   "Máy in cửa hàng = Print Agent / máy dùng chung cửa hàng.": "门店打印机 = Print Agent / 门店共用设备。",
   "Máy in gán SP": "商品分配的打印机",
+  "Máy in gắn Agent đang tắt trên cửa hàng": "Agent 绑定的打印机已在门店中关闭",
+  "Máy in gắn Agent đang tắt trên cửa hàng. Bấm để xem máy in cloud": "Agent 绑定的打印机已在门店中关闭。点按查看云打印机",
   "Máy in gắn trực tiếp thiết bị này (Bluetooth / LAN / USB / Sunmi).": "直接连接在本设备上的打印机（Bluetooth / LAN / USB / Sunmi）。",
   "Máy in hóa đơn chưa ra giấy — phiếu treo, không chuyển máy khác": "小票打印机未出纸 — 单据挂起，不会转到其他设备",
   "Máy in hóa đơn chưa sẵn sàng. Phiếu treo — không chuyển máy khác.": "小票打印机未就绪。单据挂起 — 不会转到其他设备。",
@@ -30528,6 +30535,9 @@
    "最少 {0} · "
   ],
   [
+   "每次最多 {0} 张照片 / 个文件"
+  ],
+  [
    "Tối đa {0} ảnh mỗi lần — đã bỏ {1} ảnh. ",
    "每次最多 {0} 张 — 已舍弃 {1} 张图片。 "
   ],
@@ -35138,6 +35148,9 @@
   [
    "Đã bỏ {0} phiếu.",
    "已放弃 {0} 张卡片。"
+  ],
+  [
+   "已略去 {0} 张照片 / 个文件,请先发送这些,再发送其余部分。"
   ],
   [
    "Đã check-in · cách địa điểm {0} m",

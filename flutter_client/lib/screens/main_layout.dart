@@ -1357,6 +1357,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             await agentSettings.copyWith(accountLabel: label).save();
           }
         }
+        PosPrintAgentService.instance
+          ..canConfigurePrinters = (() => mounted && context.read<PermissionProvider>().canEdit('PosPrinters'))
+          ..openPrinterSettings = () {
+            if (!mounted) return;
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PosStorePrintersScreen()));
+          };
         await PosPrintAgentService.instance.ensureRunning(storeId);
         unawaited(PosQrOrderVoiceAlert.instance.start(
             canTakePayment: () => context.mounted && context.read<PermissionProvider>().canPosPay()));

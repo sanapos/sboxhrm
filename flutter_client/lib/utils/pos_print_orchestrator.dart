@@ -543,6 +543,12 @@ class PosPrintOrchestrator {
 
   List<PosStorePrinter> get printers => List.unmodifiable(_printers);
 
+  /// Mọi máy của cửa hàng lần tải gần nhất, gồm máy đang tắt ([printers] chỉ có máy đang bật).
+  Set<String> get storePrinterIds => _storePrinterIds;
+
+  /// Lúc tải danh sách máy in thành công gần nhất.
+  DateTime? get configFetchedAt => _cacheAt;
+
   List<PosPrinterRoute> get routes => List.unmodifiable(_routes);
 
   /// Đánh dấu outbound chỉ khi máy này KHÔNG phải Agent của [printerId].

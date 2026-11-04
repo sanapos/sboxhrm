@@ -261,6 +261,8 @@
   "Agent chưa khai báo chip máy in — không xóa tự động.": "The Agent hasn't declared any printer chips — not deleting automatically.",
   "Agent không xác nhận được bắt đầu in — xếp lại hàng đợi": "The Agent didn't confirm the print started — re-queued",
   "Agent đang nhận": "Agent receiving",
+  "Agent: chưa cài máy in Sunmi": "Agent: Sunmi printer not installed",
+  "Agent: máy in đang tắt": "Agent: printer is turned off",
   "Ai thêm / sửa / xóa gì, lúc nào": "Who added / edited / deleted what, and when",
   "Ai đang nhiều việc nhất": "Who has the most tasks",
   "Ai đi trễ nhiều nhất tháng này?": "Who was late the most this month?",
@@ -801,6 +803,7 @@
   "Bấm «Điều chuyển / bổ nhiệm», «Khen thưởng» hoặc «Kỷ luật» để ghi nhận.": "Tap “Transfer / appointment”, “Reward” or “Discipline” to record it.",
   "Bấm «Đăng ký» để chọn ca": "Tap “Register” to choose a shift",
   "Bấm ô cân để nối cân điện tử (cổng COM / USB)": "Tap the scale field to connect an electronic scale (COM / USB port)",
+  "Bấm để chọn máy in cho Agent": "Tap to choose a printer for the Agent",
   "Bấm để chọn nhanh giờ theo ca": "Tap to quickly pick times by shift",
   "Bấm để chọn ảnh (tới 1920px)": "Tap to choose an image (up to 1920px)",
   "Bấm để lọc hóa đơn": "Tap to filter invoices",
@@ -1212,6 +1215,8 @@
   "Chưa chọn — hết giờ chỉ báo, không tự tính tiền quá giờ": "Not selected — only alerts when time is up, no automatic overtime charge",
   "Chưa chọn — mỗi phiếu sẽ mở hộp thoại in": "Not selected — a print dialog opens for each voucher",
   "Chưa cài lại": "Not reinstalled yet",
+  "Chưa cài máy in Sunmi trên máy này": "Sunmi printer is not installed on this device",
+  "Chưa cài máy in Sunmi trên máy này. Bấm để mở thiết lập máy in": "Sunmi printer is not installed on this device. Tap to open printer settings",
   "Chưa cài máy in hóa đơn — két mở qua cổng RJ11 của máy in": "No receipt printer set up — the cash drawer opens via the printer's RJ11 port",
   "Chưa cài máy in hóa đơn — vào Thiết lập SBOX › Máy in": "No receipt printer set up — go to SBOX Setup › Printers",
   "Chưa cân bằng tồn": "Stock not adjusted",
@@ -4790,6 +4795,8 @@
   "Máy in cloud là máy in dùng chung": "Cloud printers are shared printers",
   "Máy in cắm dây mạng trong quán. Đo bằng cách thử kết nối mỗi 2 phút.": "A printer connected by network cable in the shop. Measured by testing the connection every 2 minutes.",
   "Máy in của các lệnh đã bị xóa — dùng «Chuyển tất cả»": "Printer of deleted jobs — use \"Move all\"",
+  "Máy in gắn Agent đang tắt trên cửa hàng": "The Agent's printer is turned off in the store",
+  "Máy in gắn Agent đang tắt trên cửa hàng. Bấm để xem máy in cloud": "The Agent's printer is turned off in the store. Tap to view cloud printers",
   "Máy in hóa đơn chưa ra giấy — phiếu treo, không chuyển máy khác": "Receipt printer did not print — ticket on hold, not switched to another device",
   "Máy in hóa đơn chưa sẵn sàng. Phiếu treo — không chuyển máy khác.": "Receipt printer is not ready. Ticket on hold — not switched to another device.",
   "Máy in hóa đơn cloud": "Cloud receipt printer",
@@ -18337,6 +18344,9 @@
    "Min {0} · "
   ],
   [
+   "Up to {0} photos / files at a time"
+  ],
+  [
    "Tối đa {0} ảnh mỗi lần — đã bỏ {1} ảnh. ",
    "Up to {0} images at a time — {1} images were dropped. "
   ],
@@ -22947,6 +22957,9 @@
   [
    "Đã bỏ {0} phiếu.",
    "Discarded {0} cards."
+  ],
+  [
+   "{0} photos / files were left out — send these first, then send the rest."
   ],
   [
    "Đã check-in · cách địa điểm {0} m",

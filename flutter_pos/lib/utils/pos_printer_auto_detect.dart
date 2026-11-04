@@ -45,6 +45,18 @@ class PosPrinterAutoDetect {
     return _inflight ??= _scanOnce().whenComplete(() => _inflight = null);
   }
 
+  /// Chờ lượt quét đang chạy xong (Agent đăng ký sau khi máy tự nhận đã ghi). Không có lượt nào
+  /// thì xong ngay; quá [timeout] thì thôi, nhịp tim sau của Agent xét lại.
+  Future<void> waitIdle({Duration timeout = const Duration(seconds: 5)}) async {
+    final running = _inflight;
+    if (running == null) return;
+    try {
+      await running.timeout(timeout);
+    } catch (e) {
+      debugPrint('PosPrinterAutoDetect.waitIdle: $e');
+    }
+  }
+
   Future<List<PosLocalPrinterProfile>> _scanOnce() async {
     try {
       final store = PosLocalPrintersStore.instance;

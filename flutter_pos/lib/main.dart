@@ -25,6 +25,7 @@ import 'models/hrm.dart';
 import 'screens/main_layout.dart';
 import 'services/api_service.dart';
 import 'services/mobile_bottom_nav_prefs.dart';
+import 'screens/pos/pos_store_printers_screen.dart';
 import 'services/pos_print_agent_service.dart';
 import 'services/session_reset.dart';
 import 'services/signalr_service.dart';
@@ -363,6 +364,12 @@ class _PosAuthShellState extends State<_PosAuthShell>
           }
         }
         if (!kSboxKdsApp) {
+          PosPrintAgentService.instance
+            ..canConfigurePrinters = (() => mounted && context.read<PermissionProvider>().canEdit('PosPrinters'))
+            ..openPrinterSettings = () {
+              if (!mounted) return;
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PosStorePrintersScreen()));
+            };
           await PosPrintAgentService.instance.ensureRunning(
             storeId,
             forceReregister: forceAgent,

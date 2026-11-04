@@ -11,6 +11,35 @@ abstract final class PosPrintRole {
   static bool matchesPrinterId(String a, String b) =>
       _normId(a) == _normId(b);
 
+  /// Đối chiếu chip Agent đã lưu với danh sách máy của cửa hàng. Hàm thuần để test.
+  /// - `saved`: chip còn giữ trên máy. Chỉ bỏ chip khi danh sách vừa tải ([fresh]) xác nhận máy đã
+  ///   bị xóa; [keepIfAllMissing] = vừa gán chip, máy mới có thể chưa kịp vào danh sách.
+  /// - `toRegister`: chip gửi đăng ký Agent. Máy đang tắt trên cửa hàng giữ chip nhưng không đăng ký
+  ///   — bật lại là Agent nhận lệnh, không phải chọn lại chip.
+  static ({List<String> saved, List<String> toRegister}) reconcileAgentChips({
+    required List<String> assigned,
+    required Iterable<String> storeIds,
+    required Iterable<String> activeIds,
+    required bool fresh,
+    bool keepIfAllMissing = false,
+  }) {
+    final known = storeIds.map(_normId).toSet();
+    if (known.isEmpty) return (saved: assigned, toRegister: assigned);
+    final active = activeIds.map(_normId).toSet();
+    final exists = assigned.where((id) => known.contains(_normId(id))).toList();
+    final drop = exists.length != assigned.length &&
+        fresh &&
+        !(exists.isEmpty && keepIfAllMissing);
+    final saved = drop ? exists : assigned;
+    return (
+      saved: saved,
+      toRegister: saved.where((id) {
+        final n = _normId(id);
+        return active.contains(n) || !known.contains(n);
+      }).toList(),
+    );
+  }
+
   /// Máy đang bật Print Agent — nhận lệnh in hộ từ A7/web.
   /// Không dùng cờ này để quyết định in local trên chính máy đang cắm máy in.
   static Future<bool> isPrintAgentDevice() async {

@@ -20,6 +20,7 @@ import '../utils/pos_kds_alert.dart';
 import '../utils/pos_print_agent_settings.dart';
 import '../utils/pos_print_config_session.dart';
 import '../utils/pos_print_role.dart';
+import '../utils/pos_printer_auto_detect.dart';
 import '../utils/pos_printer_readiness.dart';
 import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_print_template_runtime.dart';
@@ -68,6 +69,10 @@ class PosPrintAgentService {
   Timer? _claimDebounce;
   String? _lastRegisterError;
   bool _warnedNoPrinters = false;
+  /// Màn gốc gán sau khi đăng nhập. Tài khoản không có quyền thiết lập máy in không nhận cảnh báo
+  /// «Agent chưa nhận lệnh» — nhân viên order không sửa được, chủ / quản lý mới cần biết.
+  bool Function()? canConfigurePrinters;
+  VoidCallback? openPrinterSettings;
   /// Cảnh báo «chưa thấy cổng in» chỉ 1 lần cho tới khi cổng in lại được (trước đây
   /// cờ chung bị đặt lại mỗi nhịp tim → thông báo hiện lại mỗi ~12 giây, che nút góc phải).
   bool _warnedNoPort = false;
@@ -134,6 +139,8 @@ class PosPrintAgentService {
 
       await _waitForSignalR();
       await _signalR.joinPrintAgentGroup(storeId);
+      // Máy Sunmi / USB đang được tự nhận chưa ghi xong → đăng ký lúc này sẽ báo nhầm thiếu máy in.
+      await PosPrinterAutoDetect.instance.waitIdle();
       await _register(refreshPrinters: true);
 
       // Heartbeat 12s ← server stale 90s; Oppo thấy Agent online ổn định hơn.
@@ -274,38 +281,43 @@ class PosPrintAgentService {
         _lastConfigRefreshAt == null ||
         DateTime.now().difference(_lastConfigRefreshAt!) >
             const Duration(minutes: 2);
+    final orchestrator = PosPrintOrchestrator.instance;
+    final fetchedBefore = orchestrator.configFetchedAt;
     if (needRefresh) {
-      await PosPrintOrchestrator.instance
-          .refreshConfig(force: refreshPrinters || _printers.isEmpty);
-      _printers = PosPrintOrchestrator.instance.printers;
+      await orchestrator.refreshConfig(force: refreshPrinters || _printers.isEmpty);
+      _printers = orchestrator.printers;
       _lastConfigRefreshAt = DateTime.now();
     }
 
-    var printerIds = List<String>.from(settings.assignedPrinterIds);
-    // Bỏ chip máy in đã xóa / không còn trên server — so khớp GUID không phân biệt hoa/thường.
-    if (_printers.isNotEmpty && printerIds.isNotEmpty) {
-      final alive = {
-        for (final p in _printers) PosPrintRole.normalizePrinterId(p.id),
-      };
-      final filtered = printerIds
-          .where((id) => alive.contains(PosPrintRole.normalizePrinterId(id)))
-          .toList();
-      if (filtered.length != printerIds.length) {
-        // Sau reshare: twin mới có thể chưa kịp vào list (hoặc vừa bị orphan cleanup).
-        // Đừng ghi prefs rỗng ngay — vẫn heartbeat với id vừa gán.
-        if (filtered.isEmpty && refreshPrinters && printerIds.isNotEmpty) {
-          debugPrint(
-            '??? Print Agent: giữ chip vừa gán (list server tạm thiếu ${printerIds.length})',
-          );
-        } else {
-          printerIds = filtered;
-          await settings.copyWith(assignedPrinterIds: printerIds).save();
-          debugPrint(
-            '??? Print Agent: bỏ chip máy in đã xóa, còn ${printerIds.length}',
-          );
-        }
-      }
+    final assigned = List<String>.from(settings.assignedPrinterIds);
+    var fresh = orchestrator.configFetchedAt != fetchedBefore;
+    final known = orchestrator.storePrinterIds;
+    if (!fresh &&
+        known.isNotEmpty &&
+        assigned.any((id) => !known.any((k) => PosPrintRole.matchesPrinterId(k, id)))) {
+      // Danh sách đang dùng có thể cũ: tải lại rồi mới kết luận chip đã bị xóa.
+      await orchestrator.refreshConfig(force: true);
+      _printers = orchestrator.printers;
+      fresh = orchestrator.configFetchedAt != fetchedBefore;
     }
+    // Trước đây so với danh sách máy đang bật: tạm tắt máy in là mất chip vĩnh viễn, và nhịp tim
+    // ngay sau lần đăng ký đầu ghi đè chip thành rỗng. Tải lỗi lúc chưa có máy nào → chưa kết luận.
+    final chips = PosPrintRole.reconcileAgentChips(
+      assigned: assigned,
+      storeIds: orchestrator.storePrinterIds,
+      activeIds: _printers.isEmpty && !fresh
+          ? orchestrator.storePrinterIds
+          : _printers.map((p) => p.id),
+      fresh: fresh,
+      keepIfAllMissing: refreshPrinters,
+    );
+    if (chips.saved.length != assigned.length) {
+      await settings.copyWith(assignedPrinterIds: chips.saved).save();
+      debugPrint(
+        '??? Print Agent: bỏ chip máy in đã xóa, còn ${chips.saved.length}',
+      );
+    }
+    var printerIds = chips.toRegister;
     // Sunmi chưa cài máy nội bộ: không đăng ký claim — hardware in ≠ đã cài.
     if (printerIds.isNotEmpty) {
       final claimable = <String>[];
@@ -325,14 +337,25 @@ class PosPrintAgentService {
       // Không tự gắn hết máy của hàng — user đã tắt chip thì giữ trống
       // (trước đây khiến danh sách «nhảy» lại 6 máy sau mỗi heartbeat).
       _registeredPrinterIds = const [];
-      _lastRegisterError = 'Chưa chọn chip máy in cho Agent';
       await _markOfflineOnServerIfNeeded();
       _agentId = null;
-      if (!_warnedNoPrinters) {
-        _warnedNoPrinters = true;
-        NotificationOverlayManager().showWarning(
+      if (chips.saved.isEmpty) {
+        _lastRegisterError = 'Chưa chọn chip máy in cho Agent';
+        _warnAgentNotReady(
           title: 'Agent chưa gắn máy in',
-          message: tr('Bật Agent và chọn ít nhất một chip máy in bên dưới'),
+          message: tr('Bấm để chọn máy in cho Agent'),
+        );
+      } else if (chips.toRegister.isEmpty) {
+        _lastRegisterError = 'Máy in gắn Agent đang tắt trên cửa hàng';
+        _warnAgentNotReady(
+          title: 'Agent: máy in đang tắt',
+          message: tr('Máy in gắn Agent đang tắt trên cửa hàng. Bấm để xem máy in cloud'),
+        );
+      } else {
+        _lastRegisterError = 'Chưa cài máy in Sunmi trên máy này';
+        _warnAgentNotReady(
+          title: 'Agent: chưa cài máy in Sunmi',
+          message: tr('Chưa cài máy in Sunmi trên máy này. Bấm để mở thiết lập máy in'),
         );
       }
       return;
@@ -395,6 +418,18 @@ class PosPrintAgentService {
       _lastRegisterError = e.toString();
       debugPrint('Print Agent register failed: $e');
     }
+  }
+
+  void _warnAgentNotReady({required String title, required String message}) {
+    // Quyền có thể chưa tải xong lúc mở app → chưa đánh dấu đã báo, nhịp tim sau xét lại.
+    if (_warnedNoPrinters || canConfigurePrinters?.call() != true) return;
+    _warnedNoPrinters = true;
+    NotificationOverlayManager().showWarning(
+      title: title,
+      message: message,
+      onTap: openPrinterSettings,
+      duration: const Duration(seconds: 6),
+    );
   }
 
   Future<void> _markOfflineOnServerIfNeeded() async {

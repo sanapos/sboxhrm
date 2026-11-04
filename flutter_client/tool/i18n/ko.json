@@ -557,7 +557,9 @@
   "Agent đang online trên cửa hàng": "Agent가 매장에서 온라인 상태입니다",
   "Agent đã tắt từ máy khác": "다른 기기에서 Agent가 꺼졌습니다",
   "Agent đã đạt giới hạn": "Agent가 한도에 도달했습니다",
+  "Agent: chưa cài máy in Sunmi": "Agent: Sunmi 프린터 미설치",
   "Agent: chưa thấy cổng in": "Agent: 인쇄 포트를 찾을 수 없습니다",
+  "Agent: máy in đang tắt": "Agent: 프린터가 꺼져 있음",
   "Agribank - NH Nông nghiệp và Phát triển Nông thôn": "Agribank - NH Nông nghiệp và Phát triển Nông thôn",
   "Ai thêm / sửa / xóa gì, lúc nào": "누가 언제 무엇을 추가 / 수정 / 삭제했는지",
   "Ai đang nhiều việc nhất": "가장 업무가 많은 사람",
@@ -1549,6 +1551,7 @@
   "Bấm «Đăng ký» để chọn ca": "«신청»을 눌러 근무조를 선택하세요",
   "Bấm ô cân để nối cân điện tử (cổng COM / USB)": "저울 칸을 눌러 전자저울을 연결하세요 (COM / USB 포트)",
   "Bấm để bổ sung chấm công thiếu": "눌러서 누락된 근태 기록 추가",
+  "Bấm để chọn máy in cho Agent": "눌러서 Agent용 프린터를 선택하세요",
   "Bấm để chọn nhanh giờ theo ca": "눌러서 근무조별 시간 빠르게 선택",
   "Bấm để chọn ảnh (tới 1920px)": "탭하여 사진 선택 (최대 1920px)",
   "Bấm để lọc hóa đơn": "눌러서 영수증 필터링",
@@ -2351,6 +2354,8 @@
   "Chưa chụp - Nhấn \"Bắt đầu chụp\" để bắt đầu": "미촬영 - \"촬영 시작\"을 눌러 시작하세요",
   "Chưa chụp ảnh hiện trường": "현장 사진 미촬영",
   "Chưa cài lại": "아직 재설치하지 않음",
+  "Chưa cài máy in Sunmi trên máy này": "이 기기에 Sunmi 프린터가 설치되지 않았습니다",
+  "Chưa cài máy in Sunmi trên máy này. Bấm để mở thiết lập máy in": "이 기기에 Sunmi 프린터가 설치되지 않았습니다. 눌러서 프린터 설정을 여세요",
   "Chưa cài máy in hóa đơn — két mở qua cổng RJ11 của máy in": "영수증 프린터가 설정되지 않았습니다 — 금전함은 프린터의 RJ11 포트로 열립니다",
   "Chưa cài máy in hóa đơn — vào Thiết lập SBOX › Máy in": "영수증 프린터가 설정되지 않았습니다 — SBOX 설정 › 프린터로 이동하세요",
   "Chưa cân bằng tồn": "재고 미조정",
@@ -10092,6 +10097,8 @@
   "Máy in cửa hàng (Cloud / Agent)": "매장 프린터 (클라우드 / Agent)",
   "Máy in cửa hàng = Print Agent / máy dùng chung cửa hàng.": "매장 프린터 = Print Agent / 매장 공용 기기.",
   "Máy in gán SP": "상품에 배정된 프린터",
+  "Máy in gắn Agent đang tắt trên cửa hàng": "Agent에 연결된 프린터가 매장에서 꺼져 있습니다",
+  "Máy in gắn Agent đang tắt trên cửa hàng. Bấm để xem máy in cloud": "Agent에 연결된 프린터가 매장에서 꺼져 있습니다. 눌러서 클라우드 프린터를 확인하세요",
   "Máy in gắn trực tiếp thiết bị này (Bluetooth / LAN / USB / Sunmi).": "이 기기에 직접 연결된 프린터 (Bluetooth / LAN / USB / Sunmi).",
   "Máy in hóa đơn chưa ra giấy — phiếu treo, không chuyển máy khác": "영수증 프린터에서 용지가 출력되지 않음 — 전표 보류 중, 다른 기기로 전환되지 않음",
   "Máy in hóa đơn chưa sẵn sàng. Phiếu treo — không chuyển máy khác.": "영수증 프린터가 준비되지 않았습니다. 전표 보류 중 — 다른 기기로 전환되지 않습니다.",
@@ -30528,6 +30535,9 @@
    "최소 {0} · "
   ],
   [
+   "한 번에 최대 {0}개의 사진 / 파일"
+  ],
+  [
    "Tối đa {0} ảnh mỗi lần — đã bỏ {1} ảnh. ",
    "한 번에 최대 {0}개 — 이미지 {1}개를 제외했습니다. "
   ],
@@ -35138,6 +35148,9 @@
   [
    "Đã bỏ {0} phiếu.",
    "카드 {0}개를 버렸습니다."
+  ],
+  [
+   "사진 / 파일 {0}개를 제외했습니다. 먼저 보낸 후 나머지를 보내세요."
   ],
   [
    "Đã check-in · cách địa điểm {0} m",
