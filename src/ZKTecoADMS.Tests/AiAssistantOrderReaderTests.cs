@@ -130,6 +130,17 @@ public class AiAssistantOrderReaderTests
         Assert.Null(o.Items[1].Qty);
     }
 
+    [Theory]
+    [InlineData("Cà phê sữa đá", "Cà phê sữa đá", "Cà phê sữa đá")]
+    [InlineData("Cà phê sữa đá x 3 25k", "Cà phê sữa đá", "Cà phê sữa đá")]   // AI chép cả dòng vào source
+    [InlineData("Cà phê sữa đá\t2\t25000", "Cà phê sữa đá", "Cà phê sữa đá")] // ô bảng tính
+    [InlineData("珍珠奶茶 (2 ly) 30.000đ / ly", "Trà sữa trân châu", "珍珠奶茶 (Trà sữa trân châu)")]
+    [InlineData("冰奶咖啡 x 2", "Cà phê sữa đá", "冰奶咖啡 (Cà phê sữa đá)")]
+    [InlineData("cf sữa", "Cà phê sữa", "cf sữa (Cà phê sữa)")]
+    [InlineData("7UP lon", "Nước ngọt 7UP", "7UP lon (Nước ngọt 7UP)")]       // số đầu tên hàng không bị cắt
+    public void Item_label_shows_only_the_name(string source, string name, string expected) =>
+        Assert.Equal(expected, ItemLabel(new RawItem(source, name, null, 1, null, null, null)));
+
     [Fact]
     public void Parse_accepts_nulls_in_every_field_as_gemini_returns_them()
     {

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Infrastructure;
@@ -12,7 +13,7 @@ namespace ZKTecoADMS.Api.Services;
 /// hàng hóa, khách / nhà cung cấp của cửa hàng rồi dựng thẻ xác nhận như lệnh bằng lời. Chỉ gọi AI một lần: mỗi dòng đơn khớp
 /// ngay ở máy chủ, không qua vòng công cụ của agent (giới hạn 10 lời gọi — đơn dài sẽ thiếu dòng, lại gửi ảnh lại mỗi vòng).
 /// </summary>
-public sealed class AiAssistantOrderReader(ZKTecoDbContext db, IGeminiAiService gemini, AiAssistantActions actions)
+public sealed partial class AiAssistantOrderReader(ZKTecoDbContext db, IGeminiAiService gemini, AiAssistantActions actions)
 {
     public const int MaxFiles = 8;
     /// <summary>Tất cả ảnh / PDF gửi chung một lần gọi; inline Gemini ~20 MB / request sau base64 (+33%).</summary>
@@ -39,7 +40,7 @@ public sealed class AiAssistantOrderReader(ZKTecoDbContext db, IGeminiAiService 
         - "party": khách (sale) hoặc nhà cung cấp (purchase): "name", "phone". Không thấy → null.
         - "language": ngôn ngữ trên đơn (vi, en, zh, ko, ja…).
         - Mỗi dòng hàng trong "items":
-          "source": đúng nguyên văn trên đơn;
+          "source": CHỈ phần tên hàng đúng nguyên văn trên đơn (không gồm số thứ tự, số lượng, đơn vị, giá);
           "name": tên hàng bằng tiếng Việt (đơn tiếng nước ngoài thì dịch; viết tắt thì viết đầy đủ, vd "cf sữa" = "Cà phê sữa");
           "code": mã hàng / mã vạch nếu đơn có ghi;
           "qty": số lượng dạng số, nhìn không rõ → null, TUYỆT ĐỐI không đoán;
@@ -232,11 +233,24 @@ public sealed class AiAssistantOrderReader(ZKTecoDbContext db, IGeminiAiService 
         reply.Append('\n');
     }
 
-    static string ItemLabel(RawItem item)
+    /// <summary>
+    /// Tên hàng trên danh sách: đơn tiếng nước ngoài / viết tắt hiện «nguyên văn (tiếng Việt)». AI đôi khi chép cả dòng vào source
+    /// («Cà phê x 3 25k», ô bảng tính cách bằng tab) → bỏ phần thừa sau tên, không lặp số lượng và giá.
+    /// </summary>
+    internal static string ItemLabel(RawItem item)
     {
-        var same = string.Equals(VnSearch.FoldText(item.Source), VnSearch.FoldText(item.Name), StringComparison.Ordinal);
-        return same || item.Source.Length == 0 ? item.Name : $"{item.Source} ({item.Name})";
+        var source = string.Join(' ', item.Source.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        var (s, n) = (VnSearch.FoldText(source), VnSearch.FoldText(item.Name));
+        if (source.Length == 0 || s == n || s.StartsWith(n + " ", StringComparison.Ordinal)) return item.Name;
+        // Bỏ đuôi số lượng / giá: «珍珠奶茶 (2 ly) 30.000đ / ly» → «珍珠奶茶».
+        var cut = SourceTail().Match(source);
+        if (cut.Success && cut.Index > 0) source = source[..cut.Index].TrimEnd(' ', '-', ':', ',');
+        return $"{source} ({item.Name})";
     }
+
+    /// <summary>Từ chỗ bắt đầu số lượng / giá đến hết chuỗi: «(2 ly)», «x 3», «× 3», «30.000đ», «25k», số đứng riêng.</summary>
+    [GeneratedRegex(@"(\(\s*\d|[x×]\s*\d|\s\d[\d.,]*\s*(k|đ|d|vnd|ly|cái|chai|lon|hộp|kg|g)?(\s|/|$)).*$", RegexOptions.IgnoreCase)]
+    private static partial Regex SourceTail();
 
     static string Vnd(decimal v) => v.ToString("#,0", CultureInfo.InvariantCulture).Replace(',', '.') + "đ";
 
