@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'pos_einvoice_qr.dart';
+import 'pos_vietqr_helper.dart';
 
 import 'vietnamese_font.dart';
 import '../l10n/app_tr.dart';
@@ -637,9 +638,13 @@ class PosThermalBitmapEncoder {
 
   /// Tải VietQR rồi đặt giữa khổ giấy — T1 printImage ảnh nhỏ sẽ lệch trái.
   /// Ảnh theo URL mạng, hoặc QR sinh tại máy khi URL dạng «qrdata:…» (QR tra cứu HĐĐT).
-  static Future<Uint8List?> _fetchImageBytes(String url) async {
+  /// QR sinh tại máy vẽ đúng [size] điểm, không qua co ảnh (co là vỡ lưới ô QR).
+  static Future<Uint8List?> _fetchImageBytes(String url, {required int size}) async {
     final inline = posInlineQrData(url);
-    if (inline != null) return posQrPngBytes(inline, size: 420);
+    if (inline != null) return posQrPngBytes(inline, size: size);
+    // VietQR TK có BIN: sinh mã tại máy, máy mất mạng cũng in được.
+    final emv = PosVietQrHelper.emvPayloadFromImageUrl(url);
+    if (emv != null) return posQrPngBytes(emv, size: size);
     final res =
         await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
     if (res.statusCode != 200) return null;
@@ -650,9 +655,9 @@ class PosThermalBitmapEncoder {
     String url, {
     required int paperDots,
   }) async {
-    final qrDots = paperDots <= 384 ? 260 : 360;
+    final qrDots = paperDots <= 384 ? 300 : 400;
     try {
-      final body = await _fetchImageBytes(url);
+      final body = await _fetchImageBytes(url, size: qrDots);
       if (body == null || body.isEmpty) return null;
       final codec = await ui.instantiateImageCodec(
         body,
@@ -668,7 +673,7 @@ class PosThermalBitmapEncoder {
         Rect.fromLTWH(0, 0, paperDots.toDouble(), outH.toDouble()),
         Paint()..color = const Color(0xFFFFFFFF),
       );
-      final x = ((paperDots - qr.width) / 2).clamp(0.0, paperDots.toDouble());
+      final x = ((paperDots - qr.width) ~/ 2).clamp(0, paperDots).toDouble();
       canvas.drawImage(qr, Offset(x, padY.toDouble()), Paint());
       final image = await recorder.endRecording().toImage(paperDots, outH);
       qr.dispose();
@@ -685,7 +690,7 @@ class PosThermalBitmapEncoder {
     int maxWidth = 280,
   }) async {
     try {
-      final body = await _fetchImageBytes(url);
+      final body = await _fetchImageBytes(url, size: maxWidth);
       if (body == null || body.isEmpty) return null;
       final codec = await ui.instantiateImageCodec(
         body,
@@ -705,7 +710,7 @@ class PosThermalBitmapEncoder {
     int maxWidth = 280,
   }) async {
     try {
-      final body = await _fetchImageBytes(url);
+      final body = await _fetchImageBytes(url, size: maxWidth);
       if (body == null || body.isEmpty) return null;
       final codec = await ui.instantiateImageCodec(
         body,

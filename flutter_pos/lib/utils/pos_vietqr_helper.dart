@@ -103,6 +103,91 @@ class PosVietQrHelper {
     );
   }
 
+  /// Chuỗi VietQR chuẩn NAPAS (EMVCo) sinh tại máy — in bill không cần tải ảnh
+  /// img.vietqr.io (mất mạng / mạng chậm là mất mã). Chỉ khi mã NH là BIN 6 số.
+  static String? emvPayload({
+    required String bankBin,
+    required String accountNumber,
+    double? amount,
+    String? description,
+  }) {
+    final bin = bankBin.trim();
+    final acc = accountNumber.trim();
+    if (!RegExp(r'^\d{6}$').hasMatch(bin) ||
+        !RegExp(r'^[A-Za-z0-9]{1,19}$').hasMatch(acc)) {
+      return null;
+    }
+    String f(String id, String v) =>
+        '$id${v.length.toString().padLeft(2, '0')}$v';
+    final amt = (amount ?? 0).round();
+    var note = _asciiNote(description ?? '');
+    if (note.length > 50) note = note.substring(0, 50).trim();
+    final buf = StringBuffer()
+      ..write(f('00', '01'))
+      ..write(f('01', amt > 0 ? '12' : '11'))
+      ..write(f(
+          '38',
+          f('00', 'A000000727') +
+              f('01', f('00', bin) + f('01', acc)) +
+              f('02', 'QRIBFTTA')))
+      ..write(f('53', '704'));
+    if (amt > 0) buf.write(f('54', '$amt'));
+    buf.write(f('58', 'VN'));
+    if (note.isNotEmpty) buf.write(f('62', f('08', note)));
+    buf.write('6304');
+    final body = buf.toString();
+    return body + crc16(body).toRadixString(16).toUpperCase().padLeft(4, '0');
+  }
+
+  /// URL ảnh img.vietqr.io (do [BankAccount.generateVietQRUrl] tạo) → chuỗi VietQR tại máy.
+  static String? emvPayloadFromImageUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.host != 'img.vietqr.io' || uri.pathSegments.isEmpty) {
+      return null;
+    }
+    var seg = uri.pathSegments.last;
+    if (seg.toLowerCase().endsWith('.png')) seg = seg.substring(0, seg.length - 4);
+    final parts = seg.split('-');
+    if (parts.length < 3) return null;
+    return emvPayload(
+      bankBin: parts.first,
+      accountNumber: parts.sublist(1, parts.length - 1).join('-'),
+      amount: double.tryParse(uri.queryParameters['amount'] ?? ''),
+      description: uri.queryParameters['addInfo'],
+    );
+  }
+
+  /// CRC-16/CCITT-FALSE (đa thức 0x1021, khởi tạo 0xFFFF) — trường 63 của VietQR.
+  static int crc16(String data) {
+    var crc = 0xFFFF;
+    for (final b in data.codeUnits) {
+      crc ^= (b & 0xFF) << 8;
+      for (var i = 0; i < 8; i++) {
+        crc = (crc & 0x8000) != 0 ? ((crc << 1) ^ 0x1021) : (crc << 1);
+        crc &= 0xFFFF;
+      }
+    }
+    return crc;
+  }
+
+  static const _vnFrom =
+      'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ';
+  static const _vnTo =
+      'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
+
+  /// Nội dung CK chỉ nhận chữ không dấu / số / khoảng trắng (app ngân hàng từ chối ký tự lạ).
+  static String _asciiNote(String raw) {
+    final out = StringBuffer();
+    for (final ch in raw.split('')) {
+      final lower = ch.toLowerCase();
+      final i = _vnFrom.indexOf(lower);
+      final c = i >= 0 ? _vnTo[i] : lower;
+      final keep = RegExp(r'[a-z0-9 ]').hasMatch(c) ? c : ' ';
+      out.write(ch == lower ? keep : keep.toUpperCase());
+    }
+    return out.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
   /// URL VietQR theo tổng đơn — dùng khi in hóa đơn (cờ «In mã VietQR»).
   static String? qrImageUrlForOrder(
     PosSaleOrder order, {

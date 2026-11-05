@@ -455,10 +455,12 @@ class PosThermalBitmapEncoder {
               : line.right
                   ? left + width - w
                   : left;
+          // Mã vạch / QR: bám đúng lưới điểm in. Lệch nửa điểm → thu nhỏ ra cạnh xám → cắt ngưỡng thành nét đen, ô trắng bị nuốt.
+          double snap(double v) => exact != null ? (v / scale).roundToDouble() * scale : v.roundToDouble();
           canvas.drawImageRect(
             img,
             Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
-            Rect.fromLTWH(x.roundToDouble(), y.roundToDouble(), w, h),
+            Rect.fromLTWH(snap(x), snap(y), w, h),
             // Mã vạch / QR: phóng nguyên điểm (không làm mờ cạnh vạch).
             Paint()..filterQuality = exact != null ? FilterQuality.none : FilterQuality.high,
           );
@@ -555,7 +557,8 @@ class PosThermalBitmapEncoder {
     }
 
     final trail = trailingFeedLines.clamp(0, 40) * 16.0;
-    final hHi = (totalH + trail + (framed ? pad * 2 : 0)).ceil().clamp(1, 16000);
+    // Chiều cao chẵn theo [scale]: thu nhỏ đúng 1/2 — tỉ lệ lẻ (501/1001) làm mờ dần từng hàng điểm.
+    final hHi = ((totalH + trail + (framed ? pad * 2 : 0)) / scale).ceil().clamp(1, 8000) * scale;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.drawRect(
@@ -593,7 +596,7 @@ class PosThermalBitmapEncoder {
     final hiRes = await picture.toImage(renderW, hHi);
     final recorder2 = ui.PictureRecorder();
     final canvas2 = Canvas(recorder2);
-    final outH = (hHi / scale).ceil().clamp(1, 8000);
+    final outH = hHi ~/ scale;
     canvas2.drawImageRect(
       hiRes,
       Rect.fromLTWH(0, 0, renderW.toDouble(), hHi.toDouble()),
@@ -655,13 +658,14 @@ class PosThermalBitmapEncoder {
 
   /// Tải VietQR rồi đặt giữa khổ giấy — T1 printImage ảnh nhỏ sẽ lệch trái.
   /// Ảnh theo URL mạng, hoặc QR sinh tại máy khi URL dạng «qrdata:…» (QR tra cứu HĐĐT).
-  static Future<Uint8List?> _fetchImageBytes(String url) async {
+  /// QR sinh tại máy vẽ đúng [size] điểm, không qua co ảnh (co là vỡ lưới ô QR).
+  static Future<Uint8List?> _fetchImageBytes(String url, {required int size}) async {
     final inline = posInlineQrData(url);
-    if (inline != null) return posQrPngBytes(inline, size: 420);
+    if (inline != null) return posQrPngBytes(inline, size: size);
     // VietQR TK có BIN: sinh mã tại máy. img.vietqr.io trả SVG cho trình duyệt (bản web không
     // giải mã được → bill thiếu QR), và máy mất mạng cũng in được.
     final emv = PosVietQrHelper.emvPayloadFromImageUrl(url);
-    if (emv != null) return posQrPngBytes(emv, size: 420);
+    if (emv != null) return posQrPngBytes(emv, size: size);
     final res =
         await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
     if (res.statusCode != 200) return null;
@@ -672,9 +676,9 @@ class PosThermalBitmapEncoder {
     String url, {
     required int paperDots,
   }) async {
-    final qrDots = paperDots <= 384 ? 260 : 360;
+    final qrDots = paperDots <= 384 ? 300 : 400;
     try {
-      final body = await _fetchImageBytes(url);
+      final body = await _fetchImageBytes(url, size: qrDots);
       if (body == null || body.isEmpty) return null;
       final codec = await ui.instantiateImageCodec(
         body,
@@ -690,7 +694,7 @@ class PosThermalBitmapEncoder {
         Rect.fromLTWH(0, 0, paperDots.toDouble(), outH.toDouble()),
         Paint()..color = const Color(0xFFFFFFFF),
       );
-      final x = ((paperDots - qr.width) / 2).clamp(0.0, paperDots.toDouble());
+      final x = ((paperDots - qr.width) ~/ 2).clamp(0, paperDots).toDouble();
       canvas.drawImage(qr, Offset(x, padY.toDouble()), Paint());
       final image = await recorder.endRecording().toImage(paperDots, outH);
       qr.dispose();
@@ -707,7 +711,7 @@ class PosThermalBitmapEncoder {
     int maxWidth = 280,
   }) async {
     try {
-      final body = await _fetchImageBytes(url);
+      final body = await _fetchImageBytes(url, size: maxWidth);
       if (body == null || body.isEmpty) return null;
       final codec = await ui.instantiateImageCodec(
         body,
@@ -727,7 +731,7 @@ class PosThermalBitmapEncoder {
     int maxWidth = 280,
   }) async {
     try {
-      final body = await _fetchImageBytes(url);
+      final body = await _fetchImageBytes(url, size: maxWidth);
       if (body == null || body.isEmpty) return null;
       final codec = await ui.instantiateImageCodec(
         body,

@@ -1455,6 +1455,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     PosManagerApproval.attach(context);
     PosNotifyFocus.enter();
     WidgetsBinding.instance.addObserver(this);
+    PosSellStoreSettings.saved.addListener(_onStoreSettingsSaved);
     _startStorePrintPoll();
     unawaited(_loadCachedSlotIds());
     _tabs.first.paymentLines
@@ -2357,6 +2358,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     PosNetworkMonitor.instance.reachable.removeListener(_onReachabilityChanged);
     PosOfflineService.instance.isLiveCart = null;
     WidgetsBinding.instance.removeObserver(this);
+    PosSellStoreSettings.saved.removeListener(_onStoreSettingsSaved);
     _signalRConnSub?.cancel();
     _qrOnlineSignalSub?.cancel();
     _notifSignalSub?.cancel();
@@ -3102,7 +3104,19 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
   }
 
+  /// Đổi công tắc QR nổi ở Thiết lập có tác dụng ngay, không cần mở lại màn bán.
+  void _onStoreSettingsSaved() {
+    final saved = PosSellStoreSettings.saved.value;
+    if (saved == null || !mounted) return;
+    setState(() {
+      _storeSettings = _storeSettings.copyWith(
+        showPaymentQrOverlay: saved.showPaymentQrOverlay,
+      );
+    });
+  }
+
   bool _shouldShowPaymentQrOverlay() {
+    if (!_storeSettings.showPaymentQrOverlay) return false;
     if (_paymentQrOverlayDismissed) return false;
     if (!_hasTransferPaymentSelected()) return false;
     return _resolveTransferPaymentQr() != null;

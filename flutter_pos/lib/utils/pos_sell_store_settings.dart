@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
@@ -18,6 +19,7 @@ typedef PosSellFeesParsed = ({
 typedef PosSellVietQrParsed = ({
   bool showAtPayment,
   String? bankAccountId,
+  bool? showOverlay,
 });
 
 /// Cách tính thuế VAT trên màn bán hàng.
@@ -49,6 +51,7 @@ class PosSellStoreSettings {
     this.defaultVatRate = 8,
     this.vietQrBankAccountId,
     this.showVietQrAtPayment = true,
+    this.showPaymentQrOverlay = true,
     this.enableSurcharge = false,
     this.enableDeliveryFee = false,
     this.surchargeLabel = '',
@@ -72,6 +75,9 @@ class PosSellStoreSettings {
 
   /// Hiện mã VietQR trên màn thanh toán.
   final bool showVietQrAtPayment;
+
+  /// Chọn chuyển khoản → QR nổi che màn chính. Tắt: QR vẫn trong màn thanh toán + màn phụ.
+  final bool showPaymentQrOverlay;
 
   /// Hiện phụ thu (tiền hoặc %) trên màn thanh toán.
   final bool enableSurcharge;
@@ -110,6 +116,7 @@ class PosSellStoreSettings {
     String? vietQrBankAccountId,
     bool clearVietQrBankAccountId = false,
     bool? showVietQrAtPayment,
+    bool? showPaymentQrOverlay,
     bool? enableSurcharge,
     bool? enableDeliveryFee,
     String? surchargeLabel,
@@ -127,6 +134,7 @@ class PosSellStoreSettings {
             ? null
             : (vietQrBankAccountId ?? this.vietQrBankAccountId),
         showVietQrAtPayment: showVietQrAtPayment ?? this.showVietQrAtPayment,
+        showPaymentQrOverlay: showPaymentQrOverlay ?? this.showPaymentQrOverlay,
         enableSurcharge: enableSurcharge ?? this.enableSurcharge,
         enableDeliveryFee: enableDeliveryFee ?? this.enableDeliveryFee,
         surchargeLabel: surchargeLabel ?? this.surchargeLabel,
@@ -142,6 +150,7 @@ class PosSellStoreSettings {
   static const _kVatRate = 'pos_sell_default_vat_rate';
   static const _kVietQrBankId = 'pos_sell_vietqr_bank_id';
   static const _kShowVietQr = 'pos_sell_show_vietqr_payment';
+  static const _kShowPaymentQrOverlay = 'pos_sell_show_payment_qr_overlay';
   static const _kEnableSurcharge = 'pos_sell_enable_surcharge';
   static const _kEnableDeliveryFee = 'pos_sell_enable_delivery_fee';
   static const _kSurchargeLabel = 'pos_sell_surcharge_label';
@@ -156,6 +165,9 @@ class PosSellStoreSettings {
     final t = raw.replaceAll(RegExp(r'[^0-9.,]'), '').replaceAll(',', '.');
     return double.tryParse(t) ?? 0;
   }
+
+  /// Bản vừa lưu — màn bán đang mở (giữ sống dưới màn thiết lập) nhận thay đổi ngay.
+  static final ValueNotifier<PosSellStoreSettings?> saved = ValueNotifier(null);
 
   static String? _peekedExtraJson;
   static DateTime? _peekedAt;
@@ -225,6 +237,8 @@ class PosSellStoreSettings {
       vietQrBankAccountId: vietQr?.bankAccountId ?? prefs.getString(_kVietQrBankId),
       showVietQrAtPayment:
           vietQr?.showAtPayment ?? prefs.getBool(_kShowVietQr) ?? true,
+      showPaymentQrOverlay:
+          vietQr?.showOverlay ?? prefs.getBool(_kShowPaymentQrOverlay) ?? true,
       enableSurcharge: fees?.enableSurcharge ??
           prefs.getBool(_kEnableSurcharge) ??
           false,
@@ -260,6 +274,7 @@ class PosSellStoreSettings {
       await prefs.remove(_kVietQrBankId);
     }
     await prefs.setBool(_kShowVietQr, showVietQrAtPayment);
+    await prefs.setBool(_kShowPaymentQrOverlay, showPaymentQrOverlay);
     await prefs.setBool(_kEnableSurcharge, enableSurcharge);
     await prefs.setBool(_kEnableDeliveryFee, enableDeliveryFee);
     await prefs.setString(_kSurchargeLabel, surchargeLabel.trim());
@@ -267,6 +282,7 @@ class PosSellStoreSettings {
     await prefs.setDouble(_kSurchargeDefault, surchargeDefault);
     await prefs.setDouble(_kDeliveryFeeDefault, deliveryFeeDefault);
     invalidateServerCache();
+    saved.value = this;
     await persistSellTax(api ?? ApiService(), includeReceiptStore: true);
   }
 
@@ -308,6 +324,7 @@ class PosSellStoreSettings {
     if (parsed == null) return this;
     return copyWith(
       showVietQrAtPayment: parsed.showAtPayment,
+      showPaymentQrOverlay: parsed.showOverlay,
       clearVietQrBankAccountId: (parsed.bankAccountId ?? '').isEmpty,
       vietQrBankAccountId: parsed.bankAccountId,
     );
@@ -415,9 +432,11 @@ class PosSellStoreSettings {
           m['vietQrBankAccountId'] ??
           m['VietQrBankAccountId'];
       final bank = bankRaw == null ? null : '$bankRaw'.trim();
+      final overlayRaw = m['showOverlay'] ?? m['ShowOverlay'];
       return (
         showAtPayment: showRaw == null ? true : flag(showRaw),
         bankAccountId: (bank == null || bank.isEmpty) ? null : bank,
+        showOverlay: overlayRaw == null ? null : flag(overlayRaw),
       );
     } catch (_) {
       return null;
@@ -471,6 +490,7 @@ class PosSellStoreSettings {
     }
     root['vietQr'] = {
       'showAtPayment': showVietQrAtPayment,
+      'showOverlay': showPaymentQrOverlay,
       'bankAccountId': (vietQrBankAccountId ?? '').trim(),
     };
     invalidateServerCache();

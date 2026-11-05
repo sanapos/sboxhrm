@@ -39,6 +39,7 @@ class _PosPaymentGatewaySettingsScreenState
   bool _savingVietQr = false;
 
   bool _vietQrEnabled = true;
+  bool _paymentQrOverlay = true;
   String? _vietQrBankId;
   List<BankAccount> _bankAccounts = const [];
 
@@ -111,6 +112,7 @@ class _PosPaymentGatewaySettingsScreenState
                   .toList()
               : const [];
       _vietQrEnabled = store.showVietQrAtPayment;
+      _paymentQrOverlay = store.showPaymentQrOverlay;
       _vietQrBankId = store.vietQrBankAccountId;
       _tingeeEnabled = settings?['tingeeEnabled'] == true;
       _defaultProvider =
@@ -242,6 +244,24 @@ class _PosPaymentGatewaySettingsScreenState
           ? tr('Đã cập nhật cổng chuyển khoản')
           : tr(
               'QR và báo CK theo ${acc.bankShortName ?? acc.bankName} · ${acc.accountNumber}'),
+    );
+  }
+
+  Future<void> _savePaymentQrOverlay(bool on) async {
+    if (!_canEdit) return;
+    setState(() {
+      _paymentQrOverlay = on;
+      _savingVietQr = true;
+    });
+    final current = await PosSellStoreSettings.load();
+    await current.copyWith(showPaymentQrOverlay: on).save();
+    if (!mounted) return;
+    setState(() => _savingVietQr = false);
+    NotificationOverlayManager().showSuccess(
+      title: tr('Đã lưu'),
+      message: tr(on
+          ? 'Mã QR sẽ nổi lên ở màn chính khi thanh toán'
+          : 'Mã QR không còn tự nổi lên ở màn chính'),
     );
   }
 
@@ -473,6 +493,12 @@ class _PosPaymentGatewaySettingsScreenState
             children: [const SizedBox(height: 4), _bankCard(), const SizedBox(height: 8)],
           ),
           SettingsSection(
+            title: 'Mã QR khi thanh toán',
+            subtitle: 'Màn phụ cho khách luôn hiện mã, không phụ thuộc công tắc này',
+            icon: Icons.qr_code_2_rounded,
+            children: [const SizedBox(height: 4), _paymentQrOverlayCard(), const SizedBox(height: 8)],
+          ),
+          SettingsSection(
             title: 'Tự báo có tiền (Tingee)',
             subtitle: 'Màn bán hiện QR riêng; khách chuyển đúng số → đơn tự xong, QR tự tắt',
             icon: Icons.bolt_rounded,
@@ -535,6 +561,36 @@ class _PosPaymentGatewaySettingsScreenState
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
         child: _vietQrBody(),
+      ),
+    );
+  }
+
+  Widget _paymentQrOverlayCard() {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: SboxColors.slate300),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+        child: SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          title: Text(tr('Hiện mã QR nổi ở màn chính'),
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Text(
+            tr(_paymentQrOverlay
+                ? 'Chọn chuyển khoản là mã QR nổi lên. Hợp với quầy có tự báo chuyển khoản.'
+                : 'Mã không tự nổi lên. Vẫn xem được mã trong màn thanh toán.'),
+            style: const TextStyle(fontSize: 12),
+          ),
+          value: _paymentQrOverlay,
+          onChanged: _canEdit && !_savingVietQr
+              ? (v) => unawaited(_savePaymentQrOverlay(v))
+              : null,
+        ),
       ),
     );
   }

@@ -226,6 +226,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       defaultVatRate: _vatRate,
       vietQrBankAccountId: existing.vietQrBankAccountId,
       showVietQrAtPayment: existing.showVietQrAtPayment,
+      showPaymentQrOverlay: existing.showPaymentQrOverlay,
       enableSurcharge: _enableSurcharge,
       enableDeliveryFee: _enableDeliveryFee,
       surchargeLabel: _surchargeNameCtrl.text.trim(),

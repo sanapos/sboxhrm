@@ -1159,7 +1159,8 @@ abstract final class PosPrintTemplateCompiler {
             final amount = block.qrShowAmount ? (data['Tong_Cong'] ?? '') : '';
             steps.add(PosPrintCompiledQr(
               imageUrl: vietQrImageUrl,
-              size: block.qrSize.clamp(240, 400),
+              // Dưới 300 điểm ô QR chỉ còn 4 điểm in — dễ nhòe trên giấy nhiệt.
+              size: block.qrSize.clamp(300, 400),
               title: title.isEmpty ? null : title,
               caption: caption.isEmpty ? 'Quét VietQR thanh toán' : caption,
               amountText: amount.trim().isEmpty ? null : amount.trim(),
@@ -1222,7 +1223,7 @@ abstract final class PosPrintTemplateCompiler {
       const caption = 'Quét VietQR thanh toán';
       steps.add(PosPrintCompiledQr(
         imageUrl: vietQrImageUrl,
-        size: 240,
+        size: 300,
         caption: caption,
         amountText: amount.isEmpty ? null : amount,
       ));
