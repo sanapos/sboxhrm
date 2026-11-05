@@ -15,6 +15,7 @@ import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
 import '../../services/signalr_service.dart';
 import '../../theme/sbox_tokens.dart';
+import '../../utils/navigation_notifier.dart';
 import '../../utils/notification_display_utils.dart';
 import '../../utils/notification_navigation.dart';
 import '../../utils/notification_open_screens.dart';
@@ -58,6 +59,8 @@ class _BossShellState extends State<BossShell> with WidgetsBindingObserver {
     notificationShellHandler = _openFromNotification;
     PendingNotificationLaunch.scheduleConsume();
     ScreenRefreshNotifier.notifications.addListener(_refreshUnread);
+    NavigationNotifier.navigateToModule.addListener(_onModuleRequested);
+    NavigationNotifier.navigateTo.addListener(_onIndexRequested);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_loadPermissions());
       unawaited(_refreshUnread());
@@ -69,6 +72,8 @@ class _BossShellState extends State<BossShell> with WidgetsBindingObserver {
   void dispose() {
     if (notificationShellHandler == _openFromNotification) notificationShellHandler = null;
     ScreenRefreshNotifier.notifications.removeListener(_refreshUnread);
+    NavigationNotifier.navigateToModule.removeListener(_onModuleRequested);
+    NavigationNotifier.navigateTo.removeListener(_onIndexRequested);
     WidgetsBinding.instance.removeObserver(this);
     _notificationSub?.cancel();
     unawaited(_signalR.disconnect());
@@ -80,6 +85,7 @@ class _BossShellState extends State<BossShell> with WidgetsBindingObserver {
     if (state != AppLifecycleState.resumed || !mounted) return;
     unawaited(_refreshUnread());
     unawaited(_connectSignalR());
+    if (context.read<PermissionProvider>().loadFailed) unawaited(_loadPermissions());
   }
 
   /// Kết nối realtime bằng token: màn Chấm công, Thông báo dùng chung kết nối này (không tự có token).
@@ -89,6 +95,8 @@ class _BossShellState extends State<BossShell> with WidgetsBindingObserver {
     try {
       await _notificationSub?.cancel();
       if (!mounted) return;
+      // Nghe trước khi kết nối: lần đầu mất mạng thì kết nối tự nối lại sau vẫn có người nhận tin.
+      _notificationSub = _signalR.onNewNotification.listen(_handleNewNotification);
       final auth = context.read<AuthProvider>();
       final token = await auth.getValidToken();
       if (!mounted) return;
@@ -103,7 +111,6 @@ class _BossShellState extends State<BossShell> with WidgetsBindingObserver {
       if (userId != null && userId.isNotEmpty) {
         await _signalR.joinUserGroup(userId);
       }
-      _notificationSub = _signalR.onNewNotification.listen(_handleNewNotification);
     } catch (e) {
       debugPrint('⚠️ BossShell SignalR: $e');
     } finally {
@@ -146,6 +153,31 @@ class _BossShellState extends State<BossShell> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('⚠️ BossShell notification: $e');
     }
+  }
+
+  /// Màn dùng chung xin mở màn khác (vd «Thiết lập lương», «Phòng ban»): không có MainLayout nên shell tự mở.
+  void _onModuleRequested() {
+    final code = NavigationNotifier.navigateToModule.value;
+    if (code == null || !mounted) return;
+    NavigationNotifier.navigateToModule.value = null;
+    openBossModule(context, code);
+  }
+
+  void _onIndexRequested() {
+    final index = NavigationNotifier.navigateTo.value;
+    if (index == null || !mounted) return;
+    NavigationNotifier.navigateTo.value = null;
+    openBossModule(context, switch (index) {
+      NavigationNotifier.departments => 'Department',
+      NavigationNotifier.employees => 'Employee',
+      NavigationNotifier.deviceUsers => 'DeviceUser',
+      NavigationNotifier.attendance => 'Attendance',
+      NavigationNotifier.attendanceSummary => 'AttendanceSummary',
+      NavigationNotifier.attendanceByShift => 'AttendanceByShift',
+      NavigationNotifier.payroll => 'Payroll',
+      NavigationNotifier.workSchedule => 'WorkSchedule',
+      _ => '',
+    });
   }
 
   /// Các màn kho, công việc… kiểm quyền qua [PermissionProvider] — shell phải tải trước khi mở.

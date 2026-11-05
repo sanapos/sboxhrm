@@ -136,7 +136,7 @@ public partial class PosReportsController
 
         // Nhân viên đang làm: có chấm công hôm nay (giờ chấm công lưu giờ VN) trên số nhân viên đang làm việc.
         var employees = dbContext.Employees.AsNoTracking()
-            .Where(e => e.StoreId == storeId && e.Deleted == null && e.WorkStatus == EmployeeWorkStatus.Active);
+            .Where(e => e.StoreId == storeId && e.Deleted == null && e.WorkStatus != EmployeeWorkStatus.Resigned);
         if (bctx is { StoreUsesBranches: true })
         {
             if (bctx.FilterBranchId is Guid fb)

@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_tr.dart';
-import '../../models/attendance.dart';
 import '../../screens/attendance_screen.dart';
 import '../../screens/staff/staff_nav.dart';
 import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
 import '../../theme/sbox_tokens.dart';
-import '../../utils/attendance_load_utils.dart';
 import '../../widgets/branch_switcher.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import 'boss_load_error.dart';
 
 /// Một nhân viên trong ngày: giờ chấm đầu / cuối, chưa chấm thì null.
 class _StaffDay {
-  const _StaffDay(this.name, this.code, this.first, this.last);
+  _StaffDay(Map m)
+      : name = '${m['name'] ?? ''}',
+        code = '${m['code'] ?? ''}',
+        first = DateTime.tryParse('${m['firstPunch']}'),
+        last = DateTime.tryParse('${m['lastPunch']}');
 
   final String name;
   final String code;
@@ -23,8 +25,11 @@ class _StaffDay {
 }
 
 /// SBOX BOSS — nhân viên hôm nay: ai đã chấm công (giờ vào, giờ chấm gần nhất), ai chưa.
+/// Máy chủ tính sẵn trong phạm vi người xem được và chi nhánh đang chọn.
 class BossStaffTodayScreen extends StatefulWidget {
-  const BossStaffTodayScreen({super.key});
+  const BossStaffTodayScreen({super.key, this.api});
+
+  final ApiService? api;
 
   @override
   State<BossStaffTodayScreen> createState() => _BossStaffTodayScreenState();
@@ -55,51 +60,17 @@ class _BossStaffTodayScreenState extends State<BossStaffTodayScreen> {
       _loading = true;
       _error = null;
     });
-    final api = ApiService();
-    final now = DateTime.now();
-    try {
-      final devices = await api.getDevices(storeOnly: true);
-      final results = await Future.wait<Object>([
-        api.getEmployees(pageSize: 500, branchId: BranchSession.instance.currentId, excludeResigned: true),
-        loadAttendancesForPeriodResult(
-          api,
-          deviceIds: [for (final d in devices) if (d is Map && d['id'] != null) '${d['id']}'],
-          fromDate: DateTime(now.year, now.month, now.day),
-          toDate: now,
-        ),
-      ]);
-      if (!mounted || seq != _seq) return;
-      setState(() {
-        _loading = false;
-        _staff = _merge(results[0] as List, (results[1] as AttendanceLoadResult).items);
-      });
-    } catch (e) {
-      if (!mounted || seq != _seq) return;
-      setState(() {
-        _loading = false;
-        _error = '$e';
-      });
-    }
-  }
-
-  /// Bản ghi chấm công gắn nhân viên theo id, mã nhân viên hoặc mã trên máy chấm công.
-  static List<_StaffDay> _merge(List employees, List<Attendance> punches) {
-    final staff = <_StaffDay>[];
-    for (final raw in employees) {
-      if (raw is! Map || raw['workStatus']?.toString() != 'Active') continue;
-      final keys = {raw['id'], raw['employeeCode'], raw['pin']}.whereType<Object>().map((k) => '$k').toSet();
-      final times = [
-        for (final p in punches)
-          if (keys.contains(p.employeeId) || keys.contains(p.pin)) p.attendanceTime,
-      ]..sort();
-      staff.add(_StaffDay(
-        '${raw['fullName'] ?? raw['employeeCode'] ?? ''}',
-        '${raw['employeeCode'] ?? ''}',
-        times.isEmpty ? null : times.first,
-        times.isEmpty ? null : times.last,
-      ));
-    }
-    return staff;
+    final r = await (widget.api ?? ApiService()).getBossStaffToday();
+    if (!mounted || seq != _seq) return;
+    final data = r['data'];
+    setState(() {
+      _loading = false;
+      if (r['isSuccess'] == true && data is Map) {
+        _staff = [for (final e in (data['staff'] as List? ?? const [])) if (e is Map) _StaffDay(e)];
+      } else {
+        _error = r['message']?.toString() ?? 'Không tải được chấm công';
+      }
+    });
   }
 
   static String _hhmm(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
@@ -130,10 +101,10 @@ class _BossStaffTodayScreenState extends State<BossStaffTodayScreen> {
           ),
         ],
       ),
-      body: _loading && _staff.isEmpty
-          ? const SboxLoading()
-          : _error != null
-              ? BossLoadError(title: 'Không tải được chấm công', message: _error, onRetry: _load)
+      body: _error != null
+          ? BossLoadError(title: 'Không tải được chấm công', message: _error, onRetry: _load)
+          : _loading && _staff.isEmpty
+              ? const SboxLoading()
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(padding: const EdgeInsets.all(SboxSpace.lg), children: [

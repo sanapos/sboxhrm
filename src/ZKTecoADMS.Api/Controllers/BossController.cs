@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
@@ -243,6 +245,53 @@ public class BossController(ZKTecoDbContext db) : AuthenticatedControllerBase
             .ToList();
         var counts = ordered.GroupBy(x => x.Kind).ToDictionary(g => g.Key, g => g.Count());
         return Ok(AppResponse<object>.Success(new { total = ordered.Count, counts, items = ordered }));
+    }
+
+    /// <summary>
+    /// Nhân viên hôm nay: giờ chấm đầu / cuối của từng người trong phạm vi được xem (chi nhánh đang chọn; quản lý
+    /// thì cấp dưới và nhân viên chi nhánh được phép). Lượt chấm nối qua DeviceUser vì Attendance.EmployeeId là khóa DeviceUser.
+    /// </summary>
+    [HttpGet("staff-today")]
+    [RequireModulePermission("Attendance", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> StaffToday(
+        [FromServices] IDataScopeService dataScope, CancellationToken ct)
+    {
+        var storeId = RequiredStoreId;
+        var bctx = HttpContext.BranchContext();
+        var hq = bctx?.HeadquarterBranchId ?? Guid.Empty;
+        var employees = db.Employees.AsNoTracking()
+            .Where(e => e.StoreId == storeId && e.Deleted == null && e.WorkStatus != EmployeeWorkStatus.Resigned);
+        if (bctx is { StoreUsesBranches: true, FilterBranchId: Guid selected })
+            employees = employees.Where(e => (e.BranchId ?? hq) == selected);
+        if (!SeesWholeStore)
+        {
+            var allowed = bctx is { StoreUsesBranches: true, AllowedBranchIds: { } a } ? a.ToList() : [];
+            var subordinates = await dataScope.GetSubordinateEmployeeIdsAsync(CurrentUserId, storeId);
+            employees = employees.Where(e => subordinates.Contains(e.Id) || allowed.Contains(e.BranchId ?? hq));
+        }
+
+        var staff = await employees
+            .OrderBy(e => e.FirstName)
+            .Select(e => new { e.Id, e.EmployeeCode, e.LastName, e.FirstName })
+            .ToListAsync(ct);
+        var ids = staff.Select(e => e.Id).ToList();
+        var today = VnTimeHelper.NowVn().Date;
+        var punches = await db.AttendanceLogs.AsNoTracking()
+            .Where(a => a.AttendanceTime >= today && a.AttendanceTime < today.AddDays(1) && a.EmployeeId != null)
+            .Join(db.DeviceUsers, a => a.EmployeeId, du => (Guid?)du.Id, (a, du) => new { du.EmployeeId, a.AttendanceTime })
+            .Where(p => p.EmployeeId != null && ids.Contains(p.EmployeeId.Value))
+            .GroupBy(p => p.EmployeeId!.Value)
+            .Select(g => new { Id = g.Key, First = g.Min(p => p.AttendanceTime), Last = g.Max(p => p.AttendanceTime) })
+            .ToListAsync(ct);
+        var byEmployee = punches.ToDictionary(p => p.Id);
+        return Ok(AppResponse<object>.Success(new
+        {
+            staff = staff.Select(e =>
+            {
+                byEmployee.TryGetValue(e.Id, out var p);
+                return new { id = e.Id, code = e.EmployeeCode, name = Name(e.LastName, e.FirstName, e.EmployeeCode), firstPunch = p?.First, lastPunch = p?.Last };
+            }),
+        }));
     }
 
     /// <summary>Ca thu ngân đóng trong 2 ngày gần nhất bị lệch quỹ (đếm thực tế ≠ máy tính).</summary>

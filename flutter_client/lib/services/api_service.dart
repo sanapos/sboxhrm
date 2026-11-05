@@ -9902,6 +9902,18 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// SBOX BOSS: nhân viên hôm nay — giờ chấm đầu / cuối của từng người trong phạm vi người xem.
+  Future<Map<String, dynamic>> getBossStaffToday() async {
+    try {
+      final response = await sharedHttpClient
+          .get(Uri.parse('$baseUrl/api/boss/staff-today'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// SBOX BOSS: vấn đề vận hành ngoài «Tổng quan / việc cần xử lý» (ca thu ngân lệch quỹ, ca quên đóng).
   Future<Map<String, dynamic>> getBossIssues() async {
     try {

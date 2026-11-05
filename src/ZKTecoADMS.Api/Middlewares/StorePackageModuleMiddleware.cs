@@ -48,6 +48,7 @@ public class StorePackageModuleMiddleware
         ("/api/leaves", "Leave"),
         ("/api/annual-leave", "Leave"),
         ("/api/attendances", "Attendance"),
+        ("/api/boss/staff-today", "Attendance"),
         ("/api/workschedules", "WorkSchedule"),
         ("/api/payroll", "Payroll"),
         ("/api/payslips", "Payslip"),
