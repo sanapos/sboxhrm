@@ -78,13 +78,14 @@ Chúng tôi **không** dùng dữ liệu của bạn để quảng cáo và **kh
 
 ## 5. Vị trí
 
-- Chỉ lấy vị trí **tại thời điểm** bấm chấm công / check-in, hoặc khi bạn chủ động điền địa chỉ giao hàng.
-- Ứng dụng **không theo dõi vị trí liên tục** và không truy cập vị trí khi chạy nền.
+- Lấy vị trí **tại thời điểm** bấm chấm công / check-in, hoặc khi bạn chủ động chọn địa điểm trên bản đồ.
+- Nếu cửa hàng bật chức năng **Bản đồ nhân sự**, ứng dụng nhân viên gửi vị trí khoảng 30 giây một lần khi đang mở và đã đăng nhập; máy chủ chỉ lưu vị trí trong ca làm việc đã duyệt.
+- Ứng dụng không có quyền vị trí nền. SBOX POS, SBOX BOSS và SBOX KDS không thu thập vị trí.
 
 ## 6. Quyền truy cập trên thiết bị
 
 - **Camera**: chụp khuôn mặt khi chấm công, quét mã vạch, chụp ảnh hàng hóa — chỉ khi bạn chủ động dùng.
-- **Micro**: chỉ khi bạn bấm nút micro trong Trợ lý ảo; giọng nói được chuyển thành chữ bằng dịch vụ của hệ điều hành, ứng dụng không lưu bản ghi âm.
+- **Micro**: chỉ khi bạn bấm nút micro trong Trợ lý ảo; đoạn ghi âm được gửi qua máy chủ SBOX tới Google Gemini để chuyển thành chữ và không được lưu lại sau đó. Nếu chưa bật AI, dịch vụ của hệ điều hành sẽ chuyển giọng nói thành chữ.
 - **Vị trí**: như mục 5.
 - **Bluetooth / mạng nội bộ**: kết nối máy in hóa đơn, máy in tem, màn hình bếp, máy chấm công.
 - **Thư viện ảnh**: chọn ảnh sản phẩm, logo, đính kèm — khi bạn chủ động chọn.
@@ -97,7 +98,7 @@ Bạn có thể thu hồi từng quyền bất kỳ lúc nào trong phần Cài 
 Dữ liệu chỉ được chia sẻ khi cần để vận hành dịch vụ, hoặc khi doanh nghiệp / cửa hàng chủ động bật kết nối:
 
 - **Firebase (Google)**: gửi thông báo đẩy.
-- **Google Gemini**: khi bạn dùng Trợ lý ảo — chỉ gửi nội dung câu hỏi và số liệu tổng hợp cần để trả lời. **Không** gửi mật khẩu, dữ liệu khuôn mặt, sinh trắc học hay thông tin thanh toán.
+- **Google Gemini**: khi bạn dùng Trợ lý ảo — gửi nội dung câu hỏi, đoạn ghi âm khi bấm micro, ảnh bạn chủ động gửi và số liệu tổng hợp cần để trả lời. **Không** gửi mật khẩu, dữ liệu khuôn mặt, sinh trắc học hay thông tin thanh toán.
 - **Đơn vị vận chuyển, cổng thanh toán, nhà cung cấp hóa đơn điện tử, ngân hàng (xác nhận chuyển khoản)**: chỉ những thông tin cần cho giao dịch đó, khi cửa hàng bật tính năng.
 - **Cơ quan nhà nước có thẩm quyền**: khi pháp luật yêu cầu.
 
@@ -114,7 +115,7 @@ Dữ liệu chỉ được chia sẻ khi cần để vận hành dịch vụ, ho
 - **Xem và sửa** thông tin tài khoản trong ứng dụng; yêu cầu doanh nghiệp sửa hồ sơ nhân sự nếu sai.
 - **Rút lại sự đồng ý** với chấm công khuôn mặt — liên hệ quản lý để xóa đăng ký khuôn mặt và dùng hình thức chấm công khác.
 - **Thu hồi quyền** camera, vị trí, micro, thông báo trong Cài đặt điện thoại.
-- **Xóa tài khoản** ngay trong ứng dụng: **Cài đặt → Xóa tài khoản** (nhập mật khẩu để xác nhận). Thông tin cá nhân được xóa hoặc ẩn danh; riêng chứng từ, hóa đơn phải lưu theo luật sẽ được giữ đến hết thời hạn.
+- **Xóa tài khoản** ngay trong ứng dụng: **Cài đặt → Xóa tài khoản** (nhập mật khẩu để xác nhận). Thông tin định danh của tài khoản được xóa hoặc ẩn danh; chứng từ, hóa đơn phải lưu theo luật được giữ đến hết thời hạn. Hồ sơ nhân sự và đăng ký khuôn mặt do doanh nghiệp quản lý: nhờ quản lý xóa hoặc gửi yêu cầu theo mục 11.
 - **Khiếu nại** về việc xử lý dữ liệu — liên hệ SBOX theo mục 11.
 
 ## 10. Trẻ em

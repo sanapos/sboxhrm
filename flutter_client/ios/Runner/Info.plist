@@ -79,7 +79,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Thư viện ảnh dùng để chọn ảnh đại diện, ảnh sản phẩm, logo cửa hàng hoặc chứng từ khi bạn chủ động chọn.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Vị trí chỉ được lấy lúc bạn bấm chấm công / check-in để xác nhận đang ở địa điểm làm việc, và khi bạn điền địa chỉ giao hàng. Ứng dụng không theo dõi vị trí liên tục hoặc khi chạy nền.</string>
+	<string>Vị trí được lấy lúc bạn bấm chấm công / check-in để xác nhận đang ở địa điểm làm việc, và định kỳ khi đang mở ứng dụng nếu cửa hàng bật Bản đồ nhân sự. Ứng dụng không dùng vị trí khi chạy nền.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Mạng nội bộ dùng để tìm và kết nối máy chấm công, máy in hóa đơn, màn hình bếp trong cùng WiFi cửa hàng.</string>
 	<key>NSBonjourServices</key>
