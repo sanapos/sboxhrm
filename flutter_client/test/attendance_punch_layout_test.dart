@@ -32,6 +32,8 @@ Future<void> _pump(
   WidgetTester tester, {
   Map<String, List<int>>? punchSlots,
   List<String> assignedShiftIds = const ['sang', 'chieu'],
+  List<Map<String, dynamic>>? shifts,
+  List<Map<String, dynamic>> salaryProfiles = const [],
 }) async {
   final prev = FlutterError.onError;
   FlutterError.onError = (d) {
@@ -58,7 +60,8 @@ Future<void> _pump(
         employeesList: const [
           {'id': 'e1', 'employeeCode': '40001', 'pin': '40001', 'fullName': 'Nguyễn Văn A'},
         ],
-        shiftTemplates: _shifts,
+        shiftTemplates: shifts ?? _shifts,
+        salaryProfiles: salaryProfiles,
         initialPunchSlots: punchSlots ?? const {},
         shiftSalaryLevels: [
           for (final id in assignedShiftIds) <String, dynamic>{'shiftTemplateId': id, 'employeeIds': ['e1']},
@@ -152,6 +155,31 @@ void main() {
     expect(_columnOf(tester, '11:03'), 2);
     expect(_columnOf(tester, '12:57'), 5);
     expect(_columnOf(tester, '17:04'), 6);
+  });
+
+  testWidgets('Có thiết lập: 1 ca/ngày, đi trễ quá mức cho phép nên sáng là «ca khác» → vẫn đủ Lần 1–4', variant: _desktop, (tester) async {
+    SharedPreferences.setMockInitialValues({'attendance_by_shift_punch_layout_v1': 'byShift'});
+    await _pump(
+      tester,
+      shifts: const [
+        // Vào 06:50, cho trễ tối đa 1 phút: 06:58 không khớp ca sáng, hệ thống chỉ nhận ca chiều.
+        {'id': 'sang', 'name': 'Ca sáng', 'startTime': '06:50:00', 'endTime': '11:00:00', 'maximumAllowedLateMinutes': 1},
+        {'id': 'chieu', 'name': 'Ca chiều', 'startTime': '13:00:00', 'endTime': '17:00:00', 'maximumAllowedLateMinutes': 1},
+      ],
+      salaryProfiles: const [
+        {
+          'shiftsPerDay': 1,
+          'employees': [
+            {'id': 'e1', 'employeeCode': '40001'},
+          ],
+        },
+      ],
+      punchSlots: const {'sang': [1, 2], 'chieu': [3, 4]},
+    );
+    expect(_columnOf(tester, '06:58'), 1);
+    expect(_columnOf(tester, '11:03'), 2);
+    expect(_columnOf(tester, '12:57'), 3);
+    expect(_columnOf(tester, '17:04'), 4);
   });
 
   testWidgets('Thiết lập chỉ áp dụng khi chọn «Giờ chấm theo ca»', variant: _desktop, (tester) async {

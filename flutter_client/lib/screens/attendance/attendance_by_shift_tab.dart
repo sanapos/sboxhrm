@@ -4051,8 +4051,15 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         var slots = _dailySlotsOf(templates);
         final punches = r?.displayPunchTimes ?? const <DateTime>[];
         final noShift = slots.isEmpty;
+        var shiftLabel = _dailyShiftLabel(templates);
         ({List<DateTime?> ins, List<DateTime?> outs, List<DateTime> extra}) a;
-        if (noShift) {
+        final configured =
+            noShift ? null : _dailyConfiguredRow(empId, sample.employeeCode, r?.shiftNames ?? const [], punches, day);
+        if (configured != null) {
+          slots = configured.slots;
+          a = configured.a;
+          shiftLabel = configured.label;
+        } else if (noShift) {
           // Chưa gán ca: ghép theo thứ tự lần chấm (Vào 1, Ra 1, Vào 2…).
           final n = math.max(1, (punches.length + 1) ~/ 2);
           slots = [for (var i = 0; i < n; i++) (start: 0, end: 0)];
@@ -4072,7 +4079,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           name: sample.employeeName,
           dept: dept,
           day: day,
-          shiftLabel: _dailyShiftLabel(templates),
+          shiftLabel: shiftLabel,
           slots: slots,
           a: a,
           noShift: noShift,
@@ -4221,7 +4228,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       // Nửa ca nghỉ phép: nửa không có giờ chấm nào (nghỉ cả ngày → mọi nửa).
       var leaveSlots = <int>{};
       if (leave != null && !x.noShift) {
-        final empty = [for (var k = 0; k < x.slots.length; k++) if (x.a.ins[k] == null && x.a.outs[k] == null) k];
+        final empty = [
+          for (var k = 0; k < x.slots.length; k++)
+            if (x.slots[k].start >= 0 && x.a.ins[k] == null && x.a.outs[k] == null) k,
+        ];
         leaveSlots = halfLeave ? empty.take(1).toSet() : empty.toSet();
       }
 
@@ -4262,7 +4272,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         if (!seenPending.add('${pa.minute}|${pa.reason}')) continue;
         int? best;
         for (var k = 0; k < x.slots.length && !x.noShift; k++) {
-          if (leaveSlots.contains(k)) continue;
+          if (leaveSlots.contains(k) || x.slots[k].start < 0) continue;
           for (final (bi, miss) in [(2 * k, x.a.ins[k] == null), (2 * k + 1, x.a.outs[k] == null)]) {
             if (!miss || pendingAt.containsKey(bi)) continue;
             if (best == null || (pa.minute - boundMin(bi)).abs() < (pa.minute - boundMin(best)).abs()) best = bi;
@@ -4298,7 +4308,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       final notes = <String>[];
       for (var k = 0; k < maxSlots; k++) {
         final c = slotCol0 + k * 3;
-        if (k >= x.slots.length) {
+        if (k >= x.slots.length || (!x.noShift && x.slots[k].start < 0)) {
           put(c, t(''));
           put(c + 1, t(''));
           put(c + 2, t(''));
@@ -5403,35 +5413,50 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return DateFormat('HH:mm').format(r.displayPunchTimes[pi]);
   }
 
-  /// Xếp theo thiết lập lần chấm của cửa hàng. Ca đã khớp giờ chấm nhận hết các giờ thì theo ca đó (đúng cột «Tên ca»).
-  /// Còn lại (ca khác, làm ca không được gán…) so ca đã khớp, ca được gán và mọi ca của cửa hàng, chọn cách khớp giờ nhất.
-  ShiftPunchColumns? _configuredSlotLayout(_DailyShiftRecord r) {
+  /// Ghép giờ chấm vào ca theo thiết lập lần chấm của cửa hàng. Ca trong ngày của nhân viên ([_dailyTemplatesFor])
+  /// nhận hết các giờ thì theo các ca đó (đúng cột «Tên ca»). Còn lại (giờ ngoài các ca đó: đi trễ quá mức bị coi là ca
+  /// khác, làm ca không được gán…) so thêm ca được gán và mọi ca của cửa hàng, chọn cách khớp giờ nhất.
+  /// [isFirst]: kết quả là các ca trong ngày của nhân viên. null = không có ca nào để xếp.
+  ({
+    List<Map<String, dynamic>> templates,
+    List<({int start, int end})> slots,
+    List<({int inCol, int outCol})> columns,
+    ({List<DateTime?> ins, List<DateTime?> outs, List<DateTime> extra}) a,
+    bool isFirst,
+  })? _configuredPlacement(String employeeId, String employeeCode, List<String> shiftNames, List<DateTime> punches, DateTime day) {
     final columnsOf = AttendancePunchSlots.withDefaults(_punchSlotShifts(), _punchSlots);
-    final base = DateTime(r.date.year, r.date.month, r.date.day);
-    final matched = <Map<String, dynamic>>[];
-    for (final n in r.shiftNames) {
-      final st = _shiftTemplateForName(n);
-      if (st != null && !matched.contains(st)) matched.add(st);
-    }
-    final guid = _employeeCodeToGuid[r.employeeCode] ?? r.employeeId;
+    final base = DateTime(day.year, day.month, day.day);
+    final first = _dailyTemplatesFor(employeeId, employeeCode, shiftNames);
+    final guid = _employeeCodeToGuid[employeeCode] ?? employeeId;
     final ids = _employeeGuidToShiftTemplateIds[guid] ??
-        _employeeGuidToShiftTemplateIds[r.employeeId] ??
+        _employeeGuidToShiftTemplateIds[employeeId] ??
         const <String>[];
     final attempts = [
-      matched,
+      first,
       <Map<String, dynamic>>[
-        ...matched,
+        ...first,
         for (final id in ids)
-          if (_shiftTemplateMap[id] != null && !matched.contains(_shiftTemplateMap[id])) _shiftTemplateMap[id]!,
+          if (_shiftTemplateMap[id] != null && !first.contains(_shiftTemplateMap[id])) _shiftTemplateMap[id]!,
       ],
       _shiftTemplateMap.values.toList(),
     ];
-    ShiftPunchColumns? best;
+    ({
+      List<Map<String, dynamic>> templates,
+      List<({int start, int end})> slots,
+      List<({int inCol, int outCol})> columns,
+      ({List<DateTime?> ins, List<DateTime?> outs, List<DateTime> extra}) a,
+      bool isFirst,
+    })? best;
     var bestCost = 0;
     for (var i = 0; i < attempts.length; i++) {
+      // Cùng giờ thì ưu tiên ca không nghỉ trưa (Ca sáng + Ca chiều) trước ca cả ngày có nghỉ trưa.
       final sorted = [...attempts[i]]
-        ..sort((a, b) => _parseTimeSpanToMinutes(a['startTime']?.toString())
-            .compareTo(_parseTimeSpanToMinutes(b['startTime']?.toString())));
+        ..sort((a, b) {
+          final split = _dailySlotsOf([a]).length.compareTo(_dailySlotsOf([b]).length);
+          if (split != 0) return split;
+          return _parseTimeSpanToMinutes(a['startTime']?.toString())
+              .compareTo(_parseTimeSpanToMinutes(b['startTime']?.toString()));
+        });
       final slots = <({int start, int end})>[];
       final columns = <({int inCol, int outCol})>[];
       for (final st in sorted) {
@@ -5444,14 +5469,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         }
       }
       if (slots.isEmpty) continue;
-      final a = _dailyAssignPunches(r.punchTimes, r.date, slots);
-      final placed = ShiftPunchColumns.place(
-        punches: r.punchTimes,
-        ins: a.ins,
-        outs: a.outs,
-        extra: a.extra,
-        columns: columns,
-      );
+      final a = _dailyAssignPunches(punches, day, slots);
+      final placed = (templates: sorted, slots: slots, columns: columns, a: a, isFirst: i == 0);
       if (i == 0 && a.extra.isEmpty) return placed;
       // Điểm phạt (phút): lệch giờ ca + ca chỉ có một lần chấm + giờ không thuộc ca nào.
       var cost = a.extra.length * 1000;
@@ -5467,6 +5486,72 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       }
     }
     return best;
+  }
+
+  ShiftPunchColumns? _configuredSlotLayout(_DailyShiftRecord r) {
+    final p = _configuredPlacement(r.employeeId, r.employeeCode, r.shiftNames, r.punchTimes, r.date);
+    if (p == null) return null;
+    return ShiftPunchColumns.place(
+      punches: r.punchTimes,
+      ins: p.a.ins,
+      outs: p.a.outs,
+      extra: p.a.extra,
+      columns: p.columns,
+    );
+  }
+
+  /// Excel hằng ngày theo thiết lập lần chấm: Lần 1–2 là Vào 1 / Ra 1, Lần 3–4 là Vào 2 / Ra 2… để ca chiều luôn ở Vào 2,
+  /// kể cả người chỉ làm chiều. Nhóm cột theo lần chấm vào của khung ca. Nhóm không thuộc ca nào trong ngày: start < 0.
+  ({
+    String label,
+    List<({int start, int end})> slots,
+    ({List<DateTime?> ins, List<DateTime?> outs, List<DateTime> extra}) a,
+  })? _dailyConfiguredRow(String employeeId, String employeeCode, List<String> shiftNames, List<DateTime> punches, DateTime day) {
+    if (_punchSlots.isEmpty) return null;
+    final p = _configuredPlacement(employeeId, employeeCode, shiftNames, punches, day);
+    if (p == null) return null;
+    final groupOf = [for (final c in p.columns) c.inCol ~/ 2];
+    final n = groupOf.fold<int>(0, (m, g) => g + 1 > m ? g + 1 : m);
+    const unused = (start: -1, end: -1);
+    final slots = List<({int start, int end})>.filled(n, unused);
+    final ins = List<DateTime?>.filled(n, null);
+    final outs = List<DateTime?>.filled(n, null);
+    final extra = [...p.a.extra];
+    bool filled(int k) => p.a.ins[k] != null || p.a.outs[k] != null;
+    for (var k = 0; k < p.slots.length; k++) {
+      if (!filled(k)) continue;
+      final g = groupOf[k];
+      if (slots[g].start >= 0) {
+        // Hai ca cùng một nhóm cột mà đều có giờ: giờ ca sau ghi ở ô «Ngoài ca», không làm mất.
+        extra.addAll([if (p.a.ins[k] != null) p.a.ins[k]!, if (p.a.outs[k] != null) p.a.outs[k]!]);
+        continue;
+      }
+      slots[g] = p.slots[k];
+      ins[g] = p.a.ins[k];
+      outs[g] = p.a.outs[k];
+    }
+    // Ca trong ngày của nhân viên không có giờ chấm: vẫn giữ nhóm cột để báo «Không chấm ca».
+    if (p.isFirst) {
+      for (var k = 0; k < p.slots.length; k++) {
+        if (!filled(k) && slots[groupOf[k]].start < 0) slots[groupOf[k]] = p.slots[k];
+      }
+    }
+    extra.sort();
+    // Ca ghi ở cột «Ca làm việc»: ca trong ngày của nhân viên, hoặc các ca thật sự có giờ chấm khi phải xét thêm ca khác.
+    final shown = <Map<String, dynamic>>[];
+    var idx = 0;
+    for (final st in p.templates) {
+      final halves = _dailySlotsOf([st]).length;
+      var any = p.isFirst;
+      for (var h = 0; h < halves && idx + h < p.slots.length; h++) {
+        if (filled(idx + h)) any = true;
+      }
+      idx += halves;
+      if (any) shown.add(st);
+    }
+    shown.sort((a, b) => _parseTimeSpanToMinutes(a['startTime']?.toString())
+        .compareTo(_parseTimeSpanToMinutes(b['startTime']?.toString())));
+    return (label: _dailyShiftLabel(shown), slots: slots, a: (ins: ins, outs: outs, extra: extra));
   }
 
   ShiftPunchColumns? _computeShiftSlotLayout(_DailyShiftRecord r) {
