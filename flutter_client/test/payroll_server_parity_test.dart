@@ -168,6 +168,15 @@ Future<({List<String> warnings, Map<String, dynamic> nv4})> _night(String dayEnd
 }
 
 void main() {
+  test('Trần BHXH: theo thiết lập của cửa hàng, thiếu thiết lập dùng mức từ 01/07/2026', () {
+    final api = HttpPayrollApi(baseUrl: 'http://127.0.0.1:1', token: 'test-token');
+    final engine = PayrollEngine(api: api);
+    expect(engine.calculateInsuranceSalary('4', 0, 0, 60000000), 50600000);
+    engine.insuranceSettings = {'maxInsuranceSalary': 46800000};
+    expect(engine.calculateInsuranceSalary('4', 0, 0, 60000000), 46800000);
+    api.close();
+  });
+
   test('Ca đêm 22:00–06:00 đủ công dù giờ chốt ngày 00:00 / 04:00 / 07:00', () async {
     for (final de in ['00:00', '04:00', '07:00']) {
       final r = await _night(de);

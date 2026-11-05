@@ -98,7 +98,7 @@ public static class SeoResources
             ("BHXH người lao động (%)", 0.08, "0.0%"),
             ("BHYT người lao động (%)", 0.015, "0.0%"),
             ("BHTN người lao động (%)", 0.01, "0.0%"),
-            ("Mức lương đóng BHXH, BHYT tối đa (20 × lương cơ sở)", 46_800_000, Money),
+            ("Mức lương đóng BHXH, BHYT tối đa (20 × lương cơ sở)", 50_600_000, Money),
             ("Hệ số tăng ca ngày thường", 1.5, "0.0"),
             ("Số giờ làm mỗi ngày", 8, "0"),
         ];

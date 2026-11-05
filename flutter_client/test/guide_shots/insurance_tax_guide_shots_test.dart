@@ -7,7 +7,7 @@ import 'guide_shot_kit.dart';
 /// Ảnh cho bước hướng dẫn «Bảo hiểm & thuế TNCN» (id: insurance_tax).
 
 const _insurance = {
-  'baseSalary': 2340000, 'maxInsuranceSalary': 46800000, 'defaultRegion': 1,
+  'baseSalary': 2530000, 'maxInsuranceSalary': 50600000, 'defaultRegion': 1,
   'minSalaryRegion1': 5310000, 'minSalaryRegion2': 4730000, 'minSalaryRegion3': 4140000, 'minSalaryRegion4': 3700000,
   'bhxhEmployeeRate': 8, 'bhxhEmployerRate': 17.5, 'bhytEmployeeRate': 1.5, 'bhytEmployerRate': 3,
   'bhtnEmployeeRate': 1, 'bhtnEmployerRate': 1, 'unionFeeEmployeeRate': 1, 'unionFeeEmployerRate': 2,

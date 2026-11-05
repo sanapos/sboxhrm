@@ -19,6 +19,18 @@ void main() {
     expect(tr('Nhân viên'), 'Nhân viên');
   });
 
+  test('Nhắc cập nhật lương cơ sở có bản dịch, giữ nguyên số tiền', () async {
+    const msg = 'Lương cơ sở hoặc mức trần đang thấp hơn mức áp dụng từ 01/07/2026 (2.530.000 ₫, trần 50.600.000 ₫). '
+        'Kiểm tra lại văn bản hiện hành trước khi cập nhật.';
+    for (final lang in const ['en', 'ko', 'ja', 'zh']) {
+      await trUseLanguage(lang);
+      final out = tr(msg);
+      expect(out, isNot(msg), reason: lang);
+      expect(out, allOf(contains('2.530.000'), contains('50.600.000')), reason: lang);
+      expect(tr('Dùng mức mới'), isNot('Dùng mức mới'), reason: lang);
+    }
+  });
+
   group('Korean / Japanese / Chinese packs', () {
     final cjk = {
       'ko': RegExp(r'[가-힯]'),

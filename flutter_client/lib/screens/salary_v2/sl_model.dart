@@ -245,7 +245,7 @@ class SalaryDraft {
   /// Lương đóng BHXH sau áp trần (20 × lương cơ sở).
   double insuranceSalary(Map<String, dynamic> ins) {
     final raw = insuranceSalaryRaw(ins);
-    final cap = _n(ins['maxInsuranceSalary'])?.toDouble() ?? 46800000;
+    final cap = _n(ins['maxInsuranceSalary'])?.toDouble() ?? 50600000;
     return raw > cap ? cap : raw;
   }
 

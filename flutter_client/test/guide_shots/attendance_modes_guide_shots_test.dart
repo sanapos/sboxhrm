@@ -33,7 +33,7 @@ final _shifts = [
 final _api = guideApi({
   '/api/employees': {'items': [_minh, _lan]},
   '/api/shifts/templates': _shifts,
-  '/api/settings/insurance': {'maxInsuranceSalary': 46800000, 'defaultRegion': 1, 'minSalaryRegion1': 5310000},
+  '/api/settings/insurance': {'maxInsuranceSalary': 50600000, 'defaultRegion': 1, 'minSalaryRegion1': 5310000},
   '/api/settings/salary': {'standardWorkDays': 26, 'overtimeRate': 1.5, 'weekendRate': 2, 'holidayRate': 3},
 });
 
@@ -41,7 +41,7 @@ SalaryEditor _editor(Map<String, dynamic> emp, Map<String, dynamic> benefit) => 
       ctx: SlContext(
         api: ApiService(),
         shifts: _shifts,
-        insurance: const {'maxInsuranceSalary': 46800000},
+        insurance: const {'maxInsuranceSalary': 50600000},
         store: {'standardWorkDays': 26},
       ),
       employee: SlEmployee(emp, {'benefitId': benefit['id'], 'benefit': benefit}),

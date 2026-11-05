@@ -22796,7 +22796,8 @@
   "Đã chấm công": "已打卡",
   "Bàn đang mở": "使用中的餐桌",
   "Kiểm tra kết nối rồi mở lại ứng dụng.": "请检查网络连接后重新打开应用。",
-  "Phiếu thu chi": "收支单"
+  "Phiếu thu chi": "收支单",
+  "Dùng mức mới": "使用新标准"
  },
  "t": [
   [
@@ -27426,6 +27427,10 @@
   [
    "Lương cơ bản ÷ {0} công ÷ {1} giờ",
    "基本工资 ÷ {0} 天 ÷ {1} 小时"
+  ],
+  [
+   "Lương cơ sở hoặc mức trần đang thấp hơn mức áp dụng từ 01/07/2026 ({0} ₫, trần {1} ₫). Kiểm tra lại văn bản hiện hành trước khi cập nhật.",
+   "基础工资或缴费上限低于自 2026/07/01 起适用的标准（{0} ₫，上限 {1} ₫）。更新前请核对现行规定。"
   ],
   [
    "Lương hoàn thành ÷ {0} công ÷ {1} giờ",

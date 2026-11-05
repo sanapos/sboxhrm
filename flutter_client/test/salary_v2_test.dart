@@ -84,7 +84,7 @@ final _client = MockClient((req) async {
       ],
     });
   }
-  if (p.endsWith('/api/settings/insurance')) return _ok({'maxInsuranceSalary': 46800000, 'defaultRegion': 1, 'minSalaryRegion1': 4960000});
+  if (p.endsWith('/api/settings/insurance')) return _ok({'maxInsuranceSalary': 50600000, 'defaultRegion': 1, 'minSalaryRegion1': 4960000});
   if (p.endsWith('/api/settings/salary')) return _ok({'standardWorkDays': 26, 'overtimeRate': 1.5, 'weekendRate': 2, 'holidayRate': 3});
   return http.Response(jsonEncode({'isSuccess': false}), 200, headers: {'content-type': 'application/json'});
 });
@@ -152,7 +152,9 @@ void main() {
 
   test('BHXH áp trần; lương ngày không có «theo lương cơ bản»', () {
     final d = SalaryDraft.fromBenefit({..._benefitMonthly, 'rate': 60000000});
-    expect(d.insuranceSalary({'maxInsuranceSalary': 46800000}), 46800000);
+    expect(d.insuranceSalary({'maxInsuranceSalary': 50600000}), 50600000);
+    expect(d.insuranceSalary({'maxInsuranceSalary': 46800000}), 46800000); // cửa hàng đã lưu mức cũ
+    expect(d.insuranceSalary({}), 50600000); // không có thiết lập
     final daily = SalaryDraft.fromBenefit({..._benefitDaily, 'socialInsuranceType': 1});
     expect(daily.insurance, InsuranceKind.none);
     expect(daily.insuranceChoices.contains(InsuranceKind.base), isFalse);
@@ -193,7 +195,7 @@ void main() {
         {'id': 'a2', 'name': 'Phụ cấp xăng xe', 'type': 'Fixed', 'amount': 500000, 'isActive': true, 'employeeIds': ['e1']},
         {'id': 'a1', 'name': 'Phụ cấp ăn trưa', 'type': 'Daily', 'amount': 30000, 'isActive': true, 'employeeIds': ['e1']},
       ],
-      insurance: const {'maxInsuranceSalary': 46800000},
+      insurance: const {'maxInsuranceSalary': 50600000},
       store: {'standardWorkDays': 26},
     );
     await _pump(t, const Size(1280, 2700), 'sl_editor', home: SalaryEditor(ctx: ctx, employee: emp));
@@ -207,7 +209,7 @@ void main() {
       {'id': 'e1', 'employeeCode': 'NV001', 'lastName': 'Nguyễn Văn', 'firstName': 'An', 'department': 'Kinh doanh'},
       {'benefitId': 'b1', 'benefit': _benefitMonthly},
     );
-    final ctx = SlContext(api: ApiService(), insurance: const {'maxInsuranceSalary': 46800000}, store: {'standardWorkDays': 26});
+    final ctx = SlContext(api: ApiService(), insurance: const {'maxInsuranceSalary': 50600000}, store: {'standardWorkDays': 26});
     await _pump(t, const Size(1280, 1000), 'sl_editor_from_date', home: SalaryEditor(ctx: ctx, employee: emp), before: () async {
       await t.tap(find.text('Đổi lương từ ngày'));
     });

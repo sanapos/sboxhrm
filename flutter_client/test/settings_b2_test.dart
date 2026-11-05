@@ -50,9 +50,14 @@ final _allowances = [
 http.Response _ok(Object? data) =>
     http.Response(jsonEncode({'isSuccess': true, 'data': data}), 200, headers: {'content-type': 'application/json; charset=utf-8'});
 
+var _savedBase = 2530000;
+var _savedMax = 50600000;
+final _insuranceWrites = <String>[];
+
 final _client = MockClient((req) async {
   final p = req.url.path;
-  if (p.endsWith('/settings/insurance')) return _ok({'baseSalary': 2340000, 'minSalaryRegion1': 4960000, 'minSalaryRegion2': 4410000, 'minSalaryRegion3': 3860000, 'minSalaryRegion4': 3450000, 'maxInsuranceSalary': 46800000, 'defaultRegion': 1});
+  if (p.endsWith('/settings/insurance') && req.method != 'GET') _insuranceWrites.add(req.method);
+  if (p.endsWith('/settings/insurance')) return _ok({'baseSalary': _savedBase, 'minSalaryRegion1': 4960000, 'minSalaryRegion2': 4410000, 'minSalaryRegion3': 3860000, 'minSalaryRegion4': 3450000, 'maxInsuranceSalary': _savedMax, 'defaultRegion': 1});
   if (p.endsWith('/settings/tax')) return _ok({});
   if (p.endsWith('/tax/employee-deductions')) {
     return _ok([
@@ -125,8 +130,17 @@ void main() {
 
   test('Bảo hiểm: chặn trần', () {
     final r = InsParams().compute(60000000);
-    expect(r.capped, 46800000);
-    expect(r.employee, closeTo(46800000 * 0.105, 0.01));
+    expect(r.capped, 50600000);
+    expect(r.employee, closeTo(50600000 * 0.105, 0.01));
+  });
+
+  test('Bảo hiểm: mặc định từ 01/07/2026, cửa hàng đã lưu mức cũ vẫn giữ mức của mình', () {
+    final d = InsParams();
+    expect(d.baseSalary, 2530000);
+    expect(d.maxSalary, d.baseSalary * 20);
+    final saved = InsParams.fromJson({'baseSalary': 2340000, 'maxInsuranceSalary': 46800000});
+    expect(saved.baseSalary, 2340000);
+    expect(saved.compute(60000000).capped, 46800000);
   });
 
   test('Phạt: bậc theo phút và tái phạm', () {
@@ -177,6 +191,49 @@ void main() {
   testWidgets('Bảo hiểm', (t) async {
     await _pump(t, const InsuranceSettingsScreen(canEditOverride: true), const Size(1200, 2000), 'b2_insurance');
     expect(find.text('Dùng mức 2026'), findsOneWidget);
+    expect(find.text('Dùng mức mới'), findsNothing);
+  });
+
+  testWidgets('Bảo hiểm: cửa hàng lưu mức cũ được nhắc, bấm nút chỉ đổi trên màn hình', (t) async {
+    _savedBase = 2340000;
+    _savedMax = 46800000;
+    _insuranceWrites.clear();
+    addTearDown(() {
+      _savedBase = 2530000;
+      _savedMax = 50600000;
+    });
+    await _pump(t, const InsuranceSettingsScreen(canEditOverride: true), const Size(1200, 2000), 'b2_insurance_outdated', before: () async {
+      expect(find.textContaining('01/07/2026'), findsOneWidget);
+      await t.ensureVisible(find.text('Dùng mức mới'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Dùng mức mới'));
+    });
+    expect(find.text('Dùng mức mới'), findsNothing);
+    expect(find.text('2.530.000'), findsOneWidget);
+    expect(find.text('50.600.000'), findsOneWidget);
+    expect(_insuranceWrites, isEmpty);
+  });
+
+  testWidgets('Bảo hiểm: lời nhắc mức cũ — điện thoại', (t) async {
+    _savedBase = 2340000;
+    _savedMax = 46800000;
+    addTearDown(() {
+      _savedBase = 2530000;
+      _savedMax = 50600000;
+    });
+    await _pump(t, const InsuranceSettingsScreen(canEditOverride: true), const Size(390, 2400), 'b2_insurance_outdated_mobile');
+    expect(find.text('Dùng mức mới'), findsOneWidget);
+  });
+
+  testWidgets('Bảo hiểm: không có quyền sửa thì không hiện nút cập nhật', (t) async {
+    _savedBase = 2340000;
+    _savedMax = 46800000;
+    addTearDown(() {
+      _savedBase = 2530000;
+      _savedMax = 50600000;
+    });
+    await _pump(t, const InsuranceSettingsScreen(canEditOverride: false), const Size(1200, 2000), 'b2_insurance_readonly');
+    expect(find.text('Dùng mức mới'), findsNothing);
   });
 
   testWidgets('Thuế TNCN — điện thoại', (t) async {

@@ -112,6 +112,9 @@ public class SeoLandingTests
         Assert.True(ws.Cell("U7").GetDouble() >= 0);
         Assert.True(ws.Cell("V7").GetDouble() < ws.Cell("N7").GetDouble());
 
+        // Trần BHXH, BHYT từ 01/07/2026 (20 × 2.530.000)
+        Assert.Equal(50_600_000d, payroll.Worksheet("Thiết lập").Cell("B10").GetDouble());
+
         using var stock = SeoResources.Find("pos", "mau-quan-ly-kho-nhap-xuat-ton")!.Build();
         var inv = stock.Worksheet("Tồn kho");
         Assert.Equal(26d, inv.Cell("F5").GetDouble()); // 20 tồn đầu + 10 nhập − 4 xuất

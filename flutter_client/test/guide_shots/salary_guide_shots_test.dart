@@ -53,7 +53,7 @@ final _api = guideApi({
       {'id': 'a2', 'name': 'Phụ cấp trách nhiệm', 'type': 'Fixed', 'amount': 500000, 'isActive': true, 'employeeIds': ['e3']},
     ],
   },
-  '/api/settings/insurance': {'maxInsuranceSalary': 46800000, 'defaultRegion': 1, 'minSalaryRegion1': 4960000},
+  '/api/settings/insurance': {'maxInsuranceSalary': 50600000, 'defaultRegion': 1, 'minSalaryRegion1': 4960000},
   '/api/settings/salary': {'standardWorkDays': 26, 'overtimeRate': 1.5, 'weekendRate': 2, 'holidayRate': 3},
 });
 
@@ -63,7 +63,7 @@ SalaryEditor _editor() => SalaryEditor(
       ctx: SlContext(
         api: ApiService(),
         shifts: _shifts,
-        insurance: const {'maxInsuranceSalary': 46800000},
+        insurance: const {'maxInsuranceSalary': 50600000},
         store: {'standardWorkDays': 26},
       ),
       employee: SlEmployee(_employees.first, {'benefitId': 'b1', 'benefit': _monthly}),

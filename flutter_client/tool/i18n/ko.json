@@ -22796,7 +22796,8 @@
   "Đã chấm công": "출근 완료",
   "Bàn đang mở": "사용 중인 테이블",
   "Kiểm tra kết nối rồi mở lại ứng dụng.": "연결을 확인한 후 앱을 다시 여세요.",
-  "Phiếu thu chi": "입출금 전표"
+  "Phiếu thu chi": "입출금 전표",
+  "Dùng mức mới": "새 기준 적용"
  },
  "t": [
   [
@@ -27426,6 +27427,10 @@
   [
    "Lương cơ bản ÷ {0} công ÷ {1} giờ",
    "기본급 ÷ {0}일 ÷ {1}시간"
+  ],
+  [
+   "Lương cơ sở hoặc mức trần đang thấp hơn mức áp dụng từ 01/07/2026 ({0} ₫, trần {1} ₫). Kiểm tra lại văn bản hiện hành trước khi cập nhật.",
+   "기준 급여 또는 상한액이 2026년 7월 1일부터 적용되는 금액보다 낮습니다 ({0} ₫, 상한 {1} ₫). 업데이트하기 전에 현행 규정을 확인하세요."
   ],
   [
    "Lương hoàn thành ÷ {0} công ÷ {1} giờ",

@@ -13,7 +13,7 @@ public class InsuranceSetting : AuditableEntity<Guid>
     /// <summary>
     /// Lương cơ sở (dùng để tính BHXH)
     /// </summary>
-    public decimal BaseSalary { get; set; } = 2340000; // 2024
+    public decimal BaseSalary { get; set; } = 2530000; // từ 01/07/2026 (NĐ 161/2026/NĐ-CP)
 
     /// <summary>
     /// Lương tối thiểu vùng 1
@@ -38,7 +38,7 @@ public class InsuranceSetting : AuditableEntity<Guid>
     /// <summary>
     /// Mức trần đóng BHXH (20 x Lương cơ sở)
     /// </summary>
-    public decimal MaxInsuranceSalary { get; set; } = 46800000;
+    public decimal MaxInsuranceSalary { get; set; } = 50600000;
 
     // ========== BẢO HIỂM XÃ HỘI (BHXH) ==========
 

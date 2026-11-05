@@ -1111,7 +1111,7 @@ class PayrollEngine {
   double calculateInsuranceSalary(String socialInsType, double baseSalary,
       double completionSalary, double customInsuranceSalary) {
     final maxIns =
-        toDouble(insuranceSettings['maxInsuranceSalary'], 46800000);
+        toDouble(insuranceSettings['maxInsuranceSalary'], 50600000);
     final raw = getInsuranceSalaryRaw(
         socialInsType, baseSalary, completionSalary, customInsuranceSalary);
     // Áp dụng mức trần BHXH (20x lương cơ sở)

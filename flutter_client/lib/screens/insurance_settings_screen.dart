@@ -10,9 +10,9 @@ import '../widgets/settings/settings_page.dart';
 /// Mức đóng bảo hiểm của cửa hàng (một bản ghi / cửa hàng).
 class InsParams {
   InsParams({
-    this.baseSalary = 2340000,
+    this.baseSalary = baseSalary2026,
     this.region = const [4960000, 4410000, 3860000, 3450000],
-    this.maxSalary = 46800000,
+    this.maxSalary = maxSalary2026,
     this.bhxh = (8, 17.5),
     this.bhyt = (1.5, 3),
     this.bhtn = (1, 1),
@@ -33,6 +33,13 @@ class InsParams {
 
   /// Lương tối thiểu vùng áp dụng từ 01/01/2026 (I–IV).
   static const region2026 = <double>[5310000, 4730000, 4140000, 3700000];
+
+  /// Lương cơ sở và mức trần (20 ×) áp dụng từ 01/07/2026 — NĐ 161/2026/NĐ-CP.
+  static const baseSalary2026 = 2530000.0;
+  static const maxSalary2026 = 50600000.0;
+
+  /// Cửa hàng đã lưu mức trước 01/07/2026: bản ghi không tự đổi, chủ cửa hàng tự cập nhật.
+  bool get baseSalaryOutdated => baseSalary < baseSalary2026 || maxSalary < maxSalary2026;
 
   InsParams copy() => InsParams(
         baseSalary: baseSalary,
@@ -290,6 +297,15 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
           help: 'Lương đóng vượt mức này chỉ tính bằng mức này. Thường bằng 20 × lương cơ sở = ${settingsMoney(_p.baseSalary * 20)} ₫',
           control: SettingsMoneyField(controller: _ctl('max'), enabled: edit, onChanged: (v) => setState(() => _p.maxSalary = v)),
         ),
+        if (_p.baseSalaryOutdated && edit)
+          _outdatedBanner(
+            tr('Lương cơ sở hoặc mức trần đang thấp hơn mức áp dụng từ 01/07/2026 (${settingsMoney(InsParams.baseSalary2026)} ₫, trần ${settingsMoney(InsParams.maxSalary2026)} ₫). Kiểm tra lại văn bản hiện hành trước khi cập nhật.'),
+            'Dùng mức mới',
+            () {
+              _p.baseSalary = InsParams.baseSalary2026;
+              _p.maxSalary = InsParams.maxSalary2026;
+            },
+          ),
         SettingsTile(
           label: 'Cửa hàng thuộc vùng',
           help: 'Lương đóng bảo hiểm không được thấp hơn lương tối thiểu vùng',
@@ -309,32 +325,36 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             ),
           ),
         if (outdated && edit)
-          Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-            decoration: BoxDecoration(color: SboxColors.warningSoft, borderRadius: BorderRadius.circular(10)),
-            child: Row(children: [
-              const Icon(Icons.update_rounded, color: SboxColors.warningText, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  tr('Lương tối thiểu vùng đang thấp hơn mức áp dụng từ 01/01/2026 '
-                      '(${InsParams.region2026.map(settingsMoney).join(' / ')}). Kiểm tra lại văn bản hiện hành trước khi cập nhật.'),
-                  style: const TextStyle(fontSize: 12.5, color: SboxColors.warningText),
-                ),
-              ),
-              TextButton(
-                onPressed: () => setState(() {
-                  _p.region = [...InsParams.region2026];
-                  _fill();
-                }),
-                child: Text(tr('Dùng mức 2026')),
-              ),
-            ]),
+          _outdatedBanner(
+            tr('Lương tối thiểu vùng đang thấp hơn mức áp dụng từ 01/01/2026 '
+                '(${InsParams.region2026.map(settingsMoney).join(' / ')}). Kiểm tra lại văn bản hiện hành trước khi cập nhật.'),
+            'Dùng mức 2026',
+            () => _p.region = [...InsParams.region2026],
           ),
       ],
     );
   }
+
+  /// Chỉ đổi số trên màn hình — người dùng bấm Lưu mới ghi.
+  Widget _outdatedBanner(String message, String action, VoidCallback apply) => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        decoration: BoxDecoration(color: SboxColors.warningSoft, borderRadius: BorderRadius.circular(10)),
+        child: Row(children: [
+          const Icon(Icons.update_rounded, color: SboxColors.warningText, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(message, style: const TextStyle(fontSize: 12.5, color: SboxColors.warningText)),
+          ),
+          TextButton(
+            onPressed: () => setState(() {
+              apply();
+              _fill();
+            }),
+            child: Text(tr(action)),
+          ),
+        ]),
+      );
 
   Widget _trySection() {
     final r = _p.compute(_tryValue);

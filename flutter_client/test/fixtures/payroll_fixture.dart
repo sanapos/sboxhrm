@@ -140,7 +140,7 @@ Map<String, Object?> payrollFixtureResponses({bool serverAdjustments = false, bo
       ],
       '/api/settings/insurance': {
         'bhxhEmployeeRate': 8, 'bhytEmployeeRate': 1.5, 'bhtnEmployeeRate': 1, 'unionFeeEmployeeRate': 0,
-        'defaultRegion': 1, 'minSalaryRegion1': 4960000, 'maxInsuranceSalary': 46800000,
+        'defaultRegion': 1, 'minSalaryRegion1': 4960000, 'maxInsuranceSalary': 50600000,
       },
       '/api/settings/salary': {
         'standardWorkDays': 26, 'standardWorkHours': 8, 'overtimeRate': 1.5, 'weekendRate': 2, 'holidayRate': 3,
