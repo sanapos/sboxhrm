@@ -176,7 +176,9 @@ public partial class PosSalesController(
         int ServicePauseMinutes = 0,
         int? KitchenRound = null,
         // Số tháng bảo hành chỉnh lúc bán (gia hạn / khuyến mãi) — null = theo hàng hóa.
-        int? WarrantyMonths = null);
+        int? WarrantyMonths = null,
+        // Topping + ghi chú lúc báo bếp gần nhất (xem PosKitchenContent) — null = app cũ / chưa báo.
+        string? KitchenSentContent = null);
 
     public record SalePaymentInputDto(
         decimal Amount,
@@ -494,7 +496,9 @@ public partial class PosSalesController(
         int KitchenRound = 0,
         string? ProductCode = null,
         int? WarrantyMonths = null,
-        DateTime? WarrantyExpiry = null);
+        DateTime? WarrantyExpiry = null,
+        string? KitchenSentContent = null,
+        bool KitchenContentPending = false);
 
     [HttpGet("return-history")]
     [RequireModulePermission("PosSaleReturns", ModulePermissionAction.View)]
@@ -3277,7 +3281,8 @@ public partial class PosSalesController(
                 l.ServicePausedAt, l.ServicePauseMinutes, l.KitchenRound,
                 productCodes?.GetValueOrDefault(l.ProductId),
                 warrantyByLine != null && warrantyByLine.TryGetValue(l.Id, out var wl) ? wl.Months : null,
-                warrantyByLine != null && warrantyByLine.TryGetValue(l.Id, out var we) ? we.Expiry : null)).ToList(),
+                warrantyByLine != null && warrantyByLine.TryGetValue(l.Id, out var we) ? we.Expiry : null,
+                l.KitchenSentContent, l.KitchenContentPending)).ToList(),
             order.ServiceResourceId, order.ResourceSessionId,
             order.ServiceStartedAt, order.ServiceEndedAt,
             serviceResourceCode, serviceResourceName, serviceAreaName,

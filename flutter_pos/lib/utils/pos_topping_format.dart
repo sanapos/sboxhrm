@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:intl/intl.dart';
 
 import '../models/pos_sale_order.dart';
@@ -105,4 +107,53 @@ String posToppingLabelText(String? toppings) {
       .map((e) => posNoteIsSubLine(e) ? e : '+ $e')
       .toList();
   return parts.join('\n');
+}
+
+/// Đầu tên món trên phiếu bổ sung — cùng chuỗi với PosKitchenContent.AddOnPrefix phía API.
+const posKitchenAddOnPrefix = 'BỔ SUNG: ';
+
+/// Topping + ghi chú lúc báo bếp (`{t, n}`) — cùng dạng với PosKitchenContent.Serialize phía API.
+String posKitchenContentEncode(String? toppingsJson, String? lineNote) =>
+    jsonEncode({'t': toppingsJson ?? '', 'n': (lineNote ?? '').trim()});
+
+/// Phần chênh lệch so với lúc báo bếp, để in phiếu bổ sung: `+ Trân châu x2`, `- Bỏ thạch`, ghi chú mới.
+/// Trước đây đổi topping là báo lại cả món — bếp làm thêm một phần. Chưa có mốc / không đổi → rỗng.
+List<String> posKitchenChangeLines({
+  required String? sentContent,
+  required Iterable<PosSaleLineTopping> toppings,
+  String? lineNote,
+}) {
+  if (sentContent == null || sentContent.trim().isEmpty) return const [];
+  final Map<String, dynamic> sent;
+  try {
+    final decoded = jsonDecode(sentContent);
+    if (decoded is! Map) return const [];
+    sent = Map<String, dynamic>.from(decoded);
+  } catch (_) {
+    return const [];
+  }
+  Map<String, ({String name, int qty})> group(Iterable<PosSaleLineTopping> list) {
+    final out = <String, ({String name, int qty})>{};
+    for (final t in list) {
+      final key = t.id.trim().isNotEmpty ? t.id.trim().toLowerCase() : t.name.trim();
+      out[key] = (name: t.name.trim(), qty: (out[key]?.qty ?? 0) + posToppingQty(t.qty));
+    }
+    return out;
+  }
+
+  final before = group(parsePosSaleLineToppings(sent['t']));
+  final after = group(toppings);
+  final lines = <String>[];
+  after.forEach((key, t) {
+    final diff = t.qty - (before[key]?.qty ?? 0);
+    if (diff > 0) lines.add('+ ${posToppingNameWithQty(t.name, diff)}');
+  });
+  before.forEach((key, t) {
+    final diff = t.qty - (after[key]?.qty ?? 0);
+    if (diff > 0) lines.add('- Bỏ ${posToppingNameWithQty(t.name, diff)}');
+  });
+  final oldNote = (sent['n'] ?? '').toString().trim();
+  final note = (lineNote ?? '').trim();
+  if (note != oldNote) lines.add(note.isNotEmpty ? note : 'Bỏ ghi chú: $oldNote');
+  return lines;
 }

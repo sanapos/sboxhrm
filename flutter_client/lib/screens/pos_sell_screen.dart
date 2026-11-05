@@ -358,6 +358,8 @@ class _SellCartLine {
   double warehouseSlipPrintedQty = 0;
   /// Số lượng đã báo chế biến / gửi bếp (không báo lại nếu chưa tăng SL).
   double kitchenSentQty = 0;
+  /// Topping + ghi chú lúc báo bếp gần nhất — đổi sau đó là phần bổ sung, không phải món mới.
+  String? kitchenSentContent;
   /// Phiên order (lượt báo chế biến) — 1 = lần báo đầu, 2 = gọi thêm…; 0 = chưa báo.
   int kitchenRound = 0;
   /// Lúc dòng được báo bếp lần đầu (giờ của phiên).
@@ -450,11 +452,66 @@ class _SellCartLine {
   double get kitchenPendingQty =>
       (qty - kitchenSentQty).clamp(0.0, double.infinity);
 
+  String get kitchenContentNow => posKitchenContentEncode(
+        toppings.isEmpty ? null : jsonEncode(toppings.map((t) => t.toJson()).toList()),
+        lineNote,
+      );
+
+  /// Topping / ghi chú đổi so với lúc báo bếp (chỉ phần đã báo mới có chênh lệch).
+  List<String> get kitchenChangeLines => kitchenSentQty <= 0
+      ? const []
+      : posKitchenChangeLines(
+          sentContent: kitchenSentContent,
+          toppings: toppings.map((t) =>
+              PosSaleLineTopping(id: t.id, name: t.name, price: t.price, qty: t.safeQty)),
+          lineNote: lineNote,
+        );
+
+  bool get kitchenContentChanged => kitchenChangeLines.isNotEmpty;
+
+  /// Còn phần cần báo bếp: SL mới hoặc topping / ghi chú bổ sung.
+  bool get kitchenHasPending => kitchenPendingQty > 0 || kitchenContentChanged;
+
+  void markKitchenSent() {
+    kitchenSentQty = qty;
+    kitchenSentContent = kitchenContentNow;
+  }
+
+  /// Phiếu bếp của dòng: phần SL mới in đầy đủ; phần đã báo mà đổi topping chỉ in chênh lệch.
+  List<KitchenTicketLine> kitchenTicketLines({DateTime? calledAt}) {
+    final change = kitchenChangeLines.join('\n');
+    return [
+      if (kitchenPendingQty > 0)
+        KitchenTicketLine(
+          productName: product.name,
+          qty: kitchenPendingQty,
+          unitName: unitLabel,
+          note: kitchenNoteFor(kitchenPendingQty),
+          productId: product.id,
+          sentBefore: kitchenSentQty,
+          lineKey: '$rowId',
+          calledAt: calledAt,
+        ),
+      if (change.isNotEmpty)
+        KitchenTicketLine(
+          productName: '$posKitchenAddOnPrefix${product.name}',
+          qty: kitchenSentQty,
+          unitName: unitLabel,
+          note: change,
+          productId: product.id,
+          sentBefore: kitchenSentQty,
+          // Hai lần bổ sung khác nhau cho cùng dòng là hai phiếu — mã chống trùng gồm cả nội dung.
+          lineKey: '$rowId+${change.hashCode}',
+          calledAt: calledAt,
+        ),
+    ];
+  }
+
   /// SL còn chưa in tem ly.
   double get cupLabelPendingQty =>
       (qty - cupLabelPrintedQty).clamp(0.0, double.infinity);
 
-  bool get kitchenFullySent => kitchenPendingQty <= 0 && qty > 0;
+  bool get kitchenFullySent => kitchenPendingQty <= 0 && !kitchenContentChanged && qty > 0;
 
   /// Khuyến mãi tự áp (tính lại mỗi lần giỏ đổi) — cộng vào chiết khấu dòng gửi server.
   double promoDiscount = 0;
@@ -1235,19 +1292,17 @@ class _PosSellScreenState extends State<PosSellScreen>
       '${(line.lineNote ?? '').trim()}|'
       '${line.toppings.map((t) => '${t.id}x${t.safeQty}').join(',')}';
 
-  /// Số lượng chờ báo bếp chỉ tính theo SL, nên sửa ghi chú / topping của món
-  /// đã báo là bếp không bao giờ biết: bấm Báo bếp chỉ báo «không có thay
-  /// đổi». Đổi thì trả dòng về chưa báo để phiếu mới ra kèm nội dung đúng.
+  /// Đổi ghi chú / topping của món đã báo: giữ nguyên số đã báo, Báo bếp chỉ in phần chênh lệch
+  /// ([_SellCartLine.kitchenTicketLines]). Trước đây trả dòng về chưa báo → in lại cả món, bếp
+  /// làm thêm một phần, và xóa món lúc đó không ra phiếu hủy.
   void _renotifyKitchenOnLineChange(_SellCartLine line, String signatureBefore) {
     if (!_isTableOrderMode) return;
     if (line.kitchenSentQty <= 0) return;
     if (_kitchenLineSignature(line) == signatureBefore) return;
-    line.kitchenSentQty = 0;
+    if (!line.kitchenContentChanged) return;
     NotificationOverlayManager().showWarning(
       title: 'Món đã đổi',
-      message: tr(
-        '${line.product.name}: bấm Báo bếp để gửi lại ghi chú/topping cho bếp',
-      ),
+      message: tr('${line.product.name}: bấm Báo bếp để báo phần bổ sung cho bếp'),
     );
   }
 
@@ -2931,7 +2986,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// Chip «In bếp» lúc TT: tắt khi không còn món chưa báo. Mode auto bật lại
   /// nếu còn món mới. Tránh in thêm phiếu chế biến lúc thanh toán.
   void _syncCheckoutKitchenChip() {
-    final pending = _tab.cart.any((l) => l.kitchenPendingQty > 0);
+    final pending = _tab.cart.any((l) => l.kitchenHasPending);
     if (!pending) {
       _quickPrintKitchen = false;
       return;
@@ -4541,7 +4596,7 @@ class _PosSellScreenState extends State<PosSellScreen>
 
     final cancelLines = _collectKitchenCancelLines();
     final pendingLines =
-        _tab.cart.where((l) => l.kitchenPendingQty > 0).toList();
+        _tab.cart.where((l) => l.kitchenHasPending).toList();
     if (cancelLines.isEmpty && pendingLines.isEmpty) {
       _showNothingToNotify();
       return;
@@ -4640,7 +4695,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     // đúng lần đó để in (tránh mất phiếu khi server đã đánh dấu «đã gửi»).
     final kitchenFp = [
       sid,
-      for (final l in pendingLines) '${l.rowId}:${l.qty}:${l.kitchenSentQty}',
+      for (final l in pendingLines)
+        '${l.rowId}:${l.qty}:${l.kitchenSentQty}:${l.kitchenChangeLines.join(',')}',
     ].join(';');
     if (_tab.kitchenRequestId == null || _tab.kitchenRequestFp != kitchenFp) {
       _tab.kitchenRequestId = PosRequestId.newId();
@@ -4673,16 +4729,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         : int.tryParse('${data['lockVersion']}');
 
     final sendTicketLines = pendingLines
-        .map((l) => KitchenTicketLine(
-              productName: l.product.name,
-              qty: l.kitchenPendingQty,
-              unitName: l.unitLabel,
-              note: l.kitchenNoteFor(l.kitchenPendingQty),
-              productId: l.product.id,
-              sentBefore: l.kitchenSentQty,
-              lineKey: '${l.rowId}',
-              calledAt: DateTime.now(),
-            ))
+        .expand((l) => l.kitchenTicketLines(calledAt: DateTime.now()))
         .where((l) => l.qty > 0)
         .toList();
 
@@ -4739,7 +4786,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         setState(() {
           _stampKitchenRound(pendingLines);
           for (final l in pendingLines) {
-            l.kitchenSentQty = l.qty;
+            l.markKitchenSent();
             l.kitchenCancelPendingQty = 0;
             // Không đánh dấu xuất kho đã in khi chỉ báo bếp — nếu không
             // thanh toán (mode auto) sẽ lọc hết dòng và không in phiếu kho.
@@ -4790,7 +4837,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (mounted) {
       setState(() {
         for (final l in _tab.cart) {
-          l.kitchenSentQty = l.qty;
+          l.markKitchenSent();
           l.kitchenCancelPendingQty = 0;
         }
         _syncCheckoutKitchenChip();
@@ -5401,7 +5448,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   int get _kitchenPendingLineCount =>
-      _tab.cart.where((l) => l.kitchenPendingQty > 0).length;
+      _tab.cart.where((l) => l.kitchenHasPending).length;
 
   int get _kitchenCancelPendingCount {
     var n = _pendingKitchenCancels.length;
@@ -8719,6 +8766,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               'lineTotal': l.lineTotal,
               'lineNote': l.lineNote,
               'kitchenSentQty': l.kitchenSentQty,
+              if (l.kitchenSentContent != null) 'kitchenSentContent': l.kitchenSentContent,
               if (l.kitchenRound > 0) 'kitchenRound': l.kitchenRound,
               if (l.toppings.isNotEmpty)
                 'toppingsJson': jsonEncode(l.toppings.map((t) => t.toJson()).toList()),
@@ -9031,16 +9079,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       return;
     }
     final lines = pendingLines
-        .map((l) => KitchenTicketLine(
-              productName: l.product.name,
-              qty: l.kitchenPendingQty,
-              unitName: l.unitLabel,
-              note: l.kitchenNoteFor(l.kitchenPendingQty),
-              productId: l.product.id,
-              sentBefore: l.kitchenSentQty,
-              lineKey: '${l.rowId}',
-              calledAt: DateTime.now(),
-            ))
+        .expand((l) => l.kitchenTicketLines(calledAt: DateTime.now()))
         .where((l) => l.qty > 0)
         .toList();
     if (lines.isEmpty) return;
@@ -9076,7 +9115,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     setState(() {
       _stampKitchenRound(pendingLines);
       for (final l in pendingLines) {
-        l.kitchenSentQty = l.qty;
+        l.markKitchenSent();
         l.kitchenCancelPendingQty = 0;
       }
       _syncCheckoutKitchenChip();
@@ -9199,16 +9238,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     };
     final kitchenLines = _printSettings.kitchenSlipPrintMode != PosKitchenSlipPrintMode.off
         ? _tab.cart
-            .where((l) => l.kitchenPendingQty > 0)
-            .map((l) => KitchenTicketLine(
-                  productName: l.product.name,
-                  qty: l.kitchenPendingQty,
-                  unitName: l.unitLabel,
-                  note: l.kitchenNoteFor(l.kitchenPendingQty),
-                  productId: l.product.id,
-                  sentBefore: l.kitchenSentQty,
-                  lineKey: '${l.rowId}',
-                ))
+            .where((l) => l.kitchenHasPending)
+            .expand((l) => l.kitchenTicketLines())
             .toList()
         : const <KitchenTicketLine>[];
     final printArea = _tab.serviceAreaName;
@@ -9539,6 +9570,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             // Số đã báo bếp lúc đồng bộ: máy chủ trả món về «chưa báo bếp» (phiếu không in được) thì giỏ cũ
             // (vẫn thấy «đã báo») lưu lại không đánh dấu lại.
             'kitchenSentQty': raw['kitchenSentQty'] ?? raw['KitchenSentQty'] ?? 0,
+            'kitchenSentContent': raw['kitchenSentContent'] ?? raw['KitchenSentContent'],
           },
     ];
   }
@@ -9561,6 +9593,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           'lineNote': l.lineNote,
           'qty': l.qty,
           'kitchenSentQty': l.kitchenSentQty,
+          if (l.kitchenSentContent != null) 'kitchenSentContent': l.kitchenSentContent,
         },
     ];
   }
@@ -9787,6 +9820,9 @@ class _PosSellScreenState extends State<PosSellScreen>
       cartLine.toppings = line.toppings
           .map((t) => _CartTopping(id: t.id, name: t.name, price: t.price, qty: t.qty))
           .toList();
+      // Dòng báo bếp từ bản cũ chưa có mốc → lấy nội dung hiện tại làm mốc.
+      cartLine.kitchenSentContent = line.kitchenSentContent ??
+          (cartLine.kitchenSentQty > 0 ? cartLine.kitchenContentNow : null);
       _restoreLineStaff(cartLine, line);
       final split = splitPosLineNote(line.lineNote, p.saleQuickNotes);
       cartLine.selectedQuickNotes
@@ -12049,6 +12085,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           'discountAmount': c.discountAmount,
           'lineNote': c.lineNote,
           'kitchenSentQty': c.kitchenSentQty,
+          if (c.kitchenSentContent != null) 'kitchenSentContent': c.kitchenSentContent,
           if (c.kitchenRound > 0) 'kitchenRound': c.kitchenRound,
           if (c.toppings.isNotEmpty)
             'toppingsJson': jsonEncode(c.toppings
@@ -13338,19 +13375,11 @@ class _PosSellScreenState extends State<PosSellScreen>
           _kitchenNotifyOn &&
           _quickPrintKitchen &&
           _printSettings.kitchenSlipPrintMode != PosKitchenSlipPrintMode.off &&
-          _tab.cart.any((l) => l.kitchenPendingQty > 0);
+          _tab.cart.any((l) => l.kitchenHasPending);
       final kitchenAutoLines = kitchenAuto
           ? _tab.cart
-              .where((l) => l.kitchenPendingQty > 0)
-              .map((l) => KitchenTicketLine(
-                    productName: l.product.name,
-                    qty: l.kitchenPendingQty,
-                    unitName: l.unitLabel,
-                    note: l.kitchenNoteFor(l.kitchenPendingQty),
-                    productId: l.product.id,
-                    sentBefore: l.kitchenSentQty,
-                    lineKey: '${l.rowId}',
-                  ))
+              .where((l) => l.kitchenHasPending)
+              .expand((l) => l.kitchenTicketLines())
               .toList()
           : const <KitchenTicketLine>[];
       final kitchenAutoTable = formatPosTableLabel(
@@ -16576,8 +16605,12 @@ class _PosSellScreenState extends State<PosSellScreen>
       bg = SboxColors.successSoft;
       fg = SboxColors.successText;
       icon = Icons.check_circle_outline;
-    } else if (line.kitchenPendingQty > 0) {
-      label = line.kitchenSentQty > 0 ? 'Mới +${_qtyFmt.format(line.kitchenPendingQty)}' : 'Chưa báo bếp';
+    } else if (line.kitchenHasPending) {
+      label = line.kitchenPendingQty <= 0
+          ? 'Có bổ sung'
+          : line.kitchenSentQty > 0
+              ? 'Mới +${_qtyFmt.format(line.kitchenPendingQty)}'
+              : 'Chưa báo bếp';
       bg = SboxColors.warningSoft;
       fg = SboxColors.warningText;
       icon = Icons.schedule_outlined;
@@ -21347,6 +21380,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (cloned.kitchenSentQty > 0) {
         cloned.kitchenRound = line.kitchenRound;
         cloned.kitchenSentAt = line.kitchenSentAt;
+        cloned.kitchenSentContent = line.kitchenSentContent;
       }
       _tab.cart.insert(cartIndex + 1, cloned);
       _syncPaidAmount();
@@ -21386,6 +21420,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         qtyToAdd += other.qty;
         // Cộng cả phần đã báo bếp / in tem / in kho — không thì phần đó bị báo lại lần nữa.
         line.kitchenSentQty += other.kitchenSentQty;
+        line.kitchenSentContent ??= other.kitchenSentContent;
         line.cupLabelPrintedQty += other.cupLabelPrintedQty;
         line.warehouseSlipPrintedQty += other.warehouseSlipPrintedQty;
         if (line.kitchenRound == 0 && other.kitchenRound > 0) {
@@ -22034,7 +22069,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                           ),
                         ),
                       )
-                    else if (_isTableOrderMode && line.kitchenPendingQty > 0)
+                    else if (_isTableOrderMode && line.kitchenHasPending)
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
@@ -22043,9 +22078,11 @@ class _PosSellScreenState extends State<PosSellScreen>
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          tr(line.kitchenSentQty > 0
-                              ? 'Mới +${_qtyFmt.format(line.kitchenPendingQty)}'
-                              : 'Chưa báo bếp'),
+                          line.kitchenPendingQty <= 0
+                              ? tr('Có bổ sung')
+                              : tr(line.kitchenSentQty > 0
+                                  ? 'Mới +${_qtyFmt.format(line.kitchenPendingQty)}'
+                                  : 'Chưa báo bếp'),
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,

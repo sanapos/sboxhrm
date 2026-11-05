@@ -92,6 +92,8 @@ class PosSaleOrderLine {
   final DateTime? kitchenSentAt;
   /// Phiên order (lượt báo chế biến) của dòng; 0 = chưa báo / dòng cũ chưa có số phiên.
   final int kitchenRound;
+  /// Topping + ghi chú lúc báo bếp gần nhất — xem [posKitchenChangeLines].
+  final String? kitchenSentContent;
   final List<PosSaleLineTopping> toppings;
 
   /// NV làm / NV hoa hồng của dòng (dòng 1 người) — server lưu theo đơn tạm.
@@ -123,6 +125,7 @@ class PosSaleOrderLine {
     this.kitchenSentQty = 0,
     this.kitchenSentAt,
     this.kitchenRound = 0,
+    this.kitchenSentContent,
     this.toppings = const [],
     this.assignedEmployeeId,
     this.staffAssignmentsJson,
@@ -161,6 +164,7 @@ class PosSaleOrderLine {
       kitchenSentAt:
           parseApiDateTime(json['kitchenSentAt'] ?? json['KitchenSentAt']),
       kitchenRound: i(json['kitchenRound'] ?? json['KitchenRound']) ?? 0,
+      kitchenSentContent: (json['kitchenSentContent'] ?? json['KitchenSentContent'])?.toString(),
       toppings: parsePosSaleLineToppings(
           json['toppingsJson'] ?? json['ToppingsJson']),
       assignedEmployeeId:

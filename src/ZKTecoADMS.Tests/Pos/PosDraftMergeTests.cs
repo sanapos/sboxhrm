@@ -54,6 +54,48 @@ public class PosDraftMergeTests(PosPgFixture fx) : PosFlowTestBase(fx)
         await db.SaveChangesAsync();
     }
 
+    [Fact]
+    public async Task Them_topping_cho_mon_da_bao_giu_so_da_bao_va_id_dong()
+    {
+        if (NoDb) return;
+        var (store, tra, banh, _) = await SetupAsync();
+        var a = await DraftAsync(store, L(tra, 1));
+        var sent = ZKTecoADMS.Api.Services.PosKitchenContent.Serialize(null, null);
+        var line = a.Lines.Single().Id;
+        await using (var db = Fx.NewDb())
+            await db.PosSaleOrderLines.Where(l => l.Id == line).ExecuteUpdateAsync(x => x
+                .SetProperty(l => l.KitchenSentQty, 1m)
+                .SetProperty(l => l.KitchenDoneQty, 1m)
+                .SetProperty(l => l.KitchenPrepStatus, "done")
+                .SetProperty(l => l.KitchenSentContent, sent));
+
+        // Dòng mới gọi trùng nội dung cũ đứng trước: phần đã báo không được rơi sang dòng đó.
+        var topping = $$"""[{"id":"{{banh}}","name":"Bánh","price":10000,"qty":1}]""";
+        await using (var db = Fx.NewDb())
+            Data(await Sales(db, store).UpdateSale(a.Id, Save(
+            [
+                L(tra, 1),
+                new PosSalesController.SaleLineDto(tra, 1, null, 10000, null,
+                    KitchenSentQty: 1, ToppingsJson: topping, KitchenSentContent: sent),
+            ], null)));
+
+        await using (var db = Fx.NewDb())
+        {
+            var rows = await db.PosSaleOrderLines.Where(l => l.SaleOrderId == a.Id && l.Deleted == null).ToListAsync();
+            Assert.Equal(2, rows.Count);
+            var edited = rows.Single(l => l.ToppingsJson != null);
+            Assert.Equal(line, edited.Id);
+            Assert.Equal(1m, edited.KitchenSentQty);
+            Assert.Equal(1m, edited.KitchenDoneQty);
+            Assert.True(edited.KitchenContentPending);
+            Assert.Equal(sent, edited.KitchenSentContent);
+            var fresh = rows.Single(l => l.ToppingsJson == null);
+            Assert.Equal(0m, fresh.KitchenSentQty);
+            Assert.False(fresh.KitchenContentPending);
+            Assert.Null(fresh.KitchenSentContent);
+        }
+    }
+
     async Task<Dictionary<Guid, decimal>> QtyAsync(Guid orderId)
     {
         await using var db = Fx.NewDb();

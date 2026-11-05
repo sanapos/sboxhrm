@@ -288,6 +288,47 @@ public class PosFloorOpsGuardTests(PosPgFixture fx) : PosFlowTestBase(fx)
     }
 
     [Fact]
+    public async Task Adding_topping_to_a_sent_line_sends_only_the_add_on_and_reopens_it_on_kds()
+    {
+        if (NoDb) return;
+        var shop = await ShopAsync();
+        var a = await OpenAsync(shop, "B1", qty: 1, sent: 1, done: 1);
+        await using (var db = Fx.NewDb())
+            await db.PosSaleOrderLines.Where(l => l.Id == a.Line).ExecuteUpdateAsync(x => x
+                .SetProperty(l => l.KitchenPrepStatus, "done")
+                .SetProperty(l => l.ToppingsJson, """[{"id":"t1","name":"Trân châu","price":5000,"qty":1}]""")
+                .SetProperty(l => l.KitchenSentContent, PosKitchenContent.Serialize(null, null))
+                .SetProperty(l => l.KitchenContentPending, true));
+
+        async Task<JsonElement> Send()
+        {
+            await using var db = Fx.NewDb();
+            return Json(await Floor(db, shop.Store).KitchenSend(a.Session,
+                new PosSellIndustryController.KitchenSendDto(DeviceId: Me, RequestId: Guid.NewGuid().ToString("N"))));
+        }
+
+        var first = await Send();
+        Assert.False(first.GetProperty("alreadyAllSent").GetBoolean());
+        Assert.Equal(0m, first.GetProperty("sentQty").GetDecimal());
+        var item = Assert.Single(first.GetProperty("sentItems").EnumerateArray());
+        Assert.Equal("BỔ SUNG: Lẩu", item.GetProperty("productName").GetString());
+        Assert.Equal("+ Trân châu", item.GetProperty("note").GetString());
+        Assert.Equal(1m, item.GetProperty("qty").GetDecimal());
+
+        await using (var db = Fx.NewDb())
+        {
+            var row = await db.PosSaleOrderLines.FirstAsync(l => l.Id == a.Line);
+            Assert.Equal(1m, row.KitchenSentQty);
+            Assert.Equal(0m, row.KitchenDoneQty);
+            Assert.Equal("queued", row.KitchenPrepStatus);
+            Assert.False(row.KitchenContentPending);
+            Assert.Equal("+ Trân châu", row.KitchenAddOnNote);
+        }
+
+        Assert.True((await Send()).GetProperty("alreadyAllSent").GetBoolean());
+    }
+
+    [Fact]
     public async Task Merge_moves_deposit_and_discount_and_keeps_each_tables_pause_on_its_own_lines()
     {
         if (NoDb) return;

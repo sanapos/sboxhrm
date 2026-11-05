@@ -777,6 +777,9 @@ public partial class PosSellIndustryController
             AssignedEmployeeId = src.AssignedEmployeeId,
             KitchenSentQty = kitchenSent,
             KitchenSentAt = kitchenSent > 0 ? src.KitchenSentAt ?? now : null,
+            KitchenSentContent = kitchenSent > 0 ? src.KitchenSentContent : null,
+            KitchenContentPending = kitchenSent > 0 && src.KitchenContentPending,
+            KitchenAddOnNote = kitchenSent > 0 ? src.KitchenAddOnNote : null,
             KitchenDoneQty = kitchenSent > 0
                 ? Math.Min(kitchenSent, src.KitchenDoneQty)
                 : 0,
@@ -1203,14 +1206,42 @@ public partial class PosSellIndustryController
                 continue;
             // Chỉ báo phần chưa gửi — tránh in trùng bill cùng món/qty.
             var pending = line.Qty - line.KitchenSentQty;
-            if (pending <= 0) continue;
+            // Món đã báo vừa đổi topping / ghi chú: phiếu chỉ ghi phần chênh lệch, không tính là món mới.
+            var addOn = line.KitchenSentQty > 0
+                ? PosKitchenContent.ChangeNote(line.KitchenSentContent, line.ToppingsJson, line.LineNote)
+                : null;
+            if (pending <= 0 && addOn == null)
+            {
+                line.KitchenContentPending = false;
+                continue;
+            }
             var sentBefore = line.KitchenSentQty;
-            line.KitchenSentQty = line.Qty;
-            line.KitchenSentAt = now;
-            PosKitchenKdsHelper.OnSent(line);
+            if (addOn != null)
+            {
+                sentItems.Add(new
+                {
+                    productId = line.ProductId,
+                    productName = PosKitchenContent.AddOnPrefix + line.ProductName,
+                    qty = sentBefore,
+                    unitName = line.UnitName,
+                    note = addOn,
+                    sentBefore,
+                    // Hai lần bổ sung khác nhau cho cùng dòng là hai phiếu — mã chống trùng gồm cả nội dung.
+                    lineId = $"{line.Id}+{Convert.ToHexString(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(addOn)))[..8]}",
+                });
+                line.KitchenAddOnNote = addOn;
+                // Món đã xong mà khách thêm topping: mở lại để bếp thấy trên KDS.
+                if (PosKitchenKdsHelper.OpenQty(line) <= 0) PosKitchenKdsHelper.Recall(line);
+            }
+            line.KitchenSentContent = PosKitchenContent.Serialize(line.ToppingsJson, line.LineNote);
+            line.KitchenContentPending = false;
             line.UpdatedAt = now;
             line.UpdatedBy = CurrentUserEmail;
             sent++;
+            if (pending <= 0) continue;
+            line.KitchenSentQty = line.Qty;
+            line.KitchenSentAt = now;
+            PosKitchenKdsHelper.OnSent(line);
             sentQty += pending;
             sentItems.Add(new
             {

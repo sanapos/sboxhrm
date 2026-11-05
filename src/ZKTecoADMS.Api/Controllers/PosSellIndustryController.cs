@@ -847,7 +847,7 @@ public partial class PosSellIndustryController(
                     Subtotal = o.Lines.Where(l => l.Deleted == null).Sum(l => l.LineTotal),
                     LineCount = o.Lines.Count(l => l.Deleted == null),
                     PendingKitchen = o.Lines.Count(l =>
-                        l.Deleted == null && (l.Qty - l.KitchenSentQty) > 0.0001m),
+                        l.Deleted == null && ((l.Qty - l.KitchenSentQty) > 0.0001m || l.KitchenContentPending)),
                     o.LockedByDeviceId,
                     o.LockedByDeviceName,
                     o.LockedByDisplayName,
@@ -898,7 +898,7 @@ public partial class PosSellIndustryController(
                 LineCount = o.Lines.Count(l => l.Deleted == null),
                 Subtotal = o.Lines.Where(l => l.Deleted == null).Sum(l => l.LineTotal),
                 PendingKitchen = o.Lines.Count(l =>
-                    l.Deleted == null && (l.Qty - l.KitchenSentQty) > 0.0001m),
+                    l.Deleted == null && ((l.Qty - l.KitchenSentQty) > 0.0001m || l.KitchenContentPending)),
                 o.LockedByDeviceId,
                 o.LockedByDeviceName,
                 o.LockedByDisplayName,

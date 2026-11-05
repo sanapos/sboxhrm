@@ -403,10 +403,12 @@ public partial class PosSalesController
                 l.KitchenPrepStatus,
                 l.ToppingsJson,
                 l.LineNote,
+                l.KitchenSentContent,
+                l.KitchenAddOnNote,
             })
             .ToListAsync();
         var priorKitchen = priorRows
-            .GroupBy(l => KitchenMergeKey(l.ProductId, l.VariantId, l.ToppingsJson, l.LineNote))
+            .GroupBy(l => PosKitchenContent.CarryKey(l.ProductId, l.VariantId, l.ToppingsJson, l.LineNote, l.KitchenSentContent))
             .ToDictionary(
                 g => g.Key,
                 g => (
@@ -425,10 +427,25 @@ public partial class PosSalesController
         if (lines == null)
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Không cập nhật được đơn"));
 
+        // Dòng đã báo mà vừa đổi topping / ghi chú ghép theo nội dung lúc báo, để giữ số đã báo, số đã xong và Id
+        // dòng. App cũ không gửi mốc → lấy theo dòng cùng nội dung hiện tại trên server.
+        var priorContent = priorRows
+            .Where(r => r.KitchenSentContent != null)
+            .GroupBy(r => KitchenMergeKey(r.ProductId, r.VariantId, r.ToppingsJson, r.LineNote))
+            .ToDictionary(g => g.Key, g => g.First().KitchenSentContent);
+        foreach (var line in lines)
+        {
+            // Chỉ dòng máy báo là đã gửi bếp: dòng mới gọi trùng nội dung phải ở lại «chưa báo».
+            if (line.KitchenSentQty > 0)
+                line.KitchenSentContent ??= priorContent.GetValueOrDefault(KitchenMergeKey(line));
+        }
+        // Xét dòng có mốc trước: dòng mới gọi trùng nội dung cũ không được lấy mất phần đã báo.
+        var carryOrder = lines.OrderByDescending(l => l.KitchenSentContent != null).ToList();
+
         // Ghép KitchenSentQty: max(client, prior lúc đầu, live DB ngay trước ghi).
         // Live đọc lại để không bị race với kitchen-send (autosave xóa dòng đang gửi bếp).
         var dtoKitchenByKey = dto.Lines
-            .GroupBy(l => KitchenMergeKey(l.ProductId, l.VariantId, l.ToppingsJson, l.LineNote))
+            .GroupBy(l => PosKitchenContent.CarryKey(l.ProductId, l.VariantId, l.ToppingsJson, l.LineNote, l.KitchenSentContent))
             .ToDictionary(g => g.Key, g => g.Sum(x => x.KitchenSentQty ?? 0));
         var remainingPrior = priorKitchen.ToDictionary(kv => kv.Key, kv => kv.Value.Sent);
         var remainingAt = priorKitchen.ToDictionary(kv => kv.Key, kv => kv.Value.At);
@@ -440,7 +457,7 @@ public partial class PosSalesController
         if (dto.BaseLines != null && dto.BaseLines.Any(b => b.KitchenSentQty.HasValue))
         {
             var baseKitchen = dto.BaseLines
-                .GroupBy(b => KitchenMergeKey(b.ProductId, b.VariantId, b.ToppingsJson, b.LineNote))
+                .GroupBy(b => PosKitchenContent.CarryKey(b.ProductId, b.VariantId, b.ToppingsJson, b.LineNote, b.KitchenSentContent))
                 .ToDictionary(g => g.Key, g => g.Sum(x => x.KitchenSentQty ?? 0));
             foreach (var key in remainingDto.Keys.ToList())
             {
@@ -464,10 +481,12 @@ public partial class PosSalesController
                 l.KitchenPrepStatus,
                 l.ToppingsJson,
                 l.LineNote,
+                l.KitchenSentContent,
+                l.KitchenAddOnNote,
             })
             .ToListAsync();
         var liveKitchen = liveRows
-            .GroupBy(l => KitchenMergeKey(l.ProductId, l.VariantId, l.ToppingsJson, l.LineNote))
+            .GroupBy(l => PosKitchenContent.CarryKey(l.ProductId, l.VariantId, l.ToppingsJson, l.LineNote, l.KitchenSentContent))
             .ToDictionary(
                 g => g.Key,
                 g => (
@@ -482,9 +501,9 @@ public partial class PosSalesController
                 remainingAt[kv.Key] = kv.Value.At;
         }
 
-        foreach (var line in lines)
+        foreach (var line in carryOrder)
         {
-            var key = KitchenMergeKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote);
+            var key = PosKitchenContent.CarryKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote, line.KitchenSentContent);
             if (serverOwnedKitchenKeys.Contains(key))
             {
                 // Dòng dựng từ giỏ mang số «đã báo» của máy — bỏ, lấy theo máy chủ ngay dưới.
@@ -519,10 +538,12 @@ public partial class PosSalesController
                 l.KitchenPrepStatus,
                 l.ToppingsJson,
                 l.LineNote,
+                l.KitchenSentContent,
+                l.KitchenAddOnNote,
             })
             .ToListAsync();
         var finalLive = finalLiveRows
-            .GroupBy(l => KitchenMergeKey(l.ProductId, l.VariantId, l.ToppingsJson, l.LineNote))
+            .GroupBy(l => PosKitchenContent.CarryKey(l.ProductId, l.VariantId, l.ToppingsJson, l.LineNote, l.KitchenSentContent))
             .ToDictionary(
                 g => g.Key,
                 g => (
@@ -537,15 +558,15 @@ public partial class PosSalesController
         {
             finalShortfall[kv.Key] = kv.Value.Sent;
         }
-        foreach (var line in lines)
+        foreach (var line in carryOrder)
         {
-            var key = KitchenMergeKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote);
+            var key = PosKitchenContent.CarryKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote, line.KitchenSentContent);
             if (finalShortfall.TryGetValue(key, out var rest))
                 finalShortfall[key] = rest - line.KitchenSentQty;
         }
-        foreach (var line in lines)
+        foreach (var line in carryOrder)
         {
-            var key = KitchenMergeKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote);
+            var key = PosKitchenContent.CarryKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote, line.KitchenSentContent);
             if (!finalShortfall.TryGetValue(key, out var rest) || rest <= 0) continue;
             var room = line.Qty - line.KitchenSentQty;
             if (room <= 0) continue;
@@ -572,18 +593,18 @@ public partial class PosSalesController
                 if (!string.IsNullOrWhiteSpace(status)) list.Add(status!);
         }
         foreach (var g in priorRows.GroupBy(r =>
-            KitchenMergeKey(r.ProductId, r.VariantId, r.ToppingsJson, r.LineNote)))
+            PosKitchenContent.CarryKey(r.ProductId, r.VariantId, r.ToppingsJson, r.LineNote, r.KitchenSentContent)))
             AccKds(g.Key, g.Sum(x => x.KitchenDoneQty), g.Select(x => x.KitchenPrepStatus));
         foreach (var g in liveRows.GroupBy(r =>
-            KitchenMergeKey(r.ProductId, r.VariantId, r.ToppingsJson, r.LineNote)))
+            PosKitchenContent.CarryKey(r.ProductId, r.VariantId, r.ToppingsJson, r.LineNote, r.KitchenSentContent)))
             AccKds(g.Key, g.Sum(x => x.KitchenDoneQty), g.Select(x => x.KitchenPrepStatus));
         foreach (var g in finalLiveRows.GroupBy(r =>
-            KitchenMergeKey(r.ProductId, r.VariantId, r.ToppingsJson, r.LineNote)))
+            PosKitchenContent.CarryKey(r.ProductId, r.VariantId, r.ToppingsJson, r.LineNote, r.KitchenSentContent)))
             AccKds(g.Key, g.Sum(x => x.KitchenDoneQty), g.Select(x => x.KitchenPrepStatus));
         var remainingDone = kdsDone.ToDictionary(kv => kv.Key, kv => kv.Value);
-        foreach (var line in lines)
+        foreach (var line in carryOrder)
         {
-            var key = KitchenMergeKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote);
+            var key = PosKitchenContent.CarryKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote, line.KitchenSentContent);
             remainingDone.TryGetValue(key, out var doneLeft);
             var takeDone = Math.Min(Math.Max(0, doneLeft), line.KitchenSentQty);
             line.KitchenDoneQty = takeDone;
@@ -598,13 +619,24 @@ public partial class PosSalesController
 
         // Giữ Id dòng cũ — autosave chọn món không được tạo Guid mới (KDS sẽ đọc lại cả bàn).
         var priorIdQ = priorRows
-            .GroupBy(l => KitchenMergeKey(l.ProductId, l.VariantId, l.ToppingsJson, l.LineNote))
+            .GroupBy(l => PosKitchenContent.CarryKey(l.ProductId, l.VariantId, l.ToppingsJson, l.LineNote, l.KitchenSentContent))
             .ToDictionary(g => g.Key, g => new Queue<Guid>(g.Select(x => x.Id)));
-        foreach (var line in lines)
+        foreach (var line in carryOrder)
         {
-            var key = KitchenMergeKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote);
+            var key = PosKitchenContent.CarryKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote, line.KitchenSentContent);
             if (priorIdQ.TryGetValue(key, out var q) && q.Count > 0)
                 line.Id = q.Dequeue();
+        }
+
+        var addOnNotes = finalLiveRows
+            .Where(r => r.KitchenAddOnNote != null)
+            .GroupBy(r => PosKitchenContent.CarryKey(r.ProductId, r.VariantId, r.ToppingsJson, r.LineNote, r.KitchenSentContent))
+            .ToDictionary(g => g.Key, g => g.First().KitchenAddOnNote);
+        foreach (var line in lines)
+        {
+            line.KitchenAddOnNote = addOnNotes.GetValueOrDefault(
+                PosKitchenContent.CarryKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote, line.KitchenSentContent));
+            PosKitchenContent.Settle(line);
         }
 
         if (order.Status == PosSaleOrderStatus.Completed)
@@ -1990,6 +2022,7 @@ public partial class PosSalesController
                 KitchenSentAt = kitchenSent > 0 ? DateTime.UtcNow : null,
                 // Phiên order do máy bán gán khi báo bếp (giữ nguyên qua mỗi lần autosave dựng lại dòng).
                 KitchenRound = Math.Max(0, line.KitchenRound ?? 0),
+                KitchenSentContent = kitchenSent > 0 ? line.KitchenSentContent : null,
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
             });

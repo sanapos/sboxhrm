@@ -79,6 +79,15 @@ public class PosSaleOrderLine : AuditableEntity<Guid>
     [MaxLength(20)]
     public string KitchenPrepStatus { get; set; } = "none";
 
+    /// <summary>Topping + ghi chú lúc báo bếp gần nhất (JSON <c>{t,n}</c>); null = chưa báo / dòng cũ.</summary>
+    public string? KitchenSentContent { get; set; }
+
+    /// <summary>Đã đổi topping / ghi chú sau lần báo bếp, chưa báo phần bổ sung cho bếp.</summary>
+    public bool KitchenContentPending { get; set; }
+
+    /// <summary>Phần bổ sung lần báo gần nhất — KDS hiện lên đầu món.</summary>
+    public string? KitchenAddOnNote { get; set; }
+
     /// <summary>JSON topping: [{id,name,price}].</summary>
     public string? ToppingsJson { get; set; }
 }

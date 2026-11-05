@@ -8,7 +8,7 @@ public partial class PosSalesController
     /// <param name="KitchenSentQty">Số đã báo bếp máy thấy lúc đồng bộ (null = app cũ không gửi).</param>
     public record BaseLineDto(
         Guid? Id, Guid ProductId, Guid? VariantId, string? ToppingsJson, string? LineNote, decimal Qty,
-        decimal? KitchenSentQty = null);
+        decimal? KitchenSentQty = null, string? KitchenSentContent = null);
 
     public record DraftMergeResult(List<SaleLineDto> Lines, int MergedKeys);
 
@@ -120,5 +120,6 @@ public partial class PosSalesController
             : null,
         ServicePausedAt: row.ServicePausedAt,
         ServicePauseMinutes: row.ServicePauseMinutes,
-        KitchenRound: row.KitchenRound);
+        KitchenRound: row.KitchenRound,
+        KitchenSentContent: row.KitchenSentContent);
 }
