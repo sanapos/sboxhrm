@@ -1,4 +1,5 @@
 import '../../widgets/attendance/punch_cells.dart';
+import '../../widgets/attendance/shift_punch_slots_dialog.dart';
 import '../../utils/export_permission_guard.dart';
 import '../../widgets/attendance/attendance_day_strip.dart';
 import 'dart:convert';
@@ -29,6 +30,7 @@ import '../../widgets/attendance_delete_confirm_dialog.dart';
 import '../../utils/attendance_date_range_presets.dart';
 import '../../utils/attendance_leave_lookup.dart';
 import '../../utils/attendance_day_scope.dart';
+import '../../utils/attendance_punch_slots.dart';
 import '../../utils/absence_day_actions.dart';
 import '../../utils/attendance_correction_submit.dart';
 import '../../utils/attendance_record_resolver.dart';
@@ -93,6 +95,9 @@ class AttendanceByShiftTab extends StatefulWidget {
   /// Bộ lọc chi nhánh / phòng ban đang chọn ở màn ngoài (ghi vào dòng «Bộ lọc» của file xuất).
   final String? orgFilterLabel;
 
+  /// Thiết lập lần chấm theo ca đã có sẵn; null = tab tự tải từ máy chủ.
+  final Map<String, List<int>>? initialPunchSlots;
+
   const AttendanceByShiftTab({
     super.key,
     required this.attendances,
@@ -123,6 +128,7 @@ class AttendanceByShiftTab extends StatefulWidget {
     this.travelEligibleEmployeeKeys = const {},
     this.workSchedules = const [],
     this.orgFilterLabel,
+    this.initialPunchSlots,
   });
 
   @override
@@ -139,7 +145,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   AttendancePunchLayout _punchLayout = AttendancePunchLayout.ordered;
   static const _punchLayoutPrefKey = 'attendance_by_shift_punch_layout_v1';
   /// Cách xếp giờ chấm từng dòng (theo đối tượng dòng — dữ liệu tải lại là dòng mới); làm mới khi đổi cách xếp.
-  Expando<(List<int?>?,)> _slotLayoutCache = Expando();
+  Expando<(ShiftPunchColumns?,)> _slotLayoutCache = Expando();
+  /// Thiết lập của cửa hàng: ca nào nằm ở lần chấm nào. Rỗng = chưa thiết lập.
+  late Map<String, List<int>> _punchSlots = widget.initialPunchSlots ?? const {};
   bool _showOverviewPanel = true;
 
   // Sorting
@@ -299,6 +307,70 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   /// Dấu «đã sửa tay» theo attendanceId.
   Map<String, Map<String, dynamic>> _editMarks = {};
 
+  Future<void> _loadPunchSlots() async {
+    try {
+      final r = await ApiService().getAppSetting(AttendancePunchSlots.settingKey);
+      if (!mounted || r['isSuccess'] != true) return;
+      final data = r['data'];
+      final slots = AttendancePunchSlots.parse(data is Map ? data['value']?.toString() : null);
+      if (slots.isEmpty) return;
+      setState(() {
+        _punchSlots = slots;
+        _slotLayoutCache = Expando();
+      });
+    } catch (_) {}
+  }
+
+  /// Mọi mẫu ca của cửa hàng, xếp theo giờ bắt đầu.
+  List<PunchSlotShift> _punchSlotShifts() {
+    final templates = _shiftTemplateMap.entries.toList()
+      ..sort((a, b) => _parseTimeSpanToMinutes(a.value['startTime']?.toString())
+          .compareTo(_parseTimeSpanToMinutes(b.value['startTime']?.toString())));
+    return [
+      for (final e in templates)
+        (id: e.key, name: e.value['name']?.toString() ?? '', halves: _dailySlotsOf([e.value])),
+    ];
+  }
+
+  bool get _canEditPunchSlots {
+    try {
+      final perm = Provider.of<PermissionProvider>(context, listen: false);
+      return perm.canEdit('SystemSettings') || perm.canEdit('SalarySettings');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _openPunchSlotsDialog() async {
+    final shifts = _punchSlotShifts();
+    if (shifts.isEmpty) {
+      NotificationOverlayManager().showError(title: tr('Chưa có ca'), message: tr('Cửa hàng chưa có mẫu ca nào.'));
+      return;
+    }
+    final picked = await showShiftPunchSlotsDialog(context, shifts: shifts, saved: _punchSlots);
+    if (picked == null || !mounted) return;
+    final r = await ApiService().upsertAppSetting(
+      key: AttendancePunchSlots.settingKey,
+      value: AttendancePunchSlots.encode(picked),
+      description: 'Lần chấm của từng ca khi xếp giờ chấm theo ca',
+      group: 'Attendance',
+      dataType: 'json',
+    );
+    if (!mounted) return;
+    if (r['isSuccess'] != true) {
+      NotificationOverlayManager().showError(
+        title: tr('Chưa lưu được'),
+        message: tr(r['message']?.toString() ?? 'Không lưu được thiết lập lần chấm.'),
+      );
+      return;
+    }
+    setState(() {
+      _punchSlots = picked;
+      _slotLayoutCache = Expando();
+    });
+    NotificationOverlayManager().showSuccess(title: tr('Đã lưu'), message: tr('Đã lưu thiết lập lần chấm theo ca.'));
+  }
+
   Future<void> _loadEditMarks() async {
     try {
       final r = await ApiService().getAttendanceEditMarks(widget.fromDate, widget.toDate);
@@ -320,6 +392,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     _selectedPreset = widget.dateRangePreset ?? 'month';
     _buildLookupMaps();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadEditMarks());
+    if (widget.initialPunchSlots == null) _loadPunchSlots();
     ReportColumnPrefs.load(_colPrefKey, _columnDefs).then((l) {
       if (mounted) setState(() => _colLayout = l);
     });
@@ -1431,7 +1504,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       icon: Icons.event_note_outlined,
     );
 
-    final punchLayoutFilter = _buildDropdown<AttendancePunchLayout>(
+    final punchLayoutDropdown = _buildDropdown<AttendancePunchLayout>(
       value: _punchLayout,
       items: [
         for (final v in AttendancePunchLayout.values)
@@ -1447,6 +1520,17 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       },
       icon: Icons.view_column_outlined,
     );
+    final punchLayoutFilter = _punchLayout == AttendancePunchLayout.byShift && _canEditPunchSlots
+        ? Row(children: [
+            Expanded(child: punchLayoutDropdown),
+            IconButton(
+              tooltip: tr('Thiết lập lần chấm theo ca'),
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.tune, size: 18),
+              onPressed: _openPunchSlotsDialog,
+            ),
+          ])
+        : punchLayoutDropdown;
 
     final summaryChip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -3781,7 +3865,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       for (var pi = 0; pi < pm.length; pi++)
         for (var bi = 0; bi < bounds.length; bi++)
           if ((pm[pi] - bounds[bi]).abs() <= 240) (pi, bi, (pm[pi] - bounds[bi]).abs()),
-    ]..sort((a, b) => a.$3.compareTo(b.$3));
+    ]..sort((a, b) => a.$3 != b.$3 ? a.$3.compareTo(b.$3) : a.$2.compareTo(b.$2));
     final punchToBound = <int, int>{};
     final usedBounds = <int>{};
     for (final (pi, bi, _) in cands) {
@@ -5017,7 +5101,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     // Xếp theo ca: ô của ca trống vẫn chiếm cột (chỉ làm chiều → giờ ở Lần 3–4).
     if (_punchLayout == AttendancePunchLayout.byShift) {
       for (final r in records) {
-        final n = _shiftSlotLayout(r)?.length ?? 0;
+        final n = _shiftSlotLayout(r)?.cols.length ?? 0;
         if (n > maxPunches) maxPunches = n;
       }
     }
@@ -5303,7 +5387,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   /// (chỉ làm chiều → Lần 3–4), còn không thì chỉ ngày thiếu chấm để ô thiếu nằm đúng chỗ — vd. thiếu ra ca
   /// sáng thì Lần 2 báo thiếu, giờ vào chiều ở Lần 3 (không dồn lên Lần 2).
   /// Trả về chỉ số giờ chấm cho từng ô; null = không xếp được (giờ ngoài ca, chưa gán ca…) → hiển thị theo thứ tự.
-  List<int?>? _shiftSlotLayout(_DailyShiftRecord r) {
+  ShiftPunchColumns? _shiftSlotLayout(_DailyShiftRecord r) {
     final cached = _slotLayoutCache[r];
     if (cached != null) return cached.$1;
     final layout = _computeShiftSlotLayout(r);
@@ -5314,13 +5398,83 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   /// Giờ (HH:mm) ở cột Lần [col + 1] — cùng cách xếp với bảng trên màn hình (Excel / PNG).
   String _punchTextAtColumn(_DailyShiftRecord r, int col) {
     final layout = _shiftSlotLayout(r);
-    final pi = layout == null ? col : (col < layout.length ? layout[col] : null);
+    final pi = layout == null ? col : (col < layout.cols.length ? layout.cols[col] : null);
     if (pi == null || pi >= r.displayPunchTimes.length) return '';
     return DateFormat('HH:mm').format(r.displayPunchTimes[pi]);
   }
 
-  List<int?>? _computeShiftSlotLayout(_DailyShiftRecord r) {
+  /// Xếp theo thiết lập lần chấm của cửa hàng. Ca đã khớp giờ chấm nhận hết các giờ thì theo ca đó (đúng cột «Tên ca»).
+  /// Còn lại (ca khác, làm ca không được gán…) so ca đã khớp, ca được gán và mọi ca của cửa hàng, chọn cách khớp giờ nhất.
+  ShiftPunchColumns? _configuredSlotLayout(_DailyShiftRecord r) {
+    final columnsOf = AttendancePunchSlots.withDefaults(_punchSlotShifts(), _punchSlots);
+    final base = DateTime(r.date.year, r.date.month, r.date.day);
+    final matched = <Map<String, dynamic>>[];
+    for (final n in r.shiftNames) {
+      final st = _shiftTemplateForName(n);
+      if (st != null && !matched.contains(st)) matched.add(st);
+    }
+    final guid = _employeeCodeToGuid[r.employeeCode] ?? r.employeeId;
+    final ids = _employeeGuidToShiftTemplateIds[guid] ??
+        _employeeGuidToShiftTemplateIds[r.employeeId] ??
+        const <String>[];
+    final attempts = [
+      matched,
+      <Map<String, dynamic>>[
+        ...matched,
+        for (final id in ids)
+          if (_shiftTemplateMap[id] != null && !matched.contains(_shiftTemplateMap[id])) _shiftTemplateMap[id]!,
+      ],
+      _shiftTemplateMap.values.toList(),
+    ];
+    ShiftPunchColumns? best;
+    var bestCost = 0;
+    for (var i = 0; i < attempts.length; i++) {
+      final sorted = [...attempts[i]]
+        ..sort((a, b) => _parseTimeSpanToMinutes(a['startTime']?.toString())
+            .compareTo(_parseTimeSpanToMinutes(b['startTime']?.toString())));
+      final slots = <({int start, int end})>[];
+      final columns = <({int inCol, int outCol})>[];
+      for (final st in sorted) {
+        final cols = columnsOf[st['id']?.toString()];
+        if (cols == null) continue;
+        final halves = _dailySlotsOf([st]);
+        for (var h = 0; h < halves.length; h++) {
+          slots.add(halves[h]);
+          columns.add((inCol: cols[h * 2] - 1, outCol: cols[h * 2 + 1] - 1));
+        }
+      }
+      if (slots.isEmpty) continue;
+      final a = _dailyAssignPunches(r.punchTimes, r.date, slots);
+      final placed = ShiftPunchColumns.place(
+        punches: r.punchTimes,
+        ins: a.ins,
+        outs: a.outs,
+        extra: a.extra,
+        columns: columns,
+      );
+      if (i == 0 && a.extra.isEmpty) return placed;
+      // Điểm phạt (phút): lệch giờ ca + ca chỉ có một lần chấm + giờ không thuộc ca nào.
+      var cost = a.extra.length * 1000;
+      for (var k = 0; k < slots.length; k++) {
+        final pIn = a.ins[k], pOut = a.outs[k];
+        if (pIn != null) cost += (pIn.difference(base).inMinutes - slots[k].start).abs();
+        if (pOut != null) cost += (pOut.difference(base).inMinutes - slots[k].end).abs();
+        if ((pIn == null) != (pOut == null)) cost += 240;
+      }
+      if (best == null || cost < bestCost) {
+        best = placed;
+        bestCost = cost;
+      }
+    }
+    return best;
+  }
+
+  ShiftPunchColumns? _computeShiftSlotLayout(_DailyShiftRecord r) {
     if (r.punchTimes.isEmpty) return null;
+    if (_punchLayout == AttendancePunchLayout.byShift && _punchSlots.isNotEmpty) {
+      final configured = _configuredSlotLayout(r);
+      if (configured != null) return configured;
+    }
     if (_punchLayout != AttendancePunchLayout.byShift && !r.status.contains('Thiếu')) return null;
     final templates = _dailyTemplatesFor(r.employeeId, r.employeeCode, r.shiftNames);
     final slots = _dailySlotsOf(templates);
@@ -5336,22 +5490,22 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     // Đã đúng thứ tự (vd. chỉ thiếu ra ca cuối) → giữ cách hiển thị cũ.
     final positional = [for (var i = 0; i < layout.length; i++) i < r.punchTimes.length ? i : null];
     if (listEquals(layout, positional)) return null;
-    return layout;
+    return ShiftPunchColumns(layout, {for (var i = 0; i < layout.length; i++) i: i.isEven ? i + 1 : i - 1});
   }
 
-  Widget _buildSlotPunchCell(_DailyShiftRecord record, int col, List<int?> layout) {
-    if (col >= layout.length) {
+  Widget _buildSlotPunchCell(_DailyShiftRecord record, int col, ShiftPunchColumns layout) {
+    if (col >= layout.cols.length) {
       return const Text('—', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: SboxColors.slate300));
     }
-    final pi = layout[col];
+    final pi = layout.cols[col];
     if (pi != null) return _buildPunchTimeCell(record, pi, inTable: true, slotCol: col);
     final isIn = col.isEven;
-    final pairCol = isIn ? col + 1 : col - 1;
+    final pairCol = layout.pairOf[col];
     final now = DateTime.now();
     final past = DateTime(record.date.year, record.date.month, record.date.day)
         .isBefore(DateTime(now.year, now.month, now.day));
     // Ca có một lần chấm → ô còn lại là thiếu chấm; ca trống cả hai → nghỉ ca đó, để trống.
-    final missing = past && pairCol >= 0 && pairCol < layout.length && layout[pairCol] != null;
+    final missing = past && pairCol != null && pairCol < layout.cols.length && layout.cols[pairCol] != null;
     final onTap = widget.allowCorrection ? () => _showManualPunchDialog(record) : null;
     final canQuickAdd = widget.allowCorrection && widget.directApplyCorrections;
     final sugg = canQuickAdd ? _shiftSuggestions(record, isIn) : const <TimeSuggestion>[];

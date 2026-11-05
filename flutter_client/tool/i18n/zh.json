@@ -22813,7 +22813,17 @@
   "Nhập, xuất, kiểm kho": "入库、出库、盘点",
   "Quét mã từng máy": "逐台扫码",
   "Tra seri / IMEI": "查询序列号 / IMEI",
-  "So tồn sổ và thực tế": "核对账面与实际库存"
+  "So tồn sổ và thực tế": "核对账面与实际库存",
+  "Chưa lưu được": "未能保存",
+  "Có ca dùng chung một lần chấm: nếu nhân viên làm cả hai ca trong ngày, giờ của ca sau nằm ở các cột cuối.": "有班次共用同一打卡次数：如果员工当天上两个班次，后一班次的时间将显示在最后几列。",
+  "Cửa hàng chưa có mẫu ca nào.": "门店还没有班次模板。",
+  "Không lưu được thiết lập lần chấm.": "无法保存打卡次数设置。",
+  "Lần chấm của từng ca khi xếp giờ chấm theo ca": "按班次排列打卡时间时各班次的打卡次数",
+  "Lần chấm sau phải lớn hơn lần chấm trước": "后一打卡次数必须大于前一次",
+  "Thiết lập lần chấm theo ca": "按班次设置打卡次数",
+  "Tự xếp theo giờ ca": "按班次时间自动排列",
+  "Áp dụng khi chọn «Giờ chấm theo ca» trên bảng và file xuất. Không ảnh hưởng cách tính công.": "选择“按班次显示打卡时间”时应用于表格和导出文件，不影响工时计算。",
+  "Đã lưu thiết lập lần chấm theo ca.": "已保存按班次的打卡次数设置。"
  },
  "t": [
   [

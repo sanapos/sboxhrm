@@ -10641,7 +10641,17 @@
   "Quét mã từng máy": "Scan each unit's code",
   "Tra seri / IMEI": "Look up serial / IMEI",
   "So tồn sổ và thực tế": "Compare book and actual stock",
-  "Thu chi": "Cash book"
+  "Thu chi": "Cash book",
+  "Chưa lưu được": "Not saved",
+  "Có ca dùng chung một lần chấm: nếu nhân viên làm cả hai ca trong ngày, giờ của ca sau nằm ở các cột cuối.": "Some shifts share a punch number: if an employee works both shifts in a day, the later shift's times go in the last columns.",
+  "Cửa hàng chưa có mẫu ca nào.": "The store has no shift templates yet.",
+  "Không lưu được thiết lập lần chấm.": "Could not save the punch number settings.",
+  "Lần chấm của từng ca khi xếp giờ chấm theo ca": "Punch number of each shift when arranging punch times by shift",
+  "Lần chấm sau phải lớn hơn lần chấm trước": "Each punch number must be greater than the previous one",
+  "Thiết lập lần chấm theo ca": "Punch numbers by shift",
+  "Tự xếp theo giờ ca": "Auto-arrange by shift time",
+  "Áp dụng khi chọn «Giờ chấm theo ca» trên bảng và file xuất. Không ảnh hưởng cách tính công.": "Applies when \"Punch times by shift\" is selected, on the table and in exported files. It does not affect work-day calculation.",
+  "Đã lưu thiết lập lần chấm theo ca.": "Punch numbers by shift saved."
  },
  "t": [
   [

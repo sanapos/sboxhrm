@@ -28,7 +28,11 @@ const _layoutOnlyErrors = [
   'SliverGeometry is not valid',
 ];
 
-Future<void> _pump(WidgetTester tester) async {
+Future<void> _pump(
+  WidgetTester tester, {
+  Map<String, List<int>>? punchSlots,
+  List<String> assignedShiftIds = const ['sang', 'chieu'],
+}) async {
   final prev = FlutterError.onError;
   FlutterError.onError = (d) {
     if (_layoutOnlyErrors.any(d.exceptionAsString().contains)) return;
@@ -55,8 +59,9 @@ Future<void> _pump(WidgetTester tester) async {
           {'id': 'e1', 'employeeCode': '40001', 'pin': '40001', 'fullName': 'Nguyễn Văn A'},
         ],
         shiftTemplates: _shifts,
+        initialPunchSlots: punchSlots ?? const {},
         shiftSalaryLevels: [
-          for (final s in _shifts) <String, dynamic>{'shiftTemplateId': s['id'], 'employeeIds': ['e1']},
+          for (final id in assignedShiftIds) <String, dynamic>{'shiftTemplateId': id, 'employeeIds': ['e1']},
         ],
       ),
     ),
@@ -108,5 +113,50 @@ void main() {
     await _pump(tester);
     expect(find.text('Giờ chấm theo ca'), findsWidgets);
     expect(_columnOf(tester, '13:02'), 3);
+  });
+
+  testWidgets('Chưa thiết lập: NV chỉ gán ca chiều → ca chiều là ca thứ nhất của NV, nằm ở Lần 1–2', variant: _desktop, (tester) async {
+    SharedPreferences.setMockInitialValues({'attendance_by_shift_punch_layout_v1': 'byShift'});
+    await _pump(tester, assignedShiftIds: const ['chieu']);
+    expect(_columnOf(tester, '13:02'), 1);
+    expect(_columnOf(tester, '17:01'), 2);
+  });
+
+  testWidgets('Có thiết lập: ca chiều luôn ở Lần 3–4, kể cả NV chỉ gán ca chiều', variant: _desktop, (tester) async {
+    SharedPreferences.setMockInitialValues({'attendance_by_shift_punch_layout_v1': 'byShift'});
+    await _pump(
+      tester,
+      assignedShiftIds: const ['chieu'],
+      punchSlots: const {'sang': [1, 2], 'chieu': [3, 4]},
+    );
+    expect(_columnOf(tester, '13:02'), 3);
+    expect(_columnOf(tester, '17:01'), 4);
+  });
+
+  testWidgets('Có thiết lập: ca sáng vào Lần 1, ra Lần 4; ca chiều Lần 5–6', variant: _desktop, (tester) async {
+    SharedPreferences.setMockInitialValues({'attendance_by_shift_punch_layout_v1': 'byShift'});
+    await _pump(tester, punchSlots: const {'sang': [1, 4], 'chieu': [5, 6]});
+    expect(_columnOf(tester, '06:58'), 1);
+    expect(_columnOf(tester, '11:03'), 4);
+    expect(_columnOf(tester, '12:57'), 5);
+    expect(_columnOf(tester, '17:04'), 6);
+    expect(_columnOf(tester, '13:02'), 5);
+    expect(_columnOf(tester, '17:01'), 6);
+  });
+
+  testWidgets('Có thiết lập: làm ca không được gán vẫn vào đúng lần của ca khớp giờ', variant: _desktop, (tester) async {
+    SharedPreferences.setMockInitialValues({'attendance_by_shift_punch_layout_v1': 'byShift'});
+    // Chỉ gán ca sáng nhưng T2 làm chiều 13:02–17:01, T3 làm cả hai ca.
+    await _pump(tester, assignedShiftIds: const ['sang'], punchSlots: const {'sang': [1, 2], 'chieu': [5, 6]});
+    expect(_columnOf(tester, '06:58'), 1);
+    expect(_columnOf(tester, '11:03'), 2);
+    expect(_columnOf(tester, '12:57'), 5);
+    expect(_columnOf(tester, '17:04'), 6);
+  });
+
+  testWidgets('Thiết lập chỉ áp dụng khi chọn «Giờ chấm theo ca»', variant: _desktop, (tester) async {
+    await _pump(tester, punchSlots: const {'sang': [1, 2], 'chieu': [5, 6]});
+    expect(_columnOf(tester, '13:02'), 1);
+    expect(_columnOf(tester, '17:01'), 2);
   });
 }

@@ -22813,7 +22813,17 @@
   "Nhập, xuất, kiểm kho": "入庫・出庫・棚卸",
   "Quét mã từng máy": "機器ごとにコードをスキャン",
   "Tra seri / IMEI": "シリアル / IMEI を検索",
-  "So tồn sổ và thực tế": "帳簿在庫と実在庫を照合"
+  "So tồn sổ và thực tế": "帳簿在庫と実在庫を照合",
+  "Chưa lưu được": "保存できませんでした",
+  "Có ca dùng chung một lần chấm: nếu nhân viên làm cả hai ca trong ngày, giờ của ca sau nằm ở các cột cuối.": "同じ打刻回を使うシフトがあります。従業員が1日に両方のシフトで勤務した場合、後のシフトの時刻は最後の列に表示されます。",
+  "Cửa hàng chưa có mẫu ca nào.": "店舗にシフトテンプレートがまだありません。",
+  "Không lưu được thiết lập lần chấm.": "打刻回の設定を保存できませんでした。",
+  "Lần chấm của từng ca khi xếp giờ chấm theo ca": "シフト別に打刻時刻を並べるときの各シフトの打刻回",
+  "Lần chấm sau phải lớn hơn lần chấm trước": "後の打刻回は前の打刻回より大きくする必要があります",
+  "Thiết lập lần chấm theo ca": "シフト別の打刻回の設定",
+  "Tự xếp theo giờ ca": "シフト時間で自動配置",
+  "Áp dụng khi chọn «Giờ chấm theo ca» trên bảng và file xuất. Không ảnh hưởng cách tính công.": "「シフト別の打刻時刻」を選択したときに、表と出力ファイルに適用されます。勤務日数の計算には影響しません。",
+  "Đã lưu thiết lập lần chấm theo ca.": "シフト別の打刻回の設定を保存しました。"
  },
  "t": [
   [

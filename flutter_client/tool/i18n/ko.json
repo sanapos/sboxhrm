@@ -22813,7 +22813,17 @@
   "Nhập, xuất, kiểm kho": "입고, 출고, 재고 실사",
   "Quét mã từng máy": "기기별 코드 스캔",
   "Tra seri / IMEI": "시리얼 / IMEI 조회",
-  "So tồn sổ và thực tế": "장부 재고와 실제 재고 비교"
+  "So tồn sổ và thực tế": "장부 재고와 실제 재고 비교",
+  "Chưa lưu được": "저장하지 못했습니다",
+  "Có ca dùng chung một lần chấm: nếu nhân viên làm cả hai ca trong ngày, giờ của ca sau nằm ở các cột cuối.": "일부 근무조가 같은 타각 차수를 사용합니다. 직원이 하루에 두 근무조를 모두 근무하면 나중 근무조의 시간은 마지막 열에 표시됩니다.",
+  "Cửa hàng chưa có mẫu ca nào.": "매장에 근무조 템플릿이 없습니다.",
+  "Không lưu được thiết lập lần chấm.": "타각 차수 설정을 저장하지 못했습니다.",
+  "Lần chấm của từng ca khi xếp giờ chấm theo ca": "근무조별 타각 시간 배치 시 각 근무조의 타각 차수",
+  "Lần chấm sau phải lớn hơn lần chấm trước": "다음 타각 차수는 이전 차수보다 커야 합니다",
+  "Thiết lập lần chấm theo ca": "근무조별 타각 차수 설정",
+  "Tự xếp theo giờ ca": "근무 시간순 자동 배치",
+  "Áp dụng khi chọn «Giờ chấm theo ca» trên bảng và file xuất. Không ảnh hưởng cách tính công.": "«근무조별 타각 시간»을 선택했을 때 표와 내보낸 파일에 적용됩니다. 근무일 계산에는 영향을 주지 않습니다.",
+  "Đã lưu thiết lập lần chấm theo ca.": "근무조별 타각 차수 설정을 저장했습니다."
  },
  "t": [
   [

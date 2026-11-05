@@ -457,7 +457,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
     public static readonly HashSet<string> StaffReadableAppSettingKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "day_end_time", "min_hours_for_work_day", "min_half_day_hours", "min_work_day_percent",
-        "standard_work_hours", "decimal_work_day_enabled", "allow_manual_correction",
+        "standard_work_hours", "decimal_work_day_enabled", "allow_manual_correction", "attendance_shift_punch_slots",
         "mobile_bottom_nav_main_v3", "mobile_bottom_nav_pos_v3", "mobile_quick_actions_v3",
         "settings_hub_sidebar_layout",
     };
