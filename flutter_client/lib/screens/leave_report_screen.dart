@@ -21,7 +21,12 @@ import '../utils/branch_filter_helper.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class LeaveReportScreen extends StatefulWidget {
-  const LeaveReportScreen({super.key});
+  const LeaveReportScreen({super.key, this.initialFrom, this.initialTo});
+
+  /// Kỳ mở đầu, bỏ trống là từ đầu tháng tới hôm nay.
+  final DateTime? initialFrom;
+  final DateTime? initialTo;
+
   @override
   State<LeaveReportScreen> createState() => _LeaveReportScreenState();
 }
@@ -100,6 +105,8 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   @override
   void initState() {
     super.initState();
+    _from = widget.initialFrom ?? _from;
+    _to = widget.initialTo ?? _to;
     _load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_teamView) {

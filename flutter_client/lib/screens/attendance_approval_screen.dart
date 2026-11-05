@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/hrm.dart' show approvalStepStatusIndex;
 import '../widgets/app_scroll_safe.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -855,10 +856,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         const SizedBox(height: 6),
         if (records.isNotEmpty) ...[
           ...records.map((record) {
-            final stepStatus = record['status'] ?? 0;
-            final stepStatusInt = stepStatus is int
-                ? stepStatus
-                : int.tryParse(stepStatus.toString()) ?? 0;
+            final stepStatusInt = approvalStepStatusIndex(record['status']);
             final color = _getApprovalStatusColor(stepStatusInt);
             return Padding(
               padding: const EdgeInsets.only(bottom: 4),
@@ -1103,10 +1101,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         final idx = entry.key;
         final record = entry.value;
         final isLast = idx == records.length - 1;
-        final stepStatus = record['status'] ?? 0;
-        final stepStatusInt = stepStatus is int
-            ? stepStatus
-            : int.tryParse(stepStatus.toString()) ?? 0;
+        final stepStatusInt = approvalStepStatusIndex(record['status']);
         final color = _getApprovalStatusColor(stepStatusInt);
 
         return SafeTimelineRow(

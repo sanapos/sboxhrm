@@ -130,9 +130,9 @@ void main() {
 
   // Số mong đợi theo test/fixtures/hr_reports_fixture.dart (khớp cách bảng lương trừ / tính).
   const expects = <String, List<String>>{
-    'penalty': ['Trừ lương 50.000đ · Thu tiền mặt 100.000đ'],
-    'advance': ['Đã chi 1.000.000đ · Chờ chi 1.500.000đ'],
-    'business_trip': ['Đã chi 3.000.000đ · Chờ chi 2.000.000đ'],
+    'penalty': ['Trừ lương 50.000 đ · Thu tiền mặt 100.000 đ'],
+    'advance': ['Đã chi 1.000.000 đ · Chờ chi 1.500.000 đ'],
+    'business_trip': ['Đã chi 3.000.000 đ · Chờ chi 2.000.000 đ'],
     'leave': ['2,5 ngày'],
     'travel': ['2h30p', 'Tính lương 1h30p (đã duyệt)'],
   };
@@ -141,7 +141,7 @@ void main() {
     'penalty': () => const PenaltyReportScreen(),
     'advance': () => const AdvanceReportScreen(),
     'business_trip': () => const BusinessTripReportScreen(),
-    'leave': () => const LeaveReportScreen(),
+    'leave': () => LeaveReportScreen(initialFrom: DateTime(2026, 10, 1), initialTo: DateTime(2026, 10, 31)),
     'travel': () => const TravelHoursReportScreen(),
     'analytics': () => const AnalyticsReportsScreen(),
   };

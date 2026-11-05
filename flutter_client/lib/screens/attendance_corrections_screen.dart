@@ -602,12 +602,11 @@ class _AttendanceCorrectionsScreenState
               const Divider(height: 24),
 
               // Time info
-              if (request.action != CorrectionAction.delete) ...[
-                _detailRow('Giờ cũ',
-                    '${request.originalCheckIn ?? '--:--'} / ${request.originalCheckOut ?? '--:--'}'),
+              _detailRow('Giờ cũ',
+                  '${request.originalCheckIn ?? '--:--'} / ${request.originalCheckOut ?? '--:--'}'),
+              if (request.action != CorrectionAction.delete)
                 _detailRow('Giờ mới',
                     '${request.newCheckIn ?? '--:--'} / ${request.newCheckOut ?? '--:--'}'),
-              ],
               _detailRow('Ngày tạo',
                   formatApiDateTime(request.createdAt)),
 

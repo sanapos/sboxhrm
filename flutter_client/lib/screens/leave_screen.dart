@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../models/hrm.dart' show approvalStepStatusIndex;
 import 'annual_leave/al_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
@@ -2358,7 +2359,7 @@ class _LeaveScreenState extends State<LeaveScreen>
           ...approvalRecords.asMap().entries.map((entry) {
             final idx = entry.key;
             final record = entry.value;
-            final stepStatus = record['status'] ?? 0;
+            final stepStatus = approvalStepStatusIndex(record['status']);
             final stepName =
                 record['stepName'] ?? 'Cấp ${record['stepOrder'] ?? idx + 1}';
             final assignedUser = record['assignedUserName'] ?? '';
@@ -2411,9 +2412,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                             fontSize: 12, color: SboxColors.slate600)),
                   if (stepStatus != 0)
                     Text(
-                      tr(_approvalStepStatusLabel(stepStatus is int
-                          ? stepStatus
-                          : int.tryParse('$stepStatus') ?? 0)),
+                      tr(_approvalStepStatusLabel(stepStatus)),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

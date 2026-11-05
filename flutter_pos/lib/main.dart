@@ -14,6 +14,7 @@ import 'l10n/app_locale.dart';
 import 'l10n/app_localizations.dart';
 import 'l10n/app_tr.dart';
 import 'providers/auth_provider.dart';
+import 'widgets/sign_out_route_reset.dart';
 import 'providers/permission_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/admin_login_screen.dart';
@@ -181,7 +182,7 @@ class SboxPosApp extends StatelessWidget {
                 MediaQuery.of(context),
                 rawView: MediaQueryData.fromView(View.of(context)),
                 immersive: immersive,
-              );
+              ).copyWith(alwaysUse24HourFormat: true);
               final maxIme = mq.size.height / 3;
               Widget body = child ?? const SizedBox.shrink();
               // A6: IME Sunmi thường >½ màn — clamp inset để UI giữ ~⅔ phía trên.
@@ -220,7 +221,7 @@ class SboxPosApp extends StatelessWidget {
             },
           );
         },
-        home: Consumer<AuthProvider>(
+        home: SignOutRouteReset(child: Consumer<AuthProvider>(
           builder: (context, auth, _) {
             if (auth.isInitializing) {
               return const AppBootScreen();
@@ -228,7 +229,7 @@ class SboxPosApp extends StatelessWidget {
             if (!auth.isAuthenticated) return const LoginScreen();
             return const _PosAuthShell();
           },
-        ),
+        )),
           );
         },
       ),

@@ -8,7 +8,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:zkteco_flutter_client/providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/providers/theme_provider.dart';
 import 'package:zkteco_flutter_client/screens/pos/pos_cancel_return_history_screen.dart';
 
@@ -76,7 +78,10 @@ void main() {
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: ThemeProvider().lightTheme,
-          home: const MediaQuery(data: MediaQueryData(size: size), child: PosCancelReturnHistoryScreen()),
+          home: ChangeNotifierProvider(
+            create: (_) => PermissionProvider(),
+            child: const MediaQuery(data: MediaQueryData(size: size), child: PosCancelReturnHistoryScreen()),
+          ),
         ),
       ));
       for (var i = 0; i < 6; i++) {

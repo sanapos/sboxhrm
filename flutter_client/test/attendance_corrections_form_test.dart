@@ -12,7 +12,7 @@ import 'guide_shots/hrm_extras_common.dart' show extrasSettle;
 
 /// Form «Yêu cầu sửa chấm công» của nhân viên: mỗi lần chấm là một phiếu,
 /// sửa/xóa phải gửi giờ đã chấm (oldDate + oldTime) để backend tìm bản ghi gốc.
-/// Bộ chọn giờ trong test là kiểu 12 giờ (SA) → chỉ dùng giờ < 12.
+/// Bộ chọn giờ là kiểu 24 giờ: gõ 08 luôn ra 08:00 kể cả khi mở lúc buổi tối, gõ được 17.
 
 List<Map<String, dynamic>> _sent = [];
 
@@ -63,12 +63,12 @@ void main() {
     await guideShot(t, name: 'form-add', screen: const AttendanceCorrectionsScreen(), api: _api, size: mobileSize, act: (t) async {
       await _openForm(t, 'Thêm mới');
       await _pickTime(t, 'Giờ vào', '08', '05');
-      await _pickTime(t, 'Giờ ra', '11', '30');
+      await _pickTime(t, 'Giờ ra', '17', '30');
       await _submit(t, 'Quên chấm công');
     });
     expect(_sent.map((e) => (e['action'], e['newTime'], e['newType'])).toList(), [
       (0, '08:05:00', 'CheckIn'),
-      (0, '11:30:00', 'CheckOut'),
+      (0, '17:30:00', 'CheckOut'),
     ]);
   });
 

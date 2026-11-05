@@ -72,7 +72,7 @@ void main() {
         size: size,
         marks: [
           GuideMark(1, [find.text('Gộp món').first, find.text('Theo bàn').first], pad: 10),
-          GuideMark(2, [find.text('Tất cả').first, find.text('Chờ làm').first]),
+          GuideMark(2, [find.textContaining('Tất cả').first, find.textContaining('Chờ làm').first]),
           GuideMark(3, [GuideMark.button(find.text('Ra món').first)]),
           GuideMark(4, [GuideMark.button(find.text('ĐÃ HOÀN THÀNH'))]),
         ],
@@ -94,7 +94,7 @@ void main() {
         marks: [
           GuideMark(1, [find.text('Tầng 1 · Bàn 3'), find.text('5 món')]),
           GuideMark(2, [find.text('Phở bò tái').first, find.text('14p').at(2)], pad: 10),
-          GuideMark(3, [GuideMark.button(find.text('Đang làm').at(1)), GuideMark.button(find.text('Ra món').first)]),
+          GuideMark(3, [GuideMark.button(find.text('Bắt đầu làm').first), GuideMark.button(find.text('Ra món').first)]),
         ],
       );
     });

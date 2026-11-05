@@ -119,7 +119,7 @@ void main() {
 
   testWidgets('Hóa đơn điện tử', (t) async {
     await _pump(t, const PosEInvoiceSettingsScreen(), const Size(1200, 2000), 'b3_einvoice');
-    expect(find.text('Lấy theo cửa hàng'), findsOneWidget);
+    expect(find.text('Lấy theo thuế khi bán'), findsOneWidget);
     expect(SettingsLeaveGuard.active, isFalse); // mới mở, chưa sửa gì
   });
 }

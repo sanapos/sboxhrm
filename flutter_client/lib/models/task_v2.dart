@@ -7,6 +7,14 @@ import 'task.dart';
 
 double _d(dynamic v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
 int _i(dynamic v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}') ?? 0;
+
+/// Enum từ API: tên («OnHold») theo thứ tự [names], dữ liệu cũ dạng số vẫn đọc được.
+int _enumIndex(dynamic v, List<String> names) {
+  final i = names.indexWhere((n) => n.toLowerCase() == '${v ?? ''}'.toLowerCase());
+  return i >= 0 ? i : _i(v).clamp(0, names.length - 1);
+}
+
+const _recurrenceNames = ['None', 'Daily', 'Weekly', 'Monthly'];
 DateTime? _dt(dynamic v) => v == null ? null : DateTime.tryParse('$v');
 List<Map<String, dynamic>> _maps(dynamic v) =>
     v is List ? v.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : const [];
@@ -111,7 +119,7 @@ class TaskProjectV2 {
         description: j['description'],
         industryKey: j['industryKey'],
         color: j['color'],
-        status: TaskProjectStatus.values[_i(j['status']).clamp(0, TaskProjectStatus.values.length - 1)],
+        status: TaskProjectStatus.values[_enumIndex(j['status'], [for (final s in TaskProjectStatus.values) s.name])],
         ownerEmployeeId: j['ownerEmployeeId']?.toString(),
         ownerName: j['ownerName'],
         customerName: j['customerName'],
@@ -236,7 +244,7 @@ class TaskPackTemplateV2 {
         estimatedHours = j['estimatedHours'] == null ? null : _d(j['estimatedHours']),
         checklist = (j['checklist'] is List ? (j['checklist'] as List).map((e) => '$e').toList() : <String>[]),
         photoItems = _i(j['photoItems']),
-        recurrenceType = _i(j['recurrenceType']),
+        recurrenceType = _enumIndex(j['recurrenceType'], _recurrenceNames),
         recurrenceDays = j['recurrenceDays'],
         recurrenceTime = j['recurrenceTime'];
 
@@ -336,7 +344,7 @@ class TaskTemplateV2 {
         industryKey = j['industryKey'],
         stageKey = j['stageKey'],
         projectId = j['projectId']?.toString(),
-        recurrenceType = _i(j['recurrenceType']),
+        recurrenceType = _enumIndex(j['recurrenceType'], _recurrenceNames),
         recurrenceDays = j['recurrenceDays'],
         recurrenceTime = j['recurrenceTime'],
         dueAfterHours = j['dueAfterHours'] == null ? null : _i(j['dueAfterHours']),

@@ -1,6 +1,7 @@
 import 'sbox_scroll_behavior.dart';
 import '../widgets/impersonation_banner.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/sign_out_route_reset.dart';
 import '../screens/design_system_showcase_screen.dart';
 import 'dart:ui' as ui;
 
@@ -113,7 +114,7 @@ class ZKTecoApp extends StatelessWidget {
                   MediaQuery.of(context),
                   rawView: MediaQueryData.fromView(View.of(context)),
                   immersive: immersive,
-                );
+                ).copyWith(alwaysUse24HourFormat: true);
                 // Web OSK overlay: đừng để viewInsets co/đẩy cả app (che dữ liệu phía trên).
                 if (kIsWeb && mediaQuery.viewInsets.bottom > 0) {
                   mediaQuery = mediaQuery.copyWith(
@@ -246,7 +247,7 @@ class ZKTecoApp extends StatelessWidget {
             }
             return null;
           },
-          home: Selector<AuthProvider, ({bool isInit, bool isAuth, String role})>(
+          home: SignOutRouteReset(child: Selector<AuthProvider, ({bool isInit, bool isAuth, String role})>(
             selector: (_, auth) => (
               isInit: auth.isInitializing,
               isAuth: auth.isAuthenticated,
@@ -302,7 +303,7 @@ class ZKTecoApp extends StatelessWidget {
               }
               return const MainLayout();
             },
-          ),
+          )),
         );
       },
     );

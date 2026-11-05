@@ -287,7 +287,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
           _buildMiniStat('Chờ duyệt', '${_pendingOvertimes.length}',
               SboxColors.warning),
           const SizedBox(width: 12),
-          _buildMiniStat('Tổng giờ TC', '${_statistics?['totalHours'] ?? 0}h',
+          _buildMiniStat('Tổng giờ TC', '${_hoursText(_statTotalHours)}h',
               HrmPageChrome.primaryNavy),
         ],
       ),
@@ -563,7 +563,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                           fontWeight: FontWeight.w600, fontSize: 14)),
                   const SizedBox(height: 2),
                   Text(
-                    tr('${_formatDate(ot['date'] ?? ot['overtimeDate'])} · ${ot['startTime']?.toString().substring(0, 5) ?? '--:--'}-${ot['endTime']?.toString().substring(0, 5) ?? '--:--'} · ${ot['totalHours'] ?? ot['hours'] ?? 0}h'),
+                    tr('${_formatDate(ot['date'] ?? ot['overtimeDate'])} · ${ot['startTime']?.toString().substring(0, 5) ?? '--:--'}-${ot['endTime']?.toString().substring(0, 5) ?? '--:--'} · ${_hoursText(ot['actualHours'] ?? ot['plannedHours'])}h'),
                     style: TextStyle(fontSize: 12, color: SboxColors.slate500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -634,7 +634,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
               _buildStatCard('Từ chối', '${_statistics?['rejected'] ?? 0}',
                   Icons.cancel, SboxColors.danger),
               const SizedBox(width: 16),
-              _buildStatCard('Tổng giờ', '${_statistics?['totalHours'] ?? 0}h',
+              _buildStatCard('Tổng giờ', '${_hoursText(_statTotalHours)}h',
                   Icons.schedule, HrmPageChrome.primaryNavy),
             ],
           ),
@@ -653,6 +653,17 @@ class _OvertimeScreenState extends State<OvertimeScreen>
         color: color,
       ),
     );
+  }
+
+  /// Giờ đã làm thực tế nếu đã có, chưa có thì giờ đăng ký.
+  num get _statTotalHours {
+    final actual = _statistics?['totalActualHours'];
+    return actual is num && actual > 0 ? actual : (_statistics?['totalPlannedHours'] as num? ?? 0);
+  }
+
+  String _hoursText(Object? v) {
+    final h = v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
+    return h == h.roundToDouble() ? h.toStringAsFixed(0) : h.toStringAsFixed(1);
   }
 
   Color _getStatusColor(String status) {

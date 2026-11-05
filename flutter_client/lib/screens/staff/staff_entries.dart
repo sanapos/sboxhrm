@@ -45,6 +45,7 @@ abstract final class StaffEntries {
     title: 'Giải trình / bổ sung công',
     icon: Icons.edit_calendar_outlined,
     color: SboxColors.warning,
+    ownScaffold: true,
     builder: (_) => const AttendanceCorrectionsScreen(),
   );
 

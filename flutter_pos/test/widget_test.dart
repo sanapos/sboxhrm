@@ -7,5 +7,9 @@ void main() {
     await tester.pumpWidget(const SboxPosApp());
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.byType(MaterialApp), findsOneWidget);
+    // Hẹn giờ nền lúc khởi động (kiểm phiên, thử lại mạng) chạy hết rồi mới kết thúc test.
+    await tester.pump(const Duration(seconds: 15));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 30));
   });
 }

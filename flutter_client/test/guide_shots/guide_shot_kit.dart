@@ -266,6 +266,11 @@ Future<void> guideShot(
             ],
             supportedLocales: const [Locale('vi')],
             locale: const Locale('vi'),
+            // Giống app thật: giờ 24h, xem builder trong lib/app/app.dart.
+            builder: (c, child) => MediaQuery(
+              data: MediaQuery.of(c).copyWith(alwaysUse24HourFormat: true),
+              child: child!,
+            ),
             home: _GuideFrame(crumbs: crumbs, child: screen),
           ),
         ),

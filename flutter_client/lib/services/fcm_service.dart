@@ -30,11 +30,15 @@ import '../utils/pos_notify_focus.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseBgHandler(RemoteMessage message) async {
   // Guard: Firebase may already be initialized in this isolate.
-  if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  }
+  if (Firebase.apps.isEmpty) await _initFirebase();
   if (kDebugMode) debugPrint('FCM bg: ${message.messageId} ${message.notification?.title}');
 }
+
+/// App BOSS / Nhân Viên: lấy cấu hình native do google-services.json sinh ra (đúng mã app của gói);
+/// DefaultFirebaseOptions là mã app HRM — dùng cho gói khác sẽ khởi tạo nhầm app.
+Future<void> _initFirebase() => (SboxAppVariant.staffApp || SboxAppVariant.bossApp) && !kIsWeb
+    ? Firebase.initializeApp()
+    : Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
 class FcmService {
   FcmService._();
@@ -66,13 +70,7 @@ class FcmService {
       // Guard against duplicate init: on iOS, FirebaseApp.configure() is called
       // natively in AppDelegate.swift before Dart runs, so Firebase.apps is already
       // populated. On Android (or if not yet initialized), initialize now.
-      if (Firebase.apps.isEmpty) {
-        // App BOSS / Nhân Viên: lấy cấu hình native do google-services.json sinh ra (đúng mã app của gói);
-        // DefaultFirebaseOptions là mã app HRM — dùng cho gói khác sẽ khởi tạo nhầm app.
-        await ((SboxAppVariant.staffApp || SboxAppVariant.bossApp) && !kIsWeb
-            ? Firebase.initializeApp()
-            : Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform));
-      }
+      if (Firebase.apps.isEmpty) await _initFirebase();
       FirebaseMessaging.onBackgroundMessage(_firebaseBgHandler);
 
       // Local notification channel for foreground messages on Android.

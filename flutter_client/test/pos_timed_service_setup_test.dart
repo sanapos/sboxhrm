@@ -251,7 +251,7 @@ void main() {
       await _pump(t, const _Host(initialMode: PosServiceBillingMode.perHour, initialJson: _rules), size,
           'timed_setup_${size.width.toInt()}');
       expect(find.text('Xem trước: khách dùng bao lâu thì trả bao nhiêu'), findsOneWidget);
-      expect(find.textContaining('1 giờ = 120.000đ'), findsOneWidget);
+      expect(find.textContaining('1 giờ = 120.000 đ'), findsOneWidget);
       expect(find.widgetWithText(TextField, 'Từ'), findsNWidgets(2));
     });
   }

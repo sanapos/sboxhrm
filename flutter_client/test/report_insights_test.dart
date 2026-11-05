@@ -95,6 +95,18 @@ final _client = MockClient((req) async {
     return _json(_sales(prev ? 0.86 : 1));
   }
   if (p.contains('/sales/orders')) return _json({'items': [], 'total': 0});
+  if (p.endsWith('/staff/summary')) {
+    return _json({
+      'totalRevenue': 48250000,
+      'totalProfit': 17900000,
+      'orderCount': 186,
+      'staff': [
+        {'staffKey': 'e:1', 'soldBy': 'lan@shop.vn', 'displayName': 'Nguyễn Thị Lan', 'revenue': 18400000, 'profit': 6800000, 'orderCount': 71},
+        {'staffKey': 'e:2', 'soldBy': 'minh@shop.vn', 'displayName': 'Trần Văn Minh', 'revenue': 15250000, 'profit': 5600000, 'orderCount': 58},
+        {'staffKey': 'n:Phạm Thu Hà', 'soldBy': 'Phạm Thu Hà', 'revenue': 14600000, 'profit': 5500000, 'orderCount': 57},
+      ],
+    });
+  }
   if (p.endsWith('/customer-debt')) return _json(_debt('name'));
   if (p.endsWith('/supplier-debt')) return _json(_debt('name'));
   if (p.endsWith('/profit/by-product')) {

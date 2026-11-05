@@ -2892,10 +2892,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             TextButton(
               style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => Scaffold(
-                        appBar: AppBar(title: Text(tr('Giải trình / xin bổ sung công'))),
-                        body: const AttendanceCorrectionsScreen(),
-                      ))),
+                  builder: (_) => const AttendanceCorrectionsScreen())),
               child: Text(tr('Giải trình')),
             ),
           ]),

@@ -160,7 +160,7 @@ void main() {
   test('tiền dễ đọc', () {
     expect(hkdMoneyShort(1.5e9), '1,5 tỷ');
     expect(hkdMoneyShort(640e6), '640 triệu');
-    expect(hkdMoneyShort(850000), '850.000đ');
+    expect(hkdMoneyShort(850000), '850.000 đ');
   });
 
   for (final size in const [Size(390, 3600), Size(1100, 2900)]) {

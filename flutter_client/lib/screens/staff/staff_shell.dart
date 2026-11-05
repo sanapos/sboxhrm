@@ -116,6 +116,8 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
     try {
       await _notificationSub?.cancel();
       if (!mounted) return;
+      // Nghe trước khi kết nối: lần đầu mất mạng thì kết nối tự nối lại sau vẫn có người nhận tin.
+      _notificationSub = _signalR.onNewNotification.listen(_handleNewNotification);
       final auth = context.read<AuthProvider>();
       final token = await auth.getValidToken();
       if (!mounted) return;
@@ -130,7 +132,6 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
       if (userId != null && userId.isNotEmpty) {
         await _signalR.joinUserGroup(userId);
       }
-      _notificationSub = _signalR.onNewNotification.listen(_handleNewNotification);
     } catch (e) {
       debugPrint('⚠️ StaffShell SignalR: $e');
     } finally {

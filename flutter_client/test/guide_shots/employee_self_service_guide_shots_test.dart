@@ -60,7 +60,8 @@ Map<String, Object?> _my() {
   final days = <Map<String, Object?>>[];
   for (var i = 0; i < 7; i++) {
     final date = _mon.add(Duration(days: i));
-    final p = plan[i];
+    // Hôm nay luôn có ca, để ô «Hôm nay: …» không phụ thuộc thứ trong tuần lúc chạy test.
+    final p = date == _today && plan[i] == 'off' ? 't1' : plan[i];
     final tpl = _templates.where((t) => t['id'] == p).firstOrNull;
     days.add({
       'date': ShiftUi.key(date),

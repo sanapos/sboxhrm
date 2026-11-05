@@ -5,6 +5,27 @@
 import '../config/sbox_app_variant.dart';
 import '../utils/api_datetime.dart';
 
+/// API trả enum dạng tên («Approved»), dữ liệu cũ có thể là số.
+T _enumFromApi<T extends Enum>(List<T> values, Object? raw, T fallback) {
+  if (raw is int) return raw >= 0 && raw < values.length ? values[raw] : fallback;
+  final text = raw?.toString().trim().toLowerCase() ?? '';
+  for (final v in values) {
+    if (v.name.toLowerCase() == text) return v;
+  }
+  final index = int.tryParse(text);
+  return index != null && index >= 0 && index < values.length ? values[index] : fallback;
+}
+
+/// «13:05:00» → «13:05».
+String? _hhmm(Object? raw) {
+  final text = raw?.toString() ?? '';
+  return text.length >= 5 ? text.substring(0, 5) : null;
+}
+
+/// Trạng thái một bước duyệt (0 chờ, 1 duyệt, 2 từ chối, 3 hủy, 4 hết hạn).
+int approvalStepStatusIndex(Object? raw) =>
+    _enumFromApi(ApprovalStatus.values, raw, ApprovalStatus.pending).index;
+
 // ============ ENUMS ============
 enum AllowanceType { fixed, daily, hourly, perEvent }
 
@@ -151,7 +172,7 @@ class Allowance {
       employeeCode: json['employeeCode'] ?? '',
       name: json['name'] ?? '',
       description: json['description'],
-      type: AllowanceType.values[json['type'] ?? 0],
+      type: _enumFromApi(AllowanceType.values, json['type'], AllowanceType.fixed),
       amount: (json['amount'] ?? 0).toDouble(),
       effectiveFrom:
           parseApiCalendarDate(json['effectiveFrom']) ?? DateTime.now(),
@@ -438,7 +459,7 @@ class ApprovalRecord {
       assignedUserName: json['assignedUserName'],
       actualUserId: json['actualUserId'],
       actualUserName: json['actualUserName'],
-      status: ApprovalStatus.values[json['status'] ?? 0],
+      status: _enumFromApi(ApprovalStatus.values, json['status'], ApprovalStatus.pending),
       note: json['note'],
       actionDate: parseApiUtcDateTime(json['actionDate']),
     );
@@ -506,30 +527,36 @@ class AttendanceCorrectionRequest {
   });
 
   factory AttendanceCorrectionRequest.fromJson(Map<String, dynamic> json) {
+    // API: mỗi phiếu là một lần chấm (newTime + newPunchType, oldTime + oldType).
+    final status = _enumFromApi(CorrectionStatus.values, json['status'], CorrectionStatus.pending);
+    final newPunch = '${json['newPunchType'] ?? json['newType'] ?? ''}'.toLowerCase();
+    final oldPunch = '${json['oldType'] ?? ''}'.toLowerCase();
+    final newTime = _hhmm(json['newTime']);
+    final oldTime = _hhmm(json['oldTime']);
     return AttendanceCorrectionRequest(
       id: json['id'] ?? '',
       employeeId: json['employeeId'] ?? '',
       employeeName: json['employeeName'] ?? '',
       employeeCode: json['employeeCode'] ?? '',
       attendanceId: json['attendanceId'],
-      action: CorrectionAction.values[json['action'] ?? 0],
-      correctionDate:
-          parseApiCalendarDate(json['correctionDate']) ?? DateTime.now(),
-      originalCheckIn: json['originalCheckIn'],
-      originalCheckOut: json['originalCheckOut'],
-      newCheckIn: json['newCheckIn'],
-      newCheckOut: json['newCheckOut'],
+      action: _enumFromApi(CorrectionAction.values, json['action'], CorrectionAction.add),
+      correctionDate: parseApiCalendarDate(json['correctionDate'] ?? json['newDate'] ?? json['oldDate']) ??
+          DateTime.now(),
+      originalCheckIn: json['originalCheckIn'] ?? (oldPunch.contains('out') ? null : oldTime),
+      originalCheckOut: json['originalCheckOut'] ?? (oldPunch.contains('out') ? oldTime : null),
+      newCheckIn: json['newCheckIn'] ?? (newPunch.contains('out') ? null : newTime),
+      newCheckOut: json['newCheckOut'] ?? (newPunch.contains('out') ? newTime : null),
       reason: json['reason'],
-      requestDate: parseApiUtcDateTime(json['requestDate']) ?? DateTime.now(),
-      status: CorrectionStatus.values[json['status'] ?? 0],
-      approvedBy: json['approvedBy'],
+      requestDate: parseApiUtcDateTime(json['requestDate'] ?? json['createdAt']) ?? DateTime.now(),
+      status: status,
+      approvedBy: json['approvedBy'] ?? json['approvedById'],
       approvedByName: json['approvedByName'],
       approvedAt: parseApiUtcDateTime(json['approvedAt'] ?? json['approvedDate']),
-      rejectReason: json['rejectReason'],
+      rejectReason: json['rejectReason'] ?? (status == CorrectionStatus.rejected ? json['approverNote'] : null),
       createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),
       updatedAt: parseApiUtcDateTime(json['updatedAt']),
       employeeUserId: json['employeeUserId'],
-      newType: json['newType'],
+      newType: json['newType'] ?? json['newPunchType'],
       approverId: json['approverId'],
       approverName: json['approverName'],
       totalApprovalLevels: json['totalApprovalLevels'] ?? 1,
@@ -633,6 +660,21 @@ class AppNotification {
 
   static NotificationType _parseNotificationType(dynamic value) {
     if (value == null) return NotificationType.info;
+    // API REST trả tên («Warning»), SignalR trả số. Loại không có màu riêng (Maintenance…) là thông tin.
+    if (value is String && int.tryParse(value) == null) {
+      return _enumFromApi(
+        const [
+          NotificationType.info,
+          NotificationType.success,
+          NotificationType.warning,
+          NotificationType.error,
+          NotificationType.approvalRequired,
+          NotificationType.reminder,
+        ],
+        value,
+        NotificationType.info,
+      );
+    }
     final intValue = value is int ? value : int.tryParse(value.toString()) ?? 0;
     // Explicit mapping from backend enum (0-5) to avoid index mismatch
     switch (intValue) {

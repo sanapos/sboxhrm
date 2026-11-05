@@ -218,6 +218,8 @@ void main() {
 
   testWidgets('Danh sách — điện thoại', (t) async {
     await _pump(t, const Size(390, 1500), 'sl_list_mobile');
-    expect(find.text('Thiết lập lương'), findsOneWidget);
+    // Điện thoại: thanh trên đã ghi tiêu đề, thân màn bỏ khối tiêu đề lặp.
+    expect(find.text('Thiết lập lương'), findsNothing);
+    expect(find.textContaining('Loại lương, mức lương'), findsOneWidget);
   });
 }

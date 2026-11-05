@@ -510,6 +510,11 @@ class AuthProvider extends ChangeNotifier {
     return b.every((m) => sa.contains(m.toLowerCase()));
   }
 
+  /// Tải lại danh sách module của gói (nút «Thử lại» khi lần đăng nhập mất mạng).
+  Future<void> refreshAllowedModules() async {
+    if (await _fetchAllowedModules()) notifyListeners();
+  }
+
   /// Lấy danh sách module được phép từ gói dịch vụ cửa hàng.
   /// Trả true khi danh sách thật sự đổi (nơi gọi mới cần vẽ lại menu).
   Future<bool> _fetchAllowedModules({bool freshSession = false}) async {
