@@ -30,7 +30,9 @@ try {
     if (-not $buildNumber) { throw "Cannot parse build number from pubspec version: $versionLine" }
 
     & $Flutter pub get
-    $define = @('--dart-define=API_BASE_URL=https://sboxhrm.com')
+    # SBOX POS gan co dinh may chu luc build: phai la sboxpos.com (giong Codemagic), HRM la sboxhrm.com.
+    $apiUrl = if ($Pos) { 'https://sboxpos.com' } else { 'https://sboxhrm.com' }
+    $define = @("--dart-define=API_BASE_URL=$apiUrl")
     if ($Pos) { $define += '--dart-define=SBOX_POS_STANDALONE=true' }
     & $Flutter build appbundle --release --flavor $flavor @define
     if ($LASTEXITCODE -ne 0) { throw "flutter build appbundle failed (exit $LASTEXITCODE)" }

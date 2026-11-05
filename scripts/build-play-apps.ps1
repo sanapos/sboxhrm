@@ -1,9 +1,10 @@
-# AAB len Google Play cho SBOX BOSS / SBOX Nhan Vien / SBOX KDS (flutter_client, flavor boss / staff / kds).
+# AAB len Google Play cho SBOX POS (Android 7+) / SBOX BOSS / SBOX Nhan Vien / SBOX KDS (flutter_client, flavor pos / boss / staff / kds).
+# Ban POS Android 6 (Sunmi T1) la flutter_pos, khong build o day.
 # Output: dist\mobile\android\SBOX-<APP>-<package>-release-v<build>.aab
 # Chay o terminal that (Gradle khong chay duoc trong sandbox).
 
 param(
-    [ValidateSet('boss', 'staff', 'kds')]
+    [ValidateSet('pos', 'boss', 'staff', 'kds')]
     [string[]]$Apps = @('boss', 'staff', 'kds'),
     # Ban test tren may (arm64): -Apk -ApiBaseUrl http://localhost:7070 -> dist\flutter_play_test\<app>.apk
     [switch]$Apk,
@@ -18,6 +19,7 @@ $releases = Join-Path $root 'dist\mobile\android'
 New-Item -ItemType Directory -Force -Path $releases | Out-Null
 
 $catalog = @{
+    pos   = @{ Label = 'SBOX-POS'; Package = 'sbox.sana.vn.pos'; Api = 'https://sboxpos.com' }
     boss  = @{ Label = 'SBOX-BOSS'; Package = 'boss.sboxpos.com'; Api = 'https://sboxpos.com' }
     staff = @{ Label = 'SBOX-NhanVien'; Package = 'staff.sboxpos.com'; Api = 'https://sboxpos.com' }
     kds   = @{ Label = 'SBOX-KDS'; Package = 'kds.sboxpos.com'; Api = 'https://sboxpos.com' }
@@ -47,10 +49,12 @@ try {
         & $Flutter pub get
         if ($LASTEXITCODE -ne 0) { throw "flutter pub get failed (exit $LASTEXITCODE)" }
 
+        # SBOX POS khong co SBOX_APP rieng: nhan dien bang SBOX_POS_STANDALONE (giong Codemagic).
+        $appDefine = if ($app -eq 'pos') { '--dart-define=SBOX_POS_STANDALONE=true' } else { "--dart-define=SBOX_APP=$app" }
         $api = if ($ApiBaseUrl) { $ApiBaseUrl } else { $cfg.Api }
         Write-Host "==> $($cfg.Label) $versionLine -> $api"
         if ($Apk) {
-            & $Flutter build apk --release --flavor $app --target-platform android-arm64 "--dart-define=SBOX_APP=$app" "--dart-define=API_BASE_URL=$api"
+            & $Flutter build apk --release --flavor $app --target-platform android-arm64 $appDefine "--dart-define=API_BASE_URL=$api"
             if ($LASTEXITCODE -ne 0) { throw "flutter build apk failed for $app (exit $LASTEXITCODE)" }
             $testDir = Join-Path $root 'dist\flutter_play_test'
             New-Item -ItemType Directory -Force -Path $testDir | Out-Null
@@ -58,7 +62,7 @@ try {
             Write-Host "APK: $(Join-Path $testDir "$app.apk")"
             continue
         }
-        & $Flutter build appbundle --release --flavor $app "--dart-define=SBOX_APP=$app" "--dart-define=API_BASE_URL=$api"
+        & $Flutter build appbundle --release --flavor $app $appDefine "--dart-define=API_BASE_URL=$api"
         $exit = $LASTEXITCODE
 
         # Flutter thoat 1 voi "failed to strip debug symbols" du AAB da ra va da strip.
