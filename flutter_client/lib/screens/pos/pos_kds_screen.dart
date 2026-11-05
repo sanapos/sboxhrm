@@ -15,6 +15,7 @@ import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/signalr_service.dart';
 import '../../utils/pos_floor_realtime.dart';
+import '../../theme/sbox_tokens.dart';
 import '../../utils/pos_kds_alert.dart';
 import '../../utils/pos_kitchen_direct_connect.dart';
 import '../../utils/pos_print_orchestrator.dart';
@@ -3491,8 +3492,8 @@ class _KdsPalette {
     ink: Color(0xFF111827),
     muted: Color(0xFF6B7280),
     chipIdle: Color(0xFFF2F4F7),
-    blue: Color(0xFF1F6FA3),
-    blueSoft: Color(0xFFEAF2F8),
+    blue: SboxColors.posApp ? SboxColors.brand600 : Color(0xFF1F6FA3),
+    blueSoft: SboxColors.posApp ? SboxColors.brand50 : Color(0xFFEAF2F8),
     orange: Color(0xFFB7791F),
     orangeSoft: Color(0xFFFBF3E4),
     green: Color(0xFF15803D),
@@ -3513,8 +3514,8 @@ class _KdsPalette {
     ink: Color(0xFFE9ECF0),
     muted: Color(0xFF8A93A0),
     chipIdle: Color(0xFF232830),
-    blue: Color(0xFF5BA4D4),
-    blueSoft: Color(0xFF182A38),
+    blue: SboxColors.posApp ? SboxColors.brand300 : Color(0xFF5BA4D4),
+    blueSoft: SboxColors.posApp ? Color(0xFF1B2E1E) : Color(0xFF182A38),
     orange: Color(0xFFD9A048),
     orangeSoft: Color(0xFF2C2416),
     green: Color(0xFF2F9E66),

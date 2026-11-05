@@ -7,26 +7,30 @@ import '../utils/vietnamese_font.dart';
 /// Quy tắc: màn hình KHÔNG tự đặt mã màu / cỡ chữ / bo góc. Luôn lấy từ đây
 /// (hoặc từ Theme) để cả phần mềm đồng nhất và đổi thương hiệu một chỗ.
 abstract final class SboxColors {
+  /// App SBOX POS (build với SBOX_POS_STANDALONE): màu thương hiệu xanh lá #2E7D32 theo logo POS.
+  static const _posApp = bool.fromEnvironment('SBOX_POS_STANDALONE');
+  static const posApp = _posApp;
+
   // ── Thương hiệu: xanh biển #158DC0 ──────────────────────────────
-  static const brand50 = Color(0xFFE8F5FB);
-  static const brand100 = Color(0xFFBFE3F3);
-  static const brand200 = Color(0xFF94D0EA);
-  static const brand300 = Color(0xFF6FC0E3);
-  static const brand400 = Color(0xFF3FA6D2);
+  static const brand50 = _posApp ? Color(0xFFE8F5E9) : Color(0xFFE8F5FB);
+  static const brand100 = _posApp ? Color(0xFFC8E6C9) : Color(0xFFBFE3F3);
+  static const brand200 = _posApp ? Color(0xFFA5D6A7) : Color(0xFF94D0EA);
+  static const brand300 = _posApp ? Color(0xFF81C784) : Color(0xFF6FC0E3);
+  static const brand400 = _posApp ? Color(0xFF4CAF50) : Color(0xFF3FA6D2);
   /// Màu thương hiệu (logo, thanh tiêu đề, biểu đồ, điểm nhấn).
-  static const brand500 = Color(0xFF158DC0);
+  static const brand500 = _posApp ? Color(0xFF2E7D32) : Color(0xFF158DC0);
   /// Nút chính, chữ liên kết, tab đang chọn — đủ tương phản chữ trắng (≈4.8:1).
-  static const brand600 = Color(0xFF0F7BA8);
+  static const brand600 = _posApp ? Color(0xFF256E2A) : Color(0xFF0F7BA8);
   /// Di chuột / nhấn.
-  static const brand700 = Color(0xFF0B6A91);
-  static const brand800 = Color(0xFF095A7B);
+  static const brand700 = _posApp ? Color(0xFF1B5E20) : Color(0xFF0B6A91);
+  static const brand800 = _posApp ? Color(0xFF164D1A) : Color(0xFF095A7B);
   /// Chữ trên nền xanh nhạt.
-  static const brand900 = Color(0xFF084B67);
+  static const brand900 = _posApp ? Color(0xFF103C14) : Color(0xFF084B67);
 
   static const primary = brand600;
 
   /// Dạng MaterialColor (cho API cần đủ tông shade50..shade900).
-  static const brandSwatch = MaterialColor(0xFF158DC0, <int, Color>{
+  static const brandSwatch = MaterialColor(_posApp ? 0xFF2E7D32 : 0xFF158DC0, <int, Color>{
     50: brand50, 100: brand100, 200: brand200, 300: brand300, 400: brand400,
     500: brand500, 600: brand600, 700: brand700, 800: brand800, 900: brand900,
   });

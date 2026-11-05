@@ -1299,7 +1299,9 @@ class _RegisterScreenState extends State<RegisterScreen>
       return SboxBrandLockup(
         expandText: false,
         showSlogan: false,
-        logoSize: isDesktop ? 88 : 68,
+        logoSize: SboxAppVariant.standalonePos ? 56 : isDesktop ? 88 : 68,
+        titleSize: SboxAppVariant.standalonePos ? 26 : 18,
+        titleColor: SboxColors.brand600,
         alignment: MainAxisAlignment.center,
       );
     }

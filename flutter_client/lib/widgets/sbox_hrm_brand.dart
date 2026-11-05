@@ -155,8 +155,8 @@ class SboxBrandLockup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final muted = sloganColor ?? titleColor.withValues(alpha: 0.62);
-    // Logo KDS chỉ có chữ «S»: dùng bố cục logo + tên app, không dùng logo chữ của POS.
-    final isPos = SboxAppVariant.posBranding && !SboxAppVariant.kitchenApp;
+    // Logo chữ POS chỉ còn trên web sboxpos.com. Các app (POS, KDS…): huy hiệu «S» + tên app.
+    final isPos = SboxAppVariant.posWebHost;
     final color = isPos ? const Color(SboxAppVariant.posGreen) : titleColor;
     // Logo gốc 1024×1024 (vuông) mà chỉ hiển thị nhỏ → giải mã vừa kích thước
     // (x2 dự phòng khi nằm trong FittedBox phóng to).

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/sbox_app_variant.dart';
 import '../providers/permission_provider.dart';
 import 'permission_modules.dart';
 import 'store_role_helper.dart';
@@ -90,6 +91,7 @@ class PermissionNavigation {
     required PermissionProvider perm,
     required bool bypassPackageFilter,
   }) {
+    if (SboxAppVariant.hidesModule(moduleCode)) return false;
     if (bypassPackageFilter) return true;
     if (moduleCode == null || moduleCode.isEmpty) return true;
     // Lịch sử thao tác có ở mọi gói (quyền xem vẫn theo vai trò).

@@ -295,6 +295,9 @@ class ZKTecoApp extends StatelessWidget {
               if (SboxAppVariant.bossApp) {
                 return const BossShell();
               }
+              if (SboxAppVariant.posUsesMainLayout) {
+                return const MainLayout();
+              }
               if (SboxAppVariant.standalonePos) {
                 return const PosStandaloneShell();
               }

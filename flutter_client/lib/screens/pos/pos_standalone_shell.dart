@@ -31,7 +31,7 @@ import 'pos_mobile_hub_screen.dart';
 import '../../utils/pos_printer_auto_detect.dart';
 
 /// Shell POS độc lập (Play / flavor `pos`): quyền fail-open, SignalR + in,
-/// hub 5 tab — cùng luồng A6, không mở [MainLayout] HRM.
+/// không mở [MainLayout]. SBOX POS dùng [MainLayout], xem [SboxAppVariant.posUsesMainLayout].
 /// App SBOX KDS ([SboxAppVariant.kitchenApp]): chỉ màn hình bếp, không Agent in / cổng thanh toán.
 class PosStandaloneShell extends StatefulWidget {
   const PosStandaloneShell({super.key});
@@ -100,7 +100,8 @@ class _PosStandaloneShellState extends State<PosStandaloneShell>
     } catch (e) {
       debugPrint('⚠️ PosStandaloneShell permissions: $e');
     } finally {
-      perm.ensurePosSellDefaults();
+      // Tải được quyền thì giữ đúng quyền máy chủ; chỉ mở mặc định khi không tải được.
+      if (!perm.isLoaded) perm.ensurePosSellDefaults();
       auth.ensurePosPackageDefaults();
       debugPrint(
         '✅ PosStandaloneShell perms role=${auth.user?.role} '

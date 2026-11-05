@@ -271,7 +271,7 @@ Future<void> guideShot(
               data: MediaQuery.of(c).copyWith(alwaysUse24HourFormat: true),
               child: child!,
             ),
-            home: _GuideFrame(crumbs: crumbs, child: screen),
+            home: _plainShots ? screen : _GuideFrame(crumbs: crumbs, child: screen),
           ),
         ),
         Positioned.fill(
@@ -311,8 +311,8 @@ Future<void> guideShot(
     final box = r!.inflate(m.pad).intersect((Offset.zero & size).deflate(4));
     expect(box.width > 0 && box.height > 0, isTrue, reason: '$name: điểm đánh dấu ${m.n} nằm ngoài khung ảnh');
     boxes.add(_MarkBox(m.n, box));
-  }
-  painted.value = boxes;
+  }
+  if (!_plainShots) painted.value = boxes;
   await t.pump();
 
   final dir = Platform.environment['GUIDE_SHOT_DIR'];
@@ -332,4 +332,7 @@ Future<void> guideShot(
       await t.pump(const Duration(seconds: 3));
     }
   }, () => api);
-}
+}
+
+/// GUIDE_SHOT_PLAIN=1: ảnh sạch cho Google Play, không đường dẫn và số đánh dấu.
+final bool _plainShots = Platform.environment['GUIDE_SHOT_PLAIN'] == '1';

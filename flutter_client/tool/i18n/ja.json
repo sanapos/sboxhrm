@@ -22807,7 +22807,13 @@
   "Tài khoản này đã gắn với hồ sơ khác.": "このアカウントは別のプロフィールに連携済みです。",
   "Chấm công & lương": "勤怠と給与",
   "Chức năng này chưa có trên SBOX BOSS.": "この機能はまだ SBOX BOSS にありません。",
-  "Chưa có trong gói dịch vụ hoặc chưa được cấp quyền.": "サービスパッケージに含まれていないか、権限がありません。"
+  "Chưa có trong gói dịch vụ hoặc chưa được cấp quyền.": "サービスパッケージに含まれていないか、権限がありません。",
+  "Mọi cấu hình của cửa hàng: bán hàng, thanh toán, in ấn, người dùng": "店舗のすべての設定:販売、支払い、印刷、ユーザー",
+  "Tìm thiết lập: VAT, máy in, sơ đồ bàn…": "設定を検索:VAT、プリンター、フロアマップ…",
+  "Nhập, xuất, kiểm kho": "入庫・出庫・棚卸",
+  "Quét mã từng máy": "機器ごとにコードをスキャン",
+  "Tra seri / IMEI": "シリアル / IMEI を検索",
+  "So tồn sổ và thực tế": "帳簿在庫と実在庫を照合"
  },
  "t": [
   [

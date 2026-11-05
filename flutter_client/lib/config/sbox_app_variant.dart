@@ -71,7 +71,7 @@ abstract final class SboxAppVariant {
   /// Tên hiển thị trong app đồng hành: «SBOX HRM» → tên app, «Thiết lập HRM» → «Thiết lập SBOX»,
   /// tên miền HRM → sboxpos.com.
   static String rebrand(String s) {
-    if (!companionApp) return s;
+    if (!companionApp && !standalonePos) return s;
     if (isPackageBlocked(s)) {
       s = s.replaceAll(_packageBlocked, 'Gói dịch vụ của cửa hàng chưa có chức năng này. Liên hệ đại lý để nâng cấp gói.');
     }
@@ -101,7 +101,24 @@ abstract final class SboxAppVariant {
   }
 
   /// Thư mục Tải về / Ảnh chứa tệp xuất (khớp MainActivity.exportFolderName).
-  static String get exportFolderName => companionApp ? productLine : 'SBOX HRM';
+  static String get exportFolderName => companionApp || standalonePos ? productLine : 'SBOX HRM';
+
+  /// Chức năng nhân sự không có trong app SBOX POS: menu, Trang chủ, tìm nhanh, thanh dưới đều ẩn.
+  static const posAppHiddenModules = <String>{
+    'Employee', 'DeviceUser', 'Department', 'Leave', 'SalarySettings', 'Attendance', 'WorkSchedule',
+    'AttendanceSummary', 'AttendanceByShift', 'LateEarlyReport', 'TravelHoursReport', 'AttendanceApproval',
+    'ScheduleApproval', 'MobileAttendanceApproval', 'Payslip', 'Payroll', 'MobileDeviceRegistration',
+    'MobileAttendance', 'Meal', 'BonusPenalty', 'AdvanceRequests', 'BusinessTripExpense', 'Asset', 'Task',
+    'Communication', 'KPI', 'Production', 'Feedback', 'FieldCheckIn', 'AttendanceReport', 'PenaltyReport',
+    'AdvanceReport', 'BusinessTripReport', 'LeaveReport', 'AssetReport', 'PenaltyTickets', 'ShiftSwap',
+    'HrAnalyticsReport',
+  };
+
+  static bool hidesModule(String? moduleCode) =>
+      standalonePos && moduleCode != null && posAppHiddenModules.contains(moduleCode);
+
+  /// SBOX POS dùng cùng khung với POS trong HRM trên mọi cỡ màn (menu trái / thanh dưới); chỉ KDS dùng shell riêng.
+  static bool get posUsesMainLayout => standalonePos && !kitchenApp;
 
   /// Trang web sboxpos.com — chỉ đổi logo/chữ login & marketing, không đổi shell app.
   static bool get posWebHost {
@@ -160,10 +177,14 @@ abstract final class SboxAppVariant {
       ? 'assets/sbox_staff_logo.png'
       : kitchenApp
       ? 'assets/sbox_kds_logo.png'
+      : standalonePos
+      ? 'assets/sbox_pos_mark.png'
       : (posBranding ? 'assets/sbox_pos_logo.png' : 'assets/logo.png');
 
-  /// Logo «S» trong app (menu, màn khách): HRM / POS giữ logo gốc, app đồng hành dùng logo riêng.
-  static String get markAsset => companionApp ? logoAsset : 'assets/logo.png';
+  /// Logo «S» trong app (menu, màn khách): HRM giữ logo gốc, SBOX POS chữ S xanh lá, app đồng hành dùng logo riêng.
+  static String get markAsset => companionApp
+      ? logoAsset
+      : (standalonePos ? 'assets/sbox_pos_mark.png' : 'assets/logo.png');
 
   static String get materialAppTitle => productLine;
 

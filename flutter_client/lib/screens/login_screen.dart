@@ -1367,7 +1367,9 @@ class _LoginScreenState extends State<LoginScreen>
       return SboxBrandLockup(
         expandText: false,
         showSlogan: false,
-        logoSize: tight ? 64 : (isDesktop ? 92 : 72),
+        logoSize: SboxAppVariant.standalonePos ? 56 : tight ? 64 : (isDesktop ? 92 : 72),
+        titleSize: SboxAppVariant.standalonePos ? 26 : 18,
+        titleColor: SboxColors.brand600,
         alignment: MainAxisAlignment.center,
       );
     }

@@ -46,6 +46,10 @@ import '../widgets/page_top_actions.dart';
 import '../widgets/ai_assistant_sheet.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/sbox_hrm_brand.dart';
+import 'pos/pos_serial_count_screen.dart';
+import 'pos/pos_serial_ledger_screen.dart';
+import 'pos/pos_stock_reconcile_screen.dart';
+import 'warehouse/wh_mobile_hub_screen.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
 import '../models/hrm.dart';
 import '../models/user.dart';
@@ -388,7 +392,8 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _selectedIndex = 0;
-  bool _isExpanded = false;
+  // SBOX POS mở sẵn menu trái lần đầu; sau đó theo lựa chọn đã lưu.
+  bool _isExpanded = SboxAppVariant.standalonePos;
   static const _kSidebarExpanded = 'main_sidebar_expanded';
   static const _kLastNavIndex = 'main_layout_last_nav_index';
   final ValueNotifier<int> _unreadNotificationsCount = ValueNotifier<int>(0);
@@ -548,6 +553,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   /// Cached home screen — kept alive via Offstage on desktop/tablet so scroll position is preserved.
   Widget? _homeScreenCache;
   List<String>? _homeAllowedModulesCached;
+  bool _permReady = false;
+  bool? _homePermReadyCached;
   bool? _homeBypassPackageFilterCached;
   PosSellProfile? _homeSellProfileCached;
   final Map<int, Widget> _mobileBottomScreenCache = {};
@@ -648,6 +655,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         )
         .then((_) {
       if (!mounted) return;
+      // Chỉ gọi sau khi tải xong: gọi trong initState sẽ báo đổi giữa lúc dựng màn, menu không vẽ lại.
+      if (SboxAppVariant.standalonePos) {
+        Provider.of<AuthProvider>(context, listen: false).ensurePosPackageDefaults();
+      }
+      // Mở lại vào màn đã mất quyền (khôi phục màn cũ): về Trang chủ thay vì kẹt ở màn khóa không có menu.
+      if (permProvider.isLoaded && _selectedIndex != 0 && !_isNavItemVisible(_selectedIndex)) {
+        setState(() => _selectedIndex = 0);
+        _reportCurrentScreen();
+      }
       _maybeLandPosSell();
       // Cửa hàng tự nhận mẫu chứng từ A4 chuẩn mới nhất khi mở app (ngầm, giữ bản cũ để quay lại).
       final perm = Provider.of<PermissionProvider>(context, listen: false);
@@ -673,13 +689,21 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     if (!perm.isLoaded) return;
-    if (StoreRoleHelper.isFullAccess(auth.userRole) || auth.userRole.toLowerCase() == 'director') return;
-    if (!PermissionNavigation.canNavigate(perm, 'PosSell')) return;
+    if (SboxAppVariant.standalonePos) {
+      // App SBOX POS: ai có quyền bán đều mở vào Bán hàng, kể cả chủ cửa hàng.
+      if (!PermissionNavigation.canAccessModule('PosSell',
+          allowedModules: auth.user?.allowedModules, perm: perm, role: auth.userRole)) {
+        return;
+      }
+    } else {
+      if (StoreRoleHelper.isFullAccess(auth.userRole) || auth.userRole.toLowerCase() == 'director') return;
+      if (!PermissionNavigation.canNavigate(perm, 'PosSell')) return;
 
-    final roleHit = StoreRoleHelper.isPosCashierRole(auth.userRole);
-    final moduleHit =
-        StoreRoleHelper.isPosHeavyModules(auth.user?.allowedModules);
-    if (!roleHit && !moduleHit) return;
+      final roleHit = StoreRoleHelper.isPosCashierRole(auth.userRole);
+      final moduleHit =
+          StoreRoleHelper.isPosHeavyModules(auth.user?.allowedModules);
+      if (!roleHit && !moduleHit) return;
+    }
 
     _didLandPosSell = true;
     NavigationNotifier.posHubTab.value = 2;
@@ -697,6 +721,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   Future<void> _restoreLastNavIndex() async {
+    if (SboxAppVariant.standalonePos) return; // App SBOX POS luôn mở vào Bán hàng.
     try {
       final prefs = await SharedPreferences.getInstance();
       final idx = prefs.getInt(_kLastNavIndex);
@@ -2683,6 +2708,54 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'ActivityLog',
     ),
+    // App SBOX POS: các màn kho trước chỉ mở từ «Nhiều hơn» của hub 5 ô. Thêm cuối danh sách
+    // để không đổi chỉ số màn đã lưu.
+    if (SboxAppVariant.posUsesMainLayout) ...[
+      NavItem(
+        icon: Icons.warehouse_outlined,
+        activeIcon: Icons.warehouse,
+        label: 'Trung tâm Kho',
+        subtitle: 'Nhập, xuất, kiểm kho',
+        screen: const WhMobileHubScreen(),
+        group: 'POS',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'PosProducts',
+      ),
+      NavItem(
+        icon: Icons.qr_code_scanner_outlined,
+        activeIcon: Icons.qr_code_scanner_rounded,
+        label: 'Kiểm kho theo mã',
+        subtitle: 'Quét mã từng máy',
+        screen: const PosSerialCountScreen(),
+        group: 'POS',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'PosStockCounts',
+      ),
+      NavItem(
+        icon: Icons.confirmation_number_outlined,
+        activeIcon: Icons.confirmation_number,
+        label: 'Sổ seri máy',
+        subtitle: 'Tra seri / IMEI',
+        screen: const PosSerialLedgerScreen(),
+        group: 'POS',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'PosProducts',
+      ),
+      NavItem(
+        icon: Icons.rule_folder_outlined,
+        activeIcon: Icons.rule_folder,
+        label: 'Đối soát kho',
+        subtitle: 'So tồn sổ và thực tế',
+        screen: const PosStockReconcileScreen(),
+        group: 'POS',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'PosStockCounts',
+      ),
+    ],
   ];
 
   @override
@@ -2705,6 +2778,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         u.allowedModules == null ? null : Object.hashAll(u.allowedModules!),
       );
     });
+
+    // Quyền tải xong: vẽ lại Trang chủ. Đăng nhập mới có thể đã có lượt tải đang chạy, khi đó
+    // _loadPermissions bỏ qua nên không có gì khác báo cho khung này.
+    _permReady = context.select<PermissionProvider, bool>((p) => p.isLoaded && !p.isLoading);
+    if (_permReady && SboxAppVariant.standalonePos && !_didLandPosSell) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeLandPosSell());
+    }
 
     // sizeOf: chỉ phụ thuộc kích thước, không rebuild cả shell mỗi frame khi bàn phím mở / đóng.
     final width = MediaQuery.sizeOf(context).width;
@@ -2740,9 +2820,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (_homeScreenCache != null &&
         _homeAllowedModulesCached == allowed &&
         _homeBypassPackageFilterCached == bypass &&
-        _homeSellProfileCached == _posSellProfile) {
+        _homeSellProfileCached == _posSellProfile &&
+        _homePermReadyCached == _permReady) {
       return _homeScreenCache!;
     }
+    _homePermReadyCached = _permReady;
     _homeAllowedModulesCached = allowed;
     _homeBypassPackageFilterCached = bypass;
     _homeSellProfileCached = _posSellProfile;
@@ -3812,13 +3894,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 child: _isExpanded
                     ? Row(
                         children: [
-                          const Expanded(
+                          Expanded(
+                            // SBOX POS: khẩu hiệu dài, bỏ cho khỏi chật đầu menu.
                             child: SboxBrandLockup(
                               logoSize: 32,
                               titleSize: 14,
                               sloganSize: 10,
                               titleColor: HrmPageChrome.primaryNavy,
-                              showSlogan: true,
+                              showSlogan: !SboxAppVariant.standalonePos,
                             ),
                           ),
                           Icon(Icons.chevron_left_rounded,
@@ -3831,7 +3914,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(6),
-                            child: Image.asset(SboxAppVariant.markAsset,
+                            child: Image.asset(
+                                SboxAppVariant.markAsset,
                                 width: 26, height: 26),
                           ),
                           Icon(Icons.chevron_right_rounded,
@@ -4353,13 +4437,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: SboxBrandLockup(
                     logoSize: 32,
                     titleSize: 14,
                     sloganSize: 10,
                     titleColor: HrmPageChrome.primaryNavy,
-                    showSlogan: true,
+                    showSlogan: !SboxAppVariant.standalonePos,
                   ),
                 ),
                 IconButton(
@@ -4872,15 +4956,23 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
   }
 
   /// Điện thoại / web hẹp: lời chào + truy cập nhanh + chip nhóm + từng nhóm dạng lưới icon.
+  List<String> _orderedHomeGroups(Map<String, List<MapEntry<int, NavItem>>> groupedItems) {
+    final names = _HomeMenuScreen._groupOrder.where(groupedItems.containsKey).toList();
+    // App SBOX POS: Bán hàng đứng đầu; Tài chính (chỉ còn Thu chi) xuống cạnh báo cáo.
+    if (SboxAppVariant.standalonePos && names.remove('Tài chính')) {
+      final at = names.indexOf('Báo cáo kinh doanh');
+      names.insert(at < 0 ? names.length : at, 'Tài chính');
+    }
+    return names;
+  }
+
   Widget _buildMobileKiotHome(
     BuildContext context,
     User? user,
     Map<String, List<MapEntry<int, NavItem>>> groupedItems,
   ) {
     final l = AppLocalizations.of(context);
-    final groupNames = _HomeMenuScreen._groupOrder
-        .where((g) => groupedItems.containsKey(g))
-        .toList(growable: false);
+    final groupNames = _orderedHomeGroups(groupedItems);
     String groupTitle(String g) => tr(NavItem._groupMap[g]?.call(l) ?? g);
     final quick = _mobileQuickActions(context);
     final name = (user?.fullName ?? '').trim().isEmpty
@@ -5099,9 +5191,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       return _buildMobileKiotHome(context, user, groupedItems);
     }
 
-    final groupNames = _HomeMenuScreen._groupOrder
-        .where((g) => groupedItems.containsKey(g))
-        .toList(growable: false);
+    final groupNames = _orderedHomeGroups(groupedItems);
     final l = AppLocalizations.of(context);
     String groupTitle(String g) => tr(NavItem._groupMap[g]?.call(l) ?? g);
 
@@ -5204,7 +5294,9 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                         context,
                         title: groupTitle(groupName),
                         description:
-                            _HomeMenuScreen._groupDescriptions[groupName] ?? '',
+                            SboxAppVariant.standalonePos && groupName == 'Tài chính'
+                                ? 'Thu chi'
+                                : _HomeMenuScreen._groupDescriptions[groupName] ?? '',
                         icon: _HomeMenuScreen._groupIcons[groupName] ??
                             Icons.folder,
                         tint: _HomeMenuScreen.tintOf(groupName),

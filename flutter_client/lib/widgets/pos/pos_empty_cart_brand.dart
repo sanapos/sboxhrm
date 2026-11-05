@@ -20,6 +20,7 @@ class PosEmptyCartBrand extends StatelessWidget {
 
   static const assetPath = 'assets/sbox_pos_logo.png';
   static const opacity = 0.72;
+  static bool get _useMark => SboxAppVariant.companionApp || SboxAppVariant.standalonePos;
 
   @override
   Widget build(BuildContext context) {
@@ -34,10 +35,10 @@ class PosEmptyCartBrand extends StatelessWidget {
               children: [
                 Opacity(
                   opacity: opacity,
-                  // App đồng hành: logo «S» như màn đăng nhập — không gắn chữ «SBOX POS».
+                  // App: logo «S» như icon app. Logo chữ «SBOX POS» chỉ còn trên web sboxpos.com.
                   child: Image.asset(
-                    SboxAppVariant.companionApp ? SboxAppVariant.markAsset : assetPath,
-                    width: SboxAppVariant.companionApp ? logoWidth * 0.5 : logoWidth,
+                    _useMark ? SboxAppVariant.markAsset : assetPath,
+                    width: _useMark ? logoWidth * 0.5 : logoWidth,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,
                   ),

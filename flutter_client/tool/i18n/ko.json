@@ -22807,7 +22807,13 @@
   "Tài khoản này đã gắn với hồ sơ khác.": "이 계정은 이미 다른 프로필에 연결되어 있습니다.",
   "Chấm công & lương": "출퇴근 및 급여",
   "Chức năng này chưa có trên SBOX BOSS.": "이 기능은 아직 SBOX BOSS에서 제공되지 않습니다.",
-  "Chưa có trong gói dịch vụ hoặc chưa được cấp quyền.": "서비스 패키지에 없거나 권한이 없습니다."
+  "Chưa có trong gói dịch vụ hoặc chưa được cấp quyền.": "서비스 패키지에 없거나 권한이 없습니다.",
+  "Mọi cấu hình của cửa hàng: bán hàng, thanh toán, in ấn, người dùng": "매장 전체 설정: 판매, 결제, 인쇄, 사용자",
+  "Tìm thiết lập: VAT, máy in, sơ đồ bàn…": "설정 검색: VAT, 프린터, 테이블 배치도…",
+  "Nhập, xuất, kiểm kho": "입고, 출고, 재고 실사",
+  "Quét mã từng máy": "기기별 코드 스캔",
+  "Tra seri / IMEI": "시리얼 / IMEI 조회",
+  "So tồn sổ và thực tế": "장부 재고와 실제 재고 비교"
  },
  "t": [
   [

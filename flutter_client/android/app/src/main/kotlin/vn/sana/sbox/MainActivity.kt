@@ -17,9 +17,9 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterFragmentActivity() {
     private val FILE_CHANNEL = "com.sboxhrm/file_saver"
 
-    // Thư mục tệp xuất: app BOSS / Nhân Viên / KDS dùng tên app (khớp SboxAppVariant.exportFolderName).
+    // Thư mục tệp xuất: app POS / BOSS / Nhân Viên / KDS dùng tên app (khớp SboxAppVariant.exportFolderName).
     private val exportFolderName: String
-        get() = if (packageName.endsWith(".sboxpos.com")) getString(R.string.app_name) else "SBOX HRM"
+        get() = if (packageName.endsWith(".sboxpos.com") || packageName == "sbox.sana.vn.pos") getString(R.string.app_name) else "SBOX HRM"
 
     private val SCANNER_CHANNEL = "com.sboxhrm/sunmi_scanner"
 

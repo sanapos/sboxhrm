@@ -264,10 +264,10 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     return Provider.of<PermissionProvider>(context, listen: false).canEdit('SystemSettings');
   }
 
-  /// POS độc lập: Super Admin thấy bộ POS rút gọn; cửa hàng thấy mọi mục gói đã chọn.
+  /// App SBOX POS: chỉ các mục bán hàng, không có nhân sự / lương. Bản khác: Super Admin rút gọn; cửa hàng thấy mọi mục gói đã chọn.
   List<SettingsHubItemDef> _catalogItems() {
     final role = (Provider.of<AuthProvider>(context, listen: false).user?.role ?? '').toLowerCase();
-    final base = (SboxAppVariant.standalonePos && role == 'superadmin')
+    final base = (SboxAppVariant.posUsesMainLayout || (SboxAppVariant.standalonePos && role == 'superadmin'))
         ? SettingsHubCatalog.itemsForCurrentApp
         : SettingsHubCatalog.allItems;
     return _applyBranchLabel(base);
@@ -611,7 +611,11 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                     _search.clear();
                   }),
                 ),
-          hintText: tr(dense ? 'Tìm thiết lập' : 'Tìm thiết lập: VAT, BHXH, máy in, ca đêm…'),
+          hintText: tr(dense
+              ? 'Tìm thiết lập'
+              : SboxAppVariant.posUsesMainLayout
+                  ? 'Tìm thiết lập: VAT, máy in, sơ đồ bàn…'
+                  : 'Tìm thiết lập: VAT, BHXH, máy in, ca đêm…'),
           filled: true,
           fillColor: Colors.white,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SboxColors.border)),
@@ -676,7 +680,9 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   Widget _header(bool wide) {
     final title = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(tr('Thiết lập SBOX'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
-      Text(tr('Mọi cấu hình của cửa hàng: bán hàng, thanh toán, in ấn, nhân sự, lương, người dùng'), style: const TextStyle(color: SboxColors.slate500)),
+      Text(tr(SboxAppVariant.posUsesMainLayout
+          ? 'Mọi cấu hình của cửa hàng: bán hàng, thanh toán, in ấn, người dùng'
+          : 'Mọi cấu hình của cửa hàng: bán hàng, thanh toán, in ấn, nhân sự, lương, người dùng'), style: const TextStyle(color: SboxColors.slate500)),
     ]);
     final customize = _canCustomizeSidebar() && !wide
         ? IconButton(

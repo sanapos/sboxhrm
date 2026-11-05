@@ -22807,7 +22807,13 @@
   "Tài khoản này đã gắn với hồ sơ khác.": "该账户已关联其他档案。",
   "Chấm công & lương": "考勤与工资",
   "Chức năng này chưa có trên SBOX BOSS.": "SBOX BOSS 暂无此功能。",
-  "Chưa có trong gói dịch vụ hoặc chưa được cấp quyền.": "服务套餐未包含或未获授权。"
+  "Chưa có trong gói dịch vụ hoặc chưa được cấp quyền.": "服务套餐未包含或未获授权。",
+  "Mọi cấu hình của cửa hàng: bán hàng, thanh toán, in ấn, người dùng": "门店全部设置:销售、支付、打印、用户",
+  "Tìm thiết lập: VAT, máy in, sơ đồ bàn…": "搜索设置:增值税、打印机、桌台图…",
+  "Nhập, xuất, kiểm kho": "入库、出库、盘点",
+  "Quét mã từng máy": "逐台扫码",
+  "Tra seri / IMEI": "查询序列号 / IMEI",
+  "So tồn sổ và thực tế": "核对账面与实际库存"
  },
  "t": [
   [

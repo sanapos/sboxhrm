@@ -141,6 +141,7 @@ flutter:
   assets:
     - assets/logo.png
     - assets/sbox_pos_logo.png
+    - assets/sbox_pos_mark.png
     - assets/sbox_boss_logo.png
     - assets/sbox_staff_logo.png
     - assets/sbox_kds_logo.png

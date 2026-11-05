@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/sbox_app_variant.dart';
 import '../services/api_service.dart';
 import '../utils/dashboard_permission_modules.dart';
 import '../utils/permission_modules.dart';
@@ -189,8 +190,11 @@ class PermissionProvider extends ChangeNotifier {
       }
 
       _isLoaded = true;
-      if (StoreRoleHelper.isPosCashierRole(role) &&
-          _permissions['PosSell']?.canView != true) {
+      // App SBOX POS: mặc định chỉ khi máy chủ trả rỗng. Có danh sách thì theo đúng quyền như HRM:
+      // tự cấp ở máy chỉ hiện menu, máy chủ vẫn chặn, và lần tự tải 10 phút sẽ khóa màn đang bán.
+      if ((SboxAppVariant.standalonePos && data.isEmpty) ||
+          (StoreRoleHelper.isPosCashierRole(role) &&
+              _permissions['PosSell']?.canView != true)) {
         ensurePosSellDefaults();
       }
       unawaited(_saveCache(role));
@@ -207,7 +211,7 @@ class PermissionProvider extends ChangeNotifier {
       } else {
         _loadError = false;
       }
-      if (StoreRoleHelper.isPosCashierRole(role)) {
+      if (SboxAppVariant.standalonePos || StoreRoleHelper.isPosCashierRole(role)) {
         ensurePosSellDefaults();
       }
     } finally {

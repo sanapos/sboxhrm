@@ -10634,7 +10634,14 @@
   "Chưa có trong gói dịch vụ hoặc chưa được cấp quyền.": "Not in your plan, or you do not have permission.",
   "Thiết lập lương": "Salary settings",
   "Phòng ban": "Departments",
-  "Duyệt lịch làm việc": "Approve schedules"
+  "Duyệt lịch làm việc": "Approve schedules",
+  "Mọi cấu hình của cửa hàng: bán hàng, thanh toán, in ấn, người dùng": "All store settings: sales, payments, printing, users",
+  "Tìm thiết lập: VAT, máy in, sơ đồ bàn…": "Search settings: VAT, printers, floor plan…",
+  "Nhập, xuất, kiểm kho": "Receiving, issuing, stock counts",
+  "Quét mã từng máy": "Scan each unit's code",
+  "Tra seri / IMEI": "Look up serial / IMEI",
+  "So tồn sổ và thực tế": "Compare book and actual stock",
+  "Thu chi": "Cash book"
  },
  "t": [
   [

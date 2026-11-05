@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Icon launcher cho flavor boss / staff / kds: lấy chữ S từ logo gốc flutter_client/assets/logo.png,
+"""Icon launcher cho flavor boss / staff / kds / pos: lấy chữ S từ logo gốc flutter_client/assets/logo.png,
 đặt lên nền màu của flavor.
 
 Ghi mipmap-*/ic_launcher(_round).png và ic_launcher-playstore.png (512px, ảnh vuông cho Play)
@@ -26,6 +26,8 @@ FLAVORS = {
     "boss": dict(bg=("#0E1422", "#3B4A6B"), s=("#C4922F", "#FFE394")),
     "staff": dict(bg=("#00594F", "#35CDAE"), s=("#CFEFE8", "#FFFFFF")),
     "kds": dict(bg=("#B23A0E", "#FF9A4A"), s=("#FFE6D6", "#FFFFFF")),
+    # SBOX POS giữ logo chữ assets/sbox_pos_logo.png, chỉ thêm icon và logo chữ S (sbox_pos_mark.png).
+    "pos": dict(bg=("#1B5E20", "#66BB6A"), s=("#E3F4E4", "#FFFFFF")),
 }
 
 
@@ -119,7 +121,7 @@ def main():
             square.resize((px, px), Image.LANCZOS).save(folder / "ic_launcher.png", optimize=True)
             round_icon.resize((px, px), Image.LANCZOS).save(folder / "ic_launcher_round.png", optimize=True)
         store.save(base / "ic_launcher-playstore.png", optimize=True)
-        square.resize((512, 512), Image.LANCZOS).save(CLIENT / "assets" / f"sbox_{flavor}_logo.png", optimize=True)
+        square.resize((512, 512), Image.LANCZOS).save(CLIENT / "assets" / ("sbox_pos_mark.png" if flavor == "pos" else f"sbox_{flavor}_logo.png"), optimize=True)
         results[flavor] = (square, round_icon, store)
     write_status_icon(badge)
     if len(sys.argv) > 1:
