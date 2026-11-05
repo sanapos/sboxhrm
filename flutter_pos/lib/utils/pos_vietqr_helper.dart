@@ -188,6 +188,16 @@ class PosVietQrHelper {
     return out.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
+  /// Số tiền QR hóa đơn đòi — dùng chung cho mã QR và dòng chữ in cạnh mã.
+  static double qrAmountForOrder(PosSaleOrder order) {
+    // Tổng phải trả gồm VAT + phụ thu + phí giao (order.total chỉ là tiền hàng);
+    // đơn còn nợ → QR đòi đúng phần còn lại.
+    final payable = order.total + order.vatAmount + order.surchargeAmount + order.deliveryFee;
+    return order.balanceDue > 0.5
+        ? order.balanceDue
+        : (payable > 0 ? payable : order.paidAmount);
+  }
+
   /// URL VietQR theo tổng đơn — dùng khi in hóa đơn (cờ «In mã VietQR»).
   static String? qrImageUrlForOrder(
     PosSaleOrder order, {
@@ -200,15 +210,9 @@ class PosVietQrHelper {
       preferredId: preferredAccountId,
     );
     if (account == null) return null;
-    // Tổng phải trả gồm VAT + phụ thu + phí giao (order.total chỉ là tiền hàng);
-    // đơn còn nợ → QR đòi đúng phần còn lại.
-    final payable = order.total + order.vatAmount + order.surchargeAmount + order.deliveryFee;
-    final amount = order.balanceDue > 0.5
-        ? order.balanceDue
-        : (payable > 0 ? payable : order.paidAmount);
     return qrImageUrl(
       account: account,
-      amount: amount,
+      amount: qrAmountForOrder(order),
       description: transferNote(orderNo: order.orderNo, prefix: 'POS'),
     );
   }

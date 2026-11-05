@@ -382,7 +382,7 @@ class PosPrintBlock {
   /// Với [PosPrintBlockType.lineItems]: `['Ten_Hang_Hoa']` = chỉ in tên hàng.
   final List<String>? fields;
   final double height;
-  /// Kích thước QR in (px/dot, 100–220).
+  /// Kích thước QR in (px/dot) — trình biên dịch ép về 300–400.
   final int qrSize;
   final String? qrTitle;
   final String qrCaption;

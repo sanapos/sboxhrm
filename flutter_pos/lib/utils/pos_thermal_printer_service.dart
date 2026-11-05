@@ -26,6 +26,7 @@ import 'pos_table_label.dart';
 import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_settings.dart';
 import 'pos_printer_peripheral.dart';
+import 'pos_vietqr_helper.dart';
 import '../l10n/app_tr.dart';
 
 
@@ -769,7 +770,7 @@ class PosThermalPrinterService {
 
       await b.line('Quét VietQR thanh toán');
 
-      await b.line('${_money.format(order.total)} đ');
+      await b.line('${_money.format(PosVietQrHelper.qrAmountForOrder(order))} đ');
 
     }
 

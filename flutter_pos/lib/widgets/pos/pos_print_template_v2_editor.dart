@@ -1942,13 +1942,14 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
                   },
           ),
           const SizedBox(height: 12),
-          Text(tr('Kích thước QR: ${block.qrSize}px')),
+          // Cùng khoảng với trình biên dịch mẫu — mẫu cũ lưu 160 vẫn in ở cỡ 300.
+          Text(tr('Kích thước QR: ${block.qrSize.clamp(300, 400)}px')),
           Slider(
-            value: block.qrSize.clamp(100, 220).toDouble(),
-            min: 100,
-            max: 220,
-            divisions: 6,
-            label: '${block.qrSize}px',
+            value: block.qrSize.clamp(300, 400).toDouble(),
+            min: 300,
+            max: 400,
+            divisions: 5,
+            label: '${block.qrSize.clamp(300, 400)}px',
             onChanged: readOnly
                 ? null
                 : (v) => onChanged(block.copyWith(qrSize: v.round())),
