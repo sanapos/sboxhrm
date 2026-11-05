@@ -39,9 +39,10 @@ public class CreateEmployeeAccountHandler(
         if (employeeId.HasValue)
         {
             employee = await employeeRepository.GetByIdAsync(employeeId.Value);
-            if (employee == null)
+            var denyLink = EmployeeAccountLink.Deny(employee, manager.StoreId);
+            if (denyLink != null)
             {
-                return AppResponse<AccountDto>.Error("Employee not found.");
+                return AppResponse<AccountDto>.Error(denyLink);
             }
         }
 

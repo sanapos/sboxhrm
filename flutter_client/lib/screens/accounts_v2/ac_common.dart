@@ -44,7 +44,7 @@ class Account {
   bool get hrResigned => m['isEmployeeResigned'] == true;
   bool get hrIssue => m['isEmployeeMissingOrResigned'] == true || hrMissing || hrResigned;
   String? get hrIssueLabel => hrMissing
-      ? 'Không còn hồ sơ nhân viên'
+      ? 'Chưa gắn hồ sơ nhân viên'
       : hrResigned
           ? 'Nhân viên đã nghỉ việc'
           : hrIssue

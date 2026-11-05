@@ -83,7 +83,7 @@ class _AccountsV2ScreenState extends State<AccountsV2Screen> {
         _api.getAccounts(),
         _api.getAccountRolePolicy(),
         _api.getRoles(),
-        _can('create') ? _api.getEmployeesForSelect(pageSize: 10000) : Future.value(const []),
+        _can('create') || _can('edit') ? _api.getEmployeesForSelect(pageSize: 10000) : Future.value(const []),
       ]);
       if (!mounted) return;
       final accounts = [for (final m in (r[0] as List).whereType<Map>()) Account(Map<String, dynamic>.from(m))];
@@ -156,7 +156,7 @@ class _AccountsV2ScreenState extends State<AccountsV2Screen> {
   }
 
   Future<void> _edit(Account a) async {
-    if (await showAccountEditor(context, account: a, policy: _policy, roleOptions: _roleOptions, api: _api)) {
+    if (await showAccountEditor(context, account: a, policy: _policy, roleOptions: _roleOptions, employees: _free, api: _api)) {
       _load();
       if (mounted) acToast(context, 'Đã lưu tài khoản ${a.fullName}');
     }

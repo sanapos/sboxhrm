@@ -152,6 +152,8 @@ class _AcEditorState extends State<AcEditor> {
   void _pickEmployee(AcEmployee e) {
     setState(() {
       _employee = e;
+      // Sửa tài khoản: chỉ gắn hồ sơ, giữ nguyên thông tin đăng nhập đang dùng.
+      if (_editing) return;
       _name.text = e.name;
       if (e.email.isNotEmpty) _email.text = e.email;
       if (e.phone.isNotEmpty) _phone.text = e.phone;
@@ -193,7 +195,7 @@ class _AcEditorState extends State<AcEditor> {
       'phoneNumber': _phone.text.trim(),
       if (!_roleLocked) 'role': _role,
       if (!_editing) 'password': _pass.text,
-      if (!_editing && _employee != null) 'employeeId': _employee!.id,
+      if (_employee != null) 'employeeId': _employee!.id,
     };
     try {
       final res = _editing ? await _api.updateAccount(_a!.id, data) : await _api.createAccount(data);
@@ -299,7 +301,7 @@ class _AcEditorState extends State<AcEditor> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (!_editing && widget.employees.isNotEmpty) ...[
+            if (_a?.employeeId == null && widget.employees.isNotEmpty) ...[
               _label('Liên kết hồ sơ nhân viên'),
               _EmployeePicker(employees: widget.employees, selected: _employee, onPick: _pickEmployee, onClear: () => setState(() => _employee = null)),
               Padding(

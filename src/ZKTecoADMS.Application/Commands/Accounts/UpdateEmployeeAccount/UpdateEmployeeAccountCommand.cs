@@ -16,4 +16,7 @@ public class UpdateEmployeeAccountCommand : ICommand<AppResponse<bool>>
     public string? PhoneNumber { get; set; }
 
     public string? Role { get; set; }
+
+    /// <summary>Gắn hồ sơ nhân viên vào tài khoản đang chưa có hồ sơ; null = giữ nguyên.</summary>
+    public Guid? EmployeeId { get; set; }
 }

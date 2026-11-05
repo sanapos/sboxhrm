@@ -153,8 +153,9 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
         command.UserId = userId;
         command.StoreId = RequiredStoreId;
         var result = await mediator.Send(command, cancellationToken);
-        // Vai trò nằm trong token — đăng xuất để lần đăng nhập sau nhận vai trò mới.
-        if (result.IsSuccess && roleChanged)
+        // Vai trò và mã hồ sơ nhân viên nằm trong token — đăng xuất để lần đăng nhập sau nhận giá trị mới.
+        var profileLinked = request.EmployeeId.HasValue && target.Id != CurrentUserId;
+        if (result.IsSuccess && (roleChanged || profileLinked))
             await RevokeSessionsAsync(userId, cancellationToken);
 
         return result;
@@ -638,6 +639,7 @@ public class UpdateEmployeeAccountRequest
     public string? PhoneNumber { get; set; }
     public string? UserName { get; set; }
     public string? Role { get; set; }
+    public Guid? EmployeeId { get; set; }
 }
 
 public class UpdateProfileRequest
