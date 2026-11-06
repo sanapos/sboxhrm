@@ -14,7 +14,8 @@ import zipfile
 from pathlib import Path
 
 FORBIDDEN_PATHS = re.compile(
-    r"mobilefacenet|w600k_mbf|FaceNet|TensorFlowLite|MLKit|MLKFace|GoogleMlKit|tflite_flutter|geolocator|network_info_plus",
+    r"mobilefacenet|w600k_mbf|FaceNet|TensorFlowLite|MLKit|MLKFace|GoogleMlKit|tflite_flutter|geolocator|network_info_plus|"
+    r"DKImagePickerController|DKCamera|DKPhotoGallery",
     re.IGNORECASE,
 )
 FORBIDDEN_SYMBOLS = re.compile(

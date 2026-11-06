@@ -10,9 +10,15 @@ Chạy thử: python scripts/prepare_ios_pos_build.py <thư mục flutter_client
 """
 from __future__ import annotations
 
+import json
+import os
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent / "flutter_client"
 
@@ -138,8 +144,57 @@ def remove_line(text: str, pattern: str, label: str) -> str:
     return result
 
 
+def replace_once(text: str, pattern: str, replacement: str, label: str) -> str:
+    result, count = re.subn(pattern, replacement, text, flags=re.DOTALL)
+    if count != 1:
+        raise SystemExit(f"Expected one {label}, found {count}")
+    return result
+
+
+def vendor_file_picker() -> None:
+    """Chép file_picker rồi cắt DKImagePickerController: thư viện này kèm DKCamera dùng CLLocationManager.
+
+    Từ iOS 14 plugin chọn ảnh bằng PHPicker của Apple, app yêu cầu iOS 16 nên nhánh DK không bao giờ chạy.
+    """
+    flutter = os.environ.get("FLUTTER_BIN") or shutil.which("flutter") or "flutter"
+    subprocess.run([flutter, "pub", "get"], cwd=ROOT, check=True)
+    config = json.loads((ROOT / ".dart_tool/package_config.json").read_text(encoding="utf-8"))
+    package = next(p for p in config["packages"] if p["name"] == "file_picker")
+    source = Path(url2pathname(urlparse(package["rootUri"]).path))
+    target = ROOT / ".pos_stubs/file_picker"
+    shutil.copytree(source, target, ignore=shutil.ignore_patterns("example"))
+
+    native = "ios/file_picker/Sources/file_picker/FilePickerPlugin.m"
+    plugin = (target / native).read_text(encoding="utf-8", errors="surrogateescape")
+    plugin = replace_once(plugin, r"@import DKImagePickerController;\r?\n", "", "DK import")
+    plugin = replace_once(plugin, r"@interface FilePickerPlugin\(\) <DKImageAssetExporterObserver>", "@interface FilePickerPlugin()", "DK observer")
+    plugin = replace_once(
+        plugin,
+        r"- \(void\) resolveMultiPickFromGallery:.*?(?=#endif // PICKER_MEDIA)",
+        "- (void) resolveMultiPickFromGallery:(MediaType)type withCompressionAllowed:(BOOL)allowCompression {\n"
+        "    self->_result(nil);\n"
+        "    self->_result = nil;\n"
+        "}\n",
+        "DK picker method",
+    )
+    (target / native).write_text(plugin, encoding="utf-8", errors="surrogateescape", newline="\n")
+
+    manifest_path = target / "ios/file_picker/Package.swift"
+    manifest = manifest_path.read_text(encoding="utf-8")
+    manifest = replace_once(manifest, r"dependencies: \[\s*\.package\(url: \"[^\"]*DKImagePickerController\"[^\n]*\s*\],", "dependencies: [],", "DK package")
+    manifest = replace_once(manifest, r"dependencies: \[\s*\.product\(name: \"DKImagePickerController\"[^\n]*\s*\],", "dependencies: [],", "DK product")
+    manifest_path.write_text(manifest, encoding="utf-8", newline="\n")
+    (target / "ios/file_picker/Package.resolved").unlink()
+
+    podspec_path = target / "ios/file_picker.podspec"
+    podspec = podspec_path.read_text(encoding="utf-8")
+    podspec = replace_once(podspec, r"[ \t]*s\.dependency 'DKImagePickerController/PhotoGallery'\r?\n", "", "DK pod")
+    podspec_path.write_text(podspec, encoding="utf-8", newline="\n")
+
+
 def patch_pubspec() -> None:
     text = read("pubspec.yaml")
+    text = replace_once(text, r"(?m)^  file_picker: [^\n]*$", "  file_picker:\n    path: .pos_stubs/file_picker", "dependency file_picker")
     for name in REMOVED_DEPENDENCIES:
         text = remove_line(text, rf"^  {name}: .*\r?\n", f"dependency {name}")
     for asset in REMOVED_ASSETS:
@@ -172,6 +227,7 @@ def patch_app_delegate() -> None:
 
 
 def main() -> None:
+    vendor_file_picker()
     patch_pubspec()
     patch_app_delegate()
 
