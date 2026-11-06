@@ -64,8 +64,8 @@ abstract final class SboxAppVariant {
   /// Mặc định nối sboxpos.com khi chưa chọn máy chủ khác.
   static bool get defaultsToPosServer => standalonePos || bossApp || staffApp;
 
-  /// SBOX POS gắn cố định máy chủ lúc build, không đổi được trong app.
-  static bool get fixedServer => standalonePos && !kitchenApp;
+  /// SBOX POS và mọi app trên App Store gắn cố định máy chủ lúc build, không đổi được trong app.
+  static bool get fixedServer => (standalonePos && !kitchenApp) || iosStoreApp;
 
   /// Tên miền HRM trong chữ hiển thị — không đụng địa chỉ email (sboxhrm@gmail.com).
   static final RegExp _hrmDomainWord = RegExp(r'(?<!@)sboxhrm(?!@)');
@@ -172,8 +172,16 @@ abstract final class SboxAppVariant {
     'HrAnalyticsReport',
   };
 
-  static bool hidesModule(String? moduleCode) =>
-      standalonePos && moduleCode != null && posAppHiddenModules.contains(moduleCode);
+  /// SBOX BOSS trên iOS không có khuôn mặt, vị trí: ẩn các màn đăng ký, xem khuôn mặt và vị trí nhân viên (App Store 2.3.1).
+  static const bossIosHiddenModules = <String>{
+    'Device', 'DeviceUser', 'MobileAttendance', 'MobileDeviceRegistration', 'FieldCheckIn',
+  };
+
+  static bool hidesModule(String? moduleCode) {
+    if (moduleCode == null) return false;
+    if (standalonePos) return posAppHiddenModules.contains(moduleCode);
+    return bossApp && iosStoreApp && bossIosHiddenModules.contains(moduleCode);
+  }
 
   /// SBOX POS dùng cùng khung với POS trong HRM trên mọi cỡ màn (menu trái / thanh dưới); chỉ KDS dùng shell riêng.
   static bool get posUsesMainLayout => standalonePos && !kitchenApp;

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Đổi project iOS dùng chung thành SBOX BOSS hoặc SBOX Nhân Viên, ngay trên máy build Codemagic.
 
-Đổi mã bundle, tên app, icon. BOSS không có khuôn mặt, vị trí nên câu xin quyền được viết riêng;
-Nhân Viên giữ câu mặc định vì có chấm công bằng khuôn mặt và vị trí.
+Đổi mã bundle, tên app, icon, và viết câu xin quyền riêng theo đúng chức năng của từng app.
+BOSS không có khuôn mặt, vị trí; Nhân Viên giữ câu xin quyền vị trí mặc định vì chấm công cần vị trí.
 
 Cách dùng (trong flutter_client): python3 ../scripts/ios_companion_setup.py boss|staff
 """
@@ -18,11 +18,18 @@ APPS = {
     "staff": ("staff.sboxpos.com", "SBOX Nhân Viên"),
 }
 BOSS_USAGE = {
-    "NSCameraUsageDescription": "Camera dùng để chụp ảnh chứng từ gửi cho Trợ lý AI, chỉ khi bạn chủ động dùng. Ứng dụng không quay video nền.",
+    "NSCameraUsageDescription": "Camera dùng để quét mã vạch và chụp ảnh hàng hóa, chứng từ, chỉ khi bạn chủ động dùng. Ứng dụng không quay video nền.",
     "NSLocalNetworkUsageDescription": "Mạng nội bộ dùng để tìm và kết nối máy in, màn hình bếp trong cùng WiFi cửa hàng.",
     "NSBluetoothAlwaysUsageDescription": "Bluetooth dùng để kết nối máy in hóa đơn và máy in tem.",
     "NSBluetoothPeripheralUsageDescription": "Bluetooth dùng để kết nối máy in hóa đơn và máy in tem.",
     "NSFaceIDUsageDescription": "Face ID dùng để đăng nhập nhanh vào SBOX BOSS thay cho mật khẩu, chỉ khi bạn bật trong Cài đặt.",
+}
+STAFF_USAGE = {
+    "NSCameraUsageDescription": "Camera dùng để chấm công bằng khuôn mặt khi bạn bấm Chấm công, đăng ký khuôn mặt và chụp ảnh hiện trường, chứng từ. Ứng dụng không quay video nền.",
+    "NSLocalNetworkUsageDescription": "Mạng nội bộ dùng để kết nối máy in và màn hình bếp trong cùng WiFi cửa hàng khi bạn gọi món.",
+    "NSBluetoothAlwaysUsageDescription": "Bluetooth dùng để kết nối máy in khi bạn gọi món.",
+    "NSBluetoothPeripheralUsageDescription": "Bluetooth dùng để kết nối máy in khi bạn gọi món.",
+    "NSFaceIDUsageDescription": "Face ID dùng để đăng nhập nhanh vào SBOX Nhân Viên thay cho mật khẩu, chỉ khi bạn bật trong Cài đặt.",
 }
 PLIST = "ios/Runner/Info.plist"
 OLD_BUNDLE = "PRODUCT_BUNDLE_IDENTIFIER = vn.sana.sbox;"
@@ -47,8 +54,8 @@ def main() -> None:
     plist(f"Set :CFBundleDisplayName {name}")
     if app == "boss":
         plist("Delete :NSLocationWhenInUseUsageDescription")
-        for key, value in BOSS_USAGE.items():
-            plist(f"Set :{key} {value}")
+    for key, value in (BOSS_USAGE if app == "boss" else STAFF_USAGE).items():
+        plist(f"Set :{key} {value}")
 
     source = f"ios/flavor_icons/{app}-1024.png"
     for icon in ICON_DIR.glob("*.png"):

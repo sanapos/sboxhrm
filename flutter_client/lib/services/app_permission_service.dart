@@ -75,8 +75,8 @@ class AppPermissionService {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
     // SBOX KDS chỉ hiện vé bếp; SBOX BOSS không chấm công — không hỏi quyền chấm công lúc mở app.
     if (SboxAppVariant.kitchenApp || SboxAppVariant.bossApp) return;
-    // SBOX POS trên iOS: hỏi camera / vị trí đúng lúc dùng chức năng (quét mã, địa chỉ giao hàng), không hỏi lúc mở app.
-    if (Platform.isIOS && SboxAppVariant.standalonePos) return;
+    // App trên App Store: hỏi camera / vị trí đúng lúc dùng chức năng (quét mã, chấm công), không hỏi lúc mở app (5.1.1).
+    if (SboxAppVariant.iosStoreApp) return;
     if (await wasEssentialPermissionsPrompted()) return;
     if (!context.mounted) return;
 
