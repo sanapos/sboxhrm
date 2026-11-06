@@ -213,6 +213,11 @@ public static class PosSampleStoreSeeder
     {
         if (string.IsNullOrWhiteSpace(name)) return null;
         var key = name.Trim().ToLower();
+        // Nhóm vừa thêm ở món trước chưa SaveChanges nên truy vấn không thấy — phải xem cả Local,
+        // nếu không mỗi món cùng nhóm lại tạo một nhóm trùng tên.
+        var pending = db.PosProductCategories.Local.FirstOrDefault(c =>
+            c.StoreId == storeId && c.Deleted == null && c.Name.ToLower() == key);
+        if (pending != null) return pending.Id;
         var cat = await db.PosProductCategories
             .FirstOrDefaultAsync(c => c.StoreId == storeId && c.Deleted == null && c.Name.ToLower() == key, ct);
         if (cat != null) return cat.Id;
@@ -234,6 +239,9 @@ public static class PosSampleStoreSeeder
     {
         if (string.IsNullOrWhiteSpace(name)) return null;
         var key = name.Trim().ToLower();
+        var pending = db.PosProductBrands.Local.FirstOrDefault(b =>
+            b.StoreId == storeId && b.Deleted == null && b.Name.ToLower() == key);
+        if (pending != null) return pending.Id;
         var brand = await db.PosProductBrands
             .FirstOrDefaultAsync(b => b.StoreId == storeId && b.Deleted == null && b.Name.ToLower() == key, ct);
         if (brand != null) return brand.Id;
