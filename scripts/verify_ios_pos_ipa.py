@@ -20,7 +20,7 @@ FORBIDDEN_PATHS = re.compile(
 )
 FORBIDDEN_SYMBOLS = re.compile(
     rb"TfLiteModelCreate|MLKFaceDetector|VNDetectFaceRectanglesRequest|VNDetectFaceLandmarksRequest|"
-    rb"CIDetectorTypeFace|CLLocationManager"
+    rb"CIDetectorTypeFace|CLLocation|requestWhenInUseAuthorization|requestAlwaysAuthorization"
 )
 FORBIDDEN_PLIST_KEYS = (
     "NSLocationWhenInUseUsageDescription",
@@ -53,7 +53,9 @@ def main() -> None:
 
         for binary in macho_files(app):
             linked = subprocess.run(["otool", "-L", str(binary)], capture_output=True, text=True, check=True).stdout
-            if "CoreLocation" in linked:
+            # libswiftCoreLocation.dylib là thư viện Swift của hệ thống, tự thêm khi module khác nhập Photos, AVFoundation;
+            # không có API nào được gọi (đã kiểm tra bằng FORBIDDEN_SYMBOLS ngay dưới).
+            if "CoreLocation.framework" in linked:
                 problems.append(f"links CoreLocation: {binary.name}")
             for symbol in sorted(set(FORBIDDEN_SYMBOLS.findall(binary.read_bytes()))):
                 problems.append(f"symbol {symbol.decode()}: {binary.name}")
