@@ -9,6 +9,7 @@ Cách dùng (trong flutter_client): python3 ../scripts/ios_companion_setup.py bo
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -50,6 +51,12 @@ def main() -> None:
     if count != 3:
         raise SystemExit(f"Expected 3 Runner bundle ids, found {count}")
     project.write_text(text.replace(OLD_BUNDLE, f"PRODUCT_BUNDLE_IDENTIFIER = {bundle};"), encoding="utf-8")
+
+    # Thông báo đẩy: mỗi bundle có cấu hình Firebase riêng, fcm_service đọc tệp native này.
+    firebase = Path(f"ios/flavor_firebase/{app}-GoogleService-Info.plist")
+    if f"<string>{bundle}</string>" not in firebase.read_text(encoding="utf-8"):
+        raise SystemExit(f"{firebase} is not for {bundle}")
+    shutil.copyfile(firebase, "ios/Runner/GoogleService-Info.plist")
 
     plist(f"Set :CFBundleDisplayName {name}")
     if app == "boss":
