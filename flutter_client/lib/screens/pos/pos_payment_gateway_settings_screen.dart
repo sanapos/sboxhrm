@@ -630,7 +630,7 @@ class _PosPaymentGatewaySettingsScreenState
               _tingeeStatusBanner(),
               const SizedBox(height: 8),
               // SBOX POS iOS: lượt thông báo là hàng số, không bán ngoài In-App Purchase (App Store 3.1.1).
-              if (!SboxAppVariant.iosPosApp) ListTile(
+              if (!SboxAppVariant.iosStoreApp) ListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.notifications_active_outlined),
@@ -640,7 +640,7 @@ class _PosPaymentGatewaySettingsScreenState
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
-              if (_packages.isNotEmpty && !SboxAppVariant.iosPosApp)
+              if (_packages.isNotEmpty && !SboxAppVariant.iosStoreApp)
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,

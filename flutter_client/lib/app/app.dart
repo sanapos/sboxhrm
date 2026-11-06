@@ -180,7 +180,7 @@ class ZKTecoApp extends StatelessWidget {
             '/customer-display': (_) => const PosCustomerDisplayScreen(),
             '/register': (context) {
               // SBOX POS iOS không đăng ký tài khoản trong app.
-              if (SboxAppVariant.iosPosApp) return const LoginScreen();
+              if (SboxAppVariant.iosStoreApp) return const LoginScreen();
               final args = ModalRoute.of(context)?.settings.arguments;
               String? agentCode;
               String? packageName;
@@ -195,7 +195,7 @@ class ZKTecoApp extends StatelessWidget {
               );
             },
             '/agent-register': (context) {
-              if (SboxAppVariant.iosPosApp) return const LoginScreen();
+              if (SboxAppVariant.iosStoreApp) return const LoginScreen();
               final token = parseAgentRegistrationToken() ?? '';
               return AgentRegisterScreen(token: token);
             },
@@ -236,7 +236,7 @@ class ZKTecoApp extends StatelessWidget {
               );
             }
             final name = settings.name ?? '';
-            if (SboxAppVariant.iosPosApp && name.startsWith('/agent-register')) {
+            if (SboxAppVariant.iosStoreApp && name.startsWith('/agent-register')) {
               return MaterialPageRoute(builder: (_) => const LoginScreen());
             }
             if (name.startsWith('/agent-register/')) {

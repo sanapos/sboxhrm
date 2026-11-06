@@ -550,6 +550,142 @@ workflows:
             --release-type AFTER_APPROVAL
           echo "=== Submitted $APP_VERSION to App Store review ==="
 
+  # SBOX BOSS: không có khuôn mặt, vị trí, gỡ khỏi gói như POS. Dừng ở TestFlight nội bộ, không gửi Apple duyệt.
+  ios-boss-release:
+    name: iOS SBOX BOSS (TestFlight)
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+    working_directory: flutter_client
+
+    cache:
+      cache_paths:
+        - ~/.pub-cache
+        - ios/Pods
+
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - appstore_credentials
+      vars:
+        APP_STORE_APP_ID: "6831442612"
+        BUNDLE_ID: "boss.sboxpos.com"
+        API_BASE_URL: "https://sboxpos.com"
+        APP_VERSION: "1.0.0"
+        SBOX_POS_IOS: "1"
+
+    scripts:
+      - name: Point iOS project at SBOX BOSS
+        script: python3 "$CM_BUILD_DIR/scripts/ios_companion_setup.py" boss
+
+      - name: Remove face and location from SBOX BOSS
+        script: python3 "$CM_BUILD_DIR/scripts/prepare_ios_pos_build.py" "$CM_BUILD_DIR/flutter_client"
+
+      - name: Fetch signing files and set up code signing
+        script: bash "$CM_BUILD_DIR/scripts/ios_signing.sh"
+
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          pod install --repo-update
+
+      - name: Build IPA
+        script: |
+          set -e
+          BUILD_NUMBER=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo 0) + 1))
+          flutter build ipa --release \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=SBOX_APP=boss \
+            --build-name="$APP_VERSION" \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist
+
+      - name: Verify IPA has no face or location code
+        script: python3 "$CM_BUILD_DIR/scripts/verify_ios_pos_ipa.py" build/ios/ipa/*.ipa
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: false
+        submit_to_app_store: false
+
+  # SBOX Nhân Viên: giữ chấm công khuôn mặt, vị trí vì là chức năng chính. Dừng ở TestFlight nội bộ, không gửi Apple duyệt.
+  ios-staff-release:
+    name: iOS SBOX Nhan Vien (TestFlight)
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+    working_directory: flutter_client
+
+    cache:
+      cache_paths:
+        - ~/.pub-cache
+        - ios/Pods
+
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - appstore_credentials
+      vars:
+        APP_STORE_APP_ID: "6831442691"
+        BUNDLE_ID: "staff.sboxpos.com"
+        API_BASE_URL: "https://sboxpos.com"
+        APP_VERSION: "1.0.0"
+
+    scripts:
+      - name: Point iOS project at SBOX Nhan Vien
+        script: python3 "$CM_BUILD_DIR/scripts/ios_companion_setup.py" staff
+
+      - name: Fetch signing files and set up code signing
+        script: bash "$CM_BUILD_DIR/scripts/ios_signing.sh"
+
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Convert ArcFace ONNX to CoreML (face on iOS)
+        script: |
+          python3 -m pip install --quiet --upgrade coremltools onnx
+          python3 ios/scripts/convert_facenet_to_coreml.py
+
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          pod install --repo-update
+
+      - name: Build IPA
+        script: |
+          set -e
+          BUILD_NUMBER=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo 0) + 1))
+          flutter build ipa --release \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=SBOX_APP=staff \
+            --build-name="$APP_VERSION" \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: false
+        submit_to_app_store: false
+
   ios-debug:
     name: iOS Debug (Ad Hoc)
     max_build_duration: 90

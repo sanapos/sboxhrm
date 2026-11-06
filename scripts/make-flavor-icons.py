@@ -29,7 +29,7 @@ FLAVORS = {
     # SBOX POS giữ logo chữ assets/sbox_pos_logo.png, chỉ thêm icon và logo chữ S (sbox_pos_mark.png).
     "pos": dict(bg=("#1B5E20", "#66BB6A"), s=("#E3F4E4", "#FFFFFF")),
 }
-IOS_FLAVORS = {"pos"}
+IOS_FLAVORS = {"pos", "boss", "staff"}
 
 
 def rgb(hex_color):

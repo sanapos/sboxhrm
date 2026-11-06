@@ -81,7 +81,7 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
           ],
         ),
         actions: [
-          if (!SboxAppVariant.iosPosApp) Padding(
+          if (!SboxAppVariant.iosStoreApp) Padding(
             padding: const EdgeInsets.only(right: 12),
             // «TB» = lượt thông báo chuyển khoản (Tingee): thêm chuông + giữ để xem tên đầy đủ.
             child: Center(

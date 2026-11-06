@@ -50,7 +50,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
       final list =
           List<Map<String, dynamic>>.from(res['data'] as List? ?? const []);
       // SBOX POS iOS: không hiện nhắc gia hạn dịch vụ kèm số liên hệ (App Store 3.1.1).
-      if (SboxAppVariant.iosPosApp) {
+      if (SboxAppVariant.iosStoreApp) {
         list.removeWhere((a) =>
             AdminHelpers.parseEnumInt(a['kind'], AdminHelpers.announcementKindMap) == 3);
       }

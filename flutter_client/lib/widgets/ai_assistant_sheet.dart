@@ -2139,7 +2139,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
             }),
           ],
           // SBOX POS iOS: trang hướng dẫn chung có đăng ký, chấm công, tải app nền tảng khác.
-          if (m.guides.isNotEmpty && !SboxAppVariant.iosPosApp) ...[
+          if (m.guides.isNotEmpty && !SboxAppVariant.iosStoreApp) ...[
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,

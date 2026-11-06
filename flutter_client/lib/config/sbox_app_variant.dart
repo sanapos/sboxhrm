@@ -47,9 +47,13 @@ abstract final class SboxAppVariant {
 
   static bool get standalonePos => _fromDefine || _fromPackage || kitchenApp;
 
-  /// SBOX POS trên iOS: không đăng ký tài khoản, không khuôn mặt, không vị trí, không nhắc nền tảng khác.
+  /// SBOX POS trên iOS: thêm [iosStoreApp], không khuôn mặt, không vị trí, không nhắc chức năng nhân sự.
   static bool get iosPosApp =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && standalonePos && !kitchenApp;
+
+  /// App bán trên App Store (POS, BOSS, Nhân Viên): không đăng ký tài khoản, không mời mua, gia hạn, không nhắc nền tảng khác.
+  static bool get iosStoreApp =>
+      iosPosApp || (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && (bossApp || staffApp));
 
   /// App SBOX BOSS: đăng nhập xong mở shell BOSS (tổng quan / cuối ngày), không vào HRM hay POS.
   static bool get bossApp => _bossFromDefine || _bossFromPackage;
@@ -80,7 +84,7 @@ abstract final class SboxAppVariant {
     if (isPackageBlocked(s)) {
       s = s.replaceAll(_packageBlocked, 'Gói dịch vụ của cửa hàng chưa có chức năng này. Liên hệ đại lý để nâng cấp gói.');
     }
-    if (iosPosApp) s = iosPosText(s);
+    if (iosStoreApp) s = iosPosText(s);
     if (!s.contains(RegExp(r'sboxhrm|\bHRM\b'))) return s;
     return s
         .replaceAll('SBOX HRM · SBOX POS', productLine)
