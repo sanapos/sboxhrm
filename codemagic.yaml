@@ -653,11 +653,7 @@ workflows:
       - name: Get Flutter packages
         script: flutter pub get
 
-      - name: Convert ArcFace ONNX to CoreML (face on iOS)
-        script: |
-          python3 -m pip install --quiet --upgrade coremltools onnx
-          python3 ios/scripts/convert_facenet_to_coreml.py
-
+      # Không có bước chuyển ONNX sang CoreML: coremltools hiện không đọc được ONNX, app dùng model TFLite như HRM.
       - name: Install CocoaPods dependencies
         script: |
           cd ios
