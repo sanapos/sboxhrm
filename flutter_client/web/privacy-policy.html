@@ -30,7 +30,7 @@
 <header>
   <h1>Chính sách quyền riêng tư</h1>
   <p>SBOX HRM – Ứng dụng quản lý nhân sự</p>
-  <p class="updated">Cập nhật lần cuối: 24/05/2026</p>
+  <p class="updated">Cập nhật lần cuối: 06/11/2026</p>
 </header>
 
 <div class="container">
@@ -44,11 +44,14 @@
     <h2>2. Thông tin thu thập</h2>
     <p>Chúng tôi chỉ thu thập các thông tin cần thiết để vận hành hệ thống quản lý nhân sự:</p>
     <ul>
-      <li><span class="badge">Họ tên, email</span> Định danh tài khoản nhân viên</li>
-      <li><span class="badge">Camera / Ảnh khuôn mặt</span> Nhận diện danh tính khi chấm công</li>
-      <li><span class="badge">Vị trí GPS</span> Xác minh địa điểm check-in / check-out</li>
-      <li><span class="badge">Token thiết bị</span> Gửi thông báo đẩy (FCM)</li>
+      <li><span class="badge">Họ tên, email, số điện thoại</span> Định danh tài khoản nhân viên</li>
+      <li><span class="badge">Hồ sơ nhân viên</span> Ngày sinh, địa chỉ, thông tin ngân hàng để trả lương và các thông tin do doanh nghiệp nhập</li>
+      <li><span class="badge">Camera / Ảnh khuôn mặt</span> Nhận diện danh tính khi chấm công; ảnh đại diện, ảnh hiện trường, ảnh chứng từ khi bạn chủ động gửi</li>
+      <li><span class="badge">Vị trí GPS</span> Xác minh địa điểm check-in / check-out; Bản đồ nhân sự nếu doanh nghiệp bật</li>
+      <li><span class="badge">Mã thiết bị, token thiết bị</span> Nhận diện máy dùng để chấm công, gửi thông báo đẩy (FCM)</li>
       <li><span class="badge">Dữ liệu chấm công</span> Giờ vào/ra, ca làm việc, ngày nghỉ</li>
+      <li><span class="badge">Giọng nói, tệp</span> Đoạn ghi âm khi bạn bấm micro trong Trợ lý AI; ảnh, PDF, Excel khi bạn chủ động tải lên</li>
+      <li><span class="badge">Dữ liệu bán hàng</span> Đơn hàng, hóa đơn nếu doanh nghiệp dùng phần bán hàng</li>
     </ul>
   </div>
 
@@ -64,8 +67,10 @@
 
   <div class="card">
     <h2>4. Quyền truy cập thiết bị</h2>
-    <p><strong>Camera:</strong> Chỉ được kích hoạt khi nhân viên chủ động thực hiện chấm công. Hình ảnh được xử lý để xác thực danh tính và không được lưu trữ dưới dạng ảnh thô trên máy chủ.</p>
-    <p><strong>Vị trí:</strong> Chỉ ghi nhận tại thời điểm chấm công. Không theo dõi vị trí liên tục trong nền.</p>
+    <p><strong>Camera:</strong> Chỉ được kích hoạt khi bạn chủ động chấm công, đăng ký khuôn mặt, quét mã hoặc chụp ảnh. Ứng dụng không quay video nền.</p>
+    <p><strong>Vị trí:</strong> Ghi nhận khi bạn chấm công. Nếu doanh nghiệp bật Bản đồ nhân sự, ứng dụng gửi vị trí định kỳ (khoảng 30 giây một lần) khi đang mở để quản lý xem trên bản đồ; máy chủ chỉ lưu trong thời gian ca làm việc đã duyệt. Ứng dụng không dùng vị trí khi chạy nền.</p>
+    <p><strong>Micro:</strong> Chỉ bật khi bạn bấm nút micro trong Trợ lý AI. Ứng dụng không ghi âm nền.</p>
+    <p><strong>Vân tay / Face ID:</strong> Chỉ dùng khi bạn bật đăng nhập sinh trắc học. Việc xác thực diễn ra trên điện thoại; dữ liệu vân tay, Face ID không được gửi cho chúng tôi.</p>
     <p><strong>Thông báo đẩy:</strong> Sử dụng Firebase Cloud Messaging (Google) để gửi thông báo nội bộ. Token thiết bị được lưu an toàn và xóa khi đăng xuất.</p>
   </div>
 
@@ -74,8 +79,8 @@
     <p><strong>Thu thập:</strong> Ứng dụng chụp ảnh khuôn mặt qua camera thiết bị khi nhân viên thực hiện chấm công bằng điện thoại. Ảnh chỉ được chụp khi nhân viên chủ động khởi tạo thao tác check-in / check-out.</p>
     <p><strong>Mục đích sử dụng:</strong> Dữ liệu khuôn mặt được sử dụng duy nhất để xác thực danh tính nhân viên – ảnh chụp được so sánh với ảnh đại diện đã đăng ký để xác nhận đúng người. Không có mục đích sử dụng nào khác.</p>
     <p><strong>Chia sẻ bên thứ ba:</strong> Dữ liệu khuôn mặt <strong>không được chia sẻ với bất kỳ bên thứ ba nào</strong>, kể cả các dịch vụ AI như Google Gemini. Ảnh được truyền qua kết nối HTTPS đến máy chủ riêng của SBOX tại sboxhrm.com (đặt tại Việt Nam) và lưu trong cơ sở dữ liệu nội bộ.</p>
-    <p><strong>Thời gian lưu trữ:</strong> Dữ liệu khuôn mặt được lưu giữ trong suốt thời gian hồ sơ nhân viên còn tồn tại trong hệ thống. Khi hồ sơ nhân viên bị xóa bởi quản trị viên, toàn bộ dữ liệu khuôn mặt liên quan sẽ bị xóa vĩnh viễn.</p>
-    <p><em>SBOX HRM may collect face images via your device camera when you use the mobile attendance check-in feature. This face data is used solely to verify your identity by comparing the captured image with your registered reference photo. Your face data is stored securely on SBOX servers and is never shared with any third party, including AI services. Face data is retained for the duration of your employment record and permanently deleted when your account is removed.</em></p>
+    <p><strong>Thời gian lưu trữ:</strong> Dữ liệu khuôn mặt được lưu giữ trong suốt thời gian hồ sơ nhân viên còn tồn tại trong hệ thống. Dữ liệu này do doanh nghiệp quản lý nên không tự xóa khi bạn xóa tài khoản: hãy nhờ quản lý xóa hoặc gửi yêu cầu theo <a href="/delete-account.html">trang xóa tài khoản</a>, chúng tôi xử lý trong vòng 30 ngày.</p>
+    <p><em>SBOX HRM may collect face images via your device camera when you use the mobile attendance check-in feature. This face data is used solely to verify your identity by comparing the captured image with your registered reference photo. Your face data is stored securely on SBOX servers and is never shared with any third party, including AI services. Face data is retained for the duration of your employment record. It is managed by your employer and is not removed automatically with your account: ask your manager or submit a request through the account deletion page, and we will process it within 30 days.</em></p>
   </div>
 
   <div class="card">
@@ -85,7 +90,8 @@
     <ul>
       <li>Firebase (Google) – thông báo đẩy</li>
       <li>ZKTeco – thiết bị chấm công phần cứng</li>
-      <li>Google Gemini AI – xử lý câu hỏi trong tính năng Trợ lý AI (chỉ gửi nội dung văn bản của câu hỏi và dữ liệu nhân sự không nhận dạng danh tính; dữ liệu khuôn mặt / sinh trắc học không bao giờ được gửi đến AI)</li>
+      <li>Google Gemini AI – xử lý tính năng Trợ lý AI: nội dung câu hỏi và số liệu cần thiết để trả lời, đoạn ghi âm khi bạn bấm micro (qua máy chủ SBOX, không lưu trên máy chủ SBOX sau khi chép lời), ảnh hoặc tệp khi bạn chủ động gửi. Dữ liệu khuôn mặt / sinh trắc học không bao giờ được gửi đến AI</li>
+      <li>Zalo – gửi thông báo cho nhân viên nếu doanh nghiệp bật Zalo bot</li>
     </ul>
   </div>
 
@@ -97,7 +103,7 @@
   <div class="card">
     <h2>7. Quyền của người dùng</h2>
     <ul>
-      <li>Yêu cầu xem, chỉnh sửa hoặc xóa dữ liệu cá nhân</li>
+      <li>Yêu cầu xem, chỉnh sửa hoặc xóa dữ liệu cá nhân; tự xóa tài khoản trong ứng dụng tại Cài đặt → Xóa tài khoản, xem chi tiết tại <a href="/delete-account.html">trang xóa tài khoản</a></li>
       <li>Thu hồi quyền camera / vị trí bất kỳ lúc nào trong Cài đặt điện thoại</li>
       <li>Đăng xuất để vô hiệu hóa token thông báo đẩy</li>
     </ul>
