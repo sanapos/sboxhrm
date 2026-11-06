@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/sbox_app_variant.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/permission_provider.dart';
 import '../../screens/overtime_screen.dart';
@@ -211,6 +212,7 @@ class EmployeeModuleGrid extends StatelessWidget {
     var seenPay = false;
 
     for (final code in _order) {
+      if (SboxAppVariant.hidesModule(code)) continue;
       if (code == 'Payroll' && perm.canView('Payslip')) continue;
       if (code == 'Payslip' || code == 'Payroll') {
         if (seenPay) continue;

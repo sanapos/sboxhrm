@@ -873,7 +873,8 @@ class _LoginScreenState extends State<LoginScreen>
                   // Back to home
                   Row(
                     children: [
-                      TextButton.icon(
+                      // SBOX POS iOS: trang web có đăng ký và tải app nền tảng khác.
+                      if (!SboxAppVariant.iosPosApp) TextButton.icon(
                       onPressed: () async {
                         if (kIsWeb) {
                           web_home.redirectToStaticHome();
@@ -1125,7 +1126,7 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                             child: FilledButton(
                               onPressed: _isLoading ? null : _handleLogin,
-                              onLongPress: _isLoading
+                              onLongPress: _isLoading || SboxAppVariant.iosPosApp
                                   ? null
                                   : () =>
                                       Navigator.of(context).pushNamed('/admin'),
@@ -1306,8 +1307,10 @@ class _LoginScreenState extends State<LoginScreen>
     final links = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildFooterLink('TÌM HIỂU THÊM'),
-        const SizedBox(width: 16),
+        if (!SboxAppVariant.iosPosApp) ...[
+          _buildFooterLink('TÌM HIỂU THÊM'),
+          const SizedBox(width: 16),
+        ],
         _buildFooterLink('LIÊN HỆ'),
         const SizedBox(width: 16),
         _buildFooterLink('HỖ TRỢ'),
@@ -1530,7 +1533,7 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             ],
           ),
-          if (isLicenseExpired) ...[
+          if (isLicenseExpired && !SboxAppVariant.iosPosApp) ...[
             const SizedBox(height: 12),
             Container(
               width: double.infinity,

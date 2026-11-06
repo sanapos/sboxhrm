@@ -29,9 +29,10 @@ NOTES = os.environ.get(
             "  Username: demopos@gmail.com",
             "  Password: 123456",
             "demo@gmail.com is accepted as the same cashier.",
-            "Open Ban hang to sell. No in-app purchase. Staff accounts are created by the shop, not inside the App Store app.",
-            "The first-launch note has one button, Continue. It always opens the iOS camera and location permission dialogs. There is no Grant or Later button.",
-            "Privacy: https://sboxpos.com/privacy-policy.html",
+            "Open Ban hang to sell. No in-app purchase and nothing is sold to the user inside the app. Accounts are provisioned for shops outside the app; the iOS app has no account registration.",
+            "Permissions are requested only when a feature is used. Camera: barcode scanning, product photos and invoice or menu photos sent to the AI assistant. Microphone and speech recognition: only after tapping the microphone in the AI assistant.",
+            "The AI assistant is described in the app description. This app has no face attendance and does not track location.",
+            "Privacy: https://sboxpos.com/privacy-policy-pos.html",
             "Support: support@sboxhrm.com  +84 973 024 042",
         ]
     ),

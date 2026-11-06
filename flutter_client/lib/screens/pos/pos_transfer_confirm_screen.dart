@@ -3,6 +3,7 @@ import '../../widgets/hrm_page_chrome.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../config/sbox_app_variant.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_payment_gateway_listener.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -80,7 +81,7 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
           ],
         ),
         actions: [
-          Padding(
+          if (!SboxAppVariant.iosPosApp) Padding(
             padding: const EdgeInsets.only(right: 12),
             // «TB» = lượt thông báo chuyển khoản (Tingee): thêm chuông + giữ để xem tên đầy đủ.
             child: Center(

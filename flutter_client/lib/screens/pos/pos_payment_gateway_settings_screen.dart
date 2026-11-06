@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/sbox_app_variant.dart';
 import '../../models/cash_transaction.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
@@ -628,7 +629,8 @@ class _PosPaymentGatewaySettingsScreenState
             if (_tingeeEnabled) ...[
               _tingeeStatusBanner(),
               const SizedBox(height: 8),
-              ListTile(
+              // SBOX POS iOS: lượt thông báo là hàng số, không bán ngoài In-App Purchase (App Store 3.1.1).
+              if (!SboxAppVariant.iosPosApp) ListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.notifications_active_outlined),
@@ -638,7 +640,7 @@ class _PosPaymentGatewaySettingsScreenState
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
-              if (_packages.isNotEmpty)
+              if (_packages.isNotEmpty && !SboxAppVariant.iosPosApp)
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,

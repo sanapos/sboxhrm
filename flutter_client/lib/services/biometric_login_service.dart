@@ -7,6 +7,7 @@ import 'package:local_auth_android/local_auth_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../config/sbox_app_variant.dart';
 import 'api_service.dart';
 
 /// Tài khoản đã bật đăng nhập bằng Face ID / vân tay trên máy này (không có mật khẩu).
@@ -72,7 +73,7 @@ class BiometricLoginService {
 
   /// Máy có cảm biến và đã cài khuôn mặt / vân tay.
   Future<bool> isAvailable() async {
-    if (!platformSupported) return false;
+    if (!platformSupported || SboxAppVariant.iosPosApp) return false;
     try {
       if (!await _auth.isDeviceSupported()) return false;
       if (!await _auth.canCheckBiometrics) return false;

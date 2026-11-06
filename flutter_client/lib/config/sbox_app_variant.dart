@@ -14,6 +14,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 /// Web: `sboxpos.com` chỉ branding POS; `sboxhrm.com` chỉ branding HRM.
 abstract final class SboxAppVariant {
   static const androidPosApplicationId = 'sbox.sana.vn.pos';
+  static const iosPosBundleId = 'com.sboxpos';
   static const androidKdsApplicationId = 'kds.sboxpos.com';
   static const androidStaffApplicationId = 'staff.sboxpos.com';
   static const androidBossApplicationId = 'boss.sboxpos.com';
@@ -46,6 +47,10 @@ abstract final class SboxAppVariant {
 
   static bool get standalonePos => _fromDefine || _fromPackage || kitchenApp;
 
+  /// SBOX POS trên iOS: không đăng ký tài khoản, không khuôn mặt, không vị trí, không nhắc nền tảng khác.
+  static bool get iosPosApp =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && standalonePos && !kitchenApp;
+
   /// App SBOX BOSS: đăng nhập xong mở shell BOSS (tổng quan / cuối ngày), không vào HRM hay POS.
   static bool get bossApp => _bossFromDefine || _bossFromPackage;
 
@@ -75,6 +80,7 @@ abstract final class SboxAppVariant {
     if (isPackageBlocked(s)) {
       s = s.replaceAll(_packageBlocked, 'Gói dịch vụ của cửa hàng chưa có chức năng này. Liên hệ đại lý để nâng cấp gói.');
     }
+    if (iosPosApp) s = iosPosText(s);
     if (!s.contains(RegExp(r'sboxhrm|\bHRM\b'))) return s;
     return s
         .replaceAll('SBOX HRM · SBOX POS', productLine)
@@ -84,8 +90,56 @@ abstract final class SboxAppVariant {
         .replaceAll(_hrmDomainWord, 'sboxpos');
   }
 
+  static final RegExp _renewalPrompt = RegExp(
+    // «gia hạn» riêng lẻ là việc của cửa hàng (gia hạn gói hội viên), chỉ lọc khi là lời mời gia hạn SBOX.
+    r',?\s*(?:(?:liên hệ (?:đại lý|quản trị viên)(?: để)?|vui lòng|hãy)\s+(?:nâng cấp gói|gia hạn)|nâng cấp gói)[^.]*\.?',
+    caseSensitive: false,
+  );
+  static final RegExp _otherPlatform = RegExp(r'\b(?:Android|Windows|Google Play|CH Play|APK)\b', caseSensitive: false);
+
+  /// App Store: không nhắc nền tảng khác (2.3.10) và không mời mua hay gia hạn dịch vụ ngoài app (3.1.1).
+  static String iosPosText(String s) {
+    final renewalFree = s.replaceAll(_renewalPrompt, '').trim();
+    if (renewalFree.isNotEmpty && renewalFree != s) {
+      s = RegExp(r'[.!?:]$').hasMatch(renewalFree) ? renewalFree : '$renewalFree.';
+    }
+    if (!s.contains(_otherPlatform)) return s;
+    return s
+        .replaceAll('Cài đặt Android', 'Cài đặt')
+        .replaceAll('máy POS Android', 'máy POS')
+        .replaceAll('Điện thoại Android', 'Điện thoại')
+        .replaceAll(' (Android)', '')
+        .replaceAll('Android Flutter', 'Ứng dụng')
+        .replaceAll('App Windows', 'Máy tính')
+        .replaceAll('app Windows', 'máy tính')
+        .replaceAll(_otherPlatform, 'thiết bị');
+  }
+
+  /// Chính sách / trợ giúp trong SBOX POS iOS: bỏ phần khuôn mặt, vị trí, chấm công (app không có).
+  static String stripIosPosLegal(String s) {
+    final kept = <String>[];
+    var skipLevel = 0;
+    var section = 0;
+    for (final line in s.split('\n')) {
+      final heading = RegExp(r'^(#{2,3}) ').firstMatch(line);
+      final hrTopic = RegExp('khuôn mặt|vị trí|nhân sự', caseSensitive: false).hasMatch(line);
+      if (heading != null) {
+        final level = heading.group(1)!.length;
+        if (skipLevel != 0 && level > skipLevel) continue;
+        skipLevel = hrTopic ? level : 0;
+        if (hrTopic) continue;
+      }
+      if (skipLevel != 0) continue;
+      if (RegExp('khuôn mặt|vị trí|GPS|sinh trắc|chấm công', caseSensitive: false).hasMatch(line)) continue;
+      final numbered = RegExp(r'^## \d+\. (.*)$').firstMatch(line);
+      kept.add(numbered == null ? line : '## ${++section}. ${numbered.group(1)}');
+    }
+    return kept.join('\n');
+  }
+
   /// Chính sách / điều khoản: pháp nhân sản phẩm ghi là SBOX POS. Email hỗ trợ giữ nguyên.
   static String rebrandLegal(String s) {
+    if (iosPosApp) return stripIosPosLegal(s);
     if (!companionApp) return s;
     return s
         .replaceAll(
@@ -192,7 +246,7 @@ abstract final class SboxAppVariant {
     if (_fromDefine || _kdsFromDefine || _staffFromDefine || _bossFromDefine || kIsWeb) return;
     try {
       final info = await PackageInfo.fromPlatform();
-      _fromPackage = info.packageName == androidPosApplicationId;
+      _fromPackage = info.packageName == androidPosApplicationId || info.packageName == iosPosBundleId;
       _kdsFromPackage = info.packageName == androidKdsApplicationId;
       _staffFromPackage = info.packageName == androidStaffApplicationId;
       _bossFromPackage = info.packageName == androidBossApplicationId;

@@ -49,7 +49,8 @@ target 'Runner' do
 
   # Must match the version tflite_flutter's podspec pins
   # (TensorFlowLiteSwift/CoreML = 2.12.0).
-  pod 'TensorFlowLiteC', '2.12.0'
+  # SBOX POS iOS gỡ khuôn mặt và vị trí (scripts/prepare_ios_pos_build.py).
+  pod 'TensorFlowLiteC', '2.12.0' unless ENV['SBOX_POS_IOS'] == '1'
 
   target 'RunnerTests' do
     inherit! :search_paths
@@ -71,6 +72,7 @@ post_install do |installer|
         'PERMISSION_MICROPHONE=1',
         'PERMISSION_BLUETOOTH=1',
       ]
+      perms -= ['PERMISSION_LOCATION=1', 'PERMISSION_LOCATION_WHEN_IN_USE=1'] if ENV['SBOX_POS_IOS'] == '1'
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= perms
     end
   end
@@ -94,6 +96,7 @@ post_install do |installer|
   #      object file into Runner regardless of reachability.
   installer.aggregate_targets.each do |aggregate_target|
     next unless aggregate_target.name == 'Pods-Runner'
+    next if ENV['SBOX_POS_IOS'] == '1' # Không có TFLite: các cờ -Wl,-u,_TfLite* sẽ làm lỗi liên kết.
     user_project = aggregate_target.user_project
     user_project.native_targets.each do |runner_target|
       next unless runner_target.name == 'Runner'

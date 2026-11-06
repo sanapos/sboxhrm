@@ -29,6 +29,7 @@ FLAVORS = {
     # SBOX POS giữ logo chữ assets/sbox_pos_logo.png, chỉ thêm icon và logo chữ S (sbox_pos_mark.png).
     "pos": dict(bg=("#1B5E20", "#66BB6A"), s=("#E3F4E4", "#FFFFFF")),
 }
+IOS_FLAVORS = {"pos"}
 
 
 def rgb(hex_color):
@@ -121,6 +122,11 @@ def main():
             square.resize((px, px), Image.LANCZOS).save(folder / "ic_launcher.png", optimize=True)
             round_icon.resize((px, px), Image.LANCZOS).save(folder / "ic_launcher_round.png", optimize=True)
         store.save(base / "ic_launcher-playstore.png", optimize=True)
+        if flavor in IOS_FLAVORS:
+            # App Store cần ảnh 1024px vuông kín nền, không có kênh alpha; workflow iOS tự sinh các cỡ khác.
+            out = CLIENT / "ios" / "flavor_icons" / f"{flavor}-1024.png"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            Image.alpha_composite(gradient(FLAVORS[flavor]), letter_layer(badge, FLAVORS[flavor])).convert("RGB").save(out, optimize=True)
         square.resize((512, 512), Image.LANCZOS).save(CLIENT / "assets" / ("sbox_pos_mark.png" if flavor == "pos" else f"sbox_{flavor}_logo.png"), optimize=True)
         results[flavor] = (square, round_icon, store)
     write_status_icon(badge)

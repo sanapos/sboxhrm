@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../config/sbox_app_variant.dart';
 import '../services/api_service.dart';
 import '../screens/system_admin/system_admin_helpers.dart';
 import '../utils/vietnamese_font.dart';
@@ -48,6 +49,11 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
       if (!mounted || res['isSuccess'] != true) return;
       final list =
           List<Map<String, dynamic>>.from(res['data'] as List? ?? const []);
+      // SBOX POS iOS: không hiện nhắc gia hạn dịch vụ kèm số liên hệ (App Store 3.1.1).
+      if (SboxAppVariant.iosPosApp) {
+        list.removeWhere((a) =>
+            AdminHelpers.parseEnumInt(a['kind'], AdminHelpers.announcementKindMap) == 3);
+      }
       setState(() => _items = list);
       // Mark seen for newly displayed items (one-shot per session)
       for (final a in list) {

@@ -10,6 +10,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../models/attendance.dart';
+import '../config/sbox_app_variant.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
@@ -10724,7 +10725,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildEmployeePunchCta() {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
-    if (!perm.canView('MobileAttendance')) return const SizedBox.shrink();
+    if (SboxAppVariant.hidesModule('MobileAttendance') || !perm.canView('MobileAttendance')) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.only(top: 12),

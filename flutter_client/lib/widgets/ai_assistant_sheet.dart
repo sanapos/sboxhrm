@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:intl/intl.dart';
+import '../config/sbox_app_variant.dart';
 import '../utils/vi_speech_text.dart';
 import '../utils/ai_voice_commands.dart';
 import '../utils/permission_navigation.dart';
@@ -2125,7 +2126,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               );
             }),
           ],
-          if (m.guides.isNotEmpty) ...[
+          // SBOX POS iOS: trang hướng dẫn chung có đăng ký, chấm công, tải app nền tảng khác.
+          if (m.guides.isNotEmpty && !SboxAppVariant.iosPosApp) ...[
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
