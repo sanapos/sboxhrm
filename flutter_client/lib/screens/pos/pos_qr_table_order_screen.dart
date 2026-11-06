@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../config/sbox_endpoints.dart';
 import '../../models/qr_order_lock_config.dart';
 import '../../utils/image_source_picker.dart';
+import '../../config/sbox_app_variant.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_qr_table_print.dart';
 import '../../utils/pos_sell_settings_helper.dart';
@@ -1593,7 +1594,8 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                     ? null
                     : (v) => _setLock(requireOpenSession: v),
               ),
-              SwitchListTile(
+              // SBOX POS iOS không có vùng chấm công và không dùng vị trí.
+              if (!SboxAppVariant.iosPosApp) SwitchListTile(
                 title: Text(tr('Chỉ gọi món trong phạm vi quán (GPS)')),
                 subtitle: Text(tr(_geoConfigured
                     ? 'Dùng vùng chấm công (geofence) của cửa hàng. Khách phải bật vị trí.'

@@ -28,7 +28,6 @@ NOTES = os.environ.get(
             "  Store code: demopos",
             "  Username: demopos@gmail.com",
             "  Password: 123456",
-            "demo@gmail.com is accepted as the same cashier.",
             "Open Ban hang to sell. No in-app purchase and nothing is sold to the user inside the app. Accounts are provisioned for shops outside the app; the iOS app has no account registration.",
             "Permissions are requested only when a feature is used. Camera: barcode scanning, product photos and invoice or menu photos sent to the AI assistant. Microphone and speech recognition: only after tapping the microphone in the AI assistant.",
             "The AI assistant is described in the app description. This app has no face attendance and does not track location.",

@@ -1,6 +1,7 @@
 import '../../widgets/sbox/sbox_ui.dart';
 import 'dart:async';
 
+import '../../config/sbox_app_variant.dart';
 import '../../utils/pos_scale_barcode.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -1000,7 +1001,8 @@ class _PosSellIndustrySettingsScreenState
                       );
                     }),
           ),
-          SwitchListTile(
+          // SBOX POS iOS không có vùng chấm công và không dùng vị trí.
+          if (!SboxAppVariant.iosPosApp) SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(tr('QR: chỉ gọi món trong phạm vi quán (GPS)')),
             subtitle: Text(tr(

@@ -203,7 +203,13 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   static const _welcome =
       'Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng và nhân sự (đúng quyền và phạm vi của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ, chấm công, đi trễ, nghỉ phép, lương… Tôi cũng làm thay bạn: lập / sửa phiếu, duyệt hoặc từ chối đơn, đổi giá, ngừng bán, xóa phiếu, hủy hóa đơn — bạn kiểm tra rồi bấm Xác nhận (thao tác xóa / hủy sẽ hỏi lại một lần nữa). Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.';
 
-  void _addWelcome() => _messages.add(_ChatMsg('assistant', _welcome, translate: true));
+  // SBOX POS iOS không có chức năng nhân sự: lời giới thiệu và hộp đồng ý chỉ nói đúng việc của app (App Store 2.3.1).
+  static const _posWelcome =
+      'Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng (đúng quyền và phạm vi của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ… Tôi cũng làm thay bạn: lập / sửa phiếu, đổi giá, ngừng bán, xóa phiếu, hủy hóa đơn — bạn kiểm tra rồi bấm Xác nhận (thao tác xóa / hủy sẽ hỏi lại một lần nữa). Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.';
+  static final _hrSuggestion = RegExp('phép|chấm công|đi trễ|lương|phạt|nhân viên|ca làm', caseSensitive: false);
+
+  void _addWelcome() => _messages.add(
+      _ChatMsg('assistant', SboxAppVariant.iosPosApp ? _posWelcome : _welcome, translate: true));
 
   /// «Cuộc trò chuyện mới»: xóa lịch sử (câu hỏi sau không bị câu cũ ảnh hưởng, đỡ token gửi AI).
   Future<void> _newConversation() async {
@@ -260,7 +266,12 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       builder: (ctx) => ScrollableAlertDialog(
         title: Text(tr('Trợ lý ảo – Thông tin quyền riêng tư')),
         content: Text(
-          tr('Khi sử dụng trợ lý AI, nội dung câu hỏi và dữ liệu nhân sự liên quan (ca làm việc, phép, chấm công) '
+          SboxAppVariant.iosPosApp
+              ? tr('Khi sử dụng trợ lý AI, nội dung câu hỏi, ảnh bạn gửi và số liệu bán hàng liên quan '
+                  'sẽ được gửi đến máy chủ của chúng tôi và xử lý bằng Google Gemini AI để tạo phản hồi.\n\n'
+                  'Khi bạn nói bằng micro, đoạn ghi âm giọng nói cũng được gửi để chép thành chữ (không lưu lại sau khi chép).\n\n'
+                  'Bạn đồng ý để tiếp tục sử dụng tính năng này không?')
+              : tr('Khi sử dụng trợ lý AI, nội dung câu hỏi và dữ liệu nhân sự liên quan (ca làm việc, phép, chấm công) '
           'sẽ được gửi đến máy chủ của chúng tôi và xử lý bằng Google Gemini AI để tạo phản hồi.\n\n'
           'Khi bạn nói bằng micro, đoạn ghi âm giọng nói cũng được gửi để chép thành chữ (không lưu lại sau khi chép).\n\n'
           'Dữ liệu sinh trắc học (khuôn mặt, vân tay) không được gửi đến AI.\n\n'
@@ -1952,7 +1963,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       out.addAll(['Tôi còn bao nhiêu ngày phép?', 'Hôm nay tôi chấm công chưa?']);
     }
     // 4 câu phân tích + tối đa 3 câu ra lệnh (để người dùng biết trợ lý lập phiếu được).
-    return [...out.take(analytics).take(4), ...out.skip(analytics).take(3)];
+    final picked = [...out.take(analytics).take(4), ...out.skip(analytics).take(3)];
+    return SboxAppVariant.iosPosApp ? picked.where((s) => !_hrSuggestion.hasMatch(s)).toList() : picked;
   }
 
   Widget _buildSuggestions() {
