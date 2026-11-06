@@ -430,18 +430,27 @@ public class NotificationCenterController(
                 At = g.Min(x => x.Timestamp),
                 Total = g.Count(),
                 Read = g.Count(x => x.IsRead),
-                Sender = g.Max(x => x.FromUserId),
             })
             .OrderByDescending(g => g.At)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .ToListAsync();
-        var senderIds = rows.Where(r => r.Sender.HasValue).Select(r => r.Sender!.Value).Distinct().ToList();
+        // Người gửi lấy riêng: PostgreSQL không có max(uuid) nên không gộp được trong GROUP BY.
+        var batchIds = rows.Select(r => (Guid?)r.BatchId).ToList();
+        var senderRows = await SentScope(storeId)
+            .Where(n => batchIds.Contains(n.BatchId) && n.FromUserId != null)
+            .Select(n => new { n.BatchId, n.FromUserId })
+            .Distinct()
+            .ToListAsync();
+        var senderByBatch = senderRows
+            .GroupBy(x => x.BatchId!.Value)
+            .ToDictionary(g => g.Key, g => g.Max(x => x.FromUserId!.Value));
+        var senderIds = senderByBatch.Values.Distinct().ToList();
         var names = await db.Users.AsNoTracking().Where(u => senderIds.Contains(u.Id))
             .Select(u => new { u.Id, Name = (u.LastName + " " + u.FirstName).Trim() })
             .ToDictionaryAsync(u => u.Id, u => u.Name);
         var items = rows.Select(r => new SentBatchDto(
             r.BatchId, r.Title ?? "", r.Body ?? "", r.Cat, r.Type, r.At, r.Total, r.Read,
-            r.Sender.HasValue ? names.GetValueOrDefault(r.Sender.Value) : null)).ToList();
+            senderByBatch.TryGetValue(r.BatchId, out var sender) ? names.GetValueOrDefault(sender) : null)).ToList();
         return Ok(AppResponse<object>.Success(new { items, total, page, pageSize }));
     }
 
