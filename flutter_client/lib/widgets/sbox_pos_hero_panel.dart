@@ -6,12 +6,13 @@ class SboxPosHeroPanel extends StatelessWidget {
   const SboxPosHeroPanel({super.key});
 
   static const green = SboxColors.successText;
-  static const wallGreen = Color(0xFF1B4D3E);
+  /// Nền nhạt lúc ảnh chưa tải xong: khối xanh đậm trống trông như lỗi.
+  static const placeholder = Color(0xFFF1F6F2);
 
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: wallGreen,
+      color: placeholder,
       child: LayoutBuilder(
         builder: (context, c) {
           final dpr = MediaQuery.devicePixelRatioOf(context).clamp(1.0, 3.0);
@@ -25,6 +26,14 @@ class SboxPosHeroPanel extends StatelessWidget {
               isAntiAlias: true,
               cacheWidth: cacheW,
               gaplessPlayback: true,
+              frameBuilder: (_, child, frame, wasSync) => wasSync
+                  ? child
+                  : AnimatedOpacity(
+                      opacity: frame == null ? 0 : 1,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                      child: child,
+                    ),
               errorBuilder: (_, __, ___) => Image.asset(
                 'assets/sbox_pos_poster.png',
                 fit: BoxFit.cover,

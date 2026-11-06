@@ -116,6 +116,16 @@
   }
   </script>
 
+  <script>
+    // Đánh dấu trang POS trước khi vẽ để không nháy nền của HRM.
+    (function () {
+      var h = (location.hostname || '').toLowerCase();
+      var q = /[?&]site=pos\b/.test(location.search);
+      if (q || h === 'sboxpos.com' || h === 'www.sboxpos.com' || h.indexOf('sboxpos.') === 0) {
+        document.documentElement.classList.add('site-pos');
+      }
+    })();
+  </script>
   <style>
     /* Map Flutter family "BeVietnamPro" → bundled TTF (CanvasKit + HTML) */
     @font-face {
@@ -179,6 +189,15 @@
     .splash-bar-wrap { width: 180px; height: 3px; background: rgba(255,255,255,0.15); border-radius: 3px; overflow: hidden; }
     .splash-bar-fill { height: 100%; width: 45%; background: rgba(255,255,255,0.85); border-radius: 3px; animation: bar-sweep 1.6s ease-in-out infinite; }
     @keyframes bar-sweep { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+
+    /* Splash SBOX POS: nền trắng nối liền với form đăng nhập; logo đã có chữ nên không lặp tên. */
+    .site-pos body { background: #fff; }
+    .site-pos #splash { background: #fff; }
+    .site-pos #splash-logo { width: 148px; height: 148px; border-radius: 0; box-shadow: none; margin-bottom: 4px; }
+    .site-pos #splash-title { display: none; }
+    .site-pos #splash-sub { color: #64748B; font-size: 14px; margin-bottom: 36px; }
+    .site-pos .splash-bar-wrap { width: 160px; background: #E5EFE6; }
+    .site-pos .splash-bar-fill { background: #2E7D32; }
 
     /* SEO prerender – visible to Googlebot before Flutter loads */
     #seo-prerender {
@@ -261,14 +280,12 @@
       var t = document.getElementById('splash-title');
       var s = document.getElementById('splash-sub');
       var l = document.getElementById('splash-logo');
-      var splash = document.getElementById('splash');
       if (t) t.textContent = 'SBOX POS';
-      if (s) s.textContent = 'Phần mềm POS bán hàng';
+      if (s) s.textContent = 'Phần mềm bán hàng & quản lý cửa hàng';
       if (l) {
         l.src = 'images/landing/sbox-pos-logo.png';
         l.alt = 'SBOX POS';
       }
-      if (splash) splash.style.background = '#1B5E20';
     })();
   </script>
 
