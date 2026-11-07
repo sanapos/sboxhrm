@@ -29,6 +29,14 @@ void main() {
     }
   });
 
+  test('SBOX POS trên iOS khóa máy chủ, trên Android đổi được', () async {
+    await _useApp(SboxAppVariant.iosPosBundleId, TargetPlatform.iOS);
+    expect(SboxAppVariant.fixedServer, isTrue);
+
+    await _useApp(SboxAppVariant.androidPosApplicationId, TargetPlatform.android);
+    expect(SboxAppVariant.fixedServer, isFalse);
+  });
+
   test('Chỉ BOSS trên iOS ẩn màn khuôn mặt, máy chấm công', () async {
     await _useApp('boss.sboxpos.com', TargetPlatform.iOS);
     for (final code in ['Device', 'DeviceUser', 'MobileAttendance', 'FieldCheckIn']) {

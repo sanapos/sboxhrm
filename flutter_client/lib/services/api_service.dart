@@ -45,7 +45,7 @@ class ApiService implements PayrollApi {
   }
 
   static Future<void> loadSavedBaseUrl() async {
-    // Public SBOX POS (App Store / Play) stays on the server baked in at build.
+    // Bản trên App Store giữ máy chủ gắn lúc build; Android đổi được ở màn đăng nhập (cần mã bảo mật).
     // Đánh giá lại mặc định: flavor `pos` / `boss` / `staff` / `kds` không truyền API_BASE_URL → sboxpos.com.
     if (SboxAppVariant.defaultsToPosServer) _baseUrl = getApiBaseUrl();
     if (SboxAppVariant.fixedServer) return;

@@ -64,8 +64,8 @@ abstract final class SboxAppVariant {
   /// Mặc định nối sboxpos.com khi chưa chọn máy chủ khác.
   static bool get defaultsToPosServer => standalonePos || bossApp || staffApp;
 
-  /// SBOX POS và mọi app trên App Store gắn cố định máy chủ lúc build, không đổi được trong app.
-  static bool get fixedServer => (standalonePos && !kitchenApp) || iosStoreApp;
+  /// Mọi app trên App Store gắn cố định máy chủ lúc build, không đổi được trong app (Apple từ chối tính năng ẩn).
+  static bool get fixedServer => iosStoreApp;
 
   /// Tên miền HRM trong chữ hiển thị — không đụng địa chỉ email (sboxhrm@gmail.com).
   static final RegExp _hrmDomainWord = RegExp(r'(?<!@)sboxhrm(?!@)');
