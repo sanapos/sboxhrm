@@ -47,7 +47,7 @@ Chúng tôi xử lý dữ liệu cá nhân theo quy định của pháp luật V
 - Hồ sơ nhân viên, phòng ban, ca làm việc, giờ vào / ra, nghỉ phép, tăng ca, phiếu lương, tạm ứng.
 - **Dữ liệu khuôn mặt**: chỉ khi bạn chủ động chấm công bằng khuôn mặt hoặc được quản lý đăng ký khuôn mặt — xem mục 4.
 - **Vân tay / thẻ / khuôn mặt trên máy chấm công**: mẫu sinh trắc học nằm trên máy chấm công và được đồng bộ để quản lý người dùng trên máy.
-- **Vị trí GPS**: chỉ tại thời điểm bạn bấm chấm công / check-in — xem mục 5.
+- **Vị trí GPS**: khi bạn bấm chấm công / check-in; thêm định kỳ khi đang mở app nếu cửa hàng bật Bản đồ nhân sự — xem mục 5.
 
 ### Bán hàng (khi cửa hàng dùng SBOX POS)
 - Hàng hóa, tồn kho, hóa đơn, thanh toán, công nợ, đặt bàn, đơn online, khách hàng của cửa hàng (tên, số điện thoại, địa chỉ giao hàng).
@@ -79,7 +79,7 @@ Chúng tôi **không** dùng dữ liệu của bạn để quảng cáo và **kh
 ## 5. Vị trí
 
 - Lấy vị trí **tại thời điểm** bấm chấm công / check-in, hoặc khi bạn chủ động chọn địa điểm trên bản đồ.
-- Nếu cửa hàng bật chức năng **Bản đồ nhân sự**, ứng dụng nhân viên gửi vị trí khoảng 30 giây một lần khi đang mở và đã đăng nhập; máy chủ chỉ lưu vị trí trong ca làm việc đã duyệt.
+- Nếu cửa hàng bật chức năng **Bản đồ nhân sự**, ứng dụng nhân viên gửi vị trí khoảng 30 giây một lần khi đang mở và đã đăng nhập; máy chủ chỉ lưu vị trí trong ca làm việc đã duyệt, riêng nhân viên được bật chấm công ngoài công ty thì lưu cả ngoài ca.
 - Ứng dụng không có quyền vị trí nền. SBOX POS, SBOX BOSS và SBOX KDS không thu thập vị trí.
 
 ## 6. Quyền truy cập trên thiết bị

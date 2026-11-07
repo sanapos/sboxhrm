@@ -13,10 +13,13 @@ import 'staff_nav.dart';
 /// Trang chủ app SBOX Nhân Viên: ca hôm nay, giờ vào / ra, nút chấm công,
 /// thống kê công tháng này và ô thao tác nhanh. Dữ liệu từ `/api/dashboard/employee`.
 class StaffHomeTab extends StatefulWidget {
-  const StaffHomeTab({super.key, this.onOpenSchedule});
+  const StaffHomeTab({super.key, this.onOpenSchedule, this.onOpenMe});
 
   /// Chuyển sang tab Lịch của khung [StaffShell].
   final VoidCallback? onOpenSchedule;
+
+  /// Chuyển sang tab Tôi (bấm ảnh đại diện).
+  final VoidCallback? onOpenMe;
 
   @override
   State<StaffHomeTab> createState() => _StaffHomeTabState();
@@ -27,20 +30,36 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
   Map<String, dynamic>? _data;
   String? _error;
   bool _loading = true;
+  int _unread = 0;
 
   @override
   void initState() {
     super.initState();
     ScreenRefreshNotifier.attendance.addListener(_load);
     ScreenRefreshNotifier.dashboard.addListener(_load);
+    ScreenRefreshNotifier.notifications.addListener(_refreshUnread);
     _load();
+    _refreshUnread();
   }
 
   @override
   void dispose() {
     ScreenRefreshNotifier.attendance.removeListener(_load);
     ScreenRefreshNotifier.dashboard.removeListener(_load);
+    ScreenRefreshNotifier.notifications.removeListener(_refreshUnread);
     super.dispose();
+  }
+
+  Future<void> _refreshUnread() async {
+    try {
+      final n = (await _api.getNotificationSummary())['unreadCount'];
+      if (mounted) setState(() => _unread = n is int ? n : int.tryParse('$n') ?? 0);
+    } catch (_) {}
+  }
+
+  static String _greeting() {
+    final h = DateTime.now().hour;
+    return h < 11 ? 'Chào buổi sáng' : (h < 18 ? 'Chào buổi chiều' : 'Chào buổi tối');
   }
 
   Future<void> _load() async {
@@ -83,64 +102,85 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
     final name = (user?.fullName ?? '').trim();
+    final role = user?.position ?? user?.department ?? '';
     return Scaffold(
       backgroundColor: SboxColors.page,
       appBar: AppBar(
-        backgroundColor: SboxColors.appBarBg(SboxColors.white),
-        surfaceTintColor: SboxColors.white,
-        titleSpacing: 16,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              name.isEmpty ? tr('Xin chào') : '${tr('Xin chào')}, $name',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis,
-            ),
-            if ((user?.position ?? user?.department ?? '').isNotEmpty)
-              Text(
-                user?.position ?? user?.department ?? '',
-                style: TextStyle(fontSize: 12, color: SboxColors.appBarFg(SboxColors.textMuted)),
-              ),
-          ],
-        ),
+        backgroundColor: SboxColors.chrome,
+        surfaceTintColor: Colors.transparent,
+        title: Text(tr('Trang chủ')),
         actions: [
           IconButton(
-            tooltip: tr('Thông báo'),
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () => openStaffPage(
-              context,
-              title: 'Thông báo',
-              child: const NotificationsScreen(),
+            // Số trên chuông nói trong nhãn nút, không để trình đọc màn hình chỉ đọc «6».
+            tooltip: _unread > 0 ? '${tr('Thông báo')} ($_unread)' : tr('Thông báo'),
+            icon: ExcludeSemantics(
+              child: Badge(
+                isLabelVisible: _unread > 0,
+                label: Text(_unread > 99 ? '99+' : '$_unread'),
+                backgroundColor: SboxColors.danger,
+                child: const Icon(Icons.notifications_none_rounded),
+              ),
+            ),
+            onPressed: () async {
+              await openStaffPage(
+                context,
+                title: 'Thông báo',
+                child: const NotificationsScreen(),
+              );
+              _refreshUnread();
+            },
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: SboxSpace.md, left: SboxSpace.xs),
+            child: Semantics(
+              button: true,
+              label: tr('Tôi'),
+              child: GestureDetector(
+                onTap: widget.onOpenMe,
+                child: StaffAvatar(name: name, radius: 18),
+              ),
             ),
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _load,
+        onRefresh: () async {
+          _refreshUnread();
+          await _load();
+        },
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(SboxSpace.lg, SboxSpace.xs, SboxSpace.lg, SboxSpace.lg),
           children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(tr(_greeting()), style: SboxType.smallStyle(SboxColors.textMuted)),
+                Text(
+                  name.isEmpty ? tr('Xin chào') : name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: SboxType.titleStyle(),
+                ),
+                if (role.isNotEmpty) Text(role, style: SboxType.smallStyle(SboxColors.textMuted)),
+              ],
+            ),
+            const SizedBox(height: SboxSpace.md),
             _todayCard(),
-            const SizedBox(height: 12),
+            const SizedBox(height: SboxSpace.md),
             _statsRow(),
-            const SizedBox(height: 16),
-            _quickActions(),
+            const SizedBox(height: SboxSpace.md),
+            StaffQuickGrid(
+              title: 'Truy cập nhanh',
+              icon: Icons.bolt_rounded,
+              entries: StaffEntries.quickActions,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _card({required Widget child}) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: SboxColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: SboxColors.border),
-        ),
-        child: child,
-      );
+  Widget _card({required Widget child}) => StaffCard(child: child);
 
   Widget _todayCard() {
     if (_loading) {
@@ -148,6 +188,26 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
         child: const SizedBox(
           height: 120,
           child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+    // Chưa tải được lần nào: không hiện «Chưa chấm công», «Hôm nay không có ca» như dữ liệu thật.
+    if (_data == null) {
+      return _card(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tr(_error ?? 'Không tải được dữ liệu'),
+              style: const TextStyle(fontSize: 14, color: SboxColors.textSecondary),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh),
+              label: Text(tr('Thử lại')),
+            ),
+          ],
         ),
       );
     }
@@ -162,7 +222,8 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
     final canPunch = staffCanOpen(context, StaffEntries.punch.moduleCode);
 
     final (statusText, statusColor) = switch (status) {
-      'checked-in' => ('Đang trong ca', SboxColors.success),
+      // Không có ca hôm nay mà vẫn chấm vào: không ghi «trong ca».
+      'checked-in' => (shift == null ? 'Đã chấm vào' : 'Đang trong ca', SboxColors.success),
       'checked-out' => ('Đã ra ca', SboxColors.textSecondary),
       _ => ('Chưa chấm công', SboxColors.warning),
     };
@@ -223,8 +284,8 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
           if (_error != null) ...[
             const SizedBox(height: 8),
             Text(
-              tr(_error!),
-              style: const TextStyle(fontSize: 12, color: SboxColors.textMuted),
+              '${tr(_error!)} ${tr('Đang hiện dữ liệu lần tải trước.')}',
+              style: const TextStyle(fontSize: 12, color: SboxColors.warning),
             ),
           ],
           if (canPunch) ...[
@@ -234,7 +295,7 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
               height: 48,
               child: FilledButton.icon(
                 onPressed: _openPunch,
-                icon: const Icon(Icons.fingerprint),
+                icon: const Icon(Icons.fingerprint_rounded),
                 label: Text(
                   tr(status == 'checked-in' ? 'Chấm công ra' : 'Chấm công'),
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -261,8 +322,8 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
   Widget _timeBox(String label, String value) => Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(
-          color: SboxColors.surfaceMuted,
-          borderRadius: BorderRadius.circular(10),
+          color: SboxColors.page,
+          borderRadius: SboxRadius.mdAll,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,97 +345,36 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
       return v is num ? v.round().toString() : (v?.toString() ?? '0');
     }
 
-    return Row(
-      children: [
-        Expanded(
-          child: _stat('Ngày công', '${n('presentDays')}/${n('totalWorkDays')}'),
+    // Không có lịch ca, máy chủ trả tổng = số ngày đã chấm («2/2» trông như đủ công): khi đó chỉ hiện số ngày.
+    final present = n('presentDays');
+    final total = n('totalWorkDays');
+    final days = (int.tryParse(total) ?? 0) > (int.tryParse(present) ?? 0) ? '$present/$total' : present;
+    return StaffCard(
+      padding: const EdgeInsets.symmetric(vertical: SboxSpace.md),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            Expanded(child: _stat('Ngày công', days)),
+            const VerticalDivider(width: 1, color: SboxColors.divider),
+            Expanded(child: _stat('Đi muộn', n('lateCheckIns'))),
+            const VerticalDivider(width: 1, color: SboxColors.divider),
+            Expanded(child: _stat('Giờ TB/ngày', s['averageWorkHours']?.toString() ?? '0')),
+          ],
         ),
-        const SizedBox(width: 10),
-        Expanded(child: _stat('Đi muộn', n('lateCheckIns'))),
-        const SizedBox(width: 10),
-        Expanded(child: _stat('Giờ TB/ngày', s['averageWorkHours']?.toString() ?? '0')),
-      ],
+      ),
     );
   }
 
-  Widget _stat(String label, String value) => _card(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(value,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 2),
-            Text(
-              tr(label),
-              style: const TextStyle(fontSize: 12, color: SboxColors.textMuted),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      );
-
-  Widget _quickActions() {
-    final items = [
-      for (final e in StaffEntries.quickActions)
-        if (staffCanOpen(context, e.moduleCode)) e,
-    ];
-    if (items.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-          child: Text(
-            tr('Thao tác nhanh'),
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: SboxColors.textSecondary,
-            ),
+  Widget _stat(String label, String value) => Column(
+        children: [
+          Text(value, style: SboxType.titleStyle(SboxColors.brand700)),
+          const SizedBox(height: 2),
+          Text(
+            tr(label),
+            style: SboxType.captionStyle(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        ),
-        GridView.count(
-          crossAxisCount: 3,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.05,
-          children: [
-            for (final e in items)
-              Material(
-                color: SboxColors.surface,
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => e.open(context),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: SboxColors.border),
-                    ),
-                    padding: const EdgeInsets.all(8),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(e.icon, color: e.color, size: 26),
-                        const SizedBox(height: 6),
-                        Text(
-                          tr(e.title),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
+        ],
+      );
 }

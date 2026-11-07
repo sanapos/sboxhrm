@@ -889,7 +889,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     int selectedMonth = now.month;
     int selectedYear = now.year;
     // For employee role: pre-select their own profile; for manager/admin: let them pick
-    Employee? selectedEmployee = _isEmployeeRole ? _myEmployee : null;
+    // Chỉ thấy hồ sơ của mình (nhân viên, phục vụ…): chọn sẵn, khỏi phải tự tìm tên mình.
+    Employee? selectedEmployee =
+        _isEmployeeRole ? _myEmployee : (_employees.length == 1 ? _employees.first : null);
     final isEmployeeMode = _isEmployeeRole;
 
     showDialog(
@@ -1869,7 +1871,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         backgroundColor: HrmPageChrome.background,
         body: HrmPushedScreenShell.maybeWrap(
           context,
-          title: _l10n.advanceManagement,
+          title: _isManagerOrAbove ? _l10n.advanceManagement : 'Tạm ứng lương',
           child: HrmResponsiveListLayout(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             headerSections: _advancePageHeaderSections(isMobile),
@@ -1925,10 +1927,14 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     if (_filteredRequests.isEmpty) {
       return [
         HrmScrollSlivers.fillRemaining(
-          child: const EmptyState(
-            icon: Icons.money_off,
-            title: 'Không có yêu cầu',
-            description: 'Chưa có yêu cầu ứng lương nào',
+          // Chừa chỗ cho nút tròn góc dưới, không để che dòng mô tả.
+          child: const Padding(
+            padding: EdgeInsets.only(bottom: 88),
+            child: EmptyState(
+              icon: Icons.money_off,
+              title: 'Không có yêu cầu',
+              description: 'Chưa có yêu cầu ứng lương nào',
+            ),
           ),
         ),
       ];
@@ -2120,8 +2126,11 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 runSpacing: 8,
                 children: [timePreset, statusDropdown, branchDropdown]),
             const SizedBox(height: 8),
-            searchField,
-            const SizedBox(height: 8),
+            // Nhân viên chỉ thấy yêu cầu của mình: không cần tìm theo tên.
+            if (_isManagerOrAbove) ...[
+              searchField,
+              const SizedBox(height: 8),
+            ],
             Row(
               children: [
                 _buildEmployeeChip(),
@@ -2273,6 +2282,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   }
 
   Widget _buildEmployeeChip() {
+    // Nhân viên chỉ xem được yêu cầu của mình: bộ lọc «Tất cả nhân viên» không có ý nghĩa.
+    if (!_isManagerOrAbove) return const SizedBox.shrink();
     return InkWell(
       onTap: _showEmployeePickerDialog,
       borderRadius: BorderRadius.circular(10),

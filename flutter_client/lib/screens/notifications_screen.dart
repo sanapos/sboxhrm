@@ -524,7 +524,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (_hasMore) flatItems.add(null);
 
     final content = Container(
-      color: SboxColors.slate100,
+      color: SboxColors.posApp ? SboxColors.page : SboxColors.slate100,
       child: HrmResponsiveListLayout(
         headerSections: [_buildHeader()],
         desktopBody: _buildNotificationsBody(flatItems),
@@ -857,7 +857,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         : (n.categoryCode != null ? NotificationCategoryMeta.of(n.categoryCode).label : null);
 
     final card = Material(
-      color: n.isRead ? Colors.white : color.withValues(alpha: 0.05),
+      // Nền sáng một màu: pha trên nền trắng, pha trên nền trang thì thẻ chưa đọc thành xám đục.
+      color: n.isRead
+          ? Colors.white
+          : SboxColors.posApp
+              ? Color.alphaBlend(color.withValues(alpha: 0.05), Colors.white)
+              : color.withValues(alpha: 0.05),
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(

@@ -139,12 +139,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   Future<void> _initVerification() async {
     // 1. Request location permission once (needed by both GPS + WiFi BSSID)
     if (!kIsWeb) {
-      final granted = await ensureLocationPermission();
+      await ensureLocationPermission();
       if (!mounted) return;
-      // Also set permission_handler status for WiFi
-      if (granted) {
-        _wifiPermissionsRequested = true;
-      }
+      // Đã hỏi rồi: từ chối thì GPS / WiFi / vòng kiểm tra 15 giây không hỏi tiếp, chỉ hỏi lại khi bấm chấm công hoặc làm mới WiFi.
+      _wifiPermissionsRequested = true;
     }
 
     // 2. Instant GPS from OS cache (< 50ms)
@@ -166,7 +164,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       _loadSettings(),
       _loadTodayRecords(),
       _getCurrentLocation(),
-      _checkWifiConnection(requestPermissions: true),
+      _checkWifiConnection(),
     ]);
 
     // 4. Recalculate with both workLocations + GPS ready
@@ -1252,6 +1250,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   }
 
   Future<void> _getCurrentLocation({bool forceRefresh = false}) async {
+    // Lấy nền (mở màn, vòng kiểm tra) không bật hộp xin quyền; forceRefresh là lúc bấm chấm công.
+    if (!kIsWeb && !forceRefresh && !await Permission.locationWhenInUse.isGranted) return;
     if (_isGettingLocation) {
       if (!forceRefresh) return;
       await _waitForLocationCheckToFinish();
@@ -1660,17 +1660,20 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
+      backgroundColor: SboxColors.posApp ? SboxColors.page : const Color(0xFFF4F7FB),
       body: Stack(
         children: [
-          Positioned(
-              top: -140,
-              right: -90,
-              child: _bgOrb(320, SboxColors.brand100, 0.7)),
-          Positioned(
-              bottom: -40,
-              left: -80,
-              child: _bgOrb(240, SboxColors.brand100, 0.85)),
+          // Nền sáng một màu (POS, Nhân Viên): không vẽ đốm màu, trên nền này đốm thành mảng xám đục.
+          if (!SboxColors.posApp) ...[
+            Positioned(
+                top: -140,
+                right: -90,
+                child: _bgOrb(320, SboxColors.brand100, 0.7)),
+            Positioned(
+                bottom: -40,
+                left: -80,
+                child: _bgOrb(240, SboxColors.brand100, 0.85)),
+          ],
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -2140,7 +2143,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     final ready = _canTapPunch;
     final bool deviceReady = _isDeviceRegistered && _isDeviceApproved;
     final String modeText =
-        mode == 'any' ? 'Cần 1 điều kiện bất kỳ' : 'Cần tất cả điều kiện';
+        mode == 'any' ? 'Cần thiết bị đã duyệt và 1 điều kiện bất kỳ' : 'Cần tất cả điều kiện';
 
     return Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -2197,24 +2200,24 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                       runSpacing: 4,
                       children: [
                         _buildMiniChip(
-                            _isDeviceRegistered ? '1. Thiết bị' : '1. Thiết bị chưa đăng ký',
+                            _isDeviceRegistered ? 'Thiết bị' : 'Thiết bị chưa đăng ký',
                             deviceReady,
                             // «đang chờ» chỉ khi đã gửi đăng ký mà chưa được duyệt.
                             pending: _isDeviceRegistered && !_isDeviceApproved),
                         if (faceRequired)
                           _buildMiniChip(
                             _faceChipPendingScan
-                                ? '2. Khuôn mặt (bấm quét)'
-                                : '2. Khuôn mặt',
+                                ? 'Khuôn mặt (bấm quét)'
+                                : 'Khuôn mặt',
                             _faceChipShowsVerified,
                             pending: _faceChipPendingScan,
                           ),
                         if (gpsRequired && !_allowOutsideCheckIn)
-                          _buildMiniChip('3. GPS', _isLocationVerified,
+                          _buildMiniChip('GPS', _isLocationVerified,
                               pending:
                                   _isGettingLocation && !_isLocationVerified),
                         if (wifiRequired && !_allowOutsideCheckIn)
-                          _buildMiniChip('4. WiFi', _isWifiVerified,
+                          _buildMiniChip('WiFi', _isWifiVerified,
                               pending: _isCheckingWifi && !_isWifiVerified),
                         if (_allowOutsideCheckIn)
                           _buildMiniChip('Ngoài công ty', true),
@@ -2340,7 +2343,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           ),
         ],
         const SizedBox(height: 6),
-        Text(tr('Chỉ tính tăng ca khi chấm trong khung nghỉ ca (cấu hình ở Thiết lập ca)'),
+        Text(tr('Chỉ tính tăng ca khi chấm trong khung nghỉ ca'),
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 10,

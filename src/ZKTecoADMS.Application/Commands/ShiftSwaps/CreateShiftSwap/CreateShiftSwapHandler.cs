@@ -63,14 +63,14 @@ public class CreateShiftSwapHandler(
                 request.RequesterDate, request.RequesterShiftId, cancellationToken);
             if (requesterSchedule == null)
                 return AppResponse<ShiftSwapRequestDto>.Error(
-                    $"Bạn chưa được xếp ca {FormatShiftName(requesterShift)} ngày {request.RequesterDate:dd/MM/yyyy}");
+                    $"Bạn chưa được xếp «{FormatShiftName(requesterShift)}» ngày {request.RequesterDate:dd/MM/yyyy}");
 
             var targetSchedule = await ShiftSwapScheduleHelper.FindAssignedShiftAsync(
                 workScheduleRepository, request.StoreId, targetEmployee.Id,
                 request.TargetDate, request.TargetShiftId, cancellationToken);
             if (targetSchedule == null)
                 return AppResponse<ShiftSwapRequestDto>.Error(
-                    $"Đồng nghiệp chưa được xếp ca {FormatShiftName(targetShift)} ngày {request.TargetDate:dd/MM/yyyy}");
+                    $"Đồng nghiệp chưa được xếp «{FormatShiftName(targetShift)}» ngày {request.TargetDate:dd/MM/yyyy}");
 
             var quotaError = await ScheduleStaffingQuotaHelper.GetSwapQuotaMessageAsync(
                 quotaRepository, workScheduleRepository, requesterEmployee, targetEmployee,

@@ -150,7 +150,6 @@ import '../widgets/pos/pos_theme.dart';
 import '../utils/notification_sound_stub.dart';
 import '../services/app_icon_badge.dart';
 import '../services/system_notification_service.dart';
-import '../services/app_permission_service.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../utils/pos_icon_set.dart';
@@ -625,9 +624,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final commLink = kIsWeb ? Uri.base.queryParameters['comm'] : null;
       if (commLink != null && commLink.isNotEmpty) {
         navigateFromNotification(relatedEntityType: 'Communication', relatedEntityId: commLink, categoryCode: 'internal_comm');
-      }
-      if (!kIsWeb) {
-        AppPermissionService.promptEssentialPermissionsIfNeeded(context);
       }
     });
   }

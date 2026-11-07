@@ -18,6 +18,7 @@ import '../widgets/hrm_mini_stat_chip.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/overtime_time.dart';
 class OvertimeScreen extends StatefulWidget {
   const OvertimeScreen({super.key});
 
@@ -62,6 +63,17 @@ class _OvertimeScreenState extends State<OvertimeScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  /// `/pending` là hàng chờ của người duyệt. Nhân viên không duyệt được thì «Chờ duyệt» là đơn của chính họ
+  /// (trước đây luôn 0 dù đơn đang chờ).
+  List<Map<String, dynamic>> get _pendingView {
+    final canApprove = Provider.of<PermissionProvider>(context, listen: false).canApprove('Overtime');
+    if (canApprove) return _pendingOvertimes;
+    return _allOvertimes.where((o) {
+      final s = o['status']?.toString().toLowerCase();
+      return s == 'pending' || s == '0';
+    }).toList();
   }
 
   Future<void> _loadData({bool showLoading = true}) async {
@@ -161,7 +173,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                         _isLoading
                             ? const Center(child: CircularProgressIndicator())
                             : _buildOvertimeList(
-                                _filteredOvertimes(_pendingOvertimes),
+                                _filteredOvertimes(_pendingView),
                                 showActions: true,
                                 nestedTab: true),
                         _isLoading
@@ -199,7 +211,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                                   _buildOvertimeList(_myOvertimes,
                                       showActions: false),
                                   _buildOvertimeList(
-                                      _filteredOvertimes(_pendingOvertimes),
+                                      _filteredOvertimes(_pendingView),
                                       showActions: true),
                                   _buildStatisticsTab(),
                                 ],
@@ -284,7 +296,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
           _buildMiniStat(
               'Tổng', '${_allOvertimes.length}', HrmPageChrome.primaryNavy),
           const SizedBox(width: 12),
-          _buildMiniStat('Chờ duyệt', '${_pendingOvertimes.length}',
+          _buildMiniStat('Chờ duyệt', '${_pendingView.length}',
               SboxColors.warning),
           const SizedBox(width: 12),
           _buildMiniStat('Tổng giờ TC', '${_hoursText(_statTotalHours)}h',
@@ -366,14 +378,16 @@ class _OvertimeScreenState extends State<OvertimeScreen>
         ),
       );
       if (nestedTab) {
-        return CustomScrollView(
-          slivers: [
-            SliverOverlapInjector(
-              handle:
-                  NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-            ),
-            SliverFillRemaining(child: empty),
-          ],
+        // Như nhánh có đơn bên dưới: không chèn SliverOverlapInjector (context của State nằm ngoài
+        // NestedScrollView → lỗi Null check, vỡ cả màn khi chưa có đơn tăng ca).
+        return RefreshIndicator(
+          onRefresh: _loadData,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverFillRemaining(hasScrollBody: false, child: empty),
+            ],
+          ),
         );
       }
       return empty;
@@ -565,7 +579,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                   Text(
                     tr('${_formatDate(ot['date'] ?? ot['overtimeDate'])} · ${ot['startTime']?.toString().substring(0, 5) ?? '--:--'}-${ot['endTime']?.toString().substring(0, 5) ?? '--:--'} · ${_hoursText(ot['actualHours'] ?? ot['plannedHours'])}h'),
                     style: TextStyle(fontSize: 12, color: SboxColors.slate500),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -783,11 +797,20 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                       message: tr('Vui lòng nhập lý do tăng ca'));
                   return;
                 }
+                final start = normalizeOvertimeTime(startCtrl.text);
+                final end = normalizeOvertimeTime(endCtrl.text);
+                if (start == null || end == null) {
+                  appNotification.showWarning(
+                      title: 'Giờ chưa đúng',
+                      message: tr('Nhập giờ dạng HH:mm, ví dụ 18:00'));
+                  return;
+                }
+                // API nhận «date» và TimeSpan «HH:mm:ss» — trước đây gửi «overtimeDate», «18:00» nên luôn lỗi.
                 final data = {
-                  'overtimeDate': selectedDate!.toIso8601String(),
-                  'startTime': startCtrl.text,
-                  'endTime': endCtrl.text,
-                  'reason': reasonCtrl.text
+                  'date': selectedDate!.toIso8601String(),
+                  'startTime': start,
+                  'endTime': end,
+                  'reason': reasonCtrl.text.trim()
                 };
                 final res = await _apiService.createOvertime(data);
                 if (res['isSuccess'] == true) {

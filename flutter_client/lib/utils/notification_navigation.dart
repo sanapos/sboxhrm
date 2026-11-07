@@ -36,6 +36,9 @@ class NotificationNavigationTarget {
 typedef NotificationShellHandler = bool Function(String? entityKey, String? relatedEntityId);
 NotificationShellHandler? notificationShellHandler;
 
+/// Khung app (SBOX Nhân Viên) cho biết có mở được màn của loại thông báo này không; null = không kiểm tra.
+bool Function(String? entityKey)? notificationShellCanOpen;
+
 /// Các giá trị `type` / `notificationType` từ server = mức độ thông báo, không phải màn hình.
 const _notificationSeverityKeys = {
   'info',
@@ -171,8 +174,13 @@ bool canNavigateFromNotification({
     actionUrl: actionUrl,
     title: title,
   );
-  return entity != null &&
-      resolveNotificationNavigation(entity, title: title) != null;
+  if (entity == null || resolveNotificationNavigation(entity, title: title) == null) return false;
+  // App không có MainLayout: chỉ hiện «Xem chi tiết» khi khung app thật sự mở được màn đó.
+  final shellCanOpen = notificationShellCanOpen;
+  if (!NavigationNotifier.mainLayoutReady.value && shellCanOpen != null) {
+    return shellCanOpen(normalizeNotificationEntityType(entity));
+  }
+  return true;
 }
 
 String? _inferEntityTypeFromTitle(String? title) {

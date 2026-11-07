@@ -10651,7 +10651,20 @@
   "Thiết lập lần chấm theo ca": "Punch numbers by shift",
   "Tự xếp theo giờ ca": "Auto-arrange by shift time",
   "Áp dụng khi chọn «Giờ chấm theo ca» trên bảng và file xuất. Không ảnh hưởng cách tính công.": "Applies when \"Punch times by shift\" is selected, on the table and in exported files. It does not affect work-day calculation.",
-  "Đã lưu thiết lập lần chấm theo ca.": "Punch numbers by shift saved."
+  "Đã lưu thiết lập lần chấm theo ca.": "Punch numbers by shift saved.",
+  "Báo hoàn thành công việc này?": "Mark this task as completed?",
+  "Báo xong việc này?": "Report this task as done?",
+  "Bấm nút ⋯ rồi chọn «Đăng ký ca»": "Tap ⋯ and choose \"Register shift\"",
+  "Ca nghỉ: theo Thiết lập lương. Người thay ca: cùng phòng ban.": "Shifts off: per Salary Settings. Replacement: same department.",
+  "Chỉ tính tăng ca khi chấm trong khung nghỉ ca": "Overtime counts only when clocking within the shift break window",
+  "Cần thiết bị đã duyệt và 1 điều kiện bất kỳ": "Requires an approved device and any 1 condition",
+  "Khuôn mặt (bấm quét)": "Face (tap to scan)",
+  "Không gửi được, vui lòng thử lại": "Could not send, please try again",
+  "Quản lý sẽ sắp xếp người thay ca khi duyệt đơn.": "Your manager will arrange a replacement when approving the request.",
+  "Đang hiện dữ liệu lần tải trước.": "Showing data from the last load.",
+  "Đã chấm vào": "Clocked in",
+  "Giờ chưa đúng": "Invalid time",
+  "Nhập giờ dạng HH:mm, ví dụ 18:00": "Enter the time as HH:mm, e.g. 18:00"
  },
  "t": [
   [

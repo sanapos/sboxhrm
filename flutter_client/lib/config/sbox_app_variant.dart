@@ -141,10 +141,27 @@ abstract final class SboxAppVariant {
     return kept.join('\n');
   }
 
+  /// Trợ giúp trong SBOX Nhân Viên: bỏ phần quản trị / bán hàng và các dòng về Ctrl+K, tab Thêm,
+  /// đổi thanh dưới — app này có thanh dưới cố định, không có các chức năng đó.
+  static String _staffHelp(String s) {
+    if (!s.trimLeft().startsWith('# Trợ giúp')) return s;
+    const adminSections = ['## Bán hàng', '## Gọi món QR', '## Kho', '## Báo cáo', '## Máy in'];
+    const adminLines = ['- **Tìm chức năng nhanh**', '- **Thanh dưới điện thoại**', '- **Máy chấm công**', '- **Số liệu báo cáo'];
+    final kept = <String>[];
+    var skipping = false;
+    for (final line in s.split('\n')) {
+      if (line.startsWith('## ')) skipping = adminSections.any(line.startsWith);
+      if (skipping || adminLines.any(line.startsWith)) continue;
+      kept.add(line);
+    }
+    return kept.join('\n').replaceAll('**Báo lỗi & Góp ý** trong phần Thiết lập', '**Báo lỗi & Góp ý** trong phần Cài đặt');
+  }
+
   /// Chính sách / điều khoản: pháp nhân sản phẩm ghi là SBOX POS. Email hỗ trợ giữ nguyên.
   static String rebrandLegal(String s) {
     if (iosPosApp) return stripIosPosLegal(s);
     if (!companionApp) return s;
+    if (staffApp) s = _staffHelp(s);
     return s
         .replaceAll(
           'phần mềm quản lý nhân sự **SBOX HRM** và phần mềm bán hàng **SBOX POS**',

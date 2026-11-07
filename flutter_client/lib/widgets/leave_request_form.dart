@@ -982,6 +982,8 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
   }
 
   Widget _buildReplacementPicker() {
+    // Nhân viên chỉ thấy hồ sơ của mình nên không có ai để chọn: báo rõ thay vì bấm không phản ứng.
+    final none = _replacementCandidates().isEmpty;
     return Material(
       type: MaterialType.transparency,
       child: ListTile(
@@ -990,9 +992,11 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
           borderRadius: BorderRadius.circular(10),
           side: const BorderSide(color: _border),
         ),
+        enabled: !none,
         title: Text(tr(_replacementName() ?? 'Không chọn')),
-        trailing: const Icon(Icons.person_search),
-        onTap: _pickReplacement,
+        subtitle: none ? Text(tr('Quản lý sẽ sắp xếp người thay ca khi duyệt đơn.')) : null,
+        trailing: none ? null : const Icon(Icons.person_search),
+        onTap: none ? null : _pickReplacement,
       ),
     );
   }

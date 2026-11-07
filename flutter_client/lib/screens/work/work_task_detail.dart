@@ -161,6 +161,15 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
         confirmLabel: 'Vẫn hoàn thành',
       );
       if (!go) return;
+    } else if (t.status != WorkTaskStatus.inReview) {
+      // Một chạm là lên 100% — người làm xác nhận trước; quản lý duyệt việc đang chờ thì không cần hỏi lại.
+      final go = await SboxDialogs.confirm(
+        context,
+        title: 'Báo hoàn thành công việc này?',
+        message: t.title,
+        confirmLabel: 'Báo hoàn thành',
+      );
+      if (!go) return;
     }
     await _run(() => _api.updateTaskStatus(t.id, {'status': WorkTaskStatus.completed.index}), ok: 'Đã hoàn thành');
   }

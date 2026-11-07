@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
-/// App SBOX POS: các thanh cùng màu nền trang sáng nên icon hệ thống phải tối.
-const _posApp = bool.fromEnvironment('SBOX_POS_STANDALONE');
+/// App SBOX POS, SBOX Nhân Viên: các thanh cùng màu nền trang sáng nên icon hệ thống phải tối.
+const _posApp = bool.fromEnvironment('SBOX_POS_STANDALONE') || String.fromEnvironment('SBOX_APP') == 'staff';
 
 /// Overlay styles without status/nav bar colors.
 /// Those colors map to deprecated Window.setStatusBarColor /

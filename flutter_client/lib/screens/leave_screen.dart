@@ -2672,7 +2672,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             '3. BHXH & đặc biệt\n'
             '   Ốm hưởng BHXH (cần giấy nghỉ), thai sản DN + đối soát BHXH.\n\n'
             'Mỗi ngày nghỉ chỉ một chế độ — không vừa lương DN vừa trợ cấp BHXH.\n'
-            'Ca nghỉ: theo Thiết lập luong. Người thay ca: cùng phòng ban.'),
+            'Ca nghỉ: theo Thiết lập lương. Người thay ca: cùng phòng ban.'),
             style: TextStyle(fontSize: 14, height: 1.45),
           ),
         ),

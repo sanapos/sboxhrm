@@ -8,29 +8,33 @@ import '../utils/vietnamese_font.dart';
 /// (hoặc từ Theme) để cả phần mềm đồng nhất và đổi thương hiệu một chỗ.
 abstract final class SboxColors {
   /// App SBOX POS (build với SBOX_POS_STANDALONE): nền trắng, màu nhấn theo Xanh SM (cyan #28BDBF, #2DCCD3 trong CSS xanhsm.com); chữ, nút dùng tông đậm #147A7C cho đủ tương phản.
-  static const _posApp = bool.fromEnvironment('SBOX_POS_STANDALONE');
+  static const _posOnly = bool.fromEnvironment('SBOX_POS_STANDALONE');
+  /// App SBOX Nhân Viên (build với SBOX_APP=staff): cùng kiểu giao diện POS, màu nhấn theo logo (xanh ngọc #148573 – #23A68E).
+  static const _staffApp = String.fromEnvironment('SBOX_APP') == 'staff';
+  static const _posApp = _posOnly || _staffApp;
+  /// Giao diện nền sáng một màu: SBOX POS và SBOX Nhân Viên.
   static const posApp = _posApp;
 
   // ── Thương hiệu: xanh biển #158DC0 ──────────────────────────────
-  static const brand50 = _posApp ? Color(0xFFEDFAFA) : Color(0xFFE8F5FB);
-  static const brand100 = _posApp ? Color(0xFFCFEFEF) : Color(0xFFBFE3F3);
-  static const brand200 = _posApp ? Color(0xFFA6E3E4) : Color(0xFF94D0EA);
-  static const brand300 = _posApp ? Color(0xFF5BD2D6) : Color(0xFF6FC0E3);
-  static const brand400 = _posApp ? Color(0xFF28BDBF) : Color(0xFF3FA6D2);
+  static const brand50 = _staffApp ? Color(0xFFE8F7F3) : _posOnly ? Color(0xFFEDFAFA) : Color(0xFFE8F5FB);
+  static const brand100 = _staffApp ? Color(0xFFC9EDE4) : _posOnly ? Color(0xFFCFEFEF) : Color(0xFFBFE3F3);
+  static const brand200 = _staffApp ? Color(0xFF9FDFD0) : _posOnly ? Color(0xFFA6E3E4) : Color(0xFF94D0EA);
+  static const brand300 = _staffApp ? Color(0xFF66CDB6) : _posOnly ? Color(0xFF5BD2D6) : Color(0xFF6FC0E3);
+  static const brand400 = _staffApp ? Color(0xFF23A68E) : _posOnly ? Color(0xFF28BDBF) : Color(0xFF3FA6D2);
   /// Màu thương hiệu (logo, thanh tiêu đề, biểu đồ, điểm nhấn).
-  static const brand500 = _posApp ? Color(0xFF1C8F91) : Color(0xFF158DC0);
+  static const brand500 = _staffApp ? Color(0xFF1A927E) : _posOnly ? Color(0xFF1C8F91) : Color(0xFF158DC0);
   /// Nút chính, chữ liên kết, tab đang chọn — đủ tương phản chữ trắng (≈4.8:1).
-  static const brand600 = _posApp ? Color(0xFF147A7C) : Color(0xFF0F7BA8);
+  static const brand600 = _staffApp ? Color(0xFF148573) : _posOnly ? Color(0xFF147A7C) : Color(0xFF0F7BA8);
   /// Di chuột / nhấn.
-  static const brand700 = _posApp ? Color(0xFF106668) : Color(0xFF0B6A91);
-  static const brand800 = _posApp ? Color(0xFF0E5658) : Color(0xFF095A7B);
+  static const brand700 = _staffApp ? Color(0xFF106C5E) : _posOnly ? Color(0xFF106668) : Color(0xFF0B6A91);
+  static const brand800 = _staffApp ? Color(0xFF0D5A4E) : _posOnly ? Color(0xFF0E5658) : Color(0xFF095A7B);
   /// Chữ trên nền xanh nhạt.
-  static const brand900 = _posApp ? Color(0xFF0A3F41) : Color(0xFF084B67);
+  static const brand900 = _staffApp ? Color(0xFF0A423A) : _posOnly ? Color(0xFF0A3F41) : Color(0xFF084B67);
 
   static const primary = brand600;
 
   /// Dạng MaterialColor (cho API cần đủ tông shade50..shade900).
-  static const brandSwatch = MaterialColor(_posApp ? 0xFF147A7C : 0xFF158DC0, <int, Color>{
+  static const brandSwatch = MaterialColor(_staffApp ? 0xFF148573 : _posOnly ? 0xFF147A7C : 0xFF158DC0, <int, Color>{
     50: brand50, 100: brand100, 200: brand200, 300: brand300, 400: brand400,
     500: brand500, 600: brand600, 700: brand700, 800: brand800, 900: brand900,
   });

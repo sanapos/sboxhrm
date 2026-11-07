@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/sbox_tokens.dart';
 import '../../widgets/deferred_screen.dart';
 import '../advance_requests_screen.dart';
 import '../attendance_corrections_screen.dart';
@@ -26,25 +25,22 @@ abstract final class StaffEntries {
     moduleCode: 'MobileAttendance',
     title: 'Chấm công',
     subtitle: 'Chấm trên điện thoại',
-    icon: Icons.fingerprint,
-    color: SboxColors.primary,
+    icon: Icons.fingerprint_rounded,
     builder: (_) => const MobileAttendanceScreen(),
   );
 
   static final punchHistory = StaffEntry(
     moduleCode: 'MobileAttendance',
     title: 'Lịch sử chấm công',
-    icon: Icons.history,
-    color: SboxColors.primary,
+    icon: Icons.history_rounded,
     ownScaffold: true,
     builder: (_) => const MobileAttendanceHistoryScreen(),
   );
 
   static final correction = StaffEntry(
     moduleCode: 'AttendanceCorrection',
-    title: 'Giải trình / bổ sung công',
-    icon: Icons.edit_calendar_outlined,
-    color: SboxColors.warning,
+    title: 'Sửa chấm công',
+    icon: Icons.edit_calendar_rounded,
     ownScaffold: true,
     builder: (_) => const AttendanceCorrectionsScreen(),
   );
@@ -52,10 +48,9 @@ abstract final class StaffEntries {
   /// Gửi thông tin máy để quản lý duyệt — chưa duyệt thì nút chấm công bị khóa.
   static final device = StaffEntry(
     moduleCode: 'MobileDeviceRegistration',
-    title: 'Đăng ký thiết bị chấm công',
+    title: 'Đăng ký chấm công Mobile',
     subtitle: 'Gửi máy này để quản lý duyệt',
-    icon: Icons.phonelink_setup_outlined,
-    color: SboxColors.primary,
+    icon: Icons.phonelink_setup_rounded,
     ownScaffold: true,
     builder: (_) => const MobileDeviceRegistrationScreen(),
   );
@@ -64,32 +59,28 @@ abstract final class StaffEntries {
     moduleCode: 'ShiftSwap',
     title: 'Đổi ca',
     subtitle: 'Nhờ đồng nghiệp làm thay / đổi ca',
-    icon: Icons.swap_horiz,
-    color: SboxColors.primary,
+    icon: Icons.swap_horiz_rounded,
     builder: (_) => const ShiftSwapScreen(),
   );
 
   static final payslip = StaffEntry(
     moduleCode: 'Payslip',
     title: 'Phiếu lương',
-    icon: Icons.receipt_long_outlined,
-    color: SboxColors.success,
+    icon: Icons.receipt_long_rounded,
     builder: (_) => const PayslipScreen(),
   );
 
   static final rewards = StaffEntry(
     moduleCode: 'BonusPenalty',
     title: 'Thưởng / phạt',
-    icon: Icons.emoji_events_outlined,
-    color: SboxColors.warning,
+    icon: Icons.emoji_events_rounded,
     builder: (_) => const HrFinanceHubScreen(initialTab: HrFinTab.rewards),
   );
 
   static final penalty = StaffEntry(
     moduleCode: 'PenaltyTickets',
     title: 'Phiếu phạt',
-    icon: Icons.receipt_outlined,
-    color: SboxColors.danger,
+    icon: Icons.receipt_rounded,
     builder: (_) => const HrFinanceHubScreen(
         initialTab: HrFinTab.rewards, initialRewardKind: 'penalty'),
   );
@@ -97,40 +88,35 @@ abstract final class StaffEntries {
   static final advance = StaffEntry(
     moduleCode: 'AdvanceRequests',
     title: 'Tạm ứng lương',
-    icon: Icons.payments_outlined,
-    color: SboxColors.success,
+    icon: Icons.payments_rounded,
     builder: (_) => const AdvanceRequestsScreen(),
   );
 
   static final leave = StaffEntry(
     moduleCode: 'Leave',
     title: 'Xin nghỉ phép',
-    icon: Icons.beach_access_outlined,
-    color: SboxColors.primary,
+    icon: Icons.beach_access_rounded,
     builder: (_) => const LeaveScreen(),
   );
 
   static final overtime = StaffEntry(
     moduleCode: 'Overtime',
     title: 'Đăng ký tăng ca',
-    icon: Icons.more_time,
-    color: SboxColors.warning,
+    icon: Icons.more_time_rounded,
     builder: (_) => const OvertimeScreen(),
   );
 
   static final businessTrip = StaffEntry(
     moduleCode: 'BusinessTripExpense',
     title: 'Công tác phí',
-    icon: Icons.luggage_outlined,
-    color: SboxColors.primary,
+    icon: Icons.luggage_rounded,
     builder: (_) => const BusinessTripExpenseScreen(),
   );
 
   static final task = StaffEntry(
     moduleCode: 'Task',
     title: 'Công việc',
-    icon: Icons.task_alt,
-    color: SboxColors.primary,
+    icon: Icons.task_alt_rounded,
     builder: (_) => const WorkHubScreen(),
   );
 
@@ -138,8 +124,7 @@ abstract final class StaffEntries {
     moduleCode: 'Communication',
     title: 'Bản tin nội bộ',
     subtitle: 'Thông báo, bài đăng của cửa hàng',
-    icon: Icons.campaign_outlined,
-    color: SboxColors.primary,
+    icon: Icons.campaign_rounded,
     builder: (_) => DeferredScreen(
       load: comm_hub.loadLibrary,
       builder: () => comm_hub.CommHubScreen(),
@@ -149,22 +134,48 @@ abstract final class StaffEntries {
   static final meal = StaffEntry(
     moduleCode: 'Meal',
     title: 'Suất ăn',
-    icon: Icons.restaurant_outlined,
-    color: SboxColors.warning,
+    icon: Icons.restaurant_rounded,
     builder: (_) => const MealTrackingScreen(),
   );
 
   static final feedback = StaffEntry(
     moduleCode: 'Feedback',
     title: 'Góp ý',
-    icon: Icons.feedback_outlined,
-    color: SboxColors.textSecondary,
+    icon: Icons.feedback_rounded,
     builder: (_) => const FeedbackScreen(),
   );
 
+  /// Màn mở khi bấm thông báo, theo loại thông báo đã chuẩn hóa (không gồm Lịch: Lịch là tab của khung).
+  static StaffEntry? forNotification(String? entityKey) => switch (entityKey) {
+        'attendance' || 'newattendance' || 'mobileattendance' => punchHistory,
+        'authorizedmobiledevice' || 'devicechangerequest' || 'mobiledeviceregistration' => device,
+        'attendancecorrection' || 'correction' => correction,
+        'overtime' => overtime,
+        'leave' || 'leaverequest' => leave,
+        'advancerequest' || 'advance' => advance,
+        'businesstripcase' || 'businesstripexpense' => businessTrip,
+        'payslip' || 'payroll' => payslip,
+        'shiftswap' => shiftSwap,
+        'worktask' || 'task' => task,
+        'communication' => news,
+        'penaltyticket' || 'penaltytickets' => penalty,
+        'bonuspenalty' || 'benefit' || 'paymenttransaction' => rewards,
+        'mealrecord' || 'mealsession' || 'mealmenu' => meal,
+        'feedback' => feedback,
+        _ => null,
+      };
+
+  /// Loại thông báo về lịch làm việc: mở tab Lịch.
+  static bool isScheduleNotification(String? entityKey) => const {
+        'scheduleregistration',
+        'workschedule',
+        'shift',
+        'schedule',
+      }.contains(entityKey);
+
   /// Ô thao tác nhanh ở Trang chủ.
   static List<StaffEntry> get quickActions =>
-      [leave, overtime, correction, payslip, advance, task];
+      [leave, overtime, correction, shiftSwap, payslip, advance, task, news];
 
   static List<StaffEntry> get attendanceAndPay =>
       [punch, punchHistory, correction, device];

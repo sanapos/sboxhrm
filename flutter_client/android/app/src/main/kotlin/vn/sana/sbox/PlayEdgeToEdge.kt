@@ -25,7 +25,7 @@ fun ComponentActivity.applyPlayEdgeToEdge() {
     }
 
     // SBOX POS: các thanh cùng màu nền trang sáng nên icon hệ thống tối; app khác giữ icon sáng.
-    val lightBars = packageName.startsWith("sbox.sana.vn.pos")
+    val lightBars = packageName.startsWith("sbox.sana.vn.pos") || packageName.startsWith("staff.sboxpos.com")
     fun darkSystemBarIcons() {
         WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightStatusBars = lightBars

@@ -48,12 +48,7 @@ class SystemNotificationService {
       onDidReceiveNotificationResponse: _onNotificationTap,
     );
 
-    // Request notification permission on Android 13+
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
-
+    // Android 13+: FcmService hỏi một lần sau khi đăng nhập, không hỏi lúc vừa mở app.
     _initialized = true;
     debugPrint('🔔 SystemNotificationService initialized');
   }

@@ -50,6 +50,11 @@ class _MobileDeviceRegistrationScreenState
   // Face images
   final List<String> _capturedImages = [];
 
+  /// Cửa hàng bật chấm công khuôn mặt (không đọc được cài đặt thì coi như bật, máy chủ vẫn kiểm tra lại).
+  bool _faceRequired = true;
+  bool get _faceStepDone => !_faceRequired || _capturedImages.length >= 5;
+  List<String> get _faceImagesToSend => _faceRequired ? _capturedImages : const [];
+
   // Registration result
   String? _registeredDeviceName;
   DateTime? _registeredAt;
@@ -83,8 +88,16 @@ class _MobileDeviceRegistrationScreenState
 
   Future<void> _initScreen() async {
     await _loadDeviceInfo();
+    await _loadFaceRequirement();
     await _loadRegistrationLocations();
     await _checkRegistrationStatus();
+  }
+
+  Future<void> _loadFaceRequirement() async {
+    final r = await _apiService.getMyMobileSettings();
+    final data = r['data'];
+    if (!mounted || r['isSuccess'] != true || data is! Map) return;
+    setState(() => _faceRequired = data['enableFaceId'] != false);
   }
 
   void _onExternalRefresh() {
@@ -399,7 +412,8 @@ class _MobileDeviceRegistrationScreenState
   Future<void> _detectBssid() async {
     try {
       if (!kIsWeb) {
-        final locStatus = await Permission.location.request();
+        // BSSID chỉ là thông tin thêm, đăng ký máy không cần: không xin vị trí chỉ vì mở màn này.
+        final locStatus = await Permission.location.status;
         if (!locStatus.isGranted) {
           debugPrint('Location permission not granted for BSSID detection');
           return;
@@ -638,7 +652,7 @@ class _MobileDeviceRegistrationScreenState
       _showSnackBar('Chọn ít nhất một vị trí chấm công', isError: true);
       return;
     }
-    if (_capturedImages.length < 5) {
+    if (!_faceStepDone) {
       _showSnackBar('Cần đủ 5 ảnh khuôn mặt hợp lệ trước khi gửi', isError: true);
       return;
     }
@@ -663,7 +677,7 @@ class _MobileDeviceRegistrationScreenState
         osVersion: _osVersion,
         employeeId: employeeId,
         employeeName: employeeName,
-        faceImages: _capturedImages,
+        faceImages: _faceImagesToSend,
         selectedWorkLocationIds: _selectedLocationIdList,
         wifiBssid: _wifiBssid,
       );
@@ -758,7 +772,7 @@ class _MobileDeviceRegistrationScreenState
       _showSnackBar('Chọn ít nhất một vị trí chấm công', isError: true);
       return;
     }
-    if (_capturedImages.length < 5) {
+    if (!_faceStepDone) {
       _showSnackBar('Cần đủ 5 ảnh khuôn mặt hợp lệ trước khi gửi', isError: true);
       return;
     }
@@ -784,7 +798,7 @@ class _MobileDeviceRegistrationScreenState
         newDeviceModel: _deviceModel,
         newOsVersion: _osVersion,
         newWifiBssid: _wifiBssid,
-        faceImages: _capturedImages,
+        faceImages: _faceImagesToSend,
         selectedWorkLocationIds: _selectedLocationIdList,
         reason: _changeRequestReason,
       );
@@ -910,7 +924,7 @@ class _MobileDeviceRegistrationScreenState
 
   List<String> get _missingSteps => [
         if (!_hasValidLocationSelection) 'chọn vị trí chấm công',
-        if (_capturedImages.length < 5) 'chụp khuôn mặt',
+        if (!_faceStepDone) 'chụp khuôn mặt',
       ];
 
   Widget _stepDot(int n, String label, bool done, bool active) {
@@ -939,7 +953,7 @@ class _MobileDeviceRegistrationScreenState
 
   Widget _buildRegistrationForm() {
     final locDone = _hasValidLocationSelection;
-    final faceDone = _capturedImages.length >= 5;
+    final faceDone = _faceStepDone;
     final missing = _missingSteps;
     return Column(children: [
       Expanded(
@@ -978,7 +992,7 @@ class _MobileDeviceRegistrationScreenState
                           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
                           child: Row(children: [
                             _stepDot(1, 'Vị trí', locDone, !locDone),
-                            _stepDot(2, 'Khuôn mặt', faceDone, locDone && !faceDone),
+                            if (_faceRequired) _stepDot(2, 'Khuôn mặt', faceDone, locDone && !faceDone),
                           ]),
                         ),
                       ]),
@@ -1009,7 +1023,7 @@ class _MobileDeviceRegistrationScreenState
                     const SizedBox(height: 6),
                     _buildLocationPicker(step: 1),
                     const SizedBox(height: 14),
-                    _buildStepCard(
+                    if (_faceRequired) _buildStepCard(
                       step: 2,
                       title: 'Chụp khuôn mặt',
                       subtitle: faceDone ? 'Đã chụp đủ 5 góc' : 'Chụp 5 góc: thẳng, trái, phải, trên, dưới',
@@ -1638,7 +1652,7 @@ class _MobileDeviceRegistrationScreenState
                 const SizedBox(height: 16),
 
                 // Face capture
-                if (_capturedImages.isEmpty) ...[
+                if (!_faceRequired) ...const [] else if (_capturedImages.isEmpty) ...[
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -1684,7 +1698,7 @@ class _MobileDeviceRegistrationScreenState
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: (_hasValidLocationSelection &&
-                            _capturedImages.length >= 5 &&
+                            _faceStepDone &&
                             !_isSubmitting)
                         ? _submitDeviceChangeRequest
                         : null,

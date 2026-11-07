@@ -675,21 +675,15 @@ public class AttendanceNotificationService : IAttendanceNotificationService
             }
             else
             {
-                // Fallback: ca gán trong hồ sơ lương (Benefit.Description / ShiftSalaryLevel) —
-                // lấy template cửa hàng gần giờ vào nhất.
+                // Không có lịch hôm đó: chỉ suy ra ca khi cửa hàng có đúng 1 ca. Nhiều ca mà lấy ca gần giờ
+                // chấm nhất là đoán — từng báo «Ca đêm · Trễ 104 phút» cho người không có ca nào.
                 var templates = await db.ShiftTemplates.AsNoTracking()
                     .Where(t => t.StoreId == device.StoreId && t.IsActive)
+                    .Take(2)
                     .ToListAsync();
-                if (templates.Count == 0) return (null, 0);
+                if (templates.Count != 1) return (null, 0);
 
-                template = templates
-                    .OrderBy(t =>
-                    {
-                        var dist = Math.Abs((int)(punchTod - t.StartTime).TotalMinutes);
-                        if (dist > 720) dist = 1440 - dist;
-                        return dist;
-                    })
-                    .First();
+                template = templates[0];
                 shiftStart = template.StartTime;
                 shiftEnd = template.EndTime;
                 lateGrace = template.LateGraceMinutes;

@@ -22823,7 +22823,20 @@
   "Thiết lập lần chấm theo ca": "근무조별 타각 차수 설정",
   "Tự xếp theo giờ ca": "근무 시간순 자동 배치",
   "Áp dụng khi chọn «Giờ chấm theo ca» trên bảng và file xuất. Không ảnh hưởng cách tính công.": "«근무조별 타각 시간»을 선택했을 때 표와 내보낸 파일에 적용됩니다. 근무일 계산에는 영향을 주지 않습니다.",
-  "Đã lưu thiết lập lần chấm theo ca.": "근무조별 타각 차수 설정을 저장했습니다."
+  "Đã lưu thiết lập lần chấm theo ca.": "근무조별 타각 차수 설정을 저장했습니다.",
+  "Báo hoàn thành công việc này?": "이 업무를 완료로 보고할까요?",
+  "Báo xong việc này?": "이 업무를 완료로 보고할까요?",
+  "Bấm nút ⋯ rồi chọn «Đăng ký ca»": "⋯ 버튼을 누른 뒤 «근무 신청»을 선택하세요",
+  "Ca nghỉ: theo Thiết lập lương. Người thay ca: cùng phòng ban.": "휴무 근무: 급여 설정 기준. 대체 근무자: 같은 부서.",
+  "Chỉ tính tăng ca khi chấm trong khung nghỉ ca": "근무 휴게 시간대 내에 출퇴근 기록 시에만 초과근무로 계산됩니다",
+  "Cần thiết bị đã duyệt và 1 điều kiện bất kỳ": "승인된 기기와 조건 중 1개가 필요합니다",
+  "Khuôn mặt (bấm quét)": "얼굴 (눌러서 스캔)",
+  "Không gửi được, vui lòng thử lại": "보내지 못했습니다. 다시 시도해 주세요",
+  "Quản lý sẽ sắp xếp người thay ca khi duyệt đơn.": "관리자가 신청을 승인할 때 대체 근무자를 배정합니다.",
+  "Đang hiện dữ liệu lần tải trước.": "마지막으로 불러온 데이터를 표시 중입니다.",
+  "Đã chấm vào": "출근 기록됨",
+  "Giờ chưa đúng": "시간이 올바르지 않습니다",
+  "Nhập giờ dạng HH:mm, ví dụ 18:00": "시간을 HH:mm 형식으로 입력하세요 (예: 18:00)"
  },
  "t": [
   [

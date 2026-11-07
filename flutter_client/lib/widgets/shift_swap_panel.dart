@@ -320,12 +320,14 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
     }
 
     String? targetUserId;
-    String? requesterShiftId =
-        prefillShift?.id ?? (_shifts.isNotEmpty ? _shifts.first.id : null);
+    // Không tự chọn ca đầu danh sách: đó là mọi ca của cửa hàng, thường không phải ca của người gửi.
+    String? requesterShiftId = prefillShift?.id;
     String? targetShiftId = requesterShiftId;
     DateTime requesterDate = prefillDate ?? DateTime.now();
     DateTime targetDate = requesterDate;
     final reasonCtrl = TextEditingController();
+    var sending = false;
+    String? sendError;
 
     if (!mounted) return;
     await showDialog<void>(
@@ -346,6 +348,14 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (sendError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        tr(sendError!),
+                        style: const TextStyle(fontSize: 13, color: SboxColors.danger),
+                      ),
+                    ),
                   if (_colleagues.isEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -461,12 +471,16 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
             FilledButton.icon(
-              onPressed: targetUserId == null ||
+              onPressed: sending ||
+                      targetUserId == null ||
                       requesterShiftId == null ||
                       targetShiftId == null
                   ? null
                   : () async {
-                      Navigator.pop(ctx);
+                      setDlg(() {
+                        sending = true;
+                        sendError = null;
+                      });
                       final result = await _api.createShiftSwap(
                         targetUserId: targetUserId!,
                         requesterShiftId: requesterShiftId!,
@@ -475,17 +489,19 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                         targetDate: targetDate,
                         reason: reasonCtrl.text.trim(),
                       );
-                      if (!mounted) return;
+                      if (!mounted || !ctx.mounted) return;
                       if (result['isSuccess'] == true) {
+                        Navigator.pop(ctx);
                         appNotification.showSuccess(
                             title: 'Đã gửi',
                             message: tr('Yêu cầu đã gửi tới đồng nghiệp. Họ cần đồng ý trước khi QL duyệt.'));
                         _load();
                       } else {
-                        appNotification.showError(
-                            title: 'Không gửi được',
-                            message: result['message']?.toString() ??
-                                'Vui lòng thử lại');
+                        // Giữ hộp thoại: người dùng chỉ cần đổi ca / ngày rồi gửi lại, không mất nội dung đã nhập.
+                        setDlg(() {
+                          sending = false;
+                          sendError = result['message']?.toString() ?? 'Không gửi được, vui lòng thử lại';
+                        });
                       }
                     },
               icon: const Icon(Icons.send, size: 16),

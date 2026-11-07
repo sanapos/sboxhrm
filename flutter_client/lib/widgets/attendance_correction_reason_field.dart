@@ -168,24 +168,23 @@ String buildDefaultAttendanceCorrectionReason({
   String? originalTimeText,
   String? punchLabel,
 }) {
-  final dateStr =
-      date != null ? DateFormat('dd/MM/yyyy').format(date) : '...';
+  // Thiếu ngày / giờ thì bỏ hẳn phần đó — trước đây lưu nguyên «lúc ...» vào đơn.
+  final day = date != null ? ' ngày ${DateFormat('dd/MM/yyyy').format(date)}' : '';
   final nv = _employeeLabel(employeeName, employeeCode);
   final punch = punchLabel != null && punchLabel.isNotEmpty
       ? ' ($punchLabel)'
       : '';
+  String at(String? t) => t != null && t.isNotEmpty ? ' lúc $t' : '';
 
   switch (kind) {
     case AttendanceCorrectionReasonKind.add:
-      final t = timeText ?? '...';
-      return 'Bổ sung chấm công$punch lúc $t ngày $dateStr — $nv.';
+      return 'Bổ sung chấm công$punch${at(timeText)}$day — $nv.';
     case AttendanceCorrectionReasonKind.edit:
-      final oldT = originalTimeText ?? '...';
-      final newT = timeText ?? '...';
-      return 'Điều chỉnh giờ chấm công$punch từ $oldT thành $newT ngày $dateStr — $nv.';
+      final from = originalTimeText != null && originalTimeText.isNotEmpty ? ' từ $originalTimeText' : '';
+      final to = timeText != null && timeText.isNotEmpty ? ' thành $timeText' : '';
+      return 'Điều chỉnh giờ chấm công$punch$from$to$day — $nv.';
     case AttendanceCorrectionReasonKind.delete:
-      final t = originalTimeText ?? timeText ?? '...';
-      return 'Xóa chấm công$punch lúc $t ngày $dateStr — $nv.';
+      return 'Xóa chấm công$punch${at(originalTimeText ?? timeText)}$day — $nv.';
   }
 }
 

@@ -12,7 +12,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
-import '../services/app_permission_service.dart';
 import '../services/biometric_login_service.dart';
 import '../widgets/login_server_picker.dart';
 import '../widgets/notification_overlay.dart';
@@ -203,7 +202,6 @@ class _LoginScreenState extends State<LoginScreen>
     _storeCodeController.addListener(_onStoreCodeChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      AppPermissionService.promptEssentialPermissionsIfNeeded(context);
       final authError = context.read<AuthProvider>().error;
       if (authError != null && authError.isNotEmpty) {
         setState(() => _errorMessage = authError);

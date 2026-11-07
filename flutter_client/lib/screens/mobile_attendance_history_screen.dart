@@ -670,7 +670,8 @@ class _MobileAttendanceHistoryScreenState
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    tr('${record.formattedDistanceFromLocation} · ${record.faceMatchScore?.toInt() ?? 0}%'),
+                    // Không dùng khuôn mặt thì không có điểm: bỏ «0%».
+                    tr('${record.formattedDistanceFromLocation}${(record.faceMatchScore ?? 0) > 0 ? ' · ${record.faceMatchScore!.toInt()}%' : ''}'),
                     style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                   ),
                 ],

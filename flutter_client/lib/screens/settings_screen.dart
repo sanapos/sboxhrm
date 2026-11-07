@@ -294,7 +294,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
-                if (Responsive.isMobile(context))
+                // App BOSS / Nhân Viên / KDS có thanh dưới cố định: tùy chọn này không có tác dụng.
+                if (Responsive.isMobile(context) && !SboxAppVariant.companionApp)
                   _buildSettingTile(
                     context,
                     icon: Icons.tune_rounded,

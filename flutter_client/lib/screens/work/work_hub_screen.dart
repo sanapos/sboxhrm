@@ -359,15 +359,13 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
 
   Future<void> _completeTask(WorkTask t) async {
     final open = t.checklistItems.where((i) => !i.done).length;
-    if (open > 0) {
-      final go = await SboxDialogs.confirm(
-        context,
-        title: 'Còn $open mục checklist chưa tick',
-        message: 'Vẫn báo xong việc này?',
-        confirmLabel: 'Vẫn báo xong',
-      );
-      if (!go) return;
-    }
+    final go = await SboxDialogs.confirm(
+      context,
+      title: open > 0 ? 'Còn $open mục checklist chưa tick' : 'Báo xong việc này?',
+      message: open > 0 ? 'Vẫn báo xong việc này?' : t.title,
+      confirmLabel: open > 0 ? 'Vẫn báo xong' : 'Báo xong',
+    );
+    if (!go) return;
     await _quick(() => _api.updateTaskStatus(t.id, {'status': WorkTaskStatus.completed.index}), 'Đã báo xong');
   }
 

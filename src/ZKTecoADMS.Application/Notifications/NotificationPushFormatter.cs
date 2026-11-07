@@ -255,7 +255,8 @@ public static class NotificationPushFormatter
         var parts = new List<string> { timeStr };
         var shift = shiftName?.Trim();
         if (!string.IsNullOrEmpty(shift))
-            parts.Add($"Ca {shift}");
+            // Tên ca thường đã có chữ «Ca» («Ca đêm») — tránh «Ca Ca đêm».
+            parts.Add(shift.StartsWith("Ca ", StringComparison.OrdinalIgnoreCase) ? shift : $"Ca {shift}");
         if (lateMinutes is > 0)
             parts.Add($"Trễ {lateMinutes} phút");
         else if (!string.IsNullOrEmpty(shift))

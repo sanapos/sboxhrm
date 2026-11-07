@@ -1666,7 +1666,7 @@ class ApiService implements PayrollApi {
       return _handleResponse(response);
     } catch (e) {
       debugPrint('Error getting employee dashboard: $e');
-      return {'isSuccess': false, 'message': e.toString()};
+      return _connectionFailure(e);
     }
   }
 

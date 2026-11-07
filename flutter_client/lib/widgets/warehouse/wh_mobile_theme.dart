@@ -11,7 +11,7 @@ abstract final class WhMobileTheme {
   static const surfaceGlass = Color(0xEFFFFFFF);
   // Màu nhấn theo brand chung hệ thống (trước đây dùng bảng iOS #007AFF… nên lệch màu).
   static const primary = SboxColors.brand600;
-  static const primaryMuted = SboxColors.posApp ? Color(0x1A147A7C) : Color(0x1A0F7BA8); // brand600 ~10% alpha
+  static const primaryMuted = String.fromEnvironment('SBOX_APP') == 'staff' ? Color(0x1A148573) : SboxColors.posApp ? Color(0x1A147A7C) : Color(0x1A0F7BA8); // brand600 ~10% alpha
   static const accent = SboxColors.success;
   static const danger = SboxColors.danger;
   static const warning = SboxColors.warning;

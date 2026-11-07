@@ -22823,7 +22823,20 @@
   "Thiết lập lần chấm theo ca": "按班次设置打卡次数",
   "Tự xếp theo giờ ca": "按班次时间自动排列",
   "Áp dụng khi chọn «Giờ chấm theo ca» trên bảng và file xuất. Không ảnh hưởng cách tính công.": "选择“按班次显示打卡时间”时应用于表格和导出文件，不影响工时计算。",
-  "Đã lưu thiết lập lần chấm theo ca.": "已保存按班次的打卡次数设置。"
+  "Đã lưu thiết lập lần chấm theo ca.": "已保存按班次的打卡次数设置。",
+  "Báo hoàn thành công việc này?": "要将此工作报告为已完成吗?",
+  "Báo xong việc này?": "要报告此工作已完成吗?",
+  "Bấm nút ⋯ rồi chọn «Đăng ký ca»": "点击 ⋯ 后选择“登记班次”",
+  "Ca nghỉ: theo Thiết lập lương. Người thay ca: cùng phòng ban.": "休息班次:按薪资设置。替班人:同一部门。",
+  "Chỉ tính tăng ca khi chấm trong khung nghỉ ca": "仅在班次休息时段内打卡才计为加班",
+  "Cần thiết bị đã duyệt và 1 điều kiện bất kỳ": "需要已批准的设备和任意 1 个条件",
+  "Khuôn mặt (bấm quét)": "人脸(点击扫描)",
+  "Không gửi được, vui lòng thử lại": "发送失败,请重试",
+  "Quản lý sẽ sắp xếp người thay ca khi duyệt đơn.": "经理审批时会安排替班人。",
+  "Đang hiện dữ liệu lần tải trước.": "正在显示上次加载的数据。",
+  "Đã chấm vào": "已打卡上班",
+  "Giờ chưa đúng": "时间不正确",
+  "Nhập giờ dạng HH:mm, ví dụ 18:00": "请按 HH:mm 格式输入时间,例如 18:00"
  },
  "t": [
   [

@@ -271,7 +271,7 @@ class _MyScheduleViewState extends State<MyScheduleView> {
                 child: approvedLeave != null
                     ? _line(Icons.beach_access_rounded, 'Nghỉ phép', ShiftUi.leaveTypes[approvedLeave['type']] ?? '', SboxColors.success)
                     : s == null
-                        ? _line(Icons.event_busy_rounded, 'Chưa có ca', past ? '' : 'Bấm «Đăng ký» để chọn ca', SboxColors.slate400)
+                        ? _line(Icons.event_busy_rounded, 'Chưa có ca', past ? '' : 'Bấm nút ⋯ rồi chọn «Đăng ký ca»', SboxColors.slate400)
                         : s['isDayOff'] == true
                             ? _line(Icons.weekend_rounded, 'Ngày nghỉ', s['note']?.toString() ?? '', SboxColors.slate500)
                             : _line(Icons.schedule_rounded, tp?['name']?.toString() ?? 'Ca làm', '${s['start']} – ${s['end']}', color),

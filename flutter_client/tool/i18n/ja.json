@@ -22823,7 +22823,20 @@
   "Thiết lập lần chấm theo ca": "シフト別の打刻回の設定",
   "Tự xếp theo giờ ca": "シフト時間で自動配置",
   "Áp dụng khi chọn «Giờ chấm theo ca» trên bảng và file xuất. Không ảnh hưởng cách tính công.": "「シフト別の打刻時刻」を選択したときに、表と出力ファイルに適用されます。勤務日数の計算には影響しません。",
-  "Đã lưu thiết lập lần chấm theo ca.": "シフト別の打刻回の設定を保存しました。"
+  "Đã lưu thiết lập lần chấm theo ca.": "シフト別の打刻回の設定を保存しました。",
+  "Báo hoàn thành công việc này?": "この業務を完了として報告しますか?",
+  "Báo xong việc này?": "この業務を完了として報告しますか?",
+  "Bấm nút ⋯ rồi chọn «Đăng ký ca»": "⋯ を押して「シフト登録」を選択してください",
+  "Ca nghỉ: theo Thiết lập lương. Người thay ca: cùng phòng ban.": "休むシフト: 給与設定に準じます。代替者: 同じ部署。",
+  "Chỉ tính tăng ca khi chấm trong khung nghỉ ca": "シフト休憩枠内で打刻した場合のみ残業として計算します",
+  "Cần thiết bị đã duyệt và 1 điều kiện bất kỳ": "承認済みデバイスと、いずれか1つの条件が必要です",
+  "Khuôn mặt (bấm quét)": "顔 (タップしてスキャン)",
+  "Không gửi được, vui lòng thử lại": "送信できませんでした。もう一度お試しください",
+  "Quản lý sẽ sắp xếp người thay ca khi duyệt đơn.": "管理者が申請を承認する際に代替者を手配します。",
+  "Đang hiện dữ liệu lần tải trước.": "前回読み込んだデータを表示しています。",
+  "Đã chấm vào": "出勤打刻済み",
+  "Giờ chưa đúng": "時刻が正しくありません",
+  "Nhập giờ dạng HH:mm, ví dụ 18:00": "時刻を HH:mm 形式で入力してください (例: 18:00)"
  },
  "t": [
   [

@@ -22,13 +22,26 @@ enum LeavePaymentSource {
   final Color color;
   final IconData icon;
 
+  /// REST trả enum dạng tên («Unpaid»), SignalR / dữ liệu cũ dạng số — đọc được cả hai.
+  /// Trước đây tên bị đọc thành 0: đơn không lương hiện «DN trả lương».
   static LeavePaymentSource fromValue(dynamic v) {
-    final n = v is int ? v : int.tryParse(v?.toString() ?? '') ?? 0;
+    final n = _enumInt(v, const {
+      'employerpaid': 0,
+      'unpaid': 1,
+      'socialinsurance': 2,
+      'employerwithbhxhsettlement': 3,
+    });
     return LeavePaymentSource.values.firstWhere(
       (e) => e.value == n,
       orElse: () => LeavePaymentSource.employerPaid,
     );
   }
+}
+
+int _enumInt(dynamic v, Map<String, int> byName) {
+  if (v is num) return v.toInt();
+  final s = v?.toString().trim() ?? '';
+  return int.tryParse(s) ?? byName[s.toLowerCase()] ?? 0;
 }
 
 enum SickLeaveMode {
@@ -40,7 +53,11 @@ enum SickLeaveMode {
   final int value;
 
   static SickLeaveMode fromValue(dynamic v) {
-    final n = v is int ? v : int.tryParse(v?.toString() ?? '') ?? 0;
+    final n = _enumInt(v, const {
+      'notapplicable': 0,
+      'useannualleave': 1,
+      'socialinsurance': 2,
+    });
     return SickLeaveMode.values.firstWhere(
       (e) => e.value == n,
       orElse: () => SickLeaveMode.notApplicable,

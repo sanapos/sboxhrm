@@ -53,6 +53,7 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     notificationShellHandler = _openFromNotification;
+    notificationShellCanOpen = _canOpenNotification;
     NavigationNotifier.staffLeavePosHub = _leaveOrderTab;
     PendingNotificationLaunch.scheduleConsume();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -64,6 +65,7 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     if (notificationShellHandler == _openFromNotification) notificationShellHandler = null;
+    if (notificationShellCanOpen == _canOpenNotification) notificationShellCanOpen = null;
     if (NavigationNotifier.staffLeavePosHub == _leaveOrderTab) {
       NavigationNotifier.staffLeavePosHub = null;
     }
@@ -140,8 +142,32 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
   }
 
   /// Bấm thông báo (popup, thanh thông báo, đẩy điện thoại): không có MainLayout nên shell tự mở màn.
-  bool _openFromNotification(String? entityKey, String? relatedEntityId) =>
-      mounted && openNotificationInShell(context, entityKey, relatedEntityId);
+  bool _openFromNotification(String? entityKey, String? relatedEntityId) {
+    if (!mounted) return false;
+    if (StaffEntries.isScheduleNotification(entityKey) && staffCanOpen(context, 'WorkSchedule', listen: false)) {
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      _select(_StaffTab.schedule);
+      return true;
+    }
+    final entry = StaffEntries.forNotification(entityKey);
+    if (entry != null && staffCanOpen(context, entry.moduleCode, listen: false)) {
+      if (relatedEntityId != null && relatedEntityId.isNotEmpty) {
+        NavigationNotifier.notificationHighlightId.value = relatedEntityId;
+      }
+      unawaited(entry.open(context));
+      return true;
+    }
+    return openNotificationInShell(context, entityKey, relatedEntityId);
+  }
+
+  bool _canOpenNotification(String? entityKey) {
+    if (!mounted) return false;
+    if (StaffEntries.isScheduleNotification(entityKey)) return staffCanOpen(context, 'WorkSchedule', listen: false);
+    if (entityKey == 'posquote') return staffCanOpen(context, 'PosQuotes', listen: false);
+    if (entityKey == 'posreportexpiry') return staffCanOpen(context, 'PosReportExpiry', listen: false);
+    final entry = StaffEntries.forNotification(entityKey);
+    return entry != null && staffCanOpen(context, entry.moduleCode, listen: false);
+  }
 
   void _openTapped(Map<String, dynamic> data, String title) {
     final rowId = (data['notificationId'] ?? data['id'])?.toString();
@@ -209,6 +235,7 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
   Widget _buildTab(_StaffTab t) => switch (t) {
         _StaffTab.home => StaffHomeTab(
             onOpenSchedule: () => _select(_StaffTab.schedule),
+            onOpenMe: () => _select(_StaffTab.me),
           ),
         _StaffTab.order => PosMobileHubScreen(
             initialTab: 2,
@@ -220,8 +247,8 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
             backgroundColor: SboxColors.page,
             appBar: AppBar(
               title: Text(tr('Lịch làm việc')),
-              backgroundColor: SboxColors.appBarBg(SboxColors.white),
-              surfaceTintColor: SboxColors.white,
+              backgroundColor: SboxColors.chrome,
+              surfaceTintColor: Colors.transparent,
             ),
             body: const MyScheduleView(onChanged: ScreenRefreshNotifier.refreshDashboardScreen),
           ),
@@ -229,47 +256,79 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
         _StaffTab.me => const _StaffMeTab(),
       };
 
-  static ({String label, IconData icon, IconData active}) _meta(_StaffTab t) =>
-      switch (t) {
-        _StaffTab.home => (label: 'Trang chủ', icon: Icons.home_outlined, active: Icons.home),
-        _StaffTab.order => (
-            label: 'Order',
-            icon: Icons.room_service_outlined,
-            active: Icons.room_service
-          ),
-        _StaffTab.schedule => (
-            label: 'Lịch',
-            icon: Icons.calendar_month_outlined,
-            active: Icons.calendar_month
-          ),
-        _StaffTab.pay => (
-            // Nhãn ngắn — «Công & lương» xuống 2 dòng khi đủ 5 tab (máy 360dp).
-            label: 'Công lương',
-            icon: Icons.account_balance_wallet_outlined,
-            active: Icons.account_balance_wallet
-          ),
-        _StaffTab.me => (label: 'Tôi', icon: Icons.person_outline, active: Icons.person),
+  static ({String label, IconData icon}) _meta(_StaffTab t) => switch (t) {
+        _StaffTab.home => (label: 'Trang chủ', icon: Icons.home_rounded),
+        _StaffTab.order => (label: 'Order', icon: Icons.room_service_rounded),
+        _StaffTab.schedule => (label: 'Lịch', icon: Icons.calendar_month_rounded),
+        // Nhãn ngắn — «Công & lương» xuống 2 dòng khi đủ 5 tab (máy 360dp).
+        _StaffTab.pay => (label: 'Công lương', icon: Icons.account_balance_wallet_rounded),
+        _StaffTab.me => (label: 'Tôi', icon: Icons.person_rounded),
       };
 
+  /// Thanh dưới kiểu SBOX POS: cùng màu nền trang, tab đang chọn có nền viên nhạt.
   Widget _bottomBar() {
     final tabs = _visibleTabs();
-    final index = tabs.indexOf(_tab).clamp(0, tabs.length - 1);
-    return NavigationBar(
-      selectedIndex: index,
-      height: 64,
-      backgroundColor: SboxColors.white,
-      surfaceTintColor: SboxColors.white,
-      indicatorColor: SboxColors.primarySoft,
-      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      onDestinationSelected: (i) => _select(tabs[i]),
-      destinations: [
-        for (final t in tabs)
-          NavigationDestination(
-            icon: Icon(_meta(t).icon),
-            selectedIcon: Icon(_meta(t).active, color: SboxColors.primary),
-            label: tr(_meta(t).label),
+    final current = tabs.contains(_tab) ? _tab : _StaffTab.home;
+    return Material(
+      color: SboxColors.chrome,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: SboxSpace.xs, vertical: SboxSpace.xxs),
+          child: Row(
+            children: [
+              for (final t in tabs)
+                Expanded(child: _navItem(t, selected: t == current)),
+            ],
           ),
-      ],
+        ),
+      ),
+    );
+  }
+
+  Widget _navItem(_StaffTab t, {required bool selected}) {
+    final meta = _meta(t);
+    final color = selected ? SboxColors.brand600 : SboxColors.slate500;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: tr(meta.label),
+      excludeSemantics: true,
+      onTap: () => _select(t),
+      child: GestureDetector(
+        onTap: () => _select(t),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: SboxSpace.xs, vertical: 6),
+          decoration: selected
+              ? BoxDecoration(
+                  color: SboxColors.brand600.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(SboxRadius.lg),
+                )
+              : null,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(meta.icon, size: 24, color: color),
+              const SizedBox(height: 2),
+              // Đủ 5 tab trên máy 360dp: thu chữ cho vừa, không cắt «Công lươ…».
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  tr(meta.label),
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: selected ? SboxType.semibold : SboxType.regular,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -329,15 +388,20 @@ class _StaffPayTab extends StatelessWidget {
       backgroundColor: SboxColors.page,
       appBar: AppBar(
         title: Text(tr('Công & lương')),
-        backgroundColor: SboxColors.appBarBg(SboxColors.white),
-        surfaceTintColor: SboxColors.white,
+        backgroundColor: SboxColors.chrome,
+        surfaceTintColor: Colors.transparent,
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(SboxSpace.lg, SboxSpace.sm, SboxSpace.lg, SboxSpace.lg),
         children: [
-          StaffMenuSection(title: 'Chấm công', entries: StaffEntries.attendanceAndPay),
+          StaffMenuSection(
+            title: 'Chấm công',
+            icon: Icons.fingerprint_rounded,
+            entries: StaffEntries.attendanceAndPay,
+          ),
           StaffMenuSection(
             title: 'Lương & thu nhập',
+            icon: Icons.payments_rounded,
             entries: StaffEntries.pay(staffCanOpen(context, 'BonusPenalty')),
           ),
         ],
@@ -385,82 +449,69 @@ class _StaffMeTab extends StatelessWidget {
       backgroundColor: SboxColors.page,
       appBar: AppBar(
         title: Text(tr('Tôi')),
-        backgroundColor: SboxColors.appBarBg(SboxColors.white),
-        surfaceTintColor: SboxColors.white,
+        backgroundColor: SboxColors.chrome,
+        surfaceTintColor: Colors.transparent,
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(SboxSpace.lg, SboxSpace.xs, SboxSpace.lg, SboxSpace.lg),
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: SboxColors.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: SboxColors.border),
-            ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: SboxSpace.lg),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: SboxColors.primarySoft,
-                  child: Text(
-                    name.isEmpty ? '?' : name.characters.first.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: SboxColors.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
+                StaffAvatar(name: name.isEmpty ? (user?.email ?? '') : name, radius: 28),
+                const SizedBox(width: SboxSpace.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         name.isEmpty ? (user?.email ?? '') : name,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: SboxType.titleStyle(),
                       ),
-                      if (sub.isNotEmpty)
-                        Text(sub,
-                            style: const TextStyle(
-                                fontSize: 13, color: SboxColors.textMuted)),
+                      if (sub.isNotEmpty) Text(sub, style: SboxType.smallStyle()),
                       if (name.isNotEmpty && (user?.email ?? '').isNotEmpty)
-                        Text(user!.email,
-                            style: const TextStyle(
-                                fontSize: 12, color: SboxColors.textMuted)),
+                        Text(
+                          user!.email,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SboxType.smallStyle(SboxColors.textMuted),
+                        ),
                     ],
                   ),
+                ),
+                IconButton(
+                  tooltip: tr('Đăng xuất'),
+                  onPressed: () => _logout(context),
+                  icon: const Icon(Icons.logout_rounded, color: SboxColors.danger),
                 ),
               ],
             ),
           ),
-          StaffMenuSection(title: 'Đơn từ', entries: StaffEntries.requests),
-          StaffMenuSection(title: 'Công việc & tiện ích', entries: StaffEntries.work),
+          StaffMenuSection(
+            title: 'Đơn từ',
+            icon: Icons.description_rounded,
+            entries: StaffEntries.requests,
+          ),
+          StaffMenuSection(
+            title: 'Công việc & tiện ích',
+            icon: Icons.work_rounded,
+            entries: StaffEntries.work,
+          ),
           StaffMenuSection(
             title: 'Tài khoản',
+            icon: Icons.person_rounded,
             entries: [
               StaffEntry(
                 moduleCode: 'Settings',
                 title: 'Cài đặt',
-                icon: Icons.settings_outlined,
-                color: SboxColors.textSecondary,
+                icon: Icons.manage_accounts_rounded,
                 ownScaffold: true,
                 builder: (_) => const SettingsScreen(showAppBar: true),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () => _logout(context),
-            icon: const Icon(Icons.logout, color: SboxColors.danger),
-            label: Text(tr('Đăng xuất'),
-                style: const TextStyle(color: SboxColors.danger)),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
-              side: const BorderSide(color: SboxColors.border),
-            ),
           ),
         ],
       ),

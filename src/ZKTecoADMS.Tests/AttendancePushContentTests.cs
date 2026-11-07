@@ -50,6 +50,18 @@ public class AttendancePushContentTests
         Assert.StartsWith("08:00:00", line);
     }
 
+    [Theory]
+    [InlineData("Ca đêm", "Ca đêm")]
+    [InlineData("Sáng", "Ca Sáng")]
+    public void Shift_name_does_not_repeat_the_word_ca(string shiftName, string expected)
+    {
+        var line = NotificationPushFormatter.FormatAttendanceDetailLine(
+            new DateTime(2026, 10, 15, 1, 0, 0, DateTimeKind.Utc), "Máy A", shiftName: shiftName);
+
+        Assert.Contains($" · {expected} · ", line);
+        Assert.DoesNotContain("Ca Ca", line);
+    }
+
     [Fact]
     public void Batch_push_lists_every_employee_newest_first()
     {

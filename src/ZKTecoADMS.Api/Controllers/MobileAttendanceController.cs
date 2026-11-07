@@ -2157,6 +2157,13 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
     /// </summary>
 
 
+    /// <summary>Cửa hàng có bật chấm công khuôn mặt không (chưa có cài đặt = bật, giống màn chấm công).</summary>
+    private async Task<bool> IsStoreFaceIdEnabledAsync(Guid storeId) =>
+        await _dbContext.MobileAttendanceSettings.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.Deleted == null)
+            .Select(x => (bool?)x.EnableFaceId)
+            .FirstOrDefaultAsync() ?? true;
+
     [HttpPost("register-device")]
 
 
@@ -2168,21 +2175,13 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
     [RequireModulePermission("MobileDeviceRegistration", ModulePermissionAction.View)]
     public async Task<ActionResult> RegisterDeviceWithFace([FromBody] RegisterDeviceWithFaceRequest request)
-
-
     {
-
-
         if (string.IsNullOrWhiteSpace(request.DeviceId) || string.IsNullOrWhiteSpace(request.DeviceName))
-
-
             return BadRequest(AppResponse<object>.Fail("Thông tin thiết bị không hợp lệ"));
 
-
-
-
-
-        if (request.FaceImages == null || request.FaceImages.Count == 0)
+        // Cửa hàng tắt khuôn mặt: nhân viên đăng ký máy không cần chụp ảnh.
+        request.FaceImages ??= new List<string>();
+        if (request.FaceImages.Count == 0 && await IsStoreFaceIdEnabledAsync(RequiredStoreId))
 
 
             return BadRequest(AppResponse<object>.Fail("Vui lòng chụp ảnh khuôn mặt"));
@@ -2460,12 +2459,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-            if (existingFace != null)
-
-
+            // Không có ảnh (cửa hàng tắt khuôn mặt): không tạo / không ghi đè đăng ký khuôn mặt.
+            if (storedImageUrls.Count > 0 && existingFace != null)
             {
-
-
                 existingFace.FaceImagesJson = JsonSerializer.Serialize(storedImageUrls);
 
 
@@ -2481,7 +2477,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             }
 
 
-            else
+            else if (storedImageUrls.Count > 0)
 
 
             {
@@ -2747,7 +2743,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 deviceId = newDevice.Id.ToString(),
 
 
-                faceRegistrationId = existingFace.Id.ToString(),
+                faceRegistrationId = existingFace?.Id.ToString(),
 
 
                 status = "pending",
@@ -3397,7 +3393,8 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-        if (request.FaceImages == null || request.FaceImages.Count == 0)
+        request.FaceImages ??= new List<string>();
+        if (request.FaceImages.Count == 0 && await IsStoreFaceIdEnabledAsync(RequiredStoreId))
 
 
             return BadRequest(AppResponse<object>.Fail("Vui lòng chụp ảnh khuôn mặt"));
@@ -4239,12 +4236,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-            if (oldFace != null)
-
-
+            // Cửa hàng tắt khuôn mặt, yêu cầu không có ảnh: giữ nguyên đăng ký cũ (nếu có).
+            var newFaceImageCount = (JsonSerializer.Deserialize<List<string>>(changeReq.NewFaceImagesJson ?? "[]") ?? new List<string>()).Count;
+            if (oldFace != null && newFaceImageCount > 0)
             {
-
-
                 oldFace.Deleted = DateTime.UtcNow;
 
 
@@ -4332,9 +4327,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
-            if (storedImageUrls.Count == 0)
-
-
+            if (storedImageUrls.Count == 0 && (newFaceImageCount > 0 || await IsStoreFaceIdEnabledAsync(storeId)))
                 return BadRequest(AppResponse<object>.Fail("Không thể duyệt: chưa có ảnh khuôn mặt hợp lệ trên yêu cầu đổi thiết bị."));
 
 
@@ -4383,7 +4376,8 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             };
 
 
-            _dbContext.MobileFaceRegistrations.Add(newFace);
+            if (storedImageUrls.Count > 0)
+                _dbContext.MobileFaceRegistrations.Add(newFace);
 
 
 

@@ -20,6 +20,7 @@ import '../utils/tray_notification_guard.dart';
 import '../widgets/device_sync_progress_overlay.dart'
     show DeviceSyncProgressManager;
 import 'api_service.dart';
+import 'app_permission_service.dart';
 import 'system_notification_service.dart';
 import '../utils/pos_notify_focus.dart';
 
@@ -139,9 +140,9 @@ class FcmService {
     if (!_initialized) await initialize();
     if (!_initialized) return;
     try {
-      final settings = await FirebaseMessaging.instance.requestPermission(
-        alert: true, badge: true, sound: true,
-      );
+      final settings = await AppPermissionService.claimNotificationPrompt()
+          ? await FirebaseMessaging.instance.requestPermission(alert: true, badge: true, sound: true)
+          : await FirebaseMessaging.instance.getNotificationSettings();
       if (settings.authorizationStatus == AuthorizationStatus.denied) return;
 
       // iOS: APNs token must exist before getToken() on cold start.

@@ -2,18 +2,12 @@ import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-import '../config/sbox_app_variant.dart';
-
-/// Xin quyền thiết yếu lần đầu mở app + kiểm tra camera (Samsung hay báo sai).
+/// Kiểm tra camera (Samsung hay báo sai), giới hạn hộp thông báo. Mọi quyền hỏi đúng lúc dùng chức năng, không hỏi gộp lúc mở app.
 class AppPermissionService {
   AppPermissionService._();
-
-  static const _prefPrompted = 'sbox_essential_permissions_prompted_v1';
 
   static bool _cameraPermissionAllowed(PermissionStatus status) =>
       status.isGranted || status.isLimited;
@@ -58,72 +52,18 @@ class AppPermissionService {
     return _cameraPermissionAllowed(status) || await _probeCameraAccess();
   }
 
-  static Future<bool> wasEssentialPermissionsPrompted() async {
+  static const _prefNotificationAsked = 'sbox_notification_permission_asked_v1';
+  static bool _notificationAskClaimed = false;
+
+  /// Android: hộp thoại thông báo chỉ hiện một lần cho mỗi lần cài. FCM (cả lần thử lại sau 35 giây) và
+  /// thông báo cục bộ đều tự xin, nên từ chối xong lại bị hỏi tiếp. Muốn bật lại: màn Thông báo / Cài đặt máy.
+  static Future<bool> claimNotificationPrompt() async {
+    if (kIsWeb || !Platform.isAndroid) return true;
+    if (_notificationAskClaimed) return false;
+    _notificationAskClaimed = true;
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_prefPrompted) ?? false;
-  }
-
-  static Future<void> _markEssentialPermissionsPrompted() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefPrompted, true);
-  }
-
-  /// Hiển thị dialog và xin quyền lần đầu (mobile). Gọi từ Login / MainLayout.
-  static Future<void> promptEssentialPermissionsIfNeeded(
-    BuildContext context,
-  ) async {
-    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
-    // SBOX KDS chỉ hiện vé bếp; SBOX BOSS không chấm công — không hỏi quyền chấm công lúc mở app.
-    if (SboxAppVariant.kitchenApp || SboxAppVariant.bossApp) return;
-    // App trên App Store: hỏi camera / vị trí đúng lúc dùng chức năng (quét mã, chấm công), không hỏi lúc mở app (5.1.1).
-    if (SboxAppVariant.iosStoreApp) return;
-    if (await wasEssentialPermissionsPrompted()) return;
-    if (!context.mounted) return;
-
-    final pos = SboxAppVariant.standalonePos;
-    final purpose = pos
-        ? 'Ở bước tiếp theo, hệ thống sẽ hỏi quyền camera và vị trí. Bạn chọn Cho phép hoặc Không cho phép ngay trong hộp thoại của máy.\n\n'
-            '• Camera — quét mã vạch và chụp ảnh hàng\n'
-            '• Vị trí — giao hàng hoặc xác định cửa hàng khi bạn dùng chức năng đó'
-        : 'Ở bước tiếp theo, hệ thống sẽ hỏi quyền camera và vị trí. Bạn chọn Cho phép hoặc Không cho phép ngay trong hộp thoại của máy.\n\n'
-            '• Camera — đăng ký khuôn mặt, chấm công\n'
-            '• Vị trí — xác nhận địa điểm chấm công';
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          title: Text(SboxAppVariant.productLine),
-          content: Text(
-            tr(purpose),
-            style: const TextStyle(height: 1.45),
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(tr('Tiếp tục')),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    await _markEssentialPermissionsPrompted();
-    await _requestEssentialPermissions();
-  }
-
-  static Future<void> _requestEssentialPermissions() async {
-    if (Platform.isAndroid) {
-      await Permission.notification.request();
-    }
-    await Permission.camera.request();
-    await Permission.locationWhenInUse.request();
-    if (Platform.isAndroid) {
-      await Permission.nearbyWifiDevices.request();
-    }
-    // Làm mới trạng thái camera sau chuỗi xin quyền.
-    await ensureCameraPermission(requestIfNeeded: false);
+    if (prefs.getBool(_prefNotificationAsked) ?? false) return false;
+    await prefs.setBool(_prefNotificationAsked, true);
+    return true;
   }
 }

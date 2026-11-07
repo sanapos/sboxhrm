@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../config/sbox_app_variant.dart';
 import '../utils/mobile_device_id.dart';
 import '../utils/platform_geolocation.dart';
@@ -19,6 +20,9 @@ class GlobalLocationReporter {
   /// (bật hộp xin quyền liên tục nếu quyền đang «từ chối» chưa vĩnh viễn) và ghi log liên tục.
   DateTime? _noPermissionUntil;
   static const _noPermissionBackoff = Duration(minutes: 10);
+  /// Ngoài ca: server không lưu vị trí nên giãn nhịp đo GPS — vào ca muộn nhất sau chừng này mới có điểm đầu.
+  DateTime? _notEligibleUntil;
+  static const _notEligibleBackoff = Duration(minutes: 5);
 
   bool _parseBool(dynamic value) {
     if (value == null) return false;
@@ -91,10 +95,13 @@ class GlobalLocationReporter {
     _timer?.cancel();
     _timer = null;
     _running = false;
+    _notEligibleUntil = null;
     debugPrint('📍 GlobalLocationReporter: stopped');
   }
 
   Future<void> _reportWithRetry() async {
+    final skipUntil = _notEligibleUntil;
+    if (skipUntil != null && DateTime.now().isBefore(skipUntil)) return;
     const delays = [Duration.zero, Duration(seconds: 3), Duration(seconds: 8)];
     for (final delay in delays) {
       if (_permissionBlocked) return;
@@ -110,6 +117,8 @@ class GlobalLocationReporter {
 
   Future<bool> _reportOnce() async {
     try {
+      // Báo định kỳ không tự xin quyền (vừa đăng nhập đã bị hỏi); quyền được hỏi khi mở Chấm công, cấp xong thì nhịp kế tiếp tự gửi.
+      if (!kIsWeb && !await Permission.locationWhenInUse.isGranted) return true;
       if (!kIsWeb) {
         final ok = await ensureLocationPermission();
         if (!ok) {
@@ -143,8 +152,11 @@ class GlobalLocationReporter {
         if (!stored) {
           final reason = data['reason']?.toString() ?? 'unknown';
           debugPrint('📍 GlobalLocationReporter: server skipped store ($reason)');
-          return false;
+          // Server đã nhận và cố ý không lưu: gửi lại không có ích (trước đây 3 lần mỗi 30 giây).
+          _notEligibleUntil = DateTime.now().add(_notEligibleBackoff);
+          return true;
         }
+        _notEligibleUntil = null;
         debugPrint('📍 GlobalLocationReporter: stored ok');
         return true;
       }
