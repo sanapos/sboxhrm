@@ -68,16 +68,16 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
           title: Row(children: [
             Flexible(child: Text(tr(name.isEmpty ? 'Chi nhánh' : name), overflow: TextOverflow.ellipsis)),
             if (branch['isHeadquarter'] == true) ...[
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                 decoration: BoxDecoration(color: SboxColors.brand50, borderRadius: BorderRadius.circular(99)),
                 child: Text(tr('Trụ sở'),
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: SboxColors.brand700)),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: SboxColors.appBarFg(SboxColors.brand700))),
               ),
             ],
           ]),
-          bottom: TabBar(
+          bottom: sboxBarTabs(TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             tabs: [
@@ -86,7 +86,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
               Tab(text: tr('Nhân sự')),
               Tab(text: tr('Chuyển kho')),
             ],
-          ),
+          )),
         ),
         body: TabBarView(children: [
           _overviewTab(),

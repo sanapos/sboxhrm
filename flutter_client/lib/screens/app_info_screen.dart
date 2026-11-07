@@ -101,9 +101,9 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
       backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         title: Text(tr(_pageTitle)),
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         surfaceTintColor: Colors.white,
-        foregroundColor: SboxColors.text,
+        foregroundColor: SboxColors.appBarFg(SboxColors.text),
         elevation: 0.5,
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: _back),
       ),
@@ -415,7 +415,7 @@ class _BugReportFormState extends State<_BugReportForm> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.check_circle_outline, color: Colors.green, size: 64),
+                  const Icon(Icons.check_circle_outline, color: SboxColors.okSwatch, size: 64),
                   const SizedBox(height: 16),
                   Text(tr('Cảm ơn bạn đã gửi phản hồi!'),
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),

@@ -2236,9 +2236,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     value: 'call',
                     child: Row(
                       children: [
-                        Icon(Icons.phone, size: 20, color: Colors.green),
+                        Icon(Icons.phone, size: 20, color: SboxColors.okSwatch),
                         SizedBox(width: 12),
-                        Text(tr('Call'), style: TextStyle(color: Colors.green)),
+                        Text(tr('Call'), style: TextStyle(color: SboxColors.okSwatch)),
                       ],
                     ),
                   ),
@@ -4234,8 +4234,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           icon: const Icon(Icons.phone, size: 18),
                           label: Text(tr('Gọi')),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.green,
-                            side: const BorderSide(color: Colors.green),
+                            foregroundColor: SboxColors.okSwatch,
+                            side: const BorderSide(color: SboxColors.okSwatch),
                             padding: const EdgeInsets.symmetric(vertical: 10),
                           ),
                         ),
@@ -4293,9 +4293,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       if (hasPhone)
         TextButton.icon(
           onPressed: () => _callEmployee(employee),
-          icon: const Icon(Icons.phone, color: Colors.green),
+          icon: const Icon(Icons.phone, color: SboxColors.okSwatch),
           label:
-              Text(tr('Gọi điện'), style: TextStyle(color: Colors.green)),
+              Text(tr('Gọi điện'), style: TextStyle(color: SboxColors.okSwatch)),
         ),
       TextButton.icon(
         onPressed: openCareer,

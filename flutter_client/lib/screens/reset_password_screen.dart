@@ -154,18 +154,18 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         padding: const EdgeInsets.all(12),
                         margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.1),
+                          color: SboxColors.okSwatch.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                          border: Border.all(color: SboxColors.okSwatch.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
+                            const Icon(Icons.check_circle_outline, color: SboxColors.okSwatch, size: 20),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 tr(_successMessage!),
-                                style: const TextStyle(color: Colors.green, fontSize: 14),
+                                style: const TextStyle(color: SboxColors.okSwatch, fontSize: 14),
                               ),
                             ),
                           ],

@@ -2086,7 +2086,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       buttons.add(_ActionBtn(
           icon: Icons.check_circle_outline,
           label: 'Duyệt',
-          color: Colors.green,
+          color: SboxColors.okSwatch,
           onTap: () => _approveLeave(
               leave['id']?.toString(),
               Map<String, dynamic>.from(leave as Map))));
@@ -2201,7 +2201,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       dialogActions.add(_ActionBtn(
           icon: Icons.check_circle_outline,
           label: 'Duyệt',
-          color: Colors.green,
+          color: SboxColors.okSwatch,
           onTap: () {
             Navigator.pop(context);
             _approveLeave(
@@ -2344,7 +2344,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 minHeight: 6,
                 backgroundColor: SboxColors.slate200,
                 valueColor: AlwaysStoppedAnimation<Color>(status == 1
-                    ? Colors.green
+                    ? SboxColors.okSwatch
                     : status == 2
                         ? Colors.red
                         : SboxColors.brand500),
@@ -2372,7 +2372,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             IconData dotIcon;
             switch (stepStatus) {
               case 1:
-                dotColor = Colors.green;
+                dotColor = SboxColors.okSwatch;
                 dotIcon = Icons.check_circle;
                 break;
               case 2:
@@ -2908,7 +2908,7 @@ class _LeaveScreenState extends State<LeaveScreen>
   }) {
     final iconColor = switch (confirmVariant) {
       AppButtonVariant.danger => Colors.red,
-      AppButtonVariant.success => Colors.green,
+      AppButtonVariant.success => SboxColors.okSwatch,
       AppButtonVariant.warning => Colors.orange,
       _ => Theme.of(context).colorScheme.primary,
     };
@@ -2978,7 +2978,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             'Chờ duyệt', Colors.orange, Icons.hourglass_bottom_rounded);
       case 1:
         return const _StatusInfo(
-            'Đã duyệt', Colors.green, Icons.check_circle_rounded);
+            'Đã duyệt', SboxColors.okSwatch, Icons.check_circle_rounded);
       case 2:
         return const _StatusInfo('Từ chối', Colors.red, Icons.cancel_rounded);
       case 3:

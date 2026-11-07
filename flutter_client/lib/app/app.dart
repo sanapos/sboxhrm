@@ -34,6 +34,7 @@ import '../screens/pos/pos_standalone_shell.dart';
 import '../screens/staff/staff_shell.dart';
 import '../features/boss/boss_shell.dart';
 import '../config/sbox_app_variant.dart';
+import '../theme/sbox_tokens.dart';
 import '../utils/media_query_safe_padding.dart';
 import '../utils/play_system_ui.dart';
 import '../utils/system_ui_inset_mode.dart';
@@ -146,7 +147,7 @@ class ZKTecoApp extends StatelessWidget {
                 return wrapTouch(AnnotatedRegion<SystemUiOverlayStyle>(
                   value: kPlayOverlayOnDarkBg,
                   child: ColoredBox(
-                    color: const Color(0xFF000000),
+                    color: SboxColors.systemBand,
                     child: MediaQuery(
                       data: mediaQuery.copyWith(
                         textScaler: AppTextScaler.resolve(context),
@@ -155,7 +156,8 @@ class ZKTecoApp extends StatelessWidget {
                         builder: (ctx) => padAwaySystemBars(
                           ctx,
                           ColoredBox(
-                            color: const Color(0xFF000000),
+                            // SBOX POS: nền trang, đổi màn không nháy dải cobalt / đen.
+                            color: SboxColors.posApp ? SboxColors.page : const Color(0xFF000000),
                             child: PosTouchImeHost(
                               child: PosKeyboardLift(
                                 child: DefaultTextStyle(

@@ -889,7 +889,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
       itemBuilder: (_) => [
         for (final c in [
           const Color(0xFFFDE68A),
-          const Color(0xFFBBF7D0),
+          (SboxColors.posApp ? SboxColors.brand100 : Color(0xFFBBF7D0)),
           SboxColors.brand100,
           const Color(0xFFFECACA),
           Colors.white,

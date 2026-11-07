@@ -354,8 +354,8 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
       appBar: hideAppBar
           ? null
           : AppBar(
-              backgroundColor: Colors.white,
-              foregroundColor: SboxColors.text,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
+              foregroundColor: SboxColors.appBarFg(SboxColors.text),
               surfaceTintColor: Colors.white,
               elevation: 0,
               automaticallyImplyLeading: showBack,
@@ -580,7 +580,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
       padding: const EdgeInsets.only(bottom: 12),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFFF0F9FF),
+          color: (SboxColors.posApp ? SboxColors.brand50 : Color(0xFFF0F9FF)),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color(0xFFBAE6FD)),
         ),
@@ -594,7 +594,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
-                  color: Color(0xFF0C4A6E),
+                  color: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)),
                 ),
               ),
               const SizedBox(height: 4),

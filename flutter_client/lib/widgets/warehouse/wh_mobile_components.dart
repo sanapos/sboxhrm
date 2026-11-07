@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'wh_mobile_theme.dart';
+import '../../theme/sbox_tokens.dart';
 import '../../l10n/app_tr.dart';
 import '../../utils/play_system_ui.dart';
 
@@ -82,17 +83,19 @@ class _WhGlassAppBar extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(8, topPadding + 4, 8, 12),
       decoration: BoxDecoration(
-        color: WhMobileTheme.surfaceGlass,
-        border: Border(
-          bottom: BorderSide(color: WhMobileTheme.divider.withOpacity(0.5)),
-        ),
+        color: SboxColors.appBarBg(WhMobileTheme.surfaceGlass),
+        border: SboxColors.posApp
+            ? null
+            : Border(
+                bottom: BorderSide(color: WhMobileTheme.divider.withOpacity(0.5)),
+              ),
       ),
       child: Row(
         children: [
           leading ??
               IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-                color: WhMobileTheme.primary,
+                color: SboxColors.appBarFg(WhMobileTheme.primary),
                 onPressed: () => Navigator.maybePop(context),
               ),
           Expanded(
@@ -101,18 +104,37 @@ class _WhGlassAppBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(tr(title),
-                    style: WhMobileTheme.titleMedium,
+                    style: WhMobileTheme.titleMedium.copyWith(
+                        color: SboxColors.appBarFg(WhMobileTheme.textPrimary)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 if (subtitle != null)
                   Text(tr(subtitle!),
-                      style: WhMobileTheme.caption,
+                      style: SboxColors.posApp
+                          ? WhMobileTheme.caption.copyWith(color: SboxColors.onChromeMuted)
+                          : WhMobileTheme.caption,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
-          if (actions != null) ...actions!,
+          if (actions != null)
+            ...(SboxColors.posApp
+                ? [
+                    for (final a in actions!)
+                      SboxOnChrome(
+                        child: IconTheme.merge(
+                          data: const IconThemeData(color: SboxColors.onChrome),
+                          child: IconButtonTheme(
+                            data: IconButtonThemeData(
+                              style: IconButton.styleFrom(foregroundColor: SboxColors.onChrome),
+                            ),
+                            child: a,
+                          ),
+                        ),
+                      ),
+                  ]
+                : actions!),
         ],
       ),
     );

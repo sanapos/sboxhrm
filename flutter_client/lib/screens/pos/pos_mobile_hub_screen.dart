@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../theme/sbox_tokens.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -275,8 +276,8 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     MobileBottomNavLayout layout,
   ) {
     return Material(
-      elevation: 8,
-      color: Colors.white,
+      elevation: SboxColors.posApp ? 0 : 8,
+      color: SboxColors.posApp ? SboxColors.chrome : Colors.white,
       child: SafeArea(
         top: false,
         child: GestureDetector(

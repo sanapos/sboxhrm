@@ -25,7 +25,7 @@ class AttendanceDayStrip extends StatelessWidget {
 
   static Color colorOf(AttendanceDayState s) => switch (s) {
         AttendanceDayState.full => SboxColors.success,
-        AttendanceDayState.partial => const Color(0xFF86EFAC),
+        AttendanceDayState.partial => (SboxColors.posApp ? SboxColors.brand300 : Color(0xFF86EFAC)),
         AttendanceDayState.late => SboxColors.warning,
         AttendanceDayState.absent => SboxColors.danger,
         AttendanceDayState.off => SboxColors.slate200,

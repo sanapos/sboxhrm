@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 /// Loại tệp xuất — icon tệp quen thuộc thay cho «mũi tên tải» / «khung ảnh» xám khó phân biệt.
 enum ExportFileKind { excel, png }
@@ -33,7 +34,14 @@ class ExportFileIcon extends StatelessWidget {
       size: Size(size * 28 / 32, size),
       painter: _ExportFilePainter(kind),
     );
-    return enabled ? icon : Opacity(opacity: 0.4, child: icon);
+    final shown = enabled ? icon : Opacity(opacity: 0.4, child: icon);
+    // Trên thanh cobalt của SBOX POS: đặt trên nền trắng để icon tệp vẫn rõ.
+    if (!SboxOnChrome.of(context)) return shown;
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: const BoxDecoration(color: SboxColors.white, borderRadius: SboxRadius.smAll),
+      child: shown,
+    );
   }
 }
 
@@ -42,8 +50,8 @@ class _ExportFilePainter extends CustomPainter {
 
   final ExportFileKind kind;
 
-  static const _excel = Color(0xFF1D6F42);
-  static const _excelFold = Color(0xFFD3EAD9);
+  static const _excel = (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF1D6F42));
+  static const _excelFold = (SboxColors.posApp ? SboxColors.brand50 : Color(0xFFD3EAD9));
   static const _png = Color(0xFF185FA5);
   static const _pngFold = Color(0xFFD6E7F8);
   static const _pngSky = Color(0xFF378ADD);

@@ -543,7 +543,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     return Scaffold(
       backgroundColor: SboxColors.slate50,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         elevation: 0,
         toolbarHeight: 0,
         bottom: PreferredSize(

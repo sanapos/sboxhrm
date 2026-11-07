@@ -463,10 +463,10 @@ class _PosPaymentGatewaySettingsScreenState
           ? null
           : AppBar(
               title: Text(tr('Cổng thanh toán')),
-              backgroundColor: Colors.white,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
         surfaceTintColor: Colors.white,
         elevation: 0.5,
-              foregroundColor: SboxColors.text,
+              foregroundColor: SboxColors.appBarFg(SboxColors.text),
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back),
                 tooltip: tr('Quay lại'),
@@ -752,7 +752,7 @@ class _PosPaymentGatewaySettingsScreenState
     }
     return _noteCard(
       icon: Icons.verified_outlined,
-      color: Colors.green,
+      color: SboxColors.okSwatch,
       title: 'Đã sẵn sàng nhận CK',
       body: 'QR khách quét: $va ($bank)\n'
           'Tiền về STK cửa hàng: ${stk.isEmpty ? '—' : stk}\n'

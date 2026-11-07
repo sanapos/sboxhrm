@@ -594,10 +594,10 @@ class _PosProductPrinterAssignmentScreenState
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Gán sản phẩm cho máy in')),
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         surfaceTintColor: Colors.white,
         elevation: 0.5,
-        foregroundColor: SboxColors.text,
+        foregroundColor: SboxColors.appBarFg(SboxColors.text),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: tr('Quay lại'),
@@ -1674,7 +1674,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
             ? Colors.orange.shade800
             : error
                 ? Colors.red.shade700
-                : Colors.green.shade700,
+                : SboxColors.okSwatch.shade700,
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: error || warning ? 4 : 3),
       ),
@@ -2007,7 +2007,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                     child: Material(
                       color: _actionBannerError
                           ? Colors.red.shade50
-                          : Colors.green.shade50,
+                          : SboxColors.okSwatch.shade50,
                       borderRadius: BorderRadius.circular(10),
                       child: ListTile(
                         dense: true,
@@ -2017,7 +2017,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                               : Icons.check_circle_outline,
                           color: _actionBannerError
                               ? Colors.red.shade700
-                              : Colors.green.shade700,
+                              : SboxColors.okSwatch.shade700,
                         ),
                         title: Text(
                           tr(_actionBanner!),
@@ -2026,7 +2026,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                             fontWeight: FontWeight.w600,
                             color: _actionBannerError
                                 ? Colors.red.shade900
-                                : Colors.green.shade900,
+                                : SboxColors.okSwatch.shade900,
                           ),
                         ),
                         trailing: IconButton(
@@ -2288,7 +2288,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                                           if (onThis)
                                             _StatusChip(
                                               label: 'Đã trên máy này',
-                                              color: Colors.green.shade700,
+                                              color: SboxColors.okSwatch.shade700,
                                             ),
                                           if (other)
                                             _StatusChip(

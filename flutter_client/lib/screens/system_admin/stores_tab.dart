@@ -588,8 +588,8 @@ class StoresTabState extends State<StoresTab> {
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: isLocked ? Colors.red.withValues(alpha: 0.1) : isActive ? Colors.green.withValues(alpha: 0.1) : SboxColors.slate500.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: Text(tr(isLocked ? 'Kh\u00f3a' : isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isLocked ? Colors.red : isActive ? Colors.green : SboxColors.slate500)),
+            decoration: BoxDecoration(color: isLocked ? Colors.red.withValues(alpha: 0.1) : isActive ? SboxColors.okSwatch.withValues(alpha: 0.1) : SboxColors.slate500.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Text(tr(isLocked ? 'Kh\u00f3a' : isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isLocked ? Colors.red : isActive ? SboxColors.okSwatch : SboxColors.slate500)),
           ),
           const SizedBox(width: 4),
           const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
@@ -2449,7 +2449,7 @@ class StoresTabState extends State<StoresTab> {
                           Text(tr('${tr('• Tổng ngày từ key: ')}${previewData!['totalDays']} ngày')),
                           if ((previewData!['bonusDays'] as int? ?? 0) > 0) ...[
                             Text(tr('${tr('• 🎁 Ngày tặng thêm: ')}${previewData!['bonusDays']} ngày'),
-                                style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                                style: const TextStyle(color: SboxColors.okSwatch, fontWeight: FontWeight.bold)),
                             if (previewData!['promotionName'] != null)
                               Text(tr('  (CT: ${previewData!['promotionName']})'),
                                   style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),

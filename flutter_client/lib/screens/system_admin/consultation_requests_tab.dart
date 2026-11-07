@@ -401,7 +401,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(tr('Đã cập nhật trạng thái')),
-            backgroundColor: Colors.green),
+            backgroundColor: SboxColors.okSwatch),
       );
     }
   }
@@ -432,7 +432,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(tr('Đã xoá lead')), backgroundColor: Colors.green),
+            content: Text(tr('Đã xoá lead')), backgroundColor: SboxColors.okSwatch),
       );
     }
   }
@@ -560,7 +560,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                         content: Text(tr('Đã lưu xử lý lead')),
-                        backgroundColor: Colors.green),
+                        backgroundColor: SboxColors.okSwatch),
                   );
                 }
               },

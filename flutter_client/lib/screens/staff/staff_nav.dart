@@ -41,7 +41,7 @@ Future<void> openStaffPage(
             backgroundColor: SboxColors.page,
             appBar: AppBar(
               title: Text(tr(title)),
-              backgroundColor: SboxColors.white,
+              backgroundColor: SboxColors.appBarBg(SboxColors.white),
               surfaceTintColor: SboxColors.white,
               actions: [
                 ListenableBuilder(

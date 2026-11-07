@@ -582,7 +582,7 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
       decoration: BoxDecoration(
         color: hasDebt
             ? SboxColors.dangerSoft
-            : const Color(0xFFF0F9FF),
+            : (SboxColors.posApp ? SboxColors.brand50 : Color(0xFFF0F9FF)),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: hasDebt

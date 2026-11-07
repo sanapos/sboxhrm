@@ -644,9 +644,9 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
                     final diffColor = l.countedQty == null
                         ? PosTheme.textSecondary
                         : l.diffQty == 0
-                            ? Colors.green.shade700
+                            ? SboxColors.okSwatch.shade700
                             : l.diffQty > 0
-                                ? Colors.green.shade700
+                                ? SboxColors.okSwatch.shade700
                                 : Colors.red.shade700;
                     return IntrinsicHeight(
                       child: Row(
@@ -719,8 +719,8 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
         child: Scaffold(
           backgroundColor: HrmPageChrome.background,
           appBar: AppBar(
-            backgroundColor: Colors.white,
-            foregroundColor: PosTheme.textPrimary,
+            backgroundColor: SboxColors.appBarBg(Colors.white),
+            foregroundColor: SboxColors.appBarFg(PosTheme.textPrimary),
             elevation: 0,
             title: Row(
               children: [

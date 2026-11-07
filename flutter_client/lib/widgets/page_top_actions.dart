@@ -191,6 +191,9 @@ class HrmTopBarAction extends StatelessWidget {
       );
     }
     final asIcon = iconOnly || !showLabel || !primary || !wideEnough;
+    final onChrome = SboxOnChrome.of(context);
+    final primaryBg = onChrome ? SboxColors.white : PosTheme.kiotBlue;
+    final primaryFg = onChrome ? SboxColors.brand700 : Colors.white;
 
     if (asIcon) {
       if (primary) {
@@ -199,10 +202,9 @@ class HrmTopBarAction extends StatelessWidget {
           child: FilledButton(
             onPressed: onPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: PosTheme.kiotBlue,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor:
-                  PosTheme.kiotBlue.withValues(alpha: 0.35),
+              backgroundColor: primaryBg,
+              foregroundColor: primaryFg,
+              disabledBackgroundColor: primaryBg.withValues(alpha: 0.35),
               padding: EdgeInsets.zero,
               minimumSize: Size(minTap, minTap),
               maximumSize: Size(minTap, minTap),
@@ -219,7 +221,7 @@ class HrmTopBarAction extends StatelessWidget {
         onPressed: onPressed,
         tooltip: tip,
         icon: Icon(icon, size: compact ? 22 : 20),
-        color: PosTheme.textPrimary,
+        color: onChrome ? SboxColors.onChrome : PosTheme.textPrimary,
         visualDensity: VisualDensity.compact,
         padding: EdgeInsets.all(compact ? 10 : 8),
         constraints: BoxConstraints(minWidth: minTap, minHeight: minTap),
@@ -231,9 +233,9 @@ class HrmTopBarAction extends StatelessWidget {
       icon: Icon(icon, size: 16),
       label: Text(tr(label), style: const TextStyle(fontSize: 13)),
       style: FilledButton.styleFrom(
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
-        disabledBackgroundColor: PosTheme.kiotBlue.withValues(alpha: 0.35),
+        backgroundColor: primaryBg,
+        foregroundColor: primaryFg,
+        disabledBackgroundColor: primaryBg.withValues(alpha: 0.35),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         minimumSize: Size(0, minTap),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,

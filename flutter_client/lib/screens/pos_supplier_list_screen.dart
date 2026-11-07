@@ -222,7 +222,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                 ? Icons.reply_outlined
                 : Icons.shopping_cart_outlined,
         color: isPayment
-            ? Colors.green
+            ? SboxColors.okSwatch
             : isReturn
                 ? Colors.orange
                 : PosTheme.kiotBlue,
@@ -323,8 +323,8 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
           ? null
           : AppBar(
               title: Text(tr('Nhà cung cấp')),
-              backgroundColor: Colors.white,
-              foregroundColor: SboxColors.text,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
+              foregroundColor: SboxColors.appBarFg(SboxColors.text),
               surfaceTintColor: Colors.white,
               elevation: 0.5,
             ),

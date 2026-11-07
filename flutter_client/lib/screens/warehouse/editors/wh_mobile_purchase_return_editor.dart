@@ -16,6 +16,7 @@ import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
 import '../../main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../../../theme/sbox_tokens.dart';
 
 class WhMobilePurchaseReturnEditor extends StatefulWidget {
   const WhMobilePurchaseReturnEditor({super.key, this.docId});
@@ -200,7 +201,7 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
       padding: const EdgeInsets.only(top: 10),
       child: OutlinedButton.icon(
         onPressed: () => _editSerials(l, suggest: suggest),
-        icon: Icon(Icons.qr_code_scanner_rounded, size: 18, color: ok ? Colors.green : Colors.orange),
+        icon: Icon(Icons.qr_code_scanner_rounded, size: 18, color: ok ? SboxColors.okSwatch : Colors.orange),
         label: Text(tr('Seri ${l.serials.length}/${l.qty.round()}${ok ? '' : ' *'}')),
         style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
       ),

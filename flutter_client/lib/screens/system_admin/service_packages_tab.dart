@@ -486,8 +486,8 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
           const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: isActive ? Colors.green.withValues(alpha: 0.1) : SboxColors.slate500.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: Text(tr(isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isActive ? Colors.green : SboxColors.slate500)),
+            decoration: BoxDecoration(color: isActive ? SboxColors.okSwatch.withValues(alpha: 0.1) : SboxColors.slate500.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Text(tr(isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isActive ? SboxColors.okSwatch : SboxColors.slate500)),
           ),
         ]),
       ),

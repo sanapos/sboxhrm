@@ -23,7 +23,7 @@ Color reservationAccent(PosResourceReservationDto b) {
   if (b.isCancelled) return SboxColors.slate500;
   if (b.isNoShow) return const Color(0xFFC2410C);
   if (b.isOrderCompleted) return SboxColors.payHover;
-  if (b.isUsingTable) return const Color(0xFF0F766E);
+  if (b.isUsingTable) return (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E));
   if (b.isSeated) return SboxColors.payHover;
   return b.isTimedSlot ? SboxColors.violet : PosTheme.kiotBlue;
 }
@@ -677,7 +677,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                             style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF0F766E),
+                              color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
                             ),
                           ),
                         if (preview.isNotEmpty)
@@ -1311,7 +1311,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                           style: const TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF0F766E),
+                            color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
                           ),
                         ),
                       ],
@@ -1879,13 +1879,13 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                         ? const Color(0xFFC2410C)
                         : b.depositStatus.toLowerCase() == 'refunded'
                             ? SboxColors.slate500
-                            : const Color(0xFF0F766E),
+                            : (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
                   ),
                 ],
                 if (order.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   info(Icons.receipt_long_outlined, order.join(' · '),
-                      color: b.isOrderCompleted ? const Color(0xFF15803D) : const Color(0xFF0F766E)),
+                      color: b.isOrderCompleted ? (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF15803D)) : (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E))),
                 ],
               ]),
             ),

@@ -28,6 +28,7 @@ import '../notification_overlay.dart';
 import 'pos_pdf_preview_dialog.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../../theme/sbox_tokens.dart';
 
 /// Dialog chọn loại giấy in tem mã — giao diện kiểu KiotViet.
 /// [quantities] (song song với [products]): số tem riêng từng hàng, vd theo số lượng nhập hàng.
@@ -629,7 +630,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: PosTheme.border)),
-        color: Color(0xFFFAFBFC),
+        color: (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFBFC)),
       ),
       child: Row(
         children: [

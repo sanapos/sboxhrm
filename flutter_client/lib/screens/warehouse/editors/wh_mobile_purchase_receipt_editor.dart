@@ -20,6 +20,7 @@ import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
 import '../../main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../../../theme/sbox_tokens.dart';
 
 class WhMobilePurchaseReceiptEditor extends StatefulWidget {
   const WhMobilePurchaseReceiptEditor({super.key, this.docId});
@@ -279,7 +280,7 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
           Expanded(
             child: OutlinedButton.icon(
               onPressed: _readOnly ? null : () => _pickDate(l, expiry: true),
-              icon: Icon(Icons.event, size: 16, color: missing || expired ? Colors.orange.shade800 : Colors.green),
+              icon: Icon(Icons.event, size: 16, color: missing || expired ? Colors.orange.shade800 : SboxColors.okSwatch),
               label: Text(
                 tr(missing ? 'HSD *' : 'HSD ${fmt.format(l.expiryDate!)}${expired ? ' (đã hết hạn)' : ''}'),
                 style: TextStyle(color: missing || expired ? Colors.orange.shade800 : null),
@@ -298,7 +299,7 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
       padding: const EdgeInsets.only(top: 10),
       child: OutlinedButton.icon(
         onPressed: () => _editSerials(l, suggest: suggest),
-        icon: Icon(Icons.qr_code_scanner_rounded, size: 18, color: ok ? Colors.green : Colors.orange),
+        icon: Icon(Icons.qr_code_scanner_rounded, size: 18, color: ok ? SboxColors.okSwatch : Colors.orange),
         label: Text(tr('Seri ${l.serials.length}/${l.qty.round()}${ok ? '' : ' *'}')),
         style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
       ),

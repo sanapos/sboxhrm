@@ -572,8 +572,8 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr(widget.priceList.name)),
-        backgroundColor: Colors.white,
-        foregroundColor: SboxColors.text,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
+        foregroundColor: SboxColors.appBarFg(SboxColors.text),
         elevation: 0.5,
         automaticallyImplyLeading: widget.onClose == null,
         actions: [
@@ -772,7 +772,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
   Widget _buildRowCard(_PriceRow r) {
     return Container(
       decoration: PosTheme.mobileCardDecoration().copyWith(
-        color: r.selected ? const Color(0xFFE8F0FE) : Colors.white,
+        color: r.selected ? (SboxColors.posApp ? SboxColors.page : Color(0xFFE8F0FE)) : Colors.white,
       ),
       padding: const EdgeInsets.fromLTRB(4, 8, 12, 8),
       child: Row(

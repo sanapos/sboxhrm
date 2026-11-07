@@ -16,6 +16,7 @@ import '../cash_transaction_screen.dart';
 import 'hr_fin_actions.dart';
 import 'hr_fin_common.dart';
 import 'hr_fin_ledger.dart';
+import '../../theme/sbox_tokens.dart';
 
 /// Các tab của Tài chính nhân sự.
 enum HrFinTab { overview, inbox, advances, rewards, cash, people, me, settings }
@@ -184,7 +185,7 @@ class _HrFinanceHubScreenState extends State<HrFinanceHubScreen> {
         // PageTopActions — trang mở riêng phải tự vẽ, không thì mất nút tạo phiếu.
         appBar: AppBar(
           title: Text(tr(title)),
-          backgroundColor: SboxColors.white,
+          backgroundColor: SboxColors.appBarBg(SboxColors.white),
           surfaceTintColor: SboxColors.white,
           actions: [
             ListenableBuilder(

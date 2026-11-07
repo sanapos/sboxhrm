@@ -691,7 +691,7 @@ class _SyncJobCard extends StatelessWidget {
       statusColor = Colors.orange;
       statusIcon = Icons.warning_amber_rounded;
     } else {
-      statusColor = Colors.green;
+      statusColor = SboxColors.okSwatch;
       statusIcon = Icons.check_circle;
     }
 
@@ -839,8 +839,8 @@ class _SyncJobCard extends StatelessWidget {
     Color bg = SboxColors.slate100;
     Color fg = SboxColors.slate700;
     if (green) {
-      bg = Colors.green.withValues(alpha: 0.12);
-      fg = Colors.green.shade800;
+      bg = SboxColors.okSwatch.withValues(alpha: 0.12);
+      fg = SboxColors.okSwatch.shade800;
     } else if (blue) {
       bg = SboxColors.brand500.withValues(alpha: 0.12);
       fg = SboxColors.brand800;

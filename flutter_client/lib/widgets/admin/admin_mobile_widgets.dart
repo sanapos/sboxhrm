@@ -467,7 +467,7 @@ class AdminMobileDrawer extends StatelessWidget {
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: healthStatus == 'Healthy'
-                          ? Colors.green.withValues(alpha: 0.25)
+                          ? SboxColors.okSwatch.withValues(alpha: 0.25)
                           : AdminHelpers.healthStatusColor(healthStatus)
                               .withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(20),

@@ -1144,9 +1144,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.08),
+                  color: SboxColors.okSwatch.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.green.withValues(alpha: 0.35)),
+                  border: Border.all(color: SboxColors.okSwatch.withValues(alpha: 0.35)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1877,14 +1877,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   Widget _buildRealtimeIndicator({bool forLightBackground = false}) {
     final connectedBg = forLightBackground
-        ? Colors.green.withValues(alpha: 0.12)
-        : Colors.greenAccent.withValues(alpha: 0.2);
+        ? SboxColors.okSwatch.withValues(alpha: 0.12)
+        : SboxColors.okSwatch.withValues(alpha: 0.2);
     final disconnectedBg = forLightBackground
         ? SboxColors.slate100
         : Colors.white.withValues(alpha: 0.15);
     final connectedBorder = forLightBackground
-        ? Colors.green.withValues(alpha: 0.4)
-        : Colors.greenAccent.withValues(alpha: 0.6);
+        ? SboxColors.okSwatch.withValues(alpha: 0.4)
+        : SboxColors.okSwatch.withValues(alpha: 0.6);
     final disconnectedBorder = forLightBackground
         ? SboxColors.slate200
         : Colors.white.withValues(alpha: 0.3);
@@ -1892,7 +1892,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         ? (_isRealtimeConnected
             ? SboxColors.success
             : SboxColors.slate500)
-        : (_isRealtimeConnected ? Colors.greenAccent : Colors.white70);
+        : (_isRealtimeConnected ? SboxColors.okSwatch : Colors.white70);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1914,14 +1914,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               color: _isRealtimeConnected
                   ? (forLightBackground
                       ? SboxColors.success
-                      : Colors.greenAccent)
+                      : SboxColors.okSwatch)
                   : (forLightBackground
                       ? SboxColors.slate400
                       : Colors.white54),
               boxShadow: _isRealtimeConnected
                   ? [
                       BoxShadow(
-                          color: Colors.greenAccent.withValues(alpha: 0.6),
+                          color: SboxColors.okSwatch.withValues(alpha: 0.6),
                           blurRadius: 6)
                     ]
                   : null,
@@ -3651,7 +3651,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       case 9:
       case 15:
         icon = Icons.face;
-        color = Colors.green;
+        color = SboxColors.okSwatch;
         break;
       case 100:
         icon = Icons.edit;
@@ -3767,7 +3767,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     Text(tr(detailAtt.punchTypeText),
                         style: TextStyle(
                           color: detailAtt.attendanceState == 0
-                              ? Colors.green
+                              ? SboxColors.okSwatch
                               : Colors.orange,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -4536,7 +4536,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     switch (punchType) {
       case 0:
-        color = Colors.green;
+        color = SboxColors.okSwatch;
         text = 'Vào';
         break;
       case 1:
@@ -4548,7 +4548,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         text = 'Nghỉ ra';
         break;
       case 3:
-        color = Colors.teal;
+        color = SboxColors.okSwatch;
         text = 'Nghỉ vào';
         break;
       case 4:
@@ -4605,7 +4605,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       case 15:
         icon = Icons.face;
         text = 'Khuôn mặt';
-        color = Colors.green;
+        color = SboxColors.okSwatch;
         break;
       case 100:
         icon = Icons.edit;
@@ -4760,11 +4760,11 @@ class _AttendanceNotificationWidgetState
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: widget.isCheckIn
-                    ? Colors.green.shade50
+                    ? SboxColors.okSwatch.shade50
                     : Colors.orange.shade50,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: widget.isCheckIn ? Colors.green : Colors.orange,
+                  color: widget.isCheckIn ? SboxColors.okSwatch : Colors.orange,
                   width: 2,
                 ),
               ),
@@ -4778,7 +4778,7 @@ class _AttendanceNotificationWidgetState
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color:
-                              widget.isCheckIn ? Colors.green : Colors.orange,
+                              widget.isCheckIn ? SboxColors.okSwatch : Colors.orange,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
@@ -4797,7 +4797,7 @@ class _AttendanceNotificationWidgetState
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                                 color: widget.isCheckIn
-                                    ? Colors.green.shade700
+                                    ? SboxColors.okSwatch.shade700
                                     : Colors.orange.shade700,
                               ),
                             ),

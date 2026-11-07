@@ -314,7 +314,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 return ListTile(
                   leading: Icon(
                     Icons.router,
-                    color: isOnline ? Colors.green : SboxColors.slate500,
+                    color: isOnline ? SboxColors.okSwatch : SboxColors.slate500,
                   ),
                   title: Text(tr(device.deviceName)),
                   subtitle: Text(tr('SN: ${device.serialNumber}')),
@@ -323,14 +323,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: isOnline
-                          ? Colors.green.withValues(alpha: 0.2)
+                          ? SboxColors.okSwatch.withValues(alpha: 0.2)
                           : SboxColors.slate500.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Text(
                       tr(isOnline ? 'Online' : 'Offline'),
                       style: TextStyle(
-                        color: isOnline ? Colors.green : SboxColors.slate500,
+                        color: isOnline ? SboxColors.okSwatch : SboxColors.slate500,
                         fontSize: 11,
                       ),
                     ),
@@ -477,7 +477,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           return ScrollableAlertDialog(
             title: Row(
               children: [
-                Icon(Icons.upload, color: Colors.teal),
+                Icon(Icons.upload, color: SboxColors.okSwatch),
                 SizedBox(width: 8),
                 Expanded(child: Text(tr('Tải hồ sơ nhân sự xuống máy'))),
               ],
@@ -507,7 +507,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           children: [
                             Icon(Icons.circle,
                                 size: 10,
-                                color: online ? Colors.green : SboxColors.slate500),
+                                color: online ? SboxColors.okSwatch : SboxColors.slate500),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(tr('${d.deviceName} (${d.serialNumber})'),
@@ -2170,10 +2170,10 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           DataCell(Center(
             child: user.employeeName != null
                 ? Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.link, size: 14, color: Colors.green),
+                    const Icon(Icons.link, size: 14, color: SboxColors.okSwatch),
                     const SizedBox(width: 4),
                     Text(tr(_getFullEmployeeName(user)),
-                        style: const TextStyle(color: Colors.green)),
+                        style: const TextStyle(color: SboxColors.okSwatch)),
                   ])
                 : Text(tr('-'), style: TextStyle(color: SboxColors.slate500)),
           )),
@@ -2344,7 +2344,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               'Liên kết NV',
               user.employeeName ?? 'Chưa liên kết',
               valueColor:
-                  user.employeeName != null ? Colors.green : Colors.orange,
+                  user.employeeName != null ? SboxColors.okSwatch : Colors.orange,
             ),
           ],
         ),
@@ -2379,7 +2379,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         ),
         ListTile(
           leading: const CircleAvatar(
-            backgroundColor: Colors.teal,
+            backgroundColor: SboxColors.okSwatch,
             child: Icon(Icons.face, color: Colors.white, size: 20),
           ),
           title: Text(tr('Quản lý khuôn mặt')),
@@ -2404,7 +2404,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         ListTile(
           leading: CircleAvatar(
             backgroundColor:
-                user.employeeId != null ? Colors.green : Colors.orange,
+                user.employeeId != null ? SboxColors.okSwatch : Colors.orange,
             child: const Icon(Icons.link, color: Colors.white, size: 20),
           ),
           title: Text(tr(user.employeeId != null
@@ -2570,8 +2570,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  Colors.green.shade400,
-                                  Colors.green.shade600,
+                                  SboxColors.okSwatch.shade400,
+                                  SboxColors.okSwatch.shade600,
                                 ],
                               )
                             : LinearGradient(
@@ -2598,7 +2598,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 color: Colors.purple.shade700, width: 2.5)
                             : Border.all(
                                 color: isEnrolled
-                                    ? Colors.green.shade700
+                                    ? SboxColors.okSwatch.shade700
                                     : SboxColors.slate500,
                                 width: 1),
                         boxShadow: [
@@ -2610,7 +2610,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             ),
                           ] else if (isEnrolled) ...[
                             BoxShadow(
-                              color: Colors.green.withValues(alpha: 0.3),
+                              color: SboxColors.okSwatch.withValues(alpha: 0.3),
                               blurRadius: 6,
                               spreadRadius: 1,
                             ),
@@ -2662,7 +2662,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         color: isSelected
                             ? Colors.purple.withValues(alpha: 0.15)
                             : isEnrolled
-                                ? Colors.green.withValues(alpha: 0.1)
+                                ? SboxColors.okSwatch.withValues(alpha: 0.1)
                                 : Colors.transparent,
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -2675,7 +2675,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           color: isSelected
                               ? Colors.purple.shade700
                               : isEnrolled
-                                  ? Colors.green.shade700
+                                  ? SboxColors.okSwatch.shade700
                                   : SboxColors.slate600,
                         ),
                       ),
@@ -2800,12 +2800,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   ),
                   title: Row(
                     children: [
-                      const Icon(Icons.fingerprint, color: Colors.purple),
-                      const SizedBox(width: 8),
+                      Icon(Icons.fingerprint, color: SboxColors.appBarFg(Colors.purple)),
+                      SizedBox(width: 8),
                       Expanded(
                         child: Text(tr('Vân tay - ${user.name}'),
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 16),
+                          style: TextStyle(fontSize: 16),
                         ),
                       ),
                     ],
@@ -2870,7 +2870,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     width: 16,
                                     height: 16,
                                     decoration: BoxDecoration(
-                                        color: Colors.green,
+                                        color: SboxColors.okSwatch,
                                         borderRadius:
                                             BorderRadius.circular(4))),
                                 const SizedBox(width: 4),
@@ -2925,7 +2925,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                         fontSize: 12,
                                         color: enrolledFingers
                                                 .contains(selectedFinger)
-                                            ? Colors.green
+                                            ? SboxColors.okSwatch
                                             : SboxColors.slate500,
                                       ),
                                     ),
@@ -3079,7 +3079,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 width: 16,
                                 height: 16,
                                 decoration: BoxDecoration(
-                                    color: Colors.green,
+                                    color: SboxColors.okSwatch,
                                     borderRadius: BorderRadius.circular(4))),
                             const SizedBox(width: 4),
                             Text(tr('Đã đăng ký'),
@@ -3134,7 +3134,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     fontSize: 12,
                                     color:
                                         enrolledFingers.contains(selectedFinger)
-                                            ? Colors.green
+                                            ? SboxColors.okSwatch
                                             : SboxColors.slate500,
                                   ),
                                 ),
@@ -3470,7 +3470,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           return ScrollableAlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.face, color: Colors.teal),
+                const Icon(Icons.face, color: SboxColors.okSwatch),
                 const SizedBox(width: 8),
                 Expanded(child: Text(tr('Khuôn mặt - ${user.name}'))),
               ],
@@ -3489,12 +3489,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
                             color: hasFace
-                                ? Colors.green.withValues(alpha: 0.1)
+                                ? SboxColors.okSwatch.withValues(alpha: 0.1)
                                 : SboxColors.slate500.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: hasFace
-                                  ? Colors.green.withValues(alpha: 0.3)
+                                  ? SboxColors.okSwatch.withValues(alpha: 0.3)
                                   : SboxColors.slate500.withValues(alpha: 0.3),
                             ),
                           ),
@@ -3505,19 +3505,19 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 height: 100,
                                 decoration: BoxDecoration(
                                   color: hasFace
-                                      ? Colors.green.shade50
+                                      ? SboxColors.okSwatch.shade50
                                       : SboxColors.slate100,
                                   shape: BoxShape.circle,
                                   border: Border.all(
                                     color: hasFace
-                                        ? Colors.green.shade400
+                                        ? SboxColors.okSwatch.shade400
                                         : SboxColors.slate400,
                                     width: 3,
                                   ),
                                   boxShadow: hasFace
                                       ? [
                                           BoxShadow(
-                                            color: Colors.green
+                                            color: SboxColors.okSwatch
                                                 .withValues(alpha: 0.3),
                                             blurRadius: 12,
                                             spreadRadius: 2,
@@ -3529,7 +3529,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   hasFace ? Icons.face : Icons.face_outlined,
                                   size: 50,
                                   color: hasFace
-                                      ? Colors.green.shade600
+                                      ? SboxColors.okSwatch.shade600
                                       : SboxColors.slate400,
                                 ),
                               ),
@@ -3542,7 +3542,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: hasFace
-                                      ? Colors.green.shade700
+                                      ? SboxColors.okSwatch.shade700
                                       : SboxColors.slate600,
                                 ),
                               ),
@@ -3567,7 +3567,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           return Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: (canRemoteFace ? Colors.teal : Colors.orange)
+                              color: (canRemoteFace ? SboxColors.okSwatch : Colors.orange)
                                   .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -3576,7 +3576,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 Icon(
                                   Icons.info_outline,
                                   color: canRemoteFace
-                                      ? Colors.teal
+                                      ? SboxColors.okSwatch
                                       : Colors.orange,
                                   size: 16,
                                 ),
@@ -3589,7 +3589,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: canRemoteFace
-                                          ? Colors.teal.shade700
+                                          ? SboxColors.okSwatch.shade700
                                           : Colors.orange.shade700,
                                     ),
                                   ),
@@ -3623,7 +3623,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               style: const TextStyle(fontSize: 14),
                             ),
                             style: FilledButton.styleFrom(
-                              backgroundColor: Colors.teal,
+                              backgroundColor: SboxColors.okSwatch,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
                           ),
@@ -3644,8 +3644,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               label: Text(tr('Đã đăng ký trên máy — Đồng bộ'),
                                   style: TextStyle(fontSize: 14)),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.teal,
-                                side: const BorderSide(color: Colors.teal),
+                                foregroundColor: SboxColors.okSwatch,
+                                side: const BorderSide(color: SboxColors.okSwatch),
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 14),
                               ),
@@ -3782,7 +3782,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       builder: (ctx) => ScrollableAlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.info_outline, color: Colors.teal),
+            const Icon(Icons.info_outline, color: SboxColors.okSwatch),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -4186,11 +4186,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.link, size: 14, color: Colors.green[400]),
+                        Icon(Icons.link, size: 14, color: SboxColors.okSwatch[400]),
                         const SizedBox(width: 4),
                         Text(tr('Liên kết: ${user.employeeName}'),
                           style:
-                              TextStyle(color: Colors.green[400], fontSize: 13),
+                              TextStyle(color: SboxColors.okSwatch[400], fontSize: 13),
                         ),
                       ],
                     ),
@@ -4281,14 +4281,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: isActive
-            ? Colors.green.withValues(alpha: 0.2)
+            ? SboxColors.okSwatch.withValues(alpha: 0.2)
             : SboxColors.slate500.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Text(
         tr(isActive ? 'Active' : 'Inactive'),
         style: TextStyle(
-          color: isActive ? Colors.green : SboxColors.slate500,
+          color: isActive ? SboxColors.okSwatch : SboxColors.slate500,
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
@@ -4628,7 +4628,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  actions: [
+                  actions: sboxBarActions([
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilledButton(
@@ -4639,7 +4639,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         child: Text(tr(isEditing ? 'Cập nhật' : 'Thêm')),
                       ),
                     ),
-                  ],
+                  ]),
                 ),
                 body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
@@ -4945,7 +4945,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               children: [
                 Icon(Icons.link,
                     color: user.employeeId != null
-                        ? Colors.green
+                        ? SboxColors.okSwatch
                         : Colors.orange,
                     size: 22),
                 const SizedBox(width: 8),
@@ -5211,20 +5211,20 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.green.shade50,
+              color: SboxColors.okSwatch.shade50,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.green.shade200),
+              border: Border.all(color: SboxColors.okSwatch.shade200),
             ),
             child: Row(
               children: [
-                Icon(Icons.check_circle, size: 18, color: Colors.green.shade700),
+                Icon(Icons.check_circle, size: 18, color: SboxColors.okSwatch.shade700),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(tr('Đã chọn: ${_selected!.fullName} (${_selected!.enrollNumber})'),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Colors.green.shade800,
+                      color: SboxColors.okSwatch.shade800,
                     ),
                   ),
                 ),
@@ -5602,7 +5602,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
                     ? Icons.error
                     : Icons.fingerprint,
             color: _status == 'success'
-                ? Colors.green
+                ? SboxColors.okSwatch
                 : _status == 'error'
                     ? Colors.red
                     : Colors.purple,
@@ -5683,10 +5683,10 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
                         width: 50,
                         height: 50,
                         decoration: BoxDecoration(
-                          color: Colors.green,
+                          color: SboxColors.okSwatch,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: Colors.green.shade700,
+                            color: SboxColors.okSwatch.shade700,
                             width: 2,
                           ),
                         ),
@@ -5700,7 +5700,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
                       Text(tr('Lần ${index + 1}'),
                         style: const TextStyle(
                           fontSize: 12,
-                          color: Colors.green,
+                          color: SboxColors.okSwatch,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -5716,7 +5716,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
           if (_status == 'sending' || _status == 'waiting')
             const CircularProgressIndicator()
           else if (_status == 'success')
-            const Icon(Icons.check_circle, color: Colors.green, size: 60)
+            const Icon(Icons.check_circle, color: SboxColors.okSwatch, size: 60)
           else if (_status == 'error')
             const Icon(Icons.error, color: Colors.red, size: 60)
           else if (_status == 'scanning')
@@ -5951,10 +5951,10 @@ class _FaceEnrollmentProgressDialogState
                     ? Icons.error
                     : Icons.face,
             color: _status == 'success'
-                ? Colors.green
+                ? SboxColors.okSwatch
                 : _status == 'error'
                     ? Colors.red
-                    : Colors.teal,
+                    : SboxColors.okSwatch,
           ),
           const SizedBox(width: 8),
           Expanded(child: Text(tr('Đăng ký khuôn mặt'))),
@@ -5969,17 +5969,17 @@ class _FaceEnrollmentProgressDialogState
             height: 100,
             decoration: BoxDecoration(
               color: _status == 'success'
-                  ? Colors.green.shade50
+                  ? SboxColors.okSwatch.shade50
                   : _status == 'error'
                       ? Colors.red.shade50
-                      : Colors.teal.shade50,
+                      : SboxColors.okSwatch.shade50,
               shape: BoxShape.circle,
               border: Border.all(
                 color: _status == 'success'
-                    ? Colors.green.shade400
+                    ? SboxColors.okSwatch.shade400
                     : _status == 'error'
                         ? Colors.red.shade400
-                        : Colors.teal.shade400,
+                        : SboxColors.okSwatch.shade400,
                 width: 3,
               ),
             ),
@@ -5993,10 +5993,10 @@ class _FaceEnrollmentProgressDialogState
                             : Icons.face,
                     size: 50,
                     color: _status == 'success'
-                        ? Colors.green
+                        ? SboxColors.okSwatch
                         : _status == 'error'
                             ? Colors.red
-                            : Colors.teal,
+                            : SboxColors.okSwatch,
                   ),
           ),
           const SizedBox(height: 20),

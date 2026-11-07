@@ -12,6 +12,7 @@ import '../../services/api_service.dart';
 import '../../utils/excel_download_helper.dart';
 import '../../utils/file_saver.dart' as file_saver;
 import '../../widgets/sbox/sbox_ui.dart';
+import '../../theme/sbox_tokens.dart';
 
 /// Cách trả lương.
 enum PayMethod { cash, bank, mixed }
@@ -284,7 +285,7 @@ class _PayrollPayPageState extends State<PayrollPayPage> {
       child: Scaffold(
         backgroundColor: SboxColors.page,
         appBar: AppBar(
-          backgroundColor: SboxColors.surface,
+          backgroundColor: SboxColors.appBarBg(SboxColors.surface),
           surfaceTintColor: Colors.transparent,
           leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.of(context).pop(_changed)),
           title: Text(tr('Trả lương')),
@@ -658,7 +659,7 @@ class _PayrollTransferStepperState extends State<PayrollTransferStepper> {
     return Scaffold(
       backgroundColor: SboxColors.page,
       appBar: AppBar(
-        backgroundColor: SboxColors.surface,
+        backgroundColor: SboxColors.appBarBg(SboxColors.surface),
         surfaceTintColor: Colors.transparent,
         title: Text(tr('Chuyển lương ${_i + 1}/${widget.lines.length}')),
       ),

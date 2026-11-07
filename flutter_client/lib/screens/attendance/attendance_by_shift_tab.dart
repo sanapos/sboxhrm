@@ -862,7 +862,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     icon: Icon(
                       h.isCheckIn ? Icons.login : Icons.logout,
                       size: 18,
-                      color: h.isCheckIn ? Colors.green : Colors.red,
+                      color: h.isCheckIn ? SboxColors.okSwatch : Colors.red,
                     ),
                     label: Align(
                       alignment: Alignment.centerLeft,
@@ -2112,7 +2112,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     child: Row(
                       children: [
                         Icon(resolvedIsIn ? Icons.login : Icons.logout,
-                            color: resolvedIsIn ? Colors.green : Colors.red),
+                            color: resolvedIsIn ? SboxColors.okSwatch : Colors.red),
                         const SizedBox(width: 8),
                         Text(
                           tr('${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}'),
@@ -2745,7 +2745,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       avatar: Icon(
                         h.isCheckIn ? Icons.login : Icons.logout,
                         size: 16,
-                        color: h.isCheckIn ? Colors.green : Colors.red,
+                        color: h.isCheckIn ? SboxColors.okSwatch : Colors.red,
                       ),
                       label: Text(tr('Thêm ${h.isCheckIn ? "vào" : "ra"} $t — ${h.shiftName}')),
                       onPressed: () => _showManualPunchDialog(
@@ -2795,14 +2795,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                           width: 28,
                           height: 28,
                           decoration: BoxDecoration(
-                            color: (i.isEven ? Colors.green : Colors.orange)
+                            color: (i.isEven ? SboxColors.okSwatch : Colors.orange)
                                 .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Icon(
                             i.isEven ? Icons.login : Icons.logout,
                             size: 15,
-                            color: i.isEven ? Colors.green : Colors.orange,
+                            color: i.isEven ? SboxColors.okSwatch : Colors.orange,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -2870,13 +2870,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 const SizedBox(width: 8),
                 Expanded(
                     child: _detailSummaryCard('Tổng giờ',
-                        _formatHoursMinutes(record.workHours), Colors.green)),
+                        _formatHoursMinutes(record.workHours), SboxColors.okSwatch)),
               ]),
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(
                     child: _detailSummaryCard('Giờ (thập phân)',
-                        record.decimalHours.toStringAsFixed(2), Colors.teal)),
+                        record.decimalHours.toStringAsFixed(2), SboxColors.okSwatch)),
                 const SizedBox(width: 8),
                 Expanded(
                     child: _detailSummaryCard(
@@ -3088,7 +3088,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: (isIn ? Colors.green : Colors.red)
+                                color: (isIn ? SboxColors.okSwatch : Colors.red)
                                     .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
@@ -3096,7 +3096,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                 tr(DateFormat('HH:mm').format(originalTime)),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: isIn ? Colors.green : Colors.red,
+                                  color: isIn ? SboxColors.okSwatch : Colors.red,
                                 ),
                               ),
                             ),
@@ -3185,7 +3185,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     child: Row(
                       children: [
                         Icon(isIn ? Icons.login : Icons.logout,
-                            color: isIn ? Colors.green : Colors.red),
+                            color: isIn ? SboxColors.okSwatch : Colors.red),
                         const SizedBox(width: 8),
                         Text(
                           tr('${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}'),
@@ -5361,7 +5361,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final weeklyOff = !holiday && _isWeeklyOffDay(r.date, r.employeeCode);
     if (!holiday && !weeklyOff) return null;
     if (r.punchTimes.isNotEmpty) return const Color(0xFFCFFAFE);
-    return holiday ? const Color(0xFFEDE9FE) : const Color(0xFFDCFCE7);
+    return holiday ? const Color(0xFFEDE9FE) : (SboxColors.posApp ? SboxColors.brand50 : Color(0xFFDCFCE7));
   }
 
   /// Chú thích màu nền dòng (cùng màu mẫu Excel hằng ngày).
@@ -5382,7 +5382,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Wrap(spacing: 16, runSpacing: 6, children: [
-        item(const Color(0xFFDCFCE7), 'Ngày nghỉ tuần'),
+        item((SboxColors.posApp ? SboxColors.brand50 : Color(0xFFDCFCE7)), 'Ngày nghỉ tuần'),
         item(const Color(0xFFCFFAFE), 'Đi làm ngày nghỉ / lễ'),
         item(const Color(0xFFEDE9FE), 'Ngày lễ'),
         if (_dayScope == AttendanceDayScope.allDays) ...[
@@ -5801,7 +5801,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: totals.workHours > 0 ? Colors.green : SboxColors.slate400))),
+              color: totals.workHours > 0 ? SboxColors.okSwatch : SboxColors.slate400))),
       if (_showTravelColumns)
         _shiftTableCell(_buildTravelHoursCell(
           _travelHoursTotalForShiftEmployee(
@@ -5906,7 +5906,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: r.workHours > 0 ? Colors.green : SboxColors.slate500))),
+                color: r.workHours > 0 ? SboxColors.okSwatch : SboxColors.slate500))),
         if (_showTravelColumns)
           _shiftTableCell(_buildTravelHoursCell(_travelHoursForShiftRecord(r),
               record: r)),
@@ -6008,13 +6008,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               icon: const Icon(Icons.fullscreen_exit),
               onPressed: () => Navigator.pop(dialogCtx),
             ),
-            actions: [
+            actions: sboxBarActions([
               TextButton.icon(
                 onPressed: () => Navigator.pop(dialogCtx),
                 icon: const Icon(Icons.close, size: 18),
                 label: Text(tr('Thoát')),
               ),
-            ],
+            ]),
           ),
           body: LayoutBuilder(
             builder: (context, constraints) {
@@ -6752,7 +6752,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           .map((e) => _mobileShiftHourChip(
                 label: e.key,
                 value: _formatHoursMinutes(e.value),
-                color: const Color(0xFF0F766E),
+                color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
               ))
           .toList();
       final workRatio = expected > 0 ? (work / expected).clamp(0.0, 1.0) : 0.0;
@@ -7194,7 +7194,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
   /// Punch time badge with background, border and icon matching summary tab style
   Widget _buildPunchTimeBadge(DateTime time, bool isIn) {
-    final color = isIn ? Colors.green : Colors.red;
+    final color = isIn ? SboxColors.okSwatch : Colors.red;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
@@ -7272,13 +7272,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.green.withValues(alpha: 0.1),
+        color: SboxColors.okSwatch.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         tr('${h}h${m > 0 ? '${m}p' : ''}'),
         style: const TextStyle(
-            color: Colors.green, fontWeight: FontWeight.w600, fontSize: 11),
+            color: SboxColors.okSwatch, fontWeight: FontWeight.w600, fontSize: 11),
       ),
     );
   }
@@ -7364,13 +7364,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.teal.withValues(alpha: 0.1),
+        color: SboxColors.okSwatch.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         tr(hours.toStringAsFixed(2)),
         style: const TextStyle(
-            color: Colors.teal, fontWeight: FontWeight.w600, fontSize: 11),
+            color: SboxColors.okSwatch, fontWeight: FontWeight.w600, fontSize: 11),
       ),
     );
   }

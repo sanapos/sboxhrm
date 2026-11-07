@@ -115,7 +115,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
     messenger?.showSnackBar(
       SnackBar(
         content: Text('$title — $message'),
-        backgroundColor: success ? Colors.green.shade700 : Colors.red.shade700,
+        backgroundColor: success ? SboxColors.okSwatch.shade700 : Colors.red.shade700,
         duration: const Duration(seconds: 4),
       ),
     );
@@ -454,7 +454,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             color: f.enabled && hasCreds
-                                ? Colors.green.shade700
+                                ? SboxColors.okSwatch.shade700
                                 : SboxColors.slate600,
                           ),
                         ),
@@ -525,13 +525,13 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                 child: Row(
                   children: [
                     Icon(Icons.vpn_key_outlined,
-                        size: 16, color: Colors.green.shade700),
+                        size: 16, color: SboxColors.okSwatch.shade700),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(tr('Token đã lưu: ${f.apiTokenHint}'),
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.green.shade800,
+                          color: SboxColors.okSwatch.shade800,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -1079,9 +1079,9 @@ class _GhtkWebhookGuide extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.teal.shade50,
+        color: SboxColors.okSwatch.shade50,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.teal.shade200),
+        border: Border.all(color: SboxColors.okSwatch.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1090,7 +1090,7 @@ class _GhtkWebhookGuide extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 13,
-              color: Colors.teal.shade900,
+              color: SboxColors.okSwatch.shade900,
             ),
           ),
           const SizedBox(height: 6),

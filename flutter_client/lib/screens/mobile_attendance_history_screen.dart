@@ -137,21 +137,21 @@ class _MobileAttendanceHistoryScreenState
     return Scaffold(
       backgroundColor: SboxColors.slate50,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: SboxColors.slate900),
+          icon: Icon(Icons.arrow_back, color: SboxColors.appBarFg(SboxColors.slate900)),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(tr('Lịch sử chấm công'),
           style: TextStyle(
-            color: SboxColors.slate900,
+            color: SboxColors.appBarFg(SboxColors.slate900),
             fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list, color: SboxColors.slate500),
+            icon: Icon(Icons.filter_list, color: SboxColors.appBarFg(SboxColors.slate500)),
             onPressed: _showFilterBottomSheet,
           ),
         ],

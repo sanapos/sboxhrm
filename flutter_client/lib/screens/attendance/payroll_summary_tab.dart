@@ -2015,9 +2015,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               _fmtCurrency(row['allowanceShift'])),
           _detailRow('Tổng PC kỳ (công, giờ, ca)',
               _fmtCurrency(row['totalAllowance']),
-              color: Colors.green.shade700),
+              color: SboxColors.okSwatch.shade700),
           _detailRow('Phụ cấp khác', _fmtCurrency(row['otherAllowance'])),
-          _detailRow('Thưởng', _fmtCurrency(row['bonus']), color: Colors.green),
+          _detailRow('Thưởng', _fmtCurrency(row['bonus']), color: SboxColors.okSwatch),
         ]),
         _detailSection('Khấu trừ', [
           _detailRow('Phạt giao dịch', _fmtDeduction(row['penaltyTransactions'] ?? row['penalty']),
@@ -3038,7 +3038,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           HrmPageChrome.primaryNavy, Icons.payments_outlined),
       _SummaryItem('KPI', _currencyFmt.format(totalKpiSalary.round()),
           const Color(0xFFEC4899), Icons.flag_outlined),
-      _SummaryItem('Ngày công TB', '$avgWorkDays ngày', const Color(0xFF14B8A6),
+      _SummaryItem('Ngày công TB', '$avgWorkDays ngày', (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF14B8A6)),
           Icons.event_available_outlined),
     ];
     final netItem = _SummaryItem(
@@ -3553,7 +3553,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         return val > 0 ? Colors.red : null;
       case 'bonus':
         final val = (row[key] as num?)?.toDouble() ?? 0;
-        return val > 0 ? Colors.green.shade700 : null;
+        return val > 0 ? SboxColors.okSwatch.shade700 : null;
       case 'advance':
         final val = (row[key] as num?)?.toDouble() ?? 0;
         return val > 0 ? Colors.orange.shade700 : null;
@@ -3931,13 +3931,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               icon: const Icon(Icons.fullscreen_exit),
               onPressed: () => Navigator.pop(dialogCtx),
             ),
-            actions: [
+            actions: sboxBarActions([
               TextButton.icon(
                 onPressed: () => Navigator.pop(dialogCtx),
                 icon: const Icon(Icons.close, size: 18),
                 label: Text(tr('Thoát')),
               ),
-            ],
+            ]),
           ),
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4538,7 +4538,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   static (Color, Color) _payrollGroupColors(String g) => switch (g) {
         'Chấm công' => (const Color(0xFFE8F4FA), SboxColors.brand700),
-        'Thu nhập' => (const Color(0xFFE9F8EF), const Color(0xFF15803D)),
+        'Thu nhập' => (const Color(0xFFE9F8EF), (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF15803D))),
         'Khấu trừ' => (const Color(0xFFFDECEC), const Color(0xFFB91C1C)),
         'Thực nhận' => (SboxColors.brand600, Colors.white),
         _ => (SboxColors.slate100, SboxColors.slate700),

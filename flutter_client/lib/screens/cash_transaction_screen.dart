@@ -556,7 +556,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 const SizedBox(height: 8),
                 if (issues.isEmpty)
                   Row(children: [
-                    const Icon(Icons.check_circle, color: Colors.green),
+                    const Icon(Icons.check_circle, color: SboxColors.okSwatch),
                     const SizedBox(width: 8),
                     Expanded(child: Text(tr('Sổ quỹ khớp chứng từ — không có chênh lệch.'))),
                   ])
@@ -691,7 +691,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                       children: [
                         _buildCategorySection('Thu nhập',
                           _categories.where((c) => c.type == CashTransactionType.income).toList(),
-                          Colors.green),
+                          SboxColors.okSwatch),
                         const SizedBox(height: 16),
                         _buildCategorySection('Chi phí',
                           _categories.where((c) => c.type == CashTransactionType.expense).toList(),
@@ -1033,7 +1033,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
   }
 
   Widget _buildFundBalanceCard(FundBalance balance) {
-    final color = balance.isCash ? Colors.green : Colors.indigo;
+    final color = balance.isCash || SboxColors.posApp ? SboxColors.okSwatch : Colors.indigo;
     return Container(
       width: 160,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1737,7 +1737,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 ListTile(
                   leading: Icon(
                     isIncome ? Icons.savings : Icons.payment,
-                    color: Colors.green,
+                    color: SboxColors.okSwatch,
                   ),
                   title: Text(tr(isIncome ? 'Thu tiền' : 'Thanh toán')),
                   onTap: () {
@@ -1966,7 +1966,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
 
   Widget _buildTxDeckItem(CashTransaction transaction) {
     final isIncome = transaction.type == CashTransactionType.income;
-    final color = isIncome ? Colors.green : Colors.red;
+    final color = isIncome ? SboxColors.okSwatch : Colors.red;
     final formatter = NumberFormat('#,###', 'vi_VN');
 
     return InkWell(
@@ -2007,7 +2007,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
 
   Widget _buildTransactionCard(CashTransaction transaction) {
     final isIncome = transaction.type == CashTransactionType.income;
-    final color = isIncome ? Colors.green : Colors.red;
+    final color = isIncome ? SboxColors.okSwatch : Colors.red;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -2107,7 +2107,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                     _ActionBtn(
                       icon: isIncome ? Icons.savings : Icons.payment,
                       label: isIncome ? 'Thu tiền' : 'Thanh toán',
-                      color: Colors.green,
+                      color: SboxColors.okSwatch,
                       onTap: () => _showPayTransactionDialog(transaction),
                     ),
                     const SizedBox(width: 6),
@@ -2200,7 +2200,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildCategorySection('Thu nhập', incomeCategories, Colors.green),
+        _buildCategorySection('Thu nhập', incomeCategories, SboxColors.okSwatch),
         const SizedBox(height: 16),
         _buildCategorySection('Chi phí', expenseCategories, Colors.red),
       ],
@@ -2437,8 +2437,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           ),
           if (account.isDefault) Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: Text(tr('Mặc định'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.green)),
+            decoration: BoxDecoration(color: SboxColors.okSwatch.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Text(tr('Mặc định'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: SboxColors.okSwatch)),
           ),
           const SizedBox(width: 4),
           const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
@@ -2491,7 +2491,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             if (account.isDefault)
               Chip(
                 label: Text(tr('Mặc định')),
-                backgroundColor: Colors.green,
+                backgroundColor: SboxColors.okSwatch,
                 labelStyle: TextStyle(color: Colors.white, fontSize: 11),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
@@ -2642,7 +2642,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 child: _buildSummaryCard(
                   'Thu nhập',
                   _summary!.totalIncome,
-                  Colors.green,
+                  SboxColors.okSwatch,
                   Icons.arrow_downward,
                   '${_summary!.incomeTransactions} giao dịch',
                 ),
@@ -2675,7 +2675,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            ..._summary!.incomeByCategory.map((c) => _buildCategorySummaryTile(c, Colors.green)),
+            ..._summary!.incomeByCategory.map((c) => _buildCategorySummaryTile(c, SboxColors.okSwatch)),
             const SizedBox(height: 24),
           ],
 
@@ -2919,12 +2919,12 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
+                color: (SboxColors.posApp ? SboxColors.brand50 : Color(0xFFEFF6FF)),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFBFDBFE)),
               ),
               child: Row(children: [
-                const Icon(Icons.link_rounded, color: Color(0xFF1D4ED8), size: 20),
+                const Icon(Icons.link_rounded, color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF1D4ED8)), size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -2952,7 +2952,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                                   ? Icons.arrow_downward
                                   : Icons.arrow_upward,
                               color: t == CashTransactionType.income
-                                  ? Colors.green
+                                  ? SboxColors.okSwatch
                                   : Colors.red,
                             ),
                           ))
@@ -3123,7 +3123,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
             ),
-            actions: [
+            actions: sboxBarActions([
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilledButton(
@@ -3133,7 +3133,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                       : Text(tr(widget.transaction == null ? 'Tạo' : 'Lưu')),
                 ),
               ),
-            ],
+            ]),
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -3430,7 +3430,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
             ),
-            actions: [
+            actions: sboxBarActions([
               if (canDelete)
                 TextButton(
                   onPressed: _isLoading ? null : _delete,
@@ -3448,7 +3448,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
                       : Text(tr(widget.category == null ? 'Tạo' : 'Lưu')),
                 ),
               ),
-            ],
+            ]),
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -3675,7 +3675,7 @@ class _BankAccountFormDialogState extends State<_BankAccountFormDialog> {
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
             ),
-            actions: [
+            actions: sboxBarActions([
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilledButton(
@@ -3685,7 +3685,7 @@ class _BankAccountFormDialogState extends State<_BankAccountFormDialog> {
                       : Text(tr(widget.account == null ? 'Tạo' : 'Lưu')),
                 ),
               ),
-            ],
+            ]),
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -3821,7 +3821,7 @@ class _VietQRDialogState extends State<_VietQRDialog> {
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Colors.green,
+              color: SboxColors.okSwatch,
             ),
           ),
           const SizedBox(height: 4),
@@ -4092,7 +4092,7 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
             ),
-            actions: [
+            actions: sboxBarActions([
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilledButton(
@@ -4106,7 +4106,7 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
                       : Text(tr('Tạo')),
                 ),
               ),
-            ],
+            ]),
           ),
           body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: formBody),
         ),

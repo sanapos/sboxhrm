@@ -178,8 +178,8 @@ class ThemeProvider extends ChangeNotifier {
         onErrorContainer: SboxColors.dangerText,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: surface,
-        foregroundColor: text,
+        backgroundColor: SboxColors.appBarBg(surface),
+        foregroundColor: SboxColors.appBarFg(text),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -187,7 +187,7 @@ class ThemeProvider extends ChangeNotifier {
         // Không đặt titleTextStyle / iconTheme: Flutter tự lấy textTheme.titleLarge + màu theo
         // foregroundColor. Đặt cứng ở đây thì AppBar nền màu (foregroundColor: white — công tác phí,
         // nguy cơ gian lận, đơn nghỉ…) vẫn chữ / mũi tên tối, gần như không đọc được.
-        shape: Border(bottom: BorderSide(color: border)),
+        shape: SboxColors.posApp ? null : Border(bottom: BorderSide(color: border)),
         systemOverlayStyle: kPlayOverlayOnDarkBg,
       ),
       cardTheme: CardThemeData(

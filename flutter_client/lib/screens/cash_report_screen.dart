@@ -711,7 +711,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
     if (_empSearch.isNotEmpty) parts.add('Tìm: $_empSearch');
 
     return Container(
-      color: const Color(0xFFE0F2FE),
+      color: (SboxColors.posApp ? SboxColors.page : Color(0xFFE0F2FE)),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
@@ -721,7 +721,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF0C4A6E)),
+                  color: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E))),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -988,7 +988,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
     final rows = _filtered;
     if (rows.isEmpty) return _emptyListState();
 
-    const hdrBg = Color(0xFFE0F2FE);
+    const hdrBg = (SboxColors.posApp ? SboxColors.page : Color(0xFFE0F2FE));
     const evenBg = Colors.white;
     const oddBg = SboxColors.slate50;
 

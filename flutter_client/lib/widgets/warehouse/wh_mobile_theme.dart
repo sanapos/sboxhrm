@@ -6,12 +6,12 @@ import '../../utils/vietnamese_font.dart';
 /// Design tokens — Material 3 + iOS (glass nhẹ, bo góc lớn, nhiều khoảng trắng).
 abstract final class WhMobileTheme {
   // ── Palette (tối giản, ít màu) ──────────────────────────────────────────
-  static const bg = Color(0xFFF2F2F7);
+  static const bg = SboxColors.posApp ? SboxColors.page : (SboxColors.posApp ? SboxColors.page : Color(0xFFF2F2F7));
   static const surface = Color(0xFFFFFFFF);
   static const surfaceGlass = Color(0xEFFFFFFF);
   // Màu nhấn theo brand chung hệ thống (trước đây dùng bảng iOS #007AFF… nên lệch màu).
   static const primary = SboxColors.brand600;
-  static const primaryMuted = Color(0x1A0F7BA8); // brand600 ~10% alpha
+  static const primaryMuted = SboxColors.posApp ? Color(0x1A147A7C) : Color(0x1A0F7BA8); // brand600 ~10% alpha
   static const accent = SboxColors.success;
   static const danger = SboxColors.danger;
   static const warning = SboxColors.warning;

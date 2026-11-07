@@ -228,7 +228,7 @@ class NotificationCreditsTabState extends State<NotificationCreditsTab> {
             spacing: 12,
             runSpacing: 12,
             children: [
-              _statCard(tr('Còn trong kho'), '$remain', Colors.green),
+              _statCard(tr('Còn trong kho'), '$remain', SboxColors.okSwatch),
               _statCard(tr('Đã mua Tingee'), '$purchased', SboxColors.brand500),
               _statCard(tr('Đã bán CH'), '$allocated', Colors.orange),
               _statCard(tr('Giá vốn/lượt'), '${costPer.toStringAsFixed(0)} đ',

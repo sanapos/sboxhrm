@@ -266,22 +266,22 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         padding: const EdgeInsets.all(12),
                         margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.1),
+                          color: SboxColors.okSwatch.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                              color: Colors.green.withValues(alpha: 0.3)),
+                              color: SboxColors.okSwatch.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Icon(Icons.check_circle_outline,
-                                color: Colors.green, size: 20),
+                                color: SboxColors.okSwatch, size: 20),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 tr(_successMessage!),
                                 style: const TextStyle(
-                                    color: Colors.green, fontSize: 14),
+                                    color: SboxColors.okSwatch, fontSize: 14),
                               ),
                             ),
                           ],

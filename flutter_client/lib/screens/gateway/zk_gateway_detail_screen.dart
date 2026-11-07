@@ -980,18 +980,18 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(
           _info.displayName,
-          style: const TextStyle(
-            color: HrmPageChrome.textDark,
+          style: TextStyle(
+            color: SboxColors.appBarFg(HrmPageChrome.textDark),
             fontWeight: FontWeight.w700,
             fontSize: 18,
           ),
         ),
-        iconTheme: const IconThemeData(color: HrmPageChrome.textDark),
+        iconTheme: IconThemeData(color: SboxColors.appBarFg(HrmPageChrome.textDark)),
         actions: [
           IconButton(
             tooltip: tr('Đổi tên'),

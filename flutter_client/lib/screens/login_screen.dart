@@ -85,9 +85,9 @@ class _LoginScreenState extends State<LoginScreen>
 
   bool get _isPos => SboxAppVariant.posBranding;
   Color get _brand =>
-      _isPos ? SboxColors.successText : SboxColors.brand600;
+      SboxColors.posApp ? SboxColors.brand700 : _isPos ? SboxColors.successText : SboxColors.brand600;
   Color get _brandDim =>
-      _isPos ? const Color(0xFF1B5E20) : const Color(0xFF004ABA);
+      SboxColors.posApp ? SboxColors.brand800 : _isPos ? (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF1B5E20)) : (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF004ABA));
   Timer? _agentLookupDebounce;
   String _appVersionLabel = '';
 
@@ -646,7 +646,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     return Scaffold(
       backgroundColor:
-          isDesktop ? null : const Color(0xFFF8F9FA),
+          isDesktop ? null : (SboxColors.posApp ? SboxColors.page : Color(0xFFF8F9FA)),
       body: isDesktop ? _buildDesktopLayout(size) : _buildMobileLayout(size),
     );
   }
@@ -683,7 +683,7 @@ class _LoginScreenState extends State<LoginScreen>
         'https://lh3.googleusercontent.com/aida-public/AB6AXuD6gKf5JQatbloDEXQAJyi7OUPnQiNzZORiDKYsBmYfd5RGNvPEOgNyL1K1NW3zrx3NMlwn7vfdnRQpjFl4njRzguVyN7-OTnFC3uKzO2NZxboaxRf0he8vwScXzAANWuVj-B3bWWox3NkiwL3EkbqgZsCF4UvY0S92s_ryURmITms5q7pfRNqenj848647ByfIGa-yEIcjh6nJXtHIPjZSgoX4keaiY1mtAA6DV5k-naedu6M8dnZQTEshrBgVY6JQ7G3-wOdyCsoG';
 
     return Container(
-      color: const Color(0xFFDAE2FF),
+      color: (SboxColors.posApp ? SboxColors.brand100 : Color(0xFFDAE2FF)),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -702,7 +702,7 @@ class _LoginScreenState extends State<LoginScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFFDAE2FF),
+                      (SboxColors.posApp ? SboxColors.brand100 : Color(0xFFDAE2FF)),
                       SboxColors.brand600.withValues(alpha: 0.3),
                     ],
                   ),
@@ -1275,7 +1275,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
 
     return Container(
-      color: _isPos ? Colors.white : const Color(0xFFF8F9FA),
+      color: _isPos ? Colors.white : (SboxColors.posApp ? SboxColors.page : Color(0xFFF8F9FA)),
       child: SafeArea(child: scrollContent),
     );
   }
@@ -1539,10 +1539,10 @@ class _LoginScreenState extends State<LoginScreen>
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F9FF),
+                color: (SboxColors.posApp ? SboxColors.brand50 : Color(0xFFF0F9FF)),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                    color: const Color(0xFF0891B2).withValues(alpha: 0.35)),
+                    color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0891B2)).withValues(alpha: 0.35)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1551,7 +1551,7 @@ class _LoginScreenState extends State<LoginScreen>
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
-                      color: Color(0xFF0C4A6E),
+                      color: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1564,7 +1564,7 @@ class _LoginScreenState extends State<LoginScreen>
                         icon: const Icon(Icons.phone_rounded, size: 16),
                         label: Text(tr('Gọi $_supportPhoneDisplay')),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0C4A6E),
+                          foregroundColor: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)),
                           visualDensity: VisualDensity.compact,
                         ),
                       ),
@@ -1576,7 +1576,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ? 'Zalo đại lý'
                                 : 'Zalo $_phoneNumber')),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0C4A6E),
+                          foregroundColor: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)),
                           visualDensity: VisualDensity.compact,
                         ),
                       ),

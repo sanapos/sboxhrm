@@ -1970,7 +1970,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     cells.addAll([
       _summaryTableCell(
         totals.totalHours > 0
-            ? _buildHoursBadge(totals.totalHours, Colors.green, isBold: true)
+            ? _buildHoursBadge(totals.totalHours, SboxColors.okSwatch, isBold: true)
             : Text(tr('—'),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: SboxColors.slate400)),
@@ -2296,13 +2296,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 icon: const Icon(Icons.fullscreen_exit),
                 onPressed: () => Navigator.pop(dialogCtx),
               ),
-              actions: [
+              actions: sboxBarActions([
                 TextButton.icon(
                   onPressed: () => Navigator.pop(dialogCtx),
                   icon: const Icon(Icons.close, size: 18),
                   label: Text(tr('Thoát')),
                 ),
-              ],
+              ]),
             ),
             body: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4215,7 +4215,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           shiftHourChips.add(_mobileCompactHourChip(
             label: 'Ca $i',
             value: _formatHours(h),
-            color: const Color(0xFF0F766E),
+            color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
           ));
         }
       }
@@ -4561,12 +4561,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: (isIn ? Colors.green : Colors.orange)
+                  color: (isIn ? SboxColors.okSwatch : Colors.orange)
                       .withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Icon(isIn ? Icons.login : Icons.logout,
-                    size: 15, color: isIn ? Colors.green : Colors.orange),
+                    size: 15, color: isIn ? SboxColors.okSwatch : Colors.orange),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -4593,10 +4593,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
+                color: SboxColors.okSwatch.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.login, size: 15, color: Colors.green),
+              child: const Icon(Icons.login, size: 15, color: SboxColors.okSwatch),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -4637,7 +4637,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 _formatHours(s.getShiftHours(i)),
                 icon: Icons.schedule,
                 iconColor: [
-                  Colors.teal,
+                  SboxColors.okSwatch,
                   Colors.indigo,
                   Colors.purple,
                   Colors.orange,
@@ -4649,7 +4649,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             'Tổng giờ',
             _formatHours(s.totalHours),
             icon: Icons.timer,
-            iconColor: Colors.green,
+            iconColor: SboxColors.okSwatch,
             isBold: true,
           ),
           if (_showTravelColumns && _travelHoursForSummary(s) > 0)
@@ -4681,7 +4681,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               iconColor: punchLocationDiffersFromAssigned(
                       s.punchLocation, s.branchName)
                   ? Colors.orange.shade800
-                  : Colors.teal,
+                  : SboxColors.okSwatch,
             ),
         ],
       );
@@ -4936,7 +4936,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     Map<String, Map<String, int>> daySttMap,
   ) {
     final shiftColors = [
-      Colors.teal,
+      SboxColors.okSwatch,
       Colors.indigo,
       Colors.purple,
       Colors.orange,
@@ -5124,7 +5124,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       }
 
       cells.add(_summaryTableCell(
-        _buildHoursBadge(summary.totalHours, Colors.green, isBold: true),
+        _buildHoursBadge(summary.totalHours, SboxColors.okSwatch, isBold: true),
       ));
 
       if (_showTravelColumns) {
@@ -5768,7 +5768,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     child: Row(
                       children: [
                         Icon(isIn ? Icons.login : Icons.logout,
-                            color: isIn ? Colors.green : Colors.red),
+                            color: isIn ? SboxColors.okSwatch : Colors.red),
                         const SizedBox(width: 8),
                         Text(
                           tr('${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}'),
@@ -6020,7 +6020,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: (isIn ? Colors.green : Colors.red)
+                                color: (isIn ? SboxColors.okSwatch : Colors.red)
                                     .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
@@ -6028,7 +6028,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                 tr(DateFormat('HH:mm').format(currentTime)),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: isIn ? Colors.green : Colors.red,
+                                  color: isIn ? SboxColors.okSwatch : Colors.red,
                                 ),
                               ),
                             ),
@@ -6064,7 +6064,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     child: Row(
                       children: [
                         Icon(isIn ? Icons.login : Icons.logout,
-                            color: isIn ? Colors.green : Colors.red),
+                            color: isIn ? SboxColors.okSwatch : Colors.red),
                         const SizedBox(width: 8),
                         Text(
                           tr('${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}'),

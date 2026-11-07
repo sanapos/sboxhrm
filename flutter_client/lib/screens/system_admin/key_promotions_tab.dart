@@ -177,7 +177,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                 color: isExpired
                     ? Colors.red.withValues(alpha: 0.1)
                     : isActive
-                        ? Colors.green.withValues(alpha: 0.1)
+                        ? SboxColors.okSwatch.withValues(alpha: 0.1)
                         : SboxColors.slate500.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10)),
             child: Text(
@@ -192,7 +192,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                     color: isExpired
                         ? Colors.red
                         : isActive
-                            ? Colors.green
+                            ? SboxColors.okSwatch
                             : SboxColors.slate500)),
           ),
         ]),
@@ -246,7 +246,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                     color: isExpired
                         ? Colors.red.withValues(alpha: 0.1)
                         : isActive
-                            ? Colors.green.withValues(alpha: 0.1)
+                            ? SboxColors.okSwatch.withValues(alpha: 0.1)
                             : SboxColors.slate500.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -260,7 +260,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                       color: isExpired
                           ? Colors.red
                           : isActive
-                              ? Colors.green
+                              ? SboxColors.okSwatch
                               : SboxColors.slate500,
                       fontWeight: FontWeight.w600,
                       fontSize: 12,

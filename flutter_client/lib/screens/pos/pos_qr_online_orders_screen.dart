@@ -140,7 +140,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
   Color _statusColor(String code) {
     switch (code) {
       case 'delivered':
-        return const Color(0xFF3F6F54);
+        return SboxColors.posApp ? SboxColors.brand600 : const Color(0xFF3F6F54);
       case 'cancelled':
         return SboxColors.dangerText;
       case 'shipping':
@@ -506,7 +506,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('$title — $message'),
-        backgroundColor: success ? Colors.green.shade700 : Colors.red.shade700,
+        backgroundColor: success ? SboxColors.okSwatch.shade700 : Colors.red.shade700,
         duration: const Duration(seconds: 5),
       ),
     );
@@ -1484,10 +1484,10 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
       appBar: HrmPageChrome.hideInPageTitle(context)
           ? null
           : AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
               surfaceTintColor: Colors.white,
               elevation: 0.5,
-              foregroundColor: SboxColors.text,
+              foregroundColor: SboxColors.appBarFg(SboxColors.text),
               automaticallyImplyLeading: pushed,
               title: Text(tr('Đơn online')),
             ),

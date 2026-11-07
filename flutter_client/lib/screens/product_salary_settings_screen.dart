@@ -104,12 +104,12 @@ class _ProductSalarySettingsScreenState
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: (!HrmPageChrome.isEmbedded && isMobile)
           ? AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
               elevation: 0,
               automaticallyImplyLeading: false,
               title: Text(tr('Lương sản phẩm'),
                 style: TextStyle(
-                  color: SboxColors.slate900,
+                  color: SboxColors.appBarFg(SboxColors.slate900),
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -118,14 +118,14 @@ class _ProductSalarySettingsScreenState
                 if (_perm.canCreate('ProductSalary')) ...[
                   IconButton(
                     onPressed: _showAddGroupDialog,
-                    icon: const Icon(Icons.create_new_folder_outlined,
-                        color: HrmPageChrome.primaryNavy),
+                    icon: Icon(Icons.create_new_folder_outlined,
+                        color: SboxColors.appBarFg(HrmPageChrome.primaryNavy)),
                     tooltip: tr('Thêm nhóm SP'),
                   ),
                   IconButton(
                     onPressed: _groups.isEmpty ? null : _showAddItemDialog,
-                    icon: const Icon(Icons.add_box_outlined,
-                        color: HrmPageChrome.primaryNavy),
+                    icon: Icon(Icons.add_box_outlined,
+                        color: SboxColors.appBarFg(HrmPageChrome.primaryNavy)),
                     tooltip: tr('Thêm sản phẩm'),
                   ),
                 ],

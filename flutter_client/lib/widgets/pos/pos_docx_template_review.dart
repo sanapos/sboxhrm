@@ -891,7 +891,7 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
             backgroundColor: PosTheme.background,
             appBar: AppBar(
               title: Text(_name.isEmpty ? tr('Mẫu Word') : _name),
-              actions: [
+              actions: sboxBarActions([
                 IconButton(
                     tooltip: tr('Tải file Word để sửa tay'),
                     onPressed: _loading ? null : _download,
@@ -911,8 +911,8 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                     label: Text(_isActive ? tr('Lưu') : tr('Lưu & dùng mẫu')),
                   ),
                 ),
-              ],
-              bottom: TabBar(
+              ]),
+              bottom: sboxBarTabs(TabBar(
                 isScrollable: true,
                 tabs: [
                   Tab(icon: const Icon(Icons.description_outlined, size: 18), text: tr('Mẫu gốc')),
@@ -924,7 +924,7 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                       icon: const Icon(Icons.list_alt, size: 18),
                       text: tr('Trường đã gắn (${_items.length})')),
                 ],
-              ),
+              )),
             ),
             body: _loading
                 ? const Center(child: CircularProgressIndicator())

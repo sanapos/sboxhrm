@@ -239,13 +239,13 @@ class _PosLabelTemplatesScreenState extends State<PosLabelTemplatesScreen> {
     ]);
     if (widget.embedded) return body;
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F4F8),
+      backgroundColor: (SboxColors.posApp ? SboxColors.page : Color(0xFFF1F4F8)),
       appBar: AppBar(
         title: Text(tr('Mẫu tem')),
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         surfaceTintColor: Colors.white,
         elevation: 0.5,
-        foregroundColor: SboxColors.text,
+        foregroundColor: SboxColors.appBarFg(SboxColors.text),
       ),
       body: body,
     );
@@ -363,7 +363,7 @@ class _DesignCard extends StatelessWidget {
                 Container(
                   height: 170,
                   decoration: const BoxDecoration(
-                    color: Color(0xFFF1F4F8),
+                    color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF1F4F8)),
                     borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
                   ),
                   alignment: Alignment.center,
@@ -520,7 +520,7 @@ class _NewLabelDialogState extends State<_NewLabelDialog> {
                       Container(
                         height: 120,
                         alignment: Alignment.center,
-                        color: const Color(0xFFF1F4F8),
+                        color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF1F4F8)),
                         child: _LabelThumb(design: p.build(_w, _h), maxW: 200, maxH: 105),
                       ),
                       const SizedBox(height: 6),

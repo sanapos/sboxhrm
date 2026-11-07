@@ -441,13 +441,13 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
             decoration: BoxDecoration(
                 color: isUsed
                     ? SboxColors.slate500.withValues(alpha: 0.1)
-                    : Colors.green.withValues(alpha: 0.1),
+                    : SboxColors.okSwatch.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10)),
             child: Text(tr(isUsed ? 'Đã dùng' : 'Chưa dùng'),
                 style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
-                    color: isUsed ? SboxColors.slate500 : Colors.green)),
+                    color: isUsed ? SboxColors.slate500 : SboxColors.okSwatch)),
           ),
         ]),
       ),

@@ -151,6 +151,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../theme/sbox_tokens.dart';
 import '../utils/pos_request_id.dart';
 const _kiotBlue = PosTheme.kiotBlue;
+/// Chữ, icon trên thanh trên màn bán hàng.
+const _barFg = SboxColors.posApp ? SboxColors.onChrome : Colors.white;
 
 /// Tỷ lệ / khoảng cách màn bán hàng theo KiotViet.
 /// Mật độ bán hàng chuẩn cảm ứng (≥44px hit, chống tràn chữ).
@@ -2109,7 +2111,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Widget? _buildOnlineOrdersToolbarButton({
-    Color iconColor = Colors.white,
+    Color iconColor = _barFg,
     bool labeled = true,
   }) {
     if (!_qrOnlineFeatureEnabled) return null;
@@ -4167,7 +4169,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   bool get _isSplitBill => (_tab.splitFromOrderId ?? '').isNotEmpty;
 
   Widget _buildTableGuestIconButton({
-    Color iconColor = Colors.white,
+    Color iconColor = _barFg,
     bool compact = false,
   }) {
     if (!_isTableOrderMode) return const SizedBox.shrink();
@@ -6730,18 +6732,18 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (total > 0) ...[
         const SizedBox(height: 2),
         Row(children: [
-          Icon(Icons.local_offer_outlined, size: 14, color: Colors.green.shade800),
+          Icon(Icons.local_offer_outlined, size: 14, color: SboxColors.okSwatch.shade800),
           const SizedBox(width: 4),
           Expanded(
             child: Text(
               tr('Khuyến mãi: ${r.applied.map((a) => a.name).join(', ')}'),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: Colors.green.shade800),
+              style: TextStyle(fontSize: 12, color: SboxColors.okSwatch.shade800),
             ),
           ),
           Text('-${_moneyFmt.format(total)}',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.green.shade800)),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: SboxColors.okSwatch.shade800)),
         ]),
       ],
       for (final s in r.suggestions)
@@ -14972,7 +14974,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         ...section('Tiền & ca', [
           if (canDrawer) item('open_drawer', Icons.lock_open_outlined, 'Mở két'),
           if (canMod('CashTransaction')) ...[
-            item('receipt', Icons.call_received_rounded, 'Lập phiếu thu', iconColor: Colors.green),
+            item('receipt', Icons.call_received_rounded, 'Lập phiếu thu', iconColor: SboxColors.okSwatch),
             item('payment', Icons.call_made_rounded, 'Lập phiếu chi', iconColor: Colors.red),
           ],
           if (canMod('PosCashierShift') && _industrySettings?.enableCashierShift == true)
@@ -15332,7 +15334,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               child: IgnorePointer(
                 ignoring: !_floorMapVisible,
                 child: Scaffold(
-                  backgroundColor: _kiotBlue,
+                  backgroundColor: SboxColors.posApp ? SboxColors.chrome : _kiotBlue,
                   body: SafeArea(
                     top: false,
                     child: Column(
@@ -15432,13 +15434,13 @@ class _PosSellScreenState extends State<PosSellScreen>
                 Icon(
                   icon,
                   size: 18,
-                  color: selected ? PosTheme.kiotBlue : Colors.white,
+                  color: selected ? PosTheme.kiotBlue : _barFg,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   tr(label),
                   style: TextStyle(
-                    color: selected ? PosTheme.kiotBlue : Colors.white,
+                    color: selected ? PosTheme.kiotBlue : _barFg,
                     fontWeight: FontWeight.w700,
                     fontSize: compact ? 13 : 14,
                   ),
@@ -15453,7 +15455,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
+        color: SboxColors.posApp ? SboxColors.slate100 : Colors.white.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -15607,7 +15609,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Widget _buildBookingToolbarButton({
-    Color iconColor = Colors.white,
+    Color iconColor = _barFg,
     bool labeled = true,
   }) {
     if (!_posModuleInPackage('PosBooking')) return const SizedBox.shrink();
@@ -15648,7 +15650,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final onFloor = floorPrimary && _floorMapVisible;
 
     return Material(
-      color: _kiotBlue,
+      color: SboxColors.posApp ? SboxColors.chrome : _kiotBlue,
       child: Container(
         height: _KiotLayout.topBarHeight,
         padding: const EdgeInsets.fromLTRB(8, 0, 4, 0),
@@ -15665,7 +15667,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                       ? Icons.apps_outlined
                       : Icons.home_outlined,
                   size: 22,
-                  color: Colors.white,
+                  color: _barFg,
                 ),
                 onPressed: _goMobileSellHome,
               ),
@@ -15722,7 +15724,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   child: const Icon(
                     Icons.notifications_outlined,
                     size: 22,
-                    color: Colors.white,
+                    color: _barFg,
                   ),
                 ),
               ),
@@ -15750,11 +15752,12 @@ class _PosSellScreenState extends State<PosSellScreen>
                 PosPendingPrintIconButton(
                   pendingCount: _printBadgeCount,
                   onTap: _openPendingPrintQueue,
+                  iconColor: _barFg,
                 ),
               IconButton(
                 constraints: _KiotLayout.topBarActionTap,
                 tooltip: tr('Menu'),
-                icon: const Icon(Icons.menu, size: 24, color: Colors.white),
+                icon: const Icon(Icons.menu, size: 24, color: _barFg),
                 onPressed: _openPosMenu,
               ),
             ]),
@@ -15791,7 +15794,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                       ),
                       if (i < _tabs.length - 1) const SizedBox(width: 4),
                     ],
-                    ..._pendingSlotChips(onBlue: true),
+                    ..._pendingSlotChips(onBlue: !SboxColors.posApp),
                   ],
                 ),
               ),
@@ -15816,7 +15819,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           if (showList)
             PopupMenuButton<int>(
               tooltip: tr('Danh sách hóa đơn (${_tabs.length})'),
-              icon: const Icon(Icons.expand_more, color: Colors.white),
+              icon: const Icon(Icons.expand_more, color: _barFg),
               onSelected: _selectTab,
               itemBuilder: (_) => [
                 for (var i = 0; i < _tabs.length; i++)
@@ -15878,7 +15881,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: Colors.white,
+            color: _barFg,
             fontWeight: FontWeight.w700,
             fontSize: 13,
           ),
@@ -15901,7 +15904,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               _invoiceTabChip(i),
               const SizedBox(width: 4),
             ],
-            ..._pendingSlotChips(onBlue: true, gap: 0),
+            ..._pendingSlotChips(onBlue: !SboxColors.posApp, gap: 0),
             IconButton(
               visualDensity: posWebHasTouchPoints() ? VisualDensity.standard : VisualDensity.compact,
               tooltip: tr('Thêm hóa đơn'),
@@ -15965,7 +15968,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           icon: Icons.sticky_note_2_outlined,
           label: 'In tem ly',
           badge: _cupLabelPendingCount > 0 ? '$_cupLabelPendingCount' : null,
-          iconColor: const Color(0xFF0D9488),
+          iconColor: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0D9488)),
           enabled: _cupLabelActionEnabled,
         ));
       }
@@ -16079,7 +16082,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     for (final a in actions)
                       Material(
                         color: a.enabled
-                            ? const Color(0xFFF4F6F8)
+                            ? (SboxColors.posApp ? SboxColors.page : Color(0xFFF4F6F8))
                             : const Color(0xFFF8F8F8),
                         borderRadius: BorderRadius.circular(14),
                         child: InkWell(
@@ -16174,7 +16177,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
   }
 
-  Widget _invoiceTabChip(int index, {bool onBlue = true}) {
+  Widget _invoiceTabChip(int index, {bool onBlue = !SboxColors.posApp}) {
     final active = index == _activeTab;
     final tab = _tabs[index];
     final hasItems = tab.localDirty
@@ -16343,7 +16346,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       padding: const EdgeInsets.symmetric(horizontal: _KiotLayout.sidePadding),
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: PosTheme.border)),
-        color: Color(0xFFFAFBFC),
+        color: (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFBFC)),
       ),
       child: Row(
         children: [
@@ -16674,7 +16677,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         tr('+ ${formatComboComponentsSubtitle(line.product.comboLines!, comboQty: line.qty)}'),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12, height: 1.25, color: Color(0xFF0F766E)),
+        style: const TextStyle(fontSize: 12, height: 1.25, color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E))),
       ));
     }
     final timerWidget = _lineTimerWidget(line);
@@ -16690,7 +16693,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         tr('${_promoLineLabel(line.promoLabel)}: -${_moneyFmt.format(line.promoDiscount)}'),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 12, height: 1.25, color: Colors.green.shade800, fontWeight: FontWeight.w600),
+        style: TextStyle(fontSize: 12, height: 1.25, color: SboxColors.okSwatch.shade800, fontWeight: FontWeight.w600),
       ));
     }
 
@@ -16778,7 +16781,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                         fontSize: 11,
                                         // Xanh khi đủ người; cam khi chưa gán / combo còn bước trống.
                                         color: _staffFullyAssigned(line)
-                                            ? const Color(0xFF0F766E)
+                                            ? (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E))
                                             : SboxColors.warningText,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -16959,7 +16962,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             height: 36,
             decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: PosTheme.border)),
-              color: Color(0xFFFAFBFC),
+              color: (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFBFC)),
             ),
             padding: const EdgeInsets.symmetric(horizontal: _KiotLayout.sidePadding),
             child: Row(
@@ -18540,7 +18543,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           backgroundColor: PosTheme.payGreen,
           foregroundColor: Colors.white,
           // Giỏ trống / không quyền: xám rõ — tránh nhìn như nút đang bấm được.
-          disabledBackgroundColor: SboxColors.slate300,
+          disabledBackgroundColor: SboxColors.posApp ? SboxColors.slate100 : SboxColors.slate300,
           disabledForegroundColor: SboxColors.slate600,
           minimumSize: Size(expanded ? double.infinity : 0, height),
           elevation: busy || _tab.cart.isEmpty || !canPay ? 0 : 2,
@@ -19041,8 +19044,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           children: [
             AppBar(
               title: Text(tr(_sellProfile.pickCatalogLabel)),
-              backgroundColor: Colors.white,
-              foregroundColor: PosTheme.textPrimary,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
+              foregroundColor: SboxColors.appBarFg(PosTheme.textPrimary),
               elevation: 0,
               leading: IconButton(
                 icon: const Icon(Icons.close),
@@ -19428,7 +19431,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             height: 36,
             decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: PosTheme.border)),
-              color: Color(0xFFFAFBFC),
+              color: (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFBFC)),
             ),
             padding:
                 const EdgeInsets.symmetric(horizontal: _KiotLayout.sidePadding),
@@ -19703,7 +19706,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final compact = Responsive.isMobile(context) && isPortrait;
 
     return Material(
-      color: _kiotBlue,
+      color: SboxColors.posApp ? SboxColors.chrome : _kiotBlue,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -19723,7 +19726,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                       ? Icons.apps_outlined
                       : Icons.home_outlined,
                   size: 22,
-                  color: Colors.white,
+                  color: _barFg,
                 ),
                 onPressed: _goMobileSellHome,
               ),
@@ -19773,7 +19776,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   child: const Icon(
                     Icons.notifications_outlined,
                     size: 22,
-                    color: Colors.white,
+                    color: _barFg,
                   ),
                 ),
               ),
@@ -19801,13 +19804,13 @@ class _PosSellScreenState extends State<PosSellScreen>
                 PosPendingPrintIconButton(
                   pendingCount: _printBadgeCount,
                   onTap: _openPendingPrintQueue,
-                  iconColor: Colors.white,
+                  iconColor: _barFg,
                   compact: true,
                 ),
               IconButton(
                 constraints: _KiotLayout.topBarActionTap,
                 tooltip: tr('Menu'),
-                icon: const Icon(Icons.menu, size: 26, color: Colors.white),
+                icon: const Icon(Icons.menu, size: 26, color: _barFg),
                 onPressed: _openPosMenu,
               ),
             ]),
@@ -19818,7 +19821,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           if (_tableAttachBusy)
             const LinearProgressIndicator(
               minHeight: 2,
-              color: Colors.white,
+              color: _barFg,
               backgroundColor: Color(0x33FFFFFF),
             ),
         ],
@@ -19844,7 +19847,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
               style: TextStyle(
-                color: Colors.white,
+                color: _barFg,
                 fontWeight: FontWeight.w700,
                 fontSize: compact ? 16 : 14,
               ),
@@ -19854,7 +19857,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.88),
+                color: _barFg.withValues(alpha: 0.88),
                 fontWeight: FontWeight.w600,
                 fontSize: compact ? 12 : 11,
               ),
@@ -20138,7 +20141,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               : _hasWarehouseSlipPending() || !cartOk
                   ? 'Xuất kho'
                   : 'Đã báo kho',
-          color: const Color(0xFF0F766E),
+          color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
           busy: _warehousePrinting,
           height: height,
           onPressed: cartOk && !_warehousePrinting && !busy
@@ -20193,9 +20196,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         onPay();
       },
       style: FilledButton.styleFrom(
-        backgroundColor: payEnabled ? payBg : SboxColors.slate300,
+        backgroundColor: payEnabled ? payBg : (SboxColors.posApp ? SboxColors.slate100 : SboxColors.slate300),
         foregroundColor: payEnabled ? Colors.white : SboxColors.slate600,
-        disabledBackgroundColor: SboxColors.slate300,
+        disabledBackgroundColor: SboxColors.posApp ? SboxColors.slate100 : SboxColors.slate300,
         disabledForegroundColor: SboxColors.slate600,
         minimumSize: Size(0, height),
         shape: RoundedRectangleBorder(
@@ -20298,14 +20301,14 @@ class _PosSellScreenState extends State<PosSellScreen>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Material(
-          color: _kiotBlue,
+          color: SboxColors.posApp ? SboxColors.chrome : _kiotBlue,
           child: SizedBox(
             height: _KiotLayout.topBarHeight,
             child: Row(
               children: [
                 IconButton(
                   tooltip: tr('Quay lại hóa đơn'),
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  icon: const Icon(Icons.arrow_back, color: _barFg),
                   onPressed: () {
                     setState(() {
                       _tabletPaymentStage = false;
@@ -20321,7 +20324,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                         '${(_tab.draftOrderNo ?? '').isNotEmpty ? ' · ${_tab.draftOrderNo}' : ''}'),
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: _barFg,
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
                     ),
@@ -20428,6 +20431,8 @@ class _PosSellScreenState extends State<PosSellScreen>
   Widget _buildMobileTopBar() {
     final inHub = PosHubScope.of(context);
     final tableMode = _isTableOrderMode;
+    const onBlue = SboxColors.darkChrome;
+    const barFg = onBlue ? SboxColors.onChrome : PosTheme.textPrimary;
     final bar = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -20440,7 +20445,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   constraints: _KiotLayout.topBarActionTap,
                   tooltip: tr('Thoát bàn'),
                   icon: const Icon(Icons.arrow_back_ios_new,
-                      color: PosTheme.kiotBlue, size: 18),
+                      color: onBlue ? SboxColors.onChrome : PosTheme.kiotBlue, size: 18),
                   onPressed: () => unawaited(_returnToFloorMap()),
                 ),
               if (tableMode) _KiotLayout.topBarActionGap,
@@ -20452,7 +20457,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: PosTheme.textPrimary,
+                    color: barFg,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -20474,7 +20479,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                         : '$_systemUnreadNotifications')),
                     child: const Icon(
                       Icons.notifications_outlined,
-                      color: PosTheme.textPrimary,
+                      color: barFg,
                     ),
                   ),
                 ),
@@ -20502,12 +20507,12 @@ class _PosSellScreenState extends State<PosSellScreen>
                   PosPendingPrintIconButton(
                     pendingCount: _printBadgeCount,
                     onTap: _openPendingPrintQueue,
-                    iconColor: PosTheme.textPrimary,
+                    iconColor: barFg,
                     compact: true,
                   ),
                 IconButton(
                   constraints: _KiotLayout.topBarActionTap,
-                  icon: const Icon(Icons.menu, color: PosTheme.textPrimary),
+                  icon: const Icon(Icons.menu, color: barFg),
                   tooltip: tr('Menu'),
                   onPressed: _openPosMenu,
                 ),
@@ -20589,10 +20594,10 @@ class _PosSellScreenState extends State<PosSellScreen>
                   ],
                   const SizedBox(width: 6),
                   for (var i = 0; i < _tabs.length; i++) ...[
-                    _invoiceTabChip(i, onBlue: false),
+                    _invoiceTabChip(i, onBlue: onBlue),
                     const SizedBox(width: 6),
                   ],
-                  ..._pendingSlotChips(onBlue: false, gap: 0),
+                  ..._pendingSlotChips(onBlue: onBlue, gap: 0),
                 ],
                   ),
                 ),
@@ -20616,10 +20621,10 @@ class _PosSellScreenState extends State<PosSellScreen>
             ),
             ),
           ),
-        const Divider(height: 1, color: PosTheme.border),
+        if (!SboxColors.posApp) const Divider(height: 1, color: PosTheme.border),
       ],
     );
-    return Material(color: Colors.white, child: bar);
+    return Material(color: SboxColors.appBarBg(Colors.white), child: bar);
   }
 
   Widget _buildMobileSellActionBar() {
@@ -20628,7 +20633,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
     final tableMode = _isTableOrderMode;
     return Material(
-      color: const Color(0xFFFAFBFC),
+      color: (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFBFC)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
         child: Row(
@@ -20702,11 +20707,11 @@ class _PosSellScreenState extends State<PosSellScreen>
                       style: const TextStyle(fontSize: 13),
                     ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0D9488),
+                      foregroundColor: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0D9488)),
                       side: BorderSide(
                         color: !_cupLabelActionEnabled
                             ? PosTheme.border
-                            : const Color(0xFF0D9488),
+                            : (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0D9488)),
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(
@@ -21740,8 +21745,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           backgroundColor: SboxColors.slate100,
           appBar: AppBar(
             title: Text(tr('Thanh toán')),
-            backgroundColor: Colors.white,
-            foregroundColor: PosTheme.textPrimary,
+            backgroundColor: SboxColors.appBarBg(Colors.white),
+            foregroundColor: SboxColors.appBarFg(PosTheme.textPrimary),
             elevation: 0,
           ),
           body: StatefulBuilder(
@@ -22017,7 +22022,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                       Text(
                         tr('${_promoLineLabel(line.promoLabel)} -${_moneyFmt.format(line.promoDiscount)}'),
                         style: TextStyle(
-                            fontSize: 12, color: Colors.green.shade800, fontWeight: FontWeight.w600),
+                            fontSize: 12, color: SboxColors.okSwatch.shade800, fontWeight: FontWeight.w600),
                       ),
                     if (hasNote)
                       Text(
@@ -22050,7 +22055,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF0F766E),
+                          color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
                         ),
                       ),
                     if (_isTableOrderMode && line.kitchenFullySent)

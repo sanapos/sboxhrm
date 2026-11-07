@@ -15,6 +15,7 @@ import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import 'pos_sale_return_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../theme/sbox_tokens.dart';
 
 /// Danh sách phiếu trả hàng bán.
 class PosSaleReturnListScreen extends StatefulWidget {
@@ -168,10 +169,10 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
       backgroundColor: SboxColors.page,
       appBar: pushed
           ? AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
               surfaceTintColor: Colors.white,
               elevation: 0.5,
-              foregroundColor: SboxColors.text,
+              foregroundColor: SboxColors.appBarFg(SboxColors.text),
               title: Text(tr('Trả hàng')),
             )
           : null,

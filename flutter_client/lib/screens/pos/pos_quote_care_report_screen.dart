@@ -113,14 +113,14 @@ class _PosQuoteCareReportScreenState extends State<PosQuoteCareReportScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Báo cáo chăm sóc khách')),
-        actions: [
+        actions: sboxBarActions([
           TextButton.icon(
             onPressed: () => Navigator.of(context)
                 .push(MaterialPageRoute(builder: (_) => const PosQuoteCareStaffScreen())),
             icon: const Icon(Icons.groups_outlined, size: 18),
             label: Text(tr('Theo nhân viên')),
           ),
-        ],
+        ]),
       ),
       body: RefreshIndicator(
         onRefresh: _load,

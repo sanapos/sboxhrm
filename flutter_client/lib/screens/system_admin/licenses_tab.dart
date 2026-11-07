@@ -533,7 +533,7 @@ class LicensesTabState extends State<LicensesTab> {
 
   Widget _buildLicenseDeckItem(Map<String, dynamic> license) {
     final status = _getStatus(license);
-    final statusColor = status == 'activated' ? Colors.green : status == 'available' ? SboxColors.brand500 : Colors.red;
+    final statusColor = status == 'activated' ? SboxColors.okSwatch : status == 'available' ? SboxColors.brand500 : Colors.red;
     final statusText = status == 'activated' ? 'K\u00edch ho\u1ea1t' : status == 'available' ? 'C\u00f2n tr\u1ed1ng' : 'Thu h\u1ed3i';
     final key = license['key']?.toString() ?? '';
     final licenseType = license['licenseType']?.toString() ?? '';

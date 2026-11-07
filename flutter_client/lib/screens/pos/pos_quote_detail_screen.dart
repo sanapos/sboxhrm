@@ -380,7 +380,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
           automaticallyImplyLeading: widget.onClose == null,
           // Cột chi tiết khi chia đôi: thanh tiêu đề thấp hơn, nhường chỗ cho nội dung.
           toolbarHeight: widget.onClose != null ? 48 : null,
-          actions: [
+          actions: sboxBarActions([
             if (q != null) ...[
               // In + xuất file + gửi khách gom vào một nút có chữ (trước: biểu tượng máy in + 6 mục xuất trong «⋮»).
               TextButton.icon(
@@ -406,7 +406,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
             ],
             if (widget.onClose != null)
               IconButton(tooltip: tr('Đóng'), icon: const Icon(Icons.close), onPressed: widget.onClose),
-          ],
+          ]),
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())

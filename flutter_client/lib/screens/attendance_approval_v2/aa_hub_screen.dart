@@ -7,6 +7,7 @@ import '../../services/api_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'aa_common.dart';
 import 'aa_detail.dart';
+import '../../theme/sbox_tokens.dart';
 
 /// Duyệt chấm công v2 — một hộp duyệt cho chấm công Mobile ngoài vị trí và yêu cầu sửa/bổ sung công.
 class AttendanceApprovalHubScreen extends StatefulWidget {
@@ -85,7 +86,7 @@ class _AttendanceApprovalHubScreenState extends State<AttendanceApprovalHubScree
     Navigator.of(context).push(MaterialPageRoute(
       builder: (ctx) => Scaffold(
         backgroundColor: SboxColors.white,
-        appBar: AppBar(title: Text(tr('Chi tiết duyệt')), backgroundColor: SboxColors.white, surfaceTintColor: SboxColors.white),
+        appBar: AppBar(title: Text(tr('Chi tiết duyệt')), backgroundColor: SboxColors.appBarBg(SboxColors.white), surfaceTintColor: SboxColors.white),
         body: AaDetailPane(
           item: it,
           api: _api,

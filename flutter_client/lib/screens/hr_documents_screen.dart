@@ -290,7 +290,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
     if (_expiringDocs.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.verified, size: 80, color: Colors.green[200]),
+          Icon(Icons.verified, size: 80, color: SboxColors.okSwatch[200]),
           const SizedBox(height: 16),
           Text(tr('Không có tài liệu sắp hết hạn'),
               style: TextStyle(color: SboxColors.slate500, fontSize: 16)),

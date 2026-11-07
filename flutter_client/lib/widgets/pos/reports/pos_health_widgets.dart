@@ -10,7 +10,7 @@ import '../pos_theme.dart';
 class PosHealth {
   PosHealth._();
 
-  static const green = Color(0xFF16A34A);
+  static const green = (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF16A34A));
   static const yellow = Color(0xFFD97706);
   static const red = Color(0xFFDC2626);
   static const grey = SboxColors.slate400;

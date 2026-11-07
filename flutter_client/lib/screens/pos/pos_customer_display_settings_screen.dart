@@ -304,10 +304,10 @@ class _PosCustomerDisplaySettingsScreenState
       backgroundColor: PosTheme.background,
       appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Màn hình phụ (khách)')),
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         surfaceTintColor: Colors.white,
         elevation: 0.5,
-        foregroundColor: SboxColors.text,
+        foregroundColor: SboxColors.appBarFg(SboxColors.text),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: tr('Quay lại'),
@@ -315,14 +315,14 @@ class _PosCustomerDisplaySettingsScreenState
         ),
         actions: [
           if (_saving || _uploading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(right: 16),
               child: Center(
                 child: SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
-                      strokeWidth: 2, color: SboxColors.primary),
+                      strokeWidth: 2, color: SboxColors.appBarFg(SboxColors.primary)),
                 ),
               ),
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'attendance_leave_lookup.dart';
+import '../theme/sbox_tokens.dart';
 
 /// Phạm vi ngày trên bảng tổng hợp chấm công (theo ca / chi tiết) — áp dụng cả file Excel / PNG xuất ra.
 enum AttendanceDayScope {
@@ -105,7 +106,7 @@ enum AttendanceFillDayKind {
         AttendanceFillDayKind.approvedLeave => const Color(0xFF1D4ED8),
         AttendanceFillDayKind.pendingLeave => const Color(0xFFC2410C),
         AttendanceFillDayKind.holiday => const Color(0xFF7C3AED),
-        AttendanceFillDayKind.weeklyOff => const Color(0xFF15803D),
+        AttendanceFillDayKind.weeklyOff => (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF15803D)),
         AttendanceFillDayKind.scheduleOff => const Color(0xFF64748B),
       };
 
@@ -115,7 +116,7 @@ enum AttendanceFillDayKind {
         AttendanceFillDayKind.approvedLeave => const Color(0xFFDBEAFE),
         AttendanceFillDayKind.pendingLeave => const Color(0xFFFFEDD5),
         AttendanceFillDayKind.holiday => const Color(0xFFEDE9FE),
-        AttendanceFillDayKind.weeklyOff => const Color(0xFFDCFCE7),
+        AttendanceFillDayKind.weeklyOff => (SboxColors.posApp ? SboxColors.brand50 : Color(0xFFDCFCE7)),
         AttendanceFillDayKind.scheduleOff => const Color(0xFFF1F5F9),
       };
 

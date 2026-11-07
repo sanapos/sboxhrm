@@ -1421,7 +1421,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         ? _qtyFmt.format(qty)
         : null;
     return Material(
-      color: selected ? const Color(0xFFE8F0FE) : SboxColors.slate50,
+      color: selected ? (SboxColors.posApp ? SboxColors.page : Color(0xFFE8F0FE)) : SboxColors.slate50,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),

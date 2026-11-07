@@ -249,7 +249,7 @@ class _PageEditorDialogState extends State<_PageEditorDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(tr('Đã lưu ${widget.label}')),
-            backgroundColor: Colors.green),
+            backgroundColor: SboxColors.okSwatch),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -643,7 +643,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(tr('Cập nhật trạng thái thành công')),
-              backgroundColor: Colors.green),
+              backgroundColor: SboxColors.okSwatch),
         );
       }
     }

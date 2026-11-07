@@ -338,8 +338,8 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: SboxColors.slate900,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
+        foregroundColor: SboxColors.appBarFg(SboxColors.slate900),
         elevation: 0,
         title: Text(
           f == null ? tr('Kiến nghị') : (f['code']?.toString() ?? tr(FeedbackUi.categories[f['category']] ?? 'Kiến nghị')),

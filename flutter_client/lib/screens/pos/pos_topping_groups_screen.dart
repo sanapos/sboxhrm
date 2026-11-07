@@ -514,10 +514,10 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
       backgroundColor: PosTheme.background,
       appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Nhóm topping')),
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         surfaceTintColor: Colors.white,
         elevation: 0.5,
-        foregroundColor: SboxColors.text,
+        foregroundColor: SboxColors.appBarFg(SboxColors.text),
         actions: [
         ],
       )),

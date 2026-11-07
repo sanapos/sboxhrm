@@ -166,7 +166,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Theo dõi chăm sóc khách')),
-        actions: [
+        actions: sboxBarActions([
           // Nút có chữ (trước: biểu tượng nhóm người không nhãn — không ai biết có báo cáo).
           TextButton.icon(
             icon: const Icon(Icons.bar_chart_outlined, size: 18),
@@ -180,7 +180,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
             onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const PosQuoteCareStaffScreen())),
           ),
-        ],
+        ]),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -454,7 +454,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
                         _tag(tr('${i.contactCount} lần liên hệ'),
                             Colors.blueGrey),
                         if (i.otherQuotes > 0)
-                          _tag(tr('Khách còn ${i.otherQuotes} báo giá khác'), Colors.indigo),
+                          _tag(tr('Khách còn ${i.otherQuotes} báo giá khác'), (SboxColors.posApp ? SboxColors.brand600 : Colors.indigo)),
                         if (i.history.length > 1) _sparkline(i.history),
                       ],
                     ),
@@ -508,7 +508,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
               if (trendIcon != null)
                 Icon(trendIcon,
                     size: 12,
-                    color: i.trend > 0 ? Colors.green.shade700 : Colors.red),
+                    color: i.trend > 0 ? SboxColors.okSwatch.shade700 : Colors.red),
             ],
           ),
         ],

@@ -5220,7 +5220,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                                 CircularProgressIndicator(
                                   value: progress,
                                   backgroundColor: Colors.white.withValues(alpha: 0.15),
-                                  valueColor: const AlwaysStoppedAnimation(Color(0xFF34D399)),
+                                  valueColor: const AlwaysStoppedAnimation((SboxColors.posApp ? SboxColors.brand300 : Color(0xFF34D399))),
                                   strokeWidth: 4,
                                 ),
                                 Center(
@@ -5236,7 +5236,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                               children: [
                                 _headerStat('Tổng SP', '${_inventory.totalAssets}', Colors.white),
                                 Container(width: 1, height: 30, color: Colors.white.withValues(alpha: 0.15), margin: const EdgeInsets.symmetric(horizontal: 10)),
-                                _headerStat('Đã kiểm', '${_inventory.checkedCount}', const Color(0xFF34D399)),
+                                _headerStat('Đã kiểm', '${_inventory.checkedCount}', (SboxColors.posApp ? SboxColors.brand300 : Color(0xFF34D399))),
                                 Container(width: 1, height: 30, color: Colors.white.withValues(alpha: 0.15), margin: const EdgeInsets.symmetric(horizontal: 10)),
                                 _headerStat('Còn lại', '${_inventory.totalAssets - _inventory.checkedCount}', const Color(0xFFFBBF24)),
                                 if (_inventory.issueCount > 0) ...[
@@ -5305,7 +5305,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: _inventory.isCompleted ? SboxColors.successSoft : SboxColors.dangerSoft,
-                  border: Border(bottom: BorderSide(color: _inventory.isCompleted ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA))),
+                  border: Border(bottom: BorderSide(color: _inventory.isCompleted ? (SboxColors.posApp ? SboxColors.brand100 : Color(0xFFBBF7D0)) : const Color(0xFFFECACA))),
                 ),
                 child: Row(
                   children: [
@@ -5458,7 +5458,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
           decoration: BoxDecoration(
             color: diff < 0 ? SboxColors.dangerSoft : diff > 0 ? SboxColors.warningSoft : SboxColors.successSoft,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: diff < 0 ? const Color(0xFFFECACA) : diff > 0 ? const Color(0xFFFED7AA) : const Color(0xFFBBF7D0), width: 0.5),
+            border: Border.all(color: diff < 0 ? const Color(0xFFFECACA) : diff > 0 ? const Color(0xFFFED7AA) : (SboxColors.posApp ? SboxColors.brand100 : Color(0xFFBBF7D0)), width: 0.5),
           ),
           child: Row(
             children: [
@@ -5538,7 +5538,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             : Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: checked
-            ? (diff < 0 ? const Color(0xFFFECACA) : diff > 0 ? const Color(0xFFFED7AA) : const Color(0xFFBBF7D0))
+            ? (diff < 0 ? const Color(0xFFFECACA) : diff > 0 ? const Color(0xFFFED7AA) : (SboxColors.posApp ? SboxColors.brand100 : Color(0xFFBBF7D0)))
             : SboxColors.slate200),
       ),
       child: Row(

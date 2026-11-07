@@ -389,7 +389,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
             onPressed: () => Navigator.pop(ctx, 'approve'),
             icon: const Icon(Icons.check),
             label: Text(tr('Duyệt')),
-            style: FilledButton.styleFrom(backgroundColor: Colors.green),
+            style: FilledButton.styleFrom(backgroundColor: SboxColors.okSwatch),
           ),
         ],
       ),
@@ -696,7 +696,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
   Color _getActionColor(dynamic action) {
     switch (_parseAction(action)) {
       case 0:
-        return Colors.green;
+        return SboxColors.okSwatch;
       case 1:
         return SboxColors.brand500;
       case 2:
@@ -724,7 +724,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       case 0:
         return Colors.orange;
       case 1:
-        return Colors.green;
+        return SboxColors.okSwatch;
       case 2:
         return Colors.red;
       default:
@@ -799,7 +799,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       case 0:
         return Colors.orange;
       case 1:
-        return Colors.green;
+        return SboxColors.okSwatch;
       case 2:
         return Colors.red;
       case 3:
@@ -922,7 +922,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               valueColor: AlwaysStoppedAnimation<Color>(
                 statusInt == 2
                     ? Colors.red
-                    : (currentStep >= totalLevels ? Colors.green : SboxColors.brand500),
+                    : (currentStep >= totalLevels ? SboxColors.okSwatch : SboxColors.brand500),
               ),
               minHeight: 6,
             ),
@@ -1058,7 +1058,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                         icon: const Icon(Icons.check, size: 18),
                         label: Text(tr('Duyệt')),
                         style: FilledButton.styleFrom(
-                          backgroundColor: Colors.green,
+                          backgroundColor: SboxColors.okSwatch,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
@@ -1199,11 +1199,11 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           Color dotColor;
           if (statusInt == 2) {
             dotColor = i < currentStep
-                ? Colors.green
+                ? SboxColors.okSwatch
                 : (i == currentStep ? Colors.red : SboxColors.slate300);
           } else {
             dotColor = i < currentStep
-                ? Colors.green
+                ? SboxColors.okSwatch
                 : (i == currentStep && statusInt == 0
                     ? Colors.orange
                     : SboxColors.slate300);
@@ -1407,7 +1407,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     final tabs = [
       {'label': 'Tất cả', 'value': -1, 'color': SboxColors.slate500},
       {'label': 'Chờ duyệt', 'value': 0, 'color': Colors.orange},
-      {'label': 'Đã duyệt', 'value': 1, 'color': Colors.green},
+      {'label': 'Đã duyệt', 'value': 1, 'color': SboxColors.okSwatch},
       {'label': 'Từ chối', 'value': 2, 'color': Colors.red},
     ];
     return Container(
@@ -2177,7 +2177,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                         label:
                             Text(tr('Duyệt'), style: TextStyle(fontSize: 12)),
                         style: FilledButton.styleFrom(
-                          backgroundColor: Colors.green,
+                          backgroundColor: SboxColors.okSwatch,
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           visualDensity: VisualDensity.compact,
                         ),
@@ -2212,7 +2212,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
             _buildActionBtn(
               icon: Icons.check_circle_outline,
               tooltip: tr('Duyệt'),
-              color: Colors.green,
+              color: SboxColors.okSwatch,
               onTap: () => _approveRequest(req),
             ),
           const SizedBox(width: 4),

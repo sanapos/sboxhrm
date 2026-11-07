@@ -15,6 +15,7 @@ import '../../widgets/sbox/sbox_ui.dart';
 import 'comm_common.dart';
 import 'comm_editor.dart';
 import 'comm_post.dart';
+import '../../theme/sbox_tokens.dart';
 
 /// Truyền thông v2 — mạng xã hội nội bộ.
 class CommHubScreen extends StatefulWidget {
@@ -1029,7 +1030,7 @@ class _CommInsightsPageState extends State<CommInsightsPage> {
     final d = _data;
     return Scaffold(
       backgroundColor: SboxColors.page,
-      appBar: AppBar(backgroundColor: SboxColors.surface, surfaceTintColor: Colors.transparent, title: Text(tr('Thống kê truyền thông'))),
+      appBar: AppBar(backgroundColor: SboxColors.appBarBg(SboxColors.surface), surfaceTintColor: Colors.transparent, title: Text(tr('Thống kê truyền thông'))),
       body: d == null
           ? const SboxLoading()
           : SboxReportLayout(

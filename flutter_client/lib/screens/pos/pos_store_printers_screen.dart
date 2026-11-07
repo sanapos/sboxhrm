@@ -937,10 +937,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         overflow: TextOverflow.ellipsis,
         maxLines: 1,
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: SboxColors.appBarBg(Colors.white),
         surfaceTintColor: Colors.white,
         elevation: 0.5,
-      foregroundColor: SboxColors.text,
+      foregroundColor: SboxColors.appBarFg(SboxColors.text),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         tooltip: tr('Quay lại'),
@@ -1313,13 +1313,13 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                           fontSize: 11,
                           color: _isLocalAssignedToAgent(local)
                               ? Colors.white
-                              : const Color(0xFF0C4A6E),
+                              : (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)),
                         ),
                       ),
                       selected: _isLocalAssignedToAgent(local),
                       selectedColor: const Color(0xFF0284C7),
                       checkmarkColor: Colors.white,
-                      backgroundColor: const Color(0xFFE0F2FE),
+                      backgroundColor: (SboxColors.posApp ? SboxColors.page : Color(0xFFE0F2FE)),
                       side: const BorderSide(color: Color(0xFF7DD3FC)),
                       onSelected: _agentAssignBusy || !_canManageCloudPrinters
                           ? null
@@ -1370,7 +1370,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               Padding(
                 padding: EdgeInsets.only(top: 6),
                 child: Text(tr('● Đang chia sẻ — sẵn sàng nhận lệnh in của máy khác'),
-                  style: TextStyle(color: Colors.green, fontSize: 12),
+                  style: TextStyle(color: SboxColors.okSwatch, fontSize: 12),
                 ),
               ),
             const SizedBox(height: 10),
@@ -1456,7 +1456,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: mine
-                          ? const Color(0xFF86EFAC)
+                          ? (SboxColors.posApp ? SboxColors.brand300 : Color(0xFF86EFAC))
                           : SboxColors.slate200,
                     ),
                   ),
@@ -1670,7 +1670,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         _agent.enabled && _agent.assignedPrinterIds.contains(p.id);
     final ready = locallyReady || (viaAgent && !locallyLost && p.isOnline);
     final statusColor = ready
-        ? Colors.green
+        ? SboxColors.okSwatch
         : (locallyLost || p.healthStatus == 'Offline')
             ? Colors.red
             : SboxColors.slate500;
@@ -1691,7 +1691,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         ? SboxColors.successSoft
         : (locallyLost
             ? SboxColors.dangerSoft
-            : (isAgentCloud ? const Color(0xFFE0F2FE) : PosTheme.kiotBlueLight));
+            : (isAgentCloud ? (SboxColors.posApp ? SboxColors.page : Color(0xFFE0F2FE)) : PosTheme.kiotBlueLight));
     final avatarFg = ready
         ? SboxColors.payHover
         : (locallyLost
@@ -1723,7 +1723,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
           title: Text(
             tr(mine ? '${p.name} · máy này' : p.name),
             style: TextStyle(
-              color: isAgentCloud ? const Color(0xFF0C4A6E) : null,
+              color: isAgentCloud ? (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)) : null,
               fontWeight: isAgentCloud ? FontWeight.w600 : FontWeight.w500,
             ),
           ),

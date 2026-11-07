@@ -380,7 +380,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         elevation: 0,
         automaticallyImplyLeading: false,
         leading: null,
@@ -389,11 +389,11 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             ? null
             : Text(tr('Chấm công Mobile'),
                 style: TextStyle(
-                  color: SboxColors.slate900,
+                  color: SboxColors.appBarFg(SboxColors.slate900),
                   fontWeight: FontWeight.bold,
                 ),
               ),
-        bottom: TabBar(
+        bottom: sboxBarTabs(TabBar(
           controller: _tabController,
           labelPadding: const EdgeInsets.symmetric(horizontal: 4),
           labelColor: HrmPageChrome.primaryNavy,
@@ -418,7 +418,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 ),
               ),
           ],
-        ),
+        )),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

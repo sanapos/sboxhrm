@@ -1402,7 +1402,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     : price > 0
                         ? tr('Bán ${_fmtInputMoney(price)} đ → khách tích ${_fmtInputMoney(earn)} đ vào ví điểm, lần sau trừ vào đơn mới.')
                         : tr('Khách được tích ${_fmtPercent(pct)}% tiền thực trả của món này vào ví điểm.'),
-                style: TextStyle(fontSize: 12, color: pct == null ? Colors.black54 : Colors.green.shade700),
+                style: TextStyle(fontSize: 12, color: pct == null ? Colors.black54 : SboxColors.okSwatch.shade700),
               ),
               ],
             ],
@@ -2021,7 +2021,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       decoration: BoxDecoration(
         color: SboxColors.successSoft,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFBBF7D0)),
+        border: Border.all(color: (SboxColors.posApp ? SboxColors.brand100 : Color(0xFFBBF7D0))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2466,18 +2466,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr(_pageTitle)),
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         surfaceTintColor: Colors.white,
-        foregroundColor: SboxColors.text,
+        foregroundColor: SboxColors.appBarFg(SboxColors.text),
         elevation: 0,
-        bottom: TabBar(
+        bottom: sboxBarTabs(TabBar(
           controller: _tabs,
           isScrollable: _tabLabels.length > 4,
           labelColor: SboxColors.primary,
           unselectedLabelColor: SboxColors.textMuted,
           indicatorColor: SboxColors.primary,
           tabs: _tabLabels.map((t) => Tab(text: tr(t))).toList(),
-        ),
+        )),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: PosTheme.primary))

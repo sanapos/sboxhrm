@@ -359,13 +359,13 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                             const Icon(
                                                 Icons
                                                     .check_circle_outline_rounded,
-                                                color: Color(0xFF86EFAC),
+                                                color: (SboxColors.posApp ? SboxColors.brand300 : Color(0xFF86EFAC)),
                                                 size: 20),
                                             const SizedBox(width: 12),
                                             Expanded(
                                               child: Text(tr(_successMessage!),
                                                   style: const TextStyle(
-                                                      color: Color(0xFF86EFAC),
+                                                      color: (SboxColors.posApp ? SboxColors.brand300 : Color(0xFF86EFAC)),
                                                       fontSize: 13)),
                                             ),
                                           ],

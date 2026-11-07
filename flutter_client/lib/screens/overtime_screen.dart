@@ -820,7 +820,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                           onPressed: () => Navigator.pop(ctx)),
                       title: Row(children: [
                         Icon(Icons.more_time,
-                            color: HrmPageChrome.primaryNavy, size: 20),
+                            color: SboxColors.appBarFg(HrmPageChrome.primaryNavy), size: 20),
                         SizedBox(width: 10),
                         Expanded(child: Text(tr('Đăng ký tăng ca')))
                       ]),

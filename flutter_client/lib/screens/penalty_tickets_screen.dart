@@ -251,7 +251,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       case 'Pending':
         return Colors.orange;
       case 'Approved':
-        return Colors.green;
+        return SboxColors.okSwatch;
       case 'AutoApproved':
         return SboxColors.brand500;
       case 'Cancelled':
@@ -903,16 +903,16 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               child: Scaffold(
                 backgroundColor: Colors.white,
                 appBar: AppBar(
-                  backgroundColor: Colors.white,
+                  backgroundColor: SboxColors.appBarBg(Colors.white),
                   elevation: 0,
                   leading: IconButton(
-                    icon: const Icon(Icons.close, color: SboxColors.slate900),
+                    icon: Icon(Icons.close, color: SboxColors.appBarFg(SboxColors.slate900)),
                     onPressed: () => Navigator.pop(context),
                   ),
                   title: Text(
                     tr(isEditing ? 'Sửa phiếu phạt' : 'Tạo phiếu phạt'),
-                    style: const TextStyle(
-                        color: SboxColors.slate900,
+                    style: TextStyle(
+                        color: SboxColors.appBarFg(SboxColors.slate900),
                         fontSize: 16,
                         fontWeight: FontWeight.bold),
                   ),
@@ -944,7 +944,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                             label: Text(tr('Tạo & Duyệt'),
                                 style: TextStyle(fontSize: 13)),
                             style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.green),
+                                foregroundColor: SboxColors.okSwatch),
                           ),
                           const SizedBox(width: 8),
                         ],
@@ -1034,7 +1034,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                               : const Icon(Icons.check_circle),
                           label: Text(tr('Tạo & Duyệt')),
                           style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.green),
+                              foregroundColor: SboxColors.okSwatch),
                         ),
                         const SizedBox(width: 8),
                       ],
@@ -1427,7 +1427,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
+                Icon(Icons.check_circle_outline, size: 64, color: SboxColors.okSwatch),
                 SizedBox(height: 16),
                 Text(tr('Không có phiếu phạt'),
                     style: TextStyle(fontSize: 16, color: SboxColors.slate500)),
@@ -1574,7 +1574,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   'Đã duyệt',
                   ((_stats['totalApproved'] ?? 0) as int) +
                       ((_stats['totalAutoApproved'] ?? 0) as int),
-                  Colors.green,
+                  SboxColors.okSwatch,
                   amount: (_stats['approvedAmount'] as num?)?.toDouble())),
           const SizedBox(width: 8),
           Expanded(
@@ -1923,7 +1923,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
+            Icon(Icons.check_circle_outline, size: 64, color: SboxColors.okSwatch),
             SizedBox(height: 16),
             Text(tr('Không có phiếu phạt'),
                 style: TextStyle(fontSize: 16, color: SboxColors.slate500)),
@@ -2229,7 +2229,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                           if (ticket['cashTransactionCode'] != null) ...[
                             Text(tr('${tr('Phiếu thu: ')}${ticket['cashTransactionCode']}'),
                                 style: TextStyle(
-                                    fontSize: 11, color: Colors.green[600])),
+                                    fontSize: 11, color: SboxColors.okSwatch[600])),
                             const SizedBox(width: 8),
                           ] else if (ticket['collectionMethod'] == 'Salary') ...[
                             Text(tr('Trừ vào lương'),

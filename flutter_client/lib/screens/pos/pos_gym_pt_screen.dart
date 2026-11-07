@@ -8,6 +8,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_gym_trainer.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'pos_gym_checkin_screen.dart';
+import '../../theme/sbox_tokens.dart';
 
 final _hm = DateFormat('HH:mm');
 final _dm = DateFormat('dd/MM');
@@ -99,9 +100,9 @@ class _PosGymPtScreenState extends State<PosGymPtScreen> with SingleTickerProvid
           ? null
           : AppBar(
               title: Text(tr('PT · Khách của tôi')),
-              backgroundColor: Colors.white,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
               surfaceTintColor: Colors.white,
-              foregroundColor: SboxColors.text,
+              foregroundColor: SboxColors.appBarFg(SboxColors.text),
               elevation: 0.5,
             ),
       body: _me == null

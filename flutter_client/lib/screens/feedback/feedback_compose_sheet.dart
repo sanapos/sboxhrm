@@ -120,8 +120,8 @@ class _FeedbackComposeState extends State<_FeedbackCompose> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: SboxColors.slate900,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
+        foregroundColor: SboxColors.appBarFg(SboxColors.slate900),
         elevation: 0,
         title: Text(tr('Gửi kiến nghị / khiếu nại'), style: const TextStyle(fontWeight: FontWeight.w700)),
         leading: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),

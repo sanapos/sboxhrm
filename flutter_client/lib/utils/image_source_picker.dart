@@ -83,7 +83,7 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
             ListTile(
               leading: const CircleAvatar(
                 backgroundColor: SboxColors.successSoft,
-                child: Icon(Icons.photo_library, color: Colors.green),
+                child: Icon(Icons.photo_library, color: SboxColors.okSwatch),
               ),
               title: Text(tr('Chọn từ thư viện')),
               subtitle: Text(tr('Chọn ảnh có sẵn trong máy')),

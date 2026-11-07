@@ -196,9 +196,9 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   bool get _isPos => SboxAppVariant.posBranding;
   Color get _brand =>
-      _isPos ? SboxColors.successText : SboxColors.brand600;
+      SboxColors.posApp ? SboxColors.brand700 : _isPos ? SboxColors.successText : SboxColors.brand600;
   Color get _brandDim =>
-      _isPos ? const Color(0xFF1B5E20) : const Color(0xFF004ABA);
+      SboxColors.posApp ? SboxColors.brand800 : _isPos ? (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF1B5E20)) : (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF004ABA));
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -540,7 +540,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         'https://lh3.googleusercontent.com/aida-public/AB6AXuD6gKf5JQatbloDEXQAJyi7OUPnQiNzZORiDKYsBmYfd5RGNvPEOgNyL1K1NW3zrx3NMlwn7vfdnRQpjFl4njRzguVyN7-OTnFC3uKzO2NZxboaxRf0he8vwScXzAANWuVj-B3bWWox3NkiwL3EkbqgZsCF4UvY0S92s_ryURmITms5q7pfRNqenj848647ByfIGa-yEIcjh6nJXtHIPjZSgoX4keaiY1mtAA6DV5k-naedu6M8dnZQTEshrBgVY6JQ7G3-wOdyCsoG';
 
     return Container(
-      color: const Color(0xFFDAE2FF),
+      color: (SboxColors.posApp ? SboxColors.brand100 : Color(0xFFDAE2FF)),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -557,7 +557,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFFDAE2FF),
+                      (SboxColors.posApp ? SboxColors.brand100 : Color(0xFFDAE2FF)),
                       SboxColors.brand600.withValues(alpha: 0.3),
                     ],
                   ),
@@ -1222,7 +1222,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
 
     return Container(
-      color: _isPos ? Colors.white : const Color(0xFFF8F9FA),
+      color: _isPos ? Colors.white : (SboxColors.posApp ? SboxColors.page : Color(0xFFF8F9FA)),
       child: SafeArea(
         child: isDesktop
             ? Stack(
@@ -1338,7 +1338,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           color: _isPos ? SboxColors.successSoft : const Color(0xFFF4F8FF),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-              color: _isPos ? const Color(0xFFC8E6C9) : const Color(0xFFD6E4FF)),
+              color: _isPos ? (SboxColors.posApp ? SboxColors.brand100 : Color(0xFFC8E6C9)) : const Color(0xFFD6E4FF)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1631,7 +1631,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         color: isError ? SboxColors.dangerSoft : SboxColors.successSoft,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isError ? const Color(0xFFFECACA) : const Color(0xFFBBF7D0),
+          color: isError ? const Color(0xFFFECACA) : (SboxColors.posApp ? SboxColors.brand100 : Color(0xFFBBF7D0)),
         ),
       ),
       child: Row(

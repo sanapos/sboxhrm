@@ -460,7 +460,7 @@ class _AttendanceCorrectionsScreenState
       case CorrectionStatus.pending:
         return Colors.orange;
       case CorrectionStatus.approved:
-        return Colors.green;
+        return SboxColors.okSwatch;
       case CorrectionStatus.rejected:
         return Colors.red;
     }
@@ -469,7 +469,7 @@ class _AttendanceCorrectionsScreenState
   Color _getActionColor(CorrectionAction action) {
     switch (action) {
       case CorrectionAction.add:
-        return Colors.green;
+        return SboxColors.okSwatch;
       case CorrectionAction.edit:
         return SboxColors.brand500;
       case CorrectionAction.delete:
@@ -482,7 +482,7 @@ class _AttendanceCorrectionsScreenState
       case ApprovalStatus.pending:
         return Colors.orange;
       case ApprovalStatus.approved:
-        return Colors.green;
+        return SboxColors.okSwatch;
       case ApprovalStatus.rejected:
         return Colors.red;
       case ApprovalStatus.cancelled:
@@ -831,13 +831,13 @@ class _AttendanceCorrectionsScreenState
                         request.status == CorrectionStatus.rejected;
                     if (isRejected) {
                       dotColor = i < request.currentApprovalStep
-                          ? Colors.green
+                          ? SboxColors.okSwatch
                           : (i == request.currentApprovalStep
                               ? Colors.red
                               : SboxColors.slate300);
                     } else {
                       dotColor = i < request.currentApprovalStep
-                          ? Colors.green
+                          ? SboxColors.okSwatch
                           : (i == request.currentApprovalStep &&
                                   request.status == CorrectionStatus.pending
                               ? Colors.orange
@@ -916,7 +916,7 @@ class _AttendanceCorrectionsScreenState
       appBar: AppBar(
         title: Text(tr('Sửa chấm công'),
             overflow: TextOverflow.ellipsis, maxLines: 1),
-        bottom: TabBar(
+        bottom: sboxBarTabs(TabBar(
           controller: _tabController,
           tabs: [
             Tab(
@@ -945,7 +945,7 @@ class _AttendanceCorrectionsScreenState
             ),
             Tab(text: tr('Tất cả')),
           ],
-        ),
+        )),
       ),
       body: HrmFabClearance(
         fabVisible: showCreateFab,

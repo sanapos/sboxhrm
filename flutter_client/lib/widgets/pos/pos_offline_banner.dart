@@ -5,6 +5,7 @@ import '../../screens/pos/pos_offline_sales_screen.dart';
 import '../../services/pos_network_monitor.dart';
 import '../../services/pos_offline_service.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../../theme/sbox_tokens.dart';
 
 /// Thanh trạng thái mạng trên màn bán hàng: mất kết nối máy chủ / đang gửi đơn offline / đơn offline lỗi.
 class PosOfflineBanner extends StatelessWidget {
@@ -50,7 +51,7 @@ class PosOfflineBanner extends StatelessWidget {
               '${pending > 0 ? ' $pending đơn offline' : ''}'
               '${carts > 0 ? '${pending > 0 ? ',' : ''} $carts giỏ hàng chưa lưu' : ''}'
               ' lên máy chủ…';
-          bg = const Color(0xFF1565C0);
+          bg = (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF1565C0));
           icon = Icons.cloud_upload_outlined;
         }
         if (text == null) return const SizedBox.shrink();

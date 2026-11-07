@@ -189,7 +189,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         elevation: 0,
         automaticallyImplyLeading: false,
         toolbarHeight: embedded ? 0 : kToolbarHeight,
@@ -197,7 +197,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
             ? null
             : Text(tr('Quản lý Chi nhánh'),
                 style: TextStyle(
-                    color: SboxColors.slate900, fontWeight: FontWeight.bold),
+                    color: SboxColors.appBarFg(SboxColors.slate900), fontWeight: FontWeight.bold),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1),
         // Sơ đồ / Thống kê chỉ có nghĩa khi ≥ 2 chi nhánh — 1 CN thì ẩn tab,
@@ -561,7 +561,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
       badge: branch.isHeadquarter ? 'Trụ sở' : (isActive ? null : 'Ngừng'),
       badgeColor: branch.isHeadquarter
           ? Colors.amber.shade700
-          : (isActive ? Colors.green : Colors.red),
+          : (isActive ? SboxColors.okSwatch : Colors.red),
       onTap: () => _showBranchDetail(branch),
       onMenuSelected: (action) {
         switch (action) {
@@ -618,17 +618,17 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: isActive ? Colors.green.shade50 : Colors.red.shade50,
+        color: isActive ? SboxColors.okSwatch.shade50 : Colors.red.shade50,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-            color: isActive ? Colors.green.shade300 : Colors.red.shade300),
+            color: isActive ? SboxColors.okSwatch.shade300 : Colors.red.shade300),
       ),
       child: Text(
         tr(isActive ? 'Hoạt động' : 'Ngừng HĐ'),
         style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: isActive ? Colors.green.shade700 : Colors.red.shade700),
+            color: isActive ? SboxColors.okSwatch.shade700 : Colors.red.shade700),
       ),
     );
   }
@@ -984,7 +984,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                 Expanded(
                   flex: s.activeBranches,
                   child: Container(
-                    color: Colors.green,
+                    color: SboxColors.okSwatch,
                     alignment: Alignment.center,
                     child: s.activeBranches > 0
                         ? Text(tr('${s.activeBranches}'),
@@ -1015,7 +1015,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
         const SizedBox(height: 8),
         Row(
           children: [
-            _legendDot(Colors.green,
+            _legendDot(SboxColors.okSwatch,
                 'Hoạt động (${(activeRatio * 100).toStringAsFixed(0)}%)'),
             const SizedBox(width: 16),
             _legendDot(Colors.red.shade400,

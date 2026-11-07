@@ -457,19 +457,19 @@ class _PosLabelDesignerScreenState extends State<PosLabelDesignerScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF1F4F8),
+        backgroundColor: (SboxColors.posApp ? SboxColors.page : Color(0xFFF1F4F8)),
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: SboxColors.appBarBg(Colors.white),
           surfaceTintColor: Colors.white,
           elevation: 0.5,
-          foregroundColor: SboxColors.text,
+          foregroundColor: SboxColors.appBarFg(SboxColors.text),
           titleSpacing: 0,
           title: Row(children: [
             Expanded(
               child: TextField(
                 controller: _nameCtrl,
                 onChanged: (_) => _dirty = true,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 decoration: InputDecoration(
                   isDense: true,
                   border: InputBorder.none,
@@ -479,9 +479,9 @@ class _PosLabelDesignerScreenState extends State<PosLabelDesignerScreen> {
             ),
             if (wide)
               Text(tr('${PosPrintDocumentTypes.all[_d.documentType] ?? ''} · ${_d.sizeLabel}'),
-                  style: const TextStyle(fontSize: 13, color: SboxColors.slate500)),
+                  style: TextStyle(fontSize: 13, color: SboxColors.appBarFg(SboxColors.slate500))),
           ]),
-          actions: [
+          actions: sboxBarActions([
             IconButton(
                 tooltip: tr('Hoàn tác (Ctrl+Z)'), onPressed: _undo.isEmpty ? null : _undoStep, icon: const Icon(Icons.undo)),
             IconButton(
@@ -495,7 +495,7 @@ class _PosLabelDesignerScreenState extends State<PosLabelDesignerScreen> {
                 label: Text(tr(_saving ? 'Đang lưu…' : 'Lưu mẫu')),
               ),
             ),
-          ],
+          ]),
         ),
         body: wide
             ? Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

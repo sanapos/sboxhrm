@@ -553,7 +553,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // must still recognise their own.
                 title: Text(e.value),
                 trailing: currentLang == e.key
-                    ? const Icon(Icons.check, color: Colors.green)
+                    ? const Icon(Icons.check, color: SboxColors.okSwatch)
                     : null,
                 onTap: () {
                   themeProvider.setLocale(Locale(e.key));

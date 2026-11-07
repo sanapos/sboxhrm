@@ -27,8 +27,8 @@ AppBar buildPickerCloseAppBar(
   List<Widget>? actions,
 }) {
   return AppBar(
-    backgroundColor: Colors.white,
-    foregroundColor: SboxColors.slate900,
+    backgroundColor: SboxColors.appBarBg(Colors.white),
+    foregroundColor: SboxColors.appBarFg(SboxColors.slate900),
     elevation: 0,
     surfaceTintColor: Colors.white,
     leading: IconButton(
@@ -43,14 +43,14 @@ AppBar buildPickerCloseAppBar(
             children: [
               Text(
                 tr(title),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               Text(
                 tr(subtitle),
-                style: TextStyle(fontSize: 12, color: SboxColors.slate600),
+                style: TextStyle(fontSize: 12, color: SboxColors.appBarFg(SboxColors.slate600)),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -58,7 +58,7 @@ AppBar buildPickerCloseAppBar(
           )
         : Text(
             tr(title),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
     actions: actions,
     centerTitle: false,

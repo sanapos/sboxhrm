@@ -1625,7 +1625,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F9FF),
+        color: (SboxColors.posApp ? SboxColors.brand50 : Color(0xFFF0F9FF)),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFBAE6FD)),
       ),
@@ -6642,7 +6642,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.check_circle_outline,
-                                  size: 48, color: Colors.green.shade400),
+                                  size: 48, color: SboxColors.okSwatch.shade400),
                               const SizedBox(height: 8),
                               Text(tr('Không có ai vắng mặt'),
                                   style:

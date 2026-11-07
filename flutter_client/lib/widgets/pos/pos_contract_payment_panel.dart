@@ -165,7 +165,7 @@ class _PosContractPaymentPanelState extends State<PosContractPaymentPanel> {
   }
 
   Color _statusColor(String s) => switch (s) {
-        'paid' => Colors.green.shade700,
+        'paid' => SboxColors.okSwatch.shade700,
         'partial' => Colors.orange.shade800,
         'overdue' => Colors.red.shade700,
         _ => SboxColors.slate600,
@@ -260,7 +260,7 @@ class _PosContractPaymentPanelState extends State<PosContractPaymentPanel> {
             Row(
               children: [
                 _stat('Giá trị HĐ', c.total),
-                _stat('Đã thu', c.collected, color: Colors.green.shade700),
+                _stat('Đã thu', c.collected, color: SboxColors.okSwatch.shade700),
                 _stat('Còn phải thu', c.remaining, color: c.remaining > 0 ? PosTheme.kiotBlue : null),
               ],
             ),
@@ -663,7 +663,7 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
                     : 'Tổng các đợt ${_money.format(_sum)} đ — ${diff > 0 ? 'còn thiếu' : 'vượt'} ${_money.format(diff.abs())} đ so với giá trị HĐ ${_money.format(total)} đ'),
                 style: TextStyle(
                   fontSize: 12,
-                  color: diff.abs() < 1 ? Colors.green.shade700 : Colors.orange.shade800,
+                  color: diff.abs() < 1 ? SboxColors.okSwatch.shade700 : Colors.orange.shade800,
                   fontWeight: FontWeight.w600,
                 ),
               ),

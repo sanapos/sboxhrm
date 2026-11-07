@@ -237,6 +237,9 @@ abstract final class SboxAppVariant {
 
   static String get copyright => '© 2026 $productLine';
 
+  /// Build SBOX POS dùng logo cùng tông màu app; web, launcher giữ ảnh gốc.
+  static String get _posMark => _fromDefine ? 'assets/sbox_pos_mark_gsm.png' : 'assets/sbox_pos_mark.png';
+
   static String get logoAsset => bossApp
       ? 'assets/sbox_boss_logo.png'
       : staffApp
@@ -244,13 +247,13 @@ abstract final class SboxAppVariant {
       : kitchenApp
       ? 'assets/sbox_kds_logo.png'
       : standalonePos
-      ? 'assets/sbox_pos_mark.png'
+      ? _posMark
       : (posBranding ? 'assets/sbox_pos_logo.png' : 'assets/logo.png');
 
   /// Logo «S» trong app (menu, màn khách): HRM giữ logo gốc, SBOX POS chữ S xanh lá, app đồng hành dùng logo riêng.
   static String get markAsset => companionApp
       ? logoAsset
-      : (standalonePos ? 'assets/sbox_pos_mark.png' : 'assets/logo.png');
+      : (standalonePos ? _posMark : 'assets/logo.png');
 
   static String get materialAppTitle => productLine;
 

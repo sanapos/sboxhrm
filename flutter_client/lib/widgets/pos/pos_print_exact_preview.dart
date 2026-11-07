@@ -365,7 +365,7 @@ class _MmRuler extends StatelessWidget {
         painter: _RulerPainter(widthMm),
         child: Center(
           child: Container(
-            color: const Color(0xFFF4F6F8),
+            color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF4F6F8)),
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text('${widthMm.toInt()} mm', style: const TextStyle(fontSize: 10, color: SboxColors.slate600)),
           ),

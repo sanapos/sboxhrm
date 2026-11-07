@@ -122,7 +122,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
   static const List<Color> _kShiftPalette = [
     SboxColors.brand600,
-    Color(0xFF0D9488),
+    (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0D9488)),
     SboxColors.violet,
     Color(0xFFEA580C),
     Color(0xFFDB2777),

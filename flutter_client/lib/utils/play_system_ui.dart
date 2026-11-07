@@ -1,20 +1,23 @@
 import 'package:flutter/services.dart';
 
+/// App SBOX POS: các thanh cùng màu nền trang sáng nên icon hệ thống phải tối.
+const _posApp = bool.fromEnvironment('SBOX_POS_STANDALONE');
+
 /// Overlay styles without status/nav bar colors.
 /// Those colors map to deprecated Window.setStatusBarColor /
 /// setNavigationBarColor on Android 15 (Play Console quality scan).
 const kPlayOverlayOnLightBg = SystemUiOverlayStyle(
-  statusBarIconBrightness: Brightness.light,
-  statusBarBrightness: Brightness.dark,
-  systemNavigationBarIconBrightness: Brightness.light,
+  statusBarIconBrightness: _posApp ? Brightness.dark : Brightness.light,
+  statusBarBrightness: _posApp ? Brightness.light : Brightness.dark,
+  systemNavigationBarIconBrightness: _posApp ? Brightness.dark : Brightness.light,
   systemStatusBarContrastEnforced: false,
   systemNavigationBarContrastEnforced: false,
 );
 
 const kPlayOverlayOnDarkBg = SystemUiOverlayStyle(
-  statusBarIconBrightness: Brightness.light,
-  statusBarBrightness: Brightness.dark,
-  systemNavigationBarIconBrightness: Brightness.light,
+  statusBarIconBrightness: _posApp ? Brightness.dark : Brightness.light,
+  statusBarBrightness: _posApp ? Brightness.light : Brightness.dark,
+  systemNavigationBarIconBrightness: _posApp ? Brightness.dark : Brightness.light,
   systemStatusBarContrastEnforced: false,
   systemNavigationBarContrastEnforced: false,
 );

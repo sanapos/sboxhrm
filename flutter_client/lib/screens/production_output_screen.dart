@@ -2344,7 +2344,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 decoration: BoxDecoration(
                   color: SboxColors.successSoft,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                  border: Border.all(color: (SboxColors.posApp ? SboxColors.brand100 : Color(0xFFBBF7D0))),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -2033,7 +2033,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
-                actions: [
+                actions: sboxBarActions([
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilledButton(
@@ -2042,7 +2042,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       child: Text(tr('Gửi yêu cầu')),
                     ),
                   ),
-                ],
+                ]),
               ),
               body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16), child: formBody),
@@ -2731,7 +2731,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
-                actions: [
+                actions: sboxBarActions([
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilledButton(
@@ -2740,7 +2740,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       child: Text(tr('Tạo')),
                     ),
                   ),
-                ],
+                ]),
               ),
               body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16), child: formBody),
@@ -3487,7 +3487,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                             fontSize: 12,
                             color: (t['rate'] ?? 0) < 0
                                 ? Colors.red
-                                : Colors.green),
+                                : SboxColors.okSwatch),
                         decoration: InputDecoration(
                             border: InputBorder.none,
                             isDense: true,
@@ -3710,7 +3710,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
-                actions: [
+                actions: sboxBarActions([
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilledButton(
@@ -3719,7 +3719,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       child: Text(tr('Giao (${selectedEmpIds.length})')),
                     ),
                   ),
-                ],
+                ]),
               ),
               body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16), child: formBody),
@@ -3837,7 +3837,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
-                actions: [
+                actions: sboxBarActions([
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilledButton(
@@ -3846,7 +3846,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       child: Text(tr('Cập nhật')),
                     ),
                   ),
-                ],
+                ]),
               ),
               body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16), child: formBody),
@@ -3980,7 +3980,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
-                actions: [
+                actions: sboxBarActions([
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilledButton(
@@ -3989,7 +3989,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       child: Text(tr('Lưu tất cả')),
                     ),
                   ),
-                ],
+                ]),
               ),
               // Danh sách tự cuộn — trước bọc thêm SingleChildScrollView: ListView không
               // shrinkWrap trong vùng cuộn → cao vô hạn, hộp thoại trống trên điện thoại.
@@ -5882,7 +5882,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
-                actions: [
+                actions: sboxBarActions([
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilledButton(
@@ -5891,7 +5891,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       child: Text(tr('Lưu')),
                     ),
                   ),
-                ],
+                ]),
               ),
               body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16), child: formBody),
@@ -6112,7 +6112,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
-                actions: [
+                actions: sboxBarActions([
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilledButton(
@@ -6121,7 +6121,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       child: Text(tr('Sao chép')),
                     ),
                   ),
-                ],
+                ]),
               ),
               body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16), child: formBody),
@@ -6287,7 +6287,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 leading: IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx)),
-                actions: [
+                actions: sboxBarActions([
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilledButton(
@@ -6296,7 +6296,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       child: Text(tr('Lưu tất cả')),
                     ),
                   ),
-                ],
+                ]),
               ),
               body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16), child: buildContent()),

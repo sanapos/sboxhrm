@@ -819,11 +819,11 @@ class _MobileDeviceRegistrationScreenState
       // Mở riêng (từ màn chấm công) thì hiện AppBar có nút quay lại.
       appBar: HrmPageChrome.showInPageAppBar(context)
           ? AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
               elevation: 0,
               title: Text(tr('Đăng ký chấm công Mobile'),
                 style: TextStyle(
-                  color: SboxColors.slate900,
+                  color: SboxColors.appBarFg(SboxColors.slate900),
                   fontWeight: FontWeight.bold,
                 ),
               ),

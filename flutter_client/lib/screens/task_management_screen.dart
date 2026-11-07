@@ -5062,9 +5062,9 @@ class _MultiAssigneePickerPageState extends State<_MultiAssigneePickerPage> {
       appBar: AppBar(
         title: Row(children: [
           Text(tr('Chọn người thực hiện'), style: TextStyle(fontSize: 16)),
-          const Spacer(),
+          Spacer(),
           Text(tr('${_selected.length} đã chọn'),
-              style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+              style: TextStyle(fontSize: 12, color: SboxColors.appBarFg(SboxColors.slate500))),
         ]),
         leading: IconButton(
             icon: const Icon(Icons.close),

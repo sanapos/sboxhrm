@@ -409,12 +409,12 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
               appBar: AppBar(
                 title: Text(tr('Chỉnh sửa thiết bị')),
                 leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx, false)),
-                actions: [
+                actions: sboxBarActions([
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu'))),
                   ),
-                ],
+                ]),
               ),
               body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: formBody),
             ),
@@ -729,7 +729,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                 appBar: AppBar(
                   title: Text(tr('Thêm máy chấm công')),
                   leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-                  actions: [
+                  actions: sboxBarActions([
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilledButton(
@@ -737,7 +737,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                         child: Text(tr('Thêm')),
                       ),
                     ),
-                  ],
+                  ]),
                 ),
                 body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: formBody),
               ),
@@ -1168,7 +1168,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
             decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Stack(children: [
               Center(child: Icon(Icons.fingerprint, color: statusColor, size: 18)),
-              Positioned(right: 4, top: 4, child: Container(width: 8, height: 8, decoration: BoxDecoration(color: online ? Colors.green : Colors.red, shape: BoxShape.circle))),
+              Positioned(right: 4, top: 4, child: Container(width: 8, height: 8, decoration: BoxDecoration(color: online ? SboxColors.okSwatch : Colors.red, shape: BoxShape.circle))),
             ]),
           ),
           const SizedBox(width: 12),

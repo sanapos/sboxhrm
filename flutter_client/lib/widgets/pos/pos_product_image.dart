@@ -86,7 +86,7 @@ class PosProductImage extends StatelessWidget {
       width: fill ? double.infinity : size,
       height: fill ? double.infinity : size,
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F2F5),
+        color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF0F2F5)),
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(color: PosTheme.border),
       ),

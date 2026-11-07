@@ -416,19 +416,19 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(
           tr('Máy chấm công'),
-          style: const TextStyle(
-            color: HrmPageChrome.textDark,
+          style: TextStyle(
+            color: SboxColors.appBarFg(HrmPageChrome.textDark),
             fontWeight: FontWeight.w700,
             fontSize: 18,
           ),
         ),
-        iconTheme: const IconThemeData(color: HrmPageChrome.textDark),
-        bottom: TabBar(
+        iconTheme: IconThemeData(color: SboxColors.appBarFg(HrmPageChrome.textDark)),
+        bottom: sboxBarTabs(TabBar(
           controller: _tabs,
           labelColor: HrmPageChrome.primaryNavy,
           unselectedLabelColor: HrmPageChrome.textMuted,
@@ -440,7 +440,7 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
             Tab(text: tr('Điều khiển')),
             Tab(text: tr('Chấm công')),
           ],
-        ),
+        )),
         actions: [
           if (_busy)
             const Padding(

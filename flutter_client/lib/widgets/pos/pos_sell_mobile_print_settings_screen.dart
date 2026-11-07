@@ -410,8 +410,8 @@ class _PosSellMobilePrintSettingsScreenState
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
-              backgroundColor: Colors.white,
-              foregroundColor: PosTheme.textPrimary,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
+              foregroundColor: SboxColors.appBarFg(PosTheme.textPrimary),
               elevation: 0,
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back),

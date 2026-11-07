@@ -731,7 +731,7 @@ class UsersTabState extends State<UsersTab> {
     return switch (role.toLowerCase()) {
       'superadmin' => AdminHelpers.primaryDark,
       'admin' => AdminHelpers.info,
-      'director' => const Color(0xFF0D9488),
+      'director' => (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0D9488)),
       'accountant' => SboxColors.brand600,
       'departmenthead' => const Color(0xFF9333EA),
       'manager' => SboxColors.violet,

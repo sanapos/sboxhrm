@@ -197,7 +197,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    Colors.green.withValues(alpha: 0.1),
+                    SboxColors.okSwatch.withValues(alpha: 0.1),
                     Colors.transparent,
                   ],
                 ),
@@ -246,13 +246,13 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                Color(0xFF00C853),
+                                (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF00C853)),
                                 SboxColors.successText,
                               ],
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF00C853).withValues(alpha: 0.4),
+                                color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF00C853)).withValues(alpha: 0.4),
                                 blurRadius: 30,
                                 spreadRadius: 2,
                               ),
@@ -938,7 +938,7 @@ class _ConfettiPainter extends CustomPainter {
         size: 3 + rng.nextDouble() * 5,
         color: [
           SboxColors.brand400,
-          const Color(0xFF66BB6A),
+          (SboxColors.posApp ? SboxColors.brand300 : Color(0xFF66BB6A)),
           const Color(0xFFFFCA28),
           const Color(0xFFEF5350),
           const Color(0xFFAB47BC),

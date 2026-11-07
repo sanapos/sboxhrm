@@ -7,41 +7,60 @@ import '../utils/vietnamese_font.dart';
 /// Quy tắc: màn hình KHÔNG tự đặt mã màu / cỡ chữ / bo góc. Luôn lấy từ đây
 /// (hoặc từ Theme) để cả phần mềm đồng nhất và đổi thương hiệu một chỗ.
 abstract final class SboxColors {
-  /// App SBOX POS (build với SBOX_POS_STANDALONE): màu thương hiệu xanh lá #2E7D32 theo logo POS.
+  /// App SBOX POS (build với SBOX_POS_STANDALONE): nền trắng, màu nhấn theo Xanh SM (cyan #28BDBF, #2DCCD3 trong CSS xanhsm.com); chữ, nút dùng tông đậm #147A7C cho đủ tương phản.
   static const _posApp = bool.fromEnvironment('SBOX_POS_STANDALONE');
   static const posApp = _posApp;
 
   // ── Thương hiệu: xanh biển #158DC0 ──────────────────────────────
-  static const brand50 = _posApp ? Color(0xFFE8F5E9) : Color(0xFFE8F5FB);
-  static const brand100 = _posApp ? Color(0xFFC8E6C9) : Color(0xFFBFE3F3);
-  static const brand200 = _posApp ? Color(0xFFA5D6A7) : Color(0xFF94D0EA);
-  static const brand300 = _posApp ? Color(0xFF81C784) : Color(0xFF6FC0E3);
-  static const brand400 = _posApp ? Color(0xFF4CAF50) : Color(0xFF3FA6D2);
+  static const brand50 = _posApp ? Color(0xFFEDFAFA) : Color(0xFFE8F5FB);
+  static const brand100 = _posApp ? Color(0xFFCFEFEF) : Color(0xFFBFE3F3);
+  static const brand200 = _posApp ? Color(0xFFA6E3E4) : Color(0xFF94D0EA);
+  static const brand300 = _posApp ? Color(0xFF5BD2D6) : Color(0xFF6FC0E3);
+  static const brand400 = _posApp ? Color(0xFF28BDBF) : Color(0xFF3FA6D2);
   /// Màu thương hiệu (logo, thanh tiêu đề, biểu đồ, điểm nhấn).
-  static const brand500 = _posApp ? Color(0xFF2E7D32) : Color(0xFF158DC0);
+  static const brand500 = _posApp ? Color(0xFF1C8F91) : Color(0xFF158DC0);
   /// Nút chính, chữ liên kết, tab đang chọn — đủ tương phản chữ trắng (≈4.8:1).
-  static const brand600 = _posApp ? Color(0xFF256E2A) : Color(0xFF0F7BA8);
+  static const brand600 = _posApp ? Color(0xFF147A7C) : Color(0xFF0F7BA8);
   /// Di chuột / nhấn.
-  static const brand700 = _posApp ? Color(0xFF1B5E20) : Color(0xFF0B6A91);
-  static const brand800 = _posApp ? Color(0xFF164D1A) : Color(0xFF095A7B);
+  static const brand700 = _posApp ? Color(0xFF106668) : Color(0xFF0B6A91);
+  static const brand800 = _posApp ? Color(0xFF0E5658) : Color(0xFF095A7B);
   /// Chữ trên nền xanh nhạt.
-  static const brand900 = _posApp ? Color(0xFF103C14) : Color(0xFF084B67);
+  static const brand900 = _posApp ? Color(0xFF0A3F41) : Color(0xFF084B67);
 
   static const primary = brand600;
 
   /// Dạng MaterialColor (cho API cần đủ tông shade50..shade900).
-  static const brandSwatch = MaterialColor(_posApp ? 0xFF2E7D32 : 0xFF158DC0, <int, Color>{
+  static const brandSwatch = MaterialColor(_posApp ? 0xFF147A7C : 0xFF158DC0, <int, Color>{
     50: brand50, 100: brand100, 200: brand200, 300: brand300, 400: brand400,
     500: brand500, 600: brand600, 700: brand700, 800: brand800, 900: brand900,
   });
+  /// Thay Colors.green / teal đặt cứng: POS về bộ màu chính, app khác vẫn xanh lá như cũ.
+  static const MaterialColor okSwatch = _posApp ? brandSwatch : Colors.green;
   static const primaryHover = brand700;
   static const primarySoft = brand50;
 
+  // ── Khung app ───────────────────────────────────────────────────
+  /// Thanh tiêu đề SBOX POS. Thanh trạng thái, thanh điều hướng dùng đúng màu này.
+  static const chrome = page;
+  static const onChrome = text;
+  static const onChromeMuted = slate600;
+  /// Khung nền tối (chữ trắng trên thanh): tắt, các thanh cùng màu nền trang cho thoáng.
+  static const darkChrome = false;
+  /// Menu trái SBOX POS nền tối: tắt, menu trái dùng nền trắng.
+  static const darkSidebar = false;
+  static const sidebar = brand800;
+  /// Dải sau thanh trạng thái / điều hướng (app khác vẫn đen).
+  static const systemBand = _posApp ? chrome : Color(0xFF000000);
+
+  /// Nền, chữ AppBar đặt cứng: POS đổi sang cobalt, app khác giữ nguyên [c].
+  static Color appBarBg(Color c) => _posApp ? chrome : c;
+  static Color appBarFg(Color c) => _posApp ? onChrome : c;
+
   // ── Trung tính: một họ Slate duy nhất ───────────────────────────
   static const white = Color(0xFFFFFFFF);
-  static const slate25 = Color(0xFFFBFCFE);
-  static const slate50 = Color(0xFFF8FAFC);
-  static const slate100 = Color(0xFFF1F5F9);
+  static const slate25 = _posApp ? white : Color(0xFFFBFCFE);
+  static const slate50 = _posApp ? white : Color(0xFFF8FAFC);
+  static const slate100 = _posApp ? Color(0xFFE9EBEE) : Color(0xFFF1F5F9);
   static const slate200 = Color(0xFFE2E8F0);
   static const slate300 = Color(0xFFCBD5E1);
   static const slate400 = Color(0xFF94A3B8);
@@ -52,7 +71,7 @@ abstract final class SboxColors {
   static const slate900 = Color(0xFF0F172A);
 
   /// Nền trang (xám rất nhạt, hơi lạnh cho hợp tông xanh).
-  static const page = Color(0xFFF4F7FA);
+  static const page = _posApp ? Color(0xFFF4F5F7) : Color(0xFFF4F7FA);
   static const surface = white;
   static const surfaceMuted = slate50;
   static const border = slate200;
@@ -66,9 +85,9 @@ abstract final class SboxColors {
   static const onPrimary = white;
 
   // ── Trạng thái ───────────────────────────────────────────────────
-  static const success = Color(0xFF16A34A);
-  static const successSoft = Color(0xFFDCFCE7);
-  static const successText = Color(0xFF166534);
+  static const success = _posApp ? brand600 : Color(0xFF16A34A);
+  static const successSoft = _posApp ? brand50 : Color(0xFFDCFCE7);
+  static const successText = _posApp ? brand800 : Color(0xFF166534);
 
   static const warning = Color(0xFFD97706);
   static const warningSoft = Color(0xFFFEF3C7);
@@ -83,17 +102,17 @@ abstract final class SboxColors {
   static const infoText = brand900;
 
   /// Dịch vụ / chốt giờ / gói.
-  static const violet = Color(0xFF7C3AED);
-  static const violetSoft = Color(0xFFEDE9FE);
-  static const violetText = Color(0xFF5B21B6);
+  static const violet = _posApp ? brand600 : Color(0xFF7C3AED);
+  static const violetSoft = _posApp ? brand50 : Color(0xFFEDE9FE);
+  static const violetText = _posApp ? brand800 : Color(0xFF5B21B6);
 
   /// Hàng hóa / kho (tông nhận diện nhóm trên Trang chủ).
-  static const teal = Color(0xFF0F766E);
-  static const tealSoft = Color(0xFFCCFBF1);
+  static const teal = _posApp ? brand600 : Color(0xFF0F766E);
+  static const tealSoft = _posApp ? brand50 : Color(0xFFCCFBF1);
 
-  /// Nút Thanh toán POS (xanh lá — hành động thu tiền).
-  static const pay = Color(0xFF16A34A);
-  static const payHover = Color(0xFF15803D);
+  /// Nút Thanh toán POS: app SBOX POS theo tông xanh dương, app khác xanh lá.
+  static const pay = _posApp ? brand600 : Color(0xFF16A34A);
+  static const payHover = _posApp ? brand700 : Color(0xFF15803D);
 
   // ── Chế độ tối ───────────────────────────────────────────────────
   static const darkPage = Color(0xFF0B1220);
@@ -225,4 +244,75 @@ abstract final class SboxSize {
   static const tableHeader = 40.0;
   static const tableRow = 44.0;
   static const tableRowDense = 36.0;
+}
+
+/// Vùng nền cobalt của app SBOX POS (khung chính): nút bên trong đổi sang màu sáng.
+class SboxOnChrome extends InheritedWidget {
+  const SboxOnChrome({super.key, required super.child});
+
+  /// Đang nằm trên nền cobalt: trong [SboxOnChrome] hoặc trong AppBar của app SBOX POS.
+  static bool of(BuildContext context) {
+    if (!SboxColors.darkChrome) return false;
+    return context.dependOnInheritedWidgetOfExactType<SboxOnChrome>() != null ||
+        context.findAncestorWidgetOfExactType<AppBar>() != null;
+  }
+
+  @override
+  bool updateShouldNotify(SboxOnChrome oldWidget) => false;
+}
+
+/// Bọc vùng nền cobalt: icon, nút icon bên trong đổi sang màu sáng.
+Widget sboxOnChromeScope(Widget child) => SboxOnChrome(
+      child: IconTheme.merge(
+        data: const IconThemeData(color: SboxColors.onChrome),
+        child: IconButtonTheme(
+          data: IconButtonThemeData(style: IconButton.styleFrom(foregroundColor: SboxColors.onChrome)),
+          child: child,
+        ),
+      ),
+    );
+
+/// Nút chữ trong AppBar POS: màu chính trùng nền cobalt nên đổi sang màu sáng.
+/// Widget Stateless (HrmTopBarAction…) giữ nguyên kiểu vì khung chính lọc theo kiểu và nó tự đổi màu.
+List<Widget> sboxBarActions(List<Widget> actions) {
+  if (!SboxColors.darkChrome) return actions;
+  return [
+    for (final a in actions)
+      a is StatelessWidget
+          ? a
+          : Builder(
+              builder: (c) => Theme(
+                data: Theme.of(c).copyWith(
+                  textButtonTheme: TextButtonThemeData(
+                    style: TextButton.styleFrom(foregroundColor: SboxColors.onChrome),
+                  ),
+                  filledButtonTheme: FilledButtonThemeData(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: SboxColors.white,
+                      foregroundColor: SboxColors.brand700,
+                      disabledBackgroundColor: const Color(0x4DFFFFFF),
+                      disabledForegroundColor: SboxColors.onChromeMuted,
+                    ),
+                  ),
+                  outlinedButtonTheme: OutlinedButtonThemeData(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: SboxColors.onChrome,
+                      backgroundColor: Colors.transparent,
+                      side: const BorderSide(color: SboxColors.onChromeMuted),
+                    ),
+                  ),
+                ),
+                child: a,
+              ),
+            ),
+  ];
+}
+
+/// TabBar trong AppBar POS: đặt trên dải trắng để chữ màu chính vẫn đọc được dưới thanh cobalt.
+PreferredSizeWidget sboxBarTabs(PreferredSizeWidget tabs) {
+  if (!SboxColors.posApp) return tabs;
+  return PreferredSize(
+    preferredSize: tabs.preferredSize,
+    child: Material(color: SboxColors.chrome, child: tabs),
+  );
 }

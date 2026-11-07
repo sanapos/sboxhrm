@@ -146,7 +146,7 @@ class _PosContractReceivablesScreenState extends State<PosContractReceivablesScr
                 child: Row(
                   children: [
                     _total('Giá trị HĐ', _t('contractValue')),
-                    _total('Đã thu', _t('collected'), color: Colors.green.shade700),
+                    _total('Đã thu', _t('collected'), color: SboxColors.okSwatch.shade700),
                     _total('Còn phải thu', _t('remaining'), color: PosTheme.kiotBlue),
                     _total('Quá hạn', _t('overdue'), color: Colors.red.shade700),
                   ],
@@ -208,7 +208,7 @@ class _PosContractReceivablesScreenState extends State<PosContractReceivablesScr
                   Text(_money.format(r.remaining),
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: r.remaining > 0 ? PosTheme.kiotBlue : Colors.green.shade700,
+                        color: r.remaining > 0 ? PosTheme.kiotBlue : SboxColors.okSwatch.shade700,
                       )),
                 ],
               ),

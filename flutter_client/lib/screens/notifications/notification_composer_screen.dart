@@ -427,15 +427,15 @@ class _NotificationComposerScreenState extends State<NotificationComposerScreen>
       backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         title: Text(tr('Gửi thông báo')),
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         surfaceTintColor: Colors.white,
-        actions: [
+        actions: sboxBarActions([
           TextButton.icon(
             onPressed: _openSent,
             icon: const Icon(Icons.history_rounded, size: 18),
             label: Text(tr('Đã gửi')),
           ),
-        ],
+        ]),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

@@ -287,7 +287,7 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
     SboxColors.danger,
     Color(0xFF0EA5E9),
     Color(0xFFF97316),
-    Color(0xFF14B8A6),
+    (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF14B8A6)),
   ];
 
   Widget _charts() {

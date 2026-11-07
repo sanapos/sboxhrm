@@ -88,7 +88,7 @@ class ReportKpiItem {
     if (tone != null) return tone!;
     final c = color.toARGB32();
     bool near(Color x) => x.toARGB32() == c;
-    if (near(SboxColors.success) || near(Colors.green)) return SboxTone.success;
+    if (near(SboxColors.success) || near(SboxColors.okSwatch)) return SboxTone.success;
     if (near(SboxColors.danger) || near(Colors.red)) return SboxTone.danger;
     if (near(SboxColors.warning) || near(Colors.orange) || near(Colors.amber)) return SboxTone.warning;
     if (near(SboxColors.violet) || near(Colors.purple)) return SboxTone.violet;

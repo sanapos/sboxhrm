@@ -86,7 +86,7 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
     return Scaffold(
       backgroundColor: SboxColors.page,
       appBar: AppBar(
-        backgroundColor: SboxColors.white,
+        backgroundColor: SboxColors.appBarBg(SboxColors.white),
         surfaceTintColor: SboxColors.white,
         titleSpacing: 16,
         title: Column(
@@ -94,13 +94,13 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
           children: [
             Text(
               name.isEmpty ? tr('Xin chào') : '${tr('Xin chào')}, $name',
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
               overflow: TextOverflow.ellipsis,
             ),
             if ((user?.position ?? user?.department ?? '').isNotEmpty)
               Text(
                 user?.position ?? user?.department ?? '',
-                style: const TextStyle(fontSize: 12, color: SboxColors.textMuted),
+                style: TextStyle(fontSize: 12, color: SboxColors.appBarFg(SboxColors.textMuted)),
               ),
           ],
         ),

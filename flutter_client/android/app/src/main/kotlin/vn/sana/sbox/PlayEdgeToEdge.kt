@@ -24,10 +24,12 @@ fun ComponentActivity.applyPlayEdgeToEdge() {
         window.attributes = attrs
     }
 
+    // SBOX POS: các thanh cùng màu nền trang sáng nên icon hệ thống tối; app khác giữ icon sáng.
+    val lightBars = packageName.startsWith("sbox.sana.vn.pos")
     fun darkSystemBarIcons() {
         WindowCompat.getInsetsController(window, window.decorView).apply {
-            isAppearanceLightStatusBars = false
-            isAppearanceLightNavigationBars = false
+            isAppearanceLightStatusBars = lightBars
+            isAppearanceLightNavigationBars = lightBars
             // DEFAULT: thanh hệ thống giữ hiện. TRANSIENT_SWIPE khiến
             // status/nav ẩn sau immersive — phải vuốt mới hiện lại.
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT

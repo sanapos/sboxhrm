@@ -7,7 +7,7 @@ class SboxPosHeroPanel extends StatelessWidget {
 
   static const green = SboxColors.successText;
   /// Nền nhạt lúc ảnh chưa tải xong: khối xanh đậm trống trông như lỗi.
-  static const placeholder = Color(0xFFF1F6F2);
+  static const placeholder = SboxColors.posApp ? SboxColors.brand50 : Color(0xFFF1F6F2);
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +19,7 @@ class SboxPosHeroPanel extends StatelessWidget {
           final cacheW = (c.maxWidth * dpr).round().clamp(1024, 2560);
           return SizedBox.expand(
             child: Image.asset(
-              'assets/sbox_pos_login_hero.webp',
+              SboxColors.posApp ? 'assets/sbox_pos_login_hero_gsm.webp' : 'assets/sbox_pos_login_hero.webp',
               fit: BoxFit.cover,
               alignment: const Alignment(0, -0.08),
               filterQuality: FilterQuality.medium,

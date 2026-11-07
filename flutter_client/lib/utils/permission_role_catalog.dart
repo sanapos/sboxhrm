@@ -185,7 +185,7 @@ class PermissionRoleCatalog {
       description:
           'Tick từng phần cho Thu ngân / Thu chi: máy in, mẫu in, cửa hàng, HĐĐT…',
       icon: Icons.print_outlined,
-      color: Color(0xFF0F766E),
+      color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
       moduleCodes: posSettingsModuleCodes,
     ),
     PermissionUiGroup(

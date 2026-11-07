@@ -640,7 +640,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         FilledButton.icon(
                           onPressed: () => Navigator.pop(ctx, true),
                           style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green),
+                              backgroundColor: SboxColors.okSwatch),
                           icon: const Icon(Icons.payment,
                               color: Colors.white, size: 18),
                           label: Text(tr('Thanh toán'),
@@ -663,7 +663,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   child: Text(tr('Hủy'))),
               FilledButton.icon(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                style: ElevatedButton.styleFrom(backgroundColor: SboxColors.okSwatch),
                 icon: const Icon(Icons.payment, color: Colors.white, size: 18),
                 label: Text(tr('Thanh toán'),
                     style: TextStyle(color: Colors.white)),
@@ -820,7 +820,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       IconData dotIcon;
       switch (record.status) {
         case ApprovalStatus.approved:
-          dotColor = Colors.green;
+          dotColor = SboxColors.okSwatch;
           dotIcon = Icons.check_circle;
           break;
         case ApprovalStatus.rejected:
@@ -1076,21 +1076,21 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade50,
+                        color: SboxColors.okSwatch.shade50,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.green.shade200),
+                        border: Border.all(color: SboxColors.okSwatch.shade200),
                       ),
                       child: Row(
                         children: [
                           Icon(Icons.check_circle,
-                              size: 16, color: Colors.green.shade700),
+                              size: 16, color: SboxColors.okSwatch.shade700),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               tr('${selectedEmployee!.lastName} ${selectedEmployee!.firstName} (${selectedEmployee!.employeeCode})'),
                               style: TextStyle(
                                   fontSize: 13,
-                                  color: Colors.green.shade700,
+                                  color: SboxColors.okSwatch.shade700,
                                   fontWeight: FontWeight.w500),
                             ),
                           ),
@@ -1472,7 +1472,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 backgroundColor: SboxColors.slate200,
                 valueColor: AlwaysStoppedAnimation<Color>(
                   request.status == AdvanceRequestStatus.approved
-                      ? Colors.green
+                      ? SboxColors.okSwatch
                       : request.status == AdvanceRequestStatus.rejected
                           ? Colors.red
                           : SboxColors.brand500,
@@ -1565,9 +1565,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               Navigator.pop(ctx);
               _approveRequest(request, true);
             },
-            icon: const Icon(Icons.check, size: 16, color: Colors.green),
+            icon: const Icon(Icons.check, size: 16, color: SboxColors.okSwatch),
             label: Text(tr(_l10n.approveLabel),
-                style: const TextStyle(color: Colors.green)),
+                style: const TextStyle(color: SboxColors.okSwatch)),
           ),
           TextButton.icon(
             onPressed: () {
@@ -1610,9 +1610,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             Navigator.pop(ctx);
             _payRequest(request);
           },
-          icon: const Icon(Icons.payment, size: 16, color: Colors.green),
+          icon: const Icon(Icons.payment, size: 16, color: SboxColors.okSwatch),
           label:
-              Text(tr(_l10n.payment), style: const TextStyle(color: Colors.green)),
+              Text(tr(_l10n.payment), style: const TextStyle(color: SboxColors.okSwatch)),
         ),
       ]);
     } else if (request.status == AdvanceRequestStatus.rejected &&

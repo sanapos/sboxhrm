@@ -605,8 +605,8 @@ class DevicesTabState extends State<DevicesTab> {
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: isOnline ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: Text(tr(isOnline ? 'Online' : 'Offline'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isOnline ? Colors.green : Colors.red)),
+            decoration: BoxDecoration(color: isOnline ? SboxColors.okSwatch.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Text(tr(isOnline ? 'Online' : 'Offline'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isOnline ? SboxColors.okSwatch : Colors.red)),
           ),
         ]),
       ),
@@ -740,7 +740,7 @@ class DevicesTabState extends State<DevicesTab> {
                 _deviceAction(
                   icon: Icons.sync,
                   label: 'Đồng bộ CC',
-                  color: Colors.teal,
+                  color: SboxColors.okSwatch,
                   onTap: () => _syncAttendance(device),
                 ),
               ],

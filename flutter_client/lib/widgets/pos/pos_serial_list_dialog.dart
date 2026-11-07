@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../../theme/sbox_tokens.dart';
 
 /// Tách chuỗi nhiều seri (xuống dòng / ; / ,) → danh sách viết hoa, bỏ ô trống.
 List<String> parsePosSerialList(String text) => text
@@ -50,7 +51,7 @@ Future<List<String>?> showPosSerialListDialog(
                   tr('Đã nhập ${list.length}${qty > 0 ? '/$qty' : ''} mã${dup ? ' — có mã bị trùng' : ''}'),
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    color: ok ? Colors.green.shade700 : Colors.orange.shade800,
+                    color: ok ? SboxColors.okSwatch.shade700 : Colors.orange.shade800,
                   ),
                 ),
                 if (!readOnly && scanOne != null) ...[

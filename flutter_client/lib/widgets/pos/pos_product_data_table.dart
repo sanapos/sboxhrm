@@ -202,7 +202,7 @@ class PosProductDataTable extends StatelessWidget {
   Widget _headerRow() {
     return Container(
       height: 40,
-      color: const Color(0xFFF5F7FA),
+      color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF5F7FA)),
       child: Row(
         children: _visibleCols().map(_headerCell).toList(),
       ),
@@ -589,7 +589,7 @@ class PosProductDataTable extends StatelessWidget {
   Widget _variantLoadingRow() {
     return Container(
       height: 40,
-      color: const Color(0xFFFAFCFF),
+      color: (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFCFF)),
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.only(left: 88),
       child: const SizedBox(
@@ -606,7 +606,7 @@ class PosProductDataTable extends StatelessWidget {
     return Material(
       color: selected
           ? PosTheme.kiotBlueLight.withOpacity(0.65)
-          : const Color(0xFFFAFCFF),
+          : (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFCFF)),
       child: InkWell(
         onTap: () => onSelectVariant(parent, v),
         hoverColor: PosTheme.kiotBlueLight.withOpacity(0.35),
@@ -695,7 +695,7 @@ class PosProductDataTable extends StatelessWidget {
 
   Widget _variantGroupFooter(PosProduct p) {
     return Container(
-      color: const Color(0xFFFAFCFF),
+      color: (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFCFF)),
       padding: const EdgeInsets.fromLTRB(88, 4, 16, 10),
       child: Row(
         children: [

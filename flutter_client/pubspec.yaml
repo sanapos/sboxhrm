@@ -142,6 +142,7 @@ flutter:
     - assets/logo.png
     - assets/sbox_pos_logo.png
     - assets/sbox_pos_mark.png
+    - assets/sbox_pos_mark_gsm.png
     - assets/sbox_boss_logo.png
     - assets/sbox_staff_logo.png
     - assets/sbox_kds_logo.png
@@ -150,6 +151,7 @@ flutter:
     - assets/sbox_pos_family.png
     - assets/sbox_pos_poster.png
     - assets/sbox_pos_login_hero.webp
+    - assets/sbox_pos_login_hero_gsm.webp
     - assets/mobilefacenet.tflite
     - assets/w600k_mbf.onnx
     # Gói ngôn ngữ en/ko/ja/zh (VI → ngôn ngữ đích), nạp khi người dùng chọn ngôn ngữ.

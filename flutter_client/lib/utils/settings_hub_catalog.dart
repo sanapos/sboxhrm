@@ -13,7 +13,7 @@ class SettingsHubItemDef {
     required this.icon,
     required this.label,
     required this.desc,
-    required this.accent,
+    required Color accent,
     required this.groupTitle,
     this.moduleCode,
     this.healthKey,
@@ -21,7 +21,7 @@ class SettingsHubItemDef {
     this.packageModule,
     this.altModuleCodes = const [],
     this.requiresEdit = false,
-  });
+  }) : accent = SboxColors.posApp ? SboxColors.brand600 : accent;
 
   /// Mục cấu hình gắn với chức năng tự phục vụ (xin phép, chấm công, đăng ký ca) — nhân viên nào cũng
   /// có quyền Xem, nên chỉ hiện khi có quyền Sửa (máy chủ cũng chỉ cho lưu khi có quyền Sửa).
@@ -73,7 +73,8 @@ class SettingsHubItemDef {
 
 /// Nhóm thiết lập theo nghiệp vụ.
 class SettingsHubGroup {
-  const SettingsHubGroup(this.title, this.icon, this.color, {this.hrm = false});
+  const SettingsHubGroup(this.title, this.icon, Color color, {this.hrm = false})
+      : color = SboxColors.posApp ? SboxColors.brand600 : color;
   final String title;
   final IconData icon;
   final Color color;

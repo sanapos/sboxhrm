@@ -147,7 +147,7 @@ class SeoArticlesTabState extends State<SeoArticlesTab> {
                               padding: const EdgeInsets.only(top: 4),
                               child: Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
                                 _badge(a['site'] == 'pos' ? 'SBOX POS' : 'SBOX HRM',
-                                    a['site'] == 'pos' ? const Color(0xFF2E7D32) : const Color(0xFF0C56D0)),
+                                    a['site'] == 'pos' ? (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF2E7D32)) : const Color(0xFF0C56D0)),
                                 _badge(published ? tr('Đã xuất bản') : tr('Bản nháp'),
                                     published ? SboxColors.success : SboxColors.slate500),
                                 if ((a['category'] ?? '').toString().isNotEmpty)

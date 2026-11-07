@@ -1438,13 +1438,13 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   tooltip: tr(NavigationNotifier.mainLayoutReady.value ? 'Về SBOX HRM' : 'Về trang chủ'),
                   icon: Icon(
                     NavigationNotifier.mainLayoutReady.value ? Icons.apps_outlined : Icons.home_outlined,
-                    color: PosTheme.textPrimary,
+                    color: SboxColors.appBarFg(PosTheme.textPrimary),
                   ),
                   onPressed: NavigationNotifier.leavePosHubToAppHome,
                 ),
               Expanded(
                 child: Text(tr('Hóa đơn'),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: PosTheme.textPrimary)),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: SboxColors.appBarFg(PosTheme.textPrimary))),
               ),
               if (exportBtn != null) exportBtn,
               if (_showShipping)
@@ -1492,7 +1492,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     side: BorderSide(color: count > 0 ? PosTheme.kiotBlue : PosTheme.border),
-                    backgroundColor: count > 0 ? SboxColors.brand50 : null,
+                    backgroundColor: count > 0 ? SboxColors.brand50 : SboxColors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   icon: const Icon(Icons.tune, size: 18),
@@ -1523,10 +1523,11 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         ],
       ),
     );
-    return Material(
-      color: Colors.white,
+    final bar = Material(
+      color: showTitle ? SboxColors.appBarBg(Colors.white) : Colors.white,
       child: posNeedsTopSafeArea(context) ? SafeArea(bottom: false, child: content) : content,
     );
+    return SboxColors.posApp && showTitle ? sboxOnChromeScope(bar) : bar;
   }
 
   Widget _summaryChip(IconData icon, String label) => ActionChip(
@@ -2070,7 +2071,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       btns.add(_compactOrderBtn(
         label: 'Vận đơn',
         filled: true,
-        color: const Color(0xFF0F766E),
+        color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
         onPressed: () => run(() => _createShipmentFromList(o)),
       ));
     }

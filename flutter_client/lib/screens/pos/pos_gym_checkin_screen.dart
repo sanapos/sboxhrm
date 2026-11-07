@@ -18,6 +18,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_gym_trainer.dart';
 import '../../widgets/pos/pos_list_filters.dart';
 import '../../widgets/sbox/sbox_ui.dart';
+import '../../theme/sbox_tokens.dart';
 
 /// Gym: hội viên check-in bằng máy chấm công (vân tay / khuôn mặt / thẻ) hoặc tại quầy.
 /// Tách biệt chấm công nhân viên — PIN hội viên = số điện thoại bỏ số 0 đầu (không có SĐT di động → 9xxxxxxx),
@@ -75,9 +76,9 @@ class _PosGymCheckInScreenState extends State<PosGymCheckInScreen> with SingleTi
           ? null
           : AppBar(
               title: Text(tr('Check-in hội viên')),
-              backgroundColor: Colors.white,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
               surfaceTintColor: Colors.white,
-              foregroundColor: SboxColors.text,
+              foregroundColor: SboxColors.appBarFg(SboxColors.text),
               elevation: 0.5,
             ),
       body: Column(

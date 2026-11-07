@@ -675,8 +675,8 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                     spacing: 6,
                     children: [
                       if (d.isCustomWording) _docBadge(tr('Bản chốt đã sửa chữ'), Colors.orange.shade800),
-                      if (d.hasCustomTemplate && !d.isCustomWording) _docBadge(tr('Nội dung riêng'), Colors.teal.shade700),
-                      if (d.printTemplateId != null && !d.hasCustomTemplate) _docBadge(tr('Mẫu chọn riêng'), Colors.indigo),
+                      if (d.hasCustomTemplate && !d.isCustomWording) _docBadge(tr('Nội dung riêng'), SboxColors.okSwatch.shade700),
+                      if (d.printTemplateId != null && !d.hasCustomTemplate) _docBadge(tr('Mẫu chọn riêng'), (SboxColors.posApp ? SboxColors.brand600 : Colors.indigo)),
                     ],
                   ),
                 ),

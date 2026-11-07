@@ -26,6 +26,7 @@ import '../widgets/pos/pos_theme.dart';
 import 'pos_stock_count_editor_screen.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../theme/sbox_tokens.dart';
 
 const _blue = SboxColors.brand600;
 
@@ -668,7 +669,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
                         color: c.totalDiffQty == 0
                             ? PosTheme.textSecondary
                             : c.totalDiffQty > 0
-                                ? Colors.green.shade700
+                                ? SboxColors.okSwatch.shade700
                                 : Colors.red.shade700,
                       ),
                       textAlign: TextAlign.right,

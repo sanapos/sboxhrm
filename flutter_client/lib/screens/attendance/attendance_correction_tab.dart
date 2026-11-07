@@ -154,7 +154,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
   Color _getCorrectionTypeColor(String type) {
     switch (type) {
       case 'add':
-        return Colors.green;
+        return SboxColors.okSwatch;
       case 'edit':
         return SboxColors.brand500;
       case 'delete':
@@ -254,7 +254,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                           dropdownColor: Theme.of(context).cardColor,
                           items: [
                             DropdownMenuItem(value: 'all', child: Text(tr('Loại'), style: TextStyle(fontSize: 11))),
-                            DropdownMenuItem(value: 'add', child: Row(children: [Icon(Icons.add_circle, size: 12, color: Colors.green), SizedBox(width: 4), Text(tr('Thêm'), style: TextStyle(fontSize: 11))])),
+                            DropdownMenuItem(value: 'add', child: Row(children: [Icon(Icons.add_circle, size: 12, color: SboxColors.okSwatch), SizedBox(width: 4), Text(tr('Thêm'), style: TextStyle(fontSize: 11))])),
                             DropdownMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 12, color: SboxColors.brand500), SizedBox(width: 4), Text(tr('Sửa'), style: TextStyle(fontSize: 11))])),
                             DropdownMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 12, color: Colors.red), SizedBox(width: 4), Text(tr('Xóa'), style: TextStyle(fontSize: 11))])),
                           ],
@@ -282,7 +282,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                           dropdownColor: Theme.of(context).cardColor,
                           items: [
                             DropdownMenuItem(value: 'all', child: Text(tr('Trạng thái'), style: TextStyle(fontSize: 11))),
-                            DropdownMenuItem(value: 'approved', child: Row(children: [Icon(Icons.check_circle, size: 12, color: Colors.green), SizedBox(width: 4), Text(tr('Duyệt'), style: TextStyle(fontSize: 11))])),
+                            DropdownMenuItem(value: 'approved', child: Row(children: [Icon(Icons.check_circle, size: 12, color: SboxColors.okSwatch), SizedBox(width: 4), Text(tr('Duyệt'), style: TextStyle(fontSize: 11))])),
                             DropdownMenuItem(value: 'rejected', child: Row(children: [Icon(Icons.cancel, size: 12, color: Colors.orange), SizedBox(width: 4), Text(tr('Từ chối'), style: TextStyle(fontSize: 11))])),
                           ],
                           onChanged: (value) => setState(() => _filterStatus = value ?? 'all'),
@@ -613,7 +613,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
             InkWell(
                 onTap: () => _approveRequest(request),
                 child: const Icon(Icons.check_circle_outline,
-                    size: 22, color: Colors.green)),
+                    size: 22, color: SboxColors.okSwatch)),
           if (_perm.canApprove('AttendanceCorrection')) const SizedBox(width: 6),
           if (_perm.canApprove('AttendanceCorrection'))
             InkWell(
@@ -627,7 +627,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
 
   Widget _buildProcessedDeckItem(CorrectionRequestInternal request) {
     final isApproved = request.status == CorrectionStatus.approved;
-    final statusColor = isApproved ? Colors.green : Colors.orange;
+    final statusColor = isApproved ? SboxColors.okSwatch : Colors.orange;
     final correctionType = request.correctionType.split(':').first;
     final typeLabel = _getCorrectionTypeLabel(correctionType);
 
@@ -775,7 +775,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                 visualDensity: VisualDensity.compact,
                 style: IconButton.styleFrom(
                   foregroundColor: Colors.white,
-                  backgroundColor: Colors.green,
+                  backgroundColor: SboxColors.okSwatch,
                 ),
               ),
             ],
@@ -788,7 +788,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
   Widget _buildProcessedRequestCard(CorrectionRequestInternal request,
       {Key? key}) {
     final isApproved = request.status == CorrectionStatus.approved;
-    final statusColor = isApproved ? Colors.green : Colors.orange;
+    final statusColor = isApproved ? SboxColors.okSwatch : Colors.orange;
     final statusText = isApproved ? 'Đã duyệt' : 'Từ chối';
     final statusIcon = isApproved ? Icons.check_circle : Icons.cancel;
     

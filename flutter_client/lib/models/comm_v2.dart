@@ -1,5 +1,6 @@
 // Truyền thông v2 — mạng xã hội nội bộ.
 import 'package:flutter/material.dart';
+import '../theme/sbox_tokens.dart';
 
 int _i(dynamic v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}') ?? 0;
 
@@ -140,7 +141,7 @@ class CommAttachment {
   Color get color => switch (kind) {
         'pdf' => const Color(0xFFDC2626),
         'word' => const Color(0xFF2563EB),
-        'excel' => const Color(0xFF16A34A),
+        'excel' => (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF16A34A)),
         'powerpoint' => const Color(0xFFEA580C),
         _ => const Color(0xFF64748B),
       };

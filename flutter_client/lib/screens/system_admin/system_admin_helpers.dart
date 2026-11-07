@@ -83,7 +83,7 @@ class AdminHelpers {
   static Color healthStatusColor(Object? status) {
     switch (status?.toString()) {
       case 'Healthy':
-        return Colors.greenAccent;
+        return SboxColors.okSwatch;
       case 'Warning':
         return Colors.orangeAccent;
       default:

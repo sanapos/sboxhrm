@@ -10,6 +10,7 @@ import '../../models/comm_v2.dart';
 import '../../services/api_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'comm_common.dart';
+import '../../theme/sbox_tokens.dart';
 
 const _kDocExts = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'webp'];
 const _kImageExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
@@ -394,7 +395,7 @@ class _CommEditorPageState extends State<CommEditorPage> {
       child: Scaffold(
         backgroundColor: SboxColors.page,
         appBar: AppBar(
-          backgroundColor: SboxColors.surface,
+          backgroundColor: SboxColors.appBarBg(SboxColors.surface),
           surfaceTintColor: Colors.transparent,
           title: Text(tr(_editing ? 'Sửa bài viết' : 'Tạo bài viết'), maxLines: 1, overflow: TextOverflow.ellipsis),
           actions: phone
@@ -406,10 +407,10 @@ class _CommEditorPageState extends State<CommEditorPage> {
                   ),
                   IconButton(
                     tooltip: tr('Trợ lý AI'),
-                    icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
+                    icon: Icon(Icons.auto_awesome, color: SboxColors.appBarFg(SboxColors.violet)),
                     onPressed: _openAiSheet,
                   ),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4),
                 ]
               : [
                   TextButton.icon(
@@ -420,13 +421,13 @@ class _CommEditorPageState extends State<CommEditorPage> {
                   if (!wide)
                     IconButton(
                       tooltip: tr('Trợ lý AI'),
-                      icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
+                      icon: Icon(Icons.auto_awesome, color: SboxColors.appBarFg(SboxColors.violet)),
                       onPressed: _openAiSheet,
                     ),
                   if (!_wasPublished)
                     TextButton(onPressed: _saving ? null : () => _save(publish: false), child: Text(tr('Lưu nháp'))),
                   Padding(
-                    padding: const EdgeInsets.only(right: 12, left: 4),
+                    padding: EdgeInsets.only(right: 12, left: 4),
                     child: SboxButton(
                       label: publishLabel,
                       icon: Icons.send_rounded,
@@ -982,7 +983,7 @@ class CommFormatToolbar extends StatelessWidget {
     ('#0F172A', Color(0xFF0F172A)),
     ('#DC2626', Color(0xFFDC2626)),
     ('#EA580C', Color(0xFFEA580C)),
-    ('#16A34A', Color(0xFF16A34A)),
+    ('#16A34A', (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF16A34A))),
     ('#158DC0', Color(0xFF158DC0)),
     ('#7C3AED', Color(0xFF7C3AED)),
   ];
@@ -1081,7 +1082,7 @@ class CommFormatToolbar extends StatelessWidget {
             PopupMenuItem(enabled: false, child: Text(tr('Màu chữ'), style: SboxType.captionStyle())),
             for (final c in _colors) PopupMenuItem(value: (c.$1, false), child: Row(children: [Icon(Icons.format_color_text, color: c.$2), const SizedBox(width: 8), Text(c.$1)])),
             PopupMenuItem(enabled: false, child: Text(tr('Tô nền'), style: SboxType.captionStyle())),
-            for (final c in const [('#FEF3C7', Color(0xFFFEF3C7)), ('#DCFCE7', Color(0xFFDCFCE7)), ('#DBEAFE', Color(0xFFDBEAFE)), ('#FEE2E2', Color(0xFFFEE2E2))])
+            for (final c in const [('#FEF3C7', Color(0xFFFEF3C7)), ('#DCFCE7', (SboxColors.posApp ? SboxColors.brand50 : Color(0xFFDCFCE7))), ('#DBEAFE', Color(0xFFDBEAFE)), ('#FEE2E2', Color(0xFFFEE2E2))])
               PopupMenuItem(value: (c.$1, true), child: Row(children: [Container(width: 22, height: 16, color: c.$2), const SizedBox(width: 8), Text(c.$1)])),
           ],
           child: const Padding(padding: EdgeInsets.all(7), child: Icon(Icons.format_color_text_rounded, size: 19, color: SboxColors.slate600)),

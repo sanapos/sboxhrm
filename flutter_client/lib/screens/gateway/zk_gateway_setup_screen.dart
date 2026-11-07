@@ -445,18 +445,18 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(
           tr(_isReconfigure ? 'Cấu hình lại gateway' : 'Thêm gateway'),
-          style: const TextStyle(
-            color: HrmPageChrome.textDark,
+          style: TextStyle(
+            color: SboxColors.appBarFg(HrmPageChrome.textDark),
             fontWeight: FontWeight.w700,
             fontSize: 18,
           ),
         ),
-        iconTheme: const IconThemeData(color: HrmPageChrome.textDark),
+        iconTheme: IconThemeData(color: SboxColors.appBarFg(HrmPageChrome.textDark)),
       ),
       body: SafeArea(
         child: Column(

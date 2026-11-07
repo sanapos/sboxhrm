@@ -283,7 +283,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
                   borderRadius:
                       const BorderRadius.vertical(top: Radius.circular(10)),
                   child: ColoredBox(
-                    color: const Color(0xFFF5F7FA),
+                    color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF5F7FA)),
                     child: id.isEmpty
                         ? const Icon(Icons.restaurant_menu_outlined)
                         : FutureBuilder<Uint8List?>(

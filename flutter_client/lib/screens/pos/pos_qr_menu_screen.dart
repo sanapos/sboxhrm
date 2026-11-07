@@ -589,7 +589,7 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
                     fontSize: 11,
                     color: _saving
                         ? Colors.orange.shade800
-                        : Colors.green.shade700,
+                        : SboxColors.okSwatch.shade700,
                   ),
                 ),
               ),

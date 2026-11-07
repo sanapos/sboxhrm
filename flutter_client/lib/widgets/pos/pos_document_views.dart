@@ -64,7 +64,7 @@ class PosDocumentViews {
           const Divider(height: 1),
           Flexible(
             child: Container(
-              color: const Color(0xFFF2F4F7),
+              color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF2F4F7)),
               child: SingleChildScrollView(
                 controller: scroll,
                 padding: const EdgeInsets.all(12),
@@ -510,7 +510,7 @@ class PosPurchaseDocumentPaper extends StatelessWidget {
         // Đầu phiếu
         Container(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-          color: cancelled ? Colors.red.shade50.withValues(alpha: 0.55) : const Color(0xFFFAFBFC),
+          color: cancelled ? Colors.red.shade50.withValues(alpha: 0.55) : (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFBFC)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
               Expanded(
@@ -553,7 +553,7 @@ class PosPurchaseDocumentPaper extends StatelessWidget {
         Container(
           padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
           decoration: const BoxDecoration(
-            color: Color(0xFFFAFBFC),
+            color: (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFBFC)),
             border: Border(top: BorderSide(color: PosTheme.border)),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -637,7 +637,7 @@ class _LineHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        color: const Color(0xFFF5F7FA),
+        color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF5F7FA)),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         child: Row(children: [
           SizedBox(width: _wStt, child: Text(tr('STT'), style: _hdrStyle)),
@@ -764,7 +764,7 @@ class PosCashVoucherPaper extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Container(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-        color: const Color(0xFFFAFBFC),
+        color: (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFBFC)),
         child: Column(children: [
           Text(tr(income ? 'PHIẾU THU' : 'PHIẾU CHI'),
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1, color: color)),

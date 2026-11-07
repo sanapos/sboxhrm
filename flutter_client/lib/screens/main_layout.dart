@@ -153,6 +153,7 @@ import '../services/system_notification_service.dart';
 import '../services/app_permission_service.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/pos_icon_set.dart';
 import '../widgets/sbox/sbox_command_palette.dart';
 import 'overview/business_overview_screen.dart';
 import 'work/work_hub_screen.dart';
@@ -3246,7 +3247,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         titleTextStyle: Theme.of(context)
             .textTheme
             .headlineLarge
-            ?.copyWith(fontSize: 18),
+            ?.copyWith(fontSize: 18, color: SboxColors.posApp ? SboxColors.onChrome : null),
         // Tiêu đề dài (Nhập hàng NCC, Trả hàng nhập…) thu nhỏ cho vừa thay vì cắt «Nhập hàng N…».
         title: FittedBox(
           fit: BoxFit.scaleDown,
@@ -3262,7 +3263,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           if (canUseAiAssistant(context))
           IconButton(
             visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
+            icon: Icon(Icons.auto_awesome, color: SboxColors.appBarFg(SboxColors.violet)),
             onPressed: () => showAiAssistant(context),
             tooltip: tr('Trợ lý ảo'),
           ),
@@ -3617,7 +3618,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
     final isDark = theme.brightness == Brightness.dark;
-    final surfaceColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final surfaceColor = isDark
+        ? const Color(0xFF1E1E2E)
+        : (SboxColors.posApp ? SboxColors.chrome : Colors.white);
     final unselectedColor = isDark ? Colors.white54 : SboxColors.slate500;
 
     final layout = _resolvedMainNavLayout();
@@ -3630,7 +3633,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         color: surfaceColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
+            color: Colors.black.withValues(alpha: SboxColors.posApp ? 0 : (isDark ? 0.2 : 0.06)),
             blurRadius: 12,
             offset: const Offset(0, -2),
           ),
@@ -3671,7 +3674,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
               return Expanded(
                 child: _buildNavItem(
-                  icon: isSelected ? def!.activeIcon : def!.icon,
+                  icon: PosIconSet.ofModule(def!.moduleCode, isSelected ? def.activeIcon : def.icon),
                   label: label,
                   isSelected: isSelected,
                   selectedColor: primaryColor,
@@ -3876,8 +3879,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       groupedItems[group]!.add(MapEntry(i, _navItems[i]));
     }
 
+    const onDark = SboxColors.darkSidebar;
     return Container(
-      color: const Color(0xFFF1F4F6), // surface-container-low
+      color: onDark ? SboxColors.sidebar : (SboxColors.posApp ? SboxColors.chrome : (SboxColors.posApp ? SboxColors.page : Color(0xFFF1F4F6))), // surface-container-low
       child: Column(
         children: [
           // Header with logo — bấm để mở/ thu sidebar
@@ -3889,7 +3893,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 height: _isExpanded ? 78 : 64,
                 padding: EdgeInsets.symmetric(horizontal: _isExpanded ? 16 : 8),
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF8F9FA), // surface
+                  color: onDark ? SboxColors.chrome : (SboxColors.posApp ? SboxColors.chrome : (SboxColors.posApp ? SboxColors.page : Color(0xFFF8F9FA))), // surface
                 ),
                 child: _isExpanded
                     ? Row(
@@ -3900,12 +3904,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                               logoSize: 32,
                               titleSize: 14,
                               sloganSize: 10,
-                              titleColor: HrmPageChrome.primaryNavy,
+                              titleColor: onDark ? SboxColors.onChrome : HrmPageChrome.primaryNavy,
                               showSlogan: !SboxAppVariant.standalonePos,
                             ),
                           ),
                           Icon(Icons.chevron_left_rounded,
-                              color: SboxColors.slate600.withValues(alpha: 0.5),
+                              color: onDark ? SboxColors.onChromeMuted : SboxColors.slate600.withValues(alpha: 0.5),
                               size: 22),
                         ],
                       )
@@ -3919,7 +3923,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 width: 26, height: 26),
                           ),
                           Icon(Icons.chevron_right_rounded,
-                              color: SboxColors.slate600.withValues(alpha: 0.45),
+                              color: onDark ? SboxColors.onChromeMuted : SboxColors.slate600.withValues(alpha: 0.45),
                               size: 16),
                         ],
                       ),
@@ -3963,7 +3967,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: groupColor.withValues(alpha: 0.6),
+                                  color: onDark ? SboxColors.brand200 : groupColor.withValues(alpha: 0.6),
                                   letterSpacing: 1.2,
                                 ),
                               ),
@@ -3973,7 +3977,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                   ? Icons.expand_more_rounded
                                   : Icons.expand_less_rounded,
                               size: 16,
-                              color: const Color(0xFFABB3B7),
+                              color: onDark ? SboxColors.brand200 : const Color(0xFFABB3B7),
                             ),
                           ],
                         ),
@@ -3988,20 +3992,20 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       final index = entry.key;
                       final item = entry.value;
                       final isSelected = _selectedIndex == index;
-                      final accentColor = HrmPageChrome.primaryNavy;
+                      final accentColor = onDark ? SboxColors.onChrome : HrmPageChrome.primaryNavy;
 
                       final navWidget = Padding(
                         padding: EdgeInsets.symmetric(
                             horizontal: _isExpanded ? 10 : 6, vertical: 2),
                         child: Material(
                           color: isSelected
-                              ? accentColor.withValues(alpha: 0.08)
+                              ? accentColor.withValues(alpha: onDark ? 0.16 : 0.08)
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(10),
                           child: InkWell(
                             onTap: () => _tryNavigateToIndex(index),
                             borderRadius: BorderRadius.circular(10),
-                            hoverColor: const Color(
+                            hoverColor: onDark ? const Color(0x1FFFFFFF) : const Color(
                                 0xFFE2E9EC), // surface-container-high
                             child: Container(
                               height: 40,
@@ -4026,7 +4030,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                     size: 20,
                                     color: isSelected
                                         ? accentColor
-                                        : SboxColors.slate600,
+                                        : onDark ? SboxColors.brand100 : SboxColors.slate600,
                                   ),
                                   if (_isExpanded) ...[
                                     const SizedBox(width: 12),
@@ -4037,8 +4041,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                         style: TextStyle(
                                           fontSize: 13,
                                           color: isSelected
-                                              ? const Color(0xFF2B3437)
-                                              : SboxColors.slate600,
+                                              ? (onDark ? SboxColors.onChrome : const Color(0xFF2B3437))
+                                              : onDark ? SboxColors.brand50 : SboxColors.slate600,
                                           fontWeight: isSelected
                                               ? FontWeight.w700
                                               : FontWeight.w500,
@@ -4090,23 +4094,24 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
 
+    const onDark = SboxColors.darkSidebar;
     return Container(
       margin:
           EdgeInsets.symmetric(horizontal: _isExpanded ? 10 : 6, vertical: 8),
       padding: EdgeInsets.all(_isExpanded ? 10 : 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA), // surface
+        color: onDark ? const Color(0x1FFFFFFF) : (SboxColors.posApp ? SboxColors.white : (SboxColors.posApp ? SboxColors.page : Color(0xFFF8F9FA))), // surface
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: _isExpanded ? 20 : 18,
-            backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+            backgroundColor: onDark ? SboxColors.white : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
             child: Text(
               tr((user?.fullName ?? 'U')[0].toUpperCase()),
               style: TextStyle(
-                color: HrmPageChrome.primaryNavy,
+                color: onDark ? SboxColors.brand700 : HrmPageChrome.primaryNavy,
                 fontWeight: FontWeight.w700,
                 fontSize: _isExpanded ? 16 : 14,
               ),
@@ -4123,7 +4128,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
-                      color: Color(0xFF2B3437),
+                      color: onDark ? SboxColors.onChrome : Color(0xFF2B3437),
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -4132,7 +4137,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     // Mã vai trò (Admin / Waiter…) → tên hiển thị tiếng Việt như trang Phân quyền.
                     tr(PermissionRoleOptions.displayNameOf(user?.role ?? 'Employee')),
                     style: const TextStyle(
-                      color: SboxColors.slate600,
+                      color: onDark ? SboxColors.brand100 : SboxColors.slate600,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -4146,12 +4151,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               child: InkWell(
                 onTap: () => _showLogoutDialog(),
                 borderRadius: BorderRadius.circular(10),
-                hoverColor: const Color(0xFFE2E9EC),
+                hoverColor: onDark ? const Color(0x1FFFFFFF) : const Color(0xFFE2E9EC),
                 child: Padding(
                   padding: const EdgeInsets.all(6),
                   child: Icon(Icons.logout_rounded,
                       size: 18,
-                      color: SboxColors.slate600.withValues(alpha: 0.7)),
+                      color: onDark ? SboxColors.onChromeMuted : SboxColors.slate600.withValues(alpha: 0.7)),
                 ),
               ),
             ),
@@ -4163,21 +4168,24 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   // Top bar
   Widget _buildTopBar() {
-    return Container(
+    const onDark = SboxColors.darkChrome;
+    final bar = Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor),
-        ),
+        color: SboxColors.posApp ? SboxColors.chrome : Theme.of(context).colorScheme.surface,
+        border: SboxColors.posApp
+            ? null
+            : Border(
+                bottom: BorderSide(color: Theme.of(context).dividerColor),
+              ),
       ),
       child: Row(
         children: [
           if (_canGoBack)
             IconButton(
               icon: Icon(Icons.arrow_back,
-                  color: Theme.of(context).colorScheme.onSurface),
+                  color: onDark ? SboxColors.onChrome : Theme.of(context).colorScheme.onSurface),
               onPressed: _goBack,
               tooltip: tr(AppLocalizations.of(context).goBack),
             ),
@@ -4187,7 +4195,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: Theme.of(context).colorScheme.onSurface,
+              color: onDark ? SboxColors.onChrome : Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(width: 12),
@@ -4205,7 +4213,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(width: 8),
-          const BranchSwitcher(),
+          const BranchSwitcher(onDark: onDark),
           const SizedBox(width: 8),
           // Tìm nhanh chức năng (Ctrl+K).
           Tooltip(
@@ -4217,23 +4225,23 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 height: posWebHasTouchPoints() ? 44 : 36,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
-                  color: SboxColors.slate50,
+                  color: onDark ? const Color(0x24FFFFFF) : SboxColors.slate50,
                   borderRadius: SboxRadius.mdAll,
-                  border: Border.all(color: SboxColors.border),
+                  border: onDark ? null : Border.all(color: SboxColors.border),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.search_rounded, size: 18, color: SboxColors.slate500),
+                  const Icon(Icons.search_rounded, size: 18, color: onDark ? SboxColors.onChrome : SboxColors.slate500),
                   const SizedBox(width: 6),
-                  Text(tr('Tìm chức năng'), style: SboxType.smallStyle(SboxColors.textMuted)),
+                  Text(tr('Tìm chức năng'), style: SboxType.smallStyle(onDark ? SboxColors.onChrome : SboxColors.textMuted)),
                   const SizedBox(width: 10),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                     decoration: BoxDecoration(
-                      color: SboxColors.white,
+                      color: onDark ? const Color(0x24FFFFFF) : SboxColors.white,
                       borderRadius: SboxRadius.smAll,
-                      border: Border.all(color: SboxColors.border),
+                      border: onDark ? null : Border.all(color: SboxColors.border),
                     ),
-                    child: Text('Ctrl K', style: SboxType.captionStyle()),
+                    child: Text('Ctrl K', style: SboxType.captionStyle(onDark ? SboxColors.onChromeMuted : SboxColors.textMuted)),
                   ),
                 ]),
               ),
@@ -4242,7 +4250,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           const SizedBox(width: 4),
           if (canUseAiAssistant(context))
           IconButton(
-            icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
+            icon: Icon(Icons.auto_awesome, color: SboxColors.appBarFg(SboxColors.violet)),
             onPressed: () => showAiAssistant(context),
             tooltip: tr('Trợ lý ảo'),
           ),
@@ -4268,6 +4276,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         ],
       ),
     );
+    if (!onDark) return bar;
+    return SboxOnChrome(
+      child: IconTheme.merge(
+        data: const IconThemeData(color: SboxColors.onChrome),
+        child: IconButtonTheme(
+          data: IconButtonThemeData(style: IconButton.styleFrom(foregroundColor: SboxColors.onChrome)),
+          child: bar,
+        ),
+      ),
+    );
   }
 
   // User menu
@@ -4286,19 +4304,20 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         children: [
           CircleAvatar(
             radius: 16,
-            backgroundColor:
-                Theme.of(context).primaryColor.withValues(alpha: 0.2),
+            backgroundColor: SboxColors.darkChrome
+                ? SboxColors.white
+                : Theme.of(context).primaryColor.withValues(alpha: 0.2),
             child: Text(
               tr((user?.fullName ?? 'U')[0].toUpperCase()),
               style: TextStyle(
-                color: Theme.of(context).primaryColor,
+                color: SboxColors.darkChrome ? SboxColors.brand700 : Theme.of(context).primaryColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
             ),
           ),
           const SizedBox(width: 8),
-          const Icon(Icons.keyboard_arrow_down, size: 20),
+          Icon(Icons.keyboard_arrow_down, size: 20, color: SboxColors.posApp ? SboxColors.onChrome : null),
         ],
         ),
       ),
@@ -4431,9 +4450,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             height: 78,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: const BoxDecoration(
-              color: Color(0xFFF8F9FA),
+              color: SboxColors.posApp ? SboxColors.chrome : (SboxColors.posApp ? SboxColors.page : Color(0xFFF8F9FA)),
               border: Border(
-                  bottom: BorderSide(color: SboxColors.slate200, width: 1)),
+                  bottom: BorderSide(color: SboxColors.posApp ? SboxColors.chrome : SboxColors.slate200, width: 1)),
             ),
             child: Row(
               children: [
@@ -4442,13 +4461,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     logoSize: 32,
                     titleSize: 14,
                     sloganSize: 10,
-                    titleColor: HrmPageChrome.primaryNavy,
+                    titleColor: SboxColors.appBarFg(HrmPageChrome.primaryNavy),
                     showSlogan: !SboxAppVariant.standalonePos,
                   ),
                 ),
                 IconButton(
                   icon: Icon(Icons.close_rounded,
-                      color: SboxColors.slate600.withValues(alpha: 0.5),
+                      color: SboxColors.posApp ? SboxColors.onChromeMuted : SboxColors.slate600.withValues(alpha: 0.5),
                       size: 22),
                   onPressed: () => Navigator.pop(context),
                   padding: EdgeInsets.zero,
@@ -4597,8 +4616,8 @@ class NavItem {
   final bool requiresMultiBranch;
 
   NavItem({
-    required this.icon,
-    required this.activeIcon,
+    required IconData icon,
+    required IconData activeIcon,
     required this.label,
     required this.screen,
     this.badge = false,
@@ -4612,7 +4631,8 @@ class NavItem {
     this.moduleCode,
     this.openAsPage = false,
     this.requiresMultiBranch = false,
-  });
+  })  : icon = PosIconSet.ofNav(label, icon),
+        activeIcon = PosIconSet.ofNav(label, activeIcon);
 
   /// Get localized label based on moduleCode
   String localizedLabel(AppLocalizations l) {
@@ -4830,6 +4850,9 @@ class _HomeMenuScreen extends StatefulWidget {
   /// nhìn rối, khó tập trung tìm chức năng.
   static (Color, Color) tintOf(String group) => (SboxColors.brand700, SboxColors.brand50);
 
+  static IconData groupIcon(String group) =>
+      PosIconSet.ofGroup(group, _groupIcons[group] ?? Icons.folder);
+
   static const _groupDescriptions = {
     'Hồ sơ nhân sự': 'Nhân viên, phòng ban',
     'Chấm công': 'Giờ làm, ca làm',
@@ -4937,7 +4960,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       final idx = widget.navItems.indexWhere((n) => n.moduleCode == code);
       tiles.add(_HomeTileData(
         label: def.label,
-        icon: def.icon,
+        icon: PosIconSet.ofModule(code, def.icon),
         // Cùng tông với nhóm của chức năng trên Trang chủ.
         tint: idx >= 0
             ? _HomeMenuScreen.tintOf(
@@ -4979,21 +5002,9 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
         ? 'User'
         : user!.fullName.trim();
 
-    return ColoredBox(
-      color: SboxColors.page,
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        key: const PageStorageKey<String>('home_menu_scroll'),
-        padding: const EdgeInsets.fromLTRB(
-            SboxSpace.lg, SboxSpace.lg, SboxSpace.lg, SboxSpace.xxl),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // ═══════════════ LỜI CHÀO + TÀI KHOẢN ═══════════════
-                InkWell(
+    const hero = SboxColors.darkChrome;
+    // ═══════════════ LỜI CHÀO + TÀI KHOẢN ═══════════════
+    final greeting = InkWell(
                   borderRadius: SboxRadius.lgAll,
                   onTap: () => NavigationNotifier.goToModule('Settings'),
                   child: Padding(
@@ -5002,7 +5013,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                       children: [
                         CircleAvatar(
                           radius: 24,
-                          backgroundColor: SboxColors.brand50,
+                          backgroundColor: hero ? SboxColors.white : SboxColors.brand50,
                           child: Text(
                             name[0].toUpperCase(),
                             style: SboxType.titleStyle(SboxColors.brand700)
@@ -5017,20 +5028,20 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                               Text(
                                 '${tr(_greeting)},',
                                 style:
-                                    SboxType.captionStyle(SboxColors.textMuted),
+                                    SboxType.captionStyle(hero ? SboxColors.onChromeMuted : SboxColors.textMuted),
                               ),
                               Text(
                                 name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: SboxType.titleStyle()
+                                style: SboxType.titleStyle(hero ? SboxColors.onChrome : SboxColors.text)
                                     .copyWith(fontWeight: SboxType.bold),
                               ),
                               Text(
                                 tr(_profileSubtitle(user)),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: SboxType.smallStyle(SboxColors.textMuted),
+                                style: SboxType.smallStyle(hero ? SboxColors.onChromeMuted : SboxColors.textMuted),
                               ),
                             ],
                           ),
@@ -5038,16 +5049,16 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                         IconButton(
                           tooltip: tr('Đăng xuất'),
                           onPressed: () => showPosLogoutDialog(context),
-                          icon: const Icon(Icons.logout,
-                              color: SboxColors.danger, size: 22),
+                          icon: const Icon(Icons.logout_rounded,
+                              color: hero ? SboxColors.onChromeMuted : SboxColors.danger, size: 22),
                         ),
                       ],
                     ),
                   ),
-                ),
-
+                );
+    final sections = <Widget>[
                 if (quick.isNotEmpty) ...[
-                  const SizedBox(height: SboxSpace.lg),
+                  if (!hero) const SizedBox(height: SboxSpace.lg),
                   _HomeGridSection(
                     title: tr('Truy cập nhanh'),
                     icon: Icons.bolt_rounded,
@@ -5070,8 +5081,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                       final groupName = groupNames[i];
                       final (fg, bg) = _HomeMenuScreen.tintOf(groupName);
                       return _GroupJumpChip(
-                        icon: _HomeMenuScreen._groupIcons[groupName] ??
-                            Icons.folder,
+                        icon: _HomeMenuScreen.groupIcon(groupName),
                         label: groupTitle(groupName),
                         count: groupedItems[groupName]!.length,
                         fg: fg,
@@ -5091,8 +5101,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                       padding: const EdgeInsets.only(top: SboxSpace.md),
                       child: _HomeGridSection(
                         title: groupTitle(groupName),
-                        icon: _HomeMenuScreen._groupIcons[groupName] ??
-                            Icons.folder,
+                        icon: _HomeMenuScreen.groupIcon(groupName),
                         tint: _HomeMenuScreen.tintOf(groupName),
                         count: groupedItems[groupName]!.length,
                         tiles: [
@@ -5107,10 +5116,66 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                       ),
                     ),
                   ),
-              ],
-            ),
+    ];
+
+    Widget centered(Widget child) => Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: child,
+          ),
+        );
+    if (hero) {
+      // SBOX POS: dải cobalt nối liền thanh tiêu đề, khối đầu tiên nổi lên trên dải.
+      const overlap = 28.0;
+      return ColoredBox(
+        color: SboxColors.page,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          key: const PageStorageKey<String>('home_menu_scroll'),
+          padding: const EdgeInsets.only(bottom: SboxSpace.xxl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(
+                    SboxSpace.lg, SboxSpace.xs, SboxSpace.sm, SboxSpace.md + overlap),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [SboxColors.chrome, SboxColors.brand500],
+                  ),
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+                ),
+                child: centered(greeting),
+              ),
+              Transform.translate(
+                offset: const Offset(0, -overlap),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: SboxSpace.lg),
+                  child: centered(Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: sections,
+                  )),
+                ),
+              ),
+            ],
           ),
         ),
+      );
+    }
+
+    return ColoredBox(
+      color: SboxColors.page,
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        key: const PageStorageKey<String>('home_menu_scroll'),
+        padding: const EdgeInsets.fromLTRB(
+            SboxSpace.lg, SboxSpace.lg, SboxSpace.lg, SboxSpace.xxl),
+        child: centered(Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [greeting, ...sections],
+        )),
       ),
     );
   }
@@ -5270,8 +5335,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                       final groupName = groupNames[i];
                       final (fg, bg) = _HomeMenuScreen.tintOf(groupName);
                       return _GroupJumpChip(
-                        icon: _HomeMenuScreen._groupIcons[groupName] ??
-                            Icons.folder,
+                        icon: _HomeMenuScreen.groupIcon(groupName),
                         label: groupTitle(groupName),
                         count: groupedItems[groupName]!.length,
                         fg: fg,
@@ -5297,8 +5361,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                             SboxAppVariant.standalonePos && groupName == 'Tài chính'
                                 ? 'Thu chi'
                                 : _HomeMenuScreen._groupDescriptions[groupName] ?? '',
-                        icon: _HomeMenuScreen._groupIcons[groupName] ??
-                            Icons.folder,
+                        icon: _HomeMenuScreen.groupIcon(groupName),
                         tint: _HomeMenuScreen.tintOf(groupName),
                         items: groupedItems[groupName]!,
                       ),
@@ -5339,13 +5402,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       children: [
         Row(
           children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration:
-                  BoxDecoration(color: bg, borderRadius: SboxRadius.mdAll),
-              child: Icon(icon, size: 18, color: fg),
-            ),
+            _HomeIconBox(icon: icon, size: 32, iconSize: 18, fg: fg, bg: bg),
             const SizedBox(width: SboxSpace.md),
             Flexible(
               child: Text(
@@ -5507,6 +5564,50 @@ class _HomeMenuSkeleton extends StatelessWidget {
   }
 }
 
+/// Hộp icon chức năng. SBOX POS: nền gradient xanh dương - cobalt, icon trắng. App khác: nền nhạt như cũ.
+class _HomeIconBox extends StatelessWidget {
+  const _HomeIconBox({
+    required this.icon,
+    required this.size,
+    required this.iconSize,
+    required this.fg,
+    required this.bg,
+    this.radius = SboxRadius.md,
+    this.circle = false,
+  });
+
+  final IconData icon;
+  final double size;
+  final double iconSize;
+  final Color fg;
+  final Color bg;
+  final double radius;
+  final bool circle;
+
+  @override
+  Widget build(BuildContext context) {
+    const pos = SboxColors.posApp;
+    final BorderRadius? shapeRadius = circle ? null : BorderRadius.circular(pos ? radius + 2 : radius);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: pos ? null : bg,
+        gradient: pos
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [SboxColors.brand400, SboxColors.brand600],
+              )
+            : null,
+        shape: circle ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: shapeRadius,
+      ),
+      child: Icon(icon, size: iconSize, color: pos ? SboxColors.white : fg),
+    );
+  }
+}
+
 class _HomeTileData {
   final String label;
   final IconData icon;
@@ -5555,13 +5656,7 @@ class _HomeGridSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration:
-                    BoxDecoration(color: bg, borderRadius: SboxRadius.smAll),
-                child: Icon(icon, size: 16, color: fg),
-              ),
+              _HomeIconBox(icon: icon, size: 28, iconSize: 16, fg: fg, bg: bg, radius: SboxRadius.sm),
               const SizedBox(width: SboxSpace.sm),
               Expanded(
                 child: Text(
@@ -5619,13 +5714,7 @@ class _HomeGridTile extends StatelessWidget {
               horizontal: SboxSpace.xxs, vertical: SboxSpace.sm),
           child: Column(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration:
-                    BoxDecoration(color: bg, borderRadius: SboxRadius.mdAll),
-                child: Icon(data.icon, size: 22, color: fg),
-              ),
+              _HomeIconBox(icon: data.icon, size: 44, iconSize: 24, fg: fg, bg: bg),
               const SizedBox(height: 6),
               // Ô hẹp (4 cột trên V2s): «Đăng ký chấm công» cần 3 dòng → bị cắt «chấm côn…».
               // Thu nhỏ chữ tới khi vừa 2 dòng (tối đa 80%), giữ ô cao đều 96.
@@ -5695,12 +5784,7 @@ class _GroupJumpChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-                child: Icon(icon, size: 15, color: fg),
-              ),
+              _HomeIconBox(icon: icon, size: 28, iconSize: 15, fg: fg, bg: bg, circle: true),
               const SizedBox(width: SboxSpace.sm),
               Text(
                 label,
@@ -5787,15 +5871,7 @@ class _MenuCardState extends State<_MenuCard> {
                   horizontal: SboxSpace.md + 2, vertical: SboxSpace.md),
               child: Row(
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: widget.tint,
-                      borderRadius: SboxRadius.mdAll,
-                    ),
-                    child: Icon(widget.icon, color: widget.color, size: 22),
-                  ),
+                  _HomeIconBox(icon: widget.icon, size: 42, iconSize: 22, fg: widget.color, bg: widget.tint),
                   const SizedBox(width: SboxSpace.md),
                   Expanded(
                     child: Column(
