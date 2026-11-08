@@ -133,7 +133,11 @@ public class PosKdsController(
             where line.StoreId == storeId && line.Deleted == null && order.Deleted == null
                 && line.KitchenSentQty > 0
                 && (includeDone || line.KitchenSentQty > line.KitchenDoneQty)
+                // Đơn đã thanh toán vẫn giữ món bếp chưa làm xong: quán thu tiền trước, làm sau thì món
+                // từng biến mất khỏi bảng ngay lúc thu tiền mà bếp không hay biết. Chỉ đơn hủy mới rời bảng.
                 && (order.Status == PosSaleOrderStatus.Draft
+                    || (order.Status == PosSaleOrderStatus.Completed
+                        && (line.KitchenSentAt ?? order.SaleDate ?? order.CreatedAt) >= since)
                     || (includeDone && (order.SaleDate ?? order.CreatedAt) >= since))
             select new
             {

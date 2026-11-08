@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart' show openAppSettings;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
@@ -251,6 +252,36 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
                       controller: _controller,
                       onDetect: _onDetect,
                       tapToFocus: true,
+                      // Camera giờ chỉ được xin lúc bấm quét, nên từ chối rồi phải có đường bật lại.
+                      errorBuilder: (ctx, error) => ColoredBox(
+                        color: Colors.black,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: error.errorCode == MobileScannerErrorCode.permissionDenied
+                                ? Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        tr('Cần cho phép camera để quét mã vạch'),
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(color: Colors.white),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      FilledButton(
+                                        onPressed: openAppSettings,
+                                        child: Text(tr('Mở cài đặt')),
+                                      ),
+                                    ],
+                                  )
+                                : Text(
+                                    tr('Không mở được camera'),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                          ),
+                        ),
+                      ),
                     ),
                     IgnorePointer(
                       child: CustomPaint(

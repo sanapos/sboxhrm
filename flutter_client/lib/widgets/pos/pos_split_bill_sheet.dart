@@ -109,63 +109,71 @@ class _SplitBillSheetState extends State<_SplitBillSheet> {
                   final unsaved = id.isEmpty;
                   final take = unsaved ? 0.0 : (_qty[id] ?? 0);
                   final on = take > 0;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Checkbox(
-                          value: on,
-                          activeColor: PosTheme.kiotBlue,
-                          onChanged: unsaved
-                              ? null
-                              : (v) => setState(() {
-                                    _qty[id] = v == true ? l.qty : 0;
-                                  }),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                tr(l.productName.isEmpty ? 'Món' : l.productName),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700, fontSize: 14),
-                              ),
-                              Text(
-                                tr(unsaved
-                                    ? 'Chưa lưu dòng — đóng sheet, đợi 1 giây rồi tách lại'
-                                    : 'SL ${_qtyFmt.format(l.qty)} · ${_money.format(l.lineTotal)}'),
-                                style: TextStyle(
-                                    fontSize: 12, color: SboxColors.slate600),
-                              ),
-                            ],
+                  return InkWell(
+                    // Bấm cả dòng để chọn / bỏ chọn — ô tick nhỏ khó bấm trên máy POS.
+                    onTap: unsaved
+                        ? null
+                        : () => setState(() {
+                              _qty[id] = on ? 0 : l.qty;
+                            }),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: on,
+                            activeColor: PosTheme.kiotBlue,
+                            onChanged: unsaved
+                                ? null
+                                : (v) => setState(() {
+                                      _qty[id] = v == true ? l.qty : 0;
+                                    }),
                           ),
-                        ),
-                        if (l.qty > 1 && on)
-                          Row(
-                            children: [
-                              IconButton(
-                                visualDensity: VisualDensity.compact,
-                                onPressed: take <= 1
-                                    ? null
-                                    : () => setState(() => _qty[id] = take - 1),
-                                icon: const Icon(Icons.remove_circle_outline),
-                              ),
-                              Text(
-                                _qtyFmt.format(take),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700),
-                              ),
-                              IconButton(
-                                visualDensity: VisualDensity.compact,
-                                onPressed: take >= l.qty
-                                    ? null
-                                    : () => setState(() => _qty[id] = take + 1),
-                                icon: const Icon(Icons.add_circle_outline),
-                              ),
-                            ],
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  tr(l.productName.isEmpty ? 'Món' : l.productName),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700, fontSize: 14),
+                                ),
+                                Text(
+                                  tr(unsaved
+                                      ? 'Chưa lưu dòng — đóng sheet, đợi 1 giây rồi tách lại'
+                                      : 'SL ${_qtyFmt.format(l.qty)} · ${_money.format(l.lineTotal)}'),
+                                  style: TextStyle(
+                                      fontSize: 12, color: SboxColors.slate600),
+                                ),
+                              ],
+                            ),
                           ),
-                      ],
+                          if (l.qty > 1 && on)
+                            Row(
+                              children: [
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: take <= 1
+                                      ? null
+                                      : () => setState(() => _qty[id] = take - 1),
+                                  icon: const Icon(Icons.remove_circle_outline),
+                                ),
+                                Text(
+                                  _qtyFmt.format(take),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700),
+                                ),
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: take >= l.qty
+                                      ? null
+                                      : () => setState(() => _qty[id] = take + 1),
+                                  icon: const Icon(Icons.add_circle_outline),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
                     ),
                   );
                 },

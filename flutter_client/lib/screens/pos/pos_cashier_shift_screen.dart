@@ -838,7 +838,8 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
               _kv('Tiền mặt kỳ vọng', '${_money.format(expected)} đ'),
               Text(
                 tr(
-                  'Kỳ vọng = đầu ca + đơn hoàn thành thanh toán tiền mặt trong ca này.',
+                  'Kỳ vọng = đầu ca + phiếu thu tiền mặt (bán hàng, thu nợ khách, thu cọc, thu khác) '
+                  '− phiếu chi tiền mặt (hoàn tiền trả hàng, hoàn cọc, chi khác) do tài khoản mở ca ghi trong ca này.',
                 ),
                 style: TextStyle(
                   fontSize: 12,

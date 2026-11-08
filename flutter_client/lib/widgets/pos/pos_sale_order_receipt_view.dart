@@ -104,8 +104,15 @@ class PosSaleOrderReceiptView extends StatelessWidget {
     final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
 
     // Tạm tính là tiền hàng trước CK từng món — thiếu dòng này thì Tạm tính − Giảm giá ≠ Tổng cộng.
+    // Khuyến mãi theo món cũng nằm trong discountAmount của dòng và đã có dòng «Khuyến mãi» riêng:
+    // chỉ để lại phần giảm tay, không thì cùng một khoản hiện 2 lần, đọc như bị trừ đôi.
+    final linePromoTotal = (promos.applied.fold<double>(0, (s, p) => s + p.$2) - promos.bill)
+        .clamp(0.0, double.infinity)
+        .toDouble();
     final lineDiscountTotal =
-        order.lines.fold<double>(0, (s, l) => s + (l.discountAmount > 0 ? l.discountAmount : 0));
+        (order.lines.fold<double>(0, (s, l) => s + (l.discountAmount > 0 ? l.discountAmount : 0)) - linePromoTotal)
+            .clamp(0.0, double.infinity)
+            .toDouble();
 
     final returned = order.returnedAmount > 0 ? order.returnedAmount : 0.0;
 

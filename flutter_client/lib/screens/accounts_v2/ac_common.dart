@@ -164,7 +164,8 @@ String roleHint(String role) => switch (role) {
 const posAreaRoles = {'Cashier', 'Waiter', 'Employee', 'User'};
 
 String agoText(DateTime? d) {
-  if (d == null) return 'Chưa đăng nhập';
+  // Dữ liệu cũ không ghi lần đăng nhập, nên trống không có nghĩa là chưa từng đăng nhập.
+  if (d == null) return 'Chưa ghi nhận';
   final diff = DateTime.now().difference(d.toLocal());
   if (diff.inMinutes < 1) return 'Vừa xong';
   if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';

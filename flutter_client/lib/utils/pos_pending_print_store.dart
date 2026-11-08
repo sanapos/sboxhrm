@@ -8,7 +8,8 @@ import 'pos_cup_label_print.dart';
 import 'pos_kitchen_print.dart';
 import 'pos_sale_order_print.dart';
 
-/// Snapshot hàng chờ in — sống qua kill app (SharedPreferences).
+/// Snapshot hàng chờ in — sống qua kill app (SharedPreferences). Chỉ ghi sau khi đã đọc xong bản lưu
+/// ([_loadPendingPrintQueueFromDisk] bên màn bán hàng), không thì danh sách rỗng lúc mở màn đè mất phiếu treo.
 class PosPendingPrintSnapshot {
   const PosPendingPrintSnapshot({
     this.warehouse = const [],

@@ -96,12 +96,26 @@ class _PosCashVoucherDialogState extends State<_PosCashVoucherDialog> {
           .toList();
       setState(() {
         _categories = cats;
-        _categoryId = cats.isNotEmpty ? cats.first.id : null;
+        _categoryId = _defaultCategoryId(cats);
         _loadingCats = false;
       });
     } else {
       setState(() => _loadingCats = false);
     }
+  }
+
+  /// Danh mục chọn sẵn: danh mục chung («Chi khác» / «Thu khác»), không có thì danh mục đầu do cửa hàng tạo.
+  /// Danh mục hệ thống («Trả hàng khách», «Nhập hàng»…) dành cho phiếu tự sinh — chỉ chọn sẵn khi không còn gì khác.
+  static String? _defaultCategoryId(List<TransactionCategory> cats) {
+    if (cats.isEmpty) return null;
+    const general = {'chi khác', 'thu khác'};
+    for (final c in cats) {
+      if (general.contains(c.name.trim().toLowerCase())) return c.id;
+    }
+    for (final c in cats) {
+      if (!c.isSystem) return c.id;
+    }
+    return cats.first.id;
   }
 
   Future<void> _pickDateTime() async {

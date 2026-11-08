@@ -5,6 +5,7 @@ using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Interceptors;
 
 namespace ZKTecoADMS.Api.Services;
 
@@ -70,7 +71,8 @@ public record EnqueuePrintJobRequest(
 public class PosPrintDispatchService(
     ZKTecoDbContext db,
     IHubContext<AttendanceHub> hubContext,
-    ILogger<PosPrintDispatchService> logger) : IPosPrintDispatchService
+    ILogger<PosPrintDispatchService> logger,
+    IHttpContextAccessor? http = null) : IPosPrintDispatchService
 {
     static readonly TimeSpan JobTtl = TimeSpan.FromHours(24);
     static readonly TimeSpan AgentOfflineThreshold = TimeSpan.FromSeconds(90);
@@ -131,11 +133,28 @@ public class PosPrintDispatchService(
                     await UpsertRouteAsync(storeId, defaultPrinter.Id, dt, ct);
                 }
             }
-            await db.SaveChangesAsync(ct);
-            return;
         }
 
-        await db.SaveChangesAsync(ct);
+        // Hệ thống tự cài vai trò khi app đọc danh sách máy in (mỗi lần mở app), không phải người dùng thao tác:
+        // không ghi vào Lịch sử thao tác, nơi từng hiện «Thêm Định tuyến máy in» sau mỗi lần mở app.
+        var audit = http?.HttpContext?.RequestServices.GetService<ActivityAuditCollector>();
+        var wasSuspended = audit?.Suspended ?? false;
+        if (audit != null) audit.Suspended = true;
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("IX_PosPrinterDocumentRoutes", StringComparison.Ordinal) == true)
+        {
+            // App gọi danh sách máy in và danh sách vai trò cùng lúc: yêu cầu kia đã cài trước, không phải lỗi.
+            logger.LogDebug("EnsureDefaultRoutes: vai trò đã được cài bởi yêu cầu khác (store {StoreId})", storeId);
+            foreach (var entry in db.ChangeTracker.Entries<PosPrinterDocumentRoute>().Where(e => e.State == EntityState.Added).ToList())
+                entry.State = EntityState.Detached;
+        }
+        finally
+        {
+            if (audit != null) audit.Suspended = wasSuspended;
+        }
     }
 
     public async Task<PosStorePrinter?> ResolvePrinterAsync(Guid storeId, PosPrintDocumentType documentType, CancellationToken ct = default)

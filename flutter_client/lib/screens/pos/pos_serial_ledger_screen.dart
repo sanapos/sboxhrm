@@ -6,6 +6,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../utils/api_datetime.dart';
+import '../../widgets/hrm_page_chrome.dart';
 
 /// Sổ seri máy: tìm theo seri / mã thẻ / IMEI / tên hàng, lọc theo trạng thái, xem vòng đời từng máy
 /// (nhập kho → bán → bảo hành).
@@ -185,7 +186,7 @@ class _PosSerialLedgerScreenState extends State<PosSerialLedgerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: SboxColors.slate50,
-      appBar: AppBar(title: Text(tr('Sổ seri máy'))),
+      appBar: shellAwareAppBar(context, AppBar(title: Text(tr('Sổ seri máy')))),
       body: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),

@@ -212,9 +212,13 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
 
   String _fmtQty(double v) => _qtyFmt.format(v);
 
-  Future<void> _onPickProduct(PosPurchaseLookupPick pick) async {
+  /// [scanned]: quét mã / gõ đúng mã = đếm thêm 1 cái. Chọn từ danh sách tìm thì SL thực tế mặc định = tồn máy
+  /// — trước đây đặt = 1 khiến tồn 42 thành lệch -41.
+  Future<void> _onPickProduct(PosPurchaseLookupPick pick, {bool scanned = false}) async {
     if (_readOnly) return;
-    final addQty = (pick.qty == null || pick.qty! <= 0) ? 1.0 : pick.qty!;
+    final double? addQty = (pick.qty != null && pick.qty! > 0)
+        ? pick.qty!
+        : (scanned ? 1.0 : null);
     final countId = await _ensureCountId();
     if (countId == null || !mounted) return;
 
@@ -222,7 +226,14 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
     final existing = _lines.where((l) => '${l.productId}:${l.variantId ?? 'base'}' == key);
     if (existing.isNotEmpty) {
       final line = existing.first;
-      final cur = line.countedQty ?? line.systemQty;
+      if (addQty == null) {
+        NotificationOverlayManager().showInfo(
+          title: 'Đã có trong phiếu',
+          message: tr('«${line.productName}» đã có — nhập SL thực tế ở dòng hàng'),
+        );
+        return;
+      }
+      final cur = line.countedQty ?? (scanned ? 0.0 : line.systemQty);
       final next = cur + addQty;
       line.countedCtrl.text = next == next.roundToDouble()
           ? next.toStringAsFixed(0)
@@ -243,9 +254,10 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
       _applyCount(PosStockCount.fromJson(res['data'] as Map<String, dynamic>));
       for (final line in _lines) {
         if ('${line.productId}:${line.variantId ?? 'base'}' == key) {
-          line.countedCtrl.text = addQty == addQty.roundToDouble()
-              ? addQty.toStringAsFixed(0)
-              : addQty.toStringAsFixed(2);
+          final qty = addQty ?? line.systemQty;
+          line.countedCtrl.text = qty == qty.roundToDouble()
+              ? qty.toStringAsFixed(0)
+              : qty.toStringAsFixed(2);
           break;
         }
       }
@@ -261,7 +273,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
     final code = await scanBarcodeWithCamera(context);
     if (code == null || !mounted) return;
     final pick = await lookupOrPickPosProduct(context, _api, code);
-    if (pick != null && mounted) await _onPickProduct(pick);
+    if (pick != null && mounted) await _onPickProduct(pick, scanned: true);
   }
 
   Future<void> _removeLine(_CountLine line) async {
@@ -759,6 +771,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
                                       readOnly: _readOnly,
                                       hintText: tr('Tìm hàng hóa (F3)'),
                                       onPick: _onPickProduct,
+                                      onBarcodePick: (p) => _onPickProduct(p, scanned: true),
                                     ),
                                   )
                                 else

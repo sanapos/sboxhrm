@@ -48,7 +48,7 @@ import 'pos_shipping_report_screen.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import '../../models/cash_transaction.dart' show PaymentMethodType;
 import '../../theme/sbox_tokens.dart';
-/// Hub 14 báo cáo — cùng token trang chủ A7 (nền xám, thẻ nổi, chữ #2B3437).
+/// Hub các báo cáo POS — cùng token trang chủ A7 (nền xám, thẻ nổi, chữ #2B3437).
 class PosReportsHubScreen extends StatelessWidget {
   const PosReportsHubScreen({super.key});
 
@@ -741,7 +741,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
             current: revenue, previous: hasPrev ? _n(_prev!['totalRevenue']) : null, compareLabel: _vsPrev),
         SboxKpi(label: 'Số hóa đơn', value: SboxFmt.number(_n(_data?['orderCount'])), icon: Icons.receipt_long_outlined, tone: SboxTone.violet,
             current: _n(_data?['orderCount']), previous: hasPrev ? _n(_prev!['orderCount']) : null, compareLabel: _vsPrev),
-        SboxKpi(label: 'Đã thu', value: SboxFmt.money(_n(_data?['totalPaid'])), icon: Icons.account_balance_wallet_outlined, tone: SboxTone.success,
+        SboxKpi(label: 'Đã thu khi bán', value: SboxFmt.money(_n(_data?['totalPaid'])), icon: Icons.account_balance_wallet_outlined, tone: SboxTone.success,
             current: _n(_data?['totalPaid']), previous: hasPrev ? _n(_prev!['totalPaid']) : null, compareLabel: _vsPrev),
         SboxKpi(label: 'Hoàn trả', value: SboxFmt.money(_n(_data?['totalRefund'])), icon: Icons.assignment_return_outlined, tone: SboxTone.warning,
             current: _n(_data?['totalRefund']), previous: hasPrev ? _n(_prev!['totalRefund']) : null, higherIsBetter: false, compareLabel: _vsPrev),
@@ -790,6 +790,21 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 insight,
+                // Khớp với sổ quỹ: «Đã thu khi bán» chưa gồm thu nợ và hoàn trả nên trước đây hai màn lệch số.
+                if (_n(_data?['debtCollected']) > 0 || _n(_data?['totalRefund']) > 0)
+                  PosReportCard(
+                    title: 'Đối chiếu sổ quỹ',
+                    subtitle: _time.displayLabel,
+                    child: PosReportMetricTiles(
+                      moneyFmt: _moneyFmt,
+                      tiles: [
+                        (label: 'Đã thu khi bán', value: _n(_data?['totalPaid']), color: PosTheme.kiotBlue),
+                        (label: '+ Thu nợ', value: _n(_data?['debtCollected']), color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E))),
+                        (label: '− Hoàn trả', value: _n(_data?['totalRefund']), color: SboxColors.danger),
+                        (label: 'Thực nhận', value: _n(_data?['netReceived']), color: SboxColors.success),
+                      ],
+                    ),
+                  ),
                 PosReportCard(
                   title: 'Doanh thu bán hàng',
                   subtitle: _time.displayLabel,

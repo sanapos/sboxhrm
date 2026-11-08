@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../config/sbox_app_variant.dart';
 import '../../l10n/app_tr.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
@@ -81,14 +82,21 @@ class _SampleDataSectionState extends State<SampleDataSection> {
   }
 
   static const _seedTitle = 'Cài dữ liệu mẫu';
-  static const _seedDesc =
+  static const _posSeedDesc = 'Hàng hóa và bàn / ghế / phòng mẫu theo ngành cửa hàng (không trùng tên).';
+  static const _posSeedConfirm = 'Cài hàng hóa và bàn / ghế / phòng mẫu theo ngành cửa hàng?';
+  static const _posDeleteDesc = 'Xóa hàng hóa và bàn / ghế / phòng mẫu';
+  static String get _seedDesc => SboxAppVariant.standalonePos ? _posSeedDesc : _hrmSeedDesc;
+  static String get _seedConfirm => SboxAppVariant.standalonePos ? _posSeedConfirm : _hrmSeedConfirm;
+  static const _hrmSeedDesc =
       'HRM: 10 NV + 15 ngày. POS: hàng và bàn/ghế/phòng theo ngành cửa hàng. Nếu đã có nhân viên, chỉ thêm mẫu POS (không trùng tên).';
-  static const _seedConfirm =
+  static const _hrmSeedConfirm =
       'Cài dữ liệu mẫu? Nếu cửa hàng chưa có NV: tạo 10 NV demo + hàng POS theo ngành. Nếu đã có NV: chỉ thêm hàng/bàn POS mẫu, không đụng nhân viên thật.';
   static const _deleteTitle = 'Xóa dữ liệu mẫu';
-  static const _deleteDesc = 'Xóa nhân viên demo, chấm công, phép và hàng/bàn POS mẫu';
-  static const _deleteConfirm =
-      'Xóa dữ liệu mẫu HRM + POS? Hàng/bàn đã bán thật sẽ không xóa được nếu đang được dùng. Không hoàn tác.';
+  static String get _deleteDesc =>
+      SboxAppVariant.standalonePos ? _posDeleteDesc : 'Xóa nhân viên demo, chấm công, phép và hàng/bàn POS mẫu';
+  static String get _deleteConfirm => SboxAppVariant.standalonePos
+      ? 'Xóa dữ liệu mẫu? Hàng/bàn đã bán thật sẽ không xóa được nếu đang được dùng. Không hoàn tác.'
+      : 'Xóa dữ liệu mẫu HRM + POS? Hàng/bàn đã bán thật sẽ không xóa được nếu đang được dùng. Không hoàn tác.';
 
   @override
   Widget build(BuildContext context) {

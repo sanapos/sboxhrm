@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""App Store screenshots for SBOX POS, built from dist/play-assets/pos/raw.
+"""App Store screenshots for SBOX POS, built from dist/app-store-assets/pos/raw.
+
+Raw shots: flutter test test/guide_shots with GUIDE_SHOT_PLAIN=1 and
+--dart-define=SBOX_POS_STANDALONE=true, at the commit of the build being submitted.
 
 Writes dist/app-store-assets/pos/iphone-*.png (1206x2622) and ipad-*.png
 (2752x2064). Apple rejects transparent PNGs, so every output is plain RGB.
@@ -11,15 +14,18 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
-RAW = ROOT / "dist" / "play-assets" / "pos" / "raw"
 OUT = ROOT / "dist" / "app-store-assets" / "pos"
+RAW = OUT / "raw"
 
 _spec = importlib.util.spec_from_file_location("play_assets", ROOT / "scripts" / "make-play-assets.py")
 play = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(play)
 
-BG = play.APPS["pos"]["bg"]
+# Màu Xanh SM của giao diện POS (SboxColors), khác nền xanh lá của ảnh Play.
+BG = ("#147A7C", "#28BDBF")
 IPHONE = (1206, 2622)
+# Cỡ 6.9 inch, chỉ thấy trong Media Manager; bộ cũ từng còn sót ở đây dù trang phiên bản đã thay ảnh.
+IPHONE_LARGE = (1320, 2868)
 IPAD = (2752, 2064)
 # phone-2 has a black band left by the render, so it is not used.
 IPHONE_SHOTS = ("phone-1", "phone-3", "phone-4")
@@ -54,6 +60,7 @@ def main():
                 continue
             n_phone += 1
             compose(raw, caption, IPHONE, 76, 44).save(OUT / f"iphone-{n_phone}.png", optimize=True)
+            compose(raw, caption, IPHONE_LARGE, 84, 48).save(OUT / f"iphone69-{n_phone}.png", optimize=True)
         else:
             n_tablet += 1
             compose(raw, caption, IPAD, 92, 32).save(OUT / f"ipad-{n_tablet}.png", optimize=True)

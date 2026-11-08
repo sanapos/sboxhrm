@@ -25,7 +25,6 @@ import '../../utils/pos_usb_labels.dart';
 import '../../utils/media_query_safe_padding.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/hrm_page_chrome.dart';
-import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/pos_lan_printer_scan_sheet.dart';
 import 'pos_local_printers_screen.dart';
@@ -922,10 +921,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
 
   bool _computeHideCloudChrome() {
     // Overlay từ «Máy in (thiết bị)» / Thiết lập in — luôn có tiêu đề + back.
-    if (PosHubScope.pushedSubPageOf(context)) return false;
-    if (ModalRoute.of(context)?.canPop ?? false) return false;
-    if (Navigator.of(context).canPop()) return false;
-    if (!widget.embeddedInSettings) return false;
+    // Trong khung chính / hub (kể cả hub mở đè từ «Nhiều hơn»): đã có tiêu đề ngoài — không vẽ lần hai.
     return !HrmPageChrome.showInPageAppBar(context);
   }
 

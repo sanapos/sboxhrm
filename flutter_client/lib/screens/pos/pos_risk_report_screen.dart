@@ -204,33 +204,42 @@ class _PosRiskReportScreenState extends State<PosRiskReportScreen> {
     final verdict = r['verdict']?.toString();
     final noReceiptPct = _n(s['noReceiptPct']);
     final shown = orders.where((o) => _levelFilter == 'all' || o['level'] == _levelFilter).toList();
+    final kpis = [
+      PosHealthKpi('Đơn cần soát', '${_n(s['riskOrders'])} đơn',
+          status: _n(s['highOrders']) > 0 ? 'red' : _n(s['riskOrders']) > 0 ? 'yellow' : 'green',
+          hint: '${_n(s['highOrders'])} nghiêm trọng · đã soát ${_n(s['ordersChecked'])} đơn', icon: Icons.policy_outlined),
+      PosHealthKpi('Tiền cần soát', _m(s['amountAtRisk']),
+          status: _n(s['amountAtRisk']) > 0 ? 'yellow' : 'green', hint: 'Tổng tiền các đơn có dấu hiệu',
+          icon: Icons.payments_outlined),
+      PosHealthKpi('Thu ít hơn tạm tính', _m(s['reducedAfterBillAmount']),
+          status: _n(s['reducedAfterBillAmount']) > 0 ? 'red' : 'green',
+          hint: 'Khách đã cầm phiếu tạm tính, tiền thu thấp hơn', icon: Icons.trending_down),
+      PosHealthKpi('Hủy món / đơn sau tạm tính', '${_n(s['voidsAfterBill'])} lần',
+          status: _n(s['voidsAfterBill']) > 0 ? 'red' : 'green', hint: 'Dấu hiệu «đá món / đá bill»',
+          icon: Icons.remove_shopping_cart_outlined),
+      PosHealthKpi('Hủy hóa đơn đã thu tiền', '${_n(s['paidCancels'])} lần',
+          status: _n(s['paidCancels']) > 0 ? 'yellow' : 'green', hint: 'Xóa / hủy đơn có món: ${_n(s['droppedBills'])} lần',
+          icon: Icons.block),
+      PosHealthKpi('Tiền mặt không in hóa đơn', '${noReceiptPct.toString().replaceAll('.', ',')}%',
+          status: PosHealth.level(noReceiptPct, 10, 30),
+          hint: '${_n(s['noReceipt'])} đơn · tạm tính đã in: ${_n(s['provisionalBills'])} bàn', icon: Icons.receipt_long),
+    ];
+    // Máy chủ kết luận theo đơn có dấu hiệu, không xét các ô chỉ số (vd. % không in hóa đơn) → banner xanh
+    // cạnh ô đỏ. Banner lấy mức nặng nhất của cả hai.
+    int rank(String? st) => switch (st) { 'red' => 2, 'yellow' => 1, _ => 0 };
+    final worst = kpis.map((k) => k.status).reduce((a, b) => rank(b) > rank(a) ? b : a);
+    final escalated = (verdict == 'green' || verdict == 'yellow') && rank(worst) > rank(verdict);
+    final flagged = kpis.where((k) => rank(k.status) > 0).map((k) => '${k.label} ${k.value}').join(' · ');
     return [
       PosHealthHero(
-        status: verdict,
-        title: r['verdictText']?.toString() ?? '',
-        detail: r['verdictDetail']?.toString(),
+        status: escalated ? worst : verdict,
+        title: escalated && verdict == 'green'
+            ? 'Không có đơn bất thường, nhưng có chỉ số cần xem'
+            : r['verdictText']?.toString() ?? '',
+        detail: escalated ? 'Cần xem: $flagged.' : r['verdictDetail']?.toString(),
         note: 'Đây là DẤU HIỆU cần kiểm tra, không phải kết luận nhân viên gian lận — nhiều trường hợp có lý do chính đáng.',
       ),
-      PosHealthKpiGrid(items: [
-        PosHealthKpi('Đơn cần soát', '${_n(s['riskOrders'])} đơn',
-            status: _n(s['highOrders']) > 0 ? 'red' : _n(s['riskOrders']) > 0 ? 'yellow' : 'green',
-            hint: '${_n(s['highOrders'])} nghiêm trọng · đã soát ${_n(s['ordersChecked'])} đơn', icon: Icons.policy_outlined),
-        PosHealthKpi('Tiền cần soát', _m(s['amountAtRisk']),
-            status: _n(s['amountAtRisk']) > 0 ? 'yellow' : 'green', hint: 'Tổng tiền các đơn có dấu hiệu',
-            icon: Icons.payments_outlined),
-        PosHealthKpi('Thu ít hơn tạm tính', _m(s['reducedAfterBillAmount']),
-            status: _n(s['reducedAfterBillAmount']) > 0 ? 'red' : 'green',
-            hint: 'Khách đã cầm phiếu tạm tính, tiền thu thấp hơn', icon: Icons.trending_down),
-        PosHealthKpi('Hủy món / đơn sau tạm tính', '${_n(s['voidsAfterBill'])} lần',
-            status: _n(s['voidsAfterBill']) > 0 ? 'red' : 'green', hint: 'Dấu hiệu «đá món / đá bill»',
-            icon: Icons.remove_shopping_cart_outlined),
-        PosHealthKpi('Hủy hóa đơn đã thu tiền', '${_n(s['paidCancels'])} lần',
-            status: _n(s['paidCancels']) > 0 ? 'yellow' : 'green', hint: 'Xóa / hủy đơn có món: ${_n(s['droppedBills'])} lần',
-            icon: Icons.block),
-        PosHealthKpi('Tiền mặt không in hóa đơn', '${noReceiptPct.toString().replaceAll('.', ',')}%',
-            status: PosHealth.level(noReceiptPct, 10, 30),
-            hint: '${_n(s['noReceipt'])} đơn · tạm tính đã in: ${_n(s['provisionalBills'])} bàn', icon: Icons.receipt_long),
-      ]),
+      PosHealthKpiGrid(items: kpis),
       PosHealthSection(
         title: 'Việc nên làm',
         subtitle: 'Cách chặn các kẽ hở — làm một lần, dùng lâu dài.',

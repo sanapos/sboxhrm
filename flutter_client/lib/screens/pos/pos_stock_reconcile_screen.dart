@@ -3,7 +3,9 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/page_top_actions.dart';
 
 /// Đối soát kho: tồn tổng so với tổng các lô, số seri trong kho, tồn các chi nhánh và giữ chỗ đơn nháp.
 /// Cho thấy dữ liệu đang lệch ở đâu; chỉ «Sửa giữ chỗ» tự xử lý, các loại còn lại xử lý bằng kiểm kê / phiếu.
@@ -101,9 +103,12 @@ class _PosStockReconcileScreenState extends State<PosStockReconcileScreen> {
     final total = _items.length;
     return Scaffold(
       backgroundColor: SboxColors.slate50,
-      appBar: AppBar(
-        title: Text(tr('Đối soát kho')),
-        actions: [IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load)],
+      appBar: shellAwareAppBar(
+        context,
+        AppBar(
+          title: Text(tr('Đối soát kho')),
+          actions: [HrmTopBarAction(icon: Icons.refresh, label: 'Tải lại', onPressed: _load)],
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

@@ -4,7 +4,9 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../utils/api_datetime.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/page_top_actions.dart';
 import '../../widgets/pos/pos_serial_list_dialog.dart';
 
 /// Kiểm kho theo mã: quét barcode / thẻ RFID (đầu đọc gõ phím, máy kiểm kho cầm tay, dán lô mã) rồi đối chiếu
@@ -289,6 +291,25 @@ class _PosSerialCountScreenState extends State<PosSerialCountScreen> {
   @override
   Widget build(BuildContext context) {
     final inSession = _d != null;
+    final bar = AppBar(
+      title: Text(tr(inSession ? '${_d!['countNo']} · ${_d!['name']}' : 'Kiểm kho theo mã')),
+      leading: inSession
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: () {
+                setState(() => _d = null);
+                _loadList();
+              },
+            )
+          : null,
+      actions: [
+        HrmTopBarAction(
+          icon: Icons.sensors_rounded,
+          label: 'Gắn thẻ RFID cho máy',
+          onPressed: _bindTags,
+        ),
+      ],
+    );
     return PopScope(
       canPop: !inSession,
       onPopInvokedWithResult: (didPop, _) {
@@ -299,25 +320,8 @@ class _PosSerialCountScreenState extends State<PosSerialCountScreen> {
       },
       child: Scaffold(
         backgroundColor: SboxColors.slate50,
-        appBar: AppBar(
-          title: Text(tr(inSession ? '${_d!['countNo']} · ${_d!['name']}' : 'Kiểm kho theo mã')),
-          leading: inSession
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  onPressed: () {
-                    setState(() => _d = null);
-                    _loadList();
-                  },
-                )
-              : null,
-          actions: [
-            IconButton(
-              tooltip: tr('Gắn thẻ RFID cho máy'),
-              icon: const Icon(Icons.sensors_rounded),
-              onPressed: _bindTags,
-            ),
-          ],
-        ),
+        // Danh sách trong khung chính: tiêu đề đã có ở thanh trên. Đang kiểm: tên phiếu + nút quay lại riêng.
+        appBar: inSession ? bar : shellAwareAppBar(context, bar),
         floatingActionButton: inSession
             ? null
             : FloatingActionButton.extended(

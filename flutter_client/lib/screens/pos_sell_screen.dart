@@ -4969,7 +4969,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             senderName: hangSender,
             orderNo: hangOrderNo,
             lines: sendTicketLines,
-            errorMessage: 'Gửi lệnh in thất bại — kiểm tra máy in / giấy',
+            errorMessage: await kitchenPrintFailureReason(),
           ),
         );
       }
@@ -12461,8 +12461,16 @@ class _PosSellScreenState extends State<PosSellScreen>
       };
 
   Future<void> _onReturnTablesMenu() async {
-    if (!await confirmPosOwnerPassword(context)) return;
-    if (!mounted) return;
+    // Bàn đang mở trống hẳn (không món, tiền, báo bếp) thì khỏi hỏi mật khẩu chủ.
+    final noPassword = !_isSplitBill &&
+        _isTableOrderMode &&
+        _tab.cart.isEmpty &&
+        _grandTotal <= 0 &&
+        (_floorPaneKey.currentState?.canFreeWithoutOwnerPassword(_tab.serviceResourceId) ?? false);
+    if (!noPassword) {
+      if (!await confirmPosOwnerPassword(context)) return;
+      if (!mounted) return;
+    }
     if (_isSplitBill) {
       await _deleteCurrentSplitBill();
       return;
@@ -12496,7 +12504,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (pick == 'current') await _returnCurrentTableToEmpty();
       if (pick == 'all') {
         await _floorPaneKey.currentState
-            ?.returnAllTablesToEmpty(requireOwnerPassword: false);
+            ?.returnAllTablesToEmpty(requireOwnerPassword: noPassword);
       }
       return;
     }
@@ -13906,26 +13914,32 @@ class _PosSellScreenState extends State<PosSellScreen>
     unawaited(_persistPendingPrintQueue());
   }
 
+  /// Đã đọc hàng chờ in từ máy chưa. Màn bán hàng bị đóng / dựng lại trong lúc khởi động mà ghi trước khi đọc
+  /// thì danh sách rỗng đè mất phiếu treo: hàng chờ từng về 0 sau khi mở lại app.
+  bool _pendingPrintQueueLoaded = false;
+
   Future<void> _loadPendingPrintQueueFromDisk() async {
     final snap = await PosPendingPrintStore.load(storeId: _storeId);
-    if (!mounted || snap.isEmpty) return;
+    if (!mounted) return;
+    // Giữ phiếu vừa phát sinh trong lúc đang đọc, cộng thêm phiếu đã lưu (không xóa, không trùng).
+    void merge<T>(List<T> live, List<T> saved, Object? Function(T) idOf) {
+      final have = live.map(idOf).toSet();
+      live.addAll(saved.where((j) => !have.contains(idOf(j))));
+    }
+
     setState(() {
-      _failedWarehousePrints
-        ..clear()
-        ..addAll(snap.warehouse);
-      _failedSalePrints
-        ..clear()
-        ..addAll(snap.sales);
-      _failedKitchenPrints
-        ..clear()
-        ..addAll(snap.kitchen);
-      _failedCupPrints
-        ..clear()
-        ..addAll(snap.cups);
+      _pendingPrintQueueLoaded = true;
+      merge(_failedWarehousePrints, snap.warehouse, (j) => j.id);
+      merge(_failedSalePrints, snap.sales, (j) => j.id);
+      merge(_failedKitchenPrints, snap.kitchen, (j) => j.id);
+      merge(_failedCupPrints, snap.cups, (j) => j.id);
     });
+    // Có phiếu phát sinh trước khi đọc xong: lần ghi lúc đó đã bị bỏ qua nên ghi lại.
+    unawaited(_persistPendingPrintQueue());
   }
 
   Future<void> _persistPendingPrintQueue() async {
+    if (!_pendingPrintQueueLoaded) return;
     await PosPendingPrintStore.save(PosPendingPrintSnapshot(
       warehouse: List.unmodifiable(_failedWarehousePrints),
       sales: List.unmodifiable(_failedSalePrints),
@@ -16378,7 +16392,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               },
             ),
           ),
-          Text(tr('${_sellProfile.usesSessionPackages ? 'Tổng tiền' : 'Tổng tiền hàng'} (${_tab.cart.length})'),
+          Text(tr('${_sellProfile.usesSessionPackages ? 'Tổng tiền' : 'Tổng tiền hàng'} ($_cartItemCount)'),
             style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
           ),
           const SizedBox(width: 10),
@@ -17476,7 +17490,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         // Bỏ ô «Người bán»: tài khoản nào thanh toán thì đơn ghi cho tài khoản đó (không chọn người
         // khác). Nhân viên làm dịch vụ (hoa hồng) gán ở từng dòng trong giỏ.
         const SizedBox(height: 6),
-        _summaryRow('${_sellProfile.usesSessionPackages ? 'Tổng tiền' : 'Tổng tiền hàng'} (${_tab.cart.length})', _moneyFmt.format(_subTotal)),
+        _summaryRow('${_sellProfile.usesSessionPackages ? 'Tổng tiền' : 'Tổng tiền hàng'} ($_cartItemCount)', _moneyFmt.format(_subTotal)),
         if (_manualLineDiscountTotal > 0) ...[
           const SizedBox(height: 2),
           _summaryRow('Chiết khấu SP', '-${_moneyFmt.format(_manualLineDiscountTotal)}'),

@@ -68,6 +68,12 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         "EmployeeCode", "FullName", "Name", "Title", "PackageName", "ProductName", "Key", "Email", "Phone",
     ];
 
+    /// <summary>
+    /// Thay đổi của lần lưu đang chạy. Trạng thái bản ghi chỉ đọc được trước khi lưu, nhưng chỉ đưa vào nhật ký
+    /// sau khi lưu thành công: lần lưu lỗi (vd trùng khóa) từng hiện «Thêm …» dù không có gì được thêm.
+    /// </summary>
+    readonly List<ActivityEntityChange> _pending = [];
+
     public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
     {
         Capture(eventData.Context);
@@ -81,6 +87,41 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         return base.SavingChangesAsync(eventData, result, cancellationToken);
     }
 
+    public override int SavedChanges(SaveChangesCompletedEventData eventData, int result)
+    {
+        CommitPending();
+        return base.SavedChanges(eventData, result);
+    }
+
+    public override ValueTask<int> SavedChangesAsync(
+        SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken = default)
+    {
+        CommitPending();
+        return base.SavedChangesAsync(eventData, result, cancellationToken);
+    }
+
+    public override void SaveChangesFailed(DbContextErrorEventData eventData)
+    {
+        _pending.Clear();
+        base.SaveChangesFailed(eventData);
+    }
+
+    public override Task SaveChangesFailedAsync(DbContextErrorEventData eventData, CancellationToken cancellationToken = default)
+    {
+        _pending.Clear();
+        return base.SaveChangesFailedAsync(eventData, cancellationToken);
+    }
+
+    void CommitPending()
+    {
+        foreach (var change in _pending)
+        {
+            if (collector.Changes.Count >= ActivityAuditCollector.MaxEntities) break;
+            collector.Changes.Add(change);
+        }
+        _pending.Clear();
+    }
+
     static readonly string[] OrderFkNames = ["SaleOrderId", "OrderId", "PosSaleOrderId"];
 
     static string? PkOf(EntityEntry e) => e.Metadata.FindPrimaryKey()?.Properties
@@ -88,6 +129,7 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
 
     void Capture(DbContext? context)
     {
+        _pending.Clear();
         if (context == null || collector.Suspended) return;
         try
         {
@@ -105,13 +147,13 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
 
             foreach (var e in context.ChangeTracker.Entries())
             {
-                if (collector.Changes.Count >= ActivityAuditCollector.MaxEntities) break;
+                if (collector.Changes.Count + _pending.Count >= ActivityAuditCollector.MaxEntities) break;
                 if (e.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted)) continue;
                 var type = e.Entity.GetType().Name;
                 if (SkipTypes.Contains(type) || e.Metadata.IsOwned() || type.Contains("CustomerDisplay")) continue;
                 if (IsDraftOrderOrChild(e, type, draftOrderIds)) continue;
                 var change = Describe(e, type);
-                if (change != null) collector.Changes.Add(change);
+                if (change != null) _pending.Add(change);
             }
         }
         catch

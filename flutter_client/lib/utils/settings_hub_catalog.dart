@@ -127,7 +127,7 @@ class SettingsHubCatalog {
     ),
     SettingsHubItemDef(
       index: 9, code: 'system', icon: Icons.settings_suggest_outlined, label: 'Tham số hệ thống', groupTitle: gStore, accent: SboxColors.brand600,
-      desc: 'Giờ kết thúc ngày, cách tính công, phụ thu & phí giao hàng', moduleCode: 'SystemSettings',
+      desc: 'Phụ thu, phí giao hàng và các tham số chung', moduleCode: 'SystemSettings',
       keywords: ['giờ chốt ngày', 'ngày làm việc', 'hệ thống', 'phụ thu', 'phí giao hàng', 'phí dịch vụ'],
     ),
     // ── Nhân sự & chấm công
@@ -280,7 +280,7 @@ class SettingsHubCatalog {
     ),
     SettingsHubItemDef(
       index: 21, code: 'notifications', icon: Icons.notifications_active_outlined, label: 'Thông báo', groupTitle: gIntegr, accent: SboxColors.brand500,
-      desc: 'Bật / tắt thông báo chấm công, công việc, bán hàng', moduleCode: 'NotificationSettings',
+      desc: 'Bật / tắt từng loại thông báo', moduleCode: 'NotificationSettings',
       keywords: ['push', 'nhắc nhở', 'fcm'],
     ),
     SettingsHubItemDef(

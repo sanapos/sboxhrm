@@ -298,7 +298,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                         tr('Báo cáo POS'),
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
-                      subtitle: Text(tr('14 báo cáo')),
+                      subtitle: Text(tr('Doanh thu, hàng hóa, công nợ')),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
                         Navigator.of(context).push(

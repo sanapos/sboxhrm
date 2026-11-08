@@ -41,7 +41,20 @@ public class AuthenticateService(
         row.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
 
-        var stale = await db.UserRefreshTokens.AsNoTracking()
+        // Cột này chưa từng được ghi: mọi tài khoản đều hiện «Chưa đăng nhập» và bộ lọc «lâu chưa đăng nhập»
+        // của thông báo chọn nhầm. Tính cả lần làm mới phiên vì app giữ đăng nhập nhiều tuần liền.
+        try
+        {
+            var now = DateTime.UtcNow;
+            await db.Users.IgnoreQueryFilters().Where(u => u.Id == user.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.LastLoginAt, now), cancellationToken);
+        }
+        catch (InvalidOperationException)
+        {
+            // Nhà cung cấp InMemory (test) không hỗ trợ ExecuteUpdate. Không làm hỏng đăng nhập.
+        }
+
+        var stale =await db.UserRefreshTokens.AsNoTracking()
             .Where(t => t.ApplicationUserId == user.Id)
             .OrderByDescending(t => t.UpdatedAt ?? t.CreatedAt)
             .Skip(MaxSessionsPerUser)

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../config/sbox_app_variant.dart';
 import '../l10n/app_tr.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
@@ -259,9 +260,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final edit = _canEdit;
+    // App SBOX POS không có chấm công / nghỉ phép: chỉ còn phần bán hàng (App Store 2.3.1 từng từ chối vì nhắc chức năng nhân sự).
+    final posOnly = SboxAppVariant.standalonePos;
     return SettingsPage(
       title: 'Tham số hệ thống',
-      subtitle: 'Ranh giới ngày làm việc, cách tính công, chấm công bù, quy trình duyệt, phụ thu & phí giao hàng',
+      subtitle: posOnly
+          ? 'Phụ thu, phí giao hàng và dữ liệu mẫu'
+          : 'Ranh giới ngày làm việc, cách tính công, chấm công bù, quy trình duyệt, phụ thu & phí giao hàng',
       icon: Icons.settings_suggest_outlined,
       loading: _loading,
       error: _error,
@@ -275,7 +280,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         final base = _feesBase;
         if (base != null) _fees.loadFrom(base);
       }),
-      onResetDefaults: edit
+      onResetDefaults: edit && !posOnly
           ? () => _set(() {
                 _p = SystemParams();
                 _fillControllers();
@@ -283,9 +288,11 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           : null,
       children: [
         if (!edit) const SettingsNote('Bạn chỉ có quyền xem. Liên hệ quản trị để thay đổi.', icon: Icons.lock_outline_rounded, tone: SboxTone.neutral),
-        _dayEndSection(edit),
-        _creditSection(edit),
-        _approvalSection(edit),
+        if (!posOnly) ...[
+          _dayEndSection(edit),
+          _creditSection(edit),
+          _approvalSection(edit),
+        ],
         if (_showFees) PosSellFeesSection(draft: _fees, edit: _canEditFees, onChanged: () => setState(() {})),
         // Dữ liệu mẫu (trước nằm ở «Cài đặt» cá nhân) — thao tác trên dữ liệu cả cửa hàng.
         if (edit) const SampleDataSection(),

@@ -191,7 +191,7 @@ class PermissionRoleCatalog {
     PermissionUiGroup(
       id: 'pos_reports',
       title: 'POS / Báo cáo',
-      description: '14 báo cáo POS tách riêng — tick từng loại',
+      description: 'Các báo cáo POS tách riêng — tick từng loại',
       icon: Icons.bar_chart_outlined,
       color: HrmPageChrome.chipMid,
       moduleCodes: [

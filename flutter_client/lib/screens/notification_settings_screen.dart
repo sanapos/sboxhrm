@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../config/sbox_app_variant.dart';
 import '../l10n/app_tr.dart';
 import '../services/api_service.dart';
 import '../services/notification_preferences_cache.dart';
@@ -30,8 +31,24 @@ class NotifGroup {
     NotifGroup('Hệ thống', 'Cảnh báo bảo mật (đổi tài khoản nhận tiền…), thông báo hệ thống', Icons.shield_outlined, ['system']),
   ];
 
+  /// App SBOX POS không có chức năng nhân sự: không hiện công tắc chấm công, nghỉ phép, lương, KPI.
+  static const _posGroups = <NotifGroup>[
+    NotifGroup('Bán hàng', 'Đơn hàng, nhập hàng, tồn kho thấp, đơn QR', Icons.point_of_sale_rounded, ['pos']),
+    NotifGroup('Thu chi', 'Phiếu thu, phiếu chi', Icons.payments_rounded, ['transaction']),
+    NotifGroup('Hệ thống', 'Cảnh báo bảo mật (đổi tài khoản nhận tiền…), thông báo hệ thống', Icons.shield_outlined, ['system']),
+  ];
+
+  static List<NotifGroup> get visible => SboxAppVariant.standalonePos ? _posGroups : all;
+
+  /// Mã thuộc nhóm nhân sự, bị ẩn ở app này (vẫn giữ nguyên giá trị đã lưu).
+  static bool isHidden(String code) =>
+      SboxAppVariant.standalonePos &&
+      all.any((g) => g.codes.contains(code)) &&
+      !_posGroups.any((g) => g.codes.contains(code));
+
   /// Nhóm của 1 mã; mã lạ cho vào «Hệ thống».
-  static NotifGroup of(String code) => all.firstWhere((g) => g.codes.contains(code), orElse: () => all.last);
+  static NotifGroup of(String code) =>
+      visible.firstWhere((g) => g.codes.contains(code), orElse: () => visible.last);
 }
 
 class _Pref {
@@ -137,15 +154,19 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         behavior: SnackBarBehavior.floating,
       ));
 
+  /// Loại hiện trên màn này; loại bị ẩn giữ nguyên giá trị đã lưu.
+  List<_Pref> get _shown => _prefs.where((p) => !NotifGroup.isHidden(p.code)).toList();
+
   void _setAll(bool v) => _changed(() {
-        for (final p in _prefs) {
+        for (final p in _shown) {
           p.enabled = v;
         }
       });
 
   @override
   Widget build(BuildContext context) {
-    final on = _prefs.where((p) => p.enabled).length;
+    final shown = _shown;
+    final on = shown.where((p) => p.enabled).length;
     return SettingsPage(
       title: 'Thông báo',
       subtitle: 'Chọn loại thông báo bạn muốn nhận — áp dụng cho tài khoản của bạn trên mọi thiết bị',
@@ -166,16 +187,16 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       ],
       children: [
         if (widget.showPushCard) const PushSettingsCard(),
-        if (_prefs.isNotEmpty)
-          SettingsNote('Đang nhận $on/${_prefs.length} loại · tự lưu khi bật / tắt. Loại đã tắt vẫn xem được trong mục Thông báo, chỉ không đẩy lên điện thoại.',
+        if (shown.isNotEmpty)
+          SettingsNote('Đang nhận $on/${shown.length} loại · tự lưu khi bật / tắt. Loại đã tắt vẫn xem được trong mục Thông báo, chỉ không đẩy lên điện thoại.',
               icon: Icons.info_outline_rounded),
-        ...NotifGroup.all.map(_group).whereType<Widget>(),
+        ...NotifGroup.visible.map(_group).whereType<Widget>(),
       ],
     );
   }
 
   Widget? _group(NotifGroup g) {
-    final items = _prefs.where((p) => NotifGroup.of(p.code) == g).toList();
+    final items = _shown.where((p) => NotifGroup.of(p.code) == g).toList();
     if (items.isEmpty) return null;
     final onCount = items.where((p) => p.enabled).length;
     return SettingsSection(

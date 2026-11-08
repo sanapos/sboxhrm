@@ -2311,10 +2311,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
                       _formPreset != null
-                          ? '${tr('Form ngành')}: ${tr(_formPreset!.label)} — ${tr('⚙ để đổi')}'
+                          ? '${tr('Form ngành')}: ${tr(_formPreset!.label)} — ${tr('bấm biểu tượng thanh trượt để đổi')}'
                           : advancedOn
-                              ? tr('Bấm ⚙ để chọn ngành hàng cho form')
-                              : tr('Form gọn — bật thêm mục trong ⚙ nếu cần'),
+                              ? tr('Bấm biểu tượng thanh trượt để chọn ngành hàng cho form')
+                              : tr('Form gọn — bật thêm mục ở biểu tượng thanh trượt nếu cần'),
                       style: TextStyle(
                         fontSize: 12,
                         color: SboxColors.slate600,

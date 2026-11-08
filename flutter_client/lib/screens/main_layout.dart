@@ -1,4 +1,5 @@
 import '../config/sbox_app_variant.dart';
+import 'cash_transaction_screen.dart';
 import '../utils/tray_notification_guard.dart';
 import '../utils/pos_sell_settings_helper.dart';
 import '../models/pos_sell_industry.dart';
@@ -2079,7 +2080,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.account_balance_wallet,
       label: 'Thu chi',
       subtitle: 'Thu chi',
-      screen: const HrFinanceHubScreen(initialTab: HrFinTab.cash),
+      // App SBOX POS chỉ có sổ thu chi của cửa hàng, không có ứng lương / thưởng phạt / công tác phí.
+      screen: SboxAppVariant.standalonePos
+          ? const CashTransactionScreen()
+          : const HrFinanceHubScreen(initialTab: HrFinTab.cash),
       group: 'Tài chính',
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
@@ -2425,7 +2429,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       icon: Icons.analytics_outlined,
       activeIcon: Icons.analytics,
       label: 'Báo cáo POS',
-      subtitle: '14 báo cáo',
+      subtitle: 'Doanh thu, hàng hóa, công nợ',
       screen: const PosReportsHubScreen(),
       group: 'Báo cáo kinh doanh',
       showInSidebar: true,
@@ -3014,13 +3018,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   builder: (context) {
                     final visibleIndices = _visibleNavIndices();
                     final railSelected = visibleIndices.indexOf(_selectedIndex);
-                    final safeRailSelected = railSelected < 0
-                        ? 0
-                        : railSelected.clamp(0, visibleIndices.length - 1);
                     return NavigationRail(
-                      selectedIndex: visibleIndices.isEmpty
-                          ? 0
-                          : safeRailSelected,
+                      // Màn không có trên menu (Voucher, Bảng giá…): không sáng mục nào, trước đây sáng nhầm «Trang chủ».
+                      selectedIndex: visibleIndices.isEmpty || railSelected < 0 || _shellExtra != null
+                          ? null
+                          : railSelected,
                       onDestinationSelected: (railIndex) {
                         if (railIndex >= 0 &&
                             railIndex < visibleIndices.length) {
@@ -3987,7 +3989,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     ...items.map((entry) {
                       final index = entry.key;
                       final item = entry.value;
-                      final isSelected = _selectedIndex == index;
+                      final isSelected = _shellExtra == null && _selectedIndex == index;
                       final accentColor = onDark ? SboxColors.onChrome : HrmPageChrome.primaryNavy;
 
                       final navWidget = Padding(
@@ -4504,7 +4506,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     ...items.map((entry) {
                       final index = entry.key;
                       final item = entry.value;
-                      final isSelected = _selectedIndex == index;
+                      final isSelected = _shellExtra == null && _selectedIndex == index;
                       return ListTile(
                         dense: true,
                         leading: Icon(

@@ -2775,6 +2775,14 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.red.shade700)),
           ]),
         ],
+        // Đơn chỉ lưu phương thức của tiền đã thu («Tiền mặt»): có phiếu thu nợ gắn đơn thì nói rõ đơn từng ghi nợ.
+        if (o.status == 'Completed' &&
+            balance <= 0.5 &&
+            payments.any((p) => (p['kind'] ?? p['Kind']) == 'debt')) ...[
+          const SizedBox(height: 4),
+          Text(tr('Ghi nợ · đã thu đủ'),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SboxColors.success)),
+        ],
       ]),
     );
   }

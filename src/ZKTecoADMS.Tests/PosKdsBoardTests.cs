@@ -61,12 +61,13 @@ public class PosKdsBoardTests
     }
 
     /// Vé bếp: đơn nháp + 1 dòng đã báo bếp lúc [sentHoursAgo], thao tác cuối [touchedHoursAgo] (null = chưa).
-    string AddTicket(string no, double sentHoursAgo, double? touchedHoursAgo = null, bool done = false)
+    string AddTicket(string no, double sentHoursAgo, double? touchedHoursAgo = null, bool done = false,
+        PosSaleOrderStatus status = PosSaleOrderStatus.Draft)
     {
         var now = DateTime.UtcNow;
         var order = new PosSaleOrder
         {
-            Id = Guid.NewGuid(), StoreId = _store, OrderNo = no, Status = PosSaleOrderStatus.Draft, IsActive = true,
+            Id = Guid.NewGuid(), StoreId = _store, OrderNo = no, Status = status, IsActive = true,
         };
         _db.PosSaleOrders.Add(order);
         _db.PosSaleOrderLines.Add(new PosSaleOrderLine
@@ -98,6 +99,22 @@ public class PosKdsBoardTests
         Assert.Contains("FRESH", nos);
         Assert.Contains("TOUCHED", nos);
         Assert.DoesNotContain("STALE", nos);
+    }
+
+    [Fact]
+    public async Task Tickets_keep_unfinished_items_after_payment_but_not_cancelled_orders()
+    {
+        AddTicket("PAID_COOKING", sentHoursAgo: 1, status: PosSaleOrderStatus.Completed);
+        AddTicket("PAID_DONE", sentHoursAgo: 1, done: true, status: PosSaleOrderStatus.Completed);
+        AddTicket("PAID_OLD", sentHoursAgo: 13, status: PosSaleOrderStatus.Completed);
+        AddTicket("CANCELLED", sentHoursAgo: 1, status: PosSaleOrderStatus.Cancelled);
+
+        var nos = OrderNos(Data((await Ctl().Tickets()).Result), "tickets");
+
+        Assert.Contains("PAID_COOKING", nos);
+        Assert.DoesNotContain("PAID_DONE", nos);
+        Assert.DoesNotContain("PAID_OLD", nos);
+        Assert.DoesNotContain("CANCELLED", nos);
     }
 
     [Fact]

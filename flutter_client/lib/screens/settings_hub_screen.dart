@@ -13,6 +13,8 @@ import '../services/settings_hub_sidebar_prefs.dart';
 import '../utils/permission_navigation.dart';
 import '../utils/pos_local_printers_store.dart';
 import '../utils/pos_print_orchestrator.dart';
+import '../models/pos_sell_industry.dart';
+import '../utils/pos_sell_settings_helper.dart';
 import '../utils/settings_hub_catalog.dart';
 import '../utils/store_role_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -850,7 +852,12 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
 }
 
 /// Lọc mục Thiết lập theo quyền / gói — dùng chung cho hub và ô «Tìm chức năng».
-List<SettingsHubItemDef> _settingsVisibleItems(BuildContext context, List<SettingsHubItemDef> items) {
+List<SettingsHubItemDef> _settingsVisibleItems(BuildContext context, List<SettingsHubItemDef> allItems) {
+    // Đèn bàn bi-a chỉ dành cho ngành Karaoke / Bi-a / Phòng giờ (chưa tải được ngành thì chưa ẩn).
+    final profile = PosSellSettingsHelper.lastProfile;
+    final items = profile == null || profile == PosSellProfile.roomHourly
+        ? allItems
+        : allItems.where((i) => i.code != 'bidaLight').toList();
     final authUser = Provider.of<AuthProvider>(context, listen: false).user;
     final role = (authUser?.role ?? '').toLowerCase();
     if (role == 'superadmin') return items;

@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Không có code nào dùng: Android tự thêm vì thư viện tensorflow-lite-gpu-api khai targetSdk quá cũ,
+         làm app hiện quyền «Điện thoại» trong thông tin ứng dụng. -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" tools:node="remove"/>
+</manifest>

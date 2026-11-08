@@ -103,6 +103,16 @@ public partial class PosReportsController(
             totalPaid = byPaymentRows.Sum(x => x.total);
         }
 
+        // Đối chiếu sổ quỹ: «Đã thu» chỉ tính tiền thu khi bán, nên phải cộng thu nợ và trừ hoàn trả mới ra số trong quỹ.
+        var debtCollected = !IsManager ? 0m : await dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
+                && c.Status == CashTransactionStatus.Completed
+                && c.Type == CashTransactionType.Income
+                && c.InternalNote != null
+                && c.InternalNote.StartsWith(PosFinanceSyncHelper.CustomerPaymentMarker)
+                && c.TransactionDate >= fromDt.AddHours(7) && c.TransactionDate < toDt.AddHours(7))
+            .SumAsync(c => (decimal?)c.Amount) ?? 0m;
+
 
         var topProducts = (await PosReportMoney.ProductSalesAsync(dbContext, storeId, orderIds))
             .Take(20)
@@ -237,6 +247,8 @@ public partial class PosReportsController(
             totalRevenueInclVat,
             totalRefund,
             totalPaid,
+            debtCollected,
+            netReceived = totalPaid + debtCollected - totalRefund,
             totalDiscount,
             totalCogs,
             totalProfit = totalRevenue - totalCogs,

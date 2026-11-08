@@ -923,6 +923,25 @@ typedef KitchenPrinterFailedCallback = void Function({
 /// [skipDedup]: mặc định false — chặn in trùng cùng nội dung trong ~25s
 /// (bấm Báo bếp 2 lần / auto-retry sau khi Agent đã nhận job). Truyền true
 /// chỉ khi người dùng chủ động "In lại" từ phiếu treo.
+/// Câu báo khi phiếu bếp không in được. Chưa có máy nào nhận Phiếu chế biến thì nói đúng việc cần làm,
+/// không bảo kiểm tra máy in / giấy khiến thu ngân kiểm tra nhầm chỗ.
+Future<String> kitchenPrintFailureReason() async {
+  try {
+    await PosPrintOrchestrator.instance.refreshConfig();
+    final cloud = await PosPrintDeviceScope.excludeSenderLocals(
+      PosPrintOrchestrator.instance.resolvePrinters(PosCloudDocumentTypes.kitchenSlip),
+    );
+    final locals = await PosLocalPrintersStore.instance.loadAll();
+    final hasLocal = locals.any((p) => p.enabled && p.roles.contains(PosCloudDocumentTypes.kitchenSlip));
+    if (cloud.isEmpty && !hasLocal) {
+      return 'Chưa có máy in nhận Phiếu chế biến — gán vai trò trong Thiết lập › Máy in';
+    }
+  } catch (e) {
+    debugPrint('kitchenPrintFailureReason: $e');
+  }
+  return 'Gửi lệnh in thất bại — kiểm tra máy in / giấy';
+}
+
 Future<bool> printKitchenCompactSlip({
   required String tableName,
   required bool isCancel,

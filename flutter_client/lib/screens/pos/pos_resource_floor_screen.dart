@@ -2436,8 +2436,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       return;
     }
     if (action == 'free') {
-      if (!await confirmPosOwnerPassword(context)) return;
-      if (!mounted) return;
+      if (!_canFreeWithoutOwnerPassword(r)) {
+        if (!await confirmPosOwnerPassword(context)) return;
+        if (!mounted) return;
+      }
       await _returnTableToEmpty(r);
       return;
     }
@@ -2684,7 +2686,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         }) =>
             fail(lines, errorMessage, printerId: printerId, printerName: printerName),
       );
-      if (!ok && !queued) fail(lines, 'Gửi lệnh in thất bại — kiểm tra máy in / giấy');
+      if (!ok && !queued) fail(lines, await kitchenPrintFailureReason());
     } catch (e) {
       debugPrint('Floor kitchen print: $e');
       if (!queued && printLines.isNotEmpty) fail(printLines, 'Lỗi in phiếu bếp: $e');
@@ -3421,6 +3423,23 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   Future<void> returnAllTablesToEmpty({bool requireOwnerPassword = true}) =>
       _returnAllTablesToEmpty(requireOwnerPassword: requireOwnerPassword);
+
+  /// Bàn đã nhận nhưng chưa có gì để mất: không món, không tiền (đơn, cọc, tiền giờ), không tạm tính, không báo bếp.
+  /// Máy chủ vẫn từ chối trả bàn còn món nếu số liệu ở đây đã cũ.
+  bool _canFreeWithoutOwnerPassword(PosServiceResourceDto r) =>
+      r.lineCount <= 0 &&
+      r.subtotal <= 0 &&
+      r.pendingKitchenCount <= 0 &&
+      r.reservationDepositPaid <= 0 &&
+      !r.isBillRequested &&
+      !(_isHourly && r.elapsedMinutes > 0) &&
+      !r.draftBills.any((b) => b.lineCount > 0 || b.subtotal > 0);
+
+  /// Như [_canFreeWithoutOwnerPassword] cho màn bán; không thấy bàn trên sơ đồ thì vẫn hỏi mật khẩu.
+  bool canFreeWithoutOwnerPassword(String? resourceId) {
+    final r = _resources.where((x) => x.id == resourceId).firstOrNull;
+    return r != null && _canFreeWithoutOwnerPassword(r);
+  }
 
   /// Trả bàn về trống. Bàn còn món: xóa đơn tạm rồi đóng phiên.
   Future<bool> _returnTableToEmpty(

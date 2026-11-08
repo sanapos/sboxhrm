@@ -64,6 +64,29 @@ public class ActivityAuditInterceptorTests
     }
 
     [Fact]
+    public async Task Failed_save_records_nothing()
+    {
+        var col = new ActivityAuditCollector();
+        var opts = new DbContextOptionsBuilder<Ctx>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .AddInterceptors(new ActivityAuditInterceptor(col))
+            .Options;
+        var id = Guid.NewGuid();
+        await using (var first = new Ctx(opts))
+        {
+            first.Items.Add(new Item { Id = id, Name = "Gốc" });
+            await first.SaveChangesAsync();
+        }
+        col.Changes.Clear();
+
+        await using var second = new Ctx(opts);
+        second.Items.Add(new Item { Id = id, Name = "Trùng khóa" });
+        await Assert.ThrowsAnyAsync<Exception>(() => second.SaveChangesAsync());
+
+        Assert.Empty(col.Changes);
+    }
+
+    [Fact]
     public async Task Suspended_collector_records_nothing()
     {
         var (db, col) = Make();
