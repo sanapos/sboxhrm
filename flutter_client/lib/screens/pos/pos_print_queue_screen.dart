@@ -865,9 +865,9 @@ class _PosPrintQueueScreenState extends State<PosPrintQueueScreen> {
       backgroundColor: HrmPageChrome.background,
       appBar: AppBar(
         title: Text(tr('Hàng đợi in'),
-            style: const TextStyle(color: PosTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 18)),
-        backgroundColor: Colors.white,
-        foregroundColor: PosTheme.textPrimary,
+            style: const TextStyle(color: SboxColors.isBoss ? SboxColors.onBar : PosTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 18)),
+        backgroundColor: SboxColors.bar,
+        foregroundColor: SboxColors.onBar,
         elevation: 0,
         actions: [
           IconButton(tooltip: tr('Làm mới'), onPressed: _load, icon: const Icon(Icons.refresh)),

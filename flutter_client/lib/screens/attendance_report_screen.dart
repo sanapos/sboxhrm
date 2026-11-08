@@ -1352,7 +1352,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                                   : Icons.unfold_more,
                               size: 14,
                               color: _empSortColumn == 0
-                                  ? const Color(0xFF0070F4)
+                                  ? (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0070F4))
                                   : SboxColors.slate400,
                             ),
                           ],

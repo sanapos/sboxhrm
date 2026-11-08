@@ -158,7 +158,7 @@ class _PosQuoteDocumentWordingScreenState
     return Scaffold(
       appBar: AppBar(
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        actions: [
+        actions: sboxBarActions([
           TextButton(
             onPressed: _saving || _loading ? null : _restore,
             child: Text(tr('Theo mẫu')),
@@ -176,7 +176,7 @@ class _PosQuoteDocumentWordingScreenState
                   : Text(tr('Lưu riêng')),
             ),
           ),
-        ],
+        ]),
       ),
       body: _loading || _editorHtml == null
           ? const Center(child: CircularProgressIndicator())

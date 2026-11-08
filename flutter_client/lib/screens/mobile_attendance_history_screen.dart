@@ -137,21 +137,21 @@ class _MobileAttendanceHistoryScreenState
     return Scaffold(
       backgroundColor: SboxColors.slate50,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.bar,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: SboxColors.slate900),
+          icon: const Icon(Icons.arrow_back, color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.slate900),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(tr('Lịch sử chấm công'),
           style: TextStyle(
-            color: SboxColors.slate900,
+            color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.slate900,
             fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list, color: SboxColors.slate500),
+            icon: const Icon(Icons.filter_list, color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.slate500),
             onPressed: _showFilterBottomSheet,
           ),
         ],
@@ -565,12 +565,12 @@ class _MobileAttendanceHistoryScreenState
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                    color: SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.calendar_today,
-                    color: HrmPageChrome.primaryNavy,
+                    color: SboxColors.isBoss ? SboxColors.iconOnBox : HrmPageChrome.primaryNavy,
                     size: 18,
                   ),
                 ),

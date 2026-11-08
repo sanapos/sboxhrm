@@ -140,8 +140,8 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
       backgroundColor: PosTheme.background,
       appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Phiếu hủy bếp')),
-        backgroundColor: Colors.white,
-        foregroundColor: SboxColors.text,
+        backgroundColor: SboxColors.bar,
+        foregroundColor: SboxColors.onBar,
         elevation: 0.5,
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),

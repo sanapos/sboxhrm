@@ -38,7 +38,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
   String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
   List<Map<String, dynamic>> _employeesList = [];
-  bool _showOverviewPanel = true;
+  bool _showOverviewPanel = hrmOverviewDefaultOpen;
 
   @override
   void initState() {

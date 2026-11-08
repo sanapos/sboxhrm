@@ -34,8 +34,8 @@ class _PosToppingReportScreenState extends State<PosToppingReportScreen> {
   Map<String, dynamic>? _r;
 
   static const _palette = [
-    Color(0xFF2563EB), Color(0xFF16A34A), Color(0xFFD97706), Color(0xFF9333EA),
-    Color(0xFFDB2777), Color(0xFF0891B2), Color(0xFF65A30D), Color(0xFF94A3B8),
+    (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF2563EB)), Color(0xFF16A34A), Color(0xFFD97706), Color(0xFF9333EA),
+    Color(0xFFDB2777), (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0891B2)), Color(0xFF65A30D), Color(0xFF94A3B8),
   ];
 
   @override

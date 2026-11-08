@@ -80,11 +80,11 @@ class PosMobileProfileCard extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 26,
-            backgroundColor: PosTheme.kiotBlueLight,
+            backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : PosTheme.kiotBlueLight,
             child: Text(
               tr(displayName.isNotEmpty ? displayName[0].toUpperCase() : 'S'),
               style: const TextStyle(
-                color: PosTheme.kiotBlue,
+                color: SboxColors.isBoss ? SboxColors.gold : PosTheme.kiotBlue,
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
               ),
@@ -944,13 +944,13 @@ class PosMobileLineItemCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 12,
-                backgroundColor: PosTheme.kiotBlueLight,
+                backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : PosTheme.kiotBlueLight,
                 child: Text(
                   tr('$index'),
                   style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: PosTheme.kiotBlue),
+                      color: SboxColors.isBoss ? SboxColors.gold : PosTheme.kiotBlue),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1141,7 +1141,7 @@ class PosMobileKiotHeader extends StatelessWidget {
       children: [
         Padding(
           padding: EdgeInsets.fromLTRB(
-              inHub ? 4 : (pushed ? 0 : 12), 4, 4, 0),
+              inHub ? 4 : (pushed ? 0 : 12), SboxColors.isBoss ? 0 : 4, 4, 0),
           child: Row(
             children: [
               if (showBack)
@@ -1172,9 +1172,9 @@ class PosMobileKiotHeader extends StatelessWidget {
                   child: Text(
                     tr(title),
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: SboxColors.isBoss ? 16 : 18,
                       fontWeight: FontWeight.bold,
-                      color: PosTheme.textPrimary,
+                      color: SboxColors.isBoss ? SboxColors.onBar : PosTheme.textPrimary,
                     ),
                   ),
                 ),
@@ -1222,17 +1222,17 @@ class PosMobileKiotHeader extends StatelessWidget {
             ],
           ),
         ),
-        const Divider(height: 1, color: PosTheme.border),
+        if (!SboxColors.isBoss) const Divider(height: 1, color: PosTheme.border),
       ],
     );
     return Material(
-      color: Colors.white,
-      child: posNeedsTopSafeArea(context)
+      color: SboxColors.bar,
+      child: sboxBarScope(posNeedsTopSafeArea(context)
           ? withFallbackTopInset(
               context,
               SafeArea(bottom: false, child: content),
             )
-          : withFallbackTopInset(context, content),
+          : withFallbackTopInset(context, content)),
     );
   }
 
@@ -1709,8 +1709,8 @@ class PosMobileFab extends StatelessWidget {
     return FloatingActionButton(
       onPressed: onPressed,
       tooltip: tr(tooltip),
-      backgroundColor: PosTheme.kiotBlue,
-      foregroundColor: Colors.white,
+      backgroundColor: SboxColors.isBoss ? SboxColors.action : PosTheme.kiotBlue,
+      foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
       elevation: 4,
       child: const Icon(Icons.add, size: 28),
     );

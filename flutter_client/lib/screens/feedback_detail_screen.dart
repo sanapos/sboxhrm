@@ -254,9 +254,9 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
           for (final h in _handlers)
             ListTile(
               leading: CircleAvatar(
-                backgroundColor: SboxColors.brand50,
+                backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
                 child: Text((h['name']?.toString() ?? '?').trim().split(' ').last.characters.first,
-                    style: const TextStyle(color: SboxColors.brand700, fontWeight: FontWeight.w700)),
+                    style: const TextStyle(color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700, fontWeight: FontWeight.w700)),
               ),
               title: Text(h['name']?.toString() ?? ''),
               subtitle: Text([h['position'], h['department']]
@@ -338,8 +338,8 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: SboxColors.slate900,
+        backgroundColor: SboxColors.bar,
+        foregroundColor: SboxColors.onBar,
         elevation: 0,
         title: Text(
           f == null ? tr('Kiến nghị') : (f['code']?.toString() ?? tr(FeedbackUi.categories[f['category']] ?? 'Kiến nghị')),

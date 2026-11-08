@@ -116,8 +116,8 @@ class _NotificationSentScreenState extends State<NotificationSentScreen> {
       backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         title: Text(tr('Thông báo đã gửi')),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: SboxColors.bar,
+        surfaceTintColor: Colors.transparent,
         actions: [IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load)],
       ),
       body: _loading
@@ -291,8 +291,8 @@ class _SentDetailScreenState extends State<_SentDetailScreen> {
       backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         title: Text(tr('Chi tiết thông báo')),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: SboxColors.bar,
+        surfaceTintColor: Colors.transparent,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

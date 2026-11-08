@@ -285,9 +285,9 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
     SboxColors.violet,
     SboxColors.warning,
     SboxColors.danger,
-    Color(0xFF0EA5E9),
+    (SboxColors.isBoss ? SboxColors.brand300 : const Color(0xFF0EA5E9)),
     Color(0xFFF97316),
-    Color(0xFF14B8A6),
+    (SboxColors.isBoss ? SboxColors.brand300 : const Color(0xFF14B8A6)),
   ];
 
   Widget _charts() {

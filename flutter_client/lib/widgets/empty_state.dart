@@ -36,13 +36,13 @@ class EmptyState extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: effectiveIconColor.withValues(alpha: 0.1),
+                color: SboxColors.isBoss ? SboxColors.iconBox : effectiveIconColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
                 size: 64,
-                color: effectiveIconColor,
+                color: SboxColors.isBoss ? SboxColors.iconOnBox : effectiveIconColor,
               ),
             ),
             const SizedBox(height: 24),
@@ -129,13 +129,13 @@ class ErrorState extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: effectiveIconColor.withValues(alpha: 0.1),
+                color: SboxColors.isBoss ? SboxColors.iconBox : effectiveIconColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 effectiveIcon,
                 size: 64,
-                color: effectiveIconColor,
+                color: SboxColors.isBoss ? SboxColors.iconOnBox : effectiveIconColor,
               ),
             ),
             const SizedBox(height: 24),
@@ -215,13 +215,13 @@ class NoSearchResultState extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.1),
+                color: SboxColors.isBoss ? Colors.amber : Colors.amber.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.search_off,
                 size: 64,
-                color: Colors.amber,
+                color: SboxColors.isBoss ? Colors.white : Colors.amber,
               ),
             ),
             const SizedBox(height: 24),

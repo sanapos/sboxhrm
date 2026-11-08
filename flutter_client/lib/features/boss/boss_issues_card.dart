@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_tr.dart';
+import '../../models/pos_product.dart';
+import '../../screens/pos/pos_qr_online_orders_screen.dart';
 import '../../screens/pos/pos_risk_report_screen.dart';
+import '../../screens/pos_products_screen.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import '../../widgets/sbox/sbox_charts.dart';
 import 'boss_inbox_screen.dart';
 import 'boss_reports_screen.dart';
+import 'boss_icon_badge.dart';
 
 /// Một vấn đề cần chủ để ý (một dòng trong khối «Cần xử lý»).
 class _Issue {
@@ -140,16 +145,17 @@ class _BossIssuesCardState extends State<BossIssuesCard> {
             amount: (_shifts['cashierDiffTotal'] as num?)?.toDouble(), onTap: _showShiftDiffs),
       if (stale > 0) _Issue('Ca thu ngân mở quá 16 giờ chưa đóng', stale, SboxTone.warning, Icons.lock_clock_rounded),
       if (t('onlinePending') > 0)
-        _Issue('Đơn online chờ xác nhận', t('onlinePending'), SboxTone.danger, Icons.shopping_bag_rounded),
+        _Issue('Đơn online chờ xác nhận', t('onlinePending'), SboxTone.danger, Icons.shopping_bag_rounded,
+            onTap: () => _push(PosHubScope.pushed(child: const PosQrOnlineOrdersScreen()))),
       if (t('shippingIssue') > 0)
         _Issue('Vận đơn giao thất bại / hoàn hàng', t('shippingIssue'), SboxTone.danger, Icons.local_shipping_rounded),
       if (t('codPending') > 0) _Issue('Đơn COD chưa đối soát', t('codPending'), SboxTone.warning, Icons.payments_rounded),
       if (t('outOfStock') > 0)
         _Issue('Hàng đã hết', t('outOfStock'), SboxTone.danger, Icons.inventory_2_rounded,
-            onTap: () => _push(const BossReportDetailScreen(type: BossReportType.stock))),
+            onTap: () => _push(PosHubScope.pushed(child: const PosProductsScreen(initialStockFilter: PosStockFilter.outOfStock)))),
       if (t('lowStock') > 0)
         _Issue('Hàng dưới tồn tối thiểu', t('lowStock'), SboxTone.warning, Icons.inventory_rounded,
-            onTap: () => _push(const BossReportDetailScreen(type: BossReportType.stock))),
+            onTap: () => _push(PosHubScope.pushed(child: const PosProductsScreen(initialStockFilter: PosStockFilter.belowMin)))),
       if (t('expiredLots') > 0)
         _Issue('Lô hàng đã hết hạn', t('expiredLots'), SboxTone.danger, Icons.event_busy_rounded,
             onTap: () => _push(const BossReportDetailScreen(type: BossReportType.stock))),
@@ -174,11 +180,10 @@ class _BossIssuesCardState extends State<BossIssuesCard> {
           ListTile(
             dense: true,
             onTap: i.onTap,
-            leading: Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(color: i.tone.bg, borderRadius: SboxRadius.mdAll),
-              child: Icon(i.icon, size: 19, color: i.tone.fg),
+            leading: BossIconBadge(
+              i.icon,
+              size: 36,
+              color: i.tone == SboxTone.brand ? null : i.tone.solid,
             ),
             title: Text(tr(i.label), style: SboxType.bodyStyle()),
             subtitle: i.amount == null || i.amount == 0 ? null : Text(SboxFmt.money(i.amount)),

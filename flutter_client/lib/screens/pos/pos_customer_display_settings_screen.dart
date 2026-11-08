@@ -304,10 +304,10 @@ class _PosCustomerDisplaySettingsScreenState
       backgroundColor: PosTheme.background,
       appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Màn hình phụ (khách)')),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: SboxColors.bar,
+        surfaceTintColor: Colors.transparent,
         elevation: 0.5,
-        foregroundColor: SboxColors.text,
+        foregroundColor: SboxColors.onBar,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: tr('Quay lại'),
@@ -322,7 +322,7 @@ class _PosCustomerDisplaySettingsScreenState
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
-                      strokeWidth: 2, color: SboxColors.primary),
+                      strokeWidth: 2, color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.primary),
                 ),
               ),
             ),

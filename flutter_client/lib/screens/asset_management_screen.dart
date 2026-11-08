@@ -31,6 +31,7 @@ import '../utils/asset_qr_label_print.dart';
 import '../utils/excel_report_builder.dart';
 import '../providers/auth_provider.dart';
 import 'assets/asset_dashboard_view.dart';
+import 'package:zkteco_flutter_client/widgets/scanner_error_view.dart';
 class AssetManagementScreen extends StatefulWidget {
   const AssetManagementScreen({super.key});
 
@@ -703,10 +704,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
+                    color: SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.fact_check_outlined, size: 20, color: HrmPageChrome.primaryNavy),
+                  child: const Icon(Icons.fact_check_outlined, size: 20, color: SboxColors.isBoss ? SboxColors.iconOnBox : HrmPageChrome.primaryNavy),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -1020,8 +1021,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, size: 20, color: color),
+            decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 20, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1317,8 +1318,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           children: [
                             Container(
                               padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                              child: Icon(icon, size: 20, color: color),
+                              decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                              child: Icon(icon, size: 20, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -1855,10 +1856,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   children: [
                     CircleAvatar(
                       radius: 12,
-                      backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.15),
+                      backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.15),
                       child: Text(
                         tr(asset.currentAssigneeName![0].toUpperCase()),
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: HrmPageChrome.primaryNavy),
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: SboxColors.isBoss ? SboxColors.gold : HrmPageChrome.primaryNavy),
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -2170,8 +2171,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                child: Icon(_getTransferTypeIcon(transfer.transferType), size: 16, color: color),
+                decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+                child: Icon(_getTransferTypeIcon(transfer.transferType), size: 16, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -2315,10 +2316,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.08),
+                          color: SboxColors.isBoss ? SboxColors.iconBox : statusColor.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(statusIcon, size: 18, color: statusColor),
+                        child: Icon(statusIcon, size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : statusColor),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -3124,10 +3125,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                          color: SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.inventory_2, color: HrmPageChrome.primaryNavy),
+                        child: const Icon(Icons.inventory_2, color: SboxColors.isBoss ? SboxColors.iconOnBox : HrmPageChrome.primaryNavy),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -4506,19 +4507,8 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                         if (_scannerController != null)
                           ClipRRect(
                             child: MobileScanner(
+                              errorBuilder: scannerErrorView,
                               controller: _scannerController!,
-                              errorBuilder: (context, error) {
-                                return Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.camera_alt, size: 48, color: SboxColors.slate400),
-                                      const SizedBox(height: 8),
-                                      Text(tr(error.errorDetails?.message ?? 'Không thể truy cập camera'), style: const TextStyle(color: SboxColors.slate400)),
-                                    ],
-                                  ),
-                                );
-                              },
                               onDetect: (capture) {
                                 if (_hasScanned) return;
                                 final barcodes = capture.barcodes;
@@ -4542,21 +4532,26 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                             ),
                           ),
                         if (_cameraError == null && _scannerController != null)
-                          Center(
-                            child: Container(
-                              width: 220, height: 220,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: _hasScanned ? SboxColors.success : Colors.white.withValues(alpha: 0.6), width: 2),
-                                borderRadius: BorderRadius.circular(14),
+                          ScannerOverlayGate(
+                            controller: _scannerController!,
+                            child: Center(
+                              child: Container(
+                                width: 220, height: 220,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: _hasScanned ? SboxColors.success : Colors.white.withValues(alpha: 0.6), width: 2),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: _hasScanned ? const Center(child: Icon(Icons.check_circle, color: SboxColors.success, size: 48)) : null,
                               ),
-                              child: _hasScanned ? const Center(child: Icon(Icons.check_circle, color: SboxColors.success, size: 48)) : null,
                             ),
                           ),
                         if (_cameraError == null && _scannerController != null && !_hasScanned)
                           Positioned(
                             bottom: 12,
                             left: 0, right: 0,
-                            child: Row(
+                            child: ScannerOverlayGate(
+                              controller: _scannerController!,
+                              child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 IconButton(
@@ -4565,6 +4560,7 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                                   style: IconButton.styleFrom(backgroundColor: SboxColors.textMuted),
                                 ),
                               ],
+                            ),
                             ),
                           ),
                       ],
@@ -5156,7 +5152,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             Container(
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [HrmPageChrome.primaryNavy, Color(0xFF2D5F8B)],
+                  colors: [HrmPageChrome.primaryNavy, (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF2D5F8B))],
                   begin: Alignment.topLeft, end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(isMobile ? 0 : 16)),
@@ -5173,10 +5169,10 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
+                              color: SboxColors.isBoss ? SboxColors.iconBox : Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.fact_check_outlined, color: Colors.white, size: 20),
+                            child: const Icon(Icons.fact_check_outlined, color: SboxColors.isBoss ? SboxColors.iconOnBox : Colors.white, size: 20),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -5383,10 +5379,10 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
+            color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, size: 18, color: color),
+          child: Icon(icon, size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
         ),
       ),
     );

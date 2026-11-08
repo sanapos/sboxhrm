@@ -1701,11 +1701,11 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       CircleAvatar(
                         radius: 20,
                         backgroundColor:
-                            HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                            SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                         child: Text(
                           tr('${e.key + 1}'),
                           style: const TextStyle(
-                              color: HrmPageChrome.primaryNavy,
+                              color: SboxColors.isBoss ? SboxColors.gold : HrmPageChrome.primaryNavy,
                               fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -2048,16 +2048,16 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx),
                   ),
-                  backgroundColor: HrmPageChrome.primaryNavy,
-                  foregroundColor: Colors.white,
-                  actions: [
+                  backgroundColor: SboxColors.isBoss ? SboxColors.bar : HrmPageChrome.primaryNavy,
+                  foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
+                  actions: sboxBarActions([
                     TextButton(
                       onPressed: onSubmit,
                       style:
-                          TextButton.styleFrom(foregroundColor: Colors.white),
+                          TextButton.styleFrom(foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white),
                       child: Text(tr('Lưu')),
                     ),
-                  ],
+                  ]),
                 ),
                 body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
@@ -2203,16 +2203,16 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx),
                   ),
-                  backgroundColor: HrmPageChrome.primaryNavy,
-                  foregroundColor: Colors.white,
-                  actions: [
+                  backgroundColor: SboxColors.isBoss ? SboxColors.bar : HrmPageChrome.primaryNavy,
+                  foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
+                  actions: sboxBarActions([
                     TextButton(
                       onPressed: onSubmit,
                       style:
-                          TextButton.styleFrom(foregroundColor: Colors.white),
+                          TextButton.styleFrom(foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white),
                       child: Text(tr('Lưu')),
                     ),
-                  ],
+                  ]),
                 ),
                 body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
@@ -2545,17 +2545,17 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
-                  backgroundColor: HrmPageChrome.primaryNavy,
-                  foregroundColor: Colors.white,
-                  actions: [
+                  backgroundColor: SboxColors.isBoss ? SboxColors.bar : HrmPageChrome.primaryNavy,
+                  foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
+                  actions: sboxBarActions([
                     TextButton(
                       onPressed:
                           !isParsed || previewRows.isEmpty ? null : onImport,
                       style:
-                          TextButton.styleFrom(foregroundColor: Colors.white),
+                          TextButton.styleFrom(foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white),
                       child: Text(tr('Import')),
                     ),
-                  ],
+                  ]),
                 ),
                 body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
@@ -2837,7 +2837,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                           children: [
                             Checkbox(
                               value: isSelected,
-                              activeColor: const Color(0xFF1A73E8),
+                              activeColor: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF1A73E8)),
                               onChanged: (v) => setDlgState(
                                   () => cfg['selected'] = v ?? false),
                             ),
@@ -2933,22 +2933,22 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
-                  backgroundColor: const Color(0xFF1A73E8),
-                  foregroundColor: Colors.white,
-                  actions: [
+                  backgroundColor: SboxColors.isBoss ? SboxColors.bar : (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF1A73E8)),
+                  foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
+                  actions: sboxBarActions([
                     TextButton(
                       onPressed: syncEnabled ? onSync : null,
                       style:
-                          TextButton.styleFrom(foregroundColor: Colors.white),
+                          TextButton.styleFrom(foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white),
                       child: isSyncing
                           ? const SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
+                                  strokeWidth: 2, color: SboxColors.isBoss ? SboxColors.onBar : Colors.white))
                           : Text(tr('Đồng bộ')),
                     ),
-                  ],
+                  ]),
                 ),
                 body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
@@ -2961,7 +2961,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           return ScrollableAlertDialog(
             title: Row(
               children: [
-                Icon(Icons.cloud_download, color: Color(0xFF1A73E8), size: 24),
+                Icon(Icons.cloud_download, color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF1A73E8)), size: 24),
                 SizedBox(width: 8),
                 Text(tr('Đồng bộ Google Sheet')),
               ],

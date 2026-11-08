@@ -831,7 +831,7 @@ class LandingUsageGuide {
       desc:
           'Gán mức lương, phụ cấp và cách tính công cho từng nhân viên. Kiểu chấm công quyết định cần chấm vào/ra hay chỉ một lần/ca.',
       bullets: [
-        'Mở Hồ sơ nhân sự › nút ⋮ trên nhân viên › «Salary Settings» (Thiết lập lương); thẻ «Chưa thiết lập» lọc người chưa có lương',
+        'Mở Hồ sơ nhân sự › nút ⋮ trên nhân viên › «Thiết lập lương»; thẻ «Chưa thiết lập» lọc người chưa có lương',
         '«Lương chính» › Loại lương: Tháng (lương cơ bản + lương hoàn thành) / Ngày / Ca / Giờ',
         '«Tăng ca»: Theo luật / Cố định / Không tính. «Bảo hiểm xã hội»: không đóng, theo lương cơ bản, lương tối thiểu vùng hoặc mức khác',
         '«Ngày công và chấm công» › «Cách chấm công»: Chấm vào và ra · Chỉ chấm vào · Chỉ chấm ra · Chấm bất kỳ trong ca · Chấm 2 lần trong ngày · Ca nguyên ngày · Không chấm công; ô Ca làm việc để trống = theo lịch phân ca',

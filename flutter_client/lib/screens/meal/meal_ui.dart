@@ -101,8 +101,8 @@ class MealUi {
           if (icon != null) ...[
             Container(
               padding: const EdgeInsets.all(9),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
-              child: Icon(icon, color: color, size: 20),
+              decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 20),
             ),
             const SizedBox(width: 12),
           ],

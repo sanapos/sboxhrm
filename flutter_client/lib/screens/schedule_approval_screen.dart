@@ -543,7 +543,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     return Scaffold(
       backgroundColor: SboxColors.slate50,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.bar,
         elevation: 0,
         toolbarHeight: 0,
         bottom: PreferredSize(
@@ -577,7 +577,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       child: Text(tr('${_getPendingCount()}'),
                           style: const TextStyle(
                               fontSize: 9,
-                              color: Colors.white,
+                              color: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
                               fontWeight: FontWeight.bold)),
                     ),
                   ],
@@ -616,7 +616,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       child: Text(tr('$_swapPendingCount'),
                           style: const TextStyle(
                               fontSize: 9,
-                              color: Colors.white,
+                              color: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
                               fontWeight: FontWeight.bold)),
                     ),
                   ],
@@ -654,8 +654,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           ? FloatingActionButton(
               heroTag: 'schedule_approval_swap_fab',
               tooltip: tr('Thao tác'),
-              backgroundColor: HrmPageChrome.primaryNavy,
-              foregroundColor: Colors.white,
+              backgroundColor: SboxColors.isBoss ? SboxColors.action : HrmPageChrome.primaryNavy,
+              foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
               onPressed: () {
                 final acts = <HrmTopBarAction>[
                   if (canCreateSwap)
@@ -2492,10 +2492,10 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                  color: SboxColors.danger.withValues(alpha: 0.15),
+                  color: SboxColors.isBoss ? SboxColors.danger : SboxColors.danger.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10)),
               child: const Icon(Icons.warning_amber_rounded,
-                  color: SboxColors.danger, size: 20),
+                  color: SboxColors.isBoss ? Colors.white : SboxColors.danger, size: 20),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -2681,7 +2681,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       padding: EdgeInsets.all(isMobile ? 12 : 16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-            colors: [HrmPageChrome.primaryNavy, Color(0xFF2D5986)]),
+            colors: [HrmPageChrome.primaryNavy, (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF2D5986))]),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(

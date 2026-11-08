@@ -14,6 +14,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../utils/api_datetime.dart';
+import 'package:zkteco_flutter_client/widgets/scanner_error_view.dart';
 /// Tab đăng ký suất ăn (NV) + tổng hợp đăng ký (quản lý) + chấm QR.
 class MealRegistrationTab extends StatefulWidget {
   final List<MealSession> sessions;
@@ -420,7 +421,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
             const SizedBox(height: 8),
             Text(tr('${tr('Tổng đăng ký: ')}${_managerSummary!['totalRegistered'] ?? 0}'),
               style: const TextStyle(
-                  fontWeight: FontWeight.w600, color: Color(0xFF0369A1)),
+                  fontWeight: FontWeight.w600, color: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1))),
             ),
           ],
         ],
@@ -558,6 +559,7 @@ class _MealQrCheckInSheetState extends State<_MealQrCheckInSheet> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(14),
                   child: MobileScanner(
+                    errorBuilder: scannerErrorView,
                     controller: _scanner,
                     onDetect: (capture) {
                       final code = capture.barcodes.firstOrNull?.rawValue;

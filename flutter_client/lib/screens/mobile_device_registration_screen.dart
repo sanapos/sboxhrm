@@ -819,11 +819,11 @@ class _MobileDeviceRegistrationScreenState
       // Mở riêng (từ màn chấm công) thì hiện AppBar có nút quay lại.
       appBar: HrmPageChrome.showInPageAppBar(context)
           ? AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: SboxColors.bar,
               elevation: 0,
               title: Text(tr('Đăng ký chấm công Mobile'),
                 style: TextStyle(
-                  color: SboxColors.slate900,
+                  color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.slate900,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -875,8 +875,8 @@ class _MobileDeviceRegistrationScreenState
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(
               padding: const EdgeInsets.all(22),
-              decoration: const BoxDecoration(color: SboxColors.brand50, shape: BoxShape.circle),
-              child: const Icon(Icons.install_mobile_rounded, size: 56, color: HrmPageChrome.primaryNavy),
+              decoration: const BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50, shape: BoxShape.circle),
+              child: const Icon(Icons.install_mobile_rounded, size: 56, color: SboxColors.isBoss ? SboxColors.gold : HrmPageChrome.primaryNavy),
             ),
             const SizedBox(height: 20),
             Text(tr('Đăng ký trên điện thoại'),
@@ -1225,10 +1225,10 @@ class _MobileDeviceRegistrationScreenState
               width: 30,
               height: 30,
               decoration: BoxDecoration(
-                color: done || current ? color : SboxColors.slate100,
+                color: SboxColors.isBoss ? SboxColors.iconBox : done || current ? color : SboxColors.slate100,
                 shape: BoxShape.circle,
               ),
-              child: Icon(done ? Icons.check_rounded : icon, size: 17, color: done || current ? Colors.white : SboxColors.slate400),
+              child: Icon(done ? Icons.check_rounded : icon, size: 17, color: SboxColors.isBoss ? SboxColors.iconOnBox : done || current ? Colors.white : SboxColors.slate400),
             ),
             const SizedBox(width: 12),
             Expanded(

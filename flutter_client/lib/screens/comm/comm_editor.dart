@@ -10,6 +10,7 @@ import '../../models/comm_v2.dart';
 import '../../services/api_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'comm_common.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 const _kDocExts = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'webp'];
 const _kImageExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
@@ -394,7 +395,7 @@ class _CommEditorPageState extends State<CommEditorPage> {
       child: Scaffold(
         backgroundColor: SboxColors.page,
         appBar: AppBar(
-          backgroundColor: SboxColors.surface,
+          backgroundColor: SboxColors.bar,
           surfaceTintColor: Colors.transparent,
           title: Text(tr(_editing ? 'Sửa bài viết' : 'Tạo bài viết'), maxLines: 1, overflow: TextOverflow.ellipsis),
           actions: phone
@@ -983,7 +984,7 @@ class CommFormatToolbar extends StatelessWidget {
     ('#DC2626', Color(0xFFDC2626)),
     ('#EA580C', Color(0xFFEA580C)),
     ('#16A34A', Color(0xFF16A34A)),
-    ('#158DC0', Color(0xFF158DC0)),
+    ('#158DC0', (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF158DC0))),
     ('#7C3AED', Color(0xFF7C3AED)),
   ];
 

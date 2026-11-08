@@ -42,6 +42,7 @@ import '../utils/store_role_helper.dart';
 import '../widgets/app_boot_screen.dart';
 import '../widgets/web_static_home_redirect.dart';
 import '../widgets/pos/pos_form_keyboard.dart';
+import '../theme/sbox_tokens.dart';
 
 bool _overlayStyleResetScheduled = false;
 
@@ -146,7 +147,7 @@ class ZKTecoApp extends StatelessWidget {
                 return wrapTouch(AnnotatedRegion<SystemUiOverlayStyle>(
                   value: kPlayOverlayOnDarkBg,
                   child: ColoredBox(
-                    color: const Color(0xFF000000),
+                    color: SboxColors.isBoss ? SboxColors.bar : const Color(0xFF000000),
                     child: MediaQuery(
                       data: mediaQuery.copyWith(
                         textScaler: AppTextScaler.resolve(context),
@@ -155,7 +156,7 @@ class ZKTecoApp extends StatelessWidget {
                         builder: (ctx) => padAwaySystemBars(
                           ctx,
                           ColoredBox(
-                            color: const Color(0xFF000000),
+                            color: SboxColors.isBoss ? SboxColors.bar : const Color(0xFF000000),
                             child: PosTouchImeHost(
                               child: PosKeyboardLift(
                                 child: DefaultTextStyle(

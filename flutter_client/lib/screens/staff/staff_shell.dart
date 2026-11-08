@@ -220,8 +220,8 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
             backgroundColor: SboxColors.page,
             appBar: AppBar(
               title: Text(tr('Lịch làm việc')),
-              backgroundColor: SboxColors.white,
-              surfaceTintColor: SboxColors.white,
+              backgroundColor: SboxColors.bar,
+              surfaceTintColor: Colors.transparent,
             ),
             body: const MyScheduleView(onChanged: ScreenRefreshNotifier.refreshDashboardScreen),
           ),
@@ -329,8 +329,8 @@ class _StaffPayTab extends StatelessWidget {
       backgroundColor: SboxColors.page,
       appBar: AppBar(
         title: Text(tr('Công & lương')),
-        backgroundColor: SboxColors.white,
-        surfaceTintColor: SboxColors.white,
+        backgroundColor: SboxColors.bar,
+        surfaceTintColor: Colors.transparent,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -385,8 +385,8 @@ class _StaffMeTab extends StatelessWidget {
       backgroundColor: SboxColors.page,
       appBar: AppBar(
         title: Text(tr('Tôi')),
-        backgroundColor: SboxColors.white,
-        surfaceTintColor: SboxColors.white,
+        backgroundColor: SboxColors.bar,
+        surfaceTintColor: Colors.transparent,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

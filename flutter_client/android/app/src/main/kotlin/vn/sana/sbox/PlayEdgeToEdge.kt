@@ -24,10 +24,12 @@ fun ComponentActivity.applyPlayEdgeToEdge() {
         window.attributes = attrs
     }
 
+    // SBOX BOSS: thanh hệ thống nằm trên nền nhạt nên icon phải tối (gói boss.sboxpos.com và bản QA).
+    val lightBars = packageName.startsWith("boss.")
     fun darkSystemBarIcons() {
         WindowCompat.getInsetsController(window, window.decorView).apply {
-            isAppearanceLightStatusBars = false
-            isAppearanceLightNavigationBars = false
+            isAppearanceLightStatusBars = lightBars
+            isAppearanceLightNavigationBars = lightBars
             // DEFAULT: thanh hệ thống giữ hiện. TRANSIENT_SWIPE khiến
             // status/nav ẩn sau immersive — phải vuốt mới hiện lại.
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT

@@ -524,7 +524,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (_hasMore) flatItems.add(null);
 
     final content = Container(
-      color: SboxColors.slate100,
+      color: SboxColors.isBoss ? SboxColors.page : SboxColors.slate100,
       child: HrmResponsiveListLayout(
         headerSections: [_buildHeader()],
         desktopBody: _buildNotificationsBody(flatItems),
@@ -628,7 +628,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
     );
     return Container(
-      color: Colors.white,
+      color: SboxColors.isBoss ? SboxColors.bar : Colors.white,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
@@ -856,8 +856,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ? n.categoryLabel!
         : (n.categoryCode != null ? NotificationCategoryMeta.of(n.categoryCode).label : null);
 
+    final boss = SboxColors.isBoss;
     final card = Material(
-      color: n.isRead ? Colors.white : color.withValues(alpha: 0.05),
+      color: n.isRead || boss ? Colors.white : color.withValues(alpha: 0.05),
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -868,19 +869,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: n.isRead ? SboxColors.slate200 : color.withValues(alpha: 0.3)),
+            border: Border.all(
+                color: n.isRead
+                    ? SboxColors.slate200
+                    : boss
+                        ? SboxColors.gold.withValues(alpha: 0.6)
+                        : color.withValues(alpha: 0.3)),
           ),
           padding: const EdgeInsets.fromLTRB(12, 12, 4, 10),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Stack(clipBehavior: Clip.none, children: [
+              // BOSS: icon vàng trên ô xanh đen như logo; tin đã đọc ô nhạt hơn.
               Container(
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: n.isRead ? SboxColors.slate100 : color.withValues(alpha: 0.14),
+                  color: boss
+                      ? (n.isRead ? SboxColors.brand300 : null)
+                      : (n.isRead ? SboxColors.slate100 : color.withValues(alpha: 0.14)),
+                  gradient: boss && !n.isRead
+                      ? const LinearGradient(
+                          colors: [SboxColors.brand500, SboxColors.brand700],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight)
+                      : null,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: n.isRead ? SboxColors.slate400 : color, size: 21),
+                child: Icon(icon,
+                    color: boss
+                        ? (n.isRead ? SboxColors.brand50 : SboxColors.gold)
+                        : (n.isRead ? SboxColors.slate400 : color),
+                    size: 21),
               ),
               if (!n.isRead)
                 Positioned(

@@ -86,8 +86,8 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
     return Scaffold(
       backgroundColor: SboxColors.page,
       appBar: AppBar(
-        backgroundColor: SboxColors.white,
-        surfaceTintColor: SboxColors.white,
+        backgroundColor: SboxColors.bar,
+        surfaceTintColor: Colors.transparent,
         titleSpacing: 16,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,7 +100,7 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
             if ((user?.position ?? user?.department ?? '').isNotEmpty)
               Text(
                 user?.position ?? user?.department ?? '',
-                style: const TextStyle(fontSize: 12, color: SboxColors.textMuted),
+                style: const TextStyle(fontSize: 12, color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.textMuted),
               ),
           ],
         ),

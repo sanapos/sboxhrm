@@ -439,8 +439,8 @@ class _AssetDashboardViewState extends State<AssetDashboardView> {
                     Column(children: [
                       Container(
                         padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(color: SboxColors.brand50, shape: BoxShape.circle),
-                        child: Icon(icon(_n(rows[i]['type']).toInt()), size: 16, color: SboxColors.brand600),
+                        decoration: const BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50, shape: BoxShape.circle),
+                        child: Icon(icon(_n(rows[i]['type']).toInt()), size: 16, color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand600),
                       ),
                       if (i < rows.length - 1)
                         Expanded(child: Container(width: 2, color: SboxColors.slate200)),
@@ -506,10 +506,10 @@ class _AssetDashboardViewState extends State<AssetDashboardView> {
             contentPadding: EdgeInsets.zero,
             leading: CircleAvatar(
               radius: 16,
-              backgroundColor: SboxColors.brand100,
+              backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand100,
               child: Text(
                 h['name'].toString().trim().isEmpty ? '?' : h['name'].toString().trim().split(' ').last[0].toUpperCase(),
-                style: const TextStyle(color: SboxColors.brand700, fontWeight: FontWeight.w700),
+                style: const TextStyle(color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700, fontWeight: FontWeight.w700),
               ),
             ),
             title: Text(h['name'].toString(), style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -611,8 +611,8 @@ class _KpiTile extends StatelessWidget {
               Row(children: [
                 Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
-                  child: Icon(icon, color: color, size: 20),
+                  decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+                  child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 20),
                 ),
                 const Spacer(),
                 if (onTap != null) const Icon(Icons.chevron_right_rounded, color: SboxColors.slate300),

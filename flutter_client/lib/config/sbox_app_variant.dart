@@ -174,7 +174,7 @@ abstract final class SboxAppVariant {
 
   /// SBOX BOSS trên iOS không có khuôn mặt, vị trí: ẩn các màn đăng ký, xem khuôn mặt và vị trí nhân viên (App Store 2.3.1).
   static const bossIosHiddenModules = <String>{
-    'Device', 'DeviceUser', 'MobileAttendance', 'MobileDeviceRegistration', 'FieldCheckIn',
+    'Device', 'DeviceUser', 'MobileAttendance', 'MobileDeviceRegistration', 'FieldCheckIn', 'AttendanceApproval',
   };
 
   static bool hidesModule(String? moduleCode) {

@@ -8,6 +8,7 @@ import '../../models/task_v2.dart';
 import '../../services/api_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'work_common.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 import 'work_task_editor.dart' show WorkPerson, pickWorkPeople;
 
 /// Loại việc dùng được cho cửa hàng (ẩn loại phần mềm: lỗi / tính năng / cải tiến).
@@ -219,15 +220,15 @@ class _WorkTemplateEditorPageState extends State<WorkTemplateEditorPage> {
     return Scaffold(
       backgroundColor: SboxColors.page,
       appBar: AppBar(
-        backgroundColor: SboxColors.surface,
+        backgroundColor: SboxColors.bar,
         surfaceTintColor: Colors.transparent,
         title: Text(tr(widget.template == null ? 'Mẫu việc mới' : 'Sửa mẫu việc')),
-        actions: [
+        actions: sboxBarActions([
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilledButton(onPressed: _saving ? null : _save, child: Text(tr(_saving ? 'Đang lưu…' : 'Lưu'))),
           ),
-        ],
+        ]),
       ),
       body: ListView(padding: const EdgeInsets.all(SboxSpace.lg), children: [
         SboxCard(

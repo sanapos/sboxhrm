@@ -97,13 +97,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                        color: SboxColors.isBoss ? SboxColors.iconBox : Theme.of(context).primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Icon(
                         Icons.lock_open,
                         size: 48,
-                        color: Theme.of(context).primaryColor,
+                        color: SboxColors.isBoss ? SboxColors.iconOnBox : Theme.of(context).primaryColor,
                       ),
                     ),
                     const SizedBox(height: 24),

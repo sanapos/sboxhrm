@@ -7,6 +7,7 @@ import '../../models/task_v2.dart';
 import '../../services/api_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'work_common.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 /// Nhân viên rút gọn cho bộ chọn.
 class WorkPerson {
@@ -296,7 +297,7 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
     return Scaffold(
       backgroundColor: SboxColors.page,
       appBar: AppBar(
-        backgroundColor: SboxColors.surface,
+        backgroundColor: SboxColors.bar,
         surfaceTintColor: Colors.transparent,
         title: Text(tr(_editing ? 'Sửa công việc' : 'Tạo công việc')),
         actions: [

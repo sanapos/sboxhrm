@@ -23,6 +23,7 @@ import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'pos_session_redeem_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 /// Khách hàng POS — thanh lọc + số liệu + bảng (điện thoại tự thành thẻ), phân trang theo máy chủ.
 class PosCustomersScreen extends StatefulWidget {
@@ -224,9 +225,9 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
               context,
               AppBar(
                 title: Text(tr('Khách hàng')),
-                backgroundColor: Colors.white,
-                foregroundColor: SboxColors.text,
-                surfaceTintColor: Colors.white,
+                backgroundColor: SboxColors.bar,
+                foregroundColor: SboxColors.onBar,
+                surfaceTintColor: Colors.transparent,
                 elevation: 0.5,
               ),
             )
@@ -651,9 +652,9 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
           title: c.name,
           subtitle: info,
           leading: CircleAvatar(
-            backgroundColor: SboxColors.brand50,
+            backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
             child: Text(c.name.isNotEmpty ? c.name[0].toUpperCase() : 'K',
-                style: const TextStyle(color: SboxColors.brand700, fontWeight: FontWeight.w800)),
+                style: const TextStyle(color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700, fontWeight: FontWeight.w800)),
           ),
           actions: [
             if (canEdit) SboxButton.secondary(label: 'Sửa', icon: Icons.edit_outlined, onPressed: _edit),

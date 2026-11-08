@@ -380,7 +380,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.bar,
         elevation: 0,
         automaticallyImplyLeading: false,
         leading: null,
@@ -389,16 +389,16 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             ? null
             : Text(tr('Chấm công Mobile'),
                 style: TextStyle(
-                  color: SboxColors.slate900,
+                  color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.slate900,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-        bottom: TabBar(
+        bottom: sboxBarBottom(TabBar(
           controller: _tabController,
           labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-          labelColor: HrmPageChrome.primaryNavy,
-          unselectedLabelColor: SboxColors.slate500,
-          indicatorColor: HrmPageChrome.primaryNavy,
+          labelColor: SboxColors.isBoss ? SboxColors.onBar : HrmPageChrome.primaryNavy,
+          unselectedLabelColor: SboxColors.isBoss ? SboxColors.textSecondary : SboxColors.slate500,
+          indicatorColor: SboxColors.isBoss ? SboxColors.onBar : HrmPageChrome.primaryNavy,
           labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
           tabs: [
             for (final t in const [
@@ -418,7 +418,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 ),
               ),
           ],
-        ),
+        )),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -600,7 +600,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     final gps = _settingsSection(
       title: 'Vị trí GPS',
       icon: Icons.gps_fixed_rounded,
-      color: const Color(0xFF0EA5E9),
+      color: (SboxColors.isBoss ? SboxColors.brand300 : const Color(0xFF0EA5E9)),
       disabledNote: _settings.enableGps ? null : 'Đang tắt xác thực GPS',
       children: [
         _sliderRow(
@@ -822,8 +822,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, color: color, size: 20),
+            decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 20),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1192,11 +1192,11 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                      color: SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.location_on,
-                        size: 18, color: HrmPageChrome.primaryNavy),
+                        size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : HrmPageChrome.primaryNavy),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -2091,7 +2091,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           Container(
             padding: const EdgeInsets.all(24),
             decoration: const BoxDecoration(
-              color: SboxColors.slate100,
+              color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.slate100,
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 48, color: SboxColors.slate400),
@@ -2102,7 +2102,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: SboxColors.slate500,
+              color: SboxColors.isBoss ? SboxColors.gold : SboxColors.slate500,
             ),
           ),
           const SizedBox(height: 8),
@@ -2561,15 +2561,15 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         child: Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
-            backgroundColor: HrmPageChrome.primaryNavy,
-            foregroundColor: Colors.white,
+            backgroundColor: SboxColors.isBoss ? SboxColors.bar : HrmPageChrome.primaryNavy,
+            foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
             leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(tr(registration.employeeName), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 if (registration.employeeCode != null)
-                  Text(tr(registration.employeeCode!), style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                  Text(tr(registration.employeeCode!), style: const TextStyle(fontSize: 12, color: SboxColors.isBoss ? SboxColors.onBar : Colors.white70)),
               ],
             ),
             actions: [
@@ -3029,10 +3029,10 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           Container(
             width: 36, height: 36,
             decoration: BoxDecoration(
-              color: SboxColors.brand600.withValues(alpha: 0.1),
+              color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand600.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.swap_horiz, size: 18, color: SboxColors.brand600),
+            child: const Icon(Icons.swap_horiz, size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.brand600),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -3255,8 +3255,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         child: Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
-            backgroundColor: HrmPageChrome.primaryNavy,
-            foregroundColor: Colors.white,
+            backgroundColor: SboxColors.isBoss ? SboxColors.bar : HrmPageChrome.primaryNavy,
+            foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
             leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3264,7 +3264,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 Text(tr(_deviceEmployeeLabel(current)), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 Text(
                   tr('${current.deviceName} · ${current.deviceModel}'),
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                  style: const TextStyle(fontSize: 12, color: SboxColors.isBoss ? SboxColors.onBar : Colors.white70),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -3448,14 +3448,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             : Icons.directions_car_outlined,
                         size: 18,
                         color: device.allowTravelCheckIn
-                            ? const Color(0xFF0EA5E9)
+                            ? (SboxColors.isBoss ? SboxColors.brand300 : const Color(0xFF0EA5E9))
                             : SboxColors.slate500,
                       ),
                       label: Text(
                         tr(device.allowTravelCheckIn ? 'Tắt đi đường' : 'Bật đi đường'),
                         style: TextStyle(
                           color: device.allowTravelCheckIn
-                              ? const Color(0xFF0EA5E9)
+                              ? (SboxColors.isBoss ? SboxColors.brand300 : const Color(0xFF0EA5E9))
                               : SboxColors.slate500,
                         ),
                       ),

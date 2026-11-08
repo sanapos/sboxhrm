@@ -61,7 +61,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   String _sortColumn = 'requestDate';
   bool _sortAscending = false;
 
-  bool _showOverviewPanel = true;
+  bool _showOverviewPanel = hrmOverviewDefaultOpen;
 
   // Pagination
   int _currentPage = 1;
@@ -407,7 +407,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     // Ưu tiên số đã đề xuất ở bước duyệt trước (đa cấp), fallback số yêu cầu.
     final initialAmount = request.approvedAmount ?? request.amount;
     final amountController = TextEditingController(
-        text: tr(NumberFormat('#,###').format(initialAmount)));
+        text: NumberFormat('#,###', 'vi_VN').format(initialAmount));
     String? errorText;
 
     return showDialog<double>(
@@ -1041,7 +1041,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                   dense: true,
                                   leading: CircleAvatar(
                                     radius: 16,
-                                    backgroundColor: SboxColors.brand100,
+                                    backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand100,
                                     child: Icon(
                                       employee.gender?.toLowerCase() ==
                                                   'female' ||
@@ -1050,7 +1050,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                           ? Icons.woman_rounded
                                           : Icons.man_rounded,
                                       size: 18,
-                                      color: SboxColors.brand700,
+                                      color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.brand700,
                                     ),
                                   ),
                                   title: Text(
@@ -2346,11 +2346,11 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         CircleAvatar(
                           radius: 18,
                           backgroundColor:
-                              HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                              SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                           child: Text(
                             tr(r.employeeName.isNotEmpty ? r.employeeName[0] : '?'),
                             style: const TextStyle(
-                                color: HrmPageChrome.primaryNavy,
+                                color: SboxColors.isBoss ? SboxColors.gold : HrmPageChrome.primaryNavy,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14),
                           ),
@@ -2699,17 +2699,18 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
   Widget _miniBtn(
       IconData icon, Color color, String tooltip, VoidCallback onPressed) {
+    final phone = Responsive.isMobile(context);
     return Tooltip(
       message: tooltip,
       child: Material(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(phone ? 10 : 6),
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(phone ? 10 : 6),
           child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Icon(icon, size: 16, color: color),
+            padding: EdgeInsets.all(phone ? 11 : 6),
+            child: Icon(icon, size: phone ? 22 : 16, color: color),
           ),
         ),
       ),

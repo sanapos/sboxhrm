@@ -354,9 +354,9 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
       appBar: hideAppBar
           ? null
           : AppBar(
-              backgroundColor: Colors.white,
-              foregroundColor: SboxColors.text,
-              surfaceTintColor: Colors.white,
+              backgroundColor: SboxColors.bar,
+              foregroundColor: SboxColors.onBar,
+              surfaceTintColor: Colors.transparent,
               elevation: 0,
               automaticallyImplyLeading: showBack,
               title: Text(tr('Tổng kết cuối ngày')),
@@ -478,7 +478,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
     );
     final mobile = posUseMobileList(context);
     return Material(
-      color: Colors.white,
+      color: SboxColors.bar,
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         decoration: const BoxDecoration(
@@ -594,7 +594,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
-                  color: Color(0xFF0C4A6E),
+                  color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF0C4A6E)),
                 ),
               ),
               const SizedBox(height: 4),

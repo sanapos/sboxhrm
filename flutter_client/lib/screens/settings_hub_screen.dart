@@ -801,8 +801,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             Container(
               width: 36,
               height: 36,
-              decoration: BoxDecoration(color: g.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-              child: Icon(i.icon, color: g.color, size: 20),
+              decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : g.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+              child: Icon(i.icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : g.color, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -829,8 +829,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         Container(
           width: 40,
           height: 40,
-          decoration: BoxDecoration(color: g.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
-          child: Icon(i.icon, color: g.color, size: 21),
+          decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : g.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+          child: Icon(i.icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : g.color, size: 21),
         ),
         const SizedBox(width: 12),
         Expanded(

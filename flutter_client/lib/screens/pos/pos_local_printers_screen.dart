@@ -429,10 +429,10 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Máy in nội bộ')),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: SboxColors.bar,
+        surfaceTintColor: Colors.transparent,
         elevation: 0.5,
-        foregroundColor: SboxColors.text,
+        foregroundColor: SboxColors.onBar,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: tr('Quay lại'),

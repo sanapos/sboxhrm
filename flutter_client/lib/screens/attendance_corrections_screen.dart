@@ -681,12 +681,12 @@ class _AttendanceCorrectionsScreenState
             width: 20,
             height: 20,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
+              color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.15),
               shape: BoxShape.circle,
               border: Border.all(color: color, width: 2),
             ),
             child: Icon(_getApprovalStatusIcon(record.status),
-                size: 12, color: color),
+                size: 12, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -766,10 +766,10 @@ class _AttendanceCorrectionsScreenState
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                      color: actionColor.withValues(alpha: 0.1),
+                      color: SboxColors.isBoss ? SboxColors.iconBox : actionColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10)),
                   child:
-                      Icon(Icons.edit_calendar, color: actionColor, size: 18),
+                      Icon(Icons.edit_calendar, color: SboxColors.isBoss ? SboxColors.iconOnBox : actionColor, size: 18),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -916,7 +916,7 @@ class _AttendanceCorrectionsScreenState
       appBar: AppBar(
         title: Text(tr('Sửa chấm công'),
             overflow: TextOverflow.ellipsis, maxLines: 1),
-        bottom: TabBar(
+        bottom: sboxBarBottom(TabBar(
           controller: _tabController,
           tabs: [
             Tab(
@@ -936,7 +936,7 @@ class _AttendanceCorrectionsScreenState
                       child: Text(
                         tr('${_pendingRequests.length}'),
                         style:
-                            const TextStyle(color: Colors.white, fontSize: 12),
+                            const TextStyle(color: SboxColors.isBoss ? SboxColors.onBar : Colors.white, fontSize: 12),
                       ),
                     ),
                   ],
@@ -945,7 +945,7 @@ class _AttendanceCorrectionsScreenState
             ),
             Tab(text: tr('Tất cả')),
           ],
-        ),
+        )),
       ),
       body: HrmFabClearance(
         fabVisible: showCreateFab,

@@ -1,20 +1,25 @@
 import 'package:flutter/services.dart';
 
+/// SBOX BOSS liền một nền nhạt từ trên xuống dưới: icon hệ thống tối. App khác nền đen, icon sáng.
+const _bossLightBars = String.fromEnvironment('SBOX_APP') == 'boss';
+const _barIcons = _bossLightBars ? Brightness.dark : Brightness.light;
+const _barIosHint = _bossLightBars ? Brightness.light : Brightness.dark;
+
 /// Overlay styles without status/nav bar colors.
 /// Those colors map to deprecated Window.setStatusBarColor /
 /// setNavigationBarColor on Android 15 (Play Console quality scan).
 const kPlayOverlayOnLightBg = SystemUiOverlayStyle(
-  statusBarIconBrightness: Brightness.light,
-  statusBarBrightness: Brightness.dark,
-  systemNavigationBarIconBrightness: Brightness.light,
+  statusBarIconBrightness: _barIcons,
+  statusBarBrightness: _barIosHint,
+  systemNavigationBarIconBrightness: _barIcons,
   systemStatusBarContrastEnforced: false,
   systemNavigationBarContrastEnforced: false,
 );
 
 const kPlayOverlayOnDarkBg = SystemUiOverlayStyle(
-  statusBarIconBrightness: Brightness.light,
-  statusBarBrightness: Brightness.dark,
-  systemNavigationBarIconBrightness: Brightness.light,
+  statusBarIconBrightness: _barIcons,
+  statusBarBrightness: _barIosHint,
+  systemNavigationBarIconBrightness: _barIcons,
   systemStatusBarContrastEnforced: false,
   systemNavigationBarContrastEnforced: false,
 );

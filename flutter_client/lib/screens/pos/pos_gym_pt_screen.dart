@@ -8,6 +8,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_gym_trainer.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'pos_gym_checkin_screen.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 final _hm = DateFormat('HH:mm');
 final _dm = DateFormat('dd/MM');
@@ -99,9 +100,9 @@ class _PosGymPtScreenState extends State<PosGymPtScreen> with SingleTickerProvid
           ? null
           : AppBar(
               title: Text(tr('PT · Khách của tôi')),
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              foregroundColor: SboxColors.text,
+              backgroundColor: SboxColors.bar,
+              surfaceTintColor: Colors.transparent,
+              foregroundColor: SboxColors.onBar,
               elevation: 0.5,
             ),
       body: _me == null
@@ -361,9 +362,9 @@ class _ClientsTabState extends State<_ClientsTab> with AutomaticKeepAliveClientM
             Row(children: [
               CircleAvatar(
                 radius: 18,
-                backgroundColor: SboxColors.brand50,
+                backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
                 child: Text(name.isEmpty ? '?' : name.trim().split(' ').last[0].toUpperCase(),
-                    style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.brand700)),
+                    style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700)),
               ),
               const SizedBox(width: 10),
               Expanded(

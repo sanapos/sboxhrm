@@ -264,12 +264,12 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
                   margin: const EdgeInsets.symmetric(vertical: 4),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                      backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                       child: Text(
                         tr('${index + 1}'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: HrmPageChrome.primaryNavy,
+                          color: SboxColors.isBoss ? SboxColors.gold : HrmPageChrome.primaryNavy,
                         ),
                       ),
                     ),

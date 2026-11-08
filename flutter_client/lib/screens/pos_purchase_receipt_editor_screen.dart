@@ -1604,8 +1604,8 @@ class _PosPurchaseReceiptEditorScreenState
       child: Scaffold(
             backgroundColor: HrmPageChrome.background,
             appBar: AppBar(
-              backgroundColor: Colors.white,
-              foregroundColor: PosTheme.textPrimary,
+              backgroundColor: SboxColors.bar,
+              foregroundColor: SboxColors.onBar,
               elevation: 0,
               title: Row(
                 children: [

@@ -1079,9 +1079,9 @@ class _GhtkWebhookGuide extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.teal.shade50,
+        color: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal).shade50,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.teal.shade200),
+        border: Border.all(color: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal).shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1090,7 +1090,7 @@ class _GhtkWebhookGuide extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 13,
-              color: Colors.teal.shade900,
+              color: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal).shade900,
             ),
           ),
           const SizedBox(height: 6),

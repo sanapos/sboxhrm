@@ -1550,6 +1550,9 @@ public partial class PosReportsController(
         // Xem theo chi nhánh: công nợ = phần còn nợ của các đơn thuộc chi nhánh đó (khách mua ở nhiều chi nhánh có nợ riêng từng nơi).
         var bctx = HttpContext.BranchContext();
         var branchScoped = bctx is { StoreUsesBranches: true } && (bctx.FilterBranchId != null || bctx.AllowedBranchIds != null);
+        // Cửa hàng chỉ có một chi nhánh: nợ của chi nhánh chính là nợ khách. Cộng theo đơn thì bỏ sót nợ đầu kỳ, điều chỉnh,
+        // nên lệch với số ở màn Khách hàng.
+        if (branchScoped && (await BranchStockService.GetStoreBranchesAsync(dbContext, storeId)).Count <= 1) branchScoped = false;
         var custQ = dbContext.PosCustomers.AsNoTracking()
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive);
         if (branchScoped)

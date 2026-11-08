@@ -446,13 +446,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
-                  actions: [
+                  actions: sboxBarActions([
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilledButton(
                           onPressed: onSave, child: Text(tr('Lưu'))),
                     ),
-                  ],
+                  ]),
                 ),
                 body: SingleChildScrollView(
                     padding: const EdgeInsets.all(16), child: formBody),
@@ -778,13 +778,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
-                  actions: [
+                  actions: sboxBarActions([
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilledButton(
                           onPressed: onSave, child: Text(tr('Lưu'))),
                     ),
-                  ],
+                  ]),
                 ),
                 body: SingleChildScrollView(
                     padding: const EdgeInsets.all(16), child: formBody),
@@ -1061,13 +1061,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
-                  actions: [
+                  actions: sboxBarActions([
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilledButton(
                           onPressed: onSave, child: Text(tr('Lưu'))),
                     ),
-                  ],
+                  ]),
                 ),
                 body: SingleChildScrollView(
                     padding: const EdgeInsets.all(16), child: formBody),

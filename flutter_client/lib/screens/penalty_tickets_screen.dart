@@ -69,7 +69,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   final Set<String> _selectedIds = {};
   bool get _isSelectionMode => _selectedIds.isNotEmpty;
 
-  bool _showOverviewPanel = true;
+  bool _showOverviewPanel = hrmOverviewDefaultOpen;
 
   @override
   void initState() {
@@ -903,16 +903,16 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               child: Scaffold(
                 backgroundColor: Colors.white,
                 appBar: AppBar(
-                  backgroundColor: Colors.white,
+                  backgroundColor: SboxColors.bar,
                   elevation: 0,
                   leading: IconButton(
-                    icon: const Icon(Icons.close, color: SboxColors.slate900),
+                    icon: const Icon(Icons.close, color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.slate900),
                     onPressed: () => Navigator.pop(context),
                   ),
                   title: Text(
                     tr(isEditing ? 'Sửa phiếu phạt' : 'Tạo phiếu phạt'),
                     style: const TextStyle(
-                        color: SboxColors.slate900,
+                        color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.slate900,
                         fontSize: 16,
                         fontWeight: FontWeight.bold),
                   ),
@@ -1120,9 +1120,9 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               CircleAvatar(
                 radius: 28,
                 backgroundColor:
-                    _getStatusColor(status).withValues(alpha: 0.15),
+                    SboxColors.isBoss ? SboxColors.iconBox : _getStatusColor(status).withValues(alpha: 0.15),
                 child: Icon(_getTypeIcon(type),
-                    color: _getStatusColor(status), size: 28),
+                    color: SboxColors.isBoss ? SboxColors.iconOnBox : _getStatusColor(status), size: 28),
               ),
               const SizedBox(height: 12),
               Text(tr(ticket['employeeName'] ?? 'N/A'),
@@ -1259,7 +1259,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                           icon: const Icon(Icons.check, size: 18),
                           label: Text(tr('Duyệt')),
                           style: FilledButton.styleFrom(
-                            backgroundColor: SboxColors.success,
+                            backgroundColor: SboxColors.isBoss ? SboxColors.action : SboxColors.success,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
@@ -1493,9 +1493,9 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                     CircleAvatar(
                       radius: 20,
                       backgroundColor:
-                          _getStatusColor(status).withValues(alpha: 0.15),
+                          SboxColors.isBoss ? SboxColors.iconBox : _getStatusColor(status).withValues(alpha: 0.15),
                       child: Icon(_getTypeIcon(type),
-                          color: _getStatusColor(status), size: 20),
+                          color: SboxColors.isBoss ? SboxColors.iconOnBox : _getStatusColor(status), size: 20),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1906,7 +1906,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               icon: const Icon(Icons.check, size: 16),
               label: Text(tr('Duyệt ${_selectedIds.length}')),
               style: FilledButton.styleFrom(
-                backgroundColor: SboxColors.success,
+                backgroundColor: SboxColors.isBoss ? SboxColors.action : SboxColors.success,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               ),
@@ -1993,9 +1993,9 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                     CircleAvatar(
                       radius: 20,
                       backgroundColor:
-                          _getStatusColor(status).withValues(alpha: 0.15),
+                          SboxColors.isBoss ? SboxColors.iconBox : _getStatusColor(status).withValues(alpha: 0.15),
                       child: Icon(_getTypeIcon(type),
-                          color: _getStatusColor(status), size: 20),
+                          color: SboxColors.isBoss ? SboxColors.iconOnBox : _getStatusColor(status), size: 20),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -2117,9 +2117,9 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                       CircleAvatar(
                         radius: 18,
                         backgroundColor:
-                            _getStatusColor(status).withValues(alpha: 0.15),
+                            SboxColors.isBoss ? SboxColors.iconBox : _getStatusColor(status).withValues(alpha: 0.15),
                         child: Icon(_getTypeIcon(type),
-                            color: _getStatusColor(status), size: 20),
+                            color: SboxColors.isBoss ? SboxColors.iconOnBox : _getStatusColor(status), size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -2218,7 +2218,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                               label: Text(tr('Duyệt'),
                                   style: TextStyle(fontSize: 12)),
                               style: FilledButton.styleFrom(
-                                backgroundColor: SboxColors.success,
+                                backgroundColor: SboxColors.isBoss ? SboxColors.action : SboxColors.success,
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 6),
                                 minimumSize: Size.zero,

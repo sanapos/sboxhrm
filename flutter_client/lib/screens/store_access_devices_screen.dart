@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -196,8 +197,8 @@ class _StoreAccessDevicesScreenState extends State<StoreAccessDevicesScreen> {
                 Row(children: [
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: SboxColors.dangerSoft, borderRadius: BorderRadius.circular(12)),
-                    child: const Icon(Icons.devices_other_rounded, color: SboxColors.dangerText),
+                    decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.danger : SboxColors.dangerSoft, borderRadius: BorderRadius.circular(12)),
+                    child: const Icon(Icons.devices_other_rounded, color: SboxColors.isBoss ? Colors.white : SboxColors.dangerText),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -307,8 +308,8 @@ class _StoreAccessDevicesScreenState extends State<StoreAccessDevicesScreen> {
         Container(
           width: 40,
           height: 40,
-          decoration: BoxDecoration(color: d.stale ? SboxColors.slate100 : SboxColors.brand50, borderRadius: BorderRadius.circular(10)),
-          child: Icon(d.icon, color: d.stale ? SboxColors.slate500 : SboxColors.brand700, size: 22),
+          decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : d.stale ? SboxColors.slate100 : SboxColors.brand50, borderRadius: BorderRadius.circular(10)),
+          child: Icon(d.icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : d.stale ? SboxColors.slate500 : SboxColors.brand700, size: 22),
         ),
         const SizedBox(width: 12),
         Expanded(

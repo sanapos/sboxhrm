@@ -242,10 +242,10 @@ class _PosLabelTemplatesScreenState extends State<PosLabelTemplatesScreen> {
       backgroundColor: const Color(0xFFF1F4F8),
       appBar: AppBar(
         title: Text(tr('Mẫu tem')),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: SboxColors.bar,
+        surfaceTintColor: Colors.transparent,
         elevation: 0.5,
-        foregroundColor: SboxColors.text,
+        foregroundColor: SboxColors.onBar,
       ),
       body: body,
     );

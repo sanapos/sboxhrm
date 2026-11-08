@@ -323,9 +323,9 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
           ? null
           : AppBar(
               title: Text(tr('Nhà cung cấp')),
-              backgroundColor: Colors.white,
-              foregroundColor: SboxColors.text,
-              surfaceTintColor: Colors.white,
+              backgroundColor: SboxColors.bar,
+              foregroundColor: SboxColors.onBar,
+              surfaceTintColor: Colors.transparent,
               elevation: 0.5,
             ),
       body: _wrapMd(SboxReportLayout(
@@ -505,9 +505,9 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
           padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
           child: Row(children: [
             CircleAvatar(
-              backgroundColor: SboxColors.brand50,
+              backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
               child: Text(s.name.isNotEmpty ? s.name[0].toUpperCase() : 'N',
-                  style: const TextStyle(color: SboxColors.brand700, fontWeight: FontWeight.w800)),
+                  style: const TextStyle(color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700, fontWeight: FontWeight.w800)),
             ),
             const SizedBox(width: 12),
             Expanded(

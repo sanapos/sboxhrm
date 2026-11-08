@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -149,10 +150,10 @@ class HrFinAvatar extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: const BoxDecoration(color: SboxColors.brand50, shape: BoxShape.circle),
+      decoration: const BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50, shape: BoxShape.circle),
       child: icon != null
-          ? Icon(icon, size: size * 0.5, color: SboxColors.brand600)
-          : Text(hrFinInitials(name), style: TextStyle(fontSize: size * 0.36, fontWeight: FontWeight.w700, color: SboxColors.brand700)),
+          ? Icon(icon, size: size * 0.5, color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand600)
+          : Text(hrFinInitials(name), style: TextStyle(fontSize: size * 0.36, fontWeight: FontWeight.w700, color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700)),
     );
     final p = photo;
     if (p == null || p.isEmpty) return fallback;
@@ -307,8 +308,8 @@ class HrFinItemTile extends StatelessWidget {
         : Container(
             width: 38,
             height: 38,
-            decoration: BoxDecoration(color: tone.bg, borderRadius: SboxRadius.mdAll),
-            child: Icon(hrFinKindIcon(item.kind), size: 20, color: tone.fg),
+            decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : tone.bg, borderRadius: SboxRadius.mdAll),
+            child: Icon(hrFinKindIcon(item.kind), size: 20, color: SboxColors.isBoss ? SboxColors.iconOnBox : tone.fg),
           );
 
     final body = Expanded(

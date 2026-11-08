@@ -292,7 +292,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                 child: Text(contract.docNo,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: SboxColors.slate800)),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.slate800)),
               ),
         automaticallyImplyLeading: widget.onClose == null,
         // Cột chi tiết khi chia đôi: thanh tiêu đề thấp như chi tiết báo giá.
@@ -675,8 +675,8 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                     spacing: 6,
                     children: [
                       if (d.isCustomWording) _docBadge(tr('Bản chốt đã sửa chữ'), Colors.orange.shade800),
-                      if (d.hasCustomTemplate && !d.isCustomWording) _docBadge(tr('Nội dung riêng'), Colors.teal.shade700),
-                      if (d.printTemplateId != null && !d.hasCustomTemplate) _docBadge(tr('Mẫu chọn riêng'), Colors.indigo),
+                      if (d.hasCustomTemplate && !d.isCustomWording) _docBadge(tr('Nội dung riêng'), (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal).shade700),
+                      if (d.printTemplateId != null && !d.hasCustomTemplate) _docBadge(tr('Mẫu chọn riêng'), (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.indigo)),
                     ],
                   ),
                 ),

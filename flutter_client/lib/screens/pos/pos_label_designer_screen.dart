@@ -459,10 +459,10 @@ class _PosLabelDesignerScreenState extends State<PosLabelDesignerScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF1F4F8),
         appBar: AppBar(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
+          backgroundColor: SboxColors.bar,
+          surfaceTintColor: Colors.transparent,
           elevation: 0.5,
-          foregroundColor: SboxColors.text,
+          foregroundColor: SboxColors.onBar,
           titleSpacing: 0,
           title: Row(children: [
             Expanded(
@@ -479,9 +479,9 @@ class _PosLabelDesignerScreenState extends State<PosLabelDesignerScreen> {
             ),
             if (wide)
               Text(tr('${PosPrintDocumentTypes.all[_d.documentType] ?? ''} · ${_d.sizeLabel}'),
-                  style: const TextStyle(fontSize: 13, color: SboxColors.slate500)),
+                  style: const TextStyle(fontSize: 13, color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.slate500)),
           ]),
-          actions: [
+          actions: sboxBarActions([
             IconButton(
                 tooltip: tr('Hoàn tác (Ctrl+Z)'), onPressed: _undo.isEmpty ? null : _undoStep, icon: const Icon(Icons.undo)),
             IconButton(
@@ -495,7 +495,7 @@ class _PosLabelDesignerScreenState extends State<PosLabelDesignerScreen> {
                 label: Text(tr(_saving ? 'Đang lưu…' : 'Lưu mẫu')),
               ),
             ),
-          ],
+          ]),
         ),
         body: wide
             ? Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

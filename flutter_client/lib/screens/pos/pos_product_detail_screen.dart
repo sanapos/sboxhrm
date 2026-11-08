@@ -218,9 +218,9 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Chi tiết hàng hóa')),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        foregroundColor: SboxColors.text,
+        backgroundColor: SboxColors.bar,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: SboxColors.onBar,
         elevation: 0,
       ),
       body: _loading

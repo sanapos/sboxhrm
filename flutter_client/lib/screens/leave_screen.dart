@@ -74,7 +74,7 @@ class _LeaveScreenState extends State<LeaveScreen>
   final List<int> _pageSizeOptions = [25, 50, 100, 200];
 
   // Tổng quan + bộ lọc (ẩn/hiện cùng nhau)
-  bool _showOverviewPanel = true;
+  bool _showOverviewPanel = hrmOverviewDefaultOpen;
   double? _myAnnualLeaveBalance;
   String? _effectiveHighlightId;
   bool _navExtrasApplied = false;
@@ -1921,8 +1921,8 @@ class _LeaveScreenState extends State<LeaveScreen>
           children: [
             CircleAvatar(
               radius: 20,
-              backgroundColor: typeInfo.color.withValues(alpha: 0.12),
-              child: Icon(typeInfo.icon, size: 18, color: typeInfo.color),
+              backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : typeInfo.color.withValues(alpha: 0.12),
+              child: Icon(typeInfo.icon, size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : typeInfo.color),
             ),
             const SizedBox(width: 10),
             Expanded(

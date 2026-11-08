@@ -97,7 +97,7 @@ class _PosPromotionsScreenState extends State<PosPromotionsScreen> {
     return Scaffold(
       appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Khuyến mãi')),
-        actions: [
+        actions: sboxBarActions([
           TextButton.icon(
             onPressed: () => Navigator.of(context)
                 .push(MaterialPageRoute(builder: (_) => const PosPromotionReportScreen())),
@@ -105,7 +105,7 @@ class _PosPromotionsScreenState extends State<PosPromotionsScreen> {
             label: Text(tr('Hiệu quả')),
           ),
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
-        ],
+        ]),
       )),
       floatingActionButton: canEdit
           ? FloatingActionButton.extended(
@@ -825,7 +825,7 @@ class _PosPromotionEditorPageState extends State<PosPromotionEditorPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(tr(widget.existing == null ? 'Tạo khuyến mãi' : 'Sửa khuyến mãi')),
-        actions: [
+        actions: sboxBarActions([
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilledButton(
@@ -834,7 +834,7 @@ class _PosPromotionEditorPageState extends State<PosPromotionEditorPage> {
               child: Text(tr('Lưu')),
             ),
           ),
-        ],
+        ]),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),

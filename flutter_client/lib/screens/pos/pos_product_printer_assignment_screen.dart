@@ -594,10 +594,10 @@ class _PosProductPrinterAssignmentScreenState
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Gán sản phẩm cho máy in')),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: SboxColors.bar,
+        surfaceTintColor: Colors.transparent,
         elevation: 0.5,
-        foregroundColor: SboxColors.text,
+        foregroundColor: SboxColors.onBar,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: tr('Quay lại'),
@@ -1091,8 +1091,8 @@ class _PosPrinterManageProductsScreenState
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr(widget.printerName), overflow: TextOverflow.ellipsis),
-        backgroundColor: purpose.accent,
-        foregroundColor: Colors.white,
+        backgroundColor: SboxColors.isBoss ? SboxColors.bar : purpose.accent,
+        foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: tr('Quay lại'),
@@ -1126,7 +1126,7 @@ class _PosPrinterManageProductsScreenState
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white),
+                    strokeWidth: 2, color: SboxColors.isBoss ? SboxColors.onBar : Colors.white),
               ),
             )
           else

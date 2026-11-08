@@ -247,7 +247,7 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                 dense: true,
                 selected: e.key == current,
                 leading: Icon(isLine ? Icons.table_rows_outlined : Icons.label_outline,
-                    size: 18, color: isLine ? const Color(0xFF0284C7) : SboxColors.warning),
+                    size: 18, color: isLine ? (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7)) : SboxColors.warning),
                 title: Text(e.value),
                 subtitle: Text('{${e.key}}', style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
                 onTap: () => Navigator.pop(ctx, e.key),
@@ -891,7 +891,7 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
             backgroundColor: PosTheme.background,
             appBar: AppBar(
               title: Text(_name.isEmpty ? tr('Mẫu Word') : _name),
-              actions: [
+              actions: sboxBarActions([
                 IconButton(
                     tooltip: tr('Tải file Word để sửa tay'),
                     onPressed: _loading ? null : _download,
@@ -911,8 +911,8 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                     label: Text(_isActive ? tr('Lưu') : tr('Lưu & dùng mẫu')),
                   ),
                 ),
-              ],
-              bottom: TabBar(
+              ]),
+              bottom: sboxBarBottom(TabBar(
                 isScrollable: true,
                 tabs: [
                   Tab(icon: const Icon(Icons.description_outlined, size: 18), text: tr('Mẫu gốc')),
@@ -924,7 +924,7 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                       icon: const Icon(Icons.list_alt, size: 18),
                       text: tr('Trường đã gắn (${_items.length})')),
                 ],
-              ),
+              )),
             ),
             body: _loading
                 ? const Center(child: CircularProgressIndicator())

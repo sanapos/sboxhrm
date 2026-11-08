@@ -7,9 +7,10 @@ import '../../widgets/sbox/sbox_ui.dart';
 import 'work_common.dart';
 import 'work_template_editor.dart';
 import 'work_task_editor.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 const _stagePalette = <Color>[
-  Color(0xFF64748B), Color(0xFF7C3AED), Color(0xFF0891B2), Color(0xFF158DC0),
+  Color(0xFF64748B), Color(0xFF7C3AED), (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0891B2)), (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF158DC0)),
   Color(0xFFD97706), Color(0xFFDB2777), Color(0xFF16A34A), Color(0xFF94A3B8),
 ];
 
@@ -39,7 +40,7 @@ class _WorkProjectEditorPageState extends State<WorkProjectEditorPage> {
   DateTime? _start;
   DateTime? _due;
   TaskProjectStatus _status = TaskProjectStatus.active;
-  Color _color = const Color(0xFF158DC0);
+  Color _color = (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF158DC0));
   List<TaskStageV2> _stages = [];
   bool _createTasks = true;
   bool _saving = false;
@@ -153,7 +154,7 @@ class _WorkProjectEditorPageState extends State<WorkProjectEditorPage> {
     return Scaffold(
       backgroundColor: SboxColors.page,
       appBar: AppBar(
-        backgroundColor: SboxColors.surface,
+        backgroundColor: SboxColors.bar,
         surfaceTintColor: Colors.transparent,
         title: Text(tr(_editing ? 'Sửa $label' : 'Tạo $label mới')),
         actions: [
@@ -475,11 +476,11 @@ class _WorkPacksPageState extends State<WorkPacksPage> with SingleTickerProvider
       child: Scaffold(
         backgroundColor: SboxColors.page,
         appBar: AppBar(
-          backgroundColor: SboxColors.surface,
+          backgroundColor: SboxColors.bar,
           surfaceTintColor: Colors.transparent,
           title: Text(tr('Gói ngành và mẫu việc')),
           leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.of(context).pop(_changed)),
-          bottom: TabBar(controller: _tabs, tabs: [Tab(text: tr('Gói theo ngành')), Tab(text: tr('Mẫu việc & lặp lại (${_templates.length})'))]),
+          bottom: sboxBarBottom(TabBar(controller: _tabs, tabs: [Tab(text: tr('Gói theo ngành')), Tab(text: tr('Mẫu việc & lặp lại (${_templates.length})'))])),
         ),
         floatingActionButton: _tabs.index == 1
             ? FloatingActionButton.extended(
@@ -511,8 +512,8 @@ class _WorkPacksPageState extends State<WorkPacksPage> with SingleTickerProvider
                   Container(
                     width: 40,
                     height: 40,
-                    decoration: BoxDecoration(color: hexColor(p.color).withValues(alpha: 0.12), borderRadius: SboxRadius.mdAll),
-                    child: Icon(p.iconData, color: hexColor(p.color)),
+                    decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : hexColor(p.color).withValues(alpha: 0.12), borderRadius: SboxRadius.mdAll),
+                    child: Icon(p.iconData, color: SboxColors.isBoss ? SboxColors.iconOnBox : hexColor(p.color)),
                   ),
                   const SizedBox(width: SboxSpace.md),
                   Expanded(child: Text(tr(p.name), style: SboxType.titleSmStyle())),

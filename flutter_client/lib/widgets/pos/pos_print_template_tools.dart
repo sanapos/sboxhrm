@@ -103,7 +103,7 @@ class PosPrintFormatToolbar extends StatelessWidget {
           isSelected: active,
           style: IconButton.styleFrom(
             backgroundColor: active ? const Color(0xFFE3F2FD) : null,
-            foregroundColor: active ? const Color(0xFF1565C0) : null,
+            foregroundColor: active ? (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF1565C0)) : null,
           ),
           onPressed: readOnly ? null : on,
           icon: Icon(icon, size: 19),

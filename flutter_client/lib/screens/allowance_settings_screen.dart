@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -253,8 +254,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
         Container(
           width: 42,
           height: 42,
-          decoration: BoxDecoration(color: a.active ? SboxColors.violetSoft : SboxColors.slate100, borderRadius: BorderRadius.circular(12)),
-          child: Icon(a.kind.icon, color: a.active ? SboxColors.violet : SboxColors.slate400),
+          decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : a.active ? SboxColors.violetSoft : SboxColors.slate100, borderRadius: BorderRadius.circular(12)),
+          child: Icon(a.kind.icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : a.active ? SboxColors.violet : SboxColors.slate400),
         ),
         const SizedBox(width: 12),
         Expanded(

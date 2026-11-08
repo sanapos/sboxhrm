@@ -2511,10 +2511,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       child: Container(
         padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.15),
+          color: SboxColors.isBoss ? SboxColors.iconBox : Colors.white.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, size: 18, color: Colors.white),
+        child: Icon(icon, size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : Colors.white),
       ),
     );
   }
@@ -3305,10 +3305,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.1),
+                color: SboxColors.isBoss ? Colors.orange : Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.assignment, color: Colors.orange),
+              child: const Icon(Icons.assignment, color: SboxColors.isBoss ? Colors.white : Colors.orange),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -3698,12 +3698,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+            color: SboxColors.isBoss ? SboxColors.iconBox : Theme.of(context).primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             Icons.access_time,
-            color: Theme.of(context).primaryColor,
+            color: SboxColors.isBoss ? SboxColors.iconOnBox : Theme.of(context).primaryColor,
           ),
         ),
         const SizedBox(width: 12),
@@ -4548,7 +4548,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         text = 'Nghỉ ra';
         break;
       case 3:
-        color = Colors.teal;
+        color = (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal);
         text = 'Nghỉ vào';
         break;
       case 4:
@@ -4556,7 +4556,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         text = 'OT vào';
         break;
       case 5:
-        color = Colors.indigo;
+        color = (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.indigo);
         text = 'OT ra';
         break;
       default:

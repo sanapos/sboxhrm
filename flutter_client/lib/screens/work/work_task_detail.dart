@@ -10,6 +10,7 @@ import '../../services/work_api.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'work_common.dart';
 import 'work_field_sections.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 /// Ai đang xem: để quyết định nút hành động.
 class WorkViewer {
@@ -266,7 +267,7 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
       child: Scaffold(
         backgroundColor: SboxColors.page,
         appBar: AppBar(
-          backgroundColor: SboxColors.surface,
+          backgroundColor: SboxColors.bar,
           surfaceTintColor: Colors.transparent,
           leading: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.of(context).pop(_changed)),
           title: Text(t?.taskCode ?? tr('Công việc'), style: SboxType.titleSmStyle(SboxColors.textSecondary)),

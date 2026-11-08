@@ -24,7 +24,7 @@ Color assetReportStatusColor(String? statusName) {
   if (s.contains('bảo trì') || s.contains('bao tri')) {
     return SboxColors.warning;
   }
-  if (s.contains('kho')) return const Color(0xFF0284C7);
+  if (s.contains('kho')) return (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7));
   if (s.contains('đang dùng') || s.contains('dang dung')) {
     return SboxColors.success;
   }

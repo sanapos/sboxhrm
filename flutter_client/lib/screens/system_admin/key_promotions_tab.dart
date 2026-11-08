@@ -144,10 +144,10 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.1),
+                color: SboxColors.isBoss ? Colors.amber : Colors.amber.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10)),
             child:
-                const Icon(Icons.card_giftcard, color: Colors.amber, size: 18),
+                const Icon(Icons.card_giftcard, color: SboxColors.isBoss ? Colors.white : Colors.amber, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -218,11 +218,11 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AdminHelpers.primary.withValues(alpha: 0.1),
+                    color: SboxColors.isBoss ? SboxColors.iconBox : AdminHelpers.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.card_giftcard,
-                      color: AdminHelpers.primary, size: 20),
+                      color: SboxColors.isBoss ? SboxColors.iconOnBox : AdminHelpers.primary, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

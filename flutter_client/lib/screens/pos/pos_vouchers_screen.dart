@@ -279,9 +279,9 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
               context,
               AppBar(
                 title: Text(tr('Voucher')),
-                backgroundColor: Colors.white,
-                foregroundColor: SboxColors.text,
-                surfaceTintColor: Colors.white,
+                backgroundColor: SboxColors.bar,
+                foregroundColor: SboxColors.onBar,
+                surfaceTintColor: Colors.transparent,
                 elevation: 0.5,
               ),
             )

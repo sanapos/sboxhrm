@@ -10,6 +10,7 @@ import '../../services/api_service.dart';
 import '../../services/signalr_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'comm_common.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 /// Kết quả đóng trang chi tiết: bài đã cập nhật, bài bị xóa, hoặc cần tải lại.
 const commDetailDeleted = 'deleted';
@@ -1284,7 +1285,7 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
       child: Scaffold(
         backgroundColor: SboxColors.page,
         appBar: AppBar(
-          backgroundColor: SboxColors.surface,
+          backgroundColor: SboxColors.bar,
           surfaceTintColor: Colors.transparent,
           leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: _close),
           title: Text(tr(p?.channelName ?? 'Bài viết')),

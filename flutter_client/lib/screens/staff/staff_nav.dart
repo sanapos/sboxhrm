@@ -41,8 +41,8 @@ Future<void> openStaffPage(
             backgroundColor: SboxColors.page,
             appBar: AppBar(
               title: Text(tr(title)),
-              backgroundColor: SboxColors.white,
-              surfaceTintColor: SboxColors.white,
+              backgroundColor: SboxColors.bar,
+              surfaceTintColor: Colors.transparent,
               actions: [
                 ListenableBuilder(
                   listenable: PageTopActions.instance,
@@ -152,10 +152,10 @@ class _StaffMenuTile extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: entry.color.withValues(alpha: 0.12),
+          color: SboxColors.isBoss ? SboxColors.iconBox : entry.color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(entry.icon, color: entry.color, size: 20),
+        child: Icon(entry.icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : entry.color, size: 20),
       ),
       title: Text(
         tr(entry.title),

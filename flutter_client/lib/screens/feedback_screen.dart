@@ -205,7 +205,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> with SingleTickerProvid
         body: Column(children: [
           if (_tabs.length > 1)
             Material(
-              color: Colors.white,
+              color: SboxColors.bar,
               child: TabBar(
                 controller: _tabCtl,
                 labelColor: SboxColors.brand700,
@@ -500,7 +500,14 @@ class _FeedbackScreenState extends State<FeedbackScreen> with SingleTickerProvid
   Widget _empty(IconData icon, String title, String? sub) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
         child: Column(children: [
-          Icon(icon, size: 56, color: SboxColors.slate300),
+          SboxColors.isBoss
+              ? Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(color: SboxColors.iconBox, shape: BoxShape.circle),
+                  child: Icon(icon, size: 34, color: SboxColors.iconOnBox),
+                )
+              : Icon(icon, size: 56, color: SboxColors.slate300),
           const SizedBox(height: 12),
           Text(tr(title), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: SboxColors.slate700)),
           if (sub != null) ...[

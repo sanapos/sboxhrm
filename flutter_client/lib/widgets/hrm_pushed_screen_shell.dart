@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'hrm_page_chrome.dart';
+import '../theme/sbox_tokens.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Back bar khi màn hình được mở bằng [Navigator.push] (không qua [MainLayout]).
@@ -31,8 +32,8 @@ class HrmPushedScreenShell extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Material(
-          color: Colors.white,
-          elevation: 0.5,
+          color: SboxColors.bar,
+          elevation: SboxColors.isBoss ? 0 : 0.5,
           child: SafeArea(
             bottom: false,
             child: SizedBox(
@@ -40,7 +41,7 @@ class HrmPushedScreenShell extends StatelessWidget {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 22),
+                    icon: Icon(Icons.arrow_back, size: 22, color: SboxColors.isBoss ? SboxColors.onBar : null),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: tr('Quay lại'),
                   ),
@@ -51,7 +52,7 @@ class HrmPushedScreenShell extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: HrmPageChrome.textDark,
+                          color: SboxColors.isBoss ? SboxColors.onBar : HrmPageChrome.textDark,
                         ),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,

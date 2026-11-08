@@ -8,6 +8,7 @@ import '../../services/api_service.dart';
 import '../../services/work_api.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'work_common.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 import 'work_task_editor.dart' show WorkPerson, pickWorkPeople;
 
 // ─── Chọn ngành lần đầu ──────────────────────────────────────────
@@ -431,7 +432,7 @@ class _WorkSettingsPageState extends State<WorkSettingsPage> with WidgetsBinding
       child: Scaffold(
         backgroundColor: SboxColors.page,
         appBar: AppBar(
-          backgroundColor: SboxColors.surface,
+          backgroundColor: SboxColors.bar,
           surfaceTintColor: Colors.transparent,
           leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.of(context).pop(_changed)),
           title: Text(tr('Thiết lập Công việc')),

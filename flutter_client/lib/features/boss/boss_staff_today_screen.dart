@@ -82,8 +82,8 @@ class _BossStaffTodayScreenState extends State<BossStaffTodayScreen> {
     return Scaffold(
       backgroundColor: SboxColors.page,
       appBar: AppBar(
-        backgroundColor: SboxColors.brand700,
-        foregroundColor: SboxColors.white,
+        backgroundColor: SboxColors.bar,
+        foregroundColor: SboxColors.isBoss ? SboxColors.onBar : SboxColors.white,
         title: Text(tr('Nhân viên hôm nay')),
         actions: [
           IconButton(

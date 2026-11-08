@@ -1670,6 +1670,13 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         ? Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (SboxColors.isBoss && MediaQuery.sizeOf(context).width < SboxBreakpoints.mobile)
+                IconButton(
+                  tooltip: tr('Mẫu phân quyền'),
+                  onPressed: _isSaving ? null : () => _openPresets(),
+                  icon: const Icon(Icons.auto_awesome_outlined, size: 20),
+                )
+              else
               OutlinedButton.icon(
                 onPressed: _isSaving ? null : () => _openPresets(),
                 icon: const Icon(Icons.auto_awesome_outlined, size: 18),
@@ -1926,11 +1933,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                    color: SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.badge,
-                      color: HrmPageChrome.primaryNavy, size: 20),
+                      color: SboxColors.isBoss ? SboxColors.iconOnBox : HrmPageChrome.primaryNavy, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -2351,12 +2358,12 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: _getRoleColor(role['roleName']).withValues(alpha: 0.1),
+            color: SboxColors.isBoss ? SboxColors.iconBox : _getRoleColor(role['roleName']).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             _getRoleIcon(role['roleName']),
-            color: _getRoleColor(role['roleName']),
+            color: SboxColors.isBoss ? SboxColors.iconOnBox : _getRoleColor(role['roleName']),
             size: 20,
           ),
         ),

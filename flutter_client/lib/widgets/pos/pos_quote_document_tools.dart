@@ -9,6 +9,7 @@ import '../../utils/api_datetime.dart';
 import '../../utils/pos_html_print.dart';
 import '../../utils/pos_print_template_loader.dart';
 import '../notification_overlay.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 /// Công cụ trên MỘT chứng từ đã lập (hợp đồng, biên bản, đề nghị TT, báo giá):
 /// chọn mẫu riêng, lịch sử nội dung, khôi phục theo mẫu. Không đụng mẫu in chung.
@@ -81,10 +82,10 @@ Widget _templateOption(BuildContext ctx, String value, String label, String curr
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFF2B579A).withValues(alpha: .12),
+              color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF2B579A)).withValues(alpha: .12),
               borderRadius: BorderRadius.circular(4),
             ),
-            child: Text(tag, style: const TextStyle(fontSize: 11, color: Color(0xFF2B579A))),
+            child: Text(tag, style: const TextStyle(fontSize: 11, color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF2B579A)))),
           ),
       ],
     ),

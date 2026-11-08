@@ -17,7 +17,7 @@ import '../theme/sbox_tokens.dart';
 export '../features/leave/leave_catalog.dart' show normalizeLeaveType;
 
 const _primary = PosTheme.kiotBlue;
-const _primaryDark = Color(0xFF0F2340);
+const _primaryDark = (SboxColors.isBoss ? SboxColors.brand600 : const Color(0xFF0F2340));
 const _border = SboxColors.slate200;
 const _muted = SboxColors.slate500;
 const _text = SboxColors.slate900;
@@ -461,8 +461,8 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
         child: Scaffold(
           backgroundColor: _bg,
           appBar: AppBar(
-            backgroundColor: _primaryDark,
-            foregroundColor: Colors.white,
+            backgroundColor: SboxColors.isBoss ? SboxColors.bar : _primaryDark,
+            foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
             title: Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600)),
             leading: IconButton(
               icon: const Icon(Icons.close),
@@ -617,9 +617,9 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
                     children: [
                       CircleAvatar(
                         backgroundColor:
-                            LeaveCatalog.categoryColor(cat).withValues(alpha: 0.15),
+                            SboxColors.isBoss ? SboxColors.iconBox : LeaveCatalog.categoryColor(cat).withValues(alpha: 0.15),
                         child: Icon(LeaveCatalog.categoryIcon(cat),
-                            color: LeaveCatalog.categoryColor(cat)),
+                            color: SboxColors.isBoss ? SboxColors.iconOnBox : LeaveCatalog.categoryColor(cat)),
                       ),
                       const SizedBox(width: 14),
                       Expanded(

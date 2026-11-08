@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'wh_mobile_theme.dart';
 import '../../l10n/app_tr.dart';
 import '../../utils/play_system_ui.dart';
+import '../../theme/sbox_tokens.dart';
 
 /// Scaffold chuẩn cho màn Kho mobile — nền xám, bottom bar cố định.
 class WhMobileScaffold extends StatelessWidget {
@@ -37,7 +38,7 @@ class WhMobileScaffold extends StatelessWidget {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kPlayOverlayOnLightBg,
       child: Scaffold(
-        backgroundColor: WhMobileTheme.bg,
+        backgroundColor: SboxColors.isBoss ? SboxColors.page : WhMobileTheme.bg,
         extendBody: true,
         floatingActionButton: floatingAction,
         body: Column(
@@ -80,19 +81,21 @@ class _WhGlassAppBar extends StatelessWidget {
     // Không dùng BackdropFilter blur: nền surfaceGlass đã gần đục, blur tính lại mỗi frame
     // cuộn (giật trên máy yếu).
     return Container(
-      padding: EdgeInsets.fromLTRB(8, topPadding + 4, 8, 12),
+      padding: EdgeInsets.fromLTRB(8, topPadding + (SboxColors.isBoss ? 0 : 4), 8, SboxColors.isBoss ? 2 : 12),
       decoration: BoxDecoration(
-        color: WhMobileTheme.surfaceGlass,
-        border: Border(
-          bottom: BorderSide(color: WhMobileTheme.divider.withOpacity(0.5)),
-        ),
+        color: SboxColors.isBoss ? SboxColors.bar : WhMobileTheme.surfaceGlass,
+        border: SboxColors.isBoss
+            ? null
+            : Border(
+                bottom: BorderSide(color: WhMobileTheme.divider.withOpacity(0.5)),
+              ),
       ),
-      child: Row(
+      child: sboxBarScope(Row(
         children: [
           leading ??
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-                color: WhMobileTheme.primary,
+                icon: Icon(SboxColors.isBoss ? Icons.arrow_back : Icons.arrow_back_ios_new_rounded, size: SboxColors.isBoss ? 24 : 20),
+                color: SboxColors.isBoss ? SboxColors.onBar : WhMobileTheme.primary,
                 onPressed: () => Navigator.maybePop(context),
               ),
           Expanded(
@@ -101,12 +104,12 @@ class _WhGlassAppBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(tr(title),
-                    style: WhMobileTheme.titleMedium,
+                    style: SboxColors.isBoss ? WhMobileTheme.titleMedium.copyWith(color: SboxColors.onBar) : WhMobileTheme.titleMedium,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 if (subtitle != null)
                   Text(tr(subtitle!),
-                      style: WhMobileTheme.caption,
+                      style: SboxColors.isBoss ? WhMobileTheme.caption.copyWith(color: SboxColors.onBar) : WhMobileTheme.caption,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
               ],
@@ -114,7 +117,7 @@ class _WhGlassAppBar extends StatelessWidget {
           ),
           if (actions != null) ...actions!,
         ],
-      ),
+      )),
     );
   }
 }
@@ -808,7 +811,14 @@ class WhEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 56, color: WhMobileTheme.textTertiary),
+            SboxColors.isBoss
+                ? Container(
+                    width: 72,
+                    height: 72,
+                    decoration: const BoxDecoration(color: SboxColors.iconBox, shape: BoxShape.circle),
+                    child: Icon(icon, size: 34, color: SboxColors.iconOnBox),
+                  )
+                : Icon(icon, size: 56, color: WhMobileTheme.textTertiary),
             const SizedBox(height: 16),
             Text(tr(title),
                 style: WhMobileTheme.titleMedium, textAlign: TextAlign.center),
@@ -860,10 +870,10 @@ class WhHubTile extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: c.withOpacity(0.1),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : c.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(icon, color: c, size: 26),
+                child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : c, size: 26),
               ),
               const SizedBox(height: 10),
               Text(

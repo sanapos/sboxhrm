@@ -2313,7 +2313,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       _formPreset != null
                           ? '${tr('Form ngành')}: ${tr(_formPreset!.label)} — ${tr('⚙ để đổi')}'
                           : advancedOn
-                              ? tr('Bấm ⚙ để chọn ngành hàng cho form')
+                              ? tr('Bấm nút tùy chọn bên phải để chọn ngành hàng cho form')
                               : tr('Form gọn — bật thêm mục trong ⚙ nếu cần'),
                       style: TextStyle(
                         fontSize: 12,
@@ -2466,18 +2466,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr(_pageTitle)),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        foregroundColor: SboxColors.text,
+        backgroundColor: SboxColors.bar,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: SboxColors.onBar,
         elevation: 0,
-        bottom: TabBar(
+        bottom: sboxBarBottom(TabBar(
           controller: _tabs,
           isScrollable: _tabLabels.length > 4,
-          labelColor: SboxColors.primary,
-          unselectedLabelColor: SboxColors.textMuted,
-          indicatorColor: SboxColors.primary,
+          labelColor: SboxColors.isBoss ? SboxColors.onBar : SboxColors.primary,
+          unselectedLabelColor: SboxColors.isBoss ? SboxColors.textSecondary : SboxColors.textMuted,
+          indicatorColor: SboxColors.isBoss ? SboxColors.onBar : SboxColors.primary,
           tabs: _tabLabels.map((t) => Tab(text: tr(t))).toList(),
-        ),
+        )),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: PosTheme.primary))
@@ -2795,7 +2795,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   Widget _buildTypeUsageNote() {
     final (color, icon, text) = switch (_type) {
       PosProductType.service => (
-          const Color(0xFF0369A1),
+          (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1)),
           Icons.handyman_outlined,
           'Dịch vụ không quản lý tồn thành phẩm — bán không trừ kho. Khai định lượng NVL nếu muốn trừ nguyên liệu khi bán.',
         ),

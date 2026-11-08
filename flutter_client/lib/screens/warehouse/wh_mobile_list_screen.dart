@@ -231,11 +231,11 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
           ? FloatingActionButton.extended(
               onPressed: _openCreate,
               // Mọi loại phiếu cùng màu nút chính của app (trước đây xanh lá / tím / đỏ / cam lẫn lộn).
-              backgroundColor: SboxColors.brand600,
+              backgroundColor: SboxColors.isBoss ? SboxColors.action : SboxColors.brand600,
               elevation: 0,
-              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              icon: const Icon(Icons.add_rounded, color: SboxColors.isBoss ? SboxColors.onAction : Colors.white),
               label: Text(tr(_type.createLabel),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  style: const TextStyle(color: SboxColors.isBoss ? SboxColors.onAction : Colors.white, fontWeight: FontWeight.w600)),
             )
           : null,
       body: _wrapMd(Column(

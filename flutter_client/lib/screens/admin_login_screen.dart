@@ -237,7 +237,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF6366F1).withValues(alpha: 0.10),
+                    (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF6366F1)).withValues(alpha: 0.10),
                     Colors.transparent
                   ],
                 ),

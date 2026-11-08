@@ -208,9 +208,9 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
               context,
               AppBar(
                 title: Text(tr('Công nợ khách hàng')),
-                backgroundColor: Colors.white,
-                foregroundColor: SboxColors.text,
-                surfaceTintColor: Colors.white,
+                backgroundColor: SboxColors.bar,
+                foregroundColor: SboxColors.onBar,
+                surfaceTintColor: Colors.transparent,
                 elevation: 0.5,
                 actions: exportActions,
               ),

@@ -406,10 +406,10 @@ class HrmSettingsEntityTile extends StatelessWidget {
                   width: list ? 40 : 36,
                   height: list ? 40 : 36,
                   decoration: BoxDecoration(
-                    color: ic.withValues(alpha: 0.12),
+                    color: SboxColors.isBoss ? SboxColors.iconBox : ic.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(icon, size: list ? 20 : 18, color: ic),
+                  child: Icon(icon, size: list ? 20 : 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : ic),
                 ),
               if (icon != null) SizedBox(width: list ? 12 : 8),
               Expanded(

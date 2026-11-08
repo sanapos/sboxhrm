@@ -601,7 +601,7 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
                     : Icons.check_circle_outline,
                 color: hasDebt
                     ? SboxColors.danger
-                    : const Color(0xFF0284C7),
+                    : (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7)),
                 size: 22,
               ),
               const SizedBox(width: 10),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'boss_icon_badge.dart';
 import 'boss_load_error.dart';
 
 import '../../l10n/app_tr.dart';
@@ -309,12 +310,7 @@ class _BossInboxScreenState extends State<BossInboxScreen> with WidgetsBindingOb
           padding: const EdgeInsets.all(SboxSpace.md),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(color: kind.tone.bg, borderRadius: SboxRadius.mdAll),
-                child: Icon(kind.icon, size: 20, color: kind.tone.fg),
-              ),
+              BossIconBadge(kind.icon, size: 40),
               const SizedBox(width: SboxSpace.md),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -223,7 +223,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   int _pageSize = 50;
   final List<int> _pageSizeOptions = [20, 50, 100, 200];
 
-  bool _showOverviewPanel = true;
+  bool _showOverviewPanel = hrmOverviewDefaultOpen;
   DeviceUsersOverviewFilter _overviewFilter = DeviceUsersOverviewFilter.all;
 
   @override
@@ -477,7 +477,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           return ScrollableAlertDialog(
             title: Row(
               children: [
-                Icon(Icons.upload, color: Colors.teal),
+                Icon(Icons.upload, color: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal)),
                 SizedBox(width: 8),
                 Expanded(child: Text(tr('Tải hồ sơ nhân sự xuống máy'))),
               ],
@@ -2379,7 +2379,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         ),
         ListTile(
           leading: const CircleAvatar(
-            backgroundColor: Colors.teal,
+            backgroundColor: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal),
             child: Icon(Icons.face, color: Colors.white, size: 20),
           ),
           title: Text(tr('Quản lý khuôn mặt')),
@@ -2391,7 +2391,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         ),
         ListTile(
           leading: const CircleAvatar(
-            backgroundColor: Colors.indigo,
+            backgroundColor: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.indigo),
             child: Icon(Icons.copy_all, color: Colors.white, size: 20),
           ),
           title: Text(tr('Copy sinh trắc sang máy khác')),
@@ -3470,7 +3470,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           return ScrollableAlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.face, color: Colors.teal),
+                const Icon(Icons.face, color: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal)),
                 const SizedBox(width: 8),
                 Expanded(child: Text(tr('Khuôn mặt - ${user.name}'))),
               ],
@@ -3567,7 +3567,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           return Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: (canRemoteFace ? Colors.teal : Colors.orange)
+                              color: (canRemoteFace ? (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal) : Colors.orange)
                                   .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -3576,7 +3576,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 Icon(
                                   Icons.info_outline,
                                   color: canRemoteFace
-                                      ? Colors.teal
+                                      ? (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal)
                                       : Colors.orange,
                                   size: 16,
                                 ),
@@ -3589,7 +3589,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: canRemoteFace
-                                          ? Colors.teal.shade700
+                                          ? (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal).shade700
                                           : Colors.orange.shade700,
                                     ),
                                   ),
@@ -3623,7 +3623,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               style: const TextStyle(fontSize: 14),
                             ),
                             style: FilledButton.styleFrom(
-                              backgroundColor: Colors.teal,
+                              backgroundColor: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
                           ),
@@ -3644,8 +3644,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               label: Text(tr('Đã đăng ký trên máy — Đồng bộ'),
                                   style: TextStyle(fontSize: 14)),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.teal,
-                                side: const BorderSide(color: Colors.teal),
+                                foregroundColor: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal),
+                                side: const BorderSide(color: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal)),
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 14),
                               ),
@@ -3782,7 +3782,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       builder: (ctx) => ScrollableAlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.info_outline, color: Colors.teal),
+            const Icon(Icons.info_outline, color: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal)),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -4251,7 +4251,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       child: Row(
                         children: [
                           const Icon(Icons.copy_all,
-                              size: 20, color: Colors.indigo),
+                              size: 20, color: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.indigo)),
                           const SizedBox(width: 12),
                           Text(tr('Copy sinh trắc')),
                         ],
@@ -4628,7 +4628,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  actions: [
+                  actions: sboxBarActions([
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: FilledButton(
@@ -4639,7 +4639,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         child: Text(tr(isEditing ? 'Cập nhật' : 'Thêm')),
                       ),
                     ),
-                  ],
+                  ]),
                 ),
                 body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
@@ -5954,7 +5954,7 @@ class _FaceEnrollmentProgressDialogState
                 ? Colors.green
                 : _status == 'error'
                     ? Colors.red
-                    : Colors.teal,
+                    : (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal),
           ),
           const SizedBox(width: 8),
           Expanded(child: Text(tr('Đăng ký khuôn mặt'))),
@@ -5972,14 +5972,14 @@ class _FaceEnrollmentProgressDialogState
                   ? Colors.green.shade50
                   : _status == 'error'
                       ? Colors.red.shade50
-                      : Colors.teal.shade50,
+                      : (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal).shade50,
               shape: BoxShape.circle,
               border: Border.all(
                 color: _status == 'success'
                     ? Colors.green.shade400
                     : _status == 'error'
                         ? Colors.red.shade400
-                        : Colors.teal.shade400,
+                        : (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal).shade400,
                 width: 3,
               ),
             ),
@@ -5996,7 +5996,7 @@ class _FaceEnrollmentProgressDialogState
                         ? Colors.green
                         : _status == 'error'
                             ? Colors.red
-                            : Colors.teal,
+                            : (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal),
                   ),
           ),
           const SizedBox(height: 20),

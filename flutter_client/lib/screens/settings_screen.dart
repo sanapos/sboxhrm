@@ -294,7 +294,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
-                if (Responsive.isMobile(context))
+                if (Responsive.isMobile(context) && !SboxAppVariant.bossApp)
                   _buildSettingTile(
                     context,
                     icon: Icons.tune_rounded,
@@ -517,12 +517,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+          color: SboxColors.isBoss ? SboxColors.iconBox : Theme.of(context).primaryColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(
           icon,
-          color: Theme.of(context).primaryColor,
+          color: SboxColors.isBoss ? SboxColors.iconOnBox : Theme.of(context).primaryColor,
           size: 20,
         ),
       ),

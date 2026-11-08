@@ -16,6 +16,7 @@ import '../cash_transaction_screen.dart';
 import 'hr_fin_actions.dart';
 import 'hr_fin_common.dart';
 import 'hr_fin_ledger.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 /// Các tab của Tài chính nhân sự.
 enum HrFinTab { overview, inbox, advances, rewards, cash, people, me, settings }
@@ -184,8 +185,8 @@ class _HrFinanceHubScreenState extends State<HrFinanceHubScreen> {
         // PageTopActions — trang mở riêng phải tự vẽ, không thì mất nút tạo phiếu.
         appBar: AppBar(
           title: Text(tr(title)),
-          backgroundColor: SboxColors.white,
-          surfaceTintColor: SboxColors.white,
+          backgroundColor: SboxColors.bar,
+          surfaceTintColor: Colors.transparent,
           actions: [
             ListenableBuilder(
               listenable: PageTopActions.instance,
@@ -810,8 +811,8 @@ class _TodoRow extends StatelessWidget {
           Container(
             width: 34,
             height: 34,
-            decoration: BoxDecoration(color: tone.bg, borderRadius: SboxRadius.mdAll),
-            child: Icon(icon, size: 18, color: tone.fg),
+            decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : tone.bg, borderRadius: SboxRadius.mdAll),
+            child: Icon(icon, size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : tone.fg),
           ),
           const SizedBox(width: SboxSpace.md),
           Expanded(child: Text(tr(label), style: SboxType.bodyStyle())),

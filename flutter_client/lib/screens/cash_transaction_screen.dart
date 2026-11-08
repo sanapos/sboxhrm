@@ -1033,7 +1033,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
   }
 
   Widget _buildFundBalanceCard(FundBalance balance) {
-    final color = balance.isCash ? Colors.green : Colors.indigo;
+    final color = balance.isCash ? Colors.green : (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.indigo);
     return Container(
       width: 160,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1976,8 +1976,11 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: color.withAlpha(30), borderRadius: BorderRadius.circular(10)),
-            child: Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: color, size: 18),
+            decoration: BoxDecoration(
+                color: SboxColors.isBoss ? SboxColors.iconBox : color.withAlpha(30),
+                borderRadius: BorderRadius.circular(10)),
+            child: Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+                color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2021,12 +2024,12 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: color.withAlpha(30),
+                    color: SboxColors.isBoss ? SboxColors.iconBox : color.withAlpha(30),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-                    color: color,
+                    color: SboxColors.isBoss ? SboxColors.iconOnBox : color,
                     size: 20,
                   ),
                 ),
@@ -2924,13 +2927,13 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                 border: Border.all(color: const Color(0xFFBFDBFE)),
               ),
               child: Row(children: [
-                const Icon(Icons.link_rounded, color: Color(0xFF1D4ED8), size: 20),
+                const Icon(Icons.link_rounded, color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF1D4ED8)), size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     tr('Phiếu tự động từ «${widget.transaction!.sourceLabel}» — số tiền, loại, danh mục, ngày theo chứng từ gốc'
                         '${_posLocked ? '; hủy / trả hàng ở màn bán hàng' : ''}.'),
-                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF1E3A8A)),
+                    style: const TextStyle(fontSize: 12.5, color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF1E3A8A))),
                   ),
                 ),
               ]),
@@ -3123,17 +3126,17 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
             ),
-            actions: [
+            actions: sboxBarActions([
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilledButton(
                   onPressed: _isLoading ? null : _save,
                   child: _isLoading
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: SboxColors.isBoss ? SboxColors.onBar : Colors.white))
                       : Text(tr(widget.transaction == null ? 'Tạo' : 'Lưu')),
                 ),
               ),
-            ],
+            ]),
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -3430,7 +3433,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
             ),
-            actions: [
+            actions: sboxBarActions([
               if (canDelete)
                 TextButton(
                   onPressed: _isLoading ? null : _delete,
@@ -3444,11 +3447,11 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
                 child: FilledButton(
                   onPressed: _isLoading ? null : _save,
                   child: _isLoading
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: SboxColors.isBoss ? SboxColors.onBar : Colors.white))
                       : Text(tr(widget.category == null ? 'Tạo' : 'Lưu')),
                 ),
               ),
-            ],
+            ]),
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -3675,17 +3678,17 @@ class _BankAccountFormDialogState extends State<_BankAccountFormDialog> {
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
             ),
-            actions: [
+            actions: sboxBarActions([
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilledButton(
                   onPressed: _isLoading ? null : _save,
                   child: _isLoading
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: SboxColors.isBoss ? SboxColors.onBar : Colors.white))
                       : Text(tr(widget.account == null ? 'Tạo' : 'Lưu')),
                 ),
               ),
-            ],
+            ]),
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -4092,7 +4095,7 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
             ),
-            actions: [
+            actions: sboxBarActions([
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: FilledButton(
@@ -4101,12 +4104,12 @@ class _FundTransferFormDialogState extends State<_FundTransferFormDialog> {
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: SboxColors.isBoss ? SboxColors.onBar : Colors.white),
                         )
                       : Text(tr('Tạo')),
                 ),
               ),
-            ],
+            ]),
           ),
           body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: formBody),
         ),

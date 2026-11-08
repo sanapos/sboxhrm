@@ -1608,8 +1608,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           floatingActionButton: caps.showAiFab
               ? FloatingActionButton.extended(
                   onPressed: () => showAiAssistant(context),
-                  backgroundColor: HrmPageChrome.chipSoft,
-                  foregroundColor: Colors.white,
+                  backgroundColor: SboxColors.isBoss ? SboxColors.action : HrmPageChrome.chipSoft,
+                  foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
                   icon: const Icon(Icons.auto_awesome_rounded),
                   label: Text(tr('Trợ lý ảo')),
                   tooltip: tr('Mở trợ lý ảo'),
@@ -2458,10 +2458,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.12),
+                      color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Icons.groups_rounded, color: color, size: 20),
+                    child: Icon(Icons.groups_rounded, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -3029,10 +3029,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: c.color.withValues(alpha: 0.12),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : c.color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(c.icon, size: 18, color: c.color),
+                child: Icon(c.icon, size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : c.color),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -3283,10 +3283,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: c.color.withValues(alpha: 0.12),
+                        color: SboxColors.isBoss ? SboxColors.iconBox : c.color.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(c.icon, color: c.color, size: 20),
+                      child: Icon(c.icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : c.color, size: 20),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -4808,13 +4808,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: accent.withValues(alpha: .1),
+                color: SboxColors.isBoss ? SboxColors.iconBox : accent.withValues(alpha: .1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 isExpired ? Icons.warning_rounded : Icons.schedule_rounded,
                 size: 16,
-                color: accent,
+                color: SboxColors.isBoss ? SboxColors.iconOnBox : accent,
               ),
             ),
             const SizedBox(width: 10),
@@ -5295,9 +5295,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Container(
           padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
+              color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, size: 16, color: color),
+          child: Icon(icon, size: 16, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -5814,10 +5814,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: k.color.withValues(alpha: 0.12),
+                        color: SboxColors.isBoss ? SboxColors.iconBox : k.color.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(k.icon, size: 16, color: k.color),
+                      child: Icon(k.icon, size: 16, color: SboxColors.isBoss ? SboxColors.iconOnBox : k.color),
                     ),
                     const Spacer(),
                     Text(
@@ -5970,10 +5970,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: k.color.withValues(alpha: 0.12),
+                          color: SboxColors.isBoss ? SboxColors.iconBox : k.color.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(k.icon, color: k.color, size: 20),
+                        child: Icon(k.icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : k.color, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -6144,11 +6144,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color:
-                              HrmPageChrome.primaryNavy.withValues(alpha: 0.12),
+                              SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.people_alt_rounded,
-                            color: HrmPageChrome.primaryNavy, size: 20),
+                            color: SboxColors.isBoss ? SboxColors.iconOnBox : HrmPageChrome.primaryNavy, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -6597,11 +6597,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color:
-                              SboxColors.danger.withValues(alpha: 0.12),
+                              SboxColors.isBoss ? SboxColors.danger : SboxColors.danger.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.person_off_rounded,
-                            color: SboxColors.danger, size: 20),
+                            color: SboxColors.isBoss ? Colors.white : SboxColors.danger, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -6896,11 +6896,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color:
-                              SboxColors.success.withValues(alpha: 0.14),
+                              SboxColors.isBoss ? SboxColors.success : SboxColors.success.withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.check_circle_outline_rounded,
-                            color: SboxColors.success, size: 20),
+                            color: SboxColors.isBoss ? Colors.white : SboxColors.success, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -7235,11 +7235,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color:
-                              HrmPageChrome.chipLight.withValues(alpha: 0.14),
+                              SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.chipLight.withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.schedule_rounded,
-                            color: HrmPageChrome.chipDark, size: 20),
+                            color: SboxColors.isBoss ? SboxColors.iconOnBox : HrmPageChrome.chipDark, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -7600,11 +7600,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color:
-                              HrmPageChrome.chip.withValues(alpha: 0.12),
+                              SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.chip.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.swap_horiz_rounded,
-                            color: HrmPageChrome.chip, size: 20),
+                            color: SboxColors.isBoss ? SboxColors.iconOnBox : HrmPageChrome.chip, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -8876,9 +8876,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                  color: shiftColor.withValues(alpha: 0.15),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : shiftColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14)),
-              child: Icon(shiftIcon, color: shiftColor, size: 24),
+              child: Icon(shiftIcon, color: SboxColors.isBoss ? SboxColors.iconOnBox : shiftColor, size: 24),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -9212,9 +9212,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                            color: typeColor.withValues(alpha: 0.1),
+                            color: SboxColors.isBoss ? SboxColors.iconBox : typeColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10)),
-                        child: Icon(typeIcon, size: 16, color: typeColor)),
+                        child: Icon(typeIcon, size: 16, color: SboxColors.isBoss ? SboxColors.iconOnBox : typeColor)),
                     const SizedBox(width: 10),
                     Expanded(
                         child: Column(
@@ -9550,9 +9550,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
+              color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, size: 18, color: color),
+          child: Icon(icon, size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -10175,10 +10175,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.1),
+                color: SboxColors.isBoss ? SboxColors.iconBox : statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10)),
             child: Icon(isExpired ? Icons.warning_rounded : Icons.schedule,
-                size: 16, color: statusColor),
+                size: 16, color: SboxColors.isBoss ? SboxColors.iconOnBox : statusColor),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -10739,7 +10739,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Ink(
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [HrmPageChrome.chip, Color(0xFF0369A1)],
+                colors: [HrmPageChrome.chip, (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1))],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
@@ -11559,9 +11559,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10)),
-          child: Icon(Icons.work_outline, color: color, size: 16),
+          child: Icon(Icons.work_outline, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 16),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -11702,9 +11702,9 @@ class _DashCard extends StatelessWidget {
           Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, size: 18, color: color)),
+              child: Icon(icon, size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : color)),
           const SizedBox(width: 10),
           Expanded(
               child: Text(tr(title),

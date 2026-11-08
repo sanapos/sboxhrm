@@ -1420,13 +1420,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         ),
     ];
 
-    final content = Padding(
-      padding: EdgeInsets.fromLTRB(showTitle && (pushed || inHub) ? 4 : 12, 6, 8, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (showTitle)
-            Row(children: [
+    final titleRow = Row(children: [
               if (pushed)
                 IconButton(
                   tooltip: tr('Quay lại'),
@@ -1444,7 +1438,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 ),
               Expanded(
                 child: Text(tr('Hóa đơn'),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: PosTheme.textPrimary)),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: SboxColors.isBoss ? SboxColors.onBar : PosTheme.textPrimary)),
               ),
               if (exportBtn != null) exportBtn,
               if (_showShipping)
@@ -1453,7 +1447,14 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 onPressed: _bulkShippingLabels,
                 icon: const Icon(Icons.local_shipping_outlined),
               ),
-            ]),
+            ]);
+
+    final content = Padding(
+      padding: EdgeInsets.fromLTRB(showTitle && (pushed || inHub) ? 4 : 12, 6, 8, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showTitle && !SboxColors.isBoss) titleRow,
           Padding(
             padding: EdgeInsets.only(left: showTitle && (pushed || inHub) ? 8 : 0, top: showTitle ? 2 : 0),
             child: Row(children: [
@@ -1471,7 +1472,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                       prefixIcon: const Icon(Icons.search, size: 20),
                       contentPadding: EdgeInsets.zero,
                       filled: true,
-                      fillColor: SboxColors.slate50,
+                      fillColor: SboxColors.isBoss ? SboxColors.white : SboxColors.slate50,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: PosTheme.border),
@@ -1523,9 +1524,18 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         ],
       ),
     );
+    final top = SboxColors.isBoss && showTitle
+        ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+            ColoredBox(
+              color: SboxColors.bar,
+              child: Padding(padding: const EdgeInsets.fromLTRB(0, 0, 4, 0), child: SizedBox(height: SboxColors.barHeight, child: sboxBarScope(titleRow))),
+            ),
+            content,
+          ])
+        : content;
     return Material(
-      color: Colors.white,
-      child: posNeedsTopSafeArea(context) ? SafeArea(bottom: false, child: content) : content,
+      color: SboxColors.bar,
+      child: posNeedsTopSafeArea(context) ? SafeArea(bottom: false, child: top) : top,
     );
   }
 
@@ -2070,7 +2080,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       btns.add(_compactOrderBtn(
         label: 'Vận đơn',
         filled: true,
-        color: const Color(0xFF0F766E),
+        color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF0F766E)),
         onPressed: () => run(() => _createShipmentFromList(o)),
       ));
     }
@@ -2706,8 +2716,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           Container(
             width: 32,
             height: 32,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
-            child: Icon(icon, size: 16, color: color),
+            decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1), shape: BoxShape.circle),
+            child: Icon(icon, size: 16, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
           ),
           const SizedBox(width: 10),
           Expanded(

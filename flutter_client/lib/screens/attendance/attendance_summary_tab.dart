@@ -190,7 +190,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   int _rowsPerPage = 50;
   int _currentPage = 0;
   bool _isExporting = false;
-  bool _showOverviewPanel = true;
+  bool _showOverviewPanel = hrmOverviewDefaultOpen;
   final GlobalKey _tableKey = GlobalKey();
   String _shiftFilter = 'all'; // 'all' | 'missing' | 'complete'
   AttendanceDayScope _dayScope = AttendanceDayScope.allDays;
@@ -2296,13 +2296,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 icon: const Icon(Icons.fullscreen_exit),
                 onPressed: () => Navigator.pop(dialogCtx),
               ),
-              actions: [
+              actions: sboxBarActions([
                 TextButton.icon(
                   onPressed: () => Navigator.pop(dialogCtx),
                   icon: const Icon(Icons.close, size: 18),
                   label: Text(tr('Thoát')),
                 ),
-              ],
+              ]),
             ),
             body: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4215,7 +4215,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           shiftHourChips.add(_mobileCompactHourChip(
             label: 'Ca $i',
             value: _formatHours(h),
-            color: const Color(0xFF0F766E),
+            color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF0F766E)),
           ));
         }
       }
@@ -4257,13 +4257,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                       CircleAvatar(
                         radius: 20,
                         backgroundColor:
-                            HrmPageChrome.primaryNavy.withValues(alpha: 0.12),
+                            SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.12),
                         child: Text(
                           tr(_mobileEmployeeInitials(empName)),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: HrmPageChrome.primaryNavy,
+                            color: SboxColors.isBoss ? SboxColors.gold : HrmPageChrome.primaryNavy,
                           ),
                         ),
                       ),
@@ -4466,11 +4466,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.groups_rounded,
-                    size: 18, color: HrmPageChrome.primaryNavy),
+                    size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : HrmPageChrome.primaryNavy),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -4593,10 +4593,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
+                color: SboxColors.isBoss ? Colors.green : Colors.green.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.login, size: 15, color: Colors.green),
+              child: const Icon(Icons.login, size: 15, color: SboxColors.isBoss ? Colors.white : Colors.green),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -4637,8 +4637,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 _formatHours(s.getShiftHours(i)),
                 icon: Icons.schedule,
                 iconColor: [
-                  Colors.teal,
-                  Colors.indigo,
+                  (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal),
+                  (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.indigo),
                   Colors.purple,
                   Colors.orange,
                   Colors.brown
@@ -4681,7 +4681,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               iconColor: punchLocationDiffersFromAssigned(
                       s.punchLocation, s.branchName)
                   ? Colors.orange.shade800
-                  : Colors.teal,
+                  : (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal),
             ),
         ],
       );
@@ -4903,10 +4903,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: (iconColor ?? SboxColors.slate500).withValues(alpha: 0.1),
+                color: SboxColors.isBoss ? SboxColors.iconBox : (iconColor ?? SboxColors.slate500).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Icon(icon, size: 15, color: iconColor),
+              child: Icon(icon, size: 15, color: SboxColors.isBoss ? SboxColors.iconOnBox : iconColor),
             ),
             const SizedBox(width: 10),
           ],
@@ -4936,8 +4936,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     Map<String, Map<String, int>> daySttMap,
   ) {
     final shiftColors = [
-      Colors.teal,
-      Colors.indigo,
+      (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.teal),
+      (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.indigo),
       Colors.purple,
       Colors.orange,
       Colors.brown
@@ -6267,10 +6267,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: color, size: 18),
+                child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 18),
               ),
               const SizedBox(width: 8),
               Column(

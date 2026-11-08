@@ -539,7 +539,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1B1B3A), Color(0xFF162447)],
+          colors: [(SboxColors.isBoss ? SboxColors.brand600 : const Color(0xFF1B1B3A)), (SboxColors.isBoss ? SboxColors.brand600 : const Color(0xFF162447))],
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
@@ -581,11 +581,11 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: SboxColors.isBoss ? SboxColors.iconBox : Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(Icons.store_rounded,
-                      color: Colors.white, size: 24),
+                      color: SboxColors.isBoss ? SboxColors.iconOnBox : Colors.white, size: 24),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -854,10 +854,10 @@ class _InfoTile extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
+              color: SboxColors.isBoss ? SboxColors.iconBox : Colors.white.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: 18, color: SboxColors.slate400),
+            child: Icon(icon, size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.slate400),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -909,11 +909,11 @@ class _CopyButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
+            color: SboxColors.isBoss ? SboxColors.iconBox : Colors.white.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(Icons.copy_rounded,
-              size: 15, color: SboxColors.brand300),
+              size: 15, color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.brand300),
         ),
       ),
     );
@@ -942,7 +942,7 @@ class _ConfettiPainter extends CustomPainter {
           const Color(0xFFFFCA28),
           const Color(0xFFEF5350),
           const Color(0xFFAB47BC),
-          const Color(0xFF26C6DA),
+          (SboxColors.isBoss ? SboxColors.brand200 : const Color(0xFF26C6DA)),
         ][i % 6],
         rotation: rng.nextDouble() * 3.14,
         drift: (rng.nextDouble() - 0.5) * 0.3,

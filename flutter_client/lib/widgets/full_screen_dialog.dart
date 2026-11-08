@@ -27,10 +27,10 @@ AppBar buildPickerCloseAppBar(
   List<Widget>? actions,
 }) {
   return AppBar(
-    backgroundColor: Colors.white,
-    foregroundColor: SboxColors.slate900,
+    backgroundColor: SboxColors.bar,
+    foregroundColor: SboxColors.onBar,
     elevation: 0,
-    surfaceTintColor: Colors.white,
+    surfaceTintColor: Colors.transparent,
     leading: IconButton(
       icon: const Icon(Icons.close),
       tooltip: tr('Đóng'),
@@ -50,7 +50,7 @@ AppBar buildPickerCloseAppBar(
               ),
               Text(
                 tr(subtitle),
-                style: TextStyle(fontSize: 12, color: SboxColors.slate600),
+                style: TextStyle(fontSize: 12, color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.slate600),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),

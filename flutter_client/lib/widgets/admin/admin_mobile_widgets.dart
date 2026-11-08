@@ -436,11 +436,11 @@ class AdminMobileDrawer extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
+                        color: SboxColors.isBoss ? SboxColors.iconBox : Colors.white.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: const Icon(Icons.shield,
-                          color: Colors.white, size: 22),
+                          color: SboxColors.isBoss ? SboxColors.iconOnBox : Colors.white, size: 22),
                     ),
                     const SizedBox(width: 12),
                     Expanded(

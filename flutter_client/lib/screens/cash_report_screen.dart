@@ -46,7 +46,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
   String? _categoryFilter;
   int? _amountMinFilter;
   bool _filtersExpanded = false;
-  bool _showOverviewPanel = true;
+  bool _showOverviewPanel = hrmOverviewDefaultOpen;
   bool _loading = false;
   String? _loadError;
   List<Map<String, dynamic>> _items = [];
@@ -492,7 +492,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
 
   Widget _buildOverviewSection() {
     return Container(
-      color: Colors.white,
+      color: SboxColors.isBoss ? SboxColors.bar : Colors.white,
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
       child: HrmCollapsibleOverview(
         expanded: _showOverviewPanel,
@@ -506,7 +506,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
   Widget _buildFilters() {
     final cats = _categoryOptions;
     return Container(
-      color: Colors.white,
+      color: SboxColors.isBoss ? SboxColors.bar : Colors.white,
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -721,7 +721,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF0C4A6E)),
+                  color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF0C4A6E))),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -1125,7 +1125,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                           dCell(st.label, 112, i,
                               textColor: _statusColor(t)),
                           dCell(balText, 120, i,
-                              textColor: const Color(0xFF0284C7)),
+                              textColor: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7))),
                           dCell(_paymentLabel(t['paymentMethod']), 100, i),
                           dCell(t['description']?.toString() ?? '', descW, i,
                               maxLines: 2),

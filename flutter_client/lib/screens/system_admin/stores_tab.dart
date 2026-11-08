@@ -549,8 +549,8 @@ class StoresTabState extends State<StoresTab> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.store, color: HrmPageChrome.primaryNavy, size: 18),
+            decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.store, color: SboxColors.isBoss ? SboxColors.iconOnBox : HrmPageChrome.primaryNavy, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(

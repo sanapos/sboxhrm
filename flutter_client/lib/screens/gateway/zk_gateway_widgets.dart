@@ -207,10 +207,10 @@ class GatewayCard extends StatelessWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.12),
+                    color: SboxColors.isBoss ? SboxColors.iconBox : accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(11),
                   ),
-                  child: Icon(Icons.router, color: accent, size: 22),
+                  child: Icon(Icons.router, color: SboxColors.isBoss ? SboxColors.iconOnBox : accent, size: 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

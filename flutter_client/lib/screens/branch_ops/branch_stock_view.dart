@@ -296,8 +296,8 @@ class _BranchStockViewState extends State<BranchStockView> {
         leading: Container(
           width: 38,
           height: 38,
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-          child: Icon(Icons.inventory_2_rounded, size: 18, color: color),
+          decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+          child: Icon(Icons.inventory_2_rounded, size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
         ),
         title: Text(it['name']?.toString() ?? '',
             maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),

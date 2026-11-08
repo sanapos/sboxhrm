@@ -42,7 +42,7 @@ class SboxHrmBrandMark extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF0070F4), SboxColors.brand700],
+              colors: [(SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0070F4)), SboxColors.brand700],
             ),
             borderRadius: BorderRadius.circular(radius),
             boxShadow: [

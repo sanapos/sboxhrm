@@ -87,7 +87,7 @@ class _ShiftHubScreenState extends State<ShiftHubScreen> with SingleTickerProvid
         backgroundColor: HrmPageChrome.background,
         body: Column(children: [
           Material(
-            color: Colors.white,
+            color: SboxColors.bar,
             child: TabBar(
               controller: _tabCtl,
               isScrollable: MediaQuery.of(context).size.width < 700,
@@ -153,8 +153,8 @@ class _ShiftHubScreenState extends State<ShiftHubScreen> with SingleTickerProvid
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             leading: Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
-              child: Icon(icon, color: color),
+              decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
             ),
             title: Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w700)),
             subtitle: Text(tr(sub)),

@@ -95,8 +95,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   // ═══ State ═══
   bool _isLoading = true;
   bool _isFinalizing = false;
-  bool _showOverviewPanel = true;
-  bool _payrollFiltersExpanded = true;
+  bool _showOverviewPanel = hrmOverviewDefaultOpen;
+  bool _payrollFiltersExpanded = hrmOverviewDefaultOpen;
   DateTime _fromDate = DateTime.now();
   DateTime _toDate = DateTime.now();
   String _searchQuery = '';
@@ -800,13 +800,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           ? const SizedBox(
               width: 16,
               height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              child: CircularProgressIndicator(strokeWidth: 2, color: SboxColors.isBoss ? SboxColors.onAction : Colors.white),
             )
           : const Icon(Icons.lock_outline, size: 18),
       label: Text(tr(_isFinalizing ? 'Đang chốt...' : 'Chốt lương')),
       style: FilledButton.styleFrom(
-        backgroundColor: SboxColors.success,
-        foregroundColor: Colors.white,
+        backgroundColor: SboxColors.isBoss ? SboxColors.action : SboxColors.success,
+        foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
         minimumSize: const Size(0, 36),
         padding: const EdgeInsets.symmetric(horizontal: 12),
       ),
@@ -1940,13 +1940,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final titleRow = Row(
       children: [
         CircleAvatar(
-          backgroundColor: SboxColors.brand100,
+          backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand100,
           child: Text(
             tr((row['name'] as String).isNotEmpty
                 ? (row['name'] as String)[0].toUpperCase()
                 : '?'),
             style: TextStyle(
-                color: SboxColors.brand700, fontWeight: FontWeight.bold),
+                color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700, fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(width: 12),
@@ -3027,7 +3027,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           HrmPageChrome.primaryNavy,
           Icons.account_balance_wallet_outlined),
       _SummaryItem('Phụ cấp', _currencyFmt.format(totalAllowance.round()),
-          const Color(0xFF2D5F8B), Icons.card_giftcard_outlined),
+          (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF2D5F8B)), Icons.card_giftcard_outlined),
       _SummaryItem('Thưởng', _currencyFmt.format(totalBonus.round()),
           SboxColors.violet, Icons.emoji_events_outlined),
       _SummaryItem('Phạt', _currencyFmt.format(totalPenalty.round()),
@@ -3038,7 +3038,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           HrmPageChrome.primaryNavy, Icons.payments_outlined),
       _SummaryItem('KPI', _currencyFmt.format(totalKpiSalary.round()),
           const Color(0xFFEC4899), Icons.flag_outlined),
-      _SummaryItem('Ngày công TB', '$avgWorkDays ngày', const Color(0xFF14B8A6),
+      _SummaryItem('Ngày công TB', '$avgWorkDays ngày', (SboxColors.isBoss ? SboxColors.brand300 : const Color(0xFF14B8A6)),
           Icons.event_available_outlined),
     ];
     final netItem = _SummaryItem(
@@ -3123,10 +3123,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: SboxColors.isBoss ? SboxColors.iconBox : Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(item.icon, color: Colors.white, size: 24),
+            child: Icon(item.icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : Colors.white, size: 24),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -3184,10 +3184,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: item.color.withValues(alpha: 0.10),
+              color: SboxColors.isBoss ? SboxColors.iconBox : item.color.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(item.icon, color: item.color, size: 18),
+            child: Icon(item.icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : item.color, size: 18),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -3931,13 +3931,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               icon: const Icon(Icons.fullscreen_exit),
               onPressed: () => Navigator.pop(dialogCtx),
             ),
-            actions: [
+            actions: sboxBarActions([
               TextButton.icon(
                 onPressed: () => Navigator.pop(dialogCtx),
                 icon: const Icon(Icons.close, size: 18),
                 label: Text(tr('Thoát')),
               ),
-            ],
+            ]),
           ),
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4166,9 +4166,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             shape: const RoundedRectangleBorder(side: BorderSide.none),
             leading: CircleAvatar(
               radius: 20,
-              backgroundColor: SboxColors.brand50,
+              backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
               child: Text(initials,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: SboxColors.brand700)),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700)),
             ),
             title: Row(children: [
               Expanded(

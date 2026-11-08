@@ -66,20 +66,20 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
     return Scaffold(
       appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Xác nhận chuyển khoản')),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: SboxColors.bar,
+        surfaceTintColor: Colors.transparent,
         elevation: 0.5,
-        foregroundColor: SboxColors.text,
-        bottom: TabBar(
+        foregroundColor: SboxColors.onBar,
+        bottom: sboxBarBottom(TabBar(
           controller: _tabs,
-          indicatorColor: SboxColors.primary,
-          labelColor: SboxColors.primary,
-          unselectedLabelColor: SboxColors.textMuted,
+          indicatorColor: SboxColors.isBoss ? SboxColors.onBar : SboxColors.primary,
+          labelColor: SboxColors.isBoss ? SboxColors.onBar : SboxColors.primary,
+          unselectedLabelColor: SboxColors.isBoss ? SboxColors.textSecondary : SboxColors.textMuted,
           tabs: [
             Tab(text: tr('Chờ CK (${_waiting.length})')),
             Tab(text: tr('Đã xác nhận (${_confirmed.length})')),
           ],
-        ),
+        )),
         actions: [
           if (!SboxAppVariant.iosStoreApp) Padding(
             padding: const EdgeInsets.only(right: 12),

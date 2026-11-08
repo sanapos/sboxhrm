@@ -58,7 +58,10 @@ import '../widgets/sbox/sbox_ui.dart';
 import '../widgets/pos/pos_list_filters.dart';
 /// Danh sách hàng hóa — giao diện kiểu KiotViet.
 class PosProductsScreen extends StatefulWidget {
-  const PosProductsScreen({super.key});
+  const PosProductsScreen({super.key, this.initialStockFilter = PosStockFilter.all});
+
+  /// Mở sẵn bộ lọc tồn (vd «Hàng đã hết» trên SBOX BOSS mở thẳng danh sách hàng hết).
+  final PosStockFilter initialStockFilter;
 
   @override
   State<PosProductsScreen> createState() => _PosProductsScreenState();
@@ -90,7 +93,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   String? _locationFilter;
   String? _supplierFilter;
   PosProductType? _typeFilter;
-  PosStockFilter _stockFilter = PosStockFilter.all;
+  late PosStockFilter _stockFilter = widget.initialStockFilter;
   PosStockoutFilter _stockoutFilter = PosStockoutFilter.all;
   bool? _directSaleFilter;
   PosProductSortBy _sortBy = PosProductSortBy.createdAt;
@@ -1285,7 +1288,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               await _reloadProducts();
             },
           ),
-          const Divider(height: 1, color: PosTheme.border),
+          if (!SboxColors.isBoss) const Divider(height: 1, color: PosTheme.border),
           // Salon / gym chủ yếu bán dịch vụ — «Tổng tồn 0» chỉ gây rối khi chưa có hàng tồn.
           if (_showsMobileStockSummary) _buildMobileStockSummary(),
           Expanded(
@@ -1329,11 +1332,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   Widget _buildMainToolbar(PermissionProvider perm, bool wide) {
     final mobile = posUseMobileList(context);
     return Material(
-      color: mobile ? Colors.white : SboxColors.page,
+      color: mobile ? SboxColors.bar : SboxColors.page,
       elevation: 0,
       child: Container(
         padding: EdgeInsets.fromLTRB(mobile ? 12 : 24, mobile ? 12 : 16, mobile ? 12 : 24, 12),
-        decoration: mobile
+        decoration: mobile && !SboxColors.isBoss
             ? const BoxDecoration(border: Border(bottom: BorderSide(color: PosTheme.border)))
             : null,
         child: mobile
@@ -1889,7 +1892,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
 
   Widget _buildMobileStockSummary() {
     return Container(
-      color: Colors.white,
+      color: SboxColors.bar,
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
       child: Row(
         children: [
@@ -2819,8 +2822,8 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: PosTheme.border)),
+        color: SboxColors.isBoss ? SboxColors.bar : Colors.white,
+        border: SboxColors.isBoss ? null : Border(top: BorderSide(color: PosTheme.border)),
       ),
       child: Row(
         children: [

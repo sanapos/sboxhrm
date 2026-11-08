@@ -101,9 +101,9 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
       backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         title: Text(tr(_pageTitle)),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        foregroundColor: SboxColors.text,
+        backgroundColor: SboxColors.bar,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: SboxColors.onBar,
         elevation: 0.5,
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: _back),
       ),

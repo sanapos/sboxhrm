@@ -73,11 +73,11 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                 decoration: BoxDecoration(color: SboxColors.brand50, borderRadius: BorderRadius.circular(99)),
                 child: Text(tr('Trụ sở'),
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: SboxColors.brand700)),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.brand700)),
               ),
             ],
           ]),
-          bottom: TabBar(
+          bottom: sboxBarBottom(TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             tabs: [
@@ -86,7 +86,7 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
               Tab(text: tr('Nhân sự')),
               Tab(text: tr('Chuyển kho')),
             ],
-          ),
+          )),
         ),
         body: TabBarView(children: [
           _overviewTab(),
@@ -260,13 +260,13 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                 child: ListTile(
                   dense: true,
                   leading: CircleAvatar(
-                    backgroundColor: SboxColors.brand50,
+                    backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
                     foregroundImage: (e['photoUrl'] ?? '').toString().startsWith('http')
                         ? NetworkImage(e['photoUrl'].toString())
                         : null,
                     child: Text(
                       (e['name'] ?? '?').toString().trim().split(' ').last.characters.take(1).toString().toUpperCase(),
-                      style: const TextStyle(color: SboxColors.brand700, fontWeight: FontWeight.w800),
+                      style: const TextStyle(color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700, fontWeight: FontWeight.w800),
                     ),
                   ),
                   title: Text(e['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w700)),

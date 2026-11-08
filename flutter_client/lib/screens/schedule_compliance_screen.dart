@@ -27,8 +27,8 @@ Color scheduleComplianceColor(ScheduleComplianceStatus s) => switch (s) {
       ScheduleComplianceStatus.missingOut => const Color(0xFF8D6E63),
       ScheduleComplianceStatus.wrongShift => const Color(0xFF7B1FA2),
       ScheduleComplianceStatus.absent => const Color(0xFFC62828),
-      ScheduleComplianceStatus.onLeave => const Color(0xFF0277BD),
-      ScheduleComplianceStatus.offSchedule => const Color(0xFF546E7A),
+      ScheduleComplianceStatus.onLeave => (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0277BD)),
+      ScheduleComplianceStatus.offSchedule => (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF546E7A)),
     };
 
 /// Đối chiếu chấm công thực tế với lịch làm việc — từng ca, cùng bộ tính với

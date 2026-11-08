@@ -18,6 +18,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_gym_trainer.dart';
 import '../../widgets/pos/pos_list_filters.dart';
 import '../../widgets/sbox/sbox_ui.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 /// Gym: hội viên check-in bằng máy chấm công (vân tay / khuôn mặt / thẻ) hoặc tại quầy.
 /// Tách biệt chấm công nhân viên — PIN hội viên = số điện thoại bỏ số 0 đầu (không có SĐT di động → 9xxxxxxx),
@@ -75,9 +76,9 @@ class _PosGymCheckInScreenState extends State<PosGymCheckInScreen> with SingleTi
           ? null
           : AppBar(
               title: Text(tr('Check-in hội viên')),
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              foregroundColor: SboxColors.text,
+              backgroundColor: SboxColors.bar,
+              surfaceTintColor: Colors.transparent,
+              foregroundColor: SboxColors.onBar,
               elevation: 0.5,
             ),
       body: Column(
@@ -588,8 +589,8 @@ class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                                   leading: const CircleAvatar(
                                     radius: 16,
-                                    backgroundColor: SboxColors.brand50,
-                                    child: Icon(Icons.person_outline, size: 18, color: SboxColors.brand700),
+                                    backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
+                                    child: Icon(Icons.person_outline, size: 18, color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700),
                                   ),
                                   title: Text(c['name']?.toString() ?? '',
                                       maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -1781,10 +1782,10 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
         Row(children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: SboxColors.brand50,
+            backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
             child: Text(
               (m['customerName']?.toString() ?? '?').trim().split(' ').last.characters.firstOrNull?.toUpperCase() ?? '?',
-              style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.brand700),
+              style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700),
             ),
           ),
           const SizedBox(width: 10),

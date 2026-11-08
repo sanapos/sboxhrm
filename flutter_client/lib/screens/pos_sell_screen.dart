@@ -15002,11 +15002,11 @@ class _PosSellScreenState extends State<PosSellScreen>
             dense: true,
             leading: CircleAvatar(
               radius: 14,
-              backgroundColor: PosTheme.kiotBlueLight,
+              backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : PosTheme.kiotBlueLight,
               child: Text(
                 tr(accountName.isNotEmpty ? accountName[0].toUpperCase() : 'S'),
                 style: const TextStyle(
-                  color: PosTheme.kiotBlue,
+                  color: SboxColors.isBoss ? SboxColors.gold : PosTheme.kiotBlue,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                 ),
@@ -15965,7 +15965,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           icon: Icons.sticky_note_2_outlined,
           label: 'In tem ly',
           badge: _cupLabelPendingCount > 0 ? '$_cupLabelPendingCount' : null,
-          iconColor: const Color(0xFF0D9488),
+          iconColor: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0D9488)),
           enabled: _cupLabelActionEnabled,
         ));
       }
@@ -16674,7 +16674,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         tr('+ ${formatComboComponentsSubtitle(line.product.comboLines!, comboQty: line.qty)}'),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12, height: 1.25, color: Color(0xFF0F766E)),
+        style: const TextStyle(fontSize: 12, height: 1.25, color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF0F766E))),
       ));
     }
     final timerWidget = _lineTimerWidget(line);
@@ -16778,7 +16778,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                         fontSize: 11,
                                         // Xanh khi đủ người; cam khi chưa gán / combo còn bước trống.
                                         color: _staffFullyAssigned(line)
-                                            ? const Color(0xFF0F766E)
+                                            ? (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF0F766E))
                                             : SboxColors.warningText,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -19041,8 +19041,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           children: [
             AppBar(
               title: Text(tr(_sellProfile.pickCatalogLabel)),
-              backgroundColor: Colors.white,
-              foregroundColor: PosTheme.textPrimary,
+              backgroundColor: SboxColors.bar,
+              foregroundColor: SboxColors.onBar,
               elevation: 0,
               leading: IconButton(
                 icon: const Icon(Icons.close),
@@ -20138,7 +20138,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               : _hasWarehouseSlipPending() || !cartOk
                   ? 'Xuất kho'
                   : 'Đã báo kho',
-          color: const Color(0xFF0F766E),
+          color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF0F766E)),
           busy: _warehousePrinting,
           height: height,
           onPressed: cartOk && !_warehousePrinting && !busy
@@ -20702,11 +20702,11 @@ class _PosSellScreenState extends State<PosSellScreen>
                       style: const TextStyle(fontSize: 13),
                     ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0D9488),
+                      foregroundColor: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0D9488)),
                       side: BorderSide(
                         color: !_cupLabelActionEnabled
                             ? PosTheme.border
-                            : const Color(0xFF0D9488),
+                            : (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0D9488)),
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(
@@ -21740,8 +21740,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           backgroundColor: SboxColors.slate100,
           appBar: AppBar(
             title: Text(tr('Thanh toán')),
-            backgroundColor: Colors.white,
-            foregroundColor: PosTheme.textPrimary,
+            backgroundColor: SboxColors.bar,
+            foregroundColor: SboxColors.onBar,
             elevation: 0,
           ),
           body: StatefulBuilder(
@@ -22050,7 +22050,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF0F766E),
+                          color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF0F766E)),
                         ),
                       ),
                     if (_isTableOrderMode && line.kitchenFullySent)

@@ -68,12 +68,12 @@ class HrmPageChrome {
   static const Color textMuted = PosTheme.textSecondary;
 
   /// Chip / badge brand — cùng xanh, độ đậm nhạt khác (không dùng hồng/cam/tím).
-  static const Color chipDark = Color(0xFF003B80);
+  static const Color chipDark = SboxColors.isBoss ? SboxColors.brand800 : Color(0xFF003B80);
   static const Color chip = primaryNavy; // #0056B3
-  static const Color chipMid = Color(0xFF1A6FD4);
+  static const Color chipMid = SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF1A6FD4);
   static const Color chipLight = SboxColors.brand400;
-  static const Color chipSoft = Color(0xFF6BA3E8);
-  static const Color chipMuted = Color(0xFF8BB4E8);
+  static const Color chipSoft = SboxColors.isBoss ? SboxColors.brand300 : Color(0xFF6BA3E8);
+  static const Color chipMuted = SboxColors.isBoss ? SboxColors.brand200 : Color(0xFF8BB4E8);
   static const Color chipBg = PosTheme.kiotBlueLight;
 
   static const List<Color> chipShades = [
@@ -83,8 +83,8 @@ class HrmPageChrome {
     chipLight,
     chipSoft,
     chipMuted,
-    Color(0xFF004A9F),
-    Color(0xFF2B7DE9),
+    (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF004A9F)),
+    (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF2B7DE9)),
   ];
 
   static Color chipShade(int index) =>
@@ -142,7 +142,7 @@ class HrmPageChrome {
     if (context != null && !showInPageAppBar(context)) return null;
     final canPop = context != null && Navigator.of(context).canPop();
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: SboxColors.bar,
       elevation: 0,
       scrolledUnderElevation: 0,
       automaticallyImplyLeading: false,

@@ -9,6 +9,7 @@ import '../services/app_permission_service.dart';
 import '../utils/site_photo_watermark.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 /// Chụp ảnh hiện trường bằng camera sau; trả về base64 JPEG (có watermark).
 class SitePhotoCaptureScreen extends StatefulWidget {
@@ -155,8 +156,8 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
       child: Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
-          backgroundColor: HrmPageChrome.primaryNavy,
-          foregroundColor: Colors.white,
+          backgroundColor: SboxColors.isBoss ? SboxColors.bar : HrmPageChrome.primaryNavy,
+          foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
           title: Text(tr(widget.mandatory
               ? 'Ảnh hiện trường (bắt buộc)'
               : 'Ảnh hiện trường')),

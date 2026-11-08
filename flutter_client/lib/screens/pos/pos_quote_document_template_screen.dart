@@ -219,7 +219,7 @@ class _PosQuoteDocumentTemplateScreenState extends State<PosQuoteDocumentTemplat
       appBar: AppBar(
         title: Text('${doc.docNo} · ${tr('Sửa riêng')} ${PosQuoteDocument.kindLabel(doc.kind).toLowerCase()}',
             maxLines: 1, overflow: TextOverflow.ellipsis),
-        actions: [
+        actions: sboxBarActions([
           if (_isCustom)
             TextButton(
               onPressed: _saving || _loading ? null : _clear,
@@ -234,7 +234,7 @@ class _PosQuoteDocumentTemplateScreenState extends State<PosQuoteDocumentTemplat
                   : Text(tr('Lưu riêng')),
             ),
           ),
-        ],
+        ]),
       ),
       body: _loading || _html == null
           ? const Center(child: CircularProgressIndicator())

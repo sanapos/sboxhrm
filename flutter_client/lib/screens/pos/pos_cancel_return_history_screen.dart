@@ -520,8 +520,8 @@ class _PosCancelReturnHistoryScreenState
       backgroundColor: PosTheme.background,
       appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Lịch sử hủy / trả')),
-        backgroundColor: Colors.white,
-        foregroundColor: SboxColors.text,
+        backgroundColor: SboxColors.bar,
+        foregroundColor: SboxColors.onBar,
         elevation: 0.5,
         actions: [
           if (canExport)

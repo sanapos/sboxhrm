@@ -114,7 +114,7 @@ class AppButton extends StatelessWidget {
   Color get _bgColor {
     switch (variant) {
       case AppButtonVariant.primary:
-        return _primaryColor;
+        return SboxColors.action;
       case AppButtonVariant.danger:
         return _dangerColor;
       case AppButtonVariant.success:
@@ -130,6 +130,7 @@ class AppButton extends StatelessWidget {
   Color get _fgColor {
     switch (variant) {
       case AppButtonVariant.primary:
+        return SboxColors.onAction;
       case AppButtonVariant.danger:
       case AppButtonVariant.success:
       case AppButtonVariant.warning:

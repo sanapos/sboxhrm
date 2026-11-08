@@ -9,6 +9,7 @@ import '../allowance_settings_screen.dart';
 import 'sl_common.dart';
 import 'sl_history.dart';
 import 'sl_model.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 /// Mở form thiết lập lương cho một nhân viên. Trả về true khi đã lưu.
 Future<bool> showSalaryEditor(
@@ -167,8 +168,8 @@ class _SalaryEditorState extends State<SalaryEditor> {
       child: Scaffold(
         backgroundColor: SboxColors.page,
         appBar: AppBar(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
+          backgroundColor: SboxColors.bar,
+          surfaceTintColor: Colors.transparent,
           leading: IconButton(
             icon: const Icon(Icons.close_rounded),
             onPressed: () async {

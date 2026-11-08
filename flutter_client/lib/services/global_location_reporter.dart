@@ -111,7 +111,8 @@ class GlobalLocationReporter {
   Future<bool> _reportOnce() async {
     try {
       if (!kIsWeb) {
-        final ok = await ensureLocationPermission();
+        // Chạy nền: không tự bật hộp xin quyền, quyền được hỏi khi người dùng vào chấm công.
+        final ok = await ensureLocationPermission(ask: false);
         if (!ok) {
           _noPermissionUntil = DateTime.now().add(_noPermissionBackoff);
           debugPrint('📍 GlobalLocationReporter: no location permission — thử lại sau '

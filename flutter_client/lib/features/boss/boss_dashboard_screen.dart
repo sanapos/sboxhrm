@@ -12,6 +12,7 @@ import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import '../../widgets/sbox/sbox_charts.dart';
 import 'boss_issues_card.dart';
+import 'boss_manage_screen.dart' show BossQuickActions;
 import 'boss_staff_today_screen.dart';
 
 /// SBOX BOSS — «Tổng quan hôm nay»: doanh thu ngày kinh doanh hiện tại so với cùng giờ hôm qua /
@@ -102,9 +103,11 @@ class _BossDashboardScreenState extends State<BossDashboardScreen> with WidgetsB
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(SboxSpace.lg, SboxSpace.md, SboxSpace.lg, SboxSpace.xxl),
+        padding: const EdgeInsets.fromLTRB(SboxSpace.lg, SboxSpace.md, SboxSpace.lg, 96),
         children: [
           _RevenueHero(data: d),
+          const SizedBox(height: SboxSpace.md),
+          const BossQuickActions(),
           const SizedBox(height: SboxSpace.md),
           BossIssuesCard(refreshTick: _issuesTick, onOpenInbox: widget.onOpenInbox),
           const SizedBox(height: SboxSpace.md),
@@ -155,32 +158,63 @@ class _RevenueHero extends StatelessWidget {
     final revenue = _num(today['revenue']);
     final delta = bossDeltaPct(revenue, _num(ySame['revenue']));
     return Container(
-      padding: const EdgeInsets.all(SboxSpace.lg),
+      clipBehavior: Clip.antiAlias,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [SboxColors.brand700, SboxColors.brand500],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          colors: [SboxColors.brand500, SboxColors.brand700],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
         ),
         borderRadius: SboxRadius.lgAll,
+        boxShadow: [BoxShadow(color: Color(0x332C3C5E), blurRadius: 16, offset: Offset(0, 6))],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(tr('Doanh thu hôm nay'), style: SboxType.smallStyle(SboxColors.brand100)),
-        const SizedBox(height: SboxSpace.xs),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(SboxFmt.money(revenue),
-              style: SboxType.moneyStyle(size: SboxType.display, c: SboxColors.white)),
+      child: Stack(children: [
+        // Góc trang trí: quầng sáng trắng rất nhạt + viền vàng mảnh (vàng đặc pha xanh ra màu nâu đục).
+        Positioned(
+          right: -48,
+          top: -48,
+          child: Container(
+            width: 150,
+            height: 150,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: SboxColors.white.withValues(alpha: 0.06),
+              border: Border.all(color: SboxColors.gold.withValues(alpha: 0.55), width: 1.5),
+            ),
+          ),
         ),
-        const SizedBox(height: SboxSpace.sm),
-        _DeltaPill(delta: delta, caption: 'so với cùng giờ hôm qua'),
-        const SizedBox(height: SboxSpace.md),
-        Row(children: [
-          _HeroStat(label: 'Số đơn', value: SboxFmt.number(_num(today['orderCount']))),
-          _HeroStat(label: 'TB / đơn', value: SboxFmt.compact(_num(today['avgOrder']))),
-          _HeroStat(label: 'Đã thu', value: SboxFmt.compact(_num(today['collected']))),
-        ]),
+        Positioned(
+          right: 24,
+          top: 58,
+          child: Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(shape: BoxShape.circle, color: SboxColors.gold),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(SboxSpace.lg),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('Doanh thu hôm nay'), style: SboxType.smallStyle(SboxColors.brand100)),
+            const SizedBox(height: SboxSpace.xs),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(SboxFmt.money(revenue),
+                  style: SboxType.moneyStyle(size: SboxType.display, c: SboxColors.gold)),
+            ),
+            const SizedBox(height: SboxSpace.sm),
+            _DeltaPill(delta: delta, caption: 'so với cùng giờ hôm qua'),
+            const SizedBox(height: SboxSpace.md),
+            Divider(height: 1, color: SboxColors.white.withValues(alpha: 0.14)),
+            const SizedBox(height: SboxSpace.md),
+            Row(children: [
+              _HeroStat(label: 'Số đơn', value: SboxFmt.number(_num(today['orderCount']))),
+              _HeroStat(label: 'TB / đơn', value: SboxFmt.compact(_num(today['avgOrder']))),
+              _HeroStat(label: 'Đã thu', value: SboxFmt.compact(_num(today['collected']))),
+            ]),
+          ]),
+        ),
       ]),
     );
   }
@@ -195,7 +229,7 @@ class _HeroStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(tr(label), style: SboxType.captionStyle(SboxColors.brand100)),
+          Text(tr(label), style: SboxType.captionStyle(SboxColors.brand200)),
           Text(value, style: SboxType.moneyStyle(size: SboxType.titleSm, c: SboxColors.white)),
         ]),
       );
@@ -285,7 +319,7 @@ class _HourlyChart extends StatelessWidget {
                 SboxSeries(
                   name: tr('Hôm qua'),
                   values: [for (final r in shown) _num(r['yesterday'])],
-                  color: SboxColors.slate400,
+                  color: SboxColors.goldDeep,
                 ),
               ],
               dashedSeries: const {1},

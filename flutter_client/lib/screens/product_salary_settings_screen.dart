@@ -104,12 +104,12 @@ class _ProductSalarySettingsScreenState
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: (!HrmPageChrome.isEmbedded && isMobile)
           ? AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: SboxColors.bar,
               elevation: 0,
               automaticallyImplyLeading: false,
               title: Text(tr('Lương sản phẩm'),
                 style: TextStyle(
-                  color: SboxColors.slate900,
+                  color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.slate900,
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -119,13 +119,13 @@ class _ProductSalarySettingsScreenState
                   IconButton(
                     onPressed: _showAddGroupDialog,
                     icon: const Icon(Icons.create_new_folder_outlined,
-                        color: HrmPageChrome.primaryNavy),
+                        color: SboxColors.isBoss ? SboxColors.onBar : HrmPageChrome.primaryNavy),
                     tooltip: tr('Thêm nhóm SP'),
                   ),
                   IconButton(
                     onPressed: _groups.isEmpty ? null : _showAddItemDialog,
                     icon: const Icon(Icons.add_box_outlined,
-                        color: HrmPageChrome.primaryNavy),
+                        color: SboxColors.isBoss ? SboxColors.onBar : HrmPageChrome.primaryNavy),
                     tooltip: tr('Thêm sản phẩm'),
                   ),
                 ],
@@ -1007,15 +1007,15 @@ class _ProductSalarySettingsScreenState
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx),
                   ),
-                  backgroundColor: HrmPageChrome.primaryNavy,
-                  foregroundColor: Colors.white,
-                  actions: [
+                  backgroundColor: SboxColors.isBoss ? SboxColors.bar : HrmPageChrome.primaryNavy,
+                  foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
+                  actions: sboxBarActions([
                     TextButton(
                       onPressed: onSave,
-                      style: TextButton.styleFrom(foregroundColor: Colors.white),
+                      style: TextButton.styleFrom(foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white),
                       child: Text(tr(isEdit ? 'Lưu' : 'Thêm')),
                     ),
-                  ],
+                  ]),
                 ),
                 body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),

@@ -597,8 +597,8 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: typeColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: Icon(typeIcon, color: typeColor, size: 18),
+            decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : typeColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Icon(typeIcon, color: SboxColors.isBoss ? SboxColors.iconOnBox : typeColor, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -636,8 +636,8 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
       child: Row(children: [
         Container(
           width: 36, height: 36,
-          decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-          child: Icon(isApproved ? Icons.check_circle : Icons.cancel, color: statusColor, size: 18),
+          decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+          child: Icon(isApproved ? Icons.check_circle : Icons.cancel, color: SboxColors.isBoss ? SboxColors.iconOnBox : statusColor, size: 18),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -677,8 +677,8 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
             // Avatar with type icon
             CircleAvatar(
               radius: 16,
-              backgroundColor: typeColor.withValues(alpha: 0.15),
-              child: Icon(typeIcon, size: 16, color: typeColor),
+              backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : typeColor.withValues(alpha: 0.15),
+              child: Icon(typeIcon, size: 16, color: SboxColors.isBoss ? SboxColors.iconOnBox : typeColor),
             ),
             const SizedBox(width: 10),
             // Main info
@@ -774,8 +774,8 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                 tooltip: tr('Duyệt'),
                 visualDensity: VisualDensity.compact,
                 style: IconButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.green,
+                  foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
+                  backgroundColor: SboxColors.isBoss ? SboxColors.action : Colors.green,
                 ),
               ),
             ],
@@ -811,8 +811,8 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
             // Avatar with status icon
             CircleAvatar(
               radius: 16,
-              backgroundColor: statusColor.withValues(alpha: 0.1),
-              child: Icon(statusIcon, size: 16, color: statusColor),
+              backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : statusColor.withValues(alpha: 0.1),
+              child: Icon(statusIcon, size: 16, color: SboxColors.isBoss ? SboxColors.iconOnBox : statusColor),
             ),
             const SizedBox(width: 10),
             // Main info
