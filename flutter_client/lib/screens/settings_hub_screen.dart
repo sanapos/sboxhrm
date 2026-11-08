@@ -18,6 +18,7 @@ import '../utils/pos_sell_settings_helper.dart';
 import '../utils/settings_hub_catalog.dart';
 import '../utils/store_role_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/sbox_icon_tile.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import '../widgets/settings/settings_page.dart';
@@ -790,7 +791,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   }
 
   Widget _row(SettingsHubItemDef i) {
-    final g = SettingsHubCatalog.groupOf(i.groupTitle);
     final chip = _statusChip(i);
     return Material(
       color: Colors.white,
@@ -800,12 +800,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
           padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
           // Chỉ tên mục; trạng thái (xanh / vàng / đỏ) xuống hàng dưới — không cắt chữ «Tài …», «Máy chấm…».
           child: Row(children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(color: g.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-              child: Icon(i.icon, color: g.color, size: 20),
-            ),
+            SboxIconTile(i.icon, size: 36, iconSize: 20, radius: 10),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -822,18 +817,12 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   }
 
   Widget _card(SettingsHubItemDef i) {
-    final g = SettingsHubCatalog.groupOf(i.groupTitle);
     final chip = _statusChip(i);
     return SboxCard(
       onTap: () => _openSubPage(i.index),
       padding: const EdgeInsets.all(14),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: g.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
-          child: Icon(i.icon, color: g.color, size: 21),
-        ),
+        SboxIconTile(i.icon, size: 40, iconSize: 21, radius: 12),
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

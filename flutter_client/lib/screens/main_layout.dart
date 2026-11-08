@@ -3505,7 +3505,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         layout.modules.where((c) => c.isNotEmpty).toList(growable: false);
     if (modules.isEmpty) return const SizedBox.shrink();
 
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Container(
@@ -3570,10 +3569,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            def?.icon ?? Icons.apps_outlined,
-                            color: theme.colorScheme.primary,
-                            size: 24,
+                          _HomeIconBox(
+                            icon: def?.icon ?? Icons.apps_outlined,
+                            size: 40,
+                            iconSize: 22,
+                            fg: SboxColors.white,
+                            bg: SboxColors.brand600,
                           ),
                           const SizedBox(height: 6),
                           Text(
@@ -5584,24 +5585,21 @@ class _HomeIconBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const pos = SboxColors.posApp;
-    final BorderRadius? shapeRadius = circle ? null : BorderRadius.circular(pos ? radius + 2 : radius);
+    // Mọi app: nền chuyển màu thương hiệu, biểu tượng trắng (giống logo). fg / bg cũ không còn dùng cho màu.
+    final BorderRadius? shapeRadius = circle ? null : BorderRadius.circular(radius + 2);
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: pos ? null : bg,
-        gradient: pos
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [SboxColors.brand400, SboxColors.brand600],
-              )
-            : null,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [SboxColors.iconTileLight, SboxColors.iconTileDark],
+        ),
         shape: circle ? BoxShape.circle : BoxShape.rectangle,
         borderRadius: shapeRadius,
       ),
-      child: Icon(icon, size: iconSize, color: pos ? SboxColors.white : fg),
+      child: Icon(icon, size: iconSize, color: SboxColors.white),
     );
   }
 }

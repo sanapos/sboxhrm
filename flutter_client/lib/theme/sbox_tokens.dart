@@ -31,6 +31,11 @@ abstract final class SboxColors {
   /// Chữ trên nền xanh nhạt.
   static const brand900 = _staffApp ? Color(0xFF0A423A) : _posOnly ? Color(0xFF0A3F41) : Color(0xFF084B67);
 
+  /// Ô icon (truy cập nhanh, nhóm chức năng): nền chuyển màu, biểu tượng trắng — như logo app.
+  /// SBOX HRM theo xanh dương của logo; POS / Nhân Viên theo màu thương hiệu.
+  static const iconTileLight = _posApp ? brand400 : Color(0xFF45A6FA);
+  static const iconTileDark = _posApp ? brand600 : Color(0xFF1A4BE5);
+
   static const primary = brand600;
 
   /// Dạng MaterialColor (cho API cần đủ tông shade50..shade900).
