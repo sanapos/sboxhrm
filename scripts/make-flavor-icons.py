@@ -28,8 +28,11 @@ FLAVORS = {
     "kds": dict(bg=("#B23A0E", "#FF9A4A"), s=("#FFE6D6", "#FFFFFF")),
     # SBOX POS giữ logo chữ assets/sbox_pos_logo.png, chỉ thêm icon và logo chữ S (sbox_pos_mark.png).
     "pos": dict(bg=("#1B5E20", "#66BB6A"), s=("#E3F4E4", "#FFFFFF")),
+    # SBOX HRM (bản mặc định: android/main, bộ AppIcon iOS của Runner, assets/logo.png): nền xanh dương, S trắng.
+    "hrm": dict(bg=("#1230C8", "#45A6FA"), s=("#DCE9FF", "#FFFFFF")),
 }
 IOS_FLAVORS = {"pos", "boss", "staff"}
+IOS_APPICON = CLIENT / "ios" / "Runner" / "Assets.xcassets" / "AppIcon.appiconset"
 
 
 def rgb(hex_color):
@@ -102,7 +105,8 @@ def build(badge, cfg):
 
 
 def load_badge():
-    logo = Image.open(CLIENT / "assets" / "logo.png").convert("RGBA")
+    # Huy hiệu gốc (ô xanh có viền, chữ S trắng) giữ riêng: assets/logo.png giờ là icon HRM do script này ghi.
+    logo = Image.open(CLIENT / "assets_src" / "sbox_badge_src.png").convert("RGBA")
     src = logo.crop(logo.getchannel("A").point(lambda v: 255 if v > 200 else 0).getbbox())
     side = max(src.size)
     fitted = Image.new("RGBA", (side, side), (0, 0, 0, 0))
@@ -115,7 +119,7 @@ def main():
     results = {}
     for flavor, cfg in FLAVORS.items():
         square, round_icon, store = build(badge, cfg)
-        base = CLIENT / "android" / "app" / "src" / flavor
+        base = CLIENT / "android" / "app" / "src" / ("main" if flavor == "hrm" else flavor)
         for density, px in DENSITIES.items():
             folder = base / "res" / f"mipmap-{density}"
             folder.mkdir(parents=True, exist_ok=True)
@@ -127,7 +131,15 @@ def main():
             out = CLIENT / "ios" / "flavor_icons" / f"{flavor}-1024.png"
             out.parent.mkdir(parents=True, exist_ok=True)
             Image.alpha_composite(gradient(FLAVORS[flavor]), letter_layer(badge, FLAVORS[flavor])).convert("RGB").save(out, optimize=True)
-        square.resize((512, 512), Image.LANCZOS).save(CLIENT / "assets" / ("sbox_pos_mark.png" if flavor == "pos" else f"sbox_{flavor}_logo.png"), optimize=True)
+        if flavor == "hrm":
+            # Bộ AppIcon mặc định là của HRM (POS / BOSS / Nhân Viên thay lúc build): mọi cỡ, vuông kín nền, không alpha.
+            full = Image.alpha_composite(gradient(cfg), letter_layer(badge, cfg)).convert("RGB")
+            for icon in IOS_APPICON.glob("*.png"):
+                px = Image.open(icon).width
+                full.resize((px, px), Image.LANCZOS).save(icon, optimize=True)
+            square.save(CLIENT / "assets" / "logo.png", optimize=True)
+        else:
+            square.resize((512, 512), Image.LANCZOS).save(CLIENT / "assets" / ("sbox_pos_mark.png" if flavor == "pos" else f"sbox_{flavor}_logo.png"), optimize=True)
         results[flavor] = (square, round_icon, store)
     write_status_icon(badge)
     if len(sys.argv) > 1:
