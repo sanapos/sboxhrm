@@ -31,6 +31,7 @@ import '../utils/vietnamese_font.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox_icon_tile.dart';
 class LeaveScreen extends StatefulWidget {
   final String? highlightId;
   const LeaveScreen({super.key, this.highlightId});
@@ -1919,11 +1920,7 @@ class _LeaveScreenState extends State<LeaveScreen>
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: typeInfo.color.withValues(alpha: 0.12),
-              child: Icon(typeInfo.icon, size: 18, color: typeInfo.color),
-            ),
+            SboxIconTile(typeInfo.icon, size: 40, iconSize: 19, radius: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Column(

@@ -11,6 +11,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_locale.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox_icon_tile.dart';
 class MobileAttendanceHistoryScreen extends StatefulWidget {
   const MobileAttendanceHistoryScreen({super.key});
 
@@ -562,18 +563,7 @@ class _MobileAttendanceHistoryScreenState
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.calendar_today,
-                    color: HrmPageChrome.primaryNavy,
-                    size: 18,
-                  ),
-                ),
+                const SboxIconTile(Icons.calendar_today, size: 34, iconSize: 18, radius: 10),
                 const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

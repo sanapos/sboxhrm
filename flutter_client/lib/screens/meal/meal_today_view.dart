@@ -6,6 +6,7 @@ import '../../theme/sbox_tokens.dart';
 import '../../utils/responsive_helper.dart';
 import 'meal_menu_quick_editor.dart';
 import 'meal_ui.dart';
+import '../../widgets/sbox_icon_tile.dart';
 
 /// «Hôm nay ăn gì»: thực đơn từng buổi của ngày, trạng thái suất ăn của tôi
 /// (đã ăn – số phiếu / đã đăng ký) và tiền ăn tháng này. Căn tin (quyền Sửa) nhập thực đơn ngay tại đây.
@@ -180,11 +181,7 @@ class _MealTodayViewState extends State<MealTodayView> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
           child: Row(children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: SboxColors.brand50, borderRadius: BorderRadius.circular(14)),
-              child: Icon(MealUi.sessionIcon(s['name']?.toString() ?? ''), color: SboxColors.brand600),
-            ),
+            SboxIconTile(MealUi.sessionIcon(s['name']?.toString() ?? ''), size: 44, iconSize: 24, radius: 14),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

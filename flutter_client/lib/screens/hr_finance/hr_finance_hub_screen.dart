@@ -17,6 +17,7 @@ import 'hr_fin_actions.dart';
 import 'hr_fin_common.dart';
 import 'hr_fin_ledger.dart';
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox_icon_tile.dart';
 
 /// Các tab của Tài chính nhân sự.
 enum HrFinTab { overview, inbox, advances, rewards, cash, people, me, settings }
@@ -808,12 +809,7 @@ class _TodoRow extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: SboxSpace.sm),
         child: Row(children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(color: tone.bg, borderRadius: SboxRadius.mdAll),
-            child: Icon(icon, size: 18, color: tone.fg),
-          ),
+          SboxIconTile(icon, size: 34, iconSize: 18),
           const SizedBox(width: SboxSpace.md),
           Expanded(child: Text(tr(label), style: SboxType.bodyStyle())),
           Text(value, style: SboxType.bodyStrong()),

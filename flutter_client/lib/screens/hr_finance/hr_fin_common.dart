@@ -6,6 +6,7 @@ import '../../l10n/app_tr.dart';
 import '../../models/hr_finance.dart';
 import '../../services/api_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
+import '../../widgets/sbox_icon_tile.dart';
 
 /// Nhân viên rút gọn cho chọn người / sổ theo nhân viên.
 class HrFinPerson {
@@ -285,7 +286,6 @@ class HrFinItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final mobile = SboxBreakpoints.isMobile(context);
     final (statusLabel, statusTone) = hrFinStatus(item);
-    final tone = hrFinKindTone(item.kind);
     final amountColor = item.isCancelled
         ? SboxColors.textMuted
         : item.isIn
@@ -304,12 +304,7 @@ class HrFinItemTile extends StatelessWidget {
 
     final lead = showEmployee
         ? HrFinAvatar(name: item.employeeName, photo: item.photoUrl, size: 38)
-        : Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(color: tone.bg, borderRadius: SboxRadius.mdAll),
-            child: Icon(hrFinKindIcon(item.kind), size: 20, color: tone.fg),
-          );
+        : SboxIconTile(hrFinKindIcon(item.kind), size: 38, iconSize: 20);
 
     final body = Expanded(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

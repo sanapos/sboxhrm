@@ -19,6 +19,7 @@ import '../widgets/attendance_correction_reason_field.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox_icon_tile.dart';
 class AttendanceCorrectionsScreen extends StatefulWidget {
   final String? highlightId;
   const AttendanceCorrectionsScreen({super.key, this.highlightId});
@@ -466,17 +467,6 @@ class _AttendanceCorrectionsScreenState
     }
   }
 
-  Color _getActionColor(CorrectionAction action) {
-    switch (action) {
-      case CorrectionAction.add:
-        return SboxColors.okSwatch;
-      case CorrectionAction.edit:
-        return SboxColors.brand500;
-      case CorrectionAction.delete:
-        return Colors.red;
-    }
-  }
-
   Color _getApprovalStatusColor(ApprovalStatus status) {
     switch (status) {
       case ApprovalStatus.pending:
@@ -552,17 +542,7 @@ class _AttendanceCorrectionsScreenState
               // Header
               Row(
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _getActionColor(request.action)
-                          .withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(Icons.edit_calendar,
-                        color: _getActionColor(request.action)),
-                  ),
+                  SboxIconTile(Icons.edit_calendar, size: 40),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -752,7 +732,6 @@ class _AttendanceCorrectionsScreenState
   }
 
   Widget _buildRequestDeckItem(AttendanceCorrectionRequest request) {
-    final actionColor = _getActionColor(request.action);
     final statusColor = _getStatusColor(request.status);
     return InkWell(
       onTap: () => _showRequestDetail(request),
@@ -762,15 +741,7 @@ class _AttendanceCorrectionsScreenState
           children: [
             Row(
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                      color: actionColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10)),
-                  child:
-                      Icon(Icons.edit_calendar, color: actionColor, size: 18),
-                ),
+                SboxIconTile(Icons.edit_calendar, size: 36, iconSize: 18),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

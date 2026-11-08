@@ -105,7 +105,7 @@ class StaffIconBox extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [SboxColors.brand400, SboxColors.brand600],
+          colors: [SboxColors.iconTileLight, SboxColors.iconTileDark],
         ),
         borderRadius: BorderRadius.circular(size * 0.27),
       ),
@@ -316,15 +316,7 @@ class StaffMenuTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: SboxSpace.md, vertical: 2),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: SboxColors.brand50,
-          borderRadius: BorderRadius.circular(11),
-        ),
-        child: Icon(icon, color: SboxColors.brand600, size: 22),
-      ),
+      leading: StaffIconBox(icon: icon, size: 40, iconSize: 22),
       title: Text(tr(title), style: SboxType.bodyStrong()),
       subtitle: subtitle == null ? null : Text(tr(subtitle!), style: SboxType.captionStyle()),
       trailing: const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
