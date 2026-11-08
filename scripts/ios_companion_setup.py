@@ -2,7 +2,7 @@
 """Đổi project iOS dùng chung thành SBOX BOSS hoặc SBOX Nhân Viên, ngay trên máy build Codemagic.
 
 Đổi mã bundle, tên app, icon, và viết câu xin quyền riêng theo đúng chức năng của từng app.
-BOSS không có khuôn mặt, vị trí; Nhân Viên giữ câu xin quyền vị trí mặc định vì chấm công cần vị trí.
+BOSS không có khuôn mặt; câu vị trí của BOSS chỉ cho nút «Vị trí hiện tại» trên bản đồ. Cả hai có câu cho API vị trí «luôn luôn» (ITMS-90683).
 
 Cách dùng (trong flutter_client): python3 ../scripts/ios_companion_setup.py boss|staff
 """
@@ -24,6 +24,10 @@ BOSS_USAGE = {
     "NSBluetoothAlwaysUsageDescription": "Bluetooth dùng để kết nối máy in hóa đơn và máy in tem.",
     "NSBluetoothPeripheralUsageDescription": "Bluetooth dùng để kết nối máy in hóa đơn và máy in tem.",
     "NSFaceIDUsageDescription": "Face ID dùng để đăng nhập nhanh vào SBOX BOSS thay cho mật khẩu, chỉ khi bạn bật trong Cài đặt.",
+    # Màn chọn điểm chấm công trên bản đồ có nút «Vị trí hiện tại»; thư viện vị trí có cả API «luôn luôn» (ITMS-90683).
+    "NSLocationWhenInUseUsageDescription": "Vị trí chỉ dùng khi bạn bấm «Vị trí hiện tại» để đặt điểm làm việc của cửa hàng trên bản đồ. SBOX BOSS không theo dõi vị trí của bạn.",
+    "NSLocationAlwaysAndWhenInUseUsageDescription": "SBOX BOSS không dùng vị trí khi chạy nền. Vị trí chỉ dùng khi bạn bấm «Vị trí hiện tại» để đặt điểm làm việc của cửa hàng trên bản đồ.",
+    "NSLocationAlwaysUsageDescription": "SBOX BOSS không dùng vị trí khi chạy nền. Vị trí chỉ dùng khi bạn bấm «Vị trí hiện tại» để đặt điểm làm việc của cửa hàng trên bản đồ.",
 }
 STAFF_USAGE = {
     "NSCameraUsageDescription": "Camera dùng để chấm công bằng khuôn mặt khi bạn bấm Chấm công, đăng ký khuôn mặt và chụp ảnh hiện trường, chứng từ. Ứng dụng không quay video nền.",
@@ -31,6 +35,9 @@ STAFF_USAGE = {
     "NSBluetoothAlwaysUsageDescription": "Bluetooth dùng để kết nối máy in khi bạn gọi món.",
     "NSBluetoothPeripheralUsageDescription": "Bluetooth dùng để kết nối máy in khi bạn gọi món.",
     "NSFaceIDUsageDescription": "Face ID dùng để đăng nhập nhanh vào SBOX Nhân Viên thay cho mật khẩu, chỉ khi bạn bật trong Cài đặt.",
+    # Apple đòi câu cho API «luôn luôn» vì thư viện vị trí có tham chiếu (ITMS-90683), dù app chỉ xin quyền khi đang dùng.
+    "NSLocationAlwaysAndWhenInUseUsageDescription": "SBOX Nhân Viên không dùng vị trí khi chạy nền. Vị trí chỉ được lấy khi bạn đang mở ứng dụng: lúc chấm công, check-in và định kỳ nếu cửa hàng bật Bản đồ nhân sự.",
+    "NSLocationAlwaysUsageDescription": "SBOX Nhân Viên không dùng vị trí khi chạy nền. Vị trí chỉ được lấy khi bạn đang mở ứng dụng: lúc chấm công, check-in và định kỳ nếu cửa hàng bật Bản đồ nhân sự.",
 }
 PLIST = "ios/Runner/Info.plist"
 OLD_BUNDLE = "PRODUCT_BUNDLE_IDENTIFIER = vn.sana.sbox;"
@@ -59,10 +66,12 @@ def main() -> None:
     shutil.copyfile(firebase, "ios/Runner/GoogleService-Info.plist")
 
     plist(f"Set :CFBundleDisplayName {name}")
-    if app == "boss":
-        plist("Delete :NSLocationWhenInUseUsageDescription")
     for key, value in (BOSS_USAGE if app == "boss" else STAFF_USAGE).items():
-        plist(f"Set :{key} {value}")
+        # Info.plist dùng chung chưa có khóa «luôn luôn»: Set lỗi thì Add.
+        try:
+            plist(f"Set :{key} {value}")
+        except subprocess.CalledProcessError:
+            plist(f"Add :{key} string {value}")
 
     source = f"ios/flavor_icons/{app}-1024.png"
     for icon in ICON_DIR.glob("*.png"):
