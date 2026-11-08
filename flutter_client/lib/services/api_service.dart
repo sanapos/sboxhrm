@@ -5485,6 +5485,7 @@ class ApiService implements PayrollApi {
     bool? allowManualApproval,
     int? maxPunchesPerDay,
     bool? requirePhotoProof,
+    bool? autoApproveNewDevices,
     int? minPunchIntervalMinutes,
   }) async {
     try {
@@ -5514,6 +5515,9 @@ class ApiService implements PayrollApi {
       }
       if (minPunchIntervalMinutes != null) {
         body['minPunchIntervalMinutes'] = minPunchIntervalMinutes;
+      }
+      if (autoApproveNewDevices != null) {
+        body['autoApproveNewDevices'] = autoApproveNewDevices;
       }
 
       final response = await http

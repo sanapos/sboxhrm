@@ -46,6 +46,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   MobileAttendanceSettings _settings = MobileAttendanceSettings();
   /// Bản đã lưu trên server — so sánh để báo «có thay đổi chưa lưu».
   MobileAttendanceSettings? _savedSettings;
+  /// «Tự duyệt máy mới» lưu ngay khi bật / tắt (model dùng chung chưa có trường này).
+  bool _autoApproveNewDevices = false;
   
   // Data
   List<WorkLocation> _locations = [];
@@ -287,6 +289,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         final data = results[0]['data'];
         if (data is Map<String, dynamic>) {
           _settings = MobileAttendanceSettings.fromJson(data);
+          _autoApproveNewDevices = data['autoApproveNewDevices'] == true;
         }
       }
 
@@ -632,6 +635,23 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           value: _settings.autoApproveInRange,
           enabled: canEdit,
           onChanged: (v) => _updateSettings(_settings.copyWith(autoApproveInRange: v)),
+        ),
+        _switchRow(
+          title: 'Tự duyệt máy mới',
+          subtitle: _autoApproveNewDevices
+              ? 'Nhân viên đăng ký hoặc đổi máy là chấm công được ngay, không chờ duyệt'
+              : 'Máy mới đăng ký hoặc đổi máy phải chờ quản lý duyệt',
+          value: _autoApproveNewDevices,
+          enabled: canEdit,
+          onChanged: (v) async {
+            setState(() => _autoApproveNewDevices = v);
+            final r = await _apiService.updateMobileAttendanceSettings(autoApproveNewDevices: v);
+            if (!mounted) return;
+            if (r['isSuccess'] != true) {
+              setState(() => _autoApproveNewDevices = !v);
+              appNotification.showError(title: 'Lỗi', message: r['message']?.toString() ?? 'Không lưu được');
+            }
+          },
         ),
         _switchRow(
           title: 'Ảnh hiện trường khi chấm ngoài công ty',

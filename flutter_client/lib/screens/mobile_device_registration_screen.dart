@@ -685,9 +685,13 @@ class _MobileDeviceRegistrationScreenState
       if (!mounted) return;
 
       if (response['isSuccess'] == true) {
-        _showSnackBar('Đăng ký thành công! Chờ quản lý duyệt.');
+        // Cửa hàng bật «Tự duyệt máy mới»: máy chủ duyệt ngay, chấm công được luôn.
+        final autoApproved = (response['data'] as Map?)?['status'] == 'approved';
+        _showSnackBar(autoApproved
+            ? 'Đăng ký thành công! Thiết bị đã được duyệt.'
+            : 'Đăng ký thành công! Chờ quản lý duyệt.');
         setState(() {
-          _status = _RegStatus.pending;
+          _status = autoApproved ? _RegStatus.approved : _RegStatus.pending;
           _registeredDeviceName = _deviceName;
           _registeredAt = DateTime.now();
           _capturedImages.clear();
@@ -806,9 +810,12 @@ class _MobileDeviceRegistrationScreenState
       if (!mounted) return;
 
       if (response['isSuccess'] == true) {
-        _showSnackBar('Yêu cầu đổi máy đã được gửi. Chờ quản lý duyệt.');
+        final autoApproved = (response['data'] as Map?)?['status'] == 'approved';
+        _showSnackBar(autoApproved
+            ? 'Đã đổi sang máy này và được duyệt. Bạn có thể chấm công.'
+            : 'Yêu cầu đổi máy đã được gửi. Chờ quản lý duyệt.');
         setState(() {
-          _status = _RegStatus.pendingDeviceChange;
+          _status = autoApproved ? _RegStatus.approved : _RegStatus.pendingDeviceChange;
           _registeredDeviceName = _deviceName;
           _capturedImages.clear();
           _changeRequestReason = null;

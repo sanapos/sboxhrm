@@ -29,6 +29,9 @@ public class MobileAttendanceSetting : AuditableEntity<Guid>
     public bool AutoApproveInRange { get; set; } = true;
     public bool AllowManualApproval { get; set; } = true;
 
+    /// <summary>Tự duyệt máy mới khi nhân viên đăng ký / đổi máy (mặc định tắt: chờ quản lý duyệt).</summary>
+    public bool AutoApproveNewDevices { get; set; }
+
     public int MaxPhotosPerRegistration { get; set; } = 5;
     public int MaxPunchesPerDay { get; set; } = 4;
     public bool RequirePhotoProof { get; set; }

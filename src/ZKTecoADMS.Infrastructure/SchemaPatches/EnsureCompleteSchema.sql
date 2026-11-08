@@ -1279,6 +1279,7 @@ ALTER TABLE "MobileAttendanceRecords" ADD COLUMN IF NOT EXISTS "EvidencePurgedAt
 ALTER TABLE "AuthorizedMobileDevices" ADD COLUMN IF NOT EXISTS "RequireOutsideReason" boolean NOT NULL DEFAULT false;
 ALTER TABLE "MobileAttendanceSettings" ADD COLUMN IF NOT EXISTS "AutoApproveTrusted" boolean NOT NULL DEFAULT true;
 ALTER TABLE "MobileAttendanceSettings" ADD COLUMN IF NOT EXISTS "TrustedMaxDistanceMeters" integer NOT NULL DEFAULT 300;
+ALTER TABLE "MobileAttendanceSettings" ADD COLUMN IF NOT EXISTS "AutoApproveNewDevices" boolean NOT NULL DEFAULT false;
 ALTER TABLE "MobileAttendanceSettings" ADD COLUMN IF NOT EXISTS "TrustedMinFaceScore" double precision NOT NULL DEFAULT 85;
 ALTER TABLE "MobileAttendanceSettings" ADD COLUMN IF NOT EXISTS "EvidenceRetentionDays" integer NOT NULL DEFAULT 30;
 UPDATE "MobileAttendanceRecords" SET "IsOutside" = true WHERE "IsOutside" = false AND "Status" = 'pending' AND "WifiBssid" IS NULL AND "DistanceFromLocation" IS NOT NULL AND "DistanceFromLocation" > 100;

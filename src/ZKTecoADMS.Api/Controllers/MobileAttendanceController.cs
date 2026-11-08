@@ -383,6 +383,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
                 minPunchIntervalMinutes = 5,
+                autoApproveNewDevices = false,
 
 
             }));
@@ -437,6 +438,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
             minPunchIntervalMinutes = settings.MinPunchIntervalMinutes,
+            autoApproveNewDevices = settings.AutoApproveNewDevices,
 
 
         }));
@@ -651,6 +653,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
         if (request.MinPunchIntervalMinutes.HasValue) settings.MinPunchIntervalMinutes = request.MinPunchIntervalMinutes.Value;
+        if (request.AutoApproveNewDevices.HasValue) settings.AutoApproveNewDevices = request.AutoApproveNewDevices.Value;
 
 
 
@@ -2164,6 +2167,13 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             .Select(x => (bool?)x.EnableFaceId)
             .FirstOrDefaultAsync() ?? true;
 
+    /// <summary>Cửa hàng bật «Tự duyệt máy mới» (chưa có cài đặt = tắt).</summary>
+    private async Task<bool> IsAutoApproveNewDevicesAsync(Guid storeId) =>
+        await _dbContext.MobileAttendanceSettings.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.Deleted == null)
+            .Select(x => (bool?)x.AutoApproveNewDevices)
+            .FirstOrDefaultAsync() ?? false;
+
     [HttpPost("register-device")]
 
 
@@ -2528,6 +2538,14 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+            // Cửa hàng bật «Tự duyệt máy mới»: máy và khuôn mặt được duyệt ngay, nhân viên chấm công được luôn.
+            var autoApprove = await IsAutoApproveNewDevicesAsync(storeId);
+            if (autoApprove && existingFace != null)
+            {
+                existingFace.IsVerified = true;
+                existingFace.LastVerifiedAt = DateTime.UtcNow;
+            }
+
             // Create device (pending approval - IsAuthorized = false)
 
 
@@ -2561,7 +2579,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 EmployeeName = employeeName,
 
 
-                IsAuthorized = false,
+                IsAuthorized = autoApprove,
 
 
                 CanUseFaceId = true,
@@ -2589,6 +2607,8 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
             _dbContext.AuthorizedMobileDevices.Add(newDevice);
+            if (autoApprove)
+                await SyncEmployeeLocationsFromDeviceAsync(storeId, newDevice, approved: true);
 
 
 
@@ -2647,13 +2667,14 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         managerId,
 
 
-                        NotificationType.ApprovalRequired,
+                        autoApprove ? NotificationType.Info : NotificationType.ApprovalRequired,
 
 
-                        "Đăng ký thiết bị chấm công mới",
+                        autoApprove ? "Thiết bị chấm công được tự duyệt" : "Đăng ký thiết bị chấm công mới",
 
 
-                        $"{employeeName} đăng ký thiết bị \"{request.DeviceName}\" ({request.DeviceModel}) — cần duyệt",
+                        $"{employeeName} đăng ký thiết bị \"{request.DeviceName}\" ({request.DeviceModel}) — "
+                            + (autoApprove ? "đã tự duyệt theo thiết lập cửa hàng" : "cần duyệt"),
 
 
                         relatedEntityType: "AuthorizedMobileDevice",
@@ -2692,10 +2713,12 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         NotificationType.Info,
 
 
-                        "Đã gửi đăng ký thiết bị",
+                        autoApprove ? "Thiết bị đã được duyệt" : "Đã gửi đăng ký thiết bị",
 
 
-                        "Yêu cầu đăng ký thiết bị chấm công đã được gửi. Vui lòng chờ quản lý duyệt.",
+                        autoApprove
+                            ? "Thiết bị chấm công đã được duyệt tự động. Bạn có thể chấm công ngay."
+                            : "Yêu cầu đăng ký thiết bị chấm công đã được gửi. Vui lòng chờ quản lý duyệt.",
 
 
                         relatedEntityType: "AuthorizedMobileDevice",
@@ -2746,10 +2769,11 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 faceRegistrationId = existingFace?.Id.ToString(),
 
 
-                status = "pending",
+                status = autoApprove ? "approved" : "pending",
+                autoApproved = autoApprove,
 
 
-                message = "Đăng ký thành công! Chờ quản lý duyệt.",
+                message = autoApprove ? "Đăng ký thành công! Thiết bị đã được duyệt tự động." : "Đăng ký thành công! Chờ quản lý duyệt.",
 
 
                 wifiBssid = request.WifiBssid,
@@ -3475,6 +3499,38 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
             return BadRequest(AppResponse<object>.Fail("Chưa có thiết bị đăng ký. Vui lòng đăng ký thiết bị mới."));
+
+        // Cửa hàng bật «Tự duyệt máy mới»: bỏ máy cũ, đăng ký máy mới ngay, không tạo yêu cầu chờ duyệt.
+        // Trong một giao dịch: đăng ký máy mới lỗi thì máy cũ vẫn còn.
+        if (await IsAutoApproveNewDevicesAsync(storeId))
+        {
+            await using var autoTx = await _dbContext.Database.BeginTransactionAsync();
+            var oldDevice = await _dbContext.AuthorizedMobileDevices.AsTracking()
+                .FirstAsync(x => x.Id == existingDevice.Id);
+            oldDevice.Deleted = DateTime.UtcNow;
+            oldDevice.DeletedBy = CurrentUserEmail;
+            await _dbContext.SaveChangesAsync();
+            var registered = await RegisterDeviceWithFace(new RegisterDeviceWithFaceRequest
+            {
+                DeviceId = request.NewDeviceId,
+                DeviceName = request.NewDeviceName,
+                DeviceModel = request.NewDeviceModel,
+                OsVersion = request.NewOsVersion,
+                EmployeeId = employeeId,
+                EmployeeName = employeeName,
+                FaceImages = request.FaceImages,
+                WifiBssid = request.NewWifiBssid,
+                SelectedWorkLocationIds = request.SelectedWorkLocationIds,
+            });
+            if (registered is OkObjectResult)
+                await autoTx.CommitAsync();
+            else
+            {
+                await autoTx.RollbackAsync();
+                _dbContext.ChangeTracker.Clear();
+            }
+            return registered;
+        }
 
 
 
@@ -9429,6 +9485,7 @@ public class UpdateMobileSettingsRequest
 
 
     public bool? AllowManualApproval { get; set; }
+    public bool? AutoApproveNewDevices { get; set; }
 
 
     public int? MaxPunchesPerDay { get; set; }

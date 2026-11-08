@@ -641,6 +641,7 @@ public class ZKTecoDbInitializer(
                             ALTER TABLE ""MobileAttendanceSettings"" ADD COLUMN IF NOT EXISTS ""MinPunchIntervalMinutes"" INTEGER NOT NULL DEFAULT 5;
                             ALTER TABLE ""MobileAttendanceSettings"" ADD COLUMN IF NOT EXISTS ""EnableWifi"" BOOLEAN NOT NULL DEFAULT false;
                             ALTER TABLE ""MobileAttendanceSettings"" ADD COLUMN IF NOT EXISTS ""VerificationMode"" VARCHAR(10) NOT NULL DEFAULT 'all';
+                            ALTER TABLE ""MobileAttendanceSettings"" ADD COLUMN IF NOT EXISTS ""AutoApproveNewDevices"" BOOLEAN NOT NULL DEFAULT false;
                         END IF;
                         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AuthorizedMobileDevices') THEN
                             ALTER TABLE ""AuthorizedMobileDevices"" ADD COLUMN IF NOT EXISTS ""RequirePhotoProof"" BOOLEAN NOT NULL DEFAULT false;
