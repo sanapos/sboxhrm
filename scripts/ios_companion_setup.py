@@ -31,6 +31,10 @@ STAFF_USAGE = {
     "NSBluetoothAlwaysUsageDescription": "Bluetooth dùng để kết nối máy in khi bạn gọi món.",
     "NSBluetoothPeripheralUsageDescription": "Bluetooth dùng để kết nối máy in khi bạn gọi món.",
     "NSFaceIDUsageDescription": "Face ID dùng để đăng nhập nhanh vào SBOX Nhân Viên thay cho mật khẩu, chỉ khi bạn bật trong Cài đặt.",
+    # Info.plist dùng chung ghi micro / thư viện ảnh cho Trợ lý AI, ảnh sản phẩm: Nhân Viên không có các chức năng đó.
+    "NSMicrophoneUsageDescription": "Micro chỉ dùng khi bạn bấm nút micro để nhập bằng giọng nói. Ứng dụng không ghi âm nền.",
+    "NSSpeechRecognitionUsageDescription": "Nhận dạng giọng nói chuyển lời bạn nói thành chữ, chỉ khi bạn bấm nút micro.",
+    "NSPhotoLibraryUsageDescription": "Thư viện ảnh dùng để chọn ảnh đại diện, ảnh chứng từ, hóa đơn đính kèm đơn từ và góp ý, chỉ khi bạn chủ động chọn ảnh.",
     # Apple đòi câu cho API «luôn luôn» vì thư viện vị trí có tham chiếu (ITMS-90683), dù app chỉ xin quyền khi đang dùng.
     "NSLocationAlwaysAndWhenInUseUsageDescription": "SBOX Nhân Viên không dùng vị trí khi chạy nền. Vị trí chỉ được lấy khi bạn đang mở ứng dụng: lúc chấm công, check-in và định kỳ nếu cửa hàng bật Bản đồ nhân sự.",
     "NSLocationAlwaysUsageDescription": "SBOX Nhân Viên không dùng vị trí khi chạy nền. Vị trí chỉ được lấy khi bạn đang mở ứng dụng: lúc chấm công, check-in và định kỳ nếu cửa hàng bật Bản đồ nhân sự.",

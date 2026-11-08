@@ -8911,7 +8911,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (_serverReachable) return false;
       NotificationOverlayManager().showError(
         title: 'Mất mạng — chưa mở được bàn này',
-        message: tr('Bàn đang có đơn trên máy chủ — cần có mạng để mở. Bàn trống mở được offline (máy Android đã bật bán offline).'),
+        message: tr('Bàn đang có đơn trên máy chủ — cần có mạng để mở. Bàn trống vẫn mở được khi máy đã bật bán offline.'),
       );
       return true;
     }
@@ -9110,7 +9110,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!ok) {
       NotificationOverlayManager().showError(
         title: 'Mất mạng — không in được phiếu bếp',
-        message: tr('Máy này không có máy in bếp nội bộ đang kết nối (LAN / USB / Sunmi). Giỏ hàng vẫn giữ trên máy.'),
+        message: tr('Máy này không có máy in bếp nội bộ đang kết nối (LAN / USB / máy in gắn sẵn). Giỏ hàng vẫn giữ trên máy.'),
       );
       return;
     }

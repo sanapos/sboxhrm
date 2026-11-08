@@ -267,7 +267,7 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
             padding: const EdgeInsets.all(16),
             child: Text(
               tr(widget.continuous
-                  ? 'Đưa mã vào tâm khung — chạm màn hình để lấy nét. Ưu tiên quét cứng Sunmi nếu có.'
+                  ? 'Đưa mã vào tâm khung — chạm màn hình để lấy nét. Ưu tiên đầu quét gắn sẵn trên máy nếu có.'
                   : 'Đưa mã vào tâm khung · chạm màn hình để lấy nét nhanh hơn'),
               textAlign: TextAlign.center,
               style: const TextStyle(color: SboxColors.slate500),

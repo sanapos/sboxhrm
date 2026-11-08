@@ -259,6 +259,9 @@ class _LoginScreenState extends State<LoginScreen>
           storeCode: storeCode, email: email, password: password);
       return;
     }
+    // iOS: không mời bật ngay sau đăng nhập — hộp tự làm đứng trước hộp Face ID của hệ thống (Apple 5.1.1(iv)).
+    // Người dùng bật trong Cài đặt, đúng như câu NSFaceIDUsageDescription.
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) return;
     if (await bio.wasDeclined(storeCode, email)) return;
     final label = await bio.loginLabel();
     if (!mounted) return;
