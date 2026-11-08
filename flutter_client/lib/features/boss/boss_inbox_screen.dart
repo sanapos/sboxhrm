@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'boss_icon_badge.dart';
 import 'boss_load_error.dart';
 
+import '../../config/sbox_app_variant.dart';
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
@@ -140,9 +141,16 @@ class _BossInboxScreenState extends State<BossInboxScreen> with WidgetsBindingOb
     setState(() {
       if (r['isSuccess'] == true && r['data'] is Map) {
         final d = r['data'] as Map;
-        _items = [for (final it in (d['items'] as List? ?? const [])) if (it is Map) Map<String, dynamic>.from(it)];
+        _items = [
+          for (final it in (d['items'] as List? ?? const []))
+            // BOSS iOS không có chấm công điện thoại (App Store 2.3.1): bỏ loại việc này.
+            if (it is Map && !(it['kind'] == 'mobileAttendance' && SboxAppVariant.hidesModule('MobileAttendance')))
+              Map<String, dynamic>.from(it),
+        ];
         _counts = {
-          for (final e in ((d['counts'] as Map?) ?? const {}).entries) '${e.key}': (e.value as num).toInt(),
+          for (final e in ((d['counts'] as Map?) ?? const {}).entries)
+            if (!(e.key == 'mobileAttendance' && SboxAppVariant.hidesModule('MobileAttendance')))
+              '${e.key}': (e.value as num).toInt(),
         };
         _selected.removeWhere((k) => !_items.any((it) => _key(it) == k));
         _error = null;

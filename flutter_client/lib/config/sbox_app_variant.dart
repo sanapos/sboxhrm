@@ -120,13 +120,17 @@ abstract final class SboxAppVariant {
   }
 
   /// Chính sách / trợ giúp trong SBOX POS iOS: bỏ phần khuôn mặt, vị trí, chấm công (app không có).
-  static String stripIosPosLegal(String s) {
+  /// [keepHr]: SBOX BOSS iOS có chấm công / nhân sự nhưng không có khuôn mặt, vị trí.
+  static String stripIosPosLegal(String s, {bool keepHr = false}) {
     final kept = <String>[];
     var skipLevel = 0;
     var section = 0;
+    final topic = RegExp(keepHr ? 'khuôn mặt|vị trí|GPS|sinh trắc' : 'khuôn mặt|vị trí|nhân sự', caseSensitive: false);
+    final drop = RegExp(keepHr ? 'khuôn mặt|vị trí|GPS|sinh trắc|Gemini|Trợ lý ảo' :'khuôn mặt|vị trí|GPS|sinh trắc|chấm công',
+        caseSensitive: false);
     for (final line in s.split('\n')) {
       final heading = RegExp(r'^(#{2,3}) ').firstMatch(line);
-      final hrTopic = RegExp('khuôn mặt|vị trí|nhân sự', caseSensitive: false).hasMatch(line);
+      final hrTopic = topic.hasMatch(line);
       if (heading != null) {
         final level = heading.group(1)!.length;
         if (skipLevel != 0 && level > skipLevel) continue;
@@ -134,7 +138,7 @@ abstract final class SboxAppVariant {
         if (hrTopic) continue;
       }
       if (skipLevel != 0) continue;
-      if (RegExp('khuôn mặt|vị trí|GPS|sinh trắc|chấm công', caseSensitive: false).hasMatch(line)) continue;
+      if (drop.hasMatch(line)) continue;
       final numbered = RegExp(r'^## \d+\. (.*)$').firstMatch(line);
       kept.add(numbered == null ? line : '## ${++section}. ${numbered.group(1)}');
     }
@@ -145,6 +149,9 @@ abstract final class SboxAppVariant {
   static String rebrandLegal(String s) {
     if (iosPosApp) return stripIosPosLegal(s);
     if (!companionApp) return s;
+    if (bossApp && iosStoreApp) {
+      s = stripIosPosLegal(s, keepHr: true).replaceAll('**Cài đặt → Xóa tài khoản**', '**Thêm → Xóa tài khoản**');
+    }
     return s
         .replaceAll(
           'phần mềm quản lý nhân sự **SBOX HRM** và phần mềm bán hàng **SBOX POS**',

@@ -23,7 +23,11 @@ BOSS_USAGE = {
     "NSLocalNetworkUsageDescription": "Mạng nội bộ dùng để tìm và kết nối máy in, màn hình bếp trong cùng WiFi cửa hàng.",
     "NSBluetoothAlwaysUsageDescription": "Bluetooth dùng để kết nối máy in hóa đơn và máy in tem.",
     "NSBluetoothPeripheralUsageDescription": "Bluetooth dùng để kết nối máy in hóa đơn và máy in tem.",
-    "NSFaceIDUsageDescription": "Face ID dùng để đăng nhập nhanh vào SBOX BOSS thay cho mật khẩu, chỉ khi bạn bật trong Cài đặt.",
+    "NSFaceIDUsageDescription": "Face ID dùng để đăng nhập nhanh vào SBOX BOSS thay cho mật khẩu, chỉ khi bạn đồng ý bật sau khi đăng nhập.",
+    "NSPhotoLibraryUsageDescription": "Thư viện ảnh dùng để chọn ảnh hàng hóa, ảnh nhân viên, logo cửa hàng hoặc chứng từ khi bạn chủ động chọn.",
+    # Thư viện nhập giọng nói dùng chung có trong gói nên Apple đòi câu này; BOSS không có Trợ lý AI, không dùng micro.
+    "NSMicrophoneUsageDescription": "SBOX BOSS không dùng micro và không ghi âm.",
+    "NSSpeechRecognitionUsageDescription": "SBOX BOSS không dùng nhận dạng giọng nói.",
 }
 STAFF_USAGE = {
     "NSCameraUsageDescription": "Camera dùng để chấm công bằng khuôn mặt khi bạn bấm Chấm công, đăng ký khuôn mặt và chụp ảnh hiện trường, chứng từ. Ứng dụng không quay video nền.",
