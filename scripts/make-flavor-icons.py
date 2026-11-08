@@ -28,8 +28,9 @@ FLAVORS = {
     "kds": dict(bg=("#B23A0E", "#FF9A4A"), s=("#FFE6D6", "#FFFFFF")),
     # SBOX POS giữ logo chữ assets/sbox_pos_logo.png, chỉ thêm icon và logo chữ S (sbox_pos_mark.png).
     "pos": dict(bg=("#1B5E20", "#66BB6A"), s=("#E3F4E4", "#FFFFFF")),
-    # SBOX HRM (bản mặc định: android/main, bộ AppIcon iOS của Runner, assets/logo.png): nền xanh dương, S trắng.
-    "hrm": dict(bg=("#1230C8", "#45A6FA"), s=("#DCE9FF", "#FFFFFF")),
+    # SBOX HRM (bản mặc định: android/main, bộ AppIcon iOS của Runner, assets/logo.png, icon web): màu chủ đạo của app
+    # (brand700 #0B6A91 → brand400 #3FA6D2 trong sbox_tokens.dart), chữ S trắng.
+    "hrm": dict(bg=("#0B6A91", "#3FA6D2"), s=("#DDF1FA", "#FFFFFF")),
 }
 IOS_FLAVORS = {"pos", "boss", "staff"}
 IOS_APPICON = CLIENT / "ios" / "Runner" / "Assets.xcassets" / "AppIcon.appiconset"
