@@ -989,7 +989,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       return;
     }
 
-    if ((_settings?.enableGps ?? true) && !_hasGpsPosition) {
+    // «Chỉ cần đạt 1»: khuôn mặt đã khớp thì không bắt buộc vị trí (máy chủ cũng chấp nhận).
+    final faceAloneEnough = _settings?.verificationMode == 'any' &&
+        (_settings?.enableFaceId ?? false) &&
+        _isFaceVerified;
+    if ((_settings?.enableGps ?? true) && !_hasGpsPosition && !faceAloneEnough) {
       _showError(
           'Vui lòng bật GPS và cho phép quyền vị trí trước khi chấm công.');
       return;
@@ -1015,8 +1019,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         employeeId: _employeeId,
         employeeName: _employeeName,
         punchType: punchType,
-        latitude: _currentLatitude!,
-        longitude: _currentLongitude!,
+        latitude: _currentLatitude ?? 0,
+        longitude: _currentLongitude ?? 0,
         faceImage: _faceImageBase64 ?? '',
         distanceFromLocation: _distanceFromOffice,
         faceMatchScore: _faceMatchScore,
@@ -1039,8 +1043,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           employeeId: _employeeId,
           employeeName: _employeeName,
           punchType: punchType,
-          latitude: _currentLatitude!,
-          longitude: _currentLongitude!,
+          latitude: _currentLatitude ?? 0,
+          longitude: _currentLongitude ?? 0,
           faceImage: _faceImageBase64 ?? '',
           distanceFromLocation: _distanceFromOffice,
           faceMatchScore: _faceMatchScore,
@@ -1113,8 +1117,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               employeeId: _employeeId,
               employeeName: _employeeName,
               punchType: punchType,
-              latitude: _currentLatitude!,
-              longitude: _currentLongitude!,
+              latitude: _currentLatitude ?? 0,
+              longitude: _currentLongitude ?? 0,
               faceImage: _faceImageBase64 ?? '',
               distanceFromLocation: _distanceFromOffice,
               faceMatchScore: _faceMatchScore,

@@ -19,6 +19,7 @@ import '../services/signalr_service.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../config/sbox_app_variant.dart';
 import '../theme/sbox_tokens.dart';
 import '../utils/api_datetime.dart';
 class MobileDeviceRegistrationScreen extends StatefulWidget {
@@ -990,7 +991,7 @@ class _MobileDeviceRegistrationScreenState
                         ]),
                         const SizedBox(height: 8),
                         Text(
-                          tr('Mỗi tài khoản dùng 1 điện thoại. Quản lý duyệt xong là bạn chấm công được ngay trên máy này.'),
+                          tr('Mỗi tài khoản dùng 1 điện thoại. Máy được duyệt là bạn chấm công được ngay trên máy này.'),
                           style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: 13, height: 1.45),
                         ),
                         const SizedBox(height: 14),
@@ -1092,7 +1093,7 @@ class _MobileDeviceRegistrationScreenState
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Text(
                 tr(missing.isEmpty
-                    ? 'Sẵn sàng gửi — quản lý sẽ nhận thông báo để duyệt.'
+                    ? 'Sẵn sàng gửi đăng ký.'
                     : 'Còn thiếu: ${missing.join(', ')}'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -1473,7 +1474,9 @@ class _MobileDeviceRegistrationScreenState
             const Icon(Icons.phone_android,
                 size: 28, color: HrmPageChrome.primaryNavy),
             const SizedBox(height: 8),
-            Text(tr('Mở "Chấm công Mobile" trong menu để bắt đầu'),
+            Text(tr(SboxAppVariant.staffApp
+                    ? 'Bấm «Chấm công» ở Trang chủ để bắt đầu'
+                    : 'Mở "Chấm công Mobile" trong menu để bắt đầu'),
               style: TextStyle(
                 color: HrmPageChrome.primaryNavy,
                 fontWeight: FontWeight.w600,
