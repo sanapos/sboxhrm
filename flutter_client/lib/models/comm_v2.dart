@@ -28,6 +28,9 @@ const _typeNames = {
 /// Trạng thái bài từ dữ liệu API (tên hoặc số).
 CommStatus commStatusOf(dynamic v) =>
     CommStatus.values[_enum(v, _statusNames).clamp(0, CommStatus.values.length - 1)];
+/// Ngày giờ từ máy chủ (UTC không kèm «Z») → giờ máy.
+DateTime? commServerTime(dynamic v) => _dt(v);
+
 DateTime? _dt(dynamic v) {
   if (v == null) return null;
   final d = DateTime.tryParse('$v');

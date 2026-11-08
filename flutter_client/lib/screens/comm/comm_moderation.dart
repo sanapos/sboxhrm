@@ -391,7 +391,7 @@ class _CommReportsPageState extends State<CommReportsPage> {
 
   Widget _card(Map<String, dynamic> row) {
     final isComment = row['commentId'] != null;
-    final at = DateTime.tryParse('${row['createdAt']}')?.toLocal();
+    final at = commServerTime(row['createdAt']);
     final status = (row['status'] as num?)?.toInt() ?? 0;
     final exists = row['contentExists'] == true;
     final note = '${row['note'] ?? ''}'.trim();
@@ -402,8 +402,13 @@ class _CommReportsPageState extends State<CommReportsPage> {
         Row(children: [
           SboxStatusChip(label: isComment ? 'Bình luận' : 'Bài viết', icon: isComment ? Icons.chat_bubble_outline : Icons.article_outlined),
           const SizedBox(width: 6),
-          Flexible(child: SboxStatusChip(label: commReportReasonLabel('${row['reason']}'), tone: SboxTone.danger)),
-          const Spacer(),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SboxStatusChip(label: commReportReasonLabel('${row['reason']}'), tone: SboxTone.danger),
+            ),
+          ),
+          const SizedBox(width: 8),
           if (at != null) Text(commTimeAgo(at), style: SboxType.captionStyle()),
         ]),
         const SizedBox(height: 10),
