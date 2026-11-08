@@ -138,12 +138,29 @@ def main():
                 px = Image.open(icon).width
                 full.resize((px, px), Image.LANCZOS).save(icon, optimize=True)
             square.save(CLIENT / "assets" / "logo.png", optimize=True)
+            write_web_icons(badge, cfg, square)
         else:
             square.resize((512, 512), Image.LANCZOS).save(CLIENT / "assets" / ("sbox_pos_mark.png" if flavor == "pos" else f"sbox_{flavor}_logo.png"), optimize=True)
         results[flavor] = (square, round_icon, store)
     write_status_icon(badge)
     if len(sys.argv) > 1:
         preview(results, Path(sys.argv[1]))
+
+
+def write_web_icons(badge, cfg, square):
+    """Icon web (sboxhrm.com và sboxpos.com dùng chung web/): favicon, icon PWA thường và maskable."""
+    web = CLIENT / "web"
+    for px in (192, 512):
+        square.resize((px, px), Image.LANCZOS).save(web / "icons" / f"Icon-{px}.png", optimize=True)
+    # Maskable: trình duyệt / Android tự cắt theo hình của máy, chữ S phải nằm trong vùng an toàn (vòng tròn 80%).
+    letter = letter_layer(badge, cfg)
+    shrunk = letter.resize((int(SIZE * 0.78),) * 2, Image.LANCZOS)
+    layer = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    layer.paste(shrunk, ((SIZE - shrunk.width) // 2,) * 2)
+    maskable = Image.alpha_composite(gradient(cfg), layer).convert("RGB")
+    for px in (192, 512):
+        maskable.resize((px, px), Image.LANCZOS).save(web / "icons" / f"Icon-maskable-{px}.png", optimize=True)
+    square.resize((48, 48), Image.LANCZOS).save(web / "favicon.png", optimize=True)
 
 
 def write_status_icon(badge):
