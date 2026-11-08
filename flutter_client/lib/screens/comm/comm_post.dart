@@ -10,6 +10,7 @@ import '../../services/api_service.dart';
 import '../../services/signalr_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'comm_common.dart';
+import 'comm_moderation.dart';
 import '../../theme/sbox_tokens.dart';
 
 /// Kết quả đóng trang chi tiết: bài đã cập nhật, bài bị xóa, hoặc cần tải lại.
@@ -165,8 +166,17 @@ class _CommPostCardState extends State<CommPostCard> {
     }
   }
 
+  bool get _mine => p.authorId == widget.ctx.myUserId;
+
   Future<void> _menu(String v) async {
     switch (v) {
+      case 'report':
+        if (await showCommReportSheet(context, postId: p.id) && mounted) (widget.onRemoved ?? widget.onChanged)();
+      case 'block':
+        if (await confirmCommBlock(context, p.authorId, p.authorName) && mounted) {
+          // Bảng tin: tải lại để bỏ mọi bài của người bị chặn; trang chi tiết: đóng bài.
+          (widget.expanded ? (widget.onRemoved ?? widget.onChanged) : widget.onChanged)();
+        }
       case 'edit':
         widget.onEdit?.call();
       case 'link':
@@ -223,6 +233,7 @@ class _CommPostCardState extends State<CommPostCard> {
   Future<void> _sendComment() async {
     final text = _comment.text.trim();
     if (text.isEmpty || _sending) return;
+    if (!await ensureCommTerms(context, widget.ctx.myUserId) || !mounted) return;
     setState(() => _sending = true);
     final r = await _api.addCommComment(p.id, text);
     if (!mounted) return;
@@ -235,6 +246,19 @@ class _CommPostCardState extends State<CommPostCard> {
     setState(() {
       p.comments++;
       if (r['data'] is Map) p.latestComments.add(CommComment.fromJson(Map<String, dynamic>.from(r['data'] as Map)));
+    });
+  }
+
+  Future<void> _moderateComment(CommComment c) async {
+    final done = await showCommCommentModeration(context, c);
+    if (done == null || !mounted) return;
+    if (done == 'blocked') {
+      widget.onChanged();
+      return;
+    }
+    setState(() {
+      p.latestComments.removeWhere((x) => x.id == c.id || x.parentCommentId == c.id);
+      p.comments = (p.comments - 1).clamp(0, 1 << 30);
     });
   }
 
@@ -351,6 +375,7 @@ class _CommPostCardState extends State<CommPostCard> {
                   compact: true,
                   onLike: () => _likeComment(c),
                   onReply: widget.onOpen,
+                  onReport: c.userId == widget.ctx.myUserId ? null : () => _moderateComment(c),
                 ),
               if (p.allowComments) _inlineBox(),
             ]),
@@ -442,7 +467,7 @@ class _CommPostCardState extends State<CommPostCard> {
           itemBuilder: (_) => [
             _item('save', p.mySaved ? Icons.bookmark : Icons.bookmark_border, p.mySaved ? 'Bỏ lưu' : 'Lưu bài'),
             if (p.status == CommStatus.published) _item('link', Icons.link_rounded, 'Sao chép liên kết'),
-            if (p.canEdit && widget.onEdit != null) _item('edit', Icons.edit_outlined, 'Sửa bài'),
+            if (p.canEdit && widget.onEdit != null && !commComposeHidden) _item('edit', Icons.edit_outlined, 'Sửa bài'),
             if (_moderator && p.status == CommStatus.published) _item('pin', Icons.push_pin_outlined, p.isPinned ? 'Bỏ ghim' : 'Ghim lên đầu'),
             if (p.canEdit && p.status == CommStatus.published) _item('readers', Icons.fact_check_outlined, 'Ai đã đọc'),
             if (_moderator && p.status == CommStatus.pendingApproval) ...[
@@ -450,6 +475,10 @@ class _CommPostCardState extends State<CommPostCard> {
               _item('reject', Icons.block_outlined, 'Từ chối'),
             ],
             if (p.canEdit) _item('delete', Icons.delete_outline, 'Xóa bài', danger: true),
+            if (!_mine && p.status == CommStatus.published) ...[
+              _item('report', Icons.flag_outlined, 'Báo cáo bài viết', danger: true),
+              _item('block', Icons.block_rounded, 'Chặn ${p.authorName ?? 'người đăng'}', danger: true),
+            ],
           ],
         ),
       ]),
@@ -854,6 +883,7 @@ class CommCommentBubble extends StatelessWidget {
     this.onReply,
     this.onEdit,
     this.onDelete,
+    this.onReport,
     this.compact = false,
   });
 
@@ -862,6 +892,8 @@ class CommCommentBubble extends StatelessWidget {
   final VoidCallback? onReply;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  /// Bình luận của người khác: báo cáo / chặn người viết.
+  final VoidCallback? onReport;
   final bool compact;
 
   @override
@@ -925,6 +957,7 @@ class CommCommentBubble extends StatelessWidget {
                 if (onReply != null) action('Trả lời', onReply),
                 if (onEdit != null && c.canEdit) action('Sửa', onEdit, weight: FontWeight.w500),
                 if (onDelete != null && c.canDelete) action('Xóa', onDelete, color: SboxColors.slate500, weight: FontWeight.w500),
+                if (onReport != null) action('Báo cáo', onReport, color: SboxColors.slate500, weight: FontWeight.w500),
               ]),
             ),
           ]),
@@ -1180,6 +1213,7 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
   Future<void> _send() async {
     final text = _input.text.trim();
     if (text.isEmpty || _sending) return;
+    if (!await ensureCommTerms(context, widget.ctx.myUserId) || !mounted) return;
     final mentionIds = _mentions.entries.where((e) => text.contains('@${e.key}')).map((e) => e.value).toList();
     final parent = _replyTo?.parentCommentId ?? _replyTo?.id;
     setState(() => _sending = true);
@@ -1246,6 +1280,18 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
     if (!mounted || r['isSuccess'] == true) return;
     setState(() => c.content = before);
     commToast(context, '${r['message']}', error: true);
+  }
+
+  /// Báo cáo bình luận → bỏ bình luận đó (và phản hồi); chặn người viết → bỏ mọi bình luận của họ.
+  Future<void> _moderate(CommComment c) async {
+    final done = await showCommCommentModeration(context, c);
+    if (done == null || !mounted) return;
+    _result = true;
+    setState(() {
+      final gone = _comments.where((x) => done == 'blocked' ? x.userId == c.userId : x.id == c.id).map((x) => x.id).toSet();
+      _comments.removeWhere((x) => gone.contains(x.id) || gone.contains(x.parentCommentId));
+      _post?.comments = _comments.length;
+    });
   }
 
   Future<void> _delete(CommComment c) async {
@@ -1367,6 +1413,7 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
           onReply: () => reply(x),
           onEdit: () => _edit(x),
           onDelete: () => _delete(x),
+          onReport: x.userId == widget.ctx.myUserId ? null : () => _moderate(x),
         );
     return [
       bubble(c),

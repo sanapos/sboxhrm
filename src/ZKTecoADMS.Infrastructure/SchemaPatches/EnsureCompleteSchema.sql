@@ -1685,3 +1685,38 @@ ALTER TABLE "PosPrintJobs" ADD COLUMN IF NOT EXISTS "KitchenLinesReverted" boole
 -- Phiên bàn vừa chuyển / gộp từ bàn khác: QR gọi món ở bàn cũ đi theo sang bàn mới.
 ALTER TABLE "PosResourceSessions" ADD COLUMN IF NOT EXISTS "MovedFromResourceId" uuid NULL;
 ALTER TABLE "PosResourceSessions" ADD COLUMN IF NOT EXISTS "MovedFromAt" timestamp without time zone NULL;
+-- Truyền thông: báo cáo bài / bình luận và chặn người dùng (App Store guideline 1.2).
+CREATE TABLE IF NOT EXISTS "CommunicationReports" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL,
+    "ReporterId" uuid NOT NULL,
+    "ReporterName" character varying(200) NULL,
+    "CommunicationId" uuid NOT NULL,
+    "CommentId" uuid NULL,
+    "TargetUserId" uuid NOT NULL,
+    "TargetUserName" character varying(200) NULL,
+    "Excerpt" character varying(500) NULL,
+    "Reason" character varying(40) NOT NULL DEFAULT 'other',
+    "Note" character varying(500) NULL,
+    "Status" integer NOT NULL DEFAULT 0,
+    "ResolvedAt" timestamp without time zone NULL,
+    "ResolvedBy" character varying(200) NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" text NULL,
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_CommunicationReports_Store_Status" ON "CommunicationReports" ("StoreId", "Status", "CreatedAt");
+CREATE INDEX IF NOT EXISTS "IX_CommunicationReports_Reporter" ON "CommunicationReports" ("ReporterId");
+CREATE TABLE IF NOT EXISTS "CommunicationUserBlocks" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL,
+    "UserId" uuid NOT NULL,
+    "BlockedUserId" uuid NOT NULL,
+    "BlockedUserName" character varying(200) NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" text NULL,
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_CommunicationUserBlocks_Store_User_Blocked" ON "CommunicationUserBlocks" ("StoreId", "UserId", "BlockedUserId");

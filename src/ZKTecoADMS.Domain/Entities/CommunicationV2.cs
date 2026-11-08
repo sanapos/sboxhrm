@@ -115,3 +115,64 @@ public class CommunicationCommentLike : Entity<Guid>
     [Required]
     public Guid UserId { get; set; }
 }
+
+/// <summary>
+/// Báo cáo bài / bình luận vi phạm (guideline 1.2 App Store). Người báo cáo không còn thấy nội dung đó;
+/// người kiểm duyệt của cửa hàng gỡ hoặc bỏ qua.
+/// </summary>
+public class CommunicationReport : Entity<Guid>
+{
+    [Required]
+    public Guid StoreId { get; set; }
+
+    [Required]
+    public Guid ReporterId { get; set; }
+
+    [MaxLength(200)]
+    public string? ReporterName { get; set; }
+
+    [Required]
+    public Guid CommunicationId { get; set; }
+
+    /// <summary>Có giá trị = báo cáo bình luận; trống = báo cáo bài.</summary>
+    public Guid? CommentId { get; set; }
+
+    public Guid TargetUserId { get; set; }
+
+    [MaxLength(200)]
+    public string? TargetUserName { get; set; }
+
+    /// <summary>Trích nội dung lúc báo cáo — còn đọc được khi người viết đã sửa.</summary>
+    [MaxLength(500)]
+    public string? Excerpt { get; set; }
+
+    [MaxLength(40)]
+    public string Reason { get; set; } = "other";
+
+    [MaxLength(500)]
+    public string? Note { get; set; }
+
+    /// <summary>0 chờ xử lý, 1 đã gỡ nội dung, 2 bỏ qua.</summary>
+    public int Status { get; set; }
+
+    public DateTime? ResolvedAt { get; set; }
+
+    [MaxLength(200)]
+    public string? ResolvedBy { get; set; }
+}
+
+/// <summary>Người dùng chặn người khác: không thấy bài, bình luận và không nhận thông báo từ người đó.</summary>
+public class CommunicationUserBlock : Entity<Guid>
+{
+    [Required]
+    public Guid StoreId { get; set; }
+
+    [Required]
+    public Guid UserId { get; set; }
+
+    [Required]
+    public Guid BlockedUserId { get; set; }
+
+    [MaxLength(200)]
+    public string? BlockedUserName { get; set; }
+}

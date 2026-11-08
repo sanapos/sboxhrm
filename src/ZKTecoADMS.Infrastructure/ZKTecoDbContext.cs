@@ -161,6 +161,8 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<CommunicationPollVote> CommunicationPollVotes => Set<CommunicationPollVote>();
     public DbSet<CommunicationBookmark> CommunicationBookmarks => Set<CommunicationBookmark>();
     public DbSet<CommunicationCommentLike> CommunicationCommentLikes => Set<CommunicationCommentLike>();
+    public DbSet<CommunicationReport> CommunicationReports => Set<CommunicationReport>();
+    public DbSet<CommunicationUserBlock> CommunicationUserBlocks => Set<CommunicationUserBlock>();
     public DbSet<ContentCategory> ContentCategories => Set<ContentCategory>();
     
     // KPI Management

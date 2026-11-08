@@ -14,6 +14,7 @@ import '../../utils/store_role_helper.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'comm_common.dart';
 import 'comm_editor.dart';
+import 'comm_moderation.dart';
 import 'comm_post.dart';
 import '../../theme/sbox_tokens.dart';
 
@@ -293,6 +294,7 @@ class _CommHubScreenState extends State<CommHubScreen> with WidgetsBindingObserv
       commToast(context, 'Bạn chưa được đăng vào kênh nào', error: true);
       return;
     }
+    if (edit == null && (!await ensureCommTerms(context, ctx.myUserId) || !mounted)) return;
     final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(
       builder: (_) => CommEditorPage(ctx: ctx, post: edit, initialChannelId: _channelId, startWithAi: ai, initialMode: mode),
     ));
@@ -395,8 +397,18 @@ class _CommHubScreenState extends State<CommHubScreen> with WidgetsBindingObserv
       const Padding(padding: EdgeInsets.fromLTRB(10, 14, 10, 6), child: Divider(height: 1)),
       Padding(padding: const EdgeInsets.fromLTRB(10, 0, 10, 6), child: Text(tr('Kênh'), style: SboxType.captionStyle())),
       for (final c in ctx.channels) item(id: c.id, name: c.name, icon: c.iconData, color: c.colorValue, unread: c.unread),
+      const SizedBox(height: 8),
+      if (ctx.isManager)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _openReports,
+            icon: const Icon(Icons.flag_outlined, size: 18),
+            label: Text(tr('Báo cáo vi phạm${(_sidebar?.reportsOpen ?? 0) > 0 ? ' (${_sidebar!.reportsOpen})' : ''}')),
+          ),
+        ),
+      Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: _openBlocked, icon: const Icon(Icons.block_rounded, size: 18), label: Text(tr('Người đã chặn')))),
       if (ctx.canManageChannels) ...[
-        const SizedBox(height: 8),
         Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: _manageChannels, icon: const Icon(Icons.tune_rounded, size: 18), label: Text(tr('Quản lý kênh')))),
         Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: _openInsights, icon: const Icon(Icons.insights_outlined, size: 18), label: Text(tr('Thống kê truyền thông')))),
       ],
@@ -453,7 +465,7 @@ class _CommHubScreenState extends State<CommHubScreen> with WidgetsBindingObserv
           PopupMenuButton<String>(
             tooltip: tr('Lọc bài'),
             initialValue: _filter,
-            onSelected: _setFilter,
+            onSelected: _onFilterMenu,
             itemBuilder: (_) => [
               for (final f in filters)
                 PopupMenuItem(
@@ -464,6 +476,24 @@ class _CommHubScreenState extends State<CommHubScreen> with WidgetsBindingObserv
                     Text(tr(f.$2), style: TextStyle(fontWeight: _filter == f.$1 ? FontWeight.w700 : FontWeight.w500)),
                   ]),
                 ),
+              const PopupMenuDivider(),
+              if (ctx.isManager)
+                PopupMenuItem(
+                  value: '@reports',
+                  child: Row(children: [
+                    const Icon(Icons.flag_outlined, size: 18, color: SboxColors.slate500),
+                    const SizedBox(width: 10),
+                    Text(tr('Báo cáo vi phạm${(_sidebar?.reportsOpen ?? 0) > 0 ? ' (${_sidebar!.reportsOpen})' : ''}')),
+                  ]),
+                ),
+              PopupMenuItem(
+                value: '@blocked',
+                child: Row(children: [
+                  const Icon(Icons.block_rounded, size: 18, color: SboxColors.slate500),
+                  const SizedBox(width: 10),
+                  Text(tr('Người đã chặn')),
+                ]),
+              ),
             ],
             child: Builder(builder: (_) {
               final cur = filters.firstWhere((f) => f.$1 == _filter, orElse: () => filters.first);
@@ -611,7 +641,7 @@ class _CommHubScreenState extends State<CommHubScreen> with WidgetsBindingObserv
         },
       ),
     );
-    final canPost = ctx.channels.any((c) => c.canPost);
+    final canPost = ctx.channels.any((c) => c.canPost) && !commComposeHidden;
     return Stack(children: [
       list,
       if (_incoming.isNotEmpty)
@@ -685,6 +715,8 @@ class _CommHubScreenState extends State<CommHubScreen> with WidgetsBindingObserv
     final tiles = <Widget>[
       if (s.requiredPending > 0)
         tile(Icons.verified_user_outlined, SboxColors.danger, 'Cần đọc, xác nhận', '${s.requiredPending}', () => _setFilter('required')),
+      if (s.reportsOpen > 0 && ctx.isManager)
+        tile(Icons.flag_outlined, SboxColors.danger, 'Báo cáo vi phạm', '${s.reportsOpen}', _openReports),
       if (s.pendingApproval > 0 && ctx.isManager)
         tile(Icons.pending_actions_outlined, SboxColors.warning, 'Bài chờ duyệt', '${s.pendingApproval}', () => _setFilter('pending')),
       if (s.openPolls > 0) tile(Icons.poll_outlined, SboxColors.warning, 'Bình chọn chưa trả lời', '${s.openPolls}', () => _setFilter('polls')),
@@ -715,7 +747,7 @@ class _CommHubScreenState extends State<CommHubScreen> with WidgetsBindingObserv
   }
 
   Widget _composerBox(CommContext ctx, {bool compact = false}) {
-    final canPost = ctx.channels.any((c) => c.canPost);
+    final canPost = ctx.channels.any((c) => c.canPost) && !commComposeHidden;
     if (!canPost) return const SizedBox.shrink();
     // 4 nút chia đều 1 hàng (chữ tự thu nhỏ) — nút AI không rớt xuống hàng riêng.
     Widget action(IconData icon, String label, Color color, VoidCallback onTap) => Expanded(
@@ -840,6 +872,29 @@ class _CommHubScreenState extends State<CommHubScreen> with WidgetsBindingObserv
   Future<void> _manageChannels() async {
     await showDialog<void>(context: context, builder: (_) => _ChannelManager(ctx: _ctx!, api: _api));
     _reload();
+  }
+
+  Future<void> _openReports() async {
+    final changed = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => CommReportsPage(onOpenPost: (id) => _open(id)),
+    ));
+    if (changed == true && mounted) _reload();
+  }
+
+  Future<void> _openBlocked() async {
+    final changed = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const CommBlockedUsersPage()));
+    if (changed == true && mounted) _reload();
+  }
+
+  /// Menu lọc: mục «@…» mở trang riêng thay vì lọc bài.
+  void _onFilterMenu(String v) {
+    if (v == '@reports') {
+      _openReports();
+    } else if (v == '@blocked') {
+      _openBlocked();
+    } else {
+      _setFilter(v);
+    }
   }
 
   void _openInsights() {

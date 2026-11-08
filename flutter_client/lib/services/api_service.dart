@@ -8798,6 +8798,25 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> likeCommComment(String commentId) => _taskV2('POST', '$_commV2/comments/$commentId/like');
 
+  // Báo cáo vi phạm, chặn người dùng (App Store guideline 1.2).
+  Future<Map<String, dynamic>> reportCommPost(String id, String reason, {String? note}) =>
+      _taskV2('POST', '$_commV2/posts/$id/report', body: {'reason': reason, if (note != null && note.isNotEmpty) 'note': note});
+
+  Future<Map<String, dynamic>> reportCommComment(String commentId, String reason, {String? note}) =>
+      _taskV2('POST', '$_commV2/comments/$commentId/report', body: {'reason': reason, if (note != null && note.isNotEmpty) 'note': note});
+
+  Future<Map<String, dynamic>> getCommReports({String status = 'open'}) =>
+      _taskV2('GET', '$_commV2/reports', query: {'status': status});
+
+  Future<Map<String, dynamic>> resolveCommReport(String id, String action) =>
+      _taskV2('POST', '$_commV2/reports/$id/resolve', body: {'action': action});
+
+  Future<Map<String, dynamic>> getCommBlocks() => _taskV2('GET', '$_commV2/blocks');
+
+  Future<Map<String, dynamic>> blockCommUser(String userId) => _taskV2('POST', '$_commV2/users/$userId/block');
+
+  Future<Map<String, dynamic>> unblockCommUser(String userId) => _taskV2('DELETE', '$_commV2/users/$userId/block');
+
   Future<Map<String, dynamic>> getCommReactors(String id, {int? type}) =>
       _taskV2('GET', '$_commV2/posts/$id/reactions', query: {if (type != null) 'type': '$type'});
 

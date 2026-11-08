@@ -238,4 +238,38 @@ public class CommunicationV2Tests
         Assert.True(view && create);
         Assert.False(edit || approve); // không kiểm duyệt
     }
+
+    [Fact]
+    public void Blocked_and_reported_content_is_hidden_from_viewer()
+    {
+        var bad = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        var reportedPost = Guid.NewGuid();
+        var reportedComment = Guid.NewGuid();
+        var h = new CommHidden(new() { bad }, new() { reportedPost }, new() { reportedComment });
+
+        Assert.True(h.HidesPost(reportedPost, other, requireAck: false));
+        Assert.True(h.HidesPost(Guid.NewGuid(), bad, requireAck: false));
+        Assert.False(h.HidesPost(Guid.NewGuid(), bad, requireAck: true));   // nội quy bắt buộc đọc vẫn hiện
+        Assert.False(h.HidesPost(Guid.NewGuid(), other, requireAck: false));
+
+        var keep = new CommunicationComment { Id = Guid.NewGuid(), UserId = other };
+        var byBad = new CommunicationComment { Id = Guid.NewGuid(), UserId = bad };
+        var replyToBad = new CommunicationComment { Id = Guid.NewGuid(), UserId = other, ParentCommentId = byBad.Id };
+        var reported = new CommunicationComment { Id = reportedComment, UserId = other };
+        var replyToReported = new CommunicationComment { Id = Guid.NewGuid(), UserId = other, ParentCommentId = reportedComment };
+        var replyToKeep = new CommunicationComment { Id = Guid.NewGuid(), UserId = other, ParentCommentId = keep.Id };
+        var left = h.Filter(new() { keep, byBad, replyToBad, reported, replyToReported, replyToKeep });
+        Assert.Equal(new[] { keep.Id, replyToKeep.Id }, left.Select(c => c.Id));
+    }
+
+    [Fact]
+    public void Report_reason_and_excerpt_are_normalised()
+    {
+        Assert.Equal("spam", CommModeration.Reason("spam"));
+        Assert.Equal("other", CommModeration.Reason("<script>"));
+        Assert.Equal("other", CommModeration.Reason(null));
+        Assert.Equal(481, CommModeration.Excerpt(new string('a', 900)).Length);
+        Assert.Equal("ok", CommModeration.Excerpt("  ok "));
+    }
 }

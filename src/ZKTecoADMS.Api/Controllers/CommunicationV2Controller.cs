@@ -189,6 +189,46 @@ public class CommCommentDto
     public int ReplyCount { get; set; }
 }
 
+public class CommReportDto
+{
+    /// <summary>spam | harassment | inappropriate | false_info | other</summary>
+    public string Reason { get; set; } = "other";
+    public string? Note { get; set; }
+}
+
+public class CommResolveReportDto
+{
+    /// <summary>remove = gỡ nội dung; dismiss = bỏ qua.</summary>
+    public string Action { get; set; } = "dismiss";
+}
+
+public class CommReportItemDto
+{
+    public Guid Id { get; set; }
+    public Guid PostId { get; set; }
+    public string? PostTitle { get; set; }
+    public Guid? CommentId { get; set; }
+    public Guid TargetUserId { get; set; }
+    public string? TargetUserName { get; set; }
+    public string? Excerpt { get; set; }
+    public string Reason { get; set; } = "other";
+    public string? Note { get; set; }
+    public string? ReporterName { get; set; }
+    public int Status { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? ResolvedAt { get; set; }
+    public string? ResolvedBy { get; set; }
+    /// <summary>Nội dung còn trên bảng tin (chưa bị xóa / lưu trữ).</summary>
+    public bool ContentExists { get; set; }
+}
+
+public class CommBlockedUserDto
+{
+    public Guid UserId { get; set; }
+    public string? Name { get; set; }
+    public DateTime BlockedAt { get; set; }
+}
+
 public class AddCommCommentDto
 {
     public string Content { get; set; } = string.Empty;
@@ -247,6 +287,8 @@ public class CommSidebarDto
     public List<CommPostBriefDto> Events { get; set; } = new();
     public List<CommBirthdayDto> Birthdays { get; set; } = new();
     public int PendingApproval { get; set; }
+    /// <summary>Báo cáo vi phạm chờ người kiểm duyệt xử lý.</summary>
+    public int ReportsOpen { get; set; }
 }
 
 public class CommPostBriefDto
@@ -343,6 +385,29 @@ public class CommunicationV2Controller(
     }
 
     private static bool CanPost(CommChannel c, CommViewer v) => CommRules.CanPost(c, v);
+
+    private CommHidden? _hidden;
+
+    /// <summary>Người xem đã chặn ai, đã báo cáo bài / bình luận nào — những nội dung này không hiện với họ nữa.</summary>
+    private async Task<CommHidden> HiddenAsync()
+    {
+        if (_hidden != null) return _hidden;
+        var users = (await db.CommunicationUserBlocks.AsNoTracking()
+            .Where(b => b.StoreId == RequiredStoreId && b.UserId == CurrentUserId)
+            .Select(b => b.BlockedUserId).ToListAsync()).ToHashSet();
+        var reports = await db.CommunicationReports.AsNoTracking()
+            .Where(r => r.StoreId == RequiredStoreId && r.ReporterId == CurrentUserId)
+            .Select(r => new { r.CommunicationId, r.CommentId }).ToListAsync();
+        return _hidden = new CommHidden(users,
+            reports.Where(r => r.CommentId == null).Select(r => r.CommunicationId).ToHashSet(),
+            reports.Where(r => r.CommentId != null).Select(r => r.CommentId!.Value).ToHashSet());
+    }
+
+    /// <summary>Những người (trong danh sách) đã chặn <paramref name="actorId"/> — không gửi thông báo cho họ.</summary>
+    private async Task<HashSet<Guid>> BlockersOfAsync(Guid actorId, ICollection<Guid> userIds) =>
+        userIds.Count == 0 ? new() : (await db.CommunicationUserBlocks.AsNoTracking()
+            .Where(b => b.StoreId == RequiredStoreId && b.BlockedUserId == actorId && userIds.Contains(b.UserId))
+            .Select(b => b.UserId).ToListAsync()).ToHashSet();
 
     private static string CannotPostMessage(CommChannel c, CommViewer v) => v.CanCreate
         ? $"Chỉ người kiểm duyệt được đăng vào kênh «{c.Name}»"
@@ -565,6 +630,7 @@ public class CommunicationV2Controller(
         };
         var ordered2 = ordered.ThenByDescending(p => p.Id);
         var need = page * pageSize + 1;
+        var hidden = await HiddenAsync();
         const int batch = 200;
         var visibleIds = new List<Guid>();
         var scanned = 0;
@@ -572,14 +638,14 @@ public class CommunicationV2Controller(
         while (visibleIds.Count < need)
         {
             var light = await ordered2.Skip(scanned).Take(batch)
-                .Select(p => new { p.Id, p.ChannelId, p.Audience, p.AuthorId, p.Status, p.ExpiresAt })
+                .Select(p => new { p.Id, p.ChannelId, p.Audience, p.AuthorId, p.Status, p.ExpiresAt, p.RequireAck })
                 .ToListAsync();
             scanned += light.Count;
             foreach (var p in light)
             {
                 var ch = p.ChannelId.HasValue ? map.GetValueOrDefault(p.ChannelId.Value) : null;
                 var post = new InternalCommunication { AuthorId = p.AuthorId, Status = p.Status, ExpiresAt = p.ExpiresAt, Audience = p.Audience };
-                if (Visible(post, ch, v, now)) visibleIds.Add(p.Id);
+                if (Visible(post, ch, v, now) && !hidden.HidesPost(p.Id, p.AuthorId, p.RequireAck)) visibleIds.Add(p.Id);
             }
             if (light.Count < batch) { exhausted = true; break; }
             if (scanned >= 5000) break; // chặn quét quá sâu
@@ -611,6 +677,7 @@ public class CommunicationV2Controller(
                         db.CommunicationComments.Count(o => o.CommunicationId == c.CommunicationId && o.ParentCommentId == null &&
                                                             o.CreatedAt > c.CreatedAt) < 2)
             .ToListAsync();
+        latestRaw = (await HiddenAsync()).Filter(latestRaw);
         var latestDtos = await CommentDtosAsync(latestRaw, v);
         var latestByPost = latestRaw.Zip(latestDtos)
             .GroupBy(x => x.First.CommunicationId)
@@ -727,6 +794,8 @@ public class CommunicationV2Controller(
         if (p == null) return Ok(AppResponse<CommPostDto>.Error("Không tìm thấy bài viết"));
         var ch = p.ChannelId.HasValue ? map.GetValueOrDefault(p.ChannelId.Value) : null;
         if (!Visible(p, ch, v, DateTime.UtcNow)) return Ok(AppResponse<CommPostDto>.Error("Bạn không có quyền xem bài này"));
+        if ((await HiddenAsync()).HidesPost(p.Id, p.AuthorId, p.RequireAck))
+            return Ok(AppResponse<CommPostDto>.Error("Bạn đã ẩn bài này (đã báo cáo bài hoặc chặn người đăng)"));
         if (markRead && p.Status == CommunicationStatus.Published)
         {
             var r = await db.CommunicationReads.AsTracking().FirstOrDefaultAsync(x => x.CommunicationId == id && x.UserId == v.UserId);
@@ -1142,6 +1211,7 @@ public class CommunicationV2Controller(
         if (p == null) return Ok(AppResponse<List<CommCommentDto>>.Error(err!));
         var list = await db.CommunicationComments.AsNoTracking().Where(c => c.CommunicationId == id)
             .OrderBy(c => c.CreatedAt).Take(1000).ToListAsync();
+        list = (await HiddenAsync()).Filter(list);
         return Ok(AppResponse<List<CommCommentDto>>.Success(await CommentDtosAsync(list, v)));
     }
 
@@ -1226,6 +1296,7 @@ public class CommunicationV2Controller(
                 .Select(e => e.ApplicationUserId!.Value).ToListAsync();
             foreach (var u in ok.Where(u => u != v.UserId)) targets[u] = $"{v.DisplayName} nhắc đến bạn trong bài «{p.Title}»";
         }
+        foreach (var u in await BlockersOfAsync(v.UserId, targets.Keys)) targets.Remove(u);
         foreach (var (uid, msg) in targets)
         {
             try
@@ -1287,7 +1358,7 @@ public class CommunicationV2Controller(
         var n = await db.CommunicationCommentLikes.CountAsync(l => l.CommentId == commentId);
         var tracked = await db.CommunicationComments.AsTracking().FirstAsync(x => x.Id == commentId);
         if (tracked.LikeCount != n) { tracked.LikeCount = n; await db.SaveChangesAsync(); }
-        if (mine == null && c.UserId != v.UserId)
+        if (mine == null && c.UserId != v.UserId && (await BlockersOfAsync(v.UserId, new[] { c.UserId })).Count == 0)
         {
             try
             {
@@ -1339,14 +1410,215 @@ public class CommunicationV2Controller(
             .FirstOrDefaultAsync(x => x.Id == commentId && x.Communication!.StoreId == RequiredStoreId);
         if (c == null) return Ok(AppResponse<bool>.Error("Không tìm thấy bình luận"));
         if (!v.IsManager && c.UserId != v.UserId) return Ok(AppResponse<bool>.Error("Bạn không xóa được bình luận này"));
-        var replies = await db.CommunicationComments.AsTracking().Where(x => x.ParentCommentId == commentId).ToListAsync();
-        var gone = replies.Select(x => x.Id).Append(commentId).ToList();
+        await RemoveCommentAsync(c);
+        return Ok(AppResponse<bool>.Success(true));
+    }
+
+    /// <summary>Xóa bình luận (đã theo dõi) cùng phản hồi và lượt thích.</summary>
+    private async Task RemoveCommentAsync(CommunicationComment c)
+    {
+        var replies = await db.CommunicationComments.AsTracking().Where(x => x.ParentCommentId == c.Id).ToListAsync();
+        var gone = replies.Select(x => x.Id).Append(c.Id).ToList();
         db.CommunicationCommentLikes.RemoveRange(await db.CommunicationCommentLikes.AsTracking()
             .Where(l => gone.Contains(l.CommentId)).ToListAsync());
         db.CommunicationComments.RemoveRange(replies);
         db.CommunicationComments.Remove(c);
         await db.SaveChangesAsync();
-        await CommentChangedAsync(c.CommunicationId, commentId, "deleted");
+        await CommentChangedAsync(c.CommunicationId, c.Id, "deleted");
+    }
+
+    // ─── Báo cáo vi phạm, chặn người dùng (App Store guideline 1.2) ─────
+
+    [HttpPost("posts/{id:guid}/report")]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<bool>>> ReportPost(Guid id, [FromBody] CommReportDto d)
+    {
+        var v = await ViewerAsync();
+        var (p, err) = await VisiblePostAsync(id, v);
+        if (p == null) return Ok(AppResponse<bool>.Error(err!));
+        if (p.AuthorId == v.UserId) return Ok(AppResponse<bool>.Error("Không báo cáo được bài của chính bạn"));
+        return await SaveReportAsync(v, p, null, p.AuthorId, p.AuthorName, p.Title, d);
+    }
+
+    [HttpPost("comments/{commentId:guid}/report")]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<bool>>> ReportComment(Guid commentId, [FromBody] CommReportDto d)
+    {
+        var v = await ViewerAsync();
+        var c = await db.CommunicationComments.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == commentId && x.Communication!.StoreId == RequiredStoreId);
+        if (c == null) return Ok(AppResponse<bool>.Error("Không tìm thấy bình luận"));
+        if (c.UserId == v.UserId) return Ok(AppResponse<bool>.Error("Không báo cáo được bình luận của chính bạn"));
+        var (p, err) = await VisiblePostAsync(c.CommunicationId, v);
+        if (p == null) return Ok(AppResponse<bool>.Error(err!));
+        return await SaveReportAsync(v, p, c.Id, c.UserId, c.UserName, c.Content, d);
+    }
+
+    private async Task<ActionResult<AppResponse<bool>>> SaveReportAsync(CommViewer v, InternalCommunication p, Guid? commentId,
+        Guid targetUserId, string? targetName, string? excerpt, CommReportDto d)
+    {
+        var exists = await db.CommunicationReports.AnyAsync(r => r.StoreId == RequiredStoreId && r.ReporterId == v.UserId &&
+                                                                 r.CommunicationId == p.Id && r.CommentId == commentId);
+        if (exists) return Ok(AppResponse<bool>.Success(true));
+        var note = d.Note?.Trim();
+        if (note?.Length > 500) note = note[..500];
+        db.CommunicationReports.Add(new CommunicationReport
+        {
+            Id = Guid.NewGuid(),
+            StoreId = RequiredStoreId,
+            ReporterId = v.UserId,
+            ReporterName = v.DisplayName,
+            CommunicationId = p.Id,
+            CommentId = commentId,
+            TargetUserId = targetUserId,
+            TargetUserName = targetName,
+            Excerpt = CommModeration.Excerpt(excerpt),
+            Reason = CommModeration.Reason(d.Reason),
+            Note = string.IsNullOrWhiteSpace(note) ? null : note,
+            CreatedBy = CurrentUserEmail,
+        });
+        await db.SaveChangesAsync();
+        await NotifyModeratorsAsync(v.UserId, "Báo cáo vi phạm",
+            commentId == null ? $"Có báo cáo bài «{p.Title}» — vào Bản tin › Báo cáo vi phạm để xử lý"
+                              : $"Có báo cáo một bình luận trong bài «{p.Title}» — vào Bản tin › Báo cáo vi phạm để xử lý",
+            p.Id);
+        return Ok(AppResponse<bool>.Success(true));
+    }
+
+    /// <summary>Báo cáo vi phạm cho người kiểm duyệt: open (chờ xử lý) hoặc done (đã xử lý, 100 gần nhất).</summary>
+    [HttpGet("reports")]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<List<CommReportItemDto>>>> Reports([FromQuery] string status = "open")
+    {
+        var v = await ViewerAsync();
+        if (!v.IsManager) return Ok(AppResponse<List<CommReportItemDto>>.Error("Chỉ người kiểm duyệt xem được báo cáo"));
+        var q = db.CommunicationReports.AsNoTracking().Where(r => r.StoreId == RequiredStoreId);
+        var done = status == "done";
+        var rows = await (done ? q.Where(r => r.Status != 0).OrderByDescending(r => r.ResolvedAt).Take(100)
+                               : q.Where(r => r.Status == 0).OrderBy(r => r.CreatedAt).Take(500)).ToListAsync();
+        var postIds = rows.Select(r => r.CommunicationId).Distinct().ToList();
+        var posts = await db.InternalCommunications.AsNoTracking().Where(p => postIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.Title, p.Status }).ToDictionaryAsync(p => p.Id);
+        var commentIds = rows.Where(r => r.CommentId != null).Select(r => r.CommentId!.Value).Distinct().ToList();
+        var alive = (await db.CommunicationComments.AsNoTracking().Where(c => commentIds.Contains(c.Id))
+            .Select(c => c.Id).ToListAsync()).ToHashSet();
+        return Ok(AppResponse<List<CommReportItemDto>>.Success(rows.Select(r =>
+        {
+            var post = posts.GetValueOrDefault(r.CommunicationId);
+            var postAlive = post != null && post.Status != CommunicationStatus.Archived;
+            return new CommReportItemDto
+            {
+                Id = r.Id,
+                PostId = r.CommunicationId,
+                PostTitle = post?.Title,
+                CommentId = r.CommentId,
+                TargetUserId = r.TargetUserId,
+                TargetUserName = r.TargetUserName,
+                Excerpt = r.Excerpt,
+                Reason = r.Reason,
+                Note = r.Note,
+                ReporterName = r.ReporterName,
+                Status = r.Status,
+                CreatedAt = r.CreatedAt,
+                ResolvedAt = r.ResolvedAt,
+                ResolvedBy = r.ResolvedBy,
+                ContentExists = postAlive && (r.CommentId == null || alive.Contains(r.CommentId.Value)),
+            };
+        }).ToList()));
+    }
+
+    /// <summary>Xử lý báo cáo: gỡ nội dung (bài → lưu trữ, bình luận → xóa) hoặc bỏ qua. Đóng mọi báo cáo cùng nội dung.</summary>
+    [HttpPost("reports/{id:guid}/resolve")]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<int>>> ResolveReport(Guid id, [FromBody] CommResolveReportDto d)
+    {
+        var v = await ViewerAsync();
+        if (!v.IsManager) return Ok(AppResponse<int>.Error("Chỉ người kiểm duyệt xử lý được báo cáo"));
+        var r = await db.CommunicationReports.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == RequiredStoreId);
+        if (r == null) return Ok(AppResponse<int>.Error("Không tìm thấy báo cáo"));
+        var remove = d.Action == "remove";
+        if (remove)
+        {
+            if (r.CommentId.HasValue)
+            {
+                var c = await db.CommunicationComments.AsTracking().FirstOrDefaultAsync(x => x.Id == r.CommentId);
+                if (c != null) await RemoveCommentAsync(c);
+            }
+            else
+            {
+                var p = await db.InternalCommunications.AsTracking().FirstOrDefaultAsync(x => x.Id == r.CommunicationId && x.StoreId == RequiredStoreId);
+                if (p != null && p.Status != CommunicationStatus.Archived)
+                {
+                    p.Status = CommunicationStatus.Archived;
+                    p.IsPinned = false;
+                    p.UpdatedAt = DateTime.UtcNow;
+                    p.UpdatedBy = CurrentUserEmail;
+                    await db.SaveChangesAsync();
+                    await PostChangedAsync(p.Id, "deleted", p.ChannelId);
+                }
+            }
+        }
+        var now = DateTime.UtcNow;
+        var n = await db.CommunicationReports
+            .Where(x => x.StoreId == RequiredStoreId && x.Status == 0 && x.CommunicationId == r.CommunicationId && x.CommentId == r.CommentId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, remove ? 1 : 2)
+                .SetProperty(x => x.ResolvedAt, now)
+                .SetProperty(x => x.ResolvedBy, v.DisplayName));
+        return Ok(AppResponse<int>.Success(n));
+    }
+
+    [HttpGet("blocks")]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<List<CommBlockedUserDto>>>> Blocks()
+    {
+        var rows = await db.CommunicationUserBlocks.AsNoTracking()
+            .Where(b => b.StoreId == RequiredStoreId && b.UserId == CurrentUserId)
+            .OrderByDescending(b => b.CreatedAt)
+            .Select(b => new CommBlockedUserDto { UserId = b.BlockedUserId, Name = b.BlockedUserName, BlockedAt = b.CreatedAt })
+            .ToListAsync();
+        return Ok(AppResponse<List<CommBlockedUserDto>>.Success(rows));
+    }
+
+    [HttpPost("users/{userId:guid}/block")]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<bool>>> Block(Guid userId)
+    {
+        if (userId == CurrentUserId) return Ok(AppResponse<bool>.Error("Không chặn được chính bạn"));
+        var name = await db.Employees.AsNoTracking()
+            .Where(e => e.StoreId == RequiredStoreId && e.ApplicationUserId == userId)
+            .Select(e => (e.LastName + " " + e.FirstName).Trim()).FirstOrDefaultAsync();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            var u = await db.Users.AsNoTracking().Where(x => x.Id == userId && x.StoreId == RequiredStoreId)
+                .Select(x => new { x.LastName, x.FirstName, x.UserName }).FirstOrDefaultAsync();
+            if (u == null) return Ok(AppResponse<bool>.Error("Không tìm thấy người dùng"));
+            name = $"{u.LastName} {u.FirstName}".Trim();
+            if (string.IsNullOrWhiteSpace(name)) name = u.UserName;
+        }
+        if (!await db.CommunicationUserBlocks.AnyAsync(b => b.StoreId == RequiredStoreId && b.UserId == CurrentUserId && b.BlockedUserId == userId))
+        {
+            db.CommunicationUserBlocks.Add(new CommunicationUserBlock
+            {
+                Id = Guid.NewGuid(),
+                StoreId = RequiredStoreId,
+                UserId = CurrentUserId,
+                BlockedUserId = userId,
+                BlockedUserName = name,
+                CreatedBy = CurrentUserEmail,
+            });
+            try { await db.SaveChangesAsync(); }
+            catch (DbUpdateException) { db.ChangeTracker.Clear(); /* bấm hai lần cùng lúc */ }
+        }
+        return Ok(AppResponse<bool>.Success(true));
+    }
+
+    [HttpDelete("users/{userId:guid}/block")]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<bool>>> Unblock(Guid userId)
+    {
+        await db.CommunicationUserBlocks
+            .Where(b => b.StoreId == RequiredStoreId && b.UserId == CurrentUserId && b.BlockedUserId == userId)
+            .ExecuteDeleteAsync();
         return Ok(AppResponse<bool>.Success(true));
     }
 
@@ -1429,7 +1701,11 @@ public class CommunicationV2Controller(
         }
     }
 
-    private async Task NotifyManagersAsync(InternalCommunication p, string message)
+    private Task NotifyManagersAsync(InternalCommunication p, string message) =>
+        NotifyModeratorsAsync(p.AuthorId, "Bài chờ duyệt", message, p.Id);
+
+    /// <summary>Thông báo người kiểm duyệt Truyền thông của cửa hàng (trừ <paramref name="exceptUserId"/>).</summary>
+    private async Task NotifyModeratorsAsync(Guid exceptUserId, string title, string message, Guid postId)
     {
         try
         {
@@ -1440,15 +1716,15 @@ public class CommunicationV2Controller(
             var managers = new List<Guid>();
             foreach (var u in candidates)
             {
-                if (u.Id == p.AuthorId) continue;
+                if (u.Id == exceptUserId) continue;
                 if (ModulePermissionDefaults.IsSuperRole(u.Role!)
                     || await permissions.HasPermissionAsync(u.Id, u.Role!, RequiredStoreId, "Communication", ModulePermissionAction.Approve)
                     || await permissions.HasPermissionAsync(u.Id, u.Role!, RequiredStoreId, "Communication", ModulePermissionAction.Edit))
                     managers.Add(u.Id);
             }
             if (managers.Count > 0)
-                await notifications.CreateAndSendToUsersAsync(managers, NotificationType.Info, "Bài chờ duyệt", message,
-                    relatedEntityId: p.Id, relatedEntityType: "Communication", fromUserId: p.AuthorId,
+                await notifications.CreateAndSendToUsersAsync(managers, NotificationType.Info, title, message,
+                    relatedEntityId: postId, relatedEntityType: "Communication", fromUserId: exceptUserId,
                     categoryCode: "communication", storeId: RequiredStoreId);
         }
         catch { /* bỏ qua */ }
@@ -1488,7 +1764,10 @@ public class CommunicationV2Controller(
                 .Select(p => new CommPostBriefDto { Id = p.Id, Title = p.Title, At = p.EventAt, Location = p.EventLocation }).ToList(),
         };
         if (v.IsManager)
+        {
             dto.PendingApproval = await db.InternalCommunications.CountAsync(p => p.StoreId == RequiredStoreId && p.Status == CommunicationStatus.PendingApproval);
+            dto.ReportsOpen = await db.CommunicationReports.CountAsync(r => r.StoreId == RequiredStoreId && r.Status == 0);
+        }
 
         // Sinh nhật 7 ngày tới (giờ Việt Nam).
         var today = DateTime.UtcNow.AddHours(7).Date;

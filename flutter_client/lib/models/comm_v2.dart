@@ -415,7 +415,8 @@ class CommSidebar {
         birthdays = _maps(j['birthdays'])
             .map((b) => (name: '${b['name'] ?? ''}', date: DateTime.tryParse('${b['date']}') ?? DateTime.now(), photo: b['photoUrl'] as String?))
             .toList(),
-        pendingApproval = _i(j['pendingApproval']);
+        pendingApproval = _i(j['pendingApproval']),
+        reportsOpen = _i(j['reportsOpen']);
 
   final int requiredPending;
   final List<CommBrief> required;
@@ -423,6 +424,8 @@ class CommSidebar {
   final List<CommBrief> events;
   final List<({String name, DateTime date, String? photo})> birthdays;
   final int pendingApproval;
+  /// Báo cáo vi phạm chờ xử lý (chỉ người kiểm duyệt).
+  final int reportsOpen;
 }
 
 class CommReader {

@@ -50,6 +50,39 @@ public class CommPoll
 /// </summary>
 public sealed record CommViewer(Guid UserId, Guid? EmployeeId, Guid? BranchId, Guid? DepartmentId, string? Position, bool IsManager, string DisplayName, bool CanCreate = true);
 
+/// <summary>
+/// Nội dung một người đã ẩn: người đã chặn, bài và bình luận đã báo cáo.
+/// Bài bắt buộc xác nhận đọc (nội quy) vẫn hiện dù đã chặn người đăng — nhân viên vẫn phải đọc được.
+/// </summary>
+public sealed record CommHidden(HashSet<Guid> Users, HashSet<Guid> Posts, HashSet<Guid> Comments)
+{
+    public bool HidesPost(Guid postId, Guid authorId, bool requireAck) =>
+        Posts.Contains(postId) || (!requireAck && Users.Contains(authorId));
+
+    /// <summary>Bỏ bình luận của người đã chặn / đã báo cáo, kèm phản hồi của bình luận bị ẩn.</summary>
+    public List<CommunicationComment> Filter(List<CommunicationComment> list)
+    {
+        if (Users.Count == 0 && Comments.Count == 0) return list;
+        var gone = list.Where(c => Users.Contains(c.UserId) || Comments.Contains(c.Id)).Select(c => c.Id).ToHashSet();
+        return list.Where(c => !gone.Contains(c.Id) && !(c.ParentCommentId is Guid parent && (gone.Contains(parent) || Comments.Contains(parent))))
+            .ToList();
+    }
+}
+
+/// <summary>Chuẩn hóa dữ liệu báo cáo vi phạm.</summary>
+public static class CommModeration
+{
+    public static readonly string[] Reasons = { "spam", "harassment", "inappropriate", "false_info", "other" };
+
+    public static string Reason(string? reason) => Reasons.Contains(reason) ? reason! : "other";
+
+    public static string Excerpt(string? text)
+    {
+        var t = (text ?? string.Empty).Trim();
+        return t.Length > 480 ? t[..480] + "…" : t;
+    }
+}
+
 /// <summary>Luật đăng / sửa bài — tách riêng để kiểm thử.</summary>
 public static class CommRules
 {
