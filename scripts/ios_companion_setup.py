@@ -2,7 +2,7 @@
 """Đổi project iOS dùng chung thành SBOX BOSS hoặc SBOX Nhân Viên, ngay trên máy build Codemagic.
 
 Đổi mã bundle, tên app, icon, và viết câu xin quyền riêng theo đúng chức năng của từng app.
-BOSS không có khuôn mặt; câu vị trí của BOSS chỉ cho nút «Vị trí hiện tại» trên bản đồ. Cả hai có câu cho API vị trí «luôn luôn» (ITMS-90683).
+BOSS không có khuôn mặt, vị trí (plugin bị gỡ ở prepare_ios_pos_build.py). Nhân Viên có thêm câu cho API vị trí «luôn luôn» (ITMS-90683).
 
 Cách dùng (trong flutter_client): python3 ../scripts/ios_companion_setup.py boss|staff
 """
@@ -24,10 +24,6 @@ BOSS_USAGE = {
     "NSBluetoothAlwaysUsageDescription": "Bluetooth dùng để kết nối máy in hóa đơn và máy in tem.",
     "NSBluetoothPeripheralUsageDescription": "Bluetooth dùng để kết nối máy in hóa đơn và máy in tem.",
     "NSFaceIDUsageDescription": "Face ID dùng để đăng nhập nhanh vào SBOX BOSS thay cho mật khẩu, chỉ khi bạn bật trong Cài đặt.",
-    # Màn chọn điểm chấm công trên bản đồ có nút «Vị trí hiện tại»; thư viện vị trí có cả API «luôn luôn» (ITMS-90683).
-    "NSLocationWhenInUseUsageDescription": "Vị trí chỉ dùng khi bạn bấm «Vị trí hiện tại» để đặt điểm làm việc của cửa hàng trên bản đồ. SBOX BOSS không theo dõi vị trí của bạn.",
-    "NSLocationAlwaysAndWhenInUseUsageDescription": "SBOX BOSS không dùng vị trí khi chạy nền. Vị trí chỉ dùng khi bạn bấm «Vị trí hiện tại» để đặt điểm làm việc của cửa hàng trên bản đồ.",
-    "NSLocationAlwaysUsageDescription": "SBOX BOSS không dùng vị trí khi chạy nền. Vị trí chỉ dùng khi bạn bấm «Vị trí hiện tại» để đặt điểm làm việc của cửa hàng trên bản đồ.",
 }
 STAFF_USAGE = {
     "NSCameraUsageDescription": "Camera dùng để chấm công bằng khuôn mặt khi bạn bấm Chấm công, đăng ký khuôn mặt và chụp ảnh hiện trường, chứng từ. Ứng dụng không quay video nền.",
@@ -66,6 +62,9 @@ def main() -> None:
     shutil.copyfile(firebase, "ios/Runner/GoogleService-Info.plist")
 
     plist(f"Set :CFBundleDisplayName {name}")
+    if app == "boss":
+        # BOSS gỡ hẳn plugin vị trí (prepare_ios_pos_build.py); verify_ios_pos_ipa.py không cho còn câu vị trí.
+        plist("Delete :NSLocationWhenInUseUsageDescription")
     for key, value in (BOSS_USAGE if app == "boss" else STAFF_USAGE).items():
         # Info.plist dùng chung chưa có khóa «luôn luôn»: Set lỗi thì Add.
         try:
