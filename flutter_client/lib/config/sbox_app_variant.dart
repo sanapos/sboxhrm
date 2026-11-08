@@ -99,7 +99,7 @@ abstract final class SboxAppVariant {
     r',?\s*(?:(?:liên hệ (?:đại lý|quản trị viên)(?: để)?|vui lòng|hãy)\s+(?:nâng cấp gói|gia hạn)|nâng cấp gói)[^.]*\.?',
     caseSensitive: false,
   );
-  static final RegExp _otherPlatform = RegExp(r'\b(?:Android|Windows|Google Play|CH Play|APK)\b', caseSensitive: false);
+  static final RegExp _otherPlatform = RegExp(r'\b(?:Android|Windows|Google Play|CH Play|APK|Sunmi)\b', caseSensitive: false);
 
   /// App Store: không nhắc nền tảng khác (2.3.10) và không mời mua hay gia hạn dịch vụ ngoài app (3.1.1).
   static String iosPosText(String s) {
