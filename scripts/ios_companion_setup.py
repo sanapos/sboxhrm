@@ -23,7 +23,8 @@ BOSS_USAGE = {
     "NSLocalNetworkUsageDescription": "Mạng nội bộ dùng để tìm và kết nối máy in, màn hình bếp trong cùng WiFi cửa hàng.",
     "NSBluetoothAlwaysUsageDescription": "Bluetooth dùng để kết nối máy in hóa đơn và máy in tem.",
     "NSBluetoothPeripheralUsageDescription": "Bluetooth dùng để kết nối máy in hóa đơn và máy in tem.",
-    "NSFaceIDUsageDescription": "Face ID dùng để đăng nhập nhanh vào SBOX BOSS thay cho mật khẩu, chỉ khi bạn đồng ý bật sau khi đăng nhập.",
+    # iOS không mời bật Face ID sau đăng nhập (5.1.1(iv)); plugin vẫn có trong gói nên cần câu này.
+    "NSFaceIDUsageDescription": "Face ID chỉ dùng để đăng nhập nhanh vào SBOX BOSS thay cho mật khẩu khi bạn đã bật; ứng dụng không tự bật.",
     "NSPhotoLibraryUsageDescription": "Thư viện ảnh dùng để chọn ảnh hàng hóa, ảnh nhân viên, logo cửa hàng hoặc chứng từ khi bạn chủ động chọn.",
     # Thư viện nhập giọng nói dùng chung có trong gói nên Apple đòi câu này; BOSS không có Trợ lý AI, không dùng micro.
     "NSMicrophoneUsageDescription": "SBOX BOSS không dùng micro và không ghi âm.",
@@ -35,6 +36,13 @@ STAFF_USAGE = {
     "NSBluetoothAlwaysUsageDescription": "Bluetooth dùng để kết nối máy in khi bạn gọi món.",
     "NSBluetoothPeripheralUsageDescription": "Bluetooth dùng để kết nối máy in khi bạn gọi món.",
     "NSFaceIDUsageDescription": "Face ID dùng để đăng nhập nhanh vào SBOX Nhân Viên thay cho mật khẩu, chỉ khi bạn bật trong Cài đặt.",
+    # Info.plist dùng chung ghi micro / thư viện ảnh cho Trợ lý AI, ảnh sản phẩm: Nhân Viên không có các chức năng đó.
+    "NSMicrophoneUsageDescription": "Micro chỉ dùng khi bạn bấm nút micro để nhập bằng giọng nói. Ứng dụng không ghi âm nền.",
+    "NSSpeechRecognitionUsageDescription": "Nhận dạng giọng nói chuyển lời bạn nói thành chữ, chỉ khi bạn bấm nút micro.",
+    "NSPhotoLibraryUsageDescription": "Thư viện ảnh dùng để chọn ảnh đại diện, ảnh chứng từ, hóa đơn đính kèm đơn từ và góp ý, chỉ khi bạn chủ động chọn ảnh.",
+    # Apple đòi câu cho API «luôn luôn» vì thư viện vị trí có tham chiếu (ITMS-90683), dù app chỉ xin quyền khi đang dùng.
+    "NSLocationAlwaysAndWhenInUseUsageDescription": "SBOX Nhân Viên không dùng vị trí khi chạy nền. Vị trí chỉ được lấy khi bạn đang mở ứng dụng: lúc chấm công, check-in và định kỳ nếu cửa hàng bật Bản đồ nhân sự.",
+    "NSLocationAlwaysUsageDescription": "SBOX Nhân Viên không dùng vị trí khi chạy nền. Vị trí chỉ được lấy khi bạn đang mở ứng dụng: lúc chấm công, check-in và định kỳ nếu cửa hàng bật Bản đồ nhân sự.",
 }
 PLIST = "ios/Runner/Info.plist"
 OLD_BUNDLE = "PRODUCT_BUNDLE_IDENTIFIER = vn.sana.sbox;"
@@ -66,7 +74,11 @@ def main() -> None:
     if app == "boss":
         plist("Delete :NSLocationWhenInUseUsageDescription")
     for key, value in (BOSS_USAGE if app == "boss" else STAFF_USAGE).items():
-        plist(f"Set :{key} {value}")
+        # Info.plist dùng chung chưa có khóa «luôn luôn»: Set lỗi thì Add.
+        try:
+            plist(f"Set :{key} {value}")
+        except subprocess.CalledProcessError:
+            plist(f"Add :{key} string {value}")
 
     source = f"ios/flavor_icons/{app}-1024.png"
     for icon in ICON_DIR.glob("*.png"):

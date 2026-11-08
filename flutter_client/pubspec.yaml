@@ -146,9 +146,6 @@ flutter:
     - assets/sbox_staff_logo.png
     - assets/sbox_kds_logo.png
     - assets/sbox_pos_hero_panel.png
-    - assets/sbox_pos_screen.png
-    - assets/sbox_pos_family.png
-    - assets/sbox_pos_poster.png
     - assets/sbox_pos_login_hero.webp
     - assets/mobilefacenet.tflite
     - assets/w600k_mbf.onnx

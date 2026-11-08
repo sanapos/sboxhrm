@@ -35,7 +35,7 @@ class SboxPosHeroPanel extends StatelessWidget {
                       child: child,
                     ),
               errorBuilder: (_, __, ___) => Image.asset(
-                'assets/sbox_pos_poster.png',
+                'assets/sbox_pos_mark.png',
                 fit: BoxFit.cover,
                 alignment: Alignment.center,
                 filterQuality: FilterQuality.medium,
