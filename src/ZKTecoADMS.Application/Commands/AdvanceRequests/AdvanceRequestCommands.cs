@@ -815,7 +815,7 @@ public class PayAdvanceRequestHandler(
                 var now = DateTime.UtcNow;
                 var cashTransaction = new CashTransaction
                 {
-                    TransactionCode = $"CH-{now:yyyyMMdd}-{Guid.NewGuid().ToString()[..4].ToUpperInvariant()}",
+                    TransactionCode = HrmVoucherCode.New(now),
                     Type = Domain.Enums.CashTransactionType.Expense,
                     CategoryId = advanceCategory.Id,
                     Amount = payoutAmount,

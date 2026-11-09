@@ -37,7 +37,7 @@ public static class PayslipPayments
     public static string EmployeeName(Employee? e) =>
         e == null ? "Nhân viên" : $"{e.LastName} {e.FirstName}".Trim() is { Length: > 0 } n ? n : e.EmployeeCode;
 
-    private static string NewCode(DateTime now) => $"CH-{now:yyyyMMdd}-{Guid.NewGuid().ToString()[..4].ToUpperInvariant()}";
+    private static string NewCode(DateTime now) => HrmVoucherCode.New(now);
 
     private static async Task<TransactionCategory> SalaryCategoryAsync(ZKTecoDbContext db, Guid storeId, CancellationToken ct)
     {

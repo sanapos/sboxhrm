@@ -61,6 +61,18 @@ public class HrFinanceTests
     }
 
     [Fact]
+    public void Hrm_voucher_codes_use_vn_date_and_do_not_collide_in_a_payroll_run()
+    {
+        // 23:30 UTC ngày 10 = 06:30 ngày 11 giờ VN.
+        var code = ZKTecoADMS.Application.Helpers.HrmVoucherCode.New(new DateTime(2026, 11, 10, 23, 30, 0, DateTimeKind.Utc));
+        Assert.Matches(@"^CH-20261111-[0-9A-F]{8}$", code);
+        // Trả lương 2.000 nhân viên (tiền mặt + CK) cùng ngày: đuôi 4 ký tự cũ gần như chắc chắn trùng.
+        var now = DateTime.UtcNow;
+        var codes = Enumerable.Range(0, 4000).Select(_ => ZKTecoADMS.Application.Helpers.HrmVoucherCode.New(now)).ToList();
+        Assert.Equal(codes.Count, codes.Distinct().Count());
+    }
+
+    [Fact]
     public void Markers_map_to_source_type_without_confusion()
     {
         var id = Guid.NewGuid();

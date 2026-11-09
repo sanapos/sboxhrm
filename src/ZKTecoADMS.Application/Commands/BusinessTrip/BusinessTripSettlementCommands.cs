@@ -430,7 +430,7 @@ public class PayBusinessTripSettlementExtraHandler(
             cash = new CashTransaction
             {
                 Id = Guid.NewGuid(),
-                TransactionCode = $"CH-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..4].ToUpperInvariant()}",
+                TransactionCode = HrmVoucherCode.New(DateTime.UtcNow),
                 Type = CashTransactionType.Expense,
                 CategoryId = category.Id,
                 Amount = settlement.BalanceAmount,

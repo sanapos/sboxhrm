@@ -95,7 +95,7 @@ public static class PayslipCashTransactionHelper
         var cashTx = new CashTransaction
         {
             Id = Guid.NewGuid(),
-            TransactionCode = $"CH-{now:yyyyMMdd}-{Guid.NewGuid().ToString()[..4].ToUpperInvariant()}",
+            TransactionCode = HrmVoucherCode.New(now),
             Type = CashTransactionType.Expense,
             CategoryId = category.Id,
             Amount = payslip.NetSalary,
