@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../widgets/attendance/attendance_people_sheet.dart';
+import '../../widgets/pos/pos_hub_scope.dart';
+import '../pos_sale_order_list_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_tr.dart';
@@ -144,6 +147,68 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     NavigationNotifier.navigateToModule.value = module;
   }
 
+  /// Danh sách đơn đúng kỳ đang xem (lọc người bán khi có) — thay cho chỉ chuyển module không kèm ngày.
+  void _openOrders({String? soldBy, String? soldByLabel}) {
+    if (!_can('PosSaleOrders')) {
+      if (_can('PosSalesReport')) _go('PosSalesReport');
+      return;
+    }
+    final (f, t) = _period.range();
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => PosHubScope.pushed(
+        child: PosSaleOrderListScreen(
+          initialFrom: f,
+          initialTo: t,
+          initialSoldBy: soldBy,
+          initialSoldByLabel: soldByLabel,
+        ),
+      ),
+    ));
+  }
+
+  /// Nhân viên theo trạng thái của MỘT ngày (dòng chuyên cần có danh sách nhân viên).
+  void _showPeople(String title, Map<String, dynamic>? day, Set<String> statuses, {String? subtitle}) {
+    final rows = _list(day?['employees']).where((e) => statuses.contains('${e['status']}')).toList()
+      ..sort((a, b) => '${a['fullName'] ?? ''}'.compareTo('${b['fullName'] ?? ''}'));
+    if (day == null || day['employees'] is! List) {
+      if (_can('AttendanceSummary')) _go('AttendanceSummary');
+      return;
+    }
+    String shift(Map<String, dynamic> r) {
+      final s = r['shiftStart'], e = r['shiftEnd'];
+      if (s == null) return '';
+      return e == null ? 'Ca $s' : 'Ca $s–$e';
+    }
+    showAttendancePeopleSheet(
+      context,
+      title: title,
+      subtitle: subtitle,
+      rows: [
+        for (final r in rows)
+          AttendancePersonRow(
+            name: '${r['fullName'] ?? ''}',
+            subtitle: [
+              if ('${r['department'] ?? ''}'.isNotEmpty) '${r['department']}',
+              if (shift(r).isNotEmpty) shift(r),
+              if (r['checkIn'] != null) 'Vào ${r['checkIn']}${r['checkOut'] != null ? ' · Ra ${r['checkOut']}' : ''}',
+            ].join(' · '),
+            trailing: switch ('${r['status']}') {
+              'Late' => 'Trễ ${r['lateMinutes'] ?? 0}p',
+              'Absent' => 'Vắng',
+              'On Leave' => 'Nghỉ phép',
+              _ => r['checkIn'] == null ? null : '${r['checkIn']}',
+            },
+            trailingColor: switch ('${r['status']}') {
+              'Late' => SboxColors.warningText,
+              'Absent' => SboxColors.dangerText,
+              _ => null,
+            },
+            onTap: _can('AttendanceSummary') ? () => _go('AttendanceSummary') : null,
+          ),
+      ],
+    );
+  }
+
   bool _can(String code) {
     if (widget.canAccess != null) return widget.canAccess!(code);
     final perm = context.read<PermissionProvider>();
@@ -210,6 +275,13 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
   /// Người xem không có quyền «Xem giá vốn & lợi nhuận»: máy chủ bỏ trường lãi.
   bool get _profitHidden => _sales != null && !_sales!.containsKey('totalProfit');
 
+  /// Khách còn nợ trong kỳ ≈ doanh thu (gồm VAT) − đã thu.
+  double get _unpaid {
+    final rev = _n(_sales?['totalRevenueInclVat'] ?? _sales?['totalRevenue']);
+    final paid = _n(_sales?['totalPaid']);
+    return rev > paid ? rev - paid : 0;
+  }
+
   List<SboxKpi> _posKpis() {
     final cmp = _period.compareLabel;
     final rev = _n(_sales?['totalRevenue']);
@@ -220,8 +292,16 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     final pProfit = _n(_salesPrev?['totalProfit']);
     final pOrders = _n(_salesPrev?['orderCount']);
     final pAov = pOrders > 0 ? pRev / pOrders : 0.0;
+    void report() => _can('PosSalesReport') ? _go('PosSalesReport') : null;
     return [
-      SboxKpi(label: 'Doanh thu', value: SboxFmt.money(rev), icon: Icons.payments_outlined, current: rev, previous: _salesPrev == null ? null : pRev, compareLabel: cmp),
+      SboxKpi(
+          label: 'Doanh thu',
+          value: SboxFmt.money(rev),
+          icon: Icons.payments_outlined,
+          current: rev,
+          previous: _salesPrev == null ? null : pRev,
+          compareLabel: cmp,
+          onTap: report),
       if (_profitHidden)
         SboxKpi(
             label: 'Đã thu',
@@ -230,20 +310,65 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
             tone: SboxTone.success,
             current: _n(_sales?['totalPaid']),
             previous: _salesPrev == null ? null : _n(_salesPrev?['totalPaid']),
-            compareLabel: cmp)
+            compareLabel: cmp,
+            onTap: report)
       else
         SboxKpi(
-            label: 'Lợi nhuận gộp',
+            // «Lợi nhuận gộp» bị hiểu là lãi thật — ghi rõ chưa trừ chi phí (lãi ròng ở báo cáo Lãi lỗ).
+            label: 'Lãi gộp (chưa trừ chi phí)',
             value: SboxFmt.money(profit),
             icon: Icons.trending_up_rounded,
             tone: SboxTone.success,
             current: profit,
             previous: _salesPrev == null ? null : pProfit,
-            compareLabel: cmp),
-      SboxKpi(label: 'Số đơn', value: SboxFmt.number(orders), icon: Icons.receipt_long_outlined, tone: SboxTone.violet, current: orders, previous: _salesPrev == null ? null : pOrders, compareLabel: cmp),
-      SboxKpi(label: 'Giá trị TB/đơn', value: SboxFmt.money(aov), icon: Icons.shopping_basket_outlined, tone: SboxTone.neutral, current: aov, previous: _salesPrev == null ? null : pAov, compareLabel: cmp),
+            compareLabel: cmp,
+            onTap: report),
+      SboxKpi(
+          label: 'Số đơn',
+          value: SboxFmt.number(orders),
+          icon: Icons.receipt_long_outlined,
+          tone: SboxTone.violet,
+          current: orders,
+          previous: _salesPrev == null ? null : pOrders,
+          compareLabel: cmp,
+          onTap: () => _openOrders()),
+      SboxKpi(
+          label: 'Giá trị TB/đơn',
+          value: SboxFmt.money(aov),
+          icon: Icons.shopping_basket_outlined,
+          tone: SboxTone.neutral,
+          current: aov,
+          previous: _salesPrev == null ? null : pAov,
+          compareLabel: cmp,
+          onTap: report),
     ];
   }
+
+  /// «Đã thu» + «Chưa thu» (khi ô lãi gộp chiếm chỗ «Đã thu») — đủ cặp, chủ quán thấy ngay tiền đã về / còn nợ.
+  List<SboxKpi> _moneyKpis() => [
+        if (!_profitHidden)
+          SboxKpi(
+            label: 'Đã thu',
+            value: SboxFmt.money(_n(_sales?['totalPaid'])),
+            icon: Icons.account_balance_wallet_outlined,
+            tone: SboxTone.success,
+            current: _n(_sales?['totalPaid']),
+            previous: _salesPrev == null ? null : _n(_salesPrev?['totalPaid']),
+            compareLabel: _period.compareLabel,
+            onTap: () => _can('CashTransaction') ? _go('CashTransaction') : (_can('PosSalesReport') ? _go('PosSalesReport') : null),
+          ),
+        _unpaidKpi(),
+      ];
+
+  /// «Chưa thu»: phần khách còn nợ trong kỳ — số chủ quán cần hơn «Doanh thu / NV có mặt».
+  SboxKpi _unpaidKpi() => SboxKpi(
+        label: 'Chưa thu (khách nợ)',
+        value: SboxFmt.money(_unpaid),
+        icon: Icons.request_quote_outlined,
+        tone: _unpaid > 0 ? SboxTone.danger : SboxTone.neutral,
+        note: 'Đã thu ${SboxFmt.money(_n(_sales?['totalPaid']))}',
+        onTap: () => _can('PosSalesReport') ? _go('PosSalesReport') : null,
+      );
 
   List<SboxKpi> _hrmKpis() {
     final t = _today;
@@ -255,42 +380,44 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
           value: t.total > 0 ? '${t.checkedIn}/${t.total}' : '${t.checkedIn}',
           icon: Icons.how_to_reg_outlined,
           tone: SboxTone.success,
-          note: t.total > 0 ? 'Tỷ lệ ${SboxFmt.pct(rate)}' : 'Chưa có nhân viên'),
+          note: t.total > 0 ? 'Tỷ lệ ${SboxFmt.pct(rate)}' : 'Chưa có nhân viên',
+          onTap: () => _showPeople('Có mặt hôm nay', _todayTrend, {'Present', 'Late'})),
       SboxKpi(
           label: 'Đi trễ hôm nay',
           value: '${t.late}',
           icon: Icons.schedule_outlined,
           tone: SboxTone.warning,
-          note: t.checkedIn > 0 ? 'Đúng giờ ${SboxFmt.pct(punctual)}' : 'Chưa ai chấm công'),
-      SboxKpi(label: 'Vắng hôm nay', value: '${t.absent}', icon: Icons.person_off_outlined, tone: SboxTone.danger, note: 'Phải đi làm, chưa chấm công'),
-      SboxKpi(label: 'Nghỉ phép hôm nay', value: '${t.leave}', icon: Icons.beach_access_outlined, tone: SboxTone.violet, note: 'Đơn đã duyệt'),
+          note: t.checkedIn > 0 ? 'Đúng giờ ${SboxFmt.pct(punctual)}' : 'Chưa ai chấm công',
+          onTap: () => _showPeople('Đi trễ hôm nay', _todayTrend, {'Late'})),
+      SboxKpi(
+          label: 'Vắng hôm nay',
+          value: '${t.absent}',
+          icon: Icons.person_off_outlined,
+          tone: SboxTone.danger,
+          note: 'Phải đi làm, chưa chấm công',
+          onTap: () => _showPeople('Vắng hôm nay', _todayTrend, {'Absent'}, subtitle: 'Có ca hôm nay mà chưa chấm công')),
+      SboxKpi(
+          label: 'Nghỉ phép hôm nay',
+          value: '${t.leave}',
+          icon: Icons.beach_access_outlined,
+          tone: SboxTone.violet,
+          note: 'Đơn đã duyệt',
+          onTap: () => _showPeople('Nghỉ phép hôm nay', _todayTrend, {'On Leave'})),
     ];
   }
 
-  List<SboxKpi> _combinedKpis() {
-    final pos = _posKpis();
-    final hrm = _hrmKpis();
-    final present = _today.checkedIn;
-    final rev = _n(_sales?['totalRevenue']);
-    return [
-      pos[0],
-      pos[1],
-      pos[2],
-      hrm[0],
-      hrm[1],
-      // Doanh thu cả kỳ ÷ số NV có mặt HÔM NAY vô nghĩa khi xem kỳ khác → chỉ hiện khi xem hôm nay.
-      if (_period == SboxPeriod.today)
-        SboxKpi(
-          label: 'Doanh thu / NV có mặt',
-          value: present > 0 ? SboxFmt.money(rev / present) : '—',
-          icon: Icons.groups_2_outlined,
-          tone: SboxTone.brand,
-          note: 'Năng suất hôm nay',
-        )
-      else
-        hrm[2],
-    ];
-  }
+  /// Hàng số liệu có tiêu đề — tách «Bán hàng · kỳ đã chọn» khỏi «Nhân sự · hôm nay» (trước nằm lẫn một lưới,
+  /// chọn «Tháng này» thì doanh thu cả tháng đứng cạnh «Vắng hôm nay»).
+  Widget _kpiGroup(String title, List<SboxKpi> items) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: SboxSpace.sm),
+            child: Text(tr(title), style: SboxType.captionStyle(SboxColors.textMuted).copyWith(fontWeight: FontWeight.w700)),
+          ),
+          SboxKpiStrip(items: items),
+        ],
+      );
 
   // ─── Biểu đồ ────────────────────────────────────────────────────
 
@@ -318,6 +445,7 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       wide: wide,
       onMore: _can('PosSalesReport') ? () => _go('PosSalesReport') : null,
       child: SboxBarChart(
+        onTapIndex: _can('PosSalesReport') ? (_) => _go('PosSalesReport') : null,
         labels: [for (final d in days) _dayLabel(d['date'])],
         series: [
           SboxSeries(name: 'Doanh thu', values: [for (final d in days) _n(d['revenue'])]),
@@ -331,11 +459,17 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
   Widget _attendanceChart({bool wide = false}) {
     return SboxChartCard(
       title: 'Chuyên cần theo ngày',
-      subtitle: '${_period.trendDays} ngày gần nhất',
+      subtitle: '${_period.trendDays} ngày gần nhất · chạm cột xem ai trễ / vắng',
       wide: wide,
       onMore: _can('AttendanceSummary') ? () => _go('AttendanceSummary') : null,
       child: SboxBarChart(
         stacked: true,
+        onTapIndex: (i) {
+          if (i < 0 || i >= _trends.length) return;
+          final d = _trends[i];
+          _showPeople('Ngày ${_dayLabel(d['date'])}: trễ / vắng / nghỉ', d, {'Late', 'Absent', 'On Leave'},
+              subtitle: 'Có mặt ${_n(d['present']).round()} · trễ ${_n(d['late']).round()} · vắng ${_n(d['absent']).round()}');
+        },
         valueFormat: (v) => '${SboxFmt.number(v)} lượt',
         axisFormat: (v) => SboxFmt.number(v),
         labels: [for (final d in _trends) _dayLabel(d['date'])],
@@ -352,6 +486,7 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     return SboxChartCard(
       title: 'Hôm nay',
       subtitle: 'Tình trạng đi làm',
+      onMore: _can('AttendanceSummary') ? () => _go('AttendanceSummary') : null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         SboxRatioBar(parts: [
           SboxSlice('Đúng giờ', (_today.checkedIn - _today.late).clamp(0, 1 << 30).toDouble(), color: SboxColors.success),
@@ -392,6 +527,7 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     return SboxChartCard(
       title: 'Cơ cấu thanh toán',
       subtitle: _period.label,
+      onMore: _can('CashTransaction') ? () => _go('CashTransaction') : (_can('PosSalesReport') ? () => _go('PosSalesReport') : null),
       child: SboxDonutChart(
         centerValue: SboxFmt.compact(_n(_sales?['totalPaid'])),
         centerLabel: 'Đã thu',
@@ -464,7 +600,12 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     }
     // Kho: dùng số liệu tồn kho khi API việc cần làm chưa có (máy chủ cũ).
     if (_hasPos && !_todos.any((t) => t['key'] == 'outOfStock') && _stock != null) {
-      items.add(SboxTodoItem(label: 'Hàng đã hết', count: _n(_stock!['outOfStockCount']).round(), tone: SboxTone.danger, icon: Icons.remove_shopping_cart_outlined));
+      items.add(SboxTodoItem(
+          label: 'Hàng đã hết',
+          count: _n(_stock!['outOfStockCount']).round(),
+          tone: SboxTone.danger,
+          icon: Icons.remove_shopping_cart_outlined,
+          onTap: _can('PosProducts') ? () => _go('PosProducts') : null));
     }
     final total = items.fold<int>(0, (s, e) => s + e.count);
     return SboxChartCard(
@@ -481,6 +622,11 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       rows: rows,
       pageSize: 10,
       emptyTitle: 'Chưa có đơn bán trong kỳ',
+      // Bấm một nhân viên → các đơn người đó bán trong kỳ.
+      onRowTap: (r) => _openOrders(
+        soldBy: '${r['soldBy'] ?? ''}'.isEmpty ? null : '${r['soldBy']}',
+        soldByLabel: '${r['displayName'] ?? r['soldBy'] ?? ''}',
+      ),
       columns: [
         SboxColumn(label: 'Nhân viên', primary: true, flex: 3, text: (r) => '${r['displayName'] ?? r['soldBy'] ?? '—'}', sortValue: (r) => '${r['displayName'] ?? r['soldBy'] ?? ''}'),
         SboxColumn(label: 'Số đơn', numeric: true, flex: 1, text: (r) => SboxFmt.number(_n(r['orderCount'])), sortValue: (r) => _n(r['orderCount'])),
@@ -536,6 +682,7 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       rows: rows,
       pageSize: 10,
       emptyTitle: 'Hôm nay chưa có ai chấm công',
+      onRowTap: _can('AttendanceSummary') ? (_) => _go('AttendanceSummary') : null,
       columns: [
         SboxColumn(label: 'Nhân viên', primary: true, flex: 3, text: (r) => '${r['fullName'] ?? ''}', sortValue: (r) => '${r['fullName'] ?? ''}'),
         SboxColumn(label: 'Phòng ban', flex: 2, hideOnMobile: true, text: (r) => '${r['department'] ?? ''}', sortValue: (r) => '${r['department'] ?? ''}'),
@@ -623,19 +770,25 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     final List<Widget> charts;
     Widget? table;
     String? tableTitle;
+    final kpiGroups = <Widget>[];
     switch (widget.mode) {
       case OverviewMode.hrm:
-        kpis = _hrmKpis();
+        kpis = const [];
+        kpiGroups.add(_kpiGroup('Nhân sự · hôm nay', _hrmKpis()));
         charts = [_attendanceChart(), _todoCard(), _todayAttendanceCard()];
         table = _employeeTodayTable();
         tableTitle = 'Nhân viên hôm nay';
       case OverviewMode.pos:
-        kpis = _posKpis();
+        kpis = const [];
+        kpiGroups.add(_kpiGroup('Bán hàng · ${_period.label}', [..._posKpis(), ..._moneyKpis()]));
         charts = [_revenueChart(), _todoCard(), _topProducts(), _paymentDonut()];
         table = _staffTable();
         tableTitle = 'Doanh thu theo nhân viên bán';
       case OverviewMode.combined:
-        kpis = _combinedKpis();
+        kpis = const [];
+        kpiGroups
+          ..add(_kpiGroup('Bán hàng · ${_period.label}', [..._posKpis(), ..._moneyKpis()]))
+          ..add(_kpiGroup('Nhân sự · hôm nay', _hrmKpis()));
         charts = [_revenueChart(), _attendanceChart(), _todoCard(), _todayAttendanceCard(), _topProducts(), _paymentDonut()];
         table = _staffTable();
         tableTitle = 'Doanh thu theo nhân viên bán';
@@ -643,7 +796,13 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     return Stack(children: [
       SboxReportLayout(
         header: widget.leading.isEmpty ? header : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [header, const SizedBox(height: SboxSpace.md), ...widget.leading]),
-        filters: filters,
+        filters: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (filters != null) ...[filters, const SizedBox(height: SboxSpace.md)],
+          for (var i = 0; i < kpiGroups.length; i++) ...[
+            if (i > 0) const SizedBox(height: SboxSpace.lg),
+            kpiGroups[i],
+          ],
+        ]),
         kpis: kpis,
         charts: charts,
         table: table,

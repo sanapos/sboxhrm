@@ -9912,6 +9912,21 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// SBOX BOSS: đơn của ngày kinh doanh hiện tại — [hour] (0–23) lọc theo giờ bán,
+  /// [kind] = `canceled` (đơn hủy) / `unpaid` (đơn còn nợ) / null (đơn đã chốt).
+  Future<Map<String, dynamic>> getBossOrders({int? hour, String? kind}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/reports/boss/orders').replace(queryParameters: {
+        if (hour != null) 'hour': '$hour',
+        if (kind != null) 'kind': kind,
+      });
+      final response = await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// SBOX BOSS: mọi việc chờ duyệt (nghỉ, tăng ca, sửa công, chấm công mobile, đổi ca, ca theo giờ, ứng lương,
   /// công tác phí, phiếu phạt, phiếu thu chi chờ duyệt) — `items[].kind` quyết định endpoint duyệt.
   Future<Map<String, dynamic>> getBossInbox() async {

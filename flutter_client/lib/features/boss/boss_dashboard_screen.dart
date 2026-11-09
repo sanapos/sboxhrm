@@ -12,6 +12,8 @@ import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import '../../widgets/sbox/sbox_charts.dart';
 import 'boss_issues_card.dart';
+import 'boss_overview_sheets.dart';
+import 'boss_reports_screen.dart';
 import 'boss_staff_today_screen.dart';
 
 /// SBOX BOSS — «Tổng quan hôm nay»: doanh thu ngày kinh doanh hiện tại so với cùng giờ hôm qua /
@@ -102,11 +104,18 @@ class _BossDashboardScreenState extends State<BossDashboardScreen> with WidgetsB
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(SboxSpace.lg, SboxSpace.md, SboxSpace.lg, SboxSpace.xxl),
+        // Đáy chừa chỗ cho nút nổi «+» (trước che thẻ «Hôm qua cả ngày» và dòng «Cập nhật lúc»).
+        padding: const EdgeInsets.fromLTRB(SboxSpace.lg, SboxSpace.md, SboxSpace.lg, 104),
         children: [
           _RevenueHero(data: d),
           const SizedBox(height: SboxSpace.md),
           BossIssuesCard(refreshTick: _issuesTick, onOpenInbox: widget.onOpenInbox),
+          const SizedBox(height: SboxSpace.md),
+          _MoneyCard(data: d),
+          if (_hasAnomalies(d)) ...[
+            const SizedBox(height: SboxSpace.md),
+            _AnomaliesCard(data: d),
+          ],
           const SizedBox(height: SboxSpace.md),
           _CompareRow(data: d),
           const SizedBox(height: SboxSpace.md),
@@ -154,51 +163,214 @@ class _RevenueHero extends StatelessWidget {
     final ySame = _map(data['yesterdaySameTime']);
     final revenue = _num(today['revenue']);
     final delta = bossDeltaPct(revenue, _num(ySame['revenue']));
-    return Container(
-      padding: const EdgeInsets.all(SboxSpace.lg),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [SboxColors.brand700, SboxColors.brand500],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    final unpaid = _num(today['unpaid']);
+    final discount = _num(today['discount']);
+    return Material(
+      color: Colors.transparent,
+      child: Ink(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [SboxColors.brand700, SboxColors.brand500],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: SboxRadius.lgAll,
         ),
-        borderRadius: SboxRadius.lgAll,
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(tr('Doanh thu hôm nay'), style: SboxType.smallStyle(SboxColors.brand100)),
-        const SizedBox(height: SboxSpace.xs),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(SboxFmt.money(revenue),
-              style: SboxType.moneyStyle(size: SboxType.display, c: SboxColors.white)),
-        ),
-        const SizedBox(height: SboxSpace.sm),
-        _DeltaPill(delta: delta, caption: 'so với cùng giờ hôm qua'),
-        const SizedBox(height: SboxSpace.md),
-        Row(children: [
-          _HeroStat(label: 'Số đơn', value: SboxFmt.number(_num(today['orderCount']))),
-          _HeroStat(label: 'TB / đơn', value: SboxFmt.compact(_num(today['avgOrder']))),
-          _HeroStat(label: 'Đã thu', value: SboxFmt.compact(_num(today['collected']))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          InkWell(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            onTap: () => bossOpenReport(context, BossReportType.business),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(SboxSpace.lg, SboxSpace.lg, SboxSpace.sm, SboxSpace.sm),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(child: Text(tr('Doanh thu hôm nay'), style: SboxType.smallStyle(SboxColors.brand100))),
+                  IconButton(
+                    tooltip: tr('Các số tính thế nào?'),
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.help_outline_rounded, color: SboxColors.white, size: 20),
+                    onPressed: () => showBossNumbersHelp(context),
+                  ),
+                ]),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(SboxFmt.money(revenue),
+                      style: SboxType.moneyStyle(size: SboxType.display, c: SboxColors.white)),
+                ),
+                const SizedBox(height: SboxSpace.sm),
+                Row(children: [
+                  Flexible(child: _DeltaPill(delta: delta, caption: 'so với cùng giờ hôm qua')),
+                  const SizedBox(width: SboxSpace.xs),
+                  const Icon(Icons.chevron_right_rounded, color: SboxColors.brand100, size: 18),
+                ]),
+                if (discount > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: SboxSpace.xs),
+                    child: Text(tr('Đã giảm giá ${SboxFmt.money(discount)}'),
+                        style: SboxType.captionStyle(SboxColors.brand100)),
+                  ),
+              ]),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(SboxSpace.sm, 0, SboxSpace.sm, SboxSpace.sm),
+            child: Row(children: [
+              _HeroStat(
+                label: 'Số đơn',
+                value: SboxFmt.number(_num(today['orderCount'])),
+                onTap: () => showBossOrdersSheet(context, title: 'Đơn hôm nay'),
+              ),
+              _HeroStat(
+                label: 'TB / đơn',
+                value: SboxFmt.compact(_num(today['avgOrder'])),
+                onTap: () => bossOpenReport(context, BossReportType.business),
+              ),
+              _HeroStat(
+                label: 'Đã thu',
+                value: SboxFmt.compact(_num(today['collected'])),
+                onTap: () => bossOpenEndOfDay(context),
+              ),
+              _HeroStat(
+                label: 'Chưa thu',
+                value: unpaid > 0 ? SboxFmt.compact(unpaid) : '0',
+                highlight: unpaid > 0,
+                onTap: () => showBossOrdersSheet(context, title: 'Đơn khách còn nợ hôm nay', kind: 'unpaid'),
+              ),
+            ]),
+          ),
         ]),
-      ]),
+      ),
     );
   }
 }
 
 class _HeroStat extends StatelessWidget {
-  const _HeroStat({required this.label, required this.value});
+  const _HeroStat({required this.label, required this.value, required this.onTap, this.highlight = false});
 
   final String label;
   final String value;
+  final VoidCallback onTap;
+  final bool highlight;
 
   @override
   Widget build(BuildContext context) => Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(tr(label), style: SboxType.captionStyle(SboxColors.brand100)),
-          Text(value, style: SboxType.moneyStyle(size: SboxType.titleSm, c: SboxColors.white)),
-        ]),
+        child: InkWell(
+          borderRadius: SboxRadius.mdAll,
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: SboxSpace.sm, vertical: SboxSpace.xs),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr(label), style: SboxType.captionStyle(SboxColors.brand100)),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(value,
+                    style: SboxType.moneyStyle(
+                        size: SboxType.titleSm, c: highlight ? const Color(0xFFFFE08A) : SboxColors.white)),
+              ),
+            ]),
+          ),
+        ),
       );
+}
+
+/// Khối «Tiền hôm nay»: thu, chi, thu − chi — bấm từng dòng ra Cuối ngày / Chi phí / Sổ quỹ.
+class _MoneyCard extends StatelessWidget {
+  const _MoneyCard({required this.data});
+
+  final Map<String, dynamic> data;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = _map(data['today']);
+    final collected = _num(t['collected']);
+    final expense = _num(t['expense']);
+    final cashIn = _num(t['collectedCash']);
+    final cashOut = _num(t['expenseCash']);
+    Widget row(IconData icon, String label, String value, String? sub, Color color, VoidCallback onTap) => InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: SboxSpace.lg, vertical: SboxSpace.sm),
+            child: Row(children: [
+              Icon(icon, size: 20, color: color),
+              const SizedBox(width: SboxSpace.md),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(tr(label), style: SboxType.bodyStyle()),
+                  if (sub != null) Text(tr(sub), style: SboxType.captionStyle()),
+                ]),
+              ),
+              Text(value, style: SboxType.moneyStyle(size: SboxType.body, c: color)),
+              const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
+            ]),
+          ),
+        );
+    return SboxCard(
+      title: 'Tiền hôm nay',
+      padding: EdgeInsets.zero,
+      child: Column(children: [
+        row(Icons.south_west_rounded, 'Đã thu', SboxFmt.money(collected), 'Tiền mặt ${SboxFmt.money(cashIn)}',
+            SboxColors.successText, () => bossOpenEndOfDay(context)),
+        const Divider(height: 1),
+        row(Icons.north_east_rounded, 'Đã chi', SboxFmt.money(expense),
+            '${SboxFmt.number(_num(t['expenseCount']))} phiếu chi · tiền mặt ${SboxFmt.money(cashOut)}',
+            SboxColors.dangerText, () => bossOpenReport(context, BossReportType.expenses)),
+        const Divider(height: 1),
+        row(Icons.account_balance_wallet_rounded, 'Thu − chi', SboxFmt.money(collected - expense),
+            'Tiền mặt thu − chi ${SboxFmt.money(cashIn - cashOut)}', SboxColors.text,
+            () => bossOpenReport(context, BossReportType.cashbook)),
+      ]),
+    );
+  }
+}
+
+bool _hasAnomalies(Map<String, dynamic> d) {
+  final t = _map(d['today']);
+  return _num(t['canceledCount']) > 0 || _num(t['discount']) > 0;
+}
+
+/// «Bất thường hôm nay»: đơn hủy, giảm giá — bấm ra danh sách đơn hủy / báo cáo nguy cơ gian lận.
+class _AnomaliesCard extends StatelessWidget {
+  const _AnomaliesCard({required this.data});
+
+  final Map<String, dynamic> data;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = _map(data['today']);
+    final canceled = _num(t['canceledCount']).toInt();
+    final discount = _num(t['discount']);
+    return SboxCard(
+      title: 'Cần để mắt hôm nay',
+      padding: EdgeInsets.zero,
+      child: Column(children: [
+        if (canceled > 0)
+          ListTile(
+            leading: const Icon(Icons.cancel_outlined, color: SboxColors.dangerText),
+            title: Text(tr('Đơn hủy')),
+            subtitle: Text(tr('${SboxFmt.money(_num(t['canceledTotal']))} — xem ai hủy, hủy lúc nào')),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              SboxStatusChip(label: '$canceled', tone: SboxTone.danger),
+              const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
+            ]),
+            onTap: () => showBossOrdersSheet(context, title: 'Đơn hủy hôm nay', kind: 'canceled'),
+          ),
+        if (canceled > 0 && discount > 0) const Divider(height: 1),
+        if (discount > 0)
+          ListTile(
+            leading: const Icon(Icons.discount_outlined, color: SboxColors.warningText),
+            title: Text(tr('Giảm giá')),
+            subtitle: Text(tr('Giảm trên đơn, voucher, điểm — xem chi tiết ở Kinh doanh')),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(SboxFmt.money(discount), style: SboxType.bodyStrong()),
+              const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
+            ]),
+            onTap: () => bossOpenReport(context, BossReportType.business),
+          ),
+      ]),
+    );
+  }
 }
 
 class _DeltaPill extends StatelessWidget {
@@ -231,20 +403,28 @@ class _CompareRow extends StatelessWidget {
 
   final Map<String, dynamic> data;
 
+  static const _weekdays = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ nhật'];
+
   @override
   Widget build(BuildContext context) {
     final revenue = _num(_map(data['today'])['revenue']);
     final week = _num(_map(data['lastWeekSameTime'])['revenue']);
     final yFull = _num(_map(data['yesterdayFull'])['revenue']);
     final wDelta = bossDeltaPct(revenue, week);
+    final biz = DateTime.tryParse('${data['businessDate'] ?? ''}') ?? DateTime.now();
+    final weekday = tr(_weekdays[biz.weekday - 1]);
+    final hm = _hhmmNow();
+    void open() => bossOpenReport(context, BossReportType.business);
     return Row(children: [
       Expanded(
         child: SboxMetricCard(
-          label: 'Tuần trước',
+          // Trước chỉ ghi «Tuần trước» — chủ quán tưởng là doanh thu cả tuần.
+          label: '$weekday tuần trước, tới $hm',
           value: SboxFmt.compact(week),
           tone: SboxTone.neutral,
-          delta: wDelta == null ? tr('cùng giờ') : '${wDelta >= 0 ? '+' : ''}${SboxFmt.pct(wDelta)} ${tr('cùng giờ')}',
+          delta: wDelta == null ? tr('chưa so được') : '${tr('Hôm nay')} ${wDelta >= 0 ? '+' : ''}${SboxFmt.pct(wDelta)}',
           deltaUp: wDelta == null ? null : wDelta >= 0,
+          onTap: open,
         ),
       ),
       const SizedBox(width: SboxSpace.md),
@@ -254,10 +434,16 @@ class _CompareRow extends StatelessWidget {
           value: SboxFmt.compact(yFull),
           tone: SboxTone.neutral,
           delta: '${SboxFmt.number(_num(_map(data['yesterdayFull'])['orderCount']))} ${tr('đơn')}',
+          onTap: open,
         ),
       ),
     ]);
   }
+}
+
+String _hhmmNow() {
+  final n = DateTime.now();
+  return '${n.hour.toString().padLeft(2, '0')}:${n.minute.toString().padLeft(2, '0')}';
 }
 
 class _HourlyChart extends StatelessWidget {
@@ -274,7 +460,7 @@ class _HourlyChart extends StatelessWidget {
     final shown = first < 0 ? const <Map<String, dynamic>>[] : rows.sublist(first, last + 1);
     return SboxCard(
       title: 'Doanh thu theo giờ',
-      subtitle: 'Hôm nay so với hôm qua',
+      subtitle: shown.isEmpty ? 'Hôm nay so với hôm qua' : 'Hôm nay so với hôm qua · chạm một giờ để xem đơn',
       child: shown.isEmpty
           ? const SboxEmptyState(icon: Icons.show_chart_rounded, title: 'Chưa có đơn hôm nay')
           : SboxLineChart(
@@ -290,6 +476,10 @@ class _HourlyChart extends StatelessWidget {
               ],
               dashedSeries: const {1},
               maxLabels: 8,
+              onTapIndex: (i) {
+                final h = _num(shown[i]['hour']).toInt();
+                showBossOrdersSheet(context, title: 'Đơn từ ${h}h đến ${h + 1}h', hour: h);
+              },
             ),
     );
   }
@@ -305,7 +495,10 @@ class _PaymentsCard extends StatelessWidget {
     final rows = [for (final r in (data['byPayment'] as List? ?? const [])) _map(r)];
     return SboxCard(
       title: 'Tiền đã thu theo phương thức',
+      subtitle: 'Bấm để xem tiền két, thực thu (Cuối ngày)',
+      onTap: () => bossOpenEndOfDay(context),
       child: SboxRankList(
+        onTap: (_) => bossOpenEndOfDay(context),
         items: [
           for (final r in rows)
             SboxSlice(tr('${r['label'] ?? 'Khác'}'), _num(r['total']),
@@ -334,6 +527,11 @@ class _LiveRow extends StatelessWidget {
           value: SboxFmt.number(_num(tables['count'])),
           icon: Icons.table_restaurant_rounded,
           delta: '${tr('Tạm tính')} ${SboxFmt.compact(_num(tables['amount']))}',
+          onTap: () => showBossOpenTablesSheet(
+            context,
+            [for (final e in (tables['items'] as List? ?? const [])) if (e is Map) Map<String, dynamic>.from(e)],
+            _num(tables['amount']),
+          ),
         ),
       ),
       const SizedBox(width: SboxSpace.md),

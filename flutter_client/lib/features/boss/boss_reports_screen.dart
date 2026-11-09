@@ -111,9 +111,12 @@ String _signedPct(Object? v) {
 
 /// Một báo cáo: thanh chọn kỳ + nội dung theo loại. Đổi chi nhánh ở thanh trên là tải lại.
 class BossReportDetailScreen extends StatefulWidget {
-  const BossReportDetailScreen({super.key, required this.type});
+  const BossReportDetailScreen({super.key, required this.type, this.startToday = false});
 
   final BossReportType type;
+
+  /// Mở từ Tổng quan hôm nay: vào thẳng kỳ «Hôm nay» (Sổ quỹ / Lãi lỗ mặc định mở cả tháng).
+  final bool startToday;
 
   @override
   State<BossReportDetailScreen> createState() => _BossReportDetailScreenState();
@@ -145,7 +148,7 @@ class _BossReportDetailScreenState extends State<BossReportDetailScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.type == BossReportType.cashbook || widget.type == BossReportType.pnl) {
+    if (!widget.startToday && (widget.type == BossReportType.cashbook || widget.type == BossReportType.pnl)) {
       _period = _Period.month;
       _range = _rangeOf(_Period.month);
     }

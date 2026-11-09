@@ -702,6 +702,7 @@
   "Bàn / phiếu trên máy khác cập nhật chậm": "다른 기기의 테이블 / 전표 업데이트가 늦음",
   "Bàn / phòng": "테이블 / 객실",
   "Bàn / phòng & đặt lịch": "테이블 / 룸 & 예약",
+  "Bàn / phòng khách đang ngồi, tiền tạm tính chưa vào doanh thu.": "현재 손님이 있는 테이블/룸입니다. 임시 금액은 아직 매출에 포함되지 않습니다.",
   "Bàn 05": "테이블 05",
   "Bàn chưa có món": "주문한 메뉴가 없는 테이블",
   "Bàn chưa có phiên / đơn": "테이블에 아직 세션/주문이 없습니다",
@@ -1558,6 +1559,7 @@
   "Bấm nút ⋯ rồi chọn «Đăng ký ca»": "⋯ 버튼을 누른 뒤 «근무 신청»을 선택하세요",
   "Bấm thử lại hoặc tải lại trang": "다시 시도하거나 페이지를 새로고침하세요",
   "Bấm vào dòng trên bản xem trước để chọn khối · Ctrl+Z hoàn tác": "미리보기에서 줄을 눌러 블록 선택 · Ctrl+Z 실행 취소",
+  "Bấm vào từng số để xem chi tiết.": "각 숫자를 누르면 상세 내용을 볼 수 있습니다.",
   "Bấm vào từng yêu cầu để xem đầy đủ thông tin.": "각 요청을 눌러 전체 정보를 확인하세요.",
   "Bấm vào ô màu để đổi / bỏ chỗ đó trước.": "색상 칸을 눌러 해당 위치를 먼저 변경/해제하세요.",
   "Bấm «Bỏ lọc» để xem tất cả.": "«필터 해제»를 눌러 모두 보세요.",
@@ -1598,6 +1600,7 @@
   "Bấm để xem chi tiết": "눌러서 상세 보기",
   "Bấm để xem giỏ hàng": "눌러서 장바구니 보기",
   "Bấm để xem lớn": "눌러서 크게 보기",
+  "Bấm để xem tiền két, thực thu (Cuối ngày)": "눌러서 금고 현금과 실수령액 보기 (마감)",
   "Bấm để xem từng đơn: giờ bán, giờ gửi, máy, người bán": "눌러서 주문별 보기: 판매 시각, 전송 시각, 단말, 판매자",
   "Bấm để đồng bộ lên máy": "눌러서 단말에 동기화",
   "Bấm ⚙ để chọn ngành hàng cho form": "⚙ 를 눌러 양식 업종 선택",
@@ -3042,6 +3045,7 @@
   "Chưa thiết lập đơn giá": "단가가 설정되지 않았습니다",
   "Chưa thoả đáng — mở lại": "미해결 — 다시 열기",
   "Chưa thu": "미수금",
+  "Chưa thu (khách nợ)": "미수금 (고객 외상)",
   "Chưa thu lần nào.": "수금 내역이 없습니다.",
   "Chưa thu phạt": "벌금 미징수",
   "Chưa thấy gateway": "게이트웨이를 찾지 못함",
@@ -4181,6 +4185,8 @@
   "Các quy tắc hệ thống luôn áp dụng — giúp số liệu doanh thu, kho, công nợ và hóa đơn khớp nhau.": "시스템이 항상 적용하는 규칙입니다 — 매출, 재고, 미수금, 세금계산서 수치가 서로 일치하도록 돕습니다.",
   "Các quận/huyện còn lại thuộc tỉnh/TP lớn": "대도시/성에 속한 나머지 구·군",
   "Các sản phẩm trong nhóm cũng sẽ bị xóa": "그룹 내 상품도 함께 삭제됩니다",
+  "Các số trên Tổng quan tính thế nào?": "개요의 숫자는 어떻게 계산되나요?",
+  "Các số tính thế nào?": "어떻게 계산되나요?",
   "Các tab: «Mẫu gốc» (file bạn tải) · «Soạn mẫu» (bấm vào chữ để chèn / đổi / bỏ trường) · «Mẫu gắn trường» · «Bản in thử» (điền dữ liệu mẫu) — không cần sửa code": "탭: «원본 템플릿»(업로드한 파일) · «템플릿 편집»(글자를 눌러 필드 삽입 / 변경 / 제거) · «필드 연결 템플릿» · «테스트 인쇄»(샘플 데이터 입력) — 코드 수정 불필요",
   "Các thao tác dưới đây không thể hoàn tác. Hãy chắc chắn đã sao lưu dữ liệu trước khi thực hiện.": "아래 작업은 되돌릴 수 없습니다. 실행 전에 반드시 데이터를 백업하세요.",
   "Các thiết bị đã kết nối đến server ADMS và chưa được đăng ký": "ADMS 서버에 연결되었지만 아직 등록되지 않은 기기",
@@ -4319,6 +4325,7 @@
   "Có bản mới trên máy chủ": "서버에 새 버전이 있습니다",
   "Có bổ sung": "추가 있음",
   "Có ca dùng chung một lần chấm: nếu nhân viên làm cả hai ca trong ngày, giờ của ca sau nằm ở các cột cuối.": "일부 근무조가 같은 타각 차수를 사용합니다. 직원이 하루에 두 근무조를 모두 근무하면 나중 근무조의 시간은 마지막 열에 표시됩니다.",
+  "Có ca hôm nay mà chưa chấm công": "오늘 근무조가 있지만 아직 출근 타각이 없습니다",
   "Có chấm": "기록 있음",
   "Có cột Ngày": "날짜 열 있음",
   "Có dùng": "사용 중",
@@ -4464,6 +4471,7 @@
   "Công việc, KPI, bản tin nội bộ, nhân sự, suất ăn": "업무, KPI, 사내 소식, 인사, 식사 관리",
   "Công đoàn": "노동조합",
   "Cùng bộ phận": "같은 부서",
+  "Cùng giờ tuần trước": "지난주 같은 시간",
   "Cùng khối: ngày nghỉ hưởng lương, số giờ một công, công chuẩn tháng (theo tháng hoặc cố định, vd 26 công)": "같은 블록: 유급 휴일, 1근무일 시간 수, 월 기준 근무일(월별 또는 고정, 예: 26일)",
   "Cùng một cửa hàng SBOX: máy Sunmi T1 (A6) chạy app POS; máy C20Lite (A7) và web/iOS bán hàng trong app HRM.": "같은 SBOX 매장: Sunmi T1(A6) 기기는 POS 앱을, C20Lite(A7) 기기와 웹/iOS는 HRM 앱에서 판매를 실행합니다.",
   "Cùng phòng ban với bạn": "나와 같은 부서",
@@ -4693,6 +4701,7 @@
   "Cần ít nhất một giai đoạn «hoàn thành» (kéo việc vào là xong)": "«완료» 단계가 최소 하나 필요합니다(업무를 끌어다 놓으면 완료)",
   "Cần đo lại (>30 ngày)": "재측정 필요 (30일 초과)",
   "Cần đăng ký thiết bị trước khi chấm công": "출퇴근 기록 전에 기기를 등록해야 합니다",
+  "Cần để mắt hôm nay": "오늘 주의할 사항",
   "Cần để ý": "주의 필요",
   "Cần đọc, xác nhận": "읽고 확인 필요",
   "Cần đủ": "충분히 필요",
@@ -5006,6 +5015,7 @@
   "Doanh thu HĐ có KM": "프로모션 적용 계산서 매출",
   "Doanh thu bán hàng": "판매 매출",
   "Doanh thu bán hàng, tồn kho POS": "판매 매출, POS 재고",
+  "Doanh thu cùng thứ tuần trước, tính từ đầu ngày tới đúng giờ hiện tại — so công bằng khi ngày chưa hết.": "지난주 같은 요일, 영업 시작부터 현재 시각까지의 매출 — 하루가 끝나기 전에도 공정하게 비교합니다.",
   "Doanh thu cả năm": "연간 매출",
   "Doanh thu ghi nhận khi đơn hoàn tất; hủy đơn gỡ doanh thu, hoàn kho, hoàn điểm / voucher / công nợ khách": "주문이 완료될 때 매출이 인식됩니다. 주문을 취소하면 매출이 제외되고 재고, 포인트 / 바우처 / 고객 미수금이 복원됩니다",
   "Doanh thu gồm VAT": "매출 (VAT 포함)",
@@ -5786,6 +5796,7 @@
   "Giảm theo tổng hóa đơn": "계산서 합계 기준 할인",
   "Giảm thụt": "들여쓰기 줄이기",
   "Giảm tiền": "금액 할인",
+  "Giảm trên đơn, voucher, điểm — xem chi tiết ở Kinh doanh": "주문 할인, 바우처, 포인트 — 상세는 영업 보고서에서",
   "Giảm trừ / chiết khấu thanh toán": "차감 / 결제 할인",
   "Giảm trừ NPT": "부양가족 공제",
   "Giảm trừ bản thân": "본인 공제",
@@ -6665,6 +6676,7 @@
   "Hôm nay không có ca": "오늘은 근무조가 없습니다",
   "Hôm nay là ngày nghỉ": "오늘은 휴무일입니다",
   "Hôm nay so với hôm qua": "오늘과 어제 비교",
+  "Hôm nay so với hôm qua · chạm một giờ để xem đơn": "오늘 vs 어제 · 시간을 누르면 주문 보기",
   "Hôm nay tôi chấm công chưa?": "오늘 출퇴근 기록했나요?",
   "Hôm nay ăn gì?": "오늘 뭐 먹지?",
   "Hôm nay — chưa có giờ chấm": "오늘 — 아직 출퇴근 기록 없음",
@@ -7563,6 +7575,7 @@
   "Không có bàn khác": "다른 테이블이 없습니다",
   "Không có bàn trống": "빈 테이블이 없습니다",
   "Không có bàn trống trong nhóm này": "이 그룹에 빈 테이블이 없습니다",
+  "Không có bàn đang mở": "사용 중인 테이블이 없습니다",
   "Không có báo cáo chờ xử lý": "처리 대기 중인 신고가 없습니다",
   "Không có báo cáo nào bạn được xem": "조회할 수 있는 보고서가 없습니다",
   "Không có bước duyệt nào đang chờ": "대기 중인 승인 단계가 없습니다",
@@ -8643,6 +8656,7 @@
   "Không tải được danh sách vai trò của cửa hàng": "매장 역할 목록을 불러올 수 없습니다",
   "Không tải được danh sách vai trò.": "역할 목록을 불러올 수 없습니다.",
   "Không tải được danh sách vị trí": "위치 목록을 불러올 수 없습니다",
+  "Không tải được danh sách đơn": "주문 목록을 불러오지 못했습니다",
   "Không tải được danh sách đơn tạm.": "임시 주문 목록을 불러올 수 없습니다.",
   "Không tải được dòng giá": "가격 행을 불러올 수 없습니다",
   "Không tải được dữ liệu": "데이터를 불러올 수 없습니다",
@@ -9349,6 +9363,7 @@
   "Lãi": "이익",
   "Lãi / lỗ phí ship": "배송비 손익",
   "Lãi gộp": "매출총이익",
+  "Lãi gộp (chưa trừ chi phí)": "매출총이익 (비용 차감 전)",
   "Lãi gộp = doanh thu thuần − giá vốn thuần. ": "매출총이익 = 순매출 − 순매출원가. ",
   "Lãi gộp HĐ có KM": "프로모션 적용 영수증 매출총이익",
   "Lãi lỗ": "손익",
@@ -11647,6 +11662,7 @@
   "Nhiều giờ công nhất": "근무 시간 최다",
   "Nhiều giờ nhất": "시간 최다",
   "Nhiều hàng khớp": "일치하는 상품이 여러 개입니다",
+  "Nhiều hình thức": "복합 결제",
   "Nhiều hơn": "더보기",
   "Nhiều khách cùng lúc: bấm + để mở hóa đơn mới (HĐ1, HĐ2…), chuyển qua lại không mất giỏ": "여러 고객 동시 응대: +를 눌러 새 영수증(1번, 2번…)을 열고 장바구니 손실 없이 전환하세요",
   "Nhiều khách sắp hết hạn": "유효기간이 임박한 고객 다수",
@@ -11691,6 +11707,7 @@
   "Nhân sự chấm công": "근태 인원",
   "Nhân sự máy": "단말기 인원",
   "Nhân sự trên máy chấm công": "근태 단말기의 인원",
+  "Nhân sự · hôm nay": "직원 · 오늘",
   "Nhân sự, chấm công, ca làm việc, lương": "인사, 근태, 근무조, 급여",
   "Nhân sự, chấm công, chi phí trong tháng": "이번 달 인사, 근태, 비용",
   "Nhân viên": "직원",
@@ -12789,6 +12806,7 @@
   "Phản ánh cần tiêu đề": "건의 제목을 입력해야 합니다",
   "Phản ánh về": "건의 대상",
   "Phản ánh, góp ý ẩn danh hoặc công khai": "익명 또는 공개로 건의 및 의견 제출",
+  "Phần khách còn nợ trên các đơn đã chốt hôm nay. Doanh thu − Đã thu thường bằng số này.": "오늘 마감된 주문에서 고객이 아직 내지 않은 금액입니다. 매출 − 수령액과 보통 같습니다.",
   "Phần màu càng dài càng mang về nhiều tiền. Topping ít bán có thể bỏ bớt cho gọn.": "색 막대가 길수록 더 많은 수익을 가져옵니다. 잘 팔리지 않는 토핑은 정리해도 좋습니다.",
   "Phần mềm": "소프트웨어",
   "Phần mềm HRM hàng đầu Việt Nam": "베트남 최고의 HRM 소프트웨어",
@@ -15475,6 +15493,7 @@
   "Tiền hàng (trước thuế)": "상품 금액 (세전)",
   "Tiền hàng trả lại": "반품 상품 금액",
   "Tiền hàng đổi mới": "교환 상품 금액",
+  "Tiền hôm nay": "오늘의 돈",
   "Tiền khoán (đ)": "도급액 (đ)",
   "Tiền khoán mỗi việc (đ)": "건당 도급액 (đ)",
   "Tiền két": "금고 현금",
@@ -15514,6 +15533,7 @@
   "Tiền thu hộ (COD)": "대금 대신 수령 (COD)",
   "Tiền thưởng kèm theo": "함께 지급되는 상여금",
   "Tiền thừa": "거스름돈",
+  "Tiền thực nhận từ bán hàng hôm nay theo phiếu thu (tiền mặt, chuyển khoản, thẻ…).": "오늘 판매로 실제 받은 금액 (입금 전표 기준: 현금, 이체, 카드…).",
   "Tiền topping thu được (đã trừ giảm giá đơn, hàng khách trả).": "수금한 토핑 금액 (주문 할인, 고객 반품 차감 후).",
   "Tiền trả NCC": "공급업체 지급",
   "Tiền trả khách": "고객 환불금",
@@ -17281,6 +17301,7 @@
   "Tổng nợ phải thu": "총 미수금",
   "Tổng nợ sau đơn": "주문 후 총 미수금",
   "Tổng phiếu": "총 전표 수",
+  "Tổng phiếu chi hôm nay (nhập hàng trả tiền ngay, chi phí, hoàn tiền…).": "오늘 지출 전표 합계 (즉시 결제한 입고, 비용, 환불…).",
   "Tổng phiếu nhập": "입고서 합계",
   "Tổng phiếu vi phạm": "총 위반 전표",
   "Tổng phát sinh": "총 발생액",
@@ -17332,6 +17353,7 @@
   "Tổng tiền (đ)": "총 금액 (đ)",
   "Tổng tiền cao → thấp": "총액 높은 순",
   "Tổng tiền các đơn có dấu hiệu": "의심 징후가 있는 주문 금액 합계",
+  "Tổng tiền các đơn đã thanh toán / chốt trong ngày kinh doanh (sau giảm giá). Bàn đang mở chưa tính.": "영업일에 결제/마감된 주문의 합계 (할인 후). 사용 중인 테이블은 포함되지 않습니다.",
   "Tổng tiền giảm": "할인 합계",
   "Tổng tiền hàng": "상품 총 금액",
   "Tổng tiền hàng trả": "반품 상품 금액 합계",
@@ -18779,6 +18801,7 @@
   "chưa in": "미인쇄",
   "chưa kết nối": "연결 안 됨",
   "chưa phản hồi": "응답 없음",
+  "chưa so được": "아직 비교 불가",
   "chưa thiết lập lương": "급여 미설정",
   "chưa thu": "미수금",
   "chưa thấy bản ghi mới (tổng": "새 기록이 없습니다 (총",
@@ -20726,6 +20749,7 @@
   "Đã gắn HTML. Bấm Lưu để ghi. In nhiệt nên dùng JSON V2.": "HTML을 연결했습니다. 저장을 눌러 기록하세요. 감열 인쇄는 JSON V2를 사용하세요.",
   "Đã gắn hồ sơ nhân sự": "인사 프로필 연결됨",
   "Đã gắn nhóm topping": "토핑 그룹 연결됨",
+  "Đã gọi tính tiền": "계산 요청됨",
   "Đã gồm VAT (tách thuế)": "VAT 포함(세금 분리)",
   "Đã gộp": "합쳐짐",
   "Đã gỡ": "해제됨",
@@ -21109,6 +21133,7 @@
   "Đã thu nợ cũ": "기존 미수금 회수 완료",
   "Đã thu phạt": "벌금 수납 완료",
   "Đã thu tiền — tạo phiếu thu": "수금 완료 — 입금 전표 생성됨",
+  "Đã thu trừ Đã chi: tiền thực còn lại của ngày, chưa tính tồn quỹ đầu ngày.": "수령액 − 지출액: 기초 잔액을 제외한 오늘 남은 돈입니다.",
   "Đã thu đủ": "전액 수금됨",
   "Đã thu − Đã chi": "수입 − 지출",
   "Đã thêm": "추가됨",
@@ -21674,7 +21699,10 @@
   "Đơn hàng: tra cứu, in lại, hủy (đúng quyền). Trả hàng: menu «Trả hàng bán», chọn đơn gốc và số lượng trả": "주문: 조회, 재인쇄, 취소(권한 필요). 반품: «판매 반품» 메뉴에서 원 주문과 반품 수량을 선택",
   "Đơn hàng: tra cứu, in lại, hủy/trả theo quyền": "주문: 조회, 재인쇄, 권한에 따른 취소/반품",
   "Đơn hôm nay": "오늘 주문",
+  "Đơn hủy": "취소된 주문",
+  "Đơn hủy hôm nay": "오늘 취소된 주문",
   "Đơn hủy không đổi lại được. Món đã báo bếp sẽ in phiếu HỦY ra bếp.": "취소한 주문은 되돌릴 수 없습니다. 주방에 전달된 메뉴는 주방에 취소 전표가 출력됩니다.",
+  "Đơn khách còn nợ hôm nay": "오늘 고객 미수가 있는 주문",
   "Đơn khách gọi tại bàn ghi về chi nhánh được gán (mặc định: trụ sở)": "테이블에서 고객이 주문한 내역은 지정된 지점에 기록됩니다 (기본값: 본사)",
   "Đơn không còn": "주문이 더 이상 없습니다",
   "Đơn không còn tạm": "임시 주문이 더 이상 없습니다",
@@ -23654,6 +23682,10 @@
    "테이블 {0}"
   ],
   [
+   "Bàn đang mở ({0})",
+   "사용 중인 테이블 ({0})"
+  ],
+  [
    "Bàn đang mở trên {0} — không báo bếp được",
    "테이블이 {0}에서 열려 있습니다 — 주방 알림을 보낼 수 없습니다"
   ],
@@ -23672,6 +23704,10 @@
   [
    "Bàn: {0}",
    "테이블: {0}"
+  ],
+  [
+   "Bán hàng · {0}",
+   "판매 · {0}"
   ],
   [
    "Bán offline: BẬT (tiền mặt, còn {0} số HĐ)",
@@ -25140,6 +25176,10 @@
   [
    "Có lịch {0}–{1}",
    "{0}–{1} 예약 있음"
+  ],
+  [
+   "Có mặt {0} · trễ {1} · vắng {2}",
+   "출근 {0} · 지각 {1} · 결근 {2}"
   ],
   [
    "Có mặt – {0}",
@@ -28650,6 +28690,10 @@
    "{1}용 {0} 열기"
   ],
   [
+   "Mở {0} · {1}",
+   "{0} 시작 · {1}"
+  ],
+  [
    "Mở: {0} · Đóng: {1}",
    "열기: {0} · 닫기: {1}"
   ],
@@ -28776,6 +28820,10 @@
   [
    "Ngày {0}/{1}/{2}",
    "{0}/{1}/{2}"
+  ],
+  [
+   "Ngày {0}: trễ / vắng / nghỉ",
+   "{0}: 지각 / 결근 / 휴가"
   ],
   [
    "Ngày:     {0}  {1}",
@@ -30462,6 +30510,14 @@
    "공급업체 지급액: {0}"
   ],
   [
+   "Tiền mặt thu − chi {0}",
+   "현금 수령 − 지출 {0}"
+  ],
+  [
+   "Tiền mặt {0}",
+   "현금 {0}"
+  ],
+  [
    "Tiền mặt: {0}",
    "현금: {0}"
   ],
@@ -30864,6 +30920,10 @@
   [
    "Tạm dừng · {0}",
    "일시 중지 · {0}"
+  ],
+  [
+   "Tạm tính {0} · bàn mở lâu nhất ở trên",
+   "임시 합계 {0} · 가장 오래된 테이블부터"
   ],
   [
    "Tạm tính {0} đ",
@@ -33578,6 +33638,10 @@
    "최근 {0}일"
   ],
   [
+   "{0} ngày gần nhất · chạm cột xem ai trễ / vắng",
+   "최근 {0}일 · 막대를 누르면 지각/결근자 보기"
+  ],
+  [
    "{0} ngày lễ",
    "공휴일 {0}일"
   ],
@@ -33806,6 +33870,10 @@
    "출금 전표 {0}건"
   ],
   [
+   "{0} phiếu chi · tiền mặt {1}",
+   "지출 전표 {0}건 · 현금 {1}"
+  ],
+  [
    "{0} phiếu chưa duyệt",
    "미승인 전표 {0}건"
   ],
@@ -34024,6 +34092,10 @@
   [
    "{0} tuần",
    "{0}주"
+  ],
+  [
+   "{0} tuần trước, tới {1}",
+   "지난주 {0}, {1}까지"
   ],
   [
    "{0} tài khoản",
@@ -34892,6 +34964,10 @@
   [
    "{0} — thấp nhất",
    "{0} — 최저"
+  ],
+  [
+   "{0} — xem ai hủy, hủy lúc nào",
+   "{0} — 누가 언제 취소했는지 보기"
   ],
   [
    "{0} — {1} đ",
@@ -36062,6 +36138,10 @@
    "\"{2}\"의 기기 {0}대를 해제하고 계정 {1}개를 로그아웃했습니다"
   ],
   [
+   "Đã giảm giá {0}",
+   "할인 {0}"
+  ],
+  [
    "Đã giữ {0} · quá hạn {1} · sắp tới {2}",
    "지킴 {0} · 기한 초과 {1} · 예정 {2}"
   ],
@@ -36532,6 +36612,10 @@
   [
    "Đã thu hồi {0} key",
    "키 {0}개를 회수했습니다"
+  ],
+  [
+   "Đã thu {0}",
+   "수령 {0}"
   ],
   [
    "Đã thu: {0} đ",
@@ -37144,6 +37228,10 @@
   [
    "Đơn online. {0}",
    "온라인 주문. {0}"
+  ],
+  [
+   "Đơn từ {0}h đến {1}h",
+   "{0}시–{1}시 주문"
   ],
   [
    "Đơn vẫn ở trạng thái {0} — chưa hủy được trên server",

@@ -702,6 +702,7 @@
   "Bàn / phiếu trên máy khác cập nhật chậm": "其他设备上的桌台 / 单据更新较慢",
   "Bàn / phòng": "桌 / 房间",
   "Bàn / phòng & đặt lịch": "桌台 / 包间与预约",
+  "Bàn / phòng khách đang ngồi, tiền tạm tính chưa vào doanh thu.": "正在使用的桌位/房间，暂计金额尚未计入营业额。",
   "Bàn 05": "桌台 05",
   "Bàn chưa có món": "未点餐的桌台",
   "Bàn chưa có phiên / đơn": "该桌台还没有会话/订单",
@@ -1558,6 +1559,7 @@
   "Bấm nút ⋯ rồi chọn «Đăng ký ca»": "点击 ⋯ 后选择“登记班次”",
   "Bấm thử lại hoặc tải lại trang": "请重试或刷新页面",
   "Bấm vào dòng trên bản xem trước để chọn khối · Ctrl+Z hoàn tác": "点击预览中的行以选择区块 · Ctrl+Z 撤销",
+  "Bấm vào từng số để xem chi tiết.": "点击任意数字查看详情。",
   "Bấm vào từng yêu cầu để xem đầy đủ thông tin.": "点击每条申请查看完整信息。",
   "Bấm vào ô màu để đổi / bỏ chỗ đó trước.": "先点击彩色格子以更改/取消该位置。",
   "Bấm «Bỏ lọc» để xem tất cả.": "点击「清除筛选」查看全部。",
@@ -1598,6 +1600,7 @@
   "Bấm để xem chi tiết": "点击查看详情",
   "Bấm để xem giỏ hàng": "点击查看购物车",
   "Bấm để xem lớn": "点击查看大图",
+  "Bấm để xem tiền két, thực thu (Cuối ngày)": "点击查看钱箱现金和实收（日结）",
   "Bấm để xem từng đơn: giờ bán, giờ gửi, máy, người bán": "点击查看每笔订单：销售时间、上传时间、设备、销售员",
   "Bấm để đồng bộ lên máy": "点击同步到设备",
   "Bấm ⚙ để chọn ngành hàng cho form": "点 ⚙ 选择表单行业",
@@ -3042,6 +3045,7 @@
   "Chưa thiết lập đơn giá": "尚未设置单价",
   "Chưa thoả đáng — mở lại": "未解决 — 重新打开",
   "Chưa thu": "未收",
+  "Chưa thu (khách nợ)": "未收 (客户欠款)",
   "Chưa thu lần nào.": "尚未收款。",
   "Chưa thu phạt": "罚款未收",
   "Chưa thấy gateway": "未发现网关",
@@ -4181,6 +4185,8 @@
   "Các quy tắc hệ thống luôn áp dụng — giúp số liệu doanh thu, kho, công nợ và hóa đơn khớp nhau.": "系统始终适用的规则——帮助营收、库存、应收账款和发票数据保持一致。",
   "Các quận/huyện còn lại thuộc tỉnh/TP lớn": "大省/直辖市下的其余区、县",
   "Các sản phẩm trong nhóm cũng sẽ bị xóa": "分组内的商品也将被删除",
+  "Các số trên Tổng quan tính thế nào?": "概览中的数字是怎么计算的？",
+  "Các số tính thế nào?": "如何计算？",
   "Các tab: «Mẫu gốc» (file bạn tải) · «Soạn mẫu» (bấm vào chữ để chèn / đổi / bỏ trường) · «Mẫu gắn trường» · «Bản in thử» (điền dữ liệu mẫu) — không cần sửa code": "标签页：「原模板」（您上传的文件）· 「编辑模板」（点击文字可插入 / 更换 / 移除字段）· 「绑定字段模板」· 「试打印」（填入示例数据）——无需改代码",
   "Các thao tác dưới đây không thể hoàn tác. Hãy chắc chắn đã sao lưu dữ liệu trước khi thực hiện.": "以下操作无法撤销。执行前请务必备份数据。",
   "Các thiết bị đã kết nối đến server ADMS và chưa được đăng ký": "已连接ADMS服务器但尚未注册的设备",
@@ -4319,6 +4325,7 @@
   "Có bản mới trên máy chủ": "服务器上有新版本",
   "Có bổ sung": "有追加",
   "Có ca dùng chung một lần chấm: nếu nhân viên làm cả hai ca trong ngày, giờ của ca sau nằm ở các cột cuối.": "有班次共用同一打卡次数：如果员工当天上两个班次，后一班次的时间将显示在最后几列。",
+  "Có ca hôm nay mà chưa chấm công": "今天有班次但尚未打卡",
   "Có chấm": "有打卡",
   "Có cột Ngày": "含日期列",
   "Có dùng": "使用中",
@@ -4464,6 +4471,7 @@
   "Công việc, KPI, bản tin nội bộ, nhân sự, suất ăn": "任务、KPI、内部公告、人事、员工餐",
   "Công đoàn": "工会",
   "Cùng bộ phận": "同部门",
+  "Cùng giờ tuần trước": "上周同一时间",
   "Cùng khối: ngày nghỉ hưởng lương, số giờ một công, công chuẩn tháng (theo tháng hoặc cố định, vd 26 công)": "同一区块：带薪休息日、每个工日的小时数、每月标准出勤天数（按月或固定，例如 26 天）",
   "Cùng một cửa hàng SBOX: máy Sunmi T1 (A6) chạy app POS; máy C20Lite (A7) và web/iOS bán hàng trong app HRM.": "同一 SBOX 门店：Sunmi T1（A6）设备运行 POS 应用；C20Lite（A7）设备及网页/iOS 在 HRM 应用中销售。",
   "Cùng phòng ban với bạn": "与你同部门",
@@ -4693,6 +4701,7 @@
   "Cần ít nhất một giai đoạn «hoàn thành» (kéo việc vào là xong)": "至少需要一个「完成」阶段（把任务拖入即完成）",
   "Cần đo lại (>30 ngày)": "需重新测量（超过30天）",
   "Cần đăng ký thiết bị trước khi chấm công": "打卡前需要先注册设备",
+  "Cần để mắt hôm nay": "今日需留意",
   "Cần để ý": "需留意",
   "Cần đọc, xác nhận": "需阅读并确认",
   "Cần đủ": "需要足够",
@@ -5006,6 +5015,7 @@
   "Doanh thu HĐ có KM": "含促销账单营收",
   "Doanh thu bán hàng": "销售营业额",
   "Doanh thu bán hàng, tồn kho POS": "销售营业额、POS库存",
+  "Doanh thu cùng thứ tuần trước, tính từ đầu ngày tới đúng giờ hiện tại — so công bằng khi ngày chưa hết.": "上周同一天从营业开始到当前时刻的营业额——当天未结束时也能公平比较。",
   "Doanh thu cả năm": "全年营收",
   "Doanh thu ghi nhận khi đơn hoàn tất; hủy đơn gỡ doanh thu, hoàn kho, hoàn điểm / voucher / công nợ khách": "订单完成时确认营收；作废订单将扣回营收，并恢复库存、积分 / 代金券 / 客户欠款",
   "Doanh thu gồm VAT": "营业额（含增值税）",
@@ -5786,6 +5796,7 @@
   "Giảm theo tổng hóa đơn": "按账单总额折扣",
   "Giảm thụt": "减少缩进",
   "Giảm tiền": "减免金额",
+  "Giảm trên đơn, voucher, điểm — xem chi tiết ở Kinh doanh": "订单折扣、优惠券、积分——详情见经营报表",
   "Giảm trừ / chiết khấu thanh toán": "减免 / 付款折扣",
   "Giảm trừ NPT": "抚养人扣除",
   "Giảm trừ bản thân": "本人扣除",
@@ -6665,6 +6676,7 @@
   "Hôm nay không có ca": "今天没有班次",
   "Hôm nay là ngày nghỉ": "今天是休息日",
   "Hôm nay so với hôm qua": "今天与昨天对比",
+  "Hôm nay so với hôm qua · chạm một giờ để xem đơn": "今天与昨天对比 · 点击某个小时查看订单",
   "Hôm nay tôi chấm công chưa?": "我今天打卡了吗？",
   "Hôm nay ăn gì?": "今天吃什么？",
   "Hôm nay — chưa có giờ chấm": "今天 — 尚未打卡",
@@ -7563,6 +7575,7 @@
   "Không có bàn khác": "没有其他桌台",
   "Không có bàn trống": "没有空桌",
   "Không có bàn trống trong nhóm này": "此分组没有空桌",
+  "Không có bàn đang mở": "没有正在使用的桌位",
   "Không có báo cáo chờ xử lý": "没有待处理的举报",
   "Không có báo cáo nào bạn được xem": "没有您可以查看的报表",
   "Không có bước duyệt nào đang chờ": "没有待处理的审批步骤",
@@ -8643,6 +8656,7 @@
   "Không tải được danh sách vai trò của cửa hàng": "无法加载门店角色列表",
   "Không tải được danh sách vai trò.": "无法加载角色列表。",
   "Không tải được danh sách vị trí": "无法加载位置列表",
+  "Không tải được danh sách đơn": "无法加载订单列表",
   "Không tải được danh sách đơn tạm.": "无法加载暂存订单列表。",
   "Không tải được dòng giá": "无法加载价格行",
   "Không tải được dữ liệu": "无法加载数据",
@@ -9349,6 +9363,7 @@
   "Lãi": "盈利",
   "Lãi / lỗ phí ship": "运费盈亏",
   "Lãi gộp": "毛利",
+  "Lãi gộp (chưa trừ chi phí)": "毛利 (未扣费用)",
   "Lãi gộp = doanh thu thuần − giá vốn thuần. ": "毛利 = 净营收 − 净成本。 ",
   "Lãi gộp HĐ có KM": "含促销账单的毛利",
   "Lãi lỗ": "盈亏",
@@ -11647,6 +11662,7 @@
   "Nhiều giờ công nhất": "工时最多",
   "Nhiều giờ nhất": "时长最多",
   "Nhiều hàng khớp": "匹配到多个商品",
+  "Nhiều hình thức": "多种方式",
   "Nhiều hơn": "更多",
   "Nhiều khách cùng lúc: bấm + để mở hóa đơn mới (HĐ1, HĐ2…), chuyển qua lại không mất giỏ": "多位客人同时：点 + 新开账单（单1、单2…），来回切换不丢购物车",
   "Nhiều khách sắp hết hạn": "多位客户即将到期",
@@ -11691,6 +11707,7 @@
   "Nhân sự chấm công": "考勤人员",
   "Nhân sự máy": "设备人员",
   "Nhân sự trên máy chấm công": "考勤机上的人员",
+  "Nhân sự · hôm nay": "员工 · 今天",
   "Nhân sự, chấm công, ca làm việc, lương": "人事、考勤、班次、工资",
   "Nhân sự, chấm công, chi phí trong tháng": "本月人事、考勤、费用",
   "Nhân viên": "员工",
@@ -12789,6 +12806,7 @@
   "Phản ánh cần tiêu đề": "反映需要填写标题",
   "Phản ánh về": "反映事项",
   "Phản ánh, góp ý ẩn danh hoặc công khai": "匿名或公开提交反映与建议",
+  "Phần khách còn nợ trên các đơn đã chốt hôm nay. Doanh thu − Đã thu thường bằng số này.": "今天已结单订单中客户仍欠的金额。通常等于 营业额 − 已收。",
   "Phần màu càng dài càng mang về nhiều tiền. Topping ít bán có thể bỏ bớt cho gọn.": "色条越长，带来的收入越多。销量低的配料可以适当精简。",
   "Phần mềm": "软件",
   "Phần mềm HRM hàng đầu Việt Nam": "越南领先的 HRM 软件",
@@ -15475,6 +15493,7 @@
   "Tiền hàng (trước thuế)": "货款（税前）",
   "Tiền hàng trả lại": "退货商品金额",
   "Tiền hàng đổi mới": "换新商品金额",
+  "Tiền hôm nay": "今日资金",
   "Tiền khoán (đ)": "承包金额 (đ)",
   "Tiền khoán mỗi việc (đ)": "每项承包金额 (đ)",
   "Tiền két": "钱箱现金",
@@ -15514,6 +15533,7 @@
   "Tiền thu hộ (COD)": "代收货款 (COD)",
   "Tiền thưởng kèm theo": "附带的奖金",
   "Tiền thừa": "找零",
+  "Tiền thực nhận từ bán hàng hôm nay theo phiếu thu (tiền mặt, chuyển khoản, thẻ…).": "今天销售实际收到的钱（按收款单：现金、转账、刷卡…）。",
   "Tiền topping thu được (đã trừ giảm giá đơn, hàng khách trả).": "已收的配料金额（已扣除订单折扣、客户退货）。",
   "Tiền trả NCC": "付供应商",
   "Tiền trả khách": "退还客户",
@@ -17281,6 +17301,7 @@
   "Tổng nợ phải thu": "应收账款合计",
   "Tổng nợ sau đơn": "下单后欠款总额",
   "Tổng phiếu": "单据总数",
+  "Tổng phiếu chi hôm nay (nhập hàng trả tiền ngay, chi phí, hoàn tiền…).": "今天支出单合计（即付进货、费用、退款…）。",
   "Tổng phiếu nhập": "进货单合计",
   "Tổng phiếu vi phạm": "违规单总数",
   "Tổng phát sinh": "发生额合计",
@@ -17332,6 +17353,7 @@
   "Tổng tiền (đ)": "总金额（đ）",
   "Tổng tiền cao → thấp": "总金额从高到低",
   "Tổng tiền các đơn có dấu hiệu": "存在异常迹象的订单金额合计",
+  "Tổng tiền các đơn đã thanh toán / chốt trong ngày kinh doanh (sau giảm giá). Bàn đang mở chưa tính.": "营业日内已付款/结单的订单合计（折后）。不含正在使用的桌位。",
   "Tổng tiền giảm": "折扣合计",
   "Tổng tiền hàng": "商品总金额",
   "Tổng tiền hàng trả": "退货商品金额合计",
@@ -18779,6 +18801,7 @@
   "chưa in": "未打印",
   "chưa kết nối": "未连接",
   "chưa phản hồi": "未回复",
+  "chưa so được": "暂无法比较",
   "chưa thiết lập lương": "未设置工资",
   "chưa thu": "未收",
   "chưa thấy bản ghi mới (tổng": "暂无新记录（共",
@@ -20726,6 +20749,7 @@
   "Đã gắn HTML. Bấm Lưu để ghi. In nhiệt nên dùng JSON V2.": "已附加 HTML。点击保存以记录。热敏打印请使用 JSON V2。",
   "Đã gắn hồ sơ nhân sự": "已关联人事档案",
   "Đã gắn nhóm topping": "已关联配料组",
+  "Đã gọi tính tiền": "已请求结账",
   "Đã gồm VAT (tách thuế)": "含增值税（税额分列）",
   "Đã gộp": "已合并",
   "Đã gỡ": "已移除",
@@ -21109,6 +21133,7 @@
   "Đã thu nợ cũ": "已收回旧欠款",
   "Đã thu phạt": "已收罚款",
   "Đã thu tiền — tạo phiếu thu": "已收款——已生成收款单",
+  "Đã thu trừ Đã chi: tiền thực còn lại của ngày, chưa tính tồn quỹ đầu ngày.": "已收 − 已支：当天剩余的钱，不含期初余额。",
   "Đã thu đủ": "已收齐",
   "Đã thu − Đã chi": "已收 − 已支",
   "Đã thêm": "已添加",
@@ -21674,7 +21699,10 @@
   "Đơn hàng: tra cứu, in lại, hủy (đúng quyền). Trả hàng: menu «Trả hàng bán», chọn đơn gốc và số lượng trả": "订单：查询、重新打印、取消（需相应权限）。退货：在“销售退货”菜单中选择原订单和退货数量",
   "Đơn hàng: tra cứu, in lại, hủy/trả theo quyền": "订单：查询、重新打印、按权限取消/退货",
   "Đơn hôm nay": "今日订单",
+  "Đơn hủy": "已取消订单",
+  "Đơn hủy hôm nay": "今天取消的订单",
   "Đơn hủy không đổi lại được. Món đã báo bếp sẽ in phiếu HỦY ra bếp.": "取消的订单无法恢复。已通知厨房的菜品会向厨房打印取消单。",
+  "Đơn khách còn nợ hôm nay": "今天客户欠款的订单",
   "Đơn khách gọi tại bàn ghi về chi nhánh được gán (mặc định: trụ sở)": "顾客在桌台自助点单将记入指定分店（默认：总部）",
   "Đơn không còn": "订单已不存在",
   "Đơn không còn tạm": "暂存订单已不存在",
@@ -23654,6 +23682,10 @@
    "{0}号桌"
   ],
   [
+   "Bàn đang mở ({0})",
+   "正在使用的桌位 ({0})"
+  ],
+  [
    "Bàn đang mở trên {0} — không báo bếp được",
    "桌台在{0}上开台 — 无法通知厨房"
   ],
@@ -23672,6 +23704,10 @@
   [
    "Bàn: {0}",
    "桌台：{0}"
+  ],
+  [
+   "Bán hàng · {0}",
+   "销售 · {0}"
   ],
   [
    "Bán offline: BẬT (tiền mặt, còn {0} số HĐ)",
@@ -25140,6 +25176,10 @@
   [
    "Có lịch {0}–{1}",
    "已有预约 {0}–{1}"
+  ],
+  [
+   "Có mặt {0} · trễ {1} · vắng {2}",
+   "出勤 {0} · 迟到 {1} · 缺勤 {2}"
   ],
   [
    "Có mặt – {0}",
@@ -28650,6 +28690,10 @@
    "为 {1} 打开 {0}"
   ],
   [
+   "Mở {0} · {1}",
+   "{0} 开台 · {1}"
+  ],
+  [
    "Mở: {0} · Đóng: {1}",
    "打开：{0} · 关闭：{1}"
   ],
@@ -28776,6 +28820,10 @@
   [
    "Ngày {0}/{1}/{2}",
    "{2}/{1}/{0}"
+  ],
+  [
+   "Ngày {0}: trễ / vắng / nghỉ",
+   "{0}：迟到 / 缺勤 / 请假"
   ],
   [
    "Ngày:     {0}  {1}",
@@ -30462,6 +30510,14 @@
    "应付供应商金额：{0}"
   ],
   [
+   "Tiền mặt thu − chi {0}",
+   "现金 收 − 支 {0}"
+  ],
+  [
+   "Tiền mặt {0}",
+   "现金 {0}"
+  ],
+  [
    "Tiền mặt: {0}",
    "现金：{0}"
   ],
@@ -30864,6 +30920,10 @@
   [
    "Tạm dừng · {0}",
    "暂停 · {0}"
+  ],
+  [
+   "Tạm tính {0} · bàn mở lâu nhất ở trên",
+   "暂计 {0} · 开台最久的在上"
   ],
   [
    "Tạm tính {0} đ",
@@ -33578,6 +33638,10 @@
    "最近 {0} 天"
   ],
   [
+   "{0} ngày gần nhất · chạm cột xem ai trễ / vắng",
+   "最近 {0} 天 · 点击柱子查看迟到/缺勤人员"
+  ],
+  [
    "{0} ngày lễ",
    "{0} 天节假日"
   ],
@@ -33806,6 +33870,10 @@
    "{0} 张付款单"
   ],
   [
+   "{0} phiếu chi · tiền mặt {1}",
+   "{0} 张支出单 · 现金 {1}"
+  ],
+  [
    "{0} phiếu chưa duyệt",
    "{0} 张单据未审批"
   ],
@@ -34024,6 +34092,10 @@
   [
    "{0} tuần",
    "{0} 周"
+  ],
+  [
+   "{0} tuần trước, tới {1}",
+   "上周{0}，截至 {1}"
   ],
   [
    "{0} tài khoản",
@@ -34892,6 +34964,10 @@
   [
    "{0} — thấp nhất",
    "{0} — 最低"
+  ],
+  [
+   "{0} — xem ai hủy, hủy lúc nào",
+   "{0} —— 查看谁在何时取消"
   ],
   [
    "{0} — {1} đ",
@@ -36062,6 +36138,10 @@
    "已释放「{2}」的 {0} 台设备并退出 {1} 个账号"
   ],
   [
+   "Đã giảm giá {0}",
+   "已折扣 {0}"
+  ],
+  [
    "Đã giữ {0} · quá hạn {1} · sắp tới {2}",
    "已跟进 {0} · 逾期 {1} · 即将 {2}"
   ],
@@ -36532,6 +36612,10 @@
   [
    "Đã thu hồi {0} key",
    "已收回 {0} 个密钥"
+  ],
+  [
+   "Đã thu {0}",
+   "已收 {0}"
   ],
   [
    "Đã thu: {0} đ",
@@ -37144,6 +37228,10 @@
   [
    "Đơn online. {0}",
    "线上订单。{0}"
+  ],
+  [
+   "Đơn từ {0}h đến {1}h",
+   "{0}点至{1}点的订单"
   ],
   [
    "Đơn vẫn ở trạng thái {0} — chưa hủy được trên server",

@@ -348,6 +348,7 @@
   "Bàn / phiếu trên máy khác cập nhật chậm": "Tables / tickets on other devices update slowly",
   "Bàn / phòng": "Table / room",
   "Bàn / phòng & đặt lịch": "Tables / rooms & bookings",
+  "Bàn / phòng khách đang ngồi, tiền tạm tính chưa vào doanh thu.": "Tables / rooms with guests now; their running total is not in revenue yet.",
   "Bàn chưa có món": "Table with no items yet",
   "Bàn chưa làm món nào": "Tables not started",
   "Bàn giao": "Handover",
@@ -818,6 +819,7 @@
   "Bấm nút ⋯ rồi chọn «Đăng ký ca»": "Tap ⋯ and choose \"Register shift\"",
   "Bấm thử lại hoặc tải lại trang": "Try again or reload the page",
   "Bấm vào dòng trên bản xem trước để chọn khối · Ctrl+Z hoàn tác": "Tap a line in the preview to select a block · Ctrl+Z to undo",
+  "Bấm vào từng số để xem chi tiết.": "Tap any number to see details.",
   "Bấm vào ô màu để đổi / bỏ chỗ đó trước.": "Tap the colored cell to change or remove that spot first.",
   "Bấm «Bỏ lọc» để xem tất cả.": "Tap “Clear filter” to see everything.",
   "Bấm «Chuyển sang soạn theo khối» để chỉnh dễ hơn (ghi đè HTML khi lưu).": "Tap «Switch to block editing» for easier editing (overwrites the HTML on save).",
@@ -847,6 +849,7 @@
   "Bấm để thêm giờ bị thiếu": "Tap to add the missing time",
   "Bấm để xem giỏ hàng": "Tap to view the cart",
   "Bấm để xem lớn": "Tap to enlarge",
+  "Bấm để xem tiền két, thực thu (Cuối ngày)": "Tap to see drawer cash and actual receipts (End of day)",
   "Bấm để xem từng đơn: giờ bán, giờ gửi, máy, người bán": "Tap to view each order: sale time, sent time, device, seller",
   "Bấm để đồng bộ lên máy": "Tap to sync to the device",
   "Bấm ⚙ để chọn ngành hàng cho form": "Tap ⚙ to pick the industry for this form",
@@ -1553,6 +1556,7 @@
   "Chưa thiết lập lương": "Payroll not set up",
   "Chưa thoả đáng — mở lại": "Unresolved — reopen",
   "Chưa thu": "Not collected",
+  "Chưa thu (khách nợ)": "Unpaid (customer debt)",
   "Chưa thu lần nào.": "Nothing collected yet.",
   "Chưa thu phạt": "Penalty not collected",
   "Chưa thấy gateway. Cấp nguồn mạch, bật Bluetooth điện thoại.": "Gateway not found. Power the board and turn on phone Bluetooth.",
@@ -2090,6 +2094,8 @@
   "Các phiếu này sẽ không được in nữa (vẫn xem lại được ở «Tất cả 24h»).": "These slips will no longer be printed (still viewable in «All 24h»).",
   "Các phiếu này sẽ không được in nữa.": "These slips will no longer be printed.",
   "Các quy tắc hệ thống luôn áp dụng — giúp số liệu doanh thu, kho, công nợ và hóa đơn khớp nhau.": "Rules the system always applies — keeping revenue, stock, debts and invoices consistent.",
+  "Các số trên Tổng quan tính thế nào?": "How are the Overview numbers calculated?",
+  "Các số tính thế nào?": "How are these calculated?",
   "Các tab: «Mẫu gốc» (file bạn tải) · «Soạn mẫu» (bấm vào chữ để chèn / đổi / bỏ trường) · «Mẫu gắn trường» · «Bản in thử» (điền dữ liệu mẫu) — không cần sửa code": "Tabs: «Original template» (your uploaded file) · «Edit template» (tap text to insert / change / remove a field) · «Field-bound template» · «Test print» (fills sample data) — no code changes needed",
   "Các thiết lập chính đã sẵn sàng": "Main settings are ready",
   "Cách chiếu ảnh / video lúc chưa có đơn": "How photos / videos play when there is no order",
@@ -2188,6 +2194,7 @@
   "Có AI hỗ trợ": "AI assisted",
   "Có bổ sung": "Has add-on",
   "Có ca dùng chung một lần chấm: nếu nhân viên làm cả hai ca trong ngày, giờ của ca sau nằm ở các cột cuối.": "Some shifts share a punch number: if an employee works both shifts in a day, the later shift's times go in the last columns.",
+  "Có ca hôm nay mà chưa chấm công": "Scheduled today but has not punched in",
   "Có dùng": "In use",
   "Có gợi ý của AI. Cả ngày dùng chung một lần gọi AI — bản gửi theo giờ hẹn dùng lại gợi ý này.": "Includes AI tips. The whole day shares one AI call — the scheduled send reuses these tips.",
   "Có khoản chưa phân loại": "Has unclassified items",
@@ -2266,6 +2273,7 @@
   "Công việc & tiện ích": "Work & utilities",
   "Công việc, KPI, bản tin nội bộ, nhân sự, suất ăn": "Tasks, KPI, internal news, HR, staff meals",
   "Cùng bộ phận": "Same department",
+  "Cùng giờ tuần trước": "Same time last week",
   "Cùng khối: ngày nghỉ hưởng lương, số giờ một công, công chuẩn tháng (theo tháng hoặc cố định, vd 26 công)": "In the same block: paid days off, hours per workday, standard workdays per month (monthly or fixed, e.g. 26 workdays)",
   "Cùng một cửa hàng SBOX: máy Sunmi T1 (A6) chạy app POS; máy C20Lite (A7) và web/iOS bán hàng trong app HRM.": "Same SBOX store: Sunmi T1 (A6) runs the POS app; C20Lite (A7) and web/iOS sell inside the HRM app.",
   "Căn giữa dọc": "Center vertically",
@@ -2377,6 +2385,7 @@
   "Cần ít nhất 2 máy chấm công để copy sinh trắc sang máy khác.": "At least 2 attendance devices are needed to copy biometrics to another device.",
   "Cần ít nhất một giai đoạn «hoàn thành» (kéo việc vào là xong)": "At least one «done» stage is needed (dragging a task in completes it)",
   "Cần đo lại (>30 ngày)": "Needs re-measuring (>30 days)",
+  "Cần để mắt hôm nay": "Watch today",
   "Cần để ý": "Needs attention",
   "Cần đọc, xác nhận": "Needs reading, confirming",
   "Cập nhật ": "Update ",
@@ -2512,6 +2521,7 @@
   "Doanh thu / NV có mặt": "Revenue / employees present",
   "Doanh thu / nợ KH": "Revenue / customer debt",
   "Doanh thu HĐ có KM": "Revenue of bills with promotions",
+  "Doanh thu cùng thứ tuần trước, tính từ đầu ngày tới đúng giờ hiện tại — so công bằng khi ngày chưa hết.": "Revenue on the same weekday last week, from opening up to this exact time — a fair comparison while the day isn't over.",
   "Doanh thu cả năm": "Full-year revenue",
   "Doanh thu ghi nhận khi đơn hoàn tất; hủy đơn gỡ doanh thu, hoàn kho, hoàn điểm / voucher / công nợ khách": "Revenue is recognized when the order is completed; cancelling removes the revenue and restores stock, points / vouchers / customer debt",
   "Doanh thu hàng bán": "Revenue from goods sold",
@@ -2927,6 +2937,7 @@
   "Giảm mỡ · 4 buổi/tuần": "Fat loss · 4 sessions/week",
   "Giảm theo tổng hóa đơn": "Discount on bill total",
   "Giảm thụt": "Decrease indent",
+  "Giảm trên đơn, voucher, điểm — xem chi tiết ở Kinh doanh": "Order discounts, vouchers, points — details in Business report",
   "Giảm trừ / chiết khấu thanh toán": "Deduction / payment discount",
   "Giảm trừ gia cảnh (mỗi tháng)": "Family deduction (per month)",
   "Giảm trừ gia cảnh, biểu thuế lũy tiến theo tháng, người phụ thuộc của nhân viên": "Family deduction, monthly progressive tax table, employees' dependents",
@@ -3400,6 +3411,7 @@
   "Hôm nay không có ca": "No shift today",
   "Hôm nay là ngày nghỉ": "Today is a day off",
   "Hôm nay so với hôm qua": "Today vs. yesterday",
+  "Hôm nay so với hôm qua · chạm một giờ để xem đơn": "Today vs yesterday · tap an hour to see orders",
   "Hôm nay tôi chấm công chưa?": "Have I punched in today?",
   "Hôm nay ăn gì?": "What to eat today?",
   "Hôm nay — chưa có giờ chấm": "Today — no punch yet",
@@ -3901,6 +3913,7 @@
   "Không có bàn chưa có món bị trễ": "No overdue tables without orders",
   "Không có bàn chưa làm món nào": "No tables waiting to start",
   "Không có bàn chưa làm món nào bị trễ": "No late tables waiting to start",
+  "Không có bàn đang mở": "No open tables",
   "Không có báo cáo chờ xử lý": "No pending reports",
   "Không có báo cáo nào bạn được xem": "No reports you can view",
   "Không có bất thường": "No anomalies",
@@ -4246,6 +4259,7 @@
   "Không tải được danh sách thiết bị": "Cannot load the device list",
   "Không tải được danh sách tài khoản.": "Cannot load the account list.",
   "Không tải được danh sách từ hãng": "Cannot load the list from the provider",
+  "Không tải được danh sách đơn": "Could not load the order list",
   "Không tải được dữ liệu chi nhánh": "Cannot load branch data",
   "Không tải được dữ liệu lương.": "Cannot load payroll data.",
   "Không tải được file lên": "Cannot upload the file",
@@ -4573,6 +4587,7 @@
   "Lãi": "Profit",
   "Lãi / lỗ phí ship": "Shipping profit / loss",
   "Lãi gộp": "Gross profit",
+  "Lãi gộp (chưa trừ chi phí)": "Gross profit (before expenses)",
   "Lãi gộp = doanh thu thuần − giá vốn thuần. ": "Gross profit = net revenue − net cost of goods. ",
   "Lãi gộp HĐ có KM": "Gross profit on invoices with promotion",
   "Lãi lỗ": "Profit & loss",
@@ -5686,6 +5701,7 @@
   "Nhiều giờ công nhất": "Most work hours",
   "Nhiều giờ nhất": "Most hours",
   "Nhiều hàng khớp": "Multiple products match",
+  "Nhiều hình thức": "Multiple methods",
   "Nhiều khách cùng lúc: bấm + để mở hóa đơn mới (HĐ1, HĐ2…), chuyển qua lại không mất giỏ": "Multiple customers at once: tap + to open a new invoice (Bill 1, Bill 2…), switch back and forth without losing the cart",
   "Nhiều khách sắp hết hạn": "Many customers about to expire",
   "Nhiều lượt nhất": "Most times",
@@ -5712,6 +5728,7 @@
   "Nhân bản khối": "Duplicate block",
   "Nhân sự & chấm công": "HR & attendance",
   "Nhân sự chấm công": "Attendance staff",
+  "Nhân sự · hôm nay": "Staff · today",
   "Nhân sự, chấm công, ca làm việc, lương": "HR, attendance, work shifts, payroll",
   "Nhân sự, chấm công, chi phí trong tháng": "HR, attendance, expenses this month",
   "Nhân viên bán": "Salesperson",
@@ -6213,6 +6230,7 @@
   "Phản hồi cho nhân viên": "Feedback to employee",
   "Phản hồi đầu": "First response",
   "Phản hồi đầu TB": "Avg. first response",
+  "Phần khách còn nợ trên các đơn đã chốt hôm nay. Doanh thu − Đã thu thường bằng số này.": "What customers still owe on orders closed today. Revenue − Received usually equals this.",
   "Phần màu càng dài càng mang về nhiều tiền. Topping ít bán có thể bỏ bớt cho gọn.": "The longer the colored bar, the more money it brings in. Rarely sold toppings can be dropped to keep things tidy.",
   "Phần thưởng theo công, trả khi đủ công chuẩn": "Attendance-based bonus, paid when the standard work days are met",
   "Phần trăm giảm *": "Discount percent *",
@@ -7383,6 +7401,7 @@
   "Tiền hàng (trước thuế)": "Goods amount (before tax)",
   "Tiền hàng trả lại": "Returned goods amount",
   "Tiền hàng đổi mới": "Exchange goods amount",
+  "Tiền hôm nay": "Money today",
   "Tiền khoán (đ)": "Contract amount (đ)",
   "Tiền khoán mỗi việc (đ)": "Contract amount per task (đ)",
   "Tiền két": "Drawer cash",
@@ -7414,6 +7433,7 @@
   "Tiền phạt đã duyệt": "Approved penalties",
   "Tiền thu hộ (COD)": "Cash on delivery (COD)",
   "Tiền thưởng kèm theo": "Attached bonus",
+  "Tiền thực nhận từ bán hàng hôm nay theo phiếu thu (tiền mặt, chuyển khoản, thẻ…).": "Money actually received from sales today by receipt (cash, transfer, card…).",
   "Tiền topping thu được (đã trừ giảm giá đơn, hàng khách trả).": "Topping revenue collected (after order discounts and customer returns).",
   "Tiền tăng ca tính theo GIỜ CHẤM vượt ngưỡng «Tăng ca trước ca / Tăng ca sau ca» của ca, hoặc toàn bộ giờ của ca loại «Tăng ca» — đơn tăng ca chỉ để xin phép và theo dõi": "Overtime pay is calculated from PUNCHED HOURS beyond the shift's «Pre-shift overtime / Post-shift overtime» thresholds, or all hours of an «Overtime» type shift — overtime requests are only for permission and tracking",
   "Tiền ăn": "Meal money",
@@ -8213,6 +8233,7 @@
   "Tổng nguyên liệu bị trừ do bán món trong kỳ, đã cộng lại phần hủy đơn / khách trả.": "Total ingredients deducted by items sold in the period, with cancelled orders / customer returns added back.",
   "Tổng nhân sự": "Total staff",
   "Tổng nợ phải thu": "Total receivables",
+  "Tổng phiếu chi hôm nay (nhập hàng trả tiền ngay, chi phí, hoàn tiền…).": "Total of today's expense vouchers (purchases paid now, costs, refunds…).",
   "Tổng phiếu nhập": "Receipt total",
   "Tổng phát sinh": "Total movement",
   "Tổng phút trễ trong kỳ": "Total late minutes in the period",
@@ -8237,6 +8258,7 @@
   "Tổng thực lĩnh theo kỳ": "Total net pay by period",
   "Tổng tiền cao → thấp": "Total high → low",
   "Tổng tiền các đơn có dấu hiệu": "Total amount of orders with warning signs",
+  "Tổng tiền các đơn đã thanh toán / chốt trong ngày kinh doanh (sau giảm giá). Bàn đang mở chưa tính.": "Total of orders paid / closed in the business day (after discounts). Open tables are not included.",
   "Tổng tiền giảm": "Total discount",
   "Tổng tiền hàng trả": "Total returned goods",
   "Tổng tiền hàng:": "Goods total:",
@@ -8826,6 +8848,7 @@
   "chưa gắn nhân viên": "not linked to an employee",
   "chưa hoàn tất được đơn": "could not complete the order",
   "chưa in": "Not printed",
+  "chưa so được": "no comparison yet",
   "chưa thu": "not collected",
   "chưa trả": "not paid",
   "chưa xếp ca": "no shift assigned",
@@ -9788,6 +9811,7 @@
   "Đã gán VA": "VA assigned",
   "Đã gắn hồ sơ nhân sự": "HR profile linked",
   "Đã gắn nhóm topping": "Topping group linked",
+  "Đã gọi tính tiền": "Bill requested",
   "Đã gồm VAT (tách thuế)": "VAT included (tax separated)",
   "Đã gỡ bài": "Post removed",
   "Đã gỡ món ngừng bán": "Discontinued item removed",
@@ -9977,6 +10001,7 @@
   "Đã thu khi bán": "Collected at sale",
   "Đã thu nợ cũ": "Old debt collected",
   "Đã thu tiền — tạo phiếu thu": "Money collected — receipt voucher created",
+  "Đã thu trừ Đã chi: tiền thực còn lại của ngày, chưa tính tồn quỹ đầu ngày.": "Received minus Spent: money left from the day, excluding the opening balance.",
   "Đã thu đủ": "Fully collected",
   "Đã thêm ca": "Shift added",
   "Đã thêm chấm công thủ công": "Manual attendance added",
@@ -10188,7 +10213,10 @@
   "Đơn hàng, nhập hàng, tồn kho thấp, đơn QR": "Orders, purchases, low stock, QR orders",
   "Đơn hàng: tra cứu, in lại, hủy (đúng quyền). Trả hàng: menu «Trả hàng bán», chọn đơn gốc và số lượng trả": "Orders: look up, reprint, cancel (with permission). Returns: “Sales return” menu, pick the original order and quantity returned",
   "Đơn hôm nay": "Orders today",
+  "Đơn hủy": "Cancelled orders",
+  "Đơn hủy hôm nay": "Orders cancelled today",
   "Đơn hủy không đổi lại được. Món đã báo bếp sẽ in phiếu HỦY ra bếp.": "A cancelled order cannot be restored. Items already sent to the kitchen will print a CANCEL ticket in the kitchen.",
+  "Đơn khách còn nợ hôm nay": "Today's orders with customer debt",
   "Đơn khách gọi tại bàn ghi về chi nhánh được gán (mặc định: trụ sở)": "Orders placed by customers at the table are recorded to the assigned branch (default: head office)",
   "Đơn kỳ / TB": "Period / avg. orders",
   "Đơn lưu trên máy và tự gửi lên máy chủ khi có mạng.": "Orders are stored on the device and sent to the server automatically when online.",
@@ -11483,6 +11511,10 @@
    "Table {0}"
   ],
   [
+   "Bàn đang mở ({0})",
+   "Open tables ({0})"
+  ],
+  [
    "Bàn đang mở trên {0} — không báo bếp được",
    "Table is open on {0} — cannot send to kitchen"
   ],
@@ -11501,6 +11533,10 @@
   [
    "Bàn: {0}",
    "Table: {0}"
+  ],
+  [
+   "Bán hàng · {0}",
+   "Sales · {0}"
   ],
   [
    "Bán offline: BẬT (tiền mặt, còn {0} số HĐ)",
@@ -12969,6 +13005,10 @@
   [
    "Có lịch {0}–{1}",
    "Booked {0}–{1}"
+  ],
+  [
+   "Có mặt {0} · trễ {1} · vắng {2}",
+   "Present {0} · late {1} · absent {2}"
   ],
   [
    "Có mặt – {0}",
@@ -16479,6 +16519,10 @@
    "Open {0} for: {1}"
   ],
   [
+   "Mở {0} · {1}",
+   "Opened {0} · {1}"
+  ],
+  [
    "Mở: {0} · Đóng: {1}",
    "Open: {0} · Close: {1}"
   ],
@@ -16605,6 +16649,10 @@
   [
    "Ngày {0}/{1}/{2}",
    "{0}/{1}/{2}"
+  ],
+  [
+   "Ngày {0}: trễ / vắng / nghỉ",
+   "{0}: late / absent / leave"
   ],
   [
    "Ngày:     {0}  {1}",
@@ -18291,6 +18339,14 @@
    "Amount to pay supplier: {0}"
   ],
   [
+   "Tiền mặt thu − chi {0}",
+   "Cash received − spent {0}"
+  ],
+  [
+   "Tiền mặt {0}",
+   "Cash {0}"
+  ],
+  [
    "Tiền mặt: {0}",
    "Cash: {0}"
   ],
@@ -18693,6 +18749,10 @@
   [
    "Tạm dừng · {0}",
    "Paused · {0}"
+  ],
+  [
+   "Tạm tính {0} · bàn mở lâu nhất ở trên",
+   "Running total {0} · longest-open first"
   ],
   [
    "Tạm tính {0} đ",
@@ -21407,6 +21467,10 @@
    "Last {0} days"
   ],
   [
+   "{0} ngày gần nhất · chạm cột xem ai trễ / vắng",
+   "Last {0} days · tap a bar to see who was late / absent"
+  ],
+  [
    "{0} ngày lễ",
    "{0} holidays"
   ],
@@ -21635,6 +21699,10 @@
    "{0} payment vouchers"
   ],
   [
+   "{0} phiếu chi · tiền mặt {1}",
+   "{0} expense vouchers · cash {1}"
+  ],
+  [
    "{0} phiếu chưa duyệt",
    "{0} vouchers not approved"
   ],
@@ -21853,6 +21921,10 @@
   [
    "{0} tuần",
    "{0} weeks"
+  ],
+  [
+   "{0} tuần trước, tới {1}",
+   "{0} last week, up to {1}"
   ],
   [
    "{0} tài khoản",
@@ -22721,6 +22793,10 @@
   [
    "{0} — thấp nhất",
    "{0} — lowest"
+  ],
+  [
+   "{0} — xem ai hủy, hủy lúc nào",
+   "{0} — see who cancelled and when"
   ],
   [
    "{0} — {1} đ",
@@ -23891,6 +23967,10 @@
    "Released {0} devices and logged out {1} accounts of \"{2}\""
   ],
   [
+   "Đã giảm giá {0}",
+   "Discounted {0}"
+  ],
+  [
    "Đã giữ {0} · quá hạn {1} · sắp tới {2}",
    "Kept {0} · overdue {1} · upcoming {2}"
   ],
@@ -24361,6 +24441,10 @@
   [
    "Đã thu hồi {0} key",
    "Revoked {0} keys"
+  ],
+  [
+   "Đã thu {0}",
+   "Received {0}"
   ],
   [
    "Đã thu: {0} đ",
@@ -24973,6 +25057,10 @@
   [
    "Đơn online. {0}",
    "Online order. {0}"
+  ],
+  [
+   "Đơn từ {0}h đến {1}h",
+   "Orders {0}h–{1}h"
   ],
   [
    "Đơn vẫn ở trạng thái {0} — chưa hủy được trên server",

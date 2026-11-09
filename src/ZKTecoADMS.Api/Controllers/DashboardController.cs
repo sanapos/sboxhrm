@@ -211,6 +211,23 @@ public class DashboardController(
         };
     }
 
+    /// <summary>Lịch theo (id, ngày) — thêm khóa Employee.Id ↔ ApplicationUserId tương ứng để tra theo cách nào cũng khớp.</summary>
+    private static Dictionary<(Guid, DateTime), T> BuildScheduleIndex<T>(
+        IEnumerable<T> rows, Func<T, Guid> id, Func<T, DateTime> date,
+        IReadOnlyDictionary<Guid, Guid> userIdByEmp, IReadOnlyDictionary<Guid, Guid> empIdByUser)
+    {
+        var map = new Dictionary<(Guid, DateTime), T>();
+        foreach (var r in rows)
+        {
+            var key = id(r);
+            var day = date(r);
+            map.TryAdd((key, day), r);
+            if (userIdByEmp.TryGetValue(key, out var u)) map.TryAdd((u, day), r);
+            if (empIdByUser.TryGetValue(key, out var e)) map.TryAdd((e, day), r);
+        }
+        return map;
+    }
+
     /// <summary>
     /// Get attendance trends for the last N days
     /// </summary>
@@ -313,9 +330,11 @@ public class DashboardController(
 
             // Load WorkSchedules with ShiftTemplate for the date range
             var userIds = pinToUserId.Values.ToList();
+            // Lịch làm việc lưu theo Employee.Id (bản ghi cũ có thể theo tài khoản) — tra cả hai.
+            var scheduleKeys = userIds.Concat(employeeData.Select(e => e.Id)).Distinct().ToList();
             var workScheduleData = await dbContext.WorkSchedules
                 .Where(ws => ws.Date >= startDate && ws.Date < endDate.AddDays(1)
-                    && userIds.Contains(ws.EmployeeUserId))
+                    && scheduleKeys.Contains(ws.EmployeeUserId))
                 .Select(ws => new {
                     ws.EmployeeUserId,
                     Date = ws.Date.Date,
@@ -330,10 +349,14 @@ public class DashboardController(
                 })
                 .ToListAsync();
 
-            // Index: (employeeUserId, date) → schedule info
-            var scheduleIndex = workScheduleData
-                .GroupBy(ws => (ws.EmployeeUserId, ws.Date))
-                .ToDictionary(g => g.Key, g => g.First());
+            // Index: (id, date) → lịch — khóa theo CẢ Employee.Id lẫn ApplicationUserId của NV đó, để mọi chỗ tra
+            // (theo PIN → tài khoản, hay theo NV) đều khớp.
+            var userIdByEmp = employeeData.Where(e => e.ApplicationUserId != null)
+                .ToDictionary(e => e.Id, e => e.ApplicationUserId!.Value);
+            var empIdByUser = employeeData.Where(e => e.ApplicationUserId != null)
+                .GroupBy(e => e.ApplicationUserId!.Value)
+                .ToDictionary(g => g.Key, g => g.First().Id);
+            var scheduleIndex = BuildScheduleIndex(workScheduleData, w => w.EmployeeUserId, w => w.Date, userIdByEmp, empIdByUser);
 
             var defaultStart = new TimeSpan(8, 30, 0);
             var trends = new List<object>();
@@ -344,8 +367,14 @@ public class DashboardController(
             var empIdsList = employeeData.Select(e => e.Id).ToList();
             var benefitRows = await dbContext.EmployeeBenefits.AsNoTracking()
                 .Where(eb => empIdsList.Contains(eb.EmployeeId) && eb.Deleted == null && eb.EffectiveDate <= endDate.AddDays(1))
-                .Select(eb => new { eb.EmployeeId, eb.EffectiveDate, eb.Benefit.WeeklyOffDays, eb.Benefit.PaidLeaveType })
+                .Select(eb => new { eb.EmployeeId, eb.EffectiveDate, eb.Benefit.WeeklyOffDays, eb.Benefit.PaidLeaveType, eb.Benefit.RateType })
                 .ToListAsync();
+            // NV lương theo giờ: không có lịch ngày đó thì không phải đi làm (không tính «Vắng»).
+            var hourlyEmpIds = benefitRows
+                .GroupBy(b => b.EmployeeId)
+                .Where(g => g.OrderByDescending(x => x.EffectiveDate).First().RateType == SalaryRateType.Hourly)
+                .Select(g => g.Key)
+                .ToHashSet();
             var weeklyOffByEmp = benefitRows
                 .GroupBy(b => b.EmployeeId)
                 .ToDictionary(g => g.Key, g =>
@@ -353,7 +382,12 @@ public class DashboardController(
                     var cur = g.OrderByDescending(x => x.EffectiveDate).First();
                     return ParseWeeklyOff(cur.WeeklyOffDays, cur.PaidLeaveType);
                 });
-            var usersWithSchedule = workScheduleData.Select(w => w.EmployeeUserId).ToHashSet();
+            var usersWithSchedule = new HashSet<Guid>(workScheduleData.Select(w => w.EmployeeUserId));
+            foreach (var id in usersWithSchedule.ToList())
+            {
+                if (userIdByEmp.TryGetValue(id, out var u2)) usersWithSchedule.Add(u2);
+                if (empIdByUser.TryGetValue(id, out var e2)) usersWithSchedule.Add(e2);
+            }
             var leaveRows = await dbContext.Leaves.AsNoTracking()
                 .Where(l => l.Status == LeaveStatus.Approved && l.StartDate < rangeEnd && l.EndDate >= rangeStart
                             && userIds.Contains(l.EmployeeUserId))
@@ -362,8 +396,11 @@ public class DashboardController(
 
             bool ExpectedToWork(Guid empId, Guid? userId, DateTime day)
             {
+                if (usersWithSchedule.Contains(empId))
+                    return scheduleIndex.TryGetValue((empId, day), out var se) && !se.IsDayOff;
                 if (userId is Guid u && usersWithSchedule.Contains(u))
                     return scheduleIndex.TryGetValue((u, day), out var s) && !s.IsDayOff;
+                if (hourlyEmpIds.Contains(empId)) return false;
                 var off = weeklyOffByEmp.TryGetValue(empId, out var w) ? w : DefaultWeeklyOff;
                 return !off.Contains(day.DayOfWeek);
             }
@@ -418,9 +455,12 @@ public class DashboardController(
                     var earlyGraceMin = 5;
 
                     // Primary: WorkSchedule lookup
-                    if (pinToUserId.TryGetValue(resolvePin, out var uid)
-                        && scheduleIndex.TryGetValue((uid, d), out var sched)
-                        && !sched.IsDayOff)
+                    var sched = pinToEmpId.TryGetValue(resolvePin, out var eidPin) && scheduleIndex.TryGetValue((eidPin, d), out var sByEmp)
+                        ? sByEmp
+                        : pinToUserId.TryGetValue(resolvePin, out var uid) && scheduleIndex.TryGetValue((uid, d), out var sByUser)
+                            ? sByUser
+                            : null;
+                    if (sched != null && !sched.IsDayOff)
                     {
                         threshold = sched.OverrideStart ?? sched.ShiftStart ?? defaultStart;
                         graceMin = sched.LateGraceMinutes;
@@ -523,7 +563,8 @@ public class DashboardController(
                     foreach (var e in expected.Where(e => !presentSet.Contains(e.Id)))
                     {
                         string? sName = null, sStart = null, sEnd = null;
-                        if (e.ApplicationUserId is Guid u && scheduleIndex.TryGetValue((u, d), out var s))
+                        if (scheduleIndex.TryGetValue((e.Id, d), out var s)
+                            || (e.ApplicationUserId is Guid u && scheduleIndex.TryGetValue((u, d), out s)))
                         {
                             sName = s.ShiftName;
                             sStart = (s.OverrideStart ?? s.ShiftStart)?.ToString(@"hh\:mm");

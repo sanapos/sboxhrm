@@ -210,11 +210,14 @@ class SboxBarChart extends StatelessWidget {
     this.axisFormat = _defaultFmt,
     this.showLegend = true,
     this.maxLabels = 10,
+    this.onTapIndex,
   });
 
   final List<String> labels;
   final List<SboxSeries> series;
   final bool stacked;
+  /// Bấm một cột (chỉ số nhãn) — vd mở chi tiết ngày đó; null = chỉ xem tooltip.
+  final ValueChanged<int>? onTapIndex;
   final double height;
   /// Định dạng số trong tooltip.
   final String Function(num? v) valueFormat;
@@ -281,6 +284,12 @@ class SboxBarChart extends StatelessWidget {
                 interval: yInterval,
                 maxLabels: math.max(3, (cons.maxWidth / 56).floor()).clamp(3, maxLabels)),
             barTouchData: BarTouchData(
+              touchCallback: onTapIndex == null
+                  ? null
+                  : (event, resp) {
+                      final spot = resp?.spot;
+                      if (event is FlTapUpEvent && spot != null) onTapIndex!(spot.touchedBarGroupIndex);
+                    },
               touchTooltipData: BarTouchTooltipData(
                 getTooltipColor: (_) => SboxChartColors.tooltipBg,
                 fitInsideHorizontally: true,
@@ -371,6 +380,7 @@ class SboxLineChart extends StatelessWidget {
     this.dashedSeries = const {},
     this.maxY,
     this.maxLabels = 10,
+    this.onTapIndex,
   });
 
   final List<String> labels;
@@ -378,6 +388,8 @@ class SboxLineChart extends StatelessWidget {
   final double height;
   final String Function(num? v) valueFormat;
   final SboxValueFormat axisFormat;
+  /// Bấm một điểm (chỉ số nhãn) — vd mở các đơn của giờ đó; null = chỉ xem tooltip.
+  final ValueChanged<int>? onTapIndex;
   /// Tô nền dưới chuỗi đầu tiên.
   final bool area;
   final bool showLegend;
@@ -416,6 +428,14 @@ class SboxLineChart extends StatelessWidget {
             borderData: FlBorderData(show: false),
             titlesData: _titles(labels: labels, axisFormat: axisFormat, maxLabels: math.max(3, (cons.maxWidth / 56).floor()).clamp(3, maxLabels)),
             lineTouchData: LineTouchData(
+              touchCallback: onTapIndex == null
+                  ? null
+                  : (event, resp) {
+                      final spots = resp?.lineBarSpots;
+                      if (event is FlTapUpEvent && spots != null && spots.isNotEmpty) {
+                        onTapIndex!(spots.first.x.round().clamp(0, n - 1));
+                      }
+                    },
               touchTooltipData: LineTouchTooltipData(
                 getTooltipColor: (_) => SboxChartColors.tooltipBg,
                 fitInsideHorizontally: true,
