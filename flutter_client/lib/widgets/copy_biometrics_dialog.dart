@@ -146,6 +146,8 @@ class _CopyBiometricsDialogState extends State<CopyBiometricsDialog> {
     if (dest == null) return;
     if (!_includeFp && !_includeFace) return;
     if (!_copyAll && _selectedIds.isEmpty) return;
+    if (!await _confirmOverwrite(dest)) return;
+    if (!mounted) return;
     _cancelled = false;
     setState(() {
       _submitting = true;
@@ -209,6 +211,90 @@ class _CopyBiometricsDialogState extends State<CopyBiometricsDialog> {
     }
   }
 
+  /// Khớp PIN như server (DeviceUserPins.Key): PIN toàn số so theo giá trị (bỏ số 0 đầu).
+  static String _pinKey(String pin) {
+    final t = pin.trim();
+    return BigInt.tryParse(t)?.toString() ?? t.toLowerCase();
+  }
+
+  String _deviceName(String id) =>
+      widget.devices.where((d) => d.id == id).map((d) => d.deviceName).firstOrNull ?? '';
+
+  /// Hỏi lại trước khi copy: nói rõ ai bị ghi đè trên máy đích (cùng PIN / cùng nhân viên).
+  Future<bool> _confirmOverwrite(String dest) async {
+    final src = _users.where((u) => u.deviceId == _sourceId);
+    final chosen = _copyAll
+        ? src
+            .where((u) =>
+                (_includeFp && u.copyableFingerprintCount > 0) ||
+                (_includeFace && u.faceCount > 0))
+            .toList()
+        : src.where((u) => _selectedIds.contains(u.id)).toList();
+    final onTarget = _users.where((u) => u.deviceId == dest).toList();
+    final targetPins = onTarget.map((u) => _pinKey(u.pin)).toSet();
+    final targetEmps = onTarget.map((u) => u.employeeId).whereType<String>().toSet();
+    final overwrite = chosen
+        .where((u) =>
+            targetPins.contains(_pinKey(u.pin)) ||
+            (u.employeeId != null && targetEmps.contains(u.employeeId)))
+        .length;
+    final created = chosen.length - overwrite;
+    // Dịch trước: giá trị chèn vào mẫu câu giữ nguyên khi tr() đổi ngôn ngữ.
+    final what = tr(_includeFp && _includeFace
+        ? 'vân tay và khuôn mặt'
+        : (_includeFp ? 'vân tay' : 'khuôn mặt'));
+    final srcName = _deviceName(_sourceId);
+    final dstName = _deviceName(dest);
+
+    Widget bullet(IconData icon, Color color, String text) => Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 8),
+              Expanded(child: Text(tr(text), style: const TextStyle(fontSize: 13, height: 1.4))),
+            ],
+          ),
+        );
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Xác nhận copy sinh trắc')),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(tr('Chép $what của ${chosen.length} nhân viên từ «$srcName» sang «$dstName».'),
+                    style: const TextStyle(fontSize: 14, height: 1.4, fontWeight: FontWeight.w600)),
+                if (overwrite > 0)
+                  bullet(Icons.warning_amber_rounded, SboxColors.warning,
+                      '$overwrite người đã có trên máy đích sẽ bị ghi đè: tên, thẻ, mật khẩu, quyền trên máy và $what cùng ngón được thay bằng dữ liệu máy nguồn. Vân tay ngón khác trên máy đích vẫn giữ.'),
+                if (created > 0)
+                  bullet(Icons.person_add_alt_1_outlined, SboxColors.brand600,
+                      '$created người chưa có sẽ được tạo mới trên máy đích.'),
+                bullet(Icons.lock_outline, SboxColors.slate500,
+                    'Máy nguồn và hồ sơ nhân sự không thay đổi.'),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr(overwrite > 0 ? 'Đồng ý ghi đè và copy' : 'Đồng ý copy')),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   void _showErr(String msg) {
     showDialog(
       context: context,
@@ -270,6 +356,12 @@ class _CopyBiometricsDialogState extends State<CopyBiometricsDialog> {
                     icon: const Icon(Icons.close),
                   ),
                 ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                tr('Máy nguồn → máy đích: chép vân tay / khuôn mặt sang máy khác cùng cửa hàng. Máy nguồn giữ nguyên; người đã có trên máy đích (cùng PIN) bị ghi đè.'),
+                style: const TextStyle(
+                    fontSize: 13, height: 1.4, fontWeight: FontWeight.w600, color: SboxColors.slate800),
               ),
               const SizedBox(height: 4),
               Text(

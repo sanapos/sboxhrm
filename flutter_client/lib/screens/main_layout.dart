@@ -1941,6 +1941,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       icon: Icons.schedule_outlined,
       activeIcon: Icons.schedule,
       label: 'Tổng hợp chấm công theo ca',
+      homeLabel: 'Chấm công theo ca',
       subtitle: 'Công theo ca',
       screen: const AttendanceByShiftScreen(),
       group: 'Báo cáo nhân sự',
@@ -2014,6 +2015,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       icon: Icons.app_registration_outlined,
       activeIcon: Icons.app_registration,
       label: 'Đăng ký chấm công Mobile',
+      homeLabel: 'Đăng ký chấm công',
       subtitle: 'Đăng ký TB',
       screen: const MobileDevicesHubScreen(),
       group: 'Chấm công',
@@ -2546,6 +2548,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       icon: Icons.folder_special_outlined,
       activeIcon: Icons.folder_special,
       label: 'Quản lý tài liệu tải xuống',
+      homeLabel: 'Quản lý tập tin',
       subtitle: 'File máy này',
       screen: const DownloadedDocumentsScreen(),
       group: 'Báo cáo kinh doanh',
@@ -4614,6 +4617,10 @@ class NavItem {
   /// kho giữa CN, tồn theo CN…). Khi 1 chi nhánh thì ẩn khỏi sidebar + ô tìm.
   final bool requiresMultiBranch;
 
+  /// Tên ngắn cho ô Trang chủ điện thoại (ô chỉ 2 dòng chữ, ~70dp). Menu, tiêu đề màn và
+  /// ô tìm vẫn dùng [label] đầy đủ — hướng dẫn trong app nhắc tên đầy đủ đó.
+  final String? homeLabel;
+
   NavItem({
     required IconData icon,
     required IconData activeIcon,
@@ -4630,6 +4637,7 @@ class NavItem {
     this.moduleCode,
     this.openAsPage = false,
     this.requiresMultiBranch = false,
+    this.homeLabel,
   })  : icon = PosIconSet.ofNav(label, icon),
         activeIcon = PosIconSet.ofNav(label, activeIcon);
 
@@ -4639,6 +4647,9 @@ class NavItem {
     // (cùng quyền) bị _labelMap ghi đè thành cùng một tên.
     return tr(label);
   }
+
+  /// Nhãn ô Trang chủ điện thoại: [homeLabel] nếu có, không thì [label].
+  String localizedHomeLabel(AppLocalizations l) => tr(homeLabel ?? label);
 
   /// Get localized subtitle
   String? localizedSubtitle(AppLocalizations l) {
@@ -5106,7 +5117,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                         tiles: [
                           for (final entry in groupedItems[groupName]!)
                             _HomeTileData(
-                              label: entry.value.localizedLabel(l),
+                              label: entry.value.localizedHomeLabel(l),
                               icon: entry.value.activeIcon,
                               tint: _HomeMenuScreen.tintOf(groupName),
                               onTap: () => widget.onItemTap(entry.key),

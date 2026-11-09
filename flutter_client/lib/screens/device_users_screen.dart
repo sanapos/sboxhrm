@@ -308,7 +308,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(tr('Chọn máy để tải danh sách nhân viên:')),
-              const SizedBox(height: 16),
+              const SizedBox(height: 6),
+              Text(
+                tr('Máy chấm công → SBOX: lấy nhân viên, số vân tay / khuôn mặt trên máy về đây. Không xóa hay thay đổi gì trên máy.'),
+                style: const TextStyle(fontSize: 12, height: 1.35, color: SboxColors.slate600),
+              ),
+              const SizedBox(height: 12),
               ..._devices.map((device) {
                 final isOnline = _isDeviceOnline(device.lastOnline);
                 return ListTile(
@@ -541,7 +546,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         Expanded(
                           child: Text(
                             tr(selectedDevice == null
-                                ? 'Vui lòng chọn thiết bị để xem nhân viên'
+                                ? 'Hồ sơ nhân sự → máy chấm công: tạo trên máy những nhân viên chưa có. Người đã có trên máy giữ nguyên; vân tay / khuôn mặt đăng ký sau. Chọn thiết bị để xem danh sách.'
                                 : '${unlinkedEmployees.length} nhân viên chưa liên kết máy. '
                                     'PIN trên máy ≤ 8 số: dùng mã NV nếu ngắn; '
                                     'nếu mã/SĐT dài sẽ lấy đuôi 6–8 số hoặc tự cấp số mới (không trùng).'),
@@ -1041,23 +1046,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         label: 'PNG',
         onPressed: _isExporting ? null : _exportToPng,
       ),
-      HrmTopBarAction(
-        icon: Icons.download,
-        label: _l10n.importFromDevice,
-        onPressed: _downloadUsersFromDevice,
-      ),
-      if (_perm.canCreate('DeviceUser') || _perm.canEdit('DeviceUser'))
-        HrmTopBarAction(
-          icon: Icons.fingerprint,
-          label: 'Copy sinh trắc',
-          onPressed: _showCopyBiometricsDialog,
-        ),
-      if (_perm.canCreate('DeviceUser') || _perm.canEdit('DeviceUser'))
-        HrmTopBarAction(
-          icon: Icons.upload,
-          label: _l10n.uploadHrProfiles,
-          onPressed: _uploadEmployeesToDevice,
-        ),
+      // «Tải từ máy», «Tải hồ sơ nhân sự», «Copy sinh trắc» nằm ở khung [_buildSyncActionsPanel]
+      // (có chữ + chiều dữ liệu) — trước chỉ là icon trên thanh trên, khách không hiểu nút nào làm gì.
       if (_perm.canCreate('DeviceUser'))
         HrmTopBarAction(
           icon: Icons.person_add,
@@ -1509,9 +1499,142 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   List<Widget> _buildUsersPageHeaderSections(
       int linkedCount, int unlinkedCount, int onlineDevices) {
     return [
+      _buildSyncActionsPanel(),
+      const SizedBox(height: 12),
       _buildUsersOverviewSection(linkedCount, unlinkedCount, onlineDevices),
       const SizedBox(height: 12),
     ];
+  }
+
+  /// Ba thao tác đồng bộ với máy chấm công — ghi rõ chữ, chiều dữ liệu và tác dụng.
+  Widget _buildSyncActionsPanel() {
+    final canWrite = _perm.canCreate('DeviceUser') || _perm.canEdit('DeviceUser');
+    final items = <_SyncActionInfo>[
+      _SyncActionInfo(
+        icon: Icons.download_rounded,
+        title: 'Tải từ máy về SBOX',
+        direction: 'Máy chấm công → SBOX',
+        description:
+            'Lấy danh sách nhân viên, số vân tay / khuôn mặt đang có trên máy về đây. Không thay đổi gì trên máy.',
+        onTap: _downloadUsersFromDevice,
+      ),
+      if (canWrite)
+        _SyncActionInfo(
+          icon: Icons.upload_rounded,
+          title: 'Tải hồ sơ nhân sự xuống máy',
+          direction: 'Hồ sơ nhân sự → Máy chấm công',
+          description:
+              'Tạo trên máy những nhân viên chưa có (mã PIN, tên). Người đã có trên máy giữ nguyên; vân tay / khuôn mặt đăng ký sau.',
+          onTap: _uploadEmployeesToDevice,
+        ),
+      if (canWrite)
+        _SyncActionInfo(
+          icon: Icons.fingerprint,
+          title: 'Copy sinh trắc sang máy khác',
+          direction: 'Máy nguồn → Máy đích',
+          description:
+              'Chép vân tay, khuôn mặt của nhân viên sang máy khác cùng cửa hàng. Máy nguồn giữ nguyên; người đã có trên máy đích bị ghi đè.',
+          onTap: () => _showCopyBiometricsDialog(),
+          warn: true,
+        ),
+    ];
+    final narrow = MediaQuery.sizeOf(context).width < 760;
+    final tiles = [for (final i in items) _buildSyncActionTile(i, narrow: narrow)];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 6),
+          child: Text(
+            tr('Đồng bộ nhân viên với máy chấm công'),
+            style: vietnameseTextStyle(const TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700, color: SboxColors.slate700)),
+          ),
+        ),
+        if (narrow)
+          ...[
+            for (var i = 0; i < tiles.length; i++) ...[
+              if (i > 0) const SizedBox(height: 6),
+              tiles[i],
+            ],
+          ]
+        else
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < tiles.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 10),
+                  Expanded(child: tiles[i]),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSyncActionTile(_SyncActionInfo a, {required bool narrow}) {
+    final accent = a.warn ? SboxColors.warning : SboxColors.brand600;
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: SboxColors.slate200),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: a.onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: narrow ? 10 : 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(a.icon, size: 20, color: accent),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      tr(a.title),
+                      style: vietnameseTextStyle(const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w700, color: SboxColors.slate900)),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      tr(a.direction),
+                      style: vietnameseTextStyle(
+                          TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: accent)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      tr(a.description),
+                      style: vietnameseTextStyle(const TextStyle(
+                          fontSize: 12, height: 1.35, color: SboxColors.slate600)),
+                    ),
+                  ],
+                ),
+              ),
+              if (narrow)
+                const Padding(
+                  padding: EdgeInsets.only(left: 4, top: 8),
+                  child: Icon(Icons.chevron_right, size: 20, color: SboxColors.slate400),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildUsersOverviewSection(
@@ -6059,4 +6182,25 @@ class _FaceEnrollmentProgressDialogState
       ],
     );
   }
+}
+
+/// Một thao tác đồng bộ trong khung «Đồng bộ nhân viên với máy chấm công».
+class _SyncActionInfo {
+  const _SyncActionInfo({
+    required this.icon,
+    required this.title,
+    required this.direction,
+    required this.description,
+    required this.onTap,
+    this.warn = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String direction;
+  final String description;
+  final VoidCallback onTap;
+
+  /// Thao tác có ghi đè dữ liệu → tô màu cảnh báo.
+  final bool warn;
 }
