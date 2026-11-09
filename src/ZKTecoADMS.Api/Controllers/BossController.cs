@@ -284,12 +284,78 @@ public class BossController(ZKTecoDbContext db) : AuthenticatedControllerBase
             .Select(g => new { Id = g.Key, First = g.Min(p => p.AttendanceTime), Last = g.Max(p => p.AttendanceTime) })
             .ToListAsync(ct);
         var byEmployee = punches.ToDictionary(p => p.Id);
+
+        // Ca hôm nay theo lịch làm việc (giờ riêng của lịch, không có thì giờ của mẫu ca) — để biết ai đi trễ,
+        // ai «chưa chấm» mà đã tới giờ ca, ai hôm nay không có ca. Cửa hàng không xếp lịch thì hasSchedules = false.
+        var schedules = await db.WorkSchedules.AsNoTracking()
+            .Where(w => ids.Contains(w.EmployeeUserId) && w.Date >= today && w.Date < today.AddDays(1))
+            .Select(w => new
+            {
+                w.EmployeeUserId, w.IsDayOff,
+                Start = w.StartTime ?? (w.Shift != null ? w.Shift.StartTime : (TimeSpan?)null),
+                End = w.EndTime ?? (w.Shift != null ? w.Shift.EndTime : (TimeSpan?)null),
+                ShiftName = w.Shift != null ? w.Shift.Name : null,
+                Grace = w.Shift != null ? w.Shift.LateGraceMinutes : 0,
+            })
+            .ToListAsync(ct);
+        // Nhiều ca trong ngày: lấy ca bắt đầu sớm nhất để tính trễ lần chấm đầu.
+        var scheduleByEmployee = schedules
+            .GroupBy(w => w.EmployeeUserId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(w => w.IsDayOff).ThenBy(w => w.Start ?? TimeSpan.MaxValue).First());
+
+        // Nghỉ phép đã duyệt hôm nay (đơn gắn NV qua EmployeeId hoặc tài khoản ApplicationUser).
+        var userIds = await db.Employees.AsNoTracking()
+            .Where(e => ids.Contains(e.Id) && e.ApplicationUserId != null)
+            .Select(e => new { e.Id, UserId = e.ApplicationUserId!.Value })
+            .ToListAsync(ct);
+        var employeeByUser = userIds.GroupBy(x => x.UserId).ToDictionary(g => g.Key, g => g.First().Id);
+        var userKeys = employeeByUser.Keys.ToList();
+        var leaves = await db.Leaves.AsNoTracking()
+            .Where(l => l.Status == LeaveStatus.Approved && l.StartDate < today.AddDays(1) && l.EndDate >= today
+                && ((l.EmployeeId != null && ids.Contains(l.EmployeeId.Value)) || userKeys.Contains(l.EmployeeUserId)))
+            .Select(l => new { l.EmployeeId, l.EmployeeUserId, l.Type, l.IsHalfShift })
+            .ToListAsync(ct);
+        var leaveByEmployee = new Dictionary<Guid, (LeaveType Type, bool Half)>();
+        foreach (var l in leaves)
+        {
+            var empId = l.EmployeeId ?? (employeeByUser.TryGetValue(l.EmployeeUserId, out var e) ? e : (Guid?)null);
+            if (empId is Guid id) leaveByEmployee.TryAdd(id, (l.Type, l.IsHalfShift));
+        }
+
+        static string? Hm(TimeSpan? t) => t is TimeSpan v ? $"{v.Hours:00}:{v.Minutes:00}" : null;
         return Ok(AppResponse<object>.Success(new
         {
+            hasSchedules = schedules.Count > 0,
+            now = VnTimeHelper.NowVn(),
             staff = staff.Select(e =>
             {
                 byEmployee.TryGetValue(e.Id, out var p);
-                return new { id = e.Id, code = e.EmployeeCode, name = Name(e.LastName, e.FirstName, e.EmployeeCode), firstPunch = p?.First, lastPunch = p?.Last };
+                scheduleByEmployee.TryGetValue(e.Id, out var w);
+                var hasLeave = leaveByEmployee.TryGetValue(e.Id, out var lv);
+                var shiftStart = w is { IsDayOff: false, Start: TimeSpan st } ? today + st : (DateTime?)null;
+                var late = 0;
+                if (p != null && shiftStart is DateTime start)
+                {
+                    var diff = (int)Math.Floor((p.First - start).TotalMinutes);
+                    if (diff > (w?.Grace ?? 0)) late = diff;
+                }
+                return new
+                {
+                    id = e.Id,
+                    code = e.EmployeeCode,
+                    name = Name(e.LastName, e.FirstName, e.EmployeeCode),
+                    firstPunch = p?.First,
+                    lastPunch = p?.Last,
+                    hasShift = w is { IsDayOff: false },
+                    dayOff = w?.IsDayOff ?? false,
+                    shiftName = w?.ShiftName,
+                    shiftStart = w is { IsDayOff: false } ? Hm(w.Start) : null,
+                    shiftEnd = w is { IsDayOff: false } ? Hm(w.End) : null,
+                    lateMinutes = late,
+                    onLeave = hasLeave,
+                    leaveHalf = hasLeave && lv.Half,
+                    leaveType = hasLeave ? lv.Type.ToString() : null,
+                };
             }),
         }));
     }

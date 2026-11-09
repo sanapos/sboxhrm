@@ -2,6 +2,9 @@ import '../../widgets/attendance/punch_cells.dart';
 import '../../widgets/attendance/shift_punch_slots_dialog.dart';
 import '../../utils/export_permission_guard.dart';
 import '../../widgets/attendance/attendance_day_strip.dart';
+import '../../widgets/attendance/attendance_people_sheet.dart';
+import '../../widgets/attendance/attendance_employee_list.dart';
+import '../../widgets/attendance/attendance_day_view.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 // ignore_for_file: unused_element
@@ -76,6 +79,9 @@ class AttendanceByShiftTab extends StatefulWidget {
   final List<Widget>? mobileLeadingSections;
   final void Function(String preset)? onDateRangeChanged;
 
+  /// Chọn khoảng ngày tùy ý (preset «custom») → cha tải lại log [from]–[to].
+  final void Function(DateTime from, DateTime to)? onCustomRangeChanged;
+
   /// Preset đang tải ở màn cha — giữ đồng bộ khi tab bị recreate sau loading.
   final String? dateRangePreset;
 
@@ -120,6 +126,7 @@ class AttendanceByShiftTab extends StatefulWidget {
     this.onDataChanged,
     this.mobileLeadingSections,
     this.onDateRangeChanged,
+    this.onCustomRangeChanged,
     this.dateRangePreset,
     this.allowCorrection = true,
     this.directApplyCorrections = false,
@@ -215,6 +222,22 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   Set<String> _scheduleDayOffKeys = {};
   Set<String> _scheduleWorkDayKeys = {};
   Set<String> _employeesWithSchedule = {};
+  // Mã NV / GUID / PIN → loại lương (0 = giờ, 1 = tháng, 2 = ngày, 3 = ca).
+  Map<String, int> _employeeCodeToRateType = {};
+  // Mobile: danh sách NV — tìm / sắp / lọc.
+  final TextEditingController _mobileSearchCtrl = TextEditingController();
+  String _mobileQuery = '';
+  String _mobileSort = 'issue';
+  String _mobileFilter = 'all';
+  int? _shiftAggFp;
+  List<_ShiftEmpAgg>? _shiftAggCache;
+  // Mobile: «Theo ngày» (null = tự chọn: kỳ 1 ngày → theo ngày).
+  bool? _mobileByDay;
+  DateTime? _mobileDay;
+  String _dayChip = 'all';
+  final ScrollController _dayStripCtrl = ScrollController();
+  // Mobile: biểu đồ thu gọn mặc định — danh sách lên gần đầu trang.
+  bool _showMobileCharts = false;
 
   bool get _showTravelColumns => isTravelFeatureVisible(
         storeSalarySettings: widget.storeSalarySettings,
@@ -421,6 +444,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     _listScrollController.dispose();
     _desktopTableHScrollHeader.dispose();
     _desktopTableHScrollBody.dispose();
+    _mobileSearchCtrl.dispose();
+    _dayStripCtrl.dispose();
     super.dispose();
   }
 
@@ -561,8 +586,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     _employeeCodeToHolidayMultiplier = {};
     _employeeCodeToHolidayOvertimeType = {};
     _employeeGuidToShiftTemplateIds = {};
+    _employeeCodeToRateType = {};
     for (final profile in widget.salaryProfiles) {
       final shiftsPerDay = profile['shiftsPerDay'] as int? ?? 1;
+      final rateType = _parseRateType(profile['rateType']);
       var weeklyOffDays = profile['weeklyOffDays']?.toString() ?? '';
       var paidLeaveType = profile['paidLeaveType']?.toString() ?? '';
       final nestedBenefit = profile['benefit'];
@@ -609,6 +636,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             _employeeCodeToPaidLeaveType[guid] = paidLeaveType;
             _employeeCodeToHolidayMultiplier[code] = holidayMultiplier;
             _employeeCodeToHolidayOvertimeType[code] = holidayOvertimeType;
+            _employeeCodeToRateType[code] = rateType;
+            _employeeCodeToRateType[guid] = rateType;
             if (profileShiftIds.isNotEmpty) {
               final list =
                   _employeeGuidToShiftTemplateIds.putIfAbsent(guid, () => []);
@@ -630,6 +659,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       employeeCodeToGuid: _employeeCodeToGuid,
     );
     _employeesWithSchedule = buildEmployeesWithSchedule(widget.workSchedules);
+    for (final emp in widget.employeesList ?? const <Map<String, dynamic>>[]) {
+      final code = emp['employeeCode']?.toString() ?? '';
+      final pin = emp['pin']?.toString() ?? '';
+      final rate = _employeeCodeToRateType[code];
+      if (pin.isNotEmpty && rate != null) _employeeCodeToRateType.putIfAbsent(pin, () => rate);
+    }
 
     // Merge in legacy assignments from ShiftSalaryLevels (kept as a fallback
     // source so older configurations still resolve correctly).
@@ -897,6 +932,21 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   /// Check if a date is a weekly off day for a given employee
+  /// RateType: chuỗi («Hourly»…) hoặc số; thiếu → lương tháng (như payroll_engine).
+  static int _parseRateType(dynamic v) {
+    if (v == null) return 1;
+    if (v is num) return v.toInt();
+    final s = v.toString().toLowerCase();
+    if (s == 'hourly' || s == '0') return 0;
+    if (s == 'daily' || s == '2') return 2;
+    if (s == 'shift' || s == '3') return 3;
+    return 1;
+  }
+
+  /// NV hưởng lương theo giờ: không quy ra «công», chỉ tính giờ.
+  bool _isHourlyPay(String codeOrPin) =>
+      codeOrPin.isNotEmpty && _employeeCodeToRateType[codeOrPin] == 0;
+
   bool _isWeeklyOffDay(DateTime date, String employeeCode) {
     final guid = _employeeCodeToGuid[employeeCode];
     final ids = <String>[
@@ -1149,7 +1199,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             decimalHours: r.decimalHours,
             status: r.status,
             statusColor: r.statusColor,
-            workCount: r.workCount,
+            // Lương theo giờ: không quy ra công (bảng lương tính theo giờ thực tế).
+            workCount: _isHourlyPay(r.employeeCode) || _isHourlyPay(r.employeeId) ? 0 : r.workCount,
+            hourlyPay: _isHourlyPay(r.employeeCode) || _isHourlyPay(r.employeeId),
             hoursByShiftName: Map<String, double>.from(r.hoursByShiftName),
             punchLocation: punchLocationsForDay(
               punches: r.attendanceIds
@@ -1224,7 +1276,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           _employeeCodeToPaidLeaveType[empId] ??
           _employeeCodeToPaidLeaveType[guid] ??
           '';
-      final scheduleMode = isSchedulePaidLeaveType(paidLeaveType);
+      final hourlyPay = _isHourlyPay(hrCode) || _isHourlyPay(empId);
+      // Lương giờ: như tính phép theo lịch — chỉ ngày xếp ca mà không chấm mới là Vắng.
+      final scheduleMode = isSchedulePaidLeaveType(paidLeaveType) || hourlyPay;
       final hasAnySchedule = _employeesWithSchedule.contains(hrCode) ||
           _employeesWithSchedule.contains(empId) ||
           _employeesWithSchedule.contains(pin) ||
@@ -1288,6 +1342,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           status: f.kind.label,
           statusColor: f.kind.color,
           workCount: 0,
+          hourlyPay: hourlyPay,
           fillKind: f.kind,
         ));
       }
@@ -1345,12 +1400,6 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final records = _shiftData;
     final range = _selectedDateRange;
 
-    // Calculate totals for stats cards
-    int totalLate = records.where((r) => r.lateMinutes > 0).length;
-    int totalEarly = records.where((r) => r.earlyMinutes > 0).length;
-    int totalOT = records.where((r) => r.overtimeMinutes > 0).length;
-    double totalHours = records.fold(0.0, (sum, r) => sum + r.workHours);
-    int totalRecords = records.length;
     final uniqueEmployees = records.map((r) => r.employeeId).toSet().length;
 
     final isMobileLayout = MediaQuery.sizeOf(context).width < 600;
@@ -1363,9 +1412,17 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (records.isNotEmpty) _buildShiftInsight(records),
-            _buildStatsRow(totalRecords, uniqueEmployees, totalHours,
-                totalLate, totalEarly, totalOT),
+            if (records.isNotEmpty && (!isMobileLayout || _showMobileCharts)) _buildShiftInsight(records),
+            _buildStatsRow(records),
+            if (isMobileLayout && records.isNotEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => setState(() => _showMobileCharts = !_showMobileCharts),
+                  icon: Icon(_showMobileCharts ? Icons.expand_less : Icons.bar_chart_rounded, size: 18),
+                  label: Text(tr(_showMobileCharts ? 'Ẩn biểu đồ' : 'Xem biểu đồ')),
+                ),
+              ),
             const SizedBox(height: 10),
             _buildFilters(range),
           ],
@@ -1407,8 +1464,21 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             )
           else if (useVerticalLayout)
             ..._buildMobileVerticalShiftSlivers(records)
-          else
-            ..._buildMobileEmployeeShiftSummarySlivers(records),
+          else ...[
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              sliver: SliverToBoxAdapter(
+                child: AttendanceViewToggle(
+                  byDay: _mobileByDayResolved,
+                  onChanged: (v) => setState(() => _mobileByDay = v),
+                ),
+              ),
+            ),
+            if (_mobileByDayResolved)
+              ..._buildMobileShiftDaySlivers(records)
+            else
+              ..._buildMobileEmployeeShiftSummarySlivers(records),
+          ],
         ],
       );
     }
@@ -1444,8 +1514,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         DropdownMenuItem(value: 'lastWeek', child: Text(tr('Tuần trước'))),
         DropdownMenuItem(value: 'month', child: Text(tr('Tháng này'))),
         DropdownMenuItem(value: 'lastMonth', child: Text(tr('Tháng trước'))),
+        if (widget.onCustomRangeChanged != null || _selectedPreset == 'custom')
+          DropdownMenuItem(value: 'custom', child: Text(tr('Tùy chọn…'))),
       ],
       onChanged: (v) {
+        if (v == 'custom') {
+          _pickCustomRange();
+          return;
+        }
         if (v != null) {
           setState(() {
             _selectedPreset = v;
@@ -1458,7 +1534,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       width: isMobile ? 120 : null,
     );
 
-    final dateRange = _buildDateRangeDisplay(range, compact: isMobile);
+    final dateRange = _tappableRange(_buildDateRangeDisplay(range, compact: isMobile));
 
     final employeeFilter = _buildEmployeeFilter();
 
@@ -1695,6 +1771,45 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       ),
     );
   }
+
+
+  /// Chọn khoảng ngày tùy ý (kỳ lương 26→25, một ngày cụ thể…) — màn cha tải lại log đúng khoảng.
+  Future<void> _pickCustomRange() async {
+    final cb = widget.onCustomRangeChanged;
+    if (cb == null) return;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final cur = _selectedDateRange;
+    final start = DateTime(cur.start.year, cur.start.month, cur.start.day);
+    var end = DateTime(cur.end.year, cur.end.month, cur.end.day);
+    if (end.isAfter(today)) end = today;
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(today.year - 2, 1, 1),
+      lastDate: today,
+      initialDateRange: DateTimeRange(start: start.isAfter(end) ? end : start, end: end),
+      helpText: tr('Chọn khoảng ngày'),
+      saveText: tr('Xem'),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _selectedPreset = 'custom';
+      _currentPage = 0;
+    });
+    cb(picked.start, AttendanceDateRangePresets.endOfDay(picked.end));
+  }
+
+  /// Ô khoảng ngày bấm được → chọn ngày tùy ý.
+  Widget _tappableRange(Widget display) => widget.onCustomRangeChanged == null
+      ? display
+      : Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: _pickCustomRange,
+            child: display,
+          ),
+        );
 
   Widget _buildDateRangeDisplay(DateTimeRange range, {bool compact = false}) {
     final fmt = compact ? DateFormat('dd/MM/yy') : DateFormat('dd/MM/yyyy');
@@ -2558,21 +2673,70 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     );
   }
 
-  Widget _buildStatsRow(int totalRows, int uniqueEmployees, double totalHours,
-      int totalLate, int totalEarly, int totalOT) {
+  Widget _buildStatsRow(List<_DailyShiftRecord> records) {
+    final aggs = _shiftAggregates(records);
+    final working = aggs.where((a) => a.presentDays > 0).toList();
+    final late = aggs.where((a) => a.lateCount > 0).toList()
+      ..sort((a, b) => b.lateMinutes.compareTo(a.lateMinutes));
+    final early = aggs.where((a) => a.earlyCount > 0).toList()
+      ..sort((a, b) => b.earlyMinutes.compareTo(a.earlyMinutes));
+    final ot = aggs.where((a) => a.otCount > 0).toList()
+      ..sort((a, b) => b.otMinutes.compareTo(a.otMinutes));
+    final absent = aggs.where((a) => a.absentDays.isNotEmpty).toList()
+      ..sort((a, b) => b.absentDays.length.compareTo(a.absentDays.length));
+    final totalHours = aggs.fold<double>(0, (s, a) => s + a.hours);
+    int sum(List<_ShiftEmpAgg> l, int Function(_ShiftEmpAgg a) f) => l.fold<int>(0, (s, a) => s + f(a));
     final cards = [
-      _buildModernStatCard(
-          'Bản ghi', '$totalRows', Icons.list_alt, HrmPageChrome.primaryNavy),
-      _buildModernStatCard('Nhân viên', '$uniqueEmployees',
-          Icons.people_outline, HrmPageChrome.primaryNavy),
-      _buildModernStatCard('Tổng giờ', '${totalHours.toStringAsFixed(1)}h',
-          Icons.schedule, HrmPageChrome.primaryNavy),
-      _buildModernStatCard('Đi trễ', '$totalLate', Icons.timer_off_outlined,
-          HrmPageChrome.chipLight),
-      _buildModernStatCard(
-          'Về sớm', '$totalEarly', Icons.exit_to_app, SboxColors.danger),
-      _buildModernStatCard(
-          'Tăng ca', '$totalOT', Icons.more_time, HrmPageChrome.primaryNavy),
+      _buildModernStatCard('Nhân viên đi làm', '${working.length}', Icons.people_outline, HrmPageChrome.primaryNavy,
+          onTap: () => _showShiftPeople(
+                title: 'Nhân viên đi làm',
+                subtitle: aggs.length > working.length ? '${aggs.length - working.length} người không chấm trong kỳ' : null,
+                people: List.of(working)..sort((a, b) => a.name.compareTo(b.name)),
+                line: (a) => _shiftAggParts(a).map((p) => p.text).join(' · '),
+                trailing: _shiftAggPrimary,
+              )),
+      _buildModernStatCard('Tổng giờ', '${_fmtHourNum(totalHours)}h', Icons.schedule, HrmPageChrome.primaryNavy,
+          onTap: () => _showShiftPeople(
+                title: 'Giờ làm theo nhân viên',
+                people: List.of(working)..sort((a, b) => b.hours.compareTo(a.hours)),
+                line: (a) => a.hourly ? '${a.presentDays} buổi' : '${_fmtWorkShort(a.work)} công · ${a.presentDays} ngày',
+                trailing: (a) => '${_fmtHourNum(a.hours)} giờ',
+              )),
+      _buildModernStatCard('Người đi trễ · ${sum(late, (a) => a.lateCount)} lượt', '${late.length}',
+          Icons.timer_off_outlined, HrmPageChrome.chipLight,
+          onTap: () => _showShiftPeople(
+                title: 'Nhân viên đi trễ',
+                people: late,
+                line: (a) => '${a.lateCount} lượt · ngày ${_dayList(a.lateDays)}',
+                trailing: (a) => '${a.lateMinutes} phút',
+                trailingColor: SboxColors.warningText,
+              )),
+      _buildModernStatCard('Người về sớm · ${sum(early, (a) => a.earlyCount)} lượt', '${early.length}',
+          Icons.exit_to_app, SboxColors.danger,
+          onTap: () => _showShiftPeople(
+                title: 'Nhân viên về sớm',
+                people: early,
+                line: (a) => '${a.earlyCount} lượt',
+                trailing: (a) => '${a.earlyMinutes} phút',
+                trailingColor: SboxColors.danger,
+              )),
+      _buildModernStatCard('Người tăng ca · ${sum(ot, (a) => a.otCount)} lượt', '${ot.length}', Icons.more_time,
+          HrmPageChrome.primaryNavy,
+          onTap: () => _showShiftPeople(
+                title: 'Nhân viên tăng ca',
+                people: ot,
+                line: (a) => '${a.otCount} lượt',
+                trailing: (a) => _formatHoursMinutes(a.otMinutes / 60),
+              )),
+      _buildModernStatCard('Người có vắng · ${sum(absent, (a) => a.absentDays.length)} ngày', '${absent.length}',
+          Icons.event_busy_outlined, SboxColors.danger,
+          onTap: () => _showShiftPeople(
+                title: 'Nhân viên có ngày vắng',
+                people: absent,
+                line: (a) => 'Vắng ${_dayList(a.absentDays)}',
+                trailing: (a) => '${a.absentDays.length} ngày',
+                trailingColor: SboxColors.danger,
+              )),
     ];
     final isMobile = MediaQuery.of(context).size.width < 768;
     if (isMobile) {
@@ -2612,8 +2776,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   Widget _buildModernStatCard(
-      String label, String value, IconData icon, Color color) {
-    return Container(
+      String label, String value, IconData icon, Color color, {VoidCallback? onTap}) {
+    final card = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -2650,12 +2814,18 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 Text(tr(label),
                     style:
                         const TextStyle(fontSize: 10, color: SboxColors.slate400),
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
         ],
       ),
+    );
+    if (onTap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(14), child: card),
     );
   }
 
@@ -2881,7 +3051,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 Expanded(
                     child: _detailSummaryCard(
                         'Công',
-                        _congLabel(record.workCount),
+                        record.hourlyPay ? 'Theo giờ' : _congLabel(record.workCount),
                         SboxColors.brand500)),
               ]),
             ],
@@ -3686,7 +3856,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               return (text(travelH > 0 ? _formatHoursMinutes(travelH) : ''), dataStyle);
             })(),
           'decimal' => (num2(r.decimalHours), numStyle),
-          'work' => (excel_lib.DoubleCellValue(_congRound(r.workCount)), numStyle),
+          'work' => r.hourlyPay
+              ? (text(tr('Theo giờ')), dataStyle)
+              : (excel_lib.DoubleCellValue(_congRound(r.workCount)), numStyle),
           'shiftName' => (text(_shiftHoursDetailLabel(r)), _excelLeftStyle()),
           _ => (text(r.status), dataStyle),
         };
@@ -4505,7 +4677,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             ? _formatHoursMinutes(_travelHoursForShiftRecord(r))
             : '',
       r.decimalHours > 0 ? r.decimalHours.toStringAsFixed(2) : '',
-      r.workCount > 0 ? _congLabel(r.workCount) : '',
+      r.hourlyPay ? 'Theo giờ' : (r.workCount > 0 ? _congLabel(r.workCount) : ''),
       _shiftHoursDetailLabel(r),
       r.status,
     ]);
@@ -5919,7 +6091,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     ? SboxColors.brand700
                     : SboxColors.slate500))),
         _shiftTableCell(Text(
-            tr(r.workCount > 0 ? _congLabel(r.workCount) : '—'),
+            tr(r.hourlyPay ? 'Theo giờ' : (r.workCount > 0 ? _congLabel(r.workCount) : '—')),
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 12,
@@ -6460,6 +6632,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     required String empName,
     required String empCode,
     required List<_DailyShiftRecord> records,
+    _ShiftEmpAgg? agg,
   }) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -6480,12 +6653,18 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            child: _buildVerticalShiftTable(
-              empId: empId,
-              empName: empName,
-              empCode: empCode,
-              records: records,
-              title: 'Chi tiết theo ca',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (agg != null) _shiftEmployeeDetailHeader(agg),
+                _buildVerticalShiftTable(
+                  empId: empId,
+                  empName: empName,
+                  empCode: empCode,
+                  records: records,
+                  title: 'Chi tiết theo ca',
+                ),
+              ],
             ),
           ),
         ),
@@ -6600,14 +6779,18 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   ) =>
       records.where((r) => r.employeeId == empId).toList();
 
-  List<Widget> _buildMobileEmployeeShiftSummarySlivers(
-    List<_DailyShiftRecord> records,
-  ) {
-    final empMap = <String, String>{};
-    final empCodeMap = <String, String>{};
+  /// Gom bản ghi ca → mỗi NV một bản tổng (danh sách mobile + ô số bấm được).
+  List<_ShiftEmpAgg> _shiftAggregates(List<_DailyShiftRecord> records) {
+    final fp = Object.hash(identityHashCode(records), records.length, _selectedEmployeeIds.length, _dayScope);
+    if (_shiftAggFp == fp && _shiftAggCache != null) return _shiftAggCache!;
+
+    final names = <String, String>{};
+    final codes = <String, String>{};
+    final byEmp = <String, List<_DailyShiftRecord>>{};
     for (final r in records) {
-      empMap[r.employeeId] = r.employeeName;
-      empCodeMap[r.employeeId] = r.employeeCode;
+      names[r.employeeId] = r.employeeName;
+      codes[r.employeeId] = r.employeeCode;
+      byEmp.putIfAbsent(r.employeeId, () => []).add(r);
     }
     final roster = widget.employeesList;
     if (roster != null) {
@@ -6615,545 +6798,474 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         final code = emp['employeeCode']?.toString() ?? '';
         final pin = emp['pin']?.toString() ?? '';
         final id = code.isNotEmpty ? code : pin;
-        if (id.isEmpty || empMap.containsKey(id)) continue;
+        if (id.isEmpty || names.containsKey(id)) continue;
         if (_selectedEmployeeIds.isNotEmpty &&
             !_selectedEmployeeIds.contains(id) &&
             !_selectedEmployeeIds.contains(code) &&
             !_selectedEmployeeIds.contains(pin)) {
           continue;
         }
-        empMap[id] = emp['fullName']?.toString() ??
+        names[id] = emp['fullName']?.toString() ??
             emp['name']?.toString() ??
             emp['employeeName']?.toString() ??
             '-';
-        empCodeMap[id] = code.isNotEmpty ? code : id;
+        codes[id] = code.isNotEmpty ? code : id;
       }
     }
-    final employees = empMap.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
 
     final dates = attendanceDaysInRange(_selectedDateRange);
-
-    double totalHoursFor(String empId) => _shiftRecordsForEmployee(records, empId)
-        .fold<double>(0.0, (sum, r) => sum + r.workHours);
-
-    double totalWorkFor(String empId) => _shiftRecordsForEmployee(records, empId)
-        .fold<double>(0.0, (sum, r) => sum + r.workCount);
-
-    double totalTravelFor(String empId) =>
-        _shiftRecordsForEmployee(records, empId).fold<double>(
-            0.0, (sum, r) => sum + _travelHoursForShiftRecord(r));
-
-    // Đếm theo NGÀY (trước đây đếm theo ca: 2 ca/ngày bị tính thành 2 ngày).
-    int presentDaysFor(String empId) => _shiftRecordsForEmployee(records, empId)
-        .where((r) => r.displayPunchTimes.isNotEmpty)
-        .map((r) => DateTime(r.date.year, r.date.month, r.date.day))
-        .toSet()
-        .length;
-
-    int lateMinutesFor(String empId) => _shiftRecordsForEmployee(records, empId)
-        .fold<int>(0, (sum, r) => sum + r.lateMinutes);
-
-    int earlyMinutesFor(String empId) => _shiftRecordsForEmployee(records, empId)
-        .fold<int>(0, (sum, r) => sum + r.earlyMinutes);
-
-    int overtimeFor(String empId) => _shiftRecordsForEmployee(records, empId)
-        .fold<int>(0, (sum, r) => sum + r.overtimeMinutes);
-
-    int lateDaysFor(String empId) => _shiftRecordsForEmployee(records, empId)
-        .where((r) => r.lateMinutes > 0)
-        .length;
-
-    String shiftNamesFor(String empId) {
-      final names = <String>{};
-      for (final r in _shiftRecordsForEmployee(records, empId)) {
-        names.addAll(r.shiftNames);
-      }
-      if (names.isEmpty) return '';
-      final list = names.toList()..sort();
-      if (list.length <= 2) return list.join(' · ');
-      return '${list.take(2).join(' · ')} +${list.length - 2}';
-    }
-
-    // Công chuẩn tính đến hôm nay (không tính ngày chưa tới / ngày nghỉ tuần).
-    int expectedDaysFor(String empId) {
-      final code = empCodeMap[empId] ?? '';
-      return expectedWorkDaysSoFar(dates, (d) => _isWeeklyOffDay(d, code));
-    }
-
-    final nowTs = DateTime.now();
-    final todayStart = DateTime(nowTs.year, nowTs.month, nowTs.day);
-    List<(DateTime, AttendanceDayState)> dayStatesFor(String empId) {
-      final code = empCodeMap[empId] ?? '';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final out = <_ShiftEmpAgg>[];
+    for (final e in names.entries) {
+      final id = e.key;
+      final code = codes[id] ?? id;
+      final hourly = _isHourlyPay(code) || _isHourlyPay(id);
+      final rs = byEmp[id] ?? const <_DailyShiftRecord>[];
+      final agg = _ShiftEmpAgg(id: id, name: e.value, code: code, hourly: hourly, records: rs);
       final byDay = <DateTime, List<_DailyShiftRecord>>{};
-      for (final r in _shiftRecordsForEmployee(records, empId)) {
+      for (final r in rs) {
         byDay.putIfAbsent(DateTime(r.date.year, r.date.month, r.date.day), () => []).add(r);
+        agg.hours += r.workHours;
+        agg.work += r.workCount;
+        if (r.lateMinutes > 0) {
+          agg.lateMinutes += r.lateMinutes;
+          agg.lateCount++;
+        }
+        if (r.earlyMinutes > 0) {
+          agg.earlyMinutes += r.earlyMinutes;
+          agg.earlyCount++;
+        }
+        if (r.overtimeMinutes > 0) {
+          agg.otMinutes += r.overtimeMinutes;
+          agg.otCount++;
+        }
       }
-      return [
-        for (final d in dates)
-          (
-            d,
-            () {
-              final day = DateTime(d.year, d.month, d.day);
-              final rs = byDay[day] ?? const <_DailyShiftRecord>[];
-              final punched = rs.any((r) => r.displayPunchTimes.isNotEmpty);
-              if (punched) {
-                if (rs.any((r) => r.lateMinutes > 0 || r.earlyMinutes > 0)) return AttendanceDayState.late;
-                final wc = rs.fold<double>(0, (a, r) => a + r.workCount);
-                return wc >= 1 ? AttendanceDayState.full : AttendanceDayState.partial;
-              }
-              if (!day.isBefore(todayStart)) return AttendanceDayState.future;
-              if (_isWeeklyOffDay(d, code)) return AttendanceDayState.off;
-              return AttendanceDayState.absent;
-            }(),
-          ),
+      for (final d in dates) {
+        final day = DateTime(d.year, d.month, d.day);
+        final list = byDay[day] ?? const <_DailyShiftRecord>[];
+        final isPast = day.isBefore(today);
+        final punched = list.where((r) => r.displayPunchTimes.isNotEmpty).toList();
+        AttendanceDayState state;
+        if (punched.isNotEmpty) {
+          agg.presentDays++;
+          final missing = isPast &&
+              punched.any((r) => r.missingPunchHints.isNotEmpty || r.displayPunchTimes.length.isOdd);
+          if (missing) agg.missingDays.add(day);
+          final late = punched.any((r) => r.lateMinutes > 0);
+          if (late) agg.lateDays.add(day);
+          final wc = punched.fold<double>(0, (a, r) => a + r.workCount);
+          state = late || punched.any((r) => r.earlyMinutes > 0)
+              ? AttendanceDayState.late
+              : missing
+                  ? AttendanceDayState.partial
+                  : (hourly || wc >= 1)
+                      ? AttendanceDayState.full
+                      : AttendanceDayState.partial;
+        } else if (day.isAfter(today)) {
+          state = AttendanceDayState.future;
+        } else {
+          final fill = list.map((r) => r.fillKind).whereType<AttendanceFillDayKind>().firstOrNull;
+          if (fill != null) {
+            switch (fill) {
+              case AttendanceFillDayKind.absent:
+                if (isPast) {
+                  agg.absentDays.add(day);
+                  state = AttendanceDayState.absent;
+                } else {
+                  state = AttendanceDayState.future;
+                }
+              case AttendanceFillDayKind.approvedLeave:
+              case AttendanceFillDayKind.pendingLeave:
+                agg.leaveDays++;
+                state = AttendanceDayState.off;
+              default:
+                state = AttendanceDayState.off;
+            }
+          } else if (hourly || _isWeeklyOffDay(day, code)) {
+            state = AttendanceDayState.off;
+          } else if (!isPast) {
+            state = AttendanceDayState.future;
+          } else if (_dayScope == AttendanceDayScope.punchedOnly) {
+            agg.absentDays.add(day);
+            state = AttendanceDayState.absent;
+          } else {
+            state = AttendanceDayState.off;
+          }
+        }
+        if (list.isNotEmpty) agg.byDay[day] = list;
+        agg.dayStates.add((day, state));
+      }
+      if (!hourly) {
+        agg.expected = expectedWorkDaysSoFar(dates, (d) => _isWeeklyOffDay(d, code));
+      }
+      out.add(agg);
+    }
+    _shiftAggFp = fp;
+    _shiftAggCache = out;
+    return out;
+  }
+
+  static String _fmtWorkShort(double w) => w <= 0
+      ? '0'
+      : (w % 1 == 0 ? w.toInt().toString() : w.toStringAsFixed(1));
+
+  static String _fmtHourNum(double h) => SboxFmt.number(double.parse(h.toStringAsFixed(1)));
+
+  static String _dayList(List<DateTime> days) {
+    final shown = days.take(6).map((d) => '${d.day}/${d.month}').join(', ');
+    return days.length > 6 ? '$shown…' : shown;
+  }
+
+  String _shiftAggPrimary(_ShiftEmpAgg a) => a.hourly
+      ? '${_fmtHourNum(a.hours)} giờ'
+      : (a.expected > 0 ? '${_fmtWorkShort(a.work)}/${a.expected} công' : '${_fmtWorkShort(a.work)} công');
+
+  List<AttendanceMetricPart> _shiftAggParts(_ShiftEmpAgg a) => [
+        if (a.hourly)
+          AttendanceMetricPart('${a.presentDays} buổi')
+        else ...[
+          AttendanceMetricPart('${_fmtHourNum(a.hours)} giờ'),
+          AttendanceMetricPart('${a.presentDays} ngày'),
+        ],
+        if (a.absentDays.isNotEmpty) AttendanceMetricPart('${a.absentDays.length} vắng', color: SboxColors.danger),
+        if (a.lateCount > 0) AttendanceMetricPart('${a.lateCount} trễ', color: SboxColors.warningText),
+        if (a.missingDays.isNotEmpty)
+          AttendanceMetricPart('${a.missingDays.length} thiếu chấm', color: SboxColors.warningText),
+        if (a.earlyCount > 0) AttendanceMetricPart('${a.earlyCount} về sớm'),
+        if (a.leaveDays > 0) AttendanceMetricPart('${a.leaveDays} phép'),
       ];
-    }
 
-    String formatWork(double w) => w <= 0
-        ? '—'
-        : (w % 1 == 0 ? w.toInt().toString() : w.toStringAsFixed(2));
+  void _openShiftEmployeeDetail(_ShiftEmpAgg a) {
+    _showEmployeeVerticalShiftSheet(
+      empId: a.id,
+      empName: a.name,
+      empCode: a.code,
+      records: a.records,
+      agg: a,
+    );
+  }
 
-    final grandHours =
-        employees.fold<double>(0.0, (s, e) => s + totalHoursFor(e.key));
-    final grandWork =
-        employees.fold<double>(0.0, (s, e) => s + totalWorkFor(e.key));
-    final grandLate =
-        employees.fold<int>(0, (s, e) => s + lateMinutesFor(e.key));
-    final grandEarly =
-        employees.fold<int>(0, (s, e) => s + earlyMinutesFor(e.key));
-    final grandOt =
-        employees.fold<int>(0, (s, e) => s + overtimeFor(e.key));
+  /// Ô số bấm → danh sách người.
+  void _showShiftPeople({
+    required String title,
+    String? subtitle,
+    required List<_ShiftEmpAgg> people,
+    required String Function(_ShiftEmpAgg a) line,
+    required String Function(_ShiftEmpAgg a) trailing,
+    Color? trailingColor,
+  }) {
+    showAttendancePeopleSheet(
+      context,
+      title: title,
+      subtitle: subtitle,
+      rows: [
+        for (final a in people)
+          AttendancePersonRow(
+            name: a.name,
+            subtitle: [line(a), if (a.hourly) 'Lương theo giờ'].join(' · '),
+            trailing: trailing(a),
+            trailingColor: trailingColor,
+            onTap: () => _openShiftEmployeeDetail(a),
+          ),
+      ],
+    );
+  }
 
-    Widget buildEmployeeCard(int index) {
-      final empId = employees[index].key;
-      final empName = employees[index].value;
-      final empCode = empCodeMap[empId] ?? empId;
-      final hours = totalHoursFor(empId);
-      final travel = totalTravelFor(empId);
-      final work = totalWorkFor(empId);
-      final present = presentDaysFor(empId);
-      final lateMin = lateMinutesFor(empId);
-      final earlyMin = earlyMinutesFor(empId);
-      final otMin = overtimeFor(empId);
-      final lateDays = lateDaysFor(empId);
-      final expected = expectedDaysFor(empId);
-      final dayStates = dayStatesFor(empId);
-      final absent = dayStates.where((x) => x.$2 == AttendanceDayState.absent).length;
-      final shifts = shiftNamesFor(empId);
-      final shiftHourMap = <String, double>{};
-      for (final r in _shiftRecordsForEmployee(records, empId)) {
-        r.hoursByShiftName.forEach((name, hours) {
-          shiftHourMap[name] = (shiftHourMap[name] ?? 0) + hours;
-        });
+  static const _mobileSortLabels = {
+    'issue': 'Nhiều vấn đề trước',
+    'absent': 'Vắng nhiều',
+    'late': 'Trễ nhiều',
+    'lowWork': 'Ít công',
+    'hours': 'Nhiều giờ',
+    'name': 'Tên A→Z',
+  };
+
+  List<_ShiftEmpAgg> _sortedShiftAggs(List<_ShiftEmpAgg> list) {
+    int issueScore(_ShiftEmpAgg a) => a.absentDays.length * 2 + a.missingDays.length + a.lateCount;
+    final out = List<_ShiftEmpAgg>.from(list);
+    out.sort((a, b) {
+      int c;
+      switch (_mobileSort) {
+        case 'issue':
+          c = issueScore(b).compareTo(issueScore(a));
+        case 'absent':
+          c = b.absentDays.length.compareTo(a.absentDays.length);
+        case 'late':
+          c = b.lateMinutes.compareTo(a.lateMinutes);
+        case 'lowWork':
+          final ra = a.hourly ? double.infinity : (a.expected > 0 ? a.work / a.expected : a.work);
+          final rb = b.hourly ? double.infinity : (b.expected > 0 ? b.work / b.expected : b.work);
+          c = ra.compareTo(rb);
+        case 'hours':
+          c = b.hours.compareTo(a.hours);
+        default:
+          c = 0;
       }
-      final shiftHourChips = shiftHourMap.entries
-          .where((e) => e.value > 0)
-          .map((e) => _mobileShiftHourChip(
-                label: e.key,
-                value: _formatHoursMinutes(e.value),
-                color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
-              ))
-          .toList();
-      final workRatio = expected > 0 ? (work / expected).clamp(0.0, 1.0) : 0.0;
-      final workColor = work <= 0
-          ? SboxColors.slate400
-          : (expected > 0 && work >= expected
-              ? SboxColors.success
-              : HrmPageChrome.chipMid);
+      return c != 0 ? c : a.name.compareTo(b.name);
+    });
+    return out;
+  }
 
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () => _showEmployeeVerticalShiftSheet(
-              empId: empId,
-              empName: empName,
-              empCode: empCode,
-              records: _shiftRecordsForEmployee(records, empId),
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: SboxColors.slate200),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor:
-                            HrmPageChrome.primaryNavy.withValues(alpha: 0.12),
-                        child: Text(
-                          tr(_mobileShiftEmployeeInitials(empName)),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: HrmPageChrome.primaryNavy,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              tr(empName),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: SboxColors.slate900,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              tr(empCode),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: SboxColors.slate500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (lateDays > 0)
-                        Container(
-                          margin: const EdgeInsets.only(right: 6),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: SboxColors.warningSoft,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                                color: HrmPageChrome.chipLight
-                                    .withValues(alpha: 0.35)),
-                          ),
-                          child: Text(tr('Trễ $lateDays'),
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: HrmPageChrome.chipDark,
-                            ),
-                          ),
-                        ),
-                      const Icon(Icons.chevron_right,
-                          color: SboxColors.slate400, size: 22),
-                    ],
-                  ),
-                  if (shiftHourChips.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: shiftHourChips,
-                    ),
-                  ] else if (shifts.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.work_history_rounded,
-                            size: 13, color: SboxColors.slate600),
-                        const SizedBox(width: 5),
-                        Expanded(
-                          child: Text(
-                            tr('Ca: $shifts'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: SboxColors.slate700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      _mobileShiftMetricChip(
-                        icon: Icons.schedule_rounded,
-                        label: 'Giờ làm',
-                        value: hours > 0 ? _formatHoursMinutes(hours) : '—',
-                        color: HrmPageChrome.chipMid,
-                      ),
-                      if (_showTravelColumns) ...[
-                        const SizedBox(width: 6),
-                        _mobileShiftMetricChip(
-                          icon: Icons.directions_car_rounded,
-                          label: 'Đi đường',
-                          value: travel > 0 ? _formatHoursMinutes(travel) : '—',
-                          color: HrmPageChrome.chipMid,
-                        ),
-                      ],
-                      const SizedBox(width: 6),
-                      _mobileShiftMetricChip(
-                        icon: Icons.calendar_today_rounded,
-                        label: 'Công ca',
-                        value: formatWork(work),
-                        color: workColor,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      _mobileShiftMetricChip(
-                        icon: Icons.fingerprint_rounded,
-                        label: 'Có chấm',
-                        value: present > 0 ? '$present ngày' : '—',
-                        color: SboxColors.success,
-                      ),
-                      const SizedBox(width: 6),
-                      _mobileShiftMetricChip(
-                        icon: Icons.more_time_rounded,
-                        label: 'Đi trễ',
-                        value: lateMin > 0 ? '${lateMin}p' : '—',
-                        color: HrmPageChrome.chipLight,
-                      ),
-                      const SizedBox(width: 6),
-                      _mobileShiftMetricChip(
-                        icon: Icons.logout_rounded,
-                        label: 'Về sớm',
-                        value: earlyMin > 0 ? '${earlyMin}p' : '—',
-                        color: SboxColors.danger,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      _mobileShiftMetricChip(
-                        icon: Icons.bolt_rounded,
-                        label: 'Tăng ca',
-                        value: otMin > 0 ? '${otMin}p' : '—',
-                        color: HrmPageChrome.chipSoft,
-                      ),
-                      const SizedBox(width: 6),
-                      _mobileShiftMetricChip(
-                        icon: Icons.event_busy_rounded,
-                        label: 'Vắng',
-                        value: absent > 0 ? '$absent ngày' : '—',
-                        color: absent > 0 ? SboxColors.danger : SboxColors.slate400,
-                      ),
-                    ],
-                  ),
-                  if (dayStates.length <= 42) ...[
-                    const SizedBox(height: 10),
-                    AttendanceDayStrip(days: dayStates, showLegend: index == 0),
-                  ],
-                  if (expected > 0) ...[
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: workRatio,
-                              minHeight: 5,
-                              backgroundColor: SboxColors.slate200,
-                              color: workColor,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(tr('${formatWork(work)}/$expected công'),
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: workColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
+
+  /// Kỳ chỉ 1 ngày (Hôm nay / Hôm qua) → mặc định xem theo ngày.
+  bool get _mobileByDayResolved {
+    if (_mobileByDay != null) return _mobileByDay!;
+    final r = _selectedDateRange;
+    return DateTime(r.start.year, r.start.month, r.start.day) ==
+        DateTime(r.end.year, r.end.month, r.end.day);
+  }
+
+  AttendanceDayEntry _shiftDayEntryFor(_ShiftEmpAgg a, DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final list = a.byDay[d] ?? const <_DailyShiftRecord>[];
+    final punched = list.where((r) => r.displayPunchTimes.isNotEmpty).toList();
+    final state = a.dayStates
+        .firstWhere((x) => x.$1 == d, orElse: () => (d, AttendanceDayState.none))
+        .$2;
+    if (punched.isNotEmpty) {
+      final times = [for (final r in punched) ...r.displayPunchTimes]..sort();
+      String hm(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+      final odd = punched.any((r) => r.displayPunchTimes.length.isOdd);
+      return AttendanceDayEntry(
+        name: a.name,
+        hourly: a.hourly,
+        punchText: times.map(hm).join(' – '),
+        hours: punched.fold<double>(0, (s, r) => s + r.workHours),
+        lateMinutes: punched.fold<int>(0, (s, r) => s + r.lateMinutes),
+        earlyMinutes: punched.fold<int>(0, (s, r) => s + r.earlyMinutes),
+        present: true,
+        working: d == today && odd,
+        missing: d.isBefore(today) && odd,
+        onTap: () => _showRecordDetail(punched.first),
       );
     }
+    final fill = list.map((r) => r.fillKind).whereType<AttendanceFillDayKind>().firstOrNull;
+    final leave = fill == AttendanceFillDayKind.approvedLeave || fill == AttendanceFillDayKind.pendingLeave;
+    final absent = state == AttendanceDayState.absent;
+    final offish = a.hourly ||
+        _isWeeklyOffDay(d, a.code) ||
+        fill == AttendanceFillDayKind.weeklyOff ||
+        fill == AttendanceFillDayKind.scheduleOff ||
+        fill == AttendanceFillDayKind.holiday;
+    final notYet = !absent && !leave && !offish && !d.isBefore(today);
+    return AttendanceDayEntry(
+      name: a.name,
+      hourly: a.hourly,
+      absent: absent,
+      leave: leave,
+      notYet: notYet,
+      off: !absent && !leave && !notYet,
+      offLabel: fill != null ? fill.label : (a.hourly ? 'Không lịch' : 'Nghỉ'),
+      onTap: () => _openShiftEmployeeDetail(a),
+    );
+  }
 
-    Widget buildGrandTotalCard() {
-      return Container(
-        margin: const EdgeInsets.only(top: 4),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
-              SboxColors.brand100,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: SboxColors.brand200),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Tổng cộng'),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: HrmPageChrome.primaryNavy,
-                        ),
-                      ),
-                      Text(tr('${employees.length} nhân viên'),
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: SboxColors.slate700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      tr(grandHours > 0 ? _formatHoursMinutes(grandHours) : '—'),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: HrmPageChrome.chipMid,
-                      ),
-                    ),
-                    Text(tr('tổng giờ'),
-                        style:
-                            TextStyle(fontSize: 9, color: SboxColors.slate500)),
-                    const SizedBox(height: 4),
-                    Text(
-                      tr(formatWork(grandWork)),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: HrmPageChrome.chipMid,
-                      ),
-                    ),
-                    Text(tr('tổng công ca'),
-                        style:
-                            TextStyle(fontSize: 9, color: SboxColors.slate500)),
-                  ],
-                ),
-              ],
-            ),
-            if (grandLate > 0 || grandEarly > 0 || grandOt > 0) ...[
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  if (grandLate > 0)
-                    _shiftSummaryBadge(
-                        'Đi trễ ${grandLate}p', HrmPageChrome.chipLight),
-                  if (grandEarly > 0)
-                    _shiftSummaryBadge(
-                        'Về sớm ${grandEarly}p', SboxColors.danger),
-                  if (grandOt > 0)
-                    _shiftSummaryBadge(
-                        'Tăng ca ${grandOt}p', HrmPageChrome.chipSoft),
-                ],
-              ),
-            ],
-          ],
-        ),
-      );
+  List<Widget> _buildMobileShiftDaySlivers(List<_DailyShiftRecord> records) {
+    final aggs = _shiftAggregates(records);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dates = attendanceDaysInRange(_selectedDateRange).where((d) => !d.isAfter(today)).toList();
+    if (dates.isEmpty) return const [];
+    var day = _mobileDay;
+    if (day == null || !dates.contains(day)) day = dates.last;
+    final issues = <DateTime, Set<String>>{};
+    for (final a in aggs) {
+      for (final d in [...a.absentDays, ...a.missingDays, ...a.lateDays]) {
+        (issues[d] ??= {}).add(a.id);
+      }
     }
+    if (_mobileDay == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_dayStripCtrl.hasClients) _dayStripCtrl.jumpTo(_dayStripCtrl.position.maxScrollExtent);
+      });
+    }
+    return attendanceDayViewSlivers(
+      context: context,
+      dates: dates,
+      selectedDay: day,
+      onDay: (d) => setState(() => _mobileDay = d),
+      issuesByDay: {for (final e in issues.entries) e.key: e.value.length},
+      entries: [for (final a in aggs) _shiftDayEntryFor(a, day)],
+      chipKey: _dayChip,
+      onChip: (k) => setState(() => _dayChip = _dayChip == k ? 'all' : k),
+      dayStripController: _dayStripCtrl,
+    );
+  }
 
+  List<Widget> _buildMobileEmployeeShiftSummarySlivers(
+    List<_DailyShiftRecord> records,
+  ) {
+    final all = _shiftAggregates(records);
+    bool hasIssue(_ShiftEmpAgg a) => a.absentDays.isNotEmpty || a.missingDays.isNotEmpty || a.lateCount > 0;
+    final filters = [
+      AttendanceListFilter('all', 'Tất cả', all.length),
+      AttendanceListFilter('issue', 'Có vấn đề', all.where(hasIssue).length, danger: true),
+      AttendanceListFilter('absent', 'Có vắng', all.where((a) => a.absentDays.isNotEmpty).length, danger: true),
+      AttendanceListFilter('late', 'Đi trễ', all.where((a) => a.lateCount > 0).length),
+      AttendanceListFilter('missing', 'Thiếu chấm', all.where((a) => a.missingDays.isNotEmpty).length),
+      AttendanceListFilter('hourly', 'Lương giờ', all.where((a) => a.hourly).length),
+    ];
+    if (filters.any((f) => f.key == _mobileFilter && f.key != 'all' && f.count == 0)) _mobileFilter = 'all';
+
+    final q = attendanceFoldVi(_mobileQuery.trim());
+    var list = all.where((a) {
+      switch (_mobileFilter) {
+        case 'issue':
+          if (!hasIssue(a)) return false;
+        case 'absent':
+          if (a.absentDays.isEmpty) return false;
+        case 'late':
+          if (a.lateCount == 0) return false;
+        case 'missing':
+          if (a.missingDays.isEmpty) return false;
+        case 'hourly':
+          if (!a.hourly) return false;
+      }
+      return q.isEmpty || attendanceFoldVi('${a.name} ${a.code}').contains(q);
+    }).toList();
+    list = _sortedShiftAggs(list);
+
+    final workGroup = list.where((a) => !a.hourly).toList();
+    final hourGroup = list.where((a) => a.hourly).toList();
+    final grouped = workGroup.isNotEmpty && hourGroup.isNotEmpty;
+
+    Widget row(_ShiftEmpAgg a) => AttendanceEmployeeRow(
+          name: a.name,
+          hourly: a.hourly,
+          parts: _shiftAggParts(a),
+          primary: _shiftAggPrimary(a),
+          primaryColor: a.hourly
+              ? HrmPageChrome.chipMid
+              : (a.expected > 0 && a.work >= a.expected ? SboxColors.successText : null),
+          onTap: () => _openShiftEmployeeDetail(a),
+        );
+
+    final builders = <Widget Function()>[
+      if (grouped) () => AttendanceGroupHeader('Tính theo công (${workGroup.length})'),
+      for (final a in workGroup) () => row(a),
+      if (grouped) () => AttendanceGroupHeader('Lương theo giờ (${hourGroup.length}) — chỉ tính giờ'),
+      for (final a in hourGroup) () => row(a),
+    ];
+
+    final grandHours = all.fold<double>(0, (s, a) => s + a.hours);
+    final grandWork = all.fold<double>(0, (s, a) => s + a.work);
+    final hourlyCount = all.where((a) => a.hourly).length;
     return [
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         sliver: SliverToBoxAdapter(
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.groups_rounded,
-                    size: 18, color: HrmPageChrome.primaryNavy),
-              ),
-              const SizedBox(width: 10),
+          child: AttendanceEmployeeListToolbar(
+            total: all.length,
+            sortKey: _mobileSort,
+            sortLabels: _mobileSortLabels,
+            onSort: (v) => setState(() => _mobileSort = v),
+            searchController: _mobileSearchCtrl,
+            onQuery: (v) => setState(() => _mobileQuery = v),
+            filters: filters,
+            filterKey: _mobileFilter,
+            onFilter: (v) => setState(() => _mobileFilter = v),
+          ),
+        ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        sliver: attendanceEmployeeListSliver(builders),
+      ),
+      SliverPadding(
+        // Đáy chừa chỗ cho nút nổi (BOSS «Thao tác») — không che thẻ tổng.
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 96),
+        sliver: SliverToBoxAdapter(
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: SboxColors.brand50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: SboxColors.brand200),
+            ),
+            child: Row(children: [
               Expanded(
-                child: Text(tr('Danh sách nhân viên'),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: SboxColors.slate900,
-                  ),
-                ),
+                child: Text(tr('Tổng cộng · ${all.length} nhân viên'),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: HrmPageChrome.primaryNavy)),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  tr('${employees.length} NV'),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: HrmPageChrome.primaryNavy,
-                  ),
-                ),
-              ),
-            ],
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(tr('${_fmtHourNum(grandHours)} giờ'),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: HrmPageChrome.chipMid)),
+                Text(tr(hourlyCount > 0 ? '${_fmtWorkShort(grandWork)} công (không gồm lương giờ)' : '${_fmtWorkShort(grandWork)} công'),
+                    style: const TextStyle(fontSize: 11, color: SboxColors.slate600)),
+              ]),
+            ]),
           ),
         ),
-      ),
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-        sliver: SliverToBoxAdapter(
-          child: Text(tr('Chạm thẻ để xem chi tiết: điểm danh, ca, đi trễ, về sớm theo ngày'),
-            style: TextStyle(fontSize: 11, color: SboxColors.slate600),
-          ),
-        ),
-      ),
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-        sliver: SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) => buildEmployeeCard(index),
-            childCount: employees.length,
-          ),
-        ),
-      ),
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-        sliver: SliverToBoxAdapter(child: buildGrandTotalCard()),
       ),
     ];
+  }
+
+  /// Đầu trang chi tiết NV (theo ca): số tổng + lịch tháng màu.
+  Widget _shiftEmployeeDetailHeader(_ShiftEmpAgg a) {
+    Widget metric(String label, String value, Color color) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: color.withValues(alpha: 0.18)),
+            ),
+            child: Column(children: [
+              Text(tr(value),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+              Text(tr(label), style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.85))),
+            ]),
+          ),
+        );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: SboxColors.slate200),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (a.hourly)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(tr('Lương theo giờ — tính theo số giờ làm, không quy ra công.'),
+                style: const TextStyle(fontSize: 12, color: HrmPageChrome.chipMid, fontWeight: FontWeight.w600)),
+          ),
+        Row(children: [
+          metric('Giờ làm', a.hours > 0 ? _formatHoursMinutes(a.hours) : '—', HrmPageChrome.chipMid),
+          const SizedBox(width: 6),
+          a.hourly
+              ? metric('Buổi làm', '${a.presentDays}', SboxColors.success)
+              : metric('Ngày công', a.expected > 0 ? '${_fmtWorkShort(a.work)}/${a.expected}' : _fmtWorkShort(a.work),
+                  SboxColors.success),
+          const SizedBox(width: 6),
+          metric('Vắng', a.absentDays.isEmpty ? '—' : '${a.absentDays.length}',
+              a.absentDays.isEmpty ? SboxColors.slate400 : SboxColors.danger),
+          const SizedBox(width: 6),
+          metric('Đi trễ', a.lateCount == 0 ? '—' : '${a.lateMinutes} phút',
+              a.lateCount == 0 ? SboxColors.slate400 : SboxColors.warningText),
+        ]),
+        if (a.absentDays.isNotEmpty || a.lateDays.isNotEmpty || a.missingDays.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          if (a.absentDays.isNotEmpty)
+            Text(tr('Vắng: ${_dayList(a.absentDays)}'), style: const TextStyle(fontSize: 12, color: SboxColors.dangerText)),
+          if (a.lateDays.isNotEmpty)
+            Text(tr('Đi trễ: ${_dayList(a.lateDays)}'), style: const TextStyle(fontSize: 12, color: SboxColors.warningText)),
+          if (a.missingDays.isNotEmpty)
+            Text(tr('Thiếu chấm: ${_dayList(a.missingDays)}'),
+                style: const TextStyle(fontSize: 12, color: SboxColors.warningText)),
+        ],
+        if (a.dayStates.length <= 42) ...[
+          const SizedBox(height: 10),
+          AttendanceDayStrip(days: a.dayStates, showLegend: true),
+        ],
+      ]),
+    );
   }
 
   Widget _shiftSummaryBadge(String label, Color color) {
@@ -7409,6 +7521,39 @@ class _ShiftEmployeePeriodTotals {
   }
 }
 
+/// Tổng một NV trong kỳ (theo ca) — danh sách mobile, ô số bấm được.
+class _ShiftEmpAgg {
+  _ShiftEmpAgg({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.hourly,
+    required this.records,
+  });
+
+  final String id;
+  final String name;
+  final String code;
+  final bool hourly;
+  final List<_DailyShiftRecord> records;
+  double hours = 0;
+  double work = 0;
+  int presentDays = 0;
+  int leaveDays = 0;
+  int expected = 0;
+  int lateCount = 0;
+  int lateMinutes = 0;
+  int earlyCount = 0;
+  int earlyMinutes = 0;
+  int otCount = 0;
+  int otMinutes = 0;
+  final List<DateTime> absentDays = [];
+  final List<DateTime> missingDays = [];
+  final List<DateTime> lateDays = [];
+  final List<(DateTime, AttendanceDayState)> dayStates = [];
+  final Map<DateTime, List<_DailyShiftRecord>> byDay = {};
+}
+
 class _DailyShiftRecord {
   final String employeeId;
   final String employeeName;
@@ -7427,6 +7572,8 @@ class _DailyShiftRecord {
   final String status;
   final Color statusColor;
   final double workCount;
+  /// NV lương theo giờ — [workCount] luôn 0, hiển thị giờ thay cho công.
+  final bool hourlyPay;
   final Map<String, double> hoursByShiftName;
   final List<_MissingPunchHint> missingPunchHints;
   /// Chi nhánh / địa điểm thực tế chấm trong ngày (máy hoặc GPS).
@@ -7452,6 +7599,7 @@ class _DailyShiftRecord {
     required this.status,
     required this.statusColor,
     required this.workCount,
+    this.hourlyPay = false,
     this.hoursByShiftName = const {},
     this.missingPunchHints = const [],
     this.punchLocation = '',

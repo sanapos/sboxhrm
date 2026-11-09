@@ -344,10 +344,13 @@ class _LiveRow extends StatelessWidget {
               ? '${SboxFmt.number(_num(staff['checkedIn']))}/${SboxFmt.number(active)}'
               : '0',
           delta: active > 0 ? tr('nhân viên') : tr('Chưa có nhân viên'),
+          // Thiếu quyền Chấm công: vẫn bấm được nhưng báo lý do (trước bấm im lặng, tưởng lỗi).
           onTap: staffCanOpen(context, 'Attendance')
               ? () => Navigator.of(context)
                   .push(MaterialPageRoute<void>(builder: (_) => const BossStaffTodayScreen()))
-              : null,
+              : () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(tr('Tài khoản chưa có quyền xem Chấm công — nhờ chủ cửa hàng cấp quyền để xem ai đã đi làm.')),
+                  )),
           tone: SboxTone.success,
         ),
       ),

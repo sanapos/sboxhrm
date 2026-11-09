@@ -572,9 +572,12 @@ class SboxRankList extends StatelessWidget {
     this.emptyHeight = 120,
     this.ascending = false,
     this.maxValue,
+    this.onTap,
   });
 
   final List<SboxSlice> items;
+  /// Bấm một dòng (vd mở chi tiết nhân viên); null = chỉ xem.
+  final void Function(SboxSlice item)? onTap;
   final String Function(num? v) valueFormat;
   final Color color;
   final int maxItems;
@@ -596,7 +599,10 @@ class SboxRankList extends StatelessWidget {
     final top = peak <= 0 ? 1.0 : peak;
     return Column(children: [
       for (var i = 0; i < shown.length; i++)
-        Padding(
+        InkWell(
+          onTap: onTap == null ? null : () => onTap!(shown[i]),
+          borderRadius: SboxRadius.smAll,
+          child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
@@ -627,6 +633,7 @@ class SboxRankList extends StatelessWidget {
               ),
             ),
           ]),
+        ),
         ),
     ]);
   }

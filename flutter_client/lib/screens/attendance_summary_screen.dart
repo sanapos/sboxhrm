@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/work_schedule_load_utils.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -66,6 +67,9 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   bool _allowManualCorrection = true;
 
   String _loadPreset = 'month';
+  DateTime? _customFrom;
+  DateTime? _customTo;
+  static const _presetPrefKey = 'attendance_summary_preset_v1';
   late DateTime _fromDate;
   late DateTime _toDate;
   bool _attendanceLoadTruncated = false;
@@ -84,7 +88,9 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _restorePreset();
+      if (!mounted) return;
       _loadData();
       _loadEmployeesAndBranches();
     });
@@ -127,7 +133,33 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
 
   void _onDatePresetChanged(String preset) {
     _loadPreset = preset;
+    _savePreset(preset);
     _loadData();
+  }
+
+  void _onCustomRange(DateTime from, DateTime to) {
+    _loadPreset = 'custom';
+    _customFrom = from;
+    _customTo = to;
+    _loadData();
+  }
+
+  /// Nhớ kỳ đã chọn theo máy (mở lại không phải chọn lại, chủ hay xem «Tuần này» trên điện thoại).
+  /// Khoảng tùy ý không nhớ — lần sau quay về kỳ đã nhớ.
+  static Future<void> _savePreset(String preset) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_presetPrefKey, preset);
+    } catch (_) {}
+  }
+
+  Future<void> _restorePreset() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final v = prefs.getString(_presetPrefKey);
+      const allowed = {'today', 'yesterday', 'week', 'lastWeek', 'month', 'lastMonth'};
+      if (v != null && allowed.contains(v)) _loadPreset = v;
+    } catch (_) {}
   }
 
   @override
@@ -156,7 +188,11 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
       );
       if (!mounted) return;
 
-      final range = AttendanceDateRangePresets.resolve(_loadPreset);
+      final range = AttendanceDateRangePresets.resolve(
+        _loadPreset,
+        customFrom: _customFrom,
+        customTo: _customTo,
+      );
       _fromDate = range.start;
       _toDate = range.end;
       final toStr = _toDate.toIso8601String().substring(0, 10);
@@ -487,11 +523,13 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
     );
 
     final topActions = <Widget>[
-      HrmTopBarAction(
-        icon: Icons.view_column_outlined,
-        label: 'Chọn cột',
-        onPressed: () => (_tabKey.currentState as dynamic)?.showColumnPicker(),
-      ),
+      // Điện thoại không có bảng nhiều cột — «Chọn cột» không có tác dụng.
+      if (!Responsive.isMobile(context))
+        HrmTopBarAction(
+          icon: Icons.view_column_outlined,
+          label: 'Chọn cột',
+          onPressed: () => (_tabKey.currentState as dynamic)?.showColumnPicker(),
+        ),
       HrmTopBarAction(
         icon: Icons.image_outlined,
         label: 'Xuất PNG',
@@ -541,6 +579,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     toDate: _toDate,
                     dateRangePreset: _loadPreset,
                     onDateRangeChanged: _onDatePresetChanged,
+                    onCustomRangeChanged: _onCustomRange,
                     onCorrectionRequest: _handleCorrectionRequest,
                     dayEndHour: _dayEndHour,
                     dayEndMinute: _dayEndMinute,
