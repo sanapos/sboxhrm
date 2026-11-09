@@ -1298,28 +1298,32 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         ),
       ];
     }
-    return HrmScrollSlivers.fromListViewBuilder(
-      itemCount: _transactions.length,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      itemBuilder: (_, i) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: SboxColors.slate200),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    return [
+      ...HrmScrollSlivers.fromListViewBuilder(
+        itemCount: _transactions.length,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        itemBuilder: (_, i) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: _buildTxDeckItem(_transactions[i]),
           ),
-          child: _buildTxDeckItem(_transactions[i]),
         ),
       ),
-    );
+      // Điện thoại / C20: trước đây không có phân trang — tháng nhiều phiếu chỉ xem được trang đầu.
+      SliverToBoxAdapter(child: _buildPaginationControls()),
+    ];
   }
 
   Widget _buildFilterBar() {
