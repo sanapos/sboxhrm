@@ -52,14 +52,32 @@ public static class PosShiftCashHelper
         var to = shift.ClosedAt ?? DateTime.UtcNow;
         var hq = headquarterBranchId ?? Guid.Empty;
         var branch = shift.BranchId;
-        var tx = await db.CashTransactions.AsNoTracking()
+        // Đơn bán offline đồng bộ muộn: phiếu thu sinh lúc đồng bộ nhưng tiền vào két lúc bán → tính theo giờ bán
+        // (OfflineAt) — trước đây rơi sang ca đang mở lúc có mạng lại (ca sau báo thừa, ca bán báo thiếu).
+        // Đồng bộ muộn nhất 7 ngày (PosOfflineSaleRules).
+        var lateUntil = to.AddDays(7);
+        var rows = await db.CashTransactions.AsNoTracking()
             .Where(c => c.StoreId == shift.StoreId && c.Deleted == null && c.IsActive &&
                         c.Status == CashTransactionStatus.Completed &&
                         c.CreatedByUserId == shift.OpenedByUserId &&
-                        c.CreatedAt >= from && c.CreatedAt <= to &&
-                        (branch == null || (c.BranchId ?? hq) == branch))
-            .Select(c => new { c.Type, c.Amount, c.PaymentMethod, c.InternalNote })
+                        (branch == null || (c.BranchId ?? hq) == branch) &&
+                        ((c.CreatedAt >= from && c.CreatedAt <= to) ||
+                         (c.CreatedAt > to && c.CreatedAt <= lateUntil && c.InternalNote != null &&
+                          c.InternalNote.StartsWith(PosFinanceSyncHelper.SaleMarker))))
+            .Select(c => new { c.Type, c.Amount, c.PaymentMethod, c.InternalNote, c.CreatedAt })
             .ToListAsync();
+        var saleOrderIds = rows.Select(r => OrderIdOf(r.InternalNote)).Where(x => x.HasValue).Select(x => x!.Value)
+            .Distinct().ToList();
+        var offlineAt = saleOrderIds.Count == 0
+            ? new Dictionary<Guid, DateTime>()
+            : await db.PosSaleOrders.AsNoTracking()
+                .Where(o => o.StoreId == shift.StoreId && saleOrderIds.Contains(o.Id) && o.OfflineAt != null)
+                .ToDictionaryAsync(o => o.Id, o => o.OfflineAt!.Value);
+        var tx = rows.Where(r =>
+        {
+            var at = OrderIdOf(r.InternalNote) is Guid oid && offlineAt.TryGetValue(oid, out var sold) ? sold : r.CreatedAt;
+            return at >= from && at <= to;
+        }).ToList();
 
         bool Has(string? note, string marker) => note != null && note.StartsWith(marker);
         var cashIn = tx.Where(t => t.Type == CashTransactionType.Income && t.PaymentMethod == PaymentMethodType.Cash).ToList();

@@ -1261,7 +1261,7 @@ public class PosQrTableOrderController(
                         vch.UpdatedAt = now;
                     }
                 }
-                await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(db, order);
+                await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(db, order, CurrentUserId);
                 await PosSaleWarrantyHelper.VoidOrderAsync(db, storeId, order.Id, CurrentUserEmail);
                 order.Status = PosSaleOrderStatus.Cancelled;
             }
@@ -1595,7 +1595,7 @@ public class PosQrTableOrderController(
                     vch.UpdatedAt = now;
                 }
             }
-            await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(db, order);
+            await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(db, order, CurrentUserId);
             await PosSaleWarrantyHelper.VoidOrderAsync(db, storeId, order.Id, CurrentUserEmail);
             order.Status = PosSaleOrderStatus.Cancelled;
             order.DeliveryStatus = QrOnlineOrderStatuses.Cancelled;

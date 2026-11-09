@@ -231,9 +231,20 @@ public static class PosFinanceSyncHelper
         }
     }
 
+    /// <summary>Đuôi chứng từ của phiếu chi hoàn tiền khi hủy đơn: «pos trả khách #&lt;đơn&gt;|HUY|&lt;phiếu thu&gt;».</summary>
+    public const string CancelRefundTag = "HUY";
+
+    /// <summary>
+    /// Hủy đơn đã thu tiền. Phiếu thu trong ngày, ca chưa đóng → hủy phiếu thu như cũ. Phiếu thu của ngày trước hoặc của
+    /// ca thu ngân đã đóng → giữ nguyên (ngày / ca đó thật sự đã thu) và lập phiếu chi hoàn tiền lúc này do người hủy ghi
+    /// (cùng loại «trả khách» nên tiền ca, cuối ngày, đối soát tính là tiền hoàn). Trước đây luôn hủy phiếu thu: số của
+    /// ngày đã chốt bị đổi, còn ca đang trả tiền khách từ két không có phiếu chi nào nên báo thiếu.
+    /// <paramref name="refundByUserId"/> null (hệ thống tự hủy, không ai trả tiền tại quầy) → luôn hủy phiếu thu.
+    /// </summary>
     public static async Task ReverseSaleOnCancelAsync(
         ZKTecoDbContext db,
         PosSaleOrder order,
+        Guid? refundByUserId = null,
         CancellationToken cancellationToken = default)
     {
         var prefix = $"{SaleMarker}{order.Id}";
@@ -245,8 +256,65 @@ public static class PosFinanceSyncHelper
             .Where(c => c.StoreId == order.StoreId && c.Deleted == null && c.IsActive
                 && c.InternalNote != null && c.InternalNote.StartsWith(prefix))
             .ToListAsync(cancellationToken);
+        var todayVn = VnTimeHelper.NowVn().Date;
+        TransactionCategory? category = null;
         foreach (var cash in cashList)
-            PaymentFinanceHelper.CancelLinkedCashTransaction(cash, $"Hủy đơn {order.OrderNo}");
+        {
+            if (refundByUserId is not Guid by || by == Guid.Empty
+                || cash.Status != CashTransactionStatus.Completed
+                || !await IsSettledEarlierAsync(db, cash, todayVn, cancellationToken))
+            {
+                PaymentFinanceHelper.CancelLinkedCashTransaction(cash, $"Hủy đơn {order.OrderNo}");
+                continue;
+            }
+
+            var marker = $"{CustomerReturnMarker}{order.Id}|{CancelRefundTag}|{cash.Id}";
+            if (await HasActiveCashAsync(db, order.StoreId, marker, cancellationToken))
+                continue;
+            category ??= await EnsureCategoryAsync(
+                db, order.StoreId, CashTransactionType.Expense, "Hoàn tiền hủy đơn",
+                "undo", "#DC2626", cancellationToken);
+            if (category == null)
+            {
+                PaymentFinanceHelper.CancelLinkedCashTransaction(cash, $"Hủy đơn {order.OrderNo}");
+                continue;
+            }
+            db.CashTransactions.Add(new CashTransaction
+            {
+                Id = Guid.NewGuid(),
+                TransactionCode = await GenerateCodeAsync(db, order.StoreId, CashTransactionType.Expense, cancellationToken),
+                Type = CashTransactionType.Expense,
+                CategoryId = category.Id,
+                Amount = cash.Amount,
+                TransactionDate = VnTimeHelper.NowVn(),
+                Description = $"Hoàn tiền hủy đơn — {order.OrderNo} (phiếu thu {cash.TransactionCode})",
+                PaymentMethod = cash.PaymentMethod,
+                BankAccountId = cash.BankAccountId,
+                Status = CashTransactionStatus.Completed,
+                IsPaid = true,
+                PaidDate = DateTime.UtcNow,
+                ContactName = order.CustomerName,
+                CreatedByUserId = by,
+                StoreId = order.StoreId,
+                BranchId = cash.BranchId ?? order.BranchId,
+                InternalNote = marker,
+                SourceType = Application.Services.CashSources.PosCustomerReturn,
+                SourceId = order.Id,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+            });
+        }
+    }
+
+    /// <summary>Phiếu thu đã thuộc về một ngày / ca đã khép: ngày VN trước hôm nay, hoặc nằm trong ca đã đóng của người ghi.</summary>
+    static async Task<bool> IsSettledEarlierAsync(
+        ZKTecoDbContext db, CashTransaction cash, DateTime todayVn, CancellationToken ct)
+    {
+        if (cash.TransactionDate.Date < todayVn) return true;
+        var at = cash.CreatedAt;
+        return await db.PosCashierShifts.AsNoTracking().AnyAsync(s =>
+            s.StoreId == cash.StoreId && s.Deleted == null && s.ClosedAt != null
+            && s.OpenedByUserId == cash.CreatedByUserId && s.OpenedAt <= at && s.ClosedAt >= at, ct);
     }
 
     public static async Task SyncPurchaseReceiptPaymentAsync(

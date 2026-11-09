@@ -61,8 +61,20 @@ public class CashReconcileController(ZKTecoDbContext db) : AuthenticatedControll
             .Where(o => orderIds.Contains(o.Id))
             .Select(o => new { o.Id, o.OrderNo, o.Status, o.Deleted, o.PaidAmount })
             .ToDictionaryAsync(o => o.Id, ct);
+        // Hủy đơn của ngày / ca đã khép: phiếu thu giữ nguyên, có phiếu chi hoàn tiền (loại «trả khách») → đơn đó không lệch.
+        var refundedIds = orders.Values.Where(o => o.Status == PosSaleOrderStatus.Cancelled).Select(o => o.Id).ToList();
+        var netByOrder = refundedIds.Count == 0
+            ? new Dictionary<Guid, decimal>()
+            : await db.CashTransactions.AsNoTracking()
+                .Where(c => c.StoreId == storeId && c.IsActive && c.Deleted == null && c.Status != CashTransactionStatus.Cancelled
+                            && (c.SourceType == CashSources.PosSale || c.SourceType == CashSources.PosCustomerReturn)
+                            && c.SourceId != null && refundedIds.Contains(c.SourceId.Value))
+                .GroupBy(c => c.SourceId!.Value)
+                .Select(g => new { Id = g.Key, Sum = g.Sum(x => x.Type == CashTransactionType.Income ? x.Amount : -x.Amount) })
+                .ToDictionaryAsync(x => x.Id, x => x.Sum, ct);
         foreach (var c in saleCash)
         {
+            if (netByOrder.TryGetValue(c.SourceId!.Value, out var net) && Math.Abs(net) < 1) continue;
             if (!orders.TryGetValue(c.SourceId!.Value, out var o) || o.Deleted != null || o.Status == PosSaleOrderStatus.Cancelled)
                 issues.Add(new("source_cancelled", "Đơn đã hủy / xóa nhưng phiếu thu bán hàng còn hiệu lực",
                     c.Id, c.TransactionCode, c.Amount, CashSources.Label(c.SourceType), o?.OrderNo, c.TransactionDate));

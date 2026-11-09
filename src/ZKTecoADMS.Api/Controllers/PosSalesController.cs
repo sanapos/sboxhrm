@@ -2098,7 +2098,7 @@ public partial class PosSalesController(
                     vch.UpdatedAt = DateTime.UtcNow;
                 }
             }
-            await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(dbContext, order);
+            await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(dbContext, order, CurrentUserId);
             await PosSaleWarrantyHelper.VoidOrderAsync(dbContext, storeId, order.Id, CurrentUserEmail);
             await PosSellIndustryController.RevokeSessionPacksOnSaleCancelAsync(
                 dbContext, storeId, order.Id, CurrentUserEmail);
