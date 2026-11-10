@@ -41,6 +41,7 @@ import '../services/mobile_quick_actions_prefs.dart';
 import '../utils/mobile_bottom_nav_catalog.dart';
 import '../utils/mobile_quick_actions_catalog.dart';
 import '../widgets/mobile_bottom_nav_config_sheet.dart';
+import '../widgets/sbox_bottom_inset.dart';
 import '../widgets/mobile_quick_actions_config_sheet.dart';
 import '../widgets/announcement_banner.dart';
 import '../widgets/page_top_actions.dart';
@@ -1893,8 +1894,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.event_busy,
       label: 'Nghỉ phép',
       subtitle: 'Đơn nghỉ',
-      // Một cửa: mở Ca làm việc (quản lý → Cần duyệt, nhân viên → Lịch của tôi); thiếu quyền Ca làm việc dùng màn cũ.
-      screen: const ShiftHubEntry(tab: 'inbox', fallback: LeaveScreen()),
+      // Màn riêng (số ngày phép còn lại, đơn nghỉ) — không gộp vào Ca làm việc để hai mục khác nhau.
+      screen: const LeaveScreen(),
       group: 'Chấm công',
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
@@ -3703,8 +3704,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       ),
       child: SafeArea(
         top: false,
+        bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          padding: EdgeInsets.fromLTRB(4, 2, 4, sboxBottomNavInset(context)),
           child: Row(
             children: List.generate(MobileBottomNavLayout.slotCount, (index) {
               final slotId = layout.slots[index];

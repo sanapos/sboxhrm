@@ -24,6 +24,7 @@ import '../shift_hub/my_schedule_view.dart';
 import 'staff_entries.dart';
 import 'staff_home_tab.dart';
 import 'staff_nav.dart';
+import '../../widgets/sbox_bottom_inset.dart';
 
 enum _StaffTab { home, order, schedule, pay, me }
 
@@ -273,8 +274,9 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
       color: SboxColors.chrome,
       child: SafeArea(
         top: false,
+        bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: SboxSpace.xs, vertical: SboxSpace.xxs),
+          padding: EdgeInsets.fromLTRB(SboxSpace.xs, SboxSpace.xxs, SboxSpace.xs, sboxBottomNavInset(context)),
           child: Row(
             children: [
               for (final t in tabs)

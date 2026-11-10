@@ -42,6 +42,16 @@ import '../screens/ai_action_log_screen.dart';
 
 import './pos/pos_theme.dart';
 import '../theme/sbox_tokens.dart';
+import 'sbox_icon_tile.dart';
+class _GuideGroup {
+  const _GuideGroup(this.id, this.icon, this.title, this.sub, this.prompts);
+  final String id;
+  final IconData icon;
+  final String title;
+  final String sub;
+  final List<String> prompts;
+}
+
 class _ChatMsg {
   final String role; // 'user' | 'assistant'
   final String content;
@@ -200,13 +210,16 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   bool _consentChecked = false;
   bool _consentGiven = false;
 
+  // Lời chào ngắn; việc trợ lý làm được nằm trong «Trợ lý AI hỗ trợ được gì?» (nhóm → câu gợi ý).
   static const _welcome =
-      'Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng và nhân sự (đúng quyền và phạm vi của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ, chấm công, đi trễ, nghỉ phép, lương… Tôi cũng làm thay bạn: lập / sửa phiếu, duyệt hoặc từ chối đơn, đổi giá, ngừng bán, xóa phiếu, hủy hóa đơn — bạn kiểm tra rồi bấm Xác nhận (thao tác xóa / hủy sẽ hỏi lại một lần nữa). Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.';
+      'Xin chào! Tôi là Trợ lý ảo của cửa hàng. Bạn cứ hỏi, nói vào micro hoặc nhờ tôi làm giúp việc trong app.';
 
-  // SBOX POS iOS không có chức năng nhân sự: lời giới thiệu và hộp đồng ý chỉ nói đúng việc của app (App Store 2.3.1).
-  static const _posWelcome =
-      'Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng (đúng quyền và phạm vi của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ… Tôi cũng làm thay bạn: lập / sửa phiếu, đổi giá, ngừng bán, xóa phiếu, hủy hóa đơn — bạn kiểm tra rồi bấm Xác nhận (thao tác xóa / hủy sẽ hỏi lại một lần nữa). Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.';
-  static final _hrSuggestion = RegExp('phép|chấm công|đi trễ|lương|phạt|nhân viên|ca làm', caseSensitive: false);
+  // SBOX POS iOS không có chức năng nhân sự (App Store 2.3.1): nhóm nhân sự bị ẩn ở [_guideGroups].
+  static const _posWelcome = _welcome;
+
+  /// Mở đầu: false = lời chào + nút «hỗ trợ được gì»; true = nhóm chức năng / câu gợi ý.
+  bool _guideOpen = false;
+  String? _guideGroup;
 
   void _addWelcome() => _messages.add(
       _ChatMsg('assistant', SboxAppVariant.iosPosApp ? _posWelcome : _welcome, translate: true));
@@ -216,6 +229,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     await _stopSpeaking();
     setState(() {
       _messages.clear();
+      _guideOpen = false;
+      _guideGroup = null;
       _addWelcome();
     });
   }
@@ -1916,7 +1931,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         if (i == 0 && _messages.length == 1) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [_buildBubble(_messages[0]), _buildSuggestions()],
+            children: [_buildBubble(_messages[0]), _buildGuide()],
           );
         }
         return _buildBubble(_messages[i]);
@@ -1924,74 +1939,188 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     );
   }
 
-  /// Câu hỏi mẫu — chỉ hiện nhóm người dùng có quyền xem báo cáo.
-  List<String> _suggestionList() {
+  /// Nhóm việc trợ lý làm được — chỉ nhóm / câu người dùng có quyền. Mỗi nhóm có câu hỏi số liệu,
+  /// câu nhờ làm (trợ lý dựng phiếu, người dùng bấm Xác nhận) và câu hỏi cách dùng app.
+  List<_GuideGroup> _guideGroups() {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
-    final out = <String>[];
-    if (perm.canView('PosSalesReport') || perm.canView('PosReportRevenue')) {
-      out.addAll([
-        'Phân tích doanh thu tháng này so với tháng trước',
-        'Ngày nào trong tuần bán được nhiều nhất?',
+    final hr = !SboxAppVariant.iosPosApp;
+    final groups = <_GuideGroup>[];
+    void add(String id, IconData icon, String title, String sub, List<String> prompts) {
+      if (prompts.isNotEmpty) groups.add(_GuideGroup(id, icon, title, sub, prompts));
+    }
+
+    final sales = perm.canView('PosSalesReport') || perm.canView('PosReportRevenue');
+    add('sales', Icons.trending_up_rounded, 'Doanh thu & báo cáo', 'Phân tích bán hàng, lãi lỗ', [
+      if (sales) 'Phân tích doanh thu tháng này so với tháng trước',
+      if (sales) 'Ngày nào trong tuần bán được nhiều nhất?',
+      if (perm.canView('PosReportSoldGoods')) 'Top 10 món bán chạy 7 ngày qua',
+      if (perm.canView('PosReportProfit')) 'Nhóm hàng nào lãi nhiều nhất tháng này?',
+      if (sales) 'Cách xem báo cáo doanh thu?',
+    ]);
+    add('sell', Icons.point_of_sale_rounded, 'Bán hàng & khuyến mãi', 'Lập đơn, tạo khuyến mãi bằng lời', [
+      if (perm.canCreate('PosSell')) 'Bán 2 Coca cho khách lẻ, trả tiền mặt',
+      if (perm.canCreate('PosPromotions')) 'Khuyến mãi giảm 10% hóa đơn từ 500k cuối tuần',
+      if (perm.canCreate('PosSell')) 'Cách hủy một hóa đơn đã bán?',
+    ]);
+    final stock = perm.canView('PosReportStock') || perm.canView('PosProducts');
+    add('stock', Icons.inventory_2_rounded, 'Hàng hóa & kho', 'Tồn kho, nhập hàng, đổi giá', [
+      if (perm.canView('PosProducts')) 'Hàng nào tồn lâu không bán được?',
+      if (perm.canView('PosReportStock') && perm.canEdit('PosPurchaseReceipts'))
+        'Hàng nào cần nhập tuần này? Lập sẵn phiếu nhập',
+      if (perm.canEdit('PosPurchaseReceipts')) 'Nhập 24 lon Coca giá 9 nghìn',
+      if (perm.canEdit('PosProducts')) 'Đổi giá bán Coca thành 12 nghìn',
+      if (stock) 'Cách thêm hàng hóa mới?',
+    ]);
+    add('money', Icons.account_balance_wallet_rounded, 'Thu chi & công nợ', 'Sổ quỹ, phiếu thu chi, khách nợ', [
+      if (perm.canView('PosReportDebt')) 'Khách nào đang nợ nhiều nhất?',
+      if (perm.canCreate('CashTransaction')) 'Tạo phiếu chi 350k tiền điện',
+      if (perm.canCreate('CashTransaction')) 'Cách xem sổ quỹ hôm nay?',
+    ]);
+    if (hr) {
+      final att = perm.canView('AttendanceReport') || perm.canView('Attendance');
+      final approve = perm.canApprove('Leave') || perm.canApprove('AdvanceRequests') || perm.canApprove('Overtime');
+      add('attendance', Icons.fingerprint_rounded, 'Chấm công & nghỉ phép', 'Đi trễ, đơn nghỉ, duyệt đơn', [
+        if (att) 'Ai đi trễ nhiều nhất tháng này?',
+        if (perm.canView('LeaveReport')) 'Tình hình nghỉ phép tháng này',
+        if (approve) 'Có đơn nào đang chờ tôi duyệt?',
+        'Hôm nay tôi chấm công chưa?',
+        'Tôi còn bao nhiêu ngày phép?',
+        'Cách xin nghỉ phép?',
+      ]);
+      add('payroll', Icons.payments_rounded, 'Lương & thưởng phạt', 'Quỹ lương, ứng lương, phiếu phạt', [
+        if (perm.canView('Payslip')) 'Tổng quỹ lương tháng trước theo phòng ban',
+        if (perm.canCreate('AdvanceRequests')) 'Ứng lương 2 triệu tiền viện phí',
+        if (perm.canCreate('PenaltyTickets')) 'Phạt An 50k vì đi trễ hôm nay',
+        if (perm.canCreate('PenaltyTickets')) 'Phạt tất cả ai đi trễ hôm nay theo nội quy',
+        'Cách xem phiếu lương của tôi?',
       ]);
     }
-    if (perm.canView('PosReportSoldGoods')) out.add('Top 10 món bán chạy 7 ngày qua');
-    if (perm.canView('PosReportProfit')) out.add('Nhóm hàng nào lãi nhiều nhất tháng này?');
-    if (perm.canView('PosProducts')) out.add('Hàng nào tồn lâu không bán được?');
-    if (perm.canView('PosReportDebt')) out.add('Khách nào đang nợ nhiều nhất?');
-    if (perm.canView('AttendanceReport') || perm.canView('Attendance')) {
-      out.add('Ai đi trễ nhiều nhất tháng này?');
-    }
-    if (perm.canView('LeaveReport')) out.add('Tình hình nghỉ phép tháng này');
-    if (perm.canView('Payslip')) out.add('Tổng quỹ lương tháng trước theo phòng ban');
-    final analytics = out.length;
-    // Thao tác thêm / sửa / duyệt bằng lời (trợ lý dựng phiếu, người dùng bấm Xác nhận).
-    if (perm.canApprove('Leave') || perm.canApprove('AdvanceRequests') || perm.canApprove('Overtime')) {
-      out.add('Có đơn nào đang chờ tôi duyệt?');
-    }
-    if (perm.canCreate('CashTransaction')) out.add('Tạo phiếu chi 350k tiền điện');
-    if (perm.canCreate('PenaltyTickets')) out.add('Phạt An 50k vì đi trễ hôm nay');
-    if (perm.canCreate('PosSell')) out.add('Bán 2 Coca cho khách lẻ, trả tiền mặt');
-    if (perm.canCreate('AdvanceRequests')) out.add('Ứng lương 2 triệu tiền viện phí');
-    if (perm.canEdit('PosPurchaseReceipts')) out.add('Nhập 24 lon Coca giá 9 nghìn');
-    if (perm.canCreate('PosPromotions')) out.add('Khuyến mãi giảm 10% hóa đơn từ 500k cuối tuần');
-    if (perm.canEdit('PosProducts')) out.add('Đổi giá bán Coca thành 12 nghìn');
-    if (perm.canView('PosReportStock') && perm.canEdit('PosPurchaseReceipts')) {
-      out.insert(analytics, 'Hàng nào cần nhập tuần này? Lập sẵn phiếu nhập');
-    }
-    if (perm.canCreate('PenaltyTickets')) out.add('Phạt tất cả ai đi trễ hôm nay theo nội quy');
-    if (out.isEmpty) {
-      out.addAll(['Tôi còn bao nhiêu ngày phép?', 'Hôm nay tôi chấm công chưa?']);
-    }
-    // 4 câu phân tích + tối đa 3 câu ra lệnh (để người dùng biết trợ lý lập phiếu được).
-    final picked = [...out.take(analytics).take(4), ...out.skip(analytics).take(3)];
-    return SboxAppVariant.iosPosApp ? picked.where((s) => !_hrSuggestion.hasMatch(s)).toList() : picked;
+    add('help', Icons.help_outline_rounded, 'Cách dùng trợ lý', 'Micro, xác nhận thao tác', [
+      'Trợ lý làm thay tôi được những việc gì?',
+      'Khi nhờ lập phiếu, trợ lý có tự lưu luôn không?',
+      'Cách dùng micro để hỏi bằng giọng nói?',
+    ]);
+    return groups;
   }
 
-  Widget _buildSuggestions() {
-    final items = _suggestionList();
+  void _ask(String q) {
+    if (_isSending) return;
+    _inputCtrl.text = tr(q);
+    _send();
+  }
+
+  /// Mở đầu gọn: lời chào + một nút; bấm → nhóm chức năng; chọn nhóm → câu gợi ý, bấm là hỏi.
+  Widget _buildGuide() {
+    if (!_guideOpen) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: ActionChip(
+          avatar: const Icon(Icons.auto_awesome, size: 16, color: SboxColors.violet),
+          label: Text(tr('Trợ lý AI hỗ trợ được gì?'),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          backgroundColor: Colors.white,
+          side: BorderSide(color: SboxColors.violet.withValues(alpha: 0.35)),
+          onPressed: () => setState(() => _guideOpen = true),
+        ),
+      );
+    }
+
+    final groups = _guideGroups();
+    final group = groups.where((g) => g.id == _guideGroup).firstOrNull;
+    if (group == null) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+            child: Text(tr('Chọn nhóm việc bạn cần:'),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SboxColors.slate700)),
+          ),
+          LayoutBuilder(builder: (context, c) {
+            final cols = c.maxWidth >= 520 ? 3 : 2;
+            final w = (c.maxWidth - 8 * (cols - 1)) / cols;
+            return Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final g in groups) SizedBox(width: w, child: _guideGroupCard(g)),
+            ]);
+          }),
+        ]),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: [
-          for (final q in items)
-            ActionChip(
-              avatar: const Icon(Icons.insights_rounded, size: 16, color: SboxColors.violet),
-              label: Text(tr(q), style: const TextStyle(fontSize: 12)),
-              backgroundColor: Colors.white,
-              side: const BorderSide(color: Color(0xFFDDD6FE)),
-              onPressed: _isSending
-                  ? null
-                  : () {
-                      _inputCtrl.text = q;
-                      _send();
-                    },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: SboxColors.slate200),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          InkWell(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+            onTap: () => setState(() => _guideGroup = null),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
+              child: Row(children: [
+                const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(Icons.arrow_back_rounded, size: 20, color: SboxColors.slate500),
+                ),
+                Icon(group.icon, size: 20, color: SboxColors.violet),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(tr(group.title), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                ),
+                Text(tr('Nhóm khác'), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+              ]),
             ),
-        ],
+          ),
+          const Divider(height: 1),
+          for (final q in group.prompts)
+            ListTile(
+              dense: true,
+              visualDensity: VisualDensity.compact,
+              leading: Icon(q.startsWith('Cách') ? Icons.menu_book_rounded : Icons.chat_bubble_outline_rounded,
+                  size: 18, color: SboxColors.violet),
+              title: Text(tr(q), style: const TextStyle(fontSize: 13.5)),
+              trailing: const Icon(Icons.north_east_rounded, size: 16, color: SboxColors.slate400),
+              onTap: _isSending ? null : () => _ask(q),
+            ),
+        ]),
       ),
     );
   }
+
+  Widget _guideGroupCard(_GuideGroup g) => Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => setState(() => _guideGroup = g.id),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
+            ),
+            child: Row(children: [
+              SboxIconTile(g.icon, size: 34, iconSize: 18, radius: 10),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(tr(g.title),
+                      maxLines: 2, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, height: 1.2)),
+                  const SizedBox(height: 2),
+                  Text(tr(g.sub),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: SboxColors.slate500, height: 1.2)),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      );
 
   Widget _buildBubble(_ChatMsg m) {
     final isUser = m.role == 'user';
