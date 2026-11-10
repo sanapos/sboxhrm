@@ -18385,6 +18385,22 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// GET chung cho danh sách chi tiết của chip báo cáo (sheet «số này từ đâu ra»).
+  /// [path] bắt đầu bằng `/api/...`; trả cùng dạng với các hàm khác (`isSuccess`, `data`, `message`).
+  Future<Map<String, dynamic>> getReportJson(String path, {Map<String, String>? query}) async {
+    try {
+      var uri = Uri.parse('$baseUrl$path');
+      if (query != null && query.isNotEmpty) {
+        uri = uri.replace(queryParameters: {...uri.queryParameters, ...query});
+      }
+      final response =
+          await sharedHttpClient.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosSalesReportOrders({
     DateTime? from,
     DateTime? to,
