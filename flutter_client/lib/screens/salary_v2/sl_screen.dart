@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/page_max_width.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_tr.dart';
@@ -266,9 +267,7 @@ class _SalaryV2ScreenState extends State<SalaryV2Screen> {
                     padding: EdgeInsets.fromLTRB(narrow ? 12 : 24, 16, narrow ? 12 : 24, 40),
                     children: [
                       Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1100),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        child: PageMaxWidth(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                             _header(narrow),
                             const SizedBox(height: 16),
                             if (_partial) ...[

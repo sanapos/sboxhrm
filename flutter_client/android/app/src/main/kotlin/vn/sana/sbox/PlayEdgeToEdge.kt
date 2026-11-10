@@ -4,6 +4,7 @@ import android.os.Build
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
 /**
@@ -24,15 +25,20 @@ fun ComponentActivity.applyPlayEdgeToEdge() {
         window.attributes = attrs
     }
 
-    // SBOX POS: các thanh cùng màu nền trang sáng nên icon hệ thống tối; app khác giữ icon sáng.
-    val lightBars = packageName.startsWith("sbox.sana.vn.pos") || packageName.startsWith("staff.sboxpos.com")
+    // SBOX POS, SBOX HRM (sbox.sana.vn*), Nhân Viên: các thanh cùng màu nền sáng của app nên
+    // icon hệ thống tối; BOSS / KDS giữ dải đen, icon sáng.
+    val lightBars = packageName.startsWith("sbox.sana.vn") || packageName.startsWith("staff.sboxpos.com")
     fun darkSystemBarIcons() {
         WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightStatusBars = lightBars
             isAppearanceLightNavigationBars = lightBars
             // DEFAULT: thanh hệ thống giữ hiện. TRANSIENT_SWIPE khiến
             // status/nav ẩn sau immersive — phải vuốt mới hiện lại.
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+            systemBarsBehavior = if (hidesNavigationBar) {
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else {
+                WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+            }
         }
     }
     darkSystemBarIcons()
@@ -42,5 +48,29 @@ fun ComponentActivity.applyPlayEdgeToEdge() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         window.isNavigationBarContrastEnforced = false
         window.isStatusBarContrastEnforced = false
+    }
+    hideNavigationBarIfHrm()
+    window.decorView.post { hideNavigationBarIfHrm() }
+}
+
+/**
+ * SBOX HRM (`sbox.sana.vn`) và SBOX POS (`sbox.sana.vn.pos`), kể cả gói .qa: luôn ẩn thanh điều
+ * hướng cho rộng màn. BOSS / KDS / Nhân Viên giữ thanh.
+ */
+val ComponentActivity.hidesNavigationBar: Boolean
+    get() = packageName in setOf("sbox.sana.vn", "sbox.sana.vn.qa", "sbox.sana.vn.pos", "sbox.sana.vn.pos.qa")
+
+/**
+ * Ẩn thanh điều hướng (giữ thanh trạng thái). Vuốt từ mép dưới lên: thanh hiện tạm, đè lên app
+ * (không đẩy nội dung) rồi tự ẩn lại sau vài giây.
+ *
+ * Flutter đặt lại cờ hệ thống khi gọi SystemChrome và khi quay lại app (onPostResume) → gọi lại
+ * ở onPostResume / onWindowFocusChanged và từ Dart sau khi thoát «Toàn màn hình».
+ */
+fun ComponentActivity.hideNavigationBarIfHrm() {
+    if (!hidesNavigationBar) return
+    WindowCompat.getInsetsController(window, window.decorView).apply {
+        systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        hide(WindowInsetsCompat.Type.navigationBars())
     }
 }

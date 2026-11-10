@@ -53,6 +53,8 @@ class MainActivity : FlutterFragmentActivity() {
 
     private val CUSTOMER_DISPLAY_CHANNEL = "com.sboxhrm/customer_display"
     private val CUSTOMER_DISPLAY_EVENTS = "com.sboxhrm/customer_display_events"
+    /** Dart gọi lại sau SystemChrome (thoát «Toàn màn hình») để ẩn lại thanh điều hướng. */
+    private val SYSTEM_BARS_CHANNEL = "com.sboxhrm/system_bars"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         applyPlayEdgeToEdge()
@@ -67,8 +69,23 @@ class MainActivity : FlutterFragmentActivity() {
         applyPlayEdgeToEdge()
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Hộp thoại hệ thống / app khác đóng lại: thanh điều hướng có thể đã hiện lại.
+        if (hasFocus) hideNavigationBarIfHrm()
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SYSTEM_BARS_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                if (call.method == "hideNavigationBar") {
+                    runOnUiThread { hideNavigationBarIfHrm() }
+                    result.success(hidesNavigationBar)
+                } else {
+                    result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, OfflineVaultMirror.CHANNEL)
             .setMethodCallHandler { call, result ->
                 val ctx = applicationContext

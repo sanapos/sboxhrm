@@ -276,8 +276,8 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     MobileBottomNavLayout layout,
   ) {
     return Material(
-      elevation: SboxColors.posApp ? 0 : 8,
-      color: SboxColors.posApp ? SboxColors.chrome : Colors.white,
+      elevation: SboxColors.pageChrome ? 0 : 8,
+      color: SboxColors.pageChrome ? SboxColors.chrome : Colors.white,
       child: SafeArea(
         top: false,
         child: GestureDetector(

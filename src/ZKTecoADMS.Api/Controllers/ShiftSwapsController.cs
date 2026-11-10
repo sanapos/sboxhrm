@@ -26,17 +26,21 @@ public class ShiftSwapsController(IMediator mediator, ZKTecoDbContext dbContext)
     [HttpGet("colleagues")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireAnyModulePermission(ModulePermissionAction.View, "ShiftSwap", "ScheduleApproval", "WorkSchedule")]
-    public async Task<ActionResult<AppResponse<List<SwapColleagueDto>>>> GetColleagues()
+    public async Task<ActionResult<AppResponse<List<SwapColleagueDto>>>> GetColleagues([FromQuery] bool includeNoAccount = false)
     {
+        // includeNoAccount: chọn «Người thay ca» cho đơn nghỉ — người thay không cần tài khoản app
+        // (đổi ca thì cần, vì đồng nghiệp phải tự đồng ý).
         var colleagues = await dbContext.Employees.AsNoTracking()
             .Where(e => e.StoreId == RequiredStoreId
-                && e.ApplicationUserId != null
-                && e.ApplicationUserId != CurrentUserId
+                && (includeNoAccount || e.ApplicationUserId != null)
+                && (e.ApplicationUserId == null || e.ApplicationUserId != CurrentUserId)
+                && e.Deleted == null
                 && e.WorkStatus == EmployeeWorkStatus.Active)
             .OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
             .Select(e => new SwapColleagueDto
             {
-                UserId = e.ApplicationUserId!.Value,
+                UserId = e.ApplicationUserId ?? Guid.Empty,
+                EmployeeId = e.Id,
                 FullName = (e.LastName + " " + e.FirstName).Trim(),
                 EmployeeCode = e.EmployeeCode ?? "",
                 Department = e.Department
@@ -163,7 +167,8 @@ public class ShiftSwapsController(IMediator mediator, ZKTecoDbContext dbContext)
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("ShiftSwap", ModulePermissionAction.Delete)]
+    // Người gửi huỷ yêu cầu của mình khi còn chờ (handler chặn người khác / đã duyệt) — như huỷ đơn nghỉ.
+    [RequireAnyActionOnModule("ShiftSwap", ModulePermissionAction.Create, ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> CancelSwap(Guid id)
     {
         var command = new CancelSwapCommand(RequiredStoreId, id, CurrentUserId);

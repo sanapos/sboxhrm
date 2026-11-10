@@ -18,6 +18,9 @@ class _Item {
     this.detail,
     this.createdAt,
     this.sortDate,
+    this.step,
+    this.shiftId,
+    this.dateKey,
   });
   final String kind; // reg | leave | swap | shift
   final String id;
@@ -27,7 +30,18 @@ class _Item {
   final String? detail;
   final DateTime? createdAt;
   final DateTime? sortDate;
+  /// «Bước 2/3» khi duyệt nhiều cấp (mọi loại có chuỗi duyệt).
+  final String? step;
+  /// Đăng ký ca: ca + ngày để tính tác động lên định mức.
+  final String? shiftId;
+  final String? dateKey;
+  /// «Duyệt xong: 4/2–4 — đủ người» — tính từ bảng xếp ca.
+  String? impact;
+  Color? impactColor;
   String get key => '$kind:$id';
+
+  /// Trạng thái hiện tại theo bộ nhãn chung (đổi ca trong hộp này luôn đã qua đồng nghiệp).
+  String get status => kind == 'swap' ? 'TargetAccepted' : 'Pending';
 
   /// Đăng ký / đổi ca của ngày đã qua: không còn ý nghĩa xếp lịch (đổi ca quá hạn không thể duyệt).
   bool get overdue {
@@ -42,8 +56,10 @@ class _Item {
 /// Hộp «Cần duyệt» chung: đăng ký ca, đơn nghỉ, đổi ca (đồng nghiệp đã đồng ý), ca theo giờ.
 /// Lọc theo loại, chọn nhiều để duyệt / từ chối hàng loạt. Dùng các endpoint duyệt sẵn có (giữ chuỗi duyệt).
 class ApprovalInboxView extends StatefulWidget {
-  const ApprovalInboxView({super.key, this.onChanged});
+  const ApprovalInboxView({super.key, this.onChanged, this.onOpenLeaves});
   final VoidCallback? onChanged;
+  /// Mở «Quản lý nghỉ phép» (tạo hộ, sửa / huỷ đơn, hoàn tác duyệt, phép năm) — trước ở Thiết lập → Nâng cao.
+  final VoidCallback? onOpenLeaves;
 
   @override
   State<ApprovalInboxView> createState() => _ApprovalInboxViewState();
@@ -109,6 +125,9 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
         detail: r['note']?.toString(),
         createdAt: _dt(r['createdAt']),
         sortDate: _dt(r['date']),
+        step: _step(r),
+        shiftId: r['isDayOff'] == true ? null : r['shiftId']?.toString(),
+        dateKey: _dt(r['date']) == null ? null : ShiftUi.key(_dt(r['date'])!),
       ));
     }
     for (final l in _list(res[1])) {
@@ -124,10 +143,11 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
           if ((l['reason']?.toString() ?? '').isNotEmpty) 'Lý do: ${l['reason']}',
           if ((l['shiftNames'] as List?)?.isNotEmpty == true) 'Ca: ${(l['shiftNames'] as List).join(', ')}',
           if (l['remainingAnnualLeaveDays'] != null) 'Phép năm còn ${l['remainingAnnualLeaveDays']} ngày',
-          if ((ShiftUi.n(l['totalApprovalLevels'])) > 1) 'Bước ${ShiftUi.n(l['currentApprovalStep']) + 1}/${l['totalApprovalLevels']}',
+          if ((l['replacementEmployeeName']?.toString() ?? '').isNotEmpty) 'Người thay: ${l['replacementEmployeeName']}',
         ].join(' · '),
         createdAt: _dt(l['createdAt']),
         sortDate: from,
+        step: _step(l),
       ));
     }
     for (final s in _list(res[2])) {
@@ -156,6 +176,8 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
       ));
     }
     items.sort((a, b) => (a.sortDate ?? DateTime(2100)).compareTo(b.sortDate ?? DateTime(2100)));
+    await _annotateImpact(items);
+    if (!mounted) return;
     setState(() {
       _items = items;
       _loading = false;
@@ -163,16 +185,55 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
     });
   }
 
+  String? _step(Map<String, dynamic> r) => ShiftUi.n(r['totalApprovalLevels']) > 1
+      ? 'Bước ${ShiftUi.n(r['currentApprovalStep']) + 1}/${r['totalApprovalLevels']}'
+      : null;
+
+  /// Đăng ký ca: duyệt xong ca sẽ đủ / vượt / vẫn thiếu định mức (một lần gọi bảng xếp ca cho cả khoảng ngày).
+  Future<void> _annotateImpact(List<_Item> items) async {
+    final regs = items.where((i) => i.kind == 'reg' && i.shiftId != null && i.dateKey != null && !i.overdue).toList();
+    if (regs.isEmpty) return;
+    final dates = regs.map((i) => ShiftUi.parse(i.dateKey)!).toList()..sort();
+    final from = dates.first;
+    var to = dates.last;
+    if (to.difference(from).inDays > 41) to = from.add(const Duration(days: 41));
+    final r = await _api.getShiftHubBoard(from: from, to: to, search: '');
+    if (r['isSuccess'] != true || r['data'] is! Map) return;
+    final cov = [
+      for (final c in ((r['data'] as Map)['coverage'] as List? ?? const []))
+        if (c is Map) Map<String, dynamic>.from(c),
+    ];
+    for (final i in regs) {
+      final c = cov.where((c) => c['date'] == i.dateKey && c['shiftId']?.toString() == i.shiftId).firstOrNull;
+      if (c == null) continue;
+      final after = ShiftUi.n(c['effective']).toInt() + 1;
+      final min = ShiftUi.n(c['min']).toInt(), max = ShiftUi.n(c['max']).toInt();
+      if (c['hasQuota'] != true) {
+        i.impact = 'Duyệt xong ca có $after người';
+        i.impactColor = SboxColors.slate500;
+      } else if (max > 0 && after > max) {
+        i.impact = 'Duyệt xong: $after/$max — vượt định mức';
+        i.impactColor = SboxColors.violet;
+      } else if (after >= min) {
+        i.impact = 'Duyệt xong: $after/${min == max ? '$min' : '$min–$max'} — đủ người';
+        i.impactColor = SboxColors.success;
+      } else {
+        i.impact = 'Duyệt xong vẫn thiếu: $after/$min';
+        i.impactColor = SboxColors.warning;
+      }
+    }
+  }
+
   List<_Item> get _shown => _kind == 'all' ? _items : _items.where((i) => i.kind == _kind).toList();
 
-  Future<Map<String, dynamic>> _act(_Item i, bool approve, String? reason) => switch (i.kind) {
+  Future<Map<String, dynamic>> _act(_Item i, bool approve, String? reason, {bool countAsWork = false}) => switch (i.kind) {
         'reg' => _api.approveScheduleRegistration(i.id, {'isApproved': approve, if (!approve) 'rejectionReason': reason}),
-        'leave' => approve ? _api.approveLeave(i.id) : _api.rejectLeave(i.id, reason),
+        'leave' => approve ? _api.approveLeave(i.id, countAsWork: countAsWork ? true : null) : _api.rejectLeave(i.id, reason),
         'swap' => _api.approveShiftSwap(i.id, approve: approve, rejectionReason: reason),
         _ => approve ? _api.approveShift(i.id) : _api.rejectShift(i.id, reason: reason),
       };
 
-  Future<void> _process(List<_Item> items, bool approve) async {
+  Future<void> _process(List<_Item> items, bool approve, {bool countAsWork = false}) async {
     if (items.isEmpty) return;
     String? reason;
     if (!approve) {
@@ -183,7 +244,7 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
     var ok = 0;
     final errors = <String>[];
     for (final i in items) {
-      final r = await _act(i, approve, reason);
+      final r = await _act(i, approve, reason, countAsWork: countAsWork);
       if (r['isSuccess'] == true) {
         ok++;
       } else {
@@ -229,6 +290,15 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
                   label: Text(tr('${e.value.$1} (${_items.where((i) => i.kind == e.key).length})')),
                   selected: _kind == e.key,
                   onSelected: (_) => setState(() => _kind = e.key),
+                ),
+              ),
+            if (widget.onOpenLeaves != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: ActionChip(
+                  avatar: const Icon(Icons.beach_access_rounded, size: 16, color: SboxColors.success),
+                  label: Text(tr('Quản lý nghỉ phép')),
+                  onPressed: widget.onOpenLeaves,
                 ),
               ),
           ]),
@@ -311,6 +381,8 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
                   ShiftUi.pill(label, color, icon: icon),
+                  const SizedBox(width: 4),
+                  ShiftUi.requestStatusPill(i.kind, i.status),
                   if (i.overdue) ...[
                     const SizedBox(width: 4),
                     ShiftUi.pill('Quá hạn', SboxColors.danger, icon: Icons.history_toggle_off_rounded),
@@ -325,6 +397,14 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
                 Text(tr('${i.title} · ${i.when}'), style: const TextStyle(fontWeight: FontWeight.w600, color: SboxColors.slate700)),
                 if ((i.detail ?? '').isNotEmpty)
                   Text(tr(i.detail!), style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500)),
+                if (i.step != null || i.impact != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Wrap(spacing: 6, runSpacing: 4, children: [
+                      if (i.step != null) ShiftUi.pill(i.step!, SboxColors.violet, icon: Icons.account_tree_rounded),
+                      if (i.impact != null) ShiftUi.pill(i.impact!, i.impactColor ?? SboxColors.slate500, icon: Icons.groups_rounded),
+                    ]),
+                  ),
                 if (i.createdAt != null)
                   Text(tr('Gửi lúc ${DateFormat('HH:mm dd/MM').format(i.createdAt!.toLocal())}'),
                       style: const TextStyle(fontSize: 11, color: SboxColors.slate400)),
@@ -336,6 +416,12 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
                 onPressed: _busy || (i.kind == 'swap' && i.overdue) ? null : () => _process([i], true),
                 icon: const Icon(Icons.check_rounded, color: SboxColors.success),
               ),
+              if (i.kind == 'leave')
+                IconButton(
+                  tooltip: tr('Duyệt, vẫn tính công (không ghi «Phép», không trừ phép năm)'),
+                  onPressed: _busy ? null : () => _process([i], true, countAsWork: true),
+                  icon: const Icon(Icons.work_history_rounded, color: SboxColors.brand600),
+                ),
               IconButton(
                 tooltip: tr('Từ chối'),
                 onPressed: _busy ? null : () => _process([i], false),

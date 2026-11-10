@@ -59,6 +59,8 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/device_sync_progress_overlay.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/system_ui_inset_mode.dart';
+import '../utils/app_fullscreen.dart';
+import '../widgets/page_max_width.dart';
 import '../utils/pos_kds_alert.dart';
 import 'notification_settings_screen.dart';
 import 'employees_screen.dart';
@@ -418,6 +420,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   /// Ctrl+K (⌘K trên Mac): mở ô tìm nhanh chức năng ở mọi màn.
   bool _onGlobalKey(KeyEvent e) {
+    if (_onFullscreenEscKey(e)) return true;
     if (e is! KeyDownEvent || e.logicalKey != LogicalKeyboardKey.keyK) return false;
     final k = HardwareKeyboard.instance;
     if (!(k.isControlPressed || k.isMetaPressed)) return false;
@@ -1271,6 +1274,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _keepAlivePruneTimer?.cancel();
     BranchSession.instance.removeListener(_onBranchChanged);
     HardwareKeyboard.instance.removeHandler(_onGlobalKey);
+    // Đăng xuất / rời khung chính: màn đăng nhập không có nút thoát toàn màn hình.
+    if (AppFullscreen.isActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(AppFullscreen.exit()));
+    }
     MobileBottomNavPrefs.revision.removeListener(_onMobileNavPrefsChanged);
     MobileQuickActionsPrefs.revision.removeListener(_onMobileNavPrefsChanged);
     NavigationNotifier.mainLayoutReady.value = false;
@@ -1886,7 +1893,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.event_busy,
       label: 'Nghỉ phép',
       subtitle: 'Đơn nghỉ',
-      screen: const LeaveScreen(),
+      // Một cửa: mở Ca làm việc (quản lý → Cần duyệt, nhân viên → Lịch của tôi); thiếu quyền Ca làm việc dùng màn cũ.
+      screen: const ShiftHubEntry(tab: 'inbox', fallback: LeaveScreen()),
       group: 'Chấm công',
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
@@ -1984,7 +1992,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.assignment_turned_in,
       label: 'Duyệt lịch làm việc',
       subtitle: 'Duyệt lịch',
-      screen: const ScheduleApprovalScreen(),
+      screen: const ShiftHubEntry(tab: 'inbox', fallback: ScheduleApprovalScreen()),
       group: 'Chấm công',
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
@@ -2637,7 +2645,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.swap_horiz,
       label: 'Đổi ca làm việc',
       subtitle: 'Đổi ca',
-      screen: const ShiftSwapScreen(),
+      screen: const ShiftHubEntry(tab: 'inbox', fallback: ShiftSwapScreen()),
       group: 'Chấm công',
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
@@ -2864,17 +2872,25 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   /// Desktop/tablet: keep home mounted (Offstage) so returning from a module restores scroll.
+  /// Bật / tắt «Toàn màn hình» đổi khung bao quanh nội dung — GlobalKey giữ State màn đang mở
+  /// (không tải lại, không mất dữ liệu đang nhập) khi nội dung đổi chỗ trong cây.
+  final GlobalKey _mainContentKey = GlobalKey(debugLabel: 'main_content');
+  final GlobalKey _mobileBodyKey = GlobalKey(debugLabel: 'mobile_body');
+
   Widget _buildPersistentMainContent() {
     final extra = _shellExtra;
     final main = _buildKeptMainStack();
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Màn chính giữ State (Offstage) khi đang mở màn phụ — Back quay về đúng chỗ cũ.
-        Offstage(offstage: extra != null, child: TickerMode(enabled: extra == null, child: main)),
-        if (extra != null)
-          ColoredBox(color: Theme.of(context).scaffoldBackgroundColor, child: extra.child),
-      ],
+    return KeyedSubtree(
+      key: _mainContentKey,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Màn chính giữ State (Offstage) khi đang mở màn phụ — Back quay về đúng chỗ cũ.
+          Offstage(offstage: extra != null, child: TickerMode(enabled: extra == null, child: main)),
+          if (extra != null)
+            ColoredBox(color: Theme.of(context).scaffoldBackgroundColor, child: extra.child),
+        ],
+      ),
     );
   }
 
@@ -2916,10 +2932,21 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     );
   }
 
+  /// POS bán hàng luôn không khung; «Toàn màn hình» ẩn khung cho mọi màn.
   bool _hideShellForModule(String? moduleCode, {required bool immersive}) {
     if (moduleCode == 'PosSell') return true;
-    if (moduleCode == 'PosKds' && immersive) return true;
-    return false;
+    return immersive;
+  }
+
+  /// Nội dung khi khung chính đã ẩn (desktop / tablet): POS / KDS trần, màn HRM thêm thanh gọn.
+  Widget _buildShellHiddenBody(String? moduleCode) {
+    if (_isPosOwnFullscreenModule(moduleCode)) return _buildPersistentMainContent();
+    return Column(
+      children: [
+        _buildFullscreenBar(),
+        Expanded(child: _buildPersistentMainContent()),
+      ],
+    );
   }
 
   // Desktop Layout với Navigation Rail mở rộng
@@ -2938,9 +2965,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         },
         child: _wrapAppShell(
           Scaffold(
-            body: _buildPersistentMainContent(),
+            body: _buildShellHiddenBody(moduleCode),
           ),
-          shellChromeVisible: false,
+          // Màn HRM: thanh gọn đã có ← / tiêu đề / nút thao tác như thanh trên — màn không vẽ lại.
+          shellChromeVisible: !_isPosOwnFullscreenModule(moduleCode),
         ),
       );
         }
@@ -2996,8 +3024,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           await _handleSystemBackAlignedWithUi();
         },
         child: _wrapAppShell(
-          Scaffold(body: _buildPersistentMainContent()),
-          shellChromeVisible: false,
+          Scaffold(body: _buildShellHiddenBody(moduleCode)),
+          shellChromeVisible: !_isPosOwnFullscreenModule(moduleCode),
         ),
       );
         }
@@ -3173,7 +3201,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return ValueListenableBuilder<bool>(
       valueListenable: SystemUiInsetMode.immersive,
       builder: (context, immersive, _) {
-        if (_hideShellForModule(moduleCode, immersive: immersive)) {
+    final posHubFullscreen =
+        Responsive.isMobile(context) && PosHubModules.isPrimary(moduleCode);
+        // Hub POS mobile giữ nhánh riêng bên dưới (không dựng Home — OOM V2s); toàn màn hình
+        // vẫn ẩn thanh hệ thống.
+        final hideShell = moduleCode == 'PosSell' ||
+            (immersive && (_isPosOwnFullscreenModule(moduleCode) || !posHubFullscreen));
+        if (hideShell) {
+          final hrm = !_isPosOwnFullscreenModule(moduleCode);
           return PopScope(
             canPop: false,
             onPopInvokedWithResult: (didPop, _) async {
@@ -3181,14 +3216,31 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               await _handleSystemBackAlignedWithUi();
             },
             child: _wrapAppShell(
-              Scaffold(body: _buildMobileBody()),
-              shellChromeVisible: false,
+              hrm
+                  ? Scaffold(
+                      body: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: KeyedSubtree(key: _mobileBodyKey, child: _buildMobileBody()),
+                          ),
+                          Positioned(
+                            left: 12,
+                            bottom: 12 + MediaQuery.paddingOf(context).bottom,
+                            child: _buildFullscreenExitPill(),
+                          ),
+                        ],
+                      ),
+                      floatingActionButton: const PageTopActionsFab(),
+                      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+                    )
+                  : Scaffold(
+                      body: KeyedSubtree(key: _mobileBodyKey, child: _buildMobileBody()),
+                    ),
+              shellChromeVisible: hrm,
             ),
           );
         }
 
-    final posHubFullscreen =
-        Responsive.isMobile(context) && PosHubModules.isPrimary(moduleCode);
 
     final bottomNavIndex = _bottomNavSlotIndexForModule(moduleCode);
     final isBottomNav = bottomNavIndex >= 0;
@@ -3294,7 +3346,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         children: [
           const AnnouncementBanner(),
           Expanded(
-            child: _buildMobileBody(bottomStackOnly: posHubFullscreen),
+            child: KeyedSubtree(
+              key: _mobileBodyKey,
+              child: _buildMobileBody(bottomStackOnly: posHubFullscreen),
+            ),
           ),
         ],
       ),
@@ -3355,6 +3410,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     }
     if (_selectedIndex != 0) {
       _tryNavigateToIndex(0);
+      return;
+    }
+    // Đang toàn màn hình ở Trang chủ: Back thoát toàn màn hình trước khi thu nhỏ app.
+    if (AppFullscreen.isActive) {
+      await AppFullscreen.exit();
       return;
     }
     SystemNavigator.pop();
@@ -3622,7 +3682,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final isDark = theme.brightness == Brightness.dark;
     final surfaceColor = isDark
         ? const Color(0xFF1E1E2E)
-        : (SboxColors.posApp ? SboxColors.chrome : Colors.white);
+        : (SboxColors.pageChrome ? SboxColors.chrome : Colors.white);
     final unselectedColor = isDark ? Colors.white54 : SboxColors.slate500;
 
     final layout = _resolvedMainNavLayout();
@@ -3635,7 +3695,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         color: surfaceColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: SboxColors.posApp ? 0 : (isDark ? 0.2 : 0.06)),
+            color: Colors.black.withValues(alpha: SboxColors.pageChrome ? 0 : (isDark ? 0.2 : 0.06)),
             blurRadius: 12,
             offset: const Offset(0, -2),
           ),
@@ -4175,8 +4235,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: SboxColors.posApp ? SboxColors.chrome : Theme.of(context).colorScheme.surface,
-        border: SboxColors.posApp
+        color: SboxColors.pageChrome ? SboxColors.chrome : Theme.of(context).colorScheme.surface,
+        border: SboxColors.pageChrome
             ? null
             : Border(
                 bottom: BorderSide(color: Theme.of(context).dividerColor),
@@ -4250,6 +4310,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(width: 4),
+          IconButton(
+            icon: const Icon(Icons.fullscreen),
+            onPressed: () => unawaited(AppFullscreen.toggle()),
+            tooltip: tr('Toàn màn hình'),
+          ),
           if (canUseAiAssistant(context))
           IconButton(
             icon: Icon(Icons.auto_awesome, color: SboxColors.appBarFg(SboxColors.violet)),
@@ -4362,6 +4427,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               ],
             ),
           ),
+        PopupMenuItem(
+          value: 'fullscreen',
+          child: Row(
+            children: [
+              Icon(AppFullscreen.isActive ? Icons.fullscreen_exit : Icons.fullscreen, size: 20),
+              const SizedBox(width: 12),
+              Text(tr(AppFullscreen.isActive ? 'Thoát toàn màn hình' : 'Toàn màn hình')),
+            ],
+          ),
+        ),
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'logout',
@@ -4387,12 +4462,111 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               _tryNavigateToIndex(hub);
             }
             break;
+          case 'fullscreen':
+            unawaited(AppFullscreen.toggle());
+            break;
           case 'logout':
             _showLogoutDialog();
             break;
         }
       },
     );
+  }
+
+  /// Màn HRM khi «Toàn màn hình» (desktop / tablet): thay sidebar + thanh trên 64px bằng một dải
+  /// 44px — vẫn giữ ← quay lại, tiêu đề, nút thao tác của trang và nút thoát.
+  Widget _buildFullscreenBar() {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: SboxColors.pageChrome ? SboxColors.chrome : cs.surface,
+        border: SboxColors.pageChrome
+            ? null
+            : Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: Row(
+        children: [
+          if (_canGoBack)
+            IconButton(
+              icon: const Icon(Icons.arrow_back, size: 20),
+              visualDensity: VisualDensity.compact,
+              onPressed: _goBack,
+              tooltip: tr(AppLocalizations.of(context).goBack),
+            ),
+          const SizedBox(width: 4),
+          // Không dùng Flexible: chia đôi chỗ với Expanded bên phải → nút thoát lọt ra giữa thanh.
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Text(
+              tr(_settingsHubTitle(AppLocalizations.of(context))),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: cs.onSurface),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ListenableBuilder(
+              listenable: PageTopActions.instance,
+              builder: (context, _) {
+                final acts = PageTopActions.instance.actions;
+                if (acts.isEmpty) return const SizedBox.shrink();
+                return Align(
+                  alignment: Alignment.centerRight,
+                  child: PageTopActionsBar(actions: acts),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            icon: const Icon(Icons.fullscreen_exit),
+            visualDensity: VisualDensity.compact,
+            onPressed: () => unawaited(AppFullscreen.exit()),
+            tooltip: tr('Thoát toàn màn hình (Esc)'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Màn HRM khi «Toàn màn hình» trên điện thoại: không AppBar / thanh dưới, chỉ còn cụm nút
+  /// nổi góc dưới trái (← quay lại + thoát) — góc phải đã có FAB thao tác của trang.
+  Widget _buildFullscreenExitPill() {
+    Widget btn(IconData icon, String tip, VoidCallback onTap) => IconButton(
+          icon: Icon(icon, size: 20, color: SboxColors.white),
+          visualDensity: VisualDensity.compact,
+          onPressed: onTap,
+          tooltip: tr(tip),
+        );
+    return Material(
+      color: const Color(0xB3000000),
+      shape: const StadiumBorder(),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_canGoBack) btn(Icons.arrow_back, 'Quay lại', _goBack),
+          btn(Icons.fullscreen_exit, 'Thoát toàn màn hình', () => unawaited(AppFullscreen.exit())),
+        ],
+      ),
+    );
+  }
+
+  /// POS bán hàng / KDS có thanh công cụ và nút toàn màn hình riêng — không thêm thanh gọn.
+  bool _isPosOwnFullscreenModule(String? moduleCode) =>
+      moduleCode == 'PosSell' || moduleCode == 'PosKds';
+
+  /// Esc thoát toàn màn hình ở màn HRM (web khi trình duyệt từ chối fullscreen, app Windows).
+  bool _onFullscreenEscKey(KeyEvent event) {
+    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.escape) return false;
+    if (!mounted || !AppFullscreen.isActive) return false;
+    if (_isPosOwnFullscreenModule(_screenModuleCode(_selectedIndex))) return false;
+    // Hộp thoại / trang con đang mở: Esc để chúng đóng trước.
+    if (ModalRoute.of(context)?.isCurrent != true || Navigator.of(context).canPop()) return false;
+    unawaited(AppFullscreen.exit());
+    return true;
   }
 
   // Drawer cho mobile
@@ -5278,9 +5452,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
         key: const PageStorageKey<String>('home_menu_scroll'),
         padding: EdgeInsets.all(padding),
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1440),
-            child: Column(
+          child: PageMaxWidth(child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // ═══════════════ LỜI CHÀO (gọn, không banner) ═══════════════

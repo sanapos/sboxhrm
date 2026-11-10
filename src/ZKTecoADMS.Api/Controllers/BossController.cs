@@ -94,6 +94,24 @@ public class BossController(ZKTecoDbContext db) : AuthenticatedControllerBase
                 + (string.IsNullOrWhiteSpace(x.Reason) ? "" : $" · {x.Reason}"),
             null, x.StartDate, x.CreatedAt, x.StartDate.Date <= todayVn.AddDays(1))));
 
+        // Đăng ký ca / xin ngày nghỉ của nhân viên (trước không có — chủ quán dùng BOSS không thấy).
+        var regs = await db.ScheduleRegistrations.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.Deleted == null && x.Status == ScheduleRegistrationStatus.Pending
+                        && x.Date >= todayVn)
+            .OrderBy(x => x.Date).Take(PerKind)
+            .Select(x => new
+            {
+                x.Id, x.Date, x.IsDayOff, x.Note, x.CreatedAt,
+                ShiftName = x.Shift != null ? x.Shift.Name : null,
+                x.Employee.LastName, x.Employee.FirstName,
+            })
+            .ToListAsync(ct);
+        items.AddRange(regs.Select(x => new InboxItem(
+            "scheduleReg", x.Id.ToString(), x.IsDayOff ? "Đăng ký nghỉ ngày" : $"Đăng ký {x.ShiftName ?? "ca"}",
+            Name(x.LastName, x.FirstName),
+            $"{Dm(x.Date)}" + (string.IsNullOrWhiteSpace(x.Note) ? "" : $" · {x.Note}"),
+            null, x.Date, x.CreatedAt, x.Date.Date <= todayVn.AddDays(1))));
+
         var overtimes = await db.Overtimes.AsNoTracking()
             .Where(x => x.StoreId == storeId && x.Deleted == null && x.Status == OvertimeStatus.Pending)
             .OrderBy(x => x.Date).Take(PerKind)

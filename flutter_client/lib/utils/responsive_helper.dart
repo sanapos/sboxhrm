@@ -7,6 +7,10 @@ class Responsive {
   static const double tabletBreakpoint = 1024;
   static const double largeBreakpoint = 1440;
 
+  /// Bề rộng tối đa chung của thân trang danh sách / bảng / lưới — xem [PageMaxWidth]
+  /// (bỏ giới hạn khi «Toàn màn hình»). Trước đây mỗi màn tự đặt 900–1180.
+  static const double pageMaxWidth = 1440;
+
   /// POS F&B tablet+: sơ đồ | thực đơn + giỏ cố định, thanh toán stage riêng.
   /// Đồng bộ từ [mobileBreakpoint] (768) — portrait tablet không còn UX lệch.
   static const double tabletLandscapeFlowBreakpoint = mobileBreakpoint;

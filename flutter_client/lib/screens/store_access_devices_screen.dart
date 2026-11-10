@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../widgets/page_max_width.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/app_tr.dart';
@@ -190,8 +191,8 @@ class _StoreAccessDevicesScreenState extends State<StoreAccessDevicesScreen> {
         padding: EdgeInsets.fromLTRB(narrow ? 12 : 24, 16, narrow ? 12 : 24, 40),
         children: [
           Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
+            child: PageMaxWidth(
+              normal: 900,
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Row(children: [
                   Container(

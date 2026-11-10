@@ -77,6 +77,8 @@ public class ManagerDecisionDto
 public class SwapColleagueDto
 {
     public Guid UserId { get; set; }
+    /// <summary>Employee.Id — dùng cho «Người thay ca» của đơn nghỉ (ReplacementEmployeeId).</summary>
+    public Guid EmployeeId { get; set; }
     public string FullName { get; set; } = string.Empty;
     public string EmployeeCode { get; set; } = string.Empty;
     public string? Department { get; set; }

@@ -1827,6 +1827,7 @@
   "Bỏ qua": "跳过",
   "Bỏ qua hết": "全部跳过",
   "Bỏ qua lệnh trùng": "忽略重复指令",
+  "Bỏ qua ngày đã qua, ngày nghỉ và nghỉ phép.": "跳过已过日期、休息日和请假。",
   "Bỏ qua phiếu cũ": "跳过旧单据",
   "Bỏ quên": "遗忘",
   "Bỏ thay đổi": "放弃更改",
@@ -1978,6 +1979,7 @@
   "Ca xoay (sáng – chiều – nghỉ luân phiên): chưa có mẫu tự xoay — xếp tay 1–2 tuần rồi dùng «Sao chép tuần» trong «Lịch làm việc (đầy đủ)» (tối đa 12 tuần)": "轮班（早班 – 午班 – 休息轮换）：暂无自动轮换模板 — 先手动排 1–2 周，再在«排班表（完整）»中使用«复制周»（最多 12 周）",
   "Ca đang dùng": "正在使用的班次",
   "Ca đang mở": "进行中的班次",
+  "Ca đang thiếu người — kêu gọi nhân viên đăng ký bổ sung": "班次人手不足 — 通知员工补充报名",
   "Ca đã phân": "已排班次",
   "Ca đã đăng ký": "已登记班次",
   "Ca đêm": "夜班",
@@ -2286,6 +2288,8 @@
   "Chép link": "复制链接",
   "Chép lời nhắn": "复制消息",
   "Chép phác đồ gần nhất": "复制最近的方案",
+  "Chép sang": "复制到",
+  "Chép theo ngày trong tháng (ngày 1 → ngày 1…); tháng đích ít ngày hơn thì bỏ ngày thừa. ": "按月内日期复制（1日 → 1日…）；目标月份天数较少时多余日期将被忽略。 ",
   "Chép thực đơn": "复制菜单",
   "Chép tin nhắc nợ": "复制催款消息",
   "Chép tin nhắn": "复制消息",
@@ -2463,6 +2467,7 @@
   "Chưa có ca làm việc": "暂无班次",
   "Chưa có ca làm việc nào": "暂无任何班次",
   "Chưa có ca làm việc nào.": "暂无任何班次。",
+  "Chưa có ca mẫu — vào Thiết lập → Ca mẫu để tạo ca": "尚无班次模板 — 请到 设置 → 班次模板 创建",
   "Chưa có ca nào": "暂无班次",
   "Chưa có chi nhánh": "暂无分店",
   "Chưa có chi nhánh nào": "暂无任何分店",
@@ -2843,6 +2848,7 @@
   "Chưa có vị trí chấm công nào đang hoạt động. Liên hệ quản trị thiết lập tab Vị trí.": "暂无启用的考勤地点。请联系管理员在「位置」标签中设置。",
   "Chưa có vị trí nào": "暂无职位",
   "Chưa có yêu cầu chấm công nào": "暂无打卡申请",
+  "Chưa có yêu cầu nào": "暂无申请",
   "Chưa có yêu cầu sửa chấm công nào": "暂无考勤补卡申请",
   "Chưa có yêu cầu được xử lý": "暂无已处理的申请",
   "Chưa có yêu cầu đổi ca": "暂无调班申请",
@@ -3040,6 +3046,7 @@
   "Chưa sẵn sàng bán offline": "尚未准备好离线销售",
   "Chưa sửa được": "无法修改",
   "Chưa thanh toán": "未付款",
+  "Chưa thay đổi": "未更改",
   "Chưa thiết lập": "未设置",
   "Chưa thiết lập lương": "未设置工资",
   "Chưa thiết lập đơn giá": "尚未设置单价",
@@ -3126,6 +3133,9 @@
   "Chạm vào chữ trên trang để sửa như Word. Bôi đen rồi chọn đậm / font / màu.": "点击页面上的文字即可像 Word 一样编辑；选中文字后选择加粗 / 字体 / 颜色。",
   "Chạm vào một ca để xem chi tiết tài khoản / tiền két": "点击班次查看账户 / 钱箱详情",
   "Chạm xem": "点击查看",
+  "Chạm ô để chọn nhân viên cho ca ngày đó · Chạm ngày để xem bảng từng ngày": "点击单元格为当天该班次选择员工 · 点击日期查看每日排班表",
+  "Chạm ô để xếp / bỏ ca · Chạm tên ca để chọn nhiều nhân viên cùng lúc · Giữ ô hoặc chạm tên nhân viên để xem chi tiết, duyệt đăng ký": "点击单元格安排 / 取消班次 · 点击班次名称一次选择多名员工 · 长按单元格或点击员工姓名查看详情、审批报名",
+  "Chạm ô: xếp / bỏ ca · Chạm tên ca: chọn nhiều người · Giữ ô: chi tiết": "点击：安排 / 取消 · 点击班次名：多选 · 长按：详情",
   "Chạm để bật tiếng": "点击开启声音",
   "Chạm để bắt buộc ảnh": "点击设为必须拍照",
   "Chạm để chuyển giai đoạn": "点击切换阶段",
@@ -3424,6 +3434,9 @@
   "Chỉ áp dụng khi có «Số buổi». Mỗi lần trừ buổi → hoa hồng cho NV làm buổi đó ": "仅在有「课次数」时适用。每次扣减课次，该课次的服务员工获得提成 ",
   "Chỉ đi trễ": "仅迟到",
   "Chỉ điền ngày còn trống, không ghi đè lịch đã có.": "仅填写空白日期，不覆盖已有排班。",
+  "Chỉ điền ô còn trống của nhân viên đang hiển thị; không ghi đè lịch đã có.": "仅填充当前显示员工的空白格，不覆盖已有排班。",
+  "Chỉ điền ô còn trống.": "仅填充空白格。",
+  "Chỉ điền ô còn trống; không ghi đè lịch đã có. Tối đa 12 tuần.": "仅填充空白格，不覆盖已有排班。最多12周。",
   "Chỉ đơn còn nợ": "仅欠款订单",
   "Chỉ đường": "导航",
   "Chỉ được chỉnh sửa chỉ tiêu/doanh số khi chu kỳ đang ở trạng thái Mở.": "仅当周期处于“开启”状态时才能修改指标/销售额。",
@@ -3496,6 +3509,7 @@
   "Chọn ca bạn muốn nhường, đồng nghiệp và ca/ngày muốn nhận.": "选择要让出的班次、同事以及想接的班次/日期。",
   "Chọn ca bạn muốn nhường, đồng nghiệp và ca/ngày muốn nhận. ": "选择要让出的班次、同事以及想接的班次/日期。 ",
   "Chọn ca cho": "选择班次",
+  "Chọn ca cho từng ngày rồi gửi một lượt": "为每天选择班次后一次提交",
   "Chọn ca làm việc": "选择班次",
   "Chọn ca làm việc hoặc loại nghỉ phép trong hộp thoại.": "请在对话框中选择班次或假期类型。",
   "Chọn ca làm việc:": "选择班次：",
@@ -3790,6 +3804,7 @@
   "Chọn thư mục": "选择文件夹",
   "Chọn thương hiệu": "选择品牌",
   "Chọn thời gian": "选择时间",
+  "Chọn thứ": "选择星期",
   "Chọn topping": "选择配料",
   "Chọn trường dữ liệu": "选择数据字段",
   "Chọn tuần nguồn chứa lịch muốn sao chép.": "请选择包含要复制排班的来源周。",
@@ -3806,6 +3821,7 @@
   "Chọn tài sản cần in tem QR": "选择要打印二维码标签的资产",
   "Chọn tất cả": "全选",
   "Chọn tất cả chờ duyệt": "全选待审批",
+  "Chọn tất cả người còn trống": "选择所有空闲员工",
   "Chọn tất cả thưởng/phạt": "全选奖金/罚款",
   "Chọn tỉnh / thành phố": "选择省/市",
   "Chọn tỉnh/thành": "选择省/市",
@@ -5124,6 +5140,7 @@
   "Duyệt đủ cấp: giờ chấm được thêm / sửa, ô giờ có dấu «đã sửa», phiếu phạt tự động của ngày đó bị hủy và tính lại. Muốn vẫn phạt quên chấm: bấm «Duyệt + phạt»": "全部级别审批后：打卡时间被添加 / 修改，时间单元格带«已修改»标记，当天的自动罚款单被取消并重新计算。仍要对忘记打卡罚款：点击«审批 + 罚款»",
   "Duyệt ứng": "批准预支",
   "Duyệt ứng lương": "审批预支工资",
+  "Duyệt, vẫn tính công (không ghi «Phép», không trừ phép năm)": "批准，仍计工时（不标记«请假»，不扣年假）",
   "Duyệt: Chấm công › Duyệt chấm công → lọc «Sửa / bổ sung công» → tích nhiều phiếu để Duyệt / Từ chối cùng lúc": "审批：考勤 › 考勤审批 → 筛选«修改 / 补充工数» → 勾选多张单据同时批准 / 拒绝",
   "Dài": "长",
   "Dài (cm)": "长 (cm)",
@@ -6465,6 +6482,8 @@
   "Huỷ bỏ": "放弃",
   "Huỷ chiến dịch này?": "取消此活动？",
   "Huỷ tạm tính": "取消预结单",
+  "Huỷ yêu cầu": "取消申请",
+  "Huỷ yêu cầu?": "取消此申请？",
   "Huỷ đăng ký đang chờ": "取消待处理的申请",
   "HÀI LÒNG": "满意",
   "HÀNG BÁN": "在售商品",
@@ -7701,6 +7720,7 @@
   "Không có mẫu phù hợp": "没有合适的模板",
   "Không có mặt hàng dưới mức tồn tối thiểu": "没有低于最低库存的商品",
   "Không có nguyên liệu phù hợp.": "没有匹配的原料。",
+  "Không có ngày nào để áp dụng (các ngày đã qua bị bỏ qua)": "没有可应用的日期（已过日期被跳过）",
   "Không có người phù hợp": "没有符合条件的人员",
   "Không có nhân viên": "没有员工",
   "Không có nhân viên nghỉ phép hôm nay": "今天没有员工请假",
@@ -7804,6 +7824,7 @@
   "Không có yêu cầu chờ quản lý duyệt": "没有等待管理员审批的申请",
   "Không có yêu cầu chờ xử lý": "没有待处理的申请",
   "Không có yêu cầu cần bạn phản hồi": "没有需要您答复的申请",
+  "Không có yêu cầu nào đang chờ": "没有待处理的申请",
   "Không có yêu cầu tăng ca": "没有加班申请",
   "Không có yêu cầu ứng lương": "没有预支工资申请",
   "Không có đi trễ / về sớm": "没有迟到 / 早退",
@@ -7820,6 +7841,7 @@
   "Không có đơn phép": "没有请假申请",
   "Không có đơn tạm phù hợp": "没有符合的暂存订单",
   "Không có đồng nghiệp nào có ca khác trong ngày này — thử chọn ngày khác": "当天没有其他班次的同事 — 请尝试选择其他日期",
+  "Không có đồng nghiệp để chọn": "没有可选的同事",
   "Không có đồng nghiệp để đổi ca. Kiểm tra nhân viên đang làm đã gắn tài khoản.": "没有可换班的同事。请检查在岗员工是否已绑定账号。",
   "Không có ảnh hiện trường": "没有现场照片",
   "Không có ảnh khuôn mặt": "没有人脸照片",
@@ -7852,6 +7874,7 @@
   "Không ghi \"Phép\" trên chấm công": "考勤中不记录“休假”",
   "Không ghi HSD": "不记录保质期",
   "Không ghi lý do": "不填写原因",
+  "Không ghi «Phép» trên chấm công, không trừ phép năm": "考勤不标记«请假»，不扣年假",
   "Không giao hàng": "不配送",
   "Không giao được": "无法配送",
   "Không giấy tờ": "无证件",
@@ -7911,6 +7934,7 @@
   "Không hoàn tác được. Lịch sử thao tác của tài khoản được giữ lại nhưng không đăng nhập được nữa.\n\nNếu nhân viên chỉ tạm nghỉ, nên dùng «Khóa» thay vì xóa.": "无法撤销。账号的操作历史会保留，但不能再登录。\n\n如果员工只是暂时休息，建议使用“锁定”而不是删除。",
   "Không hoàn tác được. Nếu chi nhánh chỉ tạm đóng cửa, nên dùng «Ngừng hoạt động».": "无法撤销。若分店只是暂时停业，请使用「停止营业」。",
   "Không hoạt động": "未启用",
+  "Không huỷ được": "无法取消",
   "Không hài lòng": "不满意",
   "Không hóa đơn": "无账单",
   "Không hưởng lương": "无薪",
@@ -9767,6 +9791,8 @@
   "Lệnh đã gửi. Dữ liệu sẽ được tải về khi máy CC phản hồi.": "指令已发送。考勤机响应后将下载数据。",
   "Lệnh đã gửi. Hãy nhấn Refresh nếu chưa thấy dữ liệu.": "指令已发送。如未看到数据请点击刷新。",
   "Lệnh đồng bộ thất bại": "同步指令失败",
+  "LỊCH LÀM VIỆC THEO CA": "按班次的工作排班",
+  "LỊCH LÀM VIỆC THEO NHÂN VIÊN": "按员工的工作排班",
   "LỊCH LÀM VIỆC ĐÃ DUYỆT": "已审批排班",
   "Lịch": "日程",
   "Lịch CSKH": "客户维护日程",
@@ -9779,6 +9805,7 @@
   "Lịch hẹn": "预约日程",
   "Lịch khác nhau theo ngày": "按日期不同的排期",
   "Lịch làm việc": "排班",
+  "Lịch làm việc (màn cũ)": "工作排班（旧界面）",
   "Lịch làm việc (đầy đủ)": "排班表（完整）",
   "Lịch làm việc - Đăng ký chờ duyệt": "排班 - 待审批申请",
   "Lịch làm việc của quản lý cửa hàng sau khi đã triển khai xong: buổi sáng duyệt, giữa ngày theo dõi, cuối tháng chốt.": "上线后门店经理的工作节奏：上午审批，日间跟进，月底结算。",
@@ -11087,6 +11114,7 @@
   "Mở menu góc phải → Yêu cầu đổi ca": "打开右上角菜单 → 换班申请",
   "Mở màn bán hàng trên các máy ít nhất 1 giờ để hệ thống tự đo, hoặc bấm «Kiểm tra mạng ngay».": "请在各设备上保持收银界面至少打开 1 小时让系统自动检测，或点「立即检测网络」。",
   "Mở màn hình phụ (khách)": "打开副屏（客户用）",
+  "Mở màn lịch cũ": "打开旧排班界面",
   "Mở mắt nhìn vào camera": "请睁开眼睛看向摄像头",
   "Mở mắt ra...": "请睁开眼睛...",
   "Mở nhãn vận đơn": "打开运单标签",
@@ -11485,6 +11513,7 @@
   "Ngày nghỉ theo loại": "按类型统计休假日",
   "Ngày nghỉ theo lịch": "排班休息日",
   "Ngày nghỉ tuần": "每周休息日",
+  "Ngày nguồn": "来源日期",
   "Ngày nguồn không có lịch để sao chép": "来源日期没有可复制的排班",
   "Ngày nguồn:": "来源日期：",
   "Ngày nhận": "收货日期",
@@ -11492,6 +11521,7 @@
   "Ngày nhập": "录入日期",
   "Ngày nào hay vi phạm": "经常违规的日子",
   "Ngày nào trong tuần bán được nhiều nhất?": "一周中哪天卖得最多？",
+  "Ngày này": "当天",
   "Ngày này chưa xếp ca — coi mọi thợ đang làm đều có ca.": "这一天尚未排班 — 视为所有在岗员工都有班次。",
   "Ngày này không có lượt tập": "当天没有训练记录",
   "Ngày này đang được đánh dấu nghỉ — quản lý cần gỡ ngày nghỉ trước khi duyệt đăng ký ca.": "该日已标记为休息日 — 经理需先取消休息日才能批准班次报名。",
@@ -11619,6 +11649,8 @@
   "Người sử dụng": "使用人",
   "Người thao tác": "操作人",
   "Người thay": "替班人",
+  "Người thay ca": "替班人员",
+  "Người thay ca (không bắt buộc)": "替班人员（可选）",
   "Người thay ca (tùy chọn)": "替班人（可选）",
   "Người thực hiện": "执行人",
   "Người tiêu dùng": "消费者",
@@ -12080,6 +12112,7 @@
   "Nhập số": "输入数字",
   "Nhập số Serial (SN) trên máy chấm công để kết nối": "请输入考勤机上的序列号（SN）以连接",
   "Nhập số công nợ đúng (≥ 0)": "请输入正确的欠款金额（≥ 0）",
+  "Nhập số giấy nghỉ / mã hồ sơ BHXH": "请输入病假单号 / 社保档案编号",
   "Nhập số giờ tối thiểu từ 0,5 đến 24": "请输入 0.5 到 24 之间的最少小时数",
   "Nhập số hợp lệ cho khoảng cách, khớp mặt và số ngày": "请为距离、人脸匹配和天数输入有效数字",
   "Nhập số lượng": "输入数量",
@@ -13175,6 +13208,7 @@
   "Quản lý đơn hàng": "订单管理",
   "Quản lý đơn hàng, hóa đơn bán hàng": "订单与销售账单管理",
   "Quản lý đơn nghỉ phép": "请假申请管理",
+  "Quản lý đơn nghỉ phép: tab «Cần duyệt».": "管理请假申请：«待审批» 标签。",
   "Quản lý đại lý": "代理商管理",
   "Quản lý đổi ca": "调班管理",
   "Quản lý ứng lương": "预支工资管理",
@@ -13340,6 +13374,7 @@
   "Sao chép link tài khoản": "复制账号链接",
   "Sao chép liên kết": "复制链接",
   "Sao chép lịch": "复制排班",
+  "Sao chép lịch một ngày": "复制某一天的排班",
   "Sao chép lịch ngày": "复制日排班",
   "Sao chép lịch theo từng tuần trong tháng nguồn sang tháng đích": "将源月份按周的排班复制到目标月份",
   "Sao chép lịch theo từng tuần trong tháng nguồn sang tháng đích.": "将源月份按周的排班复制到目标月份。",
@@ -13351,6 +13386,7 @@
   "Sao chép lịch:": "复制排班：",
   "Sao chép mã": "复制验证码",
   "Sao chép mật khẩu": "复制密码",
+  "Sao chép một ngày sang ngày khác": "将某天复制到其他日期",
   "Sao chép ngày": "复制日期",
   "Sao chép thành công": "复制成功",
   "Sao chép tháng": "复制月份",
@@ -13358,6 +13394,7 @@
   "Sao chép toàn bộ lịch của một tuần sang các tuần tiếp theo": "将某一周的全部排班复制到之后的各周",
   "Sao chép toàn bộ lịch của một tuần sang các tuần tiếp theo.": "将某一周的全部排班复制到之后的各周。",
   "Sao chép tuần": "复制周",
+  "Sao chép tuần này sang các tuần sau": "将本周复制到之后几周",
   "Sao chép tuần thành công": "周复制成功",
   "Sao lưu dữ liệu": "备份数据",
   "Sao lưu gần nhất": "最近备份",
@@ -13846,6 +13883,7 @@
   "Số trả": "还款金额",
   "Số tuần sao chép": "复制周数",
   "Số tuần sao chép:": "复制周数：",
+  "Số tuần:": "周数：",
   "Số tài khoản": "账号",
   "Số tài khoản *": "账号 *",
   "Số tài khoản không hợp lệ": "账号无效",
@@ -14653,6 +14691,7 @@
   "Thoát full": "退出全屏",
   "Thoát phiếu tạm": "退出临时单",
   "Thoát toàn màn hình": "退出全屏",
+  "Thoát toàn màn hình (Esc)": "退出全屏 (Esc)",
   "Thoát tài khoản cửa hàng": "退出门店账号",
   "Thu / chi tiền mặt & chuyển khoản": "现金及转账收 / 支",
   "Thu chi": "收支",
@@ -15723,6 +15762,7 @@
   "Tròn 500đ": "取整到 500đ",
   "Trùng": "重复",
   "Trùng bản ghi phân quyền trong cơ sở dữ liệu. Vui lòng thử lại hoặc liên hệ quản trị.": "数据库中存在重复的权限记录。请重试或联系管理员。",
+  "Trùng giờ": "时间冲突",
   "Trùng lặp": "重复",
   "Trùng tên trong năm": "年内重名",
   "Trước": "上一个",
@@ -15915,6 +15955,8 @@
   "Tuần nguồn không có lịch để sao chép": "源周没有可复制的排班",
   "Tuần nguồn:": "源周：",
   "Tuần này": "本周",
+  "Tuần này bạn chưa có ca nào sắp tới để đổi — chọn tuần khác rồi bấm ⋯ ở ngày có ca": "本周没有可调换的班次 — 请选择其他周，然后点击有班次那天的 ⋯",
+  "Tuần này không còn ngày nào để đăng ký": "本周没有可报名的日期",
   "Tuần sau": "下周",
   "Tuần trước": "上周",
   "Tuần đích bắt đầu từ": "目标周开始于",
@@ -16372,6 +16414,7 @@
   "Tìm tham số để chèn…": "搜索要插入的参数…",
   "Tìm theo mã, tên hoặc quét mã vạch (F3)": "按编码、名称或扫描条码搜索（F3）",
   "Tìm theo tiêu đề, nội dung, mã phiếu": "按标题、内容、单号搜索",
+  "Tìm theo tên": "按姓名搜索",
   "Tìm theo tên / mã nhân viên...": "按姓名/员工编号搜索...",
   "Tìm theo tên / mã…": "按名称/编号搜索…",
   "Tìm theo tên ca...": "按班次名称搜索...",
@@ -16734,6 +16777,7 @@
   "Tạo hồ sơ công tác, tạm ứng / quyết toán chi phí đi công tác theo quy trình duyệt của cửa hàng.": "按门店审批流程创建出差档案、预支/差旅费报销。",
   "Tạo hồ sơ mới rồi chọn loại chi phí, nhập số tiền và phân loại hóa đơn/giấy tờ.": "新建档案后选择费用类型，录入金额，并对发票/凭证分类。",
   "Tạo hồ sơ nhân sự làm nền cho chấm công, lương và tài khoản app. Mã nhân viên phải thống nhất giữa hồ sơ và máy chấm công.": "创建人事档案，作为考勤、工资和App账号的基础。员工编号在档案与考勤机中必须一致。",
+  "Tạo hộ, có thể duyệt luôn": "代为创建，可直接批准",
   "Tạo hộ, sửa / huỷ đơn, hoàn tác duyệt, phép năm": "代为创建、修改 / 取消申请、撤销审批、年假",
   "Tạo key": "创建密钥",
   "Tạo key JSON và download file credentials": "创建JSON密钥并下载credentials文件",
@@ -16856,6 +16900,8 @@
   "Tạo đơn bán, thanh toán, trả hàng và theo dõi đơn trong ngày trên màn POS.": "在POS界面创建销售订单、结账、退货并查看当日订单。",
   "Tạo đơn hàng mới": "创建新订单",
   "Tạo đơn mới": "创建新订单",
+  "Tạo đơn nghỉ": "创建请假单",
+  "Tạo đơn nghỉ cho nhân viên": "为该员工创建请假单",
   "Tạo đơn vị quy đổi thất bại": "创建换算单位失败",
   "Tạo đơn đầu tiên": "创建第一笔订单",
   "Tạo đại lý thành công. Gửi link đăng ký tài khoản đại lý.": "代理商创建成功。请发送代理商账号注册链接。",
@@ -17280,6 +17326,7 @@
   "Tổng lương theo công": "按出勤计算的工资合计",
   "Tổng lương:": "工资合计：",
   "Tổng lương: ": "工资合计: ",
+  "Tổng lượt": "总排班人次",
   "Tổng lượt chấm": "总打卡次数",
   "Tổng lượt hủy / trả": "取消 / 退货总次数",
   "Tổng lượt ngày trong kỳ": "本期按日总次数",
@@ -18029,6 +18076,7 @@
   "Vẫn nhận lệnh cloud. Rút USB ADB nếu in Tem/Zywell; kiểm tra chip máy in": "仍在接收云端指令。打印标签/Zywell 时请拔出 USB ADB，并检查打印机芯片",
   "Vẫn nhận qua Zalo": "仍可通过 Zalo 接收",
   "Vẫn trừ buổi": "仍扣减次数",
+  "Vẫn tính công": "仍计工时",
   "Vẫn tạo": "仍然创建",
   "Vận chuyển": "物流",
   "Vận hành": "运营",
@@ -18280,6 +18328,7 @@
   "Xuất Excel thành công!": "导出Excel成功！",
   "Xuất Excel thất bại": "导出Excel失败",
   "Xuất Excel trên từng báo cáo khi gửi kế toán": "发送给会计时，在各报表中导出Excel",
+  "Xuất Excel tuần này": "导出本周 Excel",
   "Xuất Excel — chọn cột": "导出 Excel — 选择列",
   "Xuất HĐĐT": "开具电子发票",
   "Xuất HĐĐT Viettel cho đơn": "为订单开具 Viettel 电子发票",
@@ -18581,6 +18630,7 @@
   "Xếp hàng loạt, sao chép tháng, xuất Excel: tab Thiết lập › «Lịch làm việc (đầy đủ)» — ở màn này lịch vào «Danh sách chờ gửi», phải bấm «Gửi đăng ký» rồi duyệt": "批量排班、复制月份、导出Excel：设置标签页 › «排班表（完整）» — 在此界面排班会进入 «待发送列表»，需点击 «提交登记» 后再审批",
   "Xếp hạng nhân viên": "员工排名",
   "Xếp lịch": "排班",
+  "Xếp lịch theo ca, sao chép ngày / tuần / tháng, xuất Excel: tab «Bảng xếp ca» → «Theo ca» / «Từng ngày» và «Thao tác nhanh». ": "按班次排班、复制日 / 周 / 月、导出 Excel：«排班表» 标签 → «按班次» / «按日» 和 «快捷操作»。 ",
   "Xếp: lâu nhất trước": "排序：最早优先",
   "Xếp: mới nhất trước": "排序：最新优先",
   "Xử lý": "处理",
@@ -18602,6 +18652,7 @@
   "Yêu cầu chỉnh sửa log chấm công": "考勤日志修改申请",
   "Yêu cầu chớp mắt / quay đầu — chặn chấm bằng ảnh hoặc video": "要求眨眼 / 转头 — 防止用照片或视频打卡",
   "Yêu cầu chờ duyệt": "待审批申请",
+  "Yêu cầu của tôi": "我的申请",
   "Yêu cầu duyệt": "请求审批",
   "Yêu cầu giải trình": "要求说明",
   "Yêu cầu khác": "其他要求",
@@ -18999,6 +19050,7 @@
   "giữ app mở": "保持应用打开",
   "giữ chỗ": "占用",
   "giữ máy in": "保留打印机",
+  "giữ ngày nghỉ": "保留休息日",
   "giữ điện thoại trên WiFi nhà, app sẽ tự tìm thiết bị.": "让手机连接家里的 WiFi，应用会自动查找设备。",
   "gps ngoài": "外部GPS",
   "gán tay": "手动指派",
@@ -19987,6 +20039,7 @@
   "Áp dụng tại chi nhánh": "应用于分店",
   "Áp dụng từ ngày → đến ngày (để trống = mọi ngày": "适用日期：起始日 → 截止日（留空 = 每一天",
   "Áp dụng từ ngày → đến ngày (để trống = mọi ngày)": "适用日期：起始日 → 截止日（留空 = 每一天）",
+  "Áp dụng:": "应用于：",
   "Áp giá bán đã nhập ở phần đơn vị cho từng dòng hàng cùng loại": "将单位部分填写的售价应用到同类的每个商品行",
   "Áp khi đã chọn khách hàng trên hóa đơn": "在账单上选择客户后应用",
   "Áp mẫu": "应用模板",
@@ -20117,6 +20170,7 @@
   "Đang chụp…": "正在拍摄…",
   "Đang cài dữ liệu mẫu...": "正在安装示例数据...",
   "Đang có 1 chi nhánh — thêm để dùng báo cáo & chuyển kho nhiều CN": "目前有1个分店——添加后可使用报表及多分店调拨",
+  "Đang có ca khác": "已有其他班次",
   "Đang có lệnh đồng bộ sinh trắc chờ xử lý. Vui lòng đợi hoàn thành.": "有待处理的生物特征同步指令，请等待完成。",
   "Đang có mạng": "已联网",
   "Đang có phiên mở — đóng trước khi xóa": "存在未关闭的班次 — 请先关闭再删除",
@@ -20189,6 +20243,7 @@
   "Đang kiểm tra...": "正在检查...",
   "Đang kết nối": "连接中",
   "Đang liên kết": "关联中",
+  "Đang là ngày nghỉ": "当前为休息日",
   "Đang làm": "制作中",
   "Đang làm cả bàn": "整桌制作中",
   "Đang làm mới…": "正在刷新…",
@@ -21255,6 +21310,7 @@
   "Đã tạo thực đơn": "已创建菜单",
   "Đã tạo trên Tingee": "已在Tingee创建",
   "Đã tạo tài khoản": "已创建账号",
+  "Đã tạo và duyệt đơn nghỉ": "已创建并批准请假单",
   "Đã tạo vận đơn": "已创建运单",
   "Đã tạo yêu cầu chấm công": "已创建考勤申请",
   "Đã tạo yêu cầu sửa giờ thành công. Đang chờ duyệt.": "已成功创建修改时间申请，等待审批。",
@@ -21417,6 +21473,7 @@
   "Đã xếp": "已排定",
   "Đã xếp ca": "已排班",
   "Đã xếp ca cho một thợ thì thợ chưa xếp ca ngày đó coi như không làm.": "只要为一位技师排了班，当天未排班的技师即视为不上班。",
+  "Đã xếp ca này": "已排此班次",
   "Đã xếp lịch": "已排期",
   "Đã xếp ngày nghỉ": "已排休息日",
   "Đã xử lý": "已处理",
@@ -21438,6 +21495,7 @@
   "Đã đóng phiên": "已结束会话",
   "Đã đăng bài": "已发布帖子",
   "Đã đăng ký": "已注册",
+  "Đã đăng ký ca này (chờ duyệt)": "已报名此班次（待审批）",
   "Đã đăng ký khuôn mặt cho": "已为以下人员注册人脸：",
   "Đã đăng ký khuôn mặt cho \"": "已注册人脸： \"",
   "Đã đăng ký khuôn mặt ✓": "人脸已注册 ✓",
@@ -21556,11 +21614,13 @@
   "Đăng ký TB": "平均登记",
   "Đăng ký VT từ xa": "远程注册VT",
   "Đăng ký ca": "登记班次",
+  "Đăng ký ca, đơn nghỉ, đổi ca — huỷ được khi còn chờ duyệt": "班次报名、请假、调班 — 待审批时可取消",
   "Đăng ký chưa ăn": "已登记未用餐",
   "Đăng ký chấm công": "考勤登记",
   "Đăng ký chấm công Mobile": "注册手机考勤",
   "Đăng ký chờ": "待处理登记",
   "Đăng ký chờ duyệt": "待审批登记",
+  "Đăng ký cả tuần": "整周报名",
   "Đăng ký cửa hàng": "门店注册",
   "Đăng ký doanh nghiệp": "企业注册",
   "Đăng ký doanh nghiệp để sử dụng hệ thống\nquản lý nhân sự thông minh.": "注册企业即可使用\n智能人事管理系统。",
@@ -21581,6 +21641,7 @@
   "Đăng ký lịch": "登记日程",
   "Đăng ký mới": "新建注册",
   "Đăng ký ngay": "立即注册",
+  "Đăng ký nghỉ ngày": "报名休息日",
   "Đăng ký nghỉ ngày này": "登记这天休息",
   "Đăng ký nghỉ phép": "请假登记",
   "Đăng ký phần mềm": "软件注册",
@@ -21906,6 +21967,7 @@
   "Đặt mặc định": "设为默认",
   "Đặt mặc định toàn cửa hàng": "设为全店默认",
   "Đặt ngày bắt đầu và hạn chót cho công việc để xem dòng thời gian.": "为任务设置开始日期和截止日期即可查看时间线。",
+  "Đặt ngày nghỉ": "设为休息日",
   "Đặt ngón": "选择手指",
   "Đặt ngón tay lên máy chấm công\nvà giữ yên cho đến khi hoàn tất.": "将手指放在考勤机上，\n保持不动直到完成。",
   "Đặt phòng": "预订房间",
@@ -22206,6 +22268,7 @@
   "Đổi size": "换尺码",
   "Đổi số lượng, giá, chiết khấu, ghi chú, topping hoặc gán nhân viên hoa hồng ngay trên từng dòng món trước khi thanh toán.": "结账前可直接在每个菜品行上修改数量、价格、折扣、备注、配料，或指定提成员工。",
   "Đổi thiết lập khác (không đổi mức lương)": "修改其他设置（不改变薪资标准）",
+  "Đổi thành ngày nghỉ?": "改为休息日？",
   "Đổi tiêu đề công việc": "修改任务标题",
   "Đổi trạng thái": "更改状态",
   "Đổi trả hàng": "换货 / 退货",
@@ -23434,6 +23497,10 @@
    "新增 +{0}（共 {1}）"
   ],
   [
+   "+{0} người",
+   "+{0} 人"
+  ],
+  [
    "+{0} thâm niên",
    "+{0} 工龄"
   ],
@@ -24150,6 +24217,10 @@
    "已跳过列表中已有的 {0} 个菜品（保留您修改过的行）。"
   ],
   [
+   "Bỏ {0} người khỏi {1} {2} ngày ({3}). Bỏ qua ngày đã qua.",
+   "将 {0} 人移出 {1}，共 {2} 天（{3}）。已过日期将跳过。"
+  ],
+  [
    "Bỏ {0} phiếu",
    "移除{0}张单"
   ],
@@ -24474,6 +24545,10 @@
    "将{0}的排班复制到{1}。 "
   ],
   [
+   "Chép sang {0} → {1}",
+   "复制到 {0} → {1}"
+  ],
+  [
    "Chép {0} của {1} nhân viên từ «{2}» sang «{3}».",
    "将 {1} 名员工的{0}从«{2}»复制到«{3}»。"
   ],
@@ -24770,6 +24845,10 @@
    "选择 ({0})"
   ],
   [
+   "Chọn cả bộ phận {0}",
+   "选择 {0} 部门全部"
+  ],
+  [
    "Chọn cổng cân khác ({0})",
    "选择其他秤端口（{0}）"
   ],
@@ -24804,6 +24883,10 @@
   [
    "Chọn người chưa thiết lập ({0})",
    "选择未设置的人员 ({0})"
+  ],
+  [
+   "Chọn nhân viên cho {0}",
+   "为 {0} 选择员工"
   ],
   [
    "Chọn nhân viên nào phải ghi lý do ({0}/{1} đang bật)",
@@ -25694,6 +25777,22 @@
    "审批成功{0}条，失败{1}条"
   ],
   [
+   "Duyệt xong ca có {0} người",
+   "批准后班次共 {0} 人"
+  ],
+  [
+   "Duyệt xong vẫn thiếu: {0}/{1}",
+   "批准后仍不足：{0}/{1}"
+  ],
+  [
+   "Duyệt xong: {0}/{1} — vượt định mức",
+   "批准后：{0}/{1} — 超出定额"
+  ],
+  [
+   "Duyệt xong: {0}/{1} — đủ người",
+   "批准后：{0}/{1} — 人手充足"
+  ],
+  [
    "Duyệt {0}",
    "批准{0}"
   ],
@@ -26316,6 +26415,10 @@
   [
    "Gửi {0}",
    "发送{0}"
+  ],
+  [
+   "Gửi {0} đăng ký",
+   "提交 {0} 个报名"
   ],
   [
    "Gửi đăng ký ({0})",
@@ -27080,6 +27183,10 @@
   [
    "Không có hàng hóa với mã \"{0}\"",
    "没有编码为“{0}”的商品"
+  ],
+  [
+   "Không có lịch nào để chép{0}",
+   "没有可复制的排班{0}"
   ],
   [
    "Không có mẫu khớp «{0}»",
@@ -28890,6 +28997,14 @@
    "收件人：{0}"
   ],
   [
+   "Người thay ca: {0}",
+   "替班人员：{0}"
+  ],
+  [
+   "Người thay: {0}",
+   "替班：{0}"
+  ],
+  [
    "Người tăng ca · {0} lượt",
    "加班人员 · {0}次"
   ],
@@ -29590,8 +29705,20 @@
    "复制给 {0} 人"
   ],
   [
+   "Sao chép lịch ngày {0}",
+   "复制 {0} 的排班"
+  ],
+  [
+   "Sao chép sang {0} tuần",
+   "复制到 {0} 周"
+  ],
+  [
    "Sao chép thiết lập của {0}",
    "复制 {0} 的设置"
+  ],
+  [
+   "Sao chép {0} → {1}",
+   "复制 {0} → {1}"
   ],
   [
    "Sao chép được {0}, lỗi {1}: {2}",
@@ -29716,6 +29843,10 @@
   [
    "Sẽ trừ {0} ngày phép năm. Còn lại: {1} ngày.",
    "将扣除 {0} 天年假。剩余：{1} 天。"
+  ],
+  [
+   "Sẽ trừ {0} ngày phép năm{1}",
+   "将扣除 {0} 天年假{1}"
   ],
   [
    "Sẽ tích {0} điểm (mỗi {1} đ → 1 điểm)",
@@ -30764,6 +30895,10 @@
   [
    "Trực tuyến · {0}",
    "在线 · {0}"
+  ],
+  [
+   "Tuần nguồn: {0}",
+   "来源周：{0}"
   ],
   [
    "Tuần {0}",
@@ -32078,8 +32213,24 @@
    "删除 {0} 在 {1}/{2} 的登记？"
   ],
   [
+   "Xếp ca {0}",
+   "排班 {0}"
+  ],
+  [
    "Xếp hạng {0}",
    "排名 {0}"
+  ],
+  [
+   "Xếp {0} người đã chọn vào {1} {2} ngày ",
+   "将已选 {0} 人安排到 {1}，共 {2} 天 "
+  ],
+  [
+   "Xếp {0} người đã chọn vào {1} {2} ngày ({3}). Bỏ qua ngày đã qua, ngày nghỉ và nghỉ phép.",
+   "将已选 {0} 人安排到 {1}，共 {2} 天（{3}）。跳过已过日期、休息日和请假。"
+  ],
+  [
+   "Xếp {0} · {1}–{2}",
+   "排班 {0} · {1}–{2}"
   ],
   [
    "Xử lý: {0}",
@@ -32190,6 +32341,14 @@
    "保留至 {0}"
   ],
   [
+   "bỏ qua {0} (nghỉ phép / ngày nghỉ)",
+   "跳过 {0}（请假 / 休息日）"
+  ],
+  [
+   "bỏ {0} lượt",
+   "取消 {0} 人次"
+  ],
+  [
    "cells/cellKeys lệch: {0} vs {1}",
    "cells/cellKeys 不一致: {0} vs {1}"
   ],
@@ -32256,6 +32415,10 @@
   [
    "cọc {0}",
    "定金 {0}"
+  ],
+  [
+   "duyệt {0} đăng ký",
+   "审批 {0} 个报名"
   ],
   [
    "giá TB {0} · {1} NV",
@@ -32528,6 +32691,10 @@
   [
    "wwwroot {0} · downloads {1} · rác app ~ {2}",
    "wwwroot {0} · downloads {1} · 应用垃圾 ~ {2}"
+  ],
+  [
+   "xếp {0} lượt",
+   "安排 {0} 人次"
   ],
   [
    "{0}\n\nDanh sách chức năng hiện tại sẽ được thay bằng {1} chức năng của mẫu.",
@@ -33406,6 +33573,10 @@
    "{0} 个即将到来的日程"
   ],
   [
+   "{0} lỗi",
+   "{0} 个错误"
+  ],
+  [
    "{0} module được cấp quyền",
    "已授权 {0} 个模块"
   ],
@@ -33844,6 +34015,10 @@
   [
    "{0} nhóm mới · {1} size",
    "{0} 个新分组 · {1} 个尺码"
+  ],
+  [
+   "{0} nhờ đổi ca",
+   "{0} 请求调班"
   ],
   [
    "{0} năm",
@@ -34696,6 +34871,10 @@
   [
    "{0} đang có hàng.\n",
    "{0} 有货。\n"
+  ],
+  [
+   "{0} đang có {1}. Đặt ngày nghỉ sẽ bỏ các ca này.",
+   "{0} 已有 {1}。设为休息日将取消这些班次。"
   ],
   [
    "{0} đang làm",
@@ -35614,6 +35793,10 @@
    "等待中 · {0}"
   ],
   [
+   "Đang có {0}",
+   "当前为 {0}"
+  ],
+  [
    "Đang dùng {0}/{1} chi nhánh {2}.",
    "{2} 分店已使用 {0}/{1}。"
   ],
@@ -36322,6 +36505,10 @@
    "已提交 {0} 个登记"
   ],
   [
+   "Đã gửi {0} đăng ký — chờ quản lý duyệt",
+   "已提交 {0} 个报名 — 等待管理员审批"
+  ],
+  [
    "Đã gửi {0}:{1} · {2} người nhận · {3}",
    "已于 {0}:{1} 发送 · {2} 位接收人 · {3}"
   ],
@@ -36894,6 +37081,10 @@
    "已出库 {0} 个商品"
   ],
   [
+   "Đã xuất {0}",
+   "已导出 {0}"
+  ],
+  [
    "Đã xuất {0} ({1} dòng). Điền Lần 1–6 rồi Import lại cùng file.",
    "已导出 {0}（{1} 行）。请填写第 1–6 次后重新导入同一文件。"
   ],
@@ -37156,6 +37347,10 @@
   [
    "Đăng ký {0}",
    "登记 {0}"
+  ],
+  [
+   "Đăng ký {0} · ",
+   "报名 {0} · "
   ],
   [
    "Đăng ký {0} · chờ duyệt",
@@ -37462,6 +37657,10 @@
    "更改 IP「{0}」？"
   ],
   [
+   "Đổi ca với {0}",
+   "与 {0} 调班"
+  ],
+  [
    "Đổi ca với {0} · {1}",
    "与 {0} 换班 · {1}"
   ],
@@ -37728,6 +37927,10 @@
   [
    "− {0} (còn xin được {1})",
    "− {0}（还可申请 {1}）"
+  ],
+  [
+   "−{0} người",
+   "−{0} 人"
   ],
   [
    "−{0} đ",

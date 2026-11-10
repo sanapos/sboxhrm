@@ -976,6 +976,7 @@
   "Bỏ mẫu này": "Discard this template",
   "Bỏ mẫu riêng của khách": "Remove customer's own template",
   "Bỏ qua lệnh trùng": "Skip duplicate commands",
+  "Bỏ qua ngày đã qua, ngày nghỉ và nghỉ phép.": "Skips past days, days off and leave.",
   "Bỏ qua phiếu cũ": "Skip old vouchers",
   "Bỏ quên": "Forgotten",
   "Bỏ thay đổi": "Discard changes",
@@ -1051,6 +1052,7 @@
   "Ca xoay (sáng – chiều – nghỉ luân phiên): chưa có mẫu tự xoay — xếp tay 1–2 tuần rồi dùng «Sao chép tuần» trong «Lịch làm việc (đầy đủ)» (tối đa 12 tuần)": "Rotating shifts (morning – afternoon – off in rotation): no auto-rotation template yet — schedule 1–2 weeks by hand, then use «Copy week» in «Work schedule (full)» (up to 12 weeks)",
   "Ca đang dùng": "Shift in use",
   "Ca đang mở": "Open shift",
+  "Ca đang thiếu người — kêu gọi nhân viên đăng ký bổ sung": "Shift is short-staffed — ask employees to sign up",
   "Ca được hưởng": "Eligible shifts",
   "Ca, phân lịch, đổi ca, ngày lễ": "Shifts, scheduling, shift swaps, holidays",
   "Camera": "Camera",
@@ -1196,6 +1198,8 @@
   "Chép link": "Copy link",
   "Chép lời nhắn": "Copy message",
   "Chép phác đồ gần nhất": "Copy latest plan",
+  "Chép sang": "Copy to",
+  "Chép theo ngày trong tháng (ngày 1 → ngày 1…); tháng đích ít ngày hơn thì bỏ ngày thừa. ": "Copies by day of month (1st → 1st…); extra days are dropped if the target month is shorter. ",
   "Chép thực đơn": "Copy menu",
   "Chép tin nhắc nợ": "Copy debt reminder message",
   "Chép tin nhắn": "Copy message",
@@ -1289,6 +1293,7 @@
   "Chưa có báo giá — bật hãng trong Cài đặt vận chuyển": "No quotes — enable a carrier in Shipping settings",
   "Chưa có bản tin nào": "No briefs yet",
   "Chưa có ca làm việc nào.": "No shifts yet.",
+  "Chưa có ca mẫu — vào Thiết lập → Ca mẫu để tạo ca": "No shift templates yet — go to Setup → Shift templates to create one",
   "Chưa có chu kỳ KPI": "No KPI cycle yet",
   "Chưa có chương trình khuyến mãi.\nVí dụ: giờ vàng 18h–21h rau cá giảm 30%, mua 2 tặng 1, ": "No promotions yet.\nExample: happy hour 18:00–21:00 vegetables & fish 30% off, buy 2 get 1, ",
   "Chưa có combo": "No combos yet",
@@ -1454,6 +1459,7 @@
   "Chưa có vùng GPS — vào Chấm công → Vùng chấm công, tạo vòng 80–150m quanh quán rồi bật lại.": "No GPS zone — go to Attendance → Attendance zones, create an 80–150 m circle around the store, then turn it on again.",
   "Chưa có vận đơn trong khoảng thời gian này": "No shipments in this period",
   "Chưa có vị trí chấm công nào đang hoạt động. Liên hệ quản trị thiết lập tab Vị trí.": "There are no active timekeeping locations yet. Contact the admin to set up the Locations tab.",
+  "Chưa có yêu cầu nào": "No requests yet",
   "Chưa có yêu cầu ứng lương": "No salary advance requests",
   "Chưa có điểm tiềm năng": "No potential scores yet",
   "Chưa có điện thoại": "No phone",
@@ -1553,6 +1559,7 @@
   "Chưa rõ tài khoản": "Unknown account",
   "Chưa sẵn sàng bán offline": "Not ready for offline selling",
   "Chưa sửa được": "Could not edit",
+  "Chưa thay đổi": "No changes",
   "Chưa thiết lập lương": "Payroll not set up",
   "Chưa thoả đáng — mở lại": "Unresolved — reopen",
   "Chưa thu": "Not collected",
@@ -1603,6 +1610,9 @@
   "Chương trình ưu đãi khi cửa hàng kích hoạt key theo gói": "Promotions applied when a store activates a key for a package",
   "Chạm vào chữ trên trang để sửa như Word. Bôi đen rồi chọn đậm / font / màu.": "Tap text on the page to edit it like Word. Select it, then choose bold / font / color.",
   "Chạm vào một ca để xem chi tiết tài khoản / tiền két": "Tap a shift to see account / cash drawer details",
+  "Chạm ô để chọn nhân viên cho ca ngày đó · Chạm ngày để xem bảng từng ngày": "Tap a cell to pick employees for that shift and day · Tap a day to open the daily board",
+  "Chạm ô để xếp / bỏ ca · Chạm tên ca để chọn nhiều nhân viên cùng lúc · Giữ ô hoặc chạm tên nhân viên để xem chi tiết, duyệt đăng ký": "Tap a cell to assign / remove a shift · Tap a shift name to pick several employees at once · Hold a cell or tap an employee name for details and approvals",
+  "Chạm ô: xếp / bỏ ca · Chạm tên ca: chọn nhiều người · Giữ ô: chi tiết": "Tap: assign / remove · Tap shift name: pick several · Hold: details",
   "Chạm để bật tiếng": "Tap to turn on sound",
   "Chạm để bắt buộc ảnh": "Tap to require a photo",
   "Chạm để chuyển giai đoạn": "Tap to change stage",
@@ -1734,6 +1744,9 @@
   "Chỉ áp dụng cho hóa đơn này — mẫu in chung giữ nguyên.": "Applies to this invoice only — the shared print template stays unchanged.",
   "Chỉ áp dụng khi có «Số buổi». Mỗi lần trừ buổi → hoa hồng cho NV làm buổi đó ": "Applies only when there is a «Number of sessions». Each time a session is deducted, the employee who did that session earns commission ",
   "Chỉ điền ngày còn trống, không ghi đè lịch đã có.": "Only fills empty days, does not overwrite existing schedules.",
+  "Chỉ điền ô còn trống của nhân viên đang hiển thị; không ghi đè lịch đã có.": "Only fills empty cells of the employees shown; existing schedules are not overwritten.",
+  "Chỉ điền ô còn trống.": "Only fills empty cells.",
+  "Chỉ điền ô còn trống; không ghi đè lịch đã có. Tối đa 12 tuần.": "Only fills empty cells; existing schedules are not overwritten. Up to 12 weeks.",
   "Chỉ đơn còn nợ": "Orders with outstanding balance only",
   "Chỉ đường": "Directions",
   "Chỉ để theo dõi việc đi làm theo lịch — lương vẫn tính theo chấm công thực tế.": "For tracking scheduled attendance only — pay is still calculated from actual attendance.",
@@ -1762,6 +1775,7 @@
   "Chọn bàn hiện tại hoặc tất cả bàn đang mở.": "Choose the current table or all open tables.",
   "Chọn báo giá bên trái": "Select a quote on the left",
   "Chọn bảng giá bên trái": "Select a price list on the left",
+  "Chọn ca cho từng ngày rồi gửi một lượt": "Pick a shift for each day, then send them all at once",
   "Chọn ca mẫu hoặc «Ngày nghỉ» (lưu ngay); «Thao tác nhanh» › «Sao chép lịch tuần trước» chỉ điền ô còn trống": "Choose a sample shift or «Day off» (saved immediately); «Quick actions» › «Copy last week's schedule» only fills empty cells",
   "Chọn chi nhánh": "Select branch",
   "Chọn chi nhánh làm việc": "Choose work branch",
@@ -1884,6 +1898,7 @@
   "Chọn sổ và kỳ dữ liệu để xem chi tiết trên màn hình.": "Choose a ledger and period to view details on screen.",
   "Chọn tháng (ngày bất kỳ)": "Select month (any date)",
   "Chọn tháng lương nhận tiền phép": "Choose the payroll month for the leave payout",
+  "Chọn thứ": "Pick weekdays",
   "Chọn trường dữ liệu": "Select data field",
   "Chọn tuần, xem «Cả tuần» hoặc «Từng ngày», lọc «Bộ phận»; chạm ô ngày của nhân viên chưa có lịch": "Choose the week, view «Whole week» or «By day», filter by «Section»; tap the day cell of an employee with no schedule",
   "Chọn tài khoản": "Select account",
@@ -1893,6 +1908,7 @@
   "Chọn tài khoản để thiết lập phạm vi dữ liệu": "Select an account to set its data scope",
   "Chọn tài liệu cho AI đọc": "Choose documents for the AI to read",
   "Chọn tài sản cần in tem QR": "Select assets to print QR labels",
+  "Chọn tất cả người còn trống": "Select everyone free",
   "Chọn tất cả thưởng/phạt": "Select all bonuses/penalties",
   "Chọn tỉnh/thành": "Select province/city",
   "Chọn từ danh bạ": "Choose from contacts",
@@ -2580,6 +2596,7 @@
   "Duyệt đơn online": "Approve online orders",
   "Duyệt đủ cấp: giờ chấm được thêm / sửa, ô giờ có dấu «đã sửa», phiếu phạt tự động của ngày đó bị hủy và tính lại. Muốn vẫn phạt quên chấm: bấm «Duyệt + phạt»": "Once all levels approve: the punch time is added / edited, the time cell is marked «edited», and that day's automatic penalty tickets are cancelled and recalculated. To still penalize a forgotten punch: tap «Approve + penalty»",
   "Duyệt ứng lương": "Approve salary advances",
+  "Duyệt, vẫn tính công (không ghi «Phép», không trừ phép năm)": "Approve, still count as work (no «Leave» mark, no annual leave deducted)",
   "Duyệt: Chấm công › Duyệt chấm công → lọc «Sửa / bổ sung công» → tích nhiều phiếu để Duyệt / Từ chối cùng lúc": "Approve: Attendance › Attendance approval → filter «Edit / add work days» → tick multiple tickets to Approve / Reject at once",
   "Dài": "Length",
   "Dài (cm)": "Length (cm)",
@@ -3290,6 +3307,8 @@
   "Hoặc nhóm mới": "Or new group",
   "Hoặc nhập hình thức khác": "Or enter another method",
   "Huyết áp cao": "High blood pressure",
+  "Huỷ yêu cầu": "Cancel request",
+  "Huỷ yêu cầu?": "Cancel this request?",
   "Huỷ đăng ký đang chờ": "Cancel pending request",
   "HÀI LÒNG": "SATISFIED",
   "HÀNG ĐÃ BÁN": "ITEMS SOLD",
@@ -3979,6 +3998,7 @@
   "Không có mẫu phù hợp": "No suitable template",
   "Không có mặt hàng dưới mức tồn tối thiểu": "No items below minimum stock",
   "Không có nguyên liệu phù hợp.": "No matching ingredients.",
+  "Không có ngày nào để áp dụng (các ngày đã qua bị bỏ qua)": "No days to apply (past days are skipped)",
   "Không có người phù hợp": "No matching people",
   "Không có nhân viên nào": "No employees",
   "Không có nhân viên phù hợp": "No matching employees",
@@ -4024,12 +4044,14 @@
   "Không có việc tồn đọng — mọi thứ đã được xử lý": "No backlog — everything has been handled",
   "Không có việc tồn — tuyệt vời!": "No backlog — great job!",
   "Không có vấn đề cần xử lý": "No issues to handle",
+  "Không có yêu cầu nào đang chờ": "No pending requests",
   "Không có đơn": "No orders",
   "Không có đơn bất thường, nhưng có chỉ số cần xem": "No unusual orders, but some metrics need a look",
   "Không có đơn chờ xác nhận": "No orders awaiting confirmation",
   "Không có đơn nào cần kiểm tra.": "No requests to check.",
   "Không có đơn phép": "No leave requests",
   "Không có đồng nghiệp nào có ca khác trong ngày này — thử chọn ngày khác": "No colleagues on a different shift this day — try another date",
+  "Không có đồng nghiệp để chọn": "No colleagues to choose from",
   "Không có đồng nghiệp để đổi ca. Kiểm tra nhân viên đang làm đã gắn tài khoản.": "No colleagues available to swap shifts. Check that working employees have linked accounts.",
   "Không có ảnh hiện trường": "No on-site photo",
   "Không có ảnh khuôn mặt": "No face photo",
@@ -4045,6 +4067,7 @@
   "Không dựng được trang soạn": "Unable to build the editor page",
   "Không ghi HSD": "Don't record expiry",
   "Không ghi lý do": "No reason recorded",
+  "Không ghi «Phép» trên chấm công, không trừ phép năm": "No «Leave» mark on attendance, no annual leave deducted",
   "Không giới hạn buổi": "Unlimited sessions",
   "Không giới hạn hạn mức ứng": "No advance limit",
   "Không giới hạn hạn mức ứng cho kỳ này": "No advance limit for this period",
@@ -4069,6 +4092,7 @@
   "Không hoàn tác được": "Cannot be undone",
   "Không hoàn tác được. Lịch sử thao tác của tài khoản được giữ lại nhưng không đăng nhập được nữa.\n\nNếu nhân viên chỉ tạm nghỉ, nên dùng «Khóa» thay vì xóa.": "This cannot be undone. The account's activity history is kept but it can no longer sign in.\n\nIf the employee is only taking a break, use \"Lock\" instead of deleting.",
   "Không hoàn tác được. Nếu chi nhánh chỉ tạm đóng cửa, nên dùng «Ngừng hoạt động».": "Cannot be undone. If the branch is only temporarily closed, use \"Deactivate\".",
+  "Không huỷ được": "Could not cancel",
   "Không hài lòng": "Dissatisfied",
   "Không hóa đơn": "No invoice",
   "Không hạn": "No expiry",
@@ -4795,12 +4819,15 @@
   "Lễ, Tết": "Holidays, Tet",
   "Lệch tiền: xem Đơn hàng trong ca + Báo cáo hủy / trả + Phương thức thanh toán trước khi «bù» tay vào quỹ.": "Cash difference: check Orders in shift + Cancel / return report + Payment methods before manually «topping up» the cash fund.",
   "Lệch trạng thái": "Status mismatch",
+  "LỊCH LÀM VIỆC THEO CA": "WORK SCHEDULE BY SHIFT",
+  "LỊCH LÀM VIỆC THEO NHÂN VIÊN": "WORK SCHEDULE BY EMPLOYEE",
   "LỊCH LÀM VIỆC ĐÃ DUYỆT": "APPROVED WORK SCHEDULE",
   "Lịch CSKH": "Customer care schedule",
   "Lịch bảo trì": "Maintenance schedule",
   "Lịch của tôi": "My schedule",
   "Lịch của tôi: xem ca tuần, bấm ⋮ trên từng ngày để Đăng ký ca (thấy số chỗ còn trống), Xin nghỉ phép, Đổi ca với đồng nghiệp": "My schedule: view this week's shifts, tap ⋮ on each day to Register a shift (see open slots), Request leave, or Swap shifts with a colleague",
   "Lịch khác nhau theo ngày": "Different schedule per day",
+  "Lịch làm việc (màn cũ)": "Work schedule (old screen)",
   "Lịch làm việc (đầy đủ)": "Work schedule (full)",
   "Lịch làm việc - Đăng ký chờ duyệt": "Work schedule - pending requests",
   "Lịch làm việc của quản lý cửa hàng sau khi đã triển khai xong: buổi sáng duyệt, giữa ngày theo dõi, cuối tháng chốt.": "Store manager routine after rollout: approve in the morning, monitor during the day, close at month end.",
@@ -5438,6 +5465,7 @@
   "Mở lại phiếu": "Reopen slip",
   "Mở menu góc phải → Yêu cầu đổi ca": "Open the top-right menu → Shift change request",
   "Mở màn bán hàng trên các máy ít nhất 1 giờ để hệ thống tự đo, hoặc bấm «Kiểm tra mạng ngay».": "Keep the sales screen open on the devices for at least 1 hour so the system can measure automatically, or tap «Check network now».",
+  "Mở màn lịch cũ": "Open old schedule screen",
   "Mở nhãn vận đơn": "Open waybill label",
   "Mở nhận đơn": "Open order intake",
   "Mở phòng: chạm phòng trống → đồng hồ bắt đầu chạy, ô phòng hiện thời gian đã dùng; tiền giờ tự cập nhật trên hóa đơn": "Open a room: tap an empty room → the timer starts, the room tile shows time used; hourly charges update on the invoice automatically",
@@ -5615,11 +5643,13 @@
   "Ngày nghỉ theo loại": "Leave days by type",
   "Ngày nghỉ theo lịch": "Scheduled days off",
   "Ngày nghỉ tuần": "Weekly day off",
+  "Ngày nguồn": "Source day",
   "Ngày nguồn:": "Source date:",
   "Ngày nhận": "Receive date",
   "Ngày nhận lịch": "Booking received",
   "Ngày nào hay vi phạm": "Days with frequent violations",
   "Ngày nào trong tuần bán được nhiều nhất?": "Which weekday sells the most?",
+  "Ngày này": "This day",
   "Ngày này chưa xếp ca — coi mọi thợ đang làm đều có ca.": "No shifts are scheduled for this day — all working staff are treated as having a shift.",
   "Ngày này không có lượt tập": "No workouts on this day",
   "Ngày này đang được đánh dấu nghỉ — quản lý cần gỡ ngày nghỉ trước khi duyệt đăng ký ca.": "This day is marked as a day off — the manager must remove the day off before approving shift registrations.",
@@ -5676,6 +5706,8 @@
   "Người phụ thuộc: Cài đặt → Thuế TNCN → mục «Người phụ thuộc của nhân viên»; tham gia BH bật trên Thiết lập lương từng NV": "Dependants: Settings → Personal income tax → “Employees' dependants” section; insurance participation is turned on in each employee's Salary setup",
   "Người phụ thuộc: Thuế TNCN › mục «Người phụ thuộc của nhân viên»; mức đóng BHXH chọn trên Thiết lập lương từng NV": "Dependants: Personal income tax › «Employee dependants» section; the social insurance contribution level is selected in each employee's Salary settings",
   "Người thao tác": "Operator",
+  "Người thay ca": "Cover person",
+  "Người thay ca (không bắt buộc)": "Cover person (optional)",
   "Người tiêu dùng": "Consumer",
   "Người tạo: ": "Created by: ",
   "Người xử lý thấy tên và bộ phận của bạn để liên hệ khi cần.": "The handler can see your name and department to contact you when needed.",
@@ -5887,6 +5919,7 @@
   "Nhập rộng × cao để tính diện tích": "Enter width × height to calculate area",
   "Nhập seri máy mới và lý do": "Enter the new serial and the reason",
   "Nhập số công nợ đúng (≥ 0)": "Enter a valid debt amount (≥ 0)",
+  "Nhập số giấy nghỉ / mã hồ sơ BHXH": "Enter the sick note number / social insurance file code",
   "Nhập số giờ tối thiểu từ 0,5 đến 24": "Enter a minimum of 0.5 to 24 hours",
   "Nhập số hợp lệ cho khoảng cách, khớp mặt và số ngày": "Enter valid numbers for distance, face match and days",
   "Nhập số lượng mua và số lượng tặng": "Enter the quantity bought and the quantity given free",
@@ -6373,6 +6406,7 @@
   "Quản lý vị trí": "Location management",
   "Quản lý xem vị trí tất cả nhân viên trên bản đồ và lộ trình di chuyển trong ca (quãng đường, điểm dừng, chấm công, check-in).": "Managers see every employee's location on the map and their route during the shift (distance, stops, punches, check-ins).",
   "Quản lý xem ảnh, biểu mẫu rồi duyệt. Việc trễ hiện đỏ ở mục «Quá hạn».": "The manager reviews the photos and form, then approves. Late tasks show in red under “Overdue”.",
+  "Quản lý đơn nghỉ phép: tab «Cần duyệt».": "Manage leave requests: «Approvals» tab.",
   "Quản lý đại lý": "Manage agents",
   "Quản lý: tab «Chờ duyệt» → dấu ✓ để duyệt, ✗ để từ chối (ghi lý do)": "Manager: «Pending approval» tab → ✓ to approve, ✗ to reject (enter a reason)",
   "Quản trị hệ thống (không gắn cửa hàng)": "System admin (not tied to a store)",
@@ -6454,12 +6488,15 @@
   "Sao chép khóa": "Copy key",
   "Sao chép liên kết": "Copy link",
   "Sao chép lịch": "Copy schedule",
+  "Sao chép lịch một ngày": "Copy one day's schedule",
   "Sao chép lịch tuần trước": "Copy last week's schedule",
   "Sao chép lịch:": "Copy schedule:",
   "Sao chép mã": "Copy code",
+  "Sao chép một ngày sang ngày khác": "Copy one day to other days",
   "Sao chép ngày": "Copy day",
   "Sao chép tháng": "Copy month",
   "Sao chép tuần": "Copy week",
+  "Sao chép tuần này sang các tuần sau": "Copy this week to following weeks",
   "Sao lưu gần nhất": "Latest backup",
   "Sau buổi tập": "After workout",
   "Sau bán": "After sale",
@@ -6676,6 +6713,7 @@
   "Số tiền xin ứng": "Advance amount requested",
   "Số tiền được trừ vào các phiếu nhập còn nợ, phiếu cũ trước.": "The amount is deducted from outstanding purchase receipts, oldest first.",
   "Số trả": "Repayment amount",
+  "Số tuần:": "Weeks:",
   "Số tài khoản ngân hàng": "Bank account number",
   "Số tài khoản ngân hàng của cửa hàng để khách chuyển khoản: màn thanh toán hiện QR VietQR đúng số tiền; bật Tingee để tiền về là đơn tự báo đã thanh toán.": "The store's bank account number for customers to transfer money: the payment screen shows a VietQR code with the exact amount; turn on Tingee so that once the money arrives, the order is automatically marked as paid.",
   "Số tài khoản ngân hàng nhận tiền và tự báo có tiền khi khách chuyển khoản": "The bank account that receives money and auto-notifies when a customer transfers",
@@ -7043,6 +7081,7 @@
   "Thiếu đơn giá": "Missing unit price",
   "Thiếu đơn vị": "Missing unit",
   "Thoát full": "Exit full screen",
+  "Thoát toàn màn hình (Esc)": "Exit full screen (Esc)",
   "Thu chi": "Cash book",
   "Thu chi theo ngày": "Daily income & expense",
   "Thu chi · tồn quỹ": "Income & expense · cash balance",
@@ -7532,6 +7571,7 @@
   "Tròn 1.000đ": "Round to 1,000đ",
   "Tròn 100đ": "Round to 100đ",
   "Tròn 500đ": "Round to 500đ",
+  "Trùng giờ": "Time clash",
   "Trùng tên trong năm": "Duplicate name this year",
   "Trước + sau": "Before + after",
   "Trước VAT": "Before VAT",
@@ -7646,6 +7686,8 @@
   "Tuân thủ lịch theo phòng ban": "Schedule compliance by department",
   "Tuấn": "Tuấn",
   "Tuần ": "Week ",
+  "Tuần này bạn chưa có ca nào sắp tới để đổi — chọn tuần khác rồi bấm ⋯ ở ngày có ca": "You have no upcoming shift this week to swap — pick another week, then tap ⋯ on a day with a shift",
+  "Tuần này không còn ngày nào để đăng ký": "No days left this week to sign up",
   "Tuần trước": "Last week",
   "Tuần đầu ưu tiên nhân sự → ca → chấm công → lương. POS và KPI làm sau khi chấm công đã ổn.": "In the first week, prioritize staff → shifts → attendance → payroll. Set up POS and KPI after attendance is stable.",
   "Tuổi nợ": "Debt age",
@@ -7840,6 +7882,7 @@
   "Tìm số đơn, số HĐ, khách, email": "Search order no., invoice no., customer, email",
   "Tìm tham số để chèn…": "Search parameter to insert…",
   "Tìm theo tiêu đề, nội dung, mã phiếu": "Search by title, content, ticket code",
+  "Tìm theo tên": "Search by name",
   "Tìm theo tên hoặc mã ca": "Search by shift name or code",
   "Tìm theo tên hoặc mã nhân viên": "Search by employee name or code",
   "Tìm theo tên, mã nhân viên, phòng ban": "Search by name, employee code, department",
@@ -7998,6 +8041,7 @@
   "Tạo hàng từ ảnh menu (AI)": "Create items from menu photo (AI)",
   "Tạo hàng từ ảnh menu / Excel (AI)": "Create items from menu photo / Excel (AI)",
   "Tạo hồ sơ": "Create profile",
+  "Tạo hộ, có thể duyệt luôn": "Create on their behalf, can approve right away",
   "Tạo hộ, sửa / huỷ đơn, hoàn tác duyệt, phép năm": "Create on behalf, edit / cancel requests, undo approval, annual leave",
   "Tạo khuyến mãi": "Create promotion",
   "Tạo lúc: ": "Created at: ",
@@ -8049,6 +8093,8 @@
   "Tạo vận đơn thất bại": "Failed to create waybill",
   "Tạo vận đơn?": "Create waybill?",
   "Tạo đơn mới": "Create new order",
+  "Tạo đơn nghỉ": "Create leave request",
+  "Tạo đơn nghỉ cho nhân viên": "Create a leave request for this employee",
   "Tạo đơn đầu tiên": "Create first order",
   "Tạo ứng lương cho nhân viên": "Create salary advance for employee",
   "Tạo, theo dõi và duyệt đơn nghỉ phép": "Create, track and approve leave requests",
@@ -8225,6 +8271,7 @@
   "Tổng lương KPI": "Total KPI salary",
   "Tổng lương cơ bản": "Total base salary",
   "Tổng lương gộp": "Total gross salary",
+  "Tổng lượt": "Total assignments",
   "Tổng lượt chấm": "Total punches",
   "Tổng lượt hủy / trả": "Total cancellations / returns",
   "Tổng lượt ngày trong kỳ": "Total day-entries in the period",
@@ -8526,6 +8573,7 @@
   "Vẫn nhận (đặt trước)": "Still accept (reservation)",
   "Vẫn nhận qua Zalo": "Still notified on Zalo",
   "Vẫn trừ buổi": "Still deduct a session",
+  "Vẫn tính công": "Still count as work",
   "Vẫn tạo": "Create anyway",
   "Vận chuyển": "Shipping",
   "Vận hành HRM sau triển khai (lịch, KPI, phép…)": "Running HRM after rollout (schedules, KPI, leave…)",
@@ -8662,6 +8710,7 @@
   "Xuất Excel danh mục": "Export list to Excel",
   "Xuất Excel thành công!": "Excel exported successfully!",
   "Xuất Excel trên từng báo cáo khi gửi kế toán": "Export Excel from each report when sending to accounting",
+  "Xuất Excel tuần này": "Export this week to Excel",
   "Xuất Excel — chọn cột": "Export Excel — choose columns",
   "Xuất PDF / In": "Export PDF / Print",
   "Xuất Word": "Export Word",
@@ -8761,6 +8810,7 @@
   "Xếp ca hàng loạt, xuất Excel, lịch theo tháng": "Bulk shift assignment, Excel export, monthly schedule",
   "Xếp hàng loạt, sao chép tháng, xuất Excel: tab Thiết lập › «Lịch làm việc (đầy đủ)» — ở màn này lịch vào «Danh sách chờ gửi», phải bấm «Gửi đăng ký» rồi duyệt": "Bulk scheduling, copying a month, exporting Excel: Setup tab › «Work schedule (full)» — on this screen schedules go to the «Pending send list»; you must tap «Submit registration» and then approve",
   "Xếp hạng nhân viên": "Employee ranking",
+  "Xếp lịch theo ca, sao chép ngày / tuần / tháng, xuất Excel: tab «Bảng xếp ca» → «Theo ca» / «Từng ngày» và «Thao tác nhanh». ": "Shift scheduling, copying days / weeks / months, Excel export: «Schedule board» tab → «By shift» / «Daily» and «Quick actions». ",
   "Xếp: lâu nhất trước": "Sort: oldest first",
   "Xếp: mới nhất trước": "Sort: newest first",
   "Xử lý": "Process",
@@ -8770,6 +8820,7 @@
   "Xử lý tiền": "Handle money",
   "Xử lý trung bình": "Average handling time",
   "Yêu cầu chớp mắt / quay đầu — chặn chấm bằng ảnh hoặc video": "Require blinking / turning the head — blocks punching with a photo or video",
+  "Yêu cầu của tôi": "My requests",
   "Yêu cầu khác": "Other requests",
   "Yêu cầu khác (ghi chú)": "Other requests (note)",
   "Yêu cầu làm lại": "Request redo",
@@ -8952,6 +9003,7 @@
   "giờ đầu": "first hour",
   "giữ chỗ": "reserved",
   "giữ máy in": "Keep printer",
+  "giữ ngày nghỉ": "keeps day off",
   "giữ điện thoại trên WiFi nhà, app sẽ tự tìm thiết bị.": "keep your phone on home WiFi and the app will find the device automatically.",
   "gán tay": "assigned manually",
   "gói buổi": "session package",
@@ -9456,6 +9508,7 @@
   "Áp dụng mỗi kỳ lương, lấy mức nhỏ hơn giữa % lương và số tiền": "applies each pay period, taking the smaller of % of salary and the amount",
   "Áp dụng thay đổi": "Apply changes",
   "Áp dụng tại chi nhánh": "Apply at branch",
+  "Áp dụng:": "Apply to:",
   "Áp khi đã chọn khách hàng trên hóa đơn": "Applies when a customer is selected on the invoice",
   "Áp mẫu": "Apply template",
   "Áp mẫu nhanh": "Apply quick template",
@@ -9513,6 +9566,7 @@
   "Đang chờ lưu…": "Waiting to save…",
   "Đang chờ ngân hàng báo — nhận đủ tiền sẽ tự hoàn tất và in hóa đơn": "Waiting for the bank to confirm — once the full amount arrives, the order completes and the receipt prints automatically",
   "Đang có 1 chi nhánh — thêm để dùng báo cáo & chuyển kho nhiều CN": "Currently 1 branch — add more to use reports & multi-branch stock transfer",
+  "Đang có ca khác": "Has another shift",
   "Đang có mạng": "Online",
   "Đang cấp phát": "Allocating",
   "Đang di chuyển từ ": "Moving from ",
@@ -9543,6 +9597,7 @@
   "Đang kiểm tra mã…": "Checking code…",
   "Đang kiểm tra mạng…": "Checking network…",
   "Đang kết nối": "Connecting",
+  "Đang là ngày nghỉ": "Currently a day off",
   "Đang làm…": "Cooking…",
   "Đang lưu": "Saving",
   "Đang lọc — bấm để bỏ": "Filtering — tap to clear",
@@ -10044,6 +10099,7 @@
   "Đã tạo phiếu phạt (chờ duyệt)": "Penalty ticket created (pending approval)",
   "Đã tạo phiếu thưởng": "Bonus ticket created",
   "Đã tạo trên Tingee": "Created on Tingee",
+  "Đã tạo và duyệt đơn nghỉ": "Leave request created and approved",
   "Đã tạo vận đơn": "Waybill created",
   "Đã tải file mẫu nhập": "Import template file downloaded",
   "Đã tải lên": "Uploaded",
@@ -10087,6 +10143,7 @@
   "Đã xếp": "Assigned",
   "Đã xếp ca": "Shift assigned",
   "Đã xếp ca cho một thợ thì thợ chưa xếp ca ngày đó coi như không làm.": "If a technician is assigned a shift, technicians not assigned that day are treated as not working.",
+  "Đã xếp ca này": "Already on this shift",
   "Đã xếp ngày nghỉ": "Day off assigned",
   "Đã xử lý hết": "All handled",
   "Đã yêu cầu NV bổ sung giấy tờ / sửa hạch toán": "Asked the employee to add documents / fix the settlement",
@@ -10096,6 +10153,7 @@
   "Đã điều chỉnh công nợ": "Balance adjusted",
   "Đã đóng hồ sơ": "File closed",
   "Đã đăng bài": "Post published",
+  "Đã đăng ký ca này (chờ duyệt)": "Signed up for this shift (pending)",
   "Đã đăng ký lên máy": "Registered on the device",
   "Đã đăng ký lại webhook": "Webhook re-registered",
   "Đã đăng ký suất": "Slot registered",
@@ -10149,13 +10207,16 @@
   "ĐĂNG NHẬP GẦN ĐÂY": "RECENT LOGINS",
   "Đăng bài": "Post",
   "Đăng ký TB": "Avg. registrations",
+  "Đăng ký ca, đơn nghỉ, đổi ca — huỷ được khi còn chờ duyệt": "Shift sign-ups, leave requests, shift swaps — can be cancelled while pending",
   "Đăng ký chưa ăn": "Registered, not eaten",
   "Đăng ký chấm công": "Attendance sign-up",
   "Đăng ký chờ": "Pending registration",
   "Đăng ký chờ duyệt": "Registrations pending approval",
+  "Đăng ký cả tuần": "Sign up for the whole week",
   "Đăng ký cửa hàng": "Store sign-up",
   "Đăng ký hội viên lên máy": "Register members to the device",
   "Đăng ký lên máy chấm công": "Register to attendance device",
+  "Đăng ký nghỉ ngày": "Day-off sign-up",
   "Đăng ký nghỉ ngày này": "Register day off for this day",
   "Đăng ký thiết bị chấm công": "Register attendance device",
   "Đăng ký thành công! Thiết bị đã được duyệt.": "Registered successfully! Device approved.",
@@ -10326,6 +10387,7 @@
   "Đặt lịch tập PT": "Book PT session",
   "Đặt mặc định toàn cửa hàng": "Set as store-wide default",
   "Đặt ngày bắt đầu và hạn chót cho công việc để xem dòng thời gian.": "Set a start date and deadline on tasks to see the timeline.",
+  "Đặt ngày nghỉ": "Set day off",
   "Đặt phòng & cọc": "Room booking & deposit",
   "Đặt phòng trước: Lịch đặt phòng — giữ phòng, nhận cọc; hủy đặt có xử lý cọc": "Book rooms ahead: Booking calendar — hold the room, take a deposit; cancelling handles the deposit",
   "Đặt tên, mức cố định % hoặc tiền — tự nhảy khi tạo đơn": "Set a name and a fixed % or amount — auto-filled when creating an order",
@@ -10481,6 +10543,7 @@
   "Đổi size": "Change size",
   "Đổi số lượng, giá, chiết khấu, ghi chú, topping hoặc gán nhân viên hoa hồng ngay trên từng dòng món trước khi thanh toán.": "Change quantity, price, discount, note, topping or assign a commission employee right on each item line before payment.",
   "Đổi thiết lập khác (không đổi mức lương)": "Change other settings (salary level unchanged)",
+  "Đổi thành ngày nghỉ?": "Change to a day off?",
   "Đổi tên hóa đơn": "Rename bill",
   "Đổi vai trò sẽ đăng xuất tài khoản khỏi mọi thiết bị.": "Changing the role will sign the account out of all devices.",
   "Đổi vai trò trong Thiết lập › Máy in.": "Change the role in Setup › Printers.",
@@ -11263,6 +11326,10 @@
    "+{0} new (total {1})"
   ],
   [
+   "+{0} người",
+   "+{0} people"
+  ],
+  [
    "+{0} thâm niên",
    "+{0} seniority"
   ],
@@ -11979,6 +12046,10 @@
    "Skipped {0} items already in the list (kept the rows you edited)."
   ],
   [
+   "Bỏ {0} người khỏi {1} {2} ngày ({3}). Bỏ qua ngày đã qua.",
+   "Remove {0} people from {1} on {2} days ({3}). Past days are skipped."
+  ],
+  [
    "Bỏ {0} phiếu",
    "Remove {0} slips"
   ],
@@ -12303,6 +12374,10 @@
    "Copy schedule {0} to {1}. "
   ],
   [
+   "Chép sang {0} → {1}",
+   "Copy to {0} → {1}"
+  ],
+  [
    "Chép {0} của {1} nhân viên từ «{2}» sang «{3}».",
    "Copy {0} of {1} employees from «{2}» to «{3}»."
   ],
@@ -12599,6 +12674,10 @@
    "Select ({0})"
   ],
   [
+   "Chọn cả bộ phận {0}",
+   "Select all of department {0}"
+  ],
+  [
    "Chọn cổng cân khác ({0})",
    "Choose another scale port ({0})"
   ],
@@ -12633,6 +12712,10 @@
   [
    "Chọn người chưa thiết lập ({0})",
    "Select those not set up ({0})"
+  ],
+  [
+   "Chọn nhân viên cho {0}",
+   "Pick employees for {0}"
   ],
   [
    "Chọn nhân viên nào phải ghi lý do ({0}/{1} đang bật)",
@@ -13523,6 +13606,22 @@
    "Approved {0}, failed {1}"
   ],
   [
+   "Duyệt xong ca có {0} người",
+   "After approval the shift has {0} people"
+  ],
+  [
+   "Duyệt xong vẫn thiếu: {0}/{1}",
+   "Still short after approval: {0}/{1}"
+  ],
+  [
+   "Duyệt xong: {0}/{1} — vượt định mức",
+   "After approval: {0}/{1} — over quota"
+  ],
+  [
+   "Duyệt xong: {0}/{1} — đủ người",
+   "After approval: {0}/{1} — fully staffed"
+  ],
+  [
    "Duyệt {0}",
    "Approve {0}"
   ],
@@ -14145,6 +14244,10 @@
   [
    "Gửi {0}",
    "Send {0}"
+  ],
+  [
+   "Gửi {0} đăng ký",
+   "Send {0} sign-ups"
   ],
   [
    "Gửi đăng ký ({0})",
@@ -14909,6 +15012,10 @@
   [
    "Không có hàng hóa với mã \"{0}\"",
    "No product with code \"{0}\""
+  ],
+  [
+   "Không có lịch nào để chép{0}",
+   "No schedules to copy{0}"
   ],
   [
    "Không có mẫu khớp «{0}»",
@@ -16719,6 +16826,14 @@
    "Recipient: {0}"
   ],
   [
+   "Người thay ca: {0}",
+   "Cover person: {0}"
+  ],
+  [
+   "Người thay: {0}",
+   "Cover: {0}"
+  ],
+  [
    "Người tăng ca · {0} lượt",
    "Overtime · {0} times"
   ],
@@ -17419,8 +17534,20 @@
    "Copy to {0} people"
   ],
   [
+   "Sao chép lịch ngày {0}",
+   "Copy schedule of {0}"
+  ],
+  [
+   "Sao chép sang {0} tuần",
+   "Copy to {0} weeks"
+  ],
+  [
    "Sao chép thiết lập của {0}",
    "Copy settings of {0}"
+  ],
+  [
+   "Sao chép {0} → {1}",
+   "Copy {0} → {1}"
   ],
   [
    "Sao chép được {0}, lỗi {1}: {2}",
@@ -17545,6 +17672,10 @@
   [
    "Sẽ trừ {0} ngày phép năm. Còn lại: {1} ngày.",
    "{0} days of annual leave will be deducted. Remaining: {1} days."
+  ],
+  [
+   "Sẽ trừ {0} ngày phép năm{1}",
+   "Will deduct {0} days of annual leave{1}"
   ],
   [
    "Sẽ tích {0} điểm (mỗi {1} đ → 1 điểm)",
@@ -18593,6 +18724,10 @@
   [
    "Trực tuyến · {0}",
    "Online · {0}"
+  ],
+  [
+   "Tuần nguồn: {0}",
+   "Source week: {0}"
   ],
   [
    "Tuần {0}",
@@ -19907,8 +20042,24 @@
    "Delete registration {0} on {1}/{2}?"
   ],
   [
+   "Xếp ca {0}",
+   "Schedule {0}"
+  ],
+  [
    "Xếp hạng {0}",
    "Rank {0}"
+  ],
+  [
+   "Xếp {0} người đã chọn vào {1} {2} ngày ",
+   "Assign {0} selected people to {1} on {2} days "
+  ],
+  [
+   "Xếp {0} người đã chọn vào {1} {2} ngày ({3}). Bỏ qua ngày đã qua, ngày nghỉ và nghỉ phép.",
+   "Assign {0} selected people to {1} on {2} days ({3}). Skips past days, days off and leave."
+  ],
+  [
+   "Xếp {0} · {1}–{2}",
+   "Schedule {0} · {1}–{2}"
   ],
   [
    "Xử lý: {0}",
@@ -20019,6 +20170,14 @@
    "reserved until {0}"
   ],
   [
+   "bỏ qua {0} (nghỉ phép / ngày nghỉ)",
+   "skipped {0} (leave / day off)"
+  ],
+  [
+   "bỏ {0} lượt",
+   "removed {0} assignments"
+  ],
+  [
    "cells/cellKeys lệch: {0} vs {1}",
    "cells/cellKeys mismatch: {0} vs {1}"
   ],
@@ -20085,6 +20244,10 @@
   [
    "cọc {0}",
    "deposit {0}"
+  ],
+  [
+   "duyệt {0} đăng ký",
+   "approved {0} sign-ups"
   ],
   [
    "giá TB {0} · {1} NV",
@@ -20357,6 +20520,10 @@
   [
    "wwwroot {0} · downloads {1} · rác app ~ {2}",
    "wwwroot {0} · downloads {1} · app junk ~ {2}"
+  ],
+  [
+   "xếp {0} lượt",
+   "assigned {0}"
   ],
   [
    "{0}\n\nDanh sách chức năng hiện tại sẽ được thay bằng {1} chức năng của mẫu.",
@@ -21235,6 +21402,10 @@
    "{0} upcoming appointments"
   ],
   [
+   "{0} lỗi",
+   "{0} errors"
+  ],
+  [
    "{0} module được cấp quyền",
    "{0} modules granted"
   ],
@@ -21673,6 +21844,10 @@
   [
    "{0} nhóm mới · {1} size",
    "{0} new groups · {1} sizes"
+  ],
+  [
+   "{0} nhờ đổi ca",
+   "{0} asks to swap shifts"
   ],
   [
    "{0} năm",
@@ -22525,6 +22700,10 @@
   [
    "{0} đang có hàng.\n",
    "{0} in stock.\n"
+  ],
+  [
+   "{0} đang có {1}. Đặt ngày nghỉ sẽ bỏ các ca này.",
+   "{0} has {1}. Setting a day off will remove these shifts."
   ],
   [
    "{0} đang làm",
@@ -23443,6 +23622,10 @@
    "Waiting · {0}"
   ],
   [
+   "Đang có {0}",
+   "Currently on {0}"
+  ],
+  [
    "Đang dùng {0}/{1} chi nhánh {2}.",
    "Using {0}/{1} {2} branches."
   ],
@@ -24151,6 +24334,10 @@
    "Submitted {0} registrations"
   ],
   [
+   "Đã gửi {0} đăng ký — chờ quản lý duyệt",
+   "Sent {0} sign-ups — waiting for manager approval"
+  ],
+  [
    "Đã gửi {0}:{1} · {2} người nhận · {3}",
    "Sent {0}:{1} · {2} recipients · {3}"
   ],
@@ -24723,6 +24910,10 @@
    "Stocked out {0} products"
   ],
   [
+   "Đã xuất {0}",
+   "Exported {0}"
+  ],
+  [
    "Đã xuất {0} ({1} dòng). Điền Lần 1–6 rồi Import lại cùng file.",
    "Exported {0} ({1} rows). Fill in Rounds 1–6 then import the same file again."
   ],
@@ -24985,6 +25176,10 @@
   [
    "Đăng ký {0}",
    "Register {0}"
+  ],
+  [
+   "Đăng ký {0} · ",
+   "Sign-up {0} · "
   ],
   [
    "Đăng ký {0} · chờ duyệt",
@@ -25291,6 +25486,10 @@
    "Change IP «{0}»?"
   ],
   [
+   "Đổi ca với {0}",
+   "Swap shifts with {0}"
+  ],
+  [
    "Đổi ca với {0} · {1}",
    "Swap shift with {0} · {1}"
   ],
@@ -25557,6 +25756,10 @@
   [
    "− {0} (còn xin được {1})",
    "− {0} ({1} more can be requested)"
+  ],
+  [
+   "−{0} người",
+   "−{0} people"
   ],
   [
    "−{0} đ",

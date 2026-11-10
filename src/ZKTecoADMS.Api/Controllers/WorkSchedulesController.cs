@@ -194,7 +194,9 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpDelete("registrations/{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("WorkSchedule", ModulePermissionAction.Delete)]
+    // Như huỷ đơn nghỉ: ai tạo được đăng ký thì huỷ được đăng ký chờ duyệt của mình (handler chặn phiếu
+    // của người khác / đã xử lý với nhân viên). Trước chỉ quyền Xoá → nút «Huỷ» của nhân viên báo 403.
+    [RequireAnyActionOnModule("WorkSchedule", ModulePermissionAction.Create, ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteScheduleRegistration(Guid id)
     {
         var command = new DeleteScheduleRegistrationCommand(RequiredStoreId, id, CurrentUserId, IsManager);

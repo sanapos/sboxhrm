@@ -1827,6 +1827,7 @@
   "Bỏ qua": "건너뛰기",
   "Bỏ qua hết": "모두 건너뛰기",
   "Bỏ qua lệnh trùng": "중복 명령 무시",
+  "Bỏ qua ngày đã qua, ngày nghỉ và nghỉ phép.": "지난 날짜, 휴무일, 휴가는 건너뜁니다.",
   "Bỏ qua phiếu cũ": "이전 전표 건너뛰기",
   "Bỏ quên": "깜빡함",
   "Bỏ thay đổi": "변경 취소",
@@ -1978,6 +1979,7 @@
   "Ca xoay (sáng – chiều – nghỉ luân phiên): chưa có mẫu tự xoay — xếp tay 1–2 tuần rồi dùng «Sao chép tuần» trong «Lịch làm việc (đầy đủ)» (tối đa 12 tuần)": "교대 근무조(오전 – 오후 – 휴무 순환): 아직 자동 순환 양식이 없습니다 — 1–2주를 직접 편성한 후 «근무 일정 (전체)»에서 «주 복사»를 사용하세요(최대 12주)",
   "Ca đang dùng": "사용 중인 근무조",
   "Ca đang mở": "진행 중인 근무조",
+  "Ca đang thiếu người — kêu gọi nhân viên đăng ký bổ sung": "근무조 인원 부족 — 직원에게 추가 신청 요청",
   "Ca đã phân": "배정된 근무조",
   "Ca đã đăng ký": "신청한 근무조",
   "Ca đêm": "야간 근무조",
@@ -2286,6 +2288,8 @@
   "Chép link": "링크 복사",
   "Chép lời nhắn": "메시지 복사",
   "Chép phác đồ gần nhất": "최근 처방 복사",
+  "Chép sang": "복사 대상",
+  "Chép theo ngày trong tháng (ngày 1 → ngày 1…); tháng đích ít ngày hơn thì bỏ ngày thừa. ": "월의 날짜별로 복사합니다(1일 → 1일…). 대상 월이 더 짧으면 남는 날은 제외됩니다. ",
   "Chép thực đơn": "메뉴 복사",
   "Chép tin nhắc nợ": "미수금 독촉 메시지 복사",
   "Chép tin nhắn": "메시지 복사",
@@ -2463,6 +2467,7 @@
   "Chưa có ca làm việc": "근무조 없음",
   "Chưa có ca làm việc nào": "근무조가 없습니다",
   "Chưa có ca làm việc nào.": "근무조가 없습니다.",
+  "Chưa có ca mẫu — vào Thiết lập → Ca mẫu để tạo ca": "근무조 템플릿이 없습니다 — 설정 → 근무조 템플릿에서 만드세요",
   "Chưa có ca nào": "근무조가 없습니다",
   "Chưa có chi nhánh": "지점 없음",
   "Chưa có chi nhánh nào": "지점이 없습니다",
@@ -2843,6 +2848,7 @@
   "Chưa có vị trí chấm công nào đang hoạt động. Liên hệ quản trị thiết lập tab Vị trí.": "아직 활성화된 출퇴근 위치가 없습니다. 관리자에게 위치 탭 설정을 요청하세요.",
   "Chưa có vị trí nào": "직책이 없습니다",
   "Chưa có yêu cầu chấm công nào": "출퇴근 요청이 없습니다",
+  "Chưa có yêu cầu nào": "아직 요청이 없습니다",
   "Chưa có yêu cầu sửa chấm công nào": "출퇴근 수정 요청이 없습니다",
   "Chưa có yêu cầu được xử lý": "처리된 요청이 없습니다",
   "Chưa có yêu cầu đổi ca": "근무조 변경 요청이 없습니다",
@@ -3040,6 +3046,7 @@
   "Chưa sẵn sàng bán offline": "오프라인 판매 준비 안 됨",
   "Chưa sửa được": "수정하지 못했습니다",
   "Chưa thanh toán": "미결제",
+  "Chưa thay đổi": "변경 없음",
   "Chưa thiết lập": "미설정",
   "Chưa thiết lập lương": "급여 미설정",
   "Chưa thiết lập đơn giá": "단가가 설정되지 않았습니다",
@@ -3126,6 +3133,9 @@
   "Chạm vào chữ trên trang để sửa như Word. Bôi đen rồi chọn đậm / font / màu.": "페이지의 글자를 눌러 Word처럼 수정하세요. 글자를 선택한 후 굵게 / 글꼴 / 색상을 고르세요.",
   "Chạm vào một ca để xem chi tiết tài khoản / tiền két": "근무조를 탭하여 계정 / 금고 현금 상세 보기",
   "Chạm xem": "눌러서 보기",
+  "Chạm ô để chọn nhân viên cho ca ngày đó · Chạm ngày để xem bảng từng ngày": "칸을 눌러 해당 날짜 근무조의 직원 선택 · 날짜를 눌러 일별 표 보기",
+  "Chạm ô để xếp / bỏ ca · Chạm tên ca để chọn nhiều nhân viên cùng lúc · Giữ ô hoặc chạm tên nhân viên để xem chi tiết, duyệt đăng ký": "칸을 눌러 근무조 배정 / 해제 · 근무조 이름을 눌러 여러 직원 한 번에 선택 · 칸을 길게 누르거나 직원 이름을 눌러 상세 보기, 신청 승인",
+  "Chạm ô: xếp / bỏ ca · Chạm tên ca: chọn nhiều người · Giữ ô: chi tiết": "탭: 배정 / 해제 · 근무조 이름 탭: 여러 명 선택 · 길게: 상세",
   "Chạm để bật tiếng": "눌러서 소리 켜기",
   "Chạm để bắt buộc ảnh": "눌러서 사진 필수로 설정",
   "Chạm để chuyển giai đoạn": "눌러서 단계 이동",
@@ -3424,6 +3434,9 @@
   "Chỉ áp dụng khi có «Số buổi». Mỗi lần trừ buổi → hoa hồng cho NV làm buổi đó ": "«회차 수»가 있을 때만 적용됩니다. 회차를 차감할 때마다 해당 회차를 담당한 직원에게 커미션이 지급됩니다 ",
   "Chỉ đi trễ": "지각만",
   "Chỉ điền ngày còn trống, không ghi đè lịch đã có.": "비어 있는 날짜만 입력하며 기존 일정은 덮어쓰지 않습니다.",
+  "Chỉ điền ô còn trống của nhân viên đang hiển thị; không ghi đè lịch đã có.": "표시된 직원의 빈 칸만 채우며 기존 일정은 덮어쓰지 않습니다.",
+  "Chỉ điền ô còn trống.": "빈 칸만 채웁니다.",
+  "Chỉ điền ô còn trống; không ghi đè lịch đã có. Tối đa 12 tuần.": "빈 칸만 채우며 기존 일정은 덮어쓰지 않습니다. 최대 12주.",
   "Chỉ đơn còn nợ": "미수금 주문만",
   "Chỉ đường": "길 안내",
   "Chỉ được chỉnh sửa chỉ tiêu/doanh số khi chu kỳ đang ở trạng thái Mở.": "주기가 열림 상태일 때만 목표/매출을 수정할 수 있습니다.",
@@ -3496,6 +3509,7 @@
   "Chọn ca bạn muốn nhường, đồng nghiệp và ca/ngày muốn nhận.": "양도할 근무조, 동료, 받고 싶은 근무조/날짜를 선택하세요.",
   "Chọn ca bạn muốn nhường, đồng nghiệp và ca/ngày muốn nhận. ": "양도할 근무조, 동료, 받고 싶은 근무조/날짜를 선택하세요. ",
   "Chọn ca cho": "근무조 선택",
+  "Chọn ca cho từng ngày rồi gửi một lượt": "날짜별로 근무조를 고른 뒤 한 번에 보내기",
   "Chọn ca làm việc": "근무조 선택",
   "Chọn ca làm việc hoặc loại nghỉ phép trong hộp thoại.": "대화상자에서 근무조 또는 휴가 유형을 선택하세요.",
   "Chọn ca làm việc:": "근무조 선택:",
@@ -3790,6 +3804,7 @@
   "Chọn thư mục": "폴더 선택",
   "Chọn thương hiệu": "브랜드 선택",
   "Chọn thời gian": "시간 선택",
+  "Chọn thứ": "요일 선택",
   "Chọn topping": "토핑 선택",
   "Chọn trường dữ liệu": "데이터 필드 선택",
   "Chọn tuần nguồn chứa lịch muốn sao chép.": "복사할 일정이 있는 원본 주를 선택하세요.",
@@ -3806,6 +3821,7 @@
   "Chọn tài sản cần in tem QR": "QR 라벨을 인쇄할 자산 선택",
   "Chọn tất cả": "전체 선택",
   "Chọn tất cả chờ duyệt": "승인 대기 전체 선택",
+  "Chọn tất cả người còn trống": "비어 있는 직원 모두 선택",
   "Chọn tất cả thưởng/phạt": "상여/벌금 전체 선택",
   "Chọn tỉnh / thành phố": "시/도 선택",
   "Chọn tỉnh/thành": "시/도 선택",
@@ -5124,6 +5140,7 @@
   "Duyệt đủ cấp: giờ chấm được thêm / sửa, ô giờ có dấu «đã sửa», phiếu phạt tự động của ngày đó bị hủy và tính lại. Muốn vẫn phạt quên chấm: bấm «Duyệt + phạt»": "모든 단계 승인 시: 타각 시간이 추가 / 수정되고, 시간 칸에 «수정됨» 표시가 붙으며, 해당 날짜의 자동 벌금 전표는 취소 후 재계산됩니다. 타각 누락에 벌금을 유지하려면 «승인 + 벌금»을 누르세요",
   "Duyệt ứng": "가불 승인",
   "Duyệt ứng lương": "급여 가불 승인",
+  "Duyệt, vẫn tính công (không ghi «Phép», không trừ phép năm)": "승인, 근무로 인정 («휴가» 미표시, 연차 미차감)",
   "Duyệt: Chấm công › Duyệt chấm công → lọc «Sửa / bổ sung công» → tích nhiều phiếu để Duyệt / Từ chối cùng lúc": "승인: 근태 › 근태 승인 → «근무일 수정 / 보충»으로 필터 → 여러 전표를 선택해 한꺼번에 승인 / 거절",
   "Dài": "길이",
   "Dài (cm)": "길이 (cm)",
@@ -6465,6 +6482,8 @@
   "Huỷ bỏ": "취소",
   "Huỷ chiến dịch này?": "이 캠페인을 취소하시겠습니까?",
   "Huỷ tạm tính": "가계산서 취소",
+  "Huỷ yêu cầu": "요청 취소",
+  "Huỷ yêu cầu?": "이 요청을 취소할까요?",
   "Huỷ đăng ký đang chờ": "대기 중인 신청 취소",
   "HÀI LÒNG": "만족",
   "HÀNG BÁN": "판매 상품",
@@ -7701,6 +7720,7 @@
   "Không có mẫu phù hợp": "적합한 템플릿이 없습니다",
   "Không có mặt hàng dưới mức tồn tối thiểu": "최소 재고 미만 품목이 없습니다",
   "Không có nguyên liệu phù hợp.": "일치하는 원재료가 없습니다.",
+  "Không có ngày nào để áp dụng (các ngày đã qua bị bỏ qua)": "적용할 날짜가 없습니다(지난 날짜는 건너뜀)",
   "Không có người phù hợp": "일치하는 사람이 없습니다",
   "Không có nhân viên": "직원이 없습니다",
   "Không có nhân viên nghỉ phép hôm nay": "오늘 휴가 중인 직원이 없습니다",
@@ -7804,6 +7824,7 @@
   "Không có yêu cầu chờ quản lý duyệt": "관리자 승인 대기 중인 요청 없음",
   "Không có yêu cầu chờ xử lý": "처리 대기 중인 요청 없음",
   "Không có yêu cầu cần bạn phản hồi": "회신이 필요한 요청 없음",
+  "Không có yêu cầu nào đang chờ": "대기 중인 요청이 없습니다",
   "Không có yêu cầu tăng ca": "초과근무 요청 없음",
   "Không có yêu cầu ứng lương": "급여 가불 요청 없음",
   "Không có đi trễ / về sớm": "지각 / 조퇴 없음",
@@ -7820,6 +7841,7 @@
   "Không có đơn phép": "휴가 신청 없음",
   "Không có đơn tạm phù hợp": "해당하는 임시 주문이 없습니다",
   "Không có đồng nghiệp nào có ca khác trong ngày này — thử chọn ngày khác": "이날 다른 근무조에 있는 동료가 없습니다 — 다른 날짜를 선택해 보세요",
+  "Không có đồng nghiệp để chọn": "선택할 동료가 없습니다",
   "Không có đồng nghiệp để đổi ca. Kiểm tra nhân viên đang làm đã gắn tài khoản.": "근무조를 교대할 동료가 없습니다. 근무 중인 직원에게 계정이 연결되어 있는지 확인하세요.",
   "Không có ảnh hiện trường": "현장 사진 없음",
   "Không có ảnh khuôn mặt": "얼굴 사진 없음",
@@ -7852,6 +7874,7 @@
   "Không ghi \"Phép\" trên chấm công": "근태 기록에 \"휴가\"를 표시하지 않음",
   "Không ghi HSD": "유통기한 기록 안 함",
   "Không ghi lý do": "사유 기록 안 함",
+  "Không ghi «Phép» trên chấm công, không trừ phép năm": "출근부에 «휴가» 미표시, 연차 미차감",
   "Không giao hàng": "배달 안 함",
   "Không giao được": "배달할 수 없음",
   "Không giấy tờ": "서류 없음",
@@ -7911,6 +7934,7 @@
   "Không hoàn tác được. Lịch sử thao tác của tài khoản được giữ lại nhưng không đăng nhập được nữa.\n\nNếu nhân viên chỉ tạm nghỉ, nên dùng «Khóa» thay vì xóa.": "되돌릴 수 없습니다. 계정의 작업 이력은 보존되지만 더 이상 로그인할 수 없습니다.\n\n직원이 잠시 쉬는 것이라면 삭제 대신 «잠금»을 사용하세요.",
   "Không hoàn tác được. Nếu chi nhánh chỉ tạm đóng cửa, nên dùng «Ngừng hoạt động».": "되돌릴 수 없습니다. 지점이 일시적으로 휴업 중이라면 «운영 중지»를 사용하세요.",
   "Không hoạt động": "비활성",
+  "Không huỷ được": "취소할 수 없습니다",
   "Không hài lòng": "불만족",
   "Không hóa đơn": "영수증 없음",
   "Không hưởng lương": "무급",
@@ -9767,6 +9791,8 @@
   "Lệnh đã gửi. Dữ liệu sẽ được tải về khi máy CC phản hồi.": "명령을 전송했습니다. 단말기가 응답하면 데이터가 다운로드됩니다.",
   "Lệnh đã gửi. Hãy nhấn Refresh nếu chưa thấy dữ liệu.": "명령을 전송했습니다. 데이터가 보이지 않으면 새로고침을 누르세요.",
   "Lệnh đồng bộ thất bại": "동기화 명령 실패",
+  "LỊCH LÀM VIỆC THEO CA": "근무조별 근무 일정",
+  "LỊCH LÀM VIỆC THEO NHÂN VIÊN": "직원별 근무 일정",
   "LỊCH LÀM VIỆC ĐÃ DUYỆT": "승인된 근무 일정",
   "Lịch": "일정",
   "Lịch CSKH": "고객 관리 일정",
@@ -9779,6 +9805,7 @@
   "Lịch hẹn": "예약 일정",
   "Lịch khác nhau theo ngày": "요일별로 다른 일정",
   "Lịch làm việc": "근무 일정",
+  "Lịch làm việc (màn cũ)": "근무 일정 (이전 화면)",
   "Lịch làm việc (đầy đủ)": "근무 일정 (전체)",
   "Lịch làm việc - Đăng ký chờ duyệt": "근무 일정 - 승인 대기 신청",
   "Lịch làm việc của quản lý cửa hàng sau khi đã triển khai xong: buổi sáng duyệt, giữa ngày theo dõi, cuối tháng chốt.": "배포 완료 후 매장 관리자의 업무 흐름: 오전에 승인, 낮에 모니터링, 월말에 마감.",
@@ -11087,6 +11114,7 @@
   "Mở menu góc phải → Yêu cầu đổi ca": "오른쪽 상단 메뉴 열기 → 근무조 변경 요청",
   "Mở màn bán hàng trên các máy ít nhất 1 giờ để hệ thống tự đo, hoặc bấm «Kiểm tra mạng ngay».": "판매 화면을 여러 기기에서 최소 1시간 열어 두어 시스템이 자동 측정하게 하거나 «지금 네트워크 점검»을 누르세요.",
   "Mở màn hình phụ (khách)": "보조 화면 열기 (고객용)",
+  "Mở màn lịch cũ": "이전 일정 화면 열기",
   "Mở mắt nhìn vào camera": "눈을 뜨고 카메라를 보세요",
   "Mở mắt ra...": "눈을 뜨세요...",
   "Mở nhãn vận đơn": "운송장 라벨 열기",
@@ -11485,6 +11513,7 @@
   "Ngày nghỉ theo loại": "유형별 휴가일",
   "Ngày nghỉ theo lịch": "일정상 휴무일",
   "Ngày nghỉ tuần": "주간 휴무일",
+  "Ngày nguồn": "원본 날짜",
   "Ngày nguồn không có lịch để sao chép": "원본 날짜에 복사할 일정이 없습니다",
   "Ngày nguồn:": "원본 날짜:",
   "Ngày nhận": "입고일",
@@ -11492,6 +11521,7 @@
   "Ngày nhập": "입력일",
   "Ngày nào hay vi phạm": "위반이 잦은 요일",
   "Ngày nào trong tuần bán được nhiều nhất?": "주중 어느 요일에 가장 많이 팔리나요?",
+  "Ngày này": "이 날",
   "Ngày này chưa xếp ca — coi mọi thợ đang làm đều có ca.": "이 날은 근무조가 배정되지 않았습니다 — 근무 중인 모든 직원에게 근무조가 있는 것으로 간주합니다.",
   "Ngày này không có lượt tập": "이 날은 운동 기록이 없습니다",
   "Ngày này đang được đánh dấu nghỉ — quản lý cần gỡ ngày nghỉ trước khi duyệt đăng ký ca.": "이 날은 휴일로 표시되어 있습니다 — 근무조 신청을 승인하기 전에 관리자가 휴일을 해제해야 합니다.",
@@ -11619,6 +11649,8 @@
   "Người sử dụng": "사용자",
   "Người thao tác": "조작자",
   "Người thay": "대체자",
+  "Người thay ca": "대체 근무자",
+  "Người thay ca (không bắt buộc)": "대체 근무자 (선택)",
   "Người thay ca (tùy chọn)": "근무 교대자 (선택)",
   "Người thực hiện": "실행자",
   "Người tiêu dùng": "소비자",
@@ -12080,6 +12112,7 @@
   "Nhập số": "숫자 입력",
   "Nhập số Serial (SN) trên máy chấm công để kết nối": "연결하려면 근태 단말기의 시리얼 번호(SN)를 입력하세요",
   "Nhập số công nợ đúng (≥ 0)": "올바른 미수금 금액을 입력하세요(0 이상)",
+  "Nhập số giấy nghỉ / mã hồ sơ BHXH": "병가 증명서 번호 / 사회보험 서류 코드를 입력하세요",
   "Nhập số giờ tối thiểu từ 0,5 đến 24": "최소 시간을 0.5에서 24 사이로 입력하세요",
   "Nhập số hợp lệ cho khoảng cách, khớp mặt và số ngày": "거리, 얼굴 일치율, 일수에 올바른 숫자를 입력하세요",
   "Nhập số lượng": "수량 입력",
@@ -13175,6 +13208,7 @@
   "Quản lý đơn hàng": "주문 관리",
   "Quản lý đơn hàng, hóa đơn bán hàng": "주문 및 판매 영수증 관리",
   "Quản lý đơn nghỉ phép": "휴가 신청 관리",
+  "Quản lý đơn nghỉ phép: tab «Cần duyệt».": "휴가 신청 관리: «승인 대기» 탭.",
   "Quản lý đại lý": "대리점 관리",
   "Quản lý đổi ca": "근무조 교대 관리",
   "Quản lý ứng lương": "급여 가불 관리",
@@ -13340,6 +13374,7 @@
   "Sao chép link tài khoản": "계정 링크 복사",
   "Sao chép liên kết": "링크 복사",
   "Sao chép lịch": "일정 복사",
+  "Sao chép lịch một ngày": "하루 일정 복사",
   "Sao chép lịch ngày": "일 일정 복사",
   "Sao chép lịch theo từng tuần trong tháng nguồn sang tháng đích": "원본 월의 주별 일정을 대상 월로 복사",
   "Sao chép lịch theo từng tuần trong tháng nguồn sang tháng đích.": "원본 월의 주별 일정을 대상 월로 복사합니다.",
@@ -13351,6 +13386,7 @@
   "Sao chép lịch:": "일정 복사:",
   "Sao chép mã": "코드 복사",
   "Sao chép mật khẩu": "비밀번호 복사",
+  "Sao chép một ngày sang ngày khác": "하루를 다른 날로 복사",
   "Sao chép ngày": "날짜 복사",
   "Sao chép thành công": "복사되었습니다",
   "Sao chép tháng": "월 복사",
@@ -13358,6 +13394,7 @@
   "Sao chép toàn bộ lịch của một tuần sang các tuần tiếp theo": "한 주의 전체 일정을 이후 주들로 복사합니다",
   "Sao chép toàn bộ lịch của một tuần sang các tuần tiếp theo.": "한 주의 전체 일정을 이후 주들로 복사합니다.",
   "Sao chép tuần": "주 복사",
+  "Sao chép tuần này sang các tuần sau": "이번 주를 다음 주들로 복사",
   "Sao chép tuần thành công": "주 복사 완료",
   "Sao lưu dữ liệu": "데이터 백업",
   "Sao lưu gần nhất": "최근 백업",
@@ -13846,6 +13883,7 @@
   "Số trả": "상환액",
   "Số tuần sao chép": "복사할 주 수",
   "Số tuần sao chép:": "복사할 주 수:",
+  "Số tuần:": "주 수:",
   "Số tài khoản": "계좌번호",
   "Số tài khoản *": "계좌번호 *",
   "Số tài khoản không hợp lệ": "계좌번호가 올바르지 않습니다",
@@ -14653,6 +14691,7 @@
   "Thoát full": "전체 화면 종료",
   "Thoát phiếu tạm": "임시 전표 나가기",
   "Thoát toàn màn hình": "전체 화면 종료",
+  "Thoát toàn màn hình (Esc)": "전체 화면 종료 (Esc)",
   "Thoát tài khoản cửa hàng": "매장 계정 로그아웃",
   "Thu / chi tiền mặt & chuyển khoản": "현금 및 계좌이체 수입 / 지출",
   "Thu chi": "수입·지출",
@@ -15723,6 +15762,7 @@
   "Tròn 500đ": "500đ 단위 반올림",
   "Trùng": "중복",
   "Trùng bản ghi phân quyền trong cơ sở dữ liệu. Vui lòng thử lại hoặc liên hệ quản trị.": "데이터베이스에 권한 레코드가 중복되었습니다. 다시 시도하거나 관리자에게 문의하세요.",
+  "Trùng giờ": "시간 겹침",
   "Trùng lặp": "중복",
   "Trùng tên trong năm": "올해 동일한 이름",
   "Trước": "이전",
@@ -15915,6 +15955,8 @@
   "Tuần nguồn không có lịch để sao chép": "원본 주에 복사할 일정이 없습니다",
   "Tuần nguồn:": "원본 주:",
   "Tuần này": "이번 주",
+  "Tuần này bạn chưa có ca nào sắp tới để đổi — chọn tuần khác rồi bấm ⋯ ở ngày có ca": "이번 주에는 교대할 근무가 없습니다 — 다른 주를 선택한 뒤 근무가 있는 날의 ⋯를 누르세요",
+  "Tuần này không còn ngày nào để đăng ký": "이번 주에 신청할 날짜가 남아 있지 않습니다",
   "Tuần sau": "다음 주",
   "Tuần trước": "지난주",
   "Tuần đích bắt đầu từ": "대상 주 시작일",
@@ -16372,6 +16414,7 @@
   "Tìm tham số để chèn…": "삽입할 매개변수 검색…",
   "Tìm theo mã, tên hoặc quét mã vạch (F3)": "코드, 이름 또는 바코드 스캔으로 검색 (F3)",
   "Tìm theo tiêu đề, nội dung, mã phiếu": "제목, 내용, 전표 코드로 검색",
+  "Tìm theo tên": "이름으로 검색",
   "Tìm theo tên / mã nhân viên...": "이름 / 직원 코드로 검색...",
   "Tìm theo tên / mã…": "이름 / 코드로 검색…",
   "Tìm theo tên ca...": "근무조 이름으로 검색...",
@@ -16734,6 +16777,7 @@
   "Tạo hồ sơ công tác, tạm ứng / quyết toán chi phí đi công tác theo quy trình duyệt của cửa hàng.": "매장의 승인 절차에 따라 출장 기록, 가불 / 출장비 정산을 생성합니다.",
   "Tạo hồ sơ mới rồi chọn loại chi phí, nhập số tiền và phân loại hóa đơn/giấy tờ.": "새 기록을 만든 후 비용 유형을 선택하고, 금액을 입력하고, 영수증/증빙을 분류하세요.",
   "Tạo hồ sơ nhân sự làm nền cho chấm công, lương và tài khoản app. Mã nhân viên phải thống nhất giữa hồ sơ và máy chấm công.": "근태, 급여, 앱 계정의 기반이 되는 인사 기록을 생성하세요. 직원 코드는 기록과 근태 단말기에서 일치해야 합니다.",
+  "Tạo hộ, có thể duyệt luôn": "대신 작성, 바로 승인 가능",
   "Tạo hộ, sửa / huỷ đơn, hoàn tác duyệt, phép năm": "대리 신청, 신청 수정 / 취소, 승인 취소, 연차",
   "Tạo key": "키 생성",
   "Tạo key JSON và download file credentials": "JSON 키를 생성하고 credentials 파일을 다운로드",
@@ -16856,6 +16900,8 @@
   "Tạo đơn bán, thanh toán, trả hàng và theo dõi đơn trong ngày trên màn POS.": "POS 화면에서 판매 주문 생성, 결제, 반품 처리 및 당일 주문 확인을 할 수 있습니다.",
   "Tạo đơn hàng mới": "새 주문 생성",
   "Tạo đơn mới": "새 주문 생성",
+  "Tạo đơn nghỉ": "휴가 신청 작성",
+  "Tạo đơn nghỉ cho nhân viên": "이 직원의 휴가 신청 작성",
   "Tạo đơn vị quy đổi thất bại": "환산 단위 생성에 실패했습니다",
   "Tạo đơn đầu tiên": "첫 주문 생성",
   "Tạo đại lý thành công. Gửi link đăng ký tài khoản đại lý.": "대리점이 생성되었습니다. 대리점 계정 등록 링크를 보내세요.",
@@ -17280,6 +17326,7 @@
   "Tổng lương theo công": "근무일 기준 급여 합계",
   "Tổng lương:": "총 급여:",
   "Tổng lương: ": "총 급여: ",
+  "Tổng lượt": "총 배정 수",
   "Tổng lượt chấm": "총 타각 횟수",
   "Tổng lượt hủy / trả": "총 취소 / 반품 건수",
   "Tổng lượt ngày trong kỳ": "기간 내 일별 총 건수",
@@ -18029,6 +18076,7 @@
   "Vẫn nhận lệnh cloud. Rút USB ADB nếu in Tem/Zywell; kiểm tra chip máy in": "클라우드 명령은 계속 수신 중입니다. 라벨/Zywell 인쇄 시 USB ADB를 뽑고 프린터 칩을 확인하세요",
   "Vẫn nhận qua Zalo": "Zalo로는 수신",
   "Vẫn trừ buổi": "그래도 횟수 차감",
+  "Vẫn tính công": "근무로 인정",
   "Vẫn tạo": "그래도 생성",
   "Vận chuyển": "배송",
   "Vận hành": "운영",
@@ -18280,6 +18328,7 @@
   "Xuất Excel thành công!": "엑셀 내보내기 성공!",
   "Xuất Excel thất bại": "엑셀 내보내기 실패",
   "Xuất Excel trên từng báo cáo khi gửi kế toán": "회계팀에 전달할 때 각 보고서에서 엑셀로 내보내기",
+  "Xuất Excel tuần này": "이번 주 Excel 내보내기",
   "Xuất Excel — chọn cột": "엑셀 내보내기 — 열 선택",
   "Xuất HĐĐT": "전자세금계산서 발행",
   "Xuất HĐĐT Viettel cho đơn": "주문에 대해 Viettel 전자세금계산서 발행",
@@ -18581,6 +18630,7 @@
   "Xếp hàng loạt, sao chép tháng, xuất Excel: tab Thiết lập › «Lịch làm việc (đầy đủ)» — ở màn này lịch vào «Danh sách chờ gửi», phải bấm «Gửi đăng ký» rồi duyệt": "일괄 배정, 월 복사, 엑셀 내보내기: 설정 탭 › «근무 일정 (전체)» — 이 화면에서는 일정이 «전송 대기 목록»에 들어가므로 «등록 제출»을 누른 후 승인해야 합니다",
   "Xếp hạng nhân viên": "직원 순위",
   "Xếp lịch": "일정 편성",
+  "Xếp lịch theo ca, sao chép ngày / tuần / tháng, xuất Excel: tab «Bảng xếp ca» → «Theo ca» / «Từng ngày» và «Thao tác nhanh». ": "근무조별 배정, 일 / 주 / 월 복사, Excel 내보내기: «근무표» 탭 → «근무조별» / «일별» 및 «빠른 작업». ",
   "Xếp: lâu nhất trước": "정렬: 오래된 순",
   "Xếp: mới nhất trước": "정렬: 최신 순",
   "Xử lý": "처리",
@@ -18602,6 +18652,7 @@
   "Yêu cầu chỉnh sửa log chấm công": "근태 로그 수정 요청",
   "Yêu cầu chớp mắt / quay đầu — chặn chấm bằng ảnh hoặc video": "눈 깜빡임 / 고개 돌리기 요구 — 사진이나 영상으로 타각하는 것을 방지",
   "Yêu cầu chờ duyệt": "승인 대기 중인 요청",
+  "Yêu cầu của tôi": "내 요청",
   "Yêu cầu duyệt": "승인 요청",
   "Yêu cầu giải trình": "소명 요청",
   "Yêu cầu khác": "기타 요청",
@@ -18999,6 +19050,7 @@
   "giữ app mở": "앱을 열어 두세요",
   "giữ chỗ": "예약됨",
   "giữ máy in": "프린터 유지",
+  "giữ ngày nghỉ": "휴무 유지",
   "giữ điện thoại trên WiFi nhà, app sẽ tự tìm thiết bị.": "휴대폰을 집 WiFi에 연결해 두면 앱이 자동으로 기기를 찾습니다.",
   "gps ngoài": "외부 GPS",
   "gán tay": "수동 지정",
@@ -19987,6 +20039,7 @@
   "Áp dụng tại chi nhánh": "지점에 적용",
   "Áp dụng từ ngày → đến ngày (để trống = mọi ngày": "적용 기간: 시작일 → 종료일 (비워 두면 = 모든 날짜",
   "Áp dụng từ ngày → đến ngày (để trống = mọi ngày)": "적용 기간: 시작일 → 종료일 (비워 두면 = 모든 날짜)",
+  "Áp dụng:": "적용:",
   "Áp giá bán đã nhập ở phần đơn vị cho từng dòng hàng cùng loại": "단위 항목에 입력한 판매가를 같은 종류의 각 상품 행에 적용",
   "Áp khi đã chọn khách hàng trên hóa đơn": "영수증에 고객을 선택했을 때 적용",
   "Áp mẫu": "양식 적용",
@@ -20117,6 +20170,7 @@
   "Đang chụp…": "촬영 중…",
   "Đang cài dữ liệu mẫu...": "샘플 데이터 설치 중...",
   "Đang có 1 chi nhánh — thêm để dùng báo cáo & chuyển kho nhiều CN": "현재 지점 1개 — 추가하면 보고서 및 다지점 재고 이동을 사용할 수 있습니다",
+  "Đang có ca khác": "다른 근무조 있음",
   "Đang có lệnh đồng bộ sinh trắc chờ xử lý. Vui lòng đợi hoàn thành.": "처리 대기 중인 생체정보 동기화 명령이 있습니다. 완료될 때까지 기다려 주세요.",
   "Đang có mạng": "온라인 상태",
   "Đang có phiên mở — đóng trước khi xóa": "열려 있는 세션이 있습니다 — 삭제하기 전에 닫으세요",
@@ -20189,6 +20243,7 @@
   "Đang kiểm tra...": "확인 중...",
   "Đang kết nối": "연결 중",
   "Đang liên kết": "연결 중",
+  "Đang là ngày nghỉ": "현재 휴무일",
   "Đang làm": "조리 중",
   "Đang làm cả bàn": "테이블 전체 조리 중",
   "Đang làm mới…": "새로고침 중…",
@@ -21255,6 +21310,7 @@
   "Đã tạo thực đơn": "메뉴를 생성했습니다",
   "Đã tạo trên Tingee": "Tingee에서 생성됨",
   "Đã tạo tài khoản": "계정을 생성했습니다",
+  "Đã tạo và duyệt đơn nghỉ": "휴가 신청을 작성하고 승인했습니다",
   "Đã tạo vận đơn": "운송장이 생성되었습니다",
   "Đã tạo yêu cầu chấm công": "근태 요청을 생성했습니다",
   "Đã tạo yêu cầu sửa giờ thành công. Đang chờ duyệt.": "시간 수정 요청을 생성했습니다. 승인 대기 중입니다.",
@@ -21417,6 +21473,7 @@
   "Đã xếp": "배정됨",
   "Đã xếp ca": "근무 배정됨",
   "Đã xếp ca cho một thợ thì thợ chưa xếp ca ngày đó coi như không làm.": "한 기사에게 근무조를 배정하면 그날 배정되지 않은 기사는 근무하지 않는 것으로 봅니다.",
+  "Đã xếp ca này": "이 근무조에 배정됨",
   "Đã xếp lịch": "일정이 잡혔습니다",
   "Đã xếp ngày nghỉ": "휴무일 배정됨",
   "Đã xử lý": "처리 완료",
@@ -21438,6 +21495,7 @@
   "Đã đóng phiên": "세션을 종료했습니다",
   "Đã đăng bài": "게시글 등록됨",
   "Đã đăng ký": "등록 완료",
+  "Đã đăng ký ca này (chờ duyệt)": "이 근무조 신청함(승인 대기)",
   "Đã đăng ký khuôn mặt cho": "얼굴을 등록했습니다:",
   "Đã đăng ký khuôn mặt cho \"": "얼굴을 등록했습니다: \"",
   "Đã đăng ký khuôn mặt ✓": "얼굴 등록 완료 ✓",
@@ -21556,11 +21614,13 @@
   "Đăng ký TB": "평균 신청",
   "Đăng ký VT từ xa": "원격 VT 등록",
   "Đăng ký ca": "근무조 등록",
+  "Đăng ký ca, đơn nghỉ, đổi ca — huỷ được khi còn chờ duyệt": "근무 신청, 휴가 신청, 근무 교대 — 대기 중에는 취소 가능",
   "Đăng ký chưa ăn": "식사 미신청",
   "Đăng ký chấm công": "근태 등록",
   "Đăng ký chấm công Mobile": "모바일 근태 등록",
   "Đăng ký chờ": "대기 신청",
   "Đăng ký chờ duyệt": "승인 대기 신청",
+  "Đăng ký cả tuần": "한 주 전체 신청",
   "Đăng ký cửa hàng": "매장 가입",
   "Đăng ký doanh nghiệp": "사업자 등록",
   "Đăng ký doanh nghiệp để sử dụng hệ thống\nquản lý nhân sự thông minh.": "사업자 등록을 하고 스마트\n인사 관리 시스템을 이용하세요.",
@@ -21581,6 +21641,7 @@
   "Đăng ký lịch": "일정 등록",
   "Đăng ký mới": "새로 등록",
   "Đăng ký ngay": "지금 등록",
+  "Đăng ký nghỉ ngày": "휴무일 신청",
   "Đăng ký nghỉ ngày này": "이 날 휴무 신청",
   "Đăng ký nghỉ phép": "휴가 신청",
   "Đăng ký phần mềm": "소프트웨어 등록",
@@ -21906,6 +21967,7 @@
   "Đặt mặc định": "기본값으로 설정",
   "Đặt mặc định toàn cửa hàng": "매장 전체 기본값으로 설정",
   "Đặt ngày bắt đầu và hạn chót cho công việc để xem dòng thời gian.": "업무의 시작일과 마감일을 설정하면 타임라인을 볼 수 있습니다.",
+  "Đặt ngày nghỉ": "휴무일로 지정",
   "Đặt ngón": "손가락 지정",
   "Đặt ngón tay lên máy chấm công\nvà giữ yên cho đến khi hoàn tất.": "근태 단말기에 손가락을 올리고\n완료될 때까지 움직이지 마세요.",
   "Đặt phòng": "객실 예약",
@@ -22206,6 +22268,7 @@
   "Đổi size": "사이즈 변경",
   "Đổi số lượng, giá, chiết khấu, ghi chú, topping hoặc gán nhân viên hoa hồng ngay trên từng dòng món trước khi thanh toán.": "결제 전에 각 메뉴 줄에서 수량, 가격, 할인, 메모, 토핑을 바꾸거나 수수료 직원을 지정할 수 있습니다.",
   "Đổi thiết lập khác (không đổi mức lương)": "다른 설정 변경 (급여 수준은 변경 없음)",
+  "Đổi thành ngày nghỉ?": "휴무일로 바꿀까요?",
   "Đổi tiêu đề công việc": "업무 제목 변경",
   "Đổi trạng thái": "상태 변경",
   "Đổi trả hàng": "교환 / 반품",
@@ -23434,6 +23497,10 @@
    "신규 +{0} (총 {1})"
   ],
   [
+   "+{0} người",
+   "+{0}명"
+  ],
+  [
    "+{0} thâm niên",
    "+{0} 근속"
   ],
@@ -24150,6 +24217,10 @@
    "목록에 이미 있는 메뉴 {0}개를 건너뛰었습니다 (수정한 행은 유지)."
   ],
   [
+   "Bỏ {0} người khỏi {1} {2} ngày ({3}). Bỏ qua ngày đã qua.",
+   "{1}에서 {0}명을 {2}일 동안 해제({3}). 지난 날짜는 건너뜁니다."
+  ],
+  [
    "Bỏ {0} phiếu",
    "전표 {0}건 제외"
   ],
@@ -24474,6 +24545,10 @@
    "{0} 일정을 {1}(으)로 복사합니다. "
   ],
   [
+   "Chép sang {0} → {1}",
+   "{0} → {1}(으)로 복사"
+  ],
+  [
    "Chép {0} của {1} nhân viên từ «{2}» sang «{3}».",
    "{1}명 직원의 {0}을(를) «{2}»에서 «{3}»(으)로 복사합니다."
   ],
@@ -24770,6 +24845,10 @@
    "선택 ({0})"
   ],
   [
+   "Chọn cả bộ phận {0}",
+   "{0} 부서 전체 선택"
+  ],
+  [
    "Chọn cổng cân khác ({0})",
    "다른 저울 포트 선택 ({0})"
   ],
@@ -24804,6 +24883,10 @@
   [
    "Chọn người chưa thiết lập ({0})",
    "설정하지 않은 사람 선택 ({0})"
+  ],
+  [
+   "Chọn nhân viên cho {0}",
+   "{0}의 직원 선택"
   ],
   [
    "Chọn nhân viên nào phải ghi lý do ({0}/{1} đang bật)",
@@ -25694,6 +25777,22 @@
    "승인 성공 {0}건, 오류 {1}건"
   ],
   [
+   "Duyệt xong ca có {0} người",
+   "승인 후 근무조 인원 {0}명"
+  ],
+  [
+   "Duyệt xong vẫn thiếu: {0}/{1}",
+   "승인 후에도 부족: {0}/{1}"
+  ],
+  [
+   "Duyệt xong: {0}/{1} — vượt định mức",
+   "승인 후: {0}/{1} — 정원 초과"
+  ],
+  [
+   "Duyệt xong: {0}/{1} — đủ người",
+   "승인 후: {0}/{1} — 인원 충족"
+  ],
+  [
    "Duyệt {0}",
    "{0} 승인"
   ],
@@ -26316,6 +26415,10 @@
   [
    "Gửi {0}",
    "{0} 전송"
+  ],
+  [
+   "Gửi {0} đăng ký",
+   "신청 {0}건 보내기"
   ],
   [
    "Gửi đăng ký ({0})",
@@ -27080,6 +27183,10 @@
   [
    "Không có hàng hóa với mã \"{0}\"",
    "코드 \"{0}\"인 상품이 없습니다"
+  ],
+  [
+   "Không có lịch nào để chép{0}",
+   "복사할 일정이 없습니다{0}"
   ],
   [
    "Không có mẫu khớp «{0}»",
@@ -28890,6 +28997,14 @@
    "수령인: {0}"
   ],
   [
+   "Người thay ca: {0}",
+   "대체 근무자: {0}"
+  ],
+  [
+   "Người thay: {0}",
+   "대체: {0}"
+  ],
+  [
    "Người tăng ca · {0} lượt",
    "초과근무자 · {0}회"
   ],
@@ -29590,8 +29705,20 @@
    "{0}명에게 복사"
   ],
   [
+   "Sao chép lịch ngày {0}",
+   "{0} 일정 복사"
+  ],
+  [
+   "Sao chép sang {0} tuần",
+   "{0}주로 복사"
+  ],
+  [
    "Sao chép thiết lập của {0}",
    "{0}의 설정 복사"
+  ],
+  [
+   "Sao chép {0} → {1}",
+   "{0} → {1} 복사"
   ],
   [
    "Sao chép được {0}, lỗi {1}: {2}",
@@ -29716,6 +29843,10 @@
   [
    "Sẽ trừ {0} ngày phép năm. Còn lại: {1} ngày.",
    "연차 {0}일이 차감됩니다. 잔여: {1}일."
+  ],
+  [
+   "Sẽ trừ {0} ngày phép năm{1}",
+   "연차 {0}일이 차감됩니다{1}"
   ],
   [
    "Sẽ tích {0} điểm (mỗi {1} đ → 1 điểm)",
@@ -30764,6 +30895,10 @@
   [
    "Trực tuyến · {0}",
    "온라인 · {0}"
+  ],
+  [
+   "Tuần nguồn: {0}",
+   "원본 주: {0}"
   ],
   [
    "Tuần {0}",
@@ -32078,8 +32213,24 @@
    "{1}/{2}의 {0} 등록을 삭제할까요?"
   ],
   [
+   "Xếp ca {0}",
+   "{0} 배정"
+  ],
+  [
    "Xếp hạng {0}",
    "순위 {0}"
+  ],
+  [
+   "Xếp {0} người đã chọn vào {1} {2} ngày ",
+   "선택한 {0}명을 {1}에 {2}일 배정 "
+  ],
+  [
+   "Xếp {0} người đã chọn vào {1} {2} ngày ({3}). Bỏ qua ngày đã qua, ngày nghỉ và nghỉ phép.",
+   "선택한 {0}명을 {1}에 {2}일 배정({3}). 지난 날짜, 휴무일, 휴가는 건너뜁니다."
+  ],
+  [
+   "Xếp {0} · {1}–{2}",
+   "{0} 배정 · {1}–{2}"
   ],
   [
    "Xử lý: {0}",
@@ -32190,6 +32341,14 @@
    "{0}까지 보류"
   ],
   [
+   "bỏ qua {0} (nghỉ phép / ngày nghỉ)",
+   "{0}건 건너뜀(휴가 / 휴무일)"
+  ],
+  [
+   "bỏ {0} lượt",
+   "{0}건 해제"
+  ],
+  [
    "cells/cellKeys lệch: {0} vs {1}",
    "cells/cellKeys 불일치: {0} vs {1}"
   ],
@@ -32256,6 +32415,10 @@
   [
    "cọc {0}",
    "보증금 {0}"
+  ],
+  [
+   "duyệt {0} đăng ký",
+   "{0}건 신청 승인"
   ],
   [
    "giá TB {0} · {1} NV",
@@ -32528,6 +32691,10 @@
   [
    "wwwroot {0} · downloads {1} · rác app ~ {2}",
    "wwwroot {0} · downloads {1} · 앱 불필요 파일 ~ {2}"
+  ],
+  [
+   "xếp {0} lượt",
+   "{0}건 배정"
   ],
   [
    "{0}\n\nDanh sách chức năng hiện tại sẽ được thay bằng {1} chức năng của mẫu.",
@@ -33406,6 +33573,10 @@
    "예정 일정 {0}건"
   ],
   [
+   "{0} lỗi",
+   "{0}건 오류"
+  ],
+  [
    "{0} module được cấp quyền",
    "권한이 부여된 모듈 {0}개"
   ],
@@ -33844,6 +34015,10 @@
   [
    "{0} nhóm mới · {1} size",
    "새 그룹 {0}개 · 사이즈 {1}개"
+  ],
+  [
+   "{0} nhờ đổi ca",
+   "{0}님이 근무 교대를 요청함"
   ],
   [
    "{0} năm",
@@ -34696,6 +34871,10 @@
   [
    "{0} đang có hàng.\n",
    "{0} 재고 있음.\n"
+  ],
+  [
+   "{0} đang có {1}. Đặt ngày nghỉ sẽ bỏ các ca này.",
+   "{0}님은 {1} 근무가 있습니다. 휴무일로 지정하면 이 근무조가 해제됩니다."
   ],
   [
    "{0} đang làm",
@@ -35614,6 +35793,10 @@
    "대기 중 · {0}"
   ],
   [
+   "Đang có {0}",
+   "현재 {0}"
+  ],
+  [
    "Đang dùng {0}/{1} chi nhánh {2}.",
    "{2} 지점 {0}/{1} 사용 중."
   ],
@@ -36322,6 +36505,10 @@
    "등록 {0}건을 보냈습니다"
   ],
   [
+   "Đã gửi {0} đăng ký — chờ quản lý duyệt",
+   "신청 {0}건 보냄 — 관리자 승인 대기"
+  ],
+  [
    "Đã gửi {0}:{1} · {2} người nhận · {3}",
    "{0}:{1} 발송 · 수신자 {2}명 · {3}"
   ],
@@ -36894,6 +37081,10 @@
    "상품 {0}개를 출고했습니다"
   ],
   [
+   "Đã xuất {0}",
+   "{0} 내보냄"
+  ],
+  [
    "Đã xuất {0} ({1} dòng). Điền Lần 1–6 rồi Import lại cùng file.",
    "{0} ({1}행)을 내보냈습니다. 1~6회차를 입력한 후 같은 파일을 다시 가져오세요."
   ],
@@ -37156,6 +37347,10 @@
   [
    "Đăng ký {0}",
    "{0} 등록"
+  ],
+  [
+   "Đăng ký {0} · ",
+   "신청 {0} · "
   ],
   [
    "Đăng ký {0} · chờ duyệt",
@@ -37462,6 +37657,10 @@
    "IP «{0}»을(를) 변경할까요?"
   ],
   [
+   "Đổi ca với {0}",
+   "{0}님과 근무 교대"
+  ],
+  [
    "Đổi ca với {0} · {1}",
    "{0}와(과) 근무조 교대 · {1}"
   ],
@@ -37728,6 +37927,10 @@
   [
    "− {0} (còn xin được {1})",
    "− {0} (추가로 {1} 신청 가능)"
+  ],
+  [
+   "−{0} người",
+   "−{0}명"
   ],
   [
    "−{0} đ",

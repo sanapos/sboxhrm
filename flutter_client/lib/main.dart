@@ -28,6 +28,8 @@ void main() async {
   if (!kIsWeb) {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnLightBg);
+    // edgeToEdge vừa hiện lại thanh điều hướng — SBOX HRM ẩn đi (vuốt lên để hiện tạm).
+    await hideNavigationBarIfHrm();
   }
 
   // Tắt Widget Inspector overlay trong debug mode

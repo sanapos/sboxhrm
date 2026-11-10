@@ -5,6 +5,7 @@ using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Api.Services.Shipping;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
@@ -44,6 +45,11 @@ public class OverviewController(ZKTecoDbContext db) : AuthenticatedControllerBas
             .CountAsync(x => x.StoreId == storeId && x.Deleted == null && x.Status == ShiftSwapStatus.TargetAccepted, ct);
         var advances = await db.AdvanceRequests.AsNoTracking()
             .CountAsync(x => x.StoreId == storeId && x.Deleted == null && x.Status == AdvanceRequestStatus.Pending, ct);
+        var todayVn = VnTimeHelper.NowVn().Date;
+        var regs = await db.ScheduleRegistrations.AsNoTracking()
+            .CountAsync(x => x.StoreId == storeId && x.Deleted == null && x.Status == ScheduleRegistrationStatus.Pending
+                             && x.Date >= todayVn, ct);
+        items.Add(new("scheduleReg", "hrm", "Đăng ký ca chờ duyệt", regs, "warning", "WorkSchedule"));
         items.Add(new("leave", "hrm", "Đơn nghỉ phép chờ duyệt", leaves, "warning", "Leave"));
         items.Add(new("mobileAttendance", "hrm", "Chấm công mobile chờ duyệt", mobile, "warning", "MobileAttendance"));
         items.Add(new("correction", "hrm", "Yêu cầu sửa công chờ duyệt", corrections, "warning", "AttendanceCorrection"));

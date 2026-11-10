@@ -122,6 +122,7 @@ class ZKTecoApp extends StatelessWidget {
                     viewInsets: mediaQuery.viewInsets.copyWith(bottom: 0),
                   );
                 }
+                final barStyle = playOverlayFor(darkTheme: themeProvider.isDarkMode);
                 // MaterialApp (_themeBuilder) luôn set OverlayStyle.dark (icon tối)
                 // trên theme sáng — ghi đè lại sau frame để giờ/Wi‑Fi hiện trên thanh đen.
                 // Builder chạy lại mỗi frame khi bàn phím / cửa sổ đổi cỡ → chỉ đăng ký 1 callback mỗi frame.
@@ -129,9 +130,9 @@ class ZKTecoApp extends StatelessWidget {
                   _overlayStyleResetScheduled = true;
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     _overlayStyleResetScheduled = false;
-                    SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnDarkBg);
+                    SystemChrome.setSystemUIOverlayStyle(barStyle);
                   });
-                  SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnDarkBg);
+                  SystemChrome.setSystemUIOverlayStyle(barStyle);
                 }
                 // Màn cảm ứng (web trên tablet / POS cảm ứng): vùng chạm tối thiểu 48px cho mọi nút Material
                 // (nền web / Windows mặc định thu nhỏ vùng chạm theo kiểu chuột).
@@ -145,9 +146,9 @@ class ZKTecoApp extends StatelessWidget {
                       )
                     : w;
                 return wrapTouch(AnnotatedRegion<SystemUiOverlayStyle>(
-                  value: kPlayOverlayOnDarkBg,
+                  value: barStyle,
                   child: ColoredBox(
-                    color: SboxColors.systemBand,
+                    color: SboxColors.systemBandFor(dark: themeProvider.isDarkMode),
                     child: MediaQuery(
                       data: mediaQuery.copyWith(
                         textScaler: AppTextScaler.resolve(context),

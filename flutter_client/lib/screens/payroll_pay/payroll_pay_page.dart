@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../widgets/page_max_width.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -298,9 +299,7 @@ class _PayrollPayPageState extends State<PayrollPayPage> {
                     Expanded(
                       child: ListView(padding: EdgeInsets.all(wide ? 20 : 12), children: [
                         Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 960),
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                          child: PageMaxWidth(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                               _summary(),
                               const SizedBox(height: 12),
                               _options(),
@@ -490,9 +489,7 @@ class _PayrollPayPageState extends State<PayrollPayPage> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 960),
-              child: _method == PayMethod.cash
+            child: PageMaxWidth(child: _method == PayMethod.cash
                   ? SboxButton(
                       label: 'Xác nhận đã trả tiền mặt (${_selected.length})',
                       icon: Icons.check_rounded,

@@ -1827,6 +1827,7 @@
   "Bỏ qua": "スキップ",
   "Bỏ qua hết": "すべてスキップ",
   "Bỏ qua lệnh trùng": "重複コマンドを無視",
+  "Bỏ qua ngày đã qua, ngày nghỉ và nghỉ phép.": "過去の日・休日・休暇はスキップします。",
   "Bỏ qua phiếu cũ": "古い伝票をスキップ",
   "Bỏ quên": "忘れ物",
   "Bỏ thay đổi": "変更を破棄",
@@ -1978,6 +1979,7 @@
   "Ca xoay (sáng – chiều – nghỉ luân phiên): chưa có mẫu tự xoay — xếp tay 1–2 tuần rồi dùng «Sao chép tuần» trong «Lịch làm việc (đầy đủ)» (tối đa 12 tuần)": "ローテーションシフト（朝 – 午後 – 休みの交代）：自動ローテーションのテンプレートはまだありません — 1–2週間分を手動で組み、«勤務スケジュール（全体）»の«週をコピー»を使います（最大12週間）",
   "Ca đang dùng": "使用中のシフト",
   "Ca đang mở": "オープン中のシフト",
+  "Ca đang thiếu người — kêu gọi nhân viên đăng ký bổ sung": "シフトの人員不足 — 従業員に追加登録を呼びかける",
   "Ca đã phân": "割当済みシフト",
   "Ca đã đăng ký": "申請済みシフト",
   "Ca đêm": "夜勤シフト",
@@ -2286,6 +2288,8 @@
   "Chép link": "リンクをコピー",
   "Chép lời nhắn": "メッセージをコピー",
   "Chép phác đồ gần nhất": "直近のメニューをコピー",
+  "Chép sang": "コピー先",
+  "Chép theo ngày trong tháng (ngày 1 → ngày 1…); tháng đích ít ngày hơn thì bỏ ngày thừa. ": "月の日付ごとにコピーします（1日 → 1日…）。コピー先の月が短い場合、余った日は除外されます。 ",
   "Chép thực đơn": "メニューをコピー",
   "Chép tin nhắc nợ": "督促メッセージをコピー",
   "Chép tin nhắn": "メッセージをコピー",
@@ -2463,6 +2467,7 @@
   "Chưa có ca làm việc": "シフトなし",
   "Chưa có ca làm việc nào": "シフトがありません",
   "Chưa có ca làm việc nào.": "シフトがありません。",
+  "Chưa có ca mẫu — vào Thiết lập → Ca mẫu để tạo ca": "シフトテンプレートがありません — 設定 → シフトテンプレートで作成してください",
   "Chưa có ca nào": "シフトがありません",
   "Chưa có chi nhánh": "支店なし",
   "Chưa có chi nhánh nào": "支店がありません",
@@ -2843,6 +2848,7 @@
   "Chưa có vị trí chấm công nào đang hoạt động. Liên hệ quản trị thiết lập tab Vị trí.": "有効な打刻場所がまだありません。管理者に「場所」タブの設定を依頼してください。",
   "Chưa có vị trí nào": "役職がありません",
   "Chưa có yêu cầu chấm công nào": "打刻申請がありません",
+  "Chưa có yêu cầu nào": "まだ申請はありません",
   "Chưa có yêu cầu sửa chấm công nào": "打刻修正申請がありません",
   "Chưa có yêu cầu được xử lý": "処理済みの申請がありません",
   "Chưa có yêu cầu đổi ca": "シフト変更申請がありません",
@@ -3040,6 +3046,7 @@
   "Chưa sẵn sàng bán offline": "オフライン販売の準備ができていません",
   "Chưa sửa được": "修正できませんでした",
   "Chưa thanh toán": "未払い",
+  "Chưa thay đổi": "変更なし",
   "Chưa thiết lập": "未設定",
   "Chưa thiết lập lương": "給与未設定",
   "Chưa thiết lập đơn giá": "単価が設定されていません",
@@ -3126,6 +3133,9 @@
   "Chạm vào chữ trên trang để sửa như Word. Bôi đen rồi chọn đậm / font / màu.": "ページ上の文字をタップしてWordのように編集できます。文字を選択して太字 / フォント / 色を選びます。",
   "Chạm vào một ca để xem chi tiết tài khoản / tiền két": "シフトをタップしてアカウント / 金庫の現金詳細を表示",
   "Chạm xem": "タップして表示",
+  "Chạm ô để chọn nhân viên cho ca ngày đó · Chạm ngày để xem bảng từng ngày": "セルをタップしてその日のシフトの従業員を選択 · 日付をタップして日別表を表示",
+  "Chạm ô để xếp / bỏ ca · Chạm tên ca để chọn nhiều nhân viên cùng lúc · Giữ ô hoặc chạm tên nhân viên để xem chi tiết, duyệt đăng ký": "セルをタップしてシフトを割当 / 解除 · シフト名をタップして複数の従業員を一度に選択 · セル長押しか従業員名タップで詳細・登録承認",
+  "Chạm ô: xếp / bỏ ca · Chạm tên ca: chọn nhiều người · Giữ ô: chi tiết": "タップ: 割当 / 解除 · シフト名タップ: 複数選択 · 長押し: 詳細",
   "Chạm để bật tiếng": "タップして音声をオン",
   "Chạm để bắt buộc ảnh": "タップして写真を必須に設定",
   "Chạm để chuyển giai đoạn": "タップしてステージを移動",
@@ -3424,6 +3434,9 @@
   "Chỉ áp dụng khi có «Số buổi». Mỗi lần trừ buổi → hoa hồng cho NV làm buổi đó ": "「回数」がある場合のみ適用されます。回数を消化するたびに、その施術を担当したスタッフにコミッションが付与されます ",
   "Chỉ đi trễ": "遅刻のみ",
   "Chỉ điền ngày còn trống, không ghi đè lịch đã có.": "空いている日のみ入力し、既存のスケジュールは上書きしません。",
+  "Chỉ điền ô còn trống của nhân viên đang hiển thị; không ghi đè lịch đã có.": "表示中の従業員の空きセルのみ埋め、既存の予定は上書きしません。",
+  "Chỉ điền ô còn trống.": "空きセルのみ埋めます。",
+  "Chỉ điền ô còn trống; không ghi đè lịch đã có. Tối đa 12 tuần.": "空きセルのみ埋め、既存の予定は上書きしません。最大12週間。",
   "Chỉ đơn còn nợ": "未収金のある注文のみ",
   "Chỉ đường": "道案内",
   "Chỉ được chỉnh sửa chỉ tiêu/doanh số khi chu kỳ đang ở trạng thái Mở.": "サイクルが「オープン」状態のときのみ目標/売上を編集できます。",
@@ -3496,6 +3509,7 @@
   "Chọn ca bạn muốn nhường, đồng nghiệp và ca/ngày muốn nhận.": "譲りたいシフト、同僚、受け取りたいシフト/日付を選択してください。",
   "Chọn ca bạn muốn nhường, đồng nghiệp và ca/ngày muốn nhận. ": "譲りたいシフト、同僚、受け取りたいシフト/日付を選択してください。 ",
   "Chọn ca cho": "シフトを選択",
+  "Chọn ca cho từng ngày rồi gửi một lượt": "日ごとにシフトを選び、まとめて送信",
   "Chọn ca làm việc": "シフトを選択",
   "Chọn ca làm việc hoặc loại nghỉ phép trong hộp thoại.": "ダイアログでシフトまたは休暇タイプを選択してください。",
   "Chọn ca làm việc:": "シフトを選択：",
@@ -3790,6 +3804,7 @@
   "Chọn thư mục": "フォルダを選択",
   "Chọn thương hiệu": "ブランドを選択",
   "Chọn thời gian": "時間を選択",
+  "Chọn thứ": "曜日を選択",
   "Chọn topping": "トッピングを選択",
   "Chọn trường dữ liệu": "データフィールドを選択",
   "Chọn tuần nguồn chứa lịch muốn sao chép.": "コピーしたいスケジュールのあるコピー元の週を選択してください。",
@@ -3806,6 +3821,7 @@
   "Chọn tài sản cần in tem QR": "QRラベルを印刷する資産を選択",
   "Chọn tất cả": "すべて選択",
   "Chọn tất cả chờ duyệt": "承認待ちをすべて選択",
+  "Chọn tất cả người còn trống": "空いている全員を選択",
   "Chọn tất cả thưởng/phạt": "賞与/罰金をすべて選択",
   "Chọn tỉnh / thành phố": "都道府県/市を選択",
   "Chọn tỉnh/thành": "都道府県を選択",
@@ -5124,6 +5140,7 @@
   "Duyệt đủ cấp: giờ chấm được thêm / sửa, ô giờ có dấu «đã sửa», phiếu phạt tự động của ngày đó bị hủy và tính lại. Muốn vẫn phạt quên chấm: bấm «Duyệt + phạt»": "全段階の承認後：打刻時刻が追加 / 修正され、時刻セルに«修正済み»の印が付き、その日の自動罰金伝票は取り消されて再計算されます。打刻忘れの罰金を残す場合：«承認 + 罰金»をタップ",
   "Duyệt ứng": "前払いを承認",
   "Duyệt ứng lương": "給与前払いの承認",
+  "Duyệt, vẫn tính công (không ghi «Phép», không trừ phép năm)": "承認・勤務扱い（«休暇»を付けず、年休を減らさない）",
   "Duyệt: Chấm công › Duyệt chấm công → lọc «Sửa / bổ sung công» → tích nhiều phiếu để Duyệt / Từ chối cùng lúc": "承認：勤怠 › 勤怠承認 → «出勤日数の修正 / 追加»で絞り込み → 複数の伝票にチェックを入れて一括で承認 / 却下",
   "Dài": "長さ",
   "Dài (cm)": "長さ (cm)",
@@ -6465,6 +6482,8 @@
   "Huỷ bỏ": "取りやめ",
   "Huỷ chiến dịch này?": "このキャンペーンを取り消しますか？",
   "Huỷ tạm tính": "仮会計の取消",
+  "Huỷ yêu cầu": "申請を取り消す",
+  "Huỷ yêu cầu?": "この申請を取り消しますか？",
   "Huỷ đăng ký đang chờ": "保留中の申請を取り消す",
   "HÀI LÒNG": "満足",
   "HÀNG BÁN": "販売商品",
@@ -7701,6 +7720,7 @@
   "Không có mẫu phù hợp": "該当するテンプレートがありません",
   "Không có mặt hàng dưới mức tồn tối thiểu": "最低在庫を下回る品目はありません",
   "Không có nguyên liệu phù hợp.": "一致する原材料がありません。",
+  "Không có ngày nào để áp dụng (các ngày đã qua bị bỏ qua)": "適用する日がありません（過去の日はスキップ）",
   "Không có người phù hợp": "該当する人はいません",
   "Không có nhân viên": "従業員がいません",
   "Không có nhân viên nghỉ phép hôm nay": "本日休暇中の従業員はいません",
@@ -7804,6 +7824,7 @@
   "Không có yêu cầu chờ quản lý duyệt": "管理者の承認待ちの申請はありません",
   "Không có yêu cầu chờ xử lý": "処理待ちの申請はありません",
   "Không có yêu cầu cần bạn phản hồi": "ご返答が必要な申請はありません",
+  "Không có yêu cầu nào đang chờ": "保留中の申請はありません",
   "Không có yêu cầu tăng ca": "残業申請はありません",
   "Không có yêu cầu ứng lương": "給与前払いの申請はありません",
   "Không có đi trễ / về sớm": "遅刻 / 早退はありません",
@@ -7820,6 +7841,7 @@
   "Không có đơn phép": "休暇申請なし",
   "Không có đơn tạm phù hợp": "該当する一時保存の注文はありません",
   "Không có đồng nghiệp nào có ca khác trong ngày này — thử chọn ngày khác": "この日に別のシフトの同僚はいません — 別の日を選択してください",
+  "Không có đồng nghiệp để chọn": "選べる同僚がいません",
   "Không có đồng nghiệp để đổi ca. Kiểm tra nhân viên đang làm đã gắn tài khoản.": "シフトを交代できる同僚がいません。勤務中の従業員にアカウントが紐づいているか確認してください。",
   "Không có ảnh hiện trường": "現場写真がありません",
   "Không có ảnh khuôn mặt": "顔写真がありません",
@@ -7852,6 +7874,7 @@
   "Không ghi \"Phép\" trên chấm công": "勤怠に「休暇」を記載しない",
   "Không ghi HSD": "賞味期限を記録しない",
   "Không ghi lý do": "理由を記録しない",
+  "Không ghi «Phép» trên chấm công, không trừ phép năm": "勤怠に«休暇»を付けず、年休を減らさない",
   "Không giao hàng": "配達なし",
   "Không giao được": "配達できません",
   "Không giấy tờ": "書類なし",
@@ -7911,6 +7934,7 @@
   "Không hoàn tác được. Lịch sử thao tác của tài khoản được giữ lại nhưng không đăng nhập được nữa.\n\nNếu nhân viên chỉ tạm nghỉ, nên dùng «Khóa» thay vì xóa.": "元に戻せません。アカウントの操作履歴は保持されますが、ログインはできなくなります。\n\n従業員が一時的に休んでいるだけなら、削除ではなく「ロック」をご利用ください。",
   "Không hoàn tác được. Nếu chi nhánh chỉ tạm đóng cửa, nên dùng «Ngừng hoạt động».": "元に戻せません。支店が一時的に休業しているだけの場合は「運営停止」をご利用ください。",
   "Không hoạt động": "非稼働",
+  "Không huỷ được": "取り消せませんでした",
   "Không hài lòng": "不満足",
   "Không hóa đơn": "伝票なし",
   "Không hưởng lương": "無給",
@@ -9767,6 +9791,8 @@
   "Lệnh đã gửi. Dữ liệu sẽ được tải về khi máy CC phản hồi.": "コマンドを送信しました。端末が応答するとデータがダウンロードされます。",
   "Lệnh đã gửi. Hãy nhấn Refresh nếu chưa thấy dữ liệu.": "コマンドを送信しました。データが表示されない場合は更新を押してください。",
   "Lệnh đồng bộ thất bại": "同期コマンドが失敗しました",
+  "LỊCH LÀM VIỆC THEO CA": "シフト別勤務表",
+  "LỊCH LÀM VIỆC THEO NHÂN VIÊN": "従業員別勤務表",
   "LỊCH LÀM VIỆC ĐÃ DUYỆT": "承認済み勤務スケジュール",
   "Lịch": "スケジュール",
   "Lịch CSKH": "顧客対応スケジュール",
@@ -9779,6 +9805,7 @@
   "Lịch hẹn": "予約スケジュール",
   "Lịch khác nhau theo ngày": "曜日ごとに異なるスケジュール",
   "Lịch làm việc": "勤務スケジュール",
+  "Lịch làm việc (màn cũ)": "勤務表（旧画面）",
   "Lịch làm việc (đầy đủ)": "勤務スケジュール（全体）",
   "Lịch làm việc - Đăng ký chờ duyệt": "勤務スケジュール - 承認待ちの申請",
   "Lịch làm việc của quản lý cửa hàng sau khi đã triển khai xong: buổi sáng duyệt, giữa ngày theo dõi, cuối tháng chốt.": "導入完了後の店舗管理者の運用：午前に承認、日中にモニタリング、月末に締め。",
@@ -11087,6 +11114,7 @@
   "Mở menu góc phải → Yêu cầu đổi ca": "右上のメニューを開く → シフト変更リクエスト",
   "Mở màn bán hàng trên các máy ít nhất 1 giờ để hệ thống tự đo, hoặc bấm «Kiểm tra mạng ngay».": "販売画面を各端末で1時間以上開いてシステムに自動測定させるか、「今すぐネットワークを確認」を押してください。",
   "Mở màn hình phụ (khách)": "サブ画面を開く (お客様用)",
+  "Mở màn lịch cũ": "旧勤務表画面を開く",
   "Mở mắt nhìn vào camera": "目を開けてカメラを見てください",
   "Mở mắt ra...": "目を開けてください...",
   "Mở nhãn vận đơn": "送り状ラベルを開く",
@@ -11485,6 +11513,7 @@
   "Ngày nghỉ theo loại": "種類別の休暇日",
   "Ngày nghỉ theo lịch": "スケジュール上の休み",
   "Ngày nghỉ tuần": "週休日",
+  "Ngày nguồn": "コピー元の日",
   "Ngày nguồn không có lịch để sao chép": "コピー元の日付にコピーできるスケジュールがありません",
   "Ngày nguồn:": "コピー元の日付：",
   "Ngày nhận": "受領日",
@@ -11492,6 +11521,7 @@
   "Ngày nhập": "入力日",
   "Ngày nào hay vi phạm": "違反が多い日",
   "Ngày nào trong tuần bán được nhiều nhất?": "週のどの曜日が最も売れていますか？",
+  "Ngày này": "この日",
   "Ngày này chưa xếp ca — coi mọi thợ đang làm đều có ca.": "この日はシフトが未設定です — 勤務中のスタッフ全員にシフトがあるものとして扱います。",
   "Ngày này không có lượt tập": "この日はトレーニング記録がありません",
   "Ngày này đang được đánh dấu nghỉ — quản lý cần gỡ ngày nghỉ trước khi duyệt đăng ký ca.": "この日は休日として設定されています — シフト登録を承認する前に、管理者が休日を解除する必要があります。",
@@ -11619,6 +11649,8 @@
   "Người sử dụng": "利用者",
   "Người thao tác": "操作者",
   "Người thay": "代理人",
+  "Người thay ca": "代わりの人",
+  "Người thay ca (không bắt buộc)": "代わりの人（任意）",
   "Người thay ca (tùy chọn)": "シフト交代者（任意）",
   "Người thực hiện": "実行者",
   "Người tiêu dùng": "消費者",
@@ -12080,6 +12112,7 @@
   "Nhập số": "数値を入力",
   "Nhập số Serial (SN) trên máy chấm công để kết nối": "接続するには勤怠端末のシリアル番号（SN）を入力してください",
   "Nhập số công nợ đúng (≥ 0)": "正しい債権額を入力してください（0以上）",
+  "Nhập số giấy nghỉ / mã hồ sơ BHXH": "病気休暇証明書番号 / 社会保険の書類コードを入力してください",
   "Nhập số giờ tối thiểu từ 0,5 đến 24": "最低時間を0.5〜24で入力してください",
   "Nhập số hợp lệ cho khoảng cách, khớp mặt và số ngày": "距離・顔一致・日数に有効な数値を入力してください",
   "Nhập số lượng": "数量を入力",
@@ -13175,6 +13208,7 @@
   "Quản lý đơn hàng": "注文管理",
   "Quản lý đơn hàng, hóa đơn bán hàng": "注文と販売伝票の管理",
   "Quản lý đơn nghỉ phép": "休暇申請の管理",
+  "Quản lý đơn nghỉ phép: tab «Cần duyệt».": "休暇申請の管理: «承認待ち» タブ。",
   "Quản lý đại lý": "代理店管理",
   "Quản lý đổi ca": "シフト交代管理",
   "Quản lý ứng lương": "給与前払い管理",
@@ -13340,6 +13374,7 @@
   "Sao chép link tài khoản": "アカウントリンクをコピー",
   "Sao chép liên kết": "リンクをコピー",
   "Sao chép lịch": "スケジュールをコピー",
+  "Sao chép lịch một ngày": "1日の予定をコピー",
   "Sao chép lịch ngày": "日別スケジュールをコピー",
   "Sao chép lịch theo từng tuần trong tháng nguồn sang tháng đích": "コピー元の月の週ごとのスケジュールをコピー先の月にコピー",
   "Sao chép lịch theo từng tuần trong tháng nguồn sang tháng đích.": "コピー元の月の週ごとのスケジュールをコピー先の月にコピーします。",
@@ -13351,6 +13386,7 @@
   "Sao chép lịch:": "スケジュールをコピー:",
   "Sao chép mã": "コードをコピー",
   "Sao chép mật khẩu": "パスワードをコピー",
+  "Sao chép một ngày sang ngày khác": "1日を他の日にコピー",
   "Sao chép ngày": "日付をコピー",
   "Sao chép thành công": "コピーしました",
   "Sao chép tháng": "月をコピー",
@@ -13358,6 +13394,7 @@
   "Sao chép toàn bộ lịch của một tuần sang các tuần tiếp theo": "1週間分のスケジュール全体を以降の週にコピーします",
   "Sao chép toàn bộ lịch của một tuần sang các tuần tiếp theo.": "1週間分のスケジュール全体を以降の週にコピーします。",
   "Sao chép tuần": "週をコピー",
+  "Sao chép tuần này sang các tuần sau": "今週を翌週以降にコピー",
   "Sao chép tuần thành công": "週のコピーが完了しました",
   "Sao lưu dữ liệu": "データのバックアップ",
   "Sao lưu gần nhất": "直近のバックアップ",
@@ -13846,6 +13883,7 @@
   "Số trả": "返済額",
   "Số tuần sao chép": "コピーする週数",
   "Số tuần sao chép:": "コピーする週数:",
+  "Số tuần:": "週数:",
   "Số tài khoản": "口座番号",
   "Số tài khoản *": "口座番号 *",
   "Số tài khoản không hợp lệ": "口座番号が正しくありません",
@@ -14653,6 +14691,7 @@
   "Thoát full": "フルスクリーン終了",
   "Thoát phiếu tạm": "仮伝票を終了",
   "Thoát toàn màn hình": "全画面を終了",
+  "Thoát toàn màn hình (Esc)": "全画面表示を終了 (Esc)",
   "Thoát tài khoản cửa hàng": "店舗アカウントからログアウト",
   "Thu / chi tiền mặt & chuyển khoản": "現金・振込の入出金",
   "Thu chi": "入出金",
@@ -15723,6 +15762,7 @@
   "Tròn 500đ": "500đ に丸め",
   "Trùng": "重複",
   "Trùng bản ghi phân quyền trong cơ sở dữ liệu. Vui lòng thử lại hoặc liên hệ quản trị.": "データベースで権限レコードが重複しています。もう一度お試しいただくか、管理者にお問い合わせください。",
+  "Trùng giờ": "時間が重複",
   "Trùng lặp": "重複",
   "Trùng tên trong năm": "今年中に同名あり",
   "Trước": "前へ",
@@ -15915,6 +15955,8 @@
   "Tuần nguồn không có lịch để sao chép": "コピー元の週にコピーできるスケジュールがありません",
   "Tuần nguồn:": "コピー元の週:",
   "Tuần này": "今週",
+  "Tuần này bạn chưa có ca nào sắp tới để đổi — chọn tuần khác rồi bấm ⋯ ở ngày có ca": "今週は交代できる予定のシフトがありません — 別の週を選び、シフトのある日の ⋯ をタップしてください",
+  "Tuần này không còn ngày nào để đăng ký": "今週は登録できる日が残っていません",
   "Tuần sau": "来週",
   "Tuần trước": "先週",
   "Tuần đích bắt đầu từ": "コピー先の週の開始日",
@@ -16372,6 +16414,7 @@
   "Tìm tham số để chèn…": "挿入するパラメータを検索…",
   "Tìm theo mã, tên hoặc quét mã vạch (F3)": "コード、名前、またはバーコードスキャンで検索（F3）",
   "Tìm theo tiêu đề, nội dung, mã phiếu": "タイトル、内容、伝票コードで検索",
+  "Tìm theo tên": "名前で検索",
   "Tìm theo tên / mã nhân viên...": "名前/従業員コードで検索...",
   "Tìm theo tên / mã…": "名前/コードで検索…",
   "Tìm theo tên ca...": "シフト名で検索...",
@@ -16734,6 +16777,7 @@
   "Tạo hồ sơ công tác, tạm ứng / quyết toán chi phí đi công tác theo quy trình duyệt của cửa hàng.": "店舗の承認フローに従い、出張記録、仮払い/出張費精算を作成します。",
   "Tạo hồ sơ mới rồi chọn loại chi phí, nhập số tiền và phân loại hóa đơn/giấy tờ.": "新しい記録を作成し、経費の種類を選び、金額を入力して、領収書/書類を分類してください。",
   "Tạo hồ sơ nhân sự làm nền cho chấm công, lương và tài khoản app. Mã nhân viên phải thống nhất giữa hồ sơ và máy chấm công.": "勤怠、給与、アプリアカウントの基盤となる人事ファイルを作成します。従業員コードはファイルと勤怠端末で一致させる必要があります。",
+  "Tạo hộ, có thể duyệt luôn": "代理作成・すぐ承認可",
   "Tạo hộ, sửa / huỷ đơn, hoàn tác duyệt, phép năm": "代理作成、申請の編集 / 取消、承認の取消、年次有給",
   "Tạo key": "キーを作成",
   "Tạo key JSON và download file credentials": "JSONキーを作成してcredentialsファイルをダウンロード",
@@ -16856,6 +16900,8 @@
   "Tạo đơn bán, thanh toán, trả hàng và theo dõi đơn trong ngày trên màn POS.": "POS画面で販売注文の作成、会計、返品処理、当日の注文確認ができます。",
   "Tạo đơn hàng mới": "新しい注文を作成",
   "Tạo đơn mới": "新しい注文を作成",
+  "Tạo đơn nghỉ": "休暇申請を作成",
+  "Tạo đơn nghỉ cho nhân viên": "この従業員の休暇申請を作成",
   "Tạo đơn vị quy đổi thất bại": "換算単位の作成に失敗しました",
   "Tạo đơn đầu tiên": "最初の注文を作成",
   "Tạo đại lý thành công. Gửi link đăng ký tài khoản đại lý.": "代理店を作成しました。代理店アカウントの登録リンクを送信してください。",
@@ -17280,6 +17326,7 @@
   "Tổng lương theo công": "出勤日数ベースの給与合計",
   "Tổng lương:": "給与合計：",
   "Tổng lương: ": "給与合計: ",
+  "Tổng lượt": "割当合計",
   "Tổng lượt chấm": "総打刻回数",
   "Tổng lượt hủy / trả": "取消 / 返品の総件数",
   "Tổng lượt ngày trong kỳ": "期間内の日別総件数",
@@ -18029,6 +18076,7 @@
   "Vẫn nhận lệnh cloud. Rút USB ADB nếu in Tem/Zywell; kiểm tra chip máy in": "クラウドコマンドは引き続き受信中です。ラベル／Zywell印刷の場合はUSB ADBを抜き、プリンターチップを確認してください",
   "Vẫn nhận qua Zalo": "Zaloでは受信",
   "Vẫn trừ buổi": "それでも回数を消化",
+  "Vẫn tính công": "勤務扱い",
   "Vẫn tạo": "それでも作成",
   "Vận chuyển": "配送",
   "Vận hành": "運用",
@@ -18280,6 +18328,7 @@
   "Xuất Excel thành công!": "Excel出力に成功しました！",
   "Xuất Excel thất bại": "Excel出力に失敗しました",
   "Xuất Excel trên từng báo cáo khi gửi kế toán": "経理に送るときは各レポートでExcel出力",
+  "Xuất Excel tuần này": "今週をExcelに出力",
   "Xuất Excel — chọn cột": "Excel出力 — 列を選択",
   "Xuất HĐĐT": "電子インボイスを発行",
   "Xuất HĐĐT Viettel cho đơn": "注文に対してViettel電子インボイスを発行",
@@ -18581,6 +18630,7 @@
   "Xếp hàng loạt, sao chép tháng, xuất Excel: tab Thiết lập › «Lịch làm việc (đầy đủ)» — ở màn này lịch vào «Danh sách chờ gửi», phải bấm «Gửi đăng ký» rồi duyệt": "一括割り当て、月のコピー、Excel出力：設定タブ › «勤務スケジュール（全体）» — この画面ではスケジュールが «送信待ち一覧» に入るため、«登録を送信» を押してから承認する必要があります",
   "Xếp hạng nhân viên": "スタッフランキング",
   "Xếp lịch": "シフトを組む",
+  "Xếp lịch theo ca, sao chép ngày / tuần / tháng, xuất Excel: tab «Bảng xếp ca» → «Theo ca» / «Từng ngày» và «Thao tác nhanh». ": "シフト別の割当、日 / 週 / 月のコピー、Excel出力: «シフト表» タブ → «シフト別» / «日別» と «クイック操作»。 ",
   "Xếp: lâu nhất trước": "並び順：古い順",
   "Xếp: mới nhất trước": "並び順：新しい順",
   "Xử lý": "処理",
@@ -18602,6 +18652,7 @@
   "Yêu cầu chỉnh sửa log chấm công": "勤怠ログの修正申請",
   "Yêu cầu chớp mắt / quay đầu — chặn chấm bằng ảnh hoặc video": "瞬き / 首振りを要求 — 写真や動画での打刻を防止",
   "Yêu cầu chờ duyệt": "承認待ちの申請",
+  "Yêu cầu của tôi": "自分の申請",
   "Yêu cầu duyệt": "承認依頼",
   "Yêu cầu giải trình": "説明の要求",
   "Yêu cầu khác": "その他の要望",
@@ -18999,6 +19050,7 @@
   "giữ app mở": "アプリを開いたままにする",
   "giữ chỗ": "確保中",
   "giữ máy in": "プリンターを保持",
+  "giữ ngày nghỉ": "休日のまま",
   "giữ điện thoại trên WiFi nhà, app sẽ tự tìm thiết bị.": "スマホを自宅のWiFiにつないでおくと、アプリが自動で端末を探します。",
   "gps ngoài": "外部GPS",
   "gán tay": "手動で割り当て",
@@ -19987,6 +20039,7 @@
   "Áp dụng tại chi nhánh": "支店に適用",
   "Áp dụng từ ngày → đến ngày (để trống = mọi ngày": "適用期間: 開始日 → 終了日 (空欄 = すべての日",
   "Áp dụng từ ngày → đến ngày (để trống = mọi ngày)": "適用期間: 開始日 → 終了日 (空欄 = すべての日)",
+  "Áp dụng:": "適用:",
   "Áp giá bán đã nhập ở phần đơn vị cho từng dòng hàng cùng loại": "単位欄に入力した販売価格を、同種の各商品行に適用",
   "Áp khi đã chọn khách hàng trên hóa đơn": "伝票で顧客を選択した場合に適用",
   "Áp mẫu": "テンプレートを適用",
@@ -20117,6 +20170,7 @@
   "Đang chụp…": "撮影中…",
   "Đang cài dữ liệu mẫu...": "サンプルデータをインストール中...",
   "Đang có 1 chi nhánh — thêm để dùng báo cáo & chuyển kho nhiều CN": "現在支店は1つ — 追加するとレポートと複数支店間の在庫移動が使えます",
+  "Đang có ca khác": "他のシフトあり",
   "Đang có lệnh đồng bộ sinh trắc chờ xử lý. Vui lòng đợi hoàn thành.": "処理待ちの生体情報同期コマンドがあります。完了するまでお待ちください。",
   "Đang có mạng": "オンライン",
   "Đang có phiên mở — đóng trước khi xóa": "開いているセッションがあります — 削除する前に閉じてください",
@@ -20189,6 +20243,7 @@
   "Đang kiểm tra...": "確認中...",
   "Đang kết nối": "接続中",
   "Đang liên kết": "連携中",
+  "Đang là ngày nghỉ": "現在は休日",
   "Đang làm": "調理中",
   "Đang làm cả bàn": "テーブル全体を調理中",
   "Đang làm mới…": "更新中…",
@@ -21255,6 +21310,7 @@
   "Đã tạo thực đơn": "メニューを作成しました",
   "Đã tạo trên Tingee": "Tingeeで作成しました",
   "Đã tạo tài khoản": "アカウントを作成しました",
+  "Đã tạo và duyệt đơn nghỉ": "休暇申請を作成し承認しました",
   "Đã tạo vận đơn": "送り状を作成しました",
   "Đã tạo yêu cầu chấm công": "勤怠申請を作成しました",
   "Đã tạo yêu cầu sửa giờ thành công. Đang chờ duyệt.": "時刻修正の申請を作成しました。承認待ちです。",
@@ -21417,6 +21473,7 @@
   "Đã xếp": "割当済み",
   "Đã xếp ca": "シフトを割り当てました",
   "Đã xếp ca cho một thợ thì thợ chưa xếp ca ngày đó coi như không làm.": "1人の施術者にシフトを割り当てると、その日にシフトが未割り当ての施術者は勤務しないものとみなされます。",
+  "Đã xếp ca này": "このシフトに割当済み",
   "Đã xếp lịch": "スケジュール済み",
   "Đã xếp ngày nghỉ": "休日を割り当てました",
   "Đã xử lý": "処理済み",
@@ -21438,6 +21495,7 @@
   "Đã đóng phiên": "セッションを終了しました",
   "Đã đăng bài": "投稿しました",
   "Đã đăng ký": "登録済み",
+  "Đã đăng ký ca này (chờ duyệt)": "このシフトに登録済み（承認待ち）",
   "Đã đăng ký khuôn mặt cho": "顔を登録しました:",
   "Đã đăng ký khuôn mặt cho \"": "顔を登録しました: \"",
   "Đã đăng ký khuôn mặt ✓": "顔登録完了 ✓",
@@ -21556,11 +21614,13 @@
   "Đăng ký TB": "平均申込",
   "Đăng ký VT từ xa": "VTのリモート登録",
   "Đăng ký ca": "シフト登録",
+  "Đăng ký ca, đơn nghỉ, đổi ca — huỷ được khi còn chờ duyệt": "シフト登録・休暇申請・シフト交代 — 承認待ちの間は取り消し可能",
   "Đăng ký chưa ăn": "食事未申込",
   "Đăng ký chấm công": "勤怠登録",
   "Đăng ký chấm công Mobile": "モバイル打刻の登録",
   "Đăng ký chờ": "待機中の申込",
   "Đăng ký chờ duyệt": "承認待ちの申込",
+  "Đăng ký cả tuần": "1週間まとめて登録",
   "Đăng ký cửa hàng": "店舗登録",
   "Đăng ký doanh nghiệp": "法人登録",
   "Đăng ký doanh nghiệp để sử dụng hệ thống\nquản lý nhân sự thông minh.": "法人登録をして、スマートな\n人事管理システムをご利用ください。",
@@ -21581,6 +21641,7 @@
   "Đăng ký lịch": "スケジュール登録",
   "Đăng ký mới": "新規登録",
   "Đăng ký ngay": "今すぐ登録",
+  "Đăng ký nghỉ ngày": "休日の登録",
   "Đăng ký nghỉ ngày này": "この日の休み希望",
   "Đăng ký nghỉ phép": "休暇申請",
   "Đăng ký phần mềm": "ソフトウェア登録",
@@ -21906,6 +21967,7 @@
   "Đặt mặc định": "既定に設定",
   "Đặt mặc định toàn cửa hàng": "店舗全体のデフォルトに設定",
   "Đặt ngày bắt đầu và hạn chót cho công việc để xem dòng thời gian.": "タスクの開始日と期限を設定すると、タイムラインが表示されます。",
+  "Đặt ngày nghỉ": "休日に設定",
   "Đặt ngón": "指を指定",
   "Đặt ngón tay lên máy chấm công\nvà giữ yên cho đến khi hoàn tất.": "勤怠端末に指を置き、\n完了するまで動かさないでください。",
   "Đặt phòng": "部屋の予約",
@@ -22206,6 +22268,7 @@
   "Đổi size": "サイズ変更",
   "Đổi số lượng, giá, chiết khấu, ghi chú, topping hoặc gán nhân viên hoa hồng ngay trên từng dòng món trước khi thanh toán.": "お会計の前に、各メニュー行で数量・価格・割引・メモ・トッピングを変更したり、歩合スタッフを割り当てたりできます。",
   "Đổi thiết lập khác (không đổi mức lương)": "他の設定を変更 (給与水準は変更なし)",
+  "Đổi thành ngày nghỉ?": "休日に変更しますか？",
   "Đổi tiêu đề công việc": "タスクのタイトルを変更",
   "Đổi trạng thái": "ステータスを変更",
   "Đổi trả hàng": "交換 / 返品",
@@ -23434,6 +23497,10 @@
    "新規 +{0}（合計 {1}）"
   ],
   [
+   "+{0} người",
+   "+{0}人"
+  ],
+  [
    "+{0} thâm niên",
    "+{0} 勤続"
   ],
@@ -24150,6 +24217,10 @@
    "リストに既にある商品 {0} 件をスキップしました（編集した行は保持）。"
   ],
   [
+   "Bỏ {0} người khỏi {1} {2} ngày ({3}). Bỏ qua ngày đã qua.",
+   "{1}から{0}人を{2}日間解除（{3}）。過去の日はスキップします。"
+  ],
+  [
    "Bỏ {0} phiếu",
    "伝票{0}件を除外"
   ],
@@ -24474,6 +24545,10 @@
    "{0}のスケジュールを{1}にコピーします。 "
   ],
   [
+   "Chép sang {0} → {1}",
+   "{0} → {1} にコピー"
+  ],
+  [
    "Chép {0} của {1} nhân viên từ «{2}» sang «{3}».",
    "{1}人の従業員の{0}を«{2}»から«{3}»へコピーします。"
   ],
@@ -24770,6 +24845,10 @@
    "選択 ({0})"
   ],
   [
+   "Chọn cả bộ phận {0}",
+   "部署 {0} を全員選択"
+  ],
+  [
    "Chọn cổng cân khác ({0})",
    "別の秤ポートを選択（{0}）"
   ],
@@ -24804,6 +24883,10 @@
   [
    "Chọn người chưa thiết lập ({0})",
    "未設定の人を選択 ({0})"
+  ],
+  [
+   "Chọn nhân viên cho {0}",
+   "{0} の従業員を選択"
   ],
   [
    "Chọn nhân viên nào phải ghi lý do ({0}/{1} đang bật)",
@@ -25694,6 +25777,22 @@
    "承認成功 {0}件、エラー {1}件"
   ],
   [
+   "Duyệt xong ca có {0} người",
+   "承認後のシフト人数 {0}人"
+  ],
+  [
+   "Duyệt xong vẫn thiếu: {0}/{1}",
+   "承認後も不足: {0}/{1}"
+  ],
+  [
+   "Duyệt xong: {0}/{1} — vượt định mức",
+   "承認後: {0}/{1} — 定員超過"
+  ],
+  [
+   "Duyệt xong: {0}/{1} — đủ người",
+   "承認後: {0}/{1} — 人員充足"
+  ],
+  [
    "Duyệt {0}",
    "{0}を承認"
   ],
@@ -26316,6 +26415,10 @@
   [
    "Gửi {0}",
    "{0}を送信"
+  ],
+  [
+   "Gửi {0} đăng ký",
+   "{0}件の登録を送信"
   ],
   [
    "Gửi đăng ký ({0})",
@@ -27080,6 +27183,10 @@
   [
    "Không có hàng hóa với mã \"{0}\"",
    "コード「{0}」の商品はありません"
+  ],
+  [
+   "Không có lịch nào để chép{0}",
+   "コピーする予定がありません{0}"
   ],
   [
    "Không có mẫu khớp «{0}»",
@@ -28890,6 +28997,14 @@
    "受取人: {0}"
   ],
   [
+   "Người thay ca: {0}",
+   "代わりの人: {0}"
+  ],
+  [
+   "Người thay: {0}",
+   "代わり: {0}"
+  ],
+  [
    "Người tăng ca · {0} lượt",
    "残業者 · {0}回"
   ],
@@ -29590,8 +29705,20 @@
    "{0} 名にコピー"
   ],
   [
+   "Sao chép lịch ngày {0}",
+   "{0} の予定をコピー"
+  ],
+  [
+   "Sao chép sang {0} tuần",
+   "{0}週間にコピー"
+  ],
+  [
    "Sao chép thiết lập của {0}",
    "{0} の設定をコピー"
+  ],
+  [
+   "Sao chép {0} → {1}",
+   "{0} → {1} をコピー"
   ],
   [
    "Sao chép được {0}, lỗi {1}: {2}",
@@ -29716,6 +29843,10 @@
   [
    "Sẽ trừ {0} ngày phép năm. Còn lại: {1} ngày.",
    "年次有給休暇を {0} 日差し引きます。残り: {1} 日。"
+  ],
+  [
+   "Sẽ trừ {0} ngày phép năm{1}",
+   "年休が{0}日減ります{1}"
   ],
   [
    "Sẽ tích {0} điểm (mỗi {1} đ → 1 điểm)",
@@ -30764,6 +30895,10 @@
   [
    "Trực tuyến · {0}",
    "オンライン · {0}"
+  ],
+  [
+   "Tuần nguồn: {0}",
+   "コピー元の週: {0}"
   ],
   [
    "Tuần {0}",
@@ -32078,8 +32213,24 @@
    "{1}/{2} の {0} の登録を削除しますか？"
   ],
   [
+   "Xếp ca {0}",
+   "{0} の割当"
+  ],
+  [
    "Xếp hạng {0}",
    "ランク {0}"
+  ],
+  [
+   "Xếp {0} người đã chọn vào {1} {2} ngày ",
+   "選択した{0}人を{1}に{2}日間割り当て "
+  ],
+  [
+   "Xếp {0} người đã chọn vào {1} {2} ngày ({3}). Bỏ qua ngày đã qua, ngày nghỉ và nghỉ phép.",
+   "選択した{0}人を{1}に{2}日間割り当て（{3}）。過去の日・休日・休暇はスキップします。"
+  ],
+  [
+   "Xếp {0} · {1}–{2}",
+   "{0} の割当 · {1}–{2}"
   ],
   [
    "Xử lý: {0}",
@@ -32190,6 +32341,14 @@
    "{0}まで保留"
   ],
   [
+   "bỏ qua {0} (nghỉ phép / ngày nghỉ)",
+   "{0}件スキップ（休暇 / 休日）"
+  ],
+  [
+   "bỏ {0} lượt",
+   "{0}件解除"
+  ],
+  [
    "cells/cellKeys lệch: {0} vs {1}",
    "cells/cellKeys 不一致: {0} vs {1}"
   ],
@@ -32256,6 +32415,10 @@
   [
    "cọc {0}",
    "保証金 {0}"
+  ],
+  [
+   "duyệt {0} đăng ký",
+   "{0}件の登録を承認"
   ],
   [
    "giá TB {0} · {1} NV",
@@ -32528,6 +32691,10 @@
   [
    "wwwroot {0} · downloads {1} · rác app ~ {2}",
    "wwwroot {0} · downloads {1} · アプリの不要ファイル ~ {2}"
+  ],
+  [
+   "xếp {0} lượt",
+   "{0}件割当"
   ],
   [
    "{0}\n\nDanh sách chức năng hiện tại sẽ được thay bằng {1} chức năng của mẫu.",
@@ -33406,6 +33573,10 @@
    "今後の予定{0}件"
   ],
   [
+   "{0} lỗi",
+   "{0}件エラー"
+  ],
+  [
    "{0} module được cấp quyền",
    "権限付与済みモジュール {0}"
   ],
@@ -33844,6 +34015,10 @@
   [
    "{0} nhóm mới · {1} size",
    "新規グループ {0} · サイズ {1}"
+  ],
+  [
+   "{0} nhờ đổi ca",
+   "{0} がシフト交代を依頼"
   ],
   [
    "{0} năm",
@@ -34696,6 +34871,10 @@
   [
    "{0} đang có hàng.\n",
    "{0} 在庫あり。\n"
+  ],
+  [
+   "{0} đang có {1}. Đặt ngày nghỉ sẽ bỏ các ca này.",
+   "{0} は {1} があります。休日にするとこれらのシフトは解除されます。"
   ],
   [
    "{0} đang làm",
@@ -35614,6 +35793,10 @@
    "待機中 · {0}"
   ],
   [
+   "Đang có {0}",
+   "現在 {0}"
+  ],
+  [
    "Đang dùng {0}/{1} chi nhánh {2}.",
    "{2} の支店を {0}/{1} 使用中。"
   ],
@@ -36322,6 +36505,10 @@
    "登録 {0}件を送信しました"
   ],
   [
+   "Đã gửi {0} đăng ký — chờ quản lý duyệt",
+   "{0}件の登録を送信 — 管理者の承認待ち"
+  ],
+  [
    "Đã gửi {0}:{1} · {2} người nhận · {3}",
    "{0}:{1} 送信 · 受信者 {2}人 · {3}"
   ],
@@ -36894,6 +37081,10 @@
    "{0} 点を出庫しました"
   ],
   [
+   "Đã xuất {0}",
+   "{0} を出力しました"
+  ],
+  [
    "Đã xuất {0} ({1} dòng). Điền Lần 1–6 rồi Import lại cùng file.",
    "{0}（{1} 行）を出力しました。1〜6回目を入力して同じファイルを再インポートしてください。"
   ],
@@ -37156,6 +37347,10 @@
   [
    "Đăng ký {0}",
    "{0} を登録"
+  ],
+  [
+   "Đăng ký {0} · ",
+   "登録 {0} · "
   ],
   [
    "Đăng ký {0} · chờ duyệt",
@@ -37462,6 +37657,10 @@
    "IP «{0}» を変更しますか？"
   ],
   [
+   "Đổi ca với {0}",
+   "{0} とシフト交代"
+  ],
+  [
    "Đổi ca với {0} · {1}",
    "{0} とシフト交代 · {1}"
   ],
@@ -37728,6 +37927,10 @@
   [
    "− {0} (còn xin được {1})",
    "− {0} (あと {1} 申請可能)"
+  ],
+  [
+   "−{0} người",
+   "−{0}人"
   ],
   [
    "−{0} đ",

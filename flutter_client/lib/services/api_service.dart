@@ -13064,10 +13064,11 @@ class ApiService implements PayrollApi {
     }
   }
 
-  Future<Map<String, dynamic>> getShiftSwapColleagues() async {
+  /// [includeNoAccount]: cả nhân viên chưa có tài khoản app (chọn người thay ca cho đơn nghỉ).
+  Future<Map<String, dynamic>> getShiftSwapColleagues({bool includeNoAccount = false}) async {
     try {
       final response = await sharedHttpClient.get(
-          Uri.parse('$baseUrl/api/shiftswaps/colleagues'),
+          Uri.parse('$baseUrl/api/shiftswaps/colleagues${includeNoAccount ? '?includeNoAccount=true' : ''}'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {

@@ -20,3 +20,12 @@ Future<bool> togglePosBrowserFullscreen() async {
     return posBrowserFullscreenActive;
   }
 }
+
+/// Gọi [onChange] mỗi khi trình duyệt vào / thoát fullscreen — kể cả khi người dùng bấm Esc
+/// (trình duyệt tự thoát, app không nhận phím).
+void listenPosBrowserFullscreenChange(void Function(bool active) onChange) {
+  web.document.addEventListener(
+    'fullscreenchange',
+    ((web.Event _) => onChange(posBrowserFullscreenActive)).toJS,
+  );
+}

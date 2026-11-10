@@ -52,7 +52,11 @@ class _EmployeeSummary {
 }
 
 class ScheduleApprovalScreen extends StatefulWidget {
-  const ScheduleApprovalScreen({super.key});
+  const ScheduleApprovalScreen({super.key, this.chainOnly = false});
+
+  /// Mở từ Ca làm việc → Thiết lập → «Duyệt lịch nhiều cấp»: chỉ tab Chờ duyệt (chuỗi duyệt, hoàn tác).
+  /// Lưới ca / Phân bổ / Đổi ca đã có ở Bảng xếp ca và Cần duyệt của Ca làm việc.
+  final bool chainOnly;
 
   @override
   State<ScheduleApprovalScreen> createState() => _ScheduleApprovalScreenState();
@@ -88,10 +92,10 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   @override
   void initState() {
     super.initState();
-    final initialTab = NavigationNotifier.scheduleApprovalTab.value.clamp(0, 3);
+    final initialTab = widget.chainOnly ? 0 : NavigationNotifier.scheduleApprovalTab.value.clamp(0, 3);
     NavigationNotifier.scheduleApprovalTab.value = 0;
     _tabController = TabController(
-      length: 4,
+      length: widget.chainOnly ? 1 : 4,
       vsync: this,
       initialIndex: initialTab,
     );
@@ -583,6 +587,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   ],
                 ]),
               ),
+              if (!widget.chainOnly) ...[
               Tab(
                 height: 44,
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -622,6 +627,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   ],
                 ]),
               ),
+              ],
             ],
           ),
         ),
@@ -635,6 +641,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 controller: _tabController,
                 children: [
                   _buildPendingQueueTab(),
+                  if (!widget.chainOnly) ...[
                   _buildShiftOverviewTab(),
                   _buildEmployeeDistributionTab(),
                   Column(
@@ -647,6 +654,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       ),
                     ],
                   ),
+                  ],
                 ],
               ),
             ),

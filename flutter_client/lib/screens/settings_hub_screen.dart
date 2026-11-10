@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../widgets/page_max_width.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -675,7 +676,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     return ListView(
       padding: EdgeInsets.fromLTRB(hPad, wide ? 20 : 10, hPad, 32),
       children: [
-        Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1180), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children))),
+        Center(child: PageMaxWidth(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children))),
       ],
     );
   }

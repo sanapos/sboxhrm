@@ -4,14 +4,19 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/notification_overlay.dart';
+import 'my_requests_sheet.dart';
 import 'shift_hub_sheets.dart';
 import 'shift_hub_ui.dart';
 
 /// Lịch của tôi theo tuần: ca đã xếp / nghỉ / đăng ký chờ duyệt / đơn nghỉ / đổi ca;
 /// thao tác ngay trên từng ngày: đăng ký ca, xin nghỉ, đổi ca, huỷ đăng ký.
 class MyScheduleView extends StatefulWidget {
-  const MyScheduleView({super.key, this.onChanged});
+  const MyScheduleView({super.key, this.onChanged, this.startAction});
   final VoidCallback? onChanged;
+
+  /// Mở ngay sau lần tải đầu: `leave` (xin nghỉ hôm nay), `swap` (đổi ca gần nhất), `requests`.
+  /// Menu «Nghỉ phép» / «Đổi ca» và mục tương ứng trong app Nhân Viên mở vào đây.
+  final String? startAction;
 
   @override
   State<MyScheduleView> createState() => _MyScheduleViewState();
@@ -30,6 +35,8 @@ class _MyScheduleViewState extends State<MyScheduleView> {
     _load();
   }
 
+  bool _startDone = false;
+
   Future<void> _load() async {
     setState(() => _loading = _d == null);
     final r = await _api.getShiftHubMy(from: _monday, to: _monday.add(const Duration(days: 6)));
@@ -43,6 +50,45 @@ class _MyScheduleViewState extends State<MyScheduleView> {
         _error = r['message']?.toString() ?? 'Không tải được lịch';
       }
     });
+    if (!_startDone && _d != null && widget.startAction != null) {
+      _startDone = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _runStartAction(widget.startAction!));
+    }
+  }
+
+  Future<void> _runStartAction(String a) async {
+    if (!mounted) return;
+    final days = _rows(_d?['days']);
+    var changed = false;
+    if (a == 'requests') {
+      changed = await showMyRequestsSheet(context);
+    } else if (a == 'leave') {
+      final today = days.where((d) => d['isToday'] == true).firstOrNull;
+      final s = today?['schedule'] as Map?;
+      changed = await showLeaveRequestSheet(context,
+          date: DateTime.now(),
+          templates: _templates,
+          scheduledShiftId: s != null && s['isDayOff'] != true ? s['shiftId']?.toString() : null,
+          employeeId: (_d?['employee'] as Map?)?['id']?.toString());
+    } else if (a == 'swap') {
+      // Ca sắp tới gần nhất của tôi trong tuần.
+      final d = days.where((d) {
+        final s = d['schedule'] as Map?;
+        return d['isPast'] != true && s != null && s['isDayOff'] != true && s['shiftId'] != null;
+      }).firstOrNull;
+      if (d == null) {
+        NotificationOverlayManager().showInfo(
+            title: 'Đổi ca', message: tr('Tuần này bạn chưa có ca nào sắp tới để đổi — chọn tuần khác rồi bấm ⋯ ở ngày có ca'));
+        return;
+      }
+      final s = d['schedule'] as Map;
+      final tp = _tpl(s['shiftId']);
+      changed = await showSwapRequestSheet(context,
+          myDate: ShiftUi.parse(d['date'])!,
+          myShiftId: s['shiftId'].toString(),
+          myShiftLabel: '${tp?['name'] ?? ''} ${s['start']}–${s['end']}');
+    }
+    if (changed) _changed();
   }
 
   void _changed() {
@@ -115,6 +161,30 @@ class _MyScheduleViewState extends State<MyScheduleView> {
                     style: const TextStyle(color: SboxColors.slate600, fontWeight: FontWeight.w600)),
               ],
             ),
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              FilledButton.tonalIcon(
+                onPressed: () async {
+                  if (await showRegisterWeekSheet(context, days: days, templates: _templates)) _changed();
+                },
+                icon: const Icon(Icons.edit_calendar_rounded, size: 18),
+                label: Text(tr('Đăng ký cả tuần')),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _runStartAction('leave'),
+                icon: const Icon(Icons.beach_access_rounded, size: 18),
+                label: Text(tr('Xin nghỉ')),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _runStartAction('requests'),
+                icon: Badge(
+                  isLabelVisible: _pendingTotal(sm) > 0,
+                  label: Text('${_pendingTotal(sm)}'),
+                  child: const Icon(Icons.fact_check_rounded, size: 18),
+                ),
+                label: Text(tr('Yêu cầu của tôi')),
+              ),
+            ]),
             const SizedBox(height: 12),
             if (incoming.isNotEmpty) ...[
               ShiftUi.sectionTitle('Đồng nghiệp muốn đổi ca với bạn (${incoming.length})', icon: Icons.swap_horiz_rounded),
@@ -141,6 +211,9 @@ class _MyScheduleViewState extends State<MyScheduleView> {
       }),
     );
   }
+
+  int _pendingTotal(Map<String, dynamic> sm) =>
+      (ShiftUi.n(sm['pendingRegistrations']) + ShiftUi.n(sm['pendingLeaves']) + ShiftUi.n(sm['pendingSwaps'])).toInt();
 
   Widget _todayHero(Map<String, dynamic> d) {
     final s = d['schedule'] as Map?;
@@ -294,19 +367,20 @@ class _MyScheduleViewState extends State<MyScheduleView> {
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
               child: Wrap(spacing: 6, runSpacing: 6, children: [
+                // Cùng một kiểu nhãn «loại · trạng thái» cho đăng ký / đơn nghỉ / đổi ca (ShiftUi.requestStatusLabel).
                 if (reg != null && reg['status'] != 'Approved')
                   ShiftUi.pill(
-                    reg['status'] == 'Pending'
-                        ? 'Đăng ký ${reg['isDayOff'] == true ? 'nghỉ' : _tpl(reg['shiftId'])?['name'] ?? 'ca'} · chờ duyệt'
-                        : 'Đăng ký bị từ chối${(reg['rejectionReason']?.toString() ?? '').isNotEmpty ? ': ${reg['rejectionReason']}' : ''}',
+                    'Đăng ký ${reg['isDayOff'] == true ? 'nghỉ' : _tpl(reg['shiftId'])?['name'] ?? 'ca'} · '
+                    '${ShiftUi.requestStatusLabel('reg', reg['status']?.toString())}'
+                    '${reg['status'] == 'Rejected' && (reg['rejectionReason']?.toString() ?? '').isNotEmpty ? ': ${reg['rejectionReason']}' : ''}',
                     ShiftUi.statusColor(reg['status']?.toString()),
                     icon: Icons.how_to_reg_rounded,
                   ),
                 for (final l in leaves.where((l) => l['status'] != 'Approved'))
-                  ShiftUi.pill('Đơn nghỉ ${ShiftUi.leaveTypes[l['type']] ?? ''} · ${ShiftUi.statusLabels[l['status']] ?? ''}',
+                  ShiftUi.pill('Đơn nghỉ ${ShiftUi.leaveTypes[l['type']] ?? ''} · ${ShiftUi.requestStatusLabel('leave', l['status']?.toString())}',
                       ShiftUi.statusColor(l['status']?.toString()), icon: Icons.beach_access_rounded),
                 for (final w in swaps)
-                  ShiftUi.pill('Đổi ca với ${w['otherName']} · ${ShiftUi.statusLabels[w['status']] ?? w['status']}',
+                  ShiftUi.pill('Đổi ca với ${w['otherName']} · ${ShiftUi.requestStatusLabel('swap', w['status']?.toString())}',
                       ShiftUi.statusColor(w['status']?.toString()), icon: Icons.swap_horiz_rounded),
               ]),
             ),

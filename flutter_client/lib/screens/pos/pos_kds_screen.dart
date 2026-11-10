@@ -20,9 +20,7 @@ import '../../utils/pos_kds_alert.dart';
 import '../../utils/pos_kitchen_direct_connect.dart';
 import '../../utils/pos_print_orchestrator.dart';
 import '../../utils/pos_qr_order_voice.dart';
-import '../../utils/pos_browser_fullscreen.dart';
-import '../../utils/play_system_ui.dart';
-import '../../utils/system_ui_inset_mode.dart';
+import '../../utils/app_fullscreen.dart';
 import '../../utils/vietnamese_font.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../models/hrm.dart' show NotificationType;
@@ -115,7 +113,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   final Set<String> _announcedVoidIds = {};
   /// Phiếu hủy đã Đồng ý — ẩn ngay, không chờ reload (tránh sheet/thẻ kẹt).
   final Set<String> _ackedVoidIds = {};
-  bool _isKdsFullscreen = false;
+  bool get _isKdsFullscreen => AppFullscreen.isActive;
+  void _onAppFullscreenChanged() {
+    if (mounted) setState(() {});
+  }
   final _boardRev = ValueNotifier<int>(0);
   String? _kdsPrinterId;
   List<PosStorePrinter> _kdsPrinters = [];
@@ -131,6 +132,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   @override
   void initState() {
     super.initState();
+    AppFullscreen.active.addListener(_onAppFullscreenChanged);
     PosQrOrderVoiceAlert.instance.enterKds();
     PosKdsAlert.enterUi();
     unawaited(PosKdsAlert.keepScreenOn(true));
@@ -192,31 +194,14 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     _connSub?.cancel();
     _nowTick.dispose();
     _boardRev.dispose();
+    AppFullscreen.active.removeListener(_onAppFullscreenChanged);
     if (_isKdsFullscreen && !kIsWeb) {
-      SystemUiInsetMode.immersive.value = false;
-      unawaited(restoreSystemBarsEdgeToEdge());
+      unawaited(AppFullscreen.exit());
     }
     super.dispose();
   }
 
-  Future<void> _toggleKdsFullscreen() async {
-    if (kIsWeb) {
-      final active = await togglePosBrowserFullscreen();
-      if (!mounted) return;
-      SystemUiInsetMode.immersive.value = active;
-      setState(() => _isKdsFullscreen = active);
-      return;
-    }
-    final next = !_isKdsFullscreen;
-    SystemUiInsetMode.immersive.value = next;
-    if (next) {
-      await hideSystemBarsForImmersive();
-    } else {
-      await restoreSystemBarsEdgeToEdge();
-    }
-    if (!mounted) return;
-    setState(() => _isKdsFullscreen = next);
-  }
+  Future<void> _toggleKdsFullscreen() => AppFullscreen.toggle();
 
   Future<void> _bootstrap() async {
     await _loadKdsPrintPrefs();

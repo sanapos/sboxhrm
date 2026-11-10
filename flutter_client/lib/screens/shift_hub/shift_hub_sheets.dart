@@ -207,6 +207,140 @@ class _RegisterSheetState extends State<_RegisterSheet> {
   }
 }
 
+// ═════════════ ĐĂNG KÝ CẢ TUẦN ═════════════
+
+/// Nhân viên đăng ký ca cho nhiều ngày trong một bảng (thay vì mở «Đăng ký ca» từng ngày):
+/// mỗi ngày chọn một ca, «Nghỉ» hoặc bỏ trống; gửi một lượt, mỗi ngày một đăng ký chờ duyệt.
+/// [days]: phần tử `days` của `GET /api/shift-hub/my` (có schedule, registration, slots).
+Future<bool> showRegisterWeekSheet(
+  BuildContext context, {
+  required List<Map<String, dynamic>> days,
+  required List<Map<String, dynamic>> templates,
+}) async {
+  final ok = await _sheet(context, _RegisterWeekSheet(days: days, templates: templates));
+  return ok == true;
+}
+
+class _RegisterWeekSheet extends StatefulWidget {
+  const _RegisterWeekSheet({required this.days, required this.templates});
+  final List<Map<String, dynamic>> days;
+  final List<Map<String, dynamic>> templates;
+
+  @override
+  State<_RegisterWeekSheet> createState() => _RegisterWeekSheetState();
+}
+
+class _RegisterWeekSheetState extends State<_RegisterWeekSheet> {
+  /// ngày → shiftId | 'off'
+  final Map<String, String> _pick = {};
+  bool _saving = false;
+
+  List<Map<String, dynamic>> get _open => widget.days.where((d) => d['isPast'] != true).toList();
+
+  Map<String, dynamic>? _tpl(dynamic id) =>
+      id == null ? null : widget.templates.where((t) => t['id'].toString() == id.toString()).firstOrNull;
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    var ok = 0, fail = 0;
+    String? err;
+    for (final e in _pick.entries) {
+      final off = e.value == 'off';
+      final r = await ApiService().createScheduleRegistration({
+        'date': e.key,
+        if (!off) 'shiftId': e.value,
+        'isDayOff': off,
+      });
+      if (r['isSuccess'] == true) {
+        ok++;
+      } else {
+        fail++;
+        err ??= r['message']?.toString();
+      }
+    }
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (fail == 0) {
+      NotificationOverlayManager().showSuccess(title: 'Đăng ký cả tuần', message: 'Đã gửi $ok đăng ký — chờ quản lý duyệt');
+    } else {
+      NotificationOverlayManager().showError(title: 'Đăng ký cả tuần', message: 'Gửi được $ok, lỗi $fail${err != null ? ': $err' : ''}');
+    }
+    Navigator.pop(context, ok > 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final days = _open;
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.85,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _title('Đăng ký cả tuần', 'Chọn ca cho từng ngày rồi gửi một lượt'),
+          Expanded(
+            child: days.isEmpty
+                ? Center(child: Text(tr('Tuần này không còn ngày nào để đăng ký'), style: const TextStyle(color: SboxColors.slate500)))
+                : ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children: [
+                    for (final d in days) _dayRow(d),
+                  ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: FilledButton.icon(
+              onPressed: _saving || _pick.isEmpty ? null : _save,
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+              icon: const Icon(Icons.send_rounded),
+              label: Text(tr(_saving ? 'Đang gửi…' : 'Gửi ${_pick.length} đăng ký')),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _dayRow(Map<String, dynamic> d) {
+    final key = d['date'].toString();
+    final date = ShiftUi.parse(key)!;
+    final s = d['schedule'] as Map?;
+    final reg = d['registration'] as Map?;
+    final now = s == null
+        ? 'Chưa có ca'
+        : s['isDayOff'] == true
+            ? 'Đang là ngày nghỉ'
+            : 'Đang có ${_tpl(s['shiftId'])?['name'] ?? 'ca'}';
+    final pending = reg != null && reg['status'] == 'Pending';
+    final slots = [for (final x in (d['slots'] as List? ?? const [])) if (x is Map) x];
+    String? slotStatus(String id) => slots.where((x) => x['shiftId']?.toString() == id).firstOrNull?['status']?.toString();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: SboxColors.slate200)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text(tr('${ShiftUi.weekdaysLong[date.weekday - 1]}, ${ShiftUi.dm(date)}'), style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(tr(now), style: const TextStyle(fontSize: 12, color: SboxColors.slate500), overflow: TextOverflow.ellipsis)),
+          if (pending) ShiftUi.requestStatusPill('reg', 'Pending'),
+        ]),
+        const SizedBox(height: 6),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final t in widget.templates)
+            ChoiceChip(
+              avatar: CircleAvatar(radius: 5, backgroundColor: ShiftUi.shiftColor(ShiftUi.n(t['colorIndex']).toInt())),
+              label: Text('${t['name']}${slotStatus(t['id'].toString()) == 'short' ? ' · thiếu' : (slotStatus(t['id'].toString()) == 'full' || slotStatus(t['id'].toString()) == 'over') ? ' · đủ' : ''}'),
+              selected: _pick[key] == t['id'].toString(),
+              onSelected: (v) => setState(() => v ? _pick[key] = t['id'].toString() : _pick.remove(key)),
+            ),
+          ChoiceChip(
+            label: Text(tr('Nghỉ')),
+            selected: _pick[key] == 'off',
+            onSelected: (v) => setState(() => v ? _pick[key] = 'off' : _pick.remove(key)),
+          ),
+        ]),
+      ]),
+    );
+  }
+}
+
 Widget _choice({
   required bool selected,
   required Color color,
@@ -246,25 +380,52 @@ Widget _choice({
 
 // ═════════════ XIN NGHỈ ═════════════
 
-/// Xin nghỉ phép: loại nghỉ, khoảng ngày, ca, nửa ca, lý do; hiện phép năm còn lại.
+/// Xin nghỉ phép — form dùng chung (Lịch của tôi, quản lý tạo hộ từ Bảng xếp ca, ngày vắng bên Chấm công):
+/// đủ 8 loại nghỉ, khoảng ngày, ca, nửa ca, người thay ca, số ngày phép sẽ trừ, lý do.
+/// [managerMode]: quản lý tạo hộ [employeeName] — thêm «Duyệt luôn» và «Vẫn tính công».
+/// [candidates]: người thay ca có thể chọn ({id: Employee.Id, name, department}); bỏ trống thì tải
+/// đồng nghiệp từ `GET /api/shiftswaps/colleagues`.
 Future<bool> showLeaveRequestSheet(
   BuildContext context, {
   required DateTime date,
   required List<Map<String, dynamic>> templates,
   String? scheduledShiftId,
   String? employeeId,
+  bool managerMode = false,
+  String? employeeName,
+  List<Map<String, dynamic>>? candidates,
 }) async {
-  final ok = await _sheet(context,
-      _LeaveSheet(date: date, templates: templates, scheduledShiftId: scheduledShiftId, employeeId: employeeId));
+  final ok = await _sheet(
+      context,
+      _LeaveSheet(
+        date: date,
+        templates: templates,
+        scheduledShiftId: scheduledShiftId,
+        employeeId: employeeId,
+        managerMode: managerMode,
+        employeeName: employeeName,
+        candidates: candidates,
+      ));
   return ok == true;
 }
 
 class _LeaveSheet extends StatefulWidget {
-  const _LeaveSheet({required this.date, required this.templates, this.scheduledShiftId, this.employeeId});
+  const _LeaveSheet({
+    required this.date,
+    required this.templates,
+    this.scheduledShiftId,
+    this.employeeId,
+    this.managerMode = false,
+    this.employeeName,
+    this.candidates,
+  });
   final DateTime date;
   final List<Map<String, dynamic>> templates;
   final String? scheduledShiftId;
   final String? employeeId;
+  final bool managerMode;
+  final String? employeeName;
+  final List<Map<String, dynamic>>? candidates;
 
   @override
   State<_LeaveSheet> createState() => _LeaveSheetState();
@@ -282,6 +443,12 @@ class _LeaveSheetState extends State<_LeaveSheet> {
   final _bhxh = TextEditingController();
   bool _saving = false;
   num? _annualLeft;
+  num? _deduct;
+  String _deductKey = '';
+  List<Map<String, dynamic>> _candidates = const [];
+  Map<String, dynamic>? _replacement;
+  bool _approveNow = false;
+  bool _countAsWork = false;
 
   @override
   void initState() {
@@ -299,6 +466,28 @@ class _LeaveSheetState extends State<_LeaveSheet> {
         if (left is num) setState(() => _annualLeft = left);
       });
     }
+    if (widget.candidates != null) {
+      _candidates = widget.candidates!.where((c) => c['id']?.toString() != widget.employeeId).toList();
+    } else {
+      _api.getShiftSwapColleagues(includeNoAccount: true).then((r) {
+        final raw = r['data'];
+        if (!mounted || r['isSuccess'] != true || raw is! List) return;
+        setState(() => _candidates = [
+              for (final x in raw)
+                if (x is Map && (x['employeeId'] ?? '').toString().isNotEmpty)
+                  {
+                    'id': x['employeeId'].toString(),
+                    'name': x['fullName'] ?? '',
+                    // Mã NV giúp phân biệt người trùng tên.
+                    'department': [x['employeeCode'], x['department']]
+                        .map((v) => '${v ?? ''}'.trim())
+                        .where((v) => v.isNotEmpty)
+                        .join(' · '),
+                  },
+            ]);
+      });
+    }
+    _refreshDeduct();
   }
 
   @override
@@ -310,10 +499,31 @@ class _LeaveSheetState extends State<_LeaveSheet> {
 
   int get _days => _to.difference(_from).inDays + 1;
 
+  /// Loại nghỉ trừ quỹ phép năm: phép năm, nghỉ ốm dùng phép năm.
+  bool get _usesAnnual => !_countAsWork && (_type == 'AnnualLeave' || (_type == 'SickLeave' && _sickMode == 1));
+
+  /// Số ngày phép sẽ trừ (máy chủ bỏ ngày nghỉ lễ / ngày không có ca).
+  void _refreshDeduct() {
+    final emp = widget.employeeId;
+    if (emp == null || !_usesAnnual) {
+      if (_deduct != null) setState(() => _deduct = null);
+      _deductKey = '';
+      return;
+    }
+    final key = '$emp|$_from|$_to|$_half';
+    if (key == _deductKey) return;
+    _deductKey = key;
+    _api.countAnnualLeaveDays(emp, _from, _to, _half).then((r) {
+      final d = r['data'];
+      if (!mounted || _deductKey != key) return;
+      setState(() => _deduct = r['isSuccess'] == true && d is Map ? d['days'] as num? : null);
+    });
+  }
+
   Future<void> _pickRange() async {
     final r = await showDateRangePicker(
       context: context,
-      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+      firstDate: DateTime.now().subtract(Duration(days: widget.managerMode ? 90 : 30)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       initialDateRange: DateTimeRange(start: _from, end: _to),
     );
@@ -322,7 +532,19 @@ class _LeaveSheetState extends State<_LeaveSheet> {
         _from = r.start;
         _to = r.end;
       });
+      _refreshDeduct();
     }
+  }
+
+  Future<void> _pickReplacement() async {
+    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      constraints: const BoxConstraints(maxWidth: 560),
+      builder: (ctx) => _PersonPicker(items: _candidates, title: 'Người thay ca'),
+    );
+    if (picked != null) setState(() => _replacement = picked);
   }
 
   Future<void> _save() async {
@@ -334,6 +556,10 @@ class _LeaveSheetState extends State<_LeaveSheet> {
       NotificationOverlayManager().showWarning(title: 'Xin nghỉ', message: 'Vui lòng nhập lý do');
       return;
     }
+    if (_type == 'SickLeave' && _sickMode == 2 && _bhxh.text.trim().isEmpty) {
+      NotificationOverlayManager().showWarning(title: 'Xin nghỉ', message: 'Nhập số giấy nghỉ / mã hồ sơ BHXH');
+      return;
+    }
     setState(() => _saving = true);
     final res = await _api.createLeave(
       shiftIds: _shifts.toList(),
@@ -342,27 +568,43 @@ class _LeaveSheetState extends State<_LeaveSheet> {
       type: _type,
       isHalfShift: _half,
       reason: _reason.text.trim(),
+      replacementEmployeeId: _replacement?['id']?.toString(),
+      employeeId: widget.managerMode ? widget.employeeId : null,
+      autoApprove: widget.managerMode ? _approveNow : null,
+      countAsWork: widget.managerMode ? _countAsWork : null,
       sickLeaveMode: _type == 'SickLeave' ? _sickMode : null,
       bhxhDocumentNote: _type == 'SickLeave' && _sickMode == 2 ? _bhxh.text.trim() : null,
     );
     if (!mounted) return;
     setState(() => _saving = false);
-    _toast(res, 'Đã gửi đơn nghỉ — chờ duyệt', 'Xin nghỉ');
+    _toast(res, widget.managerMode && _approveNow ? 'Đã tạo và duyệt đơn nghỉ' : 'Đã gửi đơn nghỉ — chờ duyệt', 'Xin nghỉ');
     if (res['isSuccess'] == true) Navigator.pop(context, true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final sub = widget.managerMode
+        ? 'Tạo hộ ${widget.employeeName ?? 'nhân viên'}${_annualLeft == null ? '' : ' · phép năm còn $_annualLeft ngày'}'
+        : _annualLeft == null
+            ? 'Gửi đơn tới quản lý duyệt'
+            : 'Phép năm còn lại: $_annualLeft ngày';
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          _title('Xin nghỉ phép', _annualLeft == null ? 'Gửi đơn tới quản lý duyệt' : 'Phép năm còn lại: $_annualLeft ngày'),
+          _title(widget.managerMode ? 'Tạo đơn nghỉ' : 'Xin nghỉ phép', sub),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final e in ShiftUi.leaveTypes.entries.take(6))
-                ChoiceChip(label: Text(tr(e.value)), selected: _type == e.key, onSelected: (_) => setState(() => _type = e.key)),
+              for (final e in ShiftUi.leaveTypes.entries)
+                ChoiceChip(
+                  label: Text(tr(e.value)),
+                  selected: _type == e.key,
+                  onSelected: (_) {
+                    setState(() => _type = e.key);
+                    _refreshDeduct();
+                  },
+                ),
             ]),
           ),
           if (_type == 'SickLeave')
@@ -375,7 +617,10 @@ class _LeaveSheetState extends State<_LeaveSheet> {
                     ButtonSegment(value: 2, label: Text(tr('Hưởng BHXH'))),
                   ],
                   selected: {_sickMode},
-                  onSelectionChanged: (v) => setState(() => _sickMode = v.first),
+                  onSelectionChanged: (v) {
+                    setState(() => _sickMode = v.first);
+                    _refreshDeduct();
+                  },
                 ),
                 if (_sickMode == 2)
                   Padding(
@@ -399,6 +644,18 @@ class _LeaveSheetState extends State<_LeaveSheet> {
                   : '${ShiftUi.dmy(_from)} → ${ShiftUi.dmy(_to)} ($_days ngày)'),
             ),
           ),
+          if (_usesAnnual && _deduct != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+              child: Text(
+                tr('Sẽ trừ $_deduct ngày phép năm${_annualLeft != null ? ' (còn $_annualLeft ngày)' : ''}'),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: _annualLeft != null && _deduct! > _annualLeft! ? SboxColors.danger : SboxColors.slate600,
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Text(tr('Nghỉ ca nào'), style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -418,11 +675,42 @@ class _LeaveSheetState extends State<_LeaveSheet> {
           SwitchListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
             value: _half,
-            onChanged: (v) => setState(() => _half = v),
+            onChanged: (v) {
+              setState(() => _half = v);
+              _refreshDeduct();
+            },
             title: Text(tr('Chỉ nghỉ nửa ca')),
           ),
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            leading: const Icon(Icons.swap_horiz_rounded, color: SboxColors.slate500),
+            title: Text(_replacement == null ? tr('Người thay ca (không bắt buộc)') : tr('Người thay ca: ${_replacement!['name']}')),
+            subtitle: _candidates.isEmpty ? Text(tr('Không có đồng nghiệp để chọn')) : null,
+            trailing: _replacement != null
+                ? IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(() => _replacement = null))
+                : const Icon(Icons.chevron_right_rounded),
+            onTap: _candidates.isEmpty ? null : _pickReplacement,
+          ),
+          if (widget.managerMode) ...[
+            SwitchListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              value: _approveNow,
+              onChanged: (v) => setState(() => _approveNow = v),
+              title: Text(tr('Duyệt luôn khi tạo')),
+            ),
+            SwitchListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              value: _countAsWork,
+              onChanged: (v) {
+                setState(() => _countAsWork = v);
+                _refreshDeduct();
+              },
+              title: Text(tr('Vẫn tính công')),
+              subtitle: Text(tr('Không ghi «Phép» trên chấm công, không trừ phép năm')),
+            ),
+          ],
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             child: TextField(
               controller: _reason,
               minLines: 2,
@@ -436,11 +724,55 @@ class _LeaveSheetState extends State<_LeaveSheet> {
               onPressed: _saving ? null : _save,
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
               icon: const Icon(Icons.send_rounded),
-              label: Text(tr(_saving ? 'Đang gửi…' : 'Gửi đơn nghỉ')),
+              label: Text(tr(_saving ? 'Đang gửi…' : (widget.managerMode ? 'Tạo đơn nghỉ' : 'Gửi đơn nghỉ'))),
             ),
           ),
         ]),
       ),
+    );
+  }
+}
+
+/// Chọn một người trong danh sách ({id, name, department}), có ô tìm.
+class _PersonPicker extends StatefulWidget {
+  const _PersonPicker({required this.items, required this.title});
+  final List<Map<String, dynamic>> items;
+  final String title;
+
+  @override
+  State<_PersonPicker> createState() => _PersonPickerState();
+}
+
+class _PersonPickerState extends State<_PersonPicker> {
+  String _q = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _q.trim().toLowerCase();
+    final list = widget.items.where((e) => q.isEmpty || '${e['name']} ${e['department'] ?? ''}'.toLowerCase().contains(q)).toList();
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.7,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        _title(widget.title, '${widget.items.length} người'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TextField(
+            onChanged: (v) => setState(() => _q = v),
+            decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search_rounded), hintText: tr('Tìm theo tên'), isDense: true, border: const OutlineInputBorder()),
+          ),
+        ),
+        Expanded(
+          child: ListView(children: [
+            for (final e in list)
+              ListTile(
+                title: Text(e['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: '${e['department'] ?? ''}'.isEmpty ? null : Text('${e['department']}'),
+                onTap: () => Navigator.pop(context, e),
+              ),
+          ]),
+        ),
+      ]),
     );
   }
 }

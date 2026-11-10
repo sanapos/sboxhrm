@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/page_max_width.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_tr.dart';
@@ -145,9 +146,7 @@ class _EmployeeCareerV2ScreenState extends State<EmployeeCareerV2Screen> {
                     padding: EdgeInsets.fromLTRB(wide ? 24 : 12, 16, wide ? 24 : 12, 96),
                     children: [
                       Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1100),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        child: PageMaxWidth(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                             _header(wide),
                             const SizedBox(height: 12),
                             _summary(wide),

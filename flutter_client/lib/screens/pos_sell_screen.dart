@@ -74,9 +74,7 @@ import '../utils/pos_sell_print_settings.dart';
 import '../utils/pos_sell_stock_patch.dart';
 import '../utils/pos_device_identity.dart';
 import '../utils/pos_floor_realtime.dart';
-import '../utils/pos_browser_fullscreen.dart';
-import '../utils/system_ui_inset_mode.dart';
-import '../utils/play_system_ui.dart';
+import '../utils/app_fullscreen.dart';
 import '../utils/pos_sell_store_settings.dart';
 import '../utils/pos_loyalty_rates.dart';
 import '../utils/pos_sell_tax.dart';
@@ -1525,6 +1523,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   @override
   void initState() {
     super.initState();
+    AppFullscreen.active.addListener(_onAppFullscreenChanged);
     PosManagerApproval.attach(context);
     PosNotifyFocus.enter();
     // Khuyến mãi có thể áp riêng từng chi nhánh → đổi chi nhánh bán thì tải lại.
@@ -2480,9 +2479,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     NavigationNotifier.pendingOpenQrOnlineDraftId
         .removeListener(_onPendingQrOnlineDraftChanged);
     NavigationNotifier.pendingSellCustomerId.removeListener(_onPendingSellCustomer);
+    AppFullscreen.active.removeListener(_onAppFullscreenChanged);
     if (_isPosFullscreen && !kIsWeb) {
-      SystemUiInsetMode.immersive.value = false;
-      unawaited(restoreSystemBarsEdgeToEdge());
+      unawaited(AppFullscreen.exit());
     }
     unawaited(_persistPendingPrintQueue());
     _timedBillingTimer?.cancel();
@@ -3202,7 +3201,10 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// Máy có display phụ thật (Android DisplayManager / Chrome Multi-Screen).
   bool _hasSecondaryCustomerDisplay = false;
   /// Đang phóng toàn màn hình (browser fullscreen / immersive).
-  bool _isPosFullscreen = false;
+  bool get _isPosFullscreen => AppFullscreen.isActive;
+  void _onAppFullscreenChanged() {
+    if (mounted) setState(() {});
+  }
   int _systemUnreadNotifications = 0;
   bool _openingPendingPrintQueue = false;
   bool _qrOnlineFeatureEnabled = false;
@@ -3806,24 +3808,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     );
   }
 
-  Future<void> _togglePosFullscreen() async {
-    if (kIsWeb) {
-      final active = await togglePosBrowserFullscreen();
-      if (!mounted) return;
-      SystemUiInsetMode.immersive.value = active;
-      setState(() => _isPosFullscreen = active);
-      return;
-    }
-    final next = !_isPosFullscreen;
-    SystemUiInsetMode.immersive.value = next;
-    if (next) {
-      await hideSystemBarsForImmersive();
-    } else {
-      await restoreSystemBarsEdgeToEdge();
-    }
-    if (!mounted) return;
-    setState(() => _isPosFullscreen = next);
-  }
+  Future<void> _togglePosFullscreen() => AppFullscreen.toggle();
 
   Future<void> _refreshSystemUnreadNotifications() async {
     try {
@@ -20215,17 +20200,21 @@ class _PosSellScreenState extends State<PosSellScreen>
         disabledBackgroundColor: SboxColors.posApp ? SboxColors.slate100 : SboxColors.slate300,
         disabledForegroundColor: SboxColors.slate600,
         minimumSize: Size(0, height),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
       ),
-      child: Text(
-        tr(sendToCashier
-            ? (_sendingToCashier ? 'Đang gửi…' : 'Gửi thu ngân')
-            : payLabel),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+      // Nút hẹp (điện thoại, cùng hàng với tổng tiền): thu nhỏ chữ thay vì cắt «Thanh to…».
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          tr(sendToCashier
+              ? (_sendingToCashier ? 'Đang gửi…' : 'Gửi thu ngân')
+              : payLabel),
+          maxLines: 1,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+        ),
       ),
     );
 
@@ -20840,8 +20829,86 @@ class _PosSellScreenState extends State<PosSellScreen>
     );
   }
 
+  /// Thanh tổng tiền + nút dưới giỏ (điện thoại), 2 hàng gọn: «số món · tổng tiền» (một dòng chữ)
+  /// rồi «Xuất kho / Thông báo · Thanh toán» (44dp) sát mép dưới. Trước: dòng tổng 13–18px + nút
+  /// 48dp + đệm 8 → ~100dp, che bớt giỏ trên V2s.
   Widget _buildMobileCheckoutBar(PermissionProvider perm, bool canPay) {
     final inHub = PosHubScope.of(context);
+    final hasQr = _resolveTransferPaymentQr() != null;
+
+    final qrButton = IconButton(
+      visualDensity: VisualDensity.compact,
+      tooltip: tr('Mã QR thanh toán'),
+      onPressed: () {
+        final qr = _resolveTransferPaymentQr();
+        if (qr == null) return;
+        final panelTitle = qr.isTingee
+            ? 'Tingee QR thanh toán'
+            : 'VietQR thanh toán';
+        final dialogTitle = qr.isTingee
+            ? 'Quét Tingee QR thanh toán'
+            : 'Quét VietQR thanh toán';
+        showPosVietQrPaymentDialog(
+          context,
+          accounts: _accountsForTransferQr(tingee: qr.isTingee),
+          amount: qr.amount,
+          preferredAccountId: qr.preferredAccountId,
+          description: qr.description,
+          title: panelTitle,
+          dialogTitle: dialogTitle,
+          lockAccountSelection: qr.isTingee,
+        );
+      },
+      icon: const Icon(Icons.qr_code_2, color: _kiotBlue, size: 26),
+    );
+
+    final amount = Text(
+      tr('${_moneyFmt.format(_grandTotal)} đ'),
+      maxLines: 1,
+      style: const TextStyle(
+        fontSize: 17,
+        height: 1.15,
+        fontWeight: FontWeight.bold,
+        color: _kiotBlue,
+      ),
+    );
+    final countLabel = Text(
+      tr(_tab.cart.isEmpty ? 'Chưa có hàng' : 'Tổng (${_lineCountText()})'),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
+    );
+
+    final actions = _buildInvoiceActionButtons(
+      canPay: canPay,
+      canOrder: perm.canPosOrder(),
+      payLabel: 'Thanh toán',
+      height: 44,
+      payIsPrimaryFilled: false,
+      onPay: () => _openMobilePaymentScreen(perm),
+    );
+
+    final Widget body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          // Nút QR (nếu có) thu nhỏ vào đúng chiều cao dòng chữ — không làm dòng tổng cao thêm.
+          height: 28,
+          child: Row(
+            children: [
+              Expanded(child: countLabel),
+              if (hasQr)
+                SizedBox(width: 36, height: 28, child: FittedBox(child: qrButton)),
+              FittedBox(fit: BoxFit.scaleDown, child: amount),
+            ],
+          ),
+        ),
+        const SizedBox(height: 2),
+        actions,
+      ],
+    );
+
     return Material(
       elevation: 6,
       color: Colors.white,
@@ -20849,74 +20916,11 @@ class _PosSellScreenState extends State<PosSellScreen>
         top: false,
         bottom: !inHub,
         child: Container(
-          padding: EdgeInsets.fromLTRB(12, 8, 12, inHub ? 4 : 8),
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
           decoration: const BoxDecoration(
             border: Border(top: BorderSide(color: PosTheme.border)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      tr(_tab.cart.isEmpty
-                          ? 'Chưa có hàng'
-                          : 'Tổng (${_lineCountText()})'),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: PosTheme.textSecondary,
-                      ),
-                    ),
-                  ),
-                  if (_resolveTransferPaymentQr() != null)
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      tooltip: tr('Mã QR thanh toán'),
-                      onPressed: () {
-                        final qr = _resolveTransferPaymentQr();
-                        if (qr == null) return;
-                        final panelTitle = qr.isTingee
-                            ? 'Tingee QR thanh toán'
-                            : 'VietQR thanh toán';
-                        final dialogTitle = qr.isTingee
-                            ? 'Quét Tingee QR thanh toán'
-                            : 'Quét VietQR thanh toán';
-                        showPosVietQrPaymentDialog(
-                          context,
-                          accounts: _accountsForTransferQr(tingee: qr.isTingee),
-                          amount: qr.amount,
-                          preferredAccountId: qr.preferredAccountId,
-                          description: qr.description,
-                          title: panelTitle,
-                          dialogTitle: dialogTitle,
-                          lockAccountSelection: qr.isTingee,
-                        );
-                      },
-                      icon: const Icon(Icons.qr_code_2, color: _kiotBlue, size: 26),
-                    ),
-                  Text(
-                    tr('${_moneyFmt.format(_grandTotal)} đ'),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: _kiotBlue,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _buildInvoiceActionButtons(
-                canPay: canPay,
-                canOrder: perm.canPosOrder(),
-                payLabel: 'Thanh toán',
-                height: 48,
-                payIsPrimaryFilled: false,
-                onPay: () => _openMobilePaymentScreen(perm),
-              ),
-            ],
-          ),
+          child: body,
         ),
       ),
     );

@@ -57,6 +57,34 @@ class ShiftUi {
     'RejectedByManager': 'Quản lý từ chối',
   };
 
+  /// Nhãn trạng thái thống nhất cho mọi loại yêu cầu (đăng ký ca `reg`, đơn nghỉ `leave`, đổi ca `swap`):
+  /// Chờ duyệt / Chờ đồng nghiệp / Chờ quản lý duyệt / Đã duyệt / Từ chối / Đã huỷ.
+  /// Đổi ca «Pending» là đang chờ đồng nghiệp đồng ý, chưa tới quản lý.
+  static String requestStatusLabel(String kind, String? s) {
+    if (kind == 'swap' && s == 'Pending') return 'Chờ đồng nghiệp';
+    return switch (s) {
+      'Pending' => 'Chờ duyệt',
+      'TargetAccepted' => 'Chờ quản lý duyệt',
+      'Approved' => 'Đã duyệt',
+      'Rejected' || 'RejectedByManager' => 'Từ chối',
+      'RejectedByTarget' => 'Đồng nghiệp từ chối',
+      'Cancelled' => 'Đã huỷ',
+      _ => s ?? '',
+    };
+  }
+
+  static Widget requestStatusPill(String kind, String? s) => pill(requestStatusLabel(kind, s), statusColor(s));
+
+  /// Còn huỷ được (người gửi): đăng ký / đơn nghỉ đang chờ, đổi ca chưa được quản lý duyệt.
+  static bool requestCancellable(String kind, String? s) =>
+      s == 'Pending' || (kind == 'swap' && s == 'TargetAccepted');
+
+  static const requestKinds = <String, (String, IconData)>{
+    'reg': ('Đăng ký ca', Icons.how_to_reg_rounded),
+    'leave': ('Đơn nghỉ', Icons.beach_access_rounded),
+    'swap': ('Đổi ca', Icons.swap_horiz_rounded),
+  };
+
   static Color statusColor(String? s) => switch (s) {
         'Approved' => SboxColors.success,
         'Rejected' || 'RejectedByTarget' || 'RejectedByManager' => SboxColors.danger,

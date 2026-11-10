@@ -2,3 +2,5 @@
 bool get posBrowserFullscreenActive => false;
 
 Future<bool> togglePosBrowserFullscreen() async => false;
+
+void listenPosBrowserFullscreenChange(void Function(bool active) onChange) {}

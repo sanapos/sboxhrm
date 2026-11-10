@@ -555,6 +555,7 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
           'mobileAttendance' => Icons.phone_android_outlined,
           'correction' => Icons.edit_calendar_outlined,
           'shiftSwap' => Icons.swap_horiz_rounded,
+          'scheduleReg' => Icons.how_to_reg_rounded,
           'advance' => Icons.request_quote_outlined,
           'outOfStock' => Icons.remove_shopping_cart_outlined,
           'lowStock' => Icons.inventory_outlined,
@@ -574,7 +575,9 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
           'leave' => ('Leave', () => NavigationNotifier.leaveInitialTab.value = 1),
           'mobileAttendance' => ('AttendanceApproval', () => NavigationNotifier.attendanceApprovalTab.value = 1),
           'correction' => ('AttendanceApproval', () => NavigationNotifier.attendanceApprovalTab.value = 0),
-          'shiftSwap' => ('ScheduleApproval', () => NavigationNotifier.scheduleApprovalTab.value = 2),
+          // «Duyệt lịch làm việc» giờ mở Ca làm việc → Cần duyệt (màn cũ chỉ khi thiếu quyền Ca làm việc).
+          'shiftSwap' => ('ScheduleApproval', () => NavigationNotifier.scheduleApprovalTab.value = 3),
+          'scheduleReg' => ('ScheduleApproval', () => NavigationNotifier.scheduleApprovalTab.value = 0),
           'advance' => ('AdvanceRequests', () => NavigationNotifier.advanceRequestsStatusFilter.value = 0),
           'outOfStock' || 'lowStock' => ('PosProducts', null),
           'nearExpiry' || 'expiredLots' => ('PosSalesReport', null),

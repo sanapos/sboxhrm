@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
+import '../screens/shift_hub/shift_hub_sheets.dart';
 import '../services/api_service.dart';
 import '../widgets/leave_request_form.dart';
 import '../widgets/notification_overlay.dart';
@@ -174,6 +175,40 @@ class AbsenceDayActions {
         message: tr('Không tìm thấy nhân viên trên hệ thống HR'),
       );
       return;
+    }
+
+    // Form chung của Ca làm việc (tạo hộ, duyệt luôn, vẫn tính công, người thay ca) — lấy ca mẫu,
+    // ca đã xếp ngày đó và danh sách người thay từ bảng xếp ca. Không có quyền Ca làm việc → form cũ.
+    final board = await api.getShiftHubBoard(from: date, to: date);
+    if (!context.mounted) return;
+    if (board['isSuccess'] == true && board['data'] is Map) {
+      final d = Map<String, dynamic>.from(board['data'] as Map);
+      final templates = [
+        for (final t in (d['templates'] as List? ?? const []))
+          if (t is Map && t['active'] != false) Map<String, dynamic>.from(t),
+      ];
+      final emps = [
+        for (final x in (d['employees'] as List? ?? const []))
+          if (x is Map) Map<String, dynamic>.from(x),
+      ];
+      final me = emps.where((x) => x['id']?.toString().toLowerCase() == hrEmployeeId.toLowerCase()).firstOrNull;
+      final cell = (me?['cells'] as Map?)?[DateFormat('yyyy-MM-dd').format(date)];
+      if (templates.isNotEmpty) {
+        final ok = await showLeaveRequestSheet(
+          context,
+          date: date,
+          templates: templates,
+          scheduledShiftId: cell is Map && cell['isDayOff'] != true ? cell['shiftId']?.toString() : null,
+          employeeId: hrEmployeeId,
+          managerMode: true,
+          employeeName: employeeName,
+          candidates: [
+            for (final x in emps) {'id': x['id'].toString(), 'name': x['name'] ?? '', 'department': x['department'] ?? ''},
+          ],
+        );
+        if (ok) onCompleted?.call();
+        return;
+      }
     }
 
     final auth = context.read<AuthProvider>();

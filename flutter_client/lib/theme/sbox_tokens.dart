@@ -60,8 +60,23 @@ abstract final class SboxColors {
   /// Dải sau thanh trạng thái / điều hướng (app khác vẫn đen).
   static const systemBand = _posApp ? chrome : Color(0xFF000000);
 
-  /// Nền, chữ AppBar đặt cứng: POS đổi sang cobalt, app khác giữ nguyên [c].
-  static Color appBarBg(Color c) => _posApp ? chrome : c;
+  /// App SBOX HRM (không đặt SBOX_APP, không phải POS).
+  static const _hrmApp = !_posApp && String.fromEnvironment('SBOX_APP') == '';
+  /// Khung một màu: thanh trạng thái, AppBar, nền trang, thanh dưới, thanh điều hướng cùng màu
+  /// [page] (không viền / bóng chia khúc) — POS, Nhân Viên, HRM. BOSS / KDS giữ kiểu cũ.
+  static const pageChrome = _posApp || _hrmApp;
+  /// Thanh hệ thống nền sáng (icon tối).
+  static const lightSystemBars = pageChrome;
+
+  /// Màu dải sau thanh hệ thống theo giao diện sáng / tối.
+  static Color systemBandFor({required bool dark}) {
+    if (_posApp) return chrome;
+    if (_hrmApp) return dark ? darkSurface : chrome;
+    return systemBand;
+  }
+
+  /// Nền AppBar đặt cứng: khung một màu ([pageChrome]) đổi về màu nền trang, app khác giữ [c].
+  static Color appBarBg(Color c) => pageChrome ? chrome : c;
   static Color appBarFg(Color c) => _posApp ? onChrome : c;
 
   // ── Trung tính: một họ Slate duy nhất ───────────────────────────

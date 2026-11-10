@@ -24,6 +24,7 @@ class BossInboxKind {
   static const all = <String, BossInboxKind>{
     'posApproval': BossInboxKind('Máy bán hàng xin duyệt', Icons.point_of_sale_rounded, SboxTone.danger),
     'leave': BossInboxKind('Nghỉ phép', Icons.beach_access_rounded, SboxTone.brand),
+    'scheduleReg': BossInboxKind('Đăng ký ca', Icons.how_to_reg_rounded, SboxTone.brand),
     'overtime': BossInboxKind('Tăng ca', Icons.more_time_rounded, SboxTone.violet),
     'correction': BossInboxKind('Sửa công', Icons.edit_calendar_rounded, SboxTone.warning),
     'mobileAttendance': BossInboxKind('Chấm công điện thoại', Icons.phone_android_rounded, SboxTone.brand),
@@ -49,6 +50,8 @@ Future<String?> bossDecide(String kind, String id, {required bool approve, Strin
       r = await api.decidePosRemoteApproval(id, approve: approve, reason: reason);
     case 'leave':
       r = approve ? await api.approveLeave(id) : await api.rejectLeave(id, reason);
+    case 'scheduleReg':
+      r = await api.approveScheduleRegistration(id, {'isApproved': approve, if (!approve) 'rejectionReason': reason ?? ''});
     case 'overtime':
       r = approve ? await api.approveOvertime(id) : await api.rejectOvertime(id, reason: reason);
     case 'correction':

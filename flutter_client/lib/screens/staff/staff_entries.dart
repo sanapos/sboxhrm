@@ -14,6 +14,7 @@ import '../mobile_attendance_screen.dart';
 import '../mobile_device_registration_screen.dart';
 import '../overtime_screen.dart';
 import '../payslip_screen.dart';
+import '../shift_hub/shift_hub_screen.dart';
 import '../shift_swap_screen.dart';
 import '../work/work_hub_screen.dart';
 import 'staff_nav.dart';
@@ -60,7 +61,8 @@ abstract final class StaffEntries {
     title: 'Đổi ca',
     subtitle: 'Nhờ đồng nghiệp làm thay / đổi ca',
     icon: Icons.swap_horiz_rounded,
-    builder: (_) => const ShiftSwapScreen(),
+    // Một cửa: Lịch của tôi + bảng đổi ca của Ca làm việc (thiếu quyền Ca làm việc dùng màn cũ).
+    builder: (_) => const MyScheduleEntry(action: 'swap', fallback: ShiftSwapScreen()),
   );
 
   static final payslip = StaffEntry(
@@ -96,7 +98,7 @@ abstract final class StaffEntries {
     moduleCode: 'Leave',
     title: 'Xin nghỉ phép',
     icon: Icons.beach_access_rounded,
-    builder: (_) => const LeaveScreen(),
+    builder: (_) => const MyScheduleEntry(action: 'leave', fallback: LeaveScreen()),
   );
 
   static final overtime = StaffEntry(

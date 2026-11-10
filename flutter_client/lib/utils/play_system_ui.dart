@@ -1,7 +1,28 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// App SBOX POS, SBOX Nhân Viên: các thanh cùng màu nền trang sáng nên icon hệ thống phải tối.
-const _posApp = bool.fromEnvironment('SBOX_POS_STANDALONE') || String.fromEnvironment('SBOX_APP') == 'staff';
+/// SBOX HRM (không đặt SBOX_APP) cũng vậy: thanh hệ thống trắng như AppBar — xem [SboxColors.lightSystemBars].
+const _posApp = bool.fromEnvironment('SBOX_POS_STANDALONE') ||
+    String.fromEnvironment('SBOX_APP') == 'staff' ||
+    String.fromEnvironment('SBOX_APP') == '';
+
+/// Giao diện tối (HRM bật chế độ tối): dải nền tối → icon hệ thống sáng.
+const kPlayOverlayDarkTheme = SystemUiOverlayStyle(
+  statusBarIconBrightness: Brightness.light,
+  statusBarBrightness: Brightness.dark,
+  systemNavigationBarIconBrightness: Brightness.light,
+  systemStatusBarContrastEnforced: false,
+  systemNavigationBarContrastEnforced: false,
+);
+
+/// Kiểu thanh hệ thống cho khung app theo giao diện sáng / tối.
+SystemUiOverlayStyle playOverlayFor({required bool darkTheme}) =>
+    darkTheme && !_alwaysLightChrome ? kPlayOverlayDarkTheme : kPlayOverlayOnDarkBg;
+
+/// POS / Nhân Viên: luôn khung sáng (không theo chế độ tối).
+const _alwaysLightChrome =
+    bool.fromEnvironment('SBOX_POS_STANDALONE') || String.fromEnvironment('SBOX_APP') == 'staff';
 
 /// Overlay styles without status/nav bar colors.
 /// Those colors map to deprecated Window.setStatusBarColor /
@@ -41,4 +62,18 @@ Future<void> restoreSystemBarsEdgeToEdge() async {
   );
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnDarkBg);
+  await hideNavigationBarIfHrm();
+}
+
+const _systemBars = MethodChannel('com.sboxhrm/system_bars');
+
+/// SBOX HRM, SBOX POS trên Android: ẩn thanh điều hướng (vuốt từ mép dưới lên để hiện tạm).
+/// SystemChrome.edgeToEdge làm thanh hiện lại → gọi sau mỗi lần đặt chế độ hệ thống.
+Future<void> hideNavigationBarIfHrm() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+  try {
+    await _systemBars.invokeMethod<bool>('hideNavigationBar');
+  } catch (_) {
+    // Bản Android cũ chưa có kênh: giữ thanh như cũ.
+  }
 }

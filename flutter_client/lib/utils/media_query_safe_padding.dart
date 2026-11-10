@@ -17,6 +17,10 @@ const kFallbackBottomClearance = 8.0;
 bool get _phone =>
     !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
 
+/// SBOX HRM và SBOX POS (không đặt SBOX_APP) trên Android: MainActivity ẩn thanh điều hướng.
+const _hidesNavApp = String.fromEnvironment('SBOX_APP') == '';
+bool get _hrmHidesNavBar => _hidesNavApp && !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
 double _maxInset(Iterable<double> values) {
   var m = 0.0;
   for (final v in values) {
@@ -63,7 +67,13 @@ MediaQueryData mediaQueryWithSystemPadding(
   final bottom = ime > 1
       ? mq.padding.bottom
       : _phone
-          ? (botSys > 0.5 ? botSys : kFallbackBottomClearance) + kSystemBarClearance
+          ? botSys > 0.5
+              ? botSys + kSystemBarClearance
+              // SBOX HRM / POS Android chủ động ẩn thanh điều hướng (vuốt lên hiện tạm, đè lên app):
+              // inset = 0 là thật, không chừa khe 12dp — nút dưới cùng sát mép màn.
+              : _hrmHidesNavBar
+                  ? 0.0
+                  : kFallbackBottomClearance + kSystemBarClearance
           : botSys + (kIsWeb ? kSystemBarClearance : 0.0); // web giữ như cũ
   return mq.copyWith(
     padding: EdgeInsets.only(
@@ -114,7 +124,8 @@ Widget padAwaySystemBars(BuildContext context, Widget child, {bool? immersive}) 
       top = kFallbackStatusBarInset;
     }
     if (inherited.viewInsets.bottom <= 1 &&
-        bottom < kFallbackBottomClearance) {
+        bottom < kFallbackBottomClearance &&
+        !_hrmHidesNavBar) {
       bottom = kFallbackBottomClearance + kSystemBarClearance;
     }
   }

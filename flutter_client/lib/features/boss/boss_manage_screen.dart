@@ -13,7 +13,6 @@ import '../../screens/employees_screen.dart';
 import '../../screens/feedback_screen.dart';
 import '../../screens/payroll_screen.dart';
 import '../../screens/salary_settings_screen.dart';
-import '../../screens/schedule_approval_screen.dart';
 import '../../screens/pos_products_screen.dart';
 import '../../screens/pos_supplier_list_screen.dart';
 import '../../screens/role_permissions_screen.dart';
@@ -131,7 +130,7 @@ final _linkedTools = <_BossTool>[
   _BossTool('Department', 'Phòng ban', Icons.business_rounded,
       (c) => openStaffPage(c, title: 'Phòng ban', child: const DepartmentScreen())),
   _BossTool('ScheduleApproval', 'Duyệt lịch làm việc', Icons.assignment_turned_in_rounded,
-      (c) => openStaffPage(c, title: 'Duyệt lịch làm việc', child: const ScheduleApprovalScreen())),
+      (c) => openStaffPage(c, title: 'Duyệt lịch làm việc', child: const ShiftHubScreen(initialTab: 'inbox'))),
 ];
 
 /// Mở màn theo mã chức năng: các màn dùng chung nhờ khung app mở màn khác qua [NavigationNotifier],

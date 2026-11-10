@@ -4,6 +4,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../config/sbox_app_variant.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/permission_provider.dart';
+import '../../utils/permission_navigation.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/hrm_page_chrome.dart';
@@ -14,19 +16,52 @@ import '../schedule_approval_screen.dart';
 import '../schedule_compliance_screen.dart';
 import '../shift_settings_screen.dart';
 import '../staffing_quota_settings_screen.dart';
-import '../work_schedule_screen.dart';
 import 'approval_inbox_view.dart';
 import 'my_schedule_view.dart';
 import 'schedule_board_view.dart';
 import 'shift_hub_ui.dart';
 
+/// Lối vào chung cho menu «Nghỉ phép», «Đổi ca làm việc», «Duyệt lịch làm việc»: mở Ca làm việc ở
+/// [tab] (nhân viên không có tab Cần duyệt → về Lịch của tôi). Tài khoản không có quyền module
+/// «WorkSchedule» (Ca làm việc) vẫn dùng màn cũ [fallback].
+class ShiftHubEntry extends StatelessWidget {
+  const ShiftHubEntry({super.key, required this.tab, required this.fallback, this.myAction});
+  final String tab;
+  final Widget fallback;
+  final String? myAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final perm = context.watch<PermissionProvider>();
+    if (!PermissionNavigation.canNavigate(perm, 'WorkSchedule')) return fallback;
+    return ShiftHubScreen(initialTab: tab, myAction: myAction);
+  }
+}
+
+/// App SBOX Nhân Viên: «Xin nghỉ phép» / «Đổi ca» mở Lịch của tôi và bật luôn bảng tương ứng.
+class MyScheduleEntry extends StatelessWidget {
+  const MyScheduleEntry({super.key, required this.action, required this.fallback});
+  final String action;
+  final Widget fallback;
+
+  @override
+  Widget build(BuildContext context) {
+    final perm = context.watch<PermissionProvider>();
+    if (!PermissionNavigation.canNavigate(perm, 'WorkSchedule')) return fallback;
+    return MyScheduleView(startAction: action);
+  }
+}
+
 /// Ca làm việc: một chỗ cho mọi việc về ca — Lịch của tôi (đăng ký ca, xin nghỉ, đổi ca),
 /// Bảng xếp ca tuần kèm định mức nhân sự, Cần duyệt (đăng ký / nghỉ / đổi ca / ca giờ), Thiết lập.
 class ShiftHubScreen extends StatefulWidget {
-  const ShiftHubScreen({super.key, this.initialTab});
+  const ShiftHubScreen({super.key, this.initialTab, this.myAction});
 
   /// my | board | inbox | setup
   final String? initialTab;
+
+  /// Bảng tự mở ở «Lịch của tôi» sau khi tải ([MyScheduleView.startAction]).
+  final String? myAction;
 
   @override
   State<ShiftHubScreen> createState() => _ShiftHubScreenState();
@@ -132,9 +167,12 @@ class _ShiftHubScreenState extends State<ShiftHubScreen> with SingleTickerProvid
               children: [
                 for (final t in _tabs)
                   switch (t) {
-                    'my' => MyScheduleView(key: ValueKey('my$_version'), onChanged: _loadCounts),
+                    'my' => MyScheduleView(
+                        key: ValueKey('my$_version'),
+                        onChanged: _loadCounts,
+                        startAction: _version == 0 ? widget.myAction : null),
                     'board' => ScheduleBoardView(key: ValueKey('board$_version'), onChanged: _loadCounts),
-                    'inbox' => ApprovalInboxView(key: ValueKey('inbox$_version'), onChanged: _changed),
+                    'inbox' => ApprovalInboxView(key: ValueKey('inbox$_version'), onChanged: _changed, onOpenLeaves: _openLeaves),
                     _ => _setup(),
                   },
               ],
@@ -176,25 +214,55 @@ class _ShiftHubScreenState extends State<ShiftHubScreen> with SingleTickerProvid
                 .then((_) => _changed()),
           ),
         );
+    // Chỉ còn cấu hình + báo cáo. Việc xếp lịch hằng ngày (theo ca, hàng loạt, sao chép ngày / tuần /
+    // tháng, xuất Excel) đã ở tab «Bảng xếp ca»; quản lý đơn nghỉ ở tab «Cần duyệt».
     return ListView(padding: const EdgeInsets.all(16), children: [
-      ShiftUi.sectionTitle('Cấu hình', icon: Icons.settings_rounded),
+      ShiftUi.sectionTitle('Cấu hình ca', icon: Icons.settings_rounded),
       tile(Icons.schedule_rounded, SboxColors.brand600, 'Ca mẫu', 'Giờ vào/ra, nghỉ giữa ca, cho phép đi muộn / về sớm, tăng ca',
           () => const ShiftSettingsScreen()),
       tile(Icons.groups_rounded, SboxColors.violet, 'Định mức nhân sự',
           'Số người tối thiểu / tối đa mỗi ca, theo bộ phận và theo thứ trong tuần', () => const StaffingQuotaSettingsScreen()),
       const SizedBox(height: 16),
-      ShiftUi.sectionTitle('Nâng cao', icon: Icons.open_in_new_rounded),
-      tile(Icons.calendar_view_month_rounded, SboxColors.slate600, 'Lịch làm việc (đầy đủ)',
-          'Xếp ca hàng loạt, xuất Excel, lịch theo tháng', () => const WorkScheduleScreen()),
-      tile(Icons.approval_rounded, SboxColors.slate600, 'Duyệt lịch nhiều cấp', 'Xem chuỗi duyệt, hoàn tác duyệt đăng ký',
-          () => const ScheduleApprovalScreen()),
-      tile(Icons.beach_access_rounded, SboxColors.success, 'Nghỉ phép (đầy đủ)', 'Tạo hộ, sửa / huỷ đơn, hoàn tác duyệt, phép năm',
-          () => const LeaveScreen()),
+      ShiftUi.sectionTitle('Quy trình duyệt', icon: Icons.approval_rounded),
+      tile(Icons.account_tree_rounded, SboxColors.slate600, 'Duyệt lịch nhiều cấp', 'Xem chuỗi duyệt, hoàn tác duyệt đăng ký',
+          () => const ScheduleApprovalScreen(chainOnly: true)),
       const SizedBox(height: 16),
       ShiftUi.sectionTitle('Báo cáo', icon: Icons.insert_chart_rounded),
       tile(Icons.rule_rounded, SboxColors.warning, 'Tuân thủ lịch', 'So lịch xếp với chấm công thực tế', () => const ScheduleComplianceScreen()),
       tile(Icons.summarize_rounded, SboxColors.brand500, 'Báo cáo nghỉ phép', 'Tổng hợp nghỉ theo nhân viên, loại nghỉ',
           () => const LeaveReportScreen()),
+      const SizedBox(height: 16),
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: SboxColors.brand50, borderRadius: BorderRadius.circular(12)),
+        child: Row(children: [
+          const Icon(Icons.info_outline_rounded, size: 18, color: SboxColors.brand700),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              tr('Xếp lịch theo ca, sao chép ngày / tuần / tháng, xuất Excel: tab «Bảng xếp ca» → «Theo ca» / «Từng ngày» và «Thao tác nhanh». '
+                  'Quản lý đơn nghỉ phép: tab «Cần duyệt».'),
+              style: const TextStyle(fontSize: 12, color: SboxColors.brand900),
+            ),
+          ),
+        ]),
+      ),
     ]);
   }
+
+  /// «Nghỉ phép (đầy đủ)»: tạo hộ, sửa / huỷ đơn, hoàn tác duyệt, phép năm — mở từ tab Cần duyệt.
+  void _openLeaves() => Navigator.of(context)
+      .push(MaterialPageRoute(
+          builder: (_) => Scaffold(
+                appBar: AppBar(title: Text(tr('Quản lý nghỉ phép')), actions: [
+                  ListenableBuilder(
+                    listenable: PageTopActions.instance,
+                    builder: (_, __) => PageTopActionsBar(actions: PageTopActions.instance.actions),
+                  ),
+                  const SizedBox(width: 8),
+                ]),
+                floatingActionButton: const PageTopActionsFab(),
+                body: const LeaveScreen(),
+              )))
+      .then((_) => _changed());
 }

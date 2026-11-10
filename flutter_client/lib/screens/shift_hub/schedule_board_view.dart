@@ -7,10 +7,21 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/page_top_actions.dart';
+import '../work_schedule_screen.dart';
+import 'schedule_board_data.dart';
+import 'schedule_day_grid.dart';
+import 'schedule_shift_week_grid.dart';
+import 'schedule_tools.dart';
+import 'shift_assign_sheet.dart';
+import 'shift_hub_sheets.dart';
 import 'shift_hub_ui.dart';
 
-/// Bảng xếp ca tuần cho quản lý: nhân viên × ngày, độ phủ định mức từng ca × ngày,
-/// xếp / đổi / xoá ca ngay trên ô, duyệt đăng ký ngay trên ô, sao chép tuần trước, kêu gọi bổ sung người.
+/// Bảng xếp ca cho quản lý, 3 cách xem:
+/// - «Theo nhân viên»: nhân viên × ngày, độ phủ định mức từng ca × ngày.
+/// - «Theo ca»: ca × ngày (số người / định mức + tên) — chạm ô chọn nhiều nhân viên cho ca.
+/// - «Từng ngày»: nhân viên × ca của một ngày — chạm ô xếp / bỏ ca, chạm tên ca chọn nhiều người.
+/// Xếp / đổi / xoá / duyệt đăng ký ngay trên ô; sao chép ngày / tuần / tháng; xuất Excel; kêu gọi bổ sung người.
 class ScheduleBoardView extends StatefulWidget {
   const ScheduleBoardView({super.key, this.onChanged});
   final VoidCallback? onChanged;
@@ -29,10 +40,25 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
   bool _loading = true;
   bool _busy = false;
   String? _error;
+  /// Ngày đang xem ở chế độ «Từng ngày».
   late DateTime _mobileDay = DateTime.now();
-  /// Điện thoại: «Tuần» (bảng gọn nhân viên × 7 ngày) hoặc «Ngày» (theo ca).
-  bool _mobileWeek = true;
+  /// emp: tuần theo nhân viên · shift: tuần theo ca · day: từng ngày (nhân viên × ca).
+  String _mode = 'emp';
+  /// Ô đang gửi lên máy chủ ở bảng ngày ([ScheduleDayGrid.busyKey]).
+  final Set<String> _busyCells = {};
   final _dayChips = ScrollController();
+
+  BoardData get _bd => BoardData(_d ?? const {});
+  ScheduleCopier get _copier => ScheduleCopier(_api, department: _department, search: _search.text);
+
+  String get _dayKey {
+    final days = _days;
+    final k = ShiftUi.key(_mobileDay);
+    if (days.contains(k)) return k;
+    final today = _d?['today']?.toString();
+    if (today != null && days.contains(today)) return today;
+    return days.isEmpty ? k : days.first;
+  }
 
   @override
   void initState() {
@@ -119,10 +145,13 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
               ShiftUi.stat('Đơn nghỉ chờ duyệt', '${ShiftUi.n(sm['pendingLeaves'])}', Icons.beach_access_rounded, SboxColors.warning),
             ], minWidth: 180),
             const SizedBox(height: 14),
-            _legend(),
+            Wrap(spacing: 16, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              _modePicker(compact: false),
+              if (_mode == 'emp') _legend(),
+            ]),
             const SizedBox(height: 10),
             if (_busy) const LinearProgressIndicator(minHeight: 2),
-            wide ? _grid() : _mobileDayView(),
+            _modeBody(compact: false),
           ],
         ),
       );
@@ -181,22 +210,236 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
       ),
       PopupMenuButton<String>(
         tooltip: tr('Thao tác nhanh'),
-        onSelected: (v) => v == 'copy' ? _copyLastWeek() : _remind(),
-        itemBuilder: (_) => [
-          PopupMenuItem(
-            value: 'copy',
-            child: ListTile(dense: true, leading: const Icon(Icons.content_copy_rounded), title: Text(tr('Sao chép lịch tuần trước'))),
-          ),
-          PopupMenuItem(
-            value: 'remind',
-            child: ListTile(
-                dense: true, leading: const Icon(Icons.notifications_active_rounded), title: Text(tr('Nhắc NV chưa đăng ký lịch'))),
-          ),
-        ],
+        onSelected: _onQuick,
+        itemBuilder: (_) => _quickItems(withToday: false),
         child: Chip(avatar: const Icon(Icons.bolt_rounded, size: 18), label: Text(tr('Thao tác nhanh'))),
       ),
     ]);
   }
+
+  // ── Chế độ xem ──
+
+  Widget _modePicker({required bool compact}) => SegmentedButton<String>(
+        segments: [
+          ButtonSegment(value: 'emp', icon: const Icon(Icons.people_alt_rounded, size: 18), label: Text(tr(compact ? 'Tuần' : 'Theo nhân viên'))),
+          ButtonSegment(value: 'shift', icon: const Icon(Icons.view_week_rounded, size: 18), label: Text(tr('Theo ca'))),
+          ButtonSegment(value: 'day', icon: const Icon(Icons.view_day_rounded, size: 18), label: Text(tr(compact ? 'Ngày' : 'Từng ngày'))),
+        ],
+        selected: {_mode},
+        showSelectedIcon: false,
+        style: compact ? const ButtonStyle(visualDensity: VisualDensity.compact) : null,
+        onSelectionChanged: (v) => setState(() => _mode = v.first),
+      );
+
+  Widget _modeBody({required bool compact}) {
+    switch (_mode) {
+      case 'shift':
+        return ScheduleShiftWeekGrid(
+          data: _bd,
+          compact: compact,
+          onCell: _assignShift,
+          onDay: (d) => setState(() {
+            _mobileDay = ShiftUi.parse(d)!;
+            _mode = 'day';
+          }),
+        );
+      case 'day':
+        final day = _dayKey;
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _dayChipsRow(day),
+          const SizedBox(height: 6),
+          Text(tr('${ShiftUi.weekdaysLong[ShiftUi.parse(day)!.weekday - 1]}, ${ShiftUi.dmy(ShiftUi.parse(day)!)}'),
+              style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.slate600)),
+          const SizedBox(height: 8),
+          ScheduleDayGrid(
+            data: _bd,
+            day: day,
+            compact: compact,
+            busy: _busyCells,
+            onToggleShift: (e, t) => _toggleShift(e, day, t),
+            onToggleDayOff: (e) => _toggleDayOff(e, day),
+            onDetail: (e) => _cellSheet(e, day, BoardData.cell(e, day)),
+            onShiftHeader: (t) => _assignShift(day, t),
+          ),
+        ]);
+      default:
+        return compact ? _weekCompact() : _grid();
+    }
+  }
+
+  List<PopupMenuEntry<String>> _quickItems({required bool withToday}) {
+    PopupMenuItem<String> it(String v, IconData icon, String label) =>
+        PopupMenuItem(value: v, child: ListTile(dense: true, leading: Icon(icon), title: Text(tr(label))));
+    return [
+      if (withToday) it('today', Icons.today_rounded, 'Về tuần này'),
+      it('copy', Icons.content_copy_rounded, 'Sao chép lịch tuần trước'),
+      it('copyDay', Icons.copy_all_rounded, 'Sao chép một ngày sang ngày khác'),
+      it('copyWeeks', Icons.next_week_rounded, 'Sao chép tuần này sang các tuần sau'),
+      it('copyMonth', Icons.calendar_month_rounded, 'Sao chép lịch tháng'),
+      const PopupMenuDivider(),
+      it('export', Icons.table_view_rounded, 'Xuất Excel tuần này'),
+      it('remind', Icons.notifications_active_rounded, 'Nhắc NV chưa đăng ký lịch'),
+      const PopupMenuDivider(),
+      it('legacy', Icons.history_rounded, 'Mở màn lịch cũ'),
+    ];
+  }
+
+  Future<void> _onQuick(String v) async {
+    switch (v) {
+      case 'today':
+        _monday = ShiftUi.monday(DateTime.now());
+        _mobileDay = DateTime.now();
+        _load();
+      case 'export':
+        await exportScheduleExcel(_bd, _monday, department: _department);
+      case 'remind':
+        await _remind();
+      case 'legacy':
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: Text(tr('Lịch làm việc (màn cũ)')), actions: [
+              ListenableBuilder(
+                listenable: PageTopActions.instance,
+                builder: (_, __) => PageTopActionsBar(actions: PageTopActions.instance.actions),
+              ),
+              const SizedBox(width: 8),
+            ]),
+            floatingActionButton: const PageTopActionsFab(),
+            body: const WorkScheduleScreen(),
+          ),
+        ));
+        _changed();
+      default:
+        setState(() => _busy = true);
+        final cp = _copier;
+        final job = switch (v) {
+          'copy' => copyPreviousWeek(context, cp, _monday),
+          'copyDay' => copyDay(context, cp, _bd, _dayKey),
+          'copyWeeks' => copyWeekForward(context, cp, _bd, _monday),
+          'copyMonth' => copyMonth(context, cp, _monday),
+          _ => Future.value(false),
+        };
+        final changed = await job;
+        if (!mounted) return;
+        setState(() => _busy = false);
+        if (changed) _changed();
+    }
+  }
+
+  // ── Xếp nhanh trên bảng ngày / theo ca ──
+
+  Future<void> _assignShift(String day, Map<String, dynamic> t) async {
+    final changed = await showShiftAssignSheet(
+      context,
+      api: _api,
+      data: _bd,
+      day: day,
+      template: t,
+      onAskCoverage: () => _askCoverage(day, t),
+    );
+    if (changed && mounted) _changed();
+  }
+
+  /// Một chạm trên bảng ngày: có ca → bỏ; chưa có → xếp (ngày đang «Nghỉ» thì đổi thành ca).
+  Future<void> _toggleShift(Map<String, dynamic> e, String day, Map<String, dynamic> t) async {
+    final tid = t['id'].toString();
+    final c = BoardData.cell(e, day);
+    final item = BoardData.shiftItem(c, tid);
+    final off = BoardData.dayOffItem(c);
+    final key = ScheduleDayGrid.busyKey(e['id'], day, tid);
+    setState(() => _busyCells.add(key));
+    final Map<String, dynamic> r;
+    if (item != null) {
+      r = await _api.deleteWorkSchedule(item['scheduleId'].toString());
+    } else if (off != null) {
+      r = await _api.updateWorkSchedule(off['scheduleId'].toString(), {'shiftId': tid, 'isDayOff': false});
+    } else {
+      r = await _api.createWorkSchedule({'employeeUserId': e['id'], 'date': day, 'shiftId': tid, 'isDayOff': false});
+    }
+    await _afterQuick(key, r);
+  }
+
+  Future<void> _toggleDayOff(Map<String, dynamic> e, String day) async {
+    final c = BoardData.cell(e, day);
+    final off = BoardData.dayOffItem(c);
+    final shifts = BoardData.shiftItems(c);
+    if (off == null && shifts.isNotEmpty) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(tr('Đổi thành ngày nghỉ?')),
+          content: Text(tr('${e['name']} đang có ${_bd.shiftNames(c)}. Đặt ngày nghỉ sẽ bỏ các ca này.')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Đặt ngày nghỉ'))),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
+    final key = ScheduleDayGrid.busyKey(e['id'], day, 'off');
+    setState(() => _busyCells.add(key));
+    Map<String, dynamic> r;
+    if (off != null) {
+      r = await _api.deleteWorkSchedule(off['scheduleId'].toString());
+    } else if (shifts.isNotEmpty) {
+      for (final x in shifts.skip(1)) {
+        await _api.deleteWorkSchedule(x['scheduleId'].toString());
+      }
+      r = await _api.updateWorkSchedule(shifts.first['scheduleId'].toString(), {'shiftId': null, 'isDayOff': true});
+    } else {
+      r = await _api.createWorkSchedule({'employeeUserId': e['id'], 'date': day, 'isDayOff': true});
+    }
+    await _afterQuick(key, r);
+  }
+
+  /// Thao tác một chạm: không bật thông báo thành công (xếp nhiều ô liên tiếp), chỉ báo lỗi.
+  Future<void> _afterQuick(String key, Map<String, dynamic> r) async {
+    if (r['isSuccess'] != true) {
+      NotificationOverlayManager().showError(title: 'Xếp ca', message: r['message']?.toString() ?? 'Thao tác thất bại');
+    }
+    await _load();
+    if (!mounted) return;
+    setState(() => _busyCells.remove(key));
+    widget.onChanged?.call();
+  }
+
+  /// 7 ngày chia đều một hàng (không cuộn), chấm đỏ = ngày có ca thiếu người.
+  Widget _dayChipsRow(String dayKey) => Row(children: [
+        for (final d in _days)
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => setState(() => _mobileDay = ShiftUi.parse(d)!),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: d == dayKey ? SboxColors.brand600 : Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: d == dayKey ? SboxColors.brand600 : (d == _d?['today'] ? SboxColors.brand500 : SboxColors.slate200)),
+                ),
+                child: Column(children: [
+                  Text(ShiftUi.weekdays[ShiftUi.parse(d)!.weekday - 1],
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: d == dayKey ? Colors.white70 : SboxColors.slate500)),
+                  Text('${ShiftUi.parse(d)!.day}',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: d == dayKey ? Colors.white : SboxColors.slate900)),
+                  Container(
+                    width: 5,
+                    height: 5,
+                    margin: const EdgeInsets.only(top: 2),
+                    decoration: BoxDecoration(
+                      color: _rows(_d?['coverage']).any((x) => x['date'] == d && x['status'] == 'short')
+                          ? (d == dayKey ? Colors.white : SboxColors.danger)
+                          : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+      ]);
 
   Widget _legend() => Wrap(spacing: 10, runSpacing: 6, children: [
         for (final t in _templates)
@@ -330,8 +573,9 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
     return Tooltip(
       message: tr('${ShiftUi.coverageLabel(status)} · đã xếp ${c['scheduled']}, nghỉ phép ${c['onLeave']}, '
           'chờ duyệt ${c['pending']}${hasQuota ? ' · định mức $min–$max' : ''}'),
+      // Chạm: chọn nhiều nhân viên cho ca ngày này (ca thiếu người có nút kêu gọi bổ sung trong bảng chọn).
       child: InkWell(
-        onTap: status == 'short' ? () => _askCoverage(day, t) : null,
+        onTap: () => _assignShift(day, t),
         child: Container(
           margin: const EdgeInsets.all(4),
           padding: const EdgeInsets.symmetric(vertical: 5),
@@ -499,22 +743,8 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
           PopupMenuButton<String>(
             tooltip: tr('Thao tác nhanh'),
             icon: const Icon(Icons.more_vert_rounded),
-            onSelected: (v) => switch (v) {
-              'copy' => _copyLastWeek(),
-              'today' => (() {
-                  _monday = ShiftUi.monday(DateTime.now());
-                  _mobileDay = DateTime.now();
-                  _load();
-                })(),
-              _ => _remind(),
-            },
-            itemBuilder: (_) => [
-              PopupMenuItem(value: 'today', child: ListTile(dense: true, leading: const Icon(Icons.today_rounded), title: Text(tr('Về tuần này')))),
-              PopupMenuItem(value: 'copy', child: ListTile(dense: true, leading: const Icon(Icons.content_copy_rounded), title: Text(tr('Sao chép lịch tuần trước')))),
-              PopupMenuItem(
-                  value: 'remind',
-                  child: ListTile(dense: true, leading: const Icon(Icons.notifications_active_rounded), title: Text(tr('Nhắc NV chưa đăng ký lịch')))),
-            ],
+            onSelected: _onQuick,
+            itemBuilder: (_) => _quickItems(withToday: true),
           ),
         ]),
         if (filtered)
@@ -539,18 +769,10 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
         const SizedBox(height: 8),
         _miniStats(sm),
         const SizedBox(height: 12),
-        SegmentedButton<bool>(
-          segments: [
-            ButtonSegment(value: true, icon: const Icon(Icons.grid_on_rounded, size: 18), label: Text(tr('Cả tuần'))),
-            ButtonSegment(value: false, icon: const Icon(Icons.view_day_rounded, size: 18), label: Text(tr('Từng ngày'))),
-          ],
-          selected: {_mobileWeek},
-          showSelectedIcon: false,
-          onSelectionChanged: (v) => setState(() => _mobileWeek = v.first),
-        ),
+        _modePicker(compact: true),
         const SizedBox(height: 10),
         if (_busy) const LinearProgressIndicator(minHeight: 2),
-        if (_mobileWeek) _weekCompact() else _mobileDayView(),
+        _modeBody(compact: true),
       ]),
     );
   }
@@ -663,7 +885,7 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
                 InkWell(
                   onTap: () => setState(() {
                     _mobileDay = ShiftUi.parse(d)!;
-                    _mobileWeek = false;
+                    _mode = 'day';
                   }),
                   child: Container(
                     width: cellW,
@@ -800,127 +1022,6 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
     );
   }
 
-  // ── Xem theo ngày (điện thoại) ──
-
-  Widget _mobileDayView() {
-    final days = _days;
-    final dayKey = days.contains(ShiftUi.key(_mobileDay)) ? ShiftUi.key(_mobileDay) : (days.isEmpty ? '' : days.first);
-    final emps = _rows(_d?['employees']);
-    Map<String, dynamic>? cellOf(Map<String, dynamic> e) {
-      final c = (e['cells'] as Map?)?[dayKey];
-      return c is Map ? Map<String, dynamic>.from(c) : null;
-    }
-
-    final unassigned = emps.where((e) {
-      final c = cellOf(e);
-      return c == null || (c['shiftId'] == null && c['isDayOff'] != true);
-    }).toList();
-    final off = emps.where((e) => cellOf(e)?['isDayOff'] == true).toList();
-
-    // 7 ngày chia đều 1 hàng (không cuộn — trước đây ngày đang chọn nằm ngoài màn hình).
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        for (final d in days)
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => setState(() => _mobileDay = ShiftUi.parse(d)!),
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 2),
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  color: d == dayKey ? SboxColors.brand600 : Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: d == dayKey ? SboxColors.brand600 : (d == _d?['today'] ? SboxColors.brand500 : SboxColors.slate200)),
-                ),
-                child: Column(children: [
-                  Text(ShiftUi.weekdays[ShiftUi.parse(d)!.weekday - 1],
-                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: d == dayKey ? Colors.white70 : SboxColors.slate500)),
-                  Text('${ShiftUi.parse(d)!.day}',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: d == dayKey ? Colors.white : SboxColors.slate900)),
-                  Container(
-                    width: 5,
-                    height: 5,
-                    margin: const EdgeInsets.only(top: 2),
-                    decoration: BoxDecoration(
-                      color: _rows(_d?['coverage']).any((x) => x['date'] == d && x['status'] == 'short')
-                          ? (d == dayKey ? Colors.white : SboxColors.danger)
-                          : Colors.transparent,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ]),
-              ),
-            ),
-          ),
-      ]),
-      const SizedBox(height: 6),
-      Text(tr('${ShiftUi.weekdaysLong[ShiftUi.parse(dayKey)!.weekday - 1]}, ${ShiftUi.dmy(ShiftUi.parse(dayKey)!)}'),
-          style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.slate600)),
-      const SizedBox(height: 10),
-      for (final t in _templates) ...[
-        _mobileShiftHeader(t, dayKey),
-        for (final e in emps.where((e) => cellOf(e)?['shiftId']?.toString() == t['id'].toString()))
-          _mobileEmp(e, dayKey, cellOf(e)),
-        const SizedBox(height: 10),
-      ],
-      if (off.isNotEmpty) ...[
-        ShiftUi.sectionTitle('Nghỉ (${off.length})', icon: Icons.weekend_rounded),
-        for (final e in off) _mobileEmp(e, dayKey, cellOf(e)),
-        const SizedBox(height: 10),
-      ],
-      ShiftUi.sectionTitle('Chưa xếp ca (${unassigned.length})', icon: Icons.person_add_alt_rounded),
-      for (final e in unassigned) _mobileEmp(e, dayKey, cellOf(e)),
-    ]);
-  }
-
-  Widget _mobileShiftHeader(Map<String, dynamic> t, String day) {
-    final c = _cov(day, t['id'].toString());
-    final color = ShiftUi.shiftColor(ShiftUi.n(t['colorIndex']).toInt());
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
-      child: Row(children: [
-        Container(width: 4, height: 30, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text('${t['name']} · ${t['start']}–${t['end']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-        ),
-        if (c != null)
-          InkWell(
-            onTap: c['status'] == 'short' ? () => _askCoverage(day, t) : null,
-            child: ShiftUi.pill(
-              c['hasQuota'] == true
-                  ? '${c['effective']} người · cần ${c['min'] == c['max'] ? c['min'] : '${c['min']}–${c['max']}'}${c['status'] == 'short' ? ' · thiếu' : ''}'
-                  : '${c['effective']} người',
-              ShiftUi.coverageColor(c['status']?.toString()),
-            ),
-          ),
-      ]),
-    );
-  }
-
-  Widget _mobileEmp(Map<String, dynamic> e, String day, Map<String, dynamic>? c) {
-    final reg = c?['registration'] as Map?;
-    final leave = c?['leave'] as Map?;
-    return ListTile(
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-      onTap: () => _cellSheet(e, day, c),
-      title: Text(e['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text({e['department'], e['position']}.where((x) => (x?.toString() ?? '').isNotEmpty).join(' · ')),
-      trailing: Wrap(spacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-        if (leave != null) ShiftUi.pill(leave['status'] == 'Approved' ? 'Nghỉ phép' : 'Xin nghỉ', ShiftUi.statusColor(leave['status']?.toString())),
-        if (reg != null) ShiftUi.pill('Đăng ký chờ', SboxColors.warning),
-        if (c?['shiftId'] == null && c?['isDayOff'] != true && reg == null)
-          ShiftUi.pill('+ Xếp ca', SboxColors.brand600)
-        else
-          const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
-      ]),
-    );
-  }
-
   // ═════════════ THAO TÁC ═════════════
 
   Future<void> _run(Future<Map<String, dynamic>> call, String ok) async {
@@ -1008,6 +1109,13 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
               trailing: c?['isDayOff'] == true ? const Icon(Icons.check_rounded, color: SboxColors.success) : null,
               onTap: () => Navigator.pop(ctx, 'dayoff'),
             ),
+            if (leave == null)
+              ListTile(
+                leading: const Icon(Icons.beach_access_rounded, color: SboxColors.success),
+                title: Text(tr('Tạo đơn nghỉ cho nhân viên')),
+                subtitle: Text(tr('Tạo hộ, có thể duyệt luôn')),
+                onTap: () => Navigator.pop(ctx, 'leave'),
+              ),
             if (scheduleId != null)
               ListTile(
                 leading: const Icon(Icons.delete_outline_rounded, color: SboxColors.danger),
@@ -1020,6 +1128,28 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
       ),
     );
     if (action == null) return;
+    if (action == 'leave') {
+      if (!mounted) return;
+      final changed = await showLeaveRequestSheet(
+        context,
+        date: date,
+        templates: _templates,
+        scheduledShiftId: c?['shiftId']?.toString(),
+        employeeId: e['id']?.toString(),
+        managerMode: true,
+        employeeName: e['name']?.toString(),
+        candidates: [
+          for (final x in _rows(_d?['employees']))
+            {
+              'id': x['id'].toString(),
+              'name': x['name'] ?? '',
+              'department': [x['code'], x['department']].map((v) => '${v ?? ''}'.trim()).where((v) => v.isNotEmpty).join(' · '),
+            },
+        ],
+      );
+      if (changed) _changed();
+      return;
+    }
     if (action == 'approveReg') {
       await _run(_api.approveScheduleRegistration(reg!['id'].toString(), {'isApproved': true}), 'Đã duyệt đăng ký');
     } else if (action == 'rejectReg') {
@@ -1094,54 +1224,4 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
         }),
         'Đã nhắc nhân viên chưa đăng ký lịch',
       );
-
-  /// Sao chép lịch tuần trước sang tuần đang xem — chỉ điền ô còn trống, không ghi đè.
-  Future<void> _copyLastWeek() async {
-    final prevMon = _monday.subtract(const Duration(days: 7));
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Sao chép lịch tuần trước')),
-        content: Text(tr('Chép lịch ${ShiftUi.weekLabel(prevMon)} sang ${ShiftUi.weekLabel(_monday)}. '
-            'Chỉ điền ngày còn trống, không ghi đè lịch đã có.')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Sao chép'))),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    setState(() => _busy = true);
-    final prev = await _api.getShiftHubBoard(
-        from: prevMon, to: prevMon.add(const Duration(days: 6)), department: _department, search: _search.text);
-    final prevEmps = _rows((prev['data'] as Map?)?['employees']);
-    final curEmps = {for (final e in _rows(_d?['employees'])) e['id'].toString(): e};
-    var created = 0, failed = 0;
-    for (final e in prevEmps) {
-      final cells = (e['cells'] as Map?) ?? const {};
-      for (final entry in cells.entries) {
-        final c = entry.value as Map;
-        if (c['scheduleId'] == null) continue;
-        final newDay = ShiftUi.key(ShiftUi.parse(entry.key)!.add(const Duration(days: 7)));
-        final existing = ((curEmps[e['id'].toString()]?['cells'] as Map?) ?? const {})[newDay] as Map?;
-        if (existing?['scheduleId'] != null) continue;
-        final srcItems = _rows(c['items']);
-        for (final it in srcItems.isEmpty ? [Map<String, dynamic>.from(c)] : srcItems) {
-          final r = await _api.createWorkSchedule({
-            'employeeUserId': e['id'],
-            'date': newDay,
-            'shiftId': it['shiftId'],
-            'isDayOff': it['isDayOff'] == true,
-            'note': c['note'],
-          });
-          r['isSuccess'] == true ? created++ : failed++;
-        }
-      }
-    }
-    if (!mounted) return;
-    setState(() => _busy = false);
-    NotificationOverlayManager().showSuccess(
-        title: 'Sao chép lịch', message: 'Đã tạo $created lịch${failed > 0 ? ', $failed lịch lỗi' : ''}');
-    _changed();
-  }
 }
