@@ -72,7 +72,7 @@ public static class AiAssistantHelpCorpus
         ["feedback"] = new("góp ý khiếu nại kiến nghị phản ánh ý kiến ẩn danh phản hồi xử lý hạn xử lý đánh giá hài lòng báo cáo", ["nav_feedback", "nav_feedback_create"]),
         ["field_checkin"] = new("bản đồ nhân sự vị trí lộ trình chấm ngoài hiện trường gps", ["nav_field_checkin"]),
         ["first_payroll"] = new("chốt lương bảng lương tháng đầu kỳ lương tổng hợp lương phiếu lương", ["nav_payroll", "nav_payslip"]),
-        ["getting_started"] = new("bắt đầu checklist 7 ngày triển khai lộ trình người mới", ["nav_dashboard"]),
+        ["getting_started"] = new("phần mềm có những chức năng gì tính năng tổng quan phần mềm làm được gì bắt đầu checklist 7 ngày triển khai lộ trình người mới", ["nav_dashboard"]),
         ["holidays"] = new("ngày lễ tết âm lịch ngày nghỉ đặc biệt hệ số lương lễ", []),
         ["ind_choose"] = new("ngành hàng chọn ngành đổi ngành chế độ bán", ["nav_pos_sell"]),
         ["ind_commission"] = new("hoa hồng nhân viên commission theo buổi khi bán", ["nav_pos_reports"]),
@@ -98,11 +98,11 @@ public static class AiAssistantHelpCorpus
         ["pos_devices"] = new("a6 a7 sunmi flutter_pos hrm pos thiết bị thu ngân c20lite", ["nav_pos_sell"]),
         ["pos_einvoice"] = new("hóa đơn điện tử viettel easy misa vnpt einvoice kết nối cấu hình xuất hđđt qr tra cứu", ["nav_pos_sell"]),
         ["pos_einvoice_manage"] = new("quản lý hóa đơn điện tử thay thế hủy đồng bộ gửi zalo email bản nháp tải danh sách portal", ["nav_pos_reports"]),
-        ["pos_eod"] = new("cuối ngày chốt ca đóng ca kết ca đếm két tổng kết end of day tiền mặt ca thu ngân mở ca đóng két", ["nav_pos_reports"]),
+        ["pos_eod"] = new("lệch tiền tiền mặt lệch thiếu tiền thừa tiền cuối ngày chốt ca đóng ca kết ca đếm két tổng kết end of day tiền mặt ca thu ngân mở ca đóng két", ["nav_pos_reports"]),
         ["pos_inventory"] = new("kho kho hàng nhập xuất tồn chứng từ kho giá vốn bình quân phiếu tạm hoàn thành", ["nav_pos_products", "nav_pos_reports"]),
         ["pos_kitchen"] = new("bếp gửi bếp phiếu bếp tem ly kds", ["nav_pos_sell", "nav_pos_printers"]),
         ["pos_printers"] = new("máy in mẫu in k80 k58 print agent usb bluetooth lan wifi ip kết nối máy in máy in hóa đơn máy in bếp in thử",["nav_pos_printers"]),
-        ["pos_products"] = new("thêm hàng tạo hàng hóa sản phẩm giá bán danh mục món mã vạch barcode tồn đầu kỳ định mức tồn ngừng kinh doanh ẩn pos nhà cung cấp", ["nav_pos_products"]),
+        ["pos_products"] = new("thêm món món mới thêm món vào menu thực đơn thêm hàng tạo hàng hóa sản phẩm giá bán danh mục món mã vạch barcode tồn đầu kỳ định mức tồn ngừng kinh doanh ẩn pos nhà cung cấp", ["nav_pos_products"]),
         ["pos_units"] = new("đơn vị tính đvt quy đổi lon lốc thùng hộp mã vạch thùng bảng giá giá sỉ giá vip khuyến mãi chiết khấu", ["nav_pos_products", "nav_pos_sell"]),
         ["pos_lots"] = new("lô hạn sử dụng hsd nsx fefo bảo hành seri imei hàng gia công nhôm kính m2 vị trí kho trọng lượng tùy chọn form", ["nav_pos_products"]),
         ["pos_services"] = new("dịch vụ tính giờ block phí mở phòng giờ đầu khung giờ đặc biệt gói buổi liệu trình gói giờ đếm ngược thời lượng", ["nav_pos_products"]),
@@ -111,7 +111,7 @@ public static class AiAssistantHelpCorpus
         ["pos_toppings"] = new("topping trân châu thạch tùy chọn thêm nhóm topping món thêm phụ thu báo cáo topping", ["nav_pos_products", "nav_pos_sell"]),
         ["pos_sale_edit"] = new("sửa giá chiết khấu dòng giảm giá món ghi chú topping hoa hồng nhân viên tách dòng xóa món đổi số lượng", ["nav_pos_sell"]),
         ["pos_sale_pay"] = new("thanh toán khách hàng tích điểm công nợ ghi nợ voucher tiền thối tiền trả khách chuyển khoản qr in hóa đơn xuất hđđt tính tiền cho khách thu tiền khách tính tiền", ["nav_pos_sell"]),
-        ["pos_after_sale"] = new("đơn hàng hóa đơn in lại hủy đơn trả hàng hoàn tiền lịch sử hủy trả tra cứu đơn", ["nav_pos_sell", "nav_pos_reports"]),
+        ["pos_after_sale"] = new("hủy hóa đơn hủy hóa đơn đã thanh toán đơn hàng hóa đơn in lại hủy đơn trả hàng hoàn tiền lịch sử hủy trả tra cứu đơn", ["nav_pos_sell", "nav_pos_reports"]),
         ["pos_reports"] = new("báo cáo pos doanh thu tồn kho lợi nhuận 14 báo cáo cuối ngày", ["nav_pos_reports"]),
         ["pos_rules"] = new("nguyên tắc quy tắc chứng từ tạm hoàn thành hủy xóa thẻ kho phân quyền", ["nav_pos_sell"]),
         ["pos_sales"] = new("bán hàng thu ngân chọn hàng quét mã nhiều hóa đơn order pos ca thu ngân mở ca hướng dẫn bán hàng cách bán hàng lên đơn tạo đơn bán", ["nav_pos_sell"]),
@@ -526,6 +526,7 @@ public static class AiAssistantHelpCorpus
     {
         if (string.IsNullOrWhiteSpace(query))
             return [];
+        query = Expand(query);
 
         var words = SplitTerms(query);
         if (words.Count == 0)
@@ -715,6 +716,107 @@ public static class AiAssistantHelpCorpus
     static string[] Words(string query) => VnSearch.FoldText(query)
         .Split([' ', '\t', '\r', '\n', ',', ';', '.', '?', '!', '«', '»', '"', '(', ')'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
+    /// <summary>
+    /// Cách gọi thường ngày / viết tắt → chữ dùng trong hướng dẫn (so trên chữ CÓ dấu, nguyên từ: «két» ≠ «kết nối»).
+    /// Thiếu bảng này «HĐĐT báo chờ ký», «két lệch», «giờ vàng karaoke» ra điểm 0 dù hướng dẫn có đúng dòng trả lời.
+    /// </summary>
+    static readonly (Regex From, string To)[] Synonyms =
+    [
+        (Word("hddt|hdđt"), "HĐĐT"),
+        // «két» bỏ dấu trùng «kết» (kết nối, kết hợp) → đổi hẳn sang «tiền mặt».
+        (Word("két tiền|két"), "tiền mặt"),
+        (Word("giờ vàng"), "khuyến mãi khung giờ giờ vàng"),
+        (Word("lỗi font|font chữ|font"), "mẫu in font"),
+        (Word("tồn kho bị âm|kho bị âm|bị âm kho"), "tồn âm"),
+        (Word("không hiện|không lên hình|không lên|bị trắng|màn trắng"), "trắng không hiện"),
+        (Word("bill"), "hóa đơn"),
+        (Word("nv"), "nhân viên"),
+        (Word("ncc"), "nhà cung cấp"),
+        (Word("bằng điện thoại|trên điện thoại|qua điện thoại|bằng đt|trên đt"), "mobile điện thoại"),
+        (Word("zk|zkteco"), "máy chấm công ZK"),
+        (Word("mk|pass|password"), "mật khẩu"),
+        (Word("sđt|sdt"), "số điện thoại"),
+    ];
+
+    static Regex Word(string alternatives) =>
+        new($@"(?<![\p{{L}}\p{{N}}])(?:{alternatives})(?![\p{{L}}\p{{N}}])", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>Thay từ viết tắt / cách gọi thường ngày bằng chữ trong hướng dẫn trước khi tìm.</summary>
+    public static string Expand(string query)
+    {
+        var q = query ?? "";
+        foreach (var (from, to) in Synonyms)
+            q = from.Replace(q, to);
+        return q;
+    }
+
+    static readonly HashSet<string> TroubleHubs = ["common_hrm", "pos_common"];
+
+    static readonly HashSet<string> QuickFiller = ["xu", "ly", "bi", "phai", "lam", "gi", "sao", "the", "nao", "thi"];
+
+    /// <summary>Phần từ của câu phải có trong một dòng hướng dẫn để dùng dòng đó làm câu trả lời nhanh.</summary>
+    const double QuickCoverage = 0.6;
+
+    /// <summary>
+    /// Dòng hướng dẫn trả lời thẳng câu báo sự cố, tìm trên MỌI bài: «sao không thanh toán được» → dòng «Không thanh toán được:
+    /// thiếu quyền… / chưa mở ca» trong «Tình huống POS thường gặp» — bài đứng đầu (màn thanh toán) không có nguyên nhân.
+    /// null = không có dòng nào khớp đủ (≥ 2 từ, phủ ≥ 60% trọng lượng từ của câu).
+    /// </summary>
+    public static (HelpChunk Chunk, string Bullet)? QuickAnswer(string query)
+    {
+        // Chấm theo cả câu gốc lẫn câu đã mở rộng từ viết tắt, lấy điểm cao hơn: dòng «HĐĐT «Chờ ký»…» chỉ ghi «HĐĐT», mở rộng
+        // thành «hóa đơn điện tử» làm phần phủ tụt dưới ngưỡng.
+        // Chỉ lấy dòng trong các bài đứng đầu kết quả tìm — trước đây «không chấm công được trên điện thoại» lấy dòng ở bài phòng
+        // gym (trùng «chấm công», «điện thoại») vì dòng đó chứa đủ từ.
+        var near = SearchScored(query ?? "", topK: 6).Select(x => x.Chunk)
+            // Bài «Tình huống thường gặp» gom cách xử lý sự cố của cả khu — luôn xét, dù ít khi lọt top tìm kiếm.
+            .Concat(AllChunks.Where(c => TroubleHubs.Contains(c.StepId)))
+            .ToHashSet(ReferenceEqualityComparer.Instance);
+        var original = QuickCandidate(query ?? "", near);
+        var expanded = Expand(query ?? "");
+        var withSynonyms = expanded == (query ?? "") ? null : QuickCandidate(expanded, near);
+        var best = withSynonyms is { } w && (original is not { } o || w.Score > o.Score) ? withSynonyms : original;
+        return best is { } b ? (b.Chunk, b.Bullet) : null;
+    }
+
+    static (HelpChunk Chunk, string Bullet, double Score)? QuickCandidate(string text, HashSet<object> near)
+    {
+        // «xử lý», «làm gì», «bị» có ở mọi dòng sự cố — không giúp chọn dòng.
+        var words = SplitTerms(text).Where(t => !QuickFiller.Contains(t)).ToList();
+        if (words.Count < 2) return null;
+        // Cụm có từ dừng («khong in», «in duoc») tính nhẹ hơn cụm có nghĩa («may in», «thay menu»).
+        var pairs = SplitPairs(text)
+            .Select(p => (p, w: p.Split(' ').Any(x => StopWords.Contains(x) || QuickFiller.Contains(x)) ? 5.0 : 15.0)).ToList();
+        var weights = words.Select(t => (t, w: Rarity(t, whole: false))).ToList();
+        var all = weights.Sum(x => x.w);
+        if (all <= 0) return null;
+        (HelpChunk Chunk, string Bullet, double Score)? best = null;
+        // Bài kiến thức (bài viết) mô tả / so sánh, không phải cách xử lý — dòng «Chấm công bằng điện thoại: Phù hợp: …» không trả
+        // lời «không chấm công được».
+        foreach (var f in Folded.Where(f => near.Contains(f.Chunk) && f.Chunk.Mode != AiAssistantKnowledge.Mode))
+        {
+            // Mẹo cuối bài cũng là dòng xử lý («Lệch tiền: xem Đơn hàng trong ca…»).
+            var lines = f.Chunk.Bullets.Zip(f.Bullets).Append((f.Chunk.Tip, VnSearch.Fold(f.Chunk.Tip))).ToList();
+            foreach (var (line, b) in lines)
+            {
+                if (string.IsNullOrWhiteSpace(b)) continue;
+                // Dòng hỏi đáp («Đổi điện thoại mất bao lâu?: …») là câu hỏi khác, không phải cách xử lý.
+                var colon = b.IndexOf(':');
+                if (colon > 0 && b.IndexOf('?') is var qm && qm >= 0 && qm < colon) continue;
+                var hits = weights.Where(x => Has(b, x.t)).ToList();
+                if (hits.Count < 2) continue;
+                var cover = hits.Sum(x => x.w) / all;
+                if (cover < QuickCoverage) continue;
+                // Dòng ngắn, từ khớp nằm ở đầu dòng (kiểu «Triệu chứng: cách xử lý») được ưu tiên hơn dòng dài nhắc lướt qua.
+                var first = hits.Min(x => b.IndexOf(x.t, StringComparison.Ordinal));
+                var score = cover * 100 + pairs.Where(p => HasWord(b, p.p)).Sum(p => p.w) - first / 20.0 - b.Length / 200.0;
+                if (best is not { } cur || score > cur.Score)
+                    best = (f.Chunk, line, score);
+            }
+        }
+        return best;
+    }
+
     private static List<string> SplitTerms(string query) =>
         Words(query).Where(t => t.Length >= 2 && !StopWords.Contains(t)).Distinct().ToList();
 
@@ -775,6 +877,7 @@ public static class AiAssistantHelpCorpus
     /// </summary>
     public static int DirectAnswerScore(string query)
     {
+        query = Expand(query ?? "");
         var top = SearchScored(query, topK: 1);
         if (top.Count == 0) return 0;
         var f = Folded.First(x => ReferenceEquals(x.Chunk, top[0].Chunk));

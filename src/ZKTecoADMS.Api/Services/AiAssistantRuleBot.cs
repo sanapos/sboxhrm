@@ -10,6 +10,96 @@ public sealed record AiAssistantRuleResult(bool Matched, string Reply);
 /// </summary>
 public static class AiAssistantRuleBot
 {
+    /// <summary>Lời nhắc khi câu là lệnh mà chưa có AI: bot không lập phiếu, chỉ chỉ cách làm trên app.</summary>
+    public const string NoAiActionNote =
+        "Trợ lý chưa bật AI nên chưa tự lập / sửa phiếu được — bạn làm trên app theo hướng dẫn dưới đây.";
+
+    public const string NoAiActionReply =
+        "Lập / sửa phiếu bằng lời cần trợ lý AI (Gemini) — cửa hàng chưa bật hoặc chưa có khóa AI nên chưa lập gì cả. "
+        + "Bạn mở màn tương ứng để thao tác, hoặc vào Thiết lập SBOX › Trợ lý AI để bật.";
+
+    /// <summary>Câu hỏi số liệu mà chưa có AI: bot không đọc báo cáo, chỉ chỉ chỗ xem.</summary>
+    /// <summary>Điểm tìm kiếm tối thiểu để đưa «bài gần nhất» khi không khớp rõ bài nào (dưới mức này: menu gợi ý).</summary>
+    const int NearScore = 40;
+
+    public const string NoAiDataNote =
+        "Trợ lý chưa bật AI nên chưa đọc được số liệu báo cáo — bạn xem trực tiếp theo hướng dẫn dưới đây.";
+
+    public const string NoAiDataReply =
+        "Phân tích số liệu (doanh thu, bán chạy, tồn kho, lương…) cần trợ lý AI — cửa hàng chưa bật hoặc chưa có khóa AI. "
+        + "Bạn xem trực tiếp ở mục Báo cáo (POS › Báo cáo hoặc Báo cáo nhân sự).";
+
+    /// <summary>
+    /// Trả lời khi cửa hàng CHƯA có khóa AI (hoặc AI tắt). Không gọi Gemini nên lệnh / phân tích không làm được — thay vì từ
+    /// chối, ưu tiên những gì trả lời được bằng dữ liệu sẵn có:
+    /// 1. lời chào → giới thiệu; 2. câu hỏi cách dùng → bài hướng dẫn; 3. báo sự cố khớp một dòng hướng dẫn → dòng đó lên đầu;
+    /// 4. dữ liệu của chính người hỏi (phép, ca, lương…); 5. câu khớp rõ một bài (kể cả câu có «tạo / xin nghỉ / tồn kho…») →
+    /// bài đó — câu RA LỆNH / hỏi số liệu kèm lời nhắc chưa làm được; 6. còn lại: lệnh / số liệu → báo cần AI, câu khác → gợi ý.
+    /// </summary>
+    /// <param name="noOwnKeyMessage">Có = gói không cho dùng khóa AI chung: câu phân tích không khớp bài nào báo cách bật.</param>
+    public static AiAssistantRuleResult AnswerWithoutAi(
+        string query,
+        string contextText,
+        IReadOnlyList<HelpChunk> helpHits,
+        IReadOnlyList<string> allowedActions,
+        IReadOnlyList<string> allowedCreates,
+        bool vietnamese,
+        string? noOwnKeyMessage = null)
+    {
+        if (!vietnamese)
+            return Build(query, contextText, helpHits, allowedActions, allowedCreates, includeFallback: true);
+        var q = (query ?? "").Trim().ToLowerInvariant();
+        if (IsGreeting(q))
+            return new AiAssistantRuleResult(true, FallbackHelp(greeting: true));
+        var direct = AiAssistantHelpCorpus.DirectAnswerScore(query ?? "");
+        var question = LooksLikeQuestion(q);
+        var action = AiAssistantIntent.LooksLikeAction(q);
+        var analytical = AiAssistantAgent.LooksAnalytical(q);
+        // Hỏi SỐ LIỆU («doanh thu hôm nay bao nhiêu») — khác câu chỉ có từ phân tích («tồn kho bị âm là sao», «tính lương tăng ca»).
+        var dataAsk = analytical && ContainsAny(q, "bao nhiêu", "nhiều nhất", "ít nhất", "top ", "so với", "so sánh", "doanh thu",
+            "lợi nhuận", "bán chạy", "bán chậm", "tăng hay giảm", "hôm nay", "tuần này", "tháng này", "tháng trước");
+        // Câu hỏi («xin nghỉ phép thế nào», «bán offline được không») không cần lời nhắc; chỉ câu ra lệnh / hỏi số liệu mới cần.
+        var note = dataAsk ? NoAiDataNote : action && !question ? NoAiActionNote : null;
+        AiAssistantRuleResult Guide(IReadOnlyList<HelpChunk> hits, string? prefix = null)
+        {
+            var r = Build(query ?? "", contextText, hits, allowedActions, allowedCreates, includeFallback: false, guideQuestion: true);
+            return prefix == null || !r.Matched ? r : r with { Reply = prefix + "\n\n" + r.Reply };
+        }
+
+        if (AiAssistantIntent.IsGuideQuestion(q, direct) && Guide(AiAssistantHelpCorpus.GuideAnswerHits(query ?? "")) is { Matched: true } g)
+            return g;
+        // Báo sự cố («máy chấm công bị offline», «két lệch») — dòng xử lý nằm ở bài «Tình huống thường gặp», trước đây bị mục
+        // «máy chấm công» của bot rule chặn mất.
+        var quick = LooksLikeTrouble(q) ? AiAssistantHelpCorpus.QuickAnswer(query ?? "") : null;
+        if (quick is { } qa)
+            return Guide([qa.Chunk]);
+        // Dữ liệu cá nhân («tôi còn bao nhiêu phép», «phiếu lương tháng này») — không áp cho lệnh («xin nghỉ phép thế nào»
+        // khớp mục số dư phép nhưng người hỏi cần cách xin nghỉ).
+        if (!action && Build(query ?? "", contextText, helpHits, allowedActions, allowedCreates, includeFallback: false) is { Matched: true } own)
+            return own;
+        if (direct >= AiAssistantHelpCorpus.ConfidentScore)
+            return Guide(AiAssistantHelpCorpus.GuideAnswerHits(query ?? ""), note);
+        // Câu HỎI khớp vừa phải («tạo combo như thế nào» = 44) — chưa có AI để hỏi lại, đưa bài khớp nhất hơn là từ chối.
+        if (question && !dataAsk && direct >= AiAssistantHelpCorpus.ConfidentScore * 7 / 10)
+            return Guide(AiAssistantHelpCorpus.GuideAnswerHits(query ?? ""));
+        if (action)
+            return new AiAssistantRuleResult(true, NoAiActionReply);
+        if (dataAsk)
+            return new AiAssistantRuleResult(true, noOwnKeyMessage == null ? NoAiDataReply
+                : "Trợ lý ảo trả lời được dữ liệu cá nhân và hướng dẫn. Để phân tích báo cáo bán hàng / nhân sự: " + noOwnKeyMessage);
+        // Không khớp rõ bài nào nhưng có bài gần («cài đặt giá giờ vàng karaoke») → đưa bài đó kèm lời nói rõ là gần nhất,
+        // thay cho menu gợi ý chung. Chỉ bài trùng đủ từ (điểm ≥ ngưỡng gần).
+        if (AiAssistantHelpCorpus.SearchScored(query ?? "", topK: 1) is [var near] && near.Score >= NearScore)
+            return Guide([near.Chunk], "Chưa có hướng dẫn đúng câu này — bài gần nhất:");
+        return Build(query ?? "", contextText, helpHits, allowedActions, allowedCreates, includeFallback: true);
+    }
+
+    /// <summary>Câu hỏi (không phải lệnh): «thế nào», «được không», «ở đâu», «?»…</summary>
+    static bool LooksLikeQuestion(string q) =>
+        q.TrimEnd().EndsWith('?')
+        || ContainsAny(q, "thế nào", "ra sao", "được không", "có được", "làm sao", "cách", "ở đâu", "chỗ nào", "là gì", "là sao",
+            "bao nhiêu", "nào", "hướng dẫn", "có thể");
+
     public static AiAssistantRuleResult Build(
         string query,
         string contextText,
@@ -31,7 +121,17 @@ public static class AiAssistantRuleBot
         // Hỏi cách dùng: chỉ trả bài hướng dẫn — «duyệt lịch làm việc ở đâu» không kèm mục «Lịch làm hôm nay» của người hỏi.
         if (guideQuestion && helpHits.Count > 0)
         {
-            foreach (var hit in helpHits.Take(2))
+            var hits = helpHits.Take(2).ToList();
+            // Báo sự cố («không thanh toán được», «két lệch»): dòng nói đúng nguyên nhân / cách xử lý lên đầu, bài chứa dòng đó
+            // đứng trước — trước đây trả nguyên bài màn hình mà nguyên nhân nằm ở bài «Tình huống thường gặp».
+            if (LooksLikeTrouble(q) && AiAssistantHelpCorpus.QuickAnswer(query) is { } quick)
+            {
+                sb.AppendLine("Cách xử lý nhanh: " + quick.Bullet.Trim().TrimStart('•').Trim());
+                hits.RemoveAll(h => ReferenceEquals(h, quick.Chunk));
+                hits.Insert(0, quick.Chunk);
+                hits = hits.Take(2).ToList();
+            }
+            foreach (var hit in hits)
                 AppendHelp(sb, hit, allowedActions);
             return new AiAssistantRuleResult(true, sb.ToString().Trim());
         }
@@ -224,17 +324,21 @@ public static class AiAssistantRuleBot
     static string FallbackHelp(bool greeting)
     {
         var open = greeting
-            ? "Xin chào! Tôi trả lời từ dữ liệu HRM của bạn (không cần Gemini)."
-            : "Tôi chưa khớp câu hỏi đó. Có thể hỏi:";
+            ? "Xin chào! Tôi là trợ lý của SBOX — trả lời cách dùng phần mềm (bán hàng, kho, nhân sự, chấm công, lương) và dữ liệu của chính bạn."
+            : "Tôi chưa tìm thấy hướng dẫn khớp câu đó. Bạn thử hỏi ngắn, nêu tên chức năng, ví dụ:";
         return $@"{open}
 
-• Số dư phép, lịch sử nghỉ, xin nghỉ
-• Chấm công hôm nay / 7 ngày, ca hôm nay
-• Phiếu lương, ứng lương, công việc
-• Ai đi trễ, nhân sự hôm nay, chờ duyệt (nếu có quyền)
-• Thu chi, phiếu phạt, công tác
-• Hướng dẫn: ""cách xin nghỉ"", ""cách chấm công"", ""ở đâu xem lương"", ""cách bán hàng"", ""máy in""";
+• Bán hàng / POS: ""cách hủy hóa đơn"", ""máy in bếp không in"", ""kết nối hóa đơn điện tử"", ""đặt bàn trước""
+• Kho: ""cách nhập hàng"", ""kiểm kho"", ""tồn kho bị âm""
+• Nhân sự: ""cách xin nghỉ phép"", ""chấm công bằng điện thoại"", ""cách chốt lương"", ""phân quyền thu ngân""
+• Của bạn: ""tôi còn bao nhiêu ngày phép"", ""ca hôm nay"", ""phiếu lương tháng này""";
     }
+
+    /// <summary>Câu báo sự cố / lỗi (câu không dấu so với từ đã bỏ dấu — xem ContainsAny).</summary>
+    static bool LooksLikeTrouble(string q) =>
+        (q.Contains("không") && q.Contains("được")) || (q.Contains("khong") && q.Contains("duoc"))
+        || ContainsAny(q, "không được", "không in", "không hiện", "không thấy", "không ra", "không đủ", "không kết nối", "bị lỗi",
+            "báo lỗi", "lỗi", "bị âm", "lệch", "offline", "mất kết nối", "chờ ký", "phạt oan", "bị treo", "trắng");
 
     static void AppendHeading(StringBuilder sb, string title)
     {

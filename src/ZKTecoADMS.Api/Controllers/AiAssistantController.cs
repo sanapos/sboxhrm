@@ -517,20 +517,15 @@ public class AiAssistantController(
             // về bản thân — câu nối tiếp («ai đi trễ?» sau câu về tháng) hay hỏi về người khác để agent trả lời.
             var skipRule = analytical
                            || (geminiOk && !guideOnly && (userTurns.Count > 1 || AiAssistantIntent.MentionsOthers(lastText)));
-            var rule = skipRule
-                ? new AiAssistantRuleResult(false, "")
-                : AiAssistantRuleBot.Build(
-                    lastUserMessage.Content, contextText, guideOnly ? AiAssistantHelpCorpus.GuideAnswerHits(lastText) : helpHits,
-                    allowedActions, allowedCreates, includeFallback: !geminiOk && directScore < AiAssistantHelpCorpus.ConfidentScore,
-                    guideQuestion: guideOnly);
-            // Chưa có AI, câu không phải dữ liệu cá nhân nhưng khớp rõ một bài («mức đóng bhxh bao nhiêu phần trăm») → trả bài đó.
-            if (!skipRule && !rule.Matched && !geminiOk && vi && directScore >= AiAssistantHelpCorpus.ConfidentScore
-                && !AiAssistantIntent.LooksLikeAction(lastText) && !AiAssistantAgent.LooksAnalytical(lastText))
-                rule = AiAssistantRuleBot.Build(lastUserMessage.Content, contextText, AiAssistantHelpCorpus.GuideAnswerHits(lastText),
-                    allowedActions, allowedCreates, includeFallback: false, guideQuestion: true);
-            if (!skipRule && !rule.Matched && !geminiOk)
-                rule = AiAssistantRuleBot.Build(lastUserMessage.Content, contextText, helpHits,
-                    allowedActions, allowedCreates, includeFallback: true);
+            // Chưa có AI: lệnh / phân tích không làm được → trả hướng dẫn hoặc dữ liệu cá nhân thay vì từ chối (xem AnswerWithoutAi).
+            var rule = !geminiOk
+                ? AiAssistantRuleBot.AnswerWithoutAi(lastUserMessage.Content, contextText, helpHits, allowedActions, allowedCreates, vi,
+                    geminiAiService is TenantScopedGeminiAiService { SharedBlocked: true } ? TenantScopedGeminiAiService.NoOwnKeyMessage : null)
+                : skipRule
+                    ? new AiAssistantRuleResult(false, "")
+                    : AiAssistantRuleBot.Build(
+                        lastUserMessage.Content, contextText, guideOnly ? AiAssistantHelpCorpus.GuideAnswerHits(lastText) : helpHits,
+                        allowedActions, allowedCreates, includeFallback: false, guideQuestion: guideOnly);
             var reportsUsed = new List<string>();
             var reportRuns = new List<AiReportRun>();
             var proposed = new List<AiAssistantActions.Pending>();
@@ -539,22 +534,7 @@ public class AiAssistantController(
 
             string reply;
             string usedProvider;
-            if (!guideOnly && !geminiOk && AiAssistantAgent.LooksAnalytical(lastUserMessage.Content)
-                && geminiAiService is TenantScopedGeminiAiService { SharedBlocked: true })
-            {
-                // Câu phân tích cần AI: cửa hàng chưa có khóa riêng, gói không cho dùng khóa chung.
-                reply = "Trợ lý ảo trả lời được dữ liệu cá nhân và hướng dẫn. Để phân tích báo cáo bán hàng / nhân sự: "
-                        + TenantScopedGeminiAiService.NoOwnKeyMessage;
-                usedProvider = "sbox";
-            }
-            else if (!guideOnly && !geminiOk && vi && AiAssistantIntent.LooksLikeAction(lastText))
-            {
-                // Lập / sửa phiếu bằng lời cần AI — bot rule chỉ có bảng số liệu (trước đây «tạo phiếu chi 50k» trả bảng thu chi 30 ngày).
-                reply = "Lập / sửa phiếu bằng lời cần trợ lý AI (Gemini) — cửa hàng chưa bật hoặc chưa có khóa AI nên chưa lập gì cả. "
-                        + "Bạn mở màn tương ứng để thao tác, hoặc vào Thiết lập SBOX › Trợ lý AI để bật.";
-                usedProvider = "sbox";
-            }
-            else if (rule.Matched)
+            if (rule.Matched)
             {
                 reply = rule.Reply;
                 usedProvider = "sbox";
@@ -589,9 +569,9 @@ public class AiAssistantController(
                         reply = AiFailureReply(gemEx, withActions);
                     else
                     {
-                        rule = AiAssistantRuleBot.Build(
-                            lastUserMessage.Content, contextText, helpHits,
-                            allowedActions, allowedCreates, includeFallback: true);
+                        // AI lỗi / hết lượt giữa chừng: trả lời như khi chưa có AI (hướng dẫn, dữ liệu cá nhân).
+                        rule = AiAssistantRuleBot.AnswerWithoutAi(
+                            lastUserMessage.Content, contextText, helpHits, allowedActions, allowedCreates, vi);
                         reply = rule.Reply;
                     }
                 }
