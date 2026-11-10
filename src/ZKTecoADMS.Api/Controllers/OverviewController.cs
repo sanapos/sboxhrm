@@ -93,4 +93,130 @@ public class OverviewController(ZKTecoDbContext db) : AuthenticatedControllerBas
 
         return Ok(AppResponse<List<TodoItem>>.Success(items));
     }
+
+    public record HighlightItem(string Id, string Title, string? Detail, DateTime? When);
+
+    /// <summary>
+    /// Tin mới cho Tổng quan: truyền thông nội bộ, công việc, KPI, phản ánh, sản lượng.
+    /// Mỗi khối có <c>hasNews</c> — client chỉ hiện khối có tin mới (và người xem có quyền module).
+    /// </summary>
+    [HttpGet("highlights")]
+    public async Task<ActionResult<AppResponse<object>>> Highlights(CancellationToken ct)
+    {
+        var storeId = RequiredStoreId;
+        var nowUtc = DateTime.UtcNow;
+        var todayVn = VnTimeHelper.NowVn().Date;
+        var todayStartUtc = todayVn.AddHours(-7);
+        var since3dUtc = nowUtc.AddDays(-3);
+
+        // ── Truyền thông nội bộ: bài đăng 3 ngày gần đây ──
+        var commQ = db.InternalCommunications.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.Status == CommunicationStatus.Published
+                        && x.PublishedAt != null && x.PublishedAt >= since3dUtc && x.PublishedAt <= nowUtc);
+        var commCount = await commQ.CountAsync(ct);
+        var commItems = await commQ.OrderByDescending(x => x.PublishedAt).Take(3)
+            .Select(x => new HighlightItem(x.Id.ToString(), x.Title, x.AuthorName, x.PublishedAt))
+            .ToListAsync(ct);
+
+        // ── Công việc ──
+        var openStatuses = new[] { WorkTaskStatus.Completed, WorkTaskStatus.Cancelled };
+        var taskBase = db.WorkTasks.AsNoTracking().Where(x => x.StoreId == storeId && x.Deleted == null);
+        var tasksNewToday = await taskBase.CountAsync(x => x.CreatedAt >= todayStartUtc, ct);
+        var tasksOverdue = await taskBase.CountAsync(x => !openStatuses.Contains(x.Status)
+            && x.DueDate != null && x.DueDate < todayStartUtc, ct);
+        var tasksDueToday = await taskBase.CountAsync(x => !openStatuses.Contains(x.Status)
+            && x.DueDate != null && x.DueDate >= todayStartUtc && x.DueDate < todayStartUtc.AddDays(1), ct);
+        var tasksDoneToday = await taskBase.CountAsync(x => x.Status == WorkTaskStatus.Completed
+            && x.CompletedDate != null && x.CompletedDate >= todayStartUtc, ct);
+        var taskItems = await taskBase
+            .Where(x => (x.CreatedAt >= todayStartUtc)
+                        || (!openStatuses.Contains(x.Status) && x.DueDate != null && x.DueDate < todayStartUtc.AddDays(1)))
+            .OrderBy(x => x.DueDate == null).ThenBy(x => x.DueDate).Take(3)
+            .Select(x => new HighlightItem(x.Id.ToString(), x.Title,
+                x.DueDate != null && x.DueDate < todayStartUtc ? "Quá hạn" : x.CreatedAt >= todayStartUtc ? "Mới giao" : "Hạn hôm nay",
+                x.DueDate))
+            .ToListAsync(ct);
+
+        // ── KPI: kết quả cập nhật trong 24 giờ + kỳ đang chạy ──
+        var since1dUtc = nowUtc.AddDays(-1);
+        var kpiNew = await db.KpiResults.AsNoTracking()
+            .CountAsync(x => x.StoreId == storeId && x.Deleted == null
+                             && (x.CreatedAt >= since1dUtc || (x.LastModified != null && x.LastModified >= since1dUtc)), ct);
+        var period = await db.KpiPeriods.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.PeriodStart <= todayVn && p.PeriodEnd >= todayVn)
+            .OrderByDescending(p => p.PeriodStart)
+            .Select(p => new { p.Id, p.Name })
+            .FirstOrDefaultAsync(ct);
+        double? kpiAvg = null;
+        var kpiItems = new List<HighlightItem>();
+        var kpiTargets = 0;
+        if (period != null)
+        {
+            var targets = await db.KpiEmployeeTargets.AsNoTracking()
+                .Where(t => t.KpiPeriodId == period.Id && t.Deleted == null)
+                .Select(t => new { t.EmployeeId, t.CompletionRate, t.Employee.LastName, t.Employee.FirstName })
+                .ToListAsync(ct);
+            kpiTargets = targets.Count;
+            if (targets.Count > 0)
+            {
+                kpiAvg = Math.Round((double)targets.Average(t => t.CompletionRate), 1);
+                kpiItems = targets.GroupBy(t => t.EmployeeId)
+                    .Select(g => new { g.First().LastName, g.First().FirstName, Rate = g.Average(x => x.CompletionRate) })
+                    .OrderByDescending(x => x.Rate).Take(3)
+                    .Select(x => new HighlightItem("", $"{x.LastName} {x.FirstName}".Trim(), $"{x.Rate:0.#}%", null))
+                    .ToList();
+            }
+        }
+
+        // ── Phản ánh / ý kiến ──
+        var fbBase = db.Feedbacks.AsNoTracking().Where(x => x.StoreId == storeId && x.Deleted == null);
+        var fbPending = await fbBase.CountAsync(x => x.Status == "Pending" || x.Status == "InProgress", ct);
+        var fbNew = await fbBase.CountAsync(x => x.CreatedAt >= since3dUtc, ct);
+        var fbItems = await fbBase.Where(x => x.Status == "Pending" || x.Status == "InProgress" || x.CreatedAt >= since3dUtc)
+            .OrderByDescending(x => x.CreatedAt).Take(3)
+            .Select(x => new HighlightItem(x.Id.ToString(), x.Title,
+                x.IsAnonymous || x.SenderEmployee == null ? "Ẩn danh" : (x.SenderEmployee.LastName + " " + x.SenderEmployee.FirstName),
+                x.CreatedAt))
+            .ToListAsync(ct);
+
+        // ── Sản lượng hôm nay ──
+        var prodToday = db.ProductionEntries.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.Deleted == null && x.WorkDate >= todayVn && x.WorkDate < todayVn.AddDays(1));
+        var prodRows = await prodToday
+            .Select(x => new { x.EmployeeId, x.Quantity, x.Amount, Product = x.ProductItem.Name })
+            .ToListAsync(ct);
+        var prodItems = prodRows.GroupBy(x => x.Product)
+            .OrderByDescending(g => g.Sum(x => x.Quantity)).Take(3)
+            .Select(g => new HighlightItem("", g.Key, $"SL {g.Sum(x => x.Quantity):0.##}", null))
+            .ToList();
+
+        // Giờ trong DB là UTC nhưng đọc ra Kind=Unspecified → JSON thiếu «Z», app hiểu thành giờ máy (lệch 7 giờ).
+        static List<HighlightItem> Utc(List<HighlightItem> xs) =>
+            xs.Select(i => i with { When = i.When is DateTime w ? DateTime.SpecifyKind(w, DateTimeKind.Utc) : null }).ToList();
+        commItems = Utc(commItems);
+        taskItems = Utc(taskItems);
+        fbItems = Utc(fbItems);
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            communication = new { hasNews = commCount > 0, count = commCount, items = commItems },
+            tasks = new
+            {
+                hasNews = tasksNewToday + tasksOverdue + tasksDueToday + tasksDoneToday > 0,
+                newToday = tasksNewToday, overdue = tasksOverdue, dueToday = tasksDueToday, doneToday = tasksDoneToday,
+                items = taskItems,
+            },
+            kpi = new { hasNews = kpiNew > 0, updated = kpiNew, periodName = period?.Name, targets = kpiTargets, avgCompletion = kpiAvg, items = kpiItems },
+            feedback = new { hasNews = fbPending + fbNew > 0, pending = fbPending, newCount = fbNew, items = fbItems },
+            production = new
+            {
+                hasNews = prodRows.Count > 0,
+                entries = prodRows.Count,
+                employees = prodRows.Select(x => x.EmployeeId).Distinct().Count(),
+                quantity = prodRows.Sum(x => x.Quantity),
+                amount = prodRows.Sum(x => x.Amount ?? 0),
+                items = prodItems,
+            },
+        }));
+    }
 }

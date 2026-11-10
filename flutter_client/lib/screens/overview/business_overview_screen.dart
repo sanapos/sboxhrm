@@ -15,6 +15,7 @@ import '../../utils/navigation_notifier.dart';
 import '../../utils/permission_navigation.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import '../dashboard_screen.dart';
+import 'late_penalty_sheet.dart';
 
 /// Chế độ tổng quan theo gói + quyền người xem.
 enum OverviewMode { hrm, pos, combined }
@@ -75,6 +76,10 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
   Map<String, dynamic>? _manager;
   List<Map<String, dynamic>> _trends = const [];
   List<Map<String, dynamic>> _todos = const [];
+  Map<String, dynamic>? _highlights;
+  /// Bảng lương máy chủ tính cho riêng hôm nay (null = chưa tải / không có quyền).
+  List<Map<String, dynamic>>? _payToday;
+  bool _payLoading = false;
 
   bool get _hasPos => widget.mode != OverviewMode.hrm;
   bool get _hasHrm => widget.mode != OverviewMode.pos;
@@ -118,7 +123,9 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       if (_hasPos) 'stock': _api.getPosStockReportSummary(),
       if (_hasHrm) 'manager': _api.getManagerDashboard(),
       if (_hasHrm) 'trends': _api.getAttendanceTrends(days: _period.trendDays),
+      'highlights': _api.getOverviewHighlights(),
     };
+    if (_hasHrm && _can('Payroll')) unawaited(_loadPayToday(seq));
     final keys = futures.keys.toList();
     final values = await Future.wait(futures.values);
     if (!mounted || seq != _seq) return;
@@ -132,6 +139,21 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       _stock = r['stock'] is Map ? _data(Map<String, dynamic>.from(r['stock'] as Map)) : null;
       _manager = r['manager'] is Map ? _data(Map<String, dynamic>.from(r['manager'] as Map)) : null;
       _trends = _list(r['trends']);
+      _highlights = r['highlights'] is Map ? _data(Map<String, dynamic>.from(r['highlights'] as Map)) : null;
+    });
+  }
+
+  /// Lương hôm nay: bộ tính lương máy chủ chạy cho riêng ngày hôm nay (chậm hơn các số khác → tải riêng).
+  Future<void> _loadPayToday(int seq) async {
+    setState(() => _payLoading = true);
+    final now = DateTime.now();
+    final day = DateTime(now.year, now.month, now.day);
+    final r = await _api.getPayrollSummaryServer(day, day);
+    if (!mounted || seq != _seq) return;
+    final d = r['isSuccess'] == true && r['data'] is Map ? (r['data'] as Map)['rows'] : null;
+    setState(() {
+      _payLoading = false;
+      _payToday = d is List ? _list(d) : null;
     });
   }
 
@@ -191,11 +213,13 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
               if ('${r['department'] ?? ''}'.isNotEmpty) '${r['department']}',
               if (shift(r).isNotEmpty) shift(r),
               if (r['checkIn'] != null) 'Vào ${r['checkIn']}${r['checkOut'] != null ? ' · Ra ${r['checkOut']}' : ''}',
+              if ('${r['note'] ?? ''}'.isNotEmpty) '${r['note']}',
             ].join(' · '),
             trailing: switch ('${r['status']}') {
               'Late' => 'Trễ ${r['lateMinutes'] ?? 0}p',
               'Absent' => 'Vắng',
               'On Leave' => 'Nghỉ phép',
+              'Off' => 'Không có ca',
               _ => r['checkIn'] == null ? null : '${r['checkIn']}',
             },
             trailingColor: switch ('${r['status']}') {
@@ -207,6 +231,29 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
           ),
       ],
     );
+  }
+
+  /// «Đi trễ hôm nay»: danh sách người trễ kèm phiếu phạt — duyệt từng phiếu hoặc duyệt nhanh tất cả.
+  void _openLateToday() {
+    final day = _todayTrend;
+    if (day == null || day['employees'] is! List) {
+      _showPeople('Đi trễ hôm nay', day, {'Late'});
+      return;
+    }
+    final canSee = _can('PenaltyTickets') || _can('PenaltyReport');
+    if (!canSee) {
+      _showPeople('Đi trễ hôm nay', day, {'Late'});
+      return;
+    }
+    showLatePenaltySheet(
+      context,
+      lateRows: _list(day['employees']).where((e) => '${e['status']}' == 'Late').toList(),
+      canApprove: _can('PenaltyTickets'),
+      api: _api,
+      onOpenPenalties: _can('PenaltyTickets') ? () => _go('PenaltyTickets') : null,
+    ).then((_) {
+      if (mounted) _load();
+    });
   }
 
   bool _can(String code) {
@@ -231,6 +278,12 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
   /// tài khoản app), theo chi nhánh đang xem, ngày nghỉ theo lịch / thiết lập lương, trễ có ân hạn —
   /// ô số và biểu đồ khớp nhau. Máy chủ cũ (không có dòng hôm nay) → số theo ca đã duyệt.
   /// checkedIn = đã chấm công vào (gồm cả người đi trễ).
+  /// Nhân viên không phải đi làm hôm nay (nghỉ theo lịch / chưa xếp ca / nghỉ tuần) và tổng nhân viên.
+  ({int off, int headcount}) get _todayOff {
+    final t = _todayTrend;
+    return (off: _n(t?['offDuty']).round(), headcount: _n(t?['headcount']).round());
+  }
+
   ({int total, int checkedIn, int late, int absent, int leave}) get _today {
     final now = DateTime.now();
     final todayKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -374,13 +427,17 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     final t = _today;
     final rate = t.total > 0 ? t.checkedIn * 100 / t.total : 0.0;
     final punctual = t.checkedIn > 0 ? (t.checkedIn - t.late) * 100 / t.checkedIn : 100.0;
+    final off = _todayOff;
     return [
       SboxKpi(
           label: 'Có mặt hôm nay',
           value: t.total > 0 ? '${t.checkedIn}/${t.total}' : '${t.checkedIn}',
           icon: Icons.how_to_reg_outlined,
           tone: SboxTone.success,
-          note: t.total > 0 ? 'Tỷ lệ ${SboxFmt.pct(rate)}' : 'Chưa có nhân viên',
+          // «8/9» tính trên số NV phải đi làm hôm nay — ghi kèm tổng NV để không bị hiểu là thiếu người.
+          note: t.total > 0
+              ? 'Tỷ lệ ${SboxFmt.pct(rate)}${off.headcount > 0 ? ' · tổng ${off.headcount} NV' : ''}'
+              : 'Chưa có nhân viên',
           onTap: () => _showPeople('Có mặt hôm nay', _todayTrend, {'Present', 'Late'})),
       SboxKpi(
           label: 'Đi trễ hôm nay',
@@ -388,7 +445,7 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
           icon: Icons.schedule_outlined,
           tone: SboxTone.warning,
           note: t.checkedIn > 0 ? 'Đúng giờ ${SboxFmt.pct(punctual)}' : 'Chưa ai chấm công',
-          onTap: () => _showPeople('Đi trễ hôm nay', _todayTrend, {'Late'})),
+          onTap: _openLateToday),
       SboxKpi(
           label: 'Vắng hôm nay',
           value: '${t.absent}',
@@ -403,6 +460,15 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
           tone: SboxTone.violet,
           note: 'Đơn đã duyệt',
           onTap: () => _showPeople('Nghỉ phép hôm nay', _todayTrend, {'On Leave'})),
+      if (_todayTrend?.containsKey('offDuty') == true)
+        SboxKpi(
+            label: 'Không có ca hôm nay',
+            value: '${off.off}',
+            icon: Icons.event_busy_outlined,
+            tone: SboxTone.neutral,
+            note: 'Nghỉ theo lịch / chưa xếp ca',
+            onTap: () => _showPeople('Không có ca hôm nay', _todayTrend, {'Off'},
+                subtitle: 'Không phải đi làm hôm nay và chưa chấm công')),
     ];
   }
 
@@ -500,6 +566,7 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
         SboxRankList(
           emptyHeight: 60,
           color: SboxColors.warning,
+          onTap: (_) => _openLateToday(),
           valueFormat: (v) => '${SboxFmt.number(v)} phút',
           items: [
             if (_todayTrend?['employees'] is List)
@@ -653,98 +720,184 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     return _trends.where((d) => '${d['date']}' == key).firstOrNull;
   }
 
-  /// «Nhân viên hôm nay» theo chấm công thực tế: ai đã chấm (giờ vào / ra thật, ca khớp, trễ có ân hạn),
-  /// ai phải đi làm mà chưa chấm (vắng), ai nghỉ phép — gồm cả NV không có tài khoản app.
-  Widget _employeeTodayTable() {
-    final actual = _todayTrend?['employees'];
-    if (actual is List) return _actualTodayTable(_list(actual));
-    return _legacyTodayTable();
-  }
+  // ─── Lương hôm nay ───────────────────────────────────────────────
 
-  Widget _actualTodayTable(List<Map<String, dynamic>> rows) {
-    (String, SboxTone) status(Map<String, dynamic> r) => switch ('${r['status']}') {
-          'Present' => ('Có mặt', SboxTone.success),
-          'Late' => ('Trễ ${r['lateMinutes'] ?? 0}p', SboxTone.warning),
-          'Absent' => ('Vắng', SboxTone.danger),
-          'On Leave' => ('Nghỉ phép', SboxTone.violet),
-          _ => ('—', SboxTone.neutral),
-        };
-    int order(dynamic s) => switch ('$s') { 'Absent' => 0, 'Late' => 1, 'On Leave' => 2, 'Present' => 3, _ => 4 };
-    rows.sort((a, b) {
-      final c = order(a['status']).compareTo(order(b['status']));
-      return c != 0 ? c : '${a['checkIn'] ?? ''}'.compareTo('${b['checkIn'] ?? ''}');
-    });
-    String shift(Map<String, dynamic> r) {
-      final name = '${r['shiftName'] ?? ''}';
-      final s = r['shiftStart'], e = r['shiftEnd'];
-      if (s == null) return name.isEmpty ? '—' : name;
-      final time = e == null ? '$s' : '$s–$e';
-      return name.isEmpty || name == 'Ca khác' ? time : '$name · $time';
+  /// Lương phát sinh hôm nay của từng NV (tạm tính theo công đã chấm): lương công + tăng ca + phụ cấp ngày / ca.
+  Widget _payTodayCard() {
+    final rows = <({String name, double work, double ot, double allow})>[];
+    for (final r in _payToday ?? const <Map<String, dynamic>>[]) {
+      final work = _n(r['workSalary']), ot = _n(r['otSalary']);
+      final allow = _n(r['allowanceDailyEarned']) + _n(r['allowanceShift']);
+      if (work + ot + allow <= 0) continue;
+      rows.add((name: '${r['name'] ?? ''}', work: work, ot: ot, allow: allow));
     }
-    return SboxDataTable<Map<String, dynamic>>(
-      rows: rows,
-      pageSize: 10,
-      emptyTitle: 'Hôm nay chưa có ai chấm công',
-      onRowTap: _can('AttendanceSummary') ? (_) => _go('AttendanceSummary') : null,
-      columns: [
-        SboxColumn(label: 'Nhân viên', primary: true, flex: 3, text: (r) => '${r['fullName'] ?? ''}', sortValue: (r) => '${r['fullName'] ?? ''}'),
-        SboxColumn(label: 'Phòng ban', flex: 2, hideOnMobile: true, text: (r) => '${r['department'] ?? ''}', sortValue: (r) => '${r['department'] ?? ''}'),
-        SboxColumn(label: 'Ca', flex: 2, text: shift, sortValue: (r) => '${r['shiftStart'] ?? ''}'),
-        SboxColumn(label: 'Vào', flex: 1, text: (r) => '${r['checkIn'] ?? '—'}', sortValue: (r) => '${r['checkIn'] ?? ''}'),
-        SboxColumn(label: 'Ra', flex: 1, hideOnMobile: true, text: (r) => '${r['checkOut'] ?? '—'}'),
-        SboxColumn(
-          label: 'Trạng thái',
-          flex: 2,
-          cell: (r) {
-            final (l, t) = status(r);
-            return Align(alignment: Alignment.centerLeft, child: SboxStatusChip(label: l, tone: t, dot: true));
-          },
-          sortValue: (r) => order(r['status']),
-        ),
-      ],
+    rows.sort((a, b) => (b.work + b.ot + b.allow).compareTo(a.work + a.ot + a.allow));
+    final total = rows.fold<double>(0, (s, r) => s + r.work + r.ot + r.allow);
+    final top = rows.take(10).toList();
+    String short(String n) {
+      final parts = n.trim().split(RegExp(r'\s+'));
+      return parts.length <= 2 ? n : parts.sublist(parts.length - 2).join(' ');
+    }
+
+    final waiting = _payLoading && _payToday == null;
+    return SboxChartCard(
+      title: 'Lương hôm nay (tạm tính)',
+      subtitle: waiting
+          ? 'Đang tính…'
+          : rows.isEmpty
+              ? 'Chưa có công hôm nay'
+              : 'Tổng ${SboxFmt.money(total)} · ${rows.length} nhân viên có công',
+      onMore: () => _go('Payroll'),
+      child: waiting
+          ? const SizedBox(height: 120, child: SboxLoading())
+          : SboxBarChart(
+              stacked: true,
+              onTapIndex: (_) => _go('Payroll'),
+              labels: [for (final r in top) short(r.name)],
+              series: [
+                SboxSeries(name: 'Lương công', values: [for (final r in top) r.work]),
+                SboxSeries(name: 'Tăng ca', values: [for (final r in top) r.ot], color: SboxColors.warning),
+                SboxSeries(name: 'Phụ cấp', values: [for (final r in top) r.allow], color: SboxColors.success),
+              ],
+            ),
     );
   }
 
-  /// Máy chủ cũ: theo ca đã duyệt (bảng ca cũ).
-  Widget _legacyTodayTable() {
-    final rows = _list(_manager?['todayEmployees']);
-    String hm(dynamic iso) {
-      final d = DateTime.tryParse('${iso ?? ''}');
-      if (d == null) return '—';
-      final l = d.isUtc ? d.toLocal() : d;
+  // ─── Tin mới: truyền thông, công việc, KPI, phản ánh, sản lượng ─────
+
+  Map<String, dynamic> _hl(String key) =>
+      _highlights?[key] is Map ? Map<String, dynamic>.from(_highlights![key] as Map) : const {};
+
+  String _when(dynamic iso) {
+    final d = DateTime.tryParse('${iso ?? ''}');
+    if (d == null) return '';
+    final l = d.isUtc ? d.toLocal() : d;
+    final now = DateTime.now();
+    if (l.year == now.year && l.month == now.month && l.day == now.day) {
       return '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
     }
+    return '${l.day.toString().padLeft(2, '0')}/${l.month.toString().padLeft(2, '0')}';
+  }
 
-    (String, SboxTone) status(dynamic s) => switch ('$s') {
-          'Present' => ('Có mặt', SboxTone.success),
-          'Late' => ('Đi trễ', SboxTone.warning),
-          'Absent' => ('Vắng', SboxTone.danger),
-          'On Leave' => ('Nghỉ phép', SboxTone.violet),
-          _ => ('Không có ca', SboxTone.neutral),
-        };
-    int order(dynamic s) => switch ('$s') { 'Absent' => 0, 'Late' => 1, 'On Leave' => 2, 'Present' => 3, _ => 4 };
-    rows.sort((a, b) => order(a['status']).compareTo(order(b['status'])));
-    return SboxDataTable<Map<String, dynamic>>(
-      rows: rows,
-      pageSize: 10,
-      emptyTitle: 'Hôm nay chưa có ca làm việc',
-      columns: [
-        SboxColumn(label: 'Nhân viên', primary: true, flex: 3, text: (r) => '${r['fullName'] ?? ''}', sortValue: (r) => '${r['fullName'] ?? ''}'),
-        SboxColumn(label: 'Phòng ban', flex: 2, hideOnMobile: true, text: (r) => '${r['department'] ?? ''}', sortValue: (r) => '${r['department'] ?? ''}'),
-        SboxColumn(label: 'Ca', flex: 2, text: (r) => r['shiftStartTime'] == null ? '—' : '${hm(r['shiftStartTime'])}–${hm(r['shiftEndTime'])}'),
-        SboxColumn(label: 'Vào', flex: 1, text: (r) => hm(r['checkInTime']), sortValue: (r) => '${r['checkInTime'] ?? ''}'),
-        SboxColumn(label: 'Ra', flex: 1, hideOnMobile: true, text: (r) => hm(r['checkOutTime'])),
-        SboxColumn(
-          label: 'Trạng thái',
-          flex: 2,
-          cell: (r) {
-            final (l, t) = status(r['status']);
-            return Align(alignment: Alignment.centerLeft, child: SboxStatusChip(label: l, tone: t, dot: true));
-          },
-          sortValue: (r) => order(r['status']),
-        ),
-      ],
+  Widget _newsCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required String module,
+    List<(String, SboxTone)> chips = const [],
+    required List<Map<String, dynamic>> items,
+    bool showWhen = true,
+  }) {
+    return SboxChartCard(
+      title: title,
+      subtitle: subtitle,
+      onMore: () => _go(module),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (chips.isNotEmpty)
+          Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.xs, children: [
+            for (final c in chips) SboxStatusChip(label: c.$1, tone: c.$2),
+          ]),
+        if (chips.isNotEmpty && items.isNotEmpty) const SizedBox(height: SboxSpace.sm),
+        for (final it in items)
+          InkWell(
+            onTap: () => _go(module),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(children: [
+                Icon(icon, size: 18, color: SboxColors.textMuted),
+                const SizedBox(width: SboxSpace.sm),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${it['title'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if ('${it['detail'] ?? ''}'.isNotEmpty)
+                      Text('${it['detail']}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SboxType.captionStyle(SboxColors.textMuted)),
+                  ]),
+                ),
+                if (showWhen && _when(it['when']).isNotEmpty)
+                  Text(_when(it['when']), style: SboxType.captionStyle(SboxColors.textMuted)),
+              ]),
+            ),
+          ),
+      ]),
     );
+  }
+
+  /// Chỉ khối có tin mới và người xem mở được module.
+  List<Widget> _newsCards() {
+    if (_highlights == null) return const [];
+    final out = <Widget>[];
+    final comm = _hl('communication');
+    if (comm['hasNews'] == true && _can('Communication')) {
+      out.add(_newsCard(
+        title: 'Truyền thông nội bộ',
+        subtitle: '${_n(comm['count']).round()} bài mới trong 3 ngày',
+        icon: Icons.campaign_outlined,
+        module: 'Communication',
+        items: _list(comm['items']),
+      ));
+    }
+    final task = _hl('tasks');
+    if (task['hasNews'] == true && _can('Task')) {
+      out.add(_newsCard(
+        title: 'Công việc',
+        subtitle: 'Hôm nay',
+        icon: Icons.task_alt_outlined,
+        module: 'Task',
+        chips: [
+          if (_n(task['overdue']) > 0) ('Quá hạn ${_n(task['overdue']).round()}', SboxTone.danger),
+          if (_n(task['dueToday']) > 0) ('Hạn hôm nay ${_n(task['dueToday']).round()}', SboxTone.warning),
+          if (_n(task['newToday']) > 0) ('Mới giao ${_n(task['newToday']).round()}', SboxTone.brand),
+          if (_n(task['doneToday']) > 0) ('Xong ${_n(task['doneToday']).round()}', SboxTone.success),
+        ],
+        items: _list(task['items']),
+      ));
+    }
+    final kpi = _hl('kpi');
+    if (kpi['hasNews'] == true && _can('KPI')) {
+      out.add(_newsCard(
+        title: 'KPI',
+        subtitle: [
+          '${_n(kpi['updated']).round()} kết quả mới cập nhật',
+          if ('${kpi['periodName'] ?? ''}'.isNotEmpty) '${kpi['periodName']}',
+        ].join(' · '),
+        icon: Icons.insights_outlined,
+        module: 'KPI',
+        chips: [
+          if (kpi['avgCompletion'] != null) ('Hoàn thành TB ${SboxFmt.pct(_n(kpi['avgCompletion']))}', SboxTone.brand),
+        ],
+        items: _list(kpi['items']),
+        showWhen: false,
+      ));
+    }
+    final fb = _hl('feedback');
+    if (fb['hasNews'] == true && _can('Feedback')) {
+      out.add(_newsCard(
+        title: 'Phản ánh / ý kiến',
+        subtitle: '${_n(fb['pending']).round()} chưa xử lý · ${_n(fb['newCount']).round()} mới trong 3 ngày',
+        icon: Icons.forum_outlined,
+        module: 'Feedback',
+        items: _list(fb['items']),
+      ));
+    }
+    final prod = _hl('production');
+    if (prod['hasNews'] == true && _can('Production')) {
+      out.add(_newsCard(
+        title: 'Sản lượng hôm nay',
+        subtitle: '${_n(prod['entries']).round()} lượt nhập · ${_n(prod['employees']).round()} nhân viên',
+        icon: Icons.precision_manufacturing_outlined,
+        module: 'Production',
+        chips: [
+          ('SL ${SboxFmt.number(_n(prod['quantity']))}', SboxTone.brand),
+          if (_n(prod['amount']) > 0) (SboxFmt.money(_n(prod['amount'])), SboxTone.success),
+        ],
+        items: _list(prod['items']),
+        showWhen: false,
+      ));
+    }
+    return out;
   }
 
   // ─── Bố cục ─────────────────────────────────────────────────────
@@ -778,13 +931,17 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       case OverviewMode.hrm:
         kpis = const [];
         kpiGroups.add(_kpiGroup('Nhân sự · hôm nay', _hrmKpis()));
-        charts = [_attendanceChart(), _todoCard(), _todayAttendanceCard()];
-        table = _employeeTodayTable();
-        tableTitle = 'Nhân viên hôm nay';
+        charts = [
+          _attendanceChart(),
+          _todoCard(),
+          _todayAttendanceCard(),
+          if (_can('Payroll')) _payTodayCard(),
+          ..._newsCards(),
+        ];
       case OverviewMode.pos:
         kpis = const [];
         kpiGroups.add(_kpiGroup('Bán hàng · ${_period.label}', [..._posKpis(), ..._moneyKpis()]));
-        charts = [_revenueChart(), _todoCard(), _topProducts(), _paymentDonut()];
+        charts = [_revenueChart(), _todoCard(), ..._newsCards(), _topProducts(), _paymentDonut()];
         table = _staffTable();
         tableTitle = 'Doanh thu theo nhân viên bán';
       case OverviewMode.combined:
@@ -792,7 +949,16 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
         kpiGroups
           ..add(_kpiGroup('Bán hàng · ${_period.label}', [..._posKpis(), ..._moneyKpis()]))
           ..add(_kpiGroup('Nhân sự · hôm nay', _hrmKpis()));
-        charts = [_revenueChart(), _attendanceChart(), _todoCard(), _todayAttendanceCard(), _topProducts(), _paymentDonut()];
+        charts = [
+          _revenueChart(),
+          _attendanceChart(),
+          _todoCard(),
+          _todayAttendanceCard(),
+          if (_can('Payroll')) _payTodayCard(),
+          ..._newsCards(),
+          _topProducts(),
+          _paymentDonut(),
+        ];
         table = _staffTable();
         tableTitle = 'Doanh thu theo nhân viên bán';
     }

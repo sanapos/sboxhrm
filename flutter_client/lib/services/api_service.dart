@@ -9979,6 +9979,18 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Tin mới cho Tổng quan: truyền thông, công việc, KPI, phản ánh, sản lượng (404 = máy chủ cũ).
+  Future<Map<String, dynamic>> getOverviewHighlights() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/overview/highlights'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getManagerDashboard({DateTime? date}) async {
     try {
       final params = <String, String>{};

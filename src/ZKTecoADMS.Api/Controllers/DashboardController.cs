@@ -191,7 +191,7 @@ public class DashboardController(
     public sealed record TodayEmployeeRow(
         Guid EmployeeId, string EmployeeCode, string FullName, string? Department,
         string? ShiftName, string? ShiftStart, string? ShiftEnd,
-        string? CheckIn, string? CheckOut, string Status, int LateMinutes);
+        string? CheckIn, string? CheckOut, string Status, int LateMinutes, string? Note = null);
 
     /// <summary>Ngày nghỉ tuần từ thiết lập lương: WeeklyOffDays («Saturday,Sunday») hoặc kiểu nghỉ có lương.</summary>
     internal static HashSet<DayOfWeek> ParseWeeklyOff(string? weeklyOffDays, string? paidLeaveType)
@@ -405,6 +405,20 @@ public class DashboardController(
                 return !off.Contains(day.DayOfWeek);
             }
 
+            // Lý do NV không phải đi làm ngày d (Tổng quan trả lời «các bạn còn lại đâu»).
+            string OffReason(Guid empId, Guid? userId, DateTime day)
+            {
+                var hasSched = usersWithSchedule.Contains(empId) || (userId is Guid u0 && usersWithSchedule.Contains(u0));
+                if (hasSched)
+                {
+                    var found = scheduleIndex.TryGetValue((empId, day), out var se)
+                        || (userId is Guid u1 && scheduleIndex.TryGetValue((u1, day), out se));
+                    return found && se!.IsDayOff ? "Nghỉ theo lịch" : "Chưa xếp ca hôm nay";
+                }
+                if (hourlyEmpIds.Contains(empId)) return "Lương giờ, chưa xếp ca";
+                return "Ngày nghỉ tuần";
+            }
+
             bool OnLeave(Guid? userId, DateTime day) =>
                 userId is Guid u && leaveRows.Any(l => l.EmployeeUserId == u && l.StartDate.Date <= day && l.EndDate.Date >= day);
 
@@ -575,6 +589,14 @@ public class DashboardController(
                             sName, sStart, sEnd, null, null,
                             OnLeave(e.ApplicationUserId, d) ? "On Leave" : "Absent", 0));
                     }
+                    // Không phải đi làm hôm nay và chưa chấm công: nghỉ theo lịch / chưa xếp ca / nghỉ tuần.
+                    foreach (var e in employeeData.Where(e => !expectedIds.Contains(e.Id) && !presentSet.Contains(e.Id)))
+                    {
+                        dayRows.Add(new TodayEmployeeRow(
+                            e.Id, e.EmployeeCode, $"{e.LastName} {e.FirstName}".Trim(), e.Department,
+                            null, null, null, null, null,
+                            OnLeave(e.ApplicationUserId, d) ? "On Leave" : "Off", 0, OffReason(e.Id, e.ApplicationUserId, d)));
+                    }
                 }
 
                 trends.Add(new
@@ -587,6 +609,9 @@ public class DashboardController(
                     absent = absentCount,
                     onLeave = leaveCount,
                     total = totalEmp,
+                    // Tổng NV đang làm (phạm vi đang xem) và số không phải đi làm ngày này mà chưa chấm công.
+                    headcount = employeeData.Count,
+                    offDuty = employeeData.Count(e => !expectedIds.Contains(e.Id) && !presentSet.Contains(e.Id)),
                     attendanceRate = rate,
                     shiftBreakdown = shiftStats
                         .OrderBy(kv => kv.Key)
