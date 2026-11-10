@@ -1,0 +1,78 @@
+﻿
+## 1 Lưu cấu hình AhaMove: HTTP 200 isSuccess=True msg=
+{"carrierCode": "Ahamove", "enabled": true, "hasApiToken": true, "hasPassword": true, "notice": "Đã lấy token user AhaMove (staging) — có thể báo giá / tạo đơn."}
+   token calls so far: 1
+   webhookSecret có: True | webhookUrl: http://127.0.0.1:7073/api/webhooks/shipping/ahamove?hash=2825f217db1fca6da96aa71530d52789
+
+   SP thử: Hàng QA A giá 100000.0
+
+## 2 Tạo đơn giao hàng A: HTTP 200 isSuccess=True msg=
+{"id": "3c7680e0-999f-44c5-a0c9-23251d45eb89", "orderNo": "TMP07", "total": 200000, "status": "Draft", "isDelivery": true}
+
+## 3 Báo giá /quote: HTTP 200 isSuccess=True msg=
+{"success": true, "fee": 33000, "serviceName": "AhaMove DAD-BIKE", "serviceCode": "DAD-BIKE", "etaMinutes": 25, "message": null}
+
+## 4 So sánh /compare: HTTP 200 isSuccess=True msg=
+{"quotes": [{"carrierCode": "Internal", "carrierName": "Giao hàng nội bộ", "success": true, "fee": 0, "serviceName": "Tự giao", "serviceCode": "internal", "message": null, "etaHours": null, "etaMinutes": null, "badges": null}, {"carrierCode": "Ahamove", "carrierName": "AhaMove", "success": true, "fee": 33000, "serviceName": "AhaMove DAD-BIKE", "serviceCode": "DAD-BIKE", "message": null, "etaHours": 1, "etaMinutes": 25, "badges": ["cheapest", "fastest", "recommended"]}]}
+   AhaMove quote: {'carrierCode': 'Ahamove', 'carrierName': 'AhaMove', 'success': True, 'fee': 33000, 'serviceName': 'AhaMove DAD-BIKE', 'serviceCode': 'DAD-BIKE', 'message': None, 'etaHours': 1, 'etaMinutes': 25, 'badges': ['cheapest', 'fastest', 'recommended']}
+
+## 5 Tạo vận đơn: HTTP 200 isSuccess=True msg=
+{"success": true, "trackingCode": "26SWJGST", "carrierOrderId": "26SWJGST", "fee": 33000, "labelUrl": "https://cloudjetstg.ahamove.com/share-order/26SWJGST", "message": "Tạo đơn AhaMove thành công"}
+   body gửi AhaMove: {"order_time": 0, "path": [{"address": "12 Bạch Đằng, Phường Hải Châu, Đà Nẵng", "name": "QA Retail", "mobile": "84928192214", "lat": 16.0678, "lng": 108.2208, "remarks": "SBOX TMP07"}, {"address": "20 Lê Lợi, Phường Hải Châu, Đà Nẵng", "name": "Khách QA Aha A", "mobile": "84905111222", "cod": 200000, "tracking_number": "TMP07", "lat": 16.0751464, "lng": 108.2198811}], "payment_method": "CASH_BY_RECIPIENT", "remarks": "QA AhaMove", "service_id": "DAD-BIKE", "requests": [], "items": [{"_id": "7a081f9b", "name": "Hàng QA A", "num": 2, "price": 100000}]}
+
+## 6 Tạo vận đơn lần 2 (phải chặn): HTTP 200 isSuccess=True msg=
+{"success": false, "trackingCode": "26SWJGST", "message": "Đơn đã có mã vận đơn: 26SWJGST"}
+
+## 7 Theo dõi đơn /label: HTTP 200 isSuccess=True msg=
+{"success": true, "labelUrl": "https://cloudjetstg.ahamove.com/share-order/26SWJGST", "message": "Link in đã lưu"}
+
+## 8 Đồng bộ hành trình (ACCEPTED): HTTP 200 isSuccess=True msg=
+{"success": true, "statusName": "Tài xế đã nhận", "mappedOnlineStatus": "shipping", "message": "Tài xế đã nhận"}
+
+## 9 Webhook
+   không xác thực   : (401, {'ok': False, 'message': 'Unauthorized'})
+   ?hash=secret      : (200, {'ok': True})
+   header apikey     : (200, {'ok': True})
+   events: [{"statusCode": "created", "label": "Đã tạo vận đơn", "rawStatus": "AhaMove DAD-BIKE", "reason": null, "source": "create", "carrierCode": "Ahamove", "trackingCode": "26SWJGST", "occurredAt": "2026-11-03T00:52:37.523"}, {"statusCode": "picking", "label": "Đang lấy hàng", "rawStatus": "Tài xế đã nhận", "reason": null, "source": "sync", "carrierCode": "Ahamove", "trackingCode": "26SWJGST", "occurredAt": "2026-11-03T00:52:37.693"}, {"statusCode": "delivering", "label": "Đang giao hàng", "rawStatus": "Đang giao", "reason": null, "source": "webhook", "carrierCode": "Ahamove", "trackingCode": "26SWJGST", "occurredAt": "2026-11-03T00:52:37.740"}, {"statusCode": "delivery_failed", "label": "Giao thất bại", "rawStatus": "Giao thất bại", "reason": null, "source": "webhook", "carrierCode": "Ahamove", "trackingCode": "26SWJGST", "occurredAt": "2026-11-03T00:52:37.753"}]
+
+## 10a Đồng bộ sau khi AhaMove thu hồi token: HTTP 200 isSuccess=True msg=
+{"success": true, "statusName": "Tài xế đã nhận", "message": "Tài xế đã nhận"}
+
+## 10b Đồng bộ lần kế: HTTP 200 isSuccess=True msg=
+{"success": true, "statusName": "Tài xế đã nhận", "message": "Tài xế đã nhận"}
+   token calls: trước=1 sau 10a=2 sau 10b=2 (10b > 10a nghĩa là token mới KHÔNG được lưu)
+
+## 2 Tạo đơn giao hàng B: HTTP 200 isSuccess=True msg=
+{"id": "c417aed5-3674-48b5-9a44-932107d96b33", "orderNo": "TMP08", "total": 200000, "status": "Draft", "isDelivery": true}
+
+## 11a Tạo vận đơn đơn B: HTTP 200 isSuccess=True msg=
+{"success": true, "trackingCode": "26RSH18E", "message": "Tạo đơn AhaMove thành công"}
+
+## 11b Hủy vận đơn: HTTP 200 isSuccess=True msg=
+{"success": true, "message": "Đã hủy vận đơn AhaMove"}
+
+## 11c Tạo lại sau hủy: HTTP 200 isSuccess=True msg=
+{"success": true, "trackingCode": "26BIJF5L", "message": "Tạo đơn AhaMove thành công"}
+
+## 11d Hủy khi đang giao (AhaMove từ chối): HTTP 200 isSuccess=True msg=
+{"success": false, "message": "Order status is not cancellable"}
+
+ORDER_IDS 3c7680e0-999f-44c5-a0c9-23251d45eb89 c417aed5-3674-48b5-9a44-932107d96b33
+
+## Các lời gọi tới AhaMove giả:
+   07:52:33 POST /v3/accounts/token -> 200
+   07:52:37 POST /v3/orders/estimates -> 200
+   07:52:37 POST /v3/orders/estimates -> 200
+   07:52:37 POST /v3/orders -> 200
+   07:52:37 POST /__state/26SWJGST -> 200
+   07:52:37 GET /v3/orders/26SWJGST -> 200
+   07:52:37 POST /__rotate -> 200
+   07:52:37 GET /v3/orders/26SWJGST -> 401
+   07:52:37 POST /v3/accounts/token -> 200
+   07:52:37 GET /v3/orders/26SWJGST -> 200
+   07:52:37 GET /v3/orders/26SWJGST -> 200
+   07:52:38 POST /v3/orders -> 200
+   07:52:38 DELETE /v3/orders/26RSH18E -> 200
+   07:52:38 POST /v3/orders -> 200
+   07:52:38 POST /__state/26BIJF5L -> 200
+   07:52:38 DELETE /v3/orders/26BIJF5L -> 406
