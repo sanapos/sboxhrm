@@ -6197,6 +6197,7 @@
   "Gửi WiFi + IP máy chấm công qua Bluetooth — đặt tên gợi nhớ ": "通过蓝牙发送 WiFi + 考勤机 IP——请起一个易记的名称 ",
   "Gửi Zalo": "通过 Zalo 发送",
   "Gửi báo cáo": "提交举报",
+  "Gửi bình luận": "发送评论",
   "Gửi bản nháp cho khách kiểm tra": "发送草稿给客户核对",
   "Gửi bản nháp cho khách kiểm tra tên / MST / địa chỉ TRƯỚC khi phát hành (Viettel, Easy, MISA) — bản nháp chưa có giá trị pháp lý": "发行前将草稿发给客户核对名称 / 税号 / 地址（Viettel、Easy、MISA）——草稿不具法律效力",
   "Gửi bản tin mỗi sáng": "每天早上发送简报",
@@ -12319,6 +12320,7 @@
   "Nội dung 14 · 400": "内容 14 · 400",
   "Nội dung CK phải giữ mã đơn trên QR để tự khớp.": "转账备注须保留二维码上的订单号才能自动匹配。",
   "Nội dung buổi": "训练内容",
+  "Nội dung bài viết": "帖子内容",
   "Nội dung bài viết *": "文章内容 *",
   "Nội dung bình luận không được vượt quá 2000 ký tự": "评论内容不得超过2000个字符",
   "Nội dung bình luận không được để trống": "评论内容不能为空",
@@ -17737,6 +17739,7 @@
   "Viết mới": "新建",
   "Viết nội dung lịch sự, rõ sự việc, thời gian, ảnh hưởng và đề xuất giải pháp.": "用礼貌的措辞，写清事件、时间、影响并提出解决建议。",
   "Viết nội dung phản ánh/ý kiến đầy đủ, có đề xuất giải pháp.": "请详细填写反馈/意见内容，并提出解决建议。",
+  "Viết nội dung…": "撰写内容…",
   "Viết nội dung… hoặc bấm «Trợ lý AI» để AI viết từ yêu cầu hay từ tài liệu Word/PDF/Excel": "输入内容，或点击「AI 助手」让 AI 根据需求或 Word/PDF/Excel 文档撰写",
   "Viết tắt": "缩写",
   "Viết điều trợ lý cần biết về cửa hàng: giờ giấc, chính sách, nội quy, tên gọi tắt món / hàng. ": "填写助手需要了解的门店信息：营业时间、政策、规章、菜品 / 商品简称。 ",
@@ -20007,6 +20010,7 @@
   "Ðóng": "Ðóng",
   "Ô ": "单元格 ",
   "Ô / đoạn trống": "单元格 / 空白段",
+  "Ô bình luận": "评论框",
   "Ô giá nền đen bên phải mã vạch": "条码右侧的黑底价格格",
   "Ô nhập & lựa chọn": "输入与选择项",
   "Ô phòng: xanh = đang chạy, vàng = sắp hết gói, đỏ = hết giờ / quá giờ, tím = đã chốt giờ.": "包间格：绿 = 使用中，黄 = 套餐将用完，红 = 时间用完 / 超时，紫 = 已结算时长。",
@@ -24154,6 +24158,10 @@
    "放弃{0}张未打印的单据？"
   ],
   [
+   "Bỏ ảnh {0}",
+   "移除图片 {0}"
+  ],
+  [
    "Bỏ: {0}",
    "移除：{0}"
   ],
@@ -24711,6 +24719,10 @@
   ],
   [
    "Chỉ thêm được {0} ảnh",
+   "只能再添加 {0} 张图片"
+  ],
+  [
+   "Chỉ thêm được {0} ảnh nữa",
    "只能再添加 {0} 张图片"
   ],
   [
@@ -28600,6 +28612,10 @@
   [
    "Mốc {0} đã tồn tại",
    "节点 {0} 已存在"
+  ],
+  [
+   "Mỗi bình luận tối đa {0} ảnh",
+   "每条评论最多 {0} 张图片"
   ],
   [
    "Mỗi hóa đơn tối đa {0} ảnh — xóa bớt ảnh rồi thêm ảnh khác.",

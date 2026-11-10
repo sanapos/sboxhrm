@@ -353,6 +353,7 @@ class CommComment {
         avatar = j['avatar'],
         content = '${j['content'] ?? ''}',
         parentCommentId = j['parentCommentId']?.toString(),
+        images = _strs(j['images']),
         createdAt = _dt(j['createdAt']) ?? DateTime.now(),
         canDelete = j['canDelete'] == true,
         canEdit = j['canEdit'] == true,
@@ -367,6 +368,8 @@ class CommComment {
   final String? avatar;
   String content;
   final String? parentCommentId;
+  /// Ảnh đính kèm bình luận (tối đa 4).
+  final List<String> images;
   final DateTime createdAt;
   final bool canDelete;
   final bool canEdit;

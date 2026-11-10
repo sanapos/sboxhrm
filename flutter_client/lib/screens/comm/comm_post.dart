@@ -9,6 +9,7 @@ import '../../models/comm_v2.dart';
 import '../../services/api_service.dart';
 import '../../services/signalr_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
+import 'comm_comment_input.dart';
 import 'comm_common.dart';
 import 'comm_moderation.dart';
 import '../../theme/sbox_tokens.dart';
@@ -64,6 +65,7 @@ class _CommPostCardState extends State<CommPostCard> {
   final _api = ApiService();
   final _comment = TextEditingController();
   final _commentFocus = FocusNode();
+  final _commentImages = CommCommentDraftImages();
   bool _busy = false;
   bool _more = false;
   bool _showBox = false;
@@ -76,6 +78,7 @@ class _CommPostCardState extends State<CommPostCard> {
   void dispose() {
     _comment.dispose();
     _commentFocus.dispose();
+    _commentImages.dispose();
     super.dispose();
   }
 
@@ -232,10 +235,10 @@ class _CommPostCardState extends State<CommPostCard> {
 
   Future<void> _sendComment() async {
     final text = _comment.text.trim();
-    if (text.isEmpty || _sending) return;
+    if ((text.isEmpty && _commentImages.isEmpty) || _sending || _commentImages.uploading) return;
     if (!await ensureCommTerms(context, widget.ctx.myUserId) || !mounted) return;
     setState(() => _sending = true);
-    final r = await _api.addCommComment(p.id, text);
+    final r = await _api.addCommComment(p.id, text, images: List.of(_commentImages.urls));
     if (!mounted) return;
     setState(() => _sending = false);
     if (r['isSuccess'] != true) {
@@ -243,6 +246,7 @@ class _CommPostCardState extends State<CommPostCard> {
       return;
     }
     _comment.clear();
+    _commentImages.clear();
     setState(() {
       p.comments++;
       if (r['data'] is Map) p.latestComments.add(CommComment.fromJson(Map<String, dynamic>.from(r['data'] as Map)));
@@ -582,17 +586,17 @@ class _CommPostCardState extends State<CommPostCard> {
   Widget _inlineBox() {
     return Padding(
       padding: const EdgeInsets.only(top: 6),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+        CommCommentImageStrip(images: _commentImages, padding: const EdgeInsets.only(left: 38, bottom: 6)),
+        Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
         CommAvatar(name: widget.ctx.myName.isEmpty ? 'Tôi' : widget.ctx.myName, size: 30),
         const SizedBox(width: 8),
         Expanded(
-          child: TextField(
+          child: CommCommentField(
             controller: _comment,
             focusNode: _commentFocus,
-            minLines: 1,
-            maxLines: 4,
-            textInputAction: TextInputAction.send,
-            onSubmitted: (_) => _sendComment(),
+            identifier: 'comm-comment-input-inline',
+            onSend: _sendComment,
             decoration: InputDecoration(
               isDense: true,
               hintText: tr('Viết bình luận… (Enter để gửi)'),
@@ -601,16 +605,24 @@ class _CommPostCardState extends State<CommPostCard> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: SboxColors.border)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: SboxColors.border)),
-              suffixIcon: IconButton(
-                tooltip: tr('Gửi'),
-                icon: _sending
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.send_rounded, size: 18, color: SboxColors.brand600),
-                onPressed: _sending ? null : _sendComment,
-              ),
+              suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
+                CommCommentImageButton(images: _commentImages),
+                Semantics(
+                  identifier: 'comm-comment-send',
+                  child: IconButton(
+                    tooltip: tr('Gửi'),
+                    visualDensity: VisualDensity.compact,
+                    icon: _sending
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.send_rounded, size: 18, color: SboxColors.brand600),
+                    onPressed: _sending ? null : _sendComment,
+                  ),
+                ),
+              ]),
             ),
           ),
         ),
+        ]),
       ]),
     );
   }
@@ -928,8 +940,17 @@ class CommCommentBubble extends StatelessWidget {
                 decoration: BoxDecoration(color: SboxColors.slate100, borderRadius: BorderRadius.circular(16)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(c.userName ?? '—', style: SboxType.smallStyle(SboxColors.text).copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 1),
-                  Text.rich(TextSpan(children: spans), style: SboxType.bodyStyle()),
+                  if (c.content.isNotEmpty) ...[
+                    const SizedBox(height: 1),
+                    Text.rich(TextSpan(children: spans), style: SboxType.bodyStyle()),
+                  ],
+                  if (c.images.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 260),
+                      child: CommImageGrid(urls: c.images, height: compact ? 130 : 170),
+                    ),
+                  ],
                 ]),
               ),
               if (c.likeCount > 0)
@@ -1100,6 +1121,7 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
   final _api = ApiService();
   final _input = TextEditingController();
   final _focus = FocusNode();
+  final _images = CommCommentDraftImages();
   final _scroll = ScrollController();
   CommPost? _post;
   List<CommComment> _comments = [];
@@ -1134,6 +1156,7 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
     _rt?.cancel();
     _input.dispose();
     _focus.dispose();
+    _images.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -1212,12 +1235,13 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
 
   Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty || _sending) return;
+    if ((text.isEmpty && _images.isEmpty) || _sending || _images.uploading) return;
     if (!await ensureCommTerms(context, widget.ctx.myUserId) || !mounted) return;
     final mentionIds = _mentions.entries.where((e) => text.contains('@${e.key}')).map((e) => e.value).toList();
     final parent = _replyTo?.parentCommentId ?? _replyTo?.id;
     setState(() => _sending = true);
-    final r = await _api.addCommComment(widget.postId, text, parentId: parent, mentionUserIds: mentionIds);
+    final r = await _api.addCommComment(widget.postId, text,
+        parentId: parent, mentionUserIds: mentionIds, images: List.of(_images.urls));
     if (!mounted) return;
     setState(() => _sending = false);
     if (r['isSuccess'] != true) {
@@ -1225,6 +1249,7 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
       return;
     }
     _input.clear();
+    _images.clear();
     _mentions.clear();
     setState(() {
       if (r['data'] is Map) _comments.add(CommComment.fromJson(Map<String, dynamic>.from(r['data'] as Map)));
@@ -1270,7 +1295,7 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
       ),
     );
     ctrl.dispose();
-    if (next == null || next.isEmpty || next == c.content || !mounted) return;
+    if (next == null || (next.isEmpty && c.images.isEmpty) || next == c.content || !mounted) return;
     final before = c.content;
     setState(() {
       c.content = next;
@@ -1468,17 +1493,17 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
                     Expanded(child: Text(tr('Đang trả lời ${_replyTo!.userName ?? ''}'), style: SboxType.captionStyle())),
                     IconButton(icon: const Icon(Icons.close, size: 16), onPressed: () => setState(() => _replyTo = null)),
                   ]),
+                CommCommentImageStrip(images: _images, padding: const EdgeInsets.only(left: 40, bottom: 6)),
                 Row(children: [
                   CommAvatar(name: widget.ctx.myName.isEmpty ? 'Tôi' : widget.ctx.myName, size: 32),
-                  const SizedBox(width: 8),
+                  CommCommentImageButton(images: _images),
                   Expanded(
-                    child: TextField(
+                    child: CommCommentField(
                       controller: _input,
                       focusNode: _focus,
-                      minLines: 1,
                       maxLines: 5,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _suggest.isNotEmpty ? _insertMention(_suggest.first) : _send(),
+                      onSend: _send,
+                      onEnter: () => _suggest.isNotEmpty ? _insertMention(_suggest.first) : _send(),
                       decoration: InputDecoration(
                         hintText: tr('Viết bình luận… gõ @ để nhắc tên'),
                         isDense: true,
@@ -1490,12 +1515,15 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: tr('Gửi'),
-                    icon: _sending
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.send_rounded, color: SboxColors.brand600),
-                    onPressed: _sending ? null : _send,
+                  Semantics(
+                    identifier: 'comm-comment-send',
+                    child: IconButton(
+                      tooltip: tr('Gửi'),
+                      icon: _sending
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.send_rounded, color: SboxColors.brand600),
+                      onPressed: _sending ? null : _send,
+                    ),
                   ),
                 ]),
               ]),

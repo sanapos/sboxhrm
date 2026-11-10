@@ -121,6 +121,8 @@ public class CommReactorDto
 public class EditCommCommentDto
 {
     public string Content { get; set; } = string.Empty;
+    /// <summary>null = giữ nguyên ảnh cũ.</summary>
+    public List<string>? Images { get; set; }
 }
 
 public class SaveCommPostDto
@@ -179,6 +181,7 @@ public class CommCommentDto
     public string? Avatar { get; set; }
     public string Content { get; set; } = string.Empty;
     public Guid? ParentCommentId { get; set; }
+    public List<string> Images { get; set; } = new();
     public DateTime CreatedAt { get; set; }
     public bool CanDelete { get; set; }
     public bool CanEdit { get; set; }
@@ -234,6 +237,7 @@ public class AddCommCommentDto
     public string Content { get; set; } = string.Empty;
     public Guid? ParentCommentId { get; set; }
     public List<Guid>? MentionUserIds { get; set; }
+    public List<string>? Images { get; set; }
 }
 
 public class CommAiDraftDto
@@ -1238,6 +1242,7 @@ public class CommunicationV2Controller(
             Avatar = avatars.FirstOrDefault(a => a.UserId == c.UserId)?.PhotoUrl,
             Content = c.Content,
             ParentCommentId = c.ParentCommentId,
+            Images = CommV2Helper.Images(c.Images),
             CreatedAt = c.CreatedAt,
             CanDelete = v.IsManager || c.UserId == v.UserId,
             CanEdit = c.UserId == v.UserId,
@@ -1259,7 +1264,8 @@ public class CommunicationV2Controller(
         if (p.Status != CommunicationStatus.Published) return Ok(AppResponse<CommCommentDto>.Error("Bài chưa được đăng"));
         if (!p.AllowComments) return Ok(AppResponse<CommCommentDto>.Error("Bài viết đã tắt bình luận"));
         var content = d.Content?.Trim() ?? string.Empty;
-        if (content.Length == 0) return Ok(AppResponse<CommCommentDto>.Error("Nhập nội dung bình luận"));
+        var images = await CommentImagesAsync(d.Images);
+        if (content.Length == 0 && images.Count == 0) return Ok(AppResponse<CommCommentDto>.Error("Nhập nội dung bình luận"));
         if (content.Length > 2000) content = content[..2000];
         Guid? parentUser = null;
         if (d.ParentCommentId.HasValue)
@@ -1280,6 +1286,7 @@ public class CommunicationV2Controller(
             UserName = v.DisplayName,
             Content = content,
             ParentCommentId = d.ParentCommentId,
+            Images = images.Count == 0 ? null : JsonSerializer.Serialize(images),
         };
         db.CommunicationComments.Add(comment);
         await db.SaveChangesAsync();
@@ -1310,6 +1317,19 @@ public class CommunicationV2Controller(
         return Ok(AppResponse<CommCommentDto>.Success((await CommentDtosAsync(new() { comment }, v)).First()));
     }
 
+    /// <summary>Tối đa 4 ảnh bình luận; chỉ nhận ảnh đã tải lên thư mục Truyền thông của cửa hàng.</summary>
+    private async Task<List<string>> CommentImagesAsync(List<string>? raw)
+    {
+        if (raw is not { Count: > 0 }) return new();
+        var folder = await StoreFolderAsync() + "/";
+        return raw.Where(u => !string.IsNullOrWhiteSpace(u)).Select(u => u.Trim())
+            .Where(u => u.Length <= 1000 && u.Contains(folder, StringComparison.OrdinalIgnoreCase)
+                        && CommDocumentReader.KindOf(u.Split('?')[0]) == "image")
+            .Distinct().Take(MaxCommentImages).ToList();
+    }
+
+    private const int MaxCommentImages = 4;
+
     private async Task CommentChangedAsync(Guid postId, Guid commentId, string action)
     {
         var count = await db.CommunicationComments.CountAsync(c => c.CommunicationId == postId);
@@ -1326,11 +1346,14 @@ public class CommunicationV2Controller(
         if (c == null) return Ok(AppResponse<CommCommentDto>.Error("Không tìm thấy bình luận"));
         if (c.UserId != v.UserId) return Ok(AppResponse<CommCommentDto>.Error("Chỉ người viết được sửa bình luận"));
         var content = d.Content?.Trim() ?? string.Empty;
-        if (content.Length == 0) return Ok(AppResponse<CommCommentDto>.Error("Nhập nội dung bình luận"));
+        var images = d.Images == null ? CommV2Helper.Images(c.Images) : await CommentImagesAsync(d.Images);
+        if (content.Length == 0 && images.Count == 0) return Ok(AppResponse<CommCommentDto>.Error("Nhập nội dung bình luận"));
         if (content.Length > 2000) content = content[..2000];
-        if (content != c.Content)
+        var imagesRaw = images.Count == 0 ? null : JsonSerializer.Serialize(images);
+        if (content != c.Content || imagesRaw != c.Images)
         {
             c.Content = content;
+            c.Images = imagesRaw;
             c.UpdatedAt = DateTime.UtcNow;
             c.UpdatedBy = CurrentUserEmail;
             await db.SaveChangesAsync();
@@ -1451,7 +1474,8 @@ public class CommunicationV2Controller(
         if (c.UserId == v.UserId) return Ok(AppResponse<bool>.Error("Không báo cáo được bình luận của chính bạn"));
         var (p, err) = await VisiblePostAsync(c.CommunicationId, v);
         if (p == null) return Ok(AppResponse<bool>.Error(err!));
-        return await SaveReportAsync(v, p, c.Id, c.UserId, c.UserName, c.Content, d);
+        return await SaveReportAsync(v, p, c.Id, c.UserId, c.UserName,
+            c.Content.Length > 0 ? c.Content : $"[{CommV2Helper.Images(c.Images).Count} ảnh]", d);
     }
 
     private async Task<ActionResult<AppResponse<bool>>> SaveReportAsync(CommViewer v, InternalCommunication p, Guid? commentId,

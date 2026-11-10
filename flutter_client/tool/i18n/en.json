@@ -3162,6 +3162,7 @@
   "Gửi WiFi + IP máy chấm công qua Bluetooth — đặt tên gợi nhớ ": "Send WiFi + attendance device IP over Bluetooth — give it a memorable name ",
   "Gửi Zalo": "Send via Zalo",
   "Gửi báo cáo": "Send report",
+  "Gửi bình luận": "Send comment",
   "Gửi bản nháp cho khách kiểm tra": "Send draft to customer to check",
   "Gửi bản nháp cho khách kiểm tra tên / MST / địa chỉ TRƯỚC khi phát hành (Viettel, Easy, MISA) — bản nháp chưa có giá trị pháp lý": "Send a draft to the customer to check name / tax code / address BEFORE issuing (Viettel, Easy, MISA) — a draft has no legal validity",
   "Gửi bản tin mỗi sáng": "Send a brief every morning",
@@ -6016,6 +6017,7 @@
   "Nội dung 14 · 400": "Content 14 · 400",
   "Nội dung CK phải giữ mã đơn trên QR để tự khớp.": "The transfer note must keep the order code on the QR to match automatically.",
   "Nội dung buổi": "Session content",
+  "Nội dung bài viết": "Post content",
   "Nội dung ghi chú *": "Note *",
   "Nội dung khác": "Other content",
   "Nội dung không phù hợp, phản cảm": "Inappropriate or offensive content",
@@ -8441,6 +8443,7 @@
   "Viết lại hay hơn": "Rewrite better",
   "Viết mới": "Write new",
   "Viết nội dung lịch sự, rõ sự việc, thời gian, ảnh hưởng và đề xuất giải pháp.": "Write politely, with a clear account of the incident, time, impact and a proposed solution.",
+  "Viết nội dung…": "Write content…",
   "Viết nội dung… hoặc bấm «Trợ lý AI» để AI viết từ yêu cầu hay từ tài liệu Word/PDF/Excel": "Write content… or tap «AI Assistant» to have AI write from your request or a Word/PDF/Excel document",
   "Viết điều trợ lý cần biết về cửa hàng: giờ giấc, chính sách, nội quy, tên gọi tắt món / hàng. ": "Write what the assistant needs to know about the store: hours, policies, rules, short names of items / goods. ",
   "Viền": "Border",
@@ -9462,6 +9465,7 @@
   "Ép ngực máy 3×12": "Machine chest press 3×12",
   "Ít công": "Few work days",
   "Ô / đoạn trống": "Cell / empty gap",
+  "Ô bình luận": "Comment box",
   "Ô giá nền đen bên phải mã vạch": "Black-background price cell to the right of the barcode",
   "Ô nhập & lựa chọn": "Inputs & selections",
   "Ô phòng: xanh = đang chạy, vàng = sắp hết gói, đỏ = hết giờ / quá giờ, tím = đã chốt giờ.": "Room cells: green = running, yellow = package almost used up, red = out of time / overtime, purple = time finalized.",
@@ -11983,6 +11987,10 @@
    "Discard {0} unprinted tickets?"
   ],
   [
+   "Bỏ ảnh {0}",
+   "Remove image {0}"
+  ],
+  [
    "Bỏ: {0}",
    "Remove: {0}"
   ],
@@ -12541,6 +12549,10 @@
   [
    "Chỉ thêm được {0} ảnh",
    "Only {0} more images can be added"
+  ],
+  [
+   "Chỉ thêm được {0} ảnh nữa",
+   "You can add only {0} more images"
   ],
   [
    "Chỉ tạo được {0}/{1} {2}",
@@ -16429,6 +16441,10 @@
   [
    "Mốc {0} đã tồn tại",
    "Milestone {0} already exists"
+  ],
+  [
+   "Mỗi bình luận tối đa {0} ảnh",
+   "Up to {0} images per comment"
   ],
   [
    "Mỗi hóa đơn tối đa {0} ảnh — xóa bớt ảnh rồi thêm ảnh khác.",

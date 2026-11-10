@@ -6197,6 +6197,7 @@
   "Gửi WiFi + IP máy chấm công qua Bluetooth — đặt tên gợi nhớ ": "BluetoothでWiFi + 勤怠端末のIPを送信 — 分かりやすい名前を付けてください ",
   "Gửi Zalo": "Zaloで送信",
   "Gửi báo cáo": "報告を送信",
+  "Gửi bình luận": "コメントを送信",
   "Gửi bản nháp cho khách kiểm tra": "下書きをお客様に送信",
   "Gửi bản nháp cho khách kiểm tra tên / MST / địa chỉ TRƯỚC khi phát hành (Viettel, Easy, MISA) — bản nháp chưa có giá trị pháp lý": "発行前にお客様へ下書きを送り、名称 / 納税者番号 / 住所を確認してもらいます(Viettel、Easy、MISA) — 下書きに法的効力はありません",
   "Gửi bản tin mỗi sáng": "毎朝朝報を送信",
@@ -12319,6 +12320,7 @@
   "Nội dung 14 · 400": "内容 14 · 400",
   "Nội dung CK phải giữ mã đơn trên QR để tự khớp.": "振込メモにQRの注文コードを残す必要があります。そうしないと自動照合されません。",
   "Nội dung buổi": "セッション内容",
+  "Nội dung bài viết": "投稿の内容",
   "Nội dung bài viết *": "記事の内容 *",
   "Nội dung bình luận không được vượt quá 2000 ký tự": "コメントは2000文字を超えてはいけません",
   "Nội dung bình luận không được để trống": "コメントを空にすることはできません",
@@ -17737,6 +17739,7 @@
   "Viết mới": "新規作成",
   "Viết nội dung lịch sự, rõ sự việc, thời gian, ảnh hưởng và đề xuất giải pháp.": "丁寧な文面で、出来事、時間、影響、解決案を分かりやすく書いてください。",
   "Viết nội dung phản ánh/ý kiến đầy đủ, có đề xuất giải pháp.": "フィードバック／ご意見の内容を、解決案を添えて詳しく記入してください。",
+  "Viết nội dung…": "内容を入力…",
   "Viết nội dung… hoặc bấm «Trợ lý AI» để AI viết từ yêu cầu hay từ tài liệu Word/PDF/Excel": "内容を入力するか、「AIアシスタント」を押して、依頼内容やWord/PDF/Excel文書からAIに作成させます",
   "Viết tắt": "略称",
   "Viết điều trợ lý cần biết về cửa hàng: giờ giấc, chính sách, nội quy, tên gọi tắt món / hàng. ": "アシスタントに知っておいてほしい店舗情報を記入してください：営業時間、ポリシー、ルール、メニュー / 商品の略称。 ",
@@ -20007,6 +20010,7 @@
   "Ðóng": "Ðóng",
   "Ô ": "セル ",
   "Ô / đoạn trống": "セル / 空白区間",
+  "Ô bình luận": "コメント入力欄",
   "Ô giá nền đen bên phải mã vạch": "バーコード右側の黒背景の価格欄",
   "Ô nhập & lựa chọn": "入力と選択",
   "Ô phòng: xanh = đang chạy, vàng = sắp hết gói, đỏ = hết giờ / quá giờ, tím = đã chốt giờ.": "ルームのセル：緑＝利用中、黄＝パッケージ残りわずか、赤＝時間終了 / 超過、紫＝時間確定済み。",
@@ -24154,6 +24158,10 @@
    "未印刷の伝票{0}件を破棄しますか？"
   ],
   [
+   "Bỏ ảnh {0}",
+   "画像{0}を削除"
+  ],
+  [
    "Bỏ: {0}",
    "除外：{0}"
   ],
@@ -24712,6 +24720,10 @@
   [
    "Chỉ thêm được {0} ảnh",
    "追加できる画像はあと {0} 枚です"
+  ],
+  [
+   "Chỉ thêm được {0} ảnh nữa",
+   "あと{0}枚まで追加できます"
   ],
   [
    "Chỉ tạo được {0}/{1} {2}",
@@ -28600,6 +28612,10 @@
   [
    "Mốc {0} đã tồn tại",
    "マイルストーン {0} は既に存在します"
+  ],
+  [
+   "Mỗi bình luận tối đa {0} ảnh",
+   "コメントごとに最大{0}枚"
   ],
   [
    "Mỗi hóa đơn tối đa {0} ảnh — xóa bớt ảnh rồi thêm ảnh khác.",

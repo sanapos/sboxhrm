@@ -206,6 +206,9 @@ public class CommunicationComment : Entity<Guid>
 
     public Guid? ParentCommentId { get; set; }
 
+    /// <summary>Ảnh đính kèm bình luận (JSON array of URLs, tối đa 4).</summary>
+    public string? Images { get; set; }
+
     public int LikeCount { get; set; } = 0;
 
     // Navigation

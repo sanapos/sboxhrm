@@ -8784,17 +8784,20 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> getCommComments(String id) => _taskV2('GET', '$_commV2/posts/$id/comments');
 
-  Future<Map<String, dynamic>> addCommComment(String id, String content, {String? parentId, List<String>? mentionUserIds}) =>
+  Future<Map<String, dynamic>> addCommComment(String id, String content,
+          {String? parentId, List<String>? mentionUserIds, List<String>? images}) =>
       _taskV2('POST', '$_commV2/posts/$id/comments', body: {
         'content': content,
         if (parentId != null) 'parentCommentId': parentId,
         if (mentionUserIds != null && mentionUserIds.isNotEmpty) 'mentionUserIds': mentionUserIds,
+        if (images != null && images.isNotEmpty) 'images': images,
       });
 
   Future<Map<String, dynamic>> deleteCommComment(String commentId) => _taskV2('DELETE', '$_commV2/comments/$commentId');
 
-  Future<Map<String, dynamic>> editCommComment(String commentId, String content) =>
-      _taskV2('PUT', '$_commV2/comments/$commentId', body: {'content': content});
+  /// [images] null = giữ nguyên ảnh cũ.
+  Future<Map<String, dynamic>> editCommComment(String commentId, String content, {List<String>? images}) =>
+      _taskV2('PUT', '$_commV2/comments/$commentId', body: {'content': content, if (images != null) 'images': images});
 
   Future<Map<String, dynamic>> likeCommComment(String commentId) => _taskV2('POST', '$_commV2/comments/$commentId/like');
 

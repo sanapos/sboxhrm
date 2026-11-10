@@ -8,6 +8,7 @@ import 'package:vsc_quill_delta_to_html/vsc_quill_delta_to_html.dart';
 import '../../l10n/app_tr.dart';
 import '../../models/comm_v2.dart';
 import '../../services/api_service.dart';
+import '../../widgets/quill_a11y.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'comm_common.dart';
 import '../../theme/sbox_tokens.dart';
@@ -571,7 +572,10 @@ class _CommEditorPageState extends State<CommEditorPage> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-          child: TextField(
+          child: Semantics(
+            identifier: 'comm-post-title',
+            label: tr('Tiêu đề bài viết'),
+            child: TextField(
             controller: _title,
             maxLines: null,
             style: SboxType.headlineStyle(),
@@ -583,12 +587,19 @@ class _CommEditorPageState extends State<CommEditorPage> {
               filled: false,
             ),
           ),
+          ),
         ),
         CommFormatToolbar(controller: _ctrl),
         const Divider(height: 1, color: SboxColors.divider),
         ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 280),
-          child: quill.QuillEditor(
+          child: QuillA11y(
+            controller: _ctrl,
+            focusNode: _focus,
+            identifier: 'comm-post-body',
+            label: tr('Nội dung bài viết'),
+            hint: tr('Viết nội dung…'),
+            child: quill.QuillEditor(
             controller: _ctrl,
             focusNode: _focus,
             scrollController: ScrollController(),
@@ -628,6 +639,7 @@ class _CommEditorPageState extends State<CommEditorPage> {
                 ),
               ),
             ),
+          ),
           ),
         ),
         Padding(

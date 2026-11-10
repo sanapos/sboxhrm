@@ -1720,3 +1720,5 @@ CREATE TABLE IF NOT EXISTS "CommunicationUserBlocks" (
     "UpdatedBy" text NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_CommunicationUserBlocks_Store_User_Blocked" ON "CommunicationUserBlocks" ("StoreId", "UserId", "BlockedUserId");
+-- Truyền thông: ảnh đính kèm bình luận (JSON mảng URL)
+ALTER TABLE "CommunicationComments" ADD COLUMN IF NOT EXISTS "Images" text NULL;
