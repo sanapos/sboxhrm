@@ -25,7 +25,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_report.dart';
-import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_charts.dart';
 import '../utils/branch_filter_helper.dart';
 /// Brand blue shades — cùng tông, đậm/nhạt khác để phân biệt trễ / sớm.
 const _theme = HrmPageChrome.primaryNavy; // #0056B3
@@ -438,7 +438,18 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
     final needed = _neededTypes(e);
     if (needed.isEmpty) return '—';
     final done = needed.where((t) => _hasActiveType(e, t)).length;
-    if (done == 0) return 'Chưa phạt';
+    if (done == 0) {
+      // Trễ / sớm chưa tới bậc 1 của Thiết lập phạt: máy chủ không tự tạo phiếu — ghi rõ để không tưởng là lỗi.
+      final under = needed.every(
+          (t) => _amountFor(t, t == 'Late' ? e.lateMinutes : e.earlyMinutes) <= 0);
+      if (under && _penaltySettings.isNotEmpty) {
+        final first = needed.first;
+        final m1 = _toInt(
+            _penaltySettings[first == 'Late' ? 'lateMinutes1' : 'earlyMinutes1'], 15);
+        return 'Dưới mức phạt ($m1 phút)';
+      }
+      return 'Chưa phạt';
+    }
     if (done == needed.length) return 'Đã phạt';
     return 'Một phần';
   }

@@ -237,10 +237,15 @@ public class AttendanceService(
 
         // Pre-load existing PenaltyTickets to avoid duplicate auto-creation per (employee, date, type)
         // and to compute next sequential TicketCode per day.
+        // Từ đầu tháng của ngày sớm nhất: đếm tái phạm trong tháng cần cả phiếu các ngày trước (trước đây chỉ nạp
+        // đúng các ngày trong lô → chấm mobile từng lần không bao giờ thấy lần vi phạm trước, không cộng tái phạm).
+        // Tới maxDate + 1: ngày công ca nguyên ngày là ngày lịch của lần vào, có thể sau ngày logic.
+        var ticketWindowStart = new DateTime(minDate.Year, minDate.Month, 1);
+        var ticketWindowEnd = maxDate.AddDays(1);
         var existingTickets = (await penaltyTicketRepository.GetAllAsync(
             filter: t => employeeIds.Contains(t.EmployeeId)
-                && t.ViolationDate >= minDate
-                && t.ViolationDate <= maxDate
+                && t.ViolationDate >= ticketWindowStart
+                && t.ViolationDate <= ticketWindowEnd
         )).ToList();
 
         // Pre-load store-wide ticket counts for current day window so we can generate
@@ -248,7 +253,7 @@ public class AttendanceService(
         var ticketCountsByDate = (await penaltyTicketRepository.GetAllAsync(
             filter: t => t.StoreId == device.StoreId
                 && t.ViolationDate >= minDate
-                && t.ViolationDate <= maxDate
+                && t.ViolationDate <= ticketWindowEnd
         )).GroupBy(t => t.ViolationDate.Date)
           .ToDictionary(g => g.Key, g => g.Count());
 
@@ -399,9 +404,19 @@ public class AttendanceService(
 
         var employeeId = deviceUser.EmployeeId.Value;
 
-        // free2 / fullday: công & trễ/sớm gộp ở client — không phạt theo ca/day_end tại đây.
-        if (employeeBenefits.TryGetValue(employeeId, out var employeeBenefit) &&
-            IsClientGroupedAttendanceMode(employeeBenefit.Benefit?.AttendanceMode))
+        employeeBenefits.TryGetValue(employeeId, out var employeeBenefit);
+
+        // Ca nguyên ngày: app có tính trễ / về sớm (ghép cặp ~24h) → phạt theo đúng cách đó.
+        if (string.Equals(employeeBenefit?.Benefit?.AttendanceMode, FullDayShiftAttendanceMode, StringComparison.OrdinalIgnoreCase))
+        {
+            await ProcessFullDayPenaltyAsync(attendance, deviceUser, device, employeeId, penaltySetting,
+                employeeBenefit, schedulesByEmployeeDate, existingTickets, ticketCountsByDate, shiftTemplatesByName);
+            return;
+        }
+
+        // free2 «chấm 2 lần trong ngày» / any «chấm bất kỳ trong ca»: theo thiết kế không tính đi trễ / về sớm
+        // (app cũng không hiện) → không phạt.
+        if (IsClientGroupedAttendanceMode(employeeBenefit?.Benefit?.AttendanceMode))
         {
             return;
         }
@@ -553,6 +568,159 @@ public class AttendanceService(
             logger.LogInformation("{DeviceSN}: Tạo phiếu phạt về sớm cho NV {Pin} - {Minutes} phút - {Amount}đ",
                 device.SerialNumber, deviceUser.Pin, earlyMinutes, amount + repeatPenalty);
         }
+    }
+
+    // ── Ca nguyên ngày (fullday) ─────────────────────────────────────────────────
+    // Khớp shift_records_calculator.dart (buildFullDayShiftPairs + _fullDayLateEarly): ghép vào→ra theo thứ tự
+    // thời gian, hai lần chấm cách 6–40 giờ là một cặp; chấm cách nhau ≤ 30 phút coi là trùng; ngày công = ngày
+    // lịch (giờ VN) của lần vào; trễ tính từ giờ bắt đầu ca trên ngày đó, về sớm so với giờ kết thúc (qua đêm +1 ngày).
+    private static readonly TimeSpan FullDayPairMinGap = TimeSpan.FromHours(6);
+    private static readonly TimeSpan FullDayPairMaxGap = TimeSpan.FromHours(40);
+    private static readonly TimeSpan FullDayDuplicateWindow = TimeSpan.FromMinutes(30);
+
+    private static bool IsShiftPunchState(AttendanceStates s) =>
+        s is AttendanceStates.CheckIn or AttendanceStates.CheckOut;
+
+    private static bool IsOvertimeShift(ShiftTemplate s) => IsOvertimeShiftType(s.ShiftType);
+
+    /// <summary>Ca của ca nguyên ngày: ca đầu (không phải tăng ca) gán trong thiết lập lương, giống app;
+    /// chưa gán thì lấy ca xếp lịch ngày đó; cuối cùng giờ vào / ra của thiết lập lương.</summary>
+    private static (TimeSpan start, TimeSpan end, int lateGrace, int earlyGrace, Guid? shiftId)? ResolveFullDayShift(
+        EmployeeBenefit? employeeBenefit,
+        Dictionary<string, ShiftTemplate> shiftTemplatesByName,
+        List<WorkSchedule>? daySchedules)
+    {
+        var benefit = employeeBenefit?.Benefit;
+        var shiftsField = ParseDescField(benefit?.Description, "shifts");
+        if (!string.IsNullOrWhiteSpace(shiftsField))
+        {
+            var assigned = shiftsField.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Select(n => shiftTemplatesByName.TryGetValue(NormalizeShiftName(n), out var st) ? st : null)
+                .Where(st => st != null)
+                .Select(st => st!)
+                .ToList();
+            var primary = assigned.FirstOrDefault(st => !IsOvertimeShift(st)) ?? assigned.FirstOrDefault();
+            if (primary != null)
+                return (primary.StartTime, primary.EndTime, primary.LateGraceMinutes, primary.EarlyLeaveGraceMinutes, null);
+        }
+
+        var ws = daySchedules?.FirstOrDefault(s => !IsOvertimeShiftType(s.Shift?.ShiftType)
+            && (s.StartTime.HasValue || s.Shift != null));
+        if (ws != null)
+        {
+            var start = ws.StartTime ?? ws.Shift!.StartTime;
+            var end = ws.EndTime ?? ws.Shift?.EndTime ?? start;
+            return (start, end, ws.Shift?.LateGraceMinutes ?? 5, ws.Shift?.EarlyLeaveGraceMinutes ?? 5, ws.ShiftId);
+        }
+
+        if (benefit?.CheckIn.HasValue == true && benefit.CheckOut.HasValue)
+            return (benefit.CheckIn.Value.ToTimeSpan(), benefit.CheckOut.Value.ToTimeSpan(), 5, 5, null);
+        return null;
+    }
+
+    private async Task ProcessFullDayPenaltyAsync(
+        Attendance attendance, DeviceUser deviceUser, Device device, Guid employeeId,
+        PenaltySetting? penaltySetting,
+        EmployeeBenefit? employeeBenefit,
+        Dictionary<(Guid, DateTime), List<WorkSchedule>> schedulesByEmployeeDate,
+        List<PenaltyTicket> existingTickets,
+        Dictionary<DateTime, int> ticketCountsByDate,
+        Dictionary<string, ShiftTemplate> shiftTemplatesByName)
+    {
+        if (penaltySetting == null || !IsShiftPunchState(attendance.AttendanceState))
+            return;
+
+        // Lần chấm 7 ngày trước tới lần này (mọi máy / app của nhân viên) để biết đây là lần vào hay lần ra.
+        var linked = (await employeeRepository.GetAllAsync(du => du.EmployeeId == employeeId)).ToList();
+        var deviceUserIds = linked.Select(du => du.Id).ToHashSet();
+        deviceUserIds.Add(deviceUser.Id);
+        var windowStart = attendance.AttendanceTime.AddDays(-7);
+        var punches = (await attendanceRepository.GetAllAsync(
+                a => a.EmployeeId.HasValue && deviceUserIds.Contains(a.EmployeeId.Value)
+                     && a.AttendanceTime >= windowStart
+                     && a.AttendanceTime <= attendance.AttendanceTime))
+            .Where(a => IsShiftPunchState(a.AttendanceState))
+            .ToList();
+        if (punches.All(a => a.Id != attendance.Id)) punches.Add(attendance);
+
+        var sorted = punches
+            .Select(a => (Att: a, Wall: ToVietnamLocal(a.AttendanceTime)))
+            .OrderBy(x => x.Wall)
+            .ToList();
+        var collapsed = new List<(Attendance Att, DateTime Wall)>();
+        foreach (var p in sorted)
+        {
+            if (collapsed.Count > 0 && (p.Wall - collapsed[^1].Wall).Duration() <= FullDayDuplicateWindow)
+                continue; // quẹt trùng — giữ lần đầu
+            collapsed.Add(p);
+        }
+        var idx = collapsed.FindIndex(x => x.Att.Id == attendance.Id);
+        if (idx < 0) return; // trùng với lần chấm ngay trước → không xét
+
+        // Ghép tham lam từ đầu cửa sổ, như app.
+        DateTime? pairIn = null;
+        var isCheckIn = false;
+        var i = 0;
+        while (i < collapsed.Count)
+        {
+            var hasOut = i + 1 < collapsed.Count
+                && collapsed[i + 1].Wall - collapsed[i].Wall >= FullDayPairMinGap
+                && collapsed[i + 1].Wall - collapsed[i].Wall <= FullDayPairMaxGap;
+            if (i == idx) { isCheckIn = true; break; }
+            if (hasOut && i + 1 == idx) { pairIn = collapsed[i].Wall; break; }
+            i += hasOut ? 2 : 1;
+        }
+        if (!isCheckIn && pairIn == null) return;
+
+        var punchWall = collapsed[idx].Wall;
+        var checkInWall = isCheckIn ? punchWall : pairIn!.Value;
+        var workDate = checkInWall.Date;
+        schedulesByEmployeeDate.TryGetValue((employeeId, workDate), out var daySchedules);
+        var shift = ResolveFullDayShift(employeeBenefit, shiftTemplatesByName, daySchedules);
+        if (shift == null) return;
+        var (start, end, lateGrace, earlyGrace, shiftId) = shift.Value;
+        var shiftStart = workDate.Add(start);
+
+        var type = isCheckIn ? PenaltyTicketType.Late : PenaltyTicketType.EarlyLeave;
+        int minutes;
+        if (isCheckIn)
+        {
+            minutes = punchWall > shiftStart ? (int)(punchWall - shiftStart).TotalMinutes : 0;
+            if (minutes <= lateGrace) return;
+        }
+        else
+        {
+            var shiftEnd = workDate.Add(end);
+            if (start > end || shiftEnd <= shiftStart) shiftEnd = shiftEnd.AddDays(1);
+            minutes = punchWall < shiftEnd ? (int)(shiftEnd - punchWall).TotalMinutes : 0;
+            if (minutes <= earlyGrace) return;
+        }
+
+        var (tier, amount) = isCheckIn
+            ? CalculateLatePenalty(minutes, penaltySetting)
+            : CalculateEarlyPenalty(minutes, penaltySetting);
+        if (amount <= 0) return;
+        if (HasActiveTicket(existingTickets, employeeId, workDate, type)) return;
+        // Ngày công có thể nằm ngoài khoảng đã nạp sẵn (ngày lịch của lần vào) → hỏi thẳng DB, tránh trùng phiếu.
+        var dup = await penaltyTicketRepository.GetSingleAsync(
+            t => t.EmployeeId == employeeId && t.ViolationDate.Date == workDate && t.Type == type
+                 && t.Status != PenaltyTicketStatus.Cancelled);
+        if (dup != null) return;
+
+        var repeatCount = CountMonthRepeatViolations(existingTickets, employeeId, workDate);
+        var repeatPenalty = CalculateRepeatPenalty(repeatCount + 1, penaltySetting);
+        var label = isCheckIn ? "Đi trễ" : "Về sớm";
+        var description = $"{label} {minutes} phút — ca nguyên ngày (bậc {tier}: {amount:N0}đ"
+            + (repeatPenalty > 0 ? $", tái phạm lần {repeatCount + 1}: +{repeatPenalty:N0}đ" : "")
+            + ")";
+
+        await CreatePenaltyTicketAsync(employeeId, device.StoreId, workDate,
+            type, tier, minutes, amount + repeatPenalty,
+            repeatCount + 1, repeatPenalty, start, end, punchWall.TimeOfDay,
+            attendance, shiftId, description, existingTickets, ticketCountsByDate);
+
+        logger.LogInformation("{DeviceSN}: Tạo phiếu phạt {Label} (ca nguyên ngày) NV {Pin} - {Minutes} phút - {Amount}đ",
+            device.SerialNumber, label, deviceUser.Pin, minutes, amount + repeatPenalty);
     }
 
     /// <summary>Late minutes after shift start; supports overnight (Start &gt; End).</summary>

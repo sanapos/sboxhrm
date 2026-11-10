@@ -22,7 +22,8 @@ public class CreateWorkScheduleHandler(
     IRepository<WorkSchedule> workScheduleRepository,
     IRepository<Employee> employeeRepository,
     IRepository<ShiftTemplate> shiftRepository,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IAttendanceService attendanceService
 ) : ICommandHandler<CreateWorkScheduleCommand, AppResponse<WorkScheduleDto>>
 {
     public async Task<AppResponse<WorkScheduleDto>> Handle(CreateWorkScheduleCommand request, CancellationToken cancellationToken)
@@ -70,6 +71,8 @@ public class CreateWorkScheduleHandler(
             };
 
             var created = await workScheduleRepository.AddAsync(workSchedule, cancellationToken);
+            await SchedulePenaltyRecalc.RunAsync(attendanceService, request.StoreId,
+                [(employee.Id, workSchedule.Date)], cancellationToken);
             var result = await workScheduleRepository.GetSingleAsync(
                 filter: w => w.Id == created.Id && w.StoreId == request.StoreId,
                 includeProperties: [nameof(WorkSchedule.Employee), nameof(WorkSchedule.Shift)], 
@@ -116,7 +119,8 @@ public class BulkCreateWorkSchedulesHandler(
     IRepository<WorkSchedule> workScheduleRepository,
     IRepository<Employee> employeeRepository,
     IRepository<ShiftTemplate> shiftRepository,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IAttendanceService attendanceService
 ) : ICommandHandler<BulkCreateWorkSchedulesCommand, AppResponse<List<WorkScheduleDto>>>
 {
     public async Task<AppResponse<List<WorkScheduleDto>>> Handle(BulkCreateWorkSchedulesCommand request, CancellationToken cancellationToken)
@@ -180,6 +184,8 @@ public class BulkCreateWorkSchedulesHandler(
             if (schedulesToCreate.Count > 0)
             {
                 await workScheduleRepository.AddRangeAsync(schedulesToCreate, cancellationToken);
+                await SchedulePenaltyRecalc.RunAsync(attendanceService, request.StoreId,
+                    schedulesToCreate.Select(ws => (ws.EmployeeUserId, ws.Date)), cancellationToken);
             }
 
             // Reload all created schedules with includes
@@ -239,7 +245,8 @@ public record UpdateWorkScheduleCommand(
 
 public class UpdateWorkScheduleHandler(
     IRepository<WorkSchedule> workScheduleRepository,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IAttendanceService attendanceService
 ) : ICommandHandler<UpdateWorkScheduleCommand, AppResponse<WorkScheduleDto>>
 {
     public async Task<AppResponse<WorkScheduleDto>> Handle(UpdateWorkScheduleCommand request, CancellationToken cancellationToken)
@@ -271,6 +278,8 @@ public class UpdateWorkScheduleHandler(
             workSchedule.Note = request.Note;
 
             await workScheduleRepository.UpdateAsync(workSchedule, cancellationToken);
+            await SchedulePenaltyRecalc.RunAsync(attendanceService, request.StoreId,
+                [(workSchedule.EmployeeUserId, workSchedule.Date)], cancellationToken);
 
             try
             {
@@ -305,7 +314,8 @@ public record DeleteWorkScheduleCommand(Guid StoreId, Guid Id) : ICommand<AppRes
 
 public class DeleteWorkScheduleHandler(
     IRepository<WorkSchedule> workScheduleRepository,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IAttendanceService attendanceService
 ) : ICommandHandler<DeleteWorkScheduleCommand, AppResponse<bool>>
 {
     public async Task<AppResponse<bool>> Handle(DeleteWorkScheduleCommand request, CancellationToken cancellationToken)
@@ -325,6 +335,8 @@ public class DeleteWorkScheduleHandler(
             var notifyUserId = workSchedule.Employee?.ApplicationUserId;
 
             await workScheduleRepository.DeleteAsync(workSchedule, cancellationToken);
+            await SchedulePenaltyRecalc.RunAsync(attendanceService, request.StoreId,
+                [(workSchedule.EmployeeUserId, scheduleDate)], cancellationToken);
 
             // Notify employee about schedule removal
             try
