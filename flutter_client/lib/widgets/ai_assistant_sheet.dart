@@ -583,12 +583,14 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     bool matches(String loc) => _lang == 'zh'
         ? (loc.startsWith('zh-cn') || loc.startsWith('zh_cn') || loc.startsWith('cmn'))
         : loc.startsWith(_lang);
+    _deviceVoices = [];
     try {
       final raw = await _tts.getVoices;
       if (raw is! List) return;
       var bestName = '';
       var bestLocale = wanted;
       var bestScore = -1;
+      final ranked = <({String name, String locale, int score, bool? male})>[];
       for (final e in raw.whereType<Map>()) {
         final name = (e['name'] ?? '').toString();
         final locale = (e['locale'] ?? '').toString();
@@ -607,12 +609,20 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         if (n.contains('compact')) s -= 10;
         if (n.contains('-x-gft-')) s -= 20;
         if (n.contains('vif') || n.contains('female') || n.contains('nữ') || n.contains('linh')) s += 8;
+        // Giọng chưa tải về máy (Android «notInstalled») không đưa vào danh sách đổi giọng — chọn vào là im lặng.
+        if (!(e['features'] ?? '').toString().toLowerCase().contains('notinstalled')) {
+          ranked.add((name: name, locale: locale.isEmpty ? wanted : locale, score: s, male: _voiceIsMale(e, n)));
+        }
         if (s > bestScore) {
           bestScore = s;
           bestName = name;
           bestLocale = locale.isEmpty ? wanted : locale;
         }
       }
+      ranked.sort((a, b) => b.score.compareTo(a.score));
+      // Bỏ giọng trùng tên (web liệt kê một giọng nhiều lần).
+      final seen = <String>{};
+      _deviceVoices = [for (final v in ranked) if (seen.add(v.name)) v];
       if (bestName.isEmpty) return;
       final ok = await _tts.setVoice({'name': bestName, 'locale': bestLocale});
       if (ok == 0 || ok == false) {
@@ -623,6 +633,58 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         await _tts.setLanguage(wanted);
       } catch (_) {}
     }
+  }
+
+  /// Giọng máy cùng ngôn ngữ, tốt nhất trước — dùng để đổi giọng khi không đọc được bằng giọng AI.
+  List<({String name, String locale, int score, bool? male})> _deviceVoices = [];
+  String _appliedDeviceVoice = '';
+
+  /// Giọng nam / nữ nếu máy cho biết (iOS «gender», tên giọng web / Edge); null = không rõ.
+  static bool? _voiceIsMale(Map e, String lowerName) {
+    final g = (e['gender'] ?? '').toString().toLowerCase();
+    if (g.contains('female')) return false;
+    if (g.contains('male')) return true;
+    if (lowerName.contains('female') || lowerName.contains('hoaimy') || lowerName.contains('linh')) return false;
+    if (lowerName.contains('male') || lowerName.contains('namminh') || lowerName.contains('nam minh')) return true;
+    return null;
+  }
+
+  /// Cao độ / tốc độ riêng cho từng giọng chọn trong menu — giọng máy thường chỉ có 1–2 giọng mỗi ngôn ngữ, nên
+  /// đổi cao độ để lựa chọn nào cũng nghe khác (nam trầm hơn nữ).
+  static const _deviceProfiles = {
+    'Aoede': (pitch: 1.0, rate: 1.0),
+    'Kore': (pitch: 1.06, rate: 1.04),
+    'Leda': (pitch: 1.2, rate: 1.07),
+    'Sulafat': (pitch: 0.94, rate: 0.93),
+    'Charon': (pitch: 0.72, rate: 0.92),
+    'Puck': (pitch: 0.86, rate: 1.07),
+    'Orus': (pitch: 0.78, rate: 0.98),
+    'Iapetus': (pitch: 0.82, rate: 1.02),
+  };
+
+  /// Áp giọng đã chọn lên giọng của máy (khi chưa bật AI / lỗi giọng AI). Trước đây luôn đọc một giọng máy cố định
+  /// nên đổi giọng trong menu không có tác dụng.
+  Future<void> _applyDeviceVoice() async {
+    final idx = _aiVoice ? _voices.indexWhere((v) => v.$1 == _voiceName) : -1;
+    final key = '$_lang|${idx < 0 ? '' : _voiceName}';
+    if (key == _appliedDeviceVoice) return;
+    _appliedDeviceVoice = key;
+    final wantMale = idx >= 4;
+    final profile = idx < 0 ? (pitch: 1.0, rate: 1.0) : _deviceProfiles[_voiceName] ?? (pitch: 1.0, rate: 1.0);
+    var pitch = profile.pitch;
+    try {
+      if (_deviceVoices.isNotEmpty) {
+        // Ưu tiên giọng máy đúng nam / nữ; máy không cho biết thì xoay vòng trong các giọng có sẵn.
+        final sameGender = _deviceVoices.where((v) => v.male == wantMale).toList();
+        final pool = sameGender.isNotEmpty ? sameGender : _deviceVoices;
+        final v = idx < 0 ? _deviceVoices.first : pool[(idx % 4) % pool.length];
+        await _tts.setVoice({'name': v.name, 'locale': v.locale});
+        // Đã có giọng nam thật thì hạ cao độ ít thôi — hạ nhiều nghe méo.
+        if (wantMale && v.male == true) pitch = (pitch + 0.18).clamp(0.5, 1.0);
+      }
+      await _tts.setPitch(pitch);
+      await _tts.setSpeechRate((kIsWeb ? 0.95 : 0.48) * profile.rate);
+    } catch (_) {}
   }
 
   void _dismissKeyboard() {
@@ -724,6 +786,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     try {
       await _tts.stop();
     } catch (_) {}
+    await _applyDeviceVoice();
     for (var i = 0; i < chunks.length; i++) {
       if (!mounted || gen != _speakGen || !_ttsEnabled) return;
       if (i == chunks.length - 1) _lastChunkGen = gen;
