@@ -22,6 +22,7 @@ public class AttendanceService(
     IRepository<ShiftTemplate> shiftTemplateRepository,
     IRepository<AppSettings> appSettingsRepository,
     IRepository<Leave> leaveRepository,
+    IRepository<ShiftSalaryLevel> shiftSalaryLevelRepository,
     ILogger<AttendanceService> logger
 )
     : IAttendanceService
@@ -268,10 +269,16 @@ public class AttendanceService(
           .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.EffectiveDate).First());
 
         // Pre-load ShiftTemplates for this store, indexed by normalized name.
-        var shiftTemplatesByName = (await shiftTemplateRepository.GetAllAsync(
+        var storeShiftTemplates = (await shiftTemplateRepository.GetAllAsync(
             filter: st => st.StoreId == device.StoreId && st.IsActive
-        )).GroupBy(st => NormalizeShiftName(st.Name))
-          .ToDictionary(g => g.Key, g => g.First());
+        )).ToList();
+        var shiftTemplatesByName = storeShiftTemplates
+            .GroupBy(st => NormalizeShiftName(st.Name))
+            .ToDictionary(g => g.Key, g => g.First());
+
+        // Ca gán qua «Mức lương ca» (ShiftSalaryLevel.EmployeeIds) — cùng với «shifts:» của mẫu lương
+        // là nguồn ca duy nhất để tính đi trễ / về sớm (không theo lịch xếp ca).
+        var levelShiftsByEmployee = await LoadLevelShiftsAsync(device.StoreId, employeeIds, storeShiftTemplates);
 
         foreach (var attendance in attendanceList)
         {
@@ -290,9 +297,9 @@ public class AttendanceService(
             try
             {
                 await ProcessPenaltyForAttendanceBatchAsync(attendance, employeeUser, device,
-                    penaltySetting, schedulesByEmployeeDate, employees,
+                    penaltySetting, employees,
                     existingTickets, ticketCountsByDate,
-                    employeeBenefits, shiftTemplatesByName, storesDayEnd);
+                    employeeBenefits, shiftTemplatesByName, levelShiftsByEmployee, storesDayEnd);
             }
             catch (Exception ex)
             {
@@ -346,54 +353,42 @@ public class AttendanceService(
     private static TimeSpan GetPunchTimeOfDay(DateTime punchTime)
         => ToVietnamLocal(punchTime).TimeOfDay;
 
-    private static WorkSchedule? PickScheduleForPunch(
-        List<WorkSchedule>? daySchedules, TimeSpan punchTime, AttendanceStates state)
+    /// <summary>Ca gán qua «Mức lương ca»: EmployeeIds (JSON) của mức lương → ca đang dùng của cửa hàng.</summary>
+    private async Task<Dictionary<Guid, List<ShiftTemplate>>> LoadLevelShiftsAsync(
+        Guid? storeId, IReadOnlyCollection<Guid> employeeIds, IReadOnlyCollection<ShiftTemplate> storeShiftTemplates)
     {
-        if (daySchedules == null || daySchedules.Count == 0)
-            return null;
-
-        // Ưu tiên ca không bị trễ/sớm (sau grace) — khớp Flutter findBestMatchingShift.
-        // 1 ca cũng phải nằm trong cửa sổ (không gán ca chiều cho punch tan ca).
-        var candidates = new List<(WorkSchedule Ws, ShiftMatchHelper.Candidate C)>();
-        foreach (var s in daySchedules)
+        var result = new Dictionary<Guid, List<ShiftTemplate>>();
+        if (employeeIds.Count == 0 || storeShiftTemplates.Count == 0) return result;
+        var templateIds = storeShiftTemplates.Select(t => t.Id).ToList();
+        var templatesById = storeShiftTemplates.ToDictionary(t => t.Id);
+        var levels = await shiftSalaryLevelRepository.GetAllAsync(
+            filter: l => templateIds.Contains(l.ShiftTemplateId) && (l.StoreId == storeId || l.StoreId == null));
+        var empSet = employeeIds.ToHashSet();
+        foreach (var lvl in levels)
         {
-            var start = s.StartTime ?? s.Shift?.StartTime ?? TimeSpan.FromHours(8);
-            var end = s.EndTime ?? s.Shift?.EndTime ?? TimeSpan.FromHours(17);
-            var shift = s.Shift;
-            candidates.Add((s, new ShiftMatchHelper.Candidate(
-                Id: s.ShiftId ?? s.Id,
-                StartTime: start,
-                EndTime: end,
-                LateGraceMinutes: shift?.LateGraceMinutes ?? 5,
-                EarlyLeaveGraceMinutes: shift?.EarlyLeaveGraceMinutes ?? 5,
-                MaximumAllowedLateMinutes: shift?.MaximumAllowedLateMinutes > 0
-                    ? shift.MaximumAllowedLateMinutes
-                    : 30,
-                EarlyCheckInMinutes: shift?.EarlyCheckInMinutes > 0
-                    ? shift.EarlyCheckInMinutes
-                    : 30,
-                MaximumAllowedEarlyLeaveMinutes: shift?.MaximumAllowedEarlyLeaveMinutes > 0
-                    ? shift.MaximumAllowedEarlyLeaveMinutes
-                    : 120,
-                ShiftType: shift?.ShiftType)));
+            if (string.IsNullOrWhiteSpace(lvl.EmployeeIds)) continue;
+            List<string>? ids = null;
+            try { ids = System.Text.Json.JsonSerializer.Deserialize<List<string>>(lvl.EmployeeIds); } catch { /* JSON lỗi */ }
+            foreach (var raw in ids ?? [])
+            {
+                if (!Guid.TryParse(raw, out var emp) || !empSet.Contains(emp)) continue;
+                if (!templatesById.TryGetValue(lvl.ShiftTemplateId, out var st)) continue;
+                if (!result.TryGetValue(emp, out var list)) result[emp] = list = [];
+                if (list.All(x => x.Id != st.Id)) list.Add(st);
+            }
         }
-
-        var fit = state == AttendanceStates.CheckOut
-            ? ShiftMatchHelper.FindBestForCheckOut(candidates.Select(x => x.C), punchTime)
-            : ShiftMatchHelper.FindBestForCheckIn(candidates.Select(x => x.C), punchTime);
-        if (fit == null) return null;
-        return candidates.First(x => x.C.Id == fit.Shift.Id).Ws;
+        return result;
     }
 
     private async Task ProcessPenaltyForAttendanceBatchAsync(
         Attendance attendance, DeviceUser deviceUser, Device device,
         PenaltySetting? penaltySetting,
-        Dictionary<(Guid, DateTime), List<WorkSchedule>> schedulesByEmployeeDate,
         Dictionary<Guid, Employee> employees,
         List<PenaltyTicket> existingTickets,
         Dictionary<DateTime, int> ticketCountsByDate,
         Dictionary<Guid, EmployeeBenefit> employeeBenefits,
         Dictionary<string, ShiftTemplate> shiftTemplatesByName,
+        Dictionary<Guid, List<ShiftTemplate>> levelShiftsByEmployee,
         TimeSpan storesDayEnd)
     {
         if (!deviceUser.EmployeeId.HasValue)
@@ -409,8 +404,9 @@ public class AttendanceService(
         // Ca nguyên ngày: app có tính trễ / về sớm (ghép cặp ~24h) → phạt theo đúng cách đó.
         if (string.Equals(employeeBenefit?.Benefit?.AttendanceMode, FullDayShiftAttendanceMode, StringComparison.OrdinalIgnoreCase))
         {
+            levelShiftsByEmployee.TryGetValue(employeeId, out var fullDayLevelShifts);
             await ProcessFullDayPenaltyAsync(attendance, deviceUser, device, employeeId, penaltySetting,
-                employeeBenefit, schedulesByEmployeeDate, existingTickets, ticketCountsByDate, shiftTemplatesByName);
+                employeeBenefit, fullDayLevelShifts, existingTickets, ticketCountsByDate, shiftTemplatesByName);
             return;
         }
 
@@ -426,44 +422,19 @@ public class AttendanceService(
         var violationDate = GetLogicalDate(attendance.AttendanceTime, storesDayEnd);
         var punchTime = GetPunchTimeOfDay(attendance.AttendanceTime);
 
-        // Use pre-loaded schedules (keyed by logical date); ưu tiên ca không trễ/sớm.
-        schedulesByEmployeeDate.TryGetValue((employeeId, violationDate), out var daySchedules);
-        var schedule = PickScheduleForPunch(daySchedules, punchTime, attendance.AttendanceState);
-
-        TimeSpan shiftStart;
-        TimeSpan shiftEnd;
-        Guid? shiftIdForTicket;
-        string? matchedShiftType;
-
-        // Shift-specific grace (from ShiftTemplate). maxAllowed* is used only in
-        // ResolveFallbackShift match windows — once matched, severe lateness still fines.
-        int lateGraceMinutes;
-        int earlyLeaveGraceMinutes;
-
-        if (schedule != null)
-        {
-            var defaultStart = new TimeSpan(8, 30, 0);
-            var defaultEnd = new TimeSpan(18, 0, 0);
-            shiftStart = schedule.StartTime ?? schedule.Shift?.StartTime ?? defaultStart;
-            shiftEnd = schedule.EndTime ?? schedule.Shift?.EndTime ?? defaultEnd;
-            shiftIdForTicket = schedule.ShiftId;
-            matchedShiftType = schedule.Shift?.ShiftType;
-            lateGraceMinutes          = schedule.Shift?.LateGraceMinutes ?? 5;
-            earlyLeaveGraceMinutes    = schedule.Shift?.EarlyLeaveGraceMinutes ?? 5;
-        }
-        else
-        {
-            // Fallback: use Employee's SalaryProfile (Benefit) shifts.
-            var fallback = ResolveFallbackShift(employeeId, violationDate, punchTime,
-                attendance.AttendanceState, employeeBenefits, shiftTemplatesByName);
-            if (fallback == null) return;
-            shiftStart = fallback.Value.start;
-            shiftEnd   = fallback.Value.end;
-            lateGraceMinutes          = fallback.Value.lateGrace;
-            earlyLeaveGraceMinutes    = fallback.Value.earlyLeaveGrace;
-            matchedShiftType          = fallback.Value.shiftType;
-            shiftIdForTicket = null;
-        }
+        // Ca chỉ lấy từ thiết lập lương («shifts:» của mẫu lương + mức lương ca), giống bảng công,
+        // bảng lương và Tổng quan — lịch xếp ca không quyết định đi trễ / về sớm.
+        levelShiftsByEmployee.TryGetValue(employeeId, out var levelShifts);
+        var matched = ResolveFallbackShift(employeeId, violationDate, punchTime,
+            attendance.AttendanceState, employeeBenefits, shiftTemplatesByName, levelShifts);
+        if (matched == null) return;
+        var shiftStart = matched.Value.start;
+        var shiftEnd = matched.Value.end;
+        var lateGraceMinutes = matched.Value.lateGrace;
+        var earlyLeaveGraceMinutes = matched.Value.earlyLeaveGrace;
+        var matchedShiftType = matched.Value.shiftType;
+        // PenaltyTicket.ShiftId trỏ bảng Shift cũ — ca mẫu không ghi vào đây (giờ ca lưu trong phiếu).
+        Guid? shiftIdForTicket = null;
 
         if (penaltySetting == null)
             return;
@@ -583,12 +554,13 @@ public class AttendanceService(
 
     private static bool IsOvertimeShift(ShiftTemplate s) => IsOvertimeShiftType(s.ShiftType);
 
-    /// <summary>Ca của ca nguyên ngày: ca đầu (không phải tăng ca) gán trong thiết lập lương, giống app;
-    /// chưa gán thì lấy ca xếp lịch ngày đó; cuối cùng giờ vào / ra của thiết lập lương.</summary>
+    /// <summary>Ca của ca nguyên ngày: ca đầu (không phải tăng ca) gán trong thiết lập lương, giống app
+    /// («shifts:» của mẫu lương, rồi mức lương ca); cuối cùng giờ vào / ra của thiết lập lương.
+    /// Không theo lịch xếp ca.</summary>
     private static (TimeSpan start, TimeSpan end, int lateGrace, int earlyGrace, Guid? shiftId)? ResolveFullDayShift(
         EmployeeBenefit? employeeBenefit,
         Dictionary<string, ShiftTemplate> shiftTemplatesByName,
-        List<WorkSchedule>? daySchedules)
+        List<ShiftTemplate>? levelShifts)
     {
         var benefit = employeeBenefit?.Benefit;
         var shiftsField = ParseDescField(benefit?.Description, "shifts");
@@ -604,13 +576,11 @@ public class AttendanceService(
                 return (primary.StartTime, primary.EndTime, primary.LateGraceMinutes, primary.EarlyLeaveGraceMinutes, null);
         }
 
-        var ws = daySchedules?.FirstOrDefault(s => !IsOvertimeShiftType(s.Shift?.ShiftType)
-            && (s.StartTime.HasValue || s.Shift != null));
-        if (ws != null)
+        if (levelShifts is { Count: > 0 })
         {
-            var start = ws.StartTime ?? ws.Shift!.StartTime;
-            var end = ws.EndTime ?? ws.Shift?.EndTime ?? start;
-            return (start, end, ws.Shift?.LateGraceMinutes ?? 5, ws.Shift?.EarlyLeaveGraceMinutes ?? 5, ws.ShiftId);
+            var byStart = levelShifts.OrderBy(st => st.StartTime).ToList();
+            var lvl = byStart.FirstOrDefault(st => !IsOvertimeShift(st)) ?? byStart[0];
+            return (lvl.StartTime, lvl.EndTime, lvl.LateGraceMinutes, lvl.EarlyLeaveGraceMinutes, null);
         }
 
         if (benefit?.CheckIn.HasValue == true && benefit.CheckOut.HasValue)
@@ -622,7 +592,7 @@ public class AttendanceService(
         Attendance attendance, DeviceUser deviceUser, Device device, Guid employeeId,
         PenaltySetting? penaltySetting,
         EmployeeBenefit? employeeBenefit,
-        Dictionary<(Guid, DateTime), List<WorkSchedule>> schedulesByEmployeeDate,
+        List<ShiftTemplate>? levelShifts,
         List<PenaltyTicket> existingTickets,
         Dictionary<DateTime, int> ticketCountsByDate,
         Dictionary<string, ShiftTemplate> shiftTemplatesByName)
@@ -675,8 +645,7 @@ public class AttendanceService(
         var punchWall = collapsed[idx].Wall;
         var checkInWall = isCheckIn ? punchWall : pairIn!.Value;
         var workDate = checkInWall.Date;
-        schedulesByEmployeeDate.TryGetValue((employeeId, workDate), out var daySchedules);
-        var shift = ResolveFullDayShift(employeeBenefit, shiftTemplatesByName, daySchedules);
+        var shift = ResolveFullDayShift(employeeBenefit, shiftTemplatesByName, levelShifts);
         if (shift == null) return;
         var (start, end, lateGrace, earlyGrace, shiftId) = shift.Value;
         var shiftStart = workDate.Add(start);
@@ -1029,11 +998,6 @@ public class AttendanceService(
         ticketCountsByDate[dateKey] = nextSeq;
     }
 
-    /// <summary>
-    /// Khi không có WorkSchedule cho nhân viên trong ngày, dùng SalaryProfile (Benefit)
-    /// để lấy danh sách ca làm việc và chọn ca phù hợp với thời điểm chấm công.
-    /// Đảm bảo logic phạt đồng nhất với màn hình "Tổng hợp theo ca".
-    /// </summary>
     private static bool IsOvertimeShiftType(string? shiftType)
     {
         if (string.IsNullOrWhiteSpace(shiftType)) return false;
@@ -1045,11 +1009,16 @@ public class AttendanceService(
             || raw.Contains("overtime");
     }
 
+    /// <summary>
+    /// Ca để phạt đi trễ / về sớm: chỉ ca gán trong thiết lập lương («shifts:» của mẫu lương + mức lương ca),
+    /// chọn ca khớp giờ chấm nhất. Đồng nhất với bảng công / «Tổng hợp theo ca» và Tổng quan.
+    /// </summary>
     private static (TimeSpan start, TimeSpan end, int lateGrace, int earlyLeaveGrace, int maxLate, int maxEarlyLeave, string? shiftType)? ResolveFallbackShift(
         Guid employeeId, DateTime violationDate, TimeSpan punchTime,
         AttendanceStates state,
         Dictionary<Guid, EmployeeBenefit> employeeBenefits,
-        Dictionary<string, ShiftTemplate> shiftTemplatesByName)
+        Dictionary<string, ShiftTemplate> shiftTemplatesByName,
+        List<ShiftTemplate>? levelShifts = null)
     {
         if (!employeeBenefits.TryGetValue(employeeId, out var eb)) return null;
         var benefit = eb.Benefit;
@@ -1076,6 +1045,8 @@ public class AttendanceService(
                     candidates.Add(st);
             }
         }
+        foreach (var st in levelShifts ?? [])
+            if (candidates.All(c => c.Id != st.Id)) candidates.Add(st);
 
         if (candidates.Count == 0)
         {
