@@ -430,7 +430,7 @@ workflows:
         APP_STORE_APP_ID: "6831442612"
         BUNDLE_ID: "boss.sboxpos.com"
         API_BASE_URL: "https://sboxpos.com"
-        APP_VERSION: "1.0.0"
+        APP_VERSION: "1.0.1"  # 1.0.0 đã lên App Store (11/2026): Apple không nhận build mới cùng số
         SBOX_POS_IOS: "1"
 
     scripts:
@@ -499,7 +499,7 @@ workflows:
         APP_STORE_APP_ID: "6831442691"
         BUNDLE_ID: "staff.sboxpos.com"
         API_BASE_URL: "https://sboxpos.com"
-        APP_VERSION: "1.0.0"
+        APP_VERSION: "1.0.1"  # 1.0.0 đã lên App Store (11/2026): Apple không nhận build mới cùng số
 
     scripts:
       - name: Point iOS project at SBOX Nhan Vien
