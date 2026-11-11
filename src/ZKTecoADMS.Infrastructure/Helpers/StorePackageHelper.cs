@@ -458,6 +458,18 @@ public static class StorePackageHelper
 
         var code = Application.Constants.NotificationCategoryCodes.Normalize(categoryCode)
                    ?? (categoryCode ?? "").Trim().ToLowerInvariant();
-        return allowed.Contains(code, StringComparer.OrdinalIgnoreCase);
+        if (allowed.Contains(code, StringComparer.OrdinalIgnoreCase)) return true;
+        // 11/2026 thông báo ca / lịch / đổi ca chuyển từ «attendance» / «approval» sang «shift», phiếu phạt
+        // thưởng-phạt từ «payroll» / «transaction» sang «penalty», duyệt tăng ca từ «approval» sang «overtime».
+        // Gói đã chọn nhóm cũ vẫn phải nhận các thông báo này như trước.
+        return LegacyFcmCategories.TryGetValue(code, out var legacy)
+               && legacy.Any(l => allowed.Contains(l, StringComparer.OrdinalIgnoreCase));
     }
+
+    static readonly Dictionary<string, string[]> LegacyFcmCategories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["shift"] = ["attendance", "approval"],
+        ["penalty"] = ["payroll", "transaction"],
+        ["overtime"] = ["approval"],
+    };
 }

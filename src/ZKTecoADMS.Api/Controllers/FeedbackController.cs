@@ -6,6 +6,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Application.Services;
@@ -193,10 +194,15 @@ public class FeedbackController(
         if (list.Count == 0) return;
         try
         {
+            // Phiếu ẩn danh: khi chính người gửi thao tác (gửi, trả lời, mở lại, đánh giá) không kèm fromUserId —
+            // bộ định dạng push sẽ chèn họ tên người gửi vào nội dung / payload và lộ danh tính.
+            var hideSender = f.IsAnonymous
+                && (f.CreatedBy == CurrentUserId.ToString()
+                    || await UserIdOfEmployeeAsync(f.SenderEmployeeId, f.CreatedBy) == CurrentUserId);
             await notificationService.CreateAndSendToUsersAsync(
                 list, NotificationType.Info, title, message,
                 relatedEntityType: "Feedback", relatedEntityId: f.Id,
-                fromUserId: CurrentUserId, categoryCode: "feedback", storeId: f.StoreId);
+                fromUserId: hideSender ? null : CurrentUserId, categoryCode: "feedback", storeId: f.StoreId);
         }
         catch { /* thông báo lỗi không ảnh hưởng nghiệp vụ */ }
     }
@@ -221,6 +227,27 @@ public class FeedbackController(
         });
 
     static string Label(Feedback f) => string.IsNullOrEmpty(f.Code) ? $"\"{f.Title}\"" : $"{f.Code} \"{f.Title}\"";
+
+    static string Short(string? text, int max)
+    {
+        var t = (text ?? "").Trim();
+        return t.Length > max ? t[..max].TrimEnd() + "…" : t;
+    }
+
+    /// <summary>Tên ngắn của phiếu trên thông báo: mã (KN-001) hoặc tiêu đề rút gọn.</summary>
+    static string Ref(Feedback f) => string.IsNullOrEmpty(f.Code) ? Short(f.Title, 30) : f.Code;
+
+    /// <summary>Loại phiếu ngắn gọn cho tiêu đề thông báo.</summary>
+    static string KindLabel(string category) => category switch
+    {
+        "Complaint" => "Khiếu nại",
+        "General" => "Góp ý",
+        _ => "Kiến nghị",
+    };
+
+    /// <summary>Hạn xử lý (lưu UTC) → «HH:mm dd/MM» giờ VN.</summary>
+    static string DueText(DateTime? dueAtUtc) =>
+        dueAtUtc.HasValue ? VnTimeHelper.UtcToVn(dueAtUtc.Value).ToString("HH:mm dd/MM") : "";
 
     // ══════════════════ DTO PHIẾU ══════════════════
 
@@ -451,10 +478,11 @@ public class FeedbackController(
         dbContext.Feedbacks.Add(feedback);
         await dbContext.SaveChangesAsync();
 
-        var senderLabel = dto.IsAnonymous ? "Ẩn danh" : await MyNameAsync(v.EmployeeId);
+        // Ẩn danh: NotifyAsync không kèm người gửi; ghi rõ «Ẩn danh» trong nội dung.
         await NotifyAsync(await HandlerUserIdsAsync(feedback), feedback,
-            $"{FeedbackRules.CategoryName(category)} mới",
-            $"{senderLabel}: {Label(feedback)} · mức độ {FeedbackRules.PriorityName(priority).ToLower()}");
+            $"{KindLabel(category)} mới: {Short(feedback.Title, 26)}",
+            $"{Ref(feedback)} · mức độ {FeedbackRules.PriorityName(priority).ToLower()}"
+            + (dto.IsAnonymous ? " · Ẩn danh" : ""));
 
         return Ok(AppResponse<object>.Success((await ToDtosAsync([feedback], v))[0]));
     }
@@ -520,9 +548,9 @@ public class FeedbackController(
         }
         await dbContext.SaveChangesAsync();
 
-        await NotifySenderAsync(f, "Cập nhật kiến nghị",
-            $"{Label(f)}: {FeedbackRules.StatusName(dto.Status).ToLower()}"
-            + (dto.Status == FeedbackRules.Resolved ? " — mời bạn đánh giá mức độ hài lòng" : ""));
+        await NotifySenderAsync(f, $"{Ref(f)} {FeedbackRules.StatusName(dto.Status).ToLower()}",
+            Short(f.Title, 50)
+            + (dto.Status == FeedbackRules.Resolved ? " · mời bạn đánh giá mức độ hài lòng" : ""));
         return Ok(AppResponse<bool>.Success(true));
     }
 
@@ -592,8 +620,8 @@ public class FeedbackController(
         f.UpdatedBy = v.UserId;
         await dbContext.SaveChangesAsync();
         if (newAssigneeUser.HasValue)
-            await NotifyAsync([newAssigneeUser.Value], f, "Bạn được giao xử lý kiến nghị",
-                $"{Label(f)} · hạn {f.DueAt:dd/MM HH:mm}");
+            await NotifyAsync([newAssigneeUser.Value], f, $"Bạn được giao xử lý {Ref(f)}",
+                Short(f.Title, 50) + (f.DueAt.HasValue ? $" · hạn {DueText(f.DueAt)}" : ""));
         return Ok(AppResponse<object>.Success(true));
     }
 
@@ -623,8 +651,9 @@ public class FeedbackController(
                 StoreId = f.StoreId, CreatedBy = v.UserId,
             });
         await dbContext.SaveChangesAsync();
-        await NotifyAsync(await HandlerUserIdsAsync(f), f, "Kiến nghị được mở lại",
-            $"{Label(f)} — người gửi chưa hài lòng với kết quả");
+        await NotifyAsync(await HandlerUserIdsAsync(f), f, $"{Ref(f)} bị mở lại",
+            $"{Short(f.Title, 40)} · người gửi chưa hài lòng"
+            + (f.DueAt.HasValue ? $" · hạn {DueText(f.DueAt)}" : ""));
         return Ok(AppResponse<bool>.Success(true));
     }
 
@@ -645,7 +674,8 @@ public class FeedbackController(
         f.UpdatedAt = DateTime.UtcNow;
         AddEvent(f, null, $"Người gửi đánh giá {dto.Rating}/5 sao" + (f.RatingComment != null ? $": {f.RatingComment}" : ""));
         await dbContext.SaveChangesAsync();
-        await NotifyAsync(await HandlerUserIdsAsync(f), f, "Đánh giá kiến nghị", $"{Label(f)}: {dto.Rating}/5 sao");
+        await NotifyAsync(await HandlerUserIdsAsync(f), f, $"{Ref(f)} được đánh giá {dto.Rating}/5 sao",
+            f.RatingComment != null ? Short(f.RatingComment, 80) : Short(f.Title, 60));
         return Ok(AppResponse<bool>.Success(true));
     }
 
@@ -827,14 +857,16 @@ public class FeedbackController(
         f.UpdatedBy = v.UserId;
         await dbContext.SaveChangesAsync();
 
-        var preview = content.Length > 100 ? content[..100] + "…" : content;
+        var preview = Short(content, 80);
         var myName = isSender && f.IsAnonymous ? "Ẩn danh" : await MyNameAsync(v.EmployeeId);
+        // Tên người viết do bộ định dạng push chèn (fromUserId); phiếu ẩn danh ghi «Ẩn danh» thay tên.
         if (dto.Internal)
-            await NotifyAsync(await HandlerUserIdsAsync(f), f, "Ghi chú nội bộ", $"{myName} · {Label(f)}: \"{preview}\"");
+            await NotifyAsync(await HandlerUserIdsAsync(f), f, $"Ghi chú nội bộ · {Ref(f)}", $"\"{preview}\"");
         else if (isSender)
-            await NotifyAsync(await HandlerUserIdsAsync(f), f, "Phản hồi mới", $"{myName}: \"{preview}\"");
+            await NotifyAsync(await HandlerUserIdsAsync(f), f, $"Người gửi phản hồi {Ref(f)}",
+                f.IsAnonymous ? $"Ẩn danh: \"{preview}\"" : $"\"{preview}\"");
         else
-            await NotifySenderAsync(f, "Phản hồi kiến nghị", $"{myName}: \"{preview}\"");
+            await NotifySenderAsync(f, $"Trả lời {Ref(f)}: {Short(f.Title, 24)}", $"\"{preview}\"");
 
         return Ok(AppResponse<FeedbackReplyDto>.Success(new FeedbackReplyDto(
             reply.Id, reply.FeedbackId, reply.Content, null, reply.IsFromSender,

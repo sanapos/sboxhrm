@@ -154,8 +154,8 @@ public partial class TasksController
             {
                 await notificationService.CreateAndSendAsync(
                     task.AssignedById, NotificationType.Success,
-                    "Đã nhận việc",
-                    $"\"{task.Title}\" đã được xác nhận nhận việc",
+                    $"Đã nhận việc: {TaskName(task.Title, 28)}",
+                    $"Xác nhận nhận việc{TaskDueSuffix(task.DueDate)}",
                     relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                     fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
             }
@@ -208,8 +208,10 @@ public partial class TasksController
             {
                 await notificationService.CreateAndSendAsync(
                     task.AssignedById, NotificationType.Warning,
-                    "Từ chối nhận việc",
-                    $"\"{task.Title}\" bị từ chối: {task.RejectionReason}",
+                    $"Từ chối nhận việc: {TaskName(task.Title, 22)}",
+                    string.IsNullOrWhiteSpace(task.RejectionReason)
+                        ? "Không nhận việc này"
+                        : $"Lý do: {TaskName(task.RejectionReason, 80)}",
                     relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                     fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
             }
@@ -500,8 +502,8 @@ public partial class TasksController
 
             await notificationService.CreateAndSendAsync(
                 userId.Value, NotificationType.Reminder,
-                "Nhắc deadline công việc",
-                $"\"{task.Title}\" sắp đến hạn ({task.DueDate:dd/MM/yyyy HH:mm})",
+                $"Sắp đến hạn: {TaskName(task.Title, 28)}",
+                $"Hạn {task.DueDate:HH:mm dd/MM} · hoàn thành hoặc báo tiến độ",
                 relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                 fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
             sent++;

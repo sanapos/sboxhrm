@@ -35,8 +35,11 @@ public class DeleteDeviceHandler(
                 await notificationService.CreateAndSendAsync(
                     targetUserId: null,
                     type: NotificationType.Warning,
-                    title: "Xóa thiết bị",
-                    message: $"Thiết bị \"{deviceName}\" (SN: {serialNumber}) đã bị xóa",
+                    // Handler xóa luôn dữ liệu chấm công của máy (attendanceRepository ở trên) → nói rõ.
+                    // «Đã xóa máy chấm công» / «Máy cổng · SN …0123 · Đã xóa kèm dữ liệu chấm công của máy»
+                    title: "Đã xóa máy chấm công",
+                    message: global::ZKTecoADMS.Application.Commands.Devices.AddDevice.AddDeviceHandler.DeviceLabel(deviceName, serialNumber)
+                        + " · Đã xóa kèm dữ liệu chấm công của máy",
                     relatedEntityType: "Device",
                     categoryCode: "device",
                     storeId: storeId);

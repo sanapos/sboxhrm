@@ -1,4 +1,5 @@
 using ZKTecoADMS.Application.DTOs.Shifts;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 
@@ -19,12 +20,15 @@ public class ApproveShiftHandler(IShiftService shiftService, ISystemNotification
 
             try
             {
+                // «Ca 12/11 đã duyệt» / «Lê Thị Hoa: 07:00–15:00»
+                var start = VnTimeHelper.AttendanceWallClock(approvedShift.StartTime);
+                var end = VnTimeHelper.AttendanceWallClock(approvedShift.EndTime);
                 await notificationService.CreateAndSendAsync(
                     approvedShift.EmployeeUserId, NotificationType.Success,
-                    "Ca làm việc được duyệt",
-                    $"Ca làm việc ngày {approvedShift.StartTime:dd/MM/yyyy} đã được duyệt",
+                    $"Ca {start:dd/MM} đã duyệt",
+                    $"{start:HH:mm}–{end:HH:mm}",
                     relatedEntityId: approvedShift.Id, relatedEntityType: "Shift",
-                    fromUserId: request.ApprovedByUserId, categoryCode: "attendance", storeId: request.StoreId);
+                    fromUserId: request.ApprovedByUserId, categoryCode: "shift", storeId: request.StoreId);
             }
             catch { /* Notification failure should not affect main operation */ }
 

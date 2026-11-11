@@ -50,8 +50,8 @@ public class CreateSalaryProfileHandler(
             await notificationService.CreateAndSendAsync(
                 targetUserId: null,
                 type: NotificationType.Info,
-                title: "Bảng lương mới",
-                message: $"Đã tạo bảng lương \"{request.Name}\"",
+                title: "Hồ sơ lương mới",
+                message: $"Đã tạo hồ sơ lương \"{request.Name}\"",
                 relatedEntityId: salaryProfile.Id,
                 relatedEntityType: "Benefit",
                 categoryCode: "salary",

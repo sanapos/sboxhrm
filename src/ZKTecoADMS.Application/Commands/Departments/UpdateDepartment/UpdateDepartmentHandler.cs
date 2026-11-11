@@ -95,6 +95,10 @@ public class UpdateDepartmentHandler(
 
             // Update department
             var oldName = department.Name;
+            var oldCode = department.Code;
+            var oldManagerId = department.ManagerId;
+            var oldParentId = department.ParentDepartmentId;
+            var oldIsActive = department.IsActive;
             department.Code = request.Code;
             department.Name = request.Name;
             department.Description = request.Description;
@@ -131,11 +135,25 @@ public class UpdateDepartmentHandler(
 
             try
             {
+                // «Phòng ban Kế toán đã đổi» / «Tên cũ: Kế toán chung · Trưởng phòng: Lê Thị Hoa»
+                var changes = new List<string>();
+                if (!string.Equals(oldName?.Trim(), newName, StringComparison.Ordinal))
+                    changes.Add($"Tên cũ: {oldName}");
+                if (!string.Equals(oldCode, request.Code, StringComparison.Ordinal))
+                    changes.Add($"Mã: {oldCode} → {request.Code}");
+                if (oldManagerId != request.ManagerId)
+                    changes.Add(!request.ManagerId.HasValue
+                        ? "Bỏ trưởng phòng"
+                        : string.IsNullOrWhiteSpace(managerName) ? "Đổi trưởng phòng" : $"Trưởng phòng: {managerName.Trim()}");
+                if (oldParentId != request.ParentDepartmentId)
+                    changes.Add(parentDepartment != null ? $"Thuộc: {parentDepartment.Name}" : "Thành phòng ban cấp cao nhất");
+                if (oldIsActive != request.IsActive)
+                    changes.Add(request.IsActive ? "Hoạt động lại" : "Ngừng hoạt động");
                 await notificationService.CreateAndSendAsync(
                     targetUserId: null,
                     type: NotificationType.Info,
-                    title: "Cập nhật phòng ban",
-                    message: $"Phòng ban \"{request.Name}\" ({request.Code}) đã được cập nhật",
+                    title: $"Phòng ban {newName} đã đổi",
+                    message: changes.Count > 0 ? string.Join(" · ", changes) : "Cập nhật mô tả / chức danh",
                     relatedEntityId: department.Id,
                     relatedEntityType: "Department",
                     categoryCode: "department",

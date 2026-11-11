@@ -34,6 +34,7 @@ public class UndoLeaveApprovalHandler(
             }
 
             var wasApproved = leave.Status == LeaveStatus.Approved;
+            var balanceRestored = wasApproved && leave.AnnualBalanceApplied && leave.AnnualLeaveDaysDeducted > 0;
 
             if (wasApproved && leave.AnnualBalanceApplied)
             {
@@ -190,10 +191,15 @@ public class UndoLeaveApprovalHandler(
 
             try
             {
+                // «hoàn duyệt» là từ nội bộ — nói rõ đơn quay lại chờ duyệt và hệ quả.
+                var range = leave.StartDate.Date == leave.EndDate.Date
+                    ? $"{leave.StartDate:dd/MM}"
+                    : $"{leave.StartDate:dd/MM}–{leave.EndDate:dd/MM}";
+                var undone = wasApproved ? "Kết quả duyệt đã hủy" : "Kết quả từ chối đã hủy";
                 await notificationService.CreateAndSendAsync(
                     leave.EmployeeUserId, NotificationType.Warning,
-                    "Đơn nghỉ phép hoàn duyệt",
-                    $"Đơn nghỉ phép từ {leave.StartDate:dd/MM/yyyy} đến {leave.EndDate:dd/MM/yyyy} đã được hoàn duyệt về trạng thái chờ",
+                    "Đơn nghỉ phép quay lại chờ duyệt",
+                    $"Nghỉ {range} · {undone}" + (balanceRestored ? " · Đã hoàn lại ngày phép" : ""),
                     relatedEntityId: leave.Id, relatedEntityType: "Leave",
                     fromUserId: request.UserId, categoryCode: "approval", storeId: request.StoreId);
             }

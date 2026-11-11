@@ -1,4 +1,5 @@
 using ZKTecoADMS.Application.DTOs.Shifts;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 
@@ -20,15 +21,18 @@ public class RejectShiftHandler(IShiftService shiftService, ISystemNotificationS
 
             try
             {
-                var message = $"Ca làm việc ngày {rejectedShift.StartTime:dd/MM/yyyy} đã bị từ chối";
-                if (!string.IsNullOrEmpty(request.RejectionReason))
-                    message += $". Lý do: {request.RejectionReason}";
+                // «Ca 12/11 bị từ chối» / «Lê Thị Hoa: 07:00–15:00 · Lý do: Đủ người»
+                var start = VnTimeHelper.AttendanceWallClock(rejectedShift.StartTime);
+                var end = VnTimeHelper.AttendanceWallClock(rejectedShift.EndTime);
+                var message = $"{start:HH:mm}–{end:HH:mm}";
+                if (!string.IsNullOrWhiteSpace(request.RejectionReason))
+                    message += $" · Lý do: {request.RejectionReason.Trim()}";
                 await notificationService.CreateAndSendAsync(
                     rejectedShift.EmployeeUserId, NotificationType.Warning,
-                    "Ca làm việc bị từ chối",
+                    $"Ca {start:dd/MM} bị từ chối",
                     message,
                     relatedEntityId: rejectedShift.Id, relatedEntityType: "Shift",
-                    fromUserId: request.RejectedByUserId, categoryCode: "attendance", storeId: request.StoreId);
+                    fromUserId: request.RejectedByUserId, categoryCode: "shift", storeId: request.StoreId);
             }
             catch { /* Notification failure should not affect main operation */ }
             

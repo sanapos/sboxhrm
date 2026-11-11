@@ -73,13 +73,13 @@ public class RenewalReminderBackgroundService : BackgroundService
 
                     // Title: ngắn gọn, không kèm marker. Frontend sẽ tự tính lại số ngày từ ExpiresAt.
                     var title = d == 0
-                        ? $"⏰ {s.Name}: license hết hạn hôm nay"
-                        : $"⏰ {s.Name}: license sắp hết hạn ({d} ngày)";
+                        ? "License hết hạn hôm nay"
+                        : $"License còn {d} ngày";
                     if (title.Length > 180) title = title.Substring(0, 180) + "…";
                     await svc.CreateAsync(new CreateSystemAnnouncementDto
                     {
                         Title = title,
-                        Content = $"Cửa hàng \"{s.Name}\" có license sẽ hết hạn vào {s.ExpiryDate:dd/MM/yyyy}. Vui lòng liên hệ đại lý / nhà cung cấp để gia hạn.\n\n{marker}",
+                        Content = $"{s.Name} · hết hạn {s.ExpiryDate:dd/MM/yyyy} · liên hệ đại lý để gia hạn\n\n{marker}",
                         Kind = AnnouncementKind.Renewal,
                         Severity = d <= 3 ? AnnouncementSeverity.Critical : AnnouncementSeverity.Warning,
                         Channels = NotificationChannel.InApp | NotificationChannel.Banner,
@@ -88,7 +88,9 @@ public class RenewalReminderBackgroundService : BackgroundService
                         Audience = new AudienceSpec
                         {
                             AllUsers = false,
-                            StoreIds = new List<Guid> { s.Id }
+                            StoreIds = new List<Guid> { s.Id },
+                            // Chỉ người lo gia hạn (chủ / quản lý) — trước đây gửi mọi nhân viên cửa hàng.
+                            Roles = [nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.Manager), "StoreOwner"]
                         },
                         SendNow = true,
                         // T-0: giữ banner 14 ngày sau hết hạn; trước đó đến ExpiryDate+1
@@ -99,11 +101,9 @@ public class RenewalReminderBackgroundService : BackgroundService
                     _logger.LogInformation("Sent renewal reminder T-{D} for store {Store}", d, s.Name);
 
                     var adminTitle = d == 0
-                        ? $"⏰ {s.Name}: license hết hạn hôm nay"
-                        : $"⏰ {s.Name}: sắp hết hạn license ({d} ngày)";
-                    var adminMessage = d == 0
-                        ? $"Cửa hàng \"{s.Name}\" hết hạn license hôm nay. Vui lòng liên hệ gia hạn."
-                        : $"Cửa hàng \"{s.Name}\" sẽ hết hạn license vào {s.ExpiryDate:dd/MM/yyyy} (còn {d} ngày).";
+                        ? $"{s.Name}: license hết hạn hôm nay"
+                        : $"{s.Name}: license còn {d} ngày";
+                    var adminMessage = $"Hết hạn {s.ExpiryDate:dd/MM/yyyy} · cần liên hệ gia hạn";
                     await SuperAdminNotificationHelper.NotifySuperAdminsAsync(
                         notificationService,
                         userManager,

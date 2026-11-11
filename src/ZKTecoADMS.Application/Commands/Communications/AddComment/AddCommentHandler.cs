@@ -50,15 +50,19 @@ public class AddCommentHandler(
             await commentRepository.AddAsync(comment, cancellationToken);
 
             // Notify the post author about the new comment (skip self-comments).
+            // Tên người bình luận ở tiêu đề → formatter không chèn lại vào body (trước đây tên hiện 2 lần).
+            // «Nguyễn Văn An bình luận bài của bạn» / «"Em đăng ký nghỉ…" · Lịch nghỉ Tết 2027»
+            var commenter = request.UserName?.Trim();
+            var preview = Preview(trimmedContent);
+            var postTitle = Preview(communication.Title ?? string.Empty, 40);
             try
             {
                 if (communication.AuthorId != Guid.Empty && communication.AuthorId != request.UserId)
                 {
-                    var preview = trimmedContent.Length > 120 ? trimmedContent.Substring(0, 120) + "…" : trimmedContent;
                     await notificationService.CreateAndSendAsync(
                         communication.AuthorId, NotificationType.Info,
-                        $"{request.UserName} đã bình luận bài của bạn",
-                        $"\"{communication.Title}\": {preview}",
+                        string.IsNullOrEmpty(commenter) ? "Bình luận mới về bài của bạn" : $"{commenter} bình luận bài của bạn",
+                        string.IsNullOrEmpty(postTitle) ? $"\"{preview}\"" : $"\"{preview}\" · {postTitle}",
                         relatedEntityId: communication.Id, relatedEntityType: "Communication",
                         fromUserId: request.UserId,
                         categoryCode: "communication", storeId: communication.StoreId);
@@ -72,11 +76,11 @@ public class AddCommentHandler(
                         && parent.UserId != request.UserId
                         && parent.UserId != communication.AuthorId) // already notified above
                     {
-                        var preview = trimmedContent.Length > 120 ? trimmedContent.Substring(0, 120) + "…" : trimmedContent;
+                        // «Nguyễn Văn An trả lời bạn» / «"Đồng ý ạ" · Lịch nghỉ Tết 2027»
                         await notificationService.CreateAndSendAsync(
                             parent.UserId, NotificationType.Info,
-                            $"{request.UserName} đã trả lời bình luận của bạn",
-                            preview,
+                            string.IsNullOrEmpty(commenter) ? "Có người trả lời bình luận của bạn" : $"{commenter} trả lời bạn",
+                            string.IsNullOrEmpty(postTitle) ? $"\"{preview}\"" : $"\"{preview}\" · {postTitle}",
                             relatedEntityId: communication.Id, relatedEntityType: "Communication",
                             fromUserId: request.UserId,
                             categoryCode: "communication", storeId: communication.StoreId);
@@ -91,5 +95,12 @@ public class AddCommentHandler(
         {
             return AppResponse<Guid>.Error($"Lỗi khi thêm bình luận: {ex.Message}");
         }
+    }
+
+    /// <summary>Gom về một dòng, cắt ở <paramref name="max"/> ký tự (banner chỉ hiện ~2 dòng).</summary>
+    private static string Preview(string text, int max = 60)
+    {
+        var oneLine = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+        return oneLine.Length > max ? oneLine[..max].TrimEnd() + "…" : oneLine;
     }
 }

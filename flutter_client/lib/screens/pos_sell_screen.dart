@@ -1524,7 +1524,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   void initState() {
     super.initState();
     AppFullscreen.active.addListener(_onAppFullscreenChanged);
-    PosManagerApproval.attach(context);
+    PosManagerApproval.attach(context, snapshot: _remoteApprovalSnapshot);
     PosNotifyFocus.enter();
     // Khuyến mãi có thể áp riêng từng chi nhánh → đổi chi nhánh bán thì tải lại.
     BranchSession.instance.addListener(_onBranchForPromotions);
@@ -5263,6 +5263,20 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (ApiService.hasPosApprovalToken) return true;
     return confirmPosManagerApproval(
         context, 'Cần quản lý duyệt: hủy món đã gửi bếp — tài khoản chưa có quyền «Hủy món đã gửi bếp».');
+  }
+
+  /// Bàn / số món / tổng tiền gửi kèm yêu cầu duyệt từ xa (chủ duyệt trên SBOX BOSS).
+  PosApprovalSnapshot _remoteApprovalSnapshot() {
+    final hasTable = (_tab.serviceResourceName ?? '').trim().isNotEmpty ||
+        (_tab.serviceAreaName ?? '').trim().isNotEmpty;
+    final itemCount = _tab.cart.length;
+    final parts = <String>[
+      if (hasTable) formatPosTableLabel(areaName: _tab.serviceAreaName, tableName: _tab.serviceResourceName),
+      if ((_tab.draftOrderNo ?? '').trim().isNotEmpty) _tab.draftOrderNo!.trim(),
+      if (itemCount > 0) '$itemCount món',
+    ];
+    final total = _grandTotal;
+    return (detail: parts.isEmpty ? null : parts.join(' · '), amount: total > 0 ? total : null);
   }
 
   Future<bool> _ensureAfterBillApproval(String action) async {

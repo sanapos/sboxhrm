@@ -2,6 +2,7 @@ using ZKTecoADMS.Application.Helpers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.AdvanceRequests;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Commands.AdvanceRequests;
@@ -167,13 +168,18 @@ public class CreateAdvanceRequestHandler(
                 // Exclude the requester themselves.
                 if (employeeUserId.HasValue) targetSet.Remove(employeeUserId.Value);
 
+                if (string.IsNullOrWhiteSpace(employeeName)) employeeName = "Nhân viên";
+                var reason = (request.Reason ?? string.Empty).Trim();
+                if (reason.Length > 40) reason = reason[..40].TrimEnd() + "…";
+                var reasonText = reason.Length > 0 ? $" · Lý do: {reason}" : string.Empty;
+
                 if (targetSet.Count > 0)
                 {
                     await notificationService.CreateAndSendToUsersAsync(
                         targetSet, NotificationType.ApprovalRequired,
                         "Yêu cầu ứng lương mới",
-                        $"{employeeName} yêu cầu ứng lương {request.Amount:N0}đ" +
-                        (totalLevels > 1 ? $" (Bước 1/{totalLevels})" : ""),
+                        $"{employeeName} xin ứng {request.Amount:N0}đ{reasonText}" +
+                        (totalLevels > 1 ? $" · Bước 1/{totalLevels}" : ""),
                         relatedEntityId: created.Id, relatedEntityType: "AdvanceRequest",
                         fromUserId: request.EmployeeUserId, categoryCode: "approval", storeId: request.StoreId);
                 }
@@ -190,7 +196,7 @@ public class CreateAdvanceRequestHandler(
                         await notificationService.CreateAndSendToUsersAsync(
                             targetUsers, NotificationType.ApprovalRequired,
                             "Yêu cầu ứng lương mới",
-                            $"{employeeName} yêu cầu ứng lương {request.Amount:N0}đ",
+                            $"{employeeName} xin ứng {request.Amount:N0}đ{reasonText}",
                             relatedEntityId: created.Id, relatedEntityType: "AdvanceRequest",
                             fromUserId: request.EmployeeUserId, categoryCode: "approval", storeId: request.StoreId);
                     }
@@ -318,6 +324,9 @@ public class ApproveAdvanceRequestHandler(
 
             var approver = await userManager.FindByIdAsync(request.ApprovedById.ToString());
             var approverName = approver?.FullName ?? approver?.Email ?? "Unknown";
+            // Tên hiện trong thông báo (approverName vẫn lưu vào bước duyệt như cũ) — không in «Unknown».
+            var approverDisplay = NotificationPushFormatter.FormatUserDisplayName(approver);
+            if (string.IsNullOrWhiteSpace(approverDisplay)) approverDisplay = "Quản lý";
 
             // Get approval records
             var approvalRecords = (await approvalRecordRepository.GetAllAsync(
@@ -385,13 +394,12 @@ public class ApproveAdvanceRequestHandler(
                             {
                                 var isPartial = advanceRequest.ApprovedAmount.Value < advanceRequest.Amount;
                                 var amountText = isPartial
-                                    ? $"{advanceRequest.ApprovedAmount.Value:N0}đ (yêu cầu ban đầu {advanceRequest.Amount:N0}đ)"
+                                    ? $"Duyệt {advanceRequest.ApprovedAmount.Value:N0}đ (xin {advanceRequest.Amount:N0}đ)"
                                     : $"{advanceRequest.Amount:N0}đ";
                                 await notificationService.CreateAndSendAsync(
                                     advanceRequest.EmployeeUserId.Value, NotificationType.Success,
-                                    "Yêu cầu ứng lương đã duyệt",
-                                    $"Yêu cầu ứng lương đã được phê duyệt hoàn tất: {amountText}" +
-                                    (advanceRequest.TotalApprovalLevels > 1 ? $" ({advanceRequest.TotalApprovalLevels}/{advanceRequest.TotalApprovalLevels} cấp)" : ""),
+                                    "Ứng lương đã duyệt",
+                                    $"{amountText} · Chờ chi tiền",
                                     relatedEntityId: advanceRequest.Id, relatedEntityType: "AdvanceRequest",
                                     fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
                             }
@@ -410,22 +418,26 @@ public class ApproveAdvanceRequestHandler(
                                 var pendingPayout = advanceRequest.ApprovedAmount ?? advanceRequest.Amount;
                                 var pendingAmountText = advanceRequest.ApprovedAmount.HasValue
                                     && advanceRequest.ApprovedAmount.Value < advanceRequest.Amount
-                                    ? $"{pendingPayout:N0}đ (yêu cầu {advanceRequest.Amount:N0}đ)"
+                                    ? $"{pendingPayout:N0}đ (xin {advanceRequest.Amount:N0}đ)"
                                     : $"{pendingPayout:N0}đ";
+                                // Người gửi = NV xin ứng (trước đây là người duyệt trước → đọc như người duyệt xin ứng).
+                                var employeeName = NotificationPushFormatter.FormatUserDisplayName(advanceRequest.EmployeeUser);
+                                if (string.IsNullOrWhiteSpace(employeeName)) employeeName = "Nhân viên";
                                 await notificationService.CreateAndSendAsync(
                                     nextStep.AssignedUserId.Value, NotificationType.ApprovalRequired,
-                                    "Yêu cầu ứng lương cần phê duyệt",
-                                    $"Yêu cầu ứng lương cần phê duyệt (Bước {nextStep.StepOrder}/{advanceRequest.TotalApprovalLevels}) - {pendingAmountText}",
+                                    "Cần duyệt ứng lương",
+                                    $"{employeeName} xin ứng {pendingAmountText} · Bước {nextStep.StepOrder}/{advanceRequest.TotalApprovalLevels} · {approverDisplay} đã duyệt bước {currentStep.StepOrder}",
                                     relatedEntityId: advanceRequest.Id, relatedEntityType: "AdvanceRequest",
-                                    fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
+                                    fromUserId: advanceRequest.EmployeeUserId,
+                                    categoryCode: "approval", storeId: request.StoreId);
                             }
 
                             if (advanceRequest.EmployeeUserId.HasValue)
                             {
                                 await notificationService.CreateAndSendAsync(
                                     advanceRequest.EmployeeUserId.Value, NotificationType.Info,
-                                    "Tiến trình duyệt ứng lương",
-                                    $"Yêu cầu ứng lương đã duyệt bước {currentStep.StepOrder}/{advanceRequest.TotalApprovalLevels} ({currentStep.StepName}) bởi {approverName}",
+                                    $"Ứng lương: xong bước {currentStep.StepOrder}/{advanceRequest.TotalApprovalLevels}",
+                                    $"{advanceRequest.Amount:N0}đ · {approverDisplay} đã duyệt, chờ bước {nextStep.StepOrder}",
                                     relatedEntityId: advanceRequest.Id, relatedEntityType: "AdvanceRequest",
                                     fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
                             }
@@ -470,13 +482,14 @@ public class ApproveAdvanceRequestHandler(
                 {
                     if (advanceRequest.EmployeeUserId.HasValue)
                     {
-                        var stepInfo = approvalRecords.Count > 1
-                            ? $" (bởi {approverName})"
-                            : "";
+                        // Người từ chối đã là người gửi (trước đây «bởi Unknown»); lý do trống thì bỏ cả cụm.
+                        var reasonText = string.IsNullOrWhiteSpace(request.RejectionReason)
+                            ? string.Empty
+                            : $" · Lý do: {request.RejectionReason.Trim()}";
                         await notificationService.CreateAndSendAsync(
                             advanceRequest.EmployeeUserId.Value, NotificationType.Warning,
-                            "Yêu cầu ứng lương bị từ chối",
-                            $"Yêu cầu ứng lương {advanceRequest.Amount:N0}đ đã bị từ chối{stepInfo}. Lý do: {request.RejectionReason}",
+                            "Ứng lương bị từ chối",
+                            $"{advanceRequest.Amount:N0}đ{reasonText}",
                             relatedEntityId: advanceRequest.Id, relatedEntityType: "AdvanceRequest",
                             fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
                     }
@@ -573,6 +586,7 @@ public class UndoApproveAdvanceRequestHandler(
                 return AppResponse<AdvanceRequestDto>.Error("Phiếu ứng đã chi tiền — không hoàn tác duyệt được. Chi nhầm thì xóa phiếu ứng (khi kỳ lương trừ khoản này chưa chốt).");
             }
 
+            var wasApproved = advanceRequest.Status == AdvanceRequestStatus.Approved;
             advanceRequest.Status = AdvanceRequestStatus.Pending;
             advanceRequest.ApprovedById = null;
             advanceRequest.ApprovedDate = null;
@@ -602,8 +616,8 @@ public class UndoApproveAdvanceRequestHandler(
                 {
                     await notificationService.CreateAndSendAsync(
                         advanceRequest.EmployeeUserId.Value, NotificationType.Warning,
-                        "Yêu cầu ứng lương hoàn duyệt",
-                        $"Yêu cầu ứng lương {advanceRequest.Amount:N0}đ đã được hoàn duyệt về trạng thái chờ",
+                        "Ứng lương quay lại chờ duyệt",
+                        $"{advanceRequest.Amount:N0}đ · " + (wasApproved ? "Kết quả duyệt đã hủy" : "Kết quả từ chối đã hủy"),
                         relatedEntityId: advanceRequest.Id, relatedEntityType: "AdvanceRequest",
                         fromUserId: request.CurrentUserId, categoryCode: "approval", storeId: request.StoreId);
                 }
@@ -850,7 +864,7 @@ public class PayAdvanceRequestHandler(
                     await notificationService.CreateAndSendAsync(
                         advanceRequest.EmployeeUserId.Value, NotificationType.Success,
                         "Ứng lương đã thanh toán",
-                        $"Yêu cầu ứng lương {payoutAmount:N0}đ đã được thanh toán ({paymentMethodLabel})",
+                        $"Đã chi {payoutAmount:N0}đ · {paymentMethodLabel}",
                         relatedEntityId: advanceRequest.Id, relatedEntityType: "AdvanceRequest",
                         fromUserId: request.PerformedById, categoryCode: "payroll", storeId: request.StoreId);
                 }

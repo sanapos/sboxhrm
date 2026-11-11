@@ -353,8 +353,8 @@ public class AttendanceApprovalsController(
         {
             if (emp.ApplicationUserId != null && emp.ApplicationUserId != CurrentUserId)
                 await notifications.CreateAndSendAsync(emp.ApplicationUserId, NotificationType.Warning,
-                    "Bạn có phiếu phạt mới",
-                    $"Phiếu phạt {ticket!.TicketCode} — quên chấm công {date:dd/MM}: {amount:N0}đ (trừ lương).",
+                    $"Phạt {amount.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN"))}đ — quên chấm công {date:dd/MM}",
+                    $"Trừ lương · {ticket!.TicketCode}",
                     relatedEntityType: "PenaltyTicket", relatedEntityId: ticket.Id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: storeId);
         }

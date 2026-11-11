@@ -79,8 +79,8 @@ public class CreateMealMenuHandler(
                 await notificationService.CreateAndSendToStoreEmployeesAsync(
                     request.StoreId,
                     NotificationType.Info,
-                    title: $"🍽️ Thực đơn {sessionName} - {request.Date:dd/MM}",
-                    message: $"Thực đơn mới: {dishNames}",
+                    title: string.IsNullOrWhiteSpace(sessionName) ? $"🍽️ Thực đơn {request.Date:dd/MM}" : $"🍽️ Thực đơn {sessionName} · {request.Date:dd/MM}",
+                    message: string.IsNullOrWhiteSpace(dishNames) ? "Chạm để xem thực đơn" : dishNames,
                     relatedEntityId: menu.Id,
                     relatedEntityType: "MealMenu",
                     categoryCode: "meal");

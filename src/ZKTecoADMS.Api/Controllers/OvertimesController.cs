@@ -155,8 +155,8 @@ public class OvertimesController(
 
                         await notificationService.CreateAndSendToUsersAsync(
                             storeManagers, NotificationType.ApprovalRequired,
-                            "Đơn tăng ca mới",
-                            $"{employeeName} đăng ký tăng ca ngày {request.Date:dd/MM/yyyy} ({request.StartTime:hh\\:mm} - {request.EndTime:hh\\:mm})",
+                            "Cần duyệt tăng ca",
+                            $"{employeeName} · {OtWhen(overtime)}",
                             relatedEntityId: overtime.Id, relatedEntityType: "Overtime",
                             fromUserId: employeeUserId, categoryCode: "overtime", storeId: RequiredStoreId);
                     }
@@ -171,8 +171,8 @@ public class OvertimesController(
 
                     await notificationService.CreateAndSendAsync(
                         managerId, NotificationType.ApprovalRequired,
-                        "Đơn tăng ca mới",
-                        $"{employeeName} đăng ký tăng ca ngày {request.Date:dd/MM/yyyy} ({request.StartTime:hh\\:mm} - {request.EndTime:hh\\:mm})",
+                        "Cần duyệt tăng ca",
+                        $"{employeeName} · {OtWhen(overtime)}",
                         relatedEntityId: overtime.Id, relatedEntityType: "Overtime",
                         fromUserId: employeeUserId, categoryCode: "overtime", storeId: RequiredStoreId);
                 }
@@ -454,10 +454,10 @@ public class OvertimesController(
             {
                 await notificationService.CreateAndSendAsync(
                     overtime.EmployeeUserId, NotificationType.Success,
-                    "Đơn tăng ca đã duyệt",
-                    $"Đơn tăng ca ngày {overtime.Date:dd/MM/yyyy} đã được phê duyệt",
+                    $"Tăng ca {overtime.Date:dd/MM} đã duyệt",
+                    $"Khung giờ {OtRange(overtime)}",
                     relatedEntityId: overtime.Id, relatedEntityType: "Overtime",
-                    fromUserId: userId, categoryCode: "approval", storeId: RequiredStoreId);
+                    fromUserId: userId, categoryCode: "overtime", storeId: RequiredStoreId);
             }
             catch { /* Notification failure should not affect main operation */ }
 
@@ -512,10 +512,12 @@ public class OvertimesController(
             {
                 await notificationService.CreateAndSendAsync(
                     overtime.EmployeeUserId, NotificationType.Warning,
-                    "Đơn tăng ca bị từ chối",
-                    $"Đơn tăng ca ngày {overtime.Date:dd/MM/yyyy} đã bị từ chối. Lý do: {request.RejectionReason}",
+                    $"Tăng ca {overtime.Date:dd/MM} bị từ chối",
+                    string.IsNullOrWhiteSpace(request.RejectionReason)
+                        ? $"Khung giờ {OtRange(overtime)}"
+                        : $"Lý do: {request.RejectionReason.Trim()}",
                     relatedEntityId: overtime.Id, relatedEntityType: "Overtime",
-                    fromUserId: userId, categoryCode: "approval", storeId: RequiredStoreId);
+                    fromUserId: userId, categoryCode: "overtime", storeId: RequiredStoreId);
             }
             catch { /* Notification failure should not affect main operation */ }
 
@@ -572,8 +574,10 @@ public class OvertimesController(
             {
                 await notificationService.CreateAndSendAsync(
                     overtime.EmployeeUserId, NotificationType.Info,
-                    "Đơn tăng ca hoàn thành",
-                    $"Đơn tăng ca ngày {overtime.Date:dd/MM/yyyy} đã hoàn thành. Giờ thực tế: {request.ActualHours}h",
+                    overtime.ActualHours.HasValue
+                        ? $"Tăng ca {overtime.Date:dd/MM}: ghi nhận {OtHours(overtime.ActualHours.Value)} giờ"
+                        : $"Tăng ca {overtime.Date:dd/MM} đã hoàn thành",
+                    $"Khung giờ đăng ký {OtRange(overtime)}",
                     relatedEntityId: overtime.Id, relatedEntityType: "Overtime",
                     fromUserId: userId, categoryCode: "overtime", storeId: RequiredStoreId);
             }
@@ -680,6 +684,18 @@ public class OvertimesController(
     #endregion
 
     #region Helpers
+
+    // ─── Nội dung thông báo tăng ca (tên người duyệt / người xin do bộ định dạng push chèn từ fromUserId) ───
+
+    private static string OtHours(decimal hours) =>
+        hours.ToString("0.#", System.Globalization.CultureInfo.GetCultureInfo("vi-VN"));
+
+    /// <summary>«18:00–21:00».</summary>
+    private static string OtRange(Overtime o) => $"{o.StartTime:hh\\:mm}–{o.EndTime:hh\\:mm}";
+
+    /// <summary>«12/11 · 18:00–21:00 (3 giờ)».</summary>
+    private static string OtWhen(Overtime o) =>
+        $"{o.Date:dd/MM} · {OtRange(o)}" + (o.PlannedHours > 0 ? $" ({OtHours(o.PlannedHours)} giờ)" : "");
 
     private static OvertimeDto MapToDto(Overtime o) => new()
     {

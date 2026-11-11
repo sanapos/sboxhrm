@@ -2643,7 +2643,8 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                     .Where(u => u.StoreId == storeId && u.IsActive
 
 
-                        && (u.Role == "Manager" || u.Role == "Admin"))
+                        && (u.Role == "Manager" || u.Role == "Admin")
+                        && u.Id != CurrentUserId)
 
 
                     .Select(u => u.Id)
@@ -2670,11 +2671,12 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         autoApprove ? NotificationType.Info : NotificationType.ApprovalRequired,
 
 
-                        autoApprove ? "Thiết bị chấm công được tự duyệt" : "Đăng ký thiết bị chấm công mới",
+                        autoApprove ? "Điện thoại chấm công tự duyệt" : "Cần duyệt điện thoại chấm công",
 
 
-                        $"{employeeName} đăng ký thiết bị \"{request.DeviceName}\" ({request.DeviceModel}) — "
-                            + (autoApprove ? "đã tự duyệt theo thiết lập cửa hàng" : "cần duyệt"),
+                        // Tên người đăng ký đứng đầu: bộ định dạng push bỏ trùng với tên người gửi.
+                        $"{employeeName} · «{request.DeviceName}»"
+                            + (autoApprove ? " · tự duyệt theo thiết lập cửa hàng" : ""),
 
 
                         relatedEntityType: "AuthorizedMobileDevice",
@@ -2713,12 +2715,12 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         NotificationType.Info,
 
 
-                        autoApprove ? "Thiết bị đã được duyệt" : "Đã gửi đăng ký thiết bị",
+                        autoApprove ? "Điện thoại đã được duyệt" : "Đã gửi đăng ký điện thoại",
 
 
                         autoApprove
-                            ? "Thiết bị chấm công đã được duyệt tự động. Bạn có thể chấm công ngay."
-                            : "Yêu cầu đăng ký thiết bị chấm công đã được gửi. Vui lòng chờ quản lý duyệt.",
+                            ? "Bạn có thể chấm công trên app ngay"
+                            : "Chờ quản lý duyệt",
 
 
                         relatedEntityType: "AuthorizedMobileDevice",
@@ -2727,7 +2729,8 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         relatedEntityId: newDevice.Id,
 
 
-                        fromUserId: CurrentUserId,
+                        // Tự đăng ký → không kèm người gửi (tránh «tên chính mình: …»); QL đăng ký hộ → hiện tên QL.
+                        fromUserId: submitterUserId.Value == CurrentUserId ? null : CurrentUserId,
 
 
                         categoryCode: "mobile_attendance",
@@ -3272,10 +3275,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         NotificationType.Success,
 
 
-                        "Đăng ký thiết bị được duyệt",
+                        "Điện thoại chấm công đã được duyệt",
 
 
-                        $"Thiết bị \"{device.DeviceName}\" đã được duyệt. Bạn có thể chấm công mobile.",
+                        $"«{device.DeviceName}» · bạn có thể chấm công trên app",
 
 
                         relatedEntityType: "AuthorizedMobileDevice",
@@ -3311,10 +3314,12 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         NotificationType.Warning,
 
 
-                        "Đăng ký thiết bị bị từ chối",
+                        "Điện thoại chấm công bị từ chối",
 
 
-                        $"Đăng ký thiết bị \"{device.DeviceName}\" không được duyệt.{(string.IsNullOrWhiteSpace(device.RejectionReason) ? "" : $" Lý do: {device.RejectionReason}.")} Vui lòng đăng ký lại trên app.",
+                        string.IsNullOrWhiteSpace(device.RejectionReason)
+                            ? $"«{device.DeviceName}» · đăng ký lại trên app"
+                            : $"Lý do: {device.RejectionReason} · đăng ký lại trên app",
 
 
                         relatedEntityType: "AuthorizedMobileDevice",
@@ -3741,10 +3746,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         NotificationType.ApprovalRequired,
 
 
-                        "Yêu cầu đổi thiết bị chấm công",
+                        "Cần duyệt đổi điện thoại chấm công",
 
 
-                        $"{employeeName} yêu cầu đổi thiết bị từ \"{existingDevice.DeviceName}\" sang \"{request.NewDeviceName}\"",
+                        $"{employeeName} · «{existingDevice.DeviceName}» → «{request.NewDeviceName}»",
 
 
                         relatedEntityType: "DeviceChangeRequest",
@@ -4193,10 +4198,12 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         NotificationType.Warning,
 
 
-                        "Yêu cầu đổi máy bị từ chối",
+                        "Đổi điện thoại bị từ chối",
 
 
-                        $"Yêu cầu đổi thiết bị sang \"{changeReq.NewDeviceName}\" đã bị từ chối.{(string.IsNullOrEmpty(request.RejectionReason) ? "" : $" Lý do: {request.RejectionReason}")}",
+                        string.IsNullOrWhiteSpace(request.RejectionReason)
+                            ? $"Không đổi sang «{changeReq.NewDeviceName}»"
+                            : $"Lý do: {request.RejectionReason} · máy mới «{changeReq.NewDeviceName}»",
 
 
                         relatedEntityType: "DeviceChangeRequest",
@@ -4590,10 +4597,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         NotificationType.Success,
 
 
-                        "Yêu cầu đổi máy được duyệt",
+                        "Đổi điện thoại đã được duyệt",
 
 
-                        $"Thiết bị chấm công đã được chuyển sang \"{changeReq.NewDeviceName}\". Bạn có thể sử dụng ngay.",
+                        $"Chấm công trên «{changeReq.NewDeviceName}» được ngay",
 
 
                         relatedEntityType: "DeviceChangeRequest",
@@ -6818,19 +6825,19 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
                 var punchLabel = record.PunchType switch
                 {
-                    0 => "vào",
-                    1 => "ra",
-                    2 => "bắt đầu đi",
-                    3 => "đến điểm làm",
-                    _ => "chấm",
+                    0 => "Vào",
+                    1 => "Ra",
+                    2 => "Bắt đầu đi",
+                    3 => "Đến điểm làm",
+                    _ => "Chấm",
                 };
 
+                // Tên NV đứng đầu (bộ định dạng push bỏ trùng với tên người gửi); không in mã NV (GUID) khi thiếu tên.
                 var pendingTitle = isTravelPunch
-                    ? "Chấm đi đường chờ duyệt"
-                    : "Chấm công Mobile chờ duyệt";
-                var pendingBody = isTravelPunch
-                    ? $"{employeeName ?? record.OdooEmployeeId} {punchLabel} lúc {record.PunchTime:HH:mm dd/MM/yyyy} - cần duyệt giờ đi đường"
-                    : $"{employeeName ?? record.OdooEmployeeId} chấm công {punchLabel} lúc {record.PunchTime:HH:mm dd/MM/yyyy} - cần duyệt";
+                    ? "Cần duyệt giờ đi đường"
+                    : "Cần duyệt chấm công qua app";
+                var pendingBody =
+                    $"{(string.IsNullOrWhiteSpace(employeeName) ? "Nhân viên" : employeeName)} · {punchLabel} {VnTimeHelper.AttendanceWallClock(record.PunchTime):HH:mm dd/MM}";
                 var pendingCategory = isTravelPunch ? "travel_attendance" : "mobile_attendance";
 
 
@@ -6911,12 +6918,12 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         3 => "Đến điểm làm thành công",
                         _ => "Chấm đi đường thành công",
                     };
-                    var timeStr = record.PunchTime.ToString("HH:mm dd/MM/yyyy");
+                    var timeStr = VnTimeHelper.AttendanceWallClock(record.PunchTime).ToString("HH:mm dd/MM");
                     var body = status == "pending"
-                        ? $"Đã ghi {punchLabel} lúc {timeStr}. Chờ duyệt để tính giờ đi đường vào lương."
+                        ? $"{punchLabel} lúc {timeStr} · chờ duyệt để tính giờ đi đường"
                         : record.PunchType == 3
-                            ? $"Đã ghi {punchLabel} lúc {timeStr}. Hệ thống cộng thời gian từ lúc Bắt đầu đi."
-                            : $"Đã ghi {punchLabel} lúc {timeStr}. Bấm Đến điểm làm khi tới công trình.";
+                            ? $"{punchLabel} lúc {timeStr} · cộng giờ từ lúc Bắt đầu đi"
+                            : $"{punchLabel} lúc {timeStr} · tới công trình nhớ bấm Đến điểm làm";
 
                     await _systemNotificationService.CreateAndSendAsync(
                         employeeUserId.Value,
@@ -6925,7 +6932,8 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         body,
                         relatedEntityType: "MobileAttendance",
                         relatedEntityId: record.Id,
-                        fromUserId: CurrentUserId,
+                        // Tự chấm → không kèm người gửi (tránh «tên chính mình: …»).
+                        fromUserId: employeeUserId.Value == CurrentUserId ? null : CurrentUserId,
                         categoryCode: "travel_attendance",
                         storeId: storeId);
                 }
@@ -7982,109 +7990,22 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         {
 
 
-            if (Guid.TryParse(record.OdooEmployeeId, out var empUserId))
-
-
+            // Không ghi «bởi {email}»: tên người duyệt do bộ định dạng push chèn từ fromUserId.
+            // OdooEmployeeId có thể là Employee.Id (không phải UserId) → tra tài khoản như khi báo NV chấm đi đường.
+            var empUserId = await ResolveEmployeeNotificationUserIdAsync(record.OdooEmployeeId, storeId);
+            if (empUserId.HasValue)
             {
-
-
-                var punchLabel = record.PunchType switch
-                {
-                    0 => "vào",
-                    1 => "ra",
-                    2 => "bắt đầu đi",
-                    3 => "đến điểm làm",
-                    _ => "chấm",
-                };
-
-
-                var timeStr = record.PunchTime.ToString("HH:mm dd/MM/yyyy");
-
-
-                if (request.Approved)
-
-
-                {
-
-
-                    await _systemNotificationService.CreateAndSendAsync(
-
-
-                        empUserId,
-
-
-                        NotificationType.Success,
-
-
-                        "Chấm công Mobile đã được duyệt",
-
-
-                        $"Chấm công {punchLabel} lúc {timeStr} đã được duyệt bởi {CurrentUserEmail}",
-
-
-                        relatedEntityType: "MobileAttendance",
-
-
-                        relatedEntityId: record.Id,
-
-
-                        fromUserId: CurrentUserId,
-
-
-                        categoryCode: "mobile_attendance",
-
-
-                        storeId: storeId);
-
-
-                }
-
-
-                else
-
-
-                {
-
-
-                    var reason = !string.IsNullOrEmpty(request.RejectionReason)
-
-
-                        ? $". Lý do: {request.RejectionReason}" : "";
-
-
-                    await _systemNotificationService.CreateAndSendAsync(
-
-
-                        empUserId,
-
-
-                        NotificationType.Warning,
-
-
-                        "Chấm công Mobile bị từ chối",
-
-
-                        $"Chấm công {punchLabel} lúc {timeStr} đã bị từ chối bởi {CurrentUserEmail}{reason}",
-
-
-                        relatedEntityType: "MobileAttendance",
-
-
-                        relatedEntityId: record.Id,
-
-
-                        fromUserId: CurrentUserId,
-
-
-                        categoryCode: "mobile_attendance",
-
-
-                        storeId: storeId);
-
-
-                }
-
-
+                var (decisionTitle, decisionBody) = MobileDecisionText(record, request.Approved, request.RejectionReason);
+                await _systemNotificationService.CreateAndSendAsync(
+                    empUserId.Value,
+                    request.Approved ? NotificationType.Success : NotificationType.Warning,
+                    decisionTitle,
+                    decisionBody,
+                    relatedEntityType: "MobileAttendance",
+                    relatedEntityId: record.Id,
+                    fromUserId: CurrentUserId,
+                    categoryCode: "mobile_attendance",
+                    storeId: storeId);
             }
 
 

@@ -27,6 +27,10 @@ public sealed class ShiftAssignmentResolver
 
     public bool HasShifts => _all.Count > 0;
 
+    /// <summary>Chỉ ca gán trong thiết lập lương; NV chưa gán → rỗng.</summary>
+    public IReadOnlyList<ShiftMatchHelper.Candidate> AssignedFor(Guid employeeId) =>
+        _byEmployee.TryGetValue(employeeId, out var list) ? list : [];
+
     public IReadOnlyList<ShiftMatchHelper.Candidate> CandidatesFor(Guid employeeId) =>
         _byEmployee.TryGetValue(employeeId, out var list) && list.Count > 0 ? list : _all;
 

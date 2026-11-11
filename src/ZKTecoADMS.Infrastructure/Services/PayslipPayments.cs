@@ -228,14 +228,18 @@ public static class PayslipPayments
         var uid = p.EmployeeUserId ?? p.Employee?.ApplicationUserId;
         if (uid.HasValue && uid != userId)
         {
-            var how = string.Join(", ", parts.Select(x => $"{(x.Method == PaymentMethodType.Cash ? "tiền mặt" : "chuyển khoản")} {x.Amount:N0}đ"));
+            // Title = kỳ + kết quả + số tiền; body = cách trả (từng phần) · còn lại. Số tiền kiểu Việt.
+            static string Vnd(decimal v) => CashTransactionLinkageHelper.Vnd(v);
+            var how = string.Join(", ", parts.Select(x => $"{(x.Method == PaymentMethodType.Cash ? "Tiền mặt" : "Chuyển khoản")} {Vnd(x.Amount)}"));
             try
             {
                 await notifications.CreateAndSendAsync(uid.Value, NotificationType.Success,
-                    after.Remaining <= 0 ? "Lương đã thanh toán" : "Đã trả một phần lương",
                     after.Remaining <= 0
-                        ? $"Lương kỳ {month} ({p.NetSalary:N0}đ) đã thanh toán đủ — {how}."
-                        : $"Lương kỳ {month}: đã nhận {how}. Còn lại {after.Remaining:N0}đ.",
+                        ? $"Lương {month} đã thanh toán đủ"
+                        : $"Đã nhận {Vnd(total)} lương {month}",
+                    after.Remaining <= 0
+                        ? $"Thực lĩnh {Vnd(p.NetSalary)} · lần này: {how}"
+                        : $"{how} · còn lại {Vnd(after.Remaining)}",
                     relatedEntityType: "Payslip", relatedEntityId: p.Id, fromUserId: userId,
                     categoryCode: "payroll", storeId: storeId);
             }

@@ -2163,15 +2163,15 @@ public class SystemAdminController : AuthenticatedControllerBase
             // Thông báo cho chủ cửa hàng về việc kích hoạt key
             try
             {
-                var packageName = license.ServicePackage?.Name ?? license.LicenseType.ToString();
+                var packageName = license.ServicePackage?.Name ?? StoreLicenseTypeLabel(license.LicenseType);
                 if (store.OwnerId.HasValue)
                 {
+                    // Chủ cửa hàng không có trang /admin/* (SuperAdmin) → không gắn link.
                     await _notificationService.CreateAndSendAsync(
                         targetUserId: store.OwnerId.Value,
                         type: NotificationType.Success,
-                        title: "Kích hoạt License thành công",
-                        message: $"Cửa hàng '{store.Name}' đã được kích hoạt gói {packageName}, hạn sử dụng đến {store.ExpiryDate:dd/MM/yyyy}",
-                        relatedUrl: $"/admin/stores",
+                        title: $"Đã gia hạn {StoreShortName(store.Name)}",
+                        message: $"Gói {packageName} · hạn đến {store.ExpiryDate:dd/MM/yyyy}",
                         relatedEntityId: storeId,
                         relatedEntityType: "Store",
                         categoryCode: "license",
@@ -2182,8 +2182,8 @@ public class SystemAdminController : AuthenticatedControllerBase
                     _notificationService,
                     _userManager,
                     NotificationType.Success,
-                    "Key license đã kích hoạt",
-                    $"Cửa hàng '{store.Name}' vừa kích hoạt gói {packageName}, hạn đến {store.ExpiryDate:dd/MM/yyyy}",
+                    $"Kích hoạt key: {store.Name}",
+                    $"Gói {packageName} · hạn đến {store.ExpiryDate:dd/MM/yyyy}",
                     relatedUrl: SuperAdminNotificationHelper.AdminLicensesUrl,
                     relatedEntityId: storeId,
                     relatedEntityType: "Store",
@@ -3269,6 +3269,21 @@ public class SystemAdminController : AuthenticatedControllerBase
             !await _dbContext.ServicePackages.AnyAsync(p => p.Id == servicePackageId.Value))
             return "Gói dịch vụ của key không tồn tại";
         return null;
+    }
+
+    /// <summary>Nhãn gói khi key không gắn gói dịch vụ (không in tên enum tiếng Anh lên thông báo).</summary>
+    private static string StoreLicenseTypeLabel(LicenseType type) => type switch
+    {
+        LicenseType.Basic => "Cơ bản",
+        LicenseType.Advanced => "Nâng cao",
+        LicenseType.Professional => "Chuyên nghiệp",
+        _ => "SBOX",
+    };
+
+    private static string StoreShortName(string? name)
+    {
+        var n = (name ?? "").Trim();
+        return n.Length > 24 ? n[..24].TrimEnd() + "…" : n;
     }
 
     private static string GenerateLicenseKey(LicenseType type)
@@ -5070,16 +5085,16 @@ public class SystemAdminController : AuthenticatedControllerBase
             // Thông báo cho chủ cửa hàng về việc kích hoạt key
             try
             {
-                var packageName = lastLicense.ServicePackage?.Name ?? lastLicense.LicenseType.ToString();
+                var packageName = lastLicense.ServicePackage?.Name ?? StoreLicenseTypeLabel(lastLicense.LicenseType);
                 if (store.OwnerId.HasValue)
                 {
-                    var bonusText = bonusDays > 0 ? $" (+ {bonusDays} ngày KM)" : "";
+                    var bonusText = bonusDays > 0 ? $" (+{bonusDays} ngày KM)" : "";
+                    // Chủ cửa hàng không có trang /admin/* (SuperAdmin) → không gắn link.
                     await _notificationService.CreateAndSendAsync(
                         targetUserId: store.OwnerId.Value,
                         type: NotificationType.Success,
-                        title: "Kích hoạt License thành công",
-                        message: $"Cửa hàng '{store.Name}' đã kích hoạt {keyCount} key gói {packageName}, thêm {totalDays} ngày{bonusText}. Hạn đến {store.ExpiryDate:dd/MM/yyyy}",
-                        relatedUrl: SuperAdminNotificationHelper.AdminLicensesUrl,
+                        title: $"Đã gia hạn {StoreShortName(store.Name)}",
+                        message: $"Hạn đến {store.ExpiryDate:dd/MM/yyyy} · thêm {totalDays} ngày{bonusText} · gói {packageName}",
                         relatedEntityId: storeId,
                         relatedEntityType: "Store",
                         categoryCode: "license",
@@ -5090,8 +5105,8 @@ public class SystemAdminController : AuthenticatedControllerBase
                     _notificationService,
                     _userManager,
                     NotificationType.Success,
-                    "Key license đã kích hoạt (hàng loạt)",
-                    $"Cửa hàng '{store.Name}' vừa kích hoạt {keyCount} key gói {packageName}, hạn đến {store.ExpiryDate:dd/MM/yyyy}",
+                    $"Kích hoạt {keyCount} key: {store.Name}",
+                    $"Gói {packageName} · hạn đến {store.ExpiryDate:dd/MM/yyyy}",
                     relatedUrl: SuperAdminNotificationHelper.AdminLicensesUrl,
                     relatedEntityId: storeId,
                     relatedEntityType: "Store",

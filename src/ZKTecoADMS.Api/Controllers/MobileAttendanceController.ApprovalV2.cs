@@ -160,21 +160,35 @@ public partial class MobileAttendanceController
         return (true, null);
     }
 
+    /// <summary>
+    /// Nội dung báo NV kết quả duyệt chấm công qua app (dùng chung bản cũ và V2).
+    /// Tên người duyệt do bộ định dạng push chèn từ fromUserId — không ghi «bởi {email}».
+    /// </summary>
+    private static (string Title, string Body) MobileDecisionText(MobileAttendanceRecord record, bool approved, string? reason)
+    {
+        var label = record.PunchType switch { 0 => "vào", 1 => "ra", 2 => "bắt đầu đi", 3 => "đến điểm làm", _ => "công" };
+        var time = ZKTecoADMS.Application.Helpers.VnTimeHelper.AttendanceWallClock(record.PunchTime).ToString("HH:mm dd/MM");
+        if (approved)
+            return ($"Chấm {label} {time} đã duyệt", "Đã ghi vào bảng công");
+        return ($"Chấm {label} {time} bị từ chối",
+            string.IsNullOrWhiteSpace(reason)
+                ? "Bạn có thể gửi giải trình / xin bổ sung công"
+                : $"Lý do: {reason.Trim()} · có thể gửi giải trình");
+    }
+
     private async Task NotifyMobileDecisionAsync(MobileAttendanceRecord record, bool approved, string? reason)
     {
         try
         {
-            if (!Guid.TryParse(record.OdooEmployeeId, out var empUserId)) return;
-            var label = record.PunchType switch { 0 => "vào", 1 => "ra", 2 => "bắt đầu đi", 3 => "đến điểm làm", _ => "chấm" };
-            var time = record.PunchTime.ToString("HH:mm dd/MM/yyyy");
+            // OdooEmployeeId có thể là Employee.Id (không phải UserId) → tra tài khoản như khi báo NV chấm đi đường.
+            var empUserId = await ResolveEmployeeNotificationUserIdAsync(record.OdooEmployeeId, record.StoreId);
+            if (!empUserId.HasValue) return;
+            var (title, body) = MobileDecisionText(record, approved, reason);
             await _systemNotificationService.CreateAndSendAsync(
-                empUserId,
+                empUserId.Value,
                 approved ? NotificationType.Success : NotificationType.Warning,
-                approved ? "Chấm công Mobile đã được duyệt" : "Chấm công Mobile bị từ chối",
-                approved
-                    ? $"Chấm công {label} lúc {time} đã được duyệt"
-                    : $"Chấm công {label} lúc {time} bị từ chối" + (string.IsNullOrWhiteSpace(reason) ? "" : $". Lý do: {reason}")
-                      + ". Bạn có thể gửi giải trình / xin bổ sung công.",
+                title,
+                body,
                 relatedEntityType: "MobileAttendance",
                 relatedEntityId: record.Id,
                 fromUserId: CurrentUserId,

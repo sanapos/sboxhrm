@@ -188,15 +188,16 @@ public class BulkCreateEmployeeAccountsHandler(
 
             try
             {
+                // «Chào mừng bạn đến SBOX» / «Đăng nhập bằng an@x.com hoặc 0901234567»
                 var loginHint = !string.IsNullOrEmpty(email) && !string.IsNullOrEmpty(phone)
-                    ? $"Đăng nhập bằng email {email} hoặc SĐT {phone}. Có thể đổi mật khẩu sau khi đăng nhập."
+                    ? $"Đăng nhập bằng {email} hoặc {phone}"
                     : !string.IsNullOrEmpty(email)
-                        ? $"Đăng nhập bằng email {email}. Có thể đổi mật khẩu sau khi đăng nhập."
-                        : $"Đăng nhập bằng SĐT {phone}. Có thể đổi mật khẩu sau khi đăng nhập.";
+                        ? $"Đăng nhập bằng {email}"
+                        : $"Đăng nhập bằng {phone}";
                 await notificationService.CreateAndSendAsync(
                     targetUserId: newUser.Id,
                     type: NotificationType.Success,
-                    title: "Tài khoản đã tạo",
+                    title: "Chào mừng bạn đến SBOX",
                     message: loginHint,
                     relatedEntityId: newUser.Id,
                     relatedEntityType: "Account",

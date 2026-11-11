@@ -173,8 +173,12 @@ const _remoteApprovalChoice = '\u0000remote';
 /// Được duyệt → nhận mã duyệt 5 phút như khi nhập mật khẩu tại máy. Trả true khi đã duyệt.
 Future<bool> waitPosRemoteApproval(BuildContext context, String reason) async {
   final api = ApiService();
+  // Kèm bàn / số món / tổng tiền — trước đây chủ chỉ thấy lý do, không biết bàn nào, bao nhiêu tiền.
+  final snap = PosManagerApproval.currentSnapshot();
   final created = await api.createPosRemoteApproval(
-      reason.replaceFirst(RegExp(r'^Cần quản lý duyệt:\s*'), ''));
+      reason.replaceFirst(RegExp(r'^Cần quản lý duyệt:\s*'), ''),
+      detail: snap?.detail,
+      amount: snap?.amount);
   final data = created['data'] is Map ? created['data'] as Map : null;
   final id = data?['id']?.toString();
   if (created['isSuccess'] != true || id == null) {
@@ -298,20 +302,40 @@ class _RemoteApprovalWaitDialogState extends State<_RemoteApprovalWaitDialog> {
   }
 }
 
+/// Thông tin kèm yêu cầu duyệt từ xa: «Khu A · Bàn 5 · 3 món» và tổng tiền.
+typedef PosApprovalSnapshot = ({String? detail, double? amount});
+
 /// Gắn màn POS đang mở để ApiService mở hộp «Cần quản lý duyệt» khi máy chủ chặn (màn mở sau cùng được dùng).
 class PosManagerApproval {
   PosManagerApproval._();
 
   static final _contexts = <BuildContext>[];
+  static final _snapshots = <BuildContext, PosApprovalSnapshot Function()>{};
 
-  static void attach(BuildContext context) {
+  /// [snapshot]: bàn / số món / tổng tiền đang mở — gửi kèm yêu cầu duyệt từ xa để chủ biết duyệt gì.
+  static void attach(BuildContext context, {PosApprovalSnapshot Function()? snapshot}) {
     _contexts.add(context);
+    if (snapshot != null) _snapshots[context] = snapshot;
     ApiService.onPosManagerApproval = _handle;
   }
 
   static void detach(BuildContext context) {
     _contexts.remove(context);
+    _snapshots.remove(context);
     if (_contexts.isEmpty) ApiService.onPosManagerApproval = null;
+  }
+
+  /// Bàn / tổng tiền của màn POS mở sau cùng (null khi màn đó không cung cấp).
+  static PosApprovalSnapshot? currentSnapshot() {
+    for (final c in _contexts.reversed) {
+      if (!c.mounted) continue;
+      try {
+        return _snapshots[c]?.call();
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
   }
 
   static Future<bool> _handle(String message) async {

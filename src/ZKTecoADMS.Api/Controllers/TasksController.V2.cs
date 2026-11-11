@@ -142,8 +142,8 @@ public partial class TasksController
             {
                 await notificationService.CreateAndSendAsync(
                     task.AssignedById, NotificationType.Success,
-                    "Công việc hoàn thành",
-                    $"\"{task.Title}\" đã chuyển sang «{target.Name}»",
+                    $"Hoàn thành: {TaskName(task.Title, 30)}",
+                    $"Chuyển sang «{target.Name}» · lúc {ZKTecoADMS.Application.Helpers.VnTimeHelper.NowVn():HH:mm dd/MM}",
                     relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                     fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
             }

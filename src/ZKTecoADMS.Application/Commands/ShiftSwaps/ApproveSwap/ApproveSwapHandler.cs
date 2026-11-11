@@ -1,4 +1,6 @@
+using ScheduleNotifyText = ZKTecoADMS.Application.Commands.WorkSchedules.ScheduleNotifyText;
 using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
@@ -59,19 +61,44 @@ public class ApproveSwapHandler(
 
             try
             {
+                // Mỗi bên một câu, theo góc nhìn của mình (trước đây người được đổi cũng nhận «Yêu cầu đổi ca của bạn…»).
+                // Người gửi = quản lý → formatter thêm «Lê Thị Hoa: » trước body.
+                // Duyệt:    «Đổi ca với Trần Thị Bình đã duyệt» / «Bạn chuyển sang Ca Chiều 14/11, thay cho Ca Sáng 12/11»
+                // Từ chối:  «Đổi ca với Trần Thị Bình bị từ chối» / «Bạn giữ Ca Sáng 12/11 như cũ · Lý do: Đủ người»
+                var info = await shiftSwapRepository.GetSingleAsync(
+                    r => r.Id == swapRequest.Id,
+                    includeProperties: [
+                        nameof(ShiftSwapRequest.RequesterUser), nameof(ShiftSwapRequest.TargetUser),
+                        nameof(ShiftSwapRequest.RequesterShift), nameof(ShiftSwapRequest.TargetShift)
+                    ],
+                    cancellationToken: cancellationToken);
+                var requesterSlot = ScheduleNotifyText.ShiftOnDay(info?.RequesterShift, swapRequest.RequesterDate);
+                var targetSlot = ScheduleNotifyText.ShiftOnDay(info?.TargetShift, swapRequest.TargetDate);
+                var requesterName = NotificationPushFormatter.FormatUserDisplayName(info?.RequesterUser);
+                var targetName = NotificationPushFormatter.FormatUserDisplayName(info?.TargetUser);
+                var reason = request.RejectionReason?.Trim();
                 var notifType = request.Approve ? NotificationType.Success : NotificationType.Warning;
-                var notifTitle = request.Approve ? "Yêu cầu đổi ca đã duyệt" : "Yêu cầu đổi ca bị từ chối";
-                var notifMsg = request.Approve
-                    ? "Yêu cầu đổi ca của bạn đã được quản lý phê duyệt"
-                    : $"Yêu cầu đổi ca của bạn đã bị quản lý từ chối. Lý do: {request.RejectionReason}";
+                var result = request.Approve ? "đã duyệt" : "bị từ chối";
+
+                string Title(string otherName) => string.IsNullOrWhiteSpace(otherName)
+                    ? $"Đổi ca {result}"
+                    : $"Đổi ca với {otherName} {result}";
+                string Body(string mySlot, string theirSlot) => request.Approve
+                    ? $"Bạn chuyển sang {theirSlot}, thay cho {mySlot}"
+                    : string.IsNullOrEmpty(reason)
+                        ? $"Bạn giữ {mySlot} như cũ"
+                        : $"Bạn giữ {mySlot} như cũ · Lý do: {reason}";
+
                 await notificationService.CreateAndSendAsync(
-                    swapRequest.RequesterUserId, notifType, notifTitle, notifMsg,
+                    swapRequest.RequesterUserId, notifType,
+                    Title(targetName), Body(requesterSlot, targetSlot),
                     relatedEntityId: swapRequest.Id, relatedEntityType: "ShiftSwap",
-                    fromUserId: request.ManagerId, categoryCode: "approval", storeId: request.StoreId);
+                    fromUserId: request.ManagerId, categoryCode: "shift", storeId: request.StoreId);
                 await notificationService.CreateAndSendAsync(
-                    swapRequest.TargetUserId, notifType, notifTitle, notifMsg,
+                    swapRequest.TargetUserId, notifType,
+                    Title(requesterName), Body(targetSlot, requesterSlot),
                     relatedEntityId: swapRequest.Id, relatedEntityType: "ShiftSwap",
-                    fromUserId: request.ManagerId, categoryCode: "approval", storeId: request.StoreId);
+                    fromUserId: request.ManagerId, categoryCode: "shift", storeId: request.StoreId);
             }
             catch { }
 

@@ -119,18 +119,22 @@ public class UpdateEmployeeHandler(
         {
             if (employee.ApplicationUserId.HasValue)
             {
+                // «Hồ sơ của bạn vừa đổi» / «Phòng ban: Kế toán · Chức vụ: Trưởng nhóm» (giá trị mới, không chỉ tên trường)
                 var changes = new List<string>();
-                if (oldDepartment != employee.Department) changes.Add("phòng ban");
-                if (oldPosition != employee.Position) changes.Add("chức vụ");
-                if (oldWorkStatus != employee.WorkStatus) changes.Add("trạng thái");
+                if (oldDepartment != employee.Department)
+                    changes.Add(string.IsNullOrWhiteSpace(employee.Department) ? "Bỏ phòng ban" : $"Phòng ban: {employee.Department.Trim()}");
+                if (oldPosition != employee.Position)
+                    changes.Add(string.IsNullOrWhiteSpace(employee.Position) ? "Bỏ chức vụ" : $"Chức vụ: {employee.Position.Trim()}");
+                if (oldWorkStatus != employee.WorkStatus)
+                    changes.Add($"Trạng thái: {WorkStatusLabel(employee.WorkStatus)}");
 
                 var message = changes.Count > 0
-                    ? $"Thông tin nhân sự đã thay đổi: {string.Join(", ", changes)}"
-                    : "Thông tin nhân sự của bạn đã được cập nhật";
+                    ? string.Join(" · ", changes)
+                    : "Thông tin hồ sơ nhân sự đã được cập nhật";
 
                 await notificationService.CreateAndSendAsync(
                     employee.ApplicationUserId.Value, NotificationType.Info,
-                    "Cập nhật hồ sơ nhân sự",
+                    "Hồ sơ của bạn vừa đổi",
                     message,
                     relatedEntityId: employee.Id, relatedEntityType: "Employee",
                     categoryCode: "hr", storeId: request.StoreId);
@@ -140,4 +144,12 @@ public class UpdateEmployeeHandler(
 
         return AppResponse<bool>.Success(true);
     }
+
+    private static string WorkStatusLabel(EmployeeWorkStatus status) => status switch
+    {
+        EmployeeWorkStatus.Resigned => "Đã nghỉ việc",
+        EmployeeWorkStatus.OnLeave => "Nghỉ phép",
+        EmployeeWorkStatus.Probation => "Đang thử việc",
+        _ => "Đang làm việc",
+    };
 }

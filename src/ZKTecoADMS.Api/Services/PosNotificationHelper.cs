@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
@@ -7,6 +8,26 @@ namespace ZKTecoADMS.Api.Services;
 
 internal static class PosNotificationHelper
 {
+    /// <summary>Tiêu đề cũ của cảnh báo tồn thấp theo đơn — nay dùng chung «Hàng cần nhập thêm».</summary>
+    private const string LegacyLowStockTitle = "Tồn kho thấp";
+
+    /// <summary>Tiền kiểu Việt: 250000 → «250.000đ».</summary>
+    internal static string Vnd(decimal v) =>
+        Math.Round(v, 0).ToString("#,0", CultureInfo.InvariantCulture).Replace(',', '.') + "đ";
+
+    /// <summary>Số lượng kiểu Việt: 1200 → «1.200», 0.4 → «0,4».</summary>
+    internal static string Qty(decimal v)
+    {
+        var s = v.ToString("#,0.##", CultureInfo.InvariantCulture);
+        return string.Concat(s.Select(c => c == ',' ? '.' : c == '.' ? ',' : c));
+    }
+
+    /// <summary>«Đường hết» / «Sữa tươi còn 3 (tối thiểu 10)».</summary>
+    internal static string LowStockText(string name, decimal onHand, decimal minStock) =>
+        onHand <= 0
+            ? $"{name.Trim()} hết"
+            : $"{name.Trim()} còn {Qty(onHand)} (tối thiểu {Qty(minStock)})";
+
     private static readonly string[] ManagerRoles =
     [
         nameof(Roles.Admin),
@@ -48,9 +69,22 @@ internal static class PosNotificationHelper
             if (fromUserId.HasValue) userIds = userIds.Where(u => u != fromUserId.Value).ToList();
             if (userIds.Count == 0) return;
 
-            var seller = string.IsNullOrWhiteSpace(soldBy) ? "—" : soldBy.Trim();
-            var title = "Bán hàng POS";
-            var message = $"Đơn {orderNo} — {total:N0}đ — NV: {seller}";
+            // Title = đơn + số tiền (điều chính); body = ai bán · bàn. SoldBy có thể là email (chủ bán) —
+            // không in email: formatter tự thêm tên người gửi (fromUserId) vào body.
+            var seller = soldBy?.Trim();
+            string sellerPart;
+            if (string.Equals(seller, "Tingee", StringComparison.OrdinalIgnoreCase))
+                sellerPart = "Khách chuyển khoản qua Tingee";
+            else if (string.IsNullOrEmpty(seller) || seller.Contains('@'))
+                sellerPart = "Đã thanh toán";
+            else
+                sellerPart = $"{seller} bán";
+            var table = await db.PosSaleOrders.AsNoTracking()
+                .Where(o => o.Id == orderId && o.ServiceResourceId != null)
+                .Join(db.PosServiceResources.AsNoTracking(), o => o.ServiceResourceId, r => (Guid?)r.Id, (o, r) => r.Name)
+                .FirstOrDefaultAsync(cancellationToken);
+            var title = $"Đơn {orderNo} · {Vnd(total)}";
+            var message = string.IsNullOrWhiteSpace(table) ? sellerPart : $"{sellerPart} · {table.Trim()}";
 
             await notifications.CreateAndSendToUsersAsync(
                 userIds,
@@ -85,9 +119,11 @@ internal static class PosNotificationHelper
             var userIds = await GetPosManagerUserIdsAsync(db, storeId, cancellationToken);
             if (userIds.Count == 0) return;
 
-            var supplier = string.IsNullOrWhiteSpace(supplierName) ? "—" : supplierName.Trim();
-            var title = "Nhập hàng POS";
-            var message = $"Phiếu {receiptNo} — {grandTotal:N0}đ — NCC: {supplier}";
+            var title = $"Nhập hàng {receiptNo} · {Vnd(grandTotal)}";
+            // Không có NCC thì không in «NCC: —»; formatter thêm tên người nhập (fromUserId).
+            var message = string.IsNullOrWhiteSpace(supplierName)
+                ? "Đã nhập kho"
+                : $"NCC {supplierName.Trim()}";
 
             await notifications.CreateAndSendToUsersAsync(
                 userIds,
@@ -121,11 +157,15 @@ internal static class PosNotificationHelper
                 .ToList();
             if (lowAll.Count == 0) return;
 
-            // Chỉ báo mặt hàng chưa được báo «Tồn kho thấp» trong ngày (mỗi đơn bán trước đây đều báo lại).
+            // Chỉ báo mặt hàng chưa được báo trong ngày — cả báo theo đơn lẫn bản tổng hợp sáng
+            // (PosStockAlertBackgroundService) dùng chung tiêu đề «Hàng cần nhập thêm» → không còn 2 thông báo
+            // khác tên cho cùng một món. «Tồn kho thấp» = tiêu đề cũ, giữ để không báo lại trong ngày chuyển bản.
             var dayStartUtc = (DateTime.UtcNow + TimeSpan.FromHours(7)).Date - TimeSpan.FromHours(7);
             var todayMsgs = await db.Notifications.AsNoTracking()
-                .Where(n => n.StoreId == storeId && n.Title == "Tồn kho thấp" && n.Timestamp >= dayStartUtc)
+                .Where(n => n.StoreId == storeId && n.Timestamp >= dayStartUtc &&
+                            (n.Title == PosStockAlertBackgroundService.LowStockTitle || n.Title == LegacyLowStockTitle))
                 .Select(n => n.Message)
+                .Distinct()
                 .ToListAsync(cancellationToken);
             var lowItems = lowAll
                 .Where(i => !todayMsgs.Any(m => m.Contains(i.ProductName, StringComparison.OrdinalIgnoreCase)))
@@ -137,18 +177,19 @@ internal static class PosNotificationHelper
             if (fromUserId.HasValue) userIds = userIds.Where(u => u != fromUserId.Value).ToList();
             if (userIds.Count == 0) return;
 
-            var preview = string.Join(", ",
-                lowItems.Select(i => $"{i.ProductName} ({i.OnHand:N0}/{i.MinStock:N0})"));
-            var suffix = lowAll.Count > lowItems.Count ? $"… (+{lowAll.Count - lowItems.Count})" : "";
+            var parts = lowItems.Select(i => LowStockText(i.ProductName, i.OnHand, i.MinStock)).ToList();
+            if (lowAll.Count > lowItems.Count)
+                parts.Add($"+{lowAll.Count - lowItems.Count} món");
 
+            // Không gắn người bán (fromUserId) — tồn thấp không phải việc của người vừa bán; vẫn bỏ họ khỏi người nhận.
             await notifications.CreateAndSendToUsersAsync(
                 userIds,
                 NotificationType.Warning,
-                "Tồn kho thấp",
-                $"{preview}{suffix}",
+                PosStockAlertBackgroundService.LowStockTitle,
+                string.Join(" · ", parts),
                 relatedEntityId: lowItems[0].ProductId,
                 relatedEntityType: "PosProduct",
-                fromUserId: fromUserId,
+                fromUserId: null,
                 categoryCode: "pos",
                 storeId: storeId);
         }
@@ -175,9 +216,11 @@ internal static class PosNotificationHelper
                 db, storeId, cancellationToken, "PosQrOrder", "PosSell", "PosKds");
             if (userIds.Count == 0) return;
 
-            var title = "Đơn online mới";
-            var message =
-                $"{orderNo} · {customerName} · {phone} · {total:N0}đ — gọi lại khách xác nhận";
+            // Việc cần làm + số tiền lên title; body = khách · SĐT · mã đơn.
+            var title = $"Đơn online {Vnd(total)} — gọi xác nhận";
+            var message = string.Join(" · ", new[] { customerName, phone, orderNo }
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s.Trim()));
 
             await notifications.CreateAndSendToUsersAsync(
                 userIds,
@@ -215,7 +258,8 @@ internal static class PosNotificationHelper
 
             var title = needsConfirm ? "Đơn QR chờ xác nhận" : "Đơn QR bàn";
             var preview = string.IsNullOrWhiteSpace(itemPreview) ? "có món mới" : itemPreview.Trim();
-            var message = $"{tableName} · {orderNo} · {preview}";
+            // Bàn + món trước, mã đơn ở cuối (ít quan trọng nhất).
+            var message = $"{tableName} · {preview} · {orderNo}";
 
             await notifications.CreateAndSendToUsersAsync(
                 userIds,
@@ -254,16 +298,36 @@ internal static class PosNotificationHelper
                 db, storeId, cancellationToken, "PosBooking", "PosSell");
             if (userIds.Count == 0) return;
 
-            var phonePart = string.IsNullOrWhiteSpace(phone) ? "" : $" · {phone.Trim()}";
-            var prePart = hasPreOrder ? " · có đặt món" : "";
+            // Giờ khách đến: lịch có thời lượng → ReservedAt (giờ bắt đầu slot); giữ bàn không thời lượng →
+            // ReservedAt = lúc bấm đặt, giờ khách đến nằm ở ReservedUntil. Cả hai lưu UTC → đổi giờ VN.
+            DateTime? arrivalUtc = reservedAt;
+            var saved = await db.PosResourceReservations.AsNoTracking()
+                .Where(r => r.Id == reservationId)
+                .Select(r => new { r.ReservedAt, r.ReservedUntil, r.DurationMinutes })
+                .FirstOrDefaultAsync(cancellationToken);
+            if (saved != null)
+                arrivalUtc = saved.DurationMinutes is > 0 ? saved.ReservedAt : saved.ReservedUntil;
+            var when = arrivalUtc.HasValue
+                ? ZKTecoADMS.Application.Helpers.VnTimeHelper.UtcToVn(arrivalUtc.Value)
+                    .ToString("HH:mm dd/MM", CultureInfo.InvariantCulture)
+                : null;
+
             var guests = guestCount < 1 ? 1 : guestCount;
-            var message =
-                $"{resourceName} · {customerName}{phonePart} · {reservedAt:dd/MM HH:mm} · {guests} khách{prePart}";
+            var title = string.Join(" · ", new[] { $"Đặt lịch {resourceName.Trim()}", when }
+                .Where(s => !string.IsNullOrWhiteSpace(s)));
+            var message = string.Join(" · ", new[]
+                {
+                    customerName?.Trim(),
+                    string.IsNullOrWhiteSpace(phone) ? null : phone.Trim(),
+                    $"{guests} khách",
+                    hasPreOrder ? "có đặt món" : null,
+                }
+                .Where(s => !string.IsNullOrWhiteSpace(s)));
 
             await notifications.CreateAndSendToUsersAsync(
                 userIds,
                 NotificationType.Info,
-                "Đặt lịch mới",
+                title,
                 message,
                 relatedEntityId: reservationId,
                 relatedEntityType: "PosResourceReservation",
@@ -375,14 +439,15 @@ internal static class PosNotificationHelper
                     .Select(u => u.Id)
                     .ToList();
                 if (to.Count == 0) continue;
+                // Không gắn tên người ở bếp (fromUserId) — người nhận chỉ cần biết bàn nào, món gì.
                 await notifications.CreateAndSendToUsersAsync(
                     to,
                     NotificationType.Success,
-                    "Món đã xong",
-                    $"{place}: {items} — mang ra cho khách",
+                    $"{place}: món đã xong",
+                    $"{items} — mang ra cho khách",
                     relatedEntityId: group.Key,
                     relatedEntityType: "PosSaleOrder",
-                    fromUserId: fromUserId,
+                    fromUserId: null,
                     categoryCode: "pos",
                     storeId: storeId);
             }

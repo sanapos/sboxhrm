@@ -131,8 +131,8 @@ public class UpdateBenefitHandler(
             await notificationService.CreateAndSendAsync(
                 targetUserId: null,
                 type: NotificationType.Info,
-                title: "Cập nhật bảng lương",
-                message: $"Bảng lương \"{request.Name}\" đã được cập nhật",
+                title: "Hồ sơ lương đã sửa",
+                message: $"Hồ sơ lương \"{request.Name}\" đã được sửa",
                 relatedEntityId: salaryProfile.Id,
                 relatedEntityType: "Benefit",
                 categoryCode: "salary",

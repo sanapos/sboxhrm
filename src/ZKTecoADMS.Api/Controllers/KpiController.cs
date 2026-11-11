@@ -328,7 +328,7 @@ public partial class KpiController(
         {
             try
             {
-                var statusLabel = request.Status == KpiPeriodStatus.Locked ? "đã khóa" : "đã tính lương";
+
                 var empUserIds = await dbContext.KpiEmployeeTargets
                     .Where(t => t.KpiPeriodId == id && t.Deleted == null)
                     .Select(t => t.Employee.ApplicationUserId)
@@ -341,9 +341,13 @@ public partial class KpiController(
                     {
                         await notificationService.CreateAndSendAsync(
                             uid.Value, NotificationType.Info,
-                            "Kỳ KPI cập nhật",
-                            $"Kỳ đánh giá \"{period.Name}\" {statusLabel}",
-                            relatedEntityType: "KpiPeriod",
+                            request.Status == KpiPeriodStatus.Locked
+                                ? $"KPI {KpiPeriodLabel(period.Name)} đã khóa"
+                                : $"KPI {KpiPeriodLabel(period.Name)} đã tính lương",
+                            request.Status == KpiPeriodStatus.Locked
+                                ? "Kết quả đã chốt — mở KPI để xem điểm của bạn"
+                                : "Mở KPI để xem lương KPI của bạn",
+                            relatedEntityId: period.Id, relatedEntityType: "KpiPeriod",
                             fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
                     }
                 }
@@ -853,7 +857,7 @@ public partial class KpiController(
                     await dbContext.SaveChangesAsync();
                 }
 
-                await NotifyKpiSalaryCalculatedAsync(bandResults.Where(r => r.Notes == null).Select(r => r.EmployeeId));
+                await NotifyKpiSalaryCalculatedAsync(bandResults.Where(r => r.Notes == null), periodEntity.Name);
                 return Ok(AppResponse<List<KpiSalaryDto>>.Success(bandResults));
             }
 
@@ -998,27 +1002,29 @@ public partial class KpiController(
             }
 
             // Notify employees about salary calculation (score-based path)
+            // Bỏ dòng đã duyệt (giữ nguyên, không tính lại) — giống nhánh chỉ tiêu.
             try
             {
-                foreach (var result in salaryResults)
+                foreach (var result in salaryResults.Where(r => !r.IsApproved))
                 {
                     var empUserId = await dbContext.Employees
                         .Where(e => e.Id == result.EmployeeId)
                         .Select(e => e.ApplicationUserId)
                         .FirstOrDefaultAsync();
+                    var (calcTitle, calcBody) = KpiSalaryCalculatedText(periodEntity.Name, result.NetIncome);
                     if (empUserId.HasValue && empUserId.Value != CurrentUserId)
                     {
                         await notificationService.CreateAndSendAsync(
                             empUserId.Value, NotificationType.Info,
-                            "Lương KPI đã tính",
-                            $"Lương KPI của bạn đã được tính. Vui lòng kiểm tra.",
-                            relatedEntityType: "KpiSalary",
+                            calcTitle,
+                            calcBody,
+                            relatedEntityId: result.Id, relatedEntityType: "KpiSalary",
                             fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
                     }
                     else if (!empUserId.HasValue)
                     {
                         await notificationService.NotifyEmployeesWithoutAccountAsync(RequiredStoreId, [result.EmployeeId],
-                            "Lương KPI đã tính", "Lương KPI của bạn đã được tính.", "kpi");
+                            calcTitle, calcBody, "kpi");
                     }
                 }
             }
@@ -1096,23 +1102,26 @@ public partial class KpiController(
         {
             var approvedSalaries = await dbContext.KpiSalaries
                 .Include(s => s.Employee)
+                .Include(s => s.KpiPeriod)
                 .Where(s => request.SalaryIds.Contains(s.Id))
                 .ToListAsync();
             foreach (var salary in approvedSalaries)
             {
+                var approvedTitle = $"Lương KPI {KpiPeriodLabel(salary.KpiPeriod?.Name)} đã duyệt";
+                var approvedBody = $"Thực nhận {KpiMoney(salary.NetIncome)}";
                 if (salary.Employee?.ApplicationUserId != null)
                 {
                     await notificationService.CreateAndSendAsync(
                         salary.Employee.ApplicationUserId.Value, NotificationType.Success,
-                        "Lương KPI đã duyệt",
-                        $"Lương KPI của bạn đã được duyệt",
+                        approvedTitle,
+                        approvedBody,
                         relatedEntityId: salary.Id, relatedEntityType: "KpiSalary",
                         fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
                 }
                 else if (salary.Employee != null)
                 {
                     await notificationService.NotifyEmployeesWithoutAccountAsync(RequiredStoreId, [salary.Employee.Id],
-                        "Lương KPI đã duyệt", "Lương KPI của bạn đã được duyệt.", "kpi");
+                        approvedTitle, approvedBody, "kpi");
                 }
             }
         }
@@ -1373,7 +1382,7 @@ public partial class KpiController(
         try
         {
             var period = await dbContext.KpiPeriods.FindAsync(request.PeriodId);
-            var periodName = period?.Name ?? "";
+            var periodName = period?.Name;
             var targetEmployees = await dbContext.Employees
                 .Where(e => employeeIds.Contains(e.Id) && e.ApplicationUserId != null)
                 .Select(e => new { e.Id, e.ApplicationUserId })
@@ -1384,8 +1393,8 @@ public partial class KpiController(
                 {
                     await notificationService.CreateAndSendAsync(
                         emp.ApplicationUserId.Value, NotificationType.Info,
-                        "Chỉ tiêu KPI mới",
-                        $"Bạn được giao chỉ tiêu KPI cho kỳ: {periodName}",
+                        $"Chỉ tiêu KPI {KpiPeriodLabel(periodName)} đã giao",
+                        "Mở KPI để xem chỉ tiêu và mức thưởng của bạn",
                         relatedEntityType: "KpiEmployeeTarget",
                         fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
                 }
@@ -2249,27 +2258,47 @@ public partial class KpiController(
         Notes = notes ?? s.Notes,
     };
 
-    async Task NotifyKpiSalaryCalculatedAsync(IEnumerable<Guid> employeeIds)
+    async Task NotifyKpiSalaryCalculatedAsync(IEnumerable<KpiSalaryDto> rows, string? periodName)
     {
         try
         {
-            var ids = employeeIds.Distinct().ToList();
-            var userIds = await dbContext.Employees
+            var list = rows.GroupBy(r => r.EmployeeId).Select(g => g.First()).ToList();
+            var ids = list.Select(r => r.EmployeeId).ToList();
+            var userOfEmp = await dbContext.Employees
                 .Where(e => ids.Contains(e.Id) && e.ApplicationUserId.HasValue)
-                .Select(e => e.ApplicationUserId!.Value)
-                .ToListAsync();
-            foreach (var uid in userIds.Where(u => u != CurrentUserId))
+                .Select(e => new { e.Id, UserId = e.ApplicationUserId!.Value })
+                .ToDictionaryAsync(e => e.Id, e => e.UserId);
+            foreach (var row in list)
             {
+                if (!userOfEmp.TryGetValue(row.EmployeeId, out var uid) || uid == CurrentUserId) continue;
+                var (title, body) = KpiSalaryCalculatedText(periodName, row.NetIncome);
                 await notificationService.CreateAndSendAsync(
                     uid, NotificationType.Info,
-                    "Lương KPI đã tính",
-                    "Lương KPI của bạn đã được tính. Vui lòng kiểm tra.",
-                    relatedEntityType: "KpiSalary",
+                    title,
+                    body,
+                    relatedEntityId: row.Id, relatedEntityType: "KpiSalary",
                     fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
             }
         }
         catch { /* Thông báo lỗi không ảnh hưởng tính lương */ }
     }
+
+    // ─── Nội dung thông báo KPI: có kỳ + số tiền (trước đây «Lương KPI của bạn đã được tính. Vui lòng kiểm tra.») ───
+
+    static readonly System.Globalization.CultureInfo KpiViCulture = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
+
+    static string KpiMoney(decimal amount) => amount.ToString("N0", KpiViCulture) + "đ";
+
+    /// <summary>Tên kỳ cho tiêu đề («Tháng 10/2026»); rút gọn khi dài, trống → «kỳ này».</summary>
+    static string KpiPeriodLabel(string? name)
+    {
+        var n = (name ?? "").Trim();
+        if (n.Length == 0) return "kỳ này";
+        return n.Length > 22 ? n[..22].TrimEnd() + "…" : n;
+    }
+
+    static (string Title, string Body) KpiSalaryCalculatedText(string? periodName, decimal netIncome) =>
+        ($"Lương KPI {KpiPeriodLabel(periodName)} đã tính", $"Thực nhận {KpiMoney(netIncome)} · chờ duyệt");
 
 }
 

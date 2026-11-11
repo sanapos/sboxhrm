@@ -483,11 +483,11 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         var userName = notification.UserName ?? attendance.PIN ?? "Unknown";
         var deviceLabel = device.DeviceName ?? device.SerialNumber;
         var title = "Chấm công";
-        var (shiftName, lateMinutes) = await ResolveShiftAndLateAsync(
-            attendance, device, user);
+        var punch = await ResolvePunchInfoAsync(attendance, device, user);
         var message = NotificationPushFormatter.BuildAttendanceStoredMessage(
             userName, attendance.AttendanceTime, deviceLabel, branchLabel,
-            shiftName, lateMinutes > 0 ? lateMinutes : null);
+            punch.ShiftName, punch.LateMinutes > 0 ? punch.LateMinutes : null,
+            punch.Direction, punch.EarlyMinutes > 0 ? punch.EarlyMinutes : null);
 
         var notifications = targetUserIds.Select(uid => new Notification
         {
@@ -606,22 +606,46 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         return string.IsNullOrWhiteSpace(store?.Name) ? null : store!.Name.Trim();
     }
 
+    /// <summary>Hai lần chấm cách nhau không quá chừng này coi là quẹt trùng (cùng một lượt vào / ra).</summary>
+    internal static readonly TimeSpan DuplicatePunchWindow = TimeSpan.FromMinutes(3);
+
     /// <summary>
-    /// Ghép ca theo lịch / template + phút đi trễ (sau grace) để đưa vào FCM.
+    /// «Vào» / «Ra» của lượt chấm. Máy / app ghi rõ chấm ra → «Ra»; đi đường theo loại. Còn lại (đa số máy
+    /// chấm công gửi mọi lần là «vào») suy theo thứ tự trong ngày công: lượt 1, 3, … là vào, 2, 4, … là ra;
+    /// quẹt trùng trong <see cref="DuplicatePunchWindow"/> giữ hướng của lượt trước.
     /// </summary>
-    private async Task<(string? ShiftName, int LateMinutes)> ResolveShiftAndLateAsync(
+    internal static string PunchDirection(AttendanceStates state, IReadOnlyList<DateTime> earlierSameDay, DateTime punch)
+    {
+        switch (state)
+        {
+            case AttendanceStates.CheckOut: return "Ra";
+            case AttendanceStates.TravelStart: return "Bắt đầu đi";
+            case AttendanceStates.TravelArrive: return "Đến nơi";
+        }
+        var kept = new List<DateTime>();
+        foreach (var t in earlierSameDay.OrderBy(t => t))
+            if (kept.Count == 0 || t - kept[^1] > DuplicatePunchWindow)
+                kept.Add(t);
+        var index = kept.Count > 0 && punch - kept[^1] <= DuplicatePunchWindow ? kept.Count - 1 : kept.Count;
+        return index % 2 == 0 ? "Vào" : "Ra";
+    }
+
+    /// <summary>
+    /// Vào / ra + ca + phút trễ (lượt vào) / về sớm (lượt ra) để đưa vào thông báo. Ca chỉ lấy từ thiết lập lương
+    /// (giống bảng công, báo cáo, phạt); trễ tính đủ phút khi quá ân hạn. Chưa gán ca / chế độ chấm không theo ca
+    /// → chỉ hiện vào / ra. Trước đây so mọi lượt với giờ vào ca: lượt chấm ra 17:00 hiện «Trễ 540 phút».
+    /// </summary>
+    private async Task<(string? Direction, string? ShiftName, int LateMinutes, int EarlyMinutes)> ResolvePunchInfoAsync(
         Attendance attendance,
         Device device,
         DeviceUser? user)
     {
+        string? direction = null;
         try
         {
-            if (user?.EmployeeId == null)
-                return (null, 0);
-
             using var scope = _serviceScopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetService<ZKTecoDbContext>();
-            if (db == null) return (null, 0);
+            if (db == null) return (null, null, 0, 0);
 
             var dayEnd = TimeSpan.Zero;
             if (device.StoreId.HasValue)
@@ -639,106 +663,58 @@ public class AttendanceNotificationService : IAttendanceNotificationService
             var logicalDate = dayEnd > TimeSpan.Zero && punchTod < dayEnd
                 ? punchLocal.Date.AddDays(-1)
                 : punchLocal.Date;
+            // Mốc đầu ngày công theo cùng kiểu giờ đang lưu (giờ tường VN hoặc UTC).
+            var dayStart = logicalDate.Add(dayEnd) + (attendance.AttendanceTime - punchLocal);
 
-            var employeeId = user.EmployeeId.Value;
-            var schedules = await db.WorkSchedules.AsNoTracking()
-                .Include(s => s.Shift)
-                .Where(s => s.EmployeeUserId == employeeId
-                    && s.Date.Date == logicalDate
-                    && s.Deleted == null)
+            var employeeId = user?.EmployeeId;
+            var deviceUserIds = employeeId.HasValue
+                ? await db.DeviceUsers.AsNoTracking().Where(d => d.EmployeeId == employeeId).Select(d => d.Id).ToListAsync()
+                : [];
+            var pin = attendance.PIN;
+            var earlier = await db.AttendanceLogs.AsNoTracking()
+                .Where(a => a.Id != attendance.Id
+                    && a.AttendanceTime >= dayStart && a.AttendanceTime <= attendance.AttendanceTime
+                    && (a.AttendanceState == AttendanceStates.CheckIn || a.AttendanceState == AttendanceStates.CheckOut)
+                    && ((a.EmployeeId != null && deviceUserIds.Contains(a.EmployeeId.Value))
+                        || (a.DeviceId == device.Id && a.PIN == pin)))
+                .Select(a => a.AttendanceTime)
                 .ToListAsync();
+            direction = PunchDirection(attendance.AttendanceState, earlier, attendance.AttendanceTime);
 
-            ShiftTemplate? template = null;
-            TimeSpan shiftStart;
-            TimeSpan shiftEnd;
-            int lateGrace = 5;
-            string? shiftName = null;
+            if (!employeeId.HasValue || !device.StoreId.HasValue) return (direction, null, 0, 0);
 
-            if (schedules.Count > 0)
+            // Chế độ chấm không theo giờ ca (chấm 2 lần / bất kỳ / ca nguyên ngày): không hiện trễ / sớm.
+            var mode = await db.EmployeeBenefits.AsNoTracking()
+                .Where(eb => eb.EmployeeId == employeeId && eb.EffectiveDate <= punchLocal)
+                .OrderByDescending(eb => eb.EffectiveDate)
+                .Select(eb => eb.Benefit!.AttendanceMode)
+                .FirstOrDefaultAsync();
+            if (mode is "free2" or "any" or "fullday") return (direction, null, 0, 0);
+
+            var resolver = await ZKTecoADMS.Api.Controllers.Reports.ShiftAssignmentResolver.LoadAsync(
+                db, device.StoreId.Value, [employeeId.Value]);
+            var assigned = resolver.AssignedFor(employeeId.Value);
+            if (assigned.Count == 0) return (direction, null, 0, 0);
+
+            if (direction == "Ra")
             {
-                var pick = schedules.Count == 1
-                    ? schedules[0]
-                    : schedules
-                        .OrderBy(s =>
-                        {
-                            var start = s.StartTime ?? s.Shift?.StartTime ?? TimeSpan.FromHours(8);
-                            var dist = Math.Abs((int)(punchTod - start).TotalMinutes);
-                            if (dist > 720) dist = 1440 - dist;
-                            return dist;
-                        })
-                        .First();
-                shiftStart = pick.StartTime ?? pick.Shift?.StartTime ?? TimeSpan.FromHours(8);
-                shiftEnd = pick.EndTime ?? pick.Shift?.EndTime ?? TimeSpan.FromHours(17);
-                lateGrace = pick.Shift?.LateGraceMinutes ?? 5;
-                shiftName = pick.Shift?.Name;
-                template = pick.Shift;
+                var outFit = ShiftMatchHelper.FindBestForCheckOut(assigned, punchTod);
+                return outFit == null
+                    ? (direction, null, 0, 0)
+                    : (direction, outFit.Shift.Name, 0, outFit.EffectiveEarlyOut);
             }
-            else
-            {
-                // Không có lịch hôm đó: chỉ suy ra ca khi cửa hàng có đúng 1 ca. Nhiều ca mà lấy ca gần giờ
-                // chấm nhất là đoán — từng báo «Ca đêm · Trễ 104 phút» cho người không có ca nào.
-                var templates = await db.ShiftTemplates.AsNoTracking()
-                    .Where(t => t.StoreId == device.StoreId && t.IsActive)
-                    .Take(2)
-                    .ToListAsync();
-                if (templates.Count != 1) return (null, 0);
-
-                template = templates[0];
-                shiftStart = template.StartTime;
-                shiftEnd = template.EndTime;
-                lateGrace = template.LateGraceMinutes;
-                shiftName = template.Name;
-            }
-
-            // Chỉ gắn ca khi punch nằm trong cửa sổ hợp lý quanh ca.
-            var startMin = (int)shiftStart.TotalMinutes;
-            var endMin = (int)shiftEnd.TotalMinutes;
-            var punchMin = (int)punchTod.TotalMinutes;
-            var earlyWin = template?.EarlyCheckInMinutes ?? 30;
-            var maxLate = template?.MaximumAllowedLateMinutes ?? 60;
-            var inWindow = IsPunchNearShift(punchMin, startMin, endMin, earlyWin, maxLate);
-            if (!inWindow)
-                return (shiftName, 0);
-
-            var late = 0;
-            if (startMin > endMin)
-            {
-                // Qua đêm
-                if (punchMin >= startMin)
-                    late = punchMin - startMin;
-                else if (punchMin < endMin)
-                    late = (1440 - startMin) + punchMin;
-            }
-            else if (punchMin > startMin)
-            {
-                late = punchMin - startMin;
-            }
-
-            if (late > 0 && late <= lateGrace) late = 0;
-            return (shiftName, late);
+            if (direction != "Vào") return (direction, null, 0, 0);
+            var inFit = ShiftMatchHelper.FindBestForCheckIn(assigned, punchTod);
+            if (inFit == null) return (direction, null, 0, 0);
+            var overtime = (inFit.Shift.ShiftType ?? string.Empty).ToLowerInvariant() is var t
+                && (t.Contains("tăng ca") || t.Contains("tang ca") || t.Contains("overtime"));
+            return (direction, inFit.Shift.Name, overtime ? 0 : inFit.EffectiveLateIn, 0);
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "ResolveShiftAndLateAsync failed (non-fatal)");
-            return (null, 0);
+            _logger.LogDebug(ex, "ResolvePunchInfoAsync failed (non-fatal)");
+            return (direction, null, 0, 0);
         }
-    }
-
-    private static bool IsPunchNearShift(
-        int punchMin, int startMin, int endMin, int earlyWin, int maxLate)
-    {
-        var cross = startMin > endMin;
-        if (!cross)
-        {
-            var from = startMin - earlyWin;
-            var to = Math.Max(endMin, startMin + maxLate);
-            return punchMin >= from && punchMin <= to + 120;
-        }
-        // Overnight: window from (start-early) .. 1440 and 0 .. end
-        var fromNight = startMin - earlyWin;
-        if (fromNight < 0) fromNight += 1440;
-        return punchMin >= fromNight || punchMin <= endMin + 120 ||
-               (punchMin >= startMin && punchMin <= startMin + maxLate);
     }
 
     /// <summary>

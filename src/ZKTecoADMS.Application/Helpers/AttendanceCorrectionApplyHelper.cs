@@ -92,12 +92,17 @@ public sealed class AttendanceCorrectionApplyHelper(
 
         try
         {
+            // Title có ngày được chỉnh; body = giờ được chỉnh (giờ chấm công là giờ tường VN, in thẳng).
+            var day = (correction.NewDate ?? correction.OldDate)?.Date;
+            var detail = DescribeCorrection(correction);
+            if (correction.TotalApprovalLevels > 1)
+                detail = string.IsNullOrEmpty(detail)
+                    ? $"Đã duyệt qua {correction.TotalApprovalLevels} cấp"
+                    : $"{detail} · qua {correction.TotalApprovalLevels} cấp";
             await notificationService.CreateAndSendAsync(
                 correction.EmployeeUserId, NotificationType.Success,
-                "Yêu cầu chỉnh công đã duyệt",
-                correction.TotalApprovalLevels > 1
-                    ? $"Yêu cầu chỉnh sửa chấm công đã được phê duyệt qua {correction.TotalApprovalLevels} cấp"
-                    : "Yêu cầu chỉnh sửa chấm công của bạn đã được phê duyệt",
+                day.HasValue ? $"Chỉnh công {day.Value:dd/MM} đã duyệt" : "Chỉnh công đã duyệt",
+                string.IsNullOrEmpty(detail) ? "Yêu cầu chỉnh công của bạn đã được duyệt" : detail,
                 relatedEntityId: correction.Id, relatedEntityType: "AttendanceCorrection",
                 fromUserId: approvedById, categoryCode: "approval", storeId: correction.StoreId);
         }
@@ -425,6 +430,35 @@ public sealed class AttendanceCorrectionApplyHelper(
                 correction.StoreId.Value, employee.Id, workDate.Value, cancellationToken);
         }
         catch { }
+    }
+
+    /// <summary>«Thêm giờ vào 08:00» / «Giờ vào 08:05 → 08:00» / «Xóa lượt ra 17:02».</summary>
+    private static string DescribeCorrection(AttendanceCorrectionRequest c)
+    {
+        static string Hm(TimeSpan? t) => t.HasValue ? t.Value.ToString(@"hh\:mm") : string.Empty;
+        static string Kind(string? punchType)
+        {
+            if (string.IsNullOrWhiteSpace(punchType)) return string.Empty;
+            return string.Equals(punchType, "CheckOut", StringComparison.OrdinalIgnoreCase) || punchType == "1"
+                ? "ra"
+                : "vào";
+        }
+
+        var newKind = Kind(c.NewPunchType);
+        var oldKind = Kind(c.OldType);
+        string Join(params string[] parts) =>
+            string.Join(" ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+
+        return c.Action switch
+        {
+            CorrectionAction.Add when c.NewTime.HasValue => Join("Thêm giờ", newKind, Hm(c.NewTime)),
+            CorrectionAction.Edit when c.NewTime.HasValue && c.OldTime.HasValue =>
+                $"{Join("Giờ", string.IsNullOrEmpty(newKind) ? oldKind : newKind)} {Hm(c.OldTime)} → {Hm(c.NewTime)}",
+            CorrectionAction.Edit when c.NewTime.HasValue => Join("Sửa thành giờ", newKind, Hm(c.NewTime)),
+            CorrectionAction.Delete when c.OldTime.HasValue => Join("Xóa lượt", oldKind, Hm(c.OldTime)),
+            CorrectionAction.Delete => "Xóa lượt chấm công",
+            _ => string.Empty,
+        };
     }
 
     private static AttendanceStates ResolvePunchState(string? punchType)

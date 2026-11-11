@@ -153,7 +153,7 @@ public class AnnouncementService : IAnnouncementService
                     targetUserId: d.UserId,
                     type: MapKindToNotificationType(ann.Kind),
                     title: ann.Title,
-                    message: ann.Content,
+                    message: DisplayContent(ann.Content),
                     relatedUrl: ann.ActionUrl,
                     relatedEntityId: ann.Id,
                     relatedEntityType: nameof(SystemAnnouncement),
@@ -301,12 +301,30 @@ public class AnnouncementService : IAnnouncementService
                 .First())
             .ToList();
 
-        return nonRenewal.Concat(renewals)
+        var result = nonRenewal.Concat(renewals)
             .OrderByDescending(i => (int)i.Severity)
             .ThenByDescending(i => i.ExpiresAt)
             .Take(20)
             .ToList();
+        // Marker chỉ để máy đọc (đã parse storeId ở trên) — không hiện trên banner.
+        foreach (var item in result)
+            item.Content = DisplayContent(item.Content);
+        return result;
     }
+
+    /// <summary>
+    /// Marker nhắc gia hạn «[RENEWAL-7D-{storeId:N}]» nằm trong SystemAnnouncement.Content để chống gửi trùng
+    /// (RenewalReminderBackgroundService) và tìm thông báo theo cửa hàng (RenewalNotificationService) — giữ nguyên
+    /// trong DB, chỉ bỏ khỏi phần hiển thị (thông báo app, FCM, banner, email/push kênh ngoài).
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex RenewalMarkerRegex = new(
+        @"\s*\[RENEWAL-\d+D-[0-9a-fA-F]{32}\]\s*",
+        System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    internal static string DisplayContent(string? content) =>
+        string.IsNullOrEmpty(content)
+            ? string.Empty
+            : RenewalMarkerRegex.Replace(content, " ").Trim();
 
     public async Task MarkSeenAsync(Guid announcementId, Guid userId, CancellationToken ct = default)
     {
@@ -399,6 +417,8 @@ public class AnnouncementService : IAnnouncementService
 
         // Send InApp/Banner via existing notification service (DB row + SignalR push)
         var inAppMembers = members.Select(m => m.UserId).Distinct().ToList();
+        // true khi đường InApp (CreateAndSendToUsersAsync) đã tự đẩy FCM → kênh Push không đẩy lần 2.
+        var fcmSentViaInApp = false;
         if (entity.Channels.HasFlag(NotificationChannel.InApp) || entity.Channels.HasFlag(NotificationChannel.Banner))
         {
             Guid? notifStoreId = spec.StoreIds is { Count: 1 } ? spec.StoreIds[0] : null;
@@ -419,12 +439,28 @@ public class AnnouncementService : IAnnouncementService
                 targetUserIds: inAppMembers,
                 type: notifType,
                 title: entity.Title,
-                message: entity.Content,
+                message: DisplayContent(entity.Content),
                 relatedUrl: entity.ActionUrl,
                 relatedEntityId: entity.Id,
                 relatedEntityType: nameof(SystemAnnouncement),
                 categoryCode: category,
                 storeId: notifStoreId);
+
+            // Cùng điều kiện FCM của SystemNotificationService: không gắn cửa hàng → luôn đẩy;
+            // có cửa hàng → theo gói dịch vụ (gói chặn FCM thì kênh Push vẫn tự gửi bên dưới).
+            fcmSentViaInApp = true;
+            if (notifStoreId is Guid fcmStore)
+            {
+                try
+                {
+                    fcmSentViaInApp = await ZKTecoADMS.Infrastructure.Helpers.StorePackageHelper
+                        .CanSendFcmAsync(_db, fcmStore, category, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "CanSendFcm check failed for announcement {Id}", entity.Id);
+                }
+            }
 
             // Mark deliveries as Delivered for InApp/Banner channels
             var inAppChannels = new[] { NotificationChannel.InApp, NotificationChannel.Banner };
@@ -455,6 +491,19 @@ public class AnnouncementService : IAnnouncementService
                     .Where(d => d.AnnouncementId == entity.Id && d.Channel == ch && d.Status == DeliveryStatus.Pending)
                     .ToListAsync(ct);
 
+                if (ch == NotificationChannel.Push && fcmSentViaInApp)
+                {
+                    // Chọn cả InApp + Push: FCM đã đi cùng thông báo app → không đẩy trùng lần 2.
+                    foreach (var d in pendingDeliveries)
+                    {
+                        d.Status = DeliveryStatus.Delivered;
+                        d.DeliveredAt = DateTime.UtcNow;
+                        d.ErrorMessage = null;
+                    }
+                    await _db.SaveChangesAsync(ct);
+                    continue;
+                }
+
                 if (provider == null || !provider.IsConfigured)
                 {
                     foreach (var d in pendingDeliveries)
@@ -476,7 +525,7 @@ public class AnnouncementService : IAnnouncementService
                         FcmToken: null,
                         DisplayName: c == null ? string.Empty : $"{c.LastName} {c.FirstName}".Trim(),
                         StoreId: d.StoreId);
-                    var result = await provider.SendAsync(recipient, entity.Title, entity.Content, entity.ActionUrl, ct);
+                    var result = await provider.SendAsync(recipient, entity.Title, DisplayContent(entity.Content), entity.ActionUrl, ct);
                     if (result.Success)
                     {
                         d.Status = DeliveryStatus.Delivered;

@@ -94,20 +94,21 @@ public class UpdateEmployeeAccountHandler(
         // Notify the affected user about important account changes.
         try
         {
+            // «Tài khoản của bạn vừa thay đổi» / «Vai trò mới: Quản lý · Email: an@x.com · SĐT: 0901234567»
             var changes = new List<string>();
-            if (!string.Equals(previousEmail, user.Email, StringComparison.OrdinalIgnoreCase))
-                changes.Add($"email → {user.Email}");
             if (!string.Equals(previousRole, user.Role, StringComparison.OrdinalIgnoreCase))
-                changes.Add($"vai trò → {user.Role}");
+                changes.Add($"Vai trò mới: {RoleLabel(user.Role)}");
+            if (!string.Equals(previousEmail, user.Email, StringComparison.OrdinalIgnoreCase))
+                changes.Add(string.IsNullOrWhiteSpace(user.Email) ? "Đã bỏ email" : $"Email: {user.Email}");
             if (!string.Equals(previousPhone, user.PhoneNumber, StringComparison.Ordinal))
-                changes.Add("số điện thoại");
+                changes.Add(string.IsNullOrWhiteSpace(user.PhoneNumber) ? "Đã bỏ SĐT" : $"SĐT: {user.PhoneNumber}");
 
             if (changes.Count > 0)
             {
-                var msg = "Tài khoản của bạn đã được cập nhật: " + string.Join(", ", changes);
+                var msg = string.Join(" · ", changes);
                 await notificationService.CreateAndSendAsync(
                     user.Id, NotificationType.Info,
-                    "Thông tin tài khoản đã thay đổi", msg,
+                    "Tài khoản của bạn vừa thay đổi", msg,
                     relatedEntityId: user.Id, relatedEntityType: "Account",
                     categoryCode: "account", storeId: request.StoreId);
             }
@@ -116,4 +117,22 @@ public class UpdateEmployeeAccountHandler(
 
         return AppResponse<bool>.Success(true);
     }
+
+    /// <summary>Mã vai trò (Manager, Employee…) → nhãn tiếng Việt cho thông báo.</summary>
+    private static string RoleLabel(string? role) => role?.Trim().ToLowerInvariant() switch
+    {
+        "superadmin" => "Quản trị hệ thống",
+        "admin" => "Chủ cửa hàng / Quản trị",
+        "director" => "Giám đốc",
+        "manager" => "Quản lý",
+        "departmenthead" => "Trưởng phòng",
+        "accountant" => "Kế toán",
+        "cashier" => "Thu ngân",
+        "waiter" => "Phục vụ",
+        "employee" => "Nhân viên",
+        "agent" => "Đại lý",
+        "user" => "Người dùng",
+        null or "" => "Chưa có",
+        _ => role!,
+    };
 }

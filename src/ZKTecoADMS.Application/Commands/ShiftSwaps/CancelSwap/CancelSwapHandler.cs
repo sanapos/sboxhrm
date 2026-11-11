@@ -1,3 +1,4 @@
+using ScheduleNotifyText = ZKTecoADMS.Application.Commands.WorkSchedules.ScheduleNotifyText;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
@@ -43,12 +44,18 @@ public class CancelSwapHandler(
 
             try
             {
+                // Người gửi = người xin → «Yêu cầu đổi ca đã hủy» / «Nguyễn Văn An: Bạn giữ Ca Chiều 14/11 như cũ»
+                var info = await shiftSwapRepository.GetSingleAsync(
+                    r => r.Id == swapRequest.Id,
+                    includeProperties: [nameof(ShiftSwapRequest.TargetShift)],
+                    cancellationToken: cancellationToken);
+                var targetSlot = ScheduleNotifyText.ShiftOnDay(info?.TargetShift, swapRequest.TargetDate);
                 await notificationService.CreateAndSendAsync(
                     swapRequest.TargetUserId, NotificationType.Info,
                     "Yêu cầu đổi ca đã hủy",
-                    "Yêu cầu đổi ca đã bị hủy bởi người gửi",
+                    $"Bạn giữ {targetSlot} như cũ",
                     relatedEntityId: swapRequest.Id, relatedEntityType: "ShiftSwap",
-                    fromUserId: request.RequesterUserId, categoryCode: "attendance", storeId: request.StoreId);
+                    fromUserId: request.RequesterUserId, categoryCode: "shift", storeId: request.StoreId);
             }
             catch { /* Notification failure should not affect main operation */ }
 

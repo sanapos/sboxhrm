@@ -321,8 +321,9 @@ public class MobileDeviceHubController(ZKTecoDbContext db, ISystemNotificationSe
         {
             try
             {
-                await notifications.CreateAndSendAsync(u, NotificationType.Info, "Đăng ký điện thoại chấm công",
-                    "Quản lý nhắc bạn đăng ký điện thoại để chấm công trên app: mở «Đăng ký chấm công Mobile», chụp khuôn mặt và gửi.",
+                // Tên quản lý do bộ định dạng push chèn từ fromUserId.
+                await notifications.CreateAndSendAsync(u, NotificationType.Info, "Nhắc đăng ký điện thoại chấm công",
+                    "Mở «Đăng ký chấm công Mobile», chụp khuôn mặt và gửi",
                     relatedEntityType: "AuthorizedMobileDevice", fromUserId: CurrentUserId,
                     categoryCode: "mobile_attendance", storeId: storeId);
             }

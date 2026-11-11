@@ -24,12 +24,12 @@ public class ToggleActiveHandler(
         {
             try
             {
-                var status = device.IsActive ? "kích hoạt" : "vô hiệu hóa";
+                // «Đã tắt máy chấm công» / «Máy cổng · SN …0123»
                 await notificationService.CreateAndSendAsync(
                     targetUserId: null,
                     type: device.IsActive ? NotificationType.Success : NotificationType.Warning,
-                    title: $"Thiết bị {status}",
-                    message: $"Thiết bị \"{device.DeviceName}\" đã được {status}",
+                    title: device.IsActive ? "Đã bật lại máy chấm công" : "Đã tắt máy chấm công",
+                    message: global::ZKTecoADMS.Application.Commands.Devices.AddDevice.AddDeviceHandler.DeviceLabel(device.DeviceName, device.SerialNumber),
                     relatedEntityId: device.Id,
                     relatedEntityType: "Device",
                     categoryCode: "device",

@@ -216,11 +216,17 @@ public class CreateLeaveHandler(
                     if (string.IsNullOrWhiteSpace(employeeName))
                         employeeName = employeeUser?.UserName ?? "Nhân viên";
 
+                    // Người duyệt cần biết loại nghỉ + lý do; «(n cấp duyệt)» thừa với họ.
+                    var range = request.StartDate.Date == request.EndDate.Date
+                        ? $"{request.StartDate:dd/MM}"
+                        : $"{request.StartDate:dd/MM}–{request.EndDate:dd/MM}";
+                    var reason = (request.Reason ?? string.Empty).Trim();
+                    if (reason.Length > 40) reason = reason[..40].TrimEnd() + "…";
                     await notificationService.CreateAndSendToUsersAsync(
                         allApproverIds, NotificationType.ApprovalRequired,
                         "Đơn nghỉ phép mới",
-                        $"{employeeName} xin nghỉ từ {request.StartDate:dd/MM/yyyy} đến {request.EndDate:dd/MM/yyyy}" +
-                        (totalLevels > 1 ? $" ({totalLevels} cấp duyệt)" : ""),
+                        $"{employeeName} xin nghỉ {range} · {LeaveTypeLabel(request.Type)}" +
+                        (reason.Length > 0 ? $" · Lý do: {reason}" : ""),
                         relatedEntityId: createdLeave.Id, relatedEntityType: "Leave",
                         fromUserId: request.EmployeeUserId, categoryCode: "leave", storeId: request.StoreId);
                 }
@@ -238,6 +244,19 @@ public class CreateLeaveHandler(
             return AppResponse<LeaveDto>.Error(ex.Message);
         }
     }
+
+    private static string LeaveTypeLabel(LeaveType type) => type switch
+    {
+        LeaveType.AnnualLeave => "Phép năm",
+        LeaveType.Holiday => "Nghỉ lễ",
+        LeaveType.PersonalPaid => "Việc riêng có lương",
+        LeaveType.PersonalUnpaid => "Nghỉ không lương",
+        LeaveType.SickLeave => "Nghỉ ốm",
+        LeaveType.MaternityLeave => "Thai sản",
+        LeaveType.CompensatoryLeave => "Nghỉ bù",
+        LeaveType.LongTermLeave => "Nghỉ dài hạn",
+        _ => "Nghỉ",
+    };
 
     private async Task<List<LeaveApprovalRecord>> BuildApprovalChainAsync(
         Guid employeeUserId, Guid managerId, Guid storeId, int totalLevels, CancellationToken ct)

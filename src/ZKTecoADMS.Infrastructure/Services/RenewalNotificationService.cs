@@ -56,12 +56,17 @@ public class RenewalNotificationService : IRenewalNotificationService
         }
 
         await _db.Notifications
-            .Where(n => n.StoreId == storeId
-                && !n.IsRead
-                && (n.CategoryCode == "renewal" || n.CategoryCode == "RENEWAL"
-                    || (n.RelatedEntityType == nameof(SystemAnnouncement)
-                        && n.RelatedEntityId != null
-                        && renewalAnnouncementIds.Contains(n.RelatedEntityId.Value))))
+            .Where(n => !n.IsRead
+                && ((n.StoreId == storeId
+                        && (n.CategoryCode == "renewal" || n.CategoryCode == "RENEWAL"
+                            || (n.RelatedEntityType == nameof(SystemAnnouncement)
+                                && n.RelatedEntityId != null
+                                && renewalAnnouncementIds.Contains(n.RelatedEntityId.Value))))
+                    // Nhắc gia hạn gửi SuperAdmin không gắn StoreId (SuperAdminNotificationHelper) — nhận theo cửa hàng liên quan.
+                    || (n.StoreId == null
+                        && n.RelatedEntityType == "Store"
+                        && n.RelatedEntityId == storeId
+                        && (n.CategoryCode == "renewal" || n.CategoryCode == "RENEWAL"))))
             .ExecuteUpdateAsync(p => p
                 .SetProperty(n => n.IsRead, true)
                 .SetProperty(n => n.ReadAt, now), ct);
@@ -72,19 +77,29 @@ public class RenewalNotificationService : IRenewalNotificationService
 
         if (!sendSuccessNotification || newExpiryDate == null) return;
 
+        // Chỉ chủ + quản lý cần biết gia hạn (trước đây gửi mọi tài khoản: thu ngân, phục vụ, nhân viên…).
+        string[] managerRoles = [nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.Manager)];
         var userIds = await _db.Users.AsNoTracking()
-            .Where(u => u.IsActive && u.StoreId == storeId)
+            .Where(u => u.IsActive && u.StoreId == storeId && managerRoles.Contains(u.Role))
             .Select(u => u.Id)
             .ToListAsync(ct);
+        var ownerId = await _db.Stores.AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(s => s.Id == storeId)
+            .Select(s => s.OwnerId)
+            .FirstOrDefaultAsync(ct);
+        if (ownerId is Guid oid && oid != Guid.Empty && !userIds.Contains(oid))
+            userIds.Add(oid);
 
         if (userIds.Count == 0) return;
 
-        var expiryLocal = newExpiryDate.Value.ToLocalTime();
+        // ExpiryDate lưu UTC → ngày VN (trước đây ToLocalTime() phụ thuộc múi giờ máy chủ).
+        var expiryVn = VnTimeHelper.UtcToVn(newExpiryDate.Value);
         await _notify.CreateAndSendToUsersAsync(
             targetUserIds: userIds,
             type: NotificationType.Success,
-            title: "Gia hạn license thành công",
-            message: $"Cửa hàng \"{storeName}\" đã được gia hạn. License có hiệu lực đến {expiryLocal:dd/MM/yyyy}.",
+            title: $"Đã gia hạn đến {expiryVn:dd/MM/yyyy}",
+            message: $"Cửa hàng {storeName} tiếp tục sử dụng bình thường",
             relatedEntityId: storeId,
             relatedEntityType: "Store",
             categoryCode: "license",

@@ -1,3 +1,5 @@
+using ScheduleNotifyText = ZKTecoADMS.Application.Commands.WorkSchedules.ScheduleNotifyText;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
@@ -58,15 +60,34 @@ public class RespondToSwapHandler(
 
             try
             {
+                var info = await shiftSwapRepository.GetSingleAsync(
+                    r => r.Id == swapRequest.Id,
+                    includeProperties: [
+                        nameof(ShiftSwapRequest.RequesterUser), nameof(ShiftSwapRequest.TargetUser),
+                        nameof(ShiftSwapRequest.RequesterShift), nameof(ShiftSwapRequest.TargetShift)
+                    ],
+                    cancellationToken: cancellationToken);
+                var requesterSlot = ScheduleNotifyText.ShiftOnDay(info?.RequesterShift, swapRequest.RequesterDate);
+                var targetSlot = ScheduleNotifyText.ShiftOnDay(info?.TargetShift, swapRequest.TargetDate);
+                var requesterName = NotificationPushFormatter.FormatUserDisplayName(info?.RequesterUser);
+                var targetName = NotificationPushFormatter.FormatUserDisplayName(info?.TargetUser);
+                var reason = request.RejectionReason?.Trim();
+
+                // Người gửi = đồng nghiệp (tên ở tiêu đề nên formatter không chèn lại vào body).
+                // Đồng ý:  «Trần Thị Bình đồng ý đổi ca» / «Ca Sáng 12/11 ⇄ Ca Chiều 14/11 · Chờ quản lý duyệt»
+                // Từ chối: «Trần Thị Bình từ chối đổi ca» / «Bạn giữ Ca Sáng 12/11 như cũ · Lý do: Bận việc»
                 var notifType = request.Accept ? NotificationType.Success : NotificationType.Warning;
-                var notifTitle = request.Accept ? "Đồng nghiệp chấp nhận đổi ca" : "Đồng nghiệp từ chối đổi ca";
+                var who = string.IsNullOrWhiteSpace(targetName) ? "Đồng nghiệp" : targetName;
+                var notifTitle = request.Accept ? $"{who} đồng ý đổi ca" : $"{who} từ chối đổi ca";
                 var notifMsg = request.Accept
-                    ? "Yêu cầu đổi ca của bạn đã được đồng nghiệp chấp nhận, đang chờ quản lý duyệt"
-                    : $"Yêu cầu đổi ca của bạn đã bị đồng nghiệp từ chối. Lý do: {request.RejectionReason}";
+                    ? $"{requesterSlot} ⇄ {targetSlot} · Chờ quản lý duyệt"
+                    : string.IsNullOrEmpty(reason)
+                        ? $"Bạn giữ {requesterSlot} như cũ"
+                        : $"Bạn giữ {requesterSlot} như cũ · Lý do: {reason}";
                 await notificationService.CreateAndSendAsync(
                     swapRequest.RequesterUserId, notifType, notifTitle, notifMsg,
                     relatedEntityId: swapRequest.Id, relatedEntityType: "ShiftSwap",
-                    fromUserId: request.TargetUserId, categoryCode: "attendance", storeId: request.StoreId);
+                    fromUserId: request.TargetUserId, categoryCode: "shift", storeId: request.StoreId);
 
                 // Đồng nghiệp đã đồng ý → báo quản lý trực tiếp của người yêu cầu để duyệt.
                 if (request.Accept)
@@ -79,12 +100,19 @@ public class RespondToSwapHandler(
                         var mgr = await employeeRepository.GetSingleAsync(
                             e => e.Id == requesterEmp.DirectManagerEmployeeId.Value, cancellationToken: cancellationToken);
                         if (mgr?.ApplicationUserId != null)
+                        {
+                            // «Cần duyệt đổi ca» / «Nguyễn Văn An · Ca Sáng 12/11 ⇄ Ca Chiều 14/11 với Trần Thị Bình (đã đồng ý)»
+                            var requesterLabel = string.IsNullOrWhiteSpace(requesterName) ? "Nhân viên" : requesterName;
+                            var partnerText = string.IsNullOrWhiteSpace(targetName)
+                                ? " (đồng nghiệp đã đồng ý)"
+                                : $" với {targetName} (đã đồng ý)";
                             await notificationService.CreateAndSendAsync(
                                 mgr.ApplicationUserId.Value, NotificationType.ApprovalRequired,
-                                "Đổi ca cần duyệt",
-                                $"Yêu cầu đổi ca ngày {swapRequest.RequesterDate:dd/MM/yyyy} ⇄ {swapRequest.TargetDate:dd/MM/yyyy} đã được đồng nghiệp chấp nhận, chờ bạn duyệt",
+                                "Cần duyệt đổi ca",
+                                $"{requesterLabel} · {requesterSlot} ⇄ {targetSlot}{partnerText}",
                                 relatedEntityId: swapRequest.Id, relatedEntityType: "ShiftSwap",
-                                fromUserId: swapRequest.RequesterUserId, categoryCode: "approval", storeId: request.StoreId);
+                                fromUserId: swapRequest.RequesterUserId, categoryCode: "shift", storeId: request.StoreId);
+                        }
                     }
                 }
             }

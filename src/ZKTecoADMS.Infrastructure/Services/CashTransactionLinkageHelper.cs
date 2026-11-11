@@ -74,11 +74,18 @@ public static class CashTransactionLinkageHelper
         {
             try
             {
+                // Số đã chi = số trên phiếu chi (lúc duyệt dùng ApprovedAmount ?? Amount) — trước đây in số xin
+                // (advance.Amount) nên duyệt 2tr vẫn báo «3.000.000đ».
+                var approved = advance.ApprovedAmount ?? advance.Amount;
+                var paid = cash.Amount > 0 ? cash.Amount : approved;
+                var body = methodLabel;
+                if (Math.Abs(advance.Amount - paid) >= 1)
+                    body += $" · xin {Vnd(advance.Amount)}";
                 await notificationService.CreateAndSendAsync(
                     advance.EmployeeUserId.Value,
                     NotificationType.Success,
-                    "Ứng lương đã thanh toán",
-                    $"Yêu cầu ứng lương {advance.Amount:N0}đ đã được thanh toán ({methodLabel})",
+                    $"Đã chi ứng lương {Vnd(paid)}",
+                    body,
                     relatedEntityId: advance.Id,
                     relatedEntityType: "AdvanceRequest",
                     fromUserId: performedByUserId,
@@ -185,8 +192,10 @@ public static class CashTransactionLinkageHelper
             await notificationService.CreateAndSendAsync(
                 uid.Value,
                 NotificationType.Success,
-                "Phiếu phạt đã thu",
-                $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã được thu qua phiếu {cash.TransactionCode}",
+                $"Đã thu phạt {Vnd(ticket.Amount)}",
+                string.IsNullOrWhiteSpace(ticket.Description)
+                    ? $"Phiếu {ticket.TicketCode}"
+                    : $"{ticket.Description.Trim()} · phiếu {ticket.TicketCode}",
                 relatedEntityType: "PenaltyTicket",
                 relatedEntityId: ticket.Id,
                 fromUserId: performedByUserId,
@@ -218,8 +227,8 @@ public static class CashTransactionLinkageHelper
                 await notificationService.CreateAndSendAsync(
                     uid.Value,
                     NotificationType.Success,
-                    "Lương đã thanh toán",
-                    $"Phiếu lương kỳ {monthLabel} ({payslip.NetSalary:N0}đ) đã được thanh toán",
+                    $"Lương {monthLabel} đã thanh toán đủ",
+                    $"Thực lĩnh {Vnd(payslip.NetSalary)}",
                     relatedEntityType: "Payslip",
                     relatedEntityId: payslip.Id,
                     fromUserId: performedByUserId,
@@ -271,8 +280,8 @@ public static class CashTransactionLinkageHelper
                 await notificationService.CreateAndSendAsync(
                     advance.Case.EmployeeUserId.Value,
                     NotificationType.Success,
-                    "Đã chi ứng công tác",
-                    $"{advance.Amount:N0}đ ({methodLabel})",
+                    $"Đã chi ứng công tác {Vnd(advance.Amount)}",
+                    JoinParts(TripLabel(advance.Case), methodLabel),
                     relatedEntityId: advance.Case.Id,
                     relatedEntityType: "BusinessTripCase",
                     fromUserId: performedByUserId,
@@ -318,8 +327,8 @@ public static class CashTransactionLinkageHelper
                 await notificationService.CreateAndSendAsync(
                     settlement.Case.EmployeeUserId.Value,
                     NotificationType.Success,
-                    "Đã chi bù công tác phí",
-                    $"{settlement.BalanceAmount:N0}đ ({methodLabel})",
+                    $"Đã chi bù công tác phí {Vnd(settlement.BalanceAmount)}",
+                    JoinParts(TripLabel(settlement.Case), methodLabel),
                     relatedEntityId: settlement.Case.Id,
                     relatedEntityType: "BusinessTripCase",
                     fromUserId: performedByUserId,
@@ -366,8 +375,8 @@ public static class CashTransactionLinkageHelper
                 await notificationService.CreateAndSendAsync(
                     settlement.Case.EmployeeUserId.Value,
                     NotificationType.Success,
-                    "Đã thu hoàn dư ứng công tác",
-                    $"{Math.Abs(settlement.BalanceAmount):N0}đ ({methodLabel})",
+                    $"Đã thu hoàn ứng công tác {Vnd(Math.Abs(settlement.BalanceAmount))}",
+                    JoinParts(TripLabel(settlement.Case), methodLabel),
                     relatedEntityId: settlement.Case.Id,
                     relatedEntityType: "BusinessTripCase",
                     fromUserId: performedByUserId,
@@ -392,6 +401,36 @@ public static class CashTransactionLinkageHelper
         var tail = note[(hashIndex + 1)..].Trim();
         var guidPart = tail.Length >= 36 ? tail[..36] : tail.Split([' ', '|', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? tail;
         return Guid.TryParse(guidPart, out id);
+    }
+
+    /// <summary>Tiền kiểu Việt: 2000000 → «2.000.000đ».</summary>
+    internal static string Vnd(decimal v) =>
+        Math.Round(v, 0).ToString("#,0", System.Globalization.CultureInfo.InvariantCulture).Replace(',', '.') + "đ";
+
+    private static string JoinParts(params string?[] parts) =>
+        string.Join(" · ", parts.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p!.Trim()));
+
+    /// <summary>
+    /// Chuyến công tác nào: «Đà Nẵng 12–14/11». Ngày chuyến là ngày lịch (00:00), không đổi múi giờ.
+    /// </summary>
+    private static string? TripLabel(BusinessTripCase? c)
+    {
+        if (c == null) return null;
+        var name = !string.IsNullOrWhiteSpace(c.Title) ? c.Title.Trim()
+            : !string.IsNullOrWhiteSpace(c.Destination) ? c.Destination.Trim()
+            : c.CaseCode;
+        string? dates = null;
+        if (c.TripFromDate is DateTime from)
+        {
+            var f = from.Date;
+            var t = c.TripToDate?.Date;
+            dates = t == null || t == f
+                ? f.ToString("dd/MM")
+                : f.Month == t.Value.Month && f.Year == t.Value.Year
+                    ? $"{f:dd}–{t.Value:dd/MM}"
+                    : $"{f:dd/MM}–{t.Value:dd/MM}";
+        }
+        return JoinParts(name, dates);
     }
 
     private static string GetPaymentMethodLabel(PaymentMethodType method) => method switch

@@ -109,8 +109,8 @@ public class PosKdsReadyNotifyTests
         lock (CaptureProxy.Sent) mine = CaptureProxy.Sent.Where(s => s.To.Contains(_waiter)).ToList();
         var sent = Assert.Single(mine);
         Assert.Equal([_waiter], sent.To);
-        Assert.Equal("Món đã xong", sent.Title);
-        Assert.Contains("Bàn 5", sent.Message);
+        // Bàn lên tiêu đề để người phục vụ thấy ngay trên thông báo.
+        Assert.Equal("Bàn 5: món đã xong", sent.Title);
         Assert.Contains("Bún chả ×2", sent.Message);
     }
 

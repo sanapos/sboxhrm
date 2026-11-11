@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using ZKTecoADMS.Application.DTOs.WorkSchedules;
 using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
@@ -80,19 +81,22 @@ public class CreateWorkScheduleHandler(
             
             try
             {
+                // «Lịch mới ngày 12/11» / «Ca Sáng 07:00–11:00»
+                var day = ScheduleNotifyText.Day(request.Date);
+                var slot = ScheduleNotifyText.Slot(result?.Shift, request.StartTime, request.EndTime, request.IsDayOff);
                 if (employee.ApplicationUserId.HasValue)
                 {
                     await notificationService.CreateAndSendAsync(
                         employee.ApplicationUserId.Value, NotificationType.Info,
-                        "Lịch làm việc mới",
-                        $"Bạn được xếp lịch làm việc ngày {request.Date:dd/MM/yyyy}",
+                        $"Lịch mới ngày {day}",
+                        slot,
                         relatedEntityId: created.Id, relatedEntityType: "WorkSchedule",
-                        categoryCode: "attendance", storeId: request.StoreId);
+                        categoryCode: "shift", storeId: request.StoreId);
                 }
                 else
                 {
                     await notificationService.NotifyEmployeesWithoutAccountAsync(request.StoreId, [employee.Id],
-                        "Lịch làm việc mới", $"Bạn được xếp lịch làm việc ngày {request.Date:dd/MM/yyyy}", "attendance");
+                        "Lịch làm việc mới", $"Ngày {day}: {slot}", "attendance");
                 }
             }
             catch { /* Notification failure should not affect main operation */ }
@@ -127,9 +131,10 @@ public class BulkCreateWorkSchedulesHandler(
     {
         try
         {
+            ShiftTemplate? shift = null;
             if (request.ShiftId.HasValue)
             {
-                var shift = await shiftRepository.GetSingleAsync(
+                shift = await shiftRepository.GetSingleAsync(
                     filter: s => s.Id == request.ShiftId.Value && s.StoreId == request.StoreId,
                     cancellationToken: cancellationToken);
                 if (shift == null)
@@ -197,6 +202,8 @@ public class BulkCreateWorkSchedulesHandler(
             
             try
             {
+                // Chỉ báo người thật sự có ca mới (trước đây ngày nào cũng đã có lịch vẫn nhận «Lịch làm việc mới»).
+                var scheduledEmployeeIds = schedulesToCreate.Select(s => s.EmployeeUserId).ToHashSet();
                 var affectedEmployeeIds = request.EmployeeUserIds.Distinct();
                 var targetUserIds = new List<Guid>();
                 var noAccountIds = new List<Guid>();
@@ -205,21 +212,37 @@ public class BulkCreateWorkSchedulesHandler(
                     var emp = await employeeRepository.GetSingleAsync(
                         filter: e => (e.Id == empId || e.ApplicationUserId == empId) && e.StoreId == request.StoreId,
                         cancellationToken: cancellationToken);
-                    if (emp?.ApplicationUserId.HasValue == true)
+                    if (emp == null || !scheduledEmployeeIds.Contains(emp.Id)) continue;
+                    if (emp.ApplicationUserId.HasValue)
                         targetUserIds.Add(emp.ApplicationUserId.Value);
-                    else if (emp != null)
+                    else
                         noAccountIds.Add(emp.Id);
                 }
-                await notificationService.NotifyEmployeesWithoutAccountAsync(request.StoreId, noAccountIds, "Lịch làm việc mới",
-                    $"Bạn được xếp lịch làm việc từ {request.StartDate:dd/MM/yyyy} đến {request.EndDate:dd/MM/yyyy}", "attendance");
-                if (targetUserIds.Count > 0)
+
+                if (schedulesToCreate.Count > 0)
                 {
-                    await notificationService.CreateAndSendToUsersAsync(
-                        targetUserIds, NotificationType.Info,
-                        "Lịch làm việc mới",
-                        $"Bạn được xếp lịch làm việc từ {request.StartDate:dd/MM/yyyy} đến {request.EndDate:dd/MM/yyyy}",
-                        relatedEntityType: "WorkSchedule",
-                        categoryCode: "attendance", storeId: request.StoreId);
+                    // «Lịch mới 10/11–16/11» / «Ca Sáng 07:00–11:00 · Chạm để xem lịch»
+                    var range = ScheduleNotifyText.Range(
+                        schedulesToCreate.Min(s => s.Date), schedulesToCreate.Max(s => s.Date));
+                    var shiftText = shift != null ? ScheduleNotifyText.Slot(shift) : null;
+                    var body = shiftText != null ? $"{shiftText} · Chạm để xem lịch" : "Chạm để xem lịch";
+
+                    if (noAccountIds.Count > 0)
+                    {
+                        await notificationService.NotifyEmployeesWithoutAccountAsync(request.StoreId, noAccountIds,
+                            "Lịch làm việc mới",
+                            shiftText != null ? $"{range}: {shiftText}" : $"Bạn có lịch làm việc {range}",
+                            "attendance");
+                    }
+                    if (targetUserIds.Count > 0)
+                    {
+                        await notificationService.CreateAndSendToUsersAsync(
+                            targetUserIds.Distinct().ToList(), NotificationType.Info,
+                            $"Lịch mới {range}",
+                            body,
+                            relatedEntityType: "WorkSchedule",
+                            categoryCode: "shift", storeId: request.StoreId);
+                    }
                 }
             }
             catch { /* Notification failure should not affect main operation */ }
@@ -245,6 +268,7 @@ public record UpdateWorkScheduleCommand(
 
 public class UpdateWorkScheduleHandler(
     IRepository<WorkSchedule> workScheduleRepository,
+    IRepository<ShiftTemplate> shiftRepository,
     ISystemNotificationService notificationService,
     IAttendanceService attendanceService
 ) : ICommandHandler<UpdateWorkScheduleCommand, AppResponse<WorkScheduleDto>>
@@ -271,6 +295,10 @@ public class UpdateWorkScheduleHandler(
             if (updateError != null)
                 return AppResponse<WorkScheduleDto>.Error(updateError);
 
+            // Ca cũ (trước khi sửa) — để báo «Ca Sáng → Ca Chiều».
+            var oldSlot = ScheduleNotifyText.Slot(
+                workSchedule.Shift, workSchedule.StartTime, workSchedule.EndTime, workSchedule.IsDayOff);
+
             workSchedule.ShiftId = request.ShiftId;
             workSchedule.StartTime = request.StartTime;
             workSchedule.EndTime = request.EndTime;
@@ -283,19 +311,35 @@ public class UpdateWorkScheduleHandler(
 
             try
             {
+                // «Lịch 12/11 đã đổi» / «Ca Sáng 07:00–11:00 → Ca Chiều 13:00–21:00»
+                ShiftTemplate? newShift = null;
+                if (!request.IsDayOff && request.ShiftId.HasValue)
+                {
+                    newShift = request.ShiftId == workSchedule.Shift?.Id
+                        ? workSchedule.Shift
+                        : await shiftRepository.GetSingleAsync(
+                            s => s.Id == request.ShiftId.Value, cancellationToken: cancellationToken);
+                }
+                var newSlot = ScheduleNotifyText.Slot(newShift, request.StartTime, request.EndTime, request.IsDayOff);
+                var note = request.Note?.Trim();
+                var body = !string.Equals(oldSlot, newSlot, StringComparison.Ordinal)
+                    ? $"{oldSlot} → {newSlot}"
+                    : string.IsNullOrEmpty(note) ? newSlot : $"{newSlot} · Ghi chú: {note}";
+                var day = ScheduleNotifyText.Day(workSchedule.Date);
+
                 if (workSchedule.Employee?.ApplicationUserId.HasValue == true)
                 {
                     await notificationService.CreateAndSendAsync(
                         workSchedule.Employee.ApplicationUserId.Value, NotificationType.Info,
-                        "Cập nhật lịch làm việc",
-                        $"Lịch làm việc ngày {workSchedule.Date:dd/MM/yyyy} đã được cập nhật",
+                        $"Lịch {day} đã đổi",
+                        body,
                         relatedEntityId: workSchedule.Id, relatedEntityType: "WorkSchedule",
-                        categoryCode: "attendance", storeId: request.StoreId);
+                        categoryCode: "shift", storeId: request.StoreId);
                 }
                 else if (workSchedule.Employee != null)
                 {
                     await notificationService.NotifyEmployeesWithoutAccountAsync(request.StoreId, [workSchedule.Employee.Id],
-                        "Cập nhật lịch làm việc", $"Lịch làm việc ngày {workSchedule.Date:dd/MM/yyyy} đã được cập nhật", "attendance");
+                        "Cập nhật lịch làm việc", $"Ngày {day}: {body}", "attendance");
                 }
             }
             catch { /* Notification failure should not affect main operation */ }
@@ -314,6 +358,7 @@ public record DeleteWorkScheduleCommand(Guid StoreId, Guid Id) : ICommand<AppRes
 
 public class DeleteWorkScheduleHandler(
     IRepository<WorkSchedule> workScheduleRepository,
+    IRepository<ShiftTemplate> shiftRepository,
     ISystemNotificationService notificationService,
     IAttendanceService attendanceService
 ) : ICommandHandler<DeleteWorkScheduleCommand, AppResponse<bool>>
@@ -333,6 +378,10 @@ public class DeleteWorkScheduleHandler(
 
             var scheduleDate = workSchedule.Date;
             var notifyUserId = workSchedule.Employee?.ApplicationUserId;
+            var removedShiftId = workSchedule.ShiftId;
+            var removedStart = workSchedule.StartTime;
+            var removedEnd = workSchedule.EndTime;
+            var removedDayOff = workSchedule.IsDayOff;
 
             await workScheduleRepository.DeleteAsync(workSchedule, cancellationToken);
             await SchedulePenaltyRecalc.RunAsync(attendanceService, request.StoreId,
@@ -343,13 +392,22 @@ public class DeleteWorkScheduleHandler(
             {
                 if (!notifyUserId.HasValue) return AppResponse<bool>.Success(true);
 
+                // «Lịch 12/11 đã bị xóa» / «Ca Sáng 07:00–11:00 · Bạn không còn ca này»
+                var removedShift = !removedDayOff && removedShiftId.HasValue
+                    ? await shiftRepository.GetSingleAsync(
+                        s => s.Id == removedShiftId.Value, cancellationToken: cancellationToken)
+                    : null;
+                var removedText = removedDayOff
+                    ? "Ngày nghỉ đã gỡ khỏi lịch"
+                    : $"{ScheduleNotifyText.Slot(removedShift, removedStart, removedEnd)} · Bạn không còn ca này";
+
                 await notificationService.CreateAndSendAsync(
                     targetUserId: notifyUserId.Value,
                     type: NotificationType.Warning,
-                    title: "Xóa lịch làm việc",
-                    message: $"Lịch làm việc ngày {scheduleDate:dd/MM/yyyy} đã bị xóa.",
+                    title: $"Lịch {ScheduleNotifyText.Day(scheduleDate)} đã bị xóa",
+                    message: removedText,
                     relatedEntityType: "WorkSchedule",
-                    categoryCode: "attendance",
+                    categoryCode: "shift",
                     storeId: request.StoreId);
             }
             catch { /* Don't fail delete if notification fails */ }
@@ -464,13 +522,15 @@ public class CreateScheduleRegistrationHandler(
 
                 if (firstApprover.Count > 0)
                 {
+                    // «Cần duyệt đăng ký lịch» / «Nguyễn Văn An · 12/11 · Ca Sáng 07:00–11:00 · Cấp 1/2»
+                    var slot = request.IsDayOff ? "Xin nghỉ" : ScheduleNotifyText.Slot(result?.Shift);
                     await notificationService.CreateAndSendToUsersAsync(
                         firstApprover, NotificationType.ApprovalRequired,
-                        "Đăng ký lịch làm việc mới",
-                        $"{employeeName} đăng ký lịch ngày {request.Date:dd/MM/yyyy}" +
-                        (approvalLevels > 1 ? $" (cấp 1/{approvalLevels})" : ""),
+                        "Cần duyệt đăng ký lịch",
+                        $"{employeeName} · {ScheduleNotifyText.Day(request.Date)} · {slot}" +
+                        (approvalLevels > 1 ? $" · Cấp 1/{approvalLevels}" : ""),
                         relatedEntityId: created.Id, relatedEntityType: "ScheduleRegistration",
-                        fromUserId: employee.ApplicationUserId, categoryCode: "approval",
+                        fromUserId: employee.ApplicationUserId, categoryCode: "shift",
                         storeId: request.StoreId);
                 }
             }
@@ -514,6 +574,8 @@ public class DeleteScheduleRegistrationHandler(
             }
 
             var registrationDate = registration.Date;
+            var registrationWasApproved = registration.Status == ScheduleRegistrationStatus.Approved;
+            var registrationIsDayOff = registration.IsDayOff;
             var employee = await employeeRepository.GetSingleAsync(
                 filter: e => e.Id == registration.EmployeeUserId && e.StoreId == request.StoreId,
                 cancellationToken: cancellationToken);
@@ -545,15 +607,24 @@ public class DeleteScheduleRegistrationHandler(
             // Notify employee about registration deletion
             try
             {
-                if (employee?.ApplicationUserId.HasValue == true)
+                // Nhân viên tự xóa phiếu của mình thì không cần báo lại cho chính họ.
+                if (employee?.ApplicationUserId.HasValue == true
+                    && employee.ApplicationUserId != request.CallerUserId)
                 {
+                    // «Đăng ký lịch 12/11 đã bị xóa» / «Lê Thị Hoa: Ca đã xếp từ đăng ký này cũng được gỡ khỏi lịch»
+                    var detail = registrationWasApproved
+                        ? registrationIsDayOff
+                            ? "Ngày nghỉ đã duyệt cũng được gỡ khỏi lịch"
+                            : "Ca đã xếp từ đăng ký này cũng được gỡ khỏi lịch"
+                        : "Bạn có thể đăng ký lại nếu cần";
                     await notificationService.CreateAndSendAsync(
                         targetUserId: employee.ApplicationUserId.Value,
                         type: NotificationType.Warning,
-                        title: "Xóa đăng ký lịch",
-                        message: $"Đăng ký lịch ngày {registrationDate:dd/MM/yyyy} đã bị xóa.",
+                        title: $"Đăng ký lịch {ScheduleNotifyText.Day(registrationDate)} đã bị xóa",
+                        message: detail,
                         relatedEntityType: "WorkSchedule",
-                        categoryCode: "attendance",
+                        fromUserId: request.CallerUserId,
+                        categoryCode: "shift",
                         storeId: request.StoreId);
                 }
             }
@@ -695,13 +766,18 @@ public class ApproveScheduleRegistrationHandler(
                 {
                     if (registration.Employee?.ApplicationUserId.HasValue == true)
                     {
+                        // «Đăng ký lịch 12/11 bị từ chối» / «Ca Sáng 07:00–11:00 · Lý do: Đủ người · Cấp 1/2»
+                        var parts = new List<string> { RegistrationSlot(registration) };
+                        if (!string.IsNullOrWhiteSpace(request.RejectionReason))
+                            parts.Add($"Lý do: {request.RejectionReason.Trim()}");
+                        if (registration.TotalApprovalLevels > 1)
+                            parts.Add($"Cấp {currentRecord.StepOrder}/{registration.TotalApprovalLevels}");
                         await notificationService.CreateAndSendAsync(
                             registration.Employee.ApplicationUserId.Value, NotificationType.Warning,
-                            "Đăng ký lịch bị từ chối",
-                            $"Đăng ký lịch ngày {registration.Date:dd/MM/yyyy} bị từ chối ở cấp {currentRecord.StepOrder}/{registration.TotalApprovalLevels}. " +
-                            (string.IsNullOrEmpty(request.RejectionReason) ? "" : $"Lý do: {request.RejectionReason}"),
+                            $"Đăng ký lịch {ScheduleNotifyText.Day(registration.Date)} bị từ chối",
+                            string.Join(" · ", parts),
                             relatedEntityId: registration.Id, relatedEntityType: "ScheduleRegistration",
-                            fromUserId: request.ApprovedById, categoryCode: "attendance", storeId: request.StoreId);
+                            fromUserId: request.ApprovedById, categoryCode: "shift", storeId: request.StoreId);
                     }
                 }
                 catch { }
@@ -745,14 +821,15 @@ public class ApproveScheduleRegistrationHandler(
                 {
                     if (registration.Employee?.ApplicationUserId.HasValue == true)
                     {
+                        // «Đăng ký lịch 12/11 đã duyệt» / «Lê Thị Hoa: Ca Sáng 07:00–11:00 · Đã vào lịch»
                         await notificationService.CreateAndSendAsync(
                             registration.Employee.ApplicationUserId.Value, NotificationType.Success,
-                            "Đăng ký lịch đã duyệt",
+                            $"Đăng ký lịch {ScheduleNotifyText.Day(registration.Date)} đã duyệt",
                             registration.TotalApprovalLevels > 1
-                                ? $"Đăng ký lịch ngày {registration.Date:dd/MM/yyyy} đã được phê duyệt qua {registration.TotalApprovalLevels} cấp"
-                                : $"Đăng ký lịch ngày {registration.Date:dd/MM/yyyy} đã được duyệt",
+                                ? $"{RegistrationSlot(registration)} · Đã vào lịch (duyệt đủ {registration.TotalApprovalLevels} cấp)"
+                                : $"{RegistrationSlot(registration)} · Đã vào lịch",
                             relatedEntityId: registration.Id, relatedEntityType: "ScheduleRegistration",
-                            fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
+                            fromUserId: request.ApprovedById, categoryCode: "shift", storeId: request.StoreId);
                     }
                 }
                 catch { }
@@ -765,22 +842,30 @@ public class ApproveScheduleRegistrationHandler(
                 {
                     if (nextPending.AssignedUserId.HasValue)
                     {
+                        // Người gửi = NV xin (không phải người duyệt trước — formatter đưa tên người gửi lên đầu).
+                        // «Cần duyệt đăng ký lịch» / «Nguyễn Văn An · 12/11 · Ca Sáng 07:00–11:00 · Cấp 2/2 · Lê Thị Hoa đã duyệt cấp 1»
+                        var approverName = NotificationPushFormatter.FormatUserDisplayName(approver);
+                        var body = $"{ScheduleNotifyText.EmployeeName(registration.Employee)} · {ScheduleNotifyText.Day(registration.Date)} · " +
+                                   $"{RegistrationSlot(registration)} · Cấp {nextPending.StepOrder}/{registration.TotalApprovalLevels}";
+                        if (!string.IsNullOrWhiteSpace(approverName))
+                            body += $" · {approverName} đã duyệt cấp {currentRecord.StepOrder}";
                         await notificationService.CreateAndSendAsync(
                             nextPending.AssignedUserId.Value, NotificationType.ApprovalRequired,
-                            "Đăng ký lịch cần duyệt",
-                            $"Đăng ký lịch ngày {registration.Date:dd/MM/yyyy} - cấp {nextPending.StepOrder}/{registration.TotalApprovalLevels}",
+                            "Cần duyệt đăng ký lịch",
+                            body,
                             relatedEntityId: registration.Id, relatedEntityType: "ScheduleRegistration",
-                            fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
+                            fromUserId: registration.Employee?.ApplicationUserId, categoryCode: "shift", storeId: request.StoreId);
                     }
 
                     if (registration.Employee?.ApplicationUserId.HasValue == true)
                     {
+                        // «Đăng ký lịch 12/11: xong cấp 1/2» / «Lê Thị Hoa: Ca Sáng 07:00–11:00 · Chờ duyệt cấp 2»
                         await notificationService.CreateAndSendAsync(
                             registration.Employee.ApplicationUserId.Value, NotificationType.Info,
-                            "Tiến trình duyệt lịch",
-                            $"Đăng ký lịch đã được duyệt cấp {currentRecord.StepOrder}/{registration.TotalApprovalLevels}. Đang chờ cấp {nextPending.StepOrder}",
+                            $"Đăng ký lịch {ScheduleNotifyText.Day(registration.Date)}: xong cấp {currentRecord.StepOrder}/{registration.TotalApprovalLevels}",
+                            $"{RegistrationSlot(registration)} · Chờ duyệt cấp {nextPending.StepOrder}",
                             relatedEntityId: registration.Id, relatedEntityType: "ScheduleRegistration",
-                            fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
+                            fromUserId: request.ApprovedById, categoryCode: "shift", storeId: request.StoreId);
                     }
                 }
                 catch { }
@@ -794,6 +879,10 @@ public class ApproveScheduleRegistrationHandler(
             return AppResponse<ScheduleRegistrationDto>.Error(ex.Message);
         }
     }
+
+    /// <summary>«Ca Sáng 07:00–11:00» / «Ngày nghỉ» cho thông báo duyệt đăng ký lịch.</summary>
+    private static string RegistrationSlot(ScheduleRegistration registration) =>
+        registration.IsDayOff ? "Ngày nghỉ" : ScheduleNotifyText.Slot(registration.Shift);
 
     /// <summary>Cùng tập vai trò policy AtLeastManager — màn Duyệt lịch là hàng đợi cửa hàng.</summary>
     private static bool IsStoreScheduleApproverRole(string? role)
@@ -950,10 +1039,12 @@ public class UndoScheduleRegistrationApprovalHandler(
                 {
                     await notificationService.CreateAndSendAsync(
                         employee.ApplicationUserId.Value, NotificationType.Warning,
-                        "Hoàn tác duyệt lịch",
-                        $"Đăng ký lịch ngày {registration.Date:dd/MM/yyyy} đã bị hoàn tác về trạng thái chờ duyệt",
+                        $"Đăng ký lịch {ScheduleNotifyText.Day(registration.Date)} quay lại chờ duyệt",
+                        wasApproved
+                            ? "Ca đã xếp từ đăng ký này được gỡ khỏi lịch, chờ duyệt lại"
+                            : "Kết quả duyệt trước đã hủy, chờ duyệt lại",
                         relatedEntityId: registration.Id, relatedEntityType: "ScheduleRegistration",
-                        categoryCode: "approval", storeId: request.StoreId);
+                        categoryCode: "shift", storeId: request.StoreId);
                 }
             }
             catch { /* Notification failure should not affect main operation */ }
@@ -1017,10 +1108,10 @@ public class SendScheduleReminderHandler(
 
             await notificationService.CreateAndSendToUsersAsync(
                 userIds, NotificationType.Warning,
-                "Nhắc nhở đăng ký lịch làm việc",
-                $"Bạn chưa đăng ký lịch làm việc cho tuần {request.FromDate:dd/MM} - {request.ToDate:dd/MM/yyyy}. Vui lòng đăng ký sớm.",
+                $"Nhắc đăng ký lịch {ScheduleNotifyText.Range(request.FromDate, request.ToDate)}",
+                "Bạn chưa đăng ký lịch làm việc · Chạm để đăng ký",
                 relatedEntityType: "WorkSchedule",
-                categoryCode: "attendance", storeId: request.StoreId,
+                categoryCode: "shift", storeId: request.StoreId,
                 fromUserId: request.FromUserId);
 
             return AppResponse<int>.Success(unregistered.Count);
@@ -1077,15 +1168,18 @@ public class RequestShiftCoverageHandler(
             var userIds = unscheduled.Where(e => e.ApplicationUserId.HasValue)
                 .Select(e => e.ApplicationUserId!.Value).ToList();
 
-            var msg = !string.IsNullOrEmpty(request.Message) ? request.Message
-                : $"Cần bổ sung nhân viên cho ca {shift.Name} ({shift.StartTime:hh\\:mm}-{shift.EndTime:hh\\:mm}) ngày {request.Date:dd/MM/yyyy}. Vui lòng đăng ký nếu có thể.";
+            // «Cần thêm người Ca Sáng 12/11» / «07:00–11:00 · Chạm để đăng ký» (hoặc lời nhắn của quản lý).
+            var hours = ScheduleNotifyText.Hours(shift.StartTime, shift.EndTime);
+            var msg = !string.IsNullOrWhiteSpace(request.Message)
+                ? (hours != null ? $"{hours} · {request.Message.Trim()}" : request.Message.Trim())
+                : (hours != null ? $"{hours} · Chạm để đăng ký" : "Chạm để đăng ký");
 
             await notificationService.CreateAndSendToUsersAsync(
                 userIds, NotificationType.Info,
-                $"Yêu cầu bổ sung ca {shift.Name}",
+                $"Cần thêm người {ScheduleNotifyText.ShiftOnDay(shift, request.Date)}",
                 msg,
                 relatedEntityType: "WorkSchedule",
-                categoryCode: "attendance", storeId: request.StoreId,
+                categoryCode: "shift", storeId: request.StoreId,
                 fromUserId: request.FromUserId);
 
             return AppResponse<int>.Success(unscheduled.Count);
@@ -1247,5 +1341,57 @@ public class DeleteShiftStaffingQuotaHandler(
         {
             return AppResponse<bool>.Error(ex.Message);
         }
+    }
+}
+
+/// <summary>
+/// Chữ dùng chung cho thông báo ca / lịch / đổi ca: «12/11», «10/11–16/11», «Ca Sáng 07:00–11:00».
+/// Ngày lịch (WorkSchedule.Date, ScheduleRegistration.Date, ShiftSwapRequest.*Date) là ngày tường VN — in thẳng.
+/// </summary>
+internal static class ScheduleNotifyText
+{
+    public static string Day(DateTime date) =>
+        date.ToString("dd/MM", System.Globalization.CultureInfo.InvariantCulture);
+
+    public static string Range(DateTime from, DateTime to) =>
+        from.Date == to.Date ? Day(from) : $"{Day(from)}–{Day(to)}";
+
+    /// <summary>«Ca Sáng»; tên đã có chữ «Ca» thì giữ nguyên (tránh «Ca Ca đêm»). Không có tên → null.</summary>
+    public static string? ShiftName(ShiftTemplate? shift)
+    {
+        var name = shift?.Name?.Trim();
+        if (string.IsNullOrEmpty(name)) return null;
+        return name.StartsWith("Ca ", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("Ca", StringComparison.OrdinalIgnoreCase)
+            ? name
+            : $"Ca {name}";
+    }
+
+    public static string? Hours(TimeSpan? start, TimeSpan? end) =>
+        start.HasValue && end.HasValue ? $@"{start.Value:hh\:mm}–{end.Value:hh\:mm}" : null;
+
+    /// <summary>«Ca Sáng 07:00–11:00» / «Ngày nghỉ»; giờ ghi đè trên lịch ưu tiên hơn giờ mẫu ca.</summary>
+    public static string Slot(ShiftTemplate? shift, TimeSpan? start = null, TimeSpan? end = null, bool isDayOff = false)
+    {
+        if (isDayOff) return "Ngày nghỉ";
+        var parts = new List<string>();
+        var name = ShiftName(shift);
+        if (name != null) parts.Add(name);
+        var hours = Hours(start ?? shift?.StartTime, end ?? shift?.EndTime);
+        if (hours != null) parts.Add(hours);
+        return parts.Count > 0 ? string.Join(' ', parts) : "Ca làm việc";
+    }
+
+    /// <summary>«Ca Sáng 12/11» — dùng khi cần ghép ca với ngày (đổi ca).</summary>
+    public static string ShiftOnDay(ShiftTemplate? shift, DateTime date)
+    {
+        var name = ShiftName(shift) ?? Hours(shift?.StartTime, shift?.EndTime);
+        return string.IsNullOrEmpty(name) ? $"ca {Day(date)}" : $"{name} {Day(date)}";
+    }
+
+    public static string EmployeeName(Employee? employee, string fallback = "Nhân viên")
+    {
+        var name = $"{employee?.LastName} {employee?.FirstName}".Trim();
+        return string.IsNullOrWhiteSpace(name) ? fallback : name;
     }
 }

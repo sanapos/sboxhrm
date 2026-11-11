@@ -372,29 +372,8 @@ public class CommunicationController(
                 _ = hubContext.Clients.Group($"store_{RequiredStoreId}")
                     .SendAsync("CommunicationCreated", new { id = result.Data, title = dto.Title, type = dto.Type });
 
-                // Notify employees if published immediately
-                if (dto.PublishImmediately)
-                {
-                    try
-                    {
-                        var empQuery = dbContext.Employees
-                            .Where(e => e.StoreId == RequiredStoreId && e.ApplicationUserId != null && e.Deleted == null);
-                        if (dto.TargetDepartmentId.HasValue)
-                            empQuery = empQuery.Where(e => e.DepartmentId == dto.TargetDepartmentId.Value);
-                        var empUserIds = await empQuery.Select(e => e.ApplicationUserId!.Value).Distinct().ToListAsync();
-                        foreach (var uid in empUserIds)
-                        {
-                            if (uid != CurrentUserId)
-                                await notificationService.CreateAndSendAsync(
-                                    uid, NotificationType.Info,
-                                    "Bài truyền thông mới",
-                                    $"Bài viết \"{dto.Title}\" đã được đăng",
-                                    relatedEntityType: "Communication", relatedEntityId: result.Data,
-                                    fromUserId: CurrentUserId, categoryCode: "communication", storeId: RequiredStoreId);
-                        }
-                    }
-                    catch { /* Notification failure should not affect main operation */ }
-                }
+                // Đăng ngay: CreateCommunicationHandler đã gửi thông báo cho nhân viên (tiêu đề bài + tóm tắt).
+                // Trước đây controller gửi thêm «Bài truyền thông mới» → mỗi người nhận 2 thông báo cho một bài.
             }
 
             return Ok(result);
@@ -478,13 +457,18 @@ public class CommunicationController(
                     if (deptId.HasValue)
                         empQuery = empQuery.Where(e => e.DepartmentId == deptId.Value);
                     var empUserIds = await empQuery.Select(e => e.ApplicationUserId!.Value).Distinct().ToListAsync();
+                    // Đọc lại bài sau khi lưu (dto có thể chỉ gửi một phần trường).
+                    var post = await dbContext.InternalCommunications.AsNoTracking()
+                        .Where(c => c.Id == id)
+                        .Select(c => new { c.Title, c.Summary, c.Content })
+                        .FirstOrDefaultAsync();
+                    var (postTitle, postPreview) = PostPushText(post?.Title ?? dto.Title, post?.Summary, post?.Content);
                     foreach (var uid in empUserIds)
                     {
                         if (uid != CurrentUserId)
                             await notificationService.CreateAndSendAsync(
                                 uid, NotificationType.Info,
-                                "Bài truyền thông mới",
-                                $"Bài viết \"{dto.Title}\" đã được đăng",
+                                postTitle, postPreview,
                                 relatedEntityType: "Communication", relatedEntityId: id,
                                 fromUserId: CurrentUserId, categoryCode: "communication", storeId: oldEntity.StoreId);
                     }
@@ -637,13 +621,13 @@ public class CommunicationController(
                 if (entity.TargetDepartmentId.HasValue)
                     empQuery = empQuery.Where(e => e.DepartmentId == entity.TargetDepartmentId.Value);
                 var empUserIds = await empQuery.Select(e => e.ApplicationUserId!.Value).Distinct().ToListAsync();
+                var (postTitle, postPreview) = PostPushText(entity.Title, entity.Summary, entity.Content);
                 foreach (var uid in empUserIds)
                 {
                     if (uid != CurrentUserId)
                         await notificationService.CreateAndSendAsync(
                             uid, NotificationType.Info,
-                            "Bài truyền thông mới",
-                            $"Bài viết \"{entity.Title}\" đã được đăng",
+                            postTitle, postPreview,
                             relatedEntityType: "Communication", relatedEntityId: entity.Id,
                             fromUserId: CurrentUserId, categoryCode: "communication", storeId: entity.StoreId);
                 }
@@ -768,28 +752,9 @@ public class CommunicationController(
                             userName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
                         });
 
-                    // Notify the post author about the new comment
-                    try
-                    {
-                        if (comm.AuthorId != CurrentUserId)
-                        {
-                            var authorUserId = await dbContext.Employees
-                                .Where(e => e.Id == comm.AuthorId && e.ApplicationUserId != null)
-                                .Select(e => e.ApplicationUserId!.Value)
-                                .FirstOrDefaultAsync();
-                            if (authorUserId != Guid.Empty && authorUserId != CurrentUserId)
-                            {
-                                var commenterName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "Ai đó";
-                                await notificationService.CreateAndSendAsync(
-                                    authorUserId, NotificationType.Info,
-                                    "Bình luận mới",
-                                    $"{commenterName} đã bình luận bài viết \"{comm.Title}\"",
-                                    relatedEntityType: "Communication", relatedEntityId: id,
-                                    fromUserId: CurrentUserId, categoryCode: "communication", storeId: comm.StoreId);
-                            }
-                        }
-                    }
-                    catch { /* Notification failure should not affect main operation */ }
+                    // Báo tác giả (và người được trả lời): AddCommentHandler đã gửi — AuthorId là UserId của tác giả.
+                    // Khối cũ ở đây tra Employees.Id == AuthorId nên không bao giờ khớp; nếu sửa tra cứu thì tác giả
+                    // sẽ nhận 2 thông báo cho một bình luận, nên bỏ hẳn.
                 }
             }
 
@@ -1834,6 +1799,21 @@ public class CommunicationController(
     }
 
     #endregion
+
+    /// <summary>Thông báo bài mới: tiêu đề = tiêu đề bài, nội dung = tóm tắt / đoạn đầu (bỏ HTML), ≤ 90 ký tự.
+    /// Tên người đăng do bộ định dạng push chèn từ fromUserId (giống CreateCommunicationHandler).</summary>
+    private static (string Title, string Body) PostPushText(string? title, string? summary, string? content)
+    {
+        var t = (title ?? "").Trim();
+        if (t.Length == 0) t = "Bài truyền thông mới";
+        else if (t.Length > 60) t = t[..60].TrimEnd() + "…";
+        var text = !string.IsNullOrWhiteSpace(summary) ? summary : (content ?? "");
+        text = System.Text.RegularExpressions.Regex.Replace(text, "<[^>]+>", " ");
+        text = System.Net.WebUtility.HtmlDecode(text);
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+        if (text.Length > 90) text = text[..90].TrimEnd() + "…";
+        return (t, text.Length > 0 ? text : "Bài mới trên Bản tin");
+    }
 
     private static string MaskApiKey(string apiKey)
     {

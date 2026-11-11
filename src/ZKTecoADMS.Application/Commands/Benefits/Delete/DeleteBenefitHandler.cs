@@ -36,8 +36,8 @@ public class DeleteBenefitHandler(
                 await notificationService.CreateAndSendAsync(
                     targetUserId: null,
                     type: NotificationType.Warning,
-                    title: "Xóa bảng lương",
-                    message: $"Bảng lương \"{profileName}\" đã bị xóa",
+                    title: "Đã xóa hồ sơ lương",
+                    message: $"Hồ sơ lương \"{profileName}\" đã bị xóa",
                     relatedEntityType: "Benefit",
                     categoryCode: "salary",
                     storeId: request.StoreId);

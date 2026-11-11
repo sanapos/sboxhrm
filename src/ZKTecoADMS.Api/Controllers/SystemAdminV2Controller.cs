@@ -770,7 +770,7 @@ public class SystemAdminV2Controller(
         try
         {
             await notifications.CreateAndSendAsync(u.Id, NotificationType.Warning, "Mật khẩu đã được đặt lại",
-                "Quản trị hệ thống vừa đặt lại mật khẩu tài khoản của bạn. Vui lòng đổi mật khẩu sau khi đăng nhập.",
+                "Do SBOX hỗ trợ — đổi mật khẩu mới sau khi đăng nhập",
                 categoryCode: "system", storeId: u.StoreId);
         }
         catch { /* thông báo không chặn */ }
@@ -820,8 +820,9 @@ public class SystemAdminV2Controller(
         {
             var ownerId = u.Store?.OwnerId;
             if (ownerId.HasValue)
-                await notifications.CreateAndSendAsync(ownerId.Value, NotificationType.Info, "Bộ phận hỗ trợ đang truy cập",
-                    $"Quản trị SBOX đang đăng nhập thay tài khoản {u.FullName} để hỗ trợ: {req.Reason.Trim()}",
+                await notifications.CreateAndSendAsync(ownerId.Value, NotificationType.Info,
+                    u.Id == ownerId.Value ? "SBOX đang hỗ trợ tài khoản của bạn" : $"SBOX đang hỗ trợ tài khoản {u.FullName}",
+                    $"Lý do: {req.Reason.Trim()}",
                     categoryCode: "system", storeId: u.StoreId);
         }
         catch { /* thông báo không chặn */ }

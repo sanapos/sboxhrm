@@ -24,18 +24,18 @@ public static class CashTransactionNotificationHelper
             context, permissionService, creatorUserId, storeId, cancellationToken);
         if (targets.Count == 0) return;
 
-        var creator = await context.Users.AsNoTracking()
-            .Where(u => u.Id == creatorUserId)
-            .Select(u => new { u.FullName, u.UserName })
-            .FirstOrDefaultAsync(cancellationToken);
-        var creatorName = creator?.FullName ?? creator?.UserName ?? "Nhân viên";
-        var typeLabel = transaction.Type == CashTransactionType.Income ? "Thu" : "Chi";
+        // Người tạo = fromUserId → formatter tự thêm tên vào body (trước đây message tự ghi tên + formatter lặp lại).
+        var typeLabel = transaction.Type == CashTransactionType.Income ? "thu" : "chi";
+        var description = transaction.Description?.Trim() ?? string.Empty;
+        if (description.Length > 60) description = description[..60].TrimEnd() + "…";
+        var body = string.Join(" · ", new[] { description, transaction.TransactionCode }
+            .Where(s => !string.IsNullOrWhiteSpace(s)));
 
         await notificationService.CreateAndSendToUsersAsync(
             targets,
             NotificationType.Info,
-            "Phiếu thu/chi mới",
-            $"{creatorName} tạo phiếu {typeLabel} {transaction.TransactionCode}: {transaction.Amount:N0}đ — {transaction.Description}",
+            $"Phiếu {typeLabel} {CashTransactionLinkageHelper.Vnd(transaction.Amount)}",
+            body,
             relatedEntityId: transaction.Id,
             relatedEntityType: "CashTransaction",
             fromUserId: creatorUserId,

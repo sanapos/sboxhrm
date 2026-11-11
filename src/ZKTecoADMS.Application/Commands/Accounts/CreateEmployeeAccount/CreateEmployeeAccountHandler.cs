@@ -102,8 +102,11 @@ public class CreateEmployeeAccountHandler(
             await notificationService.CreateAndSendAsync(
                 targetUserId: newUser.Id,
                 type: NotificationType.Success,
-                title: "Tài khoản đã tạo",
-                message: $"Tài khoản {newUser.UserName} ({request.FirstName} {request.LastName}) đã được tạo thành công",
+                // «Chào mừng bạn đến SBOX» / «Tên đăng nhập: nv001 · Nguyễn Văn An» (họ trước tên, như mọi chỗ khác).
+                title: "Chào mừng bạn đến SBOX",
+                message: string.IsNullOrWhiteSpace(newUser.FullName)
+                    ? $"Tên đăng nhập: {newUser.UserName}"
+                    : $"Tên đăng nhập: {newUser.UserName} · {newUser.FullName.Trim()}",
                 relatedEntityId: newUser.Id,
                 relatedEntityType: "Account",
                 categoryCode: "account",

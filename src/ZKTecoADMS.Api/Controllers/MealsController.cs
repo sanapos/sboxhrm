@@ -586,7 +586,9 @@ public class MealsController(
                     targetUserId: userId,
                     type: NotificationType.Success,
                     title: "Chấm cơm QR thành công",
-                    message: $"Đã ghi nhận {session.Name} lúc {now:HH:mm}",
+                    // Giờ hiển thị theo giờ VN (DateTime.Now phụ thuộc múi giờ máy chủ).
+                    message: $"Đã ghi nhận {session.Name} lúc {ZKTecoADMS.Application.Helpers.VnTimeHelper.NowVn():HH:mm}"
+                             + (record.TicketNo > 0 ? $" · phiếu số {record.TicketNo}" : ""),
                     relatedEntityId: record.Id,
                     relatedEntityType: "MealRecord",
                     categoryCode: "meal",

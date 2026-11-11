@@ -78,9 +78,20 @@ public sealed class PosRemoteApprovalsController(
                 .Where(u => u.StoreId == storeId && u.IsActive && u.Role != null && ApproverRoles.Contains(u.Role))
                 .Select(u => u.Id)
                 .ToListAsync(ct);
+            // Không gửi cho chính người xin (chủ / quản lý thao tác trên máy POS).
+            approverIds.Remove(CurrentUserId);
             if (approverIds.Count > 0)
             {
-                await push.PushToUsersAsync(approverIds, $"{name} xin duyệt", reason,
+                // Push trực tiếp (không qua bộ định dạng) → tự ghi tên người xin; thêm chi tiết / số tiền khi máy POS gửi kèm.
+                var title = reason.Length > 30 ? $"Cần duyệt: {reason[..30].TrimEnd()}…" : $"Cần duyệt: {reason}";
+                var parts = new List<string> { name };
+                var detail = req.Detail?.Trim();
+                if (!string.IsNullOrEmpty(detail))
+                    parts.Add(detail.Length > 40 ? detail[..40].TrimEnd() + "…" : detail);
+                if (req.Amount is decimal amount && amount != 0)
+                    parts.Add(amount.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) + "đ");
+                parts.Add("mở SBOX BOSS để duyệt");
+                await push.PushToUsersAsync(approverIds, title, string.Join(" · ", parts),
                     data: new Dictionary<string, string> { ["type"] = "pos_remote_approval", ["id"] = r.Id.ToString() },
                     androidTag: $"pos-approval-{r.Id:N}", ct: ct);
             }

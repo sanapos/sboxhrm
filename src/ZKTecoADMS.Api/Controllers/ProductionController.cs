@@ -364,7 +364,7 @@ public partial class ProductionController(
         // Notification
         try
         {
-            var text = $"Đã ghi nhận {entry.Quantity} {entry.ProductItem.Unit ?? "SP"} - {entry.ProductItem.Name} ngày {entry.WorkDate:dd/MM/yyyy}";
+            var text = $"{entry.ProductItem.Name}: +{QtyText(entry.Quantity)} {UnitText(entry.ProductItem.Unit)} · ngày {entry.WorkDate:dd/MM}";
             if (entry.Employee.ApplicationUserId == null)
                 await notificationService.NotifyEmployeesWithoutAccountAsync(storeId, [entry.EmployeeId], "Sản lượng mới", text, "production");
             else
@@ -437,31 +437,49 @@ public partial class ProductionController(
         dbContext.ProductionEntries.AddRange(entries);
         await SaveAndRepriceAsync(storeId);
 
-        // Batch notification
+        // Thông báo riêng từng nhân viên: chỉ sản lượng của chính họ, theo ngày làm (WorkDate).
+        // Trước đây mọi người nhận tổng số bản ghi của cả đợt và «ngày» là ngày bấm nhập.
         try
         {
             var empIds = entries.Select(e => e.EmployeeId).Distinct().ToList();
-            var empUserIds = await dbContext.Employees
-                .Where(e => empIds.Contains(e.Id) && e.ApplicationUserId.HasValue)
-                .Select(e => e.ApplicationUserId!.Value)
-                .ToListAsync();
-            // Nhân viên không có tài khoản: tin Zalo riêng từng người (số bản ghi của chính họ).
-            var noAccount = await dbContext.Employees
-                .Where(e => empIds.Contains(e.Id) && !e.ApplicationUserId.HasValue)
-                .Select(e => e.Id)
-                .ToListAsync();
-            foreach (var g in entries.Where(x => noAccount.Contains(x.EmployeeId)).GroupBy(x => x.EmployeeId))
-                await notificationService.NotifyEmployeesWithoutAccountAsync(storeId, [g.Key], "Nhập sản lượng",
-                    $"Đã ghi nhận {g.Count()} bản ghi sản lượng ngày {DateTime.Now:dd/MM/yyyy}", "production");
-            if (empUserIds.Count > 0)
+            var userOfEmp = await dbContext.Employees
+                .Where(e => empIds.Contains(e.Id))
+                .Select(e => new { e.Id, e.ApplicationUserId })
+                .ToDictionaryAsync(e => e.Id, e => e.ApplicationUserId);
+            var productIds = entries.Select(e => e.ProductItemId).Distinct().ToList();
+            var products = await dbContext.ProductItems
+                .Where(p => productIds.Contains(p.Id))
+                .Select(p => new { p.Id, p.Name, p.Unit })
+                .ToDictionaryAsync(p => p.Id, p => (p.Name, p.Unit));
+
+            foreach (var g in entries.GroupBy(x => x.EmployeeId))
             {
-                await notificationService.CreateAndSendToUsersAsync(
-                    targetUserIds: empUserIds,
-                    type: NotificationType.Info,
-                    title: "Nhập sản lượng hàng loạt",
-                    message: $"Đã ghi nhận {entries.Count} bản ghi sản lượng ngày {DateTime.Now:dd/MM/yyyy}",
-                    categoryCode: "production",
-                    storeId: storeId);
+                var dates = g.Select(x => x.WorkDate.Date).Distinct().OrderBy(d => d).ToList();
+                var title = dates.Count == 1
+                    ? $"Sản lượng ngày {dates[0]:dd/MM} đã ghi"
+                    : $"Sản lượng {dates[0]:dd/MM}–{dates[^1]:dd/MM} đã ghi";
+                var parts = g.OrderBy(x => x.WorkDate).Take(3).Select(x =>
+                {
+                    var (name, unit) = products.TryGetValue(x.ProductItemId, out var p) ? p : ("Sản phẩm", (string?)null);
+                    return $"{name} {QtyText(x.Quantity)} {UnitText(unit)}"
+                           + (dates.Count > 1 ? $" ({x.WorkDate:dd/MM})" : "");
+                }).ToList();
+                var more = g.Count() - parts.Count;
+                var text = string.Join(", ", parts) + (more > 0 ? $" · +{more} mục" : "");
+
+                var uid = userOfEmp.GetValueOrDefault(g.Key);
+                if (uid == null)
+                    // Nhân viên không có tài khoản: tin Zalo riêng.
+                    await notificationService.NotifyEmployeesWithoutAccountAsync(storeId, [g.Key], title, text, "production");
+                else
+                    await notificationService.CreateAndSendAsync(
+                        targetUserId: uid.Value,
+                        type: NotificationType.Info,
+                        title: title,
+                        message: text,
+                        relatedEntityType: "ProductionEntry",
+                        categoryCode: "production",
+                        storeId: storeId);
             }
         }
         catch { }
@@ -503,7 +521,7 @@ public partial class ProductionController(
         // Notification
         try
         {
-            var text = $"Sản lượng {entry.ProductItem.Name} ngày {entry.WorkDate:dd/MM/yyyy} đã cập nhật: {entry.Quantity} {entry.ProductItem.Unit ?? "SP"}";
+            var text = $"{entry.ProductItem.Name} ngày {entry.WorkDate:dd/MM}: sửa thành {QtyText(entry.Quantity)} {UnitText(entry.ProductItem.Unit)}";
             if (entry.Employee.ApplicationUserId == null)
                 await notificationService.NotifyEmployeesWithoutAccountAsync(storeId, [entry.EmployeeId], "Cập nhật sản lượng", text, "production");
             else
@@ -540,6 +558,7 @@ public partial class ProductionController(
 
         var empUserId = entry.Employee?.ApplicationUserId;
         var productName = entry.ProductItem?.Name;
+        var productUnit = entry.ProductItem?.Unit;
         var workDate = entry.WorkDate;
         var qty = entry.Quantity;
 
@@ -556,7 +575,7 @@ public partial class ProductionController(
                     targetUserId: empUserId.Value,
                     type: NotificationType.Warning,
                     title: "Xóa sản lượng",
-                    message: $"Đã xóa {qty} {productName} ngày {workDate:dd/MM/yyyy}",
+                    message: $"Đã xóa {QtyText(qty)} {UnitText(productUnit)} {productName} · ngày {workDate:dd/MM}",
                     relatedEntityId: id,
                     relatedEntityType: "ProductionEntry",
                     categoryCode: "production",
@@ -724,8 +743,9 @@ public partial class ProductionController(
             await notificationService.CreateAndSendAsync(
                 targetUserId: CurrentUserId,
                 type: NotificationType.Success,
-                title: "Import sản lượng hoàn tất",
-                message: $"Đã import {created}/{dto.Rows.Count} dòng từ Excel",
+                title: "Nhập sản lượng từ Excel xong",
+                message: $"Thêm {created}, cập nhật {updated} / {dto.Rows.Count} dòng"
+                         + (errors.Count > 0 ? $" · {errors.Count} dòng lỗi" : ""),
                 relatedEntityType: "ProductionEntry",
                 categoryCode: "production",
                 storeId: storeId);
@@ -1001,6 +1021,14 @@ public partial class ProductionController(
         }
         return null;
     }
+
+    private static readonly System.Globalization.CultureInfo ViCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
+
+    /// <summary>Số lượng kiểu Việt cho thông báo: 1.200 · 2,5 (không «120.00»).</summary>
+    private static string QtyText(decimal quantity) => quantity.ToString("#,0.##", ViCulture);
+
+    private static string UnitText(string? unit) => string.IsNullOrWhiteSpace(unit) ? "SP" : unit.Trim();
 
     private static string? ExtractSpreadsheetId(string url)
     {

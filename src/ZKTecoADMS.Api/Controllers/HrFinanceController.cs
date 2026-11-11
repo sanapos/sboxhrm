@@ -180,6 +180,16 @@ public class HrFinanceController(
         return dto;
     }
 
+    /// <summary>Tiền cho thông báo: «200.000đ» (phạt lưu số âm ở một số phiếu → lấy trị tuyệt đối).</summary>
+    private static string HrMoney(decimal amount) =>
+        Math.Abs(amount).ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) + "đ";
+
+    private static string HrShort(string? text, int max)
+    {
+        var t = (text ?? "").Trim();
+        return t.Length > max ? t[..max].TrimEnd() + "…" : t;
+    }
+
     private static string TicketTypeText(PenaltyTicketType t) => t switch
     {
         PenaltyTicketType.Late => "Đi trễ",
@@ -733,15 +743,18 @@ public class HrFinanceController(
 
         try
         {
-            var rewardTitle = type == "Bonus" ? "Bạn có phiếu thưởng mới" : "Bạn có phiếu phạt mới";
-            var rewardText = $"{tx.Description}: {tx.Amount:N0}đ" + (tx.Status == "Completed" ? " (đã duyệt)" : " (chờ duyệt)");
+            var rewardDesc = (tx.Description ?? "").Trim();
+            if (rewardDesc.Length > 24) rewardDesc = rewardDesc[..24].TrimEnd() + "…";
+            var rewardTitle = (type == "Bonus" ? "Thưởng " : "Phạt ") + HrMoney(tx.Amount)
+                + (rewardDesc.Length > 0 ? $": {rewardDesc}" : "");
+            var rewardText = tx.Status == "Completed" ? "Đã duyệt" : "Chờ duyệt";
             if (emp.ApplicationUserId.HasValue && emp.ApplicationUserId != CurrentUserId)
                 await notifications.CreateAndSendAsync(emp.ApplicationUserId, type == "Bonus" ? NotificationType.Success : NotificationType.Warning,
                     rewardTitle, rewardText,
                     relatedEntityType: "PaymentTransaction", relatedEntityId: tx.Id,
-                    fromUserId: CurrentUserId, categoryCode: "payroll", storeId: storeId);
+                    fromUserId: CurrentUserId, categoryCode: type == "Bonus" ? "payroll" : "penalty", storeId: storeId);
             else if (!emp.ApplicationUserId.HasValue)
-                await notifications.NotifyEmployeesWithoutAccountAsync(storeId, [emp.Id], rewardTitle, rewardText, "payroll");
+                await notifications.NotifyEmployeesWithoutAccountAsync(storeId, [emp.Id], rewardTitle, rewardText, type == "Bonus" ? "payroll" : "penalty");
         }
         catch (Exception ex) { logger.LogWarning(ex, "HrFinance: notify reward failed"); }
 
@@ -960,6 +973,7 @@ public class HrFinanceController(
         var deadline = DateTime.Now.AddDays(-Math.Max(0, settings.DisputeWindowDays));
         Guid? notifyUser;
         string label;
+        string refText;
 
         if (dto.Kind == "ticket")
         {
@@ -971,7 +985,8 @@ public class HrFinanceController(
                 return Ok(AppResponse<bool>.Fail($"Đã quá hạn khiếu nại ({settings.DisputeWindowDays} ngày)"));
             t.DisputeStatus = 1; t.DisputeReason = dto.Reason.Trim(); t.DisputedAt = DateTime.UtcNow;
             notifyUser = t.ProcessedById;
-            label = $"phiếu phạt {t.TicketCode} ({t.Amount:N0}đ)";
+            label = $"phạt {HrMoney(t.Amount)}";
+            refText = t.TicketCode;
         }
         else if (dto.Kind == "penalty")
         {
@@ -984,7 +999,9 @@ public class HrFinanceController(
                 return Ok(AppResponse<bool>.Fail($"Đã quá hạn khiếu nại ({settings.DisputeWindowDays} ngày)"));
             t.DisputeStatus = 1; t.DisputeReason = dto.Reason.Trim(); t.DisputedAt = DateTime.UtcNow;
             notifyUser = t.PerformedById;
-            label = $"phiếu phạt \"{t.Description}\" ({Math.Abs(t.Amount):N0}đ)";
+            label = $"phạt {HrMoney(t.Amount)}";
+            refText = (t.Description ?? "").Trim();
+            if (refText.Length > 30) refText = refText[..30].TrimEnd() + "…";
         }
         else return Ok(AppResponse<bool>.Fail("Chỉ khiếu nại được phiếu phạt"));
 
@@ -992,9 +1009,10 @@ public class HrFinanceController(
         try
         {
             if (notifyUser.HasValue && notifyUser != CurrentUserId)
+                // Tên NV ở tiêu đề → bộ định dạng push không chèn lại vào nội dung.
                 await notifications.CreateAndSendAsync(notifyUser, NotificationType.Warning,
-                    "Nhân viên khiếu nại phiếu phạt",
-                    $"{me.Name} khiếu nại {label}: {dto.Reason.Trim()}",
+                    $"{me.Name} khiếu nại {label}",
+                    $"Lý do: {HrShort(dto.Reason, 70)}" + (refText.Length > 0 ? $" · {refText}" : ""),
                     relatedEntityType: "HrFinanceDispute", relatedEntityId: dto.Id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: RequiredStoreId);
         }
@@ -1032,7 +1050,7 @@ public class HrFinanceController(
                 }
             }
             employeeUser = t.Employee?.ApplicationUserId;
-            label = $"phiếu phạt {t.TicketCode}";
+            label = $"phạt {HrMoney(t.Amount)}";
         }
         else if (kind == "penalty")
         {
@@ -1052,7 +1070,7 @@ public class HrFinanceController(
                 }
             }
             employeeUser = t.EmployeeUserId;
-            label = $"phiếu phạt \"{t.Description}\"";
+            label = $"phạt {HrMoney(t.Amount)}";
         }
         else return Ok(AppResponse<bool>.Fail("Loại phiếu không hỗ trợ"));
 
@@ -1061,9 +1079,9 @@ public class HrFinanceController(
         {
             if (employeeUser.HasValue)
                 await notifications.CreateAndSendAsync(employeeUser, dto.Accept ? NotificationType.Success : NotificationType.Info,
-                    dto.Accept ? "Khiếu nại được chấp nhận" : "Khiếu nại không được chấp nhận",
-                    $"Khiếu nại {label}: " + (dto.Accept ? "phiếu đã được hủy." : "giữ nguyên phiếu.")
-                    + (string.IsNullOrWhiteSpace(dto.Response) ? "" : $" Phản hồi: {dto.Response!.Trim()}"),
+                    dto.Accept ? $"Khiếu nại {label} được chấp nhận" : $"Khiếu nại {label} bị từ chối",
+                    (dto.Accept ? "Phiếu đã hủy" : "Giữ nguyên phiếu")
+                    + (string.IsNullOrWhiteSpace(dto.Response) ? "" : $" · {HrShort(dto.Response, 70)}"),
                     relatedEntityType: "HrFinanceDispute", relatedEntityId: id,
                     fromUserId: CurrentUserId, categoryCode: "penalty", storeId: storeId);
         }

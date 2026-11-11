@@ -102,13 +102,20 @@ public class CreateEmployeeHandler(
 
         try
         {
+            // «Nhân viên mới» / «Lê Thị Hoa: Nguyễn Văn An (NV001) · Kế toán» — người gửi = người vừa thêm (CurrentUserId).
+            var newName = $"{employee.LastName} {employee.FirstName}".Trim();
+            var deptName = employee.Department?.Trim();
+            var newEmployeeText = string.IsNullOrEmpty(deptName)
+                ? $"{newName} ({employee.EmployeeCode})"
+                : $"{newName} ({employee.EmployeeCode}) · {deptName}";
             await notificationService.CreateAndSendAsync(
                 targetUserId: null,
                 type: NotificationType.Info,
                 title: "Nhân viên mới",
-                message: $"Nhân viên mới: {request.LastName} {request.FirstName} ({request.EmployeeCode})",
+                message: newEmployeeText,
                 relatedEntityId: employee.Id,
                 relatedEntityType: "Employee",
+                fromUserId: request.ManagerId == Guid.Empty ? (Guid?)null : request.ManagerId,
                 categoryCode: "employee",
                 storeId: request.StoreId);
         }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using ZKTecoADMS.Application.DTOs.BusinessTrip;
 using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Repositories;
 
 namespace ZKTecoADMS.Application.Commands.BusinessTrip;
@@ -203,7 +204,7 @@ public class SaveBusinessTripSettlementHandler(
                 await notificationService.CreateAndSendToUsersAsync(
                     set, NotificationType.ApprovalRequired,
                     "Hạch toán công tác chờ duyệt",
-                    $"{tripCase.CaseCode} — {total:N0}đ",
+                    $"{tripCase.CaseCode} · Tổng chi {total:N0}đ",
                     relatedEntityId: tripCase.Id, relatedEntityType: "BusinessTripCase",
                     fromUserId: tripCase.EmployeeUserId, categoryCode: "business_trip", storeId: request.StoreId);
             }
@@ -262,6 +263,29 @@ public class ApproveBusinessTripSettlementHandler(
             {
                 BusinessTripCaseLoader.DetachSettlementNavigations(settlement);
                 await settlementRepository.UpdateAsync(settlement, ct);
+
+                // Báo người duyệt bước kế (trước đây không ai được báo → phiếu nằm chờ).
+                try
+                {
+                    if (next.AssignedUserId.HasValue && next.AssignedUserId != request.ApprovedById)
+                    {
+                        var employeeName = tripCase!.Employee != null
+                            ? $"{tripCase.Employee.LastName} {tripCase.Employee.FirstName}".Trim()
+                            : NotificationPushFormatter.FormatUserDisplayName(tripCase.EmployeeUser);
+                        if (string.IsNullOrWhiteSpace(employeeName)) employeeName = "Nhân viên";
+                        var approverDisplay = NotificationPushFormatter.FormatUserDisplayName(approver);
+                        if (string.IsNullOrWhiteSpace(approverDisplay)) approverDisplay = "Quản lý";
+                        var levels = settlement.TotalApprovalLevels > 0 ? settlement.TotalApprovalLevels : records.Count;
+                        await notificationService.CreateAndSendAsync(
+                            next.AssignedUserId.Value, NotificationType.ApprovalRequired,
+                            "Cần duyệt hạch toán công tác",
+                            $"{employeeName} · {tripCase.CaseCode} · Tổng chi {tripCase.SettledAmount:N0}đ · Bước {next.StepOrder}/{levels} · {approverDisplay} đã duyệt bước {settlement.CurrentApprovalStep}",
+                            relatedEntityId: tripCase.Id, relatedEntityType: "BusinessTripCase",
+                            fromUserId: tripCase.EmployeeUserId, categoryCode: "business_trip", storeId: request.StoreId);
+                    }
+                }
+                catch { }
+
                 return AppResponse<BusinessTripCaseDto>.Success(
                     await BusinessTripCaseLoader.ToDtoAsync(caseRepository, tripCase!.Id, request.StoreId, ct));
             }
@@ -287,7 +311,7 @@ public class ApproveBusinessTripSettlementHandler(
                     await notificationService.CreateAndSendAsync(
                         tripCase.EmployeeUserId.Value, NotificationType.Success,
                         "Hạch toán công tác đã duyệt",
-                        SettlementMessage(settlement),
+                        $"{tripCase.CaseCode} · {SettlementMessage(settlement)}",
                         relatedEntityId: tripCase.Id, relatedEntityType: "BusinessTripCase",
                         fromUserId: request.ApprovedById, categoryCode: "business_trip", storeId: request.StoreId);
                 }
@@ -314,16 +338,17 @@ public class ApproveBusinessTripSettlementHandler(
             {
                 if (tripCase.EmployeeUserId.HasValue)
                 {
+                    // Trước đây «Hoa: CT-2026-012: Thiếu hóa đơn» (2 dấu «:»).
                     var reason = string.IsNullOrWhiteSpace(request.RejectionReason)
-                        ? "Không có lý do"
-                        : request.RejectionReason.Trim();
+                        ? string.Empty
+                        : $" · Lý do: {request.RejectionReason.Trim()}";
                     await notificationService.CreateAndSendAsync(
                         tripCase.EmployeeUserId.Value, NotificationType.Warning,
                         request.RejectionReason != null
                             && request.RejectionReason.Contains("Bổ sung", StringComparison.OrdinalIgnoreCase)
                             ? "Yêu cầu bổ sung giấy tờ công tác"
                             : "Hạch toán công tác bị từ chối",
-                        $"{tripCase.CaseCode}: {reason}",
+                        $"{tripCase.CaseCode}{reason}",
                         relatedEntityId: tripCase.Id, relatedEntityType: "BusinessTripCase",
                         fromUserId: request.ApprovedById, categoryCode: "business_trip", storeId: request.StoreId);
                 }
@@ -347,10 +372,11 @@ public class ApproveBusinessTripSettlementHandler(
 
     private static string SettlementMessage(BusinessTripSettlementClaim s) => s.SettlementType switch
     {
-        BusinessTripSettlementType.PayExtra => $"Thiếu {s.BalanceAmount:N0}đ — chờ chi bù",
-        BusinessTripSettlementType.SurplusAsAdvance => $"Dư {Math.Abs(s.BalanceAmount):N0}đ — ghi nợ ứng lương",
-        BusinessTripSettlementType.SurplusRefunded => $"Dư {Math.Abs(s.BalanceAmount):N0}đ — chờ thu hoàn",
-        _ => "Quyết toán khớp — đã đóng hồ sơ"
+        // «Thiếu / Dư» không nói ai nợ ai — viết theo phía nhân viên.
+        BusinessTripSettlementType.PayExtra => $"Công ty sẽ chi thêm cho bạn {s.BalanceAmount:N0}đ",
+        BusinessTripSettlementType.SurplusAsAdvance => $"Dư {Math.Abs(s.BalanceAmount):N0}đ · Tính như ứng lương, trừ vào lương",
+        BusinessTripSettlementType.SurplusRefunded => $"Bạn cần hoàn lại {Math.Abs(s.BalanceAmount):N0}đ",
+        _ => "Khớp số tiền · Đã đóng hồ sơ"
     };
 }
 
@@ -467,7 +493,7 @@ public class PayBusinessTripSettlementExtraHandler(
                 await notificationService.CreateAndSendAsync(
                     tripCase.EmployeeUserId.Value, NotificationType.Success,
                     "Đã chi bù công tác phí",
-                    $"{settlement.BalanceAmount:N0}đ ({methodLabel})",
+                    $"{settlement.BalanceAmount:N0}đ · {tripCase.CaseCode} · {methodLabel}",
                     relatedEntityId: tripCase.Id, relatedEntityType: "BusinessTripCase",
                     fromUserId: request.PerformedById, categoryCode: "business_trip", storeId: request.StoreId);
             }

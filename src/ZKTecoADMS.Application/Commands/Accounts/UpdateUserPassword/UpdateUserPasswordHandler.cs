@@ -53,8 +53,8 @@ public class UpdateUserPasswordHandler(
             await notificationService.CreateAndSendAsync(
                 targetUserId: user.Id,
                 type: NotificationType.Warning,
-                title: "Đổi mật khẩu",
-                message: "Mật khẩu của bạn đã được thay đổi thành công",
+                title: "Mật khẩu đã đổi",
+                message: "Không phải bạn đổi? Báo quản lý ngay",
                 relatedEntityType: "Account",
                 categoryCode: "account",
                 storeId: user.StoreId);

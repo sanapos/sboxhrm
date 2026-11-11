@@ -54,8 +54,9 @@ public class DeleteDepartmentHandler(
                 await notificationService.CreateAndSendAsync(
                     targetUserId: null,
                     type: NotificationType.Warning,
-                    title: "Xóa phòng ban",
-                    message: $"Phòng ban \"{deptName}\" ({deptCode}) đã bị xóa",
+                    // «Đã xóa phòng ban» / «Kế toán (KT)»
+                    title: "Đã xóa phòng ban",
+                    message: $"{deptName} ({deptCode})",
                     relatedEntityType: "Department",
                     categoryCode: "department",
                     storeId: request.StoreId);

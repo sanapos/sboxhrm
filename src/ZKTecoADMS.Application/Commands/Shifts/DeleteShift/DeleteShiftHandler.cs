@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 
@@ -5,6 +6,7 @@ namespace ZKTecoADMS.Application.Commands.Shifts.DeleteShift;
 
 public class DeleteShiftHandler(
     IRepository<Shift> repository,
+    IRepository<Employee> employeeRepository,
     ISystemNotificationService notificationService,
     INotificationTargetResolver targetResolver)
     : ICommandHandler<DeleteShiftCommand, AppResponse<bool>>
@@ -29,7 +31,8 @@ public class DeleteShiftHandler(
             }
 
             var employeeUserId = shift.EmployeeUserId;
-            var shiftDate = shift.StartTime;
+            var shiftStart = VnTimeHelper.AttendanceWallClock(shift.StartTime);
+            var shiftEnd = VnTimeHelper.AttendanceWallClock(shift.EndTime);
             await repository.DeleteAsync(shift, cancellationToken);
 
             // Notify employee + 2-level dept managers + store admins per the org chart.
@@ -37,14 +40,31 @@ public class DeleteShiftHandler(
             {
                 if (employeeUserId != Guid.Empty)
                 {
-                    var targets = await targetResolver.ResolveEmployeeAndManagersAsync(
-                        employeeUserId, request.StoreId, hierarchyLevels: 2, cancellationToken);
-                    if (targets.Count > 0)
+                    // Cùng nhóm người nhận như trước (NV + quản lý 2 cấp + admin), nhưng tách câu:
+                    // NV: «Ca 12/11 của bạn đã bị xóa» / «07:00–15:00 · Ca đang chờ duyệt»
+                    // Quản lý: «Đã xóa ca của Nguyễn Văn An» / «12/11 · 07:00–15:00»
+                    var hours = $"{shiftStart:HH:mm}–{shiftEnd:HH:mm}";
+                    await notificationService.CreateAndSendAsync(
+                        employeeUserId, NotificationType.Warning,
+                        $"Ca {shiftStart:dd/MM} của bạn đã bị xóa",
+                        $"{hours} · Ca đang chờ duyệt",
+                        relatedEntityId: request.Id, relatedEntityType: "Shift",
+                        categoryCode: "shift", storeId: request.StoreId);
+
+                    var managers = (await targetResolver.ResolveManagersAsync(
+                            employeeUserId, request.StoreId, hierarchyLevels: 2, cancellationToken))
+                        .Where(id => id != employeeUserId)
+                        .ToList();
+                    if (managers.Count > 0)
                     {
+                        var employee = await employeeRepository.GetSingleAsync(
+                            e => e.ApplicationUserId == employeeUserId && e.StoreId == request.StoreId,
+                            cancellationToken: cancellationToken);
+                        var name = $"{employee?.LastName} {employee?.FirstName}".Trim();
                         await notificationService.CreateAndSendToUsersAsync(
-                            targets, NotificationType.Warning,
-                            "Ca làm việc đã bị xóa",
-                            $"Ca làm việc ngày {shiftDate:dd/MM/yyyy} đã bị xóa.",
+                            managers, NotificationType.Warning,
+                            string.IsNullOrEmpty(name) ? "Đã xóa ca chờ duyệt" : $"Đã xóa ca của {name}",
+                            $"{shiftStart:dd/MM} · {hours}",
                             relatedEntityId: request.Id, relatedEntityType: "Shift",
                             categoryCode: "shift", storeId: request.StoreId);
                     }

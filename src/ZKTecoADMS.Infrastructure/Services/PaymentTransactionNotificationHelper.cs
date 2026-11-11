@@ -30,6 +30,10 @@ public static class PaymentTransactionNotificationHelper
 
 
 
+    /// <summary>Phiếu phạt vào nhóm «Phiếu phạt» (cùng phiếu phạt chấm công); thưởng / khấu trừ… giữ «Thu chi».</summary>
+    public static string CategoryFor(string? type) =>
+        string.Equals(type, "Penalty", StringComparison.OrdinalIgnoreCase) ? "penalty" : "transaction";
+
     public static string TypeLabel(string? type) => type switch
 
     {
@@ -38,11 +42,31 @@ public static class PaymentTransactionNotificationHelper
 
         "Penalty" => "phạt",
 
-        _ => type ?? "giao dịch"
+        "Deduction" => "khấu trừ",
+
+        "AdvancePayment" => "ứng lương",
+
+        "SalaryPayment" => "chi lương",
+
+        "Allowance" => "phụ cấp",
+
+        _ => "thu chi"
 
     };
 
 
+
+    /// <summary>Tiền kiểu Việt «200.000đ».</summary>
+
+    private static string Vnd(decimal v) => CashTransactionLinkageHelper.Vnd(v);
+
+    /// <summary>Ghép ý bằng « · », bỏ ý trống; mô tả dài cắt 60 ký tự.</summary>
+
+    private static string JoinDot(params string?[] parts) =>
+
+        string.Join(" · ", parts.Where(p => !string.IsNullOrWhiteSpace(p))
+
+            .Select(p => p!.Trim().Length > 60 ? p.Trim()[..60].TrimEnd() + "…" : p.Trim()));
 
     public static async Task NotifyCreatedAsync(
 
@@ -78,7 +102,7 @@ public static class PaymentTransactionNotificationHelper
 
                 $"Phiếu {label} mới",
 
-                $"Bạn có phiếu {label}: {amount:N0}đ — {tx.Description}",
+                JoinDot(Vnd(amount), tx.Description),
 
                 relatedEntityType: EntityType,
 
@@ -86,7 +110,7 @@ public static class PaymentTransactionNotificationHelper
 
                 fromUserId: actorUserId,
 
-                categoryCode: "transaction",
+                categoryCode: CategoryFor(tx.Type),
 
                 storeId: storeId);
 
@@ -108,17 +132,7 @@ public static class PaymentTransactionNotificationHelper
 
 
 
-        var actor = await context.Users.AsNoTracking()
-
-            .Where(u => u.Id == actorUserId)
-
-            .Select(u => new { u.FullName, u.UserName })
-
-            .FirstOrDefaultAsync();
-
-        var actorName = actor?.FullName ?? actor?.UserName ?? "Quản lý";
-
-
+        // Người tạo = fromUserId → formatter tự thêm tên (trước đây message ghi tên + formatter lặp lại).
 
         var empName = await ResolveEmployeeNameAsync(context, tx);
 
@@ -130,9 +144,9 @@ public static class PaymentTransactionNotificationHelper
 
             NotificationType.Info,
 
-            $"Phiếu {label} mới",
+            $"Phiếu {label} cho {empName}",
 
-            $"{actorName} tạo phiếu {label} cho {empName}: {amount:N0}đ — {tx.Description}",
+            JoinDot(Vnd(amount), tx.Description),
 
             relatedEntityType: EntityType,
 
@@ -140,7 +154,7 @@ public static class PaymentTransactionNotificationHelper
 
             fromUserId: actorUserId,
 
-            categoryCode: "transaction",
+            categoryCode: CategoryFor(tx.Type),
 
             storeId: storeId);
 
@@ -178,7 +192,11 @@ public static class PaymentTransactionNotificationHelper
 
             "Pending" => (NotificationType.Info, "chờ duyệt"),
 
-            _ => (NotificationType.Info, $"cập nhật: {newStatus}")
+            "Rejected" => (NotificationType.Warning, "bị từ chối"),
+
+            "Paid" => (NotificationType.Success, "đã thanh toán"),
+
+            _ => (NotificationType.Info, "đã cập nhật")
 
         };
 
@@ -190,9 +208,9 @@ public static class PaymentTransactionNotificationHelper
 
             notifType,
 
-            $"Phiếu {label} cập nhật",
+            $"Phiếu {label} {statusText}",
 
-            $"Phiếu {label} {Math.Abs(tx.Amount):N0}đ {statusText}",
+            JoinDot(Vnd(Math.Abs(tx.Amount)), tx.Description),
 
             relatedEntityType: EntityType,
 
@@ -200,7 +218,7 @@ public static class PaymentTransactionNotificationHelper
 
             fromUserId: actorUserId,
 
-            categoryCode: "transaction",
+            categoryCode: CategoryFor(tx.Type),
 
             storeId: storeId);
 
@@ -242,13 +260,13 @@ public static class PaymentTransactionNotificationHelper
 
             $"Phiếu {label} đã xóa",
 
-            $"Phiếu {label} {Math.Abs(amount):N0}đ đã bị xóa",
+            Vnd(Math.Abs(amount)),
 
             relatedEntityType: EntityType,
 
             fromUserId: actorUserId,
 
-            categoryCode: "transaction",
+            categoryCode: CategoryFor(type),
 
             storeId: storeId);
 
@@ -284,7 +302,7 @@ public static class PaymentTransactionNotificationHelper
 
             $"Phiếu {label} {action}",
 
-            $"Phiếu {label} {Math.Abs(tx.Amount):N0}đ {action}",
+            JoinDot(Vnd(Math.Abs(tx.Amount)), tx.Description),
 
             relatedEntityType: EntityType,
 
@@ -292,7 +310,7 @@ public static class PaymentTransactionNotificationHelper
 
             fromUserId: actorUserId,
 
-            categoryCode: "transaction",
+            categoryCode: CategoryFor(tx.Type),
 
             storeId: storeId);
 

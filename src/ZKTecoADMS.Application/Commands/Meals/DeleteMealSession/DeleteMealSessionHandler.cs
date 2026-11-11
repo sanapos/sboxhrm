@@ -29,8 +29,8 @@ public class DeleteMealSessionHandler(
                 await notificationService.CreateAndSendToStoreEmployeesAsync(
                     request.StoreId,
                     NotificationType.Warning,
-                    title: "Xoá buổi ăn",
-                    message: $"Buổi ăn \"{sessionName}\" đã bị xoá",
+                    title: "Đã xóa buổi ăn",
+                    message: $"Buổi ăn \"{sessionName}\" đã bị xóa",
                     relatedEntityType: "MealSession",
                     categoryCode: "meal");
             }

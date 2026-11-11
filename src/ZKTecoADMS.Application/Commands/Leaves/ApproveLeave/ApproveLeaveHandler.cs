@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Application.Commands.Leaves.ApproveLeave;
@@ -113,21 +114,28 @@ public class ApproveLeaveHandler(
 
                     try
                     {
+                        var range = FormatRange(leave.StartDate, leave.EndDate);
+                        var approverDisplay = NotificationPushFormatter.FormatUserDisplayName(approver);
+                        if (string.IsNullOrWhiteSpace(approverDisplay)) approverDisplay = "Quản lý";
+
                         if (nextStep.AssignedUserId.HasValue)
                         {
+                            // Người gửi = NV xin nghỉ (trước đây là người duyệt trước → đọc thành «Hoa: …» như Hoa xin nghỉ).
+                            var employeeName = NotificationPushFormatter.FormatUserDisplayName(leave.EmployeeUser);
+                            if (string.IsNullOrWhiteSpace(employeeName)) employeeName = "Nhân viên";
                             await notificationService.CreateAndSendAsync(
                                 nextStep.AssignedUserId.Value, NotificationType.ApprovalRequired,
-                                "Đơn nghỉ phép cần phê duyệt",
-                                $"Đơn nghỉ phép cần phê duyệt (Bước {nextStep.StepOrder}/{leave.TotalApprovalLevels}) từ {leave.StartDate:dd/MM/yyyy} đến {leave.EndDate:dd/MM/yyyy}",
+                                "Cần duyệt nghỉ phép",
+                                $"{employeeName} xin nghỉ {range} · Bước {nextStep.StepOrder}/{leave.TotalApprovalLevels} · {approverDisplay} đã duyệt bước {currentStep.StepOrder}",
                                 relatedEntityId: leave.Id, relatedEntityType: "Leave",
-                                fromUserId: request.ApprovedByUserId, categoryCode: "leave", storeId: request.StoreId);
+                                fromUserId: leave.EmployeeUserId, categoryCode: "leave", storeId: request.StoreId);
                         }
 
                         // Progress notification to employee
                         await notificationService.CreateAndSendAsync(
                             leave.EmployeeUserId, NotificationType.Info,
-                            "Tiến trình duyệt nghỉ phép",
-                            $"Đơn nghỉ phép đã được duyệt bước {currentStep.StepOrder}/{leave.TotalApprovalLevels} ({currentStep.StepName}) bởi {approverName}",
+                            $"Nghỉ phép: xong bước {currentStep.StepOrder}/{leave.TotalApprovalLevels}",
+                            $"Nghỉ {range} · {approverDisplay} đã duyệt, chờ bước {nextStep.StepOrder}",
                             relatedEntityId: leave.Id, relatedEntityType: "Leave",
                             fromUserId: request.ApprovedByUserId, categoryCode: "approval", storeId: request.StoreId);
                     }
@@ -158,18 +166,15 @@ public class ApproveLeaveHandler(
 
         try
         {
+            // Trước đây ~150 ký tự, thiếu «.» trước «Đã trừ»; số phép còn lại nằm cuối bị cắt trên banner.
             var daysUsed = leave.AnnualLeaveDaysDeducted;
             var balanceNote = daysUsed > 0
-                ? $" Đã trừ {daysUsed:0.##} ngày phép năm. Còn lại: {deduct.Data:0.##} ngày."
+                ? $" · Trừ {daysUsed:0.##} ngày phép năm, còn {deduct.Data:0.##} ngày"
                 : string.Empty;
             await notificationService.CreateAndSendAsync(
                 leave.EmployeeUserId, NotificationType.Success,
                 "Đơn nghỉ phép đã duyệt",
-                $"Đơn nghỉ phép từ {leave.StartDate:dd/MM/yyyy} đến {leave.EndDate:dd/MM/yyyy} đã được phê duyệt hoàn tất" +
-                (leave.TotalApprovalLevels > 1
-                    ? $" ({leave.TotalApprovalLevels}/{leave.TotalApprovalLevels} cấp)"
-                    : "") +
-                balanceNote,
+                $"Nghỉ {FormatRange(leave.StartDate, leave.EndDate)}{balanceNote}",
                 relatedEntityId: leave.Id, relatedEntityType: "Leave",
                 fromUserId: request.ApprovedByUserId, categoryCode: "approval",
                 storeId: request.StoreId);
@@ -178,4 +183,8 @@ public class ApproveLeaveHandler(
 
         return AppResponse<bool>.Success(true);
     }
+
+    /// <summary>«12/11» (một ngày) hoặc «12/11–13/11».</summary>
+    private static string FormatRange(DateTime start, DateTime end) =>
+        start.Date == end.Date ? $"{start:dd/MM}" : $"{start:dd/MM}–{end:dd/MM}";
 }

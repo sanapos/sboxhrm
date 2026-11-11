@@ -79,13 +79,16 @@ public class CreateCommunicationHandler(
 
                     if (userIds.Count > 0)
                     {
-                        var notifType = communication.Priority == CommunicationPriority.High
-                            ? NotificationType.Warning
-                            : NotificationType.Info;
+                        var isHigh = communication.Priority == CommunicationPriority.High;
+                        var notifType = isHigh ? NotificationType.Warning : NotificationType.Info;
+                        // «Quan trọng · Lịch nghỉ Tết 2027» / «Lê Thị Hoa: Công ty thông báo lịch nghỉ Tết từ…» (~80 ký tự)
+                        var summary = string.IsNullOrWhiteSpace(communication.Summary)
+                            ? StripHtml(communication.Content, 80)
+                            : StripHtml(communication.Summary, 80);
                         await notificationService.CreateAndSendToUsersAsync(
                             userIds, notifType,
-                            communication.Title,
-                            communication.Summary ?? StripHtml(communication.Content, 200),
+                            isHigh ? $"Quan trọng · {communication.Title}" : communication.Title,
+                            summary,
                             relatedEntityId: communication.Id, relatedEntityType: "Communication",
                             fromUserId: request.CurrentUserId,
                             categoryCode: "internal_comm", storeId: request.StoreId);
@@ -105,7 +108,9 @@ public class CreateCommunicationHandler(
     private static string StripHtml(string html, int max)
     {
         if (string.IsNullOrEmpty(html)) return string.Empty;
-        var text = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ").Trim();
-        return text.Length > max ? text.Substring(0, max) + "…" : text;
+        var text = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ");
+        text = System.Net.WebUtility.HtmlDecode(text);
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+        return text.Length > max ? text.Substring(0, max).TrimEnd() + "…" : text;
     }
 }

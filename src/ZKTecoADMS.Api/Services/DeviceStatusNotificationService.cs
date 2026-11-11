@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -40,12 +41,54 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
         _serviceScopeFactory = serviceScopeFactory;
     }
 
+    private static string DeviceLabel(Device device) =>
+        string.IsNullOrWhiteSpace(device.DeviceName) ? device.SerialNumber : device.DeviceName.Trim();
+
+    /// <summary>«HH:mm dd/MM» giờ VN (Timestamp/LastOnline lưu UTC).</summary>
+    private static string VnStamp(DateTime utc) =>
+        ZKTecoADMS.Application.Helpers.VnTimeHelper.UtcToVn(utc).ToString("HH:mm dd/MM", CultureInfo.InvariantCulture);
+
+    /// <summary>Số kiểu Việt: 85000 → «85.000».</summary>
+    private static string VnNumber(long value) =>
+        value.ToString("#,0", CultureInfo.InvariantCulture).Replace(',', '.');
+
+    /// <summary>
+    /// Tên cửa hàng của máy — SuperAdmin nhận thông báo của mọi cửa hàng nên cần biết máy ở đâu.
+    /// </summary>
+    private async Task<string?> GetStoreNameAsync(Device device)
+    {
+        if (!string.IsNullOrWhiteSpace(device.Store?.Name)) return device.Store!.Name.Trim();
+        if (!device.StoreId.HasValue) return null;
+        try
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetService<ZKTecoADMS.Infrastructure.ZKTecoDbContext>();
+            if (db == null) return null;
+            var storeId = device.StoreId.Value;
+            var name = await db.Stores.IgnoreQueryFilters().AsNoTracking()
+                .Where(s => s.Id == storeId)
+                .Select(s => s.Name)
+                .FirstOrDefaultAsync();
+            return string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not resolve store name for device {SN}", device.SerialNumber);
+            return null;
+        }
+    }
+
+    /// <summary>Ghép các ý bằng « · », bỏ ý trống.</summary>
+    private static string JoinParts(params string?[] parts) =>
+        string.Join(" · ", parts.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p!.Trim()));
+
     public async Task NotifyDeviceOnlineAsync(Device device)
     {
         try
         {
-            var message = $"Máy chấm công '{device.DeviceName ?? device.SerialNumber}' đã kết nối";
-            
+            var storeName = await GetStoreNameAsync(device);
+            var message = JoinParts(DeviceLabel(device), storeName, $"lúc {VnStamp(DateTime.UtcNow)}");
+
             var notification = new DeviceStatusNotification(
                 DeviceId: device.Id.ToString(),
                 SerialNumber: device.SerialNumber,
@@ -61,7 +104,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
             await SendDeviceStatusToTargetsAsync(notification, adminUserIds, device);
 
             await SendAndSaveNotificationAsync(
-                title: "Thiết bị kết nối",
+                title: "Máy chấm công đã kết nối lại",
                 message: message,
                 type: NotificationType.Success,
                 adminUserIds: adminUserIds,
@@ -84,8 +127,11 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
     {
         try
         {
-            var message = $"Máy chấm công '{device.DeviceName ?? device.SerialNumber}' đã ngắt kết nối";
-            
+            var storeName = await GetStoreNameAsync(device);
+            // LastOnline (UTC) = nhịp tim cuối — mốc máy bắt đầu mất kết nối.
+            var since = VnStamp(device.LastOnline ?? DateTime.UtcNow);
+            var message = JoinParts(DeviceLabel(device), storeName, $"từ {since}", "kiểm tra điện, mạng của máy");
+
             var notification = new DeviceStatusNotification(
                 DeviceId: device.Id.ToString(),
                 SerialNumber: device.SerialNumber,
@@ -101,7 +147,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
             await SendDeviceStatusToTargetsAsync(notification, adminUserIds, device);
 
             await SendAndSaveNotificationAsync(
-                title: "Thiết bị ngắt kết nối",
+                title: "Máy chấm công mất kết nối",
                 message: message,
                 type: NotificationType.Warning,
                 adminUserIds: adminUserIds,
@@ -124,8 +170,13 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
     {
         try
         {
-            var message = $"Phát hiện máy chấm công mới: {device.SerialNumber}";
-            
+            var storeName = await GetStoreNameAsync(device);
+            var message = JoinParts(
+                $"Serial {device.SerialNumber}",
+                storeName ?? "chưa gán cửa hàng",
+                $"lúc {VnStamp(DateTime.UtcNow)}",
+                "mở Thiết bị để duyệt");
+
             var notification = new DeviceStatusNotification(
                 DeviceId: device.Id.ToString(),
                 SerialNumber: device.SerialNumber,
@@ -141,7 +192,7 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
             await SendDeviceStatusToTargetsAsync(notification, adminUserIds, device);
 
             await SendAndSaveNotificationAsync(
-                title: "Phát hiện thiết bị mới",
+                title: "Có máy chấm công mới",
                 message: message,
                 type: NotificationType.Info,
                 adminUserIds: adminUserIds,
@@ -165,16 +216,24 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
         try
         {
             var (title, eventType, type, status) = MapAlert(code);
-            var name = device.DeviceName ?? device.SerialNumber;
-            var detail = string.IsNullOrWhiteSpace(message)
-                ? title
-                : $"{message}";
-            if (records > 0)
-                detail += $" (log trên máy: {records:N0})";
-            if (durationMs > 0)
-                detail += $" (mất {durationMs / 1000.0:0.#}s)";
+            var name = DeviceLabel(device);
+            var storeName = await GetStoreNameAsync(device);
+            var normalizedCode = (code ?? "").Trim().ToUpperInvariant();
 
-            var fullMessage = $"Gateway '{name}': {detail}";
+            // Body: máy · cửa hàng · giờ VN · số liệu (kiểu Việt) · việc cần làm / lý do gateway gửi lên.
+            var parts = new List<string?> { name, storeName, $"lúc {VnStamp(DateTime.UtcNow)}" };
+            if (records > 0)
+                parts.Add($"{VnNumber(records)} lượt trên máy");
+            if (durationMs > 0)
+                parts.Add($"mất {(durationMs / 1000.0).ToString("0.#", CultureInfo.InvariantCulture).Replace('.', ',')} giây");
+            if (normalizedCode == "SYNC_SLOW")
+                parts.Add("nên xóa bớt log trên máy");
+            else if (normalizedCode == "ZK_OFFLINE")
+                parts.Add("kiểm tra điện, mạng của máy");
+            else if (normalizedCode != "ZK_ONLINE" && !string.IsNullOrWhiteSpace(message))
+                parts.Add(message.Trim()); // lý do chi tiết do gateway gửi lên (lỗi giao tiếp, đồng bộ lỗi, mã lạ)
+
+            var fullMessage = JoinParts(parts.ToArray());
 
             var notification = new DeviceStatusNotification(
                 DeviceId: device.Id.ToString(),
@@ -218,9 +277,9 @@ public class DeviceStatusNotificationService : IDeviceStatusNotificationService
             "ZK_OFFLINE" => ("Mất kết nối máy chấm công", "ZkOffline", NotificationType.Warning, "ZkOffline"),
             "ZK_ONLINE" => ("Máy chấm công đã kết nối lại", "ZkOnline", NotificationType.Success, "Online"),
             "COMM_ERROR" => ("Lỗi giao tiếp máy chấm công", "CommError", NotificationType.Warning, "CommError"),
-            "SYNC_SLOW" => ("Đồng bộ quá lâu — nên xóa bớt log trên máy", "SyncSlow", NotificationType.Warning, "SyncSlow"),
+            "SYNC_SLOW" => ("Máy chấm công đồng bộ chậm", "SyncSlow", NotificationType.Warning, "SyncSlow"),
             "SYNC_FAILED" => ("Đồng bộ chấm công thất bại", "SyncFailed", NotificationType.Error, "SyncFailed"),
-            _ => ("Cảnh báo gateway chấm công", "GatewayAlert", NotificationType.Warning, "Alert"),
+            _ => ("Cảnh báo máy chấm công", "GatewayAlert", NotificationType.Warning, "Alert"),
         };
     }
 

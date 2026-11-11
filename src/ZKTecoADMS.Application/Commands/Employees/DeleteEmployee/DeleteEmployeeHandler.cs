@@ -51,8 +51,9 @@ public class DeleteEmployeeHandler(
             await notificationService.CreateAndSendAsync(
                 targetUserId: null,
                 type: NotificationType.Warning,
-                title: "Xóa nhân viên",
-                message: $"Nhân viên {employeeName} ({employeeCode}) đã bị xóa khỏi hệ thống",
+                // «Đã xóa nhân viên» / «Nguyễn Văn An (NV001)»
+                title: "Đã xóa nhân viên",
+                message: $"{employeeName} ({employeeCode})",
                 relatedEntityType: "Employee",
                 categoryCode: "employee",
                 storeId: request.StoreId);

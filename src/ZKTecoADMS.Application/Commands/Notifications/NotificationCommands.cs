@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Notifications;
 using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Enums;
@@ -17,7 +19,9 @@ public record CreateNotificationCommand(
     Guid? FromUserId) : ICommand<AppResponse<NotificationDto>>;
 
 public class CreateNotificationHandler(
-    IRepository<Notification> notificationRepository
+    IRepository<Notification> notificationRepository,
+    ISystemNotificationService notificationService,
+    UserManager<ApplicationUser> userManager
 ) : ICommandHandler<CreateNotificationCommand, AppResponse<NotificationDto>>
 {
     public async Task<AppResponse<NotificationDto>> Handle(CreateNotificationCommand request, CancellationToken cancellationToken)
@@ -39,7 +43,18 @@ public class CreateNotificationHandler(
                 RelatedEntityType = request.RelatedEntityType
             };
 
+            if (request.TargetUserId is Guid target
+                && (await NotificationTargetScope.InStoreAsync(userManager, [target], request.StoreId, cancellationToken)).Count == 0)
+                return AppResponse<NotificationDto>.Error("Người nhận không thuộc cửa hàng");
+
             var created = await notificationRepository.AddAsync(notification, cancellationToken);
+
+            // Trước đây chỉ lưu — người nhận không có thông báo trên điện thoại (SignalR + FCM).
+            if (created.TargetUserId is Guid uid)
+            {
+                try { await notificationService.SendToUserAsync(uid, created); }
+                catch { /* đẩy lỗi không làm hỏng việc tạo; thông báo vẫn trong danh sách */ }
+            }
             
             return AppResponse<NotificationDto>.Success(created.Adapt<NotificationDto>());
         }
@@ -61,14 +76,19 @@ public record BulkCreateNotificationsCommand(
     Guid? FromUserId) : ICommand<AppResponse<List<NotificationDto>>>;
 
 public class BulkCreateNotificationsHandler(
-    IRepository<Notification> notificationRepository
+    IRepository<Notification> notificationRepository,
+    ISystemNotificationService notificationService,
+    UserManager<ApplicationUser> userManager
 ) : ICommandHandler<BulkCreateNotificationsCommand, AppResponse<List<NotificationDto>>>
 {
     public async Task<AppResponse<List<NotificationDto>>> Handle(BulkCreateNotificationsCommand request, CancellationToken cancellationToken)
     {
         try
         {
-            var notifications = request.TargetUserIds.Select(userId => new Notification
+            // Chỉ người nhận thuộc cửa hàng (trước đây nhận mọi mã tài khoản gửi lên).
+            var targets = await NotificationTargetScope.InStoreAsync(
+                userManager, request.TargetUserIds.Distinct().ToList(), request.StoreId, cancellationToken);
+            var notifications = targets.Select(userId => new Notification
             {
                 StoreId = request.StoreId,
                 TargetUserId = userId,
@@ -81,7 +101,15 @@ public class BulkCreateNotificationsHandler(
                 RelatedUrl = request.RelatedUrl
             }).ToList();
 
-            await notificationRepository.AddRangeAsync(notifications, cancellationToken);
+            if (notifications.Count > 0)
+                await notificationRepository.AddRangeAsync(notifications, cancellationToken);
+
+            // Đẩy từng người (mỗi máy nhận đúng mã thông báo của mình). Trước đây chỉ lưu.
+            foreach (var n in notifications)
+            {
+                try { await notificationService.SendToUserAsync(n.TargetUserId!.Value, n); }
+                catch { /* lỗi đẩy một người không chặn người khác */ }
+            }
             
             return AppResponse<List<NotificationDto>>.Success(notifications.Adapt<List<NotificationDto>>());
         }
@@ -245,5 +273,20 @@ public class DeleteAllNotificationsHandler(
         {
             return AppResponse<int>.Error(ex.Message);
         }
+    }
+}
+
+/// <summary>Lọc người nhận về tài khoản của cửa hàng gửi thông báo.</summary>
+internal static class NotificationTargetScope
+{
+    public static async Task<List<Guid>> InStoreAsync(
+        UserManager<ApplicationUser> userManager, IReadOnlyCollection<Guid> userIds, Guid storeId, CancellationToken ct)
+    {
+        if (userIds.Count == 0) return [];
+        var ids = userIds.ToList();
+        return await userManager.Users.AsNoTracking()
+            .Where(u => ids.Contains(u.Id) && u.StoreId == storeId)
+            .Select(u => u.Id)
+            .ToListAsync(ct);
     }
 }

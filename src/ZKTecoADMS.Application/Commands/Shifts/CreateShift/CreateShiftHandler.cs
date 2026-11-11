@@ -1,4 +1,5 @@
 using ZKTecoADMS.Application.DTOs.Shifts;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 
@@ -51,15 +52,27 @@ public class CreateShiftHandler(IRepository<Shift> shiftRepository, ISystemNotif
             {
                 if (request.IsManager)
                 {
-                    var dateRange = shifts.Count == 1
-                        ? shifts[0].StartTime.ToString("dd/MM/yyyy")
-                        : $"{shifts.Min(s => s.StartTime):dd/MM/yyyy} - {shifts.Max(s => s.StartTime):dd/MM/yyyy}";
+                    // 1 ca: «Bạn có ca mới» / «12/11 · 07:00–15:00»; nhiều ca: «12/11–15/11 · 4 ca»
+                    var first = VnTimeHelper.AttendanceWallClock(shifts.Min(s => s.StartTime));
+                    var last = VnTimeHelper.AttendanceWallClock(shifts.Max(s => s.StartTime));
+                    string body;
+                    if (shifts.Count == 1)
+                    {
+                        var end = VnTimeHelper.AttendanceWallClock(shifts[0].EndTime);
+                        body = $"{first:dd/MM} · {first:HH:mm}–{end:HH:mm}";
+                    }
+                    else
+                    {
+                        body = first.Date == last.Date
+                            ? $"{first:dd/MM} · {shifts.Count} ca"
+                            : $"{first:dd/MM}–{last:dd/MM} · {shifts.Count} ca";
+                    }
                     await notificationService.CreateAndSendAsync(
                         request.EmployeeUserId, NotificationType.Info,
-                        "Ca làm việc mới",
-                        $"Bạn được phân ca làm việc: {dateRange}",
+                        "Bạn có ca mới",
+                        body,
                         relatedEntityId: shifts.First().Id, relatedEntityType: "Shift",
-                        categoryCode: "attendance", storeId: request.StoreId);
+                        categoryCode: "shift", storeId: request.StoreId);
                 }
             }
             catch { /* Notification failure should not affect main operation */ }

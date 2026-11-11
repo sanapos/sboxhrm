@@ -949,7 +949,7 @@ public class CommunicationV2Controller(
         if (p.Status == CommunicationStatus.Published && d.Notify)
             await NotifyAudienceAsync(p, ch, v.UserId, isUpdate: false);
         if (p.Status == CommunicationStatus.PendingApproval)
-            await NotifyManagersAsync(p, $"{v.DisplayName} gửi bài chờ duyệt: {p.Title}");
+            await NotifyManagersAsync(p, "Cần duyệt bài truyền thông", $"{v.DisplayName} · «{ShortText(p.Title, 60)}»");
         if (p.Status is CommunicationStatus.Published or CommunicationStatus.PendingApproval)
             await PostChangedAsync(p.Id, p.Status == CommunicationStatus.Published ? "created" : "pending", p.ChannelId);
         return await Get(p.Id, markRead: false);
@@ -1009,9 +1009,9 @@ public class CommunicationV2Controller(
         if (p.Status == CommunicationStatus.Published && d.Notify && (!wasPublished || d.BumpVersion))
             await NotifyAudienceAsync(p, ch, v.UserId, isUpdate: wasPublished);
         if (backToReview || (!wasPublished && p.Status == CommunicationStatus.PendingApproval))
-            await NotifyManagersAsync(p, backToReview
-                ? $"{v.DisplayName} sửa bài đã đăng, cần duyệt lại: {p.Title}"
-                : $"{v.DisplayName} gửi bài chờ duyệt: {p.Title}");
+            await NotifyManagersAsync(p,
+                backToReview ? "Cần duyệt lại bài đã sửa" : "Cần duyệt bài truyền thông",
+                $"{v.DisplayName} · «{ShortText(p.Title, 60)}»");
         await PostChangedAsync(p.Id, backToReview ? "pending" : wasPublished ? "updated" :
             p.Status == CommunicationStatus.Published ? "created" : "updated", p.ChannelId);
         return await Get(p.Id, markRead: false);
@@ -1049,7 +1049,9 @@ public class CommunicationV2Controller(
         try
         {
             await notifications.CreateAndSendAsync(p.AuthorId, approve ? NotificationType.Success : NotificationType.Warning,
-                approve ? "Bài viết đã được duyệt" : "Bài viết bị từ chối", p.Title,
+                // Endpoint duyệt không nhận lý do từ chối → chỉ ghi tiêu đề bài.
+                approve ? "Bài viết đã được duyệt" : "Bài viết bị từ chối",
+                approve ? $"«{ShortText(p.Title, 60)}» đã đăng lên Bản tin" : $"«{ShortText(p.Title, 60)}» không được đăng",
                 relatedEntityId: p.Id, relatedEntityType: "Communication", fromUserId: CurrentUserId,
                 categoryCode: "communication", storeId: RequiredStoreId);
         }
@@ -1293,22 +1295,28 @@ public class CommunicationV2Controller(
         await CommentChangedAsync(id, comment.Id, "added");
 
         // Thông báo: tác giả bài, người được trả lời, người được @nhắc tên (cùng cửa hàng).
-        var targets = new Dictionary<Guid, string>();
-        if (p.AuthorId != v.UserId) targets[p.AuthorId] = $"{v.DisplayName} bình luận bài «{p.Title}»";
-        if (parentUser.HasValue && parentUser != v.UserId) targets[parentUser.Value] = $"{v.DisplayName} trả lời bình luận của bạn";
+        // Tiêu đề nói việc gì + ai (tên đã ở tiêu đề nên bộ định dạng không chèn lại), nội dung = bài + đoạn bình luận.
+        var postName = ShortText(p.Title, 40);
+        var preview = content.Length > 0 ? $"\"{ShortText(content, 60)}\"" : "đã gửi ảnh";
+        var targets = new Dictionary<Guid, (string Title, string Body)>();
+        if (p.AuthorId != v.UserId)
+            targets[p.AuthorId] = ($"{v.DisplayName} bình luận bài của bạn", $"«{postName}»: {preview}");
+        if (parentUser.HasValue && parentUser != v.UserId)
+            targets[parentUser.Value] = ($"{v.DisplayName} trả lời bình luận của bạn", $"«{postName}»: {preview}");
         if (d.MentionUserIds is { Count: > 0 })
         {
             var ok = await db.Employees.AsNoTracking()
                 .Where(e => e.StoreId == RequiredStoreId && e.ApplicationUserId != null && d.MentionUserIds.Contains(e.ApplicationUserId.Value))
                 .Select(e => e.ApplicationUserId!.Value).ToListAsync();
-            foreach (var u in ok.Where(u => u != v.UserId)) targets[u] = $"{v.DisplayName} nhắc đến bạn trong bài «{p.Title}»";
+            foreach (var u in ok.Where(u => u != v.UserId))
+                targets[u] = ($"{v.DisplayName} nhắc đến bạn", $"Trong bài «{postName}»: {preview}");
         }
         foreach (var u in await BlockersOfAsync(v.UserId, targets.Keys)) targets.Remove(u);
         foreach (var (uid, msg) in targets)
         {
             try
             {
-                await notifications.CreateAndSendAsync(uid, NotificationType.Info, "Truyền thông", msg,
+                await notifications.CreateAndSendAsync(uid, NotificationType.Info, msg.Title, msg.Body,
                     relatedEntityId: id, relatedEntityType: "Communication", fromUserId: v.UserId,
                     categoryCode: "communication", storeId: RequiredStoreId);
             }
@@ -1385,8 +1393,10 @@ public class CommunicationV2Controller(
         {
             try
             {
-                await notifications.CreateAndSendAsync(c.UserId, NotificationType.Info, "Truyền thông",
-                    $"{v.DisplayName} thích bình luận của bạn", relatedEntityId: c.CommunicationId, relatedEntityType: "Communication",
+                await notifications.CreateAndSendAsync(c.UserId, NotificationType.Info,
+                    $"{v.DisplayName} thích bình luận của bạn",
+                    $"Trong bài «{ShortText(p.Title, 50)}»",
+                    relatedEntityId: c.CommunicationId, relatedEntityType: "Communication",
                     fromUserId: v.UserId, categoryCode: "communication", storeId: RequiredStoreId);
             }
             catch { /* bỏ qua */ }
@@ -1502,10 +1512,11 @@ public class CommunicationV2Controller(
             CreatedBy = CurrentUserEmail,
         });
         await db.SaveChangesAsync();
-        await NotifyModeratorsAsync(v.UserId, "Báo cáo vi phạm",
-            commentId == null ? $"Có báo cáo bài «{p.Title}» — vào Bản tin › Báo cáo vi phạm để xử lý"
-                              : $"Có báo cáo một bình luận trong bài «{p.Title}» — vào Bản tin › Báo cáo vi phạm để xử lý",
-            p.Id);
+        // Không kèm người gửi: bộ định dạng push sẽ chèn tên người báo cáo vào nội dung.
+        await NotifyModeratorsAsync(v.UserId, "Báo cáo vi phạm cần xử lý",
+            commentId == null ? $"Bài «{ShortText(p.Title, 50)}» · mở Bản tin › Báo cáo vi phạm"
+                              : $"Bình luận trong bài «{ShortText(p.Title, 40)}» · mở Bản tin › Báo cáo vi phạm",
+            p.Id, hideSender: true);
         return Ok(AppResponse<bool>.Success(true));
     }
 
@@ -1725,11 +1736,17 @@ public class CommunicationV2Controller(
         }
     }
 
-    private Task NotifyManagersAsync(InternalCommunication p, string message) =>
-        NotifyModeratorsAsync(p.AuthorId, "Bài chờ duyệt", message, p.Id);
+    private Task NotifyManagersAsync(InternalCommunication p, string title, string message) =>
+        NotifyModeratorsAsync(p.AuthorId, title, message, p.Id);
+
+    private static string ShortText(string? text, int max)
+    {
+        var t = System.Text.RegularExpressions.Regex.Replace(text ?? string.Empty, @"\s+", " ").Trim();
+        return t.Length > max ? t[..max].TrimEnd() + "…" : t;
+    }
 
     /// <summary>Thông báo người kiểm duyệt Truyền thông của cửa hàng (trừ <paramref name="exceptUserId"/>).</summary>
-    private async Task NotifyModeratorsAsync(Guid exceptUserId, string title, string message, Guid postId)
+    private async Task NotifyModeratorsAsync(Guid exceptUserId, string title, string message, Guid postId, bool hideSender = false)
     {
         try
         {
@@ -1748,7 +1765,7 @@ public class CommunicationV2Controller(
             }
             if (managers.Count > 0)
                 await notifications.CreateAndSendToUsersAsync(managers, NotificationType.Info, title, message,
-                    relatedEntityId: postId, relatedEntityType: "Communication", fromUserId: exceptUserId,
+                    relatedEntityId: postId, relatedEntityType: "Communication", fromUserId: hideSender ? null : exceptUserId,
                     categoryCode: "communication", storeId: RequiredStoreId);
         }
         catch { /* bỏ qua */ }

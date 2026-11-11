@@ -6,10 +6,52 @@ using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.AttendanceCorrections;
 using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
 
 namespace ZKTecoADMS.Application.Commands.AttendanceCorrections;
+
+/// <summary>Chữ dùng trong thông báo chỉnh công: «sửa công 12/11 · 08:05 → 08:00».</summary>
+internal static class AttendanceCorrectionNoticeText
+{
+    public static string Verb(CorrectionAction action) => action switch
+    {
+        CorrectionAction.Add => "thêm",
+        CorrectionAction.Edit => "sửa",
+        CorrectionAction.Delete => "xóa",
+        _ => "chỉnh",
+    };
+
+    /// <summary>«12/11 · 08:05 → 08:00» (sửa), «12/11 · 08:00» (thêm / xóa). Ngày giờ chấm công là giờ tường VN.</summary>
+    public static string When(
+        CorrectionAction action, DateTime? oldDate, TimeSpan? oldTime, DateTime? newDate, TimeSpan? newTime)
+    {
+        var date = newDate ?? oldDate;
+        var parts = new List<string>();
+        if (date.HasValue) parts.Add(date.Value.ToString("dd/MM"));
+        string? T(TimeSpan? t) => t?.ToString(@"hh\:mm");
+        var time = action switch
+        {
+            CorrectionAction.Edit when oldTime.HasValue && newTime.HasValue && oldTime != newTime
+                => $"{T(oldTime)} → {T(newTime)}",
+            CorrectionAction.Delete => T(oldTime),
+            _ => T(newTime) ?? T(oldTime),
+        };
+        if (!string.IsNullOrEmpty(time)) parts.Add(time);
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>«sửa công 12/11 · 08:05 → 08:00».</summary>
+    public static string Describe(AttendanceCorrectionRequest c)
+    {
+        var when = When(c.Action, c.OldDate, c.OldTime, c.NewDate, c.NewTime);
+        return string.IsNullOrEmpty(when) ? $"{Verb(c.Action)} công" : $"{Verb(c.Action)} công {when}";
+    }
+
+    public static string Capitalize(string text) =>
+        string.IsNullOrEmpty(text) ? text : char.ToUpper(text[0]) + text[1..];
+}
 
 // Create Attendance Correction Request Command
 public record CreateAttendanceCorrectionCommand(
@@ -217,13 +259,8 @@ public class CreateAttendanceCorrectionHandler(
                 // Send notification to first-level approver(s) only
                 try
                 {
-                    var actionText = request.Action switch
-                    {
-                        CorrectionAction.Add => "thêm",
-                        CorrectionAction.Edit => "sửa",
-                        CorrectionAction.Delete => "xóa",
-                        _ => "chỉnh sửa"
-                    };
+                    // Trước đây chỉ «yêu cầu sửa chấm công» — người duyệt không biết ngày / giờ nào.
+                    var correctionText = AttendanceCorrectionNoticeText.Describe(created);
 
                     var firstLevelTargets = approvalChain
                         .Where(r => r.StepOrder == 1 && r.AssignedUserId.HasValue)
@@ -246,8 +283,8 @@ public class CreateAttendanceCorrectionHandler(
                         await notificationService.CreateAndSendToUsersAsync(
                             firstLevelTargets, NotificationType.ApprovalRequired,
                             "Yêu cầu chỉnh công mới",
-                            $"{request.EmployeeName ?? "Nhân viên"} yêu cầu {actionText} chấm công" +
-                            (approvalLevels > 1 ? $" (cấp 1/{approvalLevels})" : ""),
+                            $"{request.EmployeeName ?? "Nhân viên"} xin {correctionText}" +
+                            (approvalLevels > 1 ? $" · Cấp 1/{approvalLevels}" : ""),
                             relatedEntityId: created.Id, relatedEntityType: "AttendanceCorrection",
                             fromUserId: employeeUserId, categoryCode: "approval", storeId: request.StoreId);
                     }
@@ -509,10 +546,14 @@ public class ApproveAttendanceCorrectionHandler(
                 // Notify employee
                 try
                 {
+                    // Có ngày / giờ; ghi chú trống thì bỏ cả cụm; bỏ «cấp 1/1».
+                    var noteText = string.IsNullOrWhiteSpace(request.ApproverNote)
+                        ? string.Empty
+                        : $" · Lý do: {request.ApproverNote.Trim()}";
                     await notificationService.CreateAndSendAsync(
                         correction.EmployeeUserId, NotificationType.Warning,
                         "Yêu cầu chỉnh công bị từ chối",
-                        $"Yêu cầu chỉnh sửa chấm công bị từ chối ở cấp {currentRecord.StepOrder}/{correction.TotalApprovalLevels}. Ghi chú: {request.ApproverNote}",
+                        AttendanceCorrectionNoticeText.Capitalize(AttendanceCorrectionNoticeText.Describe(correction)) + noteText,
                         relatedEntityId: correction.Id, relatedEntityType: "AttendanceCorrection",
                         fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
                 }
@@ -537,17 +578,25 @@ public class ApproveAttendanceCorrectionHandler(
                 // Move to next level
                 await correctionRepository.UpdateAsync(correction, cancellationToken);
 
-                // Notify next approver
+                var approverDisplay = NotificationPushFormatter.FormatUserDisplayName(approver);
+                if (string.IsNullOrWhiteSpace(approverDisplay)) approverDisplay = "Quản lý";
+                var correctionText = AttendanceCorrectionNoticeText.Describe(correction);
+
+                // Notify next approver — người gửi = NV xin (trước đây là người duyệt trước → 2 tên liền nhau, không rõ ai xin).
                 try
                 {
                     if (nextPending.AssignedUserId.HasValue)
                     {
+                        var employeeName = !string.IsNullOrWhiteSpace(correction.EmployeeName)
+                            ? correction.EmployeeName.Trim()
+                            : NotificationPushFormatter.FormatUserDisplayName(correction.EmployeeUser);
+                        if (string.IsNullOrWhiteSpace(employeeName)) employeeName = "Nhân viên";
                         await notificationService.CreateAndSendAsync(
                             nextPending.AssignedUserId, NotificationType.ApprovalRequired,
-                            "Yêu cầu chỉnh công cần duyệt",
-                            $"{correction.EmployeeName ?? "Nhân viên"} yêu cầu chỉnh công - cấp {nextPending.StepOrder}/{correction.TotalApprovalLevels}",
+                            "Cần duyệt chỉnh công",
+                            $"{employeeName} xin {correctionText} · Cấp {nextPending.StepOrder}/{correction.TotalApprovalLevels} · {approverDisplay} đã duyệt cấp {currentRecord.StepOrder}",
                             relatedEntityId: correction.Id, relatedEntityType: "AttendanceCorrection",
-                            fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
+                            fromUserId: correction.EmployeeUserId, categoryCode: "approval", storeId: request.StoreId);
                     }
                 }
                 catch { }
@@ -557,8 +606,8 @@ public class ApproveAttendanceCorrectionHandler(
                 {
                     await notificationService.CreateAndSendAsync(
                         correction.EmployeeUserId, NotificationType.Info,
-                        "Chỉnh công: duyệt cấp " + currentRecord.StepOrder,
-                        $"Yêu cầu đã được duyệt cấp {currentRecord.StepOrder}/{correction.TotalApprovalLevels}. Đang chờ cấp {nextPending.StepOrder}",
+                        $"Chỉnh công: xong cấp {currentRecord.StepOrder}/{correction.TotalApprovalLevels}",
+                        $"{AttendanceCorrectionNoticeText.Capitalize(correctionText)} · {approverDisplay} đã duyệt, chờ cấp {nextPending.StepOrder}",
                         relatedEntityId: correction.Id, relatedEntityType: "AttendanceCorrection",
                         fromUserId: request.ApprovedById, categoryCode: "approval", storeId: request.StoreId);
                 }
@@ -675,8 +724,8 @@ public class UndoApproveAttendanceCorrectionHandler(
             {
                 await notificationService.CreateAndSendAsync(
                     correction.EmployeeUserId, NotificationType.Warning,
-                    "Yêu cầu chỉnh công hoàn duyệt",
-                    "Yêu cầu chỉnh sửa chấm công đã được hoàn duyệt về trạng thái chờ",
+                    "Chỉnh công quay lại chờ duyệt",
+                    $"{AttendanceCorrectionNoticeText.Capitalize(AttendanceCorrectionNoticeText.Describe(correction))} · Kết quả duyệt đã hủy, công trả về như cũ",
                     relatedEntityId: correction.Id, relatedEntityType: "AttendanceCorrection",
                     fromUserId: request.UserId, categoryCode: "approval", storeId: request.StoreId);
             }

@@ -386,8 +386,8 @@ public class PenaltyTicketsController(
 
         // Notify employee
         await NotifyTicketEmployeeAsync(ticket.EmployeeId, ticket.Employee?.ApplicationUserId, NotificationType.Warning,
-            "Phiếu phạt đã bị hủy",
-            $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã bị hủy.",
+            $"Đã hủy phạt {PenaltyMoney(ticket.Amount)}",
+            $"{PenaltyWhat(ticket)} · không trừ lương · {ticket.TicketCode}",
             ticket.Id);
 
         return Ok(AppResponse<PenaltyTicketDto>.Success(new PenaltyTicketDto
@@ -434,8 +434,8 @@ public class PenaltyTicketsController(
 
         // Notify employee
         await NotifyTicketEmployeeAsync(ticket.EmployeeId, ticket.Employee?.ApplicationUserId, NotificationType.Info,
-            "Phiếu phạt đã được duyệt",
-            $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã được duyệt.",
+            $"Phạt {PenaltyMoney(ticket.Amount)} đã duyệt",
+            $"{PenaltyWhat(ticket)} · {ticket.TicketCode}",
             ticket.Id);
 
         return Ok(AppResponse<PenaltyTicketDto>.Success(new PenaltyTicketDto
@@ -635,9 +635,9 @@ public class PenaltyTicketsController(
 
         // Notify employee
         await NotifyTicketEmployeeAsync(employee.Id, employee.ApplicationUserId, NotificationType.Warning,
-            "Bạn có phiếu phạt mới",
-            $"Phiếu phạt {ticket.TicketCode}: {ticket.Amount:N0}đ - {TicketTypeText(ticket.Type)}, ngày {ticket.ViolationDate:dd/MM/yyyy}."
-                + (string.IsNullOrWhiteSpace(ticket.Description) ? "" : $" Lý do: {ticket.Description.Trim()}."),
+            $"Phạt {PenaltyMoney(ticket.Amount)} — {TicketTypeText(ticket.Type)} {ticket.ViolationDate:dd/MM}",
+            (string.IsNullOrWhiteSpace(ticket.Description) ? "" : $"Lý do: {PenaltyShort(ticket.Description, 60)} · ")
+                + ticket.TicketCode,
             ticket.Id);
 
         var dto = new PenaltyTicketDto
@@ -694,8 +694,8 @@ public class PenaltyTicketsController(
 
         // Notify employee
         await NotifyTicketEmployeeAsync(ticket.EmployeeId, ticket.Employee?.ApplicationUserId, NotificationType.Info,
-            "Phiếu phạt đã được cập nhật",
-            $"Phiếu phạt {ticket.TicketCode} đã được cập nhật ({ticket.Amount:N0}đ).",
+            $"Phiếu phạt {ticket.TicketCode} đã sửa",
+            $"Còn {PenaltyMoney(ticket.Amount)} · {PenaltyWhat(ticket)}",
             ticket.Id);
 
         return Ok(AppResponse<PenaltyTicketDto>.Success(new PenaltyTicketDto
@@ -753,8 +753,8 @@ public class PenaltyTicketsController(
 
         // Notify employee
         await NotifyTicketEmployeeAsync(ticket.EmployeeId, employeeUserId, NotificationType.Warning,
-            "Phiếu phạt đã bị xóa",
-            $"Phiếu phạt {ticketCode} đã bị xóa.",
+            $"Đã xóa phạt {PenaltyMoney(ticket.Amount)}",
+            $"{PenaltyWhat(ticket)} · không trừ lương · {ticketCode}",
             id);
 
         return Ok(AppResponse<string>.Success("Đã xóa phiếu phạt"));
@@ -797,8 +797,8 @@ public class PenaltyTicketsController(
 
         // Notify employee
         await NotifyTicketEmployeeAsync(ticket.EmployeeId, ticket.Employee?.ApplicationUserId, NotificationType.Info,
-            "Phiếu phạt đã hoàn duyệt",
-            $"Phiếu phạt {ticket.TicketCode} ({ticket.Amount:N0}đ) đã được hoàn duyệt về trạng thái chờ.",
+            $"Phạt {PenaltyMoney(ticket.Amount)} quay lại chờ duyệt",
+            $"{PenaltyWhat(ticket)} · {ticket.TicketCode}",
             ticket.Id);
 
         return Ok(AppResponse<PenaltyTicketDto>.Success(new PenaltyTicketDto
@@ -874,6 +874,20 @@ public class PenaltyTicketsController(
     }
 
     #endregion
+
+    // ─── Nội dung thông báo phiếu phạt: số tiền + loại + ngày trước, mã phiếu sau ───
+
+    private static string PenaltyMoney(decimal amount) =>
+        amount.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) + "đ";
+
+    private static string PenaltyShort(string? text, int max)
+    {
+        var t = (text ?? "").Trim();
+        return t.Length > max ? t[..max].TrimEnd() + "…" : t;
+    }
+
+    /// <summary>«Đi trễ 10/11».</summary>
+    private static string PenaltyWhat(ZKTecoADMS.Domain.Entities.PenaltyTicket ticket) => $"{TicketTypeText(ticket.Type)} {ticket.ViolationDate:dd/MM}";
 
     private static string TicketTypeText(PenaltyTicketType t) => t switch
     {

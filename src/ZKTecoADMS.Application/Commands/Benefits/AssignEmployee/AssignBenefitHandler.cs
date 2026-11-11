@@ -111,22 +111,24 @@ public class AssignBenefitHandler(
         try
         {
             var employeeName = $"{employee.LastName} {employee.FirstName}".Trim();
-            var rateTypeNames = new Dictionary<SalaryRateType, string>
+            // «25.000đ/giờ» thay cho «bảng lương theo giờ với mức 25.000đ» (thiếu đơn vị, dễ hiểu nhầm).
+            var rateUnits = new Dictionary<SalaryRateType, string>
             {
-                { SalaryRateType.Hourly, "theo giờ" },
-                { SalaryRateType.Monthly, "tháng" },
-                { SalaryRateType.Daily, "ngày" },
-                { SalaryRateType.Shift, "theo ca" }
+                { SalaryRateType.Hourly, "/giờ" },
+                { SalaryRateType.Monthly, "/tháng" },
+                { SalaryRateType.Daily, "/ngày" },
+                { SalaryRateType.Shift, "/ca" }
             };
-            var rateTypeName = rateTypeNames.GetValueOrDefault(benefit.RateType, "");
+            var rateText = $"{benefit.Rate:N0}đ{rateUnits.GetValueOrDefault(benefit.RateType, "")}";
+            var effectiveText = $"Áp dụng từ {effective:dd/MM/yyyy}";
 
             // Notify the employee
             if (employee.ApplicationUserId.HasValue)
             {
                 await notificationService.CreateAndSendAsync(
                     employee.ApplicationUserId.Value, NotificationType.Info,
-                    "Thiết lập lương mới",
-                    $"Bạn đã được thiết lập bảng lương {rateTypeName} với mức {benefit.Rate:N0}đ",
+                    "Mức lương mới",
+                    $"{rateText} · {effectiveText}",
                     relatedEntityId: benefit.Id, relatedEntityType: "Benefit",
                     fromUserId: null, categoryCode: "employee", storeId: employee.StoreId);
             }
@@ -141,7 +143,7 @@ public class AssignBenefitHandler(
                 await notificationService.CreateAndSendToUsersAsync(
                     adminIds, NotificationType.Info,
                     "Thiết lập lương nhân viên",
-                    $"Đã thiết lập bảng lương {rateTypeName} cho {employeeName} - {benefit.Rate:N0}đ",
+                    $"{employeeName}: {rateText} · {effectiveText}",
                     relatedEntityId: benefit.Id, relatedEntityType: "Benefit",
                     fromUserId: null, categoryCode: "employee", storeId: employee.StoreId);
             }

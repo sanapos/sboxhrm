@@ -326,8 +326,8 @@ public class RegisterCommandHandler(
                         targetUserIds: superAdminIds,
                         type: NotificationType.Info,
                         title: "Cửa hàng mới đăng ký",
-                        message:
-                            $"Cửa hàng '{request.StoreName}' (Mã: {storeCode}) vừa đăng ký. Email: {request.Email}",
+                        // «Cửa hàng mới đăng ký» / «SBOX Cafe · Mã ABC123 · chu@x.com»
+                        message: $"{request.StoreName} · Mã {storeCode} · {request.Email}",
                         relatedUrl: "/admin/stores",
                         relatedEntityId: storeId,
                         relatedEntityType: "Store",

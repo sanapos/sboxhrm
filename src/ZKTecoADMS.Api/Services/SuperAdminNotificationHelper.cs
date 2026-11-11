@@ -42,6 +42,11 @@ public static class SuperAdminNotificationHelper
             .ToList();
         if (ids.Count == 0) return;
 
+        // KHÔNG gắn storeId của cửa hàng khách: SystemNotificationService kiểm tra FCM theo gói dịch vụ của
+        // storeId → SuperAdmin bị chặn push khi gói cửa hàng đó không có FCM / không có nhóm này. SuperAdmin
+        // xem thông báo mọi cửa hàng (NotificationUserScope cross-store) nên không cần StoreId để lọc;
+        // cửa hàng liên quan vẫn nằm ở RelatedEntityId (khi RelatedEntityType = "Store").
+        _ = storeId;
         await notificationService.CreateAndSendToUsersAsync(
             targetUserIds: ids,
             type: type,
@@ -51,6 +56,6 @@ public static class SuperAdminNotificationHelper
             relatedEntityId: relatedEntityId,
             relatedEntityType: relatedEntityType,
             categoryCode: categoryCode,
-            storeId: storeId);
+            storeId: null);
     }
 }

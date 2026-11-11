@@ -37,8 +37,8 @@ public class DeleteMealMenuHandler(
                 await notificationService.CreateAndSendToStoreEmployeesAsync(
                     request.StoreId,
                     NotificationType.Warning,
-                    title: "Xoá thực đơn",
-                    message: $"Thực đơn {sessionName} ngày {menuDate:dd/MM} đã bị xoá",
+                    title: "Đã xóa thực đơn",
+                    message: string.IsNullOrWhiteSpace(sessionName) ? $"Thực đơn ngày {menuDate:dd/MM} đã bị xóa" : $"Thực đơn {sessionName} ngày {menuDate:dd/MM} đã bị xóa",
                     relatedEntityType: "MealMenu",
                     categoryCode: "meal");
             }

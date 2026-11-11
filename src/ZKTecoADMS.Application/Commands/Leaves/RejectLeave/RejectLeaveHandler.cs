@@ -83,13 +83,17 @@ public class RejectLeaveHandler(
 
             try
             {
-                var stepInfo = approvalRecords.Count > 1
-                    ? $" (bởi {rejectorName} - {approvalRecords.FirstOrDefault(r => r.Status == ApprovalStatus.Rejected)?.StepName})"
-                    : "";
+                // Người từ chối đã có trong tên người gửi (trước đây «bởi Unknown - …» khi thiếu tên); lý do lên trước.
+                var range = leave.StartDate.Date == leave.EndDate.Date
+                    ? $"{leave.StartDate:dd/MM}"
+                    : $"{leave.StartDate:dd/MM}–{leave.EndDate:dd/MM}";
+                var reason = string.IsNullOrWhiteSpace(request.RejectionReason)
+                    ? string.Empty
+                    : $" · Lý do: {request.RejectionReason.Trim()}";
                 await notificationService.CreateAndSendAsync(
                     leave.EmployeeUserId, NotificationType.Warning,
                     "Đơn nghỉ phép bị từ chối",
-                    $"Đơn nghỉ phép từ {leave.StartDate:dd/MM/yyyy} đến {leave.EndDate:dd/MM/yyyy} đã bị từ chối{stepInfo}. Lý do: {request.RejectionReason}",
+                    $"Nghỉ {range}{reason}",
                     relatedEntityId: leave.Id, relatedEntityType: "Leave",
                     fromUserId: request.RejectedByUserId, categoryCode: "approval", storeId: request.StoreId);
             }

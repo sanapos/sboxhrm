@@ -99,8 +99,9 @@ public class CreateDepartmentHandler(
                 await notificationService.CreateAndSendAsync(
                     targetUserId: null,
                     type: NotificationType.Info,
-                    title: "Phòng ban mới",
-                    message: $"Đã tạo phòng ban \"{request.Name}\" ({request.Code})",
+                    // «Đã thêm phòng ban» / «Kế toán (KT)»
+                    title: "Đã thêm phòng ban",
+                    message: $"{request.Name.Trim()} ({request.Code})",
                     relatedEntityId: department.Id,
                     relatedEntityType: "Department",
                     categoryCode: "department",

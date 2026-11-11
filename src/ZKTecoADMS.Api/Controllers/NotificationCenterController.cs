@@ -513,11 +513,21 @@ public class NotificationCenterController(
             n.StoreId == storeId && n.RelatedEntityType == "NotificationBatchRemind" && n.RelatedEntityId == batchId
             && n.Timestamp > DateTime.UtcNow.AddHours(-2));
         if (recent) return Ok(AppResponse<object>.Fail("Đã nhắc trong 2 giờ qua — vui lòng đợi thêm."));
-        var first = rows[0];
-        await notifications.CreateAndSendToUsersAsync(
-            unread, first.Type, "Nhắc: " + (first.Title ?? ""), first.Message,
-            relatedEntityId: batchId, relatedEntityType: "NotificationBatchRemind",
-            fromUserId: CurrentUserId, categoryCode: first.CategoryCode, storeId: storeId);
+        // Đợt có biến cá nhân ({ten}, {hoten}…) → mỗi người một tiêu đề/nội dung riêng. Trước đây nhắc lấy dòng
+        // đầu tiên gửi cho tất cả (người khác nhận lời chào tên người đầu tiên). Nhắc lại đúng nội dung của từng người,
+        // gom những người cùng nội dung vào một lần gửi.
+        var groups = rows
+            .Where(r => !r.IsRead && r.TargetUserId.HasValue)
+            .GroupBy(r => r.TargetUserId!.Value)
+            .Select(g => g.First())
+            .GroupBy(r => (Title: r.Title ?? "", Message: r.Message ?? "", r.Type, r.CategoryCode));
+        foreach (var g in groups)
+        {
+            await notifications.CreateAndSendToUsersAsync(
+                g.Select(r => r.TargetUserId!.Value).ToList(), g.Key.Type, "Nhắc: " + g.Key.Title, g.Key.Message,
+                relatedEntityId: batchId, relatedEntityType: "NotificationBatchRemind",
+                fromUserId: CurrentUserId, categoryCode: g.Key.CategoryCode, storeId: storeId);
+        }
         return Ok(AppResponse<object>.Success(new { reminded = unread.Count }));
     }
 

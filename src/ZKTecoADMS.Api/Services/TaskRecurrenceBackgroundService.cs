@@ -120,9 +120,11 @@ public static class TaskRecurrenceRunner
                 if (notifications == null || target.ApplicationUserId is not Guid uid || uid == Guid.Empty) continue;
                 try
                 {
+                    // Title = loại việc + tên mẫu (không lặp ngày: task.Title đã có « · dd/MM»); body = hạn.
                     await notifications.CreateAndSendAsync(
-                        uid, NotificationType.Info, shared ? "Việc của ca" : "Việc định kỳ",
-                        $"{task.Title} — hạn {due:HH:mm dd/MM}",
+                        uid, NotificationType.Info,
+                        $"{(shared ? "Việc của ca" : "Việc định kỳ")}: {template.Title}",
+                        $"Hạn {due:HH:mm dd/MM}",
                         relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                         categoryCode: "task", storeId: template.StoreId);
                 }
@@ -239,22 +241,27 @@ public class TaskRecurrenceBackgroundService(IServiceProvider sp, ILogger<TaskRe
             var kind = overdue ? "OverdueAlerted" : "SlaReminded";
             if (!overdue && now < t.DueDate!.Value.AddHours(-(t.SlaReminderHours ?? 24))) continue;
             if (done.Contains((t.Id, kind))) continue;
-            var userId = await db.Employees.IgnoreQueryFilters().AsNoTracking()
-                .Where(e => e.Id == t.AssigneeId).Select(e => e.ApplicationUserId).FirstOrDefaultAsync(ct);
+            var assignee = await db.Employees.IgnoreQueryFilters().AsNoTracking()
+                .Where(e => e.Id == t.AssigneeId)
+                .Select(e => new { e.ApplicationUserId, Name = (e.LastName + " " + e.FirstName).Trim() })
+                .FirstOrDefaultAsync(ct);
+            var userId = assignee?.ApplicationUserId;
             try
             {
                 if (userId is Guid uid && uid != Guid.Empty)
                     await notify.CreateAndSendAsync(
                         uid, overdue ? NotificationType.Warning : NotificationType.Reminder,
-                        overdue ? "Công việc quá hạn" : "Sắp đến hạn công việc",
+                        overdue ? $"Quá hạn: {t.Title}" : $"Sắp đến hạn: {t.Title}",
                         overdue
-                            ? $"\"{t.Title}\" đã quá hạn ({t.DueDate:HH:mm dd/MM})"
-                            : $"\"{t.Title}\" đến hạn lúc {t.DueDate:HH:mm dd/MM}",
+                            ? $"Hạn {t.DueDate:HH:mm dd/MM} — chưa hoàn thành"
+                            : $"Hạn {t.DueDate:HH:mm dd/MM}",
                         relatedEntityId: t.Id, relatedEntityType: "WorkTask", categoryCode: "task", storeId: t.StoreId);
                 if (overdue && t.AssignedById != Guid.Empty && t.AssignedById != userId)
                     await notify.CreateAndSendAsync(
-                        t.AssignedById, NotificationType.Warning, "Việc giao đã quá hạn",
-                        $"\"{t.Title}\" chưa hoàn thành, quá hạn {t.DueDate:HH:mm dd/MM}",
+                        t.AssignedById, NotificationType.Warning, $"Việc giao quá hạn: {t.Title}",
+                        string.IsNullOrWhiteSpace(assignee?.Name)
+                            ? $"Chưa hoàn thành · hạn {t.DueDate:HH:mm dd/MM}"
+                            : $"{assignee!.Name} chưa hoàn thành · hạn {t.DueDate:HH:mm dd/MM}",
                         relatedEntityId: t.Id, relatedEntityType: "WorkTask", categoryCode: "task", storeId: t.StoreId);
             }
             catch (Exception ex)

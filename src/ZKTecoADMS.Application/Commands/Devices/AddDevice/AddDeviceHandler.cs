@@ -54,8 +54,10 @@ public class AddDeviceHandler(
                 await notificationService.CreateAndSendAsync(
                     targetUserId: null,
                     type: NotificationType.Info,
-                    title: "Kích hoạt thiết bị",
-                    message: $"Thiết bị \"{existingDevice.DeviceName}\" (SN: {request.SerialNumber}) đã được kích hoạt lại",
+                    // Formatter không còn thêm «Thiết bị · » → tiêu đề tự đủ nghĩa.
+                    // «Đã kích hoạt lại máy chấm công» / «Máy cổng · SN …0123»
+                    title: "Đã kích hoạt lại máy chấm công",
+                    message: DeviceLabel(existingDevice.DeviceName, request.SerialNumber),
                     relatedEntityId: existingDevice.Id,
                     relatedEntityType: "Device",
                     categoryCode: "device",
@@ -107,8 +109,9 @@ public class AddDeviceHandler(
             await notificationService.CreateAndSendAsync(
                 targetUserId: null,
                 type: NotificationType.Success,
-                title: "Thiết bị mới",
-                message: $"Đã đăng ký thiết bị \"{request.DeviceName}\" (SN: {request.SerialNumber})",
+                // «Đã thêm máy chấm công» / «Máy cổng · SN …0123»
+                title: "Đã thêm máy chấm công",
+                message: DeviceLabel(request.DeviceName, request.SerialNumber),
                 relatedEntityId: device.Id,
                 relatedEntityType: "Device",
                 categoryCode: "device",
@@ -117,5 +120,15 @@ public class AddDeviceHandler(
         catch { }
 
         return AppResponse<DeviceDto>.Success(device.Adapt<DeviceDto>());
+    }
+
+    /// <summary>«Máy cổng · SN …0123» — 4 số cuối đủ phân biệt máy, khỏi in cả dãy SN.</summary>
+    internal static string DeviceLabel(string? deviceName, string? serialNumber)
+    {
+        var name = deviceName?.Trim();
+        var sn = serialNumber?.Trim() ?? string.Empty;
+        var shortSn = sn.Length > 4 ? $"…{sn[^4..]}" : sn;
+        if (string.IsNullOrEmpty(name)) return string.IsNullOrEmpty(shortSn) ? "Máy chấm công" : $"SN {shortSn}";
+        return string.IsNullOrEmpty(shortSn) ? name : $"{name} · SN {shortSn}";
     }
 }

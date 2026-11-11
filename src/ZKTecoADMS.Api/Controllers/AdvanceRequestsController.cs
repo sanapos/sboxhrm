@@ -442,8 +442,8 @@ public class AdvanceRequestsController(
                 await notificationService.CreateAndSendAsync(
                     advance.EmployeeUserId.Value,
                     NotificationType.Info,
-                    "Ứng lương chờ thanh toán",
-                    $"Yêu cầu ứng lương {payoutAmount:N0}đ đã được duyệt, đang chờ kế toán thanh toán.",
+                    $"Ứng lương {payoutAmount.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN"))}đ đã duyệt",
+                    "Đang chờ kế toán chi tiền",
                     relatedEntityId: advance.Id,
                     relatedEntityType: "AdvanceRequest",
                     fromUserId: CurrentUserId,

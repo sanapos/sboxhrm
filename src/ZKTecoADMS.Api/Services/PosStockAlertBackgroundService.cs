@@ -63,9 +63,11 @@ public class PosStockAlertBackgroundService(IServiceProvider sp, ILogger<PosStoc
     internal static async Task NotifyStoreAsync(ZKTecoDbContext db, ISystemNotificationService notifications,
         Guid storeId, DateTime dayStartUtc, CancellationToken ct)
     {
+        // Báo tồn thấp theo đơn (PosNotificationHelper.NotifyLowStockAsync) dùng chung tiêu đề nhưng có
+        // RelatedEntityId = món → chỉ bản tổng hợp (RelatedEntityId null) mới chặn gửi lại bản tổng hợp.
         var sentToday = await db.Notifications.AsNoTracking()
             .Where(n => n.StoreId == storeId && n.Timestamp >= dayStartUtc &&
-                        (n.Title == ExpiryTitle || n.Title == LowStockTitle))
+                        (n.Title == ExpiryTitle || (n.Title == LowStockTitle && n.RelatedEntityId == null)))
             .Select(n => n.Title)
             .Distinct()
             .ToListAsync(ct);
@@ -80,13 +82,14 @@ public class PosStockAlertBackgroundService(IServiceProvider sp, ILogger<PosStoc
                 var expired = lots.Where(l => l.Expired).ToList();
                 var soon = lots.Where(l => !l.Expired).ToList();
                 var parts = new List<string>();
+                // Ngắn: số lô + tên trước, việc cần làm sau; «sắp hết» không bị cắt mất khi có lô đã hết.
                 if (expired.Count > 0)
-                    parts.Add($"{expired.Count} lô đã hết hạn ({Names(expired.Select(l => l.ProductName))}) — cần xuất hủy");
+                    parts.Add($"{expired.Count} lô hết hạn: {Names(expired.Select(l => l.ProductName))} — cần xuất hủy");
                 if (soon.Count > 0)
-                    parts.Add($"{soon.Count} lô sắp hết hạn ({Names(soon.Select(l => $"{l.ProductName} còn {l.DaysLeft} ngày"))})");
+                    parts.Add($"{soon.Count} lô sắp hết: {Names(soon.Select(l => $"{l.ProductName} ({l.DaysLeft} ngày)"))}");
                 await notifications.CreateAndSendToUsersAsync(userIds,
                     expired.Count > 0 ? NotificationType.Error : NotificationType.Warning,
-                    ExpiryTitle, string.Join(". ", parts),
+                    ExpiryTitle, string.Join(" · ", parts),
                     relatedEntityType: "PosReportExpiry", categoryCode: "pos", storeId: storeId);
             }
         }
@@ -102,10 +105,14 @@ public class PosStockAlertBackgroundService(IServiceProvider sp, ILogger<PosStoc
                 .ToListAsync(ct);
             if (low.Count > 0)
             {
+                // Cùng mẫu với báo theo đơn: «Đường hết · Sữa tươi còn 3 (tối thiểu 10)», số kiểu Việt.
                 var outCount = low.Count(p => p.OnHandQty <= 0);
-                var msg = $"{low.Count} mặt hàng dưới tồn tối thiểu" +
-                          (outCount > 0 ? $" ({outCount} đã hết)" : "") + ": " +
-                          Names(low.Select(p => $"{p.Name} {p.OnHandQty:0.##}/{p.MinStockQty:0.##}"));
+                var head = $"{low.Count} món" + (outCount > 0 ? $" ({outCount} đã hết)" : "");
+                var shown = low.Take(2)
+                    .Select(p => PosNotificationHelper.LowStockText(p.Name, p.OnHandQty, p.MinStockQty))
+                    .ToList();
+                if (low.Count > 2) shown.Add($"+{low.Count - 2} món");
+                var msg = $"{head}: {string.Join(" · ", shown)}";
                 await notifications.CreateAndSendToUsersAsync(userIds, NotificationType.Warning,
                     LowStockTitle, msg, relatedEntityType: "PosProduct", categoryCode: "pos", storeId: storeId);
             }

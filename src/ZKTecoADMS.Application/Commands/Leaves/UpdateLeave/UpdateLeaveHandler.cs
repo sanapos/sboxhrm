@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Leaves;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Leaves;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
@@ -165,18 +166,36 @@ public class UpdateLeaveHandler(
             // - Employee edited it: notify dept managers (2 levels) + admins
             try
             {
-                var dateRange = $"{leave.StartDate:dd/MM/yyyy} - {leave.EndDate:dd/MM/yyyy}";
+                // Không viết «Quản lý đã… / Nhân viên đã…»: formatter đã thêm tên người gửi ở đầu body.
+                var dateRange = leave.StartDate.Date == leave.EndDate.Date
+                    ? $"{leave.StartDate:dd/MM}"
+                    : $"{leave.StartDate:dd/MM}–{leave.EndDate:dd/MM}";
+                var employeeName = NotificationPushFormatter.FormatUserDisplayName(leave.EmployeeUser);
+                if (string.IsNullOrWhiteSpace(employeeName)) employeeName = "Nhân viên";
                 if (request.IsManager && leave.EmployeeUserId != request.CurrentUserId)
                 {
                     var targets = await targetResolver.ResolveEmployeeAndManagersAsync(
                         leave.EmployeeUserId, request.StoreId, hierarchyLevels: 2, cancellationToken);
-                    targets = targets.Where(id => id != request.CurrentUserId).ToList();
-                    if (targets.Count > 0)
+                    targets = targets.Where(id => id != request.CurrentUserId).Distinct().ToList();
+
+                    // NV nhận «đơn của bạn», quản lý khác nhận kèm tên NV (trước đây cùng một câu, không biết đơn của ai).
+                    if (targets.Contains(leave.EmployeeUserId))
+                    {
+                        await notificationService.CreateAndSendAsync(
+                            leave.EmployeeUserId, NotificationType.Info,
+                            "Đơn nghỉ phép đã được sửa",
+                            $"Đơn nghỉ của bạn nay là {dateRange}",
+                            relatedEntityId: leave.Id, relatedEntityType: "Leave",
+                            fromUserId: request.CurrentUserId, categoryCode: "leave", storeId: request.StoreId);
+                    }
+
+                    var managerTargets = targets.Where(id => id != leave.EmployeeUserId).ToList();
+                    if (managerTargets.Count > 0)
                     {
                         await notificationService.CreateAndSendToUsersAsync(
-                            targets, NotificationType.Info,
-                            "Đơn nghỉ phép đã được cập nhật",
-                            $"Quản lý đã cập nhật đơn nghỉ phép ({dateRange}).",
+                            managerTargets, NotificationType.Info,
+                            "Đơn nghỉ phép đã được sửa",
+                            $"Đơn nghỉ của {employeeName} nay là {dateRange}",
                             relatedEntityId: leave.Id, relatedEntityType: "Leave",
                             fromUserId: request.CurrentUserId, categoryCode: "leave", storeId: request.StoreId);
                     }
@@ -190,7 +209,7 @@ public class UpdateLeaveHandler(
                         await notificationService.CreateAndSendToUsersAsync(
                             targets, NotificationType.Info,
                             "Đơn nghỉ phép đã được sửa",
-                            $"Nhân viên đã chỉnh sửa đơn nghỉ phép ({dateRange}). Vui lòng kiểm tra lại.",
+                            $"{employeeName} sửa đơn nghỉ, nay là {dateRange} · Cần kiểm tra lại",
                             relatedEntityId: leave.Id, relatedEntityType: "Leave",
                             fromUserId: request.CurrentUserId, categoryCode: "leave", storeId: request.StoreId);
                     }

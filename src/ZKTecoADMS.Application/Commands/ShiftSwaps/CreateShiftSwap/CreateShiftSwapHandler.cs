@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Identity;
 using ZKTecoADMS.Application.DTOs.ShiftSwaps;
+using ScheduleNotifyText = ZKTecoADMS.Application.Commands.WorkSchedules.ScheduleNotifyText;
 using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
@@ -122,13 +124,21 @@ public class CreateShiftSwapHandler(
 
             try
             {
-                var requesterName = requester != null ? $"{requester.LastName} {requester.FirstName}" : "N/A";
+                // «Nguyễn Văn An muốn đổi ca» / «Bạn nhận Ca Sáng 12/11, nhường Ca Chiều 14/11 · Chạm để trả lời»
+                var requesterName = NotificationPushFormatter.FormatUserDisplayName(requester);
+                var title = string.IsNullOrWhiteSpace(requesterName)
+                    ? "Đồng nghiệp muốn đổi ca với bạn"
+                    : $"{requesterName} muốn đổi ca";
+                var body = $"Bạn nhận {ScheduleNotifyText.ShiftOnDay(requesterShift, request.RequesterDate)}, " +
+                           $"nhường {ScheduleNotifyText.ShiftOnDay(targetShift, request.TargetDate)}";
+                var reason = request.Reason?.Trim();
+                body += string.IsNullOrEmpty(reason) ? " · Chạm để trả lời" : $" · Lý do: {reason}";
                 await notificationService.CreateAndSendAsync(
                     request.TargetUserId, NotificationType.ApprovalRequired,
-                    "Yêu cầu đổi ca mới",
-                    $"{requesterName} gửi yêu cầu đổi ca ngày {request.RequesterDate:dd/MM/yyyy} với bạn",
+                    title,
+                    body,
                     relatedEntityId: swapRequest.Id, relatedEntityType: "ShiftSwap",
-                    fromUserId: request.RequesterUserId, categoryCode: "attendance", storeId: request.StoreId);
+                    fromUserId: request.RequesterUserId, categoryCode: "shift", storeId: request.StoreId);
             }
             catch { /* Notification failure should not affect main operation */ }
 

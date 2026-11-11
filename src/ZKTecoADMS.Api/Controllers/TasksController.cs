@@ -24,6 +24,41 @@ public partial class TasksController(
 {
     private readonly ZKTecoDbContext _dbContext = dbContext;
 
+    // ─── Nội dung thông báo công việc ───
+    // Tên người thao tác do bộ định dạng push chèn từ fromUserId — không tự ghi vào message.
+
+    /// <summary>Nhãn trạng thái tiếng Việt (không lộ tên enum).</summary>
+    private static string TaskStatusLabel(WorkTaskStatus status) => status switch
+    {
+        WorkTaskStatus.Todo => "Chưa bắt đầu",
+        WorkTaskStatus.InProgress => "Đang thực hiện",
+        WorkTaskStatus.InReview => "Chờ duyệt",
+        WorkTaskStatus.Completed => "Hoàn thành",
+        WorkTaskStatus.Cancelled => "Đã hủy",
+        WorkTaskStatus.OnHold => "Tạm hoãn",
+        WorkTaskStatus.Assigned => "Chờ xác nhận",
+        _ => "Đã cập nhật",
+    };
+
+    private static string TaskName(string? text, int max)
+    {
+        var t = System.Text.RegularExpressions.Regex.Replace(text ?? string.Empty, @"\s+", " ").Trim();
+        return t.Length > max ? t[..max].TrimEnd() + "…" : t;
+    }
+
+    /// <summary>« · hạn 17:00 15/11» (giờ tường như màn công việc; 00:00 → chỉ ngày).</summary>
+    private static string TaskDueSuffix(DateTime? due) =>
+        !due.HasValue ? string.Empty
+        : due.Value.TimeOfDay == TimeSpan.Zero ? $" · hạn {due.Value:dd/MM}"
+        : $" · hạn {due.Value:HH:mm dd/MM}";
+
+    /// <summary>Gửi ngay lúc hoàn thành → giờ VN hiện tại (CompletedDate ghi bằng DateTime.Now, phụ thuộc múi giờ máy chủ).</summary>
+    private static string TaskCompletedBody(string? notes)
+    {
+        var at = $"Xong lúc {ZKTecoADMS.Application.Helpers.VnTimeHelper.NowVn():HH:mm dd/MM}";
+        return string.IsNullOrWhiteSpace(notes) ? at : $"{at} · {TaskName(notes, 60)}";
+    }
+
     /// <summary>
     /// Resolve Employee.Id → ApplicationUser.Id for notification targeting
     /// </summary>
@@ -566,8 +601,8 @@ public partial class TasksController(
                 {
                     await notificationService.CreateAndSendAsync(
                         userId.Value, NotificationType.Info,
-                        "Công việc mới",
-                        $"Bạn được giao công việc mới: {task.Title}",
+                        $"Việc mới: {TaskName(task.Title, 30)}",
+                        $"Bạn được giao việc{TaskDueSuffix(task.DueDate)}",
                         relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                         fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
                 }
@@ -713,8 +748,8 @@ public partial class TasksController(
                 {
                     await notificationService.CreateAndSendAsync(
                         newAssigneeUserId.Value, NotificationType.Info,
-                        "Công việc mới được giao",
-                        $"Bạn được giao công việc: {task.Title}",
+                        $"Việc mới: {TaskName(task.Title, 30)}",
+                        $"Bạn được giao việc{TaskDueSuffix(task.DueDate)}",
                         relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                         fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
                 }
@@ -799,36 +834,30 @@ public partial class TasksController(
 
         try
         {
-            var statusText = request.Status switch
-            {
-                WorkTaskStatus.InProgress => "Đang thực hiện",
-                WorkTaskStatus.InReview => "Đang review",
-                WorkTaskStatus.Completed => "Hoàn thành",
-                WorkTaskStatus.Cancelled => "Đã hủy",
-                WorkTaskStatus.OnHold => "Tạm hoãn",
-                WorkTaskStatus.Assigned => "Chờ xác nhận",
-                _ => request.Status.ToString()
-            };
             var notifyUserId = task.AssignedById != CurrentUserId
                 ? task.AssignedById
                 : (task.AssigneeId.HasValue
                     ? await ResolveUserIdFromEmployeeId(task.AssigneeId.Value)
                     : null);
-            if (notifyUserId.HasValue && notifyUserId.Value != CurrentUserId)
+            // Hoàn thành → người giao chỉ nhận «Hoàn thành: …» bên dưới (trước đây nhận thêm «Trạng thái thay đổi»).
+            var completedToAssigner = request.Status == WorkTaskStatus.Completed
+                && task.AssignedById != Guid.Empty && task.AssignedById != CurrentUserId;
+            if (notifyUserId.HasValue && notifyUserId.Value != CurrentUserId
+                && !(completedToAssigner && notifyUserId.Value == task.AssignedById))
             {
                 await notificationService.CreateAndSendAsync(
                     notifyUserId.Value, NotificationType.Info,
-                    "Trạng thái công việc thay đổi",
-                    $"Công việc \"{task.Title}\" đã chuyển sang: {statusText}",
+                    $"{TaskName(task.Title, 26)}: {TaskStatusLabel(request.Status).ToLower()}",
+                    $"Chuyển từ «{TaskStatusLabel(oldStatus)}» sang «{TaskStatusLabel(request.Status)}»",
                     relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                     fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
             }
-            if (request.Status == WorkTaskStatus.Completed && task.AssignedById != Guid.Empty && task.AssignedById != CurrentUserId)
+            if (completedToAssigner)
             {
                 await notificationService.CreateAndSendAsync(
                     task.AssignedById, NotificationType.Success,
-                    "Công việc hoàn thành",
-                    $"Công việc \"{task.Title}\" đã được hoàn thành",
+                    $"Hoàn thành: {TaskName(task.Title, 30)}",
+                    TaskCompletedBody(task.CompletionNotes),
                     relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                     fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
             }
@@ -904,12 +933,12 @@ public partial class TasksController(
             if (task.AssignedById != Guid.Empty && task.AssignedById != CurrentUserId)
             {
                 var progressNote = string.IsNullOrWhiteSpace(request.Notes)
-                    ? $"{task.Progress}%"
-                    : $"{task.Progress}% — {request.Notes}";
+                    ? $"Đạt {task.Progress}%"
+                    : $"{task.Progress}% · {TaskName(request.Notes, 70)}";
                 await notificationService.CreateAndSendAsync(
                     task.AssignedById, NotificationType.Info,
-                    "Báo cáo tiến độ",
-                    $"\"{task.Title}\": {progressNote}",
+                    $"Tiến độ: {TaskName(task.Title, 30)}",
+                    progressNote,
                     relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                     fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
             }
@@ -955,8 +984,8 @@ public partial class TasksController(
                 {
                     await notificationService.CreateAndSendAsync(
                         assigneeUserId.Value, NotificationType.Warning,
-                        "Công việc đã bị xóa",
-                        $"Công việc \"{task.Title}\" đã bị xóa",
+                        $"Đã hủy việc: {TaskName(task.Title, 28)}",
+                        "Việc này đã bị xóa khỏi danh sách của bạn",
                         relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                         fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
                 }
@@ -984,15 +1013,6 @@ public partial class TasksController(
             .Where(t => request.TaskIds.Contains(t.Id) && t.StoreId == RequiredStoreId && t.IsActive)
             .ToListAsync();
 
-        var statusText = request.Status switch
-        {
-            WorkTaskStatus.InProgress => "Đang thực hiện",
-            WorkTaskStatus.InReview => "Đang review",
-            WorkTaskStatus.Completed => "Hoàn thành",
-            WorkTaskStatus.Cancelled => "Đã hủy",
-            WorkTaskStatus.OnHold => "Tạm hoãn",
-            _ => request.Status.ToString()
-        };
 
         foreach (var task in tasks)
         {
@@ -1021,21 +1041,25 @@ public partial class TasksController(
             foreach (var task in tasks.Where(t => t.AssigneeId.HasValue))
             {
                 var assigneeUserId = await ResolveUserIdFromEmployeeId(task.AssigneeId!.Value);
-                if (assigneeUserId.HasValue && assigneeUserId.Value != CurrentUserId)
+                var completedToAssigner = request.Status == WorkTaskStatus.Completed
+                    && task.AssignedById != Guid.Empty && task.AssignedById != CurrentUserId;
+                // Người làm cũng là người giao → chỉ gửi «Hoàn thành: …», không gửi thêm «trạng thái thay đổi».
+                if (assigneeUserId.HasValue && assigneeUserId.Value != CurrentUserId
+                    && !(completedToAssigner && assigneeUserId.Value == task.AssignedById))
                 {
                     await notificationService.CreateAndSendAsync(
                         assigneeUserId.Value, NotificationType.Info,
-                        "Trạng thái công việc thay đổi",
-                        $"Công việc \"{task.Title}\" đã chuyển sang: {statusText}",
+                        $"{TaskName(task.Title, 26)}: {TaskStatusLabel(request.Status).ToLower()}",
+                        $"Chuyển sang «{TaskStatusLabel(request.Status)}»",
                         relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                         fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
                 }
-                if (request.Status == WorkTaskStatus.Completed && task.AssignedById != Guid.Empty && task.AssignedById != CurrentUserId)
+                if (completedToAssigner)
                 {
                     await notificationService.CreateAndSendAsync(
                         task.AssignedById, NotificationType.Success,
-                        "Công việc hoàn thành",
-                        $"Công việc \"{task.Title}\" đã được hoàn thành",
+                        $"Hoàn thành: {TaskName(task.Title, 30)}",
+                        TaskCompletedBody(task.CompletionNotes),
                         relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                         fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
                 }
@@ -1095,8 +1119,8 @@ public partial class TasksController(
                 {
                     await notificationService.CreateAndSendAsync(
                         newAssigneeUserId.Value, NotificationType.Info,
-                        "Công việc mới được giao",
-                        $"Bạn được giao công việc: {task.Title}",
+                        $"Việc mới: {TaskName(task.Title, 30)}",
+                        $"Bạn được giao việc{TaskDueSuffix(task.DueDate)}",
                         relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                         fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
                 }
@@ -1139,8 +1163,8 @@ public partial class TasksController(
                 {
                     await notificationService.CreateAndSendAsync(
                         assigneeUserId.Value, NotificationType.Warning,
-                        "Công việc đã bị xóa",
-                        $"Công việc \"{task.Title}\" đã bị xóa",
+                        $"Đã hủy việc: {TaskName(task.Title, 28)}",
+                        "Việc này đã bị xóa khỏi danh sách của bạn",
                         relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                         fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
                 }
@@ -1275,16 +1299,16 @@ public partial class TasksController(
 
             var preview = string.IsNullOrWhiteSpace(request.Content)
                 ? "Có cập nhật mới"
-                : (request.Content.Length > 120
-                    ? request.Content[..120] + "…"
-                    : request.Content);
-            var notifTitle = request.CommentType == 1 ? "Báo cáo tiến độ" : "Bình luận mới";
+                : TaskName(request.Content, 80);
+            var notifTitle = request.CommentType == 1
+                ? $"Tiến độ: {TaskName(task.Title, 30)}"
+                : $"Bình luận: {TaskName(task.Title, 28)}";
             foreach (var userId in notifiedUserIds)
             {
                 await notificationService.CreateAndSendAsync(
                     userId, NotificationType.Info,
                     notifTitle,
-                    $"\"{task.Title}\": {preview}",
+                    preview,
                     relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                     fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
             }
@@ -1590,8 +1614,10 @@ public partial class TasksController(
             {
                 await notificationService.CreateAndSendAsync(
                     sentToUserId.Value, NotificationType.Reminder,
-                    "Đốc thúc công việc",
-                    $"Bạn được nhắc về công việc \"{task.Title}\": {(request.Message.Length > 100 ? request.Message[..100] + "..." : request.Message)}",
+                    $"Nhắc việc: {TaskName(task.Title, 30)}",
+                    string.IsNullOrWhiteSpace(request.Message)
+                        ? $"Bạn được nhắc làm việc này{TaskDueSuffix(task.DueDate)}"
+                        : TaskName(request.Message, 80),
                     relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                     fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
             }
@@ -1746,8 +1772,8 @@ public partial class TasksController(
                 {
                     await notificationService.CreateAndSendAsync(
                         assigneeUserId.Value, NotificationType.Info,
-                        "Đánh giá công việc",
-                        $"Công việc \"{task.Title}\" đã được đánh giá: {request.OverallScore}/5",
+                        $"{TaskName(task.Title, 26)} được chấm {request.OverallScore}/5",
+                        $"Chất lượng {request.QualityScore}/5 · tiến độ {request.TimelinessScore}/5",
                         relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                         fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
                 }
@@ -1921,8 +1947,8 @@ public partial class TasksController(
                 {
                     await notificationService.CreateAndSendAsync(
                         newAssigneeUserId.Value, NotificationType.Info,
-                        "Công việc mới được giao",
-                        $"Bạn được giao công việc: {task.Title}",
+                        $"Việc mới: {TaskName(task.Title, 30)}",
+                        $"Bạn được giao việc{TaskDueSuffix(task.DueDate)}",
                         relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                         fromUserId: CurrentUserId, categoryCode: "task", storeId: RequiredStoreId);
                 }

@@ -246,22 +246,23 @@ public class FinalizePayrollHandler(
     {
         try
         {
+            // Trước đây ~150 ký tự, «đã chốt» lặp ở title + body, tiền in «VND». Nay: «8.500.000đ».
             var net = payslip.NetSalary.ToString("N0");
+            var title = $"Lương tháng {req.Month}/{req.Year} đã chốt";
             if (!employee.ApplicationUserId.HasValue)
             {
                 // Không có tài khoản app → chỉ Zalo (nếu đã liên kết bằng bảng mã).
                 await notificationService.NotifyEmployeesWithoutAccountAsync(storeId, [employee.Id],
-                    "Phiếu lương đã chốt",
-                    $"Phiếu lương tháng {req.Month}/{req.Year} đã được chốt. Thực lĩnh: {net} VND.",
+                    title,
+                    $"Thực lĩnh {net}đ",
                     "payroll");
                 return;
             }
             await notificationService.CreateAndSendAsync(
                 employee.ApplicationUserId.Value,
                 NotificationType.Success,
-                "Phiếu lương đã chốt",
-                $"Phiếu lương tháng {req.Month}/{req.Year} đã được chốt. Thực lĩnh: {net} VND. " +
-                "Mở menu Phiếu lương để xem chi tiết và bảng chấm công kỳ.",
+                title,
+                $"Thực lĩnh {net}đ · Xem chi tiết trong Phiếu lương",
                 relatedEntityId: payslip.Id,
                 relatedEntityType: "Payslip",
                 fromUserId: fromUserId,

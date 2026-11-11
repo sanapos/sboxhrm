@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using ZKTecoADMS.Application.DTOs.BusinessTrip;
 using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Repositories;
 
 namespace ZKTecoADMS.Application.Commands.BusinessTrip;
@@ -57,12 +58,19 @@ public class ApproveBusinessTripAdvanceHandler(
                 {
                     if (next.AssignedUserId.HasValue)
                     {
+                        // Trước đây chỉ «Bước 2/2 — mã hồ sơ» và người gửi là người duyệt trước: không biết ai xin, bao nhiêu.
+                        var employeeName = tripCase.Employee != null
+                            ? $"{tripCase.Employee.LastName} {tripCase.Employee.FirstName}".Trim()
+                            : NotificationPushFormatter.FormatUserDisplayName(tripCase.EmployeeUser);
+                        if (string.IsNullOrWhiteSpace(employeeName)) employeeName = "Nhân viên";
+                        var approverDisplay = NotificationPushFormatter.FormatUserDisplayName(approver);
+                        if (string.IsNullOrWhiteSpace(approverDisplay)) approverDisplay = "Quản lý";
                         await notificationService.CreateAndSendAsync(
                             next.AssignedUserId.Value, NotificationType.ApprovalRequired,
-                            "Ứng công tác chờ duyệt",
-                            $"Bước {next.StepOrder}/{advance.TotalApprovalLevels} — {tripCase.CaseCode}",
+                            "Cần duyệt ứng công tác",
+                            $"{employeeName} xin ứng {advance.Amount:N0}đ · {tripCase.CaseCode} · Bước {next.StepOrder}/{advance.TotalApprovalLevels} · {approverDisplay} đã duyệt bước {advance.CurrentApprovalStep}",
                             relatedEntityId: tripCase.Id, relatedEntityType: "BusinessTripCase",
-                            fromUserId: request.ApprovedById, categoryCode: "business_trip", storeId: request.StoreId);
+                            fromUserId: tripCase.EmployeeUserId, categoryCode: "business_trip", storeId: request.StoreId);
                     }
                 }
                 catch { }
@@ -85,7 +93,7 @@ public class ApproveBusinessTripAdvanceHandler(
                     await notificationService.CreateAndSendAsync(
                         tripCase.EmployeeUserId.Value, NotificationType.Success,
                         "Ứng công tác đã duyệt",
-                        $"Phiếu ứng {advance.Amount:N0}đ đã duyệt — chờ chi trả",
+                        $"{advance.Amount:N0}đ · {tripCase.CaseCode} · Chờ chi tiền",
                         relatedEntityId: tripCase.Id, relatedEntityType: "BusinessTripCase",
                         fromUserId: request.ApprovedById, categoryCode: "business_trip", storeId: request.StoreId);
                 }
@@ -112,13 +120,14 @@ public class ApproveBusinessTripAdvanceHandler(
             {
                 if (tripCase.EmployeeUserId.HasValue)
                 {
+                    // Trước đây «Hoa: CT-2026-012: Không có lý do» (2 dấu «:» liền nhau).
                     var reason = string.IsNullOrWhiteSpace(request.RejectionReason)
-                        ? "Không có lý do"
-                        : request.RejectionReason.Trim();
+                        ? string.Empty
+                        : $" · Lý do: {request.RejectionReason.Trim()}";
                     await notificationService.CreateAndSendAsync(
                         tripCase.EmployeeUserId.Value, NotificationType.Warning,
                         "Ứng công tác bị từ chối",
-                        $"{tripCase.CaseCode}: {reason}",
+                        $"{advance.Amount:N0}đ · {tripCase.CaseCode}{reason}",
                         relatedEntityId: tripCase.Id, relatedEntityType: "BusinessTripCase",
                         fromUserId: request.ApprovedById, categoryCode: "business_trip", storeId: request.StoreId);
                 }
@@ -258,7 +267,7 @@ public class PayBusinessTripAdvanceHandler(
                 await notificationService.CreateAndSendAsync(
                     tripCase.EmployeeUserId.Value, NotificationType.Success,
                     "Đã chi ứng công tác",
-                    $"{advance.Amount:N0}đ ({methodLabel})",
+                    $"{advance.Amount:N0}đ · {tripCase.CaseCode} · {methodLabel}",
                     relatedEntityId: tripCase.Id, relatedEntityType: "BusinessTripCase",
                     fromUserId: request.PerformedById, categoryCode: "business_trip", storeId: request.StoreId);
             }

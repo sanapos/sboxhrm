@@ -591,10 +591,15 @@ public class CashTransactionsController(
                     CashTransactionStatus.WaitingPayment => "chờ thanh toán",
                     _ => "đã cập nhật"
                 };
+                var kind = transaction.Type == CashTransactionType.Income ? "thu" : "chi";
+                var desc = (transaction.Description ?? "").Trim();
+                if (desc.Length > 50) desc = desc[..50].TrimEnd() + "…";
+                // Tên người đổi trạng thái do bộ định dạng push chèn từ fromUserId.
                 await notificationService.CreateAndSendAsync(
                     transaction.CreatedByUserId, NotificationType.Info,
-                    "Phiếu thu/chi cập nhật",
-                    $"Phiếu {transaction.TransactionCode} {statusText}",
+                    $"Phiếu {kind} {transaction.TransactionCode} {statusText}",
+                    $"{transaction.Amount.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN"))}đ"
+                        + (desc.Length > 0 ? $" · {desc}" : ""),
                     relatedEntityType: "CashTransaction", relatedEntityId: id,
                     fromUserId: CurrentUserId, categoryCode: "transaction", storeId: storeId);
             }

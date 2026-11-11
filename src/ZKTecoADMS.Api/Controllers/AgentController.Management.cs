@@ -394,13 +394,13 @@ public partial class AgentController
         {
             if (store.OwnerId.HasValue)
             {
-                var packageName = license.ServicePackage?.Name ?? license.LicenseType.ToString();
+                var packageName = license.ServicePackage?.Name ?? LicenseTypeLabel(license.LicenseType);
+                var storeShort = store.Name.Length > 24 ? store.Name[..24].TrimEnd() + "…" : store.Name;
                 await _notificationService.CreateAndSendAsync(
                     targetUserId: store.OwnerId.Value,
                     type: NotificationType.Success,
-                    title: "Kích hoạt License thành công",
-                    message:
-                        $"Cửa hàng '{store.Name}' đã được kích hoạt gói {packageName}, hạn sử dụng đến {store.ExpiryDate:dd/MM/yyyy}",
+                    title: $"Đã gia hạn {storeShort}",
+                    message: $"Gói {packageName} · hạn đến {store.ExpiryDate:dd/MM/yyyy}",
                     relatedEntityId: storeId,
                     relatedEntityType: "Store",
                     categoryCode: "license",
@@ -411,8 +411,8 @@ public partial class AgentController
                 _notificationService,
                 _userManager,
                 NotificationType.Success,
-                "Key license đã kích hoạt (đại lý)",
-                $"Đại lý kích hoạt key cho '{store.Name}' — gói {license.ServicePackage?.Name ?? license.LicenseType.ToString()}, hạn {store.ExpiryDate:dd/MM/yyyy}",
+                $"Đại lý kích hoạt key: {store.Name}",
+                $"Gói {license.ServicePackage?.Name ?? LicenseTypeLabel(license.LicenseType)} · hạn {store.ExpiryDate:dd/MM/yyyy}",
                 relatedUrl: SuperAdminNotificationHelper.AdminLicensesUrl,
                 relatedEntityId: storeId,
                 relatedEntityType: "Store",
@@ -639,4 +639,13 @@ public partial class AgentController
             .Include(s => s.Devices)
             .Include(s => s.ServicePackage)
             .FirstOrDefaultAsync(s => s.Id == storeId);
+
+    /// <summary>Nhãn gói khi key không gắn gói dịch vụ (không in tên enum tiếng Anh lên thông báo).</summary>
+    private static string LicenseTypeLabel(LicenseType type) => type switch
+    {
+        LicenseType.Basic => "Cơ bản",
+        LicenseType.Advanced => "Nâng cao",
+        LicenseType.Professional => "Chuyên nghiệp",
+        _ => "SBOX",
+    };
 }
