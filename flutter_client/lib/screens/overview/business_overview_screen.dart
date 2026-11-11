@@ -122,7 +122,7 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       if (_hasPos && _shortPeriod) 'salesTrend': _api.getPosSalesReportSummary(from: tf, to: tt),
       if (_hasPos) 'stock': _api.getPosStockReportSummary(),
       if (_hasHrm) 'manager': _api.getManagerDashboard(),
-      if (_hasHrm) 'trends': _api.getAttendanceTrends(days: _period.trendDays),
+      if (_hasHrm) 'trends': _api.getAttendanceTrends(days: _trendFetchDays),
       'highlights': _api.getOverviewHighlights(),
     };
     if (_hasHrm && _can('Payroll')) unawaited(_loadPayToday(seq));
@@ -575,16 +575,44 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     ]);
   }
 
+  /// Số ngày xin API chuyên cần (luôn tính tới hôm nay — ô «hôm nay» đọc dòng cuối).
+  /// Tháng này: từ ngày 1; tháng trước: từ ngày 1 tháng trước (biểu đồ lọc lại [_trendRows]).
+  int get _trendFetchDays {
+    final now = DateTime.now();
+    final d0 = DateTime(now.year, now.month, now.day);
+    return switch (_period) {
+      SboxPeriod.thisMonth => now.day,
+      SboxPeriod.lastMonth => d0.difference(DateTime(now.year, now.month - 1, 1)).inDays + 1,
+      _ => _period.trendDays,
+    };
+  }
+
+  /// Dòng chuyên cần vẽ trên biểu đồ — cùng kỳ với số bán hàng (trước: «Tháng này» vẫn vẽ 30 ngày gần nhất).
+  List<Map<String, dynamic>> get _trendRows {
+    if (_period != SboxPeriod.lastMonth) return _trends;
+    final (f, t) = _period.range();
+    return [
+      for (final d in _trends)
+        if (DateTime.tryParse('${d['date']}') case final x? when !x.isBefore(f) && !x.isAfter(t)) d,
+    ];
+  }
+
+  String get _trendSubtitle => switch (_period) {
+        SboxPeriod.thisMonth || SboxPeriod.lastMonth => _period.label,
+        _ => '${_period.trendDays} ngày gần nhất',
+      };
+
   Widget _attendanceChart({bool wide = false}) {
-    final labels = [for (final d in _trends) _dayLabel(d['date'])];
+    final rows = _trendRows;
+    final labels = [for (final d in rows) _dayLabel(d['date'])];
     final series = [
       for (final k in _attKindDefs)
         if (_attKinds.contains(k.key))
-          SboxSeries(name: k.label, values: [for (final d in _trends) _n(d[k.key])], color: k.color),
+          SboxSeries(name: k.label, values: [for (final d in rows) _n(d[k.key])], color: k.color),
     ];
     void onTap(int i) {
-      if (i < 0 || i >= _trends.length) return;
-      final d = _trends[i];
+      if (i < 0 || i >= rows.length) return;
+      final d = rows[i];
       _showPeople('Ngày ${_dayLabel(d['date'])}: trễ / vắng / nghỉ', d, {'Late', 'Absent', 'On Leave'},
           subtitle: 'Đi làm ${_n(d['present']).round()} · đúng giờ ${_n(d['onTime']).round()} · '
               'trễ ${_n(d['late']).round()} · vắng ${_n(d['absent']).round()}');
@@ -612,7 +640,7 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
           );
     return SboxChartCard(
       title: 'Chuyên cần theo ngày',
-      subtitle: '${_period.trendDays} ngày gần nhất · chạm ngày xem ai trễ / vắng',
+      subtitle: '$_trendSubtitle · chạm ngày xem ai trễ / vắng',
       wide: wide,
       onMore: _can('AttendanceSummary') ? () => _go('AttendanceSummary') : null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -774,8 +802,10 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       ),
       columns: [
         SboxColumn(label: 'Nhân viên', primary: true, flex: 3, text: (r) => '${r['displayName'] ?? r['soldBy'] ?? '—'}', sortValue: (r) => '${r['displayName'] ?? r['soldBy'] ?? ''}'),
-        SboxColumn(label: 'Số đơn', numeric: true, flex: 1, text: (r) => SboxFmt.number(_n(r['orderCount'])), sortValue: (r) => _n(r['orderCount'])),
+        // Doanh thu đứng trước: thẻ điện thoại đưa cột số đầu tiên lên góc phải không kèm nhãn —
+        // trước là «8» (số đơn) trơ trọi.
         SboxColumn(label: 'Doanh thu', numeric: true, flex: 2, text: (r) => SboxFmt.money(_n(r['revenue'])), sortValue: (r) => _n(r['revenue'])),
+        SboxColumn(label: 'Số đơn', numeric: true, flex: 1, text: (r) => SboxFmt.number(_n(r['orderCount'])), sortValue: (r) => _n(r['orderCount'])),
         SboxColumn(
             label: 'TB/đơn',
             numeric: true,
@@ -809,8 +839,10 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     rows.sort((a, b) => (b.work + b.ot + b.allow).compareTo(a.work + a.ot + a.allow));
     final total = rows.fold<double>(0, (s, r) => s + r.work + r.ot + r.allow);
     final top = rows.take(10).toList();
+    // Nhãn trục: nhiều cột trên điện thoại chỉ đủ chỗ cho tên gọi («Bình»), ít cột giữ 2 chữ cuối.
     String short(String n) {
       final parts = n.trim().split(RegExp(r'\s+'));
+      if (top.length > 5) return parts.last;
       return parts.length <= 2 ? n : parts.sublist(parts.length - 2).join(' ');
     }
 

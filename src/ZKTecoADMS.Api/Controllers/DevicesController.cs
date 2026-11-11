@@ -15,6 +15,7 @@ using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Repositories;
 using ZKTecoADMS.Domain.Entities;
+using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.API.Controllers;
 
@@ -41,14 +42,31 @@ public class DevicesController(
     [RequireAnyModulePermission(ModulePermissionAction.View, "Device", "Attendance", "AttendanceSummary", "AttendanceByShift")]
     public async Task<ActionResult<AppResponse<IEnumerable<DeviceDto>>>> GetAllDevices([FromQuery] bool? storeOnly)
     {
+        // Chỉ Super Admin xem được máy của mọi cửa hàng. Trước đây chủ cửa hàng (Admin / Director) gọi không kèm
+        // storeOnly nhận về máy chấm công (serial, IP) của toàn hệ thống.
+        var scoped = storeOnly == true || !IsSuperAdminUser;
         var query = new GetAllDevicesQuery(
             UserId: CurrentUserId,
             IsAdminRequest: IsAdmin,
-            StoreId: storeOnly == true ? GetCurrentStoreId() : null,
-            StoreScoped: storeOnly == true
+            StoreId: scoped ? GetCurrentStoreId() : null,
+            StoreScoped: scoped
         );
         
         return Ok(await bus.Send(query));
+    }
+
+    bool IsSuperAdminUser => CurrentUserRole.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Máy thuộc cửa hàng khác (người gọi không phải Super Admin). Mọi thao tác theo mã máy phải chặn —
+    /// trước đây chủ cửa hàng (IsAdmin) xóa / sửa / bật tắt / xem được máy của cửa hàng khác.
+    /// Máy chưa gán cửa hàng (chờ nhận) không chặn ở đây.
+    /// </summary>
+    async Task<bool> DeviceOfOtherStoreAsync(Guid id)
+    {
+        if (IsSuperAdminUser) return false;
+        var device = await deviceRepository.GetByIdAsync(id);
+        return device?.StoreId is Guid sid && sid != GetCurrentStoreId();
     }
 
     [HttpGet("{id}")]
@@ -56,6 +74,8 @@ public class DevicesController(
     [RequireModulePermission("Device", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<DeviceDto>>> GetDeviceById(Guid id)
     {
+        if (await DeviceOfOtherStoreAsync(id))
+            return Ok(AppResponse<DeviceDto>.Error("Không tìm thấy thiết bị"));
         var query = new GetDeviceByIdQuery(id);
         return Ok(await bus.Send(query));
     }
@@ -91,8 +111,8 @@ public class DevicesController(
     [RequireModulePermission("Device", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<Guid>>> DeleteDevice(Guid id)
     {
-        // Verify device belongs to user's store (Admin can delete any)
-        if (!IsAdmin)
+        // Máy phải thuộc cửa hàng đang đăng nhập (chỉ Super Admin xóa được máy cửa hàng khác).
+        if (!IsSuperAdminUser)
         {
             var device = await deviceRepository.GetByIdAsync(id);
             if (device == null)
@@ -110,6 +130,8 @@ public class DevicesController(
     [RequireModulePermission("Device", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<DeviceDto>>> ActiveDevice(Guid id)
     {
+        if (await DeviceOfOtherStoreAsync(id))
+            return Ok(AppResponse<DeviceDto>.Error("Bạn không có quyền với thiết bị này"));
         var cmd = new ToggleActiveCommand(id);
         return Ok(await bus.Send(cmd));
     }
@@ -119,6 +141,8 @@ public class DevicesController(
     [RequireModulePermission("Device", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<DeviceInfoDto>>> GetDeviceInfo(Guid deviceId)
     {
+        if (await DeviceOfOtherStoreAsync(deviceId))
+            return Ok(AppResponse<DeviceInfoDto>.Error("Không tìm thấy thiết bị"));
         var query = new GetDeviceInfoQuery(deviceId);
         return Ok(await bus.Send(query));
     }
@@ -129,6 +153,8 @@ public class DevicesController(
     [RequireModulePermission("Device", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<DeviceCapabilityDto>>> GetDeviceCapability(Guid deviceId)
     {
+        if (await DeviceOfOtherStoreAsync(deviceId))
+            return Ok(AppResponse<DeviceCapabilityDto>.Error("Không tìm thấy thiết bị"));
         var dto = await capabilityService.GetCapabilityDtoAsync(deviceId);
         return Ok(AppResponse<DeviceCapabilityDto>.Success(dto));
     }
@@ -142,7 +168,7 @@ public class DevicesController(
     public async Task<ActionResult<AppResponse<object>>> RefreshDeviceStatus(Guid deviceId)
     {
         var device = await deviceRepository.GetByIdAsync(deviceId);
-        if (device == null)
+        if (device == null || (!IsSuperAdminUser && device.StoreId is Guid sid && sid != GetCurrentStoreId()))
             return NotFound(AppResponse<object>.Fail("Thiết bị không tồn tại"));
 
         var isOnline = DeviceConnectivity.IsOnline(device.LastOnline);
@@ -177,8 +203,8 @@ public class DevicesController(
     {
         var devices = await deviceService.GetPendingDevicesAsync();
         
-        // Non-admin users only see pending devices without store or belonging to their store
-        if (!IsAdmin)
+        // Ngoài Super Admin: chỉ máy chờ chưa gán cửa hàng hoặc thuộc cửa hàng mình (trước đây chủ cửa hàng thấy cả cửa hàng khác).
+        if (!IsSuperAdminUser)
         {
             var storeId = GetCurrentStoreId();
             devices = devices.Where(d => !d.StoreId.HasValue || d.StoreId == storeId);
@@ -198,8 +224,8 @@ public class DevicesController(
     {
         var devices = await deviceService.GetConnectedDevicesAsync();
         
-        // Non-admin users only see connected devices belonging to their store
-        if (!IsAdmin)
+        // Ngoài Super Admin: chỉ máy của cửa hàng mình.
+        if (!IsSuperAdminUser)
         {
             var storeId = GetCurrentStoreId();
             devices = devices.Where(d => d.StoreId == storeId);
@@ -217,6 +243,8 @@ public class DevicesController(
     [RequireModulePermission("Device", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<DeviceDto>>> ApproveDevice(Guid id, [FromBody] ApproveDeviceRequest request)
     {
+        if (await DeviceOfOtherStoreAsync(id))
+            return Ok(AppResponse<DeviceDto>.Error("Không tìm thấy thiết bị"));
         var device = await deviceService.ApproveDeviceAsync(id, request.DeviceName, request.Description, request.Location);
         if (device == null)
         {
@@ -235,6 +263,8 @@ public class DevicesController(
     [RequireModulePermission("Device", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> RejectDevice(Guid id)
     {
+        if (await DeviceOfOtherStoreAsync(id))
+            return Ok(AppResponse<bool>.Error("Không tìm thấy thiết bị"));
         var result = await deviceService.RejectDeviceAsync(id);
         if (!result)
         {
@@ -342,8 +372,8 @@ public class DevicesController(
             return Ok(AppResponse<DeviceDto>.Error("Không tìm thấy thiết bị"));
         }
 
-        // Verify device belongs to user's store (Admin can update any)
-        if (!IsAdmin && device.StoreId != GetCurrentStoreId())
+        // Máy phải thuộc cửa hàng đang đăng nhập (chỉ Super Admin sửa được máy cửa hàng khác).
+        if (!IsSuperAdminUser && device.StoreId != GetCurrentStoreId())
         {
             return Ok(AppResponse<DeviceDto>.Error("Bạn không có quyền cập nhật thiết bị này"));
         }

@@ -131,10 +131,28 @@ double _niceMax(double v) {
 Widget _bottomLabel(List<String> labels, double v, {required int maxLabels, double? axisWidth}) {
   final i = v.round();
   if ((v - i).abs() > 0.01 || i < 0 || i >= labels.length) return const SizedBox.shrink();
-  final step = math.max(1, (labels.length / maxLabels).ceil());
-  // Nhãn cuối chỉ ép hiện khi không sát nhãn trước (tránh hai nhãn đè nhau).
-  final lastFar = i == labels.length - 1 && (labels.length - 1) % step >= (step / 2).ceil();
-  if (i % step != 0 && !lastFar) return const SizedBox.shrink();
+  final n = labels.length;
+  final slot = axisWidth == null || axisWidth <= 0 ? null : axisWidth / n;
+  final double width;
+  if (slot == null) {
+    final step = math.max(1, (n / maxLabels).ceil());
+    // Nhãn cuối chỉ ép hiện khi không sát nhãn trước (tránh hai nhãn đè nhau).
+    final lastFar = i == n - 1 && (n - 1) % step >= (step / 2).ceil();
+    if (i % step != 0 && !lastFar) return const SizedBox.shrink();
+    width = 54.0 * step;
+  } else {
+    // Rải đều k nhãn, luôn có nhãn đầu và nhãn cuối (ngày hôm nay / người đứng đầu); hai nhãn cạnh nhau
+    // cách ≥ 44px. Trước đây ô nhãn tối thiểu 54px × bước, rộng hơn khoảng cách giữa hai nhãn trên điện
+    // thoại hẹp (10 tên NV ≈ 25px / cột) và nhãn cuối bị ép hiện sát nhãn trước → tên đè lên nhau.
+    final k = n <= 1 ? 1 : math.min(n, math.min(maxLabels, ((axisWidth! - slot) / 44).floor() + 1)).clamp(2, n);
+    if (k > 1) {
+      final gap = (n - 1) / (k - 1);
+      final j = (i / gap).round();
+      if ((j * gap).round() != i) return const SizedBox.shrink();
+    }
+    // Vừa khoảng giữa hai nhãn đang hiện (không tràn sang nhãn bên cạnh).
+    width = k <= 1 ? math.max(slot - 4, 54.0) : math.max(((n - 1) / (k - 1)).floor() * slot - 4, 20.0);
+  }
   // Tên dài (tên hàng) không tràn sang cột bên cạnh: giới hạn trong ô, cắt «…», di chuột xem đủ.
   return Padding(
     padding: const EdgeInsets.only(top: 6),
@@ -143,7 +161,7 @@ Widget _bottomLabel(List<String> labels, double v, {required int maxLabels, doub
       // Ô nhãn rộng bằng phần trục của mỗi cột (ít cột → nhãn đủ chỗ): trước đây cố định 54px nên
       // «31–60 ngày» bị cắt thành «31–60 ng…» dù biểu đồ còn rộng.
       child: SizedBox(
-        width: math.max(54.0, axisWidth == null || labels.isEmpty ? 0.0 : axisWidth / labels.length - 8) * step,
+        width: width,
         child: Text(labels[i],
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

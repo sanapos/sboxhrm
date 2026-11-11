@@ -211,11 +211,13 @@ public class SampleDataController(
             // ══════════════════════════════════════════════
             // 5. TẠO BẢNG LƯƠNG (Benefit / Salary Profile)
             // ══════════════════════════════════════════════
+            // Nghỉ Chủ nhật: lịch mẫu không xếp ca CN — trống ngày nghỉ tuần thì bảng công / lương tính CN là «vắng»
+            // (2 ngày / tuần / NV) trong khi Tổng quan coi là ngày nghỉ.
             var salaryProfiles = new List<Benefit>
             {
-                new() { Id = Guid.NewGuid(), Name = "Lương quản lý", RateType = SalaryRateType.Monthly, Rate = 25_000_000, SalaryPerDay = 961_538, StandardWorkMode = StandardWorkMode.Fixed26, MealAllowance = 40_000, TransportAllowance = 500_000, OvertimeMultiplier = 1.5m, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Name = "Lương nhân viên VP", RateType = SalaryRateType.Monthly, Rate = 12_000_000, SalaryPerDay = 461_538, StandardWorkMode = StandardWorkMode.Fixed26, MealAllowance = 30_000, TransportAllowance = 300_000, OvertimeMultiplier = 1.5m, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Name = "Lương công nhân", RateType = SalaryRateType.Daily, Rate = 350_000, SalaryPerDay = 350_000, StandardWorkMode = StandardWorkMode.Fixed26, MealAllowance = 30_000, TransportAllowance = 200_000, OvertimeMultiplier = 1.5m, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Name = "Lương quản lý", RateType = SalaryRateType.Monthly, Rate = 25_000_000, SalaryPerDay = 961_538, StandardWorkMode = StandardWorkMode.Fixed26, MealAllowance = 40_000, TransportAllowance = 500_000, OvertimeMultiplier = 1.5m, WeeklyOffDays = "Sunday", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Name = "Lương nhân viên VP", RateType = SalaryRateType.Monthly, Rate = 12_000_000, SalaryPerDay = 461_538, StandardWorkMode = StandardWorkMode.Fixed26, MealAllowance = 30_000, TransportAllowance = 300_000, OvertimeMultiplier = 1.5m, WeeklyOffDays = "Sunday", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Name = "Lương công nhân", RateType = SalaryRateType.Daily, Rate = 350_000, SalaryPerDay = 350_000, StandardWorkMode = StandardWorkMode.Fixed26, MealAllowance = 30_000, TransportAllowance = 200_000, OvertimeMultiplier = 1.5m, WeeklyOffDays = "Sunday", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
             };
             db.Benefits.AddRange(salaryProfiles);
 

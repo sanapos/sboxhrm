@@ -523,14 +523,17 @@ public class DashboardController(
                             .Where(a => pinsForEmp.Contains(a.PIN) && a.VnTime > checkIn.VnTime)
                             .OrderByDescending(a => a.VnTime).FirstOrDefault();
                         var emp = empById[empId];
-                        var lateBy = checkIn.VnTime.TimeOfDay - threshold - TimeSpan.FromMinutes(graceMin);
+                        // Ân hạn chỉ quyết định CÓ tính trễ hay không; số phút trễ tính từ giờ vào ca
+                        // (ca 7:00, ân hạn 5 phút, vào 7:07 → trễ 7 phút — như bảng công / phiếu phạt).
+                        // Trước đây trừ cả ân hạn → hiện «trễ 2 phút».
+                        var lateBy = checkIn.VnTime.TimeOfDay - threshold;
+                        var lateRow = isLate && shiftLabel != "Không xếp ca";
                         dayRows.Add(new TodayEmployeeRow(
                             emp.Id, emp.EmployeeCode, $"{emp.LastName} {emp.FirstName}".Trim(), emp.Department,
                             shiftLabel, shiftLabel == "Không xếp ca" ? null : threshold.ToString(@"hh\:mm"), shiftEnd?.ToString(@"hh\:mm"),
                             checkIn.VnTime.ToString("HH:mm"), lastPunch?.VnTime.ToString("HH:mm"),
-                            checkIn.VnTime.TimeOfDay > threshold + TimeSpan.FromMinutes(graceMin) && shiftLabel != "Không xếp ca"
-                                ? "Late" : "Present",
-                            lateBy > TimeSpan.Zero && shiftLabel != "Không xếp ca" ? (int)lateBy.TotalMinutes : 0));
+                            lateRow ? "Late" : "Present",
+                            lateRow ? (int)lateBy.TotalMinutes : 0));
                     }
                     var isEarly = checkOut != null && shiftEnd.HasValue
                         && checkOut.VnTime.TimeOfDay < shiftEnd.Value - TimeSpan.FromMinutes(earlyGraceMin);
@@ -551,12 +554,13 @@ public class DashboardController(
                     var empName = pinToName.TryGetValue(resolvePin, out var n2) ? n2 : empCode;
                     if (isLate)
                     {
-                        var lateMins = (int)(checkIn.VnTime.TimeOfDay - threshold - TimeSpan.FromMinutes(graceMin)).TotalMinutes;
+                        var lateMins = (int)(checkIn.VnTime.TimeOfDay - threshold).TotalMinutes;
                         lateEmps.Add(new { pin = empCode, name = empName, checkIn = checkIn.VnTime.ToString("HH:mm"), lateMinutes = lateMins, shift = shiftLabel });
                     }
                     if (isEarly && checkOut != null && shiftEnd.HasValue)
                     {
-                        var earlyMins = (int)(shiftEnd.Value - TimeSpan.FromMinutes(earlyGraceMin) - checkOut.VnTime.TimeOfDay).TotalMinutes;
+                        // Như đi trễ: ân hạn chỉ quyết định có tính về sớm, số phút tính tới giờ hết ca.
+                        var earlyMins = (int)(shiftEnd.Value - checkOut.VnTime.TimeOfDay).TotalMinutes;
                         earlyEmps.Add(new { pin = empCode, name = empName, checkOut = checkOut.VnTime.ToString("HH:mm"), earlyMinutes = earlyMins, shift = shiftLabel });
                     }
                 }

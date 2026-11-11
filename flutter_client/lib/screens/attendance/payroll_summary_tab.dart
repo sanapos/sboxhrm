@@ -2964,7 +2964,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             centerValue: SboxFmt.compact(sum('netSalary')),
             centerLabel: 'Thực lĩnh',
             slices: [
+              // Đủ mọi khoản cộng vào «Tổng lương» (payroll_engine: totalSalary) — trước thiếu tăng ca,
+              // lương hoàn thành, phụ cấp đêm, giờ đi đường, hoa hồng: các phần cộng lại nhỏ hơn thực lĩnh.
               SboxSlice('Lương theo công', sum('workSalary')),
+              SboxSlice('Lương hoàn thành', sum('completionSalaryEarned'), color: SboxColors.brand400),
+              SboxSlice('Tăng ca', sum('otSalary'), color: SboxColors.teal),
+              SboxSlice('Phụ trội ca đêm', sum('nightPremium'), color: SboxColors.slate700),
+              SboxSlice('Giờ đi đường', sum('travelSalary'), color: SboxColors.slate300),
+              SboxSlice('Hoa hồng', sum('commission'), color: SboxColors.brand300),
               SboxSlice('Phụ cấp', sum('totalAllowance'), color: SboxColors.success),
               SboxSlice('Thưởng', sum('bonus'), color: SboxColors.violet),
               SboxSlice('Lương KPI', sum('kpiSalary'), color: SboxColors.warning),

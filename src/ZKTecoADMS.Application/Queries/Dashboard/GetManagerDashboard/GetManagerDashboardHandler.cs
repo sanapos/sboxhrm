@@ -104,20 +104,42 @@ public class GetManagerDashboardHandler(
                 .Where(u => u.Employee != null)
                 .ToDictionary(u => u.Employee!.Id, u => u.Id);
 
+            // Attendance.EmployeeId là khóa DeviceUser (người dùng trên máy chấm công), không phải Employee.Id —
+            // trước đây so thẳng với Employee.Id nên không bao giờ khớp: mọi người có ca đều «Vắng», 0% có mặt.
+            // Khớp qua DeviceUser.EmployeeId, hoặc PIN = mã NV trên máy của cửa hàng (như biểu đồ chuyên cần).
+            var empIds = employeeIdToUserIdMap.Keys.ToList();
+            var empCodeToEmpId = managedUsers
+                .Where(u => u.Employee != null && !string.IsNullOrWhiteSpace(u.Employee.EmployeeCode))
+                .GroupBy(u => u.Employee!.EmployeeCode, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Employee!.Id, StringComparer.OrdinalIgnoreCase);
+            var empCodes = empCodeToEmpId.Keys.ToList();
+            var storeId = request.StoreId;
+
             // AttendanceTime = giờ tường VN trong DB.
             var attendances = (await attendanceRepository.GetAllAsync(
-                filter: a => a.EmployeeId != null && employeeIdToUserIdMap.Keys.Contains(a.EmployeeId.Value) &&
-                           a.AttendanceTime >= startOfDay &&
-                           a.AttendanceTime < endOfDayExclusive,
+                filter: a => a.AttendanceTime >= startOfDay &&
+                           a.AttendanceTime < endOfDayExclusive &&
+                           ((a.Employee != null && a.Employee.EmployeeId != null && empIds.Contains(a.Employee.EmployeeId.Value)) ||
+                            (a.EmployeeId != null && empIds.Contains(a.EmployeeId.Value)) ||
+                            (storeId != null && a.Device.StoreId == storeId && empCodes.Contains(a.PIN))),
                 includeProperties: new[] { "Employee" },
                 orderBy: q => q.OrderBy(a => a.AttendanceTime),
                 cancellationToken: cancellationToken)).ToList();
+
+            Guid? EmployeeOf(Attendance a)
+            {
+                if (a.Employee?.EmployeeId is Guid viaDeviceUser && employeeIdToUserIdMap.ContainsKey(viaDeviceUser))
+                    return viaDeviceUser;
+                if (a.EmployeeId is Guid direct && employeeIdToUserIdMap.ContainsKey(direct))
+                    return direct;
+                return empCodeToEmpId.TryGetValue(a.PIN, out var viaPin) ? viaPin : null;
+            }
 
             // Group attendances by employee to find first check-in and map to ApplicationUser
             var attendancesByUser = new Dictionary<Guid, List<Attendance>>();
             foreach (var attendance in attendances)
             {
-                if (attendance.EmployeeId.HasValue && employeeIdToUserIdMap.TryGetValue(attendance.EmployeeId.Value, out var userId))
+                if (EmployeeOf(attendance) is Guid empId && employeeIdToUserIdMap.TryGetValue(empId, out var userId))
                 {
                     if (!attendancesByUser.ContainsKey(userId))
                     {
