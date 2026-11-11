@@ -10,7 +10,9 @@ import '../../theme/sbox_tokens.dart';
 import '../../widgets/branch_switcher.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import '../../widgets/sbox/sbox_charts.dart';
+import '../../screens/staff/staff_nav.dart';
 import 'boss_end_of_day_screen.dart';
+import 'boss_manage_screen.dart' show openBossModule;
 
 /// Báo cáo trên SBOX BOSS — mỗi loại gọi đúng endpoint báo cáo POS sẵn có (cùng số liệu với web / máy POS).
 enum BossReportType {
@@ -51,6 +53,10 @@ class BossReportsScreen extends StatelessWidget {
           trailing: const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
           onTap: onTap,
         );
+    final hr = [
+      for (final h in _hrReports)
+        if (staffCanOpen(context, h.$1)) h,
+    ];
     return ListView(padding: const EdgeInsets.all(SboxSpace.lg), children: [
       SboxCard(
         padding: EdgeInsets.zero,
@@ -79,9 +85,31 @@ class BossReportsScreen extends StatelessWidget {
               tone: SboxTone.danger),
         ]),
       ),
+      // Báo cáo nhân sự (trước chỉ có ở tab Quản lý, chưa có Đi trễ / Về sớm và Phiếu phạt) — chỉ mục có quyền.
+      if (hr.isNotEmpty) ...[
+        const SizedBox(height: SboxSpace.md),
+        SboxCard(
+          title: 'Nhân sự',
+          padding: EdgeInsets.zero,
+          child: Column(children: [
+            for (final h in hr) tile(h.$2, h.$3, h.$4, () => openBossModule(context, h.$1), tone: h.$5),
+          ]),
+        ),
+      ],
     ]);
   }
 }
+
+/// (mã chức năng, biểu tượng, tên, mô tả, tông màu) — mở qua [openBossModule] như tab Quản lý.
+const _hrReports = <(String, IconData, String, String, SboxTone)>[
+  ('AttendanceSummary', Icons.table_chart_rounded, 'Tổng hợp chấm công', 'Ngày công, giờ làm từng nhân viên',
+      SboxTone.brand),
+  ('LateEarlyReport', Icons.alarm_rounded, 'Đi trễ / Về sớm', 'Số lần, số phút theo ca trong thiết lập lương',
+      SboxTone.warning),
+  ('PenaltyTickets', Icons.gavel_rounded, 'Phiếu phạt', 'Phạt đi trễ / về sớm tự động, chờ duyệt, đã thu',
+      SboxTone.danger),
+  ('Payroll', Icons.payments_rounded, 'Bảng lương', 'Lương, thưởng, phạt, ứng theo kỳ', SboxTone.success),
+];
 
 /// Kỳ báo cáo chọn nhanh.
 enum _Period { today, yesterday, week, month, lastMonth, custom }

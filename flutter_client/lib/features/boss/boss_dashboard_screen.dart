@@ -165,6 +165,8 @@ class _RevenueHero extends StatelessWidget {
     final delta = bossDeltaPct(revenue, _num(ySame['revenue']));
     final unpaid = _num(today['unpaid']);
     final discount = _num(today['discount']);
+    // Máy chủ cũ chưa trả lãi gộp → không hiện dòng này.
+    final gross = today['grossProfit'] is num ? _num(today['grossProfit']) : null;
     return Material(
       color: Colors.transparent,
       child: Ink(
@@ -213,6 +215,24 @@ class _RevenueHero extends StatelessWidget {
               ]),
             ),
           ),
+          // Lãi gộp = doanh thu − giá vốn (như báo cáo Lãi lỗ) — trước Tổng quan chỉ có doanh thu.
+          if (gross != null)
+            InkWell(
+              onTap: () => bossOpenReport(context, BossReportType.pnl),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(SboxSpace.lg, 0, SboxSpace.sm, SboxSpace.xs),
+                child: Row(children: [
+                  Text(tr('Lãi gộp'), style: SboxType.smallStyle(SboxColors.brand100)),
+                  const SizedBox(width: SboxSpace.sm),
+                  Text(SboxFmt.money(gross), style: SboxType.moneyStyle(size: SboxType.body, c: SboxColors.white)),
+                  if (revenue > 0) ...[
+                    const SizedBox(width: SboxSpace.xs),
+                    Text('(${SboxFmt.pct(gross / revenue * 100)})', style: SboxType.captionStyle(SboxColors.brand100)),
+                  ],
+                  const Icon(Icons.chevron_right_rounded, color: SboxColors.brand100, size: 18),
+                ]),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(SboxSpace.sm, 0, SboxSpace.sm, SboxSpace.sm),
             child: Row(children: [
@@ -520,6 +540,12 @@ class _LiveRow extends StatelessWidget {
     final tables = _map(data['openTables']);
     final staff = _map(data['staff']);
     final active = _num(staff['active']).toInt();
+    final late = _num(staff['late']).toInt();
+    final onLeave = _num(staff['onLeave']).toInt();
+    final staffNote = [
+      if (late > 0) '${tr('Trễ')} $late',
+      if (onLeave > 0) '${tr('Nghỉ phép')} $onLeave',
+    ];
     return Row(children: [
       Expanded(
         child: SboxMetricCard(
@@ -541,7 +567,12 @@ class _LiveRow extends StatelessWidget {
           value: active > 0
               ? '${SboxFmt.number(_num(staff['checkedIn']))}/${SboxFmt.number(active)}'
               : '0',
-          delta: active > 0 ? tr('nhân viên') : tr('Chưa có nhân viên'),
+          // Đi trễ theo ca trong thiết lập lương (cùng màn «Nhân viên hôm nay»).
+          delta: active == 0
+              ? tr('Chưa có nhân viên')
+              : staffNote.isEmpty
+                  ? tr('nhân viên')
+                  : staffNote.join(' · '),
           // Thiếu quyền Chấm công: vẫn bấm được nhưng báo lý do (trước bấm im lặng, tưởng lỗi).
           onTap: staffCanOpen(context, 'Attendance')
               ? () => Navigator.of(context)

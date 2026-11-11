@@ -25,6 +25,7 @@ import '../../widgets/branch_switcher.dart';
 import '../../widgets/companion_account_links.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/sbox/sbox_basics.dart';
+import '../../widgets/sbox_bottom_inset.dart';
 import 'boss_dashboard_screen.dart';
 import 'boss_inbox_screen.dart';
 import 'boss_manage_screen.dart';
@@ -50,6 +51,14 @@ class _BossShellState extends State<BossShell> with WidgetsBindingObserver {
   bool _connectingSignalR = false;
 
   static const _titles = ['Tổng quan hôm nay', 'Cần duyệt', 'Báo cáo', 'Quản lý', 'Thêm'];
+
+  static const _navItems = <(int, IconData, IconData, String)>[
+    (0, Icons.dashboard_outlined, Icons.dashboard_rounded, 'Tổng quan'),
+    (1, Icons.fact_check_outlined, Icons.fact_check_rounded, 'Cần duyệt'),
+    (2, Icons.bar_chart_outlined, Icons.bar_chart_rounded, 'Báo cáo'),
+    (3, Icons.apps_outlined, Icons.apps_rounded, 'Quản lý'),
+    (4, Icons.more_horiz_rounded, Icons.more_horiz_rounded, 'Thêm'),
+  ];
 
   @override
   void initState() {
@@ -204,9 +213,23 @@ class _BossShellState extends State<BossShell> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
+  /// Việc cần chủ / quản lý duyệt — bấm thông báo mở tab «Cần duyệt» (trước mở danh sách thông báo chung).
+  static const _inboxEntityKeys = {
+    'posremoteapproval', 'leave', 'leaverequest', 'overtime', 'advancerequest', 'advance',
+    'attendancecorrection', 'correction', 'shiftswap', 'scheduleregistration', 'mobileattendance',
+    'penaltyticket', 'cashtransaction', 'businesstripcase', 'businesstripexpense', 'shift', 'approval',
+  };
+
   /// Bấm thông báo (thanh thông báo, đẩy điện thoại): không có MainLayout nên shell tự mở màn.
-  bool _openFromNotification(String? entityKey, String? relatedEntityId) =>
-      mounted && openNotificationInShell(context, entityKey, relatedEntityId);
+  bool _openFromNotification(String? entityKey, String? relatedEntityId) {
+    if (!mounted) return false;
+    if (entityKey != null && _inboxEntityKeys.contains(entityKey)) {
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      setState(() => _tab = 1);
+      return true;
+    }
+    return openNotificationInShell(context, entityKey, relatedEntityId);
+  }
 
   Future<void> _openNotifications() async {
     await openStaffPage(context, title: 'Thông báo', child: const NotificationsScreen());
@@ -269,46 +292,87 @@ class _BossShellState extends State<BossShell> with WidgetsBindingObserver {
               child: const Icon(Icons.add_rounded),
             )
           : null,
+      // Thanh dưới gọn như SBOX HRM / Nhân Viên (trước dùng NavigationBar Material 3 cao 80 — tốn chỗ hiển thị).
       bottomNavigationBar: ValueListenableBuilder<int>(
         valueListenable: bossInboxCount,
-        builder: (context, pending, _) => NavigationBar(
-          selectedIndex: _tab,
-          onDestinationSelected: (i) => setState(() => _tab = i),
-          destinations: [
-            NavigationDestination(
-              icon: const Icon(Icons.dashboard_outlined),
-              selectedIcon: const Icon(Icons.dashboard_rounded),
-              label: tr('Tổng quan'),
+        builder: (context, pending, _) => Material(
+          color: SboxColors.chrome,
+          child: SafeArea(
+            top: false,
+            bottom: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(SboxSpace.xs, SboxSpace.xxs, SboxSpace.xs, sboxBottomNavInset(context)),
+              child: Row(children: [
+                for (final (i, icon, activeIcon, label) in _navItems)
+                  Expanded(
+                    child: _BossNavItem(
+                      icon: _tab == i ? activeIcon : icon,
+                      label: label,
+                      selected: _tab == i,
+                      badge: i == 1 ? pending : 0,
+                      onTap: () => setState(() => _tab = i),
+                    ),
+                  ),
+              ]),
             ),
-            NavigationDestination(
-              icon: Badge(
-                isLabelVisible: pending > 0,
-                label: Text(pending > 99 ? '99+' : '$pending'),
-                child: const Icon(Icons.fact_check_outlined),
-              ),
-              selectedIcon: Badge(
-                isLabelVisible: pending > 0,
-                label: Text(pending > 99 ? '99+' : '$pending'),
-                child: const Icon(Icons.fact_check_rounded),
-              ),
-              label: tr('Cần duyệt'),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Một ô thanh dưới: biểu tượng 20, chữ 10, nền nhạt khi chọn — cùng cỡ với thanh dưới SBOX HRM / Nhân Viên.
+class _BossNavItem extends StatelessWidget {
+  const _BossNavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.badge = 0,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final int badge;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? SboxColors.brand600 : SboxColors.slate500;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: tr(label),
+      excludeSemantics: true,
+      onTap: onTap,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: SboxSpace.xs, vertical: 6),
+          decoration: selected
+              ? BoxDecoration(
+                  color: SboxColors.brand600.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(SboxRadius.lg),
+                )
+              : null,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Badge(
+              isLabelVisible: badge > 0,
+              label: Text(badge > 99 ? '99+' : '$badge'),
+              child: Icon(icon, size: 20, color: color),
             ),
-            NavigationDestination(
-              icon: const Icon(Icons.bar_chart_outlined),
-              selectedIcon: const Icon(Icons.bar_chart_rounded),
-              label: tr('Báo cáo'),
+            const SizedBox(height: 2),
+            Text(
+              tr(label),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 10, fontWeight: selected ? FontWeight.w600 : FontWeight.w400, color: color),
             ),
-            NavigationDestination(
-              icon: const Icon(Icons.apps_outlined),
-              selectedIcon: const Icon(Icons.apps_rounded),
-              label: tr('Quản lý'),
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.more_horiz_rounded),
-              selectedIcon: const Icon(Icons.more_horiz_rounded),
-              label: tr('Thêm'),
-            ),
-          ],
+          ]),
         ),
       ),
     );

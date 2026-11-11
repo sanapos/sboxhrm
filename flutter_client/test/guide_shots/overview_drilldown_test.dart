@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zkteco_flutter_client/features/boss/boss_dashboard_screen.dart';
+import 'package:zkteco_flutter_client/features/boss/boss_shell.dart';
 import 'package:zkteco_flutter_client/screens/overview/business_overview_screen.dart';
 
 import 'guide_shot_kit.dart';
@@ -23,6 +24,7 @@ final _bossDashboard = {
     'revenue': 2450000, 'orderCount': 18, 'avgOrder': 136000, 'discount': 120000,
     'collected': 2100000, 'collectedCash': 900000, 'unpaid': 350000, 'unpaidCount': 2,
     'expense': 400000, 'expenseCash': 300000, 'expenseCount': 3, 'canceledCount': 2, 'canceledTotal': 180000,
+    'cogs': 1350000, 'grossProfit': 1100000,
   },
   'yesterdaySameTime': {'revenue': 2000000, 'orderCount': 15},
   'yesterdayFull': {'revenue': 3100000, 'orderCount': 25},
@@ -43,7 +45,7 @@ final _bossDashboard = {
       {'name': 'Bàn 2', 'area': 'Sân vườn', 'startedAt': '12:40', 'minutes': 50, 'amount': 230000, 'guests': 2, 'billRequested': false},
     ],
   },
-  'staff': {'active': 7, 'checkedIn': 5},
+  'staff': {'active': 7, 'checkedIn': 5, 'late': 2, 'onLeave': 1},
 };
 
 final _bossOrders = {
@@ -85,6 +87,20 @@ final _api = guideApi({
 });
 
 void main() {
+  testWidgets('overview-boss-0: lãi gộp, đi trễ / nghỉ phép; thanh dưới gọn như SBOX HRM', (t) async {
+    await guideShot(t, name: 'overview-boss-0', screen: const BossShell(), api: _api, size: mobileSize,
+        act: (t) async {
+      expect(find.text('Lãi gộp'), findsOneWidget);
+      // Thanh dưới: trước NavigationBar Material 3 cao 80.
+      final bar = t.getSize(find.ancestor(of: find.text('Cần duyệt').last, matching: find.byType(Material)).first);
+      expect(bar.height, lessThanOrEqualTo(60));
+      await guideScrollTo(t, find.text('Đã chấm công'), alignment: 0.5);
+      expect(find.text('Trễ 2 · Nghỉ phép 1'), findsOneWidget);
+    });
+    // Khung BOSS còn hẹn giờ quyền (12 giây) và nối lại SignalR — chạy hết sau khi gỡ cây.
+    await t.pump(const Duration(minutes: 1));
+  });
+
   testWidgets('overview-boss-1: tiền hôm nay, chưa thu, bàn đang mở bấm ra danh sách', (t) async {
     await guideShot(t, name: 'overview-boss-1', screen: const BossDashboardScreen(), api: _api, size: mobileSize,
         act: (t) async {

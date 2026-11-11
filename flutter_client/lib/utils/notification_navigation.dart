@@ -636,8 +636,8 @@ void navigateFromNotification({
   final hasId = relatedEntityId != null && relatedEntityId.isNotEmpty;
 
   if (!NavigationNotifier.mainLayoutReady.value && notificationShellHandler != null) {
-    notificationShellHandler!(
-        target == null ? null : normalizeNotificationEntityType(entity), relatedEntityId);
+    // Gửi cả loại chưa có màn trong khung chính (vd «Máy bán hàng xin duyệt») — shell tự quyết định mở gì.
+    notificationShellHandler!(normalizeNotificationEntityType(entity), relatedEntityId);
     return;
   }
 

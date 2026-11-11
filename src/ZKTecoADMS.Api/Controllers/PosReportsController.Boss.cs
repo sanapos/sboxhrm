@@ -185,16 +185,18 @@ public partial class PosReportsController
                 employees = employees.Where(e => list.Contains(e.BranchId ?? hq));
             }
         }
-        var empIds = employees.Select(e => e.Id);
-        var todayVn = VnTimeHelper.NowVn().Date;
-        var staffActive = await employees.CountAsync(ct);
-        // Attendance.EmployeeId là khóa DeviceUser (không phải Employee) — qua DeviceUser mới ra nhân viên.
-        var staffCheckedIn = await dbContext.AttendanceLogs.AsNoTracking()
-            .Where(a => a.AttendanceTime >= todayVn && a.AttendanceTime < todayVn.AddDays(1) && a.EmployeeId != null)
-            .Join(dbContext.DeviceUsers, a => a.EmployeeId, du => (Guid?)du.Id, (a, du) => du.EmployeeId)
-            .Where(id => id != null && empIds.Contains(id.Value))
-            .Distinct()
-            .CountAsync(ct);
+        // Cùng cách tính với màn «Nhân viên hôm nay»: đi trễ theo ca trong thiết lập lương, nghỉ phép đã duyệt.
+        var staffToday = await Reports.BossStaffTodayBuilder.BuildAsync(dbContext, storeId, employees, ct);
+        var staffActive = staffToday.Staff.Count;
+        var staffCheckedIn = staffToday.Staff.Count(r => r.FirstPunch != null);
+        var staffLate = staffToday.Staff.Count(r => r.LateMinutes > 0);
+        var staffOnLeave = staffToday.Staff.Count(r => r.OnLeave);
+
+        // Lãi gộp hôm nay = doanh thu thuần − giá vốn thuần (giống báo cáo Kết quả kinh doanh).
+        var todayOrderIds = Completed(todayFrom, todayTo).Select(o => o.Id);
+        var returnedToday = await PosSaleReturnLedger.ReturnedByOrderAsync(dbContext, storeId, todayOrderIds);
+        var todayCogs = await ZKTecoADMS.Api.Controllers.Reports.PosReportMoney.SaleCogsTotalAsync(dbContext, storeId, todayOrderIds)
+            - returnedToday.Values.Sum(x => x.Cost);
 
         var storeName = await dbContext.Stores.AsNoTracking()
             .Where(s => s.Id == storeId)
@@ -222,6 +224,8 @@ public partial class PosReportsController
                 expenseCount = expenseRows.Count,
                 canceledCount = canceled.Count,
                 canceledTotal = canceled.Sum(),
+                cogs = todayCogs,
+                grossProfit = todayRevenue - todayCogs,
             },
             yesterdaySameTime = new
             {
@@ -263,6 +267,8 @@ public partial class PosReportsController
             {
                 active = staffActive,
                 checkedIn = staffCheckedIn,
+                late = staffLate,
+                onLeave = staffOnLeave,
             },
         };
 

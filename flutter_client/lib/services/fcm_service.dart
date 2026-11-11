@@ -292,7 +292,7 @@ class FcmService {
         title: notification.title ?? data['displayTitle'] ?? 'Thông báo',
         message: notification.body ?? data['displayBody'] ?? '',
         categoryLabel: data['categoryLabel'],
-        relatedEntityType: data['relatedEntityType'],
+        relatedEntityType: _relatedEntityTypeOf(data),
         notificationId: notificationId,
         relatedEntityId: data['relatedEntityId'],
         categoryCode: data['categoryCode'],
@@ -314,7 +314,7 @@ class FcmService {
       final raw = msg.data;
       final data = raw.map((k, v) => MapEntry(k, v.toString()));
       final entityType = resolveEntityTypeForNotification(
-        relatedEntityType: data['relatedEntityType'],
+        relatedEntityType: _relatedEntityTypeOf(data),
         categoryCode: data['categoryCode'],
         actionUrl: data['actionUrl'],
         title: msg.notification?.title ?? data['title'],
@@ -353,6 +353,14 @@ class FcmService {
     } catch (e) {
       debugPrint('FcmService._queueNotificationLaunch failed: $e');
     }
+  }
+
+  /// Push «Máy bán hàng xin duyệt» gửi thẳng (không có dòng thông báo) chỉ mang `type` — đổi thành loại để
+  /// app BOSS mở đúng tab «Cần duyệt» khi bấm.
+  static String? _relatedEntityTypeOf(Map<String, String> data) {
+    final t = data['relatedEntityType'];
+    if (t != null && t.isNotEmpty) return t;
+    return data['type'] == 'pos_remote_approval' ? 'PosRemoteApproval' : t;
   }
 
   static bool _isAdminPortalEntity(String? entityType) {

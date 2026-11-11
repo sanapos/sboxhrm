@@ -11,7 +11,9 @@ import '../../screens/department_screen.dart';
 import '../../screens/device_users_screen.dart';
 import '../../screens/employees_screen.dart';
 import '../../screens/feedback_screen.dart';
+import '../../screens/late_early_report_screen.dart';
 import '../../screens/payroll_screen.dart';
+import '../../screens/penalty_tickets_screen.dart';
 import '../../screens/salary_settings_screen.dart';
 import '../../screens/pos_products_screen.dart';
 import '../../screens/pos_supplier_list_screen.dart';
@@ -74,6 +76,11 @@ final _sections = <(String, List<_BossTool>)>[
           (c) => openStaffPage(c, title: 'Tổng hợp chấm công', child: const AttendanceSummaryScreen())),
       _BossTool('AttendanceByShift', 'Tổng hợp theo ca', Icons.view_timeline_rounded,
           (c) => openStaffPage(c, title: 'Tổng hợp chấm công theo ca', child: const AttendanceByShiftScreen())),
+      // Đi trễ / về sớm theo ca trong thiết lập lương — cùng số với bảng công và phiếu phạt.
+      _BossTool('LateEarlyReport', 'Đi trễ / Về sớm', Icons.alarm_rounded,
+          (c) => openStaffPage(c, title: 'Đi trễ / Về sớm', child: const LateEarlyReportScreen())),
+      _BossTool('PenaltyTickets', 'Phiếu phạt', Icons.gavel_rounded,
+          (c) => openStaffPage(c, title: 'Phiếu phạt', child: const PenaltyTicketsScreen())),
       _BossTool('Payroll', 'Bảng lương', Icons.payments_rounded,
           (c) => openStaffPage(c, title: 'Bảng lương', child: const PayrollScreen())),
     ],
