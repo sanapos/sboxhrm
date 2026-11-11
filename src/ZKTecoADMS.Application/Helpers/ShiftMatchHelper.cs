@@ -40,7 +40,8 @@ public static class ShiftMatchHelper
 
     /// <summary>
     /// Chọn ca tốt nhất cho cặp chấm (hoặc chỉ giờ vào). Trả null nếu không ca nào
-    /// nằm trong cửa sổ / vượt maxAllowedLate / cách &gt; 180 phút.
+    /// nằm trong cửa sổ / cách &gt; 180 phút. Vào trễ quá MaximumAllowedLateMinutes vẫn khớp ca
+    /// và tính trễ đủ phút (giống bộ máy tính công payroll_engine).
     /// </summary>
     public static Fit? FindBest(
         IEnumerable<Candidate> candidates,
@@ -183,7 +184,6 @@ public static class ShiftMatchHelper
         var lateGrace = Math.Max(st.LateGraceMinutes, 0);
         var earlyGrace = Math.Max(st.EarlyLeaveGraceMinutes, 0);
         var earlyCheckIn = st.EarlyCheckInMinutes > 0 ? st.EarlyCheckInMinutes : 30;
-        var maxAllowedLate = st.MaximumAllowedLateMinutes;
 
         int rawEarlyIn = 0;
         int rawLateIn = 0;
@@ -225,7 +225,6 @@ public static class ShiftMatchHelper
         }
 
         if (rawEarlyIn > earlyCheckIn) return null;
-        if (maxAllowedLate > 0 && rawLateIn > maxAllowedLate) return null;
         // Không chấm VÀO sau giờ tan ca (ca thường).
         if (!overnight && punchIn > end) return null;
 

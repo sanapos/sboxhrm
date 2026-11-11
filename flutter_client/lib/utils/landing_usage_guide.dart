@@ -801,7 +801,7 @@ class LandingUsageGuide {
       bullets: [
         'Bước 1 — Vào Thiết lập SBOX › Nhân sự & chấm công › Ca làm việc (hoặc Chấm công › Ca làm việc › tab Thiết lập › Ca mẫu) → «Thêm ca»',
         'Bước 2 — Chọn «Mẫu nhanh» hoặc nhập «Tên ca», «Giờ vào», «Giờ ra» (giờ ra nhỏ hơn giờ vào = ca qua đêm), «Loại ca» (Hành chính / Tăng ca / Qua đêm), «Nghỉ giữa ca»',
-        'Bước 3 — «Quy tắc chấm công»: Nhận chấm sớm, Miễn trễ, Giới hạn đi trễ, Miễn về sớm, Giới hạn về sớm, Tăng ca trước / sau ca («Nhận chấm sớm» phải lớn hơn «Tăng ca trước ca»)',
+        'Bước 3 — «Quy tắc chấm công»: Nhận chấm sớm, Miễn trễ, Miễn về sớm, Giới hạn về sớm, Tăng ca trước / sau ca («Nhận chấm sớm» phải lớn hơn «Tăng ca trước ca»)',
         'Bước 4 — Bấm «Lưu ca». Trả lương theo ca: mở lại ca vừa lưu → «Lương ca» → «Thêm mức lương» (cố định / nhân hệ số / theo giờ)',
         'Bước 5 — Gán ca cho nhân viên: xếp lịch ở Chấm công › Ca làm việc › Bảng xếp ca, hoặc giới hạn ca trong Thiết lập lương (ô Ca làm việc)',
         'Bước 6 — Ca đã có dữ liệu không xóa được: dùng «Ngừng dùng» (lịch cũ giữ nguyên). Muốn đổi giờ ca đang dùng: «Nhân bản» rồi sửa bản mới',

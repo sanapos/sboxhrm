@@ -128,7 +128,6 @@ class ShiftTpl {
 
   /// Cảnh báo không chặn lưu.
   List<String> warnings() => [
-        if (lateGrace > maxLate) 'Miễn trễ ($lateGrace phút) lớn hơn giới hạn trễ ($maxLate phút) — đi trễ sẽ không bao giờ bị tính.',
         if (earlyLeaveGrace > maxEarlyLeave)
           'Miễn về sớm ($earlyLeaveGrace phút) lớn hơn giới hạn về sớm ($maxEarlyLeave phút).',
         if (workMinutes < 60) 'Ca chỉ có ${StTime.duration(workMinutes)} làm việc.',
@@ -354,7 +353,7 @@ class ShiftDayBar extends StatelessWidget {
   }
 }
 
-/// Minh họa quy tắc chấm công của 1 ca: nhận chấm sớm, miễn trễ, giới hạn trễ, về sớm, tăng ca.
+/// Minh họa quy tắc chấm công của 1 ca: nhận chấm sớm, miễn trễ, về sớm, tăng ca.
 class ShiftRuleTimeline extends StatelessWidget {
   const ShiftRuleTimeline({super.key, required this.shift});
 
@@ -400,9 +399,6 @@ class ShiftRuleTimeline extends StatelessWidget {
       if (!isOt)
         row(Icons.timer_outlined, SboxColors.brand600, StTime.hm(s.start + s.lateGrace), 'Hết miễn trễ',
             s.lateGrace > 0 ? 'Vào trong ${s.lateGrace} phút đầu không tính đi trễ.' : 'Vào sau giờ vào ca là tính trễ.'),
-      if (!isOt)
-        row(Icons.warning_amber_rounded, SboxColors.danger, StTime.hm(s.start + s.maxLate), 'Giới hạn đi trễ',
-            'Vào sau mốc này không còn thuộc ca (trễ tối đa ${s.maxLate} phút).'),
       if (s.hasLunchWindow)
         row(Icons.restaurant_rounded, SboxColors.violet, '${StTime.hm(s.lunchStart!)}–${StTime.hm(s.lunchEnd!)}', 'Nghỉ giữa ca',
             'Không tính công ${StTime.duration(s.effectiveBreak)}.')

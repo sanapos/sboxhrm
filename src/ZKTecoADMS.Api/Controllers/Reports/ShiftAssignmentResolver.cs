@@ -7,7 +7,8 @@ namespace ZKTecoADMS.Api.Controllers.Reports;
 
 /// <summary>
 /// Ca được gán cho từng nhân viên (giống báo cáo «Đi muộn / về sớm» và tab Flutter «Tổng hợp theo ca»):
-/// mức lương ca (ShiftSalaryLevel.EmployeeIds) + hồ sơ lương «shifts:Ca A,Ca B». NV chưa gán ca → mọi ca đang dùng.
+/// mức lương ca (ShiftSalaryLevel.EmployeeIds) + hồ sơ lương «shifts:Ca A,Ca B». Đi muộn chỉ tính theo ca được gán
+/// (NV chưa gán ca không tính muộn); «ca khớp nhất» để so giờ bất thường vẫn xét mọi ca đang dùng khi chưa gán.
 /// Dùng để tính đi muộn theo ĐÚNG CA thay cho ngưỡng cố định 08:30 (ca chiều / ca đêm bị tính muộn oan).
 /// </summary>
 public sealed class ShiftAssignmentResolver
@@ -30,21 +31,16 @@ public sealed class ShiftAssignmentResolver
         _byEmployee.TryGetValue(employeeId, out var list) && list.Count > 0 ? list : _all;
 
     /// <summary>
-    /// Số phút đi muộn (sau ân hạn) của giờ vào đầu tiên trong ngày công, theo ca khớp nhất.
-    /// Chưa có ca nào → so ngưỡng 08:30 như trước. Có ca nhưng giờ vào không gần ca nào → không tính muộn.
+    /// Số phút đi muộn của giờ vào đầu tiên trong ngày công, theo ca được gán khớp nhất (quá ân hạn thì tính đủ phút
+    /// từ giờ vào ca, kể cả muộn quá «muộn tối đa»). Chưa có ca nào → so ngưỡng 08:30 như trước.
+    /// NV chưa gán ca, hoặc giờ vào cách giờ vào ca quá 3 giờ → không tính muộn.
     /// </summary>
     public int LateMinutes(Guid employeeId, TimeSpan firstIn)
     {
         if (!HasShifts)
             return firstIn > LegacyLateThreshold ? (int)(firstIn - LegacyLateThreshold).TotalMinutes : 0;
-        var fit = ShiftMatchHelper.FindBestForCheckIn(CandidatesFor(employeeId), firstIn);
-        if (fit != null) return fit.EffectiveLateIn;
-        // Muộn quá «muộn tối đa cho phép» → bộ ghép ca loại ca đó (không tính công ca, giống bảng lương);
-        // báo cáo đi muộn vẫn phải ghi nhận: lấy ca có giờ vào gần nhất (≤ 3 giờ) và tính phút muộn thật.
-        var near = NearestByStart(employeeId, firstIn);
-        if (near == null) return 0;
-        var late = ShiftMatchHelper.MinutesLateAfterStart(firstIn, near.StartTime, near.EndTime) - Math.Max(0, near.LateGraceMinutes);
-        return late > 0 ? late : 0;
+        if (!_byEmployee.TryGetValue(employeeId, out var assigned) || assigned.Count == 0) return 0;
+        return ShiftMatchHelper.FindBestForCheckIn(assigned, firstIn)?.EffectiveLateIn ?? 0;
     }
 
     /// <summary>Ca có giờ vào gần giờ chấm nhất (vòng 24h), tối đa 3 giờ — dùng khi không ca nào khớp theo luật ca.</summary>

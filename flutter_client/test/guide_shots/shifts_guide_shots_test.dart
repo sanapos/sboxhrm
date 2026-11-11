@@ -97,7 +97,7 @@ void main() {
           await guideScrollTo(t, find.text('Miễn trễ'), alignment: 0.15);
         },
         marks: [
-          GuideMark(1, [_step('Miễn trễ'), _step('Giới hạn đi trễ')]),
+          GuideMark(1, [_step('Miễn trễ')]),
           GuideMark(2, [_step('Miễn về sớm'), _step('Giới hạn về sớm')]),
           GuideMark(3, [_step('Tăng ca trước ca'), _step('Tăng ca sau ca')]),
         ],

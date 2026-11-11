@@ -323,7 +323,7 @@ public class DashboardController(
             var shiftTemplates = await dbContext.ShiftTemplates
                 .Where(st => st.StoreId == storeId && st.IsActive)
                 .Select(st => new {
-                    st.Name, st.StartTime, st.EndTime,
+                    st.Id, st.Name, st.StartTime, st.EndTime,
                     st.LateGraceMinutes, st.EarlyLeaveGraceMinutes, st.EarlyCheckInMinutes
                 })
                 .ToListAsync();
@@ -367,8 +367,55 @@ public class DashboardController(
             var empIdsList = employeeData.Select(e => e.Id).ToList();
             var benefitRows = await dbContext.EmployeeBenefits.AsNoTracking()
                 .Where(eb => empIdsList.Contains(eb.EmployeeId) && eb.Deleted == null && eb.EffectiveDate <= endDate.AddDays(1))
-                .Select(eb => new { eb.EmployeeId, eb.EffectiveDate, eb.Benefit.WeeklyOffDays, eb.Benefit.PaidLeaveType, eb.Benefit.RateType })
+                .Select(eb => new { eb.EmployeeId, eb.EffectiveDate, eb.Benefit.WeeklyOffDays, eb.Benefit.PaidLeaveType, eb.Benefit.RateType, eb.Benefit.Description })
                 .ToListAsync();
+
+            // Ca tính đi trễ / về sớm: CHỈ ca gán trong thiết lập lương — mẫu lương («shifts:Ca sáng,Ca chiều»)
+            // và bậc lương ca (danh sách NV) — như bảng công, báo cáo Đi trễ / Về sớm và bảng lương (payroll_engine).
+            // Lịch xếp ca không dùng để tính trễ (trước đây Tổng quan lấy ca theo lịch → báo trễ trong khi báo cáo ra 0).
+            static string NormShift(string? s) =>
+                System.Text.RegularExpressions.Regex.Replace((s ?? string.Empty).Trim().ToLowerInvariant(), @"\s+", " ");
+            var templateByName = shiftTemplates
+                .Where(st => !string.IsNullOrWhiteSpace(st.Name))
+                .GroupBy(st => NormShift(st.Name))
+                .ToDictionary(g => g.Key, g => g.First());
+            var templateById = shiftTemplates.ToDictionary(st => st.Id);
+            var empIdSet = empIdsList.ToHashSet();
+            var assignedShiftIds = new Dictionary<Guid, List<Guid>>();
+            void AssignShift(Guid empId, Guid shiftId)
+            {
+                if (!empIdSet.Contains(empId) || !templateById.ContainsKey(shiftId)) return;
+                if (!assignedShiftIds.TryGetValue(empId, out var list)) assignedShiftIds[empId] = list = new List<Guid>();
+                if (!list.Contains(shiftId)) list.Add(shiftId);
+            }
+            foreach (var g in benefitRows.GroupBy(b => b.EmployeeId))
+            {
+                var desc = g.OrderByDescending(x => x.EffectiveDate).First().Description;
+                var shiftsField = string.Empty;
+                foreach (var part in (desc ?? string.Empty).Split('|'))
+                {
+                    var idx = part.IndexOf(':');
+                    if (idx > 0 && string.Equals(part[..idx].Trim(), "shifts", StringComparison.OrdinalIgnoreCase))
+                    {
+                        shiftsField = part[(idx + 1)..].Trim();
+                        break;
+                    }
+                }
+                foreach (var raw in shiftsField.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                    if (templateByName.TryGetValue(NormShift(raw), out var st)) AssignShift(g.Key, st.Id);
+            }
+            var shiftLevels = await dbContext.Set<ZKTecoADMS.Domain.Entities.ShiftSalaryLevel>().AsNoTracking()
+                .Where(l => (l.StoreId == storeId || l.StoreId == null) && l.EmployeeIds != null && l.EmployeeIds != "")
+                .Select(l => new { l.ShiftTemplateId, l.EmployeeIds })
+                .ToListAsync();
+            foreach (var lvl in shiftLevels)
+            {
+                List<string>? ids = null;
+                try { ids = System.Text.Json.JsonSerializer.Deserialize<List<string>>(lvl.EmployeeIds!); } catch { /* JSON hỏng */ }
+                foreach (var raw in ids ?? [])
+                    if (Guid.TryParse(raw, out var eg)) AssignShift(eg, lvl.ShiftTemplateId);
+            }
+            const string NoShiftLabel = "Chưa gán ca";
             // NV lương theo giờ: không có lịch ngày đó thì không phải đi làm (không tính «Vắng»).
             var hourlyEmpIds = benefitRows
                 .GroupBy(b => b.EmployeeId)
@@ -468,26 +515,12 @@ public class DashboardController(
                     TimeSpan? shiftEnd = null;
                     var earlyGraceMin = 5;
 
-                    // Primary: WorkSchedule lookup
-                    var sched = pinToEmpId.TryGetValue(resolvePin, out var eidPin) && scheduleIndex.TryGetValue((eidPin, d), out var sByEmp)
-                        ? sByEmp
-                        : pinToUserId.TryGetValue(resolvePin, out var uid) && scheduleIndex.TryGetValue((uid, d), out var sByUser)
-                            ? sByUser
-                            : null;
-                    if (sched != null && !sched.IsDayOff)
-                    {
-                        threshold = sched.OverrideStart ?? sched.ShiftStart ?? defaultStart;
-                        graceMin = sched.LateGraceMinutes;
-                        shiftLabel = sched.ShiftName ?? "Ca khác";
-                        shiftEnd = sched.OverrideEnd ?? sched.ShiftEnd;
-                        earlyGraceMin = sched.EarlyLeaveGraceMinutes;
-                    }
-
-                    // Fallback: match check-in time to nearest active ShiftTemplate
-                    if (shiftLabel == null && shiftTemplates.Count > 0)
+                    // Ca gán trong thiết lập lương: chọn ca có giờ vào gần lượt chấm nhất (trong cửa sổ ca).
+                    // Chưa gán ca / chấm ngoài mọi ca → có mặt, không tính trễ / sớm (như bảng công).
+                    if (assignedShiftIds.TryGetValue(empId, out var myShiftIds) && myShiftIds.Count > 0)
                     {
                         var checkInMins = checkIn.VnTime.TimeOfDay.TotalMinutes;
-                        var best = shiftTemplates
+                        var best = myShiftIds.Select(id => templateById[id])
                             .Where(st => {
                                 var windowStart = st.StartTime.TotalMinutes - st.EarlyCheckInMinutes;
                                 return checkInMins >= windowStart && checkInMins <= st.StartTime.TotalMinutes + 180;
@@ -504,12 +537,13 @@ public class DashboardController(
                         }
                     }
 
-                    shiftLabel ??= "Không xếp ca";
+                    var hasShift = shiftLabel != null;
+                    shiftLabel ??= NoShiftLabel;
 
                     if (!shiftStats.ContainsKey(shiftLabel))
                         shiftStats[shiftLabel] = (0, 0, 0);
 
-                    var isLate = checkIn.VnTime.TimeOfDay > threshold + TimeSpan.FromMinutes(graceMin);
+                    var isLate = hasShift && checkIn.VnTime.TimeOfDay > threshold + TimeSpan.FromMinutes(graceMin);
 
                     // Kiểm tra về sớm: lấy lần checkout cuối cùng trong ngày
                     var checkOut = dayAttendances
@@ -527,15 +561,15 @@ public class DashboardController(
                         // (ca 7:00, ân hạn 5 phút, vào 7:07 → trễ 7 phút — như bảng công / phiếu phạt).
                         // Trước đây trừ cả ân hạn → hiện «trễ 2 phút».
                         var lateBy = checkIn.VnTime.TimeOfDay - threshold;
-                        var lateRow = isLate && shiftLabel != "Không xếp ca";
+                        var lateRow = isLate;
                         dayRows.Add(new TodayEmployeeRow(
                             emp.Id, emp.EmployeeCode, $"{emp.LastName} {emp.FirstName}".Trim(), emp.Department,
-                            shiftLabel, shiftLabel == "Không xếp ca" ? null : threshold.ToString(@"hh\:mm"), shiftEnd?.ToString(@"hh\:mm"),
+                            shiftLabel, hasShift ? threshold.ToString(@"hh\:mm") : null, shiftEnd?.ToString(@"hh\:mm"),
                             checkIn.VnTime.ToString("HH:mm"), lastPunch?.VnTime.ToString("HH:mm"),
                             lateRow ? "Late" : "Present",
                             lateRow ? (int)lateBy.TotalMinutes : 0));
                     }
-                    var isEarly = checkOut != null && shiftEnd.HasValue
+                    var isEarly = hasShift && checkOut != null && shiftEnd.HasValue
                         && checkOut.VnTime.TimeOfDay < shiftEnd.Value - TimeSpan.FromMinutes(earlyGraceMin);
 
                     if (isLate) lateCount++;

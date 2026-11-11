@@ -1226,7 +1226,10 @@ class _ShiftPunchFit {
 }
 
 /// Evaluate check-in/out against one shift template. Returns null when punch
-/// is outside allowed windows (too early, or too late beyond maximumAllowedLate).
+/// is outside allowed windows (too early, or check-in after the shift ends).
+/// Vào trễ bao nhiêu cũng vẫn khớp ca và tính trễ đủ phút — «maximumAllowedLateMinutes»
+/// không còn loại ca (trước đây trễ quá mức bị bỏ qua hẳn: người trễ nặng lại không bị tính).
+/// Giới hạn xa nhất là 180 phút từ giờ vào ca (findBestMatchingShift).
 _ShiftPunchFit? _evaluateShiftPunchFit(
   Map<String, dynamic> st,
   int punchInMinutes, {
@@ -1244,8 +1247,6 @@ _ShiftPunchFit? _evaluateShiftPunchFit(
   final lateGrace = (st['lateGraceMinutes'] as num?)?.toInt() ?? 5;
   final earlyGrace = (st['earlyLeaveGraceMinutes'] as num?)?.toInt() ?? 5;
   final earlyCheckIn = (st['earlyCheckInMinutes'] as num?)?.toInt() ?? 30;
-  final maxAllowedLate =
-      (st['maximumAllowedLateMinutes'] as num?)?.toInt() ?? 0;
 
   int rawEarlyIn = 0;
   int rawLateIn = 0;
@@ -1278,7 +1279,6 @@ _ShiftPunchFit? _evaluateShiftPunchFit(
   }
 
   if (rawEarlyIn > earlyCheckIn) return null;
-  if (maxAllowedLate > 0 && rawLateIn > maxAllowedLate) return null;
 
   // Không cho chấm VÀO sau giờ tan ca (ca thường, không qua đêm).
   if (!isCrossMidnight && punchInMinutes > shiftEndMin) return null;

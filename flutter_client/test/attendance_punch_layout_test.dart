@@ -160,12 +160,12 @@ void main() {
     expect(_columnOf(tester, '17:04'), 6);
   });
 
-  testWidgets('Có thiết lập: 1 ca/ngày, đi trễ quá mức cho phép nên sáng là «ca khác» → vẫn đủ Lần 1–4', variant: _desktop, (tester) async {
+  testWidgets('Có thiết lập: 1 ca/ngày, sáng vào trễ quá «trễ tối đa» → vẫn đủ Lần 1–4', variant: _desktop, (tester) async {
     SharedPreferences.setMockInitialValues({'attendance_by_shift_punch_layout_v1': 'byShift'});
     await _pump(
       tester,
       shifts: const [
-        // Vào 06:50, cho trễ tối đa 1 phút: 06:58 không khớp ca sáng, hệ thống chỉ nhận ca chiều.
+        // Vào 06:50, «trễ tối đa» 1 phút: 06:58 vẫn khớp ca sáng (trễ đủ 8 phút), chiều vẫn ở Lần 3–4.
         {'id': 'sang', 'name': 'Ca sáng', 'startTime': '06:50:00', 'endTime': '11:00:00', 'maximumAllowedLateMinutes': 1},
         {'id': 'chieu', 'name': 'Ca chiều', 'startTime': '13:00:00', 'endTime': '17:00:00', 'maximumAllowedLateMinutes': 1},
       ],

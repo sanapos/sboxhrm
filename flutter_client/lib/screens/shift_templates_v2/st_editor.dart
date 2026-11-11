@@ -473,12 +473,6 @@ class _ShiftTemplateEditorPageState extends State<ShiftTemplateEditorPage> {
           onChanged: (v) => _set(() => s.lateGrace = v),
         ),
         _MinuteStepper(
-          label: 'Giới hạn đi trễ',
-          hint: 'Trễ quá mốc này không còn thuộc ca',
-          value: s.maxLate,
-          onChanged: (v) => _set(() => s.maxLate = v),
-        ),
-        _MinuteStepper(
           label: 'Miễn về sớm',
           hint: 'Ra sớm trong khoảng này không tính về sớm',
           value: s.earlyLeaveGrace,

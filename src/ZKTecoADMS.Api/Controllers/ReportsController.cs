@@ -1334,11 +1334,11 @@ public class ReportsController(
                     .ToList();
                 if (empAttendances.Count == 0) continue;
 
-                var hasAssigned = empIdToShiftIds.TryGetValue(employee.Id, out var assignedIds)
-                    && assignedIds.Count > 0;
-                var candidateShifts = hasAssigned
-                    ? assignedIds!.Where(id => shiftById.ContainsKey(id)).Select(id => shiftById[id]).ToList()
-                    : shiftTemplates;
+                // Chỉ ca gán trong thiết lập lương (mức lương ca / «shifts:» của mẫu lương) — như bộ máy tính
+                // công và Tổng quan. NV chưa gán ca không tính trễ / sớm (trước đây so với mọi ca của cửa hàng).
+                if (!empIdToShiftIds.TryGetValue(employee.Id, out var assignedIds) || assignedIds.Count == 0)
+                    continue;
+                var candidateShifts = assignedIds.Where(id => shiftById.ContainsKey(id)).Select(id => shiftById[id]).ToList();
 
                 // Gom theo NGÀY CÔNG: ca 22:00→06:00 có giờ vào và giờ ra cùng một ngày.
                 var groupedByDate = empAttendances.GroupBy(a => WorkDate(a.AttendanceTime, dayEnd));
@@ -1395,15 +1395,6 @@ public class ReportsController(
                             .ToList();
                         var fit = ShiftMatchHelper.FindBest(
                             candidates, punchInTs, punchOutTs, pairIndex);
-                        // NV chưa gán ca: thử toàn store (trừ OT). Đã gán: không fallback.
-                        if (fit == null && !hasAssigned)
-                        {
-                            fit = ShiftMatchHelper.FindBest(
-                                shiftTemplates
-                                    .Where(s => !IsOvertimeShiftTypeName(s.ShiftType))
-                                    .Select(s => s.ToCandidate()),
-                                punchInTs, punchOutTs, pairIndex);
-                        }
                         if (fit == null) continue;
                         pairIndex++;
 
