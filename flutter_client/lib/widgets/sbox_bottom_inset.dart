@@ -4,9 +4,9 @@ import 'package:flutter/widgets.dart';
 
 /// Khoảng đệm dưới cho thanh điều hướng đáy.
 ///
-/// iPhone có thanh vuốt báo vùng an toàn 34pt; chừa trọn vùng đó làm thanh điều hướng
-/// nổi cao, chừa trống lớn bên dưới. Giữ lại phần đủ để nút không đè lên thanh vuốt
-/// (vạch cao 5pt, cách mép dưới ~8pt). Máy không có thanh vuốt: đệm 2.
+/// Gốc app ([padAwaySystemBars]) đã chừa vùng thanh vuốt iPhone (rút gọn theo
+/// [iosHomeIndicatorClearance]) và đặt viewPadding = 0 cho cây con — thường trả 2.
+/// Còn nhánh viewPadding > 0 cho màn nào tự vẽ dưới vùng an toàn.
 double sboxBottomNavInset(BuildContext context) {
   final inset = MediaQuery.viewPaddingOf(context).bottom;
   if (inset <= 0) return 2;

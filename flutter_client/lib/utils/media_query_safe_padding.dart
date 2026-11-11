@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/widgets.dart';
 
@@ -16,6 +18,13 @@ const kFallbackBottomClearance = 8.0;
 /// (trước đây mọi nền tảng trừ web đều cộng → app Windows có dải đen 24 px trên, 12 px dưới).
 bool get _phone =>
     !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
+
+bool get _ios => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+/// iPhone có thanh vuốt báo vùng an toàn dưới 34pt (iPad 20pt). Chừa trọn vùng đó (cộng thêm 4)
+/// ở gốc app làm thanh điều hướng đáy và nút cuối màn nổi cao, trống một dải lớn bên dưới.
+/// Vạch vuốt chỉ cao 5pt, cách mép dưới ~8pt — giữ phần đủ để nút không đè lên vạch.
+double iosHomeIndicatorClearance(double inset) => math.max(inset - 16, 12);
 
 /// SBOX HRM và SBOX POS (không đặt SBOX_APP) trên Android: MainActivity ẩn thanh điều hướng.
 const _hidesNavApp = String.fromEnvironment('SBOX_APP') == '';
@@ -68,7 +77,7 @@ MediaQueryData mediaQueryWithSystemPadding(
       ? mq.padding.bottom
       : _phone
           ? botSys > 0.5
-              ? botSys + kSystemBarClearance
+              ? (_ios ? iosHomeIndicatorClearance(botSys) : botSys + kSystemBarClearance)
               // SBOX HRM / POS Android chủ động ẩn thanh điều hướng (vuốt lên hiện tạm, đè lên app):
               // inset = 0 là thật, không chừa khe 12dp — nút dưới cùng sát mép màn.
               : _hrmHidesNavBar
