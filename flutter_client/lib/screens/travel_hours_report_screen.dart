@@ -17,6 +17,7 @@ import '../widgets/manual_travel_dialog.dart';
 import '../widgets/mobile_attendance_record_detail_sheet.dart';
 import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
+import '../widgets/reports/report_breakdown_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
@@ -356,13 +357,14 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
     // Thời lượng mỗi chuyến: <30p, 30–60p, 1–2h, >2h.
     const durLabels = ['Dưới 30 phút', '30–60 phút', '1–2 giờ', 'Trên 2 giờ'];
     final dur = List<double>.filled(4, 0);
+    int durBucket(double h) => h < 0.5 ? 0 : (h < 1 ? 1 : (h < 2 ? 2 : 3));
     for (final t in complete) {
       final l = t.start.isUtc ? t.start.toLocal() : t.start;
       final d = DateTime(l.year, l.month, l.day);
       byDay[d] = (byDay[d] ?? 0) + t.hours;
       byEmp[t.employeeName] = (byEmp[t.employeeName] ?? 0) + t.hours;
       trips[t.employeeName] = (trips[t.employeeName] ?? 0) + 1;
-      dur[t.hours < 0.5 ? 0 : (t.hours < 1 ? 1 : (t.hours < 2 ? 2 : 3))]++;
+      dur[durBucket(t.hours)]++;
     }
     final days = byDay.keys.toList()..sort();
     String h(num? v) => '${SboxFmt.decimal(v)} giờ';
@@ -373,6 +375,21 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
           child: SboxBarChart(
             valueFormat: h,
             axisFormat: (v) => SboxFmt.decimal(v),
+            onTapIndex: (i) {
+              if (i < 0 || i >= days.length) return;
+              final d = days[i];
+              _showTripsBreakdown(
+                title: 'Ngày ${_dateFmt.format(d)}',
+                subtitle: 'Giờ di chuyển trong ngày',
+                trips: complete.where((t) {
+                  final l = t.start.isUtc ? t.start.toLocal() : t.start;
+                  return l.year == d.year && l.month == d.month && l.day == d.day;
+                }),
+                valueOf: (t) => t.hours,
+                captionOf: (n, _) => '$n chuyến',
+                valueFormat: (v) => _fmtHours(v.toDouble()),
+              );
+            },
             labels: [for (final d in days) sboxDayLabel(d)],
             series: [SboxSeries(name: 'Giờ di chuyển', values: [for (final d in days) byDay[d]!])],
           ),
@@ -399,6 +416,17 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
           child: SboxRankList(
             color: SboxColors.brand500,
             valueFormat: (v) => '${SboxFmt.number(v)} chuyến',
+            onTap: (s) {
+              final b = durLabels.indexOf(s.label);
+              if (b < 0) return;
+              _showTripsBreakdown(
+                title: 'Chuyến ${s.label.toLowerCase()}',
+                trips: complete.where((t) => durBucket(t.hours) == b),
+                valueOf: (_) => 1,
+                captionOf: _hoursCaption,
+                valueFormat: (v) => '${SboxFmt.number(v)} chuyến',
+              );
+            },
             items: [for (var i = 0; i < 4; i++) SboxSlice(durLabels[i], dur[i])],
           ),
         ),
@@ -407,10 +435,211 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
           title: 'Di chuyển nhiều nhất',
           child: SboxRankList(
             valueFormat: h,
-            items: [for (final e in byEmp.entries) SboxSlice(e.key, e.value, caption: '${trips[e.key]} chuyến')],
+            onTap: (s) => _showEmployeeTrips(s.label, complete.where((t) => t.employeeName == s.label)),
+            items:[for (final e in byEmp.entries) SboxSlice(e.key, e.value, caption: '${trips[e.key]} chuyến')],
           ),
         ),
     ];
+  }
+
+  static bool _isCompleteTrip(_TravelTripRow t) => t.isComplete && t.hours > 0;
+
+  /// Bấm một NV trong «Di chuyển nhiều nhất» → từng chuyến của NV đó.
+  void _showEmployeeTrips(String name, Iterable<_TravelTripRow> trips) {
+    final list = trips.toList()..sort((a, b) => a.start.compareTo(b.start));
+    showReportBreakdownSheet(
+      context,
+      title: name,
+      subtitle: 'Các chuyến đủ cặp đi – đến trong kỳ',
+      rows: [
+        for (final t in list)
+          ReportBreakdownRow(
+            label: _dateFmt.format(t.start),
+            value: t.hours,
+            valueText: _fmtHours(t.hours),
+            caption: [
+              '${_timeFmt.format(t.start)} → ${t.arrive != null ? _timeFmt.format(t.arrive!) : '—'}',
+              t.statusLabel,
+            ].join(' · '),
+          ),
+      ],
+      actionLabel: _teamView ? 'Xem danh sách của nhân viên này' : null,
+      onAction: _teamView
+          ? () => setState(() {
+                _viewTab = 0;
+                _empSearch = name;
+                _page = 1;
+              })
+          : null,
+    );
+  }
+
+  /// Nhãn NV cho bảng chi tiết — thêm mã khi 2 người trùng tên.
+  String Function(_TravelTripRow) _empLabeler(Iterable<_TravelTripRow> rows) {
+    final idsByName = <String, Set<String>>{};
+    for (final t in rows) {
+      idsByName.putIfAbsent(t.employeeName, () => {}).add(t.employeeId);
+    }
+    return (t) {
+      final n = t.employeeName.trim().isEmpty ? t.employeeCode : t.employeeName;
+      return (idsByName[t.employeeName]?.length ?? 0) > 1 && t.employeeCode.isNotEmpty
+          ? '$n · ${t.employeeCode}'
+          : n;
+    };
+  }
+
+  /// Gom chuyến theo NV và mở bảng chi tiết; bấm một NV → lọc danh sách theo NV đó.
+  void _showTripsBreakdown({
+    required String title,
+    required Iterable<_TravelTripRow> trips,
+    required num Function(_TravelTripRow t) valueOf,
+    required String Function(int count, List<_TravelTripRow> g) captionOf,
+    required String Function(num v) valueFormat,
+    String? subtitle,
+    String emptyText = 'Không có chuyến trong kỳ',
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    final list = trips.toList();
+    final labelOf = _empLabeler(list);
+    final nameByLabel = {for (final t in list) labelOf(t): t.employeeName};
+    final rows = reportGroupBreakdown(list, keyOf: labelOf, valueOf: valueOf, captionOf: captionOf);
+    showReportBreakdownSheet(
+      context,
+      title: title,
+      subtitle: subtitle ?? reportPeriodSubtitle(_from, _to, team: _teamView),
+      rows: !_teamView
+          ? rows
+          : [
+              for (final r in rows)
+                ReportBreakdownRow(
+                  label: r.label,
+                  value: r.value,
+                  caption: r.caption,
+                  valueText: r.valueText,
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _viewTab = 0;
+                      _empSearch = nameByLabel[r.label] ?? r.label;
+                      _page = 1;
+                    });
+                  },
+                ),
+            ],
+      valueFormat: valueFormat,
+      emptyText: emptyText,
+      actionLabel: actionLabel,
+      onAction: onAction,
+    );
+  }
+
+  void _applyStatusFilter(String status) => setState(() {
+        _statusFilter = status;
+        _viewTab = 0;
+        _page = 1;
+      });
+
+  String _hoursCaption(int n, List<_TravelTripRow> g) {
+    final h = g.where(_isCompleteTrip).fold<double>(0, (s, t) => s + t.hours);
+    return h > 0 ? '$n chuyến · ${_fmtHours(h)}' : '$n chuyến';
+  }
+
+  /// Chi tiết thẻ KPI — cùng tập chuyến và công thức với số trên thẻ.
+  void _showKpiBreakdown(String kpi, List<_TravelTripRow> filtered) {
+    final complete = filtered.where(_isCompleteTrip);
+    switch (kpi) {
+      case 'Chuyến đủ cặp':
+        _showTripsBreakdown(
+          title: kpi,
+          trips: complete,
+          valueOf: (_) => 1,
+          captionOf: _hoursCaption,
+          valueFormat: (v) => '${SboxFmt.number(v)} chuyến',
+          emptyText: 'Chưa có chuyến đủ cặp đi – đến trong kỳ',
+          actionLabel: _statusFilter == 'complete' ? null : 'Lọc danh sách theo mục này',
+          onAction: _statusFilter == 'complete' ? null : () => _applyStatusFilter('complete'),
+        );
+        break;
+      case 'Tổng giờ':
+        _showTripsBreakdown(
+          title: kpi,
+          trips: complete,
+          valueOf: (t) => t.hours,
+          captionOf: (n, g) {
+            final total = g.fold<double>(0, (s, t) => s + t.hours);
+            final pay = g.where((t) => t.isPayrollApproved).fold<double>(0, (s, t) => s + t.hours);
+            return (total - pay).abs() >= 1 / 60
+                ? '$n chuyến · tính lương ${pay > 0 ? _fmtHours(pay) : '0h'}'
+                : '$n chuyến';
+          },
+          valueFormat: (v) => _fmtHours(v.toDouble()),
+          emptyText: 'Chưa có giờ di chuyển trong kỳ',
+        );
+        break;
+      case 'Thiếu chấm':
+        _showTripsBreakdown(
+          title: kpi,
+          trips: filtered.where((t) => !t.isComplete),
+          valueOf: (_) => 1,
+          captionOf: (_, g) {
+            final byStatus = <String, int>{};
+            for (final t in g) {
+              byStatus[t.statusLabel] = (byStatus[t.statusLabel] ?? 0) + 1;
+            }
+            return byStatus.entries.map((e) => '${e.key} ${e.value}').join(' · ');
+          },
+          valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+          emptyText: 'Không có lượt thiếu chấm',
+          actionLabel: _statusFilter == 'incomplete' ? null : 'Lọc danh sách theo mục này',
+          onAction: _statusFilter == 'incomplete' ? null : () => _applyStatusFilter('incomplete'),
+        );
+        break;
+      case 'Nhân viên':
+        _showTripsBreakdown(
+          title: kpi,
+          trips: filtered,
+          valueOf: (_) => 1,
+          captionOf: (_, g) {
+            final c = g.where(_isCompleteTrip).length;
+            final i = g.where((t) => !t.isComplete).length;
+            final h = g.where(_isCompleteTrip).fold<double>(0, (s, t) => s + t.hours);
+            return [
+              '$c chuyến đủ cặp',
+              if (i > 0) '$i thiếu chấm',
+              if (h > 0) _fmtHours(h),
+            ].join(' · ');
+          },
+          valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+          actionLabel: _teamView ? 'Xem bảng theo nhân viên' : null,
+          onAction: _teamView
+              ? () => setState(() {
+                    _viewTab = 1;
+                    _page = 1;
+                  })
+              : null,
+        );
+        break;
+      case 'Lượt':
+        // Nhân viên tự xem: chia lượt theo trạng thái.
+        final rows = reportGroupBreakdown(
+          filtered,
+          keyOf: (t) => t.statusLabel,
+          captionOf: (_, g) {
+            final h = g.where(_isCompleteTrip).fold<double>(0, (s, t) => s + t.hours);
+            return h > 0 ? _fmtHours(h) : '';
+          },
+        );
+        showReportBreakdownSheet(
+          context,
+          title: kpi,
+          subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
+          rows: rows,
+          valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+          emptyText: 'Không có lượt chấm đi đường trong kỳ',
+        );
+        break;
+    }
   }
 
   List<ReportKpiItem> _buildKpis(List<_TravelTripRow> filtered) {
@@ -423,6 +652,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
     return [
       ReportKpiItem(
         label: 'Chuyến đủ cặp',
+        onTap: () => _showKpiBreakdown('Chuyến đủ cặp', filtered),
         value: '${complete.length}',
         note: completePct == null ? null : '$completePct% tổng lượt',
         icon: Icons.directions_car_outlined,
@@ -430,6 +660,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
       ),
       ReportKpiItem(
         label: 'Tổng giờ',
+        onTap: () => _showKpiBreakdown('Tổng giờ', filtered),
         value: _fmtHours(hours),
         note: complete.isEmpty
             ? null
@@ -441,6 +672,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
       ),
       ReportKpiItem(
         label: 'Thiếu chấm',
+        onTap: () => _showKpiBreakdown('Thiếu chấm', filtered),
         value: '$incomplete',
         note: incomplete > 0 ? 'Cần bổ sung giờ đến' : 'Đầy đủ',
         icon: Icons.warning_amber_outlined,
@@ -449,6 +681,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
       ),
       ReportKpiItem(
         label: _teamView ? 'Nhân viên' : 'Lượt',
+        onTap: () => _showKpiBreakdown(_teamView ? 'Nhân viên' : 'Lượt', filtered),
         value: _teamView ? '$empCount' : '${filtered.length}',
         note: _teamView && empCount > 0 ? 'TB ${_fmtHours(hours / empCount)}/người' : null,
         icon: Icons.people_outline,

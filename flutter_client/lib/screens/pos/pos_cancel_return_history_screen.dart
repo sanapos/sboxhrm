@@ -19,10 +19,16 @@ import '../../theme/sbox_tokens.dart';
 import '../../widgets/reports/hrm_report_widgets.dart' show ReportKpiItem, ReportDashboard, SboxTone;
 import '../../widgets/sbox/sbox_charts.dart';
 import '../../widgets/sbox/sbox_report.dart';
+import '../../widgets/reports/report_breakdown_sheet.dart';
 
 /// Lịch sử hủy món / hủy đơn / trả hàng — lọc thao tác & trước/sau tạm tính.
 class PosCancelReturnHistoryScreen extends StatefulWidget {
-  const PosCancelReturnHistoryScreen({super.key});
+  const PosCancelReturnHistoryScreen({super.key, this.initialFrom, this.initialTo, this.returnsOnly = false});
+
+  /// Mở từ báo cáo khác (vd thẻ «Hoàn trả» của báo cáo doanh thu): cùng kỳ, chỉ lượt trả hàng.
+  final DateTime? initialFrom;
+  final DateTime? initialTo;
+  final bool returnsOnly;
 
   @override
   State<PosCancelReturnHistoryScreen> createState() =>
@@ -66,6 +72,9 @@ class _PosCancelReturnHistoryScreenState
   @override
   void initState() {
     super.initState();
+    if (widget.initialFrom != null) _from = widget.initialFrom!;
+    if (widget.initialTo != null) _to = widget.initialTo!;
+    if (widget.returnsOnly) _action = _ActionFilter.saleReturn;
     unawaited(_load());
   }
 
@@ -196,6 +205,7 @@ class _PosCancelReturnHistoryScreenState
         note: money(_totalAmount),
         icon: Icons.receipt_long_outlined,
         color: SboxColors.brand600,
+        onTap: _showTypeBreakdown,
       ),
       kpi('Hủy món bếp', 'KitchenVoid', Icons.soup_kitchen_outlined, SboxColors.warning, _ActionFilter.kitchenVoid),
       kpi('Hủy đơn', 'SaleCancel', Icons.cancel_outlined, SboxColors.danger, _ActionFilter.saleCancel),
@@ -219,6 +229,32 @@ class _PosCancelReturnHistoryScreenState
         },
       ),
     ];
+  }
+
+  /// Thẻ «Tổng lượt»: chia theo thao tác (số máy chủ tính cho cả kỳ); bấm dòng → lọc danh sách theo thao tác đó.
+  void _showTypeBreakdown() {
+    final rows = <ReportBreakdownRow>[
+      for (final e in _codes.entries)
+        if ((_byType[e.value]?.count ?? 0) > 0)
+          ReportBreakdownRow(
+            label: tr(_actionLabel(e.value)),
+            value: _byType[e.value]!.count,
+            caption: '${_money.format(_byType[e.value]!.amount)} đ',
+            onTap: () {
+              Navigator.of(context).pop();
+              setState(() => _action = e.key);
+              unawaited(_load());
+            },
+          ),
+    ]..sort((a, b) => b.value.compareTo(a.value));
+    unawaited(showReportBreakdownSheet(
+      context,
+      title: _mineOnly ? 'Lượt hủy / trả của tôi' : 'Tổng lượt hủy / trả',
+      subtitle: '${_dayFmt.format(_from)} – ${_dayFmt.format(_to)}',
+      rows: rows,
+      valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+      emptyText: 'Không có lượt hủy / trả nào trong kỳ',
+    ));
   }
 
   void _quickAction(_ActionFilter a) {
@@ -293,6 +329,11 @@ class _PosCancelReturnHistoryScreenState
           child: SboxRankList(
             color: SboxColors.danger,
             valueFormat: (v) => SboxFmt.money(v),
+            // Bấm người hủy / trả → lọc danh sách theo người đó (ô «Người hủy / trả» trong lọc thêm).
+            onTap: (s) {
+              _actorCtrl.text = s.label;
+              unawaited(_load());
+            },
             items: [for (final e in byActor.entries) SboxSlice(e.key, e.value, caption: '${actorCnt[e.key]} lượt')],
           ),
         ),
@@ -311,6 +352,12 @@ class _PosCancelReturnHistoryScreenState
         child: SboxRankList(
           color: SboxColors.slate500,
           valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+          // Bấm lý do → tìm theo lý do đó (ô tìm khớp cả lý do).
+          onTap: (s) {
+            if (s.label == 'Không ghi lý do') return;
+            _searchCtrl.text = s.label;
+            unawaited(_load());
+          },
           items: [for (final e in byReason.entries) SboxSlice(e.key, e.value)],
         ),
       ),

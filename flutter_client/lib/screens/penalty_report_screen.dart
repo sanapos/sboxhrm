@@ -11,6 +11,7 @@ import '../utils/vietnamese_font.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
+import '../widgets/reports/report_breakdown_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
@@ -164,6 +165,96 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
     } catch (_) {}
   }
 
+  static String _money(num v) => '${reportMoneyFmt.format(v)} đ';
+
+  static String _typeOf(Map<String, dynamic> t) =>
+      (t['penaltyTypeLabel'] ?? penaltyTypeDisplayLabel(t['type'])).toString();
+
+  /// Khóa nhân viên để gom nhóm. Trùng tên (vd nhiều «Ngân QA Thu») thì thêm mã NV —
+  /// tránh cộng dồn nhiều người thành một dòng.
+  static String Function(Map<String, dynamic>) _empKeyFor(List<Map<String, dynamic>> rows) {
+    final codesByName = <String, Set<String>>{};
+    for (final t in rows) {
+      codesByName.putIfAbsent(t['employeeName']?.toString() ?? '—', () => {}).add(t['employeeCode']?.toString() ?? '');
+    }
+    return (t) {
+      final baseName = t['employeeName']?.toString() ?? '—';
+      final code = t['employeeCode']?.toString() ?? '';
+      return (codesByName[baseName]?.length ?? 0) > 1 && code.isNotEmpty ? '$baseName · $code' : baseName;
+    };
+  }
+
+  /// Mã lọc trạng thái (giống ô «Trạng thái») của một phiếu.
+  static String? _statusFilterCode(dynamic raw) {
+    if (isVoidPenaltyTicketStatus(raw)) return '2';
+    final key = raw?.toString().toLowerCase().trim() ?? '';
+    if (key == 'autoapproved' || key == '3') return '3';
+    if (key == 'approved' || key == '1') return '1';
+    if (key == 'pending' || key == '0') return '0';
+    return null;
+  }
+
+  /// Bảng chi tiết của một thẻ số liệu: NV (xem cả nhóm) hoặc loại phạt (xem của tôi).
+  void _showPenaltyBreakdown(
+    String title,
+    List<Map<String, dynamic>> rows, {
+    required bool money,
+    bool showCash = false,
+    String Function(Map<String, dynamic>)? keyOf,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    final key = keyOf ?? (_teamView ? _empKeyFor(rows) : _typeOf);
+    showReportBreakdownSheet(
+      context,
+      title: title,
+      subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
+      valueFormat: money ? _money : null,
+      actionLabel: actionLabel,
+      onAction: onAction,
+      rows: reportGroupBreakdown<Map<String, dynamic>>(
+        rows,
+        keyOf: key,
+        valueOf: money ? (t) => reportSafeDouble(t['amount']) : null,
+        valueTextOf: money ? null : (v, n) => '$n phiếu',
+        captionOf: (n, g) {
+          final amt = g.fold(0.0, (s, t) => s + reportSafeDouble(t['amount']));
+          final cash = showCash
+              ? g.where(isCashPenaltyTicket).fold(0.0, (s, t) => s + reportSafeDouble(t['amount']))
+              : 0.0;
+          final head = money ? '$n phiếu' : _money(amt);
+          return cash > 0 ? '$head · Thu tiền mặt ${_money(cash)}' : head;
+        },
+      ),
+    );
+  }
+
+  /// Danh sách từng phiếu (vd khi bấm một nhân viên trong top).
+  void _showPenaltyTickets(String title, List<Map<String, dynamic>> rows,
+      {String? actionLabel, VoidCallback? onAction}) {
+    final sorted = [...rows]..sort((a, b) =>
+        (parseApiCalendarDate(b['date']) ?? DateTime(0)).compareTo(parseApiCalendarDate(a['date']) ?? DateTime(0)));
+    showReportBreakdownSheet(
+      context,
+      title: title,
+      subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
+      valueFormat: _money,
+      actionLabel: actionLabel,
+      onAction: onAction,
+      rows: [
+        for (final t in sorted)
+          ReportBreakdownRow(
+            label: _typeOf(t),
+            value: reportSafeDouble(t['amount']),
+            caption: [
+              if (parseApiCalendarDate(t['date']) != null) reportDateFmt.format(parseApiCalendarDate(t['date'])!),
+              t['statusLabel']?.toString() ?? penaltyStatusDisplayLabel(t['status']),
+            ].where((s) => s.isNotEmpty).join(' · '),
+          ),
+      ],
+    );
+  }
+
   /// Biểu đồ dashboard: tiền phạt theo ngày, cơ cấu loại vi phạm, trạng thái, top nhân viên.
   List<Widget> _buildCharts() {
     final all = _statsFiltered;
@@ -173,38 +264,66 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
     final byDay = <DateTime, double>{};
     final byEmp = <String, double>{};
     final empCnt = <String, int>{};
-    // Trùng tên (vd nhiều «Ngân QA Thu») thì thêm mã NV — tránh cộng dồn nhiều người thành một dòng.
-    final codesByName = <String, Set<String>>{};
-    for (final t in f) {
-      codesByName.putIfAbsent(t['employeeName']?.toString() ?? '—', () => {}).add(t['employeeCode']?.toString() ?? '');
-    }
+    final empKey = _empKeyFor(f);
     for (final t in f) {
       final amt = reportSafeDouble(t['amount']);
-      final type = (t['penaltyTypeLabel'] ?? penaltyTypeDisplayLabel(t['type'])).toString();
+      final type = _typeOf(t);
       byType[type] = (byType[type] ?? 0) + amt;
       final d = parseApiCalendarDate(t['date']);
       if (d != null) {
         final k = DateTime(d.year, d.month, d.day);
         byDay[k] = (byDay[k] ?? 0) + amt;
       }
-      final baseName = t['employeeName']?.toString() ?? '—';
-      final code = t['employeeCode']?.toString() ?? '';
-      final n = (codesByName[baseName]?.length ?? 0) > 1 && code.isNotEmpty ? '$baseName · $code' : baseName;
+      final n = empKey(t);
       byEmp[n] = (byEmp[n] ?? 0) + amt;
       empCnt[n] = (empCnt[n] ?? 0) + 1;
     }
     // Trạng thái tính trên mọi phiếu (kể cả đã hủy) để thấy tỷ lệ duyệt.
     final byStatus = <String, ({double v, Color c})>{};
+    final statusRows = <String, List<Map<String, dynamic>>>{};
     for (final t in all) {
       final label = t['statusLabel']?.toString() ?? penaltyStatusDisplayLabel(t['status']);
       final prev = byStatus[label];
       byStatus[label] = (v: (prev?.v ?? 0) + 1, c: penaltyStatusColor(t['status']));
+      statusRows.putIfAbsent(label, () => []).add(t);
     }
     final days = byDay.keys.toList()..sort();
+    void showStatus(String label) {
+      final rows = statusRows[label] ?? const <Map<String, dynamic>>[];
+      final code = rows.isEmpty ? null : _statusFilterCode(rows.first['status']);
+      _showPenaltyBreakdown(
+        label,
+        rows,
+        money: false,
+        actionLabel: code == null || code == _statusFilter ? null : 'Lọc danh sách theo mục này',
+        onAction: code == null
+            ? null
+            : () {
+                setState(() {
+                  _statusFilter = code;
+                  _page = 1;
+                });
+                _load();
+              },
+      );
+    }
+
     return [
       SboxChartCard(
         title: 'Tiền phạt theo ngày',
         child: SboxBarChart(
+          onTapIndex: (i) {
+            if (i < 0 || i >= days.length) return;
+            final d = days[i];
+            _showPenaltyBreakdown(
+              'Tiền phạt ngày ${reportDateFmt.format(d)}',
+              f.where((t) {
+                final td = parseApiCalendarDate(t['date']);
+                return td != null && td.year == d.year && td.month == d.month && td.day == d.day;
+              }).toList(),
+              money: true,
+            );
+          },
           valueFormat: (v) => SboxFmt.money(v),
           labels: [for (final d in days) sboxDayLabel(d)],
           series: [SboxSeries(name: 'Tiền phạt', values: [for (final d in days) byDay[d]!], color: SboxColors.danger)],
@@ -223,13 +342,20 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           SboxRatioBar(parts: [for (final e in byStatus.entries) SboxSlice(e.key, e.value.v, color: e.value.c)]),
           const SizedBox(height: 10),
-          Wrap(spacing: 14, runSpacing: 6, children: [
+          Wrap(spacing: 8, runSpacing: 2, children: [
             for (final e in byStatus.entries)
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                Container(width: 10, height: 10, decoration: BoxDecoration(color: e.value.c, shape: BoxShape.circle)),
-                const SizedBox(width: 5),
-                Text('${tr(e.key)}: ${e.value.v.toInt()}', style: const TextStyle(fontSize: 12)),
-              ]),
+              InkWell(
+                onTap: () => showStatus(e.key),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Container(width: 10, height: 10, decoration: BoxDecoration(color: e.value.c, shape: BoxShape.circle)),
+                    const SizedBox(width: 5),
+                    Text('${tr(e.key)}: ${e.value.v.toInt()}', style: const TextStyle(fontSize: 12)),
+                  ]),
+                ),
+              ),
           ]),
         ]),
       ),
@@ -238,6 +364,19 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
           title: 'Nhân viên bị phạt nhiều nhất',
           child: SboxRankList(
             color: SboxColors.danger,
+            onTap: (item) {
+              final rows = f.where((t) => empKey(t) == item.label).toList();
+              final name = rows.isEmpty ? item.label : (rows.first['employeeName']?.toString() ?? item.label);
+              _showPenaltyTickets(
+                item.label,
+                rows,
+                actionLabel: 'Lọc danh sách theo mục này',
+                onAction: () => setState(() {
+                  _viewTab = 0;
+                  _empSearch = name;
+                }),
+              );
+            },
             valueFormat: (v) => SboxFmt.money(v),
             items: [for (final e in byEmp.entries) SboxSlice(e.key, e.value, caption: '${empCnt[e.key]} phiếu')],
           ),
@@ -264,6 +403,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         ? 'Trừ lương ${reportMoneyFmt.format(salaryAmt)} đ · Thu tiền mặt ${reportMoneyFmt.format(cashAmt)} đ'
         : (approvedAmt > 0 ? 'Trừ vào lương · $approvedPct% tổng tiền phạt' : '$approvedPct% tổng tiền phạt');
     final avg = total == 0 ? 0.0 : totalAmt / total;
+    final approvedRows = f.where((t) => isApprovedPenaltyStatus(t['status'])).toList();
 
     if (!_teamView) {
       return [
@@ -272,56 +412,64 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
             value: total.toString(),
             note: pending > 0 ? '$pending phiếu chưa duyệt' : 'Đã xử lý hết',
             icon: Icons.receipt_long,
-            color: _theme),
+            color: _theme,
+            onTap: () => _showPenaltyBreakdown('Phiếu phạt', f, money: false)),
         ReportKpiItem(
             label: 'Đã duyệt',
             value: approved.toString(),
             icon: Icons.check_circle_outline,
-            color: SboxColors.success),
+            color: SboxColors.success,
+            onTap: () => _showPenaltyBreakdown('Đã duyệt', approvedRows, money: false)),
         ReportKpiItem(
             label: 'Tổng tiền',
             value: '${reportMoneyFmt.format(totalAmt)} đ',
             note: total == 0 ? null : 'TB ${reportMoneyFmt.format(avg)} đ/phiếu',
             icon: Icons.money_off_outlined,
-            color: SboxColors.danger),
+            color: SboxColors.danger,
+            onTap: () => _showPenaltyBreakdown('Tổng tiền', f, money: true)),
         ReportKpiItem(
             label: 'Tiền đã duyệt',
             value: '${reportMoneyFmt.format(approvedAmt)} đ',
             note: approvedNote,
             icon: Icons.payments_outlined,
-            color: _accentDark),
+            color: _accentDark,
+            onTap: () => _showPenaltyBreakdown('Tiền đã duyệt', approvedRows, money: true, showCash: true)),
       ];
     }
-    final empCount = f
-        .map((t) => t['employeeName']?.toString() ?? '')
-        .where((n) => n.isNotEmpty)
-        .toSet()
-        .length;
+    // Đếm theo cùng khóa với biểu đồ top NV (trùng tên → tách theo mã NV).
+    final empKey = _empKeyFor(f);
+    final namedRows = f.where((t) => (t['employeeName']?.toString() ?? '').isNotEmpty).toList();
+    final empCount = namedRows.map(empKey).toSet().length;
     return [
       ReportKpiItem(
           label: 'Tổng phiếu',
           value: '$total',
           note: pending > 0 ? '$pending phiếu chưa duyệt' : 'Đã xử lý hết',
           icon: Icons.receipt_long,
-          color: _theme),
+          color: _theme,
+          onTap: () => _showPenaltyBreakdown('Tổng phiếu', f, money: false, keyOf: empKey)),
       ReportKpiItem(
           label: 'NV vi phạm',
           value: empCount.toString(),
           note: empCount == 0 ? null : 'TB ${(total / empCount).toStringAsFixed(1).replaceAll('.', ',')} phiếu/NV',
           icon: Icons.people_outline,
-          color: SboxColors.warning),
+          color: SboxColors.warning,
+          onTap: () => _showPenaltyBreakdown('NV vi phạm', namedRows, money: false, keyOf: empKey)),
       ReportKpiItem(
           label: 'Tổng tiền phạt',
           value: '${reportMoneyFmt.format(totalAmt)} đ',
           note: total == 0 ? null : 'TB ${reportMoneyFmt.format(avg)} đ/phiếu',
           icon: Icons.money_off_outlined,
-          color: SboxColors.danger),
+          color: SboxColors.danger,
+          onTap: () => _showPenaltyBreakdown('Tổng tiền phạt', f, money: true, keyOf: empKey)),
       ReportKpiItem(
           label: 'Tiền đã duyệt',
           value: '${reportMoneyFmt.format(approvedAmt)} đ',
           note: approvedNote,
           icon: Icons.payments_outlined,
-          color: SboxColors.success),
+          color: SboxColors.success,
+          onTap: () =>
+              _showPenaltyBreakdown('Tiền đã duyệt', approvedRows, money: true, showCash: true, keyOf: empKey)),
     ];
   }
 

@@ -11,11 +11,12 @@ import '../utils/report_screen_helpers.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
+import '../widgets/reports/report_breakdown_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_report.dart';
-import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_charts.dart';
 import '../utils/branch_filter_helper.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
@@ -207,6 +208,93 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     }
   }
 
+  /// Có lọc phía máy (trạng thái / chi nhánh / NV / loại CP) → tổng số phải tính lại từ danh sách,
+  /// tổng của máy chủ là cả kỳ chưa lọc.
+  bool get _useClientTotals =>
+      _statusFilter != null ||
+      _selectedBranchId != null ||
+      _selectedDepartmentId != null ||
+      _empSearch.isNotEmpty ||
+      _selectedCategoryKey != null;
+
+  static String _money(num v) => '${reportMoneyFmt.format(v)} đ';
+
+  static String _signedMoney(num v) =>
+      v > 0 ? '+${_money(v)}' : (v < 0 ? '−${_money(v.abs())}' : _money(0));
+
+  static double _sumOf(Iterable<Map<String, dynamic>> rows, String key) =>
+      rows.fold(0.0, (s, c) => s + reportSafeDouble(c[key]));
+
+  static String _empOf(Map<String, dynamic> c) => c['employeeName']?.toString() ?? '—';
+
+  /// Từng hồ sơ: «Mã HS · Tiêu đề», dòng phụ trạng thái · điểm đến.
+  List<ReportBreakdownRow> _caseRows(
+    List<Map<String, dynamic>> rows, {
+    required double Function(Map<String, dynamic> c) amountOf,
+    bool signed = false,
+  }) {
+    return [
+      for (final c in rows)
+        ReportBreakdownRow(
+          label: [
+            c['caseCode']?.toString() ?? '',
+            c['title']?.toString() ?? '',
+          ].where((s) => s.isNotEmpty).join(' · '),
+          value: signed ? amountOf(c).abs() : amountOf(c),
+          valueText: signed ? _signedMoney(amountOf(c)) : null,
+          caption: [
+            c['statusLabel']?.toString() ?? tripStatusLabel(parseTripStatus(c['status'])),
+            c['destination']?.toString() ?? '',
+          ].where((s) => s.isNotEmpty).join(' · '),
+        ),
+    ]..sort((a, b) => b.value.compareTo(a.value));
+  }
+
+  /// Bảng chi tiết của một thẻ số liệu: xem cả nhóm → gom theo nhân viên; xem của tôi → từng hồ sơ.
+  /// [amountOf] null = đếm hồ sơ. [signed] = số có dấu (chênh lệch), thanh xếp theo trị tuyệt đối.
+  void _showTripBreakdown(
+    String title,
+    List<Map<String, dynamic>> rows, {
+    double Function(Map<String, dynamic> c)? amountOf,
+    bool signed = false,
+    String? Function(List<Map<String, dynamic>> group)? extraOf,
+    String? subtitle,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    List<ReportBreakdownRow> items;
+    if (_teamView) {
+      items = reportGroupBreakdown<Map<String, dynamic>>(
+        rows,
+        keyOf: _empOf,
+        valueOf: amountOf,
+        valueTextOf: amountOf == null ? (v, n) => '$n hồ sơ' : (signed ? (v, n) => _signedMoney(v) : null),
+        captionOf: (n, g) {
+          final extra = extraOf?.call(g);
+          final head = amountOf == null ? _money(_sumOf(g, 'settledAmount')) : '$n hồ sơ';
+          return extra == null || extra.isEmpty ? head : '$head · $extra';
+        },
+      );
+      if (signed) {
+        items = [
+          for (final r in items)
+            ReportBreakdownRow(label: r.label, value: r.value.abs(), valueText: r.valueText, caption: r.caption),
+        ]..sort((a, b) => b.value.compareTo(a.value));
+      }
+    } else {
+      items = _caseRows(rows, amountOf: amountOf ?? (c) => reportSafeDouble(c['settledAmount']), signed: signed);
+    }
+    showReportBreakdownSheet(
+      context,
+      title: title,
+      subtitle: subtitle ?? reportPeriodSubtitle(_from, _to, team: _teamView),
+      rows: items,
+      valueFormat: _money,
+      actionLabel: actionLabel,
+      onAction: onAction,
+    );
+  }
+
   /// Biểu đồ dashboard: khoản mục chi phí, tạm ứng / quyết toán theo NV, hóa đơn, trạng thái hồ sơ.
   List<Widget> _buildCharts() {
     final f = _filtered.where((c) => parseTripStatus(c['status']) != 9).toList();
@@ -221,12 +309,20 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     final names = adv.keys.toList()..sort((a, b) => (set[b]! + adv[b]!).compareTo(set[a]! + adv[a]!));
     final top = names.take(10).toList();
     final byStatus = <String, double>{};
+    final statusRows = <String, List<Map<String, dynamic>>>{};
     for (final c in _filtered) {
       final label = c['statusLabel']?.toString() ?? tripStatusLabel(parseTripStatus(c['status']));
       byStatus[label] = (byStatus[label] ?? 0) + 1;
+      statusRows.putIfAbsent(label, () => []).add(c);
     }
-    final withInv = _summaryWithInvoice;
-    final withoutInv = _summaryWithoutInvoice;
+    // Có lọc phía máy thì cộng lại từ hồ sơ đang hiện (như thẻ KPI), không lấy tổng cả kỳ của máy chủ.
+    final withInv = _useClientTotals ? _sumOf(f, 'totalWithInvoice') : _summaryWithInvoice;
+    final withoutInv = _useClientTotals ? _sumOf(f, 'totalWithoutInvoice') : _summaryWithoutInvoice;
+    void showInvoice(String title, String key) => _showTripBreakdown(
+          title,
+          f.where((c) => reportSafeDouble(c[key]) != 0).toList(),
+          amountOf: (c) => reportSafeDouble(c[key]),
+        );
     return [
       if (_byCategory.isNotEmpty)
         SboxChartCard(
@@ -248,12 +344,23 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
               SboxSlice('Có hóa đơn', withInv, color: SboxColors.success),
               SboxSlice('Không hóa đơn', withoutInv, color: SboxColors.warning),
             ]),
-            const SizedBox(height: 10),
-            Text('${tr('Có hóa đơn')}: ${reportMoneyFmt.format(withInv)} đ',
-                style: const TextStyle(fontSize: 12.5, color: SboxColors.successText)),
-            const SizedBox(height: 2),
-            Text('${tr('Không hóa đơn')}: ${reportMoneyFmt.format(withoutInv)} đ',
-                style: const TextStyle(fontSize: 12.5, color: SboxColors.warningText)),
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () => showInvoice('Có hóa đơn', 'totalWithInvoice'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text('${tr('Có hóa đơn')}: ${reportMoneyFmt.format(withInv)} đ',
+                    style: const TextStyle(fontSize: 12.5, color: SboxColors.successText)),
+              ),
+            ),
+            InkWell(
+              onTap: () => showInvoice('Không hóa đơn', 'totalWithoutInvoice'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text('${tr('Không hóa đơn')}: ${reportMoneyFmt.format(withoutInv)} đ',
+                    style: const TextStyle(fontSize: 12.5, color: SboxColors.warningText)),
+              ),
+            ),
           ]),
         ),
       if (top.isNotEmpty)
@@ -261,6 +368,25 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
           title: _teamView ? 'Tạm ứng và quyết toán theo nhân viên' : 'Tạm ứng và quyết toán',
           wide: true,
           child: SboxBarChart(
+            onTapIndex: (i) {
+              if (i < 0 || i >= top.length) return;
+              final name = top[i];
+              final rows = f.where((c) => _empOf(c) == name).toList();
+              showReportBreakdownSheet(
+                context,
+                title: _teamView ? name : 'Tạm ứng và quyết toán',
+                subtitle: '${_money(adv[name]!)} tạm ứng · ${_money(set[name]!)} chi phí',
+                valueFormat: _money,
+                rows: _caseRows(rows, amountOf: (c) => reportSafeDouble(c['settledAmount'])),
+                actionLabel: _teamView && name != '—' ? 'Lọc danh sách theo mục này' : null,
+                onAction: _teamView && name != '—'
+                    ? () => setState(() {
+                          _viewTab = 0;
+                          _empSearch = name;
+                        })
+                    : null,
+              );
+            },
             valueFormat: (v) => SboxFmt.money(v),
             labels: top,
             series: [
@@ -274,6 +400,21 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
           title: 'Trạng thái hồ sơ',
           child: SboxRankList(
             color: SboxColors.brand500,
+            onTap: (item) {
+              final rows = statusRows[item.label] ?? const <Map<String, dynamic>>[];
+              final code = rows.isEmpty ? null : parseTripStatus(rows.first['status']);
+              _showTripBreakdown(
+                item.label,
+                rows,
+                actionLabel: code == null || code == _statusFilter ? null : 'Lọc danh sách theo mục này',
+                onAction: code == null
+                    ? null
+                    : () {
+                        setState(() => _statusFilter = code);
+                        _load();
+                      },
+              );
+            },
             valueFormat: (v) => '${SboxFmt.number(v)} hồ sơ',
             items: [for (final e in byStatus.entries) SboxSlice(e.key, e.value)],
           ),
@@ -283,11 +424,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
 
   List<ReportKpiItem> _buildKpis() {
     final f = _filtered.where((c) => parseTripStatus(c['status']) != 9).toList();
-    final useClientTotals = _statusFilter != null ||
-        _selectedBranchId != null ||
-        _selectedDepartmentId != null ||
-        _empSearch.isNotEmpty ||
-        _selectedCategoryKey != null;
+    final useClientTotals = _useClientTotals;
     final totalAdv = useClientTotals
         ? f.fold(0.0, (s, c) => s + reportSafeDouble(c['advanceAmount']))
         : _summaryAdvance;
@@ -317,7 +454,8 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
           value: '$caseCount',
           note: _teamView && empCount > 0 ? '$empCount nhân viên' : null,
           icon: Icons.flight_takeoff,
-          color: _theme),
+          color: _theme,
+          onTap: () => _showTripBreakdown(_teamView ? 'Tổng hồ sơ' : 'Hồ sơ', f)),
       ReportKpiItem(
           label: 'Tổng tạm ứng',
           value: '${reportMoneyFmt.format(totalAdv)} đ',
@@ -325,20 +463,49 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
               ? 'Đã chi ${reportMoneyFmt.format(paidAdv)} đ · Chờ chi ${reportMoneyFmt.format(waitingAdv)} đ'
               : (totalAdv > 0 ? 'Đã chi đủ' : null),
           icon: Icons.payments_outlined,
-          color: SboxColors.warning),
+          color: SboxColors.warning,
+          onTap: () => _showTripBreakdown(
+                'Tổng tạm ứng',
+                f.where((c) => reportSafeDouble(c['advanceAmount']) != 0).toList(),
+                amountOf: (c) => reportSafeDouble(c['advanceAmount']),
+                extraOf: (g) {
+                  final waiting = _sumOf(g.where((c) => c['advanceIsPaid'] != true), 'advanceAmount');
+                  return waiting > 0.5 ? 'Chờ chi ${_money(waiting)}' : null;
+                },
+              )),
       ReportKpiItem(
           label: 'Tổng chi phí',
           value: '${reportMoneyFmt.format(totalSet)} đ',
           note: _expenseLineCount > 0 ? '$_expenseLineCount khoản chi' : null,
           icon: Icons.receipt_long,
-          color: SboxColors.success),
+          color: SboxColors.success,
+          onTap: () => _showTripBreakdown(
+                'Tổng chi phí',
+                f.where((c) => reportSafeDouble(c['settledAmount']) != 0).toList(),
+                amountOf: (c) => reportSafeDouble(c['settledAmount']),
+                extraOf: (g) {
+                  final lines = g.fold<int>(0, (s, c) {
+                    final n = c['expenseLineCount'] ?? c['ExpenseLineCount'];
+                    return s + (n is num ? n.toInt() : 0);
+                  });
+                  return lines > 0 ? '$lines khoản chi' : null;
+                },
+              )),
       ReportKpiItem(
           label: 'Chênh lệch',
           value: '${reportMoneyFmt.format(totalBal.abs())} đ',
           note: balNote,
           icon: Icons.balance_outlined,
           color: _theme,
-          tone: totalBal == 0 ? SboxTone.success : (totalBal > 0 ? SboxTone.warning : SboxTone.danger)),
+          tone: totalBal == 0 ? SboxTone.success : (totalBal > 0 ? SboxTone.warning : SboxTone.danger),
+          onTap: () => _showTripBreakdown(
+                'Chênh lệch',
+                f.where((c) => reportSafeDouble(c['balanceAmount']) != 0).toList(),
+                subtitle:
+                    '${reportPeriodSubtitle(_from, _to, team: _teamView)} · + công ty trả thêm, − NV hoàn lại',
+                amountOf: (c) => reportSafeDouble(c['balanceAmount']),
+                signed: true,
+              )),
     ];
   }
 

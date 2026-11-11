@@ -16,13 +16,16 @@ import '../sbox/sbox_report.dart';
 import '../sbox/sbox_table.dart';
 
 export '../sbox/sbox_basics.dart' show SboxTone;
-/// Bọc KPI + bộ lọc báo cáo — thu gọn còn 1 hàng như Hồ sơ nhân sự.
-class ReportCollapsibleChrome extends StatelessWidget {
+/// Thanh «Bộ lọc» đầu báo cáo: mở màn là thu gọn còn 1 dòng tóm tắt (kỳ, trạng thái, chi nhánh…),
+/// bấm để mở. [expanded] / [onToggle] của màn chỉ còn để tương thích — trạng thái thu / mở do khung tự giữ
+/// (nhớ theo [storageKey] trong phiên), mặc định thu gọn cho gọn màn.
+class ReportCollapsibleChrome extends StatefulWidget {
   final bool expanded;
   final VoidCallback onToggle;
   final Widget? kpi;
   final Widget filter;
   final List<Widget> betweenKpiAndFilter;
+  final String? storageKey;
 
   const ReportCollapsibleChrome({
     super.key,
@@ -31,21 +34,48 @@ class ReportCollapsibleChrome extends StatelessWidget {
     required this.filter,
     this.kpi,
     this.betweenKpiAndFilter = const [],
+    this.storageKey,
   });
+
+  static final Map<String, bool> _open = {};
+
+  @override
+  State<ReportCollapsibleChrome> createState() => _ReportCollapsibleChromeState();
+}
+
+class _ReportCollapsibleChromeState extends State<ReportCollapsibleChrome> {
+  late bool _open = ReportCollapsibleChrome._open[widget.storageKey ?? ''] ?? false;
+
+  void _toggle() {
+    setState(() => _open = !_open);
+    if (widget.storageKey != null) ReportCollapsibleChrome._open[widget.storageKey!] = _open;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return HrmCollapsibleOverview(
-      expanded: expanded,
-      onToggle: onToggle,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (kpi != null) kpi!,
-          ...betweenKpiAndFilter,
-          filter,
+    final f = widget.filter;
+    final summary = f is ReportFilterSection ? f.summary : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.kpi != null) widget.kpi!,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: HrmCollapsibleOverview(
+            key: const ValueKey('report-filter-toggle'),
+            title: 'Bộ lọc',
+            subtitle: summary,
+            expanded: _open,
+            onToggle: _toggle,
+            child: const SizedBox.shrink(),
+          ),
+        ),
+        if (_open) ...[
+          const SizedBox(height: 6),
+          ...widget.betweenKpiAndFilter,
+          f,
         ],
-      ),
+      ],
     );
   }
 }
@@ -687,6 +717,31 @@ class ReportFilterSection extends StatefulWidget {
     this.showApplyButton = true,
   });
 
+  /// Một dòng tóm tắt bộ lọc đang áp dụng (kỳ · ngày · trạng thái · chi nhánh · phòng ban · NV).
+  String get summary {
+    final fmt = DateFormat('dd/MM/yy');
+    final parts = <String>[
+      tr(ReportDateRangePresets.presetLabel(datePreset)),
+      '${fmt.format(from)} — ${fmt.format(to)}',
+    ];
+    if (statusSummary != null && statusSummary!.isNotEmpty) parts.add(tr(statusSummary!));
+    String? nameOf(List<Map<String, dynamic>> list, String? id) {
+      if (id == null) return null;
+      final m = list.where((b) => b['id']?.toString() == id);
+      final n = m.isEmpty ? '' : (m.first['name']?.toString() ?? '');
+      return n.isEmpty ? null : n;
+    }
+
+    if (branchFilter != null) {
+      final b = nameOf(branchFilter!.branches, selectedBranchId);
+      if (b != null) parts.add(b);
+      final d = nameOf(branchFilter!.departments, selectedDepartmentId);
+      if (d != null) parts.add(d);
+    }
+    if (empSearch.isNotEmpty) parts.add('${tr('NV')}: $empSearch');
+    return parts.join(' · ');
+  }
+
   @override
   State<ReportFilterSection> createState() => _ReportFilterSectionState();
 }
@@ -694,38 +749,7 @@ class ReportFilterSection extends StatefulWidget {
 class _ReportFilterSectionState extends State<ReportFilterSection> {
   bool _expanded = false;
 
-  String _filterSummary() {
-    final fmt = DateFormat('dd/MM/yy');
-    final parts = <String>[
-      ReportDateRangePresets.presetLabel(widget.datePreset),
-      '${fmt.format(widget.from)} — ${fmt.format(widget.to)}',
-    ];
-    if (widget.statusSummary != null && widget.statusSummary!.isNotEmpty) {
-      parts.add(widget.statusSummary!);
-    }
-    if (widget.selectedBranchId != null && widget.branchFilter != null) {
-      final match = widget.branchFilter!.branches.where(
-        (b) => b['id']?.toString() == widget.selectedBranchId,
-      );
-      if (match.isNotEmpty) {
-        final name = match.first['name']?.toString() ?? '';
-        if (name.isNotEmpty) parts.add(name);
-      }
-    }
-    if (widget.selectedDepartmentId != null && widget.branchFilter != null) {
-      final match = widget.branchFilter!.departments.where(
-        (d) => d['id']?.toString() == widget.selectedDepartmentId,
-      );
-      if (match.isNotEmpty) {
-        final name = match.first['name']?.toString() ?? '';
-        if (name.isNotEmpty) parts.add(name);
-      }
-    }
-    if (widget.empSearch.isNotEmpty) {
-      parts.add('NV: ${widget.empSearch}');
-    }
-    return parts.join(' · ');
-  }
+  String _filterSummary() => widget.summary;
 
   List<Widget> _filterBody(bool hasExtraFilters) {
     return [

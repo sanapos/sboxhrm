@@ -522,29 +522,104 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     );
   }
 
+  /// Bốn loại của đồ thị chuyên cần — mỗi loại bật / tắt riêng (giữ trong phiên làm việc).
+  static const _attKindDefs = [
+    (key: 'present', label: 'Đi làm', color: SboxColors.primary),
+    (key: 'onTime', label: 'Đúng giờ', color: SboxColors.success),
+    (key: 'late', label: 'Đi trễ', color: SboxColors.warning),
+    (key: 'absent', label: 'Vắng', color: SboxColors.danger),
+  ];
+  static final Set<String> _attKinds = {'present', 'onTime', 'late', 'absent'};
+
+  void _toggleAttKind(String k) {
+    setState(() {
+      if (!_attKinds.contains(k)) {
+        _attKinds.add(k);
+      } else if (_attKinds.length > 1) {
+        _attKinds.remove(k); // luôn còn ít nhất một loại
+      }
+    });
+  }
+
+  Widget _attKindChips() {
+    return Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.xs, children: [
+      for (final k in _attKindDefs)
+        Semantics(
+          button: true,
+          toggled: _attKinds.contains(k.key),
+          child: InkWell(
+            key: ValueKey('att-kind-${k.key}'),
+            borderRadius: BorderRadius.circular(999),
+            onTap: () => _toggleAttKind(k.key),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _attKinds.contains(k.key) ? k.color.withValues(alpha: 0.12) : Colors.transparent,
+                border: Border.all(color: _attKinds.contains(k.key) ? k.color : SboxColors.border),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(
+                  _attKinds.contains(k.key) ? Icons.check_circle_rounded : Icons.circle_outlined,
+                  size: 14,
+                  color: _attKinds.contains(k.key) ? k.color : SboxColors.slate400,
+                ),
+                const SizedBox(width: 6),
+                Text(tr(k.label),
+                    style: SboxType.smallStyle(_attKinds.contains(k.key) ? SboxColors.text : SboxColors.textMuted)
+                        .copyWith(fontWeight: _attKinds.contains(k.key) ? SboxType.semibold : null)),
+              ]),
+            ),
+          ),
+        ),
+    ]);
+  }
+
   Widget _attendanceChart({bool wide = false}) {
+    final labels = [for (final d in _trends) _dayLabel(d['date'])];
+    final series = [
+      for (final k in _attKindDefs)
+        if (_attKinds.contains(k.key))
+          SboxSeries(name: k.label, values: [for (final d in _trends) _n(d[k.key])], color: k.color),
+    ];
+    void onTap(int i) {
+      if (i < 0 || i >= _trends.length) return;
+      final d = _trends[i];
+      _showPeople('Ngày ${_dayLabel(d['date'])}: trễ / vắng / nghỉ', d, {'Late', 'Absent', 'On Leave'},
+          subtitle: 'Đi làm ${_n(d['present']).round()} · đúng giờ ${_n(d['onTime']).round()} · '
+              'trễ ${_n(d['late']).round()} · vắng ${_n(d['absent']).round()}');
+    }
+
+    String fmt(num? v) => '${SboxFmt.number(v ?? 0)} người';
+    // Ít ngày: cột nhóm cạnh nhau (không chồng — «Đi làm» đã gồm đúng giờ + trễ). Nhiều ngày: đường cho dễ đọc.
+    final chart = labels.length <= 10
+        ? SboxBarChart(
+            showLegend: false,
+            onTapIndex: onTap,
+            valueFormat: fmt,
+            axisFormat: (v) => SboxFmt.number(v),
+            labels: labels,
+            series: series,
+          )
+        : SboxLineChart(
+            showLegend: false,
+            area: series.length == 1,
+            onTapIndex: onTap,
+            valueFormat: fmt,
+            axisFormat: (v) => SboxFmt.number(v),
+            labels: labels,
+            series: series,
+          );
     return SboxChartCard(
       title: 'Chuyên cần theo ngày',
-      subtitle: '${_period.trendDays} ngày gần nhất · chạm cột xem ai trễ / vắng',
+      subtitle: '${_period.trendDays} ngày gần nhất · chạm ngày xem ai trễ / vắng',
       wide: wide,
       onMore: _can('AttendanceSummary') ? () => _go('AttendanceSummary') : null,
-      child: SboxBarChart(
-        stacked: true,
-        onTapIndex: (i) {
-          if (i < 0 || i >= _trends.length) return;
-          final d = _trends[i];
-          _showPeople('Ngày ${_dayLabel(d['date'])}: trễ / vắng / nghỉ', d, {'Late', 'Absent', 'On Leave'},
-              subtitle: 'Có mặt ${_n(d['present']).round()} · trễ ${_n(d['late']).round()} · vắng ${_n(d['absent']).round()}');
-        },
-        valueFormat: (v) => '${SboxFmt.number(v)} lượt',
-        axisFormat: (v) => SboxFmt.number(v),
-        labels: [for (final d in _trends) _dayLabel(d['date'])],
-        series: [
-          SboxSeries(name: 'Đúng giờ', values: [for (final d in _trends) _n(d['onTime'])], color: SboxColors.success),
-          SboxSeries(name: 'Đi trễ', values: [for (final d in _trends) _n(d['late'])], color: SboxColors.warning),
-          SboxSeries(name: 'Vắng', values: [for (final d in _trends) _n(d['absent'])], color: SboxColors.danger),
-        ],
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        _attKindChips(),
+        const SizedBox(height: SboxSpace.md),
+        chart,
+      ]),
     );
   }
 

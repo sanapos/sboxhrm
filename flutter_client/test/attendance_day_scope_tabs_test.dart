@@ -63,6 +63,9 @@ Future<void> _pump(WidgetTester tester, Widget tab) async {
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(MaterialApp(home: Scaffold(body: tab)));
   await tester.pumpAndSettle();
+  // Mở màn bộ lọc thu gọn thành một dòng — mở ra để chọn.
+  await tester.tap(find.text('Bộ lọc').first);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pickScope(WidgetTester tester, String label) async {

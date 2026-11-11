@@ -17,6 +17,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import 'assets/asset_dashboard_view.dart';
+import '../widgets/reports/report_breakdown_sheet.dart';
 const _theme = HrmPageChrome.primaryNavy;
 const _rowH = 52.0;
 const _hdrH = 42.0;
@@ -1049,10 +1050,13 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   Widget _buildStockLedgerTab() {
     return _tabWithSummaryChips(
       chips: [
-        _miniChip('Giao dịch', '${_stockSummary['totalCount'] ?? 0}'),
-        _miniChip('Nhập', '${_stockSummary['totalStockIn'] ?? 0}'),
-        _miniChip('Xuất', '${_stockSummary['totalStockOut'] ?? 0}'),
-        _miniChip('Điều chỉnh', '${_stockSummary['totalAdjustments'] ?? 0}'),
+        _miniChip('Giao dịch', '${_stockSummary['totalCount'] ?? 0}', onTap: _stockTypeSheet),
+        _miniChip('Nhập', '${_stockSummary['totalStockIn'] ?? 0}',
+            onTap: () => _stockSheet('Nhập kho theo tài sản', 'Nhập kho', countOnly: false)),
+        _miniChip('Xuất', '${_stockSummary['totalStockOut'] ?? 0}',
+            onTap: () => _stockSheet('Xuất kho theo tài sản', 'Xuất kho', countOnly: false)),
+        _miniChip('Điều chỉnh', '${_stockSummary['totalAdjustments'] ?? 0}',
+            onTap: () => _stockSheet('Điều chỉnh kho theo tài sản', 'Điều chỉnh', countOnly: true)),
       ],
       showChips: _stockSummary.isNotEmpty,
       rows: _stockLedger,
@@ -1071,24 +1075,147 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     );
   }
 
-  Widget _miniChip(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: _theme.withValues(alpha: 0.1),
+  /// Ô tóm tắt đầu tab — bấm để xem các dòng làm nên con số.
+  Widget _miniChip(String label, String value, {VoidCallback? onTap}) {
+    return Material(
+      color: _theme.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(tr('$label: $value'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            if (onTap != null) ...[
+              const SizedBox(width: 2),
+              const Icon(Icons.chevron_right_rounded, size: 16, color: SboxColors.slate500),
+            ],
+          ]),
+        ),
       ),
-      child: Text(tr('$label: $value'),
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+    );
+  }
+
+  String _assetLabel(Map<String, dynamic> r) {
+    final code = r['assetCode']?.toString() ?? '';
+    final name = (r['assetName'] ?? r['name'])?.toString() ?? '';
+    return [code, name].where((s) => s.isNotEmpty).join(' · ');
+  }
+
+  String get _rangeLabel => '${DateFormat('dd/MM/yyyy').format(_from)} – ${DateFormat('dd/MM/yyyy').format(_to)}';
+
+  void _sheet(String title, List<ReportBreakdownRow> rows, {String? subtitle, String Function(num v)? format}) =>
+      showReportBreakdownSheet(
+        context,
+        title: title,
+        subtitle: subtitle,
+        rows: rows,
+        valueFormat: format ?? (v) => _fmtMoney.format(v),
+        emptyText: 'Không có dữ liệu trong khoảng lọc',
+      );
+
+  static double _qty(dynamic v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
+
+  /// Nhập / xuất kho: gom theo tài sản (cùng danh sách máy chủ cộng ra ô tóm tắt).
+  void _stockSheet(String title, String typeName, {required bool countOnly}) => _sheet(
+        title,
+        reportGroupBreakdown<Map<String, dynamic>>(
+          _stockLedger.where((r) => r['transactionTypeName'] == typeName),
+          keyOf: _assetLabel,
+          valueOf: countOnly ? null : (r) => _qty(r['quantity']).abs(),
+          captionOf: (n, g) => '$n phiếu',
+        ),
+        subtitle: _rangeLabel,
+        format: (v) => _fmtMoney.format(v),
+      );
+
+  void _stockTypeSheet() {
+    const codes = {'Nhập kho': 0, 'Xuất kho': 1, 'Điều chỉnh': 2};
+    final rows = reportGroupBreakdown<Map<String, dynamic>>(
+      _stockLedger,
+      keyOf: (r) => r['transactionTypeName']?.toString() ?? '',
+      captionOf: (n, g) => 'SL ${_fmtMoney.format(g.fold<double>(0, (s, r) => s + _qty(r['quantity']).abs()))}',
+    );
+    _sheet(
+      'Giao dịch kho theo loại',
+      [
+        for (final r in rows)
+          ReportBreakdownRow(
+            label: tr(r.label),
+            value: r.value,
+            caption: r.caption,
+            onTap: codes[r.label] == null || _stockTypeFilter == codes[r.label]
+                ? null
+                : () {
+                    Navigator.of(context).pop();
+                    setState(() => _stockTypeFilter = codes[r.label]);
+                    _loadTab(4);
+                  },
+          ),
+      ],
+      subtitle: _rangeLabel,
+      format: (v) => '${_fmtMoney.format(v)} GD',
+    );
+  }
+
+  void _inventorySheet(String title, bool Function(Map<String, dynamic> r) where, {required bool issues}) => _sheet(
+        title,
+        [
+          for (final r in _inventoryVariance.where(where))
+            ReportBreakdownRow(
+              label: _assetLabel(r),
+              value: issues ? 1 : _qty(r['variance']).abs(),
+              valueText: issues ? (r['conditionName']?.toString() ?? '') : 'Chênh ${r['variance'] ?? 0}',
+              caption: issues
+                  ? [r['inventoryCode'], r['issueDescription']].whereType<Object>().join(' · ')
+                  : '${r['inventoryCode'] ?? ''} · kỳ vọng ${r['expectedQuantity'] ?? 0} · thực tế ${r['actualQuantity'] ?? '-'}',
+            ),
+        ]..sort((a, b) => b.value.compareTo(a.value)),
+      );
+
+  void _warrantySheet(String title, bool Function(Map<String, dynamic> r) where) {
+    final items = _warrantyItems.where(where).toList()
+      ..sort((a, b) => _qty(a['daysRemaining']).compareTo(_qty(b['daysRemaining'])));
+    _sheet(
+      title,
+      [
+        for (final r in items)
+          ReportBreakdownRow(
+            label: _assetLabel(r),
+            value: _qty(r['daysRemaining']).abs(),
+            valueText: r['isExpired'] == true
+                ? tr('Đã hết')
+                : (r['daysRemaining'] is num ? '${(r['daysRemaining'] as num).toInt()} ngày' : '-'),
+            caption: [
+              'Hết BH ${assetReportFormatDate(r['warrantyExpiry'])}',
+              if ((r['assigneeName']?.toString() ?? '').isNotEmpty) r['assigneeName'].toString(),
+            ].join(' · '),
+          ),
+      ],
+      subtitle: 'Trong $_warrantyDays ngày tới${_includeExpiredWarranty ? ' · gồm đã hết hạn' : ''}',
     );
   }
 
   Widget _buildInventoryVarianceTab() {
     return _tabWithSummaryChips(
       chips: [
-        _miniChip('Dòng', '${_invVarianceSummary['totalCount'] ?? 0}'),
-        _miniChip('SL lệch', '${_invVarianceSummary['varianceCount'] ?? 0}'),
-        _miniChip('Có vấn đề', '${_invVarianceSummary['issueCount'] ?? 0}'),
+        _miniChip('Dòng', '${_invVarianceSummary['totalCount'] ?? 0}',
+            onTap: () => _sheet(
+                  'Dòng kiểm kê theo đợt',
+                  reportGroupBreakdown<Map<String, dynamic>>(
+                    _inventoryVariance,
+                    keyOf: (r) => r['inventoryCode']?.toString() ?? '',
+                    captionOf: (n, g) =>
+                        '${g.where((r) => r['quantityMismatch'] == true).length} lệch SL · ${g.where((r) => r['hasIssue'] == true).length} có vấn đề',
+                  ),
+                  subtitle: _rangeLabel,
+                  format: (v) => '${_fmtMoney.format(v)} dòng',
+                )),
+        _miniChip('SL lệch', '${_invVarianceSummary['varianceCount'] ?? 0}',
+            onTap: () => _inventorySheet('Tài sản lệch số lượng', (r) => r['quantityMismatch'] == true, issues: false)),
+        _miniChip('Có vấn đề', '${_invVarianceSummary['issueCount'] ?? 0}',
+            onTap: () => _inventorySheet('Tài sản có vấn đề khi kiểm kê', (r) => r['hasIssue'] == true, issues: true)),
       ],
       showChips: _invVarianceSummary.isNotEmpty,
       rows: _inventoryVariance,
@@ -1110,9 +1237,21 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   Widget _buildWarrantyTab() {
     return _tabWithSummaryChips(
       chips: [
-        _miniChip('Tổng', '${_warrantySummary['totalCount'] ?? 0}'),
-        _miniChip('Sắp hết', '${_warrantySummary['expiringSoonCount'] ?? 0}'),
-        _miniChip('Đã hết', '${_warrantySummary['expiredCount'] ?? 0}'),
+        _miniChip('Tổng', '${_warrantySummary['totalCount'] ?? 0}',
+            onTap: () => _sheet(
+                  'Bảo hành theo danh mục',
+                  reportGroupBreakdown<Map<String, dynamic>>(
+                    _warrantyItems,
+                    keyOf: (r) => r['categoryName']?.toString() ?? '',
+                    captionOf: (n, g) =>
+                        '${g.where((r) => r['isExpired'] != true).length} sắp hết · ${g.where((r) => r['isExpired'] == true).length} đã hết',
+                  ),
+                  format: (v) => '${_fmtMoney.format(v)} TS',
+                )),
+        _miniChip('Sắp hết', '${_warrantySummary['expiringSoonCount'] ?? 0}',
+            onTap: () => _warrantySheet('Tài sản sắp hết bảo hành', (r) => r['isExpired'] != true)),
+        _miniChip('Đã hết', '${_warrantySummary['expiredCount'] ?? 0}',
+            onTap: () => _warrantySheet('Tài sản đã hết bảo hành', (r) => r['isExpired'] == true)),
       ],
       showChips: _warrantySummary.isNotEmpty,
       rows: _warrantyItems,

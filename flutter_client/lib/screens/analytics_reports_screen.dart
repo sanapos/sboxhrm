@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import '../widgets/export_file_icon.dart';
 import 'package:flutter/material.dart';
+import '../widgets/reports/report_breakdown_sheet.dart';
 import '../utils/export_permission_guard.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -590,6 +593,7 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
                       label: _label(e.key),
                       value: _fmt(e.key, e.value),
                       tone: SboxTone.values[1 + scalars.indexOf(e) % (SboxTone.values.length - 1)],
+                      onTap: _kpiTap(e.key, e.value),
                     ),
                 ]),
               ),
@@ -637,10 +641,131 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
               child: Text(tr(title), style: SboxType.titleSmStyle()),
             ),
           SboxKpiStrip(items: [
-            for (final e in items) SboxKpi(label: _label(e.key), value: _fmt(e.key, e.value)),
+            for (final e in items)
+              SboxKpi(label: _label(e.key), value: _fmt(e.key, e.value), onTap: _kpiTap(e.key, e.value)),
           ]),
         ]),
       );
+
+  /// Danh sách chính của báo cáo: «items» nếu có, không thì danh sách dài nhất.
+  MapEntry<String, List<Map>>? get _mainList {
+    final lists = _data.entries.where((e) => e.value is List && (e.value as List).isNotEmpty).toList();
+    if (lists.isEmpty) return null;
+    final main = lists.where((e) => e.key == 'items').firstOrNull ??
+        (lists..sort((a, b) => (b.value as List).length - (a.value as List).length)).first;
+    final rows = (main.value as List).whereType<Map>().toList();
+    return rows.isEmpty ? null : MapEntry(main.key, rows);
+  }
+
+  /// Tên dòng kèm mã (tách người trùng tên khi gom nhóm).
+  String _rowLabel(Map r, String? nameKey, String? codeKey) {
+    final n = _rowName(r, nameKey, codeKey);
+    final c = codeKey != null && nameKey != null ? '${r[codeKey] ?? ''}'.trim() : '';
+    return c.isEmpty ? n : '$n · $c';
+  }
+
+  /// Bấm thẻ số → các dòng tạo nên con số đó (chọn cột có tổng khớp với thẻ; không khớp
+  /// thì đếm lượt theo tên, hoặc xếp hạng số liệu chính). Báo cáo chỉ có số tổng → không bấm.
+  VoidCallback? _kpiTap(String key, dynamic value) {
+    if (value is! num) return null;
+    final main = _mainList;
+    if (main == null) return null;
+    final rows = main.value;
+    final nameKey = _nameKey(rows);
+    final codeKey = _codeKey(rows);
+    if (nameKey == null && codeKey == null) return null;
+    String label(Map r) => _rowLabel(r, nameKey, codeKey);
+    bool numCol(String c) => rows.take(20).any((r) => r[c] is num);
+    num cell(Map r, String c) => r[c] is num ? r[c] as num : 0;
+    bool near(num a, num b) => (a - b).abs() <= math.max(0.01, b.abs() * 0.005);
+    final title = _label(key);
+    final sub = '${widget.spec.period == _PeriodKind.none ? 'Hiện tại' : _periodLabel} · ${_label(main.key)}';
+    final dept = _hasDept(rows, nameKey);
+    String? deptOf(List<Map> g) {
+      if (!dept) return null;
+      final d = '${g.first['department'] ?? ''}'.trim();
+      return d.isEmpty ? null : d;
+    }
+
+    // Tổng theo một cột (thẻ «Tổng sản lượng» = cộng cột «quantity» các dòng).
+    VoidCallback sumSheet(String c) => () => showReportBreakdownSheet(
+          context,
+          title: title,
+          subtitle: '$sub · ${_label(c)}',
+          rows: reportGroupBreakdown<Map>(
+            rows,
+            keyOf: label,
+            valueOf: (r) => cell(r, c),
+            captionOf: (n, g) => [if (n > 1) '$n dòng', deptOf(g)].whereType<String>().join(' · '),
+            valueTextOf: (v, _) => _fmt(c, v),
+          ).where((x) => x.value != 0).toList(),
+        );
+
+    // Giá trị từng dòng của một cột (TB / tỷ lệ — không cộng được).
+    VoidCallback perRowSheet(String c, {String? note}) => () {
+          final out = [
+            for (final r in rows)
+              if (r[c] is num)
+                ReportBreakdownRow(
+                  label: label(r),
+                  value: cell(r, c),
+                  caption: deptOf([r]),
+                  valueText: _fmt(c, r[c]),
+                ),
+          ]..sort((a, b) => b.value.compareTo(a.value));
+          showReportBreakdownSheet(context, title: title, subtitle: note ?? '$sub · ${_label(c)}', rows: out);
+        };
+
+    var stripped = key.replaceFirst(RegExp('^(total|avg)'), '');
+    if (stripped.isNotEmpty) stripped = stripped[0].toLowerCase() + stripped.substring(1);
+    for (final c in {key, stripped}) {
+      if (c.isNotEmpty && numCol(c) && near(rows.fold<num>(0, (s, r) => s + cell(r, c)), value)) return sumSheet(c);
+    }
+    if (key.startsWith('avg') || _isPercentKey(key)) {
+      for (final c in {key, stripped}) {
+        if (c.isNotEmpty && numCol(c)) return perRowSheet(c, note: '$sub · TB ${_fmt(key, value)}');
+      }
+    }
+    final names = rows.map(label).toSet();
+    if (value == rows.length || value == names.length) {
+      return () => showReportBreakdownSheet(
+            context,
+            title: title,
+            subtitle: '$sub · ${rows.length} dòng',
+            rows: reportGroupBreakdown<Map>(
+              rows,
+              keyOf: label,
+              captionOf: (n, g) => deptOf(g) ?? '',
+              valueTextOf: (v, _) => '$v lượt',
+            ),
+          );
+    }
+    // Không khớp cột nào: xếp hạng số liệu chính của báo cáo để xem các dòng liên quan.
+    final rank = _rankKeys.where(numCol).firstOrNull ?? rows.first.keys.map((k) => '$k').where(numCol).firstOrNull;
+    if (rank != null) {
+      return perRowSheet(rank, note: '$sub · ${_label(rank)} từng dòng');
+    }
+    return null;
+  }
+
+  /// Bấm một dòng ở biểu đồ xếp hạng → mọi số liệu của dòng đó.
+  void _showRowDetail(Map r, String? nameKey, String? codeKey) {
+    final out = <ReportBreakdownRow>[
+      for (final e in r.entries)
+        if (_isScalar(e.value) &&
+            e.value != null &&
+            '${e.value}'.trim().isNotEmpty &&
+            '${e.key}' != nameKey &&
+            !'${e.key}'.toLowerCase().endsWith('id'))
+          ReportBreakdownRow(label: tr(_label('${e.key}')), value: 0, valueText: tr(_fmt('${e.key}', e.value))),
+    ];
+    showReportBreakdownSheet(
+      context,
+      title: _rowName(r, nameKey, codeKey),
+      subtitle: '${tr(widget.spec.title)} · ${widget.spec.period == _PeriodKind.none ? 'Hiện tại' : _periodLabel}',
+      rows: out,
+    );
+  }
 
   bool _isDateText(dynamic v) => v is String && RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(v);
 
@@ -694,6 +819,23 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
           child: SboxBarChart(
             valueFormat: SboxFmt.number,
             axisFormat: (v) => SboxFmt.compact(v),
+            // Bấm một ngày → các dòng của ngày đó, gom theo tên.
+            onTapIndex: nameKey == null && codeKey == null
+                ? null
+                : (i) {
+                    if (i < 0 || i >= days.length) return;
+                    final d = days[i];
+                    showReportBreakdownSheet(
+                      context,
+                      title: '${tr(_label(dateKey))} ${_dateFmt.format(DateTime.parse(d))}',
+                      subtitle: '${byDay[d]!.toInt()} lượt · ${key == 'items' ? tr(widget.spec.subtitle) : tr(_label(key))}',
+                      rows: reportGroupBreakdown<Map>(
+                        rows.where((r) => '${r[dateKey]}'.startsWith(d)),
+                        keyOf: (r) => _rowLabel(r, nameKey, codeKey),
+                        valueTextOf: (v, _) => '$v lượt',
+                      ),
+                    );
+                  },
             labels: [for (final d in days) sboxDayLabel(d)],
             series: [SboxSeries(name: 'Số lượt', values: [for (final d in days) byDay[d]!])],
           ),
@@ -714,11 +856,12 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
     final sub = key == 'items' ? tr(widget.spec.subtitle) : tr(_label(key));
     // Ít dòng: 1 bảng xếp hạng là đủ; nhiều dòng + tỷ lệ %: thêm «thấp nhất» để thấy ai cần nhắc.
     final both = percent && rows.length > 10;
-    final slices = [
+    final bySlice = <SboxSlice, Map>{
       for (final r in rows)
         SboxSlice(_rowName(r, nameKey, codeKey), (r[valueKey] as num?)?.toDouble() ?? 0,
-            caption: nameKey == 'department' ? null : ('${r['department'] ?? ''}'.trim().isEmpty ? null : '${r['department']}')),
-    ];
+            caption: nameKey == 'department' ? null : ('${r['department'] ?? ''}'.trim().isEmpty ? null : '${r['department']}')): r,
+    };
+    final slices = bySlice.keys.toList();
     Widget card(String title, {bool low = false}) => SboxChartCard(
           title: title,
           subtitle: sub,
@@ -729,6 +872,11 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
             color: low ? SboxColors.danger : SboxColors.brand500,
             valueFormat: fmtV,
             items: slices,
+            // Bấm một dòng → mọi số liệu của dòng đó.
+            onTap: (s) {
+              final r = bySlice[s];
+              if (r != null) _showRowDetail(r, nameKey, codeKey);
+            },
           ),
         );
     return [

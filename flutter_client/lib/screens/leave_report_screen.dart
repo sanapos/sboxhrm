@@ -12,6 +12,7 @@ import '../utils/report_screen_helpers.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
+import '../widgets/reports/report_breakdown_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
@@ -305,6 +306,71 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
 
   String _daysText(num v) => '${SboxFmt.decimal(v)} ngày';
 
+  String _rangeText(Map<String, dynamic> l) {
+    final s = parseApiCalendarDate(l['startDate']);
+    final e = parseApiCalendarDate(l['endDate']);
+    if (s == null) return '';
+    if (e == null || (e.year == s.year && e.month == s.month && e.day == s.day)) return reportDateFmt.format(s);
+    return '${reportDateFmt.format(s)} – ${reportDateFmt.format(e)}';
+  }
+
+  /// Lọc danh sách bên dưới theo trạng thái (tải lại từ trang 1).
+  void _applyStatusFilter(int s) {
+    setState(() {
+      _statusFilter = s;
+      _page = 1;
+    });
+    _load();
+  }
+
+  /// Từng đơn (ngày nghỉ tính trong kỳ báo cáo).
+  List<ReportBreakdownRow> _leaveRows(List<Map<String, dynamic>> rows, {required bool showName}) {
+    final sorted = [...rows]..sort((a, b) => (parseApiCalendarDate(b['startDate']) ?? DateTime(0))
+        .compareTo(parseApiCalendarDate(a['startDate']) ?? DateTime(0)));
+    return [
+      for (final l in sorted)
+        ReportBreakdownRow(
+          label: showName ? (l['employeeName']?.toString() ?? '—') : _leaveTypeName(l['leaveType'] ?? l['type']),
+          value: _leaveDays(l, inPeriod: true),
+          caption: [
+            if (showName) _leaveTypeName(l['leaveType'] ?? l['type']),
+            _rangeText(l),
+            _statusLabel(_normalizeStatus(l['status'])),
+          ].where((s) => s.isNotEmpty).join(' · '),
+        ),
+    ];
+  }
+
+  /// Bảng chi tiết của một thẻ số liệu: xem cả nhóm → gom theo nhân viên; xem của tôi → từng đơn.
+  /// [byDays] = giá trị là số ngày nghỉ trong kỳ, ngược lại là số đơn.
+  void _showLeaveBreakdown(
+    String title,
+    List<Map<String, dynamic>> rows, {
+    bool byDays = false,
+    int? filterTo,
+  }) {
+    final items = !_teamView
+        ? _leaveRows(rows, showName: false)
+        : reportGroupBreakdown<Map<String, dynamic>>(
+            rows,
+            keyOf: (l) => l['employeeName']?.toString() ?? '',
+            valueOf: byDays ? (l) => _leaveDays(l, inPeriod: true) : null,
+            valueTextOf: byDays ? null : (v, n) => '$n đơn',
+            captionOf: (n, g) => byDays
+                ? '$n đơn'
+                : _daysText(g.fold<double>(0, (s, l) => s + _leaveDays(l, inPeriod: true))),
+          );
+    showReportBreakdownSheet(
+      context,
+      title: title,
+      subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
+      rows: items,
+      valueFormat: _daysText,
+      actionLabel: filterTo == null || filterTo == _statusFilter ? null : 'Lọc danh sách theo mục này',
+      onAction: filterTo == null ? null : () => _applyStatusFilter(filterTo),
+    );
+  }
+
   /// Biểu đồ dashboard: số người nghỉ theo ngày, cơ cấu loại nghỉ, trạng thái đơn, nghỉ nhiều nhất.
   List<Widget> _buildCharts() {
     final all = _statsFiltered;
@@ -354,6 +420,33 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
           subtitle: 'Đơn đã duyệt',
           wide: true,
           child: SboxBarChart(
+            onTapIndex: (i) {
+              if (i < 0 || i >= days.length) return;
+              final d = days[i];
+              // Cùng cách đếm với cột: đơn đã duyệt có [ngày bắt đầu, ngày kết thúc] chứa ngày d.
+              final onDay = f.where((l) {
+                final s = parseApiCalendarDate(l['startDate']);
+                final e = parseApiCalendarDate(l['endDate']) ?? s;
+                if (s == null || e == null) return false;
+                return !d.isBefore(DateTime(s.year, s.month, s.day)) && !d.isAfter(DateTime(e.year, e.month, e.day));
+              }).toList();
+              showReportBreakdownSheet(
+                context,
+                title: 'Người nghỉ ngày ${reportDateFmt.format(d)}',
+                subtitle: 'Đơn đã duyệt',
+                valueFormat: (v) => '${SboxFmt.decimal(v)} người',
+                emptyText: 'Không ai nghỉ ngày này',
+                rows: [
+                  for (final l in onDay)
+                    ReportBreakdownRow(
+                      label: l['employeeName']?.toString() ?? '—',
+                      value: l['isHalfShift'] == true ? 0.5 : 1,
+                      valueText: l['isHalfShift'] == true ? 'Nửa ca' : 'Cả ngày',
+                      caption: '${_leaveTypeName(l['leaveType'] ?? l['type'])} · ${_rangeText(l)}',
+                    ),
+                ],
+              );
+            },
             valueFormat: (v) => '${SboxFmt.decimal(v)} người',
             labels: [for (final d in days) sboxDayLabel(d)],
             series: [SboxSeries(name: 'Người nghỉ', values: [for (final d in days) perDay[d]!], color: SboxColors.violet)],
@@ -387,6 +480,21 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
           title: 'Nghỉ nhiều nhất',
           child: SboxRankList(
             color: SboxColors.violet,
+            onTap: (item) => showReportBreakdownSheet(
+              context,
+              title: item.label,
+              subtitle: 'Đơn đã duyệt · ${reportPeriodSubtitle(_from, _to, team: _teamView)}',
+              valueFormat: _daysText,
+              rows: _leaveRows(
+                f.where((l) => (l['employeeName']?.toString() ?? '—') == item.label).toList(),
+                showName: false,
+              ),
+              actionLabel: 'Lọc danh sách theo mục này',
+              onAction: () => setState(() {
+                _viewTab = 0;
+                _empSearch = item.label;
+              }),
+            ),
             valueFormat: (v) => _daysText(v ?? 0),
             items: [for (final e in byEmp.entries) SboxSlice(e.key, e.value, caption: '${cnt[e.key]} đơn')],
           ),
@@ -396,7 +504,8 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
 
   List<ReportKpiItem> _buildKpis() {
     final f = leaveRowsForReportStats(_statsFiltered, _statusFilter);
-    final pending = f.where((l) => _normalizeStatus(l['status']) == 0).length;
+    final pendingRows = f.where((l) => _normalizeStatus(l['status']) == 0).toList();
+    final pending = pendingRows.length;
     final approvedRows = f.where((l) => _normalizeStatus(l['status']) == 1).toList();
     final approved = approvedRows.length;
     final totalDays = approvedRows.fold<double>(0, (s, l) => s + _leaveDays(l, inPeriod: true));
@@ -417,23 +526,27 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
             value: f.length.toString(),
             note: voidedNote,
             icon: Icons.description_outlined,
-            color: Colors.blueGrey),
+            color: Colors.blueGrey,
+            onTap: () => _showLeaveBreakdown('Đơn nghỉ', f)),
         ReportKpiItem(
             label: 'Chờ duyệt',
             value: pending.toString(),
             icon: Icons.hourglass_empty,
-            color: Colors.orange),
+            color: Colors.orange,
+            onTap: () => _showLeaveBreakdown('Chờ duyệt', pendingRows, filterTo: 0)),
         ReportKpiItem(
             label: 'Đã duyệt',
             value: approved.toString(),
             icon: Icons.check_circle_outline,
-            color: SboxColors.success),
+            color: SboxColors.success,
+            onTap: () => _showLeaveBreakdown('Đã duyệt', approvedRows, filterTo: 1)),
         ReportKpiItem(
             label: 'Tổng ngày nghỉ',
             value: _daysText(totalDays),
             note: _annualBalanceText,
             icon: Icons.event_busy,
-            color: _theme),
+            color: _theme,
+            onTap: () => _showLeaveBreakdown('Tổng ngày nghỉ', approvedRows, byDays: true)),
       ];
     }
     return [
@@ -442,24 +555,28 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
           value: '${f.length}',
           note: pending > 0 ? '$pending đơn chờ duyệt' : (voidedNote ?? 'Đã xử lý hết'),
           icon: Icons.description_outlined,
-          color: Colors.blueGrey),
+          color: Colors.blueGrey,
+          onTap: () => _showLeaveBreakdown('Tổng đơn', f)),
       ReportKpiItem(
           label: 'Đã duyệt',
           value: approved.toString(),
           note: approvalRate == null ? null : 'Tỷ lệ duyệt $approvalRate%',
           icon: Icons.check_circle_outline,
-          color: SboxColors.success),
+          color: SboxColors.success,
+          onTap: () => _showLeaveBreakdown('Đã duyệt', approvedRows, filterTo: 1)),
       ReportKpiItem(
           label: 'Tổng ngày nghỉ',
           value: _daysText(totalDays),
           note: empCount == 0 ? null : 'TB ${SboxFmt.decimal(totalDays / empCount)} ngày/NV',
           icon: Icons.event_busy,
-          color: SboxColors.violet),
+          color: SboxColors.violet,
+          onTap: () => _showLeaveBreakdown('Tổng ngày nghỉ', approvedRows, byDays: true)),
       ReportKpiItem(
           label: 'Nhân viên nghỉ',
           value: '$empCount',
           icon: Icons.people_outline,
-          color: _theme),
+          color: _theme,
+          onTap: () => _showLeaveBreakdown('Nhân viên nghỉ', approvedRows)),
     ];
   }
 

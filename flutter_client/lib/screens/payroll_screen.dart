@@ -38,7 +38,21 @@ class _PayrollScreenState extends State<PayrollScreen> {
   String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
   List<Map<String, dynamic>> _employeesList = [];
-  bool _showOverviewPanel = true;
+  // Mở màn: bộ lọc chi nhánh thu gọn thành một dòng tóm tắt.
+  bool _showOverviewPanel = false;
+
+  String get _filterSummary {
+    var branch = 'Tất cả chi nhánh';
+    if (_selectedBranchId != null) {
+      for (final b in _branches) {
+        if (b['id']?.toString() == _selectedBranchId) {
+          branch = b['name']?.toString() ?? branch;
+          break;
+        }
+      }
+    }
+    return 'Tháng $_selectedMonth/$_selectedYear · $branch';
+  }
 
   @override
   void initState() {
@@ -162,6 +176,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
           onToggle: () =>
               setState(() => _showOverviewPanel = !_showOverviewPanel),
           title: 'Bộ lọc',
+          subtitle: _filterSummary,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(

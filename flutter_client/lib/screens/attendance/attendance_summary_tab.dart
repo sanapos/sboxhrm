@@ -50,6 +50,7 @@ import '../../widgets/sbox/sbox_table.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import '../../widgets/sbox/sbox_charts.dart';
 import '../../widgets/sbox/sbox_report.dart';
+import '../../widgets/reports/report_breakdown_sheet.dart';
 /// Model cho yêu cầu chỉnh sửa chấm công
 class AttendanceCorrectionRequest {
   final String id;
@@ -197,7 +198,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   int _rowsPerPage = 50;
   int _currentPage = 0;
   bool _isExporting = false;
-  bool _showOverviewPanel = true;
+  // Mở màn: bộ lọc thu gọn thành một dòng tóm tắt (ô số liệu vẫn hiện).
+  bool _showOverviewPanel = false;
   final GlobalKey _tableKey = GlobalKey();
   String _shiftFilter = 'all'; // 'all' | 'missing' | 'complete'
   AttendanceDayScope _dayScope = AttendanceDayScope.allDays;
@@ -1555,22 +1557,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     final isMobileLayout = MediaQuery.sizeOf(context).width < 600;
 
     Widget buildOverviewSection() {
+      // Chỉ phần bộ lọc thu gọn; ô số liệu luôn hiện.
       final overviewPanel = HrmCollapsibleOverview(
+        title: 'Bộ lọc',
+        subtitle: _filterSummaryText(range),
         expanded: _showOverviewPanel,
         onToggle: () =>
             setState(() => _showOverviewPanel = !_showOverviewPanel),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Điện thoại: «Bản ghi / Số ca» vô nghĩa với chủ — số liệu đã có ở ô KPI bấm được phía trên.
-            if (!isMobileLayout) ...[
-              _buildStatsRow(
-                  totalRows, uniqueEmployees, totalHours, totalShifts),
-              const SizedBox(height: 10),
-            ],
-            _buildFilters(range, embedded: true),
-          ],
-        ),
+        child: _buildFilters(range, embedded: true),
       );
       if (isMobileLayout) {
         // Điện thoại: kỳ / bộ lọc → ô số bấm được → (biểu đồ khi cần) → danh sách ngay sau.
@@ -1592,6 +1586,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       }
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (summaries.isNotEmpty) _buildInsight(summaries, displayFp),
+        // Điện thoại: «Bản ghi / Số ca» vô nghĩa với chủ — số liệu đã có ở ô KPI bấm được phía trên.
+        _buildStatsRow(totalRows, uniqueEmployees, totalHours, totalShifts,
+            summaries: summaries, range: range),
+        const SizedBox(height: 10),
         overviewPanel,
       ]);
     }
@@ -1812,6 +1810,25 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           child: SboxBarChart(
             valueFormat: (v) => SboxFmt.number(v),
             axisFormat: (v) => SboxFmt.number(v),
+            // Bấm một ngày → giờ công từng nhân viên ngày đó.
+            onTapIndex: (i) {
+              if (i < 0 || i >= days.length) return;
+              final day = days[i];
+              final rows = summaries.where((s) =>
+                  s.date.year == day.year && s.date.month == day.month && s.date.day == day.day);
+              showReportBreakdownSheet(
+                context,
+                title: 'Giờ công ngày ${DateFormat('dd/MM/yyyy').format(day)}',
+                subtitle: '${byDayPeople[day]?.length ?? 0} người đi làm · ${h(byDay[day] ?? 0)}',
+                rows: reportGroupBreakdown<_DailySummary>(
+                  rows.where((s) => s.totalHours > 0),
+                  keyOf: _summaryEmpKey,
+                  valueOf: (s) => s.totalHours,
+                  captionOf: (n, g) => '${g.fold<int>(0, (s, x) => s + _summaryShiftCount(x))} ca',
+                  valueTextOf: (v, _) => h(double.parse(v.toStringAsFixed(1))),
+                ),
+              );
+            },
             labels: [for (final d in days) sboxDayLabel(d)],
             series: [
               SboxSeries(name: 'Giờ công', values: [for (final d in days) byDay[d]!]),
@@ -2397,24 +2414,127 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   }
 
   /// Stats cards row — nền trắng, viền xanh, thấp gọn.
+  /// Một dòng tóm tắt bộ lọc (hiện khi thanh «Bộ lọc» thu gọn).
+  String _filterSummaryText(DateTimeRange range) {
+    const presets = {
+      'today': 'Hôm nay',
+      'yesterday': 'Hôm qua',
+      'week': 'Tuần này',
+      'lastWeek': 'Tuần trước',
+      'month': 'Tháng này',
+      'lastMonth': 'Tháng trước',
+    };
+    final f = DateFormat('dd/MM/yyyy');
+    final dates = '${f.format(range.start)} – ${f.format(range.end)}';
+    final preset = presets[_selectedPreset];
+    final extra = _excelFilterDescription();
+    return [
+      preset != null ? '$preset ($dates)' : dates,
+      if (extra != null) extra,
+    ].join(' · ');
+  }
+
+  static String _summaryEmpKey(_DailySummary s) =>
+      s.employeeCode.isNotEmpty ? '${s.employeeName} · ${s.employeeCode}' : s.employeeName;
+
+  static int _summaryShiftCount(_DailySummary s) => [
+        s.shift1Hours,
+        s.shift2Hours,
+        s.shift3Hours,
+        s.shift4Hours,
+        s.shift5Hours,
+      ].where((h) => h > 0).length;
+
+  /// Ô thống kê bấm → bảng chi tiết theo nhân viên (cùng tập dòng với con số).
+  void _showStatsBreakdown(String kind, List<_DailySummary> summaries, DateTimeRange range) {
+    final f = DateFormat('dd/MM/yyyy');
+    final period = '${f.format(range.start)} – ${f.format(range.end)}';
+    String h(num v) => '${_fmtHourNum(v.toDouble())} giờ';
+    switch (kind) {
+      case 'rows':
+        showReportBreakdownSheet(
+          context,
+          title: 'Bản ghi theo nhân viên',
+          subtitle: '$period · ${summaries.length} bản ghi',
+          rows: reportGroupBreakdown<_DailySummary>(
+            summaries,
+            keyOf: _summaryEmpKey,
+            captionOf: (n, g) => h(g.fold<double>(0, (s, x) => s + x.totalHours)),
+            valueTextOf: (v, _) => '$v bản ghi',
+          ),
+        );
+      case 'employees':
+        showReportBreakdownSheet(
+          context,
+          title: 'Nhân viên có dữ liệu',
+          subtitle: '$period · ${summaries.map((s) => s.employeeId).toSet().length} nhân viên',
+          rows: reportGroupBreakdown<_DailySummary>(
+            summaries,
+            keyOf: _summaryEmpKey,
+            valueOf: (s) => s.totalHours > 0 ? 1 : 0,
+            captionOf: (n, g) => '$n ngày trong bảng · ${h(g.fold<double>(0, (s, x) => s + x.totalHours))}',
+            valueTextOf: (v, _) => '$v ngày đi làm',
+          ),
+        );
+      case 'hours':
+        showReportBreakdownSheet(
+          context,
+          title: 'Tổng giờ theo nhân viên',
+          subtitle: '$period · ${h(summaries.fold<double>(0, (s, x) => s + x.totalHours))}',
+          rows: reportGroupBreakdown<_DailySummary>(
+            summaries,
+            keyOf: _summaryEmpKey,
+            valueOf: (s) => s.totalHours,
+            captionOf: (n, g) => '$n ngày · ${g.fold<int>(0, (s, x) => s + _summaryShiftCount(x))} ca',
+            valueTextOf: (v, _) => h(v),
+          ),
+        );
+      case 'shifts':
+        showReportBreakdownSheet(
+          context,
+          title: 'Số ca theo nhân viên',
+          subtitle: '$period · ${summaries.fold<int>(0, (s, x) => s + _summaryShiftCount(x))} ca',
+          rows: reportGroupBreakdown<_DailySummary>(
+            summaries,
+            keyOf: _summaryEmpKey,
+            valueOf: _summaryShiftCount,
+            captionOf: (n, g) => '$n ngày · ${h(g.fold<double>(0, (s, x) => s + x.totalHours))}',
+            valueTextOf: (v, _) => '$v ca',
+          ),
+        );
+    }
+  }
+
   Widget _buildStatsRow(
-      int totalRows, int uniqueEmployees, double totalHours, int totalShifts) {
+      int totalRows, int uniqueEmployees, double totalHours, int totalShifts,
+      {List<_DailySummary> summaries = const [], DateTimeRange? range}) {
+    VoidCallback? tap(String kind) => range == null || summaries.isEmpty
+        ? null
+        : () => _showStatsBreakdown(kind, summaries, range);
     return HrmStatBar(
       items: [
         HrmStatItem(
-            icon: Icons.list_alt, label: 'Bản ghi', value: '$totalRows'),
+            icon: Icons.list_alt,
+            label: 'Bản ghi',
+            value: '$totalRows',
+            onTap: tap('rows')),
         HrmStatItem(
             icon: Icons.people,
             label: 'Nhân viên',
-            value: '$uniqueEmployees'),
+            value: '$uniqueEmployees',
+            onTap: tap('employees')),
         HrmStatItem(
           icon: Icons.schedule,
           label: 'Tổng giờ',
           value:
               '${_formatHours(totalHours)} (${totalHours.toStringAsFixed(1)}h)',
+          onTap: tap('hours'),
         ),
         HrmStatItem(
-            icon: Icons.work_history, label: 'Số ca', value: '$totalShifts'),
+            icon: Icons.work_history,
+            label: 'Số ca',
+            value: '$totalShifts',
+            onTap: tap('shifts')),
       ],
       padding: EdgeInsets.zero,
       gap: 6,

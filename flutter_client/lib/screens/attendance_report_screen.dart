@@ -17,6 +17,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
+import '../widgets/reports/report_breakdown_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
@@ -736,6 +737,262 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     return out;
   }
 
+  /// Tên NV (dự phòng mã NV) — dùng chung cho thẻ KPI, biểu đồ và bảng chi tiết.
+  String _empName(Map emp) {
+    final n = (emp['fullName'] ??
+            emp['name'] ??
+            '${emp['lastName'] ?? ''} ${emp['firstName'] ?? ''}'.trim())
+        .toString();
+    return n.isEmpty ? (emp['employeeCode']?.toString() ?? '') : n;
+  }
+
+  /// Ô ngày trong kỳ của các NV đang lọc — đúng tập dùng để tính thẻ KPI / biểu đồ.
+  /// [emp] là nhãn NV (thêm mã khi trùng tên), [id] là GUID / mã để lọc bảng lịch.
+  List<({String emp, String id, DateTime day, Map<String, dynamic> cell})> _viewCells() {
+    final emps = _filteredEmployees;
+    final days = _daysInRange;
+    final nameCount = <String, int>{};
+    for (final e in emps) {
+      final n = _empName(e);
+      nameCount[n] = (nameCount[n] ?? 0) + 1;
+    }
+    final out = <({String emp, String id, DateTime day, Map<String, dynamic> cell})>[];
+    for (final emp in emps) {
+      final id = emp['id']?.toString() ?? '';
+      final code = emp['employeeCode']?.toString() ?? '';
+      final keyId = id.isNotEmpty ? id : code;
+      final base = _empName(emp);
+      final label = (nameCount[base] ?? 0) > 1 && code.isNotEmpty ? '$base · $code' : base;
+      for (final d in days) {
+        final cell = _dayCells['$keyId|${_fmtDate.format(d)}'];
+        if (cell == null) continue;
+        out.add((emp: label, id: id, day: d, cell: cell));
+      }
+    }
+    return out;
+  }
+
+  static String _fmtWork(num v) => v == v.roundToDouble()
+      ? v.toInt().toString()
+      : v.toStringAsFixed(1).replaceAll('.', ',');
+
+  String _statusLabel(String st) {
+    switch (st) {
+      case 'present':
+        return 'Đủ công';
+      case 'halfDay':
+        return 'Nửa công';
+      case 'missingPunch':
+        return 'Thiếu chấm';
+      case 'unpaidAbsent':
+        return 'Vắng';
+      case 'approvedLeave':
+        return 'Nghỉ phép';
+      case 'pendingLeave':
+        return 'Chờ duyệt phép';
+      case 'weeklyOff':
+        return 'Nghỉ tuần';
+      case 'holiday':
+        return 'Ngày lễ';
+      default:
+        return 'Chưa tới';
+    }
+  }
+
+  /// Gắn thao tác «bấm NV → xem riêng NV đó trên bảng lịch» cho các dòng chi tiết.
+  List<ReportBreakdownRow> _withEmployeeTap(
+    List<ReportBreakdownRow> rows,
+    Map<String, String> idByLabel,
+  ) {
+    if (!_teamView) return rows;
+    return [
+      for (final r in rows)
+        ReportBreakdownRow(
+          label: r.label,
+          value: r.value,
+          caption: r.caption,
+          valueText: r.valueText,
+          onTap: (idByLabel[r.label] ?? '').isEmpty
+              ? null
+              : () {
+                  Navigator.pop(context);
+                  setState(() {
+                    _selectedEmployeeId = idByLabel[r.label];
+                    _page = 1;
+                  });
+                },
+        ),
+    ];
+  }
+
+  /// Bảng chi tiết khi bấm thẻ KPI — gom theo nhân viên từ đúng các ô ngày tạo nên số trên thẻ.
+  void _showKpiBreakdown(String kpi) {
+    final cells = _viewCells();
+    final idByLabel = {for (final c in cells) c.emp: c.id};
+    final subtitle = reportPeriodSubtitle(_from, _to, team: _teamView);
+    String st(Map<String, dynamic> cell) => cell['status']?.toString() ?? '';
+    int countSt(List<({String emp, String id, DateTime day, Map<String, dynamic> cell})> g, Set<String> sts) =>
+        g.where((c) => sts.contains(st(c.cell))).length;
+    String summaryOf(List<({String emp, String id, DateTime day, Map<String, dynamic> cell})> g) {
+      final p = countSt(g, {_DayStatus.present.name});
+      final h = countSt(g, {_DayStatus.halfDay.name});
+      final u = countSt(g, {_DayStatus.unpaidAbsent.name});
+      final l = countSt(g, {_DayStatus.approvedLeave.name, _DayStatus.pendingLeave.name});
+      return 'Đủ $p · nửa $h · vắng $u · phép $l';
+    }
+
+    List<ReportBreakdownRow> rows;
+    String Function(num v)? valueFormat;
+    var emptyText = 'Không có dữ liệu trong kỳ';
+    switch (kpi) {
+      case 'Nhân viên':
+        rows = reportGroupBreakdown(
+          cells,
+          keyOf: (c) => c.emp,
+          valueOf: (c) => _cellWorkCredit(c.cell),
+          captionOf: (_, g) => summaryOf(g),
+        );
+        valueFormat = (v) => '${_fmtWork(v)} công';
+        break;
+      case 'Tổng công':
+        rows = reportGroupBreakdown(
+          cells.where((c) => _cellWorkCredit(c.cell) > 0),
+          keyOf: (c) => c.emp,
+          valueOf: (c) => _cellWorkCredit(c.cell),
+          captionOf: (n, _) => '$n ngày có công',
+        );
+        valueFormat = (v) => '${_fmtWork(v)} công';
+        emptyText = 'Chưa có ngày công trong kỳ';
+        break;
+      case 'Tỷ lệ chuyên cần':
+        final groups = <String, List<({String emp, String id, DateTime day, Map<String, dynamic> cell})>>{};
+        for (final c in cells) {
+          groups.putIfAbsent(c.emp, () => []).add(c);
+        }
+        rows = [];
+        groups.forEach((emp, g) {
+          final p = countSt(g, {_DayStatus.present.name});
+          final h = countSt(g, {_DayStatus.halfDay.name});
+          final u = countSt(g, {_DayStatus.unpaidAbsent.name});
+          final expected = p + h + u;
+          if (expected == 0) return;
+          final rate = ((p + h * 0.5) / expected * 100).round();
+          rows.add(ReportBreakdownRow(
+            label: emp,
+            value: rate,
+            valueText: '$rate%',
+            caption: 'Đủ $p · nửa $h · vắng $u / $expected ngày phải làm',
+          ));
+        });
+        // Thấp nhất lên đầu — người cần nhắc nhở.
+        rows.sort((a, b) => a.value.compareTo(b.value));
+        emptyText = 'Chưa có ngày phải làm trong kỳ';
+        break;
+      case 'Ngày đủ công':
+        rows = reportGroupBreakdown(
+          cells.where((c) => st(c.cell) == _DayStatus.present.name || st(c.cell) == _DayStatus.halfDay.name),
+          keyOf: (c) => c.emp,
+          valueOf: (c) => st(c.cell) == _DayStatus.present.name ? 1 : 0,
+          captionOf: (_, g) {
+            final h = countSt(g, {_DayStatus.halfDay.name});
+            return h > 0 ? '$h ngày nửa công' : '';
+          },
+        );
+        valueFormat = (v) => '${SboxFmt.number(v)} ngày';
+        break;
+      case 'Ngày vắng':
+        rows = reportGroupBreakdown(
+          cells.where((c) => st(c.cell) == _DayStatus.unpaidAbsent.name),
+          keyOf: (c) => c.emp,
+          captionOf: (_, g) => g.map((c) => DateFormat('dd/MM').format(c.day)).join(', '),
+        );
+        valueFormat = (v) => '${SboxFmt.number(v)} ngày';
+        emptyText = 'Không có ngày vắng trong kỳ';
+        break;
+      case 'Ngày nghỉ phép':
+        rows = reportGroupBreakdown(
+          cells.where((c) =>
+              st(c.cell) == _DayStatus.approvedLeave.name || st(c.cell) == _DayStatus.pendingLeave.name),
+          keyOf: (c) => c.emp,
+          captionOf: (_, g) {
+            final a = countSt(g, {_DayStatus.approvedLeave.name});
+            final p = countSt(g, {_DayStatus.pendingLeave.name});
+            return p > 0 ? 'Đã duyệt $a · chờ duyệt $p' : 'Đã duyệt $a';
+          },
+        );
+        valueFormat = (v) => '${SboxFmt.number(v)} ngày';
+        emptyText = 'Không có ngày nghỉ phép trong kỳ';
+        break;
+      default:
+        return;
+    }
+    showReportBreakdownSheet(
+      context,
+      title: kpi,
+      subtitle: subtitle,
+      rows: _withEmployeeTap(rows, idByLabel),
+      valueFormat: valueFormat,
+      emptyText: emptyText,
+    );
+  }
+
+  /// Bấm một cột ngày trên biểu đồ → tình trạng từng NV trong ngày đó.
+  void _showDayBreakdown(int index) {
+    final days = _daysInRange;
+    if (index < 0 || index >= days.length) return;
+    final day = days[index];
+    final cells = _viewCells().where((c) => c.day == day).toList();
+    final idByLabel = {for (final c in cells) c.emp: c.id};
+    final rows = <ReportBreakdownRow>[
+      for (final c in cells)
+        ReportBreakdownRow(
+          label: c.emp,
+          value: _cellWorkCredit(c.cell),
+          valueText: _statusLabel(c.cell['status']?.toString() ?? ''),
+          caption: [
+            if (((c.cell['lateMinutes'] as num?) ?? 0) > 0) 'Trễ ${c.cell['lateMinutes']} phút',
+            if (((c.cell['earlyMinutes'] as num?) ?? 0) > 0) 'Về sớm ${c.cell['earlyMinutes']} phút',
+          ].join(' · '),
+        ),
+    ]..sort((a, b) => b.value.compareTo(a.value));
+    showReportBreakdownSheet(
+      context,
+      title: 'Ngày ${DateFormat('dd/MM/yyyy').format(day)}',
+      subtitle: 'Tình trạng đi làm từng nhân viên',
+      rows: _withEmployeeTap(rows, idByLabel),
+    );
+  }
+
+  /// Bấm một NV trong bảng xếp hạng → các ngày vắng / đi trễ của NV đó.
+  void _showRankEmployeeDays(String empLabel, {required bool late}) {
+    final cells = _viewCells().where((c) => c.emp == empLabel).where((c) => late
+        ? ((c.cell['lateMinutes'] as num?) ?? 0) > 0
+        : c.cell['status']?.toString() == _DayStatus.unpaidAbsent.name);
+    final rows = <ReportBreakdownRow>[
+      for (final c in cells)
+        ReportBreakdownRow(
+          label: DateFormat('EEEE dd/MM/yyyy', 'vi').format(c.day),
+          value: late ? ((c.cell['lateMinutes'] as num?) ?? 0) : 1,
+          valueText: late ? '${c.cell['lateMinutes']} phút' : 'Vắng',
+          caption: (c.cell['shiftNames'] as List?)?.join(', '),
+        ),
+    ];
+    final id = cells.isEmpty ? '' : cells.first.id;
+    showReportBreakdownSheet(
+      context,
+      title: empLabel,
+      subtitle: late ? 'Các ngày đi trễ' : 'Các ngày vắng không phép',
+      rows: rows,
+      actionLabel: _teamView && id.isNotEmpty ? 'Xem nhân viên này trên bảng lịch' : null,
+      onAction: _teamView && id.isNotEmpty
+          ? () => setState(() {
+                _selectedEmployeeId = id;
+                _page = 1;
+              })
+          : null,
+    );
+  }
+
   /// Biểu đồ dashboard: tình trạng đi làm theo ngày, cơ cấu ngày công, vắng nhiều nhất, trễ nhiều nhất.
   List<Widget> _buildCharts() {
     final emps = _filteredEmployees;
@@ -744,8 +1001,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     final full = <double>[], half = <double>[], leave = <double>[], absent = <double>[];
     final lateBy = <String, double>{};
     final absentBy = <String, double>{};
-    String nameOf(Map emp) =>
-        emp['fullName']?.toString() ?? emp['name']?.toString() ?? emp['employeeCode']?.toString() ?? '';
+    String nameOf(Map emp) => _empName(emp);
     // Nhân viên trùng tên (vd 4 «Ngân QA Thu») trước đây bị cộng dồn thành 1 dòng «96 ngày vắng» — thêm mã NV.
     final nameCount = <String, int>{};
     for (final emp in emps) {
@@ -790,6 +1046,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
           stacked: true,
           valueFormat: (v) => '${SboxFmt.number(v)} NV',
           axisFormat: (v) => SboxFmt.number(v),
+          onTapIndex: _showDayBreakdown,
           labels: [for (final d in days) sboxDayLabel(d)],
           series: [
             SboxSeries(name: 'Đủ công', values: full, color: SboxColors.success),
@@ -819,6 +1076,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
           child: SboxRankList(
             color: SboxColors.danger,
             valueFormat: (v) => '${SboxFmt.number(v)} ngày',
+            onTap: (s) => _showRankEmployeeDays(s.label, late: false),
             items: [for (final e in absentBy.entries) SboxSlice(e.key, e.value)],
           ),
         ),
@@ -829,6 +1087,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
           child: SboxRankList(
             color: SboxColors.warning,
             valueFormat: (v) => '${SboxFmt.number(v)} phút',
+            onTap: (s) => _showRankEmployeeDays(s.label, late: true),
             items: [for (final e in lateBy.entries) SboxSlice(e.key, e.value)],
           ),
         ),
@@ -872,18 +1131,21 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     return [
       ReportKpiItem(
           label: 'Nhân viên',
+          onTap: () => _showKpiBreakdown('Nhân viên'),
           value: emps.length.toString(),
           note: '${_daysInRange.length} ngày trong kỳ',
           icon: Icons.people_outline,
           color: Colors.blueGrey),
       ReportKpiItem(
           label: 'Tổng công',
+          onTap: () => _showKpiBreakdown('Tổng công'),
           value: workLabel,
           note: emps.isEmpty ? null : 'TB ${(totalWork / emps.length).toStringAsFixed(1).replaceAll('.', ',')} công/NV',
           icon: Icons.calculate_outlined,
           color: _theme),
       ReportKpiItem(
           label: 'Tỷ lệ chuyên cần',
+          onTap: () => _showKpiBreakdown('Tỷ lệ chuyên cần'),
           value: rate == null ? '—' : '$rate%',
           note: 'Đủ công + nửa công / ngày phải làm',
           icon: Icons.verified_outlined,
@@ -891,18 +1153,21 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
           tone: rate == null ? SboxTone.neutral : (rate >= 95 ? SboxTone.success : (rate >= 85 ? SboxTone.warning : SboxTone.danger))),
       ReportKpiItem(
           label: 'Ngày đủ công',
+          onTap: () => _showKpiBreakdown('Ngày đủ công'),
           value: present.toString(),
           note: half > 0 ? '$half ngày nửa công' : null,
           icon: Icons.check_circle_outline,
           color: SboxColors.success),
       ReportKpiItem(
           label: 'Ngày vắng',
+          onTap: () => _showKpiBreakdown('Ngày vắng'),
           value: unpaid.toString(),
           note: 'Không có đơn phép',
           icon: Icons.person_off_outlined,
           color: SboxColors.danger),
       ReportKpiItem(
           label: 'Ngày nghỉ phép',
+          onTap: () => _showKpiBreakdown('Ngày nghỉ phép'),
           value: leave.toString(),
           icon: Icons.beach_access_outlined,
           color: SboxColors.violet),

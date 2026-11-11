@@ -15,6 +15,8 @@ import '../../widgets/notification_overlay.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import '../../widgets/pos/pos_party_debt_detail_page.dart';
+import '../../widgets/reports/report_breakdown_sheet.dart';
+
 class PosCustomerDebtReportScreen extends StatefulWidget {
   const PosCustomerDebtReportScreen({super.key});
 
@@ -166,6 +168,41 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
     );
   }
 
+  void _openDetail(Map<String, dynamic> r) => unawaited(showPosPartyDebtDetail(context,
+      isCustomer: true,
+      id: '${r['id'] ?? ''}',
+      name: '${r['name'] ?? ''}',
+      phone: r['phone']?.toString(),
+      debt: _n(r['currentDebt'])));
+
+  static const _agingKeys = ['debt0To30', 'debt31To60', 'debt61To90', 'debtOver90', 'debtOther'];
+  static const _agingLabels = ['0–30 ngày', '31–60 ngày', '61–90 ngày', '> 90 ngày', 'Đầu kỳ / ĐC'];
+
+  /// Bấm thẻ số liệu → từng khách làm nên con số (cùng danh sách máy chủ cộng ra tổng); bấm khách → chi tiết nợ.
+  void _debtSheet(String title, String key, {String Function(Map<String, dynamic> r)? captionOf}) {
+    final rows = [
+      for (final r in _items)
+        if (_n(r[key]) != 0)
+          ReportBreakdownRow(
+            label: '${r['name'] ?? '—'}',
+            value: _n(r[key]),
+            caption: captionOf?.call(r) ?? (r['phone'] == null ? null : '${r['phone']}'),
+            onTap: () => _openDetail(r),
+          ),
+    ]..sort((a, b) => b.value.compareTo(a.value));
+    unawaited(showReportBreakdownSheet(
+      context,
+      title: title,
+      subtitle: _exportFilter,
+      rows: rows,
+      valueFormat: SboxFmt.money,
+      emptyText: 'Không có khách còn nợ',
+    ));
+  }
+
+  void _agingSheet(int i) => _debtSheet('Nợ ${_agingLabels[i]}', _agingKeys[i],
+      captionOf: (r) => 'Tổng nợ ${SboxFmt.money(_n(r['currentDebt']))}');
+
   List<Widget> _exportActions() {
     if (!Provider.of<PermissionProvider>(context, listen: false).canExport('PosSalesReport')) return const [];
     final canRun = !_loading && _items.isNotEmpty;
@@ -238,16 +275,21 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
           ],
         ),
         kpis: [
-          SboxKpi(label: 'Tổng nợ phải thu', value: SboxFmt.money(_sumDebt), icon: Icons.account_balance_wallet_outlined, tone: SboxTone.danger),
-          SboxKpi(label: 'Khách còn nợ', value: SboxFmt.number(_totalCustomers), icon: Icons.people_outline, tone: SboxTone.violet),
-          SboxKpi(label: 'Nợ 0–30 ngày', value: SboxFmt.money(_sum0), icon: Icons.schedule_outlined, tone: SboxTone.success),
-          SboxKpi(label: 'Quá 90 ngày', value: SboxFmt.money(_sum90), icon: Icons.warning_amber_rounded, tone: SboxTone.warning, note: 'Cần thu hồi gấp'),
+          SboxKpi(label: 'Tổng nợ phải thu', value: SboxFmt.money(_sumDebt), icon: Icons.account_balance_wallet_outlined, tone: SboxTone.danger,
+              onTap: () => _debtSheet('Tổng nợ phải thu', 'currentDebt')),
+          SboxKpi(label: 'Khách còn nợ', value: SboxFmt.number(_totalCustomers), icon: Icons.people_outline, tone: SboxTone.violet,
+              onTap: () => _debtSheet('Khách còn nợ', 'currentDebt')),
+          SboxKpi(label: 'Nợ 0–30 ngày', value: SboxFmt.money(_sum0), icon: Icons.schedule_outlined, tone: SboxTone.success,
+              onTap: () => _agingSheet(0)),
+          SboxKpi(label: 'Quá 90 ngày', value: SboxFmt.money(_sum90), icon: Icons.warning_amber_rounded, tone: SboxTone.warning, note: 'Cần thu hồi gấp',
+              onTap: () => _agingSheet(3)),
         ],
         charts: [
           SboxChartCard(
             title: 'Tuổi nợ khách hàng',
             child: SboxBarChart(
-              labels: const ['0–30 ngày', '31–60 ngày', '61–90 ngày', '> 90 ngày', 'Đầu kỳ / ĐC'],
+              labels: _agingLabels,
+              onTapIndex: _agingSheet,
               series: [
                 SboxSeries(name: 'Khách nợ', color: SboxColors.danger, values: [_sum0, _sum31, _sum61, _sum90, _sumOther]),
               ],
@@ -255,7 +297,12 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
           ),
           SboxChartCard(
             title: 'Khách nợ nhiều nhất',
+            onMore: () => _debtSheet('Khách nợ nhiều nhất', 'currentDebt'),
             child: SboxRankList(
+              onTap: (s) {
+                final r = _items.where((e) => (e['name']?.toString() ?? '—') == s.label).firstOrNull;
+                if (r != null) _openDetail(r);
+              },
               color: SboxColors.danger,
               items: [for (final r in _items) SboxSlice(r['name']?.toString() ?? '—', _n(r['currentDebt']))],
             ),
@@ -267,12 +314,7 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
             loading: _loading,
             rows: _items,
             pageSize: 50,
-            onRowTap: (r) => showPosPartyDebtDetail(context,
-                isCustomer: true,
-                id: '${r['id'] ?? ''}',
-                name: '${r['name'] ?? ''}',
-                phone: r['phone']?.toString(),
-                debt: _n(r['currentDebt'])),
+            onRowTap: _openDetail,
             emptyTitle: 'Không có khách còn nợ',
             columns: [
               SboxColumn(

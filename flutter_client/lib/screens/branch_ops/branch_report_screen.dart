@@ -11,6 +11,7 @@ import '../../widgets/sbox/sbox_basics.dart' show SboxTone;
 import '../../widgets/sbox/sbox_charts.dart';
 import '../../widgets/sbox/sbox_report.dart';
 import '../../widgets/sbox/sbox_table.dart';
+import '../../widgets/reports/report_breakdown_sheet.dart';
 import 'branch_detail_screen.dart';
 import 'branch_ops_ui.dart';
 
@@ -227,9 +228,47 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
     );
   }
 
+  void _openBranch(Map<String, dynamic> r) => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => BranchDetailScreen(
+          branchId: r['branchId'].toString(),
+          branchName: r['name']?.toString() ?? '',
+          initialPeriod: _period,
+        ),
+      ));
+
+  static double _costOf(Map<String, dynamic> r) =>
+      bNum(r['expenses']) + bNum(r['payroll']) + bNum(r['carrierCost']) + bNum(r['depreciation']);
+
+  /// Bấm thẻ số liệu → con số đó chia theo từng chi nhánh (tổng các dòng = số trên thẻ); bấm dòng → chi tiết chi nhánh.
+  void _branchSheet(
+    String title,
+    double Function(Map<String, dynamic> r) valueOf, {
+    String Function(Map<String, dynamic> r)? captionOf,
+    String Function(num v)? format,
+  }) {
+    final rows = [
+      for (final r in _rows)
+        ReportBreakdownRow(
+          label: '${r['name'] ?? '—'}${r['isHeadquarter'] == true ? ' (${tr('Trụ sở')})' : ''}',
+          value: valueOf(r),
+          caption: captionOf?.call(r),
+          onTap: () => _openBranch(r),
+        ),
+    ]..sort((a, b) => b.value.compareTo(a.value));
+    showReportBreakdownSheet(
+      context,
+      title: title,
+      subtitle: '${_period.label} (${_period.rangeText})',
+      rows: rows,
+      valueFormat: format ?? bMoney,
+      emptyText: 'Chưa có chi nhánh',
+    );
+  }
+
   Widget _kpis() {
     final t = _totals;
     final net = bNum(t['netProfit']);
+    String pct(dynamic v) => '${bNum(v).toStringAsFixed(1).replaceAll('.', ',')}%';
     return SboxKpiStrip(maxColumns: 6, items: [
       SboxKpi(
         label: 'Doanh thu',
@@ -237,13 +276,17 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
         icon: Icons.payments_outlined,
         tone: SboxTone.brand,
         note: '${bQty(t['orders'])} đơn · TB ${bMoneyShort(t['avgOrder'])}',
+        onTap: () => _branchSheet('Doanh thu theo chi nhánh', (r) => bNum(r['revenue']),
+            captionOf: (r) => '${bQty(r['orders'])} đơn · TB ${bMoney(bNum(r['avgOrder']))}'),
       ),
       SboxKpi(
         label: 'Lãi gộp',
         value: bMoneyShort(t['grossProfit']),
         icon: Icons.trending_up_rounded,
         tone: SboxTone.success,
-        note: 'Biên ${bNum(t['grossMarginPct']).toStringAsFixed(1).replaceAll('.', ',')}%',
+        note: 'Biên ${pct(t['grossMarginPct'])}',
+        onTap: () => _branchSheet('Lãi gộp theo chi nhánh', (r) => bNum(r['grossProfit']),
+            captionOf: (r) => 'Biên ${pct(r['grossMarginPct'])} · DT ${bMoney(bNum(r['revenue']))}'),
       ),
       SboxKpi(
         label: 'Chi phí + lương',
@@ -255,6 +298,13 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
           if (bNum(t['carrierCost']) != 0) 'cước ${bMoneyShort(t['carrierCost'])}',
           if (bNum(t['depreciation']) != 0) 'khấu hao ${bMoneyShort(t['depreciation'])}',
         ].join(' · '),
+        onTap: () => _branchSheet('Chi phí + lương theo chi nhánh', _costOf,
+            captionOf: (r) => [
+                  'Chi phí ${bMoney(bNum(r['expenses']))}',
+                  'lương ${bMoney(bNum(r['payroll']))}',
+                  if (bNum(r['carrierCost']) != 0) 'cước ${bMoney(bNum(r['carrierCost']))}',
+                  if (bNum(r['depreciation']) != 0) 'khấu hao ${bMoney(bNum(r['depreciation']))}',
+                ].join(' · ')),
       ),
       SboxKpi(
         label: 'Lãi ròng',
@@ -262,12 +312,15 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
         icon: Icons.savings_outlined,
         tone: net >= 0 ? SboxTone.success : SboxTone.danger,
         note: net >= 0 ? 'Có lãi' : 'Đang lỗ',
+        onTap: () => _branchSheet('Lãi ròng theo chi nhánh', (r) => bNum(r['netProfit']),
+            captionOf: (r) => 'Lãi gộp ${bMoney(bNum(r['grossProfit']))} · chi ${bMoney(_costOf(r))}'),
       ),
       SboxKpi(
         label: 'Giá trị tồn kho',
         value: bMoneyShort(t['stockValue']),
         icon: Icons.inventory_2_outlined,
         tone: SboxTone.violet,
+        onTap: () => _branchSheet('Giá trị tồn kho theo chi nhánh', (r) => bNum(r['stockValue'])),
       ),
       SboxKpi(
         label: 'Nhân sự',
@@ -275,6 +328,8 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
         icon: Icons.groups_outlined,
         tone: SboxTone.neutral,
         note: '${_rows.length} chi nhánh',
+        onTap: () => _branchSheet('Nhân sự theo chi nhánh', (r) => bNum(r['employees']),
+            format: (v) => '${bQty(v)} NV'),
       ),
     ]);
   }
@@ -309,6 +364,7 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
         title: 'Doanh thu và lãi ròng theo chi nhánh',
         child: SboxBarChart(
           valueFormat: (v) => SboxFmt.money(v),
+          onTapIndex: (i) => _openBranch(rows[i]),
           labels: names,
           series: [
             SboxSeries(name: 'Doanh thu', values: [for (final r in rows) bNum(r['revenue'])], color: SboxColors.brand500),
@@ -354,13 +410,7 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
         rows: rows,
         pageSize: 50,
         emptyTitle: 'Chưa có chi nhánh',
-        onRowTap: (r) => Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => BranchDetailScreen(
-            branchId: r['branchId'].toString(),
-            branchName: r['name']?.toString() ?? '',
-            initialPeriod: _period,
-          ),
-        )),
+        onRowTap: _openBranch,
         columns: [
           SboxColumn(
             label: 'Chi nhánh',

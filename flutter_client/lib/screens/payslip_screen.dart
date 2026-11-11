@@ -13,6 +13,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/reports/hrm_report_widgets.dart' show ReportKpiItem, ReportDashboard, SboxTone;
+import '../widgets/reports/report_breakdown_sheet.dart';
 import '../widgets/sbox/sbox_charts.dart';
 import '../widgets/sbox/sbox_report.dart';
 class PayslipScreen extends StatefulWidget {
@@ -316,6 +317,121 @@ class _PayslipScreenState extends State<PayslipScreen> {
 
   String _moneyShort(num v) => '${NumberFormat('#,##0', 'vi_VN').format(v)} đ';
 
+  String _slipStatusText(Map<String, dynamic> p) =>
+      _isPaidSlip(p) ? 'Đã thanh toán' : _statusLabel(p['status']?.toString() ?? 'Draft');
+
+  /// Kỳ đang xem cho dòng phụ của bảng chi tiết.
+  String _periodSubtitle(List<Map<String, dynamic>> list) {
+    final keys = list.map(_periodKey).toSet().toList()..sort();
+    if (keys.isEmpty) return _filterSummary();
+    if (keys.length == 1) return 'Kỳ ${_periodLabel(keys.first)}';
+    return 'Kỳ ${_periodLabel(keys.first)} – ${_periodLabel(keys.last)}';
+  }
+
+  /// Nhãn NV (thêm mã khi trùng tên) để gom phiếu không cộng nhầm 2 người.
+  String Function(Map<String, dynamic>) _empLabeler(List<Map<String, dynamic>> list) {
+    String idOf(Map<String, dynamic> p) =>
+        p['employeeUserId']?.toString() ?? p['employeeId']?.toString() ?? p['employeeName']?.toString() ?? '';
+    final idsByName = <String, Set<String>>{};
+    for (final p in list) {
+      idsByName.putIfAbsent(p['employeeName']?.toString() ?? '', () => {}).add(idOf(p));
+    }
+    return (p) {
+      final name = p['employeeName']?.toString() ?? '';
+      final code = p['employeeCode']?.toString() ?? '';
+      if ((idsByName[name]?.length ?? 0) > 1 && code.isNotEmpty) return '$name · $code';
+      return name.isEmpty ? (code.isEmpty ? '—' : code) : name;
+    };
+  }
+
+  /// Bảng chi tiết phiếu lương gom theo nhân viên (quản lý).
+  void _showSlipsByEmployee({
+    required String title,
+    required List<Map<String, dynamic>> slips,
+    required num Function(Map<String, dynamic> p) valueOf,
+    required String Function(int n, List<Map<String, dynamic>> g) captionOf,
+    String Function(num v)? valueFormat,
+    String? subtitle,
+    String emptyText = 'Không có phiếu lương',
+  }) {
+    showReportBreakdownSheet(
+      context,
+      title: title,
+      subtitle: subtitle ?? _periodSubtitle(slips),
+      rows: reportGroupBreakdown(slips, keyOf: _empLabeler(slips), valueOf: valueOf, captionOf: captionOf),
+      valueFormat: valueFormat ?? (v) => _moneyShort(v),
+      emptyText: emptyText,
+    );
+  }
+
+  /// Bảng chi tiết theo từng phiếu (nhân viên tự xem): mỗi dòng một kỳ lương.
+  void _showSlipsByPeriod({
+    required String title,
+    required List<Map<String, dynamic>> slips,
+    String? subtitle,
+    String emptyText = 'Không có phiếu lương',
+  }) {
+    final rows = [
+      for (final p in slips)
+        ReportBreakdownRow(
+          label: 'Kỳ ${_periodLabel(_periodKey(p))}',
+          value: _num(p['netSalary']),
+          caption: 'Gộp ${_moneyShort(_num(p['grossSalary']))} · ${_slipStatusText(p)}',
+        ),
+    ];
+    showReportBreakdownSheet(
+      context,
+      title: title,
+      subtitle: subtitle ?? _periodSubtitle(slips),
+      rows: rows,
+      valueFormat: (v) => _moneyShort(v),
+      emptyText: emptyText,
+    );
+  }
+
+  /// Cơ cấu một phiếu: thu nhập, khấu trừ, thực lĩnh.
+  void _showSlipComposition(Map<String, dynamic> p, {required String title}) {
+    final income = <(String, String)>[
+      ('Lương cơ bản', 'baseSalary'),
+      ('Phụ cấp', 'allowances'),
+      ('Thưởng', 'bonus'),
+      ('Tăng ca', 'overtimePay'),
+      ('Lương đi đường', 'travelSalary'),
+    ];
+    final deduct = <(String, String)>[
+      ('BHXH', 'socialInsurance'),
+      ('BHYT', 'healthInsurance'),
+      ('BHTN', 'unemploymentInsurance'),
+      ('Thuế TNCN', 'tax'),
+      ('Khấu trừ khác', 'deductions'),
+    ];
+    final rows = <ReportBreakdownRow>[
+      for (final it in income)
+        if (_num(p[it.$2]) != 0)
+          ReportBreakdownRow(label: tr(it.$1), value: _num(p[it.$2]), caption: 'Thu nhập'),
+      for (final it in deduct)
+        if (_num(p[it.$2]) != 0)
+          ReportBreakdownRow(
+            label: tr(it.$1),
+            value: _num(p[it.$2]),
+            valueText: '-${_moneyShort(_num(p[it.$2]))}',
+            caption: 'Khấu trừ',
+          ),
+      ReportBreakdownRow(
+        label: tr('Thực lĩnh'),
+        value: _num(p['netSalary']),
+        caption: 'Gộp ${_moneyShort(_num(p['grossSalary']))} · ${_slipStatusText(p)}',
+      ),
+    ];
+    showReportBreakdownSheet(
+      context,
+      title: title,
+      subtitle: 'Kỳ ${_periodLabel(_periodKey(p))}',
+      rows: rows,
+      valueFormat: (v) => _moneyShort(v),
+    );
+  }
+
   List<ReportKpiItem> _dashboardKpis(List<Map<String, dynamic>> list) {
     final net = list.fold<double>(0, (s, p) => s + _num(p['netSalary']));
     final gross = list.fold<double>(0, (s, p) => s + _num(p['grossSalary']));
@@ -326,6 +442,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
       return [
         ReportKpiItem(
           label: 'Thực lĩnh kỳ gần nhất',
+          onTap: latest == null ? null : () => _showSlipComposition(latest, title: 'Thực lĩnh kỳ gần nhất'),
           value: latest == null ? '—' : _moneyShort(_num(latest['netSalary'])),
           note: latest == null ? null : 'Kỳ ${_periodLabel(_periodKey(latest))}',
           icon: Icons.account_balance_wallet_outlined,
@@ -333,6 +450,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
         ),
         ReportKpiItem(
           label: 'TB thực lĩnh / tháng',
+          onTap: () => _showSlipsByPeriod(title: 'Thực lĩnh từng tháng', slips: list),
           value: list.isEmpty ? '—' : _moneyShort(net / list.length),
           note: '${list.length} phiếu',
           icon: Icons.trending_up,
@@ -340,6 +458,11 @@ class _PayslipScreenState extends State<PayslipScreen> {
         ),
         ReportKpiItem(
           label: 'Chưa thanh toán',
+          onTap: () => _showSlipsByPeriod(
+            title: 'Chưa thanh toán',
+            slips: unpaid,
+            emptyText: 'Tất cả phiếu đã thanh toán',
+          ),
           value: '${unpaid.length}',
           note: unpaid.isEmpty ? 'Đã nhận đủ' : _moneyShort(unpaidAmt),
           icon: Icons.hourglass_top,
@@ -352,6 +475,13 @@ class _PayslipScreenState extends State<PayslipScreen> {
     return [
       ReportKpiItem(
         label: 'Số phiếu lương',
+        onTap: () => _showSlipsByEmployee(
+          title: 'Số phiếu lương',
+          slips: list,
+          valueOf: (_) => 1,
+          valueFormat: (v) => '${SboxFmt.number(v)} phiếu',
+          captionOf: (_, g) => g.map((p) => _periodLabel(_periodKey(p))).toSet().join(', '),
+        ),
         value: '${list.length}',
         note: '$empCount nhân viên',
         icon: Icons.receipt_long_outlined,
@@ -359,6 +489,12 @@ class _PayslipScreenState extends State<PayslipScreen> {
       ),
       ReportKpiItem(
         label: 'Tổng thực lĩnh',
+        onTap: () => _showSlipsByEmployee(
+          title: 'Tổng thực lĩnh',
+          slips: list,
+          valueOf: (p) => _num(p['netSalary']),
+          captionOf: (n, _) => '$n phiếu',
+        ),
         value: _moneyShort(net),
         note: list.isEmpty ? null : 'TB ${_moneyShort(net / list.length)}/phiếu',
         icon: Icons.payments_outlined,
@@ -366,6 +502,16 @@ class _PayslipScreenState extends State<PayslipScreen> {
       ),
       ReportKpiItem(
         label: 'Tổng lương gộp',
+        onTap: () => _showSlipsByEmployee(
+          title: 'Tổng lương gộp',
+          slips: list,
+          valueOf: (p) => _num(p['grossSalary']),
+          captionOf: (n, g) {
+            final gr = g.fold<double>(0, (s, p) => s + _num(p['grossSalary']));
+            final nt = g.fold<double>(0, (s, p) => s + _num(p['netSalary']));
+            return '$n phiếu · khấu trừ ${_moneyShort(gr - nt)}';
+          },
+        ),
         value: _moneyShort(gross),
         note: gross > 0 ? 'Khấu trừ ${_moneyShort(gross - net)}' : null,
         icon: Icons.calculate_outlined,
@@ -373,6 +519,13 @@ class _PayslipScreenState extends State<PayslipScreen> {
       ),
       ReportKpiItem(
         label: 'Chưa thanh toán',
+        onTap: () => _showSlipsByEmployee(
+          title: 'Chưa thanh toán',
+          slips: unpaid,
+          valueOf: (p) => _num(p['netSalary']),
+          captionOf: (n, g) => '$n phiếu · ${g.map((p) => _periodLabel(_periodKey(p))).toSet().join(', ')}',
+          emptyText: 'Đã trả hết các phiếu',
+        ),
         value: '${unpaid.length}',
         note: unpaid.isEmpty ? 'Đã trả hết' : '${_moneyShort(unpaidAmt)} cần chi',
         icon: Icons.hourglass_top,
@@ -396,6 +549,23 @@ class _PayslipScreenState extends State<PayslipScreen> {
           title: _isManager ? 'Tổng thực lĩnh theo kỳ' : 'Thực lĩnh theo tháng',
           child: SboxBarChart(
             valueFormat: (v) => SboxFmt.money(v),
+            onTapIndex: (i) {
+              if (i < 0 || i >= periods.length) return;
+              final slips = list.where((p) => _periodKey(p) == periods[i]).toList();
+              final title = 'Thực lĩnh kỳ ${_periodLabel(periods[i])}';
+              if (_isManager) {
+                _showSlipsByEmployee(
+                  title: title,
+                  slips: slips,
+                  valueOf: (p) => _num(p['netSalary']),
+                  captionOf: (n, g) => n > 1 ? '$n phiếu' : _slipStatusText(g.first),
+                );
+              } else if (slips.length == 1) {
+                _showSlipComposition(slips.first, title: title);
+              } else {
+                _showSlipsByPeriod(title: title, slips: slips);
+              }
+            },
             labels: [for (final k in periods) _periodLabel(k)],
             series: [SboxSeries(name: 'Thực lĩnh', values: [for (final k in periods) byPeriod[k]!], color: SboxColors.success)],
           ),
@@ -423,6 +593,15 @@ class _PayslipScreenState extends State<PayslipScreen> {
           subtitle: 'Thực lĩnh',
           child: SboxRankList(
             valueFormat: (v) => SboxFmt.money(v),
+            onTap: (s) => _showSlipsByEmployee(
+              title: s.label,
+              slips: list.where((p) {
+                final d = (p['department']?.toString() ?? '').trim();
+                return (d.isEmpty ? 'Chưa có phòng ban' : d) == s.label;
+              }).toList(),
+              valueOf: (p) => _num(p['netSalary']),
+              captionOf: (n, _) => '$n phiếu',
+            ),
             items: [for (final e in byDept.entries) SboxSlice(e.key, e.value, caption: '${deptCnt[e.key]} phiếu')],
           ),
         ),
@@ -549,6 +728,11 @@ class _PayslipScreenState extends State<PayslipScreen> {
       parts.add('Tất cả năm');
     }
     if (_filterMonth != null) parts.add('T$_filterMonth');
+    if (_filterEmployeeUserId != null) {
+      final hit = _payslips.where((p) => p['employeeUserId']?.toString() == _filterEmployeeUserId);
+      final name = hit.isEmpty ? '' : (hit.first['employeeName']?.toString() ?? '');
+      parts.add(name.isEmpty ? 'NV đã chọn' : name);
+    }
     if (_filterDepartment != null) parts.add(_filterDepartment!);
     if (_filterFromDate != null) {
       parts.add('Từ ${DateFormat('dd/MM/yy').format(_filterFromDate!)}');

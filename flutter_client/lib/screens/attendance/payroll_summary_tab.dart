@@ -40,6 +40,7 @@ import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_table.dart';
 import '../../widgets/sbox/sbox_report.dart';
 import '../../widgets/sbox/sbox_charts.dart';
+import '../../widgets/reports/report_breakdown_sheet.dart';
 import '../../widgets/report_column_picker.dart';
 // ═══════════════════════════════════════════════════════════════
 //  PayrollColumn – định nghĩa 1 cột bảng lương
@@ -96,7 +97,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   bool _isLoading = true;
   bool _isFinalizing = false;
   bool _showOverviewPanel = true;
-  bool _payrollFiltersExpanded = true;
+  // Mở màn: bộ lọc thu gọn (tiêu đề vẫn hiện tóm tắt kỳ / phòng ban / NV).
+  bool _payrollFiltersExpanded = false;
   DateTime _fromDate = DateTime.now();
   DateTime _toDate = DateTime.now();
   String _searchQuery = '';
@@ -2188,7 +2190,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         ...widget.mobileLeadingSections!,
         const SizedBox(height: 12),
       ],
+      // Khung này chỉ chứa biểu đồ + thẻ số (bộ lọc nằm ở thanh «Bộ lọc» bên dưới) → mở sẵn.
       HrmCollapsibleOverview(
+        title: 'Tổng quan',
+        subtitle: payrollData.isEmpty
+            ? null
+            : 'Thực nhận ${_currencyFmt.format(payrollData.fold<double>(0, (s, r) => s + ((r['netSalary'] as num?) ?? 0).toDouble()).round())} đ · ${payrollData.length} nhân viên',
         expanded: _showOverviewPanel,
         onToggle: () =>
             setState(() => _showOverviewPanel = !_showOverviewPanel),
@@ -2970,6 +2977,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         SboxChartCard(
           title: 'Các khoản trừ',
           child: SboxBarChart(
+            onTapIndex: (i) {
+              const fields = ['totalInsurance', 'penalty', 'advance'];
+              const titles = ['Bảo hiểm', 'Phạt', 'Ứng lương'];
+              if (i < 0 || i >= fields.length) return;
+              _showPayrollFieldBreakdown(data, fields[i], titles[i]);
+            },
             labels: const ['Bảo hiểm', 'Phạt', 'Ứng lương'],
             series: [
               SboxSeries(name: 'Khấu trừ', values: [sum('totalInsurance'), sum('penalty'), sum('advance')], color: SboxColors.danger),
@@ -2980,16 +2993,75 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           SboxChartCard(
             title: 'Thực lĩnh cao nhất',
             wide: true,
-            child: SboxRankList(
-              maxItems: 8,
-              items: [
+            onMore: () => _showPayrollFieldBreakdown(data, 'netSalary', 'Thực nhận', includeZero: true),
+            child: Builder(builder: (_) {
+              // Bấm một người → phiếu lương chi tiết.
+              final bySlice = <SboxSlice, Map<String, dynamic>>{
                 for (final r in data)
                   SboxSlice('${r['employeeName'] ?? r['fullName'] ?? r['name'] ?? '—'}', ((r['netSalary'] as num?) ?? 0).toDouble(),
-                      caption: '${'${r['code'] ?? ''}'.isEmpty ? '' : '${r['code']} · '}${SboxFmt.qty((r['workDays'] as num?) ?? 0)} công'),
-              ],
-            ),
+                      caption: '${'${r['code'] ?? ''}'.isEmpty ? '' : '${r['code']} · '}${SboxFmt.qty((r['workDays'] as num?) ?? 0)} công'): r,
+              };
+              return SboxRankList(
+              maxItems: 8,
+              onTap: (slice) {
+                final r = bySlice[slice];
+                if (r != null) _showEmployeeDetail(r);
+              },
+              items: bySlice.keys.toList(),
+              );
+            }),
           ),
       ],
+    );
+  }
+
+  static String _payrollRowName(Map<String, dynamic> r) {
+    final name = '${r['employeeName'] ?? r['fullName'] ?? r['name'] ?? '—'}';
+    final code = '${r['code'] ?? ''}';
+    return code.isEmpty ? name : '$name · $code';
+  }
+
+  /// Thẻ số bấm → bảng từng nhân viên của đúng khoản đó (cộng lại = số trên thẻ);
+  /// bấm một người → phiếu lương chi tiết.
+  void _showPayrollFieldBreakdown(
+    List<Map<String, dynamic>> data,
+    String field,
+    String title, {
+    bool days = false,
+    bool includeZero = false,
+    String? note,
+  }) {
+    double v(Map<String, dynamic> r) => ((r[field] as num?) ?? 0).toDouble();
+    final total = data.fold<double>(0, (s, r) => s + v(r));
+    final rows = [
+      for (final r in data)
+        if (includeZero || v(r) != 0)
+          ReportBreakdownRow(
+            label: _payrollRowName(r),
+            value: v(r),
+            caption: days
+                ? null
+                : '${SboxFmt.qty((r['workDays'] as num?) ?? 0)} công',
+            valueText: days
+                ? '${SboxFmt.qty(v(r))} ngày'
+                : '${_currencyFmt.format(v(r).round())} đ',
+            onTap: () {
+              Navigator.pop(context);
+              _showEmployeeDetail(r);
+            },
+          ),
+    ]..sort((a, b) => b.value.compareTo(a.value));
+    final period =
+        '${_periodLabel(_selectedPeriod)} · ${DateFormat('dd/MM/yyyy').format(_fromDate)} – ${DateFormat('dd/MM/yyyy').format(_toDate)}';
+    showReportBreakdownSheet(
+      context,
+      title: title,
+      subtitle: [
+        period,
+        note ?? (days ? '' : 'Tổng ${_currencyFmt.format(total.round())} đ · ${rows.length} nhân viên'),
+      ].where((s) => s.isNotEmpty).join(' · '),
+      rows: rows,
+      emptyText: 'Không nhân viên nào có khoản này trong kỳ',
     );
   }
 
@@ -3025,27 +3097,37 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           'Tổng lương theo công',
           _currencyFmt.format(totalWorkSalary.round()),
           HrmPageChrome.primaryNavy,
-          Icons.account_balance_wallet_outlined),
+          Icons.account_balance_wallet_outlined,
+          onTap: () => _showPayrollFieldBreakdown(data, 'workSalary', 'Lương theo công')),
       _SummaryItem('Phụ cấp', _currencyFmt.format(totalAllowance.round()),
-          const Color(0xFF2D5F8B), Icons.card_giftcard_outlined),
+          const Color(0xFF2D5F8B), Icons.card_giftcard_outlined,
+          onTap: () => _showPayrollFieldBreakdown(data, 'totalAllowance', 'Phụ cấp')),
       _SummaryItem('Thưởng', _currencyFmt.format(totalBonus.round()),
-          SboxColors.violet, Icons.emoji_events_outlined),
+          SboxColors.violet, Icons.emoji_events_outlined,
+          onTap: () => _showPayrollFieldBreakdown(data, 'bonus', 'Thưởng')),
       _SummaryItem('Phạt', _currencyFmt.format(totalPenalty.round()),
-          SboxColors.danger, Icons.gavel_outlined),
+          SboxColors.danger, Icons.gavel_outlined,
+          onTap: () => _showPayrollFieldBreakdown(data, 'penalty', 'Phạt')),
       _SummaryItem('Bảo hiểm', _currencyFmt.format(totalIns.round()),
-          SboxColors.warning, Icons.health_and_safety_outlined),
+          SboxColors.warning, Icons.health_and_safety_outlined,
+          onTap: () => _showPayrollFieldBreakdown(data, 'totalInsurance', 'Bảo hiểm')),
       _SummaryItem('Ứng lương', _currencyFmt.format(totalAdv.round()),
-          HrmPageChrome.primaryNavy, Icons.payments_outlined),
+          HrmPageChrome.primaryNavy, Icons.payments_outlined,
+          onTap: () => _showPayrollFieldBreakdown(data, 'advance', 'Ứng lương')),
       _SummaryItem('KPI', _currencyFmt.format(totalKpiSalary.round()),
-          const Color(0xFFEC4899), Icons.flag_outlined),
+          const Color(0xFFEC4899), Icons.flag_outlined,
+          onTap: () => _showPayrollFieldBreakdown(data, 'kpiSalary', 'Lương KPI')),
       _SummaryItem('Ngày công TB', '$avgWorkDays ngày', (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF14B8A6)),
-          Icons.event_available_outlined),
+          Icons.event_available_outlined,
+          onTap: () => _showPayrollFieldBreakdown(data, 'workDays', 'Ngày công theo nhân viên',
+              days: true, note: 'Trung bình $avgWorkDays ngày / nhân viên')),
     ];
     final netItem = _SummaryItem(
         'THỰC NHẬN',
         _currencyFmt.format(totalNet.round()),
         SboxColors.success,
-        Icons.savings_outlined);
+        Icons.savings_outlined,
+        onTap: () => _showPayrollFieldBreakdown(data, 'netSalary', 'Thực nhận', includeZero: true));
 
     if (isMobile) {
       // Mobile: 2-column grid + full-width net salary
@@ -3056,17 +3138,17 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               padding: EdgeInsets.only(bottom: i < items.length - 2 ? 6 : 0),
               child: Row(
                 children: [
-                  Expanded(child: _mobileSummaryChip(items[i])),
+                  Expanded(child: _tappable(items[i], _mobileSummaryChip(items[i]), 10)),
                   const SizedBox(width: 6),
                   Expanded(
                       child: i + 1 < items.length
-                          ? _mobileSummaryChip(items[i + 1])
+                          ? _tappable(items[i + 1], _mobileSummaryChip(items[i + 1]), 10)
                           : const SizedBox.shrink()),
                 ],
               ),
             ),
           const SizedBox(height: 6),
-          _mobileSummaryChip(netItem, highlight: true),
+          _tappable(netItem, _mobileSummaryChip(netItem, highlight: true), 10),
         ],
       );
     }
@@ -3084,19 +3166,32 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _netHeroCard(netItem),
+            _tappable(netItem, _netHeroCard(netItem), 14),
             const SizedBox(height: 10),
             Wrap(
               spacing: spacing,
               runSpacing: spacing,
               children: [
                 for (final it in items)
-                  SizedBox(width: tileWidth, child: _summaryTile(it)),
+                  SizedBox(width: tileWidth, child: _tappable(it, _summaryTile(it), 14)),
               ],
             ),
           ],
         );
       },
+    );
+  }
+
+  /// Bọc thẻ số để bấm được (mở bảng chi tiết).
+  Widget _tappable(_SummaryItem item, Widget child, double radius) {
+    if (item.onTap == null) return child;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: item.onTap,
+        borderRadius: BorderRadius.circular(radius),
+        child: child,
+      ),
     );
   }
 
@@ -4680,7 +4775,8 @@ class _SummaryItem {
   final String value;
   final Color color;
   final IconData icon;
-  const _SummaryItem(this.label, this.value, this.color, this.icon);
+  final VoidCallback? onTap;
+  const _SummaryItem(this.label, this.value, this.color, this.icon, {this.onTap});
 }
 
 /// A ListView that follows the scroll position of a main ScrollController.

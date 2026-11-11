@@ -70,6 +70,9 @@ Future<void> _pump(
     ),
   ));
   await tester.pumpAndSettle();
+  // Mở màn bộ lọc thu gọn thành một dòng — mở ra để chọn cách xếp giờ chấm.
+  await tester.tap(find.text('Bộ lọc').first);
+  await tester.pumpAndSettle();
 }
 
 /// Cột «Lần n» chứa giờ [hm] (so tâm ngang ô giờ với tiêu đề cột).

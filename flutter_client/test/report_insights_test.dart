@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zkteco_flutter_client/providers/theme_provider.dart';
 import 'package:zkteco_flutter_client/screens/pos/pos_profit_report_screen.dart';
 import 'package:zkteco_flutter_client/screens/pos/pos_split_report_screens.dart';
+import 'package:zkteco_flutter_client/widgets/reports/report_breakdown_sheet.dart';
 import 'package:zkteco_flutter_client/widgets/sbox/sbox_ui.dart';
 
 /// Báo cáo POS: khối KPI + biểu đồ đầu trang với dữ liệu giả (không tràn, không lỗi).
@@ -205,4 +206,28 @@ void main() {
       expect(find.text(title), findsWidgets);
     });
   }
+
+  // Bấm thẻ số liệu → bảng chi tiết các dòng làm nên con số.
+  testWidgets('Doanh thu: bấm «Số hóa đơn» → hóa đơn theo nhân viên', (tester) async {
+    await _pump(tester, const PosRevenueReportScreen(), const Size(1440, 900), 'report_revenue_tap');
+    await tester.tap(find.text('Số hóa đơn').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(ReportBreakdownSheet), findsOneWidget);
+    expect(find.text('Số hóa đơn theo nhân viên'), findsOneWidget);
+    expect(find.text('Nguyễn Thị Lan'), findsOneWidget);
+    expect(find.text('71 HĐ'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Công nợ: bộ lọc thu gọn, bấm «Khách hàng nợ» → từng khách', (tester) async {
+    await _pump(tester, const PosDebtCombinedReportScreen(), const Size(390, 844), 'report_debt_tap');
+    expect(find.text('Bộ lọc'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.text('Khách hàng nợ').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(ReportBreakdownSheet), findsOneWidget);
+    expect(find.text('Công ty An Phát'), findsWidgets);
+    expect(find.text('Anh Quân'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
 }

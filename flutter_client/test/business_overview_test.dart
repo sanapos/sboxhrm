@@ -203,6 +203,31 @@ void main() {
     expect(const SboxKpi(label: 'x', value: '', current: 0, previous: 0).delta!.good, isNull);
   });
 
+  testWidgets('Chuyên cần: 4 loại bật / tắt riêng, luôn còn ít nhất một', (tester) async {
+    await _pump(tester, OverviewMode.hrm, const Size(390, 844), 'overview_att_kinds');
+    List<String> names() =>
+        tester.widget<SboxBarChart>(find.byType(SboxBarChart).first).series.map((s) => s.name).toList();
+    expect(names(), ['Đi làm', 'Đúng giờ', 'Đi trễ', 'Vắng']);
+    expect(tester.widget<SboxBarChart>(find.byType(SboxBarChart).first).stacked, isFalse);
+
+    Future<void> tap(String k) async {
+      await tester.ensureVisible(find.byKey(ValueKey('att-kind-$k')));
+      await tester.tap(find.byKey(ValueKey('att-kind-$k')));
+      await tester.pump();
+    }
+
+    await tap('onTime');
+    await tap('absent');
+    expect(names(), ['Đi làm', 'Đi trễ']);
+    await tap('present');
+    await tap('late'); // loại cuối cùng: không tắt được
+    expect(names(), ['Đi trễ']);
+    for (final k in ['present', 'onTime', 'absent']) {
+      await tap(k);
+    }
+    expect(names(), ['Đi làm', 'Đúng giờ', 'Đi trễ', 'Vắng']);
+  });
+
   for (final (mode, tag) in [
     (OverviewMode.combined, 'combined'),
     (OverviewMode.pos, 'pos'),

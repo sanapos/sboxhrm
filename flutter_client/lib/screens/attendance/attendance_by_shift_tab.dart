@@ -56,6 +56,7 @@ import '../../widgets/report_column_picker.dart';
 import '../../widgets/sbox/sbox_table.dart';
 import '../../widgets/sbox/sbox_report.dart';
 import '../../widgets/sbox/sbox_charts.dart';
+import '../../widgets/reports/report_breakdown_sheet.dart';
 class AttendanceByShiftTab extends StatefulWidget {
   final List<Attendance> attendances;
   final List<Device> devices;
@@ -155,7 +156,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   Expando<(ShiftPunchColumns?,)> _slotLayoutCache = Expando();
   /// Thiết lập của cửa hàng: ca nào nằm ở lần chấm nào. Rỗng = chưa thiết lập.
   late Map<String, List<int>> _punchSlots = widget.initialPunchSlots ?? const {};
-  bool _showOverviewPanel = true;
+  // Mở màn: bộ lọc thu gọn thành một dòng tóm tắt (ô số liệu vẫn hiện).
+  bool _showOverviewPanel = false;
 
   // Sorting
   final bool _sortAscending = false;
@@ -1405,28 +1407,31 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final isMobileLayout = MediaQuery.sizeOf(context).width < 600;
 
     Widget buildOverviewSection() {
-      return HrmCollapsibleOverview(
-        expanded: _showOverviewPanel,
-        onToggle: () =>
-            setState(() => _showOverviewPanel = !_showOverviewPanel),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (records.isNotEmpty && (!isMobileLayout || _showMobileCharts)) _buildShiftInsight(records),
-            _buildStatsRow(records),
-            if (isMobileLayout && records.isNotEmpty)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => setState(() => _showMobileCharts = !_showMobileCharts),
-                  icon: Icon(_showMobileCharts ? Icons.expand_less : Icons.bar_chart_rounded, size: 18),
-                  label: Text(tr(_showMobileCharts ? 'Ẩn biểu đồ' : 'Xem biểu đồ')),
-                ),
+      // Số liệu + biểu đồ luôn hiện; chỉ phần bộ lọc thu gọn thành một dòng tóm tắt.
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (records.isNotEmpty && (!isMobileLayout || _showMobileCharts)) _buildShiftInsight(records),
+          _buildStatsRow(records),
+          if (isMobileLayout && records.isNotEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => setState(() => _showMobileCharts = !_showMobileCharts),
+                icon: Icon(_showMobileCharts ? Icons.expand_less : Icons.bar_chart_rounded, size: 18),
+                label: Text(tr(_showMobileCharts ? 'Ẩn biểu đồ' : 'Xem biểu đồ')),
               ),
-            const SizedBox(height: 10),
-            _buildFilters(range),
-          ],
-        ),
+            ),
+          const SizedBox(height: 10),
+          HrmCollapsibleOverview(
+            title: 'Bộ lọc',
+            subtitle: _filterSummaryText(range),
+            expanded: _showOverviewPanel,
+            onToggle: () =>
+                setState(() => _showOverviewPanel = !_showOverviewPanel),
+            child: _buildFilters(range),
+          ),
+        ],
       );
     }
 
@@ -1500,6 +1505,26 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         ),
       ],
     );
+  }
+
+  /// Một dòng tóm tắt bộ lọc (hiện khi thanh «Bộ lọc» thu gọn).
+  String _filterSummaryText(DateTimeRange range) {
+    const presets = {
+      'today': 'Hôm nay',
+      'yesterday': 'Hôm qua',
+      'week': 'Tuần này',
+      'lastWeek': 'Tuần trước',
+      'month': 'Tháng này',
+      'lastMonth': 'Tháng trước',
+    };
+    final f = DateFormat('dd/MM/yyyy');
+    final dates = '${f.format(range.start)} – ${f.format(range.end)}';
+    final preset = presets[_selectedPreset];
+    final extra = _excelFilterDescription();
+    return [
+      preset != null ? '$preset ($dates)' : dates,
+      if (extra != null) extra,
+    ].join(' · ');
   }
 
   Widget _buildFilters(DateTimeRange range) {
@@ -2653,6 +2678,36 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             stacked: true,
             valueFormat: (v) => '${SboxFmt.number(v)} lượt',
             axisFormat: (v) => SboxFmt.number(v),
+            // Bấm một ngày → lượt ca từng nhân viên ngày đó (cùng cách đếm với cột).
+            onTapIndex: (i) {
+              if (i < 0 || i >= days.length) return;
+              final day = days[i];
+              final counted = records.where((r) =>
+                  r.date.year == day.year &&
+                  r.date.month == day.month &&
+                  r.date.day == day.day &&
+                  (r.lateMinutes > 0 || r.earlyMinutes > 0 || r.workHours > 0));
+              showReportBreakdownSheet(
+                context,
+                title: 'Lượt ca ngày ${DateFormat('dd/MM/yyyy').format(day)}',
+                subtitle:
+                    'Đúng giờ ${SboxFmt.number(ok[day]!)} · Đi trễ ${SboxFmt.number(late[day]!)} · Về sớm ${SboxFmt.number(early[day]!)}',
+                rows: reportGroupBreakdown<_DailyShiftRecord>(
+                  counted,
+                  keyOf: (r) => r.employeeCode.isNotEmpty ? '${r.employeeName} · ${r.employeeCode}' : r.employeeName,
+                  captionOf: (n, g) {
+                    final lt = g.where((r) => r.lateMinutes > 0).length;
+                    final er = g.where((r) => r.lateMinutes <= 0 && r.earlyMinutes > 0).length;
+                    return [
+                      if (n - lt - er > 0) '${n - lt - er} đúng giờ',
+                      if (lt > 0) '$lt đi trễ',
+                      if (er > 0) '$er về sớm',
+                    ].join(' · ');
+                  },
+                  valueTextOf: (v, _) => '$v lượt',
+                ),
+              );
+            },
             labels: [for (final d in days) sboxDayLabel(d)],
             series: [
               SboxSeries(name: 'Đúng giờ', values: [for (final d in days) ok[d]!], color: SboxColors.success),

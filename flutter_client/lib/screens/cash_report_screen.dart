@@ -15,6 +15,7 @@ import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart' show ReportKpiItem, ReportDashboard, SboxTone;
+import '../widgets/reports/report_breakdown_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
@@ -46,7 +47,8 @@ class _CashReportScreenState extends State<CashReportScreen> {
   String? _categoryFilter;
   int? _amountMinFilter;
   bool _filtersExpanded = false;
-  bool _showOverviewPanel = true;
+  // Mở màn: bộ lọc thu gọn thành một dòng tóm tắt; số liệu vẫn hiện bên dưới.
+  bool _showOverviewPanel = false;
   bool _loading = false;
   String? _loadError;
   List<Map<String, dynamic>> _items = [];
@@ -449,6 +451,27 @@ class _CashReportScreenState extends State<CashReportScreen> {
         title: 'Thu – chi theo ngày',
         child: SboxBarChart(
           valueFormat: (v) => SboxFmt.money(v),
+          onTapIndex: (i) {
+            if (i < 0 || i >= days.length) return;
+            final day = days[i];
+            final dayRows = rows.where((t) {
+              final d = cashReportRowDate(t);
+              return d != null && d.year == day.year && d.month == day.month && d.day == day.day;
+            });
+            showReportBreakdownSheet(
+              context,
+              title: 'Thu – chi ngày ${_fmtDate.format(day)}',
+              subtitle: 'Thu ${_fmtMoney.format(inc[day])} đ · Chi ${_fmtMoney.format(exp[day])} đ',
+              rows: reportGroupBreakdown<Map<String, dynamic>>(
+                dayRows,
+                keyOf: (t) =>
+                    '${cashReportRowType(t) == CashTransactionType.income ? 'Thu' : 'Chi'} · ${fixVietnameseMojibake(t['categoryName']?.toString() ?? 'Khác')}',
+                valueOf: cashReportRowAmount,
+                captionOf: (n, _) => '$n phiếu',
+                valueTextOf: (v, _) => '${_fmtMoney.format(v)} đ',
+              ),
+            );
+          },
           labels: [for (final d in days) sboxDayLabel(d)],
           series: [
             SboxSeries(name: 'Thu', values: [for (final d in days) inc[d]!], color: SboxColors.success),
@@ -490,11 +513,34 @@ class _CashReportScreenState extends State<CashReportScreen> {
     ];
   }
 
+  /// Một dòng tóm tắt bộ lọc đang áp dụng (hiện khi thanh «Bộ lọc» đang thu gọn).
+  String get _filterSummary {
+    final parts = <String>[
+      '${ReportDateRangePresets.presetLabel(_datePreset)} (${_fmtDate.format(_from)} – ${_fmtDate.format(_to)})',
+    ];
+    if (_typeFilter == 1) parts.add('Thu');
+    if (_typeFilter == 2) parts.add('Chi');
+    if (_statusFilter != null) parts.add(cashReportStatusFilterLabel(_statusFilter!));
+    if (_categoryFilter != null) {
+      for (final c in _categoryOptions) {
+        if (c['key'] == _categoryFilter) {
+          parts.add(c['name'] as String);
+          break;
+        }
+      }
+    }
+    if (_amountMinFilter != null) parts.add(cashReportAmountFilterLabel(_amountMinFilter));
+    if (_empSearch.isNotEmpty) parts.add('Tìm: $_empSearch');
+    return parts.join(' · ');
+  }
+
   Widget _buildOverviewSection() {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
       child: HrmCollapsibleOverview(
+        title: 'Bộ lọc',
+        subtitle: _filterSummary,
         expanded: _showOverviewPanel,
         onToggle: () =>
             setState(() => _showOverviewPanel = !_showOverviewPanel),
@@ -821,11 +867,120 @@ class _CashReportScreenState extends State<CashReportScreen> {
     );
   }
 
-  /// Dashboard sổ quỹ: thẻ KPI (bấm để lọc danh sách) + biểu đồ.
+  String get _periodText =>
+      '${ReportDateRangePresets.presetLabel(_datePreset)} · ${_fmtDate.format(_from)} – ${_fmtDate.format(_to)}';
+
+  /// Bấm thẻ KPI: bảng chi tiết theo danh mục (cùng tập phiếu với con số trên thẻ),
+  /// bấm một danh mục → lọc danh sách theo trạng thái + danh mục đó.
+  void _showStatusBreakdown(String statusKey, String title) {
+    final rows = _items.where((t) => cashReportMatchesStatusFilter(t, statusKey)).toList();
+    final countOnly = statusKey == 'cancelled';
+    final cats = <String, String>{for (final c in _categoryOptions) c['key'] as String: c['name'] as String};
+    String catKey(Map<String, dynamic> t) {
+      final id = t['categoryId']?.toString() ?? '';
+      if (id.isNotEmpty) return id;
+      return fixVietnameseMojibake(t['categoryName']?.toString() ?? '');
+    }
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (final t in rows) {
+      groups.putIfAbsent(catKey(t), () => []).add(t);
+    }
+    final out = <ReportBreakdownRow>[];
+    groups.forEach((key, g) {
+      final amount = g.fold<double>(0, (s, t) => s + cashReportRowAmount(t));
+      final name = cats[key] ??
+          (key.isEmpty ? 'Chưa phân loại' : fixVietnameseMojibake(g.first['categoryName']?.toString() ?? key));
+      final canFilter = key.isNotEmpty && cats.containsKey(key);
+      out.add(ReportBreakdownRow(
+        label: name,
+        value: countOnly ? g.length : amount,
+        caption: countOnly ? '${_fmtMoney.format(amount)} đ' : '${g.length} phiếu',
+        valueText: countOnly ? '${g.length} phiếu' : '${_fmtMoney.format(amount)} đ',
+        onTap: canFilter
+            ? () {
+                Navigator.pop(context);
+                setState(() => _categoryFilter = key);
+                _applyStatusFilter(statusKey);
+              }
+            : null,
+      ));
+    });
+    out.sort((a, b) => b.value.compareTo(a.value));
+    showReportBreakdownSheet(
+      context,
+      title: title,
+      subtitle: '$_periodText · ${rows.length} phiếu',
+      rows: out,
+      actionLabel: 'Lọc danh sách theo mục này',
+      onAction: () {
+        setState(() => _categoryFilter = null);
+        _applyStatusFilter(statusKey);
+      },
+    );
+  }
+
+  /// Số dư quỹ = tồn đầu kỳ + đã thu − đã chi.
+  void _showBalanceBreakdown() {
+    final s = _summary;
+    String signed(double v, String sign) => '$sign${_fmtMoney.format(v)} đ';
+    showReportBreakdownSheet(
+      context,
+      title: 'Số dư quỹ',
+      subtitle: '$_periodText · = ${_fmtMoney.format(s.fundBalance)} đ',
+      rows: [
+        ReportBreakdownRow(
+          label: 'Tồn đầu kỳ',
+          value: s.openingBalance.abs(),
+          caption: 'Thu − chi các phiếu đã vào quỹ trước kỳ',
+          valueText: '${_fmtMoney.format(s.openingBalance)} đ',
+        ),
+        ReportBreakdownRow(
+          label: 'Đã thu trong kỳ',
+          value: s.paidIncome,
+          caption: '${s.paidIncomeCount} phiếu thu',
+          valueText: signed(s.paidIncome, '+'),
+          onTap: () {
+            Navigator.pop(context);
+            _showStatusBreakdown('paid_income', 'Đã thu');
+          },
+        ),
+        ReportBreakdownRow(
+          label: 'Đã chi trong kỳ',
+          value: s.paidExpense,
+          caption: '${s.paidExpenseCount} phiếu chi',
+          valueText: signed(s.paidExpense, '−'),
+          onTap: () {
+            Navigator.pop(context);
+            _showStatusBreakdown('paid_expense', 'Đã chi');
+          },
+        ),
+      ],
+      actionLabel: 'Lọc danh sách theo mục này',
+      onAction: () {
+        setState(() => _categoryFilter = null);
+        _applyStatusFilter('completed');
+      },
+    );
+  }
+
+  /// Dashboard sổ quỹ: thẻ KPI (bấm xem chi tiết theo danh mục, lọc danh sách) + biểu đồ.
   Widget _buildSummary() {
     final s = _summary;
     final period = ReportDateRangePresets.presetLabel(_datePreset);
-    void toggle(String key) => _applyStatusFilter(_statusFilter == key ? null : key);
+    void toggle(String key) {
+      const labels = {
+        'paid_income': 'Đã thu',
+        'paid_expense': 'Đã chi',
+        'pending_income': 'Chờ thu',
+        'pending_expense': 'Chờ chi',
+        'cancelled': 'Đã hủy',
+      };
+      if (key == 'completed') {
+        _showBalanceBreakdown();
+      } else {
+        _showStatusBreakdown(key, labels[key] ?? cashReportStatusFilterLabel(key));
+      }
+    }
     final kpis = <ReportKpiItem>[
       ReportKpiItem(
         icon: Icons.arrow_circle_down,
@@ -887,7 +1042,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
         ReportDashboard(
           storageKey: 'cash',
           title: 'Sổ quỹ',
-          subtitle: '$period · ${_filtered.length}/${_items.length} dòng · bấm thẻ để lọc',
+          subtitle: '$period · ${_filtered.length}/${_items.length} dòng · bấm thẻ để xem chi tiết',
           kpis: kpis,
           charts: _buildCharts(),
         ),

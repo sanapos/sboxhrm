@@ -21,6 +21,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
+import '../widgets/reports/report_breakdown_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
@@ -940,13 +941,224 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
     return list;
   }
 
+  /// Nhãn NV cho bảng chi tiết — thêm mã khi trùng tên để không cộng dồn 2 người.
+  String Function(DailyShiftLateEntry) _empLabeler(Iterable<DailyShiftLateEntry> rows) {
+    final keysByName = <String, Set<String>>{};
+    for (final e in rows) {
+      keysByName.putIfAbsent(e.employeeName, () => {}).add(_empKey(e));
+    }
+    return (e) {
+      final n = e.employeeName.trim().isEmpty ? _empKey(e) : e.employeeName;
+      return (keysByName[e.employeeName]?.length ?? 0) > 1 && e.employeeCode.isNotEmpty
+          ? '$n · ${e.employeeCode}'
+          : n;
+    };
+  }
+
+  /// Bấm một NV trong bảng chi tiết → xem danh sách vi phạm của NV đó.
+  List<ReportBreakdownRow> _withEmpFilterTap(
+    List<ReportBreakdownRow> rows,
+    Map<String, String> searchByLabel,
+  ) {
+    if (!_teamView) return rows;
+    return [
+      for (final r in rows)
+        ReportBreakdownRow(
+          label: r.label,
+          value: r.value,
+          caption: r.caption,
+          valueText: r.valueText,
+          onTap: () {
+            Navigator.pop(context);
+            setState(() {
+              _viewTab = 0;
+              _empSearch = searchByLabel[r.label] ?? r.label;
+              _page = 1;
+            });
+          },
+        ),
+    ];
+  }
+
+  void _showEntriesBreakdown({
+    required String title,
+    required Iterable<DailyShiftLateEntry> entries,
+    required num Function(DailyShiftLateEntry e) valueOf,
+    required String Function(int count, List<DailyShiftLateEntry> g) captionOf,
+    required String Function(num v) valueFormat,
+    String? subtitle,
+    String emptyText = 'Không có lượt vi phạm trong kỳ',
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    final list = entries.toList();
+    final labelOf = _empLabeler(list);
+    final searchByLabel = <String, String>{
+      for (final e in list) labelOf(e): e.employeeName,
+    };
+    final rows = reportGroupBreakdown(
+      list,
+      keyOf: labelOf,
+      valueOf: valueOf,
+      captionOf: captionOf,
+    );
+    showReportBreakdownSheet(
+      context,
+      title: title,
+      subtitle: subtitle ?? reportPeriodSubtitle(_from, _to, team: _teamView),
+      rows: _withEmpFilterTap(rows, searchByLabel),
+      valueFormat: valueFormat,
+      emptyText: emptyText,
+      actionLabel: actionLabel,
+      onAction: onAction,
+    );
+  }
+
+  void _applyKindFilter(String kind) => setState(() {
+        _kindFilter = kind;
+        _viewTab = 0;
+        _page = 1;
+      });
+
+  /// Chi tiết thẻ KPI — cùng tập bản ghi [rows] và cùng công thức với số trên thẻ.
+  void _showKpiBreakdown(String kpi, List<DailyShiftLateEntry> rows) {
+    String lateEarly(List<DailyShiftLateEntry> g) {
+      final l = g.where((e) => e.lateMinutes >= _minMinutes).length;
+      final s = g.where((e) => e.earlyMinutes >= _minMinutes).length;
+      return 'Trễ $l lần · sớm $s lần';
+    }
+
+    switch (kpi) {
+      case 'Lần đi trễ':
+        _showEntriesBreakdown(
+          title: kpi,
+          entries: rows.where((e) => e.lateMinutes >= _minMinutes),
+          valueOf: (_) => 1,
+          captionOf: (_, g) => 'Tổng ${g.fold<int>(0, (s, e) => s + e.lateMinutes)} phút',
+          valueFormat: (v) => '${SboxFmt.number(v)} lần',
+          emptyText: 'Không có lượt đi trễ trong kỳ',
+          actionLabel: _kindFilter == 'late' ? null : 'Lọc danh sách theo mục này',
+          onAction: _kindFilter == 'late' ? null : () => _applyKindFilter('late'),
+        );
+        break;
+      case 'TB phút/lần trễ':
+        final late = rows.where((e) => e.lateMinutes >= _minMinutes).toList();
+        final labelOf = _empLabeler(late);
+        final groups = <String, List<DailyShiftLateEntry>>{};
+        for (final e in late) {
+          groups.putIfAbsent(labelOf(e), () => []).add(e);
+        }
+        final out = <ReportBreakdownRow>[];
+        groups.forEach((label, g) {
+          final total = g.fold<int>(0, (s, e) => s + e.lateMinutes);
+          final avg = (total / g.length).round();
+          out.add(ReportBreakdownRow(
+            label: label,
+            value: avg,
+            valueText: '$avg phút',
+            caption: '${g.length} lần · tổng $total phút',
+          ));
+        });
+        out.sort((a, b) => b.value.compareTo(a.value));
+        showReportBreakdownSheet(
+          context,
+          title: kpi,
+          subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
+          rows: _withEmpFilterTap(out, {
+            for (final e in late) labelOf(e): e.employeeName,
+          }),
+          emptyText: 'Không có lượt đi trễ trong kỳ',
+        );
+        break;
+      case 'Lần về sớm':
+        _showEntriesBreakdown(
+          title: kpi,
+          entries: rows.where((e) => e.earlyMinutes >= _minMinutes),
+          valueOf: (_) => 1,
+          captionOf: (_, g) => 'Tổng ${g.fold<int>(0, (s, e) => s + e.earlyMinutes)} phút',
+          valueFormat: (v) => '${SboxFmt.number(v)} lần',
+          emptyText: 'Không có lượt về sớm trong kỳ',
+          actionLabel: _kindFilter == 'early' ? null : 'Lọc danh sách theo mục này',
+          onAction: _kindFilter == 'early' ? null : () => _applyKindFilter('early'),
+        );
+        break;
+      case 'NV vi phạm':
+        _showEntriesBreakdown(
+          title: kpi,
+          entries: rows,
+          valueOf: (_) => 1,
+          captionOf: (n, g) => n >= 2 ? '${lateEarly(g)} · tái phạm' : lateEarly(g),
+          valueFormat: (v) => '${SboxFmt.number(v)} lần',
+          emptyText: 'Không ai vi phạm trong kỳ',
+          actionLabel: _teamView ? 'Xem bảng theo nhân viên' : null,
+          onAction: _teamView
+              ? () => setState(() {
+                    _viewTab = 1;
+                    _page = 1;
+                  })
+              : null,
+        );
+        break;
+    }
+  }
+
+  /// Chi tiết một nhóm lượt vi phạm trên biểu đồ (theo ngày / thứ / ca): gom theo NV.
+  void _showChartEntries(String title, Iterable<DailyShiftLateEntry> entries, {String? subtitle}) {
+    _showEntriesBreakdown(
+      title: title,
+      subtitle: subtitle,
+      entries: entries,
+      valueOf: (_) => 1,
+      captionOf: (_, g) {
+        final lm = g.where((e) => e.lateMinutes >= _minMinutes).fold<int>(0, (s, e) => s + e.lateMinutes);
+        final em = g.where((e) => e.earlyMinutes >= _minMinutes).fold<int>(0, (s, e) => s + e.earlyMinutes);
+        return [
+          if (lm > 0) 'Trễ $lm phút',
+          if (em > 0) 'Sớm $em phút',
+        ].join(' · ');
+      },
+      valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+    );
+  }
+
+  /// Bấm một NV trong «Đi trễ nhiều nhất» → từng ngày trễ của NV đó.
+  void _showEmployeeLateDays(String empKey, String name, List<DailyShiftLateEntry> rows) {
+    final mine = rows.where((e) => _empKey(e) == empKey && e.lateMinutes >= _minMinutes).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    showReportBreakdownSheet(
+      context,
+      title: name,
+      subtitle: 'Các lượt đi trễ trong kỳ',
+      rows: [
+        for (final e in mine)
+          ReportBreakdownRow(
+            label: _dateFmt.format(e.date),
+            value: e.lateMinutes,
+            valueText: '${e.lateMinutes} phút',
+            caption: [
+              if (e.shiftName.trim().isNotEmpty) e.shiftName.trim(),
+              if (e.checkIn != null) 'Vào ${_timeFmt.format(e.checkIn!)}',
+            ].join(' · '),
+          ),
+      ],
+      actionLabel: _teamView ? 'Xem danh sách của nhân viên này' : null,
+      onAction: _teamView
+          ? () => setState(() {
+                _viewTab = 0;
+                _empSearch = mine.isNotEmpty ? mine.first.employeeName : name;
+                _page = 1;
+              })
+          : null,
+    );
+  }
+
   List<ReportKpiItem> _buildKpis(List<DailyShiftLateEntry> rows) {
-    final lateEvents = rows.where((e) => e.lateMinutes > 0).length;
-    final earlyEvents = rows.where((e) => e.earlyMinutes > 0).length;
+    final lateEvents = rows.where((e) => e.lateMinutes >= _minMinutes).length;
+    final earlyEvents = rows.where((e) => e.earlyMinutes >= _minMinutes).length;
     final lateMin =
-        rows.fold<int>(0, (s, e) => s + (e.lateMinutes > 0 ? e.lateMinutes : 0));
+        rows.fold<int>(0, (s, e) => s + (e.lateMinutes >= _minMinutes ? e.lateMinutes : 0));
     final earlyMin = rows.fold<int>(
-        0, (s, e) => s + (e.earlyMinutes > 0 ? e.earlyMinutes : 0));
+        0, (s, e) => s + (e.earlyMinutes >= _minMinutes ? e.earlyMinutes : 0));
     final counts = _violationCountByEmp;
     final empCount = counts.length;
     final repeatEmp = counts.values.where((c) => c >= 2).length;
@@ -955,6 +1167,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
     return [
       ReportKpiItem(
         label: 'Lần đi trễ',
+        onTap: () => _showKpiBreakdown('Lần đi trễ', rows),
         value: '$lateEvents',
         note: lateEvents > 0 ? 'Tổng $lateMin phút' : null,
         icon: Icons.timer_off_outlined,
@@ -963,12 +1176,14 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
       ),
       ReportKpiItem(
         label: 'TB phút/lần trễ',
-        value: lateEvents > 0 ? '$avgLate phút' : '—',
+        onTap: () => _showKpiBreakdown('TB phút/lần trễ', rows),
+        value:lateEvents > 0 ? '$avgLate phút' : '—',
         icon: Icons.hourglass_bottom,
         color: _theme,
       ),
       ReportKpiItem(
         label: 'Lần về sớm',
+        onTap: () => _showKpiBreakdown('Lần về sớm', rows),
         value: '$earlyEvents',
         note: earlyEvents > 0 ? 'Tổng $earlyMin phút' : null,
         icon: Icons.logout,
@@ -978,6 +1193,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
       if (_teamView)
         ReportKpiItem(
           label: 'NV vi phạm',
+          onTap: () => _showKpiBreakdown('NV vi phạm', rows),
           value: '$empCount',
           note: repeatEmp > 0 ? '$repeatEmp người tái phạm (≥ 2 lần)' : 'Không ai tái phạm',
           icon: Icons.people_outline,
@@ -1409,6 +1625,8 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
         parts.add('Chưa phạt');
         break;
     }
+    // Ô «Tối thiểu» nằm trong phần bộ lọc (ẩn khi thu gọn) — hiện trong dòng tóm tắt.
+    if (_minMinutes > 1) parts.add('≥ $_minMinutes phút');
     return parts.isEmpty ? null : parts.join(' · ');
   }
 
@@ -1817,6 +2035,16 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
       }
     }
     final days = late.keys.toList()..sort();
+    // Nhãn xếp hạng: thêm mã khi 2 NV trùng tên để bấm mở đúng người.
+    final nameCount = <String, int>{};
+    for (final n in names.values) {
+      nameCount[n] = (nameCount[n] ?? 0) + 1;
+    }
+    String sliceLabel(String key) {
+      final n = names[key] ?? key;
+      return (nameCount[n] ?? 0) > 1 ? '$n · $key' : n;
+    }
+    final keyBySliceLabel = {for (final k in lateMin.keys) sliceLabel(k): k};
     return [
       SboxChartCard(
         title: 'Lượt đi trễ / về sớm theo ngày',
@@ -1825,6 +2053,17 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
           stacked: true,
           valueFormat: (v) => '${SboxFmt.number(v)} lượt',
           axisFormat: (v) => SboxFmt.number(v),
+          onTapIndex: (i) {
+            if (i < 0 || i >= days.length) return;
+            final d = days[i];
+            _showChartEntries(
+              'Ngày ${_dateFmt.format(d)}',
+              rows.where((e) =>
+                  e.date.year == d.year && e.date.month == d.month && e.date.day == d.day &&
+                  (e.lateMinutes >= _minMinutes || e.earlyMinutes >= _minMinutes)),
+              subtitle: 'Lượt đi trễ / về sớm trong ngày',
+            );
+          },
           labels: [for (final d in days) sboxDayLabel(d)],
           series: [
             SboxSeries(name: 'Đi trễ', values: [for (final d in days) late[d]!], color: SboxColors.warning),
@@ -1852,6 +2091,14 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
         child: SboxBarChart(
           valueFormat: (v) => '${SboxFmt.number(v)} lượt',
           axisFormat: (v) => SboxFmt.number(v),
+          onTapIndex: (i) {
+            if (i < 0 || i > 6) return;
+            _showChartEntries(
+              weekdayLabels[i] == 'CN' ? 'Chủ nhật' : 'Thứ ${i + 2}',
+              rows.where((e) =>
+                  e.date.weekday - 1 == i && (e.lateMinutes >= _minMinutes || e.earlyMinutes >= _minMinutes)),
+            );
+          },
           labels: weekdayLabels,
           series: [
             SboxSeries(name: 'Đi trễ', values: lateByWd, color: SboxColors.warning),
@@ -1866,6 +2113,13 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
           child: SboxRankList(
             color: SboxColors.brand500,
             valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+            onTap: (s) => _showChartEntries(
+              s.label,
+              rows.where((e) =>
+                  (e.shiftName.trim().isEmpty ? 'Không rõ ca' : e.shiftName.trim()) == s.label &&
+                  (e.lateMinutes >= _minMinutes || e.earlyMinutes >= _minMinutes)),
+              subtitle: 'Lượt vi phạm theo ca',
+            ),
             items: [for (final e in byShift.entries) SboxSlice(e.key, e.value)],
           ),
         ),
@@ -1876,7 +2130,11 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
           child: SboxRankList(
             color: SboxColors.warning,
             valueFormat: (v) => '${SboxFmt.number(v)} phút',
-            items: [for (final e in lateMin.entries) SboxSlice(names[e.key] ?? e.key, e.value, caption: '${lateCnt[e.key]} lần')],
+            onTap: (s) {
+              final key = keyBySliceLabel[s.label];
+              if (key != null) _showEmployeeLateDays(key, s.label, rows);
+            },
+            items: [for (final e in lateMin.entries) SboxSlice(sliceLabel(e.key), e.value, caption: '${lateCnt[e.key]} lần')],
           ),
         ),
     ];
