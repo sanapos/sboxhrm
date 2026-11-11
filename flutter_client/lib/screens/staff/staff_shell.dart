@@ -302,7 +302,8 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: SboxSpace.xs, vertical: 6),
+          // Cùng cỡ thanh dưới SBOX HRM (biểu tượng 20, đệm 4) — trước biểu tượng 24, chữ 12, đệm 6: thanh quá cao.
+          padding: const EdgeInsets.symmetric(horizontal: SboxSpace.xs, vertical: SboxSpace.xs),
           decoration: selected
               ? BoxDecoration(
                   color: SboxColors.brand600.withValues(alpha: 0.1),
@@ -312,8 +313,8 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(meta.icon, size: 24, color: color),
-              const SizedBox(height: 2),
+              Icon(meta.icon, size: 20, color: color),
+              const SizedBox(height: 1),
               // Đủ 5 tab trên máy 360dp: thu chữ cho vừa, không cắt «Công lươ…».
               FittedBox(
                 fit: BoxFit.scaleDown,
@@ -321,7 +322,7 @@ class _StaffShellState extends State<StaffShell> with WidgetsBindingObserver {
                   tr(meta.label),
                   maxLines: 1,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 10,
                     fontWeight: selected ? SboxType.semibold : SboxType.regular,
                     color: color,
                   ),

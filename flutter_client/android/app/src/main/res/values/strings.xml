@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SBOX HRM</string>
+    <!-- Thư mục tệp xuất của app POS / BOSS / KDS: trùng tên app (Nhân Viên đặt riêng). -->
+    <string name="export_folder_name">@string/app_name</string>
 </resources>

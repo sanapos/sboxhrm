@@ -27,7 +27,10 @@ public class GetEmployeeDashboardHandler(
     IRepository<Device> deviceRepository,
     IRepository<MobileAttendanceRecord> mobileAttendanceRepository,
     UserManager<ApplicationUser> userManager,
-    IShiftService shiftService
+    IShiftService shiftService,
+    IRepository<EmployeeBenefit> employeeBenefitRepository,
+    IRepository<ShiftTemplate> shiftTemplateRepository,
+    IRepository<ShiftSalaryLevel> shiftSalaryLevelRepository
 ) : IQueryHandler<GetEmployeeDashboardQuery, AppResponse<EmployeeDashboardDto>>
 {
     private const int VnOffsetHours = 7;
@@ -54,13 +57,32 @@ public class GetEmployeeDashboardHandler(
         var (todayShift, nextShift) = await shiftService
             .GetTodayShiftAndNextShiftAsync(request.UserId, cancellationToken);
 
-        var currentAttendance = await BuildCurrentAttendance(user, todayShift, cancellationToken);
-        var stats = await BuildAttendanceStats(user, request.Period, cancellationToken);
+        // Đi muộn / về sớm theo ca trong thiết lập lương (như bảng công, phiếu phạt, Tổng quan) — trước đây so với
+        // ca đăng ký theo giờ (bảng Shift), không ân hạn: cửa hàng chỉ gán ca ở thiết lập lương thì không bao giờ báo trễ.
+        var (salaryShifts, offToday) = await LoadSalaryShiftsAsync(user.Employee, cancellationToken);
+        var currentAttendance = await BuildCurrentAttendance(user, todayShift, salaryShifts, cancellationToken);
+        var stats = await BuildAttendanceStats(user, request.Period, salaryShifts, cancellationToken);
         var recentPunches = await BuildRecentPunches(user, request.Period, cancellationToken);
+
+        // Không có ca đăng ký theo giờ: hiện ca trong thiết lập lương (trước Trang chủ ghi «Hôm nay không có ca»
+        // với mọi cửa hàng chỉ gán ca ở thiết lập lương). Ngày nghỉ tuần của mẫu lương thì không có ca.
+        var todayShiftDto = todayShift.Adapt<ShiftInfoDto>();
+        if (todayShift == null && salaryShifts.Count > 0 && !offToday)
+        {
+            var today = DateTime.UtcNow.AddHours(VnOffsetHours).Date;
+            var pick = currentAttendance?.CheckInTime is DateTime ci
+                ? ShiftMatchHelper.FindBestForCheckIn(salaryShifts, ci.TimeOfDay)?.Shift
+                : null;
+            pick ??= salaryShifts.OrderBy(c => c.StartTime).First();
+            var start = today + pick.StartTime;
+            var end = today + pick.EndTime;
+            if (end <= start) end = end.AddDays(1);
+            todayShiftDto = new ShiftInfoDto { Id = pick.Id, StartTime = start, EndTime = end, Description = pick.Name, Status = 1 };
+        }
 
         var dashboardData = new EmployeeDashboardDto
         {
-            TodayShift = todayShift.Adapt<ShiftInfoDto>(),
+            TodayShift = todayShiftDto,
             NextShift = nextShift.Adapt<ShiftInfoDto>(),
             CurrentAttendance = currentAttendance,
             AttendanceStats = stats,
@@ -77,6 +99,7 @@ public class GetEmployeeDashboardHandler(
     private async Task<AttendanceInfoDto?> BuildCurrentAttendance(
         ApplicationUser user,
         Shift? todayShift,
+        IReadOnlyList<ShiftMatchHelper.Candidate> salaryShifts,
         CancellationToken cancellationToken)
     {
         if (user.Employee == null) return null;
@@ -113,7 +136,7 @@ public class GetEmployeeDashboardHandler(
                 return new AttendanceInfoDto { Status = "not-started" };
             }
 
-            return BuildCurrentAttendanceFromMobile(mobileToday, todayShift);
+            return BuildCurrentAttendanceFromMobile(mobileToday, salaryShifts);
         }
 
         var checkIn = todayPunches.FirstOrDefault(a => a.AttendanceState == AttendanceStates.CheckIn)
@@ -125,24 +148,11 @@ public class GetEmployeeDashboardHandler(
         var checkInLocal = checkIn.AttendanceTime;
         DateTime? checkOutLocal = checkOut?.AttendanceTime;
 
-        bool isLate = false;
-        int? lateMinutes = null;
-        bool isEarlyOut = false;
-        int? earlyOutMinutes = null;
-
-        if (todayShift != null)
-        {
-            if (checkInLocal > todayShift.StartTime)
-            {
-                isLate = true;
-                lateMinutes = (int)Math.Round((checkInLocal - todayShift.StartTime).TotalMinutes);
-            }
-            if (checkOutLocal.HasValue && checkOutLocal.Value < todayShift.EndTime)
-            {
-                isEarlyOut = true;
-                earlyOutMinutes = (int)Math.Round((todayShift.EndTime - checkOutLocal.Value).TotalMinutes);
-            }
-        }
+        var (lateMin, earlyMin) = LateEarly(salaryShifts, checkInLocal, checkOutLocal);
+        var isLate = lateMin > 0;
+        int? lateMinutes = isLate ? lateMin : null;
+        var isEarlyOut = earlyMin > 0;
+        int? earlyOutMinutes = isEarlyOut ? earlyMin : null;
 
         var status = checkOutLocal.HasValue ? "checked-out" : "checked-in";
         var lastPunch = todayPunches[^1];
@@ -169,6 +179,7 @@ public class GetEmployeeDashboardHandler(
     private async Task<AttendanceStatsDto> BuildAttendanceStats(
         ApplicationUser user,
         string period,
+        IReadOnlyList<ShiftMatchHelper.Candidate> salaryShifts,
         CancellationToken cancellationToken)
     {
         if (user.Employee == null)
@@ -199,7 +210,7 @@ public class GetEmployeeDashboardHandler(
         if (totalWorkDays == 0)
         {
             return await BuildPunchBasedStatsAsync(
-                deviceUserIds, startLocal, rangeEndExclusive, period, cancellationToken);
+                deviceUserIds, startLocal, rangeEndExclusive, period, salaryShifts, cancellationToken);
         }
 
         // Lấy dư 1 ngày cuối kỳ: ca đêm ngày cuối (22:00→06:00) có giờ ra sang sáng hôm sau.
@@ -240,8 +251,9 @@ public class GetEmployeeDashboardHandler(
             var inLocal = firstIn.AttendanceTime;
             var outLocal = lastOut.AttendanceTime;
 
-            if (inLocal > shift.StartTime) lateCheckIns++;
-            if (outLocal < shift.EndTime) earlyCheckOuts++;
+            var (lateMin, earlyMin) = LateEarly(salaryShifts, inLocal, outLocal > inLocal ? outLocal : null);
+            if (lateMin > 0) lateCheckIns++;
+            if (earlyMin > 0) earlyCheckOuts++;
 
             if (outLocal > inLocal)
             {
@@ -281,6 +293,7 @@ public class GetEmployeeDashboardHandler(
         DateTime rangeStart,
         DateTime rangeEndExclusive,
         string period,
+        IReadOnlyList<ShiftMatchHelper.Candidate> salaryShifts,
         CancellationToken cancellationToken)
     {
         var attendances = await attendanceRepository.GetAllAsync(
@@ -310,6 +323,8 @@ public class GetEmployeeDashboardHandler(
 
         double totalWorkHours = 0;
         var workedFullDays = 0;
+        var lateCheckIns = 0;
+        var earlyCheckOuts = 0;
 
         foreach (var dayPunches in attendanceByDate.Values)
         {
@@ -320,6 +335,9 @@ public class GetEmployeeDashboardHandler(
 
             var inLocal = firstIn.AttendanceTime;
             var outLocal = lastOut.AttendanceTime;
+            var (lateMin, earlyMin) = LateEarly(salaryShifts, inLocal, outLocal > inLocal ? outLocal : null);
+            if (lateMin > 0) lateCheckIns++;
+            if (earlyMin > 0) earlyCheckOuts++;
 
             if (outLocal > inLocal)
             {
@@ -337,10 +355,10 @@ public class GetEmployeeDashboardHandler(
             TotalWorkDays = presentDays,
             PresentDays = presentDays,
             AbsentDays = 0,
-            LateCheckIns = 0,
-            EarlyCheckOuts = 0,
+            LateCheckIns = lateCheckIns,
+            EarlyCheckOuts = earlyCheckOuts,
             AttendanceRate = 100,
-            PunctualityRate = 100,
+            PunctualityRate = Math.Round((presentDays - lateCheckIns) * 100.0 / presentDays, 2),
             AverageWorkHours = avgWorkHours,
             Period = period
         };
@@ -428,9 +446,72 @@ public class GetEmployeeDashboardHandler(
             cancellationToken: cancellationToken);
     }
 
+    /// <summary>Ca gán trong thiết lập lương: «shifts:» của mẫu lương đang áp dụng + mức lương ca (EmployeeIds).</summary>
+    private async Task<(List<ShiftMatchHelper.Candidate> Shifts, bool OffToday)> LoadSalaryShiftsAsync(
+        Employee? employee, CancellationToken ct)
+    {
+        if (employee == null) return ([], false);
+        var today = DateTime.UtcNow.AddHours(VnOffsetHours).Date;
+        var templates = await shiftTemplateRepository.GetAllAsync(
+            filter: t => t.StoreId == employee.StoreId && t.IsActive, cancellationToken: ct);
+        if (templates.Count == 0) return ([], false);
+
+        static string Norm(string? x) =>
+            System.Text.RegularExpressions.Regex.Replace((x ?? string.Empty).Trim().ToLowerInvariant(), @"\s+", " ");
+        var chosen = new List<ShiftTemplate>();
+        var benefit = (await employeeBenefitRepository.GetAllAsync(
+                filter: eb => eb.EmployeeId == employee.Id && eb.EffectiveDate <= today.AddDays(1),
+                includeProperties: [nameof(EmployeeBenefit.Benefit)], cancellationToken: ct))
+            .OrderByDescending(eb => eb.EffectiveDate).FirstOrDefault()?.Benefit;
+        foreach (var part in (benefit?.Description ?? string.Empty).Split('|'))
+        {
+            var i = part.IndexOf(':');
+            if (i <= 0 || part[..i].Trim() != "shifts") continue;
+            foreach (var name in part[(i + 1)..].Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                if (templates.FirstOrDefault(t => Norm(t.Name) == Norm(name)) is { } st && !chosen.Contains(st))
+                    chosen.Add(st);
+        }
+        var templateIds = templates.Select(t => t.Id).ToList();
+        var key = employee.Id.ToString();
+        var levels = await shiftSalaryLevelRepository.GetAllAsync(
+            filter: l => templateIds.Contains(l.ShiftTemplateId) && l.EmployeeIds != null && l.EmployeeIds.Contains(key),
+            cancellationToken: ct);
+        foreach (var l in levels)
+            if (templates.FirstOrDefault(t => t.Id == l.ShiftTemplateId) is { } st && !chosen.Contains(st))
+                chosen.Add(st);
+
+        var offToday = (benefit?.WeeklyOffDays ?? string.Empty)
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Any(d => string.Equals(d, today.DayOfWeek.ToString(), StringComparison.OrdinalIgnoreCase));
+        return (chosen
+            .Where(t => !(t.ShiftType ?? string.Empty).ToLowerInvariant().Contains("tăng ca"))
+            .Select(t => new ShiftMatchHelper.Candidate(
+                t.Id, t.StartTime, t.EndTime, t.LateGraceMinutes, t.EarlyLeaveGraceMinutes,
+                t.MaximumAllowedLateMinutes > 0 ? t.MaximumAllowedLateMinutes : 30,
+                t.EarlyCheckInMinutes > 0 ? t.EarlyCheckInMinutes : 30,
+                t.MaximumAllowedEarlyLeaveMinutes > 0 ? t.MaximumAllowedEarlyLeaveMinutes : 120,
+                t.ShiftType, t.Name))
+            .ToList(), offToday);
+    }
+
+    /// <summary>Phút đi muộn (lượt vào) / về sớm (lượt ra) theo ca thiết lập lương khớp nhất; quá ân hạn thì đủ phút.</summary>
+    private static (int Late, int Early) LateEarly(
+        IReadOnlyList<ShiftMatchHelper.Candidate> salaryShifts, DateTime checkIn, DateTime? checkOut)
+    {
+        if (salaryShifts.Count == 0) return (0, 0);
+        var inFit = ShiftMatchHelper.FindBestForCheckIn(salaryShifts, checkIn.TimeOfDay);
+        var early = 0;
+        if (checkOut.HasValue && inFit != null)
+        {
+            var outFit = ShiftMatchHelper.FindBest([inFit.Shift], checkIn.TimeOfDay, checkOut.Value.TimeOfDay);
+            early = outFit?.EffectiveEarlyOut ?? 0;
+        }
+        return (inFit?.EffectiveLateIn ?? 0, early);
+    }
+
     private static AttendanceInfoDto BuildCurrentAttendanceFromMobile(
         List<MobileAttendanceRecord> punches,
-        Shift? todayShift)
+        IReadOnlyList<ShiftMatchHelper.Candidate> salaryShifts)
     {
         var checkInRec = punches.FirstOrDefault(p => p.PunchType == 0) ?? punches.First();
         var checkOutRec = punches.LastOrDefault(p => p.PunchType == 1);
@@ -442,24 +523,11 @@ public class GetEmployeeDashboardHandler(
         var checkInLocal = checkInRec.PunchTime;
         DateTime? checkOutLocal = checkOutRec?.PunchTime;
 
-        bool isLate = false;
-        int? lateMinutes = null;
-        bool isEarlyOut = false;
-        int? earlyOutMinutes = null;
-
-        if (todayShift != null)
-        {
-            if (checkInLocal > todayShift.StartTime)
-            {
-                isLate = true;
-                lateMinutes = (int)Math.Round((checkInLocal - todayShift.StartTime).TotalMinutes);
-            }
-            if (checkOutLocal.HasValue && checkOutLocal.Value < todayShift.EndTime)
-            {
-                isEarlyOut = true;
-                earlyOutMinutes = (int)Math.Round((todayShift.EndTime - checkOutLocal.Value).TotalMinutes);
-            }
-        }
+        var (lateMin, earlyMin) = LateEarly(salaryShifts, checkInLocal, checkOutLocal);
+        var isLate = lateMin > 0;
+        int? lateMinutes = isLate ? lateMin : null;
+        var isEarlyOut = earlyMin > 0;
+        int? earlyOutMinutes = isEarlyOut ? earlyMin : null;
 
         var lastPunch = punches[^1];
         var status = checkOutLocal.HasValue ? "checked-out" : "checked-in";

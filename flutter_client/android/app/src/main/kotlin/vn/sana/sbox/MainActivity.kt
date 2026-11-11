@@ -19,7 +19,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     // Thư mục tệp xuất: app POS / BOSS / Nhân Viên / KDS dùng tên app (khớp SboxAppVariant.exportFolderName).
     private val exportFolderName: String
-        get() = if (packageName.endsWith(".sboxpos.com") || packageName == "sbox.sana.vn.pos") getString(R.string.app_name) else "SBOX HRM"
+        get() = if (packageName.endsWith(".sboxpos.com") || packageName == "sbox.sana.vn.pos") getString(R.string.export_folder_name) else "SBOX HRM"
 
     private val SCANNER_CHANNEL = "com.sboxhrm/sunmi_scanner"
 

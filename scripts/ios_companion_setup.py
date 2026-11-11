@@ -16,7 +16,8 @@ from pathlib import Path
 
 APPS = {
     "boss": ("boss.sboxpos.com", "SBOX BOSS"),
-    "staff": ("staff.sboxpos.com", "SBOX Nhân Viên"),
+    # Tên dưới biểu tượng iPhone (CFBundleDisplayName) — «SBOX Nhân Viên» bị cắt; tên App Store giữ nguyên.
+    "staff": ("staff.sboxpos.com", "Nhân Viên"),
 }
 BOSS_USAGE = {
     "NSCameraUsageDescription": "Camera dùng để quét mã vạch và chụp ảnh hàng hóa, chứng từ, chỉ khi bạn chủ động dùng. Ứng dụng không quay video nền.",

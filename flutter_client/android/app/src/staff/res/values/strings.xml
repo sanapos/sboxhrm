@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SBOX Nhân Viên</string>
+    <!-- Tên dưới biểu tượng: «SBOX Nhân Viên» bị máy cắt thành «SBOX Nhân…». Tên trên Google Play giữ nguyên. -->
+    <string name="app_name">Nhân Viên</string>
+    <!-- Thư mục tệp xuất giữ tên cũ (khớp SboxAppVariant.exportFolderName). -->
+    <string name="export_folder_name">SBOX Nhân Viên</string>
 </resources>
