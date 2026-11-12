@@ -152,14 +152,15 @@ void main() {
     });
   });
 
-  testWidgets('overview-hrm-2: ô «Đi trễ hôm nay» bấm ra danh sách người', (t) async {
+  testWidgets('overview-hrm-2: ô «Đi trễ hôm nay» bấm ra danh sách người trễ kèm phiếu phạt', (t) async {
     await guideShot(t, name: 'overview-hrm-2',
         screen: const BusinessOverviewScreen(mode: OverviewMode.combined, canAccess: _all), api: _api, size: mobileSize,
         act: (t) async {
       await guideScrollTo(t, find.text('Đi trễ hôm nay'), alignment: 0.4);
       await t.tap(find.text('Đi trễ hôm nay'));
       await t.pumpAndSettle();
-      expect(find.text('Đi trễ hôm nay (1)'), findsOneWidget);
+      // Có quyền phiếu phạt: mở sheet duyệt phạt đi trễ (tiêu đề không kèm số người).
+      expect(find.text('Đi trễ hôm nay'), findsWidgets);
       expect(find.text('Trần Thị Lan'), findsWidgets);
       expect(find.text('Trễ 21p'), findsOneWidget);
     });
